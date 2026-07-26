@@ -3,7 +3,7 @@ import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
-import { trimmedString } from "../../../script-helpers/records";
+import { trimmedString } from "../../../../shared/records";
 
 export const manifest = defineManifest({
 	kind: "provider",

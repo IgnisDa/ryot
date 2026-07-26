@@ -114,14 +114,6 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 			);
 		}
 
-		if (!/^([A-Za-z]:[\\/]|\/)/.test(config.fileStorage.localDir)) {
-			return yield* Effect.fail(configError("FILE_STORAGE_LOCAL_DIR must be an absolute path."));
-		}
-		if (!/^([A-Za-z]:[\\/]|\/)/.test(config.fileStorage.localTempDir)) {
-			return yield* Effect.fail(
-				configError("FILE_STORAGE_LOCAL_TEMP_DIR must be an absolute path."),
-			);
-		}
 		const permanentPath = normalizePath(config.fileStorage.localDir);
 		const temporaryPath = normalizePath(config.fileStorage.localTempDir);
 		if (pathsOverlap(permanentPath, temporaryPath) || pathsOverlap(temporaryPath, permanentPath)) {

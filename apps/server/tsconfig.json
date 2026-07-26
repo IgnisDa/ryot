@@ -1,6 +1,6 @@
 {
 	"$schema": "https://raw.githubusercontent.com/Effect-TS/tsgo/refs/heads/main/schema.json",
-	"exclude": ["node_modules"],
+	"exclude": ["node_modules", "plugins", "src/drizzle"],
 	"compilerOptions": {
 		"noEmit": true,
 		"strict": true,

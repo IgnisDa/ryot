@@ -2,8 +2,8 @@ import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
-import { asRecord, numberValue, stringValue } from "../../../script-helpers/records";
-import type { RoleRelatedEntity } from "../../../script-helpers/role-accumulator";
+import { asRecord, numberValue, stringValue } from "../../../../shared/records";
+import type { RoleRelatedEntity } from "../../../../shared/role-accumulator";
 import { getIdentifier, loadMetronJson, type MetronHost } from "../../metron-shared";
 
 export const manifest = defineManifest({

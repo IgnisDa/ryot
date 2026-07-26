@@ -3,6 +3,7 @@
 	"private": true,
 	"scripts": {
 		"dev": "bun run scripts/develop.ts",
+		"assemble": "bun run scripts/assemble.ts",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix",
 		"run-migration": "bun run --cwd ../../kernel/backend sandbox:compile-runner && RUN_MIGRATION_ONLY=true bun run src/main.ts",
 		"build": "bun run --cwd ../../kernel/backend sandbox:compile-runner && bun build src/main.ts --outdir dist --target bun --sourcemap --define process.env.UNKEY_ROOT_KEY=\"\\\"${UNKEY_ROOT_KEY:-}\\\"\" && bun build scripts/prepare-sandbox-runtime.ts --outdir dist --target bun --sourcemap && bun build scripts/smoke-compiler-worker.ts --outdir dist --target bun --sourcemap"
@@ -16,6 +17,8 @@
 		"effect": "4.0.0-rc.111"
 	},
 	"devDependencies": {
+		"@ryot/fitness-plugin": "workspace:*",
+		"@ryot/media-plugin": "workspace:*",
 		"bun-types": "1.4.0",
 		"dotenv": "17.3.1"
 	}

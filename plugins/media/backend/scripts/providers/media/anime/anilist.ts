@@ -2,9 +2,9 @@ import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, type ProviderDetailsRelatedEntity } from "@ryot/sandbox-sdk/provider";
 
-import { cleanHtmlDescription } from "../../../script-helpers/clean-html-description";
-import { asRecord, numberValue, stringValue } from "../../../script-helpers/records";
-import { toTitleCase } from "../../../script-helpers/title-case-delimiters";
+import { cleanHtmlDescription } from "../../../../shared/clean-html-description";
+import { asRecord, numberValue, stringValue } from "../../../../shared/records";
+import { toTitleCase } from "../../../../shared/title-case-delimiters";
 import {
 	anilistGraphql,
 	bcp47ToAnilistMode,

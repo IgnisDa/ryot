@@ -5,11 +5,12 @@ import {
 	collectTranslatableProperties,
 	isAppPropertyRequired,
 } from "@ryot/contract/schema/property-schema";
-import {
-	moviePropertiesSchema,
-	personPropertiesSchema,
-} from "@ryot/media-plugin/schemas/property-schemas";
 import { describe, expect, it } from "vitest";
+
+import {
+	fixtureMediaPropertiesSchema,
+	fixturePersonPropertiesSchema,
+} from "./property-schema.test-fixture";
 
 const property = (validation?: {
 	readonly required?: true | undefined;
@@ -22,7 +23,7 @@ const property = (validation?: {
 
 describe("collectTranslatableProperties", () => {
 	it("marks description translatable while leaving genres and other properties canonical", () => {
-		const keys = collectTranslatableProperties(moviePropertiesSchema);
+		const keys = collectTranslatableProperties(fixtureMediaPropertiesSchema);
 
 		expect(keys).toContain("description");
 		expect(keys).not.toContain("genres");
@@ -30,7 +31,7 @@ describe("collectTranslatableProperties", () => {
 	});
 
 	it("treats a person's images and biography (description) as the translatable properties", () => {
-		expect(collectTranslatableProperties(personPropertiesSchema)).toEqual([
+		expect(collectTranslatableProperties(fixturePersonPropertiesSchema)).toEqual([
 			"images",
 			"description",
 		]);
@@ -56,7 +57,7 @@ describe("collectSecretProperties", () => {
 	});
 
 	it("returns nothing for a schema without secret properties", () => {
-		expect(collectSecretProperties(personPropertiesSchema)).toEqual([]);
+		expect(collectSecretProperties(fixturePersonPropertiesSchema)).toEqual([]);
 	});
 });
 

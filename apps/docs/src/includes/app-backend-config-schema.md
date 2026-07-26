@@ -53,7 +53,6 @@
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
 | `sandbox.processMode` | `SANDBOX_PROCESS_MODE` | Spawn processes on demand or keep a warm pool ready for executions | No | No | `on-demand` |
-| `sandbox.denoDir` | `SANDBOX_DENO_DIR` | Directory used for the local sandbox dependency runtime and Deno cache | No | No | `/home/ryot/tmp` |
 
 ### PostgreSQL connection settings
 
@@ -94,6 +93,12 @@
 | `fileStorage.accessKeyId` | `FILE_STORAGE_S3_ACCESS_KEY_ID` | S3 access key ID | No | Yes | — |
 | `fileStorage.secretAccessKey` | `FILE_STORAGE_S3_SECRET_ACCESS_KEY` | S3 secret access key | No | Yes | — |
 
+## Fitness plugin configuration
+
+| Plugin Config Key | Variable | Label | Description | Required | Sensitive | Default |
+|---|---|---|---|---|---|---|
+| `fitness.exercisePreloadLimit` | `RYOT_PLUGIN_FITNESS_EXERCISE_PRELOAD_LIMIT` | Exercise preload limit | Maximum number of built-in exercises preloaded during startup | No | No | `873` |
+
 ## Media plugin configuration
 
 | Plugin Config Key | Variable | Label | Description | Required | Sensitive | Default |
@@ -113,9 +118,3 @@
 | `media.giantBombApiKey` | `RYOT_PLUGIN_MEDIA_GIANT_BOMB_API_KEY` | Giant Bomb API key | API key used to access Giant Bomb metadata | No | Yes | — |
 | `media.traktClientId` | `RYOT_PLUGIN_MEDIA_TRAKT_CLIENT_ID` | Trakt client ID | Client ID used to import data from Trakt | No | No | — |
 | `media.progressUpdateThresholdHours` | `RYOT_PLUGIN_MEDIA_PROGRESS_UPDATE_THRESHOLD_HOURS` | Progress update threshold | Hours used to debounce repeated completion updates | No | No | `2` |
-
-## Fitness plugin configuration
-
-| Plugin Config Key | Variable | Label | Description | Required | Sensitive | Default |
-|---|---|---|---|---|---|---|
-| `fitness.exercisePreloadLimit` | `RYOT_PLUGIN_FITNESS_EXERCISE_PRELOAD_LIMIT` | Exercise preload limit | Maximum number of built-in exercises preloaded during startup | No | No | `873` |

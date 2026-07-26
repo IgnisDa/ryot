@@ -9,7 +9,7 @@ import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
 import { entityReadRecipe, eventReadRecipe, executeRyotqlRecipe } from "@ryot/sandbox-sdk/ryotql";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
-import type { MediaProgressEvent } from "../../../shared/ryotql";
+import type { MediaProgressEvent } from "../../shared/ryotql";
 
 export const manifest = defineManifest({
 	kind: "automation",

@@ -2,14 +2,9 @@ import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { DateTime, Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
-import { cleanHtmlDescription } from "../../script-helpers/clean-html-description";
-import {
-	type UnknownRecord,
-	asRecord,
-	numberValue,
-	stringValue,
-} from "../../script-helpers/records";
-import type { RoleRelatedEntity } from "../../script-helpers/role-accumulator";
+import { cleanHtmlDescription } from "../../../shared/clean-html-description";
+import { type UnknownRecord, asRecord, numberValue, stringValue } from "../../../shared/records";
+import type { RoleRelatedEntity } from "../../../shared/role-accumulator";
 import {
 	anilistGraphql,
 	mediaScriptSlug,

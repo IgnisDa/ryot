@@ -9,8 +9,8 @@ import {
 	recordsValue,
 	stringValue,
 	type UnknownRecord,
-} from "../script-helpers/records";
-import type { RoleRelatedEntity } from "../script-helpers/role-accumulator";
+} from "../../shared/records";
+import type { RoleRelatedEntity } from "../../shared/role-accumulator";
 
 export type TmdbHost = SandboxHost<readonly ["httpCall", "getPluginConfig"]>;
 

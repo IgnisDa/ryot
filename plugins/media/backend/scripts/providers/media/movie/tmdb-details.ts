@@ -1,13 +1,8 @@
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import type { ProviderDetailsInput, ProviderDetailsResult } from "@ryot/sandbox-sdk/provider";
 
-import { parsePublishYear } from "../../../script-helpers/parse-publish-year";
-import {
-	type UnknownRecord,
-	asRecord,
-	numberValue,
-	stringValue,
-} from "../../../script-helpers/records";
+import { parsePublishYear } from "../../../../shared/parse-publish-year";
+import { type UnknownRecord, asRecord, numberValue, stringValue } from "../../../../shared/records";
 import {
 	collectCompanies,
 	collectGenres,

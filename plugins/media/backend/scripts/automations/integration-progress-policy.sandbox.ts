@@ -5,7 +5,7 @@ import { Effect } from "@ryot/sandbox-sdk/effect";
 import { eventReadRecipe, executeRyotqlRecipe } from "@ryot/sandbox-sdk/ryotql";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
-import type { MediaProgressEvent } from "../../../shared/ryotql";
+import type { MediaProgressEvent } from "../../shared/ryotql";
 
 const SUBITEM_KEYS = ["animeEpisode", "mangaVolume", "mangaChapter"] as const;
 const DEFAULT_THRESHOLD_SECONDS = 7200;
