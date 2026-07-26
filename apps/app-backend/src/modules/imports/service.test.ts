@@ -3,7 +3,7 @@ import { it, expect } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import type { ListedImportRun } from "@ryot/contract/modules/imports/schemas";
 import { ImportRunId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import { ConfigProvider, Effect, Layer } from "effect";
+import { Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 import { assert } from "vitest";
 
@@ -12,6 +12,7 @@ import type { MockOverrides } from "#lib/test-utils/effect";
 import {
 	dbRunnerLayer,
 	makeAppConfigLayer,
+	makeConfigProviderLayer,
 	makeRedisService,
 	makeWorkflowEngine,
 } from "#lib/test-utils/effect";
@@ -364,9 +365,7 @@ it.effect("rejects a registry source whose declared plugin config keys are unset
 		expect(error.message).toBe(
 			"Goodreads importer is not configured. Set RYOT_PLUGIN_MEDIA_HARDCOVER_API_KEY.",
 		);
-	}).pipe(
-		Effect.provide(Layer.mergeAll(layer, ConfigProvider.layer(ConfigProvider.fromUnknown({})))),
-	);
+	}).pipe(Effect.provide(Layer.mergeAll(layer, makeConfigProviderLayer())));
 });
 
 it.effect("rejects an undeclared source before validating its configuration", () => {
