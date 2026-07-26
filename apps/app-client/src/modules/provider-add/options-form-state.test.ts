@@ -47,6 +47,50 @@ const schema = {
 	},
 } satisfies AppSchema;
 
+const visibilitySchema = {
+	rules: [
+		{
+			path: ["secret"],
+			kind: "visibility",
+			visibility: { hidden: true },
+			when: { operator: "neq", path: ["advanced"], value: true },
+		},
+	],
+	fields: {
+		advanced: { ...described("Advanced"), type: "boolean", defaultValue: false },
+		secret: { ...described("Secret"), type: "string", validation: { required: true } },
+	},
+} satisfies AppSchema;
+
+const cascadingVisibilitySchema = {
+	rules: [
+		{
+			path: ["detail"],
+			kind: "visibility",
+			visibility: { hidden: true },
+			when: { operator: "neq", path: ["advanced"], value: true },
+		},
+		{
+			kind: "visibility",
+			path: ["dependent"],
+			visibility: { hidden: true },
+			when: { operator: "neq", path: ["detail"], value: "enabled" },
+		},
+		{
+			path: ["note"],
+			kind: "validation",
+			validation: { required: true },
+			when: { operator: "eq", path: ["detail"], value: "enabled" },
+		},
+	],
+	fields: {
+		note: { ...described("Note"), type: "string" },
+		detail: { ...described("Detail"), type: "string" },
+		dependent: { ...described("Dependent"), type: "string" },
+		advanced: { ...described("Advanced"), type: "boolean", defaultValue: false },
+	},
+} satisfies AppSchema;
+
 describe("provider-add options form state", () => {
 	it("describes supported fields and reports unsupported property types", () => {
 		const { fields, unsupported } = describeOptionFields(schema);
@@ -82,6 +126,51 @@ describe("provider-add options form state", () => {
 		expect(describeOptionFields(describedSchema)).toEqual({ fields: [], unsupported: ["region"] });
 	});
 
+	it("orders fields by position and preserves declaration order for ties", () => {
+		const positionedSchema = {
+			fields: {
+				last: { ...described("Last"), type: "string" },
+				second: { ...described("Second"), type: "string", position: 2 },
+				first: { ...described("First"), type: "string", position: 1 },
+				secondTie: { ...described("Second tie"), type: "string", position: 2 },
+				alsoLast: { ...described("Also last"), type: "string" },
+			},
+		} satisfies AppSchema;
+
+		expect(describeOptionFields(positionedSchema).fields.map((field) => field.key)).toEqual([
+			"first",
+			"second",
+			"secondTie",
+			"last",
+			"alsoLast",
+		]);
+	});
+
+	it("toggles visibility and suppresses requiredness for hidden fields", () => {
+		expect(describeOptionFields(visibilitySchema, { advanced: false }).fields).toMatchObject([
+			{ key: "advanced", required: false },
+		]);
+		expect(describeOptionFields(visibilitySchema, { advanced: true }).fields).toMatchObject([
+			{ key: "advanced", required: false },
+			{ key: "secret", required: true },
+		]);
+		expect(validateOptionValues(visibilitySchema, { advanced: false, secret: "" }).size).toBe(0);
+		expect(
+			validateOptionValues(visibilitySchema, { advanced: true, secret: "" }).get("secret"),
+		).toBe("Secret is required");
+	});
+
+	it("removes stale hidden values until cascading visibility stabilizes", () => {
+		const values = { note: undefined, advanced: false, detail: "enabled", dependent: "retained" };
+
+		expect(describeOptionFields(cascadingVisibilitySchema, values).fields).toMatchObject([
+			{ key: "note", required: false },
+			{ key: "advanced" },
+		]);
+		expect(validateOptionValues(cascadingVisibilitySchema, values).size).toBe(0);
+		expect(toOptionsPayload(cascadingVisibilitySchema, values)).toEqual({ advanced: false });
+	});
+
 	it("seeds values from declared defaults and leaves the rest undefined", () => {
 		expect(initialOptionValues(schema)).toEqual({
 			year: 2026,
@@ -110,6 +199,93 @@ describe("provider-add options form state", () => {
 
 		expect(errors.get("title")).toBe("Title is required");
 		expect(errors.get("genres")).toBeUndefined();
+	});
+
+	it("uses blank defaults for exists conditions and conditional requiredness", () => {
+		const defaultedSchema = {
+			rules: [
+				{
+					path: ["note"],
+					kind: "validation",
+					validation: { required: true },
+					message: "Defaults make note required",
+					when: {
+						operator: "all",
+						conditions: [
+							{ operator: "exists", path: ["text"] },
+							{ operator: "exists", path: ["selections"] },
+						],
+					},
+				},
+			],
+			fields: {
+				note: { ...described("Note"), type: "string" },
+				text: { ...described("Text"), type: "string", defaultValue: "" },
+				selections: {
+					...described("Selections"),
+					type: "enum-array",
+					defaultValue: [],
+					choices: { kind: "static", values: [] },
+				},
+			},
+		} satisfies AppSchema;
+		const values = { note: undefined, text: "", selections: [] };
+
+		expect(describeOptionFields(defaultedSchema, values).fields).toContainEqual(
+			expect.objectContaining({ key: "note", required: true }),
+		);
+		expect(validateOptionValues(defaultedSchema, values).get("note")).toBe(
+			"Defaults make note required",
+		);
+		expect(toOptionsPayload(defaultedSchema, values)).toEqual({});
+	});
+
+	it("restores nonblank default semantics when the UI value is cleared", () => {
+		const defaultedSchema = {
+			rules: [
+				{
+					path: ["note"],
+					kind: "validation",
+					validation: { required: true },
+					when: { operator: "eq", path: ["region"], value: "us" },
+				},
+			],
+			fields: {
+				note: { ...described("Note"), type: "string" },
+				region: {
+					...described("Region"),
+					type: "enum",
+					defaultValue: "us",
+					choices: { kind: "static", values: [{ value: "us" }, { value: "uk" }] },
+				},
+			},
+		} satisfies AppSchema;
+
+		expect(validateOptionValues(defaultedSchema, { region: "uk" }).has("note")).toBe(false);
+		expect(validateOptionValues(defaultedSchema, { region: "" }).has("note")).toBe(true);
+		expect(toOptionsPayload(defaultedSchema, { region: "" })).toEqual({});
+	});
+
+	it("prefers an active conditional message for a statically required field", () => {
+		const requiredSchema = {
+			rules: [
+				{
+					path: ["title"],
+					kind: "validation",
+					validation: { required: true },
+					message: "A UK title is required",
+					when: { operator: "eq", path: ["region"], value: "uk" },
+				},
+			],
+			fields: {
+				region: { ...described("Region"), type: "string" },
+				title: { ...described("Title"), type: "string", validation: { required: true } },
+			},
+		} satisfies AppSchema;
+
+		expect(validateOptionValues(requiredSchema, { title: "", region: "uk" }).get("title")).toBe(
+			"A UK title is required",
+		);
 	});
 
 	it("evaluates existence, membership, and combined rule conditions", () => {
@@ -182,6 +358,39 @@ describe("provider-add options form state", () => {
 		).toBeUndefined();
 	});
 
+	it.each([
+		["empty text", ""],
+		["empty selection", []],
+	] as const)("treats %s as absent for exists and not_exists", (_name, blank) => {
+		const conditional = (operator: "exists" | "not_exists") => {
+			const trigger =
+				typeof blank === "string"
+					? ({ ...described("Trigger"), type: "string" } as const)
+					: ({
+							...described("Trigger"),
+							type: "enum-array",
+							choices: { kind: "static", values: [] },
+						} as const);
+			return {
+				fields: { trigger, note: { ...described("Note"), type: "string" } },
+				rules: [
+					{
+						path: ["note"],
+						kind: "validation",
+						validation: { required: true },
+						when: { operator, path: ["trigger"] },
+					},
+				],
+			} satisfies AppSchema;
+		};
+		const values = { trigger: blank, note: undefined };
+
+		expect(validateOptionValues(conditional("exists"), values).get("note")).toBeUndefined();
+		expect(validateOptionValues(conditional("not_exists"), values).get("note")).toBe(
+			"Note is required",
+		);
+	});
+
 	it("omits undefined and empty-string values from the payload", () => {
 		expect(
 			toOptionsPayload(schema, {
@@ -194,5 +403,15 @@ describe("provider-add options form state", () => {
 			}),
 		).toEqual({ year: 2026, adult: false, title: "Dune", genres: ["epic"] });
 		expect(toOptionsPayload(schema, { genres: [] })).toEqual({});
+	});
+
+	it("omits hidden values from the payload", () => {
+		expect(toOptionsPayload(visibilitySchema, { advanced: false, secret: "retained" })).toEqual({
+			advanced: false,
+		});
+		expect(toOptionsPayload(visibilitySchema, { advanced: true, secret: "included" })).toEqual({
+			advanced: true,
+			secret: "included",
+		});
 	});
 });

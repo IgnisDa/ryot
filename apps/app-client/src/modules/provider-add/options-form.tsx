@@ -320,30 +320,36 @@ export function ProviderSearchOptionsForm(props: {
 	readonly onChange: () => void;
 	readonly form: ProviderOptionsFormApi;
 }) {
-	const description = describeOptionFields(props.schema);
 	return (
-		<View className="gap-3 rounded-lg bg-surface-2 p-3 md:bg-transparent md:p-0">
-			{description.fields.map((option) => (
-				<props.form.Field key={option.key} name={option.key}>
-					{(field) => (
-						<OptionFieldRow
-							field={option}
-							value={field.value}
-							error={field.errors[0]?.message}
-							onSubmit={() => void props.form.handleSubmit()}
-							onChange={(value) => {
-								field.handleChange(value);
-								props.onChange();
-							}}
-						/>
-					)}
-				</props.form.Field>
-			))}
-			{description.unsupported.length === 0 ? null : (
-				<Text className="font-ui text-xs text-text-subtle">
-					Some options are not supported in this app version.
-				</Text>
-			)}
-		</View>
+		<props.form.Subscribe selector={(state) => state.values}>
+			{(values) => {
+				const description = describeOptionFields(props.schema, values);
+				return (
+					<View className="gap-3 rounded-lg bg-surface-2 p-3 md:bg-transparent md:p-0">
+						{description.fields.map((option) => (
+							<props.form.Field key={option.key} name={option.key}>
+								{(field) => (
+									<OptionFieldRow
+										field={option}
+										value={field.value}
+										error={field.errors[0]?.message}
+										onSubmit={() => void props.form.handleSubmit()}
+										onChange={(value) => {
+											field.handleChange(value);
+											props.onChange();
+										}}
+									/>
+								)}
+							</props.form.Field>
+						))}
+						{description.unsupported.length === 0 ? null : (
+							<Text className="font-ui text-xs text-text-subtle">
+								Some options are not supported in this app version.
+							</Text>
+						)}
+					</View>
+				);
+			}}
+		</props.form.Subscribe>
 	);
 }

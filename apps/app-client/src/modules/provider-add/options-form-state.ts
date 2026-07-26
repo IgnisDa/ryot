@@ -3,13 +3,14 @@ import type {
 	AppChoice,
 	AppPropertyDefinition,
 	AppSchema,
-	AppSchemaRule,
-	AppSchemaRuleCondition,
-	AppSchemaRulePath,
-	AppSchemaRuleValue,
 } from "@ryot/contract/schema/property-schema";
-import { isAppPropertyRequired } from "@ryot/contract/schema/property-schema";
-import { Match } from "effect";
+import {
+	evaluateAppSchemaRuleCondition,
+	getOrderedAppSchemaFieldEntries,
+	isAppSchemaPathEffectivelyRequired,
+	isAppSchemaPathHidden,
+	isMissingAppSchemaRequiredValue,
+} from "@ryot/contract/schema/property-schema";
 
 export type OptionValue = boolean | number | string | readonly string[] | undefined;
 
@@ -49,15 +50,50 @@ const optionFieldChoices = (property: AppPropertyDefinition) => {
 	return property.choices.kind === "static" ? property.choices.values : undefined;
 };
 
-export const describeOptionFields = (schema: AppSchema): OptionFieldsDescription => {
+const hasOptionValue = (value: OptionValue): value is Exclude<OptionValue, undefined> =>
+	value !== undefined && value !== "" && (!Array.isArray(value) || value.length > 0);
+
+const hasDynamicChoices = (property: AppPropertyDefinition) =>
+	(property.type === "enum" || property.type === "enum-array") &&
+	property.choices.kind === "dynamic";
+
+const effectiveConditionInput = (schema: AppSchema, values: OptionValues) => {
+	const entries = getOrderedAppSchemaFieldEntries(schema.fields);
+	const supportedEntries = entries.filter(
+		([, property]) => optionFieldType(property) !== undefined && !hasDynamicChoices(property),
+	);
+	let input: Readonly<Record<string, unknown>> = Object.fromEntries(
+		entries.flatMap(([key, property]) => {
+			const value = hasOptionValue(values[key]) ? values[key] : property.defaultValue;
+			return value === undefined ? [] : [[key, value]];
+		}),
+	);
+	for (let pass = 0; pass < supportedEntries.length; pass++) {
+		const hidden = new Set(
+			supportedEntries.flatMap(([key]) =>
+				Object.hasOwn(input, key) && isAppSchemaPathHidden(schema, [key], input) ? [key] : [],
+			),
+		);
+		if (hidden.size === 0) {
+			break;
+		}
+		input = Object.fromEntries(Object.entries(input).filter(([key]) => !hidden.has(key)));
+	}
+	return input;
+};
+
+const describeOptionFieldsWithInput = (
+	schema: AppSchema,
+	input: Readonly<Record<string, unknown>>,
+): OptionFieldsDescription => {
 	const fields: OptionField[] = [];
 	const unsupported: string[] = [];
-	for (const [key, property] of Object.entries(schema.fields)) {
+	for (const [key, property] of getOrderedAppSchemaFieldEntries(schema.fields)) {
+		if (isAppSchemaPathHidden(schema, [key], input)) {
+			continue;
+		}
 		const type = optionFieldType(property);
-		const hasDynamicChoices =
-			(property.type === "enum" || property.type === "enum-array") &&
-			property.choices.kind === "dynamic";
-		if (type === undefined || hasDynamicChoices) {
+		if (type === undefined || hasDynamicChoices(property)) {
 			unsupported.push(key);
 			continue;
 		}
@@ -67,98 +103,50 @@ export const describeOptionFields = (schema: AppSchema): OptionFieldsDescription
 			label: property.label,
 			description: property.description,
 			choices: optionFieldChoices(property),
-			required: isAppPropertyRequired(property),
+			required: isAppSchemaPathEffectivelyRequired(schema, [key], input),
 		});
 	}
 	return { fields, unsupported };
 };
+
+export const describeOptionFields = (
+	schema: AppSchema,
+	values: OptionValues = {},
+): OptionFieldsDescription =>
+	describeOptionFieldsWithInput(schema, effectiveConditionInput(schema, values));
 
 const optionDefaultValue = (property: AppPropertyDefinition): OptionValue =>
 	property.type === "array" || property.type === "object" ? undefined : property.defaultValue;
 
 export const initialOptionValues = (schema: AppSchema): OptionValues =>
 	Object.fromEntries(
-		describeOptionFields(schema).fields.map((field) => [
-			field.key,
-			optionDefaultValue(schema.fields[field.key]),
-		]),
+		getOrderedAppSchemaFieldEntries(schema.fields).flatMap(([key, property]) => {
+			const type = optionFieldType(property);
+			return type === undefined || hasDynamicChoices(property)
+				? []
+				: [[key, optionDefaultValue(property)]];
+		}),
 	);
-
-const isBlankOptionValue = (value: OptionValue) =>
-	value === undefined || value === "" || (Array.isArray(value) && value.length === 0);
-
-const isMissingOptionValue = (value: OptionValue) => isBlankOptionValue(value);
-
-const resolveOptionValue = (values: OptionValues, path: AppSchemaRulePath): OptionValue =>
-	path.length === 1 ? values[path[0]] : undefined;
-
-const matchesRuleValue = (value: OptionValue, expected: AppSchemaRuleValue) =>
-	value === undefined ? expected === null : typeof value !== "object" && value === expected;
-
-const evaluateCondition = (condition: AppSchemaRuleCondition, values: OptionValues): boolean =>
-	Match.value(condition).pipe(
-		Match.when({ operator: "all" }, (current) =>
-			current.conditions.every((inner) => evaluateCondition(inner, values)),
-		),
-		Match.when({ operator: "any" }, (current) =>
-			current.conditions.some((inner) => evaluateCondition(inner, values)),
-		),
-		Match.when(
-			{ operator: "exists" },
-			(current) => !isMissingOptionValue(resolveOptionValue(values, current.path)),
-		),
-		Match.when({ operator: "not_exists" }, (current) =>
-			isMissingOptionValue(resolveOptionValue(values, current.path)),
-		),
-		Match.when({ operator: "eq" }, (current) =>
-			matchesRuleValue(resolveOptionValue(values, current.path), current.value),
-		),
-		Match.when(
-			{ operator: "neq" },
-			(current) => !matchesRuleValue(resolveOptionValue(values, current.path), current.value),
-		),
-		Match.when({ operator: "in" }, (current) =>
-			current.value.some((expected) =>
-				matchesRuleValue(resolveOptionValue(values, current.path), expected),
-			),
-		),
-		Match.when(
-			{ operator: "not_in" },
-			(current) =>
-				!current.value.some((expected) =>
-					matchesRuleValue(resolveOptionValue(values, current.path), expected),
-				),
-		),
-		Match.exhaustive,
-	);
-
-const requiredRuleKey = (rule: AppSchemaRule, fields: readonly OptionField[]) => {
-	if (rule.path.length !== 1) {
-		return undefined;
-	}
-	return fields.find((field) => field.key === rule.path[0])?.key;
-};
 
 export const validateOptionValues = (
 	schema: AppSchema,
 	values: OptionValues,
 ): ReadonlyMap<string, string> => {
-	const { fields } = describeOptionFields(schema);
+	const input = effectiveConditionInput(schema, values);
+	const { fields } = describeOptionFieldsWithInput(schema, input);
 	const errors = new Map<string, string>();
 	for (const field of fields) {
-		if (field.required && isMissingOptionValue(values[field.key])) {
-			errors.set(field.key, `${field.label} is required`);
-		}
-	}
-	for (const rule of schema.rules ?? []) {
-		const key = requiredRuleKey(rule, fields);
-		if (key === undefined || errors.has(key) || !isMissingOptionValue(values[key])) {
+		if (!field.required || !isMissingAppSchemaRequiredValue(input[field.key])) {
 			continue;
 		}
-		if (evaluateCondition(rule.when, values)) {
-			const label = fields.find((field) => field.key === key)?.label ?? key;
-			errors.set(key, rule.message ?? `${label} is required`);
-		}
+		const conditionalMessage = (schema.rules ?? []).find(
+			(rule) =>
+				rule.kind === "validation" &&
+				rule.path.length === 1 &&
+				rule.path[0] === field.key &&
+				evaluateAppSchemaRuleCondition(rule.when, input),
+		)?.message;
+		errors.set(field.key, conditionalMessage ?? `${field.label} is required`);
 	}
 	return errors;
 };
@@ -167,10 +155,11 @@ export const toOptionsPayload = (
 	schema: AppSchema,
 	values: OptionValues,
 ): Record<string, JsonValue> => {
+	const input = effectiveConditionInput(schema, values);
 	const payload: Record<string, JsonValue> = {};
-	for (const field of describeOptionFields(schema).fields) {
+	for (const field of describeOptionFieldsWithInput(schema, input).fields) {
 		const value = values[field.key];
-		if (value === undefined || value === "" || (Array.isArray(value) && value.length === 0)) {
+		if (!Object.hasOwn(input, field.key) || !hasOptionValue(value)) {
 			continue;
 		}
 		payload[field.key] = Array.isArray(value) ? [...value] : value;
