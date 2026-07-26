@@ -26,6 +26,11 @@ import {
 	buildLotEntityTargetValuesSql,
 	buildUniqueSlugMap,
 } from "#modules/legacy-bootstrap/shared";
+import {
+	buildWorkoutMigrationSql,
+	buildWorkoutSetEventMigrationSql,
+	buildWorkoutTemplateMigrationSql,
+} from "#modules/legacy-bootstrap/workout-mapping";
 
 const allTargets = [
 	...metadataMigrationTargets,
@@ -98,6 +103,31 @@ it("writes entity provenance as provider_id and never as sandbox_script_id", () 
 	for (const alias of ["metadata_targets", "mgt", "person_targets", "exercise_targets"]) {
 		expect(migrationSql).toContain(`${alias}.provider_id`);
 	}
+});
+
+it("normalizes legacy fitness media for entities, events, and nested template exercises", () => {
+	const migrationSql = [
+		buildExerciseMigrationSql(resolve(exerciseEntityTargets, "exercise")),
+		buildWorkoutMigrationSql("workout"),
+		buildWorkoutTemplateMigrationSql("workout-template"),
+		buildWorkoutSetEventMigrationSql("workout-set"),
+	].join("\n");
+
+	expect(migrationSql).toContain("'images'");
+	expect(migrationSql).toContain("'videos'");
+	expect(migrationSql).toContain("jsonb_build_object('type', 'remote', 'url', remote_asset)");
+	expect(migrationSql).toContain("jsonb_build_object('type', 's3', 'key', s3_asset)");
+	expect(migrationSql).toContain(
+		"jsonb_build_object('type', 'remote', 'url', remote_video.value ->> 'url')",
+	);
+	expect(migrationSql).toContain("jsonb_build_object('type', 's3', 'key', s3_video)");
+	expect(migrationSql).not.toContain("'s3Images'");
+	expect(migrationSql).not.toContain("'s3Videos'");
+	expect(migrationSql).not.toContain("'remoteImages'");
+	expect(migrationSql).not.toContain("'remoteVideos'");
+	expect(migrationSql).not.toContain("'exerciseAssets'");
+	expect(migrationSql).not.toContain("lower(rv ->> 'source')");
+	expect(migrationSql).not.toContain("'source'");
 });
 
 it("fails loud on an unresolvable provider slug and keeps custom targets unprovisioned", () => {

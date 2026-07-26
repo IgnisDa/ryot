@@ -3,6 +3,7 @@ import { Effect } from "effect";
 
 import { dbEffect, DbService } from "#lib/infrastructure/db/service";
 
+import { buildLegacyImagesSql, buildLegacyVideosSql } from "./asset-mapping";
 import {
 	type EntityMigrationTarget,
 	type ResolvedEntityMigrationTarget,
@@ -38,32 +39,6 @@ const supportedExerciseLotValuesSql = sql.join(
 	supportedExerciseLots.map((lot) => sql`(${lot})`),
 	sql`, `,
 );
-
-const buildLegacyImageArraySql = (tableAlias: string) => `(
-	COALESCE(
-		(
-			SELECT jsonb_agg(
-				jsonb_build_object('type', 'remote', 'url', remote_image)
-				ORDER BY ordinality
-			)
-			FROM jsonb_array_elements_text(COALESCE(${tableAlias}.assets -> 'remote_images', '[]'::jsonb))
-				WITH ORDINALITY AS remote(remote_image, ordinality)
-		),
-		'[]'::jsonb
-	)
-	||
-	COALESCE(
-		(
-			SELECT jsonb_agg(
-				jsonb_build_object('type', 's3', 'key', s3_image)
-				ORDER BY ordinality
-			)
-			FROM jsonb_array_elements_text(COALESCE(${tableAlias}.assets -> 's3_images', '[]'::jsonb))
-				WITH ORDINALITY AS s3(s3_image, ordinality)
-		),
-		'[]'::jsonb
-	)
-)`;
 
 export const getUnsupportedExerciseSources = Effect.gen(function* () {
 	const { db } = yield* DbService;
@@ -175,7 +150,8 @@ BEGIN
 			jsonb_strip_nulls(
 				jsonb_build_object(
 					'kind', exercise.lot,
-					'images', ${buildLegacyImageArraySql("exercise")},
+					'images', ${buildLegacyImagesSql("exercise.assets")},
+					'videos', ${buildLegacyVideosSql("exercise.assets")},
 					'muscles', COALESCE(to_jsonb(exercise.muscles), '[]'::jsonb),
 					'instructions', COALESCE(to_jsonb(exercise.instructions), '[]'::jsonb),
 					'force', exercise.force,

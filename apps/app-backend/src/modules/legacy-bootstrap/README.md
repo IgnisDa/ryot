@@ -35,7 +35,7 @@ Provider targets resolve against active plugin-loader declarations. Persisted pr
 ### Measurements, Workouts, And Exercises
 
 - Migrate `user_measurement` to `measurement` entities. IDs are deterministic MD5 values from user ID and timestamp; statistic keys normalize from names. Assets and per-statistic units are omitted.
-- Migrate workouts and templates to entities, workout sets to events, and repeated/template links to relationships. `workout-mapping.ts` owns field mappings.
+- Migrate workouts and templates to entities, workout sets to events, and repeated/template links to relationships. Workout, template, template-exercise, and workout-set media is normalized into top-level `images` and `videos` arrays; `workout-mapping.ts` owns these field mappings.
 - Migrate GitHub exercises as populated catalog entities and custom exercises in full. GitHub rows cannot have creator user IDs.
 - V2 has no equivalent post-import workout revision scheduler, so bootstrap schedules none.
 
