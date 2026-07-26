@@ -47,7 +47,7 @@ export function SavedViewFrame(props: {
 							accessibilityLabel="Go back"
 							className="items-center justify-center rounded-pill bg-surface-2 p-1"
 						>
-							<AppIcon className="text-text" name="chevron-left" size={30} />
+							<AppIcon className="text-text-muted" name="chevron-left" size={30} />
 						</Pressable>
 						{props.title && (
 							<View className="min-w-0 flex-1">
@@ -72,9 +72,9 @@ export function SavedViewFrame(props: {
 						<Pressable
 							accessibilityRole="button"
 							accessibilityLabel="Search this view"
-							className="items-center justify-center rounded-pill bg-surface-2 p-1 ml-auto"
+							className="items-center justify-center rounded-pill bg-surface-2 p-1 ml-aut"
 						>
-							<AppIcon className="text-text-muted" name="search" size={30} />
+							<AppIcon className="text-text-muted" name="search" size={24} />
 						</Pressable>
 						<Pressable
 							accessibilityRole="button"
@@ -82,7 +82,7 @@ export function SavedViewFrame(props: {
 							onPress={() => setIsFilterOpen(true)}
 							className="items-center justify-center rounded-pill bg-surface-2 p-1"
 						>
-							<AppIcon className="text-text-muted" name="sliders-horizontal" size={30} />
+							<AppIcon className="text-text-muted" name="sliders-horizontal" size={24} />
 						</Pressable>
 					</View>
 				}
@@ -93,11 +93,11 @@ export function SavedViewFrame(props: {
 				accessibilityRole="button"
 				accessibilityLabel="Add to this view"
 				className={clsx(
-					"absolute bottom-8 right-4 z-20 items-center justify-center rounded-pill bg-accent shadow-card",
+					"absolute bottom-12 right-8 z-20 items-center justify-center rounded-pill bg-accent shadow-card",
 					TOP_BAR_WEB_HIDDEN,
 				)}
 			>
-				<AppIcon className="text-accent-ink" name="plus" size={40} />
+				<AppIcon className="text-accent-ink" name="plus" size={36} />
 			</Pressable>
 			{isFilterOpen && (
 				<View pointerEvents="box-none" className="absolute inset-0 z-50">
