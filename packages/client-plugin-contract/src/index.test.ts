@@ -27,7 +27,7 @@ import {
 	PluginRyotQLFailureReason,
 	PluginThemeSnapshot,
 	RyotClientErrorReason,
-} from "./client";
+} from "./index";
 
 const document = {
 	queries: {

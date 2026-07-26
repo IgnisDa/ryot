@@ -1,8 +1,12 @@
 # Contract
 
-`@ryot-app/contract` owns Ryot's client-safe boundary: Effect Schema payloads, contract operations,
-plugin manifests, and wire-safe failure data. The backend implements this boundary; clients consume
-it without depending on backend services or runtime details.
+`@ryot-app/contract` owns Ryot's client-safe HTTP boundary: Effect Schema payloads, contract
+operations, generic shared wire schemas, plugin manifests, and wire-safe failure data. The backend
+implements this boundary; clients consume it without depending on backend services or runtime
+details.
+
+The iframe bridge protocol, client artifact model and format, client source file policy, and shared
+client-plugin capability payloads belong to `@ryot-app/client-plugin-contract`, not this package.
 
 ## Failure Policy
 

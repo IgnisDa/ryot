@@ -1,7 +1,4 @@
-import type {
-	PluginBridgeNavigate,
-	PluginRouteLocation,
-} from "@ryot-app/contract/modules/plugins/client";
+import type { PluginBridgeNavigate, PluginRouteLocation } from "@ryot-app/client-plugin-contract";
 import { Match } from "effect";
 
 export type PluginNavigationRequest = { readonly href: string; readonly replace: boolean };

@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 
-import { bootstrapClientPlugin } from "@ryot-app/client-sdk/plugin";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
@@ -8,7 +7,8 @@ import {
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 	type PluginBridgeInit,
-} from "@ryot-app/contract/modules/plugins/client";
+} from "@ryot-app/client-plugin-contract";
+import { bootstrapClientPlugin } from "@ryot-app/client-sdk/plugin";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";

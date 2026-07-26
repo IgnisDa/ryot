@@ -1,9 +1,9 @@
-import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import type {
 	PluginOperationBridgeErrorReason,
 	PluginOperationOutcome,
 	PluginOperationRequest,
-} from "@ryot-app/contract/modules/plugins/client";
+} from "@ryot-app/client-plugin-contract";
+import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import {
 	PluginConflictError,
 	PluginInvocationError,

@@ -6,7 +6,7 @@ import {
 	isPluginClientTextSource,
 	pluginClientAssetMimeType,
 	pluginClientFileExtension,
-} from "./client";
+} from "./index";
 
 describe("plugin client file policy", () => {
 	it("defines supported lowercase extensions and asset MIME types", () => {

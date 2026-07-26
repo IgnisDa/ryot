@@ -150,16 +150,20 @@ export const bundleClientPlugin = (sources: ClientPluginSources, compilerRoot: s
 					path: "effect",
 					namespace: EFFECT_NAMESPACE,
 				}));
-				builder.onResolve({ filter: /^effect\/(?:Match|Result|Schema)$/ }, ({ path }) => ({
-					namespace: "file",
-					path: Bun.resolveSync(path, compilerRoot),
-				}));
+				builder.onResolve(
+					{ filter: /^effect\/(?:Match|Result|Schema|SchemaGetter)$/ },
+					({ path }) => ({
+						namespace: "file",
+						path: Bun.resolveSync(path, compilerRoot),
+					}),
+				);
 				builder.onLoad({ filter: /.*/, namespace: EFFECT_NAMESPACE }, () => ({
 					loader: "js" as const,
 					contents: `
 export * as Match from "effect/Match";
 export * as Result from "effect/Result";
 export * as Schema from "effect/Schema";
+export * as SchemaGetter from "effect/SchemaGetter";
 `,
 				}));
 				builder.onLoad({ filter: /.*/, namespace: UNTRUSTED_NAMESPACE }, () => ({

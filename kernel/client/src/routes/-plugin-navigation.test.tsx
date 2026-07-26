@@ -1,5 +1,5 @@
 // oxlint-disable unicorn/require-post-message-target-origin -- MessagePort has no target origin
-import { PluginBridgeInit, PluginBridgeLocation } from "@ryot-app/contract/modules/plugins/client";
+import { PluginBridgeInit, PluginBridgeLocation } from "@ryot-app/client-plugin-contract";
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import type { EntityRouteProvenance } from "@ryot-app/ryotql-recipes/entities";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";

@@ -1,7 +1,4 @@
-import type {
-	PluginLeadingIntent,
-	PluginLogicalLocation,
-} from "@ryot-app/contract/modules/plugins/client";
+import type { PluginLeadingIntent, PluginLogicalLocation } from "@ryot-app/client-plugin-contract";
 
 import { reconcileStack, type PluginScreen, type ResolvePluginScreen } from "./stack";
 

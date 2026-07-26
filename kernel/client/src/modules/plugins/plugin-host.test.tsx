@@ -10,7 +10,7 @@ import {
 	type PluginRouteLocation,
 	type PluginOperationOutcome,
 	type PluginRyotQLOutcome,
-} from "@ryot-app/contract/modules/plugins/client";
+} from "@ryot-app/client-plugin-contract";
 import type { PluginClientCatalogEntry } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { Schema } from "effect";
