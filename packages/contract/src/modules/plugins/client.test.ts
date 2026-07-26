@@ -6,11 +6,18 @@ import {
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
+	PluginAssetBridgeErrorReason,
+	PluginAssetOutcome,
 	PluginClientArtifact,
+	PluginAssetRequest,
+	PluginBridgeAssetCancel,
+	PluginBridgeAssetRequest,
+	PluginBridgeAssetResult,
 	PluginBridgeInit,
 	PluginBridgeReady,
 	PluginBridgeClientMessage,
 	PluginBridgeHostMessage,
+	PluginManagedAssetResolution,
 	PluginBridgeOperationResult,
 	PluginBridgeRyotQLCancel,
 	PluginBridgeRyotQLResult,
@@ -364,14 +371,17 @@ describe("plugin client bridge contract", () => {
 	it("defines independent public client errors and strict wire subsets", () => {
 		const decodeOperationBridge = Schema.decodeUnknownResult(PluginOperationBridgeErrorReason);
 		const decodeQueryBridge = Schema.decodeUnknownResult(PluginRyotQLFailureReason);
+		const decodeAssetBridge = Schema.decodeUnknownResult(PluginAssetBridgeErrorReason);
 		const decodePublic = Schema.decodeUnknownResult(RyotClientErrorReason);
 		const operationBridgeReasons = ["transport", "operation-failed", "malformed-result"];
 		const queryBridgeReasons = ["transport", "query-failed"];
+		const assetBridgeReasons = ["transport", "asset-failed", "malformed-result"];
 		const publicReasons = [
 			"disposed",
 			"protocol",
 			"transport",
 			"invalid-input",
+			"asset-failed",
 			"query-failed",
 			"operation-failed",
 			"malformed-result",
@@ -387,9 +397,117 @@ describe("plugin client bridge contract", () => {
 		for (const reason of queryBridgeReasons) {
 			expect(Result.isSuccess(decodeQueryBridge(reason))).toBe(true);
 		}
+		for (const reason of assetBridgeReasons) {
+			expect(Result.isSuccess(decodeAssetBridge(reason))).toBe(true);
+		}
 		expect(Result.isFailure(decodeOperationBridge("query-failed"))).toBe(true);
 		expect(Result.isFailure(decodeQueryBridge("operation-failed"))).toBe(true);
+		expect(Result.isFailure(decodeAssetBridge("query-failed"))).toBe(true);
 		expect(Result.isFailure(decodePublic("failure"))).toBe(true);
+	});
+
+	it("decodes strict managed asset requests and cancellation messages", () => {
+		const decodeRequest = Schema.decodeUnknownResult(PluginAssetRequest);
+		const decodeBridgeRequest = Schema.decodeUnknownResult(PluginBridgeAssetRequest);
+		const decodeCancel = Schema.decodeUnknownResult(PluginBridgeAssetCancel);
+		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+		const asset = { key: "permanent/image.png", type: "local" };
+
+		expect(Result.isSuccess(decodeRequest({ assets: [asset] }))).toBe(true);
+		expect(Result.isFailure(decodeRequest({ assets: [] }))).toBe(true);
+		expect(
+			Result.isFailure(decodeRequest({ assets: [{ type: "remote", url: "https://example.com" }] })),
+		).toBe(true);
+		expect(Result.isFailure(decodeRequest({ assets: [asset], extra: true }))).toBe(true);
+		expect(
+			Result.isSuccess(
+				decodeBridgeRequest({ assets: [asset], requestId: "asset-1", type: "asset-request" }),
+			),
+		).toBe(true);
+		expect(
+			Result.isSuccess(
+				decodeClient({ assets: [asset], requestId: "asset-1", type: "asset-request" }),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				decodeBridgeRequest({
+					extra: true,
+					assets: [asset],
+					requestId: "asset-1",
+					type: "asset-request",
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				decodeBridgeRequest({ assets: [], requestId: "asset-1", type: "asset-request" }),
+			),
+		).toBe(true);
+		expect(Result.isSuccess(decodeCancel({ requestId: "asset-1", type: "asset-cancel" }))).toBe(
+			true,
+		);
+		expect(Result.isSuccess(decodeClient({ requestId: "asset-1", type: "asset-cancel" }))).toBe(
+			true,
+		);
+		expect(
+			Result.isFailure(decodeCancel({ requestId: "asset-1", type: "asset-cancel", extra: true })),
+		).toBe(true);
+	});
+
+	it("decodes strict managed asset resolutions, outcomes, and bridge results", () => {
+		const decodeResolution = Schema.decodeUnknownResult(PluginManagedAssetResolution);
+		const decodeOutcome = Schema.decodeUnknownResult(PluginAssetOutcome);
+		const decodeResult = Schema.decodeUnknownResult(PluginBridgeAssetResult);
+		const resolution = {
+			expiresAt: "2026-01-01T00:15:00.000Z",
+			asset: { key: "permanent/image.png", type: "local" },
+			url: "https://ryot.test/api/uploads/local/download?key=permanent%2Fimage.png",
+		};
+
+		expect(Result.isSuccess(decodeResolution(resolution))).toBe(true);
+		expect(Result.isFailure(decodeResolution({ ...resolution, extra: true }))).toBe(true);
+		expect(Result.isFailure(decodeResolution({ ...resolution, expiresAt: "tomorrow" }))).toBe(true);
+		expect(Result.isFailure(decodeResolution({ ...resolution, url: "/uploads/image.png" }))).toBe(
+			true,
+		);
+		expect(Result.isSuccess(decodeOutcome({ outcome: "success", resolutions: [resolution] }))).toBe(
+			true,
+		);
+		expect(Result.isSuccess(decodeOutcome({ outcome: "failure", reason: "asset-failed" }))).toBe(
+			true,
+		);
+		expect(
+			Result.isSuccess(
+				decodeResult({
+					outcome: "success",
+					requestId: "asset-1",
+					type: "asset-result",
+					resolutions: [resolution],
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isSuccess(
+				decodeResult({
+					outcome: "failure",
+					requestId: "asset-1",
+					type: "asset-result",
+					reason: "asset-failed",
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				decodeResult({
+					extra: true,
+					outcome: "failure",
+					requestId: "asset-1",
+					type: "asset-result",
+					reason: "asset-failed",
+				}),
+			),
+		).toBe(true);
 	});
 
 	it("accepts only bridge operation errors on strict result messages", () => {
@@ -416,8 +534,8 @@ describe("plugin client bridge contract", () => {
 			Result.isFailure(
 				decode({
 					debug: true,
-					reason: "transport",
 					outcome: "failure",
+					reason: "transport",
 					requestId: "request-1",
 					type: "operation-result",
 				}),

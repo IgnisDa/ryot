@@ -37,6 +37,12 @@ const init: PluginBridgeInit = {
 	compilerVersion: metadata.compilerVersion,
 };
 const document = { queries: {}, output: {} } as PreparedRecipe<unknown>["document"];
+const asset = { key: "permanent/image.png", type: "local" } as const;
+const assetResolution = {
+	asset,
+	expiresAt: "2026-01-01T00:15:00.000Z",
+	url: "https://ryot.test/api/uploads/local/download?key=permanent%2Fimage.png",
+};
 const channels: MessageChannel[] = [];
 const EmptyScreen = () => null;
 const routeResolver = () => ({ element: createElement(EmptyScreen), params: {} });
@@ -272,6 +278,55 @@ describe("plugin runtime", () => {
 		await expect(failure).rejects.toMatchObject({ reason: "query-failed" });
 	});
 
+	it("sends a managed asset batch and resolves its correlated result", async () => {
+		const { channel, messages, runtime } = openRuntime();
+		activate(channel);
+		await delay();
+
+		const resolution = runtime.client.assets.resolve([asset]);
+		await delay();
+
+		expect(messages).toContainEqual({
+			assets: [asset],
+			requestId: "asset-1",
+			type: "asset-request",
+		});
+		channel.port1.postMessage({
+			outcome: "success",
+			requestId: "asset-1",
+			type: "asset-result",
+			resolutions: [assetResolution],
+		});
+
+		await expect(resolution).resolves.toEqual([assetResolution]);
+	});
+
+	it("preserves an asset-failed result without failing the session", async () => {
+		const { channel, runtime } = openRuntime();
+		activate(channel);
+		await delay();
+
+		const resolution = runtime.client.assets.resolve([asset]);
+		await delay();
+		channel.port1.postMessage({
+			outcome: "failure",
+			requestId: "asset-1",
+			type: "asset-result",
+			reason: "asset-failed",
+		});
+
+		await expect(resolution).rejects.toMatchObject({ reason: "asset-failed" });
+		const nextResolution = runtime.client.assets.resolve([asset]);
+		await delay();
+		channel.port1.postMessage({
+			outcome: "success",
+			requestId: "asset-2",
+			type: "asset-result",
+			resolutions: [assetResolution],
+		});
+		await expect(nextResolution).resolves.toEqual([assetResolution]);
+	});
+
 	it("fails a ready session through shared teardown", async () => {
 		const { channel, messages, runtime } = openRuntime();
 		runtime.fatal();
@@ -349,6 +404,7 @@ describe("plugin runtime", () => {
 			slug: "greet",
 			output: JsonValue,
 		});
+		const assetRequest = runtime.client.assets.resolve([asset]);
 		await delay();
 
 		runtime.dispose();
@@ -358,6 +414,7 @@ describe("plugin runtime", () => {
 		);
 		await expect(query).rejects.toMatchObject({ reason: "disposed" });
 		await expect(operation).rejects.toMatchObject({ reason: "disposed" });
+		await expect(assetRequest).rejects.toMatchObject({ reason: "disposed" });
 		await expect(
 			runtime.client.data.query({ document, decode: Result.succeed }),
 		).rejects.toMatchObject({ reason: "disposed" });
@@ -380,15 +437,19 @@ describe("plugin runtime", () => {
 		const { channel, messages, runtime } = openRuntime();
 		activate(channel);
 		await delay();
-		const pending = Array.from({ length: CLIENT_BRIDGE_MAX_PENDING_REQUESTS }, (_, index) =>
-			index % 2 === 0
-				? runtime.client.data.query({ document, decode: Result.succeed })
-				: runtime.client.operations.invoke({
-						input: null,
-						output: JsonValue,
-						slug: `operation-${index}`,
-					}),
-		);
+		const pending = Array.from({ length: CLIENT_BRIDGE_MAX_PENDING_REQUESTS }, (_, index) => {
+			if (index % 3 === 0) {
+				return runtime.client.assets.resolve([asset]);
+			}
+			if (index % 3 === 1) {
+				return runtime.client.data.query({ document, decode: Result.succeed });
+			}
+			return runtime.client.operations.invoke({
+				input: null,
+				output: JsonValue,
+				slug: `operation-${index}`,
+			});
+		});
 		const overflow = runtime.client.data.query({ document, decode: Result.succeed });
 		const results = await Promise.allSettled([...pending, overflow]);
 		await delay();
@@ -408,7 +469,9 @@ describe("plugin runtime", () => {
 					typeof message === "object" &&
 					message !== null &&
 					"type" in message &&
-					(message.type === "operation-request" || message.type === "ryotql-request"),
+					(message.type === "asset-request" ||
+						message.type === "operation-request" ||
+						message.type === "ryotql-request"),
 			),
 		).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS);
 		expect(messages).toContainEqual({ reason: "failed", type: "lifecycle-close" });
@@ -461,6 +524,50 @@ describe("plugin runtime", () => {
 		await expect(replacement).rejects.toMatchObject({ reason: "disposed" });
 		const results = await settlements;
 		expect(results.every((result) => result.status === "rejected")).toBe(true);
+	});
+
+	it("cancels an asset request and suppresses its late result", async () => {
+		const { channel, messages, runtime } = openRuntime();
+		activate(channel);
+		await delay();
+		const controller = new AbortController();
+		const reason = new DOMException("Caller canceled", "AbortError");
+		let settlements = 0;
+		const canceled = runtime.client.assets
+			.resolve([asset], { signal: controller.signal })
+			.catch((error: unknown) => {
+				settlements += 1;
+				throw error;
+			});
+		await delay();
+
+		controller.abort(reason);
+		await expect(canceled).rejects.toBe(reason);
+		await delay();
+		expect(messages).toContainEqual({ requestId: "asset-1", type: "asset-cancel" });
+		channel.port1.postMessage({
+			outcome: "success",
+			requestId: "asset-1",
+			type: "asset-result",
+			resolutions: [assetResolution],
+		});
+		await delay();
+		expect(settlements).toBe(1);
+
+		const replacement = runtime.client.assets.resolve([asset]);
+		await delay();
+		expect(messages).toContainEqual({
+			assets: [asset],
+			requestId: "asset-2",
+			type: "asset-request",
+		});
+		channel.port1.postMessage({
+			outcome: "success",
+			requestId: "asset-2",
+			type: "asset-result",
+			resolutions: [assetResolution],
+		});
+		await expect(replacement).resolves.toEqual([assetResolution]);
 	});
 
 	it("rejects simultaneous pending calls once on fatal failure and ignores late results", async () => {

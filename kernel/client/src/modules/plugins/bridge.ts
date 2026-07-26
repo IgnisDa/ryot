@@ -6,8 +6,14 @@ import {
 	CLIENT_COMPILER_VERSION,
 	PluginBridgeClientMessage,
 	PluginBridgeLifecycleClose,
+	PluginAssetBridgeErrorReason,
 	PluginOperationBridgeErrorReason,
 	PluginBridgeReady,
+	type PluginAssetOutcome,
+	type PluginAssetRequest,
+	type PluginBridgeAssetCancel,
+	type PluginBridgeAssetRequest,
+	type PluginBridgeAssetResult,
 	type PluginBridgeInit,
 	type PluginBridgeLocation,
 	type PluginBridgeHeader,
@@ -49,7 +55,7 @@ type PluginBridgeState = "ready" | "active" | "closing" | "failed" | "disposed";
 
 type PendingRequest = {
 	readonly controller: AbortController;
-	readonly type: "operation" | "ryotql";
+	readonly type: "asset" | "operation" | "ryotql";
 };
 
 type PluginBridgeOptions = {
@@ -66,6 +72,10 @@ type PluginBridgeOptions = {
 	readonly onHeader: (request: PluginBridgeHeader) => void;
 	readonly onNavigate: (request: PluginBridgeNavigate) => void;
 	readonly onScreenState: (state: PluginScreenReadiness) => void;
+	readonly onAssets: (
+		request: PluginAssetRequest,
+		signal: AbortSignal,
+	) => Promise<PluginAssetOutcome>;
 	readonly onRyotQL: (
 		request: PluginRyotQLRequest,
 		signal: AbortSignal,
@@ -77,9 +87,10 @@ type PluginBridgeOptions = {
 };
 
 const decodeReady = Schema.decodeUnknownResult(PluginBridgeReady);
-const decodeLifecycleClose = Schema.decodeUnknownResult(PluginBridgeLifecycleClose);
-const decodeClientMessage = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+const isAssetBridgeErrorReason = Schema.is(PluginAssetBridgeErrorReason);
 const isOperationBridgeErrorReason = Schema.is(PluginOperationBridgeErrorReason);
+const decodeClientMessage = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+const decodeLifecycleClose = Schema.decodeUnknownResult(PluginBridgeLifecycleClose);
 
 const isExpectedReady = (ready: PluginBridgeReady, init: PluginBridgeInit) =>
 	ready.sessionId === init.sessionId && ready.artifactHash === init.artifactHash;
@@ -231,6 +242,47 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			});
 	}
 
+	function handleAssets(request: PluginBridgeAssetRequest) {
+		if (pending.has(request.requestId)) {
+			return;
+		}
+		if (pending.size >= CLIENT_BRIDGE_MAX_PENDING_REQUESTS) {
+			fail();
+			return;
+		}
+		const controller = new AbortController();
+		pending.set(request.requestId, { controller, type: "asset" });
+		void Promise.resolve()
+			.then(() => options.onAssets({ assets: request.assets }, controller.signal))
+			.catch(() => ({ outcome: "failure", reason: "transport" }) satisfies PluginAssetOutcome)
+			.then((outcome) => {
+				if (state !== "active" || pending.get(request.requestId)?.controller !== controller) {
+					return undefined;
+				}
+				let result: PluginAssetOutcome;
+				if (outcome.outcome === "failure" && isAssetBridgeErrorReason(outcome.reason)) {
+					result = { outcome: "failure", reason: outcome.reason };
+				} else if (outcome.outcome === "failure") {
+					result = { outcome: "failure", reason: "transport" };
+				} else {
+					result = { outcome: "success", resolutions: outcome.resolutions };
+				}
+				try {
+					channel.port1.postMessage({
+						...result,
+						type: "asset-result",
+						requestId: request.requestId,
+					} satisfies PluginBridgeAssetResult);
+					if (pending.get(request.requestId)?.controller === controller) {
+						pending.delete(request.requestId);
+					}
+				} catch {
+					fail();
+				}
+				return undefined;
+			});
+	}
+
 	function handleRyotQL(request: PluginBridgeRyotQLRequest) {
 		if (pending.has(request.requestId)) {
 			return;
@@ -272,6 +324,14 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		current.controller.abort();
 	}
 
+	function handleAssetCancel(request: PluginBridgeAssetCancel) {
+		const current = pending.get(request.requestId);
+		if (current?.type !== "asset" || !pending.delete(request.requestId)) {
+			return;
+		}
+		current.controller.abort();
+	}
+
 	channel.port1.addEventListener(
 		"message",
 		(event) => {
@@ -282,6 +342,8 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 					return;
 				}
 				Match.value(decoded.success).pipe(
+					Match.when({ type: "asset-cancel" }, (request) => handleAssetCancel(request)),
+					Match.when({ type: "asset-request" }, (request) => handleAssets(request)),
 					Match.when({ type: "navigate-back" }, () => options.onNavigateBack()),
 					Match.when({ type: "open-drawer" }, () => options.onOpenDrawer()),
 					Match.when({ type: "screen-state" }, ({ hasPreviousScreen, index, key }) => {
@@ -322,6 +384,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		},
 		{ signal: listeners.signal },
 	);
+	channel.port1.addEventListener("messageerror", () => fail(), { signal: listeners.signal });
 	channel.port1.start();
 	try {
 		options.target.postMessage(init, "*", [channel.port2]);

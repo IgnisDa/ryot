@@ -1,14 +1,21 @@
+import type { ManagedAssetLocator, ManagedAssetResolution } from "@ryot-app/client-sdk";
 import type { EntityRendererProps } from "@ryot-app/client-sdk/plugin";
 import { createRyotQuery, useRyotQuery } from "@ryot-app/client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
 import { Button, Chip, StatusMessage } from "@ryot-app/client-ui-sdk";
 import clsx from "clsx";
+import { useEffect, useEffectEvent, useState } from "react";
 
-import { showSummaryRecipe, type ShowDetails, type ShowRecipeResult } from "./show-recipe";
+import {
+	showSummaryRecipe,
+	type MediaImage,
+	type ShowDetails,
+	type ShowRecipeResult,
+} from "./show-recipe";
 import {
 	classifyShow,
-	remoteShowCover,
 	remoteShowBackdrop,
+	showCover,
 	showEpisodeCountLabel,
 	showIdentityLabel,
 	showSeasonCountLabel,
@@ -17,6 +24,21 @@ import {
 const showQuery = createRyotQuery<{ readonly entityId: string }, ShowRecipeResult>(
 	({ client, input, signal }) => client.data.query(showSummaryRecipe(input), { signal }),
 );
+
+const managedCoverQuery = createRyotQuery<ManagedAssetLocator, ManagedAssetResolution>(
+	async ({ client, input, signal }) => {
+		const [resolution] = await client.assets.resolve([input], { signal });
+		if (resolution === undefined) {
+			throw new Error("Managed asset resolution returned no result");
+		}
+		return resolution;
+	},
+	{ cancelOnUnmount: true },
+);
+
+const ASSET_REFRESH_LEAD_MS = 60_000;
+const coverClassName =
+	"absolute top-0 left-0 aspect-2/3 w-28 rounded-xl bg-surface-2 object-cover shadow-sm md:relative md:w-60 md:shrink-0";
 
 const ShowUnavailable = (props: { readonly reason: "missing" | "wrong-schema" }) => (
 	<PluginScreenFrame title="Show unavailable">
@@ -33,6 +55,65 @@ const ShowArt = (props: { readonly url: string }) => (
 	</div>
 );
 
+const CoverPlaceholder = (props: { readonly loading: boolean }) => (
+	<div
+		aria-hidden="true"
+		className={clsx(coverClassName, "bg-surface-2", props.loading && "animate-pulse")}
+	/>
+);
+
+const CoverImage = (props: { readonly url: string; readonly onError?: () => void }) => {
+	const [failedUrl, setFailedUrl] = useState<string>();
+	if (failedUrl === props.url) {
+		return <CoverPlaceholder loading={false} />;
+	}
+	return (
+		<img
+			alt=""
+			loading="lazy"
+			src={props.url}
+			className={coverClassName}
+			onError={() => {
+				setFailedUrl(props.url);
+				props.onError?.();
+			}}
+		/>
+	);
+};
+
+const ManagedShowCover = (props: { readonly asset: ManagedAssetLocator }) => {
+	const result = useRyotQuery(managedCoverQuery, props.asset);
+	const refresh = useEffectEvent(() => result.refetch());
+	const resolution = result.data;
+
+	useEffect(() => {
+		const timer =
+			resolution === undefined
+				? undefined
+				: window.setTimeout(
+						refresh,
+						Math.max(
+							ASSET_REFRESH_LEAD_MS,
+							Date.parse(resolution.expiresAt) - ASSET_REFRESH_LEAD_MS - Date.now(),
+						),
+					);
+		return () => window.clearTimeout(timer);
+	}, [resolution]);
+
+	return resolution === undefined ? (
+		<CoverPlaceholder loading={result.status === "pending"} />
+	) : (
+		<CoverImage url={resolution.url} onError={refresh} />
+	);
+};
+
+const ShowCover = (props: { readonly image: MediaImage }) =>
+	props.image.type === "remote" ? (
+		<CoverImage url={props.image.url} />
+	) : (
+		<ManagedShowCover asset={{ type: props.image.type, key: props.image.key }} />
+	);
+
 const ShowFact = (props: { readonly label: string; readonly value: string }) => (
 	<div className="min-w-28 border-l-2 border-accent-border pl-3">
 		<dt className="text-xs font-medium uppercase tracking-wide text-text-subtle">{props.label}</dt>
@@ -41,7 +122,7 @@ const ShowFact = (props: { readonly label: string; readonly value: string }) => 
 );
 
 const ReadyShow = (props: { readonly show: ShowDetails }) => {
-	const cover = remoteShowCover(props.show);
+	const cover = showCover(props.show);
 	const backdrop = remoteShowBackdrop(props.show);
 	const seasons = showSeasonCountLabel(props.show);
 	const episodes = showEpisodeCountLabel(props.show);
@@ -58,13 +139,7 @@ const ReadyShow = (props: { readonly show: ShowDetails }) => {
 					backdrop !== undefined && "-mt-36 md:-mt-64",
 				)}
 			>
-				{cover === undefined ? null : (
-					<img
-						alt=""
-						src={cover.url}
-						className="absolute top-0 left-0 aspect-2/3 w-28 rounded-xl bg-surface-2 object-cover shadow-sm md:relative md:w-60 md:shrink-0"
-					/>
-				)}
+				{cover === undefined ? null : <ShowCover image={cover} />}
 				<div className="min-w-0 flex-1">
 					<div
 						className={clsx(

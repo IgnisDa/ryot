@@ -67,10 +67,14 @@ export class S3Service extends Context.Service<S3Service>()("S3Service", {
 		const presignDownload = Effect.fn("S3Service.presignDownload")(function* (
 			key: string,
 			expiresInSeconds: number,
+			contentDisposition?: string,
 		) {
 			const configuredClient = yield* requireConfigured;
 			return yield* Effect.sync(() =>
-				configuredClient.file(key).presign({ expiresIn: expiresInSeconds }),
+				configuredClient.file(key).presign({
+					expiresIn: expiresInSeconds,
+					...(contentDisposition === undefined ? {} : { contentDisposition }),
+				}),
 			).pipe(Effect.orDie);
 		});
 
