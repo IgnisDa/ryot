@@ -103,6 +103,8 @@ export class EntityInterestCoordinator extends Context.Service<
 						const result = yield* Effect.exit(
 							options.declareInterest(connection, currentEntityIds()),
 						);
+						// The coordinator can be disposed while the declaration Effect is suspended.
+						// oxlint-disable-next-line typescript/no-unnecessary-condition
 						if (disposed || active !== work || streamId !== connection) {
 							return;
 						}
