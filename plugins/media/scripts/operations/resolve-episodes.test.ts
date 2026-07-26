@@ -37,6 +37,12 @@ const showRef = {
 	episodeNumber: 3,
 	showEntityId: "show-1",
 } as const;
+const seasonRef = {
+	index: 0,
+	kind: "show-season",
+	seasonNumber: 2,
+	showEntityId: "show-1",
+} as const;
 const podcastRef = {
 	index: 0,
 	kind: "podcast",
@@ -72,6 +78,20 @@ describe("resolve episodes operation", () => {
 		).resolves.toEqual({ results: [{ index: 0, entityId: "episode-9" }] });
 		const query = documents[0]?.queries["episodes"];
 		expect(query?.joins?.map((join) => join.table.alias)).toEqual(["podcastEpisode", "podcast"]);
+	});
+
+	it("builds a relational show season query", async () => {
+		const { documents, host } = createHost([["season-2"]]);
+
+		await expect(
+			Effect.runPromise(runSandboxTestScript(definition, { refs: [seasonRef] }, host, execution)),
+		).resolves.toEqual({ results: [{ index: 0, entityId: "season-2" }] });
+		const query = documents[0]?.queries["episodes"];
+		expect(query).toMatchObject({
+			from: { alias: "season", table: "entity" },
+			output: { pagination: { limit: 2 }, type: "rows" },
+		});
+		expect(query?.joins?.map((join) => join.table.alias)).toEqual(["showSeason", "show"]);
 	});
 
 	it("emits documents accepted by the RyotQL contract", async () => {
