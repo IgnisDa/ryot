@@ -3,6 +3,7 @@
 	"tasks": {
 		"build": {
 			"dependsOn": ["^build"],
+			"outputLogs": "errors-only",
 			"outputs": ["out/**", "dist/**", "build/**", ".vitepress/dist/**"]
 		},
 		"build-chrome": {
@@ -14,9 +15,11 @@
 			"outputs": ["dist/firefox-mv2/**", "dist/*-sources.zip", "dist/*-firefox.zip"]
 		},
 		"check": {
-			"dependsOn": ["^check"]
+			"dependsOn": ["^check"],
+			"outputLogs": "errors-only"
 		},
 		"test": {
+			"outputLogs": "errors-only",
 			"dependsOn": ["^build", "^check", "^test"]
 		},
 		"dev": {
