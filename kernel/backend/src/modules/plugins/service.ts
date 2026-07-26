@@ -291,7 +291,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 								}
 								if (systemPlugins.slugs.has(slug)) {
 									return yield* new PluginConflictError({
-										reason: { pluginSlug, code: "boot-configured" },
+										reason: { pluginSlug, code: "system-plugin" },
 									});
 								}
 								if (yield* repository.hasIntegrationReferences({ pluginId: plugin.id })) {

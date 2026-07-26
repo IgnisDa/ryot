@@ -252,7 +252,7 @@ it.effect("retains every historical script for a plugin with a nonterminal workf
 	).pipe(Effect.provide(BunServices.layer)),
 );
 
-it.effect("retains pinned historical kernel hashes absent from the local boot set", () =>
+it.effect("retains pinned historical kernel hashes absent from the current kernel set", () =>
 	Effect.scoped(
 		Effect.gen(function* () {
 			const fs = yield* FileSystem.FileSystem;

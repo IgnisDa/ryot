@@ -35,6 +35,7 @@ export const toWorkoutWriteItem = (workout: WorkoutImportItem): GenericImportWri
 		entities: [
 			...workout.exercises.map((exercise, index) => ({
 				name: exercise.name,
+				scope: "user" as const,
 				alias: `exercise-${index}`,
 				entitySchemaSlug: "exercise",
 				properties: { images: [], muscles: [], instructions: [], kind: exercise.kind },
@@ -42,6 +43,11 @@ export const toWorkoutWriteItem = (workout: WorkoutImportItem): GenericImportWri
 					name: exercise.name,
 					nameNormalization: "slug" as const,
 					properties: { kind: exercise.kind },
+				},
+				providerResolution: {
+					value: exercise.name,
+					identifierType: "name",
+					providerSlug: "exercise.free-exercise-db",
 				},
 			})),
 			{

@@ -53,7 +53,6 @@ import {
 	TestSupportSandboxReplayProjectionBody,
 	TestSupportStartWorkflowLoadGateBody,
 	TestSupportStoredSandboxScript,
-	TestSupportTriggerPluginBootBody,
 	TestSupportTriggerPluginCronBody,
 	TestSupportWorkflowLoadGateResult,
 	TestSupportWorkflowLoadGateRun,
@@ -80,7 +79,6 @@ const CreateGlobalEntityBody = Schema.Struct({
 	populatedAt: Schema.optional(Schema.NullOr(Schema.String)),
 });
 
-const TriggerPluginBootResponse = Schema.Struct({ executionId: Schema.String });
 const WorkflowLoadGateResultBody = Schema.Struct({
 	runId: ImportRunId,
 	executionIds: Schema.Array(Schema.String).pipe(Schema.check(Schema.isMinLength(1))),
@@ -317,13 +315,6 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 			success: TestSupportPluginCronResult,
 			payload: TestSupportTriggerPluginCronBody,
 		}).annotate(OpenApi.Description, "Triggers one active plugin cron"),
-	)
-	.add(
-		HttpApiEndpoint.post("triggerPluginBoot", "/test-support/plugin-boot", {
-			error: testSupportErrors,
-			success: TriggerPluginBootResponse,
-			payload: TestSupportTriggerPluginBootBody,
-		}).annotate(OpenApi.Description, "Triggers one active system-scope plugin boot entry"),
 	)
 	.add(
 		HttpApiEndpoint.post(

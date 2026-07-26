@@ -12,7 +12,6 @@ import type {
 	TestSupportListAutomationTriggerRecipientsBody,
 	TestSupportListAutomationTriggersBody,
 	TestSupportStoredSandboxScript,
-	TestSupportTriggerPluginBootBody,
 	TestSupportTriggerPluginCronBody,
 } from "@ryot-app/contract/modules/test-support/schemas";
 import {
@@ -62,7 +61,6 @@ import { RelationshipSchemasRepository } from "#modules/relationship-schemas/rep
 import type { GlobalRelationshipListInput } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxExecutionService } from "#modules/sandbox/service";
-import { PluginBootService } from "#modules/scheduler/plugin-boot";
 import { PluginCronService } from "#modules/scheduler/plugin-cron";
 
 type CreateGlobalEntityInput = {
@@ -234,7 +232,6 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 			const entities = yield* EntitiesService;
 			const interest = yield* InterestService;
 			const pluginCrons = yield* PluginCronService;
-			const pluginBoots = yield* PluginBootService;
 			const definitions = yield* DefinitionRegistry;
 			const automations = yield* AutomationsService;
 			const sandbox = yield* SandboxExecutionService;
@@ -523,13 +520,6 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 					),
 			);
 
-			const triggerPluginBoot = (input: TestSupportTriggerPluginBootBody) =>
-				Effect.gen(function* () {
-					const executionId = `plugin-boot-manual-${generateId()}`;
-					yield* pluginBoots.trigger(input, executionId);
-					return { executionId };
-				});
-
 			const countAutomationRules = Effect.fn("TestSupportService.countAutomationRules")(function* (
 				userId: UserId,
 			) {
@@ -552,7 +542,6 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 			return {
 				linkAuthAccount,
 				getSandboxScript,
-				triggerPluginBoot,
 				triggerPluginCron,
 				listSandboxScripts,
 				createGlobalEntity,

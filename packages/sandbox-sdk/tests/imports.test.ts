@@ -49,6 +49,11 @@ it("decodes generic media write intents without admitting plugin-private event f
 						name: "Arrival",
 						entityId: "movie-1",
 						entitySchemaSlug: "movie",
+						providerResolution: {
+							value: "tt2543164",
+							providerSlug: "tmdb",
+							identifierType: "imdb",
+						},
 					},
 					{
 						scope: "user",

@@ -1,6 +1,10 @@
 import { SandboxRunError, toSandboxRunError } from "@ryot-app/contract/errors";
 import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
-import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import {
+	SandboxScriptId,
+	type SandboxProviderId,
+	type UserId,
+} from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
@@ -18,6 +22,13 @@ import type { SandboxExecutionResult } from "#modules/sandbox/execution-result";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import type { EntityImportPayload, ProviderEntityImportWorkflowPayload } from "./schemas";
+
+type ProviderResolveOperationInput = {
+	readonly value: string;
+	readonly userId: UserId | null;
+	readonly providerId: SandboxProviderId;
+	readonly identifierType: string;
+};
 
 const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: string) =>
 	Effect.gen(function* () {
@@ -44,6 +55,32 @@ const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: 
 			subject: payload.entityScope.userId
 				? { type: "user", userId: payload.entityScope.userId }
 				: { type: "system" },
+		});
+	}).pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
+
+const processSandboxProviderResolve = (input: ProviderResolveOperationInput, executionId: string) =>
+	Effect.gen(function* () {
+		const sandbox = yield* SandboxExecutionService;
+		const pluginRuntime = yield* PluginRuntimeResolver;
+		const resolveScript = (
+			input.userId
+				? pluginRuntime.resolveUserResolveScript(input.userId, input.providerId)
+				: pluginRuntime.resolveResolveScript(input.providerId)
+		).pipe(
+			Effect.map(({ id }) => id),
+			Effect.mapError((error) => toSandboxRunError(error, "infrastructure")),
+		);
+		const scriptId = yield* makeActivity({
+			error: SandboxRunError,
+			execute: resolveScript,
+			success: SandboxScriptId,
+			name: `resolve-provider-resolve-script-${executionId}`,
+		});
+		return yield* sandbox.executeScript({
+			scriptId,
+			executionId: `${executionId}-sandbox-resolve`,
+			input: { value: input.value, identifierType: input.identifierType },
+			subject: input.userId ? { type: "user", userId: input.userId } : { type: "system" },
 		});
 	}).pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
 
@@ -98,6 +135,10 @@ export type EntityImportWorkflowOperationsValue = {
 		payload: EntityImportPayload,
 		executionId: string,
 	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
+	processProviderResolve: (
+		input: ProviderResolveOperationInput,
+		executionId: string,
+	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 	completeProviderEntityImport: (
 		payload: ProviderEntityImportWorkflowPayload,
 		importedEntity: ListedEntity,
@@ -122,6 +163,12 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 		return {
 			processSandbox: (payload, executionId) =>
 				processSandboxEntityDetails(payload, executionId).pipe(
+					Effect.provideService(Database, database),
+					Effect.provideService(PluginRuntimeResolver, pluginRuntime),
+					Effect.provideService(SandboxExecutionService, sandbox),
+				),
+			processProviderResolve: (input, executionId) =>
+				processSandboxProviderResolve(input, executionId).pipe(
 					Effect.provideService(Database, database),
 					Effect.provideService(PluginRuntimeResolver, pluginRuntime),
 					Effect.provideService(SandboxExecutionService, sandbox),

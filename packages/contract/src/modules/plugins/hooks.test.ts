@@ -39,7 +39,6 @@ const afterInputProjection = {
 	relationship: { properties: [], compareProperties: [], parentEntityProperties: [] },
 } as const;
 const authored = {
-	boot: [],
 	crons: [],
 	hooks: [hook],
 	workflows: [],

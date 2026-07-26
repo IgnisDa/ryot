@@ -224,6 +224,7 @@ const populationLayer = (options: {
 		Layer.mock(EntityImportWorkflowOperations)({
 			completeProviderEntityImport: () => Effect.void,
 			processSandbox: () => Effect.succeed(sandboxResult),
+			processProviderResolve: () => Effect.die("unexpected provider resolve"),
 		}),
 		Layer.succeed(LifecycleExecution, {
 			dispatch: options.dispatch,

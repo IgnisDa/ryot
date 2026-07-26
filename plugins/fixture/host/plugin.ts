@@ -9,7 +9,6 @@ import {
 import { fixtureSavedViews } from "./saved-views";
 
 export const fixturePlugin = definePlugin({
-	boot: [],
 	crons: [],
 	hooks: [],
 	workflows: [],

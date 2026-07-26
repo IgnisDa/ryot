@@ -370,7 +370,7 @@ it("preserves provider membership for custom scripts in the loader snapshot", ()
 	});
 });
 
-describe("persisted boot definitions", () => {
+describe("persisted plugin definitions", () => {
 	it.effect("shares the activated revision with runtime repositories", () =>
 		withRevisionDatabase(
 			Effect.gen(function* () {

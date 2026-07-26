@@ -16,8 +16,8 @@
 
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
-| `users.allowRegistration` | `USERS_ALLOW_REGISTRATION` | Allow new users to register via email and password | No | No | `true` |
 | `users.demoAccountId` | `USERS_DEMO_ACCOUNT_ID` | Existing user ID used by the shared interactive demo | No | No | — |
+| `users.allowRegistration` | `USERS_ALLOW_REGISTRATION` | Allow new users to register via email and password | No | No | `true` |
 | `users.disableLocalAuth` | `USERS_DISABLE_LOCAL_AUTH` | Disable local email/password authentication, requiring OIDC | No | No | `false` |
 
 ### Server settings
@@ -78,7 +78,7 @@
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
 | `scheduler.infrequentCronJobsSchedule` | `SCHEDULER_INFREQUENT_CRON_JOBS_SCHEDULE` | Cron expression used by plugin crons assigned to the infrequent tier | No | No | `0 0 * * *` |
-| `scheduler.disableDispatchers` | `SCHEDULER_DISABLE_DISPATCHERS` | Disable automatic scheduler dispatchers (the frequent/infrequent cron tiers, plugin manifest crons, and the one-time plugin boot dispatcher) | No | No | `false` |
+| `scheduler.disableDispatchers` | `SCHEDULER_DISABLE_DISPATCHERS` | Disable automatic scheduler dispatchers (the frequent/infrequent cron tiers and plugin manifest crons) | No | No | `false` |
 | `scheduler.frequentCronJobsSchedule` | `SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE` | Interval phrase for the frequent cron tier; runs are aligned to interval boundaries rather than to process start time | No | No | `every 5 minutes` |
 
 ### S3-compatible and local file storage
@@ -123,12 +123,6 @@
 | `automations.retryWindowDays` | `AUTOMATIONS_RETRY_WINDOW_DAYS` | Executable and configuration retention in days (1–90) | No | No | `7` |
 | `automations.batchMaxItems` | `AUTOMATIONS_BATCH_MAX_ITEMS` | Maximum items in one batch change trigger (1–1000) | No | No | `200` |
 | `automations.historyRetentionDays` | `AUTOMATIONS_HISTORY_RETENTION_DAYS` | Automation history retention in days (1–365), at least the retry window | No | No | `30` |
-
-## Fitness plugin configuration
-
-| Plugin Config Key | Variable | Label | Description | Required | Sensitive | Default |
-|---|---|---|---|---|---|---|
-| `fitness.exercisePreloadLimit` | `RYOT_PLUGIN_FITNESS_EXERCISE_PRELOAD_LIMIT` | Exercise preload limit | Maximum number of built-in exercises preloaded during startup | No | No | `873` |
 
 ## Media plugin configuration
 
