@@ -1,9 +1,11 @@
-﻿import { cn } from "@ryot/ts-utils/cn";
+import { cn } from "@ryot/ts-utils/cn";
 import { changeCase } from "@ryot/ts-utils/string";
 import { CheckCircle, Cloud, Crown, PlayIcon, Server, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
+
+import type { TPlanTypes, TProductTypes } from "~/drizzle/schema.server";
 
 import type { TPrices } from "../config.server";
 import { getIcon, getIconBg, isPopular } from "./pricing-utils";
@@ -14,14 +16,39 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 export default function Pricing(props: {
 	prices: TPrices;
 	isLoggedIn?: boolean;
-	onClick?: (priceId: string) => void;
+	onClick?: (priceId: string, productType: TProductTypes, planType: TPlanTypes) => void;
 }) {
 	const [selectedProductTypeIndex, setSelectedProductTypeIndex] = useState(0);
 	const selectedProductType = props.prices[selectedProductTypeIndex];
 
-	const isThreeColumn = selectedProductType.prices.length === 3;
+	const priceCount = selectedProductType.prices.length;
 	const isCloudType = selectedProductType.type === "cloud";
 	const isSelfHosted = selectedProductType.type === "self_hosted";
+	const isLargeCardLayout = priceCount < 4;
+	const monthlyAmount = selectedProductType.prices.find(
+		(price) => price.name === "monthly",
+	)?.amount;
+	const yearlyAmount = selectedProductType.prices.find((price) => price.name === "yearly")?.amount;
+	const yearlySavingsPercentage =
+		monthlyAmount && yearlyAmount
+			? Math.round(((monthlyAmount * 12 - yearlyAmount) / (monthlyAmount * 12)) * 100)
+			: 0;
+	let gridClass = "md:grid-cols-4 max-w-6xl";
+	if (priceCount === 2) {
+		gridClass = "md:grid-cols-2 max-w-4xl";
+	} else if (priceCount === 3) {
+		gridClass = "md:grid-cols-3 max-w-5xl";
+	}
+
+	const getPriceLink = (linkToGithub?: boolean) => {
+		if (linkToGithub) {
+			return "https://docs.ryot.io";
+		}
+		if (props.isLoggedIn) {
+			return $path("/me");
+		}
+		return "#start-here";
+	};
 
 	const getProductTypeButtonClass = (index: number) =>
 		cn(
@@ -65,6 +92,14 @@ export default function Pricing(props: {
 						</button>
 						. Choose the one that best fits your needs.
 					</p>
+					<div className="mt-4">
+						<Link
+							to={$path("/pricing-promise")}
+							className="text-blue-500 underline hover:no-underline transition-colors"
+						>
+							Read our pricing promise
+						</Link>
+					</div>
 
 					<div className="flex items-center justify-center gap-4">
 						<div className="flex items-center gap-2 bg-muted/50 px-4 py-2 rounded-full">
@@ -86,137 +121,126 @@ export default function Pricing(props: {
 				</div>
 
 				<div className="max-w-6xl mx-auto mb-8">
-					<div
-						className={cn(
-							"grid gap-6 mx-auto",
-							isThreeColumn ? "md:grid-cols-3 max-w-5xl" : "md:grid-cols-4 max-w-6xl",
-						)}
-					>
-						{selectedProductType.prices.map((p) => {
-							let to: string;
-							if (p.linkToGithub) {
-								to = "https://docs.ryot.io";
-							} else if (props.isLoggedIn) {
-								to = $path("/me");
-							} else {
-								to = "#start-here";
-							}
-							return (
-								<Card
-									key={p.name}
-									className={cn(
-										"border-2 rounded-xl transition-all duration-300 hover:shadow-lg hover:-translate-y-1",
-										isPopular(p.name)
-											? "border-primary/50 relative hover:border-primary/70 hover:shadow-xl hover:-translate-y-2 bg-linear-to-b from-primary/5 to-transparent"
-											: "hover:border-primary/30",
-									)}
-								>
-									{isPopular(p.name) && (
-										<div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-											<Badge className="bg-linear-to-r from-orange-500 to-pink-500 text-white border-0">
-												<Crown className="w-4 h-4 mr-1" />
-												Most Popular
-											</Badge>
-										</div>
-									)}
-									<CardHeader className={cn("text-center pt-8", isThreeColumn ? "pb-6" : "pb-4")}>
+					<div className={cn("grid gap-6 mx-auto", gridClass)}>
+						{selectedProductType.prices.map((p) => (
+							<Card
+								key={p.name}
+								className={cn(
+									"border-2 rounded-xl transition-all duration-300 hover:shadow-lg hover:-translate-y-1",
+									isPopular(p.name)
+										? "border-primary/50 relative hover:border-primary/70 hover:shadow-xl hover:-translate-y-2 bg-linear-to-b from-primary/5 to-transparent"
+										: "hover:border-primary/30",
+								)}
+							>
+								{isPopular(p.name) && (
+									<div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+										<Badge className="bg-linear-to-r from-orange-500 to-pink-500 text-white border-0">
+											<Crown className="w-4 h-4 mr-1" />
+											Most Popular
+										</Badge>
+									</div>
+								)}
+								<CardHeader className={cn("text-center pt-8", isLargeCardLayout ? "pb-6" : "pb-4")}>
+									<div
+										className={cn(
+											isLargeCardLayout ? "w-12 h-12" : "w-10 h-10",
+											getIconBg(p.name),
+											"rounded-full flex items-center justify-center mx-auto",
+											isLargeCardLayout ? "mb-4" : "mb-3",
+										)}
+									>
+										{getIcon(p.name)}
+									</div>
+									<CardTitle
+										className={cn(
+											isLargeCardLayout ? "text-2xl" : "text-lg",
+											isLargeCardLayout ? "mb-4" : "mb-3",
+										)}
+									>
+										{changeCase(p.name)}
+									</CardTitle>
+									{p.amount ? (
 										<div
 											className={cn(
-												isThreeColumn ? "w-12 h-12" : "w-10 h-10",
-												getIconBg(p.name),
-												"rounded-full flex items-center justify-center mx-auto",
-												isThreeColumn ? "mb-4" : "mb-3",
+												"flex items-center justify-center",
+												isLargeCardLayout && "mb-2",
 											)}
 										>
-											{getIcon(p.name)}
+											<span
+												className={cn(
+													isLargeCardLayout ? "text-4xl" : "text-2xl",
+													"font-bold text-foreground",
+												)}
+											>
+												${p.amount}
+											</span>
+											{p.name.toLowerCase() === "monthly" && (
+												<span className="text-muted-foreground ml-2">/month</span>
+											)}
+											{p.name.toLowerCase() === "yearly" && (
+												<span className="text-muted-foreground ml-2">/year</span>
+											)}
 										</div>
-										<CardTitle
+									) : (
+										<div className="text-xs text-muted-foreground">Community Edition</div>
+									)}
+									{(p.trial !== undefined ||
+										(isPopular(p.name) && yearlySavingsPercentage > 0)) && (
+										<div
 											className={cn(
-												isThreeColumn ? "text-2xl" : "text-lg",
-												isThreeColumn ? "mb-4" : "mb-3",
+												isLargeCardLayout ? "text-sm" : "text-xs",
+												"text-muted-foreground",
 											)}
 										>
-											{changeCase(p.name)}
-										</CardTitle>
-										{p.amount ? (
-											<div
-												className={cn("flex items-center justify-center", isThreeColumn && "mb-2")}
-											>
-												<span
-													className={cn(
-														isThreeColumn ? "text-4xl" : "text-2xl",
-														"font-bold text-foreground",
-													)}
-												>
-													${p.amount}
-												</span>
-												{p.name.toLowerCase() === "monthly" && (
-													<span className="text-muted-foreground ml-2">/month</span>
-												)}
-												{p.name.toLowerCase() === "yearly" && (
-													<span className="text-muted-foreground ml-2">/year</span>
-												)}
-											</div>
-										) : (
-											<div className="text-xs text-muted-foreground">Community Edition</div>
-										)}
-										{p.trial && (
-											<div
-												className={cn(
-													isThreeColumn ? "text-sm" : "text-xs",
-													"text-muted-foreground",
-												)}
-											>
-												{isPopular(p.name) && (
-													<>
-														<span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">
-															Save 17%
-														</span>
-														<br />
-													</>
-												)}
-												with a {p.trial} days trial
-											</div>
-										)}
-										{p.name.toLowerCase() === "lifetime" && (
-											<div
-												className={cn(
-													isThreeColumn ? "text-sm" : "text-xs",
-													"text-muted-foreground",
-												)}
-											>
-												One-time payment
-											</div>
-										)}
-									</CardHeader>
-									<CardContent>
-										<Link
-											target={p.linkToGithub ? "_blank" : undefined}
-											to={to}
-											onClick={(e) => {
-												if (props.onClick && p.priceId) {
-													e.preventDefault();
-													props.onClick(p.priceId);
-												}
-											}}
+											{isPopular(p.name) && yearlySavingsPercentage > 0 && (
+												<>
+													<span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">
+														Save {yearlySavingsPercentage}%
+													</span>
+													{p.trial && <br />}
+												</>
+											)}
+											{p.trial ? `with a ${p.trial} days trial` : null}
+										</div>
+									)}
+									{p.name.toLowerCase() === "lifetime" && (
+										<div
+											className={cn(
+												isLargeCardLayout ? "text-sm" : "text-xs",
+												"text-muted-foreground",
+											)}
 										>
-											<Button
-												variant={isPopular(p.name) ? "default" : "outline"}
-												className={cn(
-													"w-full",
-													!isThreeColumn && "text-sm",
-													isPopular(p.name) &&
-														"bg-linear-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary",
-												)}
-											>
-												<PlayIcon size={16} className="mr-2" />
-												<span>{props.isLoggedIn ? "Choose this" : "Get started"}</span>
-											</Button>
-										</Link>
-									</CardContent>
-								</Card>
-							);
-						})}
+											One-time payment
+										</div>
+									)}
+								</CardHeader>
+								<CardContent>
+									<Link
+										target={p.linkToGithub ? "_blank" : undefined}
+										to={getPriceLink(p.linkToGithub)}
+										onClick={(e) => {
+											if (props.onClick && p.priceId) {
+												e.preventDefault();
+												props.onClick(p.priceId, selectedProductType.type, p.name);
+											}
+										}}
+									>
+										<Button
+											variant={isPopular(p.name) ? "default" : "outline"}
+											className={cn(
+												"w-full",
+												!isLargeCardLayout && "text-sm",
+												isPopular(p.name) &&
+													"bg-linear-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary",
+											)}
+										>
+											<PlayIcon size={16} className="mr-2" />
+											<span>{props.isLoggedIn ? "Choose this" : "Get started"}</span>
+										</Button>
+									</Link>
+								</CardContent>
+							</Card>
+						))}
 					</div>
 				</div>
 
