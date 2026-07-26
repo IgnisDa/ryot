@@ -19,7 +19,11 @@ import {
 
 type SqlFragment = ReturnType<typeof sql>;
 type CompileScope = ReadonlyMap<string, CompileTable>;
-type CompileTable = { readonly alias: string; readonly table: CatalogTable };
+type CompileTable = {
+	readonly alias: string;
+	readonly table: CatalogTable;
+	readonly language: string | null;
+};
 
 const identifier = (value: string): SqlFragment => sql.raw(`"${value}"`);
 
@@ -196,7 +200,7 @@ const compileExpression = (expr: ScalarExpression, scope: CompileScope): SqlFrag
 	if (!field) {
 		throw new Error(`RyotQL compiler received unknown field '${expr.field}'`);
 	}
-	return field.resolve(compileTable.alias);
+	return field.resolve({ language: compileTable.language, sqlAlias: compileTable.alias });
 };
 
 const compileComparableExpression = (
@@ -300,11 +304,17 @@ const outputKind = (expr: ScalarExpression, scope: CompileScope): SqlFragment =>
 	return sql`CASE WHEN ${compileExpression(expr, scope)} IS NULL THEN 'null' ELSE ${sql.raw(`'${kind}'`)} END`;
 };
 
-const buildScope = (query: NamedQuery) => {
+const buildScope = (query: NamedQuery, language: string | null) => {
 	const root = requireTable(query.from.table);
-	const scope = new Map<string, CompileTable>([[query.from.alias, { alias: "t0", table: root }]]);
+	const scope = new Map<string, CompileTable>([
+		[query.from.alias, { language, alias: "t0", table: root }],
+	]);
 	(query.joins ?? []).forEach((join, index) => {
-		scope.set(join.table.alias, { alias: `t${index + 1}`, table: requireTable(join.table.table) });
+		scope.set(join.table.alias, {
+			language,
+			alias: `t${index + 1}`,
+			table: requireTable(join.table.table),
+		});
 	});
 	return scope;
 };
@@ -341,8 +351,12 @@ const orderSql = (
 		sql`, `,
 	);
 
-const compileRowsQuery = (query: NamedQuery, userId: string): SqlFragment => {
-	const scope = buildScope(query);
+const compileRowsQuery = (
+	query: NamedQuery,
+	userId: string,
+	language: string | null,
+): SqlFragment => {
+	const scope = buildScope(query, language);
 	const root = requireTable(query.from.table);
 	const rootKey = { field: root.primaryKey, type: "column" as const, tableAlias: query.from.alias };
 	const requestedOrder = query.output.orderBy;
@@ -401,10 +415,11 @@ const isFieldKind = (value: unknown): value is FieldValue["kind"] =>
 
 export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* (
 	userId: string,
+	language: string | null,
 	query: NamedQuery,
 ) {
 	const db = yield* CurrentDb;
-	const raw = yield* dbEffect(() => db.execute(compileRowsQuery(query, userId)));
+	const raw = yield* dbEffect(() => db.execute(compileRowsQuery(query, userId, language)));
 	const rows = raw.rows as readonly Record<string, unknown>[];
 	const first = rows[0];
 	const total = first ? Number(first["totalCount"]) : 0;

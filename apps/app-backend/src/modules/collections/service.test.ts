@@ -25,10 +25,10 @@ import { LifecycleDispatchNoop } from "#modules/entities/lifecycle-dispatch";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
-import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
+import { RyotQLService } from "#modules/ryotql/service";
 
 import { AddEntityToCollectionWorkflow } from "./add-entity-to-collection-workflow";
 import {
@@ -143,13 +143,9 @@ const makeEventsService = (overrides: MockOverrides<typeof mockEventsService> = 
 		...overrides,
 	});
 
-const mockQueryEngine = Layer.mock(QueryEngineService);
+const mockRyotQL = Layer.mock(RyotQLService);
 
-const makeQueryEngine = (overrides: MockOverrides<typeof mockQueryEngine> = {}) =>
-	mockQueryEngine({
-		validate: () => Effect.void.pipe(Effect.as(undefined)),
-		...overrides,
-	});
+const makeRyotQL = (overrides: MockOverrides<typeof mockRyotQL> = {}) => mockRyotQL(overrides);
 
 const makeServiceLayer = (
 	options: {
@@ -166,7 +162,7 @@ const makeServiceLayer = (
 
 	const entitiesServiceLayer = EntitiesService.layer.pipe(
 		Layer.provide(
-			Layer.mergeAll(dbRunnerLayer, LifecycleDispatchNoop, makeQueryEngine(), entitiesRepository),
+			Layer.mergeAll(dbRunnerLayer, LifecycleDispatchNoop, makeRyotQL(), entitiesRepository),
 		),
 	);
 
