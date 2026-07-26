@@ -1,5 +1,8 @@
 import type {
+	AggregationSpec,
 	ColumnExpression,
+	CorrelatedQuerySet,
+	ExistsExpression,
 	FieldSelection,
 	Include,
 	Join,
@@ -14,8 +17,15 @@ import type {
 } from "@ryot/contract/modules/ryotql/language";
 
 type CastExpression = Extract<ScalarExpression, { type: "cast" }>;
+type FirstExpression = Extract<ScalarExpression, { type: "first" }>;
+type AggregateExpression = Extract<ScalarExpression, { type: "aggregate" }>;
+type ArithmeticExpression = Extract<ScalarExpression, { type: "arithmetic" }>;
 type JsonPathExpression = Extract<ScalarExpression, { type: "jsonPath" }>;
 type ComparisonPredicate = Extract<Predicate, { type: "comparison" }>;
+type CorrelatedQueryInput = {
+	readonly where?: Predicate | undefined;
+	readonly joins?: readonly Join[] | undefined;
+};
 
 export const table = (tableName: string, alias: string): TableReference => ({
 	alias,
@@ -68,6 +78,21 @@ export const coalesce = (
 	type: "coalesce",
 	values: [first, ...rest],
 });
+
+const arithmetic = (
+	operator: ArithmeticExpression["operator"],
+	left: ScalarExpression,
+	right: ScalarExpression,
+): ArithmeticExpression => ({ left, right, operator, type: "arithmetic" });
+
+export const add = (left: ScalarExpression, right: ScalarExpression) =>
+	arithmetic("add", left, right);
+export const divide = (left: ScalarExpression, right: ScalarExpression) =>
+	arithmetic("divide", left, right);
+export const multiply = (left: ScalarExpression, right: ScalarExpression) =>
+	arithmetic("multiply", left, right);
+export const subtract = (left: ScalarExpression, right: ScalarExpression) =>
+	arithmetic("subtract", left, right);
 
 const comparison = (
 	operator: ComparisonPredicate["operator"],
@@ -122,6 +147,69 @@ export const join = (type: Join["type"], tableName: TableReference, on: Predicat
 	type,
 	table: tableName,
 });
+
+const correlatedQuery = (
+	from: TableReference,
+	input: CorrelatedQueryInput,
+): CorrelatedQuerySet => ({
+	from,
+	...(input.where ? { where: input.where } : {}),
+	...(input.joins && input.joins.length > 0
+		? { joins: [...input.joins] as [Join, ...Join[]] }
+		: {}),
+});
+
+export const exists = (
+	from: TableReference,
+	input: CorrelatedQueryInput = {},
+): ExistsExpression => ({ type: "exists", query: correlatedQuery(from, input) });
+
+export const first = (
+	from: TableReference,
+	input: CorrelatedQueryInput & {
+		readonly select: ScalarExpression;
+		readonly orderBy: readonly [OrderBy, ...OrderBy[]];
+	},
+): FirstExpression => ({
+	type: "first",
+	select: input.select,
+	query: correlatedQuery(from, input),
+	orderBy: [...input.orderBy] as [OrderBy, ...OrderBy[]],
+});
+
+const aggregate = (
+	from: TableReference,
+	aggregation: AggregationSpec,
+	input: CorrelatedQueryInput,
+): AggregateExpression => ({ aggregation, type: "aggregate", query: correlatedQuery(from, input) });
+
+export const count = (from: TableReference, input: CorrelatedQueryInput = {}) =>
+	aggregate(from, { function: "count" }, input);
+export const countDistinct = (
+	from: TableReference,
+	expr: ScalarExpression,
+	input: CorrelatedQueryInput = {},
+) => aggregate(from, { expr, function: "countDistinct" }, input);
+export const sum = (
+	from: TableReference,
+	expr: ScalarExpression,
+	input: CorrelatedQueryInput = {},
+) => aggregate(from, { expr, function: "sum" }, input);
+export const average = (
+	from: TableReference,
+	expr: ScalarExpression,
+	input: CorrelatedQueryInput = {},
+) => aggregate(from, { expr, function: "average" }, input);
+export const minimum = (
+	from: TableReference,
+	expr: ScalarExpression,
+	input: CorrelatedQueryInput = {},
+) => aggregate(from, { expr, function: "minimum" }, input);
+export const maximum = (
+	from: TableReference,
+	expr: ScalarExpression,
+	input: CorrelatedQueryInput = {},
+) => aggregate(from, { expr, function: "maximum" }, input);
 
 export const include = (
 	from: TableReference,
