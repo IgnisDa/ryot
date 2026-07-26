@@ -1,14 +1,14 @@
 ## Tasks
 
-**Overall Progress:** 0 of 8 tasks completed
+**Overall Progress:** 1 of 8 tasks completed
 
-**Current Task:** [Task 01](./01-local-permanent-upload-intents.md) (todo)
+**Current Task:** [Task 02](./02-s3-permanent-intents-and-downloads.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                                                         | Status |
 | --- | ------------------------------------------------------------------------------------------------------------ | ------ |
-| 01  | [Local Permanent Upload Intents](./01-local-permanent-upload-intents.md)                                     | todo   |
+| 01  | [Local Permanent Upload Intents](./01-local-permanent-upload-intents.md)                                     | done   |
 | 02  | [S3 Permanent Intents And Generic Downloads](./02-s3-permanent-intents-and-downloads.md)                     | todo   |
 | 03  | [Temporary Local Lifecycle And Cleanup](./03-temporary-local-lifecycle-and-cleanup.md)                       | todo   |
 | 04  | [Temporary S3 Lifecycle And Cleanup](./04-temporary-s3-lifecycle-and-cleanup.md)                             | todo   |

@@ -10,7 +10,13 @@ import {
 	MultipartParseErrorSchema,
 	UploadBodyLimitMiddleware,
 } from "./middleware";
-import { PresignedDownloadResponse, PresignedUploadResponse } from "./schemas";
+import {
+	CompleteUploadResponse,
+	PresignedDownloadResponse,
+	PresignedUploadResponse,
+	UploadIntentInput,
+	UploadIntentResponse,
+} from "./schemas";
 import {
 	TEMPORARY_UPLOAD_MAX_FILE_BYTES,
 	TEMPORARY_UPLOAD_MAX_REQUEST_BYTES,
@@ -18,6 +24,20 @@ import {
 
 export const UploadsGroup = HttpApiGroup.make("uploads")
 	.annotate(OpenApi.Description, "Creates upload and download URLs and accepts temporary files")
+	.add(
+		HttpApiEndpoint.post("createIntent", "/uploads/intents", {
+			payload: UploadIntentInput,
+			success: UploadIntentResponse,
+			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+		}).annotate(OpenApi.Description, "Creates a provider-neutral upload intent"),
+	)
+	.add(
+		HttpApiEndpoint.post("completeIntent", "/uploads/intents/:intentId/complete", {
+			success: CompleteUploadResponse,
+			params: { intentId: Schema.String },
+			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+		}).annotate(OpenApi.Description, "Completes an upload intent"),
+	)
 	.add(
 		HttpApiEndpoint.post("createPresigned", "/uploads/presigned", {
 			payload: Schema.Struct({ contentType: Schema.String }),
@@ -55,3 +75,13 @@ export const UploadsGroup = HttpApiGroup.make("uploads")
 			.annotate(OpenApi.Description, "Uploads files to temporary storage"),
 	)
 	.middleware(AuthMiddleware);
+
+export const LocalUploadsGroup = HttpApiGroup.make("localUploads")
+	.annotate(OpenApi.Description, "Accepts bytes for signed local upload targets")
+	.add(
+		HttpApiEndpoint.put("put", "/uploads/local/:intentId", {
+			params: { intentId: Schema.String },
+			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+			success: Schema.Void.pipe(HttpApiSchema.status(204)),
+		}).annotate(OpenApi.Description, "Uploads bytes to a signed local upload target"),
+	);
