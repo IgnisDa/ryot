@@ -34,12 +34,12 @@ export const readyQueryResult = <Data>(data: Data): RyotQueryResult<Data> => ({
 	isFetching: false,
 });
 
-export const errorQueryResult = <Data>(error: Error): RyotQueryResult<Data> => ({
+export const errorQueryResult = <Data>(error: Error, data?: Data): RyotQueryResult<Data> => ({
+	data,
 	error,
 	refetch,
 	isError: true,
 	status: "error",
-	data: undefined,
 	isPending: false,
 	isSuccess: false,
 	isFetching: false,

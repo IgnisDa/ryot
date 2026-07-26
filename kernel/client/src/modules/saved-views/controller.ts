@@ -23,7 +23,7 @@ export type SavedViewRequestToken = {
 
 type SavedViewOperation = {
 	readonly token: SavedViewRequestToken;
-	readonly phase: "initial" | "load-more";
+	readonly phase: "initial" | "load-more" | "refresh";
 };
 
 export type SavedViewControllerState = {
@@ -42,6 +42,7 @@ export type SavedViewControllerState = {
 };
 
 export type SavedViewControllerEvent =
+	| { readonly type: "interest-updated" }
 	| { readonly type: "identity-changed"; readonly identity: string }
 	| { readonly type: "layout-changed"; readonly layout: SavedViewLayoutName }
 	| { readonly type: "request-started"; readonly operation: SavedViewOperation }
@@ -81,6 +82,10 @@ export const savedViewControllerReducer = (
 	state: SavedViewControllerState,
 	event: SavedViewControllerEvent,
 ): SavedViewControllerState => {
+	if (event.type === "interest-updated") {
+		const current = state.layouts[state.activeLayout];
+		return { ...state, layouts: current === undefined ? {} : { [state.activeLayout]: current } };
+	}
 	if (event.type === "identity-changed") {
 		return event.identity === state.identity
 			? state

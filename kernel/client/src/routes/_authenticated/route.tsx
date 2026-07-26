@@ -1,10 +1,12 @@
 import { RyotProvider } from "@ryot-app/client-sdk/react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect } from "effect";
+import { useEffect } from "react";
 
 import { PublicApi } from "#/api/public";
 import { createKernelRyotClient } from "#/api/ryot-client";
 import { protectedRouteGuard } from "#/modules/auth/route-gates";
+import { EntityInterestService } from "#/modules/entity-interest/service";
 import { AuthenticatedShell } from "#/modules/navigation/authenticated-shell";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { NavigationService } from "#/modules/navigation/service";
@@ -73,6 +75,14 @@ export const Route = createFileRoute("/_authenticated")({
 function AuthenticatedLayout() {
 	const { catalog, isPro, navigation, rememberedSlug, ryot } = Route.useLoaderData();
 	const { runtime, scope } = Route.useRouteContext();
+	const { serverUrl, userId } = scope;
+	useEffect(
+		() =>
+			runtime.runSync(
+				Effect.map(EntityInterestService, (service) => service.acquire({ serverUrl, userId })),
+			),
+		[runtime, serverUrl, userId],
+	);
 	return (
 		<RyotProvider client={ryot}>
 			<PluginCatalogProvider scope={scope} runtime={runtime} initialCatalog={catalog}>
