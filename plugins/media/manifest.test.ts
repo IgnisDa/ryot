@@ -109,6 +109,12 @@ it("declares the complete media-owned source", () => {
 	expect(mediaPlugin.scripts).toHaveLength(179);
 	expect(mediaPlugin.integrationProviders).toHaveLength(13);
 	expect(mediaPlugin.scripts.every((script) => !("providerInformation" in script))).toBe(true);
+	expect(mediaPlugin.scripts.find(({ slug }) => slug === "book.google-books.search")).toMatchObject(
+		{ searchOptionsSchema: { unknownKeys: "strict" } },
+	);
+	expect(mediaPlugin.scripts.find(({ slug }) => slug === "video-game.igdb.search")).toMatchObject({
+		searchOptionsSchema: { unknownKeys: "strict" },
+	});
 	expect(
 		mediaPlugin.scripts.filter(({ slug }) => slug.startsWith("media-import-resolve.")),
 	).toHaveLength(5);

@@ -3,6 +3,7 @@ import {
 	defineProvider,
 	providerDetailsResultSchema,
 	providerResolveResultSchema,
+	providerSearchInputSchema,
 	providerSearchResultSchema,
 	providerTranslateResultSchema,
 } from "@ryot/sandbox-sdk/provider";
@@ -35,6 +36,26 @@ describe("provider definitions", () => {
 			identifierType: "isbn",
 			value: "known",
 		});
+	});
+
+	test("accepts optional JSON-object search options", () => {
+		expect(decode(providerSearchInputSchema)({ query: "query" })).toEqual({
+			page: 1,
+			pageSize: 20,
+			query: "query",
+		});
+		expect(
+			decode(providerSearchInputSchema)({
+				query: "query",
+				options: { passRawQuery: true, filters: { genreIds: ["5"] } },
+			}),
+		).toEqual({
+			page: 1,
+			pageSize: 20,
+			query: "query",
+			options: { passRawQuery: true, filters: { genreIds: ["5"] } },
+		});
+		expect(() => decode(providerSearchInputSchema)({ options: [] })).toThrow();
 	});
 });
 
