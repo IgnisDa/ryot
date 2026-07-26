@@ -1,241 +1,76 @@
-import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
-import type { ManagedAssetLocator } from "@ryot/contract/modules/uploads/schemas";
-import {
-	decodeSavedViewRecordResponse,
-	type SavedViewRecord,
-} from "@ryot/ryotql-recipes/saved-view-records";
-import clsx from "clsx";
-import { Cause, Option, Result } from "effect";
-import { AsyncResult } from "effect/unstable/reactivity";
+import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
 import { useLocalSearchParams } from "expo-router";
-import { useMemo } from "react";
-import { Platform, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import { useAuthClient } from "@/modules/auth/client";
-import { useEntityInterest } from "@/modules/entity-interest/provider";
-import { AppIcon } from "@/modules/icons";
 import { NavigationStatus } from "@/modules/navigation/navigation-status";
-import {
-	managedAssetResolutionAtom,
-	savedViewLayoutAtom,
-	savedViewRecordAtom,
-	savedViewResultAtom,
-} from "@/modules/saved-views/atoms";
-import {
-	collectManagedAssets,
-	decodeSavedViewCardData,
-	decodeSavedViewTableData,
-	resolvedAssetUrls,
-	type SavedViewDisplayData,
-	type SavedViewCardItem,
-	type SavedViewTableItem,
-} from "@/modules/saved-views/display-data";
+import { SavedViewReadyContent } from "@/modules/saved-views/saved-view-content";
 import { SavedViewFrame } from "@/modules/saved-views/saved-view-frame";
-import { SavedViewGrid } from "@/modules/saved-views/saved-view-grid";
-import { SavedViewLayoutSelector } from "@/modules/saved-views/saved-view-layout-selector";
-import { SavedViewList } from "@/modules/saved-views/saved-view-list";
-import { SavedViewTable } from "@/modules/saved-views/saved-view-table";
+import { savedViewError, type SavedViewError } from "@/modules/saved-views/state";
+import { useSavedViewRecord, useSavedViewResult } from "@/modules/saved-views/use-saved-view";
 import { useServerUrl } from "@/modules/server/state";
 
-const DESKTOP_HEADER_ONLY = Platform.OS === "web" ? "hidden md:flex" : "hidden";
-
-function ErrorState(props: { detail: string; title: string }) {
+function ErrorState(props: SavedViewError & { onRetry?: () => void }) {
 	return (
 		<View className="min-h-96 items-center justify-center gap-3 px-6">
 			<Text className="font-ui-medium text-base text-text">{props.title}</Text>
-			<Text selectable className="max-w-xl text-center font-mono text-xs text-danger">
-				{props.detail}
-			</Text>
+			<Text className="max-w-xl text-center font-ui text-sm text-text-muted">{props.detail}</Text>
+			{props.onRetry && (
+				<Pressable accessibilityRole="button" onPress={props.onRetry}>
+					<Text className="font-ui-medium text-sm text-accent-text">Try again</Text>
+				</Pressable>
+			)}
 		</View>
-	);
-}
-
-function EmptyState(props: { name: string }) {
-	return (
-		<View className="min-h-96 items-center justify-center gap-3 px-6">
-			<AppIcon className="text-text-subtle" name="library" size={40} />
-			<Text className="text-center font-ui-semibold text-xl text-text">
-				No items in {props.name}
-			</Text>
-			<Text className="text-center font-ui text-sm text-text-muted">
-				This saved view has no results.
-			</Text>
-		</View>
-	);
-}
-
-type ActiveDisplayData =
-	| { layout: "grid"; data: SavedViewDisplayData<SavedViewCardItem> }
-	| { layout: "list"; data: SavedViewDisplayData<SavedViewCardItem> }
-	| { layout: "table"; data: SavedViewDisplayData<SavedViewTableItem> };
-
-function SavedViewItems(props: ActiveDisplayData & { managedUrls: ReadonlyMap<string, string> }) {
-	if (props.layout === "grid") {
-		return <SavedViewGrid items={props.data.items} managedUrls={props.managedUrls} />;
-	}
-	if (props.layout === "list") {
-		return <SavedViewList items={props.data.items} managedUrls={props.managedUrls} />;
-	}
-	return <SavedViewTable items={props.data.items} managedUrls={props.managedUrls} />;
-}
-
-type SavedViewPresentationProps = {
-	icon: string;
-	name: string;
-	userId: string;
-	viewSlug: string;
-	serverUrl: string;
-	onEntityUpdated: () => void;
-} & ActiveDisplayData;
-
-function SavedViewResolvedContent(props: SavedViewPresentationProps) {
-	const assets = collectManagedAssets(props.data.items);
-	const entityIds = useMemo(
-		() => props.data.items.map((item) => item.entityId),
-		[props.data.items],
-	);
-	useEntityInterest(
-		`saved-view:${props.serverUrl}:${props.userId}:${props.viewSlug}`,
-		entityIds,
-		props.onEntityUpdated,
-	);
-	if (assets.length === 0) {
-		return <SavedViewDisplay {...props} managedUrls={new Map()} />;
-	}
-	return <SavedViewManagedContent {...props} assets={assets} />;
-}
-
-function SavedViewManagedContent(
-	props: SavedViewPresentationProps & { assets: readonly ManagedAssetLocator[] },
-) {
-	const result = useAtomValue(
-		managedAssetResolutionAtom({
-			assets: props.assets,
-			userId: props.userId,
-			serverUrl: props.serverUrl,
-		}),
-	);
-	const response = AsyncResult.isSuccess(result) ? result.value : undefined;
-	return (
-		<SavedViewDisplay
-			{...props}
-			managedUrls={response ? resolvedAssetUrls(response, props.serverUrl) : new Map()}
-		/>
-	);
-}
-
-function SavedViewDisplay(
-	props: ActiveDisplayData & {
-		icon: string;
-		name: string;
-		viewSlug: string;
-		managedUrls: ReadonlyMap<string, string>;
-	},
-) {
-	const { items, pageInfo } = props.data;
-	return (
-		<SavedViewFrame
-			viewSlug={props.viewSlug}
-			title={{ icon: props.icon, name: props.name, loaded: items.length, total: pageInfo.total }}
-		>
-			<View className="w-full gap-5">
-				<View
-					className={clsx(
-						"gap-3 md:h-15 md:flex-row md:items-start md:justify-between md:gap-6",
-						DESKTOP_HEADER_ONLY,
-					)}
-				>
-					<View className="min-w-0 gap-1">
-						<View className="flex-row items-center gap-2.5">
-							<AppIcon className="shrink-0 text-text-muted" name={props.icon} size={20} />
-							<Text
-								numberOfLines={1}
-								className="min-w-0 flex-1 font-ui-semibold text-xl text-text md:font-display md:text-3xl"
-							>
-								{props.name}
-							</Text>
-						</View>
-						<Text className="font-ui text-xs text-text-muted md:text-sm">
-							{pageInfo.total.toLocaleString()} {pageInfo.total === 1 ? "result" : "results"}
-						</Text>
-					</View>
-					<SavedViewLayoutSelector viewSlug={props.viewSlug} />
-				</View>
-
-				{items.length === 0 ? <EmptyState name={props.name} /> : <SavedViewItems {...props} />}
-			</View>
-		</SavedViewFrame>
 	);
 }
 
 function SavedViewContent(props: { record: SavedViewRecord; serverUrl: string; userId: string }) {
-	const layout = useAtomValue(savedViewLayoutAtom(props.record.slug));
-	const queryDocument = props.record.layouts[layout].queryDocument;
-	const resultAtom = savedViewResultAtom({
-		queryDocument,
-		userId: props.userId,
-		serverUrl: props.serverUrl,
-	});
-	const queryResult = useAtomValue(resultAtom);
-	const refreshResult = useAtomRefresh(resultAtom);
-	if (AsyncResult.isFailure(queryResult)) {
-		return (
-			<SavedViewFrame viewSlug={props.record.slug}>
-				<ErrorState title="Unable to load saved view" detail={Cause.pretty(queryResult.cause)} />
-			</SavedViewFrame>
-		);
-	}
-	const response = Option.getOrUndefined(AsyncResult.value(queryResult));
-	if (!response) {
+	const result = useSavedViewResult(props);
+	if (result.state.status === "loading") {
 		return (
 			<SavedViewFrame viewSlug={props.record.slug}>
 				<NavigationStatus title="Loading saved view..." />
 			</SavedViewFrame>
 		);
 	}
-
-	if (layout === "table") {
-		const decoded = decodeSavedViewTableData(response, props.record.layouts.table);
-		if (Result.isFailure(decoded)) {
-			return (
-				<SavedViewFrame viewSlug={props.record.slug}>
-					<ErrorState title="Unable to display saved view" detail={String(decoded.failure)} />
-				</SavedViewFrame>
-			);
-		}
-		return (
-			<SavedViewResolvedContent
-				layout="table"
-				userId={props.userId}
-				data={decoded.success}
-				icon={props.record.icon}
-				name={props.record.name}
-				serverUrl={props.serverUrl}
-				viewSlug={props.record.slug}
-				onEntityUpdated={refreshResult}
-			/>
-		);
-	}
-
-	const decoded = decodeSavedViewCardData(response, props.record.layouts[layout]);
-	if (Result.isFailure(decoded)) {
+	if (result.state.status === "transport-error" || result.state.status === "malformed") {
 		return (
 			<SavedViewFrame viewSlug={props.record.slug}>
-				<ErrorState title="Unable to display saved view" detail={String(decoded.failure)} />
+				<ErrorState {...savedViewError(result.state)} onRetry={result.refresh} />
 			</SavedViewFrame>
 		);
 	}
+	return <SavedViewReadyContent {...props} state={result.state} refresh={result.refresh} />;
+}
 
+function SavedViewRecordLoader(props: { slug: string; serverUrl: string; userId: string }) {
+	const result = useSavedViewRecord(props);
+	if (result.state.status === "loading") {
+		return (
+			<SavedViewFrame viewSlug={props.slug}>
+				<NavigationStatus title="Loading saved view..." />
+			</SavedViewFrame>
+		);
+	}
+	if (result.state.status === "transport-error" || result.state.status === "malformed") {
+		return (
+			<SavedViewFrame viewSlug={props.slug}>
+				<ErrorState {...savedViewError(result.state)} onRetry={result.refresh} />
+			</SavedViewFrame>
+		);
+	}
+	if (result.state.status === "not-found") {
+		return (
+			<SavedViewFrame viewSlug={props.slug}>
+				<NavigationStatus title="Saved view not found" detail="This saved view does not exist." />
+			</SavedViewFrame>
+		);
+	}
 	return (
-		<SavedViewResolvedContent
-			layout={layout}
+		<SavedViewContent
 			userId={props.userId}
-			data={decoded.success}
-			icon={props.record.icon}
-			name={props.record.name}
 			serverUrl={props.serverUrl}
-			viewSlug={props.record.slug}
-			onEntityUpdated={refreshResult}
+			record={result.state.record}
 		/>
 	);
 }
@@ -265,45 +100,4 @@ export default function SavedViewScreen() {
 		);
 	}
 	return <SavedViewRecordLoader slug={slug} serverUrl={serverUrl} userId={session.user.id} />;
-}
-
-function SavedViewRecordLoader(props: { slug: string; serverUrl: string; userId: string }) {
-	const recordResult = useAtomValue(savedViewRecordAtom(props));
-	if (AsyncResult.isFailure(recordResult)) {
-		return (
-			<SavedViewFrame viewSlug={props.slug}>
-				<ErrorState title="Unable to load saved view" detail={Cause.pretty(recordResult.cause)} />
-			</SavedViewFrame>
-		);
-	}
-	const response = Option.getOrUndefined(AsyncResult.value(recordResult));
-	const decoded = response ? decodeSavedViewRecordResponse(response) : undefined;
-
-	if (!response) {
-		return (
-			<SavedViewFrame viewSlug={props.slug}>
-				<NavigationStatus title="Loading saved view..." />
-			</SavedViewFrame>
-		);
-	}
-	if (!decoded || Result.isFailure(decoded)) {
-		return (
-			<SavedViewFrame viewSlug={props.slug}>
-				<ErrorState
-					title="Unable to read saved view"
-					detail={String(decoded?.failure ?? "Malformed saved-view response")}
-				/>
-			</SavedViewFrame>
-		);
-	}
-	if (decoded.success === null) {
-		return (
-			<SavedViewFrame viewSlug={props.slug}>
-				<NavigationStatus title="Saved view not found" detail="This saved view does not exist." />
-			</SavedViewFrame>
-		);
-	}
-	return (
-		<SavedViewContent record={decoded.success} userId={props.userId} serverUrl={props.serverUrl} />
-	);
 }
