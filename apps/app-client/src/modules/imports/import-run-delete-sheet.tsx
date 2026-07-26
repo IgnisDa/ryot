@@ -2,10 +2,9 @@ import type { ImportRunSummary } from "@ryot/ryotql-recipes/import-runs";
 import { Text, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
+import { importRunDeleteConfirmation } from "@/modules/import-runs/run-presentation";
 import { BottomSheet } from "@/modules/ui/bottom-sheet";
 import { AppButton } from "@/modules/ui/button";
-
-import { importRunDeleteConfirmation } from "./run-presentation";
 
 export function ImportRunDeleteSheet(props: {
 	readonly pending: boolean;
