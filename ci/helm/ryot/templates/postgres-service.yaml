@@ -1,0 +1,19 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ryot.postgres.fullname" . }}
+  labels:
+    {{- include "ryot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: database
+spec:
+  # Headless service backing the StatefulSet.
+  clusterIP: None
+  ports:
+    - port: {{ .Values.postgres.service.port }}
+      targetPort: postgres
+      protocol: TCP
+      name: postgres
+  selector:
+    {{- include "ryot.postgres.selectorLabels" . | nindent 4 }}
+{{- end }}
