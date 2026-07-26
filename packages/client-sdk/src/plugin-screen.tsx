@@ -6,13 +6,13 @@ import type { ReactNode } from "react";
 import { usePluginChrome, usePluginScreenSurface, usePluginTitle } from "./routing";
 
 type PluginScreenFrameProps = {
-	readonly title: string;
 	readonly meta?: ReactNode;
 	readonly hero?: ReactNode;
 	readonly backLabel?: string;
 	readonly menuLabel?: string;
 	readonly children: ReactNode;
 	readonly actions?: ReactNode;
+	readonly title: string | null;
 	readonly titleIcon?: ReactNode;
 	readonly searchRow?: ReactNode;
 	readonly barActions?: ReactNode;
@@ -60,9 +60,9 @@ export function PluginScreenFrame({
 		<ScreenFrame
 			meta={meta}
 			hero={hero}
-			title={title}
 			leading={leading}
 			actions={actions}
+			title={title ?? ""}
 			hideTitle={hideTitle}
 			searchRow={searchRow}
 			titleIcon={titleIcon}
