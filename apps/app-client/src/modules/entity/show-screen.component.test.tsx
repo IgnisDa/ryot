@@ -2,9 +2,13 @@ import { describe, expect, it } from "@jest/globals";
 import { render, screen, userEvent } from "@testing-library/react-native";
 import { Cause } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
+import { useEffect, type ReactNode } from "react";
 
 import { RyotQLMalformedResultError } from "@/api/ryotql";
 
+import { ShowEpisodes } from "./show-episodes";
+import { decodeShowEpisodesResult } from "./show-episodes-fixture";
+import { mapShowEpisodes, type ShowEpisodesState } from "./show-episodes-state";
 import {
 	decodeShowOverview,
 	emptyShowOverview,
@@ -22,6 +26,17 @@ const description = () => screen.getByText("A four-part limited series.");
 const overviewState = (rows: Parameters<typeof decodeShowOverview>[0] = {}): ShowOverviewState =>
 	mapShowOverview(AsyncResult.success(decodeShowOverview(rows)));
 
+const episodesState = (): ShowEpisodesState =>
+	mapShowEpisodes(AsyncResult.success(decodeShowEpisodesResult({})));
+
+function EpisodesTabProbe(props: { readonly onLoad: () => void }) {
+	const { onLoad } = props;
+	useEffect(() => {
+		onLoad();
+	}, [onLoad]);
+	return <ShowEpisodes state={episodesState()} refresh={() => undefined} />;
+}
+
 const readyState = (overrides: Record<string, unknown> = {}): ShowSummaryState =>
 	mapShowSummary(
 		AsyncResult.success(
@@ -38,6 +53,7 @@ const unavailableState = (requested: readonly Record<string, unknown>[]): ShowSu
 const renderContent = (
 	state: ShowSummaryState,
 	options: {
+		readonly episodes?: ReactNode;
 		readonly refresh?: () => void;
 		readonly overview?: ShowOverviewState;
 		readonly refreshOverview?: () => void;
@@ -49,6 +65,7 @@ const renderContent = (
 			refresh={options.refresh ?? (() => undefined)}
 			overview={options.overview ?? overviewState()}
 			refreshOverview={options.refreshOverview ?? (() => undefined)}
+			episodes={options.episodes ?? <EpisodesTabProbe onLoad={() => undefined} />}
 		/>,
 	);
 
@@ -164,13 +181,47 @@ describe("show screen content", () => {
 		await renderContent(readyState());
 		const monitoring = screen.getByRole("switch", { name: "Toggle media monitoring" });
 
-		await user.press(screen.getByRole("tab", { name: "Episodes" }));
+		await user.press(screen.getByRole("tab", { name: "Activity" }));
+		await user.press(screen.getByRole("tab", { name: "Related" }));
 		await user.press(monitoring);
 		await user.press(screen.getByRole("button", { name: "Log activity" }));
 
 		expect(screen.getByRole("tab", { name: "Overview" })).toBeSelected();
-		expect(screen.getByRole("tab", { name: "Episodes" })).not.toBeSelected();
+		expect(screen.getByRole("tab", { name: "Activity" })).not.toBeSelected();
 		expect(monitoring).not.toBeChecked();
+	});
+
+	it("loads the episodes tab only once it is selected", async () => {
+		const user = userEvent.setup();
+		const loads: number[] = [];
+		await renderContent(readyState(), {
+			episodes: <EpisodesTabProbe onLoad={() => loads.push(1)} />,
+		});
+
+		expect(loads).toEqual([]);
+		expect(screen.getByText("Cast & crew")).toBeOnTheScreen();
+
+		await user.press(screen.getByRole("tab", { name: "Episodes" }));
+
+		expect(loads).toEqual([1]);
+		expect(screen.getByRole("tab", { name: "Episodes" })).toBeSelected();
+		expect(screen.getByRole("tab", { name: "Overview" })).not.toBeSelected();
+		expect(screen.getByText("Adolescence")).toBeOnTheScreen();
+		expect(screen.getByText("Episode 1: The Arrest")).toBeOnTheScreen();
+		expect(screen.queryByText("Cast & crew")).not.toBeOnTheScreen();
+	});
+
+	it("returns to the preserved overview after visiting episodes", async () => {
+		const user = userEvent.setup();
+		await renderContent(readyState());
+
+		await user.press(screen.getByRole("tab", { name: "Episodes" }));
+		await user.press(screen.getByRole("tab", { name: "Overview" }));
+
+		expect(screen.getByRole("tab", { name: "Overview" })).toBeSelected();
+		expect(screen.getByText("Cast & crew")).toBeOnTheScreen();
+		expect(screen.getByText("Owen Cooper")).toBeOnTheScreen();
+		expect(screen.queryByText("Episode 1: The Arrest")).not.toBeOnTheScreen();
 	});
 
 	it("expands and re-clamps the description from the header", async () => {
