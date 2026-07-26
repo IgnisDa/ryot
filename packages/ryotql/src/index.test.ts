@@ -41,6 +41,7 @@ import {
 	not,
 	or,
 	rows,
+	star,
 	subtract,
 	sum,
 	table,
@@ -68,6 +69,14 @@ describe("RyotQL builders", () => {
 				},
 			},
 		});
+	});
+
+	it("builds qualified wildcard row selections", () => {
+		const entity = table("entity", "entity");
+
+		expect(rows(entity, { fields: [star(entity)] }).output.fields).toEqual([
+			{ tableAlias: "entity", type: "wildcard" },
+		]);
 	});
 
 	it("preserves table aliases in expressions and explicit rows options", () => {

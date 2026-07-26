@@ -15,10 +15,12 @@ import type {
 	OrderBy,
 	Predicate,
 	RyotQLDocument,
+	RowSelection,
 	RowsOutput,
 	ScalarExpression,
 	TableReference,
 	TimeSeriesOutput,
+	WildcardSelection,
 } from "@ryot/contract/modules/ryotql/language";
 
 type CastExpression = Extract<ScalarExpression, { type: "cast" }>;
@@ -146,6 +148,11 @@ export const or = (...predicates: readonly Predicate[]): Predicate => ({
 
 export const field = (key: string, expr: ScalarExpression): FieldSelection => ({ expr, key });
 
+export const star = (tableName: TableReference): WildcardSelection => ({
+	type: "wildcard",
+	tableAlias: tableName.alias,
+});
+
 export const ascending = (expr: ScalarExpression): OrderBy => ({ direction: "asc", expr });
 
 export const descending = (expr: ScalarExpression): OrderBy => ({ direction: "desc", expr });
@@ -231,7 +238,7 @@ export const include = (
 		readonly key: string;
 		readonly limit: number;
 		readonly where?: Predicate | undefined;
-		readonly fields: readonly FieldSelection[];
+		readonly fields: readonly RowSelection[];
 		readonly joins?: readonly Join[] | undefined;
 		readonly include?: readonly Include[] | undefined;
 		readonly orderBy: readonly [OrderBy, ...OrderBy[]];
@@ -253,7 +260,7 @@ export const rows = (
 		readonly page?: number | undefined;
 		readonly limit?: number | undefined;
 		readonly where?: Predicate | undefined;
-		readonly fields: readonly FieldSelection[];
+		readonly fields: readonly RowSelection[];
 		readonly joins?: readonly Join[] | undefined;
 		readonly include?: readonly Include[] | undefined;
 		readonly orderBy?: readonly OrderBy[] | undefined;

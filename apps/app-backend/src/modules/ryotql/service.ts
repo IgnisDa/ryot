@@ -13,6 +13,7 @@ import {
 
 import type { RyotQLExecutionScope } from "./catalog";
 import { executeNamedQuery } from "./executor";
+import { normalizeRyotQLDocument } from "./normalizer";
 import { validateRyotQLDocument } from "./validator";
 
 const RYOTQL_STATEMENT_TIMEOUT_MS = 30_000;
@@ -34,13 +35,14 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 			if (validationError) {
 				return yield* new BadRequest({ message: validationError });
 			}
+			const normalizedDocument = normalizeRyotQLDocument(document);
 
 			return yield* runInTx(
 				Effect.gen(function* () {
 					yield* configureTransaction;
 					yield* setLocalStatementTimeout(RYOTQL_STATEMENT_TIMEOUT_MS);
 					const results: Array<readonly [string, RyotQLResult]> = [];
-					for (const [name, query] of Object.entries(document.queries)) {
+					for (const [name, query] of Object.entries(normalizedDocument.queries)) {
 						results.push([name, yield* executeNamedQuery(scope, query)]);
 					}
 					return { data: Object.fromEntries(results) };

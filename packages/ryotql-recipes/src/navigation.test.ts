@@ -103,15 +103,14 @@ describe("navigation recipe", () => {
 			{ direction: "asc", expr: { type: "column", tableAlias: "plugin", field: "ingestedAt" } },
 			{ direction: "asc", expr: { type: "column", tableAlias: "plugin", field: "slug" } },
 		]);
-		expect(document.queries.savedViews.output.fields.map(({ key }) => key)).toEqual([
-			"slug",
-			"name",
-			"icon",
-			"accentColor",
-			"sortOrder",
-			"isDisabled",
-			"pluginSlug",
-		]);
+		expect(
+			document.queries.savedViews.output.fields.map((selection) => {
+				if (!("key" in selection)) {
+					throw new Error("Expected an explicit field selection");
+				}
+				return selection.key;
+			}),
+		).toEqual(["slug", "name", "icon", "accentColor", "sortOrder", "isDisabled", "pluginSlug"]);
 		expect(document.queries.savedViews.output.orderBy).toEqual([
 			{ direction: "asc", expr: { type: "column", tableAlias: "savedView", field: "pluginSlug" } },
 			{ direction: "asc", expr: { type: "column", tableAlias: "savedView", field: "sortOrder" } },

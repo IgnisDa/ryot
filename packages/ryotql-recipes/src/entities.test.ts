@@ -8,7 +8,14 @@ describe("entity recipes", () => {
 			.queries["entity"];
 
 		expect(query.output.pagination).toEqual({ page: 1, limit: 1 });
-		expect(query.output.fields.map((selection) => selection.key)).toEqual([
+		expect(
+			query.output.fields.map((selection) => {
+				if (!("key" in selection)) {
+					throw new Error("Expected an explicit field selection");
+				}
+				return selection.key;
+			}),
+		).toEqual([
 			"id",
 			"name",
 			"createdAt",
@@ -38,7 +45,14 @@ describe("entity recipes", () => {
 		];
 
 		expect(query.output.pagination).toEqual({ page: 1, limit: 2 });
-		expect(query.output.fields.map((selection) => selection.key)).toEqual([
+		expect(
+			query.output.fields.map((selection) => {
+				if (!("key" in selection)) {
+					throw new Error("Expected an explicit field selection");
+				}
+				return selection.key;
+			}),
+		).toEqual([
 			"id",
 			"properties",
 			"externalId",
