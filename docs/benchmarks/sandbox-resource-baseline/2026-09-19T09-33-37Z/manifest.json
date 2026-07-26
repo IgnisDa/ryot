@@ -151,6 +151,15 @@
       "stopReason": null,
       "completedAtUtc": "2026-09-20T16:16:14.650Z",
       "outcome": "completed"
+    },
+    {
+      "command": "soak",
+      "invocationId": "soak-e9171c80",
+      "startedAtUtc": "2026-09-20T18:27:54.884Z",
+      "scenarioIds": [],
+      "stopReason": null,
+      "completedAtUtc": "2026-09-20T21:57:20.997Z",
+      "outcome": "completed"
     }
   ],
   "constituentRunIds": [
