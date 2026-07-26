@@ -175,13 +175,7 @@ export function ShowRecommendationsSection(props: {
 		return null;
 	}
 	return (
-		<ShowOverviewSection
-			title="More like this"
-			divided={props.divided}
-			action={
-				<ShowLinkButton label="View all" onPress={() => console.log("TODO: open related tab")} />
-			}
-		>
+		<ShowOverviewSection title="More like this" divided={props.divided}>
 			<ShowRail>
 				{props.recommendations.map((recommendation) => (
 					<Link asChild key={recommendation.id} href={getEntityHref(recommendation.id)}>
