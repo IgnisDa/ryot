@@ -14,8 +14,11 @@ const config = {
 	updates: { checkAutomatically: "NEVER" },
 	experiments: { typedRoutes: true, reactCompiler: true },
 	plugins: [
+		"expo-font",
 		"expo-router",
 		"expo-image",
+		"expo-secure-store",
+		"expo-status-bar",
 		"expo-web-browser",
 		[
 			"expo-splash-screen",
