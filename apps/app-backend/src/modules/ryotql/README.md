@@ -5,7 +5,7 @@ RyotQL is the focused read API at `POST /ryotql/execute`. It is independent from
 ## Current Capabilities
 
 - Authenticated user execution against the `entity`, `event`, and `relationship` tables.
-- Multiple independent named rows or aggregate queries in one repeatable-read, read-only transaction.
+- Multiple independent named rows, aggregate, or time-series queries in one repeatable-read, read-only transaction.
 - Field selection, typed JSON expressions, predicates, arithmetic, correlated scalar expressions, inner and left joins, ordering, pagination, and correlated row includes.
 - Localized entity names and properties with translation status as a normal catalog field.
 - User visibility for every table occurrence: a caller can read their own rows and global rows.
@@ -19,7 +19,7 @@ The relationship catalog exposes `id`, `userId`, `sourceEntityId`, `targetEntity
 
 ## Document Shape
 
-Every document contains a non-empty `queries` object. Each entry is independent and has an explicit root table and alias, an optional predicate and joins, and one rows or aggregate output.
+Every document contains a non-empty `queries` object. Each entry is independent and has an explicit root table and alias, an optional predicate and joins, and one rows, aggregate, or time-series output.
 
 ```json
 {
@@ -240,6 +240,27 @@ document({
 });
 ```
 
+## Time-Series Outputs
+
+Time-series outputs apply one count, sum, average, minimum, or maximum measure to a generic query set. The time expression must be a physical date field or an explicit `castDate`, and the range is half open: `startAt` is inclusive and `endAt` is exclusive. Predicates, joins, visibility, and safe numeric measure casts are applied before aggregation.
+
+Buckets support `hour`, `day`, `week`, and `month`. Boundaries are aligned in UTC, weeks start on Monday, and months use calendar boundaries. PostgreSQL generates one contiguous grid and returns zero for empty buckets. A range may contain at most 1000 aligned buckets. Multiple measures, multiple series, custom bucket units, and pagination are not supported.
+
+```ts
+const completion = table("event", "completion");
+
+document({
+	completionCounts: timeSeries(completion, {
+		bucket: "day",
+		measure: { function: "count" },
+		endAt: "2026-02-01T00:00:00.000Z",
+		startAt: "2026-01-01T00:00:00.000Z",
+		time: column(completion, "occurredAt"),
+		where: eq(column(completion, "eventSchemaSlug"), literal("completion")),
+	}),
+});
+```
+
 ## Limits
 
 - 10 named queries per document.
@@ -247,8 +268,9 @@ document({
 - 100 rows per page.
 - 100 rows per include.
 - 1000 grouped aggregate rows.
+- 1000 aligned time-series buckets.
 - 3 include levels.
 - 3 correlated query levels.
 - 30-second transaction-local statement timeout.
 
-Time series, plugin execution, and application tables other than `entity`, `event`, and `relationship` are not available yet.
+Plugin execution and application tables other than `entity`, `event`, and `relationship` are not available yet.
