@@ -14,6 +14,13 @@ export const LocalAssetLocator = Schema.Struct({
 	key: Schema.String,
 	type: Schema.Literal("local"),
 });
+export type LocalAssetLocator = typeof LocalAssetLocator.Type;
+
+export const S3AssetLocator = Schema.Struct({ key: Schema.String, type: Schema.Literal("s3") });
+export type S3AssetLocator = typeof S3AssetLocator.Type;
+
+export const ManagedAssetLocator = Schema.Union([LocalAssetLocator, S3AssetLocator]);
+export type ManagedAssetLocator = typeof ManagedAssetLocator.Type;
 
 export const UploadIntentResponse = Schema.Struct({
 	intentId: Schema.String,
@@ -24,16 +31,15 @@ export const UploadIntentResponse = Schema.Struct({
 });
 export type UploadIntentResponse = typeof UploadIntentResponse.Type;
 
-export const CompleteUploadResponse = LocalAssetLocator;
+export const CompleteUploadResponse = ManagedAssetLocator;
 export type CompleteUploadResponse = typeof CompleteUploadResponse.Type;
 
-export const PresignedUploadResponse = Schema.Struct({
-	key: Schema.String,
-	uploadUrl: Schema.String,
+export const DownloadResolutionInput = Schema.Struct({
+	assets: Schema.Array(ManagedAssetLocator).pipe(Schema.check(Schema.isMinLength(1))),
 });
-export type PresignedUploadResponse = typeof PresignedUploadResponse.Type;
+export type DownloadResolutionInput = typeof DownloadResolutionInput.Type;
 
-export const PresignedDownloadResponse = Schema.Array(
-	Schema.Struct({ key: Schema.String, downloadUrl: Schema.String }),
+export const DownloadResolutionResponse = Schema.Array(
+	Schema.Struct({ asset: ManagedAssetLocator, downloadUrl: Schema.String }),
 );
-export type PresignedDownloadResponse = typeof PresignedDownloadResponse.Type;
+export type DownloadResolutionResponse = typeof DownloadResolutionResponse.Type;

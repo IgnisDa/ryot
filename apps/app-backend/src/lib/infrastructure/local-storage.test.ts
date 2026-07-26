@@ -59,6 +59,24 @@ it.effect("signs and validates local upload targets", () =>
 	}).pipe(Effect.provide(makeLayer())),
 );
 
+it.effect("binds local download signatures to the key and content type", () =>
+	Effect.gen(function* () {
+		const localStorage = yield* LocalStorageService;
+		const target = yield* localStorage.createDownloadTarget(key, "text/plain", 1_700_000_000);
+		const verified = yield* localStorage.verifyDownloadTarget("GET", target, 1_700_000_899);
+		expect(verified).toEqual({ contentType: "text/plain", key });
+		const tampered = new URL(target, "http://local.invalid");
+		tampered.searchParams.set("key", "permanent/other.txt");
+		const exit = yield* Effect.exit(
+			localStorage.verifyDownloadTarget("GET", tampered.toString(), 1_700_000_000),
+		);
+		assertExitFails(
+			exit,
+			new BadRequest({ message: "Local download target is invalid or expired" }),
+		);
+	}).pipe(Effect.provide(makeLayer())),
+);
+
 it.effect("streams local objects through a staged file and deletes them idempotently", () =>
 	Effect.gen(function* () {
 		const localStorage = yield* LocalStorageService;

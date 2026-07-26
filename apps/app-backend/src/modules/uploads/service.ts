@@ -28,17 +28,19 @@ const UploadIntentMetadata = Schema.Struct({
 	createdAt: Schema.Finite,
 	expiresAt: Schema.Finite,
 	contentType: Schema.String,
-	provider: Schema.Literal("local"),
-	kind: Schema.Literal("permanent"),
+	provider: Schema.Literals(["local", "s3"]),
 	state: Schema.Literals(["pending", "completed"]),
-	completion: Schema.optional(Schema.Struct({ key: Schema.String, type: Schema.Literal("local") })),
+	kind: Schema.Literals(["temporary", "permanent"]),
+	completion: Schema.optional(
+		Schema.Union([
+			Schema.Struct({ key: Schema.String, type: Schema.Literal("local") }),
+			Schema.Struct({ key: Schema.String, type: Schema.Literal("s3") }),
+		]),
+	),
 });
 type UploadIntentMetadata = typeof UploadIntentMetadata.Type;
 
-const UploadTokenValue = Schema.Struct({
-	userId: UserId,
-	resolvedPath: Schema.String,
-});
+const UploadTokenValue = Schema.Struct({ userId: UserId, resolvedPath: Schema.String });
 
 const resolveExtension = (contentType: UploadContentType) =>
 	uploadContentTypeExtensions[contentType][0];
@@ -97,6 +99,16 @@ const resolveFileName = (name: string): Effect.Effect<string, BadRequest> => {
 	return Effect.succeed(fileName);
 };
 
+const resolveContentTypeFromKey = (key: string): Effect.Effect<UploadContentType, BadRequest> => {
+	const extension = key.split(".").pop()?.toLowerCase() ?? "";
+	const entry = Object.entries(uploadContentTypeExtensions).find(([, extensions]) =>
+		extensions.includes(extension),
+	);
+	return entry && isUploadContentType(entry[0])
+		? Effect.succeed(entry[0])
+		: Effect.fail(badRequest("Local object key has an unsupported file extension"));
+};
+
 export class UploadsService extends Context.Service<UploadsService>()("UploadsService", {
 	make: Effect.gen(function* () {
 		const config = yield* AppConfig;
@@ -109,8 +121,18 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 			user: CurrentUserValue,
 			input: typeof UploadIntentInput.Type,
 		) {
-			if (input.provider !== "local" || input.kind !== "permanent") {
-				return yield* badRequest("Only permanent local upload intents are currently supported");
+			if (input.kind !== "permanent") {
+				return yield* badRequest("Only permanent upload intents are currently supported");
+			}
+			if (input.provider === "s3" && !s3Service.isConfigured) {
+				return yield* badRequest(
+					"S3 file storage is not configured. Set the FILE_STORAGE_S3_* settings.",
+				);
+			}
+			if (input.provider === "local" && !localStorage.isConfigured) {
+				return yield* badRequest(
+					"Local file storage is not configured. Set FILE_STORAGE_LOCAL_DIR and FILE_STORAGE_LOCAL_SIGNING_SECRET.",
+				);
 			}
 			const fileName = yield* resolveFileName(input.fileName);
 			const contentType = yield* resolveIntentContentType(input.contentType, fileName);
@@ -118,7 +140,18 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 			const objectKey = `permanent/${generateId()}.${resolveExtension(contentType)}`;
 			const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
 			const expiresAt = now + UPLOAD_URL_EXPIRY_SECONDS;
-			const target = yield* localStorage.createUploadTarget(intentId, now);
+			const target =
+				input.provider === "local"
+					? yield* localStorage.createUploadTarget(intentId, now)
+					: {
+							expiresAt,
+							method: "PUT" as const,
+							uploadUrl: yield* s3Service.presignUpload(
+								objectKey,
+								contentType,
+								UPLOAD_URL_EXPIRY_SECONDS,
+							),
+						};
 			const metadata = {
 				intentId,
 				objectKey,
@@ -126,9 +159,9 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 				contentType,
 				createdAt: now,
 				userId: user.id,
+				kind: input.kind,
+				provider: input.provider,
 				state: "pending" as const,
-				provider: "local" as const,
-				kind: "permanent" as const,
 			};
 			const encoded = yield* Schema.encodeUnknownEffect(
 				Schema.fromJsonString(UploadIntentMetadata),
@@ -166,36 +199,53 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 			user: CurrentUserValue,
 			intentId: string,
 		) {
-			const metadata = yield* getIntent(intentId);
-			if (metadata.userId !== user.id) {
-				return yield* badRequest("Upload intent does not belong to this user");
+			const lockKey = redisKeys.uploadIntentLock(intentId);
+			if (!(yield* redis.claim(lockKey, 60))) {
+				return yield* badRequest("Upload intent is currently being processed");
 			}
-			if (metadata.state === "completed" && metadata.completion) {
-				return metadata.completion;
-			}
-			if (metadata.expiresAt < Math.floor((yield* Clock.currentTimeMillis) / 1000)) {
-				return yield* badRequest("Upload intent is invalid or has expired");
-			}
-			const info = yield* localStorage
-				.statObject(metadata.objectKey)
-				.pipe(Effect.mapError(() => badRequest("Upload object is missing or invalid")));
-			if (Number(info.size) > UPLOAD_MAX_FILE_BYTES) {
-				return yield* badRequest(
-					`Upload exceeds maximum allowed size of ${UPLOAD_MAX_FILE_BYTES} bytes`,
+			return yield* Effect.gen(function* () {
+				const metadata = yield* getIntent(intentId);
+				if (metadata.userId !== user.id) {
+					return yield* badRequest("Upload intent does not belong to this user");
+				}
+				if (metadata.state === "completed" && metadata.completion) {
+					return metadata.completion;
+				}
+				if (metadata.expiresAt < Math.floor((yield* Clock.currentTimeMillis) / 1000)) {
+					return yield* badRequest("Upload intent is invalid or has expired");
+				}
+				const info =
+					metadata.provider === "local"
+						? yield* localStorage
+								.statObject(metadata.objectKey)
+								.pipe(Effect.mapError(() => badRequest("Upload object is missing or invalid")))
+						: yield* s3Service
+								.statObject(metadata.objectKey)
+								.pipe(Effect.mapError(() => badRequest("Upload object is missing or invalid")));
+				if (Number(info.size) > UPLOAD_MAX_FILE_BYTES) {
+					return yield* badRequest(
+						`Upload exceeds maximum allowed size of ${UPLOAD_MAX_FILE_BYTES} bytes`,
+					);
+				}
+				if (
+					metadata.provider === "s3" &&
+					info.type.split(";", 1)[0]?.trim().toLowerCase() !== metadata.contentType
+				) {
+					return yield* badRequest("Upload content type does not match the upload intent");
+				}
+				const completion = { type: metadata.provider, key: metadata.objectKey };
+				const completed = { ...metadata, state: "completed" as const, completion };
+				const encoded = yield* Schema.encodeUnknownEffect(
+					Schema.fromJsonString(UploadIntentMetadata),
+				)(completed).pipe(Effect.orDie);
+				yield* redis.setAndRemoveFromIndex(
+					redisKeys.uploadIntent(intentId),
+					encoded,
+					redisKeys.uploadIntentExpiry,
+					intentId,
 				);
-			}
-			const completion = { type: "local" as const, key: metadata.objectKey };
-			const completed = { ...metadata, state: "completed" as const, completion };
-			const encoded = yield* Schema.encodeUnknownEffect(
-				Schema.fromJsonString(UploadIntentMetadata),
-			)(completed).pipe(Effect.orDie);
-			yield* redis.setAndRemoveFromIndex(
-				redisKeys.uploadIntent(intentId),
-				encoded,
-				redisKeys.uploadIntentExpiry,
-				intentId,
-			);
-			return completion;
+				return completion;
+			}).pipe(Effect.ensuring(redis.del(lockKey)));
 		});
 
 		const putLocalIntent = Effect.fn("UploadsService.putLocalIntent")(function* (
@@ -221,6 +271,9 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 			if (metadata.state === "completed") {
 				return;
 			}
+			if (metadata.provider !== "local") {
+				return yield* badRequest("Upload intent does not target local storage");
+			}
 			if (
 				metadata.state !== "pending" ||
 				metadata.expiresAt < Math.floor((yield* Clock.currentTimeMillis) / 1000)
@@ -243,47 +296,107 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 		const removeUploadIntent = Effect.fn("UploadsService.removeUploadIntent")(function* (
 			intentId: string,
 		) {
-			const metadata = yield* getIntent(intentId);
-			yield* localStorage.deleteObject(metadata.objectKey);
+			const raw = yield* redis.get(redisKeys.uploadIntent(intentId));
+			if (!raw) {
+				yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
+				return;
+			}
+			const metadata = yield* Schema.decodeUnknownEffect(
+				Schema.fromJsonString(UploadIntentMetadata),
+			)(raw).pipe(Effect.mapError(() => badRequest("Upload intent is invalid")));
+			yield* metadata.provider === "local"
+				? localStorage.deleteObject(metadata.objectKey)
+				: s3Service.deleteObject(metadata.objectKey);
 			yield* redis.del(redisKeys.uploadIntent(intentId));
 			yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
 		});
 
-		const createPresignedUpload = Effect.fn("UploadsService.createPresignedUpload")(function* (
+		const resolveDownloads = Effect.fn("UploadsService.resolveDownloads")(function* (
 			_user: CurrentUserValue,
-			contentType: string,
+			assets: ReadonlyArray<{ key: string; type: "local" | "s3" }>,
 		) {
-			const resolvedType = yield* resolveContentType(contentType);
-			const extension = resolveExtension(resolvedType);
-			const key = `uploads/${generateId()}.${extension}`;
-
-			if (!s3Service.isConfigured) {
-				return yield* Effect.die("S3 uploads are not configured for app-backend");
-			}
-
-			const uploadUrl = yield* s3Service.presignUpload(
-				key,
-				resolvedType,
-				UPLOAD_URL_EXPIRY_SECONDS,
-			);
-			return { key, uploadUrl };
-		});
-
-		const createPresignedDownload = Effect.fn("UploadsService.createPresignedDownload")(function* (
-			_user: CurrentUserValue,
-			keys: readonly string[],
-		) {
-			if (!s3Service.isConfigured) {
-				return yield* Effect.die("S3 uploads are not configured for app-backend");
-			}
-
-			const results = yield* Effect.forEach(keys, (key) =>
+			const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
+			return yield* Effect.forEach(assets, (asset) =>
 				Effect.gen(function* () {
-					const downloadUrl = yield* s3Service.presignDownload(key, UPLOAD_URL_EXPIRY_SECONDS);
-					return { key, downloadUrl };
+					const downloadUrl =
+						asset.type === "local"
+							? yield* Effect.gen(function* () {
+									yield* localStorage
+										.statObject(asset.key)
+										.pipe(
+											Effect.mapError(() =>
+												badRequest("Local download object is missing or invalid"),
+											),
+										);
+									return yield* localStorage
+										.createDownloadTarget(
+											asset.key,
+											yield* resolveContentTypeFromKey(asset.key),
+											now,
+										)
+										.pipe(
+											Effect.mapError(() =>
+												badRequest("Local download object is missing or invalid"),
+											),
+										);
+								})
+							: yield* s3Service.presignDownload(asset.key, UPLOAD_URL_EXPIRY_SECONDS);
+					return { asset, downloadUrl };
 				}),
 			);
-			return results;
+		});
+
+		const resolveLocalDownload = Effect.fn("UploadsService.resolveLocalDownload")(function* (
+			method: string,
+			url: string,
+		) {
+			const target = yield* localStorage.verifyDownloadTarget(
+				method,
+				url,
+				Math.floor((yield* Clock.currentTimeMillis) / 1000),
+			);
+			const path = yield* localStorage
+				.resolveObjectPath(target.key)
+				.pipe(Effect.mapError(() => badRequest("Local download object is missing or invalid")));
+			const info = yield* localStorage
+				.statObject(target.key)
+				.pipe(Effect.mapError(() => badRequest("Local download object is missing or invalid")));
+			return { contentType: target.contentType, path, size: Number(info.size) };
+		});
+
+		const cleanupPendingIntents = Effect.fn("UploadsService.cleanupPendingIntents")(function* (
+			max: number,
+		) {
+			const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
+			const intentIds = yield* redis.zrangeByScore(redisKeys.uploadIntentExpiry, now, max);
+			yield* Effect.forEach(intentIds, (intentId) =>
+				Effect.gen(function* () {
+					const raw = yield* redis.get(redisKeys.uploadIntent(intentId));
+					if (!raw) {
+						yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
+						return;
+					}
+					const metadata = yield* Schema.decodeUnknownEffect(
+						Schema.fromJsonString(UploadIntentMetadata),
+					)(raw).pipe(Effect.mapError(() => badRequest("Upload intent is invalid")));
+					if (metadata.state !== "pending" || metadata.expiresAt > now) {
+						yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
+						return;
+					}
+					if (!(yield* redis.claim(redisKeys.uploadIntentLock(intentId), 60))) {
+						return;
+					}
+					yield* removeUploadIntent(intentId).pipe(
+						Effect.ensuring(redis.del(redisKeys.uploadIntentLock(intentId))),
+					);
+				}).pipe(
+					Effect.catchCause((cause) =>
+						Effect.logWarning("upload intent cleanup failed", cause).pipe(
+							Effect.annotateLogs({ intentId }),
+						),
+					),
+				),
+			);
 		});
 
 		const uploadTemporary = Effect.fn("UploadsService.uploadTemporary")(function* (
@@ -354,12 +467,13 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 		return {
 			putLocalIntent,
 			uploadTemporary,
+			resolveDownloads,
 			claimUploadToken,
 			removeUploadIntent,
 			createUploadIntent,
 			completeUploadIntent,
-			createPresignedUpload,
-			createPresignedDownload,
+			resolveLocalDownload,
+			cleanupPendingIntents,
 		};
 	}),
 }) {
