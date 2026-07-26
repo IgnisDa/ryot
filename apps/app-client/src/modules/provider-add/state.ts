@@ -1,3 +1,4 @@
+import type { EntityId } from "@ryot/contract/schema/brands";
 import type { ProviderEntityLinksResult } from "@ryot/ryotql-recipes/provider-entity-links";
 import type { ProviderSearchResult } from "@ryot/ryotql-recipes/provider-search";
 import { Match } from "effect";
@@ -22,7 +23,7 @@ type ProviderEntityLinksState =
 	| { readonly status: "loading" }
 	| { readonly status: "malformed"; readonly cause: unknown }
 	| { readonly status: "transport-error"; readonly cause: unknown }
-	| { readonly status: "ready"; readonly externalIds: ReadonlySet<string> };
+	| { readonly status: "ready"; readonly entityIds: ReadonlyMap<string, EntityId> };
 
 export const providerAddError = (state: {
 	readonly status: "transport-error" | "malformed";
@@ -68,6 +69,6 @@ export const mapProviderEntityLinks = (
 	}
 	return {
 		status: "ready",
-		externalIds: new Set(result.value.map((link) => link.externalId)),
+		entityIds: new Map(result.value.map((link) => [link.externalId, link.entityId])),
 	};
 };
