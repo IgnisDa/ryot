@@ -263,26 +263,20 @@ export function getNavigationHref(workspace: string, item: Pick<NavigationItem, 
 		return { pathname: "/[workspace]" as const, params: { workspace } };
 	}
 	if (item.kind === "collection") {
-		return {
-			pathname: "/[workspace]/collections/[collectionSlug]" as const,
-			params: { collectionSlug: item.slug, workspace },
-		};
+		return { params: { entityId: item.slug }, pathname: "/e/[entityId]" as const };
 	}
-	return {
-		pathname: "/[workspace]/views/[viewSlug]" as const,
-		params: { viewSlug: item.slug, workspace },
-	};
+	return { params: { viewSlug: item.slug }, pathname: "/v/[viewSlug]" as const };
 }
 
 export function getActiveNavigationKey(pathname: string) {
 	if (pathname.endsWith("/settings")) {
 		return "settings";
 	}
-	const viewMatch = pathname.match(/\/views\/([^/]+)/);
+	const viewMatch = pathname.match(/\/v\/([^/]+)/);
 	if (viewMatch?.[1]) {
 		return `view:${viewMatch[1]}`;
 	}
-	const collectionMatch = pathname.match(/\/collections\/([^/]+)/);
+	const collectionMatch = pathname.match(/\/e\/([^/]+)/);
 	if (collectionMatch?.[1]) {
 		return `collection:${collectionMatch[1]}`;
 	}

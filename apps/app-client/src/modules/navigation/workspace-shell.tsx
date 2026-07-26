@@ -43,7 +43,7 @@ import { useState, type ReactNode } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useSetWorkspace } from "@/modules/server/state";
+import { useSetWorkspace, useWorkspace } from "@/modules/server/state";
 
 import {
 	getActiveNavigationKey,
@@ -208,7 +208,7 @@ function Sidebar(props: {
 	}
 
 	return (
-		<View className="relative hidden w-[264px] flex-col border-r border-border bg-surface md:flex">
+		<View className="relative hidden w-66 flex-col border-r border-border bg-surface md:flex">
 			<ScrollView
 				showsVerticalScrollIndicator={false}
 				contentContainerClassName="gap-2 px-3 pb-5 pt-[18px]"
@@ -247,16 +247,16 @@ function Sidebar(props: {
 					<View className="gap-0.5">
 						{viewOrder.map((item) => (
 							<NavigationRow
+								item={item}
+								key={item.slug}
+								reordering={isReordering}
+								onPress={() => props.onNavigate(item)}
 								isActive={
 									item.kind === "home"
 										? props.activeKey === "home"
 										: props.activeKey === `view:${item.slug}`
 								}
-								item={item}
-								key={item.slug}
-								onPress={() => props.onNavigate(item)}
 								onReorder={() => moveView(viewOrder.indexOf(item))}
-								reordering={isReordering}
 							/>
 						))}
 					</View>
@@ -432,7 +432,7 @@ function Sheet(props: {
 
 function MobileWorkspaceSheet(props: { onClose: () => void; onSelect: (slug: string) => void }) {
 	return (
-		<Sheet title="Workspaces" onClose={props.onClose} className="h-[465px]">
+		<Sheet title="Workspaces" onClose={props.onClose} className="h-116.25">
 			<View className="gap-2">
 				{navigationData.workspaces.map((workspace, index) => (
 					<Pressable
@@ -487,7 +487,7 @@ function MobileMoreSheet(props: {
 }) {
 	const items = getNavigationItems();
 	return (
-		<Sheet title="More Views" onClose={props.onClose} className="h-[570px]">
+		<Sheet title="More Views" onClose={props.onClose} className="h-142.5">
 			<ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="gap-2 pb-4">
 				{items.views.slice(4).map((item) => (
 					<Pressable
@@ -537,7 +537,7 @@ function MobileMoreSheet(props: {
 
 function MobileAccountSheet(props: { onClose: () => void }) {
 	return (
-		<Sheet title="Account" onClose={props.onClose} className="h-[300px]">
+		<Sheet title="Account" onClose={props.onClose} className="h-75">
 			<Pressable
 				accessibilityLabel="Open account profile"
 				accessibilityRole="button"
@@ -587,22 +587,23 @@ function MobileAccountSheet(props: { onClose: () => void }) {
 export function WorkspaceShell() {
 	const insets = useSafeAreaInsets();
 	const pathname = usePathname();
-	const params = useLocalSearchParams<{ workspace: string }>();
+	const params = useLocalSearchParams<{ workspace?: string }>();
 	const setWorkspace = useSetWorkspace();
-	const workspace = Array.isArray(params.workspace) ? params.workspace[0] : params.workspace;
+	const selectedWorkspace = useWorkspace();
+	const routeWorkspace = Array.isArray(params.workspace) ? params.workspace[0] : params.workspace;
 	const activeKey = getActiveNavigationKey(pathname);
 	const [mobileSheet, setMobileSheet] = useState<"more" | "workspace" | "account" | null>(null);
 	const [desktopWorkspaceOpen, setDesktopWorkspaceOpen] = useState(false);
 	const [isScrolled, setIsScrolled] = useState(false);
 
 	const currentWorkspace =
-		navigationData.workspaces.find((item) => item.slug === workspace) ??
+		navigationData.workspaces.find((item) => item.slug === (routeWorkspace ?? selectedWorkspace)) ??
 		navigationData.workspaces[0];
 
 	function navigate(item: NavigationItem) {
 		setMobileSheet(null);
 		setDesktopWorkspaceOpen(false);
-		router.push(getNavigationHref(workspace, item));
+		router.push(getNavigationHref(currentWorkspace.slug, item));
 	}
 
 	function selectWorkspace(slug: string) {
@@ -683,7 +684,7 @@ export function WorkspaceShell() {
 				</View>
 			</View>
 			{desktopWorkspaceOpen && (
-				<View className="absolute left-[278px] top-[78px] z-50 hidden w-[320px] rounded-xl border border-border bg-surface p-3 shadow-card md:flex">
+				<View className="absolute left-69.5 top-19.5 z-50 hidden w-[320px] rounded-xl border border-border bg-surface p-3 shadow-card md:flex">
 					<View className="flex-row items-center justify-between px-1 pb-2">
 						<Text className="font-ui-semibold text-xs text-text">Switch workspace</Text>
 						<Pressable
@@ -715,7 +716,7 @@ export function WorkspaceShell() {
 									<Text className="font-ui-medium text-xs text-text">{item.name}</Text>
 									<Text className="font-ui text-[10px] text-text-muted">{item.description}</Text>
 								</View>
-								{item.slug === workspace && <NavigationIcon name="check" size={15} />}
+								{item.slug === currentWorkspace.slug && <NavigationIcon name="check" size={15} />}
 							</Pressable>
 						))}
 					</View>
