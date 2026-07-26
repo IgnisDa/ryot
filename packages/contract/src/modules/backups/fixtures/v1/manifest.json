@@ -1,0 +1,52 @@
+{
+	"format": "ryot-backup",
+	"version": 1,
+	"archiveId": "00000000-0000-4000-8000-000000000002",
+	"appVersion": "v1-minimal-golden",
+	"createdAt": "2026-08-23T12:00:00.000Z",
+	"sections": [
+		{
+			"path": "profile.json",
+			"count": 1,
+			"sha256": "eea466674d173b8330508f0159ec8b8cd1c97303962cd4e3c03e918ace5f1128"
+		},
+		{
+			"path": "plugin-state.ndjson",
+			"count": 0,
+			"sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+		},
+		{
+			"path": "entities.ndjson",
+			"count": 1,
+			"sha256": "160efb5d2a58d1aeb0d209a28ac56ce1f333f970efc6a120058c473b4db0386d"
+		},
+		{
+			"path": "entity-dependencies.ndjson",
+			"count": 0,
+			"sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+		},
+		{
+			"path": "relationships.ndjson",
+			"count": 0,
+			"sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+		},
+		{
+			"path": "events.ndjson",
+			"count": 0,
+			"sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+		},
+		{
+			"path": "saved-views.ndjson",
+			"count": 0,
+			"sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+		},
+		{
+			"path": "notification-subscriptions.ndjson",
+			"count": 0,
+			"sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+		}
+	],
+	"assets": [],
+	"requiredPlugins": [{ "slug": "media", "version": "1.0.0" }],
+	"redactions": []
+}
