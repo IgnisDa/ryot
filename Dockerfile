@@ -5,7 +5,7 @@ FROM base AS prepare
 RUN --mount=type=cache,target=/root/.bun/install/cache \
     bun install --global turbo@2.9.16
 COPY . .
-RUN turbo prune @ryot/app-client @ryot/app-backend --docker
+RUN turbo prune @ryot/kernel-client @ryot/server --docker
 
 FROM base AS builder-base
 COPY --from=prepare /app/out/json/ .
@@ -21,7 +21,7 @@ COPY --from=prepare /app/tsconfig.options.json ./tsconfig.options.json
 FROM builder-base AS backend-builder
 ARG UNKEY_ROOT_KEY=""
 ENV UNKEY_ROOT_KEY=$UNKEY_ROOT_KEY
-RUN bun turbo --filter=@ryot/app-backend build
+RUN bun turbo --filter=@ryot/server build
 
 FROM builder-base AS client-builder
 # The Expo CLI requires Node: `bun run` only hands a `#!/usr/bin/env node` bin to Node
@@ -31,7 +31,7 @@ FROM builder-base AS client-builder
 # TODO: https://github.com/oven-sh/bun/pull/38090
 # TODO: https://github.com/oven-sh/bun/pull/38166
 COPY --from=node:24-bookworm-slim /usr/local/bin/node /usr/local/bin/node
-RUN bun turbo --filter=@ryot/app-client build
+RUN bun turbo --filter=@ryot/kernel-client build
 
 FROM base AS sandbox-compiler-runtime
 COPY --from=prepare /app/out/json/ .
@@ -64,11 +64,11 @@ ENV FRONTEND_UMAMI_HOST_URL="https://umami.diptesh.me"
 ENV FRONTEND_UMAMI_WEBSITE_ID="5ecd6915-d542-4fda-aa5f-70f09f04e2e0"
 WORKDIR /home/ryot
 RUN mkdir -p /home/ryot/storage /home/ryot/work && chown -R ryot:ryot /home/ryot/storage /home/ryot/work
-COPY --chown=ryot:ryot apps/app-backend/src/drizzle ./src/drizzle
-COPY --chown=ryot:ryot apps/app-backend/src/modules/definition-registry/kernel-scripts /src/modules/definition-registry/kernel-scripts
+COPY --chown=ryot:ryot kernel/backend/src/drizzle ./src/drizzle
+COPY --chown=ryot:ryot kernel/backend/src/modules/definition-registry/kernel-scripts /src/modules/definition-registry/kernel-scripts
 COPY --chown=ryot:ryot plugins /plugins
-COPY --from=client-builder --chown=ryot:ryot /app/apps/app-client/dist ./client
-COPY --from=backend-builder --chown=ryot:ryot /app/apps/app-backend/dist ./dist
+COPY --from=client-builder --chown=ryot:ryot /app/kernel/client/dist ./client
+COPY --from=backend-builder --chown=ryot:ryot /app/apps/server/dist ./dist
 COPY --from=backend-builder --chown=ryot:ryot /app/packages/sandbox-compiler/dist/compiler-worker.js* ./dist/
 COPY --from=sandbox-compiler-runtime --chown=ryot:ryot /app/node_modules ./node_modules
 COPY --from=sandbox-compiler-runtime --chown=ryot:ryot /app/packages ./packages

@@ -1,10 +1,10 @@
 import { definePlugin } from "@ryot/contract/modules/plugins/manifest";
 
+import { fitnessEntitySchemas } from "./backend/schemas/entity-schemas";
+import { fitnessRelationshipSchemas } from "./backend/schemas/relationship-schemas";
+import { fitnessSignalSchemas } from "./backend/schemas/signal-schemas";
 import { fitnessConfigSchema } from "./config-schema";
 import { fitnessSavedViews } from "./saved-views";
-import { fitnessEntitySchemas } from "./schemas/entity-schemas";
-import { fitnessRelationshipSchemas } from "./schemas/relationship-schemas";
-import { fitnessSignalSchemas } from "./schemas/signal-schemas";
 import { fitnessScripts } from "./script-catalog";
 
 const importDocs = (page: string) => ({ docsUrl: `https://docs.ryot.io/importing/${page}.html` });

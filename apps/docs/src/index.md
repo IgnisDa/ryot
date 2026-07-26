@@ -94,7 +94,7 @@ bugs and results in data loss. Only use this tag if you know what you are doing.
 Ryot collects usage data to help me prioritize features. It uses a self-hosted
 [Umami](https://umami.is) instance to collect this data. In addition to page views, a few
 events are also tracked, and you can find them in the
-[source code](https://github.com/IgnisDa/ryot/blob/main/apps/app-client/src/modules/analytics).
+[source code](https://github.com/IgnisDa/ryot/blob/main/kernel/client/src/modules/analytics).
 
 Once you are signed in, this data is linked to your account identifier so that activity
 belonging to one person is not counted as several visitors across sessions and devices.

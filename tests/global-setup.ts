@@ -21,7 +21,7 @@ declare module "vitest" {
 
 const S3_BUCKET_NAME = "ryot-test";
 
-const backendCwd = fileURLToPath(new URL("../apps/app-backend", import.meta.url));
+const backendCwd = fileURLToPath(new URL("../apps/server", import.meta.url));
 
 export default async function ({ provide }: TestProject) {
 	const [backendPort, frontendPort, coreInfrastructure] = await Promise.all([
