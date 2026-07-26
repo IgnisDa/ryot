@@ -35,6 +35,7 @@ export interface SandboxRunnerPayload {
 
 export interface SandboxRunnerError {
 	readonly line?: number;
+	readonly kind: string;
 	readonly phase: string;
 	readonly stack?: string;
 	readonly column?: number;
@@ -62,10 +63,13 @@ const nativeError = globalThis.Error;
 const nativeNumber = globalThis.Number;
 const nativeString = globalThis.String;
 const decodeComponent = globalThis.decodeURIComponent;
+const failureKinds = new WeakMap<object, string>();
 const failurePhases = new WeakMap<object, string>();
 const jsonStringify = JSON.stringify.bind(JSON);
 const encodeText = encoder.encode.bind(encoder);
 const decodeText = decoder.decode.bind(decoder);
+const getFailureKind = failureKinds.get.bind(failureKinds);
+const setFailureKind = failureKinds.set.bind(failureKinds);
 const getFailurePhase = failurePhases.get.bind(failurePhases);
 const setFailurePhase = failurePhases.set.bind(failurePhases);
 const truncationDecoder = new TextDecoder("utf-8", { fatal: true });
@@ -279,14 +283,20 @@ export const readBridgeResponse = (
 	return readBridgeChunks(response.body.getReader(), maximumBytes, [], 0);
 };
 
-export const throwPhase = (phase: string, error: unknown): never => {
+export const throwPhase = (phase: string, error: unknown, kind?: string): never => {
 	const failure = isRecord(error) ? error : new nativeError(nativeString(error));
 	setFailurePhase(failure, phase);
+	if (kind !== undefined) {
+		setFailureKind(failure, kind);
+	}
 	throw failure;
 };
 
 export const failurePhase = (error: unknown, fallback: string): string =>
 	isRecord(error) ? (getFailurePhase(error) ?? fallback) : fallback;
+
+export const failureKind = (error: unknown, fallback: string): string =>
+	isRecord(error) ? (getFailureKind(error) ?? fallback) : fallback;
 
 const safeErrorProperty = (error: unknown, property: string): string | undefined => {
 	try {
@@ -360,6 +370,7 @@ export const executionError = (
 	error: unknown,
 	phase: string,
 	payload: SandboxRunnerPayload | undefined,
+	kind: string,
 ): SandboxRunnerError => {
 	const rawStack = safeErrorProperty(error, "stack") ?? "";
 	const moduleDirectoryUrl = moduleUrlDirectory(payload);
@@ -408,6 +419,7 @@ export const executionError = (
 		sanitizedStack += `${sanitizedStack ? "\n" : ""}    at ${frame.path}:${frame.line}:${frame.column}`;
 	}
 	return {
+		kind,
 		phase,
 		message: sanitizeMessage(rawMessage, payload, phase, frames.length > 0),
 		...(firstFrame ? { line: firstFrame.line, column: firstFrame.column } : {}),

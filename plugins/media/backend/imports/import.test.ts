@@ -1,9 +1,31 @@
+import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import type { WorkflowReplayEnvelope, WorkflowReplayHost } from "@ryot-app/sandbox-sdk/workflow";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { assert, expect, it } from "vitest";
 
 import workflow, { mediaImportParser } from "./import.sandbox";
+
+const importCommand = (runId: string, integrationId?: string) =>
+	Schema.decodeUnknownSync(LifecycleCommand)({
+		occurredAt: "2026-09-16T00:00:00.000Z",
+		itemIdentity: JSON.stringify(["import-run", runId]),
+		causation: {
+			depth: 0,
+			parentRunId: null,
+			importRunId: runId,
+			parentTriggerId: null,
+			executionId: `execution-${runId}`,
+			rootExecutionId: `execution-${runId}`,
+			...(integrationId
+				? {
+						integrationId,
+						source: "integration",
+						initiator: { id: integrationId, kind: "integration" },
+					}
+				: { source: "import", initiator: { id: "user-1", kind: "user" } }),
+		},
+	});
 
 it("dispatches every declared source to its matching parser activity", () => {
 	for (const source of [
@@ -31,7 +53,12 @@ it("dispatches every declared source to its matching parser activity", () => {
 it("passes Netflix profile selection from source payload to its parser activity", async () => {
 	const envelope = await Effect.runPromise(
 		workflow.run(
-			{ source: "netflix", runId: "run-netflix", sourcePayload: { profileName: "Kids" } },
+			{
+				source: "netflix",
+				runId: "run-netflix",
+				command: importCommand("run-netflix"),
+				sourcePayload: { profileName: "Kids" },
+			},
 			{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
 			{ metadata: {}, sandboxScriptId: "media-import" },
 		),
@@ -62,7 +89,12 @@ it.each([
 ])("passes Trakt $0 fields to its parser activity", async (_, sourcePayload, input) => {
 	const envelope = await Effect.runPromise(
 		workflow.run(
-			{ sourcePayload, source: "trakt", runId: `run-trakt-${_}` },
+			{
+				sourcePayload,
+				source: "trakt",
+				runId: `run-trakt-${_}`,
+				command: importCommand(`run-trakt-${_}`),
+			},
 			{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
 			{ metadata: {}, sandboxScriptId: "media-import" },
 		),
@@ -84,6 +116,7 @@ it("passes credentialed source payload fields to its parser activity", async () 
 			{
 				source: "plex",
 				runId: "run-plex",
+				command: importCommand("run-plex"),
 				sourcePayload: {
 					apiKey: "token",
 					apiUrl: "https://plex.example",
@@ -119,6 +152,7 @@ it("selects optional MyAnimeList artifacts from source payload field markers", a
 			{
 				runId: "run-mal",
 				source: "myanimelist",
+				command: importCommand("run-mal"),
 				sourcePayload: { mangaUploadToken: "mangaUploadToken" },
 			},
 			{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
@@ -143,6 +177,7 @@ it("marks adapter-only integration failures as failed kernel runs", async () => 
 	const input = {
 		source: "kodi",
 		runId: "run-kodi",
+		command: importCommand("run-kodi", "integration-1"),
 		sourcePayload: {
 			integrationId: "integration-1",
 			integrationScriptSlug: "integration.kodi",
@@ -183,8 +218,8 @@ it("marks adapter-only integration failures as failed kernel runs", async () => 
 	const kernelRequest = envelope.requests[journal.length];
 	assert(kernelRequest?.kind === "child");
 	expect(kernelRequest.args).toMatchObject({
+		input: { failRun: true },
 		workflowSlug: "kernel:process-import-chunks",
-		input: { failRun: true, integrationId: "integration-1" },
 	});
 });
 
@@ -194,6 +229,7 @@ it("dispatches integration runs to the adapter even when the source names a cred
 			{
 				source: "audiobookshelf",
 				runId: "run-audiobookshelf",
+				command: importCommand("run-audiobookshelf", "integration-2"),
 				sourcePayload: {
 					integrationId: "integration-2",
 					integrationScriptSlug: "integration.audiobookshelf",
@@ -242,7 +278,7 @@ const driveWatcharrImport = (input: {
 	const replay = (): Promise<WorkflowReplayEnvelope> =>
 		Effect.runPromise(
 			workflow.run(
-				{ runId: "run-1", source: "watcharr" },
+				{ runId: "run-1", source: "watcharr", command: importCommand("run-1") },
 				{ replayJournal: () => Effect.succeed(journal) } satisfies WorkflowReplayHost,
 				{ metadata: {}, sandboxScriptId: "media-import" },
 			),
@@ -284,7 +320,12 @@ const driveWatcharrImport = (input: {
 it("fails the workflow rather than dying when a source payload is incomplete", async () => {
 	const envelope = await Effect.runPromise(
 		workflow.run(
-			{ source: "igdb", runId: "run-igdb", sourcePayload: { collection: "  " } },
+			{
+				source: "igdb",
+				runId: "run-igdb",
+				command: importCommand("run-igdb"),
+				sourcePayload: { collection: "  " },
+			},
 			{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
 			{ metadata: {}, sandboxScriptId: "media-import" },
 		),
@@ -336,7 +377,12 @@ it.each([
 ])("fails the Trakt workflow on $0", async (_, sourcePayload, error) => {
 	const envelope = await Effect.runPromise(
 		workflow.run(
-			{ sourcePayload, source: "trakt", runId: "run-trakt-invalid" },
+			{
+				sourcePayload,
+				source: "trakt",
+				runId: "run-trakt-invalid",
+				command: importCommand("run-trakt-invalid"),
+			},
 			{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
 			{ metadata: {}, sandboxScriptId: "media-import" },
 		),
@@ -351,6 +397,58 @@ const singleShowGroup = (events: ReadonlyArray<JsonValue>) => [
 ];
 
 const completedShowPopulation = [{ index: 0, entityId: "show-1", status: "completed" }];
+
+it("passes integration attribution and resolved episode identity to event production", async () => {
+	const envelope = await Effect.runPromise(
+		workflow.run(
+			{
+				source: "kodi",
+				runId: "run-1",
+				command: importCommand("run-1", "integration-1"),
+				sourcePayload: {
+					integrationId: "integration-1",
+					integrationScriptSlug: "integration.kodi",
+				},
+			},
+			{
+				replayJournal: () =>
+					Effect.succeed<ReadonlyArray<JsonValue>>([
+						{
+							failures: [],
+							entityGroups: singleShowGroup([
+								progressEvent("2026-01-01T00:00:00.000Z", showEpisode(1, 1)),
+							]),
+						},
+						{ results: completedShowPopulation },
+						{ results: [{ index: 0, entityId: "episode-1" }] },
+					]),
+			} satisfies WorkflowReplayHost,
+			{ metadata: {}, sandboxScriptId: "media-import" },
+		),
+	);
+	expect(envelope).toMatchObject({ state: "pending" });
+	expect(envelope.requests[3]).toMatchObject({
+		kind: "activity",
+		args: {
+			scriptSlug: "import.write-chunks",
+			input: {
+				populationResults: completedShowPopulation,
+				integration: { importRunId: "run-1", integrationId: "integration-1" },
+				entityGroups: [
+					{
+						events: [
+							{
+								subjectEntityId: "episode-1",
+								properties: { progressPercent: 100 },
+								subjectEntitySchemaSlug: "show-episode",
+							},
+						],
+					},
+				],
+			},
+		},
+	});
+});
 
 it("deterministically composes Watcharr parsing, population, episode resolution, and kernel writes", async () => {
 	const { replay, requests } = driveWatcharrImport({
@@ -379,7 +477,14 @@ it("deterministically composes Watcharr parsing, population, episode resolution,
 					expect.objectContaining({
 						index: 0,
 						providerSlug: "show.tmdb",
-						origin: { kind: "import", importRunId: "run-1" },
+						command: {
+							...importCommand("run-1"),
+							itemIdentity: JSON.stringify([
+								JSON.stringify(["import-run", "run-1"]),
+								"population",
+								0,
+							]),
+						},
 					}),
 				],
 			},

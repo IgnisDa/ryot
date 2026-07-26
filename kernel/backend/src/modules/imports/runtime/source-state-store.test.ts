@@ -1,5 +1,10 @@
 import { expect, it } from "@effect/vitest";
-import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import {
+	PluginConfigRevisionId,
+	PluginId,
+	PluginRevisionId,
+	SandboxScriptId,
+} from "@ryot-app/contract/schema/brands";
 import { Effect, Layer, Schema } from "effect";
 import { assert } from "vitest";
 
@@ -26,6 +31,19 @@ const state = {
 	namedArtifactPaths: { file: "/tmp/export.csv" },
 	sourcePayload: { file: "file", apiKey: "secret" },
 	workflowScriptId: SandboxScriptId.make("script-1"),
+	pluginRevision: {
+		ownerId: null,
+		slug: "example",
+		compiledHashes: {},
+		workflowScripts: {},
+		scope: "system" as const,
+		userBootstrapScriptSlugs: [],
+		id: PluginId.make("example-plugin-id"),
+		revisionId: PluginRevisionId.make("example-revision"),
+		configSchema: { fields: {}, unknownKeys: "strict" as const },
+		configRevisionId: PluginConfigRevisionId.make("example-config-revision"),
+		schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
+	},
 };
 
 it.effect("stores, claims, and deletes import source state with bounded lifecycle keys", () => {

@@ -346,6 +346,7 @@ describe("workflow definitions", () => {
 		expect(envelope).toEqual({
 			state: "failed",
 			journalLength: 1,
+			kind: "script-failure",
 			error: "Error: invariant violated",
 			requests: [
 				{

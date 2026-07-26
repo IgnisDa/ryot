@@ -18,6 +18,10 @@ import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, Option, Queue, Ref } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";
+import {
+	makePluginEnvironmentConfig,
+	PluginEnvironmentConfig,
+} from "#lib/infrastructure/plugin-environment-config";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { databaseLayer, makeRedisService, type MockOverrides } from "#lib/test-utils/effect";
@@ -49,7 +53,11 @@ const failureOf = (exit: Exit.Exit<unknown, unknown>) => {
 const mockRepository = Layer.mock(PluginRepository);
 
 const makeRepository = (overrides: MockOverrides<typeof mockRepository>) =>
-	mockRepository({ ...overrides });
+	mockRepository({
+		resolveEnvironmentConfigs: () => Effect.succeed({}),
+		validateConfigurationKeys: () => Effect.void.pipe(Effect.as(undefined)),
+		...overrides,
+	});
 
 const makeStoredPlugin = (manifest: PluginManifest, sourceHash: string): StoredPlugin => {
 	return {
@@ -82,18 +90,12 @@ const definitionOwnerManifest = (): PluginManifest => {
 	assert(entitySchema);
 	return {
 		...fixture,
+		hooks: [],
 		scripts: [],
 		signalSchemas: [],
 		relationshipSchemas: [],
 		metadata: { ...fixture.metadata, slug: "example", name: "Example" },
 		entitySchemas: [{ ...entitySchema, slug: "item", eventSchemas: [] }],
-		bindings: {
-			eventAutomations: [],
-			entityAutomations: [],
-			signalAutomations: [],
-			relationshipAutomations: [],
-			providerEntityImportAutomations: [],
-		},
 	};
 };
 
@@ -105,19 +107,16 @@ const dependentManifest = (entitySchemaSlug: string): PluginManifest => {
 		signalSchemas: [],
 		relationshipSchemas: [],
 		metadata: { ...fixture.metadata, name: "Dependent", slug: "dependent" },
-		bindings: {
-			eventAutomations: [],
-			signalAutomations: [],
-			relationshipAutomations: [],
-			providerEntityImportAutomations: [],
-			entityAutomations: [
-				{
-					entitySchemaSlug,
-					operation: "create",
-					scriptSlug: fixture.scripts[0]?.slug ?? "fixture.automation",
-				},
-			],
-		},
+		hooks: [
+			{
+				stage: "after",
+				name: "Created",
+				delivery: "async",
+				slug: "dependent.created",
+				scriptSlug: "fixture.automation",
+				targets: [{ entitySchemaSlug, resource: "entity", operation: "create" }],
+			},
+		],
 	};
 };
 
@@ -127,19 +126,13 @@ const formatterOwnerManifest = (): PluginManifest => {
 	assert(script);
 	return {
 		...fixture,
+		hooks: [],
 		savedViews: [],
 		entitySchemas: [],
 		signalSchemas: [],
 		relationshipSchemas: [],
 		scripts: [{ ...script, slug: "formatter-owner.notification" }],
 		metadata: { ...fixture.metadata, name: "Formatter owner", slug: "formatter-owner" },
-		bindings: {
-			eventAutomations: [],
-			entityAutomations: [],
-			signalAutomations: [],
-			relationshipAutomations: [],
-			providerEntityImportAutomations: [],
-		},
 	};
 };
 
@@ -153,17 +146,11 @@ const relationshipDependentManifest = (targetEntitySchemaSlug: string): PluginMa
 	assert(script);
 	return {
 		...fixture,
+		hooks: [],
 		signalSchemas: [],
 		scripts: [{ ...script, slug: "dependent.automation" }],
 		entitySchemas: [{ ...entitySchema, slug: "dependent-entity" }],
 		metadata: { ...fixture.metadata, name: "Dependent", slug: "dependent" },
-		bindings: {
-			eventAutomations: [],
-			entityAutomations: [],
-			signalAutomations: [],
-			relationshipAutomations: [],
-			providerEntityImportAutomations: [],
-		},
 		relationshipSchemas: [
 			{
 				...relationshipSchema,
@@ -200,6 +187,7 @@ const makeLayer = (input?: {
 	readonly collectGarbage?: ScriptGarbageCollector["Service"]["collect"];
 }) => {
 	const installed = input?.installed ?? [...(input?.initialInstalled ?? [])];
+	const environmentConfig = makePluginEnvironmentConfig();
 	const registry = makeDefinitionRegistry();
 	const registryLayer = Layer.succeed(DefinitionRegistry, registry);
 	const loaderLayer = PluginLoader.layer.pipe(Layer.provide(registryLayer));
@@ -218,6 +206,15 @@ const makeLayer = (input?: {
 				input?.integrationFences?.push(fence);
 				return input?.hasIntegrationReferences ?? false;
 			}),
+		resolveEnvironmentConfigs: () =>
+			Effect.sync(() =>
+				Object.fromEntries(
+					installed.map((plugin) => [
+						plugin.id,
+						{ configRevisionId: `${plugin.id}-config`, pluginRevisionId: `${plugin.id}-revision` },
+					]),
+				),
+			),
 		deactivate:
 			input?.deactivate ??
 			((pluginId) =>
@@ -298,6 +295,7 @@ const makeLayer = (input?: {
 	const clientCompilerLayer = Layer.mock(ClientPluginCompiler)(
 		input?.clientCompile ? { compile: input.clientCompile } : {},
 	);
+	const environmentConfigLayer = Layer.succeed(PluginEnvironmentConfig, environmentConfig);
 	const ingestionLayer = PluginIngestionService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
@@ -309,10 +307,17 @@ const makeLayer = (input?: {
 				systemPluginsLayer,
 				workflowReferenceLayer,
 				clientCompilerLayer,
+				environmentConfigLayer,
 			),
 		),
 	);
-	return Layer.mergeAll(BunFileSystem.layer, loaderLayer, ingestionLayer, testDatabaseLayer);
+	return Layer.mergeAll(
+		BunFileSystem.layer,
+		loaderLayer,
+		ingestionLayer,
+		testDatabaseLayer,
+		environmentConfigLayer,
+	);
 };
 
 it.effect("validates, compiles, content-addresses, persists, loads, and publishes", () => {
@@ -335,7 +340,9 @@ it.effect("validates, compiles, content-addresses, persists, loads, and publishe
 			},
 		]);
 		expect(loader.getSnapshot().definitions.entitySchemas["fixture-entity"]?.name).toBe("Fixture");
-		expect(loader.getSnapshot().bindings.entityAutomations).toHaveLength(1);
+		expect(loader.getSnapshot().plugins["fixture"]?.manifest.hooks).toEqual(
+			fixtureManifest().hooks,
+		);
 		expect(published).toHaveLength(1);
 		expect(published[0]?.channel).toBe(redisKeys.pluginRegistryChannel);
 	}).pipe(Effect.provide(makeLayer({ persisted, published })));
@@ -482,29 +489,34 @@ it.effect("accepts user bootstrap declarations through explicit system ingestion
 	}).pipe(Effect.provide(makeLayer({ persisted })));
 });
 
-it.effect("validates automation bindings against definitions from installed plugins", () => {
+it.effect("rejects hooks targeting schemas outside the authored manifest surface", () => {
 	const installedExample = makeStoredPlugin(definitionOwnerManifest(), "example-source-hash");
 	return Effect.gen(function* () {
 		const ingestion = yield* PluginIngestionService;
 		yield* ingestion.rebuild();
 		const source = yield* loadPluginSource(fixturePackageRoot(), {
 			...fixtureManifest(),
-			bindings: {
-				...fixtureManifest().bindings,
-				entityAutomations: [
-					{ operation: "create", entitySchemaSlug: "item", scriptSlug: "fixture.automation" },
-				],
-			},
+			hooks: [
+				...fixtureManifest().hooks,
+				{
+					stage: "after",
+					delivery: "async",
+					name: "Item created",
+					slug: "fixture.item-created",
+					scriptSlug: "fixture.automation",
+					targets: [{ resource: "entity", operation: "create", entitySchemaSlug: "item" }],
+				},
+			],
 		});
 
-		const plugin = yield* ingestion.ingestSystemPlugin(source);
-		expect(plugin.manifest.bindings.entityAutomations).toEqual([
-			{ operation: "create", entitySchemaSlug: "item", scriptSlug: "fixture.automation" },
-		]);
+		expect(failureOf(yield* Effect.exit(ingestion.ingestSystemPlugin(source)))).toMatchObject({
+			_tag: "PluginRequestError",
+			reason: { code: "validation-failed" },
+		});
 	}).pipe(Effect.provide(makeLayer({ initialInstalled: [installedExample] })));
 });
 
-it.effect("accepts plugin-owned and cross-plugin notification formatters", () => {
+it.effect("rejects a notification hook owned by another plugin", () => {
 	const owner = makeStoredPlugin(formatterOwnerManifest(), "formatter-owner-source-hash");
 	return Effect.gen(function* () {
 		const ingestion = yield* PluginIngestionService;
@@ -514,13 +526,13 @@ it.effect("accepts plugin-owned and cross-plugin notification formatters", () =>
 		assert(signalSchema);
 		const source = yield* loadPluginSource(fixturePackageRoot(), {
 			...manifest,
-			signalSchemas: [{ ...signalSchema, notificationScriptSlug: "formatter-owner.notification" }],
+			signalSchemas: [{ ...signalSchema, notificationHookSlug: "formatter-owner.notification" }],
 		});
 
-		const plugin = yield* ingestion.ingestSystemPlugin(source);
-		expect(plugin.manifest.signalSchemas[0]?.notificationScriptSlug).toBe(
-			"formatter-owner.notification",
-		);
+		expect(failureOf(yield* Effect.exit(ingestion.ingestSystemPlugin(source)))).toMatchObject({
+			_tag: "PluginRequestError",
+			reason: { code: "validation-failed" },
+		});
 	}).pipe(Effect.provide(makeLayer({ initialInstalled: [owner] })));
 });
 
@@ -532,7 +544,7 @@ it.effect("rejects plugin signals that reference a kernel source-zero formatter"
 		const ingestion = yield* PluginIngestionService;
 		const source = yield* loadPluginSource(fixturePackageRoot(), {
 			...manifest,
-			signalSchemas: [{ ...signalSchema, notificationScriptSlug: "automation.notification" }],
+			signalSchemas: [{ ...signalSchema, notificationHookSlug: "automation.notification" }],
 		});
 
 		const exit = yield* Effect.exit(ingestion.ingestSystemPlugin(source));
@@ -552,10 +564,11 @@ it.effect("rejects missing and non-automation notification formatters", () =>
 			const script = manifest.scripts[0];
 			assert(signalSchema);
 			assert(script);
-			const notificationScriptSlug = kind === "missing" ? "missing.notification" : script.slug;
+			const notificationHookSlug =
+				kind === "missing" ? "missing.notification" : signalSchema.notificationHookSlug;
 			const source = yield* loadPluginSource(fixturePackageRoot(), {
 				...manifest,
-				signalSchemas: [{ ...signalSchema, notificationScriptSlug }],
+				signalSchemas: [{ ...signalSchema, notificationHookSlug }],
 				scripts:
 					kind === "wrong-kind" ? [{ ...script, kind: "operation" as const }] : manifest.scripts,
 			});
@@ -594,9 +607,15 @@ it.effect("rebuilds the registry when Redis invalidates the plugin snapshot", ()
 	return Effect.gen(function* () {
 		const loader = yield* PluginLoader;
 		const ingestion = yield* PluginIngestionService;
+		const environmentConfig = yield* PluginEnvironmentConfig;
 		expect(loader.getSnapshot().plugins["fixture"]).toBeUndefined();
+		expect(environmentConfig.getSnapshot()).toEqual({});
 		yield* handlePluginRegistryInvalidation(redisKeys.pluginRegistryChannel, ingestion);
 		expect(loader.getSnapshot().plugins["fixture"]?.sourceHash).toBe("stored-source-hash");
+		expect(environmentConfig.find(stored.id)).toEqual({
+			configRevisionId: `${stored.id}-config`,
+			pluginRevisionId: `${stored.id}-revision`,
+		});
 		expect(events).toEqual(["lock", "collect"]);
 	}).pipe(
 		Effect.provide(
@@ -620,7 +639,7 @@ it.effect("refuses to rebuild a snapshot with a dangling notification formatter"
 	const stored = makeStoredPlugin(
 		{
 			...manifest,
-			signalSchemas: [{ ...signalSchema, notificationScriptSlug: "missing.notification" }],
+			signalSchemas: [{ ...signalSchema, notificationHookSlug: "missing.notification" }],
 		},
 		"stored-source-hash",
 	);
@@ -635,7 +654,7 @@ it.effect("refuses to rebuild a snapshot with a dangling notification formatter"
 		assert(Option.isSome(failure));
 		assert(failure.value._tag === "PluginValidationError");
 		expect(failure.value.issues).toContain(
-			"Signal schema fixture.signal notification formatter references missing script: missing.notification",
+			"Notification hook references missing definition: missing.notification",
 		);
 		expect(loader.getSnapshot()).toBe(snapshot);
 	}).pipe(Effect.provide(makeLayer({ initialInstalled: [stored] })));
@@ -782,7 +801,7 @@ it.effect("periodically rebuilds a peer after lost install and uninstall publica
 	}).pipe(Effect.provide(BunFileSystem.layer)),
 );
 
-it.effect("fences uninstall while a queued import workflow references the plugin", () => {
+it.effect("deactivates a plugin with queued work while retaining its immutable package", () => {
 	const stored = makeStoredPlugin(fixtureManifest(), "stored-source-hash");
 	const deactivated: Array<string> = [];
 	const published: Array<{ channel: string; message: string }> = [];
@@ -792,36 +811,10 @@ it.effect("fences uninstall while a queued import workflow references the plugin
 		const loader = yield* PluginLoader;
 		const ingestion = yield* PluginIngestionService;
 		yield* ingestion.rebuild();
-		const snapshot = loader.getSnapshot();
-		const plugins = yield* ingestion.listPlugins();
-
-		const refused = yield* Effect.exit(ingestion.uninstallPlugin("fixture"));
-
-		assertExitFails(
-			refused,
-			new PluginConflictError({
-				reason: { code: "workflow-referenced", pluginSlug: PluginSlug.make("fixture") },
-			}),
-		);
-		expect(events).toEqual(["lock", "lock", "workflow-reference"]);
-		expect(loader.getSnapshot()).toBe(snapshot);
-		expect(yield* ingestion.listPlugins()).toEqual(plugins);
-		expect(deactivated).toEqual([]);
-		expect(published).toEqual([]);
-
-		referenceState.active = false;
 		const removed = yield* ingestion.uninstallPlugin("fixture");
 
 		expect(removed.slug).toBe("fixture");
-		expect(events).toEqual([
-			"lock",
-			"lock",
-			"workflow-reference",
-			"lock",
-			"workflow-reference",
-			"deactivate",
-			"publish",
-		]);
+		expect(events).toEqual(["lock", "lock", "deactivate", "publish"]);
 		expect(deactivated).toEqual(["fixture-plugin-id"]);
 		expect(loader.getSnapshot().plugins["fixture"]).toBeUndefined();
 		expect(published).toEqual([
@@ -894,7 +887,7 @@ it.effect("serializes workflow pin registration with refused and successful unin
 				events,
 				initialInstalled: [stored],
 				databaseLayer: transactionDatabaseLayer,
-				hasWorkflowReferences: () => hasExistingReference,
+				hasEntityReferences: hasExistingReference,
 				deactivate: () =>
 					Effect.sync(() => {
 						active = false;
@@ -929,14 +922,13 @@ it.effect("serializes workflow pin registration with refused and successful unin
 					assertExitFails(
 						uninstallExit,
 						new PluginConflictError({
-							reason: { code: "workflow-referenced", pluginSlug: PluginSlug.make("fixture") },
+							reason: { code: "entity-referenced", pluginSlug: PluginSlug.make("fixture") },
 						}),
 					);
 					expect(dispatchExit).toEqual(Exit.succeed({ status: "registered" }));
 					expect(events).toEqual([
 						"exclusive-acquired",
 						"shared-attempt",
-						"workflow-reference",
 						"exclusive-released",
 						"shared-acquired",
 						"registered",
@@ -953,7 +945,6 @@ it.effect("serializes workflow pin registration with refused and successful unin
 					expect(events).toEqual([
 						"exclusive-acquired",
 						"shared-attempt",
-						"workflow-reference",
 						"deactivated",
 						"exclusive-released",
 						"publish",
@@ -1029,30 +1020,28 @@ it.effect("refuses uninstall while another active plugin binds to its definition
 	}).pipe(Effect.provide(makeLayer({ deactivated, initialInstalled: [owner, dependent] })));
 });
 
-it.effect("refuses uninstall while another active signal references its formatter", () => {
-	const owner = makeStoredPlugin(formatterOwnerManifest(), "formatter-owner-source-hash");
-	const manifest = fixtureManifest();
-	const signalSchema = manifest.signalSchemas[0];
-	assert(signalSchema);
-	const dependent = makeStoredPlugin(
-		{
-			...manifest,
-			signalSchemas: [{ ...signalSchema, notificationScriptSlug: "formatter-owner.notification" }],
-		},
-		"dependent-source-hash",
-	);
-	const deactivated: Array<string> = [];
-	return Effect.gen(function* () {
-		const ingestion = yield* PluginIngestionService;
-		const exit = yield* Effect.exit(ingestion.uninstallPlugin("formatter-owner"));
-
-		expect(failureOf(exit)).toMatchObject({
-			_tag: "PluginConflictError",
-			reason: { code: "definition-referenced", pluginSlug: "formatter-owner" },
-		});
-		expect(deactivated).toEqual([]);
-	}).pipe(Effect.provide(makeLayer({ deactivated, initialInstalled: [owner, dependent] })));
-});
+it.effect(
+	"uninstalls an unrelated formatter without affecting plugin-local notification hooks",
+	() => {
+		const owner = makeStoredPlugin(formatterOwnerManifest(), "formatter-owner-source-hash");
+		const manifest = fixtureManifest();
+		const signalSchema = manifest.signalSchemas[0];
+		assert(signalSchema);
+		const dependent = makeStoredPlugin(
+			{ ...manifest, signalSchemas: [signalSchema] },
+			"dependent-source-hash",
+		);
+		const deactivated: Array<string> = [];
+		return Effect.gen(function* () {
+			const ingestion = yield* PluginIngestionService;
+			expect((yield* ingestion.uninstallPlugin("formatter-owner")).slug).toBe("formatter-owner");
+			expect(deactivated).toEqual([owner.id]);
+			expect((yield* ingestion.listPlugins()).map(({ slug }) => slug)).toEqual([
+				manifest.metadata.slug,
+			]);
+		}).pipe(Effect.provide(makeLayer({ deactivated, initialInstalled: [owner, dependent] })));
+	},
+);
 
 it.effect("refuses uninstall while another plugin relationship targets its entity schema", () => {
 	const owner = makeStoredPlugin(fixtureManifest(), "owner-source-hash");
@@ -1209,12 +1198,19 @@ it.effect("returns structured validation and compiler diagnostics", () => {
 			packageRoot: fixturePackageRoot(),
 			manifest: {
 				...fixtureManifest(),
-				bindings: {
-					...fixtureManifest().bindings,
-					entityAutomations: [
-						{ operation: "create", scriptSlug: "missing", entitySchemaSlug: "fixture-entity" },
-					],
-				},
+				hooks: [
+					...fixtureManifest().hooks,
+					{
+						stage: "after",
+						name: "Missing",
+						delivery: "async",
+						scriptSlug: "missing",
+						slug: "fixture.missing",
+						targets: [
+							{ resource: "entity", operation: "create", entitySchemaSlug: "fixture-entity" },
+						],
+					},
+				],
 			},
 		},
 		{
@@ -1239,7 +1235,7 @@ it.effect("returns structured validation and compiler diagnostics", () => {
 					reason: {
 						diagnostics: [
 							{
-								line: 14,
+								line: 15,
 								code: "TS2322",
 								phase: "compile",
 								severity: "error",

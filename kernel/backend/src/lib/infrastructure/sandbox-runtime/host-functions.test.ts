@@ -1,20 +1,31 @@
+import { PgClient } from "@effect/sql-pg";
 import { expect, it } from "@effect/vitest";
+import { DbError } from "@ryot-app/contract/errors";
+import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/sandbox/schemas";
+import { SANDBOX_HOST_CAPABILITIES } from "@ryot-app/contract/modules/sandbox/wire";
 import {
-	AutomationOccurrenceId,
+	AutomationExecutionId,
+	AutomationRunId,
+	AutomationTriggerId,
 	EntityId,
 	EntitySchemaSlug,
 	IntegrationId,
+	PluginConfigRevisionId,
+	PluginId,
+	PluginRevisionId,
 	RelationshipId,
 	SandboxScriptId,
-	SubscriptionRunId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { ChangeUserRelationshipBatch } from "@ryot-app/sandbox-sdk/core";
-import { Effect, Result, Layer, Option } from "effect";
+import { Context, Effect, Result, Layer, Option } from "effect";
 import { describe } from "vitest";
 
+import { LifecyclePlanner } from "#lib/domain/lifecycle";
+import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
+import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { RedisService } from "#lib/infrastructure/redis";
 import type { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { selectSandboxHostFunctions } from "#lib/infrastructure/sandbox-runtime/service";
@@ -34,6 +45,25 @@ import {
 	normalizePreferences,
 	toSandboxCreateEventsResult,
 } from "./host-functions";
+
+class HostFunctionsTestTransaction extends Context.Service<HostFunctionsTestTransaction, object>()(
+	"HostFunctionsTestTransaction",
+) {}
+
+const hostDatabaseLayer = Layer.mergeAll(
+	databaseLayer,
+	Layer.succeed(
+		PgClient.PgClient,
+		Object.assign(Object.create(null), { transactionService: HostFunctionsTestTransaction }),
+	),
+	Layer.mock(LifecyclePlanner)({
+		plan: ({ trigger }) => Effect.succeed({ trigger, runs: [], policies: [], wasCreated: true }),
+	}),
+	Layer.mock(LifecycleExecution)({
+		after: () => Effect.succeed([]),
+		skipQueuedPolicies: () => Effect.void,
+	}),
+);
 
 describe("normalizePreferences", () => {
 	it("normalizes missing and non-boolean preference values", () => {
@@ -72,13 +102,15 @@ const ownedIntegration = (input: GetForUserInput): IntegrationRecord => ({
 
 const runInput = (
 	subject: SandboxExecutionSubject,
-	capabilities: readonly string[] = [],
+	capabilities: readonly string[] = SANDBOX_HOST_CAPABILITIES,
 	principalFacts: Partial<SandboxExecutionPrincipal> = {},
 ): SandboxRunInput => ({
-	context: {},
 	compiledCode: "",
 	compiledFormat: 1,
+	hostCallDiscriminator: 0,
 	executionId: "execution-1",
+	workflowExecutionId: "workflow-1",
+	startedAt: "2026-01-01T00:00:00.000Z",
 	principal: {
 		subject,
 		contentHash: "",
@@ -89,19 +121,56 @@ const runInput = (
 		metadata: { capabilities: [...capabilities] },
 		...principalFacts,
 	},
+	context:
+		subject.type === "automation-run"
+			? {
+					automation: {
+						hookSlug: "script",
+						runId: subject.runId,
+						causation: subject.causation,
+						triggerId: subject.triggerId,
+						occurredAt: "2026-01-01T00:00:00.000Z",
+						executionUserId: subject.executionUserId,
+						payload: {
+							properties: {},
+							operation: "emit",
+							resource: "signal",
+							category: "signal",
+							signalSchemaPluginId: null,
+							signalSchemaSlug: "fixture.signal",
+							actorUserId: subject.executionUserId,
+						},
+					},
+				}
+			: {},
 });
 
-const subscriptionSubject = (
-	origin: Extract<SandboxExecutionSubject, { type: "subscription" }>["subscriptionRun"]["origin"],
+const automationSubject = (
+	origin:
+		| { readonly kind: "api" }
+		| { readonly kind: "integration"; readonly integrationId: IntegrationId },
 ) =>
 	({
-		type: "subscription",
-		userId: UserId.make("user-1"),
-		subscriptionRun: {
-			origin,
-			id: SubscriptionRunId.make("run-1"),
-			occurredAt: "2026-01-01T00:00:00.000Z",
-			occurrenceId: AutomationOccurrenceId.make("occurrence-1"),
+		stage: "after",
+		pluginId: null,
+		type: "automation-run",
+		pluginRevisionId: null,
+		pluginConfigRevisionId: null,
+		runId: AutomationRunId.make("run-1"),
+		executionUserId: UserId.make("user-1"),
+		triggerId: AutomationTriggerId.make("trigger-1"),
+		causation: {
+			depth: 0,
+			parentRunId: null,
+			source: origin.kind,
+			parentTriggerId: null,
+			executionId: AutomationExecutionId.make("root-execution"),
+			rootExecutionId: AutomationExecutionId.make("root-execution"),
+			initiator:
+				origin.kind === "integration"
+					? { kind: "integration", id: origin.integrationId }
+					: { kind: "user", id: UserId.make("user-1") },
+			...(origin.kind === "integration" ? { integrationId: origin.integrationId } : {}),
 		},
 	}) satisfies SandboxExecutionSubject;
 
@@ -115,7 +184,7 @@ const runGetCurrentIntegration = (
 		),
 		Effect.provide(
 			Layer.mergeAll(
-				databaseLayer,
+				hostDatabaseLayer,
 				makeAppConfigLayer(),
 				Layer.succeed(RedisService, makeRedisService()),
 				Layer.mock(EventsService)({}),
@@ -164,10 +233,7 @@ describe("getCurrentIntegration", () => {
 		Effect.gen(function* () {
 			const requested: GetForUserInput[] = [];
 			const result = yield* runGetCurrentIntegration(
-				subscriptionSubject({
-					kind: "integration",
-					integrationId: IntegrationId.make("int-origin"),
-				}),
+				automationSubject({ kind: "integration", integrationId: IntegrationId.make("int-origin") }),
 				(input) => {
 					requested.push(input);
 					return Effect.succeed(ownedIntegration(input));
@@ -183,7 +249,7 @@ describe("getCurrentIntegration", () => {
 		Effect.forEach(
 			[
 				{ type: "user", userId: UserId.make("user-1") },
-				subscriptionSubject({ kind: "api" }),
+				automationSubject({ kind: "api" }),
 			] satisfies SandboxExecutionSubject[],
 			(subject) =>
 				Effect.gen(function* () {
@@ -245,12 +311,14 @@ const systemPluginScope = {
 
 const systemPluginRevision = {
 	ownerId: null,
-	id: "plugin-id",
 	slug: "example",
 	compiledHashes: {},
 	workflowScripts: {},
 	scope: "system" as const,
 	userBootstrapScriptSlugs: [],
+	id: PluginId.make("plugin-id"),
+	revisionId: PluginRevisionId.make("revision-1"),
+	configRevisionId: PluginConfigRevisionId.make("config-1"),
 	configSchema: { fields: {}, unknownKeys: "strict" as const },
 	schemaScope: {
 		eventSchemas: systemPluginScope.eventSchemas,
@@ -258,6 +326,99 @@ const systemPluginRevision = {
 		relationshipSchemaSlugs: systemPluginScope.relationshipSchemaSlugs,
 	},
 };
+
+const pluginConfigSchema = {
+	unknownKeys: "strict",
+	fields: {
+		apiToken: { type: "string", label: "API token", description: "Token used by the plugin" },
+	},
+} as const;
+
+const runGetPluginConfig = (
+	principalFacts: Partial<SandboxExecutionPrincipal>,
+	resolver: Layer.Layer<PluginRuntimeResolver>,
+) =>
+	makeAdditionalSandboxApiFunctions.pipe(
+		Effect.flatMap((functions) =>
+			Effect.result(
+				functions.getPluginConfig(
+					runInput({ type: "system" }, ["getPluginConfig"], {
+						...principalFacts,
+						metadata: { capabilities: ["getPluginConfig"], requiredPluginConfigKeys: ["apiToken"] },
+					}),
+					["apiToken"],
+				),
+			),
+		),
+		Effect.provide(
+			Layer.mergeAll(
+				hostDatabaseLayer,
+				makeAppConfigLayer(),
+				Layer.succeed(RedisService, makeRedisService()),
+				Layer.mock(EventsService)({}),
+				Layer.mock(EntitiesService)({}),
+				Layer.mock(EntitiesRepository)({ lockEntityReferencesByIds: () => Effect.void }),
+				Layer.mock(RyotQLService)({}),
+				Layer.succeed(DefinitionRegistry, makeDefinitionRegistry()),
+				resolver,
+				Layer.mock(IntegrationsRepository)({}),
+				Layer.mock(RelationshipsRepository)({}),
+			),
+		),
+	);
+
+describe("getPluginConfig", () => {
+	it.effect("resolves the exact pinned configuration revision", () => {
+		const requests: unknown[] = [];
+		return Effect.gen(function* () {
+			const result = yield* runGetPluginConfig(
+				{ pluginRevision: { ...systemPluginRevision, configSchema: pluginConfigSchema } },
+				Layer.mock(PluginRuntimeResolver)({
+					resolvePluginConfigContext: (input) => {
+						requests.push(input);
+						return Effect.succeed({ apiToken: "pinned-value" });
+					},
+				}),
+			);
+
+			expect(Result.getOrThrow(result)).toEqual({ apiToken: "pinned-value" });
+			expect(requests).toEqual([
+				{ id: "config-1", ownerUserId: null, pluginRevisionId: "revision-1" },
+			]);
+		});
+	});
+
+	it.effect("rejects config access before resolving without a trusted pin", () =>
+		Effect.gen(function* () {
+			const result = yield* runGetPluginConfig(
+				{},
+				Layer.mock(PluginRuntimeResolver)({
+					resolvePluginConfigContext: () => Effect.die("must not resolve unpinned config"),
+				}),
+			);
+
+			expect(Result.getFailure(result)).toEqual(
+				Option.some({ message: "Plugin config is available only to active plugin scripts" }),
+			);
+		}),
+	);
+
+	it.effect("preserves the structured failure for an unavailable pinned configuration", () =>
+		Effect.gen(function* () {
+			const result = yield* runGetPluginConfig(
+				{ pluginRevision: { ...systemPluginRevision, configSchema: pluginConfigSchema } },
+				Layer.mock(PluginRuntimeResolver)({
+					resolvePluginConfigContext: () =>
+						Effect.fail(new DbError({ message: "Invalid pinned plugin configuration ownership" })),
+				}),
+			);
+
+			expect(Result.getFailure(result)).toMatchObject(
+				Option.some({ _tag: "DbError", message: "Invalid pinned plugin configuration ownership" }),
+			);
+		}),
+	);
+});
 
 const runExecuteRyotql = (input: SandboxRunInput, document: RyotQLDocument = ryotqlDocument) => {
 	const userCalls: unknown[] = [];
@@ -267,7 +428,7 @@ const runExecuteRyotql = (input: SandboxRunInput, document: RyotQLDocument = ryo
 		Effect.map((result) => ({ result, userCalls, pluginCalls })),
 		Effect.provide(
 			Layer.mergeAll(
-				databaseLayer,
+				hostDatabaseLayer,
 				makeAppConfigLayer(),
 				Layer.succeed(RedisService, makeRedisService()),
 				Layer.mock(EventsService)({}),
@@ -306,8 +467,8 @@ describe("executeRyotql", () => {
 				...runInput({ type: "system" }),
 				principal: {
 					...runInput({ type: "system" }).principal,
-					metadata: { kind: "script" },
 					pluginRevision: pinnedRevision,
+					metadata: { kind: "script", capabilities: ["executeRyotql"] },
 				},
 			});
 
@@ -329,7 +490,7 @@ describe("executeRyotql", () => {
 
 	it.effect("keeps delegated execution in user scope", () =>
 		Effect.gen(function* () {
-			const execution = yield* runExecuteRyotql(runInput(subscriptionSubject({ kind: "api" })));
+			const execution = yield* runExecuteRyotql(runInput(automationSubject({ kind: "api" })));
 
 			expect(Result.getOrThrow(execution.result)).toEqual(ryotqlResponse);
 			expect(execution.pluginCalls).toEqual([]);
@@ -343,7 +504,10 @@ describe("executeRyotql", () => {
 		Effect.gen(function* () {
 			const execution = yield* runExecuteRyotql({
 				...runInput({ type: "system" }),
-				principal: { ...runInput({ type: "system" }).principal, metadata: { kind: "script" } },
+				principal: {
+					...runInput({ type: "system" }).principal,
+					metadata: { kind: "script", capabilities: ["executeRyotql"] },
+				},
 			});
 
 			expect(Result.getFailure(execution.result)).toEqual(
@@ -396,6 +560,7 @@ const runChangeUserRelationships = (
 		isBuiltin: boolean;
 		entityName: string;
 		entityUserId: UserId | null;
+		entitySchemaPluginId: string | null;
 		entitySchemaSlug: EntitySchemaSlug;
 	} | null> = ({ entityId }) =>
 		Effect.succeed({
@@ -403,6 +568,7 @@ const runChangeUserRelationships = (
 			isBuiltin: true,
 			entityUserId: null,
 			entityName: "Entity",
+			entitySchemaPluginId: null,
 			entitySchemaSlug: EntitySchemaSlug.make(
 				entityId === "collection-1" ? "collection" : "entity",
 			),
@@ -414,13 +580,14 @@ const runChangeUserRelationships = (
 		),
 		Effect.provide(
 			Layer.mergeAll(
-				databaseLayer,
+				hostDatabaseLayer,
 				makeAppConfigLayer(),
 				Layer.succeed(RedisService, makeRedisService()),
 				Layer.mock(EventsService)({}),
 				Layer.mock(EntitiesService)({}),
 				Layer.mock(RyotQLService)({}),
 				Layer.mock(PluginRuntimeResolver)({
+					lockCatalog: () => Effect.void,
 					getEffectiveDefinitions: () => Effect.succeed(makeDefinitionRegistry().getSnapshot()),
 				}),
 				Layer.mock(IntegrationsRepository)({}),
@@ -445,13 +612,16 @@ describe("changeUserRelationships", () => {
 	it.effect("derives the relationship owner from direct user subject", () => {
 		const created: unknown[] = [];
 		const repository = Layer.mock(RelationshipsRepository)({
+			findRelationship: () => Effect.succeed(null),
 			lockRelationshipMutations: () => Effect.void,
+			findLifecyclePayload: () => Effect.succeed(null),
 			createRelationship: (input) => {
 				created.push(input);
 				return Effect.succeed({
 					...input,
 					wasInserted: true,
 					createdAt: "2026-07-28T00:00:00.000Z",
+					updatedAt: "2026-07-28T00:00:00.000Z",
 					id: RelationshipId.make("relationship-1"),
 				});
 			},
@@ -482,13 +652,16 @@ describe("changeUserRelationships", () => {
 	it.effect("derives the relationship owner from subscription subject", () => {
 		const created: unknown[] = [];
 		const repository = Layer.mock(RelationshipsRepository)({
+			findRelationship: () => Effect.succeed(null),
 			lockRelationshipMutations: () => Effect.void,
+			findLifecyclePayload: () => Effect.succeed(null),
 			createRelationship: (input) => {
 				created.push(input);
 				return Effect.succeed({
 					...input,
 					wasInserted: true,
 					createdAt: "2026-07-28T00:00:00.000Z",
+					updatedAt: "2026-07-28T00:00:00.000Z",
 					id: RelationshipId.make("relationship-1"),
 				});
 			},
@@ -496,7 +669,7 @@ describe("changeUserRelationships", () => {
 
 		return Effect.gen(function* () {
 			const result = yield* runChangeUserRelationships(
-				subscriptionSubject({ kind: "api" }),
+				automationSubject({ kind: "api" }),
 				[batch],
 				repository,
 			);
@@ -516,10 +689,12 @@ describe("changeUserRelationships", () => {
 		});
 	});
 
-	it.effect("brands deleted relationship identities before writing", () => {
+	it.effect("does not write an absent relationship delete", () => {
 		const deleted: unknown[] = [];
 		const repository = Layer.mock(RelationshipsRepository)({
+			findRelationship: () => Effect.succeed(null),
 			lockRelationshipMutations: () => Effect.void,
+			findLifecyclePayload: () => Effect.succeed(null),
 			deleteRelationship: (input) => {
 				deleted.push(input);
 				return Effect.succeed(null);
@@ -534,23 +709,16 @@ describe("changeUserRelationships", () => {
 			);
 
 			expect(Result.getOrThrow(result)).toEqual([{ created: 0, deleted: 0 }]);
-			expect(deleted).toEqual([
-				{
-					scope: "user",
-					userId: "trusted-user",
-					sourceEntityId: "entity-1",
-					targetEntityId: "collection-1",
-					relationshipSchemaPluginId: null,
-					relationshipSchemaSlug: "member-of",
-				},
-			]);
+			expect(deleted).toEqual([]);
 		});
 	});
 
 	it.effect("rejects a subscription relationship with an endpoint invisible to its user", () => {
 		let writes = 0;
 		const repository = Layer.mock(RelationshipsRepository)({
+			findRelationship: () => Effect.succeed(null),
 			lockRelationshipMutations: () => Effect.void,
+			findLifecyclePayload: () => Effect.succeed(null),
 			createRelationship: () => {
 				writes += 1;
 				return Effect.die("must not write");
@@ -559,7 +727,7 @@ describe("changeUserRelationships", () => {
 
 		return Effect.gen(function* () {
 			const result = yield* runChangeUserRelationships(
-				subscriptionSubject({ kind: "api" }),
+				automationSubject({ kind: "api" }),
 				[batch],
 				repository,
 				({ userId, entityId }) =>
@@ -570,6 +738,7 @@ describe("changeUserRelationships", () => {
 								isBuiltin: true,
 								entityUserId: null,
 								entityName: "Entity",
+								entitySchemaPluginId: null,
 								entitySchemaSlug: EntitySchemaSlug.make("entity"),
 							}),
 			);
@@ -587,7 +756,9 @@ describe("changeUserRelationships", () => {
 	it.effect("rejects system subject and total change overflow before writing", () => {
 		let writes = 0;
 		const repository = Layer.mock(RelationshipsRepository)({
+			findRelationship: () => Effect.succeed(null),
 			lockRelationshipMutations: () => Effect.void,
+			findLifecyclePayload: () => Effect.succeed(null),
 			createRelationship: () => {
 				writes += 1;
 				return Effect.die("must not write");
@@ -623,7 +794,10 @@ const runEnsureUserEntities = (options: {
 	ensure?: (
 		userId: UserId,
 		items: ReadonlyArray<{ name: string; properties: unknown; entitySchemaSlug: EntitySchemaSlug }>,
-	) => Effect.Effect<Array<{ entityId: EntityId; wasInserted: boolean }>>;
+		lifecycle: LifecycleCommand,
+	) => Effect.Effect<
+		Array<{ entityId: EntityId; wasInserted: boolean; warnings: AutomationWarning[] }>
+	>;
 }) => {
 	const definitions = makeDefinitionRegistry({
 		savedViews: [],
@@ -665,7 +839,7 @@ const runEnsureUserEntities = (options: {
 		),
 		Effect.provide(
 			Layer.mergeAll(
-				databaseLayer,
+				hostDatabaseLayer,
 				makeAppConfigLayer(),
 				Layer.succeed(RedisService, makeRedisService()),
 				Layer.mock(EventsService)({}),
@@ -677,9 +851,13 @@ const runEnsureUserEntities = (options: {
 					ensureUserEntities:
 						options.ensure ??
 						(() =>
-							Effect.succeed([{ wasInserted: true, entityId: EntityId.make("workspace-id") }])),
+							Effect.succeed([
+								{ warnings: [], wasInserted: true, entityId: EntityId.make("workspace-id") },
+							])),
 				}),
 				Layer.mock(PluginRuntimeResolver)({
+					lockCatalog: () => Effect.void,
+					getGlobalDefinitions: () => Effect.succeed(definitions.getSnapshot()),
 					getEffectiveDefinitions: () => Effect.succeed(definitions.getSnapshot()),
 				}),
 				Layer.succeed(DefinitionRegistry, definitions),
@@ -697,11 +875,11 @@ describe("ensureUserEntities", () => {
 				runEnsureUserEntities({
 					caller: { pluginSlug: "example" },
 					subject: { type: "user", userId: UserId.make("trusted-user") },
-					ensure: (userId, items) => {
-						calls.push({ items, userId });
+					ensure: (userId, items, lifecycle) => {
+						calls.push({ items, userId, lifecycle });
 						attempt += 1;
 						return Effect.succeed([
-							{ wasInserted: attempt === 1, entityId: EntityId.make("workspace-id") },
+							{ warnings: [], wasInserted: attempt === 1, entityId: EntityId.make("workspace-id") },
 						]);
 					},
 				});
@@ -711,7 +889,7 @@ describe("ensureUserEntities", () => {
 			expect(Result.getOrThrow(yield* run())).toEqual([
 				{ wasInserted: false, entityId: "workspace-id" },
 			]);
-			expect(calls).toEqual([
+			expect(calls).toMatchObject([
 				{
 					userId: "trusted-user",
 					items: [{ properties: {}, name: "Workspace", entitySchemaSlug: "workspace" }],
@@ -729,7 +907,7 @@ describe("ensureUserEntities", () => {
 			const trusted = { pluginSlug: "example" };
 			const delegated = yield* runEnsureUserEntities({
 				caller: trusted,
-				subject: subscriptionSubject({ kind: "api" }),
+				subject: automationSubject({ kind: "api" }),
 			});
 			const system = yield* runEnsureUserEntities({ caller: trusted, subject: { type: "system" } });
 			const untrusted = yield* runEnsureUserEntities({
@@ -801,12 +979,16 @@ describe("toSandboxCreateEventsResult", () => {
 				toSandboxCreateEventsResult({
 					count: 0,
 					outcomes: [],
-					failure: { index: 0, reason: { code: "policy-failed" } },
+					warnings: [],
+					failure: {
+						index: 0,
+						reason: { code: "policy-execution-failed", runId: AutomationRunId.make("run-1") },
+					},
 				}),
 			);
 
 			expect(Result.getFailure(result)).toEqual(
-				Option.some("Event creation failed: policy-failed"),
+				Option.some("Event creation failed: policy-execution-failed"),
 			);
 		}),
 	);

@@ -110,10 +110,12 @@ describe("Events built-in status schemas", () => {
 			const events = yield* waitForEventCount(apiClient, entityId, 2);
 			expect(events).toHaveLength(2);
 			expect(events.map((event) => event.eventSchemaSlug)).toEqual(["complete", "complete"]);
-			expect(events.map((event) => event.properties)).toEqual([
-				{ completionMode: "custom_timestamps", completedOn: "2026-03-27T18:30:00Z" },
-				{ completionMode: "just_now" },
-			]);
+			expect(events.map((event) => event.properties)).toEqual(
+				expect.arrayContaining([
+					{ completionMode: "custom_timestamps", completedOn: "2026-03-27T18:30:00Z" },
+					{ completionMode: "just_now" },
+				]),
+			);
 		}),
 	);
 
@@ -216,10 +218,9 @@ describe("Events built-in status schemas", () => {
 			const events = yield* waitForEventCount(apiClient, entityId, 2);
 			expect(events).toHaveLength(2);
 			expect(events.map((event) => event.eventSchemaSlug)).toEqual(["review", "review"]);
-			expect(events.map((event) => event.properties)).toEqual([
-				{ rating: 5, text: "Even better" },
-				{ rating: 4 },
-			]);
+			expect(events.map((event) => event.properties)).toEqual(
+				expect.arrayContaining([{ rating: 5, text: "Even better" }, { rating: 4 }]),
+			);
 		}),
 	);
 

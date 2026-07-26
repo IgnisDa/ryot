@@ -1,61 +1,68 @@
-import type { AutomationOrigin } from "@ryot-app/contract/modules/automations/schemas";
+import { PgClient } from "@effect/sql-pg";
+import {
+	AutomationEntitySnapshot,
+	AutomationEntityDraft,
+	type AutomationRequestPayload,
+	type AutomationWarning,
+} from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	EntityBadRequest,
 	EntityNotFound,
 	type ListedEntity,
 } from "@ryot-app/contract/modules/entities/schemas";
-import type {
+import {
 	EntityId,
-	EntitySchemaSlug,
-	SandboxProviderId,
-	UserId,
+	type EntitySchemaSlug,
+	type SandboxProviderId,
+	type UserId,
 } from "@ryot-app/contract/schema/brands";
-import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { generateId } from "better-auth";
-import { Context, DateTime, Effect, Layer } from "effect";
+import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
+import { Context, DateTime, Effect, Layer, Option, Schema } from "effect";
 
+import {
+	type CommittedLifecycleWork,
+	LifecyclePersistenceError,
+	LifecyclePlanner,
+	type LifecyclePlan,
+	lifecycleTriggerId,
+} from "#lib/domain/lifecycle";
+import { LifecycleCommand, lifecycleTrigger } from "#lib/domain/lifecycle-command";
+import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { trimToNull } from "#lib/shared/validation";
+import {
+	catalogDefinitionFingerprint,
+	type CatalogDefinitionFingerprint,
+} from "#modules/plugins/runtime-resolver";
 
-import { LifecycleDispatch } from "./lifecycle-dispatch";
-import type { EntityMutationSnapshot } from "./mutation-outcomes";
-import { EntitiesRepository, type InsertEntityInputBase } from "./repository";
+import type { EntityMutationOutcome } from "./mutation-outcomes";
+import { EntitiesRepository } from "./repository";
 
-type CreateEntityInput = {
+type Scope = { scope: "global" } | { scope: "user"; userId: UserId };
+export type CreateEntityInput = Scope & {
 	name: string;
-	properties: unknown;
-	origin?: AutomationOrigin;
 	entitySchemaSlug: EntitySchemaSlug;
-} & (
-	| { scope: "global"; externalId: string; populatedAt: Date | null; providerId: SandboxProviderId }
-	| {
-			scope: "user";
-			userId: UserId;
-			externalId?: string | undefined;
-			providerId?: SandboxProviderId | undefined;
-	  }
-);
-
-type CreateAnyEntityInput = InsertEntityInputBase & { properties: unknown };
-
-type UpdateEntityInput = {
+	properties: unknown;
+	externalId?: string | undefined;
+	populatedAt?: Date | null;
+	lifecycle: LifecycleCommand;
+	providerId?: SandboxProviderId | undefined;
+};
+export type UpdateEntityInput = Scope & {
 	name: string;
 	entityId: EntityId;
 	properties: unknown;
 	populatedAt: Date | null;
-} & ({ scope: "global" } | { scope: "user"; userId: UserId });
-
-type UpsertEntityInput = {
-	name: string;
+	lifecycle: LifecycleCommand;
+};
+export type UpsertEntityInput = CreateEntityInput & {
 	externalId: string;
-	properties: unknown;
 	updateExisting: boolean;
 	populatedAt: Date | null;
 	providerId: SandboxProviderId;
-	entitySchemaSlug: EntitySchemaSlug;
-} & ({ scope: "global" } | { scope: "user"; userId: UserId });
-
+};
 export type UpsertGlobalEntityItem = {
 	name: string;
 	externalId: string;
@@ -63,404 +70,896 @@ export type UpsertGlobalEntityItem = {
 	populatedAt: Date | null;
 	entitySchemaSlug: EntitySchemaSlug;
 };
-
 export type UpsertGlobalEntitiesOptions = { maximumTotal?: number };
-
+export type PlannedProviderEntityUpsertResult = {
+	readonly entity: ListedEntity;
+	readonly outcome: EntityMutationOutcome;
+	readonly wasInserted: boolean;
+};
 export type EnsureUserEntityItem = {
 	name: string;
 	properties: unknown;
 	entitySchemaSlug: EntitySchemaSlug;
 };
-
-type EnsureUserEntitiesLifecycleIdentity = {
-	readonly occurredAt: string;
-	readonly executionId: string;
-};
-
-type EnsuredUserEntity = { readonly entity: ListedEntity; readonly wasInserted: boolean };
-
-type ValidatedGlobalEntityItem = Omit<UpsertGlobalEntityItem, "properties"> & {
-	properties: Record<string, unknown>;
+type EntityRequest = Extract<AutomationRequestPayload, { resource: "entity" }>;
+type PreparedMutation = {
+	entityId: EntityId;
+	scopeUserId: UserId | null;
+	lifecycle: LifecycleCommand;
+	draft: AutomationEntityDraft;
 	entitySchemaPluginId: string | null;
+	entitySchemaFingerprint: CatalogDefinitionFingerprint;
+	before: AutomationEntitySnapshot | null;
+	requestId: LifecyclePlan["trigger"]["id"];
+	operation: "create" | "update" | "delete";
 };
 
-const toMutationSnapshot = (entity: ListedEntity): EntityMutationSnapshot => ({
-	id: entity.id,
-	name: entity.name,
-	properties: entity.properties,
-	entitySchemaSlug: entity.entitySchemaSlug,
+const bad = (
+	code:
+		| "policy-rejected"
+		| "automation-limit"
+		| "mutation-conflict"
+		| "enclosing-transaction"
+		| "invalid-policy-transform",
+	message: string,
+) => new EntityBadRequest({ reason: { code, message } });
+const snapshot = (entity: ListedEntity) =>
+	Schema.decodeUnknownSync(AutomationEntitySnapshot)(entity);
+const draftOf = ({
+	id: _id,
+	createdAt: _createdAt,
+	updatedAt: _updatedAt,
+	...draft
+}: AutomationEntitySnapshot) => draft;
+const same = (left: unknown, right: unknown) => stableStringify(left) === stableStringify(right);
+const itemCommand = (lifecycle: LifecycleCommand, identity: string): LifecycleCommand => ({
+	...lifecycle,
+	itemIdentity: stableStringify([lifecycle.itemIdentity, identity]),
 });
-
-const parseEntityProperties = (
-	properties: unknown,
-	propertiesSchema: Parameters<typeof parseAppSchemaProperties>[0]["propertiesSchema"],
-) =>
-	parseAppSchemaProperties({ properties, kind: "Entity", propertiesSchema }).pipe(
-		Effect.mapError(
-			(error) =>
-				new EntityBadRequest({
-					reason: { code: "invalid-properties", paths: error.issues.map(({ path }) => path) },
-				}),
-		),
+const commandEntityId = (lifecycle: LifecycleCommand) =>
+	EntityId.make(
+		`ent_${sha256Base64Url(stableStringify([lifecycle.causation.executionId, lifecycle.itemIdentity]))}`,
 	);
+const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
+	Effect.gen(function* () {
+		const database = yield* Database;
+		return yield* mapDatabaseErrors(
+			database.transaction((tx) => work.pipe(Effect.provideService(Database, tx))),
+		);
+	});
 
 export class EntitiesService extends Context.Service<EntitiesService>()("EntitiesService", {
 	make: Effect.gen(function* () {
+		const sqlClient = yield* PgClient.PgClient;
+		const planner = yield* LifecyclePlanner;
 		const repository = yield* EntitiesRepository;
-		const lifecycleDispatch = yield* LifecycleDispatch;
+		const execution = yield* LifecycleExecution;
 
-		const createEntity = Effect.fnUntraced(function* (
-			input: CreateAnyEntityInput,
-			origin = input.origin,
+		const assertOwner = Effect.serviceOption(sqlClient.transactionService).pipe(
+			Effect.flatMap((active) =>
+				Option.isSome(active)
+					? Effect.fail(
+							bad(
+								"enclosing-transaction",
+								"EntitiesService must own the transaction and post-commit execution",
+							),
+						)
+					: Effect.void,
+			),
+		);
+		const assertActiveTransaction = Effect.serviceOption(sqlClient.transactionService).pipe(
+			Effect.flatMap((active) =>
+				Option.isSome(active)
+					? Effect.void
+					: Effect.fail(new LifecyclePersistenceError({ code: "active-transaction-required" })),
+			),
+		);
+
+		const entitySchema = Effect.fnUntraced(function* (
+			scopeUserId: UserId | null,
+			entitySchemaSlug: EntitySchemaSlug,
 		) {
-			if (input.scope === "user") {
-				const hasExternalId = input.externalId !== undefined;
-				const hasProviderId = input.providerId !== undefined;
-				if (hasExternalId !== hasProviderId) {
-					return yield* new EntityBadRequest({
-						reason: { code: "incomplete-provenance", fields: ["externalId", "providerId"] },
-					});
-				}
-			}
-
-			const scope = yield* input.scope === "user"
-				? repository.findEntitySchemaForUser({
-						userId: input.userId,
-						entitySchemaSlug: input.entitySchemaSlug,
-					})
-				: repository.findSystemEntitySchemaById(input.entitySchemaSlug);
-			if (!scope) {
+			const definition = yield* scopeUserId === null
+				? repository.findSystemEntitySchemaById(entitySchemaSlug)
+				: repository.findEntitySchemaForUser({ entitySchemaSlug, userId: scopeUserId });
+			if (!definition) {
 				return yield* new EntityNotFound({
-					reason: { code: "entity-schema-not-found", entitySchemaSlug: input.entitySchemaSlug },
+					reason: { entitySchemaSlug, code: "entity-schema-not-found" },
 				});
 			}
-
-			const name = trimToNull(input.name);
+			return definition;
+		});
+		const validateDraft = Effect.fnUntraced(function* (
+			draft: Omit<AutomationEntityDraft, "properties"> & { properties: unknown },
+			scopeUserId: UserId | null,
+		) {
+			const definition = yield* entitySchema(scopeUserId, draft.entitySchemaSlug);
+			const name = trimToNull(draft.name);
 			if (!name) {
 				return yield* new EntityBadRequest({ reason: { field: "name", code: "name-required" } });
 			}
-			const properties = yield* parseEntityProperties(input.properties, scope.propertiesSchema);
-			const saved = yield* repository.insertEntity({
-				...input,
-				name,
-				origin,
-				properties,
-				entitySchemaPluginId: scope.pluginId ?? null,
-			});
-
-			if (origin && saved.wasInserted) {
-				yield* lifecycleDispatch.dispatch({
-					origin,
-					recordId: saved.entity.id,
-					occurrenceId: `occ_${generateId()}`,
-					occurredAt: (yield* DateTime.nowAsDate).toISOString(),
-					rowUserId: input.scope === "user" ? input.userId : null,
-					source: {
-						kind: "entity",
-						after: {
-							properties,
-							id: saved.entity.id,
-							name: saved.entity.name,
-							entitySchemaSlug: saved.entity.entitySchemaSlug,
-						},
-					},
-				});
-			}
-
-			return saved.entity;
-		});
-
-		const ensureUserEntity = Effect.fnUntraced(function* (
-			userId: UserId,
-			item: EnsureUserEntityItem,
-		) {
-			const existing = yield* repository.findUserEntityWithoutProvenance({
-				userId,
-				entitySchemaSlug: item.entitySchemaSlug,
-			});
-			if (existing) {
-				return { entity: existing, wasInserted: false } satisfies EnsuredUserEntity;
-			}
-			const entity = yield* createEntity({
-				userId,
-				scope: "user",
-				name: item.name,
-				properties: item.properties,
-				origin: { kind: "bootstrap" },
-				entitySchemaSlug: item.entitySchemaSlug,
-			});
-			return { entity, wasInserted: true } satisfies EnsuredUserEntity;
-		});
-
-		const create = Effect.fn("EntitiesService.create")(function* (input: CreateEntityInput) {
-			return yield* createEntity(input, input.origin);
-		});
-
-		const ensureUserEntities = Effect.fn("EntitiesService.ensureUserEntities")(function* (
-			userId: UserId,
-			items: ReadonlyArray<EnsureUserEntityItem>,
-			lifecycleIdentity?: EnsureUserEntitiesLifecycleIdentity,
-		) {
-			const database = yield* Database;
-			const saved = yield* mapDatabaseErrors(
-				database.transaction((transaction) =>
-					Effect.gen(function* () {
-						yield* repository.lockUserEntityEnsureScopes({
-							userId,
-							entitySchemaSlugs: items.map(({ entitySchemaSlug }) => entitySchemaSlug),
-						});
-						return yield* Effect.forEach(items, (item) => ensureUserEntity(userId, item));
-					}).pipe(Effect.provideService(Database, transaction)),
+			const properties = yield* parseAppSchemaProperties({
+				kind: "Entity",
+				properties: draft.properties,
+				propertiesSchema: definition.propertiesSchema,
+			}).pipe(
+				Effect.mapError(
+					(error) =>
+						new EntityBadRequest({
+							reason: { code: "invalid-properties", paths: error.issues.map(({ path }) => path) },
+						}),
 				),
 			);
-			const occurredAt = lifecycleIdentity?.occurredAt ?? (yield* DateTime.nowAsDate).toISOString();
-			yield* Effect.forEach(
-				saved,
-				({ entity, wasInserted }, index) =>
-					wasInserted
-						? lifecycleDispatch.dispatch({
-								occurredAt,
-								rowUserId: userId,
-								recordId: entity.id,
-								origin: { kind: "bootstrap" },
-								occurrenceId: lifecycleIdentity
-									? `${lifecycleIdentity.executionId}-ensure-user-entity-${index}`
-									: `occ_${generateId()}`,
-								source: {
-									kind: "entity",
-									after: {
-										...toMutationSnapshot(entity),
-										properties: isObjectRecord(entity.properties) ? entity.properties : {},
+			const validated = yield* Schema.decodeUnknownEffect(AutomationEntityDraft)({
+				...draft,
+				name,
+				properties,
+			}).pipe(
+				Effect.mapError(
+					() => new EntityBadRequest({ reason: { paths: [], code: "invalid-properties" } }),
+				),
+			);
+			return {
+				draft: validated,
+				entitySchemaPluginId: definition.pluginId ?? null,
+				entitySchemaFingerprint: catalogDefinitionFingerprint(definition),
+			};
+		});
+		const prepare = Effect.fnUntraced(function* (input: Omit<PreparedMutation, "requestId">) {
+			const lifecycle = yield* Schema.decodeEffect(LifecycleCommand)(input.lifecycle).pipe(
+				Effect.mapError(() => bad("mutation-conflict", "Invalid lifecycle command")),
+			);
+			let payload: EntityRequest;
+			if (input.operation === "create") {
+				payload = {
+					resource: "entity",
+					draft: input.draft,
+					operation: "create",
+					category: "request",
+				};
+			} else {
+				if (input.before === null) {
+					return yield* bad("mutation-conflict", "Mutation requires the persisted entity snapshot");
+				}
+				payload =
+					input.operation === "update"
+						? {
+								resource: "entity",
+								draft: input.draft,
+								category: "request",
+								operation: "update",
+								before: input.before,
+							}
+						: { resource: "entity", operation: "delete", draft: input.before, category: "request" };
+			}
+			const planned = yield* transaction(
+				planner.plan({ trigger: lifecycleTrigger(lifecycle, input.scopeUserId, payload) }),
+			);
+			if (planned.trigger.blockedReason !== null) {
+				return yield* bad("automation-limit", "Entity request exceeds automation limits");
+			}
+			yield* Effect.gen(function* () {
+				for (const policy of planned.policies) {
+					const output = yield* execution
+						.executePolicy({ payload, runId: policy.runId })
+						.pipe(
+							Effect.catchTag("AutomationPolicyExecutionError", (error) =>
+								Effect.fail(
+									new EntityBadRequest({
+										reason: { runId: error.runId, code: "policy-execution-failed" },
+									}),
+								),
+							),
+						);
+					if (output.action === "reject") {
+						return yield* bad("policy-rejected", output.reason);
+					}
+					if (output.action === "transform") {
+						const next = output.payload;
+						if (
+							next.resource !== "entity" ||
+							next.operation !== payload.operation ||
+							!same(
+								{
+									...next,
+									draft: {
+										...next.draft,
+										name: payload.draft.name,
+										properties: payload.draft.properties,
 									},
 								},
-							})
-						: Effect.void,
-				{ discard: true },
+								payload,
+							) ||
+							(payload.operation === "delete" && !same(next, payload))
+						) {
+							return yield* bad(
+								"invalid-policy-transform",
+								"Entity policy changed trusted mutation identity",
+							);
+						}
+						payload = next;
+					}
+				}
+				return undefined;
+			}).pipe(
+				Effect.catchCause((cause) =>
+					execution
+						.skipQueuedPolicies({ triggerId: planned.trigger.id })
+						.pipe(Effect.andThen(Effect.failCause(cause)), Effect.uninterruptible),
+				),
 			);
-			return saved.map(({ entity, wasInserted }) => ({ wasInserted, entityId: entity.id }));
+			const final = yield* validateDraft(
+				payload.operation === "delete" ? draftOf(payload.draft) : payload.draft,
+				input.scopeUserId,
+			);
+			if (
+				final.entitySchemaPluginId !== input.entitySchemaPluginId ||
+				!same(final.entitySchemaFingerprint, input.entitySchemaFingerprint)
+			) {
+				return yield* bad(
+					"mutation-conflict",
+					"Entity schema ownership changed while policies ran",
+				);
+			}
+			return {
+				...input,
+				lifecycle,
+				draft: final.draft,
+				requestId: planned.trigger.id,
+			} satisfies PreparedMutation;
 		});
-
-		const createGlobal = Effect.fn("EntitiesService.createGlobal")(function* (
-			input: Omit<Extract<CreateAnyEntityInput, { scope: "global" }>, "scope">,
+		const persisted = Effect.fnUntraced(function* (input: PreparedMutation) {
+			yield* repository.lockSchemaCatalog();
+			const currentSchema = yield* validateDraft(input.draft, input.scopeUserId);
+			if (
+				!same(currentSchema.entitySchemaFingerprint, input.entitySchemaFingerprint) ||
+				!same(currentSchema.draft, input.draft)
+			) {
+				return yield* bad(
+					"mutation-conflict",
+					"Entity schema changed before the source write committed",
+				);
+			}
+			yield* repository.lockMutationKeys([input.entityId]);
+			if (input.draft.externalId !== null && input.draft.providerId !== null) {
+				yield* repository.lockProviderEntityMutations([
+					{
+						externalId: input.draft.externalId,
+						providerId: input.draft.providerId,
+						entitySchemaSlug: input.draft.entitySchemaSlug,
+						...(input.scopeUserId === null
+							? { scope: "global" as const }
+							: { scope: "user" as const, userId: input.scopeUserId }),
+					},
+				]);
+			}
+			const current = yield* repository.getMutationEntity(input.entityId, true);
+			const before = current ? snapshot(current.entity) : null;
+			if (current && current.userId !== input.scopeUserId) {
+				return yield* bad("mutation-conflict", "Entity scope changed");
+			}
+			let entity: ListedEntity;
+			let outcome: EntityMutationOutcome;
+			if (input.operation === "create") {
+				if (before) {
+					if (!same(draftOf(before), input.draft)) {
+						return yield* bad(
+							"mutation-conflict",
+							"Command identity was reused with a different entity payload",
+						);
+					}
+					entity = before;
+				} else {
+					const saved = yield* repository.insertEntity({
+						id: input.entityId,
+						name: input.draft.name,
+						properties: input.draft.properties,
+						entitySchemaSlug: input.draft.entitySchemaSlug,
+						entitySchemaPluginId: input.entitySchemaPluginId,
+						createdAt: DateTime.toDateUtc(DateTime.makeUnsafe(input.lifecycle.occurredAt)),
+						populatedAt:
+							input.draft.populatedAt === null
+								? null
+								: DateTime.toDateUtc(DateTime.makeUnsafe(input.draft.populatedAt)),
+						...(input.draft.externalId === null ? {} : { externalId: input.draft.externalId }),
+						...(input.draft.providerId === null ? {} : { providerId: input.draft.providerId }),
+						...(input.scopeUserId === null
+							? { scope: "global" as const }
+							: { scope: "user" as const, userId: input.scopeUserId }),
+					});
+					if (!saved.wasInserted) {
+						return yield* bad(
+							"mutation-conflict",
+							"Provider identity changed while policies ran; resubmit with a new command",
+						);
+					}
+					entity = saved.entity;
+				}
+				outcome = { before: null, operation: "create", after: snapshot(entity) };
+			} else {
+				if (!before || !same(before, input.before)) {
+					return yield* bad(
+						"mutation-conflict",
+						"Entity changed while policies ran; resubmit with a new command",
+					);
+				}
+				if (input.operation === "delete") {
+					yield* repository.deleteByIds([input.entityId]);
+					const plan = yield* planner.plan({
+						trigger: lifecycleTrigger(
+							{
+								...input.lifecycle,
+								causation: { ...input.lifecycle.causation, parentTriggerId: input.requestId },
+							},
+							input.scopeUserId,
+							{
+								before,
+								category: "change",
+								resource: "entity",
+								operation: "delete",
+								...(input.lifecycle.population ? { population: input.lifecycle.population } : {}),
+							},
+						),
+					});
+					return {
+						plan,
+						entity: before,
+						wasInserted: false,
+						outcome: { before, after: before, operation: "noop" as const },
+					};
+				}
+				if (same(draftOf(before), input.draft)) {
+					return {
+						plan: null,
+						entity: before,
+						wasInserted: false,
+						outcome: { before, after: before, operation: "noop" as const },
+					};
+				}
+				entity = yield* repository.updateEntity({
+					name: input.draft.name,
+					entityId: input.entityId,
+					properties: input.draft.properties,
+					populatedAt:
+						input.draft.populatedAt === null
+							? null
+							: DateTime.toDateUtc(DateTime.makeUnsafe(input.draft.populatedAt)),
+				});
+				outcome = { before, operation: "update", after: snapshot(entity) };
+			}
+			const plan = yield* planner.plan({
+				trigger: lifecycleTrigger(
+					{
+						...input.lifecycle,
+						causation: { ...input.lifecycle.causation, parentTriggerId: input.requestId },
+					},
+					input.scopeUserId,
+					{
+						category: "change",
+						resource: "entity",
+						...(outcome.operation === "create"
+							? { after: outcome.after, operation: "create" as const }
+							: { after: outcome.after, before: outcome.before, operation: "update" as const }),
+						...(input.lifecycle.population ? { population: input.lifecycle.population } : {}),
+					},
+				),
+			});
+			return {
+				plan,
+				entity,
+				outcome,
+				wasInserted: input.operation === "create" && before === null,
+			};
+		});
+		const finish = Effect.fnUntraced(function* (
+			saved: Effect.Success<ReturnType<typeof persisted>>,
 		) {
-			return yield* createEntity({ ...input, scope: "global" });
+			const warnings: AutomationWarning[] = [];
+			if (saved.plan) {
+				if (saved.plan.trigger.blockedReason?.hasRequiredHooks) {
+					warnings.push({ ...saved.plan.trigger.blockedReason, triggerId: saved.plan.trigger.id });
+				}
+				warnings.push(
+					...(yield* execution.after({ runs: saved.plan.runs, triggerId: saved.plan.trigger.id })),
+				);
+			}
+			return {
+				warnings,
+				entity: saved.entity,
+				outcome: saved.outcome,
+				wasInserted: saved.wasInserted,
+			};
 		});
-
+		const prepareCreate = Effect.fnUntraced(function* (
+			input: CreateEntityInput,
+			updateExisting?: boolean,
+		) {
+			if (
+				input.scope === "user" &&
+				(input.externalId !== undefined) !== (input.providerId !== undefined)
+			) {
+				return yield* new EntityBadRequest({
+					reason: { code: "incomplete-provenance", fields: ["externalId", "providerId"] },
+				});
+			}
+			const scopeUserId = input.scope === "user" ? input.userId : null;
+			const validated = yield* validateDraft(
+				{
+					name: input.name,
+					properties: input.properties,
+					externalId: input.externalId ?? null,
+					providerId: input.providerId ?? null,
+					entitySchemaSlug: input.entitySchemaSlug,
+					populatedAt: input.populatedAt?.toISOString() ?? null,
+				},
+				scopeUserId,
+			);
+			const { externalId, providerId } = input;
+			const existing =
+				externalId !== undefined && providerId !== undefined
+					? yield* transaction(
+							Effect.gen(function* () {
+								const identity = {
+									...input,
+									externalId,
+									providerId,
+									entitySchemaPluginId: validated.entitySchemaPluginId,
+								};
+								yield* repository.lockProviderEntityMutations([identity]);
+								const entity = yield* repository.findEntityByExternalId(identity);
+								return entity
+									? ((yield* repository.getMutationEntity(entity.id, true))?.entity ?? null)
+									: null;
+							}),
+						)
+					: null;
+			const replay = existing?.id === commandEntityId(input.lifecycle);
+			if (
+				existing &&
+				!replay &&
+				(updateExisting === undefined || (!updateExisting && existing.populatedAt !== null))
+			) {
+				return { existing, prepared: null };
+			}
+			return {
+				existing: null,
+				prepared: yield* prepare({
+					...validated,
+					scopeUserId,
+					lifecycle: input.lifecycle,
+					operation: existing && !replay ? "update" : "create",
+					before: existing && !replay ? snapshot(existing) : null,
+					entityId: existing?.id ?? commandEntityId(input.lifecycle),
+				}),
+			};
+		});
+		const saveCreate = Effect.fnUntraced(function* (
+			input: CreateEntityInput,
+			updateExisting?: boolean,
+		) {
+			yield* assertOwner;
+			const prepared = yield* prepareCreate(input, updateExisting);
+			if (prepared.existing) {
+				const before = snapshot(prepared.existing);
+				return {
+					wasInserted: false,
+					entity: prepared.existing,
+					warnings: [] as ReadonlyArray<AutomationWarning>,
+					outcome: { before, after: before, operation: "noop" as const },
+				};
+			}
+			return yield* finish(yield* transaction(persisted(prepared.prepared)));
+		});
+		const create = Effect.fn("EntitiesService.create")(function* (input: CreateEntityInput) {
+			const { entity, warnings } = yield* saveCreate(input);
+			return { entity, warnings };
+		});
+		const createGlobal = Effect.fn("EntitiesService.createGlobal")(function* (
+			input: Omit<CreateEntityInput, "scope" | "userId">,
+		) {
+			return yield* create({ ...input, scope: "global" });
+		});
+		const upsert = Effect.fn("EntitiesService.upsert")(function* (input: UpsertEntityInput) {
+			const { entity, outcome, warnings } = yield* saveCreate(input, input.updateExisting);
+			return { entity, outcome, warnings };
+		});
+		const committedProviderUpsertReplay = Effect.fnUntraced(function* (input: {
+			operation: "create" | "update";
+			lifecycle: LifecycleCommand;
+			scopeUserId: UserId | null;
+			existing: ListedEntity | null;
+			draft: AutomationEntityDraft;
+		}) {
+			const triggerId = (category: "request" | "change") =>
+				lifecycleTriggerId({
+					discriminator: "lifecycle",
+					itemIdentity: input.lifecycle.itemIdentity,
+					executionId: input.lifecycle.causation.executionId,
+					kind: { category, resource: "entity", operation: input.operation },
+				});
+			const request = yield* repository.findLifecyclePayload(triggerId("request"));
+			if (request === null) {
+				return null;
+			}
+			if (
+				request.category !== "request" ||
+				request.resource !== "entity" ||
+				!same(request.draft, input.draft)
+			) {
+				return yield* bad(
+					"mutation-conflict",
+					"Command identity was reused with a different entity payload",
+				);
+			}
+			if (!input.existing) {
+				return yield* bad(
+					"mutation-conflict",
+					"Replayed entity command is missing its committed entity",
+				);
+			}
+			const requestPlan = yield* planner.plan({
+				trigger: lifecycleTrigger(input.lifecycle, input.scopeUserId, request),
+			});
+			const committed = snapshot(input.existing);
+			const outcome = { after: committed, before: committed, operation: "noop" as const };
+			const result = { outcome, entity: input.existing, wasInserted: input.operation === "create" };
+			const change = yield* repository.findLifecyclePayload(triggerId("change"));
+			if (change === null) {
+				return {
+					result,
+					plans: [],
+				} satisfies CommittedLifecycleWork<PlannedProviderEntityUpsertResult>;
+			}
+			if (change.category !== "change" || change.resource !== "entity") {
+				return yield* bad("mutation-conflict", "Replayed entity command changed its resource kind");
+			}
+			const plan = yield* planner.plan({
+				trigger: lifecycleTrigger(
+					{
+						...input.lifecycle,
+						causation: { ...input.lifecycle.causation, parentTriggerId: requestPlan.trigger.id },
+					},
+					input.scopeUserId,
+					change,
+				),
+			});
+			return {
+				result,
+				plans: [plan],
+			} satisfies CommittedLifecycleWork<PlannedProviderEntityUpsertResult>;
+		});
+		const persistPlannedProviderUpsert = Effect.fn("EntitiesService.persistPlannedProviderUpsert")(
+			function* (input: UpsertEntityInput) {
+				yield* assertActiveTransaction;
+				const lifecycle = yield* Schema.decodeEffect(LifecycleCommand)(input.lifecycle).pipe(
+					Effect.mapError(() => bad("mutation-conflict", "Invalid lifecycle command")),
+				);
+				const scopeUserId = input.scope === "user" ? input.userId : null;
+				const validated = yield* validateDraft(
+					{
+						name: input.name,
+						properties: input.properties,
+						externalId: input.externalId,
+						providerId: input.providerId,
+						entitySchemaSlug: input.entitySchemaSlug,
+						populatedAt: input.populatedAt?.toISOString() ?? null,
+					},
+					scopeUserId,
+				);
+				const identity = { ...input, entitySchemaPluginId: validated.entitySchemaPluginId };
+				yield* repository.lockProviderEntityMutations([identity]);
+				const found = yield* repository.findEntityByExternalId(identity);
+				const existing = found
+					? ((yield* repository.getMutationEntity(found.id, true))?.entity ?? null)
+					: null;
+				const replay = existing?.id === commandEntityId(lifecycle);
+				if (existing && !replay && !input.updateExisting && existing.populatedAt !== null) {
+					const before = snapshot(existing);
+					return {
+						plans: [],
+						result: {
+							entity: existing,
+							wasInserted: false,
+							outcome: { before, after: before, operation: "noop" },
+						},
+					} satisfies CommittedLifecycleWork<PlannedProviderEntityUpsertResult>;
+				}
+				const operation = existing && !replay ? "update" : "create";
+				const committed = yield* committedProviderUpsertReplay({
+					existing,
+					lifecycle,
+					operation,
+					scopeUserId,
+					draft: validated.draft,
+				});
+				if (committed) {
+					return committed;
+				}
+				const before = existing && !replay ? snapshot(existing) : null;
+				const payload: EntityRequest =
+					before === null
+						? {
+								resource: "entity",
+								category: "request",
+								operation: "create",
+								draft: validated.draft,
+							}
+						: {
+								before,
+								resource: "entity",
+								category: "request",
+								operation: "update",
+								draft: validated.draft,
+							};
+				const requestPlan = yield* planner.plan({
+					trigger: lifecycleTrigger(lifecycle, scopeUserId, payload),
+				});
+				if (requestPlan.trigger.blockedReason !== null) {
+					return yield* bad("automation-limit", "Entity request exceeds automation limits");
+				}
+				if (requestPlan.policies.length > 0) {
+					return yield* new LifecyclePersistenceError({ code: "before-policy-requires-owner" });
+				}
+				const saved = yield* persisted({
+					before,
+					lifecycle,
+					operation,
+					scopeUserId,
+					draft: validated.draft,
+					requestId: requestPlan.trigger.id,
+					entitySchemaPluginId: validated.entitySchemaPluginId,
+					entityId: existing?.id ?? commandEntityId(lifecycle),
+					entitySchemaFingerprint: validated.entitySchemaFingerprint,
+				});
+				return {
+					plans: saved.plan ? [saved.plan] : [],
+					result: { entity: saved.entity, outcome: saved.outcome, wasInserted: saved.wasInserted },
+				} satisfies CommittedLifecycleWork<PlannedProviderEntityUpsertResult>;
+			},
+		);
+		const executeCommittedPlans = Effect.fn("EntitiesService.executeCommittedPlans")(function* (
+			plans: ReadonlyArray<LifecyclePlan>,
+		) {
+			if (Option.isSome(yield* Effect.serviceOption(sqlClient.transactionService))) {
+				return yield* new LifecyclePersistenceError({ code: "postcommit-requires-root" });
+			}
+			return yield* Effect.forEach(plans, ({ runs, trigger }) =>
+				Effect.gen(function* () {
+					const warnings: AutomationWarning[] = [];
+					if (trigger.blockedReason?.hasRequiredHooks) {
+						warnings.push({ ...trigger.blockedReason, triggerId: trigger.id });
+					}
+					warnings.push(...(yield* execution.after({ runs, triggerId: trigger.id })));
+					return warnings;
+				}),
+			).pipe(Effect.map((warnings) => warnings.flat()));
+		});
 		const update = Effect.fn("EntitiesService.update")(function* (input: UpdateEntityInput) {
-			const entity =
-				input.scope === "user"
-					? yield* repository.getEntityScopeForUser({
-							userId: input.userId,
-							entityId: input.entityId,
-						})
-					: yield* repository.findGlobalEntityById(input.entityId);
-			if (!entity) {
+			yield* assertOwner;
+			const current = yield* repository.getMutationEntity(input.entityId);
+			if (
+				!current ||
+				(input.scope === "global"
+					? current.userId !== null
+					: current.userId !== null && current.userId !== input.userId)
+			) {
 				return yield* new EntityNotFound({
 					reason: { code: "entity-not-found", entityId: input.entityId },
 				});
 			}
-			const entitySchema = yield* input.scope === "user"
-				? repository.findEntitySchemaForUser({
-						userId: input.userId,
-						entitySchemaSlug: entity.entitySchemaSlug,
-					})
-				: repository.findSystemEntitySchemaById(entity.entitySchemaSlug);
-			if (!entitySchema) {
-				return yield* new EntityNotFound({
-					reason: { code: "entity-schema-not-found", entitySchemaSlug: entity.entitySchemaSlug },
-				});
-			}
-
-			const properties = yield* parseEntityProperties(
-				input.properties,
-				entitySchema.propertiesSchema,
+			const before = snapshot(current.entity);
+			const validated = yield* validateDraft(
+				{
+					...draftOf(before),
+					name: input.name,
+					properties: input.properties,
+					populatedAt: input.populatedAt?.toISOString() ?? null,
+				},
+				current.userId,
 			);
-
-			return yield* repository.updateEntity({
-				properties,
-				name: input.name,
+			const prepared = yield* prepare({
+				...validated,
+				before,
+				operation: "update",
 				entityId: input.entityId,
-				populatedAt: input.populatedAt,
+				lifecycle: input.lifecycle,
+				scopeUserId: current.userId,
 			});
+			const { entity, warnings } = yield* finish(yield* transaction(persisted(prepared)));
+			return { entity, warnings };
 		});
-
-		const upsert = Effect.fn("EntitiesService.upsert")(function* (input: UpsertEntityInput) {
-			const scope = yield* input.scope === "user"
-				? repository.findEntitySchemaForUser({
-						userId: input.userId,
-						entitySchemaSlug: input.entitySchemaSlug,
-					})
-				: repository.findSystemEntitySchemaById(input.entitySchemaSlug);
-			if (!scope) {
-				return yield* new EntityNotFound({
-					reason: { code: "entity-schema-not-found", entitySchemaSlug: input.entitySchemaSlug },
-				});
-			}
-
-			const name = trimToNull(input.name);
-			if (!name) {
-				return yield* new EntityBadRequest({ reason: { field: "name", code: "name-required" } });
-			}
-			const properties = yield* parseEntityProperties(input.properties, scope.propertiesSchema);
-			const provenance = {
-				externalId: input.externalId,
-				providerId: input.providerId,
-				entitySchemaSlug: input.entitySchemaSlug,
-				...(scope.pluginId === undefined ? {} : { entitySchemaPluginId: scope.pluginId }),
-			};
-			const saved = yield* repository.insertEntity({
-				name,
-				properties,
-				...provenance,
-				...(input.scope === "user"
-					? { userId: input.userId, scope: "user" as const }
-					: { scope: "global" as const, populatedAt: input.populatedAt }),
-			});
-			const before = toMutationSnapshot(saved.entity);
-
-			if (saved.wasInserted) {
-				return {
-					entity: saved.entity,
-					outcome: { before: null, after: before, operation: "create" as const },
-				};
-			}
-
-			if (!input.updateExisting && saved.entity.populatedAt !== null) {
-				return {
-					entity: saved.entity,
-					outcome: { before, after: before, operation: "noop" as const },
-				};
-			}
-
-			const entity = yield* repository.updateEntity({
-				name,
-				properties,
-				entityId: saved.entity.id,
-				populatedAt: input.populatedAt,
-			});
-			const after = toMutationSnapshot(entity);
-			const operation =
-				before.name === after.name && Bun.deepEquals(before.properties, after.properties)
-					? ("noop" as const)
-					: ("update" as const);
-
-			return { entity, outcome: { after, before, operation } };
+		const deleteByIds = Effect.fn("EntitiesService.deleteByIds")(function* (
+			ids: readonly [EntityId, ...EntityId[]],
+			lifecycle: LifecycleCommand,
+		) {
+			yield* assertOwner;
+			const prepared = yield* Effect.forEach([...new Set(ids)].sort(), (entityId) =>
+				Effect.gen(function* () {
+					const current = yield* repository.getMutationEntity(entityId);
+					if (!current) {
+						return null;
+					}
+					const before = snapshot(current.entity);
+					const definition = yield* entitySchema(current.userId, before.entitySchemaSlug);
+					return yield* prepare({
+						before,
+						entityId,
+						operation: "delete",
+						draft: draftOf(before),
+						scopeUserId: current.userId,
+						lifecycle: itemCommand(lifecycle, entityId),
+						entitySchemaPluginId: definition.pluginId ?? null,
+						entitySchemaFingerprint: catalogDefinitionFingerprint(definition),
+					});
+				}),
+			);
+			const saved = yield* transaction(
+				Effect.forEach(
+					prepared.filter((item) => item !== null),
+					persisted,
+				),
+			);
+			const results = yield* Effect.forEach(saved, finish);
+			return { deletedCount: saved.length, warnings: results.flatMap((item) => item.warnings) };
 		});
-
+		const ensureUserEntities = Effect.fn("EntitiesService.ensureUserEntities")(function* (
+			userId: UserId,
+			items: ReadonlyArray<EnsureUserEntityItem>,
+			lifecycle: LifecycleCommand,
+		) {
+			yield* assertOwner;
+			const prepared = yield* Effect.forEach(items, (item) =>
+				Effect.gen(function* () {
+					const existing = yield* repository.findUserEntityWithoutProvenance({
+						userId,
+						entitySchemaSlug: item.entitySchemaSlug,
+					});
+					return {
+						item,
+						existing,
+						prepared: existing
+							? null
+							: (yield* prepareCreate({
+									...item,
+									userId,
+									scope: "user",
+									lifecycle: itemCommand(lifecycle, item.entitySchemaSlug),
+								})).prepared,
+					};
+				}),
+			);
+			const saved = yield* transaction(
+				Effect.gen(function* () {
+					yield* repository.lockUserEntityEnsureScopes({
+						userId,
+						entitySchemaSlugs: items.map((item) => item.entitySchemaSlug),
+					});
+					return yield* Effect.forEach(prepared, (item) =>
+						Effect.gen(function* () {
+							const existing = yield* repository.findUserEntityWithoutProvenance({
+								userId,
+								entitySchemaSlug: item.item.entitySchemaSlug,
+							});
+							if (existing) {
+								return { saved: null, entityId: existing.id };
+							}
+							if (!item.prepared) {
+								return yield* bad(
+									"mutation-conflict",
+									"Ensured entity disappeared while policies ran",
+								);
+							}
+							const persistedVar = yield* persisted(item.prepared);
+							return { saved: persistedVar, entityId: persistedVar.entity.id };
+						}),
+					);
+				}),
+			);
+			return yield* Effect.forEach(saved, (item) =>
+				Effect.gen(function* () {
+					const result = item.saved ? yield* finish(item.saved) : null;
+					return {
+						entityId: item.entityId,
+						warnings: result?.warnings ?? [],
+						wasInserted: result?.wasInserted ?? false,
+					};
+				}),
+			);
+		});
 		const upsertGlobalEntities = Effect.fn("EntitiesService.upsertGlobalEntities")(function* (
 			items: ReadonlyArray<UpsertGlobalEntityItem>,
 			providerId: SandboxProviderId,
+			lifecycle: LifecycleCommand,
 			options?: UpsertGlobalEntitiesOptions,
 		) {
-			const validated = yield* Effect.forEach(items, (input) =>
-				Effect.gen(function* () {
-					const scope = yield* repository.findSystemEntitySchemaById(input.entitySchemaSlug);
-					if (!scope) {
-						return yield* new EntityNotFound({
-							reason: { code: "entity-schema-not-found", entitySchemaSlug: input.entitySchemaSlug },
-						});
-					}
-
-					const name = trimToNull(input.name);
-					if (!name) {
-						return yield* new EntityBadRequest({
-							reason: { field: "name", code: "name-required" },
-						});
-					}
-					const properties = yield* parseEntityProperties(input.properties, scope.propertiesSchema);
-					return {
-						...input,
-						name,
-						properties,
-						entitySchemaPluginId: scope.pluginId ?? null,
-					} satisfies ValidatedGlobalEntityItem;
-				}),
-			);
-
-			const save = (input: ValidatedGlobalEntityItem) =>
-				repository.insertEntity({ ...input, providerId, scope: "global" });
-
-			if (options?.maximumTotal === undefined) {
-				return yield* Effect.forEach(validated, (input) =>
-					save(input).pipe(
-						Effect.map((saved) => ({
-							entityId: saved.entity.id,
-							status: "upserted" as const,
-							wasInserted: saved.wasInserted,
-						})),
-					),
-				);
-			}
-
-			if (!Number.isInteger(options.maximumTotal) || options.maximumTotal < 0) {
+			yield* assertOwner;
+			if (
+				options?.maximumTotal !== undefined &&
+				(!Number.isInteger(options.maximumTotal) || options.maximumTotal < 0)
+			) {
 				return yield* new EntityBadRequest({
 					reason: { field: "maximumTotal", code: "invalid-maximum-total" },
 				});
 			}
-
-			const maximumTotal = options.maximumTotal;
-			const database = yield* Database;
-			return yield* mapDatabaseErrors(
-				database.transaction((transaction) =>
-					Effect.gen(function* () {
-						const scopes = [
-							...new Map(
-								validated.map((item) => [
-									`${item.entitySchemaSlug}:${item.entitySchemaPluginId ?? "kernel"}`,
-									{
-										entitySchemaSlug: item.entitySchemaSlug,
-										entitySchemaPluginId: item.entitySchemaPluginId,
-									},
-								]),
-							).entries(),
-						].sort(([left], [right]) => left.localeCompare(right));
-						for (const [, scope] of scopes) {
-							yield* repository.lockGlobalEntityProvenanceScope({ ...scope, providerId });
-						}
-
-						const counts = new Map<string, number>();
-						for (const [key, scope] of scopes) {
-							counts.set(
-								key,
-								yield* repository.countGlobalEntitiesByProvenanceScope({ ...scope, providerId }),
-							);
-						}
-
-						return yield* Effect.forEach(validated, (input) =>
-							Effect.gen(function* () {
-								const existing = yield* repository.findEntityByExternalId({
-									providerId,
-									scope: "global",
-									externalId: input.externalId,
-									entitySchemaSlug: input.entitySchemaSlug,
-									entitySchemaPluginId: input.entitySchemaPluginId,
-								});
-								if (existing) {
-									return { wasInserted: false, entityId: existing.id, status: "upserted" as const };
-								}
-
-								const scopeKey = `${input.entitySchemaSlug}:${input.entitySchemaPluginId ?? "kernel"}`;
-								const currentCount = counts.get(scopeKey) ?? 0;
-								if (currentCount >= maximumTotal) {
-									return { status: "skipped" as const };
-								}
-
-								const saved = yield* save(input);
-								if (saved.wasInserted) {
-									counts.set(scopeKey, currentCount + 1);
-								}
-								return {
-									entityId: saved.entity.id,
-									status: "upserted" as const,
-									wasInserted: saved.wasInserted,
-								};
-							}),
-						);
-					}).pipe(Effect.provideService(Database, transaction)),
-				),
+			const prepared = yield* Effect.forEach(items, (item) =>
+				Effect.gen(function* () {
+					const result = yield* prepareCreate({
+						...item,
+						providerId,
+						scope: "global",
+						lifecycle: itemCommand(
+							lifecycle,
+							stableStringify([item.entitySchemaSlug, providerId, item.externalId]),
+						),
+					});
+					const definition = yield* entitySchema(null, item.entitySchemaSlug);
+					return { ...result, item, entitySchemaPluginId: definition.pluginId ?? null };
+				}),
+			);
+			const saved = yield* transaction(
+				Effect.gen(function* () {
+					for (const item of [...prepared].sort((a, b) =>
+						a.item.entitySchemaSlug.localeCompare(b.item.entitySchemaSlug),
+					)) {
+						yield* repository.lockGlobalEntityProvenanceScope({
+							providerId,
+							entitySchemaSlug: item.item.entitySchemaSlug,
+							entitySchemaPluginId: item.entitySchemaPluginId,
+						});
+					}
+					return yield* Effect.forEach(prepared, (input) =>
+						Effect.gen(function* () {
+							const scope = {
+								providerId,
+								entitySchemaSlug: input.item.entitySchemaSlug,
+								entitySchemaPluginId: input.entitySchemaPluginId,
+							};
+							const existing = yield* repository.findEntityByExternalId({
+								...scope,
+								scope: "global",
+								externalId: input.item.externalId,
+							});
+							if (existing) {
+								return { saved: null, entityId: existing.id, status: "upserted" as const };
+							}
+							if (
+								options?.maximumTotal !== undefined &&
+								(yield* repository.countGlobalEntitiesByProvenanceScope(scope)) >=
+									options.maximumTotal
+							) {
+								return { saved: null, status: "skipped" as const };
+							}
+							if (!input.prepared) {
+								return yield* bad(
+									"mutation-conflict",
+									"Provider entity disappeared while policies ran",
+								);
+							}
+							const persistedVar = yield* persisted(input.prepared);
+							return {
+								saved: persistedVar,
+								status: "upserted" as const,
+								entityId: persistedVar.entity.id,
+							};
+						}),
+					);
+				}),
+			);
+			return yield* Effect.forEach(saved, (item) =>
+				Effect.gen(function* () {
+					if (item.status === "skipped") {
+						return { status: "skipped" as const, warnings: [] as ReadonlyArray<AutomationWarning> };
+					}
+					const result = item.saved ? yield* finish(item.saved) : null;
+					return {
+						entityId: item.entityId,
+						status: "upserted" as const,
+						warnings: result?.warnings ?? [],
+						wasInserted: result?.wasInserted ?? false,
+					};
+				}),
 			);
 		});
-
 		const getByIdAnyScope = Effect.fn("EntitiesService.getByIdAnyScope")(function* (
 			entityId: EntityId,
 		) {
@@ -470,22 +969,17 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			}
 			return entity;
 		});
-
-		const deleteByIds = Effect.fn("EntitiesService.deleteByIds")(function* (
-			ids: readonly [EntityId, ...EntityId[]],
-		) {
-			return yield* repository.deleteByIds(ids);
-		});
-
 		return {
 			create,
-			update,
 			upsert,
+			update,
 			deleteByIds,
 			createGlobal,
 			getByIdAnyScope,
 			ensureUserEntities,
 			upsertGlobalEntities,
+			executeCommittedPlans,
+			persistPlannedProviderUpsert,
 		};
 	}),
 }) {

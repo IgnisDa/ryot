@@ -3,7 +3,14 @@ import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { ListedImportRun } from "@ryot-app/contract/modules/imports/schemas";
-import { ImportRunId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	ImportRunId,
+	PluginConfigRevisionId,
+	PluginId,
+	PluginRevisionId,
+	SandboxScriptId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import { Effect, Layer, Schema } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 import { assert } from "vitest";
@@ -38,6 +45,19 @@ const configSchema = {
 	unknownKeys: "strict",
 	fields: { deltaApiKey: { type: "string", label: "Delta API key", description: "Delta API key" } },
 } as const;
+const admittedPluginRevision = {
+	configSchema,
+	ownerId: null,
+	slug: "example",
+	compiledHashes: {},
+	workflowScripts: {},
+	scope: "system" as const,
+	userBootstrapScriptSlugs: [],
+	id: PluginId.make("example-plugin-id"),
+	revisionId: PluginRevisionId.make("example-revision"),
+	configRevisionId: PluginConfigRevisionId.make("example-config-revision"),
+	schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
+};
 
 const uploadProperty = (extensions: ReadonlyArray<string>, required = true) => ({
 	label: "Export file",
@@ -90,6 +110,7 @@ const importWorkflowScript = {
 	contentHash: "workflow-hash",
 	slug: "workflow.beta-import",
 	pluginId: "example-plugin-id",
+	pluginRevisionId: "example-revision",
 	metadata: { kind: "workflow" as const },
 	id: SandboxScriptId.make("accepted-import-script"),
 };
@@ -108,7 +129,11 @@ const makeImportSourceCatalog = (
 const makeImportWorkflowPinning = (overrides: Partial<ImportWorkflowPinningValue> = {}) =>
 	Layer.succeed(ImportWorkflowPinning, {
 		release: () => Effect.void,
-		preRegister: () => Effect.succeed({ registrationStatus: "registered" as const }),
+		preRegister: () =>
+			Effect.succeed({
+				pluginRevision: admittedPluginRevision,
+				registrationStatus: "registered" as const,
+			}),
 		...overrides,
 	});
 
@@ -160,8 +185,14 @@ const betaSource = (overrides: Partial<RegisteredImportSource> = {}): Registered
 	requiredPluginConfigKeys: [],
 	pluginId: "example-plugin-id",
 	installationId: "example-installation",
-	configContext: { configSchema, kind: "environment", pluginSlug: "example" },
 	inputSchema: { unknownKeys: "strict", fields: { uploadToken: uploadProperty(["csv"]) } },
+	configContext: {
+		configSchema,
+		kind: "revision",
+		ownerUserId: null,
+		pluginRevisionId: "example-revision",
+		pluginConfigRevisionId: "example-config-revision",
+	},
 	...overrides,
 });
 
@@ -382,7 +413,21 @@ it.effect("claims only the visible upload from mutually exclusive required field
 			inputSummary: { source: "movary", fileNames: { historyUploadToken: "history-original.csv" } },
 		});
 		expect(executed[0]).toMatchObject({
-			payload: { runId: "run-1", userId: "user-1", sourceStateId: "run-1" },
+			payload: {
+				runId: "run-1",
+				userId: "user-1",
+				sourceStateId: "run-1",
+				command: {
+					itemIdentity: '["import-run","run-1"]',
+					causation: {
+						source: "import",
+						executionId: "run-1",
+						importRunId: "run-1",
+						rootExecutionId: "run-1",
+						initiator: { id: "user-1", kind: "user" },
+					},
+				},
+			},
 		});
 		expect(executed[0]).not.toHaveProperty("payload.sourcePayload");
 		expect(executed[0]).not.toHaveProperty("payload.namedArtifactPaths");
@@ -396,6 +441,7 @@ it.effect("claims only the visible upload from mutually exclusive required field
 			source: "movary",
 			pluginId: "example-plugin-id",
 			uploadIntentIds: ["intent-history"],
+			pluginRevision: admittedPluginRevision,
 			workflowScriptId: "accepted-import-script",
 			pluginInstallationId: "example-installation",
 			namedArtifactPaths: { historyUploadToken: "/tmp/history.csv" },
@@ -437,7 +483,12 @@ it.effect("rejects a source whose declared plugin config keys are unset", () => 
 	const layer = makeServiceLayer(
 		makeImportsRepository(),
 		Layer.mergeAll(
-			makeImportSourceCatalog(betaSource({ requiredPluginConfigKeys: ["deltaApiKey"] })),
+			makeImportSourceCatalog(
+				betaSource({
+					requiredPluginConfigKeys: ["deltaApiKey"],
+					configContext: { ...betaSource().configContext, pluginConfigRevisionId: null },
+				}),
+			),
 			mockUploadsService({ claimTemporaryUpload: () => Effect.die("must not claim") }),
 			Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 		),
@@ -454,11 +505,14 @@ it.effect("rejects a source whose declared plugin config keys are unset", () => 
 				missingConfigKeys: ["RYOT_PLUGIN_EXAMPLE_DELTA_API_KEY"],
 			},
 		});
-	}).pipe(Effect.provide(Layer.mergeAll(layer, makeConfigProviderLayer())));
+	}).pipe(Effect.provide(layer));
 });
 
 it.effect("lists manifest sources with workflow and config availability", () => {
-	const source = betaSource({ requiredPluginConfigKeys: ["deltaApiKey"] });
+	const source = betaSource({
+		requiredPluginConfigKeys: ["deltaApiKey"],
+		configContext: { ...betaSource().configContext, pluginConfigRevisionId: null },
+	});
 	const layer = makeServiceLayer(
 		makeImportsRepository(),
 		Layer.mergeAll(
@@ -614,7 +668,13 @@ it.effect("records the resolving installation on the run and its durable source 
 		pluginId: "private-plugin-id",
 		installationId: "private-installation",
 		inputSchema: { fields: {}, unknownKeys: "strict" },
-		configContext: { config: {}, configSchema, kind: "installation" },
+		configContext: {
+			configSchema,
+			kind: "revision",
+			ownerUserId: user.id,
+			pluginRevisionId: "private-revision",
+			pluginConfigRevisionId: "private-config-revision",
+		},
 	});
 	const layer = makeServiceLayer(
 		makeImportsRepository({
@@ -733,8 +793,9 @@ it.effect("cleans up claimed uploads without releasing a pin that never register
 			),
 		),
 		makeImportWorkflowPinning({
-			preRegister: () => new SandboxRunError({ message: "pin unavailable" }),
 			release: (executionId) => Effect.sync(() => void released.push(executionId)),
+			preRegister: () =>
+				new SandboxRunError({ kind: "script-failure", message: "pin unavailable" }),
 		}),
 		makeRedisService({
 			set: () => Effect.die("must not store source state"),
@@ -773,7 +834,11 @@ it.effect("leaves an already-registered pin in place while rolling back source s
 		),
 		makeImportWorkflowPinning({
 			release: (executionId) => Effect.sync(() => void released.push(executionId)),
-			preRegister: () => Effect.succeed({ registrationStatus: "already-registered" as const }),
+			preRegister: () =>
+				Effect.succeed({
+					pluginRevision: admittedPluginRevision,
+					registrationStatus: "already-registered" as const,
+				}),
 		}),
 		makeRedisService({
 			set: () => Effect.void,

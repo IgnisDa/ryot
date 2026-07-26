@@ -1,18 +1,30 @@
 import { expect, it } from "@effect/vitest";
 import {
+	AutomationExecutionId,
 	EntityId,
 	EntitySchemaSlug,
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { Effect, Exit, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
+import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { databaseLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { EntityPopulationTrigger } from "#modules/entities/population-trigger";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { EntityPopulationTriggerLive } from "./population-trigger-live";
+
+const userId = UserId.make("user-1");
+const command = rootLifecycleCommand({
+	source: "api",
+	itemIdentity: "populate-entity-1",
+	initiator: { id: userId, kind: "user" },
+	occurredAt: IsoUtcString.make("2026-09-16T00:00:00.000Z"),
+	executionId: AutomationExecutionId.make("populate-entity-1"),
+});
 
 it.effect("keeps the deterministic ID and exposes enqueue failure", () => {
 	let executionId: string | undefined;
@@ -38,9 +50,9 @@ it.effect("keeps the deterministic ID and exposes enqueue failure", () => {
 		const trigger = yield* EntityPopulationTrigger;
 		const exit = yield* Effect.exit(
 			trigger.request({
+				command,
 				userId: null,
 				externalId: "record-1",
-				origin: { kind: "api" },
 				entityId: EntityId.make("entity-1"),
 				providerId: SandboxProviderId.make("provider-1"),
 				entitySchemaSlug: EntitySchemaSlug.make("record"),
@@ -72,9 +84,9 @@ it.effect("does not enqueue user population for a disabled system provider", () 
 	return Effect.gen(function* () {
 		const trigger = yield* EntityPopulationTrigger;
 		yield* trigger.request({
+			userId,
+			command,
 			externalId: "record-1",
-			origin: { kind: "api" },
-			userId: UserId.make("user-1"),
 			entityId: EntityId.make("entity-1"),
 			providerId: SandboxProviderId.make("provider-1"),
 			entitySchemaSlug: EntitySchemaSlug.make("record"),
@@ -124,9 +136,9 @@ it.effect("keeps user-triggered system provider entities global", () => {
 	return Effect.gen(function* () {
 		const trigger = yield* EntityPopulationTrigger;
 		yield* trigger.request({
+			userId,
+			command,
 			externalId: "record-1",
-			origin: { kind: "api" },
-			userId: UserId.make("user-1"),
 			entityId: EntityId.make("entity-1"),
 			providerId: SandboxProviderId.make("provider-1"),
 			entitySchemaSlug: EntitySchemaSlug.make("record"),
@@ -142,9 +154,9 @@ it.effect("keeps user-triggered private provider entities user-owned", () => {
 	return Effect.gen(function* () {
 		const trigger = yield* EntityPopulationTrigger;
 		yield* trigger.request({
+			userId,
+			command,
 			externalId: "record-1",
-			origin: { kind: "api" },
-			userId: UserId.make("user-1"),
 			entityId: EntityId.make("entity-1"),
 			providerId: SandboxProviderId.make("provider-1"),
 			entitySchemaSlug: EntitySchemaSlug.make("record"),

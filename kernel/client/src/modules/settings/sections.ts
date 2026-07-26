@@ -18,6 +18,12 @@ export const settingsSections = [
 		icon: "clipboard-list",
 		path: "/settings/import-data",
 	},
+	{
+		icon: "clock",
+		slug: "automation-history",
+		label: "Automation history",
+		path: "/settings/automation-history",
+	},
 	{ icon: "archive", slug: "backups", label: "Backups", path: "/settings/backups" },
 	{ icon: "user", slug: "account", label: "Account", path: "/settings/account" },
 ] as const;

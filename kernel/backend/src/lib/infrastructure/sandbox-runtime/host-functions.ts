@@ -1,3 +1,4 @@
+import { PgClient } from "@effect/sql-pg";
 import { unknownToMessage } from "@ryot-app/contract/errors";
 import {
 	CreateEventItem,
@@ -11,12 +12,12 @@ import {
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
-import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { eq } from "drizzle-orm";
 import { Effect, Schema } from "effect";
 
+import { LifecyclePlanner } from "#lib/domain/lifecycle";
+import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { getPluginConfig, getSystemConfig } from "#lib/infrastructure/sandbox-runtime/app-config";
@@ -25,9 +26,13 @@ import {
 	type AdditionalSandboxHostImplementationMap,
 	isJsonValue,
 	requireSandboxCapabilityInput,
+	reportSandboxLifecycleWarnings,
+	sandboxLifecycleCommand,
 	sandboxRunIntegrationId,
+	sandboxRunUserId,
 	sandboxHostEffect,
 	toSandboxJsonValue,
+	userSandboxRunUserId,
 	type UserSandboxRunInput,
 } from "#lib/infrastructure/sandbox-runtime/shared";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
@@ -36,11 +41,11 @@ import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
 import { IntegrationsRepository, type IntegrationRecord } from "#modules/integrations/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { RelationshipsRepository } from "#modules/relationships/repository";
 import {
 	changeUserRelationships,
 	reconcileGlobalRelationships,
-} from "#modules/relationships/service";
+} from "#modules/relationships/mutation-pipeline";
+import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RyotQLService } from "#modules/ryotql/service";
 
 type SandboxHostFunctionContext =
@@ -52,14 +57,15 @@ type SandboxHostFunctionContext =
 	| DefinitionRegistry
 	| PluginRuntimeResolver
 	| IntegrationsRepository
-	| RelationshipsRepository;
+	| RelationshipsRepository
+	| PgClient.PgClient
+	| LifecyclePlanner
+	| LifecycleExecution;
 
 const CreateEventsPayload = Schema.Array(CreateEventItem);
 
 const decodeRyotQLDocument = Schema.decodeUnknownEffect(Schema.toType(RyotQLDocument));
 const decodeCreateEventsPayload = Schema.decodeUnknownEffect(CreateEventsPayload);
-
-const hashPayload = (payload: unknown) => sha256Base64Url(stableStringify(payload));
 
 const toSandboxRelationshipIdentity = <
 	T extends {
@@ -133,7 +139,14 @@ export const normalizePreferences = (value: unknown) => {
 export const toSandboxCreateEventsResult = (result: CreateEventsResponse) =>
 	result.failure
 		? Effect.fail(`Event creation failed: ${result.failure.reason.code}`)
-		: Effect.succeed({ count: result.count });
+		: reportSandboxLifecycleWarnings("createEvents", result.warnings).pipe(
+				Effect.as({ count: result.count }),
+			);
+
+const userLifecycleSource = (input: UserSandboxRunInput) =>
+	input.principal.subject.type === "user" && input.principal.subject.integrationId
+		? ("integration" as const)
+		: ("api" as const);
 
 export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 	AdditionalSandboxHostImplementationMap,
@@ -141,6 +154,9 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 	SandboxHostFunctionContext
 > = Effect.gen(function* () {
 	const database = yield* Database;
+	const pgClient = yield* PgClient.PgClient;
+	const lifecyclePlanner = yield* LifecyclePlanner;
+	const lifecycleExecution = yield* LifecycleExecution;
 	const events = yield* EventsService;
 	const entities = yield* EntitiesService;
 	const ryotqlService = yield* RyotQLService;
@@ -149,6 +165,12 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 	const entitiesRepository = yield* EntitiesRepository;
 	const integrationsRepository = yield* IntegrationsRepository;
 	const relationshipsRepository = yield* RelationshipsRepository;
+	const provideLifecycleServices = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+		effect.pipe(
+			Effect.provideService(PgClient.PgClient, pgClient),
+			Effect.provideService(LifecyclePlanner, lifecyclePlanner),
+			Effect.provideService(LifecycleExecution, lifecycleExecution),
+		);
 
 	const readUserPreferences = (userId: UserId) =>
 		Effect.gen(function* () {
@@ -167,21 +189,24 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 		});
 
 	const createEvents = (input: UserSandboxRunInput, payload: ReadonlyArray<CreateEventItem>) =>
-		payload.length === 0
-			? Effect.succeed({ count: 0 })
-			: events
-					.create({
-						payload,
-						source: "sandbox",
-						userId: UserId.make(input.principal.subject.userId),
-						executionId: `${input.executionId}-create-events-${hashPayload(payload)}`,
-					})
-					.pipe(Effect.flatMap(toSandboxCreateEventsResult));
+		Effect.gen(function* () {
+			if (payload.length === 0) {
+				return { count: 0 };
+			}
+			const command = yield* sandboxLifecycleCommand(
+				input,
+				userLifecycleSource(input),
+				"createEvents",
+			);
+			return yield* events
+				.create({ payload, userId: UserId.make(userSandboxRunUserId(input)) }, command)
+				.pipe(provideLifecycleServices, Effect.flatMap(toSandboxCreateEventsResult));
+		});
 
 	return {
 		getUserPreferences: (rawInput) =>
 			requireSandboxCapabilityInput(rawInput, "getUserPreferences").pipe(
-				Effect.flatMap((input) => readUserPreferences(UserId.make(input.principal.subject.userId))),
+				Effect.flatMap((input) => readUserPreferences(UserId.make(userSandboxRunUserId(input)))),
 				sandboxHostEffect,
 			),
 		createEvents: (rawInput, body) =>
@@ -203,22 +228,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					),
 				),
 			),
-		getPluginConfig: (input, rawKeys) =>
-			sandboxHostEffect(
-				normalizeConfigKeys("getPluginConfig", rawKeys).pipe(
-					Effect.flatMap((keys) =>
-						pluginRuntime.resolvePluginConfigContext(input.principal).pipe(
-							Effect.flatMap((context) =>
-								context
-									? getPluginConfig({ keys, context, metadata: input.principal.metadata })
-									: Effect.fail("Plugin config is available only to active plugin scripts"),
-							),
-							Effect.flatMap((values) => encodeConfigValues("Plugin", values)),
-						),
-					),
-					Effect.provideService(Database, database),
-				),
-			),
 		listIntegrations: (rawInput, rawOptions) =>
 			Effect.gen(function* () {
 				const input = yield* requireSandboxCapabilityInput(rawInput, "listIntegrations");
@@ -227,7 +236,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				return yield* sandboxHostEffect(
 					integrationsRepository
 						.listForUser({
-							userId: UserId.make(input.principal.subject.userId),
+							userId: UserId.make(userSandboxRunUserId(input)),
 							...(options.provider !== undefined ? { provider: options.provider } : {}),
 							...(options.isDisabled !== undefined ? { isDisabled: options.isDisabled } : {}),
 						})
@@ -250,7 +259,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					return integrationsRepository
 						.getForUser({
 							integrationId: IntegrationId.make(integrationId),
-							userId: UserId.make(input.principal.subject.userId),
+							userId: UserId.make(userSandboxRunUserId(input)),
 						})
 						.pipe(
 							Effect.flatMap((integration) =>
@@ -263,99 +272,68 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				Effect.provideService(Database, database),
 				sandboxHostEffect,
 			),
-		changeUserRelationships: (rawInput, batches) =>
+		getPluginConfig: (input, rawKeys) =>
 			sandboxHostEffect(
-				Effect.gen(function* () {
-					const input = yield* requireSandboxCapabilityInput(rawInput, "changeUserRelationships");
-					const changeCount = batches.reduce(
-						(total, batch) => total + batch.creates.length + batch.deletes.length,
-						0,
-					);
-					if (changeCount > SANDBOX_LIMITS.userRelationshipWrites.changesTotal) {
-						return yield* Effect.fail(
-							`changeUserRelationships exceeds ${SANDBOX_LIMITS.userRelationshipWrites.changesTotal} changes`,
-						);
-					}
-					return yield* changeUserRelationships(
-						UserId.make(input.principal.subject.userId),
-						batches.map((batch) => ({
-							creates: batch.creates.map(toSandboxRelationshipIdentity),
-							deletes: batch.deletes.map(toSandboxRelationshipIdentity),
-						})),
-					).pipe(
-						Effect.provideService(Database, database),
-						Effect.provideService(DefinitionRegistry, definitions),
-						Effect.provideService(EntitiesRepository, entitiesRepository),
-						Effect.provideService(PluginRuntimeResolver, pluginRuntime),
-						Effect.provideService(RelationshipsRepository, relationshipsRepository),
-					);
-				}).pipe(Effect.provideService(Database, database)),
-			),
-		ensureUserEntities: (rawInput, items) =>
-			sandboxHostEffect(
-				Effect.gen(function* () {
-					const input = yield* requireSandboxCapabilityInput(rawInput, "ensureUserEntities");
-					const revision = input.principal.pluginRevision;
-					const userId = UserId.make(input.principal.subject.userId);
-					const effectiveDefinitions = yield* pluginRuntime.getEffectiveDefinitions(userId);
-					for (const item of items) {
-						const definition = effectiveDefinitions.entitySchemas[item.entitySchemaSlug];
-						if (
-							!revision?.schemaScope.entitySchemaSlugs.includes(item.entitySchemaSlug) ||
-							!definition ||
-							definition.pluginId !== revision.id
-						) {
-							return yield* Effect.fail(
-								`ensureUserEntities cannot write foreign entity schema: ${item.entitySchemaSlug}`,
-							);
+				normalizeConfigKeys("getPluginConfig", rawKeys).pipe(
+					Effect.flatMap((keys) => {
+						const revision = input.principal.pluginRevision;
+						if (!revision) {
+							return Effect.fail("Plugin config is available only to active plugin scripts");
 						}
-					}
-					return yield* entities
-						.ensureUserEntities(
-							userId,
-							items.map((item) => ({
-								...item,
-								entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
-							})),
-							input.workflowExecutionId && input.startedAt
-								? { occurredAt: input.startedAt, executionId: input.executionId }
-								: undefined,
-						)
-						.pipe(Effect.provideService(Database, database));
-				}).pipe(Effect.provideService(Database, database)),
+						return pluginRuntime
+							.resolvePluginConfigContext({
+								id: revision.configRevisionId,
+								ownerUserId: revision.ownerId,
+								pluginRevisionId: revision.revisionId,
+							})
+							.pipe(
+								Effect.flatMap((config) =>
+									getPluginConfig({
+										keys,
+										metadata: input.principal.metadata,
+										context: { config, kind: "installation", configSchema: revision.configSchema },
+									}),
+								),
+								Effect.flatMap((values) => encodeConfigValues("Plugin", values)),
+							);
+					}),
+					Effect.provideService(Database, database),
+				),
 			),
-		upsertGlobalEntities: (rawInput, items, options) =>
-			sandboxHostEffect(
-				Effect.gen(function* () {
-					const input = yield* requireSandboxCapabilityInput(rawInput, "upsertGlobalEntities");
-					if (items.length > SANDBOX_LIMITS.globalWrites.entityItems) {
-						return yield* Effect.fail(
-							`upsertGlobalEntities exceeds ${SANDBOX_LIMITS.globalWrites.entityItems} items`,
+		executeRyotql: (rawInput, query) =>
+			requireSandboxCapabilityInput(rawInput, "executeRyotql").pipe(
+				Effect.flatMap((input) => {
+					const { subject } = input.principal;
+					if (
+						subject.type === "system" ||
+						(subject.type === "automation-run" && subject.executionUserId === null)
+					) {
+						return sandboxHostEffect(
+							Effect.gen(function* () {
+								const revision = input.principal.pluginRevision;
+								if (revision?.scope !== "system") {
+									return yield* Effect.fail(
+										"executeRyotql system access requires a pinned plugin script",
+									);
+								}
+								const document = yield* decodeRyotQLDocument(query);
+								return yield* ryotqlService.executeForPlugin(
+									{ pluginSlug: revision.slug, ...revision.schemaScope },
+									document,
+								);
+							}),
 						);
 					}
-
-					const parsed = yield* Effect.forEach(items, (item) => {
-						const populatedAt = item.populatedAt === null ? null : new Date(item.populatedAt);
-						return populatedAt === null || !Number.isNaN(populatedAt.getTime())
-							? Effect.succeed({ ...item, populatedAt })
-							: Effect.fail("upsertGlobalEntities populatedAt must be a valid date string");
-					});
-
-					return yield* entities
-						.upsertGlobalEntities(
-							parsed.map((item) => ({
-								name: item.name,
-								externalId: item.externalId,
-								properties: item.properties,
-								populatedAt: item.populatedAt,
-								entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
-							})),
-							input.principal.providerId,
-							options?.maximumTotal === undefined
-								? undefined
-								: { maximumTotal: options.maximumTotal },
-						)
-						.pipe(Effect.provideService(Database, database));
+					return sandboxHostEffect(
+						Effect.gen(function* () {
+							const document = yield* decodeRyotQLDocument(query);
+							const userId = sandboxRunUserId(input);
+							if (userId === null) {
+								return yield* Effect.fail("executeRyotql requires a user execution");
+							}
+							return yield* ryotqlService.executeForUser(userId, null, document);
+						}),
+					);
 				}),
 			),
 		listEventSchemas: (rawInput, entitySchemaSlugs) =>
@@ -371,7 +349,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 							}
 
 							return pluginRuntime
-								.getEffectiveDefinitions(UserId.make(input.principal.subject.userId))
+								.getEffectiveDefinitions(UserId.make(userSandboxRunUserId(input)))
 								.pipe(
 									Effect.flatMap((effectiveDefinitions) =>
 										Effect.forEach(resolvedEntitySchemaSlugs, (entitySchemaSlug) => {
@@ -396,10 +374,140 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				Effect.provideService(Database, database),
 				sandboxHostEffect,
 			),
+		ensureUserEntities: (rawInput, items) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const input = yield* requireSandboxCapabilityInput(rawInput, "ensureUserEntities");
+					const revision = input.principal.pluginRevision;
+					const userId = UserId.make(userSandboxRunUserId(input));
+					const effectiveDefinitions = yield* pluginRuntime.getEffectiveDefinitions(userId);
+					for (const item of items) {
+						const definition = effectiveDefinitions.entitySchemas[item.entitySchemaSlug];
+						if (
+							!revision?.schemaScope.entitySchemaSlugs.includes(item.entitySchemaSlug) ||
+							!definition ||
+							definition.pluginId !== revision.id
+						) {
+							return yield* Effect.fail(
+								`ensureUserEntities cannot write foreign entity schema: ${item.entitySchemaSlug}`,
+							);
+						}
+					}
+					const command = yield* sandboxLifecycleCommand(input, "bootstrap", "ensureUserEntities");
+					const results = yield* entities
+						.ensureUserEntities(
+							userId,
+							items.map((item) => ({
+								...item,
+								entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
+							})),
+							command,
+						)
+						.pipe(Effect.provideService(Database, database), provideLifecycleServices);
+					yield* reportSandboxLifecycleWarnings(
+						"ensureUserEntities",
+						results.flatMap((result) => result.warnings),
+					);
+					return results.map(({ entityId, wasInserted }) => ({ entityId, wasInserted }));
+				}).pipe(Effect.provideService(Database, database)),
+			),
+		changeUserRelationships: (rawInput, batches) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const input = yield* requireSandboxCapabilityInput(rawInput, "changeUserRelationships");
+					const changeCount = batches.reduce(
+						(total, batch) => total + batch.creates.length + batch.deletes.length,
+						0,
+					);
+					if (changeCount > SANDBOX_LIMITS.userRelationshipWrites.changesTotal) {
+						return yield* Effect.fail(
+							`changeUserRelationships exceeds ${SANDBOX_LIMITS.userRelationshipWrites.changesTotal} changes`,
+						);
+					}
+					const command = yield* sandboxLifecycleCommand(
+						input,
+						userLifecycleSource(input),
+						"changeUserRelationships",
+					);
+					const results = yield* changeUserRelationships(
+						UserId.make(userSandboxRunUserId(input)),
+						batches.map((batch) => ({
+							creates: batch.creates.map(toSandboxRelationshipIdentity),
+							deletes: batch.deletes.map(toSandboxRelationshipIdentity),
+						})),
+						command,
+					).pipe(
+						Effect.provideService(Database, database),
+						Effect.provideService(DefinitionRegistry, definitions),
+						Effect.provideService(EntitiesRepository, entitiesRepository),
+						Effect.provideService(PluginRuntimeResolver, pluginRuntime),
+						Effect.provideService(RelationshipsRepository, relationshipsRepository),
+						provideLifecycleServices,
+					);
+					yield* reportSandboxLifecycleWarnings(
+						"changeUserRelationships",
+						results.flatMap((result) => result.warnings),
+					);
+					return results.map(({ created, deleted }) => ({ created, deleted }));
+				}).pipe(Effect.provideService(Database, database)),
+			),
+		upsertGlobalEntities: (rawInput, items, options) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const input = yield* requireSandboxCapabilityInput(rawInput, "upsertGlobalEntities");
+					if (items.length > SANDBOX_LIMITS.globalWrites.entityItems) {
+						return yield* Effect.fail(
+							`upsertGlobalEntities exceeds ${SANDBOX_LIMITS.globalWrites.entityItems} items`,
+						);
+					}
+
+					const parsed = yield* Effect.forEach(items, (item) => {
+						const populatedAt = item.populatedAt === null ? null : new Date(item.populatedAt);
+						return populatedAt === null || !Number.isNaN(populatedAt.getTime())
+							? Effect.succeed({ ...item, populatedAt })
+							: Effect.fail("upsertGlobalEntities populatedAt must be a valid date string");
+					});
+
+					const command = yield* sandboxLifecycleCommand(
+						input,
+						"provider-refresh",
+						"upsertGlobalEntities",
+					);
+					const results = yield* entities
+						.upsertGlobalEntities(
+							parsed.map((item) => ({
+								name: item.name,
+								externalId: item.externalId,
+								properties: item.properties,
+								populatedAt: item.populatedAt,
+								entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
+							})),
+							input.principal.providerId,
+							command,
+							options?.maximumTotal === undefined
+								? undefined
+								: { maximumTotal: options.maximumTotal },
+						)
+						.pipe(Effect.provideService(Database, database), provideLifecycleServices);
+					yield* reportSandboxLifecycleWarnings(
+						"upsertGlobalEntities",
+						results.flatMap((result) => result.warnings),
+					);
+					return results.map((result) =>
+						result.status === "skipped"
+							? { status: result.status }
+							: {
+									status: result.status,
+									entityId: result.entityId,
+									wasInserted: result.wasInserted,
+								},
+					);
+				}),
+			),
 		upsertGlobalRelationships: (rawInput, groups) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
-					yield* requireSandboxCapabilityInput(rawInput, "upsertGlobalRelationships");
+					const input = yield* requireSandboxCapabilityInput(rawInput, "upsertGlobalRelationships");
 					const relationshipCount = groups.reduce(
 						(total, group) => total + group.relationships.length,
 						0,
@@ -415,7 +523,12 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 						);
 					}
 
-					return yield* reconcileGlobalRelationships(
+					const command = yield* sandboxLifecycleCommand(
+						input,
+						"provider-refresh",
+						"upsertGlobalRelationships",
+					);
+					const results = yield* reconcileGlobalRelationships(
 						groups.map((group) => ({
 							relationships: group.relationships.map(toSandboxRelationshipIdentity),
 							relationshipSchemaSlug: RelationshipSchemaSlug.make(group.relationshipSchemaSlug),
@@ -427,59 +540,20 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 											anchorEntityId: EntityId.make(group.selector.anchorEntityId),
 										},
 						})),
+						command,
 					).pipe(
 						Effect.provideService(Database, database),
 						Effect.provideService(DefinitionRegistry, definitions),
 						Effect.provideService(EntitiesRepository, entitiesRepository),
 						Effect.provideService(RelationshipsRepository, relationshipsRepository),
+						provideLifecycleServices,
 					);
-				}),
-			),
-		executeRyotql: (rawInput, query) =>
-			requireSandboxCapabilityInput(rawInput, "executeRyotql").pipe(
-				Effect.flatMap((input) => {
-					const { subject } = input.principal;
-					const automationExecution =
-						subject.type === "subscription"
-							? {
-									...(subject.subscriptionRun.occurrenceId
-										? { automationOccurrenceId: subject.subscriptionRun.occurrenceId }
-										: {}),
-									automationRunId: subject.subscriptionRun.id,
-								}
-							: {
-									...(subject.type === "system" && subject.automationRunId
-										? { automationRunId: subject.automationRunId }
-										: {}),
-									...(subject.automationOccurrenceId
-										? { automationOccurrenceId: subject.automationOccurrenceId }
-										: {}),
-								};
-					if (subject.type === "system") {
-						return sandboxHostEffect(
-							Effect.gen(function* () {
-								const revision = input.principal.pluginRevision;
-								if (revision?.scope !== "system") {
-									return yield* Effect.fail(
-										"executeRyotql system access requires a pinned plugin script",
-									);
-								}
-								const document = yield* decodeRyotQLDocument(query);
-								return yield* ryotqlService.executeForPlugin(
-									{ pluginSlug: revision.slug, ...revision.schemaScope, ...automationExecution },
-									document,
-								);
-							}),
-						);
-					}
-					return sandboxHostEffect(
-						decodeRyotQLDocument(query).pipe(
-							Effect.flatMap((document) =>
-								ryotqlService.executeForUser(subject.userId, null, document, automationExecution),
-							),
-						),
+					yield* reportSandboxLifecycleWarnings(
+						"upsertGlobalRelationships",
+						results.flatMap((result) => result.warnings),
 					);
-				}),
+					return results.map(({ deleted, upserted }) => ({ deleted, upserted }));
+				}).pipe(Effect.provideService(PluginRuntimeResolver, pluginRuntime)),
 			),
 		getEntitySchemas: (rawInput, entitySchemaSlugs) =>
 			requireSandboxCapabilityInput(rawInput, "getEntitySchemas").pipe(
@@ -494,7 +568,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 							}
 
 							return pluginRuntime
-								.getEffectiveDefinitions(UserId.make(input.principal.subject.userId))
+								.getEffectiveDefinitions(UserId.make(userSandboxRunUserId(input)))
 								.pipe(
 									Effect.flatMap((effectiveDefinitions) =>
 										Effect.forEach(resolvedEntitySchemaSlugs, (entitySchemaSlug) => {
@@ -515,7 +589,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 									Effect.flatMap((schemas) =>
 										Effect.gen(function* () {
 											const links = yield* pluginRuntime.listSchemaProviders({
-												userId: input.principal.subject.userId,
+												userId: userSandboxRunUserId(input),
 												entitySchemaSlugs: resolvedEntitySchemaSlugs,
 											});
 											const providersBySchema = new Map<

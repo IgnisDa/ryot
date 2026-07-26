@@ -15,6 +15,7 @@ import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities
 import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
+import { concretePluginConfigSecretPaths } from "#modules/plugins/config-redaction";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { materializeSavedView } from "#modules/plugins/loader";
 import { PluginRepository } from "#modules/plugins/repository";
@@ -279,7 +280,7 @@ const toArchiveEntity = Effect.fn(function* (
 					pluginKey: yield* requirePluginKey(pluginKeyById, entity.provider.pluginId),
 				}
 			: null,
-	} satisfies Omit<ArchiveUserEntity, "origin">;
+	} satisfies ArchiveUserEntity;
 });
 
 const dependencyIdentity = Effect.fn(function* (
@@ -653,12 +654,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					notificationSubscriptions: subscriptionRecords,
 					profile: { ...profile, preferences: decodeArchiveJsonObject(profile.preferences) },
 					entities: yield* Effect.forEach(userEntities, (entity) =>
-						Effect.gen(function* () {
-							return {
-								...(yield* toArchiveEntity(entity, pluginKeyById)),
-								origin: entity.origin,
-							} satisfies ArchiveUserEntity;
-						}),
+						toArchiveEntity(entity, pluginKeyById),
 					),
 					privatePlugins: yield* Effect.forEach(privatePlugins, (plugin) =>
 						Effect.gen(function* () {
@@ -769,6 +765,14 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							kind: "Plugin config",
 							properties: state.config,
 							propertiesSchema: plugin.configSchema,
+							...(state.lifecycleIntent === "needs-configuration"
+								? {
+										allowedMissingRequiredPaths: concretePluginConfigSecretPaths(
+											plugin.configSchema,
+											state.config,
+										),
+									}
+								: {}),
 						}).pipe(Effect.mapError((error) => badRequest(error.message)));
 						additionalPropertyRecords.push({
 							properties: state.config,

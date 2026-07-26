@@ -74,8 +74,8 @@ export const SignalSchemaDefinition = Schema.Struct({
 	name: Schema.String,
 	slug: Schema.String,
 	propertiesSchema: AppSchema,
+	notificationHookSlug: Schema.String,
 	audiencePolicy: SignalAudiencePolicy,
-	notificationScriptSlug: Schema.String,
 	catalogState: Schema.Literals(["active", "hidden"]),
 });
 

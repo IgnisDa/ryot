@@ -1,9 +1,26 @@
+import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import type { WorkflowReplayEnvelope, WorkflowReplayHost } from "@ryot-app/sandbox-sdk/workflow";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { assert, expect, it } from "vitest";
 
 import workflow from "./import.sandbox";
+
+const importCommand = (runId: string) =>
+	Schema.decodeUnknownSync(LifecycleCommand)({
+		occurredAt: "2026-09-16T00:00:00.000Z",
+		itemIdentity: JSON.stringify(["import-run", runId]),
+		causation: {
+			depth: 0,
+			source: "import",
+			parentRunId: null,
+			importRunId: runId,
+			parentTriggerId: null,
+			executionId: `execution-${runId}`,
+			rootExecutionId: `execution-${runId}`,
+			initiator: { id: "user-1", kind: "user" },
+		},
+	});
 
 it("dispatches every fitness source to its matching parser activity", async () => {
 	await Promise.all(
@@ -16,7 +33,7 @@ it("dispatches every fitness source to its matching parser activity", async () =
 		).map(async ([source, scriptSlug]) => {
 			const envelope = await Effect.runPromise(
 				workflow.run(
-					{ source, runId: `run-${source}` },
+					{ source, runId: `run-${source}`, command: importCommand(`run-${source}`) },
 					{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
 					{ metadata: {}, sandboxScriptId: "fitness-import" },
 				),
@@ -35,7 +52,7 @@ it("orchestrates the source script and kernel chunk consumer", async () => {
 	const replay = (): Promise<JsonValue> =>
 		Effect.runPromise(
 			workflow.run(
-				{ runId: "run-1", source: "strong_app" },
+				{ runId: "run-1", source: "strong_app", command: importCommand("run-1") },
 				{ replayJournal: () => Effect.succeed(journal) } satisfies WorkflowReplayHost,
 				{ metadata: {}, sandboxScriptId: "fitness-import" },
 			),
@@ -78,6 +95,7 @@ it("orchestrates the source script and kernel chunk consumer", async () => {
 					runId: "run-1",
 					failureCount: 1,
 					writeItemCount: 1,
+					command: importCommand("run-1"),
 					chunkHandles: ["harvest-handle-0"],
 				},
 			},

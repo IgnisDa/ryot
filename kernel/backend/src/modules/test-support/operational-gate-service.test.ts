@@ -56,6 +56,7 @@ const importRun = {
 const availablePlugin = {
 	config: {},
 	isDisabled: false,
+	ownerUserId: null,
 	compiledHashes: {},
 	scope: "system" as const,
 	health: "ready" as const,
@@ -63,7 +64,9 @@ const availablePlugin = {
 	slug: gateInput.pluginSlug,
 	manifest: fixtureManifest(),
 	id: "fixture-plugin-plugin-id",
+	pluginRevisionId: "fixture-plugin-revision",
 	installationId: "fixture-plugin-installation",
+	pluginConfigRevisionId: "fixture-plugin-config-revision",
 };
 
 const makeServiceLayer = (
@@ -114,7 +117,20 @@ it.effect("returns a typed error for an invalid plugin workflow target", () => {
 						providerId: gateInput.providerId,
 						entitySchemaSlug: gateInput.entitySchemaSlug,
 						externalId: `${gateInput.identifierPrefix}-0`,
-						origin: { kind: "import", importRunId: runId },
+						command: {
+							occurredAt: expect.any(String),
+							itemIdentity: '["workflow-load",0]',
+							causation: {
+								depth: 0,
+								source: "import",
+								parentRunId: null,
+								importRunId: runId,
+								parentTriggerId: null,
+								executionId: `${runId}-workflow-load`,
+								rootExecutionId: `${runId}-workflow-load`,
+								initiator: { kind: "user", id: executingUserId },
+							},
+						},
 					},
 				],
 			},

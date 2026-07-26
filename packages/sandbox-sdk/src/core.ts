@@ -1,5 +1,6 @@
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import type { SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/wire";
+import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/sandbox/wire";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import type { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { Schema } from "@ryot-app/sandbox-sdk/effect";
@@ -50,11 +51,14 @@ export const httpCallResponseSchema = strictStruct({
 	headers: Schema.Record(Schema.String, Schema.String),
 	status: Schema.Number.pipe(Schema.check(Schema.isInt())),
 });
-export const httpCallFailureDetailsSchema = strictStruct({
-	body: Schema.String,
-	headers: Schema.Record(Schema.String, Schema.String),
-	status: Schema.Number.pipe(Schema.check(Schema.isInt())),
-});
+export const httpCallFailureDetailsSchema = Schema.Union([
+	strictStruct({
+		body: Schema.String,
+		headers: Schema.Record(Schema.String, Schema.String),
+		status: Schema.Number.pipe(Schema.check(Schema.isInt())),
+	}),
+	strictStruct({ code: Schema.Literal("external-uncertain") }),
+]);
 export const httpCallArgsSchema = Schema.Tuple([
 	Schema.String,
 	Schema.String,
@@ -563,7 +567,7 @@ export const emitSignalRequestSchema = strictStruct({
 });
 export const emitSignalArgsSchema = Schema.Tuple([emitSignalRequestSchema]);
 export const emitSignalDataSchema = strictStruct({
-	signalId: Schema.String,
+	triggerId: Schema.String,
 	wasCreated: Schema.Boolean,
 });
 export const emitSignalResultSchema = hostResultSchema(emitSignalDataSchema);
@@ -647,7 +651,17 @@ export const sandboxManifestSchema = Schema.Union([
 		searchOptionsSchema: Schema.optional(appSchema),
 	}),
 	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("operation") }),
-	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("automation") }),
+	strictStruct({
+		...sandboxManifestBaseFields,
+		kind: Schema.Literal("automation"),
+		automationType: Schema.Literal("automation"),
+	}),
+	strictStruct({
+		...sandboxManifestBaseFields,
+		kind: Schema.Literal("automation"),
+		automationType: Schema.Literal("policy"),
+		capabilities: Schema.Array(Schema.Literals([...POLICY_SAFE_SANDBOX_CAPABILITIES])),
+	}),
 	strictStruct({
 		...sandboxManifestBaseFields,
 		capabilities: Schema.Tuple([]),

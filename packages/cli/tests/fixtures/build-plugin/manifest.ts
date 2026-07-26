@@ -1,6 +1,7 @@
 export default {
 	boot: [],
 	crons: [],
+	hooks: [],
 	workflows: [],
 	providers: [],
 	savedViews: [],
@@ -21,13 +22,6 @@ export default {
 		version: "1.0.0",
 		name: "CLI test plugin",
 		description: "A fixture for the CLI tests.",
-	},
-	bindings: {
-		eventAutomations: [],
-		entityAutomations: [],
-		signalAutomations: [],
-		relationshipAutomations: [],
-		providerEntityImportAutomations: [],
 	},
 	client: {
 		apiVersion: 1,

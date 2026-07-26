@@ -10,6 +10,7 @@ import { Cause, Clock, Duration, Effect, Layer, Schema } from "effect";
 import { Activity, DurableClock } from "effect/unstable/workflow";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
+import { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { Database } from "#lib/infrastructure/db/service";
 import {
 	ProviderHttpAdmissionBlockResult,
@@ -20,6 +21,7 @@ import {
 } from "#lib/infrastructure/provider-http-admission";
 import { recordSandboxHostCall } from "#lib/infrastructure/runtime-metrics";
 import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
+import { reportSandboxLifecycleWarnings } from "#lib/infrastructure/sandbox-runtime/shared";
 import {
 	EventCreateWorkflow,
 	EventCreateWorkflowPayload,
@@ -47,7 +49,7 @@ import { SandboxRepository } from "#modules/sandbox/repository";
 
 const PreparedSandboxCreateEvents = Schema.Struct({
 	userId: UserId,
-	executionId: Schema.String,
+	command: LifecycleCommand,
 	payload: Schema.Array(createEventItemSchema),
 });
 
@@ -507,6 +509,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 				if (!strategy) {
 					return Effect.fail(
 						new SandboxRunError({
+							kind: "script-failure",
 							message: `Sandbox durable host capability is not dispatchable: ${request.args.capability}`,
 						}),
 					);
@@ -514,6 +517,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 				if (strategy === "diagnostic") {
 					return Effect.fail(
 						new SandboxRunError({
+							kind: "script-failure",
 							message: `Sandbox diagnostic capability must not enter the durable journal: ${request.args.capability}`,
 						}),
 					);
@@ -561,13 +565,13 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 								Effect.provideService(SandboxRepository, repository),
 							),
 						});
-						const eventPayload = yield* Schema.decodeEffect(EventCreateWorkflowPayload)({
-							...prepared,
-							origin: "sandbox",
-						}).pipe(
+						const eventPayload = yield* Schema.decodeEffect(EventCreateWorkflowPayload)(
+							prepared,
+						).pipe(
 							Effect.mapError(
 								(error) =>
 									new SandboxRunError({
+										kind: "invalid-input",
 										message: `Invalid createEvents payload: ${unknownToMessage(error)}`,
 									}),
 							),
@@ -575,7 +579,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						const result = yield* Effect.exit(
 							engine.execute(EventCreateWorkflow, {
 								payload: eventPayload,
-								executionId: eventPayload.executionId,
+								executionId: EventCreateWorkflow.idempotencyKey(eventPayload),
 							}),
 						);
 						if (result._tag === "Failure") {
@@ -591,6 +595,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 							}
 							return durableHostFailure(unknownToMessage(result.cause));
 						}
+						yield* reportSandboxLifecycleWarnings("createEvents", result.value.warnings);
 						return result.value.failure
 							? durableHostFailure(`Event creation failed: ${result.value.failure.reason.code}`)
 							: ({
@@ -626,6 +631,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						Effect.mapError(
 							(error) =>
 								new SandboxRunError({
+									kind: "invalid-input",
 									message: `Invalid sendNotification payload: ${unknownToMessage(error)}`,
 								}),
 						),

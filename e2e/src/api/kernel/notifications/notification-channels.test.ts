@@ -1,4 +1,4 @@
-import { NotificationChannelId } from "@ryot-app/contract/schema/brands";
+import { NotificationChannelId, SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import {
 	ascending,
 	column,
@@ -25,8 +25,8 @@ import {
 	findBuiltinSchemaBySlug,
 	getApiClient,
 	listNotificationChannels,
-	pollSignal,
-	pollTerminalSubscriptionRuns,
+	pollSignalTrigger,
+	pollTerminalAutomationRuns,
 	pollUntil,
 	requireRows,
 	requireRyotQLValue,
@@ -293,11 +293,14 @@ describe("notification delivery", () => {
 				properties: { endedAt: "2026-07-21T11:00:00Z", startedAt: "2026-07-21T10:00:00Z" },
 			});
 
-			const { id: signalId } = yield* pollSignal({
-				actorUserId: userId,
-				schemaSlug: "workout.created",
+			const { id: triggerId } = yield* pollSignalTrigger({
+				actorUserId: UserId.make(userId),
+				signalSchemaSlug: SignalSchemaSlug.make("workout.created"),
 			});
-			const runs = yield* pollTerminalSubscriptionRuns({ signalId, executionUserId: userId });
+			const runs = yield* pollTerminalAutomationRuns({
+				triggerId,
+				executionUserId: UserId.make(userId),
+			});
 			expect(runs.map((run) => run.status)).toEqual(["succeeded"]);
 		}),
 	);

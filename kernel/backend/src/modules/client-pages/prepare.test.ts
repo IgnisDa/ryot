@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import { fixtureManifest } from "#modules/plugins/test-support";
@@ -15,21 +15,23 @@ const plugin = (input: {
 }): AvailablePlugin => {
 	const manifest = fixtureManifest();
 	return {
-		config: {},
 		id: input.id,
 		scope: "user",
 		slug: input.id,
 		health: "ready",
 		compiledHashes: {},
 		sourceHash: `${input.id}-source`,
+		ownerUserId: UserId.make("user-1"),
 		isDisabled: input.isDisabled ?? false,
+		pluginRevisionId: `${input.id}-revision`,
 		installationId: `${input.id}-installation`,
+		pluginConfigRevisionId: `${input.id}-config`,
 		manifest: {
 			...manifest,
 			client: input.client,
 			metadata: { ...manifest.metadata, slug: input.id },
 		},
-	} as AvailablePlugin;
+	};
 };
 
 const page = {

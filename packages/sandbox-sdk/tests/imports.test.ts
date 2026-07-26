@@ -1,5 +1,8 @@
 import { Schema } from "@ryot-app/sandbox-sdk/effect";
-import { genericImportChunkSchema } from "@ryot-app/sandbox-sdk/imports";
+import {
+	genericImportChunkSchema,
+	genericImportKernelInputSchema,
+} from "@ryot-app/sandbox-sdk/imports";
 import { expect, it } from "vitest";
 
 it("decodes generic media write intents without admitting plugin-private event fields", () => {
@@ -80,4 +83,40 @@ it("decodes generic media write intents without admitting plugin-private event f
 			],
 		}),
 	).toThrow();
+});
+
+it("requires kernel import commands to carry matching import attribution", () => {
+	const input = {
+		totalItems: 0,
+		runId: "run-1",
+		failureCount: 0,
+		chunkHandles: [],
+		writeItemCount: 0,
+		command: {
+			occurredAt: "2026-01-01T00:00:00.000Z",
+			itemIdentity: '["integration-run","run-1"]',
+			causation: {
+				depth: 0,
+				parentRunId: null,
+				executionId: "run-1",
+				importRunId: "run-1",
+				source: "integration",
+				parentTriggerId: null,
+				rootExecutionId: "run-1",
+				integrationId: "integration-1",
+				initiator: { id: "integration-1", kind: "integration" },
+			},
+		},
+	};
+
+	expect(Schema.decodeUnknownSync(genericImportKernelInputSchema)(input)).toEqual(input);
+	expect(() =>
+		Schema.decodeUnknownSync(genericImportKernelInputSchema)({
+			...input,
+			command: {
+				...input.command,
+				causation: { ...input.command.causation, importRunId: "another-run" },
+			},
+		}),
+	).toThrow("Generic import command attribution does not match the import run");
 });

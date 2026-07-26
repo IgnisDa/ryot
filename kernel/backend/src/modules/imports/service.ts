@@ -7,16 +7,20 @@ import {
 } from "@ryot-app/contract/modules/imports/schemas";
 import type { ImportRunSource } from "@ryot-app/contract/modules/imports/types";
 import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
-import type {
-	ImportRunId,
-	IntegrationId,
-	SandboxScriptId,
-	UserId,
+import {
+	AutomationExecutionId,
+	type ImportRunId,
+	type IntegrationId,
+	type SandboxScriptId,
+	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { RunStatus } from "@ryot-app/contract/schema/run-status";
+import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, DateTime, Effect, Exit, Result, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
+import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { RedisService, type ImportSourceState } from "#lib/infrastructure/redis";
 import {
 	ImportSourceCatalog,
@@ -125,6 +129,14 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 		) {
 			const { user, runId, uploadIntentIds } = input;
 			const sandboxExecutionId = `${runId}-import`;
+			const command = rootLifecycleCommand({
+				source: "import",
+				importRunId: runId,
+				initiator: { id: user.id, kind: "user" },
+				executionId: AutomationExecutionId.make(runId),
+				itemIdentity: stableStringify(["import-run", runId]),
+				occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
+			});
 			const failDispatch = Effect.fn("ImportsService.failDispatch")(function* (
 				operation: string,
 				cause: unknown,
@@ -165,6 +177,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 					sourcePayload: input.sourcePayload,
 					pluginId: input.registered.pluginId,
 					workflowScriptId: input.workflowScriptId,
+					pluginRevision: pin.success.pluginRevision,
 					namedArtifactPaths: input.namedArtifactPaths,
 					pluginInstallationId: input.registered.installationId,
 				},
@@ -178,7 +191,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				.execute(ProcessImportRunWorkflow, {
 					discard: true,
 					executionId: runId,
-					payload: { runId, userId: user.id, sourceStateId: runId },
+					payload: { runId, command, userId: user.id, sourceStateId: runId },
 				})
 				.pipe(Effect.result);
 			if (Result.isFailure(started)) {

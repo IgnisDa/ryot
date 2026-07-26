@@ -2,11 +2,10 @@ import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
+	createAuthenticatedClient,
 	createEventFixture,
-	createTestUser,
 	findBuiltinSchemaBySlug,
 	listEventSchemas,
-	makeSession,
 	requireEventSchemaBySlug,
 	type Client,
 } from "~/fixtures/kernel";
@@ -65,8 +64,7 @@ it.live("renders a populated Music detail with its album rail and no watch provi
 		const trackName = `Browser Tracer Track ${suffix}`;
 		const siblingName = `Browser Tracer B Side ${suffix}`;
 		const albumName = `Browser Tracer Album ${suffix}`;
-		const { token, email, password } = yield* createTestUser(apiUrl);
-		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
 		const cover = yield* uploadPermanentAsset(apiUrl, client, TRACK_COVER);
 		const siblingCover = yield* uploadPermanentAsset(apiUrl, client, SIBLING_COVER);
 		const seeded = yield* seedGlobalMusicWithAlbum(client, {
@@ -175,8 +173,7 @@ it.live("renders the Music presentation facts in the canonical saved view", () =
 		const frontendUrl = getFrontendUrl();
 		const suffix = crypto.randomUUID();
 		const trackName = `Row Tracer Track ${suffix}`;
-		const { token, email, password } = yield* createTestUser(apiUrl);
-		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
 		const seeded = yield* seedGlobalMusicWithAlbum(client, {
 			trackName,
 			albumName: `Row Tracer Album ${suffix}`,

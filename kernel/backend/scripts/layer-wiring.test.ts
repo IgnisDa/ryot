@@ -19,8 +19,8 @@ it("ignores a layer supplied as a dependency rather than built", () => {
 	expect(
 		findDuplicateServiceLayers(
 			source(`
-				const A = SignalDispatchLive.pipe(Layer.provide(AutomationsService.layer));
-				const B = LifecycleDispatchLive.pipe(Layer.provide(AutomationsService.layer));
+				const A = LifecyclePlannerLive.pipe(Layer.provide(AutomationsService.layer));
+				const B = AutomationRunWorkflowDefinitionsLive.pipe(Layer.provide(AutomationsService.layer));
 			`),
 		),
 	).toEqual([]);

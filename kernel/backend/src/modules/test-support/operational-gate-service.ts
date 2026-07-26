@@ -1,8 +1,10 @@
+import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	TestSupportBadRequest,
 	type TestSupportStartWorkflowLoadGateBody,
 } from "@ryot-app/contract/modules/test-support/schemas";
-import type { ImportRunId } from "@ryot-app/contract/schema/brands";
+import { AutomationExecutionId, type ImportRunId } from "@ryot-app/contract/schema/brands";
+import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
@@ -58,6 +60,8 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 					inputSummary: { itemCount: input.itemCount, kind: "workflow-load-operational-gate" },
 				});
 				const startedAt = yield* DateTime.nowAsDate;
+				const occurredAt = IsoUtcString.make(startedAt.toISOString());
+				const rootExecutionId = AutomationExecutionId.make(`${run.id}-workflow-load`);
 				yield* imports.update({
 					startedAt,
 					runId: run.id,
@@ -70,7 +74,20 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 					providerId: input.providerId,
 					entitySchemaSlug: input.entitySchemaSlug,
 					externalId: `${input.identifierPrefix}-${index}`,
-					origin: { importRunId: run.id, kind: "import" as const },
+					command: {
+						occurredAt,
+						itemIdentity: JSON.stringify(["workflow-load", index]),
+						causation: {
+							depth: 0,
+							rootExecutionId,
+							source: "import",
+							parentRunId: null,
+							importRunId: run.id,
+							parentTriggerId: null,
+							executionId: rootExecutionId,
+							initiator: { kind: "user", id: input.executingUserId },
+						},
+					} satisfies LifecycleCommand,
 				}));
 				const chunks: Array<typeof items> = [];
 				let chunk: typeof items = [];

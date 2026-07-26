@@ -12,10 +12,10 @@ import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
 	buildSavedViewDataSources,
+	createAuthenticatedClient,
 	createEntity,
 	createEntityBrowserSavedView,
 	createSavedView,
-	createTestUser,
 	executeRyotQLRecipe,
 	fakeProviderDetailsResult,
 	fakeProviderSearchResult,
@@ -23,7 +23,6 @@ import {
 	getEntity,
 	installTestProvider,
 	makeEntitySchemaSlug,
-	makeSession,
 	pollUntil,
 	setUserLanguage,
 	uninstallTestProvider,
@@ -32,7 +31,7 @@ import {
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
 import { afterAll, beforeAll, expect, it } from "~/support/effect-test";
-import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
+import { getFrontendUrl } from "~/support/harness-target";
 
 const SUITE_ID = crypto.randomUUID();
 const VIEW_NAME = `Browser View ${SUITE_ID}`;
@@ -122,10 +121,10 @@ const openSavedView = (page: Playwright.Page) =>
 beforeAll(async () => {
 	const viewSlug = await Effect.runPromise(
 		Effect.gen(function* () {
-			const user = yield* createTestUser();
+			const user = yield* createAuthenticatedClient();
 			email = user.email;
 			password = user.password;
-			const client = makeSession(getApiUrl(), { Authorization: `Bearer ${user.token}` });
+			const client = user.client;
 			provider = yield* installTestProvider({
 				client,
 				name: PROVIDER_NAME,
@@ -218,8 +217,8 @@ it.live("automatically populates and translates entities rendered by a saved vie
 		const id = crypto.randomUUID();
 		const schemaSlug = `browser-interest-${id}`;
 		const translatedName = `Registro traducido ${id}`;
-		const user = yield* createTestUser();
-		const client = makeSession(getApiUrl(), { Authorization: `Bearer ${user.token}` });
+		const user = yield* createAuthenticatedClient();
+		const client = user.client;
 		yield* setUserLanguage(client, "es");
 		const offlineProvider = yield* installTestProvider({
 			client,
@@ -288,10 +287,10 @@ it.live("automatically populates and translates entities rendered by a saved vie
 it.live("keeps source data visible when saved-view translation is outstanding", () =>
 	Effect.gen(function* () {
 		const id = crypto.randomUUID();
-		const user = yield* createTestUser();
+		const user = yield* createAuthenticatedClient();
 		const schemaSlug = `browser-translating-${id}`;
 		const sourceName = `Untranslated record ${id}`;
-		const client = makeSession(getApiUrl(), { Authorization: `Bearer ${user.token}` });
+		const client = user.client;
 		yield* setUserLanguage(client, "es");
 		const untranslatedProvider = yield* installTestProvider({
 			client,

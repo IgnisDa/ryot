@@ -17,8 +17,10 @@
 - Keep runtime schemas, persisted JSON, and TypeScript types aligned. Store timezone-aware timestamps and emit ISO 8601 UTC dates.
 - Validate schema-backed entity, event, and relationship properties before writes.
 - Services set transaction boundaries; repositories use the active executor from context.
+- Lifecycle planning may invert module dependencies through the generic `LifecyclePlanner` transaction-scoped persistence port. Source writes, immutable triggers, recipients, and pinned runs share the caller's transaction; the port must not execute sandbox code or start workflows. Start execution only after commit.
+- The backup restore writer is the only kernel production caller allowed to use repository restore methods. The architecture check enforces this historical-write boundary; runtime callers use owning services.
 - Never hold a transaction across sandbox execution, network I/O, workflow boundaries, sleeps, or fan-out.
-- Provider population composes the import workflow. External event creation evaluates automation policies and dispatches lifecycle subscriptions.
+- Provider population composes the import workflow. External event creation runs before-stage policy hooks, then plans pinned after-hook runs in the committing transaction.
 
 ## Durable Work
 
@@ -37,3 +39,4 @@
 - Authentication and proxy rules: `src/modules/auth/README.md`.
 - Public and service-owned event creates await `EventCreateWorkflow`; callers that use `discard: true` must poll for results.
 - Assert typed Effect failures with `assertExitFails` from `src/lib/test-utils/assertions.ts`; structural `Exit.fail` equality omits error messages.
+- `global-setup.ts` provisions one PostgreSQL for the whole run, reusing an externally supplied `TEST_DATABASE_URL` when present, and hands it to suites through vitest `provide`/`inject`. Database-backed suites read it with `testDatabaseUrl` and isolate themselves in a throwaway schema or database; they never skip when it is absent.

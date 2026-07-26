@@ -60,6 +60,7 @@ export const resolveEventCreateItemScopes = Effect.fn("resolveEventCreateItemSco
 		const eventSchemaScope = yield* eventSchemasRepository.getScopeForUser({
 			eventSchemaSlug,
 			userId: input.userId,
+			entitySchemaPluginId: entityScope.entitySchemaPluginId,
 			entitySchemaSlug: EntitySchemaSlug.make(entityScope.entitySchemaSlug),
 		});
 		if (!eventSchemaScope) {
@@ -75,10 +76,12 @@ export const resolveEventCreateItemScopes = Effect.fn("resolveEventCreateItemSco
 		}
 
 		let sessionEntityId: EntityId | undefined;
-		if (input.item.sessionEntityId) {
-			const sessionScope = yield* requireReadableEntity(input.userId, input.item.sessionEntityId, {
+		const rawSessionEntityId = input.item.sessionEntityId?.trim();
+		if (rawSessionEntityId) {
+			const requestedSessionEntityId = EntityId.make(rawSessionEntityId);
+			const sessionScope = yield* requireReadableEntity(input.userId, requestedSessionEntityId, {
 				code: "session-entity-not-found",
-				entityId: input.item.sessionEntityId,
+				entityId: requestedSessionEntityId,
 			});
 			sessionEntityId = sessionScope.entityId;
 		}

@@ -3,6 +3,7 @@ import type { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, type Effect } from "effect";
 
 import type { Database } from "#lib/infrastructure/db/service";
+import type { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 
 export type ImportWorkflowPinningValue = {
 	preRegister: (input: {
@@ -11,7 +12,10 @@ export type ImportWorkflowPinningValue = {
 		readonly executingUserId: UserId;
 		readonly scriptId: SandboxScriptId;
 	}) => Effect.Effect<
-		{ readonly registrationStatus: "registered" | "already-registered" | "not-required" },
+		{
+			readonly pluginRevision: SandboxPluginRevision;
+			readonly registrationStatus: "registered" | "already-registered" | "not-required";
+		},
 		SandboxRunError,
 		Database
 	>;

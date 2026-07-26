@@ -1,12 +1,22 @@
 import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import { ImportRunId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	AutomationExecutionId,
+	ImportRunId,
+	PluginConfigRevisionId,
+	PluginId,
+	PluginRevisionId,
+	SandboxScriptId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
+import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { Effect, Exit, Layer, Option, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 import { assert } from "vitest";
 
+import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import {
 	ImportSourceStateFromJson,
 	RedisService,
@@ -29,7 +39,16 @@ import { ImportRunArtifacts } from "./runtime/workflow-helpers";
 import { ImportsService } from "./service";
 
 const executionId = "import-run-dispatch";
+const command = rootLifecycleCommand({
+	source: "import",
+	importRunId: ImportRunId.make("run-1"),
+	itemIdentity: '["import-run","run-1"]',
+	executionId: AutomationExecutionId.make("run-1"),
+	initiator: { kind: "user", id: UserId.make("user-1") },
+	occurredAt: IsoUtcString.make("2026-01-01T00:00:00.000Z"),
+});
 const payload = {
+	command,
 	userId: UserId.make("user-1"),
 	sourceStateId: "source-state-1",
 	runId: ImportRunId.make("run-1"),
@@ -43,6 +62,19 @@ const sourceState = {
 	pluginInstallationId: "example-installation",
 	namedArtifactPaths: { uploadToken: "/tmp/nu.zip" },
 	workflowScriptId: SandboxScriptId.make("accepted.nu-import"),
+	pluginRevision: {
+		ownerId: null,
+		slug: "example",
+		compiledHashes: {},
+		workflowScripts: {},
+		scope: "system" as const,
+		userBootstrapScriptSlugs: [],
+		id: PluginId.make("example-plugin-id"),
+		revisionId: PluginRevisionId.make("example-revision"),
+		configSchema: { fields: {}, unknownKeys: "strict" as const },
+		configRevisionId: PluginConfigRevisionId.make("example-config-revision"),
+		schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
+	},
 };
 
 type SandboxCall = { method: string; input: unknown };
@@ -51,7 +83,7 @@ const makeHarness = (
 	suspendWorkflow = false,
 	failWorkflow = false,
 	suspended = suspendWorkflow,
-	storedSourceState: ImportSourceState = sourceState,
+	storedSourceState: ImportSourceState | string = sourceState,
 ) => {
 	const activityNames: string[] = [];
 	const sandboxCalls: SandboxCall[] = [];
@@ -73,7 +105,7 @@ const makeHarness = (
 	});
 	const workflowResult = suspendWorkflow
 		? Effect.interrupt
-		: Effect.fail(new SandboxRunError({ message: "import failed" })).pipe(
+		: Effect.fail(new SandboxRunError({ kind: "script-failure", message: "import failed" })).pipe(
 				Effect.when(Effect.succeed(failWorkflow)),
 				Effect.as(null),
 			);
@@ -112,7 +144,11 @@ const makeHarness = (
 				RedisService,
 				makeRedisService({
 					claim: () =>
-						Effect.succeed(Schema.encodeSync(ImportSourceStateFromJson)(storedSourceState)),
+						Effect.succeed(
+							typeof storedSourceState === "string"
+								? storedSourceState
+								: Schema.encodeSync(ImportSourceStateFromJson)(storedSourceState),
+						),
 				}),
 			),
 			Layer.mock(ImportsService)({}),
@@ -133,8 +169,9 @@ it.effect("dispatches a registry-declared source to its owning plugin's import w
 			method: "executeWorkflow",
 			input: {
 				executionId: `${executionId}-import`,
-				input: { source: "nu", runId: "run-1" },
+				pluginRevision: sourceState.pluginRevision,
 				subject: { type: "user", userId: "user-1" },
+				input: { command, source: "nu", runId: "run-1" },
 				scriptId: SandboxScriptId.make("accepted.nu-import"),
 				grants: {
 					artifactOwnerExecutionId: `${executionId}-import`,
@@ -205,6 +242,19 @@ it.effect("hands a secret-bearing stored source payload to the plugin import wor
 				},
 			},
 		});
+	}).pipe(Effect.provide(harness.layer));
+});
+
+it.effect("fails closed before sandbox dispatch when durable source state has no exact pin", () => {
+	const { pluginRevision: _pluginRevision, ...legacySourceState } = sourceState;
+	const harness = makeHarness(false, false, false, JSON.stringify(legacySourceState));
+
+	return Effect.gen(function* () {
+		yield* runProcessImportRunWorkflow(payload, executionId);
+
+		expect(harness.sandboxCalls).toEqual([]);
+		expect(harness.activityNames).not.toContain("retain-import-dispatch-artifacts");
+		expect(harness.activityNames).toContain("fail-import-run-unexpected");
 	}).pipe(Effect.provide(harness.layer));
 });
 

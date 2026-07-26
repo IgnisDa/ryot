@@ -289,3 +289,16 @@ describe("OTEL_EXPORTER_OTLP_HEADERS validation", () => {
 		);
 	});
 });
+
+describe("automation configuration", () => {
+	it("rejects history retention shorter than the retry window", () => {
+		expect(
+			Exit.isFailure(validate({ automations: { retryWindowDays: 8, historyRetentionDays: 7 } })),
+		).toBe(true);
+	});
+
+	it("rejects unbounded or fractional recursion limits", () => {
+		expect(Exit.isFailure(validate({ automations: { maxDepth: 1.5 } }))).toBe(true);
+		expect(Exit.isFailure(validate({ automations: { maxRuns: 10001 } }))).toBe(true);
+	});
+});

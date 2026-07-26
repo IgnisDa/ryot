@@ -1,10 +1,3 @@
-import {
-	AutomationOccurrencePopulation,
-	AutomationOccurrenceSource,
-	AutomationOperation,
-	AutomationOrigin,
-	AutomationRuleMetadata,
-} from "@ryot-app/contract/modules/automations/schemas";
 import { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import type { Recipe } from "@ryot-app/ryotql";
@@ -12,7 +5,6 @@ import {
 	ascending,
 	column,
 	defineRecipe,
-	eq,
 	inArray,
 	literal,
 	selectedField,
@@ -71,47 +63,6 @@ export const eventReadRecipe = (input: {
 		eventSchemaSlugs: [input.eventSchemaSlug],
 		entitySchemaSlugs: [input.entitySchemaSlug],
 	});
-
-export const automationOccurrenceRecipe = defineRecipe((occurrenceId: string) => {
-	const occurrence = table("automationOccurrence", "occurrence");
-	return {
-		map: ({ occurrences }) => Result.succeed(occurrences.items[0] ?? null),
-		queries: {
-			occurrences: selectedRows(occurrence, {
-				limit: 1,
-				where: eq(column(occurrence, "id"), literal(occurrenceId)),
-				selection: {
-					origin: selectedField(column(occurrence, "origin"), AutomationOrigin),
-					operation: selectedField(column(occurrence, "operation"), AutomationOperation),
-					source: selectedField(column(occurrence, "source"), AutomationOccurrenceSource),
-					population: selectedField(
-						column(occurrence, "population"),
-						Schema.NullOr(AutomationOccurrencePopulation),
-					),
-				},
-			}),
-		},
-	};
-});
-
-export const automationRunRecipe = defineRecipe((runId: string) => {
-	const run = table("subscriptionRun", "run");
-	return {
-		map: ({ runs }) => Result.succeed(runs.items[0] ?? null),
-		queries: {
-			runs: selectedRows(run, {
-				limit: 1,
-				where: eq(column(run, "id"), literal(runId)),
-				selection: {
-					ruleMetadata: selectedField(
-						column(run, "ruleMetadata"),
-						Schema.NullOr(AutomationRuleMetadata),
-					),
-				},
-			}),
-		},
-	};
-});
 
 export type EntityReadResult = Recipe.Success<typeof entityReadRecipe>;
 export type EventReadResult = Recipe.Success<typeof eventReadRecipe>;
