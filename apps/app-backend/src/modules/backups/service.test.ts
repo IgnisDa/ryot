@@ -5,10 +5,10 @@ import { Effect, Layer, Stream } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { databaseLayer, makeWorkflowEngine, type MockOverrides } from "#lib/test-utils/effect";
-import { BackupDataService } from "#modules/backup-data/data-service";
 import { UploadsService } from "#modules/uploads/service";
 
-import { BackupsRepository } from "./repository";
+import { BackupAccountCleanliness } from "./restore/account-cleanliness";
+import { BackupsRepository } from "./runs/repository";
 import { BackupsService } from "./service";
 
 const user: CurrentUserValue = {
@@ -45,7 +45,9 @@ const makeLayer = (input: {
 			Layer.mergeAll(
 				databaseLayer,
 				Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
-				Layer.mock(BackupDataService, { assertAccountIsClean: () => Effect.sync(() => undefined) }),
+				Layer.mock(BackupAccountCleanliness, {
+					assertAccountIsClean: () => Effect.sync(() => undefined),
+				}),
 				mockUploads(input.uploads ?? {}),
 				mockRepository(input.repository),
 			),
