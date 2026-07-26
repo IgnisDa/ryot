@@ -1,3 +1,5 @@
+import { isEqual } from "@ryot/ts-utils/lodash";
+
 import type { PortableUserProfile } from "#modules/auth/repository";
 import type { StoredNotificationSubscription } from "#modules/automations/repository";
 import type { SavedViewDefinition } from "#modules/definition-registry/service";
@@ -46,31 +48,13 @@ export type AccountCleanlinessState = {
 	readonly notificationSubscriptions: ReadonlyArray<StoredNotificationSubscription>;
 };
 
-const canonicalize = (value: unknown): unknown => {
-	if (Array.isArray(value)) {
-		return value.map(canonicalize);
-	}
-	if (value === null || typeof value !== "object") {
-		return value;
-	}
-	return Object.fromEntries(
-		Object.entries(value)
-			.filter(([, child]) => child !== undefined)
-			.sort(([left], [right]) => left.localeCompare(right))
-			.map(([key, child]) => [key, canonicalize(child)]),
-	);
-};
-
-export const structurallyEqual = (left: unknown, right: unknown) =>
-	JSON.stringify(canonicalize(left)) === JSON.stringify(canonicalize(right));
-
 const sameUnorderedRecords = (actual: ReadonlyArray<unknown>, expected: ReadonlyArray<unknown>) => {
 	if (actual.length !== expected.length) {
 		return false;
 	}
 	const remaining = [...expected];
 	for (const value of actual) {
-		const index = remaining.findIndex((candidate) => structurallyEqual(value, candidate));
+		const index = remaining.findIndex((candidate) => isEqual(value, candidate));
 		if (index === -1) {
 			return false;
 		}
@@ -80,7 +64,7 @@ const sameUnorderedRecords = (actual: ReadonlyArray<unknown>, expected: Readonly
 };
 
 export const classifyAccountCleanliness = (state: AccountCleanlinessState) => {
-	if (!state.profile || !structurallyEqual(state.profile.preferences, state.defaultPreferences)) {
+	if (!state.profile || !isEqual(state.profile.preferences, state.defaultPreferences)) {
 		return "preferences";
 	}
 	if (state.hasEvents) {
