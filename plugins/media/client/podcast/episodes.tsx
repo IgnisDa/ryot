@@ -5,17 +5,14 @@ import clsx from "clsx";
 import type { MediaSummaryOf } from "../../shared/media-recipes";
 import type { podcastRecipes } from "../../shared/podcast-recipes";
 import { podcastEpisodesRecipe } from "../../shared/podcast-recipes";
+import { mediaCursorPageError, type MediaCursorPage } from "../media/cursor-page-state";
 import {
 	MediaEpisodePages,
 	type MediaEpisodePageInput,
 	type MediaEpisodePagesCopy,
 	type MediaEpisodeRender,
 } from "../media/episodes";
-import {
-	mediaEpisodeNumberLabel,
-	mediaEpisodePageError,
-	type MediaEpisodePage,
-} from "../media/episodes-state";
+import { mediaEpisodeNumberLabel } from "../media/episodes-state";
 import { mediaCountLabel } from "../media/summary-state";
 
 export const PODCAST_EPISODE_PAGE_LIMIT = 40;
@@ -29,7 +26,7 @@ export const podcastEpisodeOriginLabel = (episode: { readonly episodeNumber: num
 
 export const podcastEpisodesQuery = createRyotQuery<
 	MediaEpisodePageInput,
-	MediaEpisodePage<PodcastEpisode>
+	MediaCursorPage<PodcastEpisode>
 >(
 	({ input, client, signal }) =>
 		client.data.query(
@@ -58,7 +55,7 @@ const PODCAST_EPISODE_RENDER: MediaEpisodeRender<PodcastEpisode> = {
 
 const PODCAST_EPISODE_PAGES_COPY: MediaEpisodePagesCopy = {
 	empty: "No episodes have been recorded for this podcast yet.",
-	error: (state) => mediaEpisodePageError({ state, noun: "episodes" }),
+	error: (state) => mediaCursorPageError({ state, noun: "episodes" }),
 	loading: { title: "Loading episodes...", detail: "Fetching this podcast's episodes." },
 };
 

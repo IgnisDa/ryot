@@ -56,6 +56,7 @@ export function MediaDetailBody<
 >(props: {
 	readonly compact: boolean;
 	readonly typeLabel: string;
+	readonly defaultTab: TabKey;
 	readonly overviewTab: TabKey;
 	readonly safeAreaTop: number;
 	readonly refresh: () => void;
@@ -66,6 +67,7 @@ export function MediaDetailBody<
 	readonly summaryRefreshStatus: ReactNode;
 	readonly overviewRefreshStatus: ReactNode;
 	readonly tabs: readonly MediaTab<TabKey>[];
+	readonly overviewEmpty?: MediaStatusCopy | undefined;
 	readonly state: MediaSummaryState<Summary>;
 	readonly overview: MediaOverviewState<Overview>;
 	readonly settled: EntitySettleReason | undefined;
@@ -85,7 +87,7 @@ export function MediaDetailBody<
 		| undefined;
 }) {
 	const { state, overviewTrailing } = props;
-	const [activeTab, setActiveTab] = useState<TabKey>(props.overviewTab);
+	const [activeTab, setActiveTab] = useState<TabKey>(props.defaultTab);
 	if (state.status === "loading") {
 		return <MediaStatusMessage title={props.loading.title} detail={props.loading.detail} />;
 	}
@@ -123,6 +125,7 @@ export function MediaDetailBody<
 					media={summary}
 					compact={props.compact}
 					overview={props.overview}
+					empty={props.overviewEmpty}
 					isEmpty={props.overviewIsEmpty}
 					safeAreaTop={props.safeAreaTop}
 					relations={props.overviewRelations}
@@ -143,33 +146,38 @@ export function MediaDetailBody<
 	);
 }
 
-export function MediaDetailScreen<
-	SummaryData,
-	OverviewData,
-	Summary extends MediaEntitySummaryValue,
->(props: {
+type MediaDetailBodyRender<Summary, Overview> = (
+	input: MediaDetailBodyInput<Summary, Overview>,
+) => ReactNode;
+
+type MediaDetailScreenBase<SummaryData, Summary> = {
 	readonly entityId: string;
 	readonly heroHeight: (compact: boolean) => number;
 	readonly posterPurpose?: MediaImagePurposes[number] | undefined;
 	readonly backdropPurposes?: MediaImagePurposes | undefined;
 	readonly summaryQuery: RyotQuery<{ readonly entityId: string }, SummaryData>;
-	readonly overviewQuery: RyotQuery<{ readonly entityId: string }, OverviewData>;
 	readonly mapSummary: (result: RyotQueryResult<SummaryData>) => MediaSummaryState<Summary>;
-	readonly overviewAssets: (overview: OverviewData) => readonly ManagedAssetLocator[];
-	readonly Body: (input: MediaDetailBodyInput<Summary, OverviewData>) => ReactNode;
-}) {
+};
+
+function MediaDetailFrame<SummaryData, OverviewData, Summary extends MediaEntitySummaryValue>(
+	props: MediaDetailScreenBase<SummaryData, Summary> & {
+		readonly overviewData: unknown;
+		readonly refreshOverview: () => void;
+		readonly overviewRefreshStatus: ReactNode;
+		readonly overview: MediaOverviewState<OverviewData>;
+		readonly overviewLocators: readonly ManagedAssetLocator[];
+		readonly Body: MediaDetailBodyRender<Summary, OverviewData>;
+	},
+) {
 	const { compact, safeAreaTop } = useRyotViewport();
 	const summaryResult = useRyotQuery(props.summaryQuery, { entityId: props.entityId });
-	const overviewResult = useRyotQuery(props.overviewQuery, { entityId: props.entityId });
 	const { commit, settled } = useMediaEntitySettle(props.entityId);
 	useEffect(() => {
 		commit();
-	}, [commit, summaryResult.data, overviewResult.data]);
+	}, [commit, summaryResult.data, props.overviewData]);
 	const state = props.mapSummary(summaryResult);
-	const overview = mapMediaOverview(overviewResult);
 	const assets =
 		state.status === "ready" ? mediaManagedAssets(state.summary, props.backdropPurposes) : [];
-	const overviewAssets = overview.status === "ready" ? props.overviewAssets(overview.overview) : [];
 	return (
 		<ManagedAssetProvider assets={assets}>
 			<PluginScreenFrame
@@ -191,22 +199,98 @@ export function MediaDetailScreen<
 						: undefined
 				}
 			>
-				<ManagedAssetProvider assets={overviewAssets}>
+				<ManagedAssetProvider assets={props.overviewLocators}>
 					<props.Body
 						state={state}
 						compact={compact}
-						overview={overview}
 						entityId={props.entityId}
+						overview={props.overview}
 						safeAreaTop={safeAreaTop}
 						refresh={summaryResult.refetch}
 						settled={settled.get(props.entityId)}
-						refreshOverview={overviewResult.refetch}
+						refreshOverview={props.refreshOverview}
+						overviewRefreshStatus={props.overviewRefreshStatus}
 						summaryRefreshStatus={<MediaRefreshStatus result={summaryResult} />}
-						overviewRefreshStatus={<MediaRefreshStatus result={overviewResult} />}
 					/>
 				</ManagedAssetProvider>
 			</PluginScreenFrame>
 		</ManagedAssetProvider>
+	);
+}
+
+function MediaQueriedDetailScreen<
+	SummaryData,
+	OverviewData,
+	Summary extends MediaEntitySummaryValue,
+>(
+	props: MediaDetailScreenBase<SummaryData, Summary> & {
+		readonly Body: MediaDetailBodyRender<Summary, OverviewData>;
+		readonly overviewQuery: RyotQuery<{ readonly entityId: string }, OverviewData>;
+		readonly overviewAssets: (overview: OverviewData) => readonly ManagedAssetLocator[];
+	},
+) {
+	const overviewResult = useRyotQuery(props.overviewQuery, { entityId: props.entityId });
+	const overview = mapMediaOverview(overviewResult);
+	return (
+		<MediaDetailFrame
+			Body={props.Body}
+			overview={overview}
+			entityId={props.entityId}
+			heroHeight={props.heroHeight}
+			mapSummary={props.mapSummary}
+			summaryQuery={props.summaryQuery}
+			overviewData={overviewResult.data}
+			posterPurpose={props.posterPurpose}
+			refreshOverview={overviewResult.refetch}
+			backdropPurposes={props.backdropPurposes}
+			overviewRefreshStatus={<MediaRefreshStatus result={overviewResult} />}
+			overviewLocators={overview.status === "ready" ? props.overviewAssets(overview.overview) : []}
+		/>
+	);
+}
+
+const NO_OVERVIEW: MediaOverviewState<Record<never, never>> = { overview: {}, status: "ready" };
+
+const refreshNothing = () => undefined;
+
+/** The detail screen; without an overview query the overview is ready and empty, and never refetches. */
+export function MediaDetailScreen<
+	SummaryData,
+	OverviewData,
+	Summary extends MediaEntitySummaryValue,
+>(
+	props: MediaDetailScreenBase<SummaryData, Summary> &
+		(
+			| {
+					readonly Body: MediaDetailBodyRender<Summary, OverviewData>;
+					readonly overviewQuery: RyotQuery<{ readonly entityId: string }, OverviewData>;
+					readonly overviewAssets: (overview: OverviewData) => readonly ManagedAssetLocator[];
+			  }
+			| {
+					readonly overviewQuery?: undefined;
+					readonly overviewAssets?: undefined;
+					readonly Body: MediaDetailBodyRender<Summary, Record<never, never>>;
+			  }
+		),
+) {
+	if (props.overviewQuery !== undefined) {
+		return <MediaQueriedDetailScreen {...props} overviewQuery={props.overviewQuery} />;
+	}
+	return (
+		<MediaDetailFrame
+			Body={props.Body}
+			overviewLocators={[]}
+			overview={NO_OVERVIEW}
+			overviewData={undefined}
+			entityId={props.entityId}
+			overviewRefreshStatus={null}
+			heroHeight={props.heroHeight}
+			mapSummary={props.mapSummary}
+			refreshOverview={refreshNothing}
+			summaryQuery={props.summaryQuery}
+			posterPurpose={props.posterPurpose}
+			backdropPurposes={props.backdropPurposes}
+		/>
 	);
 }
 

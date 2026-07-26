@@ -368,6 +368,7 @@ export const defineFlatMediaSchema = <
 				tabs={TABS}
 				header={header}
 				state={props.state}
+				defaultTab="overview"
 				overviewTab="overview"
 				compact={props.compact}
 				settled={props.settled}
@@ -456,6 +457,7 @@ export const defineFlatMediaSchema = <
 	function RowContent(props: {
 		readonly compact: boolean;
 		readonly entityId: string;
+		readonly position?: string | undefined;
 		readonly data: MediaPresentationViewData<Presentation>;
 	}) {
 		return (
@@ -463,6 +465,7 @@ export const defineFlatMediaSchema = <
 				data={props.data}
 				compact={props.compact}
 				entityId={props.entityId}
+				position={props.position}
 				aspect={descriptor.aspect}
 				facts={<Facts data={props.data} compact={props.compact} />}
 			/>

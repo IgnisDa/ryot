@@ -1,11 +1,9 @@
 import { Result } from "@ryot-app/client-sdk/effect";
 import { createRyotQuery } from "@ryot-app/client-sdk/react";
 
+import type { MediaCursorPage } from "../../../client/media/cursor-page-state";
 import type { MediaEpisodePageInput, MediaEpisodeRender } from "../../../client/media/episodes";
-import {
-	mediaEpisodeNumberLabel,
-	type MediaEpisodePage,
-} from "../../../client/media/episodes-state";
+import { mediaEpisodeNumberLabel } from "../../../client/media/episodes-state";
 import { rowsResult } from "../query-result-fixture";
 import { episodicFixtureEpisodesRecipe, type EpisodicFixtureEpisode } from "./recipes";
 
@@ -57,7 +55,7 @@ export const decodeEpisodicEpisodePage = (
 
 export const episodicFixtureEpisodesQuery = createRyotQuery<
 	MediaEpisodePageInput,
-	MediaEpisodePage<EpisodicFixtureEpisode>
+	MediaCursorPage<EpisodicFixtureEpisode>
 >(({ input, client, signal }) =>
 	client.data.query(
 		episodicFixtureEpisodesRecipe({

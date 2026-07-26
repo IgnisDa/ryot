@@ -332,6 +332,7 @@ export const defineEpisodicMediaSchema = <
 				tabs={TABS}
 				header={header}
 				state={props.state}
+				defaultTab="overview"
 				overviewTab="overview"
 				compact={props.compact}
 				settled={props.settled}

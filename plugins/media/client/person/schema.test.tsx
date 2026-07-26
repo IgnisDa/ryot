@@ -11,7 +11,7 @@ import {
 	decodeCreatorSummary,
 } from "../../tests/client/creator/summary-fixture";
 import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
-import { creatorLinks } from "../creator/credit-sections";
+import { mediaSourceLinks } from "../media/summary-state";
 import { personSchema, personSummaryFacts } from "./schema";
 
 const TODAY = "2026-09-14";
@@ -69,7 +69,7 @@ describe("person schema", () => {
 
 	it("links only web addresses", () => {
 		expect(
-			creatorLinks(
+			mediaSourceLinks(
 				personSummary({ website: "javascript:alert(1)", sourceUrl: "https://tmdb.test/edward" }),
 			),
 		).toEqual([{ label: "TMDB page", href: "https://tmdb.test/edward" }]);
