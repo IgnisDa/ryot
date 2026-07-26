@@ -28,7 +28,7 @@ const OIDC_CLIENT_ID = "test-client";
 const S3_BUCKET_NAME = "ryot-oidc-test";
 const OIDC_CLIENT_SECRET = "test-secret";
 const OIDC_BUTTON_LABEL = "Sign in with TestOIDC";
-const workspaceListQuery = { includeDisabled: false };
+const pluginListQuery = { includeDisabled: false };
 const godModeListQuery = (search: string) => ({ limit: 50, offset: 0, search });
 
 const countUsersByEmail = (backendUrl: string, email: string) =>
@@ -49,13 +49,13 @@ const findUserIdByEmail = (backendUrl: string, email: string) =>
 		return data.users[0]?.id ?? null;
 	});
 
-const listWorkspaceCount = (backendUrl: string, cookie: string) =>
+const listPluginCount = (backendUrl: string, cookie: string) =>
 	Effect.gen(function* () {
-		const workspaces = yield* makeSession(backendUrl).call(
-			(c) => c.definitions.listWorkspaces({ query: workspaceListQuery }),
+		const plugins = yield* makeSession(backendUrl).call(
+			(c) => c.definitions.listPlugins({ query: pluginListQuery }),
 			{ Cookie: cookie },
 		);
-		return workspaces.length;
+		return plugins.length;
 	});
 
 let backendPortA: number;
@@ -206,7 +206,7 @@ describe("OIDC sign-in happy path (Backend A)", () => {
 				oidcSignIn(requireMockOidcServer(), username, getBackendUrlA()),
 			);
 			const client = makeSession(getBackendUrlA());
-			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 				Cookie: sessionCookie,
 			});
 		}),
@@ -220,13 +220,13 @@ describe("OIDC sign-in happy path (Backend A)", () => {
 		}),
 	);
 
-	it.live("first-time OIDC sign-in bootstraps the user with plugin workspace state", () =>
+	it.live("first-time OIDC sign-in bootstraps the user with plugin state", () =>
 		Effect.gen(function* () {
 			const username = `user-${crypto.randomUUID()}`;
 			const sessionCookie = yield* Effect.promise(() =>
 				oidcSignIn(requireMockOidcServer(), username, getBackendUrlA()),
 			);
-			expect(yield* listWorkspaceCount(getBackendUrlA(), sessionCookie)).toBeGreaterThan(0);
+			expect(yield* listPluginCount(getBackendUrlA(), sessionCookie)).toBeGreaterThan(0);
 		}),
 	);
 
@@ -268,30 +268,30 @@ describe("OIDC idempotency (Backend A)", () => {
 
 			const client = makeSession(getBackendUrlA());
 			yield* Effect.all([
-				client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
+				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 					Cookie: cookie1,
 				}),
-				client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
+				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 					Cookie: cookie2,
 				}),
 			]);
 		}),
 	);
 
-	it.live("bootstrap idempotency: workspace count is the same after two sign-ins", () =>
+	it.live("bootstrap idempotency: plugin count is the same after two sign-ins", () =>
 		Effect.gen(function* () {
 			const username = `user-${crypto.randomUUID()}`;
 
 			const cookie1 = yield* Effect.promise(() =>
 				oidcSignIn(requireMockOidcServer(), username, getBackendUrlA()),
 			);
-			const firstCount = yield* listWorkspaceCount(getBackendUrlA(), cookie1);
+			const firstCount = yield* listPluginCount(getBackendUrlA(), cookie1);
 			expect(firstCount).toBeGreaterThan(0);
 
 			const cookie2 = yield* Effect.promise(() =>
 				oidcSignIn(requireMockOidcServer(), username, getBackendUrlA()),
 			);
-			const secondCount = yield* listWorkspaceCount(getBackendUrlA(), cookie2);
+			const secondCount = yield* listPluginCount(getBackendUrlA(), cookie2);
 			expect(secondCount).toBe(firstCount);
 		}),
 	);
@@ -337,7 +337,7 @@ describe("Registration gating for OIDC (Backend C)", () => {
 				oidcSignIn(requireMockOidcServer(), username, getBackendUrlC()),
 			);
 			const client = makeSession(getBackendUrlC());
-			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 				Cookie: sessionCookie,
 			});
 

@@ -21,7 +21,7 @@ Provider targets resolve against active plugin-loader declarations. Persisted pr
 
 - Preserve legacy IDs.
 - Use lowercased legacy username when it is an email; otherwise generate `<normalized-name>@ryot.local`. Resolve collisions with `+<id>` and mark migrated email verified.
-- Run each migrated user through `bootstrapNewUser` to create plugin workspace state, saved views, library entity, and default notification subscriptions.
+- Run each migrated user through `bootstrapNewUser` to create plugin state, saved views, library entity, and default notification subscriptions.
 - Migrate disabled users to `disabled_at`. Password users have no migrated credential account and use god-mode reset links. OIDC links migrate as minimal Better Auth account stubs.
 - Do not migrate sessions, 2FA, OAuth redirect URL, legacy admin lot, or legacy token lifetime.
 

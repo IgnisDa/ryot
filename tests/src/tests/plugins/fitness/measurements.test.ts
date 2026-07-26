@@ -10,7 +10,7 @@ import {
 	createMeasurementEntityFixture,
 	executeQueryEngine,
 	findBuiltinSchemaBySlug,
-	findBuiltinWorkspaceBySlug,
+	findBuiltinPluginBySlug,
 	getEntity,
 	getQueryEngineFieldOrThrow,
 	listEntitySchemas,
@@ -22,16 +22,16 @@ describe("Measurements E2E", () => {
 	it.live("links the built-in measurement schema to the fitness plugin", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const fitnessWorkspace = yield* findBuiltinWorkspaceBySlug(client, "fitness");
+			const fitnessPlugin = yield* findBuiltinPluginBySlug(client, "fitness");
 			const schemas = yield* listEntitySchemas(client, {
-				pluginSlug: fitnessWorkspace.slug,
+				pluginSlug: fitnessPlugin.slug,
 			});
 			const measurementSchema = schemas.find((schema) => schema.slug === "measurement");
 
 			expect(measurementSchema).toBeDefined();
 			expect(measurementSchema?.name).toBe("Measurement");
 			expect(measurementSchema?.isBuiltin).toBe(true);
-			expect(measurementSchema?.pluginSlug).toBe(fitnessWorkspace.slug);
+			expect(measurementSchema?.pluginSlug).toBe(fitnessPlugin.slug);
 		}),
 	);
 
@@ -66,9 +66,9 @@ describe("Measurements E2E", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const fitnessWorkspace = yield* findBuiltinWorkspaceBySlug(client, "fitness");
+				const fitnessPlugin = yield* findBuiltinPluginBySlug(client, "fitness");
 				const views = yield* listSavedViews(client, {
-					pluginSlug: fitnessWorkspace.slug,
+					pluginSlug: fitnessPlugin.slug,
 				});
 				const allMeasurementsView = views.find((view) => view.name === "All Measurements");
 
@@ -76,7 +76,7 @@ describe("Measurements E2E", () => {
 				expect(allMeasurementsView).toMatchObject({
 					isBuiltin: true,
 					name: "All Measurements",
-					pluginSlug: fitnessWorkspace.slug,
+					pluginSlug: fitnessPlugin.slug,
 					queryDocument: {
 						source: { schemas: ["measurement"] },
 						output: {
