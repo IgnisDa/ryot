@@ -1,4 +1,5 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react";
+import { decodeNotificationChannelsResponse } from "@ryot/ryotql-recipes/notification-channels";
 import { decodeSavedViewRecordsResponse } from "@ryot/ryotql-recipes/saved-view-records";
 import clsx from "clsx";
 import { Cause, Exit, Result } from "effect";
@@ -23,6 +24,9 @@ export default function AppHome() {
 	const createSavedViewResult = useAtomValue(createSavedViewAtom);
 	const notificationChannels = useAtomValue(notificationChannelsAtom);
 	const createSavedView = useAtomSet(createSavedViewAtom, { mode: "promiseExit" });
+	const decodedNotificationChannels = AsyncResult.isSuccess(notificationChannels)
+		? decodeNotificationChannelsResponse(notificationChannels.value)
+		: undefined;
 	const decodedSavedViews = AsyncResult.isSuccess(savedViews)
 		? decodeSavedViewRecordsResponse(savedViews.value)
 		: undefined;
@@ -134,7 +138,7 @@ export default function AppHome() {
 
 				<View className="gap-3 rounded-xl border border-border bg-surface p-5">
 					<Text className="font-ui-semibold text-base text-text">
-						GET /api/notifications/channels
+						RyotQL notification-channel summary
 					</Text>
 					{AsyncResult.builder(notificationChannels)
 						.onInitial(() => <Text className="font-ui text-base text-text-muted">Loading...</Text>)
@@ -143,11 +147,43 @@ export default function AppHome() {
 								{JSON.stringify({ error: Cause.pretty(cause) }, null, 2)}
 							</Text>
 						))
-						.onSuccess((response) => (
-							<Text selectable className="font-mono text-sm text-text">
-								{JSON.stringify(response, null, 2)}
-							</Text>
-						))
+						.onSuccess(() => {
+							if (!decodedNotificationChannels) {
+								return null;
+							}
+							if (Result.isFailure(decodedNotificationChannels)) {
+								return (
+									<Text selectable className="font-mono text-sm text-danger">
+										{JSON.stringify(
+											{ error: String(decodedNotificationChannels.failure) },
+											null,
+											2,
+										)}
+									</Text>
+								);
+							}
+
+							return (
+								<View className="gap-2">
+									<Text className="font-ui text-sm text-text-muted">
+										Showing {decodedNotificationChannels.success.items.length} of{" "}
+										{decodedNotificationChannels.success.pageInfo.total} notification channels
+									</Text>
+									<Text selectable className="font-mono text-sm text-text">
+										{JSON.stringify(
+											decodedNotificationChannels.success.items.map((channel) => ({
+												id: channel.id,
+												channel: channel.channel,
+												isDisabled: channel.isDisabled,
+												description: channel.description,
+											})),
+											null,
+											2,
+										)}
+									</Text>
+								</View>
+							);
+						})
 						.render()}
 				</View>
 

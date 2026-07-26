@@ -1,3 +1,5 @@
+import { Effect, Result } from "effect";
+
 export function requirePresent<T>(value: T, message: string): NonNullable<T> {
 	if (!value) {
 		throw new Error(message);
@@ -77,3 +79,6 @@ export function assertTaggedError<E extends { readonly _tag: string }, T extends
 		throw new Error(`Expected error tag '${tag}' but received '${error._tag}'`);
 	}
 }
+
+export const resultToEffect = <A, E>(result: Result.Result<A, E>) =>
+	Result.isSuccess(result) ? Effect.succeed(result.success) : Effect.fail(result.failure);

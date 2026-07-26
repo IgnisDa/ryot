@@ -11,13 +11,6 @@ export const NotificationsRoutesLive = HttpApiBuilder.group(
 	"notifications",
 	(handlers) =>
 		handlers
-			.handle("listChannels", () =>
-				Effect.gen(function* () {
-					const user = yield* CurrentUser;
-					const service = yield* NotificationsService;
-					return yield* service.list(user).pipe(dieOnDbError);
-				}),
-			)
 			.handle("createChannel", ({ payload }) =>
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
