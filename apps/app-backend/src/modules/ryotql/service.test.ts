@@ -168,6 +168,365 @@ it.effect("applies public and user-only policies to navigation tables", () => {
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
+it.effect("selects notification channel descriptions with text output", () => {
+	const statements: string[] = [];
+	const channel = table("notificationChannel", "channel");
+	const document = {
+		queries: {
+			channels: rows(channel, { fields: [field("description", column(channel, "description"))] }),
+		},
+	};
+	const resultRows = [{ f0k: "text", f0v: "Discord configured", totalCount: 1, rowPresent: true }];
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		const response = yield* service.executeForUser("user-1", null, document);
+
+		expect(response.data["channels"]).toEqual({
+			type: "rows",
+			pageInfo: { page: 1, limit: 20, total: 1, hasMore: false },
+			items: [{ description: { kind: "text", value: "Discord configured" } }],
+		});
+	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
+});
+
+it.effect("selects integrations with useful output kinds", () => {
+	const statements: string[] = [];
+	const integration = table("integration", "integration");
+	const document = {
+		queries: {
+			integrations: rows(integration, {
+				fields: [
+					field("id", column(integration, "id")),
+					field("lot", column(integration, "lot")),
+					field("name", column(integration, "name")),
+					field("provider", column(integration, "provider")),
+					field("createdAt", column(integration, "createdAt")),
+					field("updatedAt", column(integration, "updatedAt")),
+					field("pluginSlug", column(integration, "pluginSlug")),
+					field("isDisabled", column(integration, "isDisabled")),
+					field("syncOwnership", column(integration, "syncOwnership")),
+					field("extraSettings", column(integration, "extraSettings")),
+					field("lastFinishedAt", column(integration, "lastFinishedAt")),
+					field("minimumProgress", column(integration, "minimumProgress")),
+					field("maximumProgress", column(integration, "maximumProgress")),
+				],
+			}),
+		},
+	};
+	const resultRows = [
+		{
+			f0k: "text",
+			f0v: "integration-1",
+			f1k: "text",
+			f1v: "media",
+			f2k: "text",
+			f2v: "Media integration",
+			f3k: "text",
+			f3v: "komga",
+			f4k: "date",
+			f4v: new Date("2026-08-01T10:00:00.000Z"),
+			f5k: "date",
+			f5v: new Date("2026-08-07T12:00:00.000Z"),
+			f6k: "text",
+			f6v: "media",
+			f7k: "boolean",
+			f7v: false,
+			f8k: "boolean",
+			f8v: true,
+			f9k: "json",
+			f9v: { disableOnContinuousErrors: true },
+			f10k: "date",
+			f10v: new Date("2026-08-07T10:00:00.000Z"),
+			f11k: "number",
+			f11v: "2",
+			f12k: "number",
+			f12v: "95",
+			totalCount: 1,
+			rowPresent: true,
+		},
+	];
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		const response = yield* service.executeForUser("user-1", null, document);
+
+		expect(response.data["integrations"]).toEqual({
+			type: "rows",
+			pageInfo: { page: 1, limit: 20, total: 1, hasMore: false },
+			items: [
+				{
+					lot: { kind: "text", value: "media" },
+					provider: { kind: "text", value: "komga" },
+					pluginSlug: { kind: "text", value: "media" },
+					id: { kind: "text", value: "integration-1" },
+					isDisabled: { kind: "boolean", value: false },
+					minimumProgress: { kind: "number", value: 2 },
+					maximumProgress: { kind: "number", value: 95 },
+					syncOwnership: { kind: "boolean", value: true },
+					name: { kind: "text", value: "Media integration" },
+					createdAt: { kind: "date", value: "2026-08-01T10:00:00.000Z" },
+					updatedAt: { kind: "date", value: "2026-08-07T12:00:00.000Z" },
+					lastFinishedAt: { kind: "date", value: "2026-08-07T10:00:00.000Z" },
+					extraSettings: { kind: "json", value: { disableOnContinuousErrors: true } },
+				},
+			],
+		});
+	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
+});
+
+it.effect("selects notification subscription states with useful output kinds", () => {
+	const statements: string[] = [];
+	const state = table("notificationSubscriptionState", "state");
+	const document = {
+		queries: {
+			states: rows(state, {
+				fields: [
+					field("id", column(state, "id")),
+					field("signalSchemaSlug", column(state, "signalSchemaSlug")),
+					field("isActive", column(state, "isActive")),
+					field("createdAt", column(state, "createdAt")),
+					field("updatedAt", column(state, "updatedAt")),
+				],
+			}),
+		},
+	};
+	const resultRows = [
+		{
+			f2v: true,
+			f0k: "text",
+			f1k: "text",
+			f3k: "date",
+			f4k: "date",
+			f0v: "rule-1",
+			totalCount: 1,
+			f2k: "boolean",
+			rowPresent: true,
+			f1v: "review.created",
+			f3v: new Date("2026-08-01T10:00:00.000Z"),
+			f4v: new Date("2026-08-07T12:00:00.000Z"),
+		},
+	];
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		const response = yield* service.executeForUser("user-1", null, document);
+
+		expect(response.data["states"]).toEqual({
+			type: "rows",
+			pageInfo: { page: 1, limit: 20, total: 1, hasMore: false },
+			items: [
+				{
+					id: { kind: "text", value: "rule-1" },
+					isActive: { kind: "boolean", value: true },
+					signalSchemaSlug: { kind: "text", value: "review.created" },
+					createdAt: { kind: "date", value: "2026-08-01T10:00:00.000Z" },
+					updatedAt: { kind: "date", value: "2026-08-07T12:00:00.000Z" },
+				},
+			],
+		});
+	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
+});
+
+it.effect("authorizes notification channels in every query occurrence", () => {
+	const statements: string[] = [];
+	const root = table("notificationChannel", "root");
+	const joined = table("notificationChannel", "joined");
+	const included = table("notificationChannel", "included");
+	const correlated = table("notificationChannel", "correlated");
+	const document = {
+		queries: {
+			channels: rows(root, {
+				fields: [],
+				joins: [join("left", joined, eq(column(root, "id"), column(joined, "id")))],
+				where: exists(correlated, {
+					where: eq(column(correlated, "id"), column(root, "id")),
+				}),
+				include: [
+					include(included, {
+						limit: 1,
+						key: "related",
+						fields: [field("id", column(included, "id"))],
+						orderBy: [ascending(column(included, "createdAt"))],
+						where: eq(column(included, "id"), column(root, "id")),
+					}),
+				],
+			}),
+		},
+	};
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		yield* service.executeForUser("user-1", null, document);
+
+		const statement = statements[2];
+		expect(statement?.match(/SELECT \* FROM notification_channel WHERE user_id =/g)).toHaveLength(
+			7,
+		);
+	}).pipe(Effect.provide(makeServiceLayer(statements)));
+});
+
+it.effect("authorizes integrations in every query occurrence", () => {
+	const statements: string[] = [];
+	const root = table("integration", "root");
+	const joined = table("integration", "joined");
+	const included = table("integration", "included");
+	const correlated = table("integration", "correlated");
+	const document = {
+		queries: {
+			integrations: rows(root, {
+				fields: [],
+				joins: [join("left", joined, eq(column(root, "id"), column(joined, "id")))],
+				where: exists(correlated, {
+					where: eq(column(correlated, "id"), column(root, "id")),
+				}),
+				include: [
+					include(included, {
+						limit: 1,
+						key: "related",
+						fields: [field("id", column(included, "id"))],
+						orderBy: [ascending(column(included, "createdAt"))],
+						where: eq(column(included, "id"), column(root, "id")),
+					}),
+				],
+			}),
+		},
+	};
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		yield* service.executeForUser("user-1", null, document);
+
+		const statement = statements[2];
+		expect(statement?.match(/SELECT \* FROM integration WHERE user_id =/g)).toHaveLength(7);
+	}).pipe(Effect.provide(makeServiceLayer(statements)));
+});
+
+it.effect("authorizes notification subscription states in every query occurrence", () => {
+	const statements: string[] = [];
+	const root = table("notificationSubscriptionState", "root");
+	const joined = table("notificationSubscriptionState", "joined");
+	const included = table("notificationSubscriptionState", "included");
+	const correlated = table("notificationSubscriptionState", "correlated");
+	const document = {
+		queries: {
+			states: rows(root, {
+				fields: [],
+				joins: [join("left", joined, eq(column(root, "id"), column(joined, "id")))],
+				where: exists(correlated, {
+					where: eq(column(correlated, "id"), column(root, "id")),
+				}),
+				include: [
+					include(included, {
+						limit: 1,
+						key: "related",
+						fields: [field("id", column(included, "id"))],
+						orderBy: [ascending(column(included, "createdAt"))],
+						where: eq(column(included, "id"), column(root, "id")),
+					}),
+				],
+			}),
+		},
+	};
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		yield* service.executeForUser("user-1", null, document);
+
+		const statement = statements[2];
+		expect(
+			statement?.match(/SELECT \* FROM notification_subscription_state WHERE user_id =/g),
+		).toHaveLength(7);
+	}).pipe(Effect.provide(makeServiceLayer(statements)));
+});
+
+it.effect("constrains own and cross-user import run roots to the current user", () => {
+	const statements: string[] = [];
+	const own = table("importRun", "own");
+	const crossUser = table("importRun", "crossUser");
+	const document = {
+		queries: {
+			own: rows(own, {
+				fields: [field("id", column(own, "id"))],
+				where: eq(column(own, "id"), literal("own-run")),
+			}),
+			crossUser: rows(crossUser, {
+				fields: [field("id", column(crossUser, "id"))],
+				where: eq(column(crossUser, "id"), literal("cross-user-run")),
+			}),
+		},
+	};
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		const response = yield* service.executeForUser("user-1", null, document);
+
+		for (const statement of statements.slice(2)) {
+			expect(statement).toMatch(/FROM \(SELECT \* FROM import_run WHERE user_id = \$\d+\)/);
+		}
+		const empty = {
+			items: [],
+			type: "rows",
+			pageInfo: { page: 1, limit: 20, total: 0, hasMore: false },
+		};
+		expect(response.data["own"]).toEqual(empty);
+		expect(response.data["crossUser"]).toEqual(empty);
+	}).pipe(Effect.provide(makeServiceLayer(statements)));
+});
+
+it.effect("authorizes import runs and failures in every query occurrence", () => {
+	const statements: string[] = [];
+	const run = table("importRun", "run");
+	const root = table("importRunFailure", "root");
+	const left = table("importRunFailure", "left");
+	const inner = table("importRunFailure", "inner");
+	const included = table("importRunFailure", "included");
+	const correlated = table("importRunFailure", "correlated");
+	const document = {
+		queries: {
+			failures: rows(root, {
+				fields: [field("id", column(root, "id"))],
+				where: exists(correlated, {
+					where: eq(column(correlated, "runId"), column(root, "runId")),
+				}),
+				joins: [
+					join("inner", inner, eq(column(root, "runId"), column(inner, "runId"))),
+					join("left", left, eq(column(root, "runId"), column(left, "runId"))),
+					join("inner", run, eq(column(root, "runId"), column(run, "id"))),
+				],
+				include: [
+					include(included, {
+						limit: 1,
+						key: "related",
+						fields: [field("id", column(included, "id"))],
+						orderBy: [ascending(column(included, "createdAt"))],
+						where: eq(column(included, "runId"), column(root, "runId")),
+					}),
+				],
+			}),
+		},
+	};
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		const response = yield* service.executeForUser("user-1", null, document);
+
+		const statement = statements[2];
+		expect(statement).toContain("INNER JOIN (SELECT * FROM import_run_failure WHERE EXISTS");
+		expect(statement).toContain("LEFT JOIN (SELECT * FROM import_run_failure WHERE EXISTS");
+		expect(statement).toMatch(/SELECT \* FROM import_run WHERE user_id = \$\d+/);
+		expect(statement?.match(/SELECT \* FROM import_run_failure WHERE EXISTS/g)).toHaveLength(9);
+		expect(statement).toMatch(
+			/import_run\.id = import_run_failure\.run_id AND import_run\.user_id = \$\d+/,
+		);
+		expect(response.data["failures"]).toEqual({
+			items: [],
+			type: "rows",
+			pageInfo: { page: 1, limit: 20, total: 0, hasMore: false },
+		});
+	}).pipe(Effect.provide(makeServiceLayer(statements)));
+});
+
 it.effect("applies plugin ownership to every allowed table occurrence", () => {
 	const statements: string[] = [];
 	const entity = table("entity", "entity");

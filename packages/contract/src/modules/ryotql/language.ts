@@ -385,6 +385,16 @@ export const BooleanFieldValue = strictStruct({
 	kind: Schema.Literal("boolean"),
 }).annotate({ identifier: "RyotQLBooleanFieldValue" });
 
+export const DateFieldValue = strictStruct({
+	value: Schema.String,
+	kind: Schema.Literal("date"),
+}).annotate({ identifier: "RyotQLDateFieldValue" });
+
+export const JsonFieldValue = strictStruct({
+	value: Schema.Unknown,
+	kind: Schema.Literal("json"),
+}).annotate({ identifier: "RyotQLJsonFieldValue" });
+
 export const NullFieldValue = strictStruct({
 	value: Schema.Null,
 	kind: Schema.Literal("null"),

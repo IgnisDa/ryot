@@ -26,19 +26,6 @@ export const AutomationsGroup = HttpApiGroup.make("automations")
 		}).annotate(OpenApi.Description, "Returns an automation signal schema from the catalog."),
 	)
 	.add(
-		HttpApiEndpoint.get("listRules", "/automations/rules", {
-			success: Schema.Array(InstalledNotificationRule),
-			error: [BadRequest.pipe(HttpApiSchema.status(400))],
-		}).annotate(OpenApi.Description, "Lists installed notification rules."),
-	)
-	.add(
-		HttpApiEndpoint.get("getRule", "/automations/rules/:ruleId", {
-			success: InstalledNotificationRule,
-			params: { ruleId: AutomationRuleId },
-			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
-		}).annotate(OpenApi.Description, "Returns an installed notification rule."),
-	)
-	.add(
 		HttpApiEndpoint.post("installRule", "/automations/rules", {
 			payload: InstallNotificationRuleBody,
 			success: InstalledNotificationRule.pipe(HttpApiSchema.status(201)),

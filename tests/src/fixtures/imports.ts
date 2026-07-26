@@ -1,9 +1,20 @@
 import { randomUUID } from "node:crypto";
 
-import { ImportRunId } from "@ryot/contract/schema/brands";
+import {
+	buildImportRunDocument,
+	buildIntegrationImportRunsDocument,
+	buildManualImportRunsDocument,
+	decodeImportRunResponse,
+	decodeImportRunsResponse,
+} from "@ryot/ryotql-recipes/import-runs";
 import { Effect } from "effect";
 
-import { requireObjectRecord, requirePresent, requireString } from "~/support/assertions";
+import {
+	requireObjectRecord,
+	requirePresent,
+	requireString,
+	resultToEffect,
+} from "~/support/assertions";
 import { getBackendUrl } from "~/support/backend";
 
 import type { Client } from "./auth";
@@ -390,14 +401,50 @@ export const startOpenScaleImport = (client: Client, uploadToken: string) =>
 		return requirePresent(result.id, "Import run id is missing");
 	});
 
-export const getImportRun = (client: Client, runId: string) =>
-	client.call((c) => c.imports.getRun({ params: { runId: ImportRunId.make(runId) }, query: {} }));
+export const listManualImportRuns = (client: Client, page: number, limit: number) =>
+	Effect.gen(function* () {
+		const response = yield* client.call((c) =>
+			c.ryotql.execute({ payload: buildManualImportRunsDocument({ page, limit }) }),
+		);
+		return yield* resultToEffect(decodeImportRunsResponse(response));
+	});
+
+export const listIntegrationImportRuns = (
+	client: Client,
+	integrationId: string,
+	page: number,
+	limit: number,
+) =>
+	Effect.gen(function* () {
+		const response = yield* client.call((c) =>
+			c.ryotql.execute({
+				payload: buildIntegrationImportRunsDocument({ integrationId, page, limit }),
+			}),
+		);
+		return yield* resultToEffect(decodeImportRunsResponse(response));
+	});
+
+export const getImportRun = (
+	client: Client,
+	runId: string,
+	failurePage: number,
+	failureLimit: number,
+) =>
+	Effect.gen(function* () {
+		const response = yield* client.call((c) =>
+			c.ryotql.execute({
+				payload: buildImportRunDocument({ runId, failurePage, failureLimit }),
+			}),
+		);
+		return yield* resultToEffect(decodeImportRunResponse(response));
+	});
 
 export const pollImportRunUntilTerminal = (client: Client, runId: string) =>
 	pollUntil(
 		`Import run '${runId}' to complete`,
 		Effect.gen(function* () {
-			const run = yield* getImportRun(client, runId);
+			const detail = yield* getImportRun(client, runId, 1, 100);
+			const run = requirePresent(detail.run, `Import run '${runId}' not found`);
 			if (run.status === "completed" || run.status === "failed") {
 				return run;
 			}

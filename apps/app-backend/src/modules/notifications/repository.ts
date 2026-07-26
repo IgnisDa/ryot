@@ -59,11 +59,11 @@ const toRecord = (row: NotificationChannelRow): NotificationChannelRecord => {
 		channelSpecifics,
 		channel: row.channel,
 		isDisabled: row.isDisabled,
+		description: row.description,
 		userId: UserId.make(row.userId),
 		createdAt: row.createdAt.toISOString(),
 		updatedAt: row.updatedAt.toISOString(),
 		id: NotificationChannelId.make(row.id),
-		description: describeNotificationChannel(channelSpecifics),
 	};
 };
 
@@ -83,20 +83,6 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 	"NotificationsRepository",
 	{
 		make: Effect.sync(() => {
-			const listForUser = Effect.fn("NotificationsRepository.listForUser")(function* (
-				userId: UserId,
-			) {
-				const db = yield* CurrentDb;
-				const rows = yield* dbEffect(() =>
-					db
-						.select()
-						.from(schema.notificationChannel)
-						.where(eq(schema.notificationChannel.userId, userId))
-						.orderBy(desc(schema.notificationChannel.createdAt)),
-				);
-				return rows.map(toRecord).map(toListed);
-			});
-
 			const createForUser = Effect.fn("NotificationsRepository.createForUser")(function* (input: {
 				userId: UserId;
 				isDisabled: boolean;
@@ -112,6 +98,7 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 							channel: input.channel,
 							isDisabled: input.isDisabled,
 							channelSpecifics: input.channelSpecifics,
+							description: describeNotificationChannel(input.channelSpecifics),
 						})
 						.returning(),
 				);
@@ -190,13 +177,7 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 				},
 			);
 
-			return {
-				listForUser,
-				createForUser,
-				deleteForUser,
-				updateForUser,
-				listEnabledForUser,
-			};
+			return { createForUser, deleteForUser, updateForUser, listEnabledForUser };
 		}),
 	},
 ) {

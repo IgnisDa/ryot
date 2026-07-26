@@ -13,12 +13,6 @@ import {
 export const NotificationsGroup = HttpApiGroup.make("notifications")
 	.annotate(OpenApi.Description, "Manage and test notification channels.")
 	.add(
-		HttpApiEndpoint.get("listChannels", "/notifications/channels", {
-			success: Schema.Array(ListedNotificationChannel),
-			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
-		}).annotate(OpenApi.Description, "List configured notification channels."),
-	)
-	.add(
 		HttpApiEndpoint.post("createChannel", "/notifications/channels", {
 			payload: CreateNotificationChannelBody,
 			success: Schema.Struct({ id: NotificationChannelId }).pipe(HttpApiSchema.status(201)),

@@ -1,9 +1,8 @@
-import { Schema, Effect, SchemaGetter } from "effect";
+import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
 import { BadRequest, NotFound } from "../../errors";
-import { PluginSlug } from "../../schema/brands";
 import {
 	CreateSavedViewBody,
 	ListedSavedView,
@@ -15,37 +14,11 @@ import {
 export const SavedViewsGroup = HttpApiGroup.make("savedViews")
 	.annotate(OpenApi.Description, "Manages saved views")
 	.add(
-		HttpApiEndpoint.get("list", "/saved-views", {
-			success: Schema.Array(ListedSavedView),
-			error: [BadRequest.pipe(HttpApiSchema.status(400))],
-			query: {
-				pluginSlug: Schema.optional(PluginSlug),
-				includeDisabled: Schema.Boolean.pipe(
-					(schema) =>
-						Schema.optional(schema).pipe(
-							Schema.decodeTo(Schema.toType(schema), {
-								encode: SchemaGetter.required(),
-								decode: SchemaGetter.withDefault(Effect.sync(() => false)),
-							}),
-						),
-					Schema.withConstructorDefault(Effect.sync(() => false)),
-				),
-			},
-		}).annotate(OpenApi.Description, "Lists saved views with optional plugin and status filters"),
-	)
-	.add(
 		HttpApiEndpoint.post("create", "/saved-views", {
 			payload: CreateSavedViewBody,
 			error: [BadRequest.pipe(HttpApiSchema.status(400))],
 			success: ListedSavedView.pipe(HttpApiSchema.status(201)),
 		}).annotate(OpenApi.Description, "Creates a saved view"),
-	)
-	.add(
-		HttpApiEndpoint.get("get", "/saved-views/:viewSlug", {
-			params: { viewSlug: Schema.String },
-			success: ListedSavedView,
-			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
-		}).annotate(OpenApi.Description, "Gets a saved view by slug"),
 	)
 	.add(
 		HttpApiEndpoint.put("update", "/saved-views/:viewSlug", {

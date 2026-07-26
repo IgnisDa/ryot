@@ -70,7 +70,7 @@ describe("Event automations", () => {
 
 			yield* waitForEventCount(client, entityId, 1);
 
-			const events = yield* listEventsForEntity(client, entityId);
+			const events = yield* listEventsForEntity(client, entityId, 1, 100);
 			const completeEvent = events.find((event) => event.eventSchemaSlug === "complete");
 
 			expect(completeEvent).toBeUndefined();
@@ -112,7 +112,7 @@ describe("Event automations", () => {
 
 			yield* waitForEventCount(client, entityId, 4);
 
-			const allEvents = yield* listEventsForEntity(client, entityId);
+			const allEvents = yield* listEventsForEntity(client, entityId, 1, 100);
 			const completeEvents = allEvents.filter((event) => event.eventSchemaSlug === "complete");
 
 			expect(completeEvents.length).toBe(2);
@@ -159,7 +159,7 @@ describe("Event automations", () => {
 			});
 			expect(completeEvent.occurredAt).toBe(isoAt(2));
 
-			const events = yield* listEventsForEntity(client, entityId);
+			const events = yield* listEventsForEntity(client, entityId, 1, 100);
 			expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(1);
 		}),
 	);
@@ -221,7 +221,7 @@ describe("Event automations", () => {
 
 			yield* waitForEventCount(client, entityId, 1);
 
-			const events = yield* listEventsForEntity(client, entityId);
+			const events = yield* listEventsForEntity(client, entityId, 1, 100);
 			expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(0);
 		}),
 	);
@@ -288,7 +288,7 @@ describe("Event automations", () => {
 
 			yield* waitForEventCount(client, entityId, 1);
 
-			const events = yield* listEventsForEntity(client, entityId);
+			const events = yield* listEventsForEntity(client, entityId, 1, 100);
 			expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(0);
 		}),
 	);
@@ -526,7 +526,7 @@ describe("Event automations", () => {
 
 			yield* waitForEventCount(client, entityId, 4);
 
-			const events = yield* listEventsForEntity(client, entityId);
+			const events = yield* listEventsForEntity(client, entityId, 1, 100);
 			expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(2);
 		}),
 	);
