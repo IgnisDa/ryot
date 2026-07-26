@@ -22,10 +22,10 @@ export function ShowFact(props: {
 			<Text className="font-ui-semibold text-[15px] text-text">
 				{props.value}
 				{props.suffix === undefined ? null : (
-					<Text className="font-ui text-[13px] text-text-subtle">{props.suffix}</Text>
+					<Text className="font-ui text-[13px]">{props.suffix}</Text>
 				)}
 			</Text>
-			<Text className="font-ui text-[12px] text-text-subtle">{props.label}</Text>
+			<Text className="font-ui text-[12px] text-text">{props.label}</Text>
 		</View>
 	);
 }
@@ -86,10 +86,21 @@ export function ShowSection(props: {
 	);
 }
 
-export function ShowLinkButton(props: { readonly label: string; readonly onPress: () => void }) {
+export function ShowLinkButton(props: {
+	readonly label: string;
+	readonly onPress: () => void;
+	readonly tone?: "accent" | "plain";
+}) {
 	return (
 		<Pressable accessibilityRole="button" onPress={props.onPress}>
-			<Text className="font-ui-medium text-[13px] text-accent-text">{props.label}</Text>
+			<Text
+				className={clsx(
+					"font-ui-medium text-[13px]",
+					props.tone === "plain" ? "text-text" : "text-accent-text",
+				)}
+			>
+				{props.label}
+			</Text>
 		</Pressable>
 	);
 }
