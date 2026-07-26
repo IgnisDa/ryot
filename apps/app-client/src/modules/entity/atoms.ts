@@ -26,6 +26,7 @@ const SHOW_EPISODE_LIMIT = 60;
 const SHOW_RECOMMENDATION_LIMIT = 12;
 const SHOW_ACTIVITY_SEASON_LIMIT = 100;
 const SHOW_SUMMARY_COLLECTION_LIMIT = 6;
+const SHOW_ACTIVITY_WATCH_DAY_LIMIT = 1000;
 const SHOW_ACTIVITY_PARENT_EVENT_LIMIT = 60;
 const SHOW_ACTIVITY_EPISODE_EVENT_LIMIT = 100;
 const SHOW_ACTIVITY_COLLECTION_EVENT_LIMIT = 60;
@@ -86,8 +87,10 @@ const showActivityFamily = Atom.family((request: ShowEntityRequest) =>
 			showActivityRecipe({
 				entityId: request.entityId,
 				seasonLimit: SHOW_ACTIVITY_SEASON_LIMIT,
+				watchDayLimit: SHOW_ACTIVITY_WATCH_DAY_LIMIT,
 				parentEventLimit: SHOW_ACTIVITY_PARENT_EVENT_LIMIT,
 				episodeEventLimit: SHOW_ACTIVITY_EPISODE_EVENT_LIMIT,
+				timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				collectionEventLimit: SHOW_ACTIVITY_COLLECTION_EVENT_LIMIT,
 				episodeProgressLimit: SHOW_ACTIVITY_EPISODE_PROGRESS_LIMIT,
 			}),

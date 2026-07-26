@@ -3,8 +3,10 @@ import { rowsResult } from "@ryot/ryotql-recipes/test-utils";
 import { Result } from "effect";
 
 const showActivityFixtureRecipe = showActivityRecipe({
+	timeZone: "UTC",
 	seasonLimit: 100,
 	entityId: "show-1",
+	watchDayLimit: 1000,
 	parentEventLimit: 60,
 	episodeEventLimit: 100,
 	collectionEventLimit: 60,
@@ -31,14 +33,6 @@ const firstEpisode = {
 	episodeRuntime: 55,
 	episodeId: "episode-1",
 	episodeName: "Episode 1: The Arrest",
-};
-
-const secondEpisode = {
-	seasonNumber: 1,
-	episodeNumber: 2,
-	episodeRuntime: 61,
-	episodeId: "episode-2",
-	episodeName: "Episode 2: The Interview",
 };
 
 const specialEpisode = {
@@ -77,17 +71,6 @@ export const showReviewEventRow = {
 	occurredAt: "2025-11-07T12:00:00.000Z",
 };
 
-export const episodeCompletionEventRow = {
-	...emptyEventProperties,
-	...firstEpisode,
-	timeSpent: 66,
-	consumedOn: "Jellyfin",
-	id: "episode-1-complete",
-	eventSchemaSlug: "complete",
-	createdAt: "2025-11-04T12:00:05.000Z",
-	occurredAt: "2025-11-04T12:00:00.000Z",
-};
-
 export const episodeReviewEventRow = {
 	...emptyEventProperties,
 	...firstEpisode,
@@ -98,16 +81,6 @@ export const episodeReviewEventRow = {
 	createdAt: "2025-11-05T10:00:05.000Z",
 	occurredAt: "2025-11-05T10:00:00.000Z",
 	text: "The arrest scene is the whole show.",
-};
-
-export const laterEpisodeCompletionEventRow = {
-	...emptyEventProperties,
-	...secondEpisode,
-	consumedOn: "Jellyfin",
-	id: "episode-2-complete",
-	eventSchemaSlug: "complete",
-	createdAt: "2025-11-05T14:00:05.000Z",
-	occurredAt: "2025-11-05T14:00:00.000Z",
 };
 
 export const collectionAddedEventRow = {
@@ -153,6 +126,40 @@ export const showDroppedEventRow = {
 	occurredAt: "2025-11-03T12:00:00.000Z",
 };
 
+export const firstWatchDayRow = {
+	minutes: 66,
+	runtime: 55,
+	seasonNumber: 1,
+	episodeNumber: 1,
+	episodeId: "episode-1",
+	consumedOn: "Jellyfin",
+	day: "2025-11-04T00:00:00.000Z",
+	episodeName: "Episode 1: The Arrest",
+};
+
+export const secondWatchDayRow = {
+	runtime: 61,
+	minutes: null,
+	seasonNumber: 1,
+	episodeNumber: 2,
+	episodeId: "episode-2",
+	consumedOn: "Jellyfin",
+	day: "2025-11-05T00:00:00.000Z",
+	episodeName: "Episode 2: The Interview",
+};
+
+export const sameDayWatchRow = {
+	...secondWatchDayRow,
+	day: firstWatchDayRow.day,
+};
+
+export const rewatchWatchDayRow = {
+	...firstWatchDayRow,
+	minutes: null,
+	consumedOn: "Netflix",
+	day: "2026-03-01T00:00:00.000Z",
+};
+
 export const regularSeasonRow = {
 	id: "season-1",
 	seasonNumber: 1,
@@ -171,16 +178,6 @@ export const specialsSeasonRow = {
 	watchedUnknownRuntime: 0,
 };
 
-export const sameDayCompletionEventRow = {
-	...emptyEventProperties,
-	...secondEpisode,
-	consumedOn: "Jellyfin",
-	id: "episode-2-same-day",
-	eventSchemaSlug: "complete",
-	createdAt: "2025-11-04T18:00:05.000Z",
-	occurredAt: "2025-11-04T18:00:00.000Z",
-};
-
 export const rewatchCompletionEventRow = {
 	...emptyParentProperties,
 	id: "show-complete-rewatch",
@@ -189,19 +186,10 @@ export const rewatchCompletionEventRow = {
 	occurredAt: "2026-03-02T12:00:00.000Z",
 };
 
-export const rewatchEpisodeEventRow = {
-	...emptyEventProperties,
-	...firstEpisode,
-	consumedOn: "Netflix",
-	id: "episode-1-rewatch",
-	eventSchemaSlug: "complete",
-	createdAt: "2026-03-01T12:00:05.000Z",
-	occurredAt: "2026-03-01T12:00:00.000Z",
-};
-
 type ActivityRows = {
 	readonly truncated?: boolean;
 	readonly watchCount?: number;
+	readonly watchDays?: readonly Record<string, unknown>[];
 	readonly seasons?: readonly Record<string, unknown>[];
 	readonly parentEvents?: readonly Record<string, unknown>[];
 	readonly episodeEvents?: readonly Record<string, unknown>[];
@@ -230,20 +218,18 @@ export const decodeShowActivity = (input: ActivityRows = {}) => {
 		showActivityFixtureRecipe.decode({
 			data: {
 				totals: activityRows([{ watchCount: input.watchCount ?? 1 }], false),
+				watchDays: {
+					type: "aggregate",
+					pageInfo: { hasMore: hasMore, limit: 1000 },
+					items: input.watchDays ?? [firstWatchDayRow, secondWatchDayRow],
+				},
 				seasons: activityRows(input.seasons ?? [specialsSeasonRow, regularSeasonRow], false),
 				parentEvents: activityRows(
 					input.parentEvents ?? [showBacklogEventRow, showCompletionEventRow, showReviewEventRow],
 					hasMore,
 				),
 				episodeProgress: progressRows(input.episodeProgress ?? [specialProgressRow]),
-				episodeEvents: activityRows(
-					input.episodeEvents ?? [
-						episodeCompletionEventRow,
-						episodeReviewEventRow,
-						laterEpisodeCompletionEventRow,
-					],
-					false,
-				),
+				episodeEvents: activityRows(input.episodeEvents ?? [episodeReviewEventRow], false),
 				collectionEvents: activityRows(
 					input.collectionEvents ?? [collectionRemovedEventRow, collectionAddedEventRow],
 					false,
@@ -255,6 +241,8 @@ export const decodeShowActivity = (input: ActivityRows = {}) => {
 
 export const emptyShowActivity = () =>
 	decodeShowActivity({
+		watchDays: [],
+		watchCount: 0,
 		parentEvents: [],
 		episodeEvents: [],
 		episodeProgress: [],
@@ -263,8 +251,10 @@ export const emptyShowActivity = () =>
 
 export const rewatchedShowActivity = () =>
 	decodeShowActivity({
+		watchCount: 2,
+		episodeEvents: [],
 		episodeProgress: [],
 		collectionEvents: [],
+		watchDays: [rewatchWatchDayRow, firstWatchDayRow],
 		parentEvents: [showCompletionEventRow, rewatchCompletionEventRow],
-		episodeEvents: [episodeCompletionEventRow, rewatchEpisodeEventRow],
 	});

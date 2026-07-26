@@ -223,7 +223,9 @@ const seedActivityShow = (client: Client) =>
 	});
 
 const ACTIVITY_LIMITS = {
+	timeZone: "UTC",
 	seasonLimit: 100,
+	watchDayLimit: 500,
 	parentEventLimit: 60,
 	episodeEventLimit: 100,
 	collectionEventLimit: 60,
@@ -1167,6 +1169,23 @@ describe("Media RyotQL query recipe results", () => {
 			]);
 			expect(activity.watchCount).toBe(1);
 			expect(
+				activity.watchDays.map((watch) => ({
+					day: watch.day,
+					minutes: watch.minutes,
+					runtime: watch.runtime,
+					seasonNumber: watch.seasonNumber,
+					episodeNumber: watch.episodeNumber,
+				})),
+			).toEqual([
+				{
+					minutes: 45,
+					runtime: 31,
+					seasonNumber: 1,
+					episodeNumber: 1,
+					day: "2024-03-05T00:00:00.000Z",
+				},
+			]);
+			expect(
 				activity.seasons.map((season) => ({
 					seasonNumber: season.seasonNumber,
 					watchedTotal: season.watchedTotal,
@@ -1175,7 +1194,7 @@ describe("Media RyotQL query recipe results", () => {
 				})),
 			).toEqual([
 				{ seasonNumber: 0, watchedTotal: 0, watchedMinutes: null, watchedUnknownRuntime: 0 },
-				{ seasonNumber: 1, watchedTotal: 1, watchedMinutes: 31, watchedUnknownRuntime: 0 },
+				{ seasonNumber: 1, watchedTotal: 1, watchedMinutes: 45, watchedUnknownRuntime: 0 },
 			]);
 			expect(identity).toEqual([
 				{
@@ -1212,13 +1231,6 @@ describe("Media RyotQL query recipe results", () => {
 					episodeNumber: 1,
 					eventSchemaSlug: "review",
 					occurredAt: "2024-03-06T12:00:00.000Z",
-				},
-				{
-					kind: "episode",
-					seasonNumber: 1,
-					episodeNumber: 1,
-					eventSchemaSlug: "complete",
-					occurredAt: "2024-03-05T12:00:00.000Z",
 				},
 				{
 					kind: "parent",
@@ -1285,21 +1297,14 @@ describe("Media RyotQL query recipe results", () => {
 				showActivityRecipe({ ...ACTIVITY_LIMITS, entityId: seeded.show.id }),
 			);
 
-			expect(activity.events[0]).toMatchObject({
-				text: null,
-				rating: null,
-				timeSpent: null,
-				isSpoiler: null,
+			expect(activity.watchDays[0]).toMatchObject({
+				runtime: 32,
+				minutes: null,
+				seasonNumber: 1,
 				consumedOn: null,
-				kind: "episode",
-				eventSchemaSlug: "complete",
-				episode: {
-					runtime: 32,
-					seasonNumber: 1,
-					episodeNumber: 2,
-				},
+				episodeNumber: 2,
 			});
-			expect(activity.events[1]).toMatchObject({
+			expect(activity.events[0]).toMatchObject({
 				kind: "parent",
 				timeSpent: null,
 				consumedOn: null,
@@ -1325,11 +1330,12 @@ describe("Media RyotQL query recipe results", () => {
 				showActivityRecipe({ ...ACTIVITY_LIMITS, entityId: seeded.show.id }),
 			);
 
-			expect(activity.events).toHaveLength(1);
-			expect(activity.events[0]).toMatchObject({
-				kind: "episode",
-				eventSchemaSlug: "complete",
-				episode: { seasonNumber: 0, episodeNumber: 1 },
+			expect(activity.events).toHaveLength(0);
+			expect(activity.watchDays).toHaveLength(1);
+			expect(activity.watchDays[0]).toMatchObject({
+				seasonNumber: 0,
+				episodeNumber: 1,
+				day: "2024-06-01T00:00:00.000Z",
 			});
 		}),
 	);

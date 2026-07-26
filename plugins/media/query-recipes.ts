@@ -18,8 +18,10 @@ import {
 	castJson,
 	castNumber,
 	castText,
+	coalesce,
 	column,
 	count,
+	dateBucket,
 	descending,
 	defineRecipe,
 	eq,
@@ -37,6 +39,8 @@ import {
 	selectedInclude,
 	selectedMeasure,
 	selectedOptionalRow,
+	groupAscending,
+	groupDescending,
 	selectedRows,
 	sum,
 	table,
@@ -594,7 +598,7 @@ export const showOverviewRecipe = defineRecipe(
 	},
 );
 
-const showActivityEpisodeSlugs = ["complete", "review"] as const;
+const showActivityEpisodeSlugs = ["review"] as const;
 
 const showActivityParentSlugs = ["backlog", "on_hold", "dropped", "complete", "review"] as const;
 
@@ -679,11 +683,20 @@ const showActivitySeasonCoverage = (season: Table) => {
 		inSeason,
 		eq(episodeLifecycleStateExpression(episode, "coverageEpisodeLifecycle"), literal("complete")),
 	);
+	const completion = table("event", "coverageCompletion");
+	const loggedMinutes = first(completion, {
+		select: propertyNumber(completion, "timeSpent"),
+		orderBy: eventOrderDescending(completion),
+		where: and(
+			eq(column(completion, "entityId"), column(episode, "id")),
+			eq(column(completion, "eventSchemaSlug"), literal("complete")),
+		),
+	});
 	return {
 		episodeTotal: selectedField(count(episode, { joins, where: inSeason }), Schema.Number),
 		watchedTotal: selectedField(count(episode, { joins, where: isWatched }), Schema.Number),
 		watchedMinutes: selectedField(
-			sum(episode, runtime, { joins, where: isWatched }),
+			sum(episode, coalesce(loggedMinutes, runtime), { joins, where: isWatched }),
 			Schema.NullOr(Schema.Number),
 		),
 		watchedUnknownRuntime: selectedField(
@@ -704,13 +717,17 @@ const compareShowActivityDescending = (
 export const showActivityRecipe = defineRecipe(
 	(input: {
 		readonly entityId: string;
+		readonly timeZone: string;
 		readonly seasonLimit: number;
+		readonly watchDayLimit: number;
 		readonly parentEventLimit: number;
 		readonly episodeEventLimit: number;
 		readonly episodeProgressLimit: number;
 		readonly collectionEventLimit: number;
 	}) => {
 		const show = table("entity", "activityShow");
+		const watchDay = table("event", "watchDayEvent");
+		const watchDayEpisode = table("entity", "watchDayEpisode");
 		const season = table("entity", "coverageSeason");
 		const parentEvent = table("event", "parentEvent");
 		const watchEvent = table("event", "watchCountEvent");
@@ -729,6 +746,59 @@ export const showActivityRecipe = defineRecipe(
 			);
 		return {
 			queries: {
+				watchDays: selectedAggregate(watchDay, {
+					limit: input.watchDayLimit,
+					orderBy: [
+						groupDescending("day"),
+						groupAscending("seasonNumber"),
+						groupAscending("episodeNumber"),
+					],
+					joins: [
+						join(
+							"inner",
+							watchDayEpisode,
+							eq(column(watchDay, "entityId"), column(watchDayEpisode, "id")),
+						),
+					],
+					groupBy: {
+						day: selectedField(
+							dateBucket(column(watchDay, "occurredAt"), {
+								bucket: "day",
+								timeZone: input.timeZone,
+							}),
+							IsoDateString,
+						),
+						episodeId: selectedField(column(watchDayEpisode, "id"), EntityId),
+						episodeName: selectedField(column(watchDayEpisode, "name"), Schema.String),
+						consumedOn: selectedField(
+							propertyText(watchDay, "consumedOn"),
+							Schema.NullOr(Schema.String),
+						),
+						seasonNumber: selectedField(
+							propertyNumber(watchDayEpisode, "seasonNumber"),
+							Schema.Number,
+						),
+						episodeNumber: selectedField(
+							propertyNumber(watchDayEpisode, "episodeNumber"),
+							Schema.Number,
+						),
+						runtime: selectedField(
+							propertyNumber(watchDayEpisode, "runtime"),
+							Schema.NullOr(Schema.Number),
+						),
+					},
+					measures: {
+						minutes: selectedMeasure(
+							{ function: "sum", expr: propertyNumber(watchDay, "timeSpent") },
+							Schema.NullOr(Schema.Number),
+						),
+					},
+					where: and(
+						entitySchema(watchDayEpisode, "show-episode"),
+						eq(column(watchDay, "eventSchemaSlug"), literal("complete")),
+						showEpisodeMembership(watchDayEpisode, input.entityId, "watchDayShow"),
+					),
+				}),
 				totals: selectedOptionalRow(show, {
 					orderBy: [ascending(column(show, "id"))],
 					where: and(entitySchema(show, "show"), entityId(show, input.entityId)),
@@ -884,6 +954,7 @@ export const showActivityRecipe = defineRecipe(
 			map: ({
 				totals,
 				seasons,
+				watchDays,
 				parentEvents,
 				episodeEvents,
 				episodeProgress,
@@ -930,10 +1001,12 @@ export const showActivityRecipe = defineRecipe(
 				];
 				return Result.succeed({
 					seasons: seasons.items,
+					watchDays: watchDays.items,
 					watchCount: totals?.watchCount ?? 0,
 					events: events.sort(compareShowActivityDescending),
 					truncated:
 						seasons.pageInfo.hasMore ||
+						watchDays.pageInfo?.hasMore === true ||
 						parentEvents.pageInfo.hasMore ||
 						episodeEvents.pageInfo.hasMore ||
 						episodeProgress.pageInfo.hasMore ||
