@@ -127,7 +127,10 @@ describe("definition registry", () => {
 				savedViews: [
 					{
 						...savedView,
-						displayConfiguration: { ...savedView.displayConfiguration, entityIdField: "missing" },
+						layouts: {
+							...savedView.layouts,
+							grid: { ...savedView.layouts.grid, itemIdField: "missing" },
+						},
 					},
 					...source.savedViews.slice(1),
 				],

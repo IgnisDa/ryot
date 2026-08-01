@@ -7,7 +7,7 @@ import {
 	runContract,
 	type ContractProgram,
 } from "@ryot/contract/client";
-import type { ScalarExpression } from "@ryot/contract/modules/ryotql/language";
+import type { FieldSelection, ScalarExpression } from "@ryot/contract/modules/ryotql/language";
 import {
 	EventSchemaSlug,
 	PluginSlug,
@@ -19,7 +19,10 @@ import {
 import { imagesField } from "@ryot/contract/schema/core";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { castJson, column, coalesce, jsonPath, literal, table } from "@ryot/ryotql";
-import { buildSavedViewDocument, buildSavedViewProjection } from "@ryot/ryotql-recipes/saved-views";
+import {
+	buildSavedViewDocument,
+	buildSavedViewLayoutProjections,
+} from "@ryot/ryotql-recipes/saved-views";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { createAuthClient } from "better-auth/client";
 
@@ -107,15 +110,14 @@ async function createAndSignIn(): Promise<{
 type CreateCollectionBody = ContractPayload<"collections", "create">;
 type AddToCollectionBody = ContractPayload<"collections", "createMembership">;
 type CreateSavedViewBody = ContractPayload<"savedViews", "create">;
-type SavedViewQueryDocument = CreateSavedViewBody["queryDocument"];
-type SavedViewDisplayConfiguration = CreateSavedViewBody["displayConfiguration"];
+type SavedViewLayouts = CreateSavedViewBody["layouts"];
+type SavedViewProjectionInput = Parameters<typeof buildSavedViewLayoutProjections>[0];
 
 type SavedViewSpec = {
 	name: string;
 	icon: string;
+	layouts: SavedViewLayouts;
 	pluginSlug?: PluginSlug;
-	queryDocument: SavedViewQueryDocument;
-	displayConfiguration: SavedViewDisplayConfiguration;
 };
 
 class APIClient {
@@ -392,60 +394,46 @@ const seedEntity = table("entity", "entity");
 const seedProperties = column(seedEntity, "properties");
 const seedProperty = (property: string) => jsonPath(seedProperties, property);
 const seedImage = () => castJson(jsonPath(seedProperties, "images", 0));
-const seedName = () => column(seedEntity, "name");
-const seedCreatedAt = () => column(seedEntity, "createdAt");
-type SeedTableColumn = Parameters<typeof buildSavedViewProjection>[0]["table"]["columns"][number];
+type SeedTableColumn = SavedViewProjectionInput["table"]["columns"][number];
 
-const defaultProjection = buildSavedViewProjection({
-	entityId: column(seedEntity, "id"),
-	grid: {
-		title: seedName(),
-		image: seedImage(),
-		overline: literal("Saved View"),
-		callout: seedProperty("type"),
-		primaryMetadata: seedProperty("city"),
-		secondaryMetadata: seedProperty("region"),
-	},
-	list: {
-		title: seedName(),
-		image: seedImage(),
-		overline: literal("Saved View"),
-		callout: seedProperty("type"),
-		primaryMetadata: seedProperty("city"),
-		secondaryMetadata: seedProperty("region"),
-	},
-	table: {
-		image: seedImage(),
-		columns: [
-			{ label: "Name", expression: seedName() },
-			{ label: "Primary", expression: seedProperty("type") },
-			{ label: "Secondary", expression: seedProperty("city") },
-			{ label: "Created", expression: seedCreatedAt() },
-			{ label: "Details", expression: seedProperty("description") },
-		],
-	},
-});
-
-function savedViewQueryDocument(scope: readonly string[]): SavedViewQueryDocument {
+function buildSeedLayouts(
+	scope: readonly string[],
+	grid: ReturnType<typeof cardConfig>,
+	columns: ReadonlyArray<SeedTableColumn>,
+	list = grid,
+): SavedViewLayouts {
 	const [first] = scope;
 	if (!first) {
-		throw new Error("Saved view query document requires at least one schema");
+		throw new Error("Seed saved view requires at least one schema");
 	}
-
-	return buildSavedViewDocument({
-		page: 1,
-		limit: 20,
-		entitySchemaSlugs: scope as [string, ...string[]],
-		fields: defaultProjection.fields,
+	const projections = buildSavedViewLayoutProjections({
+		grid: { itemId: column(seedEntity, "id"), card: grid },
+		list: { itemId: column(seedEntity, "id"), card: list },
+		table: {
+			itemId: column(seedEntity, "id"),
+			image: seedImage(),
+			columns: columns as [SeedTableColumn, ...SeedTableColumn[]],
+		},
 	});
+	const documentFor = (fields: readonly FieldSelection[]) =>
+		buildSavedViewDocument({
+			page: 1,
+			limit: 20,
+			entitySchemaSlugs: scope as [string, ...string[]],
+			fields,
+		});
+	return {
+		grid: { ...projections.grid.mappings, queryDocument: documentFor(projections.grid.fields) },
+		list: { ...projections.list.mappings, queryDocument: documentFor(projections.list.fields) },
+		table: { ...projections.table.mappings, queryDocument: documentFor(projections.table.fields) },
+	};
 }
 
 async function createSavedView(
 	apiClient: APIClient,
 	name: string,
 	icon: string,
-	queryDocument: SavedViewQueryDocument,
-	displayConfiguration: SavedViewDisplayConfiguration,
+	layouts: SavedViewLayouts,
 	pluginSlug?: PluginSlug,
 ) {
 	return apiClient.run((c) =>
@@ -454,8 +442,7 @@ async function createSavedView(
 				name,
 				icon,
 				pluginSlug,
-				queryDocument,
-				displayConfiguration,
+				layouts,
 			},
 		}),
 	);
@@ -495,34 +482,6 @@ function tableColumn(
 		(value): value is ScalarExpression => typeof value === "object" && value !== null,
 	);
 	return { label, expression: expression ?? literal(null) };
-}
-
-function buildDisplayConfiguration(
-	grid: ReturnType<typeof cardConfig>,
-	columns: ReadonlyArray<SeedTableColumn>,
-	list = grid,
-): SavedViewDisplayConfiguration {
-	const card = (prefix: "grid" | "list", input: ReturnType<typeof cardConfig>) => ({
-		titleField: `${prefix}Title`,
-		imageField: input.image === null ? null : `${prefix}Image`,
-		overlineField: input.overline === null ? null : `${prefix}Overline`,
-		calloutField: input.callout === null ? null : `${prefix}Callout`,
-		primaryMetadataField: input.primaryMetadata === null ? null : `${prefix}PrimaryMetadata`,
-		secondaryMetadataField: input.secondaryMetadata === null ? null : `${prefix}SecondaryMetadata`,
-	});
-
-	return {
-		entityIdField: "entityId",
-		grid: card("grid", grid),
-		list: card("list", list),
-		table: {
-			imageField: "tableImage",
-			columns: columns.map((column, index) => ({
-				field: `tableColumn${index}`,
-				label: column.label,
-			})) as unknown as SavedViewDisplayConfiguration["table"]["columns"],
-		},
-	};
 }
 
 function generateWhiskey(): {
@@ -1879,8 +1838,8 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Premium Aged Whiskeys",
 			icon: "wine",
-			queryDocument: savedViewQueryDocument(["whiskey"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["whiskey"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -1899,8 +1858,8 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Scotch Whiskeys",
 			icon: "wine",
-			queryDocument: savedViewQueryDocument(["whiskey"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["whiskey"],
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
@@ -1919,8 +1878,8 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "High Proof Whiskeys",
 			icon: "flame",
-			queryDocument: savedViewQueryDocument(["whiskey"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["whiskey"],
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
@@ -1940,8 +1899,8 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Recent Whiskey Additions",
 			icon: "clock",
-			queryDocument: savedViewQueryDocument(["whiskey"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["whiskey"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -1959,8 +1918,8 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Japanese Whiskeys",
 			icon: "wine",
-			queryDocument: savedViewQueryDocument(["whiskey"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["whiskey"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -1978,8 +1937,8 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Whiskey Regions Atlas",
 			icon: "map",
-			queryDocument: savedViewQueryDocument(["whiskey"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["whiskey"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -1999,8 +1958,8 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Cask Strength Candidates",
 			icon: "flame",
-			queryDocument: savedViewQueryDocument(["whiskey"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["whiskey"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2022,8 +1981,8 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "Restaurants & Cafes",
 			icon: "utensils",
-			queryDocument: savedViewQueryDocument(["place"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["place"],
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
@@ -2042,8 +2001,8 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "Cultural Venues",
 			icon: "landmark",
-			queryDocument: savedViewQueryDocument(["place"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["place"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2062,8 +2021,8 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "Parks & Outdoor Spaces",
 			icon: "tree",
-			queryDocument: savedViewQueryDocument(["place"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["place"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2081,8 +2040,8 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "Recently Added Places",
 			icon: "clock",
-			queryDocument: savedViewQueryDocument(["place"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["place"],
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
@@ -2101,8 +2060,8 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "Places by Country",
 			icon: "globe",
-			queryDocument: savedViewQueryDocument(["place"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["place"],
 				defaultCard,
 				[
 					tableColumn("Country", schemaField("place", "country")),
@@ -2122,8 +2081,8 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "Mapped Places",
 			icon: "map-pin",
-			queryDocument: savedViewQueryDocument(["place"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["place"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2142,8 +2101,8 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "City Address Book",
 			icon: "book-open",
-			queryDocument: savedViewQueryDocument(["place"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["place"],
 				defaultCard,
 				[
 					tableColumn("City", schemaField("place", "city")),
@@ -2166,8 +2125,8 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Modern Smartphones",
 			icon: "smartphone",
-			queryDocument: savedViewQueryDocument(["smartphone"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["smartphone"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2186,8 +2145,8 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "High Storage Devices",
 			icon: "hard-drive",
-			queryDocument: savedViewQueryDocument(["smartphone", "tablet"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["smartphone", "tablet"],
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
@@ -2207,8 +2166,8 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Apple Ecosystem Devices",
 			icon: "apple",
-			queryDocument: savedViewQueryDocument(["smartphone", "tablet"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["smartphone", "tablet"],
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
@@ -2228,8 +2187,8 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Android Devices",
 			icon: "android",
-			queryDocument: savedViewQueryDocument(["smartphone", "tablet"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["smartphone", "tablet"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2248,8 +2207,8 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Premium Smartphones",
 			icon: "gem",
-			queryDocument: savedViewQueryDocument(["smartphone"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["smartphone"],
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
@@ -2270,8 +2229,8 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Budget-Friendly Phones",
 			icon: "dollar-sign",
-			queryDocument: savedViewQueryDocument(["smartphone"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["smartphone"],
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
@@ -2290,8 +2249,8 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Large Screen Devices",
 			icon: "smartphone",
-			queryDocument: savedViewQueryDocument(["smartphone", "tablet"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["smartphone", "tablet"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2310,8 +2269,8 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Tablets with Cellular",
 			icon: "signal",
-			queryDocument: savedViewQueryDocument(["tablet"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["tablet"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2330,8 +2289,8 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Feature Phones with Camera",
 			icon: "camera",
-			queryDocument: savedViewQueryDocument(["feature-phone"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["feature-phone"],
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
@@ -2351,8 +2310,8 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "All Mobile Devices",
 			icon: "tablet",
-			queryDocument: savedViewQueryDocument(["smartphone", "feature-phone", "tablet"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["smartphone", "feature-phone", "tablet"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2382,8 +2341,8 @@ async function seedSavedViews(
 		{
 			name: "Everything Recently Added",
 			icon: "star",
-			queryDocument: savedViewQueryDocument(allSchemaSlugs),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				allSchemaSlugs,
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
@@ -2420,8 +2379,8 @@ async function seedSavedViews(
 		{
 			name: "All Items A-Z",
 			icon: "book",
-			queryDocument: savedViewQueryDocument(allSchemaSlugs),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				allSchemaSlugs,
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
@@ -2457,8 +2416,8 @@ async function seedSavedViews(
 		{
 			name: "Collection Showcase",
 			icon: "image",
-			queryDocument: savedViewQueryDocument(allSchemaSlugs),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				allSchemaSlugs,
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2500,8 +2459,8 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Latest Tasting",
 			icon: "star",
-			queryDocument: savedViewQueryDocument(["whiskey"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["whiskey"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2521,8 +2480,8 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Highly Rated",
 			icon: "trophy",
-			queryDocument: savedViewQueryDocument(["whiskey"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["whiskey"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2542,8 +2501,8 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Latest Purchase",
 			icon: "shopping-cart",
-			queryDocument: savedViewQueryDocument(["whiskey"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["whiskey"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2563,8 +2522,8 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "Demo: Places – Last Visited",
 			icon: "calendar",
-			queryDocument: savedViewQueryDocument(["place"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["place"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2585,8 +2544,8 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – ABV Reference",
 			icon: "percent",
-			queryDocument: savedViewQueryDocument(["whiskey"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["whiskey"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2606,8 +2565,8 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Quality Tiers",
 			icon: "layers",
-			queryDocument: savedViewQueryDocument(["whiskey"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["whiskey"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2627,8 +2586,8 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Full Description",
 			icon: "file-text",
-			queryDocument: savedViewQueryDocument(["whiskey"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["whiskey"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2646,8 +2605,8 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Rating with ABV",
 			icon: "activity",
-			queryDocument: savedViewQueryDocument(["whiskey"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["whiskey"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2667,8 +2626,8 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Rare Bourbons",
 			icon: "award",
-			queryDocument: savedViewQueryDocument(["whiskey"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["whiskey"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2687,8 +2646,8 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Not Rye",
 			icon: "x-circle",
-			queryDocument: savedViewQueryDocument(["whiskey"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["whiskey"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2707,8 +2666,8 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Bourbon or Scotch, High Proof",
 			icon: "zap",
-			queryDocument: savedViewQueryDocument(["whiskey"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["whiskey"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2728,8 +2687,8 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Unknown Region",
 			icon: "help-circle",
-			queryDocument: savedViewQueryDocument(["whiskey"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["whiskey"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2748,8 +2707,8 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "Demo: Places – Has Full Address",
 			icon: "map-pin",
-			queryDocument: savedViewQueryDocument(["place"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["place"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2769,8 +2728,8 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Speyside",
 			icon: "map",
-			queryDocument: savedViewQueryDocument(["whiskey"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["whiskey"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2789,8 +2748,8 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Demo: Phones – Non-Apple",
 			icon: "smartphone",
-			queryDocument: savedViewQueryDocument(["smartphone", "tablet"]),
-			displayConfiguration: buildDisplayConfiguration(
+			layouts: buildSeedLayouts(
+				["smartphone", "tablet"],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2821,14 +2780,7 @@ async function seedSavedViews(
 		for (const view of views) {
 			savedViews.push(
 				// oxlint-disable-next-line no-await-in-loop
-				await createSavedView(
-					client,
-					view.name,
-					view.icon,
-					view.queryDocument,
-					view.displayConfiguration,
-					view.pluginSlug,
-				),
+				await createSavedView(client, view.name, view.icon, view.layouts, view.pluginSlug),
 			);
 		}
 	}

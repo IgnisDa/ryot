@@ -48,15 +48,15 @@ describe("saved views execution", () => {
 			const userAView = yield* getSavedView(userA.client, "all-shows");
 			const userBView = yield* getSavedView(userB.client, "all-shows");
 			const userAResult = requireRows(
-				(yield* executeRyotQL(userA.client, userAView.queryDocument)).data.savedView,
+				(yield* executeRyotQL(userA.client, userAView.layouts.grid.queryDocument)).data.savedView,
 				"savedView",
 			);
 			const userBResult = requireRows(
-				(yield* executeRyotQL(userB.client, userBView.queryDocument)).data.savedView,
+				(yield* executeRyotQL(userB.client, userBView.layouts.grid.queryDocument)).data.savedView,
 				"savedView",
 			);
 
-			expect(userAResult.items.map((item) => requireRyotQLTextField(item, "gridTitle"))).toContain(
+			expect(userAResult.items.map((item) => requireRyotQLTextField(item, "title"))).toContain(
 				entity.name,
 			);
 			expect(userBResult.items).toHaveLength(0);

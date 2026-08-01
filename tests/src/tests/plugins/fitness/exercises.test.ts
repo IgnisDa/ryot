@@ -1,6 +1,4 @@
-import type { FieldSelection } from "@ryot/contract/modules/ryotql/language";
 import { buildExerciseListQueryDocument } from "@ryot/fitness-plugin/query-recipes";
-import { castJson, column, field, jsonPath, literal, table, titleCase } from "@ryot/ryotql";
 import { Effect } from "effect";
 
 import {
@@ -27,27 +25,6 @@ import { describe, expect, it } from "~/support/effect-test";
 const seededExerciseName = "3/4 Sit-Up";
 const seededExerciseImageUrl =
 	"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/3_4_Sit-Up/0.jpg";
-const entity = table("entity", "entity");
-const expectedSavedViewFields = [
-	field("entityId", column(entity, "id")),
-	field("gridTitle", column(entity, "name")),
-	field("gridImage", castJson(jsonPath(column(entity, "properties"), "images", 0))),
-	field("gridOverline", literal("Exercise")),
-	field("gridCallout", titleCase(jsonPath(column(entity, "properties"), "level"))),
-	field("gridPrimaryMetadata", titleCase(jsonPath(column(entity, "properties"), "kind"))),
-	field("gridSecondaryMetadata", titleCase(jsonPath(column(entity, "properties"), "equipment"))),
-	field("listTitle", column(entity, "name")),
-	field("listImage", castJson(jsonPath(column(entity, "properties"), "images", 0))),
-	field("listOverline", literal("Exercise")),
-	field("listCallout", titleCase(jsonPath(column(entity, "properties"), "level"))),
-	field("listPrimaryMetadata", titleCase(jsonPath(column(entity, "properties"), "kind"))),
-	field("listSecondaryMetadata", titleCase(jsonPath(column(entity, "properties"), "equipment"))),
-	field("tableImage", castJson(jsonPath(column(entity, "properties"), "images", 0))),
-	field("tableColumn0", column(entity, "name")),
-	field("tableColumn1", titleCase(jsonPath(column(entity, "properties"), "level"))),
-	field("tableColumn2", titleCase(jsonPath(column(entity, "properties"), "equipment"))),
-] satisfies readonly FieldSelection[];
-
 const waitForSeededExercise = (client: Client) =>
 	pollUntil(
 		`exercise '${seededExerciseName}' to be queryable`,
@@ -114,7 +91,7 @@ describe("Exercises E2E", () => {
 			});
 			const allExercisesView = views.find((view) => view.name === "All Exercises");
 			assertPresent(allExercisesView, "Expected the built-in All Exercises saved view");
-			const savedViewQuery = allExercisesView.queryDocument.queries.savedView;
+			const savedViewQuery = allExercisesView.layouts.grid.queryDocument.queries.savedView;
 			assertPresent(savedViewQuery, "Expected the All Exercises saved-view query");
 			assertCondition(
 				savedViewQuery.output.type === "rows",
@@ -125,45 +102,45 @@ describe("Exercises E2E", () => {
 				isBuiltin: true,
 				name: "All Exercises",
 				pluginSlug: fitnessPlugin.slug,
-				queryDocument: {
-					queries: {
-						savedView: {
-							where: {
-								right: { value: "exercise" },
-								left: { field: "entitySchemaSlug", tableAlias: "entity" },
+				layouts: {
+					grid: {
+						queryDocument: {
+							queries: {
+								savedView: {
+									where: {
+										right: { value: "exercise" },
+										left: { field: "entitySchemaSlug", tableAlias: "entity" },
+									},
+								},
 							},
 						},
 					},
 				},
-				displayConfiguration: {
-					entityIdField: "entityId",
-					table: {
-						imageField: "tableImage",
-						columns: [
-							{ label: "Name", field: "tableColumn0" },
-							{ label: "Level", field: "tableColumn1" },
-							{ label: "Equipment", field: "tableColumn2" },
-						],
-					},
-					grid: {
-						titleField: "gridTitle",
-						imageField: "gridImage",
-						overlineField: "gridOverline",
-						calloutField: "gridCallout",
-						primaryMetadataField: "gridPrimaryMetadata",
-						secondaryMetadataField: "gridSecondaryMetadata",
-					},
-					list: {
-						titleField: "listTitle",
-						imageField: "listImage",
-						overlineField: "listOverline",
-						calloutField: "listCallout",
-						primaryMetadataField: "listPrimaryMetadata",
-						secondaryMetadataField: "listSecondaryMetadata",
-					},
+			});
+			expect(
+				savedViewQuery.output.fields.map((selection) => "key" in selection && selection.key),
+			).toEqual([
+				"itemId",
+				"title",
+				"image",
+				"overline",
+				"callout",
+				"primaryMetadata",
+				"secondaryMetadata",
+			]);
+			expect(allExercisesView.layouts).toMatchObject({
+				grid: { itemIdField: "itemId", titleField: "title", imageField: "image" },
+				list: { itemIdField: "itemId", titleField: "title", imageField: "image" },
+				table: {
+					imageField: "image",
+					itemIdField: "itemId",
+					columns: [
+						{ label: "Name", field: "column0" },
+						{ label: "Level", field: "column1" },
+						{ label: "Equipment", field: "column2" },
+					],
 				},
 			});
-			expect(savedViewQuery.output.fields).toEqual(expectedSavedViewFields);
 		}),
 	);
 
@@ -195,19 +172,17 @@ describe("Exercises E2E", () => {
 
 			const savedView = yield* getSavedView(client, "all-exercises");
 			const savedViewResult = requireRows(
-				(yield* executeRyotQL(client, savedView.queryDocument)).data.savedView,
+				(yield* executeRyotQL(client, savedView.layouts.grid.queryDocument)).data.savedView,
 				"savedView",
 			);
 			const savedViewExercise = savedViewResult.items.find(
-				(item) => requireRyotQLFieldValue(item, "gridTitle").value === seededExerciseName,
+				(item) => requireRyotQLFieldValue(item, "title").value === seededExerciseName,
 			);
 			assertPresent(savedViewExercise, "Expected the seeded exercise in the built-in saved view");
-			for (const imageField of ["gridImage", "listImage", "tableImage"]) {
-				expect(requireRyotQLFieldValue(savedViewExercise, imageField)).toEqual({
-					kind: "json",
-					value: { type: "remote", url: seededExerciseImageUrl },
-				});
-			}
+			expect(requireRyotQLFieldValue(savedViewExercise, "image")).toEqual({
+				kind: "json",
+				value: { type: "remote", url: seededExerciseImageUrl },
+			});
 		}),
 	);
 

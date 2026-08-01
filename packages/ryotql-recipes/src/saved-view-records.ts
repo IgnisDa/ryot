@@ -4,11 +4,10 @@ import {
 	JsonFieldValue,
 	NullFieldValue,
 	NumberFieldValue,
-	RyotQLDocument,
 	TextFieldValue,
 	rowsResultSchema,
 } from "@ryot/contract/modules/ryotql/language";
-import { SavedViewDisplayConfiguration } from "@ryot/contract/modules/saved-views/schemas";
+import { SavedViewLayouts } from "@ryot/contract/modules/saved-views/schemas";
 import { PluginSlug, SavedViewId } from "@ryot/contract/schema/brands";
 import { strictStruct } from "@ryot/contract/schema/utils";
 import { and, ascending, column, document, eq, field, literal, rows, table } from "@ryot/ryotql";
@@ -26,9 +25,8 @@ const savedViewRecordWire = strictStruct({
 	sortOrder: NumberFieldValue,
 	isBuiltin: BooleanFieldValue,
 	isDisabled: BooleanFieldValue,
-	queryDocument: JsonFieldValue,
+	layouts: JsonFieldValue,
 	pluginSlug: nullableTextFieldValue,
-	displayConfiguration: JsonFieldValue,
 });
 
 const savedViewRecordsResponse = strictStruct({
@@ -48,10 +46,9 @@ export const SavedViewRecord = strictStruct({
 	createdAt: Schema.String,
 	updatedAt: Schema.String,
 	isBuiltin: Schema.Boolean,
+	layouts: SavedViewLayouts,
 	isDisabled: Schema.Boolean,
-	queryDocument: RyotQLDocument,
 	pluginSlug: Schema.NullOr(PluginSlug),
-	displayConfiguration: SavedViewDisplayConfiguration,
 });
 export type SavedViewRecord = typeof SavedViewRecord.Type;
 
@@ -79,23 +76,21 @@ const decodeSavedViewRecord = (row: typeof savedViewRecordWire.Type) =>
 	Result.all([
 		normalizeDate("createdAt", row.createdAt),
 		normalizeDate("updatedAt", row.updatedAt),
-		Schema.decodeUnknownResult(RyotQLDocument)(row.queryDocument.value),
-		Schema.decodeUnknownResult(SavedViewDisplayConfiguration)(row.displayConfiguration.value),
+		Schema.decodeUnknownResult(SavedViewLayouts)(row.layouts.value),
 	] as const).pipe(
 		Result.map(
-			([createdAt, updatedAt, queryDocument, displayConfiguration]) =>
+			([createdAt, updatedAt, layouts]) =>
 				({
-					id: SavedViewId.make(row.id.value),
+					layouts,
 					createdAt,
 					updatedAt,
-					queryDocument,
 					slug: row.slug.value,
 					name: row.name.value,
 					icon: row.icon.value,
-					displayConfiguration,
 					sortOrder: row.sortOrder.value,
 					isBuiltin: row.isBuiltin.value,
 					isDisabled: row.isDisabled.value,
+					id: SavedViewId.make(row.id.value),
 					pluginSlug: row.pluginSlug.kind === "text" ? PluginSlug.make(row.pluginSlug.value) : null,
 				}) satisfies SavedViewRecord,
 		),
@@ -135,9 +130,8 @@ export const buildSavedViewRecordsDocument = (input: {
 				field("updatedAt", column(savedView, "updatedAt")),
 				field("isBuiltin", column(savedView, "isBuiltin")),
 				field("isDisabled", column(savedView, "isDisabled")),
-				field("queryDocument", column(savedView, "queryDocument")),
+				field("layouts", column(savedView, "layouts")),
 				field("pluginSlug", column(savedView, "pluginSlug")),
-				field("displayConfiguration", column(savedView, "displayConfiguration")),
 			],
 		}),
 	});
@@ -160,9 +154,8 @@ export const buildSavedViewRecordDocument = (input: { readonly slug: string }) =
 				field("updatedAt", column(savedView, "updatedAt")),
 				field("isBuiltin", column(savedView, "isBuiltin")),
 				field("isDisabled", column(savedView, "isDisabled")),
-				field("queryDocument", column(savedView, "queryDocument")),
+				field("layouts", column(savedView, "layouts")),
 				field("pluginSlug", column(savedView, "pluginSlug")),
-				field("displayConfiguration", column(savedView, "displayConfiguration")),
 			],
 		}),
 	});

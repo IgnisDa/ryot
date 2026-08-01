@@ -12,9 +12,13 @@ import {
 	literal,
 	table,
 } from "@ryot/ryotql";
-import type { SavedViewProjectionInput } from "@ryot/ryotql-recipes/saved-views";
+import type { SavedViewLayoutProjectionsInput } from "@ryot/ryotql-recipes/saved-views";
 
-type ViewExpressions = Omit<SavedViewProjectionInput, "entityId">;
+type ViewExpressions = {
+	readonly grid: SavedViewLayoutProjectionsInput["grid"]["card"];
+	readonly list: SavedViewLayoutProjectionsInput["list"]["card"];
+	readonly table: Omit<SavedViewLayoutProjectionsInput["table"], "itemId">;
+};
 
 const entity = table("entity", "entity");
 const entityColumn = (name: string) => column(entity, name);

@@ -6,7 +6,7 @@ import {
 	createAuthenticatedClient,
 	createPluginEntitySchema,
 	createSavedView,
-	createSavedViewWithQueryDocument,
+	createSavedViewWithGridDocument,
 	deleteSavedView,
 	findBuiltinSavedView,
 	getSavedView,
@@ -14,7 +14,7 @@ import {
 	reorderSavedViews,
 	rowsDocument,
 	rowsFields,
-	updateSavedViewWithQueryDocument,
+	updateSavedViewWithGridDocument,
 } from "~/fixtures";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -30,8 +30,7 @@ const buildBuiltinUpdatePayload = (view: Effect.Success<ReturnType<typeof getSav
 	icon: view.icon,
 	name: view.name,
 	isDisabled: view.isDisabled,
-	queryDocument: view.queryDocument,
-	displayConfiguration: view.displayConfiguration,
+	layouts: view.layouts,
 	...(view.pluginSlug ? { pluginSlug: view.pluginSlug } : {}),
 });
 
@@ -58,8 +57,12 @@ describe("saved views management", () => {
 			expect(collectionsView).toMatchObject({
 				isBuiltin: true,
 				name: "All Collections",
-				queryDocument: {
-					queries: { collections: { from: { table: "entity", alias: "collection" } } },
+				layouts: {
+					grid: {
+						queryDocument: {
+							queries: { collections: { from: { table: "entity", alias: "collection" } } },
+						},
+					},
 				},
 			});
 		}),
@@ -68,7 +71,7 @@ describe("saved views management", () => {
 	it.live("supports the full create-get-update-clone-delete lifecycle", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const createdView = yield* createSavedViewWithQueryDocument(client, rowsDocument, {
+			const createdView = yield* createSavedViewWithGridDocument(client, rowsDocument, {
 				name: `Lifecycle View ${crypto.randomUUID()}`,
 			});
 			const fetchedView = yield* getSavedView(client, createdView.slug);
@@ -76,17 +79,20 @@ describe("saved views management", () => {
 			expect(fetchedView.id).toBe(createdView.id);
 			expect(fetchedView.isBuiltin).toBe(false);
 
-			const updatedView = yield* updateSavedViewWithQueryDocument(
+			const updatedView = yield* updateSavedViewWithGridDocument(
 				client,
 				createdView.slug,
 				rowsDocument,
 				{ name: `${createdView.name} Updated` },
 			);
-			expect(updatedView.queryDocument).toEqual(rowsDocument);
+			expect(updatedView.layouts.grid.queryDocument).toEqual(rowsDocument);
+			expect(updatedView.layouts.list).toEqual(createdView.layouts.list);
+			expect(updatedView.layouts.table).toEqual(createdView.layouts.table);
 
 			const clonedView = yield* cloneSavedView(client, createdView.slug);
 			expect(clonedView.id).not.toBe(createdView.id);
 			expect(clonedView.name).toBe(`${createdView.name} Updated (Copy)`);
+			expect(clonedView.layouts).toEqual(updatedView.layouts);
 
 			const deletedOriginal = yield* deleteSavedView(client, createdView.slug);
 			const deletedClone = yield* deleteSavedView(client, clonedView.slug);
@@ -169,11 +175,11 @@ describe("saved views management", () => {
 	it.live("toggles isDisabled on user views and respects list filtering", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const createdView = yield* createSavedViewWithQueryDocument(client, rowsDocument, {
+			const createdView = yield* createSavedViewWithGridDocument(client, rowsDocument, {
 				name: `Disabled View ${crypto.randomUUID()}`,
 			});
 
-			yield* updateSavedViewWithQueryDocument(client, createdView.slug, rowsDocument, {
+			yield* updateSavedViewWithGridDocument(client, createdView.slug, rowsDocument, {
 				name: createdView.name,
 				isDisabled: true,
 			});
@@ -194,15 +200,15 @@ describe("saved views management", () => {
 			});
 			const viewDocument = buildSchemaRowsDocument(slug);
 
-			const trackerViewA = yield* createSavedViewWithQueryDocument(client, viewDocument, {
+			const trackerViewA = yield* createSavedViewWithGridDocument(client, viewDocument, {
 				pluginSlug,
 				name: `Tracker View A ${crypto.randomUUID()}`,
 			});
-			const trackerViewB = yield* createSavedViewWithQueryDocument(client, viewDocument, {
+			const trackerViewB = yield* createSavedViewWithGridDocument(client, viewDocument, {
 				pluginSlug,
 				name: `Tracker View B ${crypto.randomUUID()}`,
 			});
-			const trackerViewC = yield* createSavedViewWithQueryDocument(client, viewDocument, {
+			const trackerViewC = yield* createSavedViewWithGridDocument(client, viewDocument, {
 				pluginSlug,
 				name: `Tracker View C ${crypto.randomUUID()}`,
 			});
