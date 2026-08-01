@@ -51,6 +51,7 @@ export const clientAssetArtifactFile = (
 };
 
 export const clientArtifactMetadata = (
+	pluginName: string,
 	files: readonly PluginClientArtifactFile[],
 ): PluginClientArtifactMetadata => {
 	const identity = {
@@ -73,7 +74,7 @@ export const clientArtifactMetadata = (
 		});
 	return {
 		...identity,
-		hash: sha256Hex(stableStringify({ files: fileIdentity, metadata: identity })),
+		hash: sha256Hex(stableStringify({ name: pluginName, files: fileIdentity, metadata: identity })),
 	};
 };
 
