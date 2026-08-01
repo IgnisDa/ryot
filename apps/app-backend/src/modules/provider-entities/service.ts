@@ -10,7 +10,11 @@ import { Context, Effect, Layer, Option, Redacted } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/shared/job-id";
+import {
+	createWorkflowJobId,
+	deriveJobIdSecret,
+	resolveWorkflowExecutionId,
+} from "#lib/shared/job-id";
 import { trimToNull } from "#lib/shared/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -26,7 +30,7 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 			const engine = yield* WorkflowEngine;
 			const repository = yield* EntitiesRepository;
 			const pluginRuntime = yield* PluginRuntimeResolver;
-			const jobIdSecret = Redacted.value(config.sandbox.jobIdSecret);
+			const jobIdSecret = deriveJobIdSecret(Redacted.value(config.server.adminAccessToken));
 
 			const importEntity = Effect.fn("EntityImportService.import")(function* (
 				user: CurrentUserValue,
