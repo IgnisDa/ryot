@@ -29,7 +29,7 @@ import {
 	requireRyotQLFieldValue,
 	requireRows,
 } from "~/fixtures";
-import { assertPresent } from "~/support/assertions";
+import { assertCondition, assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 type WorkoutTemplateProperties = {
@@ -215,9 +215,10 @@ describe("Workout Templates E2E", () => {
 				);
 				const savedViewQuery = allWorkoutTemplatesView.queryDocument.queries.savedView;
 				assertPresent(savedViewQuery, "Expected the All Workout Templates saved-view query");
-				if (savedViewQuery.output.type !== "rows") {
-					throw new Error("Expected the All Workout Templates saved-view query to use rows output");
-				}
+				assertCondition(
+					savedViewQuery.output.type === "rows",
+					"Expected the All Workout Templates saved-view query to use rows output",
+				);
 
 				expect(allWorkoutTemplatesView).toMatchObject({
 					isBuiltin: true,
