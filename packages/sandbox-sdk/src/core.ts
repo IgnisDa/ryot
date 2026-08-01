@@ -46,6 +46,7 @@ export const httpCallResponseSchema = strictStruct({
 export const httpCallFailureDetailsSchema = strictStruct({
 	body: Schema.String,
 	status: Schema.Number.pipe(Schema.check(Schema.isInt())),
+	headers: Schema.Record(Schema.String, Schema.String),
 });
 export const httpCallArgsSchema = Schema.Tuple([
 	Schema.String,

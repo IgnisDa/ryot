@@ -35,6 +35,17 @@ export type RuntimeSandboxHostImplementationMap = Pick<
 	"claimPersistentValue" | "getCachedValue" | "httpCall" | "setCachedValue"
 >;
 
+const persistentClaimEnvelopeSchema = Schema.Struct({
+	value: Schema.Unknown,
+	owner: Schema.NullOr(Schema.String),
+});
+const encodePersistentClaimEnvelope = Schema.encodeUnknownEffect(
+	Schema.fromJsonString(persistentClaimEnvelopeSchema),
+);
+const decodePersistentClaimEnvelope = Schema.decodeUnknownEffect(
+	Schema.fromJsonString(persistentClaimEnvelopeSchema),
+);
+
 export const readSandboxHttpResponseText = (response: HttpClientResponse.HttpClientResponse) =>
 	readSandboxByteLimitedText(
 		response.stream,
@@ -103,7 +114,11 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 					);
 
 					return Effect.gen(function* () {
-						const serialized = yield* encodeSandboxCacheValue("claimPersistentValue", value);
+						yield* encodeSandboxCacheValue("claimPersistentValue", value);
+						const serialized = yield* encodePersistentClaimEnvelope({
+							value,
+							owner: input.workflowExecutionId ? input.executionId : null,
+						}).pipe(Effect.mapError(() => "claimPersistentValue value must be JSON-serializable"));
 
 						const setResult = yield* Effect.tryPromise({
 							try: () => redis.client.set(redisKey, serialized, "EX", ttlSeconds, "NX"),
@@ -120,22 +135,15 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 						if (existing === null) {
 							return { claimed: false, value: null };
 						}
-						const existingValueError = sandboxCacheValueError(
-							"claimPersistentValue",
-							existing,
-							"stored value",
-						);
-						if (existingValueError) {
-							return yield* Effect.fail(existingValueError);
-						}
-
-						return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
-							existing,
-						).pipe(
-							Effect.map((decoded) => ({
-								claimed: false as const,
-								value: isJsonValue(decoded) ? decoded : null,
-							})),
+						return yield* decodePersistentClaimEnvelope(existing).pipe(
+							Effect.map(({ owner, value: storedValue }) =>
+								owner !== null && owner === input.executionId
+									? ({ claimed: true as const } as const)
+									: ({
+											claimed: false as const,
+											value: isJsonValue(storedValue) ? storedValue : null,
+										} as const),
+							),
 							Effect.orElseSucceed(() => ({ claimed: false as const, value: null })),
 						);
 					}).pipe(sandboxHostEffect);
@@ -217,7 +225,7 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 					if (response.status < 200 || response.status >= 300) {
 						return yield* Effect.fail({
 							message: `HTTP ${response.status}`,
-							data: { body, status: response.status },
+							data: { body, status: response.status, headers: response.headers },
 						});
 					}
 
