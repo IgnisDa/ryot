@@ -425,6 +425,15 @@ export const PluginEntityAutomation = strictStruct({
 
 export type PluginEntityAutomation = Schema.Schema.Type<typeof PluginEntityAutomation>;
 
+export const PluginProviderEntityImportAutomation = strictStruct({
+	scriptSlug: sandboxManifestSlug,
+	entitySchemaSlug: Schema.String,
+});
+
+export type PluginProviderEntityImportAutomation = Schema.Schema.Type<
+	typeof PluginProviderEntityImportAutomation
+>;
+
 export const PluginRelationshipAutomation = strictStruct({
 	scriptSlug: Schema.String,
 	operation: PluginLifecycleOperation,
@@ -472,6 +481,7 @@ export const PluginBindings = strictStruct({
 	entityAutomations: Schema.Array(PluginEntityAutomation),
 	signalAutomations: Schema.Array(PluginSignalAutomation),
 	relationshipAutomations: Schema.Array(PluginRelationshipAutomation),
+	providerEntityImportAutomations: Schema.Array(PluginProviderEntityImportAutomation),
 });
 
 export type PluginBindings = Schema.Schema.Type<typeof PluginBindings>;
@@ -572,6 +582,14 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 	) {
 		return false;
 	}
+	if (
+		manifest.bindings.providerEntityImportAutomations.some(
+			(binding) =>
+				manifest.scripts.find(({ slug }) => slug === binding.scriptSlug)?.kind !== "automation",
+		)
+	) {
+		return false;
+	}
 
 	if (
 		manifest.scripts.some(
@@ -647,6 +665,7 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 		...manifest.workflows.map(({ scriptSlug }) => scriptSlug),
 		...manifest.bindings.eventAutomations.map(({ scriptSlug }) => scriptSlug),
 		...manifest.bindings.entityAutomations.map(({ scriptSlug }) => scriptSlug),
+		...manifest.bindings.providerEntityImportAutomations.map(({ scriptSlug }) => scriptSlug),
 		...manifest.bindings.signalAutomations.map(({ scriptSlug }) => scriptSlug),
 		...manifest.bindings.relationshipAutomations.map(({ scriptSlug }) => scriptSlug),
 		...manifest.integrationProviders.flatMap((provider) =>

@@ -17,7 +17,7 @@ import {
 	providerEntityImportEntry,
 	setProviderEntityImportEntry,
 } from "./import-controller";
-import { addProviderEntityToLibrary, runProviderEntityImport } from "./import-runner";
+import { runProviderEntityImport } from "./import-runner";
 import { ProviderSearchOptionsForm } from "./options-form";
 import { toOptionsPayload, validateOptionValues } from "./options-form-state";
 import {
@@ -362,14 +362,14 @@ export function ProviderSearchPanel(props: {
 				externalId,
 				scope,
 				providerId: selected.providerId,
-				onImported: (entityId) =>
-					addProviderEntityToLibrary({ entityId, scope }).pipe(
-						Effect.andThen(Effect.sync(() => props.onImported())),
-					),
 			}),
-		).then((entry) =>
-			setImportState((current) => setProviderEntityImportEntry(current, externalId, entry)),
-		);
+		).then((entry) => {
+			if (entry.status === "imported") {
+				props.onImported();
+			}
+			setImportState((current) => setProviderEntityImportEntry(current, externalId, entry));
+			return entry;
+		});
 	};
 
 	return (

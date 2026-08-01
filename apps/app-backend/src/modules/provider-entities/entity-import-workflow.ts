@@ -5,6 +5,7 @@ import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { type DurableSchema, withoutWorkflowParent } from "#lib/infrastructure/workflow";
 
+import { EntityImportWorkflowOperations } from "./operations-workflow";
 import { ProviderEntityPopulationWorkflow } from "./provider-entity-population-workflow";
 import { EntityImportPayload } from "./schemas";
 
@@ -12,7 +13,7 @@ export class EntityImportError extends Schema.TaggedError<EntityImportError>()(
 	"EntityImportError",
 	{
 		message: Schema.String,
-		stage: Schema.Literal("population"),
+		stage: Schema.Literals(["population", "provider-import-automation"]),
 	},
 ) {}
 
@@ -36,7 +37,7 @@ export const runEntityImportWorkflow = Effect.fn("EntityImportWorkflow")(functio
 	});
 	const engine = yield* WorkflowEngine;
 	const populationExecutionId = `${executionId}-provider-population`;
-	return yield* engine
+	const importedEntity = yield* engine
 		.execute(ProviderEntityPopulationWorkflow, {
 			executionId: populationExecutionId,
 			payload: {
@@ -55,6 +56,16 @@ export const runEntityImportWorkflow = Effect.fn("EntityImportWorkflow")(functio
 				(error) => new EntityImportError({ stage: "population", message: error.message }),
 			),
 		);
+	const operations = yield* EntityImportWorkflowOperations;
+	yield* operations
+		.runProviderImportAutomations(payload, importedEntity, executionId)
+		.pipe(
+			Effect.mapError(
+				(error) =>
+					new EntityImportError({ stage: "provider-import-automation", message: error.message }),
+			),
+		);
+	return importedEntity;
 });
 
 export const EntityImportWorkflowDefinitionsLive =

@@ -62,7 +62,7 @@ media-monitoring changes are implemented. The remaining gaps are notification-pr
 - **Calendar event materialization** — a nightly job that deletes stale `calendar_event` rows and inserts new ones from each metadata item's season/episode/publish-date schedule. This is distinct from the _read_ side already listed under [Deferred](#deferred--build-on-ryotql) — even once a calendar query exists, nothing currently computes what the events are.
   - V1: `recalculate_calendar_events` (`.../background/src/calendar.rs`).
 - **Library-membership reason recomputation & auto-GC** — recomputes _why_ an entity is in a user's library (seen / reviewed / collected / monitored / watchlisted / owned / has-a-reminder) whenever it's flagged dirty, and deletes the association entirely once no reason remains.
-  - V1: `cleanup_user_and_metadata_association` (`.../background/src/user.rs`). V2 has no equivalent recomputation or stale-membership removal job. Media-owned event and collection policies may add `in-library`, but the former native membership queue and worker were removed; generic entity import only populates provider entities.
+  - V1: `cleanup_user_and_metadata_association` (`.../background/src/user.rs`). V2 has no equivalent recomputation or stale-membership removal job. Media-owned event, collection, and provider-import automations may add `in-library`, but the former native membership queue and worker were removed.
 - **Smart collection auto-management** — state-driven collection membership that currently requires no user action in V1:
   - Marking something in-progress auto-adds it to both the Watchlist and Monitoring collections.
   - Any new seen/progress record auto-removes the item from Watchlist.
