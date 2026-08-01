@@ -91,6 +91,8 @@ Best first slices: ranks 4-7 are narrow and migration-free. Then implement rank 
 
 **Validation:** Two scheduler layers produce one ID in the same bucket, distinct IDs in later buckets, unchanged disabled/fallback behavior.
 
+**Implemented.** The dispatcher no longer fires on process start and then drifts by `Schedule.spaced`. It sleeps to the next interval boundary the way `PluginCronSchedulerLive` does, and `frequentCronExecutionId` derives the ID from the resolved interval and that boundary, so every replica and every restart maps one occurrence to one `frequent-cron-${intervalMs}-${scheduledAt}` execution. Because `integrationsFrequentTask` derives its sync execution ID from the same payload, the integration sync fan-out is deduplicated too. The unsupported-schedule warning and its 5-minute fallback, plus `disableDispatchers`, are unchanged; the fallback interval is now part of the ID, so replicas configured with different phrases that resolve to the same interval still share one occurrence.
+
 ### 4. Remove Incorrect Entity Provenance Pre-Read
 
 **Owner:** D08 Entities
