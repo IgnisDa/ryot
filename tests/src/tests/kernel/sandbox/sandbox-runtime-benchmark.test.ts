@@ -206,7 +206,7 @@ import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
-import { Innertube } from "@ryot/sandbox-sdk/youtubei";
+import { createYoutubeMusicClient } from "@ryot/sandbox-sdk/youtubei";
 
 export const manifest = defineManifest({
   kind: "provider",
@@ -217,49 +217,24 @@ export const manifest = defineManifest({
   slug: ${JSON.stringify(PROVIDER_DETAILS_SLUG)},
 });
 
-type YoutubeiHost = SandboxHost<readonly ["httpCall"]>;
-
-const makeFetch = (host: YoutubeiHost): typeof fetch => Object.assign(
-  (input: Request | string | URL, init?: RequestInit): Promise<Response> => Effect.gen(function* () {
-    const headers = new Headers(input instanceof Request ? input.headers : undefined);
-    if (init?.headers) {
-      for (const [key, value] of new Headers(init.headers).entries()) headers.set(key, value);
-    }
-    const url = input instanceof Request ? input.url : String(input);
-    const method = init?.method ?? (input instanceof Request ? input.method : "GET");
-    let body = typeof init?.body === "string" ? init.body : undefined;
-    if (body === undefined && input instanceof Request) {
-      const text = yield* Effect.tryPromise(() => input.text());
-      body = text || undefined;
-    }
-    const options: { body?: string; headers?: Record<string, string> } = {};
-    if (body !== undefined) options.body = body;
-    if ([...headers].length > 0) options.headers = Object.fromEntries(headers.entries());
-    const target = new URL(url, "https://www.youtube.com");
-    const result = yield* host.httpCall(
-      method,
-      ${JSON.stringify(serverUrl)} + target.pathname,
-      options,
-    );
-    return new Response(result.body, { status: result.status, headers: result.headers });
-  }).pipe(
-    Effect.mapError((error) => new Error(JSON.stringify(error))),
-    Effect.runPromise,
-  ),
-  { preconnect: () => undefined },
-);
-
 export default defineProvider({
   manifest,
   operation: "details",
   run: (_input, host) => Effect.gen(function* () {
-    const client = yield* Effect.tryPromise(() => Innertube.create({
-      fetch: makeFetch(host),
-      retrieve_player: false,
-      generate_session_locally: true,
-      retrieve_innertube_config: false,
-      enable_session_cache: false,
-    })).pipe(Effect.mapError((error) => new Error("Youtubei create failed: " + String(error.cause))));
+    const youtubeHost: SandboxHost<readonly ["httpCall"]> = {
+      httpCall: (method: string, url: string, options?: {
+        readonly body?: string | undefined;
+        readonly allowInsecureConnections?: boolean | undefined;
+        readonly headers?: Readonly<Record<string, string>> | undefined;
+      }) => {
+        const target = new URL(url, "https://www.youtube.com");
+        return host.httpCall(method, ${JSON.stringify(serverUrl)} + target.pathname, options);
+      },
+    };
+    const client = yield* createYoutubeMusicClient(youtubeHost, undefined, {
+      retrievePlayer: false,
+      retrieveInnertubeConfig: false,
+    });
     const first = yield* Effect.tryPromise(() => client.actions.execute("/benchmark-first", { value: 1 })).pipe(
       Effect.mapError((error) => new Error("Youtubei first request failed: " + String(error.cause))),
     );

@@ -6,7 +6,8 @@ import {
 } from "fflate";
 
 export type * from "fflate";
-export const gzipSync: typeof gzipSyncFunction = gzipSyncFunction;
+export const gzipSync: typeof gzipSyncFunction = (data, options) =>
+	gzipSyncFunction(data, { ...options, mtime: options?.mtime ?? 0 });
 export const unzipSync: typeof unzipSyncFunction = unzipSyncFunction;
 export const strFromU8: typeof strFromU8Function = strFromU8Function;
 export const gunzipSync: typeof gunzipSyncFunction = gunzipSyncFunction;
