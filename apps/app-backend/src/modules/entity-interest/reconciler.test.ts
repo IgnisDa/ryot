@@ -19,18 +19,13 @@ const user = {
 } satisfies CurrentUserValue;
 
 type InterestItem = {
-	readonly id: { readonly kind: "text"; readonly value: string };
-	readonly externalId: { readonly kind: "text"; readonly value: string };
-	readonly providerId: { readonly kind: "text"; readonly value: string };
-	readonly properties: { readonly kind: "json"; readonly value: unknown };
-	readonly entitySchemaSlug: { readonly kind: "text"; readonly value: string };
-	readonly populatedAt:
-		| { readonly kind: "date"; readonly value: string }
-		| { readonly kind: "null"; readonly value: null };
-	readonly translationStatus: {
-		readonly kind: "text";
-		readonly value: "none" | "pending" | "ready";
-	};
+	readonly id: string;
+	readonly externalId: string;
+	readonly providerId: string;
+	readonly properties: object;
+	readonly entitySchemaSlug: string;
+	readonly populatedAt: string | null;
+	readonly translationStatus: "none" | "pending" | "ready";
 };
 
 const responseWithItems = (items: readonly InterestItem[]) =>
@@ -45,13 +40,13 @@ const responseWithItems = (items: readonly InterestItem[]) =>
 	}) satisfies RyotQLResponse;
 
 const row = (id: string, overrides: Partial<InterestItem> = {}): InterestItem => ({
-	id: { kind: "text", value: id },
-	entitySchemaSlug: { kind: "text", value: "book" },
-	providerId: { kind: "text", value: "provider-1" },
-	properties: { kind: "json", value: { title: id } },
-	translationStatus: { kind: "text", value: "ready" },
-	externalId: { kind: "text", value: `external-${id}` },
-	populatedAt: { kind: "date", value: "2026-08-14T00:00:00.000Z" },
+	id,
+	entitySchemaSlug: "book",
+	providerId: "provider-1",
+	properties: { title: id },
+	translationStatus: "ready",
+	externalId: `external-${id}`,
+	populatedAt: "2026-08-14T00:00:00.000Z",
 	...overrides,
 });
 
@@ -65,8 +60,8 @@ it.effect("reconciles missing IDs after all visible rows have been handled", () 
 						Effect.succeed(
 							responseWithItems([
 								row("entity-1", {
-									populatedAt: { kind: "null", value: null },
-									translationStatus: { kind: "text", value: "none" },
+									populatedAt: null,
+									translationStatus: "none",
 								}),
 							]),
 						),
@@ -105,7 +100,7 @@ it.effect("returns terminal rows and enqueues pending translations", () => {
 							responseWithItems([
 								row("entity-1"),
 								row("entity-2", {
-									translationStatus: { kind: "text", value: "pending" },
+									translationStatus: "pending",
 								}),
 							]),
 						),

@@ -1,10 +1,7 @@
-import {
-	decodeNavigationResponse,
-	type NavigationData,
-	type NavigationWorkspace,
-} from "@ryot/ryotql-recipes/navigation";
-import { Result } from "effect";
+import type { NavigationData, NavigationWorkspace } from "@ryot/ryotql-recipes/navigation";
 import { AsyncResult } from "effect/unstable/reactivity";
+
+import { isRyotQLMalformedResultCause } from "@/api/ryotql";
 
 import {
 	getActiveNavigationKey,
@@ -41,33 +38,26 @@ export function mapNavigationState(props: {
 	readonly pathname: string;
 	readonly routeWorkspace?: string;
 	readonly selectedWorkspace: string;
-	readonly result: AsyncResult.AsyncResult<unknown, unknown>;
+	readonly result: AsyncResult.AsyncResult<NavigationData, unknown>;
 }): NavigationState {
 	if (AsyncResult.isFailure(props.result)) {
+		const malformed = isRyotQLMalformedResultCause(props.result.cause);
 		return {
 			status: "error",
-			title: "Unable to load navigation",
-			failure: { kind: "transport", cause: props.result.cause },
-			detail: "The server could not load navigation. Check your connection and try again.",
+			title: malformed ? "Unable to display navigation" : "Unable to load navigation",
+			failure: { kind: malformed ? "malformed" : "transport", cause: props.result.cause },
+			detail: malformed
+				? "The server returned navigation data that could not be displayed. Try again later."
+				: "The server could not load navigation. Check your connection and try again.",
 		};
 	}
 	if (!AsyncResult.isSuccess(props.result)) {
 		return { status: "loading" };
 	}
 
-	const decoded = decodeNavigationResponse(props.result.value);
-	if (Result.isFailure(decoded)) {
-		return {
-			status: "error",
-			title: "Unable to display navigation",
-			failure: { kind: "malformed", cause: decoded.failure },
-			detail: "The server returned navigation data that could not be displayed. Try again later.",
-		};
-	}
-
 	const data = {
-		...decoded.success,
-		workspaces: getEnabledItems(decoded.success.workspaces),
+		...props.result.value,
+		workspaces: getEnabledItems(props.result.value.workspaces),
 	} satisfies NavigationData;
 	if (data.workspaces.length === 0) {
 		return {

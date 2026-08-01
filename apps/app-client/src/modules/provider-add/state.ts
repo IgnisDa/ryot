@@ -1,10 +1,11 @@
-import { decodeProviderEntityLinksResponse } from "@ryot/ryotql-recipes/provider-entity-links";
-import {
-	decodeProviderSearchResponse,
-	type ProviderSearchSummary,
-} from "@ryot/ryotql-recipes/provider-search";
-import { Match, Result } from "effect";
+import type { ProviderEntityLinksResult } from "@ryot/ryotql-recipes/provider-entity-links";
+import type { ProviderSearchResult } from "@ryot/ryotql-recipes/provider-search";
+import { Match } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
+
+import { isRyotQLMalformedResultCause } from "@/api/ryotql";
+
+export type ProviderSearchSummary = ProviderSearchResult["items"][number];
 
 type ProviderAddError = {
 	readonly title: string;
@@ -39,36 +40,34 @@ export const providerAddError = (state: {
 	);
 
 export const mapProviderSummaries = (
-	result: AsyncResult.AsyncResult<unknown, unknown>,
+	result: AsyncResult.AsyncResult<ProviderSearchResult, unknown>,
 ): ProviderSummariesState => {
 	if (AsyncResult.isFailure(result)) {
-		return { status: "transport-error", cause: result.cause };
+		return {
+			cause: result.cause,
+			status: isRyotQLMalformedResultCause(result.cause) ? "malformed" : "transport-error",
+		};
 	}
 	if (!AsyncResult.isSuccess(result)) {
 		return { status: "loading" };
 	}
-	const decoded = decodeProviderSearchResponse(result.value);
-	if (Result.isFailure(decoded)) {
-		return { status: "malformed", cause: decoded.failure };
-	}
-	return { status: "ready", providers: decoded.success.items };
+	return { status: "ready", providers: result.value.items };
 };
 
 export const mapProviderEntityLinks = (
-	result: AsyncResult.AsyncResult<unknown, unknown>,
+	result: AsyncResult.AsyncResult<ProviderEntityLinksResult, unknown>,
 ): ProviderEntityLinksState => {
 	if (AsyncResult.isFailure(result)) {
-		return { status: "transport-error", cause: result.cause };
+		return {
+			cause: result.cause,
+			status: isRyotQLMalformedResultCause(result.cause) ? "malformed" : "transport-error",
+		};
 	}
 	if (!AsyncResult.isSuccess(result)) {
 		return { status: "loading" };
 	}
-	const decoded = decodeProviderEntityLinksResponse(result.value);
-	if (Result.isFailure(decoded)) {
-		return { status: "malformed", cause: decoded.failure };
-	}
 	return {
 		status: "ready",
-		externalIds: new Set(decoded.success.map((link) => link.externalId)),
+		externalIds: new Set(result.value.map((link) => link.externalId)),
 	};
 };

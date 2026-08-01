@@ -1,3 +1,4 @@
+import type { ScalarExpression } from "@ryot/contract/modules/ryotql/language";
 import {
 	and,
 	average,
@@ -24,6 +25,9 @@ const entity = table("entity", "entity");
 const entityColumn = (name: string) => column(entity, name);
 const entityProperty = (property: string) => jsonPath(column(entity, "properties"), property);
 const entityImage = () => castJson(jsonPath(column(entity, "properties"), "images", 0));
+const text = (expression: ScalarExpression) => ({ expression, displayKind: "text" as const });
+const date = (expression: ScalarExpression) => ({ expression, displayKind: "date" as const });
+const number = (expression: ScalarExpression) => ({ expression, displayKind: "number" as const });
 
 const reviewRatingAverage = () => {
 	const review = table("event", "review");
@@ -64,15 +68,15 @@ const secondaryMetadata = (slug: string) => {
 };
 
 const cardExpressions = (slug: string, schemaName: string): ViewExpressions["grid"] => {
-	const overline = literal(schemaName);
+	const overline = text(literal(schemaName));
 	if (slug === "person") {
 		return {
 			overline,
 			callout: null,
 			image: entityImage(),
 			title: entityColumn("name"),
-			primaryMetadata: entityProperty("birthPlace"),
-			secondaryMetadata: entityProperty("birthDate"),
+			primaryMetadata: text(entityProperty("birthPlace")),
+			secondaryMetadata: date(entityProperty("birthDate")),
 		};
 	}
 	if (slug === "company") {
@@ -80,9 +84,9 @@ const cardExpressions = (slug: string, schemaName: string): ViewExpressions["gri
 			overline,
 			image: entityImage(),
 			secondaryMetadata: null,
-			callout: reviewRatingAverage(),
+			callout: number(reviewRatingAverage()),
 			title: entityColumn("name"),
-			primaryMetadata: entityProperty("foundedYear"),
+			primaryMetadata: number(entityProperty("foundedYear")),
 		};
 	}
 	if (slug.endsWith("-group")) {
@@ -90,53 +94,54 @@ const cardExpressions = (slug: string, schemaName: string): ViewExpressions["gri
 			overline,
 			image: entityImage(),
 			secondaryMetadata: null,
-			callout: reviewRatingAverage(),
+			callout: number(reviewRatingAverage()),
 			title: entityColumn("name"),
-			primaryMetadata: entityProperty("parts"),
+			primaryMetadata: number(entityProperty("parts")),
 		};
 	}
+	const secondary = secondaryMetadata(slug);
 	return {
 		overline,
 		image: entityImage(),
-		callout: reviewRatingAverage(),
+		callout: number(reviewRatingAverage()),
 		title: entityColumn("name"),
-		secondaryMetadata: secondaryMetadata(slug),
-		primaryMetadata: entityProperty("publishYear"),
+		secondaryMetadata: secondary === null ? null : text(secondary),
+		primaryMetadata: number(entityProperty("publishYear")),
 	};
 };
 
 const tableColumns = (slug: string): ViewExpressions["table"]["columns"] => {
-	const name = { label: "Name", expression: entityColumn("name") };
-	const year = { label: "Year", expression: entityProperty("publishYear") };
+	const name = { label: "Name", ...text(entityColumn("name")) };
+	const year = { label: "Year", ...number(entityProperty("publishYear")) };
 	if (slug === "person") {
-		return [name, { label: "Birth Place", expression: entityProperty("birthPlace") }];
+		return [name, { label: "Birth Place", ...text(entityProperty("birthPlace")) }];
 	}
 	if (slug === "company") {
-		return [name, { label: "Founded Year", expression: entityProperty("foundedYear") }];
+		return [name, { label: "Founded Year", ...number(entityProperty("foundedYear")) }];
 	}
 	if (slug.endsWith("-group")) {
-		return [name, { label: "Parts", expression: entityProperty("parts") }];
+		return [name, { label: "Parts", ...number(entityProperty("parts")) }];
 	}
 	if (slug === "book" || slug === "comic-book") {
-		return [name, year, { label: "Pages", expression: entityProperty("pages") }];
+		return [name, year, { label: "Pages", ...number(entityProperty("pages")) }];
 	}
 	if (slug === "show") {
-		return [name, year, { label: "Status", expression: entityProperty("productionStatus") }];
+		return [name, year, { label: "Status", ...text(entityProperty("productionStatus")) }];
 	}
 	if (slug === "movie" || slug === "audiobook") {
-		return [name, year, { label: "Runtime", expression: entityProperty("runtime") }];
+		return [name, year, { label: "Runtime", ...number(entityProperty("runtime")) }];
 	}
 	if (slug === "anime") {
-		return [name, year, { label: "Episodes", expression: entityProperty("episodes") }];
+		return [name, year, { label: "Episodes", ...number(entityProperty("episodes")) }];
 	}
 	if (slug === "manga") {
-		return [name, year, { label: "Chapters", expression: entityProperty("chapters") }];
+		return [name, year, { label: "Chapters", ...number(entityProperty("chapters")) }];
 	}
 	if (slug === "podcast") {
-		return [name, year, { label: "Episodes", expression: entityProperty("totalEpisodes") }];
+		return [name, year, { label: "Episodes", ...number(entityProperty("totalEpisodes")) }];
 	}
 	if (slug === "visual-novel") {
-		return [name, year, { label: "Length", expression: entityProperty("lengthMinutes") }];
+		return [name, year, { label: "Length", ...number(entityProperty("lengthMinutes")) }];
 	}
 	return [name, year];
 };

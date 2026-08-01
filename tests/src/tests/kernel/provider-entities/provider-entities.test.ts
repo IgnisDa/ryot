@@ -1,6 +1,6 @@
 import { EntityId, RelationshipSchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
-import { buildProviderEntityLinksDocument } from "@ryot/ryotql-recipes/provider-entity-links";
-import { buildUserLibraryDocument } from "@ryot/ryotql-recipes/user-library";
+import { providerEntityLinksRecipe } from "@ryot/ryotql-recipes/provider-entity-links";
+import { userLibraryRecipe } from "@ryot/ryotql-recipes/user-library";
 import { Effect } from "effect";
 
 import {
@@ -11,13 +11,11 @@ import {
 	fakeProviderSearchResult,
 	findBuiltinSchemaBySlug,
 	getBackendClient,
-	executeRyotQL,
+	executeRyotQLRecipe,
 	providerSandboxSource,
 	replaceSandboxScriptCompiledRepresentation,
 	pollProviderEntityImportResult,
 	queryInLibraryRelationship,
-	requireRows,
-	requireRyotQLTextField,
 	searchProviderEntities,
 	installTestProvider,
 } from "~/fixtures";
@@ -152,20 +150,19 @@ describe("GET /provider-entities/imports/:jobId — provider entity import resul
 			const result = yield* pollProviderEntityImportResult(client, jobId);
 			assertCompleted(result, "entity import");
 
-			const withoutMembership = yield* executeRyotQL(
+			const withoutMembership = yield* executeRyotQLRecipe(
 				client,
-				buildProviderEntityLinksDocument({
+				providerEntityLinksRecipe({
 					externalIds: [externalId],
 					entitySchemaSlug: schema.id,
 					providerId: provider.providerId,
 				}),
 			);
-			expect(requireRows(withoutMembership.data.links, "links").items).toHaveLength(0);
+			expect(withoutMembership).toHaveLength(0);
 
-			const libraryResponse = yield* executeRyotQL(client, buildUserLibraryDocument());
-			const libraryRow = requireRows(libraryResponse.data.library, "library").items[0];
+			const libraryRow = yield* executeRyotQLRecipe(client, userLibraryRecipe());
 			assertPresent(libraryRow, "Missing user library");
-			const libraryEntityId = requireRyotQLTextField(libraryRow, "entityId");
+			const libraryEntityId = libraryRow.entityId;
 
 			yield* client.call((c) =>
 				c.relationships.create({
@@ -178,15 +175,15 @@ describe("GET /provider-entities/imports/:jobId — provider entity import resul
 				}),
 			);
 
-			const withMembership = yield* executeRyotQL(
+			const withMembership = yield* executeRyotQLRecipe(
 				client,
-				buildProviderEntityLinksDocument({
+				providerEntityLinksRecipe({
 					externalIds: [externalId],
 					entitySchemaSlug: schema.id,
 					providerId: provider.providerId,
 				}),
 			);
-			expect(requireRows(withMembership.data.links, "links").items).toHaveLength(1);
+			expect(withMembership).toHaveLength(1);
 		}),
 	);
 
