@@ -1,8 +1,9 @@
-import { buildReportSql, quoteSqlString } from "./shared";
+import type { QualifiedSchema } from "./migration-resolution";
+import { buildReportSql, quoteNullableSqlString, quoteSqlString } from "./shared";
 
 export const buildCollectionToEntityRelationshipMigrationSql = (
-	addEntityToCollectionEventSchemaSlug: string,
-	memberOfRelationshipSchemaSlug: string,
+	addEntityToCollectionEventSchema: QualifiedSchema,
+	memberOfRelationshipSchema: QualifiedSchema,
 ) => `
 DO $$
 DECLARE
@@ -20,6 +21,7 @@ BEGIN
 		"source_entity_id",
 		"target_entity_id",
 		"relationship_schema_slug",
+		"relationship_schema_plugin_id",
 		"properties",
 		"created_at"
 	)
@@ -28,7 +30,8 @@ BEGIN
 		coll_entity.user_id,
 		cte.entity_id,
 		cte.collection_id,
-		${quoteSqlString(memberOfRelationshipSchemaSlug)},
+		${quoteSqlString(memberOfRelationshipSchema.slug)},
+		${quoteNullableSqlString(memberOfRelationshipSchema.pluginId)},
 		COALESCE(cte.information, '{}'::jsonb) || jsonb_build_object('rank', cte.rank),
 		cte.created_on
 	FROM "collection_to_entity" cte
@@ -43,6 +46,7 @@ BEGIN
 		"user_id",
 		"entity_id",
 		"event_schema_slug",
+		"event_schema_plugin_id",
 		"properties",
 		"created_at",
 		"occurred_at"
@@ -51,7 +55,8 @@ BEGIN
 		'collection-membership-added-' || rel.id || '-event-0',
 		rel.user_id,
 		rel.target_entity_id,
-		${quoteSqlString(addEntityToCollectionEventSchemaSlug)},
+		${quoteSqlString(addEntityToCollectionEventSchema.slug)},
+		${quoteNullableSqlString(addEntityToCollectionEventSchema.pluginId)},
 		jsonb_build_object(
 			'entityId', rel.source_entity_id,
 			'relationshipId', rel.id,
@@ -63,7 +68,7 @@ BEGIN
 	FROM "collection_to_entity" cte
 	INNER JOIN "relationship" rel
 		ON rel.id = md5(cte.id::text || ':member-of')
-		AND rel.relationship_schema_slug = ${quoteSqlString(memberOfRelationshipSchemaSlug)}
+		AND rel.relationship_schema_slug = ${quoteSqlString(memberOfRelationshipSchema.slug)}
 	INNER JOIN "entity" src_entity ON src_entity.id = rel.source_entity_id
 	ON CONFLICT DO NOTHING;
 
@@ -76,8 +81,8 @@ END $$;
 `;
 
 export const buildMonitoringCollectionMigrationSql = (input: {
-	libraryEntitySchemaSlug: string;
-	mediaMonitoringRelationshipSchemaSlug: string;
+	libraryEntitySchema: QualifiedSchema;
+	mediaMonitoringRelationshipSchema: QualifiedSchema;
 	monitorableEntitySchemaSlugs: ReadonlyArray<string>;
 }) => `
 DO $$
@@ -106,7 +111,8 @@ BEGIN
 				SELECT 1
 				FROM "entity" library_entity
 				WHERE library_entity.user_id = coll.user_id
-					AND library_entity.entity_schema_slug = ${quoteSqlString(input.libraryEntitySchemaSlug)}
+					AND library_entity.entity_schema_slug = ${quoteSqlString(input.libraryEntitySchema.slug)}
+					AND library_entity.entity_schema_plugin_id IS NOT DISTINCT FROM ${quoteNullableSqlString(input.libraryEntitySchema.pluginId)}
 					AND library_entity.external_id IS NULL
 					AND library_entity.provider_id IS NULL
 			)
@@ -120,6 +126,7 @@ BEGIN
 		"source_entity_id",
 		"target_entity_id",
 		"relationship_schema_slug",
+		"relationship_schema_plugin_id",
 		"properties",
 		"created_at"
 	)
@@ -128,7 +135,8 @@ BEGIN
 		coll.user_id,
 		cte.entity_id,
 		library_entity.id,
-		${quoteSqlString(input.mediaMonitoringRelationshipSchemaSlug)},
+		${quoteSqlString(input.mediaMonitoringRelationshipSchema.slug)},
+		${quoteNullableSqlString(input.mediaMonitoringRelationshipSchema.pluginId)},
 		'{}'::jsonb,
 		cte.created_on
 	FROM "collection_to_entity" cte
@@ -136,7 +144,8 @@ BEGIN
 	INNER JOIN "entity" src_entity ON src_entity.id = cte.entity_id
 	INNER JOIN "entity" library_entity
 		ON library_entity.user_id = coll.user_id
-		AND library_entity.entity_schema_slug = ${quoteSqlString(input.libraryEntitySchemaSlug)}
+		AND library_entity.entity_schema_slug = ${quoteSqlString(input.libraryEntitySchema.slug)}
+		AND library_entity.entity_schema_plugin_id IS NOT DISTINCT FROM ${quoteNullableSqlString(input.libraryEntitySchema.pluginId)}
 		AND library_entity.external_id IS NULL
 		AND library_entity.provider_id IS NULL
 	WHERE src_entity.user_id IS NULL
@@ -153,7 +162,7 @@ END $$;
 // Marks each Owned-collection member's existing in-library relationship as owned, mirroring the
 // runtime ownership shape. Runs after user-to-entity so the relationships already exist.
 export const buildOwnedCollectionOwnershipMigrationSql = (
-	inLibraryRelationshipSchemaSlug: string,
+	inLibraryRelationshipSchema: QualifiedSchema,
 ) => `
 DO $$
 DECLARE
@@ -176,7 +185,8 @@ BEGIN
 	)
 	FROM "collection_to_entity" cte
 	INNER JOIN "collection" coll ON coll.id = cte.collection_id AND coll.name = 'Owned'
-	WHERE rel.relationship_schema_slug = ${quoteSqlString(inLibraryRelationshipSchemaSlug)}
+	WHERE rel.relationship_schema_slug = ${quoteSqlString(inLibraryRelationshipSchema.slug)}
+		AND rel.relationship_schema_plugin_id IS NOT DISTINCT FROM ${quoteNullableSqlString(inLibraryRelationshipSchema.pluginId)}
 		AND rel.source_entity_id = cte.entity_id
 		AND rel.user_id = coll.user_id;
 
@@ -185,7 +195,7 @@ BEGIN
 END $$;
 `;
 
-export const buildCollectionEntityMigrationSql = (entitySchemaSlug: string) => `
+export const buildCollectionEntityMigrationSql = (entitySchema: QualifiedSchema) => `
 DO $$
 DECLARE
 	rows_inserted int;
@@ -204,6 +214,7 @@ BEGIN
 		"user_id",
 		"properties",
 		"entity_schema_slug",
+		"entity_schema_plugin_id",
 		"provider_id",
 		"updated_at"
 	)
@@ -315,7 +326,8 @@ BEGIN
 				)
 			END
 		),
-		${quoteSqlString(entitySchemaSlug)},
+		${quoteSqlString(entitySchema.slug)},
+		${quoteNullableSqlString(entitySchema.pluginId)},
 		NULL,
 		collection.last_updated_on
 	FROM "collection"

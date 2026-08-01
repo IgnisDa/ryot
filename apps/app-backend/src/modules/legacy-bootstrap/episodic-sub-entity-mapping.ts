@@ -1,12 +1,13 @@
-import { buildReportSql, quoteSqlString } from "./shared";
+import type { QualifiedSchema } from "./migration-resolution";
+import { buildReportSql, quoteNullableSqlString, quoteSqlString } from "./shared";
 
 type LegacyEpisodicSubEntityMigrationInput = {
-	showSeasonEntitySchemaSlug: string;
-	showEpisodeEntitySchemaSlug: string;
-	podcastEpisodeEntitySchemaSlug: string;
-	showToSeasonRelationshipSchemaSlug: string;
-	seasonToEpisodeRelationshipSchemaSlug: string;
-	podcastToEpisodeRelationshipSchemaSlug: string;
+	showSeasonEntitySchema: QualifiedSchema;
+	showEpisodeEntitySchema: QualifiedSchema;
+	podcastEpisodeEntitySchema: QualifiedSchema;
+	showToSeasonRelationshipSchema: QualifiedSchema;
+	seasonToEpisodeRelationshipSchema: QualifiedSchema;
+	podcastToEpisodeRelationshipSchema: QualifiedSchema;
 };
 
 export const buildLegacyEpisodicSubEntityMigrationSql = (
@@ -136,7 +137,7 @@ BEGIN
 			season_value ->> 'season_number' AS season_number,
 			episode_value ->> 'episode_number' AS episode_number,
 			entity_id,
-			${quoteSqlString(input.showEpisodeEntitySchemaSlug)} AS entity_schema_slug
+			${quoteSqlString(input.showEpisodeEntitySchema.slug)} AS entity_schema_slug
 		FROM _legacy_show_episodes
 	), unique_candidates AS (
 		SELECT parent_entity_id, season_number, episode_number
@@ -167,7 +168,7 @@ BEGIN
 			parent_entity_id,
 			value ->> 'number' AS episode_number,
 			entity_id,
-			${quoteSqlString(input.podcastEpisodeEntitySchemaSlug)} AS entity_schema_slug
+			${quoteSqlString(input.podcastEpisodeEntitySchema.slug)} AS entity_schema_slug
 		FROM _legacy_podcast_episodes
 	), unique_candidates AS (
 		SELECT parent_entity_id, episode_number
@@ -197,6 +198,7 @@ BEGIN
 		"user_id",
 		"properties",
 		"entity_schema_slug",
+		"entity_schema_plugin_id",
 		"provider_id",
 		"updated_at"
 	)
@@ -215,7 +217,8 @@ BEGIN
 			'releaseDate',  show_seasons.value ->> 'publish_date',
 			'seasonNumber', (show_seasons.value ->> 'season_number')::int
 		)),
-		${quoteSqlString(input.showSeasonEntitySchemaSlug)},
+		${quoteSqlString(input.showSeasonEntitySchema.slug)},
+		${quoteNullableSqlString(input.showSeasonEntitySchema.pluginId)},
 		show_seasons.provider_id,
 		show_seasons.updated_at
 	FROM _legacy_show_season_entities show_seasons
@@ -224,7 +227,7 @@ BEGIN
 		FROM "entity" existing
 		WHERE existing.user_id IS NULL
 		  AND existing.external_id = show_seasons.external_id
-		  AND existing.entity_schema_slug = ${quoteSqlString(input.showSeasonEntitySchemaSlug)}
+		  AND existing.entity_schema_slug = ${quoteSqlString(input.showSeasonEntitySchema.slug)}
 		  AND existing.provider_id IS NOT DISTINCT FROM show_seasons.provider_id
 	)
 	ON CONFLICT ("id") DO UPDATE
@@ -244,6 +247,7 @@ BEGIN
 		"user_id",
 		"properties",
 		"entity_schema_slug",
+		"entity_schema_plugin_id",
 		"provider_id",
 		"updated_at"
 	)
@@ -265,7 +269,8 @@ BEGIN
 			'seasonNumber',  (show_episodes.season_value ->> 'season_number')::int,
 			'episodeNumber', (show_episodes.episode_value ->> 'episode_number')::int
 		)),
-		${quoteSqlString(input.showEpisodeEntitySchemaSlug)},
+		${quoteSqlString(input.showEpisodeEntitySchema.slug)},
+		${quoteNullableSqlString(input.showEpisodeEntitySchema.pluginId)},
 		show_episodes.provider_id,
 		show_episodes.updated_at
 	FROM _legacy_show_episode_entities show_episodes
@@ -274,7 +279,7 @@ BEGIN
 		FROM "entity" existing
 		WHERE existing.user_id IS NULL
 		  AND existing.external_id = show_episodes.external_id
-		  AND existing.entity_schema_slug = ${quoteSqlString(input.showEpisodeEntitySchemaSlug)}
+		  AND existing.entity_schema_slug = ${quoteSqlString(input.showEpisodeEntitySchema.slug)}
 		  AND existing.provider_id IS NOT DISTINCT FROM show_episodes.provider_id
 	)
 	ON CONFLICT ("id") DO UPDATE
@@ -294,6 +299,7 @@ BEGIN
 		"user_id",
 		"properties",
 		"entity_schema_slug",
+		"entity_schema_plugin_id",
 		"provider_id",
 		"updated_at"
 	)
@@ -314,7 +320,8 @@ BEGIN
 			'publishDate',   podcast_episodes.value ->> 'publish_date',
 			'episodeNumber', (podcast_episodes.value ->> 'number')::int
 		)),
-		${quoteSqlString(input.podcastEpisodeEntitySchemaSlug)},
+		${quoteSqlString(input.podcastEpisodeEntitySchema.slug)},
+		${quoteNullableSqlString(input.podcastEpisodeEntitySchema.pluginId)},
 		podcast_episodes.provider_id,
 		podcast_episodes.updated_at
 	FROM _legacy_podcast_episode_entities podcast_episodes
@@ -323,7 +330,7 @@ BEGIN
 		FROM "entity" existing
 		WHERE existing.user_id IS NULL
 		  AND existing.external_id = podcast_episodes.external_id
-		  AND existing.entity_schema_slug = ${quoteSqlString(input.podcastEpisodeEntitySchemaSlug)}
+		  AND existing.entity_schema_slug = ${quoteSqlString(input.podcastEpisodeEntitySchema.slug)}
 		  AND existing.provider_id IS NOT DISTINCT FROM podcast_episodes.provider_id
 	)
 	ON CONFLICT ("id") DO UPDATE
@@ -339,6 +346,7 @@ BEGIN
 		"source_entity_id",
 		"target_entity_id",
 		"relationship_schema_slug",
+		"relationship_schema_plugin_id",
 		"properties",
 		"user_id",
 		"created_at"
@@ -347,7 +355,8 @@ BEGIN
 		gen_random_uuid()::text,
 		show_seasons.parent_entity_id,
 		show_seasons.entity_id,
-		${quoteSqlString(input.showToSeasonRelationshipSchemaSlug)},
+		${quoteSqlString(input.showToSeasonRelationshipSchema.slug)},
+		${quoteNullableSqlString(input.showToSeasonRelationshipSchema.pluginId)},
 		'{}'::jsonb,
 		NULL,
 		NOW()
@@ -363,6 +372,7 @@ BEGIN
 		"source_entity_id",
 		"target_entity_id",
 		"relationship_schema_slug",
+		"relationship_schema_plugin_id",
 		"properties",
 		"user_id",
 		"created_at"
@@ -371,7 +381,8 @@ BEGIN
 		gen_random_uuid()::text,
 		show_episodes.season_entity_id,
 		show_episodes.entity_id,
-		${quoteSqlString(input.seasonToEpisodeRelationshipSchemaSlug)},
+		${quoteSqlString(input.seasonToEpisodeRelationshipSchema.slug)},
+		${quoteNullableSqlString(input.seasonToEpisodeRelationshipSchema.pluginId)},
 		'{}'::jsonb,
 		NULL,
 		NOW()
@@ -387,6 +398,7 @@ BEGIN
 		"source_entity_id",
 		"target_entity_id",
 		"relationship_schema_slug",
+		"relationship_schema_plugin_id",
 		"properties",
 		"user_id",
 		"created_at"
@@ -395,7 +407,8 @@ BEGIN
 		gen_random_uuid()::text,
 		podcast_episodes.parent_entity_id,
 		podcast_episodes.entity_id,
-		${quoteSqlString(input.podcastToEpisodeRelationshipSchemaSlug)},
+		${quoteSqlString(input.podcastToEpisodeRelationshipSchema.slug)},
+		${quoteNullableSqlString(input.podcastToEpisodeRelationshipSchema.pluginId)},
 		'{}'::jsonb,
 		NULL,
 		NOW()
