@@ -7,6 +7,7 @@ import { RyotQLDocument, RyotQLResponse } from "@ryot-app/contract/modules/ryotq
 import {
 	ManagedAssetResolutionBatch,
 	ManagedAssetLocator,
+	TemporaryUploadToken,
 } from "@ryot-app/contract/modules/uploads/schemas";
 import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
@@ -279,6 +280,16 @@ export const PluginAssetBridgeErrorReason = Schema.Literals([
 
 export type PluginAssetBridgeErrorReason = Schema.Schema.Type<typeof PluginAssetBridgeErrorReason>;
 
+export const PluginUploadBridgeErrorReason = Schema.Literals([
+	"transport",
+	"operation-failed",
+	"malformed-result",
+]);
+
+export type PluginUploadBridgeErrorReason = Schema.Schema.Type<
+	typeof PluginUploadBridgeErrorReason
+>;
+
 export const RyotClientErrorReason = Schema.Literals([
 	"disposed",
 	"protocol",
@@ -396,6 +407,55 @@ export const PluginBridgeOperationResult = Schema.Union([
 
 export type PluginBridgeOperationResult = Schema.Schema.Type<typeof PluginBridgeOperationResult>;
 
+export const PluginUploadSource = Schema.declare<Blob>((value) => value instanceof Blob).annotate({
+	identifier: "PluginUploadSource",
+});
+
+export const PluginUploadRequest = strictStruct({
+	fileName: Schema.String,
+	contentType: Schema.String,
+	source: PluginUploadSource,
+});
+
+export type PluginUploadRequest = Schema.Schema.Type<typeof PluginUploadRequest>;
+
+export const PluginBridgeUploadRequest = strictStruct({
+	...PluginUploadRequest.fields,
+	requestId: Schema.String,
+	type: Schema.Literal("upload-request"),
+});
+
+export type PluginBridgeUploadRequest = Schema.Schema.Type<typeof PluginBridgeUploadRequest>;
+
+const pluginUploadSuccessFields = {
+	token: TemporaryUploadToken,
+	outcome: Schema.Literal("success"),
+};
+
+const pluginUploadFailureFields = {
+	reason: PluginUploadBridgeErrorReason,
+	outcome: Schema.Literal("failure"),
+};
+
+const pluginBridgeUploadResultFields = {
+	requestId: Schema.String,
+	type: Schema.Literal("upload-result"),
+};
+
+export const PluginUploadOutcome = Schema.Union([
+	strictStruct(pluginUploadSuccessFields),
+	strictStruct(pluginUploadFailureFields),
+]);
+
+export type PluginUploadOutcome = Schema.Schema.Type<typeof PluginUploadOutcome>;
+
+export const PluginBridgeUploadResult = Schema.Union([
+	strictStruct({ ...pluginUploadSuccessFields, ...pluginBridgeUploadResultFields }),
+	strictStruct({ ...pluginUploadFailureFields, ...pluginBridgeUploadResultFields }),
+]);
+
+export type PluginBridgeUploadResult = Schema.Schema.Type<typeof PluginBridgeUploadResult>;
+
 export const PluginRyotQLFailureReason = Schema.Literals(["query-failed", "transport"]);
 
 export type PluginRyotQLFailureReason = Schema.Schema.Type<typeof PluginRyotQLFailureReason>;
@@ -487,6 +547,7 @@ export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeRyotQLCancel,
 	PluginBridgeNavigateBack,
 	PluginBridgeRyotQLRequest,
+	PluginBridgeUploadRequest,
 	PluginBridgeLifecycleClose,
 	PluginBridgeKernelShortcut,
 	PluginBridgeEntityInterest,
@@ -501,6 +562,7 @@ export const PluginBridgeHostMessage = Schema.Union([
 	PluginBridgeViewport,
 	PluginBridgeAssetResult,
 	PluginBridgeRyotQLResult,
+	PluginBridgeUploadResult,
 	PluginBridgeEntityUpdated,
 	PluginBridgeLifecycleClose,
 	PluginBridgeOperationResult,

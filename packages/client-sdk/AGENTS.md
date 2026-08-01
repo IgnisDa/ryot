@@ -4,7 +4,7 @@ Rationale lives in `README.md`.
 
 - Validate embedded artifact metadata before registering the message listener. Accept exactly one `MessagePort` from `window.parent`.
 - Decode all init markers, compare the artifact hash with embedded metadata, and report embedded metadata in ready. Never echo init identity as proof.
-- Keep uploads as one direct-adapter capability; MessageChannel transport returns `unsupported-capability`.
+- Keep uploads as one capability on every adapter. The plugin sends only bytes, file name, and content type; the host owns the intent, upload URL, headers, and completion. Reject a non-`Blob` source with `invalid-input`.
 - Reconcile plugin screens only from kernel history `index` and `key`, never from paths.
 - Retain screen React keys and hide inactive screens with `visibility: hidden`. Do not add separate scroll restoration.
 - Derive visibility from rendered screen roles. Limit imperative writes to transition transforms and scrim opacity.

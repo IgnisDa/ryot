@@ -757,6 +757,75 @@ describe("plugin runtime", () => {
 		expect(messages).not.toContainEqual(expect.objectContaining({ type: "navigate" }));
 	});
 
+	it("sends an upload source across the port untouched and resolves its token", async () => {
+		const { channel, messages, runtime } = openRuntime();
+		activate(channel);
+		await delay();
+
+		const source = new Blob(["id,title"], { type: "text/csv" });
+		const token = { token: "upload-token", expiresAt: "2026-01-01T00:15:00.000Z" };
+		const upload = runtime.client.uploads.uploadTemporary({
+			source,
+			fileName: "items.csv",
+			contentType: "text/csv",
+		});
+		await delay();
+
+		const request = messages.find(
+			(message) =>
+				typeof message === "object" &&
+				message !== null &&
+				"type" in message &&
+				message.type === "upload-request",
+		);
+		expect(request).toMatchObject({
+			fileName: "items.csv",
+			contentType: "text/csv",
+			requestId: "upload-1",
+		});
+		const cloned = (request as { source: Blob }).source;
+		expect(cloned).toBeInstanceOf(Blob);
+		expect(cloned.type).toBe("text/csv");
+		expect(await cloned.text()).toBe("id,title");
+
+		channel.port1.postMessage({
+			token,
+			outcome: "success",
+			type: "upload-result",
+			requestId: "upload-1",
+		});
+		await expect(upload).resolves.toEqual(token);
+	});
+
+	it("preserves upload failure reasons and rejects pending uploads on teardown", async () => {
+		const { channel, runtime } = openRuntime();
+		activate(channel);
+		await delay();
+
+		const request = {
+			fileName: "items.csv",
+			contentType: "text/csv",
+			source: new Blob(["id,title"]),
+		};
+
+		const failure = runtime.client.uploads.uploadTemporary(request);
+		channel.port1.postMessage({
+			outcome: "failure",
+			type: "upload-result",
+			requestId: "upload-1",
+			reason: "operation-failed",
+		});
+		await expect(failure).rejects.toMatchObject({ reason: "operation-failed" });
+
+		const pending = runtime.client.uploads.uploadTemporary(request);
+		await delay();
+		runtime.fatal();
+		await expect(pending).rejects.toMatchObject({ reason: "protocol" });
+		await expect(runtime.client.uploads.uploadTemporary(request)).rejects.toMatchObject({
+			reason: "protocol",
+		});
+	});
+
 	it("preserves operation success and failure semantics", async () => {
 		const { channel, runtime } = openRuntime();
 		activate(channel);

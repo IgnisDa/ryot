@@ -3,6 +3,8 @@ import type {
 	KernelShortcut,
 	PluginAssetOutcome,
 	PluginAssetRequest,
+	PluginUploadOutcome,
+	PluginUploadRequest,
 	PluginOperationOutcome,
 	PluginOperationRequest,
 	PluginRyotQLOutcome,
@@ -147,6 +149,10 @@ export function PluginHost(props: {
 		request: PluginAssetRequest,
 		signal: AbortSignal,
 	) => Promise<PluginAssetOutcome>;
+	readonly onUpload: (
+		request: PluginUploadRequest,
+		signal: AbortSignal,
+	) => Promise<PluginUploadOutcome>;
 	readonly onQuery: (
 		request: PluginRyotQLRequest,
 		signal: AbortSignal,
@@ -173,6 +179,7 @@ export function PluginHost(props: {
 			onQuery={props.onQuery}
 			viewport={props.viewport}
 			onAssets={props.onAssets}
+			onUpload={props.onUpload}
 			onHeader={props.onHeader}
 			onNavigate={props.onNavigate}
 			navigation={props.navigation}
@@ -224,6 +231,10 @@ function PluginFrame(props: {
 		request: PluginAssetRequest,
 		signal: AbortSignal,
 	) => Promise<PluginAssetOutcome>;
+	readonly onUpload: (
+		request: PluginUploadRequest,
+		signal: AbortSignal,
+	) => Promise<PluginUploadOutcome>;
 	readonly onQuery: (
 		request: PluginRyotQLRequest,
 		signal: AbortSignal,
@@ -456,6 +467,7 @@ function PluginFrame(props: {
 			onOpenDrawer: () => latest.current.onOpenDrawer(),
 			onRyotQL: (request, signal) => latest.current.onQuery(request, signal),
 			onAssets: (request, signal) => latest.current.onAssets(request, signal),
+			onUpload: (request, signal) => latest.current.onUpload(request, signal),
 			onKernelShortcut: (shortcut) => latest.current.onKernelShortcut(shortcut),
 			watchEntities: (interest, onUpdate) => latest.current.watchEntities(interest, onUpdate),
 			onScreenState: (state) => {
