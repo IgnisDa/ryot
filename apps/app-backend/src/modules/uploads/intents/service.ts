@@ -44,8 +44,7 @@ const UploadIntentMetadata = Schema.Struct({
 	contentType: Schema.String,
 	claimId: Schema.optional(Schema.String),
 	claimedAt: Schema.optional(Schema.Finite),
-	cleaningAt: Schema.optional(Schema.Finite),
-	state: Schema.Literals(["pending", "completed", "claimed", "cleaning"]),
+	state: Schema.Literals(["pending", "completed", "claimed"]),
 	completion: Schema.optional(
 		Schema.Union([
 			ManagedAssetLocator,
@@ -393,6 +392,19 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 				return void 0;
 			});
 
+			const removeIntentRecord = (intentId: string, metadata: typeof UploadIntentMetadata.Type) =>
+				Effect.gen(function* () {
+					yield* objectStorage.deleteObject({
+						type: metadata.provider,
+						key: metadata.objectKey,
+					});
+					if (metadata.completion && "token" in metadata.completion) {
+						yield* redis.del(redisKeys.uploadToken(metadata.completion.token));
+					}
+					yield* redis.del(redisKeys.uploadIntent(intentId));
+					yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
+				});
+
 			const removeUploadIntent = Effect.fn("UploadIntentsService.removeUploadIntent")(function* (
 				intentId: string,
 			) {
@@ -404,15 +416,7 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 				const metadata = yield* Schema.decodeUnknownEffect(
 					Schema.fromJsonString(UploadIntentMetadata),
 				)(raw).pipe(Effect.mapError(() => uploadError({ code: "intent-invalid", intentId })));
-				yield* objectStorage.deleteObject({
-					type: metadata.provider,
-					key: metadata.objectKey,
-				});
-				if (metadata.completion && "token" in metadata.completion) {
-					yield* redis.del(redisKeys.uploadToken(metadata.completion.token));
-				}
-				yield* redis.del(redisKeys.uploadIntent(intentId));
-				yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
+				yield* removeIntentRecord(intentId, metadata);
 			});
 
 			const cleanupPendingIntents = Effect.fn("UploadIntentsService.cleanupPendingIntents")(
@@ -421,71 +425,30 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 					const intentIds = yield* redis.zrangeByScore(redisKeys.uploadIntentExpiry, now, max);
 					yield* Effect.forEach(intentIds, (intentId) =>
 						Effect.gen(function* () {
-							const cleanupLock = redisKeys.uploadIntentCleanupLock(intentId);
-							const cleanupLease = yield* redis.acquireLease(cleanupLock, CLEANUP_LEASE_SECONDS);
-							if (cleanupLease === null) {
-								return;
-							}
-							const intentLock = redisKeys.uploadIntentLock(intentId);
-							const intentLease = yield* redis.acquireLease(intentLock, CLEANUP_LEASE_SECONDS);
-							if (intentLease === null) {
-								yield* redis.releaseLease(cleanupLock, cleanupLease);
+							const lockKey = redisKeys.uploadIntentLock(intentId);
+							const lease = yield* redis.acquireLease(lockKey, CLEANUP_LEASE_SECONDS);
+							if (lease === null) {
 								return;
 							}
 							yield* Effect.gen(function* () {
 								const raw = yield* redis.get(redisKeys.uploadIntent(intentId));
 								if (!raw) {
-									yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
-									return;
+									return yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
 								}
 								const metadata = yield* Schema.decodeUnknownEffect(
 									Schema.fromJsonString(UploadIntentMetadata),
 								)(raw).pipe(
 									Effect.mapError(() => uploadError({ code: "intent-invalid", intentId })),
 								);
-								if (
-									!(["pending", "completed", "claimed", "cleaning"] as const).includes(
-										metadata.state,
-									) ||
-									metadata.expiresAt > now
-								) {
-									yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
-									return;
+								if (metadata.expiresAt > now) {
+									return yield* redis.zadd(
+										redisKeys.uploadIntentExpiry,
+										metadata.expiresAt,
+										intentId,
+									);
 								}
-								const cleaning = { ...metadata, state: "cleaning" as const, cleaningAt: now };
-								const cleaningEncoded = yield* Schema.encodeUnknownEffect(
-									Schema.fromJsonString(UploadIntentMetadata),
-								)(cleaning).pipe(Effect.orDie);
-								yield* redis.setAndIndex(
-									redisKeys.uploadIntent(intentId),
-									cleaningEncoded,
-									redisKeys.uploadIntentExpiry,
-									now,
-									intentId,
-								);
-								yield* removeUploadIntent(intentId).pipe(
-									Effect.catchCause((cause) =>
-										Schema.encodeUnknownEffect(Schema.fromJsonString(UploadIntentMetadata))(
-											metadata,
-										).pipe(
-											Effect.orDie,
-											Effect.flatMap((encoded) =>
-												redis.setAndIndex(
-													redisKeys.uploadIntent(intentId),
-													encoded,
-													redisKeys.uploadIntentExpiry,
-													now + CLEANUP_LEASE_SECONDS,
-													intentId,
-												),
-											),
-											Effect.andThen(Effect.failCause(cause)),
-										),
-									),
-								);
-							}).pipe(
-								Effect.ensuring(redis.releaseLease(intentLock, intentLease)),
-								Effect.ensuring(redis.releaseLease(cleanupLock, cleanupLease)),
-							);
+								return yield* removeIntentRecord(intentId, metadata);
+							}).pipe(Effect.ensuring(redis.releaseLease(lockKey, lease)));
 						}).pipe(
 							Effect.catchCause((cause) =>
 								Effect.logWarning("upload intent cleanup failed", cause).pipe(

@@ -35,7 +35,7 @@
 
 ## Medium-Impact Items
 
-- [ ] **8. Simplify upload cleanup state** [M/M/M]
+- [x] **8. Simplify upload cleanup state** [M/M/M]
   - Owner: D30 Uploads
   - Scope: Use intent lock only, stop writing `cleaning`
   - Prereq: Drain/dual-decode Redis records
