@@ -26,7 +26,6 @@
 	"dependencies": {
 		"@ryot/config": "workspace:*",
 		"@ryot/contract": "workspace:*",
-		"@ryot/plugin-kit": "workspace:*",
 		"@ryot/query-engine": "workspace:*",
 		"@ryot/sandbox-sdk": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",

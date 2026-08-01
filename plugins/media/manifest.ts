@@ -1,4 +1,4 @@
-import { definePlugin } from "@ryot/plugin-kit/manifest";
+import { definePlugin } from "@ryot/contract/modules/plugins/manifest";
 
 import { mediaConfigSchema } from "./config-schema";
 import { mediaSavedViews } from "./saved-views";

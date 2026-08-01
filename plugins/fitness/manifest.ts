@@ -1,4 +1,4 @@
-import { definePlugin } from "@ryot/plugin-kit/manifest";
+import { definePlugin } from "@ryot/contract/modules/plugins/manifest";
 
 import { fitnessConfigSchema } from "./config-schema";
 import { fitnessSavedViews } from "./saved-views";

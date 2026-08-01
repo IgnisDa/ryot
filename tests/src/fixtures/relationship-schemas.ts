@@ -1,5 +1,5 @@
+import type { ContractPayload } from "@ryot/contract/client";
 import { EntitySchemaSlug, RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect } from "effect";
 
 import { requirePresent } from "~/support/assertions";
@@ -7,13 +7,18 @@ import { requirePresent } from "~/support/assertions";
 import type { Client } from "./auth";
 import { installTestDefinitions } from "./test-plugin";
 
-export interface CreateRelationshipSchemaOptions {
-	name: string;
-	slug: string;
-	sourceEntitySchemaSlug?: string | null;
-	targetEntitySchemaSlug?: string | null;
-	propertiesSchema?: AppSchema;
-}
+type PluginRelationshipSchema = ContractPayload<
+	"plugins",
+	"install"
+>["manifest"]["relationshipSchemas"][number];
+
+export type CreateRelationshipSchemaOptions = Pick<PluginRelationshipSchema, "name" | "slug"> &
+	Partial<
+		Pick<
+			PluginRelationshipSchema,
+			"propertiesSchema" | "sourceEntitySchemaSlug" | "targetEntitySchemaSlug"
+		>
+	>;
 
 export function requireRelationshipSchemaBySlug<T extends { slug: string }>(
 	schemas: readonly T[],

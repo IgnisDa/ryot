@@ -1,6 +1,6 @@
+import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
 import { isAppPropertyRequired } from "@ryot/contract/schema/property-schema";
-import type { PluginManifest } from "@ryot/plugin-kit/manifest";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { Data, Effect } from "effect";
 

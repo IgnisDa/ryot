@@ -1,3 +1,4 @@
+import type { ContractPayload } from "@ryot/contract/client";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -21,6 +22,7 @@ import {
 	pollUntil,
 	providerSandboxSource,
 	reinstallTestPluginScript,
+	testPluginManifest,
 	uninstallTestPlugin,
 	waitForEventWithSchema,
 } from "~/fixtures";
@@ -32,6 +34,8 @@ import {
 	requireObjectRecord,
 } from "~/support/assertions";
 import { assert, describe, expect, it } from "~/support/effect-test";
+
+type PluginScript = ContractPayload<"plugins", "install">["manifest"]["scripts"][number];
 
 describe("plugins", () => {
 	it.live("runs a third-party plugin lifecycle without restarting", () =>
@@ -61,7 +65,7 @@ describe("plugins", () => {
 				requiredSystemConfigKeys: [],
 				providerOperation: "details" as const,
 				name: "E2E Lifecycle Provider details",
-			};
+			} satisfies PluginScript;
 			const searchScript = {
 				providerSlug,
 				capabilities: [],
@@ -72,7 +76,7 @@ describe("plugins", () => {
 				requiredSystemConfigKeys: [],
 				providerOperation: "search" as const,
 				name: "E2E Lifecycle Provider search",
-			};
+			} satisfies PluginScript;
 			const automationScript = {
 				slug: automationSlug,
 				entry: automationEntry,
@@ -81,7 +85,7 @@ describe("plugins", () => {
 				requiredPluginConfigKeys: [],
 				requiredSystemConfigKeys: [],
 				name: "E2E Lifecycle Event Automation",
-			};
+			} satisfies PluginScript;
 			const initialDetailsSource = providerSandboxSource({
 				slug: detailsSlug,
 				operation: "details",
@@ -395,11 +399,10 @@ export default defineAutomation({
 	it.live("rejects non-admin plugin administration", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
+			const manifest = testPluginManifest({ pluginSlug: `unauthorized-${crypto.randomUUID()}` });
 			const failures = yield* Effect.all([
 				Effect.flip(client.call((c) => c.plugins.list({}))),
-				Effect.flip(
-					client.call((c) => c.plugins.install({ payload: { files: {}, manifest: {} } })),
-				),
+				Effect.flip(client.call((c) => c.plugins.install({ payload: { files: {}, manifest } }))),
 				Effect.flip(
 					client.call((c) =>
 						c.plugins.uninstall({

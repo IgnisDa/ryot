@@ -7,6 +7,7 @@
 		}
 	},
 	"scripts": {
+		"test": "bun --bun run vitest run",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
@@ -14,5 +15,10 @@
 		"@ryot/sandbox-sdk": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
 		"effect": "4.0.0-beta.105"
+	},
+	"devDependencies": {
+		"@ryot/testing": "workspace:*",
+		"bun-types": "1.3.14",
+		"vitest": "4.1.9"
 	}
 }

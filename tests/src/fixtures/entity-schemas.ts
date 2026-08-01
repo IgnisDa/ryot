@@ -5,7 +5,6 @@ import {
 	type SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Brand, Effect } from "effect";
 
 import { assertPresent, requirePresent } from "~/support/assertions";
@@ -24,16 +23,15 @@ type EnqueueEntitySearchBody = Omit<
 
 type EnqueueEntityImportBody = ContractPayload<"entityImport", "import">;
 type EntitySchemaInputSlug = ContractPayload<"entities", "create">["entitySchemaSlug"];
+type PluginManifest = ContractPayload<"plugins", "install">["manifest"];
+type PluginEntitySchema = PluginManifest["entitySchemas"][number];
 
 export const makeEntitySchemaSlug = Brand.nominal<EntitySchemaInputSlug>();
-export interface CreateEntitySchemaOptions {
-	icon?: string;
-	name?: string;
-	slug?: string;
-	pluginSlug: string;
-	accentColor?: string;
-	propertiesSchema?: AppSchema;
-}
+export type CreateEntitySchemaOptions = Partial<
+	Pick<PluginEntitySchema, "icon" | "name" | "slug" | "accentColor" | "propertiesSchema">
+> & {
+	pluginSlug: PluginManifest["metadata"]["slug"];
+};
 
 export const createEntitySchema = (_client: Client, options: CreateEntitySchemaOptions) =>
 	Effect.gen(function* () {

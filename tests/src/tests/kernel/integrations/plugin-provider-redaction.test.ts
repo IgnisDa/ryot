@@ -1,5 +1,5 @@
+import type { ContractPayload } from "@ryot/contract/client";
 import { IntegrationId } from "@ryot/contract/schema/brands";
-import type { PluginManifest } from "@ryot/plugin-kit/manifest";
 import { Effect } from "effect";
 
 import {
@@ -13,6 +13,8 @@ import {
 } from "~/fixtures";
 import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+
+type PluginManifest = ContractPayload<"plugins", "install">["manifest"];
 
 const settingsSchema = {
 	unknownKeys: "strict",

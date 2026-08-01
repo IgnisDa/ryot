@@ -1,4 +1,7 @@
-import type { PluginConfigSchema, PluginImportSource } from "@ryot/plugin-kit/manifest";
+import type {
+	PluginConfigSchema,
+	PluginImportSource,
+} from "@ryot/contract/modules/plugins/manifest";
 import { Context, Effect, Layer } from "effect";
 
 import { PluginLoader, type PluginRegistrySnapshot } from "./loader";

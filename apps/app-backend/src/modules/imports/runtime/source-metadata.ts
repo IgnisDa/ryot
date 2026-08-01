@@ -1,5 +1,5 @@
-import { pluginConfigEnvironmentKey } from "@ryot/config";
 import type { CreateImportRunBody } from "@ryot/contract/modules/imports/schemas";
+import { pluginConfigEnvironmentKey } from "@ryot/contract/modules/plugins/plugin-config";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { Effect } from "effect";
 

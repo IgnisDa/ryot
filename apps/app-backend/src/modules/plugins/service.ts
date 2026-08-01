@@ -1,6 +1,6 @@
 import { badRequest, conflict, notFound } from "@ryot/contract/errors";
+import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import type { PluginListItem } from "@ryot/contract/modules/plugins/schemas";
-import type { PluginManifest } from "@ryot/plugin-kit/manifest";
 import { compilePluginSandboxSourceEntries } from "@ryot/sandbox-compiler/plugins";
 import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { stableStringify } from "@ryot/ts-utils/json";
