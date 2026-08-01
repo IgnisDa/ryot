@@ -585,7 +585,9 @@ const result = await ryot.data.query(recipe);
 
 The recipe owns its query document and result decoder. The client executes the document and decodes the result locally; consumers do not parse generic `RowItem` values directly. Query requests use the existing user-scoped backend authorization behavior rather than a client-specific bypass.
 
-`invokeOperation` remains the current plugin operation API. It takes an operation slug, input, and output codec, but no input codec. The backend validates operation input and the client decodes the returned value against `output`. A rejected call throws `PluginOperationError` carrying one `reason`: `"operation-failed"` for a failure the backend declared, `"transport"` for an unexpected one, or `"malformed-result"` when the value does not decode against `output`.
+`invokeOperation` remains the current plugin operation API. It takes an operation slug, a required JSON-compatible `input`, and an output codec, but no input codec. A no-input operation sends `input: null`; omission is not a no-input convention. The SDK checks the input with the canonical `isJsonValue` guard from `@ryot/contract/schema/json` and rejects invalid input as `PluginOperationError` with reason `"invalid-input"` before invoking the adapter. The backend validates accepted operation input and the client decodes the returned value against `output`. A rejected call throws `PluginOperationError` carrying `"operation-failed"` for a failure the backend declared, `"transport"` for an unexpected or non-JSON transport value, or `"malformed-result"` when a JSON result does not decode against `output`.
+
+The canonical `JsonValue` type and schema value, also from `@ryot/contract/schema/json`, define the dynamic value boundary for the SDK and bridge. Strict schemas reject values outside that boundary; values are never normalized with `JSON.stringify` or another lossy conversion. The kernel validates a successful operation value before sending it over the bridge, so a non-JSON value becomes a transport failure and never crosses the port. `Schema.Unknown`, duplicated validators, and unchecked casts are not part of this contract.
 
 `@ryot/client-sdk/effect` re-exports `Schema` and nothing else, mirroring `@ryot/sandbox-sdk/effect` for backend scripts, so both halves of a plugin describe their operation payloads the same way. Plugin source must import `Schema` through that subpath; a bare `effect` import stays untrusted.
 
@@ -693,11 +695,11 @@ Protocol V3 implements strict request/response calls for plugin data access. It 
 
 Compared with the former V2 contract, V3 makes the bridge version marker `3`, replaces the separate location/query/operation listener ownership with one runtime dispatcher, adds the strict `{ type: "lifecycle-close", reason: "disposed" | "failed" }` message, and makes runtime disposal the source of pending-call rejection. The request and result correlation rules and installation-bound identity rules remain strict; V3 does not preserve a V2 wire shape under another name.
 
-Plugin to kernel carries `{ type: "operation-request", requestId, operationSlug, input }`. Kernel to plugin answers `{ type: "operation-result", requestId, outcome }`, where `outcome` is `{ outcome: "success", value }` or `{ outcome: "failure", reason }` and `reason` is `"operation-failed"` for a failure the backend declared or `"transport"` for an unexpected one. The SDK adds a third plugin-side reason, `"malformed-result"`, when a success value does not decode against the caller's output schema.
+Plugin to kernel carries `{ type: "operation-request", requestId, operationSlug, input: JsonValue }`; `input` is required. Kernel to plugin answers `{ type: "operation-result", requestId, outcome }`, where `outcome` is `{ outcome: "success", value: JsonValue }` or `{ outcome: "failure", reason }` and `reason` is `"operation-failed"` for a failure the backend declared or `"transport"` for an unexpected one. The SDK adds `"invalid-input"` for a rejected SDK input and `"malformed-result"` when a JSON success value does not decode against the caller's output schema. A non-JSON kernel success value is changed to a `"transport"` outcome before the bridge post; it is not stringified or otherwise normalized.
 
 Recipe queries carry the recipe document through the same exact V3 session protocol. The response is decoded locally by the recipe's decoder after the client receives it.
 
-`input` is optional on the wire and the kernel forwards an absent one as JSON `null`, so a plugin that omits it gets the backend's typed input rejection rather than a call that never settles.
+`input` is required on the wire. A no-input operation explicitly sends JSON `null`; an omitted input fails strict request decoding and is not treated as a no-input call.
 
 The request carries no plugin, installation, package, artifact, user, or server identity, and every bridge message is a strict schema, so a request that smuggles such a field fails to decode and is dropped. The kernel binds identity from the session it established and invokes only through the ordinary authenticated backend operation route.
 
@@ -705,7 +707,7 @@ Correlation is per-session: `requestId` need only be unique on one port, and the
 
 Teardown is a shared runtime lifecycle. Closing or replacing a bridge enters `closing`, rejects every plugin-side pending call exactly once, aborts kernel work on a best-effort basis, releases request bookkeeping, sends no ordinary responses after closure, and then reaches `disposed` for normal disposal or `failed` for failure. Replacing the iframe is a later host cleanup step, not the mechanism that settles promises.
 
-Only declared result values, outcomes, failure reasons, semantic theme state, and lifecycle signals cross the port. Internal causes and backend diagnostics stay in the kernel.
+Only strict-schema values within the canonical JSON boundary, declared outcomes, failure reasons, semantic theme state, and lifecycle signals cross the port. Unsupported values are rejected, never normalized. Internal causes and backend diagnostics stay in the kernel.
 
 ### Bridge identity
 
@@ -1677,7 +1679,6 @@ V1 does not support:
 The high-level architecture does not depend on deciding these upfront:
 
 - client artifact storage, retention, and garbage collection
-- exact bridge wire encoding
 - exact set of initial SDK methods
 - exact `client-ui-sdk` component catalog
 - exact gesture implementation library

@@ -52,6 +52,24 @@ describe("createRyotClient", () => {
 		).rejects.toMatchObject({ reason: "transport" });
 	});
 
+	it("rejects invalid JSON input before consulting the adapter", async () => {
+		let calls = 0;
+		const client = createRyotClient({
+			query: () => Promise.resolve({}),
+			invokeOperation: () => {
+				calls += 1;
+				return Promise.resolve({ greeting: "unused" });
+			},
+		});
+
+		await expect(
+			Reflect.apply(client.data.invokeOperation, client.data, [
+				{ slug: "greet", output: Greeting, input: { invalid: undefined } },
+			]),
+		).rejects.toMatchObject({ reason: "invalid-input" });
+		expect(calls).toBe(0);
+	});
+
 	it("rejects operations when the environment does not provide that capability", async () => {
 		const client = createRyotClient({ query: () => Promise.resolve({}) });
 
