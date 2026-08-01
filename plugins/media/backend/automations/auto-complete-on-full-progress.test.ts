@@ -69,8 +69,25 @@ const createHost = (options: {
 	};
 };
 
-const run = (context: AutomationInput, host: ReturnType<typeof createHost>["host"]) =>
-	definition.run(context, host, execution);
+const run = (context: AutomationInput, host: ReturnType<typeof createHost>["host"]) => {
+	const payload = context.automation.payload;
+	const input =
+		payload.category === "change" && payload.resource === "event" && payload.operation === "create"
+			? {
+					...context,
+					automation: {
+						...context.automation,
+						payload: {
+							items: [payload],
+							resource: "event" as const,
+							category: "change" as const,
+							operation: "batch" as const,
+						},
+					},
+				}
+			: context;
+	return definition.run(input, host, execution);
+};
 
 describe("auto-complete-on-full-progress sandbox script", () => {
 	it("ignores progress events below full completion", () => {
