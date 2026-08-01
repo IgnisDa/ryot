@@ -32,7 +32,7 @@ it.effect("round trips request and response bytes through canonical Base64", () 
 		const artifact = {
 			format: 1,
 			hash: "hash",
-			apiVersion: 1,
+			apiVersion: CLIENT_API_VERSION,
 			compilerVersion: CLIENT_COMPILER_VERSION,
 			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 			files: [

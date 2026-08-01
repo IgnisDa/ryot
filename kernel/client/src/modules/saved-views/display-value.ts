@@ -21,5 +21,8 @@ export function formatSavedViewValue(value: SavedViewDisplayValue, locales?: Int
 	if (value.displayKind === "json") {
 		return formatJson(value.value);
 	}
+	if (value.displayKind === "managed-asset") {
+		return "";
+	}
 	return new Intl.DateTimeFormat(locales, { timeZone: "UTC" }).format(new Date(value.value));
 }

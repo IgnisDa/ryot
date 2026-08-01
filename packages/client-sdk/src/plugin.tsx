@@ -8,7 +8,13 @@ import {
 } from "@ryot-app/client-plugin-contract";
 import { useShortcut } from "@ryot-app/client-ui-sdk";
 import { Result, Schema } from "effect";
-import { createContext, useContext, useSyncExternalStore, type ComponentType } from "react";
+import {
+	createContext,
+	useContext,
+	useEffect,
+	useSyncExternalStore,
+	type ComponentType,
+} from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 import {
@@ -30,6 +36,9 @@ import { createBootstrapRyotRuntime, type RyotPluginRuntime } from "./schedule";
 type ClientPluginDefinition = PluginRouterDefinition;
 
 const PageContext = createContext<ClientPageContext | undefined>(undefined);
+const PageRefreshContext = createContext<
+	ReturnType<typeof createPluginRuntime>["pageRefresh"] | undefined
+>(undefined);
 
 export const usePageContext = () => {
 	const context = useContext(PageContext);
@@ -37,6 +46,16 @@ export const usePageContext = () => {
 		throw new Error("Page context is only available in a mounted page");
 	}
 	return context;
+};
+
+export const usePageRefresh = (refresh: () => void) => {
+	const source = useContext(PageRefreshContext);
+	useEffect(() => {
+		const unsubscribe = source?.subscribe(refresh);
+		return () => {
+			unsubscribe?.();
+		};
+	}, [refresh, source]);
 };
 
 const decodeArtifactMetadata = Schema.decodeUnknownResult(
@@ -90,10 +109,12 @@ const bootstrapClientApplication = (
 				root.render(
 					<RyotProvider runtime={sdkRuntime}>
 						<EntityPresentationRegistryProvider registrations={registrations}>
-							<PageContext.Provider value={runtime.page}>
-								<KernelShortcutForwarder runtime={runtime} />
-								<PluginRouter />
-							</PageContext.Provider>
+							<PageRefreshContext.Provider value={runtime.pageRefresh}>
+								<PageContext.Provider value={runtime.page}>
+									<KernelShortcutForwarder runtime={runtime} />
+									<PluginRouter />
+								</PageContext.Provider>
+							</PageRefreshContext.Provider>
 						</EntityPresentationRegistryProvider>
 					</RyotProvider>,
 				);

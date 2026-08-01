@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest";
+import { CLIENT_API_VERSION } from "@ryot-app/client-plugin-contract";
 import type { ClientRendererDefinition } from "@ryot-app/contract/modules/client-pages/schemas";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { ClientRendererId, PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
@@ -282,9 +283,9 @@ it.effect("adds enabled automatic providers and fingerprints provider metadata",
 			},
 		]);
 		expect(first.identity.kernelAutomaticFallback).toEqual({
-			runtimeVersion: 1,
 			provider: "kernel",
 			layouts: ["grid", "list"],
+			runtimeVersion: CLIENT_API_VERSION,
 		});
 		const changed = presentation("fitness-source-2");
 		const second = yield* resolve(renderer, "export default function Page() {}", [changed], files);

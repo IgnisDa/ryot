@@ -1,4 +1,5 @@
 import {
+	CLIENT_API_VERSION,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 } from "@ryot-app/client-plugin-contract";
@@ -24,10 +25,10 @@ it("builds stable metadata from the plugin name, sorted byte hashes, and metadat
 
 	expect(clientArtifactMetadata("Fixture plugin", [first, second])).toEqual({
 		format: 1,
-		apiVersion: 1,
+		apiVersion: CLIENT_API_VERSION,
 		compilerVersion: CLIENT_COMPILER_VERSION,
 		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
-		hash: "c3ef18e9f8597f871b4e4d9d94ec7ad0925c1f8d868de1773602f7870f9de47b",
+		hash: "34fcbdc1f7ace24124be7de436bc7077d47370a71f061c5d930ad680510f7d1a",
 	});
 	expect(clientArtifactMetadata("Fixture plugin", [first, second])).toEqual(
 		clientArtifactMetadata("Fixture plugin", [second, first]),

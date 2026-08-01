@@ -518,6 +518,29 @@ describe("createRyotClient", () => {
 		]);
 	});
 
+	it("validates and delegates semantic provider-search screen requests", () => {
+		const requests: unknown[] = [];
+		const client = createRyotClient(
+			createTestRyotAdapter({
+				openProviderSearch: (request) => requests.push(request),
+			}),
+		);
+
+		client.screens.openProviderSearch({
+			initialQuery: "Dune",
+			entitySchemaSlug: "movie",
+			ownerPluginId: "media-installation",
+		});
+		expect(requests).toEqual([
+			{ initialQuery: "Dune", entitySchemaSlug: "movie", ownerPluginId: "media-installation" },
+		]);
+		expect(() =>
+			Reflect.apply(client.screens.openProviderSearch, undefined, [
+				{ ownerPluginId: "", entitySchemaSlug: "movie" },
+			]),
+		).toThrow(new RyotClientError("invalid-input"));
+	});
+
 	it("rejects navigation when the environment does not provide that capability", () => {
 		const client = createRyotClient(createTestRyotAdapter({ query: () => Promise.resolve({}) }));
 
