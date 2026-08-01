@@ -136,7 +136,9 @@ describe("definition registry", () => {
 					...source.savedViews.slice(1),
 				],
 			}),
-		).toThrow(/Invalid saved view collections.*missing/);
+		).toThrow(
+			"Invalid saved view collections: Grid layout: mapping field 'missing' is not in its root projection",
+		);
 		expect(() =>
 			buildDefinitionSnapshot({
 				...source,
