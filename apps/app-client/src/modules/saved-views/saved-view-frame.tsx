@@ -1,3 +1,4 @@
+import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import clsx from "clsx";
 import { useRouter } from "expo-router";
 import { useRef, useState, type ReactNode } from "react";
@@ -22,7 +23,13 @@ export function SavedViewFrame(props: {
 	children: ReactNode;
 	onAdd?: () => void;
 	search?: SavedViewSearch;
-	title?: { icon: string; name: string; loaded: number; hasMore: boolean };
+	title?: {
+		icon: string;
+		name: string;
+		loaded: number;
+		hasMore: boolean;
+		queryDocument: RyotQLDocument;
+	};
 }) {
 	const router = useRouter();
 	const drawer = useWorkspaceDrawer();
@@ -106,6 +113,7 @@ export function SavedViewFrame(props: {
 										loaded={props.title.loaded}
 										hasMore={props.title.hasMore}
 										textClassName="font-ui text-[11px]"
+										queryDocument={props.title.queryDocument}
 									/>
 								</View>
 							)}
