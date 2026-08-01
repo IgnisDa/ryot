@@ -4,6 +4,7 @@ import type { ScenarioRequest } from "./artifacts";
 import type { HostSampleLine } from "./host/samples";
 import {
 	type AppRecord,
+	attachRequestTimings,
 	executionTimings,
 	hostMetrics,
 	repetitionMetrics,
@@ -250,6 +251,41 @@ describe("executionTimings", () => {
 	});
 });
 
+describe("attachRequestTimings", () => {
+	const keyed = (
+		executionKey: string | null,
+		index: number,
+	): ScenarioRequest & { readonly executionKey: string | null } => ({
+		...request(index, 2_000),
+		executionKey,
+	});
+	const workers = new Map([["exec-1", { attempts: 2, queueWaitMs: 500, executionMs: 700 }]]);
+	const phases = new Map([["import-a", { attempts: 4, queueWaitMs: 100, executionMs: 1_400 }]]);
+
+	it("joins import submissions to phase timings and leaves unmatched keys null", () => {
+		const attached = attachRequestTimings(
+			[keyed("import-a", 0), keyed("exec-1", 1), keyed("unknown", 2), keyed(null, 3)],
+			{ phases, workers, usePhaseTimings: true },
+		);
+
+		expect(attached[0]).toMatchObject({ attempts: 4, queueWaitMs: 100, executionMs: 1_400 });
+		expect(attached[1]).toMatchObject({ attempts: null, queueWaitMs: null, executionMs: null });
+		expect(attached[2]).toMatchObject({ attempts: null, queueWaitMs: null, executionMs: null });
+		expect(attached[3]).toMatchObject({ attempts: null, queueWaitMs: null, executionMs: null });
+	});
+
+	it("joins direct submissions to worker timings when phase timings are off", () => {
+		const attached = attachRequestTimings([keyed("import-a", 0), keyed("exec-1", 1)], {
+			phases,
+			workers,
+			usePhaseTimings: false,
+		});
+
+		expect(attached[0]).toMatchObject({ attempts: null, queueWaitMs: null, executionMs: null });
+		expect(attached[1]).toMatchObject({ attempts: 2, queueWaitMs: 500, executionMs: 700 });
+	});
+});
+
 describe("requestMetrics", () => {
 	it("derives throughput from completed requests over the submission-to-last-terminal window", () => {
 		const metrics = requestMetrics(
@@ -260,6 +296,19 @@ describe("requestMetrics", () => {
 		expect(metrics["requests.throughputPerMinute"]).toBe(2);
 		expect(metrics["requests.failed"]).toBe(1);
 		expect(metrics["requests.latencyMs.p50"]).toBe(45_000);
+	});
+
+	it("derives non-null queue and execution spreads once requests carry the split", () => {
+		const metrics = requestMetrics(
+			[{ ...request(0, 2_000), attempts: 4, queueWaitMs: 100, executionMs: 1_400 }],
+			{ submittedAtMs: 0, terminalAtMs: 2_000, completedAtMs: 3_000 },
+		);
+
+		expect(metrics["requests.executionMs.p50"]).toBe(1_400);
+		expect(metrics["requests.queueWaitMs.p50"]).toBe(100);
+		expect(
+			(metrics["requests.queueWaitMs.p50"] ?? 0) + (metrics["requests.executionMs.p50"] ?? 0),
+		).toBeLessThanOrEqual(2_000);
 	});
 });
 
