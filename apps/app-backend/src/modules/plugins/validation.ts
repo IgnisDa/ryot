@@ -122,14 +122,9 @@ const privateRejectedCollections = [
 	"boot",
 	"crons",
 	"workflows",
-	"providers",
-	"savedViews",
 	"importSources",
 	"userBootstrap",
-	"signalSchemas",
-	"entitySchemas",
 	"httpRateLimits",
-	"relationshipSchemas",
 	"integrationProviders",
 ] as const satisfies ReadonlyArray<
 	{
@@ -146,7 +141,11 @@ export const validatePrivateManifestSurfaces = (manifest: PluginManifestValue) =
 			...Object.entries(manifest.bindings).flatMap(([field, bindings]) =>
 				bindings.length > 0 ? [`bindings.${field}`] : [],
 			),
-			...(manifest.scripts.some((script) => script.kind !== "operation") ? ["scripts"] : []),
+			...(manifest.scripts.some(
+				(script) => !["automation", "operation", "provider"].includes(script.kind),
+			)
+				? ["scripts"]
+				: []),
 			...(manifest.operations.some((operation) => operation.auth !== "user") ? ["operations"] : []),
 		];
 		return surfaces.length > 0 ? yield* new PluginSurfaceError({ surfaces }) : yield* Effect.void;

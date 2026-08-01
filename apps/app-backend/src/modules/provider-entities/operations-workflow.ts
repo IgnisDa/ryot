@@ -24,7 +24,11 @@ const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: 
 	Effect.gen(function* () {
 		const sandbox = yield* SandboxExecutionService;
 		const pluginRuntime = yield* PluginRuntimeResolver;
-		const resolveScript = pluginRuntime.resolveDetailsScript(payload.providerId).pipe(
+		const resolveScript = (
+			payload.userId
+				? pluginRuntime.resolveUserDetailsScript(payload.userId, payload.providerId)
+				: pluginRuntime.resolveDetailsScript(payload.providerId)
+		).pipe(
 			Effect.map(({ id }) => id),
 			Effect.mapError(toSandboxRunError),
 		);

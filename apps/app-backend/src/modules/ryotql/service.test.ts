@@ -322,8 +322,10 @@ it.effect(
 			const service = yield* RyotQLService;
 			const response = yield* service.executeForUser("user-1", null, document);
 
-			expect(statements[2]).toContain("FROM (SELECT * FROM sandbox_provider)");
-			expect(statements[2]).toContain("INNER JOIN (SELECT * FROM sandbox_provider_operation)");
+			expect(statements[2]).toMatch(/FROM \(SELECT \* FROM sandbox_provider WHERE EXISTS \(/);
+			expect(statements[2]).toMatch(
+				/INNER JOIN \(SELECT \* FROM sandbox_provider_operation WHERE EXISTS \(/,
+			);
 			expect(statements[2]).toMatch(
 				/INNER JOIN \(SELECT \* FROM plugin WHERE \(owner_id = \$\d+ OR owner_id IS NULL\)\)/,
 			);

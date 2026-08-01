@@ -12,6 +12,8 @@ import { Effect, Layer } from "effect";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { databaseLayer, type MockOverrides } from "#lib/test-utils/effect";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
+import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { SavedViewsRepository } from "./repository";
 import { SavedViewsService } from "./service";
@@ -360,5 +362,105 @@ it.effect("persists builtin layouts unchanged", () => {
 		yield* service.ensureBuiltinViews(user.id);
 		expect(builtinLayouts).toEqual(layouts);
 		expect(builtinEntitySchemaSlug).toBeNull();
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("persists exact private plugin ownership for builtin and custom views", () => {
+	const updatedViews: unknown[] = [];
+	const installedViews: unknown[] = [];
+	const pluginId = "private-plugin-id";
+	const includeUnavailableCalls: boolean[] = [];
+	const installationId = "private-installation-id";
+	const definitions = makeDefinitionRegistry({
+		signalSchemas: [],
+		relationshipSchemas: [],
+		entitySchemas: [
+			{
+				pluginId,
+				icon: "book",
+				name: "Book",
+				slug: "book",
+				eventSchemas: [],
+				pluginSlug: "private-plugin",
+				propertiesSchema: { fields: {} },
+			},
+		],
+		savedViews: [
+			{
+				layouts,
+				pluginId,
+				icon: "book",
+				sortOrder: 0,
+				slug: "plugin-view",
+				name: "Plugin View",
+				entitySchemaSlug: "book",
+				pluginSlug: "private-plugin",
+			},
+		],
+	}).getSnapshot();
+	const layer = SavedViewsService.layer.pipe(
+		Layer.provideMerge(
+			Layer.mergeAll(
+				databaseLayer,
+				makeDefinitionRegistryLayer(),
+				makeRepository({
+					findBySlug: () => Effect.succeed(baseView),
+					ensureBuiltinViews: (_userId, views) =>
+						Effect.sync(() => void installedViews.push(...views)),
+					updateBySlug: (_userId, _slug, data) =>
+						Effect.sync(() => {
+							updatedViews.push(data);
+							return {
+								...baseView,
+								...data,
+								pluginSlug: data.pluginSlug ?? null,
+								sortOrder: data.sortOrder ?? baseView.sortOrder,
+							};
+						}),
+				}),
+				Layer.mock(PluginRuntimeResolver)({
+					getEffectiveDefinitions: (_userId, includeUnavailable) => {
+						includeUnavailableCalls.push(includeUnavailable ?? false);
+						return Effect.succeed(definitions);
+					},
+				}),
+				Layer.mock(PluginInstallationRepository)({
+					listForUser: () =>
+						Effect.succeed([
+							{
+								pluginId,
+								config: {},
+								sortOrder: 0,
+								health: "ready",
+								userId: user.id,
+								isDisabled: false,
+								healthReason: null,
+								id: installationId,
+								pluginScope: "user",
+								pluginSlug: "private-plugin",
+								createdAt: new Date(0),
+								updatedAt: new Date(0),
+							},
+						]),
+				}),
+			),
+		),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* SavedViewsService;
+		yield* service.ensureBuiltinViews(user.id);
+		yield* service.update(user, baseView.slug, {
+			...createBody,
+			isDisabled: false,
+			entitySchemaSlug: EntitySchemaSlug.make("book"),
+		});
+		expect(installedViews).toMatchObject([
+			{ pluginInstallationId: installationId, entitySchemaPluginId: pluginId },
+		]);
+		expect(includeUnavailableCalls).toContain(true);
+		expect(updatedViews).toMatchObject([
+			{ entitySchemaSlug: "book", entitySchemaPluginId: pluginId },
+		]);
 	}).pipe(Effect.provide(layer));
 });

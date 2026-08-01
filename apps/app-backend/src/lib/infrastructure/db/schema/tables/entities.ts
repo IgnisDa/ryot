@@ -3,7 +3,7 @@ import { isNull, sql } from "drizzle-orm";
 import { index, jsonb, snakeCase, text, timestamp, unique, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
-import { sandboxProvider } from "./core";
+import { plugin, sandboxProvider } from "./core";
 
 export const entity = snakeCase.table(
 	"entity",
@@ -16,6 +16,7 @@ export const entity = snakeCase.table(
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		properties: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		providerId: text().references(() => sandboxProvider.id, { onDelete: "cascade" }),
+		entitySchemaPluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
 		id: text()
 			.notNull()
 			.primaryKey()
@@ -30,6 +31,7 @@ export const entity = snakeCase.table(
 		index("entity_external_id_idx").on(table.externalId),
 		index("entity_provider_id_idx").on(table.providerId),
 		index("entity_entity_schema_slug_idx").on(table.entitySchemaSlug),
+		index("entity_entity_schema_plugin_id_idx").on(table.entitySchemaPluginId),
 		index("entity_properties_idx").using("gin", table.properties),
 		unique("entity_user_schema_provider_external_id_unique").on(
 			table.userId,
@@ -61,6 +63,7 @@ export const relationship = snakeCase.table(
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		properties: jsonb().$type<Record<string, unknown>>().notNull().default({}),
+		relationshipSchemaPluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
 		sourceEntityId: text()
 			.notNull()
 			.references(() => entity.id, { onDelete: "cascade" }),
@@ -74,6 +77,7 @@ export const relationship = snakeCase.table(
 	},
 	(table) => [
 		index("relationship_schema_slug_idx").on(table.relationshipSchemaSlug),
+		index("relationship_schema_plugin_id_idx").on(table.relationshipSchemaPluginId),
 		index("relationship_source_entity_id_idx").on(table.sourceEntityId),
 		index("relationship_target_entity_id_idx").on(table.targetEntityId),
 		index("relationship_properties_idx").using("gin", table.properties),

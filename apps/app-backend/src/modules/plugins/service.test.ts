@@ -169,6 +169,7 @@ const makeLayer = (input?: {
 	readonly hasEntityReferences?: boolean;
 	readonly cachedManifest?: PluginManifest;
 	readonly installed?: Array<StoredPlugin>;
+	readonly hasDefinitionReferences?: boolean;
 	readonly hasIntegrationReferences?: boolean;
 	readonly afterPersist?: Effect.Effect<void>;
 	readonly persisted?: Array<NormalizedPlugin>;
@@ -206,6 +207,7 @@ const makeLayer = (input?: {
 					input?.events?.push("lock");
 				})),
 		hasEntityReferences: () => Effect.succeed(input?.hasEntityReferences ?? false),
+		hasDefinitionReferences: () => Effect.succeed(input?.hasDefinitionReferences ?? false),
 		hasIntegrationReferences: () => Effect.succeed(input?.hasIntegrationReferences ?? false),
 		findBySourceHash: ({ sourceHash }) =>
 			Effect.sync(() => {

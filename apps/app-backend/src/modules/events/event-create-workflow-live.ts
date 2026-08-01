@@ -41,12 +41,13 @@ const PreparedItem = Schema.Struct({
 	occurredAt: Schema.String,
 	subjectName: Schema.String,
 	propertiesSchema: AppSchema,
-	eventSchemaSlug: EventSchemaSlug,
 	eventSchemaName: Schema.String,
-	entitySchemaSlug: EntitySchemaSlug,
+	eventSchemaSlug: EventSchemaSlug,
 	properties: AutomationProperties,
+	entitySchemaSlug: EntitySchemaSlug,
 	sessionEntityId: Schema.optional(EntityId),
 	policies: Schema.Array(PreparedEventPolicy),
+	eventSchemaPluginId: Schema.NullOr(Schema.String),
 });
 
 type PreparedItem = typeof PreparedItem.Type;
@@ -145,6 +146,7 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 				eventSchemaName: eventSchemaScope.name,
 				entitySchemaSlug: entityScope.entitySchemaSlug,
 				propertiesSchema: eventSchemaScope.propertiesSchema,
+				eventSchemaPluginId: eventSchemaScope.pluginId ?? null,
 				policies: policies.map((policy) => ({
 					id: policy.id,
 					metadata: policy.metadata,
@@ -176,6 +178,7 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 				sessionEntityId: draft.sessionEntityId,
 				eventSchemaSlug: prepared.eventSchemaSlug,
 				eventSchemaName: prepared.eventSchemaName,
+				eventSchemaPluginId: prepared.eventSchemaPluginId,
 				id: EventId.make(`${payload.executionId}-event-${itemIndex}`),
 				occurredAt: DateTime.toDate(DateTime.makeUnsafe(draft.occurredAt)),
 			});

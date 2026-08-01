@@ -1990,9 +1990,10 @@ it.effect("clears an explicit empty relationship group", () => {
 			expect(calls).toEqual([
 				{
 					scope: "global",
+					relationshipSchemaPluginId: null,
 					sourceEntityId: EntityId.make("entity-1"),
-					targetEntityId: EntityId.make("stale-target"),
 					relationshipSchemaSlug: mediaSuggestionSchema.id,
+					targetEntityId: EntityId.make("stale-target"),
 				},
 			]);
 		}),
