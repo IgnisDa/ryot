@@ -125,15 +125,15 @@ Atom.family((viewSlug: string) =>
 
 ## Phase 3: Build The Presentation Boundary
 
-- [ ] Add one pure helper that converts the saved view's single rows result into renderer-owned items.
-- [ ] Keep generic `RowItem` parsing inside this helper; UI components must not parse projection keys.
-- [ ] Decode scalar values with the exported concrete RyotQL value schemas so `kind` and `value` agree.
-- [ ] Reject nested results, missing configured fields, malformed scalar values, and non-text IDs/titles as decode errors.
-- [ ] Accept text or null for configured image fields.
-- [ ] Keep absent image mappings distinct from configured images whose row value is null.
-- [ ] Preserve table labels and column order.
-- [ ] Return the rows and `pageInfo` together.
-- [ ] Validate dates before formatting, or make date formatting return a safe fallback instead of throwing.
+- [x] Add one pure helper that converts the saved view's single rows result into renderer-owned items.
+- [x] Keep generic `RowItem` parsing inside this helper; UI components must not parse projection keys.
+- [x] Decode scalar values with the exported concrete RyotQL value schemas so `kind` and `value` agree.
+- [x] Reject nested results, missing configured fields, malformed scalar values, and non-text IDs/titles as decode errors.
+- [x] Accept text or null for configured image fields.
+- [x] Keep absent image mappings distinct from configured images whose row value is null.
+- [x] Preserve table labels and column order.
+- [x] Return the rows and `pageInfo` together.
+- [x] Validate dates before formatting, or make date formatting return a safe fallback instead of throwing.
 
 Use a small presentation shape. It only needs:
 
