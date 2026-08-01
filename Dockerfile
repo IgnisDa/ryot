@@ -64,7 +64,6 @@ ENV FRONTEND_UMAMI_WEBSITE_ID="5ecd6915-d542-4fda-aa5f-70f09f04e2e0"
 WORKDIR /home/ryot
 RUN mkdir -p /home/ryot/storage /home/ryot/work && chown -R ryot:ryot /home/ryot/storage /home/ryot/work
 COPY --chown=ryot:ryot kernel/backend/src/drizzle ./src/drizzle
-COPY --chown=ryot:ryot kernel/backend/src/modules/definition-registry/kernel-scripts /src/modules/definition-registry/kernel-scripts
 COPY --chown=ryot:ryot plugins /plugins
 COPY --from=client-builder --chown=ryot:ryot /app/kernel/client/dist ./client
 COPY --from=backend-builder --chown=ryot:ryot /app/apps/server/dist ./dist

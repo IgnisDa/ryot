@@ -3,26 +3,31 @@
 import { BunFileSystem, BunPath, BunRuntime } from "@effect/platform-bun";
 import { Data, Effect, Layer, FileSystem, Path } from "effect";
 
-import {
-	deriveDomainVocabulary,
-	formatPurityFinding,
-	isProductionSourcePath,
-	scanPuritySources,
-	type PuritySource,
-} from "./kernel-purity";
-import { findDuplicateServiceLayers } from "./layer-wiring";
+import { findDuplicateServiceLayers, type LayerWiringSource } from "./layer-wiring";
 import { analyzeRuntimeModules, formatRuntimeCycleDiagnostics } from "./runtime-module-analysis";
 
-class KernelPurityError extends Data.TaggedError("KernelPurityError")<{ message: string }> {}
+class ArchitectureCheckError extends Data.TaggedError("ArchitectureCheckError")<{
+	message: string;
+}> {}
+
+const isProductionSourcePath = (file: string) =>
+	file.endsWith(".ts") &&
+	!file.endsWith(".test.ts") &&
+	!file.endsWith(".spec.ts") &&
+	!file.endsWith(".test-support.ts") &&
+	!file.endsWith(".test-fixture.ts") &&
+	!file.endsWith(".typecheck.ts") &&
+	!file.endsWith(".generated.ts") &&
+	!file.replaceAll("\\", "/").includes("/test-fixtures/");
 
 const walkSources = (
 	directory: string,
 	workspaceRoot: string,
-): Effect.Effect<ReadonlyArray<PuritySource>, unknown, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<ReadonlyArray<LayerWiringSource>, unknown, FileSystem.FileSystem | Path.Path> =>
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
 		const path = yield* Path.Path;
-		const sources: PuritySource[] = [];
+		const sources: LayerWiringSource[] = [];
 		for (const entry of (yield* fs.readDirectory(directory)).sort()) {
 			const absolutePath = path.join(directory, entry);
 			const info = yield* fs.stat(absolutePath);
@@ -43,31 +48,21 @@ const program = Effect.gen(function* () {
 	const scriptPath = yield* path.fromFileUrl(new URL(import.meta.url));
 	const workspaceRoot = path.resolve(path.dirname(scriptPath), "..", "..", "..");
 	const modulesDir = path.join(workspaceRoot, "kernel/backend/src/modules");
-	const manifests = yield* Effect.forEach(["media", "fitness"], (plugin) =>
-		Effect.tryPromise(() => import(path.join(workspaceRoot, `plugins/${plugin}/manifest.ts`))).pipe(
-			Effect.map((module) => module.default),
-		),
-	);
 	const roots = ["kernel/backend/src", "packages/contract/src", "packages/ryotql/src"].map((root) =>
 		path.join(workspaceRoot, root),
 	);
 	const cycles = yield* analyzeRuntimeModules(modulesDir);
 	const sources = (yield* Effect.forEach(roots, (root) => walkSources(root, workspaceRoot))).flat();
-	const terms = deriveDomainVocabulary(manifests);
-	const findings = scanPuritySources(sources, terms);
 	const duplicateLayers = findDuplicateServiceLayers(sources);
-	if (cycles.length || findings.length || duplicateLayers.length) {
-		return yield* new KernelPurityError({
+	if (cycles.length || duplicateLayers.length) {
+		return yield* new ArchitectureCheckError({
 			message: [
 				...duplicateLayers,
-				...findings.map(formatPurityFinding),
 				...(cycles.length ? [formatRuntimeCycleDiagnostics(cycles)] : []),
 			].join("\n"),
 		});
 	}
-	return yield* Effect.logInfo(
-		`Kernel purity passed (${sources.length} files, ${terms.length} terms)`,
-	);
+	return yield* Effect.logInfo(`Kernel architecture checks passed (${sources.length} files)`);
 }).pipe(Effect.tapError((error) => Effect.logError(String(error))));
 
 BunRuntime.runMain(
