@@ -36,7 +36,7 @@ const failing = (cause: unknown) =>
 	makeApi(() => Effect.fail(new AuthenticatedApiError({ cause })));
 
 describe("plugin operations service", () => {
-	it.effect("invokes the contract program with the session's plugin and operation slugs", () => {
+	it.effect("invokes the explicitly targeted plugin and operation at the recorded revision", () => {
 		const calls: InvokeRequest[] = [];
 		const dependencies = makeApi((request) => {
 			calls.push(request);
@@ -47,9 +47,12 @@ describe("plugin operations service", () => {
 			const service = yield* PluginOperationsService;
 			yield* service.invoke({
 				scope,
-				pluginSlug: "fixture",
 				sourceHash: "source-hash",
-				request: { input: { greeting: "hi" }, operationSlug: "greet" },
+				request: {
+					operationSlug: "greet",
+					input: { greeting: "hi" },
+					pluginSlug: PluginSlug.make("fixture"),
+				},
 			});
 
 			expect(calls).toEqual([
@@ -68,9 +71,8 @@ describe("plugin operations service", () => {
 			const service = yield* PluginOperationsService;
 			const outcome = yield* service.invoke({
 				scope,
-				pluginSlug: "fixture",
 				sourceHash: "source-hash",
-				request: { input: null, operationSlug: "greet" },
+				request: { input: null, pluginSlug: PluginSlug.make("fixture"), operationSlug: "greet" },
 			});
 
 			expect(outcome).toEqual({ outcome: "success", value: { greeted: "hi" } });
@@ -88,9 +90,8 @@ describe("plugin operations service", () => {
 			const service = yield* PluginOperationsService;
 			const outcome = yield* service.invoke({
 				scope,
-				pluginSlug: "fixture",
 				sourceHash: "source-hash",
-				request: { input: null, operationSlug: "greet" },
+				request: { input: null, pluginSlug: PluginSlug.make("fixture"), operationSlug: "greet" },
 			});
 
 			expect(outcome).toEqual({ outcome: "stale-session" });
@@ -118,9 +119,8 @@ describe("plugin operations service", () => {
 				const service = yield* PluginOperationsService;
 				const outcome = yield* service.invoke({
 					scope,
-					pluginSlug: "fixture",
 					sourceHash: "source-hash",
-					request: { input: null, operationSlug: "greet" },
+					request: { input: null, pluginSlug: PluginSlug.make("fixture"), operationSlug: "greet" },
 				});
 
 				expect(outcome).toEqual({ outcome: "failure", reason: "operation-failed" });
@@ -135,9 +135,8 @@ describe("plugin operations service", () => {
 			const service = yield* PluginOperationsService;
 			const outcome = yield* service.invoke({
 				scope,
-				pluginSlug: "fixture",
 				sourceHash: "source-hash",
-				request: { input: null, operationSlug: "greet" },
+				request: { input: null, pluginSlug: PluginSlug.make("fixture"), operationSlug: "greet" },
 			});
 
 			expect(outcome).toEqual({ outcome: "failure", reason: "transport" });

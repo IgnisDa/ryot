@@ -24,7 +24,7 @@ import {
 } from "@ryot-app/client-plugin-contract";
 import { createRyotClient } from "@ryot-app/client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/client-sdk/testing";
-import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, PluginSlug } from "@ryot-app/contract/schema/brands";
 import { waitFor } from "@testing-library/dom";
 import { Schema } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
@@ -42,6 +42,7 @@ const home: PluginRouteLocation = { kind: "route", path: "/", search: "" };
 const detail: PluginRouteLocation = { kind: "route", path: "/details/1", search: "" };
 const entity: PluginLogicalLocation = {
 	kind: "entity",
+	search: "",
 	entityId: EntityId.make("entity-1"),
 	entitySchemaSlug: EntitySchemaSlug.make("show"),
 };
@@ -119,10 +120,12 @@ const connect = (
 	const shortcuts: KernelShortcut[] = [];
 	let pluginPort: MessagePort | undefined;
 	const navigations: PluginBridgeNavigate[] = [];
+	const pageSearches: unknown[] = [];
 	const screenStates: PluginScreenReadiness[] = [];
 	const operationCalls: Array<{
 		readonly input: unknown;
 		readonly signal: AbortSignal;
+		readonly pluginSlug: string;
 		readonly operationSlug: string;
 	}> = [];
 
@@ -139,6 +142,7 @@ const connect = (
 		onOpenDrawer: () => drawers.push(null),
 		onScreenState: (state) => screenStates.push(state),
 		onNavigate: (request) => navigations.push(request),
+		onPageSearch: (request) => pageSearches.push(request),
 		onKernelShortcut: (shortcut) => shortcuts.push(shortcut),
 		onAssets: options.onAssets ?? (() => new Promise(() => {})),
 		onUpload: options.onUpload ?? (() => new Promise(() => {})),
@@ -147,7 +151,12 @@ const connect = (
 		onOperation:
 			options.onOperation ??
 			((request, signal) => {
-				operationCalls.push({ signal, input: request.input, operationSlug: request.operationSlug });
+				operationCalls.push({
+					signal,
+					input: request.input,
+					pluginSlug: request.pluginSlug,
+					operationSlug: request.operationSlug,
+				});
 				return new Promise(() => {});
 			}),
 		target: {
@@ -173,6 +182,21 @@ const connect = (
 	if (init === undefined || pluginPort === undefined) {
 		throw new Error("The bridge never transferred a port to the plugin document.");
 	}
+	const rawPort = pluginPort;
+	const testPort = {
+		close: () => rawPort.close(),
+		postMessage: (message: unknown) => {
+			const value =
+				typeof message === "object" &&
+				message !== null &&
+				"type" in message &&
+				message.type === "operation-request" &&
+				!("pluginSlug" in message)
+					? { ...message, pluginSlug: PluginSlug.make("fixture") }
+					: message;
+			rawPort.postMessage(value);
+		},
+	};
 	return {
 		init,
 		backs,
@@ -184,8 +208,9 @@ const connect = (
 		messages,
 		received,
 		shortcuts,
-		pluginPort,
+		pluginPort: testPort,
 		navigations,
+		pageSearches,
 		screenStates,
 		operationCalls,
 	};
@@ -334,6 +359,7 @@ describe("plugin bridge", () => {
 			onHeader: () => {},
 			onReady: () => undefined,
 			onNavigate: () => undefined,
+			onPageSearch: () => undefined,
 			onOpenDrawer: () => undefined,
 			onScreenState: () => undefined,
 			onNavigateBack: () => undefined,
@@ -560,7 +586,12 @@ describe("plugin bridge", () => {
 		const request = {
 			mode: "push",
 			type: "navigate",
-			target: { kind: "route", path: "/details/1", search: "tab=stats" },
+			target: {
+				kind: "plugin-route",
+				pluginSlug: PluginSlug.make("fixture"),
+				path: "/details/1",
+				search: "tab=stats",
+			},
 		} satisfies PluginBridgeNavigate;
 
 		pluginPort.postMessage(readyFor(init));
@@ -809,7 +840,13 @@ describe("plugin bridge", () => {
 				type: "operation-result",
 			}),
 		);
-		expect(calls).toEqual([{ input: { greeting: "hi" }, operationSlug: "greet" }]);
+		expect(calls).toEqual([
+			{
+				input: { greeting: "hi" },
+				pluginSlug: PluginSlug.make("fixture"),
+				operationSlug: "greet",
+			},
+		]);
 	});
 
 	it("round-trips an upload and hands the source to the host untouched", async () => {

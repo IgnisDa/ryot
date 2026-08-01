@@ -42,7 +42,6 @@ export class PluginOperationsService extends Context.Service<PluginOperationsSer
 			const invoke = Effect.fn("PluginOperationsService.invoke")(function* (invocation: {
 				readonly scope: ApiScope;
 				readonly sourceHash: string;
-				readonly pluginSlug: string;
 				readonly request: PluginOperationRequest;
 			}) {
 				const outcome = yield* api
@@ -53,7 +52,7 @@ export class PluginOperationsService extends Context.Service<PluginOperationsSer
 						},
 						params: {
 							operationSlug: invocation.request.operationSlug,
-							pluginSlug: PluginSlug.make(invocation.pluginSlug),
+							pluginSlug: PluginSlug.make(invocation.request.pluginSlug),
 						},
 					})
 					.pipe(

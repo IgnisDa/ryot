@@ -3,6 +3,8 @@ import { useRyot } from "@ryot-app/client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
 import { Button } from "@ryot-app/client-ui-sdk";
 
+import { fixtureRoute } from "./targets";
+
 export const Details = () => {
 	const ryot = useRyot();
 	const { itemId } = usePluginParams();
@@ -14,8 +16,10 @@ export const Details = () => {
 				<p className="text-text-muted">
 					Item {itemId}, tab {tab}.
 				</p>
-				<Button onClick={() => ryot.navigation.replace({ kind: "route", path: "/" })}>Back</Button>
+				<Button onClick={() => ryot.navigation.replace(fixtureRoute("/"))}>Back</Button>
 			</div>
 		</PluginScreenFrame>
 	);
 };
+
+export default Details;

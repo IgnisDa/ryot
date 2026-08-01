@@ -22,7 +22,7 @@ import {
 	updateFixtureClientPlugin,
 } from "~/fixtures/kernel";
 import { getApiUrl } from "~/support/api";
-import { assertTaggedError } from "~/support/assertions";
+import { assertCondition, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const definitionWithSource = (source: string) =>
@@ -436,6 +436,10 @@ describe("client renderer publication E2E", () => {
 				label: "Session lifecycle",
 			});
 			const prepared = yield* prepareClientPage(owner.client, view.id);
+			assertCondition(
+				prepared.identity.kind === "saved-view",
+				"Expected a saved-view preparation identity",
+			);
 
 			const stale = yield* Effect.flip(
 				createClientPageSession(owner.client, {

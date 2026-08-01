@@ -15,14 +15,16 @@ import { useCallback, useEffect, useEffectEvent, useId, useMemo, useRef, useStat
 import { AuthService } from "#/modules/auth/service";
 import {
 	CustomizeContext,
+	ClientPageScreenContext,
 	EdgeContext,
 	PluginHeaderContext,
 	PluginTitleContext,
 	RememberedWorkspaceContext,
 	ShellChromeContext,
 	type CustomizeController,
-	type PluginHeaderController,
+	type ClientPageScreenState,
 	type PluginHeaderState,
+	createClientDocumentControllers,
 	type ShellChrome,
 } from "#/modules/navigation/authenticated-shell-context";
 import { useDesktopEffect, useIsDesktop } from "#/modules/navigation/breakpoint";
@@ -55,12 +57,7 @@ import {
 	resolvePluginRouteWorkspace,
 	resolveRememberedWorkspace,
 } from "#/modules/navigation/workspace-state";
-import { useActivePluginDestination } from "#/modules/plugins/active-plugin-destination";
 import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
-import {
-	PluginDestination,
-	type PluginDestinationScreenState,
-} from "#/modules/plugins/plugin-destination";
 import { ClientStorage } from "#/persistence/storage";
 
 export function AuthenticatedShell(props: {
@@ -75,7 +72,6 @@ export function AuthenticatedShell(props: {
 	const safeAreaInsets = useSafeAreaInsets();
 	const { catalog } = usePluginCatalog();
 	const progress = useMotionValue(0);
-	const activePluginDestination = useActivePluginDestination();
 	const { pathname, search, state } = useRouterState({
 		select: (routerState) => routerState.resolvedLocation ?? routerState.location,
 	});
@@ -86,16 +82,15 @@ export function AuthenticatedShell(props: {
 	const [searchOpen, setSearchOpen] = useState(false);
 	const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false);
 	const [pluginHeader, setPluginHeader] = useState<PluginHeaderState | null>(null);
-	const [pluginScreenState, setPluginScreenState] = useState<PluginDestinationScreenState | null>(
-		null,
-	);
+	const [pluginScreenState, setPluginScreenState] = useState<ClientPageScreenState | null>(null);
+	const activeDocumentOwner = useRef<string | null>(null);
 	const [discarding, setDiscarding] = useState(false);
 	const [rememberedSlug, setRememberedSlug] = useState(props.initialRememberedSlug);
 	const settingsActive = isSettingsPath(pathname);
 	const customizeActive = isCustomizeSidebarPath(pathname);
 	const customizeSection = customizeSearchSection(search);
 	const workspaceChrome = hasWorkspaceChrome(pathname);
-	const committedPathname = activePluginDestination?.pathname ?? pathname;
+	const committedPathname = pathname;
 	const routeSlug = committedPathname.split("/")[1] ?? "";
 	const routeWorkspace = resolvePluginRouteWorkspace(catalog, routeSlug);
 	const current = resolveRememberedWorkspace(catalog, rememberedSlug);
@@ -107,10 +102,7 @@ export function AuthenticatedShell(props: {
 	);
 	const entry = historyEntry(state);
 	const pluginTitle =
-		pluginHeader !== null &&
-		pluginHeader.owner === activePluginDestination?.installation.installationId &&
-		pluginHeader.index === entry.index &&
-		pluginHeader.key === entry.key
+		pluginHeader !== null && pluginHeader.index === entry.index && pluginHeader.key === entry.key
 			? pluginHeader.title
 			: null;
 	const session = runtime.runSync(AuthService).session(server);
@@ -145,15 +137,18 @@ export function AuthenticatedShell(props: {
 		setDiscarding(false);
 		return true;
 	});
-	const onKernelShortcut = (shortcut: KernelShortcut) => {
-		if (shortcut === "command-center") {
-			setSearchOpen(true);
-			return;
-		}
-		if (isDesktop) {
-			setWorkspaceSwitcherOpen(true);
-		}
-	};
+	const onKernelShortcut = useCallback(
+		(shortcut: KernelShortcut) => {
+			if (shortcut === "command-center") {
+				setSearchOpen(true);
+				return;
+			}
+			if (isDesktop) {
+				setWorkspaceSwitcherOpen(true);
+			}
+		},
+		[isDesktop],
+	);
 	const customize = useCustomizeDraft({
 		catalog,
 		data: props.navigation,
@@ -230,12 +225,9 @@ export function AuthenticatedShell(props: {
 		() => ({ customize, onSave: saveCustomize, onLeave: requestLeaveCustomize }),
 		[customize],
 	);
-	const header = useMemo<PluginHeaderController>(
-		() => ({
-			publish: (owner, publication) => setPluginHeader({ owner, ...publication }),
-			clear: (owner) =>
-				setPluginHeader((currentHeader) => (currentHeader?.owner === owner ? null : currentHeader)),
-		}),
+	const { header, screen: pageScreen } = useMemo(
+		() =>
+			createClientDocumentControllers(activeDocumentOwner, setPluginHeader, setPluginScreenState),
 		[],
 	);
 	const shellChrome = useMemo<ShellChrome>(
@@ -246,19 +238,12 @@ export function AuthenticatedShell(props: {
 			...safeAreaInsets,
 			isDrawerOpen: drawerOpen,
 			onOpenDrawer: () => setDrawerOpen(true),
+			onKernelShortcut,
 		}),
-		[drawerId, drawerOpen, safeAreaInsets],
-	);
-	const publishPluginScreenState = useCallback(
-		(publication: PluginDestinationScreenState | null) => setPluginScreenState(publication),
-		[],
+		[drawerId, drawerOpen, onKernelShortcut, safeAreaInsets],
 	);
 	const hasPluginBackScreen =
-		activePluginDestination !== null &&
-		pluginScreenState?.installationId === activePluginDestination.installation.installationId &&
-		pluginScreenState.sourceHash === activePluginDestination.installation.sourceHash &&
-		pluginScreenState.artifactHash === activePluginDestination.installation.clientArtifactHash &&
-		pluginScreenState.index === entry.index &&
+		pluginScreenState?.index === entry.index &&
 		pluginScreenState.key === entry.key &&
 		pluginScreenState.hasPreviousScreen;
 
@@ -267,10 +252,7 @@ export function AuthenticatedShell(props: {
 		hasPluginBackScreen,
 		pathname: committedPathname,
 		atRoot: isWorkspaceRoot(committedPathname, routeWorkspace),
-		canGoBack:
-			activePluginDestination === null
-				? router.history.canGoBack()
-				: activePluginDestination.entry.index > 0,
+		canGoBack: router.history.canGoBack(),
 	});
 
 	useEffect(() => {
@@ -308,13 +290,12 @@ export function AuthenticatedShell(props: {
 	useEffect(() => {
 		setPluginHeader((currentHeader) =>
 			currentHeader !== null &&
-			currentHeader.owner === activePluginDestination?.installation.installationId &&
 			currentHeader.index === entry.index &&
 			currentHeader.key === entry.key
 				? currentHeader
 				: null,
 		);
-	}, [activePluginDestination?.installation.installationId, entry.index, entry.key]);
+	}, [entry.index, entry.key]);
 	useDesktopEffect(() => setDrawerOpen(false));
 	useShortcut(KERNEL_SHORTCUTS.commandCenter, () => setSearchOpen(true));
 
@@ -386,20 +367,16 @@ export function AuthenticatedShell(props: {
 						<PluginTitleContext value={pluginTitle}>
 							<EdgeContext value={edge}>
 								<ShellChromeContext value={shellChrome}>
-									<motion.div
-										inert={drawerOpen}
-										style={{ x: contentShift }}
-										data-testid="shell-content"
-										className="min-h-0 min-w-0 flex-1 overflow-hidden"
-									>
-										<PluginDestination
-											target={activePluginDestination}
-											onKernelShortcut={onKernelShortcut}
-											onScreenState={publishPluginScreenState}
+									<ClientPageScreenContext value={pageScreen}>
+										<motion.div
+											inert={drawerOpen}
+											style={{ x: contentShift }}
+											data-testid="shell-content"
+											className="min-h-0 min-w-0 flex-1 overflow-hidden"
 										>
 											<Outlet />
-										</PluginDestination>
-									</motion.div>
+										</motion.div>
+									</ClientPageScreenContext>
 								</ShellChromeContext>
 							</EdgeContext>
 						</PluginTitleContext>

@@ -1,4 +1,8 @@
-import type { PluginBridgeNavigate, PluginRouteLocation } from "@ryot-app/client-plugin-contract";
+import type {
+	PluginBridgeNavigate,
+	PluginNavigationTarget,
+	PluginRouteLocation,
+} from "@ryot-app/client-plugin-contract";
 import { Match } from "effect";
 
 export type PluginNavigationRequest = { readonly href: string; readonly replace: boolean };
@@ -9,8 +13,6 @@ const safePath = /^\/[\w\-.~!$&'()*+,;=:@%/]*$/;
 
 const dropTrailingSlash = (path: string) =>
 	path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
-
-type PluginNavigationTarget = PluginBridgeNavigate["target"];
 
 export function toPluginLocation(
 	pluginSlug: string,
@@ -26,13 +28,17 @@ export function toPluginLocation(
 	};
 }
 
-export function toGlobalHref(pluginSlug: string, target: PluginNavigationTarget) {
+export function toGlobalHref(target: PluginNavigationTarget) {
 	return Match.value(target).pipe(
-		Match.when({ kind: "route" }, (location) => {
+		Match.when({ kind: "plugin-route" }, (location) => {
 			const search = location.search === "" ? "" : `?${location.search}`;
-			return `/${pluginSlug}${location.path === "/" ? "" : location.path}${search}`;
+			return `/${encodeURIComponent(location.pluginSlug)}${location.path === "/" ? "" : location.path}${search}`;
 		}),
 		Match.when({ kind: "entity" }, ({ entityId }) => `/e/${encodeURIComponent(entityId)}`),
+		Match.when(
+			{ kind: "saved-view" },
+			({ savedViewId }) => `/v/${encodeURIComponent(savedViewId)}`,
+		),
 		Match.exhaustive,
 	);
 }
@@ -49,15 +55,22 @@ export function validatePluginLocation(location: PluginRouteLocation) {
 }
 
 export function toNavigationRequest(
-	pluginSlug: string,
 	request: PluginBridgeNavigate,
 ): PluginNavigationRequest | undefined {
 	const target = Match.value(request.target).pipe(
-		Match.when({ kind: "route" }, validatePluginLocation),
+		Match.when({ kind: "plugin-route" }, (route) => {
+			const location = validatePluginLocation({
+				kind: "route",
+				path: route.path,
+				search: route.search,
+			});
+			return location === undefined ? undefined : { ...route, path: location.path };
+		}),
 		Match.when({ kind: "entity" }, (entity) => (entity.entityId === "" ? undefined : entity)),
+		Match.when({ kind: "saved-view" }, (view) => (view.savedViewId === "" ? undefined : view)),
 		Match.exhaustive,
 	);
 	return target === undefined
 		? undefined
-		: { href: toGlobalHref(pluginSlug, target), replace: request.mode === "replace" };
+		: { href: toGlobalHref(target), replace: request.mode === "replace" };
 }

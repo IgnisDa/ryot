@@ -1,5 +1,9 @@
 import type { EntitySettleReason } from "@ryot-app/client-sdk";
-import { useRyotViewport, type EntityRendererProps } from "@ryot-app/client-sdk/plugin";
+import {
+	usePluginLocation,
+	useRyotViewport,
+	type EntityRendererProps,
+} from "@ryot-app/client-sdk/plugin";
 import { useRyotQuery } from "@ryot-app/client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
 import { useEffect, useState, type ReactNode } from "react";
@@ -127,3 +131,13 @@ export function ShowScreen(props: EntityRendererProps) {
 		</ManagedAssetProvider>
 	);
 }
+
+const ShowDetailPage = () => {
+	const location = usePluginLocation();
+	if (location.kind !== "entity") {
+		return null;
+	}
+	return <ShowScreen entityId={location.entityId} entitySchemaSlug={location.entitySchemaSlug} />;
+};
+
+export default ShowDetailPage;
