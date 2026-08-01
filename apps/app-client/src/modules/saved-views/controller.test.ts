@@ -1,5 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
+import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
 import { Effect } from "effect";
 
 import {
@@ -10,6 +11,7 @@ import {
 	savedViewControllerResult,
 	isSavedViewRequestActiveFor,
 	type SavedViewOperationToken,
+	withSavedViewSearch,
 	withSavedViewCursor,
 } from "./controller";
 import type { SavedViewCardItem } from "./display-data";
@@ -30,6 +32,43 @@ const baseQuery = {
 		},
 	},
 } satisfies RyotQLDocument;
+
+const searchQuery = {
+	queries: {
+		view: {
+			from: { alias: "entity", table: "entity" },
+			output: {
+				type: "rows",
+				pagination: { after: "cursor", limit: 2 },
+				orderBy: [
+					{ direction: "asc", expr: { field: "id", type: "column", tableAlias: "entity" } },
+				],
+				fields: [
+					{ key: "entityId", expr: { field: "id", type: "column", tableAlias: "entity" } },
+					{ key: "title", expr: { field: "name", type: "column", tableAlias: "entity" } },
+				],
+			},
+		},
+	},
+} satisfies RyotQLDocument;
+
+const cardLayout = {
+	imageField: null,
+	calloutField: null,
+	titleField: "title",
+	overlineField: null,
+	entityIdField: "entityId",
+	primaryMetadataField: null,
+	queryDocument: searchQuery,
+	secondaryMetadataField: null,
+} satisfies SavedViewRecord["layouts"]["grid"];
+
+const tableLayout = {
+	imageField: null,
+	entityIdField: "entityId",
+	queryDocument: searchQuery,
+	columns: [{ field: "title", label: "Title" }],
+} satisfies SavedViewRecord["layouts"]["table"];
 
 const card = (entityId: string, title = entityId): SavedViewCardItem => ({
 	title,
@@ -64,6 +103,102 @@ const token = (
 	generation = 1,
 ): SavedViewOperationToken => ({ identity, layout, generation });
 
+it("splits saved-view search terms and combines them with AND", () => {
+	const searched = withSavedViewSearch(
+		cardLayout.queryDocument,
+		cardLayout,
+		"  alpha_beta-gamma  ",
+	);
+
+	expect(searched.queries.view.output).toMatchObject({ pagination: { limit: 2 } });
+	expect(searched.queries.view.output.type).toBe("rows");
+	if (searched.queries.view.output.type !== "rows") {
+		throw new Error("Expected rows output");
+	}
+	expect(searched.queries.view.output.fields).toEqual(
+		cardLayout.queryDocument.queries.view.output.fields,
+	);
+	expect(searched.queries.view.output.pagination).toEqual({ limit: 2 });
+	expect(searched.queries.view).toMatchObject({
+		where: {
+			type: "and",
+			predicates: [
+				{
+					type: "contains",
+					right: { type: "literal", value: "alpha" },
+					left: { field: "name", type: "column", tableAlias: "entity" },
+				},
+				{
+					type: "contains",
+					right: { type: "literal", value: "beta" },
+					left: { field: "name", type: "column", tableAlias: "entity" },
+				},
+				{
+					type: "contains",
+					right: { type: "literal", value: "gamma" },
+					left: { field: "name", type: "column", tableAlias: "entity" },
+				},
+			],
+		},
+	});
+});
+
+it("composes saved-view search with an existing where predicate", () => {
+	const existingWhere = {
+		operator: "eq",
+		type: "comparison",
+		right: { type: "literal", value: "book" },
+		left: { field: "entitySchemaSlug", type: "column", tableAlias: "entity" },
+	} as const;
+	const queryDocument = {
+		...searchQuery,
+		queries: { view: { ...searchQuery.queries.view, where: existingWhere } },
+	} satisfies RyotQLDocument;
+
+	const searched = withSavedViewSearch(queryDocument, cardLayout, "book");
+
+	expect(searched.queries.view.where).toMatchObject({
+		type: "and",
+		predicates: [existingWhere, { type: "and", predicates: [{ type: "contains" }] }],
+	});
+});
+
+it("uses the first table column expression for saved-view search", () => {
+	const searched = withSavedViewSearch(tableLayout.queryDocument, tableLayout, "first");
+
+	expect(searched.queries.view.where).toMatchObject({
+		type: "and",
+		predicates: [
+			{
+				type: "contains",
+				right: { type: "literal", value: "first" },
+				left: { field: "name", type: "column", tableAlias: "entity" },
+			},
+		],
+	});
+	expect(searched.queries.view.output).toMatchObject({ pagination: { limit: 2 } });
+});
+
+it("returns the original saved-view document for empty or unmapped searches", () => {
+	expect(withSavedViewSearch(searchQuery, cardLayout, "  _-  ")).toBe(searchQuery);
+	expect(withSavedViewSearch(searchQuery, { ...cardLayout, titleField: "missing" }, "term")).toBe(
+		searchQuery,
+	);
+	const wildcardDocument = {
+		...searchQuery,
+		queries: {
+			view: {
+				...searchQuery.queries.view,
+				output: {
+					...searchQuery.queries.view.output,
+					fields: [{ tableAlias: "entity", type: "wildcard" }],
+				},
+			},
+		},
+	} satisfies RyotQLDocument;
+	expect(withSavedViewSearch(wildcardDocument, cardLayout, "term")).toBe(wildcardDocument);
+});
+
 it.effect("loads pages in order with fresh cursors and deduplicates materialized entities", () =>
 	Effect.gen(function* () {
 		const documents: RyotQLDocument[] = [];
@@ -95,8 +230,8 @@ it.effect("loads pages in order with fresh cursors and deduplicates materialized
 		const operation = token(state.identity);
 		state = savedViewControllerReducer(state, {
 			token: operation,
-			type: "request-started",
 			phase: "refresh",
+			type: "request-started",
 		});
 		state = savedViewControllerReducer(state, {
 			data,
