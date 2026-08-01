@@ -9,9 +9,9 @@ import { Result, Schema } from "effect";
 import { createElement, type ComponentType } from "react";
 import { createRoot } from "react-dom/client";
 
-export interface ClientPluginDefinition {
+export type ClientPluginDefinition = {
 	readonly home: ComponentType;
-}
+};
 
 const decodeArtifactMetadata = Schema.decodeUnknownResult(
 	Schema.fromJsonString(PluginClientArtifactMetadata),
@@ -57,12 +57,12 @@ export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
 		initialized = true;
 		port.start();
 		port.postMessage({
-			format: init.format,
 			sessionId: init.sessionId,
-			apiVersion: init.apiVersion,
-			artifactHash: init.artifactHash,
-			bridgeVersion: init.bridgeVersion,
-			compilerVersion: init.compilerVersion,
+			format: artifactMetadata.format,
+			artifactHash: artifactMetadata.hash,
+			apiVersion: artifactMetadata.apiVersion,
+			bridgeVersion: artifactMetadata.bridgeVersion,
+			compilerVersion: artifactMetadata.compilerVersion,
 		} satisfies PluginBridgeReady);
 		createRoot(rootElement).render(createElement(definition.home));
 	});

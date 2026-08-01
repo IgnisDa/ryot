@@ -24,7 +24,7 @@ export type PluginHostStatus =
 
 export type PluginBlockedStatus = Extract<
 	PluginHostStatus,
-	"missing-artifact" | "unexpected-version" | "compilation-failure"
+	"loading" | "missing-artifact" | "unexpected-version" | "compilation-failure"
 >;
 
 export type PluginArtifactResolution =
@@ -47,6 +47,9 @@ export function resolvePluginArtifact(
 ): PluginArtifactResolution {
 	if (installation.health === "failed") {
 		return { kind: "blocked", status: "compilation-failure" };
+	}
+	if (installation.health === "installing") {
+		return { kind: "blocked", status: "loading" };
 	}
 	if (installation.clientArtifactHash === null) {
 		return { kind: "blocked", status: "missing-artifact" };
