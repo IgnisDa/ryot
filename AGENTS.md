@@ -10,7 +10,7 @@
 - Use `gh` for GitHub; use the raw API only when `gh` lacks support.
 - Add dependencies from the target app with `bun add`.
 - Quote shell paths with single quotes, for example `git add 'path/file.ts'`.
-- Check backend code with `bun turbo --filter=@ryot/app-backend check` and test it with `bun turbo --filter=@ryot/app-backend test`.
+- Check backend code with `bun turbo --filter=@ryot/kernel-backend check` and test it with `bun turbo --filter=@ryot/kernel-backend test`.
 
 ## Engineering
 

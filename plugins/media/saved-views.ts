@@ -1,8 +1,8 @@
 import { column, table } from "@ryot/ryotql";
 import { buildSavedViewLayoutProjections } from "@ryot/ryotql-recipes/saved-views";
 
+import { mediaEntitySchemas } from "./backend/schemas/entity-schemas";
 import { defaultMediaSavedViewRecipe } from "./query-recipes";
-import { mediaEntitySchemas } from "./schemas/entity-schemas";
 import { slugify } from "./shared/slug";
 import { buildViewExpressions } from "./shared/view-helpers";
 

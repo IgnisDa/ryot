@@ -113,7 +113,7 @@ functions, definition kind, authority, and trusted execution markers. Declare on
 the module. `artifact-read` and `scratch` request filesystem grants rather than bridge methods.
 Workflow scripts declare `[]` and receive only durable replay primitives. Host-function scope,
 filesystem behavior, and exact limits are owned by the
-[sandbox runtime reference](../../apps/app-backend/src/lib/infrastructure/sandbox-runtime/README.md).
+[sandbox runtime reference](../../kernel/backend/src/lib/infrastructure/sandbox-runtime/README.md).
 
 ## Cache Identity
 
@@ -121,7 +121,7 @@ Provider-associated `script` and `provider` entries use logical provider ID as c
 namespace, so all scripts for that provider share cache state. A standalone script uses its immutable
 script ID instead. Both are further isolated by executing user, not plugin ownership. Exact cache key,
 TTL, and restart semantics are owned by the
-[sandbox runtime reference](../../apps/app-backend/src/lib/infrastructure/sandbox-runtime/README.md#host-functions).
+[sandbox runtime reference](../../kernel/backend/src/lib/infrastructure/sandbox-runtime/README.md#host-functions).
 
 ## Workflow Determinism
 
@@ -133,7 +133,7 @@ failures, not `throw`. When app-owned
 workflows dispatch child workflows, deterministic execution-ID construction and single durable
 ownership are specified in [the Effect workflow guide](../../docs/effect-workflow-guide.md).
 Runtime pinning and replay behavior are owned by the
-[sandbox runtime reference](../../apps/app-backend/src/lib/infrastructure/sandbox-runtime/README.md#durable-workflow-semantics).
+[sandbox runtime reference](../../kernel/backend/src/lib/infrastructure/sandbox-runtime/README.md#durable-workflow-semantics).
 
 ## Batch First
 
