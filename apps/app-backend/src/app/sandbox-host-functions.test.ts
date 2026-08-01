@@ -66,7 +66,10 @@ const ownedIntegration = (input: GetForUserInput): IntegrationRecord => ({
 	providerSpecifics: { kind: "plex_yank", token: "plex-token", baseUrl: "https://plex.example" },
 });
 
-const runInput = (authority: ExecutionAuthority): SandboxRunInput => ({
+const runInput = (
+	authority: ExecutionAuthority,
+	allowedHostFunctions: SandboxRunInput["allowedHostFunctions"] = [],
+): SandboxRunInput => ({
 	authority,
 	context: {},
 	metadata: {},
@@ -75,7 +78,7 @@ const runInput = (authority: ExecutionAuthority): SandboxRunInput => ({
 	compiledCode: "",
 	compiledFormat: 1,
 	scriptId: "script-1",
-	allowedHostFunctions: [],
+	allowedHostFunctions,
 	executionId: "execution-1",
 });
 
@@ -582,6 +585,7 @@ describe("changeUserRelationships", () => {
 const runEnsureUserEntities = (options: {
 	schemaPluginSlug?: string;
 	authority: ExecutionAuthority;
+	allowedHostFunctions?: SandboxRunInput["allowedHostFunctions"];
 	caller: { pluginSlug: string; entitySchemaSlugs: string[] } | null;
 	ensure?: (
 		userId: UserId,
@@ -591,7 +595,7 @@ const runEnsureUserEntities = (options: {
 	makeAdditionalSandboxApiFunctions.pipe(
 		Effect.flatMap((functions) =>
 			Effect.result(
-				functions.ensureUserEntities(runInput(options.authority), [
+				functions.ensureUserEntities(runInput(options.authority, options.allowedHostFunctions), [
 					{ name: "Workspace", properties: {}, entitySchemaSlug: "workspace" },
 				]),
 			),
@@ -702,6 +706,24 @@ describe("ensureUserEntities", () => {
 			expect(Result.getFailure(foreign)).toEqual(
 				Option.some({
 					message: "ensureUserEntities cannot write foreign entity schema: workspace",
+				}),
+			);
+		}),
+	);
+
+	it.effect("refuses a private script that declares the capability", () =>
+		Effect.gen(function* () {
+			// `resolveTrustedUserBootstrapCaller` resolves to null for a `scope: "user"` plugin, so a
+			// private bootstrap script cannot reach this host function by declaring the capability.
+			const declared = yield* runEnsureUserEntities({
+				caller: null,
+				allowedHostFunctions: ["ensureUserEntities"],
+				authority: { type: "user", userId: UserId.make("owner-1") },
+			});
+
+			expect(Result.getFailure(declared)).toEqual(
+				Option.some({
+					message: "ensureUserEntities is available only to trusted user bootstrap scripts",
 				}),
 			);
 		}),

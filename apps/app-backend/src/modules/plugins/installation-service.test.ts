@@ -1,5 +1,5 @@
 import { assert, expect, it } from "@effect/vitest";
-import { DbError } from "@ryot/contract/errors";
+import { DbError, type InternalError, internalError } from "@ryot/contract/errors";
 import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { PluginConflictError, PluginRequestError } from "@ryot/contract/modules/plugins/schemas";
 import { UserId } from "@ryot/contract/schema/brands";
@@ -15,6 +15,7 @@ import {
 	type PluginInstallationState,
 } from "./installation-repository";
 import { PluginInstallationService } from "./installation-service";
+import { PluginInstallationLifecycleDispatcher } from "./installation-workflow";
 import { PluginLoader, type PluginRegistryEntry } from "./loader";
 import { PluginRepository } from "./repository";
 import { fixtureManifest } from "./test-support";
@@ -76,6 +77,8 @@ const installationRow = (
 
 const makeLayer = (input?: {
 	readonly removed?: Array<string>;
+	readonly dispatchFails?: boolean;
+	readonly dispatched?: Array<string>;
 	readonly deactivated?: Array<string>;
 	readonly hasEntityReferences?: boolean;
 	readonly hasWorkflowReferences?: boolean;
@@ -88,6 +91,7 @@ const makeLayer = (input?: {
 	readonly updated?: Array<Record<string, unknown>>;
 	readonly systemPlugins?: Array<PluginRegistryEntry>;
 	readonly installations?: Array<PluginInstallationState>;
+	readonly healthUpdates?: Array<Record<string, unknown>>;
 	readonly materialize?: () => Effect.Effect<void, DbError>;
 	readonly persisted?: Array<{
 		plugin: StoredPlugin["manifest"];
@@ -134,6 +138,17 @@ const makeLayer = (input?: {
 				return current ? { ...current, ...values } : undefined;
 			}),
 		remove: (id) => Effect.sync(() => input?.removed?.push(id)),
+		updateHealth: (values) => Effect.sync(() => void input?.healthUpdates?.push(values)),
+	});
+	const lifecycleDispatcherLayer = Layer.succeed(PluginInstallationLifecycleDispatcher, {
+		dispatch: (installationId) =>
+			Effect.sync(() => void input?.dispatched?.push(installationId)).pipe(
+				Effect.andThen(
+					input?.dispatchFails
+						? internalError("queue unavailable")
+						: (Effect.void as Effect.Effect<void, InternalError>),
+				),
+			),
 	});
 	const workflowReferenceLayer = Layer.mock(SandboxWorkflowReferenceRepository)({
 		hasInstallationReferences: () => Effect.succeed(input?.hasWorkflowReferences ?? false),
@@ -150,12 +165,55 @@ const makeLayer = (input?: {
 				databaseLayer,
 				repositoryLayer,
 				installationLayer,
-				definitionMaterializerLayer,
 				workflowReferenceLayer,
+				lifecycleDispatcherLayer,
+				definitionMaterializerLayer,
 			),
 		),
 	);
 	return Layer.mergeAll(loaderLayer, serviceLayer, databaseLayer);
+};
+
+const bootstrapScript = {
+	capabilities: [],
+	kind: "script" as const,
+	name: "Fixture Bootstrap",
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
+	slug: "script.fixture-bootstrap",
+	entry: "scripts/bootstrap.sandbox.ts",
+};
+
+const bootstrapScriptSource = `import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+
+export const manifest = defineManifest({
+	kind: "script",
+	capabilities: [],
+	name: "Fixture Bootstrap",
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
+	slug: "script.fixture-bootstrap",
+});
+
+export default defineScript({
+	manifest,
+	output: Schema.Null,
+	input: Schema.Unknown,
+	run: () => Effect.succeed(null),
+});
+`;
+
+const requireFixtureScript = () => {
+	const script = fixtureManifest().scripts[0];
+	assert(script);
+	return script;
+};
+
+const userBootstrapEntry = {
+	slug: "seed",
+	description: "Seed owner data",
+	scriptSlug: bootstrapScript.slug,
 };
 
 const systemEntry = (manifest: PluginManifest): PluginRegistryEntry => ({
@@ -187,29 +245,42 @@ it.effect("rejects an oversized package before compiling it", () => {
 	}).pipe(Effect.provide(makeLayer()));
 });
 
-it.effect("rejects every unsupported private manifest surface at once", () =>
+it.effect("rejects only the private manifest surfaces that cannot carry user authority", () =>
 	Effect.gen(function* () {
 		const service = yield* PluginInstallationService;
 		const fixture = fixtureManifest();
+		const script = requireFixtureScript();
 		const exit = yield* Effect.exit(
 			service.installPrivatePlugin({
 				userId,
 				files: {},
 				config: {},
 				manifest: privateManifest({
-					crons: fixture.crons,
-					scripts: fixture.scripts,
 					bindings: fixture.bindings,
+					userBootstrap: [userBootstrapEntry],
 					entitySchemas: fixture.entitySchemas,
 					signalSchemas: fixture.signalSchemas,
+					scripts: [...fixture.scripts, bootstrapScript],
 					relationshipSchemas: fixture.relationshipSchemas,
+					boot: [{ slug: "startup", scriptSlug: script.slug, description: "Startup" }],
+					httpRateLimits: [
+						{ requests: 1, key: "outbound", intervalMs: 1_000, origins: ["https://example.com"] },
+					],
+					crons: [
+						{
+							slug: "hourly",
+							description: "Hourly",
+							scriptSlug: script.slug,
+							schedule: { cron: "0 * * * *" },
+						},
+					],
 				}),
 			}),
 		);
 		const failure = failureOf(exit);
 		assert(failure instanceof PluginRequestError);
 		assert(failure.reason.code === "unsupported-manifest-surface");
-		expect([...failure.reason.surfaces].sort()).toEqual(["bindings.entityAutomations"]);
+		expect([...failure.reason.surfaces].sort()).toEqual(["boot", "httpRateLimits"]);
 	}).pipe(Effect.provide(makeLayer())),
 );
 
@@ -314,8 +385,8 @@ it.effect("applies config defaults and persists validated config", () => {
 			config: { token: "secret-value" },
 		});
 		expect(created[0]).toMatchObject({
-			health: "ready",
 			isDisabled: false,
+			health: "installing",
 			config: { region: "eu", token: "secret-value" },
 		});
 		expect(installed.config).toEqual({ region: "eu" });
@@ -969,30 +1040,91 @@ it.effect("rejects duplicate operation slugs before compiling the package", () =
 	}).pipe(Effect.provide(makeLayer({ created })));
 });
 
-it.effect("installs a private package whose operation references a compiled script", () => {
-	const created: Array<Record<string, unknown>> = [];
+const operationManifest = privateManifest({
+	scripts: [operationScript],
+	operations: [
+		{
+			auth: "user",
+			slug: "run.fixture",
+			description: "Run fixture",
+			scriptSlug: operationScript.slug,
+		},
+	],
+});
+
+it.effect(
+	"installs a private package in installing health and dispatches its lifecycle once",
+	() => {
+		const created: Array<Record<string, unknown>> = [];
+		const dispatched: Array<string> = [];
+		return Effect.gen(function* () {
+			const service = yield* PluginInstallationService;
+			const installed = yield* service.installPrivatePlugin({
+				userId,
+				config: {},
+				manifest: operationManifest,
+				files: { [operationScript.entry]: operationScriptSource },
+			});
+			expect(installed.scope).toBe("user");
+			expect(installed.slug).toBe("private-fixture");
+			expect(installed.health).toBe("installing");
+			expect(created).toHaveLength(1);
+			expect(created[0]).toMatchObject({ health: "installing" });
+			expect(dispatched).toEqual(["private-fixture-plugin-id-installation"]);
+		}).pipe(Effect.provide(makeLayer({ created, dispatched })));
+	},
+);
+
+it.effect("marks the installation failed when its lifecycle cannot be dispatched", () => {
+	const dispatched: Array<string> = [];
+	const healthUpdates: Array<Record<string, unknown>> = [];
 	return Effect.gen(function* () {
 		const service = yield* PluginInstallationService;
 		const installed = yield* service.installPrivatePlugin({
 			userId,
 			config: {},
+			manifest: operationManifest,
 			files: { [operationScript.entry]: operationScriptSource },
-			manifest: privateManifest({
-				scripts: [operationScript],
-				operations: [
-					{
-						auth: "user",
-						slug: "run.fixture",
-						description: "Run fixture",
-						scriptSlug: operationScript.slug,
-					},
-				],
-			}),
 		});
-		expect(installed.scope).toBe("user");
-		expect(installed.slug).toBe("private-fixture");
-		expect(created).toHaveLength(1);
-	}).pipe(Effect.provide(makeLayer({ created })));
+		expect(dispatched).toHaveLength(1);
+		expect(healthUpdates).toEqual([
+			{
+				health: "failed",
+				id: "private-fixture-plugin-id-installation",
+				healthReason: "Installation lifecycle could not be started",
+			},
+		]);
+		expect(installed).toMatchObject({
+			health: "failed",
+			healthReason: "Installation lifecycle could not be started",
+		});
+	}).pipe(Effect.provide(makeLayer({ dispatched, healthUpdates, dispatchFails: true })));
+});
+
+it.effect("never dispatches installation bootstrap for a package update", () => {
+	const dispatched: Array<string> = [];
+	const privatePlugin = storedPrivatePlugin(privateManifest());
+	const installation = installationRow({ pluginId: privatePlugin.id });
+	const nextManifest = privateManifest({
+		scripts: [bootstrapScript],
+		userBootstrap: [userBootstrapEntry],
+		metadata: { ...privateManifest().metadata, version: "2.0.0" },
+	});
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		const updated = yield* service.updatePrivatePlugin({
+			userId,
+			manifest: nextManifest,
+			pluginSlug: privatePlugin.slug,
+			files: { [bootstrapScript.entry]: bootstrapScriptSource },
+		});
+		expect(updated).toMatchObject({ version: "2.0.0", health: "ready" });
+		expect(dispatched).toEqual([]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({ dispatched, installations: [installation], privatePlugins: [privatePlugin] }),
+		),
+	);
 });
 
 it.effect("orders provisioned system installations by slug when their sort order ties", () => {
