@@ -22,8 +22,8 @@ import { useServerUrl } from "@/modules/server/state";
 
 function UserManagement(props: {
 	serverUrl: string;
-	adminToken: string;
 	sessionId: string;
+	adminToken: string;
 	onUnauthorized: () => void;
 }) {
 	const onUnauthorized = props.onUnauthorized;
@@ -144,8 +144,8 @@ export default function GodMode() {
 					<UserManagement
 						serverUrl={serverUrl}
 						adminToken={submittedToken.token}
-						sessionId={submittedToken.sessionId}
 						onUnauthorized={handleUnauthorized}
+						sessionId={submittedToken.sessionId}
 					/>
 				</ScrollView>
 			)}

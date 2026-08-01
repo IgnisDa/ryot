@@ -23,9 +23,9 @@ export class GodModeRepository extends Context.Service<GodModeRepository>()("God
 		});
 
 		const listUserRows = Effect.fn("GodModeRepository.listUserRows")(function* (input: {
-			search?: string | undefined;
-			offset: number;
 			limit: number;
+			offset: number;
+			search?: string | undefined;
 		}) {
 			const db = yield* Database;
 			const rows = yield* mapDatabaseErrors(
@@ -34,8 +34,8 @@ export class GodModeRepository extends Context.Service<GodModeRepository>()("God
 						id: schema.user.id,
 						name: schema.user.name,
 						email: schema.user.email,
-						disabledAt: schema.user.disabledAt,
 						createdAt: schema.user.createdAt,
+						disabledAt: schema.user.disabledAt,
 						twoFactorEnabled: schema.user.twoFactorEnabled,
 					})
 					.from(schema.user)
@@ -50,8 +50,8 @@ export class GodModeRepository extends Context.Service<GodModeRepository>()("God
 				name: row.name,
 				email: row.email,
 				createdAt: row.createdAt.toISOString(),
-				disabledAt: row.disabledAt?.toISOString() ?? null,
 				twoFactorEnabled: row.twoFactorEnabled ?? null,
+				disabledAt: row.disabledAt?.toISOString() ?? null,
 			}));
 		});
 
