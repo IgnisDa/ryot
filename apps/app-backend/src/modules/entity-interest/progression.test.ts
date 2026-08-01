@@ -52,7 +52,7 @@ const makeLayer = (input: {
 						Effect.succeed({
 							slug: "provider",
 							name: "Provider",
-							pluginSlug: "plugin",
+							pluginId: "plugin",
 							rootEntitySchemaSlug: "entity",
 							id: SandboxProviderId.make("provider-1"),
 							createdAt: new Date("2026-08-14T00:00:00.000Z"),

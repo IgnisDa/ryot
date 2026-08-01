@@ -67,12 +67,12 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 			const db = yield* Database;
 			const [row] = yield* mapDatabaseErrors(
 				db
-					.select({ pluginSlug: schema.sandboxScript.pluginSlug })
+					.select({ pluginId: schema.sandboxScript.pluginId })
 					.from(schema.sandboxScript)
 					.where(eq(schema.sandboxScript.id, scriptId))
 					.limit(1),
 			);
-			return row?.pluginSlug != null;
+			return row?.pluginId != null;
 		});
 
 		const getScriptPin = Effect.fn("SandboxRepository.getScriptPin")(function* (
@@ -83,16 +83,19 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 				db
 					.select({
 						id: schema.sandboxScript.id,
+						pluginSlug: schema.plugin.slug,
 						metadata: schema.sandboxScript.metadata,
-						pluginSlug: schema.sandboxScript.pluginSlug,
+						pluginId: schema.sandboxScript.pluginId,
 						contentHash: schema.sandboxScript.contentHash,
 					})
 					.from(schema.sandboxScript)
+					.leftJoin(schema.plugin, eq(schema.plugin.id, schema.sandboxScript.pluginId))
 					.where(eq(schema.sandboxScript.id, scriptId))
 					.limit(1),
 			);
 			return row
 				? {
+						pluginId: row.pluginId,
 						pluginSlug: row.pluginSlug,
 						contentHash: row.contentHash,
 						scriptId: SandboxScriptId.make(row.id),
@@ -113,15 +116,15 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 				const db = yield* Database;
 				const [owner] = yield* mapDatabaseErrors(
 					db
-						.select({ pluginSlug: schema.sandboxScript.pluginSlug })
+						.select({ pluginId: schema.sandboxScript.pluginId })
 						.from(schema.sandboxScript)
 						.where(eq(schema.sandboxScript.id, workflowScriptId))
 						.limit(1),
 				);
-				if (!owner?.pluginSlug) {
+				if (!owner?.pluginId) {
 					return null;
 				}
-				const ownerPluginSlug = owner.pluginSlug;
+				const ownerPluginId = owner.pluginId;
 				const [plugin] = yield* mapDatabaseErrors(
 					db
 						.select({
@@ -129,7 +132,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 							compiledHashes: schema.plugin.compiledHashes,
 						})
 						.from(schema.plugin)
-						.where(eq(schema.plugin.slug, ownerPluginSlug))
+						.where(eq(schema.plugin.id, ownerPluginId))
 						.limit(1),
 				);
 				if (!plugin) {
@@ -154,7 +157,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 						.where(
 							and(
 								eq(schema.sandboxScript.slug, scriptSlug),
-								eq(schema.sandboxScript.pluginSlug, ownerPluginSlug),
+								eq(schema.sandboxScript.pluginId, ownerPluginId),
 								eq(schema.sandboxScript.contentHash, contentHash),
 							),
 						)

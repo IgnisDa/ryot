@@ -49,7 +49,6 @@ import {
 } from "#modules/collections/add-entity-to-collection-workflow-live";
 import { CollectionsRepository } from "#modules/collections/repository";
 import { CollectionsService } from "#modules/collections/service";
-import { DefinitionsRepository } from "#modules/definitions/repository";
 import { DefinitionsService } from "#modules/definitions/service";
 import { LifecycleDispatchNoop } from "#modules/entities/lifecycle-dispatch";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -93,6 +92,8 @@ import { NotificationsService } from "#modules/notifications/service";
 import { FirstPartyPluginBootstrap } from "#modules/plugins/boot";
 import { PluginHttpRateLimitAuthority } from "#modules/plugins/http-rate-limit-authority";
 import { ImportSourceCatalog } from "#modules/plugins/import-source-catalog";
+import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+import { PluginInstallationService } from "#modules/plugins/installation-service";
 import { IntegrationProviderCatalogLive } from "#modules/plugins/integration-provider-catalog";
 import { PluginLoaderLive } from "#modules/plugins/loader";
 import { OperationsService } from "#modules/plugins/operations-service";
@@ -193,7 +194,7 @@ const PlatformRepositoriesLive = Layer.mergeAll(
 	SandboxRepository.layer,
 	SandboxWorkflowReferenceRepository.layer,
 	SavedViewsRepository.layer,
-	DefinitionsRepository.layer,
+	PluginInstallationRepository.layer,
 	PluginRepository.layer,
 	ManagedAssetsRepository.layer,
 	UserLifecycleRepository.layer,
@@ -222,6 +223,15 @@ const PluginIngestionServiceLive = Layer.provide(
 		SandboxWorkflowReferenceRepository.layer,
 	),
 );
+const PluginInstallationServiceLive = Layer.provide(
+	PluginInstallationService.layer,
+	Layer.mergeAll(
+		PluginLoaderLive,
+		PluginRepository.layer,
+		PluginInstallationRepository.layer,
+		SandboxWorkflowReferenceRepository.layer,
+	),
+);
 const RepositoriesLive = Layer.provideMerge(
 	Layer.mergeAll(ContentRepositoriesLive, PlatformRepositoriesLive),
 	SandboxPluginScriptResolverLive,
@@ -235,7 +245,7 @@ const MigrationBootstrapRepositoriesLive = Layer.mergeAll(
 	SavedViewsRepository.layer,
 	RelationshipSchemasRepository.layer,
 	SignalSchemasRepository.layer,
-	DefinitionsRepository.layer,
+	PluginInstallationRepository.layer,
 	PluginRepository.layer,
 );
 
@@ -462,6 +472,7 @@ const OperationsServiceLive = OperationsService.layer.pipe(
 const ServicesLive = Layer.mergeAll(
 	ContentAndSandboxServicesLive,
 	PluginIngestionServiceLive,
+	PluginInstallationServiceLive,
 	OperationsServiceLive,
 	InterestServicesLive,
 	LifecycleDispatchServiceLive,

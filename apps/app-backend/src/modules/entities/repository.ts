@@ -90,7 +90,7 @@ const portableEntitySelection = {
 	externalId: schema.entity.externalId,
 	populatedAt: schema.entity.populatedAt,
 	providerSlug: schema.sandboxProvider.slug,
-	pluginSlug: schema.sandboxProvider.pluginSlug,
+	pluginSlug: schema.plugin.slug,
 	entitySchemaSlug: schema.entity.entitySchemaSlug,
 };
 
@@ -174,6 +174,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 								schema.sandboxProvider,
 								eq(schema.entity.providerId, schema.sandboxProvider.id),
 							)
+							.leftJoin(schema.plugin, eq(schema.plugin.id, schema.sandboxProvider.pluginId))
 							.where(eq(schema.entity.userId, userId))
 							.orderBy(asc(schema.entity.id)),
 					);
@@ -193,6 +194,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 							schema.sandboxProvider,
 							eq(schema.entity.providerId, schema.sandboxProvider.id),
 						)
+						.leftJoin(schema.plugin, eq(schema.plugin.id, schema.sandboxProvider.pluginId))
 						.where(
 							and(
 								isNull(schema.entity.userId),
@@ -248,6 +250,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 							schema.sandboxProvider,
 							eq(schema.entity.providerId, schema.sandboxProvider.id),
 						)
+						.leftJoin(schema.plugin, eq(schema.plugin.id, schema.sandboxProvider.pluginId))
 						.where(and(isNull(schema.entity.userId), inArray(schema.entity.id, [...entityIds])))
 						.orderBy(asc(schema.entity.id)),
 				);
@@ -509,6 +512,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 								schema.sandboxProvider,
 								eq(schema.entity.providerId, schema.sandboxProvider.id),
 							)
+							.leftJoin(schema.plugin, eq(schema.plugin.id, schema.sandboxProvider.pluginId))
 							.where(
 								and(
 									isNull(schema.entity.userId),
@@ -517,7 +521,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 									input.provider === null
 										? isNull(schema.entity.providerId)
 										: and(
-												eq(schema.sandboxProvider.pluginSlug, input.provider.pluginSlug),
+												eq(schema.plugin.slug, input.provider.pluginSlug),
+												eq(schema.plugin.scope, "system"),
 												eq(schema.sandboxProvider.slug, input.provider.providerSlug),
 											),
 								),
@@ -774,8 +779,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				getById,
 				deleteByIds,
 				insertEntity,
-				restoreEntity,
 				updateEntity,
+				restoreEntity,
 				getByIdForUser,
 				getByIdsForUser,
 				findEntitySchemaById,
@@ -785,10 +790,10 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				listUserEntitiesForBackup,
 				lockUserEntityEnsureScopes,
 				getEntityMergeScopeForUser,
+				findGlobalEntityForRestore,
 				listMatchCandidatesBySchema,
 				getEntitySchemaScopeForUser,
 				findGlobalEntityByExternalId,
-				findGlobalEntityForRestore,
 				findEntityByExternalIdForUser,
 				findEntitySchemaProviderBySlug,
 				findUserEntityWithoutProvenance,

@@ -34,7 +34,7 @@ const entitySchemaSlug = EntitySchemaSlug.make("schema-1");
 const provider = {
 	id: providerId,
 	name: "Provider",
-	pluginSlug: "plugin",
+	pluginId: "plugin",
 	slug: "provider.slug",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),

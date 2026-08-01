@@ -186,8 +186,14 @@ fi
 				Effect.sync(() => {
 					pinEvents.push("pin");
 					return scriptId === historicalScriptId
-						? { pluginSlug: "plugin", scriptId: historicalScriptId, contentHash: "historical-hash" }
+						? {
+								pluginId: "plugin",
+								pluginSlug: "plugin",
+								scriptId: historicalScriptId,
+								contentHash: "historical-hash",
+							}
 						: {
+								pluginId: "plugin",
 								pluginSlug: "plugin",
 								scriptId: replacementScriptId,
 								contentHash: "replacement-hash",
@@ -306,7 +312,7 @@ fi
 		expect(registrations).toEqual([
 			{
 				executionId,
-				pluginSlug: "plugin",
+				pluginId: "plugin",
 				scriptId: historicalScriptId,
 				contentHash: "historical-hash",
 			},
@@ -334,7 +340,12 @@ it.effect("retains a plugin workflow reference while durably suspended", () => {
 		Layer.succeed(WorkflowInstance, instance),
 		Layer.mock(SandboxRepository)({
 			getScriptPin: () =>
-				Effect.succeed({ scriptId, pluginSlug: "plugin", contentHash: "content-hash" }),
+				Effect.succeed({
+					scriptId,
+					pluginId: "plugin",
+					pluginSlug: "plugin",
+					contentHash: "content-hash",
+				}),
 		}),
 		Layer.mock(SandboxWorkflowReferenceRepository)({
 			lockIngestionShared: () => Effect.void,
@@ -433,7 +444,12 @@ it.effect("reconstructs a completed host write after interruption without repeat
 			Layer.mock(SandboxRepository)({
 				resolveWorkflowCallScript: () => Effect.succeed(null),
 				getScriptPin: () =>
-					Effect.succeed({ scriptId, pluginSlug: null, contentHash: "operation-hash" }),
+					Effect.succeed({
+						scriptId,
+						pluginId: null,
+						pluginSlug: null,
+						contentHash: "operation-hash",
+					}),
 			}),
 			Layer.mock(SandboxWorkflowReferenceRepository)({
 				lockIngestionShared: () => Effect.void,
@@ -510,7 +526,12 @@ it.effect("releases a plugin workflow reference before returning terminal failur
 		Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(instance)),
 		Layer.mock(SandboxRepository)({
 			getScriptPin: () =>
-				Effect.succeed({ scriptId, pluginSlug: "plugin", contentHash: "content-hash" }),
+				Effect.succeed({
+					scriptId,
+					pluginId: "plugin",
+					pluginSlug: "plugin",
+					contentHash: "content-hash",
+				}),
 		}),
 		Layer.mock(SandboxWorkflowReferenceRepository)({
 			lockIngestionShared: () => Effect.void,
@@ -563,7 +584,12 @@ it.effect("maps inactive plugin pin registration to SandboxRunError", () => {
 		Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(instance)),
 		Layer.mock(SandboxRepository)({
 			getScriptPin: () =>
-				Effect.succeed({ scriptId, pluginSlug: "plugin", contentHash: "content-hash" }),
+				Effect.succeed({
+					scriptId,
+					pluginId: "plugin",
+					pluginSlug: "plugin",
+					contentHash: "content-hash",
+				}),
 		}),
 		Layer.mock(SandboxWorkflowReferenceRepository)({
 			lockIngestionShared: () => Effect.void,
@@ -719,7 +745,12 @@ it.effect("executes a pending batch with request-indexed script child identities
 			Layer.succeed(WorkflowInstance, instance),
 			Layer.mock(SandboxRepository)({
 				getScriptPin: () =>
-					Effect.succeed({ scriptId, pluginSlug: null, contentHash: "workflow-hash" }),
+					Effect.succeed({
+						scriptId,
+						pluginId: null,
+						pluginSlug: null,
+						contentHash: "workflow-hash",
+					}),
 				resolveWorkflowCallScript: () =>
 					Effect.succeed({ kind: "script" as const, scriptId: activityScriptId }),
 			}),
@@ -753,11 +784,7 @@ it.effect("executes a pending batch with request-indexed script child identities
 					error: null,
 					harvest: null,
 					status: "completed" as const,
-					value: {
-						output: { done: true },
-						requests: [first, second],
-						state: "completed" as const,
-					},
+					value: { output: { done: true }, requests: [first, second], state: "completed" as const },
 				});
 			},
 		).pipe(Effect.provide(layer));
@@ -821,9 +848,9 @@ it.effect("dispatches plugin children as child workflows with an exact script pi
 		expect(capturedOptions).toMatchObject({
 			executionId: "parent-child-events-import-v1-2",
 			payload: {
-				grants: { artifactOwnerExecutionId: "parent" },
 				scriptId: "child-script",
 				resolutionMode: "exact",
+				grants: { artifactOwnerExecutionId: "parent" },
 			},
 		});
 	}).pipe(
