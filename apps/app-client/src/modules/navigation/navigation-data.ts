@@ -67,7 +67,7 @@ export function getCurrentWorkspace(
 	workspaces: readonly NavigationWorkspace[],
 	routeWorkspace: string | undefined,
 	persistedWorkspace: string,
-): NavigationWorkspace | undefined {
+): NavigationWorkspace {
 	return (
 		workspaces.find((item) => item.slug === routeWorkspace) ??
 		workspaces.find((item) => item.slug === persistedWorkspace) ??

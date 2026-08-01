@@ -1,14 +1,18 @@
-import { makeContractClient } from "@ryot/contract/client";
-import { Effect } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
+import { Effect, Layer } from "effect";
 import { Atom } from "effect/unstable/reactivity";
 
-import { appQueryClient } from "@/api/query-client";
+import { PublicApi } from "@/api/app-api";
+import { keyedRequestFamily, serverRequestKey } from "@/api/request-key";
+import { publicContractClient } from "@/api/transport";
 
-const publicApiRuntime = Atom.runtime(FetchHttpClient.layer);
+const publicApiRuntime = Atom.runtime(Layer.empty);
 
 export const connectToServerAtom = publicApiRuntime.fn((serverUrl: string) =>
-	makeContractClient(`${serverUrl}/api`).pipe(Effect.flatMap((client) => client.system.health())),
+	publicContractClient(serverUrl).pipe(Effect.flatMap((client) => client.system.health())),
 );
 
-export const systemConfigAtom = appQueryClient.query("system", "config", {});
+export const systemConfigAtom = keyedRequestFamily(serverRequestKey, (serverUrl: string) =>
+	PublicApi.query("system", "config", {
+		reactivityKeys: [`system-config:${serverRequestKey(serverUrl)}`],
+	}),
+);

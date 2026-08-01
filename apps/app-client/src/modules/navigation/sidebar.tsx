@@ -2,7 +2,6 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import type { NavigationWorkspace } from "@ryot/ryotql-recipes/navigation";
 import clsx from "clsx";
 import { router } from "expo-router";
-import { useState, type ReactNode } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
 import { useAuthClient } from "@/modules/auth/client";
@@ -17,13 +16,7 @@ const SAVED_VIEWS_HEIGHT = 148;
 const THEME_ORDER = ["light", "dark", "system"] as const;
 const THEME_ICONS = { light: "sun", dark: "moon", system: "monitor" } as const;
 
-function NavigationRow(props: {
-	isActive: boolean;
-	onPress: () => void;
-	item: NavigationItem;
-	reordering?: boolean;
-	onReorder?: () => void;
-}) {
+function NavigationRow(props: { isActive: boolean; onPress: () => void; item: NavigationItem }) {
 	return (
 		<Pressable
 			onPress={props.onPress}
@@ -34,16 +27,6 @@ function NavigationRow(props: {
 				props.isActive && "bg-nav-indicator",
 			)}
 		>
-			{props.reordering && (
-				<Pressable
-					className="-ml-1 p-1"
-					onPress={props.onReorder}
-					accessibilityRole="button"
-					accessibilityLabel={`Move ${props.item.name} down`}
-				>
-					<NavigationIcon className="text-text-muted" name="grip-vertical" size={14} />
-				</Pressable>
-			)}
 			<NavigationIcon className="text-text-muted" name={props.item.icon} size={15} />
 			<Text
 				className={clsx(
@@ -53,14 +36,14 @@ function NavigationRow(props: {
 			>
 				{props.item.name}
 			</Text>
-			{!props.reordering && props.item.kind !== "home" && (
+			{props.item.kind !== "home" && (
 				<NavigationIcon className="text-text-subtle" name="chevron-right" size={14} />
 			)}
 		</Pressable>
 	);
 }
 
-function SectionHeader(props: { title: string; count?: number; action?: ReactNode }) {
+function SectionHeader(props: { title: string; count?: number }) {
 	return (
 		<View className="flex-row items-center justify-between px-1">
 			<View className="flex-row items-center gap-2">
@@ -71,7 +54,6 @@ function SectionHeader(props: { title: string; count?: number; action?: ReactNod
 					<Text className="font-mono text-xs text-text-subtle">{props.count}</Text>
 				)}
 			</View>
-			{props.action}
 		</View>
 	);
 }
@@ -120,8 +102,6 @@ export function Sidebar(props: {
 	const client = useAuthClient();
 	const theme = useAtomValue(themeAtom);
 	const setTheme = useAtomSet(themeAtom);
-	const [viewOrder, setViewOrder] = useState(items.views);
-	const [isReordering, setIsReordering] = useState(false);
 
 	function cycleTheme() {
 		const currentIndex = THEME_ORDER.indexOf(theme);
@@ -131,17 +111,6 @@ export function Sidebar(props: {
 	async function handleSignOut() {
 		await client.signOut();
 		router.replace("/auth");
-	}
-
-	function moveView(index: number) {
-		setViewOrder((current) => {
-			if (index === current.length - 1) {
-				return current;
-			}
-			const next = [...current];
-			[next[index], next[index + 1]] = [next[index + 1], next[index]];
-			return next;
-		});
 	}
 
 	return (
@@ -162,7 +131,6 @@ export function Sidebar(props: {
 						<TextInput
 							placeholder="Search"
 							returnKeyType="search"
-							onSubmitEditing={() => undefined}
 							accessibilityLabel="Search navigation"
 							className="min-w-0 flex-1 py-0 font-ui text-xs text-text"
 						/>
@@ -173,34 +141,18 @@ export function Sidebar(props: {
 				)}
 
 				<View className="mt-2 gap-1">
-					<SectionHeader
-						title="Views"
-						action={
-							<Pressable
-								accessibilityRole="button"
-								className="px-1 text-accent-text"
-								onPress={() => setIsReordering((current) => !current)}
-								accessibilityLabel={isReordering ? "Finish reordering views" : "Reorder views"}
-							>
-								<Text className="font-ui-medium text-xs text-accent-text">
-									{isReordering ? "Done" : "Reorder"}
-								</Text>
-							</Pressable>
-						}
-					/>
+					<SectionHeader title="Views" />
 					<ScrollView
 						nestedScrollEnabled
 						showsVerticalScrollIndicator
 						style={{ height: VIEWS_HEIGHT }}
 						contentContainerClassName="gap-0.5"
 					>
-						{viewOrder.map((item) => (
+						{items.views.map((item) => (
 							<NavigationRow
 								item={item}
 								key={item.slug}
-								reordering={isReordering}
 								onPress={() => props.onNavigate(item)}
-								onReorder={() => moveView(viewOrder.indexOf(item))}
 								isActive={
 									item.kind === "home"
 										? props.activeKey === "home"
@@ -213,11 +165,7 @@ export function Sidebar(props: {
 
 				<View className="my-2 h-px bg-border" />
 				<View className="gap-1">
-					<SectionHeader
-						title="Collections"
-						count={items.collections.length}
-						action={<Text className="font-ui-medium text-xs text-accent-text">New</Text>}
-					/>
+					<SectionHeader title="Collections" count={items.collections.length} />
 					<ScrollView
 						nestedScrollEnabled
 						showsVerticalScrollIndicator
@@ -240,11 +188,7 @@ export function Sidebar(props: {
 				</View>
 
 				<View className="gap-1">
-					<SectionHeader
-						title="Saved Views"
-						count={items.savedViews.length}
-						action={<Text className="font-ui-medium text-xs text-accent-text">New</Text>}
-					/>
+					<SectionHeader title="Saved Views" count={items.savedViews.length} />
 					<ScrollView
 						nestedScrollEnabled
 						showsVerticalScrollIndicator
@@ -288,14 +232,6 @@ export function Sidebar(props: {
 							className="p-1"
 						>
 							<NavigationIcon className="text-text-subtle" name={THEME_ICONS[theme]} size={15} />
-						</Pressable>
-						<Pressable
-							accessibilityRole="button"
-							accessibilityLabel="Settings"
-							disabled
-							className="p-1"
-						>
-							<NavigationIcon className="text-text-subtle" name="settings" size={15} />
 						</Pressable>
 					</View>
 				</View>

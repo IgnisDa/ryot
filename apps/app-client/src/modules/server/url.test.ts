@@ -1,6 +1,30 @@
 import { describe, expect, it } from "vitest";
 
-import { CLOUD_URL, resolveServerUrl } from "./url";
+import {
+	CLOUD_URL,
+	normalizeServerOrigin,
+	resolveApiUrl,
+	resolveServerUrl,
+	serverApiUrl,
+} from "./url";
+
+describe("server URL helpers", () => {
+	it("normalizes the server origin and API base URL", () => {
+		expect(normalizeServerOrigin("  https://example.com/ryot///  ")).toBe(
+			"https://example.com/ryot",
+		);
+		expect(serverApiUrl("https://example.com/ryot/")).toBe("https://example.com/ryot/api");
+	});
+
+	it("resolves API-relative and absolute URLs", () => {
+		expect(resolveApiUrl("https://example.com/ryot/", "/uploads/file?id=1")).toBe(
+			"https://example.com/ryot/api/uploads/file?id=1",
+		);
+		expect(resolveApiUrl("https://example.com", "https://assets.example.com/file.jpg")).toBe(
+			"https://assets.example.com/file.jpg",
+		);
+	});
+});
 
 describe("resolveServerUrl", () => {
 	it("returns the cloud URL for cloud mode", () => {
