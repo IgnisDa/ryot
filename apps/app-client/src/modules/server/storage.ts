@@ -1,14 +1,15 @@
 import { Effect, Layer, Schema } from "effect";
 import { KeyValueStore } from "effect/unstable/persistence";
+import { Atom } from "effect/unstable/reactivity";
 import { Platform } from "react-native";
 import { createMMKV } from "react-native-mmkv";
 
 import { CLOUD_URL } from "@/modules/server/url";
 
-export const workspaceKey = "workspace";
-export const serverUrlKey = "server-url";
-export const workspaceSchema = Schema.String;
-export const serverUrlSchema = Schema.NullOr(Schema.String);
+const workspaceKey = "workspace";
+const serverUrlKey = "server-url";
+const workspaceSchema = Schema.String;
+const serverUrlSchema = Schema.NullOr(Schema.String);
 
 export const serverStorageLayer =
 	Platform.OS === "web"
@@ -23,6 +24,22 @@ export const serverStorageLayer =
 					get: (key) => Effect.sync(() => storage.getString(key)),
 				});
 			});
+
+export const serverStorageRuntime = Atom.runtime(serverStorageLayer);
+
+export const serverUrlAtom = Atom.kvs({
+	key: serverUrlKey,
+	schema: serverUrlSchema,
+	defaultValue: () => null,
+	runtime: serverStorageRuntime,
+});
+
+export const workspaceAtom = Atom.kvs({
+	key: workspaceKey,
+	schema: workspaceSchema,
+	defaultValue: () => "media",
+	runtime: serverStorageRuntime,
+});
 
 export function clearServerStorage() {
 	if (Platform.OS === "web") {

@@ -2,8 +2,9 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import clsx from "clsx";
 import { Pressable, View } from "react-native";
 
-import { savedViewLayoutAtom } from "@/api/atoms";
 import { AppIcon } from "@/modules/icons";
+
+import { savedViewLayoutAtom } from "./atoms";
 
 const layouts = [
 	{ icon: "grid", label: "Grid", value: "grid" },

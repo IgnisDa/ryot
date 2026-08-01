@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
+import type { ManagedAssetLocator } from "@ryot/contract/modules/uploads/schemas";
 import {
 	decodeSavedViewRecordResponse,
 	type SavedViewRecord,
@@ -8,27 +9,30 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { useLocalSearchParams } from "expo-router";
 import { Text, View } from "react-native";
 
+import { useAuthClient } from "@/modules/auth/client";
+import { AppIcon } from "@/modules/icons";
+import { NavigationStatus } from "@/modules/navigation/navigation-status";
 import {
 	managedAssetResolutionAtom,
 	savedViewLayoutAtom,
 	savedViewRecordAtom,
 	savedViewResultAtom,
-} from "@/api/atoms";
-import { useAuthClient } from "@/modules/auth/client";
-import { AppIcon } from "@/modules/icons";
-import { NavigationStatus } from "@/modules/navigation/navigation-status";
+} from "@/modules/saved-views/atoms";
 import {
 	collectManagedAssets,
 	decodeSavedViewDisplayData,
 	resolvedAssetUrls,
 	type SavedViewDisplayData,
+	type SavedViewDisplayItem,
 } from "@/modules/saved-views/display-data";
 import { SavedViewGrid } from "@/modules/saved-views/saved-view-grid";
-import { SavedViewLayoutSelector } from "@/modules/saved-views/saved-view-layout-selector";
+import {
+	SavedViewLayoutSelector,
+	type SavedViewLayout,
+} from "@/modules/saved-views/saved-view-layout-selector";
 import { SavedViewList } from "@/modules/saved-views/saved-view-list";
 import { SavedViewTable } from "@/modules/saved-views/saved-view-table";
 import { useServerUrl } from "@/modules/server/state";
-import { CLOUD_URL } from "@/modules/server/url";
 
 function ErrorState(props: { detail: string; title: string }) {
 	return (
@@ -56,9 +60,9 @@ function EmptyState(props: { name: string }) {
 }
 
 function SavedViewItems(props: {
-	layout: "grid" | "list" | "table";
+	layout: SavedViewLayout;
 	managedUrls: ReadonlyMap<string, string>;
-	items: Parameters<typeof SavedViewGrid>[0]["items"];
+	items: readonly SavedViewDisplayItem[];
 }) {
 	if (props.layout === "grid") {
 		return <SavedViewGrid items={props.items} managedUrls={props.managedUrls} />;
@@ -69,49 +73,75 @@ function SavedViewItems(props: {
 	return <SavedViewTable items={props.items} managedUrls={props.managedUrls} />;
 }
 
-function SavedViewResolvedContent(props: {
+type SavedViewPresentationProps = {
 	icon: string;
 	name: string;
 	userId: string;
 	viewSlug: string;
+	serverUrl: string;
+	layout: SavedViewLayout;
 	data: SavedViewDisplayData;
-	layout: "grid" | "list" | "table";
-}) {
-	const serverUrl = useServerUrl() ?? CLOUD_URL;
+};
+
+function SavedViewResolvedContent(props: SavedViewPresentationProps) {
 	const assets = collectManagedAssets(props.data.items, props.layout);
 	if (assets.length === 0) {
-		return <SavedViewDisplay {...props} managedUrls={new Map()} />;
+		return (
+			<SavedViewDisplay
+				data={props.data}
+				icon={props.icon}
+				name={props.name}
+				layout={props.layout}
+				managedUrls={new Map()}
+				viewSlug={props.viewSlug}
+			/>
+		);
 	}
 	return (
 		<SavedViewManagedContent
-			{...props}
-			serverUrl={serverUrl}
-			serializedRequest={JSON.stringify({ assets, serverUrl, userId: props.userId })}
+			assets={assets}
+			data={props.data}
+			icon={props.icon}
+			name={props.name}
+			userId={props.userId}
+			layout={props.layout}
+			viewSlug={props.viewSlug}
+			serverUrl={props.serverUrl}
 		/>
 	);
 }
 
 function SavedViewManagedContent(
-	props: Parameters<typeof SavedViewResolvedContent>[0] & {
-		serverUrl: string;
-		serializedRequest: string;
-	},
+	props: SavedViewPresentationProps & { assets: readonly ManagedAssetLocator[] },
 ) {
-	const result = useAtomValue(managedAssetResolutionAtom(props.serializedRequest));
+	const result = useAtomValue(
+		managedAssetResolutionAtom({
+			assets: props.assets,
+			userId: props.userId,
+			serverUrl: props.serverUrl,
+		}),
+	);
 	const response = AsyncResult.isSuccess(result) ? result.value : undefined;
 	return (
 		<SavedViewDisplay
-			{...props}
+			data={props.data}
+			icon={props.icon}
+			name={props.name}
+			layout={props.layout}
+			viewSlug={props.viewSlug}
 			managedUrls={response ? resolvedAssetUrls(response, props.serverUrl) : new Map()}
 		/>
 	);
 }
 
-function SavedViewDisplay(
-	props: Parameters<typeof SavedViewResolvedContent>[0] & {
-		managedUrls: ReadonlyMap<string, string>;
-	},
-) {
+function SavedViewDisplay(props: {
+	icon: string;
+	name: string;
+	viewSlug: string;
+	layout: SavedViewLayout;
+	data: SavedViewDisplayData;
+	managedUrls: ReadonlyMap<string, string>;
+}) {
 	const { items, pageInfo } = props.data;
 	return (
 		<View className="w-full gap-5">
@@ -144,13 +174,11 @@ function SavedViewDisplay(
 
 function SavedViewContent(props: { record: SavedViewRecord; serverUrl: string; userId: string }) {
 	const queryResult = useAtomValue(
-		savedViewResultAtom(
-			JSON.stringify({
-				userId: props.userId,
-				serverUrl: props.serverUrl,
-				queryDocument: props.record.queryDocument,
-			}),
-		),
+		savedViewResultAtom({
+			userId: props.userId,
+			serverUrl: props.serverUrl,
+			queryDocument: props.record.queryDocument,
+		}),
 	);
 	const layout = useAtomValue(savedViewLayoutAtom(props.record.slug));
 	if (AsyncResult.isFailure(queryResult)) {
@@ -182,6 +210,7 @@ function SavedViewContent(props: { record: SavedViewRecord; serverUrl: string; u
 			data={decoded.success}
 			icon={props.record.icon}
 			name={props.record.name}
+			serverUrl={props.serverUrl}
 			viewSlug={props.record.slug}
 		/>
 	);
@@ -207,7 +236,7 @@ export default function SavedViewScreen() {
 }
 
 function SavedViewRecordLoader(props: { slug: string; serverUrl: string; userId: string }) {
-	const recordResult = useAtomValue(savedViewRecordAtom(JSON.stringify(props)));
+	const recordResult = useAtomValue(savedViewRecordAtom(props));
 	if (AsyncResult.isFailure(recordResult)) {
 		return (
 			<ErrorState title="Unable to load saved view" detail={Cause.pretty(recordResult.cause)} />

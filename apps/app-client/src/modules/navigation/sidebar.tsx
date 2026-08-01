@@ -4,8 +4,8 @@ import clsx from "clsx";
 import { useState, type ReactNode } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
-import { themeAtom } from "@/api/atoms";
 import { AppIcon as NavigationIcon } from "@/modules/icons";
+import { themeAtom } from "@/modules/theme/atoms";
 
 import { getWorkspaceSummary, type NavigationItem, type NavigationItems } from "./navigation-data";
 
