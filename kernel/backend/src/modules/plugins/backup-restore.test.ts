@@ -4,7 +4,7 @@ import { Effect, Layer } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";
 import { DefinitionRegistry, type DefinitionSnapshot } from "#modules/definition-registry/service";
-import { ClientPluginCompiler } from "#modules/sandbox/client-compiler";
+import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 
 import { PluginBackupRestore } from "./backup-restore";
 import { PluginIngestionLock } from "./ingestion-lock";
