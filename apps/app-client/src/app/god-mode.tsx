@@ -1,29 +1,100 @@
+import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react";
+import { AsyncResult } from "effect/unstable/reactivity";
 import { Redirect } from "expo-router";
-import { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import {
+	ActivityIndicator,
+	KeyboardAvoidingView,
+	Platform,
+	Pressable,
+	ScrollView,
+	Text,
+	View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { sampleGodModeUsers } from "@/modules/god-mode/sample-users";
+import { adminTokenAtom, godModeUsersAtom } from "@/modules/god-mode/atoms";
+import { isUnauthorizedCause } from "@/modules/god-mode/errors";
 import { TokenForm } from "@/modules/god-mode/token-form";
 import { GodModeUserList } from "@/modules/god-mode/user-list";
 import { useServerUrl } from "@/modules/server/state";
+
+function UserManagement(props: { onUnauthorized: () => void }) {
+	const onUnauthorized = props.onUnauthorized;
+	const users = useAtomValue(godModeUsersAtom);
+	const refreshUsers = useAtomRefresh(godModeUsersAtom);
+	const unauthorized = AsyncResult.isFailure(users) && isUnauthorizedCause(users.cause);
+
+	useEffect(() => {
+		if (unauthorized) {
+			onUnauthorized();
+		}
+	}, [onUnauthorized, unauthorized]);
+
+	if (unauthorized) {
+		return null;
+	}
+
+	if (users.waiting) {
+		return (
+			<View className="items-center gap-2 py-12">
+				<ActivityIndicator accessibilityLabel="Loading users" />
+				<Text className="font-ui text-sm text-text-muted">Loading users...</Text>
+			</View>
+		);
+	}
+
+	if (AsyncResult.isFailure(users)) {
+		return (
+			<View className="items-center gap-3 rounded-xl border border-border bg-surface p-6">
+				<Text className="text-center font-ui text-sm text-danger">
+					Could not load users. Check the server and try again.
+				</Text>
+				<Pressable
+					onPress={refreshUsers}
+					accessibilityRole="button"
+					className="rounded-lg border border-border-strong px-4 py-2"
+				>
+					<Text className="font-ui-medium text-sm text-text">Retry</Text>
+				</Pressable>
+			</View>
+		);
+	}
+
+	if (!AsyncResult.isSuccess(users)) {
+		return null;
+	}
+
+	return <GodModeUserList users={users.value.users} onUnauthorized={onUnauthorized} />;
+}
 
 export default function GodMode() {
 	const serverUrl = useServerUrl();
 	const insets = useSafeAreaInsets();
 	const [token, setToken] = useState("");
-	const [users, setUsers] = useState(sampleGodModeUsers);
+	const setAdminToken = useAtomSet(adminTokenAtom);
+	const [tokenError, setTokenError] = useState<string | null>(null);
 	const [submittedToken, setSubmittedToken] = useState<string | null>(null);
 
-	function handleToggleDisabled(userId: string) {
-		// TODO: Replace with godMode.setUserDisabled once the admin API is wired up.
-		setUsers((current) =>
-			current.map((user) =>
-				user.id === userId
-					? { ...user, disabledAt: user.disabledAt ? null : new Date().toISOString() }
-					: user,
-			),
-		);
+	useEffect(
+		() => () => {
+			setAdminToken("");
+		},
+		[setAdminToken],
+	);
+
+	function handleSubmit() {
+		const submitted = token.trim();
+		setTokenError(null);
+		setAdminToken(submitted);
+		setSubmittedToken(submitted);
+	}
+
+	function handleUnauthorized() {
+		setToken("");
+		setAdminToken("");
+		setSubmittedToken(null);
+		setTokenError("That admin access token is invalid.");
 	}
 
 	if (!serverUrl) {
@@ -42,8 +113,12 @@ export default function GodMode() {
 				>
 					<TokenForm
 						token={token}
-						onTokenChange={setToken}
-						onSubmit={() => setSubmittedToken(token)}
+						error={tokenError}
+						onSubmit={handleSubmit}
+						onTokenChange={(value) => {
+							setToken(value);
+							setTokenError(null);
+						}}
 					/>
 				</ScrollView>
 			) : (
@@ -52,11 +127,7 @@ export default function GodMode() {
 						<Text className="font-display-semibold text-3xl text-text">God Mode</Text>
 						<Text className="font-ui text-sm text-text-muted">Server admin user management</Text>
 					</View>
-					<GodModeUserList
-						users={users}
-						serverUrl={serverUrl}
-						onToggleDisabled={handleToggleDisabled}
-					/>
+					<UserManagement onUnauthorized={handleUnauthorized} />
 				</ScrollView>
 			)}
 		</KeyboardAvoidingView>

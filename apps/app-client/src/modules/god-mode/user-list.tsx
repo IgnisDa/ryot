@@ -1,9 +1,16 @@
+import { useAtomSet } from "@effect/atom-react";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import clsx from "clsx";
+import { Exit } from "effect";
 import { useEffect, useRef, useState } from "react";
 import { Platform, Pressable, Share, Text, TextInput, View } from "react-native";
 
-import type { GodModeUser } from "./sample-users";
+import {
+	type GodModeUser,
+	resetUserPasswordAtom,
+	setUserDisabledAtom,
+} from "@/modules/god-mode/atoms";
+import { isUnauthorizedCause } from "@/modules/god-mode/errors";
 
 const authBadges = {
 	oidc: { label: "OIDC", box: "bg-info-soft", text: "text-info" },
@@ -39,17 +46,20 @@ function AuthBadge(props: { state: GodModeUser["authState"] }) {
 	);
 }
 
-function UserRow(props: {
-	user: GodModeUser;
-	serverUrl: string;
-	onToggleDisabled: (userId: string) => void;
-}) {
+function UserRow(props: { user: GodModeUser; onUnauthorized: () => void }) {
+	const mounted = useRef(true);
 	const [copied, setCopied] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 	const copyTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+	const [pending, setPending] = useState<"reset" | "disabled" | null>(null);
 	const [result, setResult] = useState<{ email: string; resetUrl: string } | null>(null);
+	const resetPassword = useAtomSet(resetUserPasswordAtom(props.user.id), { mode: "promiseExit" });
+	const setUserDisabled = useAtomSet(setUserDisabledAtom(props.user.id), { mode: "promiseExit" });
 
 	useEffect(() => {
+		mounted.current = true;
 		return () => {
+			mounted.current = false;
 			if (copyTimer.current) {
 				clearTimeout(copyTimer.current);
 			}
@@ -58,6 +68,10 @@ function UserRow(props: {
 
 	const isDisabled = props.user.disabledAt !== null;
 	const canReset = props.user.authState === "credential" || props.user.authState === "none";
+	let disabledActionLabel = isDisabled ? "Enable user" : "Disable user";
+	if (pending === "disabled") {
+		disabledActionLabel = isDisabled ? "Enabling..." : "Disabling...";
+	}
 
 	async function handleCopy() {
 		if (!result) {
@@ -72,17 +86,47 @@ function UserRow(props: {
 		} else {
 			void Share.share({ message: result.resetUrl });
 		}
+		if (!mounted.current) {
+			return;
+		}
 		setCopied(true);
 		copyTimer.current = setTimeout(() => setCopied(false), 2000);
 	}
 
-	function handleGenerateResetLink() {
-		// TODO: Replace with godMode.resetUserPassword once the admin API is wired up.
+	async function handleGenerateResetLink() {
 		setCopied(false);
-		setResult({
-			email: props.user.email,
-			resetUrl: `${props.serverUrl}/reset-password?token=sample-reset-token-${props.user.id}`,
-		});
+		setError(null);
+		setResult(null);
+		setPending("reset");
+		const response = await resetPassword();
+		if (!mounted.current) {
+			return;
+		}
+		setPending(null);
+		if (Exit.isSuccess(response)) {
+			setResult(response.value);
+		} else if (isUnauthorizedCause(response.cause)) {
+			props.onUnauthorized();
+		} else {
+			setError("Could not generate a reset link. Try again.");
+		}
+	}
+
+	async function handleToggleDisabled() {
+		setError(null);
+		setPending("disabled");
+		const response = await setUserDisabled(!isDisabled);
+		if (!mounted.current) {
+			return;
+		}
+		setPending(null);
+		if (Exit.isFailure(response)) {
+			if (isUnauthorizedCause(response.cause)) {
+				props.onUnauthorized();
+			} else {
+				setError(`Could not ${isDisabled ? "enable" : "disable"} this user. Try again.`);
+			}
+		}
 	}
 
 	return (
@@ -114,26 +158,33 @@ function UserRow(props: {
 			</View>
 			<View className="flex-row flex-wrap items-center gap-2">
 				<Pressable
-					disabled={!canReset}
 					accessibilityRole="button"
-					onPress={handleGenerateResetLink}
+					disabled={!canReset || pending !== null}
+					onPress={() => void handleGenerateResetLink()}
 					accessibilityLabel={`Generate a password reset link for ${props.user.email}`}
-					className={clsx("rounded-lg bg-accent px-3 py-2", !canReset && "opacity-50")}
+					className={clsx(
+						"rounded-lg bg-accent px-3 py-2",
+						(!canReset || pending !== null) && "opacity-50",
+					)}
 				>
-					<Text className="font-ui-medium text-[13px] text-accent-ink">Generate reset link</Text>
+					<Text className="font-ui-medium text-[13px] text-accent-ink">
+						{pending === "reset" ? "Generating..." : "Generate reset link"}
+					</Text>
 				</Pressable>
 				<Pressable
 					accessibilityRole="button"
-					onPress={() => props.onToggleDisabled(props.user.id)}
+					disabled={pending !== null}
+					onPress={() => void handleToggleDisabled()}
 					className={clsx(
 						"rounded-lg border px-3 py-2",
 						isDisabled ? "border-border-strong" : "border-danger",
+						pending !== null && "opacity-50",
 					)}
 				>
 					<Text
 						className={clsx("font-ui-medium text-[13px]", isDisabled ? "text-text" : "text-danger")}
 					>
-						{isDisabled ? "Enable user" : "Disable user"}
+						{disabledActionLabel}
 					</Text>
 				</Pressable>
 				{!canReset && (
@@ -144,6 +195,7 @@ function UserRow(props: {
 					</Text>
 				)}
 			</View>
+			{error && <Text className="font-ui text-xs text-danger">{error}</Text>}
 			{result && (
 				<View className="gap-2 rounded-lg border border-border bg-raised p-3">
 					<Text className="font-ui text-xs text-text-muted">Reset link for {result.email}</Text>
@@ -176,9 +228,8 @@ function UserRow(props: {
 }
 
 export function GodModeUserList(props: {
-	serverUrl: string;
+	onUnauthorized: () => void;
 	users: readonly GodModeUser[];
-	onToggleDisabled: (userId: string) => void;
 }) {
 	if (props.users.length === 0) {
 		return (
@@ -191,12 +242,7 @@ export function GodModeUserList(props: {
 	return (
 		<View className="border-t border-border">
 			{props.users.map((user) => (
-				<UserRow
-					user={user}
-					key={user.id}
-					serverUrl={props.serverUrl}
-					onToggleDisabled={props.onToggleDisabled}
-				/>
+				<UserRow user={user} key={user.id} onUnauthorized={props.onUnauthorized} />
 			))}
 		</View>
 	);
