@@ -10,7 +10,10 @@ import {
 	createSavedViewControllerState,
 	executeSavedViewRequest,
 	fetchSavedViewPages,
+	isSavedViewLayoutChanging,
+	isSavedViewSearching,
 	savedViewControllerReducer,
+	savedViewControllerQueryDocument,
 	savedViewControllerResult,
 	isSavedViewRequestActiveFor,
 	type SavedViewOperationToken,
@@ -211,6 +214,82 @@ it("returns the original saved-view document for empty or unmapped searches", ()
 		},
 	} satisfies RyotQLDocument;
 	expect(withSavedViewSearch(wildcardDocument, cardLayout, "term")).toBe(wildcardDocument);
+});
+
+it("keeps the displayed layout until a new layout request succeeds", () => {
+	const data = (entityId: string, queryDocument: RyotQLDocument) => ({
+		itemsById: new Map([[entityId, card(entityId)]]),
+		pages: [page([entityId], null, queryDocument)],
+	});
+	let state = createSavedViewControllerState("scope:record", "grid");
+	const gridRequest = token(state.identity, "grid", state.generation + 1);
+	state = savedViewControllerReducer(state, {
+		phase: "initial",
+		token: gridRequest,
+		type: "request-started",
+	});
+	state = savedViewControllerReducer(state, {
+		token: gridRequest,
+		type: "request-succeeded",
+		data: data("entity-grid", baseQuery),
+	});
+	state = savedViewControllerReducer(state, { layout: "list", type: "layout-changed" });
+
+	expect(savedViewControllerResult(state)).toMatchObject({
+		layout: "grid",
+		entityIds: ["entity-grid"],
+	});
+	expect(savedViewControllerQueryDocument(state)).toBe(baseQuery);
+	expect(isSavedViewLayoutChanging(state)).toBe(true);
+
+	const listRequest = token(state.identity, "list", state.generation + 1);
+	state = savedViewControllerReducer(state, {
+		phase: "initial",
+		token: listRequest,
+		type: "request-started",
+	});
+	state = savedViewControllerReducer(state, {
+		token: listRequest,
+		type: "request-succeeded",
+		data: data("entity-list", searchQuery),
+	});
+
+	expect(savedViewControllerResult(state)).toMatchObject({
+		layout: "list",
+		entityIds: ["entity-list"],
+	});
+	expect(savedViewControllerQueryDocument(state)).toBe(searchQuery);
+	expect(isSavedViewLayoutChanging(state)).toBe(false);
+});
+
+it("keeps displayed data while a same-layout identity request loads", () => {
+	let state = createSavedViewControllerState("scope:record:old", "grid");
+	const request = token(state.identity);
+	state = savedViewControllerReducer(state, {
+		token: request,
+		phase: "initial",
+		type: "request-started",
+	});
+	state = savedViewControllerReducer(state, {
+		token: request,
+		type: "request-succeeded",
+		data: {
+			pages: [page(["entity-1"], null)],
+			itemsById: new Map([["entity-1", card("entity-1")]]),
+		},
+	});
+	state = savedViewControllerReducer(state, {
+		layout: "grid",
+		type: "identity-changed",
+		identity: "scope:record:new",
+	});
+
+	expect(savedViewControllerResult(state)).toMatchObject({
+		layout: "grid",
+		entityIds: ["entity-1"],
+	});
+	expect(isSavedViewLayoutChanging(state)).toBe(false);
+	expect(isSavedViewSearching(state)).toBe(true);
 });
 
 it.effect("loads pages in order with fresh cursors and deduplicates materialized entities", () =>
