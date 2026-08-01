@@ -1,6 +1,6 @@
-import { DbError, conflict } from "@ryot/contract/errors";
+import { DbError } from "@ryot/contract/errors";
 import type { EntityId, UserId } from "@ryot/contract/schema/brands";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { asc, eq, inArray, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { user } from "#lib/infrastructure/db/schema/tables/auth";
@@ -58,31 +58,7 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 				return row?.id ?? (yield* new DbError({ message: "Translation restore returned no row" }));
 			});
 
-			const findOverlay = Effect.fn("TranslationsRepository.findOverlay")(function* (input: {
-				language: string;
-				entityId: EntityId;
-			}) {
-				const db = yield* Database;
-				const [row] = yield* mapDatabaseErrors(
-					db
-						.select({
-							name: schema.entityTranslation.name,
-							properties: schema.entityTranslation.properties,
-						})
-						.from(schema.entityTranslation)
-						.where(
-							and(
-								eq(schema.entityTranslation.entityId, input.entityId),
-								eq(schema.entityTranslation.language, input.language),
-							),
-						)
-						.limit(1),
-				);
-
-				return row ?? null;
-			});
-
-			const createOverlay = Effect.fn("TranslationsRepository.createOverlay")(function* (
+			const upsertOverlay = Effect.fn("TranslationsRepository.upsertOverlay")(function* (
 				input: TranslationOverlayInput,
 			) {
 				const db = yield* Database;
@@ -96,40 +72,21 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 							properties: input.properties,
 							populatedAt: input.populatedAt,
 						})
-						.onConflictDoNothing({
+						.onConflictDoUpdate({
 							target: [schema.entityTranslation.entityId, schema.entityTranslation.language],
+							set: {
+								updatedAt: sql`now()`,
+								name: sql`excluded.name`,
+								properties: sql`excluded.properties`,
+								populatedAt: sql`excluded.populated_at`,
+							},
 						})
 						.returning({ id: schema.entityTranslation.id }),
 				);
-
 				if (!row) {
-					return yield* conflict("Translation overlay already exists");
+					return yield* new DbError({ message: "Translation overlay upsert returned no row" });
 				}
 				return undefined;
-			});
-
-			const updateOverlay = Effect.fn("TranslationsRepository.updateOverlay")(function* (
-				input: TranslationOverlayInput,
-			) {
-				const db = yield* Database;
-				const [row] = yield* mapDatabaseErrors(
-					db
-						.update(schema.entityTranslation)
-						.set({
-							name: input.name,
-							properties: input.properties,
-							populatedAt: input.populatedAt,
-						})
-						.where(
-							and(
-								eq(schema.entityTranslation.entityId, input.entityId),
-								eq(schema.entityTranslation.language, input.language),
-							),
-						)
-						.returning({ id: schema.entityTranslation.id }),
-				);
-
-				return row?.id ?? null;
 			});
 
 			const listByEntity = Effect.fn("TranslationsRepository.listByEntity")(function* (
@@ -170,11 +127,9 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 			});
 
 			return {
-				findOverlay,
 				listByEntity,
+				upsertOverlay,
 				listForBackup,
-				createOverlay,
-				updateOverlay,
 				findUserLanguage,
 				restoreTranslation,
 			};
