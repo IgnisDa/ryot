@@ -4,6 +4,7 @@ import {
 	JsonFieldValue,
 	NullFieldValue,
 	NumberFieldValue,
+	RowsPageInfo,
 	TextFieldValue,
 	rowsResultSchema,
 } from "@ryot/contract/modules/ryotql/language";
@@ -52,16 +53,9 @@ export const SavedViewRecord = strictStruct({
 });
 export type SavedViewRecord = typeof SavedViewRecord.Type;
 
-const SavedViewRecordPageInfo = strictStruct({
-	page: Schema.Int,
-	limit: Schema.Int,
-	total: Schema.Int,
-	hasMore: Schema.Boolean,
-});
-
 export const SavedViewRecordList = strictStruct({
 	items: Schema.Array(SavedViewRecord),
-	pageInfo: SavedViewRecordPageInfo,
+	pageInfo: RowsPageInfo,
 });
 export type SavedViewRecordList = typeof SavedViewRecordList.Type;
 
@@ -97,7 +91,7 @@ const decodeSavedViewRecord = (row: typeof savedViewRecordWire.Type) =>
 	);
 
 export const buildSavedViewRecordsDocument = (input: {
-	readonly page: number;
+	readonly after?: string | undefined;
 	readonly limit: number;
 	readonly pluginSlug?: string | undefined;
 	readonly includeDisabled?: boolean | undefined;
@@ -112,7 +106,7 @@ export const buildSavedViewRecordsDocument = (input: {
 
 	return document({
 		savedViews: rows(savedView, {
-			page: input.page,
+			after: input.after,
 			limit: input.limit,
 			where: predicates.length > 0 ? and(...predicates) : undefined,
 			orderBy: [

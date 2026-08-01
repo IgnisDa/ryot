@@ -9,7 +9,7 @@ import {
 describe("fitness query recipes", () => {
 	it("builds typed filtered exercise rows", () => {
 		const doc = buildExerciseListQueryDocument({
-			page: 2,
+			after: "exercise-cursor",
 			limit: 5,
 			name: "Push Up",
 			entityId: "exercise-id",
@@ -35,7 +35,7 @@ describe("fitness query recipes", () => {
 		);
 		expect(doc.queries.exercises.output).toEqual(
 			expect.objectContaining({
-				pagination: { limit: 5, page: 2 },
+				pagination: { after: "exercise-cursor", limit: 5 },
 				orderBy: [expect.objectContaining({ direction: "asc" })],
 				fields: expect.arrayContaining([
 					expect.objectContaining({

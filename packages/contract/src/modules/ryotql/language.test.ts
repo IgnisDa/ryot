@@ -10,7 +10,7 @@ const document = {
 			output: {
 				orderBy: [],
 				type: "rows",
-				pagination: { page: 1, limit: 20 },
+				pagination: { limit: 20 },
 				fields: [{ key: "id", expr: { type: "column", tableAlias: "collection", field: "id" } }],
 			},
 		},
@@ -25,7 +25,7 @@ const makeDocument = (expr: unknown) => ({
 				orderBy: [],
 				type: "rows",
 				fields: [{ key: "value", expr }],
-				pagination: { page: 1, limit: 20 },
+				pagination: { limit: 20 },
 			},
 		},
 	},
@@ -67,7 +67,10 @@ describe("RyotQLDocument", () => {
 				queries: {
 					collections: {
 						...document.queries.collections,
-						output: { ...document.queries.collections.output, pagination: { page: 0, limit: 20 } },
+						output: {
+							...document.queries.collections.output,
+							pagination: { after: "", limit: 20 },
+						},
 					},
 				},
 			}),
@@ -99,7 +102,7 @@ describe("RyotQLDocument", () => {
 					},
 					output: {
 						type: "rows",
-						pagination: { page: 1, limit: 20 },
+						pagination: { limit: 20 },
 						orderBy: [{ direction: "desc", expr: score }],
 						fields: [
 							{
@@ -133,7 +136,7 @@ describe("RyotQLDocument", () => {
 					output: {
 						orderBy: [],
 						type: "rows",
-						pagination: { page: 1, limit: 20 },
+						pagination: { limit: 20 },
 						fields: [
 							{
 								key: "latestEvent",
@@ -195,9 +198,9 @@ describe("RyotQLDocument", () => {
 		}
 	});
 
-	it("exports positive pagination and non-empty output field-key schemas", () => {
-		expect(Schema.decodeUnknownSync(Pagination)({ page: 1, limit: 20 })).toEqual({
-			page: 1,
+	it("exports positive cursor pagination and non-empty output field-key schemas", () => {
+		expect(Schema.decodeUnknownSync(Pagination)({ after: "cursor", limit: 20 })).toEqual({
+			after: "cursor",
 			limit: 20,
 		});
 		expect(Schema.decodeUnknownSync(OutputFieldKey)("value")).toBe("value");
@@ -396,7 +399,7 @@ describe("RyotQLDocument", () => {
 			data: {
 				courses: {
 					type: "rows",
-					pageInfo: { page: 1, limit: 20, total: 1, hasMore: false },
+					pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 					items: [
 						{
 							id: { kind: "text", value: "course-1" },

@@ -16,7 +16,7 @@ const queryDocument = {
 			output: {
 				orderBy: [],
 				type: "rows",
-				pagination: { limit: 1, page: 1 },
+				pagination: { limit: 1 },
 				fields: [{ key: "id", expr: { field: "id", tableAlias: "entity", type: "column" } }],
 			},
 		},
@@ -46,7 +46,7 @@ const savedViewRecordsResponse = {
 	data: {
 		savedViews: {
 			type: "rows",
-			pageInfo: { hasMore: true, limit: 2, page: 3, total: 7 },
+			pageInfo: { hasMore: true, limit: 2, nextCursor: "next" },
 			items: [
 				{
 					id: { kind: "text", value: "view-1" },
@@ -79,13 +79,13 @@ const detailResponse = (items: readonly unknown[]) => ({
 describe("saved-view record recipes", () => {
 	it("builds the paginated list with safe fields, filters, ordering, and a named key", () => {
 		const query = buildSavedViewRecordsDocument({
-			page: 3,
+			after: "cursor",
 			limit: 7,
 			pluginSlug: "media",
 			includeDisabled: false,
 		}).queries.savedViews;
 
-		expect(query.output.pagination).toEqual({ limit: 7, page: 3 });
+		expect(query.output.pagination).toEqual({ after: "cursor", limit: 7 });
 		expect(
 			query.output.fields.map((selection) => {
 				if (!("key" in selection)) {
@@ -121,14 +121,14 @@ describe("saved-view record recipes", () => {
 	});
 
 	it("omits the disabled predicate when disabled records are included", () => {
-		const query = buildSavedViewRecordsDocument({ includeDisabled: true, limit: 5, page: 1 })
-			.queries.savedViews;
+		const query = buildSavedViewRecordsDocument({ includeDisabled: true, limit: 5 }).queries
+			.savedViews;
 
 		expect(query.where).toBeUndefined();
 	});
 
 	it("defaults the disabled filter to false", () => {
-		const query = buildSavedViewRecordsDocument({ limit: 5, page: 1 }).queries.savedViews;
+		const query = buildSavedViewRecordsDocument({ limit: 5 }).queries.savedViews;
 
 		expect(query.where).toMatchObject({
 			type: "and",
@@ -139,7 +139,7 @@ describe("saved-view record recipes", () => {
 	it("builds the by-slug query with a limit of one and a named key", () => {
 		const query = buildSavedViewRecordDocument({ slug: "view-one" }).queries.savedView;
 
-		expect(query.output.pagination).toEqual({ limit: 1, page: 1 });
+		expect(query.output.pagination).toEqual({ limit: 1 });
 		expect(query.where).toMatchObject({
 			type: "comparison",
 			right: { value: "view-one" },
@@ -152,7 +152,7 @@ describe("saved-view record recipes", () => {
 
 	it("decodes valid records, nullable plugin slugs, page metadata, and ISO dates", () => {
 		expect(Result.getOrThrow(decodeSavedViewRecordsResponse(savedViewRecordsResponse))).toEqual({
-			pageInfo: { hasMore: true, limit: 2, page: 3, total: 7 },
+			pageInfo: { hasMore: true, limit: 2, nextCursor: "next" },
 			items: [
 				{
 					layouts,

@@ -3,7 +3,7 @@ import { ascending, column, document, eq, field, literal, rows, table } from "@r
 
 export const buildAllCollectionsDocument = (
 	input: {
-		readonly page?: number | undefined;
+		readonly after?: string | undefined;
 		readonly limit?: number | undefined;
 		readonly fields?: readonly FieldSelection[] | undefined;
 	} = {},
@@ -11,7 +11,7 @@ export const buildAllCollectionsDocument = (
 	const collection = table("entity", "collection");
 	return document({
 		collections: rows(collection, {
-			page: input.page,
+			after: input.after,
 			limit: input.limit,
 			orderBy: [ascending(column(collection, "name"))],
 			where: eq(column(collection, "entitySchemaSlug"), literal("collection")),

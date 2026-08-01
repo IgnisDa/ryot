@@ -5,7 +5,7 @@ import { buildEventHistoryDocument } from "./events";
 describe("event recipes", () => {
 	it("builds the event history read with an ordinary entity join", () => {
 		const query = buildEventHistoryDocument({
-			page: 2,
+			after: "cursor",
 			limit: 25,
 			entityId: "entity-1",
 			entitySchemaSlugs: ["book", "movie"],
@@ -25,7 +25,7 @@ describe("event recipes", () => {
 				},
 			},
 		]);
-		expect(query.output.pagination).toEqual({ page: 2, limit: 25 });
+		expect(query.output.pagination).toEqual({ after: "cursor", limit: 25 });
 		expect(
 			query.output.fields.map((selection) => {
 				if (!("key" in selection)) {

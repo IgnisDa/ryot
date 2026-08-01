@@ -25,6 +25,6 @@ export default defineScript({
 	output: MediaMonitoringTargetsActivityOutput,
 	run: (input, host) =>
 		host
-			.executeRyotql(buildMediaMonitoringSweepDocument(input.page, input.limit))
+			.executeRyotql(buildMediaMonitoringSweepDocument(input.after, input.limit))
 			.pipe(Effect.map(decodeMediaMonitoringSweep)),
 });

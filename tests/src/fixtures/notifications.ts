@@ -21,7 +21,7 @@ export const listNotificationChannels = (client: Client) =>
 	Effect.gen(function* () {
 		const response = yield* client.call((c) =>
 			c.ryotql.execute({
-				payload: buildNotificationChannelsDocument({ limit: 100, page: 1 }),
+				payload: buildNotificationChannelsDocument({ limit: 100 }),
 			}),
 		);
 		const decoded = yield* resultToEffect(decodeNotificationChannelsResponse(response));

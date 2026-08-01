@@ -52,7 +52,6 @@ describe("saved views validation", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const queryDocument = document({
 				savedView: rows(book, {
-					page: 1,
 					limit: 2,
 					fields: [
 						field("entityId", column(book, "id")),
@@ -149,13 +148,13 @@ describe("saved views validation", () => {
 		}),
 	);
 
-	it.live("rejects a stored query page other than page one", () =>
+	it.live("rejects a stored query cursor", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const body = withGridLayout(
 				document({
 					savedView: rows(book, {
-						page: 2,
+						after: "persisted-cursor",
 						fields: rowsFields,
 					}),
 				}),
@@ -164,7 +163,7 @@ describe("saved views validation", () => {
 			const error = yield* Effect.flip(client.call((c) => c.savedViews.create({ payload: body })));
 
 			assertTaggedError(error, "BadRequest");
-			expect(error.message).toBe("Grid layout: query pagination page must be 1");
+			expect(error.message).toBe("Grid layout: query pagination must not contain a cursor");
 		}),
 	);
 });

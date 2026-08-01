@@ -14,6 +14,7 @@ import {
 	conditional,
 	count,
 	countDistinct,
+	descending,
 	divide,
 	eq,
 	exists,
@@ -39,13 +40,17 @@ import {
 import { buildAllCollectionsDocument } from "@ryot/ryotql-recipes/collections";
 import { buildNavigationDocument } from "@ryot/ryotql-recipes/navigation";
 import { PgDialect } from "drizzle-orm/pg-core";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Schema } from "effect";
 
 import { CurrentDb, TransactionRunner } from "#lib/infrastructure/db/service";
 
 import { RyotQLService } from "./service";
 
 const getCollectionsQuery = () => buildAllCollectionsDocument().queries["collections"];
+const encodeCursor = (value: unknown) =>
+	Buffer.from(Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))(value)).toString(
+		"base64url",
+	);
 
 const makeServiceLayer = (
 	statements: string[],
@@ -56,12 +61,10 @@ const makeServiceLayer = (
 		execute: (query: Parameters<typeof dialect.sqlToQuery>[0]) => {
 			const statement = dialect.sqlToQuery(query).sql;
 			statements.push(statement);
-			if (!statement.includes('"queryRows" AS (')) {
+			if (statement.startsWith("SET ") || statement.includes("set_config(")) {
 				return Promise.resolve({ rows: [] });
 			}
-			return Promise.resolve({
-				rows: serviceRows.length > 0 ? serviceRows : [{ totalCount: 0, rowPresent: null }],
-			});
+			return Promise.resolve({ rows: serviceRows });
 		},
 	});
 	const provideDb = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -81,32 +84,122 @@ it.effect("executes named queries sequentially in one configured transaction", (
 		expect(Object.keys(response.data)).toEqual(["first", "second"]);
 		expect(statements[0]).toBe("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
 		expect(statements[1]).toContain("set_config('statement_timeout'");
-		expect(statements.filter((statement) => statement.includes('"queryRows" AS ('))).toHaveLength(
-			2,
-		);
+		expect(statements.slice(2)).toHaveLength(2);
 		expect(statements[2]).toMatch(/user_id = \$\d+ OR user_id IS NULL/);
-		expect(statements[2]).toContain('COUNT(*)::integer AS "totalCount"');
-		expect(statements[2]).toContain('"o1" COLLATE "C" ASC NULLS LAST');
+		expect(statements[2]).not.toContain("COUNT(*)");
+		expect(statements[2]).not.toContain("OFFSET");
+		expect(statements[2]).toContain('t0.id COLLATE "C" ASC NULLS LAST');
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
-it.effect("returns the real total for an empty page", () => {
+it.effect("returns an empty cursor page directly", () => {
 	const statements: string[] = [];
-	const testRows = [{ totalCount: 3, rowPresent: null }];
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
 		const response = yield* service.executeForUser(
 			"user-1",
 			null,
-			buildAllCollectionsDocument({ page: 4, limit: 1 }),
+			buildAllCollectionsDocument({ limit: 1 }),
 		);
 
 		expect(response.data["collections"]).toEqual({
 			items: [],
 			type: "rows",
-			pageInfo: { page: 4, limit: 1, total: 3, hasMore: false },
+			pageInfo: { limit: 1, hasMore: false, nextCursor: null },
 		});
-	}).pipe(Effect.provide(makeServiceLayer(statements, testRows)));
+	}).pipe(Effect.provide(makeServiceLayer(statements)));
+});
+
+it.effect("returns a cursor from the last returned row and compiles mixed keyset orders", () => {
+	const statements: string[] = [];
+	const entity = table("entity", "entity");
+	const query = rows(entity, {
+		limit: 1,
+		fields: [field("id", column(entity, "id"))],
+		orderBy: [descending(column(entity, "createdAt")), ascending(column(entity, "name"))],
+	});
+	const resultRows = [
+		{
+			o0: new Date("2026-08-10T00:00:00.000Z"),
+			o1: "duplicate",
+			o2: "entity-1",
+			f0v: "entity-1",
+		},
+		{
+			o0: new Date("2026-08-09T00:00:00.000Z"),
+			o1: null,
+			o2: "entity-2",
+			f0v: "entity-2",
+		},
+	];
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		const firstExecution = yield* service.executeForUser("user-1", null, {
+			queries: { entities: query },
+		});
+		const result = firstExecution.data["entities"];
+		if (result?.type !== "rows" || result.pageInfo.nextCursor === null) {
+			throw new Error("Expected rows cursor");
+		}
+		expect(result.items).toEqual([{ id: { kind: "text", value: "entity-1" } }]);
+		expect(result.pageInfo).toEqual({ limit: 1, hasMore: true, nextCursor: expect.any(String) });
+
+		yield* service.executeForUser("user-1", null, {
+			queries: {
+				entities: {
+					...query,
+					output: {
+						...query.output,
+						pagination: { limit: 1, after: result.pageInfo.nextCursor },
+					},
+				},
+			},
+		});
+
+		const statement = statements[5];
+		expect(statement).toContain(" < ");
+		expect(statement).toContain(" > ");
+		expect(statement).toContain("IS NOT DISTINCT FROM");
+		expect(statement).toContain('COLLATE "C"');
+		expect(statement).not.toContain("OFFSET");
+	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
+});
+
+it.effect("rejects malformed cursor envelopes before row SQL", () => {
+	const statements: string[] = [];
+	const cases = [
+		"not+base64url",
+		encodeCursor({ version: 2, values: [] }),
+		encodeCursor({ version: 1, values: [] }),
+		encodeCursor({ version: 1, values: [{ kind: "number", value: 1 }] }),
+		encodeCursor({ version: 1, values: [{ kind: "text", value: 1 }] }),
+	];
+	const entity = table("entity", "entity");
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		for (const after of cases) {
+			const exit = yield* Effect.exit(
+				service.executeForUser("user-1", null, {
+					queries: {
+						entities: rows(entity, {
+							after,
+							limit: 1,
+							fields: [],
+						}),
+					},
+				}),
+			);
+			expect(exit._tag).toBe("Failure");
+		}
+		expect(statements).toHaveLength(cases.length * 2);
+		expect(
+			statements.every(
+				(statement) => statement.startsWith("SET ") || statement.includes("set_config("),
+			),
+		).toBe(true);
+	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
 it.effect("validates the complete document before opening a transaction", () => {
@@ -147,8 +240,8 @@ it.effect("collates text predicates and authorizes every joined table occurrence
 
 		const statement = statements[2];
 		expect(statement).toContain("LEFT JOIN (SELECT * FROM entity");
-		expect(statement).toContain('COLLATE "C" IN');
-		expect(statement?.match(/SELECT \* FROM entity WHERE/g)).toHaveLength(4);
+		expect(statement).not.toContain('COLLATE "C" IN');
+		expect(statement?.match(/SELECT \* FROM entity WHERE/g)).toHaveLength(2);
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
@@ -176,7 +269,7 @@ it.effect("selects notification channel descriptions with text output", () => {
 			channels: rows(channel, { fields: [field("description", column(channel, "description"))] }),
 		},
 	};
-	const resultRows = [{ f0k: "text", f0v: "Discord configured", totalCount: 1, rowPresent: true }];
+	const resultRows = [{ f0k: "text", f0v: "Discord configured" }];
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
@@ -184,7 +277,7 @@ it.effect("selects notification channel descriptions with text output", () => {
 
 		expect(response.data["channels"]).toEqual({
 			type: "rows",
-			pageInfo: { page: 1, limit: 20, total: 1, hasMore: false },
+			pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 			items: [{ description: { kind: "text", value: "Discord configured" } }],
 		});
 	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
@@ -242,8 +335,6 @@ it.effect("selects integrations with useful output kinds", () => {
 			f11v: "2",
 			f12k: "number",
 			f12v: "95",
-			totalCount: 1,
-			rowPresent: true,
 		},
 	];
 
@@ -253,7 +344,7 @@ it.effect("selects integrations with useful output kinds", () => {
 
 		expect(response.data["integrations"]).toEqual({
 			type: "rows",
-			pageInfo: { page: 1, limit: 20, total: 1, hasMore: false },
+			pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 			items: [
 				{
 					lot: { kind: "text", value: "media" },
@@ -299,9 +390,7 @@ it.effect("selects notification subscription states with useful output kinds", (
 			f3k: "date",
 			f4k: "date",
 			f0v: "rule-1",
-			totalCount: 1,
 			f2k: "boolean",
-			rowPresent: true,
 			f1v: "review.created",
 			f3v: new Date("2026-08-01T10:00:00.000Z"),
 			f4v: new Date("2026-08-07T12:00:00.000Z"),
@@ -314,7 +403,7 @@ it.effect("selects notification subscription states with useful output kinds", (
 
 		expect(response.data["states"]).toEqual({
 			type: "rows",
-			pageInfo: { page: 1, limit: 20, total: 1, hasMore: false },
+			pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 			items: [
 				{
 					id: { kind: "text", value: "rule-1" },
@@ -361,7 +450,7 @@ it.effect("authorizes notification channels in every query occurrence", () => {
 
 		const statement = statements[2];
 		expect(statement?.match(/SELECT \* FROM notification_channel WHERE user_id =/g)).toHaveLength(
-			7,
+			4,
 		);
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
@@ -398,7 +487,7 @@ it.effect("authorizes integrations in every query occurrence", () => {
 		yield* service.executeForUser("user-1", null, document);
 
 		const statement = statements[2];
-		expect(statement?.match(/SELECT \* FROM integration WHERE user_id =/g)).toHaveLength(7);
+		expect(statement?.match(/SELECT \* FROM integration WHERE user_id =/g)).toHaveLength(4);
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
@@ -436,7 +525,7 @@ it.effect("authorizes notification subscription states in every query occurrence
 		const statement = statements[2];
 		expect(
 			statement?.match(/SELECT \* FROM notification_subscription_state WHERE user_id =/g),
-		).toHaveLength(7);
+		).toHaveLength(4);
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
@@ -467,7 +556,7 @@ it.effect("constrains own and cross-user import run roots to the current user", 
 		const empty = {
 			items: [],
 			type: "rows",
-			pageInfo: { page: 1, limit: 20, total: 0, hasMore: false },
+			pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 		};
 		expect(response.data["own"]).toEqual(empty);
 		expect(response.data["crossUser"]).toEqual(empty);
@@ -515,14 +604,14 @@ it.effect("authorizes import runs and failures in every query occurrence", () =>
 		expect(statement).toContain("INNER JOIN (SELECT * FROM import_run_failure WHERE EXISTS");
 		expect(statement).toContain("LEFT JOIN (SELECT * FROM import_run_failure WHERE EXISTS");
 		expect(statement).toMatch(/SELECT \* FROM import_run WHERE user_id = \$\d+/);
-		expect(statement?.match(/SELECT \* FROM import_run_failure WHERE EXISTS/g)).toHaveLength(9);
+		expect(statement?.match(/SELECT \* FROM import_run_failure WHERE EXISTS/g)).toHaveLength(5);
 		expect(statement).toMatch(
 			/import_run\.id = import_run_failure\.run_id AND import_run\.user_id = \$\d+/,
 		);
 		expect(response.data["failures"]).toEqual({
 			items: [],
 			type: "rows",
-			pageInfo: { page: 1, limit: 20, total: 0, hasMore: false },
+			pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 		});
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
@@ -633,9 +722,7 @@ it.effect("preserves reserved result keys and non-text runtime kinds", () => {
 		{
 			f1k: "json",
 			f0k: "date",
-			totalCount: 1,
 			f0v: createdAt,
-			rowPresent: true,
 			f1v: { rating: 5 },
 		},
 	];
@@ -694,7 +781,7 @@ it.effect("pushes typed JSON expressions into one rows statement", () => {
 		expect(statement).toContain("pg_input_is_valid");
 		expect(statement).toContain(" ILIKE ");
 		expect(statement).toContain(" @> ");
-		expect(statements.filter((value) => value.includes('"queryRows" AS ('))).toHaveLength(1);
+		expect(statements.slice(2)).toHaveLength(1);
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
@@ -815,21 +902,15 @@ it.effect("compiles and reconstructs nested correlated includes in one statement
 		{
 			f0k: "text",
 			f0v: "Course",
-			totalCount: 1,
-			rowPresent: true,
 			i0: {
 				hasMore: true,
 				items: [
 					[
 						"Module",
-						"text",
 						true,
-						"boolean",
 						{ position: 1 },
-						"json",
 						null,
-						"null",
-						{ hasMore: false, items: [["2026-08-07T12:00:00+00:00", "date"]] },
+						{ hasMore: false, items: [["2026-08-07T12:00:00+00:00"]] },
 					],
 				],
 			},
@@ -840,11 +921,11 @@ it.effect("compiles and reconstructs nested correlated includes in one statement
 		const service = yield* RyotQLService;
 		const response = yield* service.executeForUser("user-1", null, document);
 
-		expect(statements.filter((value) => value.includes('"queryRows" AS ('))).toHaveLength(1);
+		expect(statements.slice(2)).toHaveLength(1);
 		expect(statements[2]?.match(/SELECT \* FROM relationship WHERE/g)).toHaveLength(1);
 		expect(statements[2]?.match(/SELECT \* FROM event WHERE/g)).toHaveLength(1);
 		expect(statements[2]).toContain("ROW_NUMBER() OVER");
-		expect(statements[2]?.split('), "queryRows" AS (')[0]).not.toContain("jsonb_build_object");
+		expect(statements[2]).toContain("jsonb_build_object");
 		const courses = response.data["courses"];
 		if (courses?.type !== "rows") {
 			throw new Error("Expected courses rows result");
@@ -926,8 +1007,6 @@ it.effect("compiles correlated scalar expressions with authorized query sets", (
 			f5k: "null",
 			f6v: "none",
 			f6k: "text",
-			totalCount: 1,
-			rowPresent: true,
 		},
 	];
 
@@ -964,7 +1043,7 @@ it.effect("maps statement timeouts to a bad request", () => {
 		execute: (query: Parameters<typeof dialect.sqlToQuery>[0]) => {
 			const statement = dialect.sqlToQuery(query).sql;
 			statements.push(statement);
-			return statement.includes('"queryRows" AS (')
+			return !statement.startsWith("SET ") && !statement.includes("set_config(")
 				? Promise.reject(new DbError({ code: "57014", message: "statement timeout" }))
 				: Promise.resolve({ rows: [] });
 		},

@@ -1,3 +1,4 @@
+import { BadRequest } from "@ryot/contract/errors";
 import type {
 	AggregateMeasure,
 	AggregateOutput,
@@ -18,7 +19,7 @@ import type {
 } from "@ryot/contract/modules/ryotql/language";
 import { sql } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
-import { DateTime, Effect, Option } from "effect";
+import { DateTime, Effect, Option, Schema } from "effect";
 
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
@@ -40,8 +41,22 @@ type QuerySet = Pick<NamedQuery, "from" | "joins" | "where"> | CorrelatedQuerySe
 type CompileTable = {
 	readonly alias: string;
 	readonly table: CatalogTable;
+	readonly joinedNullable: boolean;
 	readonly executionScope: RyotQLExecutionScope;
 };
+type Order = {
+	readonly expr: ScalarExpression;
+	readonly direction: "asc" | "desc";
+};
+type CursorValue =
+	| { readonly kind: "null"; readonly value: null }
+	| { readonly kind: "boolean"; readonly value: boolean }
+	| { readonly kind: "date"; readonly value: string }
+	| { readonly kind: "json"; readonly value: unknown }
+	| { readonly kind: "number"; readonly value: number }
+	| { readonly kind: "text"; readonly value: string };
+
+const CURSOR_VERSION = 1;
 
 const identifier = (value: string): SqlFragment => sql.raw(`"${value}"`);
 
@@ -84,6 +99,7 @@ const expressionScope = (query: CorrelatedQuerySet, ancestors: CompileScope) => 
 		scope.set(reference.alias, {
 			alias: `kind${ancestors.size}_t${index}`,
 			table: requireTable(reference.table),
+			joinedNullable: index > 0,
 			executionScope,
 		});
 	}
@@ -395,15 +411,21 @@ const compileExpression = (expr: ScalarExpression, scope: CompileScope): SqlFrag
 	return field.resolve({ language: scopeLanguage(scope), sqlAlias: compileTable.alias });
 };
 
-const compileComparableExpression = (
-	expr: ScalarExpression,
-	scope: CompileScope,
-	textComparison: boolean,
-) => {
-	const compiled = compileExpression(expr, scope);
-	return textComparison && expressionKind(expr, scope) === "text"
-		? sql`${compiled} COLLATE "C"`
-		: compiled;
+const expressionNullable = (expr: ScalarExpression, scope: CompileScope): boolean => {
+	if (expr.type === "literal") {
+		return expr.value === null;
+	}
+	if (expr.type === "exists" || expr.type === "isNotNull") {
+		return false;
+	}
+	if (expr.type === "column") {
+		const table = requireCompileTable(scope, expr.tableAlias);
+		const field = resolveCatalogField(table.table, expr.field);
+		return (
+			table.joinedNullable || (expr.field !== table.table.primaryKey && (field?.nullable ?? true))
+		);
+	}
+	return true;
 };
 
 const compilePredicate = (predicate: Predicate, scope: CompileScope): SqlFragment => {
@@ -426,10 +448,10 @@ const compilePredicate = (predicate: Predicate, scope: CompileScope): SqlFragmen
 		) {
 			return sql`COALESCE(${compileJsonValue(predicate.left, scope)} ${operator} ${compileJsonValue(predicate.right, scope)}, false)`;
 		}
-		const textComparison =
-			expressionKind(predicate.left, scope) === "text" ||
-			expressionKind(predicate.right, scope) === "text";
-		return sql`COALESCE(${compileComparableExpression(predicate.left, scope, textComparison)} ${operator} ${compileComparableExpression(predicate.right, scope, textComparison)}, false)`;
+		const comparison = sql`${compileExpression(predicate.left, scope)} ${operator} ${compileExpression(predicate.right, scope)}`;
+		return expressionNullable(predicate.left, scope) || expressionNullable(predicate.right, scope)
+			? sql`COALESCE(${comparison}, false)`
+			: comparison;
 	}
 	if (predicate.type === "and" || predicate.type === "or") {
 		if (predicate.predicates.length === 0) {
@@ -470,11 +492,14 @@ const compilePredicate = (predicate: Predicate, scope: CompileScope): SqlFragmen
 			sql`, `,
 		)}), false)`;
 	}
-	const textComparison = kind === "text";
-	return sql`COALESCE(${compileComparableExpression(predicate.expr, scope, textComparison)} IN (${sql.join(
-		predicate.values.map((value) => compileComparableExpression(value, scope, textComparison)),
+	const comparison = sql`${compileExpression(predicate.expr, scope)} IN (${sql.join(
+		predicate.values.map((value) => compileExpression(value, scope)),
 		sql`, `,
-	)}), false)`;
+	)})`;
+	return expressionNullable(predicate.expr, scope) ||
+		predicate.values.some((value) => expressionNullable(value, scope))
+		? sql`COALESCE(${comparison}, false)`
+		: comparison;
 };
 
 const authorizedTable = (table: CatalogTable, scope: RyotQLExecutionScope): SqlFragment => {
@@ -556,6 +581,31 @@ const outputKind = (expr: ScalarExpression, scope: CompileScope): SqlFragment =>
 	return sql`CASE WHEN ${compileExpression(expr, scope)} IS NULL THEN 'null' ELSE ${sql.raw(`'${kind}'`)} END`;
 };
 
+const hasRuntimeOutputKind = (expr: ScalarExpression, scope: CompileScope): boolean => {
+	if (expr.type === "jsonPath") {
+		return true;
+	}
+	if (expr.type === "first") {
+		return hasRuntimeOutputKind(expr.select, expressionScope(expr.query, scope));
+	}
+	return (
+		(expr.type === "conditional" || expr.type === "coalesce") &&
+		expressionKind(expr, scope) === "json"
+	);
+};
+
+const compileOutputColumns = (
+	expr: ScalarExpression,
+	scope: CompileScope,
+	valueAlias: string,
+	kindAlias: string,
+) => {
+	const value = sql`${compileExpression(expr, scope)} AS ${identifier(valueAlias)}`;
+	return hasRuntimeOutputKind(expr, scope)
+		? [value, sql`${outputKind(expr, scope)} AS ${identifier(kindAlias)}`]
+		: [value];
+};
+
 const buildScope = (
 	query: QuerySet,
 	executionScope: RyotQLExecutionScope,
@@ -564,12 +614,18 @@ const buildScope = (
 ) => {
 	const root = requireTable(query.from.table);
 	const scope = new Map(ancestors);
-	scope.set(query.from.alias, { executionScope, alias: `${prefix}t0`, table: root });
+	scope.set(query.from.alias, {
+		executionScope,
+		alias: `${prefix}t0`,
+		table: root,
+		joinedNullable: false,
+	});
 	(query.joins ?? []).forEach((join, index) => {
 		scope.set(join.table.alias, {
 			executionScope,
 			alias: `${prefix}t${index + 1}`,
 			table: requireTable(join.table.table),
+			joinedNullable: join.type === "left",
 		});
 	});
 	return scope;
@@ -630,10 +686,7 @@ const expressionOrderSql = (
 		sql`, `,
 	);
 
-const appendPrimaryKeyOrders = (
-	query: QuerySet,
-	requested: readonly { readonly expr: ScalarExpression; readonly direction: "asc" | "desc" }[],
-) => [
+const appendPrimaryKeyOrders = (query: QuerySet, requested: readonly Order[]) => [
 	...requested,
 	...[...(query.joins ?? []).map((join) => join.table), query.from].flatMap((reference) => {
 		const table = requireTable(reference.table);
@@ -647,6 +700,152 @@ const appendPrimaryKeyOrders = (
 				];
 	}),
 ];
+
+const cursorError = () => new BadRequest({ message: "Invalid RyotQL cursor" });
+
+const makeCursorValue = (
+	kind: CatalogFieldKind | "null",
+	value: unknown,
+): CursorValue | undefined => {
+	if (kind === "null") {
+		return value === null ? { kind, value } : undefined;
+	}
+	if (kind === "boolean") {
+		return typeof value === "boolean" ? { kind, value } : undefined;
+	}
+	if (kind === "date") {
+		return typeof value === "string" && Option.isSome(DateTime.make(value))
+			? { kind, value }
+			: undefined;
+	}
+	if (kind === "number") {
+		return typeof value === "number" && Number.isFinite(value) ? { kind, value } : undefined;
+	}
+	if (kind === "text") {
+		return typeof value === "string" ? { kind, value } : undefined;
+	}
+	return { kind, value };
+};
+
+const decodeCursor = Effect.fn("decodeRyotQLCursor")(function* (
+	cursor: string,
+	kinds: readonly (CatalogFieldKind | "null")[],
+	directions: readonly Order["direction"][],
+) {
+	if (!/^[A-Za-z0-9_-]+$/.test(cursor)) {
+		return yield* cursorError();
+	}
+	const bytes = Buffer.from(cursor, "base64url");
+	if (bytes.toString("base64url") !== cursor) {
+		return yield* cursorError();
+	}
+	const decoded = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
+		bytes.toString("utf8"),
+	).pipe(Effect.mapError(cursorError));
+	if (
+		!isRecord(decoded) ||
+		decoded["version"] !== CURSOR_VERSION ||
+		!Array.isArray(decoded["directions"]) ||
+		!Array.isArray(decoded["values"])
+	) {
+		return yield* cursorError();
+	}
+	if (
+		decoded["directions"].length !== directions.length ||
+		decoded["directions"].some((direction, index) => direction !== directions[index]) ||
+		decoded["values"].length !== kinds.length
+	) {
+		return yield* cursorError();
+	}
+	if (directions.length !== kinds.length) {
+		return yield* cursorError();
+	}
+	const values: CursorValue[] = [];
+	for (const [index, raw] of decoded["values"].entries()) {
+		const expected = kinds[index];
+		if (!isRecord(raw) || typeof raw["kind"] !== "string" || !("value" in raw)) {
+			return yield* cursorError();
+		}
+		if (raw["kind"] === "null") {
+			if (raw["value"] !== null) {
+				return yield* cursorError();
+			}
+			values.push({ kind: "null", value: null });
+			continue;
+		}
+		if (raw["kind"] !== expected || expected === "null") {
+			return yield* cursorError();
+		}
+		const value = makeCursorValue(expected, raw["value"]);
+		if (!value) {
+			return yield* cursorError();
+		}
+		values.push(value);
+	}
+	return values;
+});
+
+const encodeCursor = (values: readonly CursorValue[], directions: readonly Order["direction"][]) =>
+	Buffer.from(
+		Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))({
+			values,
+			directions,
+			version: CURSOR_VERSION,
+		}),
+	).toString("base64url");
+
+const cursorSqlValue = (value: Exclude<CursorValue, { kind: "null" }>) => {
+	if (value.kind === "date") {
+		return sql`${value.value}::timestamptz`;
+	}
+	if (value.kind === "number") {
+		return sql`${value.value}::double precision`;
+	}
+	if (value.kind === "boolean") {
+		return sql`${value.value}::boolean`;
+	}
+	if (value.kind === "json") {
+		return sql`${JSON.stringify(value.value)}::jsonb`;
+	}
+	return sql`${value.value}::text`;
+};
+
+const compileCursorPredicate = (
+	orders: readonly Order[],
+	values: readonly CursorValue[],
+	scope: CompileScope,
+) => {
+	const terms: SqlFragment[] = [];
+	for (const [index, order] of orders.entries()) {
+		const current = values[index];
+		if (!current || current.kind === "null") {
+			continue;
+		}
+		const prefix = orders.slice(0, index).map((prefixOrder, prefixIndex) => {
+			const prefixValue = values[prefixIndex];
+			if (!prefixValue) {
+				throw new Error("RyotQL compiler received a cursor with missing order values");
+			}
+			const expression = compileExpression(prefixOrder.expr, scope);
+			return prefixValue.kind === "null"
+				? sql`${expression} IS NOT DISTINCT FROM NULL`
+				: sql`${expression} IS NOT DISTINCT FROM ${cursorSqlValue(prefixValue)}`;
+		});
+		const expression = compileExpression(order.expr, scope);
+		const value = cursorSqlValue(current);
+		const orderedExpression = current.kind === "text" ? sql`${expression} COLLATE "C"` : expression;
+		const orderedValue = current.kind === "text" ? sql`${value} COLLATE "C"` : value;
+		const operator = order.direction === "asc" ? sql`>` : sql`<`;
+		const orderedComparison = sql`${orderedExpression} ${operator} ${orderedValue}`;
+		const comparison = expressionNullable(order.expr, scope)
+			? sql`(${orderedComparison} OR ${expression} IS NULL)`
+			: orderedComparison;
+		terms.push(
+			prefix.length === 0 ? comparison : sql`(${sql.join(prefix, sql` AND `)} AND ${comparison})`,
+		);
+	}
+	return terms.length === 0 ? sql`false` : sql`(${sql.join(terms, sql` OR `)})`;
+};
 
 const correlatedScope = (query: CorrelatedQuerySet, ancestors: CompileScope) =>
 	buildScope(query, scopeExecution(ancestors), `c${ancestors.size}_`, ancestors);
@@ -712,10 +911,11 @@ const compileInclude = (
 	}));
 	const ordering = orderSql(orderMetadata);
 	const queryOrdering = expressionOrderSql(include.orderBy, scope);
-	const fieldValues = include.fields.flatMap((field) => [
-		compileExpression(field.expr, scope),
-		outputKind(field.expr, scope),
-	]);
+	const fieldValues = include.fields.flatMap((field) =>
+		hasRuntimeOutputKind(field.expr, scope)
+			? [compileExpression(field.expr, scope), outputKind(field.expr, scope)]
+			: [compileExpression(field.expr, scope)],
+	);
 	const nestedValues = (include.include ?? []).map((nested, index) =>
 		compileInclude(nested, executionScope, scope, [...path, index]),
 	);
@@ -747,17 +947,16 @@ const compileInclude = (
 	)`;
 };
 
-const compileRowsQuery = (query: RowsQuery, executionScope: RyotQLExecutionScope): SqlFragment => {
+const compileRowsQuery = (
+	query: RowsQuery,
+	executionScope: RyotQLExecutionScope,
+	cursor: readonly CursorValue[] | undefined,
+): SqlFragment => {
 	const scope = buildScope(query, executionScope, "");
 	const orders = appendPrimaryKeyOrders(query, query.output.orderBy);
-	const orderMetadata = orders.map((order) => ({
-		direction: order.direction,
-		kind: expressionKind(order.expr, scope),
-	}));
-	const fieldColumns = query.output.fields.flatMap((field, index) => [
-		sql`${compileExpression(field.expr, scope)} AS ${identifier(`f${index}v`)}`,
-		sql`${outputKind(field.expr, scope)} AS ${identifier(`f${index}k`)}`,
-	]);
+	const fieldColumns = query.output.fields.flatMap((field, index) =>
+		compileOutputColumns(field.expr, scope, `f${index}v`, `f${index}k`),
+	);
 	const orderColumns = orders.map(
 		(order, index) => sql`${compileExpression(order.expr, scope)} AS ${identifier(`o${index}`)}`,
 	);
@@ -765,36 +964,25 @@ const compileRowsQuery = (query: RowsQuery, executionScope: RyotQLExecutionScope
 		(include, index) =>
 			sql`${compileInclude(include, executionScope, scope, [index])} AS ${identifier(`i${index}`)}`,
 	);
-	const columns = [...fieldColumns, ...includeColumns, ...orderColumns, sql`true AS "rowPresent"`];
+	const columns = [...fieldColumns, ...includeColumns, ...orderColumns];
 	const pagination = query.output.pagination;
-	const offset = (pagination.page - 1) * pagination.limit;
-	const ordering = orderSql(orderMetadata);
 	const queryOrdering = expressionOrderSql(orders, scope);
+	const cursorCondition = cursor ? [compileCursorPredicate(orders, cursor, scope)] : [];
 
 	return sql`
-		WITH "queryTotal" AS (
-			SELECT COUNT(*)::integer AS "totalCount"
-			${querySetSql(query, executionScope, scope)}
-		), "queryRows" AS (
-			SELECT ${sql.join(columns, sql`, `)}
-			${querySetSql(query, executionScope, scope)}
-			ORDER BY ${queryOrdering}
-			LIMIT ${pagination.limit} OFFSET ${offset}
-		)
-		SELECT "queryRows".*, "queryTotal"."totalCount"
-		FROM "queryTotal"
-		LEFT JOIN "queryRows" ON true
-		ORDER BY ${ordering}
+		SELECT ${sql.join(columns, sql`, `)}
+		${querySetSql(query, executionScope, scope, cursorCondition)}
+		ORDER BY ${queryOrdering}
+		LIMIT ${pagination.limit + 1}
 	`;
 };
 
 const compileAggregateQuery = (query: AggregateQuery, executionScope: RyotQLExecutionScope) => {
 	const scope = buildScope(query, executionScope, "");
 	const groups = query.output.groupBy ?? [];
-	const groupColumns = groups.flatMap((group, index) => [
-		sql`${compileExpression(group.expr, scope)} AS ${identifier(`g${index}v`)}`,
-		sql`${outputKind(group.expr, scope)} AS ${identifier(`g${index}k`)}`,
-	]);
+	const groupColumns = groups.flatMap((group, index) =>
+		compileOutputColumns(group.expr, scope, `g${index}v`, `g${index}k`),
+	);
 	const measureColumns = query.output.measures.map(
 		(measure, index) =>
 			sql`${compileAggregation(measure.aggregation, scope)} AS ${identifier(`m${index}`)}`,
@@ -805,7 +993,11 @@ const compileAggregateQuery = (query: AggregateQuery, executionScope: RyotQLExec
 	if (query.output.limit === undefined || query.output.orderBy === undefined) {
 		throw new Error("RyotQL grouped aggregate is missing limit or orderBy after validation");
 	}
-	const groupOrdinals = groups.flatMap((_, index) => [index * 2 + 1, index * 2 + 2]);
+	let groupOrdinal = 1;
+	const groupOrdinals = groups.flatMap((group) => {
+		const count = hasRuntimeOutputKind(group.expr, scope) ? 2 : 1;
+		return Array.from({ length: count }, () => groupOrdinal++);
+	});
 	const measureIndexes = new Map(
 		query.output.measures.map((measure, index) => [measure.key, index]),
 	);
@@ -914,7 +1106,34 @@ const isFieldKind = (value: unknown): value is FieldValue["kind"] =>
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
-const reconstructInclude = (raw: unknown, include: NormalizedInclude): IncludeResult => {
+const reconstructKind = (
+	expr: ScalarExpression,
+	scope: CompileScope,
+	value: unknown,
+	runtimeKind: unknown,
+) => {
+	if (value === null) {
+		return "null" as const;
+	}
+	if (hasRuntimeOutputKind(expr, scope)) {
+		if (!isFieldKind(runtimeKind)) {
+			throw new Error("RyotQL received an invalid runtime field kind");
+		}
+		return runtimeKind;
+	}
+	const kind = expressionKind(expr, scope);
+	if (kind === "null") {
+		throw new Error("RyotQL received a non-null value for a null expression");
+	}
+	return kind;
+};
+
+const reconstructInclude = (
+	raw: unknown,
+	include: NormalizedInclude,
+	executionScope: RyotQLExecutionScope,
+	ancestors: CompileScope,
+): IncludeResult => {
 	if (!isRecord(raw) || !Array.isArray(raw["items"]) || typeof raw["hasMore"] !== "boolean") {
 		throw new Error(`RyotQL received an invalid include value for '${include.key}'`);
 	}
@@ -922,16 +1141,22 @@ const reconstructInclude = (raw: unknown, include: NormalizedInclude): IncludeRe
 		if (!Array.isArray(item)) {
 			throw new Error(`RyotQL received an invalid include row for '${include.key}'`);
 		}
-		const fields = include.fields.map((field, index) => {
-			const kind = item[index * 2 + 1];
-			if (!isFieldKind(kind)) {
-				throw new Error(`RyotQL received an invalid field kind for '${field.key}'`);
+		const scope = buildScope(include, executionScope, "", ancestors);
+		let offset = 0;
+		const fields = include.fields.map((field) => {
+			const value = item[offset++];
+			const kind = reconstructKind(field.expr, scope, value, item[offset]);
+			if (hasRuntimeOutputKind(field.expr, scope)) {
+				offset += 1;
 			}
-			return [field.key, { kind, value: normalizeValue(item[index * 2], kind) }] as const;
+			return [field.key, { kind, value: normalizeValue(value, kind) }] as const;
 		});
-		const nestedOffset = include.fields.length * 2;
 		const nested = (include.include ?? []).map(
-			(child, index) => [child.key, reconstructInclude(item[nestedOffset + index], child)] as const,
+			(child, index) =>
+				[
+					child.key,
+					reconstructInclude(item[offset + index], child, executionScope, scope),
+				] as const,
 		);
 		return Object.fromEntries([...fields, ...nested]);
 	});
@@ -942,13 +1167,12 @@ const reconstructAggregateItem = (
 	row: Readonly<Record<string, unknown>>,
 	groups: readonly FieldSelection[],
 	measures: readonly AggregateMeasure[],
+	scope: CompileScope,
 ) => {
 	const grouped = groups.map((group, index) => {
-		const kind = row[`g${index}k`];
-		if (!isFieldKind(kind)) {
-			throw new Error(`RyotQL received an invalid field kind for '${group.key}'`);
-		}
-		return [group.key, { kind, value: normalizeValue(row[`g${index}v`], kind) }] as const;
+		const value = row[`g${index}v`];
+		const kind = reconstructKind(group.expr, scope, value, row[`g${index}k`]);
+		return [group.key, { kind, value: normalizeValue(value, kind) }] as const;
 	});
 	const measured = measures.map((measure, index) => {
 		const value = row[`m${index}`];
@@ -970,7 +1194,10 @@ const executeAggregateQuery = Effect.fn("executeRyotQLAggregateQuery")(function*
 	const raw = yield* executeSql(compileAggregateQuery(query, executionScope), queryName);
 	const rows = raw.rows as readonly Record<string, unknown>[];
 	const groups = query.output.groupBy ?? [];
-	const items = rows.map((row) => reconstructAggregateItem(row, groups, query.output.measures));
+	const scope = buildScope(query, executionScope, "");
+	const items = rows.map((row) =>
+		reconstructAggregateItem(row, groups, query.output.measures, scope),
+	);
 	if (groups.length === 0) {
 		return { items, type: "aggregate" } satisfies AggregateResult;
 	}
@@ -1023,30 +1250,47 @@ export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* 
 		);
 	}
 	const rowsQuery = { ...query, output: query.output };
-	const raw = yield* executeSql(compileRowsQuery(rowsQuery, executionScope), queryName);
+	const scope = buildScope(rowsQuery, executionScope, "");
+	const orders = appendPrimaryKeyOrders(rowsQuery, rowsQuery.output.orderBy);
+	const orderKinds = orders.map((order) => expressionKind(order.expr, scope));
+	const orderDirections = orders.map((order) => order.direction);
+	const cursor = rowsQuery.output.pagination.after
+		? yield* decodeCursor(rowsQuery.output.pagination.after, orderKinds, orderDirections)
+		: undefined;
+	const raw = yield* executeSql(compileRowsQuery(rowsQuery, executionScope, cursor), queryName);
 	const rows = raw.rows as readonly Record<string, unknown>[];
-	const first = rows[0];
-	const total = first ? Number(first["totalCount"]) : 0;
-	const items = rows.flatMap((row) => {
-		if (row["rowPresent"] !== true) {
-			return [];
-		}
+	const { limit } = rowsQuery.output.pagination;
+	const hasMore = rows.length > limit;
+	const returnedRows = rows.slice(0, limit);
+	const items = returnedRows.map((row) => {
 		const fields = rowsQuery.output.fields.map((field, index) => {
-			const kind = row[`f${index}k`];
-			if (!isFieldKind(kind)) {
-				throw new Error(`RyotQL received an invalid field kind for '${field.key}'`);
-			}
-			return [field.key, { kind, value: normalizeValue(row[`f${index}v`], kind) }] as const;
+			const value = row[`f${index}v`];
+			const kind = reconstructKind(field.expr, scope, value, row[`f${index}k`]);
+			return [field.key, { kind, value: normalizeValue(value, kind) }] as const;
 		});
 		const include = (rowsQuery.output.include ?? []).map(
-			(entry, index) => [entry.key, reconstructInclude(row[`i${index}`], entry)] as const,
+			(entry, index) =>
+				[entry.key, reconstructInclude(row[`i${index}`], entry, executionScope, scope)] as const,
 		);
-		return [Object.fromEntries([...fields, ...include])];
+		return Object.fromEntries([...fields, ...include]);
 	});
-	const { page, limit } = rowsQuery.output.pagination;
-	return {
-		items,
-		type: "rows",
-		pageInfo: { page, limit, total, hasMore: (page - 1) * limit + items.length < total },
-	} satisfies RowsResult;
+	const last = hasMore ? returnedRows.at(-1) : undefined;
+	const nextCursor = last
+		? encodeCursor(
+				orderKinds.map((kind, index): CursorValue => {
+					const value = last[`o${index}`];
+					if (value === null) {
+						return { kind: "null", value: null };
+					}
+					const cursorValue = makeCursorValue(kind, normalizeValue(value, kind));
+					if (!cursorValue) {
+						throw new Error("RyotQL received an invalid order value");
+					}
+					return cursorValue;
+				}),
+				orderDirections,
+			)
+		: null;
+
+	return { items, type: "rows", pageInfo: { limit, hasMore, nextCursor } } satisfies RowsResult;
 });

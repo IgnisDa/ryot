@@ -19,6 +19,7 @@ import {
 	createEntityFixture,
 	createPluginEntitySchema,
 	executeRyotQL,
+	executeRyotQLError,
 	requireRows,
 	requireRyotQLFieldValue,
 } from "~/fixtures";
@@ -50,7 +51,7 @@ const createSchema = (client: Parameters<typeof createPluginEntitySchema>[0], na
 	});
 
 describe("RyotQL row pagination", () => {
-	it.live("stitches equal sort values across pages with primary-key tie breaking", () =>
+	it.live("traverses equal sort values sequentially with primary-key tie breaking", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schemaId } = yield* createSchema(client, "RyotQLPaginationTies");
@@ -65,49 +66,47 @@ describe("RyotQL row pagination", () => {
 			);
 
 			const entity = table("entity", "entity");
-			const properties = column(entity, "properties");
-			const sortValue = castNumber(jsonPath(properties, "sortValue"));
+			const sortValue = castNumber(jsonPath(column(entity, "properties"), "sortValue"));
 			const where = eq(column(entity, "entitySchemaSlug"), literal(schemaId));
-			const page = (pageNumber: number) =>
+			const query = (after?: string, fields = true) =>
 				rows(entity, {
+					after,
 					where,
 					limit: 2,
-					page: pageNumber,
 					orderBy: [ascending(sortValue)],
-					fields: [field("id", column(entity, "id")), field("name", column(entity, "name"))],
+					fields: fields
+						? [field("id", column(entity, "id")), field("name", column(entity, "name"))]
+						: [],
 				});
-			const result = yield* executeRyotQL(
-				client,
-				document({
-					firstPage: page(1),
-					secondPage: page(2),
-					thirdPage: page(3),
-					emptyFields: rows(entity, {
-						where,
-						limit: 2,
-						fields: [],
-						orderBy: [ascending(sortValue)],
-					}),
-				}),
+			const page = (after?: string, fields = true) =>
+				executeRyotQL(client, document({ entities: query(after, fields) }));
+
+			const first = requireRows((yield* page()).data["entities"], "entities");
+			expect(first.pageInfo).toMatchObject({ limit: 2, hasMore: true });
+			expect(first.pageInfo.nextCursor).not.toBeNull();
+			const second = requireRows(
+				(yield* page(first.pageInfo.nextCursor ?? undefined)).data["entities"],
+				"entities",
+			);
+			expect(second.pageInfo).toMatchObject({ limit: 2, hasMore: true });
+			expect(second.pageInfo.nextCursor).not.toBeNull();
+			const third = requireRows(
+				(yield* page(second.pageInfo.nextCursor ?? undefined)).data["entities"],
+				"entities",
+			);
+			expect(third.pageInfo).toEqual({ limit: 2, hasMore: false, nextCursor: null });
+			expect([...rowNames(first), ...rowNames(second), ...rowNames(third)]).toEqual(
+				sortById(entities).map((item) => item.name),
 			);
 
-			const firstPage = requireRows(result.data["firstPage"], "firstPage");
-			const secondPage = requireRows(result.data["secondPage"], "secondPage");
-			const thirdPage = requireRows(result.data["thirdPage"], "thirdPage");
-			const expectedNames = sortById(entities).map((item) => item.name);
-			expect(firstPage.pageInfo).toEqual({ page: 1, limit: 2, total: 5, hasMore: true });
-			expect(secondPage.pageInfo).toEqual({ page: 2, limit: 2, total: 5, hasMore: true });
-			expect(thirdPage.pageInfo).toEqual({ page: 3, limit: 2, total: 5, hasMore: false });
-			expect([...rowNames(firstPage), ...rowNames(secondPage), ...rowNames(thirdPage)]).toEqual(
-				expectedNames,
-			);
-			const emptyFields = requireRows(result.data["emptyFields"], "emptyFields");
-			expect(emptyFields.pageInfo).toEqual({ page: 1, limit: 2, total: 5, hasMore: true });
+			const emptyFields = requireRows((yield* page(undefined, false)).data["entities"], "entities");
+			expect(emptyFields.pageInfo).toMatchObject({ limit: 2, hasMore: true });
+			expect(emptyFields.pageInfo.nextCursor).not.toBeNull();
 			expect(emptyFields.items).toEqual([{}, {}]);
 		}),
 	);
 
-	it.live("keeps null sort values last for ascending and descending pages", () =>
+	it.live("keeps null sort values last across ascending and descending cursors", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schemaId } = yield* createSchema(client, "RyotQLPaginationNulls");
@@ -127,64 +126,51 @@ describe("RyotQL row pagination", () => {
 			]);
 
 			const entity = table("entity", "entity");
-			const properties = column(entity, "properties");
-			const sortValue = castNumber(jsonPath(properties, "sortValue"));
+			const sortValue = castNumber(jsonPath(column(entity, "properties"), "sortValue"));
 			const where = eq(column(entity, "entitySchemaSlug"), literal(schemaId));
-			const query = (order: ReturnType<typeof ascending>) =>
+			const query = (order: ReturnType<typeof ascending>, after?: string) =>
 				rows(entity, {
+					after,
 					where,
 					limit: 2,
 					orderBy: [order],
 					fields: [field("name", column(entity, "name")), field("sortValue", sortValue)],
 				});
-			const result = yield* executeRyotQL(
+			const first = yield* executeRyotQL(
 				client,
 				document({
 					ascending: query(ascending(sortValue)),
 					descending: query(descending(sortValue)),
 				}),
 			);
-
-			const ascendingRows = requireRows(result.data["ascending"], "ascending");
-			const descendingRows = requireRows(result.data["descending"], "descending");
+			const ascendingRows = requireRows(first.data["ascending"], "ascending");
+			const descendingRows = requireRows(first.data["descending"], "descending");
 			expect(rowNames(ascendingRows)).toEqual(["Low", "High"]);
 			expect(rowNames(descendingRows)).toEqual(["High", "Low"]);
-			expect(ascendingRows.pageInfo).toEqual({ page: 1, limit: 2, total: 4, hasMore: true });
-			expect(descendingRows.pageInfo).toEqual({ page: 1, limit: 2, total: 4, hasMore: true });
+			expect(ascendingRows.pageInfo.nextCursor).not.toBeNull();
+			expect(descendingRows.pageInfo.nextCursor).not.toBeNull();
 
-			const nullNames = sortById([nullOne, nullTwo]).map((item) => item.name);
-			const nullPage = yield* executeRyotQL(
+			const next = yield* executeRyotQL(
 				client,
 				document({
-					ascending: rows(entity, {
-						where,
-						page: 2,
-						limit: 2,
-						orderBy: [ascending(sortValue)],
-						fields: [field("name", column(entity, "name"))],
-					}),
-					descending: rows(entity, {
-						where,
-						page: 2,
-						limit: 2,
-						orderBy: [descending(sortValue)],
-						fields: [field("name", column(entity, "name"))],
-					}),
+					ascending: query(ascending(sortValue), ascendingRows.pageInfo.nextCursor ?? undefined),
+					descending: query(descending(sortValue), descendingRows.pageInfo.nextCursor ?? undefined),
 				}),
 			);
-			const ascendingNullPage = requireRows(nullPage.data["ascending"], "ascending");
-			const descendingNullPage = requireRows(nullPage.data["descending"], "descending");
-			expect(rowNames(ascendingNullPage)).toEqual(nullNames);
-			expect(rowNames(descendingNullPage)).toEqual(nullNames);
-			expect(ascendingNullPage.pageInfo).toEqual({ page: 2, limit: 2, total: 4, hasMore: false });
-			expect(descendingNullPage.pageInfo).toEqual({ page: 2, limit: 2, total: 4, hasMore: false });
+			const nullNames = sortById([nullOne, nullTwo]).map((item) => item.name);
+			const ascendingNulls = requireRows(next.data["ascending"], "ascending");
+			const descendingNulls = requireRows(next.data["descending"], "descending");
+			expect(rowNames(ascendingNulls)).toEqual(nullNames);
+			expect(rowNames(descendingNulls)).toEqual(nullNames);
+			expect(ascendingNulls.pageInfo).toEqual({ limit: 2, hasMore: false, nextCursor: null });
+			expect(descendingNulls.pageInfo).toEqual({ limit: 2, hasMore: false, nextCursor: null });
 		}),
 	);
 
-	it.live("preserves totals and hasMore on pages beyond the final row", () =>
+	it.live("rejects malformed and query-incompatible cursors", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createSchema(client, "RyotQLPaginationFinalPage");
+			const { schemaId } = yield* createSchema(client, "RyotQLPaginationInvalidCursor");
 			yield* Effect.all(
 				["First", "Second", "Third"].map((name) =>
 					createEntityFixture(client, { name, entitySchemaSlug: schemaId }),
@@ -192,35 +178,31 @@ describe("RyotQL row pagination", () => {
 			);
 
 			const entity = table("entity", "entity");
-			const result = yield* executeRyotQL(
-				client,
+			const where = eq(column(entity, "entitySchemaSlug"), literal(schemaId));
+			const query = (after?: string, order = ascending(column(entity, "name"))) =>
 				document({
-					lastRow: rows(entity, {
-						page: 2,
-						limit: 2,
-						where: eq(column(entity, "entitySchemaSlug"), literal(schemaId)),
+					entities: rows(entity, {
+						after,
+						where,
+						limit: 1,
+						orderBy: [order],
 						fields: [field("name", column(entity, "name"))],
 					}),
-					beyondFinalRow: rows(entity, {
-						page: 3,
-						limit: 2,
-						where: eq(column(entity, "entitySchemaSlug"), literal(schemaId)),
-						fields: [field("name", column(entity, "name"))],
-					}),
-				}),
+				});
+			const first = requireRows(
+				(yield* executeRyotQL(client, query())).data["entities"],
+				"entities",
 			);
+			const cursor = first.pageInfo.nextCursor;
+			expect(cursor).not.toBeNull();
 
-			expect(requireRows(result.data["lastRow"], "lastRow").pageInfo).toEqual({
-				page: 2,
-				limit: 2,
-				total: 3,
-				hasMore: false,
-			});
-			expect(requireRows(result.data["beyondFinalRow"], "beyondFinalRow")).toEqual({
-				items: [],
-				type: "rows",
-				pageInfo: { page: 3, limit: 2, total: 3, hasMore: false },
-			});
+			const malformed = yield* executeRyotQLError(client, query("not-a-cursor"));
+			expect(malformed).toMatchObject({ _tag: "BadRequest" });
+			const incompatible = yield* executeRyotQLError(
+				client,
+				query(cursor ?? "", descending(column(entity, "name"))),
+			);
+			expect(incompatible).toMatchObject({ _tag: "BadRequest" });
 		}),
 	);
 });

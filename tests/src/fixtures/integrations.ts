@@ -52,7 +52,7 @@ export const listIntegrations = (
 		const response = yield* client.call((c) =>
 			c.ryotql.execute({
 				payload: buildIntegrationsDocument({
-					page: options.page ?? 1,
+					after: options.after,
 					provider: options.provider,
 					limit: options.limit ?? 100,
 					isDisabled: options.isDisabled,

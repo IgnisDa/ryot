@@ -4,6 +4,7 @@ import { Platform, Text, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
 
+import { savedViewResultCount } from "./result-count";
 import { SavedViewFrame } from "./saved-view-frame";
 import { SavedViewGrid } from "./saved-view-grid";
 import { SavedViewLayoutSelector } from "./saved-view-layout-selector";
@@ -52,7 +53,7 @@ function SavedViewDisplay(
 			viewSlug={props.record.slug}
 			title={{
 				loaded: items.length,
-				total: pageInfo.total,
+				hasMore: pageInfo.hasMore,
 				icon: props.record.icon,
 				name: props.record.name,
 			}}
@@ -75,7 +76,7 @@ function SavedViewDisplay(
 							</Text>
 						</View>
 						<Text className="font-ui text-xs text-text-muted md:text-sm">
-							{pageInfo.total.toLocaleString()} {pageInfo.total === 1 ? "result" : "results"}
+							{savedViewResultCount(items.length, pageInfo.hasMore)}
 						</Text>
 					</View>
 					<SavedViewLayoutSelector

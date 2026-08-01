@@ -2,6 +2,7 @@ import { NotificationChannelKind } from "@ryot/contract/modules/notifications/ty
 import {
 	BooleanFieldValue,
 	DateFieldValue,
+	RowsPageInfo,
 	TextFieldValue,
 	rowsResultSchema,
 } from "@ryot/contract/modules/ryotql/language";
@@ -33,16 +34,9 @@ export const NotificationChannelSummary = strictStruct({
 });
 export type NotificationChannelSummary = typeof NotificationChannelSummary.Type;
 
-const NotificationChannelPageInfo = strictStruct({
-	page: Schema.Int,
-	limit: Schema.Int,
-	total: Schema.Int,
-	hasMore: Schema.Boolean,
-});
-
 export const NotificationChannelList = strictStruct({
 	items: Schema.Array(NotificationChannelSummary),
-	pageInfo: NotificationChannelPageInfo,
+	pageInfo: RowsPageInfo,
 });
 export type NotificationChannelList = typeof NotificationChannelList.Type;
 
@@ -73,13 +67,13 @@ const decodeNotificationChannel = (row: typeof notificationChannelWire.Type) =>
 	);
 
 export const buildNotificationChannelsDocument = (input: {
-	readonly page: number;
+	readonly after?: string | undefined;
 	readonly limit: number;
 }) => {
 	const notificationChannel = table("notificationChannel", "notificationChannel");
 	return document({
 		notificationChannels: rows(notificationChannel, {
-			page: input.page,
+			after: input.after,
 			limit: input.limit,
 			orderBy: [
 				descending(column(notificationChannel, "createdAt")),

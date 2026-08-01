@@ -52,8 +52,12 @@ const createHost = (options: {
 							? [entityRecord({ properties: options.entityProperties ?? {} })]
 							: (eventPages[eventPageIndex] ?? []),
 						index === 0
-							? { hasMore: false, page: 1 }
-							: { page: eventPageIndex + 1, hasMore: eventPageIndex < eventPages.length - 1 },
+							? { hasMore: false, nextCursor: null }
+							: {
+									hasMore: eventPageIndex < eventPages.length - 1,
+									nextCursor:
+										eventPageIndex < eventPages.length - 1 ? `events-${eventPageIndex + 1}` : null,
+								},
 					),
 				);
 			},
@@ -231,8 +235,12 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 				Effect.map(() => {
 					expect(created).toHaveLength(1);
 					expect(documents.slice(1)).toMatchObject([
-						{ queries: { events: { output: { pagination: { page: 1 } } } } },
-						{ queries: { events: { output: { pagination: { page: 2 } } } } },
+						{ queries: { events: { output: { pagination: {} } } } },
+						{
+							queries: {
+								events: { output: { pagination: { after: "events-1" } } },
+							},
+						},
 					]);
 					return undefined;
 				}),

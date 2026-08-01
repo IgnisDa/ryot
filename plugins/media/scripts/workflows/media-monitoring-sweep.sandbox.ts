@@ -49,19 +49,19 @@ export default defineWorkflow({
 				string,
 				(typeof MediaMonitoringTargetsActivityOutput.Type)["items"][number]
 			>();
-			let page = 1;
-			let hasMore: boolean;
+			let after: string | undefined;
+			let batchIndex = 0;
 			do {
-				const result = yield* replay.activity(`targets-${page}`, listTargets, {
-					page,
+				const result = yield* replay.activity(`targets-${batchIndex}`, listTargets, {
 					limit: BATCH_SIZE,
+					...(after ? { after } : {}),
 				});
 				for (const target of result.items) {
 					targets.set(target.entityId, target);
 				}
-				hasMore = result.hasMore;
-				page += 1;
-			} while (hasMore);
+				after = result.nextCursor ?? undefined;
+				batchIndex += 1;
+			} while (after !== undefined);
 
 			const items = [...targets.values()];
 			let batchCount = 0;

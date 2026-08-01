@@ -13,7 +13,7 @@ const rows = (queryName: string, entityIds: string[]) => ({
 			items: entityIds.map((entityId) => ({
 				entityId: { kind: "text" as const, value: entityId },
 			})),
-			pageInfo: { hasMore: false, limit: 1, page: 1, total: entityIds.length },
+			pageInfo: { hasMore: false, limit: 1, nextCursor: null },
 			type: "rows" as const,
 		},
 	},

@@ -70,7 +70,7 @@ const defaultProjections = buildSavedViewLayoutProjections({
 const layoutDocument = (
 	fields: readonly (typeof defaultProjections.grid.fields)[number][],
 	entitySchemaSlugs: readonly [string, ...string[]],
-) => buildSavedViewDocument({ page: 1, limit: 2, entitySchemaSlugs, fields });
+) => buildSavedViewDocument({ limit: 2, entitySchemaSlugs, fields });
 
 export function buildSavedViewLayouts(
 	documents: Partial<Record<keyof SavedViewLayouts, SavedViewQueryDocument>> = {},
@@ -171,7 +171,6 @@ export const listSavedViews = (
 		const response = yield* client.call((c) =>
 			c.ryotql.execute({
 				payload: buildSavedViewRecordsDocument({
-					page: 1,
 					limit: 100,
 					pluginSlug: options.pluginSlug,
 					includeDisabled: options.includeDisabled,

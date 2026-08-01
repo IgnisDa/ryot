@@ -22,13 +22,10 @@ describe("RyotQL collections tracer", () => {
 			]);
 			yield* createCollection(second.client, { name: "Another User Collection" });
 
-			const result = yield* executeRyotQL(
-				first.client,
-				buildAllCollectionsDocument({ page: 1, limit: 10 }),
-			);
+			const result = yield* executeRyotQL(first.client, buildAllCollectionsDocument({ limit: 10 }));
 			const rows = requireRows(result.data["collections"], "collections");
 
-			expect(rows.pageInfo).toEqual({ page: 1, limit: 10, total: 2, hasMore: false });
+			expect(rows.pageInfo).toEqual({ limit: 10, hasMore: false, nextCursor: null });
 			expect(rows.items.map((item) => requireRyotQLTextField(item, "id"))).toEqual(
 				expect.arrayContaining(collections.map((collection) => collection.id)),
 			);
@@ -39,7 +36,7 @@ describe("RyotQL collections tracer", () => {
 		}),
 	);
 
-	it.live("reports the true total for a page beyond the final row", () =>
+	it.live("returns the final page after a cursor", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			yield* Effect.all([
@@ -47,16 +44,21 @@ describe("RyotQL collections tracer", () => {
 				createCollection(client, { name: "RyotQL Total Two" }),
 			]);
 
-			const result = yield* executeRyotQL(
+			const first = yield* executeRyotQL(client, buildAllCollectionsDocument({ limit: 1 }));
+			const firstRows = requireRows(first.data["collections"], "collections");
+			expect(firstRows.pageInfo.nextCursor).not.toBeNull();
+			const second = yield* executeRyotQL(
 				client,
-				buildAllCollectionsDocument({ page: 3, limit: 1 }),
+				buildAllCollectionsDocument({
+					after: firstRows.pageInfo.nextCursor ?? undefined,
+					limit: 1,
+				}),
 			);
-
-			expect(result.data["collections"]).toEqual({
-				items: [],
-				type: "rows",
-				pageInfo: { page: 3, limit: 1, total: 2, hasMore: false },
-			});
+			const secondRows = requireRows(second.data["collections"], "collections");
+			expect(secondRows.pageInfo).toEqual({ limit: 1, hasMore: false, nextCursor: null });
+			expect(secondRows.items.map((item) => requireRyotQLTextField(item, "name"))).toEqual([
+				"RyotQL Total Two",
+			]);
 		}),
 	);
 
