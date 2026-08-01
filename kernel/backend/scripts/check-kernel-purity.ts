@@ -4,14 +4,12 @@ import { BunFileSystem, BunPath, BunRuntime } from "@effect/platform-bun";
 import { Data, Effect, Layer, FileSystem, Path } from "effect";
 
 import {
-	applyPurityAllowlist,
 	deriveDomainVocabulary,
 	formatPurityFinding,
 	isProductionSourcePath,
 	scanPuritySources,
 	type PuritySource,
 } from "./kernel-purity";
-import { kernelPurityAllowlist } from "./kernel-purity-allowlist";
 import { findDuplicateServiceLayers } from "./layer-wiring";
 import { analyzeRuntimeModules, formatRuntimeCycleDiagnostics } from "./runtime-module-analysis";
 
@@ -58,19 +56,17 @@ const program = Effect.gen(function* () {
 	const terms = deriveDomainVocabulary(manifests);
 	const findings = scanPuritySources(sources, terms);
 	const duplicateLayers = findDuplicateServiceLayers(sources);
-	const { errors, violations } = applyPurityAllowlist(findings, kernelPurityAllowlist);
-	if (cycles.length || errors.length || violations.length || duplicateLayers.length) {
+	if (cycles.length || findings.length || duplicateLayers.length) {
 		return yield* new KernelPurityError({
 			message: [
-				...errors,
 				...duplicateLayers,
-				...violations.map(formatPurityFinding),
+				...findings.map(formatPurityFinding),
 				...(cycles.length ? [formatRuntimeCycleDiagnostics(cycles)] : []),
 			].join("\n"),
 		});
 	}
 	return yield* Effect.logInfo(
-		`Kernel purity passed (${sources.length} files, ${terms.length} terms, ${findings.length} allowlisted findings)`,
+		`Kernel purity passed (${sources.length} files, ${terms.length} terms)`,
 	);
 }).pipe(Effect.tapError((error) => Effect.logError(String(error))));
 

@@ -1,11 +1,10 @@
-import { Clock, Effect } from "effect";
-
 import {
 	formatPropertyIssues,
 	parseAppSchemaProperties,
-} from "#lib/property-schema/property-schema-runtime";
-import { bootstrapNewUser } from "#modules/user-bootstrap/bootstrap";
-import { PluginUserBootstrapDispatcher } from "#modules/user-bootstrap/plugin-dispatch";
+} from "@ryot/kernel-backend/lib/property-schema/property-schema-runtime";
+import { bootstrapNewUser } from "@ryot/kernel-backend/modules/user-bootstrap/bootstrap";
+import { PluginUserBootstrapDispatcher } from "@ryot/kernel-backend/modules/user-bootstrap/plugin-dispatch";
+import { Clock, Effect } from "effect";
 
 import {
 	buildCollectionEntityMigrationSql,

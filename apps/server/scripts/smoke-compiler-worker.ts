@@ -26,29 +26,29 @@ const program = Effect.gen(function* () {
 	);
 	const worker = yield* command;
 	yield* Effect.addFinalizer(() => worker.kill({ killSignal: "SIGKILL" }).pipe(Effect.ignore));
-	const [stdout, stderr, exitCode] = yield* Effect.all(
-		[
-			worker.stdout.pipe(
+	const { exitCode, stderr, stdout } = yield* Effect.all(
+		{
+			stdout: worker.stdout.pipe(
 				Stream.decodeText({ encoding: "utf-8" }),
 				Stream.runFold(
 					() => "",
 					(output, chunk) => output + chunk,
 				),
 			),
-			worker.stderr.pipe(
+			stderr: worker.stderr.pipe(
 				Stream.decodeText({ encoding: "utf-8" }),
 				Stream.runFold(
 					() => "",
 					(output, chunk) => output + chunk,
 				),
 			),
-			worker.exitCode,
-		],
+			exitCode: worker.exitCode,
+		},
 		{ concurrency: "unbounded" },
 	);
 	if (exitCode !== 0) {
 		return yield* new CompilerWorkerSmokeError({
-			message: `Compiler worker exited with code ${exitCode}: ${stderr || stdout}`,
+			message: `Compiler worker exited with code ${exitCode}: ${stderr.length > 0 ? stderr : stdout}`,
 		});
 	}
 

@@ -3,12 +3,10 @@ import { assert, describe, expect, it } from "vitest";
 
 import { fixtureManifest } from "../src/modules/plugins/test-support";
 import {
-	applyPurityAllowlist,
 	deriveDomainVocabulary,
 	formatPurityFinding,
 	isProductionSourcePath,
 	scanPuritySources,
-	type PurityAllowlistEntry,
 } from "./kernel-purity";
 
 describe("kernel purity", () => {
@@ -96,45 +94,5 @@ describe("kernel purity", () => {
 		expect(vocabulary).not.toContain("Generic description must not become vocabulary");
 		expect(vocabulary).not.toContain("import");
 		expect(vocabulary).not.toContain("user");
-	});
-
-	it("accepts narrow allowlist matches and rejects stale or invalid metadata", () => {
-		const [finding] = scanPuritySources(
-			[{ path: "kernel/backend/src/example.ts", source: "const value = 'library';" }],
-			["library"],
-		);
-		assert(finding);
-		const allowed: PurityAllowlistEntry = {
-			removalTask: 4,
-			term: "library",
-			kind: "temporary",
-			path: "kernel/backend/src/example.ts",
-			reason: "Phase 4 collection policy residue",
-		};
-
-		expect(applyPurityAllowlist([finding], [allowed])).toEqual({ errors: [], violations: [] });
-		expect(applyPurityAllowlist([finding], [{ ...allowed, term: "movie" }]).errors).toEqual([
-			"Allowlist entry 1 is stale and matches no finding",
-		]);
-		expect(applyPurityAllowlist([finding], [{ ...allowed, reason: "" }]).errors).toEqual([
-			"Allowlist entry 1 requires non-empty path, term, and reason",
-		]);
-		expect(
-			applyPurityAllowlist(
-				[finding],
-				[
-					{
-						term: "library",
-						kind: "permanent",
-						reason: "Too broad",
-						category: "boot-wiring",
-						path: "kernel/backend/src/modules/plugins/**",
-					},
-				],
-			),
-		).toEqual({
-			violations: [finding],
-			errors: ["Allowlist entry 1 exceeds the boot-wiring permanent scope"],
-		});
 	});
 });
