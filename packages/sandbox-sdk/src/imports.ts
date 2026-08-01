@@ -3,7 +3,6 @@ import { Schema } from "@ryot/sandbox-sdk/effect";
 import { jsonValueSchema } from "./wire";
 
 export const SANDBOX_SDK_ROOT_IMPORT = "@ryot/sandbox-sdk/core";
-export const SANDBOX_SDK_ACTIVITY_IMPORT = "@ryot/sandbox-sdk/activity";
 export const SANDBOX_SDK_AUTOMATION_IMPORT = "@ryot/sandbox-sdk/automation";
 export const SANDBOX_SDK_PROVIDER_IMPORT = "@ryot/sandbox-sdk/provider";
 export const SANDBOX_SDK_WORKFLOW_IMPORT = "@ryot/sandbox-sdk/workflow";
@@ -21,7 +20,6 @@ export const SANDBOX_RUNTIME_SDK_IMPORTS = [
 
 export const SANDBOX_SDK_IMPORTS = [
 	SANDBOX_SDK_ROOT_IMPORT,
-	SANDBOX_SDK_ACTIVITY_IMPORT,
 	SANDBOX_SDK_AUTOMATION_IMPORT,
 	SANDBOX_SDK_PROVIDER_IMPORT,
 	"@ryot/sandbox-sdk/query-engine",

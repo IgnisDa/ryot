@@ -66,7 +66,7 @@ type CreatedEvent = typeof CreatedEvent.Type;
 
 export type EventCreateWorkflowOperationsValue = {
 	dispatchLifecycleOccurrence: LifecycleDispatchValue["dispatch"];
-	processSandboxExecution: (
+	executeSandboxScript: (
 		payload: SandboxExecutionPayload,
 	) => Effect.Effect<SandboxExecutionResult, SandboxRunError>;
 };
@@ -83,7 +83,7 @@ export const EventCreateWorkflowOperationsLive = Layer.effect(
 		const lifecycleDispatch = yield* LifecycleDispatch;
 		return {
 			dispatchLifecycleOccurrence: lifecycleDispatch.dispatch,
-			processSandboxExecution: (payload) =>
+			executeSandboxScript: (payload) =>
 				sandbox.executeScript({
 					input: payload.context,
 					scriptId: payload.scriptId,
@@ -237,7 +237,7 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(
 					payload,
 					itemIndex,
 					prepared,
-					operations.processSandboxExecution,
+					operations.executeSandboxScript,
 				);
 				return { policyResult, prepared, kind: "prepared" as const };
 			}).pipe(

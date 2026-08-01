@@ -1,7 +1,8 @@
 import { expect, it } from "@effect/vitest";
 import { NotFound, SandboxRunError } from "@ryot/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Effect, Exit, Layer, Option } from "effect";
+import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
@@ -85,6 +86,7 @@ const makeServiceLayer = (
 	);
 
 it.effect("executes an installed script as the explicit user", () => {
+	let capturedWorkflow: unknown;
 	let capturedOptions: Parameters<WorkflowEngine["Service"]["execute"]>[1] | undefined;
 	const layer = makeServiceLayer(
 		makeRepository({
@@ -95,7 +97,8 @@ it.effect("executes an installed script as the explicit user", () => {
 		Layer.succeed(
 			WorkflowEngine,
 			makeWorkflowEngine({
-				execute: (_workflow, options) => {
+				execute: (workflow, options) => {
+					capturedWorkflow = workflow;
 					capturedOptions = options;
 					return Effect.succeed(null);
 				},
@@ -107,8 +110,10 @@ it.effect("executes an installed script as the explicit user", () => {
 		const service = yield* SandboxExecutionService;
 		yield* service.enqueue(executingUserId, { scriptId, context: {} });
 
+		expect(capturedWorkflow).toBe(SandboxScriptWorkflow);
 		expect(capturedOptions?.payload).toMatchObject({
 			scriptId,
+			resultMode: "execution",
 			authority: { type: "user", userId: executingUserId },
 		});
 	}).pipe(Effect.provide(layer));
@@ -238,6 +243,45 @@ it.effect("polls a job only for its explicit executing user", () => {
 			yield* Effect.exit(service.getResult(otherUserId, jobId)),
 			new NotFound({ message: "Sandbox job not found" }),
 		);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("returns the completed public result without internal workflow fields", () => {
+	const completed = {
+		logs: ["completed"],
+		value: { ok: true },
+		status: "completed" as const,
+		timing: { totalMs: 12, executionMs: 8 },
+		harvest: { chunkHandles: ["internal-handle"] },
+		error: { phase: "execute" as const, message: "reported failure" },
+	};
+	const layer = makeServiceLayer(
+		makeRepository({
+			getScript: () => Effect.succeed(storedScript),
+			isPluginScript: () => Effect.succeed(false),
+		}),
+		makePluginRuntime(),
+		Layer.succeed(
+			WorkflowEngine,
+			makeWorkflowEngine({
+				execute: () => Effect.succeed(null),
+				poll: () =>
+					Effect.succeed(Option.some(new Workflow.Complete({ exit: Exit.succeed(completed) }))),
+			}),
+		),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* SandboxExecutionService;
+		const { jobId } = yield* service.enqueue(executingUserId, { scriptId });
+
+		expect(yield* service.getResult(executingUserId, jobId)).toEqual({
+			logs: ["completed"],
+			status: "completed",
+			value: { ok: true },
+			timing: { totalMs: 12, executionMs: 8 },
+			error: { phase: "execute", message: "reported failure" },
+		});
 	}).pipe(Effect.provide(layer));
 });
 

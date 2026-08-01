@@ -3,10 +3,6 @@
 	"type": "module",
 	"sideEffects": false,
 	"exports": {
-		"./activity": {
-			"types": "./src/activity.ts",
-			"default": "./src/activity.ts"
-		},
 		"./core": {
 			"types": "./src/core.ts",
 			"default": "./src/core.ts"

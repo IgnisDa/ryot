@@ -18,7 +18,7 @@ Sandbox slugs use lowercase letters and numbers separated by `.`, `_`, or `-`; `
 | `operations`           | Public operation slugs mapped to `operation`-kind scripts with `user` or `integration` auth.                                   |
 | `boot`                 | Restart-time, system-authority script dispatches.                                                                              |
 | `userBootstrap`        | Per-user bootstrap dispatches for trusted boot-configured plugins.                                                             |
-| `crons`                | Scheduled script or workflow dispatches.                                                                                       |
+| `crons`                | Scheduled sandbox script dispatches.                                                                                           |
 | `importSources`        | Payload, single-file, or named-file import inputs mapped to workflows.                                                         |
 | `integrationProviders` | `push`, `sink`, or `yank` integration definitions and settings schemas. `sink` and `yank` map to scripts; `push` does not.     |
 | `entitySchemas`        | Entity definitions, nested event schemas, optional user-state restrictions, and optional merge identity properties.            |
@@ -35,13 +35,12 @@ integration-provider slug namespaces. Entity and relationship schema evolution i
 ## Script Kinds And Entrypoints
 
 Every `scripts` item declares `entry`, `slug`, `name`, `kind`, `capabilities`,
-`requiredPluginConfigKeys`, and `requiredSystemConfigKeys`. `script` and `activity` may optionally
-declare `providerSlug`; `provider` must declare both `providerSlug` and `providerOperation`.
+`requiredPluginConfigKeys`, and `requiredSystemConfigKeys`. `script` may optionally declare
+`providerSlug`; `provider` must declare both `providerSlug` and `providerOperation`.
 
 | Kind         | Authoring helper   | Use                                                                       |
 | ------------ | ------------------ | ------------------------------------------------------------------------- |
 | `script`     | `defineScript`     | Direct boot, cron, bootstrap, or internal execution.                      |
-| `activity`   | `defineActivity`   | Nondeterministic durable workflow step.                                   |
 | `operation`  | `defineOperation`  | Public `plugins.invoke` entrypoint.                                       |
 | `workflow`   | `defineWorkflow`   | Deterministic durable orchestration; manifest capabilities must be empty. |
 | `automation` | `defineAutomation` | Policy or subscription binding.                                           |
@@ -59,7 +58,7 @@ A provider is logical identity, not executable module. Its `operations` object p
 operation at a distinct `provider`-kind script whose `providerSlug` and `providerOperation` agree.
 `details` is mandatory; `search`, `resolve`, and `translate` are optional. Each provider script can be
 versioned independently while callers continue addressing provider ID plus operation. A plain
-`script` or `activity` may join provider identity with `providerSlug`; omitting it makes that script
+`script` may join provider identity with `providerSlug`; omitting it makes that script
 standalone within its plugin.
 
 ## Authority And Capabilities
@@ -68,12 +67,12 @@ Trusted kernel dispatch chooses execution authority; script input cannot choose 
 
 | Entry path                                                   | Authority                                                                           |
 | ------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
-| `boot`, script crons, and workflow crons                     | System                                                                              |
+| `boot` and crons                                             | System                                                                              |
 | `userBootstrap`                                              | User being initialized                                                              |
 | User and integration operations                              | Authenticated user; integration operations also carry validated integration context |
 | Import workflows and provider work reached from user actions | Calling user                                                                        |
 | Automation subscriptions                                     | Subscription authority with trusted run metadata                                    |
-| Activities and child workflows                               | Authority propagated by their durable parent                                        |
+| Durable script requests and child workflows                  | Authority propagated by their durable parent                                        |
 
 `capabilities` is an allowlist, not a grant by itself. Runtime intersects it with implemented host
 functions, definition kind, authority, and trusted execution markers. Declare only methods used by
@@ -84,7 +83,7 @@ filesystem behavior, and exact limits are owned by the
 
 ## Cache Identity
 
-Provider-associated `script`, `activity`, and `provider` entries use logical provider ID as cache
+Provider-associated `script` and `provider` entries use logical provider ID as cache
 namespace, so all scripts for that provider share cache state. A standalone script uses its immutable
 script ID instead. Both are further isolated by executing user, not plugin ownership. Exact cache key,
 TTL, and restart semantics are owned by the
@@ -95,7 +94,8 @@ TTL, and restart semantics are owned by the
 Workflow modules orchestrate only `activity`, `sleep`, and child-workflow durable calls. Keep call
 order, call names, referenced slugs, and inputs deterministic across replay. Do not read ambient time,
 randomness, network, filesystem, mutable globals, or ordinary host functions in a workflow; move that
-work into an activity. Use `Effect.fail` for expected workflow failures, not `throw`. When app-owned
+work into an ordinary script invoked through `replay.activity`. Use `Effect.fail` for expected workflow
+failures, not `throw`. When app-owned
 workflows dispatch child workflows, deterministic execution-ID construction and single durable
 ownership are specified in [the Effect workflow guide](../../docs/effect-workflow-guide.md).
 Runtime pinning and replay behavior are owned by the
@@ -151,17 +151,15 @@ The `crons` manifest section declares scheduled sandbox scripts:
 ```ts
 crons: [
 	{
-		lot: "script",
 		slug: "refresh-trending",
 		schedule: { cron: "0 * * * *" },
 		scriptSlug: "refresh-trending",
 		description: "Refresh trending data",
 	},
 	{
-		lot: "workflow",
 		slug: "sweep-monitoring",
 		schedule: { tier: "infrequent" },
-		workflowSlug: "media-monitoring-sweep",
+		scriptSlug: "media-monitoring-sweep",
 		description: "Sweep monitored media",
 	},
 ];
@@ -170,9 +168,9 @@ crons: [
 `slug` and the target slug use sandbox manifest slug syntax. `description` must be a non-empty
 string without surrounding whitespace. `schedule` is an object: either `{ cron }` with an explicit
 non-empty crontab expression, or `{ tier: "infrequent" }` to defer the interval to the host's
-configured infrequent schedule. A `lot: "script"` cron targets exactly one `scriptSlug` declared in
-`scripts`. A `lot: "workflow"` cron instead targets exactly one `workflowSlug` declared in
-`workflows`; the scheduler runs it with system authority and awaits its terminal durable result.
+configured infrequent schedule. Each cron targets exactly one `scriptSlug` declared in `scripts`.
+The scheduler runs every target through the universal sandbox workflow with system authority and
+awaits its terminal durable result.
 
 ## Boot
 

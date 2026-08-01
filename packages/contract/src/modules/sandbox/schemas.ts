@@ -22,7 +22,7 @@ export const SandboxScriptMetadata = Schema.Struct({
 	requiredPluginConfigKeys: Schema.optional(Schema.Array(Schema.String)),
 	requiredSystemConfigKeys: Schema.optional(Schema.Array(Schema.String)),
 	kind: Schema.optional(
-		Schema.Literals(["script", "activity", "operation", "workflow", "provider", "automation"]),
+		Schema.Literals(["script", "operation", "workflow", "provider", "automation"]),
 	),
 });
 
@@ -38,7 +38,6 @@ const SandboxScriptManifestFields = {
 
 export const SandboxScriptManifest = Schema.Union([
 	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("script") }),
-	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("activity") }),
 	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("operation") }),
 	Schema.Struct({
 		...SandboxScriptManifestFields,

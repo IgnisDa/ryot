@@ -1,16 +1,13 @@
 import { SandboxRunError, toSandboxRunError } from "@ryot/contract/errors";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
-import { PersistedQueue } from "effect/unstable/persistence";
 import { Activity } from "effect/unstable/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
-import { processSandboxExecution } from "#modules/sandbox/durable-queues";
 import type { SandboxExecutionResult } from "#modules/sandbox/execution-result";
-import { SandboxPluginScriptResolver } from "#modules/sandbox/plugin-script-resolver";
-import { SandboxRepository } from "#modules/sandbox/repository";
+import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import type { IntegrationRecord } from "./repository";
 
@@ -34,6 +31,7 @@ export class IntegrationRunOperations extends Context.Service<
 const runIntegrationAdapter = (input: RunAdapterInput) =>
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
+		const sandbox = yield* SandboxExecutionService;
 		const catalog = yield* IntegrationProviderCatalog;
 		const resolution = catalog.resolveOwned(
 			input.integration.provider,
@@ -59,9 +57,9 @@ const runIntegrationAdapter = (input: RunAdapterInput) =>
 				),
 			),
 		});
-		return yield* processSandboxExecution({
+		return yield* sandbox.executeScript({
 			scriptId,
-			context: input.context,
+			input: input.context,
 			executionId: input.executionId,
 			authority: {
 				type: "user",
@@ -75,19 +73,15 @@ export const IntegrationRunOperationsLive = Layer.effect(
 	IntegrationRunOperations,
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
-		const repository = yield* SandboxRepository;
+		const sandbox = yield* SandboxExecutionService;
 		const catalog = yield* IntegrationProviderCatalog;
-		const pluginScriptResolver = yield* SandboxPluginScriptResolver;
-		const queueFactory = yield* PersistedQueue.PersistedQueueFactory;
 
 		return {
 			runAdapter: (input) =>
 				runIntegrationAdapter(input).pipe(
 					Effect.provideService(DbRunner, runWithDb),
 					Effect.provideService(IntegrationProviderCatalog, catalog),
-					Effect.provideService(SandboxRepository, repository),
-					Effect.provideService(SandboxPluginScriptResolver, pluginScriptResolver),
-					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
+					Effect.provideService(SandboxExecutionService, sandbox),
 				),
 		} satisfies IntegrationRunOperationsValue;
 	}),

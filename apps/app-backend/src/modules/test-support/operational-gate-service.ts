@@ -59,7 +59,7 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 					const candidate = [...chunk, item];
 					if (
 						candidate.length > WORKFLOW_LOAD_GATE_CHUNK_SIZE ||
-						sandboxContextError({ items: candidate }, { kind: "workflow" })
+						sandboxContextError({ items: candidate })
 					) {
 						if (chunk.length === 0) {
 							return yield* badRequest("Workflow load gate item exceeds workflow limits");

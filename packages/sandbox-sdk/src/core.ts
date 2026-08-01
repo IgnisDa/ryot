@@ -604,7 +604,7 @@ export const sandboxHostCapabilitySchema = Schema.Literals([...SANDBOX_HOST_CAPA
 export type SandboxHostCapability = Schema.Schema.Type<typeof sandboxHostCapabilitySchema>;
 
 export type SandboxCapabilityAuthority = "user" | "subscription" | "system";
-export type SandboxCapabilitySystemKind = "activity" | "automation" | "script";
+export type SandboxCapabilitySystemKind = "automation" | "script";
 export type SandboxCapabilityRequirement = {
 	readonly authorities: readonly SandboxCapabilityAuthority[];
 	readonly bridge: boolean;
@@ -639,7 +639,7 @@ export const SANDBOX_CAPABILITY_REQUIREMENTS = {
 	},
 	executeQueryEngine: {
 		bridge: true,
-		systemKinds: ["activity", "script"] as const,
+		systemKinds: ["script"] as const,
 		authorities: ["user", "subscription", "system"],
 	},
 	emitSignal: {
@@ -686,7 +686,6 @@ const sandboxManifestBaseFields = {
 
 export const sandboxManifestSchema = Schema.Union([
 	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("script") }),
-	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("activity") }),
 	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("provider") }),
 	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("operation") }),
 	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("automation") }),
@@ -699,7 +698,6 @@ export const sandboxManifestSchema = Schema.Union([
 
 export type SandboxManifest = Schema.Schema.Type<typeof sandboxManifestSchema>;
 export type ScriptManifest = Extract<SandboxManifest, { readonly kind: "script" }>;
-export type ActivityManifest = Extract<SandboxManifest, { readonly kind: "activity" }>;
 export type WorkflowManifest = Extract<SandboxManifest, { readonly kind: "workflow" }>;
 export type OperationManifest = Extract<SandboxManifest, { readonly kind: "operation" }>;
 

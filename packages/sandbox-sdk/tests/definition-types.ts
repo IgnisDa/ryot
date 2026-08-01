@@ -1,4 +1,3 @@
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineOperation } from "@ryot/sandbox-sdk/operation";
 import { defineWorkflow, type WorkflowReplayEnvelope } from "@ryot/sandbox-sdk/workflow";
@@ -39,21 +38,6 @@ const operation = defineOperation({
 	run: (input) => Effect.succeed(String(input.value)),
 });
 
-const activityManifest = defineManifest({
-	kind: "activity",
-	capabilities: ["httpCall"],
-	name: "Typed activity",
-	slug: "typed-activity",
-	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
-});
-const activity = defineActivity({
-	manifest: activityManifest,
-	input: Schema.String,
-	output: Schema.String,
-	run: (input, host) => host.httpCall("GET", input).pipe(Effect.map(({ body }) => body)),
-});
-
 const workflowManifest = defineManifest({
 	kind: "workflow",
 	capabilities: [],
@@ -82,13 +66,10 @@ const scriptInputType: Expect<Equal<Parameters<typeof script.run>[0], { readonly
 	true;
 const operationOutputType: Expect<Equal<Effect.Success<ReturnType<typeof operation.run>>, string>> =
 	true;
-const activityOutputType: Expect<Equal<Effect.Success<ReturnType<typeof activity.run>>, string>> =
-	true;
 const workflowOutputType: Expect<
 	Equal<Effect.Success<ReturnType<typeof workflow.run>>, WorkflowReplayEnvelope>
 > = true;
 void scriptInputType;
-void activityOutputType;
 void operationOutputType;
 void workflowOutputType;
 
