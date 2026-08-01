@@ -403,6 +403,12 @@ The important invariants are:
 
 When an update replaces artifact A with artifact B, the kernel force-reloads any mounted iframe for that installation. An old client artifact must not continue calling a newer backend plugin revision.
 
+### Artifact identity is embedded, never authored
+
+The artifact hash covers the compiled bundle, stylesheet, and assets, so it cannot exist inside them. The compiler emits `index.html` last, embedding the artifact hash and the V1 markers as JSON in a `<script type="application/json" id="ryot-client-artifact">` element.
+
+`bootstrapClientPlugin` reads that element and refuses to accept a bridge port when it is absent or malformed. Plugin source therefore never declares, derives, or passes its own artifact identity, and the kernel, the compiler, and the running plugin compare the same embedded values.
+
 ---
 
 ## 8. Styling and Tailwind
