@@ -9,7 +9,7 @@ import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { ObservabilityLive } from "#lib/infrastructure/observability";
 import { RedisService } from "#lib/infrastructure/redis";
 import { S3Service } from "#lib/infrastructure/s3";
-import { SandboxHarvestHandleStore } from "#lib/infrastructure/sandbox-runtime/harvest-handles";
+import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
 import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
 import { makeRuntimeSandboxApiFunctions } from "#lib/infrastructure/sandbox-runtime/runtime-host-functions";
@@ -122,7 +122,7 @@ import { ServerLive } from "./server";
 const ConfigLive = Layer.mergeAll(AppConfig.layer, BunServices.layer);
 
 const BaseInfrastructureServicesLive = Layer.provideMerge(
-	SandboxHarvestHandleStore.layer,
+	SandboxArtifactStore.layer,
 	Layer.mergeAll(
 		DbService.layer,
 		RedisService.layer,

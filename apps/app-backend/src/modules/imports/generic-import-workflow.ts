@@ -15,12 +15,12 @@ import {
 	type GenericImportWriteItem,
 } from "@ryot/sandbox-sdk/imports";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
-import { DateTime, Effect, Schema, FileSystem, Path } from "effect";
+import { Cause, DateTime, Effect, FileSystem, Schema } from "effect";
 import { Activity, Workflow } from "effect/unstable/workflow";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
-import { sandboxHarvestPathError } from "#lib/infrastructure/sandbox-runtime/filesystem-grants";
+import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { type DurableSchema, withoutWorkflowParent } from "#lib/infrastructure/workflow";
 import { slugify } from "#lib/shared/slug";
 import { AddEntityToCollectionWorkflow } from "#modules/collections/add-entity-to-collection-workflow";
@@ -39,8 +39,9 @@ export const ProcessGenericImportChunksPayload = Schema.Struct({
 	userId: UserId,
 	runId: ImportRunId,
 	executionId: Schema.String,
-	chunkFiles: Schema.Array(Schema.String),
-	expectedHarvestDirectoryPrefix: Schema.String,
+	chunkHandles: Schema.Array(Schema.String),
+	artifactOwnerExecutionId: Schema.String,
+	artifactReferenceExecutionId: Schema.String,
 	failRun: Schema.optional(Schema.Boolean),
 	integrationId: Schema.optional(IntegrationId),
 	failureCount: Schema.Finite.pipe(
@@ -76,19 +77,6 @@ const ItemWriteOutcome = Schema.Union([
 		),
 	}),
 ]);
-
-export const requireHarvestedChunkPath = Effect.fn("imports.requireHarvestedChunkPath")(function* (
-	filePath: string,
-	expectedDirectoryPrefix: string,
-) {
-	const path = yield* Path.Path;
-	const pathError = sandboxHarvestPathError(path, filePath, expectedDirectoryPrefix);
-	if (pathError) {
-		return yield* new ImportRunError({ message: pathError });
-	}
-	const directory = path.dirname(filePath);
-	return { directory, filePath };
-});
 
 const valuesMatch = (properties: Record<string, unknown>, expected: Record<string, unknown>) =>
 	Object.entries(expected).every(
@@ -340,40 +328,37 @@ const writeGenericItem = (item: GenericImportWriteItem, userId: UserId, index: n
 		),
 	});
 
-const readChunk = (path: string, expectedDirectoryPrefix: string, index: number) =>
+const readChunk = (ownerExecutionId: string, handle: string, index: number) =>
 	Activity.make({
 		error: ImportRunError,
 		success: genericImportChunkSchema,
 		name: `read-generic-import-chunk-${index}`,
 		execute: Effect.gen(function* () {
 			const fs = yield* FileSystem.FileSystem;
-			const safePath = yield* requireHarvestedChunkPath(path, expectedDirectoryPrefix);
-			const text = yield* fs.readFileString(safePath.filePath);
+			const artifacts = yield* SandboxArtifactStore;
+			const [path] = yield* artifacts.resolveOutputs(ownerExecutionId, [handle]);
+			if (!path) {
+				return yield* new ImportRunError({ message: "Import chunk handle was not resolved" });
+			}
+			const text = yield* fs.readFileString(path);
 			return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(genericImportChunkSchema))(
 				text,
 			);
 		}).pipe(Effect.mapError(toWorkflowError)),
 	});
 
-const removeChunks = (paths: ReadonlyArray<string>, expectedDirectoryPrefix: string) =>
+const artifactReference = (
+	operation: "release" | "retain",
+	ownerExecutionId: string,
+	referenceExecutionId: string,
+) =>
 	Activity.make({
-		name: "remove-consumed-generic-import-chunks",
+		error: ImportRunError,
+		name: `${operation}-generic-import-artifacts`,
 		execute: Effect.gen(function* () {
-			const fs = yield* FileSystem.FileSystem;
-			const directories = yield* Effect.forEach(paths, (path) =>
-				requireHarvestedChunkPath(path, expectedDirectoryPrefix).pipe(
-					Effect.map((safePath) => safePath.directory),
-					Effect.option,
-				),
-			);
-			yield* Effect.forEach(
-				new Set(
-					directories.flatMap((directory) => (directory._tag === "Some" ? [directory.value] : [])),
-				),
-				(path) => fs.remove(path, { force: true, recursive: true }).pipe(Effect.ignore),
-				{ discard: true },
-			);
-		}),
+			const artifacts = yield* SandboxArtifactStore;
+			yield* artifacts[operation](ownerExecutionId, referenceExecutionId);
+		}).pipe(Effect.mapError(toWorkflowError)),
 	});
 
 const updateRun = (name: string, input: UpdateImportRunInput) =>
@@ -399,12 +384,12 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 
 	const process = Effect.gen(function* () {
 		yield* updateRun("record-generic-import-total", { runId, totalItems: payload.totalItems });
-		for (let chunkIndex = 0; chunkIndex < payload.chunkFiles.length; chunkIndex += 1) {
-			const path = payload.chunkFiles[chunkIndex];
-			if (!path) {
+		for (let chunkIndex = 0; chunkIndex < payload.chunkHandles.length; chunkIndex += 1) {
+			const handle = payload.chunkHandles[chunkIndex];
+			if (!handle) {
 				continue;
 			}
-			const chunk = yield* readChunk(path, payload.expectedHarvestDirectoryPrefix, chunkIndex);
+			const chunk = yield* readChunk(payload.artifactOwnerExecutionId, handle, chunkIndex);
 			for (const failure of chunk.failures) {
 				observedFailureCount += 1;
 				errorSummary ??= failure.message;
@@ -514,21 +499,42 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 		return undefined;
 	});
 
-	yield* process.pipe(
-		Effect.ensuring(removeChunks(payload.chunkFiles, payload.expectedHarvestDirectoryPrefix)),
+	const retain = artifactReference(
+		"retain",
+		payload.artifactOwnerExecutionId,
+		payload.artifactReferenceExecutionId,
 	);
-	const finishedAt = yield* DateTime.nowAsDate;
-	yield* updateRun("finalize-generic-import", {
-		runId,
-		finishedAt,
-		failedItems,
-		importedItems,
-		progress: 100,
-		processedItems,
-		status: payload.failRun ? "failed" : "completed",
-		...(payload.failRun && errorSummary ? { errorSummary } : {}),
-	});
-	return { failedItems, importedItems, processedItems };
+	const release = artifactReference(
+		"release",
+		payload.artifactOwnerExecutionId,
+		payload.artifactReferenceExecutionId,
+	);
+	return yield* Effect.gen(function* () {
+		yield* retain;
+		yield* process;
+		const finishedAt = yield* DateTime.nowAsDate;
+		yield* updateRun("finalize-generic-import", {
+			runId,
+			finishedAt,
+			failedItems,
+			importedItems,
+			progress: 100,
+			processedItems,
+			status: payload.failRun ? "failed" : "completed",
+			...(payload.failRun && errorSummary ? { errorSummary } : {}),
+		});
+		return { failedItems, importedItems, processedItems };
+	}).pipe(
+		Effect.matchCauseEffect({
+			onFailure: (cause) =>
+				Effect.flatMap(WorkflowInstance, (instance) =>
+					instance.suspended && Cause.hasInterruptsOnly(cause)
+						? Effect.failCause(cause)
+						: release.pipe(Effect.andThen(Effect.failCause(cause))),
+				),
+			onSuccess: (result) => release.pipe(Effect.as(result)),
+		}),
+	);
 });
 
 export const ProcessGenericImportChunksWorkflowDefinitionsLive =

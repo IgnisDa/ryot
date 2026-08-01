@@ -1,4 +1,4 @@
-import { BunFileSystem } from "@effect/platform-bun";
+import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { SandboxRunError } from "@ryot/contract/errors";
 import { ImportRunId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
@@ -8,6 +8,7 @@ import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/Workf
 import { assert } from "vitest";
 
 import { RedisService } from "#lib/infrastructure/redis";
+import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import {
 	dbRunnerLayer,
 	makeAppConfigLayer,
@@ -37,15 +38,23 @@ const payload = {
 
 type SandboxCall = { method: string; input: unknown };
 
-const makeHarness = (suspendWorkflow = false, failWorkflow = false) => {
+const makeHarness = (
+	suspendWorkflow = false,
+	failWorkflow = false,
+	suspended = suspendWorkflow,
+) => {
 	const activityNames: string[] = [];
 	const sandboxCalls: SandboxCall[] = [];
 	const sandboxParents: boolean[] = [];
 	const instance = WorkflowInstance.initial(ProcessImportRunWorkflow, executionId);
+	instance.suspended = suspended;
 	const engine = makeWorkflowEngine({
 		activityExecute: (activity) =>
-			Effect.sync(() => {
+			Effect.gen(function* () {
 				activityNames.push(activity.name);
+				if (activity.name === "materialize-import-artifacts") {
+					return new Workflow.Complete({ exit: yield* Effect.exit(activity.execute) });
+				}
 				return new Workflow.Complete({ exit: Exit.void });
 			}),
 	});
@@ -65,6 +74,14 @@ const makeHarness = (suspendWorkflow = false, failWorkflow = false) => {
 			Layer.succeed(WorkflowEngine, engine),
 			Layer.succeed(WorkflowInstance, instance),
 			Layer.mock(ImportRunArtifacts)({}),
+			Layer.mock(SandboxArtifactStore)({
+				materializeInputs: (ownerExecutionId, _referenceExecutionId, grants) =>
+					Effect.succeed({
+						artifactOwnerExecutionId: ownerExecutionId,
+						...(grants.artifactPath ? { artifactPath: grants.artifactPath } : {}),
+						...(grants.namedArtifactPaths ? { namedArtifactPaths: grants.namedArtifactPaths } : {}),
+					}),
+			}),
 			Layer.mock(SandboxExecutionService)({
 				executeWorkflow: (input) =>
 					Effect.serviceOption(WorkflowInstance).pipe(
@@ -78,7 +95,7 @@ const makeHarness = (suspendWorkflow = false, failWorkflow = false) => {
 					),
 			}),
 			dbRunnerLayer,
-			BunFileSystem.layer,
+			BunServices.layer,
 			Layer.succeed(RedisService, makeRedisService()),
 			Layer.mock(ImportsService)({}),
 			Layer.mock(ImportRunFailuresService)({}),
@@ -99,14 +116,21 @@ it.effect("dispatches a registry-declared source to its owning plugin's import w
 			input: {
 				executionId: `${executionId}-import`,
 				input: { runId: "run-1", source: "netflix" },
-				grants: { artifactPath: "/tmp/netflix.zip" },
 				authority: { type: "user", userId: "user-1" },
 				scriptId: SandboxScriptId.make("accepted.netflix-import"),
+				grants: {
+					artifactPath: "/tmp/netflix.zip",
+					artifactOwnerExecutionId: `${executionId}-import`,
+				},
 			},
 		});
 		expect(harness.activityNames).toEqual([
 			"mark-import-run-started",
 			"load-import-source-payload",
+			"materialize-import-artifacts",
+			"retain-import-dispatch-artifacts",
+			"release-import-dispatch-artifacts",
+			"release-import-artifacts",
 			"cleanup-import-artifacts-on-success",
 			"cleanup-import-uploads-on-success",
 		]);
@@ -133,7 +157,12 @@ it.effect("grants only registry-declared named artifacts to a plugin import work
 
 		const executed = harness.sandboxCalls.find(({ method }) => method === "executeWorkflow");
 		expect(executed).toMatchObject({
-			input: { grants: { namedArtifactPaths: { historyFilePath: "/tmp/history.csv" } } },
+			input: {
+				grants: {
+					artifactOwnerExecutionId: `${executionId}-import`,
+					namedArtifactPaths: { historyFilePath: "/tmp/history.csv" },
+				},
+			},
 		});
 	}).pipe(Effect.provide(harness.layer));
 });
@@ -179,6 +208,18 @@ it.effect("releases the pre-registered pin when import orchestration fails termi
 		yield* runProcessImportRunWorkflow(payload, executionId);
 
 		expect(harness.activityNames).toContain("release-import-workflow-pin");
+		expect(harness.activityNames).toContain("cleanup-import-uploads-on-unexpected-failure");
+	}).pipe(Effect.provide(harness.layer));
+});
+
+it.effect("releases input artifacts on terminal import cancellation", () => {
+	const harness = makeHarness(true, false, false);
+
+	return Effect.gen(function* () {
+		yield* runProcessImportRunWorkflow(payload, executionId);
+
+		expect(harness.activityNames).toContain("release-import-artifacts");
+		expect(harness.activityNames).toContain("release-import-dispatch-artifacts");
 		expect(harness.activityNames).toContain("cleanup-import-uploads-on-unexpected-failure");
 	}).pipe(Effect.provide(harness.layer));
 });

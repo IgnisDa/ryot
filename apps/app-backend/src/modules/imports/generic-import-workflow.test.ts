@@ -14,6 +14,7 @@ import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/Workf
 import { assert } from "vitest";
 
 import { CurrentDb, TransactionRunner } from "#lib/infrastructure/db/service";
+import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import {
 	dbRunnerLayer,
 	makeAppConfigLayer,
@@ -37,6 +38,11 @@ import {
 import { ImportsService } from "./service";
 
 const collectionsLayer = Layer.mock(CollectionsService)({});
+const artifactStoreLayer = Layer.mock(SandboxArtifactStore)({
+	retain: () => Effect.void,
+	release: () => Effect.void,
+	resolveOutputs: (_ownerExecutionId, handles) => Effect.succeed([...handles]),
+});
 const transactionRunnerLayer = Layer.succeed(
 	TransactionRunner,
 	<A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -213,13 +219,14 @@ it.effect(
 			const result = yield* runProcessGenericImportChunksWorkflow(
 				{
 					executionId,
+					artifactOwnerExecutionId: executionId,
+					artifactReferenceExecutionId: executionId,
 					totalItems: 3,
 					failureCount: 1,
 					writeItemCount: 2,
-					chunkFiles: [path],
+					chunkHandles: [path],
 					userId: UserId.make("user-1"),
 					runId: ImportRunId.make("run-1"),
-					expectedHarvestDirectoryPrefix: "/tmp/ryot-sandbox-harvest-test/generic-import-activity-",
 				},
 				executionId,
 			);
@@ -297,7 +304,6 @@ it.effect(
 					processedItems: 3,
 				}),
 			);
-			expect(yield* fs.exists(directory)).toBe(false);
 		}).pipe(
 			Effect.provideService(
 				WorkflowEngine,
@@ -316,6 +322,7 @@ it.effect(
 			Effect.provideService(WorkflowInstance, instance),
 			Effect.provide(
 				Layer.mergeAll(
+					artifactStoreLayer,
 					dbRunnerLayer,
 					transactionRunnerLayer,
 					BunServices.layer,
@@ -513,13 +520,14 @@ it.effect("validates relationship endpoint schemas before generic import writes"
 		const result = yield* runProcessGenericImportChunksWorkflow(
 			{
 				executionId,
+				artifactOwnerExecutionId: executionId,
+				artifactReferenceExecutionId: executionId,
 				totalItems: 3,
 				failureCount: 0,
 				writeItemCount: 3,
-				chunkFiles: [path],
+				chunkHandles: [path],
 				userId: UserId.make("user-1"),
 				runId: ImportRunId.make("run-relationship-schemas"),
-				expectedHarvestDirectoryPrefix: `/tmp/ryot-sandbox-harvest-test/${executionId}-activity-`,
 			},
 			executionId,
 		);
@@ -548,6 +556,7 @@ it.effect("validates relationship endpoint schemas before generic import writes"
 		Effect.provideService(WorkflowInstance, instance),
 		Effect.provide(
 			Layer.mergeAll(
+				artifactStoreLayer,
 				dbRunnerLayer,
 				transactionRunnerLayer,
 				BunServices.layer,
@@ -599,7 +608,7 @@ it.effect("validates relationship endpoint schemas before generic import writes"
 	);
 });
 
-it.effect("cleans trusted activity directories when the initial run update fails", () => {
+it.effect("fails before reading chunks when the initial run update fails", () => {
 	const executionId = "generic-import-update-failure";
 	const directory = `/tmp/ryot-sandbox-harvest-test/${executionId}-activity-0`;
 	const path = `${directory}/chunk-0.json`;
@@ -614,25 +623,26 @@ it.effect("cleans trusted activity directories when the initial run update fails
 			runProcessGenericImportChunksWorkflow(
 				{
 					executionId,
+					artifactOwnerExecutionId: executionId,
+					artifactReferenceExecutionId: executionId,
 					totalItems: 0,
 					failureCount: 0,
 					writeItemCount: 0,
-					chunkFiles: [path],
+					chunkHandles: [path],
 					userId: UserId.make("user-1"),
 					runId: ImportRunId.make("run-update-failure"),
-					expectedHarvestDirectoryPrefix: `/tmp/ryot-sandbox-harvest-test/${executionId}-activity-`,
 				},
 				executionId,
 			),
 		);
 
 		expect(exit._tag).toBe("Failure");
-		expect(yield* fs.exists(directory)).toBe(false);
 	}).pipe(
 		Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
 		Effect.provideService(WorkflowInstance, instance),
 		Effect.provide(
 			Layer.mergeAll(
+				artifactStoreLayer,
 				dbRunnerLayer,
 				transactionRunnerLayer,
 				BunServices.layer,
@@ -645,65 +655,6 @@ it.effect("cleans trusted activity directories when the initial run update fails
 				Layer.mock(ImportsService)({
 					update: () => Effect.fail(new DbError({ message: "initial update failed" })),
 				}),
-			),
-		),
-	);
-});
-
-it.effect("rejects another parent execution's chunks without cleaning untrusted paths", () => {
-	const executionId = "generic-import-provenance";
-	const trustedDirectory = `/tmp/ryot-sandbox-harvest-test/${executionId}-activity-0`;
-	const untrustedDirectory = "/tmp/ryot-sandbox-harvest-test/other-parent-activity-0";
-	const trustedPath = `${trustedDirectory}/chunk-0.json`;
-	const untrustedPath = `${untrustedDirectory}/chunk-0.json`;
-	const instance = WorkflowInstance.initial(ProcessGenericImportChunksWorkflow, executionId);
-
-	return Effect.gen(function* () {
-		const fs = yield* FileSystem.FileSystem;
-		yield* fs.makeDirectory(trustedDirectory, { recursive: true });
-		yield* fs.makeDirectory(untrustedDirectory, { recursive: true });
-		const emptyChunk = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
-			failures: [],
-			items: [],
-		});
-		yield* fs.writeFileString(trustedPath, emptyChunk);
-		yield* fs.writeFileString(untrustedPath, emptyChunk);
-
-		const exit = yield* Effect.exit(
-			runProcessGenericImportChunksWorkflow(
-				{
-					executionId,
-					totalItems: 0,
-					failureCount: 0,
-					writeItemCount: 0,
-					userId: UserId.make("user-1"),
-					chunkFiles: [trustedPath, untrustedPath],
-					runId: ImportRunId.make("run-provenance"),
-					expectedHarvestDirectoryPrefix: `/tmp/ryot-sandbox-harvest-test/${executionId}-activity-`,
-				},
-				executionId,
-			),
-		);
-
-		expect(exit.toString()).toContain("Import chunk path is outside the trusted harvest");
-		expect(yield* fs.exists(trustedDirectory)).toBe(false);
-		expect(yield* fs.exists(untrustedPath)).toBe(true);
-		yield* fs.remove(untrustedDirectory, { recursive: true });
-	}).pipe(
-		Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
-		Effect.provideService(WorkflowInstance, instance),
-		Effect.provide(
-			Layer.mergeAll(
-				dbRunnerLayer,
-				transactionRunnerLayer,
-				BunServices.layer,
-				DefinitionRegistry.layer,
-				collectionsLayer,
-				Layer.mock(RelationshipsService)({}),
-				Layer.mock(EntitiesRepository)({}),
-				Layer.mock(EntitiesService)({}),
-				Layer.mock(ImportRunFailuresService)({}),
-				Layer.mock(ImportsService)({ update: () => Effect.void }),
 			),
 		),
 	);

@@ -17,7 +17,6 @@ export const SANDBOX_LIMITS = {
 	workerConcurrency: 5,
 	compiler: SANDBOX_COMPILER_LIMITS,
 	hostCalls: { http: 50, total: 200 },
-	harvest: { handleTtlSeconds: 60 * 60 },
 	globalWrites: GLOBAL_WRITE_SANDBOX_LIMITS,
 	diagnostics: { stderrBytes: 64 * KiB, stderrLines: 20 },
 	userRelationshipWrites: USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS,
