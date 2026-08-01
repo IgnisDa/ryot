@@ -136,6 +136,32 @@ comparator, below the interactive-provider review conditions. Its three executio
 two are the expected initial run and two sequential durable HTTP boundaries. No owner waiver or
 optimization is required before Task 04.
 
+### Final catalog verification (2026-08-06)
+
+Task 15 reran the warm hermetic harness after the complete catalog cutover. The run used the same
+Apple M4, 16-GiB host and Bun 1.3.14 configuration, with three warm-ups and 15 samples per direct
+workload plus one warm-up and five measured 10-item population chunks. The benchmark passed, but the
+universal workflow overhead exceeded the permissive review thresholds for the no-host and interactive
+paths. The owner approved recording a waiver on 2026-08-06 so Phase 1 can close without restoring a
+standard fast path or introducing new runtime architecture; the measured result remains the baseline
+for a later optimization task.
+
+| Workload                          | Final p50 / p95 | Task 01 comparison | Executions / body replays / module loads | Workflow / Redis observation |
+| --------------------------------- | --------------: | -----------------: | ---------------------------------------: | ----------------------------: |
+| No-host automation early return   | 476 / 648 ms     | 2.44x p95; +382 ms | 1.4 / 1.4 / 1.4                           | 0 projections; high-water 0  |
+| Full automation                   | 1,099 / 1,466 ms | 5.84x p95; +1,215 ms | 3.53 / 3.53 / 3.53                      | 1 projection; high-water 2   |
+| Controlled HTTP provider          | 835 / 1,292 ms   | 4.72x p95; +1,018 ms | 3 / 3 / 3                              | 1 projection; high-water 2   |
+| Youtubei controlled HTTP provider | 950 / 1,637 ms   | 3.99x p95; +1,227 ms | 3 / 3 / 3                              | 1 projection; high-water 2   |
+| Bounded 10-item population chunk  | 9,424 / 11,091 ms | 1.061 items/s p50; 69.6% of baseline | 21 / 21 / 21 | 1 projection; high-water 10 |
+
+The bounded population remained above the 50% throughput guardrail. Exact workflow-engine and Redis
+transport round trips remain unavailable from the existing harness; projection keys and journal
+high-water counters are recorded instead. The full catalog benchmark command was:
+
+```bash
+RUN_SANDBOX_BENCHMARKS=1 bun turbo --env-mode=loose --force --output-logs=full --filter=@ryot/tests test --only -- 'src/tests/kernel/sandbox/sandbox-runtime-benchmark.test.ts'
+```
+
 ## 1. Establish the Two Tracers
 
 Build the runtime against two deliberately small reference paths before migrating the catalog.
