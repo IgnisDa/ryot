@@ -17,8 +17,8 @@ export {
 } from "@/api/request-layer";
 
 export const transportEnvironmentLive = Layer.succeed(TransportEnvironment, {
-	fetch: globalThis.fetch,
 	getAuthCookie,
+	fetch: globalThis.fetch,
 	// Expo's FetchResponse implements the web response surface consumed by FetchHttpClient.
 	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
 	expoFetch: expoFetch as unknown as typeof globalThis.fetch,
