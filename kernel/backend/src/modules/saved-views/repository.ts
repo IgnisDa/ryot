@@ -83,23 +83,34 @@ type UpdateSavedViewData = {
 	readonly dataSources?: (typeof schema.savedView.$inferSelect)["dataSources"];
 };
 
-const toListedSavedView = (row: ListedSavedViewRow): ListedSavedView => ({
-	slug: row.slug,
-	name: row.name,
-	icon: row.icon,
-	isBuiltin: row.isBuiltin,
-	sortOrder: row.sortOrder,
-	isDisabled: row.isDisabled,
-	id: SavedViewId.make(row.id),
-	createdAt: row.createdAt.toISOString(),
-	updatedAt: row.updatedAt.toISOString(),
-	pluginSlug: row.pluginSlug === null ? null : PluginSlug.make(row.pluginSlug),
-	entitySchemaSlug:
-		row.entitySchemaSlug === null ? null : EntitySchemaSlug.make(row.entitySchemaSlug),
-	...(row.renderer === null
-		? { layouts: row.layouts }
-		: { renderer: row.renderer, settings: row.settings ?? {}, dataSources: row.dataSources }),
-});
+const toListedSavedView = (row: ListedSavedViewRow): ListedSavedView => {
+	const base = {
+		slug: row.slug,
+		name: row.name,
+		icon: row.icon,
+		isBuiltin: row.isBuiltin,
+		sortOrder: row.sortOrder,
+		isDisabled: row.isDisabled,
+		id: SavedViewId.make(row.id),
+		createdAt: row.createdAt.toISOString(),
+		updatedAt: row.updatedAt.toISOString(),
+		pluginSlug: row.pluginSlug === null ? null : PluginSlug.make(row.pluginSlug),
+		entitySchemaSlug:
+			row.entitySchemaSlug === null ? null : EntitySchemaSlug.make(row.entitySchemaSlug),
+	};
+	if (row.renderer !== null) {
+		return {
+			...base,
+			renderer: row.renderer,
+			settings: row.settings ?? {},
+			dataSources: row.dataSources,
+		};
+	}
+	if (row.layouts !== null) {
+		return { ...base, layouts: row.layouts };
+	}
+	return base;
+};
 
 const withSavedViewScope = (pluginInstallationId?: string) =>
 	pluginInstallationId
