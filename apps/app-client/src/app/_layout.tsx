@@ -14,6 +14,7 @@ import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { AnalyticsController } from "@/modules/analytics/controller";
 import { clearAppStorage } from "@/modules/auth/client";
 import { ThemeController } from "@/modules/theme/controller";
 
@@ -54,6 +55,7 @@ export default function RootLayout() {
 		<GestureHandlerRootView style={{ flex: 1 }}>
 			<RegistryProvider>
 				<ThemeController />
+				<AnalyticsController />
 				<SafeAreaProvider>
 					<Stack screenOptions={{ headerShown: false }} />
 					{/* oxlint-disable-next-line react/style-prop-object */}
