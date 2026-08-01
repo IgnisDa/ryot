@@ -57,7 +57,7 @@ The only self-hosted tracker you will ever need - track movies, shows, video gam
 | ingress.hosts[0].paths[0].path | string | `"/"` |  |
 | ingress.hosts[0].paths[0].pathType | string | `"Prefix"` |  |
 | ingress.tls | list | `[]` |  |
-| livenessProbe | object | `{"failureThreshold":6,"httpGet":{"path":"/api/health","port":"http"},"initialDelaySeconds":30,"periodSeconds":30,"timeoutSeconds":10}` | Liveness probe. Ryot exposes /api/health on the service port. |
+| livenessProbe | object | `{"failureThreshold":6,"httpGet":{"path":"/api/system/health","port":"http"},"initialDelaySeconds":30,"periodSeconds":30,"timeoutSeconds":10}` | Liveness probe. Ryot exposes /api/system/health on the service port. |
 | nameOverride | string | `""` | Override the chart name. |
 | nodeSelector | object | `{}` |  |
 | podAnnotations | object | `{}` |  |
@@ -84,7 +84,7 @@ The only self-hosted tracker you will ever need - track movies, shows, video gam
 | postgres.securityContext | object | `{}` |  |
 | postgres.service.port | int | `5432` |  |
 | postgres.tolerations | list | `[]` |  |
-| readinessProbe | object | `{"failureThreshold":6,"httpGet":{"path":"/api/health","port":"http"},"initialDelaySeconds":15,"periodSeconds":15,"timeoutSeconds":10}` | Readiness probe. |
+| readinessProbe | object | `{"failureThreshold":6,"httpGet":{"path":"/api/system/health","port":"http"},"initialDelaySeconds":15,"periodSeconds":15,"timeoutSeconds":10}` | Readiness probe using /api/system/health. |
 | redis.affinity | object | `{}` |  |
 | redis.auth.existingSecret | string | `""` | Reference an existing secret holding the Redis password instead of storing the value here. |
 | redis.auth.existingSecretPasswordKey | string | `"redis-password"` | Key inside the existing secret that holds the Redis password. |

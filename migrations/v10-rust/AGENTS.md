@@ -1,12 +1,10 @@
 # Legacy Bootstrap
 
-- Read `README.md` before changing migration scope, field mappings, or intentional omissions.
-- Fail on unexpected state with `Error` in TypeScript or `RAISE EXCEPTION` in PL/pgSQL. Silent skips are limited to restart-safe guards and omissions documented in `README.md`.
-- Keep bootstrap logic in this module. Do not edit `src/lib/infrastructure/db/migrate.ts` without prior discussion.
-- Rename legacy tables before Drizzle migrations; copy data after new tables exist.
-- Prefer SQL for set-based work and TypeScript for orchestration.
-- Write progress and anomaly reports to `migration_report`; unexpected warning rows must fail the bootstrap.
-- Never hardcode `public.` in legacy SQL; use quoted bare table names so PostgreSQL `search_path` selects schema.
+- Read `README.md` before changing scope, mappings, omissions, report behavior, or restart semantics.
+- Unexpected state must fail with `Error` or `RAISE EXCEPTION`. Silent skips are limited to restart guards and omissions documented in `README.md`.
+- Keep this migration here. Do not change `kernel/backend/src/lib/infrastructure/db/migrate.ts` without prior discussion.
+- Rename legacy tables before Drizzle creates V2 tables; copy data afterward.
+- Write progress and anomalies to `migration_report`; any undocumented warning fails startup.
+- Legacy SQL uses quoted bare table names so `search_path` selects the schema. Never hardcode `public.`.
 - Inline only controlled values through `quoteSqlString`; never inline user input.
-- Normal e2e does not cover this path. Verify changes by restoring legacy dumps and running `bun run run-migration` as documented in `README.md`.
-- Do not add tests for this module. Instead, follow the [runbook](./README.md#validation-runbook) to validate changes against legacy dumps.
+- Normal E2E does not cover this shipped path. Do not add substitute tests; restore legacy dumps and follow the [validation runbook](./README.md#validation-runbook).
