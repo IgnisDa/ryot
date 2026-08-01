@@ -95,11 +95,36 @@ describe("decodeSavedViewDisplayData", () => {
 				table: {
 					image: { type: "asset", locator: { type: "s3", key: "table.jpg" } },
 					cells: [
-						{ label: "Title", value: { kind: "text", value: "Table title" } },
-						{ label: "Year", value: { kind: "null", value: null } },
+						{
+							key: "tableTitle",
+							label: "Title",
+							value: { kind: "text", value: "Table title" },
+						},
+						{ key: "tableYear", label: "Year", value: { kind: "null", value: null } },
 					],
 				},
 			},
+		]);
+	});
+
+	it("preserves distinct field keys for duplicate table labels", () => {
+		const duplicateLabelConfiguration = {
+			...configuration,
+			table: {
+				...configuration.table,
+				columns: [
+					{ field: "tableTitle", label: "Value" },
+					{ field: "tableYear", label: "Value" },
+				],
+			},
+		} satisfies SavedViewDisplayConfiguration;
+		const decoded = Result.getOrThrow(
+			decodeSavedViewDisplayData(response(), duplicateLabelConfiguration),
+		);
+
+		expect(decoded.items[0]?.table.cells).toEqual([
+			{ key: "tableTitle", label: "Value", value: { kind: "text", value: "Table title" } },
+			{ key: "tableYear", label: "Value", value: { kind: "null", value: null } },
 		]);
 	});
 

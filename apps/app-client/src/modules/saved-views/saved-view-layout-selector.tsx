@@ -19,7 +19,7 @@ export function SavedViewLayoutSelector(props: { viewSlug: string }) {
 	const setLayout = useAtomSet(layoutAtom);
 	return (
 		<View
-			accessibilityRole="tablist"
+			accessibilityRole="radiogroup"
 			className="h-9 flex-row self-start rounded-pill border border-border-strong bg-surface-2 p-0.75 md:h-8.5 md:rounded-md"
 		>
 			{layouts.map((option) => {
@@ -27,9 +27,9 @@ export function SavedViewLayoutSelector(props: { viewSlug: string }) {
 				return (
 					<Pressable
 						key={option.value}
-						accessibilityRole="tab"
-						accessibilityState={{ selected }}
+						accessibilityRole="radio"
 						onPress={() => setLayout(option.value)}
+						accessibilityState={{ checked: selected }}
 						accessibilityLabel={`${option.label} view`}
 						className={clsx(
 							"h-7 w-9.5 items-center justify-center rounded-pill border border-transparent md:w-7.5 md:rounded-sm",
@@ -40,7 +40,7 @@ export function SavedViewLayoutSelector(props: { viewSlug: string }) {
 						<AppIcon
 							size={15}
 							name={option.icon}
-							className={clsx(selected ? "text-accent-text" : "text-text-muted")}
+							className={clsx(selected && "text-accent-text", !selected && "text-text-muted")}
 						/>
 					</Pressable>
 				);
