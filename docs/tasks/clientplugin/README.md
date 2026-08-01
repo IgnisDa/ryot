@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 4 of 9 tasks completed
+**Overall Progress:** 5 of 9 tasks completed
 
-**Current Task:** [Task 05](./05-invoke-authenticated-operation.md) (todo)
+**Current Task:** [Task 06](./06-synchronize-kernel-theme.md) (todo)
 
 ### Task List
 
@@ -14,7 +14,7 @@
 | 02  | [Authenticate Into the Kernel Shell](./02-authenticate-into-kernel-shell.md)                  | done   |
 | 03  | [Install and Render a Fixture Plugin](./03-install-and-render-fixture-plugin.md)              | done   |
 | 04  | [Navigate Fixture Private Routes](./04-navigate-fixture-private-routes.md)                    | done   |
-| 05  | [Invoke an Authenticated Operation](./05-invoke-authenticated-operation.md)                   | todo   |
+| 05  | [Invoke an Authenticated Operation](./05-invoke-authenticated-operation.md)                   | done   |
 | 06  | [Synchronize Kernel Theme](./06-synchronize-kernel-theme.md)                                  | todo   |
 | 07  | [Recover From Plugin Crashes](./07-recover-from-plugin-crashes.md)                            | todo   |
 | 08  | [Reload Updated Plugin Artifacts](./08-reload-updated-plugin-artifacts.md)                    | todo   |

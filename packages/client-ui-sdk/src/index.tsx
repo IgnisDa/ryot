@@ -19,3 +19,23 @@ export function Button({ className, variant = "primary", ...props }: ButtonProps
 		<button className={[variantClasses[variant], className].filter(Boolean).join(" ")} {...props} />
 	);
 }
+
+const toneClasses = {
+	error: "text-danger",
+	success: "text-success",
+	pending: "text-text-muted",
+} as const;
+
+type StatusMessageProps = ComponentProps<"p"> & {
+	tone: keyof typeof toneClasses;
+};
+
+export function StatusMessage({ className, tone, ...props }: StatusMessageProps) {
+	return (
+		<p
+			role={tone === "error" ? "alert" : "status"}
+			className={[toneClasses[tone], className].filter(Boolean).join(" ")}
+			{...props}
+		/>
+	);
+}

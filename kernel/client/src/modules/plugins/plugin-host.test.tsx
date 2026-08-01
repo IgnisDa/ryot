@@ -1,4 +1,7 @@
-import type { PluginLogicalLocation } from "@ryot/contract/modules/plugins/client";
+import type {
+	PluginLogicalLocation,
+	PluginOperationOutcome,
+} from "@ryot/contract/modules/plugins/client";
 import type { PluginClientCatalogEntry } from "@ryot/ryotql-recipes/plugin-client-catalog";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -35,6 +38,9 @@ const renderHost = (overrides: Partial<PluginClientCatalogEntry> = {}, location 
 			location={state.location}
 			installation={{ ...installation, ...state.overrides }}
 			onNavigate={(request) => navigations.push(request)}
+			onInvokeOperation={() =>
+				Promise.resolve({ outcome: "failure", reason: "transport" } as PluginOperationOutcome)
+			}
 		/>
 	);
 	const view = render(host({ location, overrides }));
