@@ -1,14 +1,9 @@
-import { useRyot } from "@ryot-app/client-sdk/react";
+import { useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
 import { Button, Menu, type MenuItem } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { useSchemaForm, type SchemaFormValues } from "@ryot-app/client-ui-sdk/schema-form";
-import {
-	IntegrationNotFoundError,
-	type ListedIntegration,
-	type ListedIntegrationProvider,
-} from "@ryot-app/contract/modules/integrations/schemas";
+import { IntegrationNotFoundError } from "@ryot-app/contract/modules/integrations/schemas";
 import { IntegrationId } from "@ryot-app/contract/schema/brands";
-import type { ImportRunSummary } from "@ryot-app/ryotql-recipes/import-runs";
 import { createFileRoute, notFound, useRouter } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
@@ -27,7 +22,13 @@ import {
 	integrationProviderNames,
 } from "#/modules/integrations/provider-selection";
 import { integrationSaveFailure } from "#/modules/integrations/save-failure";
-import { INTEGRATION_RUNS_PAGE_SIZE, IntegrationsService } from "#/modules/integrations/service";
+import {
+	deleteIntegrationMutation,
+	integrationDetailQuery,
+	integrationProvidersQuery,
+	integrationRunsQuery,
+	updateIntegrationMutation,
+} from "#/modules/integrations/service";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 import { DestructiveConfirmation } from "#/modules/ui/destructive-confirmation";
 import { isTerminalRunStatus } from "#/modules/ui/run/run-status";
@@ -65,33 +66,7 @@ export const Route = createFileRoute("/_authenticated/settings/integrations/$int
 			// oxlint-disable-next-line typescript/only-throw-error
 			throw isNotFound(outcome.failure) ? notFound() : outcome.failure;
 		}
-		const integration = outcome.integration;
-		const [runs, providers] = await Promise.all([
-			context.runtime.runPromise(
-				Effect.flatMap(IntegrationsService, (service) =>
-					service.loadRuns(context.ryot, {
-						integrationId: trimmed,
-						limit: INTEGRATION_RUNS_PAGE_SIZE,
-					}),
-				).pipe(
-					Effect.match({
-						onSuccess: (page) => page.items,
-						onFailure: (): readonly ImportRunSummary[] => [],
-					}),
-				),
-				{ signal: abortController.signal },
-			),
-			context.runtime.runPromise(
-				Effect.flatMap(IntegrationsApi, (api) => api.listProviders(context.scope)).pipe(
-					Effect.match({
-						onSuccess: (listed) => listed,
-						onFailure: (): readonly ListedIntegrationProvider[] => [],
-					}),
-				),
-				{ signal: abortController.signal },
-			),
-		]);
-		return { runs, providers, integration };
+		return { integration: outcome.integration };
 	},
 });
 
@@ -114,58 +89,40 @@ function IntegrationFrame(props: {
 }
 
 function IntegrationDetailRoute() {
-	const ryot = useRyot();
 	const router = useRouter();
 	const navigate = Route.useNavigate();
 	const loaded = Route.useLoaderData();
 	const uploadFile = useSchemaFileUpload();
-	const [saving, setSaving] = useState(false);
-	const [runs, setRuns] = useState(loaded.runs);
-	const [deleting, setDeleting] = useState(false);
 	const [menuOpen, setMenuOpen] = useState(false);
-	const controller = useRef(new AbortController());
 	const [activeIndex, setActiveIndex] = useState(0);
 	const menuTrigger = useRef<HTMLButtonElement>(null);
 	const [isConfirming, setIsConfirming] = useState(false);
 	const [deleteFailed, setDeleteFailed] = useState(false);
-	const [integration, setIntegration] = useState<ListedIntegration>(loaded.integration);
-	const providerNames = integrationProviderNames(loaded.providers);
+	const detail = useRyotQuery(integrationDetailQuery, loaded.integration.id);
+	const providers = useRyotQuery(integrationProvidersQuery);
+	const integration = detail.data ?? loaded.integration;
+	const runs = useRyotQuery(integrationRunsQuery, integration.id);
+	const update = useRyotMutation(updateIntegrationMutation);
+	const remove = useRyotMutation(deleteIntegrationMutation);
+	const providerNames = integrationProviderNames(providers.data ?? []);
 	const title = integrationTitle(integration, providerNames);
 	const [saveDetail, setSaveDetail] = useState<string | undefined>();
-	const { backInterceptors, runtime, scope } = Route.useRouteContext();
-	const provider = findOwnedIntegrationProvider(loaded.providers, integration);
-
-	useEffect(() => () => controller.current.abort(), []);
+	const { backInterceptors } = Route.useRouteContext();
+	const provider = findOwnedIntegrationProvider(providers.data ?? [], integration);
 
 	const save = useEffectEvent(async (values: SchemaFormValues) => {
 		if (provider === undefined) {
 			return;
 		}
-		setSaving(true);
 		setSaveDetail(undefined);
-		const outcome = await runtime.runPromise(
-			Effect.flatMap(IntegrationsApi, (api) =>
-				api.update(scope, {
-					payload: updateIntegrationBody({ provider, values }),
-					params: { integrationId: IntegrationId.make(integration.id) },
-				}),
-			).pipe(
-				Effect.match({
-					onSuccess: (updated) => ({ updated, detail: undefined }),
-					onFailure: (error) => ({
-						updated: undefined,
-						detail: integrationSaveFailure(error).detail,
-					}),
-				}),
-			),
-			{ signal: controller.current.signal },
-		);
-		setSaving(false);
-		if (outcome.updated === undefined) {
-			setSaveDetail(outcome.detail);
-			return;
+		try {
+			await update.mutateAsync({
+				id: integration.id,
+				payload: updateIntegrationBody({ provider, values }),
+			});
+		} catch (error) {
+			setSaveDetail(integrationSaveFailure(error).detail);
 		}
-		setIntegration(outcome.updated);
 	});
 
 	const form = useSchemaForm({
@@ -184,22 +141,8 @@ function IntegrationDetailRoute() {
 		seedForm();
 	}, [integration.id, integration.updatedAt, provider?.slug]);
 
-	const refreshRuns = useEffectEvent(async () => {
-		const next = await runtime.runPromise(
-			Effect.flatMap(IntegrationsService, (service) =>
-				service.loadRuns(ryot, {
-					integrationId: integration.id,
-					limit: INTEGRATION_RUNS_PAGE_SIZE,
-				}),
-			).pipe(Effect.match({ onFailure: () => undefined, onSuccess: (page) => page.items })),
-			{ signal: controller.current.signal },
-		);
-		if (next !== undefined) {
-			setRuns(next);
-		}
-	});
-
-	const isPolling = runs.some((run) => !isTerminalRunStatus(run.status));
+	const isPolling = (runs.data?.items ?? []).some((run) => !isTerminalRunStatus(run.status));
+	const refreshRuns = useEffectEvent(runs.refetch);
 
 	useEffect(() => {
 		if (!isPolling) {
@@ -207,7 +150,7 @@ function IntegrationDetailRoute() {
 		}
 		const interval = setInterval(() => {
 			if (document.visibilityState === "visible") {
-				void refreshRuns();
+				refreshRuns();
 			}
 		}, RUN_LIST_POLL_MS);
 		return () => clearInterval(interval);
@@ -218,26 +161,20 @@ function IntegrationDetailRoute() {
 			return undefined;
 		}
 		return backInterceptors.register(() => {
-			if (deleting) {
+			if (remove.isPending) {
 				return true;
 			}
 			setMenuOpen(false);
 			setIsConfirming(false);
 			return true;
 		});
-	}, [backInterceptors, deleting, isConfirming, menuOpen]);
+	}, [backInterceptors, remove.isPending, isConfirming, menuOpen]);
 
 	const confirmDelete = useEffectEvent(async () => {
-		setDeleting(true);
 		setDeleteFailed(false);
-		const removed = await runtime.runPromise(
-			Effect.flatMap(IntegrationsApi, (api) =>
-				api.delete(scope, { params: { integrationId: IntegrationId.make(integration.id) } }),
-			).pipe(Effect.match({ onFailure: () => false, onSuccess: () => true })),
-			{ signal: controller.current.signal },
-		);
-		setDeleting(false);
-		if (!removed) {
+		try {
+			await remove.mutateAsync(integration.id);
+		} catch {
 			setDeleteFailed(true);
 			return;
 		}
@@ -289,29 +226,29 @@ function IntegrationDetailRoute() {
 							triggerRef={menuTrigger}
 							activeIndex={activeIndex}
 							label="Integration actions"
-							onClose={() => setMenuOpen(false)}
 							onActiveIndexChange={setActiveIndex}
+							onClose={() => setMenuOpen(false)}
 						/>
 					)}
 				</>
 			}
 		>
 			<IntegrationDetailView
-				runs={runs}
 				form={form}
-				saving={saving}
 				nowMs={Date.now()}
 				provider={provider}
 				uploadFile={uploadFile}
 				saveDetail={saveDetail}
 				integration={integration}
+				saving={update.isPending}
+				runs={runs.data?.items ?? []}
 				onSave={() => void form.handleSubmit()}
 				onCopy={(value) => void navigator.clipboard.writeText(value)}
 			/>
 			{isConfirming && (
 				<DestructiveConfirmation
-					pending={deleting}
 					triggerRef={menuTrigger}
+					pending={remove.isPending}
 					pendingLabel="Deleting..."
 					title="Delete this integration?"
 					actionLabel="Delete integration"
@@ -348,7 +285,7 @@ function IntegrationLoadError() {
 				className="rounded-xl border border-border bg-surface p-6"
 				detail="This integration could not be loaded. Check the server and try again."
 				action={
-					<Button type="button" variant="secondary" onClick={() => void router.invalidate()}>
+					<Button type="button" variant="secondary" onClick={() => void router.load()}>
 						Try again
 					</Button>
 				}

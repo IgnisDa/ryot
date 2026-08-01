@@ -4,7 +4,7 @@
 
 **System Design:** [Composable Views](./README.md)
 
-**Status:** todo
+**Status:** done
 
 **Depends On:** [08 - Preserve State During Live Refresh](./08-preserve-state-during-live-refresh.md)
 
@@ -26,20 +26,20 @@ Primary code areas are the SDK React surface, the kernel authenticated route and
 
 ## Acceptance Criteria
 
-- [ ] The provider accepts host services and supplies them to query and mutation definitions; plugin applications neither supply nor reference them.
-- [ ] No query passes a runtime or other host service through its input value, and query-input identity no longer depends on host service identity.
-- [ ] The kernel client is constructed once per API scope; repeating an access check or reloading a route does not create a new client identity or discard cached query state.
-- [ ] Routes no longer borrow a loader-created client through parent-match plumbing.
-- [ ] The kernel owns active-screen state for its screens, and an inactive kernel screen releases entity interest instead of contributing demand.
-- [ ] Preferences, backups, integrations index and detail, import-data index and detail, and account read through query definitions and write through mutation definitions.
-- [ ] A successful write on those screens refreshes its own data through the shared mechanism, with no router invalidation left as the refresh trigger.
-- [ ] Those screens revalidate on return to the application and keep previously loaded content visible when a refresh fails.
-- [ ] `beforeLoad` access decisions, loader redirects, not-found signals, and the catalog-dependent workspace redirect keep their current behaviour.
-- [ ] The pre-authentication and god-mode exceptions are recorded as permanent named rules rather than open items.
-- [ ] No kernel-only capability category is added to the client capability object.
-- [ ] A plugin `client/**` source importing the plugin kit fails with a named import diagnostic, while the same import from a shared source still compiles.
-- [ ] The SDK Effect re-export, the compiler Effect shim, and the pinned deep-import resolver name the same namespace set.
-- [ ] No migrated screen retains a cache-priming loader or a second prefetch trigger.
+- [x] The provider accepts host services and supplies them to query and mutation definitions; plugin applications neither supply nor reference them.
+- [x] No query passes a runtime or other host service through its input value, and query-input identity no longer depends on host service identity.
+- [x] The kernel client is constructed once per API scope; repeating an access check or reloading a route does not create a new client identity or discard cached query state.
+- [x] Routes no longer borrow a loader-created client through parent-match plumbing.
+- [x] The kernel owns active-screen state for its screens, and an inactive kernel screen releases entity interest instead of contributing demand.
+- [x] Preferences, backups, integrations index and detail, import-data index and detail, and account read through query definitions and write through mutation definitions.
+- [x] A successful write on those screens refreshes its own data through the shared mechanism, with no router invalidation left as the refresh trigger.
+- [x] Those screens revalidate on return to the application and keep previously loaded content visible when a refresh fails.
+- [x] `beforeLoad` access decisions, loader redirects, not-found signals, and the catalog-dependent workspace redirect keep their current behaviour.
+- [x] The pre-authentication and god-mode exceptions are recorded as permanent named rules rather than open items.
+- [x] No kernel-only capability category is added to the client capability object.
+- [x] A plugin `client/**` source importing the plugin kit fails with a named import diagnostic, while the same import from a shared source still compiles.
+- [x] The SDK Effect re-export, the compiler Effect shim, and the pinned deep-import resolver name the same namespace set.
+- [x] No migrated screen retains a cache-priming loader or a second prefetch trigger.
 
 ## Verification
 
@@ -57,3 +57,12 @@ References are to [User Stories](./tracer.md#user-stories) in the parent plan:
 ## Implementor Notes
 
 Record the final host services shape, the client construction site, the active-screen ownership decision, and the exact namespace set shared by the Effect re-export, shim, and resolver. List the permanent exception routes with the reason each cannot use the shared surface. Do not use this section to defer acceptance criteria to the cutover or cleanup tasks.
+
+- `RyotProvider` accepts optional host services and supplies them to query and mutation definitions without adding them to input or cache identity. The kernel value is `{ runtime: ClientRuntime, scope: ApiScope }`; plugin applications continue to omit it.
+- `createKernelRyotClientStore` constructs and caches the client, SDK runtime, and host-services value once per `apiScopeKey`. The authenticated route reuses that session across access checks and loader reruns.
+- `AppScreen` explicitly owns active-screen context for kernel routes. Kernel screens unmount rather than enter the plugin retained-screen stack, so unmount releases query interest through the shared hook lifecycle.
+- Preferences, backups, integrations, import data, and account use shared queries and mutations. Successful screen-data writes emit one client mutation-completed hint; active queries refresh through the page registry, retain successful data on refresh failure, and revalidate on focus return. Sign-out uses a mutation for operation state, then transfers ownership to authentication navigation without refreshing account data.
+- Integration and import detail loaders remain only for ID validation and authenticated not-found/error routing. Display data, polling, retries, and mutation refresh use ID-keyed queries; the other migrated screens have no data loader or cache-priming prefetch.
+- The SDK Effect export, compiler namespace shim, and pinned resolver expose exactly `DateTime`, `Match`, `Option`, `Result`, `Schema`, and `SchemaGetter`. Client sources reject plugin-kit imports with `RYOT_CLIENT_IMPORT`; importer-classified shared sources retain the neutral plugin-kit surface.
+- Permanent exceptions are `/onboarding`, `/auth`, `/oauth/login`, `/auth/callback`, `/auth/logout/callback`, and `/reset-password`, which run before an authenticated API scope exists; `/god-mode/**`, which uses a separate token-scoped authority; and the authenticated `/` workspace loader, which must resolve catalog-dependent redirection before rendering.
+- Focused SDK, compiler, and kernel route tests cover host context, cache identity, active-screen cleanup, mutation refresh, stale-on-error content, loader not-found/error behavior, and import policy. The affected `backups`, `integrations`, and `import-data` browser E2E suites pass, as do the repository check and all non-E2E tests.

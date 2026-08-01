@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 10 of 13 tasks completed
+**Overall Progress:** 11 of 13 tasks completed
 
-**Current Task:** [Task 11](./11-unify-kernel-screen-data-access.md) (todo)
+**Current Task:** [Task 12](./12-replace-remaining-old-paths.md) (todo)
 
 ### Task List
 
@@ -20,7 +20,7 @@
 | 08  | [Preserve State During Live Refresh](./08-preserve-state-during-live-refresh.md)                         | done   |
 | 09  | [Handle Dependency Updates Safely](./09-handle-dependency-updates-safely.md)                             | done   |
 | 10  | [Deliver The Complete Dashboard Journey](./10-deliver-the-complete-dashboard-journey.md)                 | done   |
-| 11  | [Unify Kernel Screen Data Access](./11-unify-kernel-screen-data-access.md)                               | todo   |
+| 11  | [Unify Kernel Screen Data Access](./11-unify-kernel-screen-data-access.md)                               | done   |
 | 12  | [Replace Remaining Old Paths](./12-replace-remaining-old-paths.md)                                       | todo   |
 | 13  | [Final Codebase Cleanup](./13-final-codebase-cleanup.md)                                                 | todo   |
 

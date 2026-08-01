@@ -6,6 +6,7 @@ import { classifyCollectionFailure, CollectionsApi } from "#/api/collections";
 import { classifyRyotQLFailure, RyotQLApi } from "#/api/ryotql";
 import { apiScopeKey, type ApiScope } from "#/api/scope";
 import { UploadsApi } from "#/api/uploads";
+import type { KernelHostServices } from "#/host-services";
 import {
 	classifyManagedAssetFailure,
 	mapManagedAssetResolutions,
@@ -16,6 +17,7 @@ import {
 } from "#/modules/assets/temporary-uploads";
 import { EntityInterestService } from "#/modules/entity-interest/service";
 import type { ThemeStore } from "#/modules/theme/store";
+import type { ClientRuntime } from "#/runtime";
 
 type KernelApiRuntime = {
 	readonly runSync: <A>(effect: Effect.Effect<A, never, EntityInterestService>) => A;
@@ -107,6 +109,7 @@ export type KernelRyotClient = ReturnType<typeof createKernelRyotClient>;
 export type KernelRyotSession = {
 	readonly runtime: RyotRuntime;
 	readonly client: KernelRyotClient;
+	readonly hostServices: KernelHostServices;
 };
 
 export type KernelRyotClientStore = {
@@ -114,7 +117,7 @@ export type KernelRyotClientStore = {
 };
 
 export const createKernelRyotClientStore = (
-	runtime: KernelApiRuntime,
+	runtime: ClientRuntime,
 	theme: ThemeStore,
 ): KernelRyotClientStore => {
 	const sessions = new Map<string, KernelRyotSession>();
@@ -126,7 +129,11 @@ export const createKernelRyotClientStore = (
 				return existing;
 			}
 			const client = createKernelRyotClient(runtime, scope, theme);
-			const session = { client, runtime: makeRyotRuntime(client) };
+			const session = {
+				client,
+				runtime: makeRyotRuntime(client),
+				hostServices: { runtime, scope },
+			};
 			sessions.set(key, session);
 			return session;
 		},

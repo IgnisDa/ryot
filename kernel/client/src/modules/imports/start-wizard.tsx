@@ -1,3 +1,4 @@
+import { useRyotMutation } from "@ryot-app/client-sdk/react";
 import { StatusMessage } from "@ryot-app/client-ui-sdk";
 import {
 	initialSchemaFormValues,
@@ -6,13 +7,12 @@ import {
 	type SchemaFormValues,
 } from "@ryot-app/client-ui-sdk/schema-form";
 import type { ListedImportSource } from "@ryot-app/contract/modules/imports/schemas";
-import { useRouteContext } from "@tanstack/react-router";
-import { Effect, Match } from "effect";
-import { useEffect, useEffectEvent, useReducer, useRef, useState } from "react";
+import { Match } from "effect";
+import { useEffect, useEffectEvent, useReducer, useState } from "react";
 
-import { ImportsApi } from "#/api/imports";
 import { ImportInputStep } from "#/modules/imports/input-step";
 import { ImportReviewStep } from "#/modules/imports/review-step";
+import { createImportRunMutation } from "#/modules/imports/service";
 import { importSourceChooseLabel, importSourceEntry } from "#/modules/imports/source-selection";
 import { importStartFailure, type ImportStartFailure } from "#/modules/imports/start-failure";
 import { CatalogPicker, type CatalogPickerState } from "#/modules/ui/catalog/picker";
@@ -54,44 +54,28 @@ export function ImportStartWizard(props: {
 	readonly sources: ImportSourcePickerState;
 }) {
 	const uploadFile = useSchemaFileUpload();
-	const { runtime, scope } = useRouteContext({ from: "/_authenticated" });
-	const controller = useRef(new AbortController());
-	const [pending, setPending] = useState(false);
+	const startMutation = useRyotMutation(createImportRunMutation);
 	const [failure, setFailure] = useState<ImportStartFailure | undefined>();
 	const [state, dispatch] = useReducer(wizardReducer, undefined, createWizardState);
 	const listed = props.sources.status === "ready" ? props.sources.sources : [];
 	const source = findBySlug(listed, state.slug);
 	const schema = source?.inputSchema;
 
-	useEffect(() => () => controller.current.abort(), []);
-
 	const startRun = useEffectEvent(async (values: SchemaFormValues) => {
 		if (source === undefined) {
 			return;
 		}
-		setPending(true);
 		setFailure(undefined);
-		const outcome = await runtime.runPromise(
-			Effect.flatMap(ImportsApi, (api) =>
-				api.createRun(scope, {
-					payload: {
-						source: source.slug,
-						...toSchemaFormPayload(source.inputSchema, values),
-					},
-				}),
-			).pipe(
-				Effect.match({
-					onSuccess: () => ({ failure: undefined }),
-					onFailure: (error) => ({ failure: importStartFailure(error) }),
-				}),
-			),
-			{ signal: controller.current.signal },
-		);
-		setPending(false);
-		if (outcome.failure !== undefined) {
-			setFailure(outcome.failure);
-			if (outcome.failure.step !== undefined) {
-				dispatch({ type: "recover-at", step: outcome.failure.step });
+		try {
+			await startMutation.mutateAsync({
+				source: source.slug,
+				...toSchemaFormPayload(source.inputSchema, values),
+			});
+		} catch (error) {
+			const nextFailure = importStartFailure(error);
+			setFailure(nextFailure);
+			if (nextFailure.step !== undefined) {
+				dispatch({ type: "recover-at", step: nextFailure.step });
 			}
 			return;
 		}
@@ -166,8 +150,8 @@ export function ImportStartWizard(props: {
 							source={source}
 							values={values}
 							onBack={goBack}
-							pending={pending}
 							failureDetail={reviewFailure}
+							pending={startMutation.isPending}
 							onStart={() => void startRun(values)}
 						/>
 					)}

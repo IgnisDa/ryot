@@ -1,9 +1,20 @@
-import type { BackupRun, ListRunsResponse } from "@ryot-app/contract/modules/backups/schemas";
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import {
+	createRyotMutation,
+	createRyotQuery,
+	useRyotMutation,
+	useRyotQuery,
+} from "@ryot-app/client-sdk/react";
+import type {
+	BackupRun,
+	BackupRunIdResponse,
+	ListRunsResponse,
+} from "@ryot-app/contract/modules/backups/schemas";
+import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
 
 import { backupArchiveFileName, BackupsApi } from "#/api/backups";
+import type { KernelHostServices } from "#/host-services";
 import {
 	BACKUP_LOAD_ERROR,
 	BackupsView,
@@ -32,18 +43,44 @@ const DOWNLOAD_FAILURE_DETAIL = "Could not download this backup. Try again.";
 const listState = (response: ListRunsResponse): BackupRunListState =>
 	response.items.length === 0 ? { status: "empty" } : { status: "ready", runs: response.items };
 
+const backupRunsQuery = createRyotQuery<void, ListRunsResponse, KernelHostServices>(
+	({ hostServices, signal }) =>
+		hostServices.runtime.runPromise(
+			Effect.flatMap(BackupsApi, (api) => api.listRuns(hostServices.scope)),
+			{ signal },
+		),
+	{ cancelOnUnmount: true },
+);
+
+const createBackupMutation = createRyotMutation<void, BackupRunIdResponse, KernelHostServices>(
+	async ({ client, hostServices, signal }) => {
+		const result = await hostServices.runtime.runPromise(
+			Effect.flatMap(BackupsApi, (api) => api.createExport(hostServices.scope)),
+			{ signal },
+		);
+		client.mutationCompleted.hint();
+		return result;
+	},
+);
+
+const deleteBackupMutation = createRyotMutation<BackupRun, BackupRunIdResponse, KernelHostServices>(
+	async ({ client, hostServices, input, signal }) => {
+		const result = await hostServices.runtime.runPromise(
+			Effect.flatMap(BackupsApi, (api) =>
+				api.deleteRun(hostServices.scope, { params: { id: input.id } }),
+			),
+			{ signal },
+		);
+		client.mutationCompleted.hint();
+		return result;
+	},
+);
+
 export const Route = createFileRoute("/_authenticated/settings/backups")({
 	component: BackupsRoute,
-	errorComponent: BackupsLoadError,
-	pendingComponent: BackupsPending,
 	validateSearch: (search) => ({
 		restore: search.restore === true || search.restore === "true" ? true : undefined,
 	}),
-	loader: ({ abortController, context }) =>
-		context.runtime.runPromise(
-			Effect.flatMap(BackupsApi, (api) => api.listRuns(context.scope)),
-			{ signal: abortController.signal },
-		),
 });
 
 function BackupsFrame(props: { readonly children: ReactNode }) {
@@ -56,38 +93,26 @@ function BackupsFrame(props: { readonly children: ReactNode }) {
 
 function BackupsRoute() {
 	const navigate = Route.useNavigate();
-	const loaded = Route.useLoaderData();
 	const { restore } = Route.useSearch();
+	const query = useRyotQuery(backupRunsQuery);
+	const createMutation = useRyotMutation(createBackupMutation);
+	const deleteMutation = useRyotMutation(deleteBackupMutation);
 	const { runtime, scope } = Route.useRouteContext();
 	const downloading = useRef<string | undefined>(undefined);
 	const controller = useRef(new AbortController());
 	const deleteTrigger = useRef<HTMLButtonElement | null>(null);
-	const [isCreating, setIsCreating] = useState(false);
-	const [isDeleting, setIsDeleting] = useState(false);
-	const [createFailed, setCreateFailed] = useState(false);
-	const [deleteFailed, setDeleteFailed] = useState(false);
-	const [state, setState] = useState(() => listState(loaded));
 	const [downloadFailed, setDownloadFailed] = useState(false);
 	const [downloadingRunId, setDownloadingRunId] = useState<string | undefined>();
 	const [pendingDelete, setPendingDelete] = useState<BackupRun | undefined>();
-	const runs = state.status === "ready" ? state.runs : [];
+	const state = query.data === undefined ? undefined : listState(query.data);
+	const runs: readonly BackupRun[] = state?.status === "ready" ? state.runs : [];
 	const live = liveBackupRun(runs);
 
 	useEffect(() => () => controller.current.abort(), []);
 
-	const reload = useEffectEvent(async () => {
-		const outcome = await runtime.runPromise(
-			Effect.flatMap(BackupsApi, (api) => api.listRuns(scope)).pipe(
-				Effect.match({ onFailure: () => undefined, onSuccess: listState }),
-			),
-			{ signal: controller.current.signal },
-		);
-		setState(outcome ?? { status: "failed" });
-	});
-
 	const wizard = useSearchParamModal({
 		isOpen: restore === true,
-		onCompleted: () => void reload(),
+		onCompleted: () => undefined,
 		open: () => void navigate({ search: { restore: true } }),
 		close: () => void navigate({ replace: true, search: { restore: undefined } }),
 	});
@@ -96,19 +121,7 @@ function BackupsRoute() {
 		if (live !== undefined) {
 			return;
 		}
-		setIsCreating(true);
-		setCreateFailed(false);
-		const started = await runtime.runPromise(
-			Effect.flatMap(BackupsApi, (api) => api.createExport(scope)).pipe(
-				Effect.match({ onFailure: () => false, onSuccess: () => true }),
-			),
-			{ signal: controller.current.signal },
-		);
-		setIsCreating(false);
-		setCreateFailed(!started);
-		if (started) {
-			await reload();
-		}
+		await createMutation.mutateAsync().catch(() => undefined);
 	});
 
 	const confirmDelete = useEffectEvent(async (run: BackupRun) => {
@@ -116,21 +129,14 @@ function BackupsRoute() {
 			setPendingDelete(undefined);
 			return;
 		}
-		setIsDeleting(true);
-		setDeleteFailed(false);
-		const deleted = await runtime.runPromise(
-			Effect.flatMap(BackupsApi, (api) => api.deleteRun(scope, { params: { id: run.id } })).pipe(
-				Effect.match({ onFailure: () => false, onSuccess: () => true }),
-			),
-			{ signal: controller.current.signal },
-		);
-		setIsDeleting(false);
-		setDeleteFailed(!deleted);
+		const deleted = await deleteMutation
+			.mutateAsync(run)
+			.then(() => true)
+			.catch(() => false);
 		if (!deleted) {
 			return;
 		}
 		setPendingDelete(undefined);
-		await reload();
 	});
 
 	const startDownload = useEffectEvent(async (run: BackupRun) => {
@@ -157,40 +163,44 @@ function BackupsRoute() {
 
 	useRunPolling({
 		intervalMs: RUN_LIST_POLL_MS,
-		refresh: () => void reload(),
+		refresh: query.refetch,
 		enabled: live !== undefined,
 	});
+
+	if (state === undefined) {
+		return query.isError ? <BackupsLoadError onRetry={query.refetch} /> : <BackupsPending />;
+	}
 
 	return (
 		<BackupsFrame>
 			<BackupsView
 				state={state}
 				nowMs={Date.now()}
-				isCreating={isCreating}
-				onRetry={() => void reload()}
 				onOpenRestore={wizard.open}
 				downloadingRunId={downloadingRunId}
+				isCreating={createMutation.isPending}
 				onCreateExport={() => void startExport()}
 				onDownload={(run) => void startDownload(run)}
-				createFailureDetail={createFailed ? CREATE_FAILURE_DETAIL : undefined}
 				downloadFailureDetail={downloadFailed ? DOWNLOAD_FAILURE_DETAIL : undefined}
+				createFailureDetail={createMutation.error === null ? undefined : CREATE_FAILURE_DETAIL}
 				onRequestDelete={(run, trigger) => {
+					deleteMutation.reset();
 					deleteTrigger.current = trigger;
 					setPendingDelete(run);
 				}}
 			/>
 			{pendingDelete === undefined ? null : (
 				<DestructiveConfirmation
-					pending={isDeleting}
 					pendingLabel="Deleting..."
 					triggerRef={deleteTrigger}
 					actionLabel="Delete record"
 					title="Delete this backup record?"
+					pending={deleteMutation.isPending}
 					detail={backupRunDeleteConfirmation(pendingDelete)}
 					onConfirm={() => void confirmDelete(pendingDelete)}
-					errorMessage={deleteFailed ? DELETE_FAILURE_DETAIL : undefined}
+					errorMessage={deleteMutation.error === null ? undefined : DELETE_FAILURE_DETAIL}
 					onClose={() => {
-						setDeleteFailed(false);
+						deleteMutation.reset();
 						setPendingDelete(undefined);
 					}}
 				/>
@@ -198,8 +208,7 @@ function BackupsRoute() {
 			{restore === true && (
 				<BackupRestoreWizard
 					onClose={wizard.close}
-					onRestoreStarted={wizard.markCompleted}
-					disabled={live !== undefined || isCreating}
+					disabled={live !== undefined || createMutation.isPending}
 				/>
 			)}
 		</BackupsFrame>
@@ -214,14 +223,13 @@ function BackupsPending() {
 	);
 }
 
-function BackupsLoadError() {
-	const router = useRouter();
+function BackupsLoadError(props: { readonly onRetry: () => void }) {
 	return (
 		<BackupsFrame>
 			<LoadErrorState
+				onRetry={props.onRetry}
 				title={BACKUP_LOAD_ERROR.title}
 				detail={BACKUP_LOAD_ERROR.detail}
-				onRetry={() => void router.invalidate()}
 			/>
 		</BackupsFrame>
 	);

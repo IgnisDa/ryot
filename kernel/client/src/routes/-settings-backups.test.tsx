@@ -187,6 +187,20 @@ afterEach(() => {
 });
 
 describe("backups list", () => {
+	it("shows the ordinary pending state while the query is unresolved", async () => {
+		let complete!: (value: { readonly items: readonly BackupRun[] }) => void;
+		mountView(
+			"/settings/backups",
+			makeBackupsApi({
+				listRuns: () => Effect.promise(() => new Promise((resolve) => (complete = resolve))),
+			}),
+		);
+
+		await screen.findByText("Loading your backups...");
+		complete({ items: [] });
+		await screen.findByText("No backups yet");
+	});
+
 	it("names each run by its kind and shows what it can still do", async () => {
 		mountView(
 			"/settings/backups",
@@ -224,14 +238,24 @@ describe("backups list", () => {
 		).toBe(false);
 	});
 
-	it("reports a history that could not be loaded", async () => {
+	it("retries a history query that could not be loaded", async () => {
+		let loads = 0;
 		mountView(
 			"/settings/backups",
-			makeBackupsApi({ listRuns: () => Effect.fail(new AuthenticatedApiError({ cause: 500 })) }),
+			makeBackupsApi({
+				listRuns: () => {
+					loads += 1;
+					return loads === 1
+						? Effect.fail(new AuthenticatedApiError({ cause: 500 }))
+						: Effect.succeed({ items: [] });
+				},
+			}),
 		);
 
 		await screen.findByText("Unable to load backups");
-		expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+		fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+		await screen.findByText("No backups yet");
+		expect(loads).toBe(2);
 	});
 
 	it("shows the progress of a run that is still going and blocks another", async () => {
@@ -280,7 +304,30 @@ describe("backups list", () => {
 
 		await screen.findByText("Queued");
 		expect(exports).toBe(1);
+		expect(loads).toBe(2);
 		expect(screen.getByText("Preparing")).toBeTruthy();
+	});
+
+	it("keeps previous data visible when a mutation refresh fails", async () => {
+		let loads = 0;
+		mountView(
+			"/settings/backups",
+			makeBackupsApi({
+				createExport: () => Effect.succeed({ id: BackupRunId.make("backup_2") }),
+				listRuns: () => {
+					loads += 1;
+					return loads === 1
+						? Effect.succeed({ items: [makeRun()] })
+						: Effect.fail(new AuthenticatedApiError({ cause: 500 }));
+				},
+			}),
+		);
+
+		fireEvent.click(await screen.findByRole("button", { name: /Create a backup/ }));
+
+		await waitFor(() => expect(loads).toBe(2));
+		expect(screen.getByText("Ready to download")).toBeTruthy();
+		expect(screen.queryByText("Unable to load backups")).toBeNull();
 	});
 
 	it("reports a backup that could not be started", async () => {
@@ -325,6 +372,7 @@ describe("backup records", () => {
 
 		await screen.findByText("No backups yet");
 		expect(deleted).toEqual(["backup_1"]);
+		expect(loads).toBe(2);
 	});
 
 	it("keeps the confirmation open when the delete fails", async () => {
@@ -431,6 +479,7 @@ describe("backup restore", () => {
 		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 		expect(tokens).toEqual(["upload_1"]);
 		await screen.findByText("Running");
+		expect(loads).toBe(2);
 	});
 
 	it("explains an account that is not empty on the confirm step", async () => {

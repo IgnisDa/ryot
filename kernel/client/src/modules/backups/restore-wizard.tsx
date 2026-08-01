@@ -1,8 +1,10 @@
-import { useRouteContext } from "@tanstack/react-router";
+import { createRyotMutation, useRyotMutation } from "@ryot-app/client-sdk/react";
+import type { BackupRunIdResponse } from "@ryot-app/contract/modules/backups/schemas";
 import { Effect, Match } from "effect";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffectEvent, useState } from "react";
 
 import { BackupsApi } from "#/api/backups";
+import type { KernelHostServices } from "#/host-services";
 import { BackupRestoreConfirmStep } from "#/modules/backups/restore-confirm-step";
 import {
 	BACKUP_RESTORE_STEPS,
@@ -22,47 +24,48 @@ const stepHeadings = {
 	choose: "Choose your backup file",
 } as const satisfies Record<BackupRestoreStep, string>;
 
+const createRestoreMutation = createRyotMutation<string, BackupRunIdResponse, KernelHostServices>(
+	async ({ client, hostServices, input, signal }) => {
+		const result = await hostServices.runtime.runPromise(
+			Effect.flatMap(BackupsApi, (api) =>
+				api.createRestore(hostServices.scope, { payload: { uploadToken: input } }),
+			),
+			{ signal },
+		);
+		client.mutationCompleted.hint();
+		return result;
+	},
+);
+
 export function BackupRestoreWizard(props: {
 	readonly disabled: boolean;
 	readonly onClose: () => void;
-	readonly onRestoreStarted: () => void;
 }) {
-	const { runtime, scope } = useRouteContext({ from: "/_authenticated" });
 	const uploadFile = useSchemaFileUpload();
-	const controller = useRef(new AbortController());
-	const [pending, setPending] = useState(false);
+	const mutation = useRyotMutation(createRestoreMutation);
 	const [step, setStep] = useState<BackupRestoreStep>("choose");
 	const [uploadToken, setUploadToken] = useState<string | undefined>();
 	const [failure, setFailure] = useState<BackupRestoreFailure | undefined>();
-
-	useEffect(() => () => controller.current.abort(), []);
 
 	const startRestore = useEffectEvent(async () => {
 		if (props.disabled || uploadToken === undefined) {
 			return;
 		}
-		setPending(true);
 		setFailure(undefined);
-		const outcome = await runtime.runPromise(
-			Effect.flatMap(BackupsApi, (api) =>
-				api.createRestore(scope, { payload: { uploadToken } }),
-			).pipe(
-				Effect.match({
-					onSuccess: () => ({ failure: undefined }),
-					onFailure: (error) => ({ failure: backupRestoreFailure(error) }),
-				}),
-			),
-			{ signal: controller.current.signal },
-		);
-		setPending(false);
-		if (outcome.failure !== undefined) {
-			setFailure(outcome.failure);
-			if (outcome.failure.step !== undefined) {
-				setStep(outcome.failure.step);
-			}
+		const restored = await mutation
+			.mutateAsync(uploadToken)
+			.then(() => true)
+			.catch((error: unknown) => {
+				const nextFailure = backupRestoreFailure(error);
+				setFailure(nextFailure);
+				if (nextFailure.step !== undefined) {
+					setStep(nextFailure.step);
+				}
+				return false;
+			});
+		if (!restored) {
 			return;
 		}
-		props.onRestoreStarted();
 		props.onClose();
 	});
 
@@ -88,8 +91,8 @@ export function BackupRestoreWizard(props: {
 		Match.when("confirm", () => (
 			<BackupRestoreConfirmStep
 				onBack={goBack}
-				pending={pending}
 				disabled={props.disabled}
+				pending={mutation.isPending}
 				failureDetail={failure?.detail}
 				onRestore={() => void startRestore()}
 			/>

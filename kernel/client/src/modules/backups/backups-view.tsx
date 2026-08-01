@@ -14,7 +14,6 @@ import {
 	canDownloadBackupRun,
 	liveBackupRun,
 } from "#/modules/backups/presentation";
-import { LoadErrorState } from "#/modules/ui/load-error-state";
 import { RunProgressBar } from "#/modules/ui/run/run-progress-bar";
 import { formatRelativeTime, runDurationLabel, runStartedLabel } from "#/modules/ui/run/run-status";
 import { RunStatusGlyph, RunStatusPill } from "#/modules/ui/run/run-status-pill";
@@ -35,12 +34,10 @@ export const BACKUP_LOAD_ERROR = {
 
 export type BackupRunListState =
 	| { readonly status: "empty" }
-	| { readonly status: "failed" }
 	| { readonly status: "ready"; readonly runs: readonly BackupRun[] };
 
 type BackupsViewProps = {
 	readonly nowMs: number;
-	readonly onRetry: () => void;
 	readonly isCreating: boolean;
 	readonly state: BackupRunListState;
 	readonly onOpenRestore: () => void;
@@ -152,15 +149,6 @@ function BackupHistoryRow(props: {
 }
 
 export function BackupsView(props: BackupsViewProps) {
-	if (props.state.status === "failed") {
-		return (
-			<LoadErrorState
-				onRetry={props.onRetry}
-				title={BACKUP_LOAD_ERROR.title}
-				detail={BACKUP_LOAD_ERROR.detail}
-			/>
-		);
-	}
 	const runs = props.state.status === "ready" ? props.state.runs : [];
 	const live = liveBackupRun(runs);
 	const historyRuns = live === undefined ? runs : runs.filter((run) => run.id !== live.id);

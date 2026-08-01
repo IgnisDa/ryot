@@ -246,7 +246,12 @@ describe("GET /event-schemas", () => {
 				const reviewSchema = eventSchemas.find((schema) => schema.slug === "review");
 				assertPresent(reviewSchema, `Missing built-in review schema for ${slug}`);
 				expect(reviewSchema.propertiesSchema).toBeDefined();
-				expect(reviewSchema.propertiesSchema as Record<string, unknown>).toMatchObject({
+				expect(
+					requireObjectRecord(
+						reviewSchema.propertiesSchema,
+						`Expected review schema properties for ${slug} to be an object`,
+					),
+				).toMatchObject({
 					fields: {
 						text: {
 							type: "string",
@@ -269,40 +274,50 @@ describe("GET /event-schemas", () => {
 				const droppedSchema = eventSchemas.find((schema) => schema.slug === "dropped");
 				assertPresent(droppedSchema, `Missing built-in dropped schema for ${slug}`);
 				expect(droppedSchema.propertiesSchema).toBeDefined();
-				expect(droppedSchema.propertiesSchema as Record<string, unknown>).toMatchObject({
+				expect(
+					requireObjectRecord(
+						droppedSchema.propertiesSchema,
+						`Expected dropped schema properties for ${slug} to be an object`,
+					),
+				).toMatchObject({
 					fields: {
+						timeSpent: {
+							type: "number",
+							label: "Time Spent",
+							validation: { minimum: 0 },
+							description: "Time spent consuming this media in minutes",
+						},
 						progressPercent: {
 							type: "number",
 							label: "Progress Percent",
 							normalize: { round: { scale: 2 } },
 							validation: { maximum: 100, required: true, exclusiveMinimum: 0 },
 							description: "Percentage of the media completed so far (0 to 100)",
-						},
-						timeSpent: {
-							type: "number",
-							label: "Time Spent",
-							validation: { minimum: 0 },
-							description: "Time spent consuming this media in minutes",
 						},
 					},
 				});
 				const onHoldSchema = eventSchemas.find((schema) => schema.slug === "on_hold");
 				assertPresent(onHoldSchema, `Missing built-in on_hold schema for ${slug}`);
 				expect(onHoldSchema.propertiesSchema).toBeDefined();
-				expect(onHoldSchema.propertiesSchema as Record<string, unknown>).toMatchObject({
+				expect(
+					requireObjectRecord(
+						onHoldSchema.propertiesSchema,
+						`Expected on_hold schema properties for ${slug} to be an object`,
+					),
+				).toMatchObject({
 					fields: {
+						timeSpent: {
+							type: "number",
+							label: "Time Spent",
+							validation: { minimum: 0 },
+							description: "Time spent consuming this media in minutes",
+						},
 						progressPercent: {
 							type: "number",
 							label: "Progress Percent",
 							normalize: { round: { scale: 2 } },
 							validation: { maximum: 100, required: true, exclusiveMinimum: 0 },
 							description: "Percentage of the media completed so far (0 to 100)",
-						},
-						timeSpent: {
-							type: "number",
-							label: "Time Spent",
-							validation: { minimum: 0 },
-							description: "Time spent consuming this media in minutes",
 						},
 					},
 				});
