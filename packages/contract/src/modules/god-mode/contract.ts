@@ -9,6 +9,21 @@ import { UserLifecycleOperation } from "./user-lifecycle";
 
 const UserAuthState = Schema.Literals(["credential", "oidc", "none", "mixed"]);
 
+export const MigrationReportLevel = Schema.Literals(["info", "warning"]);
+export type MigrationReportLevel = Schema.Schema.Type<typeof MigrationReportLevel>;
+
+const MigrationReportEntry = Schema.Struct({
+	seq: Schema.Number,
+	phase: Schema.String,
+	message: Schema.String,
+	createdAt: Schema.String,
+	level: MigrationReportLevel,
+	count: Schema.NullOr(Schema.Number),
+	elapsedSeconds: Schema.NullOr(Schema.Number),
+});
+
+const MigrationReportResponse = Schema.Struct({ entries: Schema.Array(MigrationReportEntry) });
+
 const UserListItem = Schema.Struct({
 	id: Schema.String,
 	name: Schema.String,
@@ -60,7 +75,17 @@ const SetDisabledResponse = Schema.Struct({
 });
 
 export const GodModeGroup = HttpApiGroup.make("godMode")
-	.annotate(OpenApi.Description, "Provides administrative user management operations")
+	.annotate(
+		OpenApi.Description,
+		"Provides administrative management and migration reporting operations",
+	)
+	.add(
+		HttpApiEndpoint.get("getMigrationReport", "/god-mode/migration-report", {
+			success: MigrationReportResponse,
+		})
+			.middleware(AdminMiddleware)
+			.annotate(OpenApi.Description, "Gets the legacy migration report by severity and time"),
+	)
 	.add(
 		HttpApiEndpoint.get("listUsers", "/god-mode/users", {
 			query: {

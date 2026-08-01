@@ -101,7 +101,7 @@ V1: `crates/services/miscellaneous/metadata-operations`, `crates/resolvers/custo
 
 #### User admin & self-service
 
-The god-mode module now covers paginated and searchable user listing, provisioning, deletion, disabling, password reset, and full reset. Remaining gaps:
+The god-mode module now covers paginated and searchable user listing, provisioning, deletion, disabling, password reset, full reset, and inspection of the retained Rust V1 migration report. Remaining gaps:
 
 - `update_user` — rename, change role, change onboarding state (self or admin-on-behalf-of).
 - V2 uses a server-wide admin token rather than user roles, so V1's last-remaining-admin deletion guard is not applicable.
