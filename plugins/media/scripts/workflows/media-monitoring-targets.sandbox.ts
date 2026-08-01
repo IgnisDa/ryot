@@ -1,5 +1,4 @@
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import {
@@ -13,15 +12,15 @@ import {
 } from "../../workflows/schemas";
 
 export const manifest = defineManifest({
-	kind: "activity",
-	name: "List media monitoring targets",
-	capabilities: ["executeQueryEngine"],
-	slug: "activity.media-monitoring-targets",
+	kind: "script",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
+	slug: "media-monitoring-targets",
+	capabilities: ["executeQueryEngine"],
+	name: "List media monitoring targets",
 });
 
-export default defineActivity({
+export default defineScript({
 	manifest,
 	input: MediaMonitoringTargetsActivityInput,
 	output: MediaMonitoringTargetsActivityOutput,

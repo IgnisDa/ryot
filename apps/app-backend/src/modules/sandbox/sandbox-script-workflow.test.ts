@@ -38,6 +38,7 @@ import { SandboxRepository } from "./repository";
 import {
 	performSandboxWorkflowChild,
 	performSandboxWorkflowActivity,
+	performSandboxWorkflowRequest,
 	runSandboxScriptWorkflowBody,
 	SANDBOX_WORKFLOW_MAX_STEPS,
 	SandboxScriptWorkflow,
@@ -760,7 +761,8 @@ it.effect("executes a pending batch with request-indexed activity identities", (
 		Layer.mock(SandboxRepository)({
 			getScriptPin: () =>
 				Effect.succeed({ scriptId, pluginSlug: null, contentHash: "workflow-hash" }),
-			resolveWorkflowCallScript: () => Effect.succeed(activityScriptId),
+			resolveWorkflowCallScript: () =>
+				Effect.succeed({ kind: "activity" as const, scriptId: activityScriptId }),
 		}),
 		Layer.mock(SandboxWorkflowReferenceRepository)({
 			lockIngestionShared: () => Effect.void,
@@ -833,12 +835,7 @@ it.effect("executes a pending batch with request-indexed activity identities", (
 });
 
 it.effect("accepts completion output only after the encountered trace matches the journal", () => {
-	const request = {
-		index: 0,
-		name: "done",
-		kind: "sleep" as const,
-		args: { durationMs: 10 },
-	};
+	const request = { index: 0, name: "done", kind: "sleep" as const, args: { durationMs: 10 } };
 	return Effect.gen(function* () {
 		expect(
 			yield* validateWorkflowReplayEnvelope(
@@ -910,6 +907,55 @@ it.effect("dispatches plugin children as child workflows with an exact script pi
 	);
 });
 
+it.effect("dispatches migrated script activity requests as child workflows", () => {
+	let capturedOptions: Parameters<WorkflowEngine["Service"]["execute"]>[1] | undefined;
+	const engine = makeWorkflowEngine({
+		activityExecute: (activity) =>
+			Effect.map(Effect.exit(activity.execute), (exit) => new Workflow.Complete({ exit })),
+		execute: (_workflow, options) =>
+			Effect.sync(() => {
+				capturedOptions = options;
+				return { child: true };
+			}),
+	});
+
+	return Effect.gen(function* () {
+		const result = yield* performSandboxWorkflowRequest(
+			{
+				index: 0,
+				name: "parse",
+				kind: "activity",
+				args: { input: {}, scriptSlug: "import.watcharr" },
+			},
+			SandboxScriptId.make("import-script"),
+			"script",
+			{
+				input: {},
+				executionId: "parent",
+				resolutionMode: "exact",
+				authority: { type: "system" },
+				scriptId: SandboxScriptId.make("workflow-script"),
+			},
+			"parent",
+			0,
+			() => Effect.die("unused"),
+		);
+
+		expect(result).toEqual({ child: true });
+		expect(capturedOptions).toMatchObject({
+			executionId: "parent-child-parse-0",
+			payload: { resolutionMode: "exact", scriptId: "import-script" },
+		});
+	}).pipe(
+		Effect.provide(controlledWorkflowDependencies),
+		Effect.provideService(
+			WorkflowInstance,
+			WorkflowInstance.initial(SandboxScriptWorkflow, "parent"),
+		),
+		Effect.provideService(WorkflowEngine, engine),
+	);
+});
+
 it.effect("dispatches library imports with the parent workflow authority", () => {
 	const calls: Array<{
 		input: unknown;
@@ -925,10 +971,7 @@ it.effect("dispatches library imports with the parent workflow authority", () =>
 				index: 4,
 				kind: "child",
 				name: "import-3",
-				args: {
-					input: { externalId: "book-1" },
-					workflowSlug: KERNEL_ENTITY_IMPORT_WORKFLOW,
-				},
+				args: { input: { externalId: "book-1" }, workflowSlug: KERNEL_ENTITY_IMPORT_WORKFLOW },
 			},
 			undefined,
 			{
@@ -947,10 +990,10 @@ it.effect("dispatches library imports with the parent workflow authority", () =>
 			{
 				parentExecutionId: "parent",
 				input: { externalId: "book-1" },
-				executionId: "parent-child-import-3-4",
-				authority: { type: "user", userId: "trusted-user" },
-				workflowSlug: KERNEL_ENTITY_IMPORT_WORKFLOW,
 				callerScriptId: "parent-script",
+				executionId: "parent-child-import-3-4",
+				workflowSlug: KERNEL_ENTITY_IMPORT_WORKFLOW,
+				authority: { type: "user", userId: "trusted-user" },
 			},
 		]);
 	}).pipe(
@@ -975,10 +1018,10 @@ it.effect("dispatches library imports with the parent workflow authority", () =>
 			execute: (workflowSlug, input, authority, executionId, parentExecutionId, callerScriptId) =>
 				Effect.sync(() => {
 					calls.push({
-						workflowSlug,
 						input,
 						authority,
 						executionId,
+						workflowSlug,
 						callerScriptId,
 						parentExecutionId,
 					});

@@ -1,5 +1,4 @@
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import { nowIso } from "../../imports/dates";
@@ -9,15 +8,15 @@ import { MediaImportAdapterBatch, MediaImportParserInput } from "../../imports/s
 import { readNamedImportArtifactText } from "./shared";
 
 export const manifest = defineManifest({
-	kind: "activity",
+	kind: "script",
+	slug: "import.movary",
 	name: "Parse Movary import",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	slug: "activity.import.movary",
 	capabilities: ["artifact-read"],
 });
 
-export default defineActivity({
+export default defineScript({
 	manifest,
 	input: MediaImportParserInput,
 	output: MediaImportAdapterBatch,

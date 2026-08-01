@@ -32,7 +32,7 @@ export const isWorkflowCallTargetKind = (
 	kind: StoredScriptRow["metadata"]["kind"],
 ) =>
 	((request.kind === "child" || request.kind === "workflow-child") && kind === "workflow") ||
-	(request.kind === "activity" && kind === "activity");
+	(request.kind === "activity" && (kind === "activity" || kind === "script"));
 
 export class SandboxRepository extends Context.Service<SandboxRepository>()("SandboxRepository", {
 	make: Effect.sync(() => {
@@ -163,7 +163,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 				if (!target || !isWorkflowCallTargetKind(request, target.metadata.kind)) {
 					return null;
 				}
-				return SandboxScriptId.make(target.id);
+				return { kind: target.metadata.kind, scriptId: SandboxScriptId.make(target.id) };
 			},
 		);
 

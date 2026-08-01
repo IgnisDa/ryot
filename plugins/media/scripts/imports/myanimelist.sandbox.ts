@@ -1,5 +1,4 @@
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { gunzipSync, strFromU8 } from "@ryot/sandbox-sdk/fflate";
 import { readNamedArtifact } from "@ryot/sandbox-sdk/filesystem";
@@ -9,12 +8,12 @@ import { adaptMyanimelistExports } from "../../imports/myanimelist";
 import { MediaImportAdapterBatch, MyanimelistImportParserInput } from "../../imports/schemas";
 
 export const manifest = defineManifest({
-	kind: "activity",
-	name: "Parse MyAnimeList import",
+	kind: "script",
+	slug: "import.myanimelist",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	slug: "activity.import.myanimelist",
 	capabilities: ["artifact-read"],
+	name: "Parse MyAnimeList import",
 });
 
 const decodeXml = (bytes: Uint8Array) => {
@@ -24,10 +23,10 @@ const decodeXml = (bytes: Uint8Array) => {
 	return strFromU8(bytes);
 };
 
-export default defineActivity({
+export default defineScript({
 	manifest,
-	input: MyanimelistImportParserInput,
 	output: MediaImportAdapterBatch,
+	input: MyanimelistImportParserInput,
 	run: (input) =>
 		Effect.gen(function* () {
 			if (!input.hasAnimeFile && !input.hasMangaFile) {
