@@ -23,25 +23,6 @@
 	@apply rounded-xl border border-border bg-surface p-5 shadow-card md:p-6;
 }
 
-@utility ui-button-primary {
-	@apply min-h-11 cursor-pointer rounded-lg border border-accent bg-accent px-4 py-2.5;
-	@apply font-semibold text-accent-ink;
-}
-
-@utility ui-button-secondary {
-	@apply min-h-11 cursor-pointer rounded-lg border border-border-strong px-4 py-2.5;
-	@apply font-semibold text-text;
-}
-
-@utility ui-button-text {
-	@apply min-h-10 cursor-pointer font-semibold text-text-muted;
-}
-
-@utility ui-button-switch {
-	@apply min-h-9.5 cursor-pointer rounded-md font-semibold text-text-muted;
-	@apply aria-pressed:bg-raised aria-pressed:text-text aria-pressed:shadow-sm;
-}
-
 @utility ui-field-label {
 	@apply grid gap-1.5 text-[13px] font-semibold text-text-muted;
 }
