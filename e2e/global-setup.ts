@@ -1,5 +1,7 @@
 import type { ChildProcess } from "node:child_process";
 import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import getPort from "get-port";
@@ -46,6 +48,7 @@ export default async function () {
 		startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME }),
 	]);
 	const frontendUrl = `http://127.0.0.1:${apiPort}`;
+	const benchmarkProfileDir = join(tmpdir(), `ryot-e2e-benchmark-profiles-${apiPort}`);
 
 	let apiProcess: ChildProcess | undefined;
 	try {
@@ -67,6 +70,7 @@ export default async function () {
 				SERVER_OIDC_CLIENT_SECRET: "",
 				SERVER_DISABLE_NOTIFICATIONS: "false",
 				SERVER_SMTP_MAILBOX: "Ryot <no-reply@ryot.io>",
+				SANDBOX_BENCHMARK_PROFILE_DIR: benchmarkProfileDir,
 			},
 		});
 		apiProcess = spawnApiProcess(apiEnv, serverCwd);
@@ -78,6 +82,7 @@ export default async function () {
 		process.env.E2E_FRONTEND_URL = frontendUrl;
 		process.env.E2E_API_URL = `http://127.0.0.1:${apiPort}/api`;
 		process.env.E2E_ADMIN_ACCESS_TOKEN = String(apiEnv.SERVER_ADMIN_ACCESS_TOKEN);
+		process.env.E2E_BENCHMARK_PROFILE_DIR = benchmarkProfileDir;
 		console.info(`PostgreSQL logs: ${coreInfrastructure.pgLogPath}`);
 	} catch (error) {
 		await stopApiProcess(apiProcess);
