@@ -118,6 +118,29 @@ describe("POST /entities", () => {
 		}),
 	);
 
+	it.live("does not reuse a matching global entity for a user-scoped creation", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const externalId = `global-conflict-${crypto.randomUUID()}`;
+			const { entity: global, schema } = yield* createGlobalBookEntityFixture(client, {
+				externalId,
+			});
+			const providerId = schema.providers[0]?.providerId;
+			assertPresent(providerId, "Expected a provider for the built-in schema");
+
+			const created = yield* createEntity(client, {
+				externalId,
+				providerId,
+				properties: {},
+				name: "User Owned Book",
+				entitySchemaSlug: schema.id,
+			});
+
+			expect(created.id).not.toBe(global.id);
+			expect(created.name).toBe("User Owned Book");
+		}),
+	);
+
 	it.live("creates an entity for a built-in schema that was previously restricted", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();

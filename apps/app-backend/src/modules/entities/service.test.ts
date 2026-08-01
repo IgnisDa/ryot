@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { EntityNotFound } from "@ryot/contract/modules/entities/schemas";
+import { EntityBadRequest, EntityNotFound } from "@ryot/contract/modules/entities/schemas";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -40,29 +40,9 @@ const makeServiceLayer = (repository = makeEntitiesRepository()) =>
 		databaseLayer,
 	);
 
-it.effect("returns existing entity when provenance already exists", () => {
-	let insertCalled = false;
-
+it.effect("reuses the row insertEntity resolves for an existing provenance conflict", () => {
 	const layer = makeServiceLayer(
 		makeEntitiesRepository({
-			insertEntity: () =>
-				Effect.sync(() => {
-					insertCalled = true;
-					return {
-						wasInserted: true,
-						entity: {
-							createdAt: now,
-							updatedAt: now,
-							properties: {},
-							name: "Created",
-							populatedAt: null,
-							externalId: "ext-1",
-							id: EntityId.make("created-entity"),
-							providerId: SandboxProviderId.make("provider-id"),
-							entitySchemaSlug: EntitySchemaSlug.make("schema-id"),
-						},
-					};
-				}),
 			getEntitySchemaScopeForUser: () =>
 				Effect.succeed({
 					slug: "book",
@@ -73,17 +53,20 @@ it.effect("returns existing entity when provenance already exists", () => {
 						fields: { title: { type: "string", label: "Title", description: "Title" } },
 					},
 				}),
-			findEntityByExternalIdForUser: () =>
+			insertEntity: () =>
 				Effect.succeed({
-					createdAt: now,
-					updatedAt: now,
-					name: "Existing",
-					populatedAt: null,
-					externalId: "ext-1",
-					properties: { title: "Existing" },
-					id: EntityId.make("existing-entity"),
-					providerId: SandboxProviderId.make("provider-id"),
-					entitySchemaSlug: EntitySchemaSlug.make("schema-id"),
+					wasInserted: false,
+					entity: {
+						createdAt: now,
+						updatedAt: now,
+						name: "Existing",
+						populatedAt: null,
+						externalId: "ext-1",
+						properties: { title: "Existing" },
+						id: EntityId.make("existing-entity"),
+						providerId: SandboxProviderId.make("provider-id"),
+						entitySchemaSlug: EntitySchemaSlug.make("schema-id"),
+					},
 				}),
 		}),
 	);
@@ -101,6 +84,50 @@ it.effect("returns existing entity when provenance already exists", () => {
 		});
 
 		expect(entity.id).toBe("existing-entity");
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("validates provenance creation input before inserting", () => {
+	let insertCalled = false;
+
+	const layer = makeServiceLayer(
+		makeEntitiesRepository({
+			insertEntity: () =>
+				Effect.sync(() => {
+					insertCalled = true;
+					throw new Error("insertEntity must not run for invalid input");
+				}),
+			getEntitySchemaScopeForUser: () =>
+				Effect.succeed({
+					slug: "book",
+					userId: user.id,
+					isBuiltin: false,
+					id: EntitySchemaSlug.make("schema-id"),
+					propertiesSchema: {
+						fields: { title: { type: "string", label: "Title", description: "Title" } },
+					},
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* EntitiesService;
+		const exit = yield* Effect.exit(
+			service.create({
+				name: "   ",
+				scope: "user",
+				userId: user.id,
+				externalId: "ext-1",
+				properties: { title: "Existing" },
+				providerId: SandboxProviderId.make("provider-id"),
+				entitySchemaSlug: EntitySchemaSlug.make("schema-id"),
+			}),
+		);
+
+		assertExitFails(
+			exit,
+			new EntityBadRequest({ reason: { code: "name-required", field: "name" } }),
+		);
 		expect(insertCalled).toBe(false);
 	}).pipe(Effect.provide(layer));
 });
