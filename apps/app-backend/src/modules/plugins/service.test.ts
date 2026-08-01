@@ -161,19 +161,20 @@ const makeLayer = (input?: {
 	readonly events?: Array<string>;
 	readonly deactivated?: Array<string>;
 	readonly hasEntityReferences?: boolean;
+	readonly cachedManifest?: PluginManifest;
 	readonly installed?: Array<StoredPlugin>;
-	readonly publish?: RedisService["Service"]["publish"];
 	readonly hasIntegrationReferences?: boolean;
 	readonly afterPersist?: Effect.Effect<void>;
 	readonly persisted?: Array<NormalizedPlugin>;
 	readonly hasWorkflowReferences?: () => boolean;
+	readonly publish?: RedisService["Service"]["publish"];
+	readonly initialInstalled?: ReadonlyArray<StoredPlugin>;
 	readonly repositoryList?: PluginRepository["Service"]["list"];
 	readonly deactivate?: PluginRepository["Service"]["deactivate"];
-	readonly initialInstalled?: ReadonlyArray<StoredPlugin>;
-	readonly lockIngestion?: PluginRepository["Service"]["lockIngestion"];
-	readonly collectGarbage?: ScriptGarbageCollector["Service"]["collect"];
 	readonly published?: Array<{ channel: string; message: string }>;
 	readonly transactionRunnerLayer?: Layer.Layer<TransactionRunner>;
+	readonly lockIngestion?: PluginRepository["Service"]["lockIngestion"];
+	readonly collectGarbage?: ScriptGarbageCollector["Service"]["collect"];
 }) => {
 	const installed = input?.installed ?? [...(input?.initialInstalled ?? [])];
 	const registry = makeDefinitionRegistry();
@@ -201,7 +202,21 @@ const makeLayer = (input?: {
 		hasEntityReferences: () => Effect.succeed(input?.hasEntityReferences ?? false),
 		hasIntegrationReferences: () => Effect.succeed(input?.hasIntegrationReferences ?? false),
 		findBySourceHash: ({ sourceHash }) =>
-			Effect.succeed(input?.cached ? makeStoredPlugin(fixtureManifest(), sourceHash) : null),
+			Effect.sync(() => {
+				if (!input?.cached) {
+					return null;
+				}
+				const cached = makeStoredPlugin(input.cachedManifest ?? fixtureManifest(), sourceHash);
+				const index = installed.findIndex(
+					(plugin) => plugin.manifest.metadata.slug === cached.manifest.metadata.slug,
+				);
+				if (index >= 0) {
+					installed.splice(index, 1, cached);
+				} else {
+					installed.push(cached);
+				}
+				return cached;
+			}),
 		persist: (plugin) =>
 			Effect.gen(function* () {
 				yield* Effect.sync(() => {
@@ -980,6 +995,7 @@ it.effect("refuses uninstall for a boot-configured plugin", () => {
 });
 
 it.effect("short-circuits compilation and persistence for a matching source hash", () => {
+	const events: Array<string> = [];
 	const persisted: Array<NormalizedPlugin> = [];
 	const published: Array<{ channel: string; message: string }> = [];
 	return Effect.gen(function* () {
@@ -990,11 +1006,62 @@ it.effect("short-circuits compilation and persistence for a matching source hash
 
 		expect(plugin.scripts[0]?.compiledCode).toBe("cached compiled");
 		expect(persisted).toHaveLength(0);
+		expect(events).toEqual(["lock", "publish"]);
 		expect(loader.getSnapshot().plugins["fixture"]).toBeDefined();
 		expect(published).toEqual([
 			expect.objectContaining({ channel: redisKeys.pluginRegistryChannel }),
 		]);
-	}).pipe(Effect.provide(makeLayer({ cached: true, persisted, published })));
+	}).pipe(Effect.provide(makeLayer({ cached: true, events, persisted, published })));
+});
+
+it.effect("validates the full authoritative active set before exposing a cached plugin", () => {
+	const cachedManifest: PluginManifest = {
+		...fixtureManifest(),
+		httpRateLimits: [
+			{
+				requests: 1,
+				intervalMs: 1_000,
+				key: "catalog.shared",
+				origins: ["https://cached.example.com"],
+			},
+		],
+	};
+	const conflictingManifest: PluginManifest = {
+		...definitionOwnerManifest(),
+		httpRateLimits: [
+			{
+				requests: 2,
+				intervalMs: 1_000,
+				key: "catalog.shared",
+				origins: ["https://database.example.com"],
+			},
+		],
+	};
+	const events: Array<string> = [];
+	const published: Array<{ channel: string; message: string }> = [];
+	return Effect.gen(function* () {
+		const loader = yield* PluginLoader;
+		const ingestion = yield* PluginIngestionService;
+		const original = loader.getSnapshot();
+		const source = yield* loadPluginSource(fixturePackageRoot("diagnostic"), cachedManifest);
+		const exit = yield* Effect.exit(ingestion.ingestPlugin(source));
+
+		expect(String(exit)).toContain("BadRequest");
+		expect(String(exit)).toContain("Conflicting HTTP rate limit key 'catalog.shared'");
+		expect(events).toEqual(["lock"]);
+		expect(loader.getSnapshot()).toBe(original);
+		expect(published).toEqual([]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				events,
+				published,
+				cached: true,
+				cachedManifest,
+				initialInstalled: [makeStoredPlugin(conflictingManifest, "database-source")],
+			}),
+		),
+	);
 });
 
 it.effect("rejects manifest, slash, collision, dangling binding, and compiler failures", () => {

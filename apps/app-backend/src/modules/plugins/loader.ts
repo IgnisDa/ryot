@@ -10,12 +10,14 @@ import {
 	type DefinitionSource,
 } from "#modules/definition-registry/service";
 
+import { buildHttpRateLimitLookups, type HttpRateLimitLookups } from "./http-rate-limits";
 import type { NormalizedPlugin } from "./types";
 
 export type PluginRegistrySnapshot = {
 	readonly bindings: PluginBindings;
 	readonly definitions: DefinitionSnapshot;
 	readonly plugins: Readonly<Record<string, NormalizedPlugin>>;
+	readonly httpRateLimits: HttpRateLimitLookups;
 };
 
 const deepFreeze = <Value>(value: Value): Value => {
@@ -150,11 +152,12 @@ export const makePluginLoader = (
 	registry: Pick<DefinitionRegistry["Service"], "getSnapshot" | "replace">,
 ) => {
 	const base = definitionSourceFromSnapshot(registry.getSnapshot());
-	let snapshot: PluginRegistrySnapshot = {
+	let snapshot: PluginRegistrySnapshot = deepFreeze({
 		plugins: {},
 		bindings: emptyBindings(),
+		httpRateLimits: { byKey: {}, byOrigin: {} },
 		definitions: buildDefinitionSnapshot(base),
-	};
+	});
 
 	const buildSnapshot = (plugins: Readonly<Record<string, NormalizedPlugin>>) => {
 		assertUniquePluginConfigEnvironmentKeys(plugins);
@@ -175,6 +178,7 @@ export const makePluginLoader = (
 		return deepFreeze({
 			plugins: clonedPlugins,
 			bindings: mergeBindings(manifests),
+			httpRateLimits: buildHttpRateLimitLookups(manifests),
 			definitions: buildDefinitionSnapshot(mergeManifestDefinitions(base, manifests)),
 		} satisfies PluginRegistrySnapshot);
 	};

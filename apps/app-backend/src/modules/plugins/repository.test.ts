@@ -102,6 +102,33 @@ it.effect("detects integrations owned by a plugin", () =>
 	}).pipe(Effect.provide(makeLayer({ integrationRows: [{ id: "integration-id" }] }))),
 );
 
+it.effect("loads active manifests without selecting plugin scripts", () => {
+	const manifest = fixtureManifest();
+	const selections: Array<unknown> = [];
+	const tables: Array<unknown> = [];
+	const db = {
+		select: (selection: unknown) => {
+			selections.push(selection);
+			return {
+				from: (table: unknown) => {
+					tables.push(table);
+					return { where: () => Promise.resolve([{ manifest }]) };
+				},
+			};
+		},
+	};
+	const layer = PluginRepository.layer.pipe(
+		Layer.provideMerge(Layer.succeed(CurrentDb, Object.assign(Object.create(null), db))),
+	);
+
+	return Effect.gen(function* () {
+		const repository = yield* PluginRepository;
+		expect(yield* repository.listActiveManifests()).toEqual([manifest]);
+		expect(selections).toEqual([{ manifest: schema.plugin.manifest }]);
+		expect(tables).toEqual([schema.plugin]);
+	}).pipe(Effect.provide(layer));
+});
+
 it.effect(
 	"preserves provider IDs and persists provider script membership across reingestion",
 	() => {
