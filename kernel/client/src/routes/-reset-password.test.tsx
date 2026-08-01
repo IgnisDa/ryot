@@ -33,6 +33,7 @@ import {
 	ProviderAddRouteStubs,
 	ImportsRouteStubs,
 	IntegrationRouteStubs,
+	NotificationChannelRouteStubs,
 } from "#/routes/-route-fixtures";
 
 type ResetCall = {
@@ -61,6 +62,8 @@ const makeView = (
 			ProviderAddRouteStubs,
 			ImportsRouteStubs,
 			IntegrationRouteStubs,
+			NotificationChannelRouteStubs,
+			NotificationChannelRouteStubs,
 			makeAuthStub({ settledSession: () => Effect.die("OAuth guard must not run") }),
 			GodModeRouteStubs,
 			SavedViewRouteStubs,

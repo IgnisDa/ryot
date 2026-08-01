@@ -7,6 +7,7 @@ import { EntityInterestApi } from "#/api/entity-interest";
 import { GodModeApi } from "#/api/god-mode";
 import { ImportsApi } from "#/api/imports";
 import { IntegrationsApi } from "#/api/integrations";
+import { NotificationsApi } from "#/api/notifications";
 import { PluginInstallationsApi } from "#/api/plugin-installations";
 import { PluginsApi } from "#/api/plugins";
 import { ProviderEntitiesApi } from "#/api/provider-entities";
@@ -31,6 +32,7 @@ import { ImportsService } from "#/modules/imports/service";
 import { IntegrationsService } from "#/modules/integrations/service";
 import { CustomizeSidebarService } from "#/modules/navigation/customize/service";
 import { NavigationService } from "#/modules/navigation/service";
+import { NotificationChannelsService } from "#/modules/notifications/service";
 import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { PluginCatalogEventsService } from "#/modules/plugins/events";
@@ -59,6 +61,7 @@ const InfrastructureLive = Layer.mergeAll(
 	SavedViewsApi.layer,
 	UserSettingsApi.layer,
 	IntegrationsApi.layer,
+	NotificationsApi.layer,
 	ProviderEntitiesApi.layer,
 	PluginInstallationsApi.layer,
 ).pipe(Layer.provide(TransportLive));
@@ -107,6 +110,7 @@ export const ClientLive = Layer.mergeAll(
 	ProviderAddService.layer,
 	ImportsService.layer,
 	IntegrationsService.layer,
+	NotificationChannelsService.layer,
 	OAuthTokenLive,
 	RuntimeOAuthClientService.layer,
 ).pipe(Layer.provideMerge(InfrastructureLive));

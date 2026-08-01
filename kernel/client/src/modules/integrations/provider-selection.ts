@@ -2,7 +2,7 @@ import type { ListedIntegrationProvider } from "@ryot-app/contract/modules/integ
 import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
 
 import { integrationProviderKey } from "#/modules/integrations/presentation";
-import type { CatalogEntry } from "#/modules/ui/catalog/selection";
+import { pluginCatalogGroup, type CatalogEntry } from "#/modules/ui/catalog/selection";
 
 export const PRO_REQUIRED_INTEGRATION_MESSAGE = "Ryot Pro is required to use this integration.";
 
@@ -38,6 +38,7 @@ export const integrationProviderEntry = (provider: ListedIntegrationProvider): C
 	description: provider.description,
 	isAvailable: provider.isCreatable,
 	badge: integrationLotLabel(provider.lot),
+	group: pluginCatalogGroup(provider.pluginSlug),
 	requirement: integrationProviderRequirement(provider),
 });
 

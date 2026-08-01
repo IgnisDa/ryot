@@ -5,6 +5,7 @@ import {
 	type CatalogEntry,
 	findBySlug,
 	groupCatalogEntries,
+	pluginCatalogGroup,
 	pluginHeading,
 } from "./selection";
 
@@ -28,6 +29,7 @@ const toEntry = (item: ReturnType<typeof source>): CatalogEntry => ({
 	name: item.name,
 	description: item.description,
 	isAvailable: item.isAvailable,
+	group: pluginCatalogGroup(item.pluginSlug),
 	requirement: item.isAvailable ? undefined : "Not ready.",
 });
 
@@ -44,11 +46,36 @@ describe("catalog selection", () => {
 		expect(pluginHeading("")).toBe("Other");
 	});
 
-	it("groups by plugin and sorts entries by name", () => {
+	it("groups by the group each entry names and sorts entries by name", () => {
 		const groups = groupCatalogEntries(sources, "", toEntry);
 
 		expect(groups.map((group) => group.heading)).toEqual(["Media", "Fitness Tracker"]);
+		expect(groups.map((group) => group.key)).toEqual(["media", "fitness-tracker"]);
 		expect(groups[0]?.entries.map((entry) => entry.name)).toEqual(["Audible", "Netflix"]);
+	});
+
+	it("keeps groups that share a key together under one heading", () => {
+		const categorised = groupCatalogEntries(
+			[
+				source({ name: "Ntfy", slug: "ntfy", pluginSlug: "ignored" }),
+				source({ name: "Discord", slug: "discord", pluginSlug: "ignored" }),
+			],
+			"",
+			(item): CatalogEntry => ({
+				badge: "Badge",
+				slug: item.slug,
+				name: item.name,
+				isAvailable: true,
+				requirement: undefined,
+				description: item.description,
+				group:
+					item.slug === "ntfy"
+						? { key: "push", heading: "Push" }
+						: { key: "chat", heading: "Chat" },
+			}),
+		);
+
+		expect(categorised.map((group) => group.heading)).toEqual(["Push", "Chat"]);
 	});
 
 	it("matches the query against names and descriptions", () => {

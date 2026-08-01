@@ -21,6 +21,7 @@ export type CatalogPickerCopy = {
 	readonly errorTitle: string;
 	readonly emptyDetail: string;
 	readonly errorDetail: string;
+	readonly searchLabel: string;
 	readonly loadingLabel: string;
 	readonly loadingDetail: string;
 };
@@ -60,13 +61,11 @@ function CatalogOption(props: {
 	);
 }
 
-export function CatalogPicker<
-	Source extends { name: string; pluginSlug: string; description: string },
->(props: {
-	readonly onRetry: () => void;
+export function CatalogPicker<Source extends { name: string; description: string }>(props: {
 	readonly copy: CatalogPickerCopy;
 	readonly onChoose: (slug: string) => void;
 	readonly state: CatalogPickerState<Source>;
+	readonly onRetry?: (() => void) | undefined;
 	readonly toEntry: (source: Source) => CatalogEntry;
 	readonly chooseLabel: (entry: CatalogEntry) => string;
 }) {
@@ -89,9 +88,11 @@ export function CatalogPicker<
 				title={props.copy.errorTitle}
 				detail={props.copy.errorDetail}
 				action={
-					<Button type="button" variant="secondary" onClick={props.onRetry}>
-						Try again
-					</Button>
+					props.onRetry === undefined ? undefined : (
+						<Button type="button" variant="secondary" onClick={props.onRetry}>
+							Try again
+						</Button>
+					)
 				}
 			/>
 		);
@@ -131,8 +132,8 @@ export function CatalogPicker<
 					density="compact"
 					autoComplete="off"
 					className="w-full"
-					aria-label="Search services"
-					placeholder="Search services"
+					aria-label={props.copy.searchLabel}
+					placeholder={props.copy.searchLabel}
 					onChange={(event) => setQuery(event.currentTarget.value)}
 				/>
 			</form>
@@ -145,7 +146,7 @@ export function CatalogPicker<
 				/>
 			) : (
 				groups.map((group) => (
-					<div key={group.pluginSlug} className="flex flex-col gap-1.5">
+					<div key={group.key} className="flex flex-col gap-1.5">
 						<span className="text-[11px] font-medium uppercase tracking-[0.8px] text-text-subtle">
 							{group.heading}
 						</span>
