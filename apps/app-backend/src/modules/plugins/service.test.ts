@@ -468,18 +468,21 @@ it.effect("accepts user bootstrap declarations through trusted boot ingestion", 
 	}).pipe(Effect.provide(makeLayer({ persisted })));
 });
 
-it.effect("rejects user bootstrap declarations for non-configured trusted plugin slugs", () => {
+it.effect("accepts user bootstrap declarations for trusted slugs outside the boot set", () => {
 	const persisted: Array<NormalizedPlugin> = [];
 	return Effect.gen(function* () {
 		const ingestion = yield* PluginIngestionService;
 		const source = yield* loadPluginSource(fixturePackageRoot(), userBootstrapManifest());
-		const exit = yield* Effect.exit(ingestion.ingestTrustedPlugin(source));
+		const plugin = yield* ingestion.ingestTrustedPlugin(source);
 
-		expect(failureOf(exit)).toMatchObject({
-			_tag: "PluginRequestError",
-			reason: { code: "validation-failed" },
-		});
-		expect(persisted).toEqual([]);
+		expect(plugin.manifest.userBootstrap).toEqual([
+			{
+				slug: "fixture",
+				scriptSlug: "fixture.user-bootstrap",
+				description: "Bootstrap fixture user data",
+			},
+		]);
+		expect(persisted).toHaveLength(1);
 	}).pipe(Effect.provide(makeLayer({ persisted })));
 });
 

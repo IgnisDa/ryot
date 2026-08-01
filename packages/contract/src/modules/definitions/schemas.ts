@@ -48,7 +48,6 @@ export const ListedPlugin = Schema.Struct({
 	slug: PluginSlug,
 	name: Schema.String,
 	icon: Schema.String,
-	config: Schema.Unknown,
 	version: Schema.String,
 	sortOrder: Schema.Number,
 	isDisabled: Schema.Boolean,
@@ -60,7 +59,6 @@ export type ListedPlugin = typeof ListedPlugin.Type;
 export const UpdatePluginStateBody = Schema.Struct({
 	sortOrder: Schema.optional(Schema.Number),
 	isDisabled: Schema.optional(Schema.Boolean),
-	config: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 });
 
 export type UpdatePluginStateBody = typeof UpdatePluginStateBody.Type;
