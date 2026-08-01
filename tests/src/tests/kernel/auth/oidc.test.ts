@@ -7,6 +7,7 @@ import {
 	type MockOidcServer,
 	adminHeaders,
 	createTestAuthClient,
+	listNotificationSubscriptionStates,
 	makeSession,
 	oidcSignIn,
 	performOidcSignIn,
@@ -237,14 +238,14 @@ describe("OIDC sign-in happy path (Backend A)", () => {
 				oidcSignIn(requireMockOidcServer(), username, getBackendUrlA()),
 			);
 
-			const client = makeSession(getBackendUrlA());
 			const headers = { Cookie: sessionCookie };
+			const client = makeSession(getBackendUrlA(), headers);
 			const [catalog, rules] = yield* Effect.all([
-				client.call((c) => c.automations.listCatalog(), headers),
-				client.call((c) => c.automations.listRules(), headers),
+				client.call((c) => c.automations.listCatalog()),
+				listNotificationSubscriptionStates(client, { limit: 100, page: 1 }),
 			]);
 			expect(rules).toHaveLength(catalog.length);
-			expect(rules.map((rule) => rule.signalSchema.id).sort()).toEqual(
+			expect(rules.map((rule) => rule.signalSchemaSlug).sort()).toEqual(
 				catalog.map((schema) => schema.id).sort(),
 			);
 			expect(rules.every((rule) => rule.isActive)).toBe(true);

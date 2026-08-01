@@ -24,10 +24,6 @@ export class NotificationsService extends Context.Service<NotificationsService>(
 			const provideWorkflowEngine = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 				effect.pipe(Effect.provideService(WorkflowEngine, engine));
 
-			const list = Effect.fn("NotificationsService.list")(function* (user: CurrentUserValue) {
-				return yield* runWithDb(repository.listForUser(user.id));
-			});
-
 			const create = Effect.fn("NotificationsService.create")(function* (
 				user: CurrentUserValue,
 				body: CreateNotificationChannelBody,
@@ -94,7 +90,7 @@ export class NotificationsService extends Context.Service<NotificationsService>(
 				return undefined;
 			});
 
-			return { create, delete: remove, list, sendMessage, test, update };
+			return { create, delete: remove, sendMessage, test, update };
 		}),
 	},
 ) {

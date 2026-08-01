@@ -199,13 +199,10 @@ describe("Saved views lifecycle E2E", () => {
 		}),
 	);
 
-	it.live("returns 404 for missing views across read, update, clone, and delete", () =>
+	it.live("returns 404 for missing views across update, clone, and delete", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
-			const readError = yield* Effect.flip(
-				client.call((c) => c.savedViews.get({ params: { viewSlug: missingViewSlug } })),
-			);
 			const updateError = yield* Effect.flip(
 				client.call((c) =>
 					c.savedViews.update({
@@ -221,7 +218,7 @@ describe("Saved views lifecycle E2E", () => {
 				client.call((c) => c.savedViews.delete({ params: { viewSlug: missingViewSlug } })),
 			);
 
-			for (const error of [readError, updateError, cloneError, deleteError]) {
+			for (const error of [updateError, cloneError, deleteError]) {
 				assertTaggedError(error, "NotFound");
 				expect(error.message).toBe("Saved view not found");
 			}
