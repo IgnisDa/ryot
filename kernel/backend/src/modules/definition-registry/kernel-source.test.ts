@@ -27,4 +27,5 @@ it("keeps source zero limited to generic kernel definitions", () => {
 	]);
 	expect(source.signalSchemas.map(({ slug }) => slug)).toEqual(["integration.disabled"]);
 	expect(kernelScripts.map(({ slug }) => slug)).toEqual(["automation.notification"]);
+	expect(kernelScripts[0].inputProjection).toEqual({ signal: { properties: ["providerName"] } });
 });

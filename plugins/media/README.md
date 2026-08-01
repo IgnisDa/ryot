@@ -286,9 +286,12 @@ Media entities use `add-to-library`, `backlog`, `progress`, `complete`, `dropped
 `host/schemas/entity.ts` defines support by entity type. State is derived from append-only history,
 ordered by descending `occurredAt`, `createdAt`, then `id`; it is never stored separately.
 
-The manifest declares stable lifecycle hook identities. Each invocation carries immutable snapshots
-in `automation.payload` and authored metadata in `automation.hookMetadata`. Ordinary RyotQL queries
-read current user data, not historical execution input.
+The manifest declares stable lifecycle hook identities, and every media automation script declares a
+minimal input projection. The kernel retains complete immutable trigger evidence, while each
+invocation carries only the selected snapshot properties, parent properties, and derived
+`changedProperties` required by that pinned script, plus authored `automation.hookMetadata`.
+Ordinary RyotQL queries read current user data only and cannot recover omitted or historical
+trigger-time values.
 
 `media.ensure-library-membership` is a required after hook bound to library-member entity creation,
 provider-entity-import completion, every media event except `add-to-library`, and
@@ -302,14 +305,23 @@ each media library member. Repeated idempotent upserts and existing memberships 
 event. Both declare `executionScope: "user"`, so global population plans no run for them at all.
 
 `media.association` and `media.relationship-sync` declare `frequency: "batch"`. Each run receives one
-write's relationship changes in `payload.items` and filters them itself: association reads every
-credited entity in the batch with one query, and relationship sync acts on the item the kernel marked
-as the population batch leader.
+projected chunk of a write's relationship changes in `payload.items` and filters them itself:
+association selects `roles` and reads every credited entity in the batch with one current-state query,
+while relationship sync acts on the item the kernel marked as the population batch leader. Retained
+batch chunking is item-count based; the runtime enforces 64 KiB separately after each script's
+projection.
 
 `media.entity-updated` is an async after hook on entity updates. It reads the immutable population
-context from `payload.population` — `rootPreviouslyPopulated`, `scopeEntity`, and `parentEntity` —
-and emits monitoring signals for production-status, release-date, episode, and season changes.
-Current-state queries cannot recover those trigger-time values, so the payload carries them.
+context from `payload.population` - `rootPreviouslyPopulated`, `scopeEntity`, and the selected parent
+`seasonNumber` - and emits monitoring signals for production-status, release-date, episode, season,
+and image changes. Its projection selects the entity fields it reads and compares `images` with
+`unordered-array` semantics, so reordering alone does not enter `changedProperties`. Current-state
+queries cannot recover those trigger-time values, so the projection carries them.
+
+`media.episodic-session` is a before-event policy. It projects no event properties and returns only a
+validated event patch for `sessionEntityId`; it does not return a replacement request. Policy patches
+are chained in deterministic hook order, and the kernel validates the final event draft before the
+write.
 
 `media.review-created` targets `review` events including `collection:review`; the radarr and sonarr
 push hooks target `collection:add-entity-to-collection`. `media.notification`, `media.radarr-push`,

@@ -21,6 +21,7 @@ const manifests = [
 		automationType: "automation",
 		requiredPluginConfigKeys: [],
 		requiredSystemConfigKeys: [],
+		inputProjection: { signal: { properties: [] } },
 	},
 	{
 		kind: "provider",
@@ -50,14 +51,8 @@ it.effect("keeps Effect manifest decoding in parity with representative SDK mani
 		for (const manifest of manifests) {
 			const sdkManifest = yield* decodeSdkManifest(manifest);
 			const effectManifest = yield* decodeManifest(manifest);
-			const expected =
-				manifest.kind === "automation"
-					? Object.fromEntries(
-							Object.entries(sdkManifest).filter(([key]) => key !== "automationType"),
-						)
-					: sdkManifest;
 
-			expect(effectManifest).toEqual(expected);
+			expect(effectManifest).toEqual(sdkManifest);
 		}
 	}),
 );

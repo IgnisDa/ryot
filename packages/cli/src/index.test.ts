@@ -72,6 +72,7 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 export const manifest = defineManifest({
   kind: "automation", automationType: "${automationType}", slug: "${automationType}", name: "${automationType}",
   capabilities: [], requiredPluginConfigKeys: [], requiredSystemConfigKeys: [],
+  inputProjection: ${automationType === "policy" ? "{ event: { properties: [] } }" : "{ signal: { properties: [] } }"},
 });
 export default ${helper}({ manifest, run: () => Effect.succeed(${automationType === "policy" ? '{ action: "allow" as const }' : "null"}) });
 `,
@@ -87,8 +88,14 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 					slug: "automation",
 					automationType: "automation",
 					entry: "backend/automation.sandbox.ts",
+					inputProjection: { signal: { properties: [] } },
 				},
-				{ slug: "policy", automationType: "policy", entry: "backend/policy.sandbox.ts" },
+				{
+					slug: "policy",
+					automationType: "policy",
+					entry: "backend/policy.sandbox.ts",
+					inputProjection: { event: { properties: [] } },
+				},
 			]);
 		}),
 	);

@@ -11,13 +11,14 @@ const workflowManifest = () => {
 	const manifest = fixtureManifest();
 	const script = manifest.scripts[0];
 	assert(script);
+	const { automationType: _automationType, inputProjection: _inputProjection, ...common } = script;
 	return {
 		...manifest,
 		workflows: [{ slug: "refresh.fixture", scriptSlug: "workflow.fixture" }],
 		scripts: [
 			...manifest.scripts,
 			{
-				...script,
+				...common,
 				name: "Workflow",
 				slug: "workflow.fixture",
 				kind: "workflow" as const,

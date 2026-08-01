@@ -325,7 +325,7 @@ export class AutomationHistoryService extends Context.Service<AutomationHistoryS
 					),
 				);
 				const dispatch = yield* execution
-					.submit({ runId, attemptNumber: queued.attemptNumber })
+					.submit({ runId, acceptedPatches: [], attemptNumber: queued.attemptNumber })
 					.pipe(
 						Effect.timeout("5 seconds"),
 						Effect.as("submitted" as const),

@@ -21,7 +21,7 @@ const run = (context: AutomationPolicyInput, parents: readonly Record<string, un
 	);
 
 describe("episodic session policy", () => {
-	it("transforms only the session while retaining the complete proposed event", async () => {
+	it("returns only the session patch", async () => {
 		const input = policyAutomationContext({
 			entityId: "episode-1",
 			eventSchemaSlug: "progress",
@@ -35,10 +35,7 @@ describe("episodic session policy", () => {
 		);
 		expect(result).toEqual({
 			action: "transform",
-			payload: {
-				...input.automation.payload,
-				draft: { ...input.automation.payload.draft, sessionEntityId: "show-1" },
-			},
+			patch: { resource: "event", draft: { sessionEntityId: "show-1" } },
 		});
 	});
 	it.each(["show", "podcast"] as const)("assigns a %s parent to itself", (entitySchemaSlug) =>
@@ -53,7 +50,7 @@ describe("episodic session policy", () => {
 				Effect.map((result) => {
 					expect(result).toMatchObject({
 						action: "transform",
-						payload: { draft: { sessionEntityId: `${entitySchemaSlug}-1` } },
+						patch: { resource: "event", draft: { sessionEntityId: `${entitySchemaSlug}-1` } },
 					});
 				}),
 			),
@@ -73,7 +70,7 @@ describe("episodic session policy", () => {
 				Effect.map((result) => {
 					expect(result).toMatchObject({
 						action: "transform",
-						payload: { draft: { sessionEntityId: "show-1" } },
+						patch: { resource: "event", draft: { sessionEntityId: "show-1" } },
 					});
 				}),
 			),
@@ -92,7 +89,7 @@ describe("episodic session policy", () => {
 				Effect.map((result) => {
 					expect(result).toMatchObject({
 						action: "transform",
-						payload: { draft: { sessionEntityId: null } },
+						patch: { resource: "event", draft: { sessionEntityId: null } },
 					});
 				}),
 			),
@@ -106,7 +103,7 @@ describe("episodic session policy", () => {
 				Effect.map((result) => {
 					expect(result).toMatchObject({
 						action: "transform",
-						payload: { draft: { sessionEntityId: "podcast-1" } },
+						patch: { resource: "event", draft: { sessionEntityId: "podcast-1" } },
 					});
 				}),
 			),

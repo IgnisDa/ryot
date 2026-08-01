@@ -31,6 +31,62 @@ const natural = Schema.Number.pipe(
 );
 const positive = natural.pipe(Schema.check(Schema.isGreaterThan(0)));
 const properties = Schema.Record(Schema.String, JsonValue);
+const projectionName = Schema.Trim.pipe(Schema.check(Schema.isMinLength(1)));
+const uniqueProjectionNames = Schema.Array(projectionName).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(names) => new Set(names).size === names.length || "Expected unique projection names",
+		),
+	),
+);
+
+const compareProperty = strictStruct({
+	property: projectionName,
+	equality: Schema.Literals(["json", "unordered-array"]),
+});
+const uniqueCompareProperties = Schema.Array(compareProperty).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(entries) =>
+				new Set(entries.map(({ property }) => property)).size === entries.length ||
+				"Expected unique compared properties",
+		),
+	),
+);
+const comparedPropertiesProjection = strictStruct({
+	properties: uniqueProjectionNames,
+	compareProperties: uniqueCompareProperties,
+});
+const projectionWithParentEntity = strictStruct({
+	...comparedPropertiesProjection.fields,
+	parentEntityProperties: uniqueProjectionNames,
+});
+const atLeastOneProjection = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
+	strictStruct(fields).pipe(
+		Schema.check(
+			Schema.makeFilter(
+				(projection) =>
+					Object.values(projection).some((value) => value !== undefined) ||
+					"Expected at least one input projection resource",
+			),
+		),
+	);
+
+export const AutomationAfterInputProjection = atLeastOneProjection({
+	entity: Schema.optional(projectionWithParentEntity),
+	event: Schema.optional(comparedPropertiesProjection),
+	relationship: Schema.optional(projectionWithParentEntity),
+	providerEntityImport: Schema.optional(Schema.Literal(true)),
+	signal: Schema.optional(strictStruct({ properties: uniqueProjectionNames })),
+});
+export type AutomationAfterInputProjection = typeof AutomationAfterInputProjection.Type;
+const policyResourceProjection = strictStruct({ properties: uniqueProjectionNames });
+export const AutomationPolicyInputProjection = atLeastOneProjection({
+	event: Schema.optional(policyResourceProjection),
+	entity: Schema.optional(policyResourceProjection),
+	relationship: Schema.optional(policyResourceProjection),
+});
+export type AutomationPolicyInputProjection = typeof AutomationPolicyInputProjection.Type;
 
 export const AutomationSource = Schema.Literals([
 	"api",
@@ -323,6 +379,82 @@ export const AutomationAfterPayload = Schema.Union([
 	AutomationSignalPayload,
 ]);
 export type AutomationAfterPayload = typeof AutomationAfterPayload.Type;
+
+const projectedMutationPayloads = <
+	const Resource extends string,
+	Draft extends Schema.Constraint,
+	Snapshot extends Schema.Constraint,
+>(
+	resource: Resource,
+	draft: Draft,
+	snapshot: Snapshot,
+) => {
+	const payloads = mutationPayloads(resource, draft, snapshot);
+	return [
+		payloads[0],
+		strictStruct({ ...payloads[1].fields, changedProperties: uniqueProjectionNames }),
+		payloads[2],
+		payloads[3],
+		strictStruct({ ...payloads[4].fields, changedProperties: uniqueProjectionNames }),
+		payloads[5],
+	] as const;
+};
+const projectedEntityPayloads = projectedMutationPayloads(
+	"entity",
+	AutomationEntityDraft,
+	AutomationEntitySnapshot,
+);
+const projectedEventPayloads = projectedMutationPayloads(
+	"event",
+	AutomationEventDraft,
+	AutomationEventSnapshot,
+);
+const projectedRelationshipPayloads = projectedMutationPayloads(
+	"relationship",
+	AutomationRelationshipDraft,
+	AutomationRelationshipSnapshot,
+);
+const projectedEventRequests = [
+	strictStruct({ ...projectedEventPayloads[0].fields, ...eventRequestPlanningFields }),
+	strictStruct({ ...projectedEventPayloads[1].fields, ...eventRequestPlanningFields }),
+	strictStruct({ ...projectedEventPayloads[2].fields, ...eventRequestPlanningFields }),
+] as const;
+export const AutomationProjectedRequestPayload = Schema.Union([
+	...projectedEntityPayloads.slice(0, 3),
+	...projectedEventRequests,
+	...projectedRelationshipPayloads.slice(0, 3),
+]);
+export type AutomationProjectedRequestPayload = typeof AutomationProjectedRequestPayload.Type;
+const projectedEntityChanges = [
+	withPopulation(projectedEntityPayloads[3]),
+	withPopulation(projectedEntityPayloads[4]),
+	withPopulation(projectedEntityPayloads[5]),
+] as const;
+const projectedEventChanges = projectedEventPayloads.slice(3);
+const projectedRelationshipChanges = [
+	withPopulation(projectedRelationshipPayloads[3]),
+	withPopulation(projectedRelationshipPayloads[4]),
+	withPopulation(projectedRelationshipPayloads[5]),
+] as const;
+const projectedChanges = [
+	...projectedEntityChanges,
+	...projectedEventChanges,
+	...projectedRelationshipChanges,
+] as const;
+export const AutomationProjectedBatchChangePayload = Schema.Union([
+	batchChange("entity", Schema.Union(projectedEntityChanges)),
+	batchChange("event", Schema.Union(projectedEventChanges)),
+	batchChange("relationship", Schema.Union(projectedRelationshipChanges)),
+]);
+export type AutomationProjectedBatchChangePayload =
+	typeof AutomationProjectedBatchChangePayload.Type;
+export const AutomationProjectedAfterPayload = Schema.Union([
+	...projectedChanges,
+	AutomationProviderImportChangePayload,
+	...AutomationProjectedBatchChangePayload.members,
+	AutomationSignalPayload,
+]);
+export type AutomationProjectedAfterPayload = typeof AutomationProjectedAfterPayload.Type;
 export const AutomationTriggerPayload = Schema.Union([
 	AutomationRequestPayload,
 	AutomationChangePayload,
@@ -522,18 +654,72 @@ export const AutomationInvocationFields = {
 	hookMetadata: Schema.optional(JsonValue),
 };
 export const AutomationInput = strictStruct({
-	automation: strictStruct({ ...AutomationInvocationFields, payload: AutomationAfterPayload }),
+	automation: strictStruct({
+		...AutomationInvocationFields,
+		payload: AutomationProjectedAfterPayload,
+	}),
 });
 export type AutomationInput = typeof AutomationInput.Type;
 export const AutomationPolicyInput = strictStruct({
-	automation: strictStruct({ ...AutomationInvocationFields, payload: AutomationRequestPayload }),
+	automation: strictStruct({
+		...AutomationInvocationFields,
+		payload: AutomationProjectedRequestPayload,
+	}),
 });
 export type AutomationPolicyInput = typeof AutomationPolicyInput.Type;
 export const AutomationOutput = JsonValue;
 export type AutomationOutput = typeof AutomationOutput.Type;
+const policyPropertiesPatch = strictStruct({
+	remove: uniqueProjectionNames,
+	set: Schema.Record(projectionName, JsonValue),
+}).pipe(
+	Schema.check(
+		Schema.makeFilter((patch) => {
+			const setProperties = Object.keys(patch.set);
+			if (setProperties.length === 0 && patch.remove.length === 0) {
+				return "Expected a non-empty property patch";
+			}
+			return (
+				patch.remove.every((property) => !Object.hasOwn(patch.set, property)) ||
+				"Property patch set and remove entries must not overlap"
+			);
+		}),
+	),
+);
+const policyDraft = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
+	strictStruct(fields).pipe(
+		Schema.check(
+			Schema.makeFilter(
+				(draft) =>
+					Object.values(draft).some((value) => value !== undefined) ||
+					"Expected a non-empty policy draft patch",
+			),
+		),
+	);
+export const AutomationPolicyPatch = Schema.Union([
+	strictStruct({
+		resource: Schema.Literal("entity"),
+		draft: policyDraft({
+			properties: Schema.optional(policyPropertiesPatch),
+			name: Schema.optional(AutomationEntityDraft.fields.name),
+		}),
+	}),
+	strictStruct({
+		resource: Schema.Literal("event"),
+		draft: policyDraft({
+			properties: Schema.optional(policyPropertiesPatch),
+			sessionEntityId: Schema.optional(AutomationEventDraft.fields.sessionEntityId),
+		}),
+	}),
+	strictStruct({
+		resource: Schema.Literal("relationship"),
+		draft: policyDraft({ properties: Schema.optional(policyPropertiesPatch) }),
+	}),
+]);
+export type AutomationPolicyPatch = typeof AutomationPolicyPatch.Type;
 export const AutomationPolicyOutput = Schema.Union([
 	strictStruct({ action: Schema.Literal("allow") }),
 	strictStruct({ reason: nonEmpty, action: Schema.Literal("reject") }),
-	strictStruct({ payload: AutomationRequestPayload, action: Schema.Literal("transform") }),
+	strictStruct({ patch: AutomationPolicyPatch, action: Schema.Literal("transform") }),
 ]);
 export type AutomationPolicyOutput = typeof AutomationPolicyOutput.Type;

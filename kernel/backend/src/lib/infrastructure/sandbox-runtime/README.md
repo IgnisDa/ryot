@@ -19,7 +19,11 @@ Before execution, the backend verifies compiled bytes against SHA-256, atomicall
 
 `SANDBOX_WORKER_CONCURRENCY` bounds how many queued executions run at once and defaults to 2, sized for the canonical 2 vCPU / 4 GB self-hosted baseline where each live execution holds one Deno process and one shared application/workflow-pool connection. Excess work stays durably queued rather than rejected, so raising it trades queue latency for CPU contention and resident memory. Boot fails when the value exceeds `DATABASE_POOL_MAX - 1` and warns when it leaves the two always-on durable queue workers no connection headroom.
 
-Automation contexts contain the trusted trigger and run IDs, hook slug, causation, occurrence time, execution user, retained trigger payload, and optional hook metadata. The workflow prepares this input from the pinned run and immutable trigger; scripts cannot replace its ownership or parentage. Plugin configuration is not copied into the context and remains available only through `getPluginConfig` against the exact retained revision.
+Automation contexts contain trusted trigger and run IDs, hook slug, causation, occurrence time, execution user, optional hook metadata, and a deterministic projection of the retained trigger payload. The workflow uses the exact input projection pinned in the script manifest; the complete immutable trigger remains evidence and is not passed through by default. Scripts cannot replace ownership or parentage. Plugin configuration is not copied into the context and remains available only through `getPluginConfig` against the exact retained revision.
+
+After-hook projections declare any supported `entity`, `event`, `relationship`, `providerEntityImport`, and `signal` inputs. Mutation projections select nested properties; entity and relationship projections can separately select population parent-entity properties; update projections derive sorted `changedProperties` from declared JSON or unordered-array comparisons. Policy projections select request properties for entity, event, or relationship inputs. Before each policy, the workflow applies earlier accepted patches in order and then projects the resulting request, so each policy observes the accepted chain rather than another policy's unvalidated output. RyotQL remains a current-state query surface and cannot recover omitted trigger-time values.
+
+The 64 KiB context limit is measured on the complete UTF-8 invocation after projection and trusted automation fields are added. Retained batch chunking is a separate item-count concern and does not guarantee that every hook's projected invocation fits. Missing retained evidence or script artifacts and missing, incompatible, non-JSON, oversized, or schema-invalid projections fail closed before sandbox execution with bounded preparation diagnostics.
 
 An unrecorded mutable `host.*` call ends that replay. The workflow dispatches it through its owning activity, child workflow, artifact operation, or diagnostic path, journals the typed success or failure, then replays. Recorded calls return their journaled results and never repeat the backend dispatch.
 
@@ -111,6 +115,7 @@ HTTP logs contain only workflow execution ID, policy key, normalized origin, sta
 - Bridge validation uses 400 for invalid body, 401 for token failure, 404 for unknown function, and 410 for expired session.
 - Timeout and unexpected process death are workflow job failures. Raw compiler/runtime diagnostics stay on explicit plugin-author, admin, and test surfaces; unexpected causes stay in logs.
 - Console, `log`, and `span` output share bounded completed-result diagnostics. Oversized console logs append `[sandbox logs truncated]`; an oversized final value fails the output phase without partial data.
+- Automation preparation reports missing artifacts separately from invalid projected input; neither condition falls back to the complete retained payload.
 - Normal APIs and persisted workflows use structured module-owned kebab-case reasons, never diagnostic prose.
 
 Completed results include `timing: { totalMs, executionMs }`.

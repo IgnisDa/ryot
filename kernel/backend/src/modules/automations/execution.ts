@@ -90,7 +90,7 @@ export const LifecycleExecutionLive = Layer.effect(
 							group,
 							(run) =>
 								Effect.gen(function* () {
-									const payload = { runId: run.id, attemptNumber: 1 };
+									const payload = { runId: run.id, attemptNumber: 1, acceptedPatches: [] };
 									const warning = (
 										code: "required-hook-pending" | "required-hook-failed",
 									): AutomationWarning => ({ code, runId: run.id, hookSlug: run.hookSlug });
@@ -153,10 +153,10 @@ export const LifecycleExecutionLive = Layer.effect(
 					}
 					return warnings;
 				}),
-			executePolicy: ({ runId, payload }) =>
+			executePolicy: ({ runId, acceptedPatches }) =>
 				requireWorkflowBody("executePolicy").pipe(
 					Effect.andThen(
-						operations.execute({ runId, attemptNumber: 1, policyPayload: payload }).pipe(
+						operations.execute({ runId, acceptedPatches, attemptNumber: 1 }).pipe(
 							Effect.timeout(Duration.millis(AUTOMATION_IMMEDIATE_TIMEOUT_MS)),
 							Effect.flatMap((result) =>
 								result.attempt?.status === "succeeded" && result.policyOutput !== null

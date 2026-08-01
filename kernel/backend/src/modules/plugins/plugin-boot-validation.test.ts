@@ -53,7 +53,12 @@ it.effect("rejects duplicate boot slugs and unknown scripts", () => {
 
 it.effect("applies system and user manifest policy", () =>
 	Effect.gen(function* () {
-		const script = { ...requireFixtureScript(), slug: "fixture.script", kind: "script" as const };
+		const {
+			automationType: _automationType,
+			inputProjection: _inputProjection,
+			...common
+		} = requireFixtureScript();
+		const script = { ...common, slug: "fixture.script", kind: "script" as const };
 		const allowed = {
 			...fixtureManifest(),
 			scripts: [...fixtureManifest().scripts, script],
