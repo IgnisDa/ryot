@@ -1,7 +1,8 @@
 import clsx from "clsx";
 import { useRouter } from "expo-router";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Platform, Pressable, ScrollView, Text, View } from "react-native";
+import Animated, { FadeInUp, FadeOutUp, ReduceMotion } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppIcon } from "@/modules/icons";
@@ -12,6 +13,8 @@ import { SavedViewFilterSheet } from "./saved-view-filter-sheet";
 
 const TOP_BAR_HEIGHT = 44;
 const TOP_BAR_WEB_HIDDEN = Platform.OS === "web" ? "md:hidden" : null;
+const TOP_BAR_EXITING = FadeOutUp.duration(160).reduceMotion(ReduceMotion.System);
+const TOP_BAR_ENTERING = FadeInUp.duration(200).reduceMotion(ReduceMotion.System);
 
 export function SavedViewFrame(props: {
 	viewSlug: string;
@@ -21,6 +24,9 @@ export function SavedViewFrame(props: {
 	const router = useRouter();
 	const insets = useSafeAreaInsets();
 	const drawer = useWorkspaceDrawer();
+	const isDragging = useRef(false);
+	const previousScrollOffset = useRef(0);
+	const [isScrolled, setIsScrolled] = useState(false);
 	const [isFilterOpen, setIsFilterOpen] = useState(false);
 
 	function goBack() {
@@ -37,7 +43,25 @@ export function SavedViewFrame(props: {
 		<View className="relative flex-1 bg-bg">
 			<ScrollView
 				className="flex-1"
+				scrollEventThrottle={16}
 				contentContainerClassName="min-h-full overflow-hidden pb-8 px-4 md:px-8 md:pt-8"
+				onScrollBeginDrag={() => {
+					isDragging.current = true;
+				}}
+				onScrollEndDrag={() => {
+					isDragging.current = false;
+				}}
+				onScroll={(event) => {
+					const offsetY = event.nativeEvent.contentOffset.y;
+					const previousOffsetY = previousScrollOffset.current;
+					previousScrollOffset.current = offsetY;
+
+					if (offsetY > previousOffsetY && offsetY > 24) {
+						setIsScrolled(true);
+					} else if (isDragging.current && offsetY < previousOffsetY) {
+						setIsScrolled(false);
+					}
+				}}
 			>
 				<View
 					className={clsx(TOP_BAR_WEB_HIDDEN)}
@@ -45,52 +69,60 @@ export function SavedViewFrame(props: {
 				/>
 				{props.children}
 			</ScrollView>
-			<View
-				style={{ paddingTop: insets.top }}
-				className={clsx("absolute inset-x-0 top-0 z-20 bg-bg px-4", TOP_BAR_WEB_HIDDEN)}
-			>
-				<View className="h-11 flex-row items-center gap-2.5">
-					<Pressable
-						onPress={goBack}
-						accessibilityRole="button"
-						accessibilityLabel="Go back"
-						className="h-8 w-8 items-center justify-center rounded-pill bg-surface-2"
-					>
-						<AppIcon className="text-text" name="chevron-left" size={17} />
-					</Pressable>
-					{props.title && (
-						<View className="min-w-0 flex-1">
-							<View className="flex-row items-center gap-1.5">
-								<AppIcon className="shrink-0 text-accent-text" name={props.title.icon} size={13} />
-								<Text
-									numberOfLines={1}
-									className="min-w-0 flex-1 font-ui-semibold text-[19px] text-text"
-								>
-									{props.title.name}
+			{!isScrolled && (
+				<Animated.View
+					exiting={TOP_BAR_EXITING}
+					entering={TOP_BAR_ENTERING}
+					style={{ paddingTop: insets.top }}
+					className={clsx("absolute inset-x-0 top-0 z-20 bg-bg px-4", TOP_BAR_WEB_HIDDEN)}
+				>
+					<View className="h-11 flex-row items-center gap-2.5">
+						<Pressable
+							onPress={goBack}
+							accessibilityRole="button"
+							accessibilityLabel="Go back"
+							className="h-8 w-8 items-center justify-center rounded-pill bg-surface-2"
+						>
+							<AppIcon className="text-text" name="chevron-left" size={17} />
+						</Pressable>
+						{props.title && (
+							<View className="min-w-0 flex-1">
+								<View className="flex-row items-center gap-1.5">
+									<AppIcon
+										size={13}
+										name={props.title.icon}
+										className="shrink-0 text-accent-text"
+									/>
+									<Text
+										numberOfLines={1}
+										className="min-w-0 flex-1 font-ui-semibold text-[19px] text-text"
+									>
+										{props.title.name}
+									</Text>
+								</View>
+								<Text className="font-ui text-[11px] text-text-muted">
+									{props.title.loaded.toLocaleString()} of {props.title.total.toLocaleString()}
 								</Text>
 							</View>
-							<Text className="font-ui text-[11px] text-text-muted">
-								{props.title.loaded.toLocaleString()} of {props.title.total.toLocaleString()}
-							</Text>
-						</View>
-					)}
-					<Pressable
-						accessibilityRole="button"
-						accessibilityLabel="Search this view"
-						className="h-8 w-8 items-center justify-center rounded-pill bg-surface-2"
-					>
-						<AppIcon className="text-text-muted" name="search" size={16} />
-					</Pressable>
-					<Pressable
-						accessibilityRole="button"
-						accessibilityLabel="View options"
-						onPress={() => setIsFilterOpen(true)}
-						className="h-8 w-8 items-center justify-center rounded-pill bg-surface-2"
-					>
-						<AppIcon className="text-text-muted" name="sliders-horizontal" size={16} />
-					</Pressable>
-				</View>
-			</View>
+						)}
+						<Pressable
+							accessibilityRole="button"
+							accessibilityLabel="Search this view"
+							className="h-8 w-8 items-center justify-center rounded-pill bg-surface-2"
+						>
+							<AppIcon className="text-text-muted" name="search" size={16} />
+						</Pressable>
+						<Pressable
+							accessibilityRole="button"
+							accessibilityLabel="View options"
+							onPress={() => setIsFilterOpen(true)}
+							className="h-8 w-8 items-center justify-center rounded-pill bg-surface-2"
+						>
+							<AppIcon className="text-text-muted" name="sliders-horizontal" size={16} />
+						</Pressable>
+					</View>
+				</Animated.View>
+			)}
 			<Pressable
 				accessibilityRole="button"
 				accessibilityLabel="Add to this view"
