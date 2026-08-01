@@ -132,6 +132,11 @@ export function WorkspaceDrawer(props: {
 		props.navigation.selectWorkspace(slug);
 	}
 
+	function openSettings() {
+		close();
+		props.navigation.openSettings();
+	}
+
 	return (
 		<WorkspaceDrawerContext.Provider value={drawerValue}>
 			<View className="flex-1 bg-bg">
@@ -173,8 +178,8 @@ export function WorkspaceDrawer(props: {
 				>
 					<Sidebar
 						className="flex-1"
-						showSearch={false}
 						onNavigate={navigate}
+						onOpenSettings={openSettings}
 						items={props.navigation.items}
 						key={props.navigation.workspace.slug}
 						activeKey={props.navigation.activeKey}
