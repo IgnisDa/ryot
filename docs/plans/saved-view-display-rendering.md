@@ -191,14 +191,14 @@ Do not create a second copy of the saved-view contract.
 
 ### Focused tests
 
-- [ ] Test all card slots and independent layout image mappings.
-- [ ] Test absent images, null images, and failed image fallback behavior where practical.
-- [ ] Test null card omission and null table cell preservation.
-- [ ] Test ordered table labels and cells.
-- [ ] Test text, number, date, boolean, JSON, and null formatting.
-- [ ] Test invalid dates do not throw.
-- [ ] Test malformed scalar values, nested results, missing fields, and invalid required text values produce decode failures.
-- [ ] Test app-owned behavior only; do not test Effect, schema-library, or TypeScript behavior.
+- [x] Test all card slots and independent layout image mappings.
+- [x] Test absent images, null images, and failed image fallback behavior where practical.
+- [x] Test null card omission and null table cell preservation.
+- [x] Test ordered table labels and cells.
+- [x] Test text, number, date, boolean, JSON, and null formatting.
+- [x] Test invalid dates do not throw.
+- [x] Test malformed scalar values, nested results, missing fields, and invalid required text values produce decode failures.
+- [x] Test app-owned behavior only; do not test Effect, schema-library, or TypeScript behavior.
 
 ### Manual display checks
 
@@ -210,23 +210,23 @@ Do not create a second copy of the saved-view contract.
 
 ### Commands
 
-- [ ] Run `bun turbo --filter=@ryot/app-client check`.
-- [ ] Run `bun turbo --filter=@ryot/app-client test`.
-- [ ] Run `bun turbo --filter=@ryot/app-client build`.
-- [ ] Run `git diff --check`.
-- [ ] Review only changed code for unnecessary abstraction or scope expansion.
+- [x] Run `bun turbo --filter=@ryot/app-client check`.
+- [x] Run `bun turbo --filter=@ryot/app-client test`.
+- [x] Run `bun turbo --filter=@ryot/app-client build`.
+- [x] Run `git diff --check`.
+- [x] Review only changed code for unnecessary abstraction or scope expansion.
 
 ## Acceptance Criteria
 
-- [ ] A valid slug loads its saved-view definition and executes its stored query.
-- [ ] Grid, list, and table render only from `displayConfiguration` and decoded result values.
-- [ ] Each layout honors its independent nullable image mapping.
-- [ ] Card nulls collapse; table nulls preserve column structure.
-- [ ] General scalar values are formatted centrally and safely.
-- [ ] The selected layout persists locally per slug.
+- [x] A valid slug loads its saved-view definition and executes its stored query.
+- [x] Grid, list, and table render only from `displayConfiguration` and decoded result values.
+- [x] Each layout honors its independent nullable image mapping.
+- [x] Card nulls collapse; table nulls preserve column structure.
+- [x] General scalar values are formatted centrally and safely.
+- [x] The selected layout persists locally per slug.
 - [ ] The screen matches current mobile/web design direction and has explicit display states.
-- [ ] UI components do not parse generic `RowItem` values directly.
-- [ ] No excluded interactions or backend changes are introduced.
+- [x] UI components do not parse generic `RowItem` values directly.
+- [x] No excluded interactions or backend changes are introduced.
 
 ## Handoff
 
