@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { DbError } from "@ryot/contract/errors";
 import type { SavedViewLayouts } from "@ryot/contract/modules/saved-views/schemas";
-import { UserId } from "@ryot/contract/schema/brands";
+import { EntityId, UserId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { ascending, column, document, field, rows, table } from "@ryot/ryotql";
 import { Effect, Layer, Stream } from "effect";
@@ -20,12 +20,12 @@ import { PluginRepository } from "#modules/plugins/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 
-import { V2_BOOTSTRAP_SOURCE, type V2ArchiveRecords, type V2Event } from "../archive-v2/schemas";
+import type { V2ArchiveRecords, V2Event } from "../archive-v2/schemas";
 import {
 	assertV2DependencySchemaOwnership,
 	BackupRestoreWriter,
 	preflightV2Provenance,
-	resolveV2BootstrapSourceMapping,
+	resolveV2BootstrapEntityMappings,
 	resolveV2RestoredIntegrationDisabled,
 	resolveV2RestoredInstallationLifecycle,
 	resolveV2RequiredPluginIds,
@@ -35,11 +35,7 @@ import {
 it("keeps restored installations inactive when required secrets were redacted", () => {
 	expect(
 		resolveV2RestoredInstallationLifecycle(
-			{
-				disabledIntent: false,
-				lifecycleIntent: "ready",
-				configuredSecretPaths: ["/token"],
-			},
+			{ disabledIntent: false, lifecycleIntent: "ready", configuredSecretPaths: ["/token"] },
 			{
 				unknownKeys: "strict",
 				fields: {
@@ -99,19 +95,19 @@ it("detects nested required installation secrets in objects and arrays", () => {
 				},
 			},
 			accounts: {
-				type: "array" as const,
 				label: "Accounts",
+				type: "array" as const,
 				description: "Accounts",
 				items: {
-					type: "object" as const,
 					label: "Account",
 					description: "Account",
+					type: "object" as const,
 					properties: {
 						token: {
-							secret: true as const,
-							type: "string" as const,
 							label: "Token",
 							description: "Token",
+							secret: true as const,
+							type: "string" as const,
 							validation: { required: true },
 						},
 					},
@@ -135,43 +131,109 @@ it("detects nested required installation secrets in objects and arrays", () => {
 	}
 });
 
-const bootstrapSource = (id: string) => ({
+const bootstrapEntity = (
+	id: string,
+	overrides: Partial<
+		Pick<
+			V2ArchiveRecords["entities"][number],
+			| "origin"
+			| "entitySchemaPluginKey"
+			| "entitySchemaSlug"
+			| "name"
+			| "properties"
+			| "provider"
+			| "externalId"
+		>
+	> = {},
+) => ({
 	id,
 	provider: null,
-	properties: {},
-	name: "Library",
-	externalId: null,
-	entitySchemaSlug: "library",
+	name: "Arbitrary name",
+	properties: { arbitrary: true },
+	externalId: "arbitrary-external-id",
+	entitySchemaSlug: "arbitrary-schema",
+	entitySchemaPluginKey: "plugin-key",
+	origin: { kind: "bootstrap" as const },
+	...overrides,
 });
 
-it.effect("maps the exact V2 bootstrap source without collapsing arbitrary rows", () =>
+it.effect("maps bootstrap entities by schema and plugin ownership", () =>
 	Effect.gen(function* () {
 		expect(
-			yield* resolveV2BootstrapSourceMapping(
+			yield* resolveV2BootstrapEntityMappings(
 				[
-					bootstrapSource("archived-library"),
-					{
-						provider: null,
+					bootstrapEntity("archived-bootstrap"),
+					bootstrapEntity("unrelated-bootstrap", {
 						properties: {},
 						externalId: null,
-						name: "Arbitrary",
-						id: "arbitrary-empty-row",
-						entitySchemaSlug: "library",
-					},
+						name: "Another entity",
+						entitySchemaPluginKey: null,
+						entitySchemaSlug: "another-schema",
+					}),
 				],
-				[bootstrapSource("target-library")],
+				[{ ...bootstrapEntity("target-bootstrap"), entitySchemaPluginId: "target-plugin-id" }],
+				new Map([["plugin-key", "target-plugin-id"]]),
 			),
-		).toEqual({ archivedId: "archived-library", targetId: "target-library" });
+		).toEqual(new Map([["archived-bootstrap", "target-bootstrap"]]));
 	}),
 );
 
-it.effect("rejects ambiguous archived V2 bootstrap sources", () =>
-	resolveV2BootstrapSourceMapping(
-		[bootstrapSource("first"), bootstrapSource("second")],
-		[bootstrapSource("target")],
+it.effect("does not map non-bootstrap entities or structurally similar rows", () =>
+	Effect.gen(function* () {
+		expect(
+			yield* resolveV2BootstrapEntityMappings(
+				[
+					bootstrapEntity("archived-bootstrap"),
+					bootstrapEntity("archived-other-plugin", { entitySchemaPluginKey: "other-key" }),
+					bootstrapEntity("archived-non-bootstrap", { origin: { kind: "api" } }),
+				],
+				[
+					{ ...bootstrapEntity("target-bootstrap"), entitySchemaPluginId: "target-plugin-id" },
+					{ ...bootstrapEntity("target-other-plugin"), entitySchemaPluginId: "other-plugin-id" },
+					{
+						...bootstrapEntity("target-non-bootstrap", { origin: { kind: "api" } }),
+						entitySchemaPluginId: "target-plugin-id",
+					},
+				],
+				new Map([
+					["plugin-key", "target-plugin-id"],
+					["other-key", "other-archive-plugin-id"],
+				]),
+			),
+		).toEqual(new Map([["archived-bootstrap", "target-bootstrap"]]));
+	}),
+);
+
+it.effect("restores unmatched archived bootstrap entities", () =>
+	resolveV2BootstrapEntityMappings(
+		[bootstrapEntity("archived")],
+		[],
+		new Map([["plugin-key", "plugin-id"]]),
+	).pipe(Effect.map((mappings) => expect(mappings).toEqual(new Map()))),
+);
+
+it.effect("rejects ambiguous target bootstrap identities", () =>
+	resolveV2BootstrapEntityMappings(
+		[bootstrapEntity("archived")],
+		[
+			{ ...bootstrapEntity("first"), entitySchemaPluginId: "plugin-id" },
+			{ ...bootstrapEntity("second"), entitySchemaPluginId: "plugin-id" },
+		],
+		new Map([["plugin-key", "plugin-id"]]),
 	).pipe(
 		Effect.flip,
-		Effect.tap((error) => Effect.sync(() => expect(error.message).toContain("exactly one"))),
+		Effect.tap((error) => Effect.sync(() => expect(error.message).toContain("ambiguous"))),
+	),
+);
+
+it.effect("rejects ambiguous archived or target bootstrap identities", () =>
+	resolveV2BootstrapEntityMappings(
+		[bootstrapEntity("first"), bootstrapEntity("second")],
+		[{ ...bootstrapEntity("target"), entitySchemaPluginId: "target-plugin-id" }],
+		new Map([["plugin-key", "target-plugin-id"]]),
+	).pipe(
+		Effect.flip,
+		Effect.tap((error) => Effect.sync(() => expect(error.message).toContain("ambiguous"))),
 	),
 );
 
@@ -185,9 +247,9 @@ it.effect("rejects a crafted provider dependency whose schema belongs to another
 			populatedAt: null,
 			externalId: "external-id",
 			entitySchemaSlug: "foreign-schema",
-			entitySchemaPluginKey: "provider-owner",
 			createdAt: "2026-08-23T12:00:00.000Z",
 			updatedAt: "2026-08-23T12:00:00.000Z",
+			entitySchemaPluginKey: "provider-owner",
 			provider: { pluginKey: "provider-owner", providerSlug: "provider" },
 			identity: { kind: "provider", pluginKey: "provider-owner", providerSlug: "provider" },
 		},
@@ -273,6 +335,7 @@ const provenanceRecords = (
 	profile: { name: "User", image: null, preferences: {} },
 	entities: [
 		{
+			origin: null,
 			properties: {},
 			provider: null,
 			externalId: null,
@@ -280,9 +343,9 @@ const provenanceRecords = (
 			id: "user-entity",
 			name: "User entity",
 			entitySchemaSlug: "owner-entity",
-			entitySchemaPluginKey: input.entityKey === undefined ? "owner-key" : input.entityKey,
 			createdAt: "2026-08-23T12:00:00.000Z",
 			updatedAt: "2026-08-23T12:00:00.000Z",
+			entitySchemaPluginKey: input.entityKey === undefined ? "owner-key" : input.entityKey,
 		},
 	],
 	entityDependencies: [
@@ -296,9 +359,9 @@ const provenanceRecords = (
 			name: "Global entity",
 			identity: { kind: "unmanaged" },
 			entitySchemaSlug: "owner-entity",
-			entitySchemaPluginKey: input.dependencyKey === undefined ? "owner-key" : input.dependencyKey,
 			createdAt: "2026-08-23T12:00:00.000Z",
 			updatedAt: "2026-08-23T12:00:00.000Z",
+			entitySchemaPluginKey: input.dependencyKey === undefined ? "owner-key" : input.dependencyKey,
 		},
 	],
 	relationships: [
@@ -309,19 +372,19 @@ const provenanceRecords = (
 			sourceEntityId: "user-entity",
 			targetEntityId: "global-entity",
 			relationshipSchemaSlug: "owner-link",
+			createdAt: "2026-08-23T12:00:00.000Z",
 			relationshipSchemaPluginKey:
 				input.relationshipKey === undefined ? "owner-key" : input.relationshipKey,
-			createdAt: "2026-08-23T12:00:00.000Z",
 		},
 	],
 });
 
 const provenanceEntityDefinition: DefinitionSnapshot["entitySchemas"][string] = {
 	icon: "box",
-	pluginId: "owner-id",
 	pluginSlug: "owner",
 	name: "Owner entity",
 	slug: "owner-entity",
+	pluginId: "owner-id",
 	mergeIdentityProperties: [],
 	propertiesSchema: { fields: {} },
 	eventSchemas: {
@@ -335,27 +398,25 @@ const provenanceEntityDefinition: DefinitionSnapshot["entitySchemas"][string] = 
 };
 
 const provenanceDefinitions: DefinitionSnapshot = {
+	entitySchemas: { "owner-entity": provenanceEntityDefinition },
 	savedViews: {
 		"owner-view": {
-			layouts: provenanceLayouts,
 			icon: "list",
-			pluginId: "owner-id",
-			pluginSlug: "owner",
+			sortOrder: 0,
 			slug: "owner-view",
 			name: "Owner view",
-			sortOrder: 0,
+			pluginSlug: "owner",
+			pluginId: "owner-id",
+			layouts: provenanceLayouts,
 			entitySchemaSlug: "owner-entity",
 		},
 	},
-	entitySchemas: {
-		"owner-entity": provenanceEntityDefinition,
-	},
 	signalSchemas: {
 		"owner.signal": {
-			catalogState: "active",
 			pluginId: "owner-id",
 			name: "Owner signal",
 			slug: "owner.signal",
+			catalogState: "active",
 			propertiesSchema: { fields: {} },
 			audiencePolicy: { kind: "actor" },
 			notificationScriptSlug: "owner.notify",
@@ -363,9 +424,9 @@ const provenanceDefinitions: DefinitionSnapshot = {
 	},
 	relationshipSchemas: {
 		"owner-link": {
-			pluginId: "owner-id",
 			name: "Owner link",
 			slug: "owner-link",
+			pluginId: "owner-id",
 			propertiesSchema: { fields: {} },
 			sourceEntitySchemaSlug: "owner-entity",
 			targetEntitySchemaSlug: "owner-entity",
@@ -376,10 +437,10 @@ const provenanceDefinitions: DefinitionSnapshot = {
 const provenanceEvent = (eventSchemaPluginKey: string | null = "owner-key"): V2Event => ({
 	properties: {},
 	id: "event-id",
-	sessionEntityId: null,
-	eventSchemaSlug: "changed",
-	entityId: "user-entity",
 	eventSchemaPluginKey,
+	sessionEntityId: null,
+	entityId: "user-entity",
+	eventSchemaSlug: "changed",
 	createdAt: "2026-08-23T12:00:00.000Z",
 	updatedAt: "2026-08-23T12:00:00.000Z",
 	occurredAt: "2026-08-23T12:00:00.000Z",
@@ -393,68 +454,63 @@ it.effect("preflights all qualified schema provenance including streamed events"
 		]);
 		const cases = [
 			{
+				event: provenanceEvent(),
 				name: "plugin-owned entity with null key",
 				records: provenanceRecords({ entityKey: null }),
-				event: provenanceEvent(),
 			},
 			{
+				event: provenanceEvent(),
 				name: "plugin-owned relationship with null key",
 				records: provenanceRecords({ relationshipKey: null }),
-				event: provenanceEvent(),
 			},
 			{
+				event: provenanceEvent(),
 				name: "plugin-owned builtin view with null key",
 				records: provenanceRecords({ builtinView: true, viewKey: null }),
-				event: provenanceEvent(),
 			},
 			{
+				event: provenanceEvent(),
 				name: "plugin-owned subscription with null key",
 				records: provenanceRecords({ subscriptionKey: null }),
-				event: provenanceEvent(),
 			},
 			{
-				name: "plugin-owned event with null key",
 				records: provenanceRecords(),
+				name: "plugin-owned event with null key",
 				event: provenanceEvent(null),
 			},
 			{
-				name: "kernel entity with plugin key",
-				records: provenanceRecords(),
 				event: provenanceEvent(),
+				records: provenanceRecords(),
+				name: "kernel entity with plugin key",
 				definitions: {
 					...provenanceDefinitions,
-					entitySchemas: {
-						"owner-entity": {
-							...provenanceEntityDefinition,
-							pluginId: null,
-						},
-					},
+					entitySchemas: { "owner-entity": { ...provenanceEntityDefinition, pluginId: null } },
 				},
 			},
 			{
 				name: "entity",
-				records: provenanceRecords({ entityKey: "foreign-key" }),
 				event: provenanceEvent(),
+				records: provenanceRecords({ entityKey: "foreign-key" }),
 			},
 			{
+				event: provenanceEvent(),
 				name: "unmanaged dependency",
 				records: provenanceRecords({ dependencyKey: "foreign-key" }),
-				event: provenanceEvent(),
 			},
 			{
 				name: "relationship",
-				records: provenanceRecords({ relationshipKey: "foreign-key" }),
 				event: provenanceEvent(),
+				records: provenanceRecords({ relationshipKey: "foreign-key" }),
 			},
 			{
 				name: "saved view",
-				records: provenanceRecords({ viewKey: "foreign-key" }),
 				event: provenanceEvent(),
+				records: provenanceRecords({ viewKey: "foreign-key" }),
 			},
 			{
 				name: "subscription",
-				records: provenanceRecords({ subscriptionKey: "foreign-key" }),
 				event: provenanceEvent(),
+				records: provenanceRecords({ subscriptionKey: "foreign-key" }),
 			},
 			{
 				name: "event",
@@ -497,16 +553,18 @@ it("does not apply archived translations to an existing global entity", () => {
 
 const mockEvents = Layer.mock(EventsRepository);
 type RestoreEventsMock = NonNullable<MockOverrides<typeof mockEvents>["restoreEvents"]>;
+const mockEntities = Layer.mock(EntitiesRepository);
+type RestoreEntityMock = NonNullable<MockOverrides<typeof mockEntities>["restoreEntity"]>;
 
 const eventSchema = { name: "Review", slug: "review", propertiesSchema: { fields: {} } };
 const bootstrapEntitySchema = {
 	icon: "book",
-	pluginSlug: "media",
+	pluginSlug: "fixture",
+	name: "Bootstrap entity",
+	slug: "bootstrap-entity",
 	mergeIdentityProperties: [],
-	name: V2_BOOTSTRAP_SOURCE.name,
 	propertiesSchema: { fields: {} },
 	eventSchemas: { review: eventSchema },
-	slug: V2_BOOTSTRAP_SOURCE.entitySchemaSlug,
 };
 
 const archivedEvent = (id: string): V2Event => ({
@@ -515,13 +573,33 @@ const archivedEvent = (id: string): V2Event => ({
 	sessionEntityId: null,
 	eventSchemaSlug: "review",
 	eventSchemaPluginKey: null,
-	entityId: "archived-library",
+	entityId: "archived-bootstrap",
 	createdAt: "2026-08-23T12:00:00.000Z",
 	updatedAt: "2026-08-23T12:00:00.000Z",
 	occurredAt: "2026-08-23T12:00:00.000Z",
 });
 
-const restoreArchivedEvents = (events: ReadonlyArray<V2Event>, restoreEvents: RestoreEventsMock) =>
+const targetBootstrapEntity = {
+	properties: {},
+	provider: null,
+	externalId: null,
+	populatedAt: null,
+	id: "target-bootstrap",
+	name: "Bootstrap entity",
+	entitySchemaPluginId: null,
+	entitySchemaSlug: "bootstrap-entity",
+	origin: { kind: "bootstrap" as const },
+	createdAt: new Date("2026-08-23T12:00:00.000Z"),
+	updatedAt: new Date("2026-08-23T12:00:00.000Z"),
+};
+
+const restoreArchivedEvents = (
+	events: ReadonlyArray<V2Event>,
+	restoreEvents: RestoreEventsMock,
+	targetEntities: ReadonlyArray<typeof targetBootstrapEntity> = [targetBootstrapEntity],
+	restoreEntity: RestoreEntityMock = (input) =>
+		Effect.succeed(EntityId.make(input.id ?? "restored")),
+) =>
 	Effect.gen(function* () {
 		const writer = yield* BackupRestoreWriter;
 		return yield* writer.restoreRecords(
@@ -541,12 +619,13 @@ const restoreArchivedEvents = (events: ReadonlyArray<V2Event>, restoreEvents: Re
 						provider: null,
 						externalId: null,
 						populatedAt: null,
-						id: "archived-library",
+						id: "archived-bootstrap",
+						name: "Bootstrap entity",
 						entitySchemaPluginKey: null,
-						name: V2_BOOTSTRAP_SOURCE.name,
+						origin: { kind: "bootstrap" },
+						entitySchemaSlug: "bootstrap-entity",
 						createdAt: "2026-08-23T12:00:00.000Z",
 						updatedAt: "2026-08-23T12:00:00.000Z",
-						entitySchemaSlug: V2_BOOTSTRAP_SOURCE.entitySchemaSlug,
 					},
 				],
 			},
@@ -557,7 +636,7 @@ const restoreArchivedEvents = (events: ReadonlyArray<V2Event>, restoreEvents: Re
 				savedViews: {},
 				signalSchemas: {},
 				relationshipSchemas: {},
-				entitySchemas: { [V2_BOOTSTRAP_SOURCE.entitySchemaSlug]: bootstrapEntitySchema },
+				entitySchemas: { "bootstrap-entity": bootstrapEntitySchema },
 			},
 		);
 	}).pipe(
@@ -572,21 +651,8 @@ const restoreArchivedEvents = (events: ReadonlyArray<V2Event>, restoreEvents: Re
 						Layer.mock(AuthRepository, { restorePortableProfile: () => Effect.succeed(true) }),
 						Layer.mock(EventsRepository, { restoreEvents }),
 						Layer.mock(EntitiesRepository, {
-							listUserEntitiesForBackup: () =>
-								Effect.succeed([
-									{
-										properties: {},
-										provider: null,
-										externalId: null,
-										populatedAt: null,
-										id: "target-library",
-										entitySchemaPluginId: null,
-										name: V2_BOOTSTRAP_SOURCE.name,
-										createdAt: new Date("2026-08-23T12:00:00.000Z"),
-										updatedAt: new Date("2026-08-23T12:00:00.000Z"),
-										entitySchemaSlug: V2_BOOTSTRAP_SOURCE.entitySchemaSlug,
-									},
-								]),
+							listUserEntitiesForBackup: () => Effect.succeed([...targetEntities]),
+							restoreEntity,
 						}),
 						Layer.mock(SavedViewsRepository, { restoreBuiltinViews: () => Effect.void }),
 						Layer.mock(IntegrationsRepository, {}),
@@ -600,6 +666,20 @@ const restoreArchivedEvents = (events: ReadonlyArray<V2Event>, restoreEvents: Re
 			),
 		),
 	);
+
+it.effect("restores an unmatched bootstrap entity with its origin", () => {
+	let origin: unknown;
+	return restoreArchivedEvents(
+		[],
+		() => Effect.void,
+		[],
+		(input) =>
+			Effect.sync(() => {
+				origin = input.origin;
+				return EntityId.make(input.id ?? "restored");
+			}),
+	).pipe(Effect.tap(() => Effect.sync(() => expect(origin).toEqual({ kind: "bootstrap" }))));
+});
 
 it.effect("restores archived events in bounded batches", () => {
 	const batches: number[] = [];

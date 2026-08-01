@@ -52,7 +52,9 @@ safe place. A backup can contain private history and copies of files you uploade
 ## Restoring a backup
 
 A backup can only be restored to a clean account. A clean account is new or has been reset and
-contains no personal data or custom settings.
+contains no personal data or custom settings. Records that plugins create automatically during
+account setup are allowed because Ryot records their bootstrap origin. Restore matches those records
+by schema ownership instead of depending on a specific built-in plugin or record name.
 
 The archive records the exact version and source hash for each required system plugin. Every system
 requirement must match the destination server. Private plugins owned by the account are included as
