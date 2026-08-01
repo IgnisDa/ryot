@@ -6,7 +6,12 @@ import {
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Context, Effect, Layer } from "effect";
 
-import { DefinitionRegistry } from "#modules/definition-registry/service";
+import { Database } from "#lib/infrastructure/db/service";
+import {
+	DefinitionRegistry,
+	type RelationshipSchemaDefinition,
+} from "#modules/definition-registry/service";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 export type RelationshipSchemaScope = {
 	readonly name: string;
@@ -23,13 +28,23 @@ export class RelationshipSchemasRepository extends Context.Service<RelationshipS
 	"RelationshipSchemasRepository",
 	{
 		make: Effect.gen(function* () {
+			const database = yield* Database;
 			const definitions = yield* DefinitionRegistry;
+			const pluginRuntime = yield* PluginRuntimeResolver;
 			const findBuiltinBySlug = (slug: string) => {
 				const definition = definitions.getRelationshipSchema(slug);
 				return Effect.succeed(definition ? toScope(definition) : null);
 			};
-			const findById = (slug: RelationshipSchemaSlug, _userId: UserId | null) =>
-				findBuiltinBySlug(slug);
+			const findById = (slug: RelationshipSchemaSlug, userId: UserId | null) =>
+				userId === null
+					? findBuiltinBySlug(slug)
+					: pluginRuntime.getEffectiveDefinitions(userId).pipe(
+							Effect.map((effective) => {
+								const definition = effective.relationshipSchemas[slug];
+								return definition ? toScope(definition) : null;
+							}),
+							Effect.provideService(Database, database),
+						);
 			const findGlobalBySchemaIds = (input: {
 				sourceEntitySchemaSlug: EntitySchemaSlug;
 				targetEntitySchemaSlug: EntitySchemaSlug;
@@ -48,9 +63,7 @@ export class RelationshipSchemasRepository extends Context.Service<RelationshipS
 	static readonly layer = Layer.effect(this, this.make);
 }
 
-const toScope = (
-	definition: NonNullable<ReturnType<DefinitionRegistry["Service"]["getRelationshipSchema"]>>,
-): RelationshipSchemaScope => ({
+const toScope = (definition: RelationshipSchemaDefinition): RelationshipSchemaScope => ({
 	isBuiltin: true,
 	name: definition.name,
 	slug: definition.slug,

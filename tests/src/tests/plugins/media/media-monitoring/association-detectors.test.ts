@@ -43,12 +43,14 @@ beforeAll(async () => {
 			movieSchemaId = yield* getBuiltinEntitySchemaSlug("movie");
 			personProvider = yield* installTestProvider({
 				client,
+				scope: "system",
 				rootEntitySchemaSlug: personSchemaId,
 				slug: `person.association-e2e-${crypto.randomUUID()}`,
 				details: fakeProviderDetailsResult({ name: personName }),
 			});
 			movieProvider = yield* installTestProvider({
 				client,
+				scope: "system",
 				slug: `movie.association-e2e-${crypto.randomUUID()}`,
 				rootEntitySchemaSlug: movieSchemaId,
 				details: fakeProviderDetailsResult({
@@ -160,6 +162,7 @@ describe("dual-writer canonical identity", () => {
 				const { client } = yield* createAuthenticatedClient();
 				const dwPersonProvider = yield* installTestProvider({
 					client,
+					scope: "system",
 					slug: dwPersonSlug,
 					rootEntitySchemaSlug: personSchemaId,
 					details: fakeProviderDetailsResult({
@@ -183,6 +186,7 @@ describe("dual-writer canonical identity", () => {
 				});
 				const dwMovieProvider = yield* installTestProvider({
 					client,
+					scope: "system",
 					slug: dwMovieSlug,
 					rootEntitySchemaSlug: movieSchemaId,
 					details: fakeProviderDetailsResult({
@@ -300,12 +304,14 @@ describe("association lifecycle via cron refresh", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const ruPersonProvider = yield* installTestProvider({
 				client,
+				scope: "system",
 				slug: ruPersonSlug,
 				rootEntitySchemaSlug: personSchemaId,
 				details: fakeProviderDetailsResult({ name: ruPersonName }),
 			});
 			const ruMovieProvider = yield* installTestProvider({
 				client,
+				scope: "system",
 				slug: ruMovieSlug,
 				rootEntitySchemaSlug: movieSchemaId,
 				details: fakeProviderDetailsResult({
@@ -431,12 +437,14 @@ describe("association lifecycle via cron refresh", () => {
 				const { client } = yield* createAuthenticatedClient();
 				yield* installTestProvider({
 					client,
+					scope: "system",
 					slug: drMovieSlug,
 					rootEntitySchemaSlug: movieSchemaId,
 					details: fakeProviderDetailsResult({ name: drMovieName }),
 				});
 				const drPersonProvider = yield* installTestProvider({
 					client,
+					scope: "system",
 					slug: drPersonSlug,
 					rootEntitySchemaSlug: personSchemaId,
 					details: fakeProviderDetailsResult({

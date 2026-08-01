@@ -140,6 +140,7 @@ describe("universal durable sandbox tracer", () => {
 			const childEntry = "scripts/durable-tracer-child.sandbox.ts";
 			const plugin = yield* Effect.acquireRelease(
 				installTestPluginBundle({
+					client,
 					pluginSlug: `e2e-durable-tracer-${crypto.randomUUID()}`,
 					workflows: [{ slug: "tracer-child", scriptSlug: childSlug }],
 					files: {

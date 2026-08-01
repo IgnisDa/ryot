@@ -155,16 +155,16 @@ it.effect("awaits terminal plugin boot runs when manually triggered", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* PluginBootService;
-		yield* service.triggerAll("parent-id");
+		yield* service.trigger({ pluginSlug: "fixture", bootSlug: "fixture-boot" }, "manual-id");
 		expect(captured).toEqual([
 			{
-				executionId: "plugin-boot-7-fixture-12-fixture-boot-parent-id",
+				executionId: "manual-id",
 				payload: {
 					input: {},
 					resolutionMode: "exact",
+					executionId: "manual-id",
 					authority: { type: "system" },
 					scriptId: SandboxScriptId.make("fixture-script-id"),
-					executionId: "plugin-boot-7-fixture-12-fixture-boot-parent-id",
 				},
 			},
 		]);

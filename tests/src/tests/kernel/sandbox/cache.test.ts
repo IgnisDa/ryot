@@ -5,6 +5,7 @@ import {
 	cacheSandboxSource,
 	createAuthenticatedClient,
 	enqueueSandboxScript,
+	type Client,
 	installSandboxScriptScoped,
 	installTestPluginBundle,
 	pollSandboxResult,
@@ -55,7 +56,7 @@ export default defineProvider({
 });
 `;
 
-const installCacheProviderScoped = (key: string, value: string) => {
+const installCacheProviderScoped = (client: Client, key: string, value: string) => {
 	const providerSlug = `cache-provider-${crypto.randomUUID()}`;
 	const entitySchemaSlug = `${providerSlug}-entity`;
 	const writerSlug = `${providerSlug}.details`;
@@ -64,6 +65,7 @@ const installCacheProviderScoped = (key: string, value: string) => {
 	const readerEntry = `scripts/${readerSlug}.sandbox.ts`;
 	return Effect.acquireRelease(
 		installTestPluginBundle({
+			client,
 			configSchema: { fields: {}, unknownKeys: "strict" },
 			files: {
 				[writerEntry]: providerCacheSource({
@@ -128,14 +130,19 @@ const installCacheProviderScoped = (key: string, value: string) => {
 	);
 };
 
-const readProviderCache = (userId: string, scriptId: SandboxScriptId) =>
+const runProviderCache = (userId: string, scriptId: SandboxScriptId) =>
 	Effect.gen(function* () {
 		const { jobId } = yield* enqueueSandboxScript(userId, {
 			scriptId,
 			context: { page: 1, pageSize: 1, query: "cache" },
 		});
+		return yield* pollSandboxResult(userId, jobId);
+	});
+
+const readProviderCache = (userId: string, scriptId: SandboxScriptId) =>
+	Effect.gen(function* () {
 		const result = requireObjectRecord(
-			requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId)),
+			requireCompletedSandboxValue(yield* runProviderCache(userId, scriptId)),
 			"Expected provider cache read result to be an object",
 		);
 		return requireArray(result.items, "Expected provider cache items to be an array");
@@ -146,10 +153,11 @@ describe("sandbox cache functions", () => {
 		"setCachedValue stores a value that getCachedValue retrieves within the same script",
 		() =>
 			Effect.gen(function* () {
-				const { userId } = yield* createAuthenticatedClient();
+				const { client, userId } = yield* createAuthenticatedClient();
 				const cacheKey = `cache-test-${crypto.randomUUID()}`;
 				const slug = `cache-round-trip-${crypto.randomUUID()}`;
 				const { scriptId } = yield* installSandboxScriptScoped({
+					client,
 					slug,
 					name: "cache-round-trip",
 					capabilities: ["setCachedValue", "getCachedValue"],
@@ -175,10 +183,11 @@ describe("sandbox cache functions", () => {
 
 	it.live("getCachedValue returns null for a key that was never set", () =>
 		Effect.gen(function* () {
-			const { userId } = yield* createAuthenticatedClient();
+			const { client, userId } = yield* createAuthenticatedClient();
 			const missingKey = `cache-missing-${crypto.randomUUID()}`;
 			const slug = `cache-miss-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
+				client,
 				slug,
 				name: "cache-miss",
 				capabilities: ["getCachedValue"],
@@ -197,10 +206,11 @@ describe("sandbox cache functions", () => {
 
 	it.live("claimPersistentValue persists an atomic claim across executions", () =>
 		Effect.gen(function* () {
-			const { userId } = yield* createAuthenticatedClient();
+			const { client, userId } = yield* createAuthenticatedClient();
 			const cacheKey = `persistent-cache-test-${crypto.randomUUID()}`;
 			const slug = `persistent-cache-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
+				client,
 				slug,
 				name: "persistent-cache",
 				capabilities: ["claimPersistentValue"],
@@ -232,12 +242,12 @@ describe("sandbox cache functions", () => {
 
 	it.live("provider scripts share cache while users and providers remain isolated", () =>
 		Effect.gen(function* () {
-			const { userId: userIdA } = yield* createAuthenticatedClient();
-			const { userId: userIdB } = yield* createAuthenticatedClient();
+			const { client: clientA, userId: userIdA } = yield* createAuthenticatedClient();
+			const { client: clientB, userId: userIdB } = yield* createAuthenticatedClient();
 			const key = `provider-cache-${crypto.randomUUID()}`;
 			const cachedValue = `private-${crypto.randomUUID()}`;
-			const providerA = yield* installCacheProviderScoped(key, cachedValue);
-			const providerB = yield* installCacheProviderScoped(key, "other-provider-value");
+			const providerA = yield* installCacheProviderScoped(clientA, key, cachedValue);
+			const providerB = yield* installCacheProviderScoped(clientB, key, "other-provider-value");
 			const writerScriptId =
 				providerA.scriptIds[providerA.manifest.providers[0]?.operations.details ?? ""];
 			const readerScriptId =
@@ -258,8 +268,18 @@ describe("sandbox cache functions", () => {
 			const sharedItems = yield* readProviderCache(userIdA, readerScriptId);
 			const sharedItem = requireObjectRecord(sharedItems[0], "Expected provider cache item");
 			expect(sharedItem.title).toBe(cachedValue);
-			expect(yield* readProviderCache(userIdB, readerScriptId)).toEqual([]);
-			expect(yield* readProviderCache(userIdA, otherProviderReaderScriptId)).toEqual([]);
+			expect(yield* readProviderCache(userIdB, otherProviderReaderScriptId)).toEqual([]);
+
+			const foreignUserResult = yield* runProviderCache(userIdB, readerScriptId);
+			const foreignProviderResult = yield* runProviderCache(userIdA, otherProviderReaderScriptId);
+			expect(foreignUserResult).toMatchObject({
+				status: "failed",
+				error: expect.stringContaining("requires an exact user installation"),
+			});
+			expect(foreignProviderResult).toMatchObject({
+				status: "failed",
+				error: expect.stringContaining("requires an exact user installation"),
+			});
 		}),
 	);
 });

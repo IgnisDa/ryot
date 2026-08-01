@@ -44,7 +44,7 @@ RUN_SANDBOX_BENCHMARKS=1 bun turbo --env-mode=loose --force --output-logs=full -
 
 `global-setup.ts` provisions containers and one shared backend, then provides `backendUrl` to workers. `src/support/backend.ts` reads it through Vitest `inject`; worker modules cannot import global setup state directly.
 
-Up to three files share backend concurrently. Tests and hooks have 180-second limits, and hanging-process reporter identifies leaked handles.
+Up to two files share the backend concurrently. Tests and hooks have 180-second limits, and the hanging-process reporter identifies leaked handles.
 
 Effect-native fixtures return effects rather than promises. Scoped network fixtures use `Effect.acquireRelease`, and `it.live` supplies per-test Scope without TestClock so resources close automatically. Wrap raw promise boundaries with `Effect.promise` inside Effect test bodies.
 
@@ -86,7 +86,7 @@ Entity, event, and relationship definitions install as scriptless plugins throug
 
 ## Capacity
 
-Shared harness keeps `maxWorkers=3`, fixed sandbox limits, and app/workflow pool maxima at 100. Test PostgreSQL allows 400 connections. Sandbox worker concurrency is fixed at five and production uses ten connections per pool.
+Shared harness keeps `maxWorkers=2`, fixed sandbox limits, and app/workflow pool maxima at 100. Test PostgreSQL allows 400 connections. Sandbox worker concurrency is fixed at five and production uses ten connections per pool.
 
 Keep production Effect Cluster expiry settings in harness so recovery regressions remain visible. Last full-suite evidence peaked at 120 total database connections; full-size operational gate recorded no app-pool waits.
 

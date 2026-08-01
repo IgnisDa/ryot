@@ -126,6 +126,7 @@ export default defineAutomation({
 			const provider = yield* Effect.acquireRelease(
 				installTestPluginBundle({
 					pluginSlug,
+					scope: "system",
 					scripts: [detailsScript, searchScript, automationScript],
 					files: {
 						[searchEntry]: initialSearchSource,

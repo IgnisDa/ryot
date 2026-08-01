@@ -79,6 +79,7 @@ beforeAll(async () => {
 			movieSchemaId = yield* getBuiltinEntitySchemaSlug("movie");
 			provider = yield* installTestProvider({
 				client,
+				scope: "system",
 				name: providerName,
 				slug: `movie.media-monitoring-e2e-${crypto.randomUUID()}`,
 				details: providerDetails("Continuing"),
@@ -87,6 +88,7 @@ beforeAll(async () => {
 			const showSchemaId = yield* getBuiltinEntitySchemaSlug("show");
 			discoveryProvider = yield* installTestProvider({
 				client,
+				scope: "system",
 				name: `${providerName} Discovery`,
 				details: discoveryProviderDetails(0),
 				slug: `show.media-monitoring-discovery-e2e-${crypto.randomUUID()}`,

@@ -10,7 +10,7 @@ import type {
 } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
-import { Context, Effect, Layer, Option } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
@@ -66,17 +66,14 @@ export const changeUserRelationships = Effect.fn("RelationshipsService.changeUse
 ) {
 	const database = yield* Database;
 	const entities = yield* EntitiesRepository;
-	const registry = yield* DefinitionRegistry;
-	const pluginRuntime = Option.getOrUndefined(yield* Effect.serviceOption(PluginRuntimeResolver));
-	const definitions = pluginRuntime ? yield* pluginRuntime.getEffectiveDefinitions(userId) : null;
+	const pluginRuntime = yield* PluginRuntimeResolver;
+	const definitions = yield* pluginRuntime.getEffectiveDefinitions(userId);
 	const repository = yield* RelationshipsRepository;
 
 	const validate = Effect.fn("RelationshipsService.validateUserChange")(function* (
 		change: UserRelationshipIdentity,
 	) {
-		const definition = definitions
-			? definitions.relationshipSchemas[change.relationshipSchemaSlug]
-			: registry.getRelationshipSchema(change.relationshipSchemaSlug);
+		const definition = definitions.relationshipSchemas[change.relationshipSchemaSlug];
 		if (!definition) {
 			return yield* new RelationshipNotFound({
 				reason: {
@@ -287,6 +284,7 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 	"RelationshipsService",
 	{
 		make: Effect.gen(function* () {
+			const pluginRuntime = yield* PluginRuntimeResolver;
 			const repository = yield* RelationshipsRepository;
 
 			const parseProperties = Effect.fn("RelationshipsService.parseProperties")(function* (input: {
@@ -416,6 +414,7 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 				deleteUserRelationshipById,
 				changeUser: (userId: UserId, batches: ReadonlyArray<ChangeUserRelationshipBatch>) =>
 					changeUserRelationships(userId, batches).pipe(
+						Effect.provideService(PluginRuntimeResolver, pluginRuntime),
 						Effect.provideService(RelationshipsRepository, repository),
 					),
 				reconcileGlobal: (groups: ReadonlyArray<ReconcileGlobalRelationshipGroup>) =>

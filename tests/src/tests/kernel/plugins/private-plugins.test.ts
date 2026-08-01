@@ -48,7 +48,9 @@ describe("private plugins", () => {
 				}),
 			);
 
-			const items = requireRows(result.data.installations, "installations").items;
+			const items = requireRows(result.data.installations, "installations").items.filter((item) =>
+				["fitness", "media"].includes(requireRyotQLText(item, "pluginSlug")),
+			);
 			const bySlug = items.map((item) => requireRyotQLText(item, "pluginSlug"));
 			expect(sortBy(bySlug)).toEqual(["fitness", "media"]);
 			for (const item of items) {

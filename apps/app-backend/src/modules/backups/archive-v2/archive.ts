@@ -2,6 +2,7 @@ import { Schema, Effect, Stream, FileSystem, type PlatformError } from "effect";
 import { Zip, Unzip, ZipDeflate, UnzipInflate, ZipPassThrough, UnzipPassThrough } from "fflate";
 
 import { archiveError, BackupArchiveError } from "./error";
+import { collectV2ReferencedPluginKeys } from "./references";
 import {
 	V2_CODECS,
 	V2Manifest,
@@ -274,39 +275,7 @@ const validatePluginKeys = (
 		...records.privatePlugins.map(({ key }) => key),
 		...required.map(({ slug, sourceHash }) => `system:${slug}:${sourceHash}`),
 	]);
-	const referenced = new Set<string>();
-	const add = (key: string | null) => {
-		if (key !== null) {
-			referenced.add(key);
-		}
-	};
-	for (const installation of records.installations) {
-		add(installation.packageKey);
-	}
-	for (const integration of records.integrations) {
-		add(integration.packageKey);
-	}
-	for (const entity of records.entities) {
-		add(entity.entitySchemaPluginKey);
-		add(entity.provider?.pluginKey ?? null);
-	}
-	for (const entity of records.entityDependencies) {
-		add(entity.entitySchemaPluginKey);
-		add(entity.provider?.pluginKey ?? null);
-		if (entity.identity.kind !== "unmanaged") {
-			add(entity.identity.pluginKey);
-		}
-	}
-	for (const relationship of records.relationships) {
-		add(relationship.relationshipSchemaPluginKey);
-	}
-	for (const view of records.savedViews) {
-		add(view.pluginKey);
-		add(view.entitySchemaPluginKey);
-	}
-	for (const subscription of records.notificationSubscriptions) {
-		add(subscription.signalSchemaPluginKey);
-	}
+	const referenced = collectV2ReferencedPluginKeys(records);
 	for (const key of referenced) {
 		if (!declared.has(key)) {
 			throw archiveError(

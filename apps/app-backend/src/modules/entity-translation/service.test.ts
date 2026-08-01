@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import { NotFound } from "@ryot/contract/errors";
-import { EntityId, SandboxProviderId } from "@ryot/contract/schema/brands";
+import { EntityId, SandboxProviderId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
@@ -62,6 +62,7 @@ it.effect("preserves provider provenance when enqueueing a translation fill", ()
 			externalId: "book-1",
 			entitySchemaSlug: "book",
 			properties: { title: "Book" },
+			userId: UserId.make("user-1"),
 			entityId: EntityId.make("entity-1"),
 			providerId: SandboxProviderId.make("provider-1"),
 		});
@@ -70,6 +71,7 @@ it.effect("preserves provider provenance when enqueueing a translation fill", ()
 				discard: true,
 				payload: {
 					language: "es",
+					userId: "user-1",
 					entityId: "entity-1",
 					externalId: "book-1",
 					providerId: "provider-1",
@@ -100,6 +102,7 @@ it.effect("keeps the deterministic ID and exposes translation enqueue failure", 
 				externalId: "book-1",
 				entitySchemaSlug: "book",
 				properties: { title: "Book" },
+				userId: UserId.make("user-1"),
 				entityId: EntityId.make("entity-1"),
 				providerId: SandboxProviderId.make("provider-1"),
 			}),

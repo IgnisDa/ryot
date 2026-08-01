@@ -413,8 +413,10 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("sandbox runtime benchmark", () => {
 						entry: "scripts/provider-search.sandbox.ts",
 					},
 				] satisfies ContractPayload<"plugins", "install">["manifest"]["scripts"];
+				const { client, userId } = yield* createAuthenticatedClient();
 				const benchmarkPlugin = yield* Effect.acquireRelease(
 					installTestPluginBundle({
+						client,
 						scripts,
 						pluginSlug: `sandbox-benchmark-${crypto.randomUUID()}`,
 						files: {
@@ -435,7 +437,6 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("sandbox runtime benchmark", () => {
 					}),
 					uninstallTestPlugin,
 				);
-				const { userId } = yield* createAuthenticatedClient();
 				const scriptId = (slug: string) => {
 					const id = benchmarkPlugin.scriptIds[slug];
 					assertPresent(id, `Benchmark script '${slug}' was not installed`);
