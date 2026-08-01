@@ -116,7 +116,11 @@ docker compose up -d ryot-postgres ryot-redis
 bun run dev
 ```
 
-Configure `apps/server/.env` with at minimum `DATABASE_URL`, `REDIS_URL`, `SERVER_ADMIN_ACCESS_TOKEN`, `FRONTEND_URL`. Other commands: `bun run test`, `bun run check`.
+Configure `apps/server/.env` with `DATABASE_URL`, `REDIS_URL`, and `SERVER_ADMIN_ACCESS_TOKEN`.
+Filesystem paths and `FRONTEND_URL` have development-ready defaults. The server development task
+builds and watches the shipped plugin bundles and assembles the runtime layout automatically.
+
+Other commands: `bun run build`, `bun run test`, `bun run check`.
 
 ## Community
 

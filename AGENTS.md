@@ -4,6 +4,14 @@
 
 - Keep `AGENTS.md` to stable, non-obvious rules that affect changes. Put architecture, protocols, runbooks, and rationale in `README.md`; child files must not restate parent guidance.
 
+## Workspace Map
+
+- `kernel/backend` is the domain-agnostic backend; `kernel/client` is the client kernel.
+- `apps/server` assembles the backend kernel, migrations, and shipped plugin bundles.
+- `plugins/*` own first-party plugin manifests and backend sandbox sources.
+- `migrations/*` own one-time migrations that depend on the kernel.
+- `packages/cli` builds canonical plugin bundles for first-party and third-party plugins.
+
 ## Tools
 
 - Use `turbo` for monorepo frontend commands.

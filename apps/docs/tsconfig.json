@@ -4,7 +4,9 @@
 	"compilerOptions": {
 		"noEmit": true,
 		"outDir": "dist",
-		"module": "NodeNext",
-		"moduleResolution": "nodenext"
+		"module": "ESNext",
+		"types": ["bun-types"],
+		"lib": ["ESNext", "DOM"],
+		"moduleResolution": "bundler"
 	}
 }
