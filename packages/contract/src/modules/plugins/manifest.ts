@@ -412,6 +412,7 @@ const PluginIntegrationProviderFields = {
 	name: sandboxManifestString,
 	settingsSchema: PluginAppSchema,
 	description: sandboxManifestString,
+	requiresProKey: Schema.optional(Schema.Boolean),
 };
 
 export const PluginIntegrationProvider = Schema.Union([

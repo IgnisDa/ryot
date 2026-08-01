@@ -96,6 +96,7 @@ function WorkspaceTrigger(props: {
 }
 
 export function Sidebar(props: {
+	isPro: boolean;
 	className: string;
 	activeKey: string;
 	accountName: string;
@@ -229,11 +230,22 @@ export function Sidebar(props: {
 						props.activeKey === "settings" && "bg-nav-indicator",
 					)}
 				>
-					<AppAvatar
-						url={props.accountImage}
-						iconClassName="text-text-muted"
-						className="h-8 w-8 rounded-full"
-					/>
+					<View className="relative">
+						<AppAvatar
+							url={props.accountImage}
+							iconClassName="text-text-muted"
+							className="h-8 w-8 rounded-full"
+						/>
+						{props.isPro && (
+							<View
+								accessibilityRole="image"
+								accessibilityLabel="Ryot Pro"
+								className="absolute -right-1 -top-1 h-4 w-4 items-center justify-center rounded-full border border-border bg-surface"
+							>
+								<NavigationIcon name="crown" size={9} className="text-accent-text" />
+							</View>
+						)}
+					</View>
 					<View className="flex-1">
 						<Text className="font-ui-medium text-sm text-text">{props.accountName}</Text>
 						<Text className="font-ui text-xs text-text-muted">{props.accountEmail}</Text>

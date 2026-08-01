@@ -20,13 +20,24 @@ export const integrationLotDetail = (lot: IntegrationLot) => {
 		: "Ryot pushes changes out to this service as your library changes.";
 };
 
+export const PRO_REQUIRED_INTEGRATION_MESSAGE = "Ryot Pro is required to use this integration.";
+
+const integrationProviderRequirement = (provider: ListedIntegrationProvider) => {
+	if (provider.isCreatable) {
+		return undefined;
+	}
+	return provider.requiresProKey
+		? PRO_REQUIRED_INTEGRATION_MESSAGE
+		: "This service is not ready on your server yet.";
+};
+
 export const integrationProviderEntry = (provider: ListedIntegrationProvider): CatalogEntry => ({
 	slug: provider.slug,
 	name: provider.name,
 	description: provider.description,
 	isAvailable: provider.isCreatable,
 	badge: integrationLotLabel(provider.lot),
-	requirement: provider.isCreatable ? undefined : "This service is not ready on your server yet.",
+	requirement: integrationProviderRequirement(provider),
 });
 
 export const integrationProviderChooseLabel = (entry: CatalogEntry) =>
