@@ -12,7 +12,7 @@ Preserve the complete demonstrated behavior. This is not a redesign task and mus
 
 Audit every value crossing the SDK and bridge boundaries against the canonical `JsonValue` type/schema and `isJsonValue` guard from `@ryot/contract/schema/json`. Remove `Schema.Unknown`, ad hoc validators, unchecked casts, and `JSON.stringify` normalization; unsupported values must be rejected, not converted.
 
-The cleanup must preserve and enforce the one per-session client plugin runtime: one `MessagePort`, lifecycle state, dispatcher, location/theme state, query/operation pending calls, listeners, `RyotClient`, and idempotent disposal. Tasks 06-08 must reuse this runtime lifecycle for theme updates, crash recovery, artifact reload, and unmount. Remove any separate theme, crash, reload, capability, or teardown bridge that duplicates it.
+The cleanup must preserve and enforce the one per-session client plugin runtime: one `MessagePort`, lifecycle state, dispatcher, location/theme state, query/operation pending calls, listeners, `RyotClient`, and idempotent disposal. Tasks 06-08 must reuse this runtime lifecycle for theme updates, crash recovery, artifact reload, and unmount. Review the shared schemas and exact public `PluginOperationError` contract as part of this pass; expected business/domain outcomes remain typed values, and no theme-, crash-, reload-, or capability-specific error union may duplicate it. Remove any separate theme, crash, reload, capability, or teardown bridge that duplicates it.
 
 `crates/**` is outside the cleanup scope and must remain entirely untouched. The legacy applications are still required as read-only references for later porting work. Do not apply general repository cleanup outside tracer-touched files and directly affected modules.
 
@@ -28,13 +28,14 @@ The cleanup must preserve and enforce the one per-session client plugin runtime:
 - [ ] Bootstrap validates metadata before accepting one port and owns the bootstrap listener and React root/unmount coordinator; the runtime owns one session listener/dispatcher, location/theme state, pending calls, client, and idempotent disposal, while `PluginHost` owns the iframe and kernel session handle.
 - [ ] Bridge listeners, ports, pending-call registries, iframe lifecycle state, and catalog subscriptions have clear ownership and teardown; pending query and operation calls reject exactly once before port/iframe release.
 - [ ] Exact markers, including protocol V3, remain simple equality checks without V2 support, aliases, compatibility ranges, negotiation, fallback protocols, or unused compatibility abstractions.
-- [ ] Every bridge value uses a strict contract or a domain schema built on the canonical JSON boundary; operation input is required with explicit `null` for no input, invalid SDK input is `invalid-input`, and non-JSON operation output becomes `transport` before bridge delivery.
-- [ ] `lifecycle-close` remains the payload-free `{ type: "lifecycle-close", reason: "disposed" | "failed" }` message, with no stack, error, request, or diagnostic expansion.
+- [ ] Every bridge value uses a strict contract or a domain schema built on the canonical JSON boundary; operation input is required with explicit `null` for no input, invalid SDK input is `invalid-input`, and non-JSON operation output becomes `malformed-result` before bridge delivery.
+- [ ] `PluginOperationError.reason` has exactly the seven public reasons and fixed classifications from the parent plan; expected business/domain outcomes are typed successful values, `operation-failed` is opaque declared backend/platform execution failure rather than a business outcome, and no theme-, crash-, reload-, or capability-specific error union exists.
+- [ ] `lifecycle-close` remains the payload-free `{ type: "lifecycle-close", reason: "disposed" | "failed" }` message; wire `failed` maps to public `protocol` and is not a public SDK error reason, with no stack, error, request, or diagnostic expansion.
 - [ ] Kernel and plugin consumers use the explicit Task 05-followup `RyotClient` adapters; no global mutable client, parallel capability facade, direct catalog transport, or bridge-specific component API remains.
 - [ ] Kernel abort remains best effort and is not documented or implemented as rollback for work that committed before abort.
 - [ ] No `@ryot/client-plugin-sdk` package, import, compatibility alias, generated residue, or stale documentation remains.
 - [ ] Package exports, workspace references, task-specific documentation, architecture decisions resolved during implementation, and public API names match the final code.
-- [ ] Formatting, linting, type checks, focused package tests, backend tests, kernel tests, browser tracer tests, and production builds all pass.
+- [ ] Formatting, linting, type checks, focused package tests, backend tests, kernel tests, browser tracer tests, and production builds all pass, including exact operation-error classification and shared pending-call/teardown coverage.
 - [ ] Manual verification proves onboarding, authentication, fixture home, private navigation, authenticated operation, theme synchronization, crash recovery, and forced update reload through one production path and one reused runtime lifecycle.
 
 ## User stories addressed

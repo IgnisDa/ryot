@@ -585,9 +585,23 @@ const result = await ryot.data.query(recipe);
 
 The recipe owns its query document and result decoder. The client executes the document and decodes the result locally; consumers do not parse generic `RowItem` values directly. Query requests use the existing user-scoped backend authorization behavior rather than a client-specific bypass.
 
-`invokeOperation` remains the current plugin operation API. It takes an operation slug, a required JSON-compatible `input`, and an output codec, but no input codec. A no-input operation sends `input: null`; omission is not a no-input convention. The SDK checks the input with the canonical `isJsonValue` guard from `@ryot/contract/schema/json` and rejects invalid input as `PluginOperationError` with reason `"invalid-input"` before invoking the adapter. The backend validates accepted operation input and the client decodes the returned value against `output`. A rejected call throws `PluginOperationError` carrying `"operation-failed"` for a failure the backend declared, `"transport"` for an unexpected or non-JSON transport value, or `"malformed-result"` when a JSON result does not decode against `output`.
+`invokeOperation` remains the current plugin operation API. It takes an operation slug, a required JSON-compatible `input`, and an output codec, but no input codec. A no-input operation sends `input: null`; omission is invalid and is not converted to `null`. The SDK checks the input with the canonical `isJsonValue` guard from `@ryot/contract/schema/json` and rejects invalid input locally, before invoking the adapter. The client decodes a successful JSON result against `output`.
 
-The canonical `JsonValue` type and schema value, also from `@ryot/contract/schema/json`, define the dynamic value boundary for the SDK and bridge. Strict schemas reject values outside that boundary; values are never normalized with `JSON.stringify` or another lossy conversion. The kernel validates a successful operation value before sending it over the bridge, so a non-JSON value becomes a transport failure and never crosses the port. `Schema.Unknown`, duplicated validators, and unchecked casts are not part of this contract.
+Expected plugin business/domain outcomes are successful typed values encoded by each operation output schema. They are never SDK errors. The public `PluginOperationError.reason` is exactly one of:
+
+| Reason | Meaning |
+| --- | --- |
+| `disposed` | Normal local or peer teardown. |
+| `protocol` | Malformed bridge/session data or a wire `lifecycle-close` reason of `failed`. |
+| `transport` | Communication, posting, or network failure. |
+| `invalid-input` | Invalid input found locally before dispatch. |
+| `operation-failed` | Opaque declared backend/platform operation execution failure; not a plugin business outcome. |
+| `malformed-result` | Non-JSON operation output before bridge delivery, or JSON output failing the caller's output schema. |
+| `unsupported-capability` | An unavailable or undeclared capability. |
+
+The wire value `failed` is not a public SDK error reason. Internal causes, messages, diagnostics, HTTP details, and stack traces never cross the bridge.
+
+The canonical `JsonValue` type and schema value, also from `@ryot/contract/schema/json`, define the dynamic value boundary for the SDK and bridge. Strict schemas reject values outside that boundary; values are never normalized with `JSON.stringify` or another lossy conversion. The kernel validates a successful operation value before sending it over the bridge, so a non-JSON value becomes `malformed-result` and never crosses the port. A JSON value that fails the caller's output schema is also `malformed-result`. `Schema.Unknown`, duplicated validators, and unchecked casts are not part of this contract.
 
 `@ryot/client-sdk/effect` re-exports `Schema` and nothing else, mirroring `@ryot/sandbox-sdk/effect` for backend scripts, so both halves of a plugin describe their operation payloads the same way. Plugin source must import `Schema` through that subpath; a bare `effect` import stays untrusted.
 
@@ -685,9 +699,9 @@ The normal path is `ready -> active -> closing -> disposed`. A fatal failure ent
 
 The single dispatcher currently routes location, query, operation, and terminal `lifecycle-close` messages. Task 06 adds theme snapshots and updates to this dispatcher and stores them in the same runtime. Query and operation calls use runtime-owned pending registries, even though they may remain separate maps for correlation. No other module may attach a session port listener or own a pending-call registry. The temporary parent-window bootstrap listener is the only listener outside the session runtime and is removed once the runtime is accepted.
 
-Every pending query or operation entry is removed before its promise is settled. A result, runtime failure, or disposal can settle an entry only once. Failure and disposal reject all remaining entries with their stable transport/runtime error, clear the registries, and ignore duplicate or late results. Closing the iframe is cleanup after this protocol-level rejection; plugin promises do not merely die with the iframe.
+Every pending query or operation entry is removed before its promise is settled. A result, runtime failure, or disposal can settle an entry only once. Normal disposal rejects pending operation calls with `disposed`; malformed session data or a wire `failed` close uses `protocol`; communication, posting, or network failure uses `transport`. The runtime clears the registries and ignores duplicate or late results. Closing the iframe is cleanup after this protocol-level rejection; plugin promises do not merely die with the iframe.
 
-When either peer closes or fails a session, it sends `{ type: "lifecycle-close", reason: "disposed" | "failed" }` when the port is usable, marks the session closing, rejects the plugin-side pending calls, and closes the port. Kernel-side abort signals cancel in-flight service work on a best-effort basis and suppress late responses. Abort is not a transaction or rollback mechanism: an authenticated operation may already have committed before abort, and the committed work cannot be undone by closing the session or rejecting the caller's promise.
+When either peer closes or fails a session, it sends `{ type: "lifecycle-close", reason: "disposed" | "failed" }` when the port is usable, marks the session closing, rejects the plugin-side pending calls, and closes the port. A wire `disposed` close maps to public `disposed`; a wire `failed` close maps to public `protocol`. The wire value `failed` is not a public `PluginOperationError` reason. Kernel-side abort signals cancel in-flight service work on a best-effort basis and suppress late responses. Abort is not a transaction or rollback mechanism: an authenticated operation may already have committed before abort, and the committed work cannot be undone by closing the session or rejecting the caller's promise.
 
 ### Protocol V3 request/response calls
 
@@ -695,7 +709,7 @@ Protocol V3 implements strict request/response calls for plugin data access. It 
 
 Compared with the former V2 contract, V3 makes the bridge version marker `3`, replaces the separate location/query/operation listener ownership with one runtime dispatcher, adds the strict `{ type: "lifecycle-close", reason: "disposed" | "failed" }` message, and makes runtime disposal the source of pending-call rejection. The request and result correlation rules and installation-bound identity rules remain strict; V3 does not preserve a V2 wire shape under another name.
 
-Plugin to kernel carries `{ type: "operation-request", requestId, operationSlug, input: JsonValue }`; `input` is required. Kernel to plugin answers `{ type: "operation-result", requestId, outcome }`, where `outcome` is `{ outcome: "success", value: JsonValue }` or `{ outcome: "failure", reason }` and `reason` is `"operation-failed"` for a failure the backend declared or `"transport"` for an unexpected one. The SDK adds `"invalid-input"` for a rejected SDK input and `"malformed-result"` when a JSON success value does not decode against the caller's output schema. A non-JSON kernel success value is changed to a `"transport"` outcome before the bridge post; it is not stringified or otherwise normalized.
+Plugin to kernel carries `{ type: "operation-request", requestId, operationSlug, input: JsonValue }`; `input` is required. Kernel to plugin answers `{ type: "operation-result", requestId, outcome }`, where a successful outcome carries a `JsonValue` and a declared backend/platform operation execution failure carries the opaque `"operation-failed"` outcome. The SDK maps local validation, capability, result, lifecycle, protocol, and transport conditions to the exact public `PluginOperationError` reasons above. A non-JSON operation output becomes `"malformed-result"` before bridge delivery; it is not stringified or otherwise normalized. Expected plugin business/domain outcomes remain successful values decoded by the caller's output schema.
 
 Recipe queries carry the recipe document through the same exact V3 session protocol. The response is decoded locally by the recipe's decoder after the client receives it.
 
@@ -707,7 +721,7 @@ Correlation is per-session: `requestId` need only be unique on one port, and the
 
 Teardown is a shared runtime lifecycle. Closing or replacing a bridge enters `closing`, rejects every plugin-side pending call exactly once, aborts kernel work on a best-effort basis, releases request bookkeeping, sends no ordinary responses after closure, and then reaches `disposed` for normal disposal or `failed` for failure. Replacing the iframe is a later host cleanup step, not the mechanism that settles promises.
 
-Only strict-schema values within the canonical JSON boundary, declared outcomes, failure reasons, semantic theme state, and lifecycle signals cross the port. Unsupported values are rejected, never normalized. Internal causes and backend diagnostics stay in the kernel.
+Only strict-schema values within the canonical JSON boundary, declared outcomes, failure reasons, semantic theme state, and lifecycle signals cross the port. Unsupported values are rejected, never normalized. Internal causes, messages, diagnostics, HTTP details, and stack traces stay in the kernel.
 
 ### Bridge identity
 
@@ -1610,6 +1624,8 @@ The same client artifact should be exercised on:
 - Android
 
 Media and Fitness provide additional production dogfooding.
+
+Operation boundary tests must verify the exact public `PluginOperationError` reasons and their classifications: explicit `null` input, omitted input rejected locally as `invalid-input`, unavailable or undeclared capabilities as `unsupported-capability`, declared execution failures as opaque `operation-failed`, non-JSON output before bridge delivery and schema-invalid JSON output as `malformed-result`, teardown as `disposed`, malformed bridge/session data and wire `failed` closes as `protocol`, and communication/posting/network failures as `transport`. Tests must also prove that expected plugin business/domain outcomes resolve as typed values and that internal causes, messages, diagnostics, HTTP details, and stack traces do not cross the bridge.
 
 ---
 
