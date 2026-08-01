@@ -3,17 +3,14 @@ import {
 	CLIENT_ARTIFACT_ROOT_ELEMENT_ID,
 	PluginBridgeInit,
 	PluginClientArtifactMetadata,
-	type PluginBridgeReady,
 } from "@ryot/contract/modules/plugins/client";
 import { Result, Schema } from "effect";
 import type { ComponentType } from "react";
-import { createRoot } from "react-dom/client";
+import { createRoot, type Root } from "react-dom/client";
 
-import { createRyotClient } from "./index";
-import { createPluginOperationBridge } from "./operations";
-import { createPluginQueryBridge } from "./queries";
 import { RyotProvider } from "./react";
-import { createPluginLocationStore, PluginRouter, type PluginRouteDefinition } from "./routing";
+import { PluginRouter, type PluginRouteDefinition } from "./routing";
+import { createPluginRuntime } from "./runtime";
 
 export type ClientPluginDefinition = {
 	readonly home: ComponentType;
@@ -27,57 +24,67 @@ const decodeArtifactMetadata = Schema.decodeUnknownResult(
 export const defineClientPlugin = (definition: ClientPluginDefinition) => Object.freeze(definition);
 
 export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
+	const listener = new AbortController();
+	let root: Root | undefined;
+	let runtime: ReturnType<typeof createPluginRuntime> | undefined;
+	const unmount = () => {
+		root?.unmount();
+		root = undefined;
+	};
+	const dispose = () => {
+		listener.abort();
+		const activeRuntime = runtime;
+		runtime = undefined;
+		activeRuntime?.dispose();
+		unmount();
+	};
 	const metadataElement = document.getElementById(CLIENT_ARTIFACT_METADATA_ELEMENT_ID);
 	const metadata = decodeArtifactMetadata(metadataElement?.textContent ?? "");
 	if (Result.isFailure(metadata)) {
-		return;
+		return { dispose };
 	}
 
 	const artifactMetadata = metadata.success;
-	let initialized = false;
-	window.addEventListener("message", (event) => {
-		if (initialized || event.source !== window.parent || event.ports.length !== 1) {
-			return;
-		}
-		const decoded = Schema.decodeUnknownResult(PluginBridgeInit)(event.data);
-		if (Result.isFailure(decoded) || decoded.success.artifactHash !== artifactMetadata.hash) {
-			return;
-		}
-		const rootElement = document.getElementById(CLIENT_ARTIFACT_ROOT_ELEMENT_ID);
-		const port = event.ports[0];
-		if (!rootElement || !port) {
-			return;
-		}
+	window.addEventListener(
+		"message",
+		(event) => {
+			if (runtime || event.source !== window.parent || event.ports.length !== 1) {
+				return;
+			}
+			const decoded = Schema.decodeUnknownResult(PluginBridgeInit)(event.data);
+			if (Result.isFailure(decoded) || decoded.success.artifactHash !== artifactMetadata.hash) {
+				return;
+			}
+			const rootElement = document.getElementById(CLIENT_ARTIFACT_ROOT_ELEMENT_ID);
+			const port = event.ports[0];
+			if (!rootElement || !port) {
+				return;
+			}
 
-		initialized = true;
-		const init = decoded.success;
-		const locations = createPluginLocationStore(port);
-		const client = createRyotClient({
-			query: createPluginQueryBridge(port),
-			invokeOperation: createPluginOperationBridge(port),
-		});
-		port.start();
-		port.postMessage({
-			sessionId: init.sessionId,
-			format: artifactMetadata.format,
-			artifactHash: artifactMetadata.hash,
-			apiVersion: artifactMetadata.apiVersion,
-			bridgeVersion: artifactMetadata.bridgeVersion,
-			compilerVersion: artifactMetadata.compilerVersion,
-		} satisfies PluginBridgeReady);
-		createRoot(rootElement).render(
-			<RyotProvider client={client}>
-				<PluginRouter definition={definition} port={port} locations={locations} />
-			</RyotProvider>,
-		);
-	});
+			listener.abort();
+			const init = decoded.success;
+			runtime = createPluginRuntime(port, init, artifactMetadata, unmount);
+			root = createRoot(rootElement);
+			root.render(
+				<RyotProvider client={runtime.client}>
+					<PluginRouter
+						definition={definition}
+						navigate={runtime.navigate}
+						locations={runtime.locations}
+					/>
+				</RyotProvider>,
+			);
+		},
+		{ signal: listener.signal },
+	);
+	return { dispose };
 };
 
 export {
 	PluginLink,
-	usePluginLocation,
-	usePluginNavigation,
 	usePluginParams,
 	usePluginSearch,
+	usePluginLocation,
+	usePluginNavigation,
 	type PluginRouteDefinition,
 } from "./routing";

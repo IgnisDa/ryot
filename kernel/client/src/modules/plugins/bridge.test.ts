@@ -138,7 +138,7 @@ const readyFor = (init: PluginBridgeInit): PluginBridgeReady => ({
 });
 
 describe("plugin bridge", () => {
-	it("transfers exactly one port with the exact V2 init markers", () => {
+	it("transfers exactly one port with the exact V3 init markers", () => {
 		const { init, origins } = connect();
 
 		expect(origins).toEqual(["*"]);
@@ -151,6 +151,30 @@ describe("plugin bridge", () => {
 			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 		});
 		expect(init.sessionId).not.toBe("");
+	});
+
+	it("cleans up immediately when the initial port transfer fails", async () => {
+		const failures: null[] = [];
+		const session = openPluginBridge({
+			artifactHash,
+			timeoutMs: 10,
+			location: home,
+			onReady: () => undefined,
+			onNavigate: () => undefined,
+			onFailure: () => failures.push(null),
+			onRyotQL: () => new Promise(() => {}),
+			onOperation: () => new Promise(() => {}),
+			target: {
+				postMessage: () => {
+					throw new Error("transfer failed");
+				},
+			},
+		});
+		sessions.push(session);
+
+		expect(failures).toHaveLength(1);
+		await delay(40);
+		expect(failures).toHaveLength(1);
 	});
 
 	it("readies on a matching handshake and then sends the initial location", async () => {
@@ -195,6 +219,19 @@ describe("plugin bridge", () => {
 		await waitFor(() => expect(premature.failures).toHaveLength(1));
 
 		expect(premature.navigations).toEqual([]);
+	});
+
+	it("honors lifecycle closure before activation without replying with a failure", async () => {
+		const disposed = connect();
+		disposed.pluginPort.postMessage({ reason: "disposed", type: "lifecycle-close" });
+		await waitFor(() => expect(disposed.failures).toHaveLength(1));
+
+		const failed = connect();
+		failed.pluginPort.postMessage({ reason: "failed", type: "lifecycle-close" });
+		await waitFor(() => expect(failed.failures).toHaveLength(1));
+
+		expect(disposed.received).toEqual([]);
+		expect(failed.received).toEqual([]);
 	});
 
 	it("fails when the plugin never completes the handshake", async () => {
@@ -253,7 +290,7 @@ describe("plugin bridge", () => {
 		expect(failures).toEqual([]);
 	});
 
-	it("never sends a location after teardown or a failed handshake", async () => {
+	it("sends only lifecycle close after teardown or a failed handshake", async () => {
 		const torndown = connect();
 		torndown.session.close();
 		torndown.session.sendLocation({ path: "/details/1", search: "" });
@@ -264,8 +301,8 @@ describe("plugin bridge", () => {
 
 		await delay(10);
 
-		expect(torndown.received).toEqual([]);
-		expect(failed.received).toEqual([]);
+		expect(torndown.received).toEqual([{ reason: "disposed", type: "lifecycle-close" }]);
+		expect(failed.received).toEqual([{ reason: "failed", type: "lifecycle-close" }]);
 	});
 
 	it("stops delivering after teardown", async () => {
@@ -277,6 +314,34 @@ describe("plugin bridge", () => {
 
 		expect(readies).toEqual([]);
 		expect(failures).toEqual([]);
+	});
+
+	it("honors peer disposal, aborts work, and ignores late admissions", async () => {
+		let signal: AbortSignal | undefined;
+		const call = deferred<PluginOperationOutcome>();
+		const { init, pluginPort, received, navigations } = connect({
+			onOperation: (_request, requestSignal) => {
+				signal = requestSignal;
+				return call.promise;
+			},
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+		pluginPort.postMessage({
+			requestId: "request-1",
+			operationSlug: "greet",
+			type: "operation-request",
+		});
+		await waitFor(() => expect(signal).toBeDefined());
+
+		pluginPort.postMessage({ reason: "disposed", type: "lifecycle-close" });
+		await waitFor(() => expect(signal?.aborted).toBe(true));
+		pluginPort.postMessage({ type: "navigate", mode: "push", location: home });
+		call.resolve({ outcome: "success", value: "late" });
+		await delay(10);
+
+		expect(navigations).toEqual([]);
+		expect(received).toEqual([{ type: "location", location: home }]);
 	});
 
 	it("round-trips a successful operation", async () => {
@@ -306,6 +371,60 @@ describe("plugin bridge", () => {
 			}),
 		);
 		expect(calls).toEqual([{ input: { greeting: "hi" }, operationSlug: "greet" }]);
+	});
+
+	it("maps synchronous operation and query failures to transport results", async () => {
+		const { init, pluginPort, received } = connect({
+			onOperation: () => {
+				throw new Error("operation failed synchronously");
+			},
+			onRyotQL: () => {
+				throw new Error("query failed synchronously");
+			},
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+
+		pluginPort.postMessage({
+			operationSlug: "greet",
+			requestId: "operation-1",
+			type: "operation-request",
+		});
+		pluginPort.postMessage({ document, requestId: "query-1", type: "ryotql-request" });
+
+		await waitFor(() => expect(received).toHaveLength(3));
+		expect(received).toContainEqual({
+			outcome: "failure",
+			reason: "transport",
+			requestId: "operation-1",
+			type: "operation-result",
+		});
+		expect(received).toContainEqual({
+			outcome: "failure",
+			reason: "transport",
+			requestId: "query-1",
+			type: "ryotql-result",
+		});
+	});
+
+	it("fails the session when an operation result cannot be cloned", async () => {
+		const { init, pluginPort, received, failures } = connect({
+			onOperation: () => Promise.resolve({ outcome: "success", value: () => undefined }),
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+
+		pluginPort.postMessage({
+			requestId: "request-1",
+			operationSlug: "greet",
+			type: "operation-request",
+		});
+
+		await waitFor(() => expect(failures).toHaveLength(1));
+		expect(received).toEqual([
+			{ type: "location", location: home },
+			{ reason: "failed", type: "lifecycle-close" },
+		]);
 	});
 
 	it("round-trips an expected operation failure", async () => {
@@ -513,7 +632,10 @@ describe("plugin bridge", () => {
 		call.resolve({ outcome: "success", value: "too-late" });
 		await delay(10);
 
-		expect(received).toHaveLength(1);
+		expect(received).toEqual([
+			{ type: "location", location: home },
+			{ reason: "disposed", type: "lifecycle-close" },
+		]);
 	});
 
 	it("correlates concurrent RyotQL requests completed out of order", async () => {
@@ -605,7 +727,7 @@ describe("plugin bridge", () => {
 		await delay(10);
 
 		expect(calls).toEqual([]);
-		expect(received).toHaveLength(1);
+		expect(received).toEqual([{ type: "location", location: home }]);
 	});
 
 	it("aborts a pending RyotQL request and suppresses its late response", async () => {
@@ -627,7 +749,10 @@ describe("plugin bridge", () => {
 		call.resolve({ outcome: "failure", reason: "transport" });
 		await delay(10);
 
-		expect(received).toHaveLength(1);
+		expect(received).toEqual([
+			{ type: "location", location: home },
+			{ reason: "disposed", type: "lifecycle-close" },
+		]);
 	});
 
 	it("never posts a Ryot credential, identity, or scope value to the plugin across a full session", async () => {

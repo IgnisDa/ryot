@@ -30,6 +30,7 @@ const init: PluginBridgeInit = {
 	compilerVersion: metadata.compilerVersion,
 };
 let channels: MessageChannel[] = [];
+let bootstraps: Array<{ dispose: () => void }> = [];
 
 const Home = () => {
 	const ryot = useRyot();
@@ -42,6 +43,8 @@ const Home = () => {
 	return <p>{result}</p>;
 };
 
+const StaticHome = () => <p>Mounted</p>;
+
 const embedMetadata = () => {
 	const element = document.createElement("script");
 	element.type = "application/json";
@@ -51,11 +54,15 @@ const embedMetadata = () => {
 };
 
 afterEach(() => {
+	for (const bootstrap of bootstraps) {
+		bootstrap.dispose();
+	}
 	for (const channel of channels) {
 		channel.port1.close();
 		channel.port2.close();
 	}
 	channels = [];
+	bootstraps = [];
 	document.head.innerHTML = "";
 	document.body.innerHTML = "";
 });
@@ -63,7 +70,7 @@ afterEach(() => {
 describe("bootstrapClientPlugin", () => {
 	it("does not register a session without valid embedded metadata", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
-		bootstrapClientPlugin(defineClientPlugin({ home: Home }));
+		bootstraps.push(bootstrapClientPlugin(defineClientPlugin({ home: Home })));
 		const channel = new MessageChannel();
 		channels.push(channel);
 		const messages: unknown[] = [];
@@ -79,7 +86,7 @@ describe("bootstrapClientPlugin", () => {
 	it("creates one session client and supplies it through RyotProvider", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		embedMetadata();
-		bootstrapClientPlugin(defineClientPlugin({ home: Home }));
+		bootstraps.push(bootstrapClientPlugin(defineClientPlugin({ home: Home })));
 		const channel = new MessageChannel();
 		channels.push(channel);
 		const messages: unknown[] = [];
@@ -101,5 +108,42 @@ describe("bootstrapClientPlugin", () => {
 			requestId: "operation-1",
 		});
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Hello"));
+	});
+
+	it("removes its window listener when disposed before initialization", async () => {
+		document.body.innerHTML = '<div id="app"></div>';
+		embedMetadata();
+		const bootstrap = bootstrapClientPlugin(defineClientPlugin({ home: Home }));
+		bootstrap.dispose();
+		const channel = new MessageChannel();
+		channels.push(channel);
+		const messages: unknown[] = [];
+		channel.port1.addEventListener("message", ({ data }) => messages.push(data));
+		channel.port1.start();
+
+		window.dispatchEvent(
+			new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
+		);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(messages).toEqual([]);
+	});
+
+	it("unmounts the React root when the host disposes the runtime", async () => {
+		document.body.innerHTML = '<div id="app"></div>';
+		embedMetadata();
+		bootstraps.push(bootstrapClientPlugin(defineClientPlugin({ home: StaticHome })));
+		const channel = new MessageChannel();
+		channels.push(channel);
+		channel.port1.start();
+		window.dispatchEvent(
+			new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
+		);
+		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
+
+		channel.port1.postMessage({ reason: "disposed", type: "lifecycle-close" });
+
+		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe(""));
 	});
 });
