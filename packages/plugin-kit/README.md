@@ -10,7 +10,7 @@ Sandbox slugs use lowercase letters and numbers separated by `.`, `_`, or `-`; `
 
 | Section                | Purpose                                                                                                                        |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `metadata`             | Package `slug`, `name`, `description`, `version`, `icon`, and `accentColor`.                                                   |
+| `metadata`             | Package `slug`, `name`, `description`, `version`, and `icon`.                                                                  |
 | `configSchema`         | Plugin-owned environment configuration available to declared scripts and import sources.                                       |
 | `scripts`              | Sandbox source entries, definition kinds, capabilities, and configuration requirements.                                        |
 | `providers`            | Logical provider identities and their required `details` plus optional `search`, `resolve`, and `translate` operation scripts. |

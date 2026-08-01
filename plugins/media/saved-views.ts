@@ -11,7 +11,6 @@ export type BuiltinSavedView = {
 	readonly slug: string;
 	readonly icon?: string;
 	readonly pluginSlug?: string;
-	readonly accentColor?: string;
 	readonly entitySchemaSlug?: string;
 	readonly queryDocument?: RyotQLDocument;
 	readonly displayConfiguration: DisplayConfiguration;
@@ -100,7 +99,6 @@ export const mediaSavedViews = () => {
 			name: view.name,
 			slug: view.slug,
 			icon: view.icon ?? schema.icon,
-			accentColor: view.accentColor ?? schema.accentColor,
 			queryDocument:
 				view.queryDocument ??
 				buildDefaultMediaSavedViewQueryDocument({
