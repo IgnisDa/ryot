@@ -31,6 +31,7 @@ import { resolveEventCreateItemScopes } from "./event-creation";
 import type { EventPolicyDraft } from "./event-policy-engine";
 import {
 	decodeEventPolicyProperties,
+	isAutomationMetadataObject,
 	PreparedEventPolicy,
 	runEventCreatePolicies,
 } from "./event-policy-engine";
@@ -63,6 +64,12 @@ const CreatedEvent = Schema.Struct({
 });
 
 type CreatedEvent = typeof CreatedEvent.Type;
+
+const runsOncePerSubject = (policy: PreparedItem["policies"][number]) =>
+	isAutomationMetadataObject(policy.metadata) && policy.metadata["batchMode"] === "subject";
+
+const subjectBatchKey = (prepared: PreparedItem, policy: PreparedItem["policies"][number]) =>
+	`${prepared.entityId}:${policy.id}`;
 
 export type EventCreateWorkflowOperationsValue = {
 	dispatchLifecycleOccurrence: LifecycleDispatchValue["dispatch"];
@@ -228,11 +235,20 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(
 		let createdCount = 0;
 		const outcomes: EventCreateItemOutcome[] = [];
 		const operations = yield* EventCreateWorkflowOperations;
+		const completedSubjectPolicies = new Set<string>();
 		let failure: { index: number; reason: EventCreateFailureReason } | null = null;
 
 		for (const [itemIndex, item] of payload.payload.entries()) {
 			const attempt = yield* Effect.gen(function* () {
-				const prepared = yield* prepareItem(payload, itemIndex, item);
+				const initial = yield* prepareItem(payload, itemIndex, item);
+				const prepared = {
+					...initial,
+					policies: initial.policies.filter(
+						(policy) =>
+							!runsOncePerSubject(policy) ||
+							!completedSubjectPolicies.has(subjectBatchKey(initial, policy)),
+					),
+				};
 				const policyResult = yield* runEventCreatePolicies(
 					payload,
 					itemIndex,
@@ -265,6 +281,9 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(
 					reason: attempt.policyResult.reason,
 				});
 				continue;
+			}
+			for (const policy of attempt.prepared.policies.filter(runsOncePerSubject)) {
+				completedSubjectPolicies.add(subjectBatchKey(attempt.prepared, policy));
 			}
 
 			const createdEvent = yield* writeEvent(
