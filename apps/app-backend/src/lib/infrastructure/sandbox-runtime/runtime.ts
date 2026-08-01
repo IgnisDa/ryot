@@ -36,6 +36,12 @@ const SandboxRpcArgs = Schema.Struct({
 const decodeSandboxRpcBody = Schema.decodeUnknownEffect(Schema.fromJsonString(SandboxRpcArgs));
 const encodeSandboxRpcResponse = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 
+const closeSession = (session: ActiveExecutionSession | undefined) => {
+	if (session) {
+		Deferred.doneUnsafe(session.closed, Effect.void);
+	}
+};
+
 const oversizedBridgeRequest = Symbol("oversizedBridgeRequest");
 let totalSandboxExecutions = 0;
 let activeSandboxExecutions = 0;
@@ -321,15 +327,12 @@ export class BridgeService extends Context.Service<BridgeService>()("BridgeServi
 		const runtime = yield* Effect.context();
 		const activeSessions = new Map<string, ActiveExecutionSession>();
 
-		const removeSession = Effect.fn("BridgeService.removeSession")(function* (executionId: string) {
-			yield* Effect.sync(() => {
-				const session = activeSessions.get(executionId);
+		const evictSession = (executionId: string, session: ActiveExecutionSession) => {
+			if (activeSessions.get(executionId) === session) {
 				activeSessions.delete(executionId);
-				if (session) {
-					Deferred.doneUnsafe(session.closed, Effect.void);
-				}
-			});
-		}, Effect.asVoid);
+			}
+			closeSession(session);
+		};
 
 		const addSession = Effect.fn("BridgeService.addSession")(function* (
 			executionId: string,
@@ -337,17 +340,22 @@ export class BridgeService extends Context.Service<BridgeService>()("BridgeServi
 		) {
 			const closed = yield* Deferred.make<void>();
 			const semaphore = yield* Semaphore.make(SANDBOX_LIMITS.bridge.concurrentHostCalls);
-			yield* Effect.sync(() =>
-				activeSessions.set(executionId, {
-					closed,
-					semaphore,
-					token: session.token,
-					expiresAt: session.expiresAt,
-					budget: { http: 0, total: 0 },
-					parentSpan: session.parentSpan,
-					apiFunctions: session.apiFunctions,
-					hostCallLimit: session.hostCallLimit,
+			const active: ActiveExecutionSession = {
+				closed,
+				semaphore,
+				token: session.token,
+				expiresAt: session.expiresAt,
+				budget: { http: 0, total: 0 },
+				parentSpan: session.parentSpan,
+				apiFunctions: session.apiFunctions,
+				hostCallLimit: session.hostCallLimit,
+			};
+			yield* Effect.acquireRelease(
+				Effect.sync(() => {
+					closeSession(activeSessions.get(executionId));
+					activeSessions.set(executionId, active);
 				}),
+				() => Effect.sync(() => evictSession(executionId, active)),
 			);
 		});
 
@@ -372,7 +380,7 @@ export class BridgeService extends Context.Service<BridgeService>()("BridgeServi
 
 				const now = yield* Clock.currentTimeMillis;
 				if (now > activeSession.expiresAt) {
-					yield* removeSession(executionId);
+					yield* Effect.sync(() => evictSession(executionId, activeSession));
 					return Response.json({ error: "Execution expired" }, { status: 410 });
 				}
 
@@ -462,12 +470,15 @@ export class BridgeService extends Context.Service<BridgeService>()("BridgeServi
 		}
 
 		yield* Effect.addFinalizer(() =>
-			Effect.forEach(Array.from(activeSessions.keys()), removeSession, { discard: true }).pipe(
-				Effect.orDie,
-			),
+			Effect.sync(() => {
+				for (const session of activeSessions.values()) {
+					closeSession(session);
+				}
+				activeSessions.clear();
+			}),
 		);
 
-		return { addSession, removeSession, port: address.port };
+		return { addSession, port: address.port };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);
