@@ -1,0 +1,265 @@
+#!/usr/bin/env bun
+
+import { BunRuntime, BunServices } from "@effect/platform-bun";
+import { PluginManifest as PluginManifestSchema } from "@ryot/contract/modules/plugins/manifest";
+import { Data, Effect, FileSystem, Path, Schema, Stream } from "effect";
+import { Command, Flag } from "effect/unstable/cli";
+import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+
+class BuildError extends Data.TaggedError("BuildError")<{
+	readonly message: string;
+}> {}
+
+const PackageJson = Schema.Struct({
+	exports: Schema.optional(
+		Schema.Struct({
+			".": Schema.optional(Schema.Struct({ default: Schema.optional(Schema.String) })),
+		}),
+	),
+});
+
+type BuildOptions = {
+	readonly cwd: string;
+	readonly output: string;
+};
+
+type PluginManifest = Schema.Schema.Type<typeof PluginManifestSchema>;
+
+type SourceFile = {
+	readonly path: string;
+	readonly contents: Uint8Array;
+};
+
+const isWithin = (path: Path.Path, root: string, candidate: string) => {
+	const relative = path.relative(root, candidate);
+	return (
+		relative === "" ||
+		(relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative))
+	);
+};
+
+const loadManifest = Effect.fn("loadManifest")(function* (cwd: string) {
+	const path = yield* Path.Path;
+	const fs = yield* FileSystem.FileSystem;
+	const packageJsonPath = path.join(cwd, "package.json");
+	const packageJsonSource = yield* fs.readFileString(packageJsonPath);
+	const packageJson = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(PackageJson))(
+		packageJsonSource,
+	).pipe(
+		Effect.mapError(
+			(error) => new BuildError({ message: `Invalid package.json: ${String(error)}` }),
+		),
+	);
+	const manifestEntry = packageJson.exports?.["."]?.default;
+	if (manifestEntry === undefined) {
+		return yield* new BuildError({
+			message: 'package.json must define exports["."].default',
+		});
+	}
+
+	const manifestPath = path.resolve(cwd, manifestEntry);
+	const manifestUrl = yield* path.toFileUrl(manifestPath);
+	const manifestModule = yield* Effect.tryPromise({
+		try: () => import(`${manifestUrl.href}?cacheBust=${Date.now()}-${Math.random()}`),
+		catch: (error) =>
+			new BuildError({ message: `Unable to load plugin manifest: ${String(error)}` }),
+	});
+
+	return yield* Schema.decodeUnknownEffect(PluginManifestSchema)(manifestModule.default).pipe(
+		Effect.mapError(
+			(error) => new BuildError({ message: `Invalid plugin manifest: ${String(error)}` }),
+		),
+	);
+});
+
+const collectBackend = Effect.fn("collectBackend")(function* (cwd: string) {
+	const path = yield* Path.Path;
+	const fs = yield* FileSystem.FileSystem;
+	const paths = yield* Stream.fromAsyncIterable(
+		new Bun.Glob("backend/**/*.ts").scan({ cwd, onlyFiles: true }),
+		(error) => new BuildError({ message: `Unable to discover backend sources: ${String(error)}` }),
+	).pipe(
+		Stream.filter((sourcePath) => !sourcePath.endsWith(".test.ts")),
+		Stream.map((sourcePath) => path.normalize(sourcePath)),
+		Stream.runCollect,
+	);
+
+	const sources = yield* Effect.forEach(paths, (sourcePath) =>
+		fs
+			.readFile(path.join(cwd, sourcePath))
+			.pipe(Effect.map((contents) => ({ contents, path: sourcePath }))),
+	);
+	return sources.sort((left, right) => left.path.localeCompare(right.path));
+});
+
+const validateScriptEntries = Effect.fn("validateScriptEntries")(function* (
+	manifest: PluginManifest,
+	sources: ReadonlyArray<SourceFile>,
+	cwd: string,
+) {
+	const path = yield* Path.Path;
+	const sourcePaths = new Set(sources.map(({ path: sourcePath }) => sourcePath));
+	for (const script of manifest.scripts) {
+		const entry = script.entry;
+		const entryPath = path.resolve(cwd, entry);
+		if (!entry.startsWith("backend/") || !isWithin(path, cwd, entryPath)) {
+			return yield* new BuildError({
+				message: `Script entry must stay within backend: ${entry}`,
+			});
+		}
+		const normalizedEntry = path.relative(cwd, entryPath);
+		if (!sourcePaths.has(normalizedEntry)) {
+			return yield* new BuildError({
+				message: `Script entry was not found in backend sources: ${entry}`,
+			});
+		}
+	}
+	return yield* Effect.void;
+});
+
+const replaceOutput = Effect.fn("replaceOutput")(function* (
+	output: string,
+	manifest: PluginManifest,
+	sources: ReadonlyArray<SourceFile>,
+) {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	yield* fs.remove(output, { force: true, recursive: true });
+	yield* fs.makeDirectory(output, { recursive: true });
+	yield* fs.writeFileString(
+		path.join(output, "manifest.json"),
+		`${JSON.stringify(manifest, null, "\t")}\n`,
+	);
+	for (const source of sources) {
+		const destination = path.join(output, source.path);
+		yield* fs.makeDirectory(path.dirname(destination), { recursive: true });
+		yield* fs.writeFile(destination, source.contents);
+	}
+});
+
+const buildPlugin = Effect.fn("buildPlugin")(function* ({ cwd, output }: BuildOptions) {
+	const path = yield* Path.Path;
+	const manifest = yield* loadManifest(cwd);
+	const sources = yield* collectBackend(cwd);
+	yield* validateScriptEntries(manifest, sources, cwd);
+	yield* replaceOutput(path.resolve(cwd, output), manifest, sources);
+});
+
+const isRelevantAuthoringPath = (
+	path: Path.Path,
+	cwd: string,
+	output: string,
+	filePath: string,
+) => {
+	const absolutePath = path.resolve(cwd, filePath);
+	const rootRelativePath = path.relative(cwd, absolutePath);
+	const segments = rootRelativePath.split(path.sep);
+	return (
+		!segments.includes("node_modules") &&
+		!segments.includes("dist") &&
+		!isWithin(path, path.resolve(cwd, output), absolutePath)
+	);
+};
+
+const collectAuthoringInputs = Effect.fn("collectAuthoringInputs")(function* ({
+	cwd,
+	output,
+}: BuildOptions) {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const sourcePaths = yield* Stream.fromAsyncIterable(
+		new Bun.Glob("**/*.ts").scan({ cwd, onlyFiles: true }),
+		(error) =>
+			new BuildError({ message: `Unable to discover authoring sources: ${String(error)}` }),
+	).pipe(
+		Stream.map((filePath) => path.normalize(filePath)),
+		Stream.filter((filePath) => isRelevantAuthoringPath(path, cwd, output, filePath)),
+		Stream.runCollect,
+	);
+	const files = [...new Set([...sourcePaths, "package.json"])].sort();
+	return yield* Effect.forEach(files, (filePath) =>
+		fs
+			.readFileString(path.join(cwd, filePath))
+			.pipe(Effect.map((contents) => ({ contents, path: filePath }))),
+	);
+});
+
+const fingerprintAuthoringInputs = Effect.fn("fingerprintAuthoringInputs")(function* (
+	options: BuildOptions,
+) {
+	const inputs = yield* collectAuthoringInputs(options);
+	return JSON.stringify(inputs);
+});
+
+const runBuildChild = Effect.fn("runBuildChild")(function* (options: BuildOptions) {
+	const path = yield* Path.Path;
+	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+	const scriptPath = yield* path.fromFileUrl(new URL(import.meta.url));
+	return yield* spawner.exitCode(
+		ChildProcess.make(
+			process.execPath,
+			[scriptPath, "plugin", "build", "--output", options.output],
+			{ cwd: options.cwd, stderr: "inherit", stdin: "inherit", stdout: "inherit" },
+		),
+	);
+});
+
+const watchPlugin = Effect.fn("watchPlugin")(function* (options: BuildOptions) {
+	const initialExitCode = yield* runBuildChild(options);
+	if (initialExitCode !== 0) {
+		return yield* new BuildError({
+			message: `Initial build failed with exit code ${initialExitCode}`,
+		});
+	}
+
+	let currentFingerprint = yield* fingerprintAuthoringInputs(options);
+	return yield* Effect.forever(
+		Effect.gen(function* () {
+			yield* Effect.sleep("250 millis");
+			const nextFingerprint = yield* fingerprintAuthoringInputs(options);
+			if (nextFingerprint === currentFingerprint) {
+				return;
+			}
+
+			const rebuild = yield* Effect.result(runBuildChild(options));
+			if (rebuild._tag === "Success" && rebuild.success === 0) {
+				currentFingerprint = nextFingerprint;
+				return;
+			}
+			if (rebuild._tag === "Success") {
+				yield* Effect.logError(`Build failed with exit code ${rebuild.success}`);
+			} else {
+				yield* Effect.logError(`Build failed: ${String(rebuild.failure)}`);
+			}
+			yield* Effect.sleep("2 seconds");
+		}),
+	);
+});
+
+const buildCommand = Command.make(
+	"build",
+	{
+		watch: Flag.boolean("watch").pipe(Flag.withDefault(false)),
+		output: Flag.string("output").pipe(
+			Flag.withSchema(Schema.NonEmptyString),
+			Flag.withDefault("dist/bundle"),
+		),
+	},
+	Effect.fn("buildCommand")(function* ({ output, watch }) {
+		const options = { cwd: process.cwd(), output };
+		if (watch) {
+			return yield* watchPlugin(options);
+		}
+		return yield* buildPlugin(options);
+	}),
+);
+
+const pluginCommand = Command.make("plugin").pipe(Command.withSubcommands([buildCommand]));
+
+const cli = Command.make("ryot").pipe(Command.withSubcommands([pluginCommand]));
+
+const program = Command.run(cli, { version: "0.0.0" });
+
+if (import.meta.main) {
+	BunRuntime.runMain(program.pipe(Effect.provide(BunServices.layer)));
+}
