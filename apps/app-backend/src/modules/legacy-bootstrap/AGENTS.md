@@ -9,3 +9,4 @@
 - Never hardcode `public.` in legacy SQL; use quoted bare table names so PostgreSQL `search_path` selects schema.
 - Inline only controlled values through `quoteSqlString`; never inline user input.
 - Normal e2e does not cover this path. Verify changes by restoring legacy dumps and running `bun run run-migration` as documented in `README.md`.
+- Do not add tests for this module. Instead, follow the [runbook](./README.md#validation-runbook) to validate changes against legacy dumps.
