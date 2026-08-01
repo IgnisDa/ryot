@@ -8,7 +8,7 @@ import {
 	hostSuccess,
 	policyAutomationContext,
 	ryotqlRows,
-} from "./automation-test-utils";
+} from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./episodic-session-policy.sandbox";
 
 const run = (context: AutomationPolicyInput, parents: readonly Record<string, unknown>[] = []) =>

@@ -4,7 +4,11 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { expect, it } from "vitest";
 
-import { execution, hostSuccess, policyAutomationContext } from "./automation-test-utils";
+import {
+	execution,
+	hostSuccess,
+	policyAutomationContext,
+} from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./library-membership-policy.sandbox";
 
 const rows = (queryName: string, entityIds: string[]) => ({
