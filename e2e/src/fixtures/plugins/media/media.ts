@@ -52,14 +52,14 @@ import {
 
 import { findBuiltinSchemaWithProviders } from "./entity-schemas";
 
-export const queryInLibraryRelationship = (
+export const queryInMediaLibraryRelationship = (
 	client: Client,
 	entityId: string,
 	entitySchemaSlug: string,
 ) => {
 	const entity = table("entity", "entity");
 	const membership = table("relationship", "membership");
-	const library = table("entity", "library");
+	const mediaLibrary = table("entity", "mediaLibrary");
 	const existingLibrary = table("entity", "existingLibrary");
 	return executeRyotQL(
 		client,
@@ -80,8 +80,8 @@ export const queryInLibraryRelationship = (
 						],
 						where: and(
 							eq(column(membership, "sourceEntityId"), column(entity, "id")),
-							eq(column(membership, "relationshipSchemaSlug"), literal("in-library")),
-							eq(column(existingLibrary, "entitySchemaSlug"), literal("library")),
+							eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
+							eq(column(existingLibrary, "entitySchemaSlug"), literal("media-library")),
 						),
 					}),
 				),
@@ -93,13 +93,13 @@ export const queryInLibraryRelationship = (
 						joins: [
 							join(
 								"inner",
-								library,
-								eq(column(membership, "targetEntityId"), column(library, "id")),
+								mediaLibrary,
+								eq(column(membership, "targetEntityId"), column(mediaLibrary, "id")),
 							),
 						],
 						where: and(
 							eq(column(membership, "sourceEntityId"), column(entity, "id")),
-							eq(column(membership, "relationshipSchemaSlug"), literal("in-library")),
+							eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
 						),
 						fields: [
 							field("owned", jsonPath(column(membership, "properties"), "owned")),
@@ -791,22 +791,22 @@ export const insertLibraryMembership = (
 	input: { mediaEntityId: string; properties?: Record<string, unknown> },
 ) =>
 	Effect.gen(function* () {
-		const libraryEntityId = yield* getLibraryEntityId(client);
+		const mediaLibraryEntityId = yield* getMediaLibraryEntityId(client);
 
-		const schemas = yield* listRelationshipSchemas(client, { slugs: ["in-library"] });
-		const inLibrarySchema = requireRelationshipSchemaBySlug(schemas, "in-library");
+		const schemas = yield* listRelationshipSchemas(client, { slugs: ["in-media-library"] });
+		const inMediaLibrarySchema = requireRelationshipSchemaBySlug(schemas, "in-media-library");
 
 		yield* createRelationship(client, {
 			properties: input.properties ?? {},
-			relationshipSchemaSlug: inLibrarySchema.id,
-			targetEntityId: EntityId.make(libraryEntityId),
+			relationshipSchemaSlug: inMediaLibrarySchema.id,
 			sourceEntityId: EntityId.make(input.mediaEntityId),
+			targetEntityId: EntityId.make(mediaLibraryEntityId),
 		});
 	});
 
 export const insertMediaMonitoring = (client: Client, entityId: string) =>
 	Effect.gen(function* () {
-		const libraryEntityId = yield* getLibraryEntityId(client);
+		const mediaLibraryEntityId = yield* getMediaLibraryEntityId(client);
 		const schemas = yield* listRelationshipSchemas(client, { slugs: ["media-monitoring"] });
 		const monitoringSchema = requireRelationshipSchemaBySlug(schemas, "media-monitoring");
 
@@ -814,20 +814,20 @@ export const insertMediaMonitoring = (client: Client, entityId: string) =>
 			properties: {},
 			sourceEntityId: EntityId.make(entityId),
 			relationshipSchemaSlug: monitoringSchema.id,
-			targetEntityId: EntityId.make(libraryEntityId),
+			targetEntityId: EntityId.make(mediaLibraryEntityId),
 		});
 	});
 
-const getLibraryEntityId = (client: Client) =>
+const getMediaLibraryEntityId = (client: Client) =>
 	Effect.gen(function* () {
-		const library = table("entity", "library");
+		const mediaLibrary = table("entity", "mediaLibrary");
 		const result = yield* executeRyotQL(
 			client,
 			document({
-				libraries: rows(library, {
+				libraries: rows(mediaLibrary, {
 					limit: 1,
-					fields: [field("id", column(library, "id"))],
-					where: eq(column(library, "entitySchemaSlug"), literal("library")),
+					fields: [field("id", column(mediaLibrary, "id"))],
+					where: eq(column(mediaLibrary, "entitySchemaSlug"), literal("media-library")),
 				}),
 			}),
 		);

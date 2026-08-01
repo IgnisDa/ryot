@@ -79,7 +79,7 @@ describe("episodic activity state", () => {
 		expect(labels).toContain("Reviewed Episode 1: The Arrest");
 		expect(labels).toContain("40% through Ep 3 · Behind the scenes");
 		expect(labels).toContain("Added to the Watchlist collection");
-		expect(labels).toContain("Added to library");
+		expect(labels).toContain("Added to media library");
 	});
 
 	it("names the beats the parent recorded", () => {

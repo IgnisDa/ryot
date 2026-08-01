@@ -36,9 +36,9 @@ it("decodes generic media write intents without admitting plugin-private event f
 				relationships: [
 					{
 						sourceAlias: "media",
-						targetAlias: "library",
 						propertiesMode: "merge",
-						relationshipSchemaSlug: "in-library",
+						targetAlias: "mediaLibrary",
+						relationshipSchemaSlug: "in-media-library",
 						properties: { ownershipSources: ["watcharr"] },
 					},
 				],
@@ -59,9 +59,9 @@ it("decodes generic media write intents without admitting plugin-private event f
 						scope: "user",
 						properties: {},
 						name: "Library",
-						alias: "library",
 						existingOnly: true,
-						entitySchemaSlug: "library",
+						alias: "mediaLibrary",
+						entitySchemaSlug: "media-library",
 					},
 				],
 			},

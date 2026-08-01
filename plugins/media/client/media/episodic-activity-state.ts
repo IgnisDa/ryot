@@ -28,7 +28,7 @@ export type MediaEpisodicParentEvent = MediaActivityEventRow & {
 	readonly kind: "parent";
 	readonly startedOn: string | null;
 	readonly completedOn: string | null;
-	readonly eventSchemaSlug: MediaEpisodicBeat | "complete" | "review" | "add-to-library";
+	readonly eventSchemaSlug: MediaEpisodicBeat | "complete" | "review" | "add-to-media-library";
 };
 
 export type MediaEpisodicEpisodeEvent<Episode> = MediaActivityEventRow & {
@@ -203,7 +203,7 @@ const watchDayRows = <WatchDay extends MediaEpisodicWatchDayRow>(
 };
 
 const parentEventRow = (event: MediaEpisodicParentEvent): MediaEpisodicRow => {
-	if (event.eventSchemaSlug === "add-to-library") {
+	if (event.eventSchemaSlug === "add-to-media-library") {
 		return mediaLibraryRow(event);
 	}
 	if (event.eventSchemaSlug === "complete") {
@@ -289,7 +289,7 @@ export const mediaEpisodicRowLabel = (
 	if (row.type === "collection") {
 		return mediaCollectionRowLabel(row);
 	}
-	if (row.type === "library") {
+	if (row.type === "media-library") {
 		return copy.libraryLabel;
 	}
 	if (row.type === "beat") {

@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { axe } from "vitest-axe";
 
-import { ProviderSearchPanel } from "#/modules/provider-add/panel";
+import { ProviderSearchPanel, resolveLibraryMembership } from "#/modules/provider-add/panel";
 import type { ProviderSearchSummary } from "#/modules/provider-add/service";
 
 const bookSlug = EntitySchemaSlug.make("book");
@@ -24,7 +24,9 @@ const renderPanel = () =>
 			onClose={() => undefined}
 			entitySchemaSlug={bookSlug}
 			onImported={() => undefined}
+			librarySchemaSlug="media-library"
 			onSelectProvider={() => undefined}
+			relationshipSlug="in-media-library"
 			providers={{ providers, status: "ready" }}
 			selectedProviderId={providers[0].providerId}
 			search={() => Promise.reject(new Error("not used"))}
@@ -36,6 +38,17 @@ const renderPanel = () =>
 	);
 
 describe("provider search panel", () => {
+	it("resolves the library membership for media and fitness exercises", () => {
+		expect(resolveLibraryMembership("media", bookSlug)).toEqual({
+			librarySchemaSlug: "media-library",
+			relationshipSlug: "in-media-library",
+		});
+		expect(resolveLibraryMembership("fitness", EntitySchemaSlug.make("exercise"))).toEqual({
+			librarySchemaSlug: "fitness-library",
+			relationshipSlug: "in-fitness-library",
+		});
+	});
+
 	it("exposes the providers as a single-tab-stop radiogroup", async () => {
 		renderPanel();
 

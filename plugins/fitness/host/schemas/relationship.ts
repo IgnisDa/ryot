@@ -1,6 +1,13 @@
 export const fitnessRelationshipSchemas = () =>
 	[
 		{
+			slug: "in-fitness-library",
+			name: "In Fitness Library",
+			propertiesSchema: { fields: {} },
+			sourceEntitySchemaSlug: "exercise",
+			targetEntitySchemaSlug: "fitness-library",
+		},
+		{
 			slug: "workout-repeated-from",
 			name: "Workout Repeated From",
 			propertiesSchema: { fields: {} },

@@ -55,7 +55,7 @@ export type MediaActivityCollectionRow = ActivityAnchor & {
 	readonly change: "added" | "removed";
 };
 
-export type MediaActivityLibraryRow = ActivityAnchor & { readonly type: "library" };
+export type MediaActivityLibraryRow = ActivityAnchor & { readonly type: "media-library" };
 
 export type MediaActivityCompletedWatch<Row extends ActivityAnchor> = {
 	readonly key: string;
@@ -158,7 +158,7 @@ export const mediaCollectionRow = (event: {
 export const mediaLibraryRow = (event: {
 	readonly id: string;
 	readonly occurredAt: string;
-}): MediaActivityLibraryRow => ({ ...anchorOf(event, "library"), type: "library" });
+}): MediaActivityLibraryRow => ({ ...anchorOf(event, "media-library"), type: "media-library" });
 
 const takeTrailingSameInstant = <Row extends ActivityAnchor>(
 	rows: Row[],

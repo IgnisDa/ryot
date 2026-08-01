@@ -24,10 +24,12 @@ export const providerEntityLinksRecipe = defineRecipe(
 		readonly providerId: SandboxProviderId;
 		readonly entitySchemaSlug: EntitySchemaSlug;
 		readonly externalIds: readonly [string, ...string[]];
+		readonly relationshipSlug: string;
+		readonly librarySchemaSlug: string;
 	}) => {
 		const entity = table("entity", "entity");
-		const library = table("entity", "library");
-		const relationship = table("relationship", "inLibrary");
+		const libraryEntity = table("entity", "libraryEntity");
+		const membership = table("relationship", "membership");
 
 		return {
 			map: ({ links }) => Result.succeed(links.items),
@@ -46,18 +48,18 @@ export const providerEntityLinksRecipe = defineRecipe(
 							column(entity, "externalId"),
 							input.externalIds.map((externalId) => literal(externalId)),
 						),
-						exists(relationship, {
+						exists(membership, {
 							joins: [
 								join(
 									"inner",
-									library,
-									eq(column(relationship, "targetEntityId"), column(library, "id")),
+									libraryEntity,
+									eq(column(membership, "targetEntityId"), column(libraryEntity, "id")),
 								),
 							],
 							where: and(
-								eq(column(relationship, "sourceEntityId"), column(entity, "id")),
-								eq(column(relationship, "relationshipSchemaSlug"), literal("in-library")),
-								eq(column(library, "entitySchemaSlug"), literal("library")),
+								eq(column(membership, "sourceEntityId"), column(entity, "id")),
+								eq(column(membership, "relationshipSchemaSlug"), literal(input.relationshipSlug)),
+								eq(column(libraryEntity, "entitySchemaSlug"), literal(input.librarySchemaSlug)),
 							),
 						}),
 					),

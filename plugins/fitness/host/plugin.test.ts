@@ -2,6 +2,7 @@ import { AuthoredPluginManifest } from "@ryot-app/contract/modules/plugins/manif
 import { Schema } from "effect";
 import { assert, expect, it } from "vitest";
 
+import { manifest as userBootstrapManifest } from "../backend/bootstrap/user-bootstrap.sandbox";
 import { manifest as hevyManifest } from "../backend/imports/hevy.sandbox";
 import { manifest as openScaleManifest } from "../backend/imports/open-scale.sandbox";
 import { manifest as strongAppManifest } from "../backend/imports/strong-app.sandbox";
@@ -32,10 +33,16 @@ const expectedImportSources = [
 it("declares the complete fitness-owned source", () => {
 	expect(() => Schema.decodeUnknownSync(AuthoredPluginManifest)(fitnessPlugin)).not.toThrow();
 	expect(fitnessPlugin.entitySchemas.map(({ slug }) => slug)).toEqual([
+		"fitness-library",
 		"exercise",
 		"workout",
 		"workout-template",
 		"measurement",
+	]);
+	expect(fitnessPlugin.relationshipSchemas.map(({ slug }) => slug)).toEqual([
+		"in-fitness-library",
+		"workout-repeated-from",
+		"workout-to-workout-template",
 	]);
 	expect(fitnessPlugin.client).toEqual({
 		apiVersion: 1,
@@ -69,15 +76,23 @@ it("declares the complete fitness-owned source", () => {
 			},
 		},
 	});
-	const exercise = fitnessPlugin.entitySchemas[0];
-	assert(exercise);
+	const exercise = fitnessPlugin.entitySchemas.find(({ slug }) => slug === "exercise");
+	assert(exercise && "mergeIdentityProperties" in exercise);
 	expect(exercise.mergeIdentityProperties).toEqual(["kind"]);
 	expect(fitnessPlugin.configSchema).toMatchObject({ fields: {}, unknownKeys: "strict" });
 	expect(
-		fitnessPlugin.entitySchemas.slice(1).every((schema) => !("mergeIdentityProperties" in schema)),
+		fitnessPlugin.entitySchemas
+			.filter((schema) => schema.slug !== "exercise")
+			.every((schema) => !("mergeIdentityProperties" in schema)),
 	).toBe(true);
 	expect(fitnessPlugin.crons).toEqual([]);
-	expect(fitnessPlugin.userBootstrap).toEqual([]);
+	expect(fitnessPlugin.userBootstrap).toEqual([
+		{
+			slug: "initialize-workspace",
+			scriptSlug: "bootstrap.fitness-workspace",
+			description: "Initialize the user's fitness workspace",
+		},
+	]);
 	expect(fitnessPlugin.providers).toEqual([
 		{
 			name: "Free Exercise DB",
@@ -142,6 +157,11 @@ it("declares the complete fitness-owned source", () => {
 			capabilities: ["artifact-read", "scratch", "getSystemConfig"],
 		},
 	]);
+	expect(userBootstrapManifest).toMatchObject({
+		kind: "script",
+		slug: "bootstrap.fitness-workspace",
+		capabilities: ["ensureUserEntities"],
+	});
 	expect(fitnessPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "fitness")).toBe(true);
 	expect(
 		fitnessPlugin.savedViews.map(({ name, settings }) => ({

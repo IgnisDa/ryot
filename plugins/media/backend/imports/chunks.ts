@@ -71,9 +71,9 @@ export const createMediaImportChunk = (
 			relationships: [
 				{
 					sourceAlias: "media",
-					targetAlias: "library",
 					propertiesMode: "merge",
-					relationshipSchemaSlug: "in-library",
+					targetAlias: "media-library",
+					relationshipSchemaSlug: "in-media-library",
 					properties: group.ownershipProvider
 						? { owned: true, ownershipSyncedAt, ownershipSources: [group.ownershipProvider] }
 						: {},
@@ -90,11 +90,11 @@ export const createMediaImportChunk = (
 				{
 					scope: "user",
 					properties: {},
-					name: "Library",
-					alias: "library",
 					existingOnly: true,
-					entitySchemaSlug: "library",
-					match: { properties: {}, name: "Library" },
+					name: "Media Library",
+					alias: "media-library",
+					entitySchemaSlug: "media-library",
+					match: { properties: {}, name: "Media Library" },
 				},
 			],
 			...(group.collectionMemberships.length > 0

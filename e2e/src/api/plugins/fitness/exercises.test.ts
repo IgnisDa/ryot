@@ -144,6 +144,19 @@ describe("Exercises E2E", () => {
 						right: { type: "literal", value: "exercise" },
 						left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
 					}),
+					expect.objectContaining({
+						type: "exists",
+						query: expect.objectContaining({
+							where: expect.objectContaining({
+								predicates: expect.arrayContaining([
+									expect.objectContaining({
+										right: { type: "literal", value: "in-fitness-library" },
+									}),
+									expect.objectContaining({ right: { type: "literal", value: "fitness-library" } }),
+								]),
+							}),
+						}),
+					}),
 				]),
 			});
 			expect(
@@ -162,7 +175,7 @@ describe("Exercises E2E", () => {
 		}),
 	);
 
-	it.live("lists a user-owned exercise through RyotQL and the built-in saved view", () =>
+	it.live("scopes the built-in All Exercises view to fitness library members", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const exerciseName = `Listed Exercise ${crypto.randomUUID()}`;
@@ -193,11 +206,7 @@ describe("Exercises E2E", () => {
 			const savedViewExercise = savedViewResult.items.find(
 				(item) => requireRyotQLValue(item, "column0") === exerciseName,
 			);
-			assertPresent(savedViewExercise, "Expected the created exercise in the built-in saved view");
-			expect(requireRyotQLValue(savedViewExercise, "image")).toEqual({
-				type: "remote",
-				url: "https://example.com/exercise.jpg",
-			});
+			expect(savedViewExercise).toBeUndefined();
 		}),
 	);
 

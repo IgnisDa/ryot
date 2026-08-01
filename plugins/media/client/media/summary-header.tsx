@@ -134,8 +134,8 @@ function MediaIdentity(props: {
 	);
 }
 
-function MediaLibraryBadge(props: { readonly isInLibrary: boolean }) {
-	if (!props.isInLibrary) {
+function MediaLibraryBadge(props: { readonly isInMediaLibrary: boolean }) {
+	if (!props.isInMediaLibrary) {
 		return <AppIcon size={20} name="circle-check" className="text-text-subtle" />;
 	}
 	return (
@@ -191,8 +191,8 @@ function MediaStatusRail(props: {
 				<MediaRailRow
 					icon="library"
 					compact={compact}
-					title="In library"
-					trailing={<MediaLibraryBadge isInLibrary={media.isInLibrary} />}
+					title="In media library"
+					trailing={<MediaLibraryBadge isInMediaLibrary={media.isInMediaLibrary} />}
 				/>
 				{ownership === undefined ? null : (
 					<MediaRailRow

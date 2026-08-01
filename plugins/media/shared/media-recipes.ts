@@ -55,22 +55,26 @@ import { MediaImageListSchema, MediaImageSchema } from "./media-image";
 import { WatchProviderListSchema } from "./watch-provider";
 
 export const libraryOwnership = (entity: Table) => {
-	const library = table("entity", "ownershipLibrary");
+	const mediaLibrary = table("entity", "ownershipMediaLibrary");
 	const relationship = table("relationship", "ownershipRelationship");
 	return castBoolean(
 		first(relationship, {
 			select: jsonPath(column(relationship, "properties"), "owned"),
-			joins: [
-				join("inner", library, eq(column(relationship, "targetEntityId"), column(library, "id"))),
-			],
 			orderBy: [
 				descending(column(relationship, "createdAt")),
 				ascending(column(relationship, "id")),
 			],
+			joins: [
+				join(
+					"inner",
+					mediaLibrary,
+					eq(column(relationship, "targetEntityId"), column(mediaLibrary, "id")),
+				),
+			],
 			where: and(
-				entitySchema(library, "library"),
+				entitySchema(mediaLibrary, "media-library"),
 				eq(column(relationship, "sourceEntityId"), column(entity, "id")),
-				eq(column(relationship, "relationshipSchemaSlug"), literal("in-library")),
+				eq(column(relationship, "relationshipSchemaSlug"), literal("in-media-library")),
 			),
 		}),
 	);
@@ -118,12 +122,12 @@ export const mediaEntitySummarySelection = (entity: Table, provider: Table) => (
 		propertyJson(entity, "images"),
 		Schema.NullOr(Schema.Array(MediaImageSchema)),
 	),
-	isInLibrary: selectedField(
-		libraryLinkExists(entity, "inLibraryLibrary", "in-library"),
+	isMonitored: selectedField(
+		libraryLinkExists(entity, "monitoringMediaLibrary", "media-monitoring"),
 		Schema.Boolean,
 	),
-	isMonitored: selectedField(
-		libraryLinkExists(entity, "monitoringLibrary", "media-monitoring"),
+	isInMediaLibrary: selectedField(
+		libraryLinkExists(entity, "mediaLibraryLibrary", "in-media-library"),
 		Schema.Boolean,
 	),
 });
@@ -482,7 +486,7 @@ export const mediaFlatConsumptionTotals = (input: {
 };
 
 export const mediaActivityParentSlugs = [
-	"add-to-library",
+	"add-to-media-library",
 	"backlog",
 	"on_hold",
 	"dropped",
@@ -678,7 +682,7 @@ export type MediaReviewActivityResult = {
 	readonly events: readonly MediaReviewActivityEvent[];
 };
 
-/** Reviews, library changes, and collection changes of an entity without media lifecycle events. */
+/** Reviews, media library changes, and collection changes of an entity without media lifecycle events. */
 export const mediaReviewActivityRecipe = (config: {
 	readonly slug: string;
 	readonly alias: string;
@@ -710,7 +714,7 @@ export const mediaReviewActivityRecipe = (config: {
 						limit: input.eventLimit,
 						entityId: input.entityId,
 						alias: `${config.alias}Event`,
-						slugs: ["review", "add-to-library"],
+						slugs: ["review", "add-to-media-library"],
 						selection: mediaReviewActivityEventSelection,
 					}),
 					totals: selectedOptionalRow(entity, {

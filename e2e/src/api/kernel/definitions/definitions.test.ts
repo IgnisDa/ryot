@@ -114,10 +114,10 @@ describe("Definitions E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const schemas = yield* client.call((c) => c.definitions.listRelationships({}));
 			const selected = schemas.filter((schema) =>
-				["in-library", "member-of"].includes(schema.slug),
+				["in-media-library", "member-of"].includes(schema.slug),
 			);
 
-			expect(selected.map((schema) => schema.slug)).toEqual(["in-library", "member-of"]);
+			expect(selected.map((schema) => schema.slug)).toEqual(["in-media-library", "member-of"]);
 			expect(selected[0]?.targetEntitySchemaSlug).not.toBeNull();
 		}),
 	);

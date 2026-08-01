@@ -11,7 +11,7 @@ import {
 } from "~/fixtures/kernel";
 import {
 	createGlobalBookEntityFixture,
-	queryInLibraryRelationship,
+	queryInMediaLibraryRelationship,
 } from "~/fixtures/plugins/media";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -31,7 +31,7 @@ describe("POST /events with global entities", () => {
 					],
 				}),
 			);
-			const membership = yield* queryInLibraryRelationship(client, entity.id, schema.slug);
+			const membership = yield* queryInMediaLibraryRelationship(client, entity.id, schema.slug);
 
 			expect(createResult.count).toBe(1);
 			expect(
@@ -41,7 +41,7 @@ describe("POST /events with global entities", () => {
 			const events = yield* waitForEventCount(client, entity.id, 2);
 			expect(events).toHaveLength(2);
 			expect(events.map(({ eventSchemaSlug }) => eventSchemaSlug)).toEqual([
-				"add-to-library",
+				"add-to-media-library",
 				"backlog",
 			]);
 		}),
@@ -75,7 +75,7 @@ describe("media membership event exclusions", () => {
 			expect(result.count).toBe(1);
 			yield* waitForEventCount(client, entity.id, 1);
 
-			const membership = yield* queryInLibraryRelationship(client, entity.id, schema.slug);
+			const membership = yield* queryInMediaLibraryRelationship(client, entity.id, schema.slug);
 			expect(membership.data.entity?.type === "rows" ? membership.data.entity.items : []).toEqual(
 				[],
 			);
@@ -93,7 +93,7 @@ describe("media membership event exclusions", () => {
 			expect(result.count).toBe(1);
 			yield* waitForEventCount(client, entityId, 1);
 
-			const membership = yield* queryInLibraryRelationship(client, entityId, entitySchemaSlug);
+			const membership = yield* queryInMediaLibraryRelationship(client, entityId, entitySchemaSlug);
 			expect(membership.data.entity?.type === "rows" ? membership.data.entity.items : []).toEqual(
 				[],
 			);

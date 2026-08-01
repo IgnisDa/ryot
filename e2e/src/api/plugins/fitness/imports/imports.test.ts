@@ -12,7 +12,7 @@ import {
 	uploadImportFile,
 } from "~/fixtures/kernel";
 import { runOpenScaleImportFixture, startOpenScaleImport } from "~/fixtures/plugins/fitness";
-import { queryInLibraryRelationship } from "~/fixtures/plugins/media";
+import { queryInMediaLibraryRelationship } from "~/fixtures/plugins/media";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -36,7 +36,7 @@ describe("OpenScale Import E2E", () => {
 			const result = yield* executeRyotQLRecipe(client, measurementListRecipe({ limit: 20 }));
 			expect(result.items).toHaveLength(3);
 			const memberships = yield* Effect.forEach(result.items, (measurement) =>
-				queryInLibraryRelationship(client, measurement.id, schema.slug),
+				queryInMediaLibraryRelationship(client, measurement.id, schema.slug),
 			);
 			expect(
 				memberships.every(

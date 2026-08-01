@@ -166,14 +166,14 @@ defineScript({
 							properties: {},
 							sourceEntityId: "entity-1",
 							targetEntityId: "library-1",
-							relationshipSchemaSlug: "in-library",
+							relationshipSchemaSlug: "in-media-library",
 						},
 					],
 				},
 			]);
 			const changedCount: number | undefined = changed?.created;
 			const [ensuredEntity] = yield* host.ensureUserEntities([
-				{ properties: {}, name: "Library", entitySchemaSlug: "library" },
+				{ properties: {}, name: "Library", entitySchemaSlug: "media-library" },
 			]);
 			const ensuredEntityId: string | undefined = ensuredEntity?.entityId;
 			const ensuredWasInserted: boolean | undefined = ensuredEntity?.wasInserted;

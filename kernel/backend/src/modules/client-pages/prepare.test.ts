@@ -201,7 +201,7 @@ it.effect("keeps kernel-owned schemas without a renderer distinct", () => {
 					Effect.succeed({
 						entityId,
 						entitySchemaPluginId: null,
-						entitySchemaSlug: EntitySchemaSlug.make("library"),
+						entitySchemaSlug: EntitySchemaSlug.make("media-library"),
 					}),
 			}),
 		);
