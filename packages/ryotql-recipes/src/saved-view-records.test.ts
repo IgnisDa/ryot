@@ -32,12 +32,12 @@ const cardConfiguration = {
 	secondaryMetadataField: null,
 } as const;
 const layouts = {
-	grid: { ...cardConfiguration, itemIdField: "entityId", queryDocument },
-	list: { ...cardConfiguration, itemIdField: "entityId", queryDocument },
+	grid: { ...cardConfiguration, entityIdField: "entityId", queryDocument },
+	list: { ...cardConfiguration, entityIdField: "entityId", queryDocument },
 	table: {
 		queryDocument,
 		imageField: null,
-		itemIdField: "entityId",
+		entityIdField: "entityId",
 		columns: [{ label: "Title", field: "title" }],
 	},
 } as const;

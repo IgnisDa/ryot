@@ -14,11 +14,11 @@ const queryDocument = { queries: {} } as const;
 const layouts = {
 	grid: {
 		queryDocument,
-		itemIdField: "gridId",
 		titleField: "gridTitle",
 		imageField: "gridImage",
 		calloutField: "gridCallout",
 		overlineField: "gridOverline",
+		entityIdField: "gridEntityId",
 		primaryMetadataField: "gridPrimary",
 		secondaryMetadataField: "gridSecondary",
 	},
@@ -26,16 +26,16 @@ const layouts = {
 		queryDocument,
 		calloutField: null,
 		overlineField: null,
-		itemIdField: "listId",
 		titleField: "listTitle",
 		imageField: "listImage",
 		primaryMetadataField: null,
 		secondaryMetadataField: null,
+		entityIdField: "listEntityId",
 	},
 	table: {
 		queryDocument,
-		itemIdField: "tableId",
 		imageField: "tableImage",
+		entityIdField: "tableEntityId",
 		columns: [
 			{ field: "tableTitle", label: "Title" },
 			{ field: "tableYear", label: "Year" },
@@ -58,9 +58,9 @@ describe("saved-view display data", () => {
 		const decoded = Result.getOrThrow(
 			decodeSavedViewCardData(
 				response({
-					gridId: { kind: "text", value: "grid-1" },
 					gridCallout: { kind: "number", value: 4.5 },
 					gridSecondary: { kind: "boolean", value: true },
+					gridEntityId: { kind: "text", value: "grid-1" },
 					gridTitle: { kind: "text", value: "Grid title" },
 					gridPrimary: { kind: "date", value: "2026-08-12" },
 					gridOverline: { kind: "text", value: "Grid overline" },
@@ -75,7 +75,7 @@ describe("saved-view display data", () => {
 
 		expect(decoded.items).toEqual([
 			{
-				id: "grid-1",
+				entityId: "grid-1",
 				title: "Grid title",
 				callout: { kind: "number", value: 4.5 },
 				overline: { kind: "text", value: "Grid overline" },
@@ -91,7 +91,7 @@ describe("saved-view display data", () => {
 			response({
 				listImage: { kind: "null", value: null },
 				gridTitle: { kind: "number", value: 123 },
-				listId: { kind: "text", value: "list-1" },
+				listEntityId: { kind: "text", value: "list-1" },
 				listTitle: { kind: "text", value: "List title" },
 			}),
 			layouts.list,
@@ -99,7 +99,7 @@ describe("saved-view display data", () => {
 
 		expect(Result.getOrThrow(decoded).items).toEqual([
 			{
-				id: "list-1",
+				entityId: "list-1",
 				callout: undefined,
 				title: "List title",
 				overline: undefined,
@@ -122,7 +122,7 @@ describe("saved-view display data", () => {
 			decodeSavedViewTableData(
 				response({
 					tableYear: { kind: "null", value: null },
-					tableId: { kind: "text", value: "table-1" },
+					tableEntityId: { kind: "text", value: "table-1" },
 					tableTitle: { kind: "text", value: "Table title" },
 					tableImage: { kind: "json", value: { type: "s3", key: "table.jpg" } },
 				}),
@@ -131,7 +131,7 @@ describe("saved-view display data", () => {
 		);
 
 		expect(decoded.items[0]).toEqual({
-			id: "table-1",
+			entityId: "table-1",
 			image: { type: "asset", locator: { type: "s3", key: "table.jpg" } },
 			cells: [
 				{ key: "tableTitle", label: "Value", value: { kind: "text", value: "Table title" } },
@@ -144,7 +144,7 @@ describe("saved-view display data", () => {
 		const item = Result.getOrThrow(
 			decodeSavedViewCardData(
 				response({
-					listId: { kind: "text", value: "list-1" },
+					listEntityId: { kind: "text", value: "list-1" },
 					listTitle: { kind: "text", value: "List title" },
 					listImage: { kind: "json", value: { type: "local", key: "cover.jpg" } },
 				}),
@@ -173,8 +173,8 @@ describe("saved-view display data", () => {
 			Result.isFailure(
 				decodeSavedViewCardData(
 					response({
-						gridId: { kind: "text", value: "grid-1" },
 						gridTitle: { kind: "boolean", value: true },
+						gridEntityId: { kind: "text", value: "grid-1" },
 					}),
 					{ ...layouts.grid, imageField: null },
 				),

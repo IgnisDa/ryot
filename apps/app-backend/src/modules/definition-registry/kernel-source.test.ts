@@ -17,11 +17,11 @@ it("keeps source zero limited to generic kernel definitions", () => {
 	assert(gridQuery?.output.type === "rows");
 	assert(tableQuery?.output.type === "rows");
 	expect(gridQuery.output.fields).toMatchObject([
-		{ key: "itemId" },
+		{ key: "entityId" },
 		{ key: "title" },
 		{ key: "overline" },
 	]);
-	expect(tableQuery.output.fields).toMatchObject([{ key: "itemId" }, { key: "column0" }]);
+	expect(tableQuery.output.fields).toMatchObject([{ key: "entityId" }, { key: "column0" }]);
 	expect(source.signalSchemas.map(({ slug }) => slug)).toEqual(["integration.disabled"]);
 	expect(kernelScripts.map(({ slug }) => slug)).toEqual(["automation.notification"]);
 });
