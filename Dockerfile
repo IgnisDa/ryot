@@ -25,6 +25,7 @@ RUN bun turbo --filter=@ryot/server build
 
 FROM builder-base AS plugin-builder
 RUN bun turbo --filter=@ryot/fitness-plugin --filter=@ryot/media-plugin build
+RUN bun run --cwd apps/server assemble
 
 FROM builder-base AS client-builder
 # The Expo CLI requires Node: `bun run` only hands a `#!/usr/bin/env node` bin to Node
@@ -71,8 +72,7 @@ COPY --chown=ryot:ryot kernel/backend/src/drizzle ./src/drizzle
 COPY --from=client-builder --chown=ryot:ryot /app/kernel/client/dist ./client
 COPY --from=backend-builder --chown=ryot:ryot /app/apps/server/dist ./dist
 COPY --from=backend-builder --chown=ryot:ryot /app/packages/sandbox-compiler/dist/compiler-worker.js* ./dist/
-COPY --from=plugin-builder --chown=ryot:ryot /app/plugins/fitness/dist/bundle ./plugins/fitness
-COPY --from=plugin-builder --chown=ryot:ryot /app/plugins/media/dist/bundle ./plugins/media
+COPY --from=plugin-builder --chown=ryot:ryot /app/apps/server/plugins ./plugins
 COPY --from=sandbox-compiler-runtime --chown=ryot:ryot /app/node_modules ./node_modules
 COPY --from=sandbox-compiler-runtime --chown=ryot:ryot /app/packages ./packages
 USER ryot

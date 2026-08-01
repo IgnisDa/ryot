@@ -3,15 +3,16 @@ import { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { appConfigDefinition } from "@ryot/kernel-backend/lib/infrastructure/config/definition";
 import { Schema } from "effect";
 
-const manifestPaths = [
-	"../../../plugins/fitness/dist/bundle/manifest.json",
-	"../../../plugins/media/dist/bundle/manifest.json",
-];
+const slugs: ReadonlyArray<string> = await Bun.file(
+	new URL("../../server/shipped-plugins.json", import.meta.url),
+).json();
 
 const manifests = await Promise.all(
-	manifestPaths.map(async (manifestPath) =>
+	slugs.map(async (slug) =>
 		Schema.decodeUnknownSync(PluginManifest)(
-			await Bun.file(new URL(manifestPath, import.meta.url)).json(),
+			await Bun.file(
+				new URL(`../../../plugins/${slug}/dist/bundle/manifest.json`, import.meta.url),
+			).json(),
 		),
 	),
 );
