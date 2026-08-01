@@ -6,7 +6,7 @@ import { and, column, document, eq, field, join, literal, rows, table } from "@r
 import { Effect } from "effect";
 import getPort from "get-port";
 
-import type { Client } from "~/fixtures";
+import type { Client } from "~/fixtures/kernel";
 import {
 	adminHeaders,
 	createAuthenticatedClient,
@@ -23,7 +23,7 @@ import {
 	requireRyotQLText,
 	testPluginManifest,
 	testPluginSavedView,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 import {

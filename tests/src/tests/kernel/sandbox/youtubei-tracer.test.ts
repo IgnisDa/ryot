@@ -10,7 +10,7 @@ import {
 	requireCompletedSandboxValue,
 	sampleOperationalPressure,
 	uninstallTestPlugin,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { requireArray, requireNumber } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";

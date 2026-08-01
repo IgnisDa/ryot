@@ -22,6 +22,26 @@ import {
 } from "@ryot/ryotql";
 import { DateTime, Effect } from "effect";
 
+import { adminHeaders } from "~/fixtures/kernel/admin";
+import type { Client } from "~/fixtures/kernel/auth";
+import { getBackendClient } from "~/fixtures/kernel/contract-client";
+import {
+	findBuiltinSchemaBySlug,
+	getBuiltinEntitySchemaSlug,
+	makeEntitySchemaSlug,
+} from "~/fixtures/kernel/entity-schemas";
+import { pollUntil } from "~/fixtures/kernel/polling";
+import {
+	listRelationshipSchemas,
+	requireRelationshipSchemaBySlug,
+} from "~/fixtures/kernel/relationship-schemas";
+import { createRelationship } from "~/fixtures/kernel/relationships";
+import {
+	executeRyotQL,
+	requireRows,
+	requireRyotQLText,
+	requireRyotQLValue,
+} from "~/fixtures/kernel/ryotql";
 import {
 	assertPresent,
 	requireObjectRecord,
@@ -29,35 +49,7 @@ import {
 	requireString,
 } from "~/support/assertions";
 
-import { adminHeaders } from "./admin";
-import type { Client } from "./auth";
-import { getBackendClient } from "./contract-client";
-import {
-	findBuiltinSchemaBySlug,
-	findBuiltinSchemaWithProviders,
-	getBuiltinEntitySchemaSlug,
-	makeEntitySchemaSlug,
-} from "./entity-schemas";
-import { pollUntil } from "./polling";
-import { listRelationshipSchemas, requireRelationshipSchemaBySlug } from "./relationship-schemas";
-import { createRelationship } from "./relationships";
-import { executeRyotQL, requireRows, requireRyotQLText, requireRyotQLValue } from "./ryotql";
-
-export const insertRelationshipRow = (
-	client: Client,
-	input: {
-		sourceEntityId: string;
-		targetEntityId: string;
-		relationshipSchemaSlug: string;
-		properties?: Record<string, unknown>;
-	},
-) =>
-	createRelationship(client, {
-		properties: input.properties,
-		sourceEntityId: EntityId.make(input.sourceEntityId),
-		targetEntityId: EntityId.make(input.targetEntityId),
-		relationshipSchemaSlug: RelationshipSchemaSlug.make(input.relationshipSchemaSlug),
-	});
+import { findBuiltinSchemaWithProviders } from "./entity-schemas";
 
 export const queryInLibraryRelationship = (
 	client: Client,

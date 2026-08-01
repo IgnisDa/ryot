@@ -9,7 +9,7 @@ import {
 	executeRyotQLRecipe,
 	updatePluginState,
 	updateSavedView,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("RyotQL navigation", () => {

@@ -8,10 +8,10 @@ import {
 	listEventsForEntity,
 	pollImportRunUntilTerminal,
 	postIntegrationWebhookAndWait,
-	seedGlobalShowEpisodeTree,
 	waitForEventSlugs,
 	waitForEventWithSchema,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import { seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";
 import { requireObjectRecord, requirePresent, requireString } from "~/support/assertions";
 import { getBackendUrl } from "~/support/backend";
 import { describe, expect, it } from "~/support/effect-test";

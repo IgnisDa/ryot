@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 
-import type { Client } from "~/fixtures";
+import type { Client } from "~/fixtures/kernel";
 import {
 	createAuthenticatedClient,
 	createIntegration,
@@ -10,7 +10,7 @@ import {
 	listIntegrations,
 	releasePrivatePlugin,
 	updatePluginState,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

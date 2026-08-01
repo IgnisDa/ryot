@@ -15,7 +15,7 @@ import {
 	reorderSavedViews,
 	type Client,
 	updateSavedView,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { Effect } from "effect";
 import getPort from "get-port";
 
-import { createAuthenticatedClient, pollUntil } from "~/fixtures";
+import { createAuthenticatedClient, pollUntil } from "~/fixtures/kernel";
 import {
 	requireArray,
 	requireObjectRecord,

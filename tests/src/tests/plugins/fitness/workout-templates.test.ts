@@ -11,18 +11,20 @@ import {
 	createAuthenticatedClient,
 	createEntity,
 	createCollection,
-	createWorkoutTemplateEntityFixture,
 	executeRyotQLRecipe,
-	findBuiltinRelationshipSchemaSlug,
 	findBuiltinSchemaBySlug,
 	findBuiltinPluginBySlug,
 	getEntity,
 	insertRelationshipRow,
 	listEntitySchemas,
 	listSavedViews,
-	waitForSeededExerciseIds,
 	requireRyotQLValue,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import {
+	createWorkoutTemplateEntityFixture,
+	findBuiltinRelationshipSchemaSlug,
+	waitForSeededExerciseIds,
+} from "~/fixtures/plugins/fitness";
 import { assertCondition, assertPresent, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

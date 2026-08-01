@@ -9,7 +9,7 @@ import {
 	createTestUser,
 	getBackendClient,
 	signInWithPassword,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

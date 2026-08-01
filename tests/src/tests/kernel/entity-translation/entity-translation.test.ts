@@ -16,12 +16,11 @@ import {
 	requireCompletedSandboxValue,
 	installTestProvider,
 	seedEntityTranslation,
-	seedMediaEntity,
-	seedPopulatedProviderEntity,
 	setUserLanguage,
 	type Client,
-} from "~/fixtures";
-import type { InstalledTestProvider } from "~/fixtures/sandbox-provider";
+} from "~/fixtures/kernel";
+import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
+import { seedMediaEntity, seedPopulatedProviderEntity } from "~/fixtures/plugins/media";
 import { assertPresent, requireObjectRecord } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 

@@ -25,10 +25,10 @@ import { createAuthClient } from "better-auth/client";
 
 import { requirePresent } from "~/support/assertions";
 
-import { adminAccessTokenHeaders } from "./fixtures/admin";
-import { cookieHeaderFromSetCookies } from "./fixtures/auth";
-import { enableTwoFactorForSession } from "./fixtures/auth-2fa";
-import { testPluginManifest } from "./fixtures/test-plugin";
+import { adminAccessTokenHeaders } from "./fixtures/kernel/admin";
+import { cookieHeaderFromSetCookies } from "./fixtures/kernel/auth";
+import { enableTwoFactorForSession } from "./fixtures/kernel/auth-2fa";
+import { testPluginManifest } from "./fixtures/kernel/test-plugin";
 
 type EntitySchemaInputSlug = ContractPayload<"entities", "create">["entitySchemaSlug"];
 

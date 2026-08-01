@@ -24,7 +24,7 @@ import {
 	createRelationshipSchema,
 	executeRyotQL,
 	executeRyotQLError,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";
 
 const requireTimeSeries = (result: RyotQLResult | undefined, key: string): TimeSeriesResult => {

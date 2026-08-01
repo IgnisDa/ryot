@@ -9,9 +9,9 @@ import {
 	findBuiltinSchemaBySlug,
 	getEntity,
 	openInterestWebSocketScoped,
-	seedMediaEntity,
 	type Client,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import { seedMediaEntity } from "~/fixtures/plugins/media";
 import { assertPresent } from "~/support/assertions";
 import { getBackendUrl } from "~/support/backend";
 import { describe, expect, it } from "~/support/effect-test";

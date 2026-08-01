@@ -2,7 +2,6 @@ import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
-	createBuiltinMediaLifecycleFixture,
 	createEntity,
 	createNotificationChannel,
 	deleteNotificationRule,
@@ -17,7 +16,8 @@ import {
 	postBackendJson,
 	setNotificationRuleActive,
 	startFakeAppriseServer,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import { createBuiltinMediaLifecycleFixture } from "~/fixtures/plugins/media";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 import type { FakeHttpServer } from "~/support/fake-http-server";

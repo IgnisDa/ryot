@@ -10,8 +10,8 @@ import {
 	getMediaPopulationGateResult,
 	installTestProvider,
 	sampleOperationalPressure,
-	startMediaPopulationGate,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import { startMediaPopulationGate } from "~/fixtures/plugins/media";
 import { describe, expect, it } from "~/support/effect-test";
 
 const ITEM_COUNT = 1_001;

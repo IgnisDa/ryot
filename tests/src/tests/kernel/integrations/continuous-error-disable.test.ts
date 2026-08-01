@@ -8,7 +8,7 @@ import {
 	pollUntil,
 	postIntegrationWebhookAndWait,
 	startFakeAppriseServer,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 import type { FakeHttpServer } from "~/support/fake-http-server";
 

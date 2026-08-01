@@ -12,7 +12,7 @@ import {
 	sampleOperationalPressure,
 	uninstallTestPlugin,
 	waitForEventCount,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { requireArray, requireObjectRecord, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";

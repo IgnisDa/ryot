@@ -4,20 +4,22 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	createEntity,
-	createWorkoutEntityFixture,
 	executeRyotQLRecipe,
-	findBuiltinRelationshipSchemaSlug,
 	findBuiltinSchemaBySlug,
 	findBuiltinPluginBySlug,
-	findWorkoutSetEventSchema,
 	getEntity,
 	insertRelationshipRow,
 	listEntitySchemas,
 	listSavedViews,
 	waitForEventCount,
+} from "~/fixtures/kernel";
+import {
+	createWorkoutEntityFixture,
+	findBuiltinRelationshipSchemaSlug,
+	findWorkoutSetEventSchema,
 	waitForSeededExerciseId,
 	waitForSessionEventCount,
-} from "~/fixtures";
+} from "~/fixtures/plugins/fitness";
 import { assertCondition, assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

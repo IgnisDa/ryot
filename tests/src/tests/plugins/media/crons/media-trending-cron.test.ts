@@ -14,11 +14,11 @@ import {
 	installTestPluginBundle,
 	listRelationshipSchemas,
 	requireRelationshipSchemaBySlug,
-	trendingSandboxSource,
 	providerSandboxSource,
 	type InstalledTestPlugin,
 	uninstallTestPlugin,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import { trendingSandboxSource } from "~/fixtures/plugins/media";
 import { assertPresent, assertTaggedError, requireObjectRecord } from "~/support/assertions";
 import { afterAll, assert, beforeAll, describe, expect, it } from "~/support/effect-test";
 

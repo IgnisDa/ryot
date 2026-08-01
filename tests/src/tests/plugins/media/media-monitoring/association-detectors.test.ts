@@ -5,7 +5,6 @@ import {
 	adminHeaders,
 	createAuthenticatedClient,
 	createNotificationChannel,
-	enableMediaMonitoring,
 	enqueueProviderEntityImport,
 	fakeProviderDetailsResult,
 	getBackendClient,
@@ -14,12 +13,15 @@ import {
 	providerSandboxSource,
 	replaceSandboxScriptCompiledRepresentation,
 	installTestProvider,
-	seedMediaEntity,
 	startFakeAppriseServer,
-	triggerCronAndWaitForEntity,
 	pollUntil,
-} from "~/fixtures";
-import type { InstalledTestProvider } from "~/fixtures/sandbox-provider";
+} from "~/fixtures/kernel";
+import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
+import {
+	enableMediaMonitoring,
+	seedMediaEntity,
+	triggerCronAndWaitForEntity,
+} from "~/fixtures/plugins/media";
 import { assertCompleted, requireObjectRecord } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 import type { FakeHttpServer } from "~/support/fake-http-server";

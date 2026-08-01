@@ -22,7 +22,7 @@ import {
 	executeRyotQLError,
 	requireRows,
 	requireRyotQLValue,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";
 
 const rowNames = (result: RowsResult) =>

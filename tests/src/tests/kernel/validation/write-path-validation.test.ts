@@ -8,7 +8,7 @@ import {
 	createPluginSchema,
 	createPluginSchemaAndEntity,
 	waitForEventCount,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { assertTaggedError } from "~/support/assertions";
 import { getBackendUrl } from "~/support/backend";
 import { describe, expect, it } from "~/support/effect-test";

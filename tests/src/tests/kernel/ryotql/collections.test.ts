@@ -6,7 +6,7 @@ import {
 	createCollection,
 	executeRyotQLRecipe,
 	postBackendJson,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("RyotQL collections tracer", () => {

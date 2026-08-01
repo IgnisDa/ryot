@@ -5,12 +5,10 @@ import {
 	type Client,
 	createEntity,
 	createAuthenticatedClient,
-	createWorkoutEntityFixture,
 	executeRyotQLRecipe,
 	executeRyotQL,
 	findBuiltinPluginBySlug,
 	findBuiltinSchemaBySlug,
-	findWorkoutSetEventSchema,
 	getSavedView,
 	listEntitySchemas,
 	listEventsForEntity,
@@ -19,7 +17,8 @@ import {
 	pollUntil,
 	requireRyotQLValue,
 	requireRows,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import { createWorkoutEntityFixture, findWorkoutSetEventSchema } from "~/fixtures/plugins/fitness";
 import { assertCondition, assertPresent, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

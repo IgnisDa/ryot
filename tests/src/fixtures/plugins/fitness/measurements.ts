@@ -1,8 +1,8 @@
 import { Effect } from "effect";
 
-import type { Client } from "./auth";
-import { createEntity } from "./entities";
-import { findBuiltinSchemaBySlug } from "./entity-schemas";
+import type { Client } from "~/fixtures/kernel/auth";
+import { createEntity } from "~/fixtures/kernel/entities";
+import { findBuiltinSchemaBySlug } from "~/fixtures/kernel/entity-schemas";
 
 export const createMeasurementEntityFixture = (client: Client) =>
 	Effect.gen(function* () {

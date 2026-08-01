@@ -2,12 +2,12 @@ import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
-	createBuiltinMediaLifecycleFixture,
 	createEventTestFixture,
 	createRuleEventFixture,
 	listEventsForEntity,
 	waitForEventCount,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import { createBuiltinMediaLifecycleFixture } from "~/fixtures/plugins/media";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("Events bulk POST", () => {

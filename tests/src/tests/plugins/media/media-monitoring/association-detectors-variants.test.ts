@@ -4,16 +4,15 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	createNotificationChannel,
-	enableMediaMonitoring,
 	enqueueProviderEntityImport,
 	fakeProviderDetailsResult,
 	getBuiltinEntitySchemaSlug,
 	pollProviderEntityImportResult,
 	installTestProvider,
-	seedMediaEntity,
 	startFakeAppriseServer,
 	pollUntil,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import { enableMediaMonitoring, seedMediaEntity } from "~/fixtures/plugins/media";
 import { assertCompleted, requireObjectRecord } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 import type { FakeHttpServer } from "~/support/fake-http-server";

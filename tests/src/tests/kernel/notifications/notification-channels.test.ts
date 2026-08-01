@@ -33,7 +33,7 @@ import {
 	startFakeAppriseServer,
 	testNotificationChannels,
 	updateNotificationChannel,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { assertTaggedError, requireObjectRecord, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 import type { FakeHttpServer } from "~/support/fake-http-server";
