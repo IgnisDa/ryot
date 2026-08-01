@@ -299,3 +299,13 @@ Switch to Fitness
 The central rule is:
 
 > Menu for root destinations. Back for child destinations. Workspace switching resets context. Saved-view state survives detail navigation.
+
+---
+
+Please note that this is a greenfield project so breaking changes are fine. Moving
+files around is fine. Please also find attached screenshots for the task. Some notes:
+
+- The search mode displays history. This is not needed.
+- Some screenshots display a bottom bar. This is not needed.
+- The media and fitness home show an outdated add button. This is not needed.
+- The entity details page shows three dots and a menu that opens on clicking them. These menu items themselves do not need to be functional.
