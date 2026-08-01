@@ -2,11 +2,18 @@ import { CurrentUser } from "@ryot/contract/auth-middleware";
 import { AppContract } from "@ryot/contract/contract";
 import { dieOnDbError } from "@ryot/contract/errors";
 import { Effect } from "effect";
-import { HttpServerRequest } from "effect/unstable/http";
+import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 
 import { PluginInstallationService } from "./installation-service";
 import { OperationsService } from "./operations-service";
+
+export const PluginArtifactsRoutesLive = HttpApiBuilder.group(
+	AppContract,
+	"pluginArtifacts",
+	(handlers) =>
+		handlers.handleRaw("artifact", () => Effect.succeed(HttpServerResponse.empty({ status: 404 }))),
+);
 
 export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (handlers) =>
 	handlers
