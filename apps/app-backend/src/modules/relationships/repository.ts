@@ -45,6 +45,7 @@ type RestoreRelationshipInput = Pick<
 	| "properties"
 	| "sourceEntityId"
 	| "targetEntityId"
+	| "relationshipSchemaPluginId"
 	| "relationshipSchemaSlug"
 >;
 
@@ -181,7 +182,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				const db = yield* Database;
 				return yield* mapDatabaseErrors(
 					db
-						.select(relationshipSnapshotSelection)
+						.select(relationshipSnapshotWithProvenanceSelection)
 						.from(schema.relationship)
 						.where(eq(schema.relationship.userId, userId))
 						.orderBy(asc(schema.relationship.id)),

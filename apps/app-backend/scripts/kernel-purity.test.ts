@@ -145,12 +145,12 @@ describe("kernel purity", () => {
 					{
 						term: "library",
 						kind: "permanent",
-						category: "v1-backup",
+						category: "v2-backup-bootstrap",
 						reason: "Wrong V1 compatibility scope",
 						path: "apps/app-backend/src/example.ts",
 					},
 				],
 			).errors,
-		).toEqual(["Allowlist entry 1 exceeds the v1-backup permanent scope"]);
+		).toEqual(["Allowlist entry 1 exceeds the v2-backup-bootstrap permanent scope"]);
 	});
 });

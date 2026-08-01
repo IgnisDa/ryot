@@ -8,14 +8,14 @@ import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
-import { createV1ArchiveStream, V1_ARCHIVE_LIMITS } from "../archive-v1/archive";
+import { createV2ArchiveStream, V2_ARCHIVE_LIMITS } from "../archive-v2/archive";
 import { BackupsRepository } from "../runs/repository";
 import { BackupExportSnapshot } from "./snapshot";
 
-const BACKUP_APP_VERSION = "backend-v1";
+const BACKUP_APP_VERSION = "backend-v2";
 const EXPORT_EXPIRY_MILLIS = 24 * 60 * 60 * 1_000;
 const dateFromMillis = (milliseconds: number) => new Date(milliseconds);
-const MAX_ARCHIVE_BYTES = V1_ARCHIVE_LIMITS.maxTotalUncompressedBytes + 64 * 1024 * 1024;
+const MAX_ARCHIVE_BYTES = V2_ARCHIVE_LIMITS.maxTotalUncompressedBytes + 64 * 1024 * 1024;
 
 const ExportBackupWorkflowPayload = Schema.Struct({
 	userId: UserId,
@@ -158,7 +158,7 @@ export const ExportBackupWorkflowOperationsLive = Layer.effect(
 					const provider = yield* uploads.selectStorageProvider("temporary");
 					const key = `temporary/${payload.runId}.zip`;
 					const locator = { type: provider, key } as const;
-					const archive = createV1ArchiveStream({
+					const archive = createV2ArchiveStream({
 						assets,
 						archiveId: payload.runId,
 						createdAt: run.createdAt,
