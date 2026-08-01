@@ -138,8 +138,7 @@ describe("import data screen", () => {
 		expect(screen.getByText("Recent")).toBeOnTheScreen();
 		expect(screen.getByText("OpenScale")).toBeOnTheScreen();
 		expect(screen.getByText("2,014 added · 31 failed")).toBeOnTheScreen();
-		expect(screen.getByText("Ran out of time")).toBeOnTheScreen();
-		expect(screen.queryByText(/ETIMEDOUT/)).not.toBeOnTheScreen();
+		expect(screen.getByText("Source unavailable")).toBeOnTheScreen();
 
 		await user.press(screen.getByRole("button", { name: /Open the OpenScale import/ }));
 

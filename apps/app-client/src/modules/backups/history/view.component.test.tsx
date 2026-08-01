@@ -50,7 +50,7 @@ const failedRun = backupRun({
 	expiresAt: null,
 	status: "failed",
 	id: "backup-run-failed",
-	error: "archive checksum mismatch",
+	failure: { code: "archive-invalid", issue: "checksum-mismatch" },
 });
 
 const readyState = (runs = [downloadableRun]) =>
@@ -214,7 +214,7 @@ describe("backups screen", () => {
 		expect(screen.getByText("Ready to download")).toBeOnTheScreen();
 	});
 
-	it("says what a failed backup left behind instead of showing the server error", async () => {
+	it("explains a structured failed backup without server diagnostics", async () => {
 		await renderView(readyState([failedRun]));
 
 		expect(screen.getByText("Archive damaged")).toBeOnTheScreen();

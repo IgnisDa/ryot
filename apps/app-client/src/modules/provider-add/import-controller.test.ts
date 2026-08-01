@@ -51,7 +51,9 @@ it.effect("surfaces a failed run result without waiting further", () =>
 	Effect.gen(function* () {
 		const entry = yield* importProviderEntity({
 			start: Effect.succeed({ jobId: "job-1" }),
-			poll: scripted([{ status: "failed", error: "provider exploded" }]),
+			poll: scripted([
+				{ status: "failed", reason: { code: "import-failed", stage: "population" } },
+			]),
 		});
 
 		expect(entry).toEqual({ status: "failed", message: PROVIDER_IMPORT_FAILED_MESSAGE });

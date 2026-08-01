@@ -20,7 +20,10 @@ route or screen
 - Entity-interest streaming uses Expo Fetch through the same authenticated request policy.
 - Query retries and focus/reconnect revalidation are centralized in the shared query boundary.
 
-Feature modules own their request documents, atoms, decoders, and typed application states. Presentation code consumes states such as `loading`, `ready`, `not-found`, or `malformed`; it does not inspect generic contract rows or Effect causes.
+Feature modules own their request documents, atoms, decoders, typed application states, and mapping
+from transport categories and module-owned reasons. Presentation code consumes states such as
+`loading`, `ready`, `not-found`, or `malformed`; it does not inspect generic contract rows or Effect
+causes.
 
 States produced through `classifyRyotQLResult` derive their shared loading and failure variants with `MappedRyotQLResultState`. Feature state types add only their domain-specific ready, empty, or unavailable variants instead of copying the transport state shape.
 
@@ -67,9 +70,14 @@ Mobile headers are driven by route role: workspace homes and saved views use the
 
 ## Errors
 
-Feature state maps transport and decoder failures to stable user-facing copy. Internal causes may be logged for diagnosis, but must not be rendered or serialized into the UI.
+Feature state maps the typed transport category and module-owned reason to stable, client-owned
+copy. Internal causes and raw compiler/runtime diagnostics are not rendered or serialized into
+normal application UI.
 
-`src/api/request-failure.ts` owns that mapping. `requestFailureCopy` turns a classified failure into a title and detail, distinguishing an unreachable server from an answer this app version cannot display; pass a noun-phrase `subject` naming what failed to load. `badRequestMessage` extracts a `BadRequest` message from a cause, and `resolveRequestFailure` maps that message onto the wizard step that can fix it so a submission failure returns the user to the field at fault rather than a dead end.
+`src/api/request-failure.ts` owns that mapping. Decode the contract failure, use exhaustive Effect
+`Match` over its transport category and module-owned reason, and use the structured parameters for
+the title, detail, and recovery action. Reason codes are stable wire identifiers, not display text;
+feature code must not extract or interpret backend messages.
 
 ## Plugin Catalog Flows
 
