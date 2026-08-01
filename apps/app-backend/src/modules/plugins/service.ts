@@ -292,7 +292,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 										reason: { code: "workflow-referenced", pluginSlug },
 									});
 								}
-								if (yield* repository.hasIntegrationReferences(slug)) {
+								if (yield* repository.hasIntegrationReferences({ pluginSlug: slug })) {
 									return yield* new PluginConflictError({
 										reason: { code: "integration-referenced", pluginSlug },
 									});

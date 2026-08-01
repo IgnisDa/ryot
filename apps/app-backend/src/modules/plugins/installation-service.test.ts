@@ -73,6 +73,7 @@ const installationRow = (
 });
 
 const makeLayer = (input?: {
+	readonly removed?: Array<string>;
 	readonly deactivated?: Array<string>;
 	readonly hasEntityReferences?: boolean;
 	readonly hasWorkflowReferences?: boolean;
@@ -82,6 +83,10 @@ const makeLayer = (input?: {
 	readonly updated?: Array<Record<string, unknown>>;
 	readonly systemPlugins?: Array<PluginRegistryEntry>;
 	readonly installations?: Array<PluginInstallationState>;
+	readonly persisted?: Array<{
+		plugin: StoredPlugin["manifest"];
+		identity: Record<string, unknown>;
+	}>;
 }) => {
 	const registry = makeDefinitionRegistry();
 	const registryLayer = Layer.succeed(DefinitionRegistry, registry);
@@ -89,7 +94,13 @@ const makeLayer = (input?: {
 	const repositoryLayer = Layer.mock(PluginRepository)({
 		lockIngestion: () => Effect.void,
 		listPrivateForUser: () => Effect.succeed(input?.privatePlugins ?? []),
-		persist: (_plugin, identity) => Effect.succeed(`${identity.slug}-plugin-id`),
+		persist: (plugin, identity) =>
+			Effect.sync(() => {
+				input?.persisted?.push({ plugin: plugin.manifest, identity });
+				return `${identity.slug}-plugin-id`;
+			}),
+		findPrivateByIdForUser: (pluginId) =>
+			Effect.succeed((input?.privatePlugins ?? []).find(({ id }) => id === pluginId) ?? null),
 		hasEntityReferences: () => Effect.succeed(input?.hasEntityReferences ?? false),
 		hasIntegrationReferences: () => Effect.succeed(input?.hasIntegrationReferences ?? false),
 		deactivate: (pluginId) => Effect.sync(() => void input?.deactivated?.push(pluginId)),
@@ -111,9 +122,10 @@ const makeLayer = (input?: {
 				const current = (input?.installations ?? []).find((row) => row.id === values.id);
 				return current ? { ...current, ...values } : undefined;
 			}),
+		remove: (id) => Effect.sync(() => input?.removed?.push(id)),
 	});
 	const workflowReferenceLayer = Layer.mock(SandboxWorkflowReferenceRepository)({
-		hasReferences: () => Effect.succeed(input?.hasWorkflowReferences ?? false),
+		hasInstallationReferences: () => Effect.succeed(input?.hasWorkflowReferences ?? false),
 	});
 	const serviceLayer = PluginInstallationService.layer.pipe(
 		Layer.provide(
@@ -568,19 +580,32 @@ it.effect("hides private plugins owned by another user", () =>
 );
 
 it.effect("uninstalls a private plugin the caller owns", () => {
+	const removedIds: Array<string> = [];
 	const deactivated: Array<string> = [];
 	const privatePlugin = storedPrivatePlugin(privateManifest());
+	const installations = [installationRow({ pluginId: privatePlugin.id })];
 	return Effect.gen(function* () {
 		const service = yield* PluginInstallationService;
 		const removed = yield* service.uninstallPlugin(userId, privatePlugin.slug);
 		expect(removed.slug).toBe(privatePlugin.slug);
 		expect(deactivated).toEqual([privatePlugin.id]);
-	}).pipe(Effect.provide(makeLayer({ deactivated, privatePlugins: [privatePlugin] })));
+		expect(removedIds).toEqual([installations[0]?.id]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				deactivated,
+				installations,
+				removed: removedIds,
+				privatePlugins: [privatePlugin],
+			}),
+		),
+	);
 });
 
 it.effect("keeps a referenced private plugin installed", () => {
 	const deactivated: Array<string> = [];
 	const privatePlugin = storedPrivatePlugin(privateManifest());
+	const installations = [installationRow({ pluginId: privatePlugin.id })];
 	return Effect.gen(function* () {
 		const service = yield* PluginInstallationService;
 		const failure = failureOf(
@@ -591,7 +616,12 @@ it.effect("keeps a referenced private plugin installed", () => {
 		expect(deactivated).toEqual([]);
 	}).pipe(
 		Effect.provide(
-			makeLayer({ deactivated, hasWorkflowReferences: true, privatePlugins: [privatePlugin] }),
+			makeLayer({
+				deactivated,
+				installations,
+				hasWorkflowReferences: true,
+				privatePlugins: [privatePlugin],
+			}),
 		),
 	);
 });
@@ -626,6 +656,155 @@ export default defineOperation({
 	run: () => Effect.succeed(null),
 });
 `;
+
+it.effect("updates source while retaining plugin, installation, and omitted secret config", () => {
+	const persisted: Array<{
+		plugin: StoredPlugin["manifest"];
+		identity: Record<string, unknown>;
+	}> = [];
+	const updated: Array<Record<string, unknown>> = [];
+	const manifest = configuredManifest;
+	const nextManifest: PluginManifest = {
+		...manifest,
+		scripts: [operationScript],
+		metadata: { ...manifest.metadata, version: "2.0.0" },
+		operations: [
+			{
+				auth: "user",
+				slug: "run.fixture",
+				description: "Run fixture",
+				scriptSlug: operationScript.slug,
+			},
+		],
+	};
+	const privatePlugin = storedPrivatePlugin({ ...nextManifest, metadata: manifest.metadata });
+	const installation = installationRow({
+		pluginId: privatePlugin.id,
+		config: { region: "us", token: "stored-secret" },
+	});
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		const result = yield* service.updatePrivatePlugin({
+			userId,
+			manifest: nextManifest,
+			config: { region: "ca" },
+			pluginSlug: privatePlugin.slug,
+			files: { [operationScript.entry]: operationScriptSource },
+		});
+
+		expect(persisted).toHaveLength(1);
+		expect(persisted[0]).toMatchObject({
+			plugin: { metadata: { version: "2.0.0" } },
+			identity: { slug: privatePlugin.slug, scope: "user", ownerId: userId },
+		});
+		expect(updated[0]).toMatchObject({
+			id: installation.id,
+			config: { region: "ca", token: "stored-secret" },
+		});
+		expect(result).toMatchObject({
+			version: "2.0.0",
+			config: { region: "ca" },
+			configuredSecrets: ["token"],
+		});
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				updated,
+				persisted,
+				installations: [installation],
+				privatePlugins: [privatePlugin],
+			}),
+		),
+	);
+});
+
+it.effect("rejects package updates that change identity or invalidate merged config", () => {
+	const privatePlugin = storedPrivatePlugin(configuredManifest);
+	const installations = [
+		installationRow({
+			pluginId: privatePlugin.id,
+			config: { region: "us", token: "stored-secret" },
+		}),
+	];
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		const changedSlug = failureOf(
+			yield* Effect.exit(
+				service.updatePrivatePlugin({
+					userId,
+					files: {},
+					pluginSlug: privatePlugin.slug,
+					manifest: {
+						...configuredManifest,
+						metadata: { ...configuredManifest.metadata, slug: "renamed" },
+					},
+				}),
+			),
+		);
+		expect(changedSlug).toMatchObject({
+			_tag: "PluginRequestError",
+			reason: { code: "validation-failed" },
+		});
+
+		const invalidConfig = failureOf(
+			yield* Effect.exit(
+				service.updatePrivatePlugin({
+					userId,
+					files: {},
+					unsetConfigKeys: ["token"],
+					manifest: configuredManifest,
+					pluginSlug: privatePlugin.slug,
+				}),
+			),
+		);
+		expect(invalidConfig).toMatchObject({
+			_tag: "PluginRequestError",
+			reason: { code: "validation-failed" },
+		});
+	}).pipe(Effect.provide(makeLayer({ installations, privatePlugins: [privatePlugin] })));
+});
+
+it.effect("rejects package updates for system and foreign plugins", () => {
+	const systemPlugin = systemEntry(
+		privateManifest({ metadata: { ...privateManifest().metadata, slug: "media" } }),
+	);
+	return Effect.gen(function* () {
+		const loader = yield* PluginLoader;
+		const service = yield* PluginInstallationService;
+		loader.load(systemPlugin);
+
+		expect(
+			failureOf(
+				yield* Effect.exit(
+					service.updatePrivatePlugin({
+						userId,
+						files: {},
+						pluginSlug: systemPlugin.slug,
+						manifest: systemPlugin.manifest,
+					}),
+				),
+			),
+		).toMatchObject({
+			_tag: "PluginConflictError",
+			reason: { code: "system-plugin", pluginSlug: "media" },
+		});
+		expect(
+			failureOf(
+				yield* Effect.exit(
+					service.updatePrivatePlugin({
+						userId,
+						files: {},
+						pluginSlug: "foreign",
+						manifest: configuredManifest,
+					}),
+				),
+			),
+		).toMatchObject({
+			_tag: "PluginNotFoundError",
+			reason: { code: "plugin-not-found", pluginSlug: "foreign" },
+		});
+	}).pipe(Effect.provide(makeLayer()));
+});
 
 it.effect("rejects an operation referencing an undeclared script slug", () => {
 	const created: Array<Record<string, unknown>> = [];

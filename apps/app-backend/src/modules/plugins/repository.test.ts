@@ -131,7 +131,9 @@ it.effect("detects entities referencing a plugin provider", () =>
 it.effect("detects integrations owned by a plugin", () =>
 	Effect.gen(function* () {
 		const repository = yield* PluginRepository;
-		expect(yield* repository.hasIntegrationReferences("fixture")).toBe(true);
+		expect(
+			yield* repository.hasIntegrationReferences({ userId: "owner", pluginSlug: "fixture" }),
+		).toBe(true);
 	}).pipe(Effect.provide(makeLayer({ integrationRows: [{ id: "integration-id" }] }))),
 );
 
@@ -468,6 +470,46 @@ it.effect("safely deletes unreferenced scripts when the live hash set is empty",
 		expect(statements[1]?.params).toEqual([]);
 	}).pipe(Effect.provide(makeScriptCleanupLayer({ removed, statements, tables })));
 });
+
+it.effect(
+	"deletes only inactive private plugins without installation, workflow, or entity liveness",
+	() => {
+		const dialect = new PgDialect();
+		let statement: { sql: string; params: unknown[] } | undefined;
+		const db = {
+			delete: () => ({
+				where: (condition: SQLWrapper) => {
+					statement = dialect.sqlToQuery(condition.getSQL());
+					return { returning: () => Effect.succeed([{ id: "inactive-plugin" }]) };
+				},
+			}),
+			select: () => ({
+				from: (table: SQLWrapper) => ({
+					where: (condition: SQLWrapper) => sql`select 1 from ${table} where ${condition}`,
+					innerJoin: (joined: SQLWrapper, on: SQLWrapper) => ({
+						where: (condition: SQLWrapper) =>
+							sql`select 1 from ${table} inner join ${joined} on ${on} where ${condition}`,
+					}),
+				}),
+			}),
+		};
+		const layer = PluginRepository.layer.pipe(
+			Layer.provideMerge(Layer.succeed(Database, Object.assign(Object.create(null), db))),
+		);
+
+		return Effect.gen(function* () {
+			const repository = yield* PluginRepository;
+			expect(yield* repository.deleteInactiveUnreferencedPlugins()).toEqual([
+				{ id: "inactive-plugin" },
+			]);
+			expect(statement?.sql).toContain('"plugin"."scope" =');
+			expect(statement?.sql).toContain('"plugin"."status" =');
+			expect(statement?.sql).toContain('from "plugin_installation"');
+			expect(statement?.sql).toContain('from "sandbox_workflow_reference"');
+			expect(statement?.sql).toContain('from "entity" inner join "sandbox_provider"');
+		}).pipe(Effect.provide(layer));
+	},
+);
 
 it.effect("lists persisted source-zero and pinned-plugin script hashes as live", () => {
 	const statements: Array<{ sql: string; params: unknown[] }> = [];
