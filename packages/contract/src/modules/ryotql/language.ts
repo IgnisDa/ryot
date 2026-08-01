@@ -222,6 +222,17 @@ export const FieldSelection = strictStruct({
 }).annotate({ identifier: "RyotQLFieldSelection" });
 export type FieldSelection = typeof FieldSelection.Type;
 
+export const WildcardSelection = strictStruct({
+	tableAlias: Schema.String,
+	type: Schema.Literal("wildcard"),
+}).annotate({ identifier: "RyotQLWildcardSelection" });
+export type WildcardSelection = typeof WildcardSelection.Type;
+
+export const RowSelection = Schema.Union([FieldSelection, WildcardSelection]).annotate({
+	identifier: "RyotQLRowSelection",
+});
+export type RowSelection = typeof RowSelection.Type;
+
 export const OrderBy = strictStruct({
 	expr: ScalarExpression,
 	direction: Schema.Literals(["asc", "desc"]),
@@ -245,7 +256,7 @@ export type Include = {
 	readonly limit: number;
 	readonly from: TableReference;
 	readonly where?: Predicate | undefined;
-	readonly fields: readonly FieldSelection[];
+	readonly fields: readonly RowSelection[];
 	readonly orderBy: readonly [OrderBy, ...OrderBy[]];
 	readonly joins?: readonly [Join, ...Join[]] | undefined;
 	readonly include?: readonly [Include, ...Include[]] | undefined;
@@ -256,7 +267,7 @@ export const Include: Schema.Codec<Include, unknown> = Schema.suspend(() =>
 		key: Schema.String,
 		from: TableReference,
 		where: Schema.optional(Predicate),
-		fields: Schema.Array(FieldSelection),
+		fields: Schema.Array(RowSelection),
 		orderBy: Schema.NonEmptyArray(OrderBy),
 		joins: Schema.optional(Schema.NonEmptyArray(Join)),
 		include: Schema.optional(Schema.NonEmptyArray(Include)),
@@ -273,7 +284,7 @@ export const RowsOutput = strictStruct({
 	pagination: Pagination,
 	orderBy: Schema.Array(OrderBy),
 	type: Schema.Literal("rows"),
-	fields: Schema.Array(FieldSelection),
+	fields: Schema.Array(RowSelection),
 	include: Schema.optional(Schema.NonEmptyArray(Include)),
 }).annotate({ identifier: "RyotQLRowsOutput" });
 export type RowsOutput = typeof RowsOutput.Type;

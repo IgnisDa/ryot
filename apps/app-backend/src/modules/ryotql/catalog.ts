@@ -1,3 +1,4 @@
+import type { FieldSelection, RowSelection } from "@ryot/contract/modules/ryotql/language";
 import { sql } from "drizzle-orm";
 
 export type CatalogFieldKind = "boolean" | "date" | "json" | "number" | "text";
@@ -48,6 +49,11 @@ export type CatalogTable = {
 	readonly primaryKey: string;
 	readonly visibility: CatalogVisibility;
 	readonly fields: Readonly<Record<string, CatalogField>>;
+};
+
+type ExpandedCatalogSelections = {
+	readonly error: string | null;
+	readonly fields: FieldSelection[];
 };
 
 const physicalField = (column: string, kind: CatalogFieldKind): CatalogField => ({
@@ -228,3 +234,27 @@ export const canAccessCatalogTable = (
 ) => scope.type === "user" || "plugin" in table.visibility;
 
 export const resolveCatalogField = (table: CatalogTable, name: string) => table.fields[name];
+
+export const expandCatalogSelections = (
+	selections: readonly RowSelection[],
+	resolveTable: (alias: string) => CatalogTable | undefined,
+): ExpandedCatalogSelections => {
+	const fields: FieldSelection[] = [];
+	for (const selection of selections) {
+		if ("key" in selection) {
+			fields.push(selection);
+			continue;
+		}
+		const table = resolveTable(selection.tableAlias);
+		if (!table) {
+			return { error: `Unknown table alias '${selection.tableAlias}'`, fields: [] };
+		}
+		for (const field of Object.keys(table.fields)) {
+			fields.push({
+				key: field,
+				expr: { field, tableAlias: selection.tableAlias, type: "column" },
+			});
+		}
+	}
+	return { error: null, fields };
+};
