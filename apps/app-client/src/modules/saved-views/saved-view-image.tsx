@@ -21,7 +21,7 @@ function MissingImage(props: { className: string }) {
 	);
 }
 
-function RemoteImage(props: { className: string; url: string }) {
+function RemoteImage(props: { className: string; url: string; onError?: () => void }) {
 	const [failed, setFailed] = useState(false);
 	if (failed) {
 		return <MissingImage className={props.className} />;
@@ -32,13 +32,17 @@ function RemoteImage(props: { className: string; url: string }) {
 			accessible={false}
 			source={{ uri: props.url }}
 			className={props.className}
-			onError={() => setFailed(true)}
+			onError={() => {
+				setFailed(true);
+				props.onError?.();
+			}}
 		/>
 	);
 }
 
 export function SavedViewImageView(props: {
 	className: string;
+	onError?: () => void;
 	image: SavedViewImage;
 	managedUrls: ReadonlyMap<string, string>;
 }) {
@@ -49,5 +53,5 @@ export function SavedViewImageView(props: {
 	if (!url) {
 		return <MissingImage className={props.className} />;
 	}
-	return <RemoteImage key={url} className={props.className} url={url} />;
+	return <RemoteImage key={url} className={props.className} url={url} onError={props.onError} />;
 }
