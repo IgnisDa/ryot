@@ -80,27 +80,27 @@ function Onboarding() {
 	}
 
 	return (
-		<main className="page-shell md:grid-cols-[minmax(260px,400px)_minmax(400px,480px)] md:items-center md:justify-center md:gap-[clamp(48px,8vw,112px)] md:px-12">
+		<main className="ui-page md:grid-cols-[minmax(260px,400px)_minmax(400px,480px)] md:items-center md:justify-center md:gap-[clamp(48px,8vw,112px)] md:px-12">
 			<section aria-labelledby="onboarding-title" className="mx-auto w-[min(100%,480px)] md:mx-0">
-				<p className="overline">Your private library</p>
-				<h1 id="onboarding-title" className="heading-display">
+				<p className="ui-overline">Your private library</p>
+				<h1 id="onboarding-title" className="ui-heading">
 					Your Ryot, your server.
 				</h1>
-				<p className="subtitle">
+				<p className="ui-subtitle">
 					Choose where your data lives. Ryot checks the connection before saving your selection.
 				</p>
 			</section>
 
 			<form
 				noValidate
-				className="surface-card mx-auto w-[min(100%,480px)] md:mx-0"
+				className="ui-card mx-auto w-[min(100%,480px)] md:mx-0"
 				onSubmit={(event) => {
 					event.preventDefault();
 					void connect();
 				}}
 			>
 				<fieldset disabled={checking}>
-					<legend className="field-caption">Choose a server</legend>
+					<legend className="ui-field-caption">Choose a server</legend>
 					<div className="grid gap-2.5">
 						{serverOptions.map((option) => (
 							<label
@@ -125,7 +125,7 @@ function Onboarding() {
 
 					{mode === "self-hosted" && (
 						<label className="mt-4 grid">
-							<span className="field-caption">Server URL</span>
+							<span className="ui-field-caption">Server URL</span>
 							<input
 								type="url"
 								inputMode="url"
@@ -135,7 +135,7 @@ function Onboarding() {
 								placeholder="https://ryot.example.com"
 								aria-invalid={validationError !== undefined}
 								aria-describedby={validationError ? "server-url-error" : undefined}
-								className="field-input"
+								className="ui-field-input"
 								onChange={(event) => {
 									setServerUrl(event.currentTarget.value);
 									setValidationError(undefined);
@@ -148,22 +148,22 @@ function Onboarding() {
 
 				<div className="flex min-h-11.25 items-center" aria-live="polite">
 					{validationError && (
-						<p role="alert" id="server-url-error" className="form-status text-danger">
+						<p role="alert" id="server-url-error" className="ui-form-status text-danger">
 							{validationError}
 						</p>
 					)}
 					{connection.status === "checking" && (
-						<p role="status" className="form-status">
+						<p role="status" className="ui-form-status">
 							Checking server...
 						</p>
 					)}
 					{connection.status === "error" && (
-						<p role="alert" className="form-status text-danger">
+						<p role="alert" className="ui-form-status text-danger">
 							Could not reach a healthy Ryot server. Check the address and try again.
 						</p>
 					)}
 					{connection.status === "success" && (
-						<p role="status" className="form-status text-success">
+						<p role="status" className="ui-form-status text-success">
 							Server connected. Continuing...
 						</p>
 					)}
@@ -171,7 +171,7 @@ function Onboarding() {
 
 				<button
 					type="submit"
-					className="button-primary w-full"
+					className="ui-button-primary w-full"
 					disabled={checking || (mode === "self-hosted" && !serverUrl.trim())}
 				>
 					{submitLabel}
