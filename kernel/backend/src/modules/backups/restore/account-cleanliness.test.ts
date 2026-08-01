@@ -136,14 +136,15 @@ describe("classifyAccountCleanliness", () => {
 				savedViews: [
 					{
 						icon: "x",
-						layouts: {},
+						renderer: { kind: "kernel", name: "results-table" },
+						settings: {},
+						dataSources: null,
 						sortOrder: 0,
 						slug: "custom",
 						name: "Custom",
 						pluginSlug: null,
 						isBuiltin: false,
 						isDisabled: false,
-						entitySchemaSlug: null,
 						pluginInstallationId: null,
 						entitySchemaPluginId: null,
 					},

@@ -113,7 +113,6 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 					"client/asset.webp",
 					"client/asset.woff2",
 					"client/home.tsx",
-					"client/index.tsx",
 					"client/logo.svg",
 					"client/styles.css",
 					"shared/util.ts",
@@ -181,26 +180,28 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 		}),
 	);
 
-	test.effect("does not mutate an existing output when a client entry is missing", () =>
-		Effect.gen(function* () {
-			const path = yield* Path.Path;
-			const fs = yield* FileSystem.FileSystem;
-			const plugin = yield* createPlugin();
-			const output = path.join(plugin, "dist", "cli-test.zip");
-			yield* fs.makeDirectory(path.dirname(output), { recursive: true });
-			yield* fs.writeFileString(output, "keep");
-			const manifestPath = path.join(plugin, "manifest.ts");
-			const manifest = yield* fs.readFileString(manifestPath);
-			yield* fs.writeFileString(
-				manifestPath,
-				manifest.replace("client/index.tsx", "client/missing.tsx"),
-			);
+	test.effect(
+		"does not mutate an existing output when an advertised client export is missing",
+		() =>
+			Effect.gen(function* () {
+				const path = yield* Path.Path;
+				const fs = yield* FileSystem.FileSystem;
+				const plugin = yield* createPlugin();
+				const output = path.join(plugin, "dist", "cli-test.zip");
+				yield* fs.makeDirectory(path.dirname(output), { recursive: true });
+				yield* fs.writeFileString(output, "keep");
+				const manifestPath = path.join(plugin, "manifest.ts");
+				const manifest = yield* fs.readFileString(manifestPath);
+				yield* fs.writeFileString(
+					manifestPath,
+					manifest.replace("client/home.tsx", "client/missing.tsx"),
+				);
 
-			const result = yield* run(plugin, ["plugin", "build"]);
+				const result = yield* run(plugin, ["plugin", "build"]);
 
-			expect(result.exitCode).not.toBe(0);
-			expect(yield* fs.readFileString(output)).toBe("keep");
-		}),
+				expect(result.exitCode).not.toBe(0);
+				expect(yield* fs.readFileString(output)).toBe("keep");
+			}),
 	);
 
 	test.effect("does not mutate an existing output when a client source does not type-check", () =>
@@ -223,7 +224,7 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 		}),
 	);
 
-	test.effect("validates an advertised export that the plugin bootstrap does not import", () =>
+	test.effect("validates every advertised export without an authored bootstrap", () =>
 		Effect.gen(function* () {
 			const path = yield* Path.Path;
 			const fs = yield* FileSystem.FileSystem;

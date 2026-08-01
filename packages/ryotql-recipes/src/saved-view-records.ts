@@ -1,9 +1,6 @@
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
-import {
-	SavedViewLayouts,
-	SavedViewRenderer,
-} from "@ryot-app/contract/modules/saved-views/schemas";
-import { EntitySchemaSlug, PluginSlug, SavedViewId } from "@ryot-app/contract/schema/brands";
+import { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
+import { PluginSlug, SavedViewId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	and,
@@ -28,12 +25,8 @@ const selection = {
 	slug: selectedField(column(savedView, "slug"), Schema.String),
 	name: selectedField(column(savedView, "name"), Schema.String),
 	icon: selectedField(column(savedView, "icon"), Schema.String),
-	layouts: selectedField(column(savedView, "layouts"), Schema.NullOr(SavedViewLayouts)),
-	renderer: selectedField(column(savedView, "renderer"), Schema.NullOr(SavedViewRenderer)),
-	settings: selectedField(
-		column(savedView, "settings"),
-		Schema.NullOr(Schema.Record(Schema.String, JsonValue)),
-	),
+	renderer: selectedField(column(savedView, "renderer"), SavedViewRenderer),
+	settings: selectedField(column(savedView, "settings"), Schema.Record(Schema.String, JsonValue)),
 	dataSources: selectedField(column(savedView, "dataSources"), Schema.NullOr(RyotQLDocument)),
 	sortOrder: selectedField(column(savedView, "sortOrder"), Schema.Number),
 	createdAt: selectedField(column(savedView, "createdAt"), IsoDateString),
@@ -41,10 +34,6 @@ const selection = {
 	isBuiltin: selectedField(column(savedView, "isBuiltin"), Schema.Boolean),
 	isDisabled: selectedField(column(savedView, "isDisabled"), Schema.Boolean),
 	pluginSlug: selectedField(column(savedView, "pluginSlug"), Schema.NullOr(PluginSlug)),
-	entitySchemaSlug: selectedField(
-		column(savedView, "entitySchemaSlug"),
-		Schema.NullOr(EntitySchemaSlug),
-	),
 };
 
 export const savedViewRecordsRecipe = defineRecipe(

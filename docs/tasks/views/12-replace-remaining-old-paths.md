@@ -4,7 +4,7 @@
 
 **System Design:** [Composable Views](./README.md)
 
-**Status:** todo
+**Status:** done
 
 **Depends On:** [10 - Deliver The Complete Dashboard Journey](./10-deliver-the-complete-dashboard-journey.md), [11 - Unify Kernel Screen Data Access](./11-unify-kernel-screen-data-access.md)
 
@@ -26,21 +26,21 @@ Update maintained package/application documentation and stale AGENTS rules. Ever
 
 ## Acceptance Criteria
 
-- [ ] Every shipped saved-view definition validates and opens through the new model, using generic presentation where no rich provider exists.
-- [ ] Builtin materialization, clone, disable/order, and navigation placement remain functional without mandatory grid/list/table query records.
-- [ ] No supported route or compiler entry depends on authored bootstrap or implicit plugin target compatibility.
-- [ ] Single-plugin-only session endpoints/adapters and obsolete catalog artifact-pointer consumers are removed or replaced at their real owners.
-- [ ] Old slot schemas, field-to-slot decoders, per-layout query controllers, and no-op filter UI are no longer retained as alternate paths.
-- [ ] Database and generated route/client outputs are produced through existing generation tools, not hand-edited.
-- [ ] New-format backup/restore fixtures round-trip renderer source, views, and home references consistently; derived artifacts are handled according to the new source/build ownership.
-- [ ] Unsupported old V2 formats are rejected explicitly, with no compatibility reader.
-- [ ] Retained V1 import code targets the new shipped definitions and state directly.
-- [ ] Tests formerly asserting old-format behaviour are replaced with meaningful new behaviour coverage rather than simply removed.
-- [ ] Backend/client/SDK/compiler/contract/plugin-kit READMEs, `apps/docs`, and directly affected AGENTS rules describe the implemented boundaries.
-- [ ] Every changed `AGENTS.md` rule is mirrored in its sibling `CLAUDE.md`, with no file left contradicting the other.
-- [ ] The kernel's duplicate managed-asset helpers and image wrapper are gone, no resolved URL map is threaded through view state or props, and the kernel-side asset service remains only for bridged plugin requests.
-- [ ] The permanent pre-authentication and god-mode data-access exceptions are documented as stable rules, and the client capability error-reason set is documented in full.
-- [ ] The complete tracer and affected shipped-view/backup/import tests still pass after cutover.
+- [x] Every shipped saved-view definition validates and opens through the new model, using generic presentation where no rich provider exists.
+- [x] Builtin materialization, clone, disable/order, and navigation placement remain functional without mandatory grid/list/table query records.
+- [x] No supported route or compiler entry depends on authored bootstrap or implicit plugin target compatibility.
+- [x] Single-plugin-only session endpoints/adapters and obsolete catalog artifact-pointer consumers are removed or replaced at their real owners.
+- [x] Old slot schemas, field-to-slot decoders, per-layout query controllers, and no-op filter UI are no longer retained as alternate paths.
+- [x] Database and generated route/client outputs are produced through existing generation tools, not hand-edited.
+- [x] New-format backup/restore fixtures round-trip renderer source, views, and home references consistently; derived artifacts are handled according to the new source/build ownership.
+- [x] Unsupported old V2 formats are rejected explicitly, with no compatibility reader.
+- [x] Retained V1 import code targets the new shipped definitions and state directly.
+- [x] Tests formerly asserting old-format behaviour are replaced with meaningful new behaviour coverage rather than simply removed.
+- [x] Backend/client/SDK/compiler/contract/plugin-kit READMEs, `apps/docs`, and directly affected AGENTS rules describe the implemented boundaries.
+- [x] Every changed `AGENTS.md` rule is mirrored in its sibling `CLAUDE.md`, with no file left contradicting the other.
+- [x] The kernel's duplicate managed-asset helpers and image wrapper are gone, no resolved URL map is threaded through view state or props, and the kernel-side asset service remains only for bridged plugin requests.
+- [x] The permanent pre-authentication and god-mode data-access exceptions are documented as stable rules, and the client capability error-reason set is documented in full.
+- [x] The complete tracer and affected shipped-view/backup/import tests still pass after cutover.
 
 ## Verification
 
@@ -53,4 +53,12 @@ Use the parent plan's affected package set and isolated standard E2E commands. C
 
 ## Implementor Notes
 
-Record the generated schema/format versions, removed entry points, and migration/backup validation commands. List any retained code with its concrete current consumer, not speculative compatibility reasons.
+- Converted all shipped media, fitness, fixture, and kernel saved views to canonical `renderer`, `settings`, and `dataSources` records. Builtin materialization, cloning, ordering, disabling, provider add actions, navigation, plugin `homeView`, and custom home overrides now use that record directly.
+- Removed saved-view layouts, slot mappings, field-to-slot decoders, layout controllers, the old saved-view route runtime, authored `client.entry`, single-plugin artifact sessions, `clientArtifactHash`, and their obsolete HTTP, Redis, catalog, client, and E2E paths. Compiler-generated `bootstrapClientPlugin` remains because plugin-route artifacts still use it as the active generated entry.
+- Kept the client API, bridge, compiler, artifact, plugin manifest, and backup formats at greenfield version `1`. Backup export/restore now uses one `ryot-backup` V1 archive, stores renderer source plus canonical saved views and home references, remaps renderer/view IDs on restore, validates plugin and custom renderers, and excludes derived artifacts. V2/V3 backup code and fixtures were deleted; unsupported versions are rejected.
+- Regenerated the reset Drizzle baseline at `kernel/backend/src/drizzle/20260908095514_tough_george_stacy/`, removing `saved_view.layouts`, `saved_view.entity_schema_slug`, and `saved_view.entity_schema_plugin_id` without an incremental development migration. The retained V1 Rust migration writes canonical saved-view state directly.
+- Replaced kernel managed-asset callers with `@ryot-app/client-sdk/react` and removed the duplicate image wrapper. `ManagedAssetsService.read` remains only for `ClientPageHost` bridged asset requests.
+- Updated maintained package, plugin, application, and user documentation plus directly affected stable rules. Changed `AGENTS.md` files continue to share their sibling `CLAUDE.md` mirrors.
+- Reviewer feedback fixed canonical backup validation, collision-safe restored IDs, portable plugin renderer references and homes, plugin-rendered view restore validation, manifest source ownership, stale client artifact paths, and browser/E2E synchronization. The same reviewer reported no remaining Task 12 findings after re-review.
+- Essential scope additions were limited to portable plugin-renderer backup references, plugin `homeView` handling, and plugin-rendered clone restore coverage. Each was required to make the planned canonical saved-view and backup cutover complete.
+- Verification passed with `bun turbo --output-logs=full check`, `bun turbo --filter='!@ryot-app/e2e' --output-logs=full test`, and only affected E2E files covering saved views, renderer publication, backups, navigation, catalog events, fitness definitions, fixture provider smoke, client plugins, sidebar customization, and composed views.

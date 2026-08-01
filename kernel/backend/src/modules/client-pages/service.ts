@@ -342,7 +342,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 							)) {
 								yield* parseAppSchemaProperties({
 									kind: "Saved view settings",
-									properties: dependent.settings ?? {},
+									properties: dependent.settings,
 									propertiesSchema: definition.settingsSchema,
 								}).pipe(
 									Effect.mapError(
@@ -549,7 +549,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 								Effect.gen(function* () {
 									const current = yield* repository.lockSavedView(user.id, prepared.viewId);
 									if (
-										current?.renderer?.kind !== "kernel" ||
+										current?.renderer.kind !== "kernel" ||
 										current.renderer.name !== kernelRendererName ||
 										current.revision !== prepared.view.revision
 									) {
@@ -611,7 +611,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						},
 						context: {
 							route: { params: {} },
-							settings: prepared.view.settings ?? {},
+							settings: prepared.view.settings,
 							dataSources: prepared.view.dataSources,
 							renderer: { kind: "kernel" as const, name: kernelRendererName },
 							target: { kind: "saved-view" as const, savedViewId: prepared.viewId },
@@ -736,7 +736,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					},
 					context: {
 						route: { params: {} },
-						settings: prepared.view.settings ?? {},
+						settings: prepared.view.settings,
 						dataSources: prepared.view.dataSources,
 						renderer: { kind: "custom" as const, id: rendererId },
 						target: { kind: "saved-view" as const, savedViewId: prepared.viewId },

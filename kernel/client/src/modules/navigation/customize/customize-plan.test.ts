@@ -41,7 +41,12 @@ describe("buildCustomizePlan", () => {
 		expect(plan.updates).toEqual([
 			{
 				viewSlug: "shows",
-				payload: { icon: "list", name: "SHOWS", isDisabled: true, pluginSlug: "media" },
+				payload: {
+					icon: "list",
+					name: "SHOWS",
+					isDisabled: true,
+					workspacePluginSlug: "media",
+				},
 			},
 		]);
 		expect(plan.reorders).toEqual([]);

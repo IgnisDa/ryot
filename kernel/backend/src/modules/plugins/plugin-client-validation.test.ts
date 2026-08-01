@@ -13,7 +13,7 @@ const manifest = () => ({
 	...fixtureManifest(),
 	client: {
 		apiVersion: 1 as const,
-		entry: "client/index.tsx",
+		homeView: null,
 		exports: {
 			card: {
 				entry: "client/card.tsx",
@@ -46,7 +46,7 @@ const compileDependencyImport = (pluginDependencies: readonly string[]) =>
 		const client = {
 			pluginDependencies,
 			apiVersion: 1 as const,
-			entry: "client/index.ts",
+			homeView: null,
 			exports: {
 				card: {
 					kind: "component" as const,
@@ -74,7 +74,7 @@ it.effect(
 	() =>
 		Effect.gen(function* () {
 			const compiled = yield* compileDependencyImport(["media"]);
-			expect(compiled.clientArtifact?.files.some(({ name }) => name === "plugin.js")).toBe(true);
+			expect(compiled).not.toHaveProperty("clientArtifact");
 		}),
 	30_000,
 );

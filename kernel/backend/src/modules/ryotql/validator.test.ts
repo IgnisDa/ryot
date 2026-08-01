@@ -120,7 +120,6 @@ it("exposes only approved application-table fields", () => {
 			"sourceHash",
 			"ingestedAt",
 			"clientApiVersion",
-			"clientArtifactHash",
 		]),
 	);
 	expect(new Set(Object.keys(getCatalogTable("pluginInstallation")?.fields ?? {}))).toEqual(
@@ -170,8 +169,6 @@ it("exposes only approved application-table fields", () => {
 			"isBuiltin",
 			"isDisabled",
 			"pluginSlug",
-			"entitySchemaSlug",
-			"layouts",
 			"renderer",
 			"settings",
 			"dataSources",

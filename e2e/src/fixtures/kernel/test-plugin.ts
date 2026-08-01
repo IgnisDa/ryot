@@ -12,13 +12,13 @@ import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
 import { getApiClient } from "./contract-client";
 import { pollUntil } from "./polling";
-import { buildSavedViewLayouts } from "./saved-views";
+import { entityBrowserSettings, rowsDataSources } from "./saved-views";
 import { uploadPrivatePluginPackage } from "./temporary-archive";
 
-type InstallPluginPayload = ContractPayload<"plugins", "install">;
 type TestPluginManifest = PluginManifest;
 type PluginScript = TestPluginManifest["scripts"][number];
 type PluginProvider = TestPluginManifest["providers"][number];
+type InstallPluginPayload = ContractPayload<"plugins", "install">;
 
 export type TestPluginScript = {
 	[Kind in PluginScript["kind"]]: Omit<Extract<PluginScript, { kind: Kind }>, "entry">;
@@ -43,6 +43,7 @@ type TestPluginManifestInput = Partial<
 	>
 > & {
 	providers?: ReadonlyArray<PluginProvider>;
+	clientDefinition?: TestPluginManifest["client"];
 	bindings?: Partial<TestPluginManifest["bindings"]>;
 	pluginSlug: TestPluginManifest["metadata"]["slug"];
 	eventAutomations?: TestPluginManifest["bindings"]["eventAutomations"];
@@ -62,15 +63,12 @@ export type InstalledTestPlugin = {
 	scriptIds: Record<string, SandboxScriptId>;
 };
 
-type InstalledScriptRegistration = {
-	targetSlug: string;
-	installed: InstalledTestPlugin;
-};
+type InstalledScriptRegistration = { targetSlug: string; installed: InstalledTestPlugin };
 
-const definitionManifests = new Map<string, { client: Client; manifest: TestPluginManifest }>();
-const installedByScriptId = new Map<string, InstalledScriptRegistration>();
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
+const installedByScriptId = new Map<string, InstalledScriptRegistration>();
+const definitionManifests = new Map<string, { client: Client; manifest: TestPluginManifest }>();
 
 export const encodePluginSourceFiles = (files: Readonly<Record<string, string>>) =>
 	Object.fromEntries(
@@ -107,6 +105,7 @@ export const testPluginManifest = (input: TestPluginManifestInput): TestPluginMa
 	httpRateLimits: input.httpRateLimits ?? [],
 	relationshipSchemas: input.relationshipSchemas ?? [],
 	integrationProviders: input.integrationProviders ?? [],
+	...(input.clientDefinition ? { client: input.clientDefinition } : {}),
 	configSchema: input.configSchema ?? { fields: {}, unknownKeys: "strict" as const },
 	metadata: {
 		version: "1.0.0",
@@ -133,9 +132,10 @@ export const testPluginSavedView = (input: {
 	sortOrder: 0,
 	pluginSlug: null,
 	slug: input.slug,
-	entitySchemaSlug: null,
-	layouts: buildSavedViewLayouts(),
+	dataSources: rowsDataSources,
+	settings: entityBrowserSettings,
 	name: input.name ?? "E2E Plugin View",
+	renderer: { kind: "kernel", name: "entity-browser" },
 });
 
 const findInstalledScriptId = (scriptSlug: string, source: string, baseUrl?: string) =>
@@ -241,6 +241,7 @@ export const installTestPluginBundle = (
 		workflows?: TestPluginManifest["workflows"];
 		savedViews?: TestPluginManifest["savedViews"];
 		operations?: TestPluginManifest["operations"];
+		clientDefinition?: TestPluginManifest["client"];
 		configSchema?: TestPluginManifest["configSchema"];
 		importSources?: TestPluginManifest["importSources"];
 		entitySchemas?: TestPluginManifest["entitySchemas"];
@@ -267,6 +268,7 @@ export const installTestPluginBundle = (
 			entitySchemas: input.entitySchemas,
 			httpRateLimits: input.httpRateLimits,
 			eventAutomations: input.eventAutomations,
+			clientDefinition: input.clientDefinition,
 			relationshipSchemas: input.relationshipSchemas,
 			integrationProviders: input.integrationProviders,
 		});

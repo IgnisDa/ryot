@@ -18,7 +18,6 @@ import { KernelApiTestLayer, makeIntegrationsApi, makeRyotQLApi } from "#/api/po
 import type { RyotQLApi } from "#/api/ryotql";
 import { IntegrationsService } from "#/modules/integrations/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
-import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
 import { PluginOperationsService } from "#/modules/plugins/operations";
@@ -226,11 +225,6 @@ const mountView = (
 			ClientPageSessionsRouteStubs,
 			makeUserSettingsStub(),
 			events.layer,
-			Layer.succeed(ArtifactSessions, {
-				renew: () => Effect.die("not used"),
-				revoke: () => Effect.die("not used"),
-				create: () => Effect.die("not used"),
-			}),
 			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(catalog) }),
 			NavigationRouteStubs,
 			CustomizeRouteStubs,

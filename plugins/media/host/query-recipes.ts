@@ -1,8 +1,4 @@
 import type { FieldSelection, OrderBy } from "@ryot-app/contract/modules/ryotql/language";
-import type {
-	SavedViewCardMapping,
-	SavedViewTableMapping,
-} from "@ryot-app/contract/modules/saved-views/schemas";
 import type { Recipe } from "@ryot-app/ryotql";
 import {
 	and,
@@ -27,7 +23,11 @@ import {
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
-import { savedViewRecipe } from "@ryot-app/ryotql-recipes/saved-views";
+import {
+	savedViewRecipe,
+	type SavedViewCardMapping,
+	type SavedViewTableMapping,
+} from "@ryot-app/ryotql-recipes/saved-views";
 import { Result, Schema } from "effect";
 
 import { podcastEpisodicKindConfig } from "../backend/contracts/lifecycle-recipes";

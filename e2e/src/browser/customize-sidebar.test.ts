@@ -2,13 +2,12 @@ import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
-	buildSavedViewLayouts,
+	buildSavedViewDataSources,
 	createSavedView,
 	createTestUser,
 	fakeProviderDetailsResult,
 	fakeProviderSearchResult,
 	installTestProvider,
-	makeEntitySchemaSlug,
 	makeSession,
 	uninstallTestProvider,
 	type InstalledTestProvider,
@@ -93,8 +92,7 @@ beforeAll(async () => {
 			for (const name of [ALPHA, BETA, GAMMA]) {
 				yield* createSavedView(client, {
 					name,
-					entitySchemaSlug: makeEntitySchemaSlug(ENTITY_SCHEMA_SLUG),
-					layouts: buildSavedViewLayouts({}, [ENTITY_SCHEMA_SLUG]),
+					dataSources: buildSavedViewDataSources([ENTITY_SCHEMA_SLUG]),
 				});
 			}
 		}),

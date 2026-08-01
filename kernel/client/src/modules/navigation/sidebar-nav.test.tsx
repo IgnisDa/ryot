@@ -19,7 +19,6 @@ const current: PluginClientCatalogEntry = {
 	pluginId: "plugin-media",
 	sourceHash: "source-media",
 	installationId: "installation-media",
-	clientArtifactHash: "artifact-media",
 };
 
 const navigation: NavigationData = {

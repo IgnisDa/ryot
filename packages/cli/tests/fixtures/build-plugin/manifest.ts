@@ -14,7 +14,7 @@ export default {
 	configSchema: { unknownKeys: "strict", fields: {} },
 	client: {
 		apiVersion: 1,
-		entry: "client/index.tsx",
+		homeView: null,
 		exports: {
 			"home-summary": {
 				kind: "component",

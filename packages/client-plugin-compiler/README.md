@@ -23,14 +23,19 @@ with the compiler input. The compiler does not discover plugins or private files
 automatic-presentation registrations are expected to use backend-resolved stable identities and
 stable order; traversal is cycle-safe in the bundler module graph.
 
+Client contributors use the public `@ryot-app/client-sdk` and `@ryot-app/client-ui-sdk` entry points.
+Only `shared/**` uses the environment-neutral `@ryot-app/plugin-kit/{effect,ryotql,schema}` shims;
+backend plugin source uses plugin-kit and sandbox SDK surfaces rather than client packages.
+
 Client bare imports use a fixed trusted-module allowlist. Anything else fails compilation rather
 than falling through to the host resolver. The exact list is maintained in `AGENTS.md` and
 `src/dependencies.ts`.
 
-Plugin package builds supply every advertised public export to the compiler. A compiler-generated
-validation entry imports and checks all of them, including exports that the current plugin bootstrap
-cannot reach. This validation bundle is discarded: the emitted route artifact still uses the
-plugin-authored entry until route applications move to the generated bootstrap.
+Plugin package builds supply every advertised public export to the compiler. Generated entries import
+and type-check those exports and compose the authorized contributor graph. Route applications build a
+manifest-backed route/entity registry; saved views and workspace homes build the selected renderer.
+The generated bootstrap owns the document's only React root. Authored source exports components or
+presentation definitions and never mounts or bootstraps an application.
 
 The resolver must also provide concrete paths for transitive re-export barrels such as `effect` and
 `lucide-react`. Declining these can emit a bundle with dangling references even though bundling
@@ -61,3 +66,6 @@ Cached artifacts are reused only when format, client API, bridge, and compiler m
 current constants.
 Otherwise the source is compiled into a new immutable content-addressed artifact; there is no stale
 fallback.
+
+The client artifact format, client API, compiler, and bridge protocol remain version 1. This is a
+greenfield coordinated boundary, so the compiler has no old bootstrap, format, or protocol path.

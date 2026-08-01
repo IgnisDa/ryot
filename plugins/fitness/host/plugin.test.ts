@@ -40,7 +40,7 @@ it("declares the complete fitness-owned source", () => {
 	]);
 	expect(fitnessPlugin.client).toEqual({
 		apiVersion: 1,
-		entry: "client/index.ts",
+		homeView: null,
 		entities: { workout: { listPresentation: "workout-row", gridPresentation: "workout-card" } },
 		exports: {
 			"workout-card": {
@@ -146,7 +146,11 @@ it("declares the complete fitness-owned source", () => {
 	);
 	expect(fitnessPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "fitness")).toBe(true);
 	expect(
-		fitnessPlugin.savedViews.map(({ name, entitySchemaSlug }) => ({ name, entitySchemaSlug })),
+		fitnessPlugin.savedViews.map(({ name, settings }) => ({
+			name,
+			entitySchemaSlug: (settings["addAction"] as { readonly entitySchemaSlug: string })
+				.entitySchemaSlug,
+		})),
 	).toEqual([
 		{ name: "All Exercises", entitySchemaSlug: "exercise" },
 		{ name: "All Workouts", entitySchemaSlug: "workout" },

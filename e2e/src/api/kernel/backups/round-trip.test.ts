@@ -1,6 +1,7 @@
 import {
 	EntitySchemaSlug,
 	EventSchemaSlug,
+	PluginSlug,
 	RelationshipSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
@@ -8,17 +9,24 @@ import { Effect } from "effect";
 
 import {
 	type Client,
+	cloneSavedView,
 	createAuthenticatedClient,
+	buildClientRendererDefinition,
+	createClientRenderer,
 	createEntity,
 	createPluginScope,
+	createRendererSavedView,
 	createRelationship,
 	deleteUserAndWait,
+	encodeClientRendererSource,
 	enqueueProviderEntityImport,
 	executeRyotQL,
 	exportAndDownloadBackup,
 	fakeProviderDetailsResult,
 	findBuiltinPluginBySlug,
 	findBuiltinSavedView,
+	findPluginInstallationBySlug,
+	getClientRenderer,
 	getEntity,
 	getEntitySchema,
 	getSavedView,
@@ -29,12 +37,15 @@ import {
 	listEventsForEntity,
 	listNotificationSubscriptionStates,
 	listRelationshipSchemas,
+	listSavedViews,
 	pollProviderEntityImportResult,
 	providerSandboxSource,
+	publishClientRenderer,
 	requireRows,
 	requireRyotQLText,
 	requireRyotQLValue,
 	restoreBackup,
+	setPluginHomeView,
 	setNotificationRuleActive,
 	updatePluginState,
 	uninstallTestPlugin,
@@ -73,6 +84,7 @@ const getRelationship = (client: Client, relationshipId: string) =>
 			document({
 				relationships: rows(relationship, {
 					limit: 1,
+					where: eq(column(relationship, "id"), literal(relationshipId)),
 					fields: [
 						field("id", column(relationship, "id")),
 						field("properties", column(relationship, "properties")),
@@ -80,7 +92,6 @@ const getRelationship = (client: Client, relationshipId: string) =>
 						field("targetEntityId", column(relationship, "targetEntityId")),
 						field("relationshipSchemaSlug", column(relationship, "relationshipSchemaSlug")),
 					],
-					where: eq(column(relationship, "id"), literal(relationshipId)),
 				}),
 			}),
 		);
@@ -99,13 +110,53 @@ const getRelationship = (client: Client, relationshipId: string) =>
 	});
 
 describe("backup export and restore round trip", () => {
+	it.live("maps renderer and saved-view identities while the source account still exists", () =>
+		Effect.gen(function* () {
+			const source = yield* createAuthenticatedClient();
+			const target = yield* createAuthenticatedClient();
+			const rendererDefinition = buildClientRendererDefinition();
+			const renderer = yield* createClientRenderer(source.client, {
+				name: "Coexisting backup renderer",
+				draftDefinition: rendererDefinition,
+			});
+			yield* publishClientRenderer(source.client, renderer.id, renderer.draftRevision);
+			const view = yield* createRendererSavedView(
+				source.client,
+				renderer.id,
+				{ label: "Coexisting backup view" },
+				{ name: "Coexisting backup view" },
+			);
+			yield* setPluginHomeView(source.client, PluginSlug.make("media"), view.id);
+
+			const { bytes } = yield* exportAndDownloadBackup(source.client, source.token);
+			const restored = yield* restoreBackup(target.client, bytes);
+			assertCompleted(restored.run, "coexisting-account backup restore");
+
+			const restoredView = yield* getSavedView(target.client, view.slug);
+			expect(restoredView.id).not.toBe(view.id);
+			assert(restoredView.renderer.kind === "custom");
+			expect(restoredView.renderer.rendererId).not.toBe(renderer.id);
+			expect(
+				(yield* getClientRenderer(target.client, restoredView.renderer.rendererId)).draftDefinition,
+			).toEqual(rendererDefinition);
+			expect((yield* findPluginInstallationBySlug(target.client, "media")).homeSavedViewId).toBe(
+				restoredView.id,
+			);
+
+			expect((yield* getClientRenderer(source.client, renderer.id)).id).toBe(renderer.id);
+			expect((yield* getSavedView(source.client, view.slug)).id).toBe(view.id);
+		}),
+	);
+
 	it.live("restores portable user state into a clean account exactly once", () =>
 		Effect.gen(function* () {
 			const suffix = crypto.randomUUID();
+			const rendererSource = `export default function BackupDashboard() { return <h1>Backup dashboard ${suffix}</h1>; }`;
 			const pluginSlug = createPluginScope(`backup-round-trip-${suffix}`);
 			const entitySchemaSlug = `backup-entity-${suffix}`;
 			const eventSchemaSlug = `backup-event-${suffix}`;
 			const relationshipSchemaSlug = `backup-relationship-${suffix}`;
+			const pluginViewSlug = `backup-view-${suffix}`;
 			const entityPropertiesSchema = {
 				fields: {
 					details: {
@@ -179,12 +230,39 @@ describe("backup export and restore round trip", () => {
 					pluginSlug,
 					scope: "system",
 					files: {
+						"client/page.tsx": "export default function BackupPage() { return null; }",
 						[entry]: literalSandboxSource({
 							value: true,
 							slug: scriptSlug,
 							name: "Backup round trip fixture",
 						}),
 					},
+					clientDefinition: {
+						routes: {},
+						entities: {},
+						apiVersion: 1,
+						homeView: pluginViewSlug,
+						exports: {
+							"backup-page": {
+								kind: "page",
+								entry: "client/page.tsx",
+								settingsSchema: { fields: {} },
+								automaticEntityPresentations: false,
+							},
+						},
+					},
+					savedViews: [
+						{
+							pluginSlug,
+							sortOrder: 0,
+							settings: {},
+							dataSources: null,
+							slug: pluginViewSlug,
+							icon: "layout-dashboard",
+							name: "Backup plugin page",
+							renderer: { kind: "plugin", exportName: "backup-page" },
+						},
+					],
 					scripts: [
 						{
 							entry,
@@ -234,6 +312,13 @@ describe("backup export and restore round trip", () => {
 			};
 			const source = yield* createAuthenticatedClient();
 			const target = yield* createAuthenticatedClient();
+			const pluginOwnedView = requirePresent(
+				(yield* listSavedViews(source.client, { pluginSlug })).find(
+					({ slug }) => slug === pluginViewSlug,
+				),
+				"Plugin-owned backup view is missing",
+			);
+			const clonedPluginView = yield* cloneSavedView(source.client, pluginOwnedView.slug);
 			const sourceLibraryId = yield* getLibraryId(source.client);
 			const targetLibraryId = yield* getLibraryId(target.client);
 			expect(targetLibraryId).not.toBe(sourceLibraryId);
@@ -296,23 +381,35 @@ describe("backup export and restore round trip", () => {
 			assert(olderOutcome?.status === "written");
 			assert(newerOutcome?.status === "written");
 
-			const builtinView = yield* findBuiltinSavedView(source.client);
-			const builtinViewLayouts = requirePresent(
-				builtinView.layouts,
-				"Built-in saved view has no layouts",
+			const rendererDefinition = buildClientRendererDefinition({
+				files: [{ path: "client/page.tsx", content: encodeClientRendererSource(rendererSource) }],
+			});
+			const renderer = yield* createClientRenderer(source.client, {
+				name: "Backup dashboard renderer",
+				draftDefinition: rendererDefinition,
+			});
+			yield* publishClientRenderer(source.client, renderer.id, renderer.draftRevision);
+			const viewEntity = table("entity", "backupViewEntity");
+			const viewDataSources = document({
+				entities: rows(viewEntity, {
+					fields: [field("id", column(viewEntity, "id"))],
+					where: eq(column(viewEntity, "id"), literal(firstEntity.id)),
+				}),
+			});
+			const rendererView = yield* createRendererSavedView(
+				source.client,
+				renderer.id,
+				{ label: "Portable dashboard" },
+				{ name: "Backup dashboard", dataSources: viewDataSources },
 			);
+			yield* setPluginHomeView(source.client, PluginSlug.make("media"), rendererView.id);
+
+			const builtinView = yield* findBuiltinSavedView(source.client);
 			expect((yield* getSavedView(target.client, builtinView.slug)).isDisabled).toBe(false);
 			yield* source.client.call((c) =>
 				c.savedViews.update({
 					params: { viewSlug: builtinView.slug },
-					payload: {
-						isDisabled: true,
-						icon: builtinView.icon,
-						name: builtinView.name,
-						layouts: builtinViewLayouts,
-						entitySchemaSlug: builtinView.entitySchemaSlug,
-						...(builtinView.pluginSlug ? { pluginSlug: builtinView.pluginSlug } : {}),
-					},
+					payload: { isDisabled: true, icon: builtinView.icon, name: builtinView.name },
 				}),
 			);
 
@@ -405,6 +502,32 @@ describe("backup export and restore round trip", () => {
 
 			const restoredView = yield* getSavedView(target.client, builtinView.slug);
 			expect(restoredView).toMatchObject({ slug: builtinView.slug, isDisabled: true });
+			const restoredPluginView = yield* getSavedView(target.client, clonedPluginView.slug);
+			expect(restoredPluginView).toMatchObject({
+				settings: {},
+				dataSources: null,
+				renderer: { kind: "plugin", exportName: "backup-page" },
+			});
+			const restoredRendererView = yield* getSavedView(target.client, rendererView.slug);
+			expect(restoredRendererView.id).not.toBe(rendererView.id);
+			assert(restoredRendererView.renderer.kind === "custom");
+			expect(restoredRendererView.renderer.rendererId).not.toBe(renderer.id);
+			const restoredRenderer = yield* getClientRenderer(
+				target.client,
+				restoredRendererView.renderer.rendererId,
+			);
+			expect(restoredRenderer.draftDefinition).toEqual(rendererDefinition);
+			expect(restoredRenderer.draftDefinition.files[0]?.content).toBe(
+				encodeClientRendererSource(rendererSource),
+			);
+			expect(restoredRendererView).toMatchObject({
+				dataSources: viewDataSources,
+				settings: { label: "Portable dashboard" },
+				renderer: { kind: "custom", rendererId: restoredRenderer.id },
+			});
+			expect((yield* findPluginInstallationBySlug(target.client, "media")).homeSavedViewId).toBe(
+				restoredRendererView.id,
+			);
 			const restoredSubscriptions = yield* listNotificationSubscriptionStates(target.client, {
 				limit: 100,
 			});
@@ -528,8 +651,8 @@ describe("backup export and restore round trip", () => {
 			assertCompleted(restored.run, "provider natural-identity restore");
 			const globalEntity = yield* getGlobalEntityByProvenance(target.client, {
 				externalId,
-				entitySchemaSlug,
 				providerId,
+				entitySchemaSlug,
 			});
 			expect(globalEntity).toMatchObject({
 				id: archivedResult.data.id,

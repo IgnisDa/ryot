@@ -1,5 +1,4 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
@@ -18,9 +17,10 @@ const pluginDefinitionSource = (): DefinitionSource => {
 	const base = fixtureManifest();
 	const savedView = kernel.savedViews[0];
 	assert(savedView);
+	assert(savedView.renderer.kind === "kernel");
 	const entitySchema = base.entitySchemas[0];
 	assert(entitySchema);
-	const plugins: ReadonlyArray<PluginManifest> = [
+	const plugins = [
 		{
 			...base,
 			savedViews: [
@@ -29,7 +29,7 @@ const pluginDefinitionSource = (): DefinitionSource => {
 					slug: "fixture-items",
 					name: "Fixture Items",
 					pluginSlug: "fixture",
-					entitySchemaSlug: EntitySchemaSlug.make("fixture-entity"),
+					renderer: savedView.renderer,
 				},
 			],
 			entitySchemas: [
@@ -53,7 +53,7 @@ const pluginDefinitionSource = (): DefinitionSource => {
 				},
 			],
 		},
-	];
+	] satisfies ReadonlyArray<PluginManifest>;
 	return {
 		savedViews: [...kernel.savedViews, ...plugins.flatMap(({ savedViews }) => savedViews)],
 		signalSchemas: [
@@ -166,28 +166,11 @@ describe("definition registry", () => {
 			buildDefinitionSnapshot({
 				...source,
 				savedViews: [
-					{
-						...savedView,
-						layouts: {
-							...savedView.layouts,
-							grid: { ...savedView.layouts.grid, entityIdField: "missing" },
-						},
-					},
+					{ ...savedView, settings: { ...savedView.settings, sourceName: "missing" } },
 					...source.savedViews.slice(1),
 				],
 			}),
-		).toThrow(
-			"Invalid saved view collections: Grid layout: mapping field 'missing' is not in its root projection",
-		);
-		expect(() =>
-			buildDefinitionSnapshot({
-				...source,
-				savedViews: [
-					{ ...savedView, entitySchemaSlug: EntitySchemaSlug.make("missing") },
-					...source.savedViews.slice(1),
-				],
-			}),
-		).toThrow(/Saved view .* references missing entity schema missing/);
+		).toThrow(/source 'missing' must produce rows/);
 		expect(() =>
 			buildDefinitionSnapshot({
 				...source,

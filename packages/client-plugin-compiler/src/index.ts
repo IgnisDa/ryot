@@ -5,8 +5,9 @@ export {
 	type ClientPluginCompilerGraphInput,
 	type ClientPluginCompilerInput,
 	type ClientPluginCompilerPackageExport,
+	type ClientPluginCompilerPackageInput,
+	type ClientPluginCompilerPageInput,
 	type ClientPluginCompilerPublicExport,
-	type ClientPluginCompilerSingleInput,
 	type ClientPluginExportKind,
 } from "./compile";
 export { ClientPluginCompilerDiagnostic, ClientPluginCompilerFailure } from "./diagnostics";

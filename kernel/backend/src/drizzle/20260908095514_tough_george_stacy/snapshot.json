@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "dbb2e1a2-f018-41ec-9685-ab09426edfbc",
+	"id": "feb9d538-511d-472b-bf7f-0905b55a2d91",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{
@@ -954,12 +954,12 @@
 		{
 			"type": "text",
 			"typeSchema": null,
-			"notNull": true,
+			"notNull": false,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "id",
+			"name": "renderer_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "client_page_build"
@@ -967,12 +967,12 @@
 		{
 			"type": "text",
 			"typeSchema": null,
-			"notNull": false,
+			"notNull": true,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "renderer_id",
+			"name": "id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "client_page_build"
@@ -4020,19 +4020,6 @@
 			"table": "plugin"
 		},
 		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "client_artifact_hash",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "plugin"
-		},
-		{
 			"type": "timestamp with time zone",
 			"typeSchema": null,
 			"notNull": true,
@@ -4930,32 +4917,6 @@
 			"table": "saved_view"
 		},
 		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "entity_schema_slug",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "saved_view"
-		},
-		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "layouts",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "saved_view"
-		},
-		{
 			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": false,
@@ -4964,19 +4925,6 @@
 			"generated": null,
 			"identity": null,
 			"name": "data_sources",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "saved_view"
-		},
-		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "renderer",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "saved_view"
@@ -5036,7 +4984,20 @@
 		{
 			"type": "jsonb",
 			"typeSchema": null,
-			"notNull": false,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "renderer",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "saved_view"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
@@ -5055,19 +5016,6 @@
 			"generated": null,
 			"identity": null,
 			"name": "created_at",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "saved_view"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "entity_schema_plugin_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "saved_view"
@@ -7716,27 +7664,6 @@
 			"nameExplicit": true,
 			"columns": [
 				{
-					"value": "client_artifact_hash",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				}
-			],
-			"isUnique": false,
-			"where": null,
-			"with": "",
-			"method": "btree",
-			"concurrently": false,
-			"name": "plugin_client_artifact_hash_idx",
-			"entityType": "indexes",
-			"schema": "public",
-			"table": "plugin"
-		},
-		{
-			"nameExplicit": true,
-			"columns": [
-				{
 					"value": "slug",
 					"isExpression": false,
 					"asc": true,
@@ -8163,27 +8090,6 @@
 			"method": "btree",
 			"concurrently": false,
 			"name": "saved_view_user_id_idx",
-			"entityType": "indexes",
-			"schema": "public",
-			"table": "saved_view"
-		},
-		{
-			"nameExplicit": true,
-			"columns": [
-				{
-					"value": "entity_schema_plugin_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				}
-			],
-			"isUnique": false,
-			"where": null,
-			"with": "",
-			"method": "btree",
-			"concurrently": false,
-			"name": "saved_view_entity_schema_plugin_id_idx",
 			"entityType": "indexes",
 			"schema": "public",
 			"table": "saved_view"
@@ -8991,19 +8897,6 @@
 		},
 		{
 			"nameExplicit": false,
-			"columns": ["client_artifact_hash"],
-			"schemaTo": "public",
-			"tableTo": "plugin_client_artifact",
-			"columnsTo": ["hash"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "NO ACTION",
-			"name": "plugin_client_artifact_hash_plugin_client_artifact_hash_fkey",
-			"entityType": "fks",
-			"schema": "public",
-			"table": "plugin"
-		},
-		{
-			"nameExplicit": false,
 			"columns": ["owner_id"],
 			"schemaTo": "public",
 			"tableTo": "user",
@@ -9222,19 +9115,6 @@
 			"entityType": "fks",
 			"schema": "public",
 			"table": "sandbox_workflow_reference"
-		},
-		{
-			"nameExplicit": false,
-			"columns": ["entity_schema_plugin_id"],
-			"schemaTo": "public",
-			"tableTo": "plugin",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "RESTRICT",
-			"name": "saved_view_entity_schema_plugin_id_plugin_id_fkey",
-			"entityType": "fks",
-			"schema": "public",
-			"table": "saved_view"
 		},
 		{
 			"nameExplicit": false,

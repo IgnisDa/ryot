@@ -1,4 +1,4 @@
-import { table } from "@ryot-app/ryotql";
+import { column, field, table } from "@ryot-app/ryotql";
 import { buildSavedViewLayoutProjections } from "@ryot-app/ryotql-recipes/saved-views";
 
 import { slugify } from "../backend/contracts/slug";
@@ -70,37 +70,38 @@ export const mediaSavedViews = () => {
 			grid: { entity, card: expressions.grid },
 			list: { entity, card: expressions.list },
 		});
+		const fields = [
+			...projections.table.fields,
+			field("ownerPluginId", column(entity, "entitySchemaPluginId")),
+			field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
+		];
 		return {
 			sortOrder,
 			name: view.name,
 			slug: view.slug,
 			icon: schema.icon,
 			pluginSlug: "media",
-			entitySchemaSlug: view.entitySchemaSlug,
-			layouts: {
-				grid: {
-					...projections.grid.mappings,
-					queryDocument: defaultMediaSavedViewRecipe({
-						fields: projections.grid.fields,
-						schemas: [view.entitySchemaSlug],
-						layout: { type: "card", mapping: projections.grid.mappings },
-					}).document,
-				},
-				list: {
-					...projections.list.mappings,
-					queryDocument: defaultMediaSavedViewRecipe({
-						fields: projections.list.fields,
-						schemas: [view.entitySchemaSlug],
-						layout: { type: "card", mapping: projections.list.mappings },
-					}).document,
-				},
-				table: {
-					...projections.table.mappings,
-					queryDocument: defaultMediaSavedViewRecipe({
-						fields: projections.table.fields,
-						schemas: [view.entitySchemaSlug],
-						layout: { type: "table", mapping: projections.table.mappings },
-					}).document,
+			renderer: { kind: "kernel", name: "entity-browser" } as const,
+			dataSources: defaultMediaSavedViewRecipe({
+				fields,
+				schemas: [view.entitySchemaSlug],
+				layout: { type: "table", mapping: projections.table.mappings },
+			}).document,
+			settings: {
+				pageSize: 20,
+				sourceName: "savedView",
+				defaultLayout: "grid",
+				layouts: ["grid", "list", "table"],
+				entityIdField: "entityId",
+				ownerPluginIdField: "ownerPluginId",
+				entitySchemaSlugField: "entitySchemaSlug",
+				searchFields: ["column0"],
+				sortChoices: [],
+				tableColumns: projections.table.mappings.columns,
+				addAction: {
+					type: "provider-search",
+					ownerPluginId: "media",
+					entitySchemaSlug: view.entitySchemaSlug,
 				},
 			},
 		};

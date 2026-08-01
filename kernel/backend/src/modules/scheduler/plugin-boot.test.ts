@@ -45,7 +45,6 @@ const normalizedPlugin = (pluginSlug: string): PluginRegistryEntry => {
 		slug: pluginSlug,
 		id: `${pluginSlug}-id`,
 		scope: "system" as const,
-		clientArtifactHash: null,
 		manifest: normalizedManifest,
 		sourceHash: `${pluginSlug}-source`,
 		scripts: [

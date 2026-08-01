@@ -10,11 +10,21 @@ bridge version. Bridge init establishes an immutable session identity from a ran
 that artifact identity. Ready repeats it, and the kernel accepts only an exact match. The plugin
 reports metadata embedded in the artifact rather than treating echoed kernel input as proof.
 
-The bridge protocol is currently exactly version 1. Entity interest uses strict state messages with at
-most 500 selected IDs: plugins send foreground and visible IDs, and the kernel sends entity ID plus
-`populated` or `translated`. These messages have no request IDs, acknowledgements, tickets,
-credentials, user identity, or server fields. The shared declaration schema is uncapped; runtimes own
-aggregation and bounded selection.
+The client artifact format, client API, compiler, and bridge protocol are currently exactly version 1.
+They remain one coordinated greenfield boundary with no legacy decoder or compatibility adapter.
+
+`ClientPageTarget` covers saved views, explicit plugin routes, and entities. Its page context carries
+renderer identity, settings, optional named data sources, and route parameters. Artifact sessions are
+scoped to the complete prepared client-page graph.
+
+Entity interest uses strict state messages with at most 500 selected IDs: plugins send foreground and
+visible IDs, and the kernel sends entity ID plus `populated` or `translated`. These messages have no
+request IDs, acknowledgements, tickets, credentials, user identity, or server fields. The shared
+declaration schema is uncapped; runtimes own aggregation and bounded selection.
+
+The complete public `RyotClientErrorReason` set is `disposed`, `protocol`, `transport`,
+`asset-failed`, `collection-failed`, `query-failed`, `invalid-input`, `operation-failed`,
+`malformed-result`, and `unsupported-capability`.
 
 Reserved kernel shortcuts are semantic bridge messages, not public `RyotClient` capabilities. Raw
 keyboard events never cross the boundary.

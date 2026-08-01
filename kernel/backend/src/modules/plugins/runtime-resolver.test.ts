@@ -1236,6 +1236,7 @@ const collidingNotesManifest = () => {
 	const entitySchema = base.entitySchemas[0];
 	const savedView = kernelDefinitionSource().savedViews[0];
 	assert(entitySchema && savedView);
+	assert(savedView.renderer.kind === "kernel");
 	return {
 		...base,
 		crons: [],
@@ -1243,8 +1244,8 @@ const collidingNotesManifest = () => {
 		bindings: emptyBindings,
 		entitySchemas: [entitySchema, { ...entitySchema, name: "Task", slug: "task" }],
 		savedViews: [
-			{ ...savedView, slug: "all-tasks", name: "All Tasks", entitySchemaSlug: "task" },
-			{ ...savedView, slug: "retired", name: "Retired", entitySchemaSlug: "retired-entity" },
+			{ ...savedView, slug: "all-tasks", name: "All Tasks", renderer: savedView.renderer },
+			{ ...savedView, slug: "retired", name: "Retired", renderer: savedView.renderer },
 		],
 	} satisfies PluginManifest;
 };
@@ -1514,7 +1515,7 @@ it.effect("lets a shipped definition win a private slug collision while the rest
 		});
 		expect(definitions.entitySchemas["task"]).toMatchObject({ pluginId: "notes-a" });
 		expect(definitions.savedViews["all-tasks"]).toMatchObject({ pluginId: "notes-a" });
-		expect(definitions.savedViews["retired"]).toBeUndefined();
+		expect(definitions.savedViews["retired"]).toMatchObject({ pluginId: "notes-a" });
 		installations[0] = noteInstallation("notes-a", "user-1", { health: "incompatible" });
 		const conflicted = yield* resolver.getEffectiveDefinitions(UserId.make("user-1"), true);
 		expect(conflicted.entitySchemas["note"]).toMatchObject({

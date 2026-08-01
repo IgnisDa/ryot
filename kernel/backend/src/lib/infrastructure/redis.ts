@@ -1,15 +1,15 @@
 import { PreparedClientPageIdentity } from "@ryot-app/contract/modules/client-pages/schemas";
 import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
-import { PluginSlug, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Effect, Layer, Redacted, Schema } from "effect";
 import Redis from "ioredis";
 
 import { AppConfig } from "./config/service";
 
+export const CLIENT_PAGE_SESSION_TTL_SECONDS = 900;
 export const ENTITY_INTEREST_SESSION_TTL_SECONDS = 15 * 60;
 export const ENTITY_INTEREST_PROGRESSION_LEASE_SECONDS = 30;
-export const PLUGIN_CLIENT_ARTIFACT_SESSION_TTL_SECONDS = 900;
 export const IMPORT_SOURCE_STATE_PENDING_TTL_SECONDS = 24 * 60 * 60;
 export const IMPORT_SOURCE_STATE_CLAIMED_TTL_SECONDS = 24 * 60 * 60;
 export const PROVIDER_SEARCH_OPTIONS_CACHE_TTL_SECONDS = 24 * 60 * 60;
@@ -29,21 +29,6 @@ export type ImportSourceState = typeof ImportSourceState.Type;
 
 export const ImportSourceStateFromJson = Schema.fromJsonString(ImportSourceState);
 
-export const PluginClientArtifactSessionPayload = Schema.Struct({
-	userId: UserId,
-	pluginId: Schema.String,
-	pluginSlug: PluginSlug,
-	sourceHash: Schema.String,
-	artifactHash: Schema.String,
-	installationId: Schema.String,
-}).annotate({ parseOptions: { onExcessProperty: "error" as const } });
-
-export type PluginClientArtifactSessionPayload = typeof PluginClientArtifactSessionPayload.Type;
-
-export const PluginClientArtifactSessionPayloadFromJson = Schema.fromJsonString(
-	PluginClientArtifactSessionPayload,
-);
-
 export const ClientPageSessionPayload = Schema.Struct({
 	userId: UserId,
 	identity: PreparedClientPageIdentity,
@@ -51,7 +36,7 @@ export const ClientPageSessionPayload = Schema.Struct({
 
 export const ClientPageSessionPayloadFromJson = Schema.fromJsonString(ClientPageSessionPayload);
 
-export const hashPluginClientArtifactSessionToken = sha256Hex;
+export const hashClientPageSessionToken = sha256Hex;
 
 export const redisKeys = {
 	entityUpdatedChannel: "ryot:entity:updated",
@@ -70,16 +55,14 @@ export const redisKeys = {
 	sandboxWorkflowJournal: (executionId: string) => `ryot:sandbox:workflow:${executionId}:journal`,
 	entityInterestSessions: (entityId: string) => `ryot:entity-interest:entity:${entityId}:sessions`,
 	entityInterestProgressionLease: (entityId: string) => `ryot:entity-interest:progress:${entityId}`,
-	pluginClientArtifactSession: (sessionId: string) =>
-		`ryot:plugins:client-artifact-session:${sessionId}`,
+	providerHttpAdmission: (policyKey: string) =>
+		`ryot:provider-http-admission:${encodeURIComponent(policyKey)}`,
 	entityInterestSessionEntities: (sessionId: string) =>
 		`ryot:entity-interest:session:${sessionId}:entities`,
 	integrationCache: (integrationId: string, key: string) =>
 		`ryot:integrations:cache:${integrationId}:${key}`,
 	importSourceStateClaim: (stateId: string, claimId: string) =>
 		`ryot:imports:source-state:${stateId}:claim:${claimId}`,
-	providerHttpAdmission: (policyKey: string) =>
-		`ryot:provider-http-admission:${encodeURIComponent(policyKey)}`,
 	providerSearchOptions: (providerId: string, scriptId: string) =>
 		`ryot:provider:search-options:${providerId}:${scriptId}`,
 	sandboxCache: (userId: string | null, scriptId: string, key: string) =>

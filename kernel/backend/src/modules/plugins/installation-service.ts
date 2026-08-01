@@ -85,15 +85,31 @@ type HomeSavedViewTarget = NonNullable<
 	Effect.Success<ReturnType<PluginInstallationRepository["Service"]["findHomeSavedView"]>>
 >;
 
-const isUsableHomeSavedView = (userId: UserId, target: HomeSavedViewTarget) =>
-	!target.view.isDisabled &&
-	(target.view.renderer?.kind === "kernel"
-		? Schema.is(KernelSavedViewRendererName)(target.view.renderer.name)
-		: target.view.renderer?.kind === "custom" &&
-			target.renderer?.userId === userId &&
-			target.renderer.publishedHash !== null &&
-			target.renderer.publishedRevision !== null &&
-			target.renderer.publishedDefinition !== null);
+const isUsableHomeSavedView = (
+	userId: UserId,
+	target: HomeSavedViewTarget,
+	pluginsById: ReadonlyMap<string, Pick<StoredPlugin, "manifest">>,
+) => {
+	if (target.view.isDisabled) {
+		return false;
+	}
+	if (target.view.renderer.kind === "kernel") {
+		return Schema.is(KernelSavedViewRendererName)(target.view.renderer.name);
+	}
+	if (target.view.renderer.kind === "plugin") {
+		return (
+			pluginsById.get(target.view.renderer.pluginId)?.manifest.client?.exports?.[
+				target.view.renderer.exportName
+			]?.kind === "page"
+		);
+	}
+	return (
+		target.renderer?.userId === userId &&
+		target.renderer.publishedHash !== null &&
+		target.renderer.publishedRevision !== null &&
+		target.renderer.publishedDefinition !== null
+	);
+};
 
 const buildEffectiveDefinitions = (
 	systemDefinitions: Parameters<typeof definitionSourceFromSnapshot>[0],
@@ -531,26 +547,48 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				userId: UserId,
 			) {
 				const states = yield* installations.listForUser(userId);
+				const privatePlugins = yield* repository.listPrivateForUser(userId);
+				const systemPlugins = Object.values(loader.getSnapshot().plugins);
+				const pluginById = new Map(
+					[...systemPlugins, ...privatePlugins].map((plugin) => [plugin.id, plugin]),
+				);
+				const usablePluginById = new Map(
+					states
+						.filter((state) => state.health === "ready" && !state.isDisabled)
+						.flatMap((state) => {
+							const plugin = pluginById.get(state.pluginId);
+							return plugin ? [[state.pluginId, plugin] as const] : [];
+						}),
+				);
 				const effectiveHomeViews = new Map(
 					yield* Effect.forEach(states, (state) =>
 						Effect.gen(function* () {
 							const selectedId = state.homeSavedViewId;
-							if (selectedId == null) {
+							if (selectedId !== null) {
+								const target = yield* installations.findHomeSavedView(userId, selectedId);
+								if (target && isUsableHomeSavedView(userId, target, usablePluginById)) {
+									return [state.id, SavedViewId.make(selectedId)] as const;
+								}
+							}
+							const homeView = pluginById.get(state.pluginId)?.manifest.client?.homeView;
+							if (homeView == null) {
 								return [state.id, null] as const;
 							}
-							const target = yield* installations.findHomeSavedView(userId, selectedId);
+							const target = yield* installations.findHomeSavedViewBySlug(
+								userId,
+								state.id,
+								homeView,
+							);
 							return [
 								state.id,
-								target && isUsableHomeSavedView(userId, target)
-									? SavedViewId.make(selectedId)
+								target && isUsableHomeSavedView(userId, target, usablePluginById)
+									? SavedViewId.make(target.view.id)
 									: null,
 							] as const;
 						}),
 					),
 				);
-				const privatePlugins = yield* repository.listPrivateForUser(userId);
 				const stateByPluginId = new Map(states.map((state) => [state.pluginId, state]));
-				const systemPlugins = Object.values(loader.getSnapshot().plugins);
 				const systemItems = systemPlugins.map((plugin, index) =>
 					toInstallationItem({
 						scope: "system",
@@ -600,6 +638,19 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				const updated = yield* mapDatabaseErrors(
 					database.transaction((transaction) =>
 						Effect.gen(function* () {
+							const usablePluginIds = new Set(
+								(yield* installations.listForUser(userId))
+									.filter((candidate) => candidate.health === "ready" && !candidate.isDisabled)
+									.map(({ pluginId }) => pluginId),
+							);
+							const rendererPlugins = new Map(
+								[
+									...Object.values(loader.getSnapshot().plugins),
+									...(yield* repository.listPrivateForUser(userId)),
+								]
+									.filter((candidate) => usablePluginIds.has(candidate.id))
+									.map((candidate) => [candidate.id, candidate]),
+							);
 							if (payload.savedViewId !== null) {
 								const target = yield* installations.lockHomeSavedView(userId, payload.savedViewId);
 								if (!target) {
@@ -612,7 +663,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 										reason: { code: "home-view-disabled", savedViewId: payload.savedViewId },
 									});
 								}
-								if (!isUsableHomeSavedView(userId, target)) {
+								if (!isUsableHomeSavedView(userId, target, rendererPlugins)) {
 									return yield* new PluginRequestError({
 										reason: {
 											savedViewId: payload.savedViewId,
