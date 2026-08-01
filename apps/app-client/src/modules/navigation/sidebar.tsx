@@ -58,11 +58,11 @@ function SectionHeader(props: { title: string; count?: number; action?: ReactNod
 	return (
 		<View className="flex-row items-center justify-between px-1">
 			<View className="flex-row items-center gap-2">
-				<Text className="font-ui-semibold text-[10px] uppercase tracking-[1.6px] text-text-subtle">
+				<Text className="font-ui-semibold text-xs uppercase tracking-[1.6px] text-text-subtle">
 					{props.title}
 				</Text>
 				{props.count !== undefined && (
-					<Text className="font-mono text-[10px] text-text-subtle">{props.count}</Text>
+					<Text className="font-mono text-xs text-text-subtle">{props.count}</Text>
 				)}
 			</View>
 			{props.action}
@@ -92,7 +92,7 @@ function WorkspaceTrigger(props: {
 			</View>
 			<View className="min-w-0 flex-1">
 				<Text className="font-ui-medium text-sm text-text">{workspace.name}</Text>
-				<Text className="font-ui text-[11px] text-text-muted">{props.summary}</Text>
+				<Text className="font-ui text-xs text-text-muted">{props.summary}</Text>
 			</View>
 			<NavigationIcon className="text-text-subtle" name="chevron-down" size={15} />
 		</Pressable>
@@ -149,7 +149,7 @@ export function Sidebar(props: {
 							className="min-w-0 flex-1 py-0 font-ui text-xs text-text"
 						/>
 						<View className="rounded border border-border px-1.5 py-0.5">
-							<Text className="font-mono text-[10px] text-text-subtle">⌘K</Text>
+							<Text className="font-mono text-xs text-text-subtle">⌘K</Text>
 						</View>
 					</View>
 				)}
@@ -164,7 +164,7 @@ export function Sidebar(props: {
 								onPress={() => setIsReordering((current) => !current)}
 								accessibilityLabel={isReordering ? "Finish reordering views" : "Reorder views"}
 							>
-								<Text className="font-ui-medium text-[10px] text-accent-text">
+								<Text className="font-ui-medium text-xs text-accent-text">
 									{isReordering ? "Done" : "Reorder"}
 								</Text>
 							</Pressable>
@@ -260,7 +260,7 @@ export function Sidebar(props: {
 					</View>
 					<View className="flex-1">
 						<Text className="font-ui-medium text-xs text-text">{props.accountName}</Text>
-						<Text className="font-ui text-[10px] text-text-muted">{props.accountEmail}</Text>
+						<Text className="font-ui text-xs text-text-muted">{props.accountEmail}</Text>
 					</View>
 					<View className="flex-row gap-2">
 						<NavigationIcon className="text-text-subtle" name="moon" size={15} />

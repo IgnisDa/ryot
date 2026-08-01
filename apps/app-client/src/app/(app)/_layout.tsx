@@ -18,7 +18,7 @@ export default function AppLayout() {
 	if (isPending) {
 		return (
 			<View className="flex-1 items-center justify-center bg-bg px-6">
-				<Text className="font-ui text-text-muted">Restoring your session...</Text>
+				<Text className="font-ui text-base text-text-muted">Restoring your session...</Text>
 			</View>
 		);
 	}
