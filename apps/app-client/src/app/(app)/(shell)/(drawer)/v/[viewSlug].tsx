@@ -20,16 +20,15 @@ import {
 } from "@/modules/saved-views/atoms";
 import {
 	collectManagedAssets,
-	decodeSavedViewDisplayData,
+	decodeSavedViewCardData,
+	decodeSavedViewTableData,
 	resolvedAssetUrls,
 	type SavedViewDisplayData,
-	type SavedViewDisplayItem,
+	type SavedViewCardItem,
+	type SavedViewTableItem,
 } from "@/modules/saved-views/display-data";
 import { SavedViewGrid } from "@/modules/saved-views/saved-view-grid";
-import {
-	SavedViewLayoutSelector,
-	type SavedViewLayout,
-} from "@/modules/saved-views/saved-view-layout-selector";
+import { SavedViewLayoutSelector } from "@/modules/saved-views/saved-view-layout-selector";
 import { SavedViewList } from "@/modules/saved-views/saved-view-list";
 import { SavedViewTable } from "@/modules/saved-views/saved-view-table";
 import { useServerUrl } from "@/modules/server/state";
@@ -59,18 +58,19 @@ function EmptyState(props: { name: string }) {
 	);
 }
 
-function SavedViewItems(props: {
-	layout: SavedViewLayout;
-	managedUrls: ReadonlyMap<string, string>;
-	items: readonly SavedViewDisplayItem[];
-}) {
+type ActiveDisplayData =
+	| { layout: "grid"; data: SavedViewDisplayData<SavedViewCardItem> }
+	| { layout: "list"; data: SavedViewDisplayData<SavedViewCardItem> }
+	| { layout: "table"; data: SavedViewDisplayData<SavedViewTableItem> };
+
+function SavedViewItems(props: ActiveDisplayData & { managedUrls: ReadonlyMap<string, string> }) {
 	if (props.layout === "grid") {
-		return <SavedViewGrid items={props.items} managedUrls={props.managedUrls} />;
+		return <SavedViewGrid items={props.data.items} managedUrls={props.managedUrls} />;
 	}
 	if (props.layout === "list") {
-		return <SavedViewList items={props.items} managedUrls={props.managedUrls} />;
+		return <SavedViewList items={props.data.items} managedUrls={props.managedUrls} />;
 	}
-	return <SavedViewTable items={props.items} managedUrls={props.managedUrls} />;
+	return <SavedViewTable items={props.data.items} managedUrls={props.managedUrls} />;
 }
 
 type SavedViewPresentationProps = {
@@ -79,36 +79,14 @@ type SavedViewPresentationProps = {
 	userId: string;
 	viewSlug: string;
 	serverUrl: string;
-	layout: SavedViewLayout;
-	data: SavedViewDisplayData;
-};
+} & ActiveDisplayData;
 
 function SavedViewResolvedContent(props: SavedViewPresentationProps) {
-	const assets = collectManagedAssets(props.data.items, props.layout);
+	const assets = collectManagedAssets(props.data.items);
 	if (assets.length === 0) {
-		return (
-			<SavedViewDisplay
-				data={props.data}
-				icon={props.icon}
-				name={props.name}
-				layout={props.layout}
-				managedUrls={new Map()}
-				viewSlug={props.viewSlug}
-			/>
-		);
+		return <SavedViewDisplay {...props} managedUrls={new Map()} />;
 	}
-	return (
-		<SavedViewManagedContent
-			assets={assets}
-			data={props.data}
-			icon={props.icon}
-			name={props.name}
-			userId={props.userId}
-			layout={props.layout}
-			viewSlug={props.viewSlug}
-			serverUrl={props.serverUrl}
-		/>
-	);
+	return <SavedViewManagedContent {...props} assets={assets} />;
 }
 
 function SavedViewManagedContent(
@@ -124,24 +102,20 @@ function SavedViewManagedContent(
 	const response = AsyncResult.isSuccess(result) ? result.value : undefined;
 	return (
 		<SavedViewDisplay
-			data={props.data}
-			icon={props.icon}
-			name={props.name}
-			layout={props.layout}
-			viewSlug={props.viewSlug}
+			{...props}
 			managedUrls={response ? resolvedAssetUrls(response, props.serverUrl) : new Map()}
 		/>
 	);
 }
 
-function SavedViewDisplay(props: {
-	icon: string;
-	name: string;
-	viewSlug: string;
-	layout: SavedViewLayout;
-	data: SavedViewDisplayData;
-	managedUrls: ReadonlyMap<string, string>;
-}) {
+function SavedViewDisplay(
+	props: ActiveDisplayData & {
+		icon: string;
+		name: string;
+		viewSlug: string;
+		managedUrls: ReadonlyMap<string, string>;
+	},
+) {
 	const { items, pageInfo } = props.data;
 	return (
 		<View className="w-full gap-5">
@@ -163,44 +137,52 @@ function SavedViewDisplay(props: {
 				<SavedViewLayoutSelector viewSlug={props.viewSlug} />
 			</View>
 
-			{items.length === 0 ? (
-				<EmptyState name={props.name} />
-			) : (
-				<SavedViewItems items={items} layout={props.layout} managedUrls={props.managedUrls} />
-			)}
+			{items.length === 0 ? <EmptyState name={props.name} /> : <SavedViewItems {...props} />}
 		</View>
 	);
 }
 
 function SavedViewContent(props: { record: SavedViewRecord; serverUrl: string; userId: string }) {
+	const layout = useAtomValue(savedViewLayoutAtom(props.record.slug));
+	const queryDocument = props.record.layouts[layout].queryDocument;
 	const queryResult = useAtomValue(
 		savedViewResultAtom({
+			queryDocument,
 			userId: props.userId,
 			serverUrl: props.serverUrl,
-			queryDocument: props.record.queryDocument,
 		}),
 	);
-	const layout = useAtomValue(savedViewLayoutAtom(props.record.slug));
 	if (AsyncResult.isFailure(queryResult)) {
 		return (
 			<ErrorState title="Unable to load saved view" detail={Cause.pretty(queryResult.cause)} />
 		);
 	}
 	const response = Option.getOrUndefined(AsyncResult.value(queryResult));
-	const decoded = response
-		? decodeSavedViewDisplayData(response, props.record.displayConfiguration)
-		: undefined;
-
 	if (!response) {
 		return <NavigationStatus title="Loading saved view..." />;
 	}
-	if (!decoded || Result.isFailure(decoded)) {
+
+	if (layout === "table") {
+		const decoded = decodeSavedViewTableData(response, props.record.layouts.table);
+		if (Result.isFailure(decoded)) {
+			return <ErrorState title="Unable to display saved view" detail={String(decoded.failure)} />;
+		}
 		return (
-			<ErrorState
-				title="Unable to display saved view"
-				detail={String(decoded?.failure ?? "Malformed saved-view response")}
+			<SavedViewResolvedContent
+				layout="table"
+				userId={props.userId}
+				data={decoded.success}
+				icon={props.record.icon}
+				name={props.record.name}
+				serverUrl={props.serverUrl}
+				viewSlug={props.record.slug}
 			/>
 		);
+	}
+
+	const decoded = decodeSavedViewCardData(response, props.record.layouts[layout]);
+	if (Result.isFailure(decoded)) {
+		return <ErrorState title="Unable to display saved view" detail={String(decoded.failure)} />;
 	}
 
 	return (

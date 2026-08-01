@@ -1,6 +1,5 @@
 import { badRequest } from "@ryot/contract/errors";
-import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
-import type { SavedViewDisplayConfiguration } from "@ryot/contract/modules/saved-views/schemas";
+import type { SavedViewLayouts } from "@ryot/contract/modules/saved-views/schemas";
 import { Effect } from "effect";
 
 import { getSavedViewValidationError } from "#modules/definition-registry/service";
@@ -8,8 +7,7 @@ import { getSavedViewValidationError } from "#modules/definition-registry/servic
 export { getSavedViewValidationError } from "#modules/definition-registry/service";
 
 type SavedViewDefinitionInput = {
-	readonly queryDocument: RyotQLDocument;
-	readonly displayConfiguration: SavedViewDisplayConfiguration;
+	readonly layouts: SavedViewLayouts;
 };
 
 export const validateSavedViewDefinition = Effect.fn("validateSavedViewDefinition")(function* (

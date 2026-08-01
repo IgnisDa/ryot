@@ -31,11 +31,15 @@ const cardConfiguration = {
 	primaryMetadataField: null,
 	secondaryMetadataField: null,
 } as const;
-const displayConfiguration = {
-	grid: cardConfiguration,
-	list: cardConfiguration,
-	entityIdField: "entityId",
-	table: { imageField: null, columns: [{ label: "Title", field: "title" }] },
+const layouts = {
+	grid: { ...cardConfiguration, itemIdField: "entityId", queryDocument },
+	list: { ...cardConfiguration, itemIdField: "entityId", queryDocument },
+	table: {
+		queryDocument,
+		imageField: null,
+		itemIdField: "entityId",
+		columns: [{ label: "Title", field: "title" }],
+	},
 } as const;
 
 const savedViewRecordsResponse = {
@@ -50,13 +54,12 @@ const savedViewRecordsResponse = {
 					slug: { kind: "text", value: "view-one" },
 					name: { kind: "text", value: "View One" },
 					icon: { kind: "text", value: "bookmark" },
+					layouts: { kind: "json", value: layouts },
 					pluginSlug: { kind: "text", value: "media" },
 					isBuiltin: { kind: "boolean", value: false },
 					isDisabled: { kind: "boolean", value: false },
-					queryDocument: { kind: "json", value: queryDocument },
 					createdAt: { kind: "date", value: "2026-01-01T01:00:00+02:00" },
 					updatedAt: { kind: "date", value: "2026-01-02T01:00:00+02:00" },
-					displayConfiguration: { kind: "json", value: displayConfiguration },
 				},
 			],
 		},
@@ -100,9 +103,8 @@ describe("saved-view record recipes", () => {
 			"updatedAt",
 			"isBuiltin",
 			"isDisabled",
-			"queryDocument",
+			"layouts",
 			"pluginSlug",
-			"displayConfiguration",
 		]);
 		expect(query.where).toMatchObject({
 			type: "and",
@@ -153,16 +155,15 @@ describe("saved-view record recipes", () => {
 			pageInfo: { hasMore: true, limit: 2, page: 3, total: 7 },
 			items: [
 				{
+					layouts,
 					id: "view-1",
 					sortOrder: 2,
-					queryDocument,
 					slug: "view-one",
 					name: "View One",
 					icon: "bookmark",
 					isBuiltin: false,
 					isDisabled: false,
 					pluginSlug: "media",
-					displayConfiguration,
 					createdAt: "2025-12-31T23:00:00.000Z",
 					updatedAt: "2026-01-01T23:00:00.000Z",
 				},
@@ -180,16 +181,15 @@ describe("saved-view record recipes", () => {
 		expect(
 			Result.getOrThrow(decodeSavedViewRecordResponse(detailResponse([savedViewRecordItem]))),
 		).toEqual({
+			layouts,
 			id: "view-1",
 			sortOrder: 2,
-			queryDocument,
 			slug: "view-one",
 			name: "View One",
 			icon: "bookmark",
 			isBuiltin: false,
 			isDisabled: false,
 			pluginSlug: "media",
-			displayConfiguration,
 			createdAt: "2025-12-31T23:00:00.000Z",
 			updatedAt: "2026-01-01T23:00:00.000Z",
 		});
@@ -207,9 +207,8 @@ describe("saved-view record recipes", () => {
 			"updatedAt",
 			"isBuiltin",
 			"isDisabled",
-			"queryDocument",
+			"layouts",
 			"pluginSlug",
-			"displayConfiguration",
 		]) {
 			const item = { ...savedViewRecordItem } as Record<string, unknown>;
 			delete item[field];
@@ -230,9 +229,8 @@ describe("saved-view record recipes", () => {
 			pluginSlug: { kind: "number", value: 1 },
 			icon: { kind: "date", value: "2026-01-01" },
 			isDisabled: { kind: "text", value: "false" },
+			layouts: { kind: "text", value: "not-json" },
 			createdAt: { kind: "text", value: "2026-01-01" },
-			queryDocument: { kind: "text", value: "not-json" },
-			displayConfiguration: { kind: "boolean", value: true },
 		};
 
 		for (const [field, value] of Object.entries(wrongKinds)) {

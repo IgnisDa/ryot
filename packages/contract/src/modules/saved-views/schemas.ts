@@ -4,7 +4,7 @@ import { PluginSlug, SavedViewId } from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
 import { OutputFieldKey, RyotQLDocument } from "../ryotql/language";
 
-const SavedViewCardDisplayConfiguration = strictStruct({
+export const SavedViewCardMapping = strictStruct({
 	titleField: OutputFieldKey,
 	imageField: Schema.NullOr(OutputFieldKey),
 	calloutField: Schema.NullOr(OutputFieldKey),
@@ -12,20 +12,32 @@ const SavedViewCardDisplayConfiguration = strictStruct({
 	primaryMetadataField: Schema.NullOr(OutputFieldKey),
 	secondaryMetadataField: Schema.NullOr(OutputFieldKey),
 });
+export type SavedViewCardMapping = typeof SavedViewCardMapping.Type;
 
-const SavedViewTableDisplayConfiguration = strictStruct({
+export const SavedViewTableMapping = strictStruct({
 	imageField: Schema.NullOr(OutputFieldKey),
 	columns: Schema.NonEmptyArray(strictStruct({ label: Schema.String, field: OutputFieldKey })),
 });
+export type SavedViewTableMapping = typeof SavedViewTableMapping.Type;
 
-export const SavedViewDisplayConfiguration = strictStruct({
-	entityIdField: OutputFieldKey,
-	grid: SavedViewCardDisplayConfiguration,
-	list: SavedViewCardDisplayConfiguration,
-	table: SavedViewTableDisplayConfiguration,
+const SavedViewCardLayout = strictStruct({
+	...SavedViewCardMapping.fields,
+	itemIdField: OutputFieldKey,
+	queryDocument: RyotQLDocument,
 });
 
-export type SavedViewDisplayConfiguration = typeof SavedViewDisplayConfiguration.Type;
+const SavedViewTableLayout = strictStruct({
+	...SavedViewTableMapping.fields,
+	itemIdField: OutputFieldKey,
+	queryDocument: RyotQLDocument,
+});
+
+export const SavedViewLayouts = strictStruct({
+	grid: SavedViewCardLayout,
+	list: SavedViewCardLayout,
+	table: SavedViewTableLayout,
+});
+export type SavedViewLayouts = typeof SavedViewLayouts.Type;
 
 export const ListedSavedView = Schema.Struct({
 	id: SavedViewId,
@@ -37,9 +49,8 @@ export const ListedSavedView = Schema.Struct({
 	updatedAt: Schema.String,
 	isBuiltin: Schema.Boolean,
 	isDisabled: Schema.Boolean,
-	queryDocument: RyotQLDocument,
+	layouts: SavedViewLayouts,
 	pluginSlug: Schema.NullOr(PluginSlug),
-	displayConfiguration: SavedViewDisplayConfiguration,
 });
 
 export type ListedSavedView = typeof ListedSavedView.Type;
@@ -47,9 +58,8 @@ export type ListedSavedView = typeof ListedSavedView.Type;
 export const CreateSavedViewBody = Schema.Struct({
 	icon: Schema.String,
 	name: Schema.String,
-	queryDocument: RyotQLDocument,
+	layouts: SavedViewLayouts,
 	pluginSlug: Schema.optional(PluginSlug),
-	displayConfiguration: SavedViewDisplayConfiguration,
 });
 
 export type CreateSavedViewBody = typeof CreateSavedViewBody.Type;
@@ -57,10 +67,9 @@ export type CreateSavedViewBody = typeof CreateSavedViewBody.Type;
 export const UpdateSavedViewBody = Schema.Struct({
 	icon: Schema.String,
 	name: Schema.String,
+	layouts: SavedViewLayouts,
 	isDisabled: Schema.Boolean,
-	queryDocument: RyotQLDocument,
 	pluginSlug: Schema.optional(PluginSlug),
-	displayConfiguration: SavedViewDisplayConfiguration,
 });
 
 export type UpdateSavedViewBody = typeof UpdateSavedViewBody.Type;

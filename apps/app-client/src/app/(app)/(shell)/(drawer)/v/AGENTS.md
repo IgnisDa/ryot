@@ -1,6 +1,6 @@
 # Saved View Renderer
 
-- Treat `displayConfiguration` as a mapping from projected RyotQL fields to presentation slots. It does not define layout mechanics or view interactions.
+- Treat each entry in `layouts` as an independent query document and flattened mapping from projected RyotQL fields to presentation slots. Execute and decode only the persisted active layout.
 - Apply these card slot semantics consistently in grid and list layouts:
   - `titleField` is the primary identifying text.
   - `imageField` is the layout's independently configured `AssetLocator` source.
@@ -12,4 +12,4 @@
 - Image fields return JSON `AssetLocator` values: use remote URLs directly and resolve local/S3 locators through `uploads.resolveDownloads`. Managed resolution loading or failure shows placeholders and must not fail the saved-view screen.
 - The renderer owns slot placement, typography, truncation, and layout-specific image size and crop. Do not infer these choices from projected field names or entity schemas.
 - Format scalar values by `FieldValue.kind`. Keep general date and number localization in the client; use a projected RyotQL expression when a saved-view definition requires composed text or domain-specific units.
-- Keep the selected grid, list, or table layout outside the saved-view definition. Search, filters, sort controls, create flows, empty states, and responsive behavior are also outside `displayConfiguration`.
+- Keep the persisted selected grid, list, or table layout local to the client and default it to grid. Search, filters, sort controls, empty states, and responsive behavior are outside the saved-view definition.

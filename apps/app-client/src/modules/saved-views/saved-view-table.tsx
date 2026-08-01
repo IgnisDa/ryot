@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import { ScrollView, Text, View } from "react-native";
 
-import type { SavedViewDisplayItem } from "./display-data";
+import type { SavedViewTableItem } from "./display-data";
 import { formatSavedViewValue } from "./display-value";
 import { SavedViewImageView } from "./saved-view-image";
 
@@ -10,10 +10,10 @@ const COLUMN_WIDTHS = [220, 70, 80, 90, 130];
 const columnWidth = (index: number) => COLUMN_WIDTHS[index - 1] ?? 160;
 
 export function SavedViewTable(props: {
-	items: readonly SavedViewDisplayItem[];
+	items: readonly SavedViewTableItem[];
 	managedUrls: ReadonlyMap<string, string>;
 }) {
-	const headers = props.items[0]?.table.cells ?? [];
+	const headers = props.items[0]?.cells ?? [];
 	return (
 		<ScrollView
 			horizontal
@@ -42,7 +42,7 @@ export function SavedViewTable(props: {
 				</View>
 				{props.items.map((item) => (
 					<View key={item.id} className="h-12 flex-row items-center gap-4 border-b border-border">
-						{item.table.cells.map((cell, index) => (
+						{item.cells.map((cell, index) => (
 							<View
 								key={`${item.id}:${cell.key}`}
 								style={index === 0 ? undefined : { width: columnWidth(index) }}
@@ -52,7 +52,7 @@ export function SavedViewTable(props: {
 							>
 								{index === 0 && (
 									<SavedViewImageView
-										image={item.table.image}
+										image={item.image}
 										managedUrls={props.managedUrls}
 										className="h-9 w-6.5 shrink-0 rounded-[3px] bg-surface-2"
 									/>

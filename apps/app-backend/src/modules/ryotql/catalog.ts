@@ -220,8 +220,7 @@ const savedView: CatalogTable = {
 		pluginSlug: physicalField("plugin_slug", "text"),
 		isBuiltin: physicalField("is_builtin", "boolean"),
 		isDisabled: physicalField("is_disabled", "boolean"),
-		queryDocument: physicalField("query_document", "json"),
-		displayConfiguration: physicalField("display_configuration", "json"),
+		layouts: physicalField("layouts", "json"),
 	},
 };
 
