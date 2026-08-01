@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 4 of 13 tasks completed
+**Overall Progress:** 5 of 13 tasks completed
 
-**Current Task:** [Task 05](./05-add-rich-domain-presentations.md) (todo)
+**Current Task:** [Task 06](./06-support-configured-queries-and-general-results.md) (todo)
 
 ### Task List
 
@@ -14,7 +14,7 @@
 | 02  | [Compose Public Plugin Components](./02-compose-public-plugin-components.md)                             | done   |
 | 03  | [Unify Plugin And Entity Pages](./03-unify-plugin-and-entity-pages.md)                                   | done   |
 | 04  | [Browse Mixed Entities Automatically](./04-browse-mixed-entities-automatically.md)                       | done   |
-| 05  | [Add Rich Domain Presentations](./05-add-rich-domain-presentations.md)                                   | todo   |
+| 05  | [Add Rich Domain Presentations](./05-add-rich-domain-presentations.md)                                   | done   |
 | 06  | [Support Configured Queries And General Results](./06-support-configured-queries-and-general-results.md) | todo   |
 | 07  | [Complete The Collection Workflow](./07-complete-the-collection-workflow.md)                             | todo   |
 | 08  | [Preserve State During Live Refresh](./08-preserve-state-during-live-refresh.md)                         | todo   |

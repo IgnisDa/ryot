@@ -9,12 +9,23 @@ import {
 	createClientRenderer,
 	createRendererSavedView,
 	createTestUser,
+	getBuiltinEntitySchemaSlug,
+	getEntity,
 	installFixtureClientPlugin,
 	listEntitySchemas,
+	listEventSchemas,
 	FIXTURE_CLIENT_PLUGIN_SLUG,
 	makeSession,
 	publishClientRenderer,
+	requireEventSchemaBySlug,
 } from "~/fixtures/kernel";
+import {
+	createWorkoutEntityFixture,
+	findWorkoutSetEventSchema,
+	waitForSeededExerciseId,
+	waitForSessionEventCount,
+} from "~/fixtures/plugins/fitness";
+import { seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";
 import { getApiUrl } from "~/support/api";
 import { requirePresent } from "~/support/assertions";
 import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
@@ -111,12 +122,45 @@ it.live("renders system and private public components in one shared page runtime
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );
 
-it.live("keeps one mixed entity browser runtime while a later Pokemon page loads", () =>
+it.live("keeps one rich mixed entity browser runtime across pagination and layouts", () =>
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
 		const { token, email, password } = yield* createTestUser(apiUrl);
 		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
 		yield* installFixtureClientPlugin(client, "A", "", apiUrl);
+		const uploadArtwork = (fileName: string, source: string) =>
+			Effect.gen(function* () {
+				const intent = yield* client.call((c) =>
+					c.uploads.createIntent({
+						payload: { kind: "permanent", fileName, contentType: "image/svg+xml" },
+					}),
+				);
+				const upload = yield* Effect.promise(() =>
+					fetch(new URL(intent.uploadUrl, `${apiUrl}/`), {
+						body: source,
+						method: intent.method,
+						headers: intent.headers,
+					}),
+				);
+				expect([200, 204]).toContain(upload.status);
+				const artwork = yield* client.call((c) =>
+					c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
+				);
+				if (!("key" in artwork)) {
+					throw new Error(`Expected permanent artwork for ${fileName}`);
+				}
+				return artwork;
+			});
+		const [showArtwork, pokemonArtwork] = yield* Effect.all([
+			uploadArtwork(
+				"composed-show.svg",
+				'<svg xmlns="http://www.w3.org/2000/svg" width="60" height="90"><rect width="60" height="90" fill="#7c3aed"/></svg>',
+			),
+			uploadArtwork(
+				"composed-pokemon.svg",
+				'<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><circle cx="40" cy="40" r="40" fill="#16a34a"/></svg>',
+			),
+		]);
 		const fallbackSchema = yield* createEntitySchema(client, {
 			pluginSlug: `mixed-fallback-${crypto.randomUUID()}`,
 			name: "Mixed fallback",
@@ -130,6 +174,59 @@ it.live("keeps one mixed entity browser runtime while a later Pokemon page loads
 					entitySchemaSlug: fallbackSchema.schemaId,
 				}),
 		);
+		const { showId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {
+			showName: "03 Composed Tracer Show",
+			showProperties: {
+				publishYear: 2025,
+				productionStatus: "Returning Series",
+				images: [{ ...showArtwork, purpose: "cover" }],
+			},
+		});
+		const episodeSchemaSlug = yield* getBuiltinEntitySchemaSlug("show-episode");
+		const episodeProgressSchema = requireEventSchemaBySlug(
+			yield* listEventSchemas(client, episodeSchemaSlug),
+			"progress",
+		);
+		yield* client.call((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId: episodeId,
+						properties: { progressPercent: 50 },
+						occurredAt: "2026-09-07T08:30:00.000Z",
+						eventSchemaSlug: episodeProgressSchema.id,
+					},
+				],
+			}),
+		);
+		const { workoutId } = yield* createWorkoutEntityFixture(client, {
+			endedAt: "2026-09-07T09:30:00.000Z",
+			name: "04 Composed Strength Workout",
+			startedAt: "2026-09-07T08:00:00.000Z",
+		});
+		const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
+		const exerciseId = yield* waitForSeededExerciseId(client);
+		const exercise = yield* getEntity(client, exerciseId);
+		yield* client.call((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId: exerciseId,
+						sessionEntityId: workoutId,
+						eventSchemaSlug: workoutSetEventSchema.id,
+						properties: {
+							reps: 8,
+							weight: 60,
+							setOrder: 0,
+							setLot: "normal",
+							exerciseOrder: 0,
+							unitSystem: "metric",
+						},
+					},
+				],
+			}),
+		);
+		yield* waitForSessionEventCount(client, workoutId, 1);
 		const pokemonSchema = requirePresent(
 			(yield* listEntitySchemas(client, {
 				slugs: ["pokemon"],
@@ -138,12 +235,22 @@ it.live("keeps one mixed entity browser runtime while a later Pokemon page loads
 			"Fixture Pokemon schema was not registered",
 		);
 		const pokemon = yield* createEntity(client, {
-			name: "03 Fixture Bulbasaur",
+			name: "05 Composed Bulbasaur",
 			entitySchemaSlug: pokemonSchema.id,
-			properties: { types: ["grass", "poison"] },
+			properties: {
+				height: 7,
+				weight: 69,
+				pokedexNumber: 1,
+				images: [pokemonArtwork],
+				types: ["Grass", "Poison"],
+				abilities: ["Overgrow", "Chlorophyll"],
+				sourceUrl: "https://example.invalid/pokemon/bulbasaur",
+			},
 		});
 		const view = yield* createEntityBrowserSavedView(client, { name: "Mixed entity browser" }, [
 			...fallbackEntities.map(({ id }) => id),
+			showId,
+			workoutId,
 			pokemon.id,
 		]);
 
@@ -166,30 +273,89 @@ it.live("keeps one mixed entity browser runtime while a later Pokemon page loads
 		yield* runtime.locator("body").evaluate((body) => body.setAttribute("data-e2e-page", "stable"));
 
 		yield* runtime.getByRole("button", { name: "Count all" }).click();
-		yield* expectVisibleText(runtime.locator("body"), "3 total");
+		yield* expectVisibleText(runtime.locator("body"), "5 total");
 		yield* runtime.getByRole("button", { name: "Load more" }).click();
 		yield* runtime
-			.getByRole("link", { name: "03 Fixture Bulbasaur", exact: true })
+			.getByRole("link", { name: "04 Composed Strength Workout", exact: true })
 			.waitFor({ state: "visible" });
-		expect(yield* runtime.locator("article").count).toBe(3);
+		expect(yield* runtime.locator("article").count).toBe(4);
+		yield* runtime.getByRole("button", { name: "Load more" }).click();
+		yield* runtime
+			.getByRole("link", { name: "05 Composed Bulbasaur", exact: true })
+			.waitFor({ state: "visible" });
+		expect(yield* runtime.locator("article").count).toBe(5);
 		const gridRows = yield* runtime.locator("article").allInnerTexts();
 		expect(gridRows[0]).toContain("01 Alpha fallback");
 		expect(gridRows[1]).toContain("02 Beta fallback");
-		expect(gridRows[2]).toContain("03 Fixture Bulbasaur");
-		expect(
-			yield* runtime.locator(`[data-entity-id="${pokemon.id}"][data-layout="grid"]`).count,
-		).toBe(1);
-		expect(
-			yield* runtime
-				.locator(`[data-entity-id="${pokemon.id}"][data-layout="grid"]`)
-				.getAttribute("data-view-context"),
-		).toBe(JSON.stringify({ savedViewId: view.id }));
+		expect(gridRows[2]).toContain("03 Composed Tracer Show");
+		expect(gridRows[3]).toContain("04 Composed Strength Workout");
+		expect(gridRows[4]).toContain("05 Composed Bulbasaur");
+
+		const expectRichEntities = (
+			show: Playwright.Locator,
+			workout: Playwright.Locator,
+			pokemonItem: Playwright.Locator,
+		) =>
+			Effect.gen(function* () {
+				yield* expectVisibleText(show, "03 Composed Tracer Show");
+				yield* expectVisibleText(show, "2025");
+				yield* expectVisibleText(show, "Returning Series");
+				yield* expectVisibleText(
+					show,
+					"1 stored season · 1 stored episode · 1 episode in progress",
+				);
+				const showImage = show.locator("img");
+				yield* showImage.waitFor({ state: "visible" });
+				expect(
+					yield* showImage.evaluate((image) =>
+						image instanceof HTMLImageElement ? image.naturalWidth : -1,
+					),
+				).toBe(60);
+
+				yield* expectVisibleText(workout, "04 Composed Strength Workout");
+				yield* expectVisibleText(workout, "Sep 7, 2026");
+				yield* expectVisibleText(workout, "1h 30m");
+				expect(yield* workout.locator("img, [aria-hidden=true]").count).toBe(0);
+				const workoutDetails = workout.locator("details");
+				yield* expectVisibleText(workoutDetails, "1 exercise · 1 set");
+				yield* workoutDetails.locator("summary").click();
+				yield* expectVisibleText(workoutDetails, exercise.name);
+				yield* expectVisibleText(workoutDetails, "8 reps · 60 kg");
+
+				yield* expectVisibleText(pokemonItem, "05 Composed Bulbasaur");
+				yield* expectVisibleText(pokemonItem, "Grass");
+				yield* expectVisibleText(pokemonItem, "Poison");
+				const pokemonImage = pokemonItem.locator("img");
+				yield* pokemonImage.waitFor({ state: "visible" });
+				expect(
+					yield* pokemonImage.evaluate((image) =>
+						image instanceof HTMLImageElement ? image.naturalWidth : -1,
+					),
+				).toBe(80);
+				yield* pokemonItem.getByRole("button", { name: "Show details" }).click();
+				yield* expectVisibleText(pokemonItem, "Overgrow, Chlorophyll");
+				yield* expectVisibleText(pokemonItem, "7 dm");
+				yield* expectVisibleText(pokemonItem, "69 hg");
+			});
+
+		const showGrid = runtime.locator(`[data-entity-id="${showId}"][data-layout="grid"]`);
+		const workoutGrid = runtime.locator(`[data-entity-id="${workoutId}"][data-layout="grid"]`);
+		const pokemonGrid = runtime.locator(`[data-entity-id="${pokemon.id}"][data-layout="card"]`);
+		yield* expectRichEntities(showGrid, workoutGrid, pokemonGrid);
+		expect(yield* pokemonGrid.getAttribute("data-view-context")).toBe(
+			JSON.stringify({ savedViewId: view.id }),
+		);
 
 		yield* runtime.getByRole("radio", { name: "List view" }).click();
-		yield* runtime.locator(`[data-entity-id="${pokemon.id}"][data-layout="list"]`).waitFor({
-			state: "visible",
-		});
-		expect(yield* runtime.locator("article").count).toBe(3);
+		const showList = runtime.locator(`[data-entity-id="${showId}"][data-layout="list"]`);
+		const workoutList = runtime.locator(`[data-entity-id="${workoutId}"][data-layout="list"]`);
+		const pokemonList = runtime.locator(`[data-entity-id="${pokemon.id}"][data-layout="row"]`);
+		yield* pokemonList.waitFor({ state: "visible" });
+		expect(yield* runtime.locator("article").count).toBe(5);
+		yield* expectRichEntities(showList, workoutList, pokemonList);
+		expect(yield* pokemonList.getAttribute("data-view-context")).toBe(
+			JSON.stringify({ savedViewId: view.id }),
+		);
 		expect(yield* runtime.locator("body").getAttribute("data-e2e-page")).toBe("stable");
 		expect(yield* frames.first().evaluate((current, initial) => current === initial, iframe)).toBe(
 			true,

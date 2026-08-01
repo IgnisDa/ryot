@@ -4,6 +4,7 @@ import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
 import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
 
 import { pokemonDetailQuery, type PokemonDetailData } from "./pokemon-detail-query";
+import { PokemonDetails } from "./pokemon-display";
 import PokemonTypes from "./pokemon-types";
 
 export type PokemonDetailState =
@@ -42,13 +43,14 @@ export const PokemonDetailBody = ({ state }: { readonly state: PokemonDetailStat
 			<dl className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-surface p-4">
 				<dt className="text-text-muted">Pokedex number</dt>
 				<dd>{pokemon.pokedexNumber ?? "Unknown"}</dd>
-				<dt className="text-text-muted">Abilities</dt>
-				<dd>{pokemon.abilities?.join(", ") ?? "Unknown"}</dd>
-				<dt className="text-text-muted">Height</dt>
-				<dd>{pokemon.height === null ? "Unknown" : `${pokemon.height} dm`}</dd>
-				<dt className="text-text-muted">Weight</dt>
-				<dd>{pokemon.weight === null ? "Unknown" : `${pokemon.weight} hg`}</dd>
 			</dl>
+			<div className="rounded-lg border border-border bg-surface p-4">
+				<PokemonDetails
+					height={pokemon.height}
+					weight={pokemon.weight}
+					abilities={pokemon.abilities}
+				/>
+			</div>
 		</div>
 	);
 };
