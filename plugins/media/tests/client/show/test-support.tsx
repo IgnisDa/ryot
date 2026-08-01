@@ -1,23 +1,27 @@
-import { createRyotClient, type RyotClientAdapter } from "@ryot-app/client-sdk";
+import type { RyotClientAdapter } from "@ryot-app/client-sdk";
 import { RyotProvider } from "@ryot-app/client-sdk/react";
-import { createTestRyotAdapter } from "@ryot-app/client-sdk/testing";
+import { createTestRyotClock } from "@ryot-app/client-sdk/testing";
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 export const mountRyotClient = (adapter: Partial<RyotClientAdapter>, children: ReactNode) => {
-	const client = createRyotClient(createTestRyotAdapter(adapter));
+	const { client, runtime, advance, setTime, dispose } = createTestRyotClock(adapter);
 	const container = document.createElement("div");
 	document.body.append(container);
 	const root: Root = createRoot(container);
-	act(() => root.render(<RyotProvider client={client}>{children}</RyotProvider>));
+	act(() => root.render(<RyotProvider runtime={runtime}>{children}</RyotProvider>));
 	return {
 		client,
+		runtime,
+		advance,
+		setTime,
 		container,
 		rerender: (next: ReactNode) =>
-			act(() => root.render(<RyotProvider client={client}>{next}</RyotProvider>)),
+			act(() => root.render(<RyotProvider runtime={runtime}>{next}</RyotProvider>)),
 		unmount: () => {
 			act(() => root.unmount());
 			container.remove();
+			void dispose();
 		},
 	};
 };

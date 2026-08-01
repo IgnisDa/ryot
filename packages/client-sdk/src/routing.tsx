@@ -36,8 +36,8 @@ import {
 	type ResolvePluginScreen,
 	type ScreenRole,
 } from "./navigation/stack";
-import type { PluginNavigationEntry, PluginRouterNavigation } from "./navigation/store";
-import { useRyot } from "./react";
+import type { PluginNavigationEntry } from "./navigation/store";
+import { usePluginNavigation, useRyot } from "./react";
 
 export type PluginRouteDefinition = {
 	readonly path: string;
@@ -325,11 +325,8 @@ const rootStyle: CSSProperties = { height: "100%", overflow: "hidden", position:
 
 const idle: Presentation = { kind: "idle" };
 
-type PluginRouterProps = {
-	readonly navigation: PluginRouterNavigation;
-};
-
-export const PluginRouter = ({ navigation }: PluginRouterProps) => {
+export const PluginRouter = () => {
+	const navigation = usePluginNavigation();
 	const rootRef = useRef<HTMLDivElement>(null);
 	const scrimRef = useRef<HTMLDivElement>(null);
 	const settling = useRef<Promise<void> | undefined>(undefined);

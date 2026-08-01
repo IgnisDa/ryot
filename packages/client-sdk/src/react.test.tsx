@@ -1,10 +1,15 @@
 import { waitFor } from "@testing-library/dom";
 import { act, StrictMode, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { ActiveScreenContext } from "./active-screen";
-import { createRyotClient, RyotClientError, type EntityInterest, type EntityUpdate } from "./index";
+import {
+	RyotClientError,
+	type EntityInterest,
+	type EntityUpdate,
+	type RyotClientAdapter,
+} from "./index";
 import {
 	createRyotMutation,
 	createRyotQuery,
@@ -15,43 +20,52 @@ import {
 	useRyotQuery,
 	useEntityRefresh,
 } from "./react";
-import { createTestRyotAdapter } from "./testing";
+import { createTestRyotClock } from "./testing";
 
 (
 	globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
-const client = createRyotClient(createTestRyotAdapter({ query: () => Promise.resolve({}) }));
-let roots: Root[] = [];
+type TestClock = ReturnType<typeof createTestRyotClock>;
 
-const render = (children: ReactNode, providerClient = client) => {
+let roots: Root[] = [];
+let clocks: TestClock[] = [];
+let plain: TestClock | undefined;
+
+const makeClock = (overrides: Partial<RyotClientAdapter> = {}) => {
+	const clock = createTestRyotClock(overrides);
+	clocks.push(clock);
+	return clock;
+};
+
+const plainClock = () => (plain ??= makeClock());
+
+const render = (children: ReactNode, runtime = plainClock().runtime) => {
 	const container = document.createElement("div");
 	document.body.append(container);
 	const root = createRoot(container);
 	roots.push(root);
-	act(() => root.render(<RyotProvider client={providerClient}>{children}</RyotProvider>));
+	act(() => root.render(<RyotProvider runtime={runtime}>{children}</RyotProvider>));
 	return container;
 };
 
-afterEach(() => {
+afterEach(async () => {
 	for (const root of roots) {
 		act(() => root.unmount());
 	}
 	roots = [];
-	vi.useRealTimers();
+	plain = undefined;
+	await Promise.all(clocks.map((clock) => clock.dispose()));
+	clocks = [];
 	document.body.innerHTML = "";
 });
 
 describe("useRyotQuery", () => {
 	it("preserves initial hydration through StrictMode effect reattachment", async () => {
-		vi.useFakeTimers();
 		let calls = 0;
-		const interestClient = createRyotClient(
-			createTestRyotAdapter({
-				query: () => Promise.resolve({}),
-				watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
-			}),
-		);
+		const clock = makeClock({
+			watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
+		});
 		const query = createRyotQuery(() => Promise.resolve(++calls), {
 			initialData: () => 0,
 			entityInterest: () => ({ foreground: ["root"], visible: [] }),
@@ -64,15 +78,13 @@ describe("useRyotQuery", () => {
 		act(() =>
 			root.render(
 				<StrictMode>
-					<RyotProvider client={interestClient}>
+					<RyotProvider runtime={clock.runtime}>
 						<View />
 					</RyotProvider>
 				</StrictMode>,
 			),
 		);
-		await act(async () => {
-			await vi.advanceTimersByTimeAsync(500);
-		});
+		await clock.advance(500);
 		expect(container.textContent).toBe("0");
 		expect(calls).toBe(0);
 	});
@@ -80,24 +92,20 @@ describe("useRyotQuery", () => {
 	it.each([false, true])(
 		"catches up once on a cached remount without duplicating first load (hydrated: %s)",
 		async (hydrated) => {
-			vi.useFakeTimers();
 			let calls = 0;
 			let watches = 0;
 			let disposals = 0;
-			const interestClient = createRyotClient(
-				createTestRyotAdapter({
-					query: () => Promise.resolve({}),
-					watchEntities: () => {
-						watches++;
-						return {
-							update: () => undefined,
-							dispose: () => {
-								disposals++;
-							},
-						};
-					},
-				}),
-			);
+			const clock = makeClock({
+				watchEntities: () => {
+					watches++;
+					return {
+						update: () => undefined,
+						dispose: () => {
+							disposals++;
+						},
+					};
+				},
+			});
 			const query = createRyotQuery<{ id: string }, number>(() => Promise.resolve(++calls), {
 				...(hydrated ? { initialData: () => 0 } : {}),
 				entityInterest: ({ input }) => ({ foreground: [input.id], visible: [] }),
@@ -109,47 +117,33 @@ describe("useRyotQuery", () => {
 					<View />
 				</>
 			);
-			const container = render(views, interestClient);
-			await act(async () => {
-				await vi.advanceTimersByTimeAsync(500);
-			});
+			const container = render(views, clock.runtime);
+			await clock.advance(500);
 			const initialCalls = hydrated ? 0 : 1;
 			expect(calls).toBe(initialCalls);
 			expect(container.textContent).toBe(hydrated ? "00" : "11");
 			expect(watches).toBe(1);
-			act(() => roots[0]?.render(<RyotProvider client={interestClient}>{null}</RyotProvider>));
+			act(() => roots[0]?.render(<RyotProvider runtime={clock.runtime}>{null}</RyotProvider>));
 			expect(disposals).toBe(1);
-			await act(async () => {
-				await vi.advanceTimersByTimeAsync(100);
-			});
-			act(() => roots[0]?.render(<RyotProvider client={interestClient}>{views}</RyotProvider>));
+			await clock.advance(100);
+			act(() => roots[0]?.render(<RyotProvider runtime={clock.runtime}>{views}</RyotProvider>));
 			expect(container.textContent).toBe(hydrated ? "00" : "11");
 			expect(watches).toBe(2);
-			await act(async () => {
-				await vi.advanceTimersByTimeAsync(249);
-			});
+			await clock.advance(249);
 			expect(calls).toBe(initialCalls);
-			await act(async () => {
-				await vi.advanceTimersByTimeAsync(1);
-			});
+			await clock.advance(1);
 			expect(calls).toBe(initialCalls + 1);
 			expect(container.textContent).toBe(hydrated ? "11" : "22");
-			await act(async () => {
-				await vi.advanceTimersByTimeAsync(500);
-			});
+			await clock.advance(500);
 			expect(calls).toBe(initialCalls + 1);
 		},
 	);
 
 	it("coalesces document foreground refresh for active consumers only", async () => {
-		vi.useFakeTimers();
 		const calls: string[] = [];
-		const interestClient = createRyotClient(
-			createTestRyotAdapter({
-				query: () => Promise.resolve({}),
-				watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
-			}),
-		);
+		const clock = makeClock({
+			watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
+		});
 		const query = createRyotQuery<string, string>(
 			({ input }) => {
 				calls.push(input);
@@ -166,11 +160,9 @@ describe("useRyotQuery", () => {
 					<View id="hidden" />
 				</ActiveScreenContext.Provider>
 			</>,
-			interestClient,
+			clock.runtime,
 		);
-		await act(async () => {
-			await vi.advanceTimersByTimeAsync(0);
-		});
+		await clock.advance(0);
 		expect(calls).toEqual(["active", "hidden"]);
 		const visibility = Object.getOwnPropertyDescriptor(document, "visibilityState");
 		try {
@@ -178,9 +170,7 @@ describe("useRyotQuery", () => {
 				Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
 				document.dispatchEvent(new Event("visibilitychange"));
 			});
-			await act(async () => {
-				await vi.advanceTimersByTimeAsync(250);
-			});
+			await clock.advance(250);
 			expect(calls).toEqual(["active", "hidden"]);
 			act(() => {
 				Object.defineProperty(document, "visibilityState", {
@@ -190,9 +180,7 @@ describe("useRyotQuery", () => {
 				document.dispatchEvent(new Event("visibilitychange"));
 				document.dispatchEvent(new Event("visibilitychange"));
 			});
-			await act(async () => {
-				await vi.advanceTimersByTimeAsync(250);
-			});
+			await clock.advance(250);
 			expect(calls).toEqual(["active", "hidden", "active"]);
 		} finally {
 			if (visibility) {
@@ -204,18 +192,14 @@ describe("useRyotQuery", () => {
 	});
 
 	it("does not cancel a request started after an interest refresh was queued", async () => {
-		vi.useFakeTimers();
 		let hint!: (event: EntityUpdate) => void;
 		let latest: RyotQueryResult<number> | undefined;
-		const interestClient = createRyotClient(
-			createTestRyotAdapter({
-				query: () => Promise.resolve({}),
-				watchEntities: (_interest, listener) => {
-					hint = listener;
-					return { update: () => undefined, dispose: () => undefined };
-				},
-			}),
-		);
+		const clock = makeClock({
+			watchEntities: (_interest, listener) => {
+				hint = listener;
+				return { update: () => undefined, dispose: () => undefined };
+			},
+		});
 		const requests: Array<{ signal: AbortSignal; resolve: (value: number) => void }> = [];
 		const query = createRyotQuery(
 			({ signal }) => new Promise<number>((resolve) => requests.push({ signal, resolve })),
@@ -228,35 +212,28 @@ describe("useRyotQuery", () => {
 			latest = useRyotQuery(query);
 			return <p>{latest.data}</p>;
 		};
-		render(<View />, interestClient);
-		await act(async () => {
-			await vi.advanceTimersByTimeAsync(0);
-		});
+		render(<View />, clock.runtime);
+		await clock.advance(0);
 		act(() => hint({ entityId: "root", reason: "populated" }));
-		await act(async () => {
-			await vi.advanceTimersByTimeAsync(249);
-		});
+		await clock.advance(249);
 		act(() => latest?.refetch());
 		expect(requests).toHaveLength(1);
-		await act(async () => {
-			await vi.advanceTimersByTimeAsync(501);
-		});
+		await clock.advance(501);
 		expect(requests).toHaveLength(1);
 		expect(requests[0]?.signal.aborted).toBe(false);
-		await act(async () => {
+		act(() => {
 			requests[0]?.resolve(1);
-			await vi.advanceTimersByTimeAsync(250);
 		});
+		await clock.advance(250);
 		expect(requests).toHaveLength(2);
-		await act(async () => {
+		act(() => {
 			requests[1]?.resolve(2);
-			await vi.advanceTimersByTimeAsync(500);
 		});
+		await clock.advance(500);
 		expect(requests).toHaveLength(2);
 	});
 
 	it("shares interest owners, retains successful dependencies, and follows in-flight hints once", async () => {
-		vi.useFakeTimers();
 		const updates: EntityInterest[] = [];
 		let watches = 0;
 		let disposals = 0;
@@ -274,9 +251,7 @@ describe("useRyotQuery", () => {
 				},
 			};
 		};
-		const interestClient = createRyotClient(
-			createTestRyotAdapter({ watchEntities, query: () => Promise.resolve({}) }),
-		);
+		const clock = makeClock({ watchEntities });
 		const requests: Array<{
 			resolve: (value: string[]) => void;
 			reject: (error: Error) => void;
@@ -295,36 +270,30 @@ describe("useRyotQuery", () => {
 				<View />
 				<View />
 			</>,
-			interestClient,
+			clock.runtime,
 		);
-		await act(async () => {
-			await vi.advanceTimersByTimeAsync(0);
-		});
+		await clock.advance(0);
 		expect(watches).toBe(1);
 		expect(updates[0]).toEqual({ foreground: ["root"], visible: [] });
 		act(() => {
 			hint({ entityId: "root", reason: "populated" });
 			hint({ entityId: "root", reason: "translated" });
 		});
-		await act(async () => {
-			await vi.advanceTimersByTimeAsync(1000);
-		});
+		await clock.advance(1000);
 		expect(requests).toHaveLength(1);
 		expect(requests[0]?.signal.aborted).toBe(false);
-		await act(async () => {
+		act(() => {
 			requests[0]?.resolve(["child"]);
-			await vi.advanceTimersByTimeAsync(0);
 		});
+		await clock.advance(0);
 		expect(container.textContent).toBe("childchild");
 		expect(updates.at(-1)).toEqual({ foreground: ["root"], visible: ["child"] });
-		await act(async () => {
-			await vi.advanceTimersByTimeAsync(250);
-		});
+		await clock.advance(250);
 		expect(requests).toHaveLength(2);
-		await act(async () => {
+		act(() => {
 			requests[1]?.reject(new Error("offline"));
-			await vi.advanceTimersByTimeAsync(1000);
 		});
+		await clock.advance(1000);
 		expect(requests).toHaveLength(2);
 		expect(updates.at(-1)).toEqual({ foreground: ["root"], visible: ["child"] });
 		act(() => roots[0]?.unmount());
@@ -333,7 +302,6 @@ describe("useRyotQuery", () => {
 	});
 
 	it("removes hidden demand without canceling work and explicitly catches up on reactivation", async () => {
-		vi.useFakeTimers();
 		let watches = 0;
 		let disposals = 0;
 		const watchEntities = () => {
@@ -345,9 +313,7 @@ describe("useRyotQuery", () => {
 				update: () => undefined,
 			};
 		};
-		const interestClient = createRyotClient(
-			createTestRyotAdapter({ watchEntities, query: () => Promise.resolve({}) }),
-		);
+		const clock = makeClock({ watchEntities });
 		const requests: Array<{ resolve: (value: number) => void; signal: AbortSignal }> = [];
 		const query = createRyotQuery(
 			({ signal }) => new Promise<number>((resolve) => requests.push({ signal, resolve })),
@@ -361,29 +327,23 @@ describe("useRyotQuery", () => {
 		const tree = (active: boolean) => (
 			<ActiveScreenContext.Provider value={active}>{view}</ActiveScreenContext.Provider>
 		);
-		const container = render(tree(true), interestClient);
-		await act(async () => {
-			await vi.advanceTimersByTimeAsync(0);
-		});
-		act(() => roots[0]?.render(<RyotProvider client={interestClient}>{tree(false)}</RyotProvider>));
+		const container = render(tree(true), clock.runtime);
+		await clock.advance(0);
+		act(() => roots[0]?.render(<RyotProvider runtime={clock.runtime}>{tree(false)}</RyotProvider>));
 		expect(disposals).toBe(1);
 		expect(requests[0]?.signal.aborted).toBe(false);
-		await act(async () => {
+		act(() => {
 			requests[0]?.resolve(1);
-			await vi.advanceTimersByTimeAsync(0);
 		});
+		await clock.advance(0);
 		expect(container.textContent).toBe("1");
 		act(() => {
 			document.dispatchEvent(new Event("visibilitychange"));
 		});
-		await act(async () => {
-			await vi.advanceTimersByTimeAsync(500);
-		});
+		await clock.advance(500);
 		expect(requests).toHaveLength(1);
-		act(() => roots[0]?.render(<RyotProvider client={interestClient}>{tree(true)}</RyotProvider>));
-		await act(async () => {
-			await vi.advanceTimersByTimeAsync(250);
-		});
+		act(() => roots[0]?.render(<RyotProvider runtime={clock.runtime}>{tree(true)}</RyotProvider>));
+		await clock.advance(250);
 		expect(watches).toBe(2);
 		expect(requests).toHaveLength(2);
 		expect(container.textContent).toBe("1");
@@ -520,20 +480,21 @@ describe("useRyotQuery", () => {
 			{ cancelOnUnmount: true },
 		);
 		const View = () => <p>{useRyotQuery(query).status}</p>;
+		const { runtime } = plainClock();
 		const container = document.createElement("div");
 		document.body.append(container);
 		const root = createRoot(container);
 		roots.push(root);
 		act(() =>
 			root.render(
-				<RyotProvider client={client}>
+				<RyotProvider runtime={runtime}>
 					<View />
 				</RyotProvider>,
 			),
 		);
 		await waitFor(() => expect(signal).toBeDefined());
 
-		act(() => root.render(<RyotProvider client={client}>{null}</RyotProvider>));
+		act(() => root.render(<RyotProvider runtime={runtime}>{null}</RyotProvider>));
 
 		await waitFor(() => expect(signal?.aborted).toBe(true));
 	});
@@ -542,23 +503,24 @@ describe("useRyotQuery", () => {
 		let calls = 0;
 		const query = createRyotQuery(() => Promise.resolve(++calls));
 		const View = () => <p>{useRyotQuery(query).data ?? "pending"}</p>;
+		const { runtime } = plainClock();
 		const container = document.createElement("div");
 		document.body.append(container);
 		const root = createRoot(container);
 		roots.push(root);
 		act(() =>
 			root.render(
-				<RyotProvider client={client}>
+				<RyotProvider runtime={runtime}>
 					<View />
 				</RyotProvider>,
 			),
 		);
 		await waitFor(() => expect(container.textContent).toBe("1"));
 
-		act(() => root.render(<RyotProvider client={client}>{null}</RyotProvider>));
+		act(() => root.render(<RyotProvider runtime={runtime}>{null}</RyotProvider>));
 		act(() =>
 			root.render(
-				<RyotProvider client={client}>
+				<RyotProvider runtime={runtime}>
 					<View />
 				</RyotProvider>,
 			),
@@ -572,6 +534,7 @@ describe("useRyotQuery", () => {
 		let calls = 0;
 		const query = createRyotQuery(() => Promise.resolve(++calls));
 		const View = () => <p>{useRyotQuery(query).status}</p>;
+		const { runtime } = plainClock();
 		const container = document.createElement("div");
 		document.body.append(container);
 		const root = createRoot(container);
@@ -579,10 +542,10 @@ describe("useRyotQuery", () => {
 		act(() =>
 			root.render(
 				<>
-					<RyotProvider client={client}>
+					<RyotProvider runtime={runtime}>
 						<View />
 					</RyotProvider>
-					<RyotProvider client={client}>
+					<RyotProvider runtime={runtime}>
 						<View />
 					</RyotProvider>
 				</>,
@@ -596,7 +559,6 @@ describe("useRyotQuery", () => {
 
 describe("useEntityRefresh", () => {
 	it("holds blocked hints, uses a stable watch, and clears queued work on identity changes", async () => {
-		vi.useFakeTimers();
 		let hint!: (event: EntityUpdate) => void;
 		let watches = 0;
 		let refreshes = 0;
@@ -611,9 +573,7 @@ describe("useEntityRefresh", () => {
 				update: () => undefined,
 			};
 		};
-		const interestClient = createRyotClient(
-			createTestRyotAdapter({ watchEntities, query: () => Promise.resolve({}) }),
-		);
+		const clock = makeClock({ watchEntities });
 		const onRefresh = () => {
 			refreshes++;
 			return Promise.reject(new Error("offline"));
@@ -627,59 +587,46 @@ describe("useEntityRefresh", () => {
 			});
 			return null;
 		};
-		render(<View identity="a" blocked />, interestClient);
+		render(<View identity="a" blocked />, clock.runtime);
 		act(() => hint({ entityId: "a", reason: "populated" }));
-		await act(async () => {
-			await vi.advanceTimersByTimeAsync(500);
-		});
+		await clock.advance(500);
 		expect(refreshes).toBe(0);
 		act(() =>
 			roots[0]?.render(
-				<RyotProvider client={interestClient}>
+				<RyotProvider runtime={clock.runtime}>
 					<View identity="a" blocked={false} />
 				</RyotProvider>,
 			),
 		);
 		expect(watches).toBe(1);
-		await act(async () => {
-			await vi.advanceTimersByTimeAsync(250);
-		});
+		await clock.advance(250);
 		expect(refreshes).toBe(1);
-		await act(async () => {
-			await vi.advanceTimersByTimeAsync(1000);
-		});
+		await clock.advance(1000);
 		expect(refreshes).toBe(1);
 		act(() => hint({ entityId: "a", reason: "translated" }));
 		act(() =>
 			roots[0]?.render(
-				<RyotProvider client={interestClient}>
+				<RyotProvider runtime={clock.runtime}>
 					<View identity="b" blocked={false} />
 				</RyotProvider>,
 			),
 		);
-		await act(async () => {
-			await vi.advanceTimersByTimeAsync(250);
-		});
+		await clock.advance(250);
 		expect(refreshes).toBe(1);
 		expect(disposals).toBe(1);
 		act(() => hint({ entityId: "b", reason: "populated" }));
 		act(() => roots[0]?.unmount());
 		roots = [];
-		await act(async () => {
-			await vi.advanceTimersByTimeAsync(250);
-		});
+		await clock.advance(250);
 		expect(refreshes).toBe(1);
 	});
 
 	it("does not crash on transient transport failures", () => {
-		const interestClient = createRyotClient(
-			createTestRyotAdapter({
-				query: () => Promise.resolve({}),
-				watchEntities: () => {
-					throw new RyotClientError("transport");
-				},
-			}),
-		);
+		const clock = makeClock({
+			watchEntities: () => {
+				throw new RyotClientError("transport");
+			},
+		});
 		let refreshes = 0;
 		const onRefresh = () => {
 			refreshes++;
@@ -694,7 +641,7 @@ describe("useEntityRefresh", () => {
 			});
 			return <p>available</p>;
 		};
-		expect(render(<View />, interestClient).textContent).toBe("available");
+		expect(render(<View />, clock.runtime).textContent).toBe("available");
 		expect(refreshes).toBe(0);
 	});
 });
@@ -752,13 +699,14 @@ describe("useRyotMutation", () => {
 		let calls = 0;
 		const query = createRyotQuery(() => Promise.resolve(++calls));
 		const View = () => <p>{useRyotQuery(query).data ?? "pending"}</p>;
+		const { runtime } = plainClock();
 		const container = document.createElement("div");
 		document.body.append(container);
 		const root = createRoot(container);
 		roots.push(root);
 		act(() =>
 			root.render(
-				<RyotProvider client={client}>
+				<RyotProvider runtime={runtime}>
 					<View />
 				</RyotProvider>,
 			),

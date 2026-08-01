@@ -5,6 +5,7 @@
 - Media signal definitions own notification message vocabulary and select `automation.media-notification`; do not move either into kernel.
 - Keep `backend/lib/title-parsing.ts` and `backend/lib/title-matching.ts` within sandbox compiler ES2022 support; do not use `toReversed`.
 - Contract or lifecycle changes must update `README.md`, manifest bindings, scripts, and focused tests together.
+- Sandbox scripts report non-fatal failures through the `log` host capability, never `console.warn`.
 - Show recipes and RyotQL lifecycle expression builders live in `shared/`.
 - Import show recipes straight from `shared/show-recipes`; never re-export them through `host/query-recipes.ts`, which owns only the podcast, suggestion, trending, and saved-view recipes.
 - `client/` must not restate schemas that `shared/` owns.

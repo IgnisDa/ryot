@@ -56,19 +56,50 @@
 		"typescript/switch-exhaustiveness-check": "error",
 		"typescript/no-unnecessary-type-assertion": "warn",
 		"eslint/no-underscore-dangle": ["error", { "allow": ["_tag"] }],
+		"typescript/no-unused-vars": [
+			"error",
+			{ "varsIgnorePattern": "^_", "argsIgnorePattern": "^_", "caughtErrorsIgnorePattern": "^_" }
+		],
 		"no-restricted-properties": [
 			"error",
 			{
 				"property": "toSorted",
 				"message": "Array.prototype.toSorted is not supported in Hermes (React Native). Use sortBy from @ryot-app/ts-utils instead."
-			}
-		],
-		"typescript/no-unused-vars": [
-			"error",
+			},
 			{
-				"varsIgnorePattern": "^_",
-				"argsIgnorePattern": "^_",
-				"caughtErrorsIgnorePattern": "^_"
+				"object": "vi",
+				"property": "mock",
+				"message": "Do not mock modules. Inject dependencies through Effect Layers or a package test surface."
+			},
+			{
+				"object": "vi",
+				"property": "doMock",
+				"message": "Do not mock modules. Inject dependencies through Effect Layers or a package test surface."
+			},
+			{
+				"object": "vi",
+				"property": "hoisted",
+				"message": "vi.hoisted exists to support module mocks. Inject dependencies instead."
+			},
+			{
+				"object": "vi",
+				"property": "spyOn",
+				"message": "Do not spy on application code or globals. Pass a recording function at the injected seam."
+			},
+			{
+				"object": "vi",
+				"property": "fn",
+				"message": "Do not use mock functions. Pass a plain recording function at the injected seam."
+			},
+			{
+				"object": "vi",
+				"property": "useFakeTimers",
+				"message": "Do not fake timers. Schedule through an injected clock and drive it with TestClock."
+			},
+			{
+				"object": "vi",
+				"property": "setSystemTime",
+				"message": "Do not set system time. Read time from an injected clock and drive it with TestClock."
 			}
 		]
 	}
