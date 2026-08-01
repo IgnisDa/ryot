@@ -32,15 +32,15 @@ const now = "2026-01-01T00:00:00.000Z";
 const userId = UserId.make("user-id");
 const entityId = EntityId.make("entity-1");
 const eventSchemaSlug = EventSchemaSlug.make("review");
-const entitySchemaSlug = EntitySchemaSlug.make("book");
+const entitySchemaSlug = EntitySchemaSlug.make("record");
 const registry = makeDefinitionRegistry({
 	savedViews: [],
 	signalSchemas: [],
 	relationshipSchemas: [],
 	entitySchemas: [
 		{
-			icon: "book",
-			name: "Book",
+			icon: "record",
+			name: "Record",
 			pluginSlug: "test",
 			slug: entitySchemaSlug,
 			propertiesSchema: { fields: {} },
@@ -144,7 +144,7 @@ const run = (input: {
 								isBuiltin: false,
 								entityUserId: userId,
 								entityId: requestedId,
-								entitySchemaSlug: EntitySchemaSlug.make("book"),
+								entitySchemaSlug: EntitySchemaSlug.make("record"),
 								propertiesSchema: { fields: {} },
 								entityName: requestedId === entityId ? "Dune" : "Reading session",
 							},

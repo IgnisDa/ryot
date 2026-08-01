@@ -312,8 +312,8 @@ export default defineScript({
   }),
   run: (_input, host) => Effect.gen(function* () {
     const integration = yield* host.getCurrentIntegration();
-    const entitySchemas = yield* host.getEntitySchemas(["movie"]);
-    const eventSchemas = yield* host.listEventSchemas(["movie"]);
+    const entitySchemas = yield* host.getEntitySchemas(["item"]);
+    const eventSchemas = yield* host.listEventSchemas(["item"]);
     const created = yield* host.createEvents([
         { entityId: "entity-1", eventSchemaSlug: "event-schema-1", properties: { watched: true } },
       ]);
@@ -1607,29 +1607,29 @@ const domainIntegrationRecord = {
 	maximumProgress: 95,
 	lastFinishedAt: null,
 	id: "integration-1",
-	provider: "plex_yank",
+	provider: "lambda_yank",
 	createdAt: "2024-01-01T00:00:00.000Z",
 	updatedAt: "2024-01-01T00:00:00.000Z",
-	providerSpecifics: { kind: "plex_yank" },
+	providerSpecifics: { kind: "lambda_yank" },
 	extraSettings: { disableOnContinuousErrors: false },
 };
 
 const domainEntitySchemaRecord = {
-	id: "movie",
+	id: "item",
 	icon: "film",
-	name: "Movie",
-	slug: "movie",
+	name: "Item",
+	slug: "item",
 	isBuiltin: true,
 	pluginSlug: "plugin-1",
 	propertiesSchema: { fields: {} },
-	providers: [{ name: "TMDB", providerId: "tmdb" }],
+	providers: [{ name: "Alpha", providerId: "alpha" }],
 };
 
 const domainEventSchemaRecord = {
 	id: "watched",
 	name: "Watched",
 	slug: "watched",
-	entitySchemaSlug: "movie",
+	entitySchemaSlug: "item",
 	propertiesSchema: { fields: {} },
 };
 
@@ -1674,7 +1674,7 @@ const startDomainHostBridge = () =>
 													providerId: null,
 													populatedAt: null,
 													properties: {},
-													entitySchemaSlug: "movie",
+													entitySchemaSlug: "item",
 													createdAt: "2024-01-01T00:00:00.000Z",
 													updatedAt: "2024-01-01T00:00:00.000Z",
 												},
@@ -1685,7 +1685,7 @@ const startDomainHostBridge = () =>
 													providerId: null,
 													populatedAt: null,
 													properties: {},
-													entitySchemaSlug: "movie",
+													entitySchemaSlug: "item",
 													createdAt: "2024-01-01T00:00:00.000Z",
 													updatedAt: "2024-01-01T00:00:00.000Z",
 												},
@@ -1730,9 +1730,9 @@ it("executes typed domain host methods through Deno", () =>
 					value: {
 						queryRows: 2,
 						created: { count: 1 },
-						entitySchemas: [{ id: "movie", name: "Movie" }],
-						integration: { id: "integration-1", provider: "plex_yank" },
-						eventSchemas: [{ id: "watched", entitySchemaSlug: "movie" }],
+						entitySchemas: [{ id: "item", name: "Item" }],
+						integration: { id: "integration-1", provider: "lambda_yank" },
+						eventSchemas: [{ id: "watched", entitySchemaSlug: "item" }],
 					},
 				});
 				expect(bridge.createdEvents).toHaveLength(1);

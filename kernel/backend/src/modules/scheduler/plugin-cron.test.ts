@@ -395,8 +395,8 @@ it.effect("isolates unavailable and failed cron dispatches", () => {
 });
 
 it("builds stable execution ids", () => {
-	expect(pluginCronExecutionId("media", "trending", 60_000)).toBe(
-		"plugin-cron-5-media-8-trending-60000",
+	expect(pluginCronExecutionId("example", "trending", 60_000)).toBe(
+		"plugin-cron-7-example-8-trending-60000",
 	);
 	expect(pluginCronExecutionId("a", "b-c", 60_000)).not.toBe(
 		pluginCronExecutionId("a-b", "c", 60_000),
@@ -538,7 +538,7 @@ it("separates private and system cron execution id spaces", () => {
 	expect(privatePluginCronExecutionId("a", "b-c", 60_000)).not.toBe(
 		privatePluginCronExecutionId("a-b", "c", 60_000),
 	);
-	expect(privatePluginCronExecutionId("media", "trending", 60_000)).not.toBe(
-		pluginCronExecutionId("media", "trending", 60_000),
+	expect(privatePluginCronExecutionId("example", "trending", 60_000)).not.toBe(
+		pluginCronExecutionId("example", "trending", 60_000),
 	);
 });

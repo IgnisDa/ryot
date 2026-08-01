@@ -8,7 +8,7 @@ import {
 import { describe, expect, it } from "vitest";
 
 import {
-	fixtureMediaPropertiesSchema,
+	fixtureExamplePropertiesSchema,
 	fixturePersonPropertiesSchema,
 } from "./property-schema.test-fixture";
 
@@ -23,7 +23,7 @@ const property = (validation?: {
 
 describe("collectTranslatableProperties", () => {
 	it("marks description translatable while leaving genres and other properties canonical", () => {
-		const keys = collectTranslatableProperties(fixtureMediaPropertiesSchema);
+		const keys = collectTranslatableProperties(fixtureExamplePropertiesSchema);
 
 		expect(keys).toContain("description");
 		expect(keys).not.toContain("genres");

@@ -84,8 +84,8 @@ it.effect("runs provider-import automations after provider population", () =>
 	importWithoutMembership("unrelated-fixture"),
 );
 
-it.effect("imports a fitness entity without media membership work", () =>
-	importWithoutMembership("workout"),
+it.effect("imports a sample entity without example membership work", () =>
+	importWithoutMembership("routine"),
 );
 
 it.effect("fails the import when a provider-import automation fails", () => {
@@ -99,7 +99,7 @@ it.effect("fails the import when a provider-import automation fails", () => {
 		createdAt: "2026-01-01T00:00:00.000Z",
 		updatedAt: "2026-01-01T00:00:00.000Z",
 		populatedAt: "2026-01-01T00:00:00.000Z",
-		entitySchemaSlug: EntitySchemaSlug.make("book"),
+		entitySchemaSlug: EntitySchemaSlug.make("record"),
 		providerId: SandboxProviderId.make("provider-1"),
 	};
 
@@ -111,7 +111,7 @@ it.effect("fails the import when a provider-import automation fails", () => {
 					externalId: "external-1",
 					origin: { kind: "import" },
 					userId: UserId.make("user-1"),
-					entitySchemaSlug: EntitySchemaSlug.make("book"),
+					entitySchemaSlug: EntitySchemaSlug.make("record"),
 					providerId: SandboxProviderId.make("provider-1"),
 				},
 				executionId,

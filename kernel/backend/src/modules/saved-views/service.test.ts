@@ -27,11 +27,11 @@ const user = {
 	preferences: { allowNsfw: false, language: null, disableIntegrations: false },
 } satisfies CurrentUserValue;
 
-const book = table("entity", "book");
+const record = table("entity", "record");
 const queryDocument = document({
-	savedView: rows(book, {
-		orderBy: [ascending(column(book, "name"))],
-		fields: [field("id", column(book, "id")), field("name", column(book, "name"))],
+	savedView: rows(record, {
+		orderBy: [ascending(column(record, "name"))],
+		fields: [field("id", column(record, "id")), field("name", column(record, "name"))],
 	}),
 });
 const cardLayout = {
@@ -57,7 +57,7 @@ const layouts = {
 
 const baseView: ListedSavedView & { readonly pluginInstallationId: string | null } = {
 	layouts,
-	icon: "book",
+	icon: "record",
 	sortOrder: 0,
 	slug: "my-view",
 	name: "My View",
@@ -70,7 +70,7 @@ const baseView: ListedSavedView & { readonly pluginInstallationId: string | null
 	updatedAt: new Date().toISOString(),
 	id: SavedViewId.make("sv-id"),
 };
-const createBody = { layouts, icon: "book", name: "My View", entitySchemaSlug: null };
+const createBody = { layouts, icon: "record", name: "My View", entitySchemaSlug: null };
 const mockRepository = Layer.mock(SavedViewsRepository);
 const makeRepository = (overrides: MockOverrides<typeof mockRepository> = {}) =>
 	mockRepository({ ...overrides });
@@ -161,7 +161,7 @@ it.effect("rejects built-in layout changes but permits state updates", () => {
 			service.update(user, builtin.slug, {
 				...createBody,
 				isDisabled: false,
-				entitySchemaSlug: EntitySchemaSlug.make("book"),
+				entitySchemaSlug: EntitySchemaSlug.make("record"),
 			}),
 		);
 
@@ -382,9 +382,9 @@ it.effect("persists exact private plugin ownership for builtin and custom views"
 		entitySchemas: [
 			{
 				pluginId,
-				icon: "book",
-				name: "Book",
-				slug: "book",
+				icon: "record",
+				name: "Record",
+				slug: "record",
 				eventSchemas: [],
 				pluginSlug: "private-plugin",
 				propertiesSchema: { fields: {} },
@@ -394,11 +394,11 @@ it.effect("persists exact private plugin ownership for builtin and custom views"
 			{
 				layouts,
 				pluginId,
-				icon: "book",
+				icon: "record",
 				sortOrder: 0,
 				slug: "plugin-view",
 				name: "Plugin View",
-				entitySchemaSlug: "book",
+				entitySchemaSlug: "record",
 				pluginSlug: "private-plugin",
 			},
 		],
@@ -471,7 +471,7 @@ it.effect("persists exact private plugin ownership for builtin and custom views"
 			...createBody,
 			isDisabled: false,
 			pluginSlug: PluginSlug.make("private-plugin"),
-			entitySchemaSlug: EntitySchemaSlug.make("book"),
+			entitySchemaSlug: EntitySchemaSlug.make("record"),
 		});
 		expect(installedViews).toMatchObject([
 			{ pluginInstallationId: installationId, entitySchemaPluginId: pluginId },
@@ -479,7 +479,7 @@ it.effect("persists exact private plugin ownership for builtin and custom views"
 		expect(includeUnavailableCalls).toContain(true);
 		expect(updatedViews).toMatchObject([
 			{
-				entitySchemaSlug: "book",
+				entitySchemaSlug: "record",
 				entitySchemaPluginId: pluginId,
 				pluginInstallationId: installationId,
 			},

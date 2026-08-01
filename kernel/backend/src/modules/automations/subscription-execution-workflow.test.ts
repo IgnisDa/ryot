@@ -112,7 +112,7 @@ const eventPayload = {
 			createdAt: "2026-07-20T12:00:00.000Z",
 			occurredAt: "2026-07-20T11:00:00.000Z",
 			sessionEntityId: EntityId.make("session-1"),
-			subject: { id: EntityId.make("entity-1"), name: "Dune", entitySchemaSlug: "book" },
+			subject: { id: EntityId.make("entity-1"), name: "Dune", entitySchemaSlug: "record" },
 		},
 	},
 } as const satisfies SubscriptionExecutionWorkflowPayload;
@@ -333,7 +333,7 @@ it.effect("rejects contradictory source context before preparing a run", () => {
 			after: {
 				name: "Entity",
 				properties: {},
-				entitySchemaSlug: "movie",
+				entitySchemaSlug: "item",
 				id: EntityId.make("entity-1"),
 			},
 		},

@@ -91,7 +91,7 @@ it.effect("resolves a provider by portable plugin and provider slugs", () => {
 			from: () => ({
 				innerJoin: () => ({
 					where: () => ({
-						limit: () => Effect.succeed([{ id: "provider-id", entitySchemaSlug: "book" }]),
+						limit: () => Effect.succeed([{ id: "provider-id", entitySchemaSlug: "record" }]),
 					}),
 				}),
 			}),
@@ -102,10 +102,10 @@ it.effect("resolves a provider by portable plugin and provider slugs", () => {
 		const repository = yield* PluginRepository;
 		expect(
 			yield* repository.resolveProviderBySlugs({
-				pluginId: "media",
-				providerSlug: "tmdb",
+				pluginId: "example",
+				providerSlug: "alpha",
 			}),
-		).toEqual({ id: SandboxProviderId.make("provider-id"), entitySchemaSlug: "book" });
+		).toEqual({ id: SandboxProviderId.make("provider-id"), entitySchemaSlug: "record" });
 	}).pipe(
 		Effect.provide(
 			PluginRepository.layer.pipe(

@@ -24,7 +24,7 @@ import {
 	parseAppSchemaPropertiesSafe,
 	validateAppSchemaDefinition,
 } from "./property-schema-runtime";
-import { fixtureMediaPropertiesSchema } from "./property-schema.test-fixture";
+import { fixtureExamplePropertiesSchema } from "./property-schema.test-fixture";
 
 const str = (overrides: Partial<AppStringProperty> = {}): AppPropertyDefinition => ({
 	label: "F",
@@ -120,8 +120,8 @@ const schema = (
 const parse = (fields: Record<string, AppPropertyDefinition>, properties: unknown) =>
 	parseAppSchemaPropertiesSafe({ properties, propertiesSchema: schema(fields) });
 
-const parseMovie = (properties: unknown) =>
-	parseAppSchemaPropertiesSafe({ properties, propertiesSchema: fixtureMediaPropertiesSchema });
+const parseItem = (properties: unknown) =>
+	parseAppSchemaPropertiesSafe({ properties, propertiesSchema: fixtureExamplePropertiesSchema });
 
 const requiredRule = (targetPath: string[], condition: AppSchemaRuleCondition): AppSchemaRule => ({
 	when: condition,
@@ -210,9 +210,9 @@ describe("parseAppSchemaPropertiesSafe - managed assets", () => {
 	});
 });
 
-describe("parseAppSchemaPropertiesSafe - media images", () => {
+describe("parseAppSchemaPropertiesSafe - example images", () => {
 	it("accepts remote, local, and S3 image locators with purposes", () => {
-		const result = parseMovie({
+		const result = parseItem({
 			images: [
 				{ type: "remote", url: "https://example.com/cover.jpg", purpose: "cover" },
 				{ type: "local", key: "permanent/backdrop.jpg", purpose: "backdrop" },
@@ -223,16 +223,16 @@ describe("parseAppSchemaPropertiesSafe - media images", () => {
 		expect(result.success).toBe(true);
 	});
 
-	it("rejects a media image without a purpose", () => {
-		const result = parseMovie({
+	it("rejects an example image without a purpose", () => {
+		const result = parseItem({
 			images: [{ type: "remote", url: "https://example.com/image.jpg" }],
 		});
 
 		expect(result.success).toBe(false);
 	});
 
-	it("rejects an unknown media image purpose", () => {
-		const result = parseMovie({
+	it("rejects an unknown example image purpose", () => {
+		const result = parseItem({
 			images: [{ type: "remote", url: "https://example.com/image.jpg", purpose: "thumbnail" }],
 		});
 

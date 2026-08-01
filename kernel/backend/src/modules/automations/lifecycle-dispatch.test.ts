@@ -28,7 +28,7 @@ import { SubscriptionExecutionWorkflow } from "./subscription-execution-workflow
 const userId = UserId.make("user-1");
 const scriptId = SandboxScriptId.make("script-1");
 const eventSchemaSlug = EventSchemaSlug.make("finished");
-const entitySchemaSlug = EntitySchemaSlug.make("book");
+const entitySchemaSlug = EntitySchemaSlug.make("record");
 
 const rule = (id: string, owner: UserId | null): ResolvedAutomationRule => ({
 	userId: owner,
@@ -46,7 +46,7 @@ const rule = (id: string, owner: UserId | null): ResolvedAutomationRule => ({
 
 const entitySnapshot = {
 	name: "Dune",
-	entitySchemaSlug: EntitySchemaSlug.make("book"),
+	entitySchemaSlug: EntitySchemaSlug.make("record"),
 	properties: { year: 1965 },
 	id: EntityId.make("entity-1"),
 };
@@ -173,7 +173,7 @@ it.effect("derives the rule target from each lifecycle source kind", () => {
 					occurredAt: "2026-07-20T10:00:00.000Z",
 					sessionEntityId: EntityId.make("session-1"),
 					eventSchemaSlug: EventSchemaSlug.make("finished"),
-					subject: { id: EntityId.make("entity-1"), name: "Dune", entitySchemaSlug: "book" },
+					subject: { id: EntityId.make("entity-1"), name: "Dune", entitySchemaSlug: "record" },
 				},
 			},
 		});
@@ -195,7 +195,7 @@ it.effect("derives the rule target from each lifecycle source kind", () => {
 it.effect("forwards update snapshots and trusted population context", () => {
 	const executions: unknown[] = [];
 	const resolved: Array<{ target: AutomationRuleTarget; operation: string }> = [];
-	const updateRule = { ...rule("media-update", null), operation: "update" as const };
+	const updateRule = { ...rule("example-update", null), operation: "update" as const };
 	const instance = WorkflowInstance.initial(SubscriptionExecutionWorkflow, "update-test");
 	const engine = executionEngine(instance, (payload) => {
 		executions.push(payload);
@@ -231,8 +231,8 @@ it.effect("forwards update snapshots and trusted population context", () => {
 				},
 				scopeEntity: {
 					name: "Severance",
-					entitySchemaSlug: EntitySchemaSlug.make("show"),
-					id: EntityId.make("show-1"),
+					entitySchemaSlug: EntitySchemaSlug.make("group"),
+					id: EntityId.make("group-1"),
 				},
 			},
 		});
@@ -250,7 +250,7 @@ it.effect("forwards update snapshots and trusted population context", () => {
 						properties: { ordinal: 1 },
 						entitySchemaSlug: "container",
 					},
-					scopeEntity: { id: "show-1", name: "Severance" },
+					scopeEntity: { id: "group-1", name: "Severance" },
 				},
 			},
 		]);

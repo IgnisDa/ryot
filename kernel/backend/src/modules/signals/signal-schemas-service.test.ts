@@ -40,8 +40,8 @@ const scope = {
 
 const relationshipScope = {
 	isBuiltin: true,
-	slug: "media-monitoring",
-	name: "Media monitoring",
+	slug: "example-monitoring",
+	name: "Example monitoring",
 	sourceEntitySchemaSlug: null,
 	targetEntitySchemaSlug: null,
 	propertiesSchema: { fields: {} },

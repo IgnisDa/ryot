@@ -76,13 +76,13 @@ const populationReferencesLayer = (
 					Effect.succeed(
 						authorizes(providerId)
 							? {
-									entitySchemaSlug: EntitySchemaSlug.make("book"),
+									entitySchemaSlug: EntitySchemaSlug.make("record"),
 									provider: {
-										name: "Books",
+										name: "Records",
 										id: providerId,
-										slug: "book.catalog",
+										slug: "record.catalog",
 										pluginId: "provider-owner",
-										rootEntitySchemaSlug: "book",
+										rootEntitySchemaSlug: "record",
 										createdAt: new Date(0),
 										updatedAt: new Date(0),
 										information: { source: "catalog" },
@@ -110,9 +110,9 @@ it.effect("binds kernel workflow user ids to the trusted execution authority", (
 		yield* references.execute(
 			KERNEL_ENTITY_IMPORT_WORKFLOW,
 			{
-				externalId: "book-1",
-				entitySchemaSlug: "book",
-				providerId: "openlibrary",
+				externalId: "record-1",
+				entitySchemaSlug: "record",
+				providerId: "zeta",
 				origin: { kind: "import" },
 				userId: "attacker-selected-user",
 			},
@@ -157,16 +157,16 @@ it.effect("resolves plugin provider slugs before dispatching entity imports", ()
 			Layer.mock(PluginRuntimeResolver)({
 				findSchemaProviderBySlug: () =>
 					Effect.succeed({
-						entitySchemaSlug: EntitySchemaSlug.make("show"),
+						entitySchemaSlug: EntitySchemaSlug.make("group"),
 						provider: {
-							name: "TMDB",
-							slug: "show.tmdb",
-							pluginId: "media",
-							rootEntitySchemaSlug: "show",
+							name: "Alpha",
+							slug: "group.alpha",
+							pluginId: "example",
+							rootEntitySchemaSlug: "group",
 							createdAt: new Date(0),
 							updatedAt: new Date(0),
-							information: { source: "tmdb" },
-							id: SandboxProviderId.make("provider-show-tmdb"),
+							information: { source: "alpha" },
+							id: SandboxProviderId.make("provider-group-alpha"),
 						},
 					}),
 			}),
@@ -178,8 +178,8 @@ it.effect("resolves plugin provider slugs before dispatching entity imports", ()
 		yield* references.execute(
 			KERNEL_ENTITY_IMPORT_WORKFLOW,
 			{
-				externalId: "show-1",
-				providerSlug: "show.tmdb",
+				externalId: "group-1",
+				providerSlug: "group.alpha",
 				origin: { kind: "import" },
 				entitySchemaSlug: "attacker-selected-schema",
 			},
@@ -192,8 +192,8 @@ it.effect("resolves plugin provider slugs before dispatching entity imports", ()
 		expect(payloads).toEqual([
 			expect.objectContaining({
 				userId: "trusted-user",
-				entitySchemaSlug: "show",
-				providerId: "provider-show-tmdb",
+				entitySchemaSlug: "group",
+				providerId: "provider-group-alpha",
 			}),
 		]);
 	}).pipe(Effect.provide(layer), Effect.provideService(WorkflowEngine, engine));
@@ -270,9 +270,9 @@ it.effect("rejects user-scoped kernel workflows for system executions", () =>
 			references.execute(
 				KERNEL_ENTITY_IMPORT_WORKFLOW,
 				{
-					externalId: "book-1",
-					entitySchemaSlug: "book",
-					providerId: "openlibrary",
+					externalId: "record-1",
+					entitySchemaSlug: "record",
+					providerId: "zeta",
 					origin: { kind: "import" },
 					userId: "attacker-selected-user",
 				},
@@ -297,9 +297,9 @@ it.effect("rejects a script-supplied import run owned by another user", () =>
 			references.execute(
 				KERNEL_ENTITY_IMPORT_WORKFLOW,
 				{
-					externalId: "book-1",
-					entitySchemaSlug: "book",
-					providerId: "openlibrary",
+					externalId: "record-1",
+					entitySchemaSlug: "record",
+					providerId: "zeta",
 					origin: { kind: "import", importRunId: ImportRunId.make("victim-run") },
 				},
 				{ type: "user", userId: UserId.make("trusted-user") },
@@ -366,8 +366,16 @@ it.effect(
 				{
 					mode: "refresh",
 					items: [
-						{ externalId: "book-1", providerId: "provider-book-catalog", entitySchemaSlug: "book" },
-						{ externalId: "book-2", providerId: "provider-book-catalog", entitySchemaSlug: "book" },
+						{
+							externalId: "record-1",
+							providerId: "provider-record-catalog",
+							entitySchemaSlug: "record",
+						},
+						{
+							externalId: "record-2",
+							providerId: "provider-record-catalog",
+							entitySchemaSlug: "record",
+						},
 					],
 				},
 				{ type: "system" },
@@ -382,14 +390,14 @@ it.effect(
 				expect.objectContaining({
 					userId: null,
 					mode: "refresh",
-					externalId: "book-1",
-					entitySchemaSlug: "book",
-					providerId: "provider-book-catalog",
+					externalId: "record-1",
+					entitySchemaSlug: "record",
+					providerId: "provider-record-catalog",
 					origin: { kind: "provider_refresh" },
 					executionId: "population-reference-item-0",
 				}),
 				expect.objectContaining({
-					externalId: "book-2",
+					externalId: "record-2",
 					executionId: "population-reference-item-1",
 				}),
 			]);
@@ -424,9 +432,9 @@ it.effect("awaits every provider population exit and reports failures in input o
 				{
 					mode: "refresh",
 					items: Array.from({ length: 5 }, (_, index) => ({
-						entitySchemaSlug: "book",
-						externalId: `book-${index}`,
-						providerId: "provider-book-catalog",
+						entitySchemaSlug: "record",
+						externalId: `record-${index}`,
+						providerId: "provider-record-catalog",
 					})),
 				},
 				{ type: "system" },
@@ -456,7 +464,7 @@ it.effect("rejects non-system and unauthorized provider population calls", () =>
 	});
 	const input = {
 		mode: "refresh" as const,
-		items: [{ externalId: "book-1", providerId: "foreign", entitySchemaSlug: "book" }],
+		items: [{ externalId: "record-1", providerId: "foreign", entitySchemaSlug: "record" }],
 	};
 
 	return Effect.gen(function* () {
@@ -484,7 +492,7 @@ it.effect("rejects non-system and unauthorized provider population calls", () =>
 			),
 		);
 		expect(ownershipExit.toString()).toContain(
-			"is not active or has no exact binding to entity schema 'book' owned by plugin 'catalog'",
+			"is not active or has no exact binding to entity schema 'record' owned by plugin 'catalog'",
 		);
 		expect(dispatches).toBe(0);
 	}).pipe(
@@ -511,8 +519,8 @@ it.effect("authorizes every provider population item before dispatching any chil
 				{
 					mode: "ensure",
 					items: [
-						{ externalId: "book-1", providerId: "owned", entitySchemaSlug: "book" },
-						{ externalId: "book-2", providerId: "foreign", entitySchemaSlug: "book" },
+						{ externalId: "record-1", providerId: "owned", entitySchemaSlug: "record" },
+						{ externalId: "record-2", providerId: "foreign", entitySchemaSlug: "record" },
 					],
 				},
 				{ type: "system" },
@@ -523,7 +531,7 @@ it.effect("authorizes every provider population item before dispatching any chil
 		);
 
 		expect(exit.toString()).toContain(
-			"is not active or has no exact binding to entity schema 'book' owned by plugin 'catalog'",
+			"is not active or has no exact binding to entity schema 'record' owned by plugin 'catalog'",
 		);
 		expect(dispatches).toBe(0);
 	}).pipe(
@@ -537,9 +545,9 @@ it.effect(
 	() => {
 		let dispatches = 0;
 		const item = {
-			externalId: "book-1",
-			entitySchemaSlug: "book",
-			providerId: "provider-book-catalog",
+			externalId: "record-1",
+			entitySchemaSlug: "record",
+			providerId: "provider-record-catalog",
 		};
 		const engine = makeWorkflowEngine({
 			execute: () =>

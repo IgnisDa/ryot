@@ -308,19 +308,19 @@ it.effect("reserves slugs owned by active system plugins", () =>
 				files: {},
 				config: {},
 				manifest: privateManifest({
-					metadata: { ...privateManifest().metadata, slug: "media" },
+					metadata: { ...privateManifest().metadata, slug: "example" },
 				}),
 			}),
 		);
 		const failure = failureOf(exit);
 		assert(failure instanceof PluginRequestError);
-		expect(failure.reason).toEqual({ code: "slug-reserved", pluginSlug: "media" });
+		expect(failure.reason).toEqual({ code: "slug-reserved", pluginSlug: "example" });
 	}).pipe(
 		Effect.provide(
 			makeLayer({
 				systemPlugins: [
 					systemEntry(
-						privateManifest({ metadata: { ...privateManifest().metadata, slug: "media" } }),
+						privateManifest({ metadata: { ...privateManifest().metadata, slug: "example" } }),
 					),
 				],
 			}),
@@ -440,14 +440,14 @@ it.effect("refuses a second private plugin with the same slug", () => {
 it.effect("lists system and private installations without secret values", () => {
 	const privatePlugin = storedPrivatePlugin(configuredManifest);
 	const systemPlugin = systemEntry(
-		privateManifest({ metadata: { ...privateManifest().metadata, slug: "media" } }),
+		privateManifest({ metadata: { ...privateManifest().metadata, slug: "example" } }),
 	);
 	return Effect.gen(function* () {
 		const loader = yield* PluginLoader;
 		const service = yield* PluginInstallationService;
 		loader.load(systemPlugin);
 		const listed = yield* service.listInstallations(userId);
-		expect(listed.map(({ slug }) => slug)).toEqual(["media", "private-fixture"]);
+		expect(listed.map(({ slug }) => slug)).toEqual(["example", "private-fixture"]);
 		expect(listed[0]).toMatchObject({ config: {}, scope: "system", configuredSecrets: [] });
 		expect(listed[1]).toMatchObject({
 			sortOrder: 3,
@@ -588,10 +588,10 @@ it.effect("applies defaults after explicit unsets and rejects removing required 
 it.effect("allows system controls but rejects system config changes", () => {
 	const updated: Array<Record<string, unknown>> = [];
 	const systemPlugin = systemEntry(
-		privateManifest({ metadata: { ...privateManifest().metadata, slug: "media" } }),
+		privateManifest({ metadata: { ...privateManifest().metadata, slug: "example" } }),
 	);
 	const installations = [
-		installationRow({ pluginId: systemPlugin.id, pluginScope: "system", pluginSlug: "media" }),
+		installationRow({ pluginId: systemPlugin.id, pluginScope: "system", pluginSlug: "example" }),
 	];
 	return Effect.gen(function* () {
 		const loader = yield* PluginLoader;
@@ -599,13 +599,13 @@ it.effect("allows system controls but rejects system config changes", () => {
 		loader.load(systemPlugin);
 
 		expect(
-			yield* service.updateInstallation(userId, "media", { isDisabled: true, sortOrder: 4 }),
+			yield* service.updateInstallation(userId, "example", { isDisabled: true, sortOrder: 4 }),
 		).toMatchObject({ scope: "system", isDisabled: true, sortOrder: 4, config: {} });
 		expect(
-			failureOf(yield* Effect.exit(service.updateInstallation(userId, "media", { config: {} }))),
+			failureOf(yield* Effect.exit(service.updateInstallation(userId, "example", { config: {} }))),
 		).toMatchObject({
 			_tag: "PluginConflictError",
-			reason: { code: "system-plugin", pluginSlug: "media" },
+			reason: { code: "system-plugin", pluginSlug: "example" },
 		});
 	}).pipe(Effect.provide(makeLayer({ updated, installations })));
 });
@@ -651,15 +651,15 @@ it.effect("hides foreign installations and rejects enabling an unready installat
 
 it.effect("refuses to uninstall a system plugin through the private path", () => {
 	const systemPlugin = systemEntry(
-		privateManifest({ metadata: { ...privateManifest().metadata, slug: "media" } }),
+		privateManifest({ metadata: { ...privateManifest().metadata, slug: "example" } }),
 	);
 	return Effect.gen(function* () {
 		const loader = yield* PluginLoader;
 		const service = yield* PluginInstallationService;
 		loader.load(systemPlugin);
-		const failure = failureOf(yield* Effect.exit(service.uninstallPlugin(userId, "media")));
+		const failure = failureOf(yield* Effect.exit(service.uninstallPlugin(userId, "example")));
 		assert(failure instanceof PluginConflictError);
-		expect(failure.reason).toEqual({ code: "system-plugin", pluginSlug: "media" });
+		expect(failure.reason).toEqual({ code: "system-plugin", pluginSlug: "example" });
 	}).pipe(Effect.provide(makeLayer()));
 });
 
@@ -982,7 +982,7 @@ it.effect("rejects package updates that change identity or invalidate merged con
 
 it.effect("rejects package updates for system and foreign plugins", () => {
 	const systemPlugin = systemEntry(
-		privateManifest({ metadata: { ...privateManifest().metadata, slug: "media" } }),
+		privateManifest({ metadata: { ...privateManifest().metadata, slug: "example" } }),
 	);
 	return Effect.gen(function* () {
 		const loader = yield* PluginLoader;
@@ -1002,7 +1002,7 @@ it.effect("rejects package updates for system and foreign plugins", () => {
 			),
 		).toMatchObject({
 			_tag: "PluginConflictError",
-			reason: { code: "system-plugin", pluginSlug: "media" },
+			reason: { code: "system-plugin", pluginSlug: "example" },
 		});
 		expect(
 			failureOf(
@@ -1170,28 +1170,28 @@ it.effect("never dispatches installation bootstrap for a package update", () => 
 });
 
 it.effect("orders provisioned system installations by slug when their sort order ties", () => {
-	const media = systemEntry(
-		privateManifest({ metadata: { ...privateManifest().metadata, slug: "media" } }),
+	const example = systemEntry(
+		privateManifest({ metadata: { ...privateManifest().metadata, slug: "example" } }),
 	);
-	const fitness = systemEntry(
-		privateManifest({ metadata: { ...privateManifest().metadata, slug: "fitness" } }),
+	const sample = systemEntry(
+		privateManifest({ metadata: { ...privateManifest().metadata, slug: "sample" } }),
 	);
 	return Effect.gen(function* () {
 		const loader = yield* PluginLoader;
 		const service = yield* PluginInstallationService;
-		loader.load(media);
-		loader.load(fitness);
+		loader.load(example);
+		loader.load(sample);
 		const listed = yield* service.listInstallations(userId);
 		expect(listed.map(({ slug, sortOrder }) => [slug, sortOrder])).toEqual([
-			["fitness", 0],
-			["media", 0],
+			["example", 0],
+			["sample", 0],
 		]);
 	}).pipe(
 		Effect.provide(
 			makeLayer({
 				installations: [
-					installationRow({ pluginId: media.id, pluginScope: "system", pluginSlug: "media" }),
-					installationRow({ pluginId: fitness.id, pluginScope: "system", pluginSlug: "fitness" }),
+					installationRow({ pluginId: example.id, pluginScope: "system", pluginSlug: "example" }),
+					installationRow({ pluginId: sample.id, pluginScope: "system", pluginSlug: "sample" }),
 				],
 			}),
 		),
@@ -1227,13 +1227,13 @@ const shippedEntry = (overrides: Partial<PluginManifest> = {}) =>
 	systemEntry(
 		privateManifest({
 			...overrides,
-			metadata: { ...privateManifest().metadata, slug: "media" },
+			metadata: { ...privateManifest().metadata, slug: "example" },
 		}),
 	);
 
 it.effect("marks a private installation incompatible when a shipped plugin claims its slug", () => {
 	const healthUpdates: Array<Record<string, unknown>> = [];
-	const shadowed = privateInstallationRow({ pluginSlug: "media" });
+	const shadowed = privateInstallationRow({ pluginSlug: "example" });
 	const untouched = privateInstallationRow({ pluginSlug: "notes" });
 	return Effect.gen(function* () {
 		const loader = yield* PluginLoader;
@@ -1244,7 +1244,7 @@ it.effect("marks a private installation incompatible when a shipped plugin claim
 			{
 				health: "incompatible",
 				id: shadowed.installationId,
-				healthReason: shippedConflict("Shipped plugins already use the slug 'media'"),
+				healthReason: shippedConflict("Shipped plugins already use the slug 'example'"),
 			},
 		]);
 	}).pipe(
@@ -1283,7 +1283,7 @@ it.effect("marks conflicts claimed on a shipped surface slug or definition slug"
 				health: "incompatible",
 				id: surfaceRow.installationId,
 				healthReason: shippedConflict(
-					"Duplicate import source slug 'shared-source' in effective plugins 'media' and 'notes'",
+					"Duplicate import source slug 'shared-source' in effective plugins 'example' and 'notes'",
 				),
 			},
 			{
@@ -1389,22 +1389,22 @@ it.effect(
 	() => {
 		const removedGenerated: Array<string> = [];
 		const healthUpdates: Array<Record<string, unknown>> = [];
-		const reason = shippedConflict("Shipped plugins already use the slug 'media'");
+		const reason = shippedConflict("Shipped plugins already use the slug 'example'");
 		const privateInstallations = [
-			privateInstallationRow({ pluginSlug: "media", health: "failed", installationId: "failed" }),
+			privateInstallationRow({ pluginSlug: "example", health: "failed", installationId: "failed" }),
 			privateInstallationRow({
-				pluginSlug: "media",
+				pluginSlug: "example",
 				health: "installing",
 				installationId: "installing",
 			}),
 			privateInstallationRow({
 				health: "needs-configuration",
-				pluginSlug: "media",
+				pluginSlug: "example",
 				installationId: "unconfigured",
 			}),
 			privateInstallationRow({
 				healthReason: reason,
-				pluginSlug: "media",
+				pluginSlug: "example",
 				health: "incompatible",
 				installationId: "already-incompatible",
 			}),

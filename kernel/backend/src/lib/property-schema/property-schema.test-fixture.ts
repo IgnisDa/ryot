@@ -23,7 +23,7 @@ const images = {
 	},
 } satisfies AppPropertyDefinition;
 
-export const fixtureMediaPropertiesSchema: AppSchema = {
+export const fixtureExamplePropertiesSchema: AppSchema = {
 	fields: {
 		images,
 		runtime: { type: "integer", label: "Runtime", description: "Runtime" },

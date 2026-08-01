@@ -93,43 +93,43 @@ describe("client endpoints", () => {
 		() => {
 			const yank = {
 				lot: "yank",
-				slug: "komga",
-				name: "Komga",
-				...systemPlugin("media"),
-				description: "Komga yank",
+				slug: "theta",
+				name: "Theta",
+				...systemPlugin("example"),
+				description: "Theta yank",
 				settingsSchema: { fields: {} },
-				scriptSlug: "integration.komga",
+				scriptSlug: "integration.theta",
 			} satisfies RegisteredIntegrationProvider;
 			const inactiveSink = {
 				lot: "sink",
 				slug: "kodi",
 				name: "Kodi",
-				...systemPlugin("media"),
+				...systemPlugin("example"),
 				description: "Kodi sink",
 				scriptSlug: "integration.kodi",
 				settingsSchema: { fields: {} },
 			} satisfies RegisteredIntegrationProvider;
 			const push = {
 				lot: "push",
-				slug: "radarr",
-				name: "Radarr",
+				slug: "iota",
+				name: "Iota",
 				scriptSlug: null,
-				...systemPlugin("media"),
-				description: "Radarr push",
+				...systemPlugin("example"),
+				description: "Iota push",
 				settingsSchema: { fields: {} },
 			} satisfies RegisteredIntegrationProvider;
 			const now = new Date(0);
 			const activeScript = {
 				metadata: {},
-				name: "Komga",
+				name: "Theta",
 				createdAt: now,
 				updatedAt: now,
 				source: "source",
 				providerId: null,
-				pluginId: "media",
+				pluginId: "example",
 				compiledFormat: 1,
 				compiledCode: "compiled",
-				slug: "integration.komga",
+				slug: "integration.theta",
 				contentHash: "content-hash",
 				id: SandboxScriptId.make("active-script"),
 			};
@@ -167,9 +167,9 @@ describe("client endpoints", () => {
 				const providers = yield* (yield* IntegrationsService).listIntegrationProviders(user.id);
 
 				expect(providers.map(({ slug, isCreatable }) => [slug, isCreatable])).toEqual([
-					["komga", true],
+					["theta", true],
 					["kodi", false],
-					["radarr", true],
+					["iota", true],
 				]);
 				expect(providers.map(({ requiresProKey }) => requiresProKey)).toEqual([
 					false,
@@ -197,18 +197,18 @@ describe("client endpoints", () => {
 
 	it.effect("gets an owned integration through client redaction", () => {
 		const integration = makeIntegration({
-			provider: "komga",
-			pluginSlug: "media",
-			pluginInstallationId: "media-installation-id",
-			providerSpecifics: { kind: "komga", baseUrl: "https://komga.test", token: "secret" },
+			provider: "theta",
+			pluginSlug: "example",
+			pluginInstallationId: "example-installation-id",
+			providerSpecifics: { kind: "theta", baseUrl: "https://theta.test", token: "secret" },
 		});
 		const registered = {
 			lot: "yank",
-			slug: "komga",
-			name: "Komga",
-			...systemPlugin("media"),
-			description: "Komga yank",
-			scriptSlug: "integration.komga",
+			slug: "theta",
+			name: "Theta",
+			...systemPlugin("example"),
+			description: "Theta yank",
+			scriptSlug: "integration.theta",
 			settingsSchema: {
 				fields: {
 					kind: { type: "string", label: "Kind", description: "Kind" },
@@ -244,8 +244,8 @@ describe("client endpoints", () => {
 			);
 
 			expect(listed.providerSpecifics).toEqual({
-				kind: "komga",
-				baseUrl: "https://komga.test",
+				kind: "theta",
+				baseUrl: "https://theta.test",
 			});
 		}).pipe(Effect.provide(layer));
 	});
@@ -262,7 +262,7 @@ describe("client endpoints", () => {
 				name: "Pro push",
 				scriptSlug: null,
 				requiresProKey: true,
-				...systemPlugin("media"),
+				...systemPlugin("example"),
 				settingsSchema: { fields: {} },
 				description: "Pro-gated push provider",
 			} satisfies RegisteredIntegrationProvider;
@@ -298,11 +298,11 @@ describe("update", () => {
 	it.effect("preserves a stored secret omitted from a provider settings update", () => {
 		const registered = {
 			lot: "yank",
-			...systemPlugin("media"),
-			name: "Audiobookshelf",
-			slug: "audiobookshelf",
+			...systemPlugin("example"),
+			name: "Mu",
+			slug: "mu",
 			description: "Test yank",
-			scriptSlug: "integration.audiobookshelf",
+			scriptSlug: "integration.mu",
 			settingsSchema: {
 				fields: {
 					kind: {
@@ -310,32 +310,32 @@ describe("update", () => {
 						label: "Provider kind",
 						validation: { required: true },
 						description: "Integration provider discriminator",
-						choices: { kind: "static", values: [{ value: "audiobookshelf" }] },
+						choices: { kind: "static", values: [{ value: "mu" }] },
 					},
 					baseUrl: {
 						type: "string",
 						label: "Base URL",
 						validation: { required: true },
-						description: "Audiobookshelf instance URL",
+						description: "Mu instance URL",
 					},
 					token: {
 						secret: true,
 						type: "string",
 						label: "Token",
 						validation: { required: true },
-						description: "Audiobookshelf access token",
+						description: "Mu access token",
 					},
 				},
 			},
 		} satisfies RegisteredIntegrationProvider;
 		let state = makeIntegration({
 			lot: "yank",
-			pluginSlug: "media",
-			provider: "audiobookshelf",
-			pluginInstallationId: "media-installation-id",
+			pluginSlug: "example",
+			provider: "mu",
+			pluginInstallationId: "example-installation-id",
 			providerSpecifics: {
 				token: "stored-token",
-				kind: "audiobookshelf",
+				kind: "mu",
 				baseUrl: "https://old.example.com",
 			},
 		});
@@ -372,14 +372,14 @@ describe("update", () => {
 			const service = yield* IntegrationsService;
 			const updated = yield* service.update(state.userId, state.id, {
 				providerSpecifics: {
-					kind: "audiobookshelf",
+					kind: "mu",
 					baseUrl: "https://new.example.com",
 				},
 			});
 
 			expect(updated.providerSpecifics).toEqual({
 				token: "stored-token",
-				kind: "audiobookshelf",
+				kind: "mu",
 				baseUrl: "https://new.example.com",
 			});
 			expect(state.providerSpecifics).toEqual(updated.providerSpecifics);
@@ -452,16 +452,16 @@ describe("update", () => {
 				name: "Pro sink",
 				slug: "pro-sink",
 				requiresProKey: true,
-				...systemPlugin("media"),
+				...systemPlugin("example"),
 				settingsSchema: { fields: {} },
 				scriptSlug: "integration.pro-sink",
 				description: "Pro-gated sink provider",
 			} satisfies RegisteredIntegrationProvider;
 			const existing = makeIntegration({
 				lot: "sink",
-				pluginSlug: "media",
+				pluginSlug: "example",
 				provider: "pro-sink",
-				pluginInstallationId: "media-installation-id",
+				pluginInstallationId: "example-installation-id",
 			});
 			const repository = Layer.mock(IntegrationsRepository)({
 				getForUser: () => Effect.succeed(existing),
@@ -510,7 +510,7 @@ describe("create", () => {
 			name: "Pro sink",
 			slug: "pro-sink",
 			requiresProKey: true,
-			...systemPlugin("media"),
+			...systemPlugin("example"),
 			settingsSchema: { fields: {} },
 			scriptSlug: "integration.pro-sink",
 			description: "Pro-gated sink provider",
@@ -556,8 +556,8 @@ describe("installation availability", () => {
 		const integration = makeIntegration({
 			lot: "sink",
 			provider: "kodi",
-			pluginSlug: "media",
-			pluginInstallationId: "media-installation-id",
+			pluginSlug: "example",
+			pluginInstallationId: "example-installation-id",
 		});
 		const layer = integrationsServiceLayer.pipe(
 			Layer.provideMerge(
@@ -601,9 +601,9 @@ describe("installation availability", () => {
 	it.effect("skips scheduled yank runs for an unavailable system installation", () => {
 		const integration = makeIntegration({
 			lot: "yank",
-			provider: "komga",
-			pluginSlug: "media",
-			pluginInstallationId: "media-installation-id",
+			provider: "theta",
+			pluginSlug: "example",
+			pluginInstallationId: "example-installation-id",
 		});
 		const layer = integrationsServiceLayer.pipe(
 			Layer.provideMerge(
@@ -639,18 +639,18 @@ describe("installation availability", () => {
 describe("prepareYankRuns", () => {
 	const yankIntegration = makeIntegration({
 		lot: "yank",
-		provider: "komga",
-		pluginSlug: "media",
-		pluginInstallationId: "media-installation-id",
+		provider: "theta",
+		pluginSlug: "example",
+		pluginInstallationId: "example-installation-id",
 	});
 	const registeredYank: RegisteredIntegrationProvider = {
-		...systemPlugin("media"),
+		...systemPlugin("example"),
 		lot: "yank",
-		name: "Komga",
-		slug: "komga",
-		description: "Komga",
+		name: "Theta",
+		slug: "theta",
+		description: "Theta",
 		requiresProKey: false,
-		scriptSlug: "komga-sync",
+		scriptSlug: "theta-sync",
 		settingsSchema: { fields: {} },
 	};
 
@@ -692,9 +692,9 @@ describe("prepareYankRuns", () => {
 				},
 			]);
 			expect(captured).toMatchObject({
-				source: "komga",
+				source: "theta",
 				integrationId: yankIntegration.id,
-				pluginInstallationId: "media-installation-id",
+				pluginInstallationId: "example-installation-id",
 			});
 		}).pipe(Effect.provide(layer));
 	});
@@ -714,11 +714,11 @@ describe("handleWebhook", () => {
 		const integration = makeIntegration({
 			lot: "sink",
 			provider: "kodi",
-			pluginSlug: "media",
-			pluginInstallationId: "media-installation-id",
+			pluginSlug: "example",
+			pluginInstallationId: "example-installation-id",
 		});
 		const registeredSink: RegisteredIntegrationProvider = {
-			...systemPlugin("media"),
+			...systemPlugin("example"),
 			lot: "sink",
 			name: "Kodi",
 			slug: "kodi",
@@ -777,22 +777,22 @@ describe("handleWebhook", () => {
 	it.effect("forwards the untouched request transport to the run workflow", () => {
 		const integration = makeIntegration({
 			lot: "sink",
-			pluginSlug: "media",
-			provider: "plex_sink",
-			pluginInstallationId: "media-installation-id",
+			pluginSlug: "example",
+			provider: "lambda_sink",
+			pluginInstallationId: "example-installation-id",
 		});
 		const registeredSink: RegisteredIntegrationProvider = {
-			...systemPlugin("media"),
+			...systemPlugin("example"),
 			lot: "sink",
-			name: "Plex sink",
-			slug: "plex_sink",
+			name: "Lambda sink",
+			slug: "lambda_sink",
 			requiresProKey: false,
-			description: "Plex sink",
-			scriptSlug: "plex-webhook",
+			description: "Lambda sink",
+			scriptSlug: "lambda-webhook",
 			settingsSchema: { fields: {} },
 		};
 		const rawBody =
-			'--abc\r\nContent-Disposition: form-data; name="payload"\r\n\r\n{"event":"media.scrobble"}\r\n--abc--';
+			'--abc\r\nContent-Disposition: form-data; name="payload"\r\n\r\n{"event":"example.scrobble"}\r\n--abc--';
 		const contentType = "multipart/form-data; boundary=abc";
 		let captured: Parameters<WorkflowEngine["Service"]["execute"]>[1] | undefined;
 		const layer = integrationsServiceLayer.pipe(

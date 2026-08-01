@@ -287,7 +287,7 @@ it.effect("returns the completed public result without internal workflow fields"
 });
 
 it.effect("resolves and executes a manifest workflow with an exact script pin", () => {
-	const executionId = "media-resolution-1";
+	const executionId = "example-resolution-1";
 	const instance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
 	let capturedWorkflow: unknown;
 	let capturedOptions: Parameters<WorkflowEngine["Service"]["execute"]>[1] | undefined;
@@ -305,13 +305,13 @@ it.effect("resolves and executes a manifest workflow with an exact script pin", 
 			Effect.succeed({
 				...storedScript,
 				source: "source",
-				pluginSlug: "media",
-				name: "Media resolution",
+				pluginSlug: "example",
+				name: "Example resolution",
 				createdAt: new Date(0),
 				updatedAt: new Date(0),
 				contentHash: "workflow-hash",
 				metadata: { kind: "workflow" as const },
-				slug: "workflow.media-import-resolution",
+				slug: "workflow.example-import-resolution",
 			}),
 		),
 		Layer.succeed(WorkflowEngine, engine),
@@ -322,9 +322,9 @@ it.effect("resolves and executes a manifest workflow with an exact script pin", 
 		const resolvedScriptId = yield* service.resolveWorkflowScript({
 			executionId,
 			userId: executingUserId,
-			pluginId: "media-plugin-id",
-			workflowSlug: "media-import-resolution",
-			pluginInstallationId: "media-installation-id",
+			pluginId: "example-plugin-id",
+			workflowSlug: "example-import-resolution",
+			pluginInstallationId: "example-installation-id",
 		});
 		const result = yield* service.executeWorkflow({
 			executionId,

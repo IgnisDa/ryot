@@ -386,7 +386,7 @@ it.effect("merges unique array values while replacing scalar user relationship p
 		findRelationshipProperties: () =>
 			Effect.succeed({
 				owned: false,
-				ownershipSources: ["plex", "shared"],
+				ownershipSources: ["lambda", "shared"],
 				ownershipSyncedAt: "2026-01-01T00:00:00.000Z",
 			}),
 		updateRelationship: (input) =>
@@ -403,7 +403,7 @@ it.effect("merges unique array values while replacing scalar user relationship p
 			propertiesSchema: ownershipPropertiesSchema,
 			properties: {
 				owned: true,
-				ownershipSources: ["shared", "watcharr"],
+				ownershipSources: ["shared", "kappa"],
 				ownershipSyncedAt: "2026-01-02T00:00:00.000Z",
 			},
 		});
@@ -413,7 +413,7 @@ it.effect("merges unique array values while replacing scalar user relationship p
 				properties: {
 					owned: true,
 					ownershipSyncedAt: "2026-01-02T00:00:00.000Z",
-					ownershipSources: ["plex", "shared", "watcharr"],
+					ownershipSources: ["lambda", "shared", "kappa"],
 				},
 			}),
 		]);
@@ -431,7 +431,7 @@ it.effect("re-reads and merges a concurrent winner after the initial create conf
 					? null
 					: {
 							owned: true,
-							ownershipSources: ["plex"],
+							ownershipSources: ["lambda"],
 							ownershipSyncedAt: "2026-01-01T00:00:00.000Z",
 						};
 			}),
@@ -451,7 +451,7 @@ it.effect("re-reads and merges a concurrent winner after the initial create conf
 			propertiesSchema: ownershipPropertiesSchema,
 			properties: {
 				owned: true,
-				ownershipSources: ["watcharr"],
+				ownershipSources: ["kappa"],
 				ownershipSyncedAt: "2026-01-02T00:00:00.000Z",
 			},
 		});
@@ -461,7 +461,7 @@ it.effect("re-reads and merges a concurrent winner after the initial create conf
 			expect.objectContaining({
 				properties: {
 					owned: true,
-					ownershipSources: ["plex", "watcharr"],
+					ownershipSources: ["lambda", "kappa"],
 					ownershipSyncedAt: "2026-01-02T00:00:00.000Z",
 				},
 			}),

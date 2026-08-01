@@ -97,11 +97,11 @@ const pluginWithImportSources = (
 		configSchema: {
 			unknownKeys: "strict",
 			fields: {
-				traktClientId: { type: "string", label: "Trakt client ID", description: "Trakt client ID" },
-				tmdbAccessToken: {
+				gammaClientId: { type: "string", label: "Gamma client ID", description: "Gamma client ID" },
+				alphaAccessToken: {
 					type: "string",
-					label: "TMDB access token",
-					description: "TMDB access token",
+					label: "Alpha access token",
+					description: "Alpha access token",
 				},
 			},
 		},
@@ -114,29 +114,29 @@ const catalogLayer = () => {
 		pluginWithImportSources("zebra", [
 			{
 				inputSchema,
-				name: "OpenScale",
-				slug: "open-scale",
+				name: "Xi",
+				slug: "xi",
 				requiredPluginConfigKeys: [],
-				description: "OpenScale export",
-				workflowSlug: "open-scale-import",
+				description: "Xi export",
+				workflowSlug: "xi-import",
 			},
 		]),
 		pluginWithImportSources("apple", [
 			{
 				inputSchema,
-				slug: "netflix",
-				name: "Netflix",
-				description: "Netflix export",
-				workflowSlug: "netflix-import",
-				requiredPluginConfigKeys: ["tmdbAccessToken"],
+				slug: "nu",
+				name: "Nu",
+				description: "Nu export",
+				workflowSlug: "nu-import",
+				requiredPluginConfigKeys: ["alphaAccessToken"],
 			},
 			{
 				inputSchema,
-				slug: "trakt",
-				name: "Trakt",
-				description: "Trakt account",
-				workflowSlug: "trakt-import",
-				requiredPluginConfigKeys: ["traktClientId"],
+				slug: "gamma",
+				name: "Gamma",
+				description: "Gamma account",
+				workflowSlug: "gamma-import",
+				requiredPluginConfigKeys: ["gammaClientId"],
 			},
 		]),
 	]);
@@ -159,9 +159,9 @@ it.effect("lists import sources with workflow status in stable order", () =>
 				slug: `${source.pluginSlug}/${source.slug}`,
 			})),
 		).toEqual([
-			{ slug: "apple/netflix", hasActiveWorkflow: true },
-			{ slug: "apple/trakt", hasActiveWorkflow: true },
-			{ slug: "zebra/open-scale", hasActiveWorkflow: true },
+			{ slug: "apple/gamma", hasActiveWorkflow: true },
+			{ slug: "apple/nu", hasActiveWorkflow: true },
+			{ slug: "zebra/xi", hasActiveWorkflow: true },
 		]);
 	}).pipe(Effect.provide(catalogLayer())),
 );
@@ -169,10 +169,10 @@ it.effect("lists import sources with workflow status in stable order", () =>
 it.effect("carries plugin scope, installation identity and config context on every source", () =>
 	Effect.gen(function* () {
 		const catalog = yield* ImportSourceCatalog;
-		const resolved = yield* catalog.resolveForUser(userId, "trakt");
+		const resolved = yield* catalog.resolveForUser(userId, "gamma");
 
 		expect(resolved?.source).toMatchObject({
-			slug: "trakt",
+			slug: "gamma",
 			pluginSlug: "apple",
 			pluginScope: "system",
 			pluginId: "apple-plugin-id",
@@ -195,10 +195,10 @@ it.effect(
 				pluginWithImportSources("apple", [
 					{
 						inputSchema,
-						slug: "trakt",
-						name: "Trakt",
+						slug: "gamma",
+						name: "Gamma",
 						description: "Old source",
-						workflowSlug: "trakt-import",
+						workflowSlug: "gamma-import",
 						requiredPluginConfigKeys: [],
 					},
 				]),
@@ -247,7 +247,7 @@ it.effect(
 			yield* Deferred.succeed(release, undefined);
 
 			expect(yield* Fiber.join(fiber)).toMatchObject([
-				{ hasActiveWorkflow: true, source: { description: "Old source", slug: "trakt" } },
+				{ hasActiveWorkflow: true, source: { description: "Old source", slug: "gamma" } },
 			]);
 		}),
 );

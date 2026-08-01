@@ -73,8 +73,8 @@ const definitionOwnerManifest = (): PluginManifest => {
 		scripts: [],
 		signalSchemas: [],
 		relationshipSchemas: [],
-		metadata: { ...fixture.metadata, slug: "media", name: "Media" },
-		entitySchemas: [{ ...entitySchema, slug: "movie", eventSchemas: [] }],
+		metadata: { ...fixture.metadata, slug: "example", name: "Example" },
+		entitySchemas: [{ ...entitySchema, slug: "item", eventSchemas: [] }],
 		bindings: {
 			eventAutomations: [],
 			entityAutomations: [],
@@ -441,7 +441,7 @@ it.effect("rejects user bootstrap declarations through ordinary runtime ingestio
 		const manifest = userBootstrapManifest();
 		const source = yield* loadPluginSource(fixturePackageRoot(), {
 			...manifest,
-			metadata: { ...manifest.metadata, slug: "media" },
+			metadata: { ...manifest.metadata, slug: "example" },
 		});
 		const exit = yield* Effect.exit(ingestion.installPlugin(source));
 
@@ -460,7 +460,7 @@ it.effect("accepts user bootstrap declarations through trusted boot ingestion", 
 		const manifest = userBootstrapManifest();
 		const source = yield* loadPluginSource(fixturePackageRoot(), {
 			...manifest,
-			metadata: { ...manifest.metadata, slug: "media" },
+			metadata: { ...manifest.metadata, slug: "example" },
 		});
 		const plugin = yield* ingestion.ingestTrustedPlugin(source);
 
@@ -501,7 +501,7 @@ it.effect("accepts user bootstrap declarations for trusted slugs outside the boo
 });
 
 it.effect("validates automation bindings against definitions from installed plugins", () => {
-	const installedMedia = makeStoredPlugin(definitionOwnerManifest(), "media-source-hash");
+	const installedExample = makeStoredPlugin(definitionOwnerManifest(), "example-source-hash");
 	return Effect.gen(function* () {
 		const ingestion = yield* PluginIngestionService;
 		yield* ingestion.rebuild();
@@ -510,16 +510,16 @@ it.effect("validates automation bindings against definitions from installed plug
 			bindings: {
 				...fixtureManifest().bindings,
 				entityAutomations: [
-					{ operation: "create", entitySchemaSlug: "movie", scriptSlug: "fixture.automation" },
+					{ operation: "create", entitySchemaSlug: "item", scriptSlug: "fixture.automation" },
 				],
 			},
 		});
 
 		const plugin = yield* ingestion.ingestPlugin(source);
 		expect(plugin.manifest.bindings.entityAutomations).toEqual([
-			{ operation: "create", entitySchemaSlug: "movie", scriptSlug: "fixture.automation" },
+			{ operation: "create", entitySchemaSlug: "item", scriptSlug: "fixture.automation" },
 		]);
-	}).pipe(Effect.provide(makeLayer({ initialInstalled: [installedMedia] })));
+	}).pipe(Effect.provide(makeLayer({ initialInstalled: [installedExample] })));
 });
 
 it.effect("accepts plugin-owned and cross-plugin notification formatters", () => {
@@ -1111,14 +1111,14 @@ it.effect("refuses uninstall while another plugin relationship targets its entit
 
 it.effect("refuses uninstall for a boot-configured plugin", () => {
 	const manifest = definitionOwnerManifest();
-	const stored = makeStoredPlugin(manifest, "media-source-hash");
+	const stored = makeStoredPlugin(manifest, "example-source-hash");
 	return Effect.gen(function* () {
 		const ingestion = yield* PluginIngestionService;
 		const exit = yield* Effect.exit(ingestion.uninstallPlugin(manifest.metadata.slug));
 
 		expect(failureOf(exit)).toMatchObject({
 			_tag: "PluginConflictError",
-			reason: { code: "boot-configured", pluginSlug: "media" },
+			reason: { code: "boot-configured", pluginSlug: "example" },
 		});
 	}).pipe(
 		Effect.provide(
@@ -1222,7 +1222,7 @@ it.effect("returns structured validation and compiler diagnostics", () => {
 			packageRoot: fixturePackageRoot(),
 			manifest: {
 				...fixtureManifest(),
-				entitySchemas: [{ ...fixtureManifest().entitySchemas[0], slug: "movie" }],
+				entitySchemas: [{ ...fixtureManifest().entitySchemas[0], slug: "item" }],
 			},
 		},
 		{

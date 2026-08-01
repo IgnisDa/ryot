@@ -228,7 +228,7 @@ it.effect("restores an entity with its archived identity and timestamps", () => 
 		id: EntityId.make("archived-id"),
 		createdAt: new Date("2024-01-01T00:00:00.000Z"),
 		updatedAt: new Date("2025-01-01T00:00:00.000Z"),
-		entitySchemaSlug: EntitySchemaSlug.make("book"),
+		entitySchemaSlug: EntitySchemaSlug.make("record"),
 	};
 
 	return Effect.gen(function* () {
@@ -285,7 +285,7 @@ it.effect("resolves restore globals by portable schema, plugin, provider, and ex
 		where: (condition: { getSQL: () => Parameters<typeof dialect.sqlToQuery>[0] }) => ({
 			limit: () => {
 				predicate = dialect.sqlToQuery(condition.getSQL());
-				return Effect.succeed([{ id: "existing-global", entitySchemaSlug: "book" }]);
+				return Effect.succeed([{ id: "existing-global", entitySchemaSlug: "record" }]);
 			},
 		}),
 	};
@@ -296,13 +296,13 @@ it.effect("resolves restore globals by portable schema, plugin, provider, and ex
 		expect(
 			yield* repository.findGlobalEntityForRestore({
 				externalId: "external-id",
-				entitySchemaSlug: EntitySchemaSlug.make("book"),
+				entitySchemaSlug: EntitySchemaSlug.make("record"),
 				entitySchemaPluginId: null,
-				provider: { pluginSlug: "media", providerSlug: "open-library" },
+				provider: { pluginSlug: "example", providerSlug: "open-library" },
 			}),
-		).toEqual({ id: "existing-global", entitySchemaSlug: "book" });
+		).toEqual({ id: "existing-global", entitySchemaSlug: "record" });
 		expect(predicate?.params).toEqual(
-			expect.arrayContaining(["external-id", "book", "media", "open-library"]),
+			expect.arrayContaining(["external-id", "record", "example", "open-library"]),
 		);
 		expect(predicate?.params).not.toContain("archived-provider-db-id");
 	}).pipe(Effect.provide(makeLayer(db)));

@@ -32,8 +32,8 @@ const input = (
 it.each([
 	[
 		"integration.disabled",
-		{ providerName: "komga" },
-		"Integration komga has been disabled due to too many errors",
+		{ providerName: "theta" },
+		"Integration theta has been disabled due to too many errors",
 	],
 ])("formats %s exclusively from the signal snapshot", (slug, properties, expected) => {
 	const messages: string[] = [];
