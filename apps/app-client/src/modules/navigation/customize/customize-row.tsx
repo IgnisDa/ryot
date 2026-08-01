@@ -8,12 +8,18 @@ import { AppSwitch } from "@/modules/ui/switch";
 import type { CustomizeDraftItem } from "./customize-state";
 
 export function CustomizeRow(props: {
+	isLast: boolean;
 	handle: ReactNode;
 	item: CustomizeDraftItem;
 	onToggle: (slug: string) => void;
 }) {
 	return (
-		<View className="h-11 flex-row items-center gap-2 px-1">
+		<View
+			className={clsx(
+				"h-11 flex-row items-center gap-2 px-1",
+				!props.isLast && "border-b border-border",
+			)}
+		>
 			{props.handle}
 			<AppIcon
 				size={17}
@@ -44,8 +50,10 @@ export function CustomizeRow(props: {
 
 export function CustomizeHomeRow() {
 	return (
-		<View className="h-11 flex-row items-center gap-2 px-1">
-			<View className="h-10 w-10" />
+		<View className="h-11 flex-row items-center gap-2 border-b border-border px-1">
+			<View className="h-10 w-10 items-center justify-center opacity-40">
+				<AppIcon className="text-text-subtle" name="grip-vertical" size={18} />
+			</View>
 			<AppIcon className="shrink-0 text-text" name="house" size={17} />
 			<Text className="min-w-0 flex-1 font-ui text-sm text-text">Home</Text>
 			<View className="flex-row items-center gap-1.5">
