@@ -50,7 +50,6 @@ type BackupPropertyRecord = {
 type BackupEventPage = {
 	readonly nextAfterId: EventId | null;
 	readonly records: ReadonlyArray<V2Event>;
-	readonly propertyRecords: ReadonlyArray<BackupPropertyRecord>;
 };
 
 const concatEncoded = (chunks: Iterable<Uint8Array>) => {
@@ -218,6 +217,37 @@ const privateDefinitionSnapshots = (
 	}>,
 ) => new Map(plugins.map((plugin) => [plugin.id, privateDefinitionSnapshot(plugin)]));
 
+const definitionLookup =
+	<Definition extends { readonly pluginId?: string | null | undefined }>(
+		current: Readonly<Record<string, Definition>>,
+		historical: (pluginId: string) => Readonly<Record<string, Definition>> | undefined,
+	) =>
+	(slug: string, pluginId: string | null | undefined) =>
+		definitionForPlugin(
+			current[slug],
+			pluginId,
+			pluginId ? historical(pluginId)?.[slug] : undefined,
+		);
+
+const definitionLookups = (
+	definitions: DefinitionSnapshot,
+	historical: ReadonlyMap<string, DefinitionSnapshot>,
+) => ({
+	savedView: definitionLookup(definitions.savedViews, (id) => historical.get(id)?.savedViews),
+	entitySchema: definitionLookup(
+		definitions.entitySchemas,
+		(id) => historical.get(id)?.entitySchemas,
+	),
+	signalSchema: definitionLookup(
+		definitions.signalSchemas,
+		(id) => historical.get(id)?.signalSchemas,
+	),
+	relationshipSchema: definitionLookup(
+		definitions.relationshipSchemas,
+		(id) => historical.get(id)?.relationshipSchemas,
+	),
+});
+
 const toV2Entity = Effect.fn(function* (
 	entity: PortableEntityRecord,
 	pluginKeyById: ReadonlyMap<string, string>,
@@ -225,7 +255,6 @@ const toV2Entity = Effect.fn(function* (
 	return {
 		id: entity.id,
 		name: entity.name,
-		origin: entity.origin,
 		externalId: entity.externalId,
 		createdAt: entity.createdAt.toISOString(),
 		updatedAt: entity.updatedAt.toISOString(),
@@ -241,7 +270,7 @@ const toV2Entity = Effect.fn(function* (
 					pluginKey: yield* requirePluginKey(pluginKeyById, entity.provider.pluginId),
 				}
 			: null,
-	} satisfies V2UserEntity;
+	} satisfies Omit<V2UserEntity, "origin">;
 });
 
 const dependencyIdentity = Effect.fn(function* (
@@ -287,28 +316,12 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 			const relationships = yield* RelationshipsRepository;
 			const installations = yield* PluginInstallationRepository;
 
-			const readExportData = Effect.fn("BackupExportSnapshot.readExportData")(function* (
+			const readExportContext = Effect.fn("BackupExportSnapshot.readExportContext")(function* (
 				userId: UserId,
 				definitions: DefinitionSnapshot,
 			) {
-				const profile = yield* auth.getPortableProfile(userId);
-				if (!profile) {
-					return yield* badRequest("Backup user does not exist");
-				}
-				const allStoredInstallations = yield* installations.listForUser(userId);
 				const systemPlugins = yield* plugins.listPortablePluginMetadata();
 				const privatePlugins = yield* plugins.listPrivateForUser(userId);
-				const historicalPrivateDefinitions = privateDefinitionSnapshots(privatePlugins);
-				const getEntitySchema = (entity: PortableEntityRecord) =>
-					definitionForPlugin(
-						definitions.entitySchemas[entity.entitySchemaSlug],
-						entity.entitySchemaPluginId,
-						entity.entitySchemaPluginId
-							? historicalPrivateDefinitions.get(entity.entitySchemaPluginId)?.entitySchemas[
-									entity.entitySchemaSlug
-								]
-							: undefined,
-					);
 				const installedPlugins = [
 					...systemPlugins.map((plugin) => Object.assign({}, plugin, { scope: "system" as const })),
 					...privatePlugins.map((plugin) => ({
@@ -324,15 +337,46 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						relationshipSchemaSlugs: plugin.manifest.relationshipSchemas.map(({ slug }) => slug),
 					})),
 				];
-				const installedPluginIds = new Set(installedPlugins.map(({ id }) => id));
-				const storedInstallations = allStoredInstallations.filter(({ pluginId }) =>
-					installedPluginIds.has(pluginId),
+				const pluginByKey = new Map(
+					installedPlugins.map((plugin) => [
+						archivePluginKey(plugin.scope, plugin.slug, plugin.sourceHash),
+						plugin,
+					]),
 				);
 				const pluginKeyById = new Map(
 					installedPlugins.map((plugin) => [
 						plugin.id,
 						archivePluginKey(plugin.scope, plugin.slug, plugin.sourceHash),
 					]),
+				);
+				return {
+					pluginByKey,
+					privatePlugins,
+					pluginKeyById,
+					installedPlugins,
+					pluginIdForKey: (pluginKey: string | null) =>
+						pluginKey ? pluginByKey.get(pluginKey)?.id : null,
+					...definitionLookups(definitions, privateDefinitionSnapshots(privatePlugins)),
+				};
+			});
+
+			type BackupExportContext = Effect.Success<ReturnType<typeof readExportContext>>;
+
+			const readExportData = Effect.fn("BackupExportSnapshot.readExportData")(function* (
+				userId: UserId,
+				context: BackupExportContext,
+			) {
+				const profile = yield* auth.getPortableProfile(userId);
+				if (!profile) {
+					return yield* badRequest("Backup user does not exist");
+				}
+				const allStoredInstallations = yield* installations.listForUser(userId);
+				const { pluginKeyById, privatePlugins, installedPlugins } = context;
+				const getEntitySchema = (entity: PortableEntityRecord) =>
+					context.entitySchema(entity.entitySchemaSlug, entity.entitySchemaPluginId);
+				const installedPluginIds = new Set(installedPlugins.map(({ id }) => id));
+				const storedInstallations = allStoredInstallations.filter(({ pluginId }) =>
+					installedPluginIds.has(pluginId),
 				);
 				const userEntities = yield* entities.listUserEntitiesForBackup(userId);
 				const referencedDependencies =
@@ -413,13 +457,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							(state) => state.id === pluginInstallationId,
 						);
 						const viewPluginId = installation?.pluginId ?? null;
-						const viewDefinition = definitionForPlugin(
-							definitions.savedViews[view.slug],
-							viewPluginId,
-							viewPluginId
-								? historicalPrivateDefinitions.get(viewPluginId)?.savedViews[view.slug]
-								: undefined,
-						);
+						const viewDefinition = context.savedView(view.slug, viewPluginId);
 						const qualified = {
 							pluginKey: viewPluginId ? yield* requirePluginKey(pluginKeyById, viewPluginId) : null,
 							entitySchemaPluginKey: view.entitySchemaPluginId
@@ -550,13 +588,9 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				for (const relationship of relationshipRecords) {
 					const stored = storedRelationships.find(({ id }) => id === relationship.id);
 					const propertiesSchema = stored
-						? definitionForPlugin(
-								definitions.relationshipSchemas[relationship.relationshipSchemaSlug],
+						? context.relationshipSchema(
+								relationship.relationshipSchemaSlug,
 								stored.relationshipSchemaPluginId,
-								stored.relationshipSchemaPluginId
-									? historicalPrivateDefinitions.get(stored.relationshipSchemaPluginId)
-											?.relationshipSchemas[relationship.relationshipSchemaSlug]
-									: undefined,
 							)?.propertiesSchema
 						: undefined;
 					if (propertiesSchema) {
@@ -565,8 +599,6 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				}
 				return {
 					propertyRecords,
-					installedPlugins,
-					historicalPrivateDefinitions,
 					entityDependencies,
 					savedViews: viewRecords,
 					integrations: integrationRecords,
@@ -574,7 +606,12 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					relationships: relationshipRecords,
 					notificationSubscriptions: subscriptionRecords,
 					entities: yield* Effect.forEach(userEntities, (entity) =>
-						toV2Entity(entity, pluginKeyById),
+						Effect.gen(function* () {
+							return {
+								...(yield* toV2Entity(entity, pluginKeyById)),
+								origin: entity.origin,
+							} satisfies V2UserEntity;
+						}),
 					),
 					profile: { ...profile, preferences: decodeV2JsonObject(profile.preferences) },
 					privatePlugins: yield* Effect.forEach(privatePlugins, (plugin) =>
@@ -594,34 +631,13 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 
 			const readEventPage = Effect.fn("BackupExportSnapshot.readEventPage")(function* (input: {
 				userId: UserId;
-				definitions: DefinitionSnapshot;
 				afterId?: EventId | undefined;
+				pluginKeyById: ReadonlyMap<string, string>;
 			}) {
-				const rows = yield* events.listUserEventsForBackup(input);
-				const systemPlugins = yield* plugins.listPortablePluginMetadata();
-				const privatePlugins = yield* plugins.listPrivateForUser(input.userId);
-				const historicalPrivateDefinitions = privateDefinitionSnapshots(privatePlugins);
-				const pluginKeyById = new Map([
-					...systemPlugins.map(
-						(plugin) =>
-							[plugin.id, archivePluginKey("system", plugin.slug, plugin.sourceHash)] as const,
-					),
-					...privatePlugins.map(
-						(plugin) =>
-							[plugin.id, archivePluginKey("user", plugin.slug, plugin.sourceHash)] as const,
-					),
-				]);
-				const entityIds = [
-					...new Set(
-						rows.flatMap(({ entityId, sessionEntityId }) =>
-							sessionEntityId ? [entityId, sessionEntityId] : [entityId],
-						),
-					),
-				].map((id) => EntityId.make(id));
-				const referenced = yield* entities.getByIdsForUser({ userId: input.userId, entityIds });
-				const entitySchemaById = new Map(
-					referenced.map((entity) => [entity.id, entity.entitySchemaSlug]),
-				);
+				const rows = yield* events.listUserEventsForBackup({
+					userId: input.userId,
+					afterId: input.afterId,
+				});
 				const records: V2Event[] = yield* Effect.forEach(rows, (row) =>
 					Effect.gen(function* () {
 						return {
@@ -634,49 +650,28 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							occurredAt: row.occurredAt.toISOString(),
 							properties: decodeV2JsonObject(row.properties),
 							eventSchemaPluginKey: row.eventSchemaPluginId
-								? yield* requirePluginKey(pluginKeyById, row.eventSchemaPluginId)
+								? yield* requirePluginKey(input.pluginKeyById, row.eventSchemaPluginId)
 								: null,
-						};
+						} satisfies V2Event;
 					}),
 				);
-				const rowById = new Map(rows.map((row) => [row.id, row]));
-				const propertyRecords = records.flatMap((record): BackupPropertyRecord[] => {
-					const entitySchemaSlug = entitySchemaById.get(EntityId.make(record.entityId));
-					const row = rowById.get(EventId.make(record.id));
-					const propertiesSchema =
-						entitySchemaSlug && row
-							? definitionForPlugin(
-									input.definitions.entitySchemas[entitySchemaSlug]?.eventSchemas[
-										record.eventSchemaSlug
-									],
-									row.eventSchemaPluginId,
-									row.eventSchemaPluginId
-										? historicalPrivateDefinitions.get(row.eventSchemaPluginId)?.entitySchemas[
-												entitySchemaSlug
-											]?.eventSchemas[record.eventSchemaSlug]
-										: undefined,
-								)?.propertiesSchema
-							: undefined;
-					return propertiesSchema ? [{ propertiesSchema, properties: record.properties }] : [];
-				});
 				const lastRecord = records.at(-1);
 				return {
 					records,
-					propertyRecords,
 					nextAfterId: lastRecord ? EventId.make(lastRecord.id) : null,
 				};
 			});
 
 			const eachEventPage = <E, R>(
 				userId: UserId,
-				definitions: DefinitionSnapshot,
+				pluginKeyById: ReadonlyMap<string, string>,
 				handle: (page: BackupEventPage) => Effect.Effect<void, E, R>,
 			) =>
 				Effect.gen(function* () {
 					let afterId: EventId | undefined;
 					let hasNextPage = true;
 					while (hasNextPage) {
-						const page = yield* readEventPage({ userId, definitions, afterId });
+						const page = yield* readEventPage({ userId, afterId, pluginKeyById });
 						yield* handle(page);
 						if (page.nextAfterId === null) {
 							hasNextPage = false;
@@ -689,39 +684,30 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 			const prepareExportSnapshot = Effect.fn("BackupExportSnapshot.prepareExportSnapshot")(
 				function* (userId: UserId, eventsPath: string) {
 					const definitions = yield* runtime.getEffectiveDefinitions(userId, true);
-					const data = yield* readExportData(userId, definitions);
-					const pluginByKey = new Map(
-						data.installedPlugins.map((plugin) => [
-							archivePluginKey(plugin.scope, plugin.slug, plugin.sourceHash),
-							plugin,
+					const context = yield* readExportContext(userId, definitions);
+					const data = yield* readExportData(userId, context);
+					const { pluginByKey, pluginIdForKey, pluginKeyById } = context;
+					const getEntitySchema = (entity: V2UserEntity | V2EntityDependency) =>
+						context.entitySchema(
+							entity.entitySchemaSlug,
+							pluginIdForKey(entity.entitySchemaPluginKey),
+						);
+					const getSignalSchema = (subscription: V2NotificationSubscription) =>
+						context.signalSchema(
+							subscription.signalSchemaSlug,
+							pluginIdForKey(subscription.signalSchemaPluginKey),
+						);
+					const entitySchemaByEntityId = new Map(
+						[...data.entities, ...data.entityDependencies].map((entity) => [
+							entity.id,
+							getEntitySchema(entity),
 						]),
 					);
-					const pluginIdForKey = (pluginKey: string | null) =>
-						pluginKey ? pluginByKey.get(pluginKey)?.id : null;
-					const getEntitySchema = (entity: V2UserEntity | V2EntityDependency) => {
-						const pluginId = pluginIdForKey(entity.entitySchemaPluginKey);
-						return definitionForPlugin(
-							definitions.entitySchemas[entity.entitySchemaSlug],
-							pluginId,
-							pluginId
-								? data.historicalPrivateDefinitions.get(pluginId)?.entitySchemas[
-										entity.entitySchemaSlug
-									]
-								: undefined,
-						);
-					};
-					const getSignalSchema = (subscription: V2NotificationSubscription) => {
-						const pluginId = pluginIdForKey(subscription.signalSchemaPluginKey);
-						return definitionForPlugin(
-							definitions.signalSchemas[subscription.signalSchemaSlug],
-							pluginId,
-							pluginId
-								? data.historicalPrivateDefinitions.get(pluginId)?.signalSchemas[
-										subscription.signalSchemaSlug
-									]
-								: undefined,
-						);
-					};
+					const eventPropertiesSchema = (event: V2Event) =>
+						definitionForPlugin(
+							entitySchemaByEntityId.get(event.entityId)?.eventSchemas[event.eventSchemaSlug],
+							pluginIdForKey(event.eventSchemaPluginKey),
+						)?.propertiesSchema;
 					const additionalPropertyRecords: BackupPropertyRecord[] = [];
 					for (const state of data.installations) {
 						const plugin = pluginByKey.get(state.packageKey);
@@ -775,9 +761,17 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					const collectedLocators = new Map<string, ManagedAssetLocator>();
 					collectManagedAssetLocatorsInto(data.propertyRecords, collectedLocators);
 					collectManagedAssetLocatorsInto(additionalPropertyRecords, collectedLocators);
-					yield* eachEventPage(userId, definitions, (page) =>
+					yield* eachEventPage(userId, pluginKeyById, (page) =>
 						Effect.sync(() =>
-							collectManagedAssetLocatorsInto(page.propertyRecords, collectedLocators),
+							collectManagedAssetLocatorsInto(
+								page.records.flatMap((event) => {
+									const propertiesSchema = eventPropertiesSchema(event);
+									return propertiesSchema
+										? [{ propertiesSchema, properties: event.properties }]
+										: [];
+								}),
+								collectedLocators,
+							),
 						),
 					);
 					const requestedLocators = sortedManagedAssetLocators(collectedLocators);
@@ -863,15 +857,9 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					}
 					const exportedRelationships: V2Relationship[] = [];
 					for (const relationship of data.relationships) {
-						const pluginId = pluginIdForKey(relationship.relationshipSchemaPluginKey);
-						const propertiesSchema = definitionForPlugin(
-							definitions.relationshipSchemas[relationship.relationshipSchemaSlug],
-							pluginId,
-							pluginId
-								? data.historicalPrivateDefinitions.get(pluginId)?.relationshipSchemas[
-										relationship.relationshipSchemaSlug
-									]
-								: undefined,
+						const propertiesSchema = context.relationshipSchema(
+							relationship.relationshipSchemaSlug,
+							pluginIdForKey(relationship.relationshipSchemaPluginKey),
 						)?.propertiesSchema;
 						if (!propertiesSchema) {
 							return yield* badRequest(
@@ -887,23 +875,14 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							),
 						});
 					}
-					const entityById = new Map(
-						[...exportedEntities, ...entityDependencies].map((entity) => [entity.id, entity]),
-					);
 					let eventCount = 0;
 					const eventsHash = new IncrementalSha256();
 					yield* fs.writeFile(eventsPath, new Uint8Array(0));
-					yield* eachEventPage(userId, definitions, (page) =>
+					yield* eachEventPage(userId, pluginKeyById, (page) =>
 						Effect.gen(function* () {
 							const eventRecords: V2Event[] = [];
 							for (const event of page.records) {
-								const entity = entityById.get(event.entityId);
-								const propertiesSchema = entity
-									? definitionForPlugin(
-											getEntitySchema(entity)?.eventSchemas[event.eventSchemaSlug],
-											pluginIdForKey(event.eventSchemaPluginKey),
-										)?.propertiesSchema
-									: undefined;
+								const propertiesSchema = eventPropertiesSchema(event);
 								if (!propertiesSchema) {
 									return yield* badRequest(
 										`Backup references unavailable event schema '${event.eventSchemaSlug}'`,
@@ -1004,7 +983,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						installations: exportedInstallations,
 					} satisfies V2ArchiveRecords;
 					const referencedPluginKeys = collectV2ReferencedPluginKeys(records);
-					const requiredPlugins = data.installedPlugins
+					const requiredPlugins = context.installedPlugins
 						.filter(
 							(plugin) =>
 								plugin.scope === "system" &&
