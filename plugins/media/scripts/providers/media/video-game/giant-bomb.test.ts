@@ -50,13 +50,7 @@ describe("video-game.giant-bomb sandbox script", () => {
 				Effect.map((result) => {
 					expect(result).toMatchObject({
 						details: { totalItems: 1, nextPage: null },
-						items: [
-							{
-								externalId: "3030-1",
-								titleProperty: { kind: "text", value: "My Game" },
-								primarySubtitleProperty: { kind: "number", value: 2015 },
-							},
-						],
+						items: [{ title: "My Game", metadata: [2015], externalId: "3030-1" }],
 					});
 					return undefined;
 				}),

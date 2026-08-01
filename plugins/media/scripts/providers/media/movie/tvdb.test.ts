@@ -255,17 +255,8 @@ describe("movie.tvdb sandbox script", () => {
 			).pipe(
 				Effect.map((result) => {
 					expect(result).toEqual({
-						items: [
-							{
-								externalId: "movie-1",
-								titleProperty: { kind: "text", value: "Batman" },
-								calloutProperty: { kind: "null", value: null },
-								imageProperty: { kind: "null", value: null },
-								primarySubtitleProperty: { kind: "null", value: null },
-								secondarySubtitleProperty: { kind: "null", value: null },
-							},
-						],
 						details: { totalItems: 1, nextPage: 2 },
+						items: [{ title: "Batman", externalId: "movie-1" }],
 					});
 					return undefined;
 				}),

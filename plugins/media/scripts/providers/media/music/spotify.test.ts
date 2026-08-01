@@ -88,15 +88,10 @@ describe("music.spotify sandbox script", () => {
 					expect(tokenPosts).toBe(0);
 					expect(result.items).toEqual([
 						{
+							metadata: [2020],
 							externalId: "t1",
-							calloutProperty: { kind: "null", value: null },
-							titleProperty: { kind: "text", value: "Track One" },
-							primarySubtitleProperty: { kind: "number", value: 2020 },
-							secondarySubtitleProperty: { kind: "null", value: null },
-							imageProperty: {
-								kind: "image",
-								value: { type: "remote", url: "https://img/big.jpg" },
-							},
+							title: "Track One",
+							imageUrl: "https://img/big.jpg",
 						},
 					]);
 					expect(result.details).toEqual({ totalItems: 2, nextPage: null });
