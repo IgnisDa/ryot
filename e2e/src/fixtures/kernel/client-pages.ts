@@ -1,5 +1,15 @@
 import type { ContractRequest, ContractSuccess } from "@ryot-app/contract/client";
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import {
+	ascending,
+	column,
+	document,
+	field,
+	inArray,
+	literal,
+	rows,
+	table,
+} from "@ryot-app/ryotql";
 import { Encoding } from "effect";
 
 import type { Client } from "./auth";
@@ -15,6 +25,9 @@ type CreateRendererPayload = CreateRendererRequest["payload"];
 type RendererId = ContractSuccess<"clientPages", "getRenderer">["id"];
 type ClientRendererDefinition = CreateRendererRequest["payload"]["draftDefinition"];
 type RendererSavedViewPayload = Extract<CreateSavedViewRequest["payload"], { renderer: unknown }>;
+type KernelSavedViewPayload = Omit<RendererSavedViewPayload, "renderer"> & {
+	readonly renderer: Extract<RendererSavedViewPayload["renderer"], { kind: "kernel" }>;
+};
 type SavedViewClientPageTarget = Extract<
 	PrepareClientPageRequest["payload"]["target"],
 	{ kind: "saved-view" }
@@ -177,5 +190,57 @@ export const createRendererSavedView = (
 	client.call((contract) =>
 		contract.savedViews.create({
 			payload: buildRendererSavedViewPayload(rendererId, settings, overrides),
+		}),
+	);
+
+export const buildEntityBrowserSavedViewPayload = (
+	overrides: Partial<KernelSavedViewPayload> = {},
+	entityIds: readonly string[] = [],
+): KernelSavedViewPayload => {
+	const entity = table("entity", "browserEntity");
+	return {
+		icon: "library",
+		name: `Entity browser ${crypto.randomUUID()}`,
+		renderer: { kind: "kernel", name: "entity-browser" },
+		settings: {
+			pageSize: 2,
+			defaultLayout: "grid",
+			sourceName: "entities",
+			layouts: ["grid", "list"],
+			entityIdField: "entityId",
+			ownerPluginIdField: "ownerPluginId",
+			entitySchemaSlugField: "entitySchemaSlug",
+		},
+		dataSources: document({
+			entities: rows(entity, {
+				limit: 2,
+				...(entityIds.length === 0
+					? {}
+					: {
+							where: inArray(
+								column(entity, "id"),
+								entityIds.map((entityId) => literal(entityId)),
+							),
+						}),
+				orderBy: [ascending(column(entity, "name")), ascending(column(entity, "id"))],
+				fields: [
+					field("entityId", column(entity, "id")),
+					field("ownerPluginId", column(entity, "entitySchemaPluginId")),
+					field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
+				],
+			}),
+		}),
+		...overrides,
+	};
+};
+
+export const createEntityBrowserSavedView = (
+	client: Client,
+	overrides: Partial<KernelSavedViewPayload> = {},
+	entityIds: readonly string[] = [],
+) =>
+	client.call((contract) =>
+		contract.savedViews.create({
+			payload: buildEntityBrowserSavedViewPayload(overrides, entityIds),
 		}),
 	);

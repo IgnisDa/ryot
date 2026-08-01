@@ -32,6 +32,7 @@ import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
+import { kernelEntityBrowserRenderer } from "./entity-browser-renderer";
 import { resolveClientPageGraph, type ResolvedClientPageGraph } from "./graph";
 import { clientPageOperationTargets, resolvePluginPageTarget } from "./prepare";
 import { ClientPagesRepository } from "./repository";
@@ -151,14 +152,25 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				);
 			});
 
-			const resolveGraph = Effect.fn(function* (input: {
-				readonly rendererName: string;
-				readonly publishedHash: string;
-				readonly rendererId: ClientRendererId;
-				readonly userId: CurrentUserValue["id"];
-				readonly definition: ClientRendererDefinition;
-				readonly decoded: Readonly<Record<string, Uint8Array>>;
-			}) {
+			const resolveGraph = Effect.fn(function* (
+				input:
+					| {
+							readonly rendererName: string;
+							readonly publishedHash: string;
+							readonly rendererId: ClientRendererId;
+							readonly userId: CurrentUserValue["id"];
+							readonly definition: ClientRendererDefinition;
+							readonly decoded: Readonly<Record<string, Uint8Array>>;
+					  }
+					| {
+							readonly kernel: true;
+							readonly sourceHash: string;
+							readonly rendererName: string;
+							readonly userId: CurrentUserValue["id"];
+							readonly definition: ClientRendererDefinition;
+							readonly decoded: Readonly<Record<string, Uint8Array>>;
+					  },
+			) {
 				const snapshot = yield* pluginRuntime.listPluginsAvailableToUser(input.userId, true);
 				return yield* resolveClientPageGraph({
 					...input,
@@ -408,24 +420,59 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					);
 				}
 				const prepared = yield* repository.findPreparedTarget(userId, identity.savedViewId);
+				if (identity.kind === "kernel-saved-view") {
+					if (
+						prepared?.view.renderer?.kind !== "kernel" ||
+						prepared.view.renderer.name !== identity.rendererName ||
+						prepared.view.revision !== identity.viewRevision ||
+						identity.sourceHash !== kernelEntityBrowserRenderer.sourceHash
+					) {
+						return false;
+					}
+					const graph = yield* resolveGraph({
+						kernel: true,
+						userId,
+						decoded: kernelEntityBrowserRenderer.files,
+						rendererName: kernelEntityBrowserRenderer.name,
+						definition: kernelEntityBrowserRenderer.definition,
+						sourceHash: kernelEntityBrowserRenderer.sourceHash,
+					});
+					const build = yield* repository.findKernelBuild({
+						userId,
+						graphHash: graph.graphHash,
+						sourceHash: identity.sourceHash,
+						kernelRendererName: identity.rendererName,
+					});
+					return (
+						graph.graphHash === identity.graphHash &&
+						Bun.deepEquals(graph.contributors, identity.contributors) &&
+						build?.id === identity.buildId &&
+						build.artifactHash === identity.artifactHash &&
+						Bun.deepEquals(build.graphIdentity, graph.identity)
+					);
+				}
+				const renderer = prepared?.renderer;
+				const rendererId = prepared?.rendererId;
 				if (
-					!prepared?.renderer.publishedDefinition ||
-					prepared.renderer.publishedHash !== identity.publishedHash ||
-					prepared.renderer.publishedRevision !== identity.publishedRevision ||
-					prepared.rendererId !== identity.rendererId ||
+					!prepared ||
+					!renderer?.publishedDefinition ||
+					renderer.publishedHash === null ||
+					renderer.publishedRevision === null ||
+					rendererId === null ||
+					renderer.publishedHash !== identity.publishedHash ||
+					renderer.publishedRevision !== identity.publishedRevision ||
+					rendererId !== identity.rendererId ||
 					prepared.view.revision !== identity.viewRevision
 				) {
 					return false;
 				}
-				const { definition, decoded } = yield* normalizeDefinition(
-					prepared.renderer.publishedDefinition,
-				);
+				const { definition, decoded } = yield* normalizeDefinition(renderer.publishedDefinition);
 				const graph = yield* resolveGraph({
 					userId,
 					decoded,
 					definition,
-					rendererId: prepared.rendererId,
-					rendererName: prepared.renderer.name,
+					rendererId,
+					rendererName: renderer.name,
 					publishedHash: identity.publishedHash,
 				});
 				if (
@@ -436,8 +483,8 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				}
 				const build = yield* repository.findBuild({
 					userId,
+					rendererId,
 					graphHash: graph.graphHash,
-					rendererId: prepared.rendererId,
 					publishedHash: identity.publishedHash,
 				});
 				return (
@@ -453,33 +500,157 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 			) {
 				const prepared = yield* repository.findPreparedTarget(user.id, savedViewId);
 				if (
-					!prepared?.renderer.publishedHash ||
-					prepared.renderer.publishedRevision === null ||
-					!prepared.renderer.publishedDefinition
+					prepared?.view.renderer?.kind === "kernel" &&
+					prepared.view.renderer.name === "entity-browser"
+				) {
+					const kernelRendererName = prepared.view.renderer.name;
+					const graph = yield* resolveGraph({
+						kernel: true,
+						userId: user.id,
+						decoded: kernelEntityBrowserRenderer.files,
+						rendererName: kernelEntityBrowserRenderer.name,
+						definition: kernelEntityBrowserRenderer.definition,
+						sourceHash: kernelEntityBrowserRenderer.sourceHash,
+					});
+					let build = yield* repository.findKernelBuild({
+						userId: user.id,
+						kernelRendererName,
+						graphHash: graph.graphHash,
+						sourceHash: kernelEntityBrowserRenderer.sourceHash,
+					});
+					if (build && !Bun.deepEquals(build.graphIdentity, graph.identity)) {
+						return yield* invalid(
+							"Stored kernel client page graph identity does not match its hash",
+						);
+					}
+					if (!build) {
+						const artifact = yield* compileGraph(graph).pipe(
+							Effect.mapError(
+								(error) =>
+									new ClientRendererBadRequest({
+										reason: {
+											code: "build-failed",
+											diagnostics: error.diagnostics.map(
+												({ file, message }) => `${file}: ${message}`,
+											),
+										},
+									}),
+							),
+						);
+						const database = yield* Database;
+						const buildId = yield* mapDatabaseErrors(
+							database.transaction((transaction) =>
+								Effect.gen(function* () {
+									const current = yield* repository.lockSavedView(user.id, prepared.viewId);
+									if (
+										current?.renderer?.kind !== "kernel" ||
+										current.renderer.name !== "entity-browser" ||
+										current.revision !== prepared.view.revision
+									) {
+										return yield* invalid("Saved view changed during compilation");
+									}
+									const currentGraph = yield* resolveGraph({
+										kernel: true,
+										userId: user.id,
+										decoded: kernelEntityBrowserRenderer.files,
+										rendererName: kernelEntityBrowserRenderer.name,
+										definition: kernelEntityBrowserRenderer.definition,
+										sourceHash: kernelEntityBrowserRenderer.sourceHash,
+									});
+									if (currentGraph.graphHash !== graph.graphHash) {
+										return yield* invalid(
+											"Kernel renderer dependency graph changed during compilation",
+										);
+									}
+									yield* plugins.persistClientArtifact(artifact);
+									return yield* repository.createKernelBuild({
+										userId: user.id,
+										kernelRendererName,
+										graphHash: graph.graphHash,
+										artifactHash: artifact.hash,
+										graphIdentity: graph.identity,
+										sourceHash: kernelEntityBrowserRenderer.sourceHash,
+									});
+								}).pipe(Effect.provideService(Database, transaction)),
+							),
+						);
+						if (!buildId) {
+							return yield* invalid("Kernel client page build could not be stored");
+						}
+						build = {
+							id: buildId,
+							format: artifact.format,
+							artifactHash: artifact.hash,
+							graphIdentity: graph.identity,
+							apiVersion: artifact.apiVersion,
+							bridgeVersion: artifact.bridgeVersion,
+							compilerVersion: artifact.compilerVersion,
+						};
+					}
+					return {
+						identity: {
+							buildId: build.id,
+							graphHash: graph.graphHash,
+							savedViewId: prepared.viewId,
+							contributors: graph.contributors,
+							rendererName: kernelRendererName,
+							artifactHash: build.artifactHash,
+							kind: "kernel-saved-view" as const,
+							viewRevision: prepared.view.revision,
+							sourceHash: kernelEntityBrowserRenderer.sourceHash,
+							target: { kind: "saved-view" as const, savedViewId: prepared.viewId },
+							operationTargets: clientPageOperationTargets(
+								yield* pluginRuntime.listPluginsAvailableToUser(user.id, true),
+							),
+						},
+						context: {
+							route: { params: {} },
+							settings: prepared.view.settings ?? {},
+							dataSources: prepared.view.dataSources,
+							renderer: { kind: "kernel" as const, name: kernelRendererName },
+							target: { kind: "saved-view" as const, savedViewId: prepared.viewId },
+						},
+						artifact: {
+							format: build.format,
+							hash: build.artifactHash,
+							apiVersion: build.apiVersion,
+							bridgeVersion: build.bridgeVersion,
+							compilerVersion: build.compilerVersion,
+						},
+					};
+				}
+				if (!prepared) {
+					return yield* new ClientRendererBadRequest({ reason: { code: "renderer-unpublished" } });
+				}
+				const renderer = prepared.renderer;
+				const rendererId = prepared.rendererId;
+				if (
+					!renderer?.publishedHash ||
+					rendererId === null ||
+					renderer.publishedRevision === null ||
+					!renderer.publishedDefinition
 				) {
 					return yield* new ClientRendererBadRequest({ reason: { code: "renderer-unpublished" } });
 				}
-				const publishedHash = prepared.renderer.publishedHash;
-				const publishedRevision = prepared.renderer.publishedRevision;
-				const { definition, decoded } = yield* normalizeDefinition(
-					prepared.renderer.publishedDefinition,
-				);
+				const publishedHash = renderer.publishedHash;
+				const publishedRevision = renderer.publishedRevision;
+				const { definition, decoded } = yield* normalizeDefinition(renderer.publishedDefinition);
 				const graph = yield* resolveGraph({
 					decoded,
 					definition,
+					rendererId,
 					publishedHash,
 					userId: user.id,
-					rendererId: prepared.rendererId,
-					rendererName: prepared.renderer.name,
+					rendererName: renderer.name,
 				});
 				const preparedOperationTargets = clientPageOperationTargets(
 					yield* pluginRuntime.listPluginsAvailableToUser(user.id, true),
 				);
 				let build = yield* repository.findBuild({
+					rendererId,
 					publishedHash,
 					userId: user.id,
 					graphHash: graph.graphHash,
-					rendererId: prepared.rendererId,
 				});
 				if (build && !Bun.deepEquals(build.graphIdentity, graph.identity)) {
 					return yield* invalid("Stored client page graph identity does not match its hash");
@@ -502,29 +673,29 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					const buildId = yield* mapDatabaseErrors(
 						database.transaction((transaction) =>
 							Effect.gen(function* () {
-								const current = yield* repository.lockRenderer(user.id, prepared.rendererId);
+								const current = yield* repository.lockRenderer(user.id, rendererId);
 								if (current?.publishedHash !== publishedHash) {
 									return yield* invalid("Renderer publication changed during compilation");
 								}
 								const currentGraph = yield* resolveGraph({
 									decoded,
+									rendererId,
 									definition,
 									publishedHash,
 									userId: user.id,
-									rendererId: prepared.rendererId,
-									rendererName: prepared.renderer.name,
+									rendererName: renderer.name,
 								});
 								if (currentGraph.graphHash !== graph.graphHash) {
 									return yield* invalid("Renderer dependency graph changed during compilation");
 								}
 								yield* plugins.persistClientArtifact(artifact);
 								return yield* repository.createBuild({
+									rendererId,
 									publishedHash,
 									userId: user.id,
 									graphHash: graph.graphHash,
 									artifactHash: artifact.hash,
 									graphIdentity: graph.identity,
-									rendererId: prepared.rendererId,
 								});
 							}).pipe(Effect.provideService(Database, transaction)),
 						),
@@ -534,9 +705,9 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					}
 					build = {
 						id: buildId,
+						format: artifact.format,
 						artifactHash: artifact.hash,
 						graphIdentity: graph.identity,
-						format: artifact.format,
 						apiVersion: artifact.apiVersion,
 						bridgeVersion: artifact.bridgeVersion,
 						compilerVersion: artifact.compilerVersion,
@@ -544,13 +715,13 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				}
 				return {
 					identity: {
+						rendererId,
 						publishedHash,
 						buildId: build.id,
 						publishedRevision,
 						graphHash: graph.graphHash,
 						kind: "saved-view" as const,
 						savedViewId: prepared.viewId,
-						rendererId: prepared.rendererId,
 						contributors: graph.contributors,
 						artifactHash: build.artifactHash,
 						viewRevision: prepared.view.revision,
@@ -561,7 +732,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						route: { params: {} },
 						settings: prepared.view.settings ?? {},
 						dataSources: prepared.view.dataSources,
-						renderer: { kind: "custom" as const, id: prepared.rendererId },
+						renderer: { kind: "custom" as const, id: rendererId },
 						target: { kind: "saved-view" as const, savedViewId: prepared.viewId },
 					},
 					artifact: {

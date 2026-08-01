@@ -15,6 +15,8 @@ import { describe, expect, it } from "vitest";
 
 import {
 	buildSavedViewLayoutProjections,
+	entityBrowserCountRecipe,
+	entityBrowserRecipe,
 	savedViewCountRecipe,
 	savedViewRecipe,
 } from "./saved-views";
@@ -58,14 +60,37 @@ const projections = buildSavedViewLayoutProjections({
 
 const pageInfo = { limit: 2, hasMore: true, nextCursor: "next" } as const;
 
+const browserSettings = {
+	pageSize: 2,
+	defaultLayout: "grid",
+	sourceName: "selection",
+	entityIdField: "idAlias",
+	layouts: ["grid", "list"],
+	ownerPluginIdField: "ownerAlias",
+	entitySchemaSlugField: "schemaAlias",
+} as const;
+
+const browserSource = document({
+	ignored: aggregate(entity, { measures: [{ key: "total", aggregation: { function: "count" } }] }),
+	selection: rows(entity, {
+		limit: 40,
+		orderBy: [ascending(column(entity, "createdAt"))],
+		fields: [
+			field("idAlias", column(entity, "id")),
+			field("ownerAlias", column(entity, "entitySchemaPluginId")),
+			field("schemaAlias", column(entity, "entitySchemaSlug")),
+		],
+	}),
+});
+
 describe("saved-view recipes", () => {
 	it("prepares a generated rows document with filtering, ordering, and pagination", () => {
 		const prepared = savedViewRecipe({
 			layout: { type: "card", mapping: projections.grid.mappings },
 			source: {
-				type: "generated",
-				after: "cursor",
 				limit: 2,
+				after: "cursor",
+				type: "generated",
 				fields: projections.grid.fields,
 				entitySchemaSlugs: ["smartphone", "tablet"],
 				orderBy: [ascending(column(entity, "createdAt"))],
@@ -119,8 +144,8 @@ describe("saved-view recipes", () => {
 									title: "Piranesi",
 									entityId: "book-1",
 									populationStatus: "ready",
-									primaryMetadata: "2026-08-12",
 									translationStatus: "pending",
+									primaryMetadata: "2026-08-12",
 									image: { type: "remote", url: "https://example.com/cover.jpg" },
 								},
 							],
@@ -323,5 +348,100 @@ describe("saved-view recipes", () => {
 		expect(Result.isFailure(savedViewCountRecipe(document({}), "id"))).toBe(true);
 		expect(Result.isFailure(savedViewCountRecipe(multipleDocument, "id"))).toBe(true);
 		expect(Result.isFailure(savedViewCountRecipe(aggregateDocument, "id"))).toBe(true);
+	});
+
+	it("prepares the named entity selection with runtime pagination and canonical fields", () => {
+		const prepared = Result.getOrThrow(
+			entityBrowserRecipe({
+				after: "next-page",
+				settings: browserSettings,
+				queryDocument: browserSource,
+			}),
+		);
+		const query = prepared.document.queries.entityBrowser;
+		if (!query) {
+			throw new Error("Expected the entity-browser query");
+		}
+
+		expect(Object.keys(prepared.document.queries)).toEqual(["entityBrowser"]);
+		expect(query.output).toMatchObject({
+			type: "rows",
+			pagination: { limit: 2, after: "next-page" },
+			orderBy: [{ direction: "asc", expr: column(entity, "createdAt") }],
+		});
+		expect(query.output.type === "rows" ? query.output.fields.slice(-3) : []).toEqual([
+			field("__entityBrowserName", column(entity, "name")),
+			field("__entityBrowserPopulationStatus", column(entity, "populationStatus")),
+			field("__entityBrowserTranslationStatus", column(entity, "translationStatus")),
+		]);
+	});
+
+	it("decodes canonical entity references and rejects duplicate IDs within a page", () => {
+		const prepared = Result.getOrThrow(
+			entityBrowserRecipe({ settings: browserSettings, queryDocument: browserSource }),
+		);
+		const row = {
+			ownerAlias: null,
+			idAlias: "book-1",
+			schemaAlias: "book",
+			__entityBrowserName: "Piranesi",
+			__entityBrowserPopulationStatus: "ready",
+			__entityBrowserTranslationStatus: "pending",
+		};
+		const decoded = Result.getOrThrow(
+			prepared.decode({
+				data: { entityBrowser: { type: "rows", pageInfo, items: [row] } },
+			}),
+		);
+		expect(decoded).toEqual({
+			pageInfo,
+			items: [
+				{
+					name: "Piranesi",
+					entityId: "book-1",
+					ownerPluginId: null,
+					entitySchemaSlug: "book",
+					sync: { populationStatus: "ready", translationStatus: "pending" },
+				},
+			],
+		});
+
+		const duplicate = prepared.decode({
+			data: { entityBrowser: { type: "rows", pageInfo, items: [row, row] } },
+		});
+		if (Result.isSuccess(duplicate)) {
+			throw new Error("Expected duplicate entity IDs to fail");
+		}
+		expect(String(duplicate.failure)).toContain(
+			"Entity-browser page contains duplicate entity ID 'book-1'",
+		);
+	});
+
+	it("counts distinct selected IDs without selection pagination", () => {
+		const prepared = Result.getOrThrow(entityBrowserCountRecipe(browserSource, browserSettings));
+
+		expect(prepared.document).toEqual({
+			queries: {
+				entityBrowserCount: {
+					from: entity,
+					output: {
+						type: "aggregate",
+						measures: [
+							{
+								key: "total",
+								aggregation: { function: "countDistinct", expr: column(entity, "id") },
+							},
+						],
+					},
+				},
+			},
+		});
+		expect(
+			Result.getOrThrow(
+				prepared.decode({
+					data: { entityBrowserCount: { type: "aggregate", items: [{ total: 7 }] } },
+				}),
+			),
+		).toBe(7);
 	});
 });
