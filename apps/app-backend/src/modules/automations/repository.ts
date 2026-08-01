@@ -102,7 +102,6 @@ const toStoredRun = (row: SubscriptionRunRow) => ({
 
 export type StoredSubscriptionRun = ReturnType<typeof toStoredRun>;
 
-/** @effect-expect-leaking Database */
 export class AutomationsRepository extends Context.Service<AutomationsRepository>()(
 	"AutomationsRepository",
 	{

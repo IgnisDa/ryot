@@ -21,7 +21,6 @@ const entityMergeDeniedError = "Entity user state cannot be merged";
 const entityClearDeniedError = "Entity user state cannot be cleared";
 const differentEntitySchemaError = "Entities must belong to the same schema";
 
-/** @effect-expect-leaking Database */
 export class UserStateService extends Context.Service<UserStateService>()("UserStateService", {
 	make: Effect.gen(function* () {
 		const eventsRepository = yield* EventsRepository;

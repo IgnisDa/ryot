@@ -60,7 +60,6 @@ const normalizeIntegration = (frontendUrl: string, row: IntegrationRow): Integra
 const ownedIntegrationWhere = (input: { integrationId: IntegrationId; userId: UserId }) =>
 	and(eq(schema.integration.id, input.integrationId), eq(schema.integration.userId, input.userId));
 
-/** @effect-expect-leaking Database */
 export class IntegrationsRepository extends Context.Service<IntegrationsRepository>()(
 	"IntegrationsRepository",
 	{
