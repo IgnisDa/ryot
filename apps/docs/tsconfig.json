@@ -2,6 +2,10 @@
 	"include": ["**/*"],
 	"extends": "../../tsconfig.options.json",
 	"compilerOptions": {
+		"composite": false,
+		"declaration": false,
+		"declarationMap": false,
+		"emitDeclarationOnly": false,
 		"noEmit": true,
 		"outDir": "dist",
 		"module": "NodeNext",
