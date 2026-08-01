@@ -41,8 +41,9 @@ export class EntityInterestCoordinator {
 	private declaring = false;
 	private streamId: string | undefined;
 	private activeController: AbortController | undefined;
-	private readonly listeners = new Set<UpdateListener>();
-	private readonly interests = new Map<string, ReadonlySet<string>>();
+	private readonly interests = new Map<string, Set<string>>();
+	private readonly ownersByEntity = new Map<string, Set<string>>();
+	private readonly listenersByOwner = new Map<string, UpdateListener>();
 
 	constructor(
 		private readonly declareInterest: DeclareInterest,
@@ -63,16 +64,32 @@ export class EntityInterestCoordinator {
 		}
 	}
 
-	setInterest(owner: string, entityIds: readonly string[]) {
+	disconnect(streamId: string) {
+		if (this.streamId !== streamId) {
+			return;
+		}
+		this.setConnection(undefined);
+	}
+
+	setInterest(owner: string, entityIds: readonly string[], listener: UpdateListener) {
 		if (this.disposed) {
 			return;
 		}
 		const next = new Set(entityIds);
 		const current = this.interests.get(owner);
+		this.listenersByOwner.set(owner, listener);
 		if (current && current.size === next.size && [...current].every((id) => next.has(id))) {
 			return;
 		}
+		if (current) {
+			this.removeOwnerFromEntityIndex(owner, current);
+		}
 		this.interests.set(owner, next);
+		for (const entityId of next) {
+			const owners = this.ownersByEntity.get(entityId) ?? new Set<string>();
+			owners.add(owner);
+			this.ownersByEntity.set(entityId, owners);
+		}
 		this.requestDeclaration();
 	}
 
@@ -80,17 +97,13 @@ export class EntityInterestCoordinator {
 		if (this.disposed) {
 			return;
 		}
-		if (this.interests.delete(owner)) {
+		const current = this.interests.get(owner);
+		if (current) {
+			this.removeOwnerFromEntityIndex(owner, current);
+			this.interests.delete(owner);
+			this.listenersByOwner.delete(owner);
 			this.requestDeclaration();
 		}
-	}
-
-	subscribe(listener: UpdateListener) {
-		if (this.disposed) {
-			return () => false;
-		}
-		this.listeners.add(listener);
-		return () => this.listeners.delete(listener);
 	}
 
 	receive(frame: EntityUpdatedFrame) {
@@ -98,9 +111,6 @@ export class EntityInterestCoordinator {
 			return;
 		}
 		this.emit(frame);
-		if (frame.reason === "populated") {
-			this.requestDeclaration();
-		}
 	}
 
 	dispose() {
@@ -111,8 +121,9 @@ export class EntityInterestCoordinator {
 		this.dirty = false;
 		this.streamId = undefined;
 		this.invalidateWork();
-		this.listeners.clear();
 		this.interests.clear();
+		this.ownersByEntity.clear();
+		this.listenersByOwner.clear();
 	}
 
 	private requestDeclaration() {
@@ -201,8 +212,25 @@ export class EntityInterestCoordinator {
 		if (this.disposed) {
 			return;
 		}
-		for (const listener of this.listeners) {
-			listener(frame);
+		const owners = this.ownersByEntity.get(frame.entityId);
+		if (!owners) {
+			return;
+		}
+		for (const owner of owners) {
+			this.listenersByOwner.get(owner)?.(frame);
+		}
+	}
+
+	private removeOwnerFromEntityIndex(owner: string, entityIds: ReadonlySet<string>) {
+		for (const entityId of entityIds) {
+			const owners = this.ownersByEntity.get(entityId);
+			if (!owners) {
+				continue;
+			}
+			owners.delete(owner);
+			if (owners.size === 0) {
+				this.ownersByEntity.delete(entityId);
+			}
 		}
 	}
 }

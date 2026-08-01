@@ -1,4 +1,4 @@
-import { Duration, Effect } from "effect";
+import { Effect } from "effect";
 
 import {
 	uninstallTestProvider,
@@ -26,7 +26,6 @@ import { assertPresent, requireObjectRecord } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 
 const CANONICAL_LANGUAGE = "en";
-const GRACE_WINDOW_MS = 3000;
 const TRANSLATED_ES_NAME = "Título Traducido E2E";
 const TRANSLATED_ES_DESCRIPTION = "Descripción traducida E2E.";
 const POPULATED_NAME = "E2E Populated Movie";
@@ -48,8 +47,8 @@ const seedPopulatedMovie = (client: Client, name: string) =>
 const declareInterest = (auth: { cookies: string }, entityIds: string[]) =>
 	Effect.gen(function* () {
 		const stream = yield* openInterestStreamScoped(auth);
-		yield* Effect.promise(() => stream.declareInterest(entityIds));
-		return stream;
+		const terminal = yield* Effect.promise(() => stream.declareInterest(entityIds));
+		return { stream, terminal };
 	});
 
 describe("entity translation via client-declared interest", () => {
@@ -109,7 +108,8 @@ describe("entity translation via client-declared interest", () => {
 			expect(beforeInterest.translationStatus).toBe("pending");
 			expect(beforeInterest.name).toBe("Canonical Fight Club");
 
-			const stream = yield* declareInterest(auth, [movie.id]);
+			const { stream, terminal } = yield* declareInterest(auth, [movie.id]);
+			expect(terminal).toEqual([]);
 			const event = yield* Effect.promise(() =>
 				stream.waitForEntityUpdated(movie.id, "translated", { timeoutMs: 30_000 }),
 			);
@@ -138,10 +138,12 @@ describe("entity translation via client-declared interest", () => {
 			const firstRead = yield* getEntity(client, movie.id);
 			expect(firstRead.translationStatus).toBe("pending");
 
-			const stream = yield* declareInterest(auth, [movie.id]);
-			yield* Effect.promise(() =>
+			const { stream, terminal } = yield* declareInterest(auth, [movie.id]);
+			expect(terminal).toEqual([]);
+			const event = yield* Effect.promise(() =>
 				stream.waitForEntityUpdated(movie.id, "translated", { timeoutMs: 30_000 }),
 			);
+			expect(event.reason).toBe("translated");
 
 			const settledRead = yield* pollEntityUntilTranslationStatus(client, movie.id, "none");
 			expect(settledRead.name).toBe("Canonical The Godfather");
@@ -157,7 +159,8 @@ describe("entity translation via client-declared interest", () => {
 		"renders canonical without fetching when the resolved language is canonical or unset",
 		() =>
 			Effect.gen(function* () {
-				const { client } = yield* createAuthenticatedClient();
+				const canonical = yield* createAuthenticatedClient();
+				const { client } = canonical;
 				const movie = yield* seedPopulatedMovie(client, "Canonical The Shawshank Redemption");
 
 				yield* setUserLanguage(client, CANONICAL_LANGUAGE);
@@ -165,51 +168,66 @@ describe("entity translation via client-declared interest", () => {
 				expect(canonicalPreferenceRead.translationStatus).toBe("none");
 				expect(canonicalPreferenceRead.name).toBe("Canonical The Shawshank Redemption");
 				expect(yield* countEntityTranslations(movie.id)).toBe(0);
+				const canonicalInterest = yield* declareInterest(canonical, [movie.id]);
+				expect(canonicalInterest.terminal).toEqual([{ entityId: movie.id, reason: "populated" }]);
 
-				const { client: noPreferenceClient } = yield* createAuthenticatedClient();
+				const noPreference = yield* createAuthenticatedClient();
+				const { client: noPreferenceClient } = noPreference;
 				const noPreferenceRead = yield* getEntity(noPreferenceClient, movie.id);
 				expect(noPreferenceRead.translationStatus).toBe("none");
 				expect(noPreferenceRead.name).toBe("Canonical The Shawshank Redemption");
 				expect(yield* countEntityTranslations(movie.id)).toBe(0);
+				const noPreferenceInterest = yield* declareInterest(noPreference, [movie.id]);
+				expect(noPreferenceInterest.terminal).toEqual([
+					{ entityId: movie.id, reason: "populated" },
+				]);
 			}),
 	);
 
-	it.live(
-		"enqueues only population (never an all-null overlay) when interest hits an unpopulated entity",
-		() =>
-			Effect.gen(function* () {
-				const auth = yield* createAuthenticatedClient();
-				const { client } = auth;
-				const { schema } = yield* findBuiltinSchemaBySlug(client, "movie");
-				const provenance = {
-					entitySchemaSlug: schema.slug,
-					providerId: provider.providerId,
-					externalId: `e2e-translate-unpopulated-${crypto.randomUUID()}`,
-				};
+	it.live("populates then translates an unpopulated entity from one interest declaration", () =>
+		Effect.gen(function* () {
+			const auth = yield* createAuthenticatedClient();
+			const { client } = auth;
+			const { schema } = yield* findBuiltinSchemaBySlug(client, "movie");
+			const provenance = {
+				entitySchemaSlug: schema.slug,
+				providerId: provider.providerId,
+				externalId: `e2e-translate-unpopulated-${crypto.randomUUID()}`,
+			};
 
-				const seeded = yield* seedMediaEntity({
-					userId: null,
-					properties: {},
-					entitySchemaSlug: schema.id,
-					name: "Partial Pulp Fiction",
-					externalId: provenance.externalId,
-					providerId: provider.providerId,
-				});
+			const seeded = yield* seedMediaEntity({
+				userId: null,
+				properties: {},
+				entitySchemaSlug: schema.id,
+				name: "Partial Pulp Fiction",
+				providerId: provider.providerId,
+				externalId: provenance.externalId,
+			});
 
-				yield* setUserLanguage(client, "es");
+			yield* setUserLanguage(client, "es");
 
-				const stream = yield* declareInterest(auth, [seeded.id]);
-				const event = yield* Effect.promise(() =>
-					stream.waitForEntityUpdated(seeded.id, "populated", { timeoutMs: 30_000 }),
-				);
-				expect(event.reason).toBe("populated");
+			const { stream, terminal } = yield* declareInterest(auth, [seeded.id]);
+			expect(terminal).toEqual([]);
+			const populatedEvent = yield* Effect.promise(() =>
+				stream.waitForEntityUpdated(seeded.id, "populated", { timeoutMs: 30_000 }),
+			);
+			expect(populatedEvent.reason).toBe("populated");
+			const translatedEvent = yield* Effect.promise(() =>
+				stream.waitForEntityUpdated(seeded.id, "translated", { timeoutMs: 30_000 }),
+			);
+			expect(translatedEvent.reason).toBe("translated");
 
-				const populated = yield* waitForEntityPopulated(client, provenance);
-				expect(populated.populatedAt).not.toBeNull();
+			const reasons = stream
+				.getEntityUpdatedFrames()
+				.filter((frame) => frame.entityId === seeded.id)
+				.map((frame) => frame.reason);
+			expect(reasons).toEqual(["populated", "translated"]);
 
-				// Give any (incorrect) translate enqueue a chance to land, then prove none did.
-				yield* Effect.sleep(Duration.millis(GRACE_WINDOW_MS));
-				expect(yield* countEntityTranslations(seeded.id)).toBe(0);
-			}),
+			const populated = yield* waitForEntityPopulated(client, provenance);
+			expect(populated.populatedAt).not.toBeNull();
+			const localized = yield* pollEntityUntilTranslationStatus(client, seeded.id, "ready");
+			expect(localized.name).toBe(TRANSLATED_ES_NAME);
+			expect(yield* countEntityTranslations(seeded.id)).toBe(1);
+		}),
 	);
 });

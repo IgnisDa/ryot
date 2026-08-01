@@ -35,7 +35,7 @@ describe("interest authorization", () => {
 			});
 
 			const streamB = yield* openInterestStreamScoped(authB);
-			yield* Effect.promise(() => streamB.declareInterest([privateEntity.id]));
+			expect(yield* Effect.promise(() => streamB.declareInterest([privateEntity.id]))).toEqual([]);
 			yield* Effect.promise(() =>
 				streamB.expectNoEntityUpdated(privateEntity.id, { windowMs: 4000 }),
 			);

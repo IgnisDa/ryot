@@ -1,13 +1,18 @@
+import { EntityId, UserId } from "@ryot/contract/schema/brands";
 import { Duration, Effect } from "effect";
 
 import {
+	adminHeaders,
 	uninstallTestProvider,
 	createAuthenticatedClient,
 	fakeProviderDetailsResult,
 	findBuiltinSchemaBySlug,
+	getBackendClient,
 	getEntity,
 	getGlobalEntityByProvenance,
 	openInterestStreamScoped,
+	pollUntil,
+	postBackendJson,
 	installTestProvider,
 	seedMediaEntity,
 	seedPopulatedProviderEntity,
@@ -86,7 +91,7 @@ describe("entity population via client-declared interest", () => {
 		}),
 	);
 
-	it.live("emits an immediate catch-up event for an already-terminal entity", () =>
+	it.live("removes interest on disconnect and returns terminal catch-up after reconnect", () =>
 		Effect.gen(function* () {
 			const auth = yield* createAuthenticatedClient();
 			const { client } = auth;
@@ -106,6 +111,74 @@ describe("entity population via client-declared interest", () => {
 			const event = terminal.find((frame) => frame.entityId === entity.id);
 			assertPresent(event, `Expected an immediate catch-up frame for '${entity.id}'`);
 			expect(event.reason).toBe("populated");
+
+			stream.close();
+			yield* pollUntil(
+				`interest stream '${stream.streamId}' closed`,
+				Effect.gen(function* () {
+					const response = yield* Effect.promise(() =>
+						postBackendJson(
+							"/entity-interest",
+							{ streamId: stream.streamId, entityIds: [entity.id] },
+							auth.cookies,
+						),
+					);
+					return response.status === 404 ? response : null;
+				}),
+			);
+
+			const reconnected = yield* openInterestStreamScoped(auth);
+			const reconnectedTerminal = yield* Effect.promise(() =>
+				reconnected.declareInterest([entity.id]),
+			);
+			expect(reconnectedTerminal).toEqual([{ entityId: entity.id, reason: "populated" }]);
+		}),
+	);
+
+	it.live("stops delivery after interest is replaced", () =>
+		Effect.gen(function* () {
+			const auth = yield* createAuthenticatedClient();
+			const { client } = auth;
+			const { schema } = yield* findBuiltinSchemaBySlug(client, "company");
+			const provenance = {
+				entitySchemaSlug: schema.slug,
+				providerId: provider.providerId,
+				externalId: `e2e-replacement-${crypto.randomUUID()}`,
+			};
+			const entity = yield* seedMediaEntity({
+				userId: null,
+				properties: {},
+				name: "Replaced Studio",
+				entitySchemaSlug: schema.id,
+				providerId: provider.providerId,
+				externalId: provenance.externalId,
+			});
+
+			const replaced = yield* openInterestStreamScoped(auth);
+			yield* getBackendClient().call(
+				(c) =>
+					c.testSupport.setEntityInterest({
+						payload: {
+							streamId: replaced.streamId,
+							userId: UserId.make(auth.userId),
+							entityIds: [EntityId.make(entity.id)],
+						},
+					}),
+				adminHeaders,
+			);
+			expect(yield* Effect.promise(() => replaced.declareInterest([]))).toEqual([]);
+
+			const active = yield* openInterestStreamScoped(auth);
+			yield* Effect.promise(() => active.declareInterest([entity.id]));
+			yield* Effect.promise(() =>
+				active.waitForEntityUpdated(entity.id, "populated", { timeoutMs: 30_000 }),
+			);
+			yield* Effect.promise(() =>
+				replaced.expectNoEntityUpdated(entity.id, { windowMs: GRACE_WINDOW_MS }),
+			);
+
+			const populated = yield* waitForEntityPopulated(client, provenance);
+			expect(populated.populatedAt).not.toBeNull();
 		}),
 	);
 });

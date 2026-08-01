@@ -62,31 +62,32 @@ export function EntityInterestProvider(props: {
 		const connect = Effect.gen(function* () {
 			const streamId = randomUUID();
 			const parser = new InterestSseParser();
-			const response = yield* authenticatedExpoContractClient(props.serverUrl).pipe(
-				Effect.flatMap((client) =>
-					client["entity-interest"].stream({
-						query: { streamId },
-						responseMode: "response-only",
-					}),
-				),
-				Effect.flatMap(HttpClientResponse.filterStatusOk),
-			);
-			yield* response.stream.pipe(
-				Stream.decodeText,
-				Stream.runForEach((chunk) =>
-					Effect.sync(() => {
-						for (const event of parser.push(chunk)) {
-							if (event.type === "connected" && event.frame.streamId === streamId) {
-								coordinator.setConnection(streamId);
-							} else if (event.type === "entity:updated") {
-								coordinator.receive(event.frame);
+			yield* Effect.gen(function* () {
+				const response = yield* authenticatedExpoContractClient(props.serverUrl).pipe(
+					Effect.flatMap((client) =>
+						client["entity-interest"].stream({
+							query: { streamId },
+							responseMode: "response-only",
+						}),
+					),
+					Effect.flatMap(HttpClientResponse.filterStatusOk),
+				);
+				yield* response.stream.pipe(
+					Stream.decodeText,
+					Stream.runForEach((chunk) =>
+						Effect.sync(() => {
+							for (const event of parser.push(chunk)) {
+								if (event.type === "connected" && event.frame.streamId === streamId) {
+									coordinator.setConnection(streamId);
+								} else if (event.type === "entity:updated") {
+									coordinator.receive(event.frame);
+								}
 							}
-						}
-					}),
-				),
-			);
+						}),
+					),
+				);
+			}).pipe(Effect.ensuring(Effect.sync(() => coordinator.disconnect(streamId))));
 		}).pipe(
-			Effect.ensuring(Effect.sync(() => coordinator.setConnection(undefined))),
 			Effect.tapCause((cause) =>
 				Cause.hasInterruptsOnly(cause)
 					? Effect.void
@@ -97,7 +98,6 @@ export function EntityInterestProvider(props: {
 		);
 		void Effect.runPromise(connect, { signal: controller.signal }).catch(() => undefined);
 		return () => {
-			coordinator.dispose();
 			controller.abort();
 		};
 	}, [coordinator, props.serverUrl]);
@@ -111,11 +111,7 @@ export function useEntityInterest(
 	onUpdate: (frame: EntityUpdatedFrame) => void,
 ) {
 	const coordinator = useContext(InterestContext);
-	const handleUpdate = useEffectEvent((frame: EntityUpdatedFrame) => {
-		if (entityIds.includes(frame.entityId)) {
-			onUpdate(frame);
-		}
-	});
+	const handleUpdate = useEffectEvent((frame: EntityUpdatedFrame) => onUpdate(frame));
 
 	if (!coordinator) {
 		throw new Error("useEntityInterest must be used within EntityInterestProvider");
@@ -127,11 +123,8 @@ export function useEntityInterest(
 		},
 		[coordinator, owner],
 	);
-	useEffect(() => coordinator.setInterest(owner, entityIds), [coordinator, entityIds, owner]);
-	useEffect(() => {
-		const unsubscribe = coordinator.subscribe(handleUpdate);
-		return () => {
-			unsubscribe();
-		};
-	}, [coordinator]);
+	useEffect(
+		() => coordinator.setInterest(owner, entityIds, handleUpdate),
+		[coordinator, entityIds, owner],
+	);
 }

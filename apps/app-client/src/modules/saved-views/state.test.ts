@@ -5,11 +5,16 @@ import { Cause } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { describe, expect, it } from "vitest";
 
+import type { SavedViewCardItem, SavedViewTableItem } from "./display-data";
 import {
-	combineSavedViewPages,
+	appendSavedViewPage,
 	mapManagedAssetResolution,
 	mapSavedViewRecord,
 	mapSavedViewResult,
+	materializeSavedViewData,
+	patchSavedViewItems,
+	type SavedViewNormalizedState,
+	type SavedViewPage,
 } from "./state";
 
 const queryDocument = { queries: {} } as const;
@@ -88,6 +93,33 @@ const recordItem = {
 	isBuiltin: { kind: "boolean", value: record.isBuiltin },
 	isDisabled: { kind: "boolean", value: record.isDisabled },
 };
+
+const savedViewPage = (
+	entityIds: readonly string[],
+	nextCursor: string | null = null,
+): SavedViewPage => ({
+	entityIds,
+	queryDocument,
+	pageInfo: { hasMore: nextCursor !== null, limit: 20, nextCursor },
+});
+
+const cardItem = (entityId: string, title: string): SavedViewCardItem => ({
+	title,
+	entityId,
+	image: { type: "missing" },
+});
+
+const tableItem = (entityId: string, value: string): SavedViewTableItem => ({
+	entityId,
+	image: { type: "unconfigured" },
+	cells: [{ key: "title", label: "Title", value: { kind: "text", value } }],
+});
+
+const emptyState = <
+	Item extends SavedViewCardItem | SavedViewTableItem,
+>(): SavedViewNormalizedState<Item> => ({ pages: [], itemsById: new Map() });
+
+const emptyCardState = () => emptyState<SavedViewCardItem>();
 
 describe("saved-view application state", () => {
 	it("maps record loading, transport failure, malformed, and not-found", () => {
@@ -174,39 +206,87 @@ describe("saved-view application state", () => {
 		).toMatchObject({ status: "unavailable", urls: new Map() });
 	});
 
-	it("combines loaded pages while using the latest page info", () => {
-		const first = mapSavedViewResult(
-			AsyncResult.success(
-				rows([
-					{
-						image: { kind: "null", value: null },
-						title: { kind: "text", value: "First" },
-						entityId: { kind: "text", value: "entity-1" },
-					},
-				]),
+	it("patches an earlier page item without changing page order", () => {
+		const state = patchSavedViewItems(
+			appendSavedViewPage(
+				appendSavedViewPage(emptyCardState(), savedViewPage(["entity-1"])),
+				savedViewPage(["entity-2"]),
 			),
-			record,
-			"grid",
+			[cardItem("entity-1", "First"), cardItem("entity-2", "Second")],
 		);
-		const second = mapSavedViewResult(
-			AsyncResult.success(
-				rows([
-					{
-						image: { kind: "null", value: null },
-						title: { kind: "text", value: "Second" },
-						entityId: { kind: "text", value: "entity-2" },
-					},
-				]),
+		const patched = patchSavedViewItems(state, [cardItem("entity-1", "Updated")]);
+		const materialized = materializeSavedViewData(patched, "grid");
+
+		expect(materialized.entityIds).toEqual(["entity-1", "entity-2"]);
+		expect(
+			materialized.data.items.map((item) => ("title" in item ? item.title : undefined)),
+		).toEqual(["Updated", "Second"]);
+		expect(patched.pages).toEqual(state.pages);
+	});
+
+	it("renders duplicate entity IDs once and derives card assets", () => {
+		const first = cardItem("entity-1", "First");
+		const second = cardItem("entity-2", "Second");
+		const third = cardItem("entity-3", "Third");
+		const state = patchSavedViewItems(
+			appendSavedViewPage(
+				appendSavedViewPage(emptyCardState(), savedViewPage(["entity-1", "entity-2", "entity-1"])),
+				savedViewPage(["entity-2", "entity-3", "entity-1"]),
 			),
-			record,
+			[
+				{ ...first, image: { type: "asset", locator: { key: "cover.jpg", type: "local" } } },
+				second,
+				third,
+			],
+		);
+		const materialized = materializeSavedViewData(state, "list");
+
+		expect(materialized.entityIds).toEqual(["entity-1", "entity-2", "entity-3"]);
+		expect(materialized.data.items.map((item) => item.entityId)).toEqual([
+			"entity-1",
+			"entity-2",
+			"entity-3",
+		]);
+		expect(materialized.assets).toEqual([{ key: "cover.jpg", type: "local" }]);
+	});
+
+	it("keeps missing rows unchanged and materializes table items", () => {
+		const first = tableItem("entity-1", "First");
+		const second = tableItem("entity-2", "Second");
+		const state = patchSavedViewItems(
+			appendSavedViewPage(
+				emptyState<SavedViewTableItem>(),
+				savedViewPage(["entity-1", "entity-2"]),
+			),
+			[first, second],
+		);
+		const patched = patchSavedViewItems(state, [tableItem("entity-1", "Updated")]);
+		const materialized = materializeSavedViewData(patched, "table");
+
+		expect(materialized.layout).toBe("table");
+		expect(materialized.entityIds).toEqual(["entity-1", "entity-2"]);
+		expect(
+			materialized.data.items.map((item) => ("cells" in item ? item.cells[0]?.value : undefined)),
+		).toEqual([
+			{ kind: "text", value: "Updated" },
+			{ kind: "text", value: "Second" },
+		]);
+		expect(patchSavedViewItems(patched, []).itemsById).toEqual(patched.itemsById);
+	});
+
+	it("keeps the canonical managed asset set when hydration changes only display data", () => {
+		const locator = { key: "cover.jpg", type: "local" } as const;
+		const state = appendSavedViewPage(emptyCardState(), savedViewPage(["entity-1"]), [
+			{ ...cardItem("entity-1", "First"), image: { type: "asset", locator } },
+		]);
+		const before = materializeSavedViewData(state, "grid");
+		const after = materializeSavedViewData(
+			patchSavedViewItems(state, [
+				{ ...cardItem("entity-1", "Updated"), image: { type: "asset", locator } },
+			]),
 			"grid",
 		);
 
-		if (first.status !== "ready" || second.status !== "ready") {
-			throw new Error("Expected saved-view pages to be ready");
-		}
-		const combined = combineSavedViewPages([first, second]);
-		expect(combined.data.items.map((item) => item.entityId)).toEqual(["entity-1", "entity-2"]);
-		expect(combined.data.pageInfo).toEqual(second.data.pageInfo);
+		expect(after.assets).toEqual(before.assets);
 	});
 });

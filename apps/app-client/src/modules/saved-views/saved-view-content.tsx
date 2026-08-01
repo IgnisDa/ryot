@@ -173,9 +173,7 @@ export function SavedViewReadyContent(props: {
 	return (
 		<SavedViewRuntime
 			assets={props.state.assets}
-			onEntityUpdated={props.refresh}
-			entityIds={props.state.entityIds}
-			scope={{ ...props, viewSlug: props.record.slug }}
+			scope={{ userId: props.userId, serverUrl: props.serverUrl }}
 		>
 			{(assets) => <SavedViewDisplay {...props} {...props.state} managedUrls={assets.urls} />}
 		</SavedViewRuntime>
