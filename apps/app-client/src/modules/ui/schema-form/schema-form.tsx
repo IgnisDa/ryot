@@ -349,9 +349,10 @@ function SchemaFieldRow(props: {
 }
 
 export function SchemaForm(props: {
+	readonly title?: string;
 	readonly schema: AppSchema;
-	readonly onChange: () => void;
 	readonly form: SchemaFormApi;
+	readonly onChange: () => void;
 	readonly mode?: SchemaFormMode;
 	readonly uploadFile: SchemaFileUpload;
 }) {
@@ -361,6 +362,9 @@ export function SchemaForm(props: {
 		<props.form.Subscribe selector={(state) => state.values}>
 			{(values) => {
 				const description = describeSchemaFormFields(props.schema, values);
+				if (description.fields.length === 0 && description.unsupported.length === 0) {
+					return null;
+				}
 				const inputKeys = description.fields.flatMap((field) =>
 					field.control === "text" ||
 					(field.control === "list" && field.arrayItem?.type !== "boolean")
@@ -376,34 +380,41 @@ export function SchemaForm(props: {
 					inputs.current.get(next)?.focus();
 				};
 				return (
-					<View className="gap-3 rounded-lg bg-surface-2 p-3 md:bg-transparent md:p-0">
-						{description.fields.map((field) => (
-							<props.form.Field key={field.key} name={field.key}>
-								{(formField) => (
-									<SchemaFieldRow
-										mode={mode}
-										field={field}
-										value={formField.value}
-										uploadFile={props.uploadFile}
-										error={formField.errors[0]?.message}
-										onSubmitEditing={() => submitFrom(field.key)}
-										isLastInput={inputKeys.at(-1) === field.key}
-										inputRef={(instance) => {
-											inputs.current.set(field.key, instance);
-										}}
-										onChange={(value) => {
-											formField.handleChange(value);
-											props.onChange();
-										}}
-									/>
-								)}
-							</props.form.Field>
-						))}
-						{description.unsupported.length === 0 ? null : (
-							<Text className="font-ui text-xs text-text-subtle">
-								Some fields are not supported in this app version.
+					<View className="gap-2">
+						{props.title === undefined ? null : (
+							<Text className="font-ui-medium text-[11px] uppercase tracking-[0.8px] text-text-subtle">
+								{props.title}
 							</Text>
 						)}
+						<View className="gap-3 rounded-lg bg-surface-2 p-3 md:bg-transparent md:p-0">
+							{description.fields.map((field) => (
+								<props.form.Field key={field.key} name={field.key}>
+									{(formField) => (
+										<SchemaFieldRow
+											mode={mode}
+											field={field}
+											value={formField.value}
+											uploadFile={props.uploadFile}
+											error={formField.errors[0]?.message}
+											onSubmitEditing={() => submitFrom(field.key)}
+											isLastInput={inputKeys.at(-1) === field.key}
+											inputRef={(instance) => {
+												inputs.current.set(field.key, instance);
+											}}
+											onChange={(value) => {
+												formField.handleChange(value);
+												props.onChange();
+											}}
+										/>
+									)}
+								</props.form.Field>
+							))}
+							{description.unsupported.length === 0 ? null : (
+								<Text className="font-ui text-xs text-text-subtle">
+									Some fields are not supported in this app version.
+								</Text>
+							)}
+						</View>
 					</View>
 				);
 			}}
