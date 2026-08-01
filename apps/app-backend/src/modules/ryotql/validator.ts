@@ -37,6 +37,21 @@ type ScalarKind = CatalogTable["fields"][string]["kind"] | "null";
 const requiredNameError = (value: string, label: string) =>
 	value.trim().length === 0 ? `${label} must not be empty` : null;
 
+const isNumericOperand = (kind: ScalarKind | undefined) =>
+	kind === "json" || kind === "null" || kind === "number";
+
+const isTextOperand = (kind: ScalarKind | undefined) =>
+	kind === "json" || kind === "null" || kind === "text";
+
+const unifyExpressionKinds = (kinds: readonly (ScalarKind | undefined)[]) => {
+	const nonNullKinds = kinds.filter((kind) => kind !== "null");
+	if (nonNullKinds.length === 0) {
+		return "null" as const;
+	}
+	const first = nonNullKinds[0];
+	return first !== undefined && nonNullKinds.every((kind) => kind === first) ? first : "json";
+};
+
 const validateExpression = (
 	expr: ScalarExpression,
 	scope: AliasScope,
@@ -55,6 +70,52 @@ const validateExpression = (
 				.map((value) => validateExpression(value, scope, correlatedDepth, executionScope))
 				.find(Boolean) ?? null
 		);
+	}
+	if (expr.type === "concat") {
+		return (
+			expr.values
+				.map((value) => validateExpression(value, scope, correlatedDepth, executionScope))
+				.find(Boolean) ?? null
+		);
+	}
+	if (expr.type === "conditional") {
+		const conditionError = validatePredicate(
+			expr.condition,
+			scope,
+			correlatedDepth,
+			executionScope,
+		);
+		if (conditionError) {
+			return conditionError;
+		}
+		return (
+			validateExpression(expr.whenTrue, scope, correlatedDepth, executionScope) ??
+			validateExpression(expr.whenFalse, scope, correlatedDepth, executionScope)
+		);
+	}
+	if (expr.type === "transform") {
+		const expressionError = validateExpression(expr.expr, scope, correlatedDepth, executionScope);
+		if (expressionError) {
+			return expressionError;
+		}
+		const kind = expressionKind(expr.expr, scope);
+		return isTextOperand(kind) ? null : `Text operands must be text: ${kind}`;
+	}
+	if (
+		expr.type === "floor" ||
+		expr.type === "integer" ||
+		expr.type === "isNotNull" ||
+		expr.type === "round"
+	) {
+		const expressionError = validateExpression(expr.expr, scope, correlatedDepth, executionScope);
+		if (expressionError) {
+			return expressionError;
+		}
+		if (expr.type === "isNotNull") {
+			return null;
+		}
+		const kind = expressionKind(expr.expr, scope);
+		return isNumericOperand(kind) ? null : `Numeric operands must be numeric: ${kind}`;
 	}
 	if (expr.type === "arithmetic") {
 		return (
@@ -123,7 +184,10 @@ const validateExpression = (
 		: `Unknown field '${expr.field}' on table '${table.name}'`;
 };
 
-const expressionKind = (expr: ScalarExpression, scope: AliasScope): ScalarKind | undefined => {
+export const expressionKind = (
+	expr: ScalarExpression,
+	scope: AliasScope,
+): ScalarKind | undefined => {
 	if (expr.type === "literal") {
 		if (expr.value === null) {
 			return "null";
@@ -156,9 +220,22 @@ const expressionKind = (expr: ScalarExpression, scope: AliasScope): ScalarKind |
 	}
 	if (expr.type === "coalesce") {
 		const kinds = expr.values.map((value) => expressionKind(value, scope));
-		const nonNullKinds = kinds.filter((kind) => kind !== "null");
-		const first = nonNullKinds[0];
-		return first && nonNullKinds.every((kind) => kind === first) ? first : "json";
+		return unifyExpressionKinds(kinds);
+	}
+	if (expr.type === "concat" || expr.type === "transform") {
+		return "text";
+	}
+	if (expr.type === "isNotNull") {
+		return "boolean";
+	}
+	if (expr.type === "floor" || expr.type === "integer" || expr.type === "round") {
+		return "number";
+	}
+	if (expr.type === "conditional") {
+		return unifyExpressionKinds([
+			expressionKind(expr.whenTrue, scope),
+			expressionKind(expr.whenFalse, scope),
+		]);
 	}
 	const table = scope.get(expr.tableAlias);
 	return table ? resolveCatalogField(table, expr.field)?.kind : undefined;

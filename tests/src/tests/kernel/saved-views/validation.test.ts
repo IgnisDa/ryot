@@ -1,193 +1,174 @@
 import {
-	createEntityColumnExpression,
-	createEntityPropertyExpression,
-} from "@ryot/contract/display-configuration";
+	aggregate,
+	ascending,
+	column,
+	document,
+	field,
+	include,
+	literal,
+	rows,
+	star,
+	table,
+} from "@ryot/ryotql";
 import { Effect } from "effect";
 
 import {
 	buildSavedViewBody,
-	buildUpdatedSavedViewBody,
 	createAuthenticatedClient,
-	createSavedView,
-	entityField,
-	postBackendJson,
+	rowsDocument,
+	rowsFields,
 } from "~/fixtures";
-import { assertTaggedError, requireObjectRecord, requireString } from "~/support/assertions";
+import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
+const book = table("entity", "entity");
+const child = table("entity", "child");
+const defaultBody = () => buildSavedViewBody({ queryDocument: rowsDocument });
+
 describe("saved views validation", () => {
-	it.live("rejects a view with a null title property in the display config", () =>
-		Effect.gen(function* () {
-			const { cookies } = yield* createAuthenticatedClient();
-			const createBody = buildSavedViewBody();
-			const invalidTitleProperty = JSON.parse("null");
-
-			const response = yield* Effect.promise(() =>
-				postBackendJson(
-					"/saved-views",
-					{
-						...createBody,
-						displayConfiguration: {
-							...createBody.displayConfiguration,
-							grid: {
-								...createBody.displayConfiguration.grid,
-								titleProperty: invalidTitleProperty,
-							},
-							list: {
-								...createBody.displayConfiguration.list,
-								titleProperty: invalidTitleProperty,
-							},
-						},
-					},
-					cookies,
-				),
-			);
-			const error = requireObjectRecord(
-				yield* Effect.promise(() => response.json()),
-				"Expected BadRequest response",
-			);
-			const message = requireString(error.message, "Expected BadRequest message");
-
-			expect(response.status).toBe(400);
-			expect(requireString(error._tag, "Expected error tag")).toBe("BadRequest");
-			expect(message).toContain("displayConfiguration");
-			expect(message).toContain("titleProperty");
-		}),
-	);
-
-	it.live("rejects a view with no table columns in the display config", () =>
+	it.live("rejects a display field that is missing from the root projection", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
+			const body = buildSavedViewBody({
+				displayConfiguration: {
+					...defaultBody().displayConfiguration,
+					entityIdField: "missing",
+				},
+			});
 
-			const error = yield* Effect.flip(
-				client.call((c) =>
-					c.savedViews.create({
-						payload: buildSavedViewBody({
-							displayConfiguration: {
-								table: { columns: [] },
-								grid: {
-									imageProperty: null,
-									calloutProperty: null,
-									eyebrowProperty: null,
-									primarySubtitleProperty: null,
-									secondarySubtitleProperty: null,
-									titleProperty: [entityField("book", "name")],
-								},
-								list: {
-									imageProperty: null,
-									calloutProperty: null,
-									eyebrowProperty: null,
-									primarySubtitleProperty: null,
-									secondarySubtitleProperty: null,
-									titleProperty: [entityField("book", "name")],
-								},
-							},
-						}),
-					}),
-				),
-			);
+			const error = yield* Effect.flip(client.call((c) => c.savedViews.create({ payload: body })));
 
 			assertTaggedError(error, "BadRequest");
-			expect(error.message).toContain("At least one table column is required");
+			expect(error.message).toBe(
+				"Saved view display field 'missing' is not in the root projection",
+			);
 		}),
 	);
 
-	it.live("rejects a view with an invalid built-in column in the display config", () =>
+	it.live("rejects a non-text entityId field", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const createBody = buildSavedViewBody();
+			const queryDocument = document({
+				savedView: rows(book, {
+					page: 1,
+					limit: 2,
+					fields: [
+						field("entityId", column(book, "id")),
+						field("numericId", literal(1)),
+						...rowsFields.slice(1),
+					],
+				}),
+			});
+			const body = buildSavedViewBody({
+				queryDocument,
+				displayConfiguration: {
+					...defaultBody().displayConfiguration,
+					entityIdField: "numericId",
+				},
+			});
 
-			const error = yield* Effect.flip(
-				client.call((c) =>
-					c.savedViews.create({
-						payload: {
-							...createBody,
-							displayConfiguration: {
-								...createBody.displayConfiguration,
-								entityIdProperty: createEntityColumnExpression("book", "nam"),
-							},
-						},
-					}),
-				),
-			);
+			const error = yield* Effect.flip(client.call((c) => c.savedViews.create({ payload: body })));
 
 			assertTaggedError(error, "BadRequest");
-			expect(error.message).toContain("Unsupported entity column 'entity.book.nam'");
+			expect(error.message).toBe("Saved view entityIdField must resolve to text");
 		}),
 	);
 
-	it.live("rejects a view referencing a property that does not exist in the schema", () =>
+	it.live("rejects a document with multiple named queries", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const createBody = buildSavedViewBody();
-
-			const createError = yield* Effect.flip(
-				client.call((c) =>
-					c.savedViews.create({
-						payload: {
-							...createBody,
-							displayConfiguration: {
-								...createBody.displayConfiguration,
-								grid: {
-									...createBody.displayConfiguration.grid,
-									titleProperty: createEntityPropertyExpression("book", "missingProperty"),
-								},
-							},
-						},
+			const body = buildSavedViewBody({
+				queryDocument: document({
+					...rowsDocument.queries,
+					other: rows(book, {
+						fields: rowsFields,
 					}),
-				),
-			);
+				}),
+			});
 
-			assertTaggedError(createError, "BadRequest");
-			expect(createError.message).toContain(
-				"Property 'missingProperty' not found in entity schema 'book'",
-			);
+			const error = yield* Effect.flip(client.call((c) => c.savedViews.create({ payload: body })));
+
+			assertTaggedError(error, "BadRequest");
+			expect(error.message).toBe("A saved view must contain exactly one named query");
 		}),
 	);
 
-	it.live("rejects invalid entityIdProperty on create and update", () =>
+	it.live("rejects a non-rows query", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const invalidEntityIdProperty = JSON.parse('{"type":"literal","value":1}');
-
-			const createBody = buildSavedViewBody();
-			const createError = yield* Effect.flip(
-				client.call((c) =>
-					c.savedViews.create({
-						payload: {
-							...createBody,
-							displayConfiguration: {
-								...createBody.displayConfiguration,
-								entityIdProperty: invalidEntityIdProperty,
-							},
-						},
+			const body = buildSavedViewBody({
+				queryDocument: document({
+					savedView: aggregate(book, {
+						measures: [{ key: "total", aggregation: { function: "count" } }],
 					}),
-				),
-			);
+				}),
+			});
 
-			const createdView = yield* createSavedView(client);
-			const updateBody = buildUpdatedSavedViewBody();
-			const updateError = yield* Effect.flip(
-				client.call((c) =>
-					c.savedViews.update({
-						params: { viewSlug: createdView.slug },
-						payload: {
-							...updateBody,
-							displayConfiguration: {
-								...updateBody.displayConfiguration,
-								entityIdProperty: invalidEntityIdProperty,
-							},
-						},
+			const error = yield* Effect.flip(client.call((c) => c.savedViews.create({ payload: body })));
+
+			assertTaggedError(error, "BadRequest");
+			expect(error.message).toBe("Saved view query must have rows output");
+		}),
+	);
+
+	it.live("rejects a wildcard projection", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const body = buildSavedViewBody({
+				queryDocument: document({
+					savedView: rows(book, { fields: [star(book)] }),
+				}),
+			});
+
+			const error = yield* Effect.flip(client.call((c) => c.savedViews.create({ payload: body })));
+
+			assertTaggedError(error, "BadRequest");
+			expect(error.message).toBe("Saved view query must use explicit field selections");
+		}),
+	);
+
+	it.live("rejects a query with nested includes", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const body = buildSavedViewBody({
+				queryDocument: document({
+					savedView: rows(book, {
+						fields: rowsFields,
+						include: [
+							include(child, {
+								key: "children",
+								limit: 1,
+								fields: [],
+								orderBy: [ascending(column(child, "id"))],
+							}),
+						],
 					}),
-				),
-			);
+				}),
+			});
 
-			assertTaggedError(createError, "BadRequest");
-			assertTaggedError(updateError, "BadRequest");
-			expect(createError.message).toContain("entityIdProperty");
-			expect(updateError.message).toContain("entityIdProperty");
-			expect(createError.message).toContain("string expression");
-			expect(updateError.message).toContain("string expression");
+			const error = yield* Effect.flip(client.call((c) => c.savedViews.create({ payload: body })));
+
+			assertTaggedError(error, "BadRequest");
+			expect(error.message).toBe("Saved view query must not include nested results");
+		}),
+	);
+
+	it.live("rejects a stored query page other than page one", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const body = buildSavedViewBody({
+				queryDocument: document({
+					savedView: rows(book, {
+						page: 2,
+						fields: rowsFields,
+					}),
+				}),
+			});
+
+			const error = yield* Effect.flip(client.call((c) => c.savedViews.create({ payload: body })));
+
+			assertTaggedError(error, "BadRequest");
+			expect(error.message).toBe("Saved view query pagination page must be 1");
 		}),
 	);
 });

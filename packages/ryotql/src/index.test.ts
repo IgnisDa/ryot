@@ -13,13 +13,16 @@ import {
 	castText,
 	coalesce,
 	column,
+	concat,
 	contains,
+	conditional,
 	count,
 	countDistinct,
 	document,
 	divide,
 	eq,
 	field,
+	floor,
 	first,
 	gt,
 	gte,
@@ -27,6 +30,7 @@ import {
 	isNotNull,
 	isNull,
 	include,
+	integer,
 	join,
 	jsonPath,
 	literal,
@@ -46,6 +50,9 @@ import {
 	sum,
 	table,
 	timeSeries,
+	titleCase,
+	kebabCase,
+	round,
 } from "./index";
 
 describe("RyotQL builders", () => {
@@ -147,6 +154,66 @@ describe("RyotQL builders", () => {
 				}),
 			]),
 		);
+	});
+
+	it("builds scalar text, conditional, and unary expressions", () => {
+		const entity = table("entity", "entity");
+		const value = column(entity, "name");
+
+		expect(
+			rows(entity, {
+				fields: [
+					field("concat", concat(value, literal(" suffix"))),
+					field(
+						"conditional",
+						conditional(eq(value, literal("Ryot")), literal("yes"), literal("no")),
+					),
+					field("title", titleCase(value)),
+					field("kebab", kebabCase(value)),
+					field("round", round(literal(1.5))),
+					field("floor", floor(literal(1.5))),
+					field("integer", integer(literal(-1.5))),
+					field("notNull", isNotNull(value)),
+				],
+			}),
+		).toMatchObject({
+			output: {
+				fields: expect.arrayContaining([
+					expect.objectContaining({
+						key: "concat",
+						expr: expect.objectContaining({ type: "concat" }),
+					}),
+					expect.objectContaining({
+						key: "conditional",
+						expr: expect.objectContaining({ type: "conditional" }),
+					}),
+					expect.objectContaining({
+						key: "title",
+						expr: expect.objectContaining({ name: "titleCase", type: "transform" }),
+					}),
+					expect.objectContaining({
+						key: "kebab",
+						expr: expect.objectContaining({ name: "kebabCase", type: "transform" }),
+					}),
+					expect.objectContaining({
+						key: "round",
+						expr: expect.objectContaining({ type: "round" }),
+					}),
+					expect.objectContaining({
+						key: "floor",
+						expr: expect.objectContaining({ type: "floor" }),
+					}),
+					expect.objectContaining({
+						key: "integer",
+						expr: expect.objectContaining({ type: "integer" }),
+					}),
+					expect.objectContaining({
+						key: "notNull",
+						expr: expect.objectContaining({ type: "isNotNull" }),
+					}),
+				]),
+			},
+		});
 	});
 
 	it("rejects non-finite literal numbers", () => {
