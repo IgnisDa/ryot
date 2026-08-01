@@ -843,7 +843,7 @@ const pgDialect = new PgDialect();
 const executeSql = Effect.fn("executeRyotQLSql")(function* (query: SqlFragment, queryName: string) {
 	const db = yield* CurrentDb;
 	const { sql: statement } = pgDialect.sqlToQuery(query);
-	yield* Effect.logInfo("RyotQL SQL generated").pipe(
+	yield* Effect.logTrace("RyotQL SQL generated").pipe(
 		Effect.annotateLogs({ queryName, sql: statement }),
 	);
 	return yield* dbEffect(() => db.execute(query));
