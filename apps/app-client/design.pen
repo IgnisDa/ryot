@@ -32922,6 +32922,2242 @@
           ]
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "G8sy3",
+      "x": 2078,
+      "y": -420,
+      "name": "Media / Poster Cell",
+      "reusable": true,
+      "width": 172,
+      "layout": "vertical",
+      "gap": "$--space-2",
+      "children": [
+        {
+          "type": "rectangle",
+          "cornerRadius": "$--radius-md",
+          "id": "jTwAQ",
+          "name": "Poster",
+          "fill": {
+            "type": "image",
+            "enabled": true,
+            "url": "https://images.unsplash.com/photo-1662202120383-7e652499ee66?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTV8&ixlib=rb-4.1.0&q=80&w=1080",
+            "mode": "fill"
+          },
+          "width": "fill_container",
+          "height": 229
+        },
+        {
+          "type": "frame",
+          "id": "W4vZEr",
+          "name": "Progress Track",
+          "width": "fill_container",
+          "height": 3,
+          "fill": "$--border-subtle",
+          "cornerRadius": "$--radius-pill",
+          "children": [
+            {
+              "type": "rectangle",
+              "cornerRadius": "$--radius-pill",
+              "id": "IwlU0",
+              "name": "Progress Fill",
+              "fill": "$--primary",
+              "width": 110,
+              "height": 3
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "coxqT",
+          "name": "Title",
+          "fill": "$--text-primary",
+          "textGrowth": "fixed-width",
+          "width": "fill_container",
+          "content": "Blade Runner 2049",
+          "fontFamily": "$--font-body",
+          "fontSize": 14,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "text",
+          "id": "Uqfn7",
+          "name": "Meta",
+          "fill": "$--text-muted",
+          "textGrowth": "fixed-width",
+          "width": "fill_container",
+          "content": "Denis Villeneuve · 2017",
+          "fontFamily": "$--font-body",
+          "fontSize": 12,
+          "fontWeight": "normal"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "W16L9d",
+      "x": 2078,
+      "y": 7967,
+      "name": "W2 / Grid — Standardized",
+      "theme": {
+        "Mode": "Dark"
+      },
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "$--background",
+      "cornerRadius": 14,
+      "stroke": "$--border",
+      "strokeWidth": 1,
+      "strokeAlignment": "inner",
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "YlWNb",
+          "x": 0,
+          "y": 0,
+          "name": "Sidebar",
+          "clip": true,
+          "width": 264,
+          "height": 900,
+          "fill": "$--sidebar",
+          "stroke": "$--sidebar-border",
+          "strokeWidth": {
+            "right": 1
+          },
+          "strokeAlignment": "inner",
+          "layout": "none",
+          "children": [
+            {
+              "type": "frame",
+              "id": "qby5S",
+              "x": 14,
+              "y": 18,
+              "name": "Sidebar Scroll",
+              "clip": true,
+              "width": 236,
+              "height": 812,
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "vQIla",
+                  "name": "Workspace Switcher",
+                  "width": "fill_container",
+                  "fill": "$--sidebar-accent",
+                  "cornerRadius": 10,
+                  "stroke": "$--sidebar-border",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "t13sN",
+                      "name": "Workspace Tile",
+                      "width": 30,
+                      "height": 30,
+                      "fill": "$--primary",
+                      "cornerRadius": 8,
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "nbuAK",
+                          "name": "Workspace Icon",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "clapperboard",
+                          "library": "lucide",
+                          "fill": "$--primary-foreground"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "agHET",
+                      "name": "Workspace Text",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 1,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "r7RDz",
+                          "name": "Workspace Name",
+                          "fill": "$--text-primary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Media",
+                          "fontFamily": "$--font-body",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "W2GkFi",
+                          "name": "Workspace Sub",
+                          "fill": "$--text-muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "10 views · 6 saved views",
+                          "fontFamily": "$--font-body",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "icon",
+                      "id": "fONBt",
+                      "name": "Switcher Chevron",
+                      "width": 15,
+                      "height": 15,
+                      "icon": "chevron-down",
+                      "library": "lucide",
+                      "fill": "$--text-subtle"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "BMBOV",
+                  "name": "Search Field",
+                  "width": "fill_container",
+                  "fill": "#00000000",
+                  "cornerRadius": 8,
+                  "stroke": "$--border-subtle",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "gap": 8,
+                  "padding": [
+                    8,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "UFqad",
+                      "name": "Search Icon",
+                      "width": 15,
+                      "height": 15,
+                      "icon": "search",
+                      "library": "lucide",
+                      "fill": "$--text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "PHqxB",
+                      "name": "Search Placeholder",
+                      "fill": "$--text-muted",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Search all of Media",
+                      "fontFamily": "$--font-body",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "T2Ne6",
+                      "name": "Kbd",
+                      "fill": "$--muted",
+                      "cornerRadius": 5,
+                      "padding": [
+                        2,
+                        6
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "CBUxb",
+                          "name": "Kbd Label",
+                          "fill": "$--text-subtle",
+                          "content": "⌘K",
+                          "fontFamily": "$--font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "its7O",
+                  "name": "VIEWS Group",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "qkR4L",
+                      "name": "VIEWS Header",
+                      "width": "fill_container",
+                      "padding": [
+                        0,
+                        4
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "VMOJH",
+                          "name": "Group Label",
+                          "fill": "$--text-subtle",
+                          "content": "VIEWS",
+                          "fontFamily": "$--font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal",
+                          "letterSpacing": 1.1
+                        },
+                        {
+                          "type": "text",
+                          "id": "c2mj3I",
+                          "name": "Reorder Action",
+                          "fill": "$--accent-text",
+                          "content": "Reorder",
+                          "fontFamily": "$--font-body",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "SXn07",
+                      "name": "VIEWS List (Scroll Box)",
+                      "clip": true,
+                      "width": "fill_container",
+                      "height": 238,
+                      "layout": "vertical",
+                      "gap": 2,
+                      "children": [
+                        {
+                          "id": "WidWL",
+                          "type": "ref",
+                          "ref": "oNDqF",
+                          "name": "Home",
+                          "width": "fill_container",
+                          "padding": [
+                            5,
+                            10
+                          ],
+                          "fill": "#00000000",
+                          "descendants": {
+                            "wIHez": {
+                              "icon": "house",
+                              "fill": "$--text-muted"
+                            },
+                            "hPDnR": {
+                              "content": "Home",
+                              "fill": "$--text-muted"
+                            },
+                            "h75uN": {
+                              "enabled": false
+                            }
+                          }
+                        },
+                        {
+                          "id": "nniKM",
+                          "type": "ref",
+                          "ref": "oNDqF",
+                          "name": "All Movies",
+                          "width": "fill_container",
+                          "padding": [
+                            5,
+                            10
+                          ],
+                          "fill": "#00000000",
+                          "descendants": {
+                            "wIHez": {
+                              "icon": "film",
+                              "fill": "$--text-muted"
+                            },
+                            "hPDnR": {
+                              "content": "All Movies",
+                              "fill": "$--text-muted"
+                            },
+                            "h75uN": {
+                              "enabled": true,
+                              "content": "312",
+                              "fill": "$--text-subtle"
+                            }
+                          }
+                        },
+                        {
+                          "id": "TFZnb",
+                          "type": "ref",
+                          "ref": "oNDqF",
+                          "name": "All Shows",
+                          "width": "fill_container",
+                          "padding": [
+                            5,
+                            10
+                          ],
+                          "fill": "#00000000",
+                          "descendants": {
+                            "wIHez": {
+                              "icon": "tv",
+                              "fill": "$--text-muted"
+                            },
+                            "hPDnR": {
+                              "content": "All Shows",
+                              "fill": "$--text-muted"
+                            },
+                            "h75uN": {
+                              "enabled": true,
+                              "content": "148",
+                              "fill": "$--text-subtle"
+                            }
+                          }
+                        },
+                        {
+                          "id": "u3Vhre",
+                          "type": "ref",
+                          "ref": "oNDqF",
+                          "name": "All Books",
+                          "width": "fill_container",
+                          "padding": [
+                            5,
+                            10
+                          ],
+                          "fill": "$--primary",
+                          "descendants": {
+                            "wIHez": {
+                              "icon": "book-open",
+                              "fill": "$--primary-foreground"
+                            },
+                            "hPDnR": {
+                              "content": "All Books",
+                              "fill": "$--primary-foreground"
+                            },
+                            "h75uN": {
+                              "enabled": false,
+                              "content": "96",
+                              "fill": "$--text-subtle"
+                            }
+                          }
+                        },
+                        {
+                          "type": "frame",
+                          "id": "PgyIO",
+                          "name": "Tab Bar Cutoff",
+                          "width": "fill_container",
+                          "gap": 8,
+                          "padding": [
+                            6,
+                            2
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "TCl5N",
+                              "x": 2,
+                              "y": 6,
+                              "name": "Cutoff Label",
+                              "enabled": false,
+                              "fill": "$--text-subtle",
+                              "content": "↑ shown in mobile tab bar",
+                              "fontFamily": "$--font-mono",
+                              "fontSize": 9,
+                              "fontWeight": "normal",
+                              "letterSpacing": 0.6
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "l2Vkv",
+                              "name": "Cutoff Line",
+                              "fill": "$--border-subtle",
+                              "width": "fill_container",
+                              "height": 1
+                            }
+                          ]
+                        },
+                        {
+                          "id": "jGiaF",
+                          "type": "ref",
+                          "ref": "oNDqF",
+                          "name": "All Music",
+                          "width": "fill_container",
+                          "padding": [
+                            5,
+                            10
+                          ],
+                          "fill": "#00000000",
+                          "descendants": {
+                            "wIHez": {
+                              "icon": "music",
+                              "fill": "$--text-muted"
+                            },
+                            "hPDnR": {
+                              "content": "All Music",
+                              "fill": "$--text-muted"
+                            },
+                            "h75uN": {
+                              "enabled": true,
+                              "content": "204",
+                              "fill": "$--text-subtle"
+                            }
+                          }
+                        },
+                        {
+                          "id": "V8fgU",
+                          "type": "ref",
+                          "ref": "oNDqF",
+                          "name": "All Audio Books",
+                          "width": "fill_container",
+                          "padding": [
+                            5,
+                            10
+                          ],
+                          "fill": "#00000000",
+                          "descendants": {
+                            "wIHez": {
+                              "icon": "headphones",
+                              "fill": "$--text-muted"
+                            },
+                            "hPDnR": {
+                              "content": "All Audio Books",
+                              "fill": "$--text-muted"
+                            },
+                            "h75uN": {
+                              "enabled": true,
+                              "content": "61",
+                              "fill": "$--text-subtle"
+                            }
+                          }
+                        },
+                        {
+                          "id": "p91mB6",
+                          "type": "ref",
+                          "ref": "oNDqF",
+                          "name": "All Video Games",
+                          "width": "fill_container",
+                          "padding": [
+                            5,
+                            10
+                          ],
+                          "fill": "#00000000",
+                          "descendants": {
+                            "wIHez": {
+                              "icon": "gamepad-2",
+                              "fill": "$--text-muted"
+                            },
+                            "hPDnR": {
+                              "content": "All Video Games",
+                              "fill": "$--text-muted"
+                            },
+                            "h75uN": {
+                              "enabled": true,
+                              "content": "87",
+                              "fill": "$--text-subtle"
+                            }
+                          }
+                        },
+                        {
+                          "id": "q4U7fj",
+                          "type": "ref",
+                          "ref": "oNDqF",
+                          "name": "All People",
+                          "width": "fill_container",
+                          "padding": [
+                            5,
+                            10
+                          ],
+                          "fill": "#00000000",
+                          "descendants": {
+                            "wIHez": {
+                              "icon": "user",
+                              "fill": "$--text-muted"
+                            },
+                            "hPDnR": {
+                              "content": "All People",
+                              "fill": "$--text-muted"
+                            },
+                            "h75uN": {
+                              "enabled": true,
+                              "content": "430",
+                              "fill": "$--text-subtle"
+                            }
+                          }
+                        },
+                        {
+                          "id": "kpJGl",
+                          "type": "ref",
+                          "ref": "oNDqF",
+                          "name": "All Groups",
+                          "width": "fill_container",
+                          "padding": [
+                            5,
+                            10
+                          ],
+                          "fill": "#00000000",
+                          "descendants": {
+                            "wIHez": {
+                              "icon": "users",
+                              "fill": "$--text-muted"
+                            },
+                            "hPDnR": {
+                              "content": "All Groups",
+                              "fill": "$--text-muted"
+                            },
+                            "h75uN": {
+                              "enabled": true,
+                              "content": "22",
+                              "fill": "$--text-subtle"
+                            }
+                          }
+                        },
+                        {
+                          "id": "v1TKXo",
+                          "type": "ref",
+                          "ref": "oNDqF",
+                          "name": "All Genres",
+                          "width": "fill_container",
+                          "padding": [
+                            5,
+                            10
+                          ],
+                          "fill": "#00000000",
+                          "descendants": {
+                            "wIHez": {
+                              "icon": "tags",
+                              "fill": "$--text-muted"
+                            },
+                            "hPDnR": {
+                              "content": "All Genres",
+                              "fill": "$--text-muted"
+                            },
+                            "h75uN": {
+                              "enabled": true,
+                              "content": "34",
+                              "fill": "$--text-subtle"
+                            }
+                          }
+                        },
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 999,
+                          "id": "CiKzy",
+                          "layoutPosition": "absolute",
+                          "x": 231,
+                          "y": 4,
+                          "name": "VIEWS Scroll Thumb",
+                          "fill": "$--input",
+                          "width": 3,
+                          "height": 64
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "xa24D",
+                  "name": "Shared Break",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "padding": [
+                    10,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "id": "k67mVh",
+                      "name": "Break Line",
+                      "fill": "$--border-subtle",
+                      "width": "fill_container",
+                      "height": 1
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "L13oZ",
+                  "name": "COLLECTIONS Group",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "E4LIyC",
+                      "name": "COLLECTIONS Header",
+                      "width": "fill_container",
+                      "padding": [
+                        0,
+                        4
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "KkK2L",
+                          "name": "Header Left",
+                          "gap": 6,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "n52hGG",
+                              "name": "Group Label",
+                              "fill": "$--text-subtle",
+                              "content": "COLLECTIONS",
+                              "fontFamily": "$--font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal",
+                              "letterSpacing": 1.1
+                            },
+                            {
+                              "type": "text",
+                              "id": "uW1Gw",
+                              "name": "Collections Count",
+                              "fill": "$--text-subtle",
+                              "content": "9",
+                              "fontFamily": "$--font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "wtXFI",
+                          "name": "New Action",
+                          "fill": "$--accent-text",
+                          "content": "New",
+                          "fontFamily": "$--font-body",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "qWwWi",
+                      "name": "COLLECTIONS List (Scroll Box)",
+                      "clip": true,
+                      "width": "fill_container",
+                      "height": 148,
+                      "layout": "vertical",
+                      "gap": 2,
+                      "children": [
+                        {
+                          "id": "DoNZB",
+                          "type": "ref",
+                          "ref": "oNDqF",
+                          "name": "Sci-Fi Essentials",
+                          "width": "fill_container",
+                          "padding": [
+                            5,
+                            10
+                          ],
+                          "fill": "#00000000",
+                          "descendants": {
+                            "wIHez": {
+                              "icon": "library",
+                              "fill": "$--text-muted"
+                            },
+                            "hPDnR": {
+                              "content": "Sci-Fi Essentials",
+                              "fill": "$--text-muted"
+                            },
+                            "h75uN": {
+                              "enabled": true,
+                              "content": "24",
+                              "fill": "$--text-subtle"
+                            }
+                          }
+                        },
+                        {
+                          "id": "ZL4Qp",
+                          "type": "ref",
+                          "ref": "oNDqF",
+                          "name": "Comfort Rewatch",
+                          "width": "fill_container",
+                          "padding": [
+                            5,
+                            10
+                          ],
+                          "fill": "#00000000",
+                          "descendants": {
+                            "wIHez": {
+                              "icon": "library",
+                              "fill": "$--text-muted"
+                            },
+                            "hPDnR": {
+                              "content": "Comfort Rewatch",
+                              "fill": "$--text-muted"
+                            },
+                            "h75uN": {
+                              "enabled": true,
+                              "content": "12",
+                              "fill": "$--text-subtle"
+                            }
+                          }
+                        },
+                        {
+                          "id": "Cuc75",
+                          "type": "ref",
+                          "ref": "oNDqF",
+                          "name": "Currently Reading",
+                          "width": "fill_container",
+                          "padding": [
+                            5,
+                            10
+                          ],
+                          "fill": "#00000000",
+                          "descendants": {
+                            "wIHez": {
+                              "icon": "library",
+                              "fill": "$--text-muted"
+                            },
+                            "hPDnR": {
+                              "content": "Currently Reading",
+                              "fill": "$--text-muted"
+                            },
+                            "h75uN": {
+                              "enabled": true,
+                              "content": "5",
+                              "fill": "$--text-subtle"
+                            }
+                          }
+                        },
+                        {
+                          "id": "K8sjm",
+                          "type": "ref",
+                          "ref": "oNDqF",
+                          "name": "Owned on Vinyl",
+                          "width": "fill_container",
+                          "padding": [
+                            5,
+                            10
+                          ],
+                          "fill": "#00000000",
+                          "descendants": {
+                            "wIHez": {
+                              "icon": "library",
+                              "fill": "$--text-muted"
+                            },
+                            "hPDnR": {
+                              "content": "Owned on Vinyl",
+                              "fill": "$--text-muted"
+                            },
+                            "h75uN": {
+                              "enabled": true,
+                              "content": "31",
+                              "fill": "$--text-subtle"
+                            }
+                          }
+                        },
+                        {
+                          "id": "oOG9V",
+                          "type": "ref",
+                          "ref": "oNDqF",
+                          "name": "Top Rated",
+                          "width": "fill_container",
+                          "padding": [
+                            5,
+                            10
+                          ],
+                          "fill": "#00000000",
+                          "descendants": {
+                            "wIHez": {
+                              "icon": "library",
+                              "fill": "$--text-muted"
+                            },
+                            "hPDnR": {
+                              "content": "Top Rated",
+                              "fill": "$--text-muted"
+                            },
+                            "h75uN": {
+                              "enabled": true,
+                              "content": "18",
+                              "fill": "$--text-subtle"
+                            }
+                          }
+                        },
+                        {
+                          "id": "ECaNV",
+                          "type": "ref",
+                          "ref": "oNDqF",
+                          "name": "All collections",
+                          "width": "fill_container",
+                          "padding": [
+                            5,
+                            10
+                          ],
+                          "fill": "#00000000",
+                          "descendants": {
+                            "wIHez": {
+                              "icon": "ellipsis",
+                              "fill": "$--text-subtle"
+                            },
+                            "hPDnR": {
+                              "content": "All collections",
+                              "fill": "$--text-subtle"
+                            },
+                            "h75uN": {
+                              "enabled": false
+                            }
+                          }
+                        },
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 999,
+                          "id": "PGkfM",
+                          "layoutPosition": "absolute",
+                          "x": 231,
+                          "y": 4,
+                          "name": "COLLECTIONS Scroll Thumb",
+                          "fill": "$--input",
+                          "width": 3,
+                          "height": 44
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "arffw",
+                  "name": "SAVED VIEWS Group",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "GL5sa",
+                      "name": "SAVED VIEWS Header",
+                      "width": "fill_container",
+                      "padding": [
+                        0,
+                        4
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "C7z8W",
+                          "name": "Header Left",
+                          "gap": 6,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "bfRyC",
+                              "name": "Group Label",
+                              "fill": "$--text-subtle",
+                              "content": "SAVED VIEWS",
+                              "fontFamily": "$--font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal",
+                              "letterSpacing": 1.1
+                            },
+                            {
+                              "type": "text",
+                              "id": "esrks",
+                              "name": "Saved Count",
+                              "fill": "$--text-subtle",
+                              "content": "6",
+                              "fontFamily": "$--font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "VDH5J",
+                          "name": "New Action",
+                          "fill": "$--accent-text",
+                          "content": "New",
+                          "fontFamily": "$--font-body",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "UX7Zx",
+                      "name": "SAVED VIEWS List (Scroll Box)",
+                      "clip": true,
+                      "width": "fill_container",
+                      "height": 148,
+                      "layout": "vertical",
+                      "gap": 2,
+                      "children": [
+                        {
+                          "id": "xeLTT",
+                          "type": "ref",
+                          "ref": "oNDqF",
+                          "name": "Sci-Fi Watchlist",
+                          "width": "fill_container",
+                          "padding": [
+                            5,
+                            10
+                          ],
+                          "fill": "#00000000",
+                          "descendants": {
+                            "wIHez": {
+                              "icon": "rocket",
+                              "fill": "$--text-muted"
+                            },
+                            "hPDnR": {
+                              "content": "Sci-Fi Watchlist",
+                              "fill": "$--text-muted"
+                            },
+                            "h75uN": {
+                              "enabled": false
+                            }
+                          }
+                        },
+                        {
+                          "id": "KLWfY",
+                          "type": "ref",
+                          "ref": "oNDqF",
+                          "name": "Backlog",
+                          "width": "fill_container",
+                          "padding": [
+                            5,
+                            10
+                          ],
+                          "fill": "#00000000",
+                          "descendants": {
+                            "wIHez": {
+                              "icon": "clock",
+                              "fill": "$--text-muted"
+                            },
+                            "hPDnR": {
+                              "content": "Backlog",
+                              "fill": "$--text-muted"
+                            },
+                            "h75uN": {
+                              "enabled": false
+                            }
+                          }
+                        },
+                        {
+                          "id": "vgwhH",
+                          "type": "ref",
+                          "ref": "oNDqF",
+                          "name": "2024 Rewatch",
+                          "width": "fill_container",
+                          "padding": [
+                            5,
+                            10
+                          ],
+                          "fill": "#00000000",
+                          "descendants": {
+                            "wIHez": {
+                              "icon": "rotate-ccw",
+                              "fill": "$--text-muted"
+                            },
+                            "hPDnR": {
+                              "content": "2024 Rewatch",
+                              "fill": "$--text-muted"
+                            },
+                            "h75uN": {
+                              "enabled": false
+                            }
+                          }
+                        },
+                        {
+                          "id": "UvJC3",
+                          "type": "ref",
+                          "ref": "oNDqF",
+                          "name": "Comfort Shows",
+                          "width": "fill_container",
+                          "padding": [
+                            5,
+                            10
+                          ],
+                          "fill": "#00000000",
+                          "descendants": {
+                            "wIHez": {
+                              "icon": "heart",
+                              "fill": "$--text-muted"
+                            },
+                            "hPDnR": {
+                              "content": "Comfort Shows",
+                              "fill": "$--text-muted"
+                            },
+                            "h75uN": {
+                              "enabled": false
+                            }
+                          }
+                        },
+                        {
+                          "id": "vFxGU",
+                          "type": "ref",
+                          "ref": "oNDqF",
+                          "name": "Owned on Vinyl",
+                          "width": "fill_container",
+                          "padding": [
+                            5,
+                            10
+                          ],
+                          "fill": "#00000000",
+                          "descendants": {
+                            "wIHez": {
+                              "icon": "disc",
+                              "fill": "$--text-muted"
+                            },
+                            "hPDnR": {
+                              "content": "Owned on Vinyl",
+                              "fill": "$--text-muted"
+                            },
+                            "h75uN": {
+                              "enabled": false
+                            }
+                          }
+                        },
+                        {
+                          "id": "l9AaX0",
+                          "type": "ref",
+                          "ref": "oNDqF",
+                          "name": "All saved views",
+                          "width": "fill_container",
+                          "padding": [
+                            5,
+                            10
+                          ],
+                          "fill": "#00000000",
+                          "descendants": {
+                            "wIHez": {
+                              "icon": "ellipsis",
+                              "fill": "$--text-subtle"
+                            },
+                            "hPDnR": {
+                              "content": "All saved views",
+                              "fill": "$--text-subtle"
+                            },
+                            "h75uN": {
+                              "enabled": false
+                            }
+                          }
+                        },
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 999,
+                          "id": "t0T1HR",
+                          "layoutPosition": "absolute",
+                          "x": 231,
+                          "y": 4,
+                          "name": "SAVED Scroll Thumb",
+                          "fill": "$--input",
+                          "width": 3,
+                          "height": 44
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "rectangle",
+              "cornerRadius": 999,
+              "id": "zt15N",
+              "x": 251,
+              "y": 22,
+              "name": "Scrollbar Thumb",
+              "fill": "$--input",
+              "width": 3,
+              "height": 640
+            },
+            {
+              "type": "frame",
+              "id": "r31JZ2",
+              "x": 14,
+              "y": 835,
+              "name": "Sidebar Footer",
+              "width": 236,
+              "fill": "#00000000",
+              "cornerRadius": 10,
+              "stroke": "$--sidebar-border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "gap": 8,
+              "padding": 8,
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "agDEa",
+                  "name": "Footer Identity",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 999,
+                      "id": "Y1lfy",
+                      "name": "Account Avatar",
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "https://images.unsplash.com/photo-1592119566710-ec00d20ee9e5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjV8&ixlib=rb-4.1.0&q=80&w=1080",
+                        "mode": "fill"
+                      },
+                      "width": 30,
+                      "height": 30
+                    },
+                    {
+                      "type": "frame",
+                      "id": "uYvYG",
+                      "name": "Account Text",
+                      "width": 130,
+                      "layout": "vertical",
+                      "gap": 1,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "GDbbn",
+                          "name": "Account Name",
+                          "fill": "$--text-primary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Diptesh",
+                          "fontFamily": "$--font-body",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "X0Fvh",
+                          "name": "Account Sub",
+                          "fill": "$--text-muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Settings & account",
+                          "fontFamily": "$--font-body",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "sM7gT",
+                  "name": "Footer Actions",
+                  "width": 40,
+                  "height": 31,
+                  "gap": 8,
+                  "justifyContent": "end",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "kUVle",
+                      "name": "Theme Toggle",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "moon",
+                      "library": "lucide",
+                      "fill": "$--text-subtle"
+                    },
+                    {
+                      "type": "icon",
+                      "id": "b8bPIo",
+                      "name": "Settings Icon",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "settings",
+                      "library": "lucide",
+                      "fill": "$--text-subtle"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "zo2OF",
+          "x": 264,
+          "y": 0,
+          "name": "Content",
+          "clip": true,
+          "width": 1176,
+          "height": 900,
+          "fill": "$--background",
+          "layout": "vertical",
+          "gap": 20,
+          "padding": [
+            28,
+            32
+          ],
+          "children": [
+            {
+              "id": "j8BnR",
+              "type": "ref",
+              "ref": "D1nlP",
+              "name": "Page Header",
+              "width": "fill_container",
+              "descendants": {
+                "HWFg9": {
+                  "content": "All Books"
+                },
+                "o0JEzz": {
+                  "content": "10 out of 128"
+                },
+                "B9K5Re/SGNqQ": {
+                  "content": "Search All Books"
+                }
+              }
+            },
+            {
+              "type": "frame",
+              "id": "a3ZwVM",
+              "name": "Poster Grid",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": "$--space-5",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "DFLB6",
+                  "name": "Poster Row 1",
+                  "width": "fill_container",
+                  "gap": "$--space-4",
+                  "children": [
+                    {
+                      "id": "H6FVWX",
+                      "type": "ref",
+                      "ref": "G8sy3",
+                      "name": "Piranesi",
+                      "width": "fill_container",
+                      "descendants": {
+                        "jTwAQ": {
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
+                          "height": 229
+                        },
+                        "IwlU0": {
+                          "width": 117
+                        },
+                        "coxqT": {
+                          "content": "Piranesi"
+                        },
+                        "Uqfn7": {
+                          "content": "Susanna Clarke · 2020"
+                        }
+                      }
+                    },
+                    {
+                      "id": "MP5Ki",
+                      "type": "ref",
+                      "ref": "G8sy3",
+                      "name": "Project Hail Mary",
+                      "width": "fill_container",
+                      "descendants": {
+                        "jTwAQ": {
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
+                          "height": 229
+                        },
+                        "IwlU0": {
+                          "width": 111
+                        },
+                        "coxqT": {
+                          "content": "Project Hail Mary"
+                        },
+                        "Uqfn7": {
+                          "content": "Andy Weir · 2021"
+                        }
+                      }
+                    },
+                    {
+                      "id": "GRxpI",
+                      "type": "ref",
+                      "ref": "G8sy3",
+                      "name": "Dune",
+                      "width": "fill_container",
+                      "descendants": {
+                        "jTwAQ": {
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
+                          "height": 229
+                        },
+                        "IwlU0": {
+                          "width": 111
+                        },
+                        "coxqT": {
+                          "content": "Dune"
+                        },
+                        "Uqfn7": {
+                          "content": "Frank Herbert · 1965"
+                        }
+                      }
+                    },
+                    {
+                      "id": "nh582",
+                      "type": "ref",
+                      "ref": "G8sy3",
+                      "name": "The Left Hand of Darkness",
+                      "width": "fill_container",
+                      "descendants": {
+                        "jTwAQ": {
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
+                          "height": 229
+                        },
+                        "IwlU0": {
+                          "width": 111
+                        },
+                        "coxqT": {
+                          "content": "The Left Hand of Darkness"
+                        },
+                        "Uqfn7": {
+                          "content": "Ursula K. Le Guin · 1969"
+                        }
+                      }
+                    },
+                    {
+                      "id": "b70DV8",
+                      "type": "ref",
+                      "ref": "G8sy3",
+                      "name": "Blindsight",
+                      "width": "fill_container",
+                      "descendants": {
+                        "jTwAQ": {
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
+                          "height": 229
+                        },
+                        "IwlU0": {
+                          "width": 111
+                        },
+                        "coxqT": {
+                          "content": "Blindsight"
+                        },
+                        "Uqfn7": {
+                          "content": "Peter Watts · 2006"
+                        }
+                      }
+                    },
+                    {
+                      "id": "aipGO",
+                      "type": "ref",
+                      "ref": "G8sy3",
+                      "name": "Annihilation",
+                      "width": "fill_container",
+                      "descendants": {
+                        "jTwAQ": {
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
+                          "height": 229
+                        },
+                        "IwlU0": {
+                          "width": 111
+                        },
+                        "coxqT": {
+                          "content": "Annihilation"
+                        },
+                        "Uqfn7": {
+                          "content": "Jeff VanderMeer · 2014"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "NHr1R",
+                  "name": "Poster Row 2",
+                  "width": "fill_container",
+                  "gap": "$--space-4",
+                  "children": [
+                    {
+                      "id": "H4sVEl",
+                      "type": "ref",
+                      "ref": "G8sy3",
+                      "name": "Hyperion",
+                      "width": "fill_container",
+                      "descendants": {
+                        "jTwAQ": {
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
+                          "height": 229
+                        },
+                        "IwlU0": {
+                          "width": 41
+                        },
+                        "coxqT": {
+                          "content": "Hyperion"
+                        },
+                        "Uqfn7": {
+                          "content": "Dan Simmons · 1989"
+                        }
+                      }
+                    },
+                    {
+                      "id": "mDvyK",
+                      "type": "ref",
+                      "ref": "G8sy3",
+                      "name": "Neuromancer",
+                      "width": "fill_container",
+                      "descendants": {
+                        "jTwAQ": {
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
+                          "height": 229
+                        },
+                        "IwlU0": {
+                          "width": 111
+                        },
+                        "coxqT": {
+                          "content": "Neuromancer"
+                        },
+                        "Uqfn7": {
+                          "content": "William Gibson · 1984"
+                        }
+                      }
+                    },
+                    {
+                      "id": "Nexjp",
+                      "type": "ref",
+                      "ref": "G8sy3",
+                      "name": "Children of Time",
+                      "width": "fill_container",
+                      "descendants": {
+                        "jTwAQ": {
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
+                          "height": 229
+                        },
+                        "IwlU0": {
+                          "width": 111
+                        },
+                        "coxqT": {
+                          "content": "Children of Time"
+                        },
+                        "Uqfn7": {
+                          "content": "Adrian Tchaikovsky · 2015"
+                        }
+                      }
+                    },
+                    {
+                      "id": "W7kqR",
+                      "type": "ref",
+                      "ref": "G8sy3",
+                      "name": "The Dispossessed",
+                      "width": "fill_container",
+                      "descendants": {
+                        "jTwAQ": {
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
+                          "height": 229
+                        },
+                        "IwlU0": {
+                          "width": 111
+                        },
+                        "coxqT": {
+                          "content": "The Dispossessed"
+                        },
+                        "Uqfn7": {
+                          "content": "Ursula K. Le Guin · 1974"
+                        }
+                      }
+                    },
+                    {
+                      "id": "vRd1A",
+                      "type": "ref",
+                      "ref": "G8sy3",
+                      "name": "Snow Crash",
+                      "width": "fill_container",
+                      "descendants": {
+                        "jTwAQ": {
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
+                          "height": 229
+                        },
+                        "IwlU0": {
+                          "width": 111
+                        },
+                        "coxqT": {
+                          "content": "Snow Crash"
+                        },
+                        "Uqfn7": {
+                          "content": "Neal Stephenson · 1992"
+                        }
+                      }
+                    },
+                    {
+                      "id": "cwfZQ",
+                      "type": "ref",
+                      "ref": "G8sy3",
+                      "name": "A Fire Upon the Deep",
+                      "width": "fill_container",
+                      "descendants": {
+                        "jTwAQ": {
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
+                          "height": 229
+                        },
+                        "IwlU0": {
+                          "width": 111
+                        },
+                        "coxqT": {
+                          "content": "A Fire Upon the Deep"
+                        },
+                        "Uqfn7": {
+                          "content": "Vernor Vinge · 1992"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "IDdoc",
+                  "name": "Poster Row 3",
+                  "width": "fill_container",
+                  "gap": "$--space-4",
+                  "children": [
+                    {
+                      "id": "xgi21",
+                      "type": "ref",
+                      "ref": "G8sy3",
+                      "name": "Roadside Picnic",
+                      "width": "fill_container",
+                      "descendants": {
+                        "jTwAQ": {
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
+                          "height": 229
+                        },
+                        "IwlU0": {
+                          "width": 111
+                        },
+                        "coxqT": {
+                          "content": "Roadside Picnic"
+                        },
+                        "Uqfn7": {
+                          "content": "Strugatsky · 1972"
+                        }
+                      }
+                    },
+                    {
+                      "id": "dyxga",
+                      "type": "ref",
+                      "ref": "G8sy3",
+                      "name": "Solaris",
+                      "width": "fill_container",
+                      "descendants": {
+                        "jTwAQ": {
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
+                          "height": 229
+                        },
+                        "IwlU0": {
+                          "width": 155
+                        },
+                        "coxqT": {
+                          "content": "Solaris"
+                        },
+                        "Uqfn7": {
+                          "content": "Stanisław Lem · 1961"
+                        }
+                      }
+                    },
+                    {
+                      "id": "D8pFWG",
+                      "type": "ref",
+                      "ref": "G8sy3",
+                      "name": "The Three-Body Problem",
+                      "width": "fill_container",
+                      "descendants": {
+                        "jTwAQ": {
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
+                          "height": 229
+                        },
+                        "IwlU0": {
+                          "width": 111
+                        },
+                        "coxqT": {
+                          "content": "The Three-Body Problem"
+                        },
+                        "Uqfn7": {
+                          "content": "Cixin Liu · 2008"
+                        }
+                      }
+                    },
+                    {
+                      "id": "yYnk7",
+                      "type": "ref",
+                      "ref": "G8sy3",
+                      "name": "Embassytown",
+                      "width": "fill_container",
+                      "descendants": {
+                        "jTwAQ": {
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
+                          "height": 229
+                        },
+                        "IwlU0": {
+                          "width": 111
+                        },
+                        "coxqT": {
+                          "content": "Embassytown"
+                        },
+                        "Uqfn7": {
+                          "content": "China Miéville · 2011"
+                        }
+                      }
+                    },
+                    {
+                      "id": "ufqLN",
+                      "type": "ref",
+                      "ref": "G8sy3",
+                      "name": "Spin",
+                      "width": "fill_container",
+                      "descendants": {
+                        "jTwAQ": {
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
+                          "height": 229
+                        },
+                        "IwlU0": {
+                          "width": 111
+                        },
+                        "coxqT": {
+                          "content": "Spin"
+                        },
+                        "Uqfn7": {
+                          "content": "Robert Charles Wilson · 2005"
+                        }
+                      }
+                    },
+                    {
+                      "id": "GJBGs",
+                      "type": "ref",
+                      "ref": "G8sy3",
+                      "name": "Recursion",
+                      "width": "fill_container",
+                      "descendants": {
+                        "jTwAQ": {
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
+                          "height": 229
+                        },
+                        "IwlU0": {
+                          "width": 111
+                        },
+                        "coxqT": {
+                          "content": "Recursion"
+                        },
+                        "Uqfn7": {
+                          "content": "Blake Crouch · 2019"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "Z96q0G",
+      "x": 3638,
+      "y": 7967,
+      "name": "iPhone / Grid — Standardized",
+      "theme": {
+        "Mode": "Dark"
+      },
+      "clip": true,
+      "width": 425,
+      "height": 900,
+      "fill": "#111111",
+      "cornerRadius": 44,
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "gBqvd",
+          "x": 16,
+          "y": 24,
+          "name": "Grid Screen",
+          "clip": true,
+          "width": 393,
+          "height": 852,
+          "fill": "$--background",
+          "layout": "none",
+          "children": [
+            {
+              "type": "frame",
+              "id": "YjCGc",
+              "x": 0,
+              "y": 88,
+              "name": "Poster Grid",
+              "width": 393,
+              "layout": "vertical",
+              "gap": "$--space-5",
+              "padding": [
+                0,
+                16
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "F0NF0i",
+                  "name": "Poster Row 1",
+                  "width": "fill_container",
+                  "gap": "$--space-3",
+                  "children": [
+                    {
+                      "id": "TUKNv",
+                      "type": "ref",
+                      "ref": "G8sy3",
+                      "name": "Poster / Slaughterhouse-Five",
+                      "width": "fill_container",
+                      "descendants": {
+                        "jTwAQ": {
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
+                          "height": 233
+                        },
+                        "IwlU0": {
+                          "width": 175
+                        },
+                        "coxqT": {
+                          "content": "Slaughterhouse-Five"
+                        },
+                        "Uqfn7": {
+                          "content": "1969 · 304 pages"
+                        }
+                      }
+                    },
+                    {
+                      "id": "M4iJgK",
+                      "type": "ref",
+                      "ref": "G8sy3",
+                      "name": "Poster / The Dispossessed",
+                      "width": "fill_container",
+                      "descendants": {
+                        "jTwAQ": {
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
+                          "height": 233
+                        },
+                        "IwlU0": {
+                          "width": 119
+                        },
+                        "coxqT": {
+                          "content": "The Dispossessed"
+                        },
+                        "Uqfn7": {
+                          "content": "1974 · 387 pages"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "B6qBY",
+                  "name": "Poster Row 2",
+                  "width": "fill_container",
+                  "gap": "$--space-3",
+                  "children": [
+                    {
+                      "id": "p1rfz",
+                      "type": "ref",
+                      "ref": "G8sy3",
+                      "name": "Poster / Kafka on the Shore",
+                      "width": "fill_container",
+                      "descendants": {
+                        "jTwAQ": {
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
+                          "height": 233
+                        },
+                        "IwlU0": {
+                          "width": 61
+                        },
+                        "coxqT": {
+                          "content": "Kafka on the Shore"
+                        },
+                        "Uqfn7": {
+                          "content": "2002 · 505 pages"
+                        }
+                      }
+                    },
+                    {
+                      "id": "W4hJ1X",
+                      "type": "ref",
+                      "ref": "G8sy3",
+                      "name": "Poster / Piranesi",
+                      "width": "fill_container",
+                      "descendants": {
+                        "jTwAQ": {
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
+                          "height": 233
+                        },
+                        "IwlU0": {
+                          "width": 161
+                        },
+                        "coxqT": {
+                          "content": "Piranesi"
+                        },
+                        "Uqfn7": {
+                          "content": "2020 · 245 pages"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "guZEb",
+                  "name": "Poster Row 3",
+                  "width": "fill_container",
+                  "gap": "$--space-3",
+                  "children": [
+                    {
+                      "id": "zbYq0",
+                      "type": "ref",
+                      "ref": "G8sy3",
+                      "name": "Poster / The Left Hand of Darkness",
+                      "width": "fill_container",
+                      "descendants": {
+                        "jTwAQ": {
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
+                          "height": 233
+                        },
+                        "IwlU0": {
+                          "width": 24
+                        },
+                        "coxqT": {
+                          "content": "The Left Hand of Darkness"
+                        },
+                        "Uqfn7": {
+                          "content": "1969 · 304 pages"
+                        }
+                      }
+                    },
+                    {
+                      "id": "mYs2O",
+                      "type": "ref",
+                      "ref": "G8sy3",
+                      "name": "Poster / Never Let Me Go",
+                      "width": "fill_container",
+                      "descendants": {
+                        "jTwAQ": {
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
+                          "height": 233
+                        },
+                        "IwlU0": {
+                          "width": 96
+                        },
+                        "coxqT": {
+                          "content": "Never Let Me Go"
+                        },
+                        "Uqfn7": {
+                          "content": "2005 · 288 pages"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "rectangle",
+              "id": "T2lmX",
+              "x": 0,
+              "y": 0,
+              "name": "Top Scrim",
+              "fill": {
+                "type": "gradient",
+                "gradientType": "linear",
+                "enabled": true,
+                "rotation": 180,
+                "size": {
+                  "height": 1
+                },
+                "colors": [
+                  {
+                    "color": "#101113F5",
+                    "position": 0
+                  },
+                  {
+                    "color": "#10111399",
+                    "position": 0.5
+                  },
+                  {
+                    "color": "#10111300",
+                    "position": 1
+                  }
+                ]
+              },
+              "width": 393,
+              "height": 150
+            },
+            {
+              "type": "frame",
+              "id": "mZVfi",
+              "x": 0,
+              "y": 0,
+              "name": "Top Bar",
+              "width": 393,
+              "layout": "vertical",
+              "padding": [
+                44,
+                16,
+                0,
+                16
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "aI01F",
+                  "name": "Bar Row",
+                  "width": "fill_container",
+                  "height": 44,
+                  "gap": 10,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "qUoYS",
+                      "name": "Back",
+                      "width": 32,
+                      "height": 32,
+                      "fill": "#FFFFFF14",
+                      "cornerRadius": 999,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "MfpSa",
+                          "name": "Icon",
+                          "width": 17,
+                          "height": 17,
+                          "icon": "chevron-left",
+                          "library": "lucide",
+                          "fill": "$--text-primary"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "CWRct",
+                      "name": "Title Stack",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "F5evhS",
+                          "name": "Title Row",
+                          "gap": 6,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "g9QRN",
+                              "name": "View Icon",
+                              "width": 13,
+                              "height": 13,
+                              "icon": "book",
+                              "library": "lucide",
+                              "fill": "$--accent-text"
+                            },
+                            {
+                              "type": "text",
+                              "id": "BNgfi",
+                              "name": "View Name",
+                              "fill": "$--text-primary",
+                              "content": "All Books",
+                              "fontFamily": "$--font-primary",
+                              "fontSize": 19,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "xr6Ma",
+                          "name": "Count",
+                          "fill": "$--text-muted",
+                          "content": "10 of 128",
+                          "fontFamily": "$--font-primary",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "id": "beGWH",
+                      "type": "ref",
+                      "ref": "fUMf3",
+                      "name": "Search"
+                    },
+                    {
+                      "id": "m0hA5B",
+                      "type": "ref",
+                      "ref": "fUMf3",
+                      "name": "Filters",
+                      "descendants": {
+                        "ci5Ik": {
+                          "icon": "sliders-horizontal"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "B1Ovx",
+              "type": "ref",
+              "ref": "iQfq8",
+              "name": "Home Indicator",
+              "x": 132,
+              "y": 838
+            },
+            {
+              "id": "mNOK0",
+              "type": "ref",
+              "ref": "M24X23",
+              "name": "Add FAB",
+              "x": 321,
+              "y": 764
+            }
+          ]
+        }
+      ]
     }
   ],
   "themes": {
