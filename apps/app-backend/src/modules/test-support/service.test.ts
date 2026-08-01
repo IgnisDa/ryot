@@ -235,7 +235,6 @@ it.effect("triggers exactly one requested plugin cron with a manual execution id
 						cronSlug,
 						pluginSlug,
 						executionId,
-						lot: "script" as const,
 						result: { status: "completed" },
 						status: "executed" as const,
 					};

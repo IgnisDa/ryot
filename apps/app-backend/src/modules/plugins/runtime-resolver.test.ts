@@ -313,13 +313,13 @@ it.effect("resolves active schema providers and their operation-specific scripts
 			}),
 		).toMatchObject({ id: "workflow-script-id", slug: "fixture.workflow" });
 		expect(
-			yield* resolver.resolveSystemQueryActivity(SandboxScriptId.make("activity-script-id")),
+			yield* resolver.resolveSystemQueryScript(SandboxScriptId.make("activity-script-id")),
 		).toMatchObject({
 			pluginSlug: "fixture",
 			entitySchemaSlugs: ["fixture-entity", "unbound-entity"],
 		});
 		expect(
-			yield* resolver.resolveSystemQueryActivity(SandboxScriptId.make("details-script-id")),
+			yield* resolver.resolveSystemQueryScript(SandboxScriptId.make("details-script-id")),
 		).toBeNull();
 	}).pipe(Effect.provide(makeLayer())),
 );

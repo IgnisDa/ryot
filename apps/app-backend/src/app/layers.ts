@@ -318,7 +318,7 @@ const SandboxExecutionServiceLive = Layer.provide(
 );
 
 const PluginUserBootstrapDispatcherDependenciesLive = Layer.provideMerge(
-	Layer.mergeAll(RuntimeSandboxServiceLive, SandboxRepository.layer),
+	SandboxExecutionServiceLive,
 	PluginRuntimeResolverLive,
 );
 
@@ -473,12 +473,12 @@ export const RuntimeDependenciesLive = Layer.provideMerge(
 		Layer.provideMerge(
 			Layer.mergeAll(
 				AddEntityToCollectionWorkflowOperationsLive,
-				EventCreateWorkflowOperationsLive,
+				Layer.provide(EventCreateWorkflowOperationsLive, ServicesWithTestSupportLive),
 			),
 			ServicesWithTestSupportLive,
 		),
 		EntityImportWorkflowOperationsLive,
-		SubscriptionExecutionWorkflowOperationsLive,
+		Layer.provide(SubscriptionExecutionWorkflowOperationsLive, ServicesWithTestSupportLive),
 		TranslateEntityWorkflowOperationsLive,
 	),
 	ApplicationInfrastructureLive,

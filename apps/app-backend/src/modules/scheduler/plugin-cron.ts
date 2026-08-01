@@ -1,6 +1,7 @@
+import { unknownToMessage } from "@ryot/contract/errors";
 import type { PluginSlug } from "@ryot/contract/schema/brands";
 import type { PluginCron } from "@ryot/plugin-kit/manifest";
-import { Clock, Context, Cron, Duration, Effect, Result, Layer } from "effect";
+import { Cause, Clock, Context, Cron, Duration, Effect, Result, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
@@ -8,7 +9,6 @@ import { DbRunner } from "#lib/infrastructure/db/service";
 import { PluginLoader } from "#modules/plugins/loader";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { SandboxScriptWorkflow } from "#modules/sandbox/sandbox-script-workflow";
-import { SandboxSubmissionWorkflow } from "#modules/sandbox/sandbox-submission-workflow";
 
 type ActivePluginCron = {
 	readonly cron: PluginCron;
@@ -62,8 +62,8 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 				);
 				return { status: "notFound" as const };
 			}
-			if (resolved.cron.lot === "workflow") {
-				const result = yield* engine.execute(SandboxScriptWorkflow, {
+			const execution = yield* Effect.exit(
+				engine.execute(SandboxScriptWorkflow, {
 					executionId,
 					payload: {
 						input: {},
@@ -72,19 +72,25 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 						scriptId: resolved.script.id,
 						authority: { type: "system" },
 					},
-				});
-				return { result, cron: resolved.cron, status: "executed" as const };
-			}
-			const result = yield* engine.execute(SandboxSubmissionWorkflow, {
-				executionId,
-				payload: {
-					context: {},
-					executionId,
-					scriptId: resolved.script.id,
-					authority: { type: "system" },
-				},
-			});
-			return { result, cron: resolved.cron, status: "executed" as const };
+				}),
+			);
+			const result =
+				execution._tag === "Success"
+					? execution.value
+					: {
+							logs: [],
+							value: null,
+							status: "completed" as const,
+							error: {
+								phase: "execute" as const,
+								message: unknownToMessage(Cause.squash(execution.cause)),
+							},
+						};
+			return {
+				result,
+				cron: resolved.cron,
+				status: execution._tag === "Failure" ? ("failed" as const) : ("executed" as const),
+			};
 		});
 
 		const dispatchAll = (entries: ReadonlyArray<readonly [PluginCronIdentity, string]>) =>
@@ -92,6 +98,17 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 				entries,
 				([entry, executionId]) =>
 					dispatch(entry, executionId).pipe(
+						Effect.tap((result) =>
+							result.status === "failed"
+								? Effect.logError("plugin cron execution failed").pipe(
+										Effect.annotateLogs({
+											executionId,
+											cronSlug: entry.cronSlug,
+											pluginSlug: entry.pluginSlug,
+										}),
+									)
+								: Effect.void,
+						),
 						Effect.catchCause((cause) =>
 							Effect.logError("plugin cron dispatch failed", cause).pipe(
 								Effect.annotateLogs({
@@ -151,9 +168,8 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 						cronSlug,
 						pluginSlug,
 						executionId,
-						lot: dispatched.cron.lot,
 						result: dispatched.result,
-						status: "executed" as const,
+						status: dispatched.status,
 					};
 		});
 

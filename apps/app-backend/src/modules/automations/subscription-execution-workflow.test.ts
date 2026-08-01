@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest";
+import { SandboxRunError } from "@ryot/contract/errors";
 import {
 	AutomationRuleId,
 	EntityId,
@@ -203,6 +204,39 @@ it.effect("does not execute the sandbox for an already terminal run", () => {
 		operations,
 		Effect.gen(function* () {
 			expect(yield* runSubscriptionExecutionWorkflow(payload, "execution-1")).toBe(runId);
+		}),
+	);
+});
+
+it.effect("records sandbox failures before completing the subscription run", () => {
+	let completed: unknown;
+	const service = Layer.mock(AutomationsService, {
+		prepareRun: () =>
+			Effect.succeed({
+				run: queuedRun,
+				execution: { ruleId, metadata: rule.metadata, sandboxScriptId: scriptId },
+			}),
+		beginRun: () => Effect.succeed({ kind: "ready" as const, run: queuedRun }),
+		completeRun: (input) => {
+			completed = input;
+			return Effect.succeed({ ...queuedRun, status: "failed" as const });
+		},
+	});
+	const operations = Layer.mock(SubscriptionExecutionWorkflowOperations, {
+		runSandbox: () => Effect.fail(new SandboxRunError({ message: "script failed" })),
+	});
+
+	return withWorkflowLayer(
+		service,
+		operations,
+		Effect.gen(function* () {
+			expect(yield* runSubscriptionExecutionWorkflow(payload, "execution-1")).toBe(runId);
+			expect(completed).toMatchObject({
+				id: runId,
+				logs: [],
+				value: null,
+				error: { phase: "execute", message: "script failed" },
+			});
 		}),
 	);
 });

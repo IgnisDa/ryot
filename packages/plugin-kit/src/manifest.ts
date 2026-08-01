@@ -226,18 +226,10 @@ const PluginCronFields = {
 	]),
 };
 
-export const PluginCron = Schema.Union([
-	strictStruct({
-		...PluginCronFields,
-		scriptSlug: sandboxManifestSlug,
-		lot: Schema.Literal("script"),
-	}),
-	strictStruct({
-		...PluginCronFields,
-		workflowSlug: sandboxManifestSlug,
-		lot: Schema.Literal("workflow"),
-	}),
-]);
+export const PluginCron = strictStruct({
+	...PluginCronFields,
+	scriptSlug: sandboxManifestSlug,
+});
 
 export type PluginCron = Schema.Schema.Type<typeof PluginCron>;
 
@@ -529,7 +521,7 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 	const referencedScriptSlugs = [
 		...manifest.boot.map(({ scriptSlug }) => scriptSlug),
 		...manifest.userBootstrap.map(({ scriptSlug }) => scriptSlug),
-		...manifest.crons.flatMap((cron) => (cron.lot === "script" ? [cron.scriptSlug] : [])),
+		...manifest.crons.map(({ scriptSlug }) => scriptSlug),
 		...manifest.operations.map(({ scriptSlug }) => scriptSlug),
 		...manifest.workflows.map(({ scriptSlug }) => scriptSlug),
 		...manifest.bindings.eventAutomations.map(({ scriptSlug }) => scriptSlug),
@@ -543,7 +535,6 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 
 	return (
 		referencedScriptSlugs.every((scriptSlug) => scriptSlugs.has(scriptSlug)) &&
-		manifest.crons.every((cron) => cron.lot === "script" || workflowSlugs.has(cron.workflowSlug)) &&
 		manifest.bindings.schemaProviderLinks.every(({ providerSlug }) =>
 			providerSlugs.has(providerSlug),
 		)

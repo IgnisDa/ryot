@@ -333,11 +333,11 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					if (input.authority.type === "system") {
 						return Effect.gen(function* () {
 							const caller = yield* runWithDb(
-								pluginRuntime.resolveSystemQueryActivity(SandboxScriptId.make(input.scriptId)),
+								pluginRuntime.resolveSystemQueryScript(SandboxScriptId.make(input.scriptId)),
 							);
 							if (!caller) {
 								return yield* Effect.fail(
-									"executeQueryEngine system access requires a pinned plugin activity script",
+									"executeQueryEngine system access requires a pinned plugin script",
 								);
 							}
 							const doc = yield* decodeQueryDocument(query);

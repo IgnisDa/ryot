@@ -798,7 +798,9 @@ const executeDefinition = async (
 
 	setPhase("execute");
 	const durable =
-		typeof payload.workflowExecutionId === "string" && definition.manifest.kind !== "workflow"
+		typeof payload.workflowExecutionId === "string" &&
+		definition.manifest.kind !== "workflow" &&
+		definition.manifest.kind !== "activity"
 			? await createDurableHost(definition, payload)
 			: undefined;
 	const host = durable?.host ?? createHost(payload);
@@ -819,6 +821,13 @@ const executeDefinition = async (
 			}),
 		);
 		if (durable) {
+			if (durable.isPending()) {
+				return {
+					state: "pending",
+					requests: durable.requests,
+					journalLength: durable.journalLength,
+				};
+			}
 			const detachedError = durable.detachedError();
 			if (detachedError) {
 				return {
@@ -828,19 +837,15 @@ const executeDefinition = async (
 					journalLength: durable.journalLength,
 				};
 			}
-			if (durable.isPending()) {
-				return {
-					state: "pending",
-					requests: durable.requests,
-					journalLength: durable.journalLength,
-				};
-			}
 			if (!outcome.success) {
 				return {
 					state: "failed",
 					requests: durable.requests,
 					journalLength: durable.journalLength,
-					error: nativeString(outcome.error),
+					error:
+						isRecord(outcome.error) && typeof outcome.error.message === "string"
+							? outcome.error.message
+							: nativeString(outcome.error),
 				};
 			}
 			setPhase("output");

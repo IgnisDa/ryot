@@ -172,17 +172,9 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					if (!plugin || !cron) {
 						return null;
 					}
-					const scriptSlug =
-						cron.lot === "script"
-							? cron.scriptSlug
-							: plugin.manifest.workflows.find(({ slug }) => slug === cron.workflowSlug)
-									?.scriptSlug;
-					if (!scriptSlug) {
-						return null;
-					}
 					const script = yield* findActiveScriptInPluginSnapshot(snapshot, {
+						scriptSlug: cron.scriptSlug,
 						pluginSlug: input.pluginSlug,
-						scriptSlug,
 					});
 					return script ? { cron, script } : null;
 				},
@@ -317,41 +309,47 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					? { pluginSlug: script.pluginSlug, configSchema: plugin.manifest.configSchema }
 					: null;
 			});
-			const resolveSystemQueryActivity = Effect.fn(
-				"PluginRuntimeResolver.resolveSystemQueryActivity",
-			)(function* (scriptId: SandboxScriptId) {
-				const snapshot = loader.getSnapshot();
-				const db = yield* CurrentDb;
-				const [script] = yield* dbEffect(() =>
-					db
-						.select()
-						.from(schema.sandboxScript)
-						.where(eq(schema.sandboxScript.id, scriptId))
-						.limit(1),
-				);
-				if (!script?.pluginSlug || script.metadata.kind !== "activity") {
-					return null;
-				}
-				const plugin = snapshot.plugins[script.pluginSlug];
-				const active = plugin?.scripts.find(
-					(candidate) =>
-						candidate.slug === script.slug && candidate.contentHash === script.contentHash,
-				);
-				if (!plugin || active?.metadata.kind !== "activity") {
-					return null;
-				}
-				return {
-					pluginSlug: script.pluginSlug,
-					entitySchemaSlugs: plugin.manifest.entitySchemas.map(({ slug }) => slug),
-					relationshipSchemaSlugs: plugin.manifest.relationshipSchemas.map(({ slug }) => slug),
-					eventSchemas: plugin.manifest.entitySchemas.flatMap((entitySchema) =>
-						entitySchema.eventSchemas.map((eventSchema) => ({
-							eventSchemaSlug: eventSchema.slug,
-							entitySchemaSlug: entitySchema.slug,
-						})),
-					),
-				};
-			});
+			const resolveSystemQueryScript = Effect.fn("PluginRuntimeResolver.resolveSystemQueryScript")(
+				function* (scriptId: SandboxScriptId) {
+					const snapshot = loader.getSnapshot();
+					const db = yield* CurrentDb;
+					const [script] = yield* dbEffect(() =>
+						db
+							.select()
+							.from(schema.sandboxScript)
+							.where(eq(schema.sandboxScript.id, scriptId))
+							.limit(1),
+					);
+					if (
+						!script?.pluginSlug ||
+						(script.metadata.kind !== "activity" && script.metadata.kind !== "script")
+					) {
+						return null;
+					}
+					const plugin = snapshot.plugins[script.pluginSlug];
+					const active = plugin?.scripts.find(
+						(candidate) =>
+							candidate.slug === script.slug && candidate.contentHash === script.contentHash,
+					);
+					if (
+						!plugin ||
+						(active?.metadata.kind !== "activity" && active?.metadata.kind !== "script")
+					) {
+						return null;
+					}
+					return {
+						pluginSlug: script.pluginSlug,
+						entitySchemaSlugs: plugin.manifest.entitySchemas.map(({ slug }) => slug),
+						relationshipSchemaSlugs: plugin.manifest.relationshipSchemas.map(({ slug }) => slug),
+						eventSchemas: plugin.manifest.entitySchemas.flatMap((entitySchema) =>
+							entitySchema.eventSchemas.map((eventSchema) => ({
+								eventSchemaSlug: eventSchema.slug,
+								entitySchemaSlug: entitySchema.slug,
+							})),
+						),
+					};
+				},
+			);
 
 			const findKernelScript = Effect.fn("PluginRuntimeResolver.findKernelScript")(function* (
 				scriptSlug: string,
@@ -693,7 +691,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				resolveActivePluginCron,
 				findSchemaProviderBySlug,
 				findActiveWorkflowScript,
-				resolveSystemQueryActivity,
+				resolveSystemQueryScript,
 				findAuthorizedSchemaProviderById,
 				findActivePluginConfigByScriptId,
 				resolveActivePluginUserBootstrap,

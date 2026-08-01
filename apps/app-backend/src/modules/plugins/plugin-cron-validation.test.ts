@@ -16,7 +16,6 @@ const cronManifest = () => {
 		crons: [
 			{
 				slug: "fixture-cron",
-				lot: "script" as const,
 				scriptSlug: script.slug,
 				description: "Fixture cron",
 				schedule: { cron: "* * * * *" },

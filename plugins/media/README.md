@@ -26,7 +26,7 @@ Status, enable, and disable accept at most 50 entity IDs. Shared query enforces 
 - Disable removes only `media-monitoring`.
 - Unsupported or invisible targets return `notFound` while results remain input-aligned.
 
-Monitoring cron pages through pinned `activity.media-monitoring-targets` query, deduplicates global monitored entity IDs, and invokes kernel provider population in refresh batches of at most 100. Query access stays in activity; durable child dispatch stays in workflow. Kernel uses concurrency four and deterministic index-derived child IDs.
+Monitoring cron pages through the pinned `media-monitoring-targets` query script, deduplicates global monitored entity IDs, and invokes kernel provider population in refresh batches of at most 100. Query access stays in the pinned system script; durable child dispatch stays in the workflow. Kernel uses concurrency four and deterministic index-derived child IDs.
 
 ## Lifecycle
 
