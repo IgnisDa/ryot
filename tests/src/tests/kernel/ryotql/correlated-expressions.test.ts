@@ -1,4 +1,4 @@
-import type { RowItem, RowsResult, RyotQLResult } from "@ryot/contract/modules/ryotql/language";
+import type { RowItem } from "@ryot/contract/modules/ryotql/language";
 import {
 	add,
 	and,
@@ -37,17 +37,11 @@ import {
 	createEntityFixture,
 	createPluginEntitySchema,
 	executeRyotQL,
+	requireRows,
 	requireRyotQLFieldValue,
 } from "~/fixtures";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-
-const requireRows = (result: RyotQLResult | undefined, key: string): RowsResult => {
-	if (result?.type !== "rows") {
-		throw new Error(`Expected '${key}' rows`);
-	}
-	return result;
-};
 
 const findByName = (items: readonly RowItem[], name: string) => {
 	const item = items.find((value) => requireRyotQLFieldValue(value, "name").value === name);
