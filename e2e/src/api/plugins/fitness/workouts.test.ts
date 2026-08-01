@@ -153,7 +153,15 @@ describe("Workouts E2E", () => {
 			});
 			expect(
 				savedViewQuery.output.fields.map((selection) => "key" in selection && selection.key),
-			).toEqual(["entityId", "title", "overline", "primaryMetadata", "secondaryMetadata"]);
+			).toEqual([
+				"entityId",
+				"title",
+				"overline",
+				"primaryMetadata",
+				"secondaryMetadata",
+				"populationStatus",
+				"translationStatus",
+			]);
 		}),
 	);
 
