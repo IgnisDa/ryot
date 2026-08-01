@@ -8,7 +8,9 @@ export type UmamiEvent = {
 };
 
 export type UmamiEnvironment = {
+	readonly os?: string;
 	readonly screen: string;
+	readonly device?: string;
 	readonly hostname: string;
 	readonly language: string;
 	readonly referrer: string;
@@ -40,5 +42,7 @@ export const umamiRequestBody = (options: {
 		title: options.event.title ?? options.event.url,
 		...(options.event.name === undefined ? {} : { name: options.event.name }),
 		...(options.event.data === undefined ? {} : { data: options.event.data }),
+		...(options.environment.os === undefined ? {} : { os: options.environment.os }),
+		...(options.environment.device === undefined ? {} : { device: options.environment.device }),
 	},
 });
