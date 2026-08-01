@@ -20,6 +20,7 @@ import clsx from "clsx";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 
 import type { WatchEntities } from "#/modules/entity-interest/service";
+import { subscribeNativeResume } from "#/modules/entity-interest/transport";
 import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
 import { mainContentProps } from "#/modules/navigation/skip-link";
 import {
@@ -108,6 +109,7 @@ export function PluginFrame(props: {
 	readonly onOverlayState: (count: number) => void;
 	readonly chromeTriggerRef: RefObject<HTMLElement | null>;
 	readonly mutationCompleted: RyotClient["mutationCompleted"];
+	readonly subscribeResume?: (resumed: () => void) => () => void;
 	readonly onRenewArtifactSession: RenewPluginArtifactSession;
 	readonly onHeader: (header: PluginHeaderPublication) => void;
 	readonly onKernelShortcut: (shortcut: KernelShortcut) => void;
@@ -143,6 +145,7 @@ export function PluginFrame(props: {
 	const entityId = location.kind === "entity" ? location.entityId : undefined;
 	const routeSearch = location.kind === "route" ? location.search : undefined;
 	const entitySchemaSlug = location.kind === "entity" ? location.entitySchemaSlug : undefined;
+	const subscribeResume = props.subscribeResume;
 	const latest = useRef(props);
 	const frame = useRef<HTMLIFrameElement>(null);
 	const backSettle = useRef<number>(undefined);
@@ -263,7 +266,11 @@ export function PluginFrame(props: {
 			}
 		}
 		const onVisibilityChange = () => {
-			if (document.visibilityState !== "visible" || active === undefined) {
+			if (document.visibilityState !== "visible") {
+				return;
+			}
+			bridge.current?.sendPageRefresh();
+			if (active === undefined) {
 				return;
 			}
 			if (Date.parse(active.expiresAt) <= Date.now()) {
@@ -276,6 +283,9 @@ export function PluginFrame(props: {
 		};
 
 		document.addEventListener("visibilitychange", onVisibilityChange);
+		const releaseResume = (subscribeResume ?? subscribeNativeResume)(() =>
+			bridge.current?.sendPageRefresh(),
+		);
 		void lifecycle
 			.onCreateArtifactSession(
 				{
@@ -309,6 +319,7 @@ export function PluginFrame(props: {
 			window.clearTimeout(expiryTimer);
 			window.clearTimeout(renewalTimer);
 			document.removeEventListener("visibilitychange", onVisibilityChange);
+			releaseResume();
 			const detached = active;
 			active = undefined;
 			if (detached !== undefined) {
@@ -320,6 +331,7 @@ export function PluginFrame(props: {
 		props.artifactSessionScopeKey,
 		props.installationId,
 		props.sourceHash,
+		subscribeResume,
 		reload,
 	]);
 

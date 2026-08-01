@@ -17,9 +17,11 @@ import {
 	createRendererSavedView,
 	createResultsTableSavedView,
 	createTestUser,
+	fakeProviderDetailsResult,
 	getBuiltinEntitySchemaSlug,
 	getEntity,
 	installFixtureClientPlugin,
+	installTestProvider,
 	listEntitySchemas,
 	listEventSchemas,
 	FIXTURE_CLIENT_PLUGIN_SLUG,
@@ -243,6 +245,132 @@ it.live("adds an outside Pokemon through the published collection workflow and p
 		yield* runtime
 			.getByRole("link", { name: "04 Task 07 Pokemon B", exact: true })
 			.waitFor({ state: "visible" });
+	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+);
+
+it.live("preserves expanded and dialog state when provider population completes", () =>
+	Effect.gen(function* () {
+		const apiUrl = getApiUrl();
+		const { token, email, password } = yield* createTestUser(apiUrl);
+		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+		yield* installFixtureClientPlugin(client, "A", "", apiUrl);
+		const pokemonSchema = requirePresent(
+			(yield* listEntitySchemas(client, {
+				slugs: ["pokemon"],
+				pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG,
+			}))[0],
+			"Fixture Pokemon schema was not registered",
+		);
+		const provider = yield* installTestProvider({
+			client,
+			detailsDelayMs: 20_000,
+			rootEntitySchemaSlug: pokemonSchema.id,
+			details: fakeProviderDetailsResult({
+				name: "Task 08 Populated Pokemon",
+				properties: {
+					height: 7,
+					weight: 69,
+					types: ["Grass", "Poison"],
+					abilities: ["Overgrow", "Chlorophyll"],
+				},
+			}),
+		});
+		const outsidePokemon = yield* createEntity(client, {
+			name: "Task 08 Outside Pokemon",
+			properties: { types: ["Fire"] },
+			entitySchemaSlug: pokemonSchema.id,
+		});
+		const collection = yield* createCollection(client, { name: "Task 08 collection" });
+		const renderer = yield* createClientRenderer(client, {
+			draftDefinition: buildCollectionWorkflowRendererDefinition(),
+		});
+		yield* publishClientRenderer(client, renderer.id, renderer.draftRevision);
+		const view = yield* createRendererSavedView(
+			client,
+			renderer.id,
+			{ collectionId: collection.id, pageSize: 10 },
+			{ name: "Task 08 state preservation" },
+		);
+
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
+		yield* signInThroughHostedOAuth(page, email, password);
+		const partialPokemon = yield* createEntity(client, {
+			properties: {},
+			name: "Task 08 Partial Pokemon",
+			providerId: provider.providerId,
+			entitySchemaSlug: pokemonSchema.id,
+			externalId: `task-08-${crypto.randomUUID()}`,
+		});
+		yield* client.call((contract) =>
+			contract.collections.createMembership({
+				payload: { entityId: partialPokemon.id, collectionId: collection.id },
+			}),
+		);
+		expect((yield* getEntity(client, partialPokemon.id)).populationStatus).toBe("pending");
+		yield* page.goto(`${getFrontendUrl()}/v/${view.slug}`);
+		const frames = page.locator("iframe");
+		yield* frames.waitFor({ state: "visible" });
+		const iframe = Option.getOrThrow(yield* frames.first().elementHandle());
+		let runtime = frames.contentFrame();
+		yield* runtime
+			.getByRole("heading", { level: 1, name: "Task 07 collection workflow" })
+			.waitFor();
+		const application = runtime.locator("#app");
+		const app = Option.getOrThrow(yield* application.elementHandle());
+		const pokemon = runtime
+			.locator(`[data-entity-id="${partialPokemon.id}"][data-layout="row"]`)
+			.filter({ visible: true });
+		yield* pokemon.scrollIntoViewIfNeeded();
+		yield* expectVisibleText(pokemon, "Task 08 Partial Pokemon");
+		yield* expectVisibleText(runtime.locator("body"), "1 syncing");
+		yield* pokemon.getByRole("button", { name: "Show details" }).click();
+
+		yield* runtime
+			.getByRole("button", { name: "Add Task 08 Outside Pokemon to collection" })
+			.click();
+		yield* page.waitForURL(
+			(url) =>
+				url.searchParams.get("dialog") === "add-to-collection" &&
+				url.searchParams.get("entityId") === outsidePokemon.id,
+		);
+		runtime = frames.contentFrame();
+		const chooseDialog = runtime.getByRole("dialog", { name: "Choose a collection" });
+		yield* chooseDialog.getByRole("radio", { name: collection.name }).click();
+		yield* chooseDialog.getByRole("button", { name: "Review" }).click();
+		const reviewDialog = runtime.getByRole("dialog", { name: "Review collection change" });
+		const dialogElement = Option.getOrThrow(yield* reviewDialog.elementHandle());
+		yield* expectVisibleText(reviewDialog, "Add Task 08 Outside Pokemon to Task 08 collection?");
+		const activePokemon = runtime
+			.locator(`[data-entity-id="${partialPokemon.id}"][data-layout="row"]`)
+			.filter({ visible: true });
+		yield* activePokemon.scrollIntoViewIfNeeded();
+		yield* activePokemon.getByText("Task 08 Populated Pokemon", { exact: true }).waitFor({
+			state: "visible",
+			timeout: 150_000,
+		});
+		yield* expectVisibleText(runtime.locator("body"), "0 syncing");
+		yield* expectVisibleText(activePokemon, "Grass");
+		yield* expectVisibleText(activePokemon, "Poison");
+		expect(yield* frames.first().evaluate((current, initial) => current === initial, iframe)).toBe(
+			true,
+		);
+		expect(yield* application.evaluate((current, initial) => current === initial, app)).toBe(true);
+		expect(
+			yield* reviewDialog.evaluate((current, initial) => current === initial, dialogElement),
+		).toBe(true);
+
+		yield* page.goBack();
+		yield* page.waitForURL((url) => url.searchParams.get("dialog") === null);
+		runtime = frames.contentFrame();
+		const retainedPokemon = runtime
+			.locator(`[data-entity-id="${partialPokemon.id}"][data-layout="row"]`)
+			.filter({ visible: true });
+		yield* retainedPokemon.getByText("Task 08 Populated Pokemon", { exact: true }).waitFor();
+		expect(yield* retainedPokemon.getByRole("button", { name: "Hide details" }).isVisible()).toBe(
+			true,
+		);
+		yield* expectVisibleText(retainedPokemon, "Overgrow, Chlorophyll");
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );
 

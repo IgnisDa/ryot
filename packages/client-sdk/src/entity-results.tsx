@@ -5,16 +5,25 @@ import {
 	Component,
 	createContext,
 	useContext,
+	useCallback,
 	useEffect,
 	useMemo,
+	useRef,
 	useState,
 	type ComponentType,
 	type ReactNode,
 } from "react";
 
 import type { RyotClient } from "./index";
-import { createRyotQuery, useRyotQuery, useRyotSchedule, type RyotQuery } from "./react";
-import { PluginLink } from "./routing";
+import {
+	createRyotQuery,
+	useEntityRefresh,
+	usePageRefreshRequest,
+	useRyotQuery,
+	useRyotSchedule,
+	type RyotQuery,
+} from "./react";
+import { PluginLink, usePluginScreenSurface } from "./routing";
 import type { RyotSchedule } from "./schedule";
 
 export type EntityResultsLayout = "grid" | "list";
@@ -266,7 +275,8 @@ const PresentedEntity = ({
 	if (result.isPending) {
 		return <StatusMessage tone="pending">Loading {reference.name ?? "entity"}...</StatusMessage>;
 	}
-	if (result.isError) {
+	const data = result.data?.[reference.entityId];
+	if (result.isError && data === undefined) {
 		return (
 			<ItemFailure
 				reference={reference}
@@ -275,7 +285,6 @@ const PresentedEntity = ({
 			/>
 		);
 	}
-	const data = result.data?.[reference.entityId];
 	if (data === undefined) {
 		return (
 			<ItemFailure
@@ -287,13 +296,23 @@ const PresentedEntity = ({
 	}
 	const Presentation = runtime.definition.component;
 	return (
-		<PresentationErrorBoundary
-			key={attempt}
-			reference={reference}
-			onRetry={() => setAttempt((value) => value + 1)}
-		>
-			<Presentation data={data} reference={reference} viewContext={viewContext} />
-		</PresentationErrorBoundary>
+		<>
+			{result.isError && (
+				<div key="refresh-error">
+					<StatusMessage tone="error">Refresh failed.</StatusMessage>
+					<Button type="button" variant="text" onClick={result.refetch}>
+						Retry
+					</Button>
+				</div>
+			)}
+			<PresentationErrorBoundary
+				key={attempt}
+				reference={reference}
+				onRetry={() => setAttempt((value) => value + 1)}
+			>
+				<Presentation data={data} reference={reference} viewContext={viewContext} />
+			</PresentationErrorBoundary>
+		</>
 	);
 };
 
@@ -304,6 +323,23 @@ type ResolvedItem =
 			readonly reference: EntityReference;
 			readonly runtime: PresentationRuntime;
 	  };
+
+const ObservedEntity = ({
+	children,
+	entityId,
+	register,
+}: {
+	readonly entityId: string;
+	readonly children: ReactNode;
+	readonly register: (entityId: string, element: HTMLDivElement) => () => void;
+}) => {
+	const ref = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		const element = ref.current;
+		return element ? register(entityId, element) : undefined;
+	}, [entityId, register]);
+	return <div ref={ref}>{children}</div>;
+};
 
 export const EntityResults = ({
 	layout,
@@ -318,6 +354,100 @@ export const EntityResults = ({
 	if (!registry) {
 		throw new Error("EntityResults must be used in a bootstrapped client application");
 	}
+	const { isActive, scrollRootRef } = usePluginScreenSurface();
+	const requestPageRefresh = usePageRefreshRequest();
+	const [visibleEntityIds, setVisibleEntityIds] = useState<ReadonlySet<string>>(() => new Set());
+	const observer = useRef<IntersectionObserver | null>(null);
+	const observedElements = useRef(new Map<Element, string>());
+	const visibleElements = useRef(new Set<Element>());
+	const visibleElementCounts = useRef(new Map<string, number>());
+	const setElementVisibility = useCallback((element: Element, visible: boolean) => {
+		const entityId = observedElements.current.get(element);
+		if (entityId === undefined || visibleElements.current.has(element) === visible) {
+			return;
+		}
+		const currentCount = visibleElementCounts.current.get(entityId) ?? 0;
+		const nextCount = visible ? currentCount + 1 : currentCount - 1;
+		if (visible) {
+			visibleElements.current.add(element);
+		} else {
+			visibleElements.current.delete(element);
+		}
+		if (nextCount > 0) {
+			visibleElementCounts.current.set(entityId, nextCount);
+		} else {
+			visibleElementCounts.current.delete(entityId);
+		}
+		if ((currentCount === 0) !== (nextCount === 0)) {
+			setVisibleEntityIds((current) => {
+				const next = new Set(current);
+				if (nextCount > 0) {
+					next.add(entityId);
+				} else {
+					next.delete(entityId);
+				}
+				return next;
+			});
+		}
+	}, []);
+	const clearVisibility = useCallback(() => {
+		visibleElements.current.clear();
+		visibleElementCounts.current.clear();
+		setVisibleEntityIds((current) => (current.size === 0 ? current : new Set()));
+	}, []);
+	const register = useCallback(
+		(entityId: string, element: HTMLDivElement) => {
+			observedElements.current.set(element, entityId);
+			observer.current?.observe(element);
+			return () => {
+				setElementVisibility(element, false);
+				observedElements.current.delete(element);
+				observer.current?.unobserve(element);
+			};
+		},
+		[setElementVisibility],
+	);
+	useEffect(() => {
+		if (!isActive) {
+			clearVisibility();
+			return undefined;
+		}
+		if (typeof IntersectionObserver === "undefined") {
+			clearVisibility();
+			return undefined;
+		}
+		const nextObserver = new IntersectionObserver(
+			(entries) => {
+				for (const entry of entries) {
+					setElementVisibility(entry.target, entry.isIntersecting);
+				}
+			},
+			{ root: scrollRootRef.current },
+		);
+		observer.current = nextObserver;
+		for (const element of observedElements.current.keys()) {
+			nextObserver.observe(element);
+		}
+		return () => {
+			observer.current = null;
+			nextObserver.disconnect();
+			clearVisibility();
+		};
+	}, [clearVisibility, isActive, scrollRootRef, setElementVisibility]);
+	const interest = useMemo(
+		() => ({ foreground: [], visible: [...visibleEntityIds].sort() }),
+		[visibleEntityIds],
+	);
+	const refreshIdentity = JSON.stringify([layout, references.map(({ entityId }) => entityId)]);
+	useEntityRefresh({
+		interest,
+		blocked: false,
+		identity: refreshIdentity,
+		onRefresh: () => {
+			requestPageRefresh();
+			return Promise.resolve();
+		},
+	});
 	const items = useMemo(() => {
 		const grouped = new Map<PresentationRuntime, EntityReference[]>();
 		const runtimes = references.map((reference) => {
@@ -371,25 +501,30 @@ export const EntityResults = ({
 					: { display: "grid", gap: "0.75rem" }
 			}
 		>
-			{items.map((item) =>
-				item.runtime === null ? (
-					<article key={item.reference.entityId}>
-						<BasicEntityLink reference={item.reference} />
-						{(item.reference.populationStatus === "pending" ||
-							item.reference.translationStatus === "pending") && (
-							<StatusMessage tone="pending">Syncing...</StatusMessage>
-						)}
-					</article>
-				) : (
-					<PresentedEntity
-						input={item.input}
-						runtime={item.runtime}
-						viewContext={viewContext}
-						reference={item.reference}
-						key={item.reference.entityId}
-					/>
-				),
-			)}
+			{items.map((item) => (
+				<ObservedEntity
+					register={register}
+					key={item.reference.entityId}
+					entityId={item.reference.entityId}
+				>
+					{item.runtime === null ? (
+						<article>
+							<BasicEntityLink reference={item.reference} />
+							{(item.reference.populationStatus === "pending" ||
+								item.reference.translationStatus === "pending") && (
+								<StatusMessage tone="pending">Syncing...</StatusMessage>
+							)}
+						</article>
+					) : (
+						<PresentedEntity
+							input={item.input}
+							runtime={item.runtime}
+							viewContext={viewContext}
+							reference={item.reference}
+						/>
+					)}
+				</ObservedEntity>
+			))}
 		</div>
 	);
 };

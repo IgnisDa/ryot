@@ -1,9 +1,41 @@
 import type { PluginListenerHandle } from "@capacitor/core";
 import { describe, expect, it } from "vitest";
 
-import { subscribeEntityInterestLifecycle } from "./transport";
+import { subscribeEntityInterestLifecycle, subscribeNativeResume } from "./transport";
 
 describe("entity interest live lifecycle", () => {
+	it("subscribes native resume and releases a late listener without later callbacks", async () => {
+		let events = 0;
+		let resume: (() => void) | undefined;
+		let registered: ((handle: PluginListenerHandle) => void) | undefined;
+		let removed = 0;
+		const release = subscribeNativeResume(
+			() => {
+				events++;
+			},
+			(notify) => {
+				resume = notify;
+				return new Promise((resolve) => {
+					registered = resolve;
+				});
+			},
+		);
+
+		resume?.();
+		expect(events).toBe(1);
+		release();
+		registered?.({
+			remove: () => {
+				removed++;
+				return Promise.resolve();
+			},
+		});
+		await Promise.resolve();
+		resume?.();
+		expect(events).toBe(1);
+		expect(removed).toBe(1);
+	});
+
 	it("cleans browser listeners and late native registration, with no callbacks after release", async () => {
 		let events = 0;
 		let removed = 0;

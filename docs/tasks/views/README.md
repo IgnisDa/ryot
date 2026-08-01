@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 7 of 13 tasks completed
+**Overall Progress:** 8 of 13 tasks completed
 
-**Current Task:** [Task 08](./08-preserve-state-during-live-refresh.md) (todo)
+**Current Task:** [Task 09](./09-handle-dependency-updates-safely.md) (todo)
 
 ### Task List
 
@@ -17,7 +17,7 @@
 | 05  | [Add Rich Domain Presentations](./05-add-rich-domain-presentations.md)                                   | done   |
 | 06  | [Support Configured Queries And General Results](./06-support-configured-queries-and-general-results.md) | done   |
 | 07  | [Complete The Collection Workflow](./07-complete-the-collection-workflow.md)                             | done   |
-| 08  | [Preserve State During Live Refresh](./08-preserve-state-during-live-refresh.md)                         | todo   |
+| 08  | [Preserve State During Live Refresh](./08-preserve-state-during-live-refresh.md)                         | done   |
 | 09  | [Handle Dependency Updates Safely](./09-handle-dependency-updates-safely.md)                             | todo   |
 | 10  | [Deliver The Complete Dashboard Journey](./10-deliver-the-complete-dashboard-journey.md)                 | todo   |
 | 11  | [Unify Kernel Screen Data Access](./11-unify-kernel-screen-data-access.md)                               | todo   |

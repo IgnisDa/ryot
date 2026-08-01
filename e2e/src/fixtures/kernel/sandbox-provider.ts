@@ -51,6 +51,7 @@ export const installTestProvider = (input: {
 	client: Client;
 	scope?: "system";
 	pluginSlug?: string;
+	detailsDelayMs?: number;
 	rootEntitySchemaSlug: string;
 	search?: ProviderSearchResult;
 	searchOptionsFailure?: string;
@@ -65,14 +66,15 @@ export const installTestProvider = (input: {
 	translations?: Readonly<Record<string, ProviderTranslateResult>>;
 }) =>
 	Effect.gen(function* () {
-		const providerSlug = input.slug ?? `e2e-provider-${randomUUID()}`;
 		const name = input.name ?? "E2E Provider Script";
 		const information = input.information ?? { source: "e2e" };
+		const providerSlug = input.slug ?? `e2e-provider-${randomUUID()}`;
 		const operations: Array<{
+			delayMs?: number;
 			executionFailure?: string;
 			operation: ProviderOperation;
 			result: ProviderOperationResult;
-		}> = [{ operation: "details", result: input.details }];
+		}> = [{ operation: "details", result: input.details, delayMs: input.detailsDelayMs }];
 		if (input.search) {
 			operations.push({ operation: "search", result: input.search });
 		}
@@ -117,6 +119,7 @@ export const installTestProvider = (input: {
 						name: script.name,
 						slug: script.slug,
 						operation: script.providerOperation,
+						delayMs: operationDefinition?.delayMs,
 						result: operationDefinition?.result ?? input.details,
 						...(operationDefinition?.executionFailure !== undefined
 							? { executionFailure: operationDefinition.executionFailure }
@@ -243,10 +246,11 @@ const providerMetadataBySource = new Map<string, Extract<TestPluginScript, { kin
 export function providerSandboxSource(input: {
 	readonly name: string;
 	readonly slug: string;
+	readonly delayMs?: number;
+	readonly executionFailure?: string;
 	readonly operation: ProviderOperation;
 	readonly result: ProviderOperationResult;
 	readonly searchOptionsSchema?: AppSchema;
-	readonly executionFailure?: string;
 }) {
 	const resultSchemaByOperation = {
 		search: "providerSearchResultSchema",
@@ -272,7 +276,10 @@ export function providerSandboxSource(input: {
 	} else if (isTranslate) {
 		run = "({ language }) => Effect.succeed(translations[language] ?? {})";
 	} else {
-		run = "() => Effect.succeed(result)";
+		run =
+			input.delayMs === undefined
+				? "() => Effect.succeed(result)"
+				: `() => Effect.sleep(${JSON.stringify(`${input.delayMs} millis`)}).pipe(Effect.as(result))`;
 	}
 	const searchOptionsSchema =
 		input.searchOptionsSchema === undefined
