@@ -40,13 +40,7 @@ export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
 		}
 
 		const init = decoded.success;
-		if (
-			init.artifactHash !== artifactMetadata.hash ||
-			init.format !== artifactMetadata.format ||
-			init.apiVersion !== artifactMetadata.apiVersion ||
-			init.bridgeVersion !== artifactMetadata.bridgeVersion ||
-			init.compilerVersion !== artifactMetadata.compilerVersion
-		) {
+		if (init.artifactHash !== artifactMetadata.hash) {
 			return;
 		}
 

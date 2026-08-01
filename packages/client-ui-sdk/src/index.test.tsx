@@ -27,8 +27,13 @@ describe("Button", () => {
 		expect(button.hasAttribute("disabled")).toBe(true);
 	});
 
-	it.each(Object.entries(classes))("applies the %s variant classes", (variant, className) => {
-		render(<Button variant={variant as keyof typeof classes}>{variant}</Button>);
+	it.each([
+		["text", classes.text],
+		["switch", classes.switch],
+		["primary", classes.primary],
+		["secondary", classes.secondary],
+	] as const)("applies the %s variant classes", (variant, className) => {
+		render(<Button variant={variant}>{variant}</Button>);
 
 		expect(screen.getByRole("button").className).toBe(className);
 	});

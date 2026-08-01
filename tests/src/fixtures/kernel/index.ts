@@ -5,6 +5,7 @@ export * from "./admin";
 export * from "./automations";
 export * from "./backups";
 export * from "./contract-client";
+export * from "./client-plugin";
 export * from "./collections";
 export * from "./integrations";
 export * from "./integration-provider-plugin";

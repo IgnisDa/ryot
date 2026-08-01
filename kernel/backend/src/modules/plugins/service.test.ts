@@ -1,5 +1,11 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { assert, expect, it } from "@effect/vitest";
+import {
+	clientPluginCompilationFailure,
+	clientPluginCompilerDiagnostic,
+} from "@ryot/client-plugin-compiler/diagnostics";
+import type { ClientPluginCompilerRequest } from "@ryot/client-plugin-compiler/protocol";
+import type { PluginClientArtifact } from "@ryot/contract/modules/plugins/client";
 import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { PluginConflictError } from "@ryot/contract/modules/plugins/schemas";
 import { PluginSlug } from "@ryot/contract/schema/brands";
@@ -178,6 +184,7 @@ const makeLayer = (input?: {
 	readonly integrationFences?: Array<unknown>;
 	readonly afterPersist?: Effect.Effect<void>;
 	readonly persisted?: Array<NormalizedPlugin>;
+	readonly databaseLayer?: Layer.Layer<Database>;
 	readonly hasWorkflowReferences?: () => boolean;
 	readonly systemPluginSlugs?: ReadonlySet<string>;
 	readonly publish?: RedisService["Service"]["publish"];
@@ -185,7 +192,7 @@ const makeLayer = (input?: {
 	readonly repositoryList?: PluginRepository["Service"]["list"];
 	readonly deactivate?: PluginRepository["Service"]["deactivate"];
 	readonly published?: Array<{ channel: string; message: string }>;
-	readonly databaseLayer?: Layer.Layer<Database>;
+	readonly clientCompile?: ClientPluginCompiler["Service"]["compile"];
 	readonly lockIngestion?: PluginRepository["Service"]["lockIngestion"];
 	readonly collectGarbage?: ScriptGarbageCollector["Service"]["collect"];
 }) => {
@@ -283,7 +290,9 @@ const makeLayer = (input?: {
 					})),
 		}),
 	);
-	const clientCompilerLayer = Layer.mock(ClientPluginCompiler)({});
+	const clientCompilerLayer = Layer.mock(ClientPluginCompiler)(
+		input?.clientCompile ? { compile: input.clientCompile } : {},
+	);
 	const ingestionLayer = PluginIngestionService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
@@ -1248,6 +1257,96 @@ it.effect("returns structured validation and compiler diagnostics", () => {
 	);
 });
 
+const clientManifest = (): PluginManifest => ({
+	...fixtureManifest(),
+	client: { entry: "client/index.tsx", apiVersion: 1, capabilities: [] },
+});
+
+const clientArtifact = (): PluginClientArtifact => ({
+	format: 1,
+	apiVersion: 1,
+	bridgeVersion: 1,
+	compilerVersion: 1,
+	hash: "client-artifact-hash",
+	files: [
+		{ name: "plugin.js", contents: "export {};", contentType: "text/javascript; charset=utf-8" },
+		{ name: "index.html", contents: "<!doctype html>", contentType: "text/html; charset=utf-8" },
+	],
+});
+
+it.effect("compiles the declared client entry and persists its artifact", () => {
+	const artifact = clientArtifact();
+	const persisted: Array<NormalizedPlugin> = [];
+	const requests: Array<ClientPluginCompilerRequest> = [];
+	return Effect.gen(function* () {
+		const ingestion = yield* PluginIngestionService;
+		const source = yield* loadPluginSource(fixturePackageRoot(), clientManifest());
+		const plugin = yield* ingestion.ingestSystemPlugin(source);
+
+		expect(requests).toEqual([
+			{ apiVersion: 1, entry: "client/index.tsx", files: plugin.sourceFiles },
+		]);
+		expect(persisted).toEqual([
+			expect.objectContaining({ clientArtifact: artifact, clientArtifactHash: artifact.hash }),
+		]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				persisted,
+				clientCompile: (request) =>
+					Effect.sync(() => {
+						requests.push(request);
+						return artifact;
+					}),
+			}),
+		),
+	);
+});
+
+it.effect("fails ingestion without persisting when client compilation fails", () => {
+	const persisted: Array<NormalizedPlugin> = [];
+	const published: Array<{ channel: string; message: string }> = [];
+	return Effect.gen(function* () {
+		const ingestion = yield* PluginIngestionService;
+		const source = yield* loadPluginSource(fixturePackageRoot(), clientManifest());
+		const exit = yield* Effect.exit(ingestion.ingestSystemPlugin(source));
+
+		expect(failureOf(exit)).toMatchObject({
+			_tag: "PluginRequestError",
+			reason: {
+				code: "compilation-failed",
+				diagnostics: [
+					{
+						phase: "compile",
+						severity: "error",
+						file: "client/home.tsx",
+						code: "RYOT_CLIENT_IMPORT",
+					},
+				],
+			},
+		});
+		expect(persisted).toEqual([]);
+		expect(published).toEqual([]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				persisted,
+				published,
+				clientCompile: () =>
+					Effect.fail(
+						clientPluginCompilationFailure([
+							clientPluginCompilerDiagnostic(
+								"RYOT_CLIENT_IMPORT",
+								"client/home.tsx",
+								'Import of "effect" is not allowed in client plugin source',
+							),
+						]),
+					),
+			}),
+		),
+	);
+});
+
 it.effect("rejects non-canonical and missing plugin source paths as bad requests", () => {
 	const manifest = fixtureManifest();
 	const entry = manifest.scripts[0]?.entry;
@@ -1294,8 +1393,8 @@ it.effect("rejects script slug collisions with another active plugin", () => {
 		const source = yield* loadPluginSource(fixturePackageRoot(), fixtureManifest());
 		const exit = yield* Effect.exit(ingestion.ingestSystemPlugin(source));
 		expect(failureOf(exit)).toMatchObject({
-			reason: { code: "validation-failed" },
 			_tag: "PluginRequestError",
+			reason: { code: "validation-failed" },
 		});
 	}).pipe(Effect.provide(makeLayer({ initialInstalled: [existing] })));
 });
