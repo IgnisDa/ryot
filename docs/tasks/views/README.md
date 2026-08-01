@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 8 of 13 tasks completed
+**Overall Progress:** 9 of 13 tasks completed
 
-**Current Task:** [Task 09](./09-handle-dependency-updates-safely.md) (todo)
+**Current Task:** [Task 10](./10-deliver-the-complete-dashboard-journey.md) (todo)
 
 ### Task List
 
@@ -18,7 +18,7 @@
 | 06  | [Support Configured Queries And General Results](./06-support-configured-queries-and-general-results.md) | done   |
 | 07  | [Complete The Collection Workflow](./07-complete-the-collection-workflow.md)                             | done   |
 | 08  | [Preserve State During Live Refresh](./08-preserve-state-during-live-refresh.md)                         | done   |
-| 09  | [Handle Dependency Updates Safely](./09-handle-dependency-updates-safely.md)                             | todo   |
+| 09  | [Handle Dependency Updates Safely](./09-handle-dependency-updates-safely.md)                             | done   |
 | 10  | [Deliver The Complete Dashboard Journey](./10-deliver-the-complete-dashboard-journey.md)                 | todo   |
 | 11  | [Unify Kernel Screen Data Access](./11-unify-kernel-screen-data-access.md)                               | todo   |
 | 12  | [Replace Remaining Old Paths](./12-replace-remaining-old-paths.md)                                       | todo   |
