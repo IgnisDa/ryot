@@ -1,9 +1,9 @@
 import type { NavigationWorkspace } from "@ryot/ryotql-recipes/navigation";
 import clsx from "clsx";
-import { Image } from "expo-image";
 import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 
 import { AppIcon as NavigationIcon } from "@/modules/icons";
+import { RemoteImage } from "@/modules/ui/image-with-fallback";
 
 import { getWorkspaceSummary, type NavigationItem, type NavigationItems } from "./navigation-data";
 
@@ -190,7 +190,7 @@ export function Sidebar(props: {
 			<View className="border-t border-border px-3 py-3">
 				<View className="flex-row items-center gap-2.5 rounded-md px-2 py-2">
 					{props.accountImage !== null ? (
-						<Image source={{ uri: props.accountImage }} className="h-8 w-8 rounded-full" />
+						<RemoteImage url={props.accountImage} className="h-8 w-8 rounded-full" />
 					) : (
 						<View className="h-8 w-8 items-center justify-center rounded-full bg-surface-2">
 							<NavigationIcon className="text-text-muted" name="user" size={16} />
