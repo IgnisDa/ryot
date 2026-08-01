@@ -34,7 +34,7 @@ type InstallSandboxScriptInput = Pick<GenericTestPluginScript, "name" | "slug"> 
 		config?: ContractPayload<"plugins", "install">["config"];
 	};
 
-export const installSandboxScript = (input: InstallSandboxScriptInput) =>
+const installSandboxScript = (input: InstallSandboxScriptInput) =>
 	installTestPlugin(
 		input.scope === "system"
 			? {

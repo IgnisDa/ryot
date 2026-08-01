@@ -1,5 +1,5 @@
 import { generateId } from "better-auth";
-import { isNull, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { index, jsonb, snakeCase, text, timestamp, unique, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
@@ -33,26 +33,42 @@ export const entity = snakeCase.table(
 		index("entity_entity_schema_slug_idx").on(table.entitySchemaSlug),
 		index("entity_entity_schema_plugin_id_idx").on(table.entitySchemaPluginId),
 		index("entity_properties_idx").using("gin", table.properties),
-		unique("entity_user_schema_provider_external_id_unique").on(
-			table.userId,
-			table.externalId,
-			table.entitySchemaSlug,
-			table.providerId,
-		),
-		uniqueIndex("entity_global_external_id_unique")
+		uniqueIndex("entity_user_plugin_external_id_unique")
+			.on(
+				table.userId,
+				table.externalId,
+				table.entitySchemaSlug,
+				table.providerId,
+				table.entitySchemaPluginId,
+			)
+			.where(
+				sql`${table.userId} IS NOT NULL AND ${table.externalId} IS NOT NULL AND ${table.providerId} IS NOT NULL AND ${table.entitySchemaPluginId} IS NOT NULL`,
+			),
+		uniqueIndex("entity_user_kernel_external_id_unique")
+			.on(table.userId, table.externalId, table.entitySchemaSlug, table.providerId)
+			.where(
+				sql`${table.userId} IS NOT NULL AND ${table.externalId} IS NOT NULL AND ${table.providerId} IS NOT NULL AND ${table.entitySchemaPluginId} IS NULL`,
+			),
+		uniqueIndex("entity_global_plugin_external_id_unique")
+			.on(table.externalId, table.entitySchemaSlug, table.providerId, table.entitySchemaPluginId)
+			.where(
+				sql`${table.userId} IS NULL AND ${table.providerId} IS NOT NULL AND ${table.entitySchemaPluginId} IS NOT NULL`,
+			),
+		uniqueIndex("entity_global_kernel_external_id_unique")
 			.on(table.externalId, table.entitySchemaSlug, table.providerId)
-			.where(isNull(table.userId)),
-		// `provider_id` can be NULL for entities without provider provenance.
-		// Without NULLS NOT DISTINCT support in Drizzle's uniqueIndex(), the existing
-		// `entity_global_external_id_unique` index (which includes provider_id)
-		// treats NULL provider_id values as distinct, preventing correct upserts
-		// for global entities with no provider. This separate partial index covers that case.
-		// TODO: collapse into `entity_global_external_id_unique` once Drizzle supports
-		// NULLS NOT DISTINCT on uniqueIndex():
-		// https://github.com/drizzle-team/drizzle-orm/issues/3892
-		uniqueIndex("entity_global_no_provider_external_id_unique")
+			.where(
+				sql`${table.userId} IS NULL AND ${table.providerId} IS NOT NULL AND ${table.entitySchemaPluginId} IS NULL`,
+			),
+		uniqueIndex("entity_global_plugin_no_provider_external_id_unique")
+			.on(table.externalId, table.entitySchemaSlug, table.entitySchemaPluginId)
+			.where(
+				sql`${table.userId} IS NULL AND ${table.providerId} IS NULL AND ${table.entitySchemaPluginId} IS NOT NULL`,
+			),
+		uniqueIndex("entity_global_kernel_no_provider_external_id_unique")
 			.on(table.externalId, table.entitySchemaSlug)
-			.where(sql`${table.userId} IS NULL AND ${table.providerId} IS NULL`),
+			.where(
+				sql`${table.userId} IS NULL AND ${table.providerId} IS NULL AND ${table.entitySchemaPluginId} IS NULL`,
+			),
 	],
 );
 
@@ -81,14 +97,14 @@ export const relationship = snakeCase.table(
 		index("relationship_source_entity_id_idx").on(table.sourceEntityId),
 		index("relationship_target_entity_id_idx").on(table.targetEntityId),
 		index("relationship_properties_idx").using("gin", table.properties),
-		unique("relationship_user_source_target_schema_unique").on(
-			table.userId,
-			table.sourceEntityId,
-			table.targetEntityId,
-			table.relationshipSchemaSlug,
-		),
-		uniqueIndex("relationship_global_source_target_schema_unique")
-			.on(table.sourceEntityId, table.targetEntityId, table.relationshipSchemaSlug)
-			.where(isNull(table.userId)),
+		unique("relationship_identity_unique")
+			.on(
+				table.userId,
+				table.sourceEntityId,
+				table.targetEntityId,
+				table.relationshipSchemaSlug,
+				table.relationshipSchemaPluginId,
+			)
+			.nullsNotDistinct(),
 	],
 );

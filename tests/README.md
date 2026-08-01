@@ -75,6 +75,7 @@ Admin-only setup uses typed `testSupport` contract with `adminHeaders`.
 Sandbox coverage installs source through `installTestPlugin` or `installTestPluginBundle`, resolves persisted content-addressed IDs, and invokes admin enqueue/result hooks. Reinstall changed source to obtain new ID. Use strict uninstall only when successful removal is assertion.
 
 Entity, event, and relationship definitions install as scriptless plugins through real plugin endpoint. Global seeding uses test-support entity and relationship operations; user-scoped entities use authenticated API.
+Resolve plugin-owned definition fixtures by plugin slug and definition slug; definition slugs are not globally unique.
 
 ## Entity Interest WebSocket Fixture
 

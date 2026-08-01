@@ -184,10 +184,8 @@ export const reconcileGlobalRelationships = Effect.fn("RelationshipsService.reco
 			mapDatabaseErrors(
 				database.transaction((transaction) =>
 					Effect.gen(function* () {
-						const propertiesSchema = definitions.getRelationshipSchema(
-							group.relationshipSchemaSlug,
-						)?.propertiesSchema;
-						if (!propertiesSchema) {
+						const definition = definitions.getRelationshipSchema(group.relationshipSchemaSlug);
+						if (!definition) {
 							return yield* new RelationshipNotFound({
 								reason: {
 									code: "relationship-schema-not-found",
@@ -199,7 +197,8 @@ export const reconcileGlobalRelationships = Effect.fn("RelationshipsService.reco
 						const selector = {
 							...group.selector,
 							relationshipSchemaSlug: group.relationshipSchemaSlug,
-						} as GlobalRelationshipListInput;
+							relationshipSchemaPluginId: definition.pluginId ?? null,
+						} satisfies GlobalRelationshipListInput;
 						const existing = yield* repository.listGlobalRelationships(selector);
 						const seen = new Set<string>();
 						const relationships = yield* Effect.forEach(group.relationships, (relationship) =>
@@ -226,7 +225,7 @@ export const reconcileGlobalRelationships = Effect.fn("RelationshipsService.reco
 								seen.add(key);
 
 								const properties = yield* parseAppSchemaProperties({
-									propertiesSchema,
+									propertiesSchema: definition.propertiesSchema,
 									kind: "Relationship",
 									properties: relationship.properties,
 								}).pipe(
@@ -249,6 +248,7 @@ export const reconcileGlobalRelationships = Effect.fn("RelationshipsService.reco
 								...relationship,
 								scope: "global" as const,
 								relationshipSchemaSlug: group.relationshipSchemaSlug,
+								relationshipSchemaPluginId: definition.pluginId ?? null,
 							};
 							const saved = yield* repository.createRelationship(input);
 							if (!saved.wasInserted) {
@@ -266,6 +266,7 @@ export const reconcileGlobalRelationships = Effect.fn("RelationshipsService.reco
 								sourceEntityId: relationship.sourceEntityId,
 								targetEntityId: relationship.targetEntityId,
 								relationshipSchemaSlug: group.relationshipSchemaSlug,
+								relationshipSchemaPluginId: definition.pluginId ?? null,
 							});
 							if (removed) {
 								deleted += 1;

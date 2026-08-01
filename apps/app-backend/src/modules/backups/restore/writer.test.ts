@@ -248,7 +248,6 @@ const provenanceRecords = (
 				: { kind: "custom" as const, isBuiltin: false as const }),
 			pluginKey: input.viewKey === undefined ? "owner-key" : input.viewKey,
 			isDisabled: false,
-			pluginSlug: "owner",
 			id: "saved-view-id",
 			slug: "owner-view",
 			name: "Owner view",

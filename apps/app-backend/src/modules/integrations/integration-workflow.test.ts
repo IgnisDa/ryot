@@ -274,6 +274,7 @@ it.effect("persists the sink adapter result and dispatches the normalized child"
 					executionId: "run_1",
 					workflowSlug: "import",
 					pluginId: "fixture-plugin-id",
+					pluginInstallationId: "inst_1",
 				},
 			]);
 

@@ -161,6 +161,7 @@ describe("classifyAccountCleanliness", () => {
 						createdAt: new Date(0).toISOString(),
 						updatedAt: new Date(0).toISOString(),
 						id: AutomationRuleId.make("rule-id"),
+						signalSchemaPluginId: null,
 						signalSchemaSlug: SignalSchemaSlug.make("signal"),
 					},
 				],

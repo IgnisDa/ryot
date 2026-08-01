@@ -77,6 +77,15 @@ const physicalField = (column: string, kind: CatalogFieldKind, nullable = true):
 	resolve: ({ sqlAlias }) => sql.raw(`${sqlAlias}.${column}`),
 });
 
+const installationPluginSlug = (nullable: boolean): CatalogField => ({
+	kind: "text",
+	nullable,
+	resolve: ({ sqlAlias }) =>
+		sql.raw(
+			`(SELECT plugin.slug FROM plugin_installation installation INNER JOIN plugin ON plugin.id = installation.plugin_id WHERE installation.id = ${sqlAlias}.plugin_installation_id)`,
+		),
+});
+
 const pluginMetadataField = (key: "icon" | "name"): CatalogField => ({
 	kind: "text",
 	nullable: false,
@@ -261,7 +270,7 @@ const savedView: CatalogTable = {
 	visibility: { user: { type: "owned", column: "user_id", includeGlobal: false } },
 	fields: {
 		id: physicalField("id", "text", false),
-		pluginSlug: physicalField("plugin_slug", "text"),
+		pluginSlug: installationPluginSlug(true),
 		slug: physicalField("slug", "text", false),
 		name: physicalField("name", "text", false),
 		icon: physicalField("icon", "text", false),
@@ -314,7 +323,7 @@ const integration: CatalogTable = {
 		provider: physicalField("provider", "text", false),
 		createdAt: physicalField("created_at", "date", false),
 		updatedAt: physicalField("updated_at", "date", false),
-		pluginSlug: physicalField("plugin_slug", "text", false),
+		pluginSlug: installationPluginSlug(false),
 		isDisabled: physicalField("is_disabled", "boolean", false),
 		extraSettings: physicalField("extra_settings", "json", false),
 		syncOwnership: physicalField("sync_ownership", "boolean", false),

@@ -153,13 +153,21 @@ export class AutomationsService extends Context.Service<AutomationsService>()(
 						kind: "subscription",
 						userId: input.rowUserId,
 					});
-					const states =
-						input.rowUserId && input.target.kind === "signal_schema"
-							? yield* repository.listActiveNotificationSubscriptions({
-									userId: input.rowUserId,
-									signalSchemaSlug: input.target.id,
-								})
-							: [];
+					const states = yield* Effect.gen(function* () {
+						if (!input.rowUserId || input.target.kind !== "signal_schema") {
+							return [];
+						}
+						const effective = yield* pluginRuntime.getEffectiveDefinitions(input.rowUserId);
+						const definition = effective.signalSchemas[input.target.id];
+						if (!definition) {
+							return [];
+						}
+						return yield* repository.listActiveNotificationSubscriptions({
+							userId: input.rowUserId,
+							signalSchemaSlug: input.target.id,
+							signalSchemaPluginId: definition.pluginId ?? null,
+						});
+					});
 					const rules = yield* Effect.all(states.map(resolveNotificationSubscription));
 					return [...bindings, ...rules.filter((rule) => rule !== null)].filter((rule) =>
 						matchesRowOwner(rule, input.rowUserId),

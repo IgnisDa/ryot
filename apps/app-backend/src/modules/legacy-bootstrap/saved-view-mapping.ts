@@ -55,7 +55,7 @@ BEGIN
 	)
 	UPDATE "saved_view" saved_view
 	SET "is_disabled" = CASE
-		WHEN saved_view."plugin_slug" IS NULL AND saved_view."slug" = ${quoteSqlString(collectionsSavedViewSlug)} THEN NOT ${featurePreference("others,collections")}
+		WHEN saved_view."plugin_installation_id" IS NULL AND saved_view."slug" = ${quoteSqlString(collectionsSavedViewSlug)} THEN NOT ${featurePreference("others,collections")}
 		WHEN saved_view."plugin_installation_id" = installations.media_installation_id AND saved_view."entity_schema_slug" IN ('person', 'company') THEN NOT (${mediaEnabled} AND ${featurePreference("media,people")})
 		WHEN saved_view."plugin_installation_id" = installations.media_installation_id AND saved_view."entity_schema_slug" LIKE '%-group' THEN NOT (${mediaEnabled} AND ${featurePreference("media,groups")})
 ${mediaViewCases}
