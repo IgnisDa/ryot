@@ -279,55 +279,6 @@ Recommended visual treatment:
 
 ## 6. Header component architecture
 
-Use one adaptive header system with explicit variants rather than several unrelated headers:
-
-```ts
-type MobileHeaderConfig =
-	| {
-			mode: "workspace";
-			title: string;
-			onOpenMenu: () => void;
-			onSearch?: () => void;
-	  }
-	| {
-			mode: "saved-view";
-			title: string;
-			subtitle?: string;
-			activeFilterCount?: number;
-			onOpenMenu: () => void;
-			onSearch: () => void;
-			onFilter: () => void;
-	  }
-	| {
-			mode: "detail";
-			title: string;
-			overlayAtTop?: boolean;
-			onBack: () => void;
-			onOpenActions?: () => void;
-	  }
-	| {
-			mode: "search";
-			query: string;
-			placeholder: string;
-			onChangeQuery: (value: string) => void;
-			onClose: () => void;
-			onClear: () => void;
-	  };
-```
-
-Route metadata should determine the mode:
-
-```text
-/workspaces/:workspaceId
-    → workspace
-
-/workspaces/:workspaceId/views/:viewId
-    → saved-view
-
-/workspaces/:workspaceId/entities/:entityType/:entityId
-    → detail
-```
-
 The final mobile hierarchy should behave as follows:
 
 ```text
