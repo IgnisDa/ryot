@@ -1,20 +1,17 @@
 import clsx from "clsx";
 import { useRouter } from "expo-router";
-import { useRef, useState, type ReactNode } from "react";
-import { Platform, Pressable, ScrollView, Text, View } from "react-native";
-import Animated, { FadeInUp, FadeOutUp, ReduceMotion } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useState, type ReactNode } from "react";
+import { Platform, Pressable, Text, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
 import { getNavigationHref } from "@/modules/navigation/navigation-data";
 import { useWorkspaceDrawer } from "@/modules/navigation/workspace-drawer";
+import { WorkspaceScrollFrame } from "@/modules/navigation/workspace-scroll-frame";
 
 import { SavedViewFilterSheet } from "./saved-view-filter-sheet";
 
 const TOP_BAR_HEIGHT = 44;
 const TOP_BAR_WEB_HIDDEN = Platform.OS === "web" ? "md:hidden" : null;
-const TOP_BAR_EXITING = FadeOutUp.duration(160).reduceMotion(ReduceMotion.System);
-const TOP_BAR_ENTERING = FadeInUp.duration(200).reduceMotion(ReduceMotion.System);
 
 export function SavedViewFrame(props: {
 	viewSlug: string;
@@ -22,11 +19,7 @@ export function SavedViewFrame(props: {
 	title?: { icon: string; name: string; loaded: number; total: number };
 }) {
 	const router = useRouter();
-	const insets = useSafeAreaInsets();
 	const drawer = useWorkspaceDrawer();
-	const isDragging = useRef(false);
-	const previousScrollOffset = useRef(0);
-	const [isScrolled, setIsScrolled] = useState(false);
 	const [isFilterOpen, setIsFilterOpen] = useState(false);
 
 	function goBack() {
@@ -41,41 +34,11 @@ export function SavedViewFrame(props: {
 
 	return (
 		<View className="relative flex-1 bg-bg">
-			<ScrollView
-				className="flex-1"
-				scrollEventThrottle={16}
-				contentContainerClassName="min-h-full overflow-hidden pb-8 px-4 md:px-8 md:pt-8"
-				onScrollBeginDrag={() => {
-					isDragging.current = true;
-				}}
-				onScrollEndDrag={() => {
-					isDragging.current = false;
-				}}
-				onScroll={(event) => {
-					const offsetY = event.nativeEvent.contentOffset.y;
-					const previousOffsetY = previousScrollOffset.current;
-					previousScrollOffset.current = offsetY;
-
-					if (offsetY > previousOffsetY && offsetY > 24) {
-						setIsScrolled(true);
-					} else if (isDragging.current && offsetY < previousOffsetY) {
-						setIsScrolled(false);
-					}
-				}}
-			>
-				<View
-					className={clsx(TOP_BAR_WEB_HIDDEN)}
-					style={{ height: insets.top + TOP_BAR_HEIGHT }}
-				/>
-				{props.children}
-			</ScrollView>
-			{!isScrolled && (
-				<Animated.View
-					exiting={TOP_BAR_EXITING}
-					entering={TOP_BAR_ENTERING}
-					style={{ paddingTop: insets.top }}
-					className={clsx("absolute inset-x-0 top-0 z-20 bg-bg px-4", TOP_BAR_WEB_HIDDEN)}
-				>
+			<WorkspaceScrollFrame
+				headerClassName="px-4"
+				headerHeight={TOP_BAR_HEIGHT}
+				contentContainerClassName="overflow-hidden"
+				header={
 					<View className="h-11 flex-row items-center gap-2.5">
 						<Pressable
 							onPress={goBack}
@@ -121,8 +84,10 @@ export function SavedViewFrame(props: {
 							<AppIcon className="text-text-muted" name="sliders-horizontal" size={16} />
 						</Pressable>
 					</View>
-				</Animated.View>
-			)}
+				}
+			>
+				{props.children}
+			</WorkspaceScrollFrame>
 			<Pressable
 				accessibilityRole="button"
 				accessibilityLabel="Add to this view"
