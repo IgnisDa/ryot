@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Result, Schema } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
 import { ImportsGroup } from "../imports/contract";
@@ -303,6 +303,75 @@ describe("definePlugin", () => {
 		const decoded = Schema.decodeUnknownSync(PluginManifest)({ ...manifest, client });
 
 		expect(decoded.client).toEqual(client);
+	});
+
+	it("decodes declarative public client exports by kind", () => {
+		const client = {
+			apiVersion: 1 as const,
+			entry: "client/index.tsx",
+			pluginDependencies: ["media", "private-fixture"],
+			entities: { thing: { detailPage: "dashboard", gridPresentation: "row" } },
+			exports: {
+				dashboard: {
+					kind: "page" as const,
+					entry: "client/dashboard.tsx",
+					automaticEntityPresentations: true,
+					settingsSchema: {
+						fields: {
+							title: { type: "string" as const, label: "Title", description: "Page title" },
+						},
+					},
+				},
+				card: {
+					entry: "client/card.tsx",
+					kind: "component" as const,
+					automaticEntityPresentations: false,
+				},
+				row: {
+					entry: "client/row.tsx",
+					kind: "presentation" as const,
+					automaticEntityPresentations: false,
+				},
+			},
+		};
+
+		const manifestWithEntity = {
+			...manifest,
+			entitySchemas: [
+				{
+					icon: "box",
+					name: "Thing",
+					slug: "thing",
+					eventSchemas: [],
+					propertiesSchema: { fields: {} },
+				},
+			],
+		};
+		expect(
+			Schema.decodeUnknownSync(PluginManifest)({ ...manifestWithEntity, client }).client,
+		).toEqual(client);
+		const invalidClients = [
+			{
+				...client,
+				exports: { dashboard: { ...client.exports.dashboard, settingsSchema: undefined } },
+			},
+			{ ...client, exports: { card: { ...client.exports.card, settingsSchema: { fields: {} } } } },
+			{ ...client, exports: { "../card": client.exports.card } },
+			{ ...client, exports: { card: { ...client.exports.card, entry: "backend/card.tsx" } } },
+			{ ...client, pluginDependencies: ["media", "media"] },
+			{ ...client, entities: { missing: { gridPresentation: "row" } } },
+			{ ...client, entities: { thing: { gridPresentation: "card" } } },
+		];
+		expect(
+			invalidClients.map((invalidClient) =>
+				Result.isFailure(
+					Schema.decodeUnknownResult(PluginManifest)({
+						...manifestWithEntity,
+						client: invalidClient,
+					}),
+				),
+			),
+		).toEqual([true, true, true, true, true, true, true]);
 	});
 
 	it("rejects non-TypeScript client entries outside client/ or with noncanonical paths", () => {

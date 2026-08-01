@@ -9,8 +9,6 @@ import {
 	clientPluginCompilerDiagnostic,
 } from "./diagnostics";
 
-const CLIENT_SOURCE_ROOT = "client/";
-const SHARED_SOURCE_ROOT = "shared/";
 const CLIENT_NAMESPACE = "ryot-client-plugin";
 const EFFECT_NAMESPACE = "ryot-client-plugin-effect";
 const CLIENT_ENTRY_SPECIFIER = "ryot:client-entry";
@@ -20,6 +18,8 @@ export type ClientPluginSources = {
 	readonly entry: string;
 	readonly files: Readonly<Record<string, string>>;
 	readonly assetNames: Readonly<Record<string, string>>;
+	readonly publicExports: Readonly<Record<string, string>>;
+	readonly unresolvedPluginDependencies?: readonly string[];
 };
 
 export type ClientBundleResult =
@@ -27,7 +27,9 @@ export type ClientBundleResult =
 	| {
 			readonly javascript: string;
 			readonly assets: readonly string[];
+			readonly sources: readonly string[];
 			readonly stylesheets: readonly string[];
+			readonly publicExports: readonly string[];
 	  };
 
 const buildDiagnosticSeverity = (level: BuildMessage["level"]) => {
@@ -72,10 +74,19 @@ const normalizeRelativePath = (importer: string, specifier: string) => {
 	return normalized.join("/");
 };
 
-const reachableRoots = (importer: string) =>
-	importer.startsWith(SHARED_SOURCE_ROOT)
-		? [SHARED_SOURCE_ROOT]
-		: [CLIENT_SOURCE_ROOT, SHARED_SOURCE_ROOT];
+const contributorRoot = (path: string) => {
+	const client = path.lastIndexOf("/client/");
+	const shared = path.lastIndexOf("/shared/");
+	const boundary = Math.max(client, shared);
+	return boundary === -1 ? "" : path.slice(0, boundary + 1);
+};
+
+const isSharedSource = (path: string) => path.startsWith("shared/") || path.includes("/shared/");
+
+const reachableRoots = (importer: string) => {
+	const root = contributorRoot(importer);
+	return isSharedSource(importer) ? [`${root}shared/`] : [`${root}client/`, `${root}shared/`];
+};
 
 const resolveLocalImport = (
 	files: Readonly<Record<string, string>>,
@@ -101,7 +112,10 @@ export const bundleClientPlugin = (sources: ClientPluginSources, compilerRoot: s
 	Effect.suspend(() => {
 		const assets = new Set<string>();
 		const stylesheets = new Set<string>();
+		const publicExports = new Set<string>();
+		const loadedSources = new Set<string>();
 		const rejected: ClientPluginCompilerDiagnostic[] = [];
+		const unresolvedPluginDependencies = new Set(sources.unresolvedPluginDependencies ?? []);
 
 		const plugin: Bun.BunPlugin = {
 			name: "ryot-client-plugin-source",
@@ -127,11 +141,46 @@ export const bundleClientPlugin = (sources: ClientPluginSources, compilerRoot: s
 					}
 					return { path: resolved, namespace: CLIENT_NAMESPACE };
 				});
+				builder.onResolve({ filter: /^@ryot-app\/plugins\// }, ({ path, importer }) => {
+					if (!Object.hasOwn(sources.files, importer)) {
+						return undefined;
+					}
+					if (isSharedSource(importer)) {
+						rejected.push(
+							clientPluginCompilerDiagnostic(
+								"RYOT_CLIENT_IMPORT",
+								importer,
+								`Import "${path}" is not allowed; plugin shared sources may only import Ryot plugin kit entry points`,
+							),
+						);
+						return { path, namespace: UNTRUSTED_NAMESPACE };
+					}
+					const resolved = sources.publicExports[path];
+					if (resolved === undefined) {
+						const pluginSlug =
+							/^@ryot-app\/plugins\/([a-z0-9]+(?:[._-][a-z0-9]+)*)\/[a-z0-9]+(?:[._-][a-z0-9]+)*$/.exec(
+								path,
+							)?.[1];
+						if (pluginSlug !== undefined && unresolvedPluginDependencies.has(pluginSlug)) {
+							return { path, external: true };
+						}
+						rejected.push(
+							clientPluginCompilerDiagnostic(
+								"RYOT_CLIENT_IMPORT",
+								importer,
+								`Public plugin import "${path}" is not present in the authorized export map`,
+							),
+						);
+						return { path, namespace: UNTRUSTED_NAMESPACE };
+					}
+					publicExports.add(path);
+					return { path: resolved, namespace: CLIENT_NAMESPACE };
+				});
 				builder.onResolve({ filter: /^[^.]/ }, ({ path, importer }) => {
 					if (!Object.hasOwn(sources.files, importer)) {
 						return undefined;
 					}
-					const shared = importer.startsWith(SHARED_SOURCE_ROOT);
+					const shared = isSharedSource(importer);
 					if (shared ? !isNeutralPluginModule(path) : !isTrustedClientModule(path)) {
 						rejected.push(
 							clientPluginCompilerDiagnostic(
@@ -209,9 +258,11 @@ export * as SchemaGetter from "effect/SchemaGetter";
 						return { contents: "", loader: "js" as const };
 					}
 					if (path.endsWith(".css")) {
+						loadedSources.add(path);
 						stylesheets.add(path);
 						return { contents: "", loader: "js" as const };
 					}
+					loadedSources.add(path);
 					return { contents: source, loader: sourceLoader(path) };
 				});
 			},
@@ -278,7 +329,9 @@ export * as SchemaGetter from "effect/SchemaGetter";
 					Effect.map((javascript) => ({
 						javascript,
 						assets: sortBy([...assets]),
+						sources: sortBy([...loadedSources]),
 						stylesheets: sortBy([...stylesheets]),
+						publicExports: sortBy([...publicExports]),
 					})),
 				);
 			}),

@@ -1288,7 +1288,13 @@ it.effect("returns structured validation and compiler diagnostics", () => {
 
 const clientManifest = (): PluginManifest => ({
 	...fixtureManifest(),
-	client: { entry: "client/index.tsx", apiVersion: CLIENT_API_VERSION },
+	client: {
+		entry: "client/index.ts",
+		apiVersion: CLIENT_API_VERSION,
+		exports: {
+			summary: { kind: "component", entry: "client/index.ts", automaticEntityPresentations: false },
+		},
+	},
 });
 
 const clientArtifact = (): PluginClientArtifact => ({
@@ -1442,8 +1448,10 @@ it.effect("compiles the declared client entry and persists its artifact", () => 
 			{
 				apiVersion: 1,
 				files: source.files,
-				entry: "client/index.tsx",
+				pluginDependencies: [],
+				entry: "client/index.ts",
 				name: clientManifest().metadata.name,
+				publicExports: { summary: { entry: "client/index.ts", kind: "component" } },
 			},
 		]);
 		expect(persisted).toEqual([expect.objectContaining({ clientArtifact: artifact })]);

@@ -1,19 +1,19 @@
+import { ClientPluginCompilerFailure } from "@ryot-app/client-plugin-compiler";
 import { CLIENT_PLUGIN_COMPILER_LIMITS } from "@ryot-app/client-plugin-compiler/limits";
 import {
-	CLIENT_API_VERSION,
-	CLIENT_ARTIFACT_FORMAT,
-	CLIENT_BRIDGE_PROTOCOL_VERSION,
-	CLIENT_COMPILER_VERSION,
 	pluginClientFileExtension,
 	isPluginClientTextSource,
+	type PluginClientArtifact,
 } from "@ryot-app/client-plugin-contract";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
 	ClientRendererBadRequest,
 	ClientRendererDefinition,
 	ClientRendererNotFound,
+	type ClientPageCodeContributor,
 } from "@ryot-app/contract/modules/client-pages/schemas";
 import { isPluginSharedSource } from "@ryot-app/contract/modules/plugins/shared-file-policy";
+import type { ClientRendererId } from "@ryot-app/contract/schema/brands";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Context, Effect, Encoding, Layer, Result, Schema } from "effect";
@@ -28,7 +28,9 @@ import { slugify } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
 import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 import { PluginRepository } from "#modules/plugins/repository";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
+import { resolveClientPageGraph, type ResolvedClientPageGraph } from "./graph";
 import { ClientPagesRepository } from "./repository";
 
 const notFound = () => new ClientRendererNotFound({ reason: { code: "renderer-not-found" } });
@@ -37,8 +39,8 @@ const invalid = (message: string) =>
 
 const normalizeDefinition = (definition: ClientRendererDefinition) =>
 	Effect.gen(function* () {
-		if (definition.pluginDependencies.length > 0 || definition.automaticEntityPresentations) {
-			return yield* invalid("Plugin dependencies and automatic presentations are added in Task 02");
+		if (new Set(definition.pluginDependencies).size !== definition.pluginDependencies.length) {
+			return yield* invalid("Renderer plugin dependencies must be unique");
 		}
 		const files = [...definition.files].sort((left, right) => left.path.localeCompare(right.path));
 		if (new Set(files.map(({ path }) => path)).size !== files.length) {
@@ -109,7 +111,14 @@ const normalizeDefinition = (definition: ClientRendererDefinition) =>
 					: Effect.void,
 			),
 		);
-		return { definition: { ...definition, files }, decoded };
+		return {
+			definition: {
+				...definition,
+				files,
+				pluginDependencies: [...definition.pluginDependencies].sort(),
+			},
+			decoded,
+		};
 	});
 
 export class ClientPagesService extends Context.Service<ClientPagesService>()(
@@ -119,6 +128,57 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 			const plugins = yield* PluginRepository;
 			const compiler = yield* ClientPluginCompiler;
 			const repository = yield* ClientPagesRepository;
+			const pluginRuntime = yield* PluginRuntimeResolver;
+			const inFlightCompilations = new Map<string, Promise<PluginClientArtifact>>();
+
+			const resolveGraph = Effect.fn(function* (input: {
+				readonly rendererName: string;
+				readonly publishedHash: string;
+				readonly rendererId: ClientRendererId;
+				readonly userId: CurrentUserValue["id"];
+				readonly definition: ClientRendererDefinition;
+				readonly decoded: Readonly<Record<string, Uint8Array>>;
+			}) {
+				const snapshot = yield* pluginRuntime.listPluginsAvailableToUser(input.userId, true);
+				return yield* resolveClientPageGraph({
+					...input,
+					plugins: snapshot,
+					rendererFiles: input.decoded,
+					loadPluginFiles: (plugin) =>
+						plugins.listAuthorizedSourceFiles({
+							pluginId: plugin.id,
+							userId: input.userId,
+							sourceHash: plugin.sourceHash,
+							installationId: plugin.installationId,
+						}),
+				});
+			});
+
+			const compileGraph = (graph: ResolvedClientPageGraph) =>
+				Effect.tryPromise({
+					try: () => {
+						const existing = inFlightCompilations.get(graph.graphHash);
+						if (existing) {
+							return existing;
+						}
+						const compilation = Effect.runPromiseWith(Context.empty())(
+							compiler.compile(graph.compilerInput),
+						);
+						inFlightCompilations.set(graph.graphHash, compilation);
+						void compilation.then(
+							() => inFlightCompilations.delete(graph.graphHash),
+							() => inFlightCompilations.delete(graph.graphHash),
+						);
+						return compilation;
+					},
+					catch: (error) =>
+						error instanceof ClientPluginCompilerFailure
+							? error
+							: new ClientPluginCompilerFailure({
+									message: String(error),
+									diagnostics: [],
+								}),
+				});
 
 			const requireRenderer = Effect.fn(function* (
 				userId: CurrentUserValue["id"],
@@ -186,27 +246,25 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						definition,
 					).pipe(Effect.orDie),
 				);
-				const artifact = yield* compiler
-					.compile({
-						files: decoded,
-						name: renderer.name,
-						application: "page",
-						entry: definition.entry,
-						apiVersion: CLIENT_API_VERSION,
-					})
-					.pipe(
-						Effect.mapError(
-							(error) =>
-								new ClientRendererBadRequest({
-									reason: {
-										code: "build-failed",
-										diagnostics: error.diagnostics.map(
-											({ file, message }) => `${file}: ${message}`,
-										),
-									},
-								}),
-						),
-					);
+				const graph = yield* resolveGraph({
+					decoded,
+					definition,
+					publishedHash,
+					userId: user.id,
+					rendererId: renderer.id,
+					rendererName: renderer.name,
+				});
+				const artifact = yield* compileGraph(graph).pipe(
+					Effect.mapError(
+						(error) =>
+							new ClientRendererBadRequest({
+								reason: {
+									code: "build-failed",
+									diagnostics: error.diagnostics.map(({ file, message }) => `${file}: ${message}`),
+								},
+							}),
+					),
+				);
 				const database = yield* Database;
 				const buildId = yield* mapDatabaseErrors(
 					database.transaction((transaction) =>
@@ -237,6 +295,17 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 									),
 								);
 							}
+							const currentGraph = yield* resolveGraph({
+								decoded,
+								definition,
+								publishedHash,
+								userId: user.id,
+								rendererId: renderer.id,
+								rendererName: renderer.name,
+							});
+							if (currentGraph.graphHash !== graph.graphHash) {
+								return yield* invalid("Renderer dependency graph changed during publication");
+							}
 							yield* plugins.persistClientArtifact(artifact);
 							return (
 								(yield* repository.publish({
@@ -244,7 +313,9 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 									definition,
 									publishedHash,
 									userId: user.id,
+									graphHash: graph.graphHash,
 									artifactHash: artifact.hash,
+									graphIdentity: graph.identity,
 									revision: expectedDraftRevision,
 								})) ??
 								(yield* new ClientRendererBadRequest({ reason: { code: "draft-revision-stale" } }))
@@ -271,6 +342,60 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				);
 			});
 
+			const isIdentityCurrent = Effect.fn(function* (
+				userId: CurrentUserValue["id"],
+				identity: {
+					readonly buildId: string;
+					readonly graphHash: string;
+					readonly savedViewId: string;
+					readonly viewRevision: number;
+					readonly artifactHash: string;
+					readonly publishedHash: string;
+					readonly publishedRevision: number;
+					readonly rendererId: ClientRendererId;
+					readonly contributors: readonly ClientPageCodeContributor[];
+				},
+			) {
+				const prepared = yield* repository.findPreparedTarget(userId, identity.savedViewId);
+				if (
+					!prepared?.renderer.publishedDefinition ||
+					prepared.renderer.publishedHash !== identity.publishedHash ||
+					prepared.renderer.publishedRevision !== identity.publishedRevision ||
+					prepared.rendererId !== identity.rendererId ||
+					prepared.view.revision !== identity.viewRevision
+				) {
+					return false;
+				}
+				const { definition, decoded } = yield* normalizeDefinition(
+					prepared.renderer.publishedDefinition,
+				);
+				const graph = yield* resolveGraph({
+					userId,
+					decoded,
+					definition,
+					rendererId: prepared.rendererId,
+					rendererName: prepared.renderer.name,
+					publishedHash: identity.publishedHash,
+				});
+				if (
+					graph.graphHash !== identity.graphHash ||
+					!Bun.deepEquals(graph.contributors, identity.contributors)
+				) {
+					return false;
+				}
+				const build = yield* repository.findBuild({
+					userId,
+					graphHash: graph.graphHash,
+					rendererId: prepared.rendererId,
+					publishedHash: identity.publishedHash,
+				});
+				return (
+					build?.id === identity.buildId &&
+					build.artifactHash === identity.artifactHash &&
+					Bun.deepEquals(build.graphIdentity, graph.identity)
+				);
+			});
+
 			const prepare = Effect.fn(function* (
 				user: Pick<CurrentUserValue, "id">,
 				savedViewId: string,
@@ -278,20 +403,102 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				const prepared = yield* repository.findPreparedTarget(user.id, savedViewId);
 				if (
 					!prepared?.renderer.publishedHash ||
-					!prepared.renderer.publishedArtifactHash ||
-					prepared.renderer.publishedRevision === null
+					prepared.renderer.publishedRevision === null ||
+					!prepared.renderer.publishedDefinition
 				) {
 					return yield* new ClientRendererBadRequest({ reason: { code: "renderer-unpublished" } });
 				}
+				const publishedHash = prepared.renderer.publishedHash;
+				const publishedRevision = prepared.renderer.publishedRevision;
+				const { definition, decoded } = yield* normalizeDefinition(
+					prepared.renderer.publishedDefinition,
+				);
+				const graph = yield* resolveGraph({
+					decoded,
+					definition,
+					publishedHash,
+					userId: user.id,
+					rendererId: prepared.rendererId,
+					rendererName: prepared.renderer.name,
+				});
+				let build = yield* repository.findBuild({
+					publishedHash,
+					userId: user.id,
+					graphHash: graph.graphHash,
+					rendererId: prepared.rendererId,
+				});
+				if (build && !Bun.deepEquals(build.graphIdentity, graph.identity)) {
+					return yield* invalid("Stored client page graph identity does not match its hash");
+				}
+				if (!build) {
+					const artifact = yield* compileGraph(graph).pipe(
+						Effect.mapError(
+							(error) =>
+								new ClientRendererBadRequest({
+									reason: {
+										code: "build-failed",
+										diagnostics: error.diagnostics.map(
+											({ file, message }) => `${file}: ${message}`,
+										),
+									},
+								}),
+						),
+					);
+					const database = yield* Database;
+					const buildId = yield* mapDatabaseErrors(
+						database.transaction((transaction) =>
+							Effect.gen(function* () {
+								const current = yield* repository.lockRenderer(user.id, prepared.rendererId);
+								if (current?.publishedHash !== publishedHash) {
+									return yield* invalid("Renderer publication changed during compilation");
+								}
+								const currentGraph = yield* resolveGraph({
+									decoded,
+									definition,
+									publishedHash,
+									userId: user.id,
+									rendererId: prepared.rendererId,
+									rendererName: prepared.renderer.name,
+								});
+								if (currentGraph.graphHash !== graph.graphHash) {
+									return yield* invalid("Renderer dependency graph changed during compilation");
+								}
+								yield* plugins.persistClientArtifact(artifact);
+								return yield* repository.createBuild({
+									publishedHash,
+									userId: user.id,
+									graphHash: graph.graphHash,
+									artifactHash: artifact.hash,
+									graphIdentity: graph.identity,
+									rendererId: prepared.rendererId,
+								});
+							}).pipe(Effect.provideService(Database, transaction)),
+						),
+					);
+					if (!buildId) {
+						return yield* invalid("Client page build could not be stored");
+					}
+					build = {
+						id: buildId,
+						artifactHash: artifact.hash,
+						graphIdentity: graph.identity,
+						format: artifact.format,
+						apiVersion: artifact.apiVersion,
+						bridgeVersion: artifact.bridgeVersion,
+						compilerVersion: artifact.compilerVersion,
+					};
+				}
 				return {
 					identity: {
-						buildId: prepared.buildId,
+						publishedHash,
+						buildId: build.id,
+						publishedRevision,
+						graphHash: graph.graphHash,
 						savedViewId: prepared.viewId,
 						rendererId: prepared.rendererId,
+						contributors: graph.contributors,
+						artifactHash: build.artifactHash,
 						viewRevision: prepared.view.revision,
-						publishedHash: prepared.renderer.publishedHash,
-						artifactHash: prepared.renderer.publishedArtifactHash,
-						publishedRevision: prepared.renderer.publishedRevision,
 					},
 					context: {
 						settings: prepared.view.settings ?? {},
@@ -300,11 +507,11 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						target: { kind: "saved-view" as const, savedViewId: prepared.viewId },
 					},
 					artifact: {
-						format: CLIENT_ARTIFACT_FORMAT,
-						apiVersion: CLIENT_API_VERSION,
-						compilerVersion: CLIENT_COMPILER_VERSION,
-						hash: prepared.renderer.publishedArtifactHash,
-						bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+						format: build.format,
+						hash: build.artifactHash,
+						apiVersion: build.apiVersion,
+						bridgeVersion: build.bridgeVersion,
+						compilerVersion: build.compilerVersion,
 					},
 				};
 			});
@@ -315,6 +522,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				replaceDraft,
 				createRenderer,
 				deleteRenderer,
+				isIdentityCurrent,
 				getRenderer: requireRenderer,
 				listRenderers: (userId: CurrentUserValue["id"]) => repository.listRenderers(userId),
 			};

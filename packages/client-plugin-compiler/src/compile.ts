@@ -5,10 +5,12 @@ import type {
 } from "@ryot-app/client-plugin-contract";
 import {
 	isPluginClientTextSource,
+	pluginClientFileExtension,
 	pluginClientAssetMimeType,
 } from "@ryot-app/client-plugin-contract";
 import { isPluginSharedSource } from "@ryot-app/contract/modules/plugins/shared-file-policy";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
+import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Effect } from "effect";
 
 import {
@@ -32,24 +34,149 @@ const CLIENT_SOURCE_ROOT = "client/";
 const SHARED_SOURCE_ROOT = "shared/";
 const SCANNED_EXTENSIONS = new Set(["ts", "tsx"]);
 
-const isCompiledTextSource = (path: string) =>
-	path.startsWith(SHARED_SOURCE_ROOT) ? isPluginSharedSource(path) : isPluginClientTextSource(path);
+const isClientSourcePath = (path: string) =>
+	path.startsWith(CLIENT_SOURCE_ROOT) || path.includes(`/${CLIENT_SOURCE_ROOT}`);
+const isSharedSourcePath = (path: string) =>
+	path.startsWith(SHARED_SOURCE_ROOT) || path.includes(`/${SHARED_SOURCE_ROOT}`);
 
-export type ClientPluginCompilerInput = {
+const isCompiledTextSource = (path: string) =>
+	isSharedSourcePath(path)
+		? isPluginSharedSource(path.slice(path.lastIndexOf(SHARED_SOURCE_ROOT)))
+		: isPluginClientTextSource(path);
+
+type ClientPluginCompilerBaseInput = {
 	readonly name: string;
-	readonly entry: string;
 	readonly application?: "page" | "plugin";
 	readonly apiVersion: typeof CLIENT_API_VERSION;
+};
+
+export type ClientPluginCompilerSingleInput = ClientPluginCompilerBaseInput & {
+	readonly entry: string;
+	readonly pluginDependencies?: readonly string[];
+	readonly files: Readonly<Record<string, Uint8Array>>;
+	readonly publicExports?: Readonly<Record<string, ClientPluginCompilerPackageExport>>;
+};
+
+export type ClientPluginExportKind = "component" | "page" | "presentation";
+
+export type ClientPluginCompilerContributor = {
 	readonly files: Readonly<Record<string, Uint8Array>>;
 };
 
-const GENERATED_PAGE_ENTRY = "client/__ryot_page_entry.tsx";
+export type ClientPluginCompilerPublicExport = {
+	readonly entry: string;
+	readonly contributor: string;
+	readonly kind: ClientPluginExportKind;
+};
 
-const pageEntrySource = (entry: string) => `
+export type ClientPluginCompilerPackageExport = Omit<
+	ClientPluginCompilerPublicExport,
+	"contributor"
+>;
+
+export type ClientPluginAutomaticRegistryEntry = {
+	readonly ownerPluginId: string;
+	readonly layout: "grid" | "list";
+	readonly exportSpecifier: string;
+	readonly entitySchemaSlug: string;
+};
+
+export type ClientPluginCompilerGraphInput = ClientPluginCompilerBaseInput & {
+	readonly application: "page";
+	readonly contributorOrder: readonly string[];
+	readonly entry: { readonly contributor: string; readonly path: string };
+	readonly automaticRegistry?: readonly ClientPluginAutomaticRegistryEntry[];
+	readonly contributors: Readonly<Record<string, ClientPluginCompilerContributor>>;
+	readonly publicExports: Readonly<Record<string, ClientPluginCompilerPublicExport>>;
+};
+
+export type ClientPluginCompilerInput =
+	| ClientPluginCompilerSingleInput
+	| ClientPluginCompilerGraphInput;
+
+const GENERATED_PAGE_ENTRY = "client/__ryot_page_entry.tsx";
+const GENERATED_PACKAGE_VALIDATION_ENTRY = "client/__ryot_public_exports_validation__.tsx";
+
+const PUBLIC_EXPORT_SPECIFIER =
+	/^@ryot-app\/plugins\/[a-z0-9]+(?:[._-][a-z0-9]+)*\/[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
+const PUBLIC_EXPORT_NAME = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
+const CONTRIBUTOR_NAMESPACE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
+
+const pageEntrySource = (entry: string, automaticExports: readonly string[] = []) => `
 import { bootstrapClientPage } from "@ryot-app/client-sdk/plugin";
 import Page from ${JSON.stringify(`./${entry.slice(CLIENT_SOURCE_ROOT.length).replace(/\.(?:ts|tsx)$/, "")}`)};
+${automaticExports.map((specifier, index) => `import AutomaticPresentation${index} from ${JSON.stringify(specifier)};`).join("\n")}
+void [${automaticExports.map((_, index) => `AutomaticPresentation${index}`).join(", ")}];
 bootstrapClientPage(Page);
 `;
+
+const publicExportType = (kind: ClientPluginExportKind | undefined) => {
+	if (kind === "presentation") {
+		return "ComponentType<EntityRendererProps>";
+	}
+	return kind === "component" ? "ComponentType<any>" : "ComponentType";
+};
+
+const validationSource = (
+	entrySpecifier: string,
+	publicSpecifiers: readonly string[],
+	publicExports: Readonly<Record<string, ClientPluginCompilerPublicExport>>,
+) => {
+	const imports = [
+		`import type { ComponentType } from "react";`,
+		`import type { EntityRendererProps } from "@ryot-app/client-sdk/plugin";`,
+		`import Application from ${JSON.stringify(entrySpecifier)};`,
+		`const application: ComponentType = Application;`,
+		`void application;`,
+	];
+	publicSpecifiers.forEach((specifier, index) => {
+		const expected = publicExportType(publicExports[specifier]?.kind);
+		imports.push(`import PublicExport${index} from ${JSON.stringify(specifier)};`);
+		imports.push(`const publicExport${index}: ${expected} = PublicExport${index};`);
+		imports.push(`void publicExport${index};`);
+	});
+	return imports.join("\n");
+};
+
+const packageValidationSource = (
+	publicExports: Readonly<Record<string, ClientPluginCompilerPackageExport>>,
+) => {
+	const imports = [
+		`import type { ComponentType } from "react";`,
+		`import type { EntityRendererProps } from "@ryot-app/client-sdk/plugin";`,
+	];
+	for (const [index, [, declaration]] of sortBy(
+		Object.entries(publicExports),
+		([name]) => name,
+	).entries()) {
+		const specifier = `./${declaration.entry.slice(CLIENT_SOURCE_ROOT.length).replace(/\.(?:ts|tsx)$/, "")}`;
+		imports.push(`import PublicExport${index} from ${JSON.stringify(specifier)};`);
+		imports.push(
+			`const publicExport${index}: ${publicExportType(declaration.kind)} = PublicExport${index};`,
+		);
+		imports.push(`void publicExport${index};`);
+	}
+	return imports.join("\n");
+};
+
+const packageDependencyDeclarations = (pluginDependencies: readonly string[]) =>
+	pluginDependencies
+		.map(
+			(slug) =>
+				`declare module ${JSON.stringify(`@ryot-app/plugins/${slug}/*`)} { const value: any; export default value; }`,
+		)
+		.join("\n");
+
+const contributorNamespaceOf = (path: string) => path.split("/")[1] ?? "";
+
+const orderContributorSources = (paths: readonly string[], contributorOrder: readonly string[]) => {
+	const order = new Map(contributorOrder.map((namespace, index) => [namespace, index]));
+	return [...paths].sort((left, right) => {
+		const rank = (path: string) =>
+			order.get(contributorNamespaceOf(path)) ?? Number.MAX_SAFE_INTEGER;
+		return rank(left) - rank(right) || left.localeCompare(right);
+	});
+};
 
 const extensionOf = (path: string) => path.slice(path.lastIndexOf(".") + 1);
 
@@ -70,16 +197,143 @@ const duplicateFileName = (files: readonly PluginClientArtifactFile[]) => {
 const bytesEqual = (left: Uint8Array, right: Uint8Array) =>
 	left.byteLength === right.byteLength && left.every((value, index) => value === right[index]);
 
-export const compileClientPlugin = ({
-	entry,
-	files,
-	name: pluginName,
-	application = "plugin",
-}: ClientPluginCompilerInput) =>
+export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 	Effect.gen(function* () {
+		let entry: string;
+		const pluginName = input.name;
+		const graphInput = "contributors" in input;
+		let automaticExports: readonly string[] = [];
+		let files: Readonly<Record<string, Uint8Array>>;
+		const application = input.application ?? "plugin";
+		let publicExportPaths: Readonly<Record<string, string>> = {};
+		let publicExports: Readonly<Record<string, ClientPluginCompilerPublicExport>> = {};
+		let packagePublicExports: Readonly<Record<string, ClientPluginCompilerPackageExport>> = {};
+
+		if (graphInput) {
+			if (
+				new Set(input.contributorOrder).size !== input.contributorOrder.length ||
+				input.contributorOrder.length !== Object.keys(input.contributors).length ||
+				input.contributorOrder.some((contributor) => input.contributors[contributor] === undefined)
+			) {
+				return yield* failure(
+					input.entry.contributor,
+					"RYOT_CLIENT_CONTRIBUTOR",
+					"Contributor order must contain every contributor exactly once",
+				);
+			}
+			const namespacedFiles: Record<string, Uint8Array> = {};
+			for (const contributor of sortBy(Object.keys(input.contributors))) {
+				if (!CONTRIBUTOR_NAMESPACE.test(contributor)) {
+					return yield* failure(
+						contributor,
+						"RYOT_CLIENT_CONTRIBUTOR",
+						`Contributor namespace "${contributor}" is not canonical`,
+					);
+				}
+				for (const [path, contents] of Object.entries(
+					input.contributors[contributor]?.files ?? {},
+				)) {
+					if (
+						canonicalRelativePosixPathIssue(path) !== null ||
+						(path.startsWith(CLIENT_SOURCE_ROOT)
+							? pluginClientFileExtension(path) === undefined
+							: !isPluginSharedSource(path))
+					) {
+						return yield* failure(
+							path,
+							"RYOT_CLIENT_SOURCE_PATH",
+							`Contributor "${contributor}" source "${path}" must be an allowed canonical client/ or shared/ file`,
+						);
+					}
+					namespacedFiles[`contributors/${contributor}/${path}`] = contents;
+				}
+			}
+
+			const selectedContributor = input.contributors[input.entry.contributor];
+			if (selectedContributor === undefined) {
+				return yield* failure(
+					input.entry.contributor,
+					"RYOT_CLIENT_ENTRY",
+					`Application contributor "${input.entry.contributor}" is missing`,
+				);
+			}
+			entry = `contributors/${input.entry.contributor}/${input.entry.path}`;
+			files = namespacedFiles;
+			publicExports = input.publicExports;
+			const resolvedPublicExports: Record<string, string> = {};
+			for (const [specifier, declaration] of Object.entries(input.publicExports)) {
+				if (!PUBLIC_EXPORT_SPECIFIER.test(specifier)) {
+					return yield* failure(
+						specifier,
+						"RYOT_CLIENT_PUBLIC_EXPORT",
+						`Public export specifier "${specifier}" is not canonical`,
+					);
+				}
+				if (
+					input.contributors[declaration.contributor] === undefined ||
+					canonicalRelativePosixPathIssue(declaration.entry) !== null ||
+					!declaration.entry.startsWith(CLIENT_SOURCE_ROOT)
+				) {
+					return yield* failure(
+						specifier,
+						"RYOT_CLIENT_PUBLIC_EXPORT",
+						`Public export "${specifier}" has an invalid contributor or client entry`,
+					);
+				}
+				const target = `contributors/${declaration.contributor}/${declaration.entry}`;
+				if (!Object.hasOwn(namespacedFiles, target)) {
+					return yield* failure(
+						specifier,
+						"RYOT_CLIENT_PUBLIC_EXPORT",
+						`Public export "${specifier}" entry "${declaration.entry}" is missing`,
+					);
+				}
+				resolvedPublicExports[specifier] = target;
+			}
+			publicExportPaths = resolvedPublicExports;
+			const registryKeys = new Set<string>();
+			automaticExports = sortBy(
+				(input.automaticRegistry ?? []).map((registration) => {
+					const key = `${registration.ownerPluginId}/${registration.entitySchemaSlug}/${registration.layout}`;
+					const declaration = input.publicExports[registration.exportSpecifier];
+					if (registryKeys.has(key) || declaration?.kind !== "presentation") {
+						return "";
+					}
+					registryKeys.add(key);
+					return registration.exportSpecifier;
+				}),
+			).filter(Boolean);
+			if (automaticExports.length !== (input.automaticRegistry ?? []).length) {
+				return yield* failure(
+					entry,
+					"RYOT_CLIENT_AUTOMATIC_REGISTRY",
+					"Automatic registry entries must be unique and reference authorized presentation exports",
+				);
+			}
+		} else {
+			entry = input.entry;
+			files = input.files;
+			packagePublicExports = input.publicExports ?? {};
+			for (const [name, declaration] of Object.entries(packagePublicExports)) {
+				if (
+					!PUBLIC_EXPORT_NAME.test(name) ||
+					canonicalRelativePosixPathIssue(declaration.entry) !== null ||
+					!declaration.entry.startsWith(CLIENT_SOURCE_ROOT) ||
+					pluginClientFileExtension(declaration.entry) === undefined ||
+					!Object.hasOwn(files, declaration.entry)
+				) {
+					return yield* failure(
+						declaration.entry,
+						"RYOT_CLIENT_PUBLIC_EXPORT",
+						`Public export "${name}" must reference a client TypeScript source present in the plugin package`,
+					);
+				}
+			}
+		}
+
 		if (
 			(!entry.endsWith(".ts") && !entry.endsWith(".tsx")) ||
-			!entry.startsWith(CLIENT_SOURCE_ROOT) ||
+			!(graphInput ? entry.includes("/client/") : entry.startsWith(CLIENT_SOURCE_ROOT)) ||
 			!Object.hasOwn(files, entry)
 		) {
 			return yield* failure(
@@ -91,16 +345,16 @@ export const compileClientPlugin = ({
 
 		const compiledFiles = sortBy(
 			Object.entries(files).filter(
-				([path]) => path.startsWith(CLIENT_SOURCE_ROOT) || path.startsWith(SHARED_SOURCE_ROOT),
+				([path]) => isClientSourcePath(path) || isSharedSourcePath(path),
 			),
 			([path]) => path,
 		);
-		const clientFiles = compiledFiles.filter(([path]) => path.startsWith(CLIENT_SOURCE_ROOT));
-		const sourceBytes = compiledFiles.reduce(
+		const clientFiles = compiledFiles.filter(([path]) => isClientSourcePath(path));
+		const packageSourceBytes = compiledFiles.reduce(
 			(total, [, contents]) => total + contents.byteLength,
 			0,
 		);
-		if (sourceBytes > CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes) {
+		if (!graphInput && packageSourceBytes > CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes) {
 			return yield* failure(
 				entry,
 				"RYOT_CLIENT_SOURCE_SIZE",
@@ -114,7 +368,7 @@ export const compileClientPlugin = ({
 		const oversizedAsset = assetSources.find(
 			([, contents]) => contents.byteLength > CLIENT_PLUGIN_COMPILER_LIMITS.assetBytes,
 		);
-		if (oversizedAsset) {
+		if (!graphInput && oversizedAsset) {
 			return yield* failure(
 				oversizedAsset[0],
 				"RYOT_CLIENT_ASSET_SIZE",
@@ -138,9 +392,37 @@ export const compileClientPlugin = ({
 				);
 			}
 		}
-		const buildEntry = application === "page" ? GENERATED_PAGE_ENTRY : entry;
+		const generatedPageEntry = graphInput
+			? `contributors/${input.entry.contributor}/${GENERATED_PAGE_ENTRY}`
+			: GENERATED_PAGE_ENTRY;
+		const buildEntry = application === "page" ? generatedPageEntry : entry;
 		if (application === "page") {
-			sourceFiles[GENERATED_PAGE_ENTRY] = pageEntrySource(entry);
+			if (Object.hasOwn(sourceFiles, generatedPageEntry)) {
+				return yield* failure(
+					entry,
+					"RYOT_CLIENT_ENTRY",
+					"Client sources use a compiler-owned entry path",
+				);
+			}
+			sourceFiles[generatedPageEntry] = pageEntrySource(
+				graphInput ? input.entry.path : entry,
+				automaticExports,
+			);
+		}
+		if (!graphInput && Object.keys(packagePublicExports).length > 0) {
+			if (Object.hasOwn(sourceFiles, GENERATED_PACKAGE_VALIDATION_ENTRY)) {
+				return yield* failure(
+					entry,
+					"RYOT_CLIENT_ENTRY",
+					"Client sources use a compiler-owned public export validation path",
+				);
+			}
+			sourceFiles[GENERATED_PACKAGE_VALIDATION_ENTRY] =
+				packageValidationSource(packagePublicExports);
+			const dependencyDeclarations = packageDependencyDeclarations(input.pluginDependencies ?? []);
+			if (dependencyDeclarations.length > 0) {
+				sourceFiles["client/__ryot_plugin_dependencies__.d.ts"] = dependencyDeclarations;
+			}
 		}
 
 		const assetNames = Object.fromEntries(
@@ -148,13 +430,51 @@ export const compileClientPlugin = ({
 		);
 		const dependencies = yield* resolveClientPluginCompilerDependencies;
 		const bundled = yield* bundleClientPlugin(
-			{ entry: buildEntry, assetNames, files: sourceFiles },
+			{ entry: buildEntry, assetNames, files: sourceFiles, publicExports: publicExportPaths },
 			dependencies.compilerRoot,
 		);
 		if ("diagnostics" in bundled) {
 			return yield* clientPluginCompilationFailure(bundled.diagnostics);
 		}
-		const typeDiagnostics = yield* checkClientPluginTypes(sourceFiles, dependencies).pipe(
+		if (!graphInput && Object.keys(packagePublicExports).length > 0) {
+			const validationBundle = yield* bundleClientPlugin(
+				{
+					files: sourceFiles,
+					assetNames,
+					publicExports: {},
+					entry: GENERATED_PACKAGE_VALIDATION_ENTRY,
+					unresolvedPluginDependencies: input.pluginDependencies ?? [],
+				},
+				dependencies.compilerRoot,
+			);
+			if ("diagnostics" in validationBundle) {
+				return yield* clientPluginCompilationFailure(validationBundle.diagnostics);
+			}
+		}
+		const reachablePublicExports = sortBy([
+			...new Set([...bundled.publicExports, ...automaticExports]),
+		]);
+		const validationEntry = "__ryot_client_validation__.tsx";
+		const checkedSourceFiles = graphInput
+			? Object.fromEntries(
+					bundled.sources.flatMap((path) =>
+						sourceFiles[path] === undefined ? [] : [[path, sourceFiles[path]]],
+					),
+				)
+			: { ...sourceFiles };
+		if (application === "page") {
+			checkedSourceFiles[validationEntry] = validationSource(
+				"@ryot-internal/application-entry",
+				reachablePublicExports,
+				publicExports,
+			);
+		}
+		const typeDiagnostics = yield* checkClientPluginTypes(checkedSourceFiles, dependencies, {
+			...(application === "page" ? { "@ryot-internal/application-entry": entry } : {}),
+			...Object.fromEntries(
+				reachablePublicExports.map((specifier) => [specifier, publicExportPaths[specifier] ?? ""]),
+			),
+		}).pipe(
 			Effect.mapError((error) =>
 				clientPluginCompilationFailure([
 					clientPluginCompilerDiagnostic(
@@ -168,15 +488,6 @@ export const compileClientPlugin = ({
 		if (typeDiagnostics.length > 0) {
 			return yield* clientPluginCompilationFailure(typeDiagnostics);
 		}
-		if (bundled.stylesheets.length > 1) {
-			return yield* failure(
-				entry,
-				"RYOT_CLIENT_STYLESHEET",
-				"Client plugin sources must import at most one stylesheet",
-			);
-		}
-
-		const stylesheet = bundled.stylesheets[0];
 		const styles = yield* compileClientStyles({
 			entry,
 			files,
@@ -186,17 +497,45 @@ export const compileClientPlugin = ({
 			themeStylesheet: dependencies.themeStylesheet,
 			paletteStylesheet: dependencies.paletteStylesheet,
 			tailwindStylesheet: dependencies.tailwindStylesheet,
-			stylesheet:
-				stylesheet === undefined
-					? undefined
-					: { path: stylesheet, content: sourceFiles[stylesheet] ?? "" },
+			stylesheets: (graphInput
+				? orderContributorSources(bundled.stylesheets, input.contributorOrder)
+				: bundled.stylesheets
+			).map((path) => ({ path, content: sourceFiles[path] ?? "" })),
 			scanSources: [
-				...clientFiles
+				...(graphInput ? bundled.sources.map((path) => [path, files[path]] as const) : clientFiles)
 					.filter(([path]) => SCANNED_EXTENSIONS.has(extensionOf(path)))
 					.map(([path]) => ({ extension: extensionOf(path), content: sourceFiles[path] ?? "" })),
 				...dependencies.uiSdkScanSources,
 			],
 		});
+		const reachablePaths = new Set([
+			...bundled.sources,
+			...styles.sources,
+			...bundled.assets,
+			...styles.assets,
+		]);
+		const reachableSourceBytes = [...reachablePaths].reduce(
+			(total, path) => total + (files[path]?.byteLength ?? 0),
+			0,
+		);
+		if (graphInput && reachableSourceBytes > CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes) {
+			return yield* failure(
+				entry,
+				"RYOT_CLIENT_SOURCE_SIZE",
+				`Client plugin source exceeds ${CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes} bytes`,
+			);
+		}
+		const reachableOversizedAsset = assetSources.find(
+			([path, contents]) =>
+				reachablePaths.has(path) && contents.byteLength > CLIENT_PLUGIN_COMPILER_LIMITS.assetBytes,
+		);
+		if (graphInput && reachableOversizedAsset) {
+			return yield* failure(
+				reachableOversizedAsset[0],
+				"RYOT_CLIENT_ASSET_SIZE",
+				`Client plugin asset exceeds ${CLIENT_PLUGIN_COMPILER_LIMITS.assetBytes} bytes`,
+			);
+		}
 
 		const assetsByName = new Map<string, PluginClientArtifactFile>();
 		const emittedAssets: Array<readonly [string, PluginClientArtifactFile]> = [];

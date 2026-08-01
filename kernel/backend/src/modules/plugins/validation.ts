@@ -50,7 +50,7 @@ export const decodePluginManifest = (input: unknown) =>
 
 export const validatePluginSourcePaths = (
 	files: Readonly<Record<string, Uint8Array>>,
-	scripts: PluginManifestValue["scripts"],
+	manifest: PluginManifestValue,
 ) =>
 	Effect.gen(function* () {
 		for (const path of Object.keys(files)) {
@@ -59,13 +59,25 @@ export const validatePluginSourcePaths = (
 				return yield* fail(`Plugin file path '${path}' ${issue}`);
 			}
 		}
-		for (const script of scripts) {
+		for (const script of manifest.scripts) {
 			const issue = canonicalRelativePosixPathIssue(script.entry);
 			if (issue) {
 				return yield* fail(`Plugin script entry '${script.entry}' ${issue}`);
 			}
 			if (!Object.hasOwn(files, script.entry)) {
 				return yield* fail(`Plugin script entry is missing from files: ${script.entry}`);
+			}
+		}
+		if (manifest.client) {
+			for (const [entryLabel, entry] of [
+				["application", manifest.client.entry],
+				...Object.entries(manifest.client.exports ?? {}).map(
+					([name, declaration]) => [`public export ${name}`, declaration.entry] as const,
+				),
+			] as const) {
+				if (!Object.hasOwn(files, entry)) {
+					return yield* fail(`Plugin client ${entryLabel} entry is missing from files: ${entry}`);
+				}
 			}
 		}
 		return yield* Effect.void;

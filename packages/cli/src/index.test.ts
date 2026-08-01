@@ -223,6 +223,68 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 		}),
 	);
 
+	test.effect("validates an advertised export that the plugin bootstrap does not import", () =>
+		Effect.gen(function* () {
+			const path = yield* Path.Path;
+			const fs = yield* FileSystem.FileSystem;
+			const plugin = yield* createPlugin();
+			const output = path.join(plugin, "dist", "cli-test.zip");
+			yield* fs.makeDirectory(path.dirname(output), { recursive: true });
+			yield* fs.writeFileString(output, "keep");
+			yield* fs.writeFileString(
+				path.join(plugin, "client", "home.tsx"),
+				"export const Home = () => 'home';\n",
+			);
+
+			const result = yield* run(plugin, ["plugin", "build"]);
+
+			expect(result.exitCode).not.toBe(0);
+			expect(result.stdout).toContain("No matching export");
+			expect(yield* fs.readFileString(output)).toBe("keep");
+		}),
+	);
+
+	test.effect("allows an advertised export to import a declared public plugin dependency", () =>
+		Effect.gen(function* () {
+			const path = yield* Path.Path;
+			const fs = yield* FileSystem.FileSystem;
+			const plugin = yield* createPlugin();
+			const manifestPath = path.join(plugin, "manifest.ts");
+			const manifest = yield* fs.readFileString(manifestPath);
+			yield* fs.writeFileString(
+				manifestPath,
+				manifest.replace("client: {", 'client: {\n\t\tpluginDependencies: ["media"],'),
+			);
+			yield* fs.writeFileString(
+				path.join(plugin, "client", "home.tsx"),
+				'import Card from "@ryot-app/plugins/media/show-card";\nvoid Card;\nexport default function Home() { return null; }\n',
+			);
+
+			const result = yield* run(plugin, ["plugin", "build"]);
+
+			expect(result.exitCode).toBe(0);
+			expect(yield* fs.exists(path.join(plugin, "dist", "cli-test.zip"))).toBe(true);
+		}),
+	);
+
+	test.effect("rejects an advertised export that imports an undeclared plugin", () =>
+		Effect.gen(function* () {
+			const path = yield* Path.Path;
+			const fs = yield* FileSystem.FileSystem;
+			const plugin = yield* createPlugin();
+			yield* fs.writeFileString(
+				path.join(plugin, "client", "home.tsx"),
+				'import Card from "@ryot-app/plugins/media/show-card";\nvoid Card;\nexport default function Home() { return null; }\n',
+			);
+
+			const result = yield* run(plugin, ["plugin", "build"]);
+
+			expect(result.exitCode).not.toBe(0);
+			expect(result.stdout).toContain("authorized export map");
+			expect(yield* fs.exists(path.join(plugin, "dist", "cli-test.zip"))).toBe(false);
+		}),
+	);
+
 	test.effect("fails the build when a manifest value is not a JSON-safe literal", () =>
 		Effect.gen(function* () {
 			const path = yield* Path.Path;
