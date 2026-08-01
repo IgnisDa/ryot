@@ -108,7 +108,12 @@ describe("collection events", () => {
 				),
 			);
 
-			assertTaggedError(error, "NotFound");
+			assertTaggedError(error, "CollectionNotFound");
+			expect(error.reason).toEqual({
+				entityId,
+				code: "membership-not-found",
+				collectionId: collection.id,
+			});
 
 			const events = yield* listEventsForEntity(client, collection.id, undefined, 100);
 			const removeEvents = events.filter(

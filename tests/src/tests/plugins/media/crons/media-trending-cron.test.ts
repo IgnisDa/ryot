@@ -162,7 +162,7 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 					}),
 				),
 			);
-			assertTaggedError(missing, "Unauthorized");
+			assertTaggedError(missing, "AuthUnauthorized");
 
 			const wrong = yield* Effect.flip(
 				client.call(
@@ -176,7 +176,7 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 					adminAccessTokenHeaders("wrong-token"),
 				),
 			);
-			assertTaggedError(wrong, "Unauthorized");
+			assertTaggedError(wrong, "AuthUnauthorized");
 		}),
 	);
 

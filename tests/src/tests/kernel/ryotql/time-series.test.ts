@@ -275,7 +275,10 @@ describe("RyotQL time-series outputs", () => {
 					}),
 				);
 
-				expect(error).toMatchObject({ _tag: "BadRequest" });
+				expect(error).toMatchObject({
+					_tag: "RyotQLBadRequest",
+					reason: { code: "invalid-query" },
+				});
 			}),
 	);
 });
