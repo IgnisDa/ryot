@@ -2,11 +2,8 @@ import type { RyotQLResponse } from "@ryot/contract/modules/ryotql/language";
 import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 
-import {
-	buildEntityDetailDocument,
-	buildEntityInterestDocument,
-	decodeEntityInterestResponse,
-} from "./entities";
+import { buildEntityInterestDocument, decodeEntityInterestResponse } from "./entities";
+import { buildEntityReadDocument } from "./sandbox";
 
 const entityInterestResponse = {
 	data: {
@@ -35,40 +32,17 @@ const responseWithItems = (items: readonly unknown[]) => ({
 });
 
 describe("entity recipes", () => {
-	it("builds the focused entity detail read", () => {
-		const query = buildEntityDetailDocument({ entityId: "entity-1", entitySchemaSlug: "book" })
-			.queries["entity"];
-
-		expect(query.output.pagination).toEqual({ page: 1, limit: 1 });
+	it("builds the sandbox entity read by visible ids", () => {
 		expect(
-			query.output.fields.map((selection) => {
-				if (!("key" in selection)) {
-					throw new Error("Expected an explicit field selection");
-				}
-				return selection.key;
-			}),
-		).toEqual([
-			"id",
-			"name",
-			"createdAt",
-			"updatedAt",
-			"properties",
-			"externalId",
-			"populatedAt",
-			"entitySchemaSlug",
-			"providerId",
-			"translationStatus",
-		]);
-		expect(query.where).toMatchObject({
-			type: "and",
-			predicates: [
-				{ left: { field: "id" }, right: { value: "entity-1" } },
-				{ left: { field: "entitySchemaSlug" }, right: { value: "book" } },
+			buildEntityReadDocument({ entityIds: ["entity-1", "entity-2"] }).queries.entities.where,
+		).toEqual({
+			type: "in",
+			expr: { type: "column", tableAlias: "entity", field: "id" },
+			values: [
+				{ type: "literal", value: "entity-1" },
+				{ type: "literal", value: "entity-2" },
 			],
 		});
-		expect(query.output.orderBy).toEqual([
-			{ direction: "asc", expr: { type: "column", tableAlias: "entity", field: "id" } },
-		]);
 	});
 
 	it("builds the focused entity interest read", () => {
