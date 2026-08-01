@@ -162,6 +162,31 @@ high-water counters are recorded instead. The full catalog benchmark command was
 RUN_SANDBOX_BENCHMARKS=1 bun turbo --env-mode=loose --force --output-logs=full --filter=@ryot/tests test --only -- 'src/tests/kernel/sandbox/sandbox-runtime-benchmark.test.ts'
 ```
 
+### Persisted-queue latency optimization (2026-08-06)
+
+A follow-up profile found that the sandbox execution queue's 250-ms Redis polling interval dominated
+the universal runtime overhead. The application has one persisted queue, used only for sandbox
+replays, so its polling interval was reduced to 25 ms without changing the separate 250-ms SQL
+workflow polling interval. A 10-ms experiment produced no consistent interactive improvement over 25
+ms, while a 50-ms experiment regressed sequential-call latency. Attempts to preserve an ahead Redis
+journal projection also produced no measurable improvement and were discarded.
+
+The identical warm hermetic harness was rerun with the standard three warm-ups and 15 direct samples,
+plus one warm-up and five measured 10-item population chunks:
+
+| Workload                          | Optimized p50 / p95 | Task 15 p50 / p95 | Task 01 p50 / p95 | Executions / body replays / module loads |
+| --------------------------------- | ------------------: | ----------------: | ----------------: | ---------------------------------------: |
+| No-host automation early return   |        170 / 202 ms |      476 / 648 ms |      221 / 266 ms |                       1.47 / 1.47 / 1.47 |
+| Full automation                   |        424 / 581 ms |  1,099 / 1,466 ms |      229 / 251 ms |                         3.6 / 3.6 / 3.6 |
+| Controlled HTTP provider          |        381 / 540 ms |    835 / 1,292 ms |      222 / 274 ms |                              3 / 3 / 3 |
+| Youtubei controlled HTTP provider |        472 / 692 ms |    950 / 1,637 ms |      234 / 430 ms |                              3 / 3 / 3 |
+| Bounded 10-item population chunk  |    4,294 / 4,378 ms | 9,424 / 11,091 ms | 6,563 / 6,855 ms |                           21 / 21 / 21 |
+
+The optimized population throughput was `2.329` items/s p50, or `153%` of the Task 01 baseline and
+`219%` of the Task 15 result. The no-host path is now faster than its original baseline. Both provider
+paths remain slower than the standard runtime but are well below the interactive review threshold,
+and their replay and journal counts match the expected two sequential durable boundaries.
+
 ## 1. Establish the Two Tracers
 
 Build the runtime against two deliberately small reference paths before migrating the catalog.
