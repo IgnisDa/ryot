@@ -33,7 +33,6 @@ tmp
 *.key
 *.mobileprovision
 *.orig.*
-web-build/
 .output
 .nuxt
 .nitro
@@ -57,7 +56,6 @@ storybook-static
 # React Native / Expo / Metro
 .kotlin/
 .metro-health-check*
-expo-env.d.ts
 npm-debug.*
 yarn-debug.*
 yarn-error.*
