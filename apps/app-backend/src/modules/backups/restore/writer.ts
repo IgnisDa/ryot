@@ -1,4 +1,4 @@
-import { badRequest } from "@ryot/contract/errors";
+import { badRequest, DbError } from "@ryot/contract/errors";
 import type { AssetLocator } from "@ryot/contract/modules/uploads/schemas";
 import {
 	EntityId,
@@ -8,7 +8,7 @@ import {
 	type UserId,
 } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Stream } from "effect";
 
 import { AuthRepository } from "#modules/auth/repository";
 import { AutomationsRepository } from "#modules/automations/repository";
@@ -19,11 +19,13 @@ import {
 import { DefinitionsRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { TranslationsRepository } from "#modules/entity-translation/repository";
-import { EventsRepository } from "#modules/events/repository";
+import { EventsRepository, RESTORE_EVENT_BATCH_SIZE } from "#modules/events/repository";
 import { PluginRepository } from "#modules/plugins/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 
+import type { ValidatedV1Events } from "../archive-v1/archive";
+import { archiveError } from "../archive-v1/error";
 import {
 	rewriteV1EventReferences,
 	rewriteV1ManagedAssetLocators,
@@ -191,10 +193,28 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				return resolved ?? (yield* badRequest("Backup requires an unavailable provider"));
 			});
 
+			const restoreEventBatch = (
+				batch: ReadonlyArray<Parameters<typeof events.restoreEvents>[0][number]>,
+			) =>
+				events
+					.restoreEvents(batch)
+					.pipe(
+						Effect.mapError((error) =>
+							error instanceof DbError && error.code === "23505"
+								? archiveError(
+										"duplicate_record_id",
+										"Backup contains a duplicate event id",
+										"events.ndjson",
+									)
+								: error,
+						),
+					);
+
 			const restoreRecords = Effect.fn("BackupRestoreWriter.restoreRecords")(function* (
 				userId: UserId,
 				records: V1ArchiveRecords,
 				assetLocators: ReadonlyMap<string, AssetLocator>,
+				archivedEvents: ValidatedV1Events,
 			) {
 				const entityIdMap = new Map<string, EntityId>();
 				const relationshipIdMap = new Map<string, string>();
@@ -401,51 +421,58 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					relationshipIdMap.set(relationship.id, restoredId);
 				}
 
-				for (const event of records.events) {
-					const entityId = entityIdMap.get(event.entityId);
-					if (!entityId) {
-						return yield* badRequest("Backup event references an unknown entity");
-					}
-					const entitySchemaSlug = entitySchemaById.get(entityId);
-					if (!entitySchemaSlug) {
-						return yield* badRequest("Backup event references an unknown entity schema");
-					}
-					const propertiesSchema = definitions.getEventSchema(
-						entitySchemaSlug,
-						event.eventSchemaSlug,
-					)?.propertiesSchema;
-					if (!propertiesSchema) {
-						return yield* badRequest("Backup references an unavailable event schema");
-					}
-					const rewritten = yield* rewriteV1EventReferences(
-						event,
-						propertiesSchema,
-						entityIdMap,
-						relationshipIdMap,
-					);
-					const sessionEntityId = rewritten.sessionEntityId
-						? EntityId.make(rewritten.sessionEntityId)
-						: null;
-					const properties = yield* rewriteV1ManagedAssetLocators(
-						rewritten.properties,
-						propertiesSchema,
-						assetLocators,
-					);
-					yield* definitions
-						.validateEventProperties(entitySchemaSlug, event.eventSchemaSlug, properties)
-						.pipe(Effect.mapError((error) => badRequest(error.message)));
-					yield* events.restoreEvent({
-						userId,
-						entityId,
-						properties,
-						id: event.id,
-						sessionEntityId,
-						eventSchemaSlug: event.eventSchemaSlug,
-						createdAt: parseDate(event.createdAt),
-						updatedAt: parseDate(event.updatedAt),
-						occurredAt: parseDate(event.occurredAt),
-					});
-				}
+				const eventBatch: Parameters<typeof restoreEventBatch>[0][number][] = [];
+				yield* Stream.runForEach(archivedEvents.read(), (event) =>
+					Effect.gen(function* () {
+						const entityId = entityIdMap.get(event.entityId);
+						if (!entityId) {
+							return yield* badRequest("Backup event references an unknown entity");
+						}
+						const entitySchemaSlug = entitySchemaById.get(entityId);
+						if (!entitySchemaSlug) {
+							return yield* badRequest("Backup event references an unknown entity schema");
+						}
+						const propertiesSchema = definitions.getEventSchema(
+							entitySchemaSlug,
+							event.eventSchemaSlug,
+						)?.propertiesSchema;
+						if (!propertiesSchema) {
+							return yield* badRequest("Backup references an unavailable event schema");
+						}
+						const rewritten = yield* rewriteV1EventReferences(
+							event,
+							propertiesSchema,
+							entityIdMap,
+							relationshipIdMap,
+						);
+						const sessionEntityId = rewritten.sessionEntityId
+							? EntityId.make(rewritten.sessionEntityId)
+							: null;
+						const properties = yield* rewriteV1ManagedAssetLocators(
+							rewritten.properties,
+							propertiesSchema,
+							assetLocators,
+						);
+						yield* definitions
+							.validateEventProperties(entitySchemaSlug, event.eventSchemaSlug, properties)
+							.pipe(Effect.mapError((error) => badRequest(error.message)));
+						eventBatch.push({
+							userId,
+							entityId,
+							properties,
+							id: event.id,
+							sessionEntityId,
+							eventSchemaSlug: event.eventSchemaSlug,
+							createdAt: parseDate(event.createdAt),
+							updatedAt: parseDate(event.updatedAt),
+							occurredAt: parseDate(event.occurredAt),
+						});
+						return yield* eventBatch.length >= RESTORE_EVENT_BATCH_SIZE
+							? restoreEventBatch(eventBatch.splice(0))
+							: Effect.void;
+					}),
+				);
+				yield* restoreEventBatch(eventBatch.splice(0));
 
 				if (!(yield* auth.restorePortableProfile(userId, records.profile))) {
 					return yield* badRequest("Backup user does not exist");

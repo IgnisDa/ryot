@@ -4,6 +4,7 @@ import { BackupRunId, UserId } from "@ryot/contract/schema/brands";
 import { Context, Effect, FileSystem, Layer, Result, Schedule, Schema } from "effect";
 import { Activity, Workflow } from "effect/unstable/workflow";
 
+import { AppConfig } from "#lib/infrastructure/config/service";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { acquireUserWriteLock } from "#lib/infrastructure/db/user-write-lock";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
@@ -84,6 +85,7 @@ export class RestoreBackupWorkflowOperations extends Context.Service<
 export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 	RestoreBackupWorkflowOperations,
 	Effect.gen(function* () {
+		const config = yield* AppConfig;
 		const database = yield* Database;
 		const fs = yield* FileSystem.FileSystem;
 		const writer = yield* BackupRestoreWriter;
@@ -142,9 +144,9 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 						key: archive.key,
 						type: archive.provider,
 					});
-					const validated = yield* validateV1ArchiveStream(source).pipe(
-						Effect.provideService(FileSystem.FileSystem, fs),
-					);
+					const validated = yield* validateV1ArchiveStream(source, {
+						directory: config.fileStorage.localTempDir,
+					}).pipe(Effect.provideService(FileSystem.FileSystem, fs));
 					const stagedBySha = new Map<string, StagedPermanentAsset>();
 					yield* Effect.gen(function* () {
 						yield* writer.assertRequiredPlugins(
@@ -180,7 +182,12 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 										for (const staged of stagedBySha.values()) {
 											yield* managedAssets.registerManagedAssetInLockedTransaction(staged.metadata);
 										}
-										yield* writer.restoreRecords(payload.userId, validated.records, assetLocators);
+										yield* writer.restoreRecords(
+											payload.userId,
+											validated.records,
+											assetLocators,
+											validated.events,
+										);
 										if (!(yield* repository.updateProgress({ ...payload, progress: 90 }))) {
 											return yield* internalError(
 												"Backup restore checkpoint could not be recorded",
