@@ -150,7 +150,7 @@ it.effect("creates and indexes a local permanent upload intent", () => {
 			makeUploadsLayer({
 				config: {
 					fileStorage: {
-						localDir: Option.some(TEST_TMP_DIR),
+						localDir: TEST_TMP_DIR,
 						localSigningSecret: Option.some(Redacted.make("secret")),
 					},
 				},
@@ -595,7 +595,7 @@ it.effect("completes, claims, and deletes a local temporary intent", () => {
 			makeUploadsLayer({
 				config: {
 					fileStorage: {
-						localDir: Option.some(TEST_TMP_DIR),
+						localDir: TEST_TMP_DIR,
 						localSigningSecret: Option.some(Redacted.make("secret")),
 					},
 				},
