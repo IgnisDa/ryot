@@ -1058,6 +1058,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			persistKernelScript,
 			hasEntityReferences,
 			listActiveManifests,
+			persistClientArtifact,
 			resolveProviderBySlugs,
 			findPrivateByIdForUser,
 			hasDefinitionReferences,

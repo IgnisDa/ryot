@@ -4,6 +4,7 @@ import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { Effect, Layer } from "effect";
 
+import { ClientPagesApi } from "#/api/client-pages";
 import { decodeServerOrigin } from "#/api/origin";
 import { makeGodModeApi, makeUserSettingsApi } from "#/api/ports.test-layer";
 import { PublicApi } from "#/api/public";
@@ -16,6 +17,7 @@ import { OAuthStorage } from "#/modules/auth/oauth-storage";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
+import { ClientPageSessions } from "#/modules/client-pages/sessions";
 import { EntitiesService } from "#/modules/entities/service";
 import { GodModeService } from "#/modules/god-mode/service";
 import { GodModeSessionService, makeGodModeSessionService } from "#/modules/god-mode/session";
@@ -274,6 +276,19 @@ export const ProviderAddRouteStubs = Layer.succeed(ProviderAddService, {
 	loadSearchOptions: () => Effect.die("not used"),
 });
 
+export const ClientPagesApiRouteStubs = Layer.succeed(ClientPagesApi, {
+	prepare: () => Effect.die("not used"),
+	renewSession: () => Effect.die("not used"),
+	revokeSession: () => Effect.die("not used"),
+	createSession: () => Effect.die("not used"),
+});
+
+export const ClientPageSessionsRouteStubs = Layer.succeed(ClientPageSessions, {
+	renew: () => Effect.die("not used"),
+	create: () => Effect.die("not used"),
+	revoke: () => Effect.die("not used"),
+});
+
 export type WorkspaceStorageRecorder = {
 	readonly getScopes: ApiScope[];
 	readonly popupOpenWhenSet: boolean[];
@@ -299,8 +314,8 @@ export const makeStorageStub = (
 		setThemePreference: () => Effect.void,
 		setRememberedProvider: () => Effect.void,
 		getServerSelection: Effect.succeed(server),
-		getThemePreference: Effect.succeed("system" as const),
 		getRememberedProvider: () => Effect.succeed(null),
+		getThemePreference: Effect.succeed("system" as const),
 		getSavedViewLayout: () => Effect.succeed("grid" as const),
 		getLastWorkspace: (scope) =>
 			Effect.sync(() => {

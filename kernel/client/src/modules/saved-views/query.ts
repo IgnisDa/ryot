@@ -7,8 +7,9 @@ import type {
 import { and, contains, literal } from "@ryot-app/ryotql";
 import type { SavedViewRecord } from "@ryot-app/ryotql-recipes/saved-view-records";
 
-export type SavedViewLayoutDefinition =
-	SavedViewRecord["layouts"][keyof SavedViewRecord["layouts"]];
+export type SavedViewLayoutDefinition = NonNullable<SavedViewRecord["layouts"]>[keyof NonNullable<
+	SavedViewRecord["layouts"]
+>];
 
 type RowsQuery = Omit<NamedQuery, "output"> & { readonly output: RowsOutput };
 

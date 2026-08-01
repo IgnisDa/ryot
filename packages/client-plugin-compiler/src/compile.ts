@@ -38,9 +38,18 @@ const isCompiledTextSource = (path: string) =>
 export type ClientPluginCompilerInput = {
 	readonly name: string;
 	readonly entry: string;
+	readonly application?: "page" | "plugin";
 	readonly apiVersion: typeof CLIENT_API_VERSION;
 	readonly files: Readonly<Record<string, Uint8Array>>;
 };
+
+const GENERATED_PAGE_ENTRY = "client/__ryot_page_entry.tsx";
+
+const pageEntrySource = (entry: string) => `
+import { bootstrapClientPage } from "@ryot-app/client-sdk/plugin";
+import Page from ${JSON.stringify(`./${entry.slice(CLIENT_SOURCE_ROOT.length).replace(/\.(?:ts|tsx)$/, "")}`)};
+bootstrapClientPage(Page);
+`;
 
 const extensionOf = (path: string) => path.slice(path.lastIndexOf(".") + 1);
 
@@ -65,6 +74,7 @@ export const compileClientPlugin = ({
 	entry,
 	files,
 	name: pluginName,
+	application = "plugin",
 }: ClientPluginCompilerInput) =>
 	Effect.gen(function* () {
 		if (
@@ -128,13 +138,17 @@ export const compileClientPlugin = ({
 				);
 			}
 		}
+		const buildEntry = application === "page" ? GENERATED_PAGE_ENTRY : entry;
+		if (application === "page") {
+			sourceFiles[GENERATED_PAGE_ENTRY] = pageEntrySource(entry);
+		}
 
 		const assetNames = Object.fromEntries(
 			assetSources.map(([path, contents]) => [path, clientAssetName(path, contents)]),
 		);
 		const dependencies = yield* resolveClientPluginCompilerDependencies;
 		const bundled = yield* bundleClientPlugin(
-			{ entry, assetNames, files: sourceFiles },
+			{ entry: buildEntry, assetNames, files: sourceFiles },
 			dependencies.compilerRoot,
 		);
 		if ("diagnostics" in bundled) {
@@ -145,7 +159,7 @@ export const compileClientPlugin = ({
 				clientPluginCompilationFailure([
 					clientPluginCompilerDiagnostic(
 						"RYOT_CLIENT_COMPILER",
-						entry,
+						buildEntry,
 						`TypeScript compiler failed: ${String(error)}`,
 					),
 				]),
@@ -179,10 +193,7 @@ export const compileClientPlugin = ({
 			scanSources: [
 				...clientFiles
 					.filter(([path]) => SCANNED_EXTENSIONS.has(extensionOf(path)))
-					.map(([path]) => ({
-						content: sourceFiles[path] ?? "",
-						extension: extensionOf(path),
-					})),
+					.map(([path]) => ({ extension: extensionOf(path), content: sourceFiles[path] ?? "" })),
 				...dependencies.uiSdkScanSources,
 			],
 		});

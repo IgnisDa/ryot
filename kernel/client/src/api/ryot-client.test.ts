@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
 import { makeEntityInterestService, makeRyotQLApi, makeUploadsApi } from "#/api/ports.test-layer";
-import { createKernelRyotClient } from "#/api/ryot-client";
+import { createKernelRyotClient, createKernelRyotClientStore } from "#/api/ryot-client";
 import type { ThemeStore } from "#/modules/theme/store";
 
 const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
@@ -123,6 +123,18 @@ const source = new Blob(["id,title"], { type: "text/csv" });
 const uploadRequest = { source, fileName: "items.csv", contentType: "text/csv" };
 
 describe("kernel Ryot client", () => {
+	it("reuses one client for equivalent API scopes and separates users", async () => {
+		const runtime = makeRuntime(new Error("not used"));
+		try {
+			const store = createKernelRyotClientStore(runtime, theme);
+			const first = store.get(scope);
+			expect(store.get({ ...scope })).toBe(first);
+			expect(store.get({ ...scope, userId: "user-2" })).not.toBe(first);
+		} finally {
+			await runtime.dispose();
+		}
+	});
+
 	it("attaches synchronous watches by scope without acquiring a session for each client", async () => {
 		const calls: unknown[] = [];
 		const runtime = ManagedRuntime.make(

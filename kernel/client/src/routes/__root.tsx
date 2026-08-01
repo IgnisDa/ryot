@@ -2,6 +2,7 @@
 import "#/styles/index.css";
 import { Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 
+import type { KernelRyotClientStore } from "#/api/ryot-client";
 import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
 import { PageTitleProvider } from "#/modules/navigation/page-title";
 import { SkipToContentLink } from "#/modules/navigation/skip-link";
@@ -12,6 +13,7 @@ import type { ClientRuntime } from "#/runtime";
 export type RouterContext = {
 	readonly theme: ThemeStore;
 	readonly runtime: ClientRuntime;
+	readonly ryotClients: KernelRyotClientStore;
 	readonly backInterceptors: BackInterceptors;
 };
 

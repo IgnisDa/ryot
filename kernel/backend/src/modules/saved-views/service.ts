@@ -12,8 +12,14 @@ import type { PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import {
+	formatPropertyIssues,
+	parseAppSchemaProperties,
+} from "#lib/property-schema/property-schema-runtime";
 import { slugify } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
+import { ClientPagesRepository } from "#modules/client-pages/repository";
 import { PluginDefinitionMaterializer } from "#modules/plugins/definition-materializer";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -24,6 +30,7 @@ import { SavedViewsRepository } from "./repository";
 export class SavedViewsService extends Context.Service<SavedViewsService>()("SavedViewsService", {
 	make: Effect.gen(function* () {
 		const repository = yield* SavedViewsRepository;
+		const clientPages = yield* ClientPagesRepository;
 		const pluginRuntime = yield* PluginRuntimeResolver;
 		const installations = yield* PluginInstallationRepository;
 		const effectiveForUser = (userId: CurrentUserValue["id"], includeUnavailable = false) =>
@@ -78,6 +85,38 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			}
 			return yield* new SavedViewNotFound({ reason: { code: "saved-view-not-found", viewSlug } });
 		});
+		const validateRendererSettings = Effect.fn(function* (
+			userId: CurrentUserValue["id"],
+			renderer: Extract<CreateSavedViewBody, { renderer: unknown }>["renderer"],
+			settings: Readonly<Record<string, unknown>>,
+		) {
+			if (renderer.kind !== "custom") {
+				return yield* new SavedViewBadRequest({ reason: { code: "renderer-kind-unavailable" } });
+			}
+			const record = yield* clientPages.lockRenderer(userId, renderer.rendererId);
+			if (!record) {
+				return yield* new SavedViewBadRequest({ reason: { code: "renderer-not-found" } });
+			}
+			if (!record.publishedDefinition || record.publishedRevision === null) {
+				return yield* new SavedViewBadRequest({ reason: { code: "renderer-unpublished" } });
+			}
+			yield* parseAppSchemaProperties({
+				properties: settings,
+				kind: "Saved view settings",
+				propertiesSchema: record.publishedDefinition.settingsSchema,
+			}).pipe(
+				Effect.mapError(
+					(error) =>
+						new SavedViewBadRequest({
+							reason: {
+								code: "settings-incompatible",
+								message: formatPropertyIssues(error.issues),
+							},
+						}),
+				),
+			);
+			return record.id;
+		});
 
 		const create = Effect.fn(function* (
 			user: Pick<CurrentUserValue, "id">,
@@ -98,6 +137,36 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			const effective = yield* effectiveForUser(user.id);
 			if (effective.savedViews[slug] || (yield* repository.findBySlug(user.id, slug))) {
 				return yield* new SavedViewBadRequest({ reason: { code: "duplicate-name" } });
+			}
+			if ("renderer" in payload) {
+				const database = yield* Database;
+				return yield* mapDatabaseErrors(
+					database.transaction((transaction) =>
+						Effect.gen(function* () {
+							const rendererId = yield* validateRendererSettings(
+								user.id,
+								payload.renderer,
+								payload.settings,
+							);
+							const created = yield* repository.create(user.id, {
+								slug,
+								name,
+								userId: user.id,
+								icon: payload.icon,
+								renderer: payload.renderer,
+								settings: payload.settings,
+								clientRendererId: rendererId,
+								dataSources: payload.dataSources,
+								pluginInstallationId: payload.workspacePluginSlug
+									? yield* resolvePluginInstallation(user.id, payload.workspacePluginSlug)
+									: null,
+							});
+							return (
+								created ?? (yield* new SavedViewBadRequest({ reason: { code: "duplicate-name" } }))
+							);
+						}).pipe(Effect.provideService(Database, transaction)),
+					),
+				);
 			}
 			yield* validateSavedViewDefinition(payload);
 			if (payload.entitySchemaSlug !== null && !effective.entitySchemas[payload.entitySchemaSlug]) {
@@ -129,6 +198,51 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			payload: UpdateSavedViewBody & { sortOrder?: number | undefined },
 		) {
 			const current = yield* requireSavedView(user, viewSlug);
+			if ("renderer" in payload) {
+				if (current.isBuiltin || !("renderer" in current)) {
+					return yield* new SavedViewBadRequest({
+						reason: { code: "builtin-view-immutable", viewSlug },
+					});
+				}
+				const database = yield* Database;
+				const renderer = payload.renderer;
+				const settings = payload.settings;
+				const dataSources = payload.dataSources;
+				return yield* mapDatabaseErrors(
+					database.transaction((transaction) =>
+						Effect.gen(function* () {
+							const rendererId = yield* validateRendererSettings(user.id, renderer, settings);
+							const updated = yield* repository.updateBySlug(
+								user.id,
+								viewSlug,
+								{
+									renderer,
+									settings,
+									dataSources,
+									name: payload.name,
+									icon: payload.icon,
+									entitySchemaPluginId: null,
+									clientRendererId: rendererId,
+									isDisabled: payload.isDisabled,
+									pluginInstallationId: payload.workspacePluginSlug
+										? yield* resolvePluginInstallation(user.id, payload.workspacePluginSlug)
+										: null,
+								},
+								current.pluginInstallationId,
+							);
+							return (
+								updated ??
+								(yield* new SavedViewNotFound({
+									reason: { code: "saved-view-not-found", viewSlug },
+								}))
+							);
+						}).pipe(Effect.provideService(Database, transaction)),
+					),
+				);
+			}
+			if (current.layouts === undefined) {
+				return yield* new SavedViewBadRequest({ reason: { code: "renderer-kind-unavailable" } });
+			}
 			const layouts = payload.layouts ?? current.layouts;
 			const entitySchemaSlug = payload.entitySchemaSlug ?? current.entitySchemaSlug;
 			const effective = yield* effectiveForUser(user.id);
@@ -207,6 +321,19 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 
 		const clone = Effect.fn(function* (user: CurrentUserValue, viewSlug: string) {
 			const source = yield* requireSavedView(user, viewSlug);
+			if (source.renderer !== undefined) {
+				return yield* create(user, {
+					icon: source.icon,
+					renderer: source.renderer,
+					name: `${source.name} (Copy)`,
+					settings: source.settings ?? {},
+					dataSources: source.dataSources ?? null,
+					...(source.pluginSlug ? { workspacePluginSlug: source.pluginSlug } : {}),
+				});
+			}
+			if (source.layouts === undefined) {
+				return yield* new SavedViewBadRequest({ reason: { code: "renderer-kind-unavailable" } });
+			}
 			return yield* create(user, {
 				icon: source.icon,
 				layouts: source.layouts,

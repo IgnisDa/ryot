@@ -6,6 +6,7 @@ import {
 	ContractSuccess,
 	runContract,
 	type ContractProgram,
+	type ContractRequest,
 } from "@ryot-app/contract/client";
 import type { FieldSelection, ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
 import {
@@ -118,7 +119,10 @@ async function createAndSignIn(): Promise<{
 
 type CreateCollectionBody = ContractPayload<"collections", "create">;
 type AddToCollectionBody = ContractPayload<"collections", "createMembership">;
-type CreateSavedViewBody = ContractPayload<"savedViews", "create">;
+type CreateSavedViewBody = Extract<
+	ContractRequest<"savedViews", "create">["payload"],
+	{ readonly layouts: unknown }
+>;
 type SavedViewLayouts = CreateSavedViewBody["layouts"];
 type SavedViewProjectionInput = Parameters<typeof buildSavedViewLayoutProjections>[0];
 
