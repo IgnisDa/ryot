@@ -91,6 +91,7 @@ const makeAuthInstance = (args: {
 		appName: "Ryot",
 		basePath: "/api/auth",
 		baseURL: args.config.frontendUrl,
+		account: { accountLinking: { enabled: false } },
 		secondaryStorage: redisStorage({ client: args.redis }),
 		secret: Redacted.value(args.config.server.adminAccessToken),
 		database: drizzleAdapter(args.db, { provider: "pg", schema }),
@@ -101,12 +102,6 @@ const makeAuthInstance = (args: {
 			...corsOrigins,
 			...(args.config.nodeEnv === "development" ? ["exp://"] : []),
 		],
-		account: {
-			// TODO: Expo/native OAuth state cookie round-trip fails here.
-			// https://github.com/better-auth/better-auth/issues/9179
-			skipStateCookieCheck: true,
-			accountLinking: { enabled: false },
-		},
 		user: {
 			additionalFields: {
 				disabledAt: { type: "date", required: false, input: false },
