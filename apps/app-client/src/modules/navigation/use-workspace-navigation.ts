@@ -12,6 +12,7 @@ import { mapNavigationState, type ReadyNavigationState } from "./navigation-stat
 export type ReadyWorkspaceNavigation = ReadyNavigationState & {
 	accountName: string;
 	accountEmail: string;
+	accountImage: string | null;
 	selectWorkspace: (slug: string) => void;
 	navigate: (item: NavigationItem) => void;
 };
@@ -50,6 +51,7 @@ export function useWorkspaceNavigation(): WorkspaceNavigation {
 	return {
 		...state,
 		status: "ready",
+		accountImage: session?.user.image ?? null,
 		accountEmail: session?.user.email ?? "Email unavailable",
 		accountName: session?.user.name ?? session?.user.email ?? "Account",
 		navigate: (item) => router.navigate(getNavigationHref(state.workspace.slug, item)),
