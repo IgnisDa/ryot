@@ -106,6 +106,9 @@ export const CANONICAL_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
 	direct("04-direct-10-host-calls", "One direct execution with 10 durable host calls", {
 		workload: workload({ seed: 14, durableHostCalls: 10 }),
 	}),
+	direct("05a-direct-64kib-payload", "One direct execution returning 64 KiB", {
+		workload: workload({ seed: 151, payloadBytes: 64 * KiB }),
+	}),
 	direct("05-direct-1mib-payload", "One direct execution returning 1 MiB", {
 		workload: workload({ seed: 15, payloadBytes: 1024 * KiB }),
 	}),
