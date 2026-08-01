@@ -108,9 +108,9 @@ function SavedViewDisplay(
 			viewSlug={props.record.slug}
 			title={{
 				loaded: items.length,
-				hasMore: pageInfo.hasMore,
 				icon: props.record.icon,
 				name: props.record.name,
+				hasMore: pageInfo.hasMore,
 			}}
 		>
 			<View className="w-full gap-5">
