@@ -40,8 +40,8 @@ export type SavedViewImage =
 	| { readonly type: "asset"; readonly locator: AssetLocatorType };
 
 export type SavedViewCardItem = {
-	readonly id: string;
 	readonly title: string;
+	readonly entityId: string;
 	readonly image: SavedViewImage;
 	readonly callout?: SavedViewScalarValue | undefined;
 	readonly overline?: SavedViewScalarValue | undefined;
@@ -50,7 +50,7 @@ export type SavedViewCardItem = {
 };
 
 export type SavedViewTableItem = {
-	readonly id: string;
+	readonly entityId: string;
 	readonly image: SavedViewImage;
 	readonly cells: readonly {
 		readonly key: string;
@@ -146,14 +146,14 @@ const getOptionalValue = (row: ScalarRow, field: string | null) => {
 
 const decodeCard = (row: ScalarRow, layout: CardLayout) =>
 	Result.gen(function* () {
-		const id = yield* getText(row, layout.itemIdField);
+		const entityId = yield* getText(row, layout.entityIdField);
 		const title = yield* getText(row, layout.titleField);
 		const image = yield* getImage(row, layout.imageField);
 		const callout = yield* getOptionalValue(row, layout.calloutField);
 		const overline = yield* getOptionalValue(row, layout.overlineField);
 		const primaryMetadata = yield* getOptionalValue(row, layout.primaryMetadataField);
 		const secondaryMetadata = yield* getOptionalValue(row, layout.secondaryMetadataField);
-		return { id, title, image, callout, overline, primaryMetadata, secondaryMetadata };
+		return { entityId, title, image, callout, overline, primaryMetadata, secondaryMetadata };
 	});
 
 const validateDates = (row: ScalarRow) => {
@@ -168,14 +168,14 @@ const validateDates = (row: ScalarRow) => {
 const decodeTable = (row: ScalarRow, layout: TableLayout) =>
 	Result.gen(function* () {
 		yield* validateDates(row);
-		const id = yield* getText(row, layout.itemIdField);
+		const entityId = yield* getText(row, layout.entityIdField);
 		const image = yield* getImage(row, layout.imageField);
 		const cells = yield* Result.all(
 			layout.columns.map(({ field, label }) =>
 				Result.map(getField(row, field), (value) => ({ key: field, label, value })),
 			),
 		);
-		return { id, image, cells };
+		return { entityId, image, cells };
 	});
 
 const decodeRows = <Item>(

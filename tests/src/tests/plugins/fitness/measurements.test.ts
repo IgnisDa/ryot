@@ -83,26 +83,26 @@ describe("Measurements E2E", () => {
 					pluginSlug: fitnessPlugin.slug,
 					layouts: {
 						grid: {
-							itemIdField: "itemId",
 							imageField: null,
 							calloutField: null,
 							titleField: "title",
+							entityIdField: "entityId",
 							overlineField: "overline",
 							primaryMetadataField: "primaryMetadata",
 							secondaryMetadataField: "secondaryMetadata",
 						},
 						list: {
-							itemIdField: "itemId",
 							imageField: null,
 							calloutField: null,
 							titleField: "title",
+							entityIdField: "entityId",
 							overlineField: "overline",
 							primaryMetadataField: "primaryMetadata",
 							secondaryMetadataField: "secondaryMetadata",
 						},
 						table: {
-							itemIdField: "itemId",
 							imageField: null,
+							entityIdField: "entityId",
 							columns: [
 								{ label: "Name", field: "column0" },
 								{ label: "Comment", field: "column1" },
@@ -120,7 +120,7 @@ describe("Measurements E2E", () => {
 				});
 				expect(
 					savedViewQuery.output.fields.map((selection) => "key" in selection && selection.key),
-				).toEqual(["itemId", "title", "overline", "primaryMetadata", "secondaryMetadata"]);
+				).toEqual(["entityId", "title", "overline", "primaryMetadata", "secondaryMetadata"]);
 			}),
 	);
 
