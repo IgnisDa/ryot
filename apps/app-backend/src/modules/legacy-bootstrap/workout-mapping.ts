@@ -1,5 +1,5 @@
 import { buildLegacyImagesSql, buildLegacyVideosSql } from "./asset-mapping";
-import { quoteSqlString } from "./shared";
+import { buildReportSql, quoteSqlString } from "./shared";
 
 // V1 Option<Decimal> is a rust_decimal JSON string; cast to float8.
 const buildDecimalStatField = (statAlias: string, field: string) =>
@@ -21,8 +21,6 @@ BEGIN
 	IF to_regclass('"workout_template"') IS NULL THEN
 		RAISE EXCEPTION 'Expected workout_template table to exist in a V1 database but it was not found';
 	END IF;
-
-	RAISE NOTICE 'workout_template -> entity: migration started (% seconds elapsed)', 0.0;
 
 	LOOP
 		WITH batch AS (
@@ -105,9 +103,7 @@ BEGIN
 		cursor_id := next_cursor_id;
 	END LOOP;
 
-	RAISE NOTICE 'workout_template -> entity: % row(s) migrated total (% seconds elapsed)',
-		rows_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("workout_template -> entity", [{ message: "row(s) migrated total", count: "rows_inserted" }])}
 END $$;
 `;
 
@@ -127,8 +123,6 @@ BEGIN
 	IF to_regclass('"workout"') IS NULL THEN
 		RAISE EXCEPTION 'Expected workout table to exist in a V1 database but it was not found';
 	END IF;
-
-	RAISE NOTICE 'workout -> entity: migration started (% seconds elapsed)', 0.0;
 
 	LOOP
 		WITH batch AS (
@@ -181,9 +175,7 @@ BEGIN
 		cursor_id := next_cursor_id;
 	END LOOP;
 
-	RAISE NOTICE 'workout -> entity: % row(s) migrated total (% seconds elapsed)',
-		rows_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("workout -> entity", [{ message: "row(s) migrated total", count: "rows_inserted" }])}
 END $$;
 `;
 
@@ -203,8 +195,6 @@ BEGIN
 	IF to_regclass('"workout"') IS NULL THEN
 		RAISE EXCEPTION 'Expected workout table to exist in a V1 database but it was not found';
 	END IF;
-
-	RAISE NOTICE 'workout sets -> event: migration started (% seconds elapsed)', 0.0;
 
 	LOOP
 		WITH batch AS (
@@ -271,9 +261,7 @@ BEGIN
 		cursor_id := next_cursor_id;
 	END LOOP;
 
-	RAISE NOTICE 'workout sets -> event: % row(s) migrated total (% seconds elapsed)',
-		rows_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("workout sets -> event", [{ message: "row(s) migrated total", count: "rows_inserted" }])}
 END $$;
 `;
 
@@ -289,8 +277,6 @@ BEGIN
 	IF to_regclass('"workout"') IS NULL THEN
 		RAISE EXCEPTION 'Expected workout table to exist in a V1 database but it was not found';
 	END IF;
-
-	RAISE NOTICE 'workout -> workout-to-workout-template relationship: migration started (% seconds elapsed)', 0.0;
 
 	INSERT INTO "relationship" (
 		"id",
@@ -312,9 +298,7 @@ BEGIN
 	ON CONFLICT DO NOTHING;
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
 
-	RAISE NOTICE 'workout -> workout-to-workout-template relationship: % row(s) migrated (% seconds elapsed)',
-		rows_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("workout -> workout-to-workout-template relationship", [{ message: "row(s) migrated", count: "rows_inserted" }])}
 END $$;
 `;
 
@@ -330,8 +314,6 @@ BEGIN
 	IF to_regclass('"workout"') IS NULL THEN
 		RAISE EXCEPTION 'Expected workout table to exist in a V1 database but it was not found';
 	END IF;
-
-	RAISE NOTICE 'workout -> workout-repeated-from relationship: migration started (% seconds elapsed)', 0.0;
 
 	INSERT INTO "relationship" (
 		"id",
@@ -353,8 +335,6 @@ BEGIN
 	ON CONFLICT DO NOTHING;
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
 
-	RAISE NOTICE 'workout -> workout-repeated-from relationship: % row(s) migrated (% seconds elapsed)',
-		rows_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("workout -> workout-repeated-from relationship", [{ message: "row(s) migrated", count: "rows_inserted" }])}
 END $$;
 `;
