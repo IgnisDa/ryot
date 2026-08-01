@@ -34,29 +34,42 @@ const entityImport = {
 	]),
 };
 
+const ITEM_CONCURRENCY = 4;
+
 export default defineWorkflow({
 	manifest,
 	input: MediaImportPopulationWorkflowInput,
 	output: MediaImportPopulationWorkflowOutput,
 	run: (input, replay) =>
 		Effect.gen(function* () {
+			const childResults = yield* Effect.all(
+				input.items.map((item) =>
+					replay.child(`import-${item.index}`, entityImport, {
+						origin: item.origin,
+						externalId: item.externalId,
+						entitySchemaSlug: item.entitySchemaSlug,
+						...("providerId" in item
+							? { providerId: item.providerId }
+							: { providerSlug: item.providerSlug }),
+					}),
+				),
+				{ concurrency: ITEM_CONCURRENCY },
+			);
 			const results: Array<(typeof MediaImportPopulationWorkflowOutput.Type)["results"][number]> =
-				[];
-			for (const item of input.items) {
-				const result = yield* replay.child(`import-${item.index}`, entityImport, {
-					origin: item.origin,
-					externalId: item.externalId,
-					entitySchemaSlug: item.entitySchemaSlug,
-					...("providerId" in item
-						? { providerId: item.providerId }
-						: { providerSlug: item.providerSlug }),
-				});
-				results.push(
-					result.status === "completed"
+				input.items.map((item, index) => {
+					const result = childResults[index];
+					if (result === undefined) {
+						throw new Error("Population results are out of sync");
+					}
+					return result.status === "completed"
 						? { index: item.index, status: "completed", entityId: result.entity.id }
-						: { index: item.index, status: "failed", stage: result.stage, message: result.message },
-				);
-			}
+						: {
+								index: item.index,
+								status: "failed",
+								stage: result.stage,
+								message: result.message,
+							};
+				});
 			return { results };
 		}),
 });

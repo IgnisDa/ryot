@@ -67,6 +67,29 @@ it("keeps 205 resolution results aligned during in-process replay", async () => 
 	});
 });
 
+it("emits population children as one deterministic batch", async () => {
+	const items = Array.from({ length: 10 }, (_, index) => ({
+		index,
+		userId: "user-1",
+		entitySchemaSlug: "book",
+		externalId: `external-${index}`,
+		providerId: "provider-openlibrary",
+		origin: { kind: "import" as const, importRunId: "run-1" },
+	}));
+	const envelope = await Effect.runPromise(
+		populationWorkflow.run(
+			{ items },
+			{ replayJournal: () => Effect.succeed([]) },
+			{ metadata: {}, sandboxScriptId: "workflow-test" },
+		),
+	);
+
+	assert(envelope.state === "pending");
+	expect(envelope.requests.map((request) => request.name)).toEqual(
+		items.map(({ index }) => `import-${index}`),
+	);
+});
+
 it("keeps ten concurrent in-process population replays isolated", async () => {
 	const outputs = await Promise.all(
 		Array.from({ length: 10 }, (_unused, workflowIndex) => {
