@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 import { UserId } from "@ryot/contract/schema/brands";
+import { useTable } from "@tanstack/react-table";
 import { act, render, screen, userEvent } from "@testing-library/react-native";
 import { Exit } from "effect";
 
@@ -8,7 +9,11 @@ import type {
 	GodModeUserLifecycleOperation,
 	GodModeUserResetResult,
 } from "@/modules/god-mode/user-lifecycle";
-import { GodModeUserRow, type GodModeUserActions } from "@/modules/god-mode/user-row";
+import { type GodModeUserActions, GodModeUserRow } from "@/modules/god-mode/user-row";
+import {
+	godModeUserTableColumns,
+	godModeUserTableFeatures,
+} from "@/modules/god-mode/user-table-model";
 
 const userRow = {
 	id: "user-1",
@@ -50,6 +55,20 @@ const actions = (overrides: Partial<GodModeUserActions> = {}): GodModeUserAction
 	...overrides,
 });
 
+function TestUserRow(props: { readonly user: GodModeUser; readonly actions: GodModeUserActions }) {
+	const table = useTable({
+		data: [props.user],
+		manualFiltering: true,
+		manualPagination: true,
+		getRowId: (user) => user.id,
+		columns: godModeUserTableColumns,
+		features: godModeUserTableFeatures,
+	});
+	const row = table.getRowModel().rows[0];
+
+	return <GodModeUserRow row={row} actions={props.actions} onUnauthorized={() => undefined} />;
+}
+
 const pressSheetControl = async (role: "button" | "menuitem", name: string) =>
 	act(async () => {
 		screen.getByRole(role, { name }).props.onClick({ nativeEvent: {} });
@@ -62,9 +81,8 @@ describe("God-mode user lifecycle actions", () => {
 		let finish = noopFinish;
 		let resetCount = 0;
 		await render(
-			<GodModeUserRow
+			<TestUserRow
 				user={userRow}
-				onUnauthorized={() => undefined}
 				actions={actions({
 					resetUser: () => {
 						resetCount += 1;
@@ -104,9 +122,8 @@ describe("God-mode user lifecycle actions", () => {
 			error: "database cleanup failed at step 4",
 		} as const satisfies GodModeUserLifecycleOperation;
 		await render(
-			<GodModeUserRow
+			<TestUserRow
 				user={userRow}
-				onUnauthorized={() => undefined}
 				actions={actions({ resetUser: () => Promise.resolve(Exit.fail(internalFailure)) })}
 			/>,
 		);
@@ -123,8 +140,7 @@ describe("God-mode user lifecycle actions", () => {
 		const appUser = userEvent.setup();
 		let deleteCount = 0;
 		await render(
-			<GodModeUserRow
-				onUnauthorized={() => undefined}
+			<TestUserRow
 				user={{ ...userRow, authState: "oidc" }}
 				actions={actions({
 					deleteUser: () => {

@@ -149,14 +149,17 @@ export function SavedViewErrorState(props: SavedViewError & { onRetry?: () => vo
 	);
 }
 
-function SavedViewItems(props: { readonly state: SavedViewActiveData }) {
+function SavedViewItems(props: {
+	readonly state: SavedViewActiveData;
+	readonly tableColumns: SavedViewRecord["layouts"]["table"]["columns"];
+}) {
 	if (props.state.layout === "grid") {
 		return <SavedViewGrid items={props.state.data.items} />;
 	}
 	if (props.state.layout === "list") {
 		return <SavedViewList items={props.state.data.items} />;
 	}
-	return <SavedViewTable items={props.state.data.items} />;
+	return <SavedViewTable items={props.state.data.items} columns={props.tableColumns} />;
 }
 
 function SavedViewWebActions(props: {
@@ -230,7 +233,7 @@ function SavedViewDisplay(
 	if (items.length > 0) {
 		content = (
 			<>
-				<SavedViewItems state={props} />
+				<SavedViewItems state={props} tableColumns={props.record.layouts.table.columns} />
 				<AppLoadMore
 					loaded={items.length}
 					name={props.record.name}
