@@ -136,9 +136,12 @@ export const SavedViewLayouts = strictStruct({
 });
 export type SavedViewLayouts = typeof SavedViewLayouts.Type;
 
+export const KernelSavedViewRendererName = Schema.Literals(["entity-browser", "results-table"]);
+export type KernelSavedViewRendererName = typeof KernelSavedViewRendererName.Type;
+
 export const SavedViewRenderer = Schema.Union([
-	strictStruct({ kind: Schema.Literal("kernel"), name: Schema.String }),
 	strictStruct({ kind: Schema.Literal("custom"), rendererId: ClientRendererId }),
+	strictStruct({ kind: Schema.Literal("kernel"), name: KernelSavedViewRendererName }),
 	strictStruct({
 		pluginId: Schema.String,
 		exportName: Schema.String,

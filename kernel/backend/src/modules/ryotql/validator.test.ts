@@ -124,7 +124,16 @@ it("exposes only approved application-table fields", () => {
 		]),
 	);
 	expect(new Set(Object.keys(getCatalogTable("pluginInstallation")?.fields ?? {}))).toEqual(
-		new Set(["id", "health", "pluginId", "sortOrder", "isDisabled", "createdAt", "updatedAt"]),
+		new Set([
+			"id",
+			"health",
+			"pluginId",
+			"homeSavedViewId",
+			"sortOrder",
+			"isDisabled",
+			"createdAt",
+			"updatedAt",
+		]),
 	);
 	expect(new Set(Object.keys(getCatalogTable("sandboxProvider")?.fields ?? {}))).toEqual(
 		new Set([

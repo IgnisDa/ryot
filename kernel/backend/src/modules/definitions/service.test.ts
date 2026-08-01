@@ -75,6 +75,7 @@ const makeState = (
 	userId: user.id,
 	isDisabled: false,
 	healthReason: null,
+	homeSavedViewId: null,
 	pluginSlug: "fixture",
 	health: "ready" as const,
 	pluginId: "fixture-plugin-id",

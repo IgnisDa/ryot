@@ -392,6 +392,7 @@ CREATE TABLE "plugin_client_artifact_file" (
 --> statement-breakpoint
 CREATE TABLE "plugin_installation" (
 	"health_reason" text,
+	"home_saved_view_id" text,
 	"sort_order" integer DEFAULT 0 NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,

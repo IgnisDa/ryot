@@ -1,4 +1,5 @@
 import { PluginInstallationHealth } from "@ryot-app/contract/modules/plugins/schemas";
+import { SavedViewId } from "@ryot-app/contract/schema/brands";
 import {
 	ascending,
 	column,
@@ -39,6 +40,10 @@ export const pluginClientCatalogRecipe = defineRecipe(
 					sortOrder: selectedField(column(installation, "sortOrder"), Schema.Number),
 					isDisabled: selectedField(column(installation, "isDisabled"), Schema.Boolean),
 					health: selectedField(column(installation, "health"), PluginInstallationHealth),
+					homeSavedViewId: selectedField(
+						column(installation, "homeSavedViewId"),
+						Schema.NullOr(SavedViewId),
+					),
 					clientArtifactHash: selectedField(
 						column(plugin, "clientArtifactHash"),
 						Schema.NullOr(Schema.String),

@@ -235,6 +235,27 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 					: null;
 			});
 
+			const lockBySlug = Effect.fn("SavedViewsRepository.lockBySlug")(function* (
+				userId: UserId,
+				viewSlug: string,
+			) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select(savedViewSelection)
+						.from(schema.savedView)
+						.where(and(eq(schema.savedView.userId, userId), eq(schema.savedView.slug, viewSlug)))
+						.for("update", { of: schema.savedView })
+						.limit(1),
+				);
+
+				return row
+					? Object.assign(toListedSavedView(row), {
+							pluginInstallationId: row.pluginInstallationId,
+						})
+					: null;
+			});
+
 			const create = Effect.fn("SavedViewsRepository.create")(function* (
 				userId: UserId,
 				input: CreateSavedViewInput,
@@ -483,6 +504,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 			return {
 				create,
 				findBySlug,
+				lockBySlug,
 				listByUser,
 				updateBySlug,
 				deleteBySlug,

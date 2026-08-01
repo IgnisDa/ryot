@@ -322,6 +322,7 @@ const SavedViewsServiceLive = SavedViewsService.layer.pipe(
 			ClientPagesRepository.layer,
 			PluginRuntimeResolverLive,
 			PluginInstallationRepository.layer,
+			PluginCatalogInvalidatorLive,
 			ClientPagesRepository.layer,
 		),
 	),
