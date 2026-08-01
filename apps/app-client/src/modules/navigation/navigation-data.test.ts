@@ -8,6 +8,7 @@ import {
 	getEnabledItems,
 	getNavigationHref,
 	getNavigationItems,
+	getWorkspaceHref,
 	getWorkspacePickerSummary,
 	getWorkspaceSummary,
 } from "./navigation-data";
@@ -126,10 +127,7 @@ describe("getNavigationHref", () => {
 	it("creates workspace home and global view and entity routes", () => {
 		const items = getNavigationItems({ data, workspaceSlug: "media" });
 
-		expect(getNavigationHref("media", items.views[0])).toEqual({
-			pathname: "/[workspace]",
-			params: { workspace: "media" },
-		});
+		expect(getNavigationHref("media", items.views[0])).toBe("/media");
 		expect(getNavigationHref("media", items.views[1])).toEqual({
 			pathname: "/v/[viewSlug]",
 			params: { viewSlug: "movies" },
@@ -138,6 +136,10 @@ describe("getNavigationHref", () => {
 			pathname: "/e/[entityId]",
 			params: { entityId: "collection-1" },
 		});
+	});
+
+	it("encodes workspace slugs in resolved paths", () => {
+		expect(getWorkspaceHref("my workspace")).toBe("/my%20workspace");
 	});
 });
 
