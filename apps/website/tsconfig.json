@@ -1,11 +1,6 @@
 {
-	"extends": "../../tsconfig.options.json",
 	"include": ["**/*.ts", "**/*.tsx", ".react-router/types/**/*"],
 	"compilerOptions": {
-		"composite": false,
-		"declaration": false,
-		"declarationMap": false,
-		"emitDeclarationOnly": false,
 		"noEmit": true,
 		"strict": true,
 		"allowJs": true,
