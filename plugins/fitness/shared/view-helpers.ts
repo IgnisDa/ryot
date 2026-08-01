@@ -1,5 +1,5 @@
 import type { ScalarExpression } from "@ryot/contract/modules/ryotql/language";
-import { column, jsonPath, literal, table, titleCase } from "@ryot/ryotql";
+import { castText, column, jsonPath, literal, table, titleCase } from "@ryot/ryotql";
 import type { SavedViewProjectionInput } from "@ryot/ryotql-recipes/saved-views";
 
 type ViewExpressions = Omit<SavedViewProjectionInput, "entityId">;
@@ -7,36 +7,37 @@ type ViewExpressions = Omit<SavedViewProjectionInput, "entityId">;
 const entity = table("entity", "entity");
 const entityColumn = (name: string) => column(entity, name);
 const entityProperty = (property: string) => jsonPath(column(entity, "properties"), property);
+const entityImage = () => castText(jsonPath(column(entity, "properties"), "images", 0, "url"));
 
 const cardExpressions = (slug: string, schemaName: string): ViewExpressions["grid"] => {
-	const eyebrow = literal(schemaName);
+	const overline = literal(schemaName);
 	if (slug === "exercise") {
 		return {
-			eyebrow,
+			overline,
+			image: entityImage(),
 			title: entityColumn("name"),
 			callout: titleCase(entityProperty("level")),
-			primarySubtitle: titleCase(entityProperty("kind")),
-			secondarySubtitle: titleCase(entityProperty("equipment")),
-			image: jsonPath(column(entity, "properties"), "images", 0),
+			primaryMetadata: titleCase(entityProperty("kind")),
+			secondaryMetadata: titleCase(entityProperty("equipment")),
 		};
 	}
-	let primarySubtitle: ScalarExpression = entityProperty("recordedAt");
+	let primaryMetadata: ScalarExpression = entityProperty("recordedAt");
 	if (slug === "workout") {
-		primarySubtitle = entityProperty("startedAt");
+		primaryMetadata = entityProperty("startedAt");
 	} else if (slug === "workout-template") {
-		primarySubtitle = entityColumn("createdAt");
+		primaryMetadata = entityColumn("createdAt");
 	}
 	return {
-		eyebrow,
+		overline,
 		image: null,
 		callout: null,
-		primarySubtitle,
+		primaryMetadata,
 		title: entityColumn("name"),
-		secondarySubtitle: slug === "workout" ? entityProperty("endedAt") : entityProperty("comment"),
+		secondaryMetadata: slug === "workout" ? entityProperty("endedAt") : entityProperty("comment"),
 	};
 };
 
-const tableColumns = (slug: string): ViewExpressions["table"] => {
+const tableColumns = (slug: string): ViewExpressions["table"]["columns"] => {
 	const name = { label: "Name", expression: entityColumn("name") };
 	if (slug === "exercise") {
 		return [
@@ -68,5 +69,9 @@ const tableColumns = (slug: string): ViewExpressions["table"] => {
 
 export const buildViewExpressions = (slug: string, schemaName: string): ViewExpressions => {
 	const card = cardExpressions(slug, schemaName);
-	return { grid: card, list: card, table: tableColumns(slug) };
+	return {
+		grid: card,
+		list: card,
+		table: { image: slug === "exercise" ? entityImage() : null, columns: tableColumns(slug) },
+	};
 };

@@ -1,6 +1,7 @@
 import {
 	and,
 	average,
+	castText,
 	column,
 	concat,
 	conditional,
@@ -18,7 +19,7 @@ type ViewExpressions = Omit<SavedViewProjectionInput, "entityId">;
 const entity = table("entity", "entity");
 const entityColumn = (name: string) => column(entity, name);
 const entityProperty = (property: string) => jsonPath(column(entity, "properties"), property);
-const entityImage = () => jsonPath(column(entity, "properties"), "images", 0);
+const entityImage = () => castText(jsonPath(column(entity, "properties"), "images", 0, "url"));
 
 const reviewRatingAverage = () => {
 	const review = table("event", "review");
@@ -35,7 +36,7 @@ const conditionalUnit = (property: string, unit: string) => {
 	return conditional(isNotNull(value), concat(value, literal(unit)), literal(null));
 };
 
-const secondarySubtitle = (slug: string) => {
+const secondaryMetadata = (slug: string) => {
 	switch (slug) {
 		case "book":
 		case "show":
@@ -59,48 +60,48 @@ const secondarySubtitle = (slug: string) => {
 };
 
 const cardExpressions = (slug: string, schemaName: string): ViewExpressions["grid"] => {
-	const eyebrow = literal(schemaName);
+	const overline = literal(schemaName);
 	if (slug === "person") {
 		return {
-			eyebrow,
+			overline,
 			callout: null,
 			image: entityImage(),
 			title: entityColumn("name"),
-			primarySubtitle: entityProperty("birthPlace"),
-			secondarySubtitle: entityProperty("birthDate"),
+			primaryMetadata: entityProperty("birthPlace"),
+			secondaryMetadata: entityProperty("birthDate"),
 		};
 	}
 	if (slug === "company") {
 		return {
-			eyebrow,
+			overline,
 			image: entityImage(),
-			secondarySubtitle: null,
+			secondaryMetadata: null,
 			callout: reviewRatingAverage(),
 			title: entityColumn("name"),
-			primarySubtitle: entityProperty("foundedYear"),
+			primaryMetadata: entityProperty("foundedYear"),
 		};
 	}
 	if (slug.endsWith("-group")) {
 		return {
-			eyebrow,
+			overline,
 			image: entityImage(),
-			secondarySubtitle: null,
+			secondaryMetadata: null,
 			callout: reviewRatingAverage(),
 			title: entityColumn("name"),
-			primarySubtitle: entityProperty("parts"),
+			primaryMetadata: entityProperty("parts"),
 		};
 	}
 	return {
-		eyebrow,
+		overline,
 		image: entityImage(),
 		callout: reviewRatingAverage(),
 		title: entityColumn("name"),
-		secondarySubtitle: secondarySubtitle(slug),
-		primarySubtitle: entityProperty("publishYear"),
+		secondaryMetadata: secondaryMetadata(slug),
+		primaryMetadata: entityProperty("publishYear"),
 	};
 };
 
-const tableColumns = (slug: string): ViewExpressions["table"] => {
+const tableColumns = (slug: string): ViewExpressions["table"]["columns"] => {
 	const name = { label: "Name", expression: entityColumn("name") };
 	const year = { label: "Year", expression: entityProperty("publishYear") };
 	if (slug === "person") {
@@ -138,5 +139,5 @@ const tableColumns = (slug: string): ViewExpressions["table"] => {
 
 export const buildViewExpressions = (slug: string, schemaName: string): ViewExpressions => {
 	const card = cardExpressions(slug, schemaName);
-	return { grid: card, list: card, table: tableColumns(slug) };
+	return { grid: card, list: card, table: { image: entityImage(), columns: tableColumns(slug) } };
 };

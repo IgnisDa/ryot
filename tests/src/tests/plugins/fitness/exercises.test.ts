@@ -1,6 +1,6 @@
 import type { FieldSelection } from "@ryot/contract/modules/ryotql/language";
 import { buildExerciseListQueryDocument } from "@ryot/fitness-plugin/query-recipes";
-import { column, field, jsonPath, literal, table, titleCase } from "@ryot/ryotql";
+import { castText, column, field, jsonPath, literal, table, titleCase } from "@ryot/ryotql";
 import { Effect } from "effect";
 
 import {
@@ -30,17 +30,18 @@ const entity = table("entity", "entity");
 const expectedSavedViewFields = [
 	field("entityId", column(entity, "id")),
 	field("gridTitle", column(entity, "name")),
-	field("gridImage", jsonPath(column(entity, "properties"), "images", 0)),
-	field("gridEyebrow", literal("Exercise")),
+	field("gridImage", castText(jsonPath(column(entity, "properties"), "images", 0, "url"))),
+	field("gridOverline", literal("Exercise")),
 	field("gridCallout", titleCase(jsonPath(column(entity, "properties"), "level"))),
-	field("gridPrimarySubtitle", titleCase(jsonPath(column(entity, "properties"), "kind"))),
-	field("gridSecondarySubtitle", titleCase(jsonPath(column(entity, "properties"), "equipment"))),
+	field("gridPrimaryMetadata", titleCase(jsonPath(column(entity, "properties"), "kind"))),
+	field("gridSecondaryMetadata", titleCase(jsonPath(column(entity, "properties"), "equipment"))),
 	field("listTitle", column(entity, "name")),
-	field("listImage", jsonPath(column(entity, "properties"), "images", 0)),
-	field("listEyebrow", literal("Exercise")),
+	field("listImage", castText(jsonPath(column(entity, "properties"), "images", 0, "url"))),
+	field("listOverline", literal("Exercise")),
 	field("listCallout", titleCase(jsonPath(column(entity, "properties"), "level"))),
-	field("listPrimarySubtitle", titleCase(jsonPath(column(entity, "properties"), "kind"))),
-	field("listSecondarySubtitle", titleCase(jsonPath(column(entity, "properties"), "equipment"))),
+	field("listPrimaryMetadata", titleCase(jsonPath(column(entity, "properties"), "kind"))),
+	field("listSecondaryMetadata", titleCase(jsonPath(column(entity, "properties"), "equipment"))),
+	field("tableImage", castText(jsonPath(column(entity, "properties"), "images", 0, "url"))),
 	field("tableColumn0", column(entity, "name")),
 	field("tableColumn1", titleCase(jsonPath(column(entity, "properties"), "level"))),
 	field("tableColumn2", titleCase(jsonPath(column(entity, "properties"), "equipment"))),
@@ -134,36 +135,31 @@ describe("Exercises E2E", () => {
 					},
 				},
 				displayConfiguration: {
+					entityIdField: "entityId",
 					table: {
+						imageField: "tableImage",
 						columns: [
 							{ label: "Name", field: "tableColumn0" },
-							{
-								label: "Level",
-								field: "tableColumn1",
-							},
-							{
-								label: "Equipment",
-								field: "tableColumn2",
-							},
+							{ label: "Level", field: "tableColumn1" },
+							{ label: "Equipment", field: "tableColumn2" },
 						],
 					},
 					grid: {
 						titleField: "gridTitle",
 						imageField: "gridImage",
-						eyebrowField: "gridEyebrow",
+						overlineField: "gridOverline",
 						calloutField: "gridCallout",
-						primarySubtitleField: "gridPrimarySubtitle",
-						secondarySubtitleField: "gridSecondarySubtitle",
+						primaryMetadataField: "gridPrimaryMetadata",
+						secondaryMetadataField: "gridSecondaryMetadata",
 					},
 					list: {
 						titleField: "listTitle",
 						imageField: "listImage",
-						eyebrowField: "listEyebrow",
+						overlineField: "listOverline",
 						calloutField: "listCallout",
-						primarySubtitleField: "listPrimarySubtitle",
-						secondarySubtitleField: "listSecondarySubtitle",
+						primaryMetadataField: "listPrimaryMetadata",
+						secondaryMetadataField: "listSecondaryMetadata",
 					},
-					entityIdField: "entityId",
 				},
 			});
 			expect(savedViewQuery.output.fields).toEqual(expectedSavedViewFields);

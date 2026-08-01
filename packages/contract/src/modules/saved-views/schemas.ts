@@ -7,13 +7,14 @@ import { OutputFieldKey, RyotQLDocument } from "../ryotql/language";
 const SavedViewCardDisplayConfiguration = strictStruct({
 	titleField: OutputFieldKey,
 	imageField: Schema.NullOr(OutputFieldKey),
-	eyebrowField: Schema.NullOr(OutputFieldKey),
 	calloutField: Schema.NullOr(OutputFieldKey),
-	primarySubtitleField: Schema.NullOr(OutputFieldKey),
-	secondarySubtitleField: Schema.NullOr(OutputFieldKey),
+	overlineField: Schema.NullOr(OutputFieldKey),
+	primaryMetadataField: Schema.NullOr(OutputFieldKey),
+	secondaryMetadataField: Schema.NullOr(OutputFieldKey),
 });
 
 const SavedViewTableDisplayConfiguration = strictStruct({
+	imageField: Schema.NullOr(OutputFieldKey),
 	columns: Schema.NonEmptyArray(strictStruct({ label: Schema.String, field: OutputFieldKey })),
 });
 

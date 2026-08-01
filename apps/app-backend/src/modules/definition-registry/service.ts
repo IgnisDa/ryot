@@ -131,18 +131,30 @@ const cardFields = (card: SavedViewDisplayConfiguration["grid"]) =>
 	[
 		card.titleField,
 		card.imageField,
-		card.eyebrowField,
+		card.overlineField,
 		card.calloutField,
-		card.primarySubtitleField,
-		card.secondarySubtitleField,
+		card.primaryMetadataField,
+		card.secondaryMetadataField,
 	].filter((field): field is string => field !== null);
 
-const configuredFields = (displayConfiguration: SavedViewDisplayConfiguration) => [
-	displayConfiguration.entityIdField,
-	...cardFields(displayConfiguration.grid),
-	...cardFields(displayConfiguration.list),
-	...displayConfiguration.table.columns.map(({ field }) => field),
-];
+const configuredFields = (displayConfiguration: SavedViewDisplayConfiguration) =>
+	[
+		displayConfiguration.entityIdField,
+		...cardFields(displayConfiguration.grid),
+		...cardFields(displayConfiguration.list),
+		displayConfiguration.table.imageField,
+		...displayConfiguration.table.columns.map(({ field }) => field),
+	].filter((field): field is string => field !== null);
+
+const textDisplayFields = (displayConfiguration: SavedViewDisplayConfiguration) =>
+	[
+		{ field: displayConfiguration.entityIdField, slot: "entityIdField" },
+		{ field: displayConfiguration.grid.titleField, slot: "grid titleField" },
+		{ field: displayConfiguration.list.titleField, slot: "list titleField" },
+		{ field: displayConfiguration.grid.imageField, slot: "grid imageField" },
+		{ field: displayConfiguration.list.imageField, slot: "list imageField" },
+		{ field: displayConfiguration.table.imageField, slot: "table imageField" },
+	].filter((entry): entry is { field: string; slot: string } => entry.field !== null);
 
 const rootScope = (document: RyotQLDocument) => {
 	const [query] = Object.values(document.queries);
@@ -204,12 +216,15 @@ export const getSavedViewValidationError = (input: {
 		}
 	}
 
-	const entityIdSelection = displayExpression(rootFields, input.displayConfiguration.entityIdField);
-	if (!entityIdSelection) {
-		return `Saved view display field '${input.displayConfiguration.entityIdField}' is not in the root projection`;
-	}
-	if (expressionKind(entityIdSelection.expr, rootScope(input.queryDocument)) !== "text") {
-		return "Saved view entityIdField must resolve to text";
+	const scope = rootScope(input.queryDocument);
+	for (const { field, slot } of textDisplayFields(input.displayConfiguration)) {
+		const selection = displayExpression(rootFields, field);
+		if (!selection) {
+			return `Saved view display field '${field}' is not in the root projection`;
+		}
+		if (expressionKind(selection.expr, scope) !== "text") {
+			return `Saved view ${slot} must resolve to text`;
+		}
 	}
 
 	return null;
