@@ -49,12 +49,12 @@ export const ProviderHttpAdmissionBlockResult = Schema.Union([
 ]);
 export type ProviderHttpAdmissionBlockResult = typeof ProviderHttpAdmissionBlockResult.Type;
 
-export class ProviderHttpAdmissionUnavailable extends Schema.TaggedErrorClass<ProviderHttpAdmissionUnavailable>()(
+export class ProviderHttpAdmissionUnavailable extends Schema.TaggedError<ProviderHttpAdmissionUnavailable>()(
 	"ProviderHttpAdmissionUnavailable",
 	{ message: Schema.String },
 ) {}
 
-export class ProviderHttpAdmissionCorruptState extends Schema.TaggedErrorClass<ProviderHttpAdmissionCorruptState>()(
+export class ProviderHttpAdmissionCorruptState extends Schema.TaggedError<ProviderHttpAdmissionCorruptState>()(
 	"ProviderHttpAdmissionCorruptState",
 	{ message: Schema.String },
 ) {}

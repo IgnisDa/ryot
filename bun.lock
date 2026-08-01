@@ -22,9 +22,9 @@
         "@better-auth/core": "1.6.15",
         "@better-auth/expo": "1.6.15",
         "@better-auth/redis-storage": "1.6.15",
-        "@effect/opentelemetry": "4.0.0-beta.102",
-        "@effect/platform-bun": "4.0.0-beta.102",
-        "@effect/sql-pg": "4.0.0-beta.102",
+        "@effect/opentelemetry": "4.0.0-beta.105",
+        "@effect/platform-bun": "4.0.0-beta.105",
+        "@effect/sql-pg": "4.0.0-beta.105",
         "@opentelemetry/api": "1.9.1",
         "@ryot/config": "workspace:*",
         "@ryot/contract": "workspace:*",
@@ -37,13 +37,13 @@
         "@ryot/ts-utils": "workspace:*",
         "better-auth": "1.6.15",
         "drizzle-orm": "0.45.2",
-        "effect": "4.0.0-beta.102",
+        "effect": "4.0.0-beta.105",
         "ioredis": "5.11.1",
         "nodemailer": "8.0.10",
         "pg": "8.21.0",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.0-beta.102",
+        "@effect/vitest": "4.0.0-beta.105",
         "@ryot/testing": "workspace:*",
         "@types/ioredis": "5.0.0",
         "@types/nodemailer": "8.0.0",
@@ -58,7 +58,7 @@
       "version": "1.0.0",
       "dependencies": {
         "@better-auth/expo": "1.6.15",
-        "@effect/atom-react": "4.0.0-beta.102",
+        "@effect/atom-react": "4.0.0-beta.105",
         "@expo-google-fonts/lora": "^0.4.2",
         "@expo-google-fonts/outfit": "^0.4.3",
         "@ryot/app-backend": "workspace:*",
@@ -68,7 +68,7 @@
         "@tailwindcss/postcss": "^4.1.13",
         "better-auth": "1.6.15",
         "clsx": "^2.1.1",
-        "effect": "4.0.0-beta.102",
+        "effect": "4.0.0-beta.105",
         "expo": "~56.0.4",
         "expo-font": "~56.0.5",
         "expo-image": "~56.0.11",
@@ -94,7 +94,7 @@
       },
       "devDependencies": {
         "@babel/core": "^7.20.0",
-        "@effect/vitest": "4.0.0-beta.102",
+        "@effect/vitest": "4.0.0-beta.105",
         "@ryot/testing": "workspace:*",
         "@types/react": "~19.2.2",
         "babel-plugin-module-resolver": "5.0.3",
@@ -188,7 +188,7 @@
         "@ryot/plugin-kit": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
         "@tailwindcss/vite": "4.1.18",
-        "effect": "4.0.0-beta.102",
+        "effect": "4.0.0-beta.105",
         "lucide-react": "0.563.0",
         "react": "19.2.4",
         "react-dom": "19.2.4",
@@ -320,7 +320,7 @@
         "clsx": "2.1.1",
         "dayjs": "1.11.21",
         "drizzle-orm": "0.45.2",
-        "effect": "4.0.0-beta.102",
+        "effect": "4.0.0-beta.105",
         "embla-carousel-autoplay": "8.6.0",
         "embla-carousel-react": "8.6.0",
         "humanize-duration-ts": "2.1.1",
@@ -359,10 +359,10 @@
       "name": "@ryot/config",
       "dependencies": {
         "@ryot/contract": "workspace:*",
-        "effect": "4.0.0-beta.102",
+        "effect": "4.0.0-beta.105",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.0-beta.102",
+        "@effect/vitest": "4.0.0-beta.105",
         "@ryot/testing": "workspace:*",
         "bun-types": "1.3.14",
         "vitest": "4.1.9",
@@ -374,7 +374,7 @@
         "@ryot/query-engine": "workspace:*",
         "@ryot/sandbox-sdk": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
-        "effect": "4.0.0-beta.102",
+        "effect": "4.0.0-beta.105",
       },
     },
     "packages/graphql": {
@@ -389,10 +389,10 @@
         "@ryot/config": "workspace:*",
         "@ryot/contract": "workspace:*",
         "@ryot/sandbox-sdk": "workspace:*",
-        "effect": "4.0.0-beta.102",
+        "effect": "4.0.0-beta.105",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.0-beta.102",
+        "@effect/vitest": "4.0.0-beta.105",
         "@ryot/testing": "workspace:*",
         "bun-types": "1.3.14",
         "vitest": "4.1.9",
@@ -401,7 +401,7 @@
     "packages/query-engine": {
       "name": "@ryot/query-engine",
       "devDependencies": {
-        "@effect/vitest": "4.0.0-beta.102",
+        "@effect/vitest": "4.0.0-beta.105",
         "@ryot/testing": "workspace:*",
         "vitest": "4.1.9",
       },
@@ -411,12 +411,12 @@
       "dependencies": {
         "@ryot/sandbox-sdk": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
-        "effect": "4.0.0-beta.102",
+        "effect": "4.0.0-beta.105",
         "typescript": "7.0.2",
       },
       "devDependencies": {
-        "@effect/platform-bun": "4.0.0-beta.102",
-        "@effect/vitest": "4.0.0-beta.102",
+        "@effect/platform-bun": "4.0.0-beta.105",
+        "@effect/vitest": "4.0.0-beta.105",
         "@ryot/testing": "workspace:*",
         "bun-types": "1.3.14",
         "vitest": "4.1.9",
@@ -428,14 +428,14 @@
         "@ryot/query-engine": "workspace:*",
         "@types/papaparse": "5.5.2",
         "cheerio": "1.2.0",
-        "effect": "4.0.0-beta.102",
+        "effect": "4.0.0-beta.105",
         "fast-xml-parser": "5.8.0",
         "fflate": "0.8.3",
         "papaparse": "5.5.3",
         "youtubei.js": "17.2.0",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.0-beta.102",
+        "@effect/vitest": "4.0.0-beta.105",
         "@ryot/testing": "workspace:*",
         "vitest": "4.1.9",
       },
@@ -490,10 +490,10 @@
         "@ryot/query-engine": "workspace:*",
         "@ryot/sandbox-sdk": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
-        "effect": "4.0.0-beta.102",
+        "effect": "4.0.0-beta.105",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.0-beta.102",
+        "@effect/vitest": "4.0.0-beta.105",
         "@ryot/testing": "workspace:*",
         "bun-types": "1.3.14",
         "vitest": "4.1.9",
@@ -508,11 +508,11 @@
         "@ryot/query-engine": "workspace:*",
         "@ryot/sandbox-sdk": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
-        "effect": "4.0.0-beta.102",
+        "effect": "4.0.0-beta.105",
       },
       "devDependencies": {
-        "@effect/platform-bun": "4.0.0-beta.102",
-        "@effect/vitest": "4.0.0-beta.102",
+        "@effect/platform-bun": "4.0.0-beta.105",
+        "@effect/vitest": "4.0.0-beta.105",
         "@ryot/testing": "workspace:*",
         "bun-types": "1.3.14",
         "vitest": "4.1.9",
@@ -523,8 +523,8 @@
       "devDependencies": {
         "@aws-sdk/client-s3": "3.1032.0",
         "@better-auth/api-key": "1.6.15",
-        "@effect/platform-bun": "4.0.0-beta.102",
-        "@effect/vitest": "4.0.0-beta.102",
+        "@effect/platform-bun": "4.0.0-beta.105",
+        "@effect/vitest": "4.0.0-beta.105",
         "@faker-js/faker": "10.4.0",
         "@ryot/app-backend": "workspace:*",
         "@ryot/contract": "workspace:*",
@@ -537,7 +537,7 @@
         "@ryot/ts-utils": "workspace:*",
         "@testcontainers/postgresql": "11.14.0",
         "better-auth": "1.6.15",
-        "effect": "4.0.0-beta.102",
+        "effect": "4.0.0-beta.105",
         "get-port": "7.2.0",
         "oauth2-mock-server": "9.1.0",
         "rfc4648": "1.5.4",
@@ -912,17 +912,17 @@
 
     "@drizzle-team/brocli": ["@drizzle-team/brocli@0.10.2", "", {}, "sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w=="],
 
-    "@effect/atom-react": ["@effect/atom-react@4.0.0-beta.102", "", { "peerDependencies": { "effect": "^4.0.0-beta.102", "react": "^19.2.4", "scheduler": "*" } }, "sha512-6SX11h7OFwje4YhxYUml9qGjBU8hvnEMrLWe3TKI3lEH/W6tkU/BzajC263eXkxM68h+BJNzE81Ipi5DTfEgug=="],
+    "@effect/atom-react": ["@effect/atom-react@4.0.0-beta.105", "", { "peerDependencies": { "effect": "^4.0.0-beta.105", "react": ">=19.2.7 <20.0.0", "scheduler": ">=0.27.0 <0.28.0" } }, "sha512-ldHOwlnrHMYCDb6ln6+uR+LwYV8Q2aQksaXQ92wAxP+YMvIpXP8PVfBdBoAooagmj9hGBgbyRnyE+wnjQRPkTQ=="],
 
-    "@effect/opentelemetry": ["@effect/opentelemetry@4.0.0-beta.102", "", { "peerDependencies": { "@opentelemetry/api": "^1.9", "@opentelemetry/api-logs": ">=0.203.0 <0.300.0", "@opentelemetry/resources": "^2.0.0", "@opentelemetry/sdk-logs": ">=0.203.0 <0.300.0", "@opentelemetry/sdk-metrics": "^2.0.0", "@opentelemetry/sdk-trace-base": "^2.0.0", "@opentelemetry/sdk-trace-node": "^2.0.0", "@opentelemetry/sdk-trace-web": "^2.0.0", "@opentelemetry/semantic-conventions": "^1.33.0", "effect": "^4.0.0-beta.102" }, "optionalPeers": ["@opentelemetry/api", "@opentelemetry/api-logs", "@opentelemetry/resources", "@opentelemetry/sdk-logs", "@opentelemetry/sdk-metrics", "@opentelemetry/sdk-trace-base", "@opentelemetry/sdk-trace-node", "@opentelemetry/sdk-trace-web"] }, "sha512-U15cxJ1uf3+HMnZB0BUQe3U4TuyIPYxSHJ+wEzkF4ZjteN224hsgeTgsyXSFjSIpWDVWfujdGPqmtkDpcMzf6w=="],
+    "@effect/opentelemetry": ["@effect/opentelemetry@4.0.0-beta.105", "", { "peerDependencies": { "@opentelemetry/api": ">=1.9.0 <2.0.0", "@opentelemetry/api-logs": ">=0.203.0 <0.300.0", "@opentelemetry/resources": ">=2.0.0 <3.0.0", "@opentelemetry/sdk-logs": ">=0.203.0 <0.300.0", "@opentelemetry/sdk-metrics": ">=2.0.0 <3.0.0", "@opentelemetry/sdk-trace-base": ">=2.0.0 <3.0.0", "@opentelemetry/sdk-trace-node": ">=2.0.0 <3.0.0", "@opentelemetry/sdk-trace-web": ">=2.0.0 <3.0.0", "@opentelemetry/semantic-conventions": ">=1.33.0 <2.0.0", "effect": "^4.0.0-beta.105" }, "optionalPeers": ["@opentelemetry/api", "@opentelemetry/api-logs", "@opentelemetry/resources", "@opentelemetry/sdk-logs", "@opentelemetry/sdk-metrics", "@opentelemetry/sdk-trace-base", "@opentelemetry/sdk-trace-node", "@opentelemetry/sdk-trace-web"] }, "sha512-1OzmjmhzwSzixTZS3d2to/EIcAlpfnCrkYuqp2pTlropmPGJ2cB/E2VUDz30mXQJ4Uh+05ntw7upvtp3voZYlQ=="],
 
     "@effect/platform": ["@effect/platform@0.97.1", "", { "dependencies": { "find-my-way-ts": "^0.1.6", "msgpackr": "^1.11.10", "multipasta": "^0.2.8" }, "peerDependencies": { "effect": "^3.22.1" } }, "sha512-IevWxwmrxCdeXxbXDx/hiOstHtERRigd1nhZSuHgiFEl7NkBmS/5GVWsRacq4NfJN2uCXqggETKNwij15VEpew=="],
 
-    "@effect/platform-bun": ["@effect/platform-bun@4.0.0-beta.102", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.0-beta.102" }, "peerDependencies": { "effect": "^4.0.0-beta.102" } }, "sha512-hTIb0jjTfXhNgnDq2OX5wrigc0OSvTT0VWWb1PLpMM395RJPu8rCIbTlGhy0NS7kZOd8FfgNi9e0sDhgyu+5Ag=="],
+    "@effect/platform-bun": ["@effect/platform-bun@4.0.0-beta.105", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.0-beta.105" }, "peerDependencies": { "effect": "^4.0.0-beta.105" } }, "sha512-5eCuMLxfkLbVK5If5zFybyKduQvhYofy0oPsbTH8UiIrYqyx5QqK9G9PZ1SfBsbqHfykwLEpMCdzQczFGERw2w=="],
 
-    "@effect/platform-node-shared": ["@effect/platform-node-shared@4.0.0-beta.102", "", { "dependencies": { "@types/ws": "^8.18.1", "ws": "^8.21.0" }, "peerDependencies": { "effect": "^4.0.0-beta.102" } }, "sha512-gVd793I72MrkX4dXo7eYtRKfNj0RW4eMRfVEKEJI16h2+mBDCzQ+gqMrog2hSTHQnaIbvbYShNQ4TVGuRCYZeQ=="],
+    "@effect/platform-node-shared": ["@effect/platform-node-shared@4.0.0-beta.105", "", { "dependencies": { "@types/ws": "^8.18.1", "ws": "^8.21.0" }, "peerDependencies": { "effect": "^4.0.0-beta.105" } }, "sha512-UfeC8cFm4sP+XW14OO66CcOGJ8PcD102hH0kLwj8xUVL6nYIDGE/SJvlfVmFx+9OWF6rnjfXjMV6vyl6mCdhCQ=="],
 
-    "@effect/sql-pg": ["@effect/sql-pg@4.0.0-beta.102", "", { "dependencies": { "pg": "^8.22.0", "pg-connection-string": "2.14.0", "pg-cursor": "^2.21.0", "pg-pool": "^3.14.0", "pg-types": "^4.1.0" }, "peerDependencies": { "effect": "^4.0.0-beta.102" } }, "sha512-02a+fNfECWCZIZcgHl7OLQN2jZj42gq90EdwdnvR3KA6GLGypY02swABS4zFtaW9H80rTa0ukqVnTdcO/DT5GQ=="],
+    "@effect/sql-pg": ["@effect/sql-pg@4.0.0-beta.105", "", { "dependencies": { "pg": "^8.22.0", "pg-connection-string": "^2.14.0", "pg-cursor": "^2.21.0", "pg-pool": "^3.14.0", "pg-types": "^4.1.0" }, "peerDependencies": { "effect": "^4.0.0-beta.105" } }, "sha512-Jz2DYIR+lyPdExOeYKV2BRcNZ/kj3Ldyz3xqDsT3nRM2zWo/9zWKH7XON/P1pvTbIxJPwuS63MPd4F6GYtz+bA=="],
 
     "@effect/tsgo": ["@effect/tsgo@0.19.0", "", { "optionalDependencies": { "@effect/tsgo-darwin-arm64": "0.19.0", "@effect/tsgo-darwin-x64": "0.19.0", "@effect/tsgo-linux-arm": "0.19.0", "@effect/tsgo-linux-arm64": "0.19.0", "@effect/tsgo-linux-x64": "0.19.0", "@effect/tsgo-win32-arm64": "0.19.0", "@effect/tsgo-win32-x64": "0.19.0" }, "bin": { "effect-tsgo": "dist/effect-tsgo.js" } }, "sha512-NDyG/RufHigI0bdvyggbr53J6c1GWcnNkm7rUwQbBDuRI1KRThFh2WtugMLL+i6wrRiMXJtgLHzh9lIMqy9gGA=="],
 
@@ -940,7 +940,7 @@
 
     "@effect/tsgo-win32-x64": ["@effect/tsgo-win32-x64@0.19.0", "", { "os": "win32", "cpu": "x64" }, "sha512-KRWaWLXWIEm5mR/qPi9UJIRQdNs7uPfstiEv3bNR3qMVhgwndL2e5XYUoQOOYEK4MTjLM0GO+uknlHHRfI5K8A=="],
 
-    "@effect/vitest": ["@effect/vitest@4.0.0-beta.102", "", { "peerDependencies": { "effect": "^4.0.0-beta.102", "vitest": "^3.0.0 || ^4.0.0" } }, "sha512-4dipFAYG6imOzrY3zy3BgzCJkbb9xESyzUef0WSx8bsK0/SpITqbJpdwKeOyDWLZ+rimjua8IbTFMAde865pIQ=="],
+    "@effect/vitest": ["@effect/vitest@4.0.0-beta.105", "", { "peerDependencies": { "effect": "^4.0.0-beta.105", "vitest": ">=4.1.0 <5.0.0" } }, "sha512-2t1J/H/+9hAKDC1S3iFyUVZJhdMpKvuggnOGNXPTmxZcVdxG/VkhjQjo7wzOHWs6SZcX8Cr/EsB+uiVAn9G0Ng=="],
 
     "@egjs/hammerjs": ["@egjs/hammerjs@2.0.17", "", { "dependencies": { "@types/hammerjs": "^2.0.36" } }, "sha512-XQsZgjm2EcVUiZQf11UBJQfmZeEmOW8DpI1gsFeln6w0ae0ii4dMQEQ0kjl6DspdWX1aGY1/loyXnP0JS06e/A=="],
 
@@ -2662,7 +2662,7 @@
 
     "ee-first": ["ee-first@1.1.1", "", {}, "sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow=="],
 
-    "effect": ["effect@4.0.0-beta.102", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "fast-check": "^4.9.0", "find-my-way-ts": "^0.1.6", "ini": "^7.0.0", "kubernetes-types": "^1.30.0", "msgpackr": "^2.0.4", "multipasta": "^0.2.8", "toml": "^4.1.2", "uuid": "^14.0.1", "yaml": "^2.9.0" } }, "sha512-z8Y+Q76Hh/kjLFZrXu8tGn6e+tDsg45R+UHhxd190pXxD53OGwf/G/zDxXTkse4HJ5mobNZfitLfUCp4fMvu6w=="],
+    "effect": ["effect@4.0.0-beta.105", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "fast-check": "^4.9.0", "kubernetes-types": "^1.30.0", "msgpackr": "^2.0.4", "uuid": "^14.0.1" } }, "sha512-7U5OzWVNlpnZFvXiZfOeu8V+dCQUa3Om569HnYG2Dx8C8V6uoKS920kFJkIDEYVhlSGhzkRqaGKmYY9bPkBMMQ=="],
 
     "ejs": ["ejs@3.1.10", "", { "dependencies": { "jake": "^10.8.5" }, "bin": { "ejs": "bin/cli.js" } }, "sha512-UeJmFfOrAQS8OJWPZ4qtgHyWExa088/MtK5UEyoJGFH67cDEXkZSviOiKRCZ4Xij0zxI3JECgYs3oKx+AizQBA=="],
 
@@ -3054,7 +3054,7 @@
 
     "inherits": ["inherits@2.0.4", "", {}, "sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ=="],
 
-    "ini": ["ini@7.0.0", "", {}, "sha512-ifK0CgjALofS5bkrcTy4RaQ9Vx2Knf/eLeIO+NaswQEpH1UblrtTSCIvN71qQDMq0PeQ/SSPojvEJp9vvvfr+w=="],
+    "ini": ["ini@4.1.3", "", {}, "sha512-X7rqawQBvfdjS10YU1y1YVreA3SsLrW9dX2CewP2EbBJM4ypVNLDkO5y04gejPwKIY9lR+7r9gn3rFPt/kmWFg=="],
 
     "inline-style-prefixer": ["inline-style-prefixer@7.0.1", "", { "dependencies": { "css-in-js-utils": "^3.1.0" } }, "sha512-lhYo5qNTQp3EvSSp3sRvXMbVQTLrvGV6DycRMJ5dm2BLMiJ30wpXKdDdgX+GmJZ5uQMucwRKHamXSst3Sj/Giw=="],
 
@@ -4186,8 +4186,6 @@
 
     "toidentifier": ["toidentifier@1.0.1", "", {}, "sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA=="],
 
-    "toml": ["toml@4.3.0", "", {}, "sha512-lVb8X9BsPVuH0M4BKeS91tXAmJvCjQ5UIyAbQFaxkKGyUFK2RPkhwaFSQH8vbpl1d23eu/IBH+dwVMHWaq9A5A=="],
-
     "toqr": ["toqr@0.1.1", "", {}, "sha512-FWAPzCIHZHnrE/5/w9MPk0kK25hSQSH2IKhYh9PyjS3SG/+IEMvlwIHbhz+oF7xl54I+ueZlVnMjyzdSwLmAwA=="],
 
     "tr46": ["tr46@1.0.1", "", { "dependencies": { "punycode": "^2.1.0" } }, "sha512-dTpowEjclQ7Kgx5SdBkqRzVhERQXov8/l9Ft9dVM9fmg0W0KQSVaXX9T4i6twCPNtYiZM53lpSSUAwJbFPOHxA=="],
@@ -4903,8 +4901,6 @@
     "filelist/minimatch": ["minimatch@5.1.9", "", { "dependencies": { "brace-expansion": "^2.0.1" } }, "sha512-7o1wEA2RyMP7Iu7GNba9vc0RWWGACJOCZBJX2GJWip0ikV+wcOsgVuY9uE8CPiyQhkGFSlhuSkZPavN7u1c2Fw=="],
 
     "finalhandler/debug": ["debug@2.6.9", "", { "dependencies": { "ms": "2.0.0" } }, "sha512-bC7ElrdJaJnPbAP+1EotYvqZsb3ecl5wi6Bfi6BJTUcNowp6cvspg0jXznRTKDjm/E7AdgFBVeAPVMNcKGsHMA=="],
-
-    "firefox-profile/ini": ["ini@4.1.3", "", {}, "sha512-X7rqawQBvfdjS10YU1y1YVreA3SsLrW9dX2CewP2EbBJM4ypVNLDkO5y04gejPwKIY9lR+7r9gn3rFPt/kmWFg=="],
 
     "firefox-profile/xml2js": ["xml2js@0.6.2", "", { "dependencies": { "sax": ">=0.6.0", "xmlbuilder": "~11.0.0" } }, "sha512-T4rieHaC1EXcES0Kxxj4JWgaUQHDk+qwHcYOCFHfiwKz7tOVPLq7Hjq9dM1WCMhylqMEfP7hMcOIChvotiZegA=="],
 

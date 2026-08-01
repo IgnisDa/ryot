@@ -8,7 +8,7 @@ import { type DurableSchema, withoutWorkflowParent } from "#lib/infrastructure/w
 import { ProviderEntityPopulationWorkflow } from "./provider-entity-population-workflow";
 import { EntityImportPayload } from "./schemas";
 
-export class EntityImportError extends Schema.TaggedErrorClass<EntityImportError>()(
+export class EntityImportError extends Schema.TaggedError<EntityImportError>()(
 	"EntityImportError",
 	{
 		message: Schema.String,
