@@ -95,11 +95,11 @@ export const getPluginConfig = Effect.fn("getPluginConfig")(function* (input: {
 });
 
 export const isPluginConfigKeyConfigured = Effect.fn("isPluginConfigKeyConfigured")(
-	function* (input: { key: string; pluginSlug: string; configSchema: AppSchema }) {
-		if (!Object.hasOwn(input.configSchema.fields, input.key)) {
+	function* (input: { key: string; context: PluginConfigContext }) {
+		if (!Object.hasOwn(input.context.configSchema.fields, input.key)) {
 			return false;
 		}
-		const result = yield* Effect.result(resolvePluginConfig(input));
+		const result = yield* Effect.result(resolveContextConfig(input.context));
 		return result._tag === "Success" && result.success[input.key] !== undefined;
 	},
 );

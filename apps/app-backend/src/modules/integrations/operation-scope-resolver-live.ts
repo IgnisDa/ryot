@@ -28,7 +28,11 @@ export const IntegrationOperationScopeResolverLive = Layer.effect(
 					if (!integration || integration.isDisabled) {
 						return yield* notFound("Integration not found");
 					}
-					return { integrationId, userId: integration.userId };
+					return {
+						integrationId,
+						userId: integration.userId,
+						pluginInstallationId: integration.pluginInstallationId,
+					};
 				}),
 		};
 	}),

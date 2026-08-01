@@ -13,8 +13,9 @@ export const IntegrationsRoutesLive = HttpApiBuilder.group(
 		handlers
 			.handle("listProviders", () =>
 				Effect.gen(function* () {
+					const user = yield* CurrentUser;
 					const service = yield* IntegrationsService;
-					return yield* service.listIntegrationProviders().pipe(dieOnDbError);
+					return yield* service.listIntegrationProviders(user.id).pipe(dieOnDbError);
 				}),
 			)
 			.handle("get", ({ params }) =>

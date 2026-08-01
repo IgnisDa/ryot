@@ -91,7 +91,7 @@ import { NotificationsRepository } from "#modules/notifications/repository";
 import { NotificationsService } from "#modules/notifications/service";
 import { FirstPartyPluginBootstrap } from "#modules/plugins/boot";
 import { PluginHttpRateLimitAuthority } from "#modules/plugins/http-rate-limit-authority";
-import { ImportSourceCatalog } from "#modules/plugins/import-source-catalog";
+import { ImportSourceCatalogLive } from "#modules/plugins/import-source-catalog";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginInstallationService } from "#modules/plugins/installation-service";
 import { IntegrationProviderCatalogLive } from "#modules/plugins/integration-provider-catalog";
@@ -207,7 +207,6 @@ const SandboxPluginScriptResolverLive = Layer.provideMerge(
 	PluginSandboxScriptResolverLive,
 	PluginRuntimeResolverLive,
 );
-const ImportSourceCatalogLive = Layer.provide(ImportSourceCatalog.layer, PluginLoaderLive);
 const ScriptGarbageCollectorLive = Layer.provide(
 	ScriptGarbageCollector.layer,
 	Layer.mergeAll(
@@ -505,7 +504,10 @@ const ServicesLive = Layer.mergeAll(
 );
 
 const ServicesWithTestSupportLive = Layer.provideMerge(
-	Layer.mergeAll(TestSupportService.layer, OperationalGateService.layer),
+	Layer.mergeAll(
+		TestSupportService.layer,
+		OperationalGateService.layer.pipe(Layer.provide(PluginRuntimeResolverLive)),
+	),
 	ServicesLive,
 );
 

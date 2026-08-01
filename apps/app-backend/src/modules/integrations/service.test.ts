@@ -16,7 +16,6 @@ import {
 	IntegrationProviderCatalog,
 	type RegisteredIntegrationProvider,
 } from "#modules/plugins/integration-provider-catalog";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { IntegrationsRepository } from "./repository";
 import {
@@ -37,16 +36,16 @@ const user: CurrentUserValue = {
 const mockProKey = (isValidated: boolean) =>
 	Layer.mock(ProKeyService)({ isValidated: Effect.succeed(isValidated) });
 
-const makeIntegrationsServiceLayer = (available = true) =>
-	IntegrationsService.layer.pipe(
-		Layer.provideMerge(
-			Layer.mock(PluginRuntimeResolver)({
-				isSystemPluginAvailableToUser: () => Effect.succeed(available),
-			}),
-		),
-	);
+const systemPlugin = (pluginSlug: string) =>
+	({
+		pluginSlug,
+		pluginScope: "system",
+		pluginId: `${pluginSlug}-plugin-id`,
+		installationId: `${pluginSlug}-installation-id`,
+		configContext: { kind: "environment", pluginSlug, configSchema: { fields: {} } },
+	}) satisfies Partial<RegisteredIntegrationProvider>;
 
-const integrationsServiceLayer = makeIntegrationsServiceLayer();
+const integrationsServiceLayer = IntegrationsService.layer;
 
 describe("validateProgressThresholds", () => {
 	it("returns null for valid thresholds", () => {
@@ -96,7 +95,7 @@ describe("client endpoints", () => {
 				lot: "yank",
 				slug: "komga",
 				name: "Komga",
-				pluginSlug: "media",
+				...systemPlugin("media"),
 				description: "Komga yank",
 				settingsSchema: { fields: {} },
 				scriptSlug: "integration.komga",
@@ -105,7 +104,7 @@ describe("client endpoints", () => {
 				lot: "sink",
 				slug: "kodi",
 				name: "Kodi",
-				pluginSlug: "media",
+				...systemPlugin("media"),
 				description: "Kodi sink",
 				scriptSlug: "integration.kodi",
 				settingsSchema: { fields: {} },
@@ -115,7 +114,7 @@ describe("client endpoints", () => {
 				slug: "radarr",
 				name: "Radarr",
 				scriptSlug: null,
-				pluginSlug: "media",
+				...systemPlugin("media"),
 				description: "Radarr push",
 				settingsSchema: { fields: {} },
 			} satisfies RegisteredIntegrationProvider;
@@ -135,13 +134,15 @@ describe("client endpoints", () => {
 				id: SandboxScriptId.make("active-script"),
 			};
 			const providerCatalog = Layer.mock(IntegrationProviderCatalog)({
-				find: () => null,
-				findOwned: () => null,
-				list: () => [yank, inactiveSink, push],
-				resolveOwned: (slug) => ({
-					provider: slug === yank.slug ? yank : inactiveSink,
-					script: slug === yank.slug ? Effect.succeed(activeScript) : Effect.succeed(null),
-				}),
+				findForUser: () => Effect.succeed(null),
+				findOwnedForUser: () => Effect.succeed(null),
+				listForUser: () => Effect.succeed([yank, inactiveSink, push]),
+				resolveOwnedForUser: (_userId, providerSlug) =>
+					Effect.succeed(
+						providerSlug === yank.slug
+							? { provider: yank, script: activeScript }
+							: { provider: inactiveSink, script: null },
+					),
 			});
 			const layer = integrationsServiceLayer.pipe(
 				Layer.provideMerge(
@@ -157,7 +158,7 @@ describe("client endpoints", () => {
 			);
 
 			return Effect.gen(function* () {
-				const providers = yield* (yield* IntegrationsService).listIntegrationProviders();
+				const providers = yield* (yield* IntegrationsService).listIntegrationProviders(user.id);
 
 				expect(providers.map(({ slug, isCreatable }) => [slug, isCreatable])).toEqual([
 					["komga", true],
@@ -191,15 +192,17 @@ describe("client endpoints", () => {
 	it.effect("gets an owned integration through client redaction", () => {
 		const integration = makeIntegration({
 			provider: "komga",
+			pluginSlug: "media",
+			pluginInstallationId: "media-installation-id",
 			providerSpecifics: { kind: "komga", baseUrl: "https://komga.test", token: "secret" },
 		});
 		const registered = {
 			lot: "yank",
 			slug: "komga",
 			name: "Komga",
+			...systemPlugin("media"),
 			description: "Komga yank",
 			scriptSlug: "integration.komga",
-			pluginSlug: integration.pluginSlug,
 			settingsSchema: {
 				fields: {
 					kind: { type: "string", label: "Kind", description: "Kind" },
@@ -218,10 +221,10 @@ describe("client endpoints", () => {
 						getForUser: () => Effect.succeed(integration),
 					}),
 					Layer.mock(IntegrationProviderCatalog, {
-						find: () => null,
-						list: () => [registered],
-						findOwned: () => registered,
-						resolveOwned: () => null,
+						findForUser: () => Effect.succeed(null),
+						resolveOwnedForUser: () => Effect.succeed(null),
+						listForUser: () => Effect.succeed([registered]),
+						findOwnedForUser: () => Effect.succeed(registered),
 					}),
 					Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 				),
@@ -252,8 +255,8 @@ describe("client endpoints", () => {
 				slug: "pro-push",
 				name: "Pro push",
 				scriptSlug: null,
-				pluginSlug: "media",
 				requiresProKey: true,
+				...systemPlugin("media"),
 				settingsSchema: { fields: {} },
 				description: "Pro-gated push provider",
 			} satisfies RegisteredIntegrationProvider;
@@ -266,17 +269,17 @@ describe("client endpoints", () => {
 						Layer.mock(IntegrationsRepository, {}),
 						Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 						Layer.mock(IntegrationProviderCatalog, {
-							find: () => null,
-							findOwned: () => null,
-							list: () => [proGatedPush],
-							resolveOwned: () => null,
+							findForUser: () => Effect.succeed(null),
+							findOwnedForUser: () => Effect.succeed(null),
+							resolveOwnedForUser: () => Effect.succeed(null),
+							listForUser: () => Effect.succeed([proGatedPush]),
 						}),
 					),
 				),
 			);
 
 			return Effect.gen(function* () {
-				const providers = yield* (yield* IntegrationsService).listIntegrationProviders();
+				const providers = yield* (yield* IntegrationsService).listIntegrationProviders(user.id);
 
 				expect(providers).toMatchObject([{ requiresProKey: true, isCreatable: expected }]);
 			}).pipe(Effect.provide(layer));
@@ -288,7 +291,7 @@ describe("update", () => {
 	it.effect("preserves a stored secret omitted from a provider settings update", () => {
 		const registered = {
 			lot: "yank",
-			pluginSlug: "media",
+			...systemPlugin("media"),
 			name: "Audiobookshelf",
 			slug: "audiobookshelf",
 			description: "Test yank",
@@ -320,7 +323,9 @@ describe("update", () => {
 		} satisfies RegisteredIntegrationProvider;
 		let state = makeIntegration({
 			lot: "yank",
+			pluginSlug: "media",
 			provider: "audiobookshelf",
+			pluginInstallationId: "media-installation-id",
 			providerSpecifics: {
 				token: "stored-token",
 				kind: "audiobookshelf",
@@ -338,10 +343,10 @@ describe("update", () => {
 			},
 		});
 		const providerCatalog = Layer.mock(IntegrationProviderCatalog)({
-			find: () => registered,
-			list: () => [registered],
-			findOwned: () => registered,
-			resolveOwned: () => ({ provider: registered, script: Effect.succeed(null) }),
+			findForUser: () => Effect.succeed(registered),
+			listForUser: () => Effect.succeed([registered]),
+			findOwnedForUser: () => Effect.succeed(registered),
+			resolveOwnedForUser: () => Effect.succeed({ provider: registered, script: null }),
 		});
 		const layer = integrationsServiceLayer.pipe(
 			Layer.provideMerge(
@@ -379,6 +384,7 @@ describe("update", () => {
 			provider: "shared-provider",
 			pluginSlug: "original-owner",
 			providerSpecifics: { token: "stored-token" },
+			pluginInstallationId: "original-owner-installation-id",
 		});
 		let updated = false;
 		const replacement = {
@@ -386,7 +392,7 @@ describe("update", () => {
 			name: "Replacement",
 			slug: "shared-provider",
 			settingsSchema: { fields: {} },
-			pluginSlug: "replacement-owner",
+			...systemPlugin("replacement-owner"),
 			description: "Replacement provider",
 			scriptSlug: "replacement.integration",
 		} satisfies RegisteredIntegrationProvider;
@@ -398,10 +404,10 @@ describe("update", () => {
 			},
 		});
 		const providerCatalog = Layer.mock(IntegrationProviderCatalog)({
-			findOwned: () => null,
-			find: () => replacement,
-			resolveOwned: () => null,
-			list: () => [replacement],
+			findOwnedForUser: () => Effect.succeed(null),
+			findForUser: () => Effect.succeed(replacement),
+			resolveOwnedForUser: () => Effect.succeed(null),
+			listForUser: () => Effect.succeed([replacement]),
 		});
 		const layer = integrationsServiceLayer.pipe(
 			Layer.provideMerge(
@@ -438,22 +444,27 @@ describe("update", () => {
 				lot: "sink",
 				name: "Pro sink",
 				slug: "pro-sink",
-				pluginSlug: "media",
 				requiresProKey: true,
+				...systemPlugin("media"),
 				settingsSchema: { fields: {} },
 				scriptSlug: "integration.pro-sink",
 				description: "Pro-gated sink provider",
 			} satisfies RegisteredIntegrationProvider;
-			const existing = makeIntegration({ lot: "sink", pluginSlug: "media", provider: "pro-sink" });
+			const existing = makeIntegration({
+				lot: "sink",
+				pluginSlug: "media",
+				provider: "pro-sink",
+				pluginInstallationId: "media-installation-id",
+			});
 			const repository = Layer.mock(IntegrationsRepository)({
 				getForUser: () => Effect.succeed(existing),
 				updateForUser: () => Effect.die("update should not be reached"),
 			});
 			const providerCatalog = Layer.mock(IntegrationProviderCatalog)({
-				find: () => registered,
-				list: () => [registered],
-				findOwned: () => registered,
-				resolveOwned: () => ({ provider: registered, script: Effect.succeed(null) }),
+				findForUser: () => Effect.succeed(registered),
+				listForUser: () => Effect.succeed([registered]),
+				findOwnedForUser: () => Effect.succeed(registered),
+				resolveOwnedForUser: () => Effect.succeed({ provider: registered, script: null }),
 			});
 			const layer = integrationsServiceLayer.pipe(
 				Layer.provideMerge(
@@ -491,17 +502,17 @@ describe("create", () => {
 			lot: "sink",
 			name: "Pro sink",
 			slug: "pro-sink",
-			pluginSlug: "media",
 			requiresProKey: true,
+			...systemPlugin("media"),
 			settingsSchema: { fields: {} },
 			scriptSlug: "integration.pro-sink",
 			description: "Pro-gated sink provider",
 		} satisfies RegisteredIntegrationProvider;
 		const providerCatalog = Layer.mock(IntegrationProviderCatalog)({
-			find: () => registered,
-			list: () => [registered],
-			findOwned: () => registered,
-			resolveOwned: () => ({ provider: registered, script: Effect.succeed(null) }),
+			findForUser: () => Effect.succeed(registered),
+			listForUser: () => Effect.succeed([registered]),
+			findOwnedForUser: () => Effect.succeed(registered),
+			resolveOwnedForUser: () => Effect.succeed({ provider: registered, script: null }),
 		});
 		const repository = Layer.mock(IntegrationsRepository)({
 			createForUser: () => Effect.die("create should not be reached"),
@@ -535,17 +546,13 @@ describe("create", () => {
 
 describe("installation availability", () => {
 	it.effect("rejects webhook enqueue for an unavailable system installation", () => {
-		const integration = makeIntegration({ lot: "sink", pluginSlug: "media", provider: "kodi" });
-		const registered = {
+		const integration = makeIntegration({
 			lot: "sink",
-			slug: "kodi",
-			name: "Kodi",
+			provider: "kodi",
 			pluginSlug: "media",
-			description: "Kodi sink",
-			settingsSchema: { fields: {} },
-			scriptSlug: "integration.kodi",
-		} satisfies RegisteredIntegrationProvider;
-		const layer = makeIntegrationsServiceLayer(false).pipe(
+			pluginInstallationId: "media-installation-id",
+		});
+		const layer = integrationsServiceLayer.pipe(
 			Layer.provideMerge(
 				Layer.mergeAll(
 					databaseLayer,
@@ -554,10 +561,10 @@ describe("installation availability", () => {
 						getByIdAnyUser: () => Effect.succeed(integration),
 					}),
 					Layer.mock(IntegrationProviderCatalog)({
-						find: () => registered,
-						list: () => [registered],
-						findOwned: () => registered,
-						resolveOwned: () => null,
+						listForUser: () => Effect.succeed([]),
+						findForUser: () => Effect.succeed(null),
+						findOwnedForUser: () => Effect.succeed(null),
+						resolveOwnedForUser: () => Effect.succeed(null),
 					}),
 					Layer.mock(ImportsService)({
 						createRunForIntegration: () => Effect.die("run should not be created"),
@@ -580,20 +587,26 @@ describe("installation availability", () => {
 	});
 
 	it.effect("skips scheduled yank runs for an unavailable system installation", () => {
-		const integration = makeIntegration({ lot: "yank", pluginSlug: "media", provider: "komga" });
-		const layer = makeIntegrationsServiceLayer(false).pipe(
+		const integration = makeIntegration({
+			lot: "yank",
+			provider: "komga",
+			pluginSlug: "media",
+			pluginInstallationId: "media-installation-id",
+		});
+		const layer = integrationsServiceLayer.pipe(
 			Layer.provideMerge(
 				Layer.mergeAll(
 					databaseLayer,
 					mockProKey(true),
 					Layer.mock(IntegrationsRepository)({
+						getUserDisableIntegrations: () => Effect.succeed(false),
 						listEnabledYankIntegrations: () => Effect.succeed([integration]),
 					}),
 					Layer.mock(IntegrationProviderCatalog)({
-						list: () => [],
-						find: () => null,
-						findOwned: () => null,
-						resolveOwned: () => null,
+						listForUser: () => Effect.succeed([]),
+						findForUser: () => Effect.succeed(null),
+						findOwnedForUser: () => Effect.succeed(null),
+						resolveOwnedForUser: () => Effect.succeed(null),
 					}),
 					Layer.mock(ImportsService)({
 						createRunForIntegration: () => Effect.die("run should not be created"),
@@ -637,10 +650,10 @@ describe("syncAll", () => {
 					Layer.mock(ImportsService, {}),
 					Layer.mock(IntegrationsRepository, {}),
 					Layer.mock(IntegrationProviderCatalog, {
-						list: () => [],
-						find: () => null,
-						findOwned: () => null,
-						resolveOwned: () => null,
+						listForUser: () => Effect.succeed([]),
+						findForUser: () => Effect.succeed(null),
+						findOwnedForUser: () => Effect.succeed(null),
+						resolveOwnedForUser: () => Effect.succeed(null),
 					}),
 					Layer.succeed(WorkflowEngine, engine),
 				),
