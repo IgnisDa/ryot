@@ -1,3 +1,4 @@
+import type { ContractPayload } from "@ryot/contract/client";
 import { PluginSlug } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
@@ -28,7 +29,7 @@ export const findBuiltinPluginBySlug = (client: Client, slug: string) =>
 export const updatePluginState = (
 	client: Client,
 	pluginSlug: string,
-	payload: { isDisabled?: boolean; sortOrder?: number },
+	payload: ContractPayload<"definitions", "updatePluginState">,
 ) =>
 	client.call((c) =>
 		c.definitions.updatePluginState({

@@ -105,6 +105,7 @@ const makeLayer = (input: {
 	sandboxError?: string;
 	currentUserId?: UserId;
 	registerPlugin?: boolean;
+	pluginAvailable?: boolean;
 	auth: PluginOperationAuth;
 	captured?: Array<unknown>;
 	currentUserGate?: Effect.Effect<void>;
@@ -144,6 +145,7 @@ const makeLayer = (input: {
 									),
 					}),
 					Layer.mock(PluginRuntimeResolver)({
+						isSystemPluginAvailableToUser: () => Effect.succeed(input.pluginAvailable !== false),
 						findUserOperation: ({ operationSlug, pluginSlug, userId }) =>
 							Effect.succeed(
 								userId === input.userOperation?.ownerId &&
@@ -387,6 +389,29 @@ it.effect("dispatches authenticated user operations without system authority", (
 		Effect.provide(makeLayer({ auth: "user", captured, currentUserId: UserId.make("user-1") })),
 	);
 });
+
+it.effect("rejects a system operation when the user's installation is unavailable", () =>
+	Effect.gen(function* () {
+		const service = yield* OperationsService;
+		const exit = yield* Effect.exit(
+			service.invoke({
+				payload: {},
+				pluginSlug: "fixture",
+				headers: Headers.empty,
+				operationSlug: OPERATION_SLUG,
+			}),
+		);
+		expectError(exit, PluginNotFoundError);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				auth: "user",
+				pluginAvailable: false,
+				currentUserId: UserId.make("user-1"),
+			}),
+		),
+	),
+);
 
 it.effect("propagates sandbox failures from operation scripts", () =>
 	Effect.gen(function* () {
