@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
 
@@ -24,11 +24,11 @@ export function SavedViewPagination(props: {
 						props.isLoading && "opacity-60",
 					)}
 				>
-					<AppIcon
-						className={clsx("text-text", props.isLoading && "animate-spin")}
-						name={props.isLoading ? "loader-2" : "chevron-down"}
-						size={16}
-					/>
+					{props.isLoading ? (
+						<ActivityIndicator accessibilityLabel="Loading more results" size="small" />
+					) : (
+						<AppIcon className="text-text" name="chevron-down" size={16} />
+					)}
 					<Text className="font-ui text-[15px] text-text md:text-[13px]">
 						{props.isLoading ? "Loading..." : "Load more"}
 					</Text>
