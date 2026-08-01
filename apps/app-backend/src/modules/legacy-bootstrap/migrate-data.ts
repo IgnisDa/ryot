@@ -55,6 +55,7 @@ import {
 	personEntityTargets,
 } from "./person-mapping";
 import { buildReviewMigrationSql } from "./review-mapping";
+import { buildLegacySavedViewStateMigrationSql } from "./saved-view-mapping";
 import { buildSeenEpisodicCompletionMigrationSql } from "./seen-completion-mapping";
 import { buildSeenMigrationSql } from "./seen-mapping";
 import {
@@ -396,6 +397,10 @@ export const migrateLegacyTables = Effect.gen(function* () {
 				Effect.orDie,
 			);
 		}
+
+		yield* withReservedConnection((connection) =>
+			connection.executeRaw(buildLegacySavedViewStateMigrationSql(), []),
+		);
 
 		yield* Effect.logInfo("legacy user bootstrap backfill finished").pipe(
 			Effect.annotateLogs({ userCount: migratedUserRows.length }),
