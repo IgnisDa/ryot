@@ -43,7 +43,7 @@ const makeDb = (initialRows: ReadonlyArray<StoredRelationship> = []) => {
 			return row.id === params[0] && row.userId === params[1];
 		}
 
-		if (text.includes('"relationship"."userId" is null')) {
+		if (text.includes('"relationship"."user_id" is null')) {
 			if (row.userId !== null) {
 				return false;
 			}
@@ -54,12 +54,12 @@ const makeDb = (initialRows: ReadonlyArray<StoredRelationship> = []) => {
 					row.relationshipSchemaSlug === params[2]
 				);
 			}
-			if (text.includes('"relationship"."sourceEntityId" = "relationship"."targetEntityId"')) {
+			if (text.includes('"relationship"."source_entity_id" = "relationship"."target_entity_id"')) {
 				return (
 					row.sourceEntityId === row.targetEntityId && row.relationshipSchemaSlug === params[0]
 				);
 			}
-			const incoming = text.includes('"relationship"."targetEntityId" =');
+			const incoming = text.includes('"relationship"."target_entity_id" =');
 			return (
 				(incoming ? row.targetEntityId : row.sourceEntityId) === params[0] &&
 				row.relationshipSchemaSlug === params[1]

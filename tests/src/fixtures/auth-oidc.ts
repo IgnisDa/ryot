@@ -53,11 +53,11 @@ export async function performOidcSignIn(
 	backendUrl: string,
 	claims?: Record<string, unknown>,
 ): Promise<Response> {
-	const step1Response = await fetch(`${backendUrl}/auth/sign-in/oauth2`, {
+	const step1Response = await fetch(`${backendUrl}/auth/sign-in/social`, {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ providerId: "oidc", callbackURL: `${new URL(backendUrl).origin}/` }),
 		redirect: "manual",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ provider: "oidc", callbackURL: `${new URL(backendUrl).origin}/` }),
 	});
 	const step1Data: { url?: string; redirect?: boolean } = await step1Response.json();
 	const authorizeUrl = requirePresent(

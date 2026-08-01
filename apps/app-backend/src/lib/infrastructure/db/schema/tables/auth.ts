@@ -1,7 +1,6 @@
-import { relations } from "drizzle-orm";
-import { boolean, index, integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, snakeCase, text, timestamp } from "drizzle-orm/pg-core";
 
-export const user = pgTable("user", {
+export const user = snakeCase.table("user", {
 	image: text(),
 	name: text().notNull(),
 	id: text().primaryKey(),
@@ -17,8 +16,7 @@ export const user = pgTable("user", {
 		.$onUpdate(() => /* @__PURE__ */ new Date())
 		.notNull(),
 });
-
-export const session = pgTable(
+export const session = snakeCase.table(
 	"session",
 	{
 		ipAddress: text(),
@@ -37,7 +35,7 @@ export const session = pgTable(
 	(table) => [index("session_userId_idx").on(table.userId)],
 );
 
-export const account = pgTable(
+export const account = snakeCase.table(
 	"account",
 	{
 		scope: text(),
@@ -46,6 +44,7 @@ export const account = pgTable(
 		accessToken: text(),
 		refreshToken: text(),
 		id: text().primaryKey(),
+		issuer: text().notNull(),
 		accountId: text().notNull(),
 		providerId: text().notNull(),
 		accessTokenExpiresAt: timestamp({ withTimezone: true }),
@@ -61,7 +60,7 @@ export const account = pgTable(
 	(table) => [index("account_userId_idx").on(table.userId)],
 );
 
-export const verification = pgTable(
+export const verification = snakeCase.table(
 	"verification",
 	{
 		id: text().primaryKey(),
@@ -77,7 +76,7 @@ export const verification = pgTable(
 	(table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
-export const apikey = pgTable(
+export const apikey = snakeCase.table(
 	"apikey",
 	{
 		name: text(),
@@ -112,29 +111,14 @@ export const apikey = pgTable(
 	],
 );
 
-export const twoFactor = pgTable("two_factor", {
+export const twoFactor = snakeCase.table("two_factor", {
 	id: text().primaryKey(),
 	secret: text().notNull(),
 	backupCodes: text().notNull(),
 	verified: boolean().notNull(),
+	failedVerificationCount: integer().default(0),
+	lockedUntil: timestamp({ withTimezone: true }),
 	userId: text()
 		.notNull()
 		.references(() => user.id, { onDelete: "cascade" }),
 });
-
-export const userRelations = relations(user, ({ many }) => ({
-	sessions: many(session),
-	accounts: many(account),
-}));
-
-export const sessionRelations = relations(session, ({ one }) => ({
-	user: one(user, { references: [user.id], fields: [session.userId] }),
-}));
-
-export const accountRelations = relations(account, ({ one }) => ({
-	user: one(user, { references: [user.id], fields: [account.userId] }),
-}));
-
-export const twoFactorRelations = relations(twoFactor, ({ one }) => ({
-	user: one(user, { references: [user.id], fields: [twoFactor.userId] }),
-}));
