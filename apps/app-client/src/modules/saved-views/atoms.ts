@@ -4,20 +4,26 @@ import {
 	buildSavedViewRecordDocument,
 	buildSavedViewRecordsDocument,
 } from "@ryot/ryotql-recipes/saved-view-records";
-import { stableStringify } from "@ryot/ts-utils/json";
 import { Schema } from "effect";
 import { Atom } from "effect/unstable/reactivity";
 
 import { appQueryClient } from "@/api/query-client";
 import { serverStorageRuntime } from "@/modules/server/storage";
 
+import {
+	canonicalManagedAssetRequest,
+	savedViewRecordRequestKey,
+	savedViewResultRequestKey,
+	type ManagedAssetResolutionRequest,
+	type SavedViewRecordRequest,
+	type SavedViewResultRequest,
+} from "./atom-requests";
+
 export const createSavedViewAtom = appQueryClient.mutation("savedViews", "create");
 
 export const savedViewsAtom = appQueryClient.query("ryotql", "execute", {
 	payload: buildSavedViewRecordsDocument({ includeDisabled: true, limit: 10, page: 1 }),
 });
-
-type SavedViewRecordRequest = { slug: string; userId: string; serverUrl: string };
 
 const savedViewRecordFamily = Atom.family((key: string) => {
 	const [, , slug] = JSON.parse(key) as [string, string, string];
@@ -27,13 +33,7 @@ const savedViewRecordFamily = Atom.family((key: string) => {
 });
 
 export const savedViewRecordAtom = (request: SavedViewRecordRequest) =>
-	savedViewRecordFamily(stableStringify([request.serverUrl, request.userId, request.slug]));
-
-type SavedViewResultRequest = {
-	userId: string;
-	serverUrl: string;
-	queryDocument: RyotQLDocument;
-};
+	savedViewRecordFamily(savedViewRecordRequestKey(request));
 
 const savedViewResultFamily = Atom.family((key: string) => {
 	const [, , payload] = JSON.parse(key) as [string, string, RyotQLDocument];
@@ -41,15 +41,7 @@ const savedViewResultFamily = Atom.family((key: string) => {
 });
 
 export const savedViewResultAtom = (request: SavedViewResultRequest) =>
-	savedViewResultFamily(
-		stableStringify([request.serverUrl, request.userId, request.queryDocument]),
-	);
-
-type ManagedAssetResolutionRequest = {
-	userId: string;
-	serverUrl: string;
-	assets: readonly ManagedAssetLocator[];
-};
+	savedViewResultFamily(savedViewResultRequestKey(request));
 
 const managedAssetResolutionFamily = Atom.family((key: string) => {
 	const [, , assets] = JSON.parse(key) as [string, string, ManagedAssetLocator[]];
@@ -59,10 +51,8 @@ const managedAssetResolutionFamily = Atom.family((key: string) => {
 });
 
 export const managedAssetResolutionAtom = (request: ManagedAssetResolutionRequest) => {
-	const assets = [
-		...new Map(request.assets.map((asset) => [`${asset.type}:${asset.key}`, asset])).values(),
-	].sort((left, right) => `${left.type}:${left.key}`.localeCompare(`${right.type}:${right.key}`));
-	return managedAssetResolutionFamily(stableStringify([request.serverUrl, request.userId, assets]));
+	const { key } = canonicalManagedAssetRequest(request);
+	return managedAssetResolutionFamily(key);
 };
 
 export const savedViewLayoutAtom = Atom.family((viewSlug: string) =>
