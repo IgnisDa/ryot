@@ -6,8 +6,11 @@ Ryot is a self-hosted personal tracker. Keep the UI warm, calm, compact, scannab
 - Prefer Tailwind responsive variants (`sm:`, `md:`, `lg:`) and CSS utilities over JS layout (`useWindowDimensions`, `onLayout`, manual pixel math). Fall back to JS only when layout depends on runtime data.
 - Prefer `className` for static layout, spacing, sizing, opacity, borders, and colors. Use inline `style` only for dynamic runtime values, safe-area insets, animation output, or native-only props that Tailwind cannot express.
 - Use a single `props` parameter, not destructured arguments.
-- Use the shared API/query hooks and client wrappers for fetching; avoid raw `fetch` and `useEffect` for loading data.
-- Colocate app-owned atoms with the domain that owns them. Keep shared API/query infrastructure under `src/api`, keep persisted infrastructure state in its owning module, and do not declare shared atoms in route components or generic aggregate atom files.
+- Construct contract clients and HTTP layers only under `src/api`; feature modules must use the shared clients and query wrappers.
+- Key authenticated query state and invalidation by normalized server URL and user ID. Never create authenticated query atoms before both values are available.
+- Keep request documents, response decoding, typed application states, and atoms in the feature that owns them. Routes may handle route and session prerequisites, but must not decode generic backend responses.
+- Show stable user-facing errors and log internal transport or decoder details separately.
+- Keep persisted state in its owning module and make each key's global or server/user scope explicit. Never clear storage outside Ryot-owned keys.
 - When working on client behavior that integrates with the backend, consult the relevant end-to-end and integration tests under `tests/src/tests/`, along with supporting fixtures in `tests/src/fixtures/` and `tests/src/support/`, to follow established API, authentication, data setup, and async-operation patterns. Reuse those patterns where applicable.
 - Keep route and navigation logic in the existing Expo Router and navigation helpers.
 - All text inputs must be submittable via Enter. Last field: `onSubmitEditing` + `returnKeyType="go"`. Intermediate fields: `returnKeyType="next"` with focus forwarding.
