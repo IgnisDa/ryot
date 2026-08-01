@@ -1,5 +1,5 @@
 import type { ContractPayload } from "@ryot/contract/client";
-import { castText, column, jsonPath, literal, table } from "@ryot/ryotql";
+import { castJson, column, jsonPath, literal, table } from "@ryot/ryotql";
 import {
 	buildSavedViewRecordDocument,
 	buildSavedViewRecordsDocument,
@@ -39,7 +39,7 @@ const defaultProjection = buildSavedViewProjection({
 		overline: literal("Book"),
 		title: column(entity, "name"),
 		primaryMetadata: entityProperty("publishYear"),
-		image: castText(entityProperty("images", 0, "url")),
+		image: castJson(entityProperty("images", 0)),
 	},
 	list: {
 		callout: null,
@@ -47,10 +47,10 @@ const defaultProjection = buildSavedViewProjection({
 		overline: literal("Book"),
 		title: column(entity, "name"),
 		primaryMetadata: entityProperty("publishYear"),
-		image: castText(entityProperty("images", 0, "url")),
+		image: castJson(entityProperty("images", 0)),
 	},
 	table: {
-		image: castText(entityProperty("images", 0, "url")),
+		image: castJson(entityProperty("images", 0)),
 		columns: [
 			{ label: "Name", expression: column(entity, "name") },
 			{ label: "Year", expression: entityProperty("publishYear") },

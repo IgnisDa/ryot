@@ -18,7 +18,7 @@ import {
 } from "@ryot/contract/schema/brands";
 import { imagesField } from "@ryot/contract/schema/core";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import { column, coalesce, jsonPath, literal, table } from "@ryot/ryotql";
+import { castJson, column, coalesce, jsonPath, literal, table } from "@ryot/ryotql";
 import { buildSavedViewDocument, buildSavedViewProjection } from "@ryot/ryotql-recipes/saved-views";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { createAuthClient } from "better-auth/client";
@@ -381,7 +381,7 @@ async function createEvents(apiClient: APIClient, events: EventPayload[]): Promi
 const seedEntity = table("entity", "entity");
 const seedProperties = column(seedEntity, "properties");
 const seedProperty = (property: string) => jsonPath(seedProperties, property);
-const seedImage = () => jsonPath(seedProperties, "images", 0);
+const seedImage = () => castJson(jsonPath(seedProperties, "images", 0));
 const seedName = () => column(seedEntity, "name");
 const seedCreatedAt = () => column(seedEntity, "createdAt");
 type SeedTableColumn = Parameters<typeof buildSavedViewProjection>[0]["table"]["columns"][number];
