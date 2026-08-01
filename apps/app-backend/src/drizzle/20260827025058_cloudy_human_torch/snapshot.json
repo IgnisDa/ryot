@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "c02cc2de-5d2e-4c27-8373-d9f466ba0a36",
+	"id": "28d5d59e-9914-45ca-a22c-7be90afddfb3",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{
@@ -1194,6 +1194,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "total_items",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "import_run"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "integration_lot",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "import_run"
@@ -4999,6 +5012,27 @@
 			"method": "btree",
 			"concurrently": false,
 			"name": "import_run_plugin_installation_id_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "import_run"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "integration_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": true,
+			"where": "\"integration_lot\" = 'yank' and \"status\" in ('pending', 'running')",
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "import_run_integration_active_unique",
 			"entityType": "indexes",
 			"schema": "public",
 			"table": "import_run"
