@@ -1,5 +1,7 @@
 export type UmamiSettings = { readonly hostUrl: string; readonly websiteId: string };
 
+export type UmamiCollectionType = "event" | "identify";
+
 export type UmamiEvent = {
 	readonly url: string;
 	readonly name?: string;
@@ -28,10 +30,12 @@ export const analyticsHostname = (serverUrl: string) => {
 
 export const umamiRequestBody = (options: {
 	readonly event: UmamiEvent;
+	readonly distinctId?: string;
 	readonly settings: UmamiSettings;
+	readonly type?: UmamiCollectionType;
 	readonly environment: UmamiEnvironment;
 }) => ({
-	type: "event",
+	type: options.type ?? "event",
 	payload: {
 		url: options.event.url,
 		screen: options.environment.screen,
@@ -40,6 +44,7 @@ export const umamiRequestBody = (options: {
 		language: options.environment.language,
 		referrer: options.environment.referrer,
 		title: options.event.title ?? options.event.url,
+		...(options.distinctId === undefined ? {} : { id: options.distinctId }),
 		...(options.event.name === undefined ? {} : { name: options.event.name }),
 		...(options.event.data === undefined ? {} : { data: options.event.data }),
 		...(options.environment.os === undefined ? {} : { os: options.environment.os }),
