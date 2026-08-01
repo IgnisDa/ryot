@@ -85,23 +85,21 @@ function AuthGate(props: { server: ServerOrigin; redirectTo?: string }) {
 	const [twoFactorMethod, setTwoFactorMethod] = useState<TwoFactorMethod>("totp");
 
 	useEffect(() => {
-		let active = true;
+		const controller = new AbortController();
 		setConfigState({ status: "loading" });
 		void (async () => {
 			try {
-				const config = await fetchSystemConfig(props.server);
-				if (active) {
+				const config = await fetchSystemConfig(props.server, controller.signal);
+				if (!controller.signal.aborted) {
 					setConfigState({ status: "ready", config });
 				}
 			} catch {
-				if (active) {
+				if (!controller.signal.aborted) {
 					setConfigState({ status: "unavailable" });
 				}
 			}
 		})();
-		return () => {
-			active = false;
-		};
+		return () => controller.abort();
 	}, [props.server, retry]);
 
 	async function selectAnotherServer() {
