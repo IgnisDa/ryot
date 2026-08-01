@@ -95,36 +95,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  build-transactional:
-    needs: pre-workflow-checks
-    if: needs.pre-workflow-checks.outputs.should-run == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
-        with:
-          persist-credentials: false
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@4bc047ad259df6fc24a6c9b0f9a0cb08cf17fbe5
-        with:
-          bun-version: "1.4.0"
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Build emails
-        run: bun run turbo build --filter=@ryot/transactional
-      - name: Copy templates to crates
-        run: bun run --filter @ryot/transactional copy-templates
-      - name: Upload templates artifact
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
-        with:
-          name: templates
-          retention-days: 1
-          path: |
-            crates/services/notification/templates/
-
   build-backend:
     needs:
       - pre-workflow-checks
-      - build-transactional
     if: needs.pre-workflow-checks.outputs.should-run == 'true'
     runs-on: ubuntu-latest
     strategy:
@@ -137,10 +110,6 @@ jobs:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           persist-credentials: false
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
-        with:
-          name: templates
-          path: crates/services/notification/templates/
       - name: Extract build information
         id: build
         env:
