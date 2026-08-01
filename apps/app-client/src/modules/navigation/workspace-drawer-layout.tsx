@@ -9,7 +9,7 @@ export function WorkspaceDrawerLayout() {
 			{(navigation) => (
 				<WorkspaceDrawer navigation={navigation}>
 					<Stack screenOptions={{ headerShown: false }}>
-						<Stack.Screen name="[workspace]/index" options={{ gestureEnabled: false }} />
+						<Stack.Screen name="index" options={{ gestureEnabled: false }} />
 					</Stack>
 				</WorkspaceDrawer>
 			)}
