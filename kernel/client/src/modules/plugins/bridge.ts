@@ -10,9 +10,13 @@ import {
 	type PluginBridgeNavigate,
 	type PluginBridgeOperationRequest,
 	type PluginBridgeOperationResult,
+	type PluginBridgeRyotQLRequest,
+	type PluginBridgeRyotQLResult,
 	type PluginLogicalLocation,
 	type PluginOperationOutcome,
 	type PluginOperationRequest,
+	type PluginRyotQLOutcome,
+	type PluginRyotQLRequest,
 } from "@ryot/contract/modules/plugins/client";
 import { Match, Result, Schema } from "effect";
 
@@ -35,6 +39,10 @@ export type PluginBridgeOptions = {
 	readonly target: PluginBridgeTarget;
 	readonly location: PluginLogicalLocation;
 	readonly onNavigate: (request: PluginBridgeNavigate) => void;
+	readonly onRyotQL: (
+		request: PluginRyotQLRequest,
+		signal: AbortSignal,
+	) => Promise<PluginRyotQLOutcome>;
 	readonly onOperation: (
 		request: PluginOperationRequest,
 		signal: AbortSignal,
@@ -117,6 +125,28 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			});
 	}
 
+	function handleRyotQL(request: PluginBridgeRyotQLRequest) {
+		if (pending.has(request.requestId)) {
+			return;
+		}
+		const controller = new AbortController();
+		pending.set(request.requestId, controller);
+		void options
+			.onRyotQL({ document: request.document }, controller.signal)
+			.catch(() => ({ outcome: "failure", reason: "transport" }) satisfies PluginRyotQLOutcome)
+			.then((outcome) => {
+				if (closed || !pending.delete(request.requestId)) {
+					return undefined;
+				}
+				channel.port1.postMessage({
+					...outcome,
+					type: "ryotql-result",
+					requestId: request.requestId,
+				} satisfies PluginBridgeRyotQLResult);
+				return undefined;
+			});
+	}
+
 	channel.port1.addEventListener(
 		"message",
 		(event) => {
@@ -127,6 +157,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				}
 				Match.value(decoded.success).pipe(
 					Match.when({ type: "navigate" }, (request) => options.onNavigate(request)),
+					Match.when({ type: "ryotql-request" }, (request) => handleRyotQL(request)),
 					Match.when({ type: "operation-request" }, (request) => handleOperation(request)),
 					Match.exhaustive,
 				);
