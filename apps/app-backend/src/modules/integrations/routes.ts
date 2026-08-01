@@ -34,13 +34,6 @@ export const IntegrationsRoutesLive = HttpApiBuilder.group(
 					return yield* service.delete(user, params.integrationId).pipe(dieOnDbError);
 				}),
 			)
-			.handle("getRuns", ({ params }) =>
-				Effect.gen(function* () {
-					const user = yield* CurrentUser;
-					const service = yield* IntegrationsService;
-					return yield* service.listRuns(user, params.integrationId).pipe(dieOnDbError);
-				}),
-			)
 			.handle("webhook", ({ params, payload }) =>
 				Effect.gen(function* () {
 					const service = yield* IntegrationsService;
