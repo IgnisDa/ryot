@@ -15,6 +15,7 @@ import { Cause, Effect, Exit, Layer, Option, Stream } from "effect";
 import { databaseLayer } from "#lib/test-utils/effect";
 import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
+import { ClientPluginCompiler } from "#modules/sandbox/client-compiler";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
@@ -65,7 +66,9 @@ const storedPrivatePlugin = (manifest: PluginManifest): StoredPlugin => ({
 	ownerId: userId,
 	sourceFiles: {},
 	status: "active",
+	clientArtifact: null,
 	slug: manifest.metadata.slug,
+	clientArtifactHash: null,
 	id: `${manifest.metadata.slug}-plugin-id`,
 	sourceHash: `hash-${manifest.metadata.slug}`,
 });
@@ -217,6 +220,7 @@ const makeLayer = (input?: {
 				),
 			),
 	});
+	const clientCompilerLayer = Layer.mock(ClientPluginCompiler)({});
 	const objectStorageLayer = Layer.mock(ObjectStorageService)({
 		openObject: () =>
 			input?.openUploadFails
@@ -234,6 +238,7 @@ const makeLayer = (input?: {
 				workflowReferenceLayer,
 				uploadIntentsLayer,
 				objectStorageLayer,
+				clientCompilerLayer,
 				lifecycleDispatcherLayer,
 				definitionMaterializerLayer,
 			),
@@ -290,6 +295,8 @@ const systemEntry = (manifest: PluginManifest): PluginRegistryEntry => ({
 	ownerId: null,
 	sourceFiles: {},
 	scope: "system",
+	clientArtifact: null,
+	clientArtifactHash: null,
 	slug: manifest.metadata.slug,
 	id: `${manifest.metadata.slug}-plugin-id`,
 	sourceHash: `hash-${manifest.metadata.slug}`,

@@ -9,6 +9,8 @@ export const fixturePluginIdentity = (slug = "fixture") =>
 		ownerId: null,
 		scope: "system",
 		sourceFiles: {},
+		clientArtifact: null,
+		clientArtifactHash: null,
 		id: `${slug}-plugin-id`,
 	}) as const;
 

@@ -6,6 +6,7 @@ import { Cause, Context, Effect, FiberSet, Layer, Semaphore } from "effect";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { kernelDefinitionSource, kernelScripts } from "#modules/definition-registry/kernel-source";
+import { ClientPluginCompiler } from "#modules/sandbox/client-compiler";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 
 import { PluginLoader, type PluginRegistryEntry } from "./loader";
@@ -58,6 +59,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 			const database = yield* Database;
 			const repository = yield* PluginRepository;
 			const systemPlugins = yield* SystemPlugins;
+			const clientCompiler = yield* ClientPluginCompiler;
 			const scriptGarbageCollector = yield* ScriptGarbageCollector;
 			const mutationLock = yield* Semaphore.make(1);
 			const workflowReferences = yield* SandboxWorkflowReferenceRepository;
@@ -154,7 +156,9 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 					scripts: [],
 					ownerId: null,
 					sourceFiles: files,
+					clientArtifact: null,
 					scope: "system" as const,
+					clientArtifactHash: null,
 					id: existing?.id ?? `pending:${slug}`,
 				} satisfies PluginRegistryEntry;
 				const prospectiveSnapshot = yield* Effect.try({
@@ -202,7 +206,9 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 					}
 				}
 
-				const normalized = yield* compilePluginPackage({ files, manifest, sourceHash });
+				const normalized = yield* compilePluginPackage({ files, manifest, sourceHash }).pipe(
+					Effect.provideService(ClientPluginCompiler, clientCompiler),
+				);
 				const stored = yield* Effect.uninterruptible(
 					mapDatabaseErrors(
 						database.transaction((transaction) =>
