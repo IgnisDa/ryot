@@ -41,6 +41,16 @@ import {
 	type PluginRegistrySnapshot,
 } from "./loader";
 
+const collectSurvivingSlugs = (
+	baseSlugs: ReadonlySet<string>,
+	plugins: ReadonlyArray<{ readonly manifest: PluginManifest }>,
+	select: (manifest: PluginManifest) => ReadonlyArray<{ readonly slug: string }>,
+) =>
+	new Set([
+		...baseSlugs,
+		...plugins.flatMap(({ manifest }) => select(manifest).map(({ slug }) => slug)),
+	]);
+
 export type AutomationRuleTarget =
 	| { kind: "event_schema"; id: EventSchemaSlug }
 	| { kind: "entity_schema"; id: EntitySchemaSlug }
@@ -283,7 +293,10 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					states
 						.filter((state) =>
 							includeUnavailable
-								? true
+								? // An incompatible installation conflicts with the authoritative shipped set, so
+									// its definitions must never participate in a composed view; its persisted rows
+									// stay attributable through their own qualified plugin id.
+									state.health !== "incompatible"
 								: // A private installation runs its user-bootstrap entries while it is still
 									// installing, and those scripts must be able to read their own schemas.
 									(state.health === "ready" || state.health === "installing") && !state.isDisabled,
@@ -322,7 +335,65 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 							),
 						),
 				)).filter((plugin) => included.has(plugin.id));
-				return buildDefinitionSnapshot(mergeManifestDefinitions(base, privatePlugins));
+				const baseSlugs = {
+					savedViews: new Set(base.savedViews.map(({ slug }) => slug)),
+					entitySchemas: new Set(base.entitySchemas.map(({ slug }) => slug)),
+					signalSchemas: new Set(base.signalSchemas.map(({ slug }) => slug)),
+					relationshipSchemas: new Set(base.relationshipSchemas.map(({ slug }) => slug)),
+				};
+				const withEntitySchemas = privatePlugins.map((plugin) =>
+					Object.assign(plugin, {
+						manifest: {
+							...plugin.manifest,
+							entitySchemas: plugin.manifest.entitySchemas.filter(
+								({ slug }) => !baseSlugs.entitySchemas.has(slug),
+							),
+						},
+					}),
+				);
+				const entitySchemaSlugs = collectSurvivingSlugs(
+					baseSlugs.entitySchemas,
+					withEntitySchemas,
+					({ entitySchemas }) => entitySchemas,
+				);
+				const withRelationshipSchemas = withEntitySchemas.map((plugin) =>
+					Object.assign(plugin, {
+						manifest: {
+							...plugin.manifest,
+							relationshipSchemas: plugin.manifest.relationshipSchemas.filter(
+								(definition) =>
+									!baseSlugs.relationshipSchemas.has(definition.slug) &&
+									[definition.sourceEntitySchemaSlug, definition.targetEntitySchemaSlug].every(
+										(slug) => slug === null || entitySchemaSlugs.has(slug),
+									),
+							),
+						},
+					}),
+				);
+				const relationshipSchemaSlugs = collectSurvivingSlugs(
+					baseSlugs.relationshipSchemas,
+					withRelationshipSchemas,
+					({ relationshipSchemas }) => relationshipSchemas,
+				);
+				const composable = withRelationshipSchemas.map((plugin) =>
+					Object.assign(plugin, {
+						manifest: {
+							...plugin.manifest,
+							savedViews: plugin.manifest.savedViews.filter(
+								({ slug, entitySchemaSlug }) =>
+									!baseSlugs.savedViews.has(slug) &&
+									(entitySchemaSlug === null || entitySchemaSlugs.has(entitySchemaSlug)),
+							),
+							signalSchemas: plugin.manifest.signalSchemas.filter(
+								({ slug, audiencePolicy }) =>
+									!baseSlugs.signalSchemas.has(slug) &&
+									(audiencePolicy.kind !== "related_users" ||
+										relationshipSchemaSlugs.has(audiencePolicy.relationshipSchemaSlug)),
+							),
+						},
+					}),
+				);
+				return buildDefinitionSnapshot(mergeManifestDefinitions(base, composable));
 			});
 
 			const availablePluginIdsForUser = Effect.fn(
@@ -610,8 +681,8 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				},
 			);
 
-			const resolvePrivateInstallationBootstrap = Effect.fn(
-				"PluginRuntimeResolver.resolvePrivateInstallationBootstrap",
+			const resolveInstallationBootstrap = Effect.fn(
+				"PluginRuntimeResolver.resolveInstallationBootstrap",
 			)(function* (installationId: string) {
 				const db = yield* Database;
 				const [row] = yield* mapDatabaseErrors(
@@ -1512,6 +1583,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				findScriptInAvailablePlugin,
 				findProviderAvailableToUser,
 				findOperationAvailableToUser,
+				resolveInstallationBootstrap,
 				isSystemPluginAvailableToUser,
 				resolveUserSearchOptionsScript,
 				isSystemProviderAvailableToUser,
@@ -1520,7 +1592,6 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				findProviderAvailableToUserBySlug,
 				resolveTrustedUserBootstrapCaller,
 				findWorkflowScriptAvailableToUser,
-				resolvePrivateInstallationBootstrap,
 				findWorkflowScriptInAvailablePlugin,
 				listProviderEntityImportAutomations,
 			};

@@ -9,6 +9,18 @@ export type PluginInstallationRow = typeof schema.pluginInstallation.$inferSelec
 
 export type PluginInstallationHealth = PluginInstallationRow["health"];
 
+type PluginRow = typeof schema.plugin.$inferSelect;
+
+export type PluginPrivateInstallationRow = Pick<
+	PluginInstallationRow,
+	"userId" | "health" | "healthReason"
+> & {
+	readonly pluginId: PluginRow["id"];
+	readonly pluginSlug: PluginRow["slug"];
+	readonly manifest: PluginRow["manifest"];
+	readonly installationId: PluginInstallationRow["id"];
+};
+
 export type PluginInstallationState = PluginInstallationRow & {
 	readonly pluginSlug: string;
 	readonly pluginScope: "system" | "user";
@@ -19,16 +31,33 @@ type RestoreInstallationInput = Omit<
 	"userId" | "health" | "healthReason"
 > & { readonly userId: UserId };
 
-const provisionSystemInstallations = (userId: UserId | null) => sql`
-	insert into ${schema.pluginInstallation} (id, user_id, plugin_id)
-	select gen_random_uuid()::text, ${schema.user.id}, ${schema.plugin.id}
+const provisionSystemInstallations = (
+	userId: UserId | null,
+	health: PluginInstallationHealth,
+) => sql`
+	insert into ${schema.pluginInstallation} (id, user_id, plugin_id, health)
+	select gen_random_uuid()::text, ${schema.user.id}, ${schema.plugin.id}, ${health}
 	from ${schema.user}
 	cross join ${schema.plugin}
 	where ${schema.plugin.scope} = 'system'
 		and ${schema.plugin.status} = 'active'
-		${userId === null ? sql`` : sql`and ${schema.user.id} = ${userId}`}
+		${
+			userId === null
+				? sql`and ${schema.user.bootstrapCompletedAt} is not null`
+				: sql`and ${schema.user.id} = ${userId}`
+		}
 	on conflict (user_id, plugin_id) do nothing
 `;
+
+const privateInstallation = {
+	pluginId: schema.plugin.id,
+	pluginSlug: schema.plugin.slug,
+	manifest: schema.plugin.manifest,
+	userId: schema.pluginInstallation.userId,
+	health: schema.pluginInstallation.health,
+	installationId: schema.pluginInstallation.id,
+	healthReason: schema.pluginInstallation.healthReason,
+};
 
 const installationState = {
 	pluginSlug: schema.plugin.slug,
@@ -194,14 +223,49 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				"PluginInstallationRepository.provisionSystemInstallationsForUser",
 			)(function* (userId: UserId) {
 				const db = yield* Database;
-				yield* mapDatabaseErrors(db.execute(provisionSystemInstallations(userId)));
+				yield* mapDatabaseErrors(db.execute(provisionSystemInstallations(userId, "ready")));
 			});
 
 			const provisionSystemInstallationsForAllUsers = Effect.fn(
 				"PluginInstallationRepository.provisionSystemInstallationsForAllUsers",
 			)(function* () {
 				const db = yield* Database;
-				yield* mapDatabaseErrors(db.execute(provisionSystemInstallations(null)));
+				yield* mapDatabaseErrors(db.execute(provisionSystemInstallations(null, "installing")));
+			});
+
+			const listPendingLifecycle = Effect.fn("PluginInstallationRepository.listPendingLifecycle")(
+				function* () {
+					const db = yield* Database;
+					const rows = yield* mapDatabaseErrors(
+						db
+							.select({ id: schema.pluginInstallation.id })
+							.from(schema.pluginInstallation)
+							.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
+							.where(
+								and(
+									eq(schema.plugin.status, "active"),
+									eq(schema.pluginInstallation.health, "installing"),
+								),
+							)
+							.orderBy(asc(schema.pluginInstallation.createdAt), asc(schema.pluginInstallation.id)),
+					);
+					return rows.map(({ id }) => id);
+				},
+			);
+
+			const listPrivateInstallations = Effect.fn(
+				"PluginInstallationRepository.listPrivateInstallations",
+			)(function* () {
+				const db = yield* Database;
+				const rows = yield* mapDatabaseErrors(
+					db
+						.select(privateInstallation)
+						.from(schema.pluginInstallation)
+						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
+						.where(and(eq(schema.plugin.scope, "user"), eq(schema.plugin.status, "active")))
+						.orderBy(asc(schema.pluginInstallation.userId), asc(schema.plugin.slug)),
+				);
+				return rows satisfies ReadonlyArray<PluginPrivateInstallationRow>;
 			});
 
 			// TODO(plugins): Task 09 owns archive format v2; this upsert last-wins on duplicate archive
@@ -237,6 +301,8 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				updateHealth,
 				listSystemForUser,
 				findByUserAndPlugin,
+				listPendingLifecycle,
+				listPrivateInstallations,
 				provisionSystemInstallationsForUser,
 				provisionSystemInstallationsForAllUsers,
 			};

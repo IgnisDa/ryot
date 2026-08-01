@@ -17,6 +17,7 @@ import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-
 import { EntitiesService } from "#modules/entities/service";
 import { InterestService } from "#modules/entity-interest/service";
 import { TranslationsService } from "#modules/entity-translation/service";
+import { PluginInstallationService } from "#modules/plugins/installation-service";
 import { PluginIngestionService } from "#modules/plugins/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsService } from "#modules/relationships/service";
@@ -47,6 +48,7 @@ const mockEntities = Layer.mock(EntitiesService);
 const mockInterest = Layer.mock(InterestService);
 const mockPluginBoots = Layer.mock(PluginBootService);
 const mockPluginIngestion = Layer.mock(PluginIngestionService);
+const mockPluginInstallations = Layer.mock(PluginInstallationService);
 const mockPluginCrons = Layer.mock(PluginCronService);
 const mockAutomations = Layer.mock(AutomationsService);
 const mockSandbox = Layer.mock(SandboxExecutionService);
@@ -84,6 +86,7 @@ const makeServiceLayer = (
 					...overrides.pluginBoots,
 				}),
 				mockPluginIngestion({}),
+				mockPluginInstallations({}),
 				mockInterest({ ...overrides.interest }),
 				mockTranslations({}),
 				mockRelationships({}),

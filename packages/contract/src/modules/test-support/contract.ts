@@ -301,6 +301,16 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 		}).annotate(OpenApi.Description, "Installs a trusted system plugin"),
 	)
 	.add(
+		HttpApiEndpoint.post(
+			"reconcilePluginInstallations",
+			"/test-support/plugin-installations/reconcile",
+			{ success: Schema.Void, error: testSupportErrors },
+		).annotate(
+			OpenApi.Description,
+			"Reconciles system plugin installations and dispatches pending lifecycles",
+		),
+	)
+	.add(
 		HttpApiEndpoint.get("listSystemPlugins", "/test-support/system-plugins", {
 			success: Schema.Array(TestSupportSystemPlugin),
 			error: testSupportErrors,
