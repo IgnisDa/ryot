@@ -394,7 +394,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				if (!profile) {
 					return yield* badRequest("Backup user does not exist");
 				}
-				const allStoredInstallations = yield* installations.listForUser(userId);
+				const allStoredInstallations = yield* installations.listHydratedForUser(userId);
 				const { pluginKeyById, privatePlugins, installedPlugins } = context;
 				const getEntitySchema = (entity: PortableEntityRecord) =>
 					context.entitySchema(entity.entitySchemaSlug, entity.entitySchemaPluginId);

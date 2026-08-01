@@ -1,6 +1,6 @@
-import type { PluginInstallationState } from "#modules/plugins/installation-repository";
+import type { PluginInstallationHydratedState } from "#modules/plugins/installation-repository";
 
-export const isDefaultSystemInstallation = (installation: PluginInstallationState) =>
+export const isDefaultSystemInstallation = (installation: PluginInstallationHydratedState) =>
 	installation.pluginScope === "system" &&
 	(installation.health === "ready" || installation.health === "installing") &&
 	!installation.isDisabled &&

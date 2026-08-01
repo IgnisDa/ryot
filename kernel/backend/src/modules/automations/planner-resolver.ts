@@ -1,13 +1,8 @@
 import { DbError } from "@ryot-app/contract/errors";
 import type { AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
-import {
-	PluginManifest,
-	type PluginHook,
-	type PluginHookTarget,
-} from "@ryot-app/contract/modules/plugins/manifest";
+import type { PluginHook, PluginHookTarget } from "@ryot-app/contract/modules/plugins/manifest";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/sandbox/wire";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
 import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
@@ -15,9 +10,20 @@ import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { PluginEnvironmentConfig } from "#lib/infrastructure/plugin-environment-config";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
-import { activePluginFields } from "#modules/plugins/persisted-projections";
+import { pluginPointerFields } from "#modules/plugins/persisted-projections";
 import { PluginRepository } from "#modules/plugins/repository";
 import type { AvailablePlugin } from "#modules/plugins/runtime-resolver";
+
+const plannedScriptFields = {
+	id: tables.sandboxScript.id,
+	slug: tables.sandboxScript.slug,
+	metadata: tables.sandboxScript.metadata,
+	contentHash: tables.sandboxScript.contentHash,
+};
+
+type PlannedAutomationScript = {
+	[Field in keyof typeof plannedScriptFields]: (typeof tables.sandboxScript.$inferSelect)[Field];
+};
 
 type LifecyclePayload = NonNullable<AutomationTrigger["payload"]>;
 type BatchPayload = Extract<LifecyclePayload, { operation: "batch" }>;
@@ -156,10 +162,23 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				}
 				const rows = yield* mapDatabaseErrors(
 					db
-						.select(activePluginFields)
+						.select(pluginPointerFields)
 						.from(tables.plugin)
-						.where(eq(tables.plugin.status, "active"))
+						.where(
+							and(
+								eq(tables.plugin.status, "active"),
+								userId === null
+									? eq(tables.plugin.scope, "system")
+									: or(
+											eq(tables.plugin.scope, "system"),
+											and(eq(tables.plugin.scope, "user"), eq(tables.plugin.ownerId, userId)),
+										),
+							),
+						)
 						.orderBy(asc(tables.plugin.id)),
+				);
+				const revisionsById = yield* repository.readRevisions(
+					rows.flatMap(({ activeRevisionId }) => (activeRevisionId ? [activeRevisionId] : [])),
 				);
 				const installations =
 					userId === null
@@ -177,11 +196,40 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 										),
 									),
 							);
+				const configIds = rows.flatMap((row) => {
+					const configId =
+						row.scope === "system"
+							? environmentConfig.find(row.id)?.configRevisionId
+							: installations.find(({ pluginId }) => pluginId === row.id)?.activeConfigRevisionId;
+					return configId ? [configId] : [];
+				});
+				// Only the compared columns; `encrypted_payload` is a bytea that never needs to cross
+				// the wire to decide validity.
+				const configRevisions = configIds.length
+					? yield* mapDatabaseErrors(
+							db
+								.select({
+									id: tables.pluginConfigRevision.id,
+									scope: tables.pluginConfigRevision.scope,
+									ownerUserId: tables.pluginConfigRevision.ownerUserId,
+									payloadPrunedAt: tables.pluginConfigRevision.payloadPrunedAt,
+									pluginRevisionId: tables.pluginConfigRevision.pluginRevisionId,
+									pluginInstallationId: tables.pluginConfigRevision.pluginInstallationId,
+									hasPayload: sql<boolean>`${tables.pluginConfigRevision.encryptedPayload} is not null`,
+								})
+								.from(tables.pluginConfigRevision)
+								.where(inArray(tables.pluginConfigRevision.id, configIds)),
+						)
+					: [];
 				const result: AvailablePlugin[] = [];
 				for (const row of rows) {
 					const installation = installations.find(({ pluginId }) => pluginId === row.id);
+					const revision = row.activeRevisionId
+						? revisionsById.get(row.activeRevisionId)
+						: undefined;
 					if (
 						!row.activeRevisionId ||
+						!revision ||
 						(userId !== null && !installation) ||
 						(row.scope === "user" && (userId === null || row.ownerId !== userId))
 					) {
@@ -200,17 +248,12 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 					if (!configId) {
 						continue;
 					}
-					const [config] = yield* mapDatabaseErrors(
-						db
-							.select()
-							.from(tables.pluginConfigRevision)
-							.where(eq(tables.pluginConfigRevision.id, configId)),
-					);
+					const config = configRevisions.find(({ id }) => id === configId);
 					if (
 						!config ||
 						config.pluginRevisionId !== row.activeRevisionId ||
 						config.payloadPrunedAt !== null ||
-						config.encryptedPayload === null ||
+						!config.hasPayload ||
 						(row.scope === "system"
 							? config.scope !== "environment" ||
 								config.ownerUserId !== null ||
@@ -221,23 +264,18 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 					) {
 						continue;
 					}
-					const manifest = yield* decodeStoredSchema(
-						row.manifest,
-						PluginManifest,
-						`Invalid active plugin manifest ${row.id}`,
-					);
 					result.push({
-						manifest,
 						id: row.id,
 						slug: row.slug,
 						health: "ready",
 						scope: row.scope,
 						isDisabled: false,
-						sourceHash: row.sourceHash,
+						manifest: revision.manifest,
+						sourceHash: revision.sourceHash,
 						pluginConfigRevisionId: configId,
-						compiledHashes: row.compiledHashes,
 						pluginRevisionId: row.activeRevisionId,
 						installationId: installation?.id ?? "",
+						compiledHashes: revision.compiledHashes,
 						ownerUserId: row.ownerId === null ? null : UserId.make(row.ownerId),
 					});
 				}
@@ -252,7 +290,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				const result: Array<{
 					hook: PluginHook;
 					plugin: AvailablePlugin | null;
-					script: typeof tables.sandboxScript.$inferSelect;
+					script: PlannedAutomationScript;
 					executionUserId: UserId | null;
 				}> = [];
 				const signal = trigger.payload?.resource === "signal" ? trigger.payload : null;
@@ -349,7 +387,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 						const [script] = hash
 							? yield* mapDatabaseErrors(
 									db
-										.select()
+										.select(plannedScriptFields)
 										.from(tables.sandboxScript)
 										.where(
 											and(
@@ -388,7 +426,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 					const [script] = hash
 						? yield* mapDatabaseErrors(
 								db
-									.select()
+									.select(plannedScriptFields)
 									.from(tables.sandboxScript)
 									.where(
 										and(

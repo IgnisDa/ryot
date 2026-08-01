@@ -30,7 +30,7 @@ export type PluginRegistrySnapshot = {
 export const findPluginEntryById = (snapshot: PluginRegistrySnapshot, pluginId: string) =>
 	Object.values(snapshot.plugins).find((plugin) => plugin.id === pluginId) ?? null;
 
-const deepFreeze = <Value>(value: Value): Value => {
+export const deepFreeze = <Value>(value: Value): Value => {
 	if (value === null || typeof value !== "object" || Object.isFrozen(value)) {
 		return value;
 	}

@@ -7,7 +7,6 @@ import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 import { PluginConfigRevisions } from "./config-revisions";
-import { activePluginFields } from "./persisted-projections";
 
 type StoredInstallationRow = typeof schema.pluginInstallation.$inferSelect;
 export type PluginInstallationRow = StoredInstallationRow & {
@@ -29,10 +28,13 @@ export type PluginPrivateInstallationRow = Pick<
 	readonly installationId: PluginInstallationRow["id"];
 };
 
-export type PluginInstallationState = PluginInstallationRow & {
+export type PluginInstallationState = StoredInstallationRow & {
 	readonly pluginSlug: string;
 	readonly pluginScope: "system" | "user";
 };
+
+export type PluginInstallationHydratedState = PluginInstallationState &
+	Pick<PluginInstallationRow, "config" | "configSchema">;
 
 type RestoreInstallationInput = Omit<
 	PluginInstallationRow,
@@ -70,7 +72,7 @@ const provisionSystemInstallations = (
 const privateInstallation = {
 	pluginId: schema.plugin.id,
 	pluginSlug: schema.plugin.slug,
-	manifest: activePluginFields.manifest,
+	manifest: schema.pluginRevision.manifest,
 	userId: schema.pluginInstallation.userId,
 	health: schema.pluginInstallation.health,
 	installationId: schema.pluginInstallation.id,
@@ -202,7 +204,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 						)
 						.limit(1),
 				);
-				return row ? yield* hydrate(row) : null;
+				return row ?? null;
 			});
 			const listForUser = Effect.fn("PluginInstallationRepository.listForUser")(function* (
 				userId: UserId,
@@ -221,8 +223,14 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 						)
 						.orderBy(asc(schema.pluginInstallation.sortOrder), asc(schema.plugin.slug)),
 				);
-				return yield* Effect.forEach(rows, hydrate);
+				return rows;
 			});
+
+			const listHydratedForUser = Effect.fn("PluginInstallationRepository.listHydratedForUser")(
+				function* (userId: UserId) {
+					return yield* Effect.forEach(yield* listForUser(userId), hydrate);
+				},
+			);
 
 			const listSystemForUser = Effect.fn("PluginInstallationRepository.listSystemForUser")(
 				function* (userId: UserId) {
@@ -242,7 +250,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 							)
 							.orderBy(asc(schema.pluginInstallation.sortOrder), asc(schema.plugin.slug)),
 					);
-					return yield* Effect.forEach(rows, hydrate);
+					return rows;
 				},
 			);
 
@@ -531,6 +539,10 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 						.select(privateInstallation)
 						.from(schema.pluginInstallation)
 						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
+						.innerJoin(
+							schema.pluginRevision,
+							eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
+						)
 						.where(
 							and(
 								eq(schema.plugin.scope, "user"),
@@ -623,6 +635,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				listSystemForUser,
 				lockHomeSavedView,
 				findHomeSavedView,
+				listHydratedForUser,
 				findByUserAndPlugin,
 				listPendingLifecycle,
 				findHomeSavedViewBySlug,

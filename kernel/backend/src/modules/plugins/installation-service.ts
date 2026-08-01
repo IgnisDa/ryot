@@ -435,7 +435,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const listInstallations = Effect.fn("PluginInstallationService.listInstallations")(function* (
 				userId: UserId,
 			) {
-				const states = yield* installations.listForUser(userId);
+				const states = yield* installations.listHydratedForUser(userId);
 				const privatePlugins = yield* repository.listPrivateForUser(userId);
 				const systemPlugins = Object.values(loader.getSnapshot().plugins);
 				const pluginById = new Map(
