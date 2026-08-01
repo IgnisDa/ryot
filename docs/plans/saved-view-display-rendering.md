@@ -29,7 +29,7 @@ Excluded:
 - Add, edit, clone, delete, or other saved-view actions.
 - Online search and entity creation.
 - Card, row, or entity-detail navigation.
-- Backend, contract, or persisted-query changes.
+- Unrelated backend, contract, or persisted-query changes.
 - Server-synchronized layout preferences.
 
 If implementation appears to require excluded work or a backend/contract change, stop and ask the user before expanding scope.
@@ -43,7 +43,8 @@ Read `apps/app-client/src/app/(app)/(shell)/(drawer)/v/AGENTS.md` before impleme
 - A null field mapping removes that card slot or image region.
 - A mapped null card value removes that card value.
 - A mapped null table value keeps an empty cell so columns remain aligned.
-- A configured image with no usable URL keeps its dimensions and shows the shared placeholder.
+- A configured image returns JSON `AssetLocator`: `{ type: "remote", url }`, `{ type: "local", key }`, or `{ type: "s3", key }`.
+- Remote image URLs are used directly. Local/S3 locators are resolved through `uploads.resolveDownloads`; unresolved images keep their dimensions and show the shared placeholder.
 - Layout components own placement, typography, truncation, image size, and crop.
 - General values are formatted from their RyotQL scalar kind. Definition-specific text composition remains in RyotQL.
 
@@ -129,7 +130,7 @@ Atom.family((viewSlug: string) =>
 - [x] Keep generic `RowItem` parsing inside this helper; UI components must not parse projection keys.
 - [x] Decode scalar values with the exported concrete RyotQL value schemas so `kind` and `value` agree.
 - [x] Reject nested results, missing configured fields, malformed scalar values, and non-text IDs/titles as decode errors.
-- [x] Accept text or null for configured image fields.
+- [x] Accept JSON `AssetLocator` or null for configured image fields; reject text URL fields and malformed locators.
 - [x] Keep absent image mappings distinct from configured images whose row value is null.
 - [x] Preserve table labels and column order.
 - [x] Return the rows and `pageInfo` together.
@@ -154,6 +155,7 @@ Do not create a second copy of the saved-view contract.
 - [x] Add one shared image treatment using `expo-image`.
 - [x] Render no image region for an unconfigured image slot.
 - [x] Render the same stable placeholder for a configured image with a missing or failed URL.
+- [x] Batch and deduplicate active-layout local/S3 locators through `uploads.resolveDownloads`; use remote URLs directly and keep resolver failure image-only.
 
 ### Layouts
 
@@ -226,7 +228,7 @@ Do not create a second copy of the saved-view contract.
 - [x] The selected layout persists locally per slug.
 - [ ] The screen matches current mobile/web design direction and has explicit display states.
 - [x] UI components do not parse generic `RowItem` values directly.
-- [x] No excluded interactions or backend changes are introduced.
+- [x] No excluded interactions or unrelated backend changes are introduced.
 
 ## Handoff
 

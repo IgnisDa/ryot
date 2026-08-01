@@ -6,6 +6,7 @@ import { View } from "react-native";
 import { AppIcon } from "@/modules/icons";
 
 import type { SavedViewImage } from "./display-data";
+import { resolveSavedViewImageUrl } from "./display-data";
 
 function MissingImage(props: { className: string }) {
 	return (
@@ -31,12 +32,17 @@ function RemoteImage(props: { className: string; url: string }) {
 	);
 }
 
-export function SavedViewImageView(props: { className: string; image: SavedViewImage }) {
+export function SavedViewImageView(props: {
+	className: string;
+	image: SavedViewImage;
+	managedUrls: ReadonlyMap<string, string>;
+}) {
 	if (props.image.type === "unconfigured") {
 		return null;
 	}
-	if (props.image.type === "missing") {
+	const url = resolveSavedViewImageUrl(props.image, props.managedUrls);
+	if (!url) {
 		return <MissingImage className={props.className} />;
 	}
-	return <RemoteImage key={props.image.url} className={props.className} url={props.image.url} />;
+	return <RemoteImage key={url} className={props.className} url={url} />;
 }

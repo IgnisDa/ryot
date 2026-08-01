@@ -6,6 +6,15 @@ describe("buildViewExpressions", () => {
 	it("uses title case expressions for exercise card slots", () => {
 		const expressions = buildViewExpressions("exercise", "Exercise");
 
+		expect(expressions.grid.image).toEqual({
+			type: "cast",
+			target: "json",
+			expr: {
+				type: "jsonPath",
+				path: ["images", 0],
+				expr: { type: "column", field: "properties", tableAlias: "entity" },
+			},
+		});
 		expect(expressions.grid.callout).toMatchObject({ name: "titleCase", type: "transform" });
 		expect(expressions.grid.primaryMetadata).toMatchObject({
 			name: "titleCase",

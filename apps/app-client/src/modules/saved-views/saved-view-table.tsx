@@ -7,7 +7,10 @@ import { SavedViewImageView } from "./saved-view-image";
 const FIRST_COLUMN_WIDTH = 240;
 const COLUMN_WIDTH = 160;
 
-export function SavedViewTable(props: { items: readonly SavedViewDisplayItem[] }) {
+export function SavedViewTable(props: {
+	items: readonly SavedViewDisplayItem[];
+	managedUrls: ReadonlyMap<string, string>;
+}) {
 	const headers = props.items[0]?.table.cells ?? [];
 	const tableWidth = Math.max(640, FIRST_COLUMN_WIDTH + (headers.length - 1) * COLUMN_WIDTH);
 	return (
@@ -37,6 +40,7 @@ export function SavedViewTable(props: { items: readonly SavedViewDisplayItem[] }
 								{index === 0 && (
 									<SavedViewImageView
 										image={item.table.image}
+										managedUrls={props.managedUrls}
 										className="h-8 w-5.5 shrink-0 rounded-sm bg-surface-2 md:h-9 md:w-6.5"
 									/>
 								)}

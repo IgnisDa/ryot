@@ -8,6 +8,12 @@ import {
 	rowsResultSchema,
 } from "@ryot/contract/modules/ryotql/language";
 import type { SavedViewDisplayConfiguration } from "@ryot/contract/modules/saved-views/schemas";
+import {
+	AssetLocator,
+	type AssetLocator as AssetLocatorType,
+	type DownloadResolutionResponse,
+	type ManagedAssetLocator,
+} from "@ryot/contract/modules/uploads/schemas";
 import { DateTime, Option, Result, Schema } from "effect";
 
 const SavedViewScalarValue = Schema.Union([
@@ -31,7 +37,7 @@ export type SavedViewScalarValue = typeof SavedViewScalarValue.Type;
 export type SavedViewImage =
 	| { readonly type: "missing" }
 	| { readonly type: "unconfigured" }
-	| { readonly type: "url"; readonly url: string };
+	| { readonly type: "asset"; readonly locator: AssetLocatorType };
 
 export type SavedViewCardData = {
 	readonly title: string;
@@ -79,16 +85,55 @@ const getImage = (row: ScalarRow, field: string | null): Result.Result<SavedView
 	}
 	return Result.gen(function* () {
 		const value = yield* getField(row, field);
-		if (value.kind === "null" || (value.kind === "text" && value.value.trim() === "")) {
+		if (value.kind === "null") {
 			return { type: "missing" } as const;
 		}
-		if (value.kind === "text") {
-			return { type: "url", url: value.value } as const;
+		if (value.kind === "json") {
+			const locator = yield* Schema.decodeUnknownResult(AssetLocator)(value.value);
+			return { type: "asset", locator } as const;
 		}
 		return yield* Result.fail(
-			new Error(`Expected saved-view image field ${field} to be text or null`),
+			new Error(`Expected saved-view image field ${field} to be AssetLocator JSON or null`),
 		);
 	});
+};
+
+export const managedAssetKey = (asset: ManagedAssetLocator) => `${asset.type}:${asset.key}`;
+
+export const collectManagedAssets = (
+	items: readonly SavedViewDisplayItem[],
+	layout: "grid" | "list" | "table",
+) => {
+	const assets = new Map<string, ManagedAssetLocator>();
+	for (const item of items) {
+		const image = item[layout].image;
+		if (image.type === "asset" && image.locator.type !== "remote") {
+			assets.set(managedAssetKey(image.locator), image.locator);
+		}
+	}
+	return [...assets.values()].sort((left, right) =>
+		managedAssetKey(left).localeCompare(managedAssetKey(right)),
+	);
+};
+
+export const resolvedAssetUrls = (response: DownloadResolutionResponse, serverUrl: string) =>
+	new Map(
+		response.map(({ asset, downloadUrl }) => [
+			managedAssetKey(asset),
+			new URL(downloadUrl, `${serverUrl.replace(/\/$/, "")}/api/`).toString(),
+		]),
+	);
+
+export const resolveSavedViewImageUrl = (
+	image: SavedViewImage,
+	managedUrls: ReadonlyMap<string, string>,
+) => {
+	if (image.type !== "asset") {
+		return undefined;
+	}
+	return image.locator.type === "remote"
+		? image.locator.url
+		: managedUrls.get(managedAssetKey(image.locator));
 };
 
 const getOptionalValue = (row: ScalarRow, field: string | null) => {

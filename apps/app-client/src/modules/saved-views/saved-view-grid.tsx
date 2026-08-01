@@ -12,7 +12,10 @@ function Value(props: { value: SavedViewScalarValue; className: string }) {
 	);
 }
 
-export function SavedViewGrid(props: { items: readonly SavedViewDisplayItem[] }) {
+export function SavedViewGrid(props: {
+	items: readonly SavedViewDisplayItem[];
+	managedUrls: ReadonlyMap<string, string>;
+}) {
 	return (
 		<View className="-mx-1.5 flex-row flex-wrap md:-mx-2.5">
 			{props.items.map((item) => (
@@ -22,6 +25,7 @@ export function SavedViewGrid(props: { items: readonly SavedViewDisplayItem[] })
 				>
 					<SavedViewImageView
 						image={item.grid.image}
+						managedUrls={props.managedUrls}
 						className="aspect-3/4 w-full rounded-lg bg-surface-2"
 					/>
 					<View className="gap-1">

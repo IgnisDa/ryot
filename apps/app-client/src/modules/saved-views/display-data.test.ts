@@ -2,7 +2,12 @@ import type { SavedViewDisplayConfiguration } from "@ryot/contract/modules/saved
 import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { decodeSavedViewDisplayData } from "./display-data";
+import {
+	collectManagedAssets,
+	decodeSavedViewDisplayData,
+	resolveSavedViewImageUrl,
+	resolvedAssetUrls,
+} from "./display-data";
 
 const configuration = {
 	entityIdField: "id",
@@ -46,8 +51,8 @@ const row = {
 	listPrimary: { kind: "json", value: { pages: 304 } },
 	gridOverline: { kind: "text", value: "Grid overline" },
 	listOverline: { kind: "text", value: "List overline" },
-	gridImage: { kind: "text", value: "https://example.com/grid.jpg" },
-	tableImage: { kind: "text", value: "https://example.com/table.jpg" },
+	tableImage: { kind: "json", value: { type: "s3", key: "table.jpg" } },
+	gridImage: { kind: "json", value: { type: "remote", url: "https://example.com/grid.jpg" } },
 } as const;
 
 const response = (item: unknown = row) => ({
@@ -74,7 +79,10 @@ describe("decodeSavedViewDisplayData", () => {
 					overline: { kind: "text", value: "Grid overline" },
 					secondaryMetadata: { kind: "boolean", value: true },
 					primaryMetadata: { kind: "date", value: "2026-08-12" },
-					image: { type: "url", url: "https://example.com/grid.jpg" },
+					image: {
+						type: "asset",
+						locator: { type: "remote", url: "https://example.com/grid.jpg" },
+					},
 				},
 				list: {
 					callout: undefined,
@@ -85,7 +93,7 @@ describe("decodeSavedViewDisplayData", () => {
 					primaryMetadata: { kind: "json", value: { pages: 304 } },
 				},
 				table: {
-					image: { type: "url", url: "https://example.com/table.jpg" },
+					image: { type: "asset", locator: { type: "s3", key: "table.jpg" } },
 					cells: [
 						{ label: "Title", value: { kind: "text", value: "Table title" } },
 						{ label: "Year", value: { kind: "null", value: null } },
@@ -120,6 +128,8 @@ describe("decodeSavedViewDisplayData", () => {
 		["malformed scalar values", { ...row, gridCallout: { kind: "number", value: "4.5" } }],
 		["non-text IDs", { ...row, id: { kind: "number", value: 1 } }],
 		["non-text titles", { ...row, listTitle: { kind: "boolean", value: true } }],
+		["text image URLs", { ...row, gridImage: { kind: "text", value: "https://example.com" } }],
+		["malformed image locators", { ...row, gridImage: { kind: "json", value: { type: "s3" } } }],
 		["invalid dates", { ...row, gridPrimary: { kind: "date", value: "not-a-date" } }],
 	])("rejects %s", (_name, invalidRow) => {
 		expect(Result.isFailure(decodeSavedViewDisplayData(response(invalidRow), configuration))).toBe(
@@ -144,5 +154,38 @@ describe("decodeSavedViewDisplayData", () => {
 				),
 			),
 		).toBe(true);
+	});
+
+	it("deduplicates managed assets and resolves image URLs", () => {
+		const decoded = Result.getOrThrow(
+			decodeSavedViewDisplayData(
+				response({
+					...row,
+					tableImage: { kind: "json", value: { type: "s3", key: "cover.jpg" } },
+					listImage: { kind: "json", value: { type: "local", key: "cover.jpg" } },
+				}),
+				configuration,
+			),
+		);
+		const assets = collectManagedAssets([...decoded.items, ...decoded.items], "list");
+		const urls = resolvedAssetUrls(
+			[
+				{
+					asset: { type: "local", key: "cover.jpg" },
+					downloadUrl: "uploads/local/download?key=cover.jpg",
+				},
+				{ asset: { type: "s3", key: "cover.jpg" }, downloadUrl: "https://s3.test" },
+			],
+			"https://server.test",
+		);
+
+		expect(assets).toEqual([{ type: "local", key: "cover.jpg" }]);
+		expect(resolveSavedViewImageUrl(decoded.items[0].grid.image, urls)).toBe(
+			"https://example.com/grid.jpg",
+		);
+		expect(resolveSavedViewImageUrl(decoded.items[0].list.image, urls)).toBe(
+			"https://server.test/api/uploads/local/download?key=cover.jpg",
+		);
+		expect(urls.get("s3:cover.jpg")).toBe("https://s3.test/");
 	});
 });
