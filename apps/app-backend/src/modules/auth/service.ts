@@ -371,78 +371,65 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 	static readonly layer = Layer.effect(this, this.make);
 }
 
-export const AuthMiddlewareLive = Layer.effect(
-	AuthMiddleware,
-	Effect.gen(function* () {
-		const auth = yield* AuthService;
-
-		const resolveFromRequest = Effect.gen(function* () {
+export const makeAuthMiddleware = (auth: Pick<AuthService["Service"], "currentUser">) => {
+	const authenticate = <A extends { readonly status: number }, E, R>(
+		httpEffect: Effect.Effect<A, E, CurrentUser | R>,
+	) =>
+		Effect.gen(function* () {
 			const request = yield* HttpServerRequest.HttpServerRequest;
-			return yield* auth.currentUser(new Headers(request.headers));
-		});
+			const user = yield* auth.currentUser(new Headers(request.headers));
+			const span = yield* Effect.catchNoSuchElement(Effect.currentSpan);
+			const annotations = Option.isSome(span)
+				? { userId: user.id, traceId: span.value.traceId }
+				: { userId: user.id };
+			const handler = Effect.provideService(httpEffect, CurrentUser, user);
 
-		const resolveWithToken = (token: Redacted.Redacted) =>
-			Redacted.value(token) === "" ? Effect.fail(unauthorized()) : resolveFromRequest;
-		const authenticate = <A extends { readonly status: number }, E, R>(
-			httpEffect: Effect.Effect<A, E, CurrentUser | R>,
-			credential: Redacted.Redacted,
-		) =>
-			Effect.flatMap(resolveWithToken(credential), (user) =>
-				Effect.gen(function* () {
-					const request = yield* HttpServerRequest.HttpServerRequest;
-					const span = yield* Effect.catchNoSuchElement(Effect.currentSpan);
-					const annotations = Option.isSome(span)
-						? { userId: user.id, traceId: span.value.traceId }
-						: { userId: user.id };
-					const handler = Effect.provideService(httpEffect, CurrentUser, user);
-
-					return yield* Effect.withLogSpan(
-						Effect.flatMap(Effect.exit(handler), (exit) => {
-							if (exit._tag === "Failure") {
-								const [response, cause] = HttpServerError.causeResponseStripped(exit.cause);
-								const logResponse = (message: unknown) => {
-									if (response.status >= 500) {
-										return Effect.logError(message);
-									}
-									if (response.status === 429) {
-										return Effect.logWarning(message);
-									}
-									return Effect.logDebug(message);
-								};
-								return Effect.andThen(
-									Effect.annotateLogs(
-										logResponse(Option.getOrElse(cause, () => "Sent HTTP Response")),
-										{
-											...annotations,
-											"http.method": request.method,
-											"http.url": stripSearchAndHash(request.url),
-											"http.status": response.status,
-										},
-									),
-									exit,
-								);
+			return yield* Effect.withLogSpan(
+				Effect.flatMap(Effect.exit(handler), (exit) => {
+					if (exit._tag === "Failure") {
+						const [response, cause] = HttpServerError.causeResponseStripped(exit.cause);
+						const logResponse = (message: unknown) => {
+							if (response.status >= 500) {
+								return Effect.logError(message);
 							}
-							return Effect.andThen(
-								Effect.annotateLogs(Effect.logDebug("Sent HTTP response"), {
+							if (response.status === 429) {
+								return Effect.logWarning(message);
+							}
+							return Effect.logDebug(message);
+						};
+						return Effect.andThen(
+							Effect.annotateLogs(
+								logResponse(Option.getOrElse(cause, () => "Sent HTTP Response")),
+								{
 									...annotations,
 									"http.method": request.method,
 									"http.url": stripSearchAndHash(request.url),
-									"http.status": exit.value.status,
-								}),
-								exit,
-							);
+									"http.status": response.status,
+								},
+							),
+							exit,
+						);
+					}
+					return Effect.andThen(
+						Effect.annotateLogs(Effect.logDebug("Sent HTTP response"), {
+							...annotations,
+							"http.method": request.method,
+							"http.url": stripSearchAndHash(request.url),
+							"http.status": exit.value.status,
 						}),
-						"http.span",
+						exit,
 					);
-				}).pipe(HttpMiddleware.withLoggerDisabled),
+				}),
+				"http.span",
 			);
+		}).pipe(HttpMiddleware.withLoggerDisabled);
 
-		return {
-			cookie: (httpEffect, { credential }) => authenticate(httpEffect, credential),
-			apiKey: (httpEffect, { credential }) => authenticate(httpEffect, credential),
-			secureCookie: (httpEffect, { credential }) => authenticate(httpEffect, credential),
-		};
-	}),
+	return authenticate;
+};
+
+export const AuthMiddlewareLive = Layer.effect(
+	AuthMiddleware,
+	Effect.map(AuthService, makeAuthMiddleware),
 );
 
 export const AdminMiddlewareLive = Layer.effect(
