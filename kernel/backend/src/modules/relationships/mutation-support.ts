@@ -3,7 +3,7 @@ import { DbError } from "@ryot-app/contract/errors";
 import {
 	AutomationRelationshipSnapshot,
 	AutomationRequestPayload,
-	type AutomationChangePayload,
+	type AutomationRelationshipChangePayload,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	RelationshipBadRequest,
@@ -84,7 +84,7 @@ export type RelationshipRequest = typeof RelationshipRequest.Type;
 export const relationshipChange = (
 	request: RelationshipRequest,
 	persisted: AutomationRelationshipSnapshot,
-): Extract<AutomationChangePayload, { resource: "relationship" }> => {
+): AutomationRelationshipChangePayload => {
 	if (request.operation === "create") {
 		return { after: persisted, category: "change", operation: "create", resource: "relationship" };
 	}

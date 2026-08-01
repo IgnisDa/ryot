@@ -18,9 +18,11 @@ import { Effect, Layer, Schema } from "effect";
 import {
 	LifecyclePlanner,
 	lifecycleRunId,
+	type LifecycleBatchInput,
 	type LifecyclePlan,
 	type LifecyclePlannedPolicy,
 } from "#lib/domain/lifecycle";
+import { lifecycleBatchTriggers } from "#lib/domain/lifecycle-batch";
 import { AppConfig } from "#lib/infrastructure/config/service";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
@@ -314,7 +316,14 @@ export const LifecyclePlannerLive = Layer.effect(
 				runs: yield* Effect.forEach(ordered.runs, (run) => runs.insertQueued(run)),
 			};
 		});
-		return { plan };
+		const planBatch = Effect.fn("LifecyclePlanner.planBatch")(function* (
+			input: LifecycleBatchInput,
+		) {
+			return yield* Effect.forEach(lifecycleBatchTriggers(input, limits.batchMaxItems), (trigger) =>
+				plan({ trigger }),
+			);
+		});
+		return { plan, planBatch };
 	}),
 ).pipe(
 	Layer.provide(

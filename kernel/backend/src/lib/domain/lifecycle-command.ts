@@ -51,6 +51,7 @@ export const lifecycleTrigger = (
 	command: LifecycleCommand,
 	scopeUserId: UserId | null,
 	payload: AutomationTriggerPayload,
+	discriminator = "lifecycle",
 ): AutomationTrigger => {
 	const kind = Schema.decodeUnknownSync(AutomationTriggerKind)({
 		category: payload.category,
@@ -69,7 +70,7 @@ export const lifecycleTrigger = (
 		occurredAt: command.occurredAt,
 		id: lifecycleTriggerId({
 			kind,
-			discriminator: "lifecycle",
+			discriminator,
 			itemIdentity: command.itemIdentity,
 			executionId: command.causation.executionId,
 		}),

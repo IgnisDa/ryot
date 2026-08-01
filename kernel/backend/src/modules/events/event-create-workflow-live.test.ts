@@ -35,7 +35,10 @@ import {
 import { Database } from "#lib/infrastructure/db/service";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeWorkflowEngine } from "#lib/test-utils/effect";
-import { withLifecycleDispatch } from "#modules/automations/lifecycle.test-support";
+import {
+	withLifecycleBatchPlanning,
+	withLifecycleDispatch,
+} from "#modules/automations/lifecycle.test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 
@@ -128,111 +131,116 @@ const harness = (
 				})) satisfies Database["Service"]["transaction"],
 		}),
 	);
-	const planner = LifecyclePlanner.of({
-		plan: (input) =>
-			Effect.gen(function* () {
-				expect(activeTransaction).toBe(true);
-				expect(yield* Database).toBe(tx);
-				const trigger = input.trigger;
-				const existing = triggers.find(({ id }) => id === trigger.id);
-				if (existing) {
-					if (!Bun.deepEquals(existing, trigger)) {
-						return yield* new DbError({ message: "Automation trigger identity conflict" });
+	const planner = LifecyclePlanner.of(
+		withLifecycleBatchPlanning({
+			plan: (input) =>
+				Effect.gen(function* () {
+					expect(activeTransaction).toBe(true);
+					expect(yield* Database).toBe(tx);
+					const trigger = input.trigger;
+					const existing = triggers.find(({ id }) => id === trigger.id);
+					if (existing) {
+						if (!Bun.deepEquals(existing, trigger)) {
+							return yield* new DbError({ message: "Automation trigger identity conflict" });
+						}
+						calls.push(`plan:${trigger.kind.category}`);
+						return { runs: [], policies: [], trigger: existing, wasCreated: false };
+					}
+					if (trigger.kind.category === "change" && options.failChange) {
+						return yield* new DbError({ message: "planning failed" });
 					}
 					calls.push(`plan:${trigger.kind.category}`);
-					return { runs: [], policies: [], trigger: existing, wasCreated: false };
-				}
-				if (trigger.kind.category === "change" && options.failChange) {
-					return yield* new DbError({ message: "planning failed" });
-				}
-				calls.push(`plan:${trigger.kind.category}`);
-				triggers.push(trigger);
-				if (trigger.kind.category === options.blocked) {
+					triggers.push(trigger);
+					if (trigger.kind.category === options.blocked) {
+						return {
+							runs: [],
+							policies: [],
+							wasCreated: true,
+							trigger: {
+								...trigger,
+								blockedReason: {
+									code: "automation-limit-reached" as const,
+									hasRequiredHooks: trigger.kind.category === "change",
+									omittedHooks: [
+										{
+											pluginId: PluginId.make("plugin"),
+											hookSlug: AutomationHookSlug.make("hook"),
+										},
+									],
+								},
+							},
+						};
+					}
+					if (trigger.kind.category !== "request") {
+						return { trigger, runs: [], policies: [], wasCreated: true };
+					}
+					exclusions.push(input.excludedOncePerSubjectPolicies);
+					const declarations = (options.policies ?? []).filter(
+						(policy) =>
+							policy.frequency !== "once-per-subject" ||
+							!input.excludedOncePerSubjectPolicies?.some(
+								(excluded) =>
+									excluded.pluginId === (policy.plugin ?? "plugin") &&
+									excluded.hookSlug === policy.slug,
+							),
+					);
+					const runs = declarations.map((policy) => {
+						const pluginId = PluginId.make(policy.plugin ?? "plugin");
+						const hookSlug = AutomationHookSlug.make(policy.slug);
+						return Schema.decodeSync(AutomationRun)({
+							pluginId,
+							hookSlug,
+							queuedAt: now,
+							stage: "before",
+							attemptCount: 0,
+							startedAt: null,
+							status: "queued",
+							skipReason: null,
+							finishedAt: null,
+							retryPolicy: null,
+							delivery: "policy",
+							nextAttemptAt: null,
+							scriptSlug: "script",
+							triggerId: trigger.id,
+							hookName: policy.slug,
+							artifactsExpireAt: now,
+							executionUserId: userId,
+							sandboxScriptId: "script",
+							scriptContentHash: "hash",
+							pluginRevisionId: "revision",
+							pluginConfigRevisionId: "config",
+							id: lifecycleRunId({
+								pluginId,
+								hookSlug,
+								triggerId: trigger.id,
+								executionUserId: userId,
+							}),
+						});
+					});
+					for (const run of runs) {
+						queued.add(run.id);
+						identities.set(run.id, `${run.pluginId}/${run.hookSlug}`);
+					}
+					assert(trigger.payload?.category === "request" && trigger.payload.resource === "event");
 					return {
-						runs: [],
-						policies: [],
+						runs,
 						wasCreated: true,
 						trigger: {
 							...trigger,
-							blockedReason: {
-								code: "automation-limit-reached" as const,
-								hasRequiredHooks: trigger.kind.category === "change",
-								omittedHooks: [
-									{ pluginId: PluginId.make("plugin"), hookSlug: AutomationHookSlug.make("hook") },
-								],
+							payload: {
+								...trigger.payload,
+								excludedOncePerSubjectPolicies: input.excludedOncePerSubjectPolicies ?? [],
 							},
 						},
+						policies: runs.map((run, index) => ({
+							runId: run.id,
+							batchFrequency: declarations[index]?.frequency,
+							position: declarations[index]?.position ?? 1000,
+						})),
 					};
-				}
-				if (trigger.kind.category !== "request") {
-					return { trigger, runs: [], policies: [], wasCreated: true };
-				}
-				exclusions.push(input.excludedOncePerSubjectPolicies);
-				const declarations = (options.policies ?? []).filter(
-					(policy) =>
-						policy.frequency !== "once-per-subject" ||
-						!input.excludedOncePerSubjectPolicies?.some(
-							(excluded) =>
-								excluded.pluginId === (policy.plugin ?? "plugin") &&
-								excluded.hookSlug === policy.slug,
-						),
-				);
-				const runs = declarations.map((policy) => {
-					const pluginId = PluginId.make(policy.plugin ?? "plugin");
-					const hookSlug = AutomationHookSlug.make(policy.slug);
-					return Schema.decodeSync(AutomationRun)({
-						pluginId,
-						hookSlug,
-						queuedAt: now,
-						stage: "before",
-						attemptCount: 0,
-						startedAt: null,
-						status: "queued",
-						skipReason: null,
-						finishedAt: null,
-						retryPolicy: null,
-						delivery: "policy",
-						nextAttemptAt: null,
-						scriptSlug: "script",
-						triggerId: trigger.id,
-						hookName: policy.slug,
-						artifactsExpireAt: now,
-						executionUserId: userId,
-						sandboxScriptId: "script",
-						scriptContentHash: "hash",
-						pluginRevisionId: "revision",
-						pluginConfigRevisionId: "config",
-						id: lifecycleRunId({
-							pluginId,
-							hookSlug,
-							triggerId: trigger.id,
-							executionUserId: userId,
-						}),
-					});
-				});
-				for (const run of runs) {
-					queued.add(run.id);
-					identities.set(run.id, `${run.pluginId}/${run.hookSlug}`);
-				}
-				assert(trigger.payload?.category === "request" && trigger.payload.resource === "event");
-				return {
-					runs,
-					wasCreated: true,
-					trigger: {
-						...trigger,
-						payload: {
-							...trigger.payload,
-							excludedOncePerSubjectPolicies: input.excludedOncePerSubjectPolicies ?? [],
-						},
-					},
-					policies: runs.map((run, index) => ({
-						runId: run.id,
-						batchFrequency: declarations[index]?.frequency,
-						position: declarations[index]?.position ?? 1000,
-					})),
-				};
-			}),
-	});
+				}),
+		}),
+	);
 	const execution = withLifecycleDispatch({
 		skipQueuedPolicies: () =>
 			Effect.sync(() => {
@@ -410,6 +418,10 @@ it.effect(
 				"plan:change",
 				"commit",
 				"after",
+				"begin",
+				"plan:change",
+				"commit",
+				"after",
 			]);
 			expect(h.triggers[1]?.causation.parentTriggerId).toBe(h.triggers[0]?.id);
 			expect(h.triggers[1]?.payload).toMatchObject({
@@ -433,7 +445,7 @@ it.effect("replays a committed write activity after the event schema is disabled
 	return Effect.gen(function* () {
 		expect(yield* h.run()).toMatchObject({ count: 1, warnings: [], failure: null });
 		expect(h.created).toHaveLength(1);
-		expect(h.triggers).toHaveLength(2);
+		expect(h.triggers).toHaveLength(3);
 		expect(h.calls.filter((call) => call === "write")).toHaveLength(1);
 	});
 });
@@ -777,13 +789,17 @@ it.effect("a blocked request fails closed while required failures remain success
 			hookSlug: AutomationHookSlug.make("required"),
 		};
 		const accepted = harness({ warnings: [warning] });
-		expect(yield* accepted.run()).toMatchObject({ count: 1, failure: null, warnings: [warning] });
+		expect(yield* accepted.run()).toMatchObject({
+			count: 1,
+			failure: null,
+			warnings: [warning, warning],
+		});
 		expect(accepted.created).toHaveLength(1);
 		const limited = harness({ blocked: "change" });
 		expect(yield* limited.run()).toMatchObject({
 			count: 1,
 			failure: null,
-			warnings: [{ code: "automation-limit-reached" }],
+			warnings: [{ code: "automation-limit-reached" }, { code: "automation-limit-reached" }],
 		});
 	}),
 );
