@@ -17,6 +17,30 @@ import { strictStruct } from "../../schema/utils";
 import { SubscriptionRunStatus } from "../automations/schemas";
 import { EnqueueSandboxBody, SandboxScriptMetadata } from "../sandbox/schemas";
 
+const TestSupportDiagnosticReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("invalid-request"), diagnostic: Schema.String }),
+	Schema.Struct({ code: Schema.Literal("operation-failed"), diagnostic: Schema.String }),
+	Schema.Struct({ code: Schema.Literal("resource-conflict"), diagnostic: Schema.String }),
+	Schema.Struct({ code: Schema.Literal("resource-not-found"), diagnostic: Schema.String }),
+]);
+
+export class TestSupportBadRequest extends Schema.TaggedError<TestSupportBadRequest>()(
+	"TestSupportBadRequest",
+	{ reason: TestSupportDiagnosticReason },
+) {}
+export class TestSupportNotFound extends Schema.TaggedError<TestSupportNotFound>()(
+	"TestSupportNotFound",
+	{ reason: TestSupportDiagnosticReason },
+) {}
+export class TestSupportConflict extends Schema.TaggedError<TestSupportConflict>()(
+	"TestSupportConflict",
+	{ reason: TestSupportDiagnosticReason },
+) {}
+export class TestSupportOperationFailure extends Schema.TaggedError<TestSupportOperationFailure>()(
+	"TestSupportOperationFailure",
+	{ reason: TestSupportDiagnosticReason },
+) {}
+
 export const TestSupportStoredSandboxScript = Schema.Struct({
 	id: SandboxScriptId,
 	slug: Schema.String,

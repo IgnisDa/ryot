@@ -2,7 +2,6 @@ import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AdminMiddleware } from "../../auth-middleware";
-import { BadRequest, Conflict, InternalError, NotFound, SandboxRunError } from "../../errors";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -33,9 +32,19 @@ import {
 	TestSupportTriggerPluginCronBody,
 	TestSupportWorkflowLoadGateResult,
 	TestSupportWorkflowLoadGateRun,
+	TestSupportBadRequest,
+	TestSupportConflict,
+	TestSupportNotFound,
+	TestSupportOperationFailure,
 } from "./schemas";
 
 const properties = Schema.Record(Schema.String, Schema.Unknown);
+const testSupportErrors = [
+	TestSupportBadRequest.pipe(HttpApiSchema.status(400)),
+	TestSupportNotFound.pipe(HttpApiSchema.status(404)),
+	TestSupportConflict.pipe(HttpApiSchema.status(409)),
+	TestSupportOperationFailure.pipe(HttpApiSchema.status(500)),
+];
 
 const CreateGlobalEntityBody = Schema.Struct({
 	properties,
@@ -75,21 +84,21 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 		HttpApiEndpoint.get("getSandboxScript", "/test-support/sandbox-scripts/:scriptId", {
 			params: { scriptId: SandboxScriptId },
 			success: TestSupportStoredSandboxScript,
-			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+			error: testSupportErrors,
 		}).annotate(OpenApi.Description, "Gets an installed sandbox script by ID"),
 	)
 	.add(
 		HttpApiEndpoint.get("listSandboxScripts", "/test-support/sandbox-scripts", {
 			query: {},
 			success: Schema.Array(TestSupportStoredSandboxScript),
-			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+			error: testSupportErrors,
 		}).annotate(OpenApi.Description, "Lists installed sandbox scripts"),
 	)
 	.add(
 		HttpApiEndpoint.post("enqueueSandbox", "/test-support/sandbox/enqueue", {
 			payload: TestSupportEnqueueSandboxBody,
 			success: TestSupportEnqueueSandboxResponse,
-			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+			error: testSupportErrors,
 		}).annotate(OpenApi.Description, "Enqueues an installed sandbox script for a user"),
 	)
 	.add(
@@ -97,7 +106,7 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 			params: { jobId: Schema.String },
 			query: { executingUserId: UserId },
 			success: SandboxRunResult,
-			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+			error: testSupportErrors,
 		}).annotate(OpenApi.Description, "Returns an installed sandbox script execution result"),
 	)
 	.add(
@@ -107,7 +116,7 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 			{
 				payload: TestSupportSandboxReplayProjectionBody,
 				success: Schema.Struct({ deleted: Schema.Boolean }),
-				error: [BadRequest.pipe(HttpApiSchema.status(400))],
+				error: testSupportErrors,
 			},
 		).annotate(OpenApi.Description, "Deletes a sandbox workflow Redis replay projection"),
 	)
@@ -115,7 +124,7 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 		HttpApiEndpoint.post("startWorkflowLoadGate", "/test-support/operational-gate/workflow-load", {
 			payload: TestSupportStartWorkflowLoadGateBody,
 			success: TestSupportWorkflowLoadGateRun,
-			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+			error: testSupportErrors,
 		}).annotate(OpenApi.Description, "Starts a full-size workflow load operational gate"),
 	)
 	.add(
@@ -125,7 +134,7 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 			{
 				payload: WorkflowLoadGateResultBody,
 				success: TestSupportWorkflowLoadGateResult,
-				error: [BadRequest.pipe(HttpApiSchema.status(400))],
+				error: testSupportErrors,
 			},
 		).annotate(OpenApi.Description, "Returns workflow load operational gate results"),
 	)
@@ -133,14 +142,14 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 		HttpApiEndpoint.post("sampleOperationalPressure", "/test-support/operational-gate/pressure", {
 			payload: OperationalPressureBody,
 			success: TestSupportOperationalPressure,
-			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+			error: testSupportErrors,
 		}).annotate(OpenApi.Description, "Samples generic workflow infrastructure pressure"),
 	)
 	.add(
 		HttpApiEndpoint.get("sampleSandboxRuntime", "/test-support/sandbox/runtime", {
 			query: {},
 			success: TestSupportSandboxRuntimeMetrics,
-			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+			error: testSupportErrors,
 		}).annotate(OpenApi.Description, "Samples sandbox process memory and lifecycle metrics"),
 	)
 	.add(
@@ -150,7 +159,7 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 			{
 				params: { userId: UserId },
 				success: Schema.Struct({ count: Schema.Number }),
-				error: [BadRequest.pipe(HttpApiSchema.status(400))],
+				error: testSupportErrors,
 			},
 		).annotate(OpenApi.Description, "Counts automation rules for a user"),
 	)
@@ -158,7 +167,7 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 		HttpApiEndpoint.post("createGlobalEntity", "/test-support/entities/global", {
 			payload: CreateGlobalEntityBody,
 			success: ListedEntity.pipe(HttpApiSchema.status(201)),
-			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+			error: testSupportErrors,
 		}).annotate(OpenApi.Description, "Creates a global entity for testing"),
 	)
 	.add(
@@ -167,7 +176,7 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 				ids: Schema.Array(EntityId).pipe(Schema.check(Schema.isMinLength(1))),
 			}),
 			success: Schema.Struct({ deleted: Schema.Number }),
-			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+			error: testSupportErrors,
 		}).annotate(OpenApi.Description, "Deletes global entities by ID"),
 	)
 	.add(
@@ -179,21 +188,21 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 				properties: Schema.optional(properties),
 			}),
 			success: RelationshipScope,
-			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+			error: testSupportErrors,
 		}).annotate(OpenApi.Description, "Creates or updates a global relationship"),
 	)
 	.add(
 		HttpApiEndpoint.post("listGlobalRelationships", "/test-support/relationships/global/list", {
 			payload: GlobalRelationshipListBody,
 			success: Schema.Array(TestSupportGlobalRelationship),
-			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+			error: testSupportErrors,
 		}).annotate(OpenApi.Description, "Lists global relationships for a requested scope"),
 	)
 	.add(
 		HttpApiEndpoint.get("getBuiltinEntitySchema", "/test-support/entity-schemas/builtin/:slug", {
 			params: { slug: Schema.String },
 			success: TestSupportBuiltinEntitySchema,
-			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+			error: testSupportErrors,
 		}).annotate(OpenApi.Description, "Gets a built-in entity schema by slug"),
 	)
 	.add(
@@ -201,7 +210,7 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 			params: { entityId: EntityId },
 			payload: Schema.Struct({ populatedAt: Schema.NullOr(Schema.String) }),
 			success: ListedEntity,
-			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+			error: testSupportErrors,
 		}).annotate(OpenApi.Description, "Sets the population timestamp for an entity"),
 	)
 	.add(
@@ -213,18 +222,14 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 				properties: Schema.NullOr(properties),
 			}),
 			success: Schema.Struct({ entityId: EntityId, language: Schema.String }),
-			error: [
-				BadRequest.pipe(HttpApiSchema.status(400)),
-				NotFound.pipe(HttpApiSchema.status(404)),
-				Conflict.pipe(HttpApiSchema.status(409)),
-			],
+			error: testSupportErrors,
 		}).annotate(OpenApi.Description, "Creates or updates an entity translation"),
 	)
 	.add(
 		HttpApiEndpoint.get("listEntityTranslations", "/test-support/entity-translations/:entityId", {
 			params: { entityId: EntityId },
 			success: Schema.Array(TestSupportEntityTranslation),
-			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+			error: testSupportErrors,
 		}).annotate(OpenApi.Description, "Lists translations for an entity"),
 	)
 	.add(
@@ -235,26 +240,20 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 				providerId: Schema.String,
 			}),
 			success: Schema.Struct({ id: Schema.String }).pipe(HttpApiSchema.status(201)),
-			error: [
-				BadRequest.pipe(HttpApiSchema.status(400)),
-				InternalError.pipe(HttpApiSchema.status(500)),
-			],
+			error: testSupportErrors,
 		}).annotate(OpenApi.Description, "Links an authentication account to a user"),
 	)
 	.add(
 		HttpApiEndpoint.post("triggerPluginCron", "/test-support/cron/plugin", {
 			payload: TestSupportTriggerPluginCronBody,
 			success: TestSupportPluginCronResult,
-			error: [
-				BadRequest.pipe(HttpApiSchema.status(400)),
-				SandboxRunError.pipe(HttpApiSchema.status(502)),
-			],
+			error: testSupportErrors,
 		}).annotate(OpenApi.Description, "Triggers one active plugin cron"),
 	)
 	.add(
 		HttpApiEndpoint.post("triggerPluginBoot", "/test-support/plugin-boot", {
 			success: TriggerPluginBootResponse,
-			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+			error: testSupportErrors,
 		}).annotate(OpenApi.Description, "Triggers all installed plugin boot drivers"),
 	)
 	.add(
@@ -264,17 +263,14 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 			{
 				success: Schema.Void,
 				payload: Schema.Struct({ sessionId: Schema.String, entityIds: Schema.Array(EntityId) }),
-				error: [
-					BadRequest.pipe(HttpApiSchema.status(400)),
-					NotFound.pipe(HttpApiSchema.status(404)),
-				],
+				error: testSupportErrors,
 			},
 		).annotate(OpenApi.Description, "Sets entity interest membership without reconciliation"),
 	)
 	.add(
 		HttpApiEndpoint.post("listSignals", "/test-support/signals/list", {
 			success: Schema.Array(TestSupportSignal),
-			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+			error: testSupportErrors,
 			payload: Schema.Struct({
 				schemaSlug: Schema.String,
 				actorUserId: Schema.optional(UserId),
@@ -285,7 +281,7 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 	.add(
 		HttpApiEndpoint.post("listSubscriptionRuns", "/test-support/subscription-runs/list", {
 			success: Schema.Array(TestSupportSubscriptionRun),
-			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+			error: testSupportErrors,
 			payload: Schema.Struct({ executionUserId: UserId, signalId: Schema.optional(SignalId) }),
 		}).annotate(OpenApi.Description, "Lists subscription runs for an execution user"),
 	)
