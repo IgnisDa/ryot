@@ -37,7 +37,7 @@ export function SavedViewFrame(props: {
 		<View className="relative flex-1 bg-bg">
 			<ScrollView
 				className="flex-1"
-				contentContainerClassName="min-h-full overflow-hidden pb-8 md:px-8 md:pt-8"
+				contentContainerClassName="min-h-full overflow-hidden pb-8 px-4 md:px-8 md:pt-8"
 			>
 				<View
 					className={clsx(TOP_BAR_WEB_HIDDEN)}
