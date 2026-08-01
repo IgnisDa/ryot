@@ -308,7 +308,7 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 			if (lease === null) {
 				return yield* badRequest("Upload intent is currently being processed");
 			}
-			return yield* Effect.gen(function* () {
+			yield* Effect.gen(function* () {
 				const raw = yield* redis.get(redisKeys.uploadIntent(intentId));
 				if (!raw) {
 					return yield* badRequest("Upload intent is invalid or has expired");
@@ -351,7 +351,9 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 								: badRequest("Local upload failed"),
 						),
 					);
+				return void 0;
 			}).pipe(Effect.ensuring(redis.releaseLease(lockKey, lease)));
+			return void 0;
 		});
 
 		const removeUploadIntent = Effect.fn("UploadsService.removeUploadIntent")(function* (
@@ -446,7 +448,7 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 						yield* redis.releaseLease(cleanupLock, cleanupLease);
 						return;
 					}
-					return yield* Effect.gen(function* () {
+					yield* Effect.gen(function* () {
 						const raw = yield* redis.get(redisKeys.uploadIntent(intentId));
 						if (!raw) {
 							yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
@@ -583,6 +585,7 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 				return yield* badRequest("Upload is currently being processed");
 			}
 			yield* removeUploadIntent(intentId).pipe(Effect.ensuring(redis.releaseLease(lockKey, lease)));
+			return void 0;
 		});
 
 		return {

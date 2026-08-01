@@ -13,7 +13,7 @@ import {
 	uninstallTestPlugin,
 	waitForEventCount,
 } from "~/fixtures";
-import { requireArray, requireObjectRecord } from "~/support/assertions";
+import { requireArray, requireObjectRecord, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 
@@ -188,10 +188,10 @@ describe("universal durable sandbox tracer", () => {
 				}),
 				uninstallTestPlugin,
 			);
-			const scriptId = plugin.scriptIds[operationSlug];
-			if (!scriptId) {
-				return yield* Effect.die("Durable tracer operation was not installed");
-			}
+			const scriptId = requirePresent(
+				plugin.scriptIds[operationSlug],
+				"Durable tracer operation was not installed",
+			);
 			const { executionId, jobId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
 				context: {

@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { ImportRunId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
-import { requirePresent } from "~/support/assertions";
+import { requireObjectRecord, requirePresent, requireString } from "~/support/assertions";
 import { getBackendUrl } from "~/support/backend";
 
 import type { Client } from "./auth";
@@ -345,26 +345,28 @@ export const uploadImportFile = (
 		if (!intentResponse.ok) {
 			throw new Error(`Could not create upload intent (${intentResponse.status})`);
 		}
-		const intent = (yield* Effect.promise(() => intentResponse.json())) as {
-			intentId: string;
-			method: string;
-			uploadUrl: string;
-			headers: Record<string, string>;
-		};
+		const intent = requireObjectRecord(
+			yield* Effect.promise(() => intentResponse.json()),
+			"Upload intent response is invalid",
+		);
+		const intentId = requireString(intent.intentId, "Upload intent id is missing");
+		const method = requireString(intent.method, "Upload intent method is missing");
+		const uploadUrl = requireString(intent.uploadUrl, "Upload intent URL is missing");
+		const headers = Object.fromEntries(
+			Object.entries(requireObjectRecord(intent.headers, "Upload intent headers are invalid")).map(
+				([key, value]) => [key, requireString(value, `Upload intent header '${key}' is invalid`)],
+			),
+		);
 
 		const uploadResponse = yield* Effect.promise(() =>
-			fetch(new URL(intent.uploadUrl, `${getBackendUrl()}/`), {
-				body: content,
-				method: intent.method,
-				headers: intent.headers,
-			}),
+			fetch(new URL(uploadUrl, `${getBackendUrl()}/`), { method, headers, body: content }),
 		);
 		if (!uploadResponse.ok) {
 			throw new Error(`Could not upload import file (${uploadResponse.status})`);
 		}
 
 		const completeResponse = yield* Effect.promise(() =>
-			fetch(`${getBackendUrl()}/uploads/intents/${intent.intentId}/complete`, {
+			fetch(`${getBackendUrl()}/uploads/intents/${intentId}/complete`, {
 				method: "POST",
 				headers: { Cookie: cookies },
 			}),
@@ -372,8 +374,11 @@ export const uploadImportFile = (
 		if (!completeResponse.ok) {
 			throw new Error(`Could not complete upload intent (${completeResponse.status})`);
 		}
-		const completion = (yield* Effect.promise(() => completeResponse.json())) as { token?: string };
-		return requirePresent(completion.token, "Upload token is missing");
+		const completion = requireObjectRecord(
+			yield* Effect.promise(() => completeResponse.json()),
+			"Upload completion response is invalid",
+		);
+		return requireString(completion.token, "Upload token is missing");
 	});
 
 export const startOpenScaleImport = (client: Client, uploadToken: string) =>

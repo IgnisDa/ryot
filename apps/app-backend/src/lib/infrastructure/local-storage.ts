@@ -161,13 +161,16 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				});
 
 			const sign = (method: string, pathname: string, expiresAt: number) =>
-				Effect.tryPromise(() =>
-					crypto.subtle.sign(
+				Effect.tryPromise(() => {
+					if (signingKey === null) {
+						throw new Error("Local storage signing is not configured");
+					}
+					return crypto.subtle.sign(
 						"HMAC",
-						signingKey as CryptoKey,
+						signingKey,
 						new TextEncoder().encode(`${method}\n${pathname}\n${expiresAt}`),
-					),
-				).pipe(
+					);
+				}).pipe(
 					Effect.map((value) => base64UrlEncode(new Uint8Array(value))),
 					Effect.orDie,
 				);
@@ -215,14 +218,17 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				if (actualBytes === null) {
 					return yield* badRequest("Local upload target is invalid or expired");
 				}
-				const valid = yield* Effect.tryPromise(() =>
-					crypto.subtle.verify(
+				const valid = yield* Effect.tryPromise(() => {
+					if (signingKey === null) {
+						throw new Error("Local storage signing is not configured");
+					}
+					return crypto.subtle.verify(
 						"HMAC",
-						signingKey as CryptoKey,
+						signingKey,
 						actualBytes,
 						new TextEncoder().encode(`${method}\n${parsed.pathname}\n${expiresAt}`),
-					),
-				).pipe(Effect.orDie);
+					);
+				}).pipe(Effect.orDie);
 				if (!valid) {
 					return yield* badRequest("Local upload target is invalid or expired");
 				}
@@ -286,16 +292,19 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				if (actualBytes === null) {
 					return yield* badRequest("Local download target is invalid or expired");
 				}
-				const valid = yield* Effect.tryPromise(() =>
-					crypto.subtle.verify(
+				const valid = yield* Effect.tryPromise(() => {
+					if (signingKey === null) {
+						throw new Error("Local storage signing is not configured");
+					}
+					return crypto.subtle.verify(
 						"HMAC",
-						signingKey as CryptoKey,
+						signingKey,
 						actualBytes,
 						new TextEncoder().encode(
 							`GET,HEAD\n${parsed.pathname}\n${key}\n${contentType}\n${expiresAt}`,
 						),
-					),
-				).pipe(Effect.orDie);
+					);
+				}).pipe(Effect.orDie);
 				if (!valid) {
 					return yield* badRequest("Local download target is invalid or expired");
 				}
@@ -388,6 +397,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 							),
 					),
 				);
+				return void 0;
 			});
 
 			const statObject = Effect.fn("LocalStorageService.statObject")(function* (key: string) {
