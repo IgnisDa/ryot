@@ -5,7 +5,7 @@ import {
 	extractMetadataLookupSeasonEpisode,
 	extractMetadataLookupYearFromTitle,
 	hasMetadataLookupShowIndicators,
-} from "./title-parsing";
+} from "../backend/shared/title-parsing";
 
 describe("metadata lookup title parsing", () => {
 	it("cleans years, file extensions, and quality markers from movie titles", () => {

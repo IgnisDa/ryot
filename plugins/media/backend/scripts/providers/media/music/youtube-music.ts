@@ -1,12 +1,7 @@
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
-import {
-	type UnknownRecord,
-	asRecord,
-	numberValue,
-	stringValue,
-} from "../../../script-helpers/records";
-import { createRoleAccumulator } from "../../../script-helpers/role-accumulator";
+import { type UnknownRecord, asRecord, numberValue, stringValue } from "../../../../shared/records";
+import { createRoleAccumulator } from "../../../../shared/role-accumulator";
 import {
 	coerceTrimmed,
 	getBestThumbnailUrl,

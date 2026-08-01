@@ -1,8 +1,6 @@
 #!/usr/bin/env bun
 
 import { BunFileSystem, BunPath, BunRuntime } from "@effect/platform-bun";
-import fitnessPlugin from "@ryot/fitness-plugin";
-import mediaPlugin from "@ryot/media-plugin";
 import { Data, Effect, Layer, FileSystem, Path } from "effect";
 
 import {
@@ -47,12 +45,17 @@ const program = Effect.gen(function* () {
 	const scriptPath = yield* path.fromFileUrl(new URL(import.meta.url));
 	const workspaceRoot = path.resolve(path.dirname(scriptPath), "..", "..", "..");
 	const modulesDir = path.join(workspaceRoot, "kernel/backend/src/modules");
+	const manifests = yield* Effect.forEach(["media", "fitness"], (plugin) =>
+		Effect.tryPromise(() => import(path.join(workspaceRoot, `plugins/${plugin}/manifest.ts`))).pipe(
+			Effect.map((module) => module.default),
+		),
+	);
 	const roots = ["kernel/backend/src", "packages/contract/src", "packages/ryotql/src"].map((root) =>
 		path.join(workspaceRoot, root),
 	);
 	const cycles = yield* analyzeRuntimeModules(modulesDir);
 	const sources = (yield* Effect.forEach(roots, (root) => walkSources(root, workspaceRoot))).flat();
-	const terms = deriveDomainVocabulary([mediaPlugin, fitnessPlugin]);
+	const terms = deriveDomainVocabulary(manifests);
 	const findings = scanPuritySources(sources, terms);
 	const duplicateLayers = findDuplicateServiceLayers(sources);
 	const { errors, violations } = applyPurityAllowlist(findings, kernelPurityAllowlist);

@@ -2,10 +2,10 @@ import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
-import { cleanHtmlDescription } from "../../../script-helpers/clean-html-description";
-import { asRecord, numberValue, stringValue, trimmedString } from "../../../script-helpers/records";
-import { createRoleAccumulator } from "../../../script-helpers/role-accumulator";
-import { toTitleCase } from "../../../script-helpers/title-case";
+import { cleanHtmlDescription } from "../../../../shared/clean-html-description";
+import { asRecord, numberValue, stringValue, trimmedString } from "../../../../shared/records";
+import { createRoleAccumulator } from "../../../../shared/role-accumulator";
+import { toTitleCase } from "../../../../shared/title-case";
 import {
 	audibleFetchJson,
 	type AudibleHost,

@@ -1,7 +1,5 @@
 import { expect, it } from "@effect/vitest";
 import { PropertyValidationError } from "@ryot/contract/schema/property-schema";
-import { exercisePropertiesSchema } from "@ryot/fitness-plugin/schemas/property-schemas";
-import { bookPropertiesSchema } from "@ryot/media-plugin/schemas/property-schemas";
 import { Effect } from "effect";
 import { describe } from "vitest";
 
@@ -9,6 +7,7 @@ import {
 	parseAppSchemaPropertiesSafe,
 	parseLabeledPropertySchemaInput,
 } from "./property-schema-runtime";
+import { fixtureEntityPropertiesSchema } from "./property-schema.test-fixture";
 
 describe("property schema DSL", () => {
 	it.effect("parses a valid schema definition", () =>
@@ -165,10 +164,7 @@ describe("property schema DSL", () => {
 		}),
 	);
 
-	it.effect("accepts builtin schema data", () =>
-		Effect.gen(function* () {
-			yield* parseLabeledPropertySchemaInput(bookPropertiesSchema, "Book properties");
-			yield* parseLabeledPropertySchemaInput(exercisePropertiesSchema, "Exercise properties");
-		}),
+	it.effect("accepts representative schema data", () =>
+		parseLabeledPropertySchemaInput(fixtureEntityPropertiesSchema, "Entity properties"),
 	);
 });

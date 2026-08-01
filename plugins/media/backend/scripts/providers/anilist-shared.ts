@@ -8,14 +8,14 @@ import type {
 	ProviderTranslateResult,
 } from "@ryot/sandbox-sdk/provider";
 
-import { getUserAllowNsfw } from "../script-helpers/host";
+import { getUserAllowNsfw } from "../../shared/host";
 import {
 	asRecord,
 	numberValue,
 	parseJsonResponse,
 	stringValue,
 	type UnknownRecord,
-} from "../script-helpers/records";
+} from "../../shared/records";
 
 export type AnilistHost = SandboxHost<readonly ["httpCall"]>;
 

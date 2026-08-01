@@ -3,18 +3,18 @@ import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineOperation } from "@ryot/sandbox-sdk/operation";
 
 import {
-	chooseBestMetadataLookupTitleMatch,
-	type MetadataLookupTitleMatchCandidate,
-} from "../../../shared/title-matching";
-import {
-	extractMetadataLookupBaseTitle,
-	extractMetadataLookupSeasonEpisode,
-} from "../../../shared/title-parsing";
-import {
 	MetadataLookupInput,
 	MetadataLookupOutput,
 	type MetadataLookupResult,
 } from "../../operations/schemas";
+import {
+	chooseBestMetadataLookupTitleMatch,
+	type MetadataLookupTitleMatchCandidate,
+} from "../../shared/title-matching";
+import {
+	extractMetadataLookupBaseTitle,
+	extractMetadataLookupSeasonEpisode,
+} from "../../shared/title-parsing";
 import {
 	manifest as movieTmdbManifest,
 	search as movieTmdbSearch,

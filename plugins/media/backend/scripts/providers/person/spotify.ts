@@ -2,7 +2,7 @@ import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
-import { asRecord, numberValue, stringValue, trimmedString } from "../../script-helpers/records";
+import { asRecord, numberValue, stringValue, trimmedString } from "../../../shared/records";
 import {
 	getFirstImage,
 	getImagesSortedBySize,

@@ -1,7 +1,7 @@
 import { load } from "@ryot/sandbox-sdk/cheerio";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
-import { type UnknownRecord, asRecord, stringValue } from "../../script-helpers/records";
+import { type UnknownRecord, asRecord, stringValue } from "../../../shared/records";
 import {
 	type AlbumClient,
 	coerceTrimmed,
