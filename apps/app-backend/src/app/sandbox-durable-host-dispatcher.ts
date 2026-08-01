@@ -212,7 +212,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					execute: () => Effect.Effect<Success["Type"], HttpAdmissionCoordinationError>,
 				) =>
 					Effect.gen(function* () {
-						while (true) {
+						for (;;) {
 							const activityAttempt = coordinationAttempt++;
 							const outcome = yield* Activity.make({
 								success,
@@ -309,10 +309,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						),
 					);
 
-				const confirm = (
-					policy: MatchedHttpRateLimit,
-					token: typeof ProviderHttpAdmissionToken.Type,
-				) =>
+				const confirm = (policy: MatchedHttpRateLimit, token: ProviderHttpAdmissionToken) =>
 					coordinate("confirm", ProviderHttpAdmissionConfirmation, () =>
 						admission.confirm(admissionDeclaration(policy), token).pipe(
 							Effect.catchTags({
@@ -382,7 +379,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 				}
 
 				let resolution = yield* resolvePolicy(url);
-				admissionLoop: while (true) {
+				admissionLoop: for (;;) {
 					if (!resolution.matched) {
 						return terminalRateLimit ?? (yield* runNetworkAttempt(null)).result;
 					}
@@ -416,7 +413,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						if (!samePolicy(policy, resolution)) {
 							continue admissionLoop;
 						}
-						while (true) {
+						for (;;) {
 							const confirmed = yield* confirm(policy, reservation.token);
 							if (confirmed.status === "admitted") {
 								break;
