@@ -9,6 +9,7 @@ import { SavedViewFrame } from "./saved-view-frame";
 import { SavedViewGrid } from "./saved-view-grid";
 import { SavedViewLayoutSelector } from "./saved-view-layout-selector";
 import { SavedViewList } from "./saved-view-list";
+import { SavedViewPagination } from "./saved-view-pagination";
 import { SavedViewTable } from "./saved-view-table";
 import type { SavedViewActiveData, SavedViewResultState } from "./state";
 import { SavedViewRuntime } from "./use-saved-view";
@@ -43,6 +44,8 @@ function SavedViewDisplay(
 	props: SavedViewActiveData & {
 		readonly userId: string;
 		readonly serverUrl: string;
+		readonly loadMore: () => void;
+		readonly isLoadingMore: boolean;
 		readonly record: SavedViewRecord;
 		readonly managedUrls: ReadonlyMap<string, string>;
 	},
@@ -89,7 +92,16 @@ function SavedViewDisplay(
 				{items.length === 0 ? (
 					<EmptyState name={props.record.name} />
 				) : (
-					<SavedViewItems {...props} />
+					<>
+						<SavedViewItems {...props} />
+						<SavedViewPagination
+							loaded={items.length}
+							name={props.record.name}
+							hasMore={pageInfo.hasMore}
+							onLoadMore={props.loadMore}
+							isLoading={props.isLoadingMore}
+						/>
+					</>
 				)}
 			</View>
 		</SavedViewFrame>
@@ -100,6 +112,8 @@ export function SavedViewReadyContent(props: {
 	readonly userId: string;
 	readonly serverUrl: string;
 	readonly refresh: () => void;
+	readonly loadMore: () => void;
+	readonly isLoadingMore: boolean;
 	readonly record: SavedViewRecord;
 	readonly state: Extract<SavedViewResultState, { status: "ready" }>;
 }) {
