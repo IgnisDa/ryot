@@ -10,7 +10,6 @@ import {
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
@@ -20,12 +19,9 @@ export const DefinitionsRoutesLive = HttpApiBuilder.group(AppContract, "definiti
 	handlers
 		.handle("listEntities", () =>
 			Effect.gen(function* () {
-				const runWithDb = yield* DbRunner;
 				const registry = yield* DefinitionRegistry;
 				const pluginRuntime = yield* PluginRuntimeResolver;
-				const schemaProviders = yield* runWithDb(pluginRuntime.listSchemaProviders()).pipe(
-					dieOnDbError,
-				);
+				const schemaProviders = yield* pluginRuntime.listSchemaProviders().pipe(dieOnDbError);
 				return Object.values(registry.getSnapshot().entitySchemas).map((definition) =>
 					Object.assign({}, definition, {
 						slug: EntitySchemaSlug.make(definition.slug),

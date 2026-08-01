@@ -12,7 +12,7 @@ import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { Effect, Exit, Layer, Schema } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
+import { Database } from "#lib/infrastructure/db/service";
 import {
 	EventCreateWorkflow,
 	EventCreateWorkflowPayload,
@@ -64,7 +64,7 @@ const attributionIds = (origin: AutomationOrigin | undefined) => ({
 			: [],
 });
 
-const requireOwned = <A, E>(lookup: Effect.Effect<A | null, E>, message: string) =>
+const requireOwned = <A, E, R>(lookup: Effect.Effect<A | null, E, R>, message: string) =>
 	lookup.pipe(
 		Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
 		Effect.flatMap((owned) =>
@@ -75,7 +75,7 @@ const requireOwned = <A, E>(lookup: Effect.Effect<A | null, E>, message: string)
 export const KernelWorkflowReferencesLive = Layer.effect(
 	KernelWorkflowReferences,
 	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
+		const database = yield* Database;
 		const imports = yield* ImportsRepository;
 		const integrations = yield* IntegrationsRepository;
 		const pluginRuntime = yield* PluginRuntimeResolver;
@@ -88,13 +88,13 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 			Effect.all([
 				Effect.forEach(input.importRunIds, (runId) =>
 					requireOwned(
-						runWithDb(imports.getRunById({ runId, userId: input.userId })),
+						imports.getRunById({ runId, userId: input.userId }),
 						`Kernel workflow import run '${runId}' does not belong to the executing user`,
 					),
 				),
 				Effect.forEach(input.integrationIds, (integrationId) =>
 					requireOwned(
-						runWithDb(integrations.getForUser({ integrationId, userId: input.userId })),
+						integrations.getForUser({ integrationId, userId: input.userId }),
 						`Kernel workflow integration '${integrationId}' does not belong to the executing user`,
 					),
 				),
@@ -128,11 +128,13 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 								message: `Kernel workflow '${workflowSlug}' is available only for system executions`,
 							});
 						}
-						const caller = yield* runWithDb(
-							pluginRuntime.findActiveScriptById(callerScriptId),
-						).pipe(
-							Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
-						);
+						const caller = yield* pluginRuntime
+							.findActiveScriptById(callerScriptId)
+							.pipe(
+								Effect.mapError(
+									(error) => new SandboxRunError({ message: unknownToMessage(error) }),
+								),
+							);
 						if (!caller?.pluginSlug || caller.metadata.kind !== "workflow") {
 							return yield* new SandboxRunError({
 								message: "Provider entity population requires an active plugin workflow caller",
@@ -150,26 +152,26 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							),
 						);
 						const ownedItems = yield* Effect.forEach(decoded.items, (item) =>
-							runWithDb(
-								pluginRuntime.findAuthorizedSchemaProviderById({
+							pluginRuntime
+								.findAuthorizedSchemaProviderById({
 									pluginSlug: callerPluginSlug,
 									entitySchemaSlug: item.entitySchemaSlug,
 									providerId: SandboxProviderId.make(item.providerId),
-								}),
-							).pipe(
-								Effect.mapError(
-									(error) => new SandboxRunError({ message: unknownToMessage(error) }),
+								})
+								.pipe(
+									Effect.mapError(
+										(error) => new SandboxRunError({ message: unknownToMessage(error) }),
+									),
+									Effect.flatMap((resolved) =>
+										resolved
+											? Effect.succeed({ item, resolved })
+											: Effect.fail(
+													new SandboxRunError({
+														message: `Provider '${item.providerId}' is not active or has no exact binding to entity schema '${item.entitySchemaSlug}' owned by plugin '${callerPluginSlug}'`,
+													}),
+												),
+									),
 								),
-								Effect.flatMap((resolved) =>
-									resolved
-										? Effect.succeed({ item, resolved })
-										: Effect.fail(
-												new SandboxRunError({
-													message: `Provider '${item.providerId}' is not active or has no exact binding to entity schema '${item.entitySchemaSlug}' owned by plugin '${callerPluginSlug}'`,
-												}),
-											),
-								),
-							),
 						);
 						const engine = yield* WorkflowEngine;
 						const exits = yield* Effect.forEach(
@@ -260,11 +262,13 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 						const providerSlug = Reflect.get(rawInput, "providerSlug");
 						const resolvedProvider =
 							typeof providerSlug === "string"
-								? yield* runWithDb(pluginRuntime.findSchemaProviderBySlug(providerSlug)).pipe(
-										Effect.mapError(
-											(error) => new SandboxRunError({ message: unknownToMessage(error) }),
-										),
-									)
+								? yield* pluginRuntime
+										.findSchemaProviderBySlug(providerSlug)
+										.pipe(
+											Effect.mapError(
+												(error) => new SandboxRunError({ message: unknownToMessage(error) }),
+											),
+										)
 								: null;
 						if (typeof providerSlug === "string" && !resolvedProvider) {
 							return yield* new SandboxRunError({
@@ -341,7 +345,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 					return yield* Schema.decodeUnknownEffect(jsonValueSchema)(result).pipe(
 						Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
 					);
-				}),
+				}).pipe(Effect.provideService(Database, database)),
 		};
 	}),
 );

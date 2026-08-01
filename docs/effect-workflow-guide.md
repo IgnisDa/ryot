@@ -362,7 +362,7 @@ const WorkflowPgClientLive = Layer.unwrapEffect(
   Effect.map(AppConfig, (config) =>
     PgClient.layer({
       url: config.database.url,
-      maxConnections: config.database.workflowPoolMax,
+      maxConnections: config.database.poolMax,
     }),
   ),
 );
@@ -382,7 +382,7 @@ export const WorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(
 ```
 
 `WorkflowPgClientLive` is built from `AppConfig` (the config definition is the single source of
-truth for `DATABASE_WORKFLOW_POOL_MAX`), so `WorkflowEngineLive` carries an `AppConfig` requirement
+truth for `DATABASE_POOL_MAX`), so `WorkflowEngineLive` carries an `AppConfig` requirement
 satisfied by `ConfigLive` in `apps/app-backend/src/app/layers.ts`.
 
 A few facts worth knowing about this specific setup:
@@ -396,12 +396,12 @@ A few facts worth knowing about this specific setup:
   largely vestigial on one node) — **`MessageStorage` (the thing that actually matters for
   durability/replay) is hard-coded to SQL regardless** (`SingleRunner.ts:35`). There is no way to
   get a fully in-memory `SingleRunner`.
-- **The dedicated Postgres pool (`DATABASE_WORKFLOW_POOL_MAX`) is a correctness requirement, not a
-  performance tweak.** Ryot disables session-scoped advisory shard locks because Effect Cluster
-  concurrently operates on their shared connection, which `pg` no longer supports. Effect Cluster
-  still reserves one sticky connection (`SqlRunnerStorage.ts:35-67`), so usable connections =
-  `DATABASE_WORKFLOW_POOL_MAX` − 1; startup validation (`validateSystemConfig`) rejects a
-  workflow pool smaller than `SANDBOX_LIMITS.workerConcurrency`, since exceeding it starves the
+- **The shared application/workflow Postgres pool (`DATABASE_POOL_MAX`) is a correctness
+  requirement, not a performance tweak.** Ryot disables session-scoped advisory shard locks because
+  Effect Cluster concurrently operates on their shared connection, which `pg` no longer supports.
+  Effect Cluster still reserves one sticky connection (`SqlRunnerStorage.ts:35-67`), so usable
+  connections = `DATABASE_POOL_MAX` − 1; startup validation (`validateSystemConfig`) rejects a
+  shared pool smaller than `SANDBOX_LIMITS.workerConcurrency`, since exceeding it starves the
   workflow engine.
 - **`entityMessagePollInterval` defaults to 10 seconds** (`ShardingConfig.ts:153`, confirmed
   exactly) — this is why it's tuned down to 250ms here (see the next section).

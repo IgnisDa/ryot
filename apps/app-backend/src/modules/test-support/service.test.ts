@@ -10,7 +10,7 @@ import {
 import { Effect, Layer } from "effect";
 
 import { RedisService } from "#lib/infrastructure/redis";
-import { makeRedisService, type MockOverrides } from "#lib/test-utils/effect";
+import { databaseLayer, makeRedisService, type MockOverrides } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
 import { AutomationsService } from "#modules/automations/service";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
@@ -61,8 +61,9 @@ const makeServiceLayer = (
 	definitions = makeDefinitionRegistry(),
 ) => {
 	return TestSupportService.layer.pipe(
-		Layer.provide(
+		Layer.provideMerge(
 			Layer.mergeAll(
+				databaseLayer,
 				mockAuth({ auth: Object.create(null) }),
 				mockAutomations({}),
 				mockSignals({}),

@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Option, Ref, FileSystem, Path } from "effect";
 
-import { TransactionRunner } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { garbageCollectSandboxCompiledModules } from "#lib/infrastructure/sandbox-runtime/compiled-modules";
 import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
@@ -15,9 +15,9 @@ export class ScriptGarbageCollector extends Context.Service<ScriptGarbageCollect
 			const path = yield* Path.Path;
 			const loader = yield* PluginLoader;
 			const fs = yield* FileSystem.FileSystem;
+			const database = yield* Database;
 			const repository = yield* PluginRepository;
 			const runtime = yield* PackageCacheManager;
-			const runTransaction = yield* TransactionRunner;
 			const workflowReferences = yield* SandboxWorkflowReferenceRepository;
 			const kernelContentHashes = yield* Ref.make<Option.Option<ReadonlySet<string>>>(
 				Option.none(),
@@ -52,23 +52,25 @@ export class ScriptGarbageCollector extends Context.Service<ScriptGarbageCollect
 					return undefined;
 				}
 
-				const result = yield* runTransaction(
-					Effect.gen(function* () {
-						yield* repository.lockIngestion();
-						const liveHashes = yield* liveContentHashes(kernelHashes.value);
-						const moduleResult = yield* garbageCollectSandboxCompiledModules(
-							runtime,
-							liveHashes,
-						).pipe(
-							Effect.provideService(FileSystem.FileSystem, fs),
-							Effect.provideService(Path.Path, path),
-						);
-						const removedScripts = yield* repository.deleteUnreferencedScripts(liveHashes);
-						return {
-							candidateCount: moduleResult.candidateCount + removedScripts.length,
-							removedCount: moduleResult.removedCount + removedScripts.length,
-						};
-					}),
+				const result = yield* mapDatabaseErrors(
+					database.transaction((transaction) =>
+						Effect.gen(function* () {
+							yield* repository.lockIngestion();
+							const liveHashes = yield* liveContentHashes(kernelHashes.value);
+							const moduleResult = yield* garbageCollectSandboxCompiledModules(
+								runtime,
+								liveHashes,
+							).pipe(
+								Effect.provideService(FileSystem.FileSystem, fs),
+								Effect.provideService(Path.Path, path),
+							);
+							const removedScripts = yield* repository.deleteUnreferencedScripts(liveHashes);
+							return {
+								candidateCount: moduleResult.candidateCount + removedScripts.length,
+								removedCount: moduleResult.removedCount + removedScripts.length,
+							};
+						}).pipe(Effect.provideService(Database, transaction)),
+					),
 				);
 				yield* Effect.logInfo("sandbox script garbage collection completed").pipe(
 					Effect.annotateLogs(result),

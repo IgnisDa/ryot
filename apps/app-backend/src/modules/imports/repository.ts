@@ -10,7 +10,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 type ImportRunRow = typeof schema.importRun.$inferSelect;
 
@@ -31,6 +31,7 @@ const normalizeRun = (row: ImportRunRow): ListedImportRun => ({
 	finishedAt: row.finishedAt?.toISOString() ?? null,
 });
 
+/** @effect-expect-leaking Database */
 export class ImportsRepository extends Context.Service<ImportsRepository>()("ImportsRepository", {
 	make: Effect.sync(() => {
 		const createRun = Effect.fn("ImportsRepository.createRun")(function* (input: {
@@ -39,8 +40,8 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			integrationId?: IntegrationId | null;
 			inputSummary: Record<string, unknown>;
 		}) {
-			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
+			const db = yield* Database;
+			const [row] = yield* mapDatabaseErrors(
 				db
 					.insert(schema.importRun)
 					.values({
@@ -61,8 +62,8 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			runId: ImportRunId;
 			userId: UserId;
 		}) {
-			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
+			const db = yield* Database;
+			const [row] = yield* mapDatabaseErrors(
 				db
 					.select()
 					.from(schema.importRun)
@@ -76,8 +77,8 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 
 		const hasActiveRunForIntegration = Effect.fn("ImportsRepository.hasActiveRunForIntegration")(
 			function* (input: { integrationId: IntegrationId }) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ id: schema.importRun.id })
 						.from(schema.importRun)
@@ -96,8 +97,8 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 		const listRecentStatusesByIntegrationId = Effect.fn(
 			"ImportsRepository.listRecentStatusesByIntegrationId",
 		)(function* (input: { integrationId: IntegrationId; limit: number }) {
-			const db = yield* CurrentDb;
-			return yield* dbEffect(() =>
+			const db = yield* Database;
+			return yield* mapDatabaseErrors(
 				db
 					.select({ status: schema.importRun.status })
 					.from(schema.importRun)
@@ -119,7 +120,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			processedItems?: number;
 			status?: ImportRunStatus;
 		}) {
-			const db = yield* CurrentDb;
+			const db = yield* Database;
 			const updates: Partial<typeof schema.importRun.$inferInsert> = {};
 			if (input.status !== undefined) {
 				updates.status = input.status;
@@ -151,7 +152,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			if (Object.keys(updates).length === 0) {
 				return;
 			}
-			yield* dbEffect(() =>
+			yield* mapDatabaseErrors(
 				db.update(schema.importRun).set(updates).where(eq(schema.importRun.id, input.runId)),
 			);
 		});
@@ -160,8 +161,8 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			runId: ImportRunId;
 			userId: UserId;
 		}) {
-			const db = yield* CurrentDb;
-			yield* dbEffect(() =>
+			const db = yield* Database;
+			yield* mapDatabaseErrors(
 				db
 					.delete(schema.importRun)
 					.where(
@@ -181,8 +182,8 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			entitySchemaSlug?: string | null | undefined;
 			context?: Record<string, unknown> | null | undefined;
 		}) {
-			const db = yield* CurrentDb;
-			yield* dbEffect(() =>
+			const db = yield* Database;
+			yield* mapDatabaseErrors(
 				db.insert(schema.importRunFailure).values({
 					runId: input.runId,
 					stage: input.stage,

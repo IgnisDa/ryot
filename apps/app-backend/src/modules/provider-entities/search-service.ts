@@ -9,7 +9,6 @@ import { materializeAppSchemaChoices } from "@ryot/contract/schema/property-sche
 import { generateId } from "better-auth";
 import { Context, Effect, Layer, Result, Schema } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
 import {
 	PROVIDER_SEARCH_OPTIONS_CACHE_TTL_SECONDS,
 	redisKeys,
@@ -38,11 +37,11 @@ const decodeCachedSources = (value: string | null) => {
 	return Result.isSuccess(decoded) ? decoded.success.sources : null;
 };
 
+/** @effect-expect-leaking Database */
 export class ProviderEntitySearchService extends Context.Service<ProviderEntitySearchService>()(
 	"ProviderEntitySearchService",
 	{
 		make: Effect.gen(function* () {
-			const runWithDb = yield* DbRunner;
 			const redis = yield* RedisService;
 			const sandbox = yield* SandboxExecutionService;
 			const pluginRuntime = yield* PluginRuntimeResolver;
@@ -50,12 +49,12 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 			const resolveSearch = Effect.fn("ProviderEntitySearchService.resolveSearch")(function* (
 				providerId: SearchProviderEntitiesBody["providerId"],
 			) {
-				const provider = yield* runWithDb(pluginRuntime.findActiveProviderById(providerId));
+				const provider = yield* pluginRuntime.findActiveProviderById(providerId);
 				if (!provider) {
 					return yield* providerNotFound();
 				}
 
-				const resolved = yield* runWithDb(pluginRuntime.resolveSearchScript(providerId)).pipe(
+				const resolved = yield* pluginRuntime.resolveSearchScript(providerId).pipe(
 					Effect.mapError((error) => {
 						if (!(error instanceof UnsupportedProviderOperationError)) {
 							return error;
@@ -82,18 +81,18 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 					return staticSchema.success;
 				}
 
-				const searchOptionsScript = yield* runWithDb(
-					pluginRuntime.resolveSearchOptionsScript(providerId),
-				).pipe(
-					Effect.tapError((error) =>
-						Effect.logError("provider search options script resolution failed", error),
-					),
-					Effect.mapError((error) =>
-						error instanceof UnsupportedProviderOperationError
-							? badRequest(searchOptionsResolutionError)
-							: error,
-					),
-				);
+				const searchOptionsScript = yield* pluginRuntime
+					.resolveSearchOptionsScript(providerId)
+					.pipe(
+						Effect.tapError((error) =>
+							Effect.logError("provider search options script resolution failed", error),
+						),
+						Effect.mapError((error) =>
+							error instanceof UnsupportedProviderOperationError
+								? badRequest(searchOptionsResolutionError)
+								: error,
+						),
+					);
 				const cacheKey = redisKeys.providerSearchOptions(provider.id, searchOptionsScript.id);
 				const cachedSources = decodeCachedSources(yield* redis.get(cacheKey));
 				if (cachedSources !== null) {

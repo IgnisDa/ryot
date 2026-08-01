@@ -3,17 +3,18 @@ import { and, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 export type PluginStateRow = typeof schema.pluginState.$inferSelect;
 
+/** @effect-expect-leaking Database */
 export class DefinitionsRepository extends Context.Service<DefinitionsRepository>()(
 	"DefinitionsRepository",
 	{
 		make: Effect.sync(() => {
 			const listPluginStates = Effect.fn(function* (userId: UserId) {
-				const db = yield* CurrentDb;
-				return yield* dbEffect(() =>
+				const db = yield* Database;
+				return yield* mapDatabaseErrors(
 					db.select().from(schema.pluginState).where(eq(schema.pluginState.userId, userId)),
 				);
 			});
@@ -24,8 +25,8 @@ export class DefinitionsRepository extends Context.Service<DefinitionsRepository
 				isDisabled: boolean;
 				config: Record<string, unknown>;
 			}) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.insert(schema.pluginState)
 						.values(input)
@@ -42,8 +43,8 @@ export class DefinitionsRepository extends Context.Service<DefinitionsRepository
 				return row;
 			});
 			const getPluginState = Effect.fn(function* (userId: UserId, pluginSlug: string) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select()
 						.from(schema.pluginState)

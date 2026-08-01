@@ -126,22 +126,24 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 			}
 		}
 
-		// The cluster SQL runner permanently reserves one workflow-pool connection,
-		// even when advisory shard locks are disabled.
-		const usableWorkflowConnections = config.database.workflowPoolMax - 1;
-		if (SANDBOX_LIMITS.workerConcurrency > usableWorkflowConnections) {
+		// The cluster SQL runner permanently reserves one shared application/workflow-pool
+		// connection, even when advisory shard locks are disabled.
+		const usablePoolConnections = config.database.poolMax - 1;
+		if (SANDBOX_LIMITS.workerConcurrency > usablePoolConnections) {
 			return yield* Effect.fail(
 				configError(
-					`SANDBOX_LIMITS.workerConcurrency (${SANDBOX_LIMITS.workerConcurrency}) exceeds the usable workflow-pool connections (${usableWorkflowConnections}). The cluster SQL runner permanently reserves one connection of DATABASE_WORKFLOW_POOL_MAX (${config.database.workflowPoolMax}), so usable connections = DATABASE_WORKFLOW_POOL_MAX - 1; the configured workflow pool cannot support the fixed sandbox worker limit. Raise DATABASE_WORKFLOW_POOL_MAX.`,
+					`SANDBOX_LIMITS.workerConcurrency (${SANDBOX_LIMITS.workerConcurrency}) exceeds the usable shared application/workflow-pool connections (${usablePoolConnections}). The cluster SQL runner permanently reserves one connection of DATABASE_POOL_MAX (${config.database.poolMax}), so usable connections = DATABASE_POOL_MAX - 1; the shared application/workflow pool cannot support the fixed sandbox worker limit. Raise DATABASE_POOL_MAX.`,
 				),
 			);
 		}
 
 		// The +2 accounts for the two always-on DurableQueue workers, concurrency 1 each.
-		if (SANDBOX_LIMITS.workerConcurrency + 2 >= usableWorkflowConnections) {
-			yield* Effect.logWarning("workflow pool connection headroom exhausted").pipe(
+		if (SANDBOX_LIMITS.workerConcurrency + 2 >= usablePoolConnections) {
+			yield* Effect.logWarning(
+				"shared application/workflow pool connection headroom exhausted",
+			).pipe(
 				Effect.annotateLogs({
-					usableWorkflowConnections,
+					usablePoolConnections,
 					sandboxWorkerConcurrency: SANDBOX_LIMITS.workerConcurrency,
 				}),
 			);

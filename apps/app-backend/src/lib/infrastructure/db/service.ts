@@ -1,137 +1,74 @@
+import { PgClient } from "@effect/sql-pg";
 import { DbError, unknownToDbError } from "@ryot/contract/errors";
 import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/node-postgres";
-import { Context, Effect, Exit, Layer, Option, Redacted } from "effect";
-import { Pool } from "pg";
+import { EffectDrizzleQueryError } from "drizzle-orm/effect-core";
+import * as PgDrizzle from "drizzle-orm/effect-postgres";
+import { Context, Duration, Effect, Layer } from "effect";
+import { SqlError } from "effect/unstable/sql/SqlError";
+import { types as pgTypes } from "pg";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 
-const makeDb = (pool: Pool) => drizzle({ client: pool });
+const drizzleParsedTypeIds = new Set([1184, 1114, 1082, 1186, 1231, 1115, 1185, 1187, 1182]);
 
-export type DbRoot = ReturnType<typeof makeDb>;
+export const PgClientLive = Layer.unwrap(
+	Effect.map(AppConfig, (config) =>
+		PgClient.layer({
+			url: config.database.url,
+			maxConnections: config.database.poolMax,
+			connectTimeout: Duration.millis(config.database.connectionTimeoutMs),
+			types: {
+				getTypeParser: (typeId, format) =>
+					drizzleParsedTypeIds.has(typeId)
+						? (value: string) => value
+						: pgTypes.getTypeParser(typeId, format),
+			},
+		}),
+	),
+);
 
-export type DbTransaction = Parameters<Parameters<DbRoot["transaction"]>[0]>[0];
-export type DbExecutor = DbRoot | DbTransaction;
-
-/** @effect-leakable-service */
-export class CurrentDb extends Context.Service<CurrentDb, DbExecutor>()("CurrentDb") {}
-
-export class DbService extends Context.Service<DbService>()("DbService", {
-	make: Effect.gen(function* () {
-		const config = yield* AppConfig;
-		const pool = new Pool({
-			max: config.database.poolMax,
-			connectionString: Redacted.value(config.database.url),
-			connectionTimeoutMillis: config.database.connectionTimeoutMs,
-		});
-		yield* Effect.addFinalizer(() => Effect.promise(() => pool.end()).pipe(Effect.orDie));
-		return { pool, db: makeDb(pool) };
-	}),
-}) {
-	static readonly layer = Layer.effect(this, this.make);
+export class Database extends Context.Service<Database, PgDrizzle.EffectPgDatabase>()("Database") {
+	static readonly layer = Layer.effect(this, PgDrizzle.makeWithDefaults());
 }
 
-export const dbEffect = <A>(try_: () => Promise<A>): Effect.Effect<A, DbError> =>
-	Effect.tryPromise({ try: try_, catch: unknownToDbError });
+export const DatabaseLive = Database.layer.pipe(Layer.provideMerge(PgClientLive));
 
-// set_config(..., true) is the callable form of SET LOCAL: transaction-scoped, and (unlike the
-// SET statement) it binds the value as a parameter.
-export const setLocalStatementTimeout = (
-	timeoutMs: number,
-): Effect.Effect<void, DbError, CurrentDb> =>
+const unwrapDatabaseFailure = (failure: unknown): unknown => {
+	if (failure instanceof EffectDrizzleQueryError) {
+		return unwrapDatabaseFailure(failure.cause);
+	}
+	if (failure instanceof SqlError) {
+		return unwrapDatabaseFailure(failure.reason.cause);
+	}
+	return failure;
+};
+
+export const databaseError = (failure: unknown) => unknownToDbError(unwrapDatabaseFailure(failure));
+
+type NativeDatabaseError = EffectDrizzleQueryError | SqlError;
+
+type MappedDatabaseError<E> = E extends NativeDatabaseError ? DbError : E;
+
+export function mapDatabaseErrors<A, E, R>(
+	effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, MappedDatabaseError<E>, R>;
+export function mapDatabaseErrors<A, E, R>(effect: Effect.Effect<A, E, R>) {
+	return effect.pipe(
+		Effect.mapError((error) =>
+			error instanceof EffectDrizzleQueryError || error instanceof SqlError
+				? databaseError(error)
+				: error,
+		),
+	);
+}
+
+export const setLocalStatementTimeout = (timeoutMs: number) =>
 	Effect.gen(function* () {
-		const db = yield* CurrentDb;
-		yield* dbEffect(() =>
-			db.execute(sql`SELECT set_config('statement_timeout', ${timeoutMs.toString()}, true)`),
+		const database = yield* Database;
+		yield* mapDatabaseErrors(
+			database.execute(sql`SELECT set_config('statement_timeout', ${timeoutMs.toString()}, true)`),
 		);
 	});
 
 export const isUniqueConstraintError = (constraint: string) => (error: unknown) =>
 	error instanceof DbError && error.code === "23505" && error.constraint === constraint;
-
-class RollbackTransaction<A, E> extends Error {
-	constructor(readonly exit: Exit.Exit<A, E>) {
-		super("Rollback transaction");
-	}
-}
-
-const isRollbackTransaction = <A, E>(cause: unknown): cause is RollbackTransaction<A, E> =>
-	cause instanceof RollbackTransaction;
-
-const withTransaction = Effect.fn("withTransaction")(function* <A, E, R>(
-	effect: Effect.Effect<A, E, R>,
-) {
-	const { db } = yield* DbService;
-	const runtime = yield* Effect.context<Exclude<R, CurrentDb>>();
-	// The effect runs on a detached fiber (Runtime.runPromiseExit) to bridge into Drizzle's
-	// callback-based transaction. pg cannot cancel an in-flight statement, so the await runs
-	// uninterruptibly: an interrupt is deferred until the transaction commits or rolls back,
-	// instead of letting the caller proceed while the transaction is still writing. Nothing bounds
-	// this window at the pool level, so keep transactions short and free of long I/O; callers with
-	// heavy statements set a transaction-local statement_timeout.
-	const runTransaction = Effect.tryPromise({
-		try: () =>
-			db.transaction((tx) =>
-				Effect.runPromiseExitWith(runtime)(effect.pipe(Effect.provideService(CurrentDb, tx))).then(
-					(innerExit) => {
-						if (Exit.isFailure(innerExit)) {
-							throw new RollbackTransaction(innerExit);
-						}
-						return innerExit;
-					},
-				),
-			),
-		catch: (cause) => (isRollbackTransaction<A, E>(cause) ? cause : unknownToDbError(cause)),
-	}).pipe(
-		Effect.catch((cause) =>
-			isRollbackTransaction<A, E>(cause) ? Effect.succeed(cause.exit) : Effect.fail(cause),
-		),
-	);
-
-	const exit = yield* Effect.uninterruptible(runTransaction);
-
-	if (Exit.isSuccess(exit)) {
-		return exit.value;
-	}
-
-	return yield* Effect.failCause(exit.cause);
-});
-
-export class DbRunner extends Context.Service<
-	DbRunner,
-	<A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, Exclude<R, CurrentDb>>
->()("DbRunner") {}
-
-export const DbRunnerLive = Layer.effect(
-	DbRunner,
-	Effect.gen(function* () {
-		const { db } = yield* DbService;
-		const runWithDb = <A, E, R>(
-			effect: Effect.Effect<A, E, R>,
-		): Effect.Effect<A, E, Exclude<R, CurrentDb>> =>
-			Effect.flatMap(Effect.serviceOption(CurrentDb), (currentDb) =>
-				Effect.provideService(
-					effect,
-					CurrentDb,
-					Option.getOrElse(currentDb, () => db),
-				),
-			);
-		return runWithDb;
-	}),
-);
-
-export class TransactionRunner extends Context.Service<
-	TransactionRunner,
-	<A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E | DbError, Exclude<R, CurrentDb>>
->()("TransactionRunner") {}
-
-export const TransactionRunnerLive = Layer.effect(
-	TransactionRunner,
-	Effect.gen(function* () {
-		const dbService = yield* DbService;
-		return <A, E, R>(
-			effect: Effect.Effect<A, E, R>,
-		): Effect.Effect<A, E | DbError, Exclude<R, CurrentDb>> =>
-			withTransaction(effect).pipe(Effect.provideService(DbService, dbService));
-	}),
-);

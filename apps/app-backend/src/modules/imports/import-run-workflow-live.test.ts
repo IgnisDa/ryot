@@ -10,7 +10,7 @@ import { assert } from "vitest";
 import { RedisService } from "#lib/infrastructure/redis";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import {
-	dbRunnerLayer,
+	databaseLayer,
 	makeAppConfigLayer,
 	makeRedisService,
 	makeWorkflowEngine,
@@ -94,7 +94,7 @@ const makeHarness = (
 						Effect.andThen(workflowResult),
 					),
 			}),
-			dbRunnerLayer,
+			databaseLayer,
 			BunServices.layer,
 			Layer.succeed(RedisService, makeRedisService()),
 			Layer.mock(ImportsService)({}),

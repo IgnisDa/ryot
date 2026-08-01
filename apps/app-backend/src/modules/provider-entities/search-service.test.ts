@@ -6,7 +6,7 @@ import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 
 import { RedisService } from "#lib/infrastructure/redis";
-import { dbRunnerLayer, makeRedisService } from "#lib/test-utils/effect";
+import { databaseLayer, makeRedisService } from "#lib/test-utils/effect";
 import {
 	PluginRuntimeResolver,
 	UnsupportedProviderOperationError,
@@ -108,9 +108,9 @@ const makeLayer = (input?: {
 		| "script_unavailable";
 }) =>
 	ProviderEntitySearchService.layer.pipe(
-		Layer.provide(
+		Layer.provideMerge(
 			Layer.mergeAll(
-				dbRunnerLayer,
+				databaseLayer,
 				Layer.mock(PluginRuntimeResolver)({
 					findActiveProviderById: () =>
 						Effect.succeed(input?.provider === undefined ? provider : input.provider),

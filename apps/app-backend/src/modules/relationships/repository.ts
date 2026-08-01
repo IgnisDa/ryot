@@ -9,7 +9,7 @@ import { and, asc, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 type RelationshipSnapshotRow = Pick<
 	typeof schema.relationship.$inferSelect,
@@ -134,6 +134,7 @@ const globalRelationshipLockKey = (input: GlobalRelationshipListInput) =>
 		? `self:${input.relationshipSchemaSlug}`
 		: `anchored:${input.direction}:${input.anchorEntityId}:${input.relationshipSchemaSlug}`;
 
+/** @effect-expect-leaking Database */
 export class RelationshipsRepository extends Context.Service<RelationshipsRepository>()(
 	"RelationshipsRepository",
 	{
@@ -146,8 +147,8 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				targetEntityId: EntityId;
 				relationshipSchemaSlug: RelationshipSchemaSlug;
 			}) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ properties: schema.relationship.properties })
 						.from(schema.relationship)
@@ -161,7 +162,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const createRelationship = Effect.fn("RelationshipsRepository.createRelationship")(function* (
 				input: CreateRelationshipInput,
 			) {
-				const db = yield* CurrentDb;
+				const db = yield* Database;
 				const values = {
 					properties: input.properties,
 					sourceEntityId: input.sourceEntityId,
@@ -170,7 +171,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 					userId: input.scope === "user" ? input.userId : null,
 				};
 
-				const [inserted] = yield* dbEffect(() =>
+				const [inserted] = yield* mapDatabaseErrors(
 					db
 						.insert(schema.relationship)
 						.values(values)
@@ -182,7 +183,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 					return toSavedRelationship(inserted);
 				}
 
-				const [existing] = yield* dbEffect(() =>
+				const [existing] = yield* mapDatabaseErrors(
 					db
 						.select(relationshipSelection)
 						.from(schema.relationship)
@@ -201,8 +202,8 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const updateRelationship = Effect.fn("RelationshipsRepository.updateRelationship")(function* (
 				input: UpdateRelationshipInput,
 			) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.update(schema.relationship)
 						.set({ properties: input.properties })
@@ -216,8 +217,8 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const deleteRelationship = Effect.fn("RelationshipsRepository.deleteRelationship")(function* (
 				input: RelationshipIdentityInput,
 			) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.delete(schema.relationship)
 						.where(relationshipIdentityWhere(input))
@@ -230,8 +231,8 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const deleteUserRelationshipById = Effect.fn(
 				"RelationshipsRepository.deleteUserRelationshipById",
 			)(function* (userId: UserId, relationshipId: RelationshipId) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.delete(schema.relationship)
 						.where(
@@ -248,8 +249,8 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const listUserRelationshipsForEntity = Effect.fn(
 				"RelationshipsRepository.listUserRelationshipsForEntity",
 			)(function* (input: { userId: UserId; entityId: EntityId }) {
-				const db = yield* CurrentDb;
-				const rows = yield* dbEffect(() =>
+				const db = yield* Database;
+				const rows = yield* mapDatabaseErrors(
 					db
 						.select(relationshipSnapshotSelection)
 						.from(schema.relationship)
@@ -275,8 +276,8 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				subjectSide: "source" | "target";
 				relationshipSchemaSlug: RelationshipSchemaSlug;
 			}) {
-				const db = yield* CurrentDb;
-				const rows = yield* dbEffect(() =>
+				const db = yield* Database;
+				const rows = yield* mapDatabaseErrors(
 					db
 						.selectDistinct({ userId: schema.relationship.userId })
 						.from(schema.relationship)
@@ -301,13 +302,13 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 
 			const listGlobalRelationships = Effect.fn("RelationshipsRepository.listGlobalRelationships")(
 				function* (input: GlobalRelationshipListInput) {
-					const db = yield* CurrentDb;
-					yield* dbEffect(() =>
+					const db = yield* Database;
+					yield* mapDatabaseErrors(
 						db.execute(
 							sql`select pg_advisory_xact_lock(hashtext(${globalRelationshipLockKey(input)}))`,
 						),
 					);
-					const rows = yield* dbEffect(() =>
+					const rows = yield* mapDatabaseErrors(
 						db
 							.select(relationshipSnapshotSelection)
 							.from(schema.relationship)

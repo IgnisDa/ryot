@@ -6,7 +6,7 @@ import { Cause, Deferred, Effect, Exit, Fiber, Layer, Option } from "effect";
 import { assert } from "vitest";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { CurrentDb } from "#lib/infrastructure/db/service";
+import { Database } from "#lib/infrastructure/db/service";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 
 import { makePluginLoader, PluginLoader } from "./loader";
@@ -16,13 +16,13 @@ import type { NormalizedPlugin } from "./types";
 
 const providerId = SandboxProviderId.make("provider-id");
 
-type MockQuery = Promise<ReadonlyArray<unknown>> & {
-	limit: () => Promise<ReadonlyArray<unknown>>;
+type MockQuery = Effect.Effect<ReadonlyArray<unknown>> & {
+	limit: () => Effect.Effect<ReadonlyArray<unknown>>;
 };
 
 const limitable = (rows: ReadonlyArray<unknown>): MockQuery => {
-	const promise = Promise.resolve(rows);
-	return Object.assign(promise, { limit: () => promise });
+	const effect = Effect.succeed(rows);
+	return Object.assign(effect, { limit: () => effect });
 };
 
 const normalizedPlugin = (): NormalizedPlugin => {
@@ -332,7 +332,7 @@ const makeLayer = (
 		Layer.provideMerge(
 			Layer.mergeAll(
 				Layer.succeed(PluginLoader, { ...loader }),
-				Layer.succeed(CurrentDb, Object.assign(Object.create(null), db)),
+				Layer.succeed(Database, Object.assign(Object.create(null), db)),
 			),
 		),
 	);
@@ -513,7 +513,6 @@ it.effect(
 		Effect.gen(function* () {
 			const selected = yield* Deferred.make<void>();
 			const release = yield* Deferred.make<void>();
-			const runtime = yield* Effect.context();
 			const loader = makePluginLoader(makeDefinitionRegistry());
 			loader.load(normalizedPlugin());
 			let snapshotReads = 0;
@@ -533,15 +532,15 @@ it.effect(
 							where: () => ({
 								limit: () => {
 									if (table === schema.sandboxProvider) {
-										return Effect.runPromiseWith(runtime)(
-											Deferred.succeed(selected, undefined).pipe(
-												Effect.andThen(Deferred.await(release)),
-											),
-										).then(() => [providerRow]);
+										return Effect.gen(function* () {
+											yield* Deferred.succeed(selected, undefined);
+											yield* Deferred.await(release);
+											return [providerRow];
+										});
 									}
 									return table === schema.sandboxProviderOperation
-										? Promise.resolve([{ script: scriptRow }])
-										: Promise.resolve([scriptRow]);
+										? Effect.succeed([{ script: scriptRow }])
+										: Effect.succeed([scriptRow]);
 								},
 							}),
 						};
@@ -553,7 +552,7 @@ it.effect(
 				Layer.provideMerge(
 					Layer.mergeAll(
 						Layer.succeed(PluginLoader, countedLoader),
-						Layer.succeed(CurrentDb, Object.assign(Object.create(null), db)),
+						Layer.succeed(Database, Object.assign(Object.create(null), db)),
 					),
 				),
 			);

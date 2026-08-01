@@ -4,15 +4,10 @@ import { Conflict } from "@ryot/contract/errors";
 import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, Option, Queue, Ref } from "effect";
 
-import { CurrentDb, TransactionRunner } from "#lib/infrastructure/db/service";
+import { Database } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { assertExitFails } from "#lib/test-utils/assertions";
-import {
-	dbRunnerLayer,
-	makeRedisService,
-	type MockOverrides,
-	transactionLayer,
-} from "#lib/test-utils/effect";
+import { databaseLayer, makeRedisService, type MockOverrides } from "#lib/test-utils/effect";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 import {
 	SandboxWorkflowReferenceRegistrationError,
@@ -168,7 +163,7 @@ const makeLayer = (input?: {
 	readonly repositoryList?: PluginRepository["Service"]["list"];
 	readonly deactivate?: PluginRepository["Service"]["deactivate"];
 	readonly published?: Array<{ channel: string; message: string }>;
-	readonly transactionRunnerLayer?: Layer.Layer<TransactionRunner>;
+	readonly databaseLayer?: Layer.Layer<Database>;
 	readonly lockIngestion?: PluginRepository["Service"]["lockIngestion"];
 	readonly collectGarbage?: ScriptGarbageCollector["Service"]["collect"];
 }) => {
@@ -239,7 +234,7 @@ const makeLayer = (input?: {
 				return input?.hasWorkflowReferences?.() ?? false;
 			}),
 	});
-	const transactionsLayer = input?.transactionRunnerLayer ?? transactionLayer;
+	const testDatabaseLayer = input?.databaseLayer ?? databaseLayer;
 	const garbageCollectorLayer = Layer.mock(ScriptGarbageCollector)({
 		collect: input?.collectGarbage ?? (() => Effect.sync(() => undefined)),
 		recordKernelContentHashes: () => Effect.void,
@@ -263,14 +258,13 @@ const makeLayer = (input?: {
 				loaderLayer,
 				redisLayer,
 				repositoryLayer,
-				dbRunnerLayer,
-				transactionsLayer,
+				testDatabaseLayer,
 				garbageCollectorLayer,
 				workflowReferenceLayer,
 			),
 		),
 	);
-	return Layer.mergeAll(BunFileSystem.layer, loaderLayer, ingestionLayer);
+	return Layer.mergeAll(BunFileSystem.layer, loaderLayer, ingestionLayer, testDatabaseLayer);
 };
 
 it.effect("validates, compiles, content-addresses, persists, loads, and publishes", () => {
@@ -731,17 +725,20 @@ it.effect("periodically rebuilds a peer after lost install and uninstall publica
 		const writer = Context.get(writerContext, PluginIngestionService);
 		const peer = Context.get(peerContext, PluginIngestionService);
 		const peerLoader = Context.get(peerContext, PluginLoader);
-		yield* runPluginRegistryReconciliation(Queue.take(ticks), peer).pipe(Effect.forkScoped);
+		yield* runPluginRegistryReconciliation(Queue.take(ticks), peer).pipe(
+			Effect.provide(peerContext),
+			Effect.forkScoped,
+		);
 
 		const source = yield* loadPluginSource(fixturePackageRoot(), fixtureManifest());
-		yield* writer.ingestPlugin(source);
+		yield* writer.ingestPlugin(source).pipe(Effect.provide(writerContext));
 		expect(peerLoader.getSnapshot().plugins["fixture"]).toBeUndefined();
 
 		yield* Queue.offer(ticks, undefined);
 		yield* Queue.take(rebuilds);
 		expect(peerLoader.getSnapshot().plugins["fixture"]).toBeDefined();
 
-		yield* writer.uninstallPlugin("fixture");
+		yield* writer.uninstallPlugin("fixture").pipe(Effect.provide(writerContext));
 		expect(peerLoader.getSnapshot().plugins["fixture"]).toBeDefined();
 
 		yield* Queue.offer(ticks, undefined);
@@ -839,30 +836,30 @@ it.effect("serializes workflow pin registration with refused and successful unin
 				events.push("registered");
 				return { status: "registered" as const };
 			});
-			const transactionRunnerLayer = Layer.succeed(
-				TransactionRunner,
-				<A, E, R>(effect: Effect.Effect<A, E, R>) =>
-					Effect.provideService(
-						effect.pipe(
-							Effect.ensuring(
-								Effect.suspend(() => {
-									if (!exclusive) {
-										return Effect.void;
-									}
-									exclusive = false;
-									events.push("exclusive-released");
-									return Deferred.succeed(exclusiveReleased, undefined);
-								}),
-							),
-						),
-						CurrentDb,
-						Object.create(null),
-					),
+			const transactionDatabaseLayer = Layer.succeed(
+				Database,
+				Database.of(
+					Object.assign(Object.create(null), {
+						transaction: ((callback) =>
+							callback(Object.create(null)).pipe(
+								Effect.ensuring(
+									Effect.suspend(() => {
+										if (!exclusive) {
+											return Effect.void;
+										}
+										exclusive = false;
+										events.push("exclusive-released");
+										return Deferred.succeed(exclusiveReleased, undefined);
+									}),
+								),
+							)) satisfies Database["Service"]["transaction"],
+					}),
+				),
 			);
 			const layer = makeLayer({
 				events,
 				initialInstalled: [stored],
-				transactionRunnerLayer,
+				databaseLayer: transactionDatabaseLayer,
 				hasWorkflowReferences: () => hasExistingReference,
 				lockIngestion: () =>
 					Effect.gen(function* () {
