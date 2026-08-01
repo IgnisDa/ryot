@@ -52,4 +52,14 @@ describe("createBackInterceptors", () => {
 		expect(interceptors.run()).toBe(false);
 		expect(calls).toBe(0);
 	});
+
+	it("runs kernel overlays before iframe overlays regardless of registration order", () => {
+		const calls: string[] = [];
+		const interceptors = createBackInterceptors();
+		interceptors.register(() => (calls.push("kernel"), true));
+		interceptors.register(() => (calls.push("iframe"), true), { priority: "iframe" });
+
+		expect(interceptors.run()).toBe(true);
+		expect(calls).toEqual(["kernel"]);
+	});
 });

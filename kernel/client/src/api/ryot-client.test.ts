@@ -1,6 +1,11 @@
 import type { PluginThemeSnapshot } from "@ryot-app/client-plugin-contract";
 import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import type { ContractSuccess } from "@ryot-app/contract/client";
+import {
+	CollectionBadRequest,
+	CollectionResponse,
+	MembershipResponse,
+} from "@ryot-app/contract/modules/collections/schemas";
 import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/modules/ryotql/contract";
 import {
 	UploadBadRequest,
@@ -8,12 +13,17 @@ import {
 	type UploadIntentResponse,
 } from "@ryot-app/contract/modules/uploads/schemas";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
-import { Effect, Layer, ManagedRuntime, Result } from "effect";
+import { Effect, Layer, ManagedRuntime, Result, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
-import { makeEntityInterestService, makeRyotQLApi, makeUploadsApi } from "#/api/ports.test-layer";
+import {
+	makeCollectionsApi,
+	makeEntityInterestService,
+	makeRyotQLApi,
+	makeUploadsApi,
+} from "#/api/ports.test-layer";
 import { createKernelRyotClient, createKernelRyotClientStore } from "#/api/ryot-client";
 import type { ThemeStore } from "#/modules/theme/store";
 
@@ -34,6 +44,7 @@ const fails = (cause: unknown) => Effect.fail(new AuthenticatedApiError({ cause 
 const makeRuntime = (cause: unknown) =>
 	ManagedRuntime.make(
 		Layer.mergeAll(
+			makeCollectionsApi(),
 			makeEntityInterestService(),
 			makeUploadsApi(),
 			makeRyotQLApi({ execute: () => fails(cause) }),
@@ -61,6 +72,26 @@ const intent: UploadIntentResponse = {
 };
 
 const uploadToken = { token: "temporary-1", expiresAt: "2026-01-01T00:00:00.000Z" };
+const collection = Schema.decodeUnknownSync(CollectionResponse)({
+	properties: {},
+	providerId: null,
+	externalId: null,
+	name: "Favorites",
+	id: "collection-1",
+	entitySchemaSlug: "collection",
+	createdAt: "2026-09-07T00:00:00.000Z",
+	updatedAt: "2026-09-07T00:00:00.000Z",
+});
+const membership = Schema.decodeUnknownSync(MembershipResponse)({
+	memberOf: {
+		properties: {},
+		id: "relationship-1",
+		sourceEntityId: "entity-1",
+		targetEntityId: "collection-1",
+		relationshipSchemaSlug: "member-of",
+		createdAt: "2026-09-07T00:00:00.000Z",
+	},
+});
 
 const makeUploadsRuntime = (
 	events: string[],
@@ -71,6 +102,7 @@ const makeUploadsRuntime = (
 ) =>
 	ManagedRuntime.make(
 		Layer.mergeAll(
+			makeCollectionsApi(),
 			makeEntityInterestService(),
 			makeRyotQLApi(),
 			makeUploadsApi({
@@ -123,6 +155,93 @@ const source = new Blob(["id,title"], { type: "text/csv" });
 const uploadRequest = { source, fileName: "items.csv", contentType: "text/csv" };
 
 describe("kernel Ryot client", () => {
+	it("routes semantic collection mutations through the scoped collections port", async () => {
+		const calls: unknown[] = [];
+		const runtime = ManagedRuntime.make(
+			Layer.mergeAll(
+				makeEntityInterestService(),
+				makeRyotQLApi(),
+				makeUploadsApi(),
+				makeCollectionsApi({
+					create: (receivedScope, request) => {
+						calls.push({ method: "create", request, scope: receivedScope });
+						return Effect.succeed(collection);
+					},
+					createMembership: (receivedScope, request) => {
+						calls.push({ method: "createMembership", request, scope: receivedScope });
+						return Effect.succeed(membership);
+					},
+					deleteMembership: (receivedScope, request) => {
+						calls.push({ method: "deleteMembership", request, scope: receivedScope });
+						return Effect.succeed(membership);
+					},
+				}),
+			),
+		);
+		try {
+			const client = createKernelRyotClient(runtime, scope, theme);
+			await expect(client.collections.create({ name: "Favorites" })).resolves.toEqual(collection);
+			await expect(
+				client.collections.upsertMembership({
+					entityId: "entity-1",
+					collectionId: "collection-1",
+				}),
+			).resolves.toEqual(membership);
+			await expect(
+				client.collections.removeMembership({
+					entityId: "entity-1",
+					collectionId: "collection-1",
+				}),
+			).resolves.toEqual(membership);
+			expect(calls).toEqual([
+				{ method: "create", request: { payload: { name: "Favorites" } }, scope },
+				{
+					scope,
+					method: "createMembership",
+					request: { payload: { entityId: "entity-1", collectionId: "collection-1" } },
+				},
+				{
+					scope,
+					method: "deleteMembership",
+					request: { payload: { entityId: "entity-1", collectionId: "collection-1" } },
+				},
+			]);
+		} finally {
+			await runtime.dispose();
+		}
+	});
+
+	it("sanitizes declared and unexpected collection failures", async () => {
+		await Promise.all(
+			(
+				[
+					[
+						new CollectionBadRequest({ reason: { code: "name-required", field: "name" } }),
+						"collection-failed",
+					],
+					[new TypeError("private network detail"), "transport"],
+				] as const
+			).map(async ([failure, reason]) => {
+				const runtime = ManagedRuntime.make(
+					Layer.mergeAll(
+						makeEntityInterestService(),
+						makeRyotQLApi(),
+						makeUploadsApi(),
+						makeCollectionsApi({ create: () => fails(failure) }),
+					),
+				);
+				try {
+					const client = createKernelRyotClient(runtime, scope, theme);
+					await expect(client.collections.create({ name: "Favorites" })).rejects.toMatchObject({
+						reason,
+					});
+				} finally {
+					await runtime.dispose();
+				}
+			}),
+		);
+	});
+
 	it("reuses one client for equivalent API scopes and separates users", async () => {
 		const runtime = makeRuntime(new Error("not used"));
 		try {
@@ -139,6 +258,7 @@ describe("kernel Ryot client", () => {
 		const calls: unknown[] = [];
 		const runtime = ManagedRuntime.make(
 			Layer.mergeAll(
+				makeCollectionsApi(),
 				makeRyotQLApi(),
 				makeUploadsApi(),
 				makeEntityInterestService({
@@ -227,6 +347,7 @@ describe("kernel Ryot client", () => {
 	it("interrupts a query with the caller signal and preserves its abort reason", async () => {
 		const runtime = ManagedRuntime.make(
 			Layer.mergeAll(
+				makeCollectionsApi(),
 				makeEntityInterestService(),
 				makeUploadsApi(),
 				makeRyotQLApi({ execute: () => Effect.never }),
@@ -250,6 +371,7 @@ describe("kernel Ryot client", () => {
 		const calls: Array<{ readonly scope: typeof scope; readonly request: unknown }> = [];
 		const runtime = ManagedRuntime.make(
 			Layer.mergeAll(
+				makeCollectionsApi(),
 				makeEntityInterestService(),
 				makeRyotQLApi(),
 				makeUploadsApi({
@@ -281,6 +403,7 @@ describe("kernel Ryot client", () => {
 	it("passes the caller signal to authenticated asset resolution", async () => {
 		const runtime = ManagedRuntime.make(
 			Layer.mergeAll(
+				makeCollectionsApi(),
 				makeEntityInterestService(),
 				makeUploadsApi({ resolveDownloads: () => Effect.never }),
 				makeRyotQLApi(),
@@ -311,6 +434,7 @@ describe("kernel Ryot client", () => {
 		it(`classifies ${failure._tag} as asset-failed`, async () => {
 			const runtime = ManagedRuntime.make(
 				Layer.mergeAll(
+					makeCollectionsApi(),
 					makeEntityInterestService(),
 					makeRyotQLApi(),
 					makeUploadsApi({ resolveDownloads: () => fails(failure) }),
@@ -330,6 +454,7 @@ describe("kernel Ryot client", () => {
 	it("classifies an unexpected asset failure as transport", async () => {
 		const runtime = ManagedRuntime.make(
 			Layer.mergeAll(
+				makeCollectionsApi(),
 				makeRyotQLApi(),
 				makeEntityInterestService(),
 				makeUploadsApi({ resolveDownloads: () => fails(new TypeError("private network detail")) }),

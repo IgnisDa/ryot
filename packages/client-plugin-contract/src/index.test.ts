@@ -19,10 +19,14 @@ import {
 	PluginBridgeInit,
 	PluginBridgeReady,
 	PluginBridgeClientMessage,
+	PluginBridgeCollectionResult,
+	type PluginBridgeDismissOverlay,
+	type PluginBridgeDismissOverlayResult,
 	PluginBridgeHostMessage,
 	PluginManagedAssetResolution,
 	PluginBridgeOperationResult,
 	PluginBridgePageRefresh,
+	type PluginBridgeOverlayState,
 	PluginBridgePageSearch,
 	PluginBridgeProviderSearchScreen,
 	PluginBridgeUploadResult,
@@ -136,14 +140,37 @@ describe("plugin client bridge contract", () => {
 		expect(Result.isFailure(client({ ...interest, foreground: [123] }))).toBe(true);
 		expect(
 			Result.isFailure(
-				Schema.decodeUnknownResult(PluginBridgeReady)({ ...identity, bridgeVersion: 4 }),
+				Schema.decodeUnknownResult(PluginBridgeReady)({ ...identity, bridgeVersion: 6 }),
 			),
 		).toBe(true);
 	});
 
 	it("pins the protocol and compiler versions it stamps into an artifact", () => {
-		expect(CLIENT_BRIDGE_PROTOCOL_VERSION).toBe(3);
-		expect(CLIENT_COMPILER_VERSION).toBe(4);
+		expect(CLIENT_BRIDGE_PROTOCOL_VERSION).toBe(1);
+		expect(CLIENT_COMPILER_VERSION).toBe(1);
+	});
+
+	it("admits strict overlay state, dismissal, and acknowledgement messages in one direction", () => {
+		const client = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+		const host = Schema.decodeUnknownResult(PluginBridgeHostMessage);
+		const state = { count: 2, type: "overlay-state" } satisfies PluginBridgeOverlayState;
+		const request = {
+			requestId: "overlay-1",
+			type: "dismiss-overlay",
+		} satisfies PluginBridgeDismissOverlay;
+		const result = {
+			dismissed: true,
+			requestId: "overlay-1",
+			type: "dismiss-overlay-result",
+		} satisfies PluginBridgeDismissOverlayResult;
+
+		expect(Result.isSuccess(client(state))).toBe(true);
+		expect(Result.isSuccess(client(result))).toBe(true);
+		expect(Result.isSuccess(host(request))).toBe(true);
+		expect(Result.isFailure(host(state))).toBe(true);
+		expect(Result.isFailure(client(request))).toBe(true);
+		expect(Result.isFailure(client({ ...state, count: -1 }))).toBe(true);
+		expect(Result.isFailure(client({ ...result, extra: true }))).toBe(true);
 	});
 
 	it("defines and admits semantic kernel shortcuts only from the plugin", () => {
@@ -515,6 +542,52 @@ describe("plugin client bridge contract", () => {
 		).toBe(true);
 	});
 
+	it("decodes strict collection mutations and typed results", () => {
+		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+		const decodeResult = Schema.decodeUnknownResult(PluginBridgeCollectionResult);
+		const request = {
+			requestId: "collection-1",
+			type: "collection-request" as const,
+			action: "upsert-membership" as const,
+			input: { entityId: "entity-1", collectionId: "collection-1", properties: { rank: 1 } },
+		};
+
+		expect(Result.isSuccess(decodeClient(request))).toBe(true);
+		expect(Result.isFailure(decodeClient({ ...request, userId: "user-controlled" }))).toBe(true);
+		expect(
+			Result.isFailure(decodeClient({ ...request, input: { collectionId: "collection-1" } })),
+		).toBe(true);
+		expect(
+			Result.isSuccess(
+				decodeResult({
+					outcome: "success",
+					type: "collection-result",
+					requestId: "collection-1",
+					response: {
+						memberOf: {
+							properties: {},
+							id: "relationship-1",
+							sourceEntityId: "entity-1",
+							targetEntityId: "collection-1",
+							relationshipSchemaSlug: "member-of",
+							createdAt: "2026-09-07T00:00:00.000Z",
+						},
+					},
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				decodeResult({
+					outcome: "success",
+					type: "collection-result",
+					requestId: "collection-1",
+					response: { memberOf: { id: "relationship-1" } },
+				}),
+			),
+		).toBe(true);
+	});
+
 	it("decodes only the strict RyotQL cancellation message", () => {
 		const decode = Schema.decodeUnknownResult(PluginBridgeRyotQLCancel);
 
@@ -681,6 +754,7 @@ describe("plugin client bridge contract", () => {
 			"transport",
 			"invalid-input",
 			"asset-failed",
+			"collection-failed",
 			"query-failed",
 			"operation-failed",
 			"malformed-result",

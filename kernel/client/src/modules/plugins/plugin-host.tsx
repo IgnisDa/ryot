@@ -3,6 +3,8 @@ import type {
 	KernelShortcut,
 	PluginAssetOutcome,
 	PluginAssetRequest,
+	PluginCollectionOutcome,
+	PluginCollectionRequest,
 	PluginUploadOutcome,
 	PluginUploadRequest,
 	PluginOperationOutcome,
@@ -12,11 +14,13 @@ import type {
 	PluginRyotQLOutcome,
 	PluginRyotQLRequest,
 } from "@ryot-app/client-plugin-contract";
+import type { RyotClient } from "@ryot-app/client-sdk";
 import { Button, ScreenFrame } from "@ryot-app/client-ui-sdk";
 import clsx from "clsx";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 
 import type { WatchEntities } from "#/modules/entity-interest/service";
+import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
 import { mainContentProps } from "#/modules/navigation/skip-link";
 import {
 	openPluginBridge,
@@ -94,14 +98,16 @@ export function PluginFrame(props: {
 	readonly page?: ClientPageContext;
 	readonly chromeLeading: ReactNode;
 	readonly onOpenDrawer: () => void;
-	readonly pageRefreshToken?: number;
 	readonly onStaleSession: () => void;
 	readonly onNavigateBack: () => void;
 	readonly watchEntities: WatchEntities;
 	readonly artifactSessionScopeKey: string;
+	readonly backInterceptors: BackInterceptors;
 	readonly viewport: PluginBridgeViewportInsets;
 	readonly navigation: PluginBridgeNavigationState;
+	readonly onOverlayState: (count: number) => void;
 	readonly chromeTriggerRef: RefObject<HTMLElement | null>;
+	readonly mutationCompleted: RyotClient["mutationCompleted"];
 	readonly onRenewArtifactSession: RenewPluginArtifactSession;
 	readonly onHeader: (header: PluginHeaderPublication) => void;
 	readonly onKernelShortcut: (shortcut: KernelShortcut) => void;
@@ -119,6 +125,10 @@ export function PluginFrame(props: {
 		request: PluginUploadRequest,
 		signal: AbortSignal,
 	) => Promise<PluginUploadOutcome>;
+	readonly onCollection: (
+		request: PluginCollectionRequest,
+		signal: AbortSignal,
+	) => Promise<PluginCollectionOutcome>;
 	readonly onQuery: (
 		request: PluginRyotQLRequest,
 		signal: AbortSignal,
@@ -137,6 +147,7 @@ export function PluginFrame(props: {
 	const frame = useRef<HTMLIFrameElement>(null);
 	const backSettle = useRef<number>(undefined);
 	const bridge = useRef<PluginBridgeSession>(undefined);
+	const [overlayCount, setOverlayCount] = useState(0);
 	const [frameStatus, setFrameStatus] = useState<"ready" | "loading" | "handshake-failure">(
 		"loading",
 	);
@@ -151,6 +162,8 @@ export function PluginFrame(props: {
 		bridge.current?.close();
 		bridge.current = undefined;
 		latest.current.onScreenState(null);
+		setOverlayCount(0);
+		latest.current.onOverlayState(0);
 	};
 	const reloadArtifact = () => {
 		closeBridge();
@@ -324,16 +337,22 @@ export function PluginFrame(props: {
 	);
 
 	useEffect(() => {
+		if (overlayCount === 0) {
+			return undefined;
+		}
+		return props.backInterceptors.register(() => bridge.current?.requestOverlayDismiss() ?? false, {
+			priority: "iframe",
+		});
+	}, [overlayCount, props.backInterceptors]);
+
+	useEffect(() => {
 		bridge.current?.sendViewport(props.viewport);
 	}, [props.viewport]);
 
-	const initialPageRefreshToken = useRef(props.pageRefreshToken);
-	useEffect(() => {
-		if (props.pageRefreshToken !== initialPageRefreshToken.current) {
-			initialPageRefreshToken.current = props.pageRefreshToken;
-			bridge.current?.sendPageRefresh();
-		}
-	}, [props.pageRefreshToken]);
+	useEffect(
+		() => props.mutationCompleted.subscribe(() => bridge.current?.sendPageRefresh()),
+		[props.mutationCompleted],
+	);
 
 	function connect() {
 		if (artifact.status !== "active") {
@@ -362,10 +381,17 @@ export function PluginFrame(props: {
 			onAssets: (request, signal) => latest.current.onAssets(request, signal),
 			onUpload: (request, signal) => latest.current.onUpload(request, signal),
 			onKernelShortcut: (shortcut) => latest.current.onKernelShortcut(shortcut),
+			onCollection: (request, signal) => latest.current.onCollection(request, signal),
 			watchEntities: (interest, onUpdate) => latest.current.watchEntities(interest, onUpdate),
 			onScreenState: (state) => {
 				if (bridge.current === connection.session) {
 					latest.current.onScreenState(state);
+				}
+			},
+			onOverlayState: (count) => {
+				if (bridge.current === connection.session) {
+					setOverlayCount(count);
+					latest.current.onOverlayState(count);
 				}
 			},
 			onFailure: () => {
