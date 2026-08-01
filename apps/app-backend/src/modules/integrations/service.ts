@@ -5,17 +5,15 @@ import {
 	type IntegrationExtraSettings,
 	type IntegrationProvider,
 	type IntegrationProviderSettings,
-	type IntegrationWebhookPayload,
 	type UpdateIntegrationBody,
 	IntegrationNotFoundError,
 	IntegrationRequestError,
-	IntegrationWebhookPayload as IntegrationWebhookPayloadSchema,
 	type IntegrationRequestFailureReason,
 } from "@ryot/contract/modules/integrations/schemas";
 import type { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { generateId } from "better-auth";
-import { Context, Effect, Result, Layer, Schema } from "effect";
+import { Context, Effect, Result, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
@@ -87,10 +85,6 @@ export const integrationCommonSchema = (lot: RegisteredIntegrationProvider["lot"
 			: {}),
 	},
 });
-
-const encodeIntegrationWebhookPayload = Schema.encodeUnknownEffect(
-	Schema.fromJsonString(IntegrationWebhookPayloadSchema),
-);
 
 const validateRegisteredSettings = (
 	provider: IntegrationProvider,
@@ -352,10 +346,11 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			});
 
 			const handleWebhook = Effect.fn("IntegrationsService.handleWebhook")(function* (input: {
-				payload: IntegrationWebhookPayload;
+				rawBody: string;
+				contentType: string;
 				integrationId: IntegrationId;
 			}) {
-				const { integrationId, payload } = input;
+				const { integrationId } = input;
 				const integration = yield* repository.getByIdAnyUser({ integrationId });
 				if (!integration) {
 					return yield* new IntegrationNotFoundError({
@@ -410,18 +405,15 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					return { runId: run.id };
 				}
 
-				const rawBody = yield* encodeIntegrationWebhookPayload(payload).pipe(Effect.orDie);
-
 				const started = yield* engine
 					.execute(ProcessIntegrationRunWorkflow, {
 						discard: true,
 						executionId: run.id,
 						payload: {
-							rawBody,
 							runId: run.id,
 							userId: integration.userId,
 							integrationId: integration.id,
-							contentType: "application/json",
+							webhook: { rawBody: input.rawBody, contentType: input.contentType },
 						},
 					})
 					.pipe(Effect.result);

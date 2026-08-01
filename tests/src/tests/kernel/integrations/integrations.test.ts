@@ -298,7 +298,7 @@ describe("Webhook routes", () => {
 			const error = yield* Effect.flip(
 				client.call((c) =>
 					c.integrations.webhook({
-						payload: {},
+						payload: "{}",
 						params: { integrationId: IntegrationId.make("nonexistent-id-abc123") },
 					}),
 				),
@@ -381,7 +381,7 @@ describe("Webhook routes", () => {
 			const error = yield* Effect.flip(
 				client.call((c) =>
 					c.integrations.webhook({
-						payload: {},
+						payload: "{}",
 						params: { integrationId: IntegrationId.make(id) },
 					}),
 				),

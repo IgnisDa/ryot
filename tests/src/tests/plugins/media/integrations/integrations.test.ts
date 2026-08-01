@@ -6,13 +6,25 @@ import {
 	createKodiIntegration,
 	listEventSlugs,
 	listEventsForEntity,
+	pollImportRunUntilTerminal,
 	postIntegrationWebhookAndWait,
 	seedGlobalShowEpisodeTree,
 	waitForEventSlugs,
 	waitForEventWithSchema,
 } from "~/fixtures";
-import { requirePresent } from "~/support/assertions";
+import { requireObjectRecord, requirePresent, requireString } from "~/support/assertions";
+import { getBackendUrl } from "~/support/backend";
 import { describe, expect, it } from "~/support/effect-test";
+
+const plexMultipartBody = (boundary: string, payload: unknown) =>
+	[
+		`--${boundary}`,
+		'Content-Disposition: form-data; name="payload"',
+		"",
+		JSON.stringify(payload),
+		`--${boundary}--`,
+		"",
+	].join("\r\n");
 
 describe("Webhook routes", () => {
 	it.live(
@@ -42,6 +54,52 @@ describe("Webhook routes", () => {
 				expect(showEvents).not.toContain("progress");
 				expect(episodeEvents).toContain("progress");
 			}),
+	);
+
+	it.live("POST /_i/{validPlexIntegrationId} parses the multipart body Plex actually sends", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { id } = yield* createIntegration(client, {
+				provider: "plex_sink",
+				providerSpecifics: { kind: "plex_sink" },
+			});
+
+			const { tmdbId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {
+				showName: "Plex Multipart Sink Show",
+			});
+
+			const boundary = "----RyotPlexBoundary";
+			const response = yield* Effect.promise(() =>
+				fetch(`${getBackendUrl().replace(/\/api$/, "")}/_i/${id}`, {
+					method: "POST",
+					headers: { "Content-Type": `multipart/form-data; boundary=${boundary}` },
+					body: plexMultipartBody(boundary, {
+						event: "media.scrobble",
+						Metadata: {
+							index: 2,
+							type: "episode",
+							parentIndex: 1,
+							Guid: [{ id: `tmdb://${tmdbId}` }],
+							grandparentTitle: "Plex Multipart Sink Show",
+						},
+					}),
+				}),
+			);
+
+			expect(response.status).toBe(202);
+			const data = requireObjectRecord(
+				yield* Effect.promise(() => response.json()),
+				"Expected webhook response",
+			);
+			const run = yield* pollImportRunUntilTerminal(
+				client,
+				requireString(data.runId, "Expected runId from webhook"),
+			);
+
+			expect(run).toMatchObject({ status: "completed", failureReason: null });
+			expect(run.failedItems).toBe(0);
+			expect(yield* waitForEventSlugs(client, episodeId, "progress")).toContain("progress");
+		}),
 	);
 });
 

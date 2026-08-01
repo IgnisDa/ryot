@@ -585,7 +585,11 @@ describe("installation availability", () => {
 		return Effect.gen(function* () {
 			const service = yield* IntegrationsService;
 			const error = yield* Effect.flip(
-				service.handleWebhook({ payload: {}, integrationId: integration.id }),
+				service.handleWebhook({
+					rawBody: "{}",
+					integrationId: integration.id,
+					contentType: "application/json",
+				}),
 			);
 			expect(error).toMatchObject({
 				_tag: "IntegrationNotFoundError",
@@ -755,14 +759,74 @@ describe("handleWebhook", () => {
 
 		return Effect.gen(function* () {
 			const service = yield* IntegrationsService;
-			expect(yield* service.handleWebhook({ payload: {}, integrationId: integration.id })).toEqual({
-				runId: makeRun("completed").id,
-			});
+			expect(
+				yield* service.handleWebhook({
+					rawBody: "{}",
+					integrationId: integration.id,
+					contentType: "application/json",
+				}),
+			).toEqual({ runId: makeRun("completed").id });
 			expect(captured).toMatchObject({
 				source: "kodi",
 				integrationLot: "sink",
 				integrationId: integration.id,
 			});
+		}).pipe(Effect.provide(layer));
+	});
+
+	it.effect("forwards the untouched request transport to the run workflow", () => {
+		const integration = makeIntegration({
+			lot: "sink",
+			pluginSlug: "media",
+			provider: "plex_sink",
+			pluginInstallationId: "media-installation-id",
+		});
+		const registeredSink: RegisteredIntegrationProvider = {
+			...systemPlugin("media"),
+			lot: "sink",
+			name: "Plex sink",
+			slug: "plex_sink",
+			requiresProKey: false,
+			description: "Plex sink",
+			scriptSlug: "plex-webhook",
+			settingsSchema: { fields: {} },
+		};
+		const rawBody =
+			'--abc\r\nContent-Disposition: form-data; name="payload"\r\n\r\n{"event":"media.scrobble"}\r\n--abc--';
+		const contentType = "multipart/form-data; boundary=abc";
+		let captured: Parameters<WorkflowEngine["Service"]["execute"]>[1] | undefined;
+		const layer = integrationsServiceLayer.pipe(
+			Layer.provideMerge(
+				Layer.mergeAll(
+					databaseLayer,
+					mockProKey(true),
+					Layer.mock(IntegrationsRepository)({
+						getByIdAnyUser: () => Effect.succeed(integration),
+						getUserDisableIntegrations: () => Effect.succeed(false),
+					}),
+					Layer.mock(IntegrationProviderCatalog)({
+						findOwnedForUser: () => Effect.succeed(registeredSink),
+					}),
+					Layer.mock(ImportsService)({
+						createRunForIntegration: () => Effect.succeed(makeRun("completed")),
+					}),
+					Layer.succeed(
+						WorkflowEngine,
+						makeWorkflowEngine({
+							execute: (_workflow, options) => {
+								captured = options;
+								return Effect.succeed(options.executionId);
+							},
+						}),
+					),
+				),
+			),
+		);
+
+		return Effect.gen(function* () {
+			const service = yield* IntegrationsService;
+			yield* service.handleWebhook({ rawBody, contentType, integrationId: integration.id });
+			expect(captured?.payload).toMatchObject({ webhook: { rawBody, contentType } });
 		}).pipe(Effect.provide(layer));
 	});
 });
