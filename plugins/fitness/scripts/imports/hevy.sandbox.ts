@@ -1,5 +1,4 @@
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { genericImportAdapterManifestSchema } from "@ryot/sandbox-sdk/imports";
 
@@ -8,15 +7,15 @@ import { readImportArtifactText, writeImportChunks } from "./shared";
 import { toWorkoutWriteItem } from "./workout";
 
 export const manifest = defineManifest({
-	kind: "activity",
+	kind: "script",
+	slug: "import.hevy",
 	name: "Parse Hevy import",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: ["timezone"],
-	slug: "activity.import.hevy",
 	capabilities: ["artifact-read", "scratch", "getSystemConfig"],
 });
 
-export default defineActivity({
+export default defineScript({
 	manifest,
 	input: Schema.Struct({}),
 	output: genericImportAdapterManifestSchema,

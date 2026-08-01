@@ -15,5 +15,5 @@ export const manifest = defineManifest({
 export default defineProvider({
 	manifest,
 	operation: "search",
-	run: (input, host) => searchExercises(input, host),
+	run: (input, host, execution) => searchExercises(input, host, execution),
 });

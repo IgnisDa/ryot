@@ -21,7 +21,11 @@ const exercise = {
 	instructions: ["Push the bar up."],
 };
 
-const execution = { metadata: {}, sandboxScriptId: "preload-script" };
+const execution = {
+	metadata: {},
+	sandboxScriptId: "preload-script",
+	startedAt: "2026-08-06T00:00:00.000Z",
+};
 
 const makeHost = (
 	dataset: readonly object[],
@@ -98,7 +102,7 @@ describe("fitness exercise preload boot", () => {
 			}),
 		]);
 		expect(calls[0]?.options).toEqual({ maximumTotal: 1 });
-		expect(calls[0]?.items[0]?.populatedAt).toEqual(expect.any(String));
+		expect(calls[0]?.items[0]?.populatedAt).toBe(execution.startedAt);
 	});
 
 	it("does not preload exercises when configured to zero", async () => {
