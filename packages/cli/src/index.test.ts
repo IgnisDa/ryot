@@ -10,7 +10,7 @@ const createPlugin = Effect.fn("createPlugin")(function* () {
 	const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-cli-" });
 	const plugin = path.join(root, "plugin");
 	const fixture = yield* path.fromFileUrl(
-		new URL("../tests/fixtures/valid-plugin/", import.meta.url),
+		new URL("../tests/fixtures/build-plugin/", import.meta.url),
 	);
 	yield* fs.copy(fixture, plugin);
 	return plugin;
@@ -59,7 +59,7 @@ const waitFor = Effect.fn("waitFor")(function* (
 
 it.layer(BunServices.layer)("ryot plugin build", (test) => {
 	test.effect(
-		"builds only a deterministic slug archive with canonical manifest data and filtered backend files",
+		"builds a deterministic slug archive with canonical manifest data and filtered sources",
 		() =>
 			Effect.gen(function* () {
 				const path = yield* Path.Path;
@@ -81,9 +81,15 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 				expect(pluginPackage.files["backend/main.ts"]).toContain('"initial"');
 				expect(pluginPackage.files["backend/nested/worker.ts"]).toContain("worker");
 				expect(pluginPackage.files["backend/ignored.test.ts"]).toBeUndefined();
-				expect(Object.keys(pluginPackage.files).some((file) => file.startsWith("client/"))).toBe(
-					false,
-				);
+				expect(Object.keys(pluginPackage.files)).toEqual([
+					"backend/main.ts",
+					"backend/nested/worker.ts",
+					"client/home.tsx",
+					"client/index.tsx",
+					"client/logo.svg",
+					"client/styles.css",
+				]);
+				expect(pluginPackage.files["client/ignored.test.tsx"]).toBeUndefined();
 			}),
 	);
 
@@ -136,6 +142,28 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 			yield* fs.writeFileString(
 				manifestPath,
 				manifest.replace("backend/main.ts", "backend/missing.ts"),
+			);
+
+			const result = yield* run(plugin, ["plugin", "build"]);
+
+			expect(result.exitCode).not.toBe(0);
+			expect(yield* fs.readFileString(output)).toBe("keep");
+		}),
+	);
+
+	test.effect("does not mutate an existing output when a client entry is missing", () =>
+		Effect.gen(function* () {
+			const path = yield* Path.Path;
+			const fs = yield* FileSystem.FileSystem;
+			const plugin = yield* createPlugin();
+			const output = path.join(plugin, "dist", "cli-test.zip");
+			yield* fs.makeDirectory(path.dirname(output), { recursive: true });
+			yield* fs.writeFileString(output, "keep");
+			const manifestPath = path.join(plugin, "manifest.ts");
+			const manifest = yield* fs.readFileString(manifestPath);
+			yield* fs.writeFileString(
+				manifestPath,
+				manifest.replace("client/index.tsx", "client/missing.tsx"),
 			);
 
 			const result = yield* run(plugin, ["plugin", "build"]);
