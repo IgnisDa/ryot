@@ -5,10 +5,7 @@ import { Cause, DateTime, Effect, Schema } from "effect";
 import { Activity } from "effect/unstable/workflow";
 
 import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
-import {
-	markImportRunStarted,
-	sanitizeErrorMessage,
-} from "#modules/imports/runtime/import-run-status";
+import { markImportRunStarted } from "#modules/imports/runtime/import-run-status";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 import { SignalEmissionService } from "#modules/signals/service";
@@ -93,10 +90,13 @@ const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (
 		Effect.catchCause((cause) =>
 			Cause.hasInterruptsOnly(cause)
 				? Effect.failCause(cause)
-				: failRun(
-						"fail-integration-run-unexpected",
-						payload.runId,
-						sanitizeErrorMessage(Cause.squash(cause), "Integration job failed unexpectedly"),
+				: Effect.logError("integration import failed", cause).pipe(
+						Effect.andThen(
+							failRun("fail-integration-run-unexpected", payload.runId, {
+								code: "unexpected-failure",
+								operation: "integration-import",
+							}),
+						),
 					),
 		),
 	);
@@ -149,7 +149,9 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 		});
 
 		if (!integration) {
-			yield* failRun("fail-run-integration-not-found", payload.runId, "Integration not found");
+			yield* failRun("fail-run-integration-not-found", payload.runId, {
+				code: "integration-not-found",
+			});
 			return;
 		}
 

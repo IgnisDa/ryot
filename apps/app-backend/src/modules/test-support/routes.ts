@@ -1,10 +1,51 @@
 import { AppContract } from "@ryot/contract/contract";
-import { dieOnDbError } from "@ryot/contract/errors";
-import { Effect } from "effect";
+import { unknownToMessage } from "@ryot/contract/errors";
+import {
+	TestSupportBadRequest,
+	TestSupportConflict,
+	TestSupportNotFound,
+	TestSupportOperationFailure,
+} from "@ryot/contract/modules/test-support/schemas";
+import { Effect, Match } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 
 import { OperationalGateService } from "./operational-gate-service";
 import { TestSupportService } from "./service";
+
+const mapTestSupportFailure = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+	effect.pipe(
+		Effect.mapError((error) => {
+			if (
+				error instanceof TestSupportBadRequest ||
+				error instanceof TestSupportNotFound ||
+				error instanceof TestSupportConflict ||
+				error instanceof TestSupportOperationFailure
+			) {
+				return error;
+			}
+			const diagnostic = unknownToMessage(error);
+			return Match.value(error).pipe(
+				Match.when(
+					(value: unknown) => Reflect.get(Object(value), "_tag") === "BadRequest",
+					() => new TestSupportBadRequest({ reason: { code: "invalid-request", diagnostic } }),
+				),
+				Match.when(
+					(value: unknown) => Reflect.get(Object(value), "_tag") === "NotFound",
+					() => new TestSupportNotFound({ reason: { code: "resource-not-found", diagnostic } }),
+				),
+				Match.when(
+					(value: unknown) => Reflect.get(Object(value), "_tag") === "Conflict",
+					() => new TestSupportConflict({ reason: { code: "resource-conflict", diagnostic } }),
+				),
+				Match.orElse(
+					() =>
+						new TestSupportOperationFailure({
+							reason: { code: "operation-failed", diagnostic },
+						}),
+				),
+			);
+		}),
+	);
 
 export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupport", (handlers) =>
 	handlers
@@ -12,61 +53,61 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc.getSandboxScript(params.scriptId);
-			}).pipe(dieOnDbError),
+			}).pipe(mapTestSupportFailure),
 		)
 		.handle("listSandboxScripts", () =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc.listSandboxScripts();
-			}).pipe(dieOnDbError),
+			}).pipe(mapTestSupportFailure),
 		)
 		.handle("enqueueSandbox", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc.enqueueSandbox(payload);
-			}).pipe(dieOnDbError),
+			}).pipe(mapTestSupportFailure),
 		)
 		.handle("getSandboxResult", ({ params, query }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc.getSandboxResult(query.executingUserId, params.jobId);
-			}).pipe(dieOnDbError),
+			}).pipe(mapTestSupportFailure),
 		)
 		.handle("deleteSandboxReplayProjection", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc.deleteSandboxReplayProjection(payload.executionId);
-			}).pipe(dieOnDbError),
+			}).pipe(mapTestSupportFailure),
 		)
 		.handle("startWorkflowLoadGate", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* OperationalGateService;
 				return yield* svc.startWorkflowLoad(payload);
-			}).pipe(dieOnDbError),
+			}).pipe(mapTestSupportFailure),
 		)
 		.handle("getWorkflowLoadGateResult", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* OperationalGateService;
 				return yield* svc.getWorkflowLoadResult(payload);
-			}).pipe(dieOnDbError),
+			}).pipe(mapTestSupportFailure),
 		)
 		.handle("sampleOperationalPressure", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* OperationalGateService;
 				return yield* svc.samplePressure(payload.executionIds);
-			}).pipe(dieOnDbError),
+			}).pipe(mapTestSupportFailure),
 		)
 		.handle("sampleSandboxRuntime", () =>
 			Effect.gen(function* () {
 				const svc = yield* OperationalGateService;
 				return yield* svc.sampleSandboxRuntime();
-			}).pipe(dieOnDbError),
+			}).pipe(mapTestSupportFailure),
 		)
 		.handle("createGlobalEntity", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc.createGlobalEntity(payload);
-			}).pipe(dieOnDbError),
+			}).pipe(mapTestSupportFailure),
 		)
 		.handle("deleteGlobalEntities", ({ payload }) =>
 			Effect.gen(function* () {
@@ -78,84 +119,84 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				return {
 					deleted: yield* svc.deleteGlobalEntities([first, ...rest]),
 				};
-			}).pipe(dieOnDbError),
+			}).pipe(mapTestSupportFailure),
 		)
 		.handle("upsertGlobalRelationship", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc.upsertGlobalRelationship(payload);
-			}).pipe(dieOnDbError),
+			}).pipe(mapTestSupportFailure),
 		)
 		.handle("listGlobalRelationships", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc.listGlobalRelationships(payload);
-			}).pipe(dieOnDbError),
+			}).pipe(mapTestSupportFailure),
 		)
 		.handle("getBuiltinEntitySchema", ({ params }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc.getBuiltinEntitySchema(params.slug);
-			}).pipe(dieOnDbError),
+			}).pipe(mapTestSupportFailure),
 		)
 		.handle("setEntityPopulatedAt", ({ params, payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc.setEntityPopulatedAt(params.entityId, payload.populatedAt);
-			}).pipe(dieOnDbError),
+			}).pipe(mapTestSupportFailure),
 		)
 		.handle("upsertEntityTranslation", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc.upsertEntityTranslation(payload);
-			}).pipe(dieOnDbError),
+			}).pipe(mapTestSupportFailure),
 		)
 		.handle("listEntityTranslations", ({ params }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc.listEntityTranslations(params.entityId);
-			}).pipe(dieOnDbError),
+			}).pipe(mapTestSupportFailure),
 		)
 		.handle("linkAuthAccount", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc.linkAuthAccount(payload);
-			}).pipe(dieOnDbError),
+			}).pipe(mapTestSupportFailure),
 		)
 		.handle("triggerPluginCron", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc.triggerPluginCron(payload);
-			}).pipe(dieOnDbError),
+			}).pipe(mapTestSupportFailure),
 		)
 		.handle("triggerPluginBoot", () =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc.triggerPluginBoot;
-			}),
+			}).pipe(mapTestSupportFailure),
 		)
 		.handle("setEntityInterestMembership", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				yield* svc.setEntityInterestMembership(payload);
-			}),
+			}).pipe(mapTestSupportFailure),
 		)
 		.handle("listSignals", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc.listSignals(payload);
-			}).pipe(dieOnDbError),
+			}).pipe(mapTestSupportFailure),
 		)
 		.handle("listSubscriptionRuns", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc.listSubscriptionRuns(payload);
-			}).pipe(dieOnDbError),
+			}).pipe(mapTestSupportFailure),
 		)
 		.handle("countAutomationRules", ({ params }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc.countAutomationRules(params.userId);
-			}).pipe(dieOnDbError),
+			}).pipe(mapTestSupportFailure),
 		),
 );

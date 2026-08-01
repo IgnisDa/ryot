@@ -12,7 +12,7 @@ import { UserLifecycleService } from "./service";
 const userId = UserId.make("user-1");
 const operation = {
 	userId,
-	error: null,
+	failure: null,
 	startedAt: null,
 	finishedAt: null,
 	resetResult: null,
@@ -170,7 +170,10 @@ it.effect(
 		);
 		return Effect.gen(function* () {
 			const service = yield* UserLifecycleService;
-			expect((yield* service.deleteUser(userId).pipe(Effect.flip))._tag).toBe("InternalError");
+			expect(yield* service.deleteUser(userId).pipe(Effect.flip)).toMatchObject({
+				_tag: "GodModeInternalFailure",
+				reason: { code: "lifecycle-dispatch-failed" },
+			});
 			expect(prepared.operation.status).toBe("pending");
 		}).pipe(Effect.provide(Layer.merge(serviceLayer, databaseLayer)));
 	},
@@ -185,7 +188,7 @@ it.effect(
 			operation: {
 				...operation,
 				status: "failed" as const,
-				error: "User-owned object cleanup failed",
+				failure: { code: "object-cleanup-failed" as const },
 			},
 		};
 		const retried = {

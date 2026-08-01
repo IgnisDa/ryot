@@ -1,7 +1,16 @@
 import type { BadRequest, DbError, NotFound } from "@ryot/contract/errors";
-import { notFound, SandboxRunError } from "@ryot/contract/errors";
 import type { PluginOperationAuth } from "@ryot/contract/modules/plugins/manifest";
-import type { IntegrationId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import {
+	PluginInvocationError,
+	PluginNotFoundError,
+	PluginRequestError,
+} from "@ryot/contract/modules/plugins/schemas";
+import {
+	type IntegrationId,
+	PluginSlug,
+	type SandboxScriptId,
+	type UserId,
+} from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
 import { Context, Effect, Layer } from "effect";
 import type { Headers as PlatformHeaders } from "effect/unstable/http";
@@ -54,8 +63,24 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 				},
 			});
 			if (result.error) {
-				return yield* new SandboxRunError({
-					message: `${result.error.phase}: ${result.error.message}`,
+				return yield* new PluginInvocationError({
+					reason: {
+						code: "runtime-failed",
+						diagnostics: [
+							{
+								phase: result.error.phase,
+								message: result.error.message,
+								code: "sandbox-runtime-error",
+								severity: "error",
+								...(!("line" in result.error) || result.error.line === undefined
+									? {}
+									: { line: result.error.line }),
+								...(!("column" in result.error) || result.error.column === undefined
+									? {}
+									: { column: result.error.column }),
+							},
+						],
+					},
 				});
 			}
 			return result.value;
@@ -65,6 +90,7 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 			operationAuth: PluginOperationAuth,
 			payload: unknown,
 			headers: PlatformHeaders.Headers,
+			operation: { readonly pluginSlug: PluginSlug; readonly operationSlug: string },
 		) => {
 			if (operationAuth === "user") {
 				const getCurrentUser = auth
@@ -72,7 +98,20 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 					.pipe(Effect.map((user) => ({ userId: user.id })));
 				return getCurrentUser;
 			}
-			return integrationScopeResolver.resolve(payload);
+			return integrationScopeResolver.resolve(payload).pipe(
+				Effect.catchTags({
+					BadRequest: () =>
+						Effect.fail(
+							new PluginRequestError({ reason: { code: "invalid-operation-scope", ...operation } }),
+						),
+					NotFound: () =>
+						Effect.fail(
+							new PluginNotFoundError({
+								reason: { code: "operation-scope-not-found", ...operation },
+							}),
+						),
+				}),
+			);
 		};
 
 		const invoke = Effect.fn("OperationsService.invoke")(function* (input: {
@@ -86,15 +125,28 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 				operationSlug: input.operationSlug,
 			});
 			if (!resolved) {
-				return yield* notFound(
-					`Operation '${input.pluginSlug}/${input.operationSlug}' was not found`,
-				);
+				return yield* new PluginNotFoundError({
+					reason: {
+						code: "operation-not-found",
+						operationSlug: input.operationSlug,
+						pluginSlug: PluginSlug.make(input.pluginSlug),
+					},
+				});
 			}
-			const scope = yield* resolveScope(resolved.operation.auth, input.payload, input.headers);
+			const operation = {
+				operationSlug: input.operationSlug,
+				pluginSlug: PluginSlug.make(input.pluginSlug),
+			};
+			const scope = yield* resolveScope(
+				resolved.operation.auth,
+				input.payload,
+				input.headers,
+				operation,
+			);
 			const script = yield* resolved.script;
 			if (!script) {
-				return yield* new SandboxRunError({
-					message: `Operation '${input.pluginSlug}/${input.operationSlug}' script is unavailable`,
+				return yield* new PluginInvocationError({
+					reason: { code: "script-unavailable", ...operation },
 				});
 			}
 			return yield* dispatch({

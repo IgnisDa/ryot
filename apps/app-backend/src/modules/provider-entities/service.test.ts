@@ -1,6 +1,9 @@
 import { assert, expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { BadRequest, NotFound } from "@ryot/contract/errors";
+import {
+	ProviderEntityBadRequest,
+	ProviderEntityNotFound,
+} from "@ryot/contract/modules/provider-entities/schemas";
 import { EntitySchemaSlug, SandboxProviderId, UserId } from "@ryot/contract/schema/brands";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
@@ -86,7 +89,11 @@ it.effect("returns BadRequest when providerId is blank", () =>
 		const result = yield* Effect.exit(
 			service.import(user, { externalId, providerId: SandboxProviderId.make("   ") }),
 		);
-		expect(getFailure(result)).toBeInstanceOf(BadRequest);
+		expect(getFailure(result)).toEqual(
+			new ProviderEntityBadRequest({
+				reason: { code: "invalid-import-input", field: "providerId" },
+			}),
+		);
 	}).pipe(Effect.provide(makeServiceLayer())),
 );
 
@@ -94,7 +101,11 @@ it.effect("returns BadRequest when externalId is blank", () =>
 	Effect.gen(function* () {
 		const service = yield* EntityImportService;
 		const result = yield* Effect.exit(service.import(user, { providerId, externalId: "  " }));
-		expect(getFailure(result)).toBeInstanceOf(BadRequest);
+		expect(getFailure(result)).toEqual(
+			new ProviderEntityBadRequest({
+				reason: { code: "invalid-import-input", field: "externalId" },
+			}),
+		);
 	}).pipe(Effect.provide(makeServiceLayer())),
 );
 
@@ -102,7 +113,9 @@ it.effect("returns NotFound when the provider is missing", () =>
 	Effect.gen(function* () {
 		const service = yield* EntityImportService;
 		const result = yield* Effect.exit(service.import(user, { providerId, externalId }));
-		expect(getFailure(result)).toBeInstanceOf(NotFound);
+		expect(getFailure(result)).toEqual(
+			new ProviderEntityNotFound({ reason: { code: "provider-not-found", providerId } }),
+		);
 	}).pipe(Effect.provide(makeServiceLayer(makeEntitiesRepository(), makeWorkflowEngine(), null))),
 );
 
@@ -110,7 +123,9 @@ it.effect("returns NotFound when the provider is inactive", () =>
 	Effect.gen(function* () {
 		const service = yield* EntityImportService;
 		const result = yield* Effect.exit(service.import(user, { providerId, externalId }));
-		expect(getFailure(result)).toBeInstanceOf(NotFound);
+		expect(getFailure(result)).toEqual(
+			new ProviderEntityNotFound({ reason: { code: "provider-not-found", providerId } }),
+		);
 	}).pipe(Effect.provide(makeServiceLayer(makeEntitiesRepository(), makeWorkflowEngine(), null))),
 );
 
@@ -118,7 +133,11 @@ it.effect("returns NotFound when the derived entity schema is not found", () =>
 	Effect.gen(function* () {
 		const service = yield* EntityImportService;
 		const result = yield* Effect.exit(service.import(user, { providerId, externalId }));
-		expect(getFailure(result)).toBeInstanceOf(NotFound);
+		expect(getFailure(result)).toEqual(
+			new ProviderEntityNotFound({
+				reason: { code: "entity-schema-not-found", entitySchemaSlug },
+			}),
+		);
 	}).pipe(
 		Effect.provide(
 			makeServiceLayer(
@@ -160,7 +179,9 @@ it.effect("returns NotFound for a blank getImportResult jobId", () =>
 	Effect.gen(function* () {
 		const service = yield* EntityImportService;
 		const result = yield* Effect.exit(service.getImportResult(user, "   "));
-		expect(getFailure(result)).toBeInstanceOf(NotFound);
+		expect(getFailure(result)).toEqual(
+			new ProviderEntityNotFound({ reason: { code: "import-job-not-found", jobId: "   " } }),
+		);
 	}).pipe(Effect.provide(makeServiceLayer())),
 );
 
@@ -168,7 +189,11 @@ it.effect("returns NotFound for a jobId with an invalid signature", () =>
 	Effect.gen(function* () {
 		const service = yield* EntityImportService;
 		const result = yield* Effect.exit(service.getImportResult(user, "fake-execution-id.badsig"));
-		expect(getFailure(result)).toBeInstanceOf(NotFound);
+		expect(getFailure(result)).toEqual(
+			new ProviderEntityNotFound({
+				reason: { code: "import-job-not-found", jobId: "fake-execution-id.badsig" },
+			}),
+		);
 	}).pipe(Effect.provide(makeServiceLayer())),
 );
 

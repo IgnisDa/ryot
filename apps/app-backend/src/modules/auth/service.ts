@@ -4,19 +4,15 @@ import { redisStorage } from "@better-auth/redis-storage";
 import {
 	AdminAccess,
 	AdminMiddleware,
+	AuthRateLimited,
 	AuthMiddleware,
+	AuthUnauthorized,
 	type CachedUserPreferences,
 	CurrentUser,
 	defaultUserPreferences,
 	normalizeUserPreferences,
 } from "@ryot/contract/auth-middleware";
-import {
-	badRequest,
-	internalError,
-	rateLimited,
-	unauthorized,
-	unknownToDbError,
-} from "@ryot/contract/errors";
+import { badRequest, internalError, unknownToDbError } from "@ryot/contract/errors";
 import { UserId } from "@ryot/contract/schema/brands";
 import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
@@ -278,6 +274,9 @@ const isAPIError = (
 ): error is { body?: { code?: string; details?: { tryAgainIn?: number } } } =>
 	typeof error === "object" && error !== null && "body" in error;
 
+const authenticationRequired = () =>
+	new AuthUnauthorized({ reason: { code: "authentication-required" } });
+
 export const resolveCurrentUser = (
 	headers: Headers,
 	getSession: (options: {
@@ -291,20 +290,28 @@ export const resolveCurrentUser = (
 		catch: (error) => {
 			if (isAPIError(error) && error.body?.code === "RATE_LIMITED") {
 				const tryAgainIn = error.body.details?.tryAgainIn;
-				return rateLimited(`Please try again in ${tryAgainIn}ms.`);
+				return new AuthRateLimited({
+					reason: {
+						code: "session-rate-limited",
+						retryAfterMs:
+							typeof tryAgainIn === "number" && Number.isFinite(tryAgainIn) && tryAgainIn >= 0
+								? tryAgainIn
+								: null,
+					},
+				});
 			}
-			return unauthorized();
+			return authenticationRequired();
 		},
 	}).pipe(
 		Effect.flatMap((session) => {
 			if (!session) {
-				return Effect.fail(unauthorized());
+				return Effect.fail(authenticationRequired());
 			}
-			return findUserById(session.user.id).pipe(Effect.mapError(() => unauthorized()));
+			return findUserById(session.user.id).pipe(Effect.mapError(authenticationRequired));
 		}),
 		Effect.flatMap((user) => {
 			if (!user || user.disabledAt) {
-				return Effect.fail(unauthorized());
+				return Effect.fail(authenticationRequired());
 			}
 			return Effect.succeed({
 				name: user.name,
@@ -512,7 +519,7 @@ export const makeAuthMiddleware = (
 				request.method !== "OPTIONS" &&
 				(yield* lifecycle.isActive(user.id).pipe(Effect.orDie))
 			) {
-				return yield* unauthorized();
+				return yield* new AuthUnauthorized({ reason: { code: "write-blocked" } });
 			}
 			const span = yield* Effect.catchNoSuchElement(Effect.currentSpan);
 			const annotations = Option.isSome(span)
@@ -582,7 +589,7 @@ export const AdminMiddlewareLive = Layer.effect(
 				const value = Redacted.value(credential);
 				return value !== "" && value === Redacted.value(config.server.adminAccessToken)
 					? Effect.provideService(httpEffect, AdminAccess, { authorized: true })
-					: Effect.fail(unauthorized());
+					: Effect.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } }));
 			},
 		};
 	}),

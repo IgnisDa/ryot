@@ -1,5 +1,7 @@
 import { unknownToMessage } from "@ryot/contract/errors";
 import { CreateEventItem } from "@ryot/contract/modules/events/schemas";
+import type { ImportRunFailureReason } from "@ryot/contract/modules/imports/schemas";
+import type { ImportRunFailureStage } from "@ryot/contract/modules/imports/types";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -56,6 +58,15 @@ export const ProcessGenericImportChunksPayload = Schema.Struct({
 		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
 	),
 });
+
+const failureReasonByStage = {
+	event_policy: { code: "event-policy-failed" },
+	source_fetch: { code: "source-fetch-failed" },
+	database_commit: { code: "database-commit-failed" },
+	provider_details: { code: "provider-details-failed" },
+	provider_resolution: { code: "provider-resolution-failed" },
+	input_transformation: { code: "input-transformation-failed" },
+} as const satisfies Record<ImportRunFailureStage, ImportRunFailureReason>;
 
 export const ProcessGenericImportChunksWorkflow = Workflow.make(
 	"ProcessGenericImportChunksWorkflow",
@@ -371,7 +382,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 	let processedItems = 0;
 	let observedFailureCount = 0;
 	let observedWriteItemCount = 0;
-	let errorSummary: string | undefined;
+	let failureReason: ImportRunFailureReason | undefined;
 	const runId = ImportRunId.make(payload.runId);
 
 	const process = Effect.gen(function* () {
@@ -383,15 +394,23 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 			}
 			const chunk = yield* readChunk(payload.artifactOwnerExecutionId, handle, chunkIndex);
 			for (const failure of chunk.failures) {
+				const stage = failure.stage ?? "input_transformation";
 				observedFailureCount += 1;
-				errorSummary ??= failure.message;
+				failureReason ??= failureReasonByStage[stage];
+				yield* Effect.logWarning("plugin import item failed", failure.message).pipe(
+					Effect.annotateLogs({ itemIndex: failure.itemIndex, runId, stage }),
+				);
 				yield* Activity.make({
 					error: ImportRunError,
 					name: `record-generic-import-failure-${processedItems}`,
 					execute: recordImportRunFailure({
-						...failure,
 						runId,
-						stage: failure.stage ?? "input_transformation",
+						stage,
+						itemIndex: failure.itemIndex,
+						sourceLabel: failure.sourceLabel,
+						reason: failureReasonByStage[stage],
+						sourceIdentifier: failure.sourceIdentifier,
+						entitySchemaSlug: failure.entitySchemaSlug,
 					}).pipe(Effect.mapError(toWorkflowError)),
 				});
 				failedItems += 1;
@@ -439,22 +458,25 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 								},
 							})
 							.pipe(withoutWorkflowParent, Effect.mapError(toWorkflowError));
-						message ??= eventResult.failure?.reason.message ?? null;
+						message ??= eventResult.failure?.reason.code ?? null;
 					}
 				}
 				if (message) {
 					failedItems += 1;
-					errorSummary ??= message;
+					failureReason ??= { code: "database-commit-failed" };
+					yield* Effect.logError("generic import item write failed", message).pipe(
+						Effect.annotateLogs({ itemIndex: item.itemIndex, runId }),
+					);
 					yield* Activity.make({
 						error: ImportRunError,
 						name: `record-generic-write-failure-${processedItems}`,
 						execute: recordImportRunFailure({
 							runId,
-							message,
 							stage: "database_commit",
 							itemIndex: item.itemIndex,
 							sourceLabel: item.sourceLabel,
 							sourceIdentifier: item.sourceIdentifier,
+							reason: { code: "database-commit-failed" },
 							entitySchemaSlug:
 								item.entities.find(({ alias }) => alias === item.subjectEntityAlias)
 									?.entitySchemaSlug ?? null,
@@ -513,7 +535,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 			progress: 100,
 			processedItems,
 			status: payload.failRun ? "failed" : "completed",
-			...(payload.failRun && errorSummary ? { errorSummary } : {}),
+			...(payload.failRun && failureReason ? { failureReason } : {}),
 		});
 		return { failedItems, importedItems, processedItems };
 	}).pipe(

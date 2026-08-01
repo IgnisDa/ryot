@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { CurrentUser } from "@ryot/contract/auth-middleware";
+import { AuthRateLimited, CurrentUser } from "@ryot/contract/auth-middleware";
 import { UserId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 import { HttpRouter, HttpServerResponse } from "effect/unstable/http";
@@ -38,11 +38,29 @@ it.effect("rejects a stale cached session when the authoritative user is disable
 				},
 			),
 		);
-		expect(error._tag).toBe("Unauthorized");
+		expect(error).toMatchObject({
+			_tag: "AuthUnauthorized",
+			reason: { code: "authentication-required" },
+		});
 		expect(foundUserId).toBe("user-1");
 		expect(disabledCookieCache).toBe(true);
 	});
 });
+
+it.effect("returns safe rate-limit metadata from session validation", () =>
+	Effect.gen(function* () {
+		const error = yield* Effect.flip(
+			resolveCurrentUser(
+				new Headers(),
+				() => Promise.reject({ body: { code: "RATE_LIMITED", details: { tryAgainIn: 1_250 } } }),
+				() => Effect.die("unused"),
+			),
+		);
+		expect(error).toEqual(
+			new AuthRateLimited({ reason: { code: "session-rate-limited", retryAfterMs: 1_250 } }),
+		);
+	}),
+);
 
 it.effect("passes complete request headers to the auth service", () => {
 	let capturedCookie: string | null = null;

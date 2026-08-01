@@ -1,5 +1,8 @@
 import { expect, it } from "@effect/vitest";
-import { BadRequest, NotFound } from "@ryot/contract/errors";
+import {
+	RelationshipBadRequest,
+	RelationshipNotFound,
+} from "@ryot/contract/modules/relationships/schemas";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -136,7 +139,10 @@ it.effect("returns bad request when create properties violate the relationship s
 			const failure = Cause.findErrorOption(exit.cause);
 			expect(failure._tag).toBe("Some");
 			if (failure._tag === "Some") {
-				expect(failure.value).toBeInstanceOf(BadRequest);
+				expect(failure.value).toBeInstanceOf(RelationshipBadRequest);
+				expect(failure.value).toMatchObject({
+					reason: { code: "invalid-properties", paths: [["status"]] },
+				});
 			}
 		}
 	}).pipe(Effect.provide(layer));
@@ -205,7 +211,7 @@ it.effect("returns not found when updating a missing relationship", () => {
 	return Effect.gen(function* () {
 		const service = yield* RelationshipsService;
 		const exit = yield* Effect.exit(service.update({ ...baseInput }));
-		assertExitFails(exit, new NotFound({ message: "Relationship not found" }));
+		assertExitFails(exit, new RelationshipNotFound({ reason: { code: "relationship-not-found" } }));
 	}).pipe(Effect.provide(layer));
 });
 
@@ -461,7 +467,12 @@ it.effect("rejects relationships to entities outside the user's visibility scope
 			]),
 		);
 
-		assertExitFails(exit, new NotFound({ message: "Entity not found" }));
+		assertExitFails(
+			exit,
+			new RelationshipNotFound({
+				reason: { code: "entity-not-found", entityIds: [sourceEntityId, targetEntityId] },
+			}),
+		);
 		expect(writes).toBe(0);
 	}).pipe(Effect.provide(layer));
 });

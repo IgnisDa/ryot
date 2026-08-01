@@ -1,11 +1,11 @@
 import type { SandboxRunError } from "@ryot/contract/errors";
-import { badRequest, unknownToMessage } from "@ryot/contract/errors";
 import {
 	AutomationPolicyResult,
 	AutomationProperties,
 	AutomationRuleMetadata,
 	type AutomationOrigin,
 } from "@ryot/contract/modules/automations/schemas";
+import { EventCreateItemError, EventsBadRequest } from "@ryot/contract/modules/events/schemas";
 import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
 import type { EntitySchemaSlug, EventSchemaSlug } from "@ryot/contract/schema/brands";
 import {
@@ -27,8 +27,7 @@ import type { SandboxExecutionResult } from "#modules/sandbox/execution-result";
 import { EventCreateWorkflowError, type EventCreateWorkflowPayload } from "./event-create-workflow";
 import { resolveEventCreateItemScopes } from "./event-creation";
 
-const policyFailed = (detail: string) => badRequest(`Policy failed: ${detail}`);
-const invalidPolicyResultShape = "Policy returned invalid shape";
+const policyFailed = () => new EventCreateItemError({ reason: { code: "policy-failed" } });
 
 export const isAutomationMetadataObject = (
 	metadata: AutomationRuleMetadata | null,
@@ -78,7 +77,7 @@ type ExecuteSandboxScript = (
 
 export const decodeEventPolicyProperties = (properties: unknown) =>
 	Schema.decodeUnknownEffect(AutomationProperties)(properties).pipe(
-		Effect.mapError(() => badRequest("Event properties must be JSON-serializable")),
+		Effect.mapError(() => new EventCreateItemError({ reason: { code: "invalid-properties" } })),
 	);
 
 const resolvePolicyOrigin = Effect.fn(function* (payload: EventCreateWorkflowPayload) {
@@ -104,7 +103,7 @@ const resolvePolicyOrigin = Effect.fn(function* (payload: EventCreateWorkflowPay
 						integrationId: payload.integrationId,
 						...(payload.importRunId ? { importRunId: payload.importRunId } : {}),
 					})
-				: badRequest("integrationId is required for integration event creation"),
+				: new EventsBadRequest({ reason: { code: "integration-id-required" } }),
 		),
 		Match.exhaustive,
 	);
@@ -136,7 +135,12 @@ const validateEventDraft = Effect.fn("validateEventPolicyDraft")(function* (
 				kind: "Event",
 				properties: draft.properties,
 				propertiesSchema: prepared.propertiesSchema,
-			}).pipe(Effect.mapError((error) => badRequest(error.message)));
+			}).pipe(
+				Effect.tapError((error) =>
+					Effect.logWarning("invalid event properties", { issues: error.issues }),
+				),
+				Effect.mapError(() => new EventCreateItemError({ reason: { code: "invalid-properties" } })),
+			);
 			return {
 				sessionEntityId: scopes.sessionEntityId,
 				occurredAt: scopes.occurredAt.toISOString(),
@@ -200,14 +204,18 @@ export const runEventCreatePolicies = Effect.fn(function* (
 					id: SubscriptionRunId.make(executionId),
 				},
 			},
-		}).pipe(Effect.mapError((error) => policyFailed(unknownToMessage(error))));
+		}).pipe(
+			Effect.tapError((error) => Effect.logError("event policy execution failed", error)),
+			Effect.mapError(policyFailed),
+		);
 
 		if (sandboxResult.error) {
-			return yield* policyFailed(sandboxResult.error.message);
+			yield* Effect.logError("event policy returned an execution error", sandboxResult.error);
+			return yield* policyFailed();
 		}
 		const result = yield* Schema.decodeUnknownEffect(AutomationPolicyResult)(
 			sandboxResult.value,
-		).pipe(Effect.mapError(() => badRequest(invalidPolicyResultShape)));
+		).pipe(Effect.mapError(policyFailed));
 		if (result.action === "skip") {
 			return { kind: "skipped" as const, reason: result.reason };
 		}

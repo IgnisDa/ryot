@@ -1,10 +1,10 @@
 import { createLocalAccountIssuer, createOAuthAccountIssuer } from "@better-auth/core/db";
-import { badRequest } from "@ryot/contract/errors";
 import type {
 	TestSupportEnqueueSandboxBody,
 	TestSupportStoredSandboxScript,
 	TestSupportTriggerPluginCronBody,
 } from "@ryot/contract/modules/test-support/schemas";
+import { TestSupportBadRequest } from "@ryot/contract/modules/test-support/schemas";
 import {
 	EntitySchemaSlug,
 	type EntityId,
@@ -52,7 +52,14 @@ const parseDate = (value: string) => {
 	const parsed = new Date(value);
 	return !Number.isNaN(parsed.getTime())
 		? Effect.succeed(parsed)
-		: Effect.fail(badRequest("populatedAt must be a valid ISO 8601 date"));
+		: Effect.fail(
+				new TestSupportBadRequest({
+					reason: {
+						code: "invalid-request",
+						diagnostic: "populatedAt must be a valid ISO 8601 date",
+					},
+				}),
+			);
 };
 
 export class TestSupportService extends Context.Service<TestSupportService>()(
@@ -122,7 +129,9 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 						null,
 					);
 					if (!relationshipSchema) {
-						return yield* badRequest("Relationship schema not found");
+						return yield* new TestSupportBadRequest({
+							reason: { code: "invalid-request", diagnostic: "Relationship schema not found" },
+						});
 					}
 					return yield* relationships.create({
 						scope: "global",
@@ -227,7 +236,11 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 										name: definition.name,
 										id: EntitySchemaSlug.make(definition.slug),
 									})
-								: Effect.fail(badRequest("Entity schema not found")),
+								: Effect.fail(
+										new TestSupportBadRequest({
+											reason: { code: "invalid-request", diagnostic: "Entity schema not found" },
+										}),
+									),
 						),
 					),
 			};

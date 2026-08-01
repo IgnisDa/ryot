@@ -1,4 +1,4 @@
-import { unauthorized } from "@ryot/contract/errors";
+import { EntityInterestTicketFailure } from "@ryot/contract/modules/entity-interest/contract";
 import type { EntityInterestSocketTicketResponse } from "@ryot/contract/modules/entity-interest/messages";
 import { UserId } from "@ryot/contract/schema/brands";
 import { sha256Hex } from "@ryot/ts-utils/crypto";
@@ -16,6 +16,9 @@ end
 return value
 `;
 const TICKET_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const invalidTicket = () => new EntityInterestTicketFailure({ reason: { code: "invalid-ticket" } });
+const storeUnavailable = () =>
+	new EntityInterestTicketFailure({ reason: { code: "ticket-store-unavailable" } });
 const TicketValue = Schema.Struct({
 	userId: UserId,
 	preferredLanguage: Schema.NullOr(Schema.String),
@@ -43,14 +46,16 @@ export class EntityInterestTicketService extends Context.Service<EntityInterestT
 				const value = yield* Schema.encodeUnknownEffect(Schema.fromJsonString(TicketValue))(
 					input,
 				).pipe(Effect.orDie);
-				yield* Effect.tryPromise(() =>
-					redis.client.set(
-						entityInterestTicketKey(ticketHash(ticket)),
-						value,
-						"EX",
-						ENTITY_INTEREST_SOCKET_TICKET_TTL_SECONDS,
-					),
-				).pipe(Effect.orDie);
+				yield* Effect.tryPromise({
+					catch: storeUnavailable,
+					try: () =>
+						redis.client.set(
+							entityInterestTicketKey(ticketHash(ticket)),
+							value,
+							"EX",
+							ENTITY_INTEREST_SOCKET_TICKET_TTL_SECONDS,
+						),
+				});
 				return {
 					ticket,
 					expiresAt: DateTime.formatIso(
@@ -61,16 +66,22 @@ export class EntityInterestTicketService extends Context.Service<EntityInterestT
 
 			const consume = Effect.fn("EntityInterestTicketService.consume")(function* (ticket: string) {
 				if (!TICKET_PATTERN.test(ticket)) {
-					return yield* unauthorized();
+					return yield* invalidTicket();
 				}
-				const raw = yield* Effect.tryPromise(() =>
-					redis.client.eval(CONSUME_TICKET_SCRIPT, 1, entityInterestTicketKey(ticketHash(ticket))),
-				).pipe(Effect.orDie);
+				const raw = yield* Effect.tryPromise({
+					catch: storeUnavailable,
+					try: () =>
+						redis.client.eval(
+							CONSUME_TICKET_SCRIPT,
+							1,
+							entityInterestTicketKey(ticketHash(ticket)),
+						),
+				});
 				if (typeof raw !== "string") {
-					return yield* unauthorized();
+					return yield* invalidTicket();
 				}
 				return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(TicketValue))(raw).pipe(
-					Effect.mapError(() => unauthorized()),
+					Effect.mapError(invalidTicket),
 				);
 			});
 
