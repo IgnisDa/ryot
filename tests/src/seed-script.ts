@@ -18,7 +18,7 @@ import {
 } from "@ryot/contract/schema/brands";
 import { imagesField } from "@ryot/contract/schema/core";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import { column, coalesce, jsonPath, literal, table } from "@ryot/ryotql";
+import { castText, column, coalesce, jsonPath, literal, table } from "@ryot/ryotql";
 import { buildSavedViewDocument, buildSavedViewProjection } from "@ryot/ryotql-recipes/saved-views";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { createAuthClient } from "better-auth/client";
@@ -381,36 +381,39 @@ async function createEvents(apiClient: APIClient, events: EventPayload[]): Promi
 const seedEntity = table("entity", "entity");
 const seedProperties = column(seedEntity, "properties");
 const seedProperty = (property: string) => jsonPath(seedProperties, property);
-const seedImage = () => jsonPath(seedProperties, "images", 0);
+const seedImage = () => castText(jsonPath(seedProperties, "images", 0, "url"));
 const seedName = () => column(seedEntity, "name");
 const seedCreatedAt = () => column(seedEntity, "createdAt");
-type SeedTableColumn = Parameters<typeof buildSavedViewProjection>[0]["table"][number];
+type SeedTableColumn = Parameters<typeof buildSavedViewProjection>[0]["table"]["columns"][number];
 
 const defaultProjection = buildSavedViewProjection({
 	entityId: column(seedEntity, "id"),
 	grid: {
 		title: seedName(),
 		image: seedImage(),
-		eyebrow: literal("Saved View"),
+		overline: literal("Saved View"),
 		callout: seedProperty("type"),
-		primarySubtitle: seedProperty("city"),
-		secondarySubtitle: seedProperty("region"),
+		primaryMetadata: seedProperty("city"),
+		secondaryMetadata: seedProperty("region"),
 	},
 	list: {
 		title: seedName(),
 		image: seedImage(),
-		eyebrow: literal("Saved View"),
+		overline: literal("Saved View"),
 		callout: seedProperty("type"),
-		primarySubtitle: seedProperty("city"),
-		secondarySubtitle: seedProperty("region"),
+		primaryMetadata: seedProperty("city"),
+		secondaryMetadata: seedProperty("region"),
 	},
-	table: [
-		{ label: "Name", expression: seedName() },
-		{ label: "Primary", expression: seedProperty("type") },
-		{ label: "Secondary", expression: seedProperty("city") },
-		{ label: "Created", expression: seedCreatedAt() },
-		{ label: "Details", expression: seedProperty("description") },
-	],
+	table: {
+		image: seedImage(),
+		columns: [
+			{ label: "Name", expression: seedName() },
+			{ label: "Primary", expression: seedProperty("type") },
+			{ label: "Secondary", expression: seedProperty("city") },
+			{ label: "Created", expression: seedCreatedAt() },
+			{ label: "Details", expression: seedProperty("description") },
+		],
+	},
 });
 
 function savedViewQueryDocument(scope: readonly string[]): SavedViewQueryDocument {
@@ -467,11 +470,11 @@ function cardConfig(
 	image: ScalarExpression | null,
 	title: ScalarExpression,
 	callout: ScalarExpression | null,
-	primarySubtitle: ScalarExpression | null,
-	secondarySubtitle: ScalarExpression | null = null,
-	eyebrow: ScalarExpression | null = null,
+	primaryMetadata: ScalarExpression | null,
+	secondaryMetadata: ScalarExpression | null = null,
+	overline: ScalarExpression | null = null,
 ) {
-	return { eyebrow, image, title, callout, primarySubtitle, secondarySubtitle };
+	return { overline, image, title, callout, primaryMetadata, secondaryMetadata };
 }
 
 function tableColumn(
@@ -492,10 +495,10 @@ function buildDisplayConfiguration(
 	const card = (prefix: "grid" | "list", input: ReturnType<typeof cardConfig>) => ({
 		titleField: `${prefix}Title`,
 		imageField: input.image === null ? null : `${prefix}Image`,
-		eyebrowField: input.eyebrow === null ? null : `${prefix}Eyebrow`,
+		overlineField: input.overline === null ? null : `${prefix}Overline`,
 		calloutField: input.callout === null ? null : `${prefix}Callout`,
-		primarySubtitleField: input.primarySubtitle === null ? null : `${prefix}PrimarySubtitle`,
-		secondarySubtitleField: input.secondarySubtitle === null ? null : `${prefix}SecondarySubtitle`,
+		primaryMetadataField: input.primaryMetadata === null ? null : `${prefix}PrimaryMetadata`,
+		secondaryMetadataField: input.secondaryMetadata === null ? null : `${prefix}SecondaryMetadata`,
 	});
 
 	return {
@@ -503,6 +506,7 @@ function buildDisplayConfiguration(
 		grid: card("grid", grid),
 		list: card("list", list),
 		table: {
+			imageField: "tableImage",
 			columns: columns.map((column, index) => ({
 				field: `tableColumn${index}`,
 				label: column.label,

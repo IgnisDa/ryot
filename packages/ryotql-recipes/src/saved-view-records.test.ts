@@ -24,18 +24,18 @@ const queryDocument = {
 } as const;
 
 const cardConfiguration = {
-	titleField: "title",
 	imageField: null,
-	eyebrowField: null,
 	calloutField: null,
-	primarySubtitleField: null,
-	secondarySubtitleField: null,
+	titleField: "title",
+	overlineField: null,
+	primaryMetadataField: null,
+	secondaryMetadataField: null,
 } as const;
 const displayConfiguration = {
 	grid: cardConfiguration,
 	list: cardConfiguration,
 	entityIdField: "entityId",
-	table: { columns: [{ label: "Title", field: "title" }] },
+	table: { imageField: null, columns: [{ label: "Title", field: "title" }] },
 } as const;
 
 const savedViewRecordsResponse = {

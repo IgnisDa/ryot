@@ -1,5 +1,5 @@
 import type { ContractPayload } from "@ryot/contract/client";
-import { column, jsonPath, literal, table } from "@ryot/ryotql";
+import { castText, column, jsonPath, literal, table } from "@ryot/ryotql";
 import {
 	buildSavedViewRecordDocument,
 	buildSavedViewRecordsDocument,
@@ -34,25 +34,28 @@ const entityProperty = (...path: [string | number, ...(string | number)[]]) =>
 const defaultProjection = buildSavedViewProjection({
 	entityId: column(entity, "id"),
 	grid: {
-		title: column(entity, "name"),
-		image: entityProperty("images", 0),
-		eyebrow: literal("Book"),
 		callout: null,
-		primarySubtitle: entityProperty("publishYear"),
-		secondarySubtitle: null,
+		secondaryMetadata: null,
+		overline: literal("Book"),
+		title: column(entity, "name"),
+		primaryMetadata: entityProperty("publishYear"),
+		image: castText(entityProperty("images", 0, "url")),
 	},
 	list: {
-		title: column(entity, "name"),
-		image: entityProperty("images", 0),
-		eyebrow: literal("Book"),
 		callout: null,
-		primarySubtitle: entityProperty("publishYear"),
-		secondarySubtitle: null,
+		secondaryMetadata: null,
+		overline: literal("Book"),
+		title: column(entity, "name"),
+		primaryMetadata: entityProperty("publishYear"),
+		image: castText(entityProperty("images", 0, "url")),
 	},
-	table: [
-		{ label: "Name", expression: column(entity, "name") },
-		{ label: "Year", expression: entityProperty("publishYear") },
-	],
+	table: {
+		image: castText(entityProperty("images", 0, "url")),
+		columns: [
+			{ label: "Name", expression: column(entity, "name") },
+			{ label: "Year", expression: entityProperty("publishYear") },
+		],
+	},
 });
 
 const defaultDisplayConfiguration =
