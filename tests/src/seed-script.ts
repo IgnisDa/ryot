@@ -2870,12 +2870,12 @@ async function main() {
 
 	const client = new APIClient(cookies);
 	const startTime = dayjs();
+	const mediaStats = await seedMedia(client, userId);
 	await seedSandboxScript(client, userId);
 
 	const whiskeyStats = await seedWhiskeys(client);
 	const placeStats = await seedPlaces(client);
 	const phoneStats = await seedMobilePhones(client);
-	const mediaStats = await seedMedia(client, userId);
 	const savedViewsCount = await seedSavedViews(
 		client,
 		whiskeyStats.pluginScope.id,
