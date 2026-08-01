@@ -69,7 +69,7 @@ describe("movie-group.tvdb sandbox script", () => {
 						name: "My List",
 						properties: {
 							parts: 4,
-							images: [{ type: "remote", url: "https://img/x.jpg" }],
+							images: [{ type: "remote", url: "https://img/x.jpg", purpose: "cover" }],
 							sourceUrl: "https://thetvdb.com/lists/cool-list",
 							description: "An overview",
 						},

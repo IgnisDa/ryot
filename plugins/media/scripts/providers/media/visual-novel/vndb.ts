@@ -129,15 +129,15 @@ export const details = defineProvider({
 				return yield* Effect.fail(new Error("VNDB VN payload is missing title"));
 			}
 
-			const images: Array<{ type: "remote"; url: string }> = [];
+			const images: Array<{ type: "remote"; url: string; purpose: string }> = [];
 			const cover = imageUrl(vn["image"]);
 			if (cover) {
-				images.push({ type: "remote", url: cover });
+				images.push({ type: "remote", url: cover, purpose: "cover" as const });
 			}
 			for (const shot of Array.isArray(vn["screenshots"]) ? vn["screenshots"] : []) {
 				const url = imageUrl(shot);
 				if (url && !images.some((image) => image.url === url)) {
-					images.push({ type: "remote", url });
+					images.push({ type: "remote", url, purpose: "screenshot" as const });
 				}
 			}
 

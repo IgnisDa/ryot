@@ -144,7 +144,7 @@ describe("hierarchical media entity-update signals", () => {
 											seasonNumber: 1,
 											episodeNumber: 1,
 											publishDate: input.episodePublishDate,
-											images: [{ type: "remote", url: input.episodeImageUrl }],
+											images: [{ type: "remote", url: input.episodeImageUrl, purpose: "still" }],
 										},
 									},
 								],

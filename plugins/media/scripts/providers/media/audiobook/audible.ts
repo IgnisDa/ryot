@@ -282,7 +282,9 @@ export const details = defineProvider({
 					publishDate: parseReleaseDate(product["release_date"]),
 					sourceUrl: `https://www.audible.com/pd/${input.externalId}`,
 					isNsfw: typeof rawIsNsfw === "boolean" ? rawIsNsfw : null,
-					images: imageUrl ? [{ type: "remote" as const, url: imageUrl }] : [],
+					images: imageUrl
+						? [{ type: "remote" as const, url: imageUrl, purpose: "cover" as const }]
+						: [],
 					description: cleanHtmlDescription(
 						product["publisher_summary"] ?? product["merchandising_summary"] ?? null,
 					),

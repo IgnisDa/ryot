@@ -138,8 +138,8 @@ describe("anime.anilist sandbox script", () => {
 						productionStatus: "Not Yet Released",
 						sourceUrl: "https://anilist.co/anime/1/Source",
 						images: [
-							{ type: "remote", url: "https://img/cover.jpg" },
-							{ type: "remote", url: "https://img/banner.jpg" },
+							{ type: "remote", url: "https://img/cover.jpg", purpose: "cover" },
+							{ type: "remote", url: "https://img/banner.jpg", purpose: "backdrop" },
 						],
 						airingSchedule: [
 							{ episode: 1, airingAt: "2023-11-14T22:13:20.000Z" },

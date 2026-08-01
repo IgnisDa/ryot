@@ -73,7 +73,9 @@ export const details = defineProvider({
 					throw new Error("TVDB returned no name for this company");
 				}
 				const primaryImage = stringValue(company["primaryImage"]);
-				const images = primaryImage ? [{ type: "remote" as const, url: primaryImage }] : [];
+				const images = primaryImage
+					? [{ type: "remote" as const, url: primaryImage, purpose: "logo" as const }]
+					: [];
 				const alternateNames = Array.isArray(company["aliases"])
 					? company["aliases"].map(getAliasName).filter((alias) => alias.length > 0)
 					: [];
@@ -85,15 +87,15 @@ export const details = defineProvider({
 					properties: { images, headquarters, alternateNames },
 					relatedEntityGroups: [
 						{
+							entities: movieEntities,
 							direction: "outgoing" as const,
 							synchronization: "authoritative" as const,
-							entities: movieEntities,
 							relationshipSchemaSlug: "company-to-movie",
 						},
 						{
+							entities: showEntities,
 							direction: "outgoing" as const,
 							synchronization: "authoritative" as const,
-							entities: showEntities,
 							relationshipSchemaSlug: "company-to-show",
 						},
 					],

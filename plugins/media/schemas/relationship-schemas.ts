@@ -87,6 +87,11 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 					type: "boolean" as const,
 					description: "Whether the user owns this item",
 				},
+				ownershipSyncedAt: {
+					type: "datetime" as const,
+					label: "Ownership Synced At",
+					description: "When ownership was last synced from an external source",
+				},
 				ownershipSources: {
 					type: "array" as const,
 					label: "Ownership Sources",
@@ -96,11 +101,6 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 						type: "string" as const,
 						description: "An integration or source that reported ownership",
 					},
-				},
-				ownershipSyncedAt: {
-					type: "datetime" as const,
-					label: "Ownership Synced At",
-					description: "When ownership was last synced from an external source",
 				},
 			},
 		},

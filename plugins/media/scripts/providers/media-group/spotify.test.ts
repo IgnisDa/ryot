@@ -122,7 +122,7 @@ describe("music-group.spotify sandbox script", () => {
 						parts: 2,
 						description: "An album.",
 						sourceUrl: "https://open.spotify.com/album/al1",
-						images: [{ type: "remote", url: "https://img/cover.jpg" }],
+						images: [{ type: "remote", url: "https://img/cover.jpg", purpose: "cover" }],
 					});
 				}),
 			),
