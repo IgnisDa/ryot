@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { type EventEmitter, once } from "node:events";
+import { EventEmitter, once } from "node:events";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -144,7 +144,11 @@ export async function stopBackendProcess(proc?: ReturnType<typeof spawn>) {
 		return;
 	}
 
-	const exited = once(proc as unknown as EventEmitter, "exit");
+	if (!(proc instanceof EventEmitter)) {
+		throw new TypeError("Backend process is not an event emitter");
+	}
+
+	const exited = once(proc, "exit");
 	if (proc.kill("SIGINT")) {
 		await exited;
 	}
