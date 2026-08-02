@@ -28,8 +28,10 @@ describe("Saved views lifecycle E2E", () => {
 			});
 			const listedViews = yield* listSavedViews(client);
 			const listedViewIds = listedViews.map((view) => view.id);
+			expect(createdView.entitySchemaSlug).toBe("book");
 			expect(listedViews.some((view) => view.isBuiltin)).toBe(true);
 			expect(listedViewIds).toContain(createdView.id);
+			expect(listedViews.find((view) => view.id === createdView.id)?.entitySchemaSlug).toBe("book");
 		}),
 	);
 
@@ -67,6 +69,7 @@ describe("Saved views lifecycle E2E", () => {
 				c.savedViews.update({
 					params: { viewSlug: builtinView.slug },
 					payload: {
+						entitySchemaSlug: builtinView.entitySchemaSlug,
 						isDisabled: true,
 						icon: builtinView.icon,
 						name: builtinView.name,
@@ -78,6 +81,7 @@ describe("Saved views lifecycle E2E", () => {
 			const fetchedView = yield* getSavedView(client, builtinView.slug);
 
 			expect(updatedView.id).toBe(builtinView.id);
+			expect(updatedView.entitySchemaSlug).toBe(builtinView.entitySchemaSlug);
 			expect(fetchedView.createdAt).toBe(builtinView.createdAt);
 			expect(fetchedView.updatedAt).not.toBe(builtinView.updatedAt);
 			expect(fetchedView.isDisabled).toBe(true);
@@ -90,6 +94,8 @@ describe("Saved views lifecycle E2E", () => {
 			const createdView = yield* createSavedView(client, { name: "Lifecycle View" });
 			const fetchedView = yield* getSavedView(client, createdView.slug);
 			expect(fetchedView.id).toBe(createdView.id);
+			expect(createdView.entitySchemaSlug).toBe("book");
+			expect(fetchedView.entitySchemaSlug).toBe("book");
 			expect(fetchedView.name).toBe("Lifecycle View");
 			expect(fetchedView.isBuiltin).toBe(false);
 			expect(fetchedView.isDisabled).toBe(false);
@@ -98,6 +104,7 @@ describe("Saved views lifecycle E2E", () => {
 
 			const clonedView = yield* cloneSavedView(client, createdView.slug);
 			expect(clonedView.id).not.toBe(createdView.id);
+			expect(clonedView.entitySchemaSlug).toBe("book");
 			expect(clonedView.name).toBe("Lifecycle View (Copy)");
 			expect(clonedView.isBuiltin).toBe(false);
 			expect(clonedView.layouts).toEqual(createdView.layouts);
@@ -106,6 +113,7 @@ describe("Saved views lifecycle E2E", () => {
 			});
 			const fetchedUpdated = yield* getSavedView(client, clonedView.slug);
 			expect(updatedClone.name).toBe("Lifecycle View Revised");
+			expect(updatedClone.entitySchemaSlug).toBe("book");
 			expect(fetchedUpdated.id).toBe(clonedView.id);
 			const deletedOriginal = yield* deleteSavedView(client, createdView.slug);
 			const deletedClone = yield* deleteSavedView(client, clonedView.slug);
@@ -124,6 +132,7 @@ describe("Saved views lifecycle E2E", () => {
 			const builtinView = yield* findBuiltinSavedView(client);
 			const clonedView = yield* cloneSavedView(client, builtinView.slug);
 			expect(clonedView.name).toBe(`${builtinView.name} (Copy)`);
+			expect(clonedView.entitySchemaSlug).toBe(builtinView.entitySchemaSlug);
 			expect(clonedView.isBuiltin).toBe(false);
 			expect(clonedView.layouts).toEqual(builtinView.layouts);
 			const deletedClone = yield* deleteSavedView(client, clonedView.slug);
@@ -169,6 +178,7 @@ describe("Saved views lifecycle E2E", () => {
 				c.savedViews.update({
 					params: { viewSlug: builtinView.slug },
 					payload: {
+						entitySchemaSlug: builtinView.entitySchemaSlug,
 						isDisabled: true,
 						icon: builtinView.icon,
 						name: builtinView.name,
@@ -178,11 +188,13 @@ describe("Saved views lifecycle E2E", () => {
 				}),
 			);
 			expect(disableResult.isDisabled).toBe(true);
+			expect(disableResult.entitySchemaSlug).toBe(builtinView.entitySchemaSlug);
 
 			yield* client.call((c) =>
 				c.savedViews.update({
 					params: { viewSlug: builtinView.slug },
 					payload: {
+						entitySchemaSlug: builtinView.entitySchemaSlug,
 						isDisabled: false,
 						icon: builtinView.icon,
 						name: builtinView.name,
@@ -194,6 +206,7 @@ describe("Saved views lifecycle E2E", () => {
 			const fetchedReEnabled = yield* getSavedView(client, builtinView.slug);
 
 			expect(fetchedReEnabled.isDisabled).toBe(false);
+			expect(fetchedReEnabled.entitySchemaSlug).toBe(builtinView.entitySchemaSlug);
 			expect(fetchedReEnabled.name).toBe(builtinView.name);
 		}),
 	);
@@ -234,6 +247,7 @@ describe("Saved views lifecycle E2E", () => {
 			const refreshedView = yield* getSavedView(client, createdView.slug);
 
 			expect(refreshedView.id).toBe(createdView.id);
+			expect(refreshedView.entitySchemaSlug).toBe("book");
 			expect(refreshedView.isBuiltin).toBe(false);
 			expect(refreshedView.createdAt).toBe(createdView.createdAt);
 			expect(refreshedView.updatedAt).not.toBe(createdView.updatedAt);
@@ -258,6 +272,7 @@ describe("Saved views lifecycle E2E", () => {
 
 			expect(reEnabledView.isDisabled).toBe(false);
 			expect(fetchedReEnabled.isDisabled).toBe(false);
+			expect(fetchedReEnabled.entitySchemaSlug).toBe(createdView.entitySchemaSlug);
 		}),
 	);
 
