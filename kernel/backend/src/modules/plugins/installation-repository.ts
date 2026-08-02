@@ -78,6 +78,18 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 	"PluginInstallationRepository",
 	{
 		make: Effect.sync(() => {
+			const findById = Effect.fn("PluginInstallationRepository.findById")(function* (id: string) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select(installationState)
+						.from(schema.pluginInstallation)
+						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
+						.where(eq(schema.pluginInstallation.id, id))
+						.limit(1),
+				);
+				return row ?? null;
+			});
 			const listForUser = Effect.fn("PluginInstallationRepository.listForUser")(function* (
 				userId: UserId,
 			) {
@@ -327,6 +339,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				create,
 				remove,
 				restore,
+				findById,
 				listForUser,
 				updateState,
 				upsertState,
