@@ -36,7 +36,7 @@ const clientRequest = JSON.stringify({
 	files: {
 		"client/index.tsx": `
 import "./styles.css";
-import { bootstrapClientPlugin, defineClientPlugin } from "@ryot/client-sdk/plugin";
+import { bootstrapClientPlugin } from "@ryot/client-sdk/plugin";
 import { Button } from "@ryot/client-ui-sdk";
 import { useState } from "react";
 
@@ -45,7 +45,7 @@ const Home = () => {
 	return <Button className="bg-accent" onClick={() => setCount(count + 1)}>{count}</Button>;
 };
 
-bootstrapClientPlugin(defineClientPlugin({ home: Home }));
+bootstrapClientPlugin({ home: Home });
 `,
 		"client/styles.css": '@import "tailwindcss";\n',
 	},

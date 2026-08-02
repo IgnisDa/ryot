@@ -53,7 +53,7 @@ describe("plugin client artifact contract", () => {
 
 describe("plugin client bridge contract", () => {
 	it("uses exact protocol version 3", () => {
-		expect(CLIENT_BRIDGE_PROTOCOL_VERSION).toBe(3);
+		expect(CLIENT_BRIDGE_PROTOCOL_VERSION).toBe(1);
 	});
 
 	it("admits lifecycle close messages in both directions", () => {

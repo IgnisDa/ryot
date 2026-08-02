@@ -165,7 +165,7 @@ const readyFor = (init: PluginBridgeInit): PluginBridgeReady => ({
 });
 
 describe("plugin bridge", () => {
-	it("transfers exactly one port with the exact V3 init markers", () => {
+	it("transfers exactly one port with the exact init markers", () => {
 		const { init, origins } = connect();
 
 		expect(origins).toEqual(["*"]);
@@ -245,7 +245,7 @@ describe("plugin bridge", () => {
 		await waitFor(() => expect(malformed.failures).toHaveLength(1));
 
 		const outdated = connect();
-		outdated.pluginPort.postMessage({ ...readyFor(outdated.init), bridgeVersion: 1 });
+		outdated.pluginPort.postMessage({ ...readyFor(outdated.init), bridgeVersion: 0 });
 		await waitFor(() => expect(outdated.failures).toHaveLength(1));
 
 		const premature = connect();

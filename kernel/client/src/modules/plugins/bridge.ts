@@ -25,9 +25,9 @@ import {
 import { isJsonValue } from "@ryot/contract/schema/json";
 import { Match, Result, Schema } from "effect";
 
-export const HANDSHAKE_TIMEOUT_MS = 15_000;
+const HANDSHAKE_TIMEOUT_MS = 15_000;
 
-export type PluginBridgeTarget = {
+type PluginBridgeTarget = {
 	readonly postMessage: (message: unknown, targetOrigin: string, transfer: Transferable[]) => void;
 };
 
@@ -39,7 +39,7 @@ export type PluginBridgeSession = {
 
 type PluginBridgeState = "ready" | "active" | "closing" | "failed" | "disposed";
 
-export type PluginBridgeOptions = {
+type PluginBridgeOptions = {
 	readonly timeoutMs?: number;
 	readonly onReady: () => void;
 	readonly artifactHash: string;
