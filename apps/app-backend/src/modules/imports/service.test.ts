@@ -134,7 +134,7 @@ const user: CurrentUserValue = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-1"),
-	preferences: { isNsfw: false, language: null, disableIntegrations: false },
+	preferences: { allowNsfw: false, language: null, disableIntegrations: false },
 };
 
 type SingleImportSource = Extract<RegisteredImportSource, { readonly lot: "single" }>;
