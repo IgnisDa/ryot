@@ -1,9 +1,4 @@
-import {
-	PluginBridgeLocation,
-	type PluginBridgeNavigate,
-	type PluginLogicalLocation,
-} from "@ryot/contract/modules/plugins/client";
-import { Result, Schema } from "effect";
+import type { PluginLogicalLocation } from "@ryot/contract/modules/plugins/client";
 import {
 	createContext,
 	useContext,
@@ -129,27 +124,18 @@ const matchRoute = (routes: readonly PluginRouteDefinition[], path: string) => {
 	return undefined;
 };
 
-const decodeLocationMessage = Schema.decodeUnknownResult(PluginBridgeLocation);
-
 export type PluginLocationStore = {
 	readonly subscribe: (listener: () => void) => () => void;
 	readonly getSnapshot: () => PluginLogicalLocation | undefined;
 };
 
-export const createPluginLocationStore = (port: MessagePort): PluginLocationStore => {
+export type PluginLocationController = PluginLocationStore & {
+	readonly set: (location: PluginLogicalLocation) => void;
+};
+
+export const createPluginLocationStore = (): PluginLocationController => {
 	const listeners = new Set<() => void>();
 	let current: PluginLogicalLocation | undefined;
-
-	port.addEventListener("message", (event) => {
-		const decoded = decodeLocationMessage(event.data);
-		if (Result.isFailure(decoded)) {
-			return;
-		}
-		current = decoded.success.location;
-		for (const listener of listeners) {
-			listener();
-		}
-	});
 
 	return {
 		getSnapshot: () => current,
@@ -157,16 +143,22 @@ export const createPluginLocationStore = (port: MessagePort): PluginLocationStor
 			listeners.add(listener);
 			return () => listeners.delete(listener);
 		},
+		set: (location) => {
+			current = location;
+			for (const listener of listeners) {
+				listener();
+			}
+		},
 	};
 };
 
 type PluginRouterProps = {
-	readonly port: MessagePort;
 	readonly locations: PluginLocationStore;
 	readonly definition: PluginRouterDefinition;
+	readonly navigate: (mode: PluginNavigateMode, to: PluginNavigateTo) => void;
 };
 
-export const PluginRouter = ({ definition, port, locations }: PluginRouterProps) => {
+export const PluginRouter = ({ definition, locations, navigate }: PluginRouterProps) => {
 	const isFirstLocation = useRef(true);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const location = useSyncExternalStore(locations.subscribe, locations.getSnapshot);
@@ -183,18 +175,6 @@ export const PluginRouter = ({ definition, port, locations }: PluginRouterProps)
 			containerRef.current?.focus({ preventScroll: true });
 		}
 	}, [location]);
-
-	const navigate = useMemo(
-		() => (mode: PluginNavigateMode, to: PluginNavigateTo) => {
-			const search = to.search ? new URLSearchParams(to.search).toString() : "";
-			port.postMessage({
-				mode,
-				type: "navigate",
-				location: { path: to.path, search },
-			} satisfies PluginBridgeNavigate);
-		},
-		[port],
-	);
 
 	const route = useMemo(() => {
 		if (!location) {

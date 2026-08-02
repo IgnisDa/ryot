@@ -37,7 +37,7 @@ plugin client source in archive
   -> immutable content-addressed artifact
   -> RyotQL installation/artifact catalog
   -> authenticated kernel route resolution
-  -> isolated iframe and MessageChannel bridge
+  -> isolated iframe and one per-session MessageChannel runtime
   -> plugin home and one private route
   -> shared recipe-backed client query with local decoding
   -> one authenticated backend operation
@@ -76,12 +76,14 @@ These actions are not tasks in this plan. Implementors may read the legacy clien
 - The plugin source archive contains `manifest.json`, `backend/**`, and optional `client/**`. The compiled client artifact is separate from the source archive.
 - `@ryot/sandbox-compiler` remains backend-specific. Browser compilation belongs to a new `@ryot/client-plugin-compiler` package.
 - `@ryot/client-sdk` is the shared environment-neutral client package. Its public surfaces are the root package plus `/react`, `/plugin`, and `/effect`; `@ryot/client-ui-sdk` remains a separate UI package shared by the kernel and plugins.
-- `RyotClient` exposes Promise-based APIs through an explicitly supplied provider/client. The kernel uses a direct adapter; plugin runtimes use a `MessageChannel` adapter. No global mutable bridge is part of the shared client runtime.
+- `RyotClient` exposes Promise-based APIs through an explicitly supplied provider/client. The kernel uses a direct adapter; one per-session plugin runtime uses a `MessageChannel` adapter. No global mutable bridge is part of the shared client runtime.
+- Each plugin session has one runtime owning its `MessagePort`, `ready`/`active`/`closing`/`failed`/`disposed` state, single dispatcher, location state, query and operation pending calls, listeners, client, and disposal. Task 06 adds theme state to this runtime. All pending calls reject at most once during failure or disposal; kernel abort is best effort and cannot undo committed backend work.
+- Bootstrap validates artifact metadata before accepting one port and owns the bootstrap listener and React root/unmount coordinator; the runtime owns the session listener/dispatcher and client lifecycle, while `PluginHost` owns the iframe.
 - The server compiles client source during plugin installation and update. Package source hash and client artifact hash are separate identities.
 - The kernel reads installation and artifact metadata through an application-owned named RyotQL recipe with a colocated schema and decoder.
 - `ryot.data.query(recipe)` executes a recipe and decodes its result locally. It uses the existing user-scoped backend authorization and does not introduce a client-specific authorization bypass.
 - Plugin applications run in isolated iframes, receive no Ryot credentials, and communicate through a kernel-created `MessageChannel`.
-- The client API and artifact-format markers are exact, and the bridge uses exact protocol V2. Do not add version ranges, negotiation, fallback adapters, or compatibility code.
+- The client API and artifact-format markers are exact, and the bridge uses exact protocol V3. V3 replaces V2's split bridge ownership with the one per-session runtime, adds strict `{ type: "lifecycle-close", reason: "disposed" | "failed" }` signaling, and requires pending-call rejection during disposal. Task 06 extends that exact contract with runtime-owned theme messages. Do not add V2 support, aliases, version ranges, negotiation, fallback adapters, legacy bridges, or compatibility code.
 - Installed plugins are trusted with data exposed through their SDK and may use public browser networking. This tracer does not add network permissions or origin allowlists.
 - A package update changes the artifact hash and force-reloads the mounted iframe. An old artifact must not continue against the new package revision.
 - A disabled installation is absent from bootstrap and the workspace switcher, but direct routes remain valid. Backend operation availability remains backend-owned.

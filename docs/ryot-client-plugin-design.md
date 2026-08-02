@@ -412,7 +412,7 @@ When an update replaces artifact A with artifact B, the kernel force-reloads any
 
 ### Artifact identity is embedded, never authored
 
-The artifact hash covers the compiled bundle, stylesheet, and assets, so it cannot exist inside them. The compiler emits `index.html` last, embedding the artifact hash and the exact client markers, including bridge protocol V2, as JSON in a `<script type="application/json" id="ryot-client-artifact">` element.
+The artifact hash covers the compiled bundle, stylesheet, and assets, so it cannot exist inside them. The compiler emits `index.html` last, embedding the artifact hash and the exact client markers, including bridge protocol V3, as JSON in a `<script type="application/json" id="ryot-client-artifact">` element.
 
 `bootstrapClientPlugin` reads that element and refuses to accept a bridge port when it is absent or malformed. Plugin source therefore never declares, derives, or passes its own artifact identity, and the kernel, the compiler, and the running plugin compare the same embedded values.
 
@@ -535,6 +535,8 @@ The package has four public surfaces:
 
 The kernel supplies a direct adapter to kernel services. The plugin runtime supplies a `MessageChannel` adapter. Both use the same environment-neutral client contract.
 
+Each mounted plugin document has exactly one per-session client plugin runtime. That runtime owns the session `MessagePort`, its lifecycle state, one message dispatcher, logical location, pending query and operation calls, all session listeners, the bridge-backed `RyotClient`, and disposal. Theme synchronization and fatal reporting extend this runtime in their tracer tasks; they must not create separate bridge clients or listener/teardown paths.
+
 Initial categories should be approximately:
 
 ```text
@@ -630,9 +632,9 @@ Third-party plugins must not import or invoke native plugins themselves.
 
 A plugin iframe and the kernel execute in separate JavaScript/document contexts.
 
-Communication between a plugin iframe and the kernel occurs through the exact version-tagged bridge protocol V2.
+Communication between a plugin iframe and the kernel occurs through the exact version-tagged bridge protocol V3. V3 is the only supported protocol. V2 is not accepted and has no alias, negotiation path, fallback, adapter, or compatibility bridge.
 
-The preferred plugin transport is `MessageChannel`, with the kernel explicitly handing a communication port to the top-level plugin document. The shared `RyotClient` does not depend on this transport: the kernel direct adapter calls kernel services directly, while the plugin adapter serializes the same semantic calls over the session `MessagePort`.
+The preferred plugin transport is `MessageChannel`, with the kernel explicitly handing a communication port to the top-level plugin document. The shared `RyotClient` does not depend on this transport: the kernel direct adapter calls kernel services directly, while the plugin runtime serializes the same semantic calls over its session `MessagePort`.
 
 Conceptually:
 
@@ -655,19 +657,45 @@ The bridge needs:
 - events
 - subscriptions
 - cancellation where useful
+- per-session lifecycle and disposal
+- settle-once pending-call rejection
 - exact protocol-version validation
 - installation-bound session identity
 - declared capabilities from plugin metadata
 
 Plugin authors interact with the TypeScript SDK, not the wire protocol.
 
-### Protocol V2 request/response calls
+### Per-session runtime lifecycle
 
-Protocol V2 implements strict request/response calls for plugin data access. It carries navigation messages, recipe-backed RyotQL query messages, and backend operation messages over the plugin session port.
+The plugin side has one runtime for one bridge session. Its state is one of:
+
+```text
+ready     the exact init was accepted and the runtime is awaiting initial session state
+active    initial session state arrived and the plugin may use the client
+closing   disposal has started; new calls are refused
+failed    a fatal plugin or bridge failure occurred; normal calls are refused
+disposed  all runtime resources are released; this state is terminal
+```
+
+The normal path is `ready -> active -> closing -> disposed`. A fatal failure enters `failed` from `ready` or `active` through the same `closing` cleanup; `failed` and `disposed` are terminal states. A close can enter `closing` directly. Every transition is idempotent, and messages received after `failed`, `closing`, or `disposed` are ignored.
+
+`bootstrapClientPlugin` owns embedded metadata validation, the one-time parent-window bootstrap listener, the artifact root, and the top-level React root/unmount coordinator. It accepts exactly one valid init with exactly one transferred port, validates the artifact hash and all exact V3 markers before accepting the session, requires the artifact root, creates the runtime, and supplies its client to `RyotProvider`. It removes the bootstrap listener after acceptance. The runtime owns `port.start()`, the session port listeners, the single dispatcher, lifecycle state, location state, pending calls, the `RyotClient`, and idempotent disposal. Runtime termination tells bootstrap to unmount the root. `PluginHost` owns the iframe element and the kernel-side session handle; it does not create capability-specific bridge objects.
+
+The single dispatcher currently routes location, query, operation, and terminal `lifecycle-close` messages. Task 06 adds theme snapshots and updates to this dispatcher and stores them in the same runtime. Query and operation calls use runtime-owned pending registries, even though they may remain separate maps for correlation. No other module may attach a session port listener or own a pending-call registry. The temporary parent-window bootstrap listener is the only listener outside the session runtime and is removed once the runtime is accepted.
+
+Every pending query or operation entry is removed before its promise is settled. A result, runtime failure, or disposal can settle an entry only once. Failure and disposal reject all remaining entries with their stable transport/runtime error, clear the registries, and ignore duplicate or late results. Closing the iframe is cleanup after this protocol-level rejection; plugin promises do not merely die with the iframe.
+
+When either peer closes or fails a session, it sends `{ type: "lifecycle-close", reason: "disposed" | "failed" }` when the port is usable, marks the session closing, rejects the plugin-side pending calls, and closes the port. Kernel-side abort signals cancel in-flight service work on a best-effort basis and suppress late responses. Abort is not a transaction or rollback mechanism: an authenticated operation may already have committed before abort, and the committed work cannot be undone by closing the session or rejecting the caller's promise.
+
+### Protocol V3 request/response calls
+
+Protocol V3 implements strict request/response calls for plugin data access. It currently carries navigation messages, recipe-backed RyotQL query messages, backend operation messages, and terminal runtime messages over the one plugin session port. Task 06 extends the exact V3 contract with semantic theme messages.
+
+Compared with the former V2 contract, V3 makes the bridge version marker `3`, replaces the separate location/query/operation listener ownership with one runtime dispatcher, adds the strict `{ type: "lifecycle-close", reason: "disposed" | "failed" }` message, and makes runtime disposal the source of pending-call rejection. The request and result correlation rules and installation-bound identity rules remain strict; V3 does not preserve a V2 wire shape under another name.
 
 Plugin to kernel carries `{ type: "operation-request", requestId, operationSlug, input }`. Kernel to plugin answers `{ type: "operation-result", requestId, outcome }`, where `outcome` is `{ outcome: "success", value }` or `{ outcome: "failure", reason }` and `reason` is `"operation-failed"` for a failure the backend declared or `"transport"` for an unexpected one. The SDK adds a third plugin-side reason, `"malformed-result"`, when a success value does not decode against the caller's output schema.
 
-Recipe queries carry the recipe document through the same exact V2 session protocol. The response is decoded locally by the recipe's decoder after the client receives it.
+Recipe queries carry the recipe document through the same exact V3 session protocol. The response is decoded locally by the recipe's decoder after the client receives it.
 
 `input` is optional on the wire and the kernel forwards an absent one as JSON `null`, so a plugin that omits it gets the backend's typed input rejection rather than a call that never settles.
 
@@ -675,9 +703,9 @@ The request carries no plugin, installation, package, artifact, user, or server 
 
 Correlation is per-session: `requestId` need only be unique on one port, and the kernel ignores a request reusing an in-flight id, so a call settles exactly once.
 
-Teardown is kernel-side. Closing or replacing a bridge aborts every in-flight call, releases the kernel's request bookkeeping, and posts nothing further. The plugin half is released by destroying the plugin document: closing the kernel port raises no event on the plugin's port, so a plugin-side promise is not rejected but dies with the document. Every current path that closes a bridge also replaces the iframe, so the two are equivalent today. A future path that closes a bridge while keeping the document alive must first drain the plugin's pending calls.
+Teardown is a shared runtime lifecycle. Closing or replacing a bridge enters `closing`, rejects every plugin-side pending call exactly once, aborts kernel work on a best-effort basis, releases request bookkeeping, sends no ordinary responses after closure, and then reaches `disposed` for normal disposal or `failed` for failure. Replacing the iframe is a later host cleanup step, not the mechanism that settles promises.
 
-Only declared result values, outcomes, and failure reasons cross the port. Internal causes and backend diagnostics stay in the kernel.
+Only declared result values, outcomes, failure reasons, semantic theme state, and lifecycle signals cross the port. Internal causes and backend diagnostics stay in the kernel.
 
 ### Bridge identity
 
@@ -1203,6 +1231,8 @@ A long-lived plugin document preserves:
 - bridge session
 - same-document View Transitions
 
+The bridge session and the per-session client plugin runtime have the same lifetime. Route changes only update runtime location state. Theme changes only update runtime theme state. Crash recovery, artifact replacement, unmount, and host disposal all call the same idempotent runtime disposal path; none may add a theme-specific, crash-specific, reload-specific, or component-specific bridge teardown path.
+
 The kernel may discard inactive plugin iframes under memory pressure.
 
 The initial implementation can keep only the active plugin alive and add an LRU/warm-cache policy later if measurements justify it.
@@ -1464,9 +1494,9 @@ The current client contract records exact markers for:
 2. bridge protocol level
 3. client artifact format/compiler version
 
-The client API level remains 1, and the bridge protocol level is exactly V2. Plugin source declares the exact client API level it targets. The compiler emits the exact bridge protocol, artifact format, and compiler versions into artifact metadata. The kernel validates exact expected values before execution.
+The client API level remains 1, and the bridge protocol level is exactly V3. Plugin source declares the exact client API level it targets. The compiler emits the exact bridge protocol, artifact format, and compiler versions into artifact metadata. The kernel validates exact expected values before execution. An artifact or handshake that carries V2 is rejected as an unexpected version.
 
-The greenfield implementation does not support version ranges, compatibility negotiation, protocol adapters, legacy bridges, or client-state migrations. The kernel, SDKs, compiler, and built-in plugin artifacts advance together. An unexpected marker is a build or installation error, not a request for fallback behavior.
+The greenfield implementation does not support version ranges, compatibility negotiation, protocol adapters, aliases, legacy bridges, fallback behavior, or client-state migrations. The kernel, SDKs, compiler, and built-in plugin artifacts advance together. An unexpected marker is a build or installation error, not a request for fallback behavior.
 
 Plugin updates force-reload the mounted iframe so one bridge session never spans package revisions.
 

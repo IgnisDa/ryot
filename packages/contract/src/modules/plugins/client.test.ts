@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	PluginBridgeClientMessage,
+	PluginBridgeHostMessage,
 	PluginBridgeRyotQLResult,
 } from "./client";
 
@@ -17,8 +18,19 @@ const document = {
 } as const;
 
 describe("plugin client bridge contract", () => {
-	it("uses exact protocol version 2", () => {
-		expect(CLIENT_BRIDGE_PROTOCOL_VERSION).toBe(2);
+	it("uses exact protocol version 3", () => {
+		expect(CLIENT_BRIDGE_PROTOCOL_VERSION).toBe(3);
+	});
+
+	it("admits lifecycle close messages in both directions", () => {
+		const message = { reason: "disposed", type: "lifecycle-close" };
+
+		expect(Result.isSuccess(Schema.decodeUnknownResult(PluginBridgeClientMessage)(message))).toBe(
+			true,
+		);
+		expect(Result.isSuccess(Schema.decodeUnknownResult(PluginBridgeHostMessage)(message))).toBe(
+			true,
+		);
 	});
 
 	it("decodes a strict RyotQL request", () => {
