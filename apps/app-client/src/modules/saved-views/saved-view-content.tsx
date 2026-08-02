@@ -6,12 +6,12 @@ import { Platform, Pressable, Text, View } from "react-native";
 import { AppIcon } from "@/modules/icons";
 import { ProviderAddHost, useProviderAddFlow } from "@/modules/provider-add/add-flow-host";
 
-import { savedViewResultCount } from "./result-count";
 import { SavedViewFrame } from "./saved-view-frame";
 import { SavedViewGrid } from "./saved-view-grid";
 import { SavedViewLayoutSelector, useSavedViewLayout } from "./saved-view-layout-selector";
 import { SavedViewList } from "./saved-view-list";
 import { SavedViewPagination } from "./saved-view-pagination";
+import { SavedViewResultCount } from "./saved-view-result-count";
 import { SavedViewTable } from "./saved-view-table";
 import type { SavedViewActiveData, SavedViewResultState } from "./state";
 import { SavedViewRuntime } from "./use-saved-view";
@@ -155,9 +155,11 @@ function SavedViewDisplay(
 								{props.record.name}
 							</Text>
 						</View>
-						<Text className="font-ui text-xs text-text-muted md:text-sm">
-							{savedViewResultCount(items.length, pageInfo.hasMore)}
-						</Text>
+						<SavedViewResultCount
+							loaded={items.length}
+							hasMore={pageInfo.hasMore}
+							textClassName="font-ui text-xs md:text-sm"
+						/>
 					</View>
 					<SavedViewWebActions
 						isEmpty={items.length === 0}
