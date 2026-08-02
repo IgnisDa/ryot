@@ -4,7 +4,12 @@
 // normalization of the name. V1 has no per-statistic unit, so `unit` is omitted.
 
 import type { QualifiedSchema } from "./migration-resolution";
-import { buildReportSql, quoteNullableSqlString, quoteSqlString } from "./shared";
+import {
+	buildRequireLegacyTableSql,
+	buildReportSql,
+	quoteNullableSqlString,
+	quoteSqlString,
+} from "./shared";
 
 export const buildMeasurementMigrationSql = (measurementEntitySchema: QualifiedSchema) => `
 DO $$
@@ -18,9 +23,7 @@ DECLARE
 	rows_inserted     int         := 0;
 	started_at        timestamptz := clock_timestamp();
 BEGIN
-	IF to_regclass('"user_measurement"') IS NULL THEN
-		RAISE EXCEPTION 'Expected user_measurement table to exist in a V1 database but it was not found';
-	END IF;
+	${buildRequireLegacyTableSql("user_measurement -> entity", "user_measurement")}
 
 	LOOP
 		WITH batch AS (

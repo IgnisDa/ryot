@@ -1,5 +1,10 @@
 import type { QualifiedSchema } from "./migration-resolution";
-import { buildReportSql, quoteNullableSqlString, quoteSqlString } from "./shared";
+import {
+	buildRequireLegacyTableSql,
+	buildReportSql,
+	quoteNullableSqlString,
+	quoteSqlString,
+} from "./shared";
 
 export const buildCollectionToEntityRelationshipMigrationSql = (
 	addEntityToCollectionEventSchema: QualifiedSchema,
@@ -11,9 +16,7 @@ DECLARE
 	relationships_inserted int;
 	started_at timestamptz := clock_timestamp();
 BEGIN
-	IF to_regclass('"collection_to_entity"') IS NULL THEN
-		RAISE EXCEPTION 'Expected collection_to_entity table to exist in a V1 database but it was not found';
-	END IF;
+	${buildRequireLegacyTableSql("collection -> entity", "collection_to_entity")}
 
 	INSERT INTO "relationship" (
 		"id",
@@ -90,13 +93,9 @@ DECLARE
 	rows_inserted int;
 	started_at timestamptz := clock_timestamp();
 BEGIN
-	IF to_regclass('"collection"') IS NULL THEN
-		RAISE EXCEPTION 'Expected collection table to exist in a V1 database but it was not found';
-	END IF;
+	${buildRequireLegacyTableSql("collection -> entity", "collection")}
 
-	IF to_regclass('"collection_to_entity"') IS NULL THEN
-		RAISE EXCEPTION 'Expected collection_to_entity table to exist in a V1 database but it was not found';
-	END IF;
+	${buildRequireLegacyTableSql("collection -> entity", "collection_to_entity")}
 
 	IF EXISTS (
 		SELECT 1
@@ -117,7 +116,7 @@ BEGIN
 					AND library_entity.provider_id IS NULL
 			)
 	) THEN
-		RAISE EXCEPTION 'Expected each legacy Monitoring collection owner to have a V2 library entity';
+		RAISE EXCEPTION 'Monitoring collection -> media-monitoring: a user owns a legacy Monitoring collection but has no V2 library entity to attach it to. Library entities are created earlier in this same run, so this is a defect in this migration rather than in the legacy data. Keep the dump and report it; retrying will not change the result.';
 	END IF;
 
 	INSERT INTO "relationship" (
@@ -169,13 +168,9 @@ DECLARE
 	rows_updated int;
 	started_at timestamptz := clock_timestamp();
 BEGIN
-	IF to_regclass('"collection"') IS NULL THEN
-		RAISE EXCEPTION 'Expected collection table to exist in a V1 database but it was not found';
-	END IF;
+	${buildRequireLegacyTableSql("collection -> entity", "collection")}
 
-	IF to_regclass('"collection_to_entity"') IS NULL THEN
-		RAISE EXCEPTION 'Expected collection_to_entity table to exist in a V1 database but it was not found';
-	END IF;
+	${buildRequireLegacyTableSql("collection -> entity", "collection_to_entity")}
 
 	UPDATE "relationship" rel
 	SET "properties" = rel.properties || jsonb_build_object(
@@ -201,9 +196,7 @@ DECLARE
 	rows_inserted int;
 	started_at timestamptz := clock_timestamp();
 BEGIN
-	IF to_regclass('"collection"') IS NULL THEN
-		RAISE EXCEPTION 'Expected collection table to exist in a V1 database but it was not found';
-	END IF;
+	${buildRequireLegacyTableSql("collection -> entity", "collection")}
 
 	INSERT INTO "entity" (
 		"id",

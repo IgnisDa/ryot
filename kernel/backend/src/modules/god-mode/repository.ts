@@ -3,8 +3,13 @@ import { asc, desc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/auth";
-import { migrationReport } from "#lib/infrastructure/db/schema/tables/migration-reports";
+import {
+	migrationReport,
+	migrationReportDetail,
+} from "#lib/infrastructure/db/schema/tables/migration-reports";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+
+const migrationReportDetailPageSize = 100;
 
 const userSearchClause = (search?: string) =>
 	search ? ilike(schema.user.email, `%${search.trim()}%`) : undefined;
@@ -25,7 +30,46 @@ export class GodModeRepository extends Context.Service<GodModeRepository>()("God
 						),
 				);
 
-				return rows.map((row) => Object.assign(row, { createdAt: row.createdAt.toISOString() }));
+				const codedSeqs = rows.filter((row) => row.code !== null).map((row) => row.seq);
+				const details =
+					codedSeqs.length === 0
+						? []
+						: yield* mapDatabaseErrors(
+								db
+									.select({
+										seq: migrationReportDetail.seq,
+										detail: migrationReportDetail.detail,
+										reportSeq: migrationReportDetail.reportSeq,
+										rank: sql<string>`row_number() over (
+											partition by ${migrationReportDetail.reportSeq}
+											order by ${migrationReportDetail.seq}
+										)`.as("rank"),
+									})
+									.from(migrationReportDetail)
+									.where(inArray(migrationReportDetail.reportSeq, codedSeqs))
+									.orderBy(asc(migrationReportDetail.reportSeq), asc(migrationReportDetail.seq)),
+							);
+
+				const detailsByReportSeq = new Map<number, (typeof details)[number]["detail"][]>();
+				for (const row of details) {
+					if (Number(row.rank) > migrationReportDetailPageSize) {
+						continue;
+					}
+					const existing = detailsByReportSeq.get(row.reportSeq);
+					if (existing === undefined) {
+						detailsByReportSeq.set(row.reportSeq, [row.detail]);
+						continue;
+					}
+					existing.push(row.detail);
+				}
+
+				return rows.map((row) =>
+					Object.assign(row, {
+						createdAt: row.createdAt.toISOString(),
+						details: detailsByReportSeq.get(row.seq) ?? [],
+						totalDetails: row.code === null ? null : (row.count ?? 0),
+					}),
+				);
 			},
 		);
 

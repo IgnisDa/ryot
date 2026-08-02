@@ -9,6 +9,7 @@ import { metadataMigrationTargets } from "./metadata-mapping-targets";
 import {
 	type ResolvedLotEntityMigrationTarget,
 	buildLotEntityTargetValuesSql,
+	buildAbortOnRowsSql,
 	buildReportSql,
 } from "./shared";
 
@@ -284,18 +285,23 @@ END $$;
 export const buildMetadataToMetadataRelationshipMigrationSql = () => `
 DO $$
 DECLARE
+	user_authored_rows int := 0;
+	user_authored_sample text;
 	started_at timestamptz := clock_timestamp();
 BEGIN
-	IF EXISTS (
-		SELECT 1
-		FROM "metadata_to_metadata" m2m
-		INNER JOIN "metadata" src ON src.id = m2m.from_metadata_id
-		INNER JOIN "metadata" tgt ON tgt.id = m2m.to_metadata_id
-		WHERE src.created_by_user_id IS NOT NULL OR tgt.created_by_user_id IS NOT NULL
-		LIMIT 1
-	) THEN
-		RAISE EXCEPTION 'metadata_to_metadata -> relationship: found user-authored suggestion links; slim migration would drop them';
-	END IF;
+	${buildAbortOnRowsSql({
+		countVariable: "user_authored_rows",
+		sampleVariable: "user_authored_sample",
+		source: `
+			SELECT src.title || ' -> ' || tgt.title AS label
+			FROM "metadata_to_metadata" m2m
+			INNER JOIN "metadata" src ON src.id = m2m.from_metadata_id
+			INNER JOIN "metadata" tgt ON tgt.id = m2m.to_metadata_id
+			WHERE src.created_by_user_id IS NOT NULL OR tgt.created_by_user_id IS NOT NULL
+		`,
+		message:
+			"metadata_to_metadata -> relationship: % suggestion link(s) touch media a user created: %. Suggestion links are normally dropped because V2 rebuilds them when it populates provider data, but rebuilding cannot recreate links to user-authored media, so dropping these would lose data. Keep the dump and report it; this migration needs a rule for user-authored suggestions before it can run on this data.",
+	})}
 
 	${buildReportSql("metadata_to_metadata -> relationship", [{ message: "skipped (provider-reconstructed on population)" }])}
 END $$;
