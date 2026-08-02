@@ -1,0 +1,50 @@
+{
+	"name": "@ryot/client-plugin-compiler",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"default": "./src/index.ts"
+		},
+		"./diagnostics": {
+			"types": "./src/diagnostics.ts",
+			"default": "./src/diagnostics.ts"
+		},
+		"./limits": {
+			"types": "./src/limits.ts",
+			"default": "./src/limits.ts"
+		},
+		"./protocol": {
+			"types": "./src/protocol.ts",
+			"default": "./src/protocol.ts"
+		},
+		"./worker": {
+			"types": "./src/worker.ts",
+			"default": "./src/worker.ts"
+		}
+	},
+	"scripts": {
+		"test": "bun --bun run vitest run",
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix",
+		"build": "tsc && bun build src/worker.ts --outdir dist --target bun --sourcemap"
+	},
+	"dependencies": {
+		"@ryot/client-plugin-sdk": "workspace:*",
+		"@ryot/client-ui-sdk": "workspace:*",
+		"@ryot/contract": "workspace:*",
+		"@ryot/ts-utils": "workspace:*",
+		"@tailwindcss/oxide": "^4.1.18",
+		"effect": "4.0.0-rc.111",
+		"react": "^19.2.0",
+		"react-dom": "^19.2.0",
+		"tailwindcss": "^4.1.18"
+	},
+	"devDependencies": {
+		"@effect/vitest": "4.0.0-beta.107",
+		"@ryot/testing": "workspace:*",
+		"bun-types": "1.4.0",
+		"typescript": "7.0.2",
+		"vitest": "4.1.9"
+	}
+}
