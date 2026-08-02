@@ -424,6 +424,7 @@ fi
 					activeId = replacementScriptId;
 					return {
 						logs: [],
+						inline: [],
 						error: null,
 						success: true,
 						harvest: null,
@@ -547,6 +548,7 @@ it.effect("retains a plugin workflow reference while durably suspended", () => {
 				() =>
 					Effect.succeed({
 						logs: [],
+						inline: [],
 						error: null,
 						harvest: null,
 						status: "completed" as const,
@@ -653,6 +655,7 @@ it.effect("reconstructs a completed host write after interruption without repeat
 	const processReplay = (sandboxPayload: SandboxExecutionQueuePayload) =>
 		Effect.succeed({
 			logs: [],
+			inline: [],
 			error: null,
 			harvest: null,
 			status: "completed" as const,
@@ -724,6 +727,7 @@ it.effect("releases a plugin workflow reference before returning terminal failur
 				() =>
 					Effect.succeed({
 						logs: [],
+						inline: [],
 						value: null,
 						harvest: null,
 						status: "completed" as const,
@@ -817,6 +821,7 @@ it.effect("rejects divergence beyond index zero before a replay's generic script
 					{ value: "one", request: first },
 					{ value: null, request: recordedSecond },
 				],
+				[],
 			),
 		);
 		expect(exit.toString()).toContain("journal[1]");
@@ -833,6 +838,7 @@ it.effect("registers every missing request after validating its full prefix", ()
 			yield* validateWorkflowReplayEnvelope(
 				{ state: "pending", requests: [first, pending, third] },
 				[{ value: null, request: first }],
+				[],
 			),
 		).toEqual({ state: "pending", requests: [{ request: pending }, { request: third }] });
 	});
@@ -849,6 +855,7 @@ it.effect("retries after a replay bootstraps from a stale projection", () => {
 					{ value: null, request: first },
 					{ value: null, request: second },
 				],
+				[],
 			),
 		).toEqual({ state: "projection-stale" });
 	});
@@ -865,11 +872,160 @@ it.effect("rejects a completed replay that only forges a stale length marker", (
 					{ value: null, request: first },
 					{ value: null, request: second },
 				],
+				[],
 			),
 		);
 		expect(exit.toString()).toContain("replay ended before recorded journal[1]");
 	});
 });
+
+const inlineCachedRequest = (index: number, capability: "getCachedValue" | "setCachedValue") => ({
+	index,
+	name: capability,
+	kind: "host" as const,
+	args: { capability, args: [`key-${index}`] },
+});
+
+it.effect("accepts inline entries only as the replay's continuation of its loaded journal", () => {
+	const recorded = inlineCachedRequest(0, "getCachedValue");
+	const inline = inlineCachedRequest(1, "getCachedValue");
+	const pending = inlineCachedRequest(2, "setCachedValue");
+	const journal = [{ request: recorded, value: { value: 0, state: "success" } }];
+	const inlineEntries = [{ request: inline, value: { value: 1, state: "success" } }];
+	return Effect.gen(function* () {
+		expect(
+			yield* validateWorkflowReplayEnvelope(
+				{ journalLength: 1, state: "pending", requests: [recorded, inline, pending] },
+				journal,
+				inlineEntries,
+			),
+		).toEqual({ state: "pending", requests: [{ request: pending }] });
+		expect(
+			yield* validateWorkflowReplayEnvelope(
+				{ output: null, journalLength: 1, state: "completed", requests: [recorded, inline] },
+				journal,
+				inlineEntries,
+			),
+		).toEqual({ output: null, state: "completed" });
+
+		const detached = yield* Effect.exit(
+			validateWorkflowReplayEnvelope(
+				{ journalLength: 0, state: "pending", requests: [inline, pending] },
+				journal,
+				inlineEntries,
+			),
+		);
+		expect(detached.toString()).toContain("do not extend the recorded journal");
+		const diverged = yield* Effect.exit(
+			validateWorkflowReplayEnvelope(
+				{
+					journalLength: 1,
+					state: "pending",
+					requests: [
+						recorded,
+						{ ...inline, args: { args: ["other"], capability: "getCachedValue" } },
+					],
+				},
+				journal,
+				inlineEntries,
+			),
+		);
+		expect(diverged.toString()).toContain("SandboxWorkflowNondeterminism: journal[1]");
+	});
+});
+
+it.effect(
+	"journals inline results in order and dispatches only the calls that ended a replay",
+	() => {
+		const executionId = "inline-workflow";
+		const scriptId = SandboxScriptId.make("inline-script");
+		const first = inlineCachedRequest(0, "getCachedValue");
+		const second = inlineCachedRequest(1, "setCachedValue");
+		const third = inlineCachedRequest(2, "getCachedValue");
+		const dispatched: number[] = [];
+		const replayJournalLengths: number[] = [];
+		const projectedHighWaters: string[] = [];
+		const instance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
+		const layer = Layer.mergeAll(
+			databaseLayer,
+			Layer.mock(SandboxArtifactStore)({ retain: () => Effect.void, release: () => Effect.void }),
+			Layer.mock(SandboxPluginScriptResolver)({ findActiveScriptById: () => Effect.die("unused") }),
+			Layer.mock(KernelWorkflowReferences)({ execute: () => Effect.die("unused") }),
+			Layer.succeed(
+				RedisService,
+				makeRedisService({
+					client: Object.assign(Object.create(null), {
+						hgetall: () => Promise.resolve({}),
+						eval: (_script: string, _keys: number, _key: string, highWater: string) => {
+							projectedHighWaters.push(highWater);
+							return Promise.resolve(1);
+						},
+					}),
+				}),
+			),
+			Layer.mock(SandboxDurableHostDispatcher)({
+				dispatch: (request) =>
+					Effect.sync(() => {
+						dispatched.push(request.index);
+						return { value: "written", state: "success" as const };
+					}),
+			}),
+			Layer.succeed(WorkflowInstance, instance),
+			Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+			Layer.mock(SandboxRepository)({
+				resolveWorkflowCallScript: () => Effect.succeed(null),
+				getScriptPin: () =>
+					Effect.succeed({
+						scriptId,
+						providerId: null,
+						pluginRevision: null,
+						scriptSlug: "inline",
+						contentHash: "inline-hash",
+						metadata: { kind: "operation", capabilities: ["getCachedValue", "setCachedValue"] },
+					}),
+			}),
+			Layer.mock(SandboxWorkflowReferenceRepository)({
+				release: () => Effect.die("unused"),
+				lockIngestionShared: () => Effect.void,
+				registerInTransaction: () => Effect.die("unused"),
+			}),
+		);
+
+		return Effect.gen(function* () {
+			const result = yield* runSandboxScriptWorkflowBody(
+				{ scriptId, input: {}, executionId, resolutionMode: "exact", subject: { type: "system" } },
+				executionId,
+				(sandboxPayload) => {
+					replayJournalLengths.push(sandboxPayload.journalLength);
+					const replay = { logs: [], error: null, harvest: null, status: "completed" as const };
+					return Effect.succeed(
+						sandboxPayload.journalLength === 0
+							? {
+									...replay,
+									inline: [{ request: first, value: { value: "cached", state: "success" } }],
+									value: { journalLength: 0, state: "pending" as const, requests: [first, second] },
+								}
+							: {
+									...replay,
+									inline: [{ request: third, value: { value: "cached", state: "success" } }],
+									value: {
+										journalLength: 2,
+										output: { done: true },
+										state: "completed" as const,
+										requests: [first, second, third],
+									},
+								},
+					);
+				},
+			).pipe(Effect.provide(layer));
+
+			expect(result).toEqual({ done: true });
+			expect(dispatched).toEqual([1]);
+			expect(replayJournalLengths).toEqual([0, 2]);
+			expect(projectedHighWaters).toEqual(["0", "2"]);
+		});
+	},
+);
 
 it.effect("executes a pending batch with request-indexed script child identities", () => {
 	const executionId = "batched-workflow";
@@ -942,6 +1098,7 @@ it.effect("executes a pending batch with request-indexed script child identities
 				if (sandboxPayload.executionId === `${executionId}-replay-0`) {
 					return Effect.succeed({
 						logs: [],
+						inline: [],
 						error: null,
 						harvest: null,
 						status: "completed" as const,
@@ -950,6 +1107,7 @@ it.effect("executes a pending batch with request-indexed script child identities
 				}
 				return Effect.succeed({
 					logs: [],
+					inline: [],
 					error: null,
 					harvest: null,
 					status: "completed" as const,
@@ -974,6 +1132,7 @@ it.effect("accepts completion output only after the encountered trace matches th
 			yield* validateWorkflowReplayEnvelope(
 				{ state: "completed", requests: [request], output: { done: true } },
 				[{ request, value: null }],
+				[],
 			),
 		).toEqual({ state: "completed", output: { done: true } });
 	});

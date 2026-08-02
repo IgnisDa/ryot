@@ -4,7 +4,9 @@ import { compilePluginSandboxSourceEntries } from "@ryot-app/sandbox-compiler/pl
 import type { SandboxManifest } from "@ryot-app/sandbox-sdk/core";
 import { SANDBOX_RUNTIME_REGISTRY } from "@ryot-app/sandbox-sdk/runtime-registry";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { Effect, Layer, Schema, Stream, FileSystem, Path } from "effect";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
+import type { Cause } from "effect";
+import { Effect, Layer, Queue, Schema, Stream, FileSystem, Path } from "effect";
 import { HttpEffect, HttpServer } from "effect/unstable/http";
 import { ChildProcess } from "effect/unstable/process";
 import { afterAll, assert, beforeAll, expect, it } from "vitest";
@@ -593,6 +595,9 @@ type RunnerOptions = {
 	readonly limits?: SandboxRunnerLimits;
 	readonly workflowExecutionId?: string;
 	readonly apiFunctions?: readonly string[];
+	readonly inlineDurableCapabilities?: readonly string[];
+	/** Answers each inline durable batch the runner writes; defers when absent. */
+	readonly settleInline?: (requests: ReadonlyArray<unknown>) => unknown;
 	readonly filesystem?: {
 		readonly artifactPath?: string;
 		readonly scratchDirectory?: string;
@@ -639,7 +644,12 @@ const runInDenoRequest = ({ context, compiled, options = {} }: RunnerRequest) =>
 				...(options.workflowExecutionId
 					? { workflowExecutionId: options.workflowExecutionId }
 					: {}),
+				...(options.inlineDurableCapabilities
+					? { inlineDurableCapabilities: options.inlineDurableCapabilities }
+					: {}),
 			})}\n`;
+			const stdin = yield* Queue.unbounded<Uint8Array, Cause.Done>();
+			yield* Queue.offer(stdin, new TextEncoder().encode(request));
 			const command = ChildProcess.make(
 				"deno",
 				[
@@ -672,7 +682,7 @@ const runInDenoRequest = ({ context, compiled, options = {} }: RunnerRequest) =>
 					stdout: "pipe",
 					stderr: "pipe",
 					extendEnv: false,
-					stdin: Stream.succeed(new TextEncoder().encode(request)),
+					stdin: Stream.fromQueue(stdin),
 					env: { DENO_DIR: runtime.cacheDirectory, PATH: Bun.env["PATH"] ?? "/usr/bin:/bin" },
 				},
 			);
@@ -690,9 +700,22 @@ const runInDenoRequest = ({ context, compiled, options = {} }: RunnerRequest) =>
 				[
 					denoProcess.stdout.pipe(
 						Stream.decodeText({ encoding: "utf-8" }),
-						Stream.runFold(
+						Stream.splitLines,
+						Stream.runFoldEffect(
 							() => "",
-							(a, b) => a + b,
+							(response, line) => {
+								const message = decodeRunnerResponse(line);
+								if (isObjectRecord(message) && isObjectRecord(message["inline"])) {
+									const requests = message["inline"]["requests"];
+									assert(Array.isArray(requests));
+									const reply = options.settleInline?.(requests) ?? { defer: true };
+									return Queue.offer(
+										stdin,
+										new TextEncoder().encode(`${encodeRunnerRequest(reply)}\n`),
+									).pipe(Effect.as(response));
+								}
+								return Queue.end(stdin).pipe(Effect.as(response + line));
+							},
 						),
 					),
 					denoProcess.stderr.pipe(
@@ -1394,6 +1417,144 @@ it("replays durable host successes and typed failures without bridge redispatch"
 					},
 				});
 				expect(bridge.calls.map(({ fnName }) => fnName)).toEqual(["replayJournal"]);
+			}),
+		),
+	));
+
+const durableRoleManifest = {
+	name: "Durable role",
+	slug: "durable-role",
+	kind: "operation" as const,
+	requiredPluginConfigKeys: [] as const,
+	requiredSystemConfigKeys: [] as const,
+	capabilities: ["getCachedValue"] as const,
+};
+
+const cachedValueKey = (request: unknown) => {
+	assert(isObjectRecord(request) && isObjectRecord(request["args"]));
+	const args = request["args"]["args"];
+	assert(Array.isArray(args));
+	return String(args[0]);
+};
+
+it("continues a live replay through host-settled inline batches, including typed failures", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* startCoreHostBridge({ replayJournalResult: [] });
+				const batches: Array<ReadonlyArray<string>> = [];
+				const result = yield* runInDeno(
+					{ format: 1, manifest: durableRoleManifest, javascript: durableRoleSource },
+					{ mode: "replay" },
+					{
+						apiFunctions: ["replayJournal"],
+						workflowExecutionId: "durable-parent",
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						inlineDurableCapabilities: ["getCachedValue"],
+						settleInline: (requests) => {
+							const keys = requests.map(cachedValueKey);
+							batches.push(keys);
+							return {
+								results: keys.map((key) =>
+									key === "first"
+										? { state: "success", value: "inline-first" }
+										: { state: "failure", error: { data: { code: 9 }, message: "inline failure" } },
+								),
+							};
+						},
+					},
+				);
+
+				expect(batches).toEqual([["first"], ["second"]]);
+				expect(result).toMatchObject({
+					success: true,
+					value: {
+						journalLength: 0,
+						state: "completed",
+						output: {
+							first: "inline-first",
+							second: { data: { code: 9 }, error: "inline failure" },
+						},
+						requests: [
+							{ index: 0, args: { args: ["first"] } },
+							{ index: 1, args: { args: ["second"] } },
+						],
+					},
+				});
+				expect(bridge.calls.map(({ fnName }) => fnName)).toEqual(["replayJournal"]);
+			}),
+		),
+	));
+
+it("settles concurrently registered durable calls as one inline batch", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* startCoreHostBridge({ replayJournalResult: [] });
+				const batches: Array<ReadonlyArray<string>> = [];
+				const result = yield* runInDeno(
+					{ format: 1, manifest: durableRoleManifest, javascript: durableRoleSource },
+					{ mode: "parallel" },
+					{
+						apiFunctions: ["replayJournal"],
+						workflowExecutionId: "durable-parent",
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						inlineDurableCapabilities: ["getCachedValue"],
+						settleInline: (requests) => {
+							const keys = requests.map(cachedValueKey);
+							batches.push(keys);
+							return { results: keys.map((key) => ({ value: key, state: "success" })) };
+						},
+					},
+				);
+
+				expect(batches).toEqual([["first", "second"]]);
+				expect(result).toMatchObject({
+					success: true,
+					value: { state: "completed", output: { values: ["first", "second"] } },
+				});
+			}),
+		),
+	));
+
+it("ends a live replay pending when the host defers or the capability is not inline", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* startCoreHostBridge({ replayJournalResult: [] });
+				const batches: Array<ReadonlyArray<string>> = [];
+				const settleInline = (requests: ReadonlyArray<unknown>) => {
+					batches.push(requests.map(cachedValueKey));
+					return { defer: true };
+				};
+				const options = {
+					settleInline,
+					apiFunctions: ["replayJournal"],
+					workflowExecutionId: "durable-parent",
+					apiBase: `http://127.0.0.1:${bridge.port}`,
+				};
+				const deferred = yield* runInDeno(
+					{ format: 1, manifest: durableRoleManifest, javascript: durableRoleSource },
+					{ mode: "parallel" },
+					{ ...options, inlineDurableCapabilities: ["getCachedValue"] },
+				);
+				const notInline = yield* runInDeno(
+					{ format: 1, manifest: durableRoleManifest, javascript: durableRoleSource },
+					{ mode: "parallel" },
+					{ ...options, inlineDurableCapabilities: ["setCachedValue"] },
+				);
+
+				expect(batches).toEqual([["first", "second"]]);
+				for (const result of [deferred, notInline]) {
+					expect(result).toMatchObject({
+						success: true,
+						value: {
+							journalLength: 0,
+							state: "pending",
+							requests: [{ args: { args: ["first"] } }, { args: { args: ["second"] } }],
+						},
+					});
+				}
 			}),
 		),
 	));
