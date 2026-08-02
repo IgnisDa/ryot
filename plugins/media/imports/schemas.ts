@@ -4,20 +4,34 @@ import { Schema } from "@ryot/sandbox-sdk/workflow";
 
 import { MediaImportPopulationWorkflowOutput } from "../workflows/schemas";
 
+const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
+	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" as const } });
+
+const isHttpUrl = (value: string): true | string => {
+	try {
+		const url = new URL(value.trim());
+		return ["http:", "https:"].includes(url.protocol) ? true : "must be a valid http or https URL";
+	} catch {
+		return "must be a valid http or https URL";
+	}
+};
+
+export const TraktImportUrl = Schema.String.pipe(Schema.check(Schema.makeFilter(isHttpUrl)));
+
 const ResolvedEntityRef = Schema.Struct({
 	externalId: Schema.String,
 	sourceLabel: Schema.String,
 	providerSlug: Schema.String,
-	kind: Schema.Literal("resolved"),
 	entitySchemaSlug: Schema.String,
+	kind: Schema.Literal("resolved"),
 });
 
 const UnresolvedEntityRef = Schema.Struct({
 	sourceLabel: Schema.String,
 	identifierType: Schema.String,
 	identifierValue: Schema.String,
-	kind: Schema.Literal("unresolved"),
 	entitySchemaSlug: Schema.String,
+	kind: Schema.Literal("unresolved"),
 });
 
 export const ImportEntityRef = Schema.Union([ResolvedEntityRef, UnresolvedEntityRef]);
@@ -89,6 +103,21 @@ export const MediaImportAdapterBatch = Schema.Struct({
 	totalItems: Schema.Number,
 });
 
+const traktUserTarget = strictStruct({
+	username: Schema.NonEmptyString,
+	mode: Schema.Literal("user"),
+});
+
+const traktListTarget = strictStruct({
+	url: TraktImportUrl,
+	collection: Schema.NonEmptyString,
+	mode: Schema.Literal("list"),
+});
+
+export const TraktImportTarget = Schema.Union([traktUserTarget, traktListTarget]);
+
+export type TraktImportTarget = typeof TraktImportTarget.Type;
+
 export const MediaImportParserInput = Schema.Struct({
 	start: Schema.Number,
 	limit: Schema.Number,
@@ -96,21 +125,23 @@ export const MediaImportParserInput = Schema.Struct({
 
 export const MediaImportDispatchParserInput = Schema.Struct({
 	...MediaImportParserInput.fields,
+	url: Schema.optional(TraktImportUrl),
 	apiKey: Schema.optional(Schema.String),
 	apiUrl: Schema.optional(Schema.String),
-	collection: Schema.optional(Schema.String),
 	password: Schema.optional(Schema.String),
-	profileName: Schema.optional(Schema.String),
 	username: Schema.optional(Schema.String),
+	collection: Schema.optional(Schema.String),
+	profileName: Schema.optional(Schema.String),
 	hasAnimeFile: Schema.optional(Schema.Boolean),
 	hasMangaFile: Schema.optional(Schema.Boolean),
 	allowInsecureConnections: Schema.optional(Schema.Boolean),
+	mode: Schema.optional(Schema.Union([Schema.Literal("user"), Schema.Literal("list")])),
 });
 
-export const TraktImportParserInput = Schema.Struct({
-	...MediaImportParserInput.fields,
-	username: Schema.String,
-});
+export const TraktImportParserInput = Schema.Union([
+	strictStruct({ ...MediaImportParserInput.fields, ...traktUserTarget.fields }),
+	strictStruct({ ...MediaImportParserInput.fields, ...traktListTarget.fields }),
+]);
 
 export const UrlAndKeyImportParserInput = Schema.Struct({
 	...MediaImportParserInput.fields,
