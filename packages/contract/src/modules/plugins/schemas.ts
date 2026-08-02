@@ -60,6 +60,21 @@ const PluginPackageArchiveIssue = Schema.Literals([
 	"total-uncompressed-bytes-exceeded",
 ]);
 
+/**
+ * Plugins occupy the first client URL segment, so a plugin slug matching a global client route
+ * would make either the route or the plugin unreachable. Plugin activation rejects these names.
+ */
+export const reservedPluginSlugs: ReadonlySet<string> = new Set([
+	"e",
+	"v",
+	"auth",
+	"settings",
+	"god-mode",
+	"onboarding",
+	"reset-password",
+	"customize-sidebar",
+]);
+
 const PluginRequestFailureReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("upload-unavailable") }),
 	Schema.Struct({ code: Schema.Literal("slug-reserved"), pluginSlug: PluginSlug }),
