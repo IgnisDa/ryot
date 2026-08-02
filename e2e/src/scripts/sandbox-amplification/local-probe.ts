@@ -81,14 +81,14 @@ const main = async () => {
 			SCHEDULER_DISABLE_DISPATCHERS: "true",
 		},
 	});
-	const api = spawnApiProcess(env, serverCwd);
+	const apiProcess = spawnApiProcess(env, serverCwd);
 	const sql = new SQL(infrastructure.dbUrl);
 	try {
 		await waitForHealthCheck(`${frontendUrl}/api/system/health`, "probe", 120);
 		process.env.E2E_FRONTEND_URL = frontendUrl;
 		process.env.E2E_API_URL = `${frontendUrl}/api`;
 		process.env.E2E_ADMIN_ACCESS_TOKEN = String(env.SERVER_ADMIN_ACCESS_TOKEN);
-		const pid = api.pid ?? 0;
+		const pid = apiProcess.pid ?? 0;
 
 		const watermark = async () => {
 			const [row] =
@@ -137,9 +137,11 @@ const main = async () => {
 				left join sandbox_script s on s.id = r.script_id
 				group by 1, 2 order by 1, 3 desc`;
 			return {
-				workflows: workflows.map((row: Record<string, unknown>) => ({ ...row })),
-				sandboxScriptSteps: steps.map((row: Record<string, unknown>) => ({ ...row })),
-				sandboxScriptWorkflowRuns: scripts.map((row: Record<string, unknown>) => ({ ...row })),
+				workflows: workflows.map((row: Record<string, unknown>) => structuredClone(row)),
+				sandboxScriptSteps: steps.map((row: Record<string, unknown>) => structuredClone(row)),
+				sandboxScriptWorkflowRuns: scripts.map((row: Record<string, unknown>) =>
+					structuredClone(row),
+				),
 			};
 		};
 
@@ -261,7 +263,7 @@ const main = async () => {
 		writeFileSync(outputPath, `${JSON.stringify(records, null, "\t")}\n`);
 	} finally {
 		await sql.close();
-		await stopApiProcess(api);
+		await stopApiProcess(apiProcess);
 		await stopCoreTestInfrastructure(infrastructure);
 	}
 };
