@@ -205,11 +205,11 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				upsertGlobalRelationship,
 				listSignals: signals.list,
 				getSandboxResult: sandbox.getResult,
-				setEntityInterest: interest.setInterest,
 				deleteGlobalEntities: entities.deleteByIds,
 				listEntityTranslations: translations.listByEntity,
 				listGlobalRelationships: relationships.listGlobal,
 				listSubscriptionRuns: automations.listRunsByExecutionUserId,
+				setEntityInterestMembership: interest.setEntityInterestMembership,
 				deleteSandboxReplayProjection: (executionId: string) =>
 					redis
 						.del(redisKeys.sandboxWorkflowJournal(executionId))

@@ -55,6 +55,7 @@ const makeServiceLayer = (
 	overrides: {
 		sandbox?: MockOverrides<typeof mockSandbox>;
 		entities?: MockOverrides<typeof mockEntities>;
+		interest?: MockOverrides<typeof mockInterest>;
 		pluginBoots?: MockOverrides<typeof mockPluginBoots>;
 		pluginCrons?: MockOverrides<typeof mockPluginCrons>;
 	} = {},
@@ -80,7 +81,7 @@ const makeServiceLayer = (
 					triggerAll: () => Effect.void,
 					...overrides.pluginBoots,
 				}),
-				mockInterest({}),
+				mockInterest({ ...overrides.interest }),
 				mockTranslations({}),
 				mockRelationships({}),
 				mockRelationshipSchemas({}),
@@ -128,19 +129,41 @@ it.effect("updates populatedAt without changing entity fields", () => {
 	}).pipe(Effect.provide(layer));
 });
 
+it.effect("delegates session membership without reconciliation", () => {
+	let membership: unknown;
+	const layer = makeServiceLayer({
+		interest: {
+			setEntityInterestMembership: (input) =>
+				Effect.sync(() => {
+					membership = input;
+					return undefined;
+				}),
+		},
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* TestSupportService;
+		yield* service.setEntityInterestMembership({
+			sessionId: "session-1",
+			entityIds: [EntityId.make("entity-1")],
+		});
+		expect(membership).toEqual({ sessionId: "session-1", entityIds: ["entity-1"] });
+	}).pipe(Effect.provide(layer));
+});
+
 it.effect("creates global entities with provider provenance", () => {
 	const providerId = SandboxProviderId.make("provider-id");
 	let createInput: unknown;
 	const entity = {
-		id: entityId,
 		providerId,
+		id: entityId,
 		name: "Entity",
-		externalId: "external-id",
-		populatedAt: null,
 		entitySchemaSlug,
+		populatedAt: null,
+		externalId: "external-id",
+		properties: { title: "Entity" },
 		createdAt: "2026-07-20T12:00:00.000Z",
 		updatedAt: "2026-07-20T12:00:00.000Z",
-		properties: { title: "Entity" },
 	};
 	const layer = makeServiceLayer({
 		entities: {
@@ -157,19 +180,19 @@ it.effect("creates global entities with provider provenance", () => {
 		expect(
 			yield* service.createGlobalEntity({
 				providerId,
+				entitySchemaSlug,
 				name: entity.name,
 				externalId: entity.externalId,
 				properties: entity.properties,
-				entitySchemaSlug,
 			}),
 		).toEqual(entity);
 		expect(createInput).toEqual({
 			providerId,
+			entitySchemaSlug,
 			populatedAt: null,
 			name: entity.name,
 			externalId: entity.externalId,
 			properties: entity.properties,
-			entitySchemaSlug,
 		});
 	}).pipe(Effect.provide(layer));
 });
@@ -190,12 +213,12 @@ it.effect("delegates sandbox execution with the explicit executing user", () => 
 	return Effect.gen(function* () {
 		const service = yield* TestSupportService;
 		expect(yield* service.enqueueSandbox({ executingUserId, scriptId })).toEqual({
-			executionId: "execution-id",
 			jobId: "job-id",
+			executionId: "execution-id",
 		});
 		expect(enqueueInput).toEqual({
-			userId: executingUserId,
 			payload: { scriptId },
+			userId: executingUserId,
 		});
 	}).pipe(Effect.provide(layer));
 });
@@ -236,8 +259,8 @@ it.effect("triggers exactly one requested plugin cron with a manual execution id
 						cronSlug,
 						pluginSlug,
 						executionId,
-						result: { status: "completed" },
 						status: "executed" as const,
+						result: { status: "completed" },
 					};
 				}),
 		},

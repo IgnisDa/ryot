@@ -134,10 +134,10 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				return yield* svc.triggerPluginBoot;
 			}),
 		)
-		.handle("setEntityInterest", ({ payload }) =>
+		.handle("setEntityInterestMembership", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
-				yield* svc.setEntityInterest(payload);
+				yield* svc.setEntityInterestMembership(payload);
 			}),
 		)
 		.handle("listSignals", ({ payload }) =>
