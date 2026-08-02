@@ -55,15 +55,14 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 			const paths = yield* Path.Path;
 			const config = yield* AppConfig;
 			const fs = yield* FileSystem.FileSystem;
-			const localDir =
-				config.fileStorage.localDir._tag === "Some" ? config.fileStorage.localDir.value : null;
+			const localDir = config.fileStorage.localDir;
 			const localTempDir = config.fileStorage.localTempDir;
 			const signingSecret =
 				config.fileStorage.localSigningSecret._tag === "Some"
 					? Redacted.value(config.fileStorage.localSigningSecret.value)
 					: null;
 			const signingConfigured = signingSecret !== null && signingSecret.length > 0;
-			const permanentConfigured = localDir !== null && localDir.length > 0 && signingConfigured;
+			const permanentConfigured = localDir.length > 0 && signingConfigured;
 			const temporaryConfigured = localTempDir.length > 0 && signingConfigured;
 			const signingKey = signingConfigured
 				? yield* Effect.tryPromise(() =>
@@ -111,8 +110,8 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 						: Effect.fail(
 								badRequest(
 									kind === "permanent"
-										? "Local permanent storage is not configured. Set FILE_STORAGE_LOCAL_DIR and FILE_STORAGE_LOCAL_SIGNING_SECRET."
-										: "Local temporary storage is not configured. Set FILE_STORAGE_LOCAL_TEMP_DIR and FILE_STORAGE_LOCAL_SIGNING_SECRET.",
+										? "Local permanent storage is not configured. Set FILE_STORAGE_LOCAL_SIGNING_SECRET."
+										: "Local temporary storage is not configured. Set FILE_STORAGE_LOCAL_SIGNING_SECRET.",
 								),
 							),
 				);

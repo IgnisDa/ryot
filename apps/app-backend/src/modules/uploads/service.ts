@@ -122,8 +122,8 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 			if (input.provider === "local" && !localStorage.isConfiguredForKind(input.kind)) {
 				return yield* badRequest(
 					input.kind === "temporary"
-						? "Local temporary storage is not configured. Set FILE_STORAGE_LOCAL_TEMP_DIR and FILE_STORAGE_LOCAL_SIGNING_SECRET."
-						: "Local permanent storage is not configured. Set FILE_STORAGE_LOCAL_DIR and FILE_STORAGE_LOCAL_SIGNING_SECRET.",
+						? "Local temporary storage is not configured. Set FILE_STORAGE_LOCAL_SIGNING_SECRET."
+						: "Local permanent storage is not configured. Set FILE_STORAGE_LOCAL_SIGNING_SECRET.",
 				);
 			}
 			const fileName = yield* resolveFileName(input.fileName);

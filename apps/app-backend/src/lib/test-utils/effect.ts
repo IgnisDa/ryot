@@ -110,12 +110,12 @@ export const makeAppConfigLayer = (
 		},
 		fileStorage: {
 			url: Option.none(),
-			localTempDir: "/tmp",
 			region: Option.none(),
-			localDir: Option.none(),
 			bucketName: Option.none(),
 			accessKeyId: Option.none(),
+			localDir: "/home/ryot/storage",
 			secretAccessKey: Option.none(),
+			localTempDir: "/home/ryot/work",
 			localSigningSecret: Option.none(),
 		},
 		server: {
