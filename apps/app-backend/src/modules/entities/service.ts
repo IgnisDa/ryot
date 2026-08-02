@@ -6,10 +6,10 @@ import {
 	type EntityDetail,
 	type ListedEntity,
 } from "@ryot/contract/modules/entities/schemas";
-import type { RowItem } from "@ryot/contract/modules/query-engine/language";
+import type { RowItem } from "@ryot/contract/modules/ryotql/language";
 import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
 import type { UserId } from "@ryot/contract/schema/brands";
-import { buildEntityDetailQueryDocument } from "@ryot/query-engine/recipes/app";
+import { buildEntityDetailDocument } from "@ryot/ryotql-recipes/entities";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { generateId } from "better-auth";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
@@ -22,10 +22,10 @@ import {
 	getOptionalStringField,
 	requireFieldValue,
 	requireIsoStringField,
-	requireRowsResponse,
+	requireRowsResult,
 	requireStringField,
-} from "#modules/query-engine/response-helpers";
-import { QueryEngineService } from "#modules/query-engine/service";
+} from "#modules/ryotql/response-helpers";
+import { RyotQLService } from "#modules/ryotql/service";
 
 import { LifecycleDispatch } from "./lifecycle-dispatch";
 import type { EntityMutationSnapshot } from "./mutation-outcomes";
@@ -112,7 +112,7 @@ const toMutationSnapshot = (entity: ListedEntity): EntityMutationSnapshot => ({
 	entitySchemaSlug: entity.entitySchemaSlug,
 });
 
-const toListedEntity = Effect.fn("toListedEntityFromQueryEngine")(function* (row: RowItem) {
+const toListedEntity = Effect.fn("toListedEntityFromRyotQL")(function* (row: RowItem) {
 	const providerId = yield* getOptionalStringField(row, "providerId");
 
 	return {
@@ -131,8 +131,8 @@ const toListedEntity = Effect.fn("toListedEntityFromQueryEngine")(function* (row
 export class EntitiesService extends Context.Service<EntitiesService>()("EntitiesService", {
 	make: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
+		const ryotql = yield* RyotQLService;
 		const repository = yield* EntitiesRepository;
-		const queryEngine = yield* QueryEngineService;
 		const lifecycleDispatch = yield* LifecycleDispatch;
 
 		const parseEntityProperties = Effect.fn("EntitiesService.parseEntityProperties")(function* (
@@ -465,12 +465,12 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				return yield* notFound(entityNotFoundError);
 			}
 
-			const response = yield* queryEngine.execute(
+			const response = yield* ryotql.execute(
 				user,
-				buildEntityDetailQueryDocument({ entityId, entitySchemaSlug: scope.entitySchemaSlug }),
+				buildEntityDetailDocument({ entityId, entitySchemaSlug: scope.entitySchemaSlug }),
 			);
-			const rows = yield* requireRowsResponse(response);
-			const row = rows.data.items[0];
+			const rows = yield* requireRowsResult(response, "entity");
+			const row = rows.items[0];
 			if (!row) {
 				return yield* notFound(entityNotFoundError);
 			}

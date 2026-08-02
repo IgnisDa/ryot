@@ -7,10 +7,11 @@ RyotQL is the focused read API at `POST /ryotql/execute`. It is independent from
 - Authenticated user execution against the `entity` table.
 - Multiple independent named rows queries in one repeatable-read, read-only transaction.
 - Entity field selection, typed JSON expressions, predicates, inner and left joins, ordering, and pagination.
+- Localized entity names and properties with translation status as a normal catalog field.
 - User visibility for every entity table occurrence: a caller can read their own rows and global rows.
 - Runtime field kinds: `text`, `date`, `number`, `boolean`, `json`, and `null`.
 
-The entity catalog currently exposes `id`, `name`, `userId`, `createdAt`, `updatedAt`, `properties`, `externalId`, `populatedAt`, `providerId`, and `entitySchemaSlug`. Other physical columns are not queryable.
+The entity catalog currently exposes `id`, `name`, `userId`, `createdAt`, `updatedAt`, `properties`, `externalId`, `populatedAt`, `providerId`, `translationStatus`, and `entitySchemaSlug`. Other physical columns are not queryable.
 
 ## Document Shape
 
@@ -93,6 +94,14 @@ Comparisons support `eq`, `neq`, `gt`, `gte`, `lt`, and `lte`. Null comparisons 
 
 Schema discriminators are ordinary `entitySchemaSlug` comparisons. Use `eq` for one slug and `inArray` for several. Unknown slugs return no rows and do not trigger definition lookup.
 
+## Localization And Derived Fields
+
+Catalog fields resolve through one backend-owned interface. Most fields map directly to physical columns. `name`, `properties`, and `translationStatus` are resolved fields whose SQL depends on the authenticated user's language. RyotQL documents use them as ordinary columns and cannot provide custom field resolvers.
+
+For a user with a non-canonical language preference, `name` uses the translated name when present and otherwise falls back to the canonical name. Translated properties merge over canonical properties, so untranslated canonical keys remain available. The same resolved values are used in selection, predicates, ordering, and JSON paths. Users without a language preference read canonical values without translation SQL.
+
+`translationStatus` is `none` for canonical-language readers, entities without a provider, providers without a canonical language, and unpopulated entities. It is `pending` when a translation is required but absent, `none` for a negative-cache translation, and `ready` when translated content exists. Its provider and translation SQL is emitted only when an expression references `translationStatus`.
+
 ## Limits
 
 - 10 named queries per document.
@@ -100,4 +109,4 @@ Schema discriminators are ordinary `entitySchemaSlug` comparisons. Use `eq` for 
 - 100 rows per page.
 - 30-second transaction-local statement timeout.
 
-Localization, correlated queries, includes, aggregates, time series, plugin execution, and application tables other than `entity` are not available yet.
+Correlated queries, includes, aggregates, time series, plugin execution, and application tables other than `entity` are not available yet.

@@ -27,6 +27,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 
 		const executeForUser = Effect.fn("RyotQLService.executeForUser")(function* (
 			userId: string,
+			language: string | null,
 			document: RyotQLDocument,
 		) {
 			const validationError = validateRyotQLDocument(document);
@@ -40,7 +41,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 					yield* setLocalStatementTimeout(RYOTQL_STATEMENT_TIMEOUT_MS);
 					const results: Array<readonly [string, RowsResult]> = [];
 					for (const [name, query] of Object.entries(document.queries)) {
-						results.push([name, yield* executeNamedQuery(userId, query)]);
+						results.push([name, yield* executeNamedQuery(userId, language, query)]);
 					}
 					return { data: Object.fromEntries(results) };
 				}),
@@ -60,7 +61,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 		}, dieOnDbError);
 
 		const execute = (user: CurrentUserValue, document: RyotQLDocument) =>
-			executeForUser(user.id, document);
+			executeForUser(user.id, user.preferences.language, document);
 
 		return { execute, executeForUser };
 	}),
