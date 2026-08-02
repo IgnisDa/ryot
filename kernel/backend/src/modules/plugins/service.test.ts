@@ -252,12 +252,7 @@ const makeLayer = (input?: {
 				yield* Effect.sync(() => {
 					input?.persisted?.push(plugin);
 					const { files: _files, ...revision } = plugin;
-					const stored = {
-						...revision,
-						...identity,
-						id: pluginId,
-						status: "active",
-					};
+					const stored = { ...revision, ...identity, id: pluginId, status: "active" };
 					const index = installed.findIndex((candidate) => candidate.slug === identity.slug);
 					if (index >= 0) {
 						installed.splice(index, 1, stored);
@@ -754,10 +749,7 @@ it.effect("periodically rebuilds a peer after lost install and uninstall publica
 		const rebuilds = yield* Queue.unbounded<void>();
 		const ticks = yield* Queue.unbounded<void>();
 		const writerContext = yield* Layer.build(
-			makeLayer({
-				installed,
-				publish: () => Effect.die("lost publication"),
-			}),
+			makeLayer({ installed, publish: () => Effect.die("lost publication") }),
 		);
 		const peerContext = yield* Layer.build(
 			makeLayer({

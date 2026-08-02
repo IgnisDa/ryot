@@ -131,9 +131,7 @@ beforeAll(async () => {
 				[attempt(() => getPort()), attempt(() => getPort()), attempt(() => getPort())],
 				{ concurrency: "unbounded" },
 			);
-			apiProcessA = startApi("A", apiPortA, {
-				FRONTEND_OIDC_BUTTON_LABEL: OIDC_BUTTON_LABEL,
-			});
+			apiProcessA = startApi("A", apiPortA, { FRONTEND_OIDC_BUTTON_LABEL: OIDC_BUTTON_LABEL });
 			yield* attempt(() => waitForApi(apiPortA));
 		}),
 	);
@@ -259,11 +257,7 @@ describe("Local auth disabled (API B)", () => {
 			);
 
 			const username = `browser-${crypto.randomUUID()}`;
-			mockServer.setNextClaims({
-				sub: username,
-				name: username,
-				email: `${username}@example.com`,
-			});
+			mockServer.setNextClaims({ sub: username, name: username, email: `${username}@example.com` });
 			yield* page.goto(`${frontendUrl}/auth`);
 
 			const loginRequest = yield* Fiber.join(hostedLoginRequest);

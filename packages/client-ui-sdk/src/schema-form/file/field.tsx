@@ -141,9 +141,7 @@ export function SchemaFileField(props: {
 
 	const chooseFile = async () => {
 		const token = ++attempt.current;
-		const outcome = await props.pickFile({
-			allowedFileExtensions: props.allowedFileExtensions,
-		});
+		const outcome = await props.pickFile({ allowedFileExtensions: props.allowedFileExtensions });
 		if (isCurrent(token) && outcome.kind === "picked") {
 			await selectFile(outcome.file, token);
 		}

@@ -236,9 +236,7 @@ describe("OAuth protocol enforcement", () => {
 			const idToken = requirePresent(tokens.id_token, "OAuth exchange did not return an ID token");
 
 			const apiResponse = yield* Effect.promise(() =>
-				fetch(`${baseUrl}${PLUGIN_LIST_PATH}`, {
-					headers: { Authorization: `Bearer ${idToken}` },
-				}),
+				fetch(`${baseUrl}${PLUGIN_LIST_PATH}`, { headers: { Authorization: `Bearer ${idToken}` } }),
 			);
 			expect(apiResponse.status).toBe(401);
 		}),

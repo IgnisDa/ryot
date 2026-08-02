@@ -106,10 +106,7 @@ it("ignores non-entity and irrelevant entity inputs", () => {
 	});
 	const eventInput = {
 		...context("book"),
-		automation: {
-			...context("book").automation,
-			source: { kind: "event" as const },
-		},
+		automation: { ...context("book").automation, source: { kind: "event" as const } },
 	} as AutomationInput;
 	const irrelevantInput = context("workout");
 

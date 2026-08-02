@@ -86,9 +86,7 @@ describe("music-group.spotify sandbox script", () => {
 					description: "An album.",
 					external_urls: { spotify: "https://open.spotify.com/album/al1" },
 					images: [{ url: "https://img/cover.jpg", width: 300, height: 300 }],
-					tracks: {
-						items: [{ id: "t1", name: "First Track" }, { id: "t2" }, { name: "No Id" }],
-					},
+					tracks: { items: [{ id: "t1", name: "First Track" }, { id: "t2" }, { name: "No Id" }] },
 				},
 			},
 		]);

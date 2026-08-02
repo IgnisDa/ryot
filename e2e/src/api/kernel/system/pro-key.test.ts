@@ -64,10 +64,7 @@ const scenarioConfigs: Record<ScenarioName, ScenarioConfig> = {
 		respond: () => new Response(null, { status: 500 }),
 	},
 	unreachable: { extraEnv: { SERVER_PRO_KEY: VALID_KEY_ENV_VALUE }, unreachable: true },
-	cache: {
-		respond: () => validKeyRespond(),
-		extraEnv: { SERVER_PRO_KEY: VALID_KEY_ENV_VALUE },
-	},
+	cache: { respond: () => validKeyRespond(), extraEnv: { SERVER_PRO_KEY: VALID_KEY_ENV_VALUE } },
 };
 
 const scenarioNames: ScenarioName[] = [

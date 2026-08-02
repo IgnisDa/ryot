@@ -26,10 +26,7 @@ type LegacyS3Row = {
 	userId: string | null;
 };
 
-type LegacyS3AssetReference = {
-	key: string;
-	userId: string | null;
-};
+type LegacyS3AssetReference = { key: string; userId: string | null };
 
 type LegacyS3AssetMigrationResult = {
 	deleted: number;
@@ -41,11 +38,7 @@ type LegacyS3AssetMigrationResult = {
 	unresolved: number;
 };
 
-type ReportEntry = {
-	count: string;
-	level?: "info" | "warning";
-	message: string;
-};
+type ReportEntry = { count: string; level?: "info" | "warning"; message: string };
 
 const isJsonRecord = (value: unknown): value is JsonRecord =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
@@ -189,10 +182,7 @@ export const migrateLegacyS3Assets = Effect.gen(function* () {
 		const keys = new Set<string>();
 		collectS3Keys(row.properties, keys);
 		for (const key of keys) {
-			references.set(referenceKey(row.userId, key), {
-				key,
-				userId: row.userId,
-			});
+			references.set(referenceKey(row.userId, key), { key, userId: row.userId });
 		}
 	}
 
@@ -267,26 +257,17 @@ export const migrateLegacyS3Assets = Effect.gen(function* () {
 
 export const buildLegacyS3AssetReportSql = (result: LegacyS3AssetMigrationResult) => {
 	const entries: ReportEntry[] = [
-		{
-			count: String(result.discovered),
-			message: "asset locator(s) discovered",
-		},
+		{ count: String(result.discovered), message: "asset locator(s) discovered" },
 		{
 			count: String(result.referencesMigrated),
 			message: "asset locator(s) migrated to managed_asset",
 		},
-		{
-			count: String(result.managedAssetRows),
-			message: "managed_asset row(s) available",
-		},
+		{ count: String(result.managedAssetRows), message: "managed_asset row(s) available" },
 		{
 			count: String(result.updatedRows),
 			message: "entity/event row(s) updated with managed asset keys",
 		},
-		{
-			count: String(result.deleted),
-			message: "legacy S3 object(s) deleted",
-		},
+		{ count: String(result.deleted), message: "legacy S3 object(s) deleted" },
 	];
 	if (result.unresolved > 0) {
 		entries.push({

@@ -63,11 +63,7 @@ const identity = {
 describe("plugin client artifact contract", () => {
 	it("rejects duplicate emitted file names", () => {
 		const decode = Schema.decodeUnknownResult(PluginClientArtifact);
-		const file = {
-			name: "plugin.js",
-			contents: new Uint8Array(),
-			contentType: "text/javascript",
-		};
+		const file = { name: "plugin.js", contents: new Uint8Array(), contentType: "text/javascript" };
 
 		expect(
 			Result.isFailure(

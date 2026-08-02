@@ -123,9 +123,7 @@ it.effect("installs an active catalog schema with only server-selected state fie
 
 it.effect("rejects hidden catalog schemas and duplicate installs", () => {
 	const hiddenLayer = makeLayer({}, "hidden");
-	const duplicateLayer = makeLayer({
-		insertNotificationSubscription: () => Effect.succeed(null),
-	});
+	const duplicateLayer = makeLayer({ insertNotificationSubscription: () => Effect.succeed(null) });
 	return Effect.gen(function* () {
 		const hidden = yield* Effect.exit(
 			Effect.provide(
@@ -233,11 +231,7 @@ it.effect("deactivates, deletes, and reinstalls the same notification rule shape
 			return Effect.succeed(deleted ? { id: deleted.id } : null);
 		},
 		insertNotificationSubscription: (input) => {
-			currentState = {
-				...state,
-				...input,
-				id: AutomationRuleId.make(`rule-${nextId++}`),
-			};
+			currentState = { ...state, ...input, id: AutomationRuleId.make(`rule-${nextId++}`) };
 			return Effect.succeed(currentState);
 		},
 	});

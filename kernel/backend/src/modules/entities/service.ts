@@ -28,12 +28,7 @@ type CreateEntityInput = {
 	origin?: AutomationOrigin;
 	entitySchemaSlug: EntitySchemaSlug;
 } & (
-	| {
-			scope: "global";
-			externalId: string;
-			populatedAt: Date | null;
-			providerId: SandboxProviderId;
-	  }
+	| { scope: "global"; externalId: string; populatedAt: Date | null; providerId: SandboxProviderId }
 	| {
 			scope: "user";
 			userId: UserId;
@@ -82,10 +77,7 @@ type EnsureUserEntitiesLifecycleIdentity = {
 	readonly executionId: string;
 };
 
-type EnsuredUserEntity = {
-	readonly entity: ListedEntity;
-	readonly wasInserted: boolean;
-};
+type EnsuredUserEntity = { readonly entity: ListedEntity; readonly wasInserted: boolean };
 
 type ValidatedGlobalEntityItem = Omit<UpsertGlobalEntityItem, "properties"> & {
 	properties: Record<string, unknown>;
@@ -310,9 +302,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 
 			const name = trimToNull(input.name);
 			if (!name) {
-				return yield* new EntityBadRequest({
-					reason: { code: "name-required", field: "name" },
-				});
+				return yield* new EntityBadRequest({ reason: { code: "name-required", field: "name" } });
 			}
 			const properties = yield* parseEntityProperties(input.properties, scope.propertiesSchema);
 			const provenance = {
@@ -428,20 +418,14 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 							).entries(),
 						].sort(([left], [right]) => left.localeCompare(right));
 						for (const [, scope] of scopes) {
-							yield* repository.lockGlobalEntityProvenanceScope({
-								...scope,
-								providerId,
-							});
+							yield* repository.lockGlobalEntityProvenanceScope({ ...scope, providerId });
 						}
 
 						const counts = new Map<string, number>();
 						for (const [key, scope] of scopes) {
 							counts.set(
 								key,
-								yield* repository.countGlobalEntitiesByProvenanceScope({
-									...scope,
-									providerId,
-								}),
+								yield* repository.countGlobalEntitiesByProvenanceScope({ ...scope, providerId }),
 							);
 						}
 

@@ -50,9 +50,7 @@ describe("POST /collections", () => {
 
 			expect(collection.id).toBeDefined();
 			expect(collection.name).toBe("Favorites");
-			expect(collection.properties).toMatchObject({
-				description: "My favorite items",
-			});
+			expect(collection.properties).toMatchObject({ description: "My favorite items" });
 		}),
 	);
 

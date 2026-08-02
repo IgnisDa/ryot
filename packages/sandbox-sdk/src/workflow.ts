@@ -109,11 +109,7 @@ export type WorkflowReplayHost = {
 export type WorkflowScriptReference<
 	Input extends Schema.Constraint,
 	Output extends Schema.ConstraintDecoder<unknown>,
-> = {
-	readonly input: Input;
-	readonly output: Output;
-	readonly scriptSlug: string;
-};
+> = { readonly input: Input; readonly output: Output; readonly scriptSlug: string };
 
 export type WorkflowReference<
 	Input extends Schema.Constraint,
@@ -289,12 +285,7 @@ export const defineWorkflow = <
 						RuntimeEffect.succeed(
 							error === pending
 								? { requests, ...replayIdentity, state: "pending" as const }
-								: {
-										requests,
-										error: String(error),
-										...replayIdentity,
-										state: "failed" as const,
-									},
+								: { requests, error: String(error), ...replayIdentity, state: "failed" as const },
 						),
 					),
 				);

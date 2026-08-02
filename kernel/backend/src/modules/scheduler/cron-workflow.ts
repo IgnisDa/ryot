@@ -21,9 +21,7 @@ export const runTasks = <E, R>(tasks: ReadonlyArray<CronTask<E, R>>, ctx: CronTa
 		{ discard: true },
 	);
 
-export const CronRunPayload = Schema.Struct({
-	executionId: Schema.String,
-});
+export const CronRunPayload = Schema.Struct({ executionId: Schema.String });
 
 export type CronRunPayload = typeof CronRunPayload.Type;
 

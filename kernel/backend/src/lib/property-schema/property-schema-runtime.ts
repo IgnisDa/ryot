@@ -45,9 +45,7 @@ export type PropertyValueField = PropertyValueSchema;
 type StringValueSchema = Schema.Codec<string>;
 type PropertyValues = Record<string, unknown>;
 
-type AppSchemaDefinitionValidationOptions = {
-	readonly allowUpload?: boolean;
-};
+type AppSchemaDefinitionValidationOptions = { readonly allowUpload?: boolean };
 
 type ValidationResult =
 	| { readonly success: true; readonly data: PropertyValues }

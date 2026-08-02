@@ -126,12 +126,7 @@ describe("credentials form", () => {
 		await user.type(screen.getByLabelText("Password"), "Sup3rSecret");
 		await user.click(submitButton());
 
-		expect(submissions).toEqual([
-			{
-				password: "Sup3rSecret",
-				email: "user@example.com",
-			},
-		]);
+		expect(submissions).toEqual([{ password: "Sup3rSecret", email: "user@example.com" }]);
 	});
 
 	it("shows a submission error until the password changes", async () => {

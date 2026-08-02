@@ -56,10 +56,7 @@ describe("fitness query recipes", () => {
 	});
 
 	it("uses the plural workouts include for template detail", () => {
-		const recipe = workoutTemplateDetailRecipe({
-			workoutLimit: 6,
-			entityId: "template-id",
-		});
+		const recipe = workoutTemplateDetailRecipe({ workoutLimit: 6, entityId: "template-id" });
 		const workoutTemplate = recipe.document.queries["workoutTemplate"];
 		if (workoutTemplate?.output.type !== "rows") {
 			throw new Error("Expected workout template rows query");
@@ -77,10 +74,7 @@ describe("fitness query recipes", () => {
 	});
 
 	it("uses explicit relationship directions for workout details", () => {
-		const workoutRecipe = workoutDetailRecipe({
-			templateLimit: 3,
-			entityId: "workout-id",
-		});
+		const workoutRecipe = workoutDetailRecipe({ templateLimit: 3, entityId: "workout-id" });
 		const templateRecipe = workoutTemplateDetailRecipe({
 			workoutLimit: 4,
 			entityId: "template-id",

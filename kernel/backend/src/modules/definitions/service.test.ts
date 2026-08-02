@@ -45,10 +45,7 @@ const makeLoader = () => {
 		scripts: [],
 		sourceHash: "other",
 		...fixturePluginIdentity("other"),
-		manifest: {
-			...manifest,
-			metadata: { ...manifest.metadata, name: "Other", slug: "other" },
-		},
+		manifest: { ...manifest, metadata: { ...manifest.metadata, name: "Other", slug: "other" } },
 	});
 	return loader;
 };

@@ -108,10 +108,7 @@ describe("createRyotClient", () => {
 			collectionId: "collection-1",
 		});
 		await expect(
-			client.collections.removeMembership({
-				entityId: "entity-1",
-				collectionId: "collection-1",
-			}),
+			client.collections.removeMembership({ entityId: "entity-1", collectionId: "collection-1" }),
 		).rejects.toEqual(new RyotClientError("collection-failed"));
 		await client.uploads.uploadTemporary({
 			fileName: "value.txt",
@@ -612,9 +609,7 @@ describe("createRyotClient", () => {
 	it("validates and delegates semantic provider-search screen requests", () => {
 		const requests: unknown[] = [];
 		const client = createRyotClient(
-			createTestRyotAdapter({
-				openProviderSearch: (request) => requests.push(request),
-			}),
+			createTestRyotAdapter({ openProviderSearch: (request) => requests.push(request) }),
 		);
 
 		client.screens.openProviderSearch({
@@ -698,10 +693,7 @@ describe("createRyotClient", () => {
 		const malformed = createRyotClient(
 			createTestRyotAdapter({
 				query: () => Promise.resolve({}),
-				theme: {
-					subscribe: () => () => {},
-					getSnapshot: () => ({ resolvedMode: "system" }),
-				},
+				theme: { subscribe: () => () => {}, getSnapshot: () => ({ resolvedMode: "system" }) },
 			}),
 		);
 

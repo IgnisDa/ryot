@@ -14,12 +14,7 @@ const input = (origin: AutomationInput["automation"]["origin"]): AutomationInput
 		occurredAt: "2026-07-20T10:00:00.000Z",
 		source: {
 			kind: "entity",
-			after: {
-				properties: {},
-				id: "workout-1",
-				name: "Morning Run",
-				entitySchemaSlug: "workout",
-			},
+			after: { properties: {}, id: "workout-1", name: "Morning Run", entitySchemaSlug: "workout" },
 		},
 	},
 });

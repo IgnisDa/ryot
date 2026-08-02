@@ -79,10 +79,7 @@ describe("saved-view schemas", () => {
 		for (const pageSize of [0, 101]) {
 			expect(
 				Result.isFailure(
-					Schema.decodeUnknownResult(ResultsTableSavedViewSettings)({
-						...resultsInput,
-						pageSize,
-					}),
+					Schema.decodeUnknownResult(ResultsTableSavedViewSettings)({ ...resultsInput, pageSize }),
 				),
 			).toBe(true);
 		}

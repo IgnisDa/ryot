@@ -383,9 +383,7 @@ export const validateImportSourceInputSchemas = (manifest: PluginManifestValue) 
 					),
 				);
 			}
-			const issues = validateAppSchemaDefinition(source.inputSchema, {
-				allowUpload: true,
-			});
+			const issues = validateAppSchemaDefinition(source.inputSchema, { allowUpload: true });
 			return issues.length === 0
 				? Effect.void
 				: Effect.fail(

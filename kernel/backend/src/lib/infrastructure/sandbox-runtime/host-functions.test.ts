@@ -36,10 +36,7 @@ import {
 
 describe("normalizePreferences", () => {
 	it("normalizes missing and non-boolean preference values", () => {
-		expect(normalizePreferences(null)).toEqual({
-			allowNsfw: false,
-			disableIntegrations: false,
-		});
+		expect(normalizePreferences(null)).toEqual({ allowNsfw: false, disableIntegrations: false });
 		expect(normalizePreferences({ allowNsfw: 1, disableIntegrations: true })).toEqual({
 			allowNsfw: false,
 			disableIntegrations: true,
@@ -123,9 +120,7 @@ const runGetCurrentIntegration = (
 				Layer.mock(EntitiesService)({}),
 				Layer.mock(EntitiesRepository)({}),
 				Layer.mock(RyotQLService)({}),
-				Layer.succeed(DefinitionRegistry, {
-					...makeDefinitionRegistry(),
-				}),
+				Layer.succeed(DefinitionRegistry, { ...makeDefinitionRegistry() }),
 				Layer.mock(PluginRuntimeResolver)({}),
 				Layer.mock(RelationshipsRepository)({}),
 				Layer.mock(IntegrationsRepository)({ getForUser }),
@@ -391,7 +386,10 @@ const runChangeUserRelationships = (
 	subject: SandboxExecutionSubject,
 	batches: ReadonlyArray<ChangeUserRelationshipBatch>,
 	repository: Layer.Layer<RelationshipsRepository>,
-	getEntityScopeForUser: (input: { userId: UserId; entityId: EntityId }) => Effect.Effect<{
+	getEntityScopeForUser: (input: {
+		userId: UserId;
+		entityId: EntityId;
+	}) => Effect.Effect<{
 		entityId: EntityId;
 		isBuiltin: boolean;
 		entityName: string;

@@ -110,15 +110,10 @@ const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 const mockSignalSchemasRepository = Layer.mock(SignalSchemasRepository);
 const mockRelationshipsRepository = Layer.mock(RelationshipsRepository);
 const mockRelationshipSchemasRepository = Layer.mock(RelationshipSchemasRepository);
-const signalDispatchLayer = Layer.mock(SignalDispatch, {
-	dispatch: () => Effect.void,
-});
+const signalDispatchLayer = Layer.mock(SignalDispatch, { dispatch: () => Effect.void });
 
 const makeSignalsRepository = (overrides: MockOverrides<typeof mockSignalsRepository> = {}) =>
-	mockSignalsRepository({
-		findById: () => Effect.succeed(null),
-		...overrides,
-	});
+	mockSignalsRepository({ findById: () => Effect.succeed(null), ...overrides });
 const makeSignalSchemasRepository = (
 	overrides: MockOverrides<typeof mockSignalSchemasRepository> = {},
 ) => mockSignalSchemasRepository({ ...overrides });
@@ -233,9 +228,7 @@ it.effect("rejects a system principal for an actor audience", () => {
 
 it.effect("rejects an unregistered signal schema", () => {
 	const layer = makeLayer({
-		signalSchemas: makeSignalSchemasRepository({
-			findVisibleBySlug: () => Effect.succeed(null),
-		}),
+		signalSchemas: makeSignalSchemasRepository({ findVisibleBySlug: () => Effect.succeed(null) }),
 		signals: makeSignalsRepository(),
 	});
 
@@ -255,9 +248,7 @@ it.effect("resolves and snapshots related users after inserting the signal", () 
 		signalSchemas: makeSignalSchemasRepository({
 			findVisibleBySlug: () => Effect.succeed(relatedSchema),
 		}),
-		entities: makeEntitiesRepository({
-			getEntityScopeForUser: () => Effect.succeed(subjectScope),
-		}),
+		entities: makeEntitiesRepository({ getEntityScopeForUser: () => Effect.succeed(subjectScope) }),
 		relationshipSchemas: makeRelationshipSchemasRepository({
 			findById: () => Effect.succeed(relationshipScope),
 		}),
@@ -299,9 +290,7 @@ it.effect("persists a valid related-users signal with an empty audience", () => 
 		signalSchemas: makeSignalSchemasRepository({
 			findVisibleBySlug: () => Effect.succeed(relatedSchema),
 		}),
-		entities: makeEntitiesRepository({
-			getEntityScopeForUser: () => Effect.succeed(subjectScope),
-		}),
+		entities: makeEntitiesRepository({ getEntityScopeForUser: () => Effect.succeed(subjectScope) }),
 		relationshipSchemas: makeRelationshipSchemasRepository({
 			findById: () => Effect.succeed(relationshipScope),
 		}),
@@ -338,9 +327,7 @@ it.effect("rejects a missing or unreadable related-users subject", () => {
 			findVisibleBySlug: () => Effect.succeed(relatedSchema),
 		}),
 		entities: makeEntitiesRepository({ getEntityScopeForUser: () => Effect.succeed(null) }),
-		signals: makeSignalsRepository({
-			insert: () => Effect.die("unreadable subject was inserted"),
-		}),
+		signals: makeSignalsRepository({ insert: () => Effect.die("unreadable subject was inserted") }),
 	});
 
 	const missingEffect = Effect.gen(function* () {

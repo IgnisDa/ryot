@@ -11,10 +11,7 @@ import { EntityImportPayload } from "./schemas";
 
 export class EntityImportError extends Schema.TaggedError<EntityImportError>()(
 	"EntityImportError",
-	{
-		message: Schema.String,
-		stage: Schema.Literals(["population", "provider-import-automation"]),
-	},
+	{ message: Schema.String, stage: Schema.Literals(["population", "provider-import-automation"]) },
 ) {}
 
 export const EntityImportWorkflow = Workflow.make("EntityImportWorkflow", {

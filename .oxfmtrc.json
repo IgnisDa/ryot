@@ -1,6 +1,7 @@
 {
 	"useTabs": true,
 	"sortImports": true,
+	"objectWrap": "collapse",
 	"$schema": "./node_modules/oxfmt/configuration_schema.json",
 	"ignorePatterns": [
 		"**/tmp/**",

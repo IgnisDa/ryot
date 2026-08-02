@@ -49,17 +49,10 @@ const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsReposi
 
 const makeImportRunFailuresService = (
 	overrides: MockOverrides<typeof mockImportRunFailuresService> = {},
-) =>
-	mockImportRunFailuresService({
-		create: () => Effect.void,
-		...overrides,
-	});
+) => mockImportRunFailuresService({ create: () => Effect.void, ...overrides });
 
 const makeImportsService = (overrides: MockOverrides<typeof mockImportsService> = {}) =>
-	mockImportsService({
-		update: () => Effect.void,
-		...overrides,
-	});
+	mockImportsService({ update: () => Effect.void, ...overrides });
 
 const makeIntegrationsRepository = (
 	overrides: MockOverrides<typeof mockIntegrationsRepository> = {},
@@ -80,10 +73,7 @@ const makeIntegrationsService = (overrides: MockOverrides<typeof mockIntegration
 const makeSignalEmissionService = (
 	overrides: MockOverrides<typeof mockSignalEmissionService> = {},
 ) =>
-	mockSignalEmissionService({
-		emit: () => Effect.die("unexpected signal emission"),
-		...overrides,
-	});
+	mockSignalEmissionService({ emit: () => Effect.die("unexpected signal emission"), ...overrides });
 
 const makeRedisLayer = () => {
 	const store = new Map<string, string>();
@@ -413,10 +403,7 @@ it.effect("disables a yank integration after continuous failures during finaliza
 		integrationsRepository: makeIntegrationsRepository({
 			getByIdAnyUser: () =>
 				Effect.succeed(
-					makeIntegration({
-						lot: "yank",
-						extraSettings: { disableOnContinuousErrors: true },
-					}),
+					makeIntegration({ lot: "yank", extraSettings: { disableOnContinuousErrors: true } }),
 				),
 		}),
 		integrationsService: makeIntegrationsService({

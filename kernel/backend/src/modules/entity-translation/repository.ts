@@ -126,13 +126,7 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 				return row ? extractLanguage(row.preferences) : null;
 			});
 
-			return {
-				listByEntity,
-				upsertOverlay,
-				listForBackup,
-				findUserLanguage,
-				restoreTranslation,
-			};
+			return { listByEntity, upsertOverlay, listForBackup, findUserLanguage, restoreTranslation };
 		}),
 	},
 ) {

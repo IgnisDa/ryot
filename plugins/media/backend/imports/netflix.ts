@@ -294,9 +294,5 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 		);
 	}
 
-	return {
-		failures,
-		totalItems: itemIndex,
-		entityGroups: finalizeEntityGroups(groups.values()),
-	};
+	return { failures, totalItems: itemIndex, entityGroups: finalizeEntityGroups(groups.values()) };
 });

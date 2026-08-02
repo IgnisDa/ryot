@@ -200,11 +200,7 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 					path: ["completedOn"],
 					kind: "validation" as const,
 					validation: { required: true as const },
-					when: {
-						operator: "eq" as const,
-						path: ["completionMode"],
-						value: "custom_timestamps",
-					},
+					when: { operator: "eq" as const, path: ["completionMode"], value: "custom_timestamps" },
 				},
 			],
 			fields: {

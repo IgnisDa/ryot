@@ -735,10 +735,7 @@ it.effect("upsert captures a material update", () => {
 			name: "Existing",
 			properties: { title: "Existing" },
 		});
-		expect(result.outcome.after).toMatchObject({
-			name: "Cooper",
-			properties: { title: "Cooper" },
-		});
+		expect(result.outcome.after).toMatchObject({ name: "Cooper", properties: { title: "Cooper" } });
 	}).pipe(Effect.provide(layer));
 });
 

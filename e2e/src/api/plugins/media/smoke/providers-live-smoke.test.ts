@@ -21,12 +21,7 @@ const RUN_LIVE =
 	process.env.RUN_LIVE_PROVIDER_TESTS === "1" || process.env.RUN_LIVE_PROVIDER_TESTS === "true";
 
 function schemaProvider(
-	schema: {
-		providers: ReadonlyArray<{
-			name: string;
-			providerId: SandboxProviderId;
-		}>;
-	},
+	schema: { providers: ReadonlyArray<{ name: string; providerId: SandboxProviderId }> },
 	providerName: string,
 ) {
 	const provider = schema.providers.find((candidate) => candidate.name === providerName);

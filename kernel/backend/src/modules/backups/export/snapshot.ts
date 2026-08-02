@@ -707,10 +707,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					}),
 				);
 				const lastRecord = records.at(-1);
-				return {
-					records,
-					nextAfterId: lastRecord ? EventId.make(lastRecord.id) : null,
-				};
+				return { records, nextAfterId: lastRecord ? EventId.make(lastRecord.id) : null };
 			});
 
 			const eachEventPage = <E, R>(

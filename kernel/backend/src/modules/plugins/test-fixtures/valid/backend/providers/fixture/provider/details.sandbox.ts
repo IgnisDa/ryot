@@ -11,8 +11,4 @@ export const manifest = defineManifest({
 	slug: "fixture.provider.details",
 });
 
-export default defineProvider({
-	manifest,
-	operation: "details",
-	run: () => Effect.die("unused"),
-});
+export default defineProvider({ manifest, operation: "details", run: () => Effect.die("unused") });

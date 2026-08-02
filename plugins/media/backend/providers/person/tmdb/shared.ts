@@ -140,10 +140,7 @@ export const details = defineProvider({
 							tmdbGet(
 								host,
 								`/person/${input.externalId}`,
-								{
-									append_to_response: "images",
-									language: "en",
-								},
+								{ append_to_response: "images", language: "en" },
 								token,
 							),
 							tmdbGet(
@@ -267,10 +264,7 @@ export const translate = defineProvider({
 					if (imageUrl) {
 						properties["images"] = [{ type: "remote", url: imageUrl, purpose: "profile" }];
 					}
-					const result: {
-						name?: string;
-						properties?: typeof properties;
-					} = {};
+					const result: { name?: string; properties?: typeof properties } = {};
 					if (name) {
 						result.name = name;
 					}

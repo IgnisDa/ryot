@@ -141,9 +141,7 @@ describe("podcast.itunes sandbox script", () => {
 	});
 	it("translates a podcast entity from the collection payload", () => {
 		const host = makeHost(() =>
-			httpSuccess({
-				results: [{ collectionName: "Traducido", description: "Descripción" }],
-			}),
+			httpSuccess({ results: [{ collectionName: "Traducido", description: "Descripción" }] }),
 		);
 		return Effect.runPromise(
 			runSandboxTestScript(

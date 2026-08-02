@@ -276,11 +276,7 @@ export const createPluginRuntime = (
 				return;
 			}
 			signal?.addEventListener("abort", onAbort, { once: true });
-			post({
-				document,
-				requestId,
-				type: "ryotql-request",
-			} satisfies PluginBridgeRyotQLRequest);
+			post({ document, requestId, type: "ryotql-request" } satisfies PluginBridgeRyotQLRequest);
 		});
 
 	const resolveAssets = (requested: readonly ManagedAssetLocator[], signal?: AbortSignal) =>
@@ -563,10 +559,7 @@ export const createPluginRuntime = (
 					hasLocation = true;
 					activate();
 					if (activating && overlayCount > 0) {
-						post({
-							count: overlayCount,
-							type: "overlay-state",
-						} satisfies PluginBridgeOverlayState);
+						post({ count: overlayCount, type: "overlay-state" } satisfies PluginBridgeOverlayState);
 					}
 				}),
 				Match.when({ type: "viewport" }, ({ safeAreaBottom, safeAreaTop }) =>

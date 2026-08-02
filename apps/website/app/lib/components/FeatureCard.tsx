@@ -3,11 +3,7 @@ import type { LucideIcon } from "lucide-react";
 import { Card, CardDescription, CardHeader, CardTitle } from "~/lib/components/ui/card";
 import { FEATURE_CARD } from "~/lib/styles";
 
-type FeatureCardProps = {
-	icon: LucideIcon;
-	title: string;
-	description: string;
-};
+type FeatureCardProps = { icon: LucideIcon; title: string; description: string };
 
 export function FeatureCard(props: FeatureCardProps) {
 	const Icon = props.icon;

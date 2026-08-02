@@ -24,9 +24,7 @@ type PluginEntitySchema = PluginManifest["entitySchemas"][number];
 export const makeEntitySchemaSlug = Brand.nominal<EntitySchemaInputSlug>();
 type CreateEntitySchemaOptions = Partial<
 	Pick<PluginEntitySchema, "icon" | "name" | "slug" | "propertiesSchema">
-> & {
-	pluginSlug: PluginManifest["metadata"]["slug"];
-};
+> & { pluginSlug: PluginManifest["metadata"]["slug"] };
 
 export const createEntitySchema = (client: Client, options: CreateEntitySchemaOptions) =>
 	Effect.gen(function* () {
@@ -39,13 +37,7 @@ export const createEntitySchema = (client: Client, options: CreateEntitySchemaOp
 				fields: { title: { label: "Title", description: "Title", type: "string" as const } },
 			},
 		} = options;
-		const schema = {
-			icon,
-			name,
-			slug,
-			propertiesSchema,
-			eventSchemas: [],
-		};
+		const schema = { icon, name, slug, propertiesSchema, eventSchemas: [] };
 		yield* installTestDefinitions({ client, pluginSlug, entitySchemas: [schema] });
 		const schemaSlug = makeEntitySchemaSlug(slug);
 		return {
@@ -154,9 +146,7 @@ export const listBuiltinEntitySchemas = (client: Client) =>
 		const plugins = yield* listInstalledPlugins(client, { includeDisabled: true });
 		const builtinPlugin = plugins[0];
 		assertPresent(builtinPlugin, "Built-in plugin not found");
-		const schemas = yield* listEntitySchemas(client, {
-			pluginSlug: builtinPlugin.slug,
-		});
+		const schemas = yield* listEntitySchemas(client, { pluginSlug: builtinPlugin.slug });
 		return { schemas, builtinPlugin };
 	});
 

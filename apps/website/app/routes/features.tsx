@@ -227,26 +227,12 @@ const FEATURE_DATA = [
 			{
 				text: "Track everything you want: movies, shows, books, podcasts, games, anime, manga, music, visual novels",
 			},
-			{
-				text: "Add media to your watchlist, favorite or any other custom collection",
-				isPro: true,
-			},
-			{
-				text: "Get recommendations based on your favorites and watch history",
-				isPro: true,
-			},
-			{
-				text: "Track media you've watched and mark them as seen as many times as you want",
-			},
-			{
-				text: "Import your data from 16 different sources (with more to come)",
-			},
-			{
-				text: "Integrations with 13 different services (with more on the way)",
-			},
-			{
-				text: "Consolidated activity and statistics graphs and views across all your media",
-			},
+			{ text: "Add media to your watchlist, favorite or any other custom collection", isPro: true },
+			{ text: "Get recommendations based on your favorites and watch history", isPro: true },
+			{ text: "Track media you've watched and mark them as seen as many times as you want" },
+			{ text: "Import your data from 16 different sources (with more to come)" },
+			{ text: "Integrations with 13 different services (with more on the way)" },
+			{ text: "Consolidated activity and statistics graphs and views across all your media" },
 			{
 				text: "Set time spent manually on seen entries for more accurate tracking of media consumption",
 				isPro: true,
@@ -254,28 +240,14 @@ const FEATURE_DATA = [
 			{
 				text: "Get notifications when a new episode is released or your favorite actor is back on screen",
 			},
-			{
-				text: "Support for 9 different notification platforms (more being released soon)",
-			},
-			{
-				text: "Save your most commonly used filters as presets for easy access",
-				isPro: true,
-			},
-			{
-				text: "Get information on where you can watch a movie/show legally in your country",
-			},
-			{
-				text: "Set reminders for when you want to watch something and get notified",
-			},
+			{ text: "Support for 9 different notification platforms (more being released soon)" },
+			{ text: "Save your most commonly used filters as presets for easy access", isPro: true },
+			{ text: "Get information on where you can watch a movie/show legally in your country" },
+			{ text: "Set reminders for when you want to watch something and get notified" },
 			{ text: "Review media privately or publicly and see what others think" },
 			{ text: "Browse media by genre or groups (eg: Star Wars collection)" },
-			{
-				text: "Calendar view to get an overview on when a media is being released",
-			},
-			{
-				text: "Suggestions that cater to your tastes based on your watch history",
-				isPro: true,
-			},
+			{ text: "Calendar view to get an overview on when a media is being released" },
+			{ text: "Suggestions that cater to your tastes based on your watch history", isPro: true },
 			{
 				text: "Integrations with YouTube Music and Jellyfin for your music collection",
 				isPro: true,
@@ -298,24 +270,16 @@ const FEATURE_DATA = [
 		],
 		features: [
 			{ text: "Hit the gym and track workouts in realtime" },
-			{
-				text: "Dataset of over 800 exercises with instructions (and the ability to add your own)",
-			},
+			{ text: "Dataset of over 800 exercises with instructions (and the ability to add your own)" },
 			{ text: "Add rest timers to each set you complete" },
-			{
-				text: "Create supersets and upload images for each exercise to track progression",
-			},
+			{ text: "Create supersets and upload images for each exercise to track progression" },
 			{
 				text: "Inline history and images of exercises while logging an active workout",
 				isPro: true,
 			},
 			{ text: "Create templates to pre-plan workouts", isPro: true },
-			{
-				text: "Graphs of progress for exercises to visualize your progress over time",
-			},
-			{
-				text: "Keep track of your measurements like body weight, sugar level etc.",
-			},
+			{ text: "Graphs of progress for exercises to visualize your progress over time" },
+			{ text: "Keep track of your measurements like body weight, sugar level etc." },
 			{
 				text: "Visualizations of how your measurements fluctuate over time. Use them to identify trends and patterns.",
 			},
@@ -332,20 +296,10 @@ const FEATURE_DATA = [
 			"supercharged-collections.png",
 		],
 		features: [
-			{
-				text: "Share access links to your data with your friends and family",
-				isPro: true,
-			},
-			{
-				text: "Fine grained preferences to customize exactly what you want to track",
-			},
-			{
-				text: "Add collaborators to your collections to allow them to add to them",
-				isPro: true,
-			},
-			{
-				text: "Dark and light mode, because Ryot is at your fingertips the whole time",
-			},
+			{ text: "Share access links to your data with your friends and family", isPro: true },
+			{ text: "Fine grained preferences to customize exactly what you want to track" },
+			{ text: "Add collaborators to your collections to allow them to add to them", isPro: true },
+			{ text: "Dark and light mode, because Ryot is at your fingertips the whole time" },
 			{
 				text: "Add custom information to your collections to make them more personalized",
 				isPro: true,
@@ -355,30 +309,12 @@ const FEATURE_DATA = [
 ];
 
 const colorMap = {
-	blue: {
-		bg: "bg-blue-100",
-		text: "text-blue-600",
-	},
-	green: {
-		bg: "bg-green-100",
-		text: "text-green-600",
-	},
-	purple: {
-		bg: "bg-purple-100",
-		text: "text-purple-600",
-	},
-	orange: {
-		bg: "bg-orange-100",
-		text: "text-orange-600",
-	},
-	red: {
-		bg: "bg-red-100",
-		text: "text-red-600",
-	},
-	gray: {
-		bg: "bg-gray-100",
-		text: "text-gray-600",
-	},
+	blue: { bg: "bg-blue-100", text: "text-blue-600" },
+	green: { bg: "bg-green-100", text: "text-green-600" },
+	purple: { bg: "bg-purple-100", text: "text-purple-600" },
+	orange: { bg: "bg-orange-100", text: "text-orange-600" },
+	red: { bg: "bg-red-100", text: "text-red-600" },
+	gray: { bg: "bg-gray-100", text: "text-gray-600" },
 };
 
 const FEATURE_CARDS = [

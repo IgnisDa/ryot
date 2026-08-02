@@ -74,9 +74,7 @@ const baseEntity = {
 	providerId: SandboxProviderId.make("provider-1"),
 } satisfies ListedEntity;
 
-type ProviderEntity = Omit<ListedEntity, "properties"> & {
-	properties: Record<string, unknown>;
-};
+type ProviderEntity = Omit<ListedEntity, "properties"> & { properties: Record<string, unknown> };
 
 type ProviderEntitySaveResult =
 	ReturnType<EntitiesService["Service"]["upsert"]> extends Effect.Effect<
@@ -205,10 +203,7 @@ const withRelationshipDefinition = (
 	definition: DefinitionSnapshot["relationshipSchemas"][string],
 ): DefinitionSnapshot => ({
 	...testDefinitions,
-	relationshipSchemas: {
-		...testDefinitions.relationshipSchemas,
-		[definition.slug]: definition,
-	},
+	relationshipSchemas: { ...testDefinitions.relationshipSchemas, [definition.slug]: definition },
 });
 
 const withChildRelationshipDefinitions = (
@@ -348,11 +343,7 @@ const makeRelationshipsRepository = (
 
 const makeEntitySchemasRepository = (
 	overrides: MockOverrides<typeof mockEntitySchemasRepository> = {},
-) =>
-	mockEntitySchemasRepository({
-		getBuiltinBySlug: () => Effect.succeed(null),
-		...overrides,
-	});
+) => mockEntitySchemasRepository({ getBuiltinBySlug: () => Effect.succeed(null), ...overrides });
 
 const makeRelationshipSchemasRepository = (
 	overrides: MockOverrides<typeof mockRelationshipSchemasRepository> = {},
@@ -468,10 +459,7 @@ it.effect("resolves and reuses a populated entity from a private schema", () => 
 				...testDefinitions,
 				entitySchemas: {
 					...testDefinitions.entitySchemas,
-					[payload.entitySchemaSlug]: {
-						...entityDefinition(payload.entitySchemaSlug),
-						pluginId,
-					},
+					[payload.entitySchemaSlug]: { ...entityDefinition(payload.entitySchemaSlug), pluginId },
 				},
 			},
 			entitiesRepository: makeEntitiesRepository({
@@ -819,10 +807,7 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 				let result: { id: EntitySchemaSlug; propertiesSchema: { fields: {} } } | null = null;
 				switch (slug) {
 					case "group-part": {
-						result = {
-							id: EntitySchemaSlug.make("group-part"),
-							propertiesSchema: { fields: {} },
-						};
+						result = { id: EntitySchemaSlug.make("group-part"), propertiesSchema: { fields: {} } };
 						break;
 					}
 					case "group-part-item": {
@@ -1219,10 +1204,7 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 		}),
 		entitiesService: makeEntitiesService({
 			upsert: (input) =>
-				Effect.succeed({
-					...baseEntity,
-					populatedAt: input.populatedAt === null ? null : now,
-				}),
+				Effect.succeed({ ...baseEntity, populatedAt: input.populatedAt === null ? null : now }),
 			create: (input) => {
 				if (input.scope !== "global") {
 					return Effect.die("unexpected user entity create");
@@ -1249,10 +1231,7 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 				});
 			},
 			update: (input) =>
-				Effect.succeed({
-					...baseEntity,
-					populatedAt: input.populatedAt === null ? null : now,
-				}),
+				Effect.succeed({ ...baseEntity, populatedAt: input.populatedAt === null ? null : now }),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
 			createRelationship: (input) =>
@@ -1431,18 +1410,10 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 
 	return Effect.gen(function* () {
 		yield* runAttempt("exec-suggestions-replace-1", [
-			{
-				externalId: "item-1",
-				providerSlug: "item.alpha",
-				name: "First Recommendation",
-			},
+			{ externalId: "item-1", providerSlug: "item.alpha", name: "First Recommendation" },
 		]);
 		yield* runAttempt("exec-suggestions-replace-2", [
-			{
-				externalId: "item-2",
-				providerSlug: "item.alpha",
-				name: "Second Recommendation",
-			},
+			{ externalId: "item-2", providerSlug: "item.alpha", name: "Second Recommendation" },
 		]);
 
 		expect(syncCalls).toEqual([
@@ -2374,12 +2345,7 @@ it.effect("resumes from the failed population scope without duplicating committe
 			"group-part-to-group-part-item",
 		),
 		processSandbox: () =>
-			Effect.succeed({
-				logs: [],
-				error: null,
-				value: sandboxValue,
-				status: "completed" as const,
-			}),
+			Effect.succeed({ logs: [], error: null, value: sandboxValue, status: "completed" as const }),
 		entitySchemasRepository: makeEntitySchemasRepository({
 			getBuiltinBySlug: findChildEntitySchemaBySlug,
 		}),
@@ -2583,12 +2549,7 @@ it.effect("uses unique deterministic activity names per population scope", () =>
 			"group-part-to-group-part-item",
 		),
 		processSandbox: () =>
-			Effect.succeed({
-				logs: [],
-				error: null,
-				value: sandboxValue,
-				status: "completed" as const,
-			}),
+			Effect.succeed({ logs: [], error: null, value: sandboxValue, status: "completed" as const }),
 		entitySchemasRepository: makeEntitySchemasRepository({
 			getBuiltinBySlug: findChildEntitySchemaBySlug,
 		}),
@@ -2831,11 +2792,7 @@ it.effect("dispatches only material nested entity updates with the root populati
 				operation: "update",
 				recordId: "part-item-1",
 				origin: { kind: "provider_refresh" },
-				source: {
-					kind: "entity",
-					before: { name: "Pilot" },
-					after: { name: "Premiere" },
-				},
+				source: { kind: "entity", before: { name: "Pilot" }, after: { name: "Premiere" } },
 				population: {
 					rootPreviouslyPopulated: true,
 					parentEntity: {

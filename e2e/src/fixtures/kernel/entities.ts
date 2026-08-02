@@ -22,9 +22,7 @@ type CreateEntityInput = ContractPayload<"entities", "create">;
 
 function withRecordProperties<T extends { properties: unknown }>(
 	entity: T,
-): Omit<T, "properties"> & {
-	properties: Record<string, unknown>;
-} {
+): Omit<T, "properties"> & { properties: Record<string, unknown> } {
 	return {
 		...entity,
 		properties: requireObjectRecord(entity.properties, "Entity properties must be an object"),

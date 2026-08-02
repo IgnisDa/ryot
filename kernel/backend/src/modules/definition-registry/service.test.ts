@@ -121,10 +121,7 @@ describe("definition registry", () => {
 		assert(entitySchema);
 
 		expect(() =>
-			registry.replace({
-				...source,
-				entitySchemas: [...source.entitySchemas, entitySchema],
-			}),
+			registry.replace({ ...source, entitySchemas: [...source.entitySchemas, entitySchema] }),
 		).toThrow(/Duplicate entity schema slug/);
 		expect(registry.getSnapshot()).toBe(original);
 	});
@@ -157,10 +154,7 @@ describe("definition registry", () => {
 			}),
 		).toThrow(/cannot contain '\/'/);
 		expect(() =>
-			buildDefinitionSnapshot({
-				...source,
-				savedViews: [{ ...savedView }, ...source.savedViews],
-			}),
+			buildDefinitionSnapshot({ ...source, savedViews: [{ ...savedView }, ...source.savedViews] }),
 		).toThrow(/Duplicate saved view slug/);
 		expect(() =>
 			buildDefinitionSnapshot({

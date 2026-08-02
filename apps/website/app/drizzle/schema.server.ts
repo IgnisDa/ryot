@@ -41,10 +41,7 @@ export const customers = pgTable("customer", {
 	createdOn: timestamp("created_on", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const ticketNumberSequence = pgSequence("ticket_number_seq", {
-	startWith: 1,
-	increment: 1,
-});
+export const ticketNumberSequence = pgSequence("ticket_number_seq", { startWith: 1, increment: 1 });
 
 export const contactSubmissions = pgTable("contact_submission", {
 	isSpam: boolean("is_spam"),

@@ -10,10 +10,7 @@ import { manifest } from "./shared";
 type SpotifyMusicHost = SandboxHost<typeof manifest.capabilities>;
 const httpSuccess = (body: unknown) =>
 	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
-type Route = {
-	match: (url: string) => boolean;
-	body: unknown;
-};
+type Route = { match: (url: string) => boolean; body: unknown };
 const makeHost = (
 	routes: readonly Route[],
 	overrides: Partial<SpotifyMusicHost> = {},

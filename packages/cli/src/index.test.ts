@@ -32,11 +32,7 @@ const run = Effect.fn("runCli")(function* (cwd: string, args: ReadonlyArray<stri
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const entry = yield* path.fromFileUrl(new URL("./index.ts", import.meta.url));
 	const child = yield* spawner.spawn(
-		ChildProcess.make(process.execPath, [entry, ...args], {
-			cwd,
-			stderr: "pipe",
-			stdout: "pipe",
-		}),
+		ChildProcess.make(process.execPath, [entry, ...args], { cwd, stderr: "pipe", stdout: "pipe" }),
 	);
 	const [exitCode, stderr, stdout] = yield* Effect.all(
 		[child.exitCode, collect(child.stderr), collect(child.stdout)],

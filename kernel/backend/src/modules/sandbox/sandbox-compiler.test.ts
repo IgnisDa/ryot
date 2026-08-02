@@ -121,10 +121,7 @@ it.effect("returns an actionable TypeScript diagnostic", () =>
 
 		expect(failure._tag).toBe("SandboxCompilationFailure");
 		expect(failure.diagnostics.length).toBeGreaterThan(0);
-		expect(failure.diagnostics[0]).toMatchObject({
-			file: "script.ts",
-			severity: "error",
-		});
+		expect(failure.diagnostics[0]).toMatchObject({ file: "script.ts", severity: "error" });
 		expect(failure.diagnostics.some((diagnostic) => diagnostic.code.startsWith("TS"))).toBe(true);
 	}),
 );

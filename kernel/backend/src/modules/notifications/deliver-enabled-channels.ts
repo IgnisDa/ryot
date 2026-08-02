@@ -10,11 +10,7 @@ import { NotificationsRepository, type NotificationChannelRecord } from "./repos
 const toDeliveryResult = (
 	channel: NotificationChannelRecord,
 	status: NotificationDeliveryResult["status"],
-): NotificationDeliveryResult => ({
-	status,
-	channelId: channel.id,
-	channel: channel.channel,
-});
+): NotificationDeliveryResult => ({ status, channelId: channel.id, channel: channel.channel });
 
 export const deliverEnabledChannels = Effect.fn("deliverEnabledChannels")(function* (
 	payload: NotificationDeliveryWorkflowPayload,

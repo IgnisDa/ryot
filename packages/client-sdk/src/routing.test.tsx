@@ -193,11 +193,7 @@ const openChannel = (
 	const sendEntity = (
 		entityId: string,
 		entitySchemaSlug: string,
-		options: {
-			readonly key?: string;
-			readonly index?: number;
-			readonly search?: string;
-		} = {},
+		options: { readonly key?: string; readonly index?: number; readonly search?: string } = {},
 	) => {
 		position = options.index ?? position + 1;
 		const location = entityLocation(entityId, entitySchemaSlug, options.search);
@@ -205,11 +201,7 @@ const openChannel = (
 			compact,
 			leading,
 			edgeBack,
-			entry: {
-				location,
-				index: position,
-				key: options.key ?? `k${position}`,
-			},
+			entry: { location, index: position, key: options.key ?? `k${position}` },
 		});
 	};
 	const navigate = (mode: "push" | "replace", to: RyotNavigationTarget) => {
@@ -634,11 +626,7 @@ describe("PluginRouter", () => {
 			ctrlKey: true,
 			cancelable: true,
 		});
-		const auxiliary = new MouseEvent("auxclick", {
-			button: 1,
-			bubbles: true,
-			cancelable: true,
-		});
+		const auxiliary = new MouseEvent("auxclick", { button: 1, bubbles: true, cancelable: true });
 		void act(() => link.dispatchEvent(modified));
 		void act(() => link.dispatchEvent(auxiliary));
 

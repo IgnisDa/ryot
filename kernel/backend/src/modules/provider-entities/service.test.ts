@@ -135,9 +135,7 @@ it.effect("returns NotFound when the derived entity schema is not found", () =>
 		const service = yield* EntityImportService;
 		const result = yield* Effect.exit(service.import(user, { providerId, externalId }));
 		expect(getFailure(result)).toEqual(
-			new ProviderEntityNotFound({
-				reason: { code: "entity-schema-not-found", entitySchemaSlug },
-			}),
+			new ProviderEntityNotFound({ reason: { code: "entity-schema-not-found", entitySchemaSlug } }),
 		);
 	}).pipe(
 		Effect.provide(

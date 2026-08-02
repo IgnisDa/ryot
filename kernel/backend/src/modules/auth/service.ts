@@ -178,10 +178,7 @@ const makeAuthInstance = (args: {
 						const channel = redisKeys.godModeResetChannel(correlationId);
 						const message = yield* Schema.encodeUnknownEffect(
 							Schema.fromJsonString(Schema.Unknown),
-						)({
-							email: user.email,
-							resetUrl,
-						});
+						)({ email: user.email, resetUrl });
 						yield* Effect.tryPromise(() => args.redis.publish(channel, message));
 						yield* Effect.tryPromise(() =>
 							args.redis.eval(
@@ -331,10 +328,7 @@ const resolveOAuthCredential = (
 	token: string,
 	verifyOAuth: (token: string) => Promise<unknown>,
 ): Effect.Effect<VerifiedCredential, AuthUnauthorized> =>
-	Effect.tryPromise({
-		try: () => verifyOAuth(token),
-		catch: authenticationRequired,
-	}).pipe(
+	Effect.tryPromise({ try: () => verifyOAuth(token), catch: authenticationRequired }).pipe(
 		Effect.flatMap(
 			Schema.decodeUnknownEffect(Schema.Struct({ sub: Schema.String, client_id: Schema.String })),
 		),
@@ -359,19 +353,13 @@ const resolveApiKeyCredential = Effect.fn("resolveApiKeyCredential")(function* (
 	if (!result.valid || !result.key) {
 		return yield* authenticationRequired();
 	}
-	return {
-		userId: result.key.referenceId,
-		credential: { kind: "api-key", keyId: result.key.id },
-	};
+	return { userId: result.key.referenceId, credential: { kind: "api-key", keyId: result.key.id } };
 });
 
 export const getOAuthVerificationOptions = (frontendUrl: string) => ({
 	requiredScopes: [OAUTH_API_SCOPE],
 	jwksUrl: getOAuthEndpoint(frontendUrl, "/api/auth/jwks"),
-	verifyOptions: {
-		issuer: getOAuthIssuer(frontendUrl),
-		audience: getOAuthResource(frontendUrl),
-	},
+	verifyOptions: { issuer: getOAuthIssuer(frontendUrl), audience: getOAuthResource(frontendUrl) },
 });
 
 export const resolveCredential = (
@@ -438,11 +426,13 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 				credential,
 				(token) => verifyBearerToken(token, getOAuthVerificationOptions(config.frontendUrl)),
 				(key) =>
-					auth.api.verifyApiKey({ body: { key } }).then((result) => ({
-						valid: result.valid,
-						error: result.error,
-						key: result.key ? { id: result.key.id, referenceId: result.key.referenceId } : null,
-					})),
+					auth.api
+						.verifyApiKey({ body: { key } })
+						.then((result) => ({
+							valid: result.valid,
+							error: result.error,
+							key: result.key ? { id: result.key.id, referenceId: result.key.referenceId } : null,
+						})),
 				findUserById,
 			);
 		const withInternalAdapter = <A>(operation: (context: AuthContextValue) => Promise<A>) =>

@@ -165,9 +165,7 @@ describe("RyotQL builders", () => {
 		const prepared = recipe({ entitySchemaSlug: "course" });
 
 		expect(prepared.document).toMatchObject({
-			queries: {
-				entities: { where: { right: { value: "course" } } },
-			},
+			queries: { entities: { where: { right: { value: "course" } } } },
 		});
 		const success = Result.getOrThrow(
 			prepared.decode({
@@ -218,13 +216,7 @@ describe("RyotQL builders", () => {
 			true,
 		);
 		expect(
-			Result.isFailure(
-				query.decodeResult({
-					items: [{ entityId: 1 }],
-					pageInfo,
-					type: "rows",
-				}),
-			),
+			Result.isFailure(query.decodeResult({ items: [{ entityId: 1 }], pageInfo, type: "rows" })),
 		).toBe(true);
 	});
 
@@ -283,10 +275,7 @@ describe("RyotQL builders", () => {
 							items: [
 								{
 									id: "child",
-									leaves: {
-										items: [{ label: "Leaf" }],
-										pageInfo: { hasMore: false, limit: 2 },
-									},
+									leaves: { items: [{ label: "Leaf" }], pageInfo: { hasMore: false, limit: 2 } },
 								},
 							],
 							pageInfo: { hasMore: false, limit: 2 },
@@ -310,9 +299,7 @@ describe("RyotQL builders", () => {
 		const entity = table("entity", "entity");
 		const grouped = selectedAggregate(entity, {
 			groupBy: { status: selectedField(column(entity, "status"), Schema.String) },
-			measures: {
-				count: selectedMeasure({ function: "count" }, Schema.NumberFromString),
-			},
+			measures: { count: selectedMeasure({ function: "count" }, Schema.NumberFromString) },
 		});
 		const countQuery = selectedAggregate(entity, {
 			measures: { count: selectedMeasure({ function: "count" }, Schema.Number) },
@@ -343,11 +330,7 @@ describe("RyotQL builders", () => {
 			bucket: "day",
 			endAt: "2026-01-02",
 			measure: { function: "count" },
-			selection: {
-				endAt: Schema.String,
-				startAt: Schema.String,
-				value: Schema.NumberFromString,
-			},
+			selection: { endAt: Schema.String, startAt: Schema.String, value: Schema.NumberFromString },
 			startAt: "2026-01-01",
 			time: column(event, "occurredAt"),
 		});
@@ -359,9 +342,7 @@ describe("RyotQL builders", () => {
 					type: "timeSeries",
 				}),
 			),
-		).toEqual({
-			buckets: [{ endAt: "2026-01-02", startAt: "2026-01-01", value: 4 }],
-		});
+		).toEqual({ buckets: [{ endAt: "2026-01-02", startAt: "2026-01-01", value: 4 }] });
 		expect(Result.isFailure(query.decodeResult({ items: [], type: "aggregate" }))).toBe(true);
 	});
 
@@ -583,9 +564,7 @@ describe("RyotQL builders", () => {
 	it("builds correlated, aggregate, and arithmetic expressions", () => {
 		const entity = table("entity", "entity");
 		const event = table("event", "event");
-		const related = {
-			where: eq(column(event, "entityId"), column(entity, "id")),
-		};
+		const related = { where: eq(column(event, "entityId"), column(entity, "id")) };
 		const eventCount = count(event, related);
 		const query = rows(entity, {
 			where: exists(event, related),

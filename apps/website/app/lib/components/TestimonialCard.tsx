@@ -10,9 +10,7 @@ export interface Testimonial {
 	initials: string;
 }
 
-type TestimonialCardProps = {
-	testimonial: Testimonial;
-};
+type TestimonialCardProps = { testimonial: Testimonial };
 
 export function TestimonialCard(props: TestimonialCardProps) {
 	return (

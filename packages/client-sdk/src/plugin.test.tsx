@@ -564,10 +564,7 @@ describe("bootstrapClientPlugin", () => {
 		window.dispatchEvent(
 			new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
 		);
-		const error = new ErrorEvent("error", {
-			cancelable: true,
-			error: new Error("fatal"),
-		});
+		const error = new ErrorEvent("error", { cancelable: true, error: new Error("fatal") });
 		window.dispatchEvent(error);
 
 		await waitFor(() =>
@@ -631,10 +628,7 @@ describe("bootstrapClientPlugin", () => {
 		});
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
 
-		const error = new ErrorEvent("error", {
-			cancelable: true,
-			error: new Error("uncaught"),
-		});
+		const error = new ErrorEvent("error", { cancelable: true, error: new Error("uncaught") });
 		window.dispatchEvent(error);
 		await waitFor(() =>
 			expect(messages).toContainEqual({ reason: "failed", type: "lifecycle-close" }),

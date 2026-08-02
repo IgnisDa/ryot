@@ -62,10 +62,7 @@ function extractProgressData(video: HTMLVideoElement): RawMediaData | null {
 		return null;
 	}
 
-	return {
-		title,
-		progress: (video.currentTime / video.duration) * 100,
-	};
+	return { title, progress: (video.currentTime / video.duration) * 100 };
 }
 
 async function sendProgressUpdate(progressData: RawMediaData, metadata: MetadataLookupResult) {
@@ -161,21 +158,15 @@ export default defineContentScript({
 			video.addEventListener("timeupdate", throttledProgressUpdate, {
 				signal: cleanup.abortController.signal,
 			});
-			video.addEventListener("play", sendProgress, {
-				signal: cleanup.abortController.signal,
-			});
-			video.addEventListener("pause", sendProgress, {
-				signal: cleanup.abortController.signal,
-			});
+			video.addEventListener("play", sendProgress, { signal: cleanup.abortController.signal });
+			video.addEventListener("pause", sendProgress, { signal: cleanup.abortController.signal });
 			video.addEventListener(
 				"ended",
 				() => {
 					logger.debug("Video ended, stopping tracking");
 					sendProgress();
 				},
-				{
-					signal: cleanup.abortController.signal,
-				},
+				{ signal: cleanup.abortController.signal },
 			);
 
 			sendProgress();

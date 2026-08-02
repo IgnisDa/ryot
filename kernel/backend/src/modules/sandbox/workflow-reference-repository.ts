@@ -14,10 +14,7 @@ type SandboxWorkflowReference = Omit<WorkflowReferenceRow, "scriptId"> & {
 
 export class SandboxWorkflowReferenceRegistrationError extends Schema.TaggedError<SandboxWorkflowReferenceRegistrationError>()(
 	"SandboxWorkflowReferenceRegistrationError",
-	{
-		message: Schema.String,
-		reason: Schema.Literals(["plugin-inactive", "execution-conflict"]),
-	},
+	{ message: Schema.String, reason: Schema.Literals(["plugin-inactive", "execution-conflict"]) },
 ) {}
 
 const toReference = (row: WorkflowReferenceRow): SandboxWorkflowReference => ({

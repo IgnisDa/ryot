@@ -76,17 +76,12 @@ const makeEventSchemasRepository = (
 const mockEventsRepository = Layer.mock(EventsRepository);
 
 const makeEventsRepository = (overrides: MockOverrides<typeof mockEventsRepository> = {}) =>
-	mockEventsRepository({
-		...overrides,
-	});
+	mockEventsRepository({ ...overrides });
 
 const mockAutomationsService = Layer.mock(AutomationsService);
 
 const makeAutomationsService = (overrides: MockOverrides<typeof mockAutomationsService> = {}) =>
-	mockAutomationsService({
-		resolveActivePolicies: () => Effect.succeed([]),
-		...overrides,
-	});
+	mockAutomationsService({ resolveActivePolicies: () => Effect.succeed([]), ...overrides });
 
 const makeCapturingWorkflowEngine = (
 	instance: WorkflowInstance["Service"],
@@ -125,12 +120,8 @@ it.effect("creates events inside workflow activities", () => {
 			dispatchLifecycleOccurrence: () => Effect.void,
 			executeSandboxScript: () => Effect.die("unused"),
 		}),
-		makeEntitiesRepository({
-			getEntityScopeForUser: () => Effect.succeed(entityScope),
-		}),
-		makeEventSchemasRepository({
-			getScopeForUser: () => Effect.succeed(eventSchemaScope),
-		}),
+		makeEntitiesRepository({ getEntityScopeForUser: () => Effect.succeed(entityScope) }),
+		makeEventSchemasRepository({ getScopeForUser: () => Effect.succeed(eventSchemaScope) }),
 		makeEventsRepository({
 			createEvent: (input) => {
 				createdEventInputs.push(input);
@@ -216,9 +207,7 @@ it.effect(
 				getEntityScopeForUser: ({ entityId: requestedEntityId }) =>
 					Effect.succeed({ ...entityScope, entityId: requestedEntityId }),
 			}),
-			makeEventSchemasRepository({
-				getScopeForUser: () => Effect.succeed(eventSchemaScope),
-			}),
+			makeEventSchemasRepository({ getScopeForUser: () => Effect.succeed(eventSchemaScope) }),
 			makeEventsRepository({
 				createEvent: (input) =>
 					Effect.succeed({

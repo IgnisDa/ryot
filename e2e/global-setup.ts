@@ -36,10 +36,7 @@ export default async function () {
 		throw new Error(`E2E build failed with exit code ${build.status ?? "unknown"}`);
 	}
 
-	const assembly = spawnSync("bun", ["run", "assemble"], {
-		cwd: serverCwd,
-		stdio: "inherit",
-	});
+	const assembly = spawnSync("bun", ["run", "assemble"], { cwd: serverCwd, stdio: "inherit" });
 	if (assembly.status !== 0) {
 		throw new Error(`Server assembly failed with exit code ${assembly.status ?? "unknown"}`);
 	}

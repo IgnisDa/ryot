@@ -11,10 +11,7 @@ const avatarBackgroundColors = [
 ] as const;
 
 export const generateUserAvatar = (seed: string): string => {
-	const avatar = new Avatar(new Style(bigEars), {
-		seed,
-		backgroundColor: avatarBackgroundColors,
-	});
+	const avatar = new Avatar(new Style(bigEars), { seed, backgroundColor: avatarBackgroundColors });
 	const encoded = Buffer.from(avatar.toString(), "utf8").toString("base64");
 	return `data:image/svg+xml;base64,${encoded}`;
 };

@@ -83,10 +83,7 @@ export const websiteAuthCookie = createCookie("WebsiteAuth", {
 });
 
 export const getDb = memoize(() =>
-	drizzle(getServerVariables().DATABASE_URL, {
-		schema,
-		logger: IS_DEVELOPMENT_ENV,
-	}),
+	drizzle(getServerVariables().DATABASE_URL, { schema, logger: IS_DEVELOPMENT_ENV }),
 );
 
 export const getUnkeyClient = memoize(() => {
@@ -95,15 +92,10 @@ export const getUnkeyClient = memoize(() => {
 
 export const getPolarClient = memoize(() => {
 	const accessToken = getPolarAccessToken();
-	return new Polar({
-		accessToken,
-		server: isPolarSandbox() ? "sandbox" : "production",
-	});
+	return new Polar({ accessToken, server: isPolarSandbox() ? "sandbox" : "production" });
 });
 
-export const paddleCustomDataSchema = z.object({
-	customerId: z.string(),
-});
+export const paddleCustomDataSchema = z.object({ customerId: z.string() });
 
 export type PaddleCustomData = z.infer<typeof paddleCustomDataSchema>;
 

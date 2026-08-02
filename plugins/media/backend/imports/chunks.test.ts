@@ -38,11 +38,7 @@ it("writes finalized episode subjects and keeps plugin-private episode data out 
 							properties: { progressPercent: 100 },
 							occurredAt: "2026-01-01T00:00:00.000Z",
 						},
-						{
-							properties: {},
-							eventSchemaSlug: "backlog",
-							occurredAt: "2026-01-03T00:00:00.000Z",
-						},
+						{ properties: {}, eventSchemaSlug: "backlog", occurredAt: "2026-01-03T00:00:00.000Z" },
 					],
 				},
 			],

@@ -143,12 +143,8 @@ it.live("uses the deterministic collection dashboard as media home and persists 
 		const { token, email, password } = yield* createTestUser(apiUrl);
 		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
 		yield* installFixtureClientPlugin(client, "A", "", apiUrl);
-		const { showId } = yield* seedGlobalShowEpisodeTree(client, {
-			showName: "01 Task 10 Show",
-		});
-		const { workoutId } = yield* createWorkoutEntityFixture(client, {
-			name: "02 Task 10 Workout",
-		});
+		const { showId } = yield* seedGlobalShowEpisodeTree(client, { showName: "01 Task 10 Show" });
+		const { workoutId } = yield* createWorkoutEntityFixture(client, { name: "02 Task 10 Workout" });
 		const [pokemonA, pokemonB] = yield* Effect.all([
 			createPokemonEntityFixture(client, { types: ["Grass"], name: "03 Task 10 Pokemon A" }),
 			createPokemonEntityFixture(client, { types: ["Fire"], name: "04 Task 10 Pokemon B" }),
@@ -415,10 +411,9 @@ it.live("preserves expanded and dialog state when provider population completes"
 			.locator(`[data-entity-id="${partialPokemon.id}"][data-layout="row"]`)
 			.filter({ visible: true });
 		yield* activePokemon.scrollIntoViewIfNeeded();
-		yield* activePokemon.getByText("Task 08 Populated Pokemon", { exact: true }).waitFor({
-			state: "visible",
-			timeout: 150_000,
-		});
+		yield* activePokemon
+			.getByText("Task 08 Populated Pokemon", { exact: true })
+			.waitFor({ state: "visible", timeout: 150_000 });
 		yield* expectVisibleText(runtime.locator("body"), "0 syncing");
 		yield* expectVisibleText(activePokemon, "Grass");
 		yield* expectVisibleText(activePokemon, "Poison");
@@ -883,9 +878,9 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 		expect(yield* frames.count).toBe(1);
 		const iframe = Option.getOrThrow(yield* frames.first().elementHandle());
 		const runtime = frames.first().contentFrame();
-		yield* runtime.getByRole("heading", { level: 1, name: "Mixed entity browser" }).waitFor({
-			state: "visible",
-		});
+		yield* runtime
+			.getByRole("heading", { level: 1, name: "Mixed entity browser" })
+			.waitFor({ state: "visible" });
 		yield* expectVisibleText(runtime.locator("body"), "01 Alpha fallback");
 		yield* expectVisibleText(runtime.locator("body"), "02 Beta fallback");
 		expect(yield* runtime.locator("article").count).toBe(2);

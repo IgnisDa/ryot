@@ -33,20 +33,14 @@ export const triggerCronAndWaitForEntity = (auth: { client: Client }, entityId: 
 			yield* getApiClient().call(
 				(c) =>
 					c.testSupport.setEntityInterestMembership({
-						payload: {
-							sessionId: socket.ready.sessionId,
-							entityIds: [EntityId.make(entityId)],
-						},
+						payload: { sessionId: socket.ready.sessionId, entityIds: [EntityId.make(entityId)] },
 					}),
 				adminHeaders(),
 			);
 			const cron = yield* getApiClient().call(
 				(c) =>
 					c.testSupport.triggerPluginCron({
-						payload: {
-							cronSlug: "media-monitoring",
-							pluginSlug: PluginSlug.make("media"),
-						},
+						payload: { cronSlug: "media-monitoring", pluginSlug: PluginSlug.make("media") },
 					}),
 				adminHeaders(),
 			);

@@ -13,11 +13,7 @@ export type PurchaseCompleteEmailProps = {
 				kind: "cloud";
 				auth:
 					| { provider: "google"; email: string }
-					| {
-							username: string;
-							provider: "password";
-							passwordChangeUrl: string;
-					  };
+					| { username: string; provider: "password"; passwordChangeUrl: string };
 		  };
 };
 

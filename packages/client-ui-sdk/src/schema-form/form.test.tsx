@@ -28,12 +28,7 @@ const schema = {
 			defaultValue: false,
 			description: "Include adult results",
 		},
-		title: {
-			type: "string",
-			label: "Title",
-			description: "Title",
-			validation: { required: true },
-		},
+		title: { type: "string", label: "Title", description: "Title", validation: { required: true } },
 		region: {
 			type: "enum",
 			label: "Region",
@@ -274,9 +269,7 @@ describe("SchemaForm", () => {
 
 		expect(screen.getByText("Leave blank to keep the current value.")).toBeTruthy();
 
-		fireEvent.change(screen.getByLabelText("Base URL"), {
-			target: { value: "https://a.example" },
-		});
+		fireEvent.change(screen.getByLabelText("Base URL"), { target: { value: "https://a.example" } });
 		fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
 		await waitFor(() =>
@@ -295,9 +288,7 @@ describe("SchemaForm", () => {
 
 		expect(screen.queryByText("Leave blank to keep the current value.")).toBeNull();
 
-		fireEvent.change(screen.getByLabelText("Base URL"), {
-			target: { value: "https://a.example" },
-		});
+		fireEvent.change(screen.getByLabelText("Base URL"), { target: { value: "https://a.example" } });
 		fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
 		expect(await screen.findByText("API key is required")).toBeTruthy();

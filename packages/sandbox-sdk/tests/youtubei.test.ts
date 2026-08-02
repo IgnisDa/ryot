@@ -81,9 +81,7 @@ describe("Youtubei sandbox adapter", () => {
 
 	test("does not turn a pending host failure into an HTTP response", async () => {
 		const pending = Symbol("pending");
-		const host = {
-			httpCall: () => Effect.fail(pending),
-		} satisfies YoutubeiHost;
+		const host = { httpCall: () => Effect.fail(pending) } satisfies YoutubeiHost;
 		const client = await Effect.runPromise(
 			createYoutubeMusicClient(host, undefined, {
 				retrievePlayer: false,

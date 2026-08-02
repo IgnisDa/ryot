@@ -744,11 +744,9 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 								}),
 						),
 					);
-					const normalized = yield* compilePluginPackage({
-						files,
-						manifest,
-						sourceHash,
-					}).pipe(Effect.provideService(ClientPluginCompiler, clientCompiler));
+					const normalized = yield* compilePluginPackage({ files, manifest, sourceHash }).pipe(
+						Effect.provideService(ClientPluginCompiler, clientCompiler),
+					);
 					yield* validatePluginExecutableScripts(normalized);
 					const state = yield* Effect.uninterruptible(
 						mapDatabaseErrors(
@@ -870,11 +868,9 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 							yield* validatePluginManifestReferences(manifest, effectiveDefinitions);
 							yield* validateAdditiveSchemaEvolution(plugin.manifest, manifest);
 							yield* validateConfigPatch(manifest, installation.config, input);
-							const normalized = yield* compilePluginPackage({
-								manifest,
-								sourceHash,
-								files,
-							}).pipe(Effect.provideService(ClientPluginCompiler, clientCompiler));
+							const normalized = yield* compilePluginPackage({ manifest, sourceHash, files }).pipe(
+								Effect.provideService(ClientPluginCompiler, clientCompiler),
+							);
 							yield* validatePluginExecutableScripts(normalized);
 
 							const updated = yield* Effect.uninterruptible(

@@ -39,7 +39,10 @@ const relationship = {
 };
 
 const mockRelationshipsRepository = Layer.mock(RelationshipsRepository);
-type GetEntityScopeForUser = (input: { userId: UserId; entityId: EntityId }) => Effect.Effect<{
+type GetEntityScopeForUser = (input: {
+	userId: UserId;
+	entityId: EntityId;
+}) => Effect.Effect<{
 	entityId: EntityId;
 	isBuiltin: boolean;
 	entityName: string;
@@ -49,10 +52,7 @@ type GetEntityScopeForUser = (input: { userId: UserId; entityId: EntityId }) => 
 
 const makeRelationshipsRepository = (
 	overrides: MockOverrides<typeof mockRelationshipsRepository> = {},
-) =>
-	mockRelationshipsRepository({
-		...overrides,
-	});
+) => mockRelationshipsRepository({ ...overrides });
 
 const makeServiceLayer = (
 	overrides: Parameters<typeof makeRelationshipsRepository>[0] = {},
@@ -71,9 +71,7 @@ const makeServiceLayer = (
 		Layer.mergeAll(
 			Layer.succeed(Database, Database.of(Object.assign(Object.create(null), { transaction }))),
 			makeRelationshipsRepository(overrides),
-			Layer.mock(EntitiesRepository)({
-				getEntityScopeForUser,
-			}),
+			Layer.mock(EntitiesRepository)({ getEntityScopeForUser }),
 			Layer.mock(PluginRuntimeResolver)({
 				getEffectiveDefinitions: () =>
 					Effect.succeed({
@@ -124,11 +122,7 @@ const baseInput = {
 const ownershipPropertiesSchema = {
 	fields: {
 		owned: { type: "boolean", label: "Owned", description: "Owned" },
-		ownershipSyncedAt: {
-			type: "datetime",
-			label: "Synced at",
-			description: "Synced at",
-		},
+		ownershipSyncedAt: { type: "datetime", label: "Synced at", description: "Synced at" },
 		ownershipSources: {
 			type: "array",
 			label: "Sources",

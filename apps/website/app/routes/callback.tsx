@@ -39,10 +39,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 				.insert(customers)
 				.values({ email, paymentProvider, oidcIssuerId: claims.sub })
 				.returning({ id: customers.id })
-				.onConflictDoUpdate({
-					target: customers.oidcIssuerId,
-					set: { oidcIssuerId: claims.sub },
-				});
+				.onConflictDoUpdate({ target: customers.oidcIssuerId, set: { oidcIssuerId: claims.sub } });
 			return dbCustomer.at(0)?.id;
 		})
 		.otherwise((value) => value.id);

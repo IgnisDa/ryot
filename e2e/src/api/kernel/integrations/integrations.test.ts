@@ -178,10 +178,7 @@ describe("Integration CRUD", () => {
 
 			yield* createKodiIntegration(client);
 
-			const enabled = yield* listIntegrations(client, {
-				provider: "kodi",
-				isDisabled: false,
-			});
+			const enabled = yield* listIntegrations(client, { provider: "kodi", isDisabled: false });
 			expect(enabled).toHaveLength(1);
 			expect(requirePresent(enabled[0], "Expected enabled integration").isDisabled).toBe(false);
 		}),

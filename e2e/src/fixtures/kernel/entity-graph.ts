@@ -159,10 +159,7 @@ export const createCourseLessonFilterFixture = Effect.gen(function* () {
 		lessons: readonly { durationMinutes: number; complete: boolean }[],
 	) =>
 		Effect.gen(function* () {
-			const course = yield* createEntityFixture(client, {
-				name,
-				entitySchemaSlug: courseSchemaId,
-			});
+			const course = yield* createEntityFixture(client, { name, entitySchemaSlug: courseSchemaId });
 			yield* Effect.all(
 				lessons.map((lessonInput, index) =>
 					Effect.gen(function* () {

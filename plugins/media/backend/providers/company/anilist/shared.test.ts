@@ -106,12 +106,8 @@ describe("company.anilist sandbox script", () => {
 			Effect.map((result) => {
 				expect(requestedPages).toEqual([1, 2]);
 				expect(result.relatedEntityGroups).toEqual([
-					expect.objectContaining({
-						entities: [expect.objectContaining({ externalId: "2" })],
-					}),
-					expect.objectContaining({
-						entities: [expect.objectContaining({ externalId: "3" })],
-					}),
+					expect.objectContaining({ entities: [expect.objectContaining({ externalId: "2" })] }),
+					expect.objectContaining({ entities: [expect.objectContaining({ externalId: "3" })] }),
 				]);
 				return undefined;
 			}),

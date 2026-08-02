@@ -35,11 +35,7 @@ export async function startFakeHttpServer(
 			scope,
 		),
 	);
-	return {
-		requests,
-		url,
-		stop: () => void Effect.runPromise(Scope.close(scope, Exit.void)),
-	};
+	return { requests, url, stop: () => void Effect.runPromise(Scope.close(scope, Exit.void)) };
 }
 
 export const startFakeHttpServerScoped = (

@@ -50,20 +50,14 @@ export const createImportRunLifecycle = (
 	const cleanupArtifacts = (name: string) => {
 		const cleanupEffect = Effect.gen(function* () {
 			const artifacts = yield* ImportRunArtifacts;
-			yield* artifacts.cleanupArtifacts({
-				claimId,
-				sourceStateId: payload.sourceStateId,
-			});
+			yield* artifacts.cleanupArtifacts({ claimId, sourceStateId: payload.sourceStateId });
 		}).pipe(Effect.mapError(toWorkflowError));
 		return Activity.make({ name, error: ImportRunError, execute: cleanupEffect });
 	};
 	const cleanupArtifactsBestEffort = (name: string) => {
 		const cleanupBestEffortEffect = Effect.gen(function* () {
 			const artifacts = yield* ImportRunArtifacts;
-			yield* artifacts.cleanupArtifacts({
-				claimId,
-				sourceStateId: payload.sourceStateId,
-			});
+			yield* artifacts.cleanupArtifacts({ claimId, sourceStateId: payload.sourceStateId });
 		}).pipe(Effect.ignore);
 		return Activity.make({ name, execute: cleanupBestEffortEffect });
 	};

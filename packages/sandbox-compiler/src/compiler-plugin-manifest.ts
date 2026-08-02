@@ -104,10 +104,7 @@ const derivedPluginScript = (
 	const manifest = output.compiled.manifest;
 	const providerSlug = providerSlugForEntry(output.entry);
 	const providerFields = Match.value(manifest.kind).pipe(
-		Match.when("provider", () => ({
-			providerSlug,
-			providerOperation: output.providerOperation,
-		})),
+		Match.when("provider", () => ({ providerSlug, providerOperation: output.providerOperation })),
 		Match.orElse(() => (providerSlug ? { providerSlug } : {})),
 	);
 	return Schema.decodeUnknownEffect(PluginScript)({

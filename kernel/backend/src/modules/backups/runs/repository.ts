@@ -141,11 +141,7 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 			const [row] = yield* mapDatabaseErrors(
 				db
 					.update(schema.backupRun)
-					.set({
-						startedAt,
-						status: "running",
-						progress: boundedProgress(input.progress ?? 0),
-					})
+					.set({ startedAt, status: "running", progress: boundedProgress(input.progress ?? 0) })
 					.where(
 						and(
 							eq(schema.backupRun.id, input.runId),

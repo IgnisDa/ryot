@@ -42,10 +42,7 @@ import { EntityImportScope, entityImportPayloadFields } from "./schemas";
 
 const REDIS_RETRY_SCHEDULE = Schedule.spaced("30 seconds");
 
-type SynchronizeOptions = {
-	mode: "initial" | "refresh";
-	entitySchemaSlug: EntitySchemaSlug;
-};
+type SynchronizeOptions = { mode: "initial" | "refresh"; entitySchemaSlug: EntitySchemaSlug };
 
 const ValidatedEntityDetails = Schema.Struct({
 	name: Schema.String,
@@ -472,11 +469,7 @@ const writeChildEntityScopes = Effect.fn("writeChildEntityScopes")(function* (
 			committedAt: processed.committedAt,
 			anchorEntityId: scope.parentEntityId,
 			outcomes: processed.relationshipOutcomes,
-			population: {
-				parentEntity,
-				rootPreviouslyPopulated,
-				scopeEntity: scope.scopeEntity,
-			},
+			population: { parentEntity, rootPreviouslyPopulated, scopeEntity: scope.scopeEntity },
 		});
 		for (const [index, childEntity] of scope.childEntities.entries()) {
 			const child = processed.processedChildren[index];
@@ -490,11 +483,7 @@ const writeChildEntityScopes = Effect.fn("writeChildEntityScopes")(function* (
 				committedAt: processed.committedAt,
 				phase: `children:${scope.parentExternalId}`,
 				result: { entity: child.entity, outcome: child.entityOutcome },
-				population: {
-					parentEntity,
-					rootPreviouslyPopulated,
-					scopeEntity: scope.scopeEntity,
-				},
+				population: { parentEntity, rootPreviouslyPopulated, scopeEntity: scope.scopeEntity },
 			});
 			pending.push({
 				parentName: child.entity.name,
