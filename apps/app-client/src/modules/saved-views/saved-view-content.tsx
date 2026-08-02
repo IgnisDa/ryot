@@ -3,6 +3,7 @@ import clsx from "clsx";
 import { Platform, Pressable, Text, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
+import { useProviderAddFlow } from "@/modules/provider-add/add-flow-host";
 
 import { savedViewResultCount } from "./result-count";
 import { SavedViewFrame } from "./saved-view-frame";
@@ -17,15 +18,22 @@ import { SavedViewRuntime } from "./use-saved-view";
 const DESKTOP_HEADER_ONLY = Platform.OS === "web" ? "hidden md:flex" : "hidden";
 
 function EmptyState(props: { name: string }) {
+	const providerAdd = useProviderAddFlow();
 	return (
 		<View className="min-h-96 items-center justify-center gap-3 px-6">
 			<AppIcon className="text-text-subtle" name="library" size={40} />
-			<Text className="text-center font-ui-semibold text-xl text-text">
-				No items in {props.name}
-			</Text>
+			<Text className="text-center font-ui-semibold text-xl text-text">{props.name} is empty</Text>
 			<Text className="text-center font-ui text-sm text-text-muted">
-				This saved view has no results.
+				Search online to add your first item.
 			</Text>
+			<Pressable
+				onPress={providerAdd.open}
+				accessibilityRole="button"
+				className="flex-row items-center gap-2 rounded-pill bg-accent px-4 py-2.5"
+			>
+				<AppIcon className="text-accent-ink" name="search" size={16} />
+				<Text className="font-ui-semibold text-accent-ink">Search online</Text>
+			</Pressable>
 		</View>
 	);
 }
@@ -40,15 +48,20 @@ function SavedViewItems(props: SavedViewActiveData & { managedUrls: ReadonlyMap<
 	return <SavedViewTable items={props.data.items} managedUrls={props.managedUrls} />;
 }
 
-function SavedViewWebActions(props: { viewName: string; viewSlug: string }) {
+function SavedViewWebActions(props: { isEmpty: boolean; viewName: string; viewSlug: string }) {
+	const providerAdd = useProviderAddFlow();
 	const [layout, setLayout] = useSavedViewLayout(props.viewSlug);
 	return (
 		<View className="hidden flex-row items-center gap-2.5 md:flex">
 			<Pressable
+				disabled={props.isEmpty}
 				onPress={() => undefined}
 				accessibilityRole="button"
 				accessibilityLabel={`Search ${props.viewName}`}
-				className="h-8.5 w-60 flex-row items-center gap-2 rounded-md border border-border-strong bg-bg px-2.5"
+				className={clsx(
+					"h-8.5 w-60 flex-row items-center gap-2 rounded-md border border-border-strong bg-bg px-2.5",
+					props.isEmpty && "opacity-50",
+				)}
 			>
 				<AppIcon className="text-text-muted" name="search" size={15} />
 				<Text numberOfLines={1} className="min-w-0 flex-1 font-ui text-[13px] text-text-muted">
@@ -60,10 +73,14 @@ function SavedViewWebActions(props: { viewName: string; viewSlug: string }) {
 			</Pressable>
 			<SavedViewLayoutSelector value={layout} onChange={setLayout} />
 			<Pressable
+				disabled={props.isEmpty}
 				onPress={() => undefined}
 				accessibilityRole="button"
 				accessibilityLabel="Open filters"
-				className="h-8.5 flex-row items-center gap-2 rounded-md border border-border-strong bg-bg px-3"
+				className={clsx(
+					"h-8.5 flex-row items-center gap-2 rounded-md border border-border-strong bg-bg px-3",
+					props.isEmpty && "opacity-50",
+				)}
 			>
 				<AppIcon className="text-text-muted" name="sliders-horizontal" size={15} />
 				<Text className="font-ui text-[13px] text-text">Filters</Text>
@@ -72,7 +89,7 @@ function SavedViewWebActions(props: { viewName: string; viewSlug: string }) {
 				</View>
 			</Pressable>
 			<Pressable
-				onPress={() => undefined}
+				onPress={providerAdd.open}
 				accessibilityRole="button"
 				accessibilityLabel="Add to this view"
 				className="h-8.5 flex-row items-center gap-2 rounded-md bg-accent px-3.5"
@@ -86,6 +103,7 @@ function SavedViewWebActions(props: { viewName: string; viewSlug: string }) {
 
 function SavedViewDisplay(
 	props: SavedViewActiveData & {
+		readonly refresh: () => void;
 		readonly loadMore: () => void;
 		readonly isLoadingMore: boolean;
 		readonly record: SavedViewRecord;
@@ -96,6 +114,7 @@ function SavedViewDisplay(
 	return (
 		<SavedViewFrame
 			viewSlug={props.record.slug}
+			onImported={props.refresh}
 			title={{
 				loaded: items.length,
 				icon: props.record.icon,
@@ -124,7 +143,11 @@ function SavedViewDisplay(
 							{savedViewResultCount(items.length, pageInfo.hasMore)}
 						</Text>
 					</View>
-					<SavedViewWebActions viewName={props.record.name} viewSlug={props.record.slug} />
+					<SavedViewWebActions
+						isEmpty={items.length === 0}
+						viewName={props.record.name}
+						viewSlug={props.record.slug}
+					/>
 				</View>
 
 				{items.length === 0 ? (
