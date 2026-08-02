@@ -40,6 +40,13 @@ Providers place the preferred foreground image first when available, preserve pr
 each purpose, and retain the first classification when URLs repeat. A localized overlay may replace
 the complete image array; omission keeps canonical images.
 
+Watch providers are TMDB-only and exist on `movie` and `show` alone; no other source exposes the
+data. Every country TMDB reports is retained, because provider-populated entities are global and no
+user region is known at population time; filtering by region belongs to the reader. An entry is one
+service, holding the countries carrying the title and how it is offered in each: `stream`, `free`,
+`ads`, `rent`, or `buy`. Countries are sorted and offers keep that fixed order, so repeated
+population of unchanged data produces an identical value.
+
 Provider details normalize source data into common properties and relationship groups. Consumers do
 not branch on provider identity. Supported relationship categories emit authoritative empty groups so
 refresh can remove stale relationships.
