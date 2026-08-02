@@ -202,14 +202,14 @@ function AuthGate(props: { server: ServerOrigin; redirectTo?: string }) {
 						<button
 							type="button"
 							onClick={() => setRetry((value) => value + 1)}
-							className="button-primary w-full"
+							className="ui-button-primary w-full"
 						>
 							Try again
 						</button>
 						<button
 							type="button"
 							onClick={() => void selectAnotherServer()}
-							className="button-text"
+							className="ui-button-text"
 						>
 							Change server
 						</button>
@@ -225,7 +225,11 @@ function AuthGate(props: { server: ServerOrigin; redirectTo?: string }) {
 				title="Authentication unavailable"
 				message="This server has no browser sign-in method enabled."
 				actions={
-					<button type="button" onClick={() => void selectAnotherServer()} className="button-text">
+					<button
+						type="button"
+						onClick={() => void selectAnotherServer()}
+						className="ui-button-text"
+					>
 						Change server
 					</button>
 				}
@@ -234,10 +238,10 @@ function AuthGate(props: { server: ServerOrigin; redirectTo?: string }) {
 	}
 
 	return (
-		<main className="page-shell">
+		<main className="ui-page">
 			<section
 				aria-labelledby="auth-title"
-				className="stack surface-card mx-auto w-[min(100%,480px)]"
+				className="ui-stack ui-card mx-auto w-[min(100%,480px)]"
 			>
 				{twoFactorMethods ? (
 					<TwoFactorForm
@@ -251,10 +255,10 @@ function AuthGate(props: { server: ServerOrigin; redirectTo?: string }) {
 					<>
 						{!methods.emailSignIn && (
 							<div>
-								<h1 id="auth-title" className="heading-display">
+								<h1 id="auth-title" className="ui-heading">
 									Welcome back
 								</h1>
-								<p className="subtitle">Continue with this server's identity provider.</p>
+								<p className="ui-subtitle">Continue with this server's identity provider.</p>
 							</div>
 						)}
 						{methods.emailSignIn && (
@@ -267,14 +271,14 @@ function AuthGate(props: { server: ServerOrigin; redirectTo?: string }) {
 							/>
 						)}
 						{methods.oidc && (
-							<div className="stack">
+							<div className="ui-stack">
 								{methods.emailSignIn && (
 									<p className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-xs text-text-subtle uppercase before:h-px before:bg-border before:content-[''] after:h-px after:bg-border after:content-['']">
 										or
 									</p>
 								)}
 								{oidcError && (
-									<p role="alert" className="field-error">
+									<p role="alert" className="ui-field-error">
 										{oidcError}
 									</p>
 								)}
@@ -282,7 +286,7 @@ function AuthGate(props: { server: ServerOrigin; redirectTo?: string }) {
 									type="button"
 									disabled={oidcPending}
 									onClick={() => void signInWithOidc()}
-									className="button-secondary w-full"
+									className="ui-button-secondary w-full"
 								>
 									{oidcPending
 										? "Opening provider..."
@@ -294,7 +298,7 @@ function AuthGate(props: { server: ServerOrigin; redirectTo?: string }) {
 							type="button"
 							disabled={oidcPending}
 							onClick={() => void selectAnotherServer()}
-							className="button-text w-full"
+							className="ui-button-text w-full"
 						>
 							Change server
 						</button>
@@ -307,20 +311,20 @@ function AuthGate(props: { server: ServerOrigin; redirectTo?: string }) {
 
 function AuthStatus(props: { title: string; message: string; actions?: React.ReactNode }) {
 	return (
-		<main className="page-shell">
+		<main className="ui-page">
 			<section
 				aria-labelledby="auth-status-title"
-				className="stack surface-card mx-auto w-[min(100%,480px)]"
+				className="ui-stack ui-card mx-auto w-[min(100%,480px)]"
 			>
 				<div>
-					<h1 id="auth-status-title" className="heading-display">
+					<h1 id="auth-status-title" className="ui-heading">
 						{props.title}
 					</h1>
-					<p role="status" className="subtitle">
+					<p role="status" className="ui-subtitle">
 						{props.message}
 					</p>
 				</div>
-				{props.actions && <div className="stack">{props.actions}</div>}
+				{props.actions && <div className="ui-stack">{props.actions}</div>}
 			</section>
 		</main>
 	);
