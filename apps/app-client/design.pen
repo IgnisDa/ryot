@@ -12657,136 +12657,18 @@
                       ]
                     },
                     {
+                      "id": "bwubb",
+                      "type": "ref",
+                      "ref": "xbeha",
+                      "name": "Mobile / Load More Row — Saved View",
+                      "width": "fill_container"
+                    },
+                    {
                       "type": "frame",
-                      "id": "Hcf3w",
-                      "name": "Row / The Left Hand of Darkness",
+                      "id": "sC7ty",
+                      "name": "FAB Clearance",
                       "width": "fill_container",
-                      "height": 120,
-                      "fill": {
-                        "type": "gradient",
-                        "gradientType": "linear",
-                        "enabled": true,
-                        "rotation": 270,
-                        "size": {
-                          "height": 1
-                        },
-                        "colors": [
-                          {
-                            "color": "#453C6652",
-                            "position": 0
-                          },
-                          {
-                            "color": "#453C661F",
-                            "position": 0.45
-                          },
-                          {
-                            "color": "#453C6600",
-                            "position": 1
-                          }
-                        ]
-                      },
-                      "gap": 14,
-                      "padding": [
-                        8,
-                        16
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "frame",
-                          "id": "W4eLlw",
-                          "name": "Cover",
-                          "clip": true,
-                          "width": 70,
-                          "height": 104,
-                          "fill": {
-                            "type": "image",
-                            "enabled": true,
-                            "url": "https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=900&q=80",
-                            "mode": "fill"
-                          },
-                          "cornerRadius": 6,
-                          "stroke": "#FFFFFF1F",
-                          "strokeWidth": 1,
-                          "strokeAlignment": "inner"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "iaMkA",
-                          "name": "Text Stack",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 3,
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "g0pkN",
-                              "name": "Eyebrow",
-                              "fill": "$--text-subtle",
-                              "content": "BOOK",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 9.5,
-                              "fontWeight": "600",
-                              "letterSpacing": 1.3
-                            },
-                            {
-                              "type": "text",
-                              "id": "RsSZ0",
-                              "name": "Title",
-                              "fill": "$--text-primary",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "The Left Hand of Darkness",
-                              "lineHeight": 1.15,
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 17,
-                              "fontWeight": "600"
-                            },
-                            {
-                              "type": "text",
-                              "id": "HKHHh",
-                              "name": "Sub",
-                              "fill": "$--text-muted",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "1969 · 304 pages",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 12.5,
-                              "fontWeight": "normal"
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "laIdP",
-                          "name": "Rating",
-                          "layout": "vertical",
-                          "alignItems": "end",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "E3WNM",
-                              "name": "Value",
-                              "fill": "$--accent-text",
-                              "content": "4.5",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 18,
-                              "fontWeight": "600"
-                            },
-                            {
-                              "type": "text",
-                              "id": "vzgyP",
-                              "name": "Label",
-                              "fill": "$--text-subtle",
-                              "content": "AVG",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 8.5,
-                              "fontWeight": "600",
-                              "letterSpacing": 1.2
-                            }
-                          ]
-                        }
-                      ]
+                      "height": 72
                     }
                   ]
                 },
@@ -12879,7 +12761,7 @@
                               "id": "yqh6y",
                               "name": "Count",
                               "fill": "$--text-muted",
-                              "content": "10 of 128",
+                              "content": "20+ loaded",
                               "fontFamily": "$--font-primary",
                               "fontSize": 11,
                               "fontWeight": "normal"
@@ -18918,7 +18800,7 @@
                                       "content": "All Books"
                                     },
                                     "o0JEzz": {
-                                      "content": "10 out of 128"
+                                      "content": "20+ loaded"
                                     },
                                     "B9K5Re/SGNqQ": {
                                       "content": "Search All Books"
@@ -19264,169 +19146,11 @@
                                       ]
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "Aq3iZ",
-                                      "name": "Poster Row 3",
-                                      "width": "fill_container",
-                                      "gap": 18,
-                                      "children": [
-                                        {
-                                          "id": "L3PFp",
-                                          "type": "ref",
-                                          "ref": "GtePK",
-                                          "name": "Roadside Picnic",
-                                          "height": 288,
-                                          "descendants": {
-                                            "sqjVX": {
-                                              "fill": {
-                                                "type": "image",
-                                                "enabled": true,
-                                                "url": "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=900&q=80",
-                                                "mode": "fill"
-                                              }
-                                            },
-                                            "T8IymS": {
-                                              "enabled": false
-                                            },
-                                            "U2Rle": {
-                                              "content": "Roadside Picnic"
-                                            },
-                                            "d4cQIw": {
-                                              "content": "Strugatsky · 1972"
-                                            }
-                                          }
-                                        },
-                                        {
-                                          "id": "oKHbI",
-                                          "type": "ref",
-                                          "ref": "GtePK",
-                                          "name": "Solaris",
-                                          "height": 288,
-                                          "descendants": {
-                                            "sqjVX": {
-                                              "fill": {
-                                                "type": "image",
-                                                "enabled": true,
-                                                "url": "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=900&q=80",
-                                                "mode": "fill"
-                                              }
-                                            },
-                                            "BlfgB": {
-                                              "width": 153
-                                            },
-                                            "U2Rle": {
-                                              "content": "Solaris"
-                                            },
-                                            "d4cQIw": {
-                                              "content": "Stanisław Lem · 1961"
-                                            }
-                                          }
-                                        },
-                                        {
-                                          "id": "HLuLL",
-                                          "type": "ref",
-                                          "ref": "GtePK",
-                                          "name": "The Three-Body Problem",
-                                          "height": 288,
-                                          "descendants": {
-                                            "sqjVX": {
-                                              "fill": {
-                                                "type": "image",
-                                                "enabled": true,
-                                                "url": "https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&w=900&q=80",
-                                                "mode": "fill"
-                                              }
-                                            },
-                                            "T8IymS": {
-                                              "enabled": false
-                                            },
-                                            "U2Rle": {
-                                              "content": "The Three-Body Problem"
-                                            },
-                                            "d4cQIw": {
-                                              "content": "Cixin Liu · 2008"
-                                            }
-                                          }
-                                        },
-                                        {
-                                          "id": "TzVms",
-                                          "type": "ref",
-                                          "ref": "GtePK",
-                                          "name": "Embassytown",
-                                          "height": 288,
-                                          "descendants": {
-                                            "sqjVX": {
-                                              "fill": {
-                                                "type": "image",
-                                                "enabled": true,
-                                                "url": "https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=900&q=80",
-                                                "mode": "fill"
-                                              }
-                                            },
-                                            "T8IymS": {
-                                              "enabled": false
-                                            },
-                                            "U2Rle": {
-                                              "content": "Embassytown"
-                                            },
-                                            "d4cQIw": {
-                                              "content": "China Miéville · 2011"
-                                            }
-                                          }
-                                        },
-                                        {
-                                          "id": "IJcsf",
-                                          "type": "ref",
-                                          "ref": "GtePK",
-                                          "name": "Spin",
-                                          "height": 288,
-                                          "descendants": {
-                                            "sqjVX": {
-                                              "fill": {
-                                                "type": "image",
-                                                "enabled": true,
-                                                "url": "https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=900&q=80",
-                                                "mode": "fill"
-                                              }
-                                            },
-                                            "T8IymS": {
-                                              "enabled": false
-                                            },
-                                            "U2Rle": {
-                                              "content": "Spin"
-                                            },
-                                            "d4cQIw": {
-                                              "content": "Robert Charles Wilson · 2005"
-                                            }
-                                          }
-                                        },
-                                        {
-                                          "id": "C03vj4",
-                                          "type": "ref",
-                                          "ref": "GtePK",
-                                          "name": "Recursion",
-                                          "height": 288,
-                                          "descendants": {
-                                            "sqjVX": {
-                                              "fill": {
-                                                "type": "image",
-                                                "enabled": true,
-                                                "url": "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&w=900&q=80",
-                                                "mode": "fill"
-                                              }
-                                            },
-                                            "T8IymS": {
-                                              "enabled": false
-                                            },
-                                            "U2Rle": {
-                                              "content": "Recursion"
-                                            },
-                                            "d4cQIw": {
-                                              "content": "Blake Crouch · 2019"
-                                            }
-                                          }
-                                        }
-                                      ]
+                                      "id": "e8TK0z",
+                                      "type": "ref",
+                                      "ref": "gr4yO",
+                                      "name": "Web / Load More Band — Saved View",
+                                      "width": "fill_container"
                                     }
                                   ]
                                 }
@@ -35138,6 +34862,466 @@
               "y": 764
             }
           ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "J9mYev",
+      "x": 6889,
+      "y": 0,
+      "name": "Pagination — Load More States",
+      "fill": "$--background",
+      "layout": "vertical",
+      "gap": 32,
+      "padding": 40,
+      "children": [
+        {
+          "type": "text",
+          "id": "N3znA0",
+          "name": "Pagination Title",
+          "fill": "$--text-muted",
+          "content": "PAGINATION — LOAD MORE",
+          "fontFamily": "$--font-mono",
+          "fontSize": 11,
+          "fontWeight": "normal",
+          "letterSpacing": 1.2
+        },
+        {
+          "type": "text",
+          "id": "Y6vrlI",
+          "name": "Components Caption",
+          "fill": "$--text-muted",
+          "content": "COMPONENTS",
+          "fontFamily": "$--font-mono",
+          "fontSize": 11,
+          "fontWeight": "normal",
+          "letterSpacing": 1.2
+        },
+        {
+          "type": "frame",
+          "id": "gr4yO",
+          "name": "Web / Load More Band",
+          "reusable": true,
+          "width": 1112,
+          "layout": "vertical",
+          "gap": 10,
+          "padding": [
+            28,
+            0
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "id": "R9UVf7",
+              "type": "ref",
+              "ref": "Y9LAh9",
+              "name": "Load More Button",
+              "descendants": {
+                "H8jPUw": {
+                  "icon": "chevron-down"
+                },
+                "xVPCI": {
+                  "content": "Load more"
+                },
+                "pYzPr": {
+                  "enabled": false
+                }
+              }
+            },
+            {
+              "type": "text",
+              "id": "Mc6Zi",
+              "name": "Count",
+              "fill": "$--text-muted",
+              "content": "20+ loaded",
+              "fontFamily": "$--font-body",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "D4wNKx",
+              "x": 0,
+              "y": 0,
+              "name": "End Cap",
+              "enabled": false,
+              "fill": "$--text-subtle",
+              "content": "End of All Books · 128 items",
+              "fontFamily": "$--font-body",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "xbeha",
+          "name": "Mobile / Load More Row",
+          "reusable": true,
+          "width": 393,
+          "layout": "vertical",
+          "padding": [
+            8,
+            16
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "STa6E",
+              "name": "Button Surface",
+              "width": "fill_container",
+              "height": 48,
+              "fill": "$--surface-2",
+              "cornerRadius": "$--radius-md",
+              "gap": 8,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "aMFMO",
+                  "name": "Load More Icon",
+                  "width": 16,
+                  "height": 16,
+                  "icon": "chevron-down",
+                  "library": "lucide",
+                  "fill": "$--text-primary"
+                },
+                {
+                  "type": "text",
+                  "id": "I5hdK",
+                  "name": "Load More Label",
+                  "fill": "$--text-primary",
+                  "content": "Load more",
+                  "fontFamily": "$--font-body",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "gbxYP",
+              "x": 0,
+              "y": 0,
+              "name": "End Cap",
+              "enabled": false,
+              "fill": "$--text-subtle",
+              "textGrowth": "fixed-width",
+              "width": 361,
+              "content": "End of All Books · 128 items",
+              "textAlign": "center",
+              "fontFamily": "$--font-body",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "D9L1CV",
+          "name": "State Columns",
+          "gap": 48,
+          "children": [
+            {
+              "type": "frame",
+              "id": "mFySd",
+              "name": "Web States",
+              "width": 1112,
+              "layout": "vertical",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "D6PPNP",
+                  "name": "WEB · DEFAULT",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "w9GgP",
+                      "name": "WEB · DEFAULT Caption",
+                      "fill": "$--text-muted",
+                      "content": "WEB · DEFAULT",
+                      "fontFamily": "$--font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "normal",
+                      "letterSpacing": 1.2
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Oi7o0",
+                      "name": "WEB · DEFAULT Card",
+                      "width": "fill_container",
+                      "fill": "$--card",
+                      "layout": "vertical",
+                      "children": [
+                        {
+                          "id": "zrc9N",
+                          "type": "ref",
+                          "ref": "gr4yO",
+                          "name": "WEB · DEFAULT Band",
+                          "width": "fill_container"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "VYUVV",
+                  "name": "WEB · LOADING",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "A4pSX0",
+                      "name": "WEB · LOADING Caption",
+                      "fill": "$--text-muted",
+                      "content": "WEB · LOADING",
+                      "fontFamily": "$--font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "normal",
+                      "letterSpacing": 1.2
+                    },
+                    {
+                      "type": "frame",
+                      "id": "rJv5p",
+                      "name": "WEB · LOADING Card",
+                      "width": "fill_container",
+                      "fill": "$--card",
+                      "layout": "vertical",
+                      "children": [
+                        {
+                          "id": "EP833",
+                          "type": "ref",
+                          "ref": "gr4yO",
+                          "name": "WEB · LOADING Band",
+                          "width": "fill_container",
+                          "descendants": {
+                            "R9UVf7": {
+                              "opacity": 0.6
+                            },
+                            "R9UVf7/H8jPUw": {
+                              "icon": "loader-2"
+                            },
+                            "R9UVf7/xVPCI": {
+                              "content": "Loading…"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "DXsui",
+                  "name": "WEB · END OF LIST",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "IuCsT",
+                      "name": "WEB · END OF LIST Caption",
+                      "fill": "$--text-muted",
+                      "content": "WEB · END OF LIST",
+                      "fontFamily": "$--font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "normal",
+                      "letterSpacing": 1.2
+                    },
+                    {
+                      "type": "frame",
+                      "id": "N4zZ8k",
+                      "name": "WEB · END OF LIST Card",
+                      "width": "fill_container",
+                      "fill": "$--card",
+                      "layout": "vertical",
+                      "children": [
+                        {
+                          "id": "GG9Yv",
+                          "type": "ref",
+                          "ref": "gr4yO",
+                          "name": "WEB · END OF LIST Band",
+                          "width": "fill_container",
+                          "descendants": {
+                            "R9UVf7": {
+                              "enabled": false
+                            },
+                            "Mc6Zi": {
+                              "enabled": false
+                            },
+                            "D4wNKx": {
+                              "enabled": true
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "l5x7ae",
+              "name": "Mobile States",
+              "width": 393,
+              "layout": "vertical",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "aXJsz",
+                  "name": "MOBILE · DEFAULT",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "k1OwhE",
+                      "name": "MOBILE · DEFAULT Caption",
+                      "fill": "$--text-muted",
+                      "content": "MOBILE · DEFAULT",
+                      "fontFamily": "$--font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "normal",
+                      "letterSpacing": 1.2
+                    },
+                    {
+                      "type": "frame",
+                      "id": "st8PP",
+                      "name": "MOBILE · DEFAULT Card",
+                      "width": "fill_container",
+                      "fill": "$--card",
+                      "layout": "vertical",
+                      "children": [
+                        {
+                          "id": "fSvS3",
+                          "type": "ref",
+                          "ref": "xbeha",
+                          "name": "MOBILE · DEFAULT Row",
+                          "width": "fill_container"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "R6WFt",
+                  "name": "MOBILE · LOADING",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "a8LJXy",
+                      "name": "MOBILE · LOADING Caption",
+                      "fill": "$--text-muted",
+                      "content": "MOBILE · LOADING",
+                      "fontFamily": "$--font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "normal",
+                      "letterSpacing": 1.2
+                    },
+                    {
+                      "type": "frame",
+                      "id": "greXn",
+                      "name": "MOBILE · LOADING Card",
+                      "width": "fill_container",
+                      "fill": "$--card",
+                      "layout": "vertical",
+                      "children": [
+                        {
+                          "id": "yX1tP",
+                          "type": "ref",
+                          "ref": "xbeha",
+                          "name": "MOBILE · LOADING Row",
+                          "width": "fill_container",
+                          "descendants": {
+                            "STa6E": {
+                              "opacity": 0.6
+                            },
+                            "aMFMO": {
+                              "icon": "loader-2"
+                            },
+                            "I5hdK": {
+                              "content": "Loading…"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "bHya9",
+                  "name": "MOBILE · END OF LIST",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "xJvEp",
+                      "name": "MOBILE · END OF LIST Caption",
+                      "fill": "$--text-muted",
+                      "content": "MOBILE · END OF LIST",
+                      "fontFamily": "$--font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "normal",
+                      "letterSpacing": 1.2
+                    },
+                    {
+                      "type": "frame",
+                      "id": "MERIU",
+                      "name": "MOBILE · END OF LIST Card",
+                      "width": "fill_container",
+                      "fill": "$--card",
+                      "layout": "vertical",
+                      "children": [
+                        {
+                          "id": "FHT7D",
+                          "type": "ref",
+                          "ref": "xbeha",
+                          "name": "MOBILE · END OF LIST Row",
+                          "width": "fill_container",
+                          "descendants": {
+                            "STa6E": {
+                              "enabled": false
+                            },
+                            "gbxYP": {
+                              "enabled": true
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "note",
+          "id": "CyMKR",
+          "name": "Note / Pagination",
+          "width": 490,
+          "height": 0,
+          "content": "PAGINATION — LOAD MORE\n\nThe row contract is forward-only keyset cursors. A request carries {limit, after}, a response carries {limit, hasMore, nextCursor}. There is no total.\n\n· So there are no page numbers, no \"prev\", and no \"21–40 of 128\". Pages accumulate, and the only count is a lower bound: \"20+ loaded\". The exact number appears once, in the end cap, because loaded equals total when hasMore is false.\n\n· LOAD MORE IS EXPLICIT on both platforms, mobile included. Without a total, auto-load has no visible end, and each page also costs an interest re-declaration and an asset resolution round trip. The mobile control is a full-width 48pt target, so flick-then-tap stays cheap.\n\n· LAYOUT SWITCH resets to the first page. A cursor encodes the order values of the query that produced it, and each layout carries its own query, so cursors are not portable between layouts. Each layout keeps its own accumulated list for the session, so switching back is instant.\n\n· FILTER, SORT, OR SEARCH CHANGE discards every page and returns to the top. Nothing paginates backwards, so the loaded set is never dropped while the user stays on the screen.\n\n· Limit is 20. Page boundaries are invisible mid-list because items reflow into rows; the boundary only shows at the very end."
         }
       ]
     }
