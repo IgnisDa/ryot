@@ -20,6 +20,30 @@ describe("media trending cron", () => {
 			log: () => Effect.succeed(null),
 			getPluginConfig: (keys) =>
 				Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
+			upsertGlobalRelationships: (groups) =>
+				Effect.sync(() => {
+					relationshipWrites.push(groups);
+					return groups.map(({ relationships }) => ({
+						deleted: 1,
+						upserted: relationships.length,
+					}));
+				}),
+			upsertGlobalEntities: (items, options) =>
+				Effect.sync(() => {
+					entityWrites.push(items);
+					entityWriteOptions.push(options);
+					return items.map(({ externalId, entitySchemaSlug }, index) => {
+						if (index === 2) {
+							return { status: "skipped" as const };
+						}
+						return {
+							wasInserted: true,
+							status: "upserted" as const,
+							entityId:
+								entitySchemaSlug === "show" ? "show-entity" : `${entitySchemaSlug}-${externalId}`,
+						};
+					});
+				}),
 			httpCall: (_method, url) => {
 				const requestUrl = new URL(url);
 				const page = requestUrl.searchParams.get("page");
@@ -36,30 +60,6 @@ describe("media trending cron", () => {
 						})
 					: httpSuccess({ results: [{ id: 2, title: "Movie One" }] });
 			},
-			upsertGlobalEntities: (items, options) =>
-				Effect.sync(() => {
-					entityWrites.push(items);
-					entityWriteOptions.push(options);
-					return items.map(({ entitySchemaSlug, externalId }, index) => {
-						if (index === 2) {
-							return { status: "skipped" as const };
-						}
-						return {
-							status: "upserted" as const,
-							wasInserted: true,
-							entityId:
-								entitySchemaSlug === "show" ? "show-entity" : `${entitySchemaSlug}-${externalId}`,
-						};
-					});
-				}),
-			upsertGlobalRelationships: (groups) =>
-				Effect.sync(() => {
-					relationshipWrites.push(groups);
-					return groups.map(({ relationships }) => ({
-						deleted: 1,
-						upserted: relationships.length,
-					}));
-				}),
 		});
 
 		return Effect.runPromise(
@@ -109,18 +109,6 @@ describe("media trending cron", () => {
 				}),
 			getPluginConfig: (keys) =>
 				Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
-			httpCall: (_method, url) => {
-				const requestUrl = new URL(url);
-				const isShow = requestUrl.pathname.includes("/trending/tv/");
-				if (isShow || failMovie) {
-					return Effect.fail({ message: "provider unavailable" });
-				}
-				return httpSuccess(
-					requestUrl.searchParams.get("page") === "1"
-						? { results: [{ id: 2, title: "Movie One" }] }
-						: { results: [] },
-				);
-			},
 			upsertGlobalEntities: (items) =>
 				Effect.succeed(
 					items.map(({ externalId }) => ({
@@ -137,6 +125,18 @@ describe("media trending cron", () => {
 						upserted: relationships.length,
 					}));
 				}),
+			httpCall: (_method, url) => {
+				const requestUrl = new URL(url);
+				const isShow = requestUrl.pathname.includes("/trending/tv/");
+				if (isShow || failMovie) {
+					return Effect.fail({ message: "provider unavailable" });
+				}
+				return httpSuccess(
+					requestUrl.searchParams.get("page") === "1"
+						? { results: [{ id: 2, title: "Movie One" }] }
+						: { results: [] },
+				);
+			},
 		});
 
 		await expect(
@@ -147,7 +147,7 @@ describe("media trending cron", () => {
 		failMovie = true;
 		await expect(
 			Effect.runPromise(runSandboxTestScript(definition, {}, host, execution)),
-		).resolves.toEqual({ synced: false, itemCount: 0, providerCount: 0 });
+		).resolves.toEqual({ itemCount: 0, synced: false, providerCount: 0 });
 		expect(relationshipWrites).toHaveLength(1);
 		expect(logs).toHaveLength(3);
 	});

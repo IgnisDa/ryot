@@ -17,7 +17,7 @@ export class PluginQueriesService extends Context.Service<PluginQueriesService>(
 					.execute(invocation.scope, { payload: invocation.request.document })
 					.pipe(
 						Effect.match({
-							onSuccess: (response) => ({ outcome: "success", response }) as const,
+							onSuccess: (response) => ({ response, outcome: "success" }) as const,
 							onFailure: (error) =>
 								({ outcome: "failure", reason: classifyRyotQLFailure(error) }) as const,
 						}),

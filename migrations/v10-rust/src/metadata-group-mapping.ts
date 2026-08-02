@@ -23,24 +23,24 @@ export const metadataGroupEntityTargets = [
 		entitySchemaSlug: "audiobook-group",
 		providerSlug: "audiobook-group.audible",
 	},
-	{ lot: "audio_book", source: "custom", entitySchemaSlug: "audiobook-group", providerSlug: null },
-	{ lot: "book", source: "custom", entitySchemaSlug: "book-group", providerSlug: null },
-	{ lot: "book", source: "google_books", entitySchemaSlug: "book-group", providerSlug: null },
+	{ source: "custom", lot: "audio_book", providerSlug: null, entitySchemaSlug: "audiobook-group" },
+	{ lot: "book", source: "custom", providerSlug: null, entitySchemaSlug: "book-group" },
+	{ lot: "book", providerSlug: null, source: "google_books", entitySchemaSlug: "book-group" },
 	{
 		lot: "book",
 		source: "hardcover",
 		entitySchemaSlug: "book-group",
 		providerSlug: "book-group.hardcover",
 	},
-	{ lot: "book", source: "openlibrary", entitySchemaSlug: "book-group", providerSlug: null },
-	{ lot: "comic_book", source: "custom", entitySchemaSlug: "comic-book-group", providerSlug: null },
+	{ lot: "book", providerSlug: null, source: "openlibrary", entitySchemaSlug: "book-group" },
+	{ source: "custom", lot: "comic_book", providerSlug: null, entitySchemaSlug: "comic-book-group" },
 	{
-		lot: "comic_book",
 		source: "metron",
+		lot: "comic_book",
 		entitySchemaSlug: "comic-book-group",
 		providerSlug: "comic-book-group.metron",
 	},
-	{ lot: "movie", source: "custom", entitySchemaSlug: "movie-group", providerSlug: null },
+	{ lot: "movie", source: "custom", providerSlug: null, entitySchemaSlug: "movie-group" },
 	{
 		lot: "movie",
 		source: "tmdb",
@@ -53,7 +53,7 @@ export const metadataGroupEntityTargets = [
 		entitySchemaSlug: "movie-group",
 		providerSlug: "movie-group.tvdb",
 	},
-	{ lot: "music", source: "custom", entitySchemaSlug: "music-group", providerSlug: null },
+	{ lot: "music", source: "custom", providerSlug: null, entitySchemaSlug: "music-group" },
 	{
 		lot: "music",
 		source: "music_brainz",
@@ -72,7 +72,7 @@ export const metadataGroupEntityTargets = [
 		entitySchemaSlug: "music-group",
 		providerSlug: "music-group.youtube-music",
 	},
-	{ lot: "video_game", source: "custom", entitySchemaSlug: "video-game-group", providerSlug: null },
+	{ source: "custom", lot: "video_game", providerSlug: null, entitySchemaSlug: "video-game-group" },
 	{
 		lot: "video_game",
 		source: "giant_bomb",
@@ -80,8 +80,8 @@ export const metadataGroupEntityTargets = [
 		providerSlug: "video-game-group.giant-bomb",
 	},
 	{
-		lot: "video_game",
 		source: "igdb",
+		lot: "video_game",
 		entitySchemaSlug: "video-game-group",
 		providerSlug: "video-game-group.igdb",
 	},
@@ -223,7 +223,7 @@ BEGIN
 		cursor_id := next_cursor_id;
 	END LOOP;
 
-	${buildReportSql("metadata_group -> entity", [{ message: "row(s) migrated total", count: "rows_inserted" }])}
+	${buildReportSql("metadata_group -> entity", [{ count: "rows_inserted", message: "row(s) migrated total" }])}
 END $$;
 `;
 
@@ -304,7 +304,7 @@ BEGIN
 	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_slug", "relationship_schema_plugin_id") DO NOTHING;
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
 
-	${buildReportSql("metadata_group -> relationship", [{ message: "user-authored row(s) migrated", count: "rows_inserted" }])}
+	${buildReportSql("metadata_group -> relationship", [{ count: "rows_inserted", message: "user-authored row(s) migrated" }])}
 END $$;
 `;
 

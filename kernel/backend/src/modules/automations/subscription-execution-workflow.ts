@@ -67,7 +67,7 @@ const SignalSnapshot = Schema.Struct({
 });
 
 const AutomationSource = Schema.Union([
-	Schema.Struct({ kind: Schema.Literal("signal"), signal: SignalSnapshot }),
+	Schema.Struct({ signal: SignalSnapshot, kind: Schema.Literal("signal") }),
 	Schema.Struct({
 		kind: Schema.Literal("entity"),
 		after: Schema.optional(EntitySnapshot),
@@ -87,18 +87,18 @@ const AutomationSource = Schema.Union([
 
 const PopulationContext = Schema.Struct({
 	rootPreviouslyPopulated: Schema.Boolean,
-	parentEntity: Schema.optional(
-		Schema.Struct({
-			name: Schema.String,
-			properties: AutomationProperties,
-			entitySchemaSlug: Schema.String,
-		}),
-	),
 	scopeEntity: Schema.Struct({
 		id: EntityId,
 		name: Schema.String,
 		entitySchemaSlug: Schema.String,
 	}),
+	parentEntity: Schema.optional(
+		Schema.Struct({
+			name: Schema.String,
+			entitySchemaSlug: Schema.String,
+			properties: AutomationProperties,
+		}),
+	),
 	batch: Schema.optional(
 		Schema.Struct({
 			id: Schema.String,
@@ -119,9 +119,9 @@ const SubscriptionExecutionWorkflowPayloadSchema = Schema.Struct({
 	occurredAt: Schema.String,
 	occurrenceId: Schema.String,
 	operation: AutomationOperation,
-	sourceKind: SubscriptionRunSourceKind,
 	rowUserId: Schema.NullOr(UserId),
 	signalId: Schema.optional(SignalId),
+	sourceKind: SubscriptionRunSourceKind,
 	recordId: Schema.optional(Schema.String),
 	population: Schema.optional(PopulationContext),
 });
@@ -132,6 +132,6 @@ export type SubscriptionExecutionWorkflowPayload =
 export const SubscriptionExecutionWorkflow = Workflow.make("SubscriptionExecutionWorkflow", {
 	error: SubscriptionExecutionWorkflowError satisfies DurableSchema,
 	success: Schema.NullOr(SubscriptionRunId) satisfies DurableSchema,
+	idempotencyKey: ({ ruleId, occurrenceId }) => `${occurrenceId}:${ruleId}`,
 	payload: SubscriptionExecutionWorkflowPayloadSchema satisfies DurableSchema,
-	idempotencyKey: ({ occurrenceId, ruleId }) => `${occurrenceId}:${ruleId}`,
 });

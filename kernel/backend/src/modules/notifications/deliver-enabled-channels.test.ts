@@ -54,7 +54,7 @@ const makeDeliveryLayer = (failOnCall: number, calls: string[], messages?: strin
 				calls.push(id);
 				messages?.push(input.message);
 				return shouldFail
-					? Effect.fail({ _tag: "NotificationDeliveryError", message: "failed" } as const)
+					? Effect.fail({ message: "failed", _tag: "NotificationDeliveryError" } as const)
 					: Effect.void;
 			},
 		}),
@@ -80,8 +80,8 @@ it.effect(
 			expect(calls).toEqual(["apprise", "apprise"]);
 			expect(requests).toEqual([{ userId }]);
 			expect(result).toEqual([
-				{ channel: "apprise", channelId: first.id, status: "failed" },
-				{ channel: "apprise", channelId: second.id, status: "sent" },
+				{ status: "failed", channel: "apprise", channelId: first.id },
+				{ status: "sent", channel: "apprise", channelId: second.id },
 			]);
 		}).pipe(Effect.provide(Layer.mergeAll(databaseLayer, repositoryLayer, deliveryLayer)));
 	},
@@ -102,7 +102,7 @@ it.effect("sends a per-channel test message", () => {
 		});
 
 		expect(requests).toEqual([{ userId }]);
-		expect(result).toEqual([{ channel: "apprise", channelId: channel.id, status: "sent" }]);
+		expect(result).toEqual([{ status: "sent", channel: "apprise", channelId: channel.id }]);
 	}).pipe(Effect.provide(Layer.mergeAll(databaseLayer, repositoryLayer, deliveryLayer)));
 });
 
@@ -126,8 +126,8 @@ it.effect("preserves the message for every enabled channel", () => {
 		expect(requests).toEqual([{ userId }]);
 		expect(messages).toEqual(["Subscription run completed", "Subscription run completed"]);
 		expect(result).toEqual([
-			{ channel: "apprise", channelId: first.id, status: "sent" },
-			{ channel: "email", channelId: second.id, status: "sent" },
+			{ status: "sent", channel: "apprise", channelId: first.id },
+			{ status: "sent", channel: "email", channelId: second.id },
 		]);
 	}).pipe(Effect.provide(Layer.mergeAll(databaseLayer, repositoryLayer, deliveryLayer)));
 });
@@ -165,6 +165,6 @@ it.effect("reports an unavailable delivery as failed", () => {
 			executionId: "execution-1",
 		});
 
-		expect(result).toEqual([{ channel: "email", channelId: channel.id, status: "failed" }]);
+		expect(result).toEqual([{ channel: "email", status: "failed", channelId: channel.id }]);
 	}).pipe(Effect.provide(Layer.mergeAll(databaseLayer, repositoryLayer, deliveryLayer)));
 });

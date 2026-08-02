@@ -31,8 +31,8 @@ const metadata = {
 	hash: "artifact-hash",
 	format: CLIENT_ARTIFACT_FORMAT,
 	apiVersion: CLIENT_API_VERSION,
-	bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 	compilerVersion: CLIENT_COMPILER_VERSION,
+	bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 };
 const init: PluginBridgeInit = {
 	mode: "light",
@@ -64,7 +64,7 @@ const Home = () => {
 	const [result, setResult] = useState("pending");
 	useEffect(() => {
 		void ryot.operations
-			.invoke({ pluginSlug: "fixture", slug: "greet", input: {}, output: Schema.String })
+			.invoke({ input: {}, slug: "greet", pluginSlug: "fixture", output: Schema.String })
 			.then(setResult);
 	}, [ryot]);
 	return <p>{`${ryotTheme.resolvedMode}:${result}`}</p>;
@@ -73,7 +73,7 @@ const Home = () => {
 const StaticHome = () => <p>Mounted</p>;
 
 const PageContextHome = () => {
-	const { renderer, target } = usePageContext();
+	const { target, renderer } = usePageContext();
 	return <p>{`${target.kind}:${renderer.kind}`}</p>;
 };
 
@@ -93,7 +93,7 @@ const OverlayHome = () => {
 				Open
 			</button>
 			{open && (
-				<Modal closeLabel="Close" label="Overlay" onClose={() => setOpen(false)}>
+				<Modal label="Overlay" closeLabel="Close" onClose={() => setOpen(false)}>
 					<button type="button">Inside</button>
 				</Modal>
 			)}
@@ -182,7 +182,7 @@ describe("bootstrapClientPlugin", () => {
 		channel.port1.addEventListener("message", ({ data }) => messages.push(data));
 		channel.port1.start();
 		window.dispatchEvent(
-			new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
+			new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
 		);
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect(messages).toEqual([]);
@@ -198,7 +198,7 @@ describe("bootstrapClientPlugin", () => {
 		channel.port1.addEventListener("message", ({ data }) => messages.push(data));
 		channel.port1.start();
 		window.dispatchEvent(
-			new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
+			new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
 		);
 		channel.port1.postMessage({
 			index: 0,
@@ -211,7 +211,7 @@ describe("bootstrapClientPlugin", () => {
 		});
 		await waitFor(() =>
 			expect(messages).toContainEqual(
-				expect.objectContaining({ type: "operation-request", requestId: "operation-1" }),
+				expect.objectContaining({ requestId: "operation-1", type: "operation-request" }),
 			),
 		);
 		channel.port1.postMessage({
@@ -243,7 +243,7 @@ describe("bootstrapClientPlugin", () => {
 						settings: {},
 						dataSources: null,
 						route: { params: {} },
-						renderer: { exportName: "home", pluginId: "plugin-1", kind: "plugin" },
+						renderer: { kind: "plugin", exportName: "home", pluginId: "plugin-1" },
 						target: { path: "/", search: "tab=stats", pluginId: "plugin-1", kind: "plugin-route" },
 					},
 				},
@@ -271,7 +271,7 @@ describe("bootstrapClientPlugin", () => {
 				settings: {},
 				dataSources: null,
 				route: { params: { itemId: "item-1" } },
-				renderer: { exportName: "details", pluginId: "plugin-1", kind: "plugin" },
+				renderer: { kind: "plugin", pluginId: "plugin-1", exportName: "details" },
 				target: {
 					search: "tab=stats",
 					pluginId: "plugin-1",
@@ -294,7 +294,7 @@ describe("bootstrapClientPlugin", () => {
 				settings: {},
 				dataSources: null,
 				route: { params: {} },
-				renderer: { exportName: "not-found", pluginId: "plugin-1", kind: "plugin" },
+				renderer: { kind: "plugin", pluginId: "plugin-1", exportName: "not-found" },
 				target: { search: "", path: "/missing", pluginId: "plugin-1", kind: "plugin-route" },
 			},
 			routeLocation("/missing"),
@@ -312,7 +312,7 @@ describe("bootstrapClientPlugin", () => {
 				settings: {},
 				dataSources: null,
 				route: { params: {} },
-				renderer: { exportName: "detail", pluginId: "plugin-1", kind: "plugin" },
+				renderer: { kind: "plugin", exportName: "detail", pluginId: "plugin-1" },
 				target: {
 					kind: "entity",
 					entitySchemaPluginId: "plugin-1",
@@ -378,7 +378,7 @@ describe("bootstrapClientPlugin", () => {
 		channel.port1.addEventListener("message", ({ data }) => messages.push(data));
 		channel.port1.start();
 		window.dispatchEvent(
-			new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
+			new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
 		);
 		const locate = (compact: boolean) =>
 			channel.port1.postMessage({
@@ -411,7 +411,7 @@ describe("bootstrapClientPlugin", () => {
 		pressMod("k");
 		pressMod(" ", { code: "Space", shiftKey: true });
 		await waitFor(() => expect(shortcuts()).toHaveLength(3));
-		expect(shortcuts().at(-1)).toEqual({ shortcut: "command-center", type: "kernel-shortcut" });
+		expect(shortcuts().at(-1)).toEqual({ type: "kernel-shortcut", shortcut: "command-center" });
 
 		const open = document.querySelector("button");
 		assert(open instanceof HTMLButtonElement);
@@ -436,7 +436,7 @@ describe("bootstrapClientPlugin", () => {
 		channels.push(channel);
 		channel.port1.start();
 		window.dispatchEvent(
-			new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
+			new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
 		);
 		channel.port1.postMessage({
 			index: 0,
@@ -464,7 +464,7 @@ describe("bootstrapClientPlugin", () => {
 		bootstraps.push(
 			bootstrapClientPlugin({
 				home: { component: TitledHome },
-				routes: [{ component: TitledDetail, path: "/items/$itemId" }],
+				routes: [{ path: "/items/$itemId", component: TitledDetail }],
 			}),
 		);
 		const channel = new MessageChannel();
@@ -473,7 +473,7 @@ describe("bootstrapClientPlugin", () => {
 		channel.port1.addEventListener("message", ({ data }) => messages.push(data));
 		channel.port1.start();
 		window.dispatchEvent(
-			new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
+			new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
 		);
 		const headers = () =>
 			messages.filter(
@@ -499,7 +499,7 @@ describe("bootstrapClientPlugin", () => {
 		await goTo(0, "home", "/");
 		await waitFor(() =>
 			expect(headers()).toEqual([
-				{ index: 0, key: "home", header: { title: "Home" }, type: "header" },
+				{ index: 0, key: "home", type: "header", header: { title: "Home" } },
 			]),
 		);
 
@@ -532,7 +532,7 @@ describe("bootstrapClientPlugin", () => {
 		channels.push(channel);
 		channel.port1.start();
 		window.dispatchEvent(
-			new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
+			new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
 		);
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect(document.getElementById("app")?.textContent).toBe("");
@@ -562,7 +562,7 @@ describe("bootstrapClientPlugin", () => {
 		channel.port1.addEventListener("message", ({ data }) => messages.push(data));
 		channel.port1.start();
 		window.dispatchEvent(
-			new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
+			new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
 		);
 		const error = new ErrorEvent("error", { cancelable: true, error: new Error("fatal") });
 		window.dispatchEvent(error);
@@ -584,7 +584,7 @@ describe("bootstrapClientPlugin", () => {
 		channel.port1.addEventListener("message", ({ data }) => messages.push(data));
 		channel.port1.start();
 		window.dispatchEvent(
-			new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
+			new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
 		);
 		channel.port1.postMessage({
 			index: 0,
@@ -615,7 +615,7 @@ describe("bootstrapClientPlugin", () => {
 		channel.port1.addEventListener("message", ({ data }) => messages.push(data));
 		channel.port1.start();
 		window.dispatchEvent(
-			new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
+			new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
 		);
 		channel.port1.postMessage({
 			index: 0,
@@ -647,7 +647,7 @@ describe("bootstrapClientPlugin", () => {
 		channel.port1.addEventListener("message", ({ data }) => messages.push(data));
 		channel.port1.start();
 		window.dispatchEvent(
-			new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
+			new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
 		);
 		channel.port1.postMessage({
 			index: 0,
@@ -685,7 +685,7 @@ describe("bootstrapClientPlugin", () => {
 		channels.push(channel);
 		channel.port1.start();
 		window.dispatchEvent(
-			new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
+			new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
 		);
 		channel.port1.postMessage({
 			index: 0,
@@ -719,7 +719,7 @@ describe("bootstrapClientPlugin", () => {
 		channel.port1.start();
 
 		window.dispatchEvent(
-			new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
+			new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
 		);
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -734,7 +734,7 @@ describe("bootstrapClientPlugin", () => {
 		channels.push(channel);
 		channel.port1.start();
 		window.dispatchEvent(
-			new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
+			new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
 		);
 		channel.port1.postMessage({
 			index: 0,

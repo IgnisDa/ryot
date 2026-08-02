@@ -17,8 +17,8 @@ export class EntityImportError extends Schema.TaggedError<EntityImportError>()(
 export const EntityImportWorkflow = Workflow.make("EntityImportWorkflow", {
 	success: ListedEntity satisfies DurableSchema,
 	error: EntityImportError satisfies DurableSchema,
-	payload: EntityImportPayload satisfies DurableSchema,
 	idempotencyKey: ({ executionId }) => executionId,
+	payload: EntityImportPayload satisfies DurableSchema,
 });
 
 export const runEntityImportWorkflow = Effect.fn("EntityImportWorkflow")(function* (
@@ -59,7 +59,7 @@ export const runEntityImportWorkflow = Effect.fn("EntityImportWorkflow")(functio
 		.pipe(
 			Effect.mapError(
 				(error) =>
-					new EntityImportError({ stage: "provider-import-automation", message: error.message }),
+					new EntityImportError({ message: error.message, stage: "provider-import-automation" }),
 			),
 		);
 	return importedEntity;

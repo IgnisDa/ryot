@@ -79,9 +79,9 @@ const runProviderImportAutomations = (
 					automation: {
 						operation: "create",
 						ruleId: automation.ruleId,
+						origin: { kind: "import" },
 						occurrenceId: hookExecutionId,
 						occurredAt: importedEntity.updatedAt,
-						origin: { kind: "import" },
 						source: {
 							kind: "entity",
 							after: {

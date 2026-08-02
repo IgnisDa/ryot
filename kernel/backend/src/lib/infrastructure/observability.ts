@@ -39,18 +39,18 @@ const decorateTracer = (tracer: Tracer.Tracer, runtime: Context.Context<never>) 
 				traceId: span.traceId,
 				sampled: span.sampled,
 				annotations: span.annotations,
-				attribute: (key, value) => span.attribute(key, value),
-				addLinks: (newLinks) => span.addLinks(newLinks),
-				event: (eventName, eventTime, attributes) => span.event(eventName, eventTime, attributes),
-				get status() {
-					return span.status;
-				},
-				get attributes() {
-					return span.attributes;
-				},
 				get links() {
 					return span.links;
 				},
+				get status() {
+					return span.status;
+				},
+				addLinks: (newLinks) => span.addLinks(newLinks),
+				attribute: (key, value) => span.attribute(key, value),
+				get attributes() {
+					return span.attributes;
+				},
+				event: (eventName, eventTime, attributes) => span.event(eventName, eventTime, attributes),
 				end: (endTime, exit) => {
 					if (!ended) {
 						ended = true;
@@ -76,8 +76,8 @@ const makeTracerLayer = (endpoint: Option.Option<string>, logLevel: LogLevel.Log
 		onNone: () => Layer.empty,
 		onSome: (baseUrl) =>
 			OtlpTracer.layer({
-				url: `${baseUrl.replace(/\/+$/, "")}/v1/traces`,
 				resource: { serviceName: "ryot-backend" },
+				url: `${baseUrl.replace(/\/+$/, "")}/v1/traces`,
 			}).pipe(Layer.provide(Layer.mergeAll(FetchHttpClient.layer, OtlpSerialization.layerJson))),
 	});
 	if (!LogLevel.isLessThanOrEqualTo(logLevel, "Debug")) {

@@ -22,7 +22,7 @@ function Page() {
 				Open
 			</button>
 			{open && (
-				<Modal closeLabel="Close" label="Overlay" onClose={() => setOpen(false)}>
+				<Modal label="Overlay" closeLabel="Close" onClose={() => setOpen(false)}>
 					<button type="button">Inside</button>
 				</Modal>
 			)}

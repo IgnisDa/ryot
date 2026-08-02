@@ -99,6 +99,19 @@ export const createPluginRuntime = (
 		completeTransition: navigationStore.completeTransition,
 		back: () => post({ type: "navigate-back" } satisfies PluginBridgeNavigateBack),
 		openDrawer: () => post({ type: "open-drawer" } satisfies PluginBridgeOpenDrawer),
+		publishTitle: (title: string | null) => {
+			const entry = navigationStore.getSnapshot().entry;
+			if (entry === undefined) {
+				return;
+			}
+			const published = title === null ? null : normalizeHeaderTitle(title);
+			post({
+				key: entry.key,
+				type: "header",
+				index: entry.index,
+				header: published === null ? null : { title: published },
+			} satisfies PluginBridgeHeader);
+		},
 		registerShortcut: (shortcut: string, press: () => void) => {
 			const handlers = pageShortcuts.get(shortcut) ?? new Set<() => void>();
 			if (!pageShortcuts.has(shortcut)) {
@@ -115,19 +128,6 @@ export const createPluginRuntime = (
 				pageShortcuts.delete(shortcut);
 				publishPageShortcuts();
 			};
-		},
-		publishTitle: (title: string | null) => {
-			const entry = navigationStore.getSnapshot().entry;
-			if (entry === undefined) {
-				return;
-			}
-			const published = title === null ? null : normalizeHeaderTitle(title);
-			post({
-				key: entry.key,
-				type: "header",
-				index: entry.index,
-				header: published === null ? null : { title: published },
-			} satisfies PluginBridgeHeader);
 		},
 	};
 	const pageShortcuts = new Map<string, Set<() => void>>();
@@ -151,7 +151,7 @@ export const createPluginRuntime = (
 		interest: EntityInterest;
 		onUpdate: (update: EntityUpdate) => void;
 	}>();
-	let postedInterest = JSON.stringify({ foreground: [], visible: [] });
+	let postedInterest = JSON.stringify({ visible: [], foreground: [] });
 	const publishInterest = () => {
 		const roots = new Set([...interestOwners].flatMap(({ interest }) => interest.foreground));
 		const foreground = [...roots].sort().slice(0, MAX_INTEREST_ENTITY_IDS);
@@ -159,11 +159,11 @@ export const createPluginRuntime = (
 			.filter((id) => !roots.has(id))
 			.sort()
 			.slice(0, MAX_INTEREST_ENTITY_IDS - foreground.length);
-		const serialized = JSON.stringify({ foreground, visible });
+		const serialized = JSON.stringify({ visible, foreground });
 		if (serialized === postedInterest) {
 			return;
 		}
-		if (!post({ type: "entity-interest", foreground, visible })) {
+		if (!post({ visible, foreground, type: "entity-interest" })) {
 			throw new RyotClientError(terminalReason ?? "transport");
 		}
 		postedInterest = serialized;
@@ -368,8 +368,8 @@ export const createPluginRuntime = (
 			post({
 				requestId,
 				source: request.source,
-				fileName: request.fileName,
 				type: "upload-request",
+				fileName: request.fileName,
 				contentType: request.contentType,
 			} satisfies PluginBridgeUploadRequest);
 		});
@@ -379,7 +379,7 @@ export const createPluginRuntime = (
 			throw new RyotClientError(terminalReason ?? "transport");
 		}
 		const target = Match.value(to).pipe(
-			Match.when({ kind: "plugin-route" }, ({ path, pluginSlug, search }) => ({
+			Match.when({ kind: "plugin-route" }, ({ path, search, pluginSlug }) => ({
 				path,
 				kind: "plugin-route" as const,
 				pluginSlug: PluginSlug.make(pluginSlug),
@@ -465,17 +465,17 @@ export const createPluginRuntime = (
 			interestOwners.add(owner);
 			publishInterest();
 			return {
+				dispose: () => {
+					if (interestOwners.delete(owner)) {
+						publishInterest();
+					}
+				},
 				update: (next) => {
 					if (state !== "active") {
 						throw new RyotClientError(terminalReason ?? "transport");
 					}
 					owner.interest = next;
 					publishInterest();
-				},
-				dispose: () => {
-					if (interestOwners.delete(owner)) {
-						publishInterest();
-					}
 				},
 			};
 		},
@@ -513,25 +513,25 @@ export const createPluginRuntime = (
 						type: "dismiss-overlay-result",
 					} satisfies PluginBridgeDismissOverlayResult);
 				}),
-				Match.when({ type: "entity-updated" }, ({ entityId, reason }) => {
+				Match.when({ type: "entity-updated" }, ({ reason, entityId }) => {
 					for (const owner of Array.from(interestOwners)) {
 						if (
 							interestOwners.has(owner) &&
 							(owner.interest.foreground.includes(entityId) ||
 								owner.interest.visible.includes(entityId))
 						) {
-							owner.onUpdate({ entityId, reason });
+							owner.onUpdate({ reason, entityId });
 						}
 					}
 				}),
-				Match.when({ type: "location" }, ({ compact, edgeBack, index, key, leading, location }) => {
+				Match.when({ type: "location" }, ({ key, index, compact, leading, edgeBack, location }) => {
 					let accepted: PluginNavigationSnapshot;
 					try {
 						accepted = navigationStore.setLocation({
 							leading,
 							compact,
 							edgeBack,
-							entry: { index, key, location },
+							entry: { key, index, location },
 						});
 					} catch {
 						finish("failed", "protocol", true);
@@ -562,7 +562,7 @@ export const createPluginRuntime = (
 						post({ count: overlayCount, type: "overlay-state" } satisfies PluginBridgeOverlayState);
 					}
 				}),
-				Match.when({ type: "viewport" }, ({ safeAreaBottom, safeAreaTop }) =>
+				Match.when({ type: "viewport" }, ({ safeAreaTop, safeAreaBottom }) =>
 					navigationStore.setViewport({ safeAreaTop, safeAreaBottom }),
 				),
 				Match.when({ type: "theme" }, ({ mode }) => {

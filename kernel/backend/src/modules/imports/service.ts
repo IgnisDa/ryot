@@ -103,7 +103,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 		const failRun = (runId: ImportRunId, failureReason: ImportRunFailureReason) =>
 			Effect.gen(function* () {
 				const finishedAt = yield* DateTime.nowAsDate;
-				yield* update({ runId, failureReason, status: "failed", finishedAt });
+				yield* update({ runId, finishedAt, failureReason, status: "failed" });
 			});
 
 		const cleanupUploads = (intentIds: ReadonlyArray<string>) =>
@@ -130,9 +130,9 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				cause: unknown,
 			) {
 				yield* Effect.logError(`import dispatch failed at ${operation}`, cause);
-				yield* failRun(runId, { code: "queue-unavailable", operation });
+				yield* failRun(runId, { operation, code: "queue-unavailable" });
 				return yield* new ImportRequestError({
-					reason: { code: "queue-unavailable", operation: "import-run" },
+					reason: { operation: "import-run", code: "queue-unavailable" },
 				});
 			});
 
@@ -315,14 +315,14 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			const resolution = yield* importSources.resolveForUser(user.id, body.source);
 			if (!resolution) {
 				return yield* new ImportRequestError({
-					reason: { code: "source-not-found", source: body.source },
+					reason: { source: body.source, code: "source-not-found" },
 				});
 			}
 			const registered = resolution.source;
 			const workflowScript = resolution.script;
 			if (!workflowScript) {
 				return yield* new ImportRequestError({
-					reason: { code: "workflow-unavailable", source: body.source },
+					reason: { source: body.source, code: "workflow-unavailable" },
 				});
 			}
 			const missingConfigKeys = yield* registryImportSourceMissingConfigKeys(registered);
@@ -334,7 +334,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			const properties = yield* parseRegistryImportSourceInput(registered, body).pipe(
 				Effect.tapError((cause) => Effect.logWarning("invalid import source input", cause)),
 				Effect.mapError(
-					() => new ImportRequestError({ reason: { code: "invalid-input", field: null } }),
+					() => new ImportRequestError({ reason: { field: null, code: "invalid-input" } }),
 				),
 			);
 			const sourceFileInputs = registryImportSourceFileInputs(registered, properties);
@@ -383,7 +383,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 		) {
 			const run = yield* repository.getRunById({ runId, userId: user.id });
 			if (!run) {
-				return yield* new ImportNotFoundError({ reason: { code: "run-not-found", runId } });
+				return yield* new ImportNotFoundError({ reason: { runId, code: "run-not-found" } });
 			}
 
 			return run;
@@ -396,7 +396,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			const run = yield* requireImportRun(user, runId);
 			if (!isTerminalStatus(run.status)) {
 				return yield* new ImportRequestError({
-					reason: { code: "run-not-terminal", runId, status: run.status },
+					reason: { runId, status: run.status, code: "run-not-terminal" },
 				});
 			}
 			yield* deleteRun({ runId, userId: user.id });

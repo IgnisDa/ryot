@@ -24,7 +24,7 @@ const input = (overrides: InputOverrides = {}): AutomationInput => {
 		properties,
 		id: "relationship-1",
 		relationshipSchemaSlug: `${subjectKind}-to-${targetKind}`,
-		target: { id: "associated-1", name: "Barbie", entitySchemaSlug: targetKind },
+		target: { name: "Barbie", id: "associated-1", entitySchemaSlug: targetKind },
 		source: { id: "subject-1", name: "Greta Gerwig", entitySchemaSlug: subjectKind },
 	});
 	let relationshipSource;
@@ -81,14 +81,14 @@ it.each([
 	["company", "music-group", "company.media-group.associated"],
 ] as const)("maps a %s credit to a %s signal", (subjectKind, targetKind, schemaSlug) =>
 	Effect.runPromise(
-		run(input({ subjectKind, targetKind })).pipe(
+		run(input({ targetKind, subjectKind })).pipe(
 			Effect.map((calls) => {
 				expect(calls).toEqual([
 					{
 						schemaSlug,
 						subjectEntityId: "subject-1",
 						discriminator: "subject-1:Director",
-						properties: { role: "Director", subjectName: "Greta Gerwig", associatedName: "Barbie" },
+						properties: { role: "Director", associatedName: "Barbie", subjectName: "Greta Gerwig" },
 					},
 				]);
 				return undefined;
@@ -120,7 +120,7 @@ it("emits each newly added role once and ignores unchanged, removed, and deleted
 			[
 				run(input({ operation: "update", afterRoles: ["Actor", "Director", "Director"] })),
 				run(
-					input({ operation: "update", beforeRoles: ["Actor", "Director"], afterRoles: ["Actor"] }),
+					input({ operation: "update", afterRoles: ["Actor"], beforeRoles: ["Actor", "Director"] }),
 				),
 				run(input({ operation: "delete" })),
 			],

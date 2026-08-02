@@ -15,24 +15,24 @@ function setup(matches: boolean, initial: "light" | "dark" | "system" = "system"
 		removeAttribute: (name: string) => attributes.delete(name),
 		setAttribute: (name: string, value: string) => attributes.set(name, value),
 	};
-	const store = createThemeStore(initial, { media, root });
+	const store = createThemeStore(initial, { root, media });
 	return {
 		media,
 		store,
 		attributes,
+		mediaListeners,
 		changeMedia: (next: boolean) => {
 			media.matches = next;
 			for (const listener of mediaListeners) {
 				listener();
 			}
 		},
-		mediaListeners,
 	};
 }
 
 describe("theme store", () => {
 	it("resolves light, dark, and system snapshots from the applied kernel palette", () => {
-		const { attributes, store } = setup(false);
+		const { store, attributes } = setup(false);
 
 		expect(store.getSnapshot().resolvedMode).toBe("light");
 		expect(attributes.has("data-theme")).toBe(false);
@@ -45,7 +45,7 @@ describe("theme store", () => {
 	});
 
 	it("publishes media changes only for system preference and cleans up", () => {
-		const { changeMedia, mediaListeners, store } = setup(false);
+		const { store, changeMedia, mediaListeners } = setup(false);
 		const snapshots: PluginThemeSnapshot[] = [];
 		const unsubscribe = store.subscribe(() => snapshots.push(store.getSnapshot()));
 

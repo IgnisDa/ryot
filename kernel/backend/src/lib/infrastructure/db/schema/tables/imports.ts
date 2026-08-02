@@ -35,14 +35,14 @@ export const integration = snakeCase.table(
 		pluginInstallationId: text().notNull(),
 		lot: text().notNull().$type<IntegrationLot>(),
 		isDisabled: boolean().notNull().default(false),
-		provider: text().$type<IntegrationProvider>().notNull(),
 		syncOwnership: boolean().notNull().default(false),
 		minimumProgress: numeric().notNull().default("2"),
-		maximumProgress: numeric().notNull().default("95"),
 		lastFinishedAt: timestamp({ withTimezone: true }),
+		maximumProgress: numeric().notNull().default("95"),
+		provider: text().$type<IntegrationProvider>().notNull(),
 		extraSettings: jsonb().$type<IntegrationExtraSettings>().notNull(),
-		providerSpecifics: jsonb().$type<IntegrationProviderSettings>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		providerSpecifics: jsonb().$type<IntegrationProviderSettings>().notNull(),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -72,20 +72,19 @@ export const importRun = snakeCase.table(
 	"import_run",
 	{
 		totalItems: integer(),
-		integrationLot: text().$type<IntegrationLot>(),
 		progress: integer().notNull().default(0),
-		source: text().notNull().$type<ImportRunSource>(),
 		failedItems: integer().notNull().default(0),
-		importedItems: integer().notNull().default(0),
 		startedAt: timestamp({ withTimezone: true }),
+		importedItems: integer().notNull().default(0),
 		finishedAt: timestamp({ withTimezone: true }),
+		integrationLot: text().$type<IntegrationLot>(),
 		processedItems: integer().notNull().default(0),
+		source: text().notNull().$type<ImportRunSource>(),
 		failureReason: jsonb().$type<ImportRunFailureReason>(),
 		status: text().notNull().$type<RunStatus>().default("pending"),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		inputSummary: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		integrationId: text().references(() => integration.id, { onDelete: "cascade" }),
-		pluginInstallationId: text().references(() => pluginInstallation.id, { onDelete: "set null" }),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -93,6 +92,7 @@ export const importRun = snakeCase.table(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
+		pluginInstallationId: text().references(() => pluginInstallation.id, { onDelete: "set null" }),
 		updatedAt: timestamp({ withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())

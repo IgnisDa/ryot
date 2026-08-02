@@ -78,8 +78,8 @@ export const listEntitySchemas = (
 			}
 			const providerSlug = script.slug.slice(0, -(providerOperation.length + 1));
 			const provider = providers.get(providerSlug) ?? {
-				name: script.name,
 				providerSlug,
+				name: script.name,
 				providerId: script.providerId,
 			};
 			provider[`${providerOperation}ScriptId`] = script.id;
@@ -90,7 +90,9 @@ export const listEntitySchemas = (
 			.filter((schema) => !options.pluginSlug || schema.pluginSlug === options.pluginSlug)
 			.map((schema) =>
 				Object.assign({}, schema, {
+					isBuiltin: true,
 					id: makeEntitySchemaSlug(schema.slug),
+					pluginSlug: schema.pluginSlug ?? undefined,
 					providers: [...providers.values()]
 						.filter((provider) => provider.providerSlug.startsWith(`${schema.slug}.`))
 						.map((provider) =>
@@ -100,8 +102,6 @@ export const listEntitySchemas = (
 										?.name ?? provider.name,
 							}),
 						),
-					isBuiltin: true,
-					pluginSlug: schema.pluginSlug ?? undefined,
 				}),
 			);
 	});

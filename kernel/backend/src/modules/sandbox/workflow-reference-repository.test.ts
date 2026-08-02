@@ -37,8 +37,25 @@ const makeRegisterLayer = (options: {
 			options.events.push(`lock:${query.sql}:${query.params.join(":")}`);
 			return Effect.void;
 		},
+		insert: () => ({
+			values: (values: Record<string, unknown>) => ({
+				onConflictDoNothing: () => ({
+					returning: () => {
+						options.events.push("insert");
+						options.references?.push(values);
+						return Effect.succeed(options.inserted === false ? [] : [input]);
+					},
+				}),
+			}),
+		}),
 		select: () => ({
 			from: () => ({
+				where: () => ({
+					limit: () => {
+						options.events.push("existing");
+						return Effect.succeed(options.existing ? [options.existing] : []);
+					},
+				}),
 				leftJoin: () => ({
 					where: () => ({
 						limit: () => {
@@ -56,23 +73,6 @@ const makeRegisterLayer = (options: {
 							);
 						},
 					}),
-				}),
-				where: () => ({
-					limit: () => {
-						options.events.push("existing");
-						return Effect.succeed(options.existing ? [options.existing] : []);
-					},
-				}),
-			}),
-		}),
-		insert: () => ({
-			values: (values: Record<string, unknown>) => ({
-				onConflictDoNothing: () => ({
-					returning: () => {
-						options.events.push("insert");
-						options.references?.push(values);
-						return Effect.succeed(options.inserted === false ? [] : [input]);
-					},
 				}),
 			}),
 		}),
@@ -124,7 +124,7 @@ it.effect("refuses private plugin registration without user installation subject
 			}),
 		);
 		expect(events.slice(1)).toEqual(["plugin"]);
-	}).pipe(Effect.provide(makeRegisterLayer({ active: true, events, pluginScope: "user" })));
+	}).pipe(Effect.provide(makeRegisterLayer({ events, active: true, pluginScope: "user" })));
 });
 
 it.effect("refuses registration when uninstall has deactivated the plugin", () => {
@@ -141,7 +141,7 @@ it.effect("refuses registration when uninstall has deactivated the plugin", () =
 			}),
 		);
 		expect(events.slice(1)).toEqual(["plugin"]);
-	}).pipe(Effect.provide(makeRegisterLayer({ active: false, events })));
+	}).pipe(Effect.provide(makeRegisterLayer({ events, active: false })));
 });
 
 it.effect("treats registration replay for the same pin as idempotent", () => {

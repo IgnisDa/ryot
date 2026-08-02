@@ -14,8 +14,8 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: TvdbHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getCachedValue: () => Effect.succeed("Bearer test-token"),
 		setCachedValue: () => Effect.succeed(null),
+		getCachedValue: () => Effect.succeed("Bearer test-token"),
 		getPluginConfig: (keys) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "test-api-key"]))),
 	});
@@ -36,13 +36,13 @@ describe("show.tvdb sandbox script", () => {
 		const cacheWrites: Array<readonly [string, unknown, number]> = [];
 		const host = defineSandboxTestHost(manifest, {
 			getCachedValue: () => Effect.succeed(null),
-			getPluginConfig: (keys) => {
-				expect(keys).toEqual(["tvdbApiKey"]);
-				return Effect.succeed({ tvdbApiKey: "test-api-key" });
-			},
 			setCachedValue: (key, value, ttl) => {
 				cacheWrites.push([key, value, ttl]);
 				return Effect.succeed(null);
+			},
+			getPluginConfig: (keys) => {
+				expect(keys).toEqual(["tvdbApiKey"]);
+				return Effect.succeed({ tvdbApiKey: "test-api-key" });
 			},
 			httpCall: (_method, url) => {
 				const requestUrl = new URL(url);
@@ -51,11 +51,11 @@ describe("show.tvdb sandbox script", () => {
 					return httpSuccess({ status: "success", data: { token: "test-token" } });
 				}
 				expect(requestUrl.pathname).toBe("/v4/search");
-				return httpSuccess({ status: "success", links: { next: null }, data: [] });
+				return httpSuccess({ data: [], status: "success", links: { next: null } });
 			},
 		});
 		return Effect.runPromise(
-			runSandboxTestScript(search, { query: "show", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, pageSize: 20, query: "show" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(cacheWrites).toEqual([["tvdb_access_token", "Bearer test-token", 82_800]]);
 					expect(result.items).toEqual([]);
@@ -104,9 +104,9 @@ describe("show.tvdb sandbox script", () => {
 								number: 1,
 								runtime: 42,
 								name: "Pilot",
-								aired: "2020-01-01",
-								image: "e1.jpg",
 								overview: "ov",
+								image: "e1.jpg",
+								aired: "2020-01-01",
 							},
 							{ id: 12, number: 2 },
 						],
@@ -125,7 +125,7 @@ describe("show.tvdb sandbox script", () => {
 			}
 			if (pathname.endsWith("/seasons/103/extended")) {
 				return httpSuccess({
-					data: { id: 103, number: 3, type: { type: "official" }, episodes: [] },
+					data: { id: 103, number: 3, episodes: [], type: { type: "official" } },
 				});
 			}
 			if (pathname.endsWith("/seasons/100/extended")) {
@@ -147,6 +147,16 @@ describe("show.tvdb sandbox script", () => {
 					expect(requested).not.toContain("/v4/seasons/999/extended");
 					expect(result.childEntities).toEqual([
 						{
+							name: "Season 1",
+							externalId: "101",
+							entitySchemaSlug: "show-season",
+							expectedChildEntitySchemaSlug: "show-episode",
+							properties: {
+								seasonNumber: 1,
+								releaseDate: "2020-01-01",
+								parentShowExternalId: "1",
+								images: [{ url: "s1.jpg", type: "remote", purpose: "cover" }],
+							},
 							childEntities: [
 								{
 									name: "Pilot",
@@ -155,39 +165,34 @@ describe("show.tvdb sandbox script", () => {
 									properties: {
 										runtime: 42,
 										seasonNumber: 1,
-										description: "ov",
 										episodeNumber: 1,
+										description: "ov",
 										parentShowExternalId: "1",
 										publishDate: "2020-01-01",
-										images: [{ type: "remote", url: "e1.jpg", purpose: "still" }],
+										images: [{ url: "e1.jpg", type: "remote", purpose: "still" }],
 									},
 								},
 								{
-									name: "Episode 2",
 									externalId: "12",
+									name: "Episode 2",
 									entitySchemaSlug: "show-episode",
 									properties: {
 										runtime: null,
 										seasonNumber: 1,
-										description: null,
 										episodeNumber: 2,
+										description: null,
 										publishDate: null,
 										parentShowExternalId: "1",
 									},
 								},
 							],
-							externalId: "101",
-							name: "Season 1",
-							entitySchemaSlug: "show-season",
-							expectedChildEntitySchemaSlug: "show-episode",
-							properties: {
-								seasonNumber: 1,
-								releaseDate: "2020-01-01",
-								parentShowExternalId: "1",
-								images: [{ type: "remote", url: "s1.jpg", purpose: "cover" }],
-							},
 						},
 						{
+							name: "Season 2",
+							externalId: "102",
+							entitySchemaSlug: "show-season",
+							expectedChildEntitySchemaSlug: "show-episode",
+							properties: { seasonNumber: 2, releaseDate: null, parentShowExternalId: "1" },
 							childEntities: [
 								{
 									name: "S2E1",
@@ -196,23 +201,18 @@ describe("show.tvdb sandbox script", () => {
 									properties: {
 										runtime: null,
 										seasonNumber: 2,
-										description: null,
 										episodeNumber: 1,
+										description: null,
 										publishDate: null,
 										parentShowExternalId: "1",
 									},
 								},
 							],
-							externalId: "102",
-							name: "Season 2",
-							entitySchemaSlug: "show-season",
-							expectedChildEntitySchemaSlug: "show-episode",
-							properties: { seasonNumber: 2, releaseDate: null, parentShowExternalId: "1" },
 						},
 						{
+							name: "Season 3",
 							childEntities: [],
 							externalId: "103",
-							name: "Season 3",
 							entitySchemaSlug: "show-season",
 							expectedChildEntitySchemaSlug: "show-episode",
 							properties: { seasonNumber: 3, releaseDate: null, parentShowExternalId: "1" },
@@ -220,10 +220,6 @@ describe("show.tvdb sandbox script", () => {
 					]);
 					expect(result.properties).toEqual({
 						genres: [],
-						images: [
-							{ type: "remote", url: "show.jpg", purpose: "cover" },
-							{ type: "remote", url: "show-art.jpg", purpose: "artwork" },
-						],
 						totalSeasons: 3,
 						totalEpisodes: 3,
 						publishYear: null,
@@ -231,6 +227,10 @@ describe("show.tvdb sandbox script", () => {
 						unlinkedCreators: [],
 						productionStatus: "Ended",
 						sourceUrl: "https://thetvdb.com/series/my-show",
+						images: [
+							{ type: "remote", url: "show.jpg", purpose: "cover" },
+							{ type: "remote", purpose: "artwork", url: "show-art.jpg" },
+						],
 					});
 					return undefined;
 				}),
@@ -345,7 +345,7 @@ describe("show.tvdb sandbox script", () => {
 				data: {
 					artworks: [
 						{ language: "eng", image: "art.jpg" },
-						{ language: "fra", image: "x" },
+						{ image: "x", language: "fra" },
 					],
 				},
 			});
@@ -431,19 +431,19 @@ describe("show.tvdb sandbox script", () => {
 			httpSuccess({
 				links: { next: "https://api4.thetvdb.com/v4/search?offset=20" },
 				data: [
-					{ tvdb_id: "42", name: "Found Show", poster: "p.jpg" },
+					{ tvdb_id: "42", poster: "p.jpg", name: "Found Show" },
 					{ tvdb_id: "43", title: "Title Only" },
 				],
 			}),
 		);
 		return Effect.runPromise(
-			runSandboxTestScript(search, { query: "test", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, pageSize: 20, query: "test" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{ externalId: "42", imageUrl: "p.jpg", title: "Found Show" },
 						{ externalId: "43", title: "Title Only" },
 					]);
-					expect(result.details).toEqual({ totalItems: 2, nextPage: 2 });
+					expect(result.details).toEqual({ nextPage: 2, totalItems: 2 });
 					return undefined;
 				}),
 			),

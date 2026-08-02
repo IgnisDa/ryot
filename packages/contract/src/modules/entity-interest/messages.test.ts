@@ -13,7 +13,7 @@ import {
 describe("entity-interest socket messages", () => {
 	it("decodes every client message and deduplicates command IDs", () => {
 		expect(decodeEntityInterestClientMessage('{"type":"authenticate","ticket":"ticket"}')).toEqual(
-			expect.objectContaining({ success: { type: "authenticate", ticket: "ticket" } }),
+			expect.objectContaining({ success: { ticket: "ticket", type: "authenticate" } }),
 		);
 		expect(
 			decodeEntityInterestClientMessage(
@@ -21,7 +21,7 @@ describe("entity-interest socket messages", () => {
 			),
 		).toEqual(
 			expect.objectContaining({
-				success: { type: "replace", revision: 1, entityIds: ["entity-2", "entity-1"] },
+				success: { revision: 1, type: "replace", entityIds: ["entity-2", "entity-1"] },
 			}),
 		);
 		expect(
@@ -30,7 +30,7 @@ describe("entity-interest socket messages", () => {
 			),
 		).toEqual(
 			expect.objectContaining({
-				success: { type: "update", revision: 2, add: ["entity-2"], remove: ["entity-1"] },
+				success: { revision: 2, type: "update", add: ["entity-2"], remove: ["entity-1"] },
 			}),
 		);
 		expect(decodeEntityInterestClientMessage('{"type":"pong","nonce":"nonce"}')).toEqual(
@@ -74,12 +74,12 @@ describe("entity-interest socket messages", () => {
 
 		expect(decodeEntityInterestClientMessage(client)).toEqual(
 			expect.objectContaining({
-				success: { type: "replace", revision: 1, entityIds: ["entity-1"] },
+				success: { revision: 1, type: "replace", entityIds: ["entity-1"] },
 			}),
 		);
 		expect(decodeEntityInterestServerMessage(server)).toEqual(
 			expect.objectContaining({
-				success: { type: "entity-updated", entityId: "entity-1", reason: "translated" },
+				success: { entityId: "entity-1", reason: "translated", type: "entity-updated" },
 			}),
 		);
 	});

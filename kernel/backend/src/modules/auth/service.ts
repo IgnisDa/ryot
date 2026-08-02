@@ -94,8 +94,8 @@ const makeOAuthProviderPlugin = (frontendUrl: string) => {
 		clientPrivileges: () => false,
 		enforcePerClientResources: true,
 		allowDynamicClientRegistration: false,
-		allowUnauthenticatedClientRegistration: false,
 		resources: [getOAuthResource(frontendUrl)],
+		allowUnauthenticatedClientRegistration: false,
 		grantTypes: ["authorization_code", "refresh_token"],
 	});
 	const compatiblePlugin: BetterAuthPlugin = plugin;
@@ -128,9 +128,35 @@ const makeAuthInstance = (args: {
 		disabledPaths: args.config.users.disableLocalAuth ? ["/sign-in/email"] : [],
 		user: {
 			additionalFields: {
-				disabledAt: { type: "date", required: false, input: false },
-				bootstrapCompletedAt: { type: "date", required: false, input: false },
+				disabledAt: { type: "date", input: false, required: false },
+				bootstrapCompletedAt: { type: "date", input: false, required: false },
 				preferences: { type: "json", required: true, defaultValue: defaultUserPreferences },
+			},
+		},
+		databaseHooks: {
+			session: {
+				create: {
+					before: (session) =>
+						Effect.runPromiseWith(args.runtime)(
+							gateSessionCreation(session.userId, args.bootstrapNewUser),
+						),
+				},
+			},
+			user: {
+				create: {
+					after: (user) =>
+						Effect.runPromiseWith(args.runtime)(
+							args
+								.bootstrapNewUser(user.id)
+								.pipe(
+									Effect.catchCause((cause) =>
+										Effect.logError("user bootstrap failed", cause).pipe(
+											Effect.annotateLogs({ userId: user.id }),
+										),
+									),
+								),
+						),
+				},
 			},
 		},
 		hooks: {
@@ -159,70 +185,6 @@ const makeAuthInstance = (args: {
 				),
 			),
 		},
-		emailAndPassword: {
-			enabled: true,
-			autoSignIn: true,
-			revokeSessionsOnPasswordReset: true,
-			disableSignUp: !args.config.users.allowRegistration || args.config.users.disableLocalAuth,
-			onPasswordReset: ({ user }) =>
-				Effect.runPromiseWith(args.runtime)(args.revokeOAuthTokens(UserId.make(user.id))),
-			sendResetPassword: ({ user, token }) =>
-				Effect.runPromiseWith(args.runtime)(
-					Effect.gen(function* () {
-						const pendingKey = redisKeys.godModePendingReset(user.email);
-						const correlationId = yield* Effect.tryPromise(() => args.redis.get(pendingKey));
-						if (!correlationId) {
-							return;
-						}
-						const resetUrl = `${args.config.frontendUrl}/reset-password?token=${token}`;
-						const channel = redisKeys.godModeResetChannel(correlationId);
-						const message = yield* Schema.encodeUnknownEffect(
-							Schema.fromJsonString(Schema.Unknown),
-						)({ email: user.email, resetUrl });
-						yield* Effect.tryPromise(() => args.redis.publish(channel, message));
-						yield* Effect.tryPromise(() =>
-							args.redis.eval(
-								"if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
-								1,
-								pendingKey,
-								correlationId,
-							),
-						);
-					}).pipe(
-						Effect.catchCause((cause) =>
-							Effect.logError("reset password delivery failed", cause).pipe(
-								Effect.annotateLogs({ email: user.email }),
-							),
-						),
-					),
-				),
-		},
-		databaseHooks: {
-			session: {
-				create: {
-					before: (session) =>
-						Effect.runPromiseWith(args.runtime)(
-							gateSessionCreation(session.userId, args.bootstrapNewUser),
-						),
-				},
-			},
-			user: {
-				create: {
-					after: (user) =>
-						Effect.runPromiseWith(args.runtime)(
-							args
-								.bootstrapNewUser(user.id)
-								.pipe(
-									Effect.catchCause((cause) =>
-										Effect.logError("user bootstrap failed", cause).pipe(
-											Effect.annotateLogs({ userId: user.id }),
-										),
-									),
-								),
-						),
-				},
-			},
-		},
 		plugins: [
 			jwt(),
 			makeOAuthProviderPlugin(args.config.frontendUrl),
@@ -246,16 +208,54 @@ const makeAuthInstance = (args: {
 									scopes: ["openid", "email", "profile"],
 									disableSignUp: !args.config.users.allowRegistration,
 									clientId: Option.getOrElse(args.config.server.oidc.clientId, () => ""),
-									discoveryUrl: `${Option.getOrElse(args.config.server.oidc.issuerUrl, () => "").replace(/\/$/, "")}/.well-known/openid-configuration`,
 									clientSecret: Redacted.value(
 										Option.getOrElse(args.config.server.oidc.clientSecret, () => Redacted.make("")),
 									),
+									discoveryUrl: `${Option.getOrElse(args.config.server.oidc.issuerUrl, () => "").replace(/\/$/, "")}/.well-known/openid-configuration`,
 								},
 							],
 						}),
 					]
 				: []),
 		],
+		emailAndPassword: {
+			enabled: true,
+			autoSignIn: true,
+			revokeSessionsOnPasswordReset: true,
+			disableSignUp: !args.config.users.allowRegistration || args.config.users.disableLocalAuth,
+			onPasswordReset: ({ user }) =>
+				Effect.runPromiseWith(args.runtime)(args.revokeOAuthTokens(UserId.make(user.id))),
+			sendResetPassword: ({ user, token }) =>
+				Effect.runPromiseWith(args.runtime)(
+					Effect.gen(function* () {
+						const pendingKey = redisKeys.godModePendingReset(user.email);
+						const correlationId = yield* Effect.tryPromise(() => args.redis.get(pendingKey));
+						if (!correlationId) {
+							return;
+						}
+						const resetUrl = `${args.config.frontendUrl}/reset-password?token=${token}`;
+						const channel = redisKeys.godModeResetChannel(correlationId);
+						const message = yield* Schema.encodeUnknownEffect(
+							Schema.fromJsonString(Schema.Unknown),
+						)({ resetUrl, email: user.email });
+						yield* Effect.tryPromise(() => args.redis.publish(channel, message));
+						yield* Effect.tryPromise(() =>
+							args.redis.eval(
+								"if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+								1,
+								pendingKey,
+								correlationId,
+							),
+						);
+					}).pipe(
+						Effect.catchCause((cause) =>
+							Effect.logError("reset password delivery failed", cause).pipe(
+								Effect.annotateLogs({ email: user.email }),
+							),
+						),
+					),
+				),
+		},
 	});
 
 	return auth;
@@ -294,7 +294,7 @@ export const credentialFromHeaders = (headers: Headers): CredentialInput | null 
 		return { kind: "oauth", token: authorization.slice("Bearer ".length) };
 	}
 	const key = headers.get("x-api-key");
-	return key ? { kind: "api-key", key } : null;
+	return key ? { key, kind: "api-key" } : null;
 };
 
 type ApiKeyVerification = {
@@ -333,7 +333,7 @@ const resolveOAuthCredential = (
 			Schema.decodeUnknownEffect(Schema.Struct({ sub: Schema.String, client_id: Schema.String })),
 		),
 		Effect.mapError(authenticationRequired),
-		Effect.map(({ client_id, sub }) => ({
+		Effect.map(({ sub, client_id }) => ({
 			userId: sub,
 			credential: { kind: "oauth", clientId: client_id },
 		})),
@@ -514,12 +514,54 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 		return {
 			auth,
 			requestPasswordResetLink,
+			apiKeyUser: (key: string) => authenticate({ key, kind: "api-key" }),
+			oauthUser: (token: string) => authenticate({ token, kind: "oauth" }),
 			revokeUserOAuthTokens: (userId: UserId) =>
 				repository.revokeUserOAuthTokens(userId).pipe(Effect.orDie),
+			deleteAuthUser: (userId: UserId) =>
+				withInternalAdapter(({ internalAdapter }) => internalAdapter.deleteUser(userId)).pipe(
+					Effect.asVoid,
+				),
 			deleteUserSessions: (userId: UserId) =>
 				withInternalAdapter(({ internalAdapter }) =>
 					internalAdapter.deleteUserSessions(userId),
 				).pipe(Effect.orDie),
+			updateUserImage: (userId: UserId, image: string) =>
+				withInternalAdapter(({ internalAdapter }) =>
+					internalAdapter.updateUser(userId, { image }),
+				).pipe(Effect.asVoid),
+			// Keep the hosted login session copies in secondary storage current.
+			updateUserPreferences: (userId: UserId, preferences: CachedUserPreferences) =>
+				withInternalAdapter(({ internalAdapter }) =>
+					internalAdapter.updateUser(userId, { preferences }),
+				).pipe(Effect.asVoid),
+			createAuthUser: (user: AuthUserInput) =>
+				withInternalAdapter(({ internalAdapter }) =>
+					internalAdapter.createUser(
+						{ ...user, email: user.email.toLowerCase() },
+						{ method: "admin" },
+					),
+				),
+			linkAuthAccount: (account: {
+				id: string;
+				userId: string;
+				issuer: string;
+				accountId: string;
+				providerId: string;
+			}) => withInternalAdapter(({ internalAdapter }) => internalAdapter.linkAccount(account)),
+			updateAuthUserDisabled: (
+				userId: UserId,
+				data: { disabledAt: Date | null; updatedAt: Date },
+			) =>
+				withInternalAdapter(({ internalAdapter }) => internalAdapter.updateUser(userId, data)).pipe(
+					Effect.asVoid,
+				),
+			currentUser: (headers: Headers) => {
+				const credential = credentialFromHeaders(headers);
+				return credential
+					? authenticate(credential).pipe(Effect.map(({ user }) => user))
+					: Effect.fail(authenticationRequired());
+			},
 			// The api-key plugin caches keys in secondary storage but has no admin/server-side API to
 			// invalidate another user's keys (deletion only works through the owning user's session), so
 			// we purge the cache directly via Better Auth's secondaryStorage (its wrapper adds the
@@ -543,48 +585,6 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 						]);
 					}),
 				).pipe(Effect.orDie),
-			// Keep the hosted login session copies in secondary storage current.
-			updateUserPreferences: (userId: UserId, preferences: CachedUserPreferences) =>
-				withInternalAdapter(({ internalAdapter }) =>
-					internalAdapter.updateUser(userId, { preferences }),
-				).pipe(Effect.asVoid),
-			updateUserImage: (userId: UserId, image: string) =>
-				withInternalAdapter(({ internalAdapter }) =>
-					internalAdapter.updateUser(userId, { image }),
-				).pipe(Effect.asVoid),
-			deleteAuthUser: (userId: UserId) =>
-				withInternalAdapter(({ internalAdapter }) => internalAdapter.deleteUser(userId)).pipe(
-					Effect.asVoid,
-				),
-			createAuthUser: (user: AuthUserInput) =>
-				withInternalAdapter(({ internalAdapter }) =>
-					internalAdapter.createUser(
-						{ ...user, email: user.email.toLowerCase() },
-						{ method: "admin" },
-					),
-				),
-			linkAuthAccount: (account: {
-				id: string;
-				userId: string;
-				issuer: string;
-				accountId: string;
-				providerId: string;
-			}) => withInternalAdapter(({ internalAdapter }) => internalAdapter.linkAccount(account)),
-			updateAuthUserDisabled: (
-				userId: UserId,
-				data: { disabledAt: Date | null; updatedAt: Date },
-			) =>
-				withInternalAdapter(({ internalAdapter }) => internalAdapter.updateUser(userId, data)).pipe(
-					Effect.asVoid,
-				),
-			oauthUser: (token: string) => authenticate({ kind: "oauth", token }),
-			apiKeyUser: (key: string) => authenticate({ kind: "api-key", key }),
-			currentUser: (headers: Headers) => {
-				const credential = credentialFromHeaders(headers);
-				return credential
-					? authenticate(credential).pipe(Effect.map(({ user }) => user))
-					: Effect.fail(authenticationRequired());
-			},
 		};
 	}),
 }) {
@@ -606,7 +606,7 @@ export const makeAuthMiddleware = (
 	) =>
 		Effect.gen(function* () {
 			const request = yield* HttpServerRequest.HttpServerRequest;
-			const { authorization, user } = yield* resolved;
+			const { user, authorization } = yield* resolved;
 			if (
 				request.method !== "GET" &&
 				request.method !== "HEAD" &&
@@ -631,15 +631,15 @@ export const makeAuthMiddleware = (
 		oauth: (
 			httpEffect,
 			{
-				credential,
 				endpoint,
+				credential,
 			}: { readonly credential: Redacted.Redacted; readonly endpoint: HttpApiEndpoint.Top },
 		) => authenticate(httpEffect, auth.oauthUser(Redacted.value(credential)), endpoint.path),
 		apiKey: (
 			httpEffect,
 			{
-				credential,
 				endpoint,
+				credential,
 			}: { readonly credential: Redacted.Redacted; readonly endpoint: HttpApiEndpoint.Top },
 		) => authenticate(httpEffect, auth.apiKeyUser(Redacted.value(credential)), endpoint.path),
 	} satisfies AuthMiddleware["Service"];

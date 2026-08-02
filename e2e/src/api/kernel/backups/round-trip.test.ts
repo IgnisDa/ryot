@@ -164,12 +164,12 @@ describe("backup export and restore round trip", () => {
 						type: "object" as const,
 						description: "Portable nested details",
 						properties: {
-							note: { type: "string" as const, label: "Note", description: "Optional note" },
+							note: { label: "Note", type: "string" as const, description: "Optional note" },
 							tags: {
 								label: "Tags",
 								type: "array" as const,
 								description: "Ordered tags",
-								items: { type: "string" as const, label: "Tag", description: "Tag" },
+								items: { label: "Tag", description: "Tag", type: "string" as const },
 							},
 							metrics: {
 								label: "Metrics",
@@ -195,31 +195,31 @@ describe("backup export and restore round trip", () => {
 			};
 			const eventPropertiesSchema = {
 				fields: {
-					sequence: { type: "integer" as const, label: "Sequence", description: "Event sequence" },
+					sequence: { label: "Sequence", type: "integer" as const, description: "Event sequence" },
 					labels: {
 						label: "Labels",
 						type: "array" as const,
 						description: "Event labels",
-						items: { type: "string" as const, label: "Label", description: "Label" },
+						items: { label: "Label", description: "Label", type: "string" as const },
 					},
 					context: {
 						label: "Context",
 						type: "object" as const,
 						description: "Event context",
 						properties: {
-							note: { type: "string" as const, label: "Note", description: "Context note" },
+							note: { label: "Note", type: "string" as const, description: "Context note" },
 						},
 					},
 				},
 			};
 			const relationshipPropertiesSchema = {
 				fields: {
-					weight: { type: "integer" as const, label: "Weight", description: "Relationship weight" },
+					weight: { label: "Weight", type: "integer" as const, description: "Relationship weight" },
 					labels: {
 						label: "Labels",
 						type: "array" as const,
 						description: "Relationship labels",
-						items: { type: "string" as const, label: "Label", description: "Label" },
+						items: { label: "Label", description: "Label", type: "string" as const },
 					},
 				},
 			};
@@ -237,6 +237,38 @@ describe("backup export and restore round trip", () => {
 							name: "Backup round trip fixture",
 						}),
 					},
+					scripts: [
+						{
+							entry,
+							kind: "script",
+							slug: scriptSlug,
+							capabilities: [],
+							requiredPluginConfigKeys: [],
+							requiredSystemConfigKeys: [],
+							name: "Backup round trip fixture",
+						},
+					],
+					relationshipSchemas: [
+						{
+							slug: relationshipSchemaSlug,
+							name: "Backup Round Trip Relationship",
+							sourceEntitySchemaSlug: entitySchemaSlug,
+							targetEntitySchemaSlug: entitySchemaSlug,
+							propertiesSchema: relationshipPropertiesSchema,
+						},
+					],
+					savedViews: [
+						{
+							pluginSlug,
+							sortOrder: 0,
+							settings: {},
+							dataSources: null,
+							slug: pluginViewSlug,
+							icon: "layout-dashboard",
+							name: "Backup plugin page",
+							renderer: { kind: "plugin", exportName: "backup-page" },
+						},
+					],
 					clientDefinition: {
 						routes: {},
 						entities: {},
@@ -251,29 +283,6 @@ describe("backup export and restore round trip", () => {
 							},
 						},
 					},
-					savedViews: [
-						{
-							pluginSlug,
-							sortOrder: 0,
-							settings: {},
-							dataSources: null,
-							slug: pluginViewSlug,
-							icon: "layout-dashboard",
-							name: "Backup plugin page",
-							renderer: { kind: "plugin", exportName: "backup-page" },
-						},
-					],
-					scripts: [
-						{
-							entry,
-							kind: "script",
-							slug: scriptSlug,
-							capabilities: [],
-							requiredPluginConfigKeys: [],
-							requiredSystemConfigKeys: [],
-							name: "Backup round trip fixture",
-						},
-					],
 					entitySchemas: [
 						{
 							icon: "book",
@@ -287,15 +296,6 @@ describe("backup export and restore round trip", () => {
 									propertiesSchema: eventPropertiesSchema,
 								},
 							],
-						},
-					],
-					relationshipSchemas: [
-						{
-							slug: relationshipSchemaSlug,
-							name: "Backup Round Trip Relationship",
-							sourceEntitySchemaSlug: entitySchemaSlug,
-							targetEntitySchemaSlug: entitySchemaSlug,
-							propertiesSchema: relationshipPropertiesSchema,
 						},
 					],
 				}),
@@ -421,7 +421,7 @@ describe("backup export and restore round trip", () => {
 				"Missing default review notification subscription",
 			);
 			yield* setNotificationRuleActive(source.client, notificationSubscription.id, false);
-			yield* updatePluginState(source.client, "media", { isDisabled: true, sortOrder: 73 });
+			yield* updatePluginState(source.client, "media", { sortOrder: 73, isDisabled: true });
 
 			const { bytes } = yield* exportAndDownloadBackup(source.client, source.token);
 			yield* deleteUserAndWait(source.userId);
@@ -501,7 +501,7 @@ describe("backup export and restore round trip", () => {
 			});
 
 			const restoredView = yield* getSavedView(target.client, builtinView.slug);
-			expect(restoredView).toMatchObject({ slug: builtinView.slug, isDisabled: true });
+			expect(restoredView).toMatchObject({ isDisabled: true, slug: builtinView.slug });
 			const restoredPluginView = yield* getSavedView(target.client, clonedPluginView.slug);
 			expect(restoredPluginView).toMatchObject({
 				settings: {},
@@ -551,7 +551,7 @@ describe("backup export and restore round trip", () => {
 
 			const rejected = yield* Effect.flip(restoreBackup(target.client, bytes));
 			assertTaggedError(rejected, "BackupConflict");
-			expect(rejected.reason).toEqual({ code: "account-not-clean", category: "events" });
+			expect(rejected.reason).toEqual({ category: "events", code: "account-not-clean" });
 		}),
 	);
 
@@ -576,6 +576,15 @@ describe("backup export and restore round trip", () => {
 					pluginSlug,
 					scope: "system",
 					files: { [detailsEntry]: scriptSource },
+					providers: [
+						{
+							slug: providerSlug,
+							name: "Backup Provider",
+							information: { source: "e2e" },
+							rootEntitySchemaSlug: entitySchemaSlug,
+							operations: { details: detailsScriptSlug },
+						},
+					],
 					scripts: [
 						{
 							providerSlug,
@@ -587,15 +596,6 @@ describe("backup export and restore round trip", () => {
 							requiredPluginConfigKeys: [],
 							requiredSystemConfigKeys: [],
 							providerOperation: "details" as const,
-						},
-					],
-					providers: [
-						{
-							slug: providerSlug,
-							name: "Backup Provider",
-							information: { source: "e2e" },
-							rootEntitySchemaSlug: entitySchemaSlug,
-							operations: { details: detailsScriptSlug },
 						},
 					],
 					entitySchemas: [

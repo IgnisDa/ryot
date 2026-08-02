@@ -12,10 +12,10 @@ export const entity = snakeCase.table(
 		externalId: text(),
 		name: text().notNull(),
 		entitySchemaSlug: text().notNull(),
-		origin: jsonb().$type<AutomationOrigin | null>(),
 		populatedAt: timestamp({ withTimezone: true }),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		origin: jsonb().$type<AutomationOrigin | null>(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		properties: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		providerId: text().references(() => sandboxProvider.id, { onDelete: "cascade" }),
 		entitySchemaPluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
@@ -78,20 +78,20 @@ export const relationship = snakeCase.table(
 	"relationship",
 	{
 		relationshipSchemaSlug: text().notNull(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		properties: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		relationshipSchemaPluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
+		id: text()
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		sourceEntityId: text()
 			.notNull()
 			.references(() => entity.id, { onDelete: "cascade" }),
 		targetEntityId: text()
 			.notNull()
 			.references(() => entity.id, { onDelete: "cascade" }),
-		id: text()
-			.notNull()
-			.primaryKey()
-			.$defaultFn(() => /* @__PURE__ */ generateId()),
 	},
 	(table) => [
 		index("relationship_schema_slug_idx").on(table.relationshipSchemaSlug),

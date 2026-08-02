@@ -19,7 +19,7 @@ export const mergeTranslationOverlay = (input: {
 	readonly canonical: TranslationFields;
 	readonly overlay: TranslationOverlayRow | null;
 }): OverlayMergeResult => {
-	const { canonical, overlay } = input;
+	const { overlay, canonical } = input;
 
 	if (overlay === null) {
 		return { fields: canonical, status: "pending" };
@@ -27,7 +27,7 @@ export const mergeTranslationOverlay = (input: {
 
 	const hasTranslation = overlay.name !== null || Object.keys(overlay.properties).length > 0;
 	if (!hasTranslation) {
-		return { fields: canonical, status: "none" };
+		return { status: "none", fields: canonical };
 	}
 
 	return {

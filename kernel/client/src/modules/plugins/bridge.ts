@@ -377,11 +377,11 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		pending.set(request.requestId, { controller, type: "collection" });
 		let capabilityRequest: PluginCollectionRequest;
 		if (request.action === "create") {
-			capabilityRequest = { action: request.action, input: request.input };
+			capabilityRequest = { input: request.input, action: request.action };
 		} else if (request.action === "upsert-membership") {
-			capabilityRequest = { action: request.action, input: request.input };
+			capabilityRequest = { input: request.input, action: request.action };
 		} else {
-			capabilityRequest = { action: request.action, input: request.input };
+			capabilityRequest = { input: request.input, action: request.action };
 		}
 		void Promise.resolve()
 			.then(() => options.onCollection(capabilityRequest, controller.signal))
@@ -560,8 +560,8 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				}
 				Match.value(decoded.success)
 					.pipe(
-						Match.when({ type: "entity-interest" }, ({ foreground, visible }) => {
-							const declaration = { foreground, visible };
+						Match.when({ type: "entity-interest" }, ({ visible, foreground }) => {
+							const declaration = { visible, foreground };
 							interestIds = new Set([...declaration.foreground, ...declaration.visible]);
 							try {
 								if (interest) {
@@ -595,9 +595,9 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 						Match.when({ type: "page-shortcuts" }, ({ shortcuts }) =>
 							options.onPageShortcuts([...new Set(shortcuts.filter(isPageShortcut))].sort()),
 						),
-						Match.when({ type: "screen-state" }, ({ hasPreviousScreen, index, key }) => {
+						Match.when({ type: "screen-state" }, ({ key, index, hasPreviousScreen }) => {
 							if (index === navigation.index && key === navigation.key) {
-								options.onScreenState({ hasPreviousScreen, index, key });
+								options.onScreenState({ key, index, hasPreviousScreen });
 							}
 						}),
 					)

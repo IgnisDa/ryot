@@ -106,7 +106,7 @@ BEGIN
 		cursor_id := next_cursor_id;
 	END LOOP;
 
-	${buildReportSql("workout_template -> entity", [{ message: "row(s) migrated total", count: "rows_inserted" }])}
+	${buildReportSql("workout_template -> entity", [{ count: "rows_inserted", message: "row(s) migrated total" }])}
 END $$;
 `;
 
@@ -180,7 +180,7 @@ BEGIN
 		cursor_id := next_cursor_id;
 	END LOOP;
 
-	${buildReportSql("workout -> entity", [{ message: "row(s) migrated total", count: "rows_inserted" }])}
+	${buildReportSql("workout -> entity", [{ count: "rows_inserted", message: "row(s) migrated total" }])}
 END $$;
 `;
 
@@ -268,7 +268,7 @@ BEGIN
 		cursor_id := next_cursor_id;
 	END LOOP;
 
-	${buildReportSql("workout sets -> event", [{ message: "row(s) migrated total", count: "rows_inserted" }])}
+	${buildReportSql("workout sets -> event", [{ count: "rows_inserted", message: "row(s) migrated total" }])}
 END $$;
 `;
 
@@ -305,7 +305,7 @@ BEGIN
 	ON CONFLICT DO NOTHING;
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
 
-	${buildReportSql("workout -> workout-to-workout-template relationship", [{ message: "row(s) migrated", count: "rows_inserted" }])}
+	${buildReportSql("workout -> workout-to-workout-template relationship", [{ count: "rows_inserted", message: "row(s) migrated" }])}
 END $$;
 `;
 
@@ -342,6 +342,6 @@ BEGIN
 	ON CONFLICT DO NOTHING;
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
 
-	${buildReportSql("workout -> workout-repeated-from relationship", [{ message: "row(s) migrated", count: "rows_inserted" }])}
+	${buildReportSql("workout -> workout-repeated-from relationship", [{ count: "rows_inserted", message: "row(s) migrated" }])}
 END $$;
 `;

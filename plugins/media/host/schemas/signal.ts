@@ -94,9 +94,9 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 			propertiesSchema: {
 				unknownKeys: "strict",
 				fields: {
-					oldStatus: requiredString("Old status", "Previous production status"),
-					newStatus: requiredString("New status", "Current production status"),
 					entityName: requiredString("Entity name", "Changed media name"),
+					newStatus: requiredString("New status", "Current production status"),
+					oldStatus: requiredString("Old status", "Previous production status"),
 				},
 			},
 		},
@@ -109,8 +109,8 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 			propertiesSchema: {
 				unknownKeys: "strict",
 				fields: {
-					oldCount: requiredNumber("Old count", "Previous content count"),
 					newCount: requiredNumber("New count", "Current content count"),
+					oldCount: requiredNumber("Old count", "Previous content count"),
 					entityName: requiredString("Entity name", "Changed media name"),
 					contentType: {
 						type: "enum",
@@ -130,12 +130,36 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaSlug),
 			propertiesSchema: {
 				unknownKeys: "strict",
+				rules: [
+					...(["oldYear", "newYear"] as const).map((field) => ({
+						path: [field],
+						kind: "validation" as const,
+						validation: { required: true as const },
+						when: { path: ["changeKind"], value: "publish_year", operator: "eq" as const },
+					})),
+					...(["oldDate", "newDate", "episodeNumber"] as const).map((field) => ({
+						path: [field],
+						kind: "validation" as const,
+						validation: { required: true as const },
+						when: { path: ["changeKind"], value: "episode_date", operator: "eq" as const },
+					})),
+				],
 				fields: {
+					entityName: requiredString("Entity name", "Changed media name"),
 					newDate: { type: "date", label: "New date", description: "Current episode date" },
 					oldDate: { type: "date", label: "Old date", description: "Previous episode date" },
-					entityName: requiredString("Entity name", "Changed media name"),
 					newYear: { type: "integer", label: "New year", description: "Current publish year" },
 					oldYear: { type: "integer", label: "Old year", description: "Previous publish year" },
+					seasonNumber: {
+						type: "integer",
+						label: "Season number",
+						description: "Optional season number",
+					},
+					episodeNumber: {
+						type: "integer",
+						label: "Episode number",
+						description: "Episode number within its parent",
+					},
 					changeKind: {
 						type: "enum",
 						label: "Change kind",
@@ -146,31 +170,7 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 							values: [{ value: "publish_year" }, { value: "episode_date" }],
 						},
 					},
-					episodeNumber: {
-						type: "integer",
-						label: "Episode number",
-						description: "Episode number within its parent",
-					},
-					seasonNumber: {
-						type: "integer",
-						label: "Season number",
-						description: "Optional season number",
-					},
 				},
-				rules: [
-					...(["oldYear", "newYear"] as const).map((field) => ({
-						path: [field],
-						kind: "validation" as const,
-						validation: { required: true as const },
-						when: { path: ["changeKind"], operator: "eq" as const, value: "publish_year" },
-					})),
-					...(["oldDate", "newDate", "episodeNumber"] as const).map((field) => ({
-						path: [field],
-						kind: "validation" as const,
-						validation: { required: true as const },
-						when: { path: ["changeKind"], operator: "eq" as const, value: "episode_date" },
-					})),
-				],
 			},
 		},
 		{
@@ -237,9 +237,9 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 			propertiesSchema: {
 				unknownKeys: "strict",
 				fields: {
-					oldCount: requiredInteger("Old count", "Previous episode count"),
-					newCount: requiredInteger("New count", "Current episode count"),
 					entityName: requiredString("Entity name", "Parent media name"),
+					newCount: requiredInteger("New count", "Current episode count"),
+					oldCount: requiredInteger("Old count", "Previous episode count"),
 					discoveredCount: requiredInteger("Discovered count", "Newly discovered episodes"),
 					seasonNumber: {
 						type: "integer",

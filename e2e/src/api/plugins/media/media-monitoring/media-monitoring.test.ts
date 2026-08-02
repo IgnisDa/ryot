@@ -43,7 +43,7 @@ const providerDetails = (productionStatus: string) =>
 const discoveryProviderDetails = (episodeCount: number) =>
 	fakeProviderDetailsResult({
 		name: "Media Monitoring Discovery Target",
-		properties: { productionStatus: "Continuing", publishYear: 2026 },
+		properties: { publishYear: 2026, productionStatus: "Continuing" },
 		childEntities:
 			episodeCount === 0
 				? []
@@ -83,18 +83,18 @@ beforeAll(async () => {
 				client,
 				scope: "system",
 				name: providerName,
-				slug: `movie.media-monitoring-e2e-${crypto.randomUUID()}`,
-				details: providerDetails("Continuing"),
 				rootEntitySchemaSlug: movieSchemaId,
+				details: providerDetails("Continuing"),
+				slug: `movie.media-monitoring-e2e-${crypto.randomUUID()}`,
 			});
 			const showSchemaId = yield* getBuiltinEntitySchemaSlug("show");
 			discoveryProvider = yield* installTestProvider({
 				client,
 				scope: "system",
 				name: `${providerName} Discovery`,
+				rootEntitySchemaSlug: showSchemaId,
 				details: discoveryProviderDetails(0),
 				slug: `show.media-monitoring-discovery-e2e-${crypto.randomUUID()}`,
-				rootEntitySchemaSlug: showSchemaId,
 			});
 			const apiEntity = yield* seedMediaEntity({
 				properties: {},
@@ -114,8 +114,8 @@ beforeAll(async () => {
 				properties: {},
 				entitySchemaSlug: showSchemaId,
 				externalId: discoveryExternalId,
-				name: "Media Monitoring Discovery Target",
 				providerId: discoveryProvider.providerId,
+				name: "Media Monitoring Discovery Target",
 			});
 			apiEntityId = apiEntity.id;
 			cronEntityId = cronEntity.id;
@@ -172,8 +172,8 @@ describe("media monitoring endpoints", () => {
 
 			expect(yield* getMediaMonitoringStatus(owner.client, apiEntityId)).toEqual({
 				status: "found",
-				isMediaMonitored: false,
 				entityId: apiEntityId,
+				isMediaMonitored: false,
 			});
 			yield* enableMediaMonitoring(owner.client, apiEntityId);
 			yield* enableMediaMonitoring(owner.client, apiEntityId);
@@ -186,13 +186,13 @@ describe("media monitoring endpoints", () => {
 			).toBe(1);
 			expect(yield* getMediaMonitoringStatus(owner.client, apiEntityId)).toEqual({
 				status: "found",
-				isMediaMonitored: true,
 				entityId: apiEntityId,
+				isMediaMonitored: true,
 			});
 			expect(yield* getMediaMonitoringStatus(other.client, apiEntityId)).toEqual({
 				status: "found",
-				isMediaMonitored: false,
 				entityId: apiEntityId,
+				isMediaMonitored: false,
 			});
 
 			yield* disableMediaMonitoring(owner.client, apiEntityId);
@@ -229,15 +229,15 @@ describe("media monitoring endpoints", () => {
 			const unsupported = yield* Effect.all([
 				seedMediaEntity({
 					name: "Season",
-					entitySchemaSlug: seasonSchemaId,
 					properties: { seasonNumber: 1 },
 					providerId: provider.providerId,
+					entitySchemaSlug: seasonSchemaId,
 					externalId: `media-monitoring-season-${crypto.randomUUID()}`,
 				}),
 				seedMediaEntity({
 					name: "Episode",
-					entitySchemaSlug: episodeSchemaId,
 					providerId: provider.providerId,
+					entitySchemaSlug: episodeSchemaId,
 					properties: { seasonNumber: 1, episodeNumber: 1 },
 					externalId: `media-monitoring-episode-${crypto.randomUUID()}`,
 				}),
@@ -301,11 +301,11 @@ describe("media monitoring infrequent refresh", () => {
 				yield* Effect.all([
 					createNotificationChannel(first.client, {
 						channel: "apprise",
-						channelSpecifics: { baseUrl: fakeApprise.url, key: "first", kind: "apprise" },
+						channelSpecifics: { key: "first", kind: "apprise", baseUrl: fakeApprise.url },
 					}),
 					createNotificationChannel(second.client, {
 						channel: "apprise",
-						channelSpecifics: { baseUrl: fakeApprise.url, key: "second", kind: "apprise" },
+						channelSpecifics: { key: "second", kind: "apprise", baseUrl: fakeApprise.url },
 					}),
 				]);
 				yield* Effect.all([
@@ -331,9 +331,9 @@ describe("media monitoring infrequent refresh", () => {
 					provider.detailsScriptId,
 					providerSandboxSource({
 						name: providerName,
-						slug: `${provider.providerSlug}.details`,
 						operation: "details",
 						result: providerDetails("Ended"),
+						slug: `${provider.providerSlug}.details`,
 					}),
 				);
 				yield* triggerCronAndWaitForEntity(first, cronEntityId);
@@ -372,7 +372,7 @@ describe("media monitoring infrequent refresh", () => {
 				const owner = yield* createAuthenticatedClient();
 				yield* createNotificationChannel(owner.client, {
 					channel: "apprise",
-					channelSpecifics: { baseUrl: fakeApprise.url, key: "discovery", kind: "apprise" },
+					channelSpecifics: { kind: "apprise", key: "discovery", baseUrl: fakeApprise.url },
 				});
 				yield* enableMediaMonitoring(owner.client, discoveryEntityId);
 
@@ -383,10 +383,10 @@ describe("media monitoring infrequent refresh", () => {
 					providerCompilerClient,
 					discoveryProvider.detailsScriptId,
 					providerSandboxSource({
-						name: `${providerName} Discovery`,
-						slug: `${discoveryProvider.providerSlug}.details`,
 						operation: "details",
+						name: `${providerName} Discovery`,
 						result: discoveryProviderDetails(1),
+						slug: `${discoveryProvider.providerSlug}.details`,
 					}),
 				);
 				yield* triggerCronAndWaitForEntity(owner, discoveryEntityId);

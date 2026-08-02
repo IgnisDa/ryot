@@ -3,7 +3,7 @@ import { assert, describe, expect, it } from "vitest";
 
 import { entityReadRecipe, eventReadRecipe } from "./sandbox";
 
-const pageInfo = { hasMore: false, limit: 100, nextCursor: null };
+const pageInfo = { limit: 100, hasMore: false, nextCursor: null };
 
 describe("sandbox recipes", () => {
 	it("prepares and decodes entity reads", () => {
@@ -20,13 +20,13 @@ describe("sandbox recipes", () => {
 							type: "rows",
 							items: [
 								{
-									id: "entity-1",
 									name: "Book",
+									id: "entity-1",
 									externalId: null,
 									providerId: null,
 									populatedAt: null,
-									properties: { pages: 320 },
 									entitySchemaSlug: "book",
+									properties: { pages: 320 },
 									createdAt: "2026-01-01T00:00:00Z",
 									updatedAt: "2026-01-02T00:00:00Z",
 								},

@@ -65,8 +65,8 @@ describe("manga.anilist sandbox script", () => {
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
-								{ name: "Anime Pick", externalId: "2", providerSlug: "anime.anilist" },
-								{ name: "Manga Pick", externalId: "3", providerSlug: "manga.anilist" },
+								{ externalId: "2", name: "Anime Pick", providerSlug: "anime.anilist" },
+								{ externalId: "3", name: "Manga Pick", providerSlug: "manga.anilist" },
 							],
 						},
 					]);

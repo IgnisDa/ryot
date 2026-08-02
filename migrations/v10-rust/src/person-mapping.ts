@@ -22,7 +22,7 @@ import type {
 export const personEntityTargets = [
 	{ source: "anilist", entitySchemaSlug: "person", providerSlug: "person.anilist" },
 	{ source: "audible", entitySchemaSlug: "person", providerSlug: "person.audible" },
-	{ source: "custom", entitySchemaSlug: "person", providerSlug: null },
+	{ source: "custom", providerSlug: null, entitySchemaSlug: "person" },
 	{ source: "giant_bomb", entitySchemaSlug: "person", providerSlug: "person.giant-bomb" },
 	{ source: "hardcover", entitySchemaSlug: "person", providerSlug: "person.hardcover" },
 	{ source: "manga_updates", entitySchemaSlug: "person", providerSlug: "person.manga-updates" },
@@ -56,16 +56,16 @@ const companyEntityTargetValuesSql = sql.join(
 );
 
 export const buildPersonEntityMigrationSql = (targets: ResolvedEntityMigrationTarget[]) =>
-	buildLegacyEntityMigrationSql({ kind: "person", targets });
+	buildLegacyEntityMigrationSql({ targets, kind: "person" });
 
 export const buildCompanyEntityMigrationSql = (targets: ResolvedEntityMigrationTarget[]) =>
-	buildLegacyEntityMigrationSql({ kind: "company", targets });
+	buildLegacyEntityMigrationSql({ targets, kind: "company" });
 
 export const buildPersonRelationshipMigrationSql = (targets: ResolvedRelationshipTarget[]) =>
-	buildLegacyRelationshipInsertSql({ kind: "person", targets });
+	buildLegacyRelationshipInsertSql({ targets, kind: "person" });
 
 export const buildCompanyRelationshipMigrationSql = (targets: ResolvedRelationshipTarget[]) =>
-	buildLegacyRelationshipInsertSql({ kind: "company", targets });
+	buildLegacyRelationshipInsertSql({ targets, kind: "company" });
 
 export const buildGroupPersonRelationshipMigrationSql = (targets: ResolvedRelationshipTarget[]) =>
 	buildLegacyGroupPersonRelationshipInsertSql(targets);

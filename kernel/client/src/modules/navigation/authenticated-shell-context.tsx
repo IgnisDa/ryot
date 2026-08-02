@@ -41,6 +41,17 @@ export function createClientDocumentControllers(
 	setOverlayCount: (count: number) => void,
 ) {
 	const header: PluginHeaderController = {
+		clear: (owner) => {
+			if (activeOwner.current === owner) {
+				activeOwner.current = null;
+				setHeader(null);
+			}
+		},
+		publish: (owner, publication) => {
+			if (activeOwner.current === owner) {
+				setHeader({ owner, ...publication });
+			}
+		},
 		activate: (owner) => {
 			if (activeOwner.current !== owner) {
 				setHeader(null);
@@ -48,29 +59,18 @@ export function createClientDocumentControllers(
 			}
 			activeOwner.current = owner;
 		},
-		publish: (owner, publication) => {
-			if (activeOwner.current === owner) {
-				setHeader({ owner, ...publication });
-			}
-		},
-		clear: (owner) => {
-			if (activeOwner.current === owner) {
-				activeOwner.current = null;
-				setHeader(null);
-			}
-		},
 	};
 	const screen: ClientPageScreenController = {
+		clear: (owner) => {
+			if (activeOwner.current === owner) {
+				setScreen(null);
+			}
+		},
 		activate: (owner) => {
 			if (activeOwner.current !== owner) {
 				activeOwner.current = owner;
 			}
 			setScreen(null);
-		},
-		clear: (owner) => {
-			if (activeOwner.current === owner) {
-				setScreen(null);
-			}
 		},
 		publish: (owner, publication) => {
 			if (activeOwner.current === owner) {

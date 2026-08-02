@@ -160,8 +160,8 @@ export function ScreenFrame({
 					)}
 				/>
 				<div
-					className="relative flex items-center gap-1.5 px-4"
 					style={{ height: SCREEN_BAR_HEIGHT }}
+					className="relative flex items-center gap-1.5 px-4"
 				>
 					{searchRow ?? (
 						<>
@@ -187,7 +187,7 @@ export function ScreenFrame({
 				)}
 				{searchRow !== undefined && <h1 className="sr-only">{title}</h1>}
 				{hero === undefined && collapsible && (
-					<div ref={setSentinel} aria-hidden="true" className="h-px" />
+					<div className="h-px" ref={setSentinel} aria-hidden="true" />
 				)}
 				<div className={clsx("px-4", !hasTitleBlock && "pt-4")}>{children}</div>
 			</div>

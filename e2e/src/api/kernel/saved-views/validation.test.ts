@@ -24,7 +24,7 @@ type CreateSavedViewError = Effect.Success<ReturnType<typeof createError>>;
 
 const expectSettingsError = (error: CreateSavedViewError, message: string) => {
 	assertTaggedError(error, "SavedViewBadRequest");
-	expect(error.reason).toEqual({ code: "settings-incompatible", message });
+	expect(error.reason).toEqual({ message, code: "settings-incompatible" });
 };
 
 describe("saved views validation", () => {
@@ -61,7 +61,7 @@ describe("saved views validation", () => {
 		Effect.gen(function* () {
 			const error = yield* createError({
 				dataSources: document({
-					savedView: rows(entity, { after: "cursor", limit: 2, fields: rowsFields }),
+					savedView: rows(entity, { limit: 2, after: "cursor", fields: rowsFields }),
 				}),
 			});
 			expectSettingsError(error, "Stored data source 'savedView' must not contain a cursor");

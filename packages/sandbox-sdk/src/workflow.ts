@@ -10,11 +10,11 @@ const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
 	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" as const } });
 
 const durableCallFields = {
+	name: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
 	index: Schema.Number.pipe(
 		Schema.check(Schema.isInt()),
 		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
 	),
-	name: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
 };
 
 export const workflowActivityRequestSchema = strictStruct({
@@ -47,8 +47,8 @@ export const workflowHostRequestSchema = strictStruct({
 	...durableCallFields,
 	kind: Schema.Literal("host"),
 	args: strictStruct({
-		capability: sandboxHostCapabilitySchema,
 		args: Schema.Array(jsonValueSchema),
+		capability: sandboxHostCapabilitySchema,
 	}),
 });
 export const workflowNestedChildRequestSchema = strictStruct({
@@ -222,23 +222,8 @@ const makeWorkflowReplay = (
 	};
 
 	return {
-		activity: (name, reference, input) => {
-			const decoded = Schema.decodeUnknownResult(jsonValueSchema)(input);
-			if (decoded._tag === "Failure") {
-				return RuntimeEffect.fail(decoded.failure);
-			}
-			return register(
-				{
-					name,
-					kind: "activity",
-					index: requests.length,
-					args: { input: decoded.success, scriptSlug: reference.scriptSlug },
-				},
-				reference.output,
-			);
-		},
 		sleep: (name, durationMs) =>
-			register({ name, index: requests.length, kind: "sleep", args: { durationMs } }, Schema.Null),
+			register({ name, kind: "sleep", args: { durationMs }, index: requests.length }, Schema.Null),
 		child: (name, reference, input) => {
 			const decoded = Schema.decodeUnknownResult(jsonValueSchema)(input);
 			if (decoded._tag === "Failure") {
@@ -250,6 +235,21 @@ const makeWorkflowReplay = (
 					kind: "child",
 					index: requests.length,
 					args: { input: decoded.success, workflowSlug: reference.workflowSlug },
+				},
+				reference.output,
+			);
+		},
+		activity: (name, reference, input) => {
+			const decoded = Schema.decodeUnknownResult(jsonValueSchema)(input);
+			if (decoded._tag === "Failure") {
+				return RuntimeEffect.fail(decoded.failure);
+			}
+			return register(
+				{
+					name,
+					kind: "activity",
+					index: requests.length,
+					args: { input: decoded.success, scriptSlug: reference.scriptSlug },
 				},
 				reference.output,
 			);

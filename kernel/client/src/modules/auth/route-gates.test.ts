@@ -31,19 +31,19 @@ describe("authentication route gates", () => {
 		expect(
 			decideProtectedRoute(
 				equivalentOrigin,
-				{ status: "authenticated", userId: "user-1" },
+				{ userId: "user-1", status: "authenticated" },
 				"/library",
 			),
-		).toEqual({ action: "allow", scope: { serverUrl: "https://one.test", userId: "user-1" } });
+		).toEqual({ action: "allow", scope: { userId: "user-1", serverUrl: "https://one.test" } });
 	});
 
 	it("returns an authenticated auth visit to a safe destination or root", () => {
 		expect(
-			decideAuthRoute(origin, { status: "authenticated", userId: "user-1" }, "/library"),
-		).toEqual({ action: "redirect", to: "/library" });
+			decideAuthRoute(origin, { userId: "user-1", status: "authenticated" }, "/library"),
+		).toEqual({ to: "/library", action: "redirect" });
 		expect(
-			decideAuthRoute(origin, { status: "authenticated", userId: "user-1" }, "//evil.test"),
-		).toEqual({ action: "redirect", to: "/" });
+			decideAuthRoute(origin, { userId: "user-1", status: "authenticated" }, "//evil.test"),
+		).toEqual({ to: "/", action: "redirect" });
 	});
 
 	it("sends any visit without a server to onboarding", () => {
@@ -53,7 +53,7 @@ describe("authentication route gates", () => {
 			redirectTo: "/library",
 		});
 		expect(
-			decideProtectedRoute(null, { status: "authenticated", userId: "user-1" }, "/library"),
+			decideProtectedRoute(null, { userId: "user-1", status: "authenticated" }, "/library"),
 		).toEqual({ to: "/onboarding", action: "redirect", redirectTo: "/library" });
 	});
 });

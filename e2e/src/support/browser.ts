@@ -23,7 +23,7 @@ export const signInThroughHostedOAuth = (
 		const historyLengthBeforeSubmit = options.captureHistory
 			? yield* page.evaluate(() => history.length)
 			: undefined;
-		yield* page.getByRole("button", { name: "Sign in", exact: true }).last().click();
+		yield* page.getByRole("button", { exact: true, name: "Sign in" }).last().click();
 		yield* page.getByTestId("authenticated-shell").waitFor({ state: "visible" });
-		return { historyLengthBeforeSubmit, homeUrl: page.url() };
+		return { homeUrl: page.url(), historyLengthBeforeSubmit };
 	});

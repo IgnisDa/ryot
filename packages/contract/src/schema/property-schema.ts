@@ -253,6 +253,9 @@ const numberValidationSchema = strictStruct({
 );
 
 const stringValidationSchema = strictStruct({
+	maxLength: Schema.optional(nonNegativeInteger),
+	minLength: Schema.optional(nonNegativeInteger),
+	required: Schema.optional(Schema.Literal(true)),
 	pattern: Schema.optional(
 		Schema.String.pipe(
 			Schema.check(
@@ -260,9 +263,6 @@ const stringValidationSchema = strictStruct({
 			),
 		),
 	),
-	required: Schema.optional(Schema.Literal(true)),
-	maxLength: Schema.optional(nonNegativeInteger),
-	minLength: Schema.optional(nonNegativeInteger),
 }).pipe(
 	Schema.check(
 		Schema.makeFilter(
@@ -393,7 +393,7 @@ const enumChoicesMaterializationIssue = (
 	path: ReadonlyArray<string>,
 	source: string,
 	message: string,
-) => ({ message, path, source });
+) => ({ path, source, message });
 
 export type AppSchemaChoicesMaterializationIssue = ReturnType<
 	typeof enumChoicesMaterializationIssue
@@ -522,15 +522,15 @@ const numberPropertySchema = strictStruct({
 	...propertyBaseFields,
 	type: Schema.Literal("number"),
 	defaultValue: Schema.optional(Schema.Number),
-	normalize: Schema.optional(numberNormalizationSchema),
 	validation: Schema.optional(numberValidationSchema),
+	normalize: Schema.optional(numberNormalizationSchema),
 });
 
 const integerPropertySchema = strictStruct({
 	...propertyBaseFields,
 	type: Schema.Literal("integer"),
-	normalize: Schema.optional(numberNormalizationSchema),
 	validation: Schema.optional(numberValidationSchema),
+	normalize: Schema.optional(numberNormalizationSchema),
 	defaultValue: Schema.optional(Schema.Number.pipe(Schema.check(Schema.isInt()))),
 });
 
@@ -571,8 +571,8 @@ const AppPropertyDefinition: Schema.Codec<AppPropertyDefinition, unknown> = Sche
 			defaultValue: Schema.optional(Schema.Array(Schema.Unknown)),
 		}).pipe(
 			Schema.annotate({
-				identifier: "ArrayPropertyDefinition",
 				title: "Array Property Definition",
+				identifier: "ArrayPropertyDefinition",
 			}),
 		),
 		strictStruct({
@@ -584,8 +584,8 @@ const AppPropertyDefinition: Schema.Codec<AppPropertyDefinition, unknown> = Sche
 			defaultValue: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 		}).pipe(
 			Schema.annotate({
-				identifier: "ObjectPropertyDefinition",
 				title: "Object Property Definition",
+				identifier: "ObjectPropertyDefinition",
 			}),
 		),
 		enumPropertySchema.pipe(
@@ -598,7 +598,7 @@ const AppPropertyDefinition: Schema.Codec<AppPropertyDefinition, unknown> = Sche
 			}),
 		),
 	]),
-).pipe(Schema.annotate({ identifier: "AppPropertyDefinition", title: "App Property Definition" }));
+).pipe(Schema.annotate({ title: "App Property Definition", identifier: "AppPropertyDefinition" }));
 
 const ruleConditionValueSchema = strictStruct({
 	path: rulePathSchema,
@@ -626,11 +626,11 @@ const AppSchemaRuleCondition: Schema.Codec<AppSchemaRuleCondition, unknown> = Sc
 			operator: Schema.Literals(["all", "any"]),
 			conditions: Schema.Array(AppSchemaRuleCondition).pipe(Schema.check(Schema.isMinLength(1))),
 		}).pipe(
-			Schema.annotate({ identifier: "CombinedRuleCondition", title: "Combined Rule Condition" }),
+			Schema.annotate({ title: "Combined Rule Condition", identifier: "CombinedRuleCondition" }),
 		),
 	]),
 ).pipe(
-	Schema.annotate({ identifier: "AppSchemaRuleCondition", title: "App Schema Rule Condition" }),
+	Schema.annotate({ title: "App Schema Rule Condition", identifier: "AppSchemaRuleCondition" }),
 );
 
 const appSchemaRuleFields = {
@@ -653,10 +653,10 @@ const AppSchemaRule = Schema.Union([
 ]);
 
 const appSchemaBase = strictStruct({
-	unknownKeys: Schema.optional(AppSchemaUnknownKeysPolicy),
 	rules: Schema.optional(Schema.Array(AppSchemaRule)),
+	unknownKeys: Schema.optional(AppSchemaUnknownKeysPolicy),
 	fields: Schema.Record(Schema.String, AppPropertyDefinition),
-}).pipe(Schema.annotate({ identifier: "AppSchema", title: "App Schema" }));
+}).pipe(Schema.annotate({ title: "App Schema", identifier: "AppSchema" }));
 
 export const AppSchema: Schema.Codec<AppSchema, unknown> = appSchemaBase;
 

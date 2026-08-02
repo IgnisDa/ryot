@@ -23,18 +23,18 @@ const user = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-1"),
-	preferences: { allowNsfw: false, language: null, disableIntegrations: false },
+	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
 } satisfies CurrentUserValue;
 
 const providerId = SandboxProviderId.make("provider-1");
 const provider = {
-	name: "Records",
 	id: providerId,
+	name: "Records",
 	pluginId: "records",
-	slug: "records.provider",
-	rootEntitySchemaSlug: "record",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
+	slug: "records.provider",
+	rootEntitySchemaSlug: "record",
 	pluginScope: "system" as const,
 	information: { source: "records" },
 };
@@ -65,13 +65,13 @@ const dynamicOptionsSchema = {
 const searchScript = {
 	providerId,
 	source: "source",
-	pluginId: "records",
 	compiledFormat: 1,
+	pluginId: "records",
 	name: "Records search",
 	slug: "records.search",
-	compiledCode: "compiled",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
+	compiledCode: "compiled",
 	contentHash: "records-search-hash",
 	id: SandboxScriptId.make("search-script-id"),
 	metadata: {
@@ -217,13 +217,13 @@ it.effect("executes one provider search and returns its singular response", () =
 			providerId,
 			providerName: "Records",
 			rootEntitySchemaSlug: "record",
-			items: [{ externalId: "search-script-id-external", title: "Record" }],
+			items: [{ title: "Record", externalId: "search-script-id-external" }],
 		});
 		expect(executions).toHaveLength(1);
 		expect(executions[0]).toMatchObject({
 			scriptId: "search-script-id",
 			subject: { type: "user", userId: user.id },
-			input: { query: "record", page: 2, pageSize: 10, options: { passRawQuery: true } },
+			input: { page: 2, pageSize: 10, query: "record", options: { passRawQuery: true } },
 		});
 	}).pipe(
 		Effect.provide(
@@ -280,6 +280,7 @@ it.effect("keeps required static options validation for omitted options", () =>
 	}).pipe(
 		Effect.provide(
 			makeLayer({
+				execute: () => Effect.die("unused"),
 				optionsSchema: {
 					unknownKeys: "strict",
 					fields: {
@@ -292,7 +293,6 @@ it.effect("keeps required static options validation for omitted options", () =>
 						},
 					},
 				} satisfies AppSchema,
-				execute: () => Effect.die("unused"),
 			}),
 		),
 	),
@@ -318,8 +318,8 @@ it.effect("executes and materializes dynamic search options", () => {
 	}).pipe(
 		Effect.provide(
 			makeLayer({
-				optionsSchema: dynamicOptionsSchema,
 				redis: redis.service,
+				optionsSchema: dynamicOptionsSchema,
 				execute: (input) => {
 					executions.push(input);
 					return Effect.succeed({
@@ -346,8 +346,8 @@ it.effect("uses cached dynamic options without executing the auxiliary operation
 	}).pipe(
 		Effect.provide(
 			makeLayer({
-				optionsSchema: dynamicOptionsSchema,
 				redis: redis.service,
+				optionsSchema: dynamicOptionsSchema,
 				execute: (input) => {
 					if (input.scriptId !== searchOptionsScript.id) {
 						return Effect.die("unexpected search execution");
@@ -376,8 +376,8 @@ it.effect("refreshes malformed cached dynamic options", () => {
 	}).pipe(
 		Effect.provide(
 			makeLayer({
-				optionsSchema: dynamicOptionsSchema,
 				redis: redis.service,
+				optionsSchema: dynamicOptionsSchema,
 				execute: () => {
 					executions += 1;
 					return Effect.succeed({
@@ -411,8 +411,8 @@ it.effect("refreshes a decodable stale cache missing a required source", () => {
 	}).pipe(
 		Effect.provide(
 			makeLayer({
-				optionsSchema: dynamicOptionsSchema,
 				redis: redis.service,
+				optionsSchema: dynamicOptionsSchema,
 				execute: () => {
 					executions += 1;
 					return Effect.succeed({
@@ -442,8 +442,8 @@ it.effect("does not cache malformed or unmaterializable search-options results",
 		}).pipe(
 			Effect.provide(
 				makeLayer({
-					optionsSchema: dynamicOptionsSchema,
 					redis: redis.service,
+					optionsSchema: dynamicOptionsSchema,
 					execute: () =>
 						Effect.succeed({ value, logs: [], error: null, status: "completed" as const }),
 				}),
@@ -519,8 +519,8 @@ it.effect("validates dynamic option membership before provider search execution"
 	}).pipe(
 		Effect.provide(
 			makeLayer({
-				optionsSchema: dynamicOptionsSchema,
 				redis: redis.service,
+				optionsSchema: dynamicOptionsSchema,
 				execute: (input) => {
 					executions.push(input);
 					return Effect.succeed({
@@ -540,7 +540,7 @@ it.effect("validates dynamic option membership before provider search execution"
 
 it.effect("resolves the provider and search script once for a filtered dynamic search", () => {
 	const redis = makeSearchOptionsRedis();
-	const counts: ResolutionCounts = { provider: 0, search: 0, searchOptions: 0 };
+	const counts: ResolutionCounts = { search: 0, provider: 0, searchOptions: 0 };
 	return Effect.gen(function* () {
 		const service = yield* ProviderEntitySearchService;
 		yield* service.search(user, {
@@ -550,7 +550,7 @@ it.effect("resolves the provider and search script once for a filtered dynamic s
 			query: "record",
 			options: { status: "active" },
 		});
-		expect(counts).toEqual({ provider: 1, search: 1, searchOptions: 1 });
+		expect(counts).toEqual({ search: 1, provider: 1, searchOptions: 1 });
 	}).pipe(
 		Effect.provide(
 			makeLayer({
@@ -620,7 +620,7 @@ it.effect("rejects a missing provider", () =>
 	Effect.gen(function* () {
 		const service = yield* ProviderEntitySearchService;
 		const exit = yield* Effect.exit(
-			service.search(user, { providerId, query: "record", page: 1, pageSize: 20 }),
+			service.search(user, { page: 1, providerId, pageSize: 20, query: "record" }),
 		);
 		assertFailureInstance(exit, ProviderEntityNotFound);
 	}).pipe(Effect.provide(makeLayer({ provider: null }))),
@@ -630,7 +630,7 @@ it.effect("rejects an inactive provider", () =>
 	Effect.gen(function* () {
 		const service = yield* ProviderEntitySearchService;
 		const exit = yield* Effect.exit(
-			service.search(user, { providerId, query: "record", page: 1, pageSize: 20 }),
+			service.search(user, { page: 1, providerId, pageSize: 20, query: "record" }),
 		);
 		assertFailureInstance(exit, ProviderEntityNotFound);
 	}).pipe(Effect.provide(makeLayer({ searchError: "inactive_provider" }))),
@@ -640,7 +640,7 @@ it.effect("rejects a provider without a search operation", () =>
 	Effect.gen(function* () {
 		const service = yield* ProviderEntitySearchService;
 		const exit = yield* Effect.exit(
-			service.search(user, { providerId, query: "record", page: 1, pageSize: 20 }),
+			service.search(user, { page: 1, providerId, pageSize: 20, query: "record" }),
 		);
 		assertFailureInstance(exit, ProviderEntityBadRequest);
 	}).pipe(Effect.provide(makeLayer({ searchError: "unsupported_operation" }))),
@@ -672,7 +672,7 @@ it.effect("fails the whole request when provider output cannot be decoded", () =
 	Effect.gen(function* () {
 		const service = yield* ProviderEntitySearchService;
 		const exit = yield* Effect.exit(
-			service.search(user, { providerId, query: "record", page: 1, pageSize: 20 }),
+			service.search(user, { page: 1, providerId, pageSize: 20, query: "record" }),
 		);
 		assertFailureInstance(exit, ProviderEntityBadRequest);
 	}).pipe(

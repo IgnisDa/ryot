@@ -76,8 +76,8 @@ type ObservedWorkflowReplay = Schema.Schema.Type<typeof ObservedWorkflowReplay>;
 export const SandboxScriptWorkflow = Workflow.make("SandboxScriptWorkflow", {
 	error: SandboxRunError satisfies DurableSchema,
 	success: jsonValueSchema satisfies DurableSchema,
-	payload: SandboxScriptWorkflowPayload satisfies DurableSchema,
 	idempotencyKey: ({ executionId }) => executionId,
+	payload: SandboxScriptWorkflowPayload satisfies DurableSchema,
 });
 
 const sandboxFailure = (message: string) => new SandboxRunError({ message });
@@ -587,13 +587,13 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 		);
 	}).pipe(
 		Effect.matchCauseEffect({
+			onSuccess: (output) => releaseReference.pipe(Effect.as(output)),
 			onFailure: (cause) =>
 				Effect.flatMap(WorkflowInstance, (instance) =>
 					instance.suspended && Cause.hasInterruptsOnly(cause)
 						? Effect.failCause(cause)
 						: releaseReference.pipe(Effect.andThen(Effect.failCause(cause))),
 				),
-			onSuccess: (output) => releaseReference.pipe(Effect.as(output)),
 		}),
 	);
 });

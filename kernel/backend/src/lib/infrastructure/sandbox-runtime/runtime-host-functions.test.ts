@@ -65,7 +65,7 @@ describe("runtime sandbox host functions", () => {
 	it.effect("claims persistent values only once", () =>
 		Effect.gen(function* () {
 			const host = yield* makeRuntimeSandboxApiFunctions.pipe(Effect.provide(makeLayer(new Map())));
-			const value = { __ryotDurableClaim: "public", value: { nested: true } };
+			const value = { value: { nested: true }, __ryotDurableClaim: "public" };
 
 			expect(yield* host.claimPersistentValue(input, "answer", value, 60)).toEqual({
 				claimed: true,

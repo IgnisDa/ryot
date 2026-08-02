@@ -6,24 +6,24 @@ import { PluginImportSource } from "../plugins/manifest";
 import { jsonValueSchema } from "../sandbox/wire";
 
 export const ImportRequestFailureReason = Schema.Union([
-	Schema.Struct({ code: Schema.Literal("source-not-found"), source: Schema.String }),
-	Schema.Struct({ code: Schema.Literal("workflow-unavailable"), source: Schema.String }),
-	Schema.Struct({ code: Schema.Literal("invalid-input"), field: Schema.NullOr(Schema.String) }),
-	Schema.Struct({ code: Schema.Literal("upload-unavailable"), field: Schema.String }),
-	Schema.Struct({ code: Schema.Literal("queue-unavailable"), operation: Schema.String }),
-	Schema.Struct({ code: Schema.Literal("run-not-found"), runId: ImportRunId }),
+	Schema.Struct({ source: Schema.String, code: Schema.Literal("source-not-found") }),
+	Schema.Struct({ source: Schema.String, code: Schema.Literal("workflow-unavailable") }),
+	Schema.Struct({ field: Schema.NullOr(Schema.String), code: Schema.Literal("invalid-input") }),
+	Schema.Struct({ field: Schema.String, code: Schema.Literal("upload-unavailable") }),
+	Schema.Struct({ operation: Schema.String, code: Schema.Literal("queue-unavailable") }),
+	Schema.Struct({ runId: ImportRunId, code: Schema.Literal("run-not-found") }),
 	Schema.Struct({
 		allowedExtensions: Schema.Array(Schema.String),
 		code: Schema.Literal("unsupported-file-extension"),
 	}),
 	Schema.Struct({
 		source: Schema.String,
-		missingConfigKeys: Schema.Array(Schema.String),
 		code: Schema.Literal("source-not-configured"),
+		missingConfigKeys: Schema.Array(Schema.String),
 	}),
 	Schema.Struct({
-		runId: ImportRunId,
 		status: RunStatus,
+		runId: ImportRunId,
 		code: Schema.Literal("run-not-terminal"),
 	}),
 ]);
@@ -51,8 +51,8 @@ export const ImportRunFailureReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("provider-details-failed") }),
 	Schema.Struct({ code: Schema.Literal("provider-resolution-failed") }),
 	Schema.Struct({ code: Schema.Literal("input-transformation-failed") }),
-	Schema.Struct({ code: Schema.Literal("queue-unavailable"), operation: Schema.String }),
-	Schema.Struct({ code: Schema.Literal("unexpected-failure"), operation: Schema.String }),
+	Schema.Struct({ operation: Schema.String, code: Schema.Literal("queue-unavailable") }),
+	Schema.Struct({ operation: Schema.String, code: Schema.Literal("unexpected-failure") }),
 ]);
 
 export type ImportRunFailureReason = typeof ImportRunFailureReason.Type;

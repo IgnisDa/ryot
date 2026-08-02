@@ -16,15 +16,15 @@ export const NotificationsGroup = HttpApiGroup.make("notifications")
 	.add(
 		HttpApiEndpoint.post("createChannel", "/notifications/channels", {
 			payload: CreateNotificationChannelBody,
-			success: Schema.Struct({ id: NotificationChannelId }).pipe(HttpApiSchema.status(201)),
 			error: [NotificationRequestError.pipe(HttpApiSchema.status(400))],
+			success: Schema.Struct({ id: NotificationChannelId }).pipe(HttpApiSchema.status(201)),
 		}).annotate(OpenApi.Description, "Create a notification channel."),
 	)
 	.add(
 		HttpApiEndpoint.patch("updateChannel", "/notifications/channels/:channelId", {
-			params: { channelId: NotificationChannelId },
-			payload: UpdateNotificationChannelBody,
 			success: ListedNotificationChannel,
+			payload: UpdateNotificationChannelBody,
+			params: { channelId: NotificationChannelId },
 			error: [NotificationNotFoundError.pipe(HttpApiSchema.status(404))],
 		}).annotate(OpenApi.Description, "Update a notification channel by ID."),
 	)

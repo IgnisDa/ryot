@@ -50,8 +50,8 @@ export function DataTable<T>({
 	const table = useTable<typeof features, InternalRow<T>>({
 		features,
 		columns: tableColumns,
-		getRowId: ({ item }) => getRowId(item),
 		data: data.map((item) => ({ item })),
+		getRowId: ({ item }) => getRowId(item),
 	});
 
 	return (

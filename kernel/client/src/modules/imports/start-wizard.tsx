@@ -43,8 +43,8 @@ const pickerCopy = {
 	loadingLabel: "Loading services",
 	errorTitle: "Unable to load services",
 	loadingDetail: "Loading the services you can import from...",
-	errorDetail: "The list of services could not be loaded. Check the server and try again.",
 	emptyDetail: "Once a plugin on this server contributes an importer, it shows up here.",
+	errorDetail: "The list of services could not be loaded. Check the server and try again.",
 };
 
 export function ImportStartWizard(props: {

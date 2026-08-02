@@ -36,9 +36,9 @@ describe("manga.manga-updates sandbox script", () => {
 				});
 			}
 			if (requestUrl.endsWith("/series/2")) {
-				return httpSuccess({ title: "Recommendation", series_id: 2 });
+				return httpSuccess({ series_id: 2, title: "Recommendation" });
 			}
-			return httpSuccess({ title: "Related", series_id: 3 });
+			return httpSuccess({ series_id: 3, title: "Related" });
 		});
 		return Effect.runPromise(
 			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
@@ -49,7 +49,7 @@ describe("manga.manga-updates sandbox script", () => {
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
-								{ name: "Recommendation", externalId: "2", providerSlug: "manga.manga-updates" },
+								{ externalId: "2", name: "Recommendation", providerSlug: "manga.manga-updates" },
 								{ name: "Related", externalId: "3", providerSlug: "manga.manga-updates" },
 							],
 						},
@@ -90,7 +90,7 @@ describe("manga.manga-updates sandbox script", () => {
 						productionStatus: "Ongoing",
 						genres: ["Action", "Isekai"],
 						sourceUrl: "https://www.mangaupdates.com/series/source",
-						images: [{ type: "remote", url: "https://img/cover.jpg", purpose: "cover" }],
+						images: [{ type: "remote", purpose: "cover", url: "https://img/cover.jpg" }],
 					});
 					return undefined;
 				}),
@@ -120,7 +120,7 @@ describe("manga.manga-updates sandbox script", () => {
 			});
 		});
 		return Effect.runPromise(
-			runSandboxTestScript(search, { query: "hit", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, query: "hit", pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{
@@ -130,7 +130,7 @@ describe("manga.manga-updates sandbox script", () => {
 							imageUrl: "https://img/9.jpg",
 						},
 					]);
-					expect(result.details).toEqual({ totalItems: 25, nextPage: 2 });
+					expect(result.details).toEqual({ nextPage: 2, totalItems: 25 });
 					return undefined;
 				}),
 			),

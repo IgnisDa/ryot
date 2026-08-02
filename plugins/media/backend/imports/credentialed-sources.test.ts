@@ -13,7 +13,7 @@ const metadata = (Metadata: unknown[]) => ({ MediaContainer: { Metadata } });
 
 describe("credentialed media import adapters", () => {
 	it("maps watched Trakt movies and episodes from paged history", async () => {
-		const host = stubHttpHost(({ method, path }) =>
+		const host = stubHttpHost(({ path, method }) =>
 			method === "HEAD"
 				? { headers: { "x-pagination-page-count": "1" } }
 				: {
@@ -61,7 +61,7 @@ describe("credentialed media import adapters", () => {
 	});
 
 	it("records the native Trakt missing-id failure", async () => {
-		const host = stubHttpHost(({ method, path }) =>
+		const host = stubHttpHost(({ path, method }) =>
 			method === "HEAD"
 				? { headers: { "x-pagination-page-count": "1" } }
 				: {
@@ -72,7 +72,7 @@ describe("credentialed media import adapters", () => {
 											id: 1,
 											type: "movie",
 											watched_at: "2026-01-01T00:00:00.000Z",
-											movie: { ids: { trakt: 77 }, title: "Mystery" },
+											movie: { title: "Mystery", ids: { trakt: 77 } },
 										},
 									]
 								: [],
@@ -94,8 +94,8 @@ describe("credentialed media import adapters", () => {
 
 	it("imports a public Trakt list through its encoded path and paginates items", async () => {
 		const requests: Array<{ method: string; path: string; url: URL }> = [];
-		const host = stubHttpHost(({ method, path, url }) => {
-			requests.push({ method, path, url });
+		const host = stubHttpHost(({ url, path, method }) => {
+			requests.push({ url, path, method });
 			if (method === "HEAD") {
 				return { headers: { "x-pagination-page-count": "2" } };
 			}
@@ -103,7 +103,7 @@ describe("credentialed media import adapters", () => {
 				body:
 					url.searchParams.get("page") === "1"
 						? [{ type: "movie", movie: { ids: { tmdb: 603 }, title: "The Matrix" } }]
-						: [{ type: "show", show: { ids: { imdb: "tt0944947" }, title: "Game of Thrones" } }],
+						: [{ type: "show", show: { title: "Game of Thrones", ids: { imdb: "tt0944947" } } }],
 			};
 		});
 		const result = await run(
@@ -159,7 +159,7 @@ describe("credentialed media import adapters", () => {
 		});
 
 		await expect(
-			run(adaptTraktData({ mode: "list", url, collection: "Favorites" }, "client-id", host)),
+			run(adaptTraktData({ url, mode: "list", collection: "Favorites" }, "client-id", host)),
 		).rejects.toThrow("Invalid Trakt list URL");
 		expect(calls).toBe(0);
 	});
@@ -170,7 +170,7 @@ describe("credentialed media import adapters", () => {
 		);
 		const result = await run(
 			adaptTraktData(
-				{ mode: "list", url: "http://trakt.tv/users/alice/lists/empty/", collection: "Favorites" },
+				{ mode: "list", collection: "Favorites", url: "http://trakt.tv/users/alice/lists/empty/" },
 				"client-id",
 				host,
 			),
@@ -183,7 +183,7 @@ describe("credentialed media import adapters", () => {
 		const host = stubHttpHost(({ method }) =>
 			method === "HEAD"
 				? { headers: { "x-pagination-page-count": "1" } }
-				: { body: [{ type: "movie", movie: { ids: { trakt: 77 }, title: "Mystery" } }] },
+				: { body: [{ type: "movie", movie: { title: "Mystery", ids: { trakt: 77 } } }] },
 		);
 		const result = await run(
 			adaptTraktData(
@@ -222,7 +222,7 @@ describe("credentialed media import adapters", () => {
 		);
 		const result = await run(
 			adaptTraktData(
-				{ mode: "list", url: "https://trakt.tv/users/alice/lists/mixed", collection: "Favorites" },
+				{ mode: "list", collection: "Favorites", url: "https://trakt.tv/users/alice/lists/mixed" },
 				"client-id",
 				host,
 			),
@@ -236,13 +236,14 @@ describe("credentialed media import adapters", () => {
 	it("maps Jellyfin played movies and episodes via series details", async () => {
 		const routes: Record<string, StubResponse> = {
 			"/Users/AuthenticateByName": { body: { AccessToken: "tok", User: { Id: "u1" } } },
+			"/Items/s1": { body: { Id: "s1", Name: "Severance", ProviderIds: { Tmdb: "95396" } } },
 			"/Users/u1/Items": {
 				body: {
 					Items: [
 						{
 							Id: "m1",
-							Type: "Movie",
 							Name: "Dune",
+							Type: "Movie",
 							ProviderIds: { Tmdb: "693134" },
 							UserData: { IsFavorite: true, LastPlayedDate: "2026-01-02T10:00:00.000Z" },
 						},
@@ -259,11 +260,10 @@ describe("credentialed media import adapters", () => {
 					],
 				},
 			},
-			"/Items/s1": { body: { Id: "s1", Name: "Severance", ProviderIds: { Tmdb: "95396" } } },
 		};
 		const result = await run(
 			adaptJellyfinData(
-				{ apiUrl: "http://jellyfin.test", username: "alice", password: "secret" },
+				{ username: "alice", password: "secret", apiUrl: "http://jellyfin.test" },
 				stubHttpHost(({ path }) => routes[path] ?? {}),
 			),
 		);
@@ -296,7 +296,7 @@ describe("credentialed media import adapters", () => {
 		};
 		const result = await run(
 			adaptJellyfinData(
-				{ apiUrl: "http://jellyfin.test", username: "alice" },
+				{ username: "alice", apiUrl: "http://jellyfin.test" },
 				stubHttpHost(({ path }) => routes[path] ?? {}),
 			),
 		);
@@ -334,18 +334,6 @@ describe("credentialed media import adapters", () => {
 					},
 				]),
 			},
-			"/library/sections/2/all": {
-				body: metadata([
-					{
-						type: "show",
-						key: "/s/1",
-						ratingKey: "555",
-						title: "Severance",
-						lastViewedAt: 1700000000,
-						Guid: [{ id: "tmdb://95396" }],
-					},
-				]),
-			},
 			"/library/metadata/555/allLeaves": {
 				body: metadata([
 					{
@@ -355,6 +343,18 @@ describe("credentialed media import adapters", () => {
 						parentIndex: 1,
 						type: "episode",
 						lastViewedAt: 1700000100,
+					},
+				]),
+			},
+			"/library/sections/2/all": {
+				body: metadata([
+					{
+						key: "/s/1",
+						type: "show",
+						ratingKey: "555",
+						title: "Severance",
+						lastViewedAt: 1700000000,
+						Guid: [{ id: "tmdb://95396" }],
 					},
 				]),
 			},
@@ -372,13 +372,13 @@ describe("credentialed media import adapters", () => {
 			entityRef: { externalId: "329865", providerSlug: "movie.tmdb" },
 		});
 		expect(result.entityGroups[1]).toMatchObject({
+			entityRef: { externalId: "95396", providerSlug: "show.tmdb" },
 			events: [
 				{
 					eventSchemaSlug: "progress",
 					unresolvedEpisode: { type: "show", seasonNumber: 1, episodeNumber: 3 },
 				},
 			],
-			entityRef: { externalId: "95396", providerSlug: "show.tmdb" },
 		});
 	});
 
@@ -390,7 +390,7 @@ describe("credentialed media import adapters", () => {
 			"/library/sections/1/all": {
 				body: {
 					MediaContainer: {
-						Metadata: [{ type: "movie", key: "/m/9", title: "No Ids", lastViewedAt: 1700000000 }],
+						Metadata: [{ key: "/m/9", type: "movie", title: "No Ids", lastViewedAt: 1700000000 }],
 					},
 				},
 			},
@@ -414,7 +414,7 @@ describe("credentialed media import adapters", () => {
 	it("maps Audiobookshelf Audible and ISBN items into library collections", async () => {
 		const routes: Record<string, StubResponse> = {
 			"/api/libraries": {
-				body: { libraries: [{ id: "lib1", name: "Audiobooks", mediaType: "book" }] },
+				body: { libraries: [{ id: "lib1", mediaType: "book", name: "Audiobooks" }] },
 			},
 			"/api/libraries/lib1/items": {
 				body: {
@@ -423,7 +423,7 @@ describe("credentialed media import adapters", () => {
 							id: "a1",
 							media: {
 								ebookFormat: null,
-								metadata: { title: "Project Hail Mary", asin: "B08G9PRS1K" },
+								metadata: { asin: "B08G9PRS1K", title: "Project Hail Mary" },
 							},
 						},
 						{
@@ -455,8 +455,8 @@ describe("credentialed media import adapters", () => {
 
 	it("records an Audiobookshelf failure for missing media metadata", async () => {
 		const routes: Record<string, StubResponse> = {
-			"/api/libraries": { body: { libraries: [{ id: "lib1", name: "Books", mediaType: "book" }] } },
 			"/api/libraries/lib1/items": { body: { results: [{ id: "x1", name: "Broken" }] } },
+			"/api/libraries": { body: { libraries: [{ id: "lib1", name: "Books", mediaType: "book" }] } },
 		};
 		const result = await run(
 			adaptAudiobookshelfData(
@@ -476,21 +476,13 @@ describe("credentialed media import adapters", () => {
 
 	it("maps MediaTracker seen movies and games to resolved provider refs", async () => {
 		const routes: Record<string, StubResponse> = {
-			"/api/user": { body: { id: 1 } },
 			"/api/lists": { body: [] },
+			"/api/user": { body: { id: 1 } },
 			"/api/items": {
 				body: [
 					{ id: 10, mediaType: "movie" },
 					{ id: 11, mediaType: "video_game" },
 				],
-			},
-			"/api/details/10": {
-				body: {
-					id: 10,
-					tmdbId: 27205,
-					title: "Inception",
-					seenHistory: [{ id: 1, date: "2026-01-05T00:00:00.000Z" }],
-				},
 			},
 			"/api/details/11": {
 				body: {
@@ -498,6 +490,14 @@ describe("credentialed media import adapters", () => {
 					igdbId: 7346,
 					title: "Hades",
 					seenHistory: [{ id: 2, date: "2026-02-01T00:00:00.000Z" }],
+				},
+			},
+			"/api/details/10": {
+				body: {
+					id: 10,
+					tmdbId: 27205,
+					title: "Inception",
+					seenHistory: [{ id: 1, date: "2026-01-05T00:00:00.000Z" }],
 				},
 			},
 		};
@@ -510,19 +510,19 @@ describe("credentialed media import adapters", () => {
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups).toHaveLength(2);
 		expect(result.entityGroups[0]).toMatchObject({
-			entityRef: { externalId: "27205", providerSlug: "movie.tmdb" },
 			events: [{ eventSchemaSlug: "complete" }],
+			entityRef: { externalId: "27205", providerSlug: "movie.tmdb" },
 		});
 		expect(result.entityGroups[1]).toMatchObject({
-			entityRef: { externalId: "7346", providerSlug: "video-game.igdb" },
 			events: [{ eventSchemaSlug: "complete" }],
+			entityRef: { externalId: "7346", providerSlug: "video-game.igdb" },
 		});
 	});
 
 	it("records a MediaTracker failure for a missing supported provider id", async () => {
 		const routes: Record<string, StubResponse> = {
-			"/api/user": { body: { id: 1 } },
 			"/api/lists": { body: [] },
+			"/api/user": { body: { id: 1 } },
 			"/api/items": { body: [{ id: 20, mediaType: "movie" }] },
 			"/api/details/20": { body: { id: 20, title: "No Tmdb" } },
 		};

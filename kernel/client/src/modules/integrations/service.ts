@@ -65,7 +65,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 }
 
 export const integrationsQuery = createRyotQuery<number, IntegrationList, KernelHostServices>(
-	({ client, hostServices, input, signal }) =>
+	({ input, client, signal, hostServices }) =>
 		hostServices.runtime.runPromise(
 			Effect.flatMap(IntegrationsService, (service) =>
 				service.loadIntegrations(client, { limit: input }),
@@ -75,7 +75,7 @@ export const integrationsQuery = createRyotQuery<number, IntegrationList, Kernel
 );
 
 export const integrationRunsQuery = createRyotQuery<string, ImportRunList, KernelHostServices>(
-	({ client, hostServices, input, signal }) =>
+	({ input, client, signal, hostServices }) =>
 		hostServices.runtime.runPromise(
 			Effect.flatMap(IntegrationsService, (service) =>
 				service.loadRuns(client, { integrationId: input, limit: INTEGRATION_RUNS_PAGE_SIZE }),
@@ -88,7 +88,7 @@ export const integrationProvidersQuery = createRyotQuery<
 	void,
 	readonly ListedIntegrationProvider[],
 	KernelHostServices
->(({ hostServices, signal }) =>
+>(({ signal, hostServices }) =>
 	hostServices.runtime.runPromise(
 		Effect.flatMap(IntegrationsApi, (api) => api.listProviders(hostServices.scope)),
 		{ signal },
@@ -99,7 +99,7 @@ export const integrationDetailQuery = createRyotQuery<
 	string,
 	ListedIntegration,
 	KernelHostServices
->(({ hostServices, input, signal }) =>
+>(({ input, signal, hostServices }) =>
 	hostServices.runtime.runPromise(
 		Effect.flatMap(IntegrationsApi, (api) =>
 			api.get(hostServices.scope, { params: { integrationId: IntegrationId.make(input) } }),
@@ -112,7 +112,7 @@ export const syncIntegrationsMutation = createRyotMutation<
 	void,
 	ContractSuccess<"integrations", "sync">,
 	KernelHostServices
->(async ({ client, hostServices, signal }) => {
+>(async ({ client, signal, hostServices }) => {
 	const result = await hostServices.runtime.runPromise(
 		Effect.flatMap(IntegrationsApi, (api) => api.sync(hostServices.scope)),
 		{ signal },
@@ -125,7 +125,7 @@ export const createIntegrationMutation = createRyotMutation<
 	CreateIntegrationBody,
 	ListedIntegration,
 	KernelHostServices
->(async ({ client, hostServices, input, signal }) => {
+>(async ({ input, client, signal, hostServices }) => {
 	const result = await hostServices.runtime.runPromise(
 		Effect.flatMap(IntegrationsApi, (api) => api.create(hostServices.scope, { payload: input })),
 		{ signal },
@@ -138,7 +138,7 @@ export const updateIntegrationMutation = createRyotMutation<
 	{ readonly id: string; readonly payload: UpdateIntegrationBody },
 	ListedIntegration,
 	KernelHostServices
->(async ({ client, hostServices, input, signal }) => {
+>(async ({ input, client, signal, hostServices }) => {
 	const result = await hostServices.runtime.runPromise(
 		Effect.flatMap(IntegrationsApi, (api) =>
 			api.update(hostServices.scope, {
@@ -156,7 +156,7 @@ export const deleteIntegrationMutation = createRyotMutation<
 	string,
 	ContractSuccess<"integrations", "delete">,
 	KernelHostServices
->(async ({ client, hostServices, input, signal }) => {
+>(async ({ input, client, signal, hostServices }) => {
 	const result = await hostServices.runtime.runPromise(
 		Effect.flatMap(IntegrationsApi, (api) =>
 			api.delete(hostServices.scope, { params: { integrationId: IntegrationId.make(input) } }),

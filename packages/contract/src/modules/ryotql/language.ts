@@ -180,8 +180,8 @@ export const ScalarExpression: Schema.Codec<ScalarExpression, unknown> = Schema.
 			operator: Schema.Literals(["add", "divide", "multiply", "subtract"]),
 		}),
 		strictStruct({
-			query: CorrelatedQuerySet,
 			select: ScalarExpression,
+			query: CorrelatedQuerySet,
 			type: Schema.Literal("first"),
 			orderBy: Schema.NonEmptyArray(OrderBy),
 		}),
@@ -313,15 +313,15 @@ export const Include: Schema.Codec<Include, unknown> = Schema.suspend(() =>
 ).annotate({ identifier: "RyotQLInclude" });
 
 export const Pagination = strictStruct({
-	limit: Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0))),
 	after: Schema.optional(Schema.NonEmptyString),
+	limit: Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0))),
 }).annotate({ identifier: "RyotQLPagination" });
 export type Pagination = typeof Pagination.Type;
 
 export const RowsOutput = strictStruct({
 	pagination: Pagination,
-	orderBy: Schema.Array(OrderBy),
 	type: Schema.Literal("rows"),
+	orderBy: Schema.Array(OrderBy),
 	fields: Schema.Array(RowSelection),
 	include: Schema.optional(Schema.NonEmptyArray(Include)),
 }).annotate({ identifier: "RyotQLRowsOutput" });

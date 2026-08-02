@@ -11,8 +11,8 @@ export function WizardShell(props: {
 }) {
 	return (
 		<Modal
-			label={props.title}
 			closeLabel="Close"
+			label={props.title}
 			onClose={props.onClose}
 			containerClassName="md:items-center md:justify-center md:p-6"
 			className="flex w-full flex-1 flex-col overflow-hidden bg-bg pt-[env(safe-area-inset-top)] md:max-h-[85%] md:max-w-2xl md:flex-initial md:rounded-xl md:border md:border-border md:bg-surface md:shadow-card md:pt-0"
@@ -26,7 +26,7 @@ export function WizardShell(props: {
 						aria-label={props.closeLabel}
 						className="p-1 text-text-muted"
 					>
-						<AppIcon size={20} name="x" />
+						<AppIcon name="x" size={20} />
 					</button>
 				</div>
 				<p className="text-xs text-text-subtle">{props.stepLabel}</p>

@@ -78,7 +78,7 @@ describe("movie-group.tmdb sandbox script", () => {
 							{
 								iso_639_1: "fr",
 								iso_3166_1: "FR",
-								data: { title: "Exemple Collection", overview: "Description" },
+								data: { overview: "Description", title: "Exemple Collection" },
 							},
 						],
 					}),
@@ -99,8 +99,8 @@ describe("movie-group.tmdb sandbox script", () => {
 							images: [
 								{
 									type: "remote",
-									url: "https://image.tmdb.org/t/p/original/poster.jpg",
 									purpose: "cover",
+									url: "https://image.tmdb.org/t/p/original/poster.jpg",
 								},
 							],
 						},

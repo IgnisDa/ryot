@@ -42,7 +42,7 @@ function renderCredentialsForm(overrides?: {
 	};
 	const view = render(<CredentialsForm {...props} />);
 
-	return { modeChanges, props, submissions, user: userEvent.setup(), view };
+	return { view, props, modeChanges, submissions, user: userEvent.setup() };
 }
 
 function renderTwoFactorForm(overrides?: {
@@ -68,7 +68,7 @@ function renderTwoFactorForm(overrides?: {
 	};
 	const view = render(<TwoFactorForm {...props} />);
 
-	return { backRequests, methodChanges, props, submissions, user: userEvent.setup(), view };
+	return { view, props, submissions, backRequests, methodChanges, user: userEvent.setup() };
 }
 
 describe("credentials form", () => {
@@ -97,7 +97,7 @@ describe("credentials form", () => {
 	});
 
 	it("keeps the email and clears the password when switching to signup", async () => {
-		const { modeChanges, user } = renderCredentialsForm();
+		const { user, modeChanges } = renderCredentialsForm();
 		const email = screen.getByLabelText<HTMLInputElement>("Email address");
 		const password = screen.getByLabelText<HTMLInputElement>("Password");
 
@@ -111,7 +111,7 @@ describe("credentials form", () => {
 	});
 
 	it("moves focus to the password field when Enter is pressed in the email field", async () => {
-		const { submissions, user } = renderCredentialsForm();
+		const { user, submissions } = renderCredentialsForm();
 
 		await user.type(screen.getByLabelText("Email address"), "user@example.com{Enter}");
 
@@ -120,7 +120,7 @@ describe("credentials form", () => {
 	});
 
 	it("submits normalized credentials once", async () => {
-		const { submissions, user } = renderCredentialsForm();
+		const { user, submissions } = renderCredentialsForm();
 
 		await user.type(screen.getByLabelText("Email address"), "  USER@Example.COM  ");
 		await user.type(screen.getByLabelText("Password"), "Sup3rSecret");
@@ -187,8 +187,8 @@ describe("two-factor form", () => {
 		view.rerender(
 			<TwoFactorForm
 				method="backupCode"
-				methods={["totp", "backupCode"]}
 				onBack={() => undefined}
+				methods={["totp", "backupCode"]}
 				onMethodChange={() => undefined}
 				onSubmit={() => Promise.resolve(undefined)}
 			/>,
@@ -205,14 +205,14 @@ describe("two-factor form", () => {
 		expect(screen.queryByRole("button", { name: "Use a backup code" })).toBeNull();
 
 		single.view.unmount();
-		const { methodChanges, user } = renderTwoFactorForm();
+		const { user, methodChanges } = renderTwoFactorForm();
 		await user.click(screen.getByRole("button", { name: "Use a backup code" }));
 
 		expect(methodChanges).toEqual(["backupCode"]);
 	});
 
 	it("submits the trimmed code", async () => {
-		const { submissions, user } = renderTwoFactorForm({ method: "backupCode" });
+		const { user, submissions } = renderTwoFactorForm({ method: "backupCode" });
 
 		await user.type(screen.getByLabelText("Backup code"), " 123456 ");
 		await user.click(screen.getByRole("button", { name: "Verify" }));
@@ -231,7 +231,7 @@ describe("two-factor form", () => {
 	});
 
 	it("returns to sign in", async () => {
-		const { backRequests, user } = renderTwoFactorForm();
+		const { user, backRequests } = renderTwoFactorForm();
 
 		await user.click(screen.getByRole("button", { name: "Back to sign in" }));
 

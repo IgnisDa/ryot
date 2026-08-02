@@ -79,7 +79,7 @@ export class InterestService extends Context.Service<InterestService>()("Interes
 							: "Entity interest membership changed concurrently",
 					);
 				}
-				yield* store.markReconciled({ sessionId: input.sessionId, pending: result.pending });
+				yield* store.markReconciled({ pending: result.pending, sessionId: input.sessionId });
 				return undefined;
 			},
 		);

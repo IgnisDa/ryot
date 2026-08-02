@@ -101,7 +101,7 @@ const collectPropertyAssets = (
 				(value["type"] === "local" || value["type"] === "s3") &&
 				typeof value["key"] === "string"
 			) {
-				assets.push({ type: value["type"], key: value["key"] });
+				assets.push({ key: value["key"], type: value["type"] });
 			}
 			return;
 		}
@@ -181,16 +181,22 @@ const privateDefinitionSnapshot = (plugin: {
 	readonly slug: string;
 	readonly manifest: PluginManifest;
 }): DefinitionSnapshot => ({
-	savedViews: Object.fromEntries(
-		plugin.manifest.savedViews.map((definition) => [
-			definition.slug,
-			materializeSavedView(definition, plugin.id, plugin.slug, plugin.manifest.client),
-		]),
-	),
 	signalSchemas: Object.fromEntries(
 		plugin.manifest.signalSchemas.map((definition) => [
 			definition.slug,
 			{ ...definition, pluginId: plugin.id },
+		]),
+	),
+	relationshipSchemas: Object.fromEntries(
+		plugin.manifest.relationshipSchemas.map((definition) => [
+			definition.slug,
+			{ ...definition, pluginId: plugin.id },
+		]),
+	),
+	savedViews: Object.fromEntries(
+		plugin.manifest.savedViews.map((definition) => [
+			definition.slug,
+			materializeSavedView(definition, plugin.id, plugin.slug, plugin.manifest.client),
 		]),
 	),
 	entitySchemas: Object.fromEntries(
@@ -208,12 +214,6 @@ const privateDefinitionSnapshot = (plugin: {
 					]),
 				),
 			},
-		]),
-	),
-	relationshipSchemas: Object.fromEntries(
-		plugin.manifest.relationshipSchemas.map((definition) => [
-			definition.slug,
-			{ ...definition, pluginId: plugin.id },
 		]),
 	),
 });
@@ -310,13 +310,13 @@ const defaultViewState = (view: SavedViewDefinition | undefined) =>
 				slug: view.slug,
 				name: view.name,
 				icon: view.icon,
+				isBuiltin: true,
+				isDisabled: false,
 				renderer: view.renderer,
 				settings: view.settings,
-				dataSources: view.dataSources,
-				isBuiltin: true,
 				sortOrder: view.sortOrder,
-				isDisabled: false,
 				pluginSlug: view.pluginSlug,
+				dataSources: view.dataSources,
 			}
 		: null;
 
@@ -351,11 +351,11 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						id: plugin.id,
 						slug: plugin.slug,
 						scope: "user" as const,
+						sourceHash: plugin.sourceHash,
 						metadata: plugin.manifest.metadata,
 						version: plugin.manifest.metadata.version,
 						configSchema: plugin.manifest.configSchema,
 						integrationProviders: plugin.manifest.integrationProviders,
-						sourceHash: plugin.sourceHash,
 						signalSchemaSlugs: plugin.manifest.signalSchemas.map(({ slug }) => slug),
 						relationshipSchemaSlugs: plugin.manifest.relationshipSchemas.map(({ slug }) => slug),
 					})),
@@ -374,8 +374,8 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				);
 				return {
 					pluginByKey,
-					privatePlugins,
 					pluginKeyById,
+					privatePlugins,
 					installedPlugins,
 					pluginIdForKey: (pluginKey: string | null) =>
 						pluginKey ? pluginByKey.get(pluginKey)?.id : null,
@@ -488,8 +488,8 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						const renderer =
 							view.renderer.kind === "plugin"
 								? {
-										exportName: view.renderer.exportName,
 										kind: "plugin" as const,
+										exportName: view.renderer.exportName,
 										pluginKey: yield* requirePluginKey(pluginKeyById, view.renderer.pluginId),
 									}
 								: view.renderer;
@@ -511,11 +511,11 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							icon: view.icon,
 							renderer: view.renderer,
 							settings: view.settings,
-							dataSources: view.dataSources,
 							isBuiltin: view.isBuiltin,
 							sortOrder: view.sortOrder,
 							isDisabled: view.isDisabled,
 							pluginSlug: view.pluginSlug,
+							dataSources: view.dataSources,
 						};
 						return expected && isEqual(actual, expected) && !homeSavedViewIds.has(view.id)
 							? []
@@ -573,14 +573,14 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							return {
 								id: state.id,
 								configuredSecretPaths: [],
-								homeSavedViewId: state.homeSavedViewId,
 								sortOrder: state.sortOrder,
 								disabledIntent: state.isDisabled,
+								homeSavedViewId: state.homeSavedViewId,
 								createdAt: state.createdAt.toISOString(),
 								updatedAt: state.updatedAt.toISOString(),
 								packageKey: yield* requirePluginKey(pluginKeyById, state.pluginId),
-								config: plugin?.scope === "system" ? {} : decodeArchiveJsonObject(state.config),
 								lifecycleIntent: installationLifecycleIntent(state.health, state.isDisabled),
+								config: plugin?.scope === "system" ? {} : decodeArchiveJsonObject(state.config),
 							};
 						}),
 				);
@@ -622,7 +622,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					}
 				}
 				for (const translation of entityDependencies.flatMap((dependency) =>
-					dependency.translations.map((record) => ({ dependency, record })),
+					dependency.translations.map((record) => ({ record, dependency })),
 				)) {
 					const stored = dependencies.find((entity) => entity.id === translation.dependency.id);
 					const propertiesSchema = stored ? getEntitySchema(stored)?.propertiesSchema : undefined;
@@ -647,9 +647,11 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					entityDependencies,
 					savedViews: viewRecords,
 					integrations: integrationRecords,
+					clientRenderers: storedRenderers,
 					installations: installationRecords,
 					relationships: relationshipRecords,
 					notificationSubscriptions: subscriptionRecords,
+					profile: { ...profile, preferences: decodeArchiveJsonObject(profile.preferences) },
 					entities: yield* Effect.forEach(userEntities, (entity) =>
 						Effect.gen(function* () {
 							return {
@@ -658,25 +660,23 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							} satisfies ArchiveUserEntity;
 						}),
 					),
-					profile: { ...profile, preferences: decodeArchiveJsonObject(profile.preferences) },
 					privatePlugins: yield* Effect.forEach(privatePlugins, (plugin) =>
 						Effect.gen(function* () {
 							const sourceFiles = yield* plugins.listSourceFiles(plugin.id);
 							return {
-								key: yield* requirePluginKey(pluginKeyById, plugin.id),
 								slug: plugin.slug,
+								manifest: plugin.manifest,
+								sourceHash: plugin.sourceHash,
+								version: plugin.manifest.metadata.version,
+								key: yield* requirePluginKey(pluginKeyById, plugin.id),
 								files: Object.fromEntries(
 									Object.entries(sourceFiles)
 										.sort(([left], [right]) => comparePaths(left, right))
 										.map(([path, contents]) => [path, Encoding.encodeBase64(contents)]),
 								),
-								manifest: plugin.manifest,
-								sourceHash: plugin.sourceHash,
-								version: plugin.manifest.metadata.version,
 							};
 						}),
 					),
-					clientRenderers: storedRenderers,
 				};
 			});
 
@@ -734,7 +734,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					const definitions = yield* runtime.getEffectiveDefinitions(userId, true);
 					const context = yield* readExportContext(userId, definitions);
 					const data = yield* readExportData(userId, context);
-					const { pluginByKey, pluginIdForKey, pluginKeyById } = context;
+					const { pluginByKey, pluginKeyById, pluginIdForKey } = context;
 					const getEntitySchema = (entity: ArchiveUserEntity | ArchiveEntityDependency) =>
 						context.entitySchema(
 							entity.entitySchemaSlug,
@@ -829,8 +829,8 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					);
 					const archiveLocators = new Map<string, AssetLocator>(
 						managedAssets.map((asset) => [
-							locatorKey({ type: asset.provider, key: asset.key }),
-							rewriteAssetLocatorForArchive({ type: asset.provider, key: asset.key }, asset.sha256),
+							locatorKey({ key: asset.key, type: asset.provider }),
+							rewriteAssetLocatorForArchive({ key: asset.key, type: asset.provider }, asset.sha256),
 						]),
 					);
 					const redactions: string[] = [];
@@ -1026,9 +1026,9 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						savedViews: data.savedViews,
 						integrations: restoredIntegrations,
 						privatePlugins: data.privatePlugins,
-						clientRenderers: data.clientRenderers,
 						relationships: exportedRelationships,
 						installations: exportedInstallations,
+						clientRenderers: data.clientRenderers,
 					} satisfies ArchiveRecords;
 					const referencedPluginKeys = collectReferencedPluginKeys(records);
 					const requiredPlugins = context.installedPlugins
@@ -1039,7 +1039,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 									archivePluginKey(plugin.scope, plugin.slug, plugin.sourceHash),
 								),
 						)
-						.map(({ slug, sourceHash, version }) => ({ slug, sourceHash, version }));
+						.map(({ slug, version, sourceHash }) => ({ slug, version, sourceHash }));
 					return {
 						records,
 						managedAssets,

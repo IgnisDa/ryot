@@ -15,12 +15,12 @@ import { createTestRyotAdapter } from "./testing";
 
 const theme = { resolvedMode: "light" };
 let notify: () => void = () => undefined;
-const s3Asset = { key: "media/font.woff2", type: "s3" } as const;
+const s3Asset = { type: "s3", key: "media/font.woff2" } as const;
 const Greeting = Schema.Struct({ greeting: Schema.String });
 const pluginSlug = "fixture";
 const QueryResponse = Schema.Struct({ value: Schema.String });
-const localAsset = { key: "permanent/image.png", type: "local" } as const;
-const document = { queries: {}, output: {} } as PreparedRecipe<string>["document"];
+const localAsset = { type: "local", key: "permanent/image.png" } as const;
+const document = { output: {}, queries: {} } as PreparedRecipe<string>["document"];
 const uploadToken = { token: "temporary-1", expiresAt: "2026-01-01T00:00:00.000Z" };
 const assets: ManagedAssetLocator[] = [localAsset, s3Asset];
 const resolutions = assets.map((asset) => ({
@@ -102,7 +102,7 @@ describe("createRyotClient", () => {
 		);
 		client.mutationCompleted.subscribe(() => hints++);
 
-		await client.operations.invoke({ pluginSlug, slug: "greet", input: {}, output: Greeting });
+		await client.operations.invoke({ input: {}, pluginSlug, slug: "greet", output: Greeting });
 		await client.collections.upsertMembership({
 			entityId: "entity-1",
 			collectionId: "collection-1",
@@ -131,11 +131,11 @@ describe("createRyotClient", () => {
 			interests.push(interest);
 			notifyEntity = listener;
 			return {
-				update: (next: EntityInterest) => {
-					updates.push(next);
-				},
 				dispose: () => {
 					disposals++;
+				},
+				update: (next: EntityInterest) => {
+					updates.push(next);
 				},
 			};
 		};
@@ -143,12 +143,12 @@ describe("createRyotClient", () => {
 			createTestRyotAdapter({ watchEntities, query: () => Promise.resolve({}) }),
 		);
 		const subscription = client.entities.watch(
-			{ foreground: ["b", "a", "a"], visible: ["c", "a", "c"] },
+			{ visible: ["c", "a", "c"], foreground: ["b", "a", "a"] },
 			onUpdate,
 		);
-		expect(interests).toEqual([{ foreground: ["a", "b"], visible: ["c"] }]);
+		expect(interests).toEqual([{ visible: ["c"], foreground: ["a", "b"] }]);
 		const rows = Array.from({ length: 600 }, (_, i) => `row-${i}`);
-		subscription.update({ foreground: [], visible: rows });
+		subscription.update({ visible: rows, foreground: [] });
 		expect(updates[0]?.visible).toHaveLength(600);
 		notifyEntity({ entityId: "a", reason: "populated" });
 		expect(events).toEqual([{ entityId: "a", reason: "populated" }]);
@@ -157,19 +157,19 @@ describe("createRyotClient", () => {
 		notifyEntity({ entityId: "a", reason: "translated" });
 		expect(disposals).toBe(1);
 		expect(events).toHaveLength(1);
-		expect(() => subscription.update({ foreground: [], visible: [] })).toThrow(
+		expect(() => subscription.update({ visible: [], foreground: [] })).toThrow(
 			new RyotClientError("disposed"),
 		);
 	});
 
 	it("reports synchronous entity capability, input, and transport failures", () => {
 		const client = createRyotClient(createTestRyotAdapter({ query: () => Promise.resolve({}) }));
-		expect(() => client.entities.watch({ foreground: [], visible: [] }, () => undefined)).toThrow(
+		expect(() => client.entities.watch({ visible: [], foreground: [] }, () => undefined)).toThrow(
 			new RyotClientError("unsupported-capability"),
 		);
 		expect(() =>
 			Reflect.apply(client.entities.watch, undefined, [
-				{ foreground: [123], visible: [] },
+				{ visible: [], foreground: [123] },
 				() => undefined,
 			]),
 		).toThrow(new RyotClientError("invalid-input"));
@@ -181,7 +181,7 @@ describe("createRyotClient", () => {
 				},
 			}),
 		);
-		expect(() => offline.entities.watch({ foreground: [], visible: [] }, () => undefined)).toThrow(
+		expect(() => offline.entities.watch({ visible: [], foreground: [] }, () => undefined)).toThrow(
 			new RyotClientError("transport"),
 		);
 	});
@@ -255,7 +255,7 @@ describe("createRyotClient", () => {
 		const recipe: PreparedRecipe<string> = { document, decode: () => Result.fail("invalid") };
 		await expect(client.data.query(recipe)).rejects.toMatchObject({ reason: "malformed-result" });
 		await expect(client.data.query(recipe)).rejects.toBeInstanceOf(RyotClientError);
-		const invocation = { pluginSlug, slug: "greet", input: {}, output: Greeting };
+		const invocation = { input: {}, pluginSlug, slug: "greet", output: Greeting };
 		await expect(client.operations.invoke(invocation)).rejects.toMatchObject({
 			reason: "malformed-result",
 		});
@@ -275,9 +275,9 @@ describe("createRyotClient", () => {
 		);
 
 		await expect(
-			client.operations.invoke({ pluginSlug, slug: "greet", input: {}, output: Greeting }),
+			client.operations.invoke({ input: {}, pluginSlug, slug: "greet", output: Greeting }),
 		).resolves.toEqual({ greeting: "hello" });
-		expect(requests).toEqual([{ pluginSlug: "fixture", slug: "greet", input: {} }]);
+		expect(requests).toEqual([{ input: {}, slug: "greet", pluginSlug: "fixture" }]);
 	});
 
 	it("classifies a thrown recipe decoder as a malformed result", async () => {
@@ -305,8 +305,8 @@ describe("createRyotClient", () => {
 		await expect(
 			client.operations.invoke({
 				pluginSlug,
-				slug: "greet",
 				input: null,
+				slug: "greet",
 				output: Schema.Undefined,
 			}),
 		).rejects.toMatchObject({ reason: "malformed-result" });
@@ -322,7 +322,7 @@ describe("createRyotClient", () => {
 		const recipe: PreparedRecipe<string> = { document, decode: () => Result.succeed("unused") };
 		await expect(client.data.query(recipe)).rejects.toMatchObject({ reason: "transport" });
 		await expect(
-			client.operations.invoke({ pluginSlug, slug: "greet", input: {}, output: Greeting }),
+			client.operations.invoke({ input: {}, pluginSlug, slug: "greet", output: Greeting }),
 		).rejects.toMatchObject({ reason: "transport" });
 	});
 
@@ -338,7 +338,7 @@ describe("createRyotClient", () => {
 
 		await expect(client.data.query(recipe)).rejects.toBe(error);
 		await expect(
-			client.operations.invoke({ pluginSlug, slug: "greet", input: {}, output: Greeting }),
+			client.operations.invoke({ input: {}, pluginSlug, slug: "greet", output: Greeting }),
 		).rejects.toBe(error);
 	});
 
@@ -367,7 +367,7 @@ describe("createRyotClient", () => {
 
 		expect(client.data).not.toHaveProperty("invokeOperation");
 		await expect(
-			client.operations.invoke({ pluginSlug, slug: "greet", input: {}, output: Greeting }),
+			client.operations.invoke({ input: {}, pluginSlug, slug: "greet", output: Greeting }),
 		).rejects.toMatchObject({ reason: "unsupported-capability" });
 	});
 
@@ -402,7 +402,7 @@ describe("createRyotClient", () => {
 
 		await expect(
 			Reflect.apply(client.uploads.uploadTemporary, client.uploads, [
-				{ fileName: "items.csv", contentType: "text/csv", source: "id,title" },
+				{ source: "id,title", fileName: "items.csv", contentType: "text/csv" },
 			]),
 		).rejects.toMatchObject({ reason: "invalid-input" });
 		expect(calls).toBe(0);
@@ -412,7 +412,7 @@ describe("createRyotClient", () => {
 		const client = createRyotClient(
 			createTestRyotAdapter({
 				query: () => Promise.resolve({}),
-				uploadTemporary: () => Promise.resolve({ key: "assets/items.csv", type: "local" }),
+				uploadTemporary: () => Promise.resolve({ type: "local", key: "assets/items.csv" }),
 			}),
 		);
 
@@ -532,7 +532,7 @@ describe("createRyotClient", () => {
 		await expect(client.assets.resolve([localAsset])).rejects.toEqual(
 			new RyotClientError("malformed-result"),
 		);
-		response = [{ ...resolutions[0], asset: { key: "other.png", type: "local" } }];
+		response = [{ ...resolutions[0], asset: { type: "local", key: "other.png" } }];
 		await expect(client.assets.resolve([localAsset])).rejects.toEqual(
 			new RyotClientError("malformed-result"),
 		);
@@ -578,7 +578,7 @@ describe("createRyotClient", () => {
 		expect(navigations).toEqual([
 			{
 				mode: "push",
-				target: { pluginSlug, kind: "plugin-route", path: "/items", search: { tab: "stats" } },
+				target: { pluginSlug, path: "/items", kind: "plugin-route", search: { tab: "stats" } },
 			},
 			{ mode: "replace", target: { kind: "entity", entityId: "entity-1" } },
 			{ mode: "push", target: { kind: "saved-view", savedViewId: "view-1" } },
@@ -597,11 +597,11 @@ describe("createRyotClient", () => {
 			}),
 		);
 
-		client.navigation.pageSearch.push({ dialog: "add-to-collection", entityId: "entity-1" });
+		client.navigation.pageSearch.push({ entityId: "entity-1", dialog: "add-to-collection" });
 		client.navigation.pageSearch.replace({ dialog: null, entityId: null });
 
 		expect(updates).toEqual([
-			{ mode: "push", update: { dialog: "add-to-collection", entityId: "entity-1" } },
+			{ mode: "push", update: { entityId: "entity-1", dialog: "add-to-collection" } },
 			{ mode: "replace", update: { dialog: null, entityId: null } },
 		]);
 	});
@@ -631,7 +631,7 @@ describe("createRyotClient", () => {
 		const client = createRyotClient(createTestRyotAdapter({ query: () => Promise.resolve({}) }));
 
 		expect(() =>
-			client.navigation.push({ pluginSlug, kind: "plugin-route", path: "/items" }),
+			client.navigation.push({ pluginSlug, path: "/items", kind: "plugin-route" }),
 		).toThrow(new RyotClientError("unsupported-capability"));
 	});
 
@@ -646,7 +646,7 @@ describe("createRyotClient", () => {
 		);
 
 		expect(() =>
-			client.navigation.push({ pluginSlug, kind: "plugin-route", path: "/items" }),
+			client.navigation.push({ pluginSlug, path: "/items", kind: "plugin-route" }),
 		).toThrow(new RyotClientError("transport"));
 	});
 

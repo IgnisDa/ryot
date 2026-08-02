@@ -39,7 +39,7 @@ const clientRequest = encodeClientCompilerWorkerRequest({
 	application: "plugin-route",
 	contributorOrder: ["smoke"],
 	entry: { contributor: "smoke", path: "client/index.tsx" },
-	routeRegistry: { home: "@ryot-app/plugins/smoke/home", routes: [] },
+	routeRegistry: { routes: [], home: "@ryot-app/plugins/smoke/home" },
 	publicExports: {
 		"@ryot-app/plugins/smoke/home": {
 			kind: "page",
@@ -81,8 +81,9 @@ const runWorker = (name: string, workerPath: string, input: string) =>
 		);
 		const worker = yield* command;
 		yield* Effect.addFinalizer(() => worker.kill({ killSignal: "SIGKILL" }).pipe(Effect.ignore));
-		const { exitCode, stderr, stdout } = yield* Effect.all(
+		const { stderr, stdout, exitCode } = yield* Effect.all(
 			{
+				exitCode: worker.exitCode,
 				stdout: worker.stdout.pipe(
 					Stream.decodeText({ encoding: "utf-8" }),
 					Stream.runFold(
@@ -97,7 +98,6 @@ const runWorker = (name: string, workerPath: string, input: string) =>
 						(output, chunk) => output + chunk,
 					),
 				),
-				exitCode: worker.exitCode,
 			},
 			{ concurrency: "unbounded" },
 		);

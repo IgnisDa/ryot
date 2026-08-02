@@ -40,22 +40,22 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 			offset: number,
 			limit: number,
 		) {
-			const { origin, token } = yield* credentials(sessionId);
+			const { token, origin } = yield* credentials(sessionId);
 			return yield* api.listUsers(origin, token, {
-				query: { offset, limit, ...(search === "" ? {} : { search }) },
+				query: { limit, offset, ...(search === "" ? {} : { search }) },
 			});
 		});
 		const getMigrationReport = Effect.fn("GodModeService.getMigrationReport")(function* (
 			sessionId: string,
 		) {
-			const { origin, token } = yield* credentials(sessionId);
+			const { token, origin } = yield* credentials(sessionId);
 			return yield* api.getMigrationReport(origin, token);
 		});
 		const resetUserPassword = Effect.fn("GodModeService.resetUserPassword")(function* (
 			sessionId: string,
 			userId: string,
 		) {
-			const { origin, token } = yield* credentials(sessionId);
+			const { token, origin } = yield* credentials(sessionId);
 			return yield* api.resetUserPassword(origin, token, {
 				params: { userId: UserId.make(userId) },
 			});
@@ -65,7 +65,7 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 			userId: string,
 			disabled: boolean,
 		) {
-			const { origin, token } = yield* credentials(sessionId);
+			const { token, origin } = yield* credentials(sessionId);
 			return yield* api.setUserDisabled(origin, token, {
 				payload: { disabled },
 				params: { userId: UserId.make(userId) },
@@ -76,7 +76,7 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 			userId: string,
 			kind: "delete" | "reset",
 		) {
-			const { origin, token } = yield* credentials(sessionId);
+			const { token, origin } = yield* credentials(sessionId);
 			const params = { userId: UserId.make(userId) };
 			return yield* runUserLifecycleOperation({
 				poll: (operationId) =>

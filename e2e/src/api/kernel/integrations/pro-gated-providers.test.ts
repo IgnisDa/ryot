@@ -37,7 +37,7 @@ const settingsSchema = {
 const providerSpecifics = { endpoint: "https://pro-gated.example.com" };
 
 const unkeyEnvelope = (data: { valid: boolean; code: string; meta?: Record<string, unknown> }) =>
-	Response.json({ meta: { requestId: crypto.randomUUID() }, data });
+	Response.json({ data, meta: { requestId: crypto.randomUUID() } });
 
 let keyedClient: Client;
 let providerSlug: string;
@@ -109,7 +109,7 @@ beforeAll(async () => {
 			});
 			const { client } = yield* createAuthenticatedClient(keyedApiUrl);
 			const integration = yield* createIntegration(client, { provider: slug, providerSpecifics });
-			return { providerSlug: slug, client, integrationId: integration.id };
+			return { client, providerSlug: slug, integrationId: integration.id };
 		}),
 	);
 	providerSlug = setup.providerSlug;
@@ -154,10 +154,10 @@ describe("Without a valid Pro Key", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient(keylessApiUrl);
 			const error = yield* Effect.flip(
-				createIntegration(client, { provider: providerSlug, providerSpecifics }),
+				createIntegration(client, { providerSpecifics, provider: providerSlug }),
 			);
 			assertTaggedError(error, "IntegrationRequestError");
-			expect(error.reason).toEqual({ code: "pro-key-required", provider: providerSlug });
+			expect(error.reason).toEqual({ provider: providerSlug, code: "pro-key-required" });
 		}),
 	);
 

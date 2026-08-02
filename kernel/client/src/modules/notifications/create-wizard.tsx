@@ -83,10 +83,10 @@ function ConfigureStep(props: {
 				<FieldMessage>{props.failureDetail}</FieldMessage>
 			)}
 			<div className="flex flex-col gap-2 sm:flex-row-reverse sm:justify-end">
-				<Button type="button" variant="primary" onClick={props.onContinue} className="sm:px-6">
+				<Button type="button" variant="primary" className="sm:px-6" onClick={props.onContinue}>
 					Continue
 				</Button>
-				<Button type="button" variant="secondary" onClick={props.onBack} className="sm:px-6">
+				<Button type="button" variant="secondary" className="sm:px-6" onClick={props.onBack}>
 					Back
 				</Button>
 			</div>
@@ -174,7 +174,7 @@ export function NotificationChannelCreateWizard(props: {
 		const body = createNotificationChannelBody({ values, kind: definition.slug });
 		if (Result.isFailure(body)) {
 			setFailure({ step: "configure", detail: INVALID_CHANNEL_DETAILS_MESSAGE });
-			dispatch({ type: "recover-at", step: "configure" });
+			dispatch({ step: "configure", type: "recover-at" });
 			return;
 		}
 		setFailure(undefined);

@@ -29,7 +29,7 @@ import type { ThemeStore } from "#/modules/theme/store";
 import type { ClientRuntime } from "#/runtime";
 
 const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
-const document = { queries: {}, output: {} } as PreparedRecipe<unknown>["document"];
+const document = { output: {}, queries: {} } as PreparedRecipe<unknown>["document"];
 const recipe = { document, decode: Result.succeed };
 const themeSnapshot: PluginThemeSnapshot = { resolvedMode: "light" };
 const theme: ThemeStore = {
@@ -165,15 +165,15 @@ describe("kernel Ryot client", () => {
 				makeUploadsApi(),
 				makeCollectionsApi({
 					create: (receivedScope, request) => {
-						calls.push({ method: "create", request, scope: receivedScope });
+						calls.push({ request, method: "create", scope: receivedScope });
 						return Effect.succeed(collection);
 					},
 					createMembership: (receivedScope, request) => {
-						calls.push({ method: "createMembership", request, scope: receivedScope });
+						calls.push({ request, scope: receivedScope, method: "createMembership" });
 						return Effect.succeed(membership);
 					},
 					deleteMembership: (receivedScope, request) => {
-						calls.push({ method: "deleteMembership", request, scope: receivedScope });
+						calls.push({ request, scope: receivedScope, method: "deleteMembership" });
 						return Effect.succeed(membership);
 					},
 				}),
@@ -189,7 +189,7 @@ describe("kernel Ryot client", () => {
 				client.collections.removeMembership({ entityId: "entity-1", collectionId: "collection-1" }),
 			).resolves.toEqual(membership);
 			expect(calls).toEqual([
-				{ method: "create", request: { payload: { name: "Favorites" } }, scope },
+				{ scope, method: "create", request: { payload: { name: "Favorites" } } },
 				{
 					scope,
 					method: "createMembership",
@@ -211,7 +211,7 @@ describe("kernel Ryot client", () => {
 			(
 				[
 					[
-						new CollectionBadRequest({ reason: { code: "name-required", field: "name" } }),
+						new CollectionBadRequest({ reason: { field: "name", code: "name-required" } }),
 						"collection-failed",
 					],
 					[new TypeError("private network detail"), "transport"],
@@ -245,7 +245,7 @@ describe("kernel Ryot client", () => {
 			const store = createKernelRyotClientStore(runtime as ClientRuntime, theme);
 			const first = store.get(scope);
 			expect(store.get({ ...scope })).toBe(first);
-			expect(first.hostServices).toEqual({ runtime, scope });
+			expect(first.hostServices).toEqual({ scope, runtime });
 			expect(store.get({ ...scope, userId: "user-2" })).not.toBe(first);
 		} finally {
 			await runtime.dispose();
@@ -264,7 +264,7 @@ describe("kernel Ryot client", () => {
 						throw new Error("Client construction must not acquire a session");
 					},
 					watch: (receivedScope, interest, onUpdate) => {
-						calls.push({ scope: receivedScope, interest });
+						calls.push({ interest, scope: receivedScope });
 						onUpdate({ entityId: "a", reason: "translated" });
 						return {
 							update: (next) => calls.push(next),
@@ -281,7 +281,7 @@ describe("kernel Ryot client", () => {
 			const second = createKernelRyotClient(runtime, { ...scope }, theme);
 			expect(calls).toEqual([]);
 			const updates: unknown[] = [];
-			const interest = { foreground: ["a"], visible: [] };
+			const interest = { visible: [], foreground: ["a"] };
 			const handle = first.entities.watch(interest, (update) => updates.push(update));
 			second.entities.watch(interest, () => {});
 			handle.update({ foreground: [], visible: ["b"] });
@@ -315,7 +315,7 @@ describe("kernel Ryot client", () => {
 	] as const;
 	const declaredFailures = [
 		new AuthUnauthorized({ reason: { code: "authentication-required" } }),
-		new AuthRateLimited({ reason: { code: "api-key-rate-limited", retryAfterMs: 30_000 } }),
+		new AuthRateLimited({ reason: { retryAfterMs: 30_000, code: "api-key-rate-limited" } }),
 		new RyotQLBadRequest({ reason: { code: "invalid-query" } }),
 		new RyotQLInternalError({ reason: { code: "execution-failed" } }),
 	];
@@ -425,7 +425,7 @@ describe("kernel Ryot client", () => {
 
 	for (const failure of [
 		new AuthUnauthorized({ reason: { code: "authentication-required" } }),
-		new AuthRateLimited({ reason: { code: "api-key-rate-limited", retryAfterMs: 30_000 } }),
+		new AuthRateLimited({ reason: { retryAfterMs: 30_000, code: "api-key-rate-limited" } }),
 		new UploadBadRequest({ reason: { code: "asset-forbidden" } }),
 		new UploadInternalError({ reason: { code: "unexpected-error" } }),
 	]) {
@@ -515,7 +515,7 @@ describe("kernel temporary uploads", () => {
 			completeIntent: Effect.succeed(uploadToken),
 			createIntent: fails(
 				new UploadBadRequest({
-					reason: { code: "unsupported-file-type", contentType: "text/csv" },
+					reason: { contentType: "text/csv", code: "unsupported-file-type" },
 				}),
 			),
 		});
@@ -619,7 +619,7 @@ describe("kernel temporary uploads", () => {
 		const calls: FetchCall[] = [];
 		const runtime = makeUploadsRuntime(events, {
 			createIntent: Effect.succeed(intent),
-			completeIntent: Effect.succeed({ key: "assets/items.csv", type: "local" }),
+			completeIntent: Effect.succeed({ type: "local", key: "assets/items.csv" }),
 		});
 		try {
 			const client = createKernelRyotClient(runtime, scope, theme);

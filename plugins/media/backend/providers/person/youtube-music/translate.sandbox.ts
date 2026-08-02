@@ -7,11 +7,11 @@ import { buildArtistTranslate } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	name: "YouTube Music artist translation",
-	slug: "person.youtube-music.translate",
+	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall"],
+	slug: "person.youtube-music.translate",
+	name: "YouTube Music artist translation",
 });
 
 export default defineProvider({

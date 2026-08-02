@@ -26,7 +26,7 @@ export function RunStatusPill(props: { readonly status: RunStatus }) {
 export function RunStatusGlyph(props: { readonly status: RunStatus }) {
 	const pill = runStatusPill(props.status);
 	return (
-		<span role="img" aria-label={pill.label} className="shrink-0">
+		<span role="img" className="shrink-0" aria-label={pill.label}>
 			<AppIcon size={16} name={pill.icon} className={toneClassName[pill.tone]} />
 		</span>
 	);

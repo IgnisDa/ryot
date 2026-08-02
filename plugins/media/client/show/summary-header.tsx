@@ -149,7 +149,7 @@ function ShowIdentity(props: {
 	readonly description: ReactNode;
 	readonly settled: EntitySettleReason | undefined;
 }) {
-	const { compact, show } = props;
+	const { show, compact } = props;
 	return (
 		<div className={clsx("flex min-w-0 flex-col", compact ? "gap-4" : "flex-1 gap-2.5")}>
 			<SettleHighlight
@@ -180,7 +180,7 @@ function ShowIdentity(props: {
 			{props.description}
 			{isTitleProvisional(show) && (
 				<div className="flex items-start">
-					<TranslationChip icon={<AppIcon name="globe" size={13} />} />
+					<TranslationChip icon={<AppIcon size={13} name="globe" />} />
 				</div>
 			)}
 		</div>
@@ -189,17 +189,17 @@ function ShowIdentity(props: {
 
 function ShowLibraryBadge(props: { readonly isInLibrary: boolean }) {
 	if (!props.isInLibrary) {
-		return <AppIcon name="circle-check" size={20} className="text-text-subtle" />;
+		return <AppIcon size={20} name="circle-check" className="text-text-subtle" />;
 	}
 	return (
 		<div className="flex h-5 w-5 items-center justify-center rounded-full bg-success">
-			<AppIcon name="check" size={13} className="text-bg" />
+			<AppIcon size={13} name="check" className="text-bg" />
 		</div>
 	);
 }
 
 function ShowStatusRail(props: { readonly compact: boolean; readonly show: ShowSummary }) {
-	const { compact, show } = props;
+	const { show, compact } = props;
 	return (
 		<div className={clsx("flex flex-col", compact ? "gap-3" : "w-84 gap-2")}>
 			<div className="overflow-hidden rounded-lg border border-border bg-surface">
@@ -215,8 +215,8 @@ function ShowStatusRail(props: { readonly compact: boolean; readonly show: ShowS
 					}
 				/>
 				<ShowRailRow
-					compact={compact}
 					icon="radio"
+					compact={compact}
 					title="Monitoring"
 					detail="Keep provider details up to date"
 					trailing={
@@ -228,14 +228,14 @@ function ShowStatusRail(props: { readonly compact: boolean; readonly show: ShowS
 					}
 				/>
 				<ShowRailRow
-					compact={compact}
 					icon="library"
+					compact={compact}
 					title="In library"
 					trailing={<ShowLibraryBadge isInLibrary={show.isInLibrary} />}
 				/>
 				<ShowRailRow
-					compact={compact}
 					icon="tags"
+					compact={compact}
 					title="Ownership"
 					trailing={
 						<span className="font-ui text-[13px] text-text-muted">
@@ -244,9 +244,9 @@ function ShowStatusRail(props: { readonly compact: boolean; readonly show: ShowS
 					}
 				/>
 				<ShowRailRow
-					compact={compact}
 					divided={false}
 					icon="layers-3"
+					compact={compact}
 					title="Collections"
 					detail={showCollectionsLabel(show.collections)}
 					trailing={
@@ -265,8 +265,8 @@ function ShowStatusRail(props: { readonly compact: boolean; readonly show: ShowS
 					onClick={() => console.log("TODO: open activity form")}
 				/>
 				<ShowActionButton
-					variant="secondary"
 					compact={compact}
+					variant="secondary"
 					label="Write review"
 					onClick={() => console.log("TODO: open review form")}
 				/>

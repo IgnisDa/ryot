@@ -12,9 +12,9 @@ const trimmedNonEmptyString = Schema.Trim.pipe(Schema.check(Schema.isMinLength(1
 const querySchema = Schema.Unknown.pipe(
 	Schema.decodeTo(
 		Schema.String,
-		SchemaTransformation.transform({
-			decode: (value) => (typeof value === "string" ? value.trim() : ""),
+		SchemaTransformation.transform<string, unknown>({
 			encode: (value) => value,
+			decode: (value) => (typeof value === "string" ? value.trim() : ""),
 		}),
 	),
 );
@@ -44,8 +44,8 @@ export const providerSearchInputSchema = strictStruct({
 		(schema) =>
 			Schema.optional(schema).pipe(
 				Schema.decodeTo(Schema.toType(schema), {
-					decode: SchemaGetter.withDefault(Effect.sync(() => "")),
 					encode: SchemaGetter.required(),
+					decode: SchemaGetter.withDefault(Effect.sync(() => "")),
 				}),
 			),
 		Schema.withConstructorDefault(Effect.sync(() => "")),
@@ -54,8 +54,8 @@ export const providerSearchInputSchema = strictStruct({
 		(schema) =>
 			Schema.optional(schema).pipe(
 				Schema.decodeTo(Schema.toType(schema), {
-					decode: SchemaGetter.withDefault(Effect.sync(() => 1)),
 					encode: SchemaGetter.required(),
+					decode: SchemaGetter.withDefault(Effect.sync(() => 1)),
 				}),
 			),
 		Schema.withConstructorDefault(Effect.sync(() => 1)),
@@ -64,8 +64,8 @@ export const providerSearchInputSchema = strictStruct({
 		(schema) =>
 			Schema.optional(schema).pipe(
 				Schema.decodeTo(Schema.toType(schema), {
-					decode: SchemaGetter.withDefault(Effect.sync(() => 20)),
 					encode: SchemaGetter.required(),
+					decode: SchemaGetter.withDefault(Effect.sync(() => 20)),
 				}),
 			),
 		Schema.withConstructorDefault(Effect.sync(() => 20)),
@@ -207,7 +207,7 @@ export const defineProvider = <
 }): ProviderDefinition<Manifest, Operation> =>
 	({
 		...definition,
+		definitionType: SANDBOX_SCRIPT_DEFINITION,
 		input: providerOperationContracts[definition.operation].input,
 		output: providerOperationContracts[definition.operation].output,
-		definitionType: SANDBOX_SCRIPT_DEFINITION,
 	}) as ProviderDefinition<Manifest, Operation>;

@@ -26,7 +26,7 @@ const response = {
 	data: {
 		entity: {
 			type: "rows",
-			pageInfo: { hasMore: false, limit: 2, nextCursor: null },
+			pageInfo: { limit: 2, hasMore: false, nextCursor: null },
 			items: [{ entitySchemaSlug: "book", entitySchemaPluginId: "plugin-1" }],
 		},
 	},

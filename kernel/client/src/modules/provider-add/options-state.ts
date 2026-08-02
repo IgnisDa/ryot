@@ -18,12 +18,12 @@ export const createProviderOptionsState = (
 	provider: ProviderSearchSummary | undefined,
 ): ProviderOptionsState => {
 	if (provider === undefined) {
-		return { providerId: undefined, status: "none" };
+		return { status: "none", providerId: undefined };
 	}
 	if (provider.searchOptionsSchema === null) {
-		return { providerId: provider.providerId, status: "none" };
+		return { status: "none", providerId: provider.providerId };
 	}
-	return { providerId: provider.providerId, status: "loading" };
+	return { status: "loading", providerId: provider.providerId };
 };
 
 export const isProviderOptionsRequestCurrent = (
@@ -42,7 +42,7 @@ export const applyProviderOptionsResponse = (
 		return state;
 	}
 	if (response.schema === null) {
-		return { providerId: state.providerId, status: "none" };
+		return { status: "none", providerId: state.providerId };
 	}
 	return { status: "ready", schema: response.schema, providerId: state.providerId };
 };
@@ -51,4 +51,4 @@ export const applyProviderOptionsFailure = (
 	state: ProviderOptionsState,
 	cause: unknown,
 ): ProviderOptionsState =>
-	state.status === "loading" ? { cause, providerId: state.providerId, status: "failed" } : state;
+	state.status === "loading" ? { cause, status: "failed", providerId: state.providerId } : state;

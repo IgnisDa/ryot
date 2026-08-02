@@ -52,7 +52,7 @@ export const getProductAndPlanTypeByPriceId = (priceId: string) => {
 		for (const product of catalog) {
 			for (const price of product.prices) {
 				if (price.priceId === priceId) {
-					return { productType: product.type, planType: price.name };
+					return { planType: price.name, productType: product.type };
 				}
 			}
 		}
@@ -73,7 +73,7 @@ export const getProductAndPlanTypeByPolarIds = (productId: string, priceId?: str
 		for (const product of catalog) {
 			for (const price of product.prices) {
 				if (price.productId === productId && (priceId == null || price.priceId === priceId)) {
-					return { productType: product.type, planType: price.name };
+					return { planType: price.name, productType: product.type };
 				}
 			}
 		}

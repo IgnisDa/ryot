@@ -5,11 +5,11 @@ import { details } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
+	requiredSystemConfigKeys: [],
 	name: "Spotify Person Details",
 	slug: "person.spotify.details",
 	requiredPluginConfigKeys: ["spotifyClientId", "spotifyClientSecret"],
-	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 
-export default defineProvider({ manifest, operation: "details", run: details.run });
+export default defineProvider({ manifest, run: details.run, operation: "details" });

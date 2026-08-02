@@ -4,7 +4,7 @@ import { assert, describe, expect, it } from "vitest";
 import { entityInterestRecipe, entityRouteProvenanceRecipe } from "./entities";
 import { rowsResponse } from "./test-utils";
 
-const pageInfo = { hasMore: false, limit: 2, nextCursor: null };
+const pageInfo = { limit: 2, hasMore: false, nextCursor: null };
 const item = {
 	id: "entity-1",
 	externalId: "external-1",
@@ -32,9 +32,9 @@ describe("entity recipes", () => {
 			"properties",
 			"externalId",
 			"entitySchemaSlug",
-			"providerId",
 			"populationStatus",
 			"translationStatus",
+			"providerId",
 		]);
 		expect(query.where).toMatchObject({ values: [{ value: "entity-1" }, { value: "entity-2" }] });
 		expect(Result.getOrThrow(recipe.decode(responseWithItems([item])))).toEqual([item]);
@@ -76,7 +76,7 @@ describe("entity recipes", () => {
 			operator: "eq",
 			type: "comparison",
 			right: { type: "literal", value: "entity-1" },
-			left: { field: "id", tableAlias: "entity", type: "column" },
+			left: { field: "id", type: "column", tableAlias: "entity" },
 		});
 	});
 

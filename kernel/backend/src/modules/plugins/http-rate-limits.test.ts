@@ -72,7 +72,7 @@ it("rejects conflicting keys and origins across active plugins", () => {
 		},
 	];
 
-	for (const { expected, second } of cases) {
+	for (const { second, expected } of cases) {
 		const loader = makePluginLoader(makeDefinitionRegistry());
 		expect(() =>
 			loader.previewAll([plugin("first", [declaration]), plugin("second", [second])]),

@@ -46,12 +46,12 @@ describe("plugin logical locations", () => {
 					pluginSlug: PluginSlug.make("media"),
 				},
 			}),
-		).toEqual({ href: "/media/shows", replace: true });
+		).toEqual({ replace: true, href: "/media/shows" });
 	});
 
 	it("rejects route traversal and an empty entity ID", () => {
 		expect(
-			validatePluginLocation({ kind: "route", path: "/../settings", search: "" }),
+			validatePluginLocation({ search: "", kind: "route", path: "/../settings" }),
 		).toBeUndefined();
 		expect(
 			toNavigationRequest({

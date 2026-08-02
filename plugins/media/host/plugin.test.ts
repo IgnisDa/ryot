@@ -67,9 +67,34 @@ it("declares the complete media-owned source", () => {
 	expect(mediaPlugin.client).toEqual({
 		apiVersion: 1,
 		homeView: null,
-		routes: { "/": "media-home" },
 		entities: expect.any(Object),
+		routes: { "/": "media-home" },
 		exports: {
+			"show-progress": {
+				kind: "component",
+				entry: "client/show/progress.tsx",
+				automaticEntityPresentations: false,
+			},
+			"show-row": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/show-row-presentation.ts",
+			},
+			"show-card": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/show-card-presentation.ts",
+			},
+			"media-row": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/media-row-presentation.ts",
+			},
+			"media-card": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/media-card-presentation.ts",
+			},
 			"media-home": {
 				kind: "page",
 				entry: "client/home.tsx",
@@ -82,31 +107,6 @@ it("declares the complete media-owned source", () => {
 				entry: "client/show/screen.tsx",
 				automaticEntityPresentations: false,
 			},
-			"show-progress": {
-				kind: "component",
-				entry: "client/show/progress.tsx",
-				automaticEntityPresentations: false,
-			},
-			"show-card": {
-				kind: "presentation",
-				automaticEntityPresentations: false,
-				entry: "client/show-card-presentation.ts",
-			},
-			"show-row": {
-				kind: "presentation",
-				automaticEntityPresentations: false,
-				entry: "client/show-row-presentation.ts",
-			},
-			"media-card": {
-				kind: "presentation",
-				automaticEntityPresentations: false,
-				entry: "client/media-card-presentation.ts",
-			},
-			"media-row": {
-				kind: "presentation",
-				automaticEntityPresentations: false,
-				entry: "client/media-row-presentation.ts",
-			},
 		},
 	});
 	const registrations = mediaPlugin.client.entities;
@@ -114,8 +114,8 @@ it("declares the complete media-owned source", () => {
 	for (const [slug, registration] of Object.entries(registrations)) {
 		expect(registration).toEqual(
 			slug === "show"
-				? { detailPage: "show-detail", gridPresentation: "show-card", listPresentation: "show-row" }
-				: { gridPresentation: "media-card", listPresentation: "media-row" },
+				? { detailPage: "show-detail", listPresentation: "show-row", gridPresentation: "show-card" }
+				: { listPresentation: "media-row", gridPresentation: "media-card" },
 		);
 	}
 	expect(mediaPlugin.entitySchemas.map(({ slug }) => slug)).toContain("library");
@@ -125,20 +125,20 @@ it("declares the complete media-owned source", () => {
 	);
 	expect(mediaPlugin.configSchema.unknownKeys).toBe("strict");
 	expect(Object.keys(mediaPlugin.configSchema.fields)).toEqual([
-		"tvdbApiKey",
-		"tmdbAccessToken",
-		"malClientId",
 		"metronUsername",
-		"metronPassword",
-		"hardcoverApiKey",
-		"googleBooksApiKey",
-		"spotifyClientId",
-		"spotifyClientSecret",
-		"listennotesApiKey",
 		"twitchClientId",
-		"twitchClientSecret",
-		"giantBombApiKey",
 		"traktClientId",
+		"spotifyClientId",
+		"tvdbApiKey",
+		"malClientId",
+		"metronPassword",
+		"tmdbAccessToken",
+		"hardcoverApiKey",
+		"giantBombApiKey",
+		"twitchClientSecret",
+		"googleBooksApiKey",
+		"listennotesApiKey",
+		"spotifyClientSecret",
 		"progressUpdateThresholdHours",
 	]);
 	expect(mediaPlugin.configSchema.fields.tmdbAccessToken?.secret).toBe(true);
@@ -370,9 +370,9 @@ it("binds episodic parent completion to child completions and parent updates", (
 	expect(
 		mediaPlugin.bindings.entityAutomations
 			.filter(({ scriptSlug }) => scriptSlug === "automation.media-auto-complete-episodic-parent")
-			.map(({ entitySchemaSlug, operation }) => ({ entitySchemaSlug, operation })),
+			.map(({ operation, entitySchemaSlug }) => ({ operation, entitySchemaSlug })),
 	).toEqual([
-		{ entitySchemaSlug: "show", operation: "update" },
-		{ entitySchemaSlug: "podcast", operation: "update" },
+		{ operation: "update", entitySchemaSlug: "show" },
+		{ operation: "update", entitySchemaSlug: "podcast" },
 	]);
 });

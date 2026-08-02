@@ -38,13 +38,13 @@ const Progress = Schema.optional(
 );
 const Item = Schema.Struct({
 	id: Schema.String,
-	name: Schema.optional(Schema.String),
 	userMediaProgress: Progress,
+	name: Schema.optional(Schema.String),
 	mediaType: Schema.optional(Schema.Literals(["book", "podcast"])),
 	media: Schema.optional(
 		Schema.Struct({
-			ebookFormat: Schema.optional(Schema.NullOr(Schema.String)),
 			episodes: Schema.optional(Schema.Array(Episode)),
+			ebookFormat: Schema.optional(Schema.NullOr(Schema.String)),
 			metadata: Schema.Struct({
 				title: Schema.String,
 				asin: Schema.optional(Schema.NullOr(Schema.String)),
@@ -88,8 +88,8 @@ const itemRef = (item: typeof Item.Type): ImportEntityRef | null => {
 		return isbn && isValidIsbn(isbn)
 			? {
 					kind: "unresolved",
-					identifierType: "isbn",
 					identifierValue: isbn,
+					identifierType: "isbn",
 					entitySchemaSlug: "book",
 					sourceLabel: metadata.title,
 				}
@@ -100,8 +100,8 @@ const itemRef = (item: typeof Item.Type): ImportEntityRef | null => {
 		return {
 			kind: "resolved",
 			externalId: asin,
-			entitySchemaSlug: "audiobook",
 			sourceLabel: metadata.title,
+			entitySchemaSlug: "audiobook",
 			providerSlug: "audiobook.audible",
 		};
 	}
@@ -148,8 +148,8 @@ export const adaptAudiobookshelfData = (
 			if (Result.isFailure(listing)) {
 				failures.push(
 					sourceFetchFailure({
-						host: hostName,
 						itemIndex,
+						host: hostName,
 						sourceLabel: library.name,
 						sourceIdentifier: library.id,
 						message: "Failed to fetch Audiobookshelf library items",
@@ -172,9 +172,9 @@ export const adaptAudiobookshelfData = (
 					failures.push({
 						message,
 						itemIndex: currentIndex,
-						sourceLabel: metadata?.title ?? item.name,
 						sourceIdentifier: item.id,
 						stage: "input_transformation",
+						sourceLabel: metadata?.title ?? item.name,
 					});
 					continue;
 				}
@@ -193,8 +193,8 @@ export const adaptAudiobookshelfData = (
 							sourceFetchFailure({
 								host: hostName,
 								itemIndex: currentIndex,
-								sourceLabel: ref.sourceLabel,
 								sourceIdentifier: item.id,
+								sourceLabel: ref.sourceLabel,
 								message: "Failed to fetch Audiobookshelf podcast details",
 							}),
 						);
@@ -204,8 +204,8 @@ export const adaptAudiobookshelfData = (
 					if (episodes.length === 0) {
 						failures.push({
 							itemIndex: currentIndex,
-							sourceLabel: ref.sourceLabel,
 							sourceIdentifier: item.id,
+							sourceLabel: ref.sourceLabel,
 							stage: "input_transformation",
 							message: "Audiobookshelf podcast has no episodes",
 						});
@@ -226,8 +226,8 @@ export const adaptAudiobookshelfData = (
 								sourceFetchFailure({
 									host: hostName,
 									itemIndex: currentIndex,
-									sourceLabel: ref.sourceLabel,
 									sourceIdentifier: item.id,
+									sourceLabel: ref.sourceLabel,
 									message: "Failed to fetch Audiobookshelf podcast episode progress",
 								}),
 							);
@@ -246,8 +246,8 @@ export const adaptAudiobookshelfData = (
 					if (events.length === 0) {
 						failures.push({
 							itemIndex: currentIndex,
-							sourceLabel: ref.sourceLabel,
 							sourceIdentifier: item.id,
+							sourceLabel: ref.sourceLabel,
 							stage: "input_transformation",
 							message:
 								"Audiobookshelf podcast has no finished episodes with importable episode numbers",

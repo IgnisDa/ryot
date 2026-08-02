@@ -109,12 +109,6 @@ export const countMediaMonitoringRelationships = (input: {
 			document({
 				relationships: aggregate(relationship, {
 					measures: [measure("count", { function: "count" })],
-					where: and(
-						eq(column(relationship, "relationshipSchemaSlug"), literal("media-monitoring")),
-						eq(column(media, "id"), literal(input.entityId)),
-						eq(column(media, "entitySchemaSlug"), literal(input.entitySchemaSlug)),
-						eq(column(library, "entitySchemaSlug"), literal("library")),
-					),
 					joins: [
 						join("inner", media, eq(column(relationship, "sourceEntityId"), column(media, "id"))),
 						join(
@@ -123,6 +117,12 @@ export const countMediaMonitoringRelationships = (input: {
 							eq(column(relationship, "targetEntityId"), column(library, "id")),
 						),
 					],
+					where: and(
+						eq(column(relationship, "relationshipSchemaSlug"), literal("media-monitoring")),
+						eq(column(media, "id"), literal(input.entityId)),
+						eq(column(media, "entitySchemaSlug"), literal(input.entitySchemaSlug)),
+						eq(column(library, "entitySchemaSlug"), literal("library")),
+					),
 				}),
 			}),
 		);

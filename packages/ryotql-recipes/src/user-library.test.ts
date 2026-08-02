@@ -8,8 +8,8 @@ const userLibraryResponse = {
 	data: {
 		library: {
 			type: "rows",
-			pageInfo: { hasMore: false, limit: 2, nextCursor: null },
 			items: [{ entityId: "library-1" }],
+			pageInfo: { limit: 2, hasMore: false, nextCursor: null },
 		},
 	},
 } satisfies RyotQLResponse;
@@ -21,7 +21,7 @@ describe("user library recipe", () => {
 			throw new Error("Expected a user library rows query");
 		}
 
-		expect(query.from).toEqual({ alias: "library", table: "entity" });
+		expect(query.from).toEqual({ table: "entity", alias: "library" });
 		expect(query.output.pagination).toEqual({ limit: 2 });
 		expect(query.where).toEqual({
 			type: "and",
@@ -32,11 +32,11 @@ describe("user library recipe", () => {
 					right: { type: "literal", value: "library" },
 					left: { type: "column", tableAlias: "library", field: "entitySchemaSlug" },
 				},
-				{ type: "isNotNull", expr: { type: "column", tableAlias: "library", field: "userId" } },
+				{ type: "isNotNull", expr: { type: "column", field: "userId", tableAlias: "library" } },
 			],
 		});
 		expect(query.output.fields).toEqual([
-			{ key: "entityId", expr: { type: "column", tableAlias: "library", field: "id" } },
+			{ key: "entityId", expr: { field: "id", type: "column", tableAlias: "library" } },
 		]);
 	});
 

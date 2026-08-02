@@ -126,7 +126,7 @@ const collectUnlinkedCreators = (authors: unknown, publisher: unknown) => {
 			continue;
 		}
 		seen.add(key);
-		unlinkedCreators.push({ role: "Author", name });
+		unlinkedCreators.push({ name, role: "Author" });
 	}
 	const publisherName = stringValue(publisher);
 	if (publisherName) {
@@ -179,9 +179,9 @@ export const search = defineProvider({
 			const apiKey = yield* getGoogleBooksApiKey(host);
 			const params = new URLSearchParams({
 				printType: "books",
-				q: options.passRawQuery ? input.query : `intitle:${input.query}`,
 				maxResults: String(input.pageSize),
 				startIndex: String((input.page - 1) * input.pageSize),
+				q: options.passRawQuery ? input.query : `intitle:${input.query}`,
 			});
 			const payloadValue = yield* googleBooksGet(
 				host,
@@ -249,8 +249,8 @@ export const details = defineProvider({
 				name: title,
 				properties: {
 					pages: pageCount === null ? null : Math.trunc(pageCount),
-					sourceUrl: `https://www.google.co.in/books/edition/${title}/${externalId}`,
 					publishYear: parsePublishYear(volumeInfo?.["publishedDate"]),
+					sourceUrl: `https://www.google.co.in/books/edition/${title}/${externalId}`,
 					genres: collectGenres(volumeInfo?.["categories"], volumeInfo?.["mainCategory"]),
 					description:
 						typeof volumeInfo?.["description"] === "string" ? volumeInfo["description"] : null,

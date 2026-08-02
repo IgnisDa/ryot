@@ -16,7 +16,7 @@ export const manifest = defineManifest({
 
 const Input = Schema.Struct({});
 
-const Link = Schema.Struct({ label: Schema.String, url: Schema.String });
+const Link = Schema.Struct({ url: Schema.String, label: Schema.String });
 
 const Book = Schema.Struct({
 	id: Schema.optional(Schema.String),
@@ -46,7 +46,7 @@ export const mangaRef = (
 	links: ReadonlyArray<{ label: string; url: string }>,
 	title: string,
 ): ImportEntityRef | null => {
-	for (const { label, url } of links) {
+	for (const { url, label } of links) {
 		const normalized = label.toLowerCase();
 		let match: RegExpMatchArray | null = null;
 		let providerSlug = "manga.manga-updates";
@@ -109,10 +109,10 @@ export default defineScript({
 					if (!ref) {
 						failures.push({
 							itemIndex: index,
-							stage: "input_transformation",
-							message: "Komga book has no resolvable external identifier",
-							sourceLabel: book.metadata?.title,
 							sourceIdentifier: book.id,
+							stage: "input_transformation",
+							sourceLabel: book.metadata?.title,
+							message: "Komga book has no resolvable external identifier",
 						});
 						continue;
 					}
@@ -131,7 +131,7 @@ export default defineScript({
 							{
 								occurredAt,
 								eventSchemaSlug: "progress",
-								properties: { progressPercent: percent, consumedOn: "komga" },
+								properties: { consumedOn: "komga", progressPercent: percent },
 							},
 						],
 					});

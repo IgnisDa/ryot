@@ -41,7 +41,7 @@ const decodeHostResult = Schema.decodeUnknownEffect(
 
 const failure = (message: string, data?: JsonValue): WorkflowDurableResult => ({
 	state: "failure",
-	error: data === undefined ? { message } : { message, data },
+	error: data === undefined ? { message } : { data, message },
 });
 
 export type SandboxDurableHostDispatchStrategy =
@@ -232,7 +232,7 @@ export const SandboxDurableHostServiceWorkflow = Workflow.make(
 		error: SandboxRunError,
 		success: workflowDurableResultSchema,
 		payload: SandboxDurableHostServiceWorkflowPayload,
-		idempotencyKey: ({ parentExecutionId, request }) =>
+		idempotencyKey: ({ request, parentExecutionId }) =>
 			`${parentExecutionId}-host-service-${request.index}`,
 	},
 );

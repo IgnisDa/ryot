@@ -38,7 +38,7 @@ export const buildAlbumSearch = (client: MusicSearchClient, query: string, pageS
 				});
 			});
 			const items = allItems.slice(0, pageSize);
-			return { items, details: { totalItems: 100, nextPage: null } };
+			return { items, details: { nextPage: null, totalItems: 100 } };
 		}),
 	);
 
@@ -86,7 +86,7 @@ export const buildAlbumDetails = (client: AlbumClient, externalId: string) =>
 
 		const coverUrl = getBestThumbnailUrl(albumRecord?.["thumbnail"] ?? headerRecord?.["thumbnail"]);
 		const images = coverUrl
-			? [{ type: "remote" as const, url: coverUrl, purpose: "cover" as const }]
+			? [{ url: coverUrl, type: "remote" as const, purpose: "cover" as const }]
 			: [];
 		const playlistIdValue = albumRecord?.["playlist_id"];
 		const playlistId = typeof playlistIdValue === "string" ? playlistIdValue : null;

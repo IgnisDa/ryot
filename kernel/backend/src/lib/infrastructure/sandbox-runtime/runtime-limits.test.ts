@@ -6,7 +6,7 @@ import { readSandboxBridgeRequestBody, sandboxBridgeResultResponse } from "./run
 
 const decodeBody = Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 const request = (body: string) =>
-	new Request("http://127.0.0.1/rpc/execution/function", { method: "POST", body });
+	new Request("http://127.0.0.1/rpc/execution/function", { body, method: "POST" });
 
 describe("sandbox bridge body limits", () => {
 	it("accepts ASCII and multi-byte request bodies at the UTF-8 boundary", () =>

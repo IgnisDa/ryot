@@ -32,7 +32,7 @@ const makeDb = () => {
 			},
 		}),
 	});
-	return { select, state };
+	return { state, select };
 };
 
 const makeLayer = (db: ReturnType<typeof makeDb>) =>

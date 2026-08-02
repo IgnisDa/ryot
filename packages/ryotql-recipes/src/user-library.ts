@@ -16,6 +16,7 @@ import { Result } from "effect";
 const entityLibrary = table("entity", "library");
 
 export const userLibraryRecipe = defineRecipe(() => ({
+	map: ({ library }) => Result.succeed(library),
 	queries: {
 		library: selectedRow(entityLibrary, {
 			orderBy: [ascending(column(entityLibrary, "id"))],
@@ -26,5 +27,4 @@ export const userLibraryRecipe = defineRecipe(() => ({
 			),
 		}),
 	},
-	map: ({ library }) => Result.succeed(library),
 }));

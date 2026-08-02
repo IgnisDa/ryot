@@ -37,7 +37,7 @@ export const giantBombRequest = (
 ): Effect.Effect<UnknownRecord | null, unknown> =>
 	getApiKey(host).pipe(
 		Effect.flatMap((apiKey) => {
-			const search = new URLSearchParams({ api_key: apiKey, format: "json", ...params });
+			const search = new URLSearchParams({ format: "json", api_key: apiKey, ...params });
 			const url = `${BASE_URL}/${path}?${search.toString()}`;
 			return host.httpCall("GET", url, { headers: { Accept: "application/json" } }).pipe(
 				Effect.mapError((error) => new Error(error.message || failureMessage)),

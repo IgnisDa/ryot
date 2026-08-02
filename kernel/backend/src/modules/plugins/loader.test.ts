@@ -94,8 +94,10 @@ it("rejects definition collisions without replacing the current snapshot", () =>
 		scripts: plugin.scripts.map((script) => ({ ...script, slug: "other.automation" })),
 		manifest: {
 			...plugin.manifest,
-			scripts: plugin.manifest.scripts.map((script) => ({ ...script, slug: "other.automation" })),
 			metadata: { ...plugin.manifest.metadata, slug: "other-plugin" },
+			scripts: plugin.manifest.scripts.map((script) =>
+				Object.assign({}, script, { slug: "other.automation" }),
+			),
 		},
 	};
 
@@ -118,8 +120,8 @@ it("materializes portable saved-view page exports to stable plugin ids", () => {
 					unknownKeys: "strict" as const,
 					fields: {
 						title: {
-							type: "string" as const,
 							label: "Title",
+							type: "string" as const,
 							description: "Summary title",
 							validation: { required: true as const },
 						},
@@ -130,20 +132,20 @@ it("materializes portable saved-view page exports to stable plugin ids", () => {
 	};
 	const savedView = {
 		icon: "box",
+		sortOrder: 0,
 		name: "Summary",
 		slug: "summary",
-		sortOrder: 0,
-		pluginSlug: "fixture",
 		dataSources: null,
+		pluginSlug: "fixture",
 		settings: { title: "Fixture" },
-		renderer: { kind: "plugin" as const, exportName: "summary" },
+		renderer: { exportName: "summary", kind: "plugin" as const },
 	};
 	loader.load({ ...plugin, manifest: { ...plugin.manifest, client, savedViews: [savedView] } });
 
 	expect(loader.getSnapshot().definitions.savedViews["summary"]?.renderer).toEqual({
 		kind: "plugin",
-		pluginId: "fixture-plugin-id",
 		exportName: "summary",
+		pluginId: "fixture-plugin-id",
 	});
 	expect(() =>
 		loader.preview({
@@ -164,7 +166,7 @@ it("rejects plugin config environment collisions across active plugins", () => {
 			metadata: { ...firstBase.manifest.metadata, slug: "fixture-one" },
 			configSchema: {
 				unknownKeys: "strict" as const,
-				fields: { token: { type: "string" as const, label: "Token", description: "Token" } },
+				fields: { token: { label: "Token", description: "Token", type: "string" as const } },
 			},
 		},
 	};
@@ -177,7 +179,7 @@ it("rejects plugin config environment collisions across active plugins", () => {
 			metadata: { ...secondBase.manifest.metadata, slug: "fixture_one" },
 			configSchema: {
 				unknownKeys: "strict" as const,
-				fields: { token: { type: "string" as const, label: "Token", description: "Token" } },
+				fields: { token: { label: "Token", description: "Token", type: "string" as const } },
 			},
 		},
 	};
@@ -190,11 +192,11 @@ it("rejects plugin config environment collisions across active plugins", () => {
 it("rejects invalid entity merge identity properties", () => {
 	const cases = [
 		{
-			expected: /merge identity property 'missing' is not defined/,
 			mergeIdentityProperties: ["missing"],
+			expected: /merge identity property 'missing' is not defined/,
 		},
-		{ expected: /duplicate merge identity properties/, mergeIdentityProperties: ["kind", "kind"] },
-		{ expected: /merge identity property names cannot be empty/, mergeIdentityProperties: [""] },
+		{ mergeIdentityProperties: ["kind", "kind"], expected: /duplicate merge identity properties/ },
+		{ mergeIdentityProperties: [""], expected: /merge identity property names cannot be empty/ },
 	];
 
 	for (const { expected, mergeIdentityProperties } of cases) {
@@ -235,7 +237,7 @@ it("rejects script slug collisions across active plugins", () => {
 
 it("rejects integration provider and import source slug collisions across active plugins", () => {
 	const settingsSchema = {
-		fields: { token: { type: "string", label: "Token", description: "API token", secret: true } },
+		fields: { token: { secret: true, type: "string", label: "Token", description: "API token" } },
 	} satisfies PluginManifest["integrationProviders"][number]["settingsSchema"];
 	const cases = [
 		{
@@ -282,7 +284,7 @@ it("rejects integration provider and import source slug collisions across active
 		},
 	];
 
-	for (const { expected, section } of cases) {
+	for (const { section, expected } of cases) {
 		const loader = makePluginLoader(makeDefinitionRegistry(emptySource));
 		const first = normalizedPlugin("1");
 		loader.load({ ...first, manifest: { ...first.manifest, ...section } });
@@ -297,11 +299,10 @@ it("rejects integration provider and import source slug collisions across active
 				manifest: {
 					...second.manifest,
 					...section,
-					scripts: second.manifest.scripts.map((script) => ({
-						...script,
-						slug: "other.automation",
-					})),
 					metadata: { ...second.manifest.metadata, slug: "other-plugin" },
+					scripts: second.manifest.scripts.map((script) =>
+						Object.assign({}, script, { slug: "other.automation" }),
+					),
 				},
 			}),
 		).toThrow(expected);
@@ -335,6 +336,11 @@ it("preserves provider membership for custom scripts in the loader snapshot", ()
 	const { entry: _customEntry, ...customMetadata } = custom;
 	loader.load({
 		...plugin,
+		scripts: [
+			...plugin.scripts,
+			{ ...normalized, slug: details.slug, name: details.name, metadata: detailsMetadata },
+			{ ...normalized, slug: custom.slug, name: custom.name, metadata: customMetadata },
+		],
 		manifest: {
 			...plugin.manifest,
 			scripts: [...plugin.manifest.scripts, details, custom],
@@ -348,11 +354,6 @@ it("preserves provider membership for custom scripts in the loader snapshot", ()
 				},
 			],
 		},
-		scripts: [
-			...plugin.scripts,
-			{ ...normalized, slug: details.slug, name: details.name, metadata: detailsMetadata },
-			{ ...normalized, slug: custom.slug, name: custom.name, metadata: customMetadata },
-		],
 	});
 
 	expect(loader.getSnapshot().plugins["fixture"]?.scripts[2]).toMatchObject({

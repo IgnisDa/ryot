@@ -16,7 +16,7 @@ const isPreparationError = Schema.is(ClientPagePreparationError);
 
 export const prepareClientPage = (scope: ApiScope, target: ClientPageTarget) =>
 	Effect.flatMap(ClientPagesApi, (api) => api.prepare(scope, { payload: { target } })).pipe(
-		Effect.map((prepared): ClientPagePreparation => ({ kind: "ready", prepared })),
+		Effect.map((prepared): ClientPagePreparation => ({ prepared, kind: "ready" })),
 		Effect.catchTag("AuthenticatedApiError", (error) =>
 			isPreparationError(error.cause)
 				? Effect.succeed<ClientPagePreparation>({ kind: "unavailable", reason: error.cause.reason })

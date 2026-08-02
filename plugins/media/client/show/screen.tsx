@@ -89,7 +89,7 @@ export function ShowScreen(props: EntityRendererProps) {
 	const { compact } = useRyotViewport();
 	const summaryResult = useRyotQuery(showSummaryQuery, { entityId: props.entityId });
 	const overviewResult = useRyotQuery(showOverviewQuery, { entityId: props.entityId });
-	const { settled, commit } = useShowEntitySettle(props.entityId);
+	const { commit, settled } = useShowEntitySettle(props.entityId);
 	useEffect(() => {
 		commit();
 	}, [commit, summaryResult.data, overviewResult.data]);
@@ -118,8 +118,8 @@ export function ShowScreen(props: EntityRendererProps) {
 						compact={compact}
 						overview={overview}
 						refresh={summaryResult.refetch}
-						refreshOverview={overviewResult.refetch}
 						settled={settled.get(props.entityId)}
+						refreshOverview={overviewResult.refetch}
 						summaryRefreshStatus={<ShowRefreshStatus result={summaryResult} />}
 						overviewRefreshStatus={<ShowRefreshStatus result={overviewResult} />}
 						episodes={<ShowEpisodesTab compact={compact} entityId={props.entityId} />}

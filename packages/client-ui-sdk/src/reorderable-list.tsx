@@ -107,7 +107,7 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
 			const currentIndex = current[active.key] ?? active.startIndex;
 			return currentIndex === nextIndex
 				? current
-				: moveReorderPosition({ positions: current, fromIndex: currentIndex, toIndex: nextIndex });
+				: moveReorderPosition({ positions: current, toIndex: nextIndex, fromIndex: currentIndex });
 		});
 	};
 
@@ -242,10 +242,10 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
 										aria-label={`Reorder ${props.itemLabel(item)}`}
 										onPointerDown={(event) => start(event, key, index)}
 										onKeyDown={(event) => reorderByKey(event, item, index)}
-										className="flex size-10 shrink-0 touch-none items-center justify-center rounded-md text-text-subtle"
 										ref={(element) => {
 											handles.current.set(key, element);
 										}}
+										className="flex size-10 shrink-0 touch-none items-center justify-center rounded-md text-text-subtle"
 									>
 										{props.handleIcon}
 									</button>

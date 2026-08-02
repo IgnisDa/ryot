@@ -48,7 +48,7 @@ const WatcharrItem = Schema.Struct({
 	thoughts: Schema.String,
 	activity: Schema.optional(Schema.NullOr(Schema.Array(WatcharrActivity))),
 	watchedEpisodes: Schema.optional(Schema.NullOr(Schema.Array(WatcharrEpisode))),
-	content: Schema.Struct({ type: Schema.String, title: Schema.String, tmdbId: Schema.Int }),
+	content: Schema.Struct({ tmdbId: Schema.Int, type: Schema.String, title: Schema.String }),
 });
 
 const decodeWatcharrItem = Schema.decodeUnknownResult(WatcharrItem);
@@ -134,10 +134,10 @@ export const adaptWatcharrExportBatch = (jsonText: string, start: number, limit:
 			events: [],
 			collectionMemberships: [],
 			entityRef: {
-				kind: "resolved" as const,
 				externalId,
-				sourceLabel: item.content.title,
 				entitySchemaSlug,
+				kind: "resolved" as const,
+				sourceLabel: item.content.title,
 				providerSlug: `${entitySchemaSlug}.tmdb`,
 			},
 		};
@@ -207,8 +207,8 @@ export const adaptWatcharrExportBatch = (jsonText: string, start: number, limit:
 	}
 
 	return {
-		totalItems: parsed.length,
 		failures,
+		totalItems: parsed.length,
 		entityGroups: finalizeEntityGroups(groups.values()),
 	};
 };

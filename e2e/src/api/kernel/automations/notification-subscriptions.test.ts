@@ -141,7 +141,7 @@ describe("notification subscription catalog and rules", () => {
 			const { client } = yield* createAuthenticatedClient();
 			yield* createNotificationChannel(client, {
 				channel: "apprise",
-				channelSpecifics: { baseUrl: fakeApprise.url, key: "workout", kind: "apprise" },
+				channelSpecifics: { key: "workout", kind: "apprise", baseUrl: fakeApprise.url },
 			});
 			const { schema } = yield* findBuiltinSchemaBySlug(client, "workout");
 			const workoutName = `E2E Workout ${crypto.randomUUID()}`;
@@ -167,7 +167,7 @@ describe("notification subscription catalog and rules", () => {
 			const { client } = yield* createAuthenticatedClient();
 			yield* createNotificationChannel(client, {
 				channel: "apprise",
-				channelSpecifics: { baseUrl: fakeApprise.url, key: "review", kind: "apprise" },
+				channelSpecifics: { key: "review", kind: "apprise", baseUrl: fakeApprise.url },
 			});
 			const { entityId, reviewEventSchemaSlug } = yield* createBuiltinMediaLifecycleFixture(client);
 			const entity = yield* getEntity(client, entityId);
@@ -175,7 +175,7 @@ describe("notification subscription catalog and rules", () => {
 			yield* client.call((c) =>
 				c.events.create({
 					payload: [
-						{ entityId, eventSchemaSlug: reviewEventSchemaSlug, properties: { rating: 8 } },
+						{ entityId, properties: { rating: 8 }, eventSchemaSlug: reviewEventSchemaSlug },
 					],
 				}),
 			);

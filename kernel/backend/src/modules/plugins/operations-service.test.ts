@@ -50,11 +50,11 @@ const makeActiveScript = (id: string) => ({
 	name: DRIVER_REF,
 	compiledFormat: 1,
 	pluginId: "fixture",
-	compiledCode: "compiled",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
-	contentHash: "fixture-compiled",
+	compiledCode: "compiled",
 	id: SandboxScriptId.make(id),
+	contentHash: "fixture-compiled",
 	metadata: {
 		name: DRIVER_REF,
 		slug: DRIVER_REF,
@@ -140,14 +140,14 @@ const makeLayer = (input: {
 										name: "User",
 										id: input.currentUserId,
 										email: "user@example.com",
-										preferences: { allowNsfw: false, language: null, disableIntegrations: false },
+										preferences: { language: null, allowNsfw: false, disableIntegrations: false },
 									})
 								: Effect.fail(
 										new AuthUnauthorized({ reason: { code: "authentication-required" } }),
 									),
 					}),
 					Layer.mock(PluginRuntimeResolver)({
-						findOperationAvailableToUser: ({ operationSlug, pluginSlug, userId }) => {
+						findOperationAvailableToUser: ({ userId, pluginSlug, operationSlug }) => {
 							const match = (input.available ?? []).find(
 								(candidate) =>
 									candidate.ownerId === userId &&
@@ -303,8 +303,8 @@ it.effect("dispatches a private operation with the owning user's subject", () =>
 				currentUserId: USER_ONE,
 				available: [
 					{
-						scope: "user",
 						auth: "user",
+						scope: "user",
 						ownerId: USER_ONE,
 						pluginSlug: PRIVATE_SLUG,
 						installationId: "install-private-user-1",

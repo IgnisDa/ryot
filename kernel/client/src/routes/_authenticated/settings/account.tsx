@@ -23,7 +23,7 @@ export const Route = createFileRoute("/_authenticated/settings/account")({
 });
 
 const accountIdentityQuery = createRyotQuery<void, SettledAuthSession, KernelHostServices>(
-	({ hostServices, signal }) =>
+	({ signal, hostServices }) =>
 		hostServices.runtime.runPromise(
 			Effect.flatMap(AuthService, (auth) => auth.settledSession(hostServices.scope.serverUrl)),
 			{ signal },
@@ -31,7 +31,7 @@ const accountIdentityQuery = createRyotQuery<void, SettledAuthSession, KernelHos
 );
 
 const refreshAvatarMutation = createRyotMutation<void, void, KernelHostServices>(
-	({ client, hostServices, signal }) =>
+	({ client, signal, hostServices }) =>
 		hostServices.runtime.runPromise(
 			Effect.flatMap(UserSettingsApi, (api) => api.refreshAvatar(hostServices.scope)).pipe(
 				Effect.flatMap(() =>
@@ -47,7 +47,7 @@ const refreshAvatarMutation = createRyotMutation<void, void, KernelHostServices>
 );
 
 const signOutMutation = createRyotMutation<void, boolean, KernelHostServices>(
-	({ hostServices, signal }) =>
+	({ signal, hostServices }) =>
 		hostServices.runtime.runPromise(
 			Effect.flatMap(AuthService, (auth) => auth.signOut(hostServices.scope.serverUrl)),
 			{ signal },
@@ -55,7 +55,7 @@ const signOutMutation = createRyotMutation<void, boolean, KernelHostServices>(
 );
 
 function AccountRoute() {
-	const { runtime, server } = Route.useRouteContext();
+	const { server, runtime } = Route.useRouteContext();
 	const { isNative } = runtime.runSync(RuntimeOAuthClientService);
 	const identity = useRyotQuery(accountIdentityQuery);
 	const refreshAvatar = useRyotMutation(refreshAvatarMutation);
@@ -81,7 +81,7 @@ function AccountRoute() {
 						className="flex items-center gap-4 rounded-xl border border-border bg-surface p-4 transition-colors hover:bg-surface-2"
 					>
 						<span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent-text">
-							<AppIcon name="crown" size={20} />
+							<AppIcon size={20} name="crown" />
 						</span>
 						<span className="min-w-0 flex-1">
 							<span className="block font-semibold text-text">God Mode</span>

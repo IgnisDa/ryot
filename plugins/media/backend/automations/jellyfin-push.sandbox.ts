@@ -45,11 +45,11 @@ const authenticateJellyfin = (
 ) =>
 	host
 		.httpCall("POST", `${baseUrl}/Users/AuthenticateByName`, {
+			headers: { "Content-Type": "application/json", "X-Emby-Authorization": JELLYFIN_AUTH_HEADER },
 			body: JSON.stringify({
 				Username: username,
 				Pw: typeof password === "string" ? password : "",
 			}),
-			headers: { "Content-Type": "application/json", "X-Emby-Authorization": JELLYFIN_AUTH_HEADER },
 		})
 		.pipe(
 			Effect.map((result): JellyfinSession | null => {
@@ -174,8 +174,8 @@ export default defineAutomation({
 			}
 			yield* Effect.forEach(
 				integrations,
-				(integration) => markPlayedInJellyfin(host, integration, { tmdbId, title }),
-				{ concurrency: 1, discard: true },
+				(integration) => markPlayedInJellyfin(host, integration, { title, tmdbId }),
+				{ discard: true, concurrency: 1 },
 			);
 			return null;
 		});

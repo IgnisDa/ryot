@@ -29,7 +29,7 @@ describe("company.tmdb sandbox script", () => {
 			if (requestUrl.pathname.endsWith("/discover/tv")) {
 				return httpSuccess({ results: [{ id: 3, name: "Show" }] });
 			}
-			return httpSuccess({ name: "Studio", logo_path: "/logo.png", origin_country: "US" });
+			return httpSuccess({ name: "Studio", origin_country: "US", logo_path: "/logo.png" });
 		});
 
 		return runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
@@ -107,10 +107,10 @@ describe("company.tmdb sandbox script", () => {
 			Effect.map((result) => {
 				expect(requests).toEqual(
 					expect.arrayContaining([
-						{ path: "/3/discover/movie", company: "1", page: "1" },
-						{ path: "/3/discover/movie", company: "1", page: "2" },
-						{ path: "/3/discover/tv", company: "1", page: "1" },
-						{ path: "/3/discover/tv", company: "1", page: "2" },
+						{ page: "1", company: "1", path: "/3/discover/movie" },
+						{ page: "2", company: "1", path: "/3/discover/movie" },
+						{ page: "1", company: "1", path: "/3/discover/tv" },
+						{ page: "2", company: "1", path: "/3/discover/tv" },
 					]),
 				);
 				expect(result.relatedEntityGroups).toEqual([

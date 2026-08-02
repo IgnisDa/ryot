@@ -1,6 +1,6 @@
 export const MAIN_CONTENT_ID = "main-content";
 
-export const mainContentProps = { id: MAIN_CONTENT_ID, tabIndex: -1 } as const;
+export const mainContentProps = { tabIndex: -1, id: MAIN_CONTENT_ID } as const;
 
 export function SkipToContentLink() {
 	return (

@@ -15,6 +15,7 @@ const showRef = {
 it("writes finalized episode subjects and keeps plugin-private episode data out of the chunk", () => {
 	const chunk = createMediaImportChunk(
 		{
+			populationResults: [{ index: 0, entityId: "show-1", status: "completed" }],
 			failures: [
 				{
 					itemIndex: 0,
@@ -25,7 +26,6 @@ it("writes finalized episode subjects and keeps plugin-private episode data out 
 					message: "Could not resolve show episode S1E99",
 				},
 			],
-			populationResults: [{ index: 0, status: "completed", entityId: "show-1" }],
 			entityGroups: [
 				{
 					itemIndex: 0,
@@ -58,13 +58,13 @@ it("writes finalized episode subjects and keeps plugin-private episode data out 
 	]);
 	expect(chunk.items).toMatchObject([
 		{
-			entities: [
-				{ alias: "media", entityId: "show-1", entitySchemaSlug: "show" },
-				{ alias: "library", scope: "user", existingOnly: true, entitySchemaSlug: "library" },
-			],
 			events: [
 				{ entityAlias: "media", eventSchemaSlug: "progress", subjectEntityId: "episode-1" },
 				{ entityAlias: "media", eventSchemaSlug: "backlog" },
+			],
+			entities: [
+				{ alias: "media", entityId: "show-1", entitySchemaSlug: "show" },
+				{ scope: "user", alias: "library", existingOnly: true, entitySchemaSlug: "library" },
 			],
 		},
 	]);
@@ -114,7 +114,7 @@ it("emits library membership and ownership as a generic relationship mutation", 
 	const chunk = createMediaImportChunk(
 		{
 			failures: [],
-			populationResults: [{ index: 0, status: "completed", entityId: "show-1" }],
+			populationResults: [{ index: 0, entityId: "show-1", status: "completed" }],
 			entityGroups: [
 				{
 					events: [],
@@ -132,7 +132,7 @@ it("emits library membership and ownership as a generic relationship mutation", 
 		collectionMemberships: [{ entityAlias: "media", collectionName: "Pinned" }],
 		entities: [
 			{ alias: "media" },
-			{ alias: "library", scope: "user", existingOnly: true, entitySchemaSlug: "library" },
+			{ scope: "user", alias: "library", existingOnly: true, entitySchemaSlug: "library" },
 		],
 		relationships: [
 			{
@@ -150,8 +150,8 @@ it("emits membership without ownership properties for unowned media", () => {
 	const chunk = createMediaImportChunk(
 		{
 			failures: [],
-			populationResults: [{ index: 0, status: "completed", entityId: "show-1" }],
-			entityGroups: [{ itemIndex: 0, events: [], entityRef: showRef, collectionMemberships: [] }],
+			populationResults: [{ index: 0, entityId: "show-1", status: "completed" }],
+			entityGroups: [{ events: [], itemIndex: 0, entityRef: showRef, collectionMemberships: [] }],
 		},
 		ownershipSyncedAt,
 	);

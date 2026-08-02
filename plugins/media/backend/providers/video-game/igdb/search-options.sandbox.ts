@@ -12,4 +12,4 @@ export const manifest = defineManifest({
 	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 
-export default defineProvider({ manifest, operation: "search-options", run: searchOptions.run });
+export default defineProvider({ manifest, run: searchOptions.run, operation: "search-options" });

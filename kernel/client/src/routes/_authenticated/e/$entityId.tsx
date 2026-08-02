@@ -9,7 +9,7 @@ export const Route = createFileRoute("/_authenticated/e/$entityId")({
 	component: EntityPage,
 	errorComponent: EntityError,
 	pendingComponent: EntityPending,
-	loader: async ({ abortController, context, params }) => {
+	loader: async ({ params, context, abortController }) => {
 		const preparation = await context.runtime.runPromise(
 			prepareClientPage(context.scope, {
 				kind: "entity",

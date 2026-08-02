@@ -67,7 +67,7 @@ const assertFiniteNumbers = (value: JsonValue) => {
 
 export const literal = (value: JsonValue): LiteralExpression => {
 	assertFiniteNumbers(value);
-	return { type: "literal", value };
+	return { value, type: "literal" };
 };
 
 export const jsonPath = (
@@ -109,7 +109,7 @@ export const conditional = (
 	condition: Predicate,
 	whenTrue: ScalarExpression,
 	whenFalse: ScalarExpression,
-): ConditionalExpression => ({ condition, type: "conditional", whenFalse, whenTrue });
+): ConditionalExpression => ({ whenTrue, condition, whenFalse, type: "conditional" });
 
 export const transform = (
 	name: TransformExpression["name"],
@@ -191,16 +191,16 @@ export const or = (...predicates: readonly Predicate[]): Predicate => ({
 	predicates: [...predicates],
 });
 
-export const field = (key: string, expr: ScalarExpression): FieldSelection => ({ expr, key });
+export const field = (key: string, expr: ScalarExpression): FieldSelection => ({ key, expr });
 
 export const star = (tableName: TableReference): WildcardSelection => ({
 	type: "wildcard",
 	tableAlias: tableName.alias,
 });
 
-export const ascending = (expr: ScalarExpression): OrderBy => ({ direction: "asc", expr });
+export const ascending = (expr: ScalarExpression): OrderBy => ({ expr, direction: "asc" });
 
-export const descending = (expr: ScalarExpression): OrderBy => ({ direction: "desc", expr });
+export const descending = (expr: ScalarExpression): OrderBy => ({ expr, direction: "desc" });
 
 export const join = (type: Join["type"], tableName: TableReference, on: Predicate): Join => ({
 	on,
@@ -274,10 +274,10 @@ export const measure = (key: string, aggregation: AggregationSpec): AggregateMea
 	aggregation,
 });
 
-export const groupAscending = (key: string): AggregateOrderBy => ({ direction: "asc", key });
-export const groupDescending = (key: string): AggregateOrderBy => ({ direction: "desc", key });
-export const measureAscending = (key: string): AggregateOrderBy => ({ direction: "asc", key });
-export const measureDescending = (key: string): AggregateOrderBy => ({ direction: "desc", key });
+export const groupAscending = (key: string): AggregateOrderBy => ({ key, direction: "asc" });
+export const groupDescending = (key: string): AggregateOrderBy => ({ key, direction: "desc" });
+export const measureAscending = (key: string): AggregateOrderBy => ({ key, direction: "asc" });
+export const measureDescending = (key: string): AggregateOrderBy => ({ key, direction: "desc" });
 
 export const include = (
 	from: TableReference,
@@ -333,7 +333,7 @@ export type SelectedField<A, I = unknown> = {
 export const selectedField = <A, I>(
 	expr: ScalarExpression,
 	codec: Schema.Codec<A, I>,
-): SelectedField<A, I> => ({ codec, expr });
+): SelectedField<A, I> => ({ expr, codec });
 
 export type SelectedSelection = Readonly<Record<string, SelectedField<unknown>>>;
 
@@ -527,7 +527,7 @@ const decodeSelectedRows = <Selection extends SelectedSelection, Includes extend
 		return Result.flatMap(decodeRowsPageInfo(rowsResult["pageInfo"]), (pageInfo) =>
 			Result.map(
 				Result.all(rawItems.map((row) => decodeSelectedRow(row, selection, includes))),
-				(decodedItems) => ({ items: decodedItems, pageInfo }),
+				(decodedItems) => ({ pageInfo, items: decodedItems }),
 			),
 		);
 	});
@@ -539,13 +539,13 @@ export const selectedRows = <
 	from: TableReference,
 	input: SelectedRowsInput<Selection, Includes>,
 ): SelectedRowsQuery<Selection, Includes> => {
-	const { include: includes, selection, ...rowInput } = input;
+	const { selection, include: includes, ...rowInput } = input;
 	return {
 		decodeResult: (result) => decodeSelectedRows(result, selection, includes),
 		document: rows(from, {
 			...rowInput,
-			fields: Object.entries(selection).map(([key, selected]) => field(key, selected.expr)),
 			include: compileIncludes(includes),
+			fields: Object.entries(selection).map(([key, selected]) => field(key, selected.expr)),
 		}),
 	};
 };
@@ -628,16 +628,16 @@ export const selectedInclude = <
 	from: TableReference,
 	input: SelectedIncludeInput<Selection, Includes>,
 ): SelectedIncludeQuery<Selection, Includes> => {
-	const { include: includes, selection, ...includeInput } = input;
+	const { selection, include: includes, ...includeInput } = input;
 	return {
 		include: (key) =>
 			include(from, {
 				...includeInput,
 				key,
+				include: compileIncludes(includes),
 				fields: Object.entries(selection).map(([fieldKey, selected]) =>
 					field(fieldKey, selected.expr),
 				),
-				include: compileIncludes(includes),
 			}),
 		decodeResult: (result) =>
 			Result.flatMap(record(result, "RyotQL include result is malformed"), (includeResult) => {
@@ -650,7 +650,7 @@ export const selectedInclude = <
 					(pageInfo) =>
 						Result.map(
 							Result.all(rawItems.map((row) => decodeSelectedRow(row, selection, includes))),
-							(decodedItems) => ({ items: decodedItems, pageInfo }),
+							(decodedItems) => ({ pageInfo, items: decodedItems }),
 						),
 				);
 			}),
@@ -696,6 +696,11 @@ export const defineRecipe =
 	(...input: InputTuple): PreparedRecipe<Success> => {
 		const { map, queries } = builder(...input);
 		return {
+			document: document(
+				Object.fromEntries(
+					Object.entries(queries).map(([name, query]) => [name, query.document]),
+				) as Record<string, NamedQuery>,
+			),
 			decode: (response: unknown) => {
 				return Result.flatMap(record(response, "RyotQL response is malformed"), (decodedResponse) =>
 					Result.flatMap(
@@ -720,11 +725,6 @@ export const defineRecipe =
 					),
 				);
 			},
-			document: document(
-				Object.fromEntries(
-					Object.entries(queries).map(([name, query]) => [name, query.document]),
-				) as Record<string, NamedQuery>,
-			),
 		};
 	};
 
@@ -787,7 +787,7 @@ export type SelectedMeasure<A, I = unknown> = {
 export const selectedMeasure = <A, I>(
 	aggregation: AggregationSpec,
 	codec: Schema.Codec<A, I>,
-): SelectedMeasure<A, I> => ({ aggregation, codec });
+): SelectedMeasure<A, I> => ({ codec, aggregation });
 
 type SelectedMeasures = Readonly<Record<string, SelectedMeasure<unknown>>>;
 
@@ -859,7 +859,7 @@ export function selectedAggregate(
 		| SelectedAggregateInput<SelectedSelection, SelectedMeasures>
 		| SelectedUngroupedAggregateInput<SelectedMeasures>,
 ): SelectedQuery<unknown> {
-	const { groupBy = {}, measures, ...aggregateInput } = input;
+	const { measures, groupBy = {}, ...aggregateInput } = input;
 	const compiledMeasures = Object.entries(measures).map(([key, selected]) =>
 		measure(key, selected.aggregation),
 	);
@@ -874,8 +874,8 @@ export function selectedAggregate(
 	return {
 		document: aggregate(from, {
 			...aggregateInput,
-			groupBy: Object.entries(groupBy).map(([key, selected]) => field(key, selected.expr)),
 			measures: [firstMeasure, ...restMeasures],
+			groupBy: Object.entries(groupBy).map(([key, selected]) => field(key, selected.expr)),
 		}),
 		decodeResult: (result) =>
 			Result.flatMap(record(result, "RyotQL aggregate result is malformed"), (aggregateResult) => {
@@ -951,8 +951,8 @@ export const selectedTimeSeries = <const Selection extends SelectedTimeSeriesSel
 							Result.flatMap(record(value, "RyotQL time-series bucket is malformed"), (bucket) =>
 								Result.all({
 									endAt: decodeValue(bucket["endAt"], selection.endAt, "bucket.endAt"),
-									startAt: decodeValue(bucket["startAt"], selection.startAt, "bucket.startAt"),
 									value: decodeValue(bucket["value"], selection.value, "bucket.value"),
+									startAt: decodeValue(bucket["startAt"], selection.startAt, "bucket.startAt"),
 								}),
 							),
 						),

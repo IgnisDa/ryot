@@ -5,11 +5,11 @@ import { details } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	name: "Listen Notes Podcast Details",
-	slug: "podcast.listennotes.details",
-	requiredPluginConfigKeys: ["listennotesApiKey"],
 	requiredSystemConfigKeys: [],
+	slug: "podcast.listennotes.details",
+	name: "Listen Notes Podcast Details",
+	requiredPluginConfigKeys: ["listennotesApiKey"],
 	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 
-export default defineProvider({ manifest, operation: "details", run: details.run });
+export default defineProvider({ manifest, run: details.run, operation: "details" });

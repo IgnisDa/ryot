@@ -72,7 +72,7 @@ const getShelfLifecycle = (shelf: string) => {
 };
 
 export const adaptGrouveeCsv = (csvText: string) => {
-	const { headers, rows } = parseCsvText(csvText);
+	const { rows, headers } = parseCsvText(csvText);
 	assertRequiredHeaders(
 		headers,
 		["id", "name", "dates", "shelves", "statuses", "giantbomb_id"],
@@ -115,7 +115,7 @@ export const adaptGrouveeCsv = (csvText: string) => {
 			const occurredAt = completedOn ?? startedOn ?? importedAt;
 			hasExplicitCompletion = true;
 			lastOccurredAt = occurredAt;
-			group.events.push(createCompleteEvent({ startedOn, completedOn, occurredAt }));
+			group.events.push(createCompleteEvent({ startedOn, occurredAt, completedOn }));
 		}
 		for (const statusEntry of parseStatusEntries(row["statuses"] ?? "")) {
 			const text = statusEntry.status?.trim();
@@ -124,7 +124,7 @@ export const adaptGrouveeCsv = (csvText: string) => {
 			}
 			const occurredAt = parseGrouveeDate(statusEntry.date) ?? importedAt;
 			lastOccurredAt = occurredAt;
-			const review = createReviewEvent({ occurredAt, text });
+			const review = createReviewEvent({ text, occurredAt });
 			if (review) {
 				group.events.push(review);
 			}
@@ -158,8 +158,8 @@ export const adaptGrouveeCsv = (csvText: string) => {
 		}
 	}
 	return {
+		failures,
 		totalItems: rows.length,
 		entityGroups: finalizeEntityGroups(groupMap.values()),
-		failures,
 	};
 };

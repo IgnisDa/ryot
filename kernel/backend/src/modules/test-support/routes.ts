@@ -27,19 +27,19 @@ const mapTestSupportFailure = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 			return Match.value(error).pipe(
 				Match.when(
 					(value: unknown) => Reflect.get(Object(value), "_tag") === "BadRequest",
-					() => new TestSupportBadRequest({ reason: { code: "invalid-request", diagnostic } }),
+					() => new TestSupportBadRequest({ reason: { diagnostic, code: "invalid-request" } }),
 				),
 				Match.when(
 					(value: unknown) => Reflect.get(Object(value), "_tag") === "NotFound",
-					() => new TestSupportNotFound({ reason: { code: "resource-not-found", diagnostic } }),
+					() => new TestSupportNotFound({ reason: { diagnostic, code: "resource-not-found" } }),
 				),
 				Match.when(
 					(value: unknown) => Reflect.get(Object(value), "_tag") === "Conflict",
-					() => new TestSupportConflict({ reason: { code: "resource-conflict", diagnostic } }),
+					() => new TestSupportConflict({ reason: { diagnostic, code: "resource-conflict" } }),
 				),
 				Match.orElse(
 					() =>
-						new TestSupportOperationFailure({ reason: { code: "operation-failed", diagnostic } }),
+						new TestSupportOperationFailure({ reason: { diagnostic, code: "operation-failed" } }),
 				),
 			);
 		}),
@@ -65,7 +65,7 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				return yield* svc.enqueueSandbox(payload);
 			}).pipe(mapTestSupportFailure),
 		)
-		.handle("getSandboxResult", ({ params, query }) =>
+		.handle("getSandboxResult", ({ query, params }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc.getSandboxResult(query.executingUserId, params.jobId);

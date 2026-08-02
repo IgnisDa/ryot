@@ -75,7 +75,7 @@ export const materializeSavedView = (
 			...definition,
 			pluginId,
 			pluginSlug,
-			renderer: { kind: "plugin" as const, pluginId, exportName: definition.renderer.exportName },
+			renderer: { pluginId, kind: "plugin" as const, exportName: definition.renderer.exportName },
 		};
 	}
 	if (definition.renderer.name !== "entity-browser") {
@@ -118,8 +118,8 @@ export const materializeSavedView = (
 		...definition,
 		pluginId,
 		pluginSlug,
-		renderer: definition.renderer,
 		dataSources,
+		renderer: definition.renderer,
 		settings:
 			typeof addAction === "object" && addAction !== null && !Array.isArray(addAction)
 				? {
@@ -134,29 +134,6 @@ export const mergeManifestDefinitions = (
 	base: DefinitionSource,
 	plugins: ReadonlyArray<Pick<PluginRegistryEntry, "id" | "manifest" | "slug">>,
 ): DefinitionSource => ({
-	savedViews: [
-		...base.savedViews,
-		...plugins.flatMap(({ id, manifest, slug }) =>
-			manifest.savedViews.map((definition) =>
-				materializeSavedView(definition, id, slug, manifest.client),
-			),
-		),
-	],
-	entitySchemas: [
-		...base.entitySchemas,
-		...plugins.flatMap(({ id, manifest, slug }) =>
-			manifest.entitySchemas.map((definition) => ({
-				...definition,
-				pluginId: id,
-				pluginSlug: slug,
-				mergeIdentityProperties: definition.mergeIdentityProperties ?? [],
-				eventSchemas: definition.eventSchemas.map((eventSchema) => ({
-					...eventSchema,
-					pluginId: id,
-				})),
-			})),
-		),
-	],
 	signalSchemas: [
 		...base.signalSchemas,
 		...plugins.flatMap(({ id, manifest }) =>
@@ -169,6 +146,29 @@ export const mergeManifestDefinitions = (
 		),
 		...base.relationshipSchemas,
 	],
+	savedViews: [
+		...base.savedViews,
+		...plugins.flatMap(({ id, slug, manifest }) =>
+			manifest.savedViews.map((definition) =>
+				materializeSavedView(definition, id, slug, manifest.client),
+			),
+		),
+	],
+	entitySchemas: [
+		...base.entitySchemas,
+		...plugins.flatMap(({ id, slug, manifest }) =>
+			manifest.entitySchemas.map((definition) => ({
+				...definition,
+				pluginId: id,
+				pluginSlug: slug,
+				mergeIdentityProperties: definition.mergeIdentityProperties ?? [],
+				eventSchemas: definition.eventSchemas.map((eventSchema) => ({
+					...eventSchema,
+					pluginId: id,
+				})),
+			})),
+		),
+	],
 });
 
 const mergeBindings = (manifests: ReadonlyArray<PluginManifest>): PluginBindings =>
@@ -177,13 +177,13 @@ const mergeBindings = (manifests: ReadonlyArray<PluginManifest>): PluginBindings
 			eventAutomations: [...bindings.eventAutomations, ...manifest.bindings.eventAutomations],
 			entityAutomations: [...bindings.entityAutomations, ...manifest.bindings.entityAutomations],
 			signalAutomations: [...bindings.signalAutomations, ...manifest.bindings.signalAutomations],
-			providerEntityImportAutomations: [
-				...bindings.providerEntityImportAutomations,
-				...manifest.bindings.providerEntityImportAutomations,
-			],
 			relationshipAutomations: [
 				...bindings.relationshipAutomations,
 				...manifest.bindings.relationshipAutomations,
+			],
+			providerEntityImportAutomations: [
+				...bindings.providerEntityImportAutomations,
+				...manifest.bindings.providerEntityImportAutomations,
 			],
 		}),
 		emptyBindings(),
@@ -263,8 +263,8 @@ export const makePluginLoader = (
 	let snapshot: PluginRegistrySnapshot = deepFreeze({
 		plugins: {},
 		bindings: emptyBindings(),
-		httpRateLimits: { byKey: {}, byOrigin: {} },
 		definitions: buildDefinitionSnapshot(base),
+		httpRateLimits: { byKey: {}, byOrigin: {} },
 	});
 
 	const buildSnapshot = (plugins: Readonly<Record<string, PluginRegistryEntry>>) => {

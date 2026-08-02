@@ -48,9 +48,9 @@ it.effect("returns one active operation without repeating completed access revoc
 	const executionIds: string[] = [];
 	const auth = Layer.mock(AuthService)({
 		auth: Object.create(null),
-		updateAuthUserDisabled: () => Effect.sync(() => void calls.push("disable")),
 		deleteUserSessions: () => Effect.sync(() => void calls.push("sessions")),
 		revokeUserOAuthTokens: () => Effect.sync(() => void calls.push("oauth")),
+		updateAuthUserDisabled: () => Effect.sync(() => void calls.push("disable")),
 		purgeApiKeyCaches: (_userId, apiKeys) =>
 			Effect.sync(() => {
 				calls.push(`keys:${apiKeys.map(({ id }) => id).join(",")}`);
@@ -58,11 +58,11 @@ it.effect("returns one active operation without repeating completed access revoc
 			}),
 	});
 	const repository = Layer.mock(UserLifecycleRepository)({
-		loadPreparationForUpdate: () =>
-			Effect.succeed({ active: prepared, retryable: null, metadata: prepared.metadata }),
-		getInternalById: () => Effect.succeed(prepared),
-		getById: () => Effect.succeed(operation),
 		markFailed: () => Effect.void,
+		getById: () => Effect.succeed(operation),
+		getInternalById: () => Effect.succeed(prepared),
+		loadPreparationForUpdate: () =>
+			Effect.succeed({ retryable: null, active: prepared, metadata: prepared.metadata }),
 	});
 	const engine = makeWorkflowEngine({
 		execute: (_workflow, options) =>
@@ -104,23 +104,23 @@ it.effect("revokes access once and clears persisted API-key cache lookup metadat
 		accessRevokedAt: new Date("2026-08-24T00:00:01.000Z"),
 	};
 	const repository = Layer.mock(UserLifecycleRepository)({
-		loadPreparationForUpdate: () =>
-			Effect.succeed({
-				retryable: null,
-				active: revoked ? revokedOperation : unrevoked,
-				metadata: revoked ? revokedOperation.metadata : metadata,
-			}),
-		getInternalById: () => Effect.succeed(revoked ? revokedOperation : unrevoked),
-		claimAccessRevocation: () => Effect.succeed(unrevoked),
 		userExists: () => Effect.succeed(true),
+		getById: () => Effect.succeed(operation),
+		releaseAccessRevocation: () => Effect.void,
+		claimAccessRevocation: () => Effect.succeed(unrevoked),
+		getInternalById: () => Effect.succeed(revoked ? revokedOperation : unrevoked),
 		markAccessRevoked: () =>
 			Effect.sync(() => {
 				revoked = true;
 				calls.push("record");
 				return revokedOperation;
 			}),
-		releaseAccessRevocation: () => Effect.void,
-		getById: () => Effect.succeed(operation),
+		loadPreparationForUpdate: () =>
+			Effect.succeed({
+				retryable: null,
+				active: revoked ? revokedOperation : unrevoked,
+				metadata: revoked ? revokedOperation.metadata : metadata,
+			}),
 	});
 	const serviceLayer = UserLifecycleService.layer.pipe(
 		Layer.provide(
@@ -130,9 +130,9 @@ it.effect("revokes access once and clears persisted API-key cache lookup metadat
 				makeAppConfigLayer(),
 				Layer.mock(AuthService)({
 					auth: Object.create(null),
-					updateAuthUserDisabled: () => Effect.sync(() => void calls.push("disable")),
 					deleteUserSessions: () => Effect.sync(() => void calls.push("sessions")),
 					revokeUserOAuthTokens: () => Effect.sync(() => void calls.push("oauth")),
+					updateAuthUserDisabled: () => Effect.sync(() => void calls.push("disable")),
 					purgeApiKeyCaches: (_userId, apiKeys) =>
 						Effect.sync(() => void calls.push(`keys:${apiKeys.map(({ id }) => id).join(",")}`)),
 				}),
@@ -159,9 +159,9 @@ it.effect(
 					makeAppConfigLayer(),
 					Layer.mock(AuthService)({ auth: Object.create(null) }),
 					Layer.mock(UserLifecycleRepository)({
-						loadPreparationForUpdate: () =>
-							Effect.succeed({ active: prepared, retryable: null, metadata: prepared.metadata }),
 						getInternalById: () => Effect.succeed(prepared),
+						loadPreparationForUpdate: () =>
+							Effect.succeed({ retryable: null, active: prepared, metadata: prepared.metadata }),
 					}),
 					Layer.succeed(
 						WorkflowEngine,
@@ -196,7 +196,7 @@ it.effect(
 		const retried = {
 			...failed,
 			workflowAttempt: 1,
-			operation: { ...failed.operation, status: "pending" as const, finishedAt: null },
+			operation: { ...failed.operation, finishedAt: null, status: "pending" as const },
 		};
 		const serviceLayer = UserLifecycleService.layer.pipe(
 			Layer.provide(
@@ -205,11 +205,11 @@ it.effect(
 					makeAppConfigLayer(),
 					Layer.mock(AuthService)({ auth: Object.create(null) }),
 					Layer.mock(UserLifecycleRepository)({
+						getInternalById: () => Effect.succeed(retried),
+						reactivateFailed: () => Effect.succeed(retried),
+						getById: () => Effect.succeed(retried.operation),
 						loadPreparationForUpdate: () =>
 							Effect.succeed({ active: null, retryable: failed, metadata: failed.metadata }),
-						reactivateFailed: () => Effect.succeed(retried),
-						getInternalById: () => Effect.succeed(retried),
-						getById: () => Effect.succeed(retried.operation),
 					}),
 					Layer.succeed(
 						WorkflowEngine,

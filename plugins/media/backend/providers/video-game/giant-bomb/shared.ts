@@ -20,10 +20,10 @@ import {
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "GiantBomb",
+	requiredSystemConfigKeys: [],
 	slug: "video-game.giant-bomb",
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["giantBombApiKey"],
-	requiredSystemConfigKeys: [],
 });
 
 const buildPlatformReleases = (platforms: unknown) => {
@@ -177,6 +177,16 @@ export const details = defineProvider({
 
 			return {
 				name,
+				properties: {
+					sourceUrl: stringValue(game["site_detail_url"]),
+					publishYear: extractYear(game["original_release_date"]),
+					platformReleases: buildPlatformReleases(game["platforms"]),
+					description: combineDescription(game["deck"], game["description"]),
+					genres: [...collectNames(game["genres"]), ...collectNames(game["themes"])],
+					images: primaryImage
+						? [{ url: primaryImage, type: "remote" as const, purpose: "cover" as const }]
+						: [],
+				},
 				relatedEntityGroups: [
 					{
 						direction: "incoming" as const,
@@ -197,16 +207,6 @@ export const details = defineProvider({
 						relationshipSchemaSlug: "media-suggestion",
 					},
 				],
-				properties: {
-					sourceUrl: stringValue(game["site_detail_url"]),
-					publishYear: extractYear(game["original_release_date"]),
-					platformReleases: buildPlatformReleases(game["platforms"]),
-					images: primaryImage
-						? [{ type: "remote" as const, url: primaryImage, purpose: "cover" as const }]
-						: [],
-					description: combineDescription(game["deck"], game["description"]),
-					genres: [...collectNames(game["genres"]), ...collectNames(game["themes"])],
-				},
 			};
 		});
 	},

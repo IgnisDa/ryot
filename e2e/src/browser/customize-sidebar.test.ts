@@ -76,8 +76,8 @@ beforeAll(async () => {
 				name: PROVIDER_NAME,
 				slug: PROVIDER_SLUG,
 				pluginSlug: PLUGIN_SLUG,
-				rootEntitySchemaSlug: ENTITY_SCHEMA_SLUG,
 				search: fakeProviderSearchResult([]),
+				rootEntitySchemaSlug: ENTITY_SCHEMA_SLUG,
 				details: fakeProviderDetailsResult({ name: "Customize sidebar record" }),
 				entitySchemas: [
 					{
@@ -150,7 +150,7 @@ it.live("leaves the draft untouched when the customization is cancelled", () =>
 		yield* page.getByRole("switch", { name: `Show ${GAMMA} in sidebar` }).click();
 		yield* page.getByRole("button", { name: "Cancel sidebar customization" }).click();
 
-		yield* page.getByRole("button", { name: "Discard", exact: true }).click();
+		yield* page.getByRole("button", { exact: true, name: "Discard" }).click();
 		yield* page.waitForURL((url) => url.pathname === new URL(homeUrl).pathname);
 		yield* waitForSidebarSavedViews(page, [BETA, GAMMA, ALPHA]);
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),

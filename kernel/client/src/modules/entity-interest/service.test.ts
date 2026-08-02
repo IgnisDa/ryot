@@ -11,7 +11,7 @@ import { EntityInterestService } from "./service";
 import { EntityInterestTransport, type InterestSocket } from "./transport";
 
 const updates: EntityUpdate[] = [];
-const empty = { foreground: [], visible: [] };
+const empty = { visible: [], foreground: [] };
 const cleanups: Array<() => Promise<void>> = [];
 const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 
@@ -102,7 +102,7 @@ function setup(options: { readonly pendingTicket?: boolean } = {}) {
 						return socket;
 					},
 					schedule: (delay, callback) => {
-						const timer = { at: now + delay, callback };
+						const timer = { callback, at: now + delay };
 						timers.add(timer);
 						return () => {
 							timers.delete(timer);
@@ -176,8 +176,8 @@ describe("entity interest session", () => {
 		await settle();
 		const socket = test.socket();
 		socket.ready();
-		socket.frame({ type: "applied", revision: 1 });
-		const owner = test.service.watch({ ...scope }, { foreground: ["new"], visible: [] }, (update) =>
+		socket.frame({ revision: 1, type: "applied" });
+		const owner = test.service.watch({ ...scope }, { visible: [], foreground: ["new"] }, (update) =>
 			updates.push(update),
 		);
 		const secondRelease = test.service.acquire({ ...scope });
@@ -185,21 +185,21 @@ describe("entity interest session", () => {
 		await settle();
 		expect(test.sockets).toHaveLength(1);
 		expect(test.tickets()).toBe(1);
-		expect(socket.sent.at(-1)).toEqual({ type: "update", revision: 2, add: ["new"], remove: [] });
+		expect(socket.sent.at(-1)).toEqual({ remove: [], revision: 2, add: ["new"], type: "update" });
 		firstRelease();
 		firstRelease();
 		expect(socket.closed).toBe(false);
-		socket.frame({ type: "entity-updated", entityId: "new", reason: "translated" });
+		socket.frame({ entityId: "new", reason: "translated", type: "entity-updated" });
 		secondRelease();
 		expect(socket.closed).toBe(true);
 		expect(test.timers.size).toBe(0);
 		expect(test.hasListener()).toBe(false);
-		owner.update({ foreground: ["new"], visible: [] });
+		owner.update({ visible: [], foreground: ["new"] });
 		test.service.acquire(scope);
 		await settle();
 		test.socket().ready();
-		test.socket().frame({ type: "entity-updated", entityId: "new", reason: "populated" });
-		expect(test.socket().sent.at(-1)).toEqual({ type: "replace", revision: 1, entityIds: [] });
+		test.socket().frame({ entityId: "new", reason: "populated", type: "entity-updated" });
+		expect(test.socket().sent.at(-1)).toEqual({ revision: 1, entityIds: [], type: "replace" });
 		expect(updates).toEqual([{ entityId: "new", reason: "translated" }]);
 	});
 
@@ -211,7 +211,7 @@ describe("entity interest session", () => {
 				events.push(`watch:${props.id}`);
 				const owner = test.service.watch(
 					{ ...scope },
-					{ foreground: [props.id], visible: [] },
+					{ visible: [], foreground: [props.id] },
 					(update) => updates.push(update),
 				);
 				return () => owner.dispose();
@@ -233,8 +233,8 @@ describe("entity interest session", () => {
 		expect(events).toEqual(["watch:a", "acquire", "watch:a", "acquire"]);
 		const first = test.socket();
 		first.ready();
-		expect(first.sent.at(-1)).toEqual({ type: "replace", revision: 1, entityIds: ["a"] });
-		first.frame({ type: "entity-updated", entityId: "a", reason: "populated" });
+		expect(first.sent.at(-1)).toEqual({ revision: 1, type: "replace", entityIds: ["a"] });
+		first.frame({ entityId: "a", reason: "populated", type: "entity-updated" });
 		view.rerender(tree("b"));
 		view.rerender(tree("b"));
 		await act(settle);
@@ -246,11 +246,11 @@ describe("entity interest session", () => {
 		await act(settle);
 		const resumed = test.socket();
 		resumed.ready();
-		expect(resumed.sent.at(-1)).toEqual({ type: "replace", revision: 1, entityIds: ["b"] });
-		resumed.frame({ type: "entity-updated", entityId: "a", reason: "translated" });
-		resumed.frame({ type: "entity-updated", entityId: "b", reason: "translated" });
+		expect(resumed.sent.at(-1)).toEqual({ revision: 1, type: "replace", entityIds: ["b"] });
+		resumed.frame({ entityId: "a", reason: "translated", type: "entity-updated" });
+		resumed.frame({ entityId: "b", reason: "translated", type: "entity-updated" });
 		view.unmount();
-		resumed.frame({ type: "entity-updated", entityId: "b", reason: "populated" });
+		resumed.frame({ entityId: "b", reason: "populated", type: "entity-updated" });
 		expect(updates).toEqual([
 			{ entityId: "a", reason: "populated" },
 			{ entityId: "b", reason: "translated" },
@@ -263,7 +263,7 @@ describe("entity interest session", () => {
 	it("reports deduplicated omitted count only once per layout session despite declaration churn and reconnects", async () => {
 		const test = setup();
 		const ids = Array.from({ length: 502 }, (_, i) => `id-${i}`);
-		const owner = test.service.watch(scope, { foreground: ["id-0"], visible: ids }, () => {});
+		const owner = test.service.watch(scope, { visible: ids, foreground: ["id-0"] }, () => {});
 		const release = test.service.acquire(scope);
 		expect(test.overflows).toEqual([2]);
 		for (let i = 0; i < 100; i++) {
@@ -283,7 +283,7 @@ describe("entity interest session", () => {
 		const test = setup();
 		let oldUpdates = 0;
 		const nextScope = { ...scope, userId: "user-2" };
-		test.service.watch(scope, { foreground: ["a"], visible: [] }, () => {
+		test.service.watch(scope, { visible: [], foreground: ["a"] }, () => {
 			oldUpdates++;
 		});
 		const release = test.service.acquire(scope);
@@ -300,9 +300,9 @@ describe("entity interest session", () => {
 		socket.ready();
 		expect(oldSocket.closed).toBe(true);
 		expect(socket.closed).toBe(false);
-		expect(socket.sent.at(-1)).toEqual({ type: "replace", revision: 1, entityIds: ["b"] });
-		socket.frame({ type: "entity-updated", entityId: "b", reason: "translated" });
-		socket.frame({ type: "entity-updated", entityId: "a", reason: "populated" });
+		expect(socket.sent.at(-1)).toEqual({ revision: 1, type: "replace", entityIds: ["b"] });
+		socket.frame({ entityId: "b", reason: "translated", type: "entity-updated" });
+		socket.frame({ entityId: "a", reason: "populated", type: "entity-updated" });
 		expect(oldUpdates).toBe(0);
 		expect(updates).toEqual([{ entityId: "b", reason: "translated" }]);
 		await test.runtime.dispose();
@@ -313,7 +313,7 @@ describe("entity interest session", () => {
 
 	it("isolates listener exceptions and stops disposed owners immediately", async () => {
 		const test = setup();
-		test.service.watch(scope, { foreground: ["a"], visible: [] }, () => {
+		test.service.watch(scope, { visible: [], foreground: ["a"] }, () => {
 			throw new Error("Listener failed");
 		});
 		const owner = test.service.watch(scope, { foreground: [], visible: ["a"] }, (update) =>
@@ -323,11 +323,11 @@ describe("entity interest session", () => {
 		await settle();
 		const socket = test.socket();
 		socket.ready();
-		socket.frame({ type: "entity-updated", entityId: "a", reason: "populated" });
+		socket.frame({ entityId: "a", reason: "populated", type: "entity-updated" });
 		owner.dispose();
 		owner.dispose();
-		owner.update({ foreground: ["a"], visible: [] });
-		socket.frame({ type: "entity-updated", entityId: "a", reason: "translated" });
+		owner.update({ visible: [], foreground: ["a"] });
+		socket.frame({ entityId: "a", reason: "translated", type: "entity-updated" });
 		expect(updates).toEqual([{ entityId: "a", reason: "populated" }]);
 		expect(socket.closed).toBe(false);
 	});
@@ -335,55 +335,55 @@ describe("entity interest session", () => {
 	it("holds declarations before layout mount, authenticates first and deduplicates foreground before visible", async () => {
 		const test = setup();
 		const visible = Array.from({ length: 501 }, (_, i) => `visible-${String(i).padStart(3, "0")}`);
-		test.service.watch(scope, { foreground: ["foreground"], visible }, (update) =>
+		test.service.watch(scope, { visible, foreground: ["foreground"] }, (update) =>
 			updates.push(update),
 		);
-		test.service.watch({ ...scope }, { foreground: ["foreground"], visible: [] }, () => {});
+		test.service.watch({ ...scope }, { visible: [], foreground: ["foreground"] }, () => {});
 		expect(test.tickets()).toBe(0);
 		test.service.acquire({ ...scope });
 		await settle();
 		expect(test.urls).toEqual(["wss://ryot.example/api/entity-interest/ws"]);
 		test.socket().ready();
 		expect(test.socket().sent).toEqual([
-			{ type: "authenticate", ticket: "ticket-1" },
-			{ type: "replace", revision: 1, entityIds: ["foreground", ...visible.slice(0, 499)] },
+			{ ticket: "ticket-1", type: "authenticate" },
+			{ revision: 1, type: "replace", entityIds: ["foreground", ...visible.slice(0, 499)] },
 		]);
 	});
 
 	it("batches additions, serializes acknowledgements, and removes only after grace", async () => {
 		const test = setup();
-		const owner = test.service.watch(scope, { foreground: ["a"], visible: [] }, () => {});
+		const owner = test.service.watch(scope, { visible: [], foreground: ["a"] }, () => {});
 		test.service.acquire(scope);
 		await settle();
 		const socket = test.socket();
 		socket.ready();
-		owner.update({ foreground: ["a", "b"], visible: [] });
+		owner.update({ visible: [], foreground: ["a", "b"] });
 		test.advance(100);
 		expect(socket.sent).toHaveLength(2);
-		socket.frame({ type: "applied", revision: 1 });
-		expect(socket.sent.at(-1)).toEqual({ type: "update", revision: 2, add: ["b"], remove: [] });
-		owner.update({ foreground: ["b", "c"], visible: [] });
+		socket.frame({ revision: 1, type: "applied" });
+		expect(socket.sent.at(-1)).toEqual({ add: ["b"], remove: [], revision: 2, type: "update" });
+		owner.update({ visible: [], foreground: ["b", "c"] });
 		test.advance(99);
-		socket.frame({ type: "applied", revision: 2 });
+		socket.frame({ revision: 2, type: "applied" });
 		expect(socket.sent).toHaveLength(3);
 		test.advance(1);
-		expect(socket.sent.at(-1)).toEqual({ type: "update", revision: 3, add: ["c"], remove: [] });
-		socket.frame({ type: "applied", revision: 3 });
+		expect(socket.sent.at(-1)).toEqual({ add: ["c"], remove: [], revision: 3, type: "update" });
+		socket.frame({ revision: 3, type: "applied" });
 		test.advance(1899);
 		expect(socket.sent).toHaveLength(4);
 		test.advance(1);
-		expect(socket.sent.at(-1)).toEqual({ type: "update", revision: 4, add: [], remove: ["a"] });
+		expect(socket.sent.at(-1)).toEqual({ add: [], revision: 4, remove: ["a"], type: "update" });
 	});
 
 	it("evicts grace entries for new demand and cancels removal when demand returns", async () => {
 		const test = setup();
 		const ids = Array.from({ length: 500 }, (_, i) => `id-${i}`);
-		const owner = test.service.watch(scope, { foreground: [], visible: ids }, () => {});
+		const owner = test.service.watch(scope, { visible: ids, foreground: [] }, () => {});
 		test.service.acquire(scope);
 		await settle();
 		const socket = test.socket();
 		socket.ready();
-		socket.frame({ type: "applied", revision: 1 });
+		socket.frame({ revision: 1, type: "applied" });
 		owner.update({ foreground: ["new"], visible: ids.slice(1) });
 		test.advance(100);
 		expect(socket.sent.at(-1)).toEqual({
@@ -392,7 +392,7 @@ describe("entity interest session", () => {
 			type: "update",
 			remove: ["id-0"],
 		});
-		socket.frame({ type: "applied", revision: 2 });
+		socket.frame({ revision: 2, type: "applied" });
 		owner.update(empty);
 		test.advance(1000);
 		owner.update({ foreground: ["new"], visible: ids.slice(1) });
@@ -402,7 +402,7 @@ describe("entity interest session", () => {
 
 	it("routes only current memberships and invalidates old owners and socket callbacks on release", async () => {
 		const test = setup();
-		const owner = test.service.watch(scope, { foreground: ["a"], visible: [] }, (update) =>
+		const owner = test.service.watch(scope, { visible: [], foreground: ["a"] }, (update) =>
 			updates.push(update),
 		);
 		const release = test.service.acquire(scope);
@@ -410,25 +410,25 @@ describe("entity interest session", () => {
 		const socket = test.socket();
 		socket.ready();
 		const stale = socket.messageListener;
-		socket.frame({ type: "entity-updated", entityId: "other", reason: "translated" });
-		socket.frame({ type: "entity-updated", entityId: "a", reason: "populated" });
+		socket.frame({ entityId: "other", reason: "translated", type: "entity-updated" });
+		socket.frame({ entityId: "a", reason: "populated", type: "entity-updated" });
 		owner.update({ foreground: [], visible: ["b"] });
-		socket.frame({ type: "entity-updated", entityId: "a", reason: "translated" });
-		socket.frame({ type: "entity-updated", entityId: "b", reason: "translated" });
+		socket.frame({ entityId: "a", reason: "translated", type: "entity-updated" });
+		socket.frame({ entityId: "b", reason: "translated", type: "entity-updated" });
 		release();
 		release();
 		expect(test.timers.size).toBe(0);
 		expect(test.hasListener()).toBe(false);
-		owner.update({ foreground: ["a"], visible: [] });
+		owner.update({ visible: [], foreground: ["a"] });
 		test.service.acquire(scope);
 		await settle();
 		test.socket().ready();
 		stale?.(
 			new MessageEvent("message", {
-				data: JSON.stringify({ type: "entity-updated", entityId: "a", reason: "populated" }),
+				data: JSON.stringify({ entityId: "a", reason: "populated", type: "entity-updated" }),
 			}),
 		);
-		expect(test.socket().sent.at(-1)).toEqual({ type: "replace", revision: 1, entityIds: [] });
+		expect(test.socket().sent.at(-1)).toEqual({ revision: 1, entityIds: [], type: "replace" });
 		expect(updates).toEqual([
 			{ entityId: "a", reason: "populated" },
 			{ entityId: "b", reason: "translated" },
@@ -437,7 +437,7 @@ describe("entity interest session", () => {
 
 	it("gets a fresh ticket and replaces revision one after lease closure or lifecycle resume", async () => {
 		const test = setup();
-		test.service.watch(scope, { foreground: ["a"], visible: [] }, () => {});
+		test.service.watch(scope, { visible: [], foreground: ["a"] }, () => {});
 		test.service.acquire(scope);
 		await settle();
 		const first = test.socket();
@@ -450,8 +450,8 @@ describe("entity interest session", () => {
 		await settle();
 		test.socket().ready();
 		expect(test.socket().sent).toEqual([
-			{ type: "authenticate", ticket: "ticket-2" },
-			{ type: "replace", revision: 1, entityIds: ["a"] },
+			{ ticket: "ticket-2", type: "authenticate" },
+			{ revision: 1, type: "replace", entityIds: ["a"] },
 		]);
 		test.lifecycle(false);
 		expect(test.socket().closed).toBe(true);
@@ -470,10 +470,10 @@ describe("entity interest session", () => {
 	});
 
 	it.each([
-		{ type: "applied", revision: 5 },
-		{ type: "ready", sessionId: "duplicate", maxEntityIds: 500, heartbeatIntervalMs: 25_000 },
-		{ type: "entity-updated", entityId: "a", reason: "invalid" },
-		{ type: "rejected", revision: 1, maxEntityIds: 500, code: "interest-limit-exceeded" },
+		{ revision: 5, type: "applied" },
+		{ type: "ready", maxEntityIds: 500, sessionId: "duplicate", heartbeatIntervalMs: 25_000 },
+		{ entityId: "a", reason: "invalid", type: "entity-updated" },
+		{ revision: 1, type: "rejected", maxEntityIds: 500, code: "interest-limit-exceeded" },
 	])("reconnects on malformed or out-of-order frames: $type", async (frame) => {
 		const test = setup();
 		test.service.acquire(scope);

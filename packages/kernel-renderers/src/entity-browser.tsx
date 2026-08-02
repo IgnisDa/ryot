@@ -87,9 +87,9 @@ const QueryInput = Schema.Tuple([
 const decodeQueryInput = Schema.decodeUnknownSync(Schema.fromJsonString(QueryInput));
 
 const layoutOptions = [
-	{ value: "grid", label: "Grid view", content: <AppIcon name="grid" size={15} /> },
-	{ value: "list", label: "List view", content: <AppIcon name="list" size={15} /> },
-	{ value: "table", label: "Table view", content: <AppIcon name="table" size={15} /> },
+	{ value: "grid", label: "Grid view", content: <AppIcon size={15} name="grid" /> },
+	{ value: "list", label: "List view", content: <AppIcon size={15} name="list" /> },
+	{ value: "table", label: "Table view", content: <AppIcon size={15} name="table" /> },
 ] as const;
 
 const resultLabel = (loaded: number, hasMore: boolean, total: number | undefined) => {
@@ -116,7 +116,7 @@ const BrowserCount = ({
 	readonly onTotal: (total: number | undefined) => void;
 }) => {
 	const [query] = useState(() =>
-		createRyotQuery<string, number>(({ client, input: search, signal }) =>
+		createRyotQuery<string, number>(({ client, signal, input: search }) =>
 			client.data.query(
 				Result.getOrThrow(
 					entityBrowserCountRecipe(
@@ -134,7 +134,7 @@ const BrowserCount = ({
 	useEffect(() => report(result.data), [result.data]);
 	if (result.isPending) {
 		return (
-			<Button variant="text" disabled className="text-sm text-accent-text">
+			<Button disabled variant="text" className="text-sm text-accent-text">
 				Counting...
 			</Button>
 		);
@@ -164,9 +164,9 @@ const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type
 		? input.settings.defaultLayout
 		: input.settings.layouts[0];
 	const requestedControls: BrowserControls = {
+		search: input.settings.searchFields.length === 0 ? "" : requestedSearch,
 		layout:
 			input.settings.layouts.find((candidate) => candidate === requestedLayout) ?? fallbackLayout,
-		search: input.settings.searchFields.length === 0 ? "" : requestedSearch,
 		sort: input.settings.sortChoices.some(({ name }) => name === requestedSort)
 			? requestedSort
 			: "",
@@ -177,7 +177,7 @@ const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type
 	const pendingSearch = useRef<
 		{ readonly identity: string; readonly update: Record<string, string | null> } | undefined
 	>(undefined);
-	const { layout, search: searchText, sort: sortChoice } = controls;
+	const { layout, sort: sortChoice, search: searchText } = controls;
 	const [cursor, setCursor] = useState<string | null>(null);
 	const [showCount, setShowCount] = useState(false);
 	const [total, setTotal] = useState<number | undefined>(undefined);
@@ -234,7 +234,7 @@ const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type
 	useEffect(() => () => refreshReplay.current?.complete(), []);
 	const [query] = useState(() =>
 		createRyotQuery<string, BrowserPage>(
-			async ({ client, input: serialized, signal }) => {
+			async ({ client, signal, input: serialized }) => {
 				const [search, sort, after] = decodeQueryInput(serialized);
 				const result = await client.data.query(
 					Result.getOrThrow(
@@ -248,7 +248,7 @@ const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type
 					),
 					{ signal },
 				);
-				return { input: serialized, result };
+				return { result, input: serialized };
 			},
 			{ cancelOnUnmount: true },
 		),
@@ -322,7 +322,7 @@ const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type
 					items.push(item);
 				}
 			}
-			return { identity, items, depth: current.depth + 1, pageInfo: page.result.pageInfo };
+			return { items, identity, depth: current.depth + 1, pageInfo: page.result.pageInfo };
 		});
 	}, [identity, queryInput, refreshGeneration, result.data]);
 
@@ -408,7 +408,7 @@ const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type
 		}
 		controlsRef.current = next;
 		pendingSearch.current = {
-			update: { search: next.search || null, sort: next.sort || null },
+			update: { sort: next.sort || null, search: next.search || null },
 			identity: JSON.stringify([input.target.savedViewId, next.search, next.sort]),
 		};
 		setControls(next);
@@ -454,7 +454,7 @@ const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type
 			inputRef={searchInput}
 			onChange={setDraftSearch}
 			label={`Search ${viewName}`}
-			icon={<AppIcon name="search" size={15} />}
+			icon={<AppIcon size={15} name="search" />}
 			clearIcon={<AppIcon name="x" size={14} />}
 			onSubmit={() => commitSearch(draftSearch)}
 		/>
@@ -505,11 +505,47 @@ const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type
 					searchOpen && canSearch ? (
 						<>
 							<ScreenBarButton label="Exit search" onClick={closeSearch} className="text-text">
-								<AppIcon name="chevron-left" size={22} />
+								<AppIcon size={22} name="chevron-left" />
 							</ScreenBarButton>
 							{searchField("h-9.5 flex-1", true)}
 						</>
 					) : undefined
+				}
+				floatingAction={
+					compact && canAdd ? (
+						<button
+							type="button"
+							aria-keyshortcuts="A"
+							onClick={() => openAdd()}
+							aria-label="Add to this view"
+							style={{ bottom: Math.max(48, safeAreaBottom + 16) }}
+							className="absolute right-8 z-20 flex size-14 items-center justify-center rounded-pill bg-accent shadow-card"
+						>
+							<AppIcon size={28} name="plus" className="text-accent-ink" />
+						</button>
+					) : undefined
+				}
+				barActions={
+					<>
+						{canSearch && (
+							<ScreenBarButton
+								ref={searchTrigger}
+								label="Search this view"
+								className="text-text-muted"
+								onClick={() => setSearchOpen(true)}
+							>
+								<AppIcon size={22} name="search" />
+							</ScreenBarButton>
+						)}
+						<ScreenBarButton
+							ref={optionsTrigger}
+							className="text-text-muted"
+							onClick={() => setOptionsOpen(true)}
+							label="View options, 0 active filters"
+						>
+							<AppIcon size={22} name="sliders-horizontal" />
+						</ScreenBarButton>
+					</>
 				}
 				meta={
 					<div
@@ -522,8 +558,8 @@ const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type
 						{current.pageInfo?.hasMore && !showCount && (
 							<Button
 								variant="text"
-								className="text-sm text-accent-text"
 								onClick={() => setShowCount(true)}
+								className="text-sm text-accent-text"
 							>
 								Count all
 							</Button>
@@ -540,42 +576,6 @@ const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type
 						{transitioning && <span>Updating...</span>}
 					</div>
 				}
-				floatingAction={
-					compact && canAdd ? (
-						<button
-							type="button"
-							aria-keyshortcuts="A"
-							onClick={() => openAdd()}
-							aria-label="Add to this view"
-							style={{ bottom: Math.max(48, safeAreaBottom + 16) }}
-							className="absolute right-8 z-20 flex size-14 items-center justify-center rounded-pill bg-accent shadow-card"
-						>
-							<AppIcon name="plus" size={28} className="text-accent-ink" />
-						</button>
-					) : undefined
-				}
-				barActions={
-					<>
-						{canSearch && (
-							<ScreenBarButton
-								ref={searchTrigger}
-								label="Search this view"
-								className="text-text-muted"
-								onClick={() => setSearchOpen(true)}
-							>
-								<AppIcon name="search" size={22} />
-							</ScreenBarButton>
-						)}
-						<ScreenBarButton
-							ref={optionsTrigger}
-							className="text-text-muted"
-							label="View options, 0 active filters"
-							onClick={() => setOptionsOpen(true)}
-						>
-							<AppIcon name="sliders-horizontal" size={22} />
-						</ScreenBarButton>
-					</>
-				}
 				actions={
 					<div className="flex flex-wrap items-center justify-end gap-2.5">
 						{canSearch && searchField("h-8.5 w-60")}
@@ -585,11 +585,11 @@ const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type
 								value={sortChoice}
 								onChange={setSort}
 								label="Sort results"
-								checkIcon={<AppIcon name="check" size={14} />}
-								chevronIcon={<AppIcon name="chevron-down" size={14} />}
+								checkIcon={<AppIcon size={14} name="check" />}
+								chevronIcon={<AppIcon size={14} name="chevron-down" />}
 								choices={[
 									{ value: "", label: "Default order" },
-									...input.settings.sortChoices.map(({ name, label }) => ({ value: name, label })),
+									...input.settings.sortChoices.map(({ name, label }) => ({ label, value: name })),
 								]}
 							/>
 						)}
@@ -608,7 +608,7 @@ const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type
 								!hasItems && "opacity-50",
 							)}
 						>
-							<AppIcon name="sliders-horizontal" size={15} className="text-text-muted" />
+							<AppIcon size={15} name="sliders-horizontal" className="text-text-muted" />
 							<span className="text-[13px] text-text">Filters</span>
 							<Badge aria-hidden="true">0</Badge>
 						</button>
@@ -620,9 +620,9 @@ const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type
 								onClick={() => openAdd()}
 								className="flex h-8.5 items-center gap-2 rounded-md bg-accent px-3.5"
 							>
-								<AppIcon name="plus" size={15} className="text-accent-ink" />
+								<AppIcon size={15} name="plus" className="text-accent-ink" />
 								<span className="text-[13px] font-semibold text-accent-ink">Add</span>
-								<Badge variant="keyOnAccent" aria-hidden="true" className="ml-1">
+								<Badge className="ml-1" aria-hidden="true" variant="keyOnAccent">
 									A
 								</Badge>
 							</button>

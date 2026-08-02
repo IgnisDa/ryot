@@ -121,8 +121,8 @@ export const PluginClientExport = Schema.Union([
 	strictStruct({ ...PluginClientExportFields, kind: Schema.Literal("presentation") }),
 	strictStruct({
 		...PluginClientExportFields,
-		settingsSchema: PluginAppSchema,
 		kind: Schema.Literal("page"),
+		settingsSchema: PluginAppSchema,
 	}),
 ]);
 
@@ -395,14 +395,14 @@ export type PluginProvider = Schema.Schema.Type<typeof PluginProvider>;
 export const PluginScript = Schema.Union([
 	strictStruct({
 		...PluginScriptFields,
-		capabilities: PluginScriptCapabilities,
 		kind: Schema.Literal("script"),
+		capabilities: PluginScriptCapabilities,
 		providerSlug: Schema.optional(sandboxManifestSlug),
 	}),
 	strictStruct({
 		...PluginScriptFields,
-		capabilities: PluginScriptCapabilities,
 		kind: Schema.Literal("operation"),
+		capabilities: PluginScriptCapabilities,
 	}),
 	strictStruct({
 		...PluginScriptFields,
@@ -411,23 +411,23 @@ export const PluginScript = Schema.Union([
 	}),
 	strictStruct({
 		...PluginScriptFields,
-		capabilities: PluginScriptCapabilities,
 		kind: Schema.Literal("automation"),
+		capabilities: PluginScriptCapabilities,
 	}),
 	Schema.Union([
 		strictStruct({
 			...PluginScriptFields,
+			kind: Schema.Literal("provider"),
 			providerSlug: sandboxManifestSlug,
 			capabilities: PluginScriptCapabilities,
-			kind: Schema.Literal("provider"),
 			providerOperation: Schema.Literal("search"),
 			searchOptionsSchema: Schema.optional(PluginAppSchema),
 		}),
 		strictStruct({
 			...PluginScriptFields,
+			kind: Schema.Literal("provider"),
 			providerSlug: sandboxManifestSlug,
 			capabilities: PluginScriptCapabilities,
-			kind: Schema.Literal("provider"),
 			providerOperation: Schema.Literals(["details", "resolve", "translate", "search-options"]),
 		}),
 	]),
@@ -638,10 +638,10 @@ export type PluginBindings = Schema.Schema.Type<typeof PluginBindings>;
 const PluginManifestAuthoredFields = {
 	metadata: PluginMetadata,
 	bindings: PluginBindings,
-	configSchema: PluginConfigSchema,
 	boot: Schema.Array(PluginBoot),
-	httpRateLimits: PluginHttpRateLimits,
 	crons: Schema.Array(PluginCron),
+	configSchema: PluginConfigSchema,
+	httpRateLimits: PluginHttpRateLimits,
 	workflows: Schema.Array(PluginWorkflow),
 	providers: Schema.Array(PluginProvider),
 	savedViews: Schema.Array(PluginSavedView),
@@ -882,7 +882,7 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 	}
 
 	if (
-		operationAssignments.some(({ operation, providerSlug, scriptSlug }) => {
+		operationAssignments.some(({ operation, scriptSlug, providerSlug }) => {
 			const script = providerScripts.find((candidate) => candidate.slug === scriptSlug);
 			return (
 				!script || script.providerSlug !== providerSlug || script.providerOperation !== operation

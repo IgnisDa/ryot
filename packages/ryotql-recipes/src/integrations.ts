@@ -24,23 +24,23 @@ import { IsoDateString } from "./codecs";
 const integration = table("integration", "integration");
 const selection = {
 	id: selectedField(column(integration, "id"), IntegrationId),
-	lot: selectedField(column(integration, "lot"), ListedIntegration.fields.lot),
-	name: selectedField(column(integration, "name"), Schema.NullOr(Schema.String)),
-	provider: selectedField(column(integration, "provider"), IntegrationProvider),
 	pluginSlug: selectedField(column(integration, "pluginSlug"), PluginSlug),
 	createdAt: selectedField(column(integration, "createdAt"), IsoDateString),
 	updatedAt: selectedField(column(integration, "updatedAt"), IsoDateString),
+	lot: selectedField(column(integration, "lot"), ListedIntegration.fields.lot),
 	isDisabled: selectedField(column(integration, "isDisabled"), Schema.Boolean),
+	provider: selectedField(column(integration, "provider"), IntegrationProvider),
+	name: selectedField(column(integration, "name"), Schema.NullOr(Schema.String)),
 	syncOwnership: selectedField(column(integration, "syncOwnership"), Schema.Boolean),
 	minimumProgress: selectedField(column(integration, "minimumProgress"), Schema.Number),
 	maximumProgress: selectedField(column(integration, "maximumProgress"), Schema.Number),
-	extraSettings: selectedField(
-		column(integration, "extraSettings"),
-		ListedIntegration.fields.extraSettings,
-	),
 	lastFinishedAt: selectedField(
 		column(integration, "lastFinishedAt"),
 		Schema.NullOr(IsoDateString),
+	),
+	extraSettings: selectedField(
+		column(integration, "extraSettings"),
+		ListedIntegration.fields.extraSettings,
 	),
 };
 
@@ -60,11 +60,12 @@ export const integrationsRecipe = defineRecipe(
 				: [eq(column(integration, "isDisabled"), literal(input.isDisabled))]),
 		];
 		return {
+			map: ({ integrations }) => Result.succeed(integrations),
 			queries: {
 				integrations: selectedRows(integration, {
+					selection,
 					after: input.after,
 					limit: input.limit,
-					selection,
 					where: predicates.length > 0 ? and(...predicates) : undefined,
 					orderBy: [
 						descending(column(integration, "createdAt")),
@@ -72,12 +73,12 @@ export const integrationsRecipe = defineRecipe(
 					],
 				}),
 			},
-			map: ({ integrations }) => Result.succeed(integrations),
 		};
 	},
 );
 
 export const integrationRecipe = defineRecipe((input: { readonly id: string }) => ({
+	map: ({ integration: item }) => Result.succeed(item),
 	queries: {
 		integration: selectedOptionalRow(integration, {
 			selection,
@@ -85,7 +86,6 @@ export const integrationRecipe = defineRecipe((input: { readonly id: string }) =
 			where: eq(column(integration, "id"), literal(input.id)),
 		}),
 	},
-	map: ({ integration: item }) => Result.succeed(item),
 }));
 
 export type IntegrationList = Recipe.Success<typeof integrationsRecipe>;

@@ -20,8 +20,8 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "MyAnimeList",
 	slug: "anime.myanimelist",
-	requiredPluginConfigKeys: ["malClientId"],
 	requiredSystemConfigKeys: [],
+	requiredPluginConfigKeys: ["malClientId"],
 	capabilities: ["httpCall", "getPluginConfig", "getUserPreferences"],
 });
 
@@ -91,10 +91,10 @@ export const details = defineProvider({
 					isNsfw: parseIsNsfw(payload?.["nsfw"]),
 					genres: collectGenres(payload?.["genres"]),
 					providerRating: numberValue(payload?.["mean"]),
-					description: typeof synopsis === "string" ? synopsis : null,
 					images: collectImages(payload?.["main_picture"]),
 					publishDate: parsePublishDate(payload?.["start_date"]),
 					publishYear: parsePublishYear(payload?.["start_date"]),
+					description: typeof synopsis === "string" ? synopsis : null,
 					airingSchedule: parseAiringSchedule(payload?.["start_date"]),
 					productionStatus: statusValue ? toTitleCase(statusValue) : null,
 					sourceUrl: `https://myanimelist.net/anime/${payloadIdentifier}/${title}`,

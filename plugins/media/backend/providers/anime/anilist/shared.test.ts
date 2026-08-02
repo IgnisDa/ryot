@@ -71,8 +71,8 @@ describe("anime.anilist sandbox script", () => {
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
-								{ name: "Anime Pick", externalId: "2", providerSlug: "anime.anilist" },
-								{ name: "Manga Pick", externalId: "3", providerSlug: "manga.anilist" },
+								{ externalId: "2", name: "Anime Pick", providerSlug: "anime.anilist" },
+								{ externalId: "3", name: "Manga Pick", providerSlug: "manga.anilist" },
 							],
 						},
 					]);
@@ -138,8 +138,8 @@ describe("anime.anilist sandbox script", () => {
 						productionStatus: "Not Yet Released",
 						sourceUrl: "https://anilist.co/anime/1/Source",
 						images: [
-							{ type: "remote", url: "https://img/cover.jpg", purpose: "cover" },
-							{ type: "remote", url: "https://img/banner.jpg", purpose: "backdrop" },
+							{ type: "remote", purpose: "cover", url: "https://img/cover.jpg" },
+							{ type: "remote", purpose: "backdrop", url: "https://img/banner.jpg" },
 						],
 						airingSchedule: [
 							{ episode: 1, airingAt: "2023-11-14T22:13:20.000Z" },
@@ -155,7 +155,7 @@ describe("anime.anilist sandbox script", () => {
 	it("requests non-adult media only until the user allows NSFW", () => {
 		const requestBodies: string[] = [];
 		const searchResponse = () =>
-			httpSuccess({ data: { Page: { pageInfo: { total: 41 }, media: [] } } });
+			httpSuccess({ data: { Page: { media: [], pageInfo: { total: 41 } } } });
 		const collectBody = (options: { body?: string | undefined } | undefined) => {
 			requestBodies.push(options?.body ?? "");
 			return searchResponse();
@@ -163,7 +163,7 @@ describe("anime.anilist sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(
 				search,
-				{ query: "hero", page: 2, pageSize: 20 },
+				{ page: 2, pageSize: 20, query: "hero" },
 				makeHost((_method, url, options) => {
 					expect(new URL(url).host).toBe("graphql.anilist.co");
 					return collectBody(options);
@@ -172,10 +172,10 @@ describe("anime.anilist sandbox script", () => {
 			)
 				.pipe(
 					Effect.flatMap((result) => {
-						expect(result.details).toEqual({ totalItems: 41, nextPage: 3 });
+						expect(result.details).toEqual({ nextPage: 3, totalItems: 41 });
 						return runSandboxTestScript(
 							search,
-							{ query: "hero", page: 3, pageSize: 20 },
+							{ page: 3, pageSize: 20, query: "hero" },
 							makeHost((_method, url, options) => {
 								expect(new URL(url).host).toBe("graphql.anilist.co");
 								return collectBody(options);
@@ -189,7 +189,7 @@ describe("anime.anilist sandbox script", () => {
 						expect(result.details).toEqual({ totalItems: 41, nextPage: null });
 						const [defaultBody, nsfwBody] = requestBodies.map((body): unknown => JSON.parse(body));
 						expect(defaultBody).toMatchObject({
-							variables: { type: "ANIME", search: "hero", page: 2, perPage: 20, isAdult: false },
+							variables: { page: 2, perPage: 20, type: "ANIME", search: "hero", isAdult: false },
 						});
 						expect(nsfwBody).toMatchObject({ variables: { isAdult: null } });
 						return undefined;
@@ -218,7 +218,7 @@ describe("anime.anilist sandbox script", () => {
 			}),
 		);
 		return Effect.runPromise(
-			runSandboxTestScript(search, { query: "pick", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, pageSize: 20, query: "pick" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{
@@ -240,7 +240,7 @@ describe("anime.anilist sandbox script", () => {
 					Media: {
 						id: 1,
 						type: "ANIME",
-						title: { english: "English", romaji: "Romaji", native: "Native" },
+						title: { romaji: "Romaji", native: "Native", english: "English" },
 					},
 				},
 			}),
@@ -257,7 +257,7 @@ describe("anime.anilist sandbox script", () => {
 						expect(result).toEqual({ name: "Romaji" });
 						return runSandboxTestScript(
 							translate,
-							{ externalId: "1", language: "fr", entitySchemaSlug: "anime" },
+							{ language: "fr", externalId: "1", entitySchemaSlug: "anime" },
 							host,
 							execution,
 						);

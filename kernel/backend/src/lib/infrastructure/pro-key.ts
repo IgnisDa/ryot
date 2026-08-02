@@ -48,7 +48,7 @@ const makeProKeyService = (options: { readonly httpClient?: HTTPClient } = {}) =
 				return false;
 			}
 
-			const { valid, meta } = response.value.data;
+			const { meta, valid } = response.value.data;
 			if (!valid) {
 				yield* Effect.logDebug("Pro Key is no longer valid.");
 				return false;

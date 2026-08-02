@@ -51,7 +51,7 @@ export function PluginScreenFrame({
 				onClick={chrome.openDrawer}
 				label={menuLabel ?? "Open navigation"}
 			>
-				<AppIcon name="menu" size={22} />
+				<AppIcon size={22} name="menu" />
 			</ScreenBarButton>
 		)),
 		Match.when("none", () => null),

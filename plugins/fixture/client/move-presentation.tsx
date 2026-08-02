@@ -31,6 +31,7 @@ export const movePresentationRecipe = defineRecipe((entityIds: readonly string[]
 	const move = table("entity", "presentationMove");
 	const property = (key: string) => jsonPath(column(move, "properties"), key);
 	return {
+		map: ({ moves }) => Result.succeed(moves.items),
 		queries: {
 			moves: selectedRows(move, {
 				limit: 100,
@@ -45,10 +46,10 @@ export const movePresentationRecipe = defineRecipe((entityIds: readonly string[]
 				selection: {
 					id: selectedField(column(move, "id"), Schema.String),
 					name: selectedField(column(move, "name"), Schema.String),
-					populationStatus: selectedField(column(move, "populationStatus"), PopulationStatus),
-					translationStatus: selectedField(column(move, "translationStatus"), TranslationStatus),
 					type: selectedField(castText(property("type")), Schema.NullOr(Schema.String)),
 					power: selectedField(castNumber(property("power")), Schema.NullOr(Schema.Number)),
+					populationStatus: selectedField(column(move, "populationStatus"), PopulationStatus),
+					translationStatus: selectedField(column(move, "translationStatus"), TranslationStatus),
 					generation: selectedField(castText(property("generation")), Schema.NullOr(Schema.String)),
 					damageClass: selectedField(
 						castText(property("damageClass")),
@@ -57,7 +58,6 @@ export const movePresentationRecipe = defineRecipe((entityIds: readonly string[]
 				},
 			}),
 		},
-		map: ({ moves }) => Result.succeed(moves.items),
 	};
 });
 
@@ -95,7 +95,7 @@ function MovePresentation(props: {
 					{props.data.type ?? "Move"}
 				</span>
 				<span className="flex min-w-0 items-baseline gap-1.5">
-					<PluginLink to={{ kind: "entity", entityId: props.data.id }} className="min-w-0">
+					<PluginLink className="min-w-0" to={{ kind: "entity", entityId: props.data.id }}>
 						<span className="line-clamp-2 min-w-0 font-semibold text-text">{props.data.name}</span>
 					</PluginLink>
 					{isTitleProvisional(props.data) && <SyncPip reason="translating" />}
@@ -114,12 +114,12 @@ function MovePresentation(props: {
 
 function MoveCard({ data }: EntityPresentationComponentProps<MovePresentationData>) {
 	const { compact } = useRyotViewport();
-	return <MovePresentation compact={compact} layout="grid" data={data} />;
+	return <MovePresentation data={data} layout="grid" compact={compact} />;
 }
 
 function MoveRow({ data }: EntityPresentationComponentProps<MovePresentationData>) {
 	const { compact } = useRyotViewport();
-	return <MovePresentation compact={compact} layout="list" data={data} />;
+	return <MovePresentation data={data} layout="list" compact={compact} />;
 }
 
 export const moveCardPresentation = defineEntityPresentation({

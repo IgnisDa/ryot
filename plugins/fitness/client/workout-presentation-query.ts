@@ -27,63 +27,6 @@ export const workoutPresentationRecipe = defineRecipe((entityIds: readonly strin
 	const setProperty = (key: string) => jsonPath(column(event, "properties"), key);
 	const nullableNumber = Schema.NullOr(Schema.Number);
 	return {
-		queries: {
-			workouts: selectedRows(workout, {
-				limit: 100,
-				include: {
-					sets: selectedInclude(event, {
-						limit: 100,
-						joins: [join("inner", exercise, eq(column(event, "entityId"), column(exercise, "id")))],
-						orderBy: [
-							ascending(castNumber(setProperty("exerciseOrder"))),
-							ascending(castNumber(setProperty("setOrder"))),
-						],
-						where: and(
-							eq(column(event, "sessionEntityId"), column(workout, "id")),
-							eq(column(event, "eventSchemaSlug"), literal("workout-set")),
-							eq(column(exercise, "entitySchemaSlug"), literal("exercise")),
-						),
-						selection: {
-							reps: selectedField(castNumber(setProperty("reps")), nullableNumber),
-							exerciseId: selectedField(column(exercise, "id"), Schema.String),
-							weight: selectedField(castNumber(setProperty("weight")), nullableNumber),
-							exerciseName: selectedField(column(exercise, "name"), Schema.String),
-							setOrder: selectedField(castNumber(setProperty("setOrder")), nullableNumber),
-							duration: selectedField(castNumber(setProperty("duration")), nullableNumber),
-							distance: selectedField(castNumber(setProperty("distance")), nullableNumber),
-							exerciseOrder: selectedField(
-								castNumber(setProperty("exerciseOrder")),
-								nullableNumber,
-							),
-							unitSystem: selectedField(
-								castText(setProperty("unitSystem")),
-								Schema.NullOr(Schema.String),
-							),
-						},
-					}),
-				},
-				orderBy: [ascending(column(workout, "id"))],
-				where: and(
-					eq(column(workout, "entitySchemaSlug"), literal("workout")),
-					inArray(
-						column(workout, "id"),
-						entityIds.map((entityId) => literal(entityId)),
-					),
-				),
-				selection: {
-					id: selectedField(column(workout, "id"), Schema.String),
-					name: selectedField(column(workout, "name"), Schema.String),
-					startedAt: selectedField(
-						castDate(workoutProperty("startedAt")),
-						Schema.NullOr(Schema.String),
-					),
-					endedAt: selectedField(
-						castDate(workoutProperty("endedAt")),
-						Schema.NullOr(Schema.String),
-					),
-				},
-			}),
-		},
 		map: ({ workouts }) => {
 			return Result.succeed(
 				workouts.items.map(({ sets, ...item }) => {
@@ -108,6 +51,63 @@ export const workoutPresentationRecipe = defineRecipe((entityIds: readonly strin
 					};
 				}),
 			);
+		},
+		queries: {
+			workouts: selectedRows(workout, {
+				limit: 100,
+				orderBy: [ascending(column(workout, "id"))],
+				where: and(
+					eq(column(workout, "entitySchemaSlug"), literal("workout")),
+					inArray(
+						column(workout, "id"),
+						entityIds.map((entityId) => literal(entityId)),
+					),
+				),
+				selection: {
+					id: selectedField(column(workout, "id"), Schema.String),
+					name: selectedField(column(workout, "name"), Schema.String),
+					endedAt: selectedField(
+						castDate(workoutProperty("endedAt")),
+						Schema.NullOr(Schema.String),
+					),
+					startedAt: selectedField(
+						castDate(workoutProperty("startedAt")),
+						Schema.NullOr(Schema.String),
+					),
+				},
+				include: {
+					sets: selectedInclude(event, {
+						limit: 100,
+						joins: [join("inner", exercise, eq(column(event, "entityId"), column(exercise, "id")))],
+						orderBy: [
+							ascending(castNumber(setProperty("exerciseOrder"))),
+							ascending(castNumber(setProperty("setOrder"))),
+						],
+						where: and(
+							eq(column(event, "sessionEntityId"), column(workout, "id")),
+							eq(column(event, "eventSchemaSlug"), literal("workout-set")),
+							eq(column(exercise, "entitySchemaSlug"), literal("exercise")),
+						),
+						selection: {
+							exerciseId: selectedField(column(exercise, "id"), Schema.String),
+							reps: selectedField(castNumber(setProperty("reps")), nullableNumber),
+							exerciseName: selectedField(column(exercise, "name"), Schema.String),
+							weight: selectedField(castNumber(setProperty("weight")), nullableNumber),
+							setOrder: selectedField(castNumber(setProperty("setOrder")), nullableNumber),
+							duration: selectedField(castNumber(setProperty("duration")), nullableNumber),
+							distance: selectedField(castNumber(setProperty("distance")), nullableNumber),
+							exerciseOrder: selectedField(
+								castNumber(setProperty("exerciseOrder")),
+								nullableNumber,
+							),
+							unitSystem: selectedField(
+								castText(setProperty("unitSystem")),
+								Schema.NullOr(Schema.String),
+							),
+						},
+					}),
+				},
+			}),
 		},
 	};
 });

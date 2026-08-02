@@ -50,8 +50,8 @@ const makeStorage = (overrides: Partial<OAuthStorageAdapter> = {}) => {
 		values,
 		layer: oauthStorageLayer({
 			keys: Effect.sync(() => [...values.keys()]),
-			removeItem: (key) => Effect.sync(() => void values.delete(key)),
 			getItem: (key) => Effect.sync(() => values.get(key) ?? null),
+			removeItem: (key) => Effect.sync(() => void values.delete(key)),
 			setItem: (key, value) => Effect.sync(() => void values.set(key, value)),
 			...overrides,
 		}),
@@ -63,10 +63,10 @@ const pending = () =>
 		createdAt: now,
 		state: "state-1",
 		nonce: "nonce-1",
-		serverOrigin: "https://ryot.example",
 		destination: "/settings",
 		codeVerifier: "verifier-1",
 		clientId: OAUTH_WEB_CLIENT_ID,
+		serverOrigin: "https://ryot.example",
 		redirectUri: `${origin}/auth/callback`,
 	}) as const;
 
@@ -110,12 +110,12 @@ describe("OAuth token service", () => {
 				redirect_uri: `${origin}/auth/callback`,
 			});
 			expect(yield* persisted.getTokenSet(origin)).toEqual({
-				scope: "openid profile email offline_access ryot:api",
 				tokenType: "Bearer",
 				accessToken: "access-1",
 				refreshToken: "refresh-1",
 				idToken: idToken("nonce-1"),
 				accessTokenExpiresAt: now + 900_000,
+				scope: "openid profile email offline_access ryot:api",
 			});
 			expect(yield* persisted.takePending(origin, "state-1")).toBeNull();
 		}).pipe(
@@ -319,8 +319,8 @@ describe("OAuth token service", () => {
 				expect(requests).toHaveLength(2);
 				expect(requests.every(({ url }) => url === `${origin}/api/auth/oauth2/revoke`)).toBe(true);
 				expect(requests.map(({ body }) => Object.fromEntries(new URLSearchParams(body)))).toEqual([
-					{ client_id: "ryot-web", token: "refresh-1", token_type_hint: "refresh_token" },
-					{ client_id: "ryot-web", token: "access-1", token_type_hint: "access_token" },
+					{ token: "refresh-1", client_id: "ryot-web", token_type_hint: "refresh_token" },
+					{ token: "access-1", client_id: "ryot-web", token_type_hint: "access_token" },
 				]);
 				expect(new URL(endSession ?? "").searchParams.get("post_logout_redirect_uri")).toBe(
 					`${origin}/auth/logout/callback`,

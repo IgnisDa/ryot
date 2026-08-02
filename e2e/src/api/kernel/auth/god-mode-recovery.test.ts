@@ -39,7 +39,7 @@ const createNoAccountUser = (name: string) =>
 	Effect.gen(function* () {
 		const email = `${name.toLowerCase()}-${uniqueTimestamp()}@example.com`;
 		const { userId } = yield* getApiClient().call(
-			(c) => c.godMode.provisionUser({ payload: { provider: "credential", email, name } }),
+			(c) => c.godMode.provisionUser({ payload: { name, email, provider: "credential" } }),
 			adminHeaders(),
 		);
 		return { email, userId: UserId.make(userId) };
@@ -215,7 +215,7 @@ describe("User provisioning", () => {
 			yield* client.call(
 				(c) =>
 					c.godMode.provisionUser({
-						payload: { provider: "credential", email, name: "Provisioned Credential" },
+						payload: { email, provider: "credential", name: "Provisioned Credential" },
 					}),
 				adminHeaders(),
 			);
@@ -263,7 +263,7 @@ describe("User provisioning", () => {
 				client.call(
 					(c) =>
 						c.godMode.provisionUser({
-							payload: { provider: "credential", email, name: "Duplicate" },
+							payload: { email, name: "Duplicate", provider: "credential" },
 						}),
 					adminHeaders(),
 				),
@@ -291,7 +291,7 @@ describe("God-mode disable set", () => {
 			});
 
 			const disabledData = yield* client.call(
-				(c) => c.godMode.setUserDisabled({ payload: { disabled: true }, params: { userId } }),
+				(c) => c.godMode.setUserDisabled({ params: { userId }, payload: { disabled: true } }),
 				adminHeaders(),
 			);
 			expect(typeof disabledData.disabledAt).toBe("string");
@@ -320,7 +320,7 @@ describe("God-mode disable set", () => {
 			expect(blockedSignIn.error?.status).toBe(403);
 
 			const enableData = yield* client.call(
-				(c) => c.godMode.setUserDisabled({ payload: { disabled: false }, params: { userId } }),
+				(c) => c.godMode.setUserDisabled({ params: { userId }, payload: { disabled: false } }),
 				adminHeaders(),
 			);
 			expect(enableData.disabledAt).toBeNull();
@@ -369,7 +369,7 @@ describe("Reset link generation and completion for credential user", () => {
 	it.live("revokes existing credentials after password reset", () =>
 		Effect.gen(function* () {
 			const client = getApiClient();
-			const { token: authToken, email, refreshToken } = yield* createTestUser();
+			const { email, refreshToken, token: authToken } = yield* createTestUser();
 
 			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 				Authorization: `Bearer ${authToken}`,
@@ -450,7 +450,7 @@ describe("OIDC user restrictions", () => {
 				client.call((c) => c.godMode.resetUserPassword({ params: { userId } }), adminHeaders()),
 			);
 			assertTaggedError(error, "GodModeRequestFailure");
-			expect(error.reason).toEqual({ code: "password-reset-unsupported", authState: "oidc" });
+			expect(error.reason).toEqual({ authState: "oidc", code: "password-reset-unsupported" });
 		}),
 	);
 });
@@ -474,7 +474,7 @@ describe("Mixed auth user restrictions", () => {
 				client.call((c) => c.godMode.resetUserPassword({ params: { userId } }), adminHeaders()),
 			);
 			assertTaggedError(error, "GodModeRequestFailure");
-			expect(error.reason).toEqual({ code: "password-reset-unsupported", authState: "mixed" });
+			expect(error.reason).toEqual({ authState: "mixed", code: "password-reset-unsupported" });
 		}),
 	);
 });

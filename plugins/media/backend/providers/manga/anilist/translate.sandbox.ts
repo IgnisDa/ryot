@@ -4,12 +4,12 @@ import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 import { translate } from "./shared";
 
 export const manifest = defineManifest({
-	name: "Anilist Translate",
 	kind: "provider",
-	slug: "manga.anilist.translate",
+	name: "Anilist Translate",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
+	slug: "manga.anilist.translate",
 	capabilities: ["httpCall", "getUserPreferences"],
 });
 
-export default defineProvider({ manifest, operation: "translate", run: translate.run });
+export default defineProvider({ manifest, run: translate.run, operation: "translate" });

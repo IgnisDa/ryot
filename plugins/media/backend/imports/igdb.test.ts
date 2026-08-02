@@ -13,27 +13,27 @@ describe("adaptIgdbCsv", () => {
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups).toEqual([
 			{
-				itemIndex: 0,
 				events: [],
+				itemIndex: 0,
 				collectionMemberships: [{ collectionName: "Favorites" }],
 				entityRef: {
 					kind: "resolved",
 					externalId: "7346",
 					sourceLabel: "Hades",
-					providerSlug: "video-game.igdb",
 					entitySchemaSlug: "video-game",
+					providerSlug: "video-game.igdb",
 				},
 			},
 			{
-				itemIndex: 1,
 				events: [],
+				itemIndex: 1,
 				collectionMemberships: [{ collectionName: "Favorites" }],
 				entityRef: {
 					kind: "resolved",
 					externalId: "1020",
 					sourceLabel: "Celeste",
-					providerSlug: "video-game.igdb",
 					entitySchemaSlug: "video-game",
+					providerSlug: "video-game.igdb",
 				},
 			},
 		]);
@@ -45,7 +45,7 @@ describe("adaptIgdbCsv", () => {
 		const result = adaptIgdbCsv(csv, { collection: "Backlog" });
 
 		expect(result.failures).toEqual([
-			{ itemIndex: 0, sourceLabel: "Broken Game", message: "id is empty" },
+			{ itemIndex: 0, message: "id is empty", sourceLabel: "Broken Game" },
 		]);
 		expect(result.entityGroups).toHaveLength(1);
 		expect(result.entityGroups[0]?.collectionMemberships).toEqual([{ collectionName: "Backlog" }]);

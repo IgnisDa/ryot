@@ -26,7 +26,7 @@ describe("ImageTintOverlay", () => {
 	});
 
 	it("renders a left-to-right gradient for the horizontal direction", () => {
-		const { container } = render(<ImageTintOverlay direction="horizontal" gradientStops={STOPS} />);
+		const { container } = render(<ImageTintOverlay gradientStops={STOPS} direction="horizontal" />);
 		const overlay = container.querySelector<HTMLElement>("[aria-hidden]");
 		if (!overlay) {
 			throw new Error("expected overlay element");

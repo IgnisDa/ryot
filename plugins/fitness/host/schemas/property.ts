@@ -13,7 +13,7 @@ const workoutSupersetItemProperties: Readonly<Record<string, AppPropertyDefiniti
 		label: "Exercises",
 		validation: { required: true },
 		description: "Zero-based exercise positions in this superset",
-		items: { type: "integer", label: "Item", description: "Item", validation: { minimum: 0 } },
+		items: { label: "Item", type: "integer", description: "Item", validation: { minimum: 0 } },
 	},
 };
 
@@ -24,17 +24,24 @@ export const exercisePropertiesSchema: AppSchema = {
 		instructions: {
 			type: "array",
 			label: "Instructions",
-			items: { type: "string", label: "Item", description: "Item" },
+			items: { label: "Item", type: "string", description: "Item" },
 			description: "Step-by-step instructions for performing this exercise",
 		},
 		force: {
 			type: "enum",
 			label: "Force",
+			description: "Direction of force applied: pull, push, or static hold",
 			choices: {
 				kind: "static",
 				values: [{ value: "pull" }, { value: "push" }, { value: "static" }],
 			},
-			description: "Direction of force applied: pull, push, or static hold",
+		},
+		mechanic: {
+			type: "enum",
+			label: "Mechanic",
+			choices: { kind: "static", values: [{ value: "compound" }, { value: "isolation" }] },
+			description:
+				"Whether the exercise uses multiple joints (compound) or a single joint (isolation)",
 		},
 		level: {
 			type: "enum",
@@ -44,13 +51,6 @@ export const exercisePropertiesSchema: AppSchema = {
 				kind: "static",
 				values: [{ value: "beginner" }, { value: "intermediate" }, { value: "expert" }],
 			},
-		},
-		mechanic: {
-			type: "enum",
-			label: "Mechanic",
-			choices: { kind: "static", values: [{ value: "compound" }, { value: "isolation" }] },
-			description:
-				"Whether the exercise uses multiple joints (compound) or a single joint (isolation)",
 		},
 		kind: {
 			type: "enum",
@@ -125,8 +125,8 @@ export const workoutSetPropertiesSchema: AppSchema = {
 	fields: {
 		images: imagesField("Images attached to this exercise in the workout"),
 		videos: videosField("Videos attached to this exercise in the workout"),
-		pace: { type: "number", label: "Pace", description: "Pace calculated for this set" },
-		note: { type: "string", label: "Note", description: "Optional note specific to this set" },
+		pace: { label: "Pace", type: "number", description: "Pace calculated for this set" },
+		note: { label: "Note", type: "string", description: "Optional note specific to this set" },
 		oneRm: { type: "number", label: "One Rm", description: "One-rep max calculated for this set" },
 		duration: { type: "number", label: "Duration", description: "Duration of this set in seconds" },
 		reps: {
@@ -149,11 +149,10 @@ export const workoutSetPropertiesSchema: AppSchema = {
 			label: "Distance",
 			description: "Distance covered in this set in the user's preferred unit",
 		},
-		setOrder: {
-			type: "integer",
-			label: "Set Order",
-			validation: { minimum: 0 },
-			description: "Zero-based position of this set within the exercise",
+		confirmedAt: {
+			type: "datetime",
+			label: "Confirmed At",
+			description: "Date and time this set was confirmed by the user",
 		},
 		restTime: {
 			type: "integer",
@@ -161,16 +160,22 @@ export const workoutSetPropertiesSchema: AppSchema = {
 			validation: { minimum: 0 },
 			description: "Rest time after this set in seconds",
 		},
+		restTimerStartedAt: {
+			type: "datetime",
+			label: "Rest Timer Started At",
+			description: "Date and time the rest timer was started after this set",
+		},
+		setOrder: {
+			type: "integer",
+			label: "Set Order",
+			validation: { minimum: 0 },
+			description: "Zero-based position of this set within the exercise",
+		},
 		exerciseOrder: {
 			type: "integer",
 			label: "Exercise Order",
 			validation: { minimum: 0 },
 			description: "Zero-based position of this exercise within the workout",
-		},
-		confirmedAt: {
-			type: "datetime",
-			label: "Confirmed At",
-			description: "Date and time this set was confirmed by the user",
 		},
 		rpe: {
 			label: "Rpe",
@@ -178,9 +183,16 @@ export const workoutSetPropertiesSchema: AppSchema = {
 			validation: { minimum: 0, maximum: 10 },
 			description: "Rate of perceived exertion from 0 (no effort) to 10 (maximal effort)",
 		},
+		unitSystem: {
+			type: "enum",
+			label: "Unit System",
+			description: "Unit system used for this exercise in the workout",
+			choices: { kind: "static", values: [{ value: "metric" }, { value: "imperial" }] },
+		},
 		setLot: {
 			type: "enum",
 			label: "Set Lot",
+			description: "Set type: normal, warm_up, drop, or failure",
 			choices: {
 				kind: "static",
 				values: [
@@ -190,18 +202,6 @@ export const workoutSetPropertiesSchema: AppSchema = {
 					{ value: "failure" },
 				],
 			},
-			description: "Set type: normal, warm_up, drop, or failure",
-		},
-		unitSystem: {
-			type: "enum",
-			label: "Unit System",
-			description: "Unit system used for this exercise in the workout",
-			choices: { kind: "static", values: [{ value: "metric" }, { value: "imperial" }] },
-		},
-		restTimerStartedAt: {
-			type: "datetime",
-			label: "Rest Timer Started At",
-			description: "Date and time the rest timer was started after this set",
 		},
 		personalBests: {
 			type: "array",
@@ -232,20 +232,20 @@ export const workoutPropertiesSchema: AppSchema = {
 	fields: {
 		images: imagesField("Images attached to this workout"),
 		videos: videosField("Videos attached to this workout"),
-		startedAt: {
+		endedAt: {
 			type: "datetime",
-			label: "Started At",
-			description: "Date and time this workout session began",
+			label: "Ended At",
+			description: "Date and time this workout session ended",
 		},
 		comment: {
 			type: "string",
 			label: "Comment",
 			description: "Optional notes or comments about this workout",
 		},
-		endedAt: {
+		startedAt: {
 			type: "datetime",
-			label: "Ended At",
-			description: "Date and time this workout session ended",
+			label: "Started At",
+			description: "Date and time this workout session began",
 		},
 		caloriesBurnt: {
 			type: "number",
@@ -295,6 +295,12 @@ const workoutTemplateSetProperties: Readonly<Record<string, AppPropertyDefinitio
 		validation: { minimum: 0, required: true },
 		description: "Zero-based position of this set within the exercise",
 	},
+	rpe: {
+		label: "Rpe",
+		type: "integer",
+		validation: { minimum: 0, maximum: 10 },
+		description: "Planned rate of perceived exertion from 0 (no effort) to 10 (maximal effort)",
+	},
 	setLot: {
 		type: "enum",
 		label: "Set Lot",
@@ -304,12 +310,6 @@ const workoutTemplateSetProperties: Readonly<Record<string, AppPropertyDefinitio
 			kind: "static",
 			values: [{ value: "normal" }, { value: "warm_up" }, { value: "drop" }, { value: "failure" }],
 		},
-	},
-	rpe: {
-		label: "Rpe",
-		type: "integer",
-		validation: { minimum: 0, maximum: 10 },
-		description: "Planned rate of perceived exertion from 0 (no effort) to 10 (maximal effort)",
 	},
 };
 
@@ -322,18 +322,18 @@ const workoutTemplateExerciseProperties: Readonly<Record<string, AppPropertyDefi
 		validation: { required: true },
 		description: "Entity id of the exercise",
 	},
+	exerciseOrder: {
+		type: "integer",
+		label: "Exercise Order",
+		validation: { minimum: 0, required: true },
+		description: "Zero-based position of this exercise within the template",
+	},
 	notes: {
 		type: "array",
 		label: "Notes",
 		validation: { required: true },
 		description: "Notes for this exercise",
-		items: { type: "string", label: "Item", description: "Item" },
-	},
-	exerciseOrder: {
-		type: "integer",
-		label: "Exercise Order",
-		description: "Zero-based position of this exercise within the template",
-		validation: { minimum: 0, required: true },
+		items: { label: "Item", type: "string", description: "Item" },
 	},
 	sets: {
 		type: "array",
@@ -376,8 +376,8 @@ export const workoutTemplatePropertiesSchema: AppSchema = {
 			label: "Supersets",
 			description: "Supersets in this template",
 			items: {
-				type: "object",
 				label: "Item",
+				type: "object",
 				unknownKeys: "strict",
 				properties: workoutSupersetItemProperties,
 				description: "Superset grouping within a workout or template",
@@ -407,6 +407,7 @@ export const measurementPropertiesSchema: AppSchema = {
 				type: "object",
 				description: "Item",
 				properties: {
+					key: { label: "Key", type: "string", description: "Key", validation: { required: true } },
 					value: {
 						type: "number",
 						label: "Value",
@@ -419,7 +420,6 @@ export const measurementPropertiesSchema: AppSchema = {
 						description: "Label",
 						validation: { required: true },
 					},
-					key: { label: "Key", type: "string", description: "Key", validation: { required: true } },
 				},
 			},
 		},

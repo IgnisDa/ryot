@@ -60,7 +60,7 @@ it.effect("creates user-owned relationships with exact plugin provenance", () =>
 			onConflict: "preserveExisting",
 			propertiesSchema: { fields: {} },
 			relationshipSchemaPluginId: "private-plugin-id",
-			entries: [{ entityId: entityId("related"), properties: {} }],
+			entries: [{ properties: {}, entityId: entityId("related") }],
 		});
 		expect(created).toMatchObject([
 			{ userId, scope: "user", relationshipSchemaPluginId: "private-plugin-id" },
@@ -80,8 +80,8 @@ const relationship = (input: {
 	properties: input.properties,
 	sourceEntityId: anchorEntityId,
 	id: RelationshipId.make(input.id),
-	wasInserted: input.wasInserted ?? false,
 	targetEntityId: entityId(input.target),
+	wasInserted: input.wasInserted ?? false,
 });
 
 it.effect(
@@ -124,6 +124,20 @@ it.effect(
 			listGlobalRelationships: () => Effect.succeed(existing),
 		});
 		const relationshipsService = Layer.mock(RelationshipsService)({
+			delete: () => Effect.succeed(stale),
+			update: (input) => {
+				assertRecord(input.properties);
+				updates.push(input.targetEntityId);
+				return Effect.succeed(
+					relationship({
+						wasInserted: false,
+						target: input.targetEntityId,
+						properties: input.properties,
+						id: `updated-${input.targetEntityId}`,
+						createdAt: "2026-01-06T00:00:00.000Z",
+					}),
+				);
+			},
 			create: (input) => {
 				assertRecord(input.properties);
 				if (input.targetEntityId === "created") {
@@ -149,20 +163,6 @@ it.effect(
 					}),
 				);
 			},
-			update: (input) => {
-				assertRecord(input.properties);
-				updates.push(input.targetEntityId);
-				return Effect.succeed(
-					relationship({
-						wasInserted: false,
-						target: input.targetEntityId,
-						properties: input.properties,
-						id: `updated-${input.targetEntityId}`,
-						createdAt: "2026-01-06T00:00:00.000Z",
-					}),
-				);
-			},
-			delete: () => Effect.succeed(stale),
 		});
 		const layer = Layer.mergeAll(
 			databaseLayer,
@@ -173,8 +173,8 @@ it.effect(
 
 		return Effect.gen(function* () {
 			const outcomes = yield* synchronizeGlobalRelationships({
-				scope: "global",
 				anchorEntityId,
+				scope: "global",
 				direction: "outgoing",
 				onConflict: "replaceProperties",
 				synchronization: "authoritative",
@@ -185,7 +185,7 @@ it.effect(
 					{ entityId: entityId("same"), properties: { roles: ["actor"] } },
 					{ entityId: entityId("changed"), properties: { roles: ["actor", "director"] } },
 					{ entityId: entityId("conflict-update"), properties: { roles: ["actor", "director"] } },
-					{ entityId: entityId("conflict-noop"), properties: { roles: ["actor"] } },
+					{ properties: { roles: ["actor"] }, entityId: entityId("conflict-noop") },
 				],
 			});
 
@@ -200,11 +200,11 @@ it.effect(
 			expect(updates).toEqual(["changed", "conflict-update"]);
 			expect(outcomes[0]?.after).toMatchObject({
 				relationshipSchemaSlug: "credits",
-				sourceEntity: { id: anchorEntityId, name: "Item", entitySchemaSlug: "item" },
+				sourceEntity: { name: "Item", id: anchorEntityId, entitySchemaSlug: "item" },
 				targetEntity: {
 					name: "Person created",
-					entitySchemaSlug: "person",
 					id: entityId("created"),
+					entitySchemaSlug: "person",
 				},
 			});
 			expect(outcomes[3]?.before?.properties).toEqual({ roles: ["actor"] });
@@ -245,8 +245,8 @@ it.effect("preserves different existing properties as a noop", () => {
 
 	return Effect.gen(function* () {
 		const outcomes = yield* synchronizeGlobalRelationships({
-			scope: "global",
 			anchorEntityId,
+			scope: "global",
 			direction: "outgoing",
 			synchronization: "additive",
 			onConflict: "preserveExisting",
@@ -306,13 +306,13 @@ it.effect(
 			);
 			const synchronize = (direction: "incoming" | "outgoing") =>
 				synchronizeGlobalRelationships({
-					scope: "global",
 					direction,
+					scope: "global",
 					synchronization: "additive",
 					onConflict: "preserveExisting",
 					propertiesSchema: { fields: {} },
-					relationshipSchemaSlug: RelationshipSchemaSlug.make("person-to-item"),
 					anchorEntityId: direction === "incoming" ? itemId : personId,
+					relationshipSchemaSlug: RelationshipSchemaSlug.make("person-to-item"),
 					entries: [
 						{
 							properties: { roles: ["Director"] },

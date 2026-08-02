@@ -146,6 +146,6 @@ BEGIN
 	ON CONFLICT ("id") DO NOTHING;
 
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
-	${buildReportSql("old_notification_platform -> notification_channel", [{ message: "row(s) migrated", count: "rows_inserted" }])}
+	${buildReportSql("old_notification_platform -> notification_channel", [{ count: "rows_inserted", message: "row(s) migrated" }])}
 END $$;
 `;

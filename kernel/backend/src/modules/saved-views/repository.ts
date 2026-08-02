@@ -61,16 +61,16 @@ const toListedSavedView = (row: ListedSavedViewRow): ListedSavedView => {
 		slug: row.slug,
 		name: row.name,
 		icon: row.icon,
+		renderer: row.renderer,
+		settings: row.settings,
 		isBuiltin: row.isBuiltin,
 		sortOrder: row.sortOrder,
 		isDisabled: row.isDisabled,
 		id: SavedViewId.make(row.id),
+		dataSources: row.dataSources,
 		createdAt: row.createdAt.toISOString(),
 		updatedAt: row.updatedAt.toISOString(),
 		pluginSlug: row.pluginSlug === null ? null : PluginSlug.make(row.pluginSlug),
-		renderer: row.renderer,
-		settings: row.settings,
-		dataSources: row.dataSources,
 	};
 	return base;
 };
@@ -369,7 +369,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 
 				const desiredSlugs = new Set(views.map(({ slug }) => slug));
 				const obsoleteIds = existing
-					.filter(({ isBuiltin, slug }) => isBuiltin && !desiredSlugs.has(slug))
+					.filter(({ slug, isBuiltin }) => isBuiltin && !desiredSlugs.has(slug))
 					.map(({ id }) => id);
 				if (obsoleteIds.length > 0) {
 					yield* mapDatabaseErrors(
@@ -454,9 +454,9 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				listForBackup,
 				reorderBySlugs,
 				restoreCustomView,
-				restoreBuiltinStateBySlug,
 				ensureBuiltinViews,
 				restoreBuiltinViews,
+				restoreBuiltinStateBySlug,
 				deleteGeneratedByInstallation,
 				hasCustomInstallationReferences,
 			};

@@ -21,6 +21,15 @@ it("decodes generic media write intents without admitting plugin-private event f
 				sourceIdentifier: "10",
 				subjectEntityAlias: "media",
 				collectionMemberships: [{ entityAlias: "media", collectionName: "Pinned" }],
+				events: [
+					{
+						properties: {},
+						entityAlias: "media",
+						subjectEntityId: "movie-1",
+						eventSchemaSlug: "complete",
+						occurredAt: "2026-01-01T00:00:00.000Z",
+					},
+				],
 				relationships: [
 					{
 						sourceAlias: "media",
@@ -45,15 +54,6 @@ it("decodes generic media write intents without admitting plugin-private event f
 						alias: "library",
 						existingOnly: true,
 						entitySchemaSlug: "library",
-					},
-				],
-				events: [
-					{
-						properties: {},
-						entityAlias: "media",
-						eventSchemaSlug: "complete",
-						subjectEntityId: "movie-1",
-						occurredAt: "2026-01-01T00:00:00.000Z",
 					},
 				],
 			},

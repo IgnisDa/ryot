@@ -20,10 +20,10 @@ import { PluginManifest } from "../plugins/manifest";
 import { EnqueueSandboxBody, SandboxScriptMetadata } from "../sandbox/schemas";
 
 const TestSupportDiagnosticReason = Schema.Union([
-	Schema.Struct({ code: Schema.Literal("invalid-request"), diagnostic: Schema.String }),
-	Schema.Struct({ code: Schema.Literal("operation-failed"), diagnostic: Schema.String }),
-	Schema.Struct({ code: Schema.Literal("resource-conflict"), diagnostic: Schema.String }),
-	Schema.Struct({ code: Schema.Literal("resource-not-found"), diagnostic: Schema.String }),
+	Schema.Struct({ diagnostic: Schema.String, code: Schema.Literal("invalid-request") }),
+	Schema.Struct({ diagnostic: Schema.String, code: Schema.Literal("operation-failed") }),
+	Schema.Struct({ diagnostic: Schema.String, code: Schema.Literal("resource-conflict") }),
+	Schema.Struct({ diagnostic: Schema.String, code: Schema.Literal("resource-not-found") }),
 ]);
 
 export class TestSupportBadRequest extends Schema.TaggedError<TestSupportBadRequest>()(
@@ -67,10 +67,10 @@ export const TestSupportStoredSandboxScript = Schema.Struct({
 	slug: Schema.String,
 	name: Schema.String,
 	source: Schema.String,
-	providerId: Schema.NullOr(SandboxProviderId),
 	compiledCode: Schema.String,
 	compiledFormat: Schema.Number,
 	metadata: SandboxScriptMetadata,
+	providerId: Schema.NullOr(SandboxProviderId),
 });
 
 export type TestSupportStoredSandboxScript = typeof TestSupportStoredSandboxScript.Type;

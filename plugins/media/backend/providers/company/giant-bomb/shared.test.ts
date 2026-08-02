@@ -33,7 +33,7 @@ describe("company.giant-bomb sandbox script", () => {
 
 		return runSandboxTestScript(
 			search,
-			{ query: "studio", page: 1, pageSize: 20 },
+			{ page: 1, pageSize: 20, query: "studio" },
 			host,
 			execution,
 		).pipe(
@@ -97,7 +97,7 @@ describe("company.giant-bomb sandbox script", () => {
 					alternateNames: ["StudioX", "SX"],
 					description: "Maker.\n\n<p>desc</p>",
 					sourceUrl: "https://www.giantbomb.com/studiox/",
-					images: [{ type: "remote", url: "https://img/c.jpg", purpose: "logo" }],
+					images: [{ type: "remote", purpose: "logo", url: "https://img/c.jpg" }],
 				});
 				return undefined;
 			}),

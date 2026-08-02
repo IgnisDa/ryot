@@ -14,9 +14,9 @@ import definition, { manifest } from "./library-membership-policy.sandbox";
 const rows = (queryName: string, entityIds: string[]) => ({
 	data: {
 		[queryName]: {
-			items: entityIds.map((entityId) => ({ entityId })),
-			pageInfo: { hasMore: false, limit: 1, nextCursor: null },
 			type: "rows" as const,
+			items: entityIds.map((entityId) => ({ entityId })),
+			pageInfo: { limit: 1, hasMore: false, nextCursor: null },
 		},
 	},
 });
@@ -30,7 +30,7 @@ const collectionPolicyContext = (entitySchemaSlug: string) => {
 	const context = policyAutomationContext({
 		entitySchemaSlug: "collection",
 		eventSchemaSlug: "add-entity-to-collection",
-		properties: { entityId: "member-1", entitySchemaSlug },
+		properties: { entitySchemaSlug, entityId: "member-1" },
 	});
 	return context;
 };
@@ -39,15 +39,15 @@ it("awaits membership for a referenced global media entity", () => {
 	const changes: JsonValue[] = [];
 	let queryIndex = 0;
 	const host = defineSandboxTestHost(manifest, {
+		changeUserRelationships: (batches) => {
+			changes.push(...batches);
+			return hostSuccess([{ created: 1, deleted: 0 }]);
+		},
 		executeRyotql: () => {
 			const index = queryIndex++;
 			return hostSuccess(
 				rows(index === 0 ? "entity" : "library", index === 0 ? ["media-1"] : ["library-1"]),
 			);
-		},
-		changeUserRelationships: (batches) => {
-			changes.push(...batches);
-			return hostSuccess([{ created: 1, deleted: 0 }]);
 		},
 	});
 
@@ -77,15 +77,15 @@ it("does not add membership for a user-scoped media entity", () => {
 	let changeCalls = 0;
 	let queryIndex = 0;
 	const host = defineSandboxTestHost(manifest, {
+		changeUserRelationships: () => {
+			changeCalls += 1;
+			return hostSuccess([]);
+		},
 		executeRyotql: () => {
 			const index = queryIndex++;
 			return hostSuccess(
 				rows(index === 0 ? "entity" : "library", index === 0 ? [] : ["library-1"]),
 			);
-		},
-		changeUserRelationships: () => {
-			changeCalls += 1;
-			return hostSuccess([]);
 		},
 	});
 
@@ -103,15 +103,15 @@ it("awaits membership for an eligible global collection member", () => {
 	const changes: JsonValue[] = [];
 	let queryIndex = 0;
 	const host = defineSandboxTestHost(manifest, {
+		changeUserRelationships: (batches) => {
+			changes.push(...batches);
+			return hostSuccess([{ created: 1, deleted: 0 }]);
+		},
 		executeRyotql: () => {
 			const index = queryIndex++;
 			return hostSuccess(
 				rows(index === 0 ? "entity" : "library", index === 0 ? ["member-1"] : ["library-1"]),
 			);
-		},
-		changeUserRelationships: (batches) => {
-			changes.push(...batches);
-			return hostSuccess([{ created: 1, deleted: 0 }]);
 		},
 	});
 
@@ -183,13 +183,13 @@ it.each(["workout", "fixture-entity"])(
 	(entitySchemaSlug) => {
 		let hostCalls = 0;
 		const host = defineSandboxTestHost(manifest, {
-			executeRyotql: () => {
-				hostCalls += 1;
-				return hostSuccess(rows("entity", []));
-			},
 			changeUserRelationships: () => {
 				hostCalls += 1;
 				return hostSuccess([]);
+			},
+			executeRyotql: () => {
+				hostCalls += 1;
+				return hostSuccess(rows("entity", []));
 			},
 		});
 

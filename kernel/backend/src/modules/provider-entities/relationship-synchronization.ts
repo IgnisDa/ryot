@@ -129,7 +129,7 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 				relationshipSchemaSlug: input.relationshipSchemaSlug,
 				relationshipSchemaPluginId: input.relationshipSchemaPluginId ?? null,
 				...(input.scope === "user"
-					? { scope: "user" as const, userId: input.userId }
+					? { userId: input.userId, scope: "user" as const }
 					: { scope: "global" as const }),
 			};
 			const current = existingByEntityId.get(entry.entityId);
@@ -147,7 +147,7 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 					.update(relationshipInput)
 					.pipe(Effect.mapError(toSandboxRunError));
 				const updated = yield* updateRelationship;
-				outcomes.push({ before, after: yield* toSnapshot(updated), operation: "update" });
+				outcomes.push({ before, operation: "update", after: yield* toSnapshot(updated) });
 				continue;
 			}
 
@@ -157,14 +157,14 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 			const created = yield* createRelationship;
 			const createdSnapshot = yield* toSnapshot(created);
 			if (created.wasInserted) {
-				outcomes.push({ before: null, after: createdSnapshot, operation: "create" });
+				outcomes.push({ before: null, operation: "create", after: createdSnapshot });
 				continue;
 			}
 			if (
 				input.onConflict === "preserveExisting" ||
 				Bun.deepEquals(created.properties, entry.properties)
 			) {
-				outcomes.push({ before: createdSnapshot, after: createdSnapshot, operation: "noop" });
+				outcomes.push({ operation: "noop", after: createdSnapshot, before: createdSnapshot });
 				continue;
 			}
 
@@ -196,7 +196,7 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 						relationshipSchemaSlug: relationship.relationshipSchemaSlug,
 						relationshipSchemaPluginId: input.relationshipSchemaPluginId ?? null,
 						...(input.scope === "user"
-							? { scope: "user" as const, userId: input.userId }
+							? { userId: input.userId, scope: "user" as const }
 							: { scope: "global" as const }),
 					})
 					.pipe(Effect.mapError(toSandboxRunError));

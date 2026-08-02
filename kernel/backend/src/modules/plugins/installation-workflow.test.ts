@@ -67,6 +67,7 @@ const runWorkflow = (input: {
 					resolveInstallationBootstrap: () => Effect.succeed(input.bootstrap),
 				}),
 				Layer.mock(PluginInstallationRepository)({
+					updateHealth: (values) => Effect.sync(() => void input.healthUpdates.push(values)),
 					findById: () =>
 						Effect.succeed({
 							userId,
@@ -83,7 +84,6 @@ const runWorkflow = (input: {
 							createdAt: new Date(0),
 							updatedAt: new Date(0),
 						}),
-					updateHealth: (values) => Effect.sync(() => void input.healthUpdates.push(values)),
 				}),
 				PluginCatalogInvalidator.layer,
 				Layer.mock(SandboxExecutionService)({
@@ -125,12 +125,12 @@ it.effect("runs bootstrap entries in declared order with owner subject and stabl
 		expect(executions).toEqual([
 			{
 				scriptId: "first-id",
-				subject: { type: "user", userId },
+				subject: { userId, type: "user" },
 				executionId: pluginInstallationBootstrapExecutionId(installationId, "first"),
 			},
 			{
 				scriptId: "second-id",
-				subject: { type: "user", userId },
+				subject: { userId, type: "user" },
 				executionId: pluginInstallationBootstrapExecutionId(installationId, "second"),
 			},
 		]);

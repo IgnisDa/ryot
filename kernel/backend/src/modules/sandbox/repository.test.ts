@@ -38,12 +38,12 @@ describe("workflow call script resolution", () => {
 });
 
 const manifest = {
-	workflows: [{ slug: "plugin-workflow", scriptSlug: "plugin.workflow" }],
-	configSchema: { fields: {}, unknownKeys: "strict" },
 	entitySchemas: [],
 	relationshipSchemas: [],
-	scripts: [{ slug: "plugin.script", kind: "script" }],
-	userBootstrap: [{ slug: "bootstrap", scriptSlug: "plugin.script", description: "Bootstrap" }],
+	configSchema: { fields: {}, unknownKeys: "strict" },
+	scripts: [{ kind: "script", slug: "plugin.script" }],
+	workflows: [{ slug: "plugin-workflow", scriptSlug: "plugin.workflow" }],
+	userBootstrap: [{ slug: "bootstrap", description: "Bootstrap", scriptSlug: "plugin.script" }],
 };
 
 const pluginPinRow = {
@@ -118,10 +118,10 @@ effectIt.effect("resolves first-observed children from the pinned plugin revisio
 	const rootId = SandboxScriptId.make("workflow-script-id");
 	const originalManifest = {
 		...manifest,
-		entitySchemas: [{ slug: "original-entity", eventSchemas: [] }],
+		entitySchemas: [{ eventSchemas: [], slug: "original-entity" }],
 		scripts: [
-			{ slug: "plugin.workflow", kind: "workflow" },
-			{ slug: "plugin.child", kind: "workflow" },
+			{ kind: "workflow", slug: "plugin.workflow" },
+			{ kind: "workflow", slug: "plugin.child" },
 		],
 		workflows: [
 			{ slug: "root", scriptSlug: "plugin.workflow" },
@@ -137,7 +137,7 @@ effectIt.effect("resolves first-observed children from the pinned plugin revisio
 		contentHash: "workflow-v1",
 		pluginManifest: originalManifest,
 		metadata: { kind: "workflow" as const },
-		compiledHashes: { "plugin.workflow": "workflow-v1", "plugin.child": "child-v1" },
+		compiledHashes: { "plugin.child": "child-v1", "plugin.workflow": "workflow-v1" },
 	};
 	let selectedPinRow = root;
 	const dialect = new PgDialect();
@@ -168,7 +168,7 @@ effectIt.effect("resolves first-observed children from the pinned plugin revisio
 		root.pluginManifest = {
 			...originalManifest,
 			workflows: [{ slug: "child", scriptSlug: "plugin.replacement" }],
-			entitySchemas: [{ slug: "replacement-entity", eventSchemas: [] }],
+			entitySchemas: [{ eventSchemas: [], slug: "replacement-entity" }],
 		};
 		root.compiledHashes = { "plugin.child": "child-v2", "plugin.workflow": "workflow-v2" };
 		effectExpect(pin?.pluginRevision?.schemaScope.entitySchemaSlugs).toEqual(["original-entity"]);

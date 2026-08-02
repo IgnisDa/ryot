@@ -49,7 +49,7 @@ const consumeTicket = (ticket: string) =>
 			reject(new Error("Timed out consuming entity interest socket ticket"));
 		}, 10_000);
 		socket.addEventListener("open", () => {
-			socket.send(encodeEntityInterestClientMessage({ type: "authenticate", ticket }));
+			socket.send(encodeEntityInterestClientMessage({ ticket, type: "authenticate" }));
 		});
 		socket.addEventListener("message", (event) => {
 			const decoded = decodeEntityInterestServerMessage(String(event.data));
@@ -136,7 +136,7 @@ describe("interest authorization", () => {
 							encodeEntityInterestClientMessage({ type: "authenticate", ticket: expired.ticket }),
 						),
 						waitForSocketClose(
-							encodeEntityInterestClientMessage({ type: "authenticate", ticket: "malformed" }),
+							encodeEntityInterestClientMessage({ ticket: "malformed", type: "authenticate" }),
 						),
 						waitForSocketClose(
 							encodeEntityInterestClientMessage({ type: "authenticate", ticket: reused.ticket }),
@@ -157,7 +157,7 @@ describe("interest authorization", () => {
 		Effect.gen(function* () {
 			const firstFrame = yield* Effect.promise(() =>
 				waitForSocketClose(
-					encodeEntityInterestClientMessage({ type: "replace", revision: 1, entityIds: [] }),
+					encodeEntityInterestClientMessage({ revision: 1, entityIds: [], type: "replace" }),
 				),
 			);
 			const deadline = yield* Effect.promise(() => waitForSocketClose());

@@ -90,7 +90,7 @@ const getCompletionTrigger = (automation: AutomationContext): CompletionTrigger 
 		) {
 			return null;
 		}
-		return { config, event, parentEntityId: event.sessionEntityId };
+		return { event, config, parentEntityId: event.sessionEntityId };
 	}
 
 	if (source.kind !== "entity" || automation.operation !== "update") {

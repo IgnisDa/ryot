@@ -29,18 +29,18 @@ describe("adaptHevyCsv", () => {
 			{
 				name: "Bench Press",
 				kind: "reps_and_weight",
-				sets: [{ setLot: "normal", note: "Felt strong", reps: 5, weight: 100 }],
+				sets: [{ reps: 5, weight: 100, setLot: "normal", note: "Felt strong" }],
 			},
 			{
 				name: "Run",
 				kind: "distance_and_duration",
-				sets: [{ setLot: "normal", distance: 5, duration: 30 }],
+				sets: [{ distance: 5, duration: 30, setLot: "normal" }],
 			},
-			{ kind: "reps", name: "Push Up", sets: [{ setLot: "normal", reps: 12 }] },
+			{ kind: "reps", name: "Push Up", sets: [{ reps: 12, setLot: "normal" }] },
 			{
 				name: "Timed Push Up",
 				kind: "reps_and_duration",
-				sets: [{ setLot: "normal", reps: 10, duration: 1 }],
+				sets: [{ reps: 10, duration: 1, setLot: "normal" }],
 			},
 		]);
 	});
@@ -133,7 +133,7 @@ describe("adaptHevyCsv", () => {
 			setOrder: 0,
 			exerciseOrder: 0,
 			exerciseKind: "reps_and_weight",
-			set: { setLot: "normal", reps: 5, weight: -100 },
+			set: { reps: 5, weight: -100, setLot: "normal" },
 		});
 
 		expect(properties.weight).toBe(-100);

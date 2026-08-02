@@ -20,8 +20,8 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "MyAnimeList",
 	slug: "manga.myanimelist",
-	requiredPluginConfigKeys: ["malClientId"],
 	requiredSystemConfigKeys: [],
+	requiredPluginConfigKeys: ["malClientId"],
 	capabilities: ["httpCall", "getPluginConfig", "getUserPreferences"],
 });
 
@@ -80,10 +80,10 @@ export const details = defineProvider({
 					genres: collectGenres(payload?.["genres"]),
 					providerRating: numberValue(payload?.["mean"]),
 					chapters: numberValue(payload?.["num_chapters"]),
-					description: typeof synopsis === "string" ? synopsis : null,
 					images: collectImages(payload?.["main_picture"]),
 					publishDate: parsePublishDate(payload?.["start_date"]),
 					publishYear: parsePublishYear(payload?.["start_date"]),
+					description: typeof synopsis === "string" ? synopsis : null,
 					productionStatus: statusValue ? toTitleCase(statusValue) : null,
 					sourceUrl: `https://myanimelist.net/manga/${payloadIdentifier}/${title}`,
 					volumes: volumesValue === null ? null : Math.max(0, Math.trunc(volumesValue)),

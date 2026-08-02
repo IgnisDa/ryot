@@ -90,10 +90,10 @@ export const verifyPluginSandboxScriptsLoad = (
 									runnerPath,
 								],
 								{
-									stdin: Stream.succeed(new TextEncoder().encode(request)),
 									stdout: "pipe",
 									stderr: "pipe",
 									extendEnv: false,
+									stdin: Stream.succeed(new TextEncoder().encode(request)),
 									env: {
 										DENO_DIR: runtime.cacheDirectory,
 										PATH: Bun.env["PATH"] ?? "/usr/bin:/bin",
@@ -146,7 +146,7 @@ export const verifyPluginSandboxScriptsLoad = (
 							return yield* Effect.void;
 						}),
 					),
-				{ concurrency: 5, discard: true },
+				{ discard: true, concurrency: 5 },
 			);
 		}),
 	).pipe(Effect.provide(BunServices.layer));

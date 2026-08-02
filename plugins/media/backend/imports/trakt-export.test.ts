@@ -7,24 +7,11 @@ const json = (value: unknown) => encoder.encode(JSON.stringify(value));
 
 it("imports paged Trakt export activity and resolves custom list metadata", () => {
 	const result = adaptTraktExport({
+		"lists-lists.json": json([
+			{ name: "Top Movies", ids: { trakt: 42 }, description: "Favorites" },
+		]),
 		"lists-list-42-top-movies.json": json([
-			{ movie: { title: "Arrival", year: null, ids: { trakt: 1, tmdb: 329865 } } },
-		]),
-		"ratings-episodes-10.json": json([
-			{
-				rating: 8,
-				rated_at: "2024-02-01T00:00:00Z",
-				show: { title: "Dark", ids: { trakt: 2, tmdb: 70523 } },
-				episode: { season: 2, number: 4, ids: { imdb: null, trakt: 20, tmdb: null } },
-			},
-		]),
-		"ratings-seasons.json": json([
-			{
-				rating: 9,
-				rated_at: "2024-02-02T00:00:00Z",
-				show: { title: "Severance", ids: { trakt: 4, tmdb: 95396 } },
-				season: { number: 1, ids: { trakt: 40, tmdb: 400 } },
-			},
+			{ movie: { year: null, title: "Arrival", ids: { trakt: 1, tmdb: 329865 } } },
 		]),
 		"watched-history.json": json([
 			{
@@ -32,8 +19,21 @@ it("imports paged Trakt export activity and resolves custom list metadata", () =
 				show: { title: "Incomplete", ids: { trakt: 3, tmdb: 100 } },
 			},
 		]),
-		"lists-lists.json": json([
-			{ name: "Top Movies", description: "Favorites", ids: { trakt: 42 } },
+		"ratings-seasons.json": json([
+			{
+				rating: 9,
+				rated_at: "2024-02-02T00:00:00Z",
+				season: { number: 1, ids: { trakt: 40, tmdb: 400 } },
+				show: { title: "Severance", ids: { trakt: 4, tmdb: 95396 } },
+			},
+		]),
+		"ratings-episodes-10.json": json([
+			{
+				rating: 8,
+				rated_at: "2024-02-01T00:00:00Z",
+				show: { title: "Dark", ids: { trakt: 2, tmdb: 70523 } },
+				episode: { season: 2, number: 4, ids: { trakt: 20, imdb: null, tmdb: null } },
+			},
 		]),
 	});
 
@@ -48,7 +48,7 @@ it("imports paged Trakt export activity and resolves custom list metadata", () =
 				expect.objectContaining({
 					eventSchemaSlug: "review",
 					properties: { rating: 90 },
-					unresolvedEpisode: { type: "show-season", seasonNumber: 1 },
+					unresolvedEpisode: { seasonNumber: 1, type: "show-season" },
 				}),
 			],
 		}),

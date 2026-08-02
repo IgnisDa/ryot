@@ -35,7 +35,7 @@ describe("OAuth endpoint", () => {
 			);
 
 			expect(failure).toBeInstanceOf(OAuthEndpointError);
-			expect(failure).toMatchObject({ code: "invalid_grant", status: 400, description: "expired" });
+			expect(failure).toMatchObject({ status: 400, code: "invalid_grant", description: "expired" });
 		}),
 	);
 
@@ -45,7 +45,7 @@ describe("OAuth endpoint", () => {
 				postOAuthFormRequest(respondWith({ unexpected: true }, 500), origin, "/token", body),
 			);
 
-			expect(failure).toMatchObject({ code: "server_error", status: 500 });
+			expect(failure).toMatchObject({ status: 500, code: "server_error" });
 		}),
 	);
 
@@ -55,7 +55,7 @@ describe("OAuth endpoint", () => {
 				postOAuthFormRequest(respondWith("<html>gateway</html>", 502), origin, "/token", body),
 			);
 
-			expect(failure).toMatchObject({ code: "server_error", status: 502 });
+			expect(failure).toMatchObject({ status: 502, code: "server_error" });
 		}),
 	);
 

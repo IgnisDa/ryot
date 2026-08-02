@@ -84,7 +84,7 @@ export const installFixtureClientPlugin = (
 ) =>
 	Effect.gen(function* () {
 		const pluginPackage = yield* fixtureClientPluginPackage(revision, variant);
-		yield* installPrivatePluginPackage({ client, config: {}, pluginPackage, baseUrl });
+		yield* installPrivatePluginPackage({ client, baseUrl, config: {}, pluginPackage });
 		return yield* settledPrivateInstallation(client, FIXTURE_CLIENT_PLUGIN_SLUG);
 	});
 

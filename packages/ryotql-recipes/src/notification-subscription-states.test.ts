@@ -14,13 +14,13 @@ const item = {
 	createdAt: "2026-01-01T01:00:00+02:00",
 	updatedAt: "2026-01-02T01:00:00+02:00",
 };
-const pageInfo = { hasMore: true, limit: 2, nextCursor: "next" };
+const pageInfo = { limit: 2, hasMore: true, nextCursor: "next" };
 const rows = (items: readonly unknown[], limit = 2) => rowsResult(items, { ...pageInfo, limit });
 
 describe("notification subscription state recipes", () => {
 	it("prepares the paginated list with exact fields and ordering", () => {
 		const query = requireRowsQuery(
-			notificationSubscriptionStatesRecipe({ after: "cursor", limit: 7 }).document.queries
+			notificationSubscriptionStatesRecipe({ limit: 7, after: "cursor" }).document.queries
 				.notificationSubscriptionStates,
 		);
 
@@ -28,7 +28,7 @@ describe("notification subscription state recipes", () => {
 			table: "notificationSubscriptionState",
 			alias: "notificationSubscriptionState",
 		});
-		expect(query.output.pagination).toEqual({ after: "cursor", limit: 7 });
+		expect(query.output.pagination).toEqual({ limit: 7, after: "cursor" });
 		expect(query.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
 			"id",
 			"isActive",
@@ -47,7 +47,7 @@ describe("notification subscription state recipes", () => {
 			},
 			{
 				direction: "asc",
-				expr: { field: "id", tableAlias: "notificationSubscriptionState", type: "column" },
+				expr: { field: "id", type: "column", tableAlias: "notificationSubscriptionState" },
 			},
 		]);
 	});
@@ -59,7 +59,7 @@ describe("notification subscription state recipes", () => {
 		);
 
 		expect(query.output.pagination).toEqual({ limit: 2 });
-		expect(query.where).toMatchObject({ right: { value: "rule-1" }, left: { field: "id" } });
+		expect(query.where).toMatchObject({ left: { field: "id" }, right: { value: "rule-1" } });
 	});
 
 	it("decodes plain branded values, page info, and normalized dates", () => {

@@ -17,7 +17,7 @@ const user = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-id"),
-	preferences: { allowNsfw: false, language: null, disableIntegrations: false },
+	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
 } satisfies CurrentUserValue;
 
 const mockRepository = Layer.mock(PluginInstallationRepository);
@@ -88,7 +88,7 @@ it.effect("lists plugins with user state overlaid", () => {
 			listForUser: () =>
 				Effect.succeed([
 					makeState({ sortOrder: 5 }),
-					makeState({ pluginSlug: "other", isDisabled: true, sortOrder: 0 }),
+					makeState({ sortOrder: 0, isDisabled: true, pluginSlug: "other" }),
 				]),
 		}),
 	);

@@ -175,8 +175,8 @@ export const createCompleteEvent = (input: {
 	startedOn?: string | null;
 	completedOn?: string | null;
 }): ImportMediaEvent => ({
-	occurredAt: input.occurredAt,
 	eventSchemaSlug: "complete",
+	occurredAt: input.occurredAt,
 	properties: {
 		...(input.startedOn ? { startedOn: input.startedOn } : {}),
 		...(input.completedOn
@@ -195,8 +195,8 @@ export const createReviewEvent = (input: {
 	return input.rating == null && !text
 		? null
 		: {
-				occurredAt: input.occurredAt,
 				eventSchemaSlug: "review",
+				occurredAt: input.occurredAt,
 				properties: {
 					...(text ? { text } : {}),
 					...(input.rating == null ? {} : { rating: input.rating }),

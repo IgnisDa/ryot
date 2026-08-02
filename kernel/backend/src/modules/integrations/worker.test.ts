@@ -24,8 +24,8 @@ const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsReposi
 
 const makeIntegrationsService = (overrides: MockOverrides<typeof mockIntegrationsService> = {}) =>
 	mockIntegrationsService({
-		update: () => Effect.succeed(makeIntegration()),
 		disableIfEnabled: () => Effect.succeed(false),
+		update: () => Effect.succeed(makeIntegration()),
 		...overrides,
 	});
 
@@ -70,6 +70,12 @@ it.effect("updates lastFinishedAt after a completed integration run", () => {
 it.effect("disables the integration after 5 consecutive failures", () => {
 	const updates: Array<Record<string, unknown>> = [];
 	const layer = makeWorkerLayer({
+		integrationsService: makeIntegrationsService({
+			disableIfEnabled: (userId, integrationId, runId) => {
+				updates.push({ runId, userId, integrationId, isDisabled: true });
+				return Effect.succeed(true);
+			},
+		}),
 		importsRepository: makeImportsRepository({
 			getRunById: () => Effect.succeed(makeRun("failed")),
 			listRecentStatusesByIntegrationId: () =>
@@ -81,12 +87,6 @@ it.effect("disables the integration after 5 consecutive failures", () => {
 					{ status: "failed" as const },
 				]),
 		}),
-		integrationsService: makeIntegrationsService({
-			disableIfEnabled: (userId, integrationId, runId) => {
-				updates.push({ userId, integrationId, runId, isDisabled: true });
-				return Effect.succeed(true);
-			},
-		}),
 	});
 
 	return Effect.gen(function* () {
@@ -94,19 +94,19 @@ it.effect("disables the integration after 5 consecutive failures", () => {
 
 		vitestExpect(wasDisabled).toBe(true);
 		vitestExpect(updates).toEqual([
-			{ userId: "user_1", runId: "run_1", isDisabled: true, integrationId: "int_1" },
+			{ runId: "run_1", userId: "user_1", isDisabled: true, integrationId: "int_1" },
 		]);
 	}).pipe(Effect.provide(layer));
 });
 
 it.effect("does not claim a second disable transition after a concurrent run wins", () => {
 	const layer = makeWorkerLayer({
+		integrationsService: makeIntegrationsService({ disableIfEnabled: () => Effect.succeed(false) }),
 		importsRepository: makeImportsRepository({
 			getRunById: () => Effect.succeed(makeRun("failed")),
 			listRecentStatusesByIntegrationId: () =>
 				Effect.succeed(Array.from({ length: 5 }, () => ({ status: "failed" as const }))),
 		}),
-		integrationsService: makeIntegrationsService({ disableIfEnabled: () => Effect.succeed(false) }),
 	});
 
 	return Effect.gen(function* () {
@@ -118,6 +118,12 @@ it.effect("does not claim a second disable transition after a concurrent run win
 it.effect("does not disable integrations when recent runs are not all failures", () => {
 	const updates: Array<Record<string, unknown>> = [];
 	const layer = makeWorkerLayer({
+		integrationsService: makeIntegrationsService({
+			update: (userId, integrationId, body) => {
+				updates.push({ userId, integrationId, ...body });
+				return Effect.succeed(makeIntegration());
+			},
+		}),
 		importsRepository: makeImportsRepository({
 			getRunById: () => Effect.succeed(makeRun("failed")),
 			listRecentStatusesByIntegrationId: () =>
@@ -128,12 +134,6 @@ it.effect("does not disable integrations when recent runs are not all failures",
 					{ status: "failed" as const },
 					{ status: "failed" as const },
 				]),
-		}),
-		integrationsService: makeIntegrationsService({
-			update: (userId, integrationId, body) => {
-				updates.push({ userId, integrationId, ...body });
-				return Effect.succeed(makeIntegration());
-			},
 		}),
 	});
 

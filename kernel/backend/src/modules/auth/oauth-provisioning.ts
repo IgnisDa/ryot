@@ -80,7 +80,7 @@ export const internalOAuthRecords = (frontendOrigin: string, now: Date) => {
 			id: `internal-oauth-client-resource:${clientId}`,
 		}),
 	);
-	return { clients, links, resource };
+	return { links, clients, resource };
 };
 
 export class OAuthProvisioningService extends Context.Service<OAuthProvisioningService>()(
@@ -112,8 +112,8 @@ export class OAuthProvisioningService extends Context.Service<OAuthProvisioningS
 				yield* Effect.logInfo("internal OAuth provisioning complete").pipe(
 					Effect.annotateLogs({
 						resource: records.resource.identifier,
-						webRedirectUris: records.clients[0].redirectUris,
 						issuer: getOAuthIssuer(config.frontendUrl),
+						webRedirectUris: records.clients[0].redirectUris,
 						nativeRedirectUris: records.clients[1].redirectUris,
 					}),
 				);

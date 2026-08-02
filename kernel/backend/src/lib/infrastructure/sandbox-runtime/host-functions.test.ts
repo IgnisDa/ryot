@@ -55,8 +55,8 @@ const ownedIntegration = (input: GetForUserInput): IntegrationRecord => ({
 	lastFinishedAt: null,
 	userId: input.userId,
 	syncOwnership: false,
-	provider: "lambda_yank",
 	pluginSlug: "fixture",
+	provider: "lambda_yank",
 	id: input.integrationId,
 	createdAt: "2026-01-01T00:00:00.000Z",
 	updatedAt: "2026-01-01T00:00:00.000Z",
@@ -84,8 +84,8 @@ const runInput = (
 		providerId: null,
 		pluginRevision: null,
 		scriptSlug: "script",
-		metadata: { capabilities: [...capabilities] },
 		scriptId: SandboxScriptId.make("script-1"),
+		metadata: { capabilities: [...capabilities] },
 		...principalFacts,
 	},
 });
@@ -98,8 +98,8 @@ const subscriptionSubject = (
 		userId: UserId.make("user-1"),
 		subscriptionRun: {
 			origin,
-			occurredAt: "2026-01-01T00:00:00.000Z",
 			id: SubscriptionRunId.make("run-1"),
+			occurredAt: "2026-01-01T00:00:00.000Z",
 		},
 	}) satisfies SandboxExecutionSubject;
 
@@ -146,7 +146,7 @@ describe("getCurrentIntegration", () => {
 				},
 			);
 
-			expect(requested).toEqual([{ integrationId: "int-trusted", userId: "user-1" }]);
+			expect(requested).toEqual([{ userId: "user-1", integrationId: "int-trusted" }]);
 			const integration = Result.getOrThrow(result);
 			expect(integration.id).toBe("int-trusted");
 			expect(integration).not.toHaveProperty("pluginSlug");
@@ -172,7 +172,7 @@ describe("getCurrentIntegration", () => {
 				},
 			);
 
-			expect(requested).toEqual([{ integrationId: "int-origin", userId: "user-1" }]);
+			expect(requested).toEqual([{ userId: "user-1", integrationId: "int-origin" }]);
 			expect(Result.getOrThrow(result).id).toBe("int-origin");
 		}),
 	);
@@ -262,7 +262,7 @@ const runExecuteRyotql = (input: SandboxRunInput, document: RyotQLDocument = ryo
 	const pluginCalls: unknown[] = [];
 	return makeAdditionalSandboxApiFunctions.pipe(
 		Effect.flatMap((functions) => Effect.result(functions.executeRyotql(input, document))),
-		Effect.map((result) => ({ result, pluginCalls, userCalls })),
+		Effect.map((result) => ({ result, userCalls, pluginCalls })),
 		Effect.provide(
 			Layer.mergeAll(
 				databaseLayer,
@@ -297,8 +297,8 @@ describe("executeRyotql", () => {
 			const pinnedRevision = { ...systemPluginRevision, schemaScope: activeManifest.schemaScope };
 			activeManifest.schemaScope = {
 				eventSchemas: [],
-				entitySchemaSlugs: ["replacement"],
 				relationshipSchemaSlugs: [],
+				entitySchemaSlugs: ["replacement"],
 			};
 			const execution = yield* runExecuteRyotql({
 				...runInput({ type: "system" }),
@@ -332,7 +332,7 @@ describe("executeRyotql", () => {
 			expect(Result.getOrThrow(execution.result)).toEqual(ryotqlResponse);
 			expect(execution.pluginCalls).toEqual([]);
 			expect(execution.userCalls).toEqual([
-				{ userId: "user-1", language: null, document: ryotqlDocument },
+				{ language: null, userId: "user-1", document: ryotqlDocument },
 			]);
 		}),
 	);
@@ -553,7 +553,7 @@ describe("changeUserRelationships", () => {
 				subscriptionSubject({ kind: "api" }),
 				[batch],
 				repository,
-				({ entityId, userId }) =>
+				({ userId, entityId }) =>
 					entityId === "collection-1" && userId === "user-1"
 						? Effect.succeed(null)
 						: Effect.succeed({
@@ -649,7 +649,7 @@ const runEnsureUserEntities = (options: {
 								}
 							: null,
 					}),
-					[{ name: "Workspace", properties: {}, entitySchemaSlug: "workspace" }],
+					[{ properties: {}, name: "Workspace", entitySchemaSlug: "workspace" }],
 				),
 			),
 		),
@@ -667,7 +667,7 @@ const runEnsureUserEntities = (options: {
 					ensureUserEntities:
 						options.ensure ??
 						(() =>
-							Effect.succeed([{ entityId: EntityId.make("workspace-id"), wasInserted: true }])),
+							Effect.succeed([{ wasInserted: true, entityId: EntityId.make("workspace-id") }])),
 				}),
 				Layer.mock(PluginRuntimeResolver)({
 					getEffectiveDefinitions: () => Effect.succeed(definitions.getSnapshot()),
@@ -688,27 +688,27 @@ describe("ensureUserEntities", () => {
 					caller: { pluginSlug: "example" },
 					subject: { type: "user", userId: UserId.make("trusted-user") },
 					ensure: (userId, items) => {
-						calls.push({ userId, items });
+						calls.push({ items, userId });
 						attempt += 1;
 						return Effect.succeed([
-							{ entityId: EntityId.make("workspace-id"), wasInserted: attempt === 1 },
+							{ wasInserted: attempt === 1, entityId: EntityId.make("workspace-id") },
 						]);
 					},
 				});
 			expect(Result.getOrThrow(yield* run())).toEqual([
-				{ entityId: "workspace-id", wasInserted: true },
+				{ wasInserted: true, entityId: "workspace-id" },
 			]);
 			expect(Result.getOrThrow(yield* run())).toEqual([
-				{ entityId: "workspace-id", wasInserted: false },
+				{ wasInserted: false, entityId: "workspace-id" },
 			]);
 			expect(calls).toEqual([
 				{
 					userId: "trusted-user",
-					items: [{ name: "Workspace", properties: {}, entitySchemaSlug: "workspace" }],
+					items: [{ properties: {}, name: "Workspace", entitySchemaSlug: "workspace" }],
 				},
 				{
 					userId: "trusted-user",
-					items: [{ name: "Workspace", properties: {}, entitySchemaSlug: "workspace" }],
+					items: [{ properties: {}, name: "Workspace", entitySchemaSlug: "workspace" }],
 				},
 			]);
 		});

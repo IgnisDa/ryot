@@ -43,6 +43,16 @@ describe("GET /event-schemas", () => {
 			assertPresent(workoutSetSchema, "Missing built-in workout-set schema for exercise");
 			expect(workoutSetSchema.propertiesSchema).toMatchObject({
 				fields: {
+					note: {
+						label: "Note",
+						type: "string",
+						description: "Optional note specific to this set",
+					},
+					duration: {
+						type: "number",
+						label: "Duration",
+						description: "Duration of this set in seconds",
+					},
 					reps: {
 						label: "Reps",
 						type: "number",
@@ -52,6 +62,11 @@ describe("GET /event-schemas", () => {
 						type: "number",
 						label: "Weight",
 						description: "Weight used in this set in the user's preferred unit",
+					},
+					distance: {
+						type: "number",
+						label: "Distance",
+						description: "Distance covered in this set in the user's preferred unit",
 					},
 					setOrder: {
 						type: "integer",
@@ -64,6 +79,12 @@ describe("GET /event-schemas", () => {
 						label: "Exercise Order",
 						validation: { minimum: 0 },
 						description: "Zero-based position of this exercise within the workout",
+					},
+					rpe: {
+						label: "Rpe",
+						type: "integer",
+						validation: { minimum: 0, maximum: 10 },
+						description: "Rate of perceived exertion from 0 (no effort) to 10 (maximal effort)",
 					},
 					setLot: {
 						type: "enum",
@@ -78,27 +99,6 @@ describe("GET /event-schemas", () => {
 								{ value: "failure" },
 							],
 						},
-					},
-					distance: {
-						type: "number",
-						label: "Distance",
-						description: "Distance covered in this set in the user's preferred unit",
-					},
-					duration: {
-						type: "number",
-						label: "Duration",
-						description: "Duration of this set in seconds",
-					},
-					note: {
-						label: "Note",
-						type: "string",
-						description: "Optional note specific to this set",
-					},
-					rpe: {
-						label: "Rpe",
-						type: "integer",
-						validation: { maximum: 10, minimum: 0 },
-						description: "Rate of perceived exertion from 0 (no effort) to 10 (maximal effort)",
 					},
 				},
 			});
@@ -119,7 +119,7 @@ describe("GET /event-schemas", () => {
 					rating: {
 						type: "number",
 						label: "Rating",
-						validation: { maximum: 100, minimum: 0 },
+						validation: { minimum: 0, maximum: 100 },
 						description: "Your personal rating from 0 (lowest) to 100 (highest)",
 					},
 				},
@@ -156,7 +156,7 @@ describe("GET /event-schemas", () => {
 					rating: {
 						type: "number",
 						label: "Rating",
-						validation: { maximum: 100, minimum: 0 },
+						validation: { minimum: 0, maximum: 100 },
 						description: "Your personal rating from 0 (lowest) to 100 (highest)",
 					},
 				},
@@ -179,7 +179,7 @@ describe("GET /event-schemas", () => {
 				),
 			);
 
-			for (const { eventSchemas, slug } of eventSchemasBySlug) {
+			for (const { slug, eventSchemas } of eventSchemasBySlug) {
 				expect(eventSchemas.some((schema) => schema.slug === "backlog")).toBe(true);
 				const progressSchema = eventSchemas.find((schema) => schema.slug === "progress");
 				assertPresent(progressSchema, `Missing built-in progress schema for ${slug}`);
@@ -209,6 +209,14 @@ describe("GET /event-schemas", () => {
 						`Expected complete schema properties for ${slug} to be an object`,
 					),
 				).toMatchObject({
+					rules: [
+						{
+							kind: "validation",
+							path: ["completedOn"],
+							validation: { required: true },
+							when: { operator: "eq", path: ["completionMode"], value: "custom_timestamps" },
+						},
+					],
 					fields: {
 						startedOn: {
 							type: "datetime",
@@ -234,14 +242,6 @@ describe("GET /event-schemas", () => {
 								"How the completion timestamps were determined: just_now, unknown, or custom_timestamps",
 						},
 					},
-					rules: [
-						{
-							kind: "validation",
-							path: ["completedOn"],
-							validation: { required: true },
-							when: { operator: "eq", path: ["completionMode"], value: "custom_timestamps" },
-						},
-					],
 				});
 				const reviewSchema = eventSchemas.find((schema) => schema.slug === "review");
 				assertPresent(reviewSchema, `Missing built-in review schema for ${slug}`);
@@ -266,7 +266,7 @@ describe("GET /event-schemas", () => {
 						rating: {
 							type: "number",
 							label: "Rating",
-							validation: { maximum: 100, minimum: 0 },
+							validation: { minimum: 0, maximum: 100 },
 							description: "Your personal rating from 0 (lowest) to 100 (highest)",
 						},
 					},
@@ -354,15 +354,15 @@ describe("GET /event-schemas", () => {
 			const animeProgressSchema = yield* getProgressSchema("anime");
 			expect(animeProgressSchema).toMatchObject({
 				fields: {
-					progressPercent: {
-						type: "number",
-						label: "Progress Percent",
-						description: "Percentage of the media completed so far (0 to 100)",
-					},
 					animeEpisode: {
 						type: "integer",
 						label: "Anime Episode",
 						description: "Episode number of the anime being tracked",
+					},
+					progressPercent: {
+						type: "number",
+						label: "Progress Percent",
+						description: "Percentage of the media completed so far (0 to 100)",
 					},
 				},
 			});
@@ -370,20 +370,20 @@ describe("GET /event-schemas", () => {
 			const mangaProgressSchema = yield* getProgressSchema("manga");
 			expect(mangaProgressSchema).toMatchObject({
 				fields: {
-					progressPercent: {
-						type: "number",
-						label: "Progress Percent",
-						description: "Percentage of the media completed so far (0 to 100)",
+					mangaVolume: {
+						type: "integer",
+						label: "Manga Volume",
+						description: "Volume number of the manga being tracked",
 					},
 					mangaChapter: {
 						type: "number",
 						label: "Manga Chapter",
 						description: "Chapter number of the manga being tracked",
 					},
-					mangaVolume: {
-						type: "integer",
-						label: "Manga Volume",
-						description: "Volume number of the manga being tracked",
+					progressPercent: {
+						type: "number",
+						label: "Progress Percent",
+						description: "Percentage of the media completed so far (0 to 100)",
 					},
 				},
 			});
@@ -464,8 +464,8 @@ describe("GET /event-schemas", () => {
 				["anime", "manga", "movie", "book"].map((slug) =>
 					Effect.gen(function* () {
 						return {
-							droppedSchema: yield* getSchemaBySlug(slug, "dropped"),
 							onHoldSchema: yield* getSchemaBySlug(slug, "on_hold"),
+							droppedSchema: yield* getSchemaBySlug(slug, "dropped"),
 							progressSchema: yield* getSchemaBySlug(slug, "progress"),
 						};
 					}),
@@ -476,7 +476,7 @@ describe("GET /event-schemas", () => {
 			const podcastDroppedSchema = yield* getSchemaBySlug("podcast", "dropped");
 			const podcastOnHoldSchema = yield* getSchemaBySlug("podcast", "on_hold");
 
-			for (const { progressSchema, droppedSchema, onHoldSchema } of lifecycleSchemas) {
+			for (const { onHoldSchema, droppedSchema, progressSchema } of lifecycleSchemas) {
 				expect(droppedSchema).toMatchObject(progressSchema);
 				expect(onHoldSchema).toMatchObject(progressSchema);
 				expect(droppedSchema).toMatchObject({ fields: sessionFields });

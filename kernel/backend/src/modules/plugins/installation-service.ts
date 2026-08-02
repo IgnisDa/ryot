@@ -120,20 +120,24 @@ const buildEffectiveDefinitions = (
 	}>,
 ) =>
 	Effect.try({
-		try: () =>
-			buildDefinitionSnapshot(
-				mergeManifestDefinitions(definitionSourceFromSnapshot(systemDefinitions), plugins),
-			),
 		catch: (error) =>
 			new PluginValidationError({
 				issues: [error instanceof Error ? error.message : String(error)],
 			}),
+		try: () =>
+			buildDefinitionSnapshot(
+				mergeManifestDefinitions(definitionSourceFromSnapshot(systemDefinitions), plugins),
+			),
 	});
 
 const validateEffectiveSurfaceSlugs = (
 	plugins: ReadonlyArray<{ readonly slug: string; readonly manifest: PluginManifest }>,
 ) =>
 	Effect.try({
+		catch: (error) =>
+			new PluginValidationError({
+				issues: [error instanceof Error ? error.message : String(error)],
+			}),
 		try: () => {
 			const owners = {
 				provider: new Map<string, string>(),
@@ -161,10 +165,6 @@ const validateEffectiveSurfaceSlugs = (
 				}
 			}
 		},
-		catch: (error) =>
-			new PluginValidationError({
-				issues: [error instanceof Error ? error.message : String(error)],
-			}),
 	});
 
 const definitionClaimKinds = [
@@ -299,7 +299,7 @@ const sanitizeConfigDefinition = (definition: AppPropertyDefinition): AppPropert
 			const sanitized = sanitizeConfigValue(definition.items, item, "", new Set());
 			return sanitized === undefined ? [] : [sanitized];
 		});
-		return { ...withoutDefault, defaultValue: sanitizedDefault, items };
+		return { ...withoutDefault, items, defaultValue: sanitizedDefault };
 	}
 	if (definition.secret === true) {
 		const { defaultValue: _defaultValue, ...withoutDefault } = definition;
@@ -605,8 +605,8 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						scope: "user",
 						manifest: plugin.manifest,
 						sourceHash: plugin.sourceHash,
-						defaultSortOrder: systemPlugins.length + index,
 						state: stateByPluginId.get(plugin.id) ?? null,
+						defaultSortOrder: systemPlugins.length + index,
 						homeSavedViewId:
 							effectiveHomeViews.get(stateByPluginId.get(plugin.id)?.id ?? "") ?? null,
 					}),
@@ -632,7 +632,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				const state = plugin ? yield* installations.findByUserAndPlugin(userId, plugin.id) : null;
 				if (!state) {
 					return yield* new PluginNotFoundError({
-						reason: { code: "plugin-not-found", pluginSlug },
+						reason: { pluginSlug, code: "plugin-not-found" },
 					});
 				}
 				const updated = yield* mapDatabaseErrors(
@@ -678,7 +678,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				);
 				if (!updated) {
 					return yield* new PluginNotFoundError({
-						reason: { code: "plugin-not-found", pluginSlug },
+						reason: { pluginSlug, code: "plugin-not-found" },
 					});
 				}
 				yield* invalidator.user(userId);
@@ -719,12 +719,12 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					const owned = yield* repository.listPrivateForUser(input.userId);
 					if (owned.some((plugin) => plugin.slug === slug)) {
 						return yield* new PluginConflictError({
-							reason: { code: "already-installed", pluginSlug },
+							reason: { pluginSlug, code: "already-installed" },
 						});
 					}
 					const effectiveDefinitions = yield* buildEffectiveDefinitions(
 						loader.getSnapshot().definitions,
-						[...owned, { id: "private-plugin-candidate", slug, manifest }],
+						[...owned, { slug, manifest, id: "private-plugin-candidate" }],
 					);
 					yield* validateEffectiveSurfaceSlugs([
 						...Object.values(loader.getSnapshot().plugins),
@@ -768,8 +768,8 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 									const existingState = existing
 										? yield* installations.upsertState({
 												config,
-												sortOrder,
 												pluginId,
+												sortOrder,
 												isDisabled: false,
 												health: "installing",
 												userId: input.userId,
@@ -814,7 +814,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					const pluginSlug = PluginSlug.make(input.pluginSlug);
 					if (loader.getSnapshot().plugins[input.pluginSlug]) {
 						return yield* new PluginConflictError({
-							reason: { code: "system-plugin", pluginSlug },
+							reason: { pluginSlug, code: "system-plugin" },
 						});
 					}
 					const plugin = (yield* repository.listPrivateForUser(input.userId)).find(
@@ -822,13 +822,13 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					);
 					if (!plugin) {
 						return yield* new PluginNotFoundError({
-							reason: { code: "plugin-not-found", pluginSlug },
+							reason: { pluginSlug, code: "plugin-not-found" },
 						});
 					}
 					const installation = yield* installations.findByUserAndPlugin(input.userId, plugin.id);
 					if (!installation) {
 						return yield* new PluginNotFoundError({
-							reason: { code: "plugin-not-found", pluginSlug },
+							reason: { pluginSlug, code: "plugin-not-found" },
 						});
 					}
 					return yield* withPrivatePluginPackage(input, input.userId, (pluginPackage) =>
@@ -855,7 +855,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 									...(yield* repository.listPrivateForUser(input.userId)).filter(
 										(candidate) => candidate.id !== plugin.id,
 									),
-									{ id: plugin.id, slug: plugin.slug, manifest },
+									{ manifest, id: plugin.id, slug: plugin.slug },
 								],
 							);
 							yield* validateEffectiveSurfaceSlugs([
@@ -863,12 +863,12 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 								...(yield* repository.listPrivateForUser(input.userId)).filter(
 									(candidate) => candidate.id !== plugin.id,
 								),
-								{ slug: plugin.slug, manifest },
+								{ manifest, slug: plugin.slug },
 							]);
 							yield* validatePluginManifestReferences(manifest, effectiveDefinitions);
 							yield* validateAdditiveSchemaEvolution(plugin.manifest, manifest);
 							yield* validateConfigPatch(manifest, installation.config, input);
-							const normalized = yield* compilePluginPackage({ manifest, sourceHash, files }).pipe(
+							const normalized = yield* compilePluginPackage({ files, manifest, sourceHash }).pipe(
 								Effect.provideService(ClientPluginCompiler, clientCompiler),
 							);
 							yield* validatePluginExecutableScripts(normalized);
@@ -888,7 +888,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 											);
 											if (!current || currentInstallation?.id !== installation.id) {
 												return yield* new PluginNotFoundError({
-													reason: { code: "plugin-not-found", pluginSlug },
+													reason: { pluginSlug, code: "plugin-not-found" },
 												});
 											}
 											yield* validateAdditiveSchemaEvolution(current.manifest, manifest);
@@ -919,8 +919,8 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 												return resolved;
 											}
 											yield* installations.updateHealth({
-												healthReason: null,
 												health: "ready",
+												healthReason: null,
 												id: currentInstallation.id,
 											});
 											yield* definitionMaterializer.materialize(input.userId);
@@ -968,25 +968,25 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				const plugin = systemPlugin ?? privatePlugin;
 				if (!plugin) {
 					return yield* new PluginNotFoundError({
-						reason: { code: "plugin-not-found", pluginSlug },
+						reason: { pluginSlug, code: "plugin-not-found" },
 					});
 				}
 				const state = yield* installations.findByUserAndPlugin(userId, plugin.id);
 				if (!state) {
 					return yield* new PluginNotFoundError({
-						reason: { code: "plugin-not-found", pluginSlug },
+						reason: { pluginSlug, code: "plugin-not-found" },
 					});
 				}
 				if (
 					plugin.scope === "system" &&
 					(Object.hasOwn(payload, "config") || Object.hasOwn(payload, "unsetConfigKeys"))
 				) {
-					return yield* new PluginConflictError({ reason: { code: "system-plugin", pluginSlug } });
+					return yield* new PluginConflictError({ reason: { pluginSlug, code: "system-plugin" } });
 				}
 				const isDisabled = payload.isDisabled ?? state.isDisabled;
 				if (payload.isDisabled === false && state.health !== "ready") {
 					return yield* new PluginConflictError({
-						reason: { code: "installation-not-ready", health: state.health, pluginSlug },
+						reason: { pluginSlug, health: state.health, code: "installation-not-ready" },
 					});
 				}
 				const config =
@@ -1046,23 +1046,23 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						})
 					) {
 						return yield* new PluginConflictError({
-							reason: { code: "integration-referenced", pluginSlug },
+							reason: { pluginSlug, code: "integration-referenced" },
 						});
 					}
 					const entitySchemaSlugs = plugin.manifest.entitySchemas.map(({ slug }) => slug);
-					if (yield* repository.hasEntityReferences({ pluginId: plugin.id, entitySchemaSlugs })) {
+					if (yield* repository.hasEntityReferences({ entitySchemaSlugs, pluginId: plugin.id })) {
 						return yield* new PluginConflictError({
-							reason: { code: "entity-referenced", pluginSlug },
+							reason: { pluginSlug, code: "entity-referenced" },
 						});
 					}
 					if (yield* repository.hasDefinitionReferences(plugin.id)) {
 						return yield* new PluginConflictError({
-							reason: { code: "entity-referenced", pluginSlug },
+							reason: { pluginSlug, code: "entity-referenced" },
 						});
 					}
 					if (yield* workflowReferences.hasInstallationReferences(installation.id)) {
 						return yield* new PluginConflictError({
-							reason: { code: "workflow-referenced", pluginSlug },
+							reason: { pluginSlug, code: "workflow-referenced" },
 						});
 					}
 					if (
@@ -1072,7 +1072,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						)
 					) {
 						return yield* new PluginConflictError({
-							reason: { code: "saved-view-referenced", pluginSlug },
+							reason: { pluginSlug, code: "saved-view-referenced" },
 						});
 					}
 					return yield* Effect.void;
@@ -1089,17 +1089,17 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				if (!plugin) {
 					if (loader.getSnapshot().plugins[slug]) {
 						return yield* new PluginConflictError({
-							reason: { code: "system-plugin", pluginSlug },
+							reason: { pluginSlug, code: "system-plugin" },
 						});
 					}
 					return yield* new PluginNotFoundError({
-						reason: { code: "plugin-not-found", pluginSlug },
+						reason: { pluginSlug, code: "plugin-not-found" },
 					});
 				}
 				const installation = yield* installations.findByUserAndPlugin(userId, plugin.id);
 				if (!installation) {
 					return yield* new PluginNotFoundError({
-						reason: { code: "plugin-not-found", pluginSlug },
+						reason: { pluginSlug, code: "plugin-not-found" },
 					});
 				}
 				yield* Effect.uninterruptible(
@@ -1114,7 +1114,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 								);
 								if (!current || currentInstallation?.id !== installation.id) {
 									return yield* new PluginNotFoundError({
-										reason: { code: "plugin-not-found", pluginSlug },
+										reason: { pluginSlug, code: "plugin-not-found" },
 									});
 								}
 								yield* definitionMaterializer.removeGenerated(currentInstallation.id);

@@ -45,7 +45,7 @@ const connectKodi = (page: Playwright.Page) =>
 
 		yield* wizard(page).getByLabel("Name").fill(INTEGRATION_NAME);
 		yield* wizard(page).getByRole("button", { name: "Continue" }).click();
-		yield* wizard(page).getByRole("button", { name: "Connect", exact: true }).click();
+		yield* wizard(page).getByRole("button", { exact: true, name: "Connect" }).click();
 		yield* wizard(page).waitFor({ state: "hidden" });
 	});
 

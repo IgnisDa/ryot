@@ -56,8 +56,8 @@ describe("integration authenticated operation scope", () => {
 			const foreignPrivate = yield* Effect.flip(
 				invokePrivateIntegrationOperation({
 					client,
-					integrationId: integration.id,
 					pluginSlug: other.pluginSlug,
+					integrationId: integration.id,
 					operationSlug: other.operationSlug,
 				}),
 			);

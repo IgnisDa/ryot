@@ -58,7 +58,7 @@ class SharedAdmissionRedis {
 		) => {
 			const value = Number(valueText);
 			const ttlMs = Number(ttlText);
-			this.calls.push({ key, operation, ttlMs });
+			this.calls.push({ key, ttlMs, operation });
 			const current = this.states.get(key);
 
 			if (operation === "reserve") {
@@ -287,7 +287,7 @@ describe("ProviderHttpAdmissionService", () => {
 
 	it.effect("strictly validates Lua responses", () => {
 		return Effect.gen(function* () {
-			for (const { response, message } of invalidResponses) {
+			for (const { message, response } of invalidResponses) {
 				const client = Object.assign(Object.create(null), {
 					eval: () => Promise.resolve(response),
 				}) satisfies RedisClient;

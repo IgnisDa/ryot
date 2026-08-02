@@ -68,9 +68,9 @@ const makeServiceLayer = (
 		makeWorkflowEngine({ execute: () => Effect.succeed(null) }),
 	),
 	workflowReferences = Layer.mock(SandboxWorkflowReferenceRepository)({
+		release: () => Effect.void,
 		lockIngestionShared: () => Effect.void,
 		registerInTransaction: () => Effect.succeed({ status: "registered" as const }),
-		release: () => Effect.void,
 	}),
 ) =>
 	SandboxExecutionService.layer.pipe(
@@ -91,8 +91,8 @@ it.effect("executes an installed script as the explicit user", () => {
 	let capturedOptions: Parameters<WorkflowEngine["Service"]["execute"]>[1] | undefined;
 	const layer = makeServiceLayer(
 		makeRepository({
-			getScript: () => Effect.succeed(storedScript),
 			isPluginScript: () => Effect.succeed(false),
+			getScript: () => Effect.succeed(storedScript),
 		}),
 		makePluginRuntime(),
 		Layer.succeed(
@@ -125,8 +125,8 @@ it.effect("executes provider scripts through the universal workflow", () => {
 	let capturedOptions: Parameters<WorkflowEngine["Service"]["execute"]>[1] | undefined;
 	const layer = makeServiceLayer(
 		makeRepository({
-			getScript: () => Effect.succeed({ ...storedScript, metadata: { kind: "provider" as const } }),
 			isPluginScript: () => Effect.succeed(false),
+			getScript: () => Effect.succeed({ ...storedScript, metadata: { kind: "provider" as const } }),
 		}),
 		makePluginRuntime(),
 		Layer.succeed(
@@ -193,8 +193,8 @@ it.effect("rejects inactive plugin scripts before starting the workflow", () => 
 	let executionCount = 0;
 	const layer = makeServiceLayer(
 		makeRepository({
-			getScript: () => Effect.succeed(storedScript),
 			isPluginScript: () => Effect.succeed(true),
+			getScript: () => Effect.succeed(storedScript),
 		}),
 		makePluginRuntime(),
 		Layer.succeed(
@@ -222,8 +222,8 @@ it.effect("polls a job only for its explicit executing user", () => {
 	const otherUserId = UserId.make("user-2");
 	const layer = makeServiceLayer(
 		makeRepository({
-			getScript: () => Effect.succeed(storedScript),
 			isPluginScript: () => Effect.succeed(false),
+			getScript: () => Effect.succeed(storedScript),
 		}),
 		makePluginRuntime(),
 		Layer.succeed(
@@ -255,8 +255,8 @@ it.effect("returns the completed public result without internal workflow fields"
 	};
 	const layer = makeServiceLayer(
 		makeRepository({
-			getScript: () => Effect.succeed(storedScript),
 			isPluginScript: () => Effect.succeed(false),
+			getScript: () => Effect.succeed(storedScript),
 		}),
 		makePluginRuntime(),
 		Layer.succeed(
@@ -303,9 +303,9 @@ it.effect("resolves and executes a manifest workflow with an exact script pin", 
 				...storedScript,
 				source: "source",
 				pluginSlug: "example",
-				name: "Example resolution",
 				createdAt: new Date(0),
 				updatedAt: new Date(0),
+				name: "Example resolution",
 				contentHash: "workflow-hash",
 				metadata: { kind: "workflow" as const },
 				slug: "workflow.example-import-resolution",
@@ -370,8 +370,8 @@ it.effect("rejects workflow input above the workflow limit before dispatch", () 
 		const exit = yield* Effect.exit(
 			service.executeWorkflow({
 				scriptId,
-				executionId: "oversized-workflow",
 				input: "a".repeat(80 * 1024),
+				executionId: "oversized-workflow",
 				subject: { type: "user", userId: executingUserId },
 			}),
 		);
@@ -390,6 +390,7 @@ it.effect("pins a plugin workflow before accepted dispatch can wait for a worker
 	const events: string[] = [];
 	let referenceLive = false;
 	const references = Layer.mock(SandboxWorkflowReferenceRepository)({
+		release: () => Effect.sync(() => (referenceLive = false)),
 		lockIngestionShared: () => Effect.sync(() => events.push("lock")),
 		registerInTransaction: () =>
 			Effect.sync(() => {
@@ -397,10 +398,10 @@ it.effect("pins a plugin workflow before accepted dispatch can wait for a worker
 				referenceLive = true;
 				return { status: "registered" as const };
 			}),
-		release: () => Effect.sync(() => (referenceLive = false)),
 	});
 	const layer = makeServiceLayer(
 		makeRepository({
+			isPluginScript: () => Effect.succeed(true),
 			getScriptPin: () =>
 				Effect.succeed({
 					scriptId,
@@ -420,7 +421,6 @@ it.effect("pins a plugin workflow before accepted dispatch can wait for a worker
 						schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
 					},
 				}),
-			isPluginScript: () => Effect.succeed(true),
 		}),
 		makePluginRuntime(
 			() => Effect.succeed(storedWorkflowScript),
@@ -462,6 +462,7 @@ it.effect("releases a new dispatch pin when workflow enqueue fails", () => {
 	let releases = 0;
 	const layer = makeServiceLayer(
 		makeRepository({
+			isPluginScript: () => Effect.succeed(true),
 			getScriptPin: () =>
 				Effect.succeed({
 					scriptId,
@@ -481,7 +482,6 @@ it.effect("releases a new dispatch pin when workflow enqueue fails", () => {
 						schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
 					},
 				}),
-			isPluginScript: () => Effect.succeed(true),
 		}),
 		makePluginRuntime(
 			() => Effect.succeed(storedWorkflowScript),

@@ -7,11 +7,11 @@ import { integrationLots } from "./types";
 const IntegrationLot = Schema.Literals([...integrationLots]);
 
 export const IntegrationRequestFailureReason = Schema.Union([
-	Schema.Struct({ code: Schema.Literal("pro-key-required"), provider: Schema.String }),
-	Schema.Struct({ code: Schema.Literal("provider-not-found"), provider: Schema.String }),
-	Schema.Struct({ code: Schema.Literal("queue-unavailable"), operation: Schema.String }),
-	Schema.Struct({ code: Schema.Literal("invalid-provider-settings"), provider: Schema.String }),
-	Schema.Struct({ code: Schema.Literal("integration-not-found"), integrationId: IntegrationId }),
+	Schema.Struct({ provider: Schema.String, code: Schema.Literal("pro-key-required") }),
+	Schema.Struct({ provider: Schema.String, code: Schema.Literal("provider-not-found") }),
+	Schema.Struct({ operation: Schema.String, code: Schema.Literal("queue-unavailable") }),
+	Schema.Struct({ provider: Schema.String, code: Schema.Literal("invalid-provider-settings") }),
+	Schema.Struct({ integrationId: IntegrationId, code: Schema.Literal("integration-not-found") }),
 	Schema.Struct({
 		value: Schema.Number,
 		code: Schema.Literal("progress-out-of-range"),
@@ -93,11 +93,11 @@ export const ListedIntegration = Schema.Struct({
 	syncOwnership: Schema.Boolean,
 	minimumProgress: Schema.Number,
 	maximumProgress: Schema.Number,
-	extraSettings: IntegrationExtraSettings,
 	name: Schema.NullOr(Schema.String),
-	providerSpecifics: IntegrationProviderSettings,
+	extraSettings: IntegrationExtraSettings,
 	webhookUrl: Schema.optional(Schema.String),
 	lastFinishedAt: Schema.NullOr(Schema.String),
+	providerSpecifics: IntegrationProviderSettings,
 });
 
 export type ListedIntegration = typeof ListedIntegration.Type;
@@ -105,8 +105,8 @@ export type ListedIntegration = typeof ListedIntegration.Type;
 export const CreateIntegrationBody = Schema.Struct({
 	provider: IntegrationProvider,
 	name: Schema.optional(Schema.String),
-	providerSpecifics: IntegrationProviderSettings,
 	isDisabled: Schema.optional(Schema.Boolean),
+	providerSpecifics: IntegrationProviderSettings,
 	syncOwnership: Schema.optional(Schema.Boolean),
 	minimumProgress: Schema.optional(Schema.Number),
 	maximumProgress: Schema.optional(Schema.Number),

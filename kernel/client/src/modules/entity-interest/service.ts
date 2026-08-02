@@ -144,8 +144,8 @@ export class EntityInterestService extends Context.Service<EntityInterestService
 					pending = { ids, revision: revision + 1 };
 					send(
 						revision === 0
-							? { type: "replace", revision: 1, entityIds: [...ids].sort() }
-							: { type: "update", revision: revision + 1, add, remove },
+							? { revision: 1, type: "replace", entityIds: [...ids].sort() }
+							: { add, remove, type: "update", revision: revision + 1 },
 					);
 				};
 				const refresh = () => {
@@ -221,7 +221,7 @@ export class EntityInterestService extends Context.Service<EntityInterestService
 								"open",
 								() => {
 									if (isCurrent()) {
-										send({ type: "authenticate", ticket });
+										send({ ticket, type: "authenticate" });
 									}
 								},
 								options,
@@ -279,7 +279,7 @@ export class EntityInterestService extends Context.Service<EntityInterestService
 										Match.when({ type: "ping" }, ({ nonce }) => {
 											deadline?.();
 											deadline = io.schedule(heartbeatMs, failed);
-											send({ type: "pong", nonce });
+											send({ nonce, type: "pong" });
 										}),
 										Match.when({ type: "rejected" }, failed),
 										Match.when({ type: "entity-updated" }, (message) => {
@@ -292,7 +292,7 @@ export class EntityInterestService extends Context.Service<EntityInterestService
 													owner.interest.visible.includes(message.entityId)
 												) {
 													try {
-														owner.onUpdate({ entityId: message.entityId, reason: message.reason });
+														owner.onUpdate({ reason: message.reason, entityId: message.entityId });
 													} catch {
 														/* A listener must not stop transport. */
 													}

@@ -17,6 +17,7 @@ export const notificationChannelsRecipe = defineRecipe(
 	(input: { readonly after?: string | undefined; readonly limit: number }) => {
 		const notificationChannel = table("notificationChannel", "notificationChannel");
 		return {
+			map: ({ notificationChannels }) => Result.succeed(notificationChannels),
 			queries: {
 				notificationChannels: selectedRows(notificationChannel, {
 					after: input.after,
@@ -27,15 +28,14 @@ export const notificationChannelsRecipe = defineRecipe(
 					],
 					selection: {
 						id: selectedField(column(notificationChannel, "id"), NotificationChannelId),
-						channel: selectedField(column(notificationChannel, "channel"), NotificationChannelKind),
-						description: selectedField(column(notificationChannel, "description"), Schema.String),
-						isDisabled: selectedField(column(notificationChannel, "isDisabled"), Schema.Boolean),
 						createdAt: selectedField(column(notificationChannel, "createdAt"), IsoDateString),
 						updatedAt: selectedField(column(notificationChannel, "updatedAt"), IsoDateString),
+						isDisabled: selectedField(column(notificationChannel, "isDisabled"), Schema.Boolean),
+						description: selectedField(column(notificationChannel, "description"), Schema.String),
+						channel: selectedField(column(notificationChannel, "channel"), NotificationChannelKind),
 					},
 				}),
 			},
-			map: ({ notificationChannels }) => Result.succeed(notificationChannels),
 		};
 	},
 );

@@ -4,11 +4,11 @@ import { ACTIVATION_DISTANCE, dragProgress, shouldCommit, shouldEngage } from ".
 
 describe("shouldEngage", () => {
 	it("engages once the drag clears the activation distance horizontally", () => {
-		expect(shouldEngage({ dx: ACTIVATION_DISTANCE + 1, dy: 0 })).toBe(true);
+		expect(shouldEngage({ dy: 0, dx: ACTIVATION_DISTANCE + 1 })).toBe(true);
 	});
 
 	it("ignores a drag that has not yet cleared the activation distance", () => {
-		expect(shouldEngage({ dx: ACTIVATION_DISTANCE, dy: 0 })).toBe(false);
+		expect(shouldEngage({ dy: 0, dx: ACTIVATION_DISTANCE })).toBe(false);
 	});
 
 	it("ignores a drag that is mostly vertical, leaving scrolling alone", () => {
@@ -16,14 +16,14 @@ describe("shouldEngage", () => {
 	});
 
 	it("ignores a leftward drag", () => {
-		expect(shouldEngage({ dx: -40, dy: 0 })).toBe(false);
+		expect(shouldEngage({ dy: 0, dx: -40 })).toBe(false);
 	});
 });
 
 describe("shouldCommit", () => {
 	it("commits past a third of the viewport", () => {
-		expect(shouldCommit({ dx: 101, vx: 0, width: 300 })).toBe(true);
-		expect(shouldCommit({ dx: 99, vx: 0, width: 300 })).toBe(false);
+		expect(shouldCommit({ vx: 0, dx: 101, width: 300 })).toBe(true);
+		expect(shouldCommit({ vx: 0, dx: 99, width: 300 })).toBe(false);
 	});
 
 	it("commits a short but fast flick", () => {

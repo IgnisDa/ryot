@@ -6,9 +6,9 @@ export const resolvedMediaRef = (
 	externalId: string,
 	sourceLabel: string,
 ): ImportEntityRef => ({
-	kind: "resolved",
 	externalId,
 	sourceLabel,
+	kind: "resolved",
 	entitySchemaSlug,
 	providerSlug: `${entitySchemaSlug}.${provider}`,
 });
@@ -26,8 +26,8 @@ export const movieOrShowImportRef = (input: {
 	if (imdb) {
 		return {
 			kind: "unresolved",
-			identifierType: "imdb",
 			identifierValue: imdb,
+			identifierType: "imdb",
 			sourceLabel: input.sourceLabel,
 			entitySchemaSlug: input.entitySchemaSlug,
 		};

@@ -106,13 +106,34 @@ describe("Workout Templates E2E", () => {
 			);
 
 			expect(workoutTemplateSchema.propertiesSchema.fields).toMatchObject({
+				images: { type: "array", label: "Images", description: "Images attached to this template" },
+				videos: { type: "array", label: "Videos", description: "Videos attached to this template" },
 				comment: {
 					type: "string",
 					label: "Comment",
 					description: "Optional notes about this workout template",
 				},
-				images: { type: "array", label: "Images", description: "Images attached to this template" },
-				videos: { type: "array", label: "Videos", description: "Videos attached to this template" },
+				supersets: {
+					type: "array",
+					label: "Supersets",
+					description: "Supersets in this template",
+					items: {
+						type: "object",
+						description: "Superset grouping within a workout or template",
+						properties: {
+							color: {
+								label: "Color",
+								type: "string",
+								description: "Display color for this superset",
+							},
+							exercises: {
+								type: "array",
+								label: "Exercises",
+								description: "Zero-based exercise positions in this superset",
+							},
+						},
+					},
+				},
 				exercises: {
 					type: "array",
 					label: "Exercises",
@@ -174,27 +195,6 @@ describe("Workout Templates E2E", () => {
 						},
 					},
 				},
-				supersets: {
-					type: "array",
-					label: "Supersets",
-					description: "Supersets in this template",
-					items: {
-						type: "object",
-						description: "Superset grouping within a workout or template",
-						properties: {
-							color: {
-								label: "Color",
-								type: "string",
-								description: "Display color for this superset",
-							},
-							exercises: {
-								type: "array",
-								label: "Exercises",
-								description: "Zero-based exercise positions in this superset",
-							},
-						},
-					},
-				},
 			});
 		}),
 	);
@@ -237,12 +237,12 @@ describe("Workout Templates E2E", () => {
 						entitySchemaSlugField: "entitySchemaSlug",
 						addAction: {
 							type: "provider-search",
-							entitySchemaSlug: "workout-template",
 							ownerPluginId: expect.any(String),
+							entitySchemaSlug: "workout-template",
 						},
 						tableColumns: [
 							{ label: "Name", field: "column0", displayKind: "text" },
-							{ label: "Created At", field: "column1", displayKind: "date" },
+							{ field: "column1", label: "Created At", displayKind: "date" },
 							{ label: "Comment", field: "column2", displayKind: "text" },
 						],
 					},
@@ -251,15 +251,15 @@ describe("Workout Templates E2E", () => {
 					expect.arrayContaining([
 						expect.objectContaining({
 							key: "entityId",
-							expr: { type: "column", field: "id", tableAlias: "entity" },
+							expr: { field: "id", type: "column", tableAlias: "entity" },
 						}),
 						expect.objectContaining({
 							key: "ownerPluginId",
-							expr: { type: "column", field: "entitySchemaPluginId", tableAlias: "entity" },
+							expr: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
 						}),
 						expect.objectContaining({
 							key: "entitySchemaSlug",
-							expr: { type: "column", field: "entitySchemaSlug", tableAlias: "entity" },
+							expr: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
 						}),
 					]),
 				);
@@ -272,7 +272,7 @@ describe("Workout Templates E2E", () => {
 						predicates: expect.arrayContaining([
 							expect.objectContaining({
 								right: { type: "literal", value: "workout-template" },
-								left: { field: "entitySchemaSlug", tableAlias: "entity", type: "column" },
+								left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
 							}),
 						]),
 					},
@@ -334,7 +334,7 @@ describe("Workout Templates E2E", () => {
 				images: [{ type: "remote", url: "https://example.com/template.jpg" }],
 				supersets: [
 					{ color: "#84CC16", exercises: [0, 1] },
-					{ color: "#22C55E", exercises: [1] },
+					{ exercises: [1], color: "#22C55E" },
 				],
 				exercises: [
 					{
@@ -410,7 +410,7 @@ describe("Workout Templates E2E", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schema: workoutSchema } = yield* findBuiltinSchemaBySlug(client, "workout");
-			const { workoutTemplateId, workoutTemplate } =
+			const { workoutTemplate, workoutTemplateId } =
 				yield* createWorkoutTemplateEntityFixture(client);
 			const workoutName = `Workout ${crypto.randomUUID()}`;
 			const { id: workoutId } = yield* createEntity(client, {
@@ -436,7 +436,7 @@ describe("Workout Templates E2E", () => {
 
 			const result = yield* executeRyotQLRecipe(
 				client,
-				workoutDetailRecipe({ entityId: workoutId, templateLimit: 1 }),
+				workoutDetailRecipe({ templateLimit: 1, entityId: workoutId }),
 			);
 			const workoutRow = requirePresent(result, "Expected workout row");
 			const template = requireRyotQLInclude(workoutRow, "template").items[0];
@@ -475,7 +475,7 @@ describe("Workout Templates E2E", () => {
 
 			const result = yield* executeRyotQLRecipe(
 				client,
-				workoutTemplateDetailRecipe({ entityId: workoutTemplateId, workoutLimit: 10 }),
+				workoutTemplateDetailRecipe({ workoutLimit: 10, entityId: workoutTemplateId }),
 			);
 			const templateRow = requirePresent(result, "Expected workout template row");
 			const workout = requireRyotQLInclude(templateRow, "workouts").items[0];

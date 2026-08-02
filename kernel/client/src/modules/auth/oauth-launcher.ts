@@ -72,7 +72,7 @@ export class OAuthLauncher extends Context.Service<OAuthLauncher>()("OAuthLaunch
 				.forServer(serverOrigin)
 				.pipe(
 					Effect.mapError(
-						(cause) => new OAuthLauncherError({ reason: "unknown-native-application", cause }),
+						(cause) => new OAuthLauncherError({ cause, reason: "unknown-native-application" }),
 					),
 				);
 			const session = yield* auth.settledSession(serverOrigin);
@@ -97,7 +97,7 @@ export class OAuthLauncher extends Context.Service<OAuthLauncher>()("OAuthLaunch
 				.setPending(pending)
 				.pipe(
 					Effect.catchTag("OAuthStorageError", (cause) =>
-						Effect.fail(new OAuthLauncherError({ reason: "storage-failed", cause })),
+						Effect.fail(new OAuthLauncherError({ cause, reason: "storage-failed" })),
 					),
 				);
 			return {
@@ -113,8 +113,8 @@ export class OAuthLauncher extends Context.Service<OAuthLauncher>()("OAuthLaunch
 		const launch = (plan: OAuthLaunchPlan) =>
 			plan.client.nativeApplicationId !== null
 				? Effect.tryPromise({
-						catch: () => new OAuthLauncherError({ reason: "launch-failed" }),
 						try: () => Browser.open({ url: plan.authorizationUrl }),
+						catch: () => new OAuthLauncherError({ reason: "launch-failed" }),
 					}).pipe(Effect.asVoid)
 				: Effect.sync(() => window.location.assign(plan.authorizationUrl));
 

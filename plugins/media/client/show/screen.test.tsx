@@ -52,8 +52,8 @@ function EpisodesTabProbe(props: { readonly onLoad: () => void }) {
 			compact
 			selectedId={null}
 			state={episodesState()}
-			onSelect={() => undefined}
 			refresh={() => undefined}
+			onSelect={() => undefined}
 			onRefreshSeason={() => undefined}
 			seasonEpisodes={mapShowSeasonEpisodes(readyQueryResult(decodeShowSeasonEpisodesResult({})))}
 		/>
@@ -79,7 +79,7 @@ const readyState = (overrides: Record<string, unknown> = {}): ShowSummaryState =
 	);
 
 const unavailableState = (requested: readonly Record<string, unknown>[]): ShowSummaryState =>
-	mapShowSummary(readyQueryResult(decodeShowSummaryResult({ requested, show: [] })));
+	mapShowSummary(readyQueryResult(decodeShowSummaryResult({ show: [], requested })));
 
 const renderContent = (
 	state: ShowSummaryState,
@@ -112,7 +112,7 @@ afterEach(() => {
 
 describe("show screen content", () => {
 	it("renders the loading branch while the summary query is pending", () => {
-		const { container, unmount } = renderContent(mapShowSummary(pendingQueryResult()));
+		const { unmount, container } = renderContent(mapShowSummary(pendingQueryResult()));
 
 		expect(container.textContent).toContain("Loading show...");
 		expect(container.querySelector('[role="tab"]')).toBeNull();
@@ -121,7 +121,7 @@ describe("show screen content", () => {
 
 	it("offers a retry from the transport error branch", () => {
 		const retries: number[] = [];
-		const { container, unmount } = renderContent(
+		const { unmount, container } = renderContent(
 			mapShowSummary(errorQueryResult(new Error("offline"))),
 			{ refresh: () => retries.push(1) },
 		);
@@ -140,14 +140,14 @@ describe("show screen content", () => {
 	});
 
 	it("renders a stable message for a malformed summary response", () => {
-		const { container, unmount } = renderContent(mapShowSummary(malformedQueryResult()));
+		const { unmount, container } = renderContent(mapShowSummary(malformedQueryResult()));
 
 		expect(container.textContent).toContain("Unable to display this show");
 		unmount();
 	});
 
 	it("renders the unavailable branch for a missing entity", () => {
-		const { container, unmount } = renderContent(unavailableState([]));
+		const { unmount, container } = renderContent(unavailableState([]));
 
 		expect(container.textContent).toContain("Show unavailable");
 		expect(container.textContent).toContain("This entity no longer exists.");
@@ -155,7 +155,7 @@ describe("show screen content", () => {
 	});
 
 	it("renders the unavailable branch for a non-show entity", () => {
-		const { container, unmount } = renderContent(unavailableState([{ schemaSlug: "book" }]));
+		const { unmount, container } = renderContent(unavailableState([{ schemaSlug: "book" }]));
 
 		expect(container.textContent).toContain("Show unavailable");
 		expect(container.textContent).toContain(
@@ -165,7 +165,7 @@ describe("show screen content", () => {
 	});
 
 	it("renders decoded show values in the summary header and overview", () => {
-		const { container, unmount } = renderContent(readyState());
+		const { unmount, container } = renderContent(readyState());
 
 		expect(container.textContent).toContain("Adolescence");
 		expect(container.textContent).toContain("TMDB");
@@ -177,7 +177,7 @@ describe("show screen content", () => {
 	});
 
 	it("renders library, ownership, collection and status facts in the rail", () => {
-		const { container, unmount } = renderContent(readyState());
+		const { unmount, container } = renderContent(readyState());
 
 		expect(container.textContent).toContain("In library");
 		expect(container.textContent).toContain("Ownership");
@@ -199,7 +199,7 @@ describe("show screen content", () => {
 		const compactIcons = compact.container.querySelectorAll("svg").length;
 		compact.unmount();
 
-		const { container, unmount } = renderContent(readyState(), { compact: false });
+		const { unmount, container } = renderContent(readyState(), { compact: false });
 
 		expect(compactIcons).toBe(container.querySelectorAll("svg").length + 9);
 		expect(container.textContent).toContain("In library");
@@ -208,8 +208,8 @@ describe("show screen content", () => {
 	});
 
 	it("explains an empty collection membership in the rail", () => {
-		const { container, unmount } = renderContent(
-			readyState({ collections: { pageInfo: { hasMore: false, limit: 6 }, items: [] } }),
+		const { unmount, container } = renderContent(
+			readyState({ collections: { items: [], pageInfo: { limit: 6, hasMore: false } } }),
 		);
 
 		expect(container.textContent).toContain("Not in any collection");
@@ -218,7 +218,7 @@ describe("show screen content", () => {
 	});
 
 	it("omits summary values that the provider did not record", () => {
-		const { container, unmount } = renderContent(
+		const { unmount, container } = renderContent(
 			readyState({
 				genres: null,
 				description: null,
@@ -241,7 +241,7 @@ describe("show screen content", () => {
 	});
 
 	it("keeps Overview selected and leaves state unchanged for deferred controls", () => {
-		const { container, unmount } = renderContent(readyState());
+		const { unmount, container } = renderContent(readyState());
 		const monitoring = container.querySelector('[aria-label="Toggle media monitoring"]');
 		const logActivity = Array.from(container.querySelectorAll("button")).find(
 			(button) => button.textContent === "Log activity",
@@ -266,7 +266,7 @@ describe("show screen content", () => {
 
 	it("loads the activity tab only once it is selected", async () => {
 		const loads: number[] = [];
-		const { container, unmount } = renderContent(readyState(), {
+		const { unmount, container } = renderContent(readyState(), {
 			activity: <ActivityTabProbe onLoad={() => loads.push(1)} />,
 		});
 
@@ -289,7 +289,7 @@ describe("show screen content", () => {
 	});
 
 	it("keeps the summary and the other tabs when the activity query fails", async () => {
-		const { container, unmount } = renderContent(readyState(), {
+		const { unmount, container } = renderContent(readyState(), {
 			activity: (
 				<ShowActivity
 					compact
@@ -317,7 +317,7 @@ describe("show screen content", () => {
 
 	it("loads the episodes tab only once it is selected", async () => {
 		const loads: number[] = [];
-		const { container, unmount } = renderContent(readyState(), {
+		const { unmount, container } = renderContent(readyState(), {
 			episodes: <EpisodesTabProbe onLoad={() => loads.push(1)} />,
 		});
 
@@ -341,7 +341,7 @@ describe("show screen content", () => {
 	});
 
 	it("returns to the preserved overview after visiting episodes", () => {
-		const { container, unmount } = renderContent(readyState());
+		const { unmount, container } = renderContent(readyState());
 		const tab = (name: string) => {
 			const element = Array.from(container.querySelectorAll('[role="tab"]')).find(
 				(candidate) => candidate.textContent === name,
@@ -363,7 +363,7 @@ describe("show screen content", () => {
 	});
 
 	it("expands and re-clamps the description from the header", async () => {
-		const { container, unmount } = renderContent(readyState());
+		const { unmount, container } = renderContent(readyState());
 		const description = () =>
 			Array.from(container.querySelectorAll("p")).find(
 				(paragraph) => paragraph.textContent === "A four-part limited series.",
@@ -394,7 +394,7 @@ describe("show screen content", () => {
 	});
 
 	it("renders images, credits, companies and recommendations in the overview", () => {
-		const { container, unmount } = renderContent(readyState());
+		const { unmount, container } = renderContent(readyState());
 
 		expect(container.textContent).toContain("Images");
 		expect(container.textContent).toContain("Cast & crew");
@@ -410,7 +410,7 @@ describe("show screen content", () => {
 	});
 
 	it("omits credit detail that the provider did not record", () => {
-		const { container, unmount } = renderContent(readyState(), {
+		const { unmount, container } = renderContent(readyState(), {
 			overview: overviewState({
 				companies: [{ ...showCompanyRow, roles: null }],
 				people: [{ ...showPersonRow, roles: [], character: null }],
@@ -426,7 +426,7 @@ describe("show screen content", () => {
 	});
 
 	it("omits overview sections that hold no relationships", () => {
-		const { container, unmount } = renderContent(readyState(), {
+		const { unmount, container } = renderContent(readyState(), {
 			overview: overviewState({ people: [], recommendations: [] }),
 		});
 
@@ -437,7 +437,7 @@ describe("show screen content", () => {
 	});
 
 	it("renders nothing relational when the show has no credits or suggestions", () => {
-		const { container, unmount } = renderContent(readyState(), {
+		const { unmount, container } = renderContent(readyState(), {
 			overview: mapShowOverview(readyQueryResult(emptyShowOverview())),
 		});
 
@@ -449,7 +449,7 @@ describe("show screen content", () => {
 	});
 
 	it("links each recommendation to its own entity route", () => {
-		const { container, unmount } = renderContent(readyState());
+		const { unmount, container } = renderContent(readyState());
 
 		const link = Array.from(container.querySelectorAll("a")).find(
 			(anchor) => anchor.getAttribute("aria-label") === "Open Bad Girls",
@@ -459,7 +459,7 @@ describe("show screen content", () => {
 	});
 
 	it("keeps the summary hero readable while the overview query is pending", () => {
-		const { container, unmount } = renderContent(readyState(), {
+		const { unmount, container } = renderContent(readyState(), {
 			overview: mapShowOverview(pendingQueryResult()),
 		});
 
@@ -471,7 +471,7 @@ describe("show screen content", () => {
 
 	it("keeps the summary hero readable and offers a retry when the overview fails", () => {
 		const retries: number[] = [];
-		const { container, unmount } = renderContent(readyState(), {
+		const { unmount, container } = renderContent(readyState(), {
 			refreshOverview: () => retries.push(1),
 			overview: mapShowOverview(errorQueryResult(new Error("offline"))),
 		});

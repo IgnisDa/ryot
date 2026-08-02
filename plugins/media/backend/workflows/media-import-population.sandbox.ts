@@ -9,10 +9,10 @@ import {
 export const manifest = defineManifest({
 	kind: "workflow",
 	capabilities: [],
-	name: "Media import population",
-	slug: "workflow.media-import-population",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
+	name: "Media import population",
+	slug: "workflow.media-import-population",
 });
 
 const entityImport = {
@@ -63,7 +63,7 @@ export default defineWorkflow({
 					}
 					return result.status === "completed"
 						? { index: item.index, status: "completed", entityId: result.entity.id }
-						: { index: item.index, status: "failed", stage: result.stage, message: result.message };
+						: { status: "failed", index: item.index, stage: result.stage, message: result.message };
 				});
 			return { results };
 		}),

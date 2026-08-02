@@ -188,8 +188,8 @@ it.effect("repairs an unchanged projection deleted at the former read-expire rac
 		},
 	};
 	const journal = [
-		{ request: request(0, "first"), value: { result: 1 } },
-		{ request: request(1, "second"), value: { result: 2 } },
+		{ value: { result: 1 }, request: request(0, "first") },
+		{ value: { result: 2 }, request: request(1, "second") },
 	];
 
 	return Effect.gen(function* () {
@@ -281,9 +281,9 @@ it.effect("hides stale projection fields above shorter and empty journal high-wa
 	]);
 	let hmgetCalls = 0;
 	const client = {
+		hget: (_key: string, field: string) => Promise.resolve(fields.get(field) ?? null),
 		eval: (_script: string, _numberOfKeys: number, _key: string, ...args: string[]) =>
 			Promise.resolve(evaluateProjection(fields, args)),
-		hget: (_key: string, field: string) => Promise.resolve(fields.get(field) ?? null),
 		hmget: (_key: string, ...names: string[]) => {
 			hmgetCalls += 1;
 			return Promise.resolve(names.map((name) => fields.get(name) ?? null));
@@ -309,7 +309,7 @@ it.effect("hides stale projection fields above shorter and empty journal high-wa
 		expect(fields.get("high-water")).toBe("0");
 		expect(fields.get("0")).toBe(projectedFirstEntry);
 		expect(fields.get("1")).toBe(secondEntry);
-		expect(yield* replayJournal([])).toEqual({ success: true, data: [] });
+		expect(yield* replayJournal([])).toEqual({ data: [], success: true });
 		expect(hmgetCalls).toBe(1);
 
 		yield* projectWorkflowJournalWithRedis({ client }, "reconstructed", rebuiltJournal);

@@ -18,7 +18,7 @@ const asCachedToken = (value: unknown): CachedToken | null => {
 	const accessToken = record?.["accessToken"];
 	const clientId = record?.["clientId"];
 	if (typeof accessToken === "string" && typeof clientId === "string") {
-		return { accessToken, clientId };
+		return { clientId, accessToken };
 	}
 	return null;
 };
@@ -77,7 +77,7 @@ export const getAccessToken = (host: IgdbHost): Effect.Effect<CachedToken, unkno
 								const expiresIn =
 									expiresInValue !== null && expiresInValue > 0 ? expiresInValue : 3600;
 								const expiryWithBuffer = Math.max(60, expiresIn - 300);
-								const token = { accessToken, clientId };
+								const token = { clientId, accessToken };
 								return host.setCachedValue(TOKEN_CACHE_KEY, token, expiryWithBuffer).pipe(
 									Effect.as(token),
 									Effect.catch((error) => {
@@ -94,7 +94,7 @@ export const getAccessToken = (host: IgdbHost): Effect.Effect<CachedToken, unkno
 
 export const makeIgdbRequest = (host: IgdbHost, path: string, body: string) =>
 	getAccessToken(host).pipe(
-		Effect.flatMap(({ accessToken, clientId }) =>
+		Effect.flatMap(({ clientId, accessToken }) =>
 			host
 				.httpCall("POST", `${BASE_URL}/${path}`, {
 					body,

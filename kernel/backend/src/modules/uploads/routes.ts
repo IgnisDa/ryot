@@ -30,7 +30,7 @@ const mapUploadError = <A, E, R>(
 
 const parseRange = (value: string | undefined, size: number) => {
 	if (!value) {
-		return { end: size - 1, start: 0 };
+		return { start: 0, end: size - 1 };
 	}
 	const match = /^bytes=(\d*)-(\d*)$/.exec(value);
 	if (!match || size === 0) {
@@ -48,7 +48,7 @@ const parseRange = (value: string | undefined, size: number) => {
 	) {
 		return null;
 	}
-	return { end: Math.min(end, size - 1), start };
+	return { start, end: Math.min(end, size - 1) };
 };
 
 const localDownloadResponse = (
@@ -62,16 +62,16 @@ const localDownloadResponse = (
 		const parsedRange = parseRange(range, file.size);
 		if (!parsedRange) {
 			return HttpServerResponse.empty({
-				headers: { "accept-ranges": "bytes", "content-range": `bytes */${file.size}` },
 				status: 416,
+				headers: { "accept-ranges": "bytes", "content-range": `bytes */${file.size}` },
 			});
 		}
 		const length = parsedRange.end - parsedRange.start + 1;
 		const headers = {
 			"accept-ranges": "bytes",
 			"content-type": file.contentType,
-			"x-content-type-options": "nosniff",
 			"content-length": String(length),
+			"x-content-type-options": "nosniff",
 			"content-disposition": file.contentType === "image/svg+xml" ? "attachment" : "inline",
 			...(file.contentType === "image/svg+xml" ? { "content-security-policy": "sandbox" } : {}),
 			...(range
@@ -83,7 +83,7 @@ const localDownloadResponse = (
 		}
 		const fs = yield* FileSystem.FileSystem;
 		return HttpServerResponse.stream(
-			fs.stream(file.path, { offset: parsedRange.start, bytesToRead: length }),
+			fs.stream(file.path, { bytesToRead: length, offset: parsedRange.start }),
 			{ headers, status: range ? 206 : 200 },
 		);
 	}).pipe(mapUploadError);

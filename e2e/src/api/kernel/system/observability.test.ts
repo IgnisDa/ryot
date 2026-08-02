@@ -81,7 +81,7 @@ function findSpan(predicate: (span: Record<string, unknown>) => boolean) {
 				for (const spanValue of requireArray(scopeSpan["spans"], "OTLP spans are not an array")) {
 					const span = requireObjectRecord(spanValue, "OTLP span is not an object");
 					if (predicate(span)) {
-						return { resource, span };
+						return { span, resource };
 					}
 				}
 			}
@@ -118,9 +118,9 @@ beforeAll(async () => {
 	const env = buildApiEnv({
 		port: apiPort,
 		frontendUrl: apiOrigin,
+		label: "Observability API",
 		dbUrl: infrastructure.dbUrl,
 		s3BucketName: S3_BUCKET_NAME,
-		label: "Observability API",
 		redisUrl: infrastructure.redisUrl,
 		s3Endpoint: infrastructure.s3Endpoint,
 		extraEnv: { SERVER_LOG_LEVEL: "debug", SERVER_OTLP_ENDPOINT: server.url },
@@ -142,7 +142,7 @@ describe("API observability", () => {
 			const { client, userId } = yield* createAuthenticatedClient(getApiUrl());
 			yield* client.call((c) => c.notifications.testChannels());
 
-			const { resource, span } = yield* pollUntil(
+			const { span, resource } = yield* pollUntil(
 				"notification delivery workflow OTLP span",
 				Effect.sync(() => findWorkflowSpan(userId)),
 			);

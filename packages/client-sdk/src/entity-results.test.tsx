@@ -83,7 +83,7 @@ const render = (
 		compact: false,
 		leading: "none",
 		edgeBack: false,
-		entry: { index: 0, key: "home", location: { kind: "route", path: "/", search: "" } },
+		entry: { index: 0, key: "home", location: { path: "/", search: "", kind: "route" } },
 	});
 	const container = document.createElement("div");
 	document.body.append(container);
@@ -111,10 +111,10 @@ const render = (
 				compact: false,
 				leading: "none",
 				edgeBack: false,
-				entry: { index, key, location: { kind: "route", path, search: "" } },
+				entry: { key, index, location: { path, search: "", kind: "route" } },
 			}),
 		);
-	return { clock, container, draw, navigate };
+	return { draw, clock, navigate, container };
 };
 
 const flush = async (clock: Clock, turns = 6) => {
@@ -167,8 +167,8 @@ const installIntersectionObserver = () => {
 			this.root = options.root ?? null;
 			this.record = {
 				root: this.root,
-				targets: this.targets,
 				disconnected: false,
+				targets: this.targets,
 				emit: (target, isIntersecting) => this.emit(target, isIntersecting),
 			};
 			records.push(this.record);
@@ -236,7 +236,7 @@ describe("EntityResults", () => {
 				},
 			}),
 		};
-		const { clock, container, draw, navigate } = render(
+		const { draw, clock, navigate, container } = render(
 			[registration],
 			<EntityResults
 				layout="grid"
@@ -261,7 +261,7 @@ describe("EntityResults", () => {
 		const observer = observers[0];
 		expect(observer?.root).toBe(container.firstElementChild?.firstElementChild?.firstElementChild);
 		expect(observer?.targets.size).toBe(2);
-		expect(interests.at(-1)).toEqual({ foreground: [], visible: [] });
+		expect(interests.at(-1)).toEqual({ visible: [], foreground: [] });
 		expect({ loads, mounts }).toEqual({ loads: 1, mounts: 2 });
 		const [one, two] = [...(observer?.targets ?? [])];
 		if (one && two && observer) {
@@ -279,7 +279,7 @@ describe("EntityResults", () => {
 			expect(interests.at(-1)).toEqual({ foreground: [], visible: ["one"] });
 			draw(<EntityResults layout="grid" viewContext={null} references={[reference("two")]} />);
 			await flush(clock);
-			expect(interests.at(-1)).toEqual({ foreground: [], visible: [] });
+			expect(interests.at(-1)).toEqual({ visible: [], foreground: [] });
 			const remaining = [...observer.targets][0];
 			if (remaining) {
 				act(() => observer.emit(remaining, true));
@@ -292,7 +292,7 @@ describe("EntityResults", () => {
 			await navigate("/", 0, "home");
 			await flush(clock);
 			expect(observers).toHaveLength(2);
-			expect(interests.at(-1)).toEqual({ foreground: [], visible: [] });
+			expect(interests.at(-1)).toEqual({ visible: [], foreground: [] });
 		}
 		act(() => roots[0]?.unmount());
 		roots = [];
@@ -306,12 +306,12 @@ describe("EntityResults", () => {
 			readonly resolve: (value: Readonly<Record<string, string>>) => void;
 		}> = [];
 		const presentation = (label: string) =>
-			defineEntityPresentation({
+			defineEntityPresentation<string>({
+				component: ({ data }) => <p>{`${label}:${data}`}</p>,
 				loader: ({ references }) =>
 					new Promise<Readonly<Record<string, string>>>((resolve) =>
-						requests.push({ ids: references.map(({ entityId }) => entityId), resolve }),
+						requests.push({ resolve, ids: references.map(({ entityId }) => entityId) }),
 					),
-				component: ({ data }) => <p>{`${label}:${data}`}</p>,
 			});
 		const registrations = [
 			{
@@ -350,7 +350,7 @@ describe("EntityResults", () => {
 		await flush(clock);
 		expect(requests).toHaveLength(1);
 		expect(requests[0]?.ids).toEqual(["a", "b"]);
-		act(() => requests[0]?.resolve({ b: "second", a: "first" }));
+		act(() => requests[0]?.resolve({ a: "first", b: "second" }));
 		await flush(clock);
 		expect(container.textContent).toBe("exact:secondexact:first");
 	});
@@ -364,12 +364,12 @@ describe("EntityResults", () => {
 			layout: "grid" as const,
 			entitySchemaSlug: "item",
 			ownerPluginId: `owner-${index}`,
-			definition: defineEntityPresentation({
+			definition: defineEntityPresentation<string>({
+				component: ({ data }) => <p>{data}</p>,
 				loader: ({ references }) =>
 					new Promise<Readonly<Record<string, string>>>((resolve) =>
-						requests.push({ ids: references.map(({ entityId }) => entityId), resolve }),
+						requests.push({ resolve, ids: references.map(({ entityId }) => entityId) }),
 					),
-				component: ({ data }) => <p>{data}</p>,
 			}),
 		}));
 		const many = Array.from({ length: 201 }, (_, index) =>
@@ -382,7 +382,7 @@ describe("EntityResults", () => {
 			);
 		const { clock } = render(
 			registrations,
-			<EntityResults layout="grid" references={[...many, ...extras]} viewContext={null} />,
+			<EntityResults layout="grid" viewContext={null} references={[...many, ...extras]} />,
 		);
 		await flush(clock);
 		expect(requests).toHaveLength(4);
@@ -406,7 +406,8 @@ describe("EntityResults", () => {
 			layout: "grid" as const,
 			entitySchemaSlug: "item",
 			ownerPluginId: `owner-${index}`,
-			definition: defineEntityPresentation({
+			definition: defineEntityPresentation<string>({
+				component: ({ data }) => <p>{data}</p>,
 				loader: ({ references }) => {
 					const id = references[0]?.entityId ?? "";
 					calls.push(id);
@@ -415,7 +416,6 @@ describe("EntityResults", () => {
 					}
 					return Promise.resolve({ [id]: "healthy" });
 				},
-				component: ({ data }) => <p>{data}</p>,
 			}),
 		}));
 		const { clock, container } = render(
@@ -445,8 +445,9 @@ describe("EntityResults", () => {
 			ownerPluginId: "owner",
 			layout: "grid" as const,
 			entitySchemaSlug: "item",
-			definition: defineEntityPresentation({
-				loader: ({ references, signal }) =>
+			definition: defineEntityPresentation<string>({
+				component: ({ data }) => <p>{data}</p>,
+				loader: ({ signal, references }) =>
 					new Promise<Readonly<Record<string, string>>>((resolve) =>
 						requests.push({
 							signal,
@@ -455,16 +456,15 @@ describe("EntityResults", () => {
 							name: references[0]?.name ?? null,
 						}),
 					),
-				component: ({ data }) => <p>{data}</p>,
 			}),
 		};
 		const equivalentConsumers = () => (
 			<>
-				<EntityResults layout="grid" references={[reference("one")]} viewContext={null} />
-				<EntityResults layout="grid" references={[reference("one")]} viewContext={null} />
+				<EntityResults layout="grid" viewContext={null} references={[reference("one")]} />
+				<EntityResults layout="grid" viewContext={null} references={[reference("one")]} />
 			</>
 		);
-		const { clock, container, draw } = render([registration], equivalentConsumers());
+		const { draw, clock, container } = render([registration], equivalentConsumers());
 		await flush(clock);
 		expect(requests).toHaveLength(1);
 		draw(equivalentConsumers());
@@ -477,13 +477,13 @@ describe("EntityResults", () => {
 					viewContext={null}
 					references={[reference("one", { name: "Changed" })]}
 				/>
-				<EntityResults layout="grid" references={[reference("one")]} viewContext={null} />
+				<EntityResults layout="grid" viewContext={null} references={[reference("one")]} />
 			</>,
 		);
 		await flush(clock);
 		expect(requests).toHaveLength(2);
 		expect(requests[1]).toMatchObject({ id: "one", name: "Changed" });
-		draw(<EntityResults layout="grid" references={[reference("two")]} viewContext={null} />);
+		draw(<EntityResults layout="grid" viewContext={null} references={[reference("two")]} />);
 		await flush(clock);
 		expect(requests[0]?.signal.aborted).toBe(true);
 		expect(requests[1]?.signal.aborted).toBe(true);
@@ -520,17 +520,17 @@ describe("EntityResults", () => {
 			ownerPluginId: "owner",
 			layout: "grid" as const,
 			entitySchemaSlug: "item",
-			definition: defineEntityPresentation({
+			definition: defineEntityPresentation<string>({
+				component: Presentation,
 				loader: () =>
 					new Promise<Readonly<Record<string, string>>>((resolve, reject) =>
-						requests.push({ resolve, reject }),
+						requests.push({ reject, resolve }),
 					),
-				component: Presentation,
 			}),
 		};
 		const { clock, container } = render(
 			[registration],
-			<EntityResults layout="grid" references={[reference("one")]} viewContext={null} />,
+			<EntityResults layout="grid" viewContext={null} references={[reference("one")]} />,
 		);
 		await flush(clock);
 		act(() => requests[0]?.resolve({ one: "old" }));
@@ -578,7 +578,14 @@ describe("EntityResults", () => {
 			ownerPluginId: "owner",
 			layout: "list" as const,
 			entitySchemaSlug: "item",
-			definition: defineEntityPresentation({
+			definition: defineEntityPresentation<string>({
+				component: ({ data }) => {
+					if (data === "crash") {
+						renderAttempts++;
+						throw new Error("render failed");
+					}
+					return <p>{data}</p>;
+				},
 				loader: ({ references }) => {
 					if (references[0]?.entityId === "extra") {
 						return Promise.resolve({ unrequested: "extra" });
@@ -589,30 +596,23 @@ describe("EntityResults", () => {
 					}
 					return Promise.resolve(references[0]?.entityId === "missing" ? {} : { crash: "crash" });
 				},
-				component: ({ data }) => {
-					if (data === "crash") {
-						renderAttempts++;
-						throw new Error("render failed");
-					}
-					return <p>{data}</p>;
-				},
 			}),
 		};
-		const { clock, container, draw } = render(
+		const { draw, clock, container } = render(
 			[registration],
-			<EntityResults layout="list" references={[reference("batch")]} viewContext={null} />,
+			<EntityResults layout="list" viewContext={null} references={[reference("batch")]} />,
 		);
 		await flush(clock);
 		expect(container.textContent).toContain("could not be loaded");
 		clickRetry(container);
 		await flush(clock);
-		draw(<EntityResults layout="list" references={[reference("extra")]} viewContext={null} />);
+		draw(<EntityResults layout="list" viewContext={null} references={[reference("extra")]} />);
 		await flush(clock);
 		expect(container.textContent).toContain("could not be loaded");
-		draw(<EntityResults layout="list" references={[reference("missing")]} viewContext={null} />);
+		draw(<EntityResults layout="list" viewContext={null} references={[reference("missing")]} />);
 		await flush(clock);
 		expect(container.textContent).toContain("did not return this entity");
-		draw(<EntityResults layout="list" references={[reference("crash")]} viewContext={null} />);
+		draw(<EntityResults layout="list" viewContext={null} references={[reference("crash")]} />);
 		await flush(clock);
 		expect(container.textContent).toContain("could not be displayed");
 		const attemptsBeforeRetry = renderAttempts;

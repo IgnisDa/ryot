@@ -10,17 +10,17 @@ const integration = (): IntegrationRecord => ({
 	lot: "yank",
 	isDisabled: false,
 	minimumProgress: 2,
-	pluginSlug: "example",
 	maximumProgress: 95,
 	syncOwnership: false,
 	lastFinishedAt: null,
+	pluginSlug: "example",
 	name: "Test integration",
 	provider: "test-provider",
 	userId: UserId.make("user-1"),
 	createdAt: "2026-07-27T00:00:00.000Z",
 	updatedAt: "2026-07-27T00:00:00.000Z",
-	pluginInstallationId: "example-installation",
 	id: IntegrationId.make("integration-1"),
+	pluginInstallationId: "example-installation",
 	extraSettings: { disableOnContinuousErrors: false },
 	providerSpecifics: { token: "secret-token", endpoint: "https://provider.test" },
 });
@@ -90,8 +90,8 @@ it("omits nested object secrets and keeps nonsecret siblings", () => {
 	const record = { ...integration(), providerSpecifics };
 
 	expect(redactIntegrationForClient(provider, record).providerSpecifics).toEqual({
-		credentials: { username: "alice" },
 		endpoint: "https://provider.test",
+		credentials: { username: "alice" },
 	});
 });
 
@@ -119,7 +119,7 @@ it("omits secret array items and secrets inside array objects", () => {
 				label: "Account",
 				description: "Provider account",
 				properties: {
-					name: { type: "string", label: "Name", description: "Account name" },
+					name: { label: "Name", type: "string", description: "Account name" },
 					token: { secret: true, type: "string", label: "Token", description: "API token" },
 				},
 			},
@@ -135,8 +135,8 @@ it("omits secret array items and secrets inside array objects", () => {
 
 it("does not mutate nested stored settings while redacting", () => {
 	const providerSpecifics = {
-		credentials: { token: "secret-token", label: "primary" },
-		accounts: [{ token: "secret-account", name: "first" }],
+		accounts: [{ name: "first", token: "secret-account" }],
+		credentials: { label: "primary", token: "secret-token" },
 	};
 	const stored = structuredClone(providerSpecifics);
 	const secret = {
@@ -165,7 +165,7 @@ it("does not mutate nested stored settings while redacting", () => {
 				description: "Provider account",
 				properties: {
 					token: secret,
-					name: { type: "string", label: "Name", description: "Account name" },
+					name: { label: "Name", type: "string", description: "Account name" },
 				},
 			},
 		},

@@ -41,8 +41,8 @@ export const runUserLifecycleOperation = (input: {
 						.pipe(
 							Effect.flatMap(operationOutcome),
 							Effect.retry({
-								while: (error) => error instanceof UserLifecycleOperationPending,
 								schedule: userLifecyclePollSchedule,
+								while: (error) => error instanceof UserLifecycleOperationPending,
 							}),
 						),
 			),

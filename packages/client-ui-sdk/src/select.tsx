@@ -84,8 +84,8 @@ export function Select({
 					triggerRef={triggerRef}
 					closeLabel="Close options"
 					onClose={() => setOpen(false)}
-					containerClassName="items-center justify-center p-4"
 					onInterceptBack={onInterceptBack ?? (() => false)}
+					containerClassName="items-center justify-center p-4"
 					className="flex max-h-[80%] w-full max-w-sm flex-col overflow-hidden rounded-xl border border-border bg-raised shadow-card"
 				>
 					<div className="border-b border-border px-4 py-3">

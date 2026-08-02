@@ -133,7 +133,7 @@ export const rewriteEventReferences = Effect.fn(function* (
 		entityIds,
 		relationshipIds,
 	);
-	return { ...event, entityId, sessionEntityId, properties };
+	return { ...event, entityId, properties, sessionEntityId };
 });
 
 const rewritePropertyValueReferences = (
@@ -209,7 +209,7 @@ const assetKey = (locator: ArchivedManagedAssetLocator) => `${locator.type}:${lo
 export const rewriteAssetLocatorForArchive = (
 	locator: AssetLocator,
 	sha256: string,
-): AssetLocator => (locator.type === "remote" ? locator : { type: locator.type, key: sha256 });
+): AssetLocator => (locator.type === "remote" ? locator : { key: sha256, type: locator.type });
 
 const readAssetLocator = (value: JsonValue): AssetLocator | null => {
 	if (!isArchiveJsonObject(value)) {
@@ -219,7 +219,7 @@ const readAssetLocator = (value: JsonValue): AssetLocator | null => {
 		return { type: "remote", url: value["url"] };
 	}
 	if ((value["type"] === "local" || value["type"] === "s3") && typeof value["key"] === "string") {
-		return { type: value["type"], key: value["key"] };
+		return { key: value["key"], type: value["type"] };
 	}
 	return null;
 };

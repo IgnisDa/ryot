@@ -88,7 +88,7 @@ export class PluginBootService extends Context.Service<PluginBootService>()("Plu
 				]),
 			);
 
-		return { trigger: dispatch, dispatchAll };
+		return { dispatchAll, trigger: dispatch };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);

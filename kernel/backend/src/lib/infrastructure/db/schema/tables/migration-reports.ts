@@ -13,13 +13,13 @@ import {
 export const migrationReport = snakeCase.table(
 	"migration_report",
 	{
-		seq: serial().primaryKey(),
 		count: integer(),
 		phase: text().notNull(),
-		level: text().notNull().$type<MigrationReportLevel>(),
 		message: text().notNull(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		seq: serial().primaryKey(),
 		elapsedSeconds: doublePrecision(),
+		level: text().notNull().$type<MigrationReportLevel>(),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 	},
 	(table) => [check("migration_report_level_check", sql`${table.level} in ('info', 'warning')`)],
 );

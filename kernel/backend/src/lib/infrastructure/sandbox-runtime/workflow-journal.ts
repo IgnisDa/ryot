@@ -83,7 +83,7 @@ export const projectWorkflowJournalWithRedis = (
 ) =>
 	Effect.gen(function* () {
 		const key = redisKeys.sandboxWorkflowJournal(executionId);
-		const encodedEntries = journal.map(({ request, value }) => encodeJson({ request, value }));
+		const encodedEntries = journal.map(({ value, request }) => encodeJson({ value, request }));
 		yield* Effect.tryPromise(() =>
 			redis.client.eval(
 				projectWorkflowJournalScript,

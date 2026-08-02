@@ -9,8 +9,8 @@ describe("migration report presentation", () => {
 	it("presents warning and information levels", () => {
 		expect(migrationReportLevelPresentation("warning")).toEqual({
 			label: "Warning",
-			icon: "circle-alert",
 			tone: "text-danger",
+			icon: "circle-alert",
 		});
 		expect(migrationReportLevelPresentation("info")).toEqual({
 			icon: "info",

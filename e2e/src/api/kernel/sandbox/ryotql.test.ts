@@ -46,11 +46,11 @@ describe("sandbox RyotQL reads", () => {
 			});
 			const slug = `ryotql-entities-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
-				client,
 				slug,
+				client,
 				name: "Query entities",
 				capabilities: ["executeRyotql"],
-				source: entityRowsSandboxSource({ name: "Query entities", slug }),
+				source: entityRowsSandboxSource({ slug, name: "Query entities" }),
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
@@ -83,21 +83,21 @@ describe("sandbox RyotQL reads", () => {
 	it.live("reads filtered events through executeRyotql", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const { entityId, entitySchemaSlug, eventSchemaSlug } = yield* createEventTestFixture(client);
+			const { entityId, eventSchemaSlug, entitySchemaSlug } = yield* createEventTestFixture(client);
 			yield* client.call((c) =>
 				c.events.create({ payload: [{ entityId, eventSchemaSlug, properties: { rating: 5 } }] }),
 			);
 			const slug = `ryotql-events-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
-				client,
 				slug,
+				client,
 				name: "Query events",
 				capabilities: ["executeRyotql"],
-				source: eventRowsSandboxSource({ name: "Query events", slug }),
+				source: eventRowsSandboxSource({ slug, name: "Query events" }),
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
-				context: { entityId, entitySchemaSlug, eventSchemaSlug },
+				context: { entityId, eventSchemaSlug, entitySchemaSlug },
 			});
 
 			const result = yield* pollSandboxResult(userId, jobId);
@@ -124,82 +124,82 @@ describe("sandbox RyotQL reads", () => {
 			const query = document({
 				entities: rows(entity, {
 					limit: 100,
+					where: eq(column(entity, "entitySchemaSlug"), literal(entitySchemaSlug)),
 					fields: [
 						field("id", column(entity, "id")),
 						field("name", column(entity, "name")),
 						field("properties", column(entity, "properties")),
 					],
-					where: eq(column(entity, "entitySchemaSlug"), literal(entitySchemaSlug)),
 				}),
 			});
 			const api = getApiClient();
 			let globalEntityIds: EntityId[] = [];
 			const installed = yield* Effect.acquireRelease(
 				installTestPluginBundle({
-					scope: "system",
 					pluginSlug,
-					files: {
-						[providerEntry]: providerSandboxSource({
-							name: "RyotQL system provider details",
-							slug: providerScriptSlug,
-							operation: "details",
-							result: fakeProviderDetailsResult({ name: "RyotQL system provider" }),
-						}),
-						[entry]: systemRyotqlProbeSandboxSource({
-							name: "RyotQL system probe",
-							slug: scriptSlug,
-							entitySchemaSlug,
-							query,
-							queryName: "entities",
-						}),
-					},
-					scripts: [
-						{
-							providerSlug,
-							kind: "provider",
-							name: "RyotQL system provider details",
-							slug: providerScriptSlug,
-							entry: providerEntry,
-							providerOperation: "details",
-							capabilities: [],
-							requiredPluginConfigKeys: [],
-							requiredSystemConfigKeys: [],
-						},
-						{
-							providerSlug,
-							kind: "script",
-							name: "RyotQL system probe",
-							slug: scriptSlug,
-							entry,
-							capabilities: ["executeRyotql", "upsertGlobalEntities"],
-							requiredPluginConfigKeys: [],
-							requiredSystemConfigKeys: [],
-						},
-					],
-					providers: [
-						{
-							slug: providerSlug,
-							rootEntitySchemaSlug: entitySchemaSlug,
-							name: "RyotQL system provider",
-							information: { source: "e2e" },
-							operations: { details: providerScriptSlug },
-						},
-					],
+					scope: "system",
 					crons: [
 						{
-							slug: cronSlug,
 							scriptSlug,
+							slug: cronSlug,
 							schedule: { cron: "0 0 * * *" },
 							description: "Run the RyotQL system probe",
 						},
 					],
 					entitySchemas: [
 						{
+							icon: "box",
+							eventSchemas: [],
 							slug: entitySchemaSlug,
 							name: "RyotQL system entity",
-							icon: "box",
-							propertiesSchema: { unknownKeys: "strict", fields: {} },
-							eventSchemas: [],
+							propertiesSchema: { fields: {}, unknownKeys: "strict" },
+						},
+					],
+					providers: [
+						{
+							slug: providerSlug,
+							name: "RyotQL system provider",
+							information: { source: "e2e" },
+							rootEntitySchemaSlug: entitySchemaSlug,
+							operations: { details: providerScriptSlug },
+						},
+					],
+					files: {
+						[entry]: systemRyotqlProbeSandboxSource({
+							query,
+							slug: scriptSlug,
+							entitySchemaSlug,
+							queryName: "entities",
+							name: "RyotQL system probe",
+						}),
+						[providerEntry]: providerSandboxSource({
+							operation: "details",
+							slug: providerScriptSlug,
+							name: "RyotQL system provider details",
+							result: fakeProviderDetailsResult({ name: "RyotQL system provider" }),
+						}),
+					},
+					scripts: [
+						{
+							providerSlug,
+							kind: "provider",
+							capabilities: [],
+							entry: providerEntry,
+							slug: providerScriptSlug,
+							providerOperation: "details",
+							requiredPluginConfigKeys: [],
+							requiredSystemConfigKeys: [],
+							name: "RyotQL system provider details",
+						},
+						{
+							entry,
+							providerSlug,
+							kind: "script",
+							slug: scriptSlug,
+							name: "RyotQL system probe",
+							requiredPluginConfigKeys: [],
+							requiredSystemConfigKeys: [],
+							capabilities: ["executeRyotql", "upsertGlobalEntities"],
 						},
 					],
 				}),
@@ -222,8 +222,8 @@ describe("sandbox RyotQL reads", () => {
 				(c) =>
 					c.testSupport.createGlobalEntity({
 						payload: {
-							name: "Owned global entity",
 							properties: {},
+							name: "Owned global entity",
 							externalId: `owned-global-${suffix}`,
 							entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
 						},
@@ -232,15 +232,15 @@ describe("sandbox RyotQL reads", () => {
 			);
 			globalEntityIds = [globalEntity.id];
 			yield* createEntity(client, {
-				name: "User entity",
 				properties: {},
+				name: "User entity",
 				entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
 			});
 
 			const trigger = yield* api.call(
 				(c) =>
 					c.testSupport.triggerPluginCron({
-						payload: { pluginSlug: PluginSlug.make(installed.pluginSlug), cronSlug },
+						payload: { cronSlug, pluginSlug: PluginSlug.make(installed.pluginSlug) },
 					}),
 				adminHeaders(),
 			);

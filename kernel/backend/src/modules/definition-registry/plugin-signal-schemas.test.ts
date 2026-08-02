@@ -38,8 +38,8 @@ const signalDefinitions = () => {
 				},
 				{
 					name: "Related Signal",
-					slug: "fixture.related",
 					catalogState: "active",
+					slug: "fixture.related",
 					notificationScriptSlug: "fixture.automation",
 					audiencePolicy: {
 						kind: "related_users",
@@ -50,8 +50,8 @@ const signalDefinitions = () => {
 						unknownKeys: "strict",
 						fields: {
 							count: {
-								type: "integer",
 								label: "Count",
+								type: "integer",
 								description: "Count",
 								validation: { required: true },
 							},

@@ -27,22 +27,22 @@ describe("adaptStrongAppCsv", () => {
 			{
 				name: "Bench Press",
 				kind: "reps_and_weight",
-				sets: [{ setLot: "normal", note: "Felt strong", reps: 5, weight: 100 }],
+				sets: [{ reps: 5, weight: 100, setLot: "normal", note: "Felt strong" }],
 			},
 			{
 				name: "Run",
 				kind: "distance_and_duration",
-				sets: [{ setLot: "normal", distance: 5, duration: 30 }],
+				sets: [{ distance: 5, duration: 30, setLot: "normal" }],
 			},
 			{
 				name: "Push Up",
 				kind: "reps_and_weight",
-				sets: [{ setLot: "normal", reps: 12, weight: 1 }],
+				sets: [{ reps: 12, weight: 1, setLot: "normal" }],
 			},
 			{
 				name: "Timed Push Up",
 				kind: "reps_and_duration",
-				sets: [{ setLot: "normal", reps: 10, duration: 1 }],
+				sets: [{ reps: 10, duration: 1, setLot: "normal" }],
 			},
 		]);
 	});

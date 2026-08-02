@@ -15,7 +15,7 @@ export const stubHttpHost = (
 	({
 		httpCall: (method: string, value: string, options) => {
 			const url = new URL(value);
-			const response = respond({ method, path: url.pathname, url, options });
+			const response = respond({ url, method, options, path: url.pathname });
 			return Effect.succeed({
 				status: 200,
 				headers: response.headers ?? {},

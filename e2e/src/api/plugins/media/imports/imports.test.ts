@@ -16,7 +16,7 @@ describe("Watcharr Show Import E2E (episode resolution)", () => {
 		"attaches per-episode history to the episode entity and drops unresolvable locators",
 		() =>
 			Effect.gen(function* () {
-				const { client, token } = yield* createAuthenticatedClient();
+				const { token, client } = yield* createAuthenticatedClient();
 
 				// Pre-seed an already-populated show → season → episode tree so the import
 				// resolves the episode positionally without any external provider calls.
@@ -56,7 +56,7 @@ describe("Watcharr Show Import E2E (episode resolution)", () => {
 					"application/json",
 				);
 				const created = yield* client.call((c) =>
-					c.imports.createRun({ payload: { source: "watcharr", uploadToken } }),
+					c.imports.createRun({ payload: { uploadToken, source: "watcharr" } }),
 				);
 				const completedRun = yield* pollImportRunUntilTerminal(client, created.id);
 				const membership = yield* queryInLibraryRelationship(client, showId, "show");

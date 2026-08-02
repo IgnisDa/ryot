@@ -27,8 +27,8 @@ export default defineAutomation({
 		const season = getSeasonContext(population.parentEntity);
 
 		const properties: Record<string, JsonValue> = {
-			oldCount: batch.beforeCount,
 			newCount: batch.afterCount,
+			oldCount: batch.beforeCount,
 			entityName: population.scopeEntity.name,
 		};
 		if (

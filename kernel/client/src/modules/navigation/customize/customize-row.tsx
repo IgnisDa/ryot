@@ -37,12 +37,12 @@ export function CustomizeHomeRow() {
 	return (
 		<div className="flex h-11 items-center gap-2 border-b border-border bg-raised px-1">
 			<span aria-hidden="true" className="flex size-10 items-center justify-center opacity-40">
-				<AppIcon name="grip-vertical" size={18} className="text-text-subtle" />
+				<AppIcon size={18} name="grip-vertical" className="text-text-subtle" />
 			</span>
-			<AppIcon name="house" size={17} className="shrink-0 text-text" />
+			<AppIcon size={17} name="house" className="shrink-0 text-text" />
 			<span className="min-w-0 flex-1 truncate text-sm text-text">Home</span>
 			<span className="flex items-center gap-1.5 text-text-subtle">
-				<AppIcon name="lock" size={13} />
+				<AppIcon size={13} name="lock" />
 				<span className="text-xs">Always shown</span>
 			</span>
 		</div>

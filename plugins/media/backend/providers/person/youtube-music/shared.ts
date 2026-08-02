@@ -86,7 +86,7 @@ export const buildArtistSearch = (client: MusicSearchClient, query: string) =>
 					];
 				});
 			});
-			return { items, details: { totalItems: items.length, nextPage: null } };
+			return { items, details: { nextPage: null, totalItems: items.length } };
 		}),
 	);
 

@@ -12,11 +12,11 @@ import {
 } from "../../../lib/vendors/igdb";
 
 export const manifest = defineManifest({
-	kind: "provider",
 	name: "IGDB",
+	kind: "provider",
 	slug: "company.igdb",
-	requiredPluginConfigKeys: ["twitchClientId", "twitchClientSecret"],
 	requiredSystemConfigKeys: [],
+	requiredPluginConfigKeys: ["twitchClientId", "twitchClientSecret"],
 	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 
@@ -36,7 +36,7 @@ export const search = defineProvider({
 			`offset ${offset};`,
 		].join("\n");
 		return makeIgdbRequest(host, "companies", body).pipe(
-			Effect.map(({ data: results, headers }) => {
+			Effect.map(({ headers, data: results }) => {
 				if (!Array.isArray(results)) {
 					throw new Error("IGDB company search returned unexpected response format");
 				}
@@ -85,7 +85,7 @@ export const details = defineProvider({
 				const images: Array<{ type: "remote"; url: string; purpose: "logo" }> = [];
 				const logoImageId = stringValue(asRecord(company?.["logo"])?.["image_id"]);
 				if (logoImageId) {
-					images.push({ type: "remote", url: getImageUrl(logoImageId), purpose: "logo" });
+					images.push({ type: "remote", purpose: "logo", url: getImageUrl(logoImageId) });
 				}
 
 				const startDate = numberValue(company?.["start_date"]);
@@ -109,8 +109,8 @@ export const details = defineProvider({
 						}
 						accumulator.add({
 							name: gameName,
-							externalId: String(Math.trunc(id)),
 							providerSlug: "video-game.igdb",
+							externalId: String(Math.trunc(id)),
 							relationshipProperties: { roles: [role] },
 						});
 					}
@@ -120,14 +120,6 @@ export const details = defineProvider({
 
 				return {
 					name,
-					relatedEntityGroups: [
-						{
-							direction: "outgoing" as const,
-							synchronization: "authoritative" as const,
-							entities: accumulator.entities,
-							relationshipSchemaSlug: "company-to-video-game",
-						},
-					],
 					properties: {
 						images,
 						website,
@@ -136,6 +128,14 @@ export const details = defineProvider({
 						description: stringValue(company?.["description"]),
 						sourceUrl: `https://www.igdb.com/companies/${input.externalId}`,
 					},
+					relatedEntityGroups: [
+						{
+							direction: "outgoing" as const,
+							entities: accumulator.entities,
+							synchronization: "authoritative" as const,
+							relationshipSchemaSlug: "company-to-video-game",
+						},
+					],
 				};
 			}),
 		);

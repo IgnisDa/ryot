@@ -22,7 +22,7 @@ import { getCatalogTable } from "#modules/ryotql/catalog";
 import { validateRyotQLDocument } from "#modules/ryotql/validator";
 
 const invalidEntityBrowserDefinition = (message: string) =>
-	new SavedViewBadRequest({ reason: { code: "settings-incompatible", message } });
+	new SavedViewBadRequest({ reason: { message, code: "settings-incompatible" } });
 
 const queryScope = (query: NamedQuery) => {
 	const scope = new Map<string, NonNullable<ReturnType<typeof getCatalogTable>>>();
@@ -185,7 +185,7 @@ export const validateEntityBrowserSavedViewDefinition = Effect.fn(
 });
 
 const invalidResultsTableDefinition = (message: string) =>
-	new SavedViewBadRequest({ reason: { code: "settings-incompatible", message } });
+	new SavedViewBadRequest({ reason: { message, code: "settings-incompatible" } });
 
 type CustomRendererRecord = {
 	readonly id: string;

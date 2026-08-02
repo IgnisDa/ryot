@@ -24,6 +24,6 @@ export const translateEntityExecutionId = (input: { entityId: EntityId; language
 export const TranslateEntityWorkflow = Workflow.make("TranslateEntityWorkflow", {
 	success: Schema.Void satisfies DurableSchema,
 	error: SandboxRunError satisfies DurableSchema,
-	payload: TranslateEntityWorkflowPayload satisfies DurableSchema,
 	idempotencyKey: ({ executionId }) => executionId,
+	payload: TranslateEntityWorkflowPayload satisfies DurableSchema,
 });

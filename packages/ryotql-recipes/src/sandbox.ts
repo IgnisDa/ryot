@@ -20,6 +20,7 @@ export const entityReadRecipe = defineRecipe(
 	(input: { readonly entityIds: readonly [string, ...string[]] }) => {
 		const entity = table("entity", "entity");
 		return {
+			map: ({ entities }) => Result.succeed(entities),
 			queries: {
 				entities: selectedRows(entity, {
 					limit: 100,
@@ -31,20 +32,19 @@ export const entityReadRecipe = defineRecipe(
 					selection: {
 						id: selectedField(column(entity, "id"), EntityId),
 						name: selectedField(column(entity, "name"), Schema.String),
+						properties: selectedField(column(entity, "properties"), JsonValue),
 						createdAt: selectedField(column(entity, "createdAt"), IsoDateString),
 						updatedAt: selectedField(column(entity, "updatedAt"), IsoDateString),
-						properties: selectedField(column(entity, "properties"), JsonValue),
 						entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), EntitySchemaSlug),
+						externalId: selectedField(column(entity, "externalId"), Schema.NullOr(Schema.String)),
+						populatedAt: selectedField(column(entity, "populatedAt"), Schema.NullOr(IsoDateString)),
 						providerId: selectedField(
 							column(entity, "providerId"),
 							Schema.NullOr(SandboxProviderId),
 						),
-						externalId: selectedField(column(entity, "externalId"), Schema.NullOr(Schema.String)),
-						populatedAt: selectedField(column(entity, "populatedAt"), Schema.NullOr(IsoDateString)),
 					},
 				}),
 			},
-			map: ({ entities }) => Result.succeed(entities),
 		};
 	},
 );

@@ -22,7 +22,7 @@ const reviewPropertiesSchema = {
 		rating: {
 			label: "Rating",
 			type: "number" as const,
-			validation: { maximum: 100, minimum: 0 },
+			validation: { minimum: 0, maximum: 100 },
 			description: "Your personal rating from 0 (lowest) to 100 (highest)",
 		},
 	},
@@ -33,50 +33,6 @@ const collectionSchema = {
 	pluginSlug: null,
 	slug: "collection",
 	name: "Collection",
-	eventSchemas: [
-		{ name: "Review", slug: "review", propertiesSchema: reviewPropertiesSchema },
-		...(["Add", "Remove"] as const).map((operation) => ({
-			name: `${operation} Entity ${operation === "Add" ? "to" : "from"} Collection`,
-			slug: `${operation.toLowerCase()}-entity-${operation === "Add" ? "to" : "from"}-collection`,
-			propertiesSchema: {
-				fields: {
-					entityId: {
-						label: "Entity ID",
-						type: "string" as const,
-						validation: { required: true as const },
-						reference: { kind: "entity-id" as const },
-						description: `ID of the entity ${operation === "Add" ? "added to" : "removed from"} the collection`,
-					},
-					entitySchemaSlug: {
-						type: "string" as const,
-						label: "Entity Schema Slug",
-						validation: { required: true as const },
-						description: `Schema slug of the entity ${operation === "Add" ? "added to" : "removed from"} the collection`,
-					},
-					relationshipId: {
-						type: "string" as const,
-						label: "Relationship ID",
-						validation: { required: true as const },
-						reference: { kind: "relationship-id" as const },
-						description:
-							operation === "Add"
-								? "ID of the membership relationship"
-								: "ID of the membership relationship that was deleted",
-					},
-					relationshipProperties: {
-						properties: {},
-						type: "object" as const,
-						label: "Relationship Properties",
-						unknownKeys: "passthrough" as const,
-						description:
-							operation === "Add"
-								? "Properties of the membership relationship"
-								: "Properties of the deleted membership relationship",
-					},
-				},
-			},
-		})),
-	],
 	propertiesSchema: {
 		fields: {
 			description: {
@@ -94,6 +50,50 @@ const collectionSchema = {
 			},
 		},
 	},
+	eventSchemas: [
+		{ name: "Review", slug: "review", propertiesSchema: reviewPropertiesSchema },
+		...(["Add", "Remove"] as const).map((operation) => ({
+			name: `${operation} Entity ${operation === "Add" ? "to" : "from"} Collection`,
+			slug: `${operation.toLowerCase()}-entity-${operation === "Add" ? "to" : "from"}-collection`,
+			propertiesSchema: {
+				fields: {
+					entitySchemaSlug: {
+						type: "string" as const,
+						label: "Entity Schema Slug",
+						validation: { required: true as const },
+						description: `Schema slug of the entity ${operation === "Add" ? "added to" : "removed from"} the collection`,
+					},
+					entityId: {
+						label: "Entity ID",
+						type: "string" as const,
+						validation: { required: true as const },
+						reference: { kind: "entity-id" as const },
+						description: `ID of the entity ${operation === "Add" ? "added to" : "removed from"} the collection`,
+					},
+					relationshipProperties: {
+						properties: {},
+						type: "object" as const,
+						label: "Relationship Properties",
+						unknownKeys: "passthrough" as const,
+						description:
+							operation === "Add"
+								? "Properties of the membership relationship"
+								: "Properties of the deleted membership relationship",
+					},
+					relationshipId: {
+						type: "string" as const,
+						label: "Relationship ID",
+						validation: { required: true as const },
+						reference: { kind: "relationship-id" as const },
+						description:
+							operation === "Add"
+								? "ID of the membership relationship"
+								: "ID of the membership relationship that was deleted",
+					},
+				},
+			},
+		})),
+	],
 };
 
 const collection = table("entity", "entity");
@@ -172,19 +172,19 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 			slug: "collections",
 			name: "All Collections",
 			icon: collectionSchema.icon,
-			renderer: { kind: "kernel", name: "entity-browser" },
 			dataSources: collectionDataSources,
+			renderer: { kind: "kernel", name: "entity-browser" },
 			settings: {
 				pageSize: 20,
 				addAction: null,
-				sourceName: "savedView",
+				sortChoices: [],
 				defaultLayout: "grid",
-				layouts: ["grid", "list", "table"],
+				sourceName: "savedView",
 				entityIdField: "entityId",
+				searchFields: ["column0"],
+				layouts: ["grid", "list", "table"],
 				ownerPluginIdField: "ownerPluginId",
 				entitySchemaSlugField: "entitySchemaSlug",
-				searchFields: ["column0"],
-				sortChoices: [],
 				tableColumns: collectionProjections.table.mappings.columns,
 			},
 		},

@@ -12,14 +12,14 @@ it("maps Effect SQL metadata to the application DbError", () => {
 	const failure = new SqlError({
 		reason: new UniqueViolation({
 			cause,
-			constraint: "users_email_unique",
 			message: "duplicate",
 			operation: "execute",
+			constraint: "users_email_unique",
 		}),
 	});
 
 	expect(databaseError(failure)).toEqual(
-		new DbError({ code: "23505", constraint: "users_email_unique", message: "duplicate" }),
+		new DbError({ code: "23505", message: "duplicate", constraint: "users_email_unique" }),
 	);
 });
 
@@ -28,12 +28,12 @@ it("matches only the requested unique constraint", () => {
 
 	expect(
 		matchesEmailConstraint(
-			new DbError({ code: "23505", constraint: "users_email_unique", message: "duplicate" }),
+			new DbError({ code: "23505", message: "duplicate", constraint: "users_email_unique" }),
 		),
 	).toBe(true);
 	expect(
 		matchesEmailConstraint(
-			new DbError({ code: "23505", constraint: "users_name_unique", message: "duplicate" }),
+			new DbError({ code: "23505", message: "duplicate", constraint: "users_name_unique" }),
 		),
 	).toBe(false);
 	expect(matchesEmailConstraint(new DbError({ code: "40001", message: "retry" }))).toBe(false);

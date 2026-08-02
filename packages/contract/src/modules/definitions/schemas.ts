@@ -32,8 +32,8 @@ export type EntityDefinition = typeof EntityDefinition.Type;
 
 export const RelationshipDefinition = Schema.Struct({
 	name: Schema.String,
-	slug: RelationshipSchemaSlug,
 	propertiesSchema: AppSchema,
+	slug: RelationshipSchemaSlug,
 	sourceEntitySchemaSlug: Schema.NullOr(EntitySchemaSlug),
 	targetEntitySchemaSlug: Schema.NullOr(EntitySchemaSlug),
 });

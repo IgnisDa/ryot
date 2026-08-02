@@ -46,17 +46,17 @@ export const PRIVATE_PLUGIN_SECRET_KEY = "apiToken";
 export const privatePluginConfigSchema: PrivatePluginManifest["configSchema"] = {
 	unknownKeys: "strict",
 	fields: {
-		[PRIVATE_PLUGIN_CONFIG_KEY]: {
-			type: "string",
-			label: "Greeting",
-			validation: { required: true },
-			description: "Value returned by the private plugin operation",
-		},
 		[PRIVATE_PLUGIN_SECRET_KEY]: {
 			secret: true,
 			type: "string",
 			label: "API token",
 			description: "Secret value that must never leave the api",
+		},
+		[PRIVATE_PLUGIN_CONFIG_KEY]: {
+			type: "string",
+			label: "Greeting",
+			validation: { required: true },
+			description: "Value returned by the private plugin operation",
 		},
 	},
 };
@@ -134,7 +134,7 @@ export const installPrivatePluginPackage = (input: {
 			input.baseUrl,
 		);
 		return yield* input.client.call((c) =>
-			c.plugins.install({ payload: { config: input.config, uploadToken } }),
+			c.plugins.install({ payload: { uploadToken, config: input.config } }),
 		);
 	});
 
@@ -150,8 +150,8 @@ export const installPrivatePlugin = (
 		yield* installPrivatePluginPackage({
 			client: input.client,
 			config: input.config,
-			baseUrl: input.baseUrl,
 			pluginPackage: plugin,
+			baseUrl: input.baseUrl,
 		});
 		const installation = yield* settledPrivateInstallation(input.client, plugin.pluginSlug);
 		return { ...plugin, installation };
@@ -175,10 +175,10 @@ export const privateBootstrapPluginPackage = (): PrivateBootstrapPluginPackage =
 	const bootstrapScriptSlug = `e2e-private-bootstrap-${suffix}`;
 	const operationScriptSlug = `e2e-private-bootstrap-operation-${suffix}`;
 	const pluginSlug = `e2e-private-bootstrap-plugin-${suffix}`;
-	const bootstrapSource = literalSandboxSource({ name, slug: bootstrapScriptSlug, value: true });
+	const bootstrapSource = literalSandboxSource({ name, value: true, slug: bootstrapScriptSlug });
 	const manifest = testPluginManifest({
 		pluginSlug,
-		userBootstrap: [{ slug: bootstrapSlug, scriptSlug: bootstrapScriptSlug, description: name }],
+		userBootstrap: [{ description: name, slug: bootstrapSlug, scriptSlug: bootstrapScriptSlug }],
 		operations: [
 			{ auth: "user", description: name, slug: operationSlug, scriptSlug: operationScriptSlug },
 		],
@@ -351,6 +351,16 @@ export const privateImportPluginPackage = (
 	const manifest = testPluginManifest({
 		pluginSlug,
 		workflows: [{ scriptSlug, slug: workflowSlug }],
+		importSources: [
+			{
+				name,
+				workflowSlug,
+				slug: sourceSlug,
+				description: name,
+				requiredPluginConfigKeys: [],
+				inputSchema: { fields: {}, unknownKeys: "strict" },
+			},
+		],
 		scripts: [
 			{
 				entry,
@@ -360,16 +370,6 @@ export const privateImportPluginPackage = (
 				name: "E2E private import",
 				requiredPluginConfigKeys: [],
 				requiredSystemConfigKeys: [],
-			},
-		],
-		importSources: [
-			{
-				name,
-				workflowSlug,
-				slug: sourceSlug,
-				description: name,
-				requiredPluginConfigKeys: [],
-				inputSchema: { fields: {}, unknownKeys: "strict" },
 			},
 		],
 	});
@@ -401,6 +401,15 @@ export const privateIntegrationPluginPackage = (
 				description: "Reads the integration that authenticated the call",
 			},
 		],
+		integrationProviders: [
+			{
+				name,
+				lot: "push",
+				description: name,
+				slug: providerSlug,
+				settingsSchema: privateIntegrationSettingsSchema,
+			},
+		],
 		scripts: [
 			{
 				entry,
@@ -410,15 +419,6 @@ export const privateIntegrationPluginPackage = (
 				requiredPluginConfigKeys: [],
 				requiredSystemConfigKeys: [],
 				name: "E2E private integration operation",
-			},
-		],
-		integrationProviders: [
-			{
-				name,
-				lot: "push",
-				description: name,
-				slug: providerSlug,
-				settingsSchema: privateIntegrationSettingsSchema,
 			},
 		],
 	});
@@ -436,7 +436,7 @@ export const installPrivateImportPlugin = (
 ) =>
 	Effect.gen(function* () {
 		const plugin = privateImportPluginPackage(input);
-		yield* installPrivatePluginPackage({ config: {}, pluginPackage: plugin, client: input.client });
+		yield* installPrivatePluginPackage({ config: {}, client: input.client, pluginPackage: plugin });
 		const installation = yield* settledPrivateInstallation(input.client, plugin.pluginSlug);
 		return { ...plugin, installation };
 	});
@@ -446,7 +446,7 @@ export const installPrivateIntegrationPlugin = (
 ) =>
 	Effect.gen(function* () {
 		const plugin = privateIntegrationPluginPackage(input);
-		yield* installPrivatePluginPackage({ config: {}, pluginPackage: plugin, client: input.client });
+		yield* installPrivatePluginPackage({ config: {}, client: input.client, pluginPackage: plugin });
 		const installation = yield* settledPrivateInstallation(input.client, plugin.pluginSlug);
 		return { ...plugin, installation };
 	});

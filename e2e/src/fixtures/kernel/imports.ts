@@ -98,11 +98,11 @@ export const installTestImportPlugin = Effect.suspend(() => {
 	const validateEntry = "scripts/validate-archive.sandbox.ts";
 	return installTestPluginBundle({
 		scope: "system",
+		workflows: [{ slug: "import", scriptSlug: "workflow.e2e-archive-import" }],
 		files: {
 			[entry]: FIXTURE_IMPORT_WORKFLOW_SOURCE,
 			[validateEntry]: FIXTURE_IMPORT_VALIDATE_SOURCE,
 		},
-		workflows: [{ slug: "import", scriptSlug: "workflow.e2e-archive-import" }],
 		configSchema: {
 			unknownKeys: "strict",
 			fields: {
@@ -350,7 +350,7 @@ export const installTestImportPinningPlugin = Effect.suspend(() => {
 
 	return installTestPluginBundle({
 		scope: "system",
-		workflows: [{ slug: workflowSlug, scriptSlug }],
+		workflows: [{ scriptSlug, slug: workflowSlug }],
 		files: { [entry]: testImportPinningWorkflowSource(scriptSlug) },
 		scripts: [
 			{
@@ -368,8 +368,8 @@ export const installTestImportPinningPlugin = Effect.suspend(() => {
 				slug: source,
 				workflowSlug,
 				name: "E2E import pinning",
-				inputSchema: { fields: {}, unknownKeys: "strict" },
 				requiredPluginConfigKeys: [],
+				inputSchema: { fields: {}, unknownKeys: "strict" },
 				description: "Hold an accepted import open for plugin pinning coverage",
 			},
 		],
@@ -418,7 +418,7 @@ export const listIntegrationImportRuns = (
 	integrationId: string,
 	after: string | undefined,
 	limit: number,
-) => executeRyotQLRecipe(client, integrationImportRunsRecipe({ integrationId, after, limit }));
+) => executeRyotQLRecipe(client, integrationImportRunsRecipe({ after, limit, integrationId }));
 
 export const getImportRun = (
 	client: Client,

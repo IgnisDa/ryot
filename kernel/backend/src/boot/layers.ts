@@ -497,8 +497,8 @@ const SandboxServicesLive = Layer.mergeAll(
 const ImportWorkflowPinningLive = Layer.effect(
 	ImportWorkflowPinning,
 	Effect.map(SandboxExecutionService, (sandbox) => ({
-		preRegister: sandbox.preRegisterPluginWorkflow,
 		release: sandbox.releaseWorkflowRegistration,
+		preRegister: sandbox.preRegisterPluginWorkflow,
 	})),
 ).pipe(Layer.provide(SandboxExecutionServiceLive));
 

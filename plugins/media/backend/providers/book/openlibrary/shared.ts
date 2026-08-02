@@ -47,8 +47,8 @@ export const search = defineProvider({
 	operation: "search",
 	run: (input, host) => {
 		const params = new URLSearchParams({
-			q: input.query,
 			type: "work",
+			q: input.query,
 			limit: String(input.pageSize),
 			offset: String((input.page - 1) * input.pageSize),
 			fields: "key,title,author_name,cover_i,first_publish_year",

@@ -70,7 +70,7 @@ export const clientArtifactMetadata = (
 		});
 	return {
 		...identity,
-		hash: sha256Hex(stableStringify({ name: pluginName, files: fileIdentity, metadata: identity })),
+		hash: sha256Hex(stableStringify({ name: pluginName, metadata: identity, files: fileIdentity })),
 	};
 };
 

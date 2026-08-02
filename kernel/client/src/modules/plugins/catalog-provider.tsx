@@ -36,8 +36,8 @@ export function PluginCatalogProvider(props: {
 	readonly initialCatalog: PluginClientCatalog;
 	readonly runtime: PluginCatalogProviderRuntime;
 }) {
-	const { serverUrl, userId } = props.scope;
-	const { data: catalog = props.initialCatalog, refetch } = useRyotQuery(
+	const { userId, serverUrl } = props.scope;
+	const { refetch, data: catalog = props.initialCatalog } = useRyotQuery(
 		pluginCatalogQuery,
 		props.initialCatalog,
 	);
@@ -50,7 +50,7 @@ export function PluginCatalogProvider(props: {
 	useEffect(() => {
 		const subscription = props.runtime.runFork(
 			Effect.flatMap(PluginCatalogEventsService, (service) =>
-				service.subscribe({ serverUrl, userId }, refreshCatalog),
+				service.subscribe({ userId, serverUrl }, refreshCatalog),
 			),
 		);
 		return () => {

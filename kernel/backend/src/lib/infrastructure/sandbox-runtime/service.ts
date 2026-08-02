@@ -247,7 +247,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 						...(artifactPath !== undefined ||
 						namedArtifactPaths !== undefined ||
 						scratchDirectory !== undefined
-							? { filesystem: { artifactPath, namedArtifactPaths, scratchDirectory } }
+							? { filesystem: { artifactPath, scratchDirectory, namedArtifactPaths } }
 							: {}),
 					})}\n`;
 					const requestError = sandboxRunnerRequestError(requestLine);

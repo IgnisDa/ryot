@@ -24,10 +24,10 @@ const workspace = (
 	overrides: Partial<PluginClientCatalogEntry> = {},
 ): PluginClientCatalogEntry => ({
 	icon: "film",
+	sortOrder: 0,
 	name: "Media",
 	slug: "media",
 	health: "ready",
-	sortOrder: 0,
 	isDisabled: false,
 	clientApiVersion: 1,
 	pluginId: "plugin-media",
@@ -106,9 +106,9 @@ describe("workspace switcher", () => {
 	it("renders sorted workspace view summaries and keeps the trigger summary", () => {
 		const current = workspace();
 		const fitness = workspace({
+			sortOrder: 1,
 			name: "Fitness",
 			slug: "fitness",
-			sortOrder: 1,
 			installationId: "installation-fitness",
 		});
 		render(
@@ -244,7 +244,7 @@ describe("workspace switcher", () => {
 		await waitFor(() => expect(document.activeElement).toBe(fitnessItem));
 
 		rendered.rerender(<WorkspaceSwitcherView {...props} open={false} />);
-		rendered.rerender(<WorkspaceSwitcherView {...props} current={journal} open />);
+		rendered.rerender(<WorkspaceSwitcherView {...props} open current={journal} />);
 
 		const journalItem = screen.getByRole("menuitemradio", { name: "Switch to Journal workspace" });
 		await waitFor(() => expect(document.activeElement).toBe(journalItem));
@@ -367,8 +367,8 @@ describe("workspace switcher", () => {
 				onSelect={(slug) => {
 					observations.push({
 						slug,
-						focused: document.activeElement === trigger,
 						open: screen.queryByRole("menu") !== null,
+						focused: document.activeElement === trigger,
 					});
 				}}
 			/>,
@@ -379,7 +379,7 @@ describe("workspace switcher", () => {
 		fireEvent.click(screen.getByRole("menuitemradio", { name: "Switch to Fitness workspace" }));
 
 		await waitFor(() =>
-			expect(observations).toEqual([{ slug: "fitness", focused: true, open: false }]),
+			expect(observations).toEqual([{ open: false, focused: true, slug: "fitness" }]),
 		);
 	});
 

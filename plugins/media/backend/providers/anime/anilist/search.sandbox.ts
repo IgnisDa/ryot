@@ -4,12 +4,12 @@ import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 import { search } from "./shared";
 
 export const manifest = defineManifest({
-	name: "Anilist Search",
 	kind: "provider",
+	name: "Anilist Search",
 	slug: "anime.anilist.search",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getUserPreferences"],
 });
 
-export default defineProvider({ manifest, operation: "search", run: search.run });
+export default defineProvider({ manifest, run: search.run, operation: "search" });
