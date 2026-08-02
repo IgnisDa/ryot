@@ -1,11 +1,13 @@
 import { buildReportSql, quoteSqlString } from "./shared";
 
 export const buildCollectionToEntityRelationshipMigrationSql = (
+	addEntityToCollectionEventSchemaSlug: string,
 	memberOfRelationshipSchemaSlug: string,
 ) => `
 DO $$
 DECLARE
-	rows_inserted int;
+	events_inserted int;
+	relationships_inserted int;
 	started_at timestamptz := clock_timestamp();
 BEGIN
 	IF to_regclass('"collection_to_entity"') IS NULL THEN
@@ -34,8 +36,42 @@ BEGIN
 	INNER JOIN "entity" coll_entity ON coll_entity.id = cte.collection_id
 	ON CONFLICT DO NOTHING;
 
-	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
-	${buildReportSql("collection_to_entity -> relationship", [{ message: "row(s) migrated", count: "rows_inserted" }])}
+	GET DIAGNOSTICS relationships_inserted = ROW_COUNT;
+
+	INSERT INTO "event" (
+		"id",
+		"user_id",
+		"entity_id",
+		"event_schema_slug",
+		"properties",
+		"created_at",
+		"occurred_at"
+	)
+	SELECT
+		'collection-membership-added-' || rel.id || '-event-0',
+		rel.user_id,
+		rel.target_entity_id,
+		${quoteSqlString(addEntityToCollectionEventSchemaSlug)},
+		jsonb_build_object(
+			'entityId', rel.source_entity_id,
+			'relationshipId', rel.id,
+			'entitySchemaSlug', src_entity.entity_schema_slug,
+			'relationshipProperties', rel.properties
+		),
+		cte.created_on,
+		cte.created_on
+	FROM "collection_to_entity" cte
+	INNER JOIN "relationship" rel
+		ON rel.id = md5(cte.id::text || ':member-of')
+		AND rel.relationship_schema_slug = ${quoteSqlString(memberOfRelationshipSchemaSlug)}
+	INNER JOIN "entity" src_entity ON src_entity.id = rel.source_entity_id
+	ON CONFLICT DO NOTHING;
+
+	GET DIAGNOSTICS events_inserted = ROW_COUNT;
+	${buildReportSql("collection_to_entity -> relationship", [
+		{ message: "relationship(s) migrated", count: "relationships_inserted" },
+		{ message: "add event(s) migrated", count: "events_inserted" },
+	])}
 END $$;
 `;
 
