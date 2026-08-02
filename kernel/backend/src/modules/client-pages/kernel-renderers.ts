@@ -1,7 +1,9 @@
-import { kernelEntityBrowserRenderer } from "./entity-browser-renderer";
-import { kernelResultsTableRenderer } from "./results-table-renderer";
+import {
+	kernelEntityBrowserRenderer,
+	kernelResultsTableRenderer,
+} from "@ryot-app/kernel-renderers";
 
-type KernelClientRenderer = typeof kernelEntityBrowserRenderer | typeof kernelResultsTableRenderer;
+type KernelClientRenderer = typeof kernelEntityBrowserRenderer;
 
 const kernelRenderers = new Map<string, KernelClientRenderer>([
 	["entity-browser", kernelEntityBrowserRenderer],

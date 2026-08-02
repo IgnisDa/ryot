@@ -15,6 +15,11 @@ identity. Reserved `Mod+K` and `Mod+Shift+Space` shortcuts are forwarded as sema
 not raw keyboard events or public `RyotClient` capabilities. An active plugin `OverlayScope`
 suppresses forwarding.
 
+`usePageShortcut` binds a modifier-free key in this document and registers it with the kernel, which
+binds the same key in its own realm and sends a press message back. Key events never cross the
+boundary, so exactly one document sees any press and each realm's overlays suppress only their own
+registrations.
+
 ## Capabilities
 
 `RyotClientError.reason` is the complete public capability failure set:

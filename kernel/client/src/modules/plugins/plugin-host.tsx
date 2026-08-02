@@ -1,6 +1,7 @@
 import type {
 	ClientPageContext,
 	KernelShortcut,
+	PageShortcutKey,
 	PluginAssetOutcome,
 	PluginAssetRequest,
 	PluginCollectionOutcome,
@@ -15,7 +16,7 @@ import type {
 	PluginRyotQLRequest,
 } from "@ryot-app/client-plugin-contract";
 import type { RyotClient } from "@ryot-app/client-sdk";
-import { Button, ScreenFrame } from "@ryot-app/client-ui-sdk";
+import { Button, ScreenFrame, useShortcut } from "@ryot-app/client-ui-sdk";
 import clsx from "clsx";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 
@@ -141,7 +142,7 @@ export function PluginFrame(props: {
 		signal: AbortSignal,
 	) => Promise<PluginOperationDispatchOutcome>;
 }) {
-	const { compact, edgeBack, index, key, leading, location } = props.navigation;
+	const { compact, edgeBack, index, key, leading, location, screenKey } = props.navigation;
 	const routePath = location.kind === "route" ? location.path : undefined;
 	const entityId = location.kind === "entity" ? location.entityId : undefined;
 	const routeSearch = location.kind === "route" ? location.search : undefined;
@@ -156,6 +157,7 @@ export function PluginFrame(props: {
 	const freshnessRevision = useRef(props.freshnessCheckRevision);
 	const freshnessPending = useRef(false);
 	const [overlayCount, setOverlayCount] = useState(0);
+	const [pageShortcuts, setPageShortcuts] = useState<readonly PageShortcutKey[]>([]);
 	const [updateAvailable, setUpdateAvailable] = useState(false);
 	const [frameStatus, setFrameStatus] = useState<"ready" | "loading" | "handshake-failure">(
 		"loading",
@@ -172,6 +174,7 @@ export function PluginFrame(props: {
 		bridge.current = undefined;
 		latest.current.onScreenState(null);
 		setOverlayCount(0);
+		setPageShortcuts([]);
 		latest.current.onOverlayState(0);
 	};
 	const reloadArtifact = () => {
@@ -382,7 +385,18 @@ export function PluginFrame(props: {
 	useEffect(() => {
 		window.clearTimeout(backSettle.current);
 		bridge.current?.sendLocation(latest.current.navigation);
-	}, [compact, edgeBack, entityId, entitySchemaSlug, index, key, leading, routePath, routeSearch]);
+	}, [
+		compact,
+		edgeBack,
+		entityId,
+		entitySchemaSlug,
+		index,
+		key,
+		leading,
+		routePath,
+		routeSearch,
+		screenKey,
+	]);
 
 	useEffect(
 		() =>
@@ -437,6 +451,11 @@ export function PluginFrame(props: {
 			onAssets: (request, signal) => latest.current.onAssets(request, signal),
 			onUpload: (request, signal) => latest.current.onUpload(request, signal),
 			onKernelShortcut: (shortcut) => latest.current.onKernelShortcut(shortcut),
+			onPageShortcuts: (shortcuts) => {
+				if (bridge.current === connection.session) {
+					setPageShortcuts(shortcuts);
+				}
+			},
 			onCollection: (request, signal) => latest.current.onCollection(request, signal),
 			watchEntities: (interest, onUpdate) => latest.current.watchEntities(interest, onUpdate),
 			onScreenState: (state) => {
@@ -509,6 +528,16 @@ export function PluginFrame(props: {
 
 	return (
 		<main {...mainContentProps} className="relative h-full w-full">
+			{frameStatus === "ready" &&
+				props.inert !== true &&
+				!updateAvailable &&
+				pageShortcuts.map((shortcut) => (
+					<PageShortcut
+						key={shortcut}
+						shortcut={shortcut}
+						onPress={() => bridge.current?.sendShortcut(shortcut)}
+					/>
+				))}
 			<iframe
 				onLoad={connect}
 				sandbox="allow-scripts"
@@ -555,6 +584,13 @@ export function PluginFrame(props: {
 			) : null}
 		</main>
 	);
+}
+
+function PageShortcut(props: { readonly shortcut: PageShortcutKey; readonly onPress: () => void }) {
+	const press = useRef(props.onPress);
+	press.current = props.onPress;
+	useShortcut(props.shortcut, () => press.current());
+	return null;
 }
 
 function PluginChromeFrame(props: {

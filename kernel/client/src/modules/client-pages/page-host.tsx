@@ -68,7 +68,8 @@ export function ClientPageHost(props: {
 	const entry = historyEntry(location.state);
 	const { identity, context } = props.prepared;
 	const documentId = identity.target.kind === "saved-view" ? identity.target.savedViewId : "";
-	const baseOwner = `${identity.kind}:${identity.buildId}:${identity.graphHash}:${identity.artifactHash}:${documentId}`;
+	const documentRevision = "viewRevision" in identity ? identity.viewRevision : 0;
+	const baseOwner = `${identity.kind}:${identity.buildId}:${identity.graphHash}:${identity.artifactHash}:${documentId}:${documentRevision}`;
 	const baseOwnerRef = useRef(baseOwner);
 	const [documentGeneration, setDocumentGeneration] = useState(0);
 	baseOwnerRef.current = baseOwner;
@@ -194,7 +195,13 @@ export function ClientPageHost(props: {
 			onPageSearch={({ mode, update }) => {
 				const nextSearch = mergePageSearch(location.searchStr, update);
 				const href = `${location.pathname}${nextSearch === "" ? "" : `?${nextSearch}`}`;
-				void navigate({ href, replace: mode === "replace" });
+				void navigate({
+					href,
+					replace: mode === "replace",
+					...(mode === "replace"
+						? { state: (current) => ({ ...current, ryotScreenKey: entry.screenKey }) }
+						: {}),
+				});
 			}}
 			navigation={{
 				...entry,

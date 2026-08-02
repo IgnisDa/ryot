@@ -44,7 +44,12 @@ export const fitnessPlugin = definePlugin({
 	client: {
 		apiVersion: 1,
 		homeView: null,
-		entities: { workout: { listPresentation: "workout-row", gridPresentation: "workout-card" } },
+		entities: {
+			workout: { listPresentation: "workout-row", gridPresentation: "workout-card" },
+			exercise: { listPresentation: "entity-row", gridPresentation: "entity-card" },
+			measurement: { listPresentation: "entity-row", gridPresentation: "entity-card" },
+			"workout-template": { listPresentation: "entity-row", gridPresentation: "entity-card" },
+		},
 		exports: {
 			"workout-card": {
 				kind: "presentation",
@@ -54,6 +59,16 @@ export const fitnessPlugin = definePlugin({
 			"workout-row": {
 				kind: "presentation",
 				entry: "client/workout-row.ts",
+				automaticEntityPresentations: false,
+			},
+			"entity-card": {
+				kind: "presentation",
+				entry: "client/entity-card.ts",
+				automaticEntityPresentations: false,
+			},
+			"entity-row": {
+				kind: "presentation",
+				entry: "client/entity-row.ts",
 				automaticEntityPresentations: false,
 			},
 		},

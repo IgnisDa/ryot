@@ -7,8 +7,10 @@ import {
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 	ClientPageContext,
+	isPageShortcut,
 	KERNEL_SHORTCUTS,
 	KernelShortcut,
+	MAX_PAGE_SHORTCUTS,
 	PluginAssetBridgeErrorReason,
 	PluginAssetOutcome,
 	PluginClientArtifact,
@@ -173,6 +175,31 @@ describe("plugin client bridge contract", () => {
 		expect(Result.isFailure(client({ ...result, extra: true }))).toBe(true);
 	});
 
+	it("registers page shortcuts upward and admits presses only from the kernel", () => {
+		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
+		const registration = { shortcuts: ["/", "A"], type: "page-shortcuts" };
+		const press = { shortcut: "A", type: "page-shortcut-press" };
+
+		expect(Result.isSuccess(decodeClient(registration))).toBe(true);
+		expect(Result.isFailure(decodeHost(registration))).toBe(true);
+		expect(Result.isSuccess(decodeHost(press))).toBe(true);
+		expect(Result.isFailure(decodeClient(press))).toBe(true);
+		expect(
+			Result.isFailure(
+				decodeClient({
+					type: "page-shortcuts",
+					shortcuts: Array.from({ length: MAX_PAGE_SHORTCUTS + 1 }, () => "A"),
+				}),
+			),
+		).toBe(true);
+		expect(isPageShortcut("A")).toBe(true);
+		expect(isPageShortcut("/")).toBe(true);
+		expect(isPageShortcut("Mod+K")).toBe(false);
+		expect(isPageShortcut("a")).toBe(false);
+		expect(isPageShortcut("Escape")).toBe(false);
+	});
+
 	it("defines and admits semantic kernel shortcuts only from the plugin", () => {
 		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
 		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
@@ -210,6 +237,7 @@ describe("plugin client bridge contract", () => {
 			edgeBack: false,
 			type: "location",
 			leading: "drawer",
+			screenKey: "screen-0",
 		};
 
 		for (const leading of ["back", "drawer", "none"]) {
@@ -220,8 +248,10 @@ describe("plugin client bridge contract", () => {
 		expect(Result.isFailure(decodeHost({ ...message, leading: "menu" }))).toBe(true);
 		const { leading: _leading, ...withoutLeading } = message;
 		const { edgeBack: _edgeBack, ...withoutEdgeBack } = message;
+		const { screenKey: _screenKey, ...withoutScreenKey } = message;
 		expect(Result.isFailure(decodeHost(withoutLeading))).toBe(true);
 		expect(Result.isFailure(decodeHost(withoutEdgeBack))).toBe(true);
+		expect(Result.isFailure(decodeHost(withoutScreenKey))).toBe(true);
 	});
 
 	it("admits only strict screen-state messages stamped with an index and key", () => {
@@ -289,6 +319,7 @@ describe("plugin client bridge contract", () => {
 	it("carries saved-view, plugin-route, and entity page identities", () => {
 		const decode = Schema.decodeUnknownResult(ClientPageContext);
 		const base = {
+			view: null,
 			settings: {},
 			dataSources: null,
 			route: { params: {} },
@@ -435,6 +466,7 @@ describe("plugin client bridge contract", () => {
 			leading: "none",
 			edgeBack: false,
 			type: "location",
+			screenKey: "screen-0",
 		};
 		const targetEntity = { entityId: "entity-1", kind: "entity" };
 		const route = { kind: "route", path: "/details", search: "tab=stats" };

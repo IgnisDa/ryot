@@ -209,10 +209,13 @@ export {
 export {
 	PluginLink,
 	usePluginTitle,
+	usePageShortcut,
 	usePluginParams,
 	usePluginSearch,
 	useRyotViewport,
+	usePluginChrome,
 	usePluginLocation,
+	usePluginScreenSurface,
 	type EntityRendererProps,
 	type PluginEntityDefinition,
 	type PluginHomeDefinition,

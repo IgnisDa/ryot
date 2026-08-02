@@ -28,28 +28,6 @@ import {
 
 const entity = table("entity", "entity");
 const projections = buildSavedViewLayoutProjections({
-	grid: {
-		entity,
-		card: {
-			image: column(entity, "image"),
-			title: column(entity, "name"),
-			callout: { displayKind: "number", expression: column(entity, "score") },
-			overline: { displayKind: "text", expression: literal("Book") },
-			primaryMetadata: { displayKind: "date", expression: column(entity, "publishedAt") },
-			secondaryMetadata: null,
-		},
-	},
-	list: {
-		entity,
-		card: {
-			image: null,
-			callout: null,
-			overline: null,
-			primaryMetadata: null,
-			secondaryMetadata: null,
-			title: column(entity, "name"),
-		},
-	},
 	table: {
 		entity,
 		image: column(entity, "image"),
@@ -102,12 +80,12 @@ const browserSource = document({
 describe("saved-view recipes", () => {
 	it("prepares a generated rows document with filtering, ordering, and pagination", () => {
 		const prepared = savedViewRecipe({
-			layout: { type: "card", mapping: projections.grid.mappings },
+			layout: { type: "table", mapping: projections.table.mappings },
 			source: {
 				limit: 2,
 				after: "cursor",
 				type: "generated",
-				fields: projections.grid.fields,
+				fields: projections.table.fields,
 				entitySchemaSlugs: ["smartphone", "tablet"],
 				orderBy: [ascending(column(entity, "createdAt"))],
 				where: eq(column(entity, "status"), literal("active")),
@@ -131,58 +109,6 @@ describe("saved-view recipes", () => {
 					{ type: "comparison", operator: "eq", right: { value: "active" } },
 				],
 			},
-		});
-	});
-
-	it("decodes plain card rows with persisted display metadata and pagination", () => {
-		const prepared = savedViewRecipe({
-			layout: { type: "card", mapping: projections.grid.mappings },
-			source: {
-				type: "persisted",
-				queryDocument: document({
-					custom: rows(entity, { fields: projections.grid.fields, limit: 2 }),
-				}),
-			},
-		});
-
-		expect(prepared.document.queries).toHaveProperty("savedView");
-		expect(
-			Result.getOrThrow(
-				prepared.decode({
-					data: {
-						savedView: {
-							pageInfo,
-							type: "rows",
-							items: [
-								{
-									callout: 4.5,
-									overline: "Book",
-									title: "Piranesi",
-									entityId: "book-1",
-									populationStatus: "ready",
-									translationStatus: "pending",
-									primaryMetadata: "2026-08-12",
-									image: { type: "remote", url: "https://example.com/cover.jpg" },
-								},
-							],
-						},
-					},
-				}),
-			),
-		).toEqual({
-			pageInfo,
-			items: [
-				{
-					title: "Piranesi",
-					entityId: "book-1",
-					secondaryMetadata: undefined,
-					callout: { displayKind: "number", value: 4.5 },
-					overline: { displayKind: "text", value: "Book" },
-					primaryMetadata: { displayKind: "date", value: "2026-08-12" },
-					image: { type: "remote", url: "https://example.com/cover.jpg" },
-					sync: { populationStatus: "ready", translationStatus: "pending" },
-				},
-			],
 		});
 	});
 
@@ -239,10 +165,10 @@ describe("saved-view recipes", () => {
 
 	it("rejects malformed plain values according to display metadata", () => {
 		const prepared = savedViewRecipe({
-			layout: { type: "card", mapping: projections.grid.mappings },
+			layout: { type: "table", mapping: projections.table.mappings },
 			source: {
 				type: "generated",
-				fields: projections.grid.fields,
+				fields: projections.table.fields,
 				entitySchemaSlugs: ["book"],
 			},
 		});
@@ -257,13 +183,14 @@ describe("saved-view recipes", () => {
 							items: [
 								{
 									image: null,
-									title: "Book",
-									callout: "4.5",
-									overline: "Book",
+									column1: "4.5",
+									column2: true,
 									entityId: "book-1",
+									column0: "Piranesi",
+									column3: "not-a-date",
+									column4: { pages: 272 },
 									populationStatus: "none",
 									translationStatus: "none",
-									primaryMetadata: "not-a-date",
 								},
 							],
 						},

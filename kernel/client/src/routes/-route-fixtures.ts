@@ -315,6 +315,7 @@ export const preparePluginPage = (
 			],
 		},
 		context: {
+			view: null,
 			settings: {},
 			dataSources: null,
 			route: { params: {} },

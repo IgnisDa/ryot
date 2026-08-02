@@ -1,4 +1,4 @@
-import { column, field, literal, table } from "@ryot-app/ryotql";
+import { column, field, table } from "@ryot-app/ryotql";
 import {
 	buildSavedViewLayoutProjections,
 	savedViewRecipe,
@@ -102,28 +102,6 @@ const collectionProjections = buildSavedViewLayoutProjections({
 		image: null,
 		entity: collection,
 		columns: [{ label: "Name", displayKind: "text", expression: column(collection, "name") }],
-	},
-	grid: {
-		entity: collection,
-		card: {
-			image: null,
-			callout: null,
-			primaryMetadata: null,
-			secondaryMetadata: null,
-			overline: { displayKind: "text", expression: literal(collectionSchema.name) },
-			title: column(collection, "name"),
-		},
-	},
-	list: {
-		entity: collection,
-		card: {
-			image: null,
-			callout: null,
-			primaryMetadata: null,
-			secondaryMetadata: null,
-			overline: { displayKind: "text", expression: literal(collectionSchema.name) },
-			title: column(collection, "name"),
-		},
 	},
 });
 

@@ -7,6 +7,7 @@ Rationale lives in `README.md`.
 - Keep uploads as one capability on every adapter. The plugin sends only bytes, file name, and content type; the host owns the intent, upload URL, headers, and completion. Reject a non-`Blob` source with `invalid-input`.
 - Reconcile plugin screens only from kernel history `index` and `key`, never from paths.
 - Retain screen React keys and hide inactive screens with `visibility: hidden`. Do not add separate scroll restoration.
+- Scroll inside the screen shell, never on the shell itself; the shell is the transform target and therefore a containing block for fixed descendants. Pinned chrome goes through `PluginScreenFrame`'s `floatingAction`.
 - Derive visibility from rendered screen roles. Limit imperative writes to transition transforms and scrim opacity.
 - Keep transition ownership with its initiator. Animate pops only for compact layouts without reduced motion; retention is unconditional.
 - Keep reconciliation and gesture recognition DOM-free. Add no animation or gesture dependency.

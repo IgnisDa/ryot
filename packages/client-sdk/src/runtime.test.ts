@@ -121,6 +121,7 @@ const activate = (channel: MessageChannel) => {
 		key: "k0",
 		compact: false,
 		edgeBack: false,
+		screenKey: "k0",
 		type: "location",
 		leading: "drawer",
 		location: routeLocation("/"),
@@ -252,6 +253,7 @@ describe("plugin runtime", () => {
 			key: "k0",
 			compact: true,
 			edgeBack: false,
+			screenKey: "k0",
 			type: "location",
 			leading: "drawer",
 			location: routeLocation("/"),
@@ -280,6 +282,7 @@ describe("plugin runtime", () => {
 			key: "k0",
 			compact: false,
 			leading: "none",
+			screenKey: "k0",
 			edgeBack: false,
 			type: "location",
 		});
@@ -302,6 +305,7 @@ describe("plugin runtime", () => {
 		channel.port1.postMessage({
 			index: 3,
 			key: "k3",
+			screenKey: "k3",
 			compact: true,
 			edgeBack: true,
 			leading: "back",
@@ -333,8 +337,9 @@ describe("plugin runtime", () => {
 			key: "k0",
 			compact: true,
 			edgeBack: false,
-			leading: "drawer",
+			screenKey: "k0",
 			type: "location",
+			leading: "drawer",
 			location: routeLocation("/"),
 		});
 		await delay();
@@ -366,6 +371,7 @@ describe("plugin runtime", () => {
 				key,
 				index,
 				compact: true,
+				screenKey: key,
 				type: "location",
 				edgeBack: index > 0,
 				leading: index > 0 ? "back" : "drawer",
@@ -1228,6 +1234,7 @@ describe("plugin runtime", () => {
 			key: "k0",
 			compact: false,
 			edgeBack: false,
+			screenKey: "k0",
 			type: "location",
 			leading: "drawer",
 			location: routeLocation("/"),

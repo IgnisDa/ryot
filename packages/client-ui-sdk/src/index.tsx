@@ -22,6 +22,7 @@ export type { MultiSelectChoice } from "./multi-select";
 export { useFocusTrap, useScrollLock, useRestoreFocus, useDismissOnOutside } from "./overlay";
 export { OverlayBackProvider, OverlayScope, useShortcut } from "./shortcut";
 export type { OverlayBackAdapter } from "./shortcut";
+export type { Hotkey, RegisterableHotkey } from "@tanstack/react-hotkeys";
 
 const variantClasses = {
 	text: "min-h-10 font-semibold text-text-muted",

@@ -1,5 +1,5 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
-import { ascending, castJson, column, field, jsonPath, literal, table } from "@ryot-app/ryotql";
+import { ascending, castJson, column, field, jsonPath, table } from "@ryot-app/ryotql";
 import {
 	savedViewRecordRecipe,
 	savedViewRecordsRecipe,
@@ -30,28 +30,6 @@ class SavedViewFixtureError extends Data.TaggedError("SavedViewFixtureError")<{
 const entity = table("entity", "entity");
 const properties = column(entity, "properties");
 const projections = buildSavedViewLayoutProjections({
-	grid: {
-		entity,
-		card: {
-			callout: null,
-			secondaryMetadata: null,
-			title: column(entity, "name"),
-			image: castJson(jsonPath(properties, "images", 0)),
-			overline: { displayKind: "text", expression: literal("Book") },
-			primaryMetadata: { displayKind: "number", expression: jsonPath(properties, "publishYear") },
-		},
-	},
-	list: {
-		entity,
-		card: {
-			callout: null,
-			secondaryMetadata: null,
-			title: column(entity, "name"),
-			image: castJson(jsonPath(properties, "images", 0)),
-			overline: { displayKind: "text", expression: literal("Book list") },
-			primaryMetadata: { displayKind: "number", expression: jsonPath(properties, "publishYear") },
-		},
-	},
 	table: {
 		entity,
 		image: castJson(jsonPath(properties, "images", 0)),

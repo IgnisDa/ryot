@@ -8,14 +8,15 @@ import { getKernelClientRenderer } from "./kernel-renderers";
 it("looks up each supported kernel renderer with its compilation policy", () => {
 	const browser = getKernelClientRenderer("entity-browser");
 	const table = getKernelClientRenderer("results-table");
-	const browserSource = browser ? Object.values(browser.files)[0] : undefined;
+	const entry = browser?.files["client/entity-browser.tsx"];
 
 	expect(browser?.definition.entry).toBe("client/entity-browser.tsx");
 	expect(browser?.definition.automaticEntityPresentations).toBe(true);
 	expect(table?.definition.entry).toBe("client/results-table.tsx");
 	expect(table?.definition.automaticEntityPresentations).toBe(false);
 	expect(table?.sourceHash).not.toBe(browser?.sourceHash);
-	expect(new TextDecoder().decode(browserSource)).toContain("refreshOnMutation: false");
+	expect(Object.keys(browser?.files ?? {})).toContain("client/display-value.tsx");
+	expect(new TextDecoder().decode(entry)).toContain("refreshOnMutation: false");
 	expect(getKernelClientRenderer("unknown")).toBeUndefined();
 });
 

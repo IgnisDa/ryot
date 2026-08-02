@@ -102,6 +102,7 @@ const preparedFor = (
 			],
 		},
 		context: {
+			view: null,
 			settings: {},
 			dataSources: null,
 			target: entityTarget,
@@ -483,12 +484,20 @@ describe("client page routes", () => {
 			await screen.findByTitle<HTMLIFrameElement>("fixture plugin"),
 		);
 		await waitFor(() => expect(searchBridge.messages).toHaveLength(1));
+		const initialSearch = Schema.decodeUnknownSync(PluginBridgeLocation)(searchBridge.messages[0]);
 		searchBridge.port.postMessage({
 			mode: "replace",
 			type: "page-search",
 			update: { dialog: null, q: "dune" },
 		});
 		await waitFor(() => expect(searchView.router.state.location.searchStr).toBe("?keep=1&q=dune"));
+		await waitFor(() => expect(searchBridge.messages).toHaveLength(2));
+		const replacedSearch = Schema.decodeUnknownSync(PluginBridgeLocation)(searchBridge.messages[1]);
+		expect(replacedSearch).toMatchObject({
+			index: initialSearch.index,
+			screenKey: initialSearch.screenKey,
+		});
+		expect(replacedSearch.key).not.toBe(initialSearch.key);
 	});
 
 	it("prepares entities directly and allows a disabled ready installation", async () => {
