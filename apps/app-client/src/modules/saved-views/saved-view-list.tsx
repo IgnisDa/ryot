@@ -3,19 +3,16 @@ import { Pressable, Text, View } from "react-native";
 
 import { getEntityHref } from "@/modules/navigation/navigation-data";
 import { ImageTintOverlay, useImageTint } from "@/modules/ui/image-tint-view";
+import { useManagedAssetUrl } from "@/modules/ui/managed-asset-context";
 
 import type { SavedViewCardItem } from "./display-data";
 import { SavedViewImageView } from "./saved-view-image";
-import { savedViewImageUrl } from "./saved-view-image-url";
 import { SavedViewValue } from "./saved-view-value";
 
-function SavedViewListRow(props: {
-	item: SavedViewCardItem;
-	managedUrls: ReadonlyMap<string, string>;
-}) {
-	const { gradientStops, onImageError } = useImageTint(
-		savedViewImageUrl(props.item.image, props.managedUrls),
-	);
+function SavedViewListRow(props: { item: SavedViewCardItem }) {
+	const image = props.item.image;
+	const url = useManagedAssetUrl(image.type === "asset" ? image.locator : undefined);
+	const { gradientStops, onImageError } = useImageTint(url);
 
 	return (
 		<Link asChild href={getEntityHref(props.item.entityId)}>
@@ -29,7 +26,6 @@ function SavedViewListRow(props: {
 					<SavedViewImageView
 						onError={onImageError}
 						image={props.item.image}
-						managedUrls={props.managedUrls}
 						className="h-24 w-16 rounded-md bg-surface-2 md:h-16 md:w-11 md:rounded-sm"
 					/>
 				</Link.AppleZoom>
@@ -70,14 +66,11 @@ function SavedViewListRow(props: {
 	);
 }
 
-export function SavedViewList(props: {
-	items: readonly SavedViewCardItem[];
-	managedUrls: ReadonlyMap<string, string>;
-}) {
+export function SavedViewList(props: { items: readonly SavedViewCardItem[] }) {
 	return (
 		<View className="border-t border-border">
 			{props.items.map((item) => (
-				<SavedViewListRow key={item.entityId} item={item} managedUrls={props.managedUrls} />
+				<SavedViewListRow key={item.entityId} item={item} />
 			))}
 		</View>
 	);

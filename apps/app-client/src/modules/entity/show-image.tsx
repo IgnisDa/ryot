@@ -3,15 +3,14 @@ import clsx from "clsx";
 import { View } from "react-native";
 
 import { MissingImage, RemoteImage } from "@/modules/ui/image-with-fallback";
-import { resolveAssetUrl } from "@/modules/ui/managed-assets";
+import { useManagedAssetUrl } from "@/modules/ui/managed-asset-context";
 
 export function ShowAssetImage(props: {
 	readonly className: string;
 	readonly shape?: "rounded" | "circle";
 	readonly asset: AssetLocator | undefined;
-	readonly managedUrls: ReadonlyMap<string, string>;
 }) {
-	const url = props.asset ? resolveAssetUrl(props.asset, props.managedUrls) : undefined;
+	const url = useManagedAssetUrl(props.asset);
 	return (
 		<View
 			className={clsx(
