@@ -1,0 +1,208 @@
+suite: rendering behaviour
+release:
+  name: ryot
+  namespace: default
+tests:
+  # ---- bundled postgres: DATABASE_URL composed at runtime ----
+  - it: composes DATABASE_URL from bundled postgres at runtime
+    templates:
+      - templates/deployment.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DATABASE_URL
+            value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@ryot-postgres:5432/$(POSTGRES_DB)"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: ryot-postgres
+                key: postgres-password
+
+  # ---- external full url: DATABASE_URL via secretKeyRef ----
+  - it: sources DATABASE_URL from the chart secret for an inline external url
+    templates:
+      - templates/deployment.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.enabled: false
+      externalDatabase.url: postgres://u:p@h:5432/d
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DATABASE_URL
+            valueFrom:
+              secretKeyRef:
+                name: ryot
+                key: database-url
+
+  # ---- external components: composed URL, password from secret ----
+  - it: composes DATABASE_URL from external components and reads password via secretKeyRef
+    templates:
+      - templates/deployment.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.enabled: false
+      externalDatabase.host.value: db.example.com
+      externalDatabase.port.value: "5432"
+      externalDatabase.database.value: ryot
+      externalDatabase.username.value: ryotuser
+      externalDatabase.password.value: s3cret
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DATABASE_URL
+            value: "postgres://$(RYOT_DB_USER):$(RYOT_DB_PASSWORD)@$(RYOT_DB_HOST):$(RYOT_DB_PORT)/$(RYOT_DB_NAME)"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RYOT_DB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: ryot
+                key: database-password
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RYOT_DB_HOST
+            value: "db.example.com"
+
+  # ---- external component from an existing secret ----
+  - it: reads an external component from an existing secret
+    templates:
+      - templates/deployment.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.enabled: false
+      externalDatabase.host.existingSecret: db-conn
+      externalDatabase.host.existingSecretKey: host
+      externalDatabase.database.value: ryot
+      externalDatabase.username.value: ryot
+      externalDatabase.password.value: pw
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RYOT_DB_HOST
+            valueFrom:
+              secretKeyRef:
+                name: db-conn
+                key: host
+
+  # ---- inline component password lands in the chart secret ----
+  - it: stores an inline external password in the chart secret
+    templates:
+      - templates/secret.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.enabled: false
+      externalDatabase.host.value: db.example.com
+      externalDatabase.database.value: ryot
+      externalDatabase.username.value: ryot
+      externalDatabase.password.value: s3cret
+    asserts:
+      - equal:
+          path: stringData["database-password"]
+          value: s3cret
+
+  # ---- configmap: explicit env keys ----
+  - it: renders USERS_ALLOW_REGISTRATION into the configmap
+    templates:
+      - templates/configmap.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      config.usersAllowRegistration: false
+    asserts:
+      - equal:
+          path: data.USERS_ALLOW_REGISTRATION
+          value: "false"
+
+  # ---- provider tokens are secret, not configmap ----
+  - it: writes secretEnv into the chart secret
+    templates:
+      - templates/secret.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      secretEnv.MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN: tmdb-xyz
+    asserts:
+      - equal:
+          path: stringData.MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN
+          value: tmdb-xyz
+
+  - it: maps secretEnvFrom to an existing secret in the deployment
+    templates:
+      - templates/deployment.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      secretEnvFrom.ANIME_AND_MANGA_MAL_CLIENT_ID.existingSecret: ryot-providers
+      secretEnvFrom.ANIME_AND_MANGA_MAL_CLIENT_ID.key: mal-client-id
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ANIME_AND_MANGA_MAL_CLIENT_ID
+            valueFrom:
+              secretKeyRef:
+                name: ryot-providers
+                key: mal-client-id
+
+  # ---- bundled postgres toggles the StatefulSet ----
+  - it: deploys a postgres StatefulSet when bundled db is enabled
+    templates:
+      - templates/postgres-statefulset.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+    asserts:
+      - isKind:
+          of: StatefulSet
+      - equal:
+          path: metadata.name
+          value: ryot-postgres
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: data
+            mountPath: /var/lib/postgresql
+
+  - it: mounts the data volume even when persistence is disabled
+    templates:
+      - templates/postgres-statefulset.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      postgres.persistence.enabled: false
+    asserts:
+      # emptyDir volume must actually be mounted, not just declared.
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: data
+            mountPath: /var/lib/postgresql
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: data
+            emptyDir: {}
+
+  - it: renders no postgres StatefulSet when bundled db is disabled
+    templates:
+      - templates/postgres-statefulset.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.enabled: false
+      externalDatabase.url: postgres://u:p@h:5432/d
+    asserts:
+      - hasDocuments:
+          count: 0
