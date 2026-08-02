@@ -42,6 +42,20 @@ describe("createRyotClient", () => {
 		await expect(client.operations.invoke(invocation)).rejects.toBeInstanceOf(RyotClientError);
 	});
 
+	it("classifies a thrown recipe decoder as a malformed result", async () => {
+		const client = createRyotClient({ query: () => Promise.resolve({}) });
+		const recipe: PreparedRecipe<string> = {
+			document,
+			decode: () => {
+				throw new Error("decoder detail");
+			},
+		};
+
+		await expect(client.data.query(recipe)).rejects.toEqual(
+			new RyotClientError("malformed-result"),
+		);
+	});
+
 	it("rejects non-JSON adapter output before applying a permissive output schema", async () => {
 		const client = createRyotClient({
 			query: () => Promise.resolve({}),
@@ -130,6 +144,19 @@ describe("createRyotClient", () => {
 
 		expect(() => client.navigation.push({ path: "/items" })).toThrow(
 			new RyotClientError("unsupported-capability"),
+		);
+	});
+
+	it("normalizes unexpected navigation failures as transport errors", () => {
+		const client = createRyotClient({
+			query: () => Promise.resolve({}),
+			navigate: () => {
+				throw new Error("transport detail");
+			},
+		});
+
+		expect(() => client.navigation.push({ path: "/items" })).toThrow(
+			new RyotClientError("transport"),
 		);
 	});
 

@@ -20,6 +20,7 @@ export type PluginRouteDefinition = {
 
 type PluginRouterDefinition = {
 	readonly home: ComponentType;
+	readonly notFound?: ComponentType;
 	readonly routes?: readonly PluginRouteDefinition[];
 };
 
@@ -47,27 +48,50 @@ export const usePluginSearch = () => new URLSearchParams(useRouterContext().loca
 type PluginLinkProps = {
 	readonly to: string;
 	readonly search?: Record<string, string>;
-} & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href" | "onClick">;
+} & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "download" | "href" | "target">;
 
-export const PluginLink = ({ to, search, children, ...rest }: PluginLinkProps) => {
+export const PluginLink = ({
+	to,
+	search,
+	onClick,
+	children,
+	onAuxClick,
+	...rest
+}: PluginLinkProps) => {
 	const client = useRyot();
 	const searchString = search ? new URLSearchParams(search).toString() : "";
 	const href = searchString ? `${to}?${searchString}` : to;
 
-	const onClick = (event: MouseEvent<HTMLAnchorElement>) => {
-		if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+	const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
+		onClick?.(event);
+		if (event.defaultPrevented) {
 			return;
 		}
 		event.preventDefault();
+		if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+			return;
+		}
 		client.navigation.push(search ? { path: to, search } : { path: to });
+	};
+	const handleAuxClick = (event: MouseEvent<HTMLAnchorElement>) => {
+		onAuxClick?.(event);
+		if (!event.defaultPrevented) {
+			event.preventDefault();
+		}
 	};
 
 	return (
-		<a {...rest} href={href} onClick={onClick}>
+		<a {...rest} href={href} onAuxClick={handleAuxClick} onClick={handleClick}>
 			{children}
 		</a>
 	);
 };
+
+const DefaultNotFound = () => (
+	<main>
+		<h1>Page not found</h1>
+	</main>
+);
 
 const decodeSegment = (segment: string) => {
 	try {
@@ -78,10 +102,6 @@ const decodeSegment = (segment: string) => {
 };
 
 const matchRoute = (routes: readonly PluginRouteDefinition[], path: string) => {
-	if (path === "/") {
-		return undefined;
-	}
-
 	const segments = path.split("/");
 	for (const route of routes) {
 		const patternSegments = route.path.split("/");
@@ -162,10 +182,13 @@ export const PluginRouter = ({ definition, locations }: PluginRouterProps) => {
 		if (!location) {
 			return undefined;
 		}
+		if (location.path === "/") {
+			return { component: definition.home, params: {} };
+		}
 		const matched = matchRoute(definition.routes ?? [], location.path);
 		return {
 			params: matched?.params ?? {},
-			component: matched?.component ?? definition.home,
+			component: matched?.component ?? definition.notFound ?? DefaultNotFound,
 		};
 	}, [location, definition]);
 
