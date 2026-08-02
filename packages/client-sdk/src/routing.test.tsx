@@ -12,10 +12,6 @@ import { useState, act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 
-(
-	globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
-).IS_REACT_ACT_ENVIRONMENT = true;
-
 import type {
 	RyotClientAdapter,
 	RyotNavigationTarget,
@@ -36,6 +32,10 @@ import {
 	type PluginRouterDefinition,
 } from "./routing";
 import { createTestRyotClock } from "./testing";
+
+(
+	globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 let mountCount = 0;
 let entityMountCount = 0;
