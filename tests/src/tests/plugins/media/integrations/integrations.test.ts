@@ -73,7 +73,7 @@ describe("Progress normalization", () => {
 				expect(completedRun.failedItems).toBe(0);
 
 				yield* waitForEventSlugs(client, episodeId, "progress");
-				const progressEvents = yield* listEventsForEntity(client, episodeId, 1, 100, {
+				const progressEvents = yield* listEventsForEntity(client, episodeId, undefined, 100, {
 					eventSchemaSlug: "progress",
 				});
 
@@ -126,7 +126,7 @@ describe("Progress normalization", () => {
 				expect(secondRun.failedItems).toBe(0);
 
 				yield* waitForEventSlugs(client, episodeId, "progress");
-				const progressEvents = yield* listEventsForEntity(client, episodeId, 1, 100, {
+				const progressEvents = yield* listEventsForEntity(client, episodeId, undefined, 100, {
 					eventSchemaSlug: "progress",
 				});
 

@@ -54,7 +54,6 @@ export const waitForSessionEventCount = (
 				client,
 				document({
 					events: rows(event, {
-						page: 1,
 						limit: 100,
 						where: eq(column(event, "sessionEntityId"), literal(sessionEntityId)),
 						orderBy: [

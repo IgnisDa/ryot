@@ -11,7 +11,7 @@ const notificationChannelsResponse = {
 	data: {
 		notificationChannels: {
 			type: "rows",
-			pageInfo: { hasMore: true, limit: 2, page: 3, total: 7 },
+			pageInfo: { hasMore: true, limit: 2, nextCursor: "next" },
 			items: [
 				{
 					id: { kind: "text", value: "channel-1" },
@@ -36,11 +36,11 @@ const responseWithItems = (items: readonly unknown[]) => ({
 
 describe("notification channel recipes", () => {
 	it("builds the paginated query with the named key, exact fields, and stable ordering", () => {
-		const document = buildNotificationChannelsDocument({ page: 3, limit: 7 });
+		const document = buildNotificationChannelsDocument({ after: "cursor", limit: 7 });
 		const query = document.queries.notificationChannels;
 
 		expect(Object.keys(document.queries)).toEqual(["notificationChannels"]);
-		expect(query.output.pagination).toEqual({ limit: 7, page: 3 });
+		expect(query.output.pagination).toEqual({ after: "cursor", limit: 7 });
 		expect(
 			query.output.fields.map((selection) => {
 				if (!("key" in selection)) {
@@ -65,7 +65,7 @@ describe("notification channel recipes", () => {
 		expect(
 			Result.getOrThrow(decodeNotificationChannelsResponse(notificationChannelsResponse)),
 		).toEqual({
-			pageInfo: { hasMore: true, limit: 2, page: 3, total: 7 },
+			pageInfo: { hasMore: true, limit: 2, nextCursor: "next" },
 			items: [
 				{
 					id: "channel-1",

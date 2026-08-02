@@ -1772,7 +1772,7 @@ const startDomainHostBridge = () =>
 												{ id: { kind: "text", value: "a" } },
 												{ id: { kind: "text", value: "b" } },
 											],
-											pageInfo: { page: 1, limit: 20, total: 2, hasMore: false },
+											pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 										},
 									},
 								},

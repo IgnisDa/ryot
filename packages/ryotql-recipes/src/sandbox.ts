@@ -32,12 +32,12 @@ export const buildEntityReadDocument = (input: {
 export const buildEventReadDocument = (input: {
 	readonly eventSchemaSlug: string;
 	readonly entitySchemaSlug: string;
-	readonly page?: number | undefined;
+	readonly after?: string | undefined;
 	readonly entityId?: string | undefined;
 	readonly sessionEntityId?: string | undefined;
 }) =>
 	buildEventHistoryDocument({
-		page: input.page ?? 1,
+		after: input.after,
 		entityId: input.entityId,
 		sessionEntityId: input.sessionEntityId,
 		eventSchemaSlugs: [input.eventSchemaSlug],

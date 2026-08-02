@@ -10,6 +10,7 @@ export type CatalogFieldContext = {
 
 export type CatalogField = {
 	readonly kind: CatalogFieldKind;
+	readonly nullable: boolean;
 	readonly resolve: (context: CatalogFieldContext) => ReturnType<typeof sql>;
 };
 
@@ -65,13 +66,15 @@ type ExpandedCatalogSelections = {
 	readonly fields: FieldSelection[];
 };
 
-const physicalField = (column: string, kind: CatalogFieldKind): CatalogField => ({
+const physicalField = (column: string, kind: CatalogFieldKind, nullable = true): CatalogField => ({
 	kind,
+	nullable,
 	resolve: ({ sqlAlias }) => sql.raw(`${sqlAlias}.${column}`),
 });
 
 const localizedEntityName: CatalogField = {
 	kind: "text",
+	nullable: false,
 	resolve: ({ language, sqlAlias }) =>
 		language === null
 			? sql.raw(`${sqlAlias}.name`)
@@ -80,6 +83,7 @@ const localizedEntityName: CatalogField = {
 
 const localizedEntityProperties: CatalogField = {
 	kind: "json",
+	nullable: false,
 	resolve: ({ language, sqlAlias }) =>
 		language === null
 			? sql.raw(`${sqlAlias}.properties`)
@@ -88,6 +92,7 @@ const localizedEntityProperties: CatalogField = {
 
 const entityTranslationStatus: CatalogField = {
 	kind: "text",
+	nullable: false,
 	resolve: ({ language, sqlAlias }) => {
 		if (language === null) {
 			return sql`'none'::text`;
@@ -139,7 +144,7 @@ const event: CatalogTable = {
 	name: "event",
 	primaryKey: "id",
 	visibility: {
-		user: { type: "owned", column: "user_id", includeGlobal: true },
+		user: { type: "owned", column: "user_id", includeGlobal: false },
 		plugin: { type: "eventDefinition" },
 	},
 	fields: {

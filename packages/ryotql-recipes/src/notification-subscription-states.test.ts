@@ -13,7 +13,7 @@ const notificationSubscriptionStatesResponse = {
 	data: {
 		notificationSubscriptionStates: {
 			type: "rows",
-			pageInfo: { hasMore: true, limit: 2, page: 3, total: 7 },
+			pageInfo: { hasMore: true, limit: 2, nextCursor: "next" },
 			items: [
 				{
 					id: { kind: "text", value: "rule-1" },
@@ -50,7 +50,7 @@ const detailResponse = (items: readonly unknown[]) => ({
 
 describe("notification subscription state recipes", () => {
 	it("builds the paginated list with the named key, exact fields, pagination, and ordering", () => {
-		const document = buildNotificationSubscriptionStatesDocument({ page: 3, limit: 7 });
+		const document = buildNotificationSubscriptionStatesDocument({ after: "cursor", limit: 7 });
 		const query = document.queries.notificationSubscriptionStates;
 
 		expect(Object.keys(document.queries)).toEqual(["notificationSubscriptionStates"]);
@@ -58,7 +58,7 @@ describe("notification subscription state recipes", () => {
 			table: "notificationSubscriptionState",
 			alias: "notificationSubscriptionState",
 		});
-		expect(query.output.pagination).toEqual({ limit: 7, page: 3 });
+		expect(query.output.pagination).toEqual({ after: "cursor", limit: 7 });
 		expect(
 			query.output.fields.map((selection) => {
 				if (!("key" in selection)) {
@@ -88,7 +88,7 @@ describe("notification subscription state recipes", () => {
 		const query = document.queries.notificationSubscriptionState;
 
 		expect(Object.keys(document.queries)).toEqual(["notificationSubscriptionState"]);
-		expect(query.output.pagination).toEqual({ limit: 1, page: 1 });
+		expect(query.output.pagination).toEqual({ limit: 1 });
 		expect(
 			query.output.fields.map((selection) => {
 				if (!("key" in selection)) {
@@ -116,7 +116,7 @@ describe("notification subscription state recipes", () => {
 				decodeNotificationSubscriptionStatesResponse(notificationSubscriptionStatesResponse),
 			),
 		).toEqual({
-			pageInfo: { hasMore: true, limit: 2, page: 3, total: 7 },
+			pageInfo: { hasMore: true, limit: 2, nextCursor: "next" },
 			items: [
 				{
 					id: "rule-1",

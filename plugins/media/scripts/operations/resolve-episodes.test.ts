@@ -12,7 +12,7 @@ const rowsResponse = (entityIds: string[]) => ({
 			items: entityIds.map((entityId) => ({
 				entityId: { kind: "text" as const, value: entityId },
 			})),
-			pageInfo: { hasMore: false, limit: 2, page: 1, total: entityIds.length },
+			pageInfo: { hasMore: false, limit: 2, nextCursor: null },
 			type: "rows" as const,
 		},
 	},
@@ -56,7 +56,7 @@ describe("resolve episodes operation", () => {
 		const query = documents[0]?.queries["episodes"];
 		expect(query).toMatchObject({
 			from: { alias: "episode", table: "entity" },
-			output: { pagination: { limit: 2, page: 1 }, type: "rows" },
+			output: { pagination: { limit: 2 }, type: "rows" },
 		});
 		expect(query?.joins?.map((join) => join.table.alias)).toEqual([
 			"seasonEpisode",

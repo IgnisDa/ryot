@@ -13,7 +13,7 @@ const integrationResponse = {
 	data: {
 		integrations: {
 			type: "rows",
-			pageInfo: { hasMore: true, limit: 2, page: 3, total: 7 },
+			pageInfo: { hasMore: true, limit: 2, nextCursor: "next" },
 			items: [
 				{
 					lot: { kind: "text", value: "yank" },
@@ -48,13 +48,13 @@ const detailResponse = (items: readonly unknown[]) => ({
 describe("integration recipes", () => {
 	it("builds the paginated list with exact fields, filters, pagination, and stable ordering", () => {
 		const query = buildIntegrationsDocument({
-			page: 3,
+			after: "cursor",
 			limit: 7,
 			isDisabled: false,
 			provider: "provider-1",
 		}).queries.integrations;
 
-		expect(query.output.pagination).toEqual({ limit: 7, page: 3 });
+		expect(query.output.pagination).toEqual({ after: "cursor", limit: 7 });
 		expect(
 			query.output.fields.map((selection) => {
 				if (!("key" in selection)) {
@@ -94,9 +94,7 @@ describe("integration recipes", () => {
 	});
 
 	it("omits optional predicates when they are not provided", () => {
-		expect(
-			buildIntegrationsDocument({ page: 1, limit: 5 }).queries.integrations.where,
-		).toBeUndefined();
+		expect(buildIntegrationsDocument({ limit: 5 }).queries.integrations.where).toBeUndefined();
 	});
 
 	it("builds the by-id query with a limit of one and a named key", () => {
@@ -104,7 +102,7 @@ describe("integration recipes", () => {
 		const query = document.queries.integration;
 
 		expect(Object.keys(document.queries)).toEqual(["integration"]);
-		expect(query.output.pagination).toEqual({ limit: 1, page: 1 });
+		expect(query.output.pagination).toEqual({ limit: 1 });
 		expect(query.where).toMatchObject({
 			type: "comparison",
 			right: { value: "integration-1" },
@@ -114,7 +112,7 @@ describe("integration recipes", () => {
 
 	it("decodes summaries, nullable fields, numbers, JSON, page info, and normalized dates", () => {
 		expect(Result.getOrThrow(decodeIntegrationsResponse(integrationResponse))).toEqual({
-			pageInfo: { hasMore: true, limit: 2, page: 3, total: 7 },
+			pageInfo: { hasMore: true, limit: 2, nextCursor: "next" },
 			items: [
 				{
 					lot: "yank",

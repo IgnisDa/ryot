@@ -401,10 +401,10 @@ export const startOpenScaleImport = (client: Client, uploadToken: string) =>
 		return requirePresent(result.id, "Import run id is missing");
 	});
 
-export const listManualImportRuns = (client: Client, page: number, limit: number) =>
+export const listManualImportRuns = (client: Client, after: string | undefined, limit: number) =>
 	Effect.gen(function* () {
 		const response = yield* client.call((c) =>
-			c.ryotql.execute({ payload: buildManualImportRunsDocument({ page, limit }) }),
+			c.ryotql.execute({ payload: buildManualImportRunsDocument({ after, limit }) }),
 		);
 		return yield* resultToEffect(decodeImportRunsResponse(response));
 	});
@@ -412,13 +412,13 @@ export const listManualImportRuns = (client: Client, page: number, limit: number
 export const listIntegrationImportRuns = (
 	client: Client,
 	integrationId: string,
-	page: number,
+	after: string | undefined,
 	limit: number,
 ) =>
 	Effect.gen(function* () {
 		const response = yield* client.call((c) =>
 			c.ryotql.execute({
-				payload: buildIntegrationImportRunsDocument({ integrationId, page, limit }),
+				payload: buildIntegrationImportRunsDocument({ integrationId, after, limit }),
 			}),
 		);
 		return yield* resultToEffect(decodeImportRunsResponse(response));
@@ -427,13 +427,13 @@ export const listIntegrationImportRuns = (
 export const getImportRun = (
 	client: Client,
 	runId: string,
-	failurePage: number,
+	failureAfter: string | undefined,
 	failureLimit: number,
 ) =>
 	Effect.gen(function* () {
 		const response = yield* client.call((c) =>
 			c.ryotql.execute({
-				payload: buildImportRunDocument({ runId, failurePage, failureLimit }),
+				payload: buildImportRunDocument({ runId, failureAfter, failureLimit }),
 			}),
 		);
 		return yield* resultToEffect(decodeImportRunResponse(response));
@@ -443,7 +443,7 @@ export const pollImportRunUntilTerminal = (client: Client, runId: string) =>
 	pollUntil(
 		`Import run '${runId}' to complete`,
 		Effect.gen(function* () {
-			const detail = yield* getImportRun(client, runId, 1, 100);
+			const detail = yield* getImportRun(client, runId, undefined, 100);
 			const run = requirePresent(detail.run, `Import run '${runId}' not found`);
 			if (run.status === "completed" || run.status === "failed") {
 				return run;
