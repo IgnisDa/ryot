@@ -81,7 +81,24 @@ const entity: CatalogTable = {
 	},
 };
 
-const tables: Readonly<Record<string, CatalogTable>> = { entity };
+const event: CatalogTable = {
+	name: "event",
+	primaryKey: "id",
+	userIdColumn: "user_id",
+	fields: {
+		id: physicalField("id", "text"),
+		userId: physicalField("user_id", "text"),
+		entityId: physicalField("entity_id", "text"),
+		createdAt: physicalField("created_at", "date"),
+		updatedAt: physicalField("updated_at", "date"),
+		properties: physicalField("properties", "json"),
+		occurredAt: physicalField("occurred_at", "date"),
+		eventSchemaSlug: physicalField("event_schema_slug", "text"),
+		sessionEntityId: physicalField("session_entity_id", "text"),
+	},
+};
+
+const tables: Readonly<Record<string, CatalogTable>> = { entity, event };
 
 export const getCatalogTable = (name: string) => tables[name];
 

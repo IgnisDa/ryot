@@ -2,7 +2,7 @@
 
 **Parent Plan:** [RyotQL](./README.md)
 
-**Status:** todo
+**Status:** completed
 
 ## What to build
 
@@ -12,16 +12,16 @@ Expose only the event fields approved in the parent PRD. Reuse generic rows, pre
 
 ## Acceptance criteria
 
-- [ ] The event catalog entry exposes the approved fields and user visibility policy through the generic catalog interface
-- [ ] Event-to-entity reads use an ordinary join and normal discriminator predicates
-- [ ] Event fields and JSON properties can be selected, filtered, ordered, and paginated through the existing generic compiler
-- [ ] Event and attached entity row policies are applied before the join and cannot be broadened by caller predicates
-- [ ] Nullable event fields reconstruct with the correct null kind and date fields reconstruct with the date kind
-- [ ] The shared event-history recipe and production consumer execute through RyotQL
-- [ ] End-to-end tests cover event roots, attached entity values, event property filtering, numeric ordering, multiple discriminator filters, and pagination
-- [ ] User isolation tests show that joins do not expose another user's events or entities
-- [ ] Legacy event-independent consumers and the legacy query-engine suite remain green
-- [ ] The RyotQL guide documents event querying as ordinary relational access
+- [x] The event catalog entry exposes the approved fields and user visibility policy through the generic catalog interface
+- [x] Event-to-entity reads use an ordinary join and normal discriminator predicates
+- [x] Event fields and JSON properties can be selected, filtered, ordered, and paginated through the existing generic compiler
+- [x] Event and attached entity row policies are applied before the join and cannot be broadened by caller predicates
+- [x] Nullable event fields reconstruct with the correct null kind and date fields reconstruct with the date kind
+- [x] The shared event-history recipe and production consumer execute through RyotQL
+- [x] End-to-end tests cover event roots, attached entity values, event property filtering, numeric ordering, multiple discriminator filters, and pagination
+- [x] User isolation tests show that joins do not expose another user's events or entities
+- [x] Legacy event-independent consumers and the legacy query-engine suite remain green
+- [x] The RyotQL guide documents event querying as ordinary relational access
 
 ## User stories addressed
 
