@@ -20,13 +20,13 @@ Exactly one candidate resolves; zero or ambiguous candidates return `null`. Quer
 
 ### Media Monitoring
 
-Status, enable, and disable accept at most 50 entity IDs. Shared query enforces global, provider-backed, monitorable, and visibility constraints.
+Status, enable, and disable accept at most 50 entity IDs. Their RyotQL document enforces global, provider-backed, monitorable, and visibility constraints. Monitoring status correlates the caller's visible `media-monitoring` relationship and reads its `targetEntityId` as the library identifier without loading an endpoint entity.
 
 - Enable loads caller library and atomically creates `in-library` plus `media-monitoring` relationships.
 - Disable removes only `media-monitoring`.
 - Unsupported or invisible targets return `notFound` while results remain input-aligned.
 
-Monitoring cron pages through the pinned `media-monitoring-targets` query script, deduplicates global monitored entity IDs, and invokes kernel provider population in refresh batches of at most 100. Query access stays in the pinned system script; durable child dispatch stays in the workflow. Kernel uses concurrency four and deterministic index-derived child IDs.
+Monitoring cron pages through the pinned `media-monitoring-targets` RyotQL script, deduplicates global monitored entity IDs, and invokes kernel provider population in refresh batches of at most 100. Plugin scope exposes global plugin-owned media and cross-user plugin-owned monitoring relationships, but no user-owned endpoint entity fields. Query access stays in the pinned system script; durable child dispatch stays in the workflow. Kernel uses concurrency four and deterministic index-derived child IDs.
 
 ## Lifecycle
 

@@ -278,6 +278,7 @@ export const SandboxHostImplementationsLive = Layer.effect(
 	Layer.provide([
 		EventsServiceLive,
 		QueryEngineServiceLive,
+		RyotQLServiceLive,
 		SignalEmissionServiceLive,
 		NotificationsService.layer,
 	]),

@@ -14,7 +14,7 @@ export const manifest = defineManifest({
 	slug: "operation.media-monitoring-disable",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	capabilities: ["executeQueryEngine", "changeUserRelationships"],
+	capabilities: ["executeRyotql", "changeUserRelationships"],
 });
 
 export default defineOperation({
@@ -23,7 +23,7 @@ export default defineOperation({
 	output: MediaMonitoringOutput,
 	run: (input, host) =>
 		Effect.gen(function* () {
-			const targets = yield* queryMediaMonitoringTargets(input.entityIds, host.executeQueryEngine);
+			const targets = yield* queryMediaMonitoringTargets(input.entityIds, host.executeRyotql);
 			const deletes = targets.flatMap(({ entityId, monitoringLibraryId }) =>
 				monitoringLibraryId
 					? [

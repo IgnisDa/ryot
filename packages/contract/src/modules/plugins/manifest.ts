@@ -1,9 +1,9 @@
-import { SANDBOX_HOST_CAPABILITIES } from "@ryot/sandbox-sdk/core";
 import { Result, Schema, SchemaGetter } from "effect";
 
 import { DisplayConfiguration } from "../../display-configuration";
 import { AppSchema } from "../../schema/property-schema";
 import { QueryDocument } from "../query-engine/language";
+import { SANDBOX_HOST_CAPABILITIES } from "../sandbox/wire";
 import { pluginConfigEnvironmentKey } from "./plugin-config";
 
 const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
