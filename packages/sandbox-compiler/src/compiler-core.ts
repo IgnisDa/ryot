@@ -83,11 +83,8 @@ export const compileSandboxSource = (source: string, workspaceOptions?: Compiler
 			]);
 		}
 
-		const bundled = yield* bundleUserScript(source, dependencies.sdkEntries, workspaceOptions);
-		if (!bundled.success) {
-			return yield* sandboxCompilationFailure(bundled.diagnostics);
-		}
-		if (utf8ByteLength(bundled.javascript) > SANDBOX_COMPILER_LIMITS.javascriptBytes) {
+		const javascript = yield* bundleUserScript(source, dependencies.sdkEntries, workspaceOptions);
+		if (utf8ByteLength(javascript) > SANDBOX_COMPILER_LIMITS.javascriptBytes) {
 			return yield* sandboxCompilationFailure([
 				sandboxCompilerDiagnostic(
 					"RYOT_COMPILED_SIZE",
@@ -97,8 +94,8 @@ export const compileSandboxSource = (source: string, workspaceOptions?: Compiler
 		}
 
 		return {
+			javascript,
 			manifest: extracted.manifest,
-			javascript: bundled.javascript,
 			format: SANDBOX_COMPILED_FORMAT,
 		} satisfies CompiledSandboxModule;
 	});
