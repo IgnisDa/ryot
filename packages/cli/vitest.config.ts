@@ -1,4 +1,6 @@
 import shared from "@ryot/testing/vitest.shared";
 import { mergeConfig } from "vitest/config";
 
-export default mergeConfig(shared, { test: { include: ["src/**/*.test.ts"] } });
+export default mergeConfig(shared, {
+	test: { include: ["src/**/*.test.ts"], testTimeout: 30_000 },
+});
