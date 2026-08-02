@@ -56,6 +56,12 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				return yield* svc.samplePressure(payload.executionIds);
 			}).pipe(dieOnDbError),
 		)
+		.handle("sampleSandboxRuntime", () =>
+			Effect.gen(function* () {
+				const svc = yield* OperationalGateService;
+				return yield* svc.sampleSandboxRuntime();
+			}).pipe(dieOnDbError),
+		)
 		.handle("createGlobalEntity", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;

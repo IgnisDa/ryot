@@ -24,6 +24,7 @@ import {
 	TestSupportEnqueueSandboxBody,
 	TestSupportEnqueueSandboxResponse,
 	TestSupportOperationalPressure,
+	TestSupportSandboxRuntimeMetrics,
 	TestSupportPluginCronResult,
 	TestSupportSandboxReplayProjectionBody,
 	TestSupportStartWorkflowLoadGateBody,
@@ -134,6 +135,13 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 			success: TestSupportOperationalPressure,
 			error: [BadRequest.pipe(HttpApiSchema.status(400))],
 		}).annotate(OpenApi.Description, "Samples generic workflow infrastructure pressure"),
+	)
+	.add(
+		HttpApiEndpoint.get("sampleSandboxRuntime", "/test-support/sandbox/runtime", {
+			query: {},
+			success: TestSupportSandboxRuntimeMetrics,
+			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+		}).annotate(OpenApi.Description, "Samples sandbox process memory and lifecycle metrics"),
 	)
 	.add(
 		HttpApiEndpoint.get(

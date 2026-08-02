@@ -15,7 +15,7 @@ const validate = (overrides?: Overrides) =>
 		}).pipe(Effect.provide(makeAppConfigLayer(overrides))),
 	);
 
-const loadSystemConfig = (logLevel?: string) =>
+const loadSystemConfig = (logLevel?: string, processMode?: string) =>
 	Effect.runSyncExit(
 		AppConfig.pipe(
 			Effect.provide(
@@ -26,6 +26,7 @@ const loadSystemConfig = (logLevel?: string) =>
 							DATABASE_URL: "unused",
 							SERVER_ADMIN_ACCESS_TOKEN: "unused",
 							...(logLevel === undefined ? {} : { SERVER_LOG_LEVEL: logLevel }),
+							...(processMode === undefined ? {} : { SANDBOX_PROCESS_MODE: processMode }),
 						}),
 					),
 				),
@@ -44,6 +45,18 @@ describe("system log level config", () => {
 		const result = loadSystemConfig();
 		assert(Exit.isSuccess(result));
 		expect(result.value.scheduler.infrequentCronJobsSchedule).toBe("0 0 * * *");
+	});
+
+	it("defaults to on-demand sandbox processes", () => {
+		const result = loadSystemConfig();
+		assert(Exit.isSuccess(result));
+		expect(result.value.sandbox.processMode).toBe("on-demand");
+	});
+
+	it("accepts warm sandbox processes", () => {
+		const result = loadSystemConfig(undefined, "warm");
+		assert(Exit.isSuccess(result));
+		expect(result.value.sandbox.processMode).toBe("warm");
 	});
 
 	it("parses values case-insensitively", () => {
