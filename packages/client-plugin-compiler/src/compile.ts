@@ -106,18 +106,22 @@ export const compileClientPlugin = ({ entry, files }: ClientPluginCompilerInput)
 		}
 
 		const stylesheet = bundled.stylesheets[0];
-		const css = yield* compileClientStyles(
+		const css = yield* compileClientStyles({
 			entry,
-			stylesheet === undefined ? "" : (files[stylesheet] ?? ""),
-			dependencies.tailwindEntry,
-			dependencies.themeStylesheet,
-			[
+			themeStylesheet: dependencies.themeStylesheet,
+			files: Object.fromEntries(clientFiles),
+			tailwindStylesheet: dependencies.tailwindStylesheet,
+			stylesheet:
+				stylesheet === undefined
+					? undefined
+					: { path: stylesheet, content: files[stylesheet] ?? "" },
+			scanSources: [
 				...clientFiles
 					.filter(([path]) => SCANNED_EXTENSIONS.has(extensionOf(path)))
 					.map(([path, contents]) => ({ content: contents, extension: extensionOf(path) })),
 				...dependencies.uiSdkScanSources,
 			],
-		);
+		});
 
 		const assetsByName = new Map<string, PluginClientArtifactFile>();
 		for (const path of bundled.assets) {

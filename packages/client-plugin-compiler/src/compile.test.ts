@@ -26,6 +26,13 @@ const fixtureFiles = Effect.promise(async () => {
 const compileFixture = (files: Record<string, string>) =>
 	compileClientPlugin({ files, apiVersion: CLIENT_API_VERSION, entry: "client/index.tsx" });
 
+const compileStylesheet = (stylesheet: string, files: Record<string, string> = {}) =>
+	compileFixture({
+		...files,
+		"client/index.tsx": 'import "./styles.css";',
+		"client/styles.css": stylesheet,
+	});
+
 it.effect(
 	"compiles the fixture client sources into a loadable content-addressed artifact",
 	() =>
@@ -67,6 +74,65 @@ it.effect(
 			expect(artifact.apiVersion).toBe(1);
 			expect(artifact.bridgeVersion).toBe(CLIENT_BRIDGE_PROTOCOL_VERSION);
 			expect(artifact.compilerVersion).toBe(1);
+		}),
+	30_000,
+);
+
+it.effect(
+	"resolves nested stylesheet imports from the plugin client sources",
+	() =>
+		Effect.gen(function* () {
+			const { artifact } = yield* compileStylesheet(
+				'@import "tailwindcss";\n@import "./components.css";',
+				{
+					"client/components.css":
+						'@import "./nested/details.css";\n.local-component { color: red; }',
+					"client/nested/details.css": ".local-detail { color: blue; }",
+				},
+			);
+
+			const css = artifact.files.find(({ name }) => name === "plugin.css")?.contents ?? "";
+			expect(css).toContain(".local-component");
+			expect(css).toContain(".local-detail");
+		}),
+	30_000,
+);
+
+it.effect(
+	"does not read an absolute server stylesheet outside the plugin source map",
+	() =>
+		Effect.gen(function* () {
+			const serverStylesheet = `${fixtureRoot}/client/styles.css`;
+			const failure = yield* compileStylesheet(`@import ${JSON.stringify(serverStylesheet)};`).pipe(
+				Effect.flip,
+			);
+
+			expect(failure.diagnostics).toHaveLength(1);
+			expect(failure.diagnostics[0]?.code).toBe("RYOT_CLIENT_STYLES");
+			expect(failure.diagnostics[0]?.message).toContain(`Stylesheet import "${serverStylesheet}"`);
+			expect(failure.diagnostics[0]?.message).toContain("is not allowed");
+		}),
+	30_000,
+);
+
+it.effect(
+	"rejects stylesheet imports outside the supported client CSS set",
+	() =>
+		Effect.gen(function* () {
+			for (const specifier of [
+				"../../outside.css",
+				"@ryot/client-ui-sdk/theme.css",
+				"./missing.css",
+			]) {
+				const failure = yield* compileStylesheet(`@import ${JSON.stringify(specifier)};`).pipe(
+					Effect.flip,
+				);
+
+				expect(failure.diagnostics).toHaveLength(1);
+				expect(failure.diagnostics[0]?.code).toBe("RYOT_CLIENT_STYLES");
+				expect(failure.diagnostics[0]?.message).toContain(`Stylesheet import "${specifier}"`);
+				expect(failure.diagnostics[0]?.message).toContain("is not allowed");
+			}
 		}),
 	30_000,
 );
