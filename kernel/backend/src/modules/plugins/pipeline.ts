@@ -1,3 +1,4 @@
+import type { ClientPluginCompilerFailure } from "@ryot/client-plugin-compiler/diagnostics";
 import type { BadRequest, DbError } from "@ryot/contract/errors";
 import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import {
@@ -12,6 +13,8 @@ import { compilePluginSandboxSourceEntries } from "@ryot/sandbox-compiler/plugin
 import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { Effect, Match } from "effect";
+
+import { ClientPluginCompiler } from "#modules/sandbox/client-compiler";
 
 import type { SchemaEvolutionError } from "./schema-evolution";
 import type { NormalizedPlugin, PluginScriptMetadata } from "./types";
@@ -142,11 +145,24 @@ export const compilePluginPackage = Effect.fn("PluginPipeline.compilePluginPacka
 				contentHash: digest(output.compiled.javascript),
 			});
 		});
+		const clientCompiler = yield* ClientPluginCompiler;
+		const clientEntry = input.manifest.client;
+		const clientArtifact = clientEntry
+			? yield* clientCompiler
+					.compile({
+						files: input.files,
+						entry: clientEntry.entry,
+						apiVersion: clientEntry.apiVersion,
+					})
+					.pipe(Effect.tapError((error) => Effect.logError("plugin client compile error", error)))
+			: null;
 		return {
 			scripts,
+			clientArtifact,
 			manifest: input.manifest,
 			sourceFiles: input.files,
 			sourceHash: input.sourceHash,
+			clientArtifactHash: clientArtifact ? clientArtifact.hash : null,
 		} satisfies NormalizedPlugin;
 	},
 );
@@ -182,7 +198,8 @@ type StructurablePluginFailure =
 	| PluginValidationError
 	| SandboxCompilerFailure
 	| PluginPackageLimitError
-	| PluginSlugReservedError;
+	| PluginSlugReservedError
+	| ClientPluginCompilerFailure;
 
 export const structurePluginFailure = <A, R>(
 	effect: Effect.Effect<A, StructurablePluginFailure, R>,
@@ -236,6 +253,18 @@ export const structurePluginFailure = <A, R>(
 					}),
 				),
 			SandboxCompilerFailure: (error: SandboxCompilerFailure) =>
+				Effect.fail(
+					new PluginRequestError({
+						reason: {
+							code: "compilation-failed",
+							diagnostics: error.diagnostics.map((diagnostic) => ({
+								...diagnostic,
+								phase: "compile" as const,
+							})),
+						},
+					}),
+				),
+			ClientPluginCompilerFailure: (error: ClientPluginCompilerFailure) =>
 				Effect.fail(
 					new PluginRequestError({
 						reason: {

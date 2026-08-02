@@ -202,9 +202,11 @@ CREATE TABLE "plugin" (
 	"slug" text NOT NULL,
 	"status" text NOT NULL,
 	"version" text NOT NULL,
+	"client_artifact_hash" text,
 	"source_hash" text NOT NULL,
 	"scope" text NOT NULL,
 	"manifest" jsonb NOT NULL,
+	"client_artifact" jsonb,
 	"source_files" jsonb NOT NULL,
 	"compiled_hashes" jsonb NOT NULL,
 	"ingested_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -458,6 +460,7 @@ CREATE INDEX "notification_channel_user_id_is_disabled_idx" ON "notification_cha
 CREATE INDEX "notification_subscription_state_user_id_idx" ON "notification_subscription_state" ("user_id");--> statement-breakpoint
 CREATE INDEX "notification_subscription_state_signal_schema_plugin_id_idx" ON "notification_subscription_state" ("signal_schema_plugin_id");--> statement-breakpoint
 CREATE INDEX "plugin_owner_id_idx" ON "plugin" ("owner_id");--> statement-breakpoint
+CREATE INDEX "plugin_client_artifact_hash_idx" ON "plugin" ("client_artifact_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "plugin_system_slug_unique" ON "plugin" ("slug") WHERE "scope" = 'system';--> statement-breakpoint
 CREATE UNIQUE INDEX "plugin_owner_slug_unique" ON "plugin" ("owner_id","slug") WHERE "scope" = 'user';--> statement-breakpoint
 CREATE INDEX "plugin_installation_user_id_idx" ON "plugin_installation" ("user_id");--> statement-breakpoint

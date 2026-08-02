@@ -5,6 +5,7 @@ import { Effect } from "effect";
 import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 
+import { PluginClientArtifactService } from "./client-artifact-service";
 import { PluginInstallationService } from "./installation-service";
 import { OperationsService } from "./operations-service";
 
@@ -12,7 +13,28 @@ export const PluginArtifactsRoutesLive = HttpApiBuilder.group(
 	AppContract,
 	"pluginArtifacts",
 	(handlers) =>
-		handlers.handleRaw("artifact", () => Effect.succeed(HttpServerResponse.empty({ status: 404 }))),
+		handlers.handleRaw("artifact", ({ params }) =>
+			Effect.gen(function* () {
+				const service = yield* PluginClientArtifactService;
+				const file = yield* service
+					.findArtifactFile(params.artifactHash, params.fileName)
+					.pipe(dieOnDbError);
+				if (!file) {
+					return HttpServerResponse.empty({ status: 404 });
+				}
+				return HttpServerResponse.text(file.contents, {
+					contentType: file.contentType,
+					headers: {
+						etag: `"${params.artifactHash}"`,
+						"x-content-type-options": "nosniff",
+						"cache-control": "public, max-age=31536000, immutable",
+						...(file.contentType.startsWith("text/html")
+							? { "content-security-policy": "sandbox allow-scripts" }
+							: {}),
+					},
+				});
+			}),
+		),
 );
 
 export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (handlers) =>

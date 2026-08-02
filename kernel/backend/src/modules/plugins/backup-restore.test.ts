@@ -4,6 +4,7 @@ import { Effect, Layer } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";
 import { DefinitionRegistry, type DefinitionSnapshot } from "#modules/definition-registry/service";
+import { ClientPluginCompiler } from "#modules/sandbox/client-compiler";
 
 import { PluginBackupRestore } from "./backup-restore";
 import { PluginIngestionLock } from "./ingestion-lock";
@@ -67,11 +68,13 @@ const makeLayer = (input?: {
 		}),
 	);
 	const ingestionLockLayer = PluginIngestionLock.layer.pipe(Layer.provide(repositoryLayer));
+	const clientCompilerLayer = Layer.mock(ClientPluginCompiler)({});
 	return PluginBackupRestore.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				repositoryLayer,
 				ingestionLockLayer,
+				clientCompilerLayer,
 				Layer.mock(DefinitionRegistry)({
 					replace: () => undefined,
 					getSavedView: () => undefined,

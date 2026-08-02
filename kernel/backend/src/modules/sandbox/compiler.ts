@@ -21,6 +21,8 @@ import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 
+import { processTreeMemoryBytes } from "./process-memory";
+
 const processFailure = (code: string, message: string) =>
 	new SandboxCompilationFailure({
 		message: "Sandbox TypeScript compilation failed",
@@ -29,11 +31,6 @@ const processFailure = (code: string, message: string) =>
 const decodeCompilerWorkerResponse = Schema.decodeUnknownEffect(
 	Schema.fromJsonString(CompilerWorkerResponse),
 );
-
-const readProportionalBytes = (memory: string) => {
-	const match = /^Pss:\s+(\d+)\s+kB$/m.exec(memory);
-	return match?.[1] ? Number(match[1]) * 2 ** 10 : 0;
-};
 
 export class SandboxCompiler extends Context.Service<SandboxCompiler>()("SandboxCompiler", {
 	make: Effect.gen(function* () {
@@ -46,40 +43,6 @@ export class SandboxCompiler extends Context.Service<SandboxCompiler>()("Sandbox
 		const compilerWorkerPath = currentPath.endsWith(".ts")
 			? Bun.resolveSync("@ryot/sandbox-compiler/worker", currentPath)
 			: yield* path.fromFileUrl(new URL("./compiler-worker.js", current)).pipe(Effect.orDie);
-
-		const processTreeMemoryBytes = (
-			pid: number,
-			visited: Set<number>,
-			knownMemory?: string,
-		): Effect.Effect<number> =>
-			Effect.gen(function* () {
-				if (visited.has(pid)) {
-					return 0;
-				}
-				visited.add(pid);
-
-				const memory =
-					knownMemory ??
-					(yield* fs
-						.readFileString(`/proc/${pid}/smaps_rollup`)
-						.pipe(Effect.orElseSucceed(() => "")));
-				const children = yield* fs
-					.readFileString(`/proc/${pid}/task/${pid}/children`)
-					.pipe(Effect.orElseSucceed(() => ""));
-				const childPids = children
-					.trim()
-					.split(/\s+/)
-					.map(Number)
-					.filter((childPid) => Number.isSafeInteger(childPid) && childPid > 0);
-				const childBytes = yield* Effect.forEach(
-					childPids,
-					(childPid) => processTreeMemoryBytes(childPid, visited),
-					{ concurrency: "unbounded" },
-				);
-				return (
-					readProportionalBytes(memory) + childBytes.reduce((total, bytes) => total + bytes, 0)
-				);
-			});
 
 		const runWorker = (source: string) =>
 			Effect.scoped(
@@ -124,7 +87,12 @@ export class SandboxCompiler extends Context.Service<SandboxCompiler>()("Sandbox
 								yield* Effect.sleep(Duration.millis(SANDBOX_LIMITS.compiler.memoryPollIntervalMs));
 								return;
 							}
-							const memoryBytes = yield* processTreeMemoryBytes(pid, new Set(), rootMemory.success);
+							const memoryBytes = yield* processTreeMemoryBytes(
+								fs,
+								pid,
+								new Set(),
+								rootMemory.success,
+							);
 							if (memoryBytes > SANDBOX_LIMITS.compiler.memoryBytes) {
 								yield* Ref.set(memoryExceeded, true);
 								yield* worker.kill({ killSignal: "SIGKILL" }).pipe(Effect.ignore);

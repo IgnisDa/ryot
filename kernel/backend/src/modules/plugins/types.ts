@@ -1,3 +1,4 @@
+import type { PluginClientArtifact } from "@ryot/contract/modules/plugins/client";
 import type { PluginManifest, PluginScript } from "@ryot/contract/modules/plugins/manifest";
 
 export type PluginScriptMetadata = PluginScript extends infer Script
@@ -25,7 +26,9 @@ export type NormalizedPluginScript = {
 export type NormalizedPlugin = {
 	readonly sourceHash: string;
 	readonly manifest: PluginManifest;
+	readonly clientArtifactHash: string | null;
 	readonly scripts: Array<NormalizedPluginScript>;
+	readonly clientArtifact: PluginClientArtifact | null;
 	readonly sourceFiles: Readonly<Record<string, string>>;
 };
 
