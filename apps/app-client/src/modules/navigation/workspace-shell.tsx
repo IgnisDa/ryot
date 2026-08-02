@@ -24,13 +24,18 @@ function WorkspaceShellContent() {
 		navigation.selectWorkspace(slug);
 	}
 
+	function openSettings() {
+		setIsWorkspaceOpen(false);
+		navigation.openSettings();
+	}
+
 	return (
 		<View className="flex-1">
 			<View className="flex-1 flex-row">
 				<Sidebar
-					showSearch
 					onNavigate={navigate}
 					items={navigation.items}
+					onOpenSettings={openSettings}
 					key={navigation.workspace.slug}
 					activeKey={navigation.activeKey}
 					workspace={navigation.workspace}
