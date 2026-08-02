@@ -28,17 +28,13 @@ const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
 	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" as const } });
 const stringArray = Schema.Array(Schema.String);
 const igdbSearchOptionsSchema = strictStruct({
-	filters: Schema.optional(
-		strictStruct({
-			themeIds: Schema.optional(stringArray),
-			genreIds: Schema.optional(stringArray),
-			platformIds: Schema.optional(stringArray),
-			gameModeIds: Schema.optional(stringArray),
-			gameTypeIds: Schema.optional(stringArray),
-			releaseDateRegionIds: Schema.optional(stringArray),
-			allowGamesWithParent: Schema.optional(Schema.Boolean),
-		}),
-	),
+	themeIds: Schema.optional(stringArray),
+	genreIds: Schema.optional(stringArray),
+	platformIds: Schema.optional(stringArray),
+	gameModeIds: Schema.optional(stringArray),
+	gameTypeIds: Schema.optional(stringArray),
+	releaseDateRegionIds: Schema.optional(stringArray),
+	allowGamesWithParent: Schema.optional(Schema.Boolean),
 });
 const getImageUrl = (imageId: string) => buildIgdbImageUrl(IMAGE_BASE_URL, imageId);
 const extractYear = (unixTimestamp: unknown) => {
@@ -181,15 +177,14 @@ export const search = defineProvider({
 			const options = yield* Schema.decodeUnknownEffect(igdbSearchOptionsSchema)(
 				input.options ?? {},
 			);
-			const filters = options.filters;
-			const conditions = filters?.allowGamesWithParent ? [] : ["version_parent = null"];
+			const conditions = options.allowGamesWithParent ? [] : ["version_parent = null"];
 			for (const [ids, field] of [
-				[filters?.themeIds, "themes"],
-				[filters?.genreIds, "genres"],
-				[filters?.platformIds, "platforms"],
-				[filters?.gameModeIds, "game_mode"],
-				[filters?.gameTypeIds, "game_type"],
-				[filters?.releaseDateRegionIds, "release_dates.region"],
+				[options.themeIds, "themes"],
+				[options.genreIds, "genres"],
+				[options.platformIds, "platforms"],
+				[options.gameModeIds, "game_mode"],
+				[options.gameTypeIds, "game_type"],
+				[options.releaseDateRegionIds, "release_dates.region"],
 			] as const) {
 				if (ids && ids.length > 0) {
 					conditions.push(`${field} = (${ids.join(",")})`);
