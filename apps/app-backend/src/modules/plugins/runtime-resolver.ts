@@ -433,6 +433,32 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					return yield* findActiveProviderByIdInSnapshot(loader.getSnapshot(), providerId);
 				},
 			);
+			const resolveSavedViewSearchScript = Effect.fn(
+				"PluginRuntimeResolver.resolveSavedViewSearchScript",
+			)(function* (scriptSlug: string) {
+				const snapshot = loader.getSnapshot();
+				const active = activeScripts(snapshot).find(({ slug }) => slug === scriptSlug);
+				const metadata = active?.metadata;
+				if (!active || metadata?.kind !== "provider" || metadata.providerOperation !== "search") {
+					return null;
+				}
+				const provider = yield* findActiveProviderInSnapshot(snapshot, metadata.providerSlug);
+				const links = snapshot.bindings.schemaProviderLinks.filter(
+					(candidate) => candidate.providerSlug === metadata.providerSlug,
+				);
+				const [link] = links;
+				if (!provider || !link || links.length !== 1) {
+					return null;
+				}
+				const script = yield* findActiveScriptInPluginSnapshot(snapshot, {
+					scriptSlug,
+					providerId: provider.id,
+					pluginSlug: active.pluginSlug,
+				});
+				return script
+					? { provider, script, entitySchemaSlug: EntitySchemaSlug.make(link.entitySchemaSlug) }
+					: null;
+			});
 			const findAuthorizedSchemaProviderById = Effect.fn(
 				"PluginRuntimeResolver.findAuthorizedSchemaProviderById",
 			)(function* (input: {
@@ -700,6 +726,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				findSchemaProviderBySlug,
 				findActiveWorkflowScript,
 				resolveSystemQueryScript,
+				resolveSavedViewSearchScript,
 				findAuthorizedSchemaProviderById,
 				findActivePluginConfigByScriptId,
 				resolveActivePluginUserBootstrap,

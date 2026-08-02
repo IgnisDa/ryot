@@ -1,6 +1,6 @@
 import { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { Schema } from "effect";
-import { expect, it } from "vitest";
+import { assert, expect, it } from "vitest";
 
 import { fitnessPlugin } from "./manifest";
 
@@ -12,7 +12,9 @@ it("declares the complete fitness-owned source", () => {
 		"workout-template",
 		"measurement",
 	]);
-	expect(fitnessPlugin.entitySchemas[0].mergeIdentityProperties).toEqual(["kind"]);
+	const exercise = fitnessPlugin.entitySchemas[0];
+	assert(exercise);
+	expect(exercise.mergeIdentityProperties).toEqual(["kind"]);
 	expect(fitnessPlugin.configSchema).toMatchObject({
 		unknownKeys: "strict",
 		fields: { exercisePreloadLimit: { type: "integer", defaultValue: 873 } },
@@ -111,4 +113,10 @@ it("declares the complete fitness-owned source", () => {
 		},
 	]);
 	expect(fitnessPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "fitness")).toBe(true);
+	expect(
+		fitnessPlugin.savedViews.find(({ slug }) => slug === "all-exercises")?.sandboxScripts,
+	).toEqual({ search: ["exercise.free-exercise-db.search"] });
+	expect(
+		fitnessPlugin.savedViews.find(({ slug }) => slug === "all-workouts")?.sandboxScripts,
+	).toEqual({});
 });

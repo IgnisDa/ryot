@@ -16,6 +16,7 @@ import {
 	rowsFields,
 	updateSavedViewWithGridDocument,
 } from "~/fixtures";
+import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const buildSchemaRowsDocument = (slug: string) =>
@@ -92,6 +93,7 @@ describe("saved views management", () => {
 			expect(clonedView.id).not.toBe(createdView.id);
 			expect(clonedView.name).toBe(`${createdView.name} Updated (Copy)`);
 			expect(clonedView.layouts).toEqual(updatedView.layouts);
+			expect(clonedView.sandboxScripts).toEqual({});
 
 			const deletedOriginal = yield* deleteSavedView(client, createdView.slug);
 			const deletedClone = yield* deleteSavedView(client, clonedView.slug);
@@ -108,11 +110,15 @@ describe("saved views management", () => {
 	it.live("clones a built-in view into a deletable user view", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const builtinView = yield* findBuiltinSavedView(client);
+			const builtinView = (yield* listSavedViews(client)).find(
+				(view) => view.name === "All Movies",
+			);
+			assertPresent(builtinView, "Expected the All Movies built-in saved view");
 			const clonedView = yield* cloneSavedView(client, builtinView.slug);
 
 			expect(clonedView.name).toBe(`${builtinView.name} (Copy)`);
 			expect(clonedView.isBuiltin).toBe(false);
+			expect(clonedView.sandboxScripts).toEqual(builtinView.sandboxScripts);
 
 			const deletedClone = yield* deleteSavedView(client, clonedView.slug);
 			const refreshedBuiltin = yield* getSavedView(client, builtinView.slug);

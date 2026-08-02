@@ -46,6 +46,52 @@ const mediaViewName: Record<(typeof mediaEntitySchemaSlugs)[number], string> = {
 	"video-game-group": "All Video Game Franchises",
 };
 
+const searchScriptsByEntitySchema: Readonly<Record<string, ReadonlyArray<string>>> = {
+	audiobook: ["audiobook.audible.search"],
+	"comic-book": ["comic-book.metron.search"],
+	"visual-novel": ["visual-novel.vndb.search"],
+	"book-group": ["book-group.hardcover.search"],
+	show: ["show.tmdb.search", "show.tvdb.search"],
+	movie: ["movie.tmdb.search", "movie.tvdb.search"],
+	"audiobook-group": ["audiobook-group.audible.search"],
+	"comic-book-group": ["comic-book-group.metron.search"],
+	anime: ["anime.anilist.search", "anime.myanimelist.search"],
+	podcast: ["podcast.itunes.search", "podcast.listennotes.search"],
+	"movie-group": ["movie-group.tmdb.search", "movie-group.tvdb.search"],
+	"video-game": ["video-game.giant-bomb.search", "video-game.igdb.search"],
+	book: ["book.google-books.search", "book.hardcover.search", "book.openlibrary.search"],
+	manga: ["manga.anilist.search", "manga.manga-updates.search", "manga.myanimelist.search"],
+	music: ["music.music-brainz.search", "music.spotify.search", "music.youtube-music.search"],
+	"video-game-group": ["video-game-group.giant-bomb.search", "video-game-group.igdb.search"],
+	company: [
+		"company.anilist.search",
+		"company.giant-bomb.search",
+		"company.hardcover.search",
+		"company.igdb.search",
+		"company.tmdb.search",
+		"company.tvdb.search",
+		"company.vndb.search",
+	],
+	"music-group": [
+		"music-group.music-brainz.search",
+		"music-group.spotify.search",
+		"music-group.youtube-music.search",
+	],
+	person: [
+		"person.anilist.search",
+		"person.audible.search",
+		"person.giant-bomb.search",
+		"person.hardcover.search",
+		"person.manga-updates.search",
+		"person.metron.search",
+		"person.music-brainz.search",
+		"person.spotify.search",
+		"person.tmdb.search",
+		"person.tvdb.search",
+		"person.youtube-music.search",
+	],
+};
+
 export const mediaSavedViews = () => {
 	const schemas = new Map(mediaEntitySchemas().map((schema) => [schema.slug, schema]));
 	const entity = table("entity", "entity");
@@ -77,6 +123,7 @@ export const mediaSavedViews = () => {
 			slug: view.slug,
 			icon: schema.icon,
 			pluginSlug: "media",
+			sandboxScripts: { search: [...(searchScriptsByEntitySchema[view.entitySchemaSlug] ?? [])] },
 			layouts: {
 				grid: {
 					...projections.grid.mappings,

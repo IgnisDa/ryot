@@ -55,6 +55,10 @@ const savedViewRecordsResponse = {
 					name: { kind: "text", value: "View One" },
 					icon: { kind: "text", value: "bookmark" },
 					layouts: { kind: "json", value: layouts },
+					sandboxScripts: {
+						kind: "json",
+						value: { search: ["movie.tmdb.search"] },
+					},
 					pluginSlug: { kind: "text", value: "media" },
 					isBuiltin: { kind: "boolean", value: false },
 					isDisabled: { kind: "boolean", value: false },
@@ -104,6 +108,7 @@ describe("saved-view record recipes", () => {
 			"isBuiltin",
 			"isDisabled",
 			"layouts",
+			"sandboxScripts",
 			"pluginSlug",
 		]);
 		expect(query.where).toMatchObject({
@@ -166,6 +171,7 @@ describe("saved-view record recipes", () => {
 					pluginSlug: "media",
 					createdAt: "2025-12-31T23:00:00.000Z",
 					updatedAt: "2026-01-01T23:00:00.000Z",
+					sandboxScripts: { search: ["movie.tmdb.search"] },
 				},
 			],
 		});
@@ -192,6 +198,7 @@ describe("saved-view record recipes", () => {
 			pluginSlug: "media",
 			createdAt: "2025-12-31T23:00:00.000Z",
 			updatedAt: "2026-01-01T23:00:00.000Z",
+			sandboxScripts: { search: ["movie.tmdb.search"] },
 		});
 		expect(Result.getOrThrow(decodeSavedViewRecordResponse(detailResponse([])))).toBeNull();
 	});
@@ -208,6 +215,7 @@ describe("saved-view record recipes", () => {
 			"isBuiltin",
 			"isDisabled",
 			"layouts",
+			"sandboxScripts",
 			"pluginSlug",
 		]) {
 			const item = { ...savedViewRecordItem } as Record<string, unknown>;
@@ -231,6 +239,7 @@ describe("saved-view record recipes", () => {
 			isDisabled: { kind: "text", value: "false" },
 			layouts: { kind: "text", value: "not-json" },
 			createdAt: { kind: "text", value: "2026-01-01" },
+			sandboxScripts: { kind: "json", value: { search: "not-an-array" } },
 		};
 
 		for (const [field, value] of Object.entries(wrongKinds)) {

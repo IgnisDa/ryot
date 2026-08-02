@@ -52,6 +52,7 @@ const manifest = definePlugin({
 			pluginSlug: "test",
 			name: "All entities",
 			slug: "all-entities",
+			sandboxScripts: { search: ["provider.test.search"] },
 			layouts: {
 				grid: { queryDocument, ...cardMapping, entityIdField: "entityId" },
 				list: { queryDocument, ...cardMapping, entityIdField: "entityId" },
@@ -286,6 +287,44 @@ describe("definePlugin", () => {
 			expect(savedView.layouts[layout].queryDocument).toEqual(queryDocument);
 			expect(savedView.layouts[layout].entityIdField).toBe("entityId");
 		}
+		expect(savedView.sandboxScripts).toEqual({ search: ["provider.test.search"] });
+	});
+
+	it("accepts generic saved-view actions that reference manifest scripts", () => {
+		const [savedView] = manifest.savedViews;
+		assert(savedView);
+		const decoded = Schema.decodeUnknownSync(PluginManifest)({
+			...manifest,
+			savedViews: [{ ...savedView, sandboxScripts: { customAction: ["automation.test"] } }],
+		});
+
+		expect(decoded.savedViews[0]?.sandboxScripts).toEqual({
+			customAction: ["automation.test"],
+		});
+	});
+
+	it("rejects invalid saved-view sandbox script references", () => {
+		const [savedView] = manifest.savedViews;
+		assert(savedView);
+		for (const sandboxScripts of [
+			{ search: ["missing.search"] },
+			{ search: ["provider.test.search", "provider.test.search"] },
+			{ search: ["automation.test"] },
+			{ search: ["provider.test.details"] },
+		]) {
+			expect(() =>
+				Schema.decodeUnknownSync(PluginManifest)({
+					...manifest,
+					savedViews: [{ ...savedView, sandboxScripts }],
+				}),
+			).toThrow(/Expected valid plugin config, provider, and script references/);
+		}
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				savedViews: [{ ...savedView, sandboxScripts: undefined }],
+			}),
+		).toThrow();
 	});
 
 	it("normalizes strict HTTP rate limit declarations", () => {
