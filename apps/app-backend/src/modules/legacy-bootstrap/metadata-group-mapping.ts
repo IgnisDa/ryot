@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { dbEffect, DbService } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 import {
 	type LotEntityMigrationTarget,
@@ -327,9 +327,10 @@ END $$;
 `;
 
 export const getUnsupportedMetadataGroupSources = Effect.gen(function* () {
-	const { db } = yield* DbService;
-	const result = yield* dbEffect(() =>
-		db.execute<{ lot: string; source: string }>(sql`
+	const database = yield* Database;
+	const result = yield* mapDatabaseErrors(
+		database.execute<{ lot: string; source: string }>(
+			sql`
 			WITH metadata_group_targets (lot, source, entity_schema_slug, provider_slug) AS (
 				VALUES ${metadataGroupEntityTargetValuesSql}
 			),
@@ -347,8 +348,10 @@ export const getUnsupportedMetadataGroupSources = Effect.gen(function* () {
 			LEFT JOIN metadata_group_targets mgt ON mgt.lot = mg.lot AND mgt.source = mg.source
 			WHERE mgt.lot IS NULL
 			ORDER BY mg.lot, mg.source
-		`),
+		`,
+			"objects",
+		),
 	);
 
-	return result.rows;
+	return result;
 });

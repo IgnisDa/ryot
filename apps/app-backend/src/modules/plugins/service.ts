@@ -6,7 +6,7 @@ import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { Cause, Context, Effect, FiberSet, Layer, Semaphore } from "effect";
 
-import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { kernelDefinitionSource, kernelScripts } from "#modules/definition-registry/kernel-source";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
@@ -122,11 +122,10 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 	{
 		make: Effect.gen(function* () {
 			const redis = yield* RedisService;
-			const runWithDb = yield* DbRunner;
 			const loader = yield* PluginLoader;
+			const database = yield* Database;
 			const repository = yield* PluginRepository;
 			const scriptGarbageCollector = yield* ScriptGarbageCollector;
-			const runTransaction = yield* TransactionRunner;
 			const mutationLock = yield* Semaphore.make(1);
 			const workflowReferences = yield* SandboxWorkflowReferenceRepository;
 			const kernelSignalSlugs = new Set(
@@ -157,17 +156,19 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 			});
 
 			const rebuildUnlocked = Effect.fn("PluginIngestionService.rebuildUnlocked")(function* () {
-				const snapshot = yield* runTransaction(
-					Effect.gen(function* () {
-						yield* repository.lockIngestion();
-						const plugins = yield* repository.list();
-						const nextSnapshot = yield* Effect.try({
-							try: () => loader.previewAll(plugins),
-							catch: (error) => new PluginValidationError({ issues: [String(error)] }),
-						});
-						yield* validateSnapshot(nextSnapshot);
-						return nextSnapshot;
-					}),
+				const snapshot = yield* mapDatabaseErrors(
+					database.transaction((transaction) =>
+						Effect.gen(function* () {
+							yield* repository.lockIngestion();
+							const plugins = yield* repository.list();
+							const nextSnapshot = yield* Effect.try({
+								try: () => loader.previewAll(plugins),
+								catch: (error) => new PluginValidationError({ issues: [String(error)] }),
+							});
+							yield* validateSnapshot(nextSnapshot);
+							return nextSnapshot;
+						}).pipe(Effect.provideService(Database, transaction)),
+					),
 				);
 				loader.replace(snapshot);
 				yield* scriptGarbageCollector.collect();
@@ -179,7 +180,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 			const reconcile = Effect.fn("PluginIngestionService.reconcile")(() =>
 				mutationLock.withPermits(1)(
 					Effect.gen(function* () {
-						const installed = yield* runWithDb(repository.list());
+						const installed = yield* repository.list();
 						const loaded = Object.values(loader.getSnapshot().plugins);
 						if (registryFingerprint(installed) === registryFingerprint(loaded)) {
 							return false;
@@ -229,30 +230,33 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 					});
 					yield* validateSnapshot(prospectiveSnapshot, false);
 
-					const cached = yield* runWithDb(
-						repository.findBySourceHash({ slug: manifest.metadata.slug, sourceHash }),
-					);
+					const cached = yield* repository.findBySourceHash({
+						slug: manifest.metadata.slug,
+						sourceHash,
+					});
 					if (cached) {
 						const committed = yield* Effect.uninterruptible(
-							runTransaction(
-								Effect.gen(function* () {
-									yield* repository.lockIngestion();
-									const installed = yield* repository.list();
-									const authoritative = installed.find(
-										(plugin) =>
-											plugin.manifest.metadata.slug === manifest.metadata.slug &&
-											plugin.sourceHash === sourceHash,
-									);
-									if (!authoritative) {
-										return null;
-									}
-									const snapshot = yield* Effect.try({
-										try: () => loader.previewAll(installed),
-										catch: (error) => new PluginValidationError({ issues: [String(error)] }),
-									});
-									yield* validateSnapshot(snapshot);
-									return { plugin: authoritative, snapshot };
-								}),
+							mapDatabaseErrors(
+								database.transaction((transaction) =>
+									Effect.gen(function* () {
+										yield* repository.lockIngestion();
+										const installed = yield* repository.list();
+										const authoritative = installed.find(
+											(plugin) =>
+												plugin.manifest.metadata.slug === manifest.metadata.slug &&
+												plugin.sourceHash === sourceHash,
+										);
+										if (!authoritative) {
+											return null;
+										}
+										const snapshot = yield* Effect.try({
+											try: () => loader.previewAll(installed),
+											catch: (error) => new PluginValidationError({ issues: [String(error)] }),
+										});
+										yield* validateSnapshot(snapshot);
+										return { plugin: authoritative, snapshot };
+									}).pipe(Effect.provideService(Database, transaction)),
+								),
 							).pipe(
 								Effect.tap((result) =>
 									result ? Effect.sync(() => loader.replace(result.snapshot)) : Effect.void,
@@ -311,30 +315,32 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 					});
 					const normalized = { manifest, scripts, sourceHash } satisfies NormalizedPlugin;
 					yield* Effect.uninterruptible(
-						runTransaction(
-							Effect.gen(function* () {
-								yield* repository.lockIngestion();
-								const installed = yield* repository.list();
-								const previous = installed.find(
-									(plugin) => plugin.manifest.metadata.slug === manifest.metadata.slug,
-								);
-								if (previous) {
-									yield* validateAdditiveSchemaEvolution(previous.manifest, manifest);
-								}
-								const nextInstalled = [
-									...installed.filter(
-										(plugin) => plugin.manifest.metadata.slug !== manifest.metadata.slug,
-									),
-									normalized,
-								];
-								const snapshot = yield* Effect.try({
-									try: () => loader.previewAll(nextInstalled),
-									catch: (error) => new PluginValidationError({ issues: [String(error)] }),
-								});
-								yield* validateSnapshot(snapshot);
-								yield* repository.persist(normalized);
-								return snapshot;
-							}),
+						mapDatabaseErrors(
+							database.transaction((transaction) =>
+								Effect.gen(function* () {
+									yield* repository.lockIngestion();
+									const installed = yield* repository.list();
+									const previous = installed.find(
+										(plugin) => plugin.manifest.metadata.slug === manifest.metadata.slug,
+									);
+									if (previous) {
+										yield* validateAdditiveSchemaEvolution(previous.manifest, manifest);
+									}
+									const nextInstalled = [
+										...installed.filter(
+											(plugin) => plugin.manifest.metadata.slug !== manifest.metadata.slug,
+										),
+										normalized,
+									];
+									const snapshot = yield* Effect.try({
+										try: () => loader.previewAll(nextInstalled),
+										catch: (error) => new PluginValidationError({ issues: [String(error)] }),
+									});
+									yield* validateSnapshot(snapshot);
+									yield* repository.persist(normalized);
+									return snapshot;
+								}).pipe(Effect.provideService(Database, transaction)),
+							),
 						).pipe(Effect.tap((snapshot) => Effect.sync(() => loader.replace(snapshot)))),
 					);
 					yield* publishInvalidation(stableStringify({ slug: manifest.metadata.slug, sourceHash }));
@@ -367,7 +373,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 			);
 
 			const listPlugins = Effect.fn("PluginIngestionService.listPlugins")(function* () {
-				const plugins = yield* runWithDb(repository.list());
+				const plugins = yield* repository.list();
 				return plugins.map(toListItem);
 			});
 
@@ -379,65 +385,67 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 
 			const uninstallPluginUnlocked = Effect.fn("PluginIngestionService.uninstallPluginUnlocked")(
 				function* (slug: string) {
-					const result = yield* runTransaction(
-						Effect.gen(function* () {
-							yield* repository.lockIngestion();
-							const installed = yield* repository.list();
-							const plugin = installed.find(
-								(candidate) => candidate.manifest.metadata.slug === slug,
-							);
-							if (!plugin) {
-								return yield* notFound(`Active plugin '${slug}' was not found`);
-							}
-							if (bootConfiguredPluginSlugs.has(slug)) {
-								return yield* conflict(`Boot-configured plugin '${slug}' cannot be uninstalled`);
-							}
-							if (yield* workflowReferences.hasReferences(slug)) {
-								return yield* conflict(
-									`Plugin '${slug}' cannot be uninstalled while running or suspended workflows reference it`,
+					const result = yield* mapDatabaseErrors(
+						database.transaction((transaction) =>
+							Effect.gen(function* () {
+								yield* repository.lockIngestion();
+								const installed = yield* repository.list();
+								const plugin = installed.find(
+									(candidate) => candidate.manifest.metadata.slug === slug,
 								);
-							}
-							if (yield* repository.hasIntegrationReferences(slug)) {
-								return yield* conflict(
-									`Plugin '${slug}' cannot be uninstalled while integrations reference it`,
+								if (!plugin) {
+									return yield* notFound(`Active plugin '${slug}' was not found`);
+								}
+								if (bootConfiguredPluginSlugs.has(slug)) {
+									return yield* conflict(`Boot-configured plugin '${slug}' cannot be uninstalled`);
+								}
+								if (yield* workflowReferences.hasReferences(slug)) {
+									return yield* conflict(
+										`Plugin '${slug}' cannot be uninstalled while running or suspended workflows reference it`,
+									);
+								}
+								if (yield* repository.hasIntegrationReferences(slug)) {
+									return yield* conflict(
+										`Plugin '${slug}' cannot be uninstalled while integrations reference it`,
+									);
+								}
+								const schemaSlugs = plugin.manifest.entitySchemas.map(
+									({ slug: entitySchemaSlug }) => entitySchemaSlug,
 								);
-							}
-							const schemaSlugs = plugin.manifest.entitySchemas.map(
-								({ slug: entitySchemaSlug }) => entitySchemaSlug,
-							);
-							if (
-								yield* repository.hasEntityReferences({
-									pluginSlug: slug,
-									entitySchemaSlugs: schemaSlugs,
-								})
-							) {
-								return yield* conflict(
-									`Plugin '${slug}' cannot be uninstalled while entities reference its schemas or providers`,
+								if (
+									yield* repository.hasEntityReferences({
+										pluginSlug: slug,
+										entitySchemaSlugs: schemaSlugs,
+									})
+								) {
+									return yield* conflict(
+										`Plugin '${slug}' cannot be uninstalled while entities reference its schemas or providers`,
+									);
+								}
+								const remaining = installed.filter(
+									(candidate) => candidate.manifest.metadata.slug !== slug,
 								);
-							}
-							const remaining = installed.filter(
-								(candidate) => candidate.manifest.metadata.slug !== slug,
-							);
-							const snapshot = yield* Effect.try({
-								try: () => loader.previewAll(remaining),
-								catch: (error) =>
-									conflict(
-										`Plugin '${slug}' cannot be uninstalled while active plugin schemas reference its definitions: ${String(error)}`,
-									),
-							});
-							const validateAndCatch = validateSnapshot(snapshot).pipe(
-								Effect.as(null),
-								Effect.catchTag("PluginValidationError", (error) => Effect.succeed(error)),
-							);
-							const dangling = yield* validateAndCatch;
-							if (dangling) {
-								return yield* conflict(
-									`Plugin '${slug}' cannot be uninstalled while active plugin bindings reference its definitions: ${validationMessage(dangling)}`,
+								const snapshot = yield* Effect.try({
+									try: () => loader.previewAll(remaining),
+									catch: (error) =>
+										conflict(
+											`Plugin '${slug}' cannot be uninstalled while active plugin schemas reference its definitions: ${String(error)}`,
+										),
+								});
+								const validateAndCatch = validateSnapshot(snapshot).pipe(
+									Effect.as(null),
+									Effect.catchTag("PluginValidationError", (error) => Effect.succeed(error)),
 								);
-							}
-							yield* repository.deactivate(slug);
-							return { plugin, snapshot };
-						}),
+								const dangling = yield* validateAndCatch;
+								if (dangling) {
+									return yield* conflict(
+										`Plugin '${slug}' cannot be uninstalled while active plugin bindings reference its definitions: ${validationMessage(dangling)}`,
+									);
+								}
+								yield* repository.deactivate(slug);
+								return { plugin, snapshot };
+							}).pipe(Effect.provideService(Database, transaction)),
+						),
 					);
 					loader.replace(result.snapshot);
 					yield* publishInvalidation(stableStringify({ action: "uninstall", slug }));

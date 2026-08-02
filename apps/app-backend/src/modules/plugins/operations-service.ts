@@ -6,7 +6,6 @@ import { generateId } from "better-auth";
 import { Context, Effect, Layer } from "effect";
 import type { Headers as PlatformHeaders } from "effect/unstable/http";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
 import { AuthService } from "#modules/auth/service";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
@@ -38,7 +37,6 @@ type DispatchInput = {
 export class OperationsService extends Context.Service<OperationsService>()("OperationsService", {
 	make: Effect.gen(function* () {
 		const auth = yield* AuthService;
-		const runWithDb = yield* DbRunner;
 		const runtime = yield* PluginRuntimeResolver;
 		const sandbox = yield* SandboxExecutionService;
 		const integrationScopeResolver = yield* IntegrationOperationScopeResolver;
@@ -93,7 +91,7 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 				);
 			}
 			const scope = yield* resolveScope(resolved.operation.auth, input.payload, input.headers);
-			const script = yield* runWithDb(resolved.script);
+			const script = yield* resolved.script;
 			if (!script) {
 				return yield* new SandboxRunError({
 					message: `Operation '${input.pluginSlug}/${input.operationSlug}' script is unavailable`,

@@ -4,12 +4,7 @@ import type { RyotQLDocument, RyotQLResult } from "@ryot/contract/modules/ryotql
 import { sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
-import {
-	CurrentDb,
-	TransactionRunner,
-	dbEffect,
-	setLocalStatementTimeout,
-} from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 import type { RyotQLExecutionScope } from "./catalog";
 import { executeNamedQuery } from "./executor";
@@ -18,14 +13,9 @@ import { validateRyotQLDocument } from "./validator";
 
 const RYOTQL_STATEMENT_TIMEOUT_MS = 30_000;
 
-const configureTransaction = Effect.gen(function* () {
-	const db = yield* CurrentDb;
-	yield* dbEffect(() => db.execute(sql`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY`));
-});
-
 export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLService", {
 	make: Effect.gen(function* () {
-		const runInTx = yield* TransactionRunner;
+		const database = yield* Database;
 
 		const executeWithScope = Effect.fn("RyotQLService.executeWithScope")(function* (
 			scope: RyotQLExecutionScope,
@@ -37,16 +27,22 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 			}
 			const normalizedDocument = normalizeRyotQLDocument(document);
 
-			return yield* runInTx(
-				Effect.gen(function* () {
-					yield* configureTransaction;
-					yield* setLocalStatementTimeout(RYOTQL_STATEMENT_TIMEOUT_MS);
-					const results: Array<readonly [string, RyotQLResult]> = [];
-					for (const [name, query] of Object.entries(normalizedDocument.queries)) {
-						results.push([name, yield* executeNamedQuery(scope, query, name)]);
-					}
-					return { data: Object.fromEntries(results) };
-				}),
+			return yield* mapDatabaseErrors(
+				database.transaction((transaction) =>
+					Effect.gen(function* () {
+						yield* transaction.execute(
+							sql`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY`,
+						);
+						yield* transaction.execute(
+							sql`SELECT set_config('statement_timeout', ${RYOTQL_STATEMENT_TIMEOUT_MS.toString()}, true)`,
+						);
+						const results: Array<readonly [string, RyotQLResult]> = [];
+						for (const [name, query] of Object.entries(normalizedDocument.queries)) {
+							results.push([name, yield* executeNamedQuery(scope, query, name)]);
+						}
+						return { data: Object.fromEntries(results) };
+					}).pipe(Effect.provideService(Database, transaction)),
+				),
 			).pipe(
 				Effect.catchIf(
 					(error): error is DbError => error instanceof DbError,

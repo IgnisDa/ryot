@@ -5,8 +5,6 @@ import type { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/b
 import { Context, Effect, Layer, Match } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
-
 import { enqueueEventCreate } from "./event-create-workflow";
 import {
 	EventsRepository,
@@ -50,7 +48,6 @@ const toLifecycleOrigin = (input: EventCreateInput): AutomationOrigin | undefine
 
 export class EventsService extends Context.Service<EventsService>()("EventsService", {
 	make: Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
 		const engine = yield* WorkflowEngine;
 		const repository = yield* EventsRepository;
 
@@ -82,11 +79,11 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 		const update = Effect.fn("EventsService.update")(function* (
 			input: UpdateEventEntityReferencesInput,
 		) {
-			return yield* runWithDb(repository.updateEventEntityReferences(input));
+			return yield* repository.updateEventEntityReferences(input);
 		});
 
 		const deleteEvent = Effect.fn("EventsService.delete")(function* (input: EventIdentityInput) {
-			return yield* runWithDb(repository.deleteEvent(input));
+			return yield* repository.deleteEvent(input);
 		});
 
 		return { create, delete: deleteEvent, update };

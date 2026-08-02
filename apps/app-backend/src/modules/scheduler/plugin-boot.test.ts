@@ -5,7 +5,7 @@ import { Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 import { assert } from "vitest";
 
-import { dbRunnerLayer, makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { databaseLayer, makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { makePluginLoader, PluginLoader } from "#modules/plugins/loader";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -63,10 +63,10 @@ const makeLayer = (
 	failingExecutionId?: string,
 ) =>
 	PluginBootService.layer.pipe(
-		Layer.provide(
+		Layer.provideMerge(
 			Layer.mergeAll(
 				makeAppConfigLayer(),
-				dbRunnerLayer,
+				databaseLayer,
 				Layer.succeed(PluginLoader, { ...loader }),
 				Layer.mock(PluginRuntimeResolver)({
 					resolveActivePluginBoot: ({ bootSlug, pluginSlug }) => {

@@ -3,8 +3,6 @@ import type { EntityId, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
-
 import { TranslateEntityWorkflow, translateEntityExecutionId } from "./entity-translation-workflow";
 import { TranslationsRepository, type TranslationOverlayInput } from "./repository";
 
@@ -21,7 +19,6 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 	"TranslationsService",
 	{
 		make: Effect.gen(function* () {
-			const runWithDb = yield* DbRunner;
 			const engine = yield* WorkflowEngine;
 			const repository = yield* TranslationsRepository;
 
@@ -58,13 +55,13 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 			const create = Effect.fn("TranslationsService.create")(function* (
 				input: TranslationOverlayInput,
 			) {
-				return yield* runWithDb(repository.createOverlay(input));
+				return yield* repository.createOverlay(input);
 			});
 
 			const update = Effect.fn("TranslationsService.update")(function* (
 				input: TranslationOverlayInput,
 			) {
-				const updated = yield* runWithDb(repository.updateOverlay(input));
+				const updated = yield* repository.updateOverlay(input);
 				if (!updated) {
 					return yield* notFound("Translation overlay not found");
 				}
@@ -74,16 +71,17 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 			const upsert = Effect.fn("TranslationsService.upsert")(function* (
 				input: TranslationOverlayInput,
 			) {
-				const existing = yield* runWithDb(
-					repository.findOverlay({ entityId: input.entityId, language: input.language }),
-				);
+				const existing = yield* repository.findOverlay({
+					entityId: input.entityId,
+					language: input.language,
+				});
 				return yield* existing ? update(input) : create(input);
 			});
 
 			const listByEntity = Effect.fn("TranslationsService.listByEntity")(function* (
 				entityId: EntityId,
 			) {
-				return yield* runWithDb(repository.listByEntity(entityId));
+				return yield* repository.listByEntity(entityId);
 			});
 
 			return { requestFill, create, update, upsert, listByEntity };

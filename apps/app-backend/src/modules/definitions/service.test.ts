@@ -6,7 +6,7 @@ import { Effect, Layer } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
-import { dbRunnerLayer } from "#lib/test-utils/effect";
+import { databaseLayer } from "#lib/test-utils/effect";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { makePluginLoader, PluginLoader } from "#modules/plugins/loader";
 import { fixtureManifest } from "#modules/plugins/test-support";
@@ -55,8 +55,8 @@ const makeLoader = () => {
 
 const makeServiceLayer = (repository: ReturnType<typeof makeRepository>) =>
 	DefinitionsService.layer.pipe(
-		Layer.provide(
-			Layer.mergeAll(dbRunnerLayer, repository, Layer.succeed(PluginLoader, { ...makeLoader() })),
+		Layer.provideMerge(
+			Layer.mergeAll(databaseLayer, repository, Layer.succeed(PluginLoader, { ...makeLoader() })),
 		),
 	);
 

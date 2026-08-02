@@ -46,7 +46,7 @@ import { navigationRecipe } from "@ryot/ryotql-recipes/navigation";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer, Result, Schema } from "effect";
 
-import { CurrentDb, TransactionRunner } from "#lib/infrastructure/db/service";
+import { Database } from "#lib/infrastructure/db/service";
 
 import { RyotQLService } from "./service";
 
@@ -70,14 +70,23 @@ const makeServiceLayer = (
 			const statement = dialect.sqlToQuery(query).sql;
 			statements.push(statement);
 			if (statement.startsWith("SET ") || statement.includes("set_config(")) {
-				return Promise.resolve({ rows: [] });
+				return Effect.succeed([]);
 			}
-			return Promise.resolve({ rows: serviceRows });
+			return Effect.succeed(serviceRows);
 		},
 	});
-	const provideDb = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-		Effect.provideService(effect, CurrentDb, db);
-	return RyotQLService.layer.pipe(Layer.provide(Layer.succeed(TransactionRunner, provideDb)));
+	return RyotQLService.layer.pipe(
+		Layer.provide(
+			Layer.succeed(
+				Database,
+				Database.of(
+					Object.assign(Object.create(null), {
+						transaction: ((callback) => callback(db)) satisfies Database["Service"]["transaction"],
+					}),
+				),
+			),
+		),
+	);
 };
 
 it.effect("executes named queries sequentially in one configured transaction", () => {
@@ -1196,14 +1205,21 @@ it.effect("maps statement timeouts to a bad request", () => {
 			const statement = dialect.sqlToQuery(query).sql;
 			statements.push(statement);
 			return !statement.startsWith("SET ") && !statement.includes("set_config(")
-				? Promise.reject(new DbError({ code: "57014", message: "statement timeout" }))
-				: Promise.resolve({ rows: [] });
+				? Effect.fail(new DbError({ code: "57014", message: "statement timeout" }))
+				: Effect.succeed([]);
 		},
 	});
-	const provideDb = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-		Effect.provideService(effect, CurrentDb, db);
 	const layer = RyotQLService.layer.pipe(
-		Layer.provide(Layer.succeed(TransactionRunner, provideDb)),
+		Layer.provide(
+			Layer.succeed(
+				Database,
+				Database.of(
+					Object.assign(Object.create(null), {
+						transaction: ((callback) => callback(db)) satisfies Database["Service"]["transaction"],
+					}),
+				),
+			),
+		),
 	);
 
 	return Effect.gen(function* () {

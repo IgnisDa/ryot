@@ -6,7 +6,7 @@ import { generateId } from "better-auth";
 import { DateTime, Effect } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 
-import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { LifecycleDispatch } from "#modules/entities/lifecycle-dispatch";
 import type { LifecycleEntityReference } from "#modules/entities/lifecycle-dispatch";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -21,33 +21,26 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 		handlers.handle("create", ({ payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
-				const runWithDb = yield* DbRunner;
-				const runInTransaction = yield* TransactionRunner;
+				const database = yield* Database;
 				const service = yield* RelationshipsService;
 				const entitiesRepository = yield* EntitiesRepository;
 				const lifecycleDispatch = yield* LifecycleDispatch;
 				const schemasRepository = yield* RelationshipSchemasRepository;
 
-				const schema = yield* runWithDb(
-					schemasRepository.findById(payload.relationshipSchemaSlug, user.id),
-				);
+				const schema = yield* schemasRepository.findById(payload.relationshipSchemaSlug, user.id);
 				if (!schema) {
 					return yield* notFound("Relationship schema not found");
 				}
 
 				const [sourceScope, targetScope] = yield* Effect.all([
-					runWithDb(
-						entitiesRepository.getEntityScopeForUser({
-							userId: user.id,
-							entityId: payload.sourceEntityId,
-						}),
-					),
-					runWithDb(
-						entitiesRepository.getEntityScopeForUser({
-							userId: user.id,
-							entityId: payload.targetEntityId,
-						}),
-					),
+					entitiesRepository.getEntityScopeForUser({
+						userId: user.id,
+						entityId: payload.sourceEntityId,
+					}),
+					entitiesRepository.getEntityScopeForUser({
+						userId: user.id,
+						entityId: payload.targetEntityId,
+					}),
 				]);
 				if (!sourceScope || !targetScope) {
 					return yield* notFound("Entity not found");
@@ -69,26 +62,26 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 					relationshipSchemaSlug: payload.relationshipSchemaSlug,
 				} as const;
 
-				const outcome = yield* runInTransaction(
-					Effect.gen(function* () {
-						const created = yield* service.create(relationshipInput);
-						if (created.wasInserted) {
-							return { wasInserted: true as const, relationship: created };
-						}
+				const outcome = yield* mapDatabaseErrors(
+					database.transaction((transaction) =>
+						Effect.gen(function* () {
+							const created = yield* service.create(relationshipInput);
+							if (created.wasInserted) {
+								return { wasInserted: true as const, relationship: created };
+							}
 
-						const updated = yield* service.update(relationshipInput);
-						return { wasInserted: false as const, relationship: updated };
-					}),
+							const updated = yield* service.update(relationshipInput);
+							return { wasInserted: false as const, relationship: updated };
+						}).pipe(Effect.provideService(Database, transaction)),
+					),
 				);
 
 				if (outcome.wasInserted) {
 					const created = outcome.relationship;
-					const references = yield* runWithDb(
-						entitiesRepository.listEntityReferencesByIds([
-							payload.sourceEntityId,
-							payload.targetEntityId,
-						]),
-					);
+					const references = yield* entitiesRepository.listEntityReferencesByIds([
+						payload.sourceEntityId,
+						payload.targetEntityId,
+					]);
 					const referenceFor = (entityId: EntityId): LifecycleEntityReference =>
 						references.find((candidate) => candidate.id === entityId) ?? {
 							name: "",

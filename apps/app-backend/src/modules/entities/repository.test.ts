@@ -3,7 +3,7 @@ import { EntitySchemaSlug, SandboxProviderId, SandboxScriptId } from "@ryot/cont
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
 
-import { CurrentDb } from "#lib/infrastructure/db/service";
+import { Database } from "#lib/infrastructure/db/service";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -20,7 +20,7 @@ const makeLayer = (db: object, pluginRuntime = makePluginRuntime()) =>
 		EntitiesRepository.layer.pipe(
 			Layer.provide(Layer.mergeAll(DefinitionRegistry.layer, pluginRuntime)),
 		),
-		Layer.succeed(CurrentDb, Object.assign(Object.create(null), db)),
+		Layer.succeed(Database, Object.assign(Object.create(null), db)),
 	);
 
 const makeDb = () => {
@@ -31,7 +31,7 @@ const makeDb = () => {
 			onConflictDoNothing: () => ({
 				returning: () => {
 					if (row) {
-						return Promise.resolve([]);
+						return Effect.succeed([]);
 					}
 
 					row = {
@@ -40,7 +40,7 @@ const makeDb = () => {
 						createdAt: new Date("2026-07-20T00:00:00.000Z"),
 						updatedAt: new Date("2026-07-20T00:00:00.000Z"),
 					};
-					return Promise.resolve([row]);
+					return Effect.succeed([row]);
 				},
 			}),
 		}),
@@ -51,7 +51,7 @@ const makeDb = () => {
 				limit: () => ({
 					for: () => {
 						forUpdateCalls += 1;
-						return Promise.resolve(row ? [row] : []);
+						return Effect.succeed(row ? [row] : []);
 					},
 				}),
 			}),
@@ -137,16 +137,12 @@ it.effect("locks and counts the complete global provenance scope", () => {
 	const dialect = new PgDialect();
 	const executed: string[] = [];
 	const db = {
+		select: () => ({ from: () => ({ where: () => Effect.succeed([{ count: 7 }]) }) }),
 		execute: (statement: Parameters<typeof dialect.sqlToQuery>[0]) => {
 			const query = dialect.sqlToQuery(statement);
 			executed.push(`${query.sql}:${query.params.join(":")}`);
-			return Promise.resolve(undefined);
+			return Effect.void;
 		},
-		select: () => ({
-			from: () => ({
-				where: () => Promise.resolve([{ count: 7 }]),
-			}),
-		}),
 	};
 
 	return Effect.gen(function* () {

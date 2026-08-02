@@ -10,7 +10,7 @@ import { Cause, Clock, Duration, Effect, Layer, Schema } from "effect";
 import { Activity, DurableClock } from "effect/unstable/workflow";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
+import { Database } from "#lib/infrastructure/db/service";
 import {
 	ProviderHttpAdmissionBlockResult,
 	ProviderHttpAdmissionConfirmation,
@@ -190,7 +190,7 @@ const sleepUntil = (name: string, timestamp: number, observedAtMs: number) => {
 export const SandboxDurableHostDispatcherLive = Layer.effect(
 	SandboxDurableHostDispatcher,
 	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
+		const database = yield* Database;
 		const engine = yield* WorkflowEngine;
 		const repository = yield* SandboxRepository;
 		const admission = yield* ProviderHttpAdmissionService;
@@ -198,7 +198,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 		const rateLimitAuthority = yield* PluginHttpRateLimitAuthority;
 		const provideDispatchServices = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 			effect.pipe(
-				Effect.provideService(DbRunner, runWithDb),
+				Effect.provideService(Database, database),
 				Effect.provideService(SandboxRepository, repository),
 				Effect.provideService(SandboxHostImplementations, implementations),
 			);
@@ -538,7 +538,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 							success: PreparedSandboxCreateEvents,
 							name: `prepare-sandbox-create-events-${requestIndex}`,
 							execute: prepareSandboxCreateEvents(request, payload, executionId, startedAt).pipe(
-								Effect.provideService(DbRunner, runWithDb),
+								Effect.provideService(Database, database),
 								Effect.provideService(SandboxRepository, repository),
 							),
 						});
@@ -589,7 +589,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						success: PreparedSandboxSendNotification,
 						name: `prepare-sandbox-send-notification-${requestIndex}`,
 						execute: prepareSandboxSendNotification(request, payload, executionId, startedAt).pipe(
-							Effect.provideService(DbRunner, runWithDb),
+							Effect.provideService(Database, database),
 							Effect.provideService(SandboxRepository, repository),
 						),
 					});

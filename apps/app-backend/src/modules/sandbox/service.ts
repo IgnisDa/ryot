@@ -14,7 +14,6 @@ import type { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { sandboxContextError } from "#lib/infrastructure/sandbox-runtime/limits";
 import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/shared/job-id";
 import { trimToNull } from "#lib/shared/validation";
@@ -68,10 +67,8 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 	{
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;
-			const runWithDb = yield* DbRunner;
 			const engine = yield* WorkflowEngine;
 			const repository = yield* SandboxRepository;
-			const runInTransaction = yield* TransactionRunner;
 			const pluginScriptResolver = yield* SandboxPluginScriptResolver;
 			const jobIdSecret = Redacted.value(config.sandbox.jobIdSecret);
 			const workflowReferences = yield* SandboxWorkflowReferenceRepository;
@@ -92,7 +89,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 				const input = yield* Schema.decodeUnknownEffect(jsonValueSchema)(context).pipe(
 					Effect.mapError(() => badRequest("Sandbox definition context must be JSON")),
 				);
-				const script = yield* runWithDb(repository.getScript(payload.scriptId));
+				const script = yield* repository.getScript(payload.scriptId);
 				if (!script) {
 					return yield* notFound(sandboxScriptNotFoundError);
 				}
@@ -106,7 +103,6 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 					},
 					"active",
 				).pipe(
-					Effect.provideService(DbRunner, runWithDb),
 					Effect.provideService(SandboxRepository, repository),
 					Effect.provideService(SandboxPluginScriptResolver, pluginScriptResolver),
 					Effect.catchTag("SandboxRunError", () => notFound(sandboxScriptNotFoundError)),
@@ -154,7 +150,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 			const getStoredScript = Effect.fn("SandboxExecutionService.getStoredScript")(function* (
 				scriptId: Parameters<typeof repository.getStoredScript>[0],
 			) {
-				const script = yield* runWithDb(repository.getStoredScript(scriptId));
+				const script = yield* repository.getStoredScript(scriptId);
 				if (!script) {
 					return yield* notFound(sandboxScriptNotFoundError);
 				}
@@ -175,7 +171,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 						error: SandboxRunError,
 						success: SandboxScriptId,
 						name: `resolve-plugin-workflow-${input.executionId}`,
-						execute: runWithDb(resolution).pipe(
+						execute: resolution.pipe(
 							Effect.flatMap((script) =>
 								script
 									? Effect.succeed(script.id)
@@ -271,16 +267,14 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 					input.executionId,
 					input.pluginSlug,
 				).pipe(
-					Effect.provideService(DbRunner, runWithDb),
 					Effect.provideService(SandboxRepository, repository),
-					Effect.provideService(TransactionRunner, runInTransaction),
 					Effect.provideService(SandboxPluginScriptResolver, pluginScriptResolver),
 					Effect.provideService(SandboxWorkflowReferenceRepository, workflowReferences),
 				);
 			});
 
 			const releaseWorkflowRegistration = (executionId: string) =>
-				runWithDb(workflowReferences.release(executionId));
+				workflowReferences.release(executionId);
 
 			const enqueuePluginWorkflow = Effect.fn("SandboxExecutionService.enqueuePluginWorkflow")(
 				function* (input: {
@@ -294,12 +288,10 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 					if (contextError) {
 						return yield* new SandboxRunError({ message: contextError });
 					}
-					const script = yield* runWithDb(
-						pluginScriptResolver.findActiveWorkflowScript({
-							pluginSlug: input.pluginSlug,
-							workflowSlug: input.workflowSlug,
-						}),
-					);
+					const script = yield* pluginScriptResolver.findActiveWorkflowScript({
+						pluginSlug: input.pluginSlug,
+						workflowSlug: input.workflowSlug,
+					});
 					if (!script) {
 						return yield* notFound(sandboxScriptNotFoundError);
 					}
@@ -311,15 +303,13 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 						authority: { type: "user" as const, userId: input.executingUserId },
 					};
 					const pin = yield* establishSandboxWorkflowPin(payload, input.executionId).pipe(
-						Effect.provideService(DbRunner, runWithDb),
 						Effect.provideService(SandboxRepository, repository),
-						Effect.provideService(TransactionRunner, runInTransaction),
 						Effect.provideService(SandboxPluginScriptResolver, pluginScriptResolver),
 						Effect.provideService(SandboxWorkflowReferenceRepository, workflowReferences),
 					);
 					const releaseRegistration =
 						pin.registrationStatus === "registered"
-							? runWithDb(workflowReferences.release(input.executionId))
+							? workflowReferences.release(input.executionId)
 							: Effect.void;
 					yield* engine
 						.execute(SandboxScriptWorkflow, {
@@ -358,7 +348,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 				getPluginWorkflowResult,
 				preRegisterPluginWorkflow,
 				releaseWorkflowRegistration,
-				listStoredScripts: runWithDb(repository.listStoredScripts()),
+				listStoredScripts: repository.listStoredScripts(),
 			};
 		}),
 	},

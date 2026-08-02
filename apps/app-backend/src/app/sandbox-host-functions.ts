@@ -16,7 +16,7 @@ import { eq } from "drizzle-orm";
 import { Effect, Schema } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { CurrentDb, DbRunner, dbEffect, TransactionRunner } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { getPluginConfig, getSystemConfig } from "#lib/infrastructure/sandbox-runtime/app-config";
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import {
@@ -42,11 +42,10 @@ import {
 import { RyotQLService } from "#modules/ryotql/service";
 
 type SandboxHostFunctionContext =
-	| DbRunner
+	| Database
 	| RyotQLService
 	| EventsService
 	| EntitiesService
-	| TransactionRunner
 	| EntitiesRepository
 	| DefinitionRegistry
 	| PluginRuntimeResolver
@@ -135,35 +134,31 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 	never,
 	SandboxHostFunctionContext
 > = Effect.gen(function* () {
-	const runWithDb = yield* DbRunner;
+	const database = yield* Database;
 	const events = yield* EventsService;
 	const entities = yield* EntitiesService;
 	const ryotqlService = yield* RyotQLService;
 	const definitions = yield* DefinitionRegistry;
-	const runInTransaction = yield* TransactionRunner;
 	const pluginRuntime = yield* PluginRuntimeResolver;
 	const entitiesRepository = yield* EntitiesRepository;
 	const integrationsRepository = yield* IntegrationsRepository;
 	const relationshipsRepository = yield* RelationshipsRepository;
 
 	const readUserPreferences = (userId: UserId) =>
-		runWithDb(
-			Effect.gen(function* () {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
-					db
-						.select({ preferences: schema.user.preferences })
-						.from(schema.user)
-						.where(eq(schema.user.id, userId))
-						.limit(1),
-				);
-				if (!row) {
-					return yield* Effect.fail("User not found");
-				}
+		Effect.gen(function* () {
+			const [row] = yield* mapDatabaseErrors(
+				database
+					.select({ preferences: schema.user.preferences })
+					.from(schema.user)
+					.where(eq(schema.user.id, userId))
+					.limit(1),
+			);
+			if (!row) {
+				return yield* Effect.fail("User not found");
+			}
 
-				return normalizePreferences(row.preferences);
-			}),
-		);
+			return normalizePreferences(row.preferences);
+		});
 
 	const createEvents = (input: UserSandboxRunInput, payload: ReadonlyArray<CreateEventItem>) =>
 		payload.length === 0
@@ -198,19 +193,19 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 							deletes: batch.deletes.map(toSandboxRelationshipIdentity),
 						})),
 					).pipe(
+						Effect.provideService(Database, database),
 						Effect.provideService(DefinitionRegistry, definitions),
 						Effect.provideService(EntitiesRepository, entitiesRepository),
-						Effect.provideService(TransactionRunner, runInTransaction),
 						Effect.provideService(RelationshipsRepository, relationshipsRepository),
 					);
-				}),
+				}).pipe(Effect.provideService(Database, database)),
 			),
 		ensureUserEntities: (rawInput, items) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
 					const input = yield* requireSandboxCapabilityInput(rawInput, "ensureUserEntities");
-					const caller = yield* runWithDb(
-						pluginRuntime.resolveTrustedUserBootstrapCaller(SandboxScriptId.make(input.scriptId)),
+					const caller = yield* pluginRuntime.resolveTrustedUserBootstrapCaller(
+						SandboxScriptId.make(input.scriptId),
 					);
 					if (!caller) {
 						return yield* Effect.fail(
@@ -241,8 +236,8 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 								? { occurredAt: input.startedAt, executionId: input.executionId }
 								: undefined,
 						)
-						.pipe(Effect.provideService(TransactionRunner, runInTransaction));
-				}),
+						.pipe(Effect.provideService(Database, database));
+				}).pipe(Effect.provideService(Database, database)),
 			),
 		createEvents: (rawInput, body) =>
 			requireSandboxCapabilityInput(rawInput, "createEvents").pipe(
@@ -284,7 +279,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 								? undefined
 								: { maximumTotal: options.maximumTotal },
 						)
-						.pipe(Effect.provideService(TransactionRunner, runInTransaction));
+						.pipe(Effect.provideService(Database, database));
 				}),
 			),
 		upsertGlobalRelationships: (rawInput, groups) =>
@@ -319,8 +314,8 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 										},
 						})),
 					).pipe(
+						Effect.provideService(Database, database),
 						Effect.provideService(DefinitionRegistry, definitions),
-						Effect.provideService(TransactionRunner, runInTransaction),
 						Effect.provideService(RelationshipsRepository, relationshipsRepository),
 					);
 				}),
@@ -330,55 +325,59 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				Effect.flatMap((input) => {
 					const { authority } = input;
 					if (authority.type === "system") {
-						return Effect.gen(function* () {
-							const caller = yield* runWithDb(
-								pluginRuntime.resolveSystemQueryScript(SandboxScriptId.make(input.scriptId)),
-							);
-							if (!caller) {
-								return yield* Effect.fail(
-									"executeRyotql system access requires a pinned plugin script",
+						return sandboxHostEffect(
+							Effect.gen(function* () {
+								const caller = yield* pluginRuntime
+									.resolveSystemQueryScript(SandboxScriptId.make(input.scriptId))
+									.pipe(Effect.provideService(Database, database));
+								if (!caller) {
+									return yield* Effect.fail(
+										"executeRyotql system access requires a pinned plugin script",
+									);
+								}
+								const document = yield* decodeRyotQLDocument(query);
+								return yield* ryotqlService.executeForPlugin(
+									{
+										pluginSlug: caller.pluginSlug,
+										eventSchemas: caller.eventSchemas,
+										entitySchemaSlugs: caller.entitySchemaSlugs,
+										relationshipSchemaSlugs: caller.relationshipSchemaSlugs,
+									},
+									document,
 								);
-							}
-							const document = yield* decodeRyotQLDocument(query);
-							return yield* ryotqlService.executeForPlugin(
-								{
-									pluginSlug: caller.pluginSlug,
-									eventSchemas: caller.eventSchemas,
-									entitySchemaSlugs: caller.entitySchemaSlugs,
-									relationshipSchemaSlugs: caller.relationshipSchemaSlugs,
-								},
-								document,
-							);
-						});
+							}),
+						);
 					}
-					return decodeRyotQLDocument(query).pipe(
-						Effect.flatMap((document) =>
-							ryotqlService.executeForUser(authority.userId, null, document),
+					return sandboxHostEffect(
+						decodeRyotQLDocument(query).pipe(
+							Effect.flatMap((document) =>
+								ryotqlService.executeForUser(authority.userId, null, document),
+							),
 						),
 					);
 				}),
-				sandboxHostEffect,
 			),
 		getPluginConfig: (input, rawKeys) =>
 			sandboxHostEffect(
 				normalizeConfigKeys("getPluginConfig", rawKeys).pipe(
 					Effect.flatMap((keys) =>
-						runWithDb(
-							pluginRuntime.findActivePluginConfigByScriptId(SandboxScriptId.make(input.scriptId)),
-						).pipe(
-							Effect.flatMap((plugin) =>
-								plugin
-									? getPluginConfig({
-											keys,
-											metadata: input.metadata,
-											pluginSlug: plugin.pluginSlug,
-											configSchema: plugin.configSchema,
-										})
-									: Effect.fail("Plugin config is available only to active plugin scripts"),
+						pluginRuntime
+							.findActivePluginConfigByScriptId(SandboxScriptId.make(input.scriptId))
+							.pipe(
+								Effect.flatMap((plugin) =>
+									plugin
+										? getPluginConfig({
+												keys,
+												metadata: input.metadata,
+												pluginSlug: plugin.pluginSlug,
+												configSchema: plugin.configSchema,
+											})
+										: Effect.fail("Plugin config is available only to active plugin scripts"),
+								),
+								Effect.flatMap((values) => encodeConfigValues("Plugin", values)),
 							),
-							Effect.flatMap((values) => encodeConfigValues("Plugin", values)),
-						),
 					),
+					Effect.provideService(Database, database),
 				),
 			),
 		getSystemConfig: (input, rawKeys) =>
@@ -418,37 +417,36 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 								});
 							}).pipe(
 								Effect.flatMap((schemas) =>
-									runWithDb(
-										Effect.gen(function* () {
-											const links =
-												yield* pluginRuntime.listSchemaProviders(resolvedEntitySchemaSlugs);
-											const providersBySchema = new Map<
-												string,
-												Array<{ name: string; providerId: string }>
-											>();
-											for (const { entitySchemaSlug, provider } of links) {
-												const providers = providersBySchema.get(entitySchemaSlug) ?? [];
-												providers.push({ name: provider.name, providerId: provider.id });
-												providersBySchema.set(entitySchemaSlug, providers);
-											}
+									Effect.gen(function* () {
+										const links =
+											yield* pluginRuntime.listSchemaProviders(resolvedEntitySchemaSlugs);
+										const providersBySchema = new Map<
+											string,
+											Array<{ name: string; providerId: string }>
+										>();
+										for (const { entitySchemaSlug, provider } of links) {
+											const providers = providersBySchema.get(entitySchemaSlug) ?? [];
+											providers.push({ name: provider.name, providerId: provider.id });
+											providersBySchema.set(entitySchemaSlug, providers);
+										}
 
-											return schemas.map(({ definition, entitySchemaSlug, pluginSlug }) => ({
-												icon: definition.icon,
-												id: entitySchemaSlug,
-												isBuiltin: true,
-												name: definition.name,
-												pluginSlug,
-												propertiesSchema: toSandboxJsonValue(definition.propertiesSchema),
-												providers: providersBySchema.get(entitySchemaSlug) ?? [],
-												slug: definition.slug,
-											}));
-										}),
-									).pipe(Effect.mapError(unknownToMessage)),
+										return schemas.map(({ definition, entitySchemaSlug, pluginSlug }) => ({
+											icon: definition.icon,
+											id: entitySchemaSlug,
+											isBuiltin: true,
+											name: definition.name,
+											pluginSlug,
+											propertiesSchema: toSandboxJsonValue(definition.propertiesSchema),
+											providers: providersBySchema.get(entitySchemaSlug) ?? [],
+											slug: definition.slug,
+										}));
+									}).pipe(Effect.mapError(unknownToMessage)),
 								),
 							);
 						}),
 					),
 				),
+				Effect.provideService(Database, database),
 				sandboxHostEffect,
 			),
 		getCurrentIntegration: (rawInput) =>
@@ -461,21 +459,20 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 						);
 					}
 
-					return runWithDb(
-						integrationsRepository
-							.getForUser({
-								userId: UserId.make(input.authority.userId),
-								integrationId: IntegrationId.make(integrationId),
-							})
-							.pipe(
-								Effect.flatMap((integration) =>
-									integration
-										? Effect.succeed(toSandboxIntegration(integration))
-										: Effect.fail("Integration not found"),
-								),
+					return integrationsRepository
+						.getForUser({
+							userId: UserId.make(input.authority.userId),
+							integrationId: IntegrationId.make(integrationId),
+						})
+						.pipe(
+							Effect.flatMap((integration) =>
+								integration
+									? Effect.succeed(toSandboxIntegration(integration))
+									: Effect.fail("Integration not found"),
 							),
-					);
+						);
 				}),
+				Effect.provideService(Database, database),
 				sandboxHostEffect,
 			),
 		getUserPreferences: (rawInput) =>
@@ -520,13 +517,16 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				const options = rawOptions ?? {};
 
 				return yield* sandboxHostEffect(
-					runWithDb(
-						integrationsRepository.listForUser({
+					integrationsRepository
+						.listForUser({
 							userId: UserId.make(input.authority.userId),
 							...(options.provider !== undefined ? { provider: options.provider } : {}),
 							...(options.isDisabled !== undefined ? { isDisabled: options.isDisabled } : {}),
-						}),
-					).pipe(Effect.map((rows) => rows.map(toSandboxIntegration))),
+						})
+						.pipe(
+							Effect.map((rows) => rows.map(toSandboxIntegration)),
+							Effect.provideService(Database, database),
+						),
 				);
 			}),
 	} satisfies AdditionalSandboxHostImplementationMap;

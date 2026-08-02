@@ -5,7 +5,7 @@ import { Effect, Layer } from "effect";
 import Redis from "ioredis";
 
 import { RedisService } from "#lib/infrastructure/redis";
-import { makeRedisService } from "#lib/test-utils/effect";
+import { databaseLayer, makeRedisService } from "#lib/test-utils/effect";
 
 import { LocalStreamConnections } from "./connections";
 import { EntityInterestProgression } from "./progression";
@@ -27,6 +27,7 @@ it.effect("routes valid messages and ignores malformed data", () => {
 	const lookedUp: string[] = [];
 	const progressed: string[] = [];
 	const dependencies = Layer.mergeAll(
+		databaseLayer,
 		LocalStreamConnections.layer,
 		Layer.succeed(RedisService, makeRedisService({ client })),
 		Layer.mock(EntityInterestProgression)({
@@ -68,6 +69,7 @@ it.effect("bounds progression retries and absorbs the final failure", () => {
 	let attempts = 0;
 	const markedPending: unknown[] = [];
 	const dependencies = Layer.mergeAll(
+		databaseLayer,
 		LocalStreamConnections.layer,
 		Layer.succeed(RedisService, makeRedisService({ client })),
 		Layer.mock(EntityInterestStore)({

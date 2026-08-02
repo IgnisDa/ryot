@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 
-import { legacyBootstrapGate, withRawPgClient } from "./shared";
+import { legacyBootstrapGate, withReservedConnection } from "./shared";
 
 const renameLegacyUserTableSql = `
 DO $$
@@ -72,11 +72,12 @@ export const renameLegacyTables = Effect.gen(function* () {
 		return;
 	}
 
-	yield* withRawPgClient((client) =>
-		client
-			.query(renameLegacyUserTableSql)
-			.then(() => client.query(renameLegacyIntegrationTableSql))
-			.then(() => client.query(renameLegacyNotificationPlatformTableSql))
-			.then(() => client.query(renameLegacyEntityTranslationTableSql)),
+	yield* withReservedConnection((connection) =>
+		Effect.gen(function* () {
+			yield* connection.executeRaw(renameLegacyUserTableSql, []);
+			yield* connection.executeRaw(renameLegacyIntegrationTableSql, []);
+			yield* connection.executeRaw(renameLegacyNotificationPlatformTableSql, []);
+			yield* connection.executeRaw(renameLegacyEntityTranslationTableSql, []);
+		}),
 	);
 });

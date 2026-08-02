@@ -5,7 +5,7 @@ import { Context, Effect, Layer } from "effect";
 
 import { user } from "#lib/infrastructure/db/schema/tables/auth";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 export type TranslationOverlayInput = {
 	language: string;
@@ -20,6 +20,7 @@ const extractLanguage = (preferences: Record<string, unknown>): string | null =>
 	return typeof language === "string" && language.length > 0 ? language : null;
 };
 
+/** @effect-expect-leaking Database */
 export class TranslationsRepository extends Context.Service<TranslationsRepository>()(
 	"TranslationsRepository",
 	{
@@ -28,8 +29,8 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 				language: string;
 				entityId: EntityId;
 			}) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({
 							name: schema.entityTranslation.name,
@@ -51,8 +52,8 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 			const createOverlay = Effect.fn("TranslationsRepository.createOverlay")(function* (
 				input: TranslationOverlayInput,
 			) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.insert(schema.entityTranslation)
 						.values({
@@ -77,8 +78,8 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 			const updateOverlay = Effect.fn("TranslationsRepository.updateOverlay")(function* (
 				input: TranslationOverlayInput,
 			) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.update(schema.entityTranslation)
 						.set({
@@ -101,8 +102,8 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 			const listByEntity = Effect.fn("TranslationsRepository.listByEntity")(function* (
 				entityId: EntityId,
 			) {
-				const db = yield* CurrentDb;
-				const rows = yield* dbEffect(() =>
+				const db = yield* Database;
+				const rows = yield* mapDatabaseErrors(
 					db
 						.select({
 							name: schema.entityTranslation.name,
@@ -123,8 +124,8 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 			const findUserLanguage = Effect.fn("TranslationsRepository.findUserLanguage")(function* (
 				userId: UserId,
 			) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ preferences: user.preferences })
 						.from(user)

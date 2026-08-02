@@ -10,7 +10,7 @@ import {
 import { Effect, Layer } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
-import { type MockOverrides, dbRunnerLayer, transactionLayer } from "#lib/test-utils/effect";
+import { databaseLayer, type MockOverrides } from "#lib/test-utils/effect";
 
 import { LifecycleDispatch, LifecycleDispatchNoop } from "./lifecycle-dispatch";
 import { EntitiesRepository } from "./repository";
@@ -34,9 +34,9 @@ const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepo
 const makeServiceLayer = (repository = makeEntitiesRepository()) =>
 	Layer.mergeAll(
 		EntitiesService.layer.pipe(
-			Layer.provide(Layer.mergeAll(dbRunnerLayer, LifecycleDispatchNoop, repository)),
+			Layer.provide(Layer.mergeAll(databaseLayer, LifecycleDispatchNoop, repository)),
 		),
-		transactionLayer,
+		databaseLayer,
 	);
 
 it.effect("returns existing entity when provenance already exists", () => {
@@ -152,7 +152,7 @@ it.effect("does not reuse the bootstrap service with its no-op lifecycle dispatc
 				},
 			}),
 	});
-	const dependencies = Layer.mergeAll(dbRunnerLayer, repository);
+	const dependencies = Layer.mergeAll(databaseLayer, repository);
 	const bootstrap = Layer.fresh(EntitiesService.layer).pipe(
 		Layer.provide(Layer.mergeAll(dependencies, LifecycleDispatchNoop)),
 	);
@@ -166,7 +166,7 @@ it.effect("does not reuse the bootstrap service with its no-op lifecycle dispatc
 			),
 		),
 	);
-	const layer = bootstrap.pipe(Layer.flatMap(() => runtime));
+	const layer = Layer.mergeAll(databaseLayer, bootstrap.pipe(Layer.flatMap(() => runtime)));
 
 	return Effect.gen(function* () {
 		const service = yield* EntitiesService;
@@ -215,10 +215,11 @@ it.effect(
 				}),
 		});
 		const layer = Layer.mergeAll(
+			databaseLayer,
 			EntitiesService.layer.pipe(
 				Layer.provide(
 					Layer.mergeAll(
-						dbRunnerLayer,
+						databaseLayer,
 						repository,
 						Layer.succeed(LifecycleDispatch, {
 							dispatch: (input) => Effect.sync(() => dispatched.push(input)).pipe(Effect.asVoid),
@@ -226,7 +227,6 @@ it.effect(
 					),
 				),
 			),
-			transactionLayer,
 		);
 
 		return Effect.gen(function* () {

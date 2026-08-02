@@ -3,16 +3,17 @@ import { asc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/auth";
-import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 const userSearchClause = (search?: string) =>
 	search ? ilike(schema.user.email, `%${search.trim()}%`) : undefined;
 
+/** @effect-expect-leaking Database */
 export class GodModeRepository extends Context.Service<GodModeRepository>()("GodModeRepository", {
 	make: Effect.sync(() => {
 		const countUsers = Effect.fn("GodModeRepository.countUsers")(function* (search?: string) {
-			const db = yield* CurrentDb;
-			const rows = yield* dbEffect(() =>
+			const db = yield* Database;
+			const rows = yield* mapDatabaseErrors(
 				db
 					.select({ count: sql<string>`count(*)` })
 					.from(schema.user)
@@ -26,8 +27,8 @@ export class GodModeRepository extends Context.Service<GodModeRepository>()("God
 			offset: number;
 			limit: number;
 		}) {
-			const db = yield* CurrentDb;
-			const rows = yield* dbEffect(() =>
+			const db = yield* Database;
+			const rows = yield* mapDatabaseErrors(
 				db
 					.select({
 						id: schema.user.id,
@@ -57,8 +58,8 @@ export class GodModeRepository extends Context.Service<GodModeRepository>()("God
 		const listAccountsForUsers = Effect.fn("GodModeRepository.listAccountsForUsers")(function* (
 			userIds: string[],
 		) {
-			const db = yield* CurrentDb;
-			return yield* dbEffect(() =>
+			const db = yield* Database;
+			return yield* mapDatabaseErrors(
 				db
 					.select({ userId: schema.account.userId, providerId: schema.account.providerId })
 					.from(schema.account)
@@ -67,8 +68,8 @@ export class GodModeRepository extends Context.Service<GodModeRepository>()("God
 		});
 
 		const findUserById = Effect.fn("GodModeRepository.findUserById")(function* (userId: UserId) {
-			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
+			const db = yield* Database;
+			const [row] = yield* mapDatabaseErrors(
 				db
 					.select({ id: schema.user.id, email: schema.user.email })
 					.from(schema.user)
@@ -81,8 +82,8 @@ export class GodModeRepository extends Context.Service<GodModeRepository>()("God
 		const findUserIdByEmail = Effect.fn("GodModeRepository.findUserIdByEmail")(function* (
 			email: string,
 		) {
-			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
+			const db = yield* Database;
+			const [row] = yield* mapDatabaseErrors(
 				db
 					.select({ id: schema.user.id })
 					.from(schema.user)
@@ -95,8 +96,8 @@ export class GodModeRepository extends Context.Service<GodModeRepository>()("God
 		const findUserDisabledState = Effect.fn("GodModeRepository.findUserDisabledState")(function* (
 			userId: UserId,
 		) {
-			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
+			const db = yield* Database;
+			const [row] = yield* mapDatabaseErrors(
 				db
 					.select({ id: schema.user.id, disabledAt: schema.user.disabledAt })
 					.from(schema.user)
@@ -109,8 +110,8 @@ export class GodModeRepository extends Context.Service<GodModeRepository>()("God
 		const loadDeleteSnapshot = Effect.fn("GodModeRepository.loadDeleteSnapshot")(function* (
 			userId: UserId,
 		) {
-			const db = yield* CurrentDb;
-			const [user] = yield* dbEffect(() =>
+			const db = yield* Database;
+			const [user] = yield* mapDatabaseErrors(
 				db
 					.select({ id: schema.user.id })
 					.from(schema.user)
@@ -121,7 +122,7 @@ export class GodModeRepository extends Context.Service<GodModeRepository>()("God
 				return null;
 			}
 
-			const apiKeys = yield* dbEffect(() =>
+			const apiKeys = yield* mapDatabaseErrors(
 				db
 					.select({ id: schema.apikey.id, key: schema.apikey.key })
 					.from(schema.apikey)
@@ -133,8 +134,8 @@ export class GodModeRepository extends Context.Service<GodModeRepository>()("God
 		const loadResetSnapshot = Effect.fn("GodModeRepository.loadResetSnapshot")(function* (
 			userId: UserId,
 		) {
-			const db = yield* CurrentDb;
-			const [user] = yield* dbEffect(() =>
+			const db = yield* Database;
+			const [user] = yield* mapDatabaseErrors(
 				db
 					.select({
 						id: schema.user.id,
@@ -149,13 +150,13 @@ export class GodModeRepository extends Context.Service<GodModeRepository>()("God
 			if (!user) {
 				return null;
 			}
-			const accounts = yield* dbEffect(() =>
+			const accounts = yield* mapDatabaseErrors(
 				db
 					.select({ providerId: schema.account.providerId, accountId: schema.account.accountId })
 					.from(schema.account)
 					.where(eq(schema.account.userId, userId)),
 			);
-			const apiKeys = yield* dbEffect(() =>
+			const apiKeys = yield* mapDatabaseErrors(
 				db
 					.select({ id: schema.apikey.id, key: schema.apikey.key })
 					.from(schema.apikey)

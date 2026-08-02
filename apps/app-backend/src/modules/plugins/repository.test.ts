@@ -5,7 +5,7 @@ import { Effect, Layer } from "effect";
 import { assert } from "vitest";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { CurrentDb } from "#lib/infrastructure/db/service";
+import { Database } from "#lib/infrastructure/db/service";
 
 import { PluginRepository } from "./repository";
 import { fixtureManifest } from "./test-support";
@@ -21,10 +21,10 @@ const makeLayer = (input: {
 			from: (table: unknown) => ({
 				where: () => ({
 					limit: () =>
-						Promise.resolve(table === schema.integration ? (input.integrationRows ?? []) : []),
+						Effect.succeed(table === schema.integration ? (input.integrationRows ?? []) : []),
 				}),
 				leftJoin: () => ({
-					where: () => ({ limit: () => Promise.resolve(input.entityRows ?? []) }),
+					where: () => ({ limit: () => Effect.succeed(input.entityRows ?? []) }),
 				}),
 			}),
 		}),
@@ -32,13 +32,13 @@ const makeLayer = (input: {
 			set: ({ status }: { status: string }) => ({
 				where: () => {
 					input.statuses?.push(status);
-					return Promise.resolve();
+					return Effect.void;
 				},
 			}),
 		}),
 	};
 	return PluginRepository.layer.pipe(
-		Layer.provideMerge(Layer.succeed(CurrentDb, Object.assign(Object.create(null), db))),
+		Layer.provideMerge(Layer.succeed(Database, Object.assign(Object.create(null), db))),
 	);
 };
 
@@ -54,8 +54,8 @@ const makeScriptCleanupLayer = (input: {
 			return {
 				where: (condition: SQLWrapper) => {
 					input.statements.push(dialect.sqlToQuery(condition.getSQL()));
-					return Object.assign(Promise.resolve(), {
-						returning: () => Promise.resolve(input.removed.shift() ?? []),
+					return Object.assign(Effect.void, {
+						returning: () => Effect.succeed(input.removed.shift() ?? []),
 					});
 				},
 			};
@@ -67,7 +67,7 @@ const makeScriptCleanupLayer = (input: {
 		}),
 	};
 	return PluginRepository.layer.pipe(
-		Layer.provideMerge(Layer.succeed(CurrentDb, Object.assign(Object.create(null), db))),
+		Layer.provideMerge(Layer.succeed(Database, Object.assign(Object.create(null), db))),
 	);
 };
 
@@ -112,13 +112,13 @@ it.effect("loads active manifests without selecting plugin scripts", () => {
 			return {
 				from: (table: unknown) => {
 					tables.push(table);
-					return { where: () => Promise.resolve([{ manifest }]) };
+					return { where: () => Effect.succeed([{ manifest }]) };
 				},
 			};
 		},
 	};
 	const layer = PluginRepository.layer.pipe(
-		Layer.provideMerge(Layer.succeed(CurrentDb, Object.assign(Object.create(null), db))),
+		Layer.provideMerge(Layer.succeed(Database, Object.assign(Object.create(null), db))),
 	);
 
 	return Effect.gen(function* () {
@@ -134,8 +134,8 @@ it.effect(
 	() => {
 		const scriptRows: Array<unknown> = [];
 		const db = {
-			delete: () => ({ where: () => Promise.resolve() }),
-			select: () => ({ from: () => ({ where: () => Promise.resolve([]) }) }),
+			delete: () => ({ where: () => Effect.void }),
+			select: () => ({ from: () => ({ where: () => Effect.succeed([]) }) }),
 			insert: (table: unknown) => ({
 				values: (values: unknown) => {
 					if (table === schema.sandboxScript && typeof values === "object" && values !== null) {
@@ -146,7 +146,7 @@ it.effect(
 							if (table === schema.sandboxProvider) {
 								return {
 									returning: () =>
-										Promise.resolve([{ id: "stable-provider-id", slug: "fixture-provider" }]),
+										Effect.succeed([{ id: "stable-provider-id", slug: "fixture-provider" }]),
 								};
 							}
 							if (table === schema.sandboxScript) {
@@ -160,14 +160,14 @@ it.effect(
 										: undefined;
 								return {
 									returning: () =>
-										Promise.resolve(
+										Effect.succeed(
 											typeof slug === "string" && typeof contentHash === "string"
 												? [{ id: `${slug}-id`, slug, contentHash }]
 												: [],
 										),
 								};
 							}
-							return Promise.resolve();
+							return Effect.void;
 						},
 					};
 				},
@@ -221,7 +221,7 @@ it.effect(
 			}),
 		};
 		const layer = PluginRepository.layer.pipe(
-			Layer.provideMerge(Layer.succeed(CurrentDb, Object.assign(Object.create(null), db))),
+			Layer.provideMerge(Layer.succeed(Database, Object.assign(Object.create(null), db))),
 		);
 		return Effect.gen(function* () {
 			const repository = yield* PluginRepository;
@@ -242,8 +242,8 @@ it.effect(
 it.effect("persists provider operation bindings and search options separately", () => {
 	const operationValues: Array<unknown> = [];
 	const db = {
-		select: () => ({ from: () => ({ where: () => Promise.resolve([]) }) }),
-		delete: () => ({ where: () => Promise.resolve() }),
+		select: () => ({ from: () => ({ where: () => Effect.succeed([]) }) }),
+		delete: () => ({ where: () => Effect.void }),
 		insert: (table: unknown) => ({
 			values: (values: unknown) => {
 				if (
@@ -257,13 +257,13 @@ it.effect("persists provider operation bindings and search options separately", 
 					onConflictDoUpdate: () => {
 						if (table === schema.sandboxProvider) {
 							return {
-								returning: () => Promise.resolve([{ id: "provider-id", slug: "fixture-provider" }]),
+								returning: () => Effect.succeed([{ id: "provider-id", slug: "fixture-provider" }]),
 							};
 						}
 						if (table === schema.sandboxScript) {
 							return {
 								returning: () =>
-									Promise.resolve([
+									Effect.succeed([
 										{
 											id: `${String(
 												Reflect.get(
@@ -283,7 +283,7 @@ it.effect("persists provider operation bindings and search options separately", 
 									]),
 							};
 						}
-						return Promise.resolve();
+						return Effect.void;
 					},
 				};
 			},
@@ -361,7 +361,7 @@ it.effect("persists provider operation bindings and search options separately", 
 		}),
 	};
 	const layer = PluginRepository.layer.pipe(
-		Layer.provideMerge(Layer.succeed(CurrentDb, Object.assign(Object.create(null), db))),
+		Layer.provideMerge(Layer.succeed(Database, Object.assign(Object.create(null), db))),
 	);
 
 	return Effect.gen(function* () {
@@ -436,7 +436,7 @@ it.effect("lists persisted source-zero and pinned-plugin script hashes as live",
 			from: () => ({
 				where: (condition: SQLWrapper) => {
 					statements.push(dialect.sqlToQuery(condition.getSQL()));
-					return Promise.resolve([
+					return Effect.succeed([
 						{ contentHash: "kernel-history" },
 						{ contentHash: "plugin-history" },
 					]);
@@ -445,7 +445,7 @@ it.effect("lists persisted source-zero and pinned-plugin script hashes as live",
 		}),
 	};
 	const layer = PluginRepository.layer.pipe(
-		Layer.provideMerge(Layer.succeed(CurrentDb, Object.assign(Object.create(null), db))),
+		Layer.provideMerge(Layer.succeed(Database, Object.assign(Object.create(null), db))),
 	);
 
 	return Effect.gen(function* () {

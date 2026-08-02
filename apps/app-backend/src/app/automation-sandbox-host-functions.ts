@@ -4,6 +4,7 @@ import { automationInputSchema } from "@ryot/sandbox-sdk/automation";
 import type { AutomationSandboxHostImplementationMap } from "@ryot/sandbox-sdk/core";
 import { DateTime, Effect, Option, Schema } from "effect";
 
+import { Database } from "#lib/infrastructure/db/service";
 import {
 	requireSandboxCapabilityInput,
 	sandboxHostEffect,
@@ -17,8 +18,9 @@ import { SignalEmissionService } from "#modules/signals/service";
 export const makeAutomationSandboxApiFunctions: Effect.Effect<
 	AutomationSandboxHostImplementationMap<SandboxRunInput>,
 	never,
-	NotificationsService | SignalEmissionService
+	Database | NotificationsService | SignalEmissionService
 > = Effect.gen(function* () {
+	const database = yield* Database;
 	const signals = yield* SignalEmissionService;
 	const notifications = yield* NotificationsService;
 
@@ -67,6 +69,7 @@ export const makeAutomationSandboxApiFunctions: Effect.Effect<
 											: { kind: "system" },
 								})
 								.pipe(
+									Effect.provideService(Database, database),
 									Effect.map((result) => ({
 										signalId: result.signal.id,
 										wasCreated: result.wasCreated,

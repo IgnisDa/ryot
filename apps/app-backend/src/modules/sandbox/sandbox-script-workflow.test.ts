@@ -20,11 +20,10 @@ import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/san
 import { makeWorkflowReplayJournalHostFunction } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import {
-	dbRunnerLayer,
+	databaseLayer,
 	makeRedisService,
 	makeWorkflowActivityEngine,
 	makeWorkflowEngine,
-	transactionLayer,
 } from "#lib/test-utils/effect";
 
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
@@ -59,7 +58,7 @@ const makeProjectionRedis = () =>
 	});
 
 const controlledWorkflowDependencies = Layer.mergeAll(
-	transactionLayer,
+	databaseLayer,
 	Layer.succeed(RedisService, makeProjectionRedis()),
 	Layer.mock(SandboxArtifactStore)({
 		retain: () => Effect.void,
@@ -169,8 +168,7 @@ fi
 		Schema.fromJsonString(workflowReplayEnvelopeSchema),
 	);
 	const layer = Layer.mergeAll(
-		dbRunnerLayer,
-		transactionLayer,
+		databaseLayer,
 		Layer.succeed(WorkflowEngine, engine),
 		Layer.succeed(WorkflowInstance, instance),
 		Layer.succeed(RedisService, makeRedisService({ client: redisClient })),
@@ -330,7 +328,7 @@ it.effect("retains a plugin workflow reference while durably suspended", () => {
 				: Effect.map(Effect.exit(activity.execute), (exit) => new Workflow.Complete({ exit })),
 	});
 	const layer = Layer.mergeAll(
-		dbRunnerLayer,
+		databaseLayer,
 		controlledWorkflowDependencies,
 		Layer.succeed(WorkflowEngine, engine),
 		Layer.succeed(WorkflowInstance, instance),
@@ -422,8 +420,7 @@ it.effect("reconstructs a completed host write after interruption without repeat
 		});
 	const dependencies = (instance: WorkflowInstance["Service"]) =>
 		Layer.mergeAll(
-			dbRunnerLayer,
-			transactionLayer,
+			databaseLayer,
 			Layer.succeed(WorkflowInstance, instance),
 			Layer.succeed(WorkflowEngine, makeEngine(instance)),
 			Layer.succeed(RedisService, makeProjectionRedis()),
@@ -507,7 +504,7 @@ it.effect("releases a plugin workflow reference before returning terminal failur
 	const instance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
 	const events: string[] = [];
 	const layer = Layer.mergeAll(
-		dbRunnerLayer,
+		databaseLayer,
 		controlledWorkflowDependencies,
 		Layer.succeed(WorkflowInstance, instance),
 		Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(instance)),
@@ -560,7 +557,7 @@ it.effect("maps inactive plugin pin registration to SandboxRunError", () => {
 	const scriptId = SandboxScriptId.make("workflow-script");
 	const instance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
 	const layer = Layer.mergeAll(
-		dbRunnerLayer,
+		databaseLayer,
 		controlledWorkflowDependencies,
 		Layer.succeed(WorkflowInstance, instance),
 		Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(instance)),
@@ -699,7 +696,7 @@ it.effect("executes a pending batch with request-indexed script child identities
 	return Effect.gen(function* () {
 		const allActivitiesStarted = yield* Deferred.make<void>();
 		const layer = Layer.mergeAll(
-			dbRunnerLayer,
+			databaseLayer,
 			controlledWorkflowDependencies,
 			Layer.succeed(
 				WorkflowEngine,

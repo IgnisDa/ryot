@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { dbEffect, DbService } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 import {
 	buildLegacyEntityMigrationSql,
@@ -80,9 +80,10 @@ export const buildGroupPersonRelationshipMigrationSql = (targets: ResolvedRelati
 	buildLegacyGroupPersonRelationshipInsertSql(targets);
 
 export const getUnsupportedPersonSources = Effect.gen(function* () {
-	const { db } = yield* DbService;
-	const result = yield* dbEffect(() =>
-		db.execute<{ source: string; entity_kind: string }>(sql`
+	const database = yield* Database;
+	const result = yield* mapDatabaseErrors(
+		database.execute<{ source: string; entity_kind: string }>(
+			sql`
 			WITH person_targets (source, entity_schema_slug, provider_slug) AS (
 				VALUES ${personEntityTargetValuesSql}
 			),
@@ -111,8 +112,10 @@ export const getUnsupportedPersonSources = Effect.gen(function* () {
 				AND supported_targets.entity_kind = classified_people.entity_kind
 			WHERE supported_targets.source IS NULL
 			ORDER BY classified_people.entity_kind, classified_people.source
-		`),
+		`,
+			"objects",
+		),
 	);
 
-	return result.rows;
+	return result;
 });

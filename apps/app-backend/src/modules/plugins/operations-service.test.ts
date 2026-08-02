@@ -12,7 +12,7 @@ import { Cause, Deferred, Effect, Exit, Fiber, Layer, Option } from "effect";
 import { Headers } from "effect/unstable/http";
 import { assert } from "vitest";
 
-import { dbRunnerLayer } from "#lib/test-utils/effect";
+import { databaseLayer } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
 import { IntegrationOperationScopeResolverLive } from "#modules/integrations/operation-scope-resolver-live";
 import type { IntegrationRecord } from "#modules/integrations/repository";
@@ -113,62 +113,65 @@ const makeLayer = (input: {
 		getByIdAnyUser: () => Effect.succeed(input.integration ?? null),
 	});
 	const integrationScopeResolver = IntegrationOperationScopeResolverLive.pipe(
-		Layer.provide(Layer.mergeAll(dbRunnerLayer, integrationsRepository)),
+		Layer.provide(Layer.mergeAll(databaseLayer, integrationsRepository)),
 	);
-	return OperationsService.layer.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				dbRunnerLayer,
-				integrationScopeResolver,
-				Layer.mock(AuthService)({
-					// oxlint-disable-next-line no-unsafe-type-assertion -- the better-auth client is never touched by these tests
-					auth: {} as AuthService["Service"]["auth"],
-					currentUser: () =>
-						input.currentUserId
-							? (input.currentUserGate ?? Effect.void).pipe(
-									Effect.as({
-										name: "User",
-										id: input.currentUserId,
-										email: "user@example.com",
-										preferences: { isNsfw: false, language: null, disableIntegrations: false },
-									}),
-								)
-							: Effect.fail(unauthorized()),
-				}),
-				Layer.mock(PluginRuntimeResolver)({
-					findActiveOperation: ({ operationSlug, pluginSlug }) => {
-						const operation =
-							pluginSlug === "fixture" && input.registerPlugin !== false
-								? normalizedPlugin(input.auth).manifest.operations.find(
-										({ slug }) => slug === operationSlug,
+	return Layer.mergeAll(
+		databaseLayer,
+		OperationsService.layer.pipe(
+			Layer.provide(
+				Layer.mergeAll(
+					databaseLayer,
+					integrationScopeResolver,
+					Layer.mock(AuthService)({
+						// oxlint-disable-next-line no-unsafe-type-assertion -- the better-auth client is never touched by these tests
+						auth: {} as AuthService["Service"]["auth"],
+						currentUser: () =>
+							input.currentUserId
+								? (input.currentUserGate ?? Effect.void).pipe(
+										Effect.as({
+											name: "User",
+											id: input.currentUserId,
+											email: "user@example.com",
+											preferences: { isNsfw: false, language: null, disableIntegrations: false },
+										}),
 									)
-								: undefined;
-						return Effect.succeed(
-							operation
-								? {
-										operation,
-										script: Effect.succeed(
-											input.operationScript?.() ?? makeActiveScript(operation.scriptSlug),
-										),
-									}
-								: null,
-						);
-					},
-				}),
-				Layer.mock(SandboxExecutionService)({
-					executeScript: (runInput) =>
-						Effect.sync(() => {
-							input.captured?.push(runInput);
-							return {
-								logs: [],
-								value: "ok",
-								status: "completed" as const,
-								error: input.sandboxError
-									? { phase: "execute" as const, message: input.sandboxError }
+								: Effect.fail(unauthorized()),
+					}),
+					Layer.mock(PluginRuntimeResolver)({
+						findActiveOperation: ({ operationSlug, pluginSlug }) => {
+							const operation =
+								pluginSlug === "fixture" && input.registerPlugin !== false
+									? normalizedPlugin(input.auth).manifest.operations.find(
+											({ slug }) => slug === operationSlug,
+										)
+									: undefined;
+							return Effect.succeed(
+								operation
+									? {
+											operation,
+											script: Effect.succeed(
+												input.operationScript?.() ?? makeActiveScript(operation.scriptSlug),
+											),
+										}
 									: null,
-							};
-						}),
-				}),
+							);
+						},
+					}),
+					Layer.mock(SandboxExecutionService)({
+						executeScript: (runInput) =>
+							Effect.sync(() => {
+								input.captured?.push(runInput);
+								return {
+									logs: [],
+									value: "ok",
+									status: "completed" as const,
+									error: input.sandboxError
+										? { phase: "execute" as const, message: input.sandboxError }
+										: null,
+								};
+							}),
+					}),
+				),
 			),
 		),
 	);

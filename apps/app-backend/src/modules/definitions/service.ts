@@ -4,7 +4,6 @@ import type { UpdatePluginStateBody } from "@ryot/contract/modules/definitions/s
 import { PluginSlug } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
 import { PluginLoader } from "#modules/plugins/loader";
 
 import { DefinitionsRepository, type PluginStateRow } from "./repository";
@@ -23,11 +22,11 @@ const merge = (
 	sortOrder: state?.sortOrder ?? defaultSortOrder,
 });
 
+/** @effect-expect-leaking Database */
 export class DefinitionsService extends Context.Service<DefinitionsService>()(
 	"DefinitionsService",
 	{
 		make: Effect.gen(function* () {
-			const runWithDb = yield* DbRunner;
 			const loader = yield* PluginLoader;
 			const repository = yield* DefinitionsRepository;
 
@@ -35,7 +34,7 @@ export class DefinitionsService extends Context.Service<DefinitionsService>()(
 				user: Pick<CurrentUserValue, "id">,
 				includeDisabled: boolean,
 			) {
-				const states = yield* runWithDb(repository.listPluginStates(user.id));
+				const states = yield* repository.listPluginStates(user.id);
 				const bySlug = new Map(states.map((state) => [state.pluginSlug, state]));
 				return Object.values(loader.getSnapshot().plugins)
 					.map(({ manifest }, index) =>
@@ -55,17 +54,15 @@ export class DefinitionsService extends Context.Service<DefinitionsService>()(
 				if (!plugin) {
 					return yield* notFound("Plugin not found");
 				}
-				const current = yield* runWithDb(repository.getPluginState(user.id, pluginSlug));
+				const current = yield* repository.getPluginState(user.id, pluginSlug);
 				const defaultSortOrder = Object.keys(plugins).indexOf(pluginSlug);
-				const state = yield* runWithDb(
-					repository.upsertPluginState({
-						pluginSlug,
-						userId: user.id,
-						config: payload.config ?? current?.config ?? {},
-						isDisabled: payload.isDisabled ?? current?.isDisabled ?? false,
-						sortOrder: payload.sortOrder ?? current?.sortOrder ?? defaultSortOrder,
-					}),
-				);
+				const state = yield* repository.upsertPluginState({
+					pluginSlug,
+					userId: user.id,
+					config: payload.config ?? current?.config ?? {},
+					isDisabled: payload.isDisabled ?? current?.isDisabled ?? false,
+					sortOrder: payload.sortOrder ?? current?.sortOrder ?? defaultSortOrder,
+				});
 				return merge(plugin.manifest.metadata, state, defaultSortOrder);
 			});
 

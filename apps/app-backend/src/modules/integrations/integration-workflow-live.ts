@@ -4,7 +4,6 @@ import { UserId } from "@ryot/contract/schema/brands";
 import { Cause, DateTime, Effect, Schema } from "effect";
 import { Activity } from "effect/unstable/workflow";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
 import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
 import {
 	markImportRunStarted,
@@ -137,12 +136,11 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 			userId: payload.userId,
 			integrationId: payload.integrationId,
 		});
-		const runWithDb = yield* DbRunner;
 		const integrationsRepository = yield* IntegrationsRepository;
 
-		const loadIntegrationEffect = runWithDb(
-			integrationsRepository.getByIdAnyUser({ integrationId: payload.integrationId }),
-		).pipe(Effect.mapError(toIntegrationWorkflowError));
+		const loadIntegrationEffect = integrationsRepository
+			.getByIdAnyUser({ integrationId: payload.integrationId })
+			.pipe(Effect.mapError(toIntegrationWorkflowError));
 		const integration = yield* Activity.make({
 			name: "load-integration",
 			error: IntegrationRunError,

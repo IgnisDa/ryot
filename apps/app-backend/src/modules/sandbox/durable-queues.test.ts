@@ -3,7 +3,7 @@ import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
-import { dbRunnerLayer } from "#lib/test-utils/effect";
+import { databaseLayer } from "#lib/test-utils/effect";
 
 import {
 	executeSandboxExecution,
@@ -67,7 +67,7 @@ esac
 	const historical = script(historicalScriptId, historicalContent);
 	const replacement = script(activeScriptId, replacementContent);
 	const layer = Layer.mergeAll(
-		dbRunnerLayer,
+		databaseLayer,
 		Layer.mock(SandboxRepository)({
 			isPluginScript: () => Effect.succeed(true),
 			getScript: (scriptId) =>
@@ -162,7 +162,7 @@ it.effect("executes the exact queued row and preserves provider identity", () =>
 				};
 			}),
 	});
-	const layer = Layer.mergeAll(dbRunnerLayer, repository, sandbox);
+	const layer = Layer.mergeAll(databaseLayer, repository, sandbox);
 
 	return Effect.gen(function* () {
 		const result = yield* executeSandboxExecution({

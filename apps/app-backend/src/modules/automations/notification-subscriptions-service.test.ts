@@ -11,7 +11,7 @@ import { Effect, Layer, Schema } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
-import { dbRunnerLayer, transactionLayer } from "#lib/test-utils/effect";
+import { databaseLayer } from "#lib/test-utils/effect";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 
 import { NotificationSubscriptionsService } from "./notification-subscriptions-service";
@@ -68,10 +68,9 @@ const makeLayer = (
 	includeDefinition = true,
 ) =>
 	NotificationSubscriptionsService.layer.pipe(
-		Layer.provide(
+		Layer.provideMerge(
 			Layer.mergeAll(
-				dbRunnerLayer,
-				transactionLayer,
+				databaseLayer,
 				makeDefinitions(catalogState, includeDefinition),
 				makeRepository(repository),
 			),

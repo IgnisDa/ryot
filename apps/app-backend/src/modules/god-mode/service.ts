@@ -1,16 +1,14 @@
 import { createOAuthAccountIssuer } from "@better-auth/core/db";
 import { defaultUserPreferences } from "@ryot/contract/auth-middleware";
-import type { BadRequest, DbError } from "@ryot/contract/errors";
+import type { DbError } from "@ryot/contract/errors";
 import { badRequest, internalError, notFound, unknownToMessage } from "@ryot/contract/errors";
 import type { ProvisionUserBody } from "@ryot/contract/modules/god-mode/contract";
 import { UserId } from "@ryot/contract/schema/brands";
 import { Context, DateTime, Effect, Result, Layer } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import type { CurrentDb } from "#lib/infrastructure/db/service";
-import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
-import { AuthService } from "#modules/auth/service";
+import { AuthService, type AuthUserInput } from "#modules/auth/service";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { acquireBootstrapLock, performBootstrap } from "#modules/user-bootstrap/bootstrap";
@@ -19,12 +17,6 @@ import { PluginUserBootstrapDispatcher } from "#modules/user-bootstrap/plugin-di
 import { GodModeRepository } from "./repository";
 
 const RESET_LINK_TIMEOUT_MS = 10_000;
-
-type ResetSnapshot = {
-	readonly accounts: ReadonlyArray<{ accountId: string; providerId: string }>;
-	readonly apiKeys: ReadonlyArray<{ id: string; key: string }>;
-	readonly user: { email: string; emailVerified: boolean; id: string; name: string };
-};
 
 export const classifyAuthState = (accounts: ReadonlyArray<{ providerId: string }>) => {
 	const hasCredential = accounts.some((a) => a.providerId === "credential");
@@ -69,14 +61,13 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 	make: Effect.gen(function* () {
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
-		const runWithDb = yield* DbRunner;
 		const repository = yield* GodModeRepository;
 		const savedViews = yield* SavedViewsService;
-		const runInTransaction = yield* TransactionRunner;
 		const pluginBootstrap = yield* PluginUserBootstrapDispatcher;
 		const notificationSubscriptions = yield* NotificationSubscriptionsService;
 		const {
 			auth,
+			transaction,
 			createAuthUser,
 			deleteAuthUser,
 			linkAuthAccount,
@@ -90,45 +81,41 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 			offset: number;
 			search?: string | undefined;
 		}) {
-			return yield* runWithDb(
-				Effect.gen(function* () {
-					const [total, userRows] = yield* Effect.all([
-						repository.countUsers(input.search),
-						repository.listUserRows(input),
-					]);
+			const [total, userRows] = yield* Effect.all([
+				repository.countUsers(input.search),
+				repository.listUserRows(input),
+			]);
 
-					if (userRows.length === 0) {
-						return { total, users: [] };
-					}
+			if (userRows.length === 0) {
+				return { total, users: [] };
+			}
 
-					const userIds = userRows.map((u) => u.id);
-					const accountRows = yield* repository.listAccountsForUsers(userIds);
+			const userIds = userRows.map((u) => u.id);
+			const accountRows = yield* repository.listAccountsForUsers(userIds);
 
-					const accountsByUser = new Map<string, Array<{ providerId: string }>>();
-					for (const row of accountRows) {
-						const existing = accountsByUser.get(row.userId) ?? [];
-						accountsByUser.set(row.userId, [...existing, { providerId: row.providerId }]);
-					}
+			const accountsByUser = new Map<string, Array<{ providerId: string }>>();
+			for (const row of accountRows) {
+				const existing = accountsByUser.get(row.userId) ?? [];
+				accountsByUser.set(row.userId, [...existing, { providerId: row.providerId }]);
+			}
 
-					const users = userRows.map((u) => ({
-						id: u.id,
-						name: u.name,
-						email: u.email,
-						disabledAt: u.disabledAt,
-						createdAt: u.createdAt,
-						twoFactorEnabled: u.twoFactorEnabled,
-						authState: classifyAuthState(accountsByUser.get(u.id) ?? []),
-					}));
+			const users = userRows.map((u) => ({
+				id: u.id,
+				name: u.name,
+				email: u.email,
+				disabledAt: u.disabledAt,
+				createdAt: u.createdAt,
+				twoFactorEnabled: u.twoFactorEnabled,
+				authState: classifyAuthState(accountsByUser.get(u.id) ?? []),
+			}));
 
-					return { total, users };
-				}),
-			);
+			return { total, users };
 		});
 
 		const provisionUser = Effect.fn("GodModeService.provisionUser")(function* (
 			input: ProvisionUserBody,
 		) {
-			const existing = yield* runWithDb(repository.findUserIdByEmail(input.email));
+			const existing = yield* repository.findUserIdByEmail(input.email);
 
 			if (existing) {
 				return yield* badRequest(`User with email '${input.email}' already exists`);
@@ -161,7 +148,7 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 			userId: UserId,
 			disabled: boolean,
 		) {
-			const user = yield* runWithDb(repository.findUserDisabledState(userId));
+			const user = yield* repository.findUserDisabledState(userId);
 
 			if (!user) {
 				return yield* badRequest(`User with id '${userId}' not found`);
@@ -180,7 +167,7 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 		});
 
 		const deleteUser = Effect.fn("GodModeService.deleteUser")(function* (userId: UserId) {
-			const apiKeys = yield* runInTransaction(
+			const apiKeys = yield* transaction(() =>
 				Effect.gen(function* () {
 					yield* acquireBootstrapLock(userId);
 					const snapshot = yield* repository.loadDeleteSnapshot(userId);
@@ -291,16 +278,10 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 				return yield* badRequest("Local authentication is disabled on this instance");
 			}
 
-			const userData = yield* runWithDb(
-				Effect.gen(function* () {
-					const userRow = yield* repository.findUserById(userId);
-					if (!userRow) {
-						return null;
-					}
-					const accountRows = yield* repository.listAccountsForUsers([userId]);
-					return { user: userRow, accounts: accountRows };
-				}),
-			);
+			const userRow = yield* repository.findUserById(userId);
+			const userData = userRow
+				? { user: userRow, accounts: yield* repository.listAccountsForUsers([userId]) }
+				: null;
 
 			if (!userData) {
 				return yield* badRequest(`User with id '${userId}' not found`);
@@ -316,55 +297,56 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 		});
 
 		const resetUser = Effect.fn("GodModeService.resetUser")(function* (userId: UserId) {
-			const resetTransaction: Effect.Effect<
-				{ snapshot: ResetSnapshot; usesLocalAuth: boolean },
-				BadRequest | DbError,
-				CurrentDb
-			> = Effect.gen(function* () {
-				yield* acquireBootstrapLock(userId);
-				const resetSnapshot = yield* repository.loadResetSnapshot(userId);
-				if (!resetSnapshot) {
-					return yield* badRequest(`User with id '${userId}' not found`);
-				}
+			const resetTransaction = (
+				createUser: (user: AuthUserInput) => Effect.Effect<unknown, DbError>,
+			) =>
+				Effect.gen(function* () {
+					yield* acquireBootstrapLock(userId);
+					const resetSnapshot = yield* repository.loadResetSnapshot(userId);
+					if (!resetSnapshot) {
+						return yield* badRequest(`User with id '${userId}' not found`);
+					}
 
-				const authState = classifyAuthState(resetSnapshot.accounts);
-				if (authState === "mixed") {
-					return yield* badRequest(
-						"Cannot reset a user with mixed authentication (both credential and OIDC accounts).",
-					);
-				}
+					const authState = classifyAuthState(resetSnapshot.accounts);
+					if (authState === "mixed") {
+						return yield* badRequest(
+							"Cannot reset a user with mixed authentication (both credential and OIDC accounts).",
+						);
+					}
 
-				const resetUsesLocalAuth = authState === "credential" || authState === "none";
-				if (resetUsesLocalAuth && config.users.disableLocalAuth) {
-					return yield* badRequest("Local authentication is disabled on this instance");
-				}
+					const resetUsesLocalAuth = authState === "credential" || authState === "none";
+					if (resetUsesLocalAuth && config.users.disableLocalAuth) {
+						return yield* badRequest("Local authentication is disabled on this instance");
+					}
 
-				const oidcAccountId =
-					authState === "oidc"
-						? (resetSnapshot.accounts.find((account) => account.providerId === "oidc")?.accountId ??
-							null)
-						: null;
+					const oidcAccountId =
+						authState === "oidc"
+							? (resetSnapshot.accounts.find((account) => account.providerId === "oidc")
+									?.accountId ?? null)
+							: null;
 
-				yield* deleteAuthUser(userId);
-				yield* createAuthUser({
-					id: userId,
-					name: resetSnapshot.user.name,
-					email: resetSnapshot.user.email,
-					preferences: defaultUserPreferences,
-					emailVerified: resetSnapshot.user.emailVerified,
-				});
-				if (oidcAccountId !== null) {
-					yield* linkAuthAccount({
-						userId,
-						providerId: "oidc",
-						id: crypto.randomUUID(),
-						accountId: oidcAccountId,
-						issuer: createOAuthAccountIssuer("oidc"),
+					yield* deleteAuthUser(userId);
+					yield* createUser({
+						id: userId,
+						name: resetSnapshot.user.name,
+						email: resetSnapshot.user.email,
+						preferences: defaultUserPreferences,
+						emailVerified: resetSnapshot.user.emailVerified,
 					});
-				}
-				return { snapshot: resetSnapshot, usesLocalAuth: resetUsesLocalAuth };
-			});
-			const resetResult = yield* runInTransaction(resetTransaction);
+					if (oidcAccountId !== null) {
+						yield* linkAuthAccount({
+							userId,
+							providerId: "oidc",
+							id: crypto.randomUUID(),
+							accountId: oidcAccountId,
+							issuer: createOAuthAccountIssuer("oidc"),
+						});
+					}
+					return { snapshot: resetSnapshot, usesLocalAuth: resetUsesLocalAuth };
+				});
+			const resetResult = yield* transaction(({ createAuthUser: createUser }) =>
+				resetTransaction(createUser),
+			);
 			const snapshot = resetResult.snapshot;
 			const usesLocalAuth = resetResult.usesLocalAuth;
 
@@ -372,7 +354,6 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 				Effect.provideService(PluginUserBootstrapDispatcher, pluginBootstrap),
 				Effect.provideService(NotificationSubscriptionsService, notificationSubscriptions),
 				Effect.provideService(SavedViewsService, savedViews),
-				Effect.provideService(TransactionRunner, runInTransaction),
 				Effect.catch((error) =>
 					internalError(`User bootstrap failed after reset: ${unknownToMessage(error)}`),
 				),

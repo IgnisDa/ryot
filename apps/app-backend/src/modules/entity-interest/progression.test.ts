@@ -8,7 +8,7 @@ import {
 import { Clock, Duration, Effect, Layer } from "effect";
 
 import { RedisService } from "#lib/infrastructure/redis";
-import { dbRunnerLayer, makeRedisService } from "#lib/test-utils/effect";
+import { databaseLayer, makeRedisService } from "#lib/test-utils/effect";
 import { EntitiesService } from "#modules/entities/service";
 import { TranslationsService, type RequestFillInput } from "#modules/entity-translation/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -35,9 +35,9 @@ const makeLayer = (input: {
 	readonly store: Layer.Layer<EntityInterestStore>;
 }) =>
 	EntityInterestProgression.layer.pipe(
-		Layer.provide(
+		Layer.provideMerge(
 			Layer.mergeAll(
-				dbRunnerLayer,
+				databaseLayer,
 				input.store,
 				Layer.succeed(RedisService, input.redis),
 				Layer.mock(EntitiesService)({ getByIdAnyScope: () => Effect.succeed(entity) }),
