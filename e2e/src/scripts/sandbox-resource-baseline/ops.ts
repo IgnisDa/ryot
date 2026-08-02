@@ -40,15 +40,40 @@ export const REMOTE_FILES = {
 
 const shellQuote = (value: string) => `'${value.replaceAll("'", `'\\''`)}'`;
 
+/**
+ * A run issues tens of thousands of remote commands, sometimes several at once. Without a shared
+ * connection each one is a new TCP and key exchange, and concurrent batches trip the server's
+ * `MaxStartups` limit and fail as banner-exchange timeouts. One multiplexed connection removes both
+ * the handshake cost and the limit; the socket lives under `~/.ssh` to stay inside the path length
+ * a unix socket allows.
+ */
+export const SSH_OPTIONS = [
+	"-o",
+	"BatchMode=yes",
+	"-o",
+	"ConnectTimeout=15",
+	"-o",
+	"ControlMaster=auto",
+	"-o",
+	"ControlPath=~/.ssh/ryot-bm-%C",
+	"-o",
+	"ControlPersist=600",
+	"-o",
+	"ServerAliveInterval=30",
+	"-o",
+	"ServerAliveCountMax=6",
+] as const;
+
 export const makeRemote = (serverIp: string) => {
 	const run = (command: string, options: { readonly stdin?: Uint8Array } = {}) =>
 		Effect.tryPromise({
 			catch: (cause) => new RemoteCommandError({ command, exitCode: null, stderr: String(cause) }),
 			try: async () => {
-				const child = Bun.spawn(
-					["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15", `root@${serverIp}`, command],
-					{ stderr: "pipe", stdout: "pipe", stdin: options.stdin ?? "ignore" },
-				);
+				const child = Bun.spawn(["ssh", ...SSH_OPTIONS, `root@${serverIp}`, command], {
+					stderr: "pipe",
+					stdout: "pipe",
+					stdin: options.stdin ?? "ignore",
+				});
 				const [stdout, stderr, exitCode] = await Promise.all([
 					new Response(child.stdout).text(),
 					new Response(child.stderr).text(),
@@ -275,7 +300,7 @@ export const makeRemote = (serverIp: string) => {
 						[
 							"sh",
 							"-c",
-							`umask 077 && mkdir -p ${shellQuote(localDirectory)} && ssh -o BatchMode=yes root@${serverIp} "tar -C ${REMOTE_FILES.profiles} -czf - ${token}" | tar -C ${shellQuote(localDirectory)} -xzf -`,
+							`umask 077 && mkdir -p ${shellQuote(localDirectory)} && ssh ${SSH_OPTIONS.join(" ")} root@${serverIp} "tar -C ${REMOTE_FILES.profiles} -czf - ${token}" | tar -C ${shellQuote(localDirectory)} -xzf -`,
 						],
 						{ stderr: "pipe", stdout: "ignore" },
 					);
