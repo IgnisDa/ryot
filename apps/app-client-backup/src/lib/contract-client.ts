@@ -6,6 +6,8 @@ import { useMemo } from "react";
 import { useAuthClient, useServerUrl } from "@/lib/atoms";
 import { CLOUD_URL } from "@/lib/server";
 
+export type { ContractClient, ContractSuccess } from "@ryot/contract/client";
+
 export type ContractRunner = <A, E>(
 	run: (client: ContractClient) => Effect.Effect<A, E>,
 ) => Promise<A>;

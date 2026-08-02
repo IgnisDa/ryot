@@ -1,7 +1,7 @@
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
+import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { describe, expect, it } from "vitest";
 
 import type { MediaIntegrationAdapterResult } from "../../imports/schemas";
@@ -15,10 +15,7 @@ import {
 import audiobookshelfDefinition, {
 	manifest as audiobookshelfManifest,
 } from "./yanks/audiobookshelf.sandbox";
-import komgaDefinition, {
-	mangaRef as extractMangaRef,
-	manifest as komgaManifest,
-} from "./yanks/komga.sandbox";
+import komgaDefinition, { extractMangaRef, manifest as komgaManifest } from "./yanks/komga.sandbox";
 import plexDefinition, { manifest as plexManifest } from "./yanks/plex.sandbox";
 import {
 	deduplicateWindow,

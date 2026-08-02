@@ -1,5 +1,5 @@
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
 import { Schema } from "@ryot/sandbox-sdk/effect";
+import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
 const workoutExerciseKinds = [
 	"reps",

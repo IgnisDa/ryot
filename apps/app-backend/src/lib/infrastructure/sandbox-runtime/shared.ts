@@ -1,5 +1,4 @@
 import { unknownToMessage } from "@ryot/contract/errors";
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
 import type {
 	ExecutionAuthority,
 	SandboxExecutionGrants,
@@ -11,7 +10,7 @@ import {
 	type SandboxCapabilityRequirement,
 	type SandboxHostImplementationMap as SdkSandboxHostImplementationMap,
 } from "@ryot/sandbox-sdk/core";
-import type { SandboxHostError } from "@ryot/sandbox-sdk/wire";
+import type { JsonValue, SandboxHostError } from "@ryot/sandbox-sdk/wire";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { Effect } from "effect";
 
