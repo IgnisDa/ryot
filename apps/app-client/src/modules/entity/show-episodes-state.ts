@@ -1,9 +1,9 @@
 import type { ShowDetailResult } from "@ryot/media-plugin/query-recipes";
-import { dayjs } from "@ryot/ts-utils/dayjs";
 import { Match } from "effect";
 import type { AsyncResult } from "effect/unstable/reactivity";
 
 import { classifyRyotQLResult } from "@/api/ryotql";
+import { formatDateOnlyLabel } from "@/modules/ui/date";
 import { canonicalManagedAssets } from "@/modules/ui/managed-assets";
 
 import { preferredMediaImageAsset } from "./media-image";
@@ -120,8 +120,7 @@ const mediaDateLabel = (value: string | null) => {
 	if (text === undefined) {
 		return undefined;
 	}
-	const parsed = dayjs(text);
-	return parsed.isValid() ? parsed.format("MMM D, YYYY") : text;
+	return formatDateOnlyLabel(text);
 };
 
 export const showSeasonDescription = (season: ShowSeason) => optionalText(season.description);
