@@ -3,21 +3,16 @@ import { useEffect, useState } from "react";
 
 import { ClientStorage } from "../../persistence/storage";
 import type { ClientRuntime } from "../../runtime";
-import {
-	THEME_PREFERENCES,
-	applyThemePreference,
-	isThemePreference,
-	type ThemePreference,
-} from "./preference";
+import { THEME_PREFERENCES, isThemePreference } from "./preference";
+import type { ThemeStore } from "./store";
 
 export function ThemeController(props: {
 	readonly runtime: ClientRuntime;
-	readonly initialPreference: ThemePreference;
+	readonly theme: ThemeStore;
 }) {
-	const [preference, setPreference] = useState(props.initialPreference);
+	const [preference, setPreference] = useState(props.theme.getPreference);
 
 	useEffect(() => {
-		applyThemePreference(document.documentElement, preference);
 		void props.runtime.runPromise(
 			Effect.flatMap(ClientStorage, (storage) => storage.setThemePreference(preference)),
 		);
@@ -32,6 +27,7 @@ export function ThemeController(props: {
 				onChange={(event) => {
 					const newPreference = event.currentTarget.value;
 					if (isThemePreference(newPreference)) {
+						props.theme.setPreference(newPreference);
 						setPreference(newPreference);
 					}
 				}}

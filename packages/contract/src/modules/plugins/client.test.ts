@@ -9,6 +9,8 @@ import {
 	PluginBridgeRyotQLResult,
 	PluginOperationBridgeErrorReason,
 	PluginRyotQLFailureReason,
+	PluginThemeSnapshot,
+	REQUIRED_THEME_TOKEN_NAMES,
 	RyotClientErrorReason,
 } from "./client";
 
@@ -20,6 +22,10 @@ const document = {
 		},
 	},
 } as const;
+
+const tokens = Object.fromEntries(
+	REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, `value-${name}`]),
+);
 
 describe("plugin client bridge contract", () => {
 	it("uses exact protocol version 3", () => {
@@ -35,6 +41,51 @@ describe("plugin client bridge contract", () => {
 		expect(Result.isSuccess(Schema.decodeUnknownResult(PluginBridgeHostMessage)(message))).toBe(
 			true,
 		);
+	});
+
+	it("decodes strict theme snapshots with every required CSS token", () => {
+		const decode = Schema.decodeUnknownResult(PluginThemeSnapshot);
+
+		expect(Result.isSuccess(decode({ resolvedMode: "light", tokens }))).toBe(true);
+		expect(Result.isFailure(decode({ resolvedMode: "system", tokens }))).toBe(true);
+		expect(Result.isFailure(decode({ extra: true, resolvedMode: "dark", tokens }))).toBe(true);
+		expect(Result.isFailure(decode({ resolvedMode: "dark", tokens: { ...tokens, bg: 42 } }))).toBe(
+			true,
+		);
+	});
+
+	it("allows unknown string tokens and rejects missing required tokens", () => {
+		const decode = Schema.decodeUnknownResult(PluginThemeSnapshot);
+		const { bg: _bg, ...missingBg } = tokens;
+
+		expect(
+			Result.isSuccess(
+				decode({ resolvedMode: "dark", tokens: { ...tokens, "future-token": "value" } }),
+			),
+		).toBe(true);
+		expect(Result.isFailure(decode({ resolvedMode: "dark", tokens: missingBg }))).toBe(true);
+		expect(Result.isFailure(decode({ resolvedMode: "dark", tokens: { ...tokens, bg: "" } }))).toBe(
+			true,
+		);
+	});
+
+	it("admits exact theme event and initial application acknowledgement messages", () => {
+		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
+
+		expect(
+			Result.isSuccess(
+				decodeHost({ generation: 1, type: "theme", theme: { resolvedMode: "light", tokens } }),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(decodeHost({ type: "theme", theme: { resolvedMode: "light", tokens } })),
+		).toBe(true);
+		expect(Result.isSuccess(decodeClient({ generation: 1, type: "theme-applied" }))).toBe(true);
+		expect(Result.isFailure(decodeClient({ type: "theme-applied" }))).toBe(true);
+		expect(
+			Result.isFailure(decodeClient({ generation: 1, type: "theme-applied", theme: true })),
+		).toBe(true);
 	});
 
 	it("decodes a strict RyotQL request", () => {
