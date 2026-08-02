@@ -11,6 +11,7 @@
 		"lib": ["ESNext"],
 		"target": "ES2022",
 		"module": "ESNext",
+		"jsx": "react-jsx",
 		"skipLibCheck": true,
 		"types": ["bun-types"],
 		"noUnusedLocals": true,
