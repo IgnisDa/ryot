@@ -27,6 +27,7 @@ describe("UpdatePrivatePluginBody", () => {
 	it("rejects incomplete uploads and excess fields", () => {
 		for (const input of [
 			{ ...uploadPayload, uploadToken: undefined },
+			{ ...uploadPayload, config: { invalid: undefined } },
 			{ ...uploadPayload, unknown: true },
 		]) {
 			expect(() => Schema.decodeUnknownSync(UpdatePrivatePluginBody)(input)).toThrow();
@@ -54,6 +55,7 @@ describe("UpdatePluginInstallationBody", () => {
 	it("rejects invalid and excess fields", () => {
 		for (const input of [
 			{ config: [] },
+			{ config: { invalid: undefined } },
 			{ sortOrder: "3" },
 			{ sortOrder: 1.5 },
 			{ sortOrder: Number.NaN },

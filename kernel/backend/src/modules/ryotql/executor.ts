@@ -16,6 +16,7 @@ import type {
 	TimeSeriesOutput,
 	TimeSeriesResult,
 } from "@ryot/contract/modules/ryotql/language";
+import { isJsonValue } from "@ryot/contract/schema/json";
 import { sql } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { DateTime, Effect, Option, Schema } from "effect";
@@ -1166,7 +1167,11 @@ const reconstructAggregateItem = (
 		const value = row[`m${index}`];
 		return [measure.key, value === null ? null : Number(value)] as const;
 	});
-	return Object.fromEntries([...grouped, ...measured]);
+	const item = Object.fromEntries([...grouped, ...measured]);
+	if (!isJsonValue(item)) {
+		throw new Error("RyotQL received a non-JSON aggregate value");
+	}
+	return item;
 };
 
 const executeAggregateQuery = Effect.fn("executeRyotQLAggregateQuery")(function* (

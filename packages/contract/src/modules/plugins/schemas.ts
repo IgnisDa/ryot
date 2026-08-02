@@ -180,7 +180,7 @@ export type PluginPackage = Schema.Schema.Type<typeof PluginPackage>;
 
 export const InstallPluginBody = Schema.Struct({
 	uploadToken: Schema.String,
-	config: Schema.Record(Schema.String, Schema.Unknown),
+	config: Schema.Record(Schema.String, JsonValue),
 });
 
 export type InstallPluginBody = Schema.Schema.Type<typeof InstallPluginBody>;
@@ -188,7 +188,7 @@ export type InstallPluginBody = Schema.Schema.Type<typeof InstallPluginBody>;
 export const UpdatePrivatePluginBody = strictStruct({
 	uploadToken: Schema.String,
 	unsetConfigKeys: Schema.optional(Schema.Array(Schema.String)),
-	config: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+	config: Schema.optional(Schema.Record(Schema.String, JsonValue)),
 });
 
 export type UpdatePrivatePluginBody = typeof UpdatePrivatePluginBody.Type;
@@ -196,7 +196,7 @@ export type UpdatePrivatePluginBody = typeof UpdatePrivatePluginBody.Type;
 export const UpdatePluginInstallationBody = strictStruct({
 	isDisabled: Schema.optional(Schema.Boolean),
 	unsetConfigKeys: Schema.optional(Schema.Array(Schema.String)),
-	config: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+	config: Schema.optional(Schema.Record(Schema.String, JsonValue)),
 	sortOrder: Schema.optional(
 		Schema.Int.pipe(
 			Schema.check(Schema.isBetween({ minimum: -2_147_483_648, maximum: 2_147_483_647 })),
@@ -228,7 +228,7 @@ export const PluginInstallationItem = Schema.Struct({
 	healthReason: Schema.NullOr(Schema.String),
 	scope: Schema.Literals(["system", "user"]),
 	configuredSecrets: Schema.Array(Schema.String),
-	config: Schema.Record(Schema.String, Schema.Unknown),
+	config: Schema.Record(Schema.String, JsonValue),
 });
 
 export type PluginInstallationItem = Schema.Schema.Type<typeof PluginInstallationItem>;

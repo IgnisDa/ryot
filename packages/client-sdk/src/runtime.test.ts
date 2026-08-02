@@ -9,6 +9,7 @@ import {
 	type PluginBridgeInit,
 	type PluginClientArtifactMetadata,
 } from "@ryot/contract/modules/plugins/client";
+import { JsonValue } from "@ryot/contract/schema/json";
 import type { PreparedRecipe } from "@ryot/ryotql";
 import { Result, Schema } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
@@ -110,7 +111,7 @@ describe("plugin runtime", () => {
 			runtime.client.data.query({ document, decode: Result.succeed }),
 		).rejects.toMatchObject({ reason: "protocol" });
 		await expect(
-			runtime.client.operations.invoke({ input: {}, slug: "late", output: Schema.Unknown }),
+			runtime.client.operations.invoke({ input: {}, slug: "late", output: JsonValue }),
 		).rejects.toMatchObject({ reason: "protocol" });
 		expect(runtime.locations.getSnapshot()).toBeUndefined();
 		expect(() => runtime.client.theme.getSnapshot()).toThrow(new RyotClientError("protocol"));
@@ -165,7 +166,7 @@ describe("plugin runtime", () => {
 		const operation = runtime.client.operations.invoke({
 			input: {},
 			slug: "greet",
-			output: Schema.Unknown,
+			output: JsonValue,
 		});
 		await delay();
 
@@ -180,7 +181,7 @@ describe("plugin runtime", () => {
 			runtime.client.data.query({ document, decode: Result.succeed }),
 		).rejects.toMatchObject({ reason: "disposed" });
 		await expect(
-			runtime.client.operations.invoke({ input: {}, slug: "late", output: Schema.Unknown }),
+			runtime.client.operations.invoke({ input: {}, slug: "late", output: JsonValue }),
 		).rejects.toMatchObject({ reason: "disposed" });
 		await delay();
 		expect(
@@ -203,7 +204,7 @@ describe("plugin runtime", () => {
 				? runtime.client.data.query({ document, decode: Result.succeed })
 				: runtime.client.operations.invoke({
 						input: null,
-						output: Schema.Unknown,
+						output: JsonValue,
 						slug: `operation-${index}`,
 					}),
 		);
@@ -246,7 +247,7 @@ describe("plugin runtime", () => {
 			});
 		let operationSettlements = 0;
 		const operation = runtime.client.operations
-			.invoke({ input: {}, slug: "greet", output: Schema.Unknown })
+			.invoke({ input: {}, slug: "greet", output: JsonValue })
 			.catch((error: unknown) => {
 				operationSettlements += 1;
 				throw error;
@@ -277,7 +278,7 @@ describe("plugin runtime", () => {
 			runtime.client.data.query({ document, decode: Result.succeed }),
 		).rejects.toMatchObject({ reason: "protocol" });
 		await expect(
-			runtime.client.operations.invoke({ input: {}, slug: "late", output: Schema.Unknown }),
+			runtime.client.operations.invoke({ input: {}, slug: "late", output: JsonValue }),
 		).rejects.toMatchObject({ reason: "protocol" });
 		expect(() => runtime.client.navigation.push({ path: "/late" })).toThrow(
 			new RyotClientError("protocol"),
@@ -370,7 +371,7 @@ describe("plugin runtime", () => {
 		await delay();
 		expect(settlements).toBe(1);
 		await expect(
-			runtime.client.operations.invoke({ input: {}, slug: "late", output: Schema.Unknown }),
+			runtime.client.operations.invoke({ input: {}, slug: "late", output: JsonValue }),
 		).rejects.toMatchObject({ reason: "protocol" });
 	});
 
@@ -383,7 +384,7 @@ describe("plugin runtime", () => {
 		channel.port1.postMessage({ reason: "failed", type: "lifecycle-close" });
 		await expect(query).rejects.toMatchObject({ reason: "protocol" });
 		await expect(
-			runtime.client.operations.invoke({ input: {}, slug: "late", output: Schema.Unknown }),
+			runtime.client.operations.invoke({ input: {}, slug: "late", output: JsonValue }),
 		).rejects.toMatchObject({ reason: "protocol" });
 		channel.port1.postMessage({
 			outcome: "success",
@@ -406,7 +407,7 @@ describe("plugin runtime", () => {
 		const operation = runtime.client.operations.invoke({
 			input: {},
 			slug: "greet",
-			output: Schema.Unknown,
+			output: JsonValue,
 		});
 		channel.port1.postMessage({ reason: "disposed", type: "lifecycle-close" });
 
@@ -449,12 +450,12 @@ describe("plugin runtime", () => {
 		const operation = runtime.client.operations.invoke({
 			input: {},
 			slug: "greet",
-			output: Schema.Unknown,
+			output: JsonValue,
 		});
 
 		await expect(operation).rejects.toMatchObject({ reason: "transport" });
 		await expect(
-			runtime.client.operations.invoke({ input: {}, slug: "late", output: Schema.Unknown }),
+			runtime.client.operations.invoke({ input: {}, slug: "late", output: JsonValue }),
 		).rejects.toMatchObject({ reason: "transport" });
 	});
 

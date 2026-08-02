@@ -433,7 +433,7 @@ export type RowsResult = typeof RowsResult.Type;
 export const AggregateResult = strictStruct({
 	type: Schema.Literal("aggregate"),
 	pageInfo: Schema.optional(IncludePageInfo),
-	items: Schema.Array(Schema.Record(Schema.String, Schema.Unknown)),
+	items: Schema.Array(Schema.Record(Schema.String, JsonValueSchema)),
 }).annotate({ identifier: "RyotQLAggregateResult" });
 export type AggregateResult = typeof AggregateResult.Type;
 

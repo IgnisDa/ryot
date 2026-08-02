@@ -56,14 +56,14 @@ describe("createRyotClient", () => {
 		);
 	});
 
-	it("rejects non-JSON adapter output before applying a permissive output schema", async () => {
+	it("rejects non-JSON adapter output before applying its output schema", async () => {
 		const client = createRyotClient({
 			query: () => Promise.resolve({}),
-			invokeOperation: () => Promise.resolve(() => undefined),
+			invokeOperation: () => Promise.resolve(undefined),
 		});
 
 		await expect(
-			client.operations.invoke({ slug: "greet", input: null, output: Schema.Unknown }),
+			client.operations.invoke({ slug: "greet", input: null, output: Schema.Undefined }),
 		).rejects.toMatchObject({ reason: "malformed-result" });
 	});
 
