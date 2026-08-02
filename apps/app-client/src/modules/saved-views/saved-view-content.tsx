@@ -1,3 +1,4 @@
+import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import type { EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
 import clsx from "clsx";
@@ -189,6 +190,7 @@ function SavedViewDisplay(
 		readonly isLoadingMore: boolean;
 		readonly record: SavedViewRecord;
 		readonly search: SavedViewSearch;
+		readonly queryDocument: RyotQLDocument;
 		readonly managedUrls: ReadonlyMap<string, string>;
 	},
 ) {
@@ -237,6 +239,7 @@ function SavedViewDisplay(
 				icon: props.record.icon,
 				name: props.record.name,
 				hasMore: pageInfo.hasMore,
+				queryDocument: props.queryDocument,
 			}}
 		>
 			<View className="w-full gap-5">
@@ -259,6 +262,7 @@ function SavedViewDisplay(
 						<SavedViewResultCount
 							loaded={items.length}
 							hasMore={pageInfo.hasMore}
+							queryDocument={props.queryDocument}
 							textClassName="font-ui text-xs md:text-sm"
 						/>
 					</View>
@@ -283,6 +287,7 @@ export function SavedViewReadyContent(props: {
 	readonly isLoadingMore: boolean;
 	readonly record: SavedViewRecord;
 	readonly search: SavedViewSearch;
+	readonly queryDocument: RyotQLDocument;
 	readonly state: Extract<SavedViewResultState, { status: "ready" }>;
 }) {
 	const providerAdd = useProviderAddFlow();

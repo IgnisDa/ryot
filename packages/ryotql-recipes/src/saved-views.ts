@@ -1,14 +1,18 @@
+import { NumberFieldValue } from "@ryot/contract/modules/ryotql/language";
 import type {
 	FieldSelection,
 	OrderBy,
 	Predicate,
+	RyotQLDocument,
 	ScalarExpression,
 } from "@ryot/contract/modules/ryotql/language";
 import type {
 	SavedViewCardMapping,
 	SavedViewTableMapping,
 } from "@ryot/contract/modules/saved-views/schemas";
+import { strictStruct } from "@ryot/contract/schema/utils";
 import {
+	aggregate,
 	and,
 	ascending,
 	column,
@@ -17,9 +21,20 @@ import {
 	field,
 	inArray,
 	literal,
+	measure,
 	rows,
 	table,
 } from "@ryot/ryotql";
+import { Result, Schema } from "effect";
+
+const savedViewCountResponse = strictStruct({
+	data: strictStruct({
+		savedViewCount: strictStruct({
+			type: Schema.Literal("aggregate"),
+			items: Schema.NonEmptyArray(strictStruct({ total: NumberFieldValue })),
+		}),
+	}),
+});
 
 type CardExpressions = {
 	[Key in keyof SavedViewCardMapping as Key extends `${infer Name}Field`
@@ -142,3 +157,29 @@ export const buildSavedViewDocument = (input: {
 		}),
 	});
 };
+
+export const buildSavedViewCountDocument = (queryDocument: RyotQLDocument) => {
+	const query = Object.values(queryDocument.queries).at(0);
+	if (!query) {
+		return null;
+	}
+	if (query.output.type !== "rows") {
+		return null;
+	}
+
+	return document({
+		savedViewCount: aggregate(query.from, {
+			where: query.where,
+			joins: query.joins,
+			measures: [measure("total", { function: "count" })],
+		}),
+	});
+};
+
+const decodeSavedViewCountResult = Schema.decodeUnknownResult(savedViewCountResponse);
+
+export const decodeSavedViewCountResponse = (response: unknown) =>
+	Result.map(
+		decodeSavedViewCountResult(response),
+		({ data }) => data.savedViewCount.items[0].total.value,
+	);
