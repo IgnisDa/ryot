@@ -1,3 +1,4 @@
+import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import type { DownloadResolutionResponse } from "@ryot/contract/modules/uploads/schemas";
 import {
 	decodeSavedViewRecordResponse,
@@ -47,6 +48,20 @@ export type SavedViewResultState =
 
 export type SavedViewReadyState = Extract<SavedViewResultState, { status: "ready" }>;
 
+type SavedViewItem = SavedViewCardItem | SavedViewTableItem;
+type SavedViewPageInfo = SavedViewDisplayData<SavedViewCardItem>["pageInfo"];
+
+export type SavedViewPage = {
+	readonly pageInfo: SavedViewPageInfo;
+	readonly entityIds: readonly string[];
+	readonly queryDocument: RyotQLDocument;
+};
+
+export type SavedViewNormalizedState<Item extends SavedViewItem = SavedViewItem> = {
+	readonly pages: readonly SavedViewPage[];
+	readonly itemsById: ReadonlyMap<string, Item>;
+};
+
 export type SavedViewManagedAssetsState =
 	| { readonly status: "ready"; readonly urls: ReadonlyMap<string, string> }
 	| { readonly status: "loading"; readonly urls: ReadonlyMap<string, string> }
@@ -55,6 +70,103 @@ export type SavedViewManagedAssetsState =
 			readonly cause: Cause.Cause<unknown>;
 			readonly urls: ReadonlyMap<string, string>;
 	  };
+
+const uniqueEntityIds = (entityIds: readonly string[]) => {
+	const seen = new Set<string>();
+	return entityIds.filter((entityId) => {
+		if (seen.has(entityId)) {
+			return false;
+		}
+		seen.add(entityId);
+		return true;
+	});
+};
+
+const copySavedViewPage = (page: SavedViewPage): SavedViewPage => ({
+	...page,
+	entityIds: [...page.entityIds],
+});
+
+const copySavedViewItems = <Item extends SavedViewItem>(
+	itemsById: ReadonlyMap<string, Item>,
+	items: readonly Item[],
+) => {
+	const nextItemsById = new Map(itemsById);
+	for (const item of items) {
+		nextItemsById.set(item.entityId, item);
+	}
+	return nextItemsById;
+};
+
+export const appendSavedViewPage = <Item extends SavedViewItem>(
+	state: SavedViewNormalizedState<Item>,
+	page: SavedViewPage,
+	items: readonly Item[] = [],
+): SavedViewNormalizedState<Item> => ({
+	itemsById: copySavedViewItems(state.itemsById, items),
+	pages: [...state.pages, copySavedViewPage(page)],
+});
+
+export const patchSavedViewItems = <Item extends SavedViewItem>(
+	state: SavedViewNormalizedState<Item>,
+	items: readonly Item[],
+): SavedViewNormalizedState<Item> => ({
+	itemsById: copySavedViewItems(state.itemsById, items),
+	pages: [...state.pages],
+});
+
+const materializedSavedViewItems = <Item extends SavedViewItem>(
+	state: SavedViewNormalizedState<Item>,
+): SavedViewItem[] => {
+	const entityIds = uniqueEntityIds(state.pages.flatMap((page) => page.entityIds));
+	return entityIds.flatMap((entityId) => {
+		const item = state.itemsById.get(entityId);
+		return item === undefined ? [] : [item];
+	});
+};
+
+const deduplicateSavedViewItems = <Item extends SavedViewItem>(items: readonly Item[]) => {
+	const itemsById = new Map<string, Item>();
+	for (const item of items) {
+		itemsById.set(item.entityId, item);
+	}
+	return uniqueEntityIds(items.map((item) => item.entityId)).flatMap((entityId) => {
+		const item = itemsById.get(entityId);
+		return item === undefined ? [] : [item];
+	});
+};
+
+export const materializeSavedViewData = <Item extends SavedViewItem>(
+	state: SavedViewNormalizedState<Item>,
+	layout: SavedViewLayout,
+): SavedViewReadyState => {
+	const latestPage = state.pages.at(-1);
+	if (!latestPage) {
+		throw new TypeError("Saved-view data requires at least one page");
+	}
+	const materializedItems = materializedSavedViewItems(state);
+	if (layout === "table") {
+		const items = materializedItems.filter((item): item is SavedViewTableItem => "cells" in item);
+		return {
+			layout,
+			status: "ready",
+			assets: collectManagedAssets(items),
+			data: { items, pageInfo: latestPage.pageInfo },
+			entityIds: items.map((item) => item.entityId),
+		};
+	}
+	const items = materializedItems.filter((item): item is SavedViewCardItem => "title" in item);
+	const common = {
+		status: "ready" as const,
+		assets: collectManagedAssets(items),
+		data: { items, pageInfo: latestPage.pageInfo },
+		entityIds: items.map((item) => item.entityId),
+	};
+	if (layout === "grid") {
+		return { ...common, layout: "grid" };
+	}
+	return { ...common, layout: "list" };
+};
 
 export const savedViewError = (state: {
 	readonly status: "transport-error" | "malformed";
@@ -101,57 +213,26 @@ export const mapSavedViewResult = (
 		if (Result.isFailure(decoded)) {
 			return { status: "malformed", cause: decoded.failure };
 		}
+		const items = deduplicateSavedViewItems(decoded.success.items);
 		return {
 			layout,
 			status: "ready",
-			data: decoded.success,
-			assets: collectManagedAssets(decoded.success.items),
-			entityIds: decoded.success.items.map((item) => item.entityId),
+			data: { ...decoded.success, items },
+			assets: collectManagedAssets(items),
+			entityIds: items.map((item) => item.entityId),
 		};
 	}
 	const decoded = decodeSavedViewCardData(result.value, record.layouts[layout]);
 	if (Result.isFailure(decoded)) {
 		return { status: "malformed", cause: decoded.failure };
 	}
-	const data = decoded.success;
+	const items = deduplicateSavedViewItems(decoded.success.items);
 	return {
-		data,
 		layout,
 		status: "ready",
-		assets: collectManagedAssets(data.items),
-		entityIds: data.items.map((item) => item.entityId),
-	};
-};
-
-export const combineSavedViewPages = (
-	pages: readonly SavedViewReadyState[],
-): SavedViewReadyState => {
-	const latest = pages[pages.length - 1];
-	const allItems = pages.reduce<Array<SavedViewCardItem | SavedViewTableItem>>(
-		(accumulator, page) => accumulator.concat(page.data.items),
-		[],
-	);
-	const common = {
-		assets: collectManagedAssets(allItems),
-		entityIds: allItems.map((item) => item.entityId),
-	};
-	if (latest.layout === "table") {
-		return {
-			...latest,
-			...common,
-			data: {
-				...latest.data,
-				items: pages.flatMap((page) => (page.layout === "table" ? page.data.items : [])),
-			},
-		};
-	}
-	return {
-		...latest,
-		...common,
-		data: {
-			...latest.data,
-			items: pages.flatMap((page) => (page.layout === latest.layout ? page.data.items : [])),
-		},
+		data: { ...decoded.success, items },
+		assets: collectManagedAssets(items),
+		entityIds: items.map((item) => item.entityId),
 	};
 };
 
