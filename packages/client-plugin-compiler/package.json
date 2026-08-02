@@ -27,9 +27,10 @@
 	"scripts": {
 		"test": "bun --bun run vitest run",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix",
-		"build": "tsc && bun build src/worker.ts --outdir dist --entry-naming client-plugin-compiler-worker.js --target bun --sourcemap"
+		"build": "tsc && bun build src/worker.ts --outdir dist --entry-naming client-plugin-compiler-worker.js --target bun --sourcemap --external @ryot-app/vite-compiler --external @tailwindcss/vite"
 	},
 	"dependencies": {
+		"@effect/platform-bun": "4.0.0-beta.107",
 		"@fontsource-variable/lora": "5.3.0",
 		"@fontsource-variable/outfit": "5.3.0",
 		"@ryot-app/client-plugin-contract": "workspace:*",
@@ -40,7 +41,8 @@
 		"@ryot-app/ryotql-recipes": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
 		"@ryot-app/typescript-compiler": "workspace:*",
-		"@tailwindcss/oxide": "^4.1.18",
+		"@ryot-app/vite-compiler": "workspace:*",
+		"@tailwindcss/vite": "4.3.0",
 		"@tanstack/hotkeys": "0.8.0",
 		"@tanstack/react-hotkeys": "0.10.0",
 		"@tanstack/store": "0.11.1",
@@ -53,7 +55,9 @@
 		"postcss-value-parser": "^4.2.0",
 		"react": "^19.2.0",
 		"react-dom": "^19.2.0",
-		"tailwindcss": "^4.1.18"
+		"tailwindcss": "4.3.0",
+		"typescript": "7.0.2",
+		"vite": "8.0.14"
 	},
 	"devDependencies": {
 		"@effect/vitest": "4.0.0-beta.107",
@@ -61,7 +65,6 @@
 		"@testing-library/dom": "^10.4.1",
 		"bun-types": "1.4.0",
 		"jsdom": "^30.0.1",
-		"typescript": "7.0.2",
 		"vitest": "4.1.9"
 	}
 }

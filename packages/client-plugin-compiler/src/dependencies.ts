@@ -1,10 +1,6 @@
-import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { resolveTypeScriptCompilerPath } from "@ryot-app/typescript-compiler";
 import { Effect } from "effect";
-import { parse } from "postcss";
-import valueParser from "postcss-value-parser";
 
-import { clientAssetArtifactFile, clientAssetName } from "./artifact";
 import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
 
 const NEUTRAL_MODULES = [
@@ -77,74 +73,7 @@ const resolveTypeScriptEntries = (from: string) => {
 	};
 };
 
-const readFontsource = async (specifier: string, from: string) => {
-	const entry = Bun.resolveSync(specifier, from);
-	const root = parse(await Bun.file(entry).text(), { from: entry });
-	const paths = new Set<string>();
-	root.walkDecls((declaration) => {
-		const parsed = valueParser(declaration.value);
-		parsed.walk((node) => {
-			if (node.type !== "function" || node.value.toLowerCase() !== "url") {
-				return;
-			}
-			const values = node.nodes.filter(
-				(child) => child.type !== "space" && child.type !== "comment" && child.type !== "div",
-			);
-			const target = values[0];
-			if (
-				values.length !== 1 ||
-				(target?.type !== "string" && target?.type !== "word") ||
-				!/^\.\/files\/[^/]+\.woff2$/.test(target.value)
-			) {
-				throw new Error(`Fontsource stylesheet "${entry}" contains an unsupported asset URL`);
-			}
-			paths.add(target.value);
-		});
-	});
-
-	const assets = await Promise.all(
-		sortBy([...paths]).map(async (path) => {
-			const contents = new Uint8Array(
-				await Bun.file(`${directoryOf(entry)}/${path.slice(2)}`).arrayBuffer(),
-			);
-			const name = clientAssetName(path, contents);
-			return { path, file: clientAssetArtifactFile(path, name, contents) };
-		}),
-	);
-	const names = new Map(assets.map(({ file, path }) => [path, file.name]));
-	root.walkDecls((declaration) => {
-		const parsed = valueParser(declaration.value);
-		parsed.walk((node) => {
-			if (node.type !== "function" || node.value.toLowerCase() !== "url") {
-				return;
-			}
-			const target = node.nodes.find((child) => child.type === "string" || child.type === "word");
-			if (target) {
-				const name = names.get(target.value);
-				if (name === undefined) {
-					throw new Error(`Fontsource stylesheet "${entry}" contains an unresolved asset URL`);
-				}
-				target.value = `./${name}`;
-			}
-		});
-		declaration.value = valueParser.stringify(parsed.nodes);
-	});
-	return { stylesheet: root.toString(), assets: assets.map(({ file }) => file) };
-};
-
-const readScanSources = async (root: string) => {
-	const paths = await Array.fromAsync(
-		new Bun.Glob("**/*.{ts,tsx}").scan({ cwd: root, onlyFiles: true }),
-	);
-	return Promise.all(
-		sortBy(paths.filter((path) => !path.includes(".test."))).map(async (path) => ({
-			extension: path.slice(path.lastIndexOf(".") + 1),
-			content: await Bun.file(`${root}/${path}`).text(),
-		})),
-	);
-};
-
-export const resolveClientPluginCompilerDependencies = Effect.tryPromise({
+export const resolveClientPluginCompilerDependencies = Effect.try({
 	catch: (error) =>
 		clientPluginCompilationFailure([
 			clientPluginCompilerDiagnostic(
@@ -153,31 +82,14 @@ export const resolveClientPluginCompilerDependencies = Effect.tryPromise({
 				`Client plugin compiler dependencies could not be resolved: ${String(error)}`,
 			),
 		]),
-	try: async () => {
-		const from = Bun.fileURLToPath(new URL(".", import.meta.url));
-		const uiSdkRoot = directoryOf(Bun.resolveSync("@ryot-app/client-ui-sdk", from));
-		const clientSdkRoot = directoryOf(Bun.resolveSync("@ryot-app/client-sdk", from));
-		const tailwindEntry = Bun.resolveSync("tailwindcss/index.css", from);
-		const fonts = await Promise.all(
-			["@fontsource-variable/outfit", "@fontsource-variable/lora"].map((specifier) =>
-				readFontsource(specifier, from),
-			),
-		);
+	try: () => {
+		const compilerRoot = Bun.fileURLToPath(new URL("..", import.meta.url));
 		return {
-			compilerRoot: from,
-			typeScriptEntries: resolveTypeScriptEntries(from),
-			tsserverPath: resolveTypeScriptCompilerPath(from),
-			fontAssets: fonts.flatMap(({ assets }) => assets),
-			uiSdkScanSources: await readScanSources(uiSdkRoot),
-			clientSdkScanSources: await readScanSources(clientSdkRoot),
-			fontStylesheet: fonts.map(({ stylesheet }) => stylesheet).join("\n"),
-			tailwindStylesheet: { path: tailwindEntry, content: await Bun.file(tailwindEntry).text() },
-			themeStylesheet: await Bun.file(
-				Bun.resolveSync("@ryot-app/client-ui-sdk/theme.css", from),
-			).text(),
-			paletteStylesheet: await Bun.file(
-				Bun.resolveSync("@ryot-app/client-ui-sdk/palette.css", from),
-			).text(),
+			compilerRoot,
+			typeScriptEntries: resolveTypeScriptEntries(compilerRoot),
+			tsserverPath: resolveTypeScriptCompilerPath(compilerRoot),
+			uiSdkRoot: directoryOf(Bun.resolveSync("@ryot-app/client-ui-sdk", compilerRoot)),
+			clientSdkRoot: directoryOf(Bun.resolveSync("@ryot-app/client-sdk", compilerRoot)),
 		};
 	},
 });
