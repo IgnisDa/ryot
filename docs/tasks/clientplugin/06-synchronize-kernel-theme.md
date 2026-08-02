@@ -31,3 +31,8 @@ Keep the contract generic. The bridge carries semantic token names and lifecycle
 ## Implementor Notes
 
 The kernel design tokens are authoritative. Do not solve synchronization by reading parent computed styles from the iframe or by sharing a stylesheet across document boundaries.
+
+Two conditions left by Task 03 define where this task attaches:
+
+- The compiled artifact carries the `@theme inline` mapping from `--color-*` to `--bg`, `--accent`, and the rest, but the raw palette lives in `kernel/client/src/styles/palette.css` and is not part of the artifact. The fixture iframe therefore renders largely uncoloured today. Supplying those resolved values over the bridge is exactly the seam this task fills; do not solve it by shipping `palette.css` into the artifact, which would freeze a theme into a content-addressed build.
+- `PluginHost` keeps the iframe hidden until the handshake completes, so the plugin's React tree already mounts at 0x0 before it is revealed. That reveal is the moment to gate on the initial snapshot having been applied, which is what "before its UI becomes visible" means in the second criterion.

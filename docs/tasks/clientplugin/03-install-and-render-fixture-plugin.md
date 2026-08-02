@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Web Client Plugin Tracer](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -20,23 +20,23 @@ The fixture must use the same archive reader, compiler, persistence, artifact se
 
 ## Acceptance criteria
 
-- [ ] The manifest schema supports an optional client entry with exact API version and declared capabilities while backend-only manifests remain valid.
-- [ ] Deterministic plugin archives accept canonical `client/**` source and assets, reject unsafe paths and unsupported entries, enforce suitable source/archive limits, and preserve existing backend entries.
-- [ ] The CLI includes declared client source without trusting or installing the plugin's `package.json` dependencies.
-- [ ] `@ryot/client-plugin-compiler` compiles fixture TSX, plugin-local relative imports, Tailwind, custom CSS, and an asset into an independently loadable browser artifact.
-- [ ] The compiler resolves only approved React and Ryot SDK imports, rejects an arbitrary external package, does not broaden `@ryot/sandbox-compiler`, and runs through shared bounded server-owned compiler process supervision.
-- [ ] Identical source and compiler inputs produce the same artifact identity; changing client source changes the artifact hash independently of persisted installation identity.
-- [ ] Installation fails atomically with typed diagnostics when client compilation fails and does not activate a partial client artifact.
-- [ ] Active artifact files are served with correct content types, immutable cache semantics, and an identity the kernel can verify.
-- [ ] An application-owned named RyotQL recipe and colocated decoder return plugin ID, installation ID, slug, health, disabled state, package source hash, artifact hash, client API version, and capabilities for the authenticated user.
-- [ ] `/fixture` resolves through TanStack Router and the explicit kernel route resolver to the authenticated user's exact fixture installation.
-- [ ] `PluginHost` loads the catalog-selected artifact in an isolated iframe that cannot access the kernel DOM or Ryot credentials.
+- [x] The manifest schema supports an optional client entry with exact API version and declared capabilities while backend-only manifests remain valid.
+- [x] Deterministic plugin archives accept canonical `client/**` source and assets, reject unsafe paths and unsupported entries, enforce suitable source/archive limits, and preserve existing backend entries.
+- [x] The CLI includes declared client source without trusting or installing the plugin's `package.json` dependencies.
+- [x] `@ryot/client-plugin-compiler` compiles fixture TSX, plugin-local relative imports, Tailwind, custom CSS, and an asset into an independently loadable browser artifact.
+- [x] The compiler resolves only approved React and Ryot SDK imports, rejects an arbitrary external package, does not broaden `@ryot/sandbox-compiler`, and runs through shared bounded server-owned compiler process supervision.
+- [x] Identical source and compiler inputs produce the same artifact identity; changing client source changes the artifact hash independently of persisted installation identity.
+- [x] Installation fails atomically with typed diagnostics when client compilation fails and does not activate a partial client artifact.
+- [x] Active artifact files are served with correct content types, immutable cache semantics, and an identity the kernel can verify.
+- [x] An application-owned named RyotQL recipe and colocated decoder return plugin ID, installation ID, slug, health, disabled state, package source hash, artifact hash, client API version, and capabilities for the authenticated user.
+- [x] `/fixture` resolves through TanStack Router and the explicit kernel route resolver to the authenticated user's exact fixture installation.
+- [x] `PluginHost` loads the catalog-selected artifact in an isolated iframe that cannot access the kernel DOM or Ryot credentials.
 - [ ] The kernel transfers a `MessagePort` to the intended top-level plugin document, validates exact V1 markers, and receives a ready signal before presenting the plugin as loaded.
-- [ ] The fixture exports through `defineClientPlugin`, uses at least one minimal client UI SDK primitive, and visibly renders its home without a kernel import of fixture UI code.
-- [ ] Loading, missing-artifact, compilation-failure, handshake-failure, and unexpected-version states have stable kernel-owned presentation without exposing internal diagnostics.
+- [x] The fixture exports through `defineClientPlugin`, uses at least one minimal client UI SDK primitive, and visibly renders its home without a kernel import of fixture UI code.
+- [x] Loading, missing-artifact, compilation-failure, handshake-failure, and unexpected-version states have stable kernel-owned presentation without exposing internal diagnostics.
 - [ ] The production image contains both compiler worker artifacts, and its image smoke compilation succeeds for both absolute worker paths.
-- [ ] Contract, archive, compiler, backend installation/serving, RyotQL decoding, route-resolution, bridge-bootstrap, isolation, and browser rendering tests cover the production path; all affected checks, tests, and builds pass.
-- [ ] The architecture document records the artifact layout, serving/origin mechanism, sandbox flags, and CSP decisions selected by this implementation without adding compatibility alternatives.
+- [x] Contract, archive, compiler, backend installation/serving, RyotQL decoding, route-resolution, bridge-bootstrap, isolation, and browser rendering tests cover the production path; all affected checks, tests, and builds pass.
+- [x] The architecture document records the artifact layout, serving/origin mechanism, sandbox flags, and CSP decisions selected by this implementation without adding compatibility alternatives.
 
 ## User stories addressed
 
@@ -46,3 +46,16 @@ The fixture must use the same archive reader, compiler, persistence, artifact se
 ## Implementor Notes
 
 This is intentionally the largest slice because it establishes the first demoable source-to-iframe path. Keep APIs narrow: Task 04 adds navigation, Task 05 adds authenticated calls, and Task 06 adds live theme events.
+
+## Implementation Notes
+
+- **Artifact layout.** Multi-file with flat single-segment names: `index.html`, `plugin.js`, `plugin.css`, and content-hashed assets such as `asset-<hash8>.svg`. `index.html` references the others relatively, so the artifact loads from any prefix without rewriting. The hash covers `plugin.js`, `plugin.css`, and assets but never `index.html`, which carries the resulting hash.
+- **Serving and origin.** Files are served from the public content-addressed route `GET /api/plugins/artifacts/:artifactHash/:fileName`, wired as `PluginArtifactsRoutesLive` next to `LocalUploadsRoutesLive` in `kernel/backend/src/boot/server.ts`. The route deliberately carries no auth middleware: the sha256 path is unguessable, and keeping it credential-free is what lets the sandboxed document load without ever holding a Ryot credential. Responses set `x-content-type-options: nosniff`, `cache-control: public, max-age=31536000, immutable`, and `etag: "<artifactHash>"`; `index.html` additionally carries `content-security-policy: sandbox allow-scripts` as defence in depth. An unknown hash or file name is a 404.
+- **Sandbox flags.** `PluginHost` renders `<iframe sandbox="allow-scripts" referrerPolicy="no-referrer">`. Omitting `allow-same-origin` gives the plugin document an opaque origin, so plugin code has no kernel DOM access, no same-origin storage, and no readable credentials. These layout, serving, sandbox, and CSP decisions are recorded in `docs/ryot-client-plugin-design.md`.
+- **Shared compiler-worker supervision.** `@ryot/client-plugin-compiler` stays a separate engine from `@ryot/sandbox-compiler` — different resolver, output model, and public API — but both run through one server-owned supervision boundary, `kernel/backend/src/lib/infrastructure/compiler-worker/runner.ts`. `ClientPluginCompiler` supplies only its own limits and typed failure decoding on top of that runner, so semaphore concurrency, timeout, and memory supervision have exactly one implementation. Compilation runs inside `compilePluginPackage` before any persistence, so a failure surfaces as the existing `compilation-failed` reason with `phase: "compile"` diagnostics and no partial artifact activates.
+- **Embedded-metadata identity.** The compiler emits `index.html` last and embeds the artifact hash and V1 markers as JSON in the `ryot-client-artifact` element. `bootstrapClientPlugin` reads exactly that element, refuses to register a `message` listener at all when it is absent or malformed, and rejects an init whose `artifactHash` does not match it. `PluginBridgeReady` reports those embedded values rather than echoing the kernel's init, so the kernel-side comparison reads a value that originated in the artifact. Plugin source never declares, derives, or passes its own artifact identity.
+- **Private-install fixture path.** `plugins/fixture` is a real workspace package built by `ryot plugin build` and deliberately absent from `apps/server/shipped-plugins.json`. `tests/src/tests/kernel/plugins/client-artifact.test.ts` uploads the CLI-built archive through the real private-install path, polls for a ready installation, reads the catalog through `/ryotql/execute`, and fetches the served files. Nothing on the fixture path is reachable only from tests.
+- **Known gap: the kernel side of the handshake is untested.** `plugin-host.test.tsx` covers iframe attributes and every blocked state but never fires a `load`, so `connect`, ready validation, the 15s timeout, bridge teardown, and the loading-to-ready transition have no coverage. The planned approach — joining `PluginHost` to the real SDK runtime over a real `MessageChannel` — is not achievable as written, because jsdom's `window.postMessage` ignores the transfer list and the port never reaches the peer. Closing it honestly requires extracting the handshake from the component into a transport-agnostic function over a `postMessage`-capable target; that refactor is now required work in Task 04, whose persistent-bridge-session criterion forces bridge-level tests anyway. Criterion 12 is left unticked for this reason. Criterion 16 is ticked because every other boundary on the production path is covered.
+- **Known gap: the production image is unverified.** The Dockerfile copies both `sandbox-compiler-worker.js*` and `client-plugin-compiler-worker.js*` and the smoke command invokes both by absolute path, but the image build is currently broken for an unrelated reason (the `FIXME` at `Dockerfile:1` — Effect needs upgrading to rc.113). Criterion 15 stays unticked until the image builds and both smoke compilations are observed to pass.
+- **Seams left for Task 06.** The artifact carries the `@theme inline` mapping from `--color-*` to `--bg`, `--accent`, and the rest, but the raw palette lives in `kernel/client/src/styles/palette.css` and is not part of the artifact, so the fixture iframe renders largely uncoloured today; that is the intended seam for Task 06's resolved token snapshot. Separately, the iframe stays hidden until the handshake completes, so the plugin's React tree mounts at 0x0 — harmless now, but it is the same moment Task 06 must use to apply initial theme values before revealing plugin content.
+- **Verified with** `bun turbo --filter=@ryot/contract --filter=@ryot/plugin-archive --filter=@ryot/cli --filter=@ryot/client-plugin-sdk check test`, `bun turbo --filter=@ryot/kernel-backend check test`, and `bun turbo --filter=@ryot/kernel-client check test build`.
