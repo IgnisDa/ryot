@@ -30,8 +30,8 @@ export const makeAutomationSandboxApiFunctions: Effect.Effect<
 				Effect.flatMap((input) =>
 					Effect.gen(function* () {
 						const execution =
-							input.authority.type === "subscription"
-								? input.authority.subscriptionRun
+							input.principal.subject.type === "subscription"
+								? input.principal.subject.subscriptionRun
 								: yield* Schema.decodeUnknownEffect(automationInputSchema)(input.context).pipe(
 										Effect.flatMap(({ automation }) =>
 											Schema.decodeUnknownEffect(AutomationOrigin)(automation.origin).pipe(
@@ -64,8 +64,8 @@ export const makeAutomationSandboxApiFunctions: Effect.Effect<
 										? { subjectEntityId: EntityId.make(request.subjectEntityId) }
 										: {}),
 									principal:
-										input.authority.type === "subscription"
-											? { kind: "user", userId: UserId.make(input.authority.userId) }
+										input.principal.subject.type === "subscription"
+											? { kind: "user", userId: UserId.make(input.principal.subject.userId) }
 											: { kind: "system" },
 								})
 								.pipe(
@@ -86,8 +86,8 @@ export const makeAutomationSandboxApiFunctions: Effect.Effect<
 						notifications
 							.sendMessage({
 								message: message.trim(),
-								userId: UserId.make(input.authority.userId),
-								executionId: `${input.authority.subscriptionRun.id}-notification`,
+								userId: UserId.make(input.principal.subject.userId),
+								executionId: `${input.principal.subject.subscriptionRun.id}-notification`,
 							})
 							.pipe(Effect.as(null)),
 					),

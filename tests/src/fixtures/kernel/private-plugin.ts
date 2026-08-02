@@ -11,7 +11,6 @@ import {
 	literalSandboxSource,
 	operationSandboxSource,
 	pluginConfigOperationSandboxSource,
-	throwingSandboxSource,
 } from "./sandbox-source";
 import { uploadPrivatePluginPackage } from "./temporary-archive";
 import { testPluginManifest } from "./test-plugin";
@@ -164,9 +163,7 @@ export type PrivateBootstrapPluginPackage = {
 	readonly files: PluginPackage["files"];
 };
 
-export const privateBootstrapPluginPackage = (
-	input: { readonly failureMessage?: string } = {},
-): PrivateBootstrapPluginPackage => {
+export const privateBootstrapPluginPackage = (): PrivateBootstrapPluginPackage => {
 	const suffix = randomUUID();
 	const operationSlug = "read-titles";
 	const name = "E2E private bootstrap";
@@ -176,9 +173,7 @@ export const privateBootstrapPluginPackage = (
 	const bootstrapScriptSlug = `e2e-private-bootstrap-${suffix}`;
 	const operationScriptSlug = `e2e-private-bootstrap-operation-${suffix}`;
 	const pluginSlug = `e2e-private-bootstrap-plugin-${suffix}`;
-	const bootstrapSource = input.failureMessage
-		? throwingSandboxSource({ name, slug: bootstrapScriptSlug, message: input.failureMessage })
-		: literalSandboxSource({ name, slug: bootstrapScriptSlug, value: true });
+	const bootstrapSource = literalSandboxSource({ name, slug: bootstrapScriptSlug, value: true });
 	const manifest = testPluginManifest({
 		pluginSlug,
 		userBootstrap: [{ slug: bootstrapSlug, scriptSlug: bootstrapScriptSlug, description: name }],
@@ -222,21 +217,6 @@ export const privateBootstrapPluginPackage = (
 		},
 	};
 };
-
-export const installPrivateBootstrapPlugin = (input: {
-	readonly client: Client;
-	readonly failureMessage?: string;
-}) =>
-	Effect.gen(function* () {
-		const plugin = privateBootstrapPluginPackage(input);
-		yield* installPrivatePluginPackage({
-			config: {},
-			pluginPackage: plugin,
-			client: input.client,
-		});
-		const installation = yield* settledPrivateInstallation(input.client, plugin.pluginSlug);
-		return { ...plugin, installation };
-	});
 
 export const invokePrivatePluginOperation = (input: {
 	readonly prefix: string;

@@ -1,7 +1,6 @@
 import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
-import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import {
 	workflowDurableResultSchema,
@@ -27,7 +26,7 @@ import {
 } from "#lib/test-utils/effect";
 
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
-import { executeSandboxExecution } from "./durable-queues";
+import { executeSandboxExecution, type SandboxExecutionQueuePayload } from "./durable-queues";
 import {
 	KernelWorkflowReferences,
 	KERNEL_ENTITY_IMPORT_WORKFLOW,
@@ -47,6 +46,18 @@ import {
 	SandboxWorkflowReferenceRegistrationError,
 	SandboxWorkflowReferenceRepository,
 } from "./workflow-reference-repository";
+
+const pluginRevision = {
+	id: "plugin",
+	ownerId: null,
+	slug: "plugin",
+	compiledHashes: {},
+	workflowScripts: {},
+	scope: "system" as const,
+	userBootstrapScriptSlugs: [],
+	configSchema: { fields: {}, unknownKeys: "strict" as const },
+	schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
+};
 
 const makeProjectionRedis = () =>
 	makeRedisService({
@@ -187,16 +198,20 @@ fi
 					pinEvents.push("pin");
 					return scriptId === historicalScriptId
 						? {
-								pluginId: "plugin",
-								pluginSlug: "plugin",
+								pluginRevision,
+								providerId: null,
+								scriptSlug: "workflow",
 								scriptId: historicalScriptId,
 								contentHash: "historical-hash",
+								metadata: { kind: "workflow", capabilities: [] },
 							}
 						: {
-								pluginId: "plugin",
-								pluginSlug: "plugin",
+								pluginRevision,
+								providerId: null,
+								scriptSlug: "workflow",
 								scriptId: replacementScriptId,
 								contentHash: "replacement-hash",
+								metadata: { kind: "workflow", capabilities: [] },
 							};
 				}),
 			getScript: (scriptId) =>
@@ -262,7 +277,7 @@ fi
 			execute: (
 				_workflowSlug,
 				_input,
-				_authority,
+				_subject,
 				_executionId,
 				_parentExecutionId,
 				callerScriptId,
@@ -280,9 +295,9 @@ fi
 		input: {},
 		executionId,
 		scriptId: historicalScriptId,
-		resolutionMode: "active" as const,
 		resultMode: "execution" as const,
-		authority: { type: "system" as const },
+		resolutionMode: "active" as const,
+		subject: { type: "system" as const },
 	};
 
 	return Effect.gen(function* () {
@@ -342,9 +357,11 @@ it.effect("retains a plugin workflow reference while durably suspended", () => {
 			getScriptPin: () =>
 				Effect.succeed({
 					scriptId,
-					pluginId: "plugin",
-					pluginSlug: "plugin",
+					pluginRevision,
+					providerId: null,
+					scriptSlug: "workflow",
 					contentHash: "content-hash",
+					metadata: { kind: "workflow", capabilities: [] },
 				}),
 		}),
 		Layer.mock(SandboxWorkflowReferenceRepository)({
@@ -369,7 +386,7 @@ it.effect("retains a plugin workflow reference while durably suspended", () => {
 					input: {},
 					executionId,
 					resolutionMode: "exact",
-					authority: { type: "system" },
+					subject: { type: "system" },
 				},
 				executionId,
 				() =>
@@ -446,9 +463,11 @@ it.effect("reconstructs a completed host write after interruption without repeat
 				getScriptPin: () =>
 					Effect.succeed({
 						scriptId,
-						pluginId: null,
-						pluginSlug: null,
+						providerId: null,
+						pluginRevision: null,
+						scriptSlug: "workflow",
 						contentHash: "operation-hash",
+						metadata: { kind: "workflow", capabilities: [] },
 					}),
 			}),
 			Layer.mock(SandboxWorkflowReferenceRepository)({
@@ -474,9 +493,9 @@ it.effect("reconstructs a completed host write after interruption without repeat
 		input: {},
 		executionId,
 		resolutionMode: "exact" as const,
-		authority: { type: "user" as const, userId: UserId.make("interrupted-user") },
+		subject: { type: "user" as const, userId: UserId.make("interrupted-user") },
 	};
-	const processReplay = (sandboxPayload: SandboxExecutionPayload) =>
+	const processReplay = (sandboxPayload: SandboxExecutionQueuePayload) =>
 		Effect.succeed({
 			logs: [],
 			error: null,
@@ -528,9 +547,11 @@ it.effect("releases a plugin workflow reference before returning terminal failur
 			getScriptPin: () =>
 				Effect.succeed({
 					scriptId,
-					pluginId: "plugin",
-					pluginSlug: "plugin",
+					pluginRevision,
+					providerId: null,
+					scriptSlug: "workflow",
 					contentHash: "content-hash",
+					metadata: { kind: "workflow", capabilities: [] },
 				}),
 		}),
 		Layer.mock(SandboxWorkflowReferenceRepository)({
@@ -552,7 +573,7 @@ it.effect("releases a plugin workflow reference before returning terminal failur
 					input: {},
 					executionId,
 					resolutionMode: "exact",
-					authority: { type: "system" },
+					subject: { type: "system" },
 				},
 				executionId,
 				() =>
@@ -586,9 +607,11 @@ it.effect("maps inactive plugin pin registration to SandboxRunError", () => {
 			getScriptPin: () =>
 				Effect.succeed({
 					scriptId,
-					pluginId: "plugin",
-					pluginSlug: "plugin",
+					pluginRevision,
+					providerId: null,
+					scriptSlug: "workflow",
 					contentHash: "content-hash",
+					metadata: { kind: "workflow", capabilities: [] },
 				}),
 		}),
 		Layer.mock(SandboxWorkflowReferenceRepository)({
@@ -606,13 +629,7 @@ it.effect("maps inactive plugin pin registration to SandboxRunError", () => {
 	return Effect.gen(function* () {
 		const exit = yield* Effect.exit(
 			runSandboxScriptWorkflowBody(
-				{
-					input: {},
-					executionId,
-					scriptId,
-					resolutionMode: "exact",
-					authority: { type: "system" },
-				},
+				{ scriptId, input: {}, executionId, resolutionMode: "exact", subject: { type: "system" } },
 				executionId,
 				() => Effect.die("unused"),
 			),
@@ -747,9 +764,11 @@ it.effect("executes a pending batch with request-indexed script child identities
 				getScriptPin: () =>
 					Effect.succeed({
 						scriptId,
-						pluginId: null,
-						pluginSlug: null,
+						providerId: null,
+						pluginRevision: null,
+						scriptSlug: "workflow",
 						contentHash: "workflow-hash",
+						metadata: { kind: "workflow", capabilities: [] },
 					}),
 				resolveWorkflowCallScript: () =>
 					Effect.succeed({ kind: "script" as const, scriptId: activityScriptId }),
@@ -766,7 +785,7 @@ it.effect("executes a pending batch with request-indexed script child identities
 				input: {},
 				executionId,
 				resolutionMode: "exact",
-				authority: { type: "system" },
+				subject: { type: "system" },
 			},
 			executionId,
 			(sandboxPayload) => {
@@ -837,7 +856,7 @@ it.effect("dispatches plugin children as child workflows with an exact script pi
 				input: {},
 				executionId: "parent",
 				resolutionMode: "active",
-				authority: { type: "system" },
+				subject: { type: "system" },
 				scriptId: SandboxScriptId.make("parent-script"),
 			},
 			"parent",
@@ -847,8 +866,8 @@ it.effect("dispatches plugin children as child workflows with an exact script pi
 		expect(capturedOptions).toMatchObject({
 			executionId: "parent-child-events-import-v1-2",
 			payload: {
-				scriptId: "child-script",
 				resolutionMode: "exact",
+				scriptId: "child-script",
 				grants: { artifactOwnerExecutionId: "parent" },
 			},
 		});
@@ -895,7 +914,16 @@ it.effect("dispatches migrated script activity requests as child workflows", () 
 				input: {},
 				executionId: "parent",
 				resolutionMode: "exact",
-				authority: { type: "system" },
+				subject: { type: "system" },
+				scriptId: SandboxScriptId.make("workflow-script"),
+			},
+			{
+				providerId: null,
+				pluginRevision: null,
+				scriptSlug: "workflow",
+				subject: { type: "system" },
+				contentHash: "workflow-hash",
+				metadata: { kind: "workflow", capabilities: [] },
 				scriptId: SandboxScriptId.make("workflow-script"),
 			},
 			"parent",
@@ -916,10 +944,10 @@ it.effect("dispatches migrated script activity requests as child workflows", () 
 	);
 });
 
-it.effect("dispatches library imports with the parent workflow authority", () => {
+it.effect("dispatches library imports with the parent workflow subject", () => {
 	const calls: Array<{
 		input: unknown;
-		authority: unknown;
+		subject: unknown;
 		executionId: string;
 		workflowSlug: string;
 		callerScriptId: string;
@@ -939,7 +967,7 @@ it.effect("dispatches library imports with the parent workflow authority", () =>
 				executionId: "parent",
 				resolutionMode: "active",
 				scriptId: SandboxScriptId.make("parent-script"),
-				authority: { type: "user", userId: UserId.make("trusted-user") },
+				subject: { type: "user", userId: UserId.make("trusted-user") },
 			},
 			"parent",
 		);
@@ -948,11 +976,11 @@ it.effect("dispatches library imports with the parent workflow authority", () =>
 		expect(calls).toEqual([
 			{
 				parentExecutionId: "parent",
-				input: { externalId: "record-1" },
 				callerScriptId: "parent-script",
+				input: { externalId: "record-1" },
 				executionId: "parent-child-import-3-4",
 				workflowSlug: KERNEL_ENTITY_IMPORT_WORKFLOW,
-				authority: { type: "user", userId: "trusted-user" },
+				subject: { type: "user", userId: "trusted-user" },
 			},
 		]);
 	}).pipe(
@@ -974,11 +1002,11 @@ it.effect("dispatches library imports with the parent workflow authority", () =>
 			}),
 		),
 		Effect.provideService(KernelWorkflowReferences, {
-			execute: (workflowSlug, input, authority, executionId, parentExecutionId, callerScriptId) =>
+			execute: (workflowSlug, input, subject, executionId, parentExecutionId, callerScriptId) =>
 				Effect.sync(() => {
 					calls.push({
 						input,
-						authority,
+						subject,
 						executionId,
 						workflowSlug,
 						callerScriptId,

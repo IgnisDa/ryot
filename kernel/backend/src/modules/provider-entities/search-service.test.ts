@@ -222,7 +222,7 @@ it.effect("executes one provider search and returns its singular response", () =
 		expect(executions).toHaveLength(1);
 		expect(executions[0]).toMatchObject({
 			scriptId: "search-script-id",
-			authority: { type: "user", userId: user.id },
+			subject: { type: "user", userId: user.id },
 			input: { query: "record", page: 2, pageSize: 10, options: { passRawQuery: true } },
 		});
 	}).pipe(
@@ -315,7 +315,7 @@ it.effect("executes and materializes dynamic search options", () => {
 		expect(executions[0]).toMatchObject({
 			input: {},
 			scriptId: searchOptionsScript.id,
-			authority: { type: "user", userId: user.id },
+			subject: { type: "user", userId: user.id },
 		});
 	}).pipe(
 		Effect.provide(

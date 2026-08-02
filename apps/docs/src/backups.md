@@ -57,7 +57,9 @@ account setup are allowed because Ryot records their bootstrap origin. Restore m
 by schema ownership instead of depending on a specific built-in plugin or record name.
 
 The archive records the exact version and source hash for each required system plugin. Every system
-requirement must match the destination server. Private plugins owned by the account are included as
+requirement must match the destination server. System plugin archives are deployment-controlled
+inputs, not cryptographically authenticated packages; their recorded version and source hash are
+compatibility checks, not signatures. Private plugins owned by the account are included as
 canonical manifests and complete source packages. Ryot validates and compiles them before restore.
 
 Plugin configuration and integration setting fields marked as secrets in the manifest are omitted.

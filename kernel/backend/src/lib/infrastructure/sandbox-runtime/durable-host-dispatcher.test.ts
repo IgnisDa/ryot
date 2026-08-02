@@ -54,6 +54,15 @@ const implementations: SandboxHostImplementations["Service"] = {
 };
 
 const scriptId = SandboxScriptId.make("script-1");
+const subject = {
+	type: "subscription" as const,
+	userId: UserId.make("user-1"),
+	subscriptionRun: {
+		origin: { kind: "api" as const },
+		occurredAt: "2026-08-06T00:00:00.000Z",
+		id: SubscriptionRunId.make("subscription-1"),
+	},
+};
 const script = {
 	source: "",
 	id: scriptId,
@@ -72,7 +81,26 @@ const script = {
 		kind: "automation" as const,
 		requiredPluginConfigKeys: [],
 		requiredSystemConfigKeys: [],
-		capabilities: ["emitSignal", "sendNotification"],
+		capabilities: ["emitSignal", "httpCall", "sendNotification"],
+	},
+};
+const principal = {
+	subject,
+	scriptId,
+	providerId: null,
+	scriptSlug: script.slug,
+	metadata: script.metadata,
+	contentHash: script.contentHash,
+	pluginRevision: {
+		ownerId: null,
+		id: "plugin-id",
+		compiledHashes: {},
+		workflowScripts: {},
+		slug: script.pluginSlug,
+		scope: "system" as const,
+		userBootstrapScriptSlugs: [],
+		configSchema: { fields: {}, unknownKeys: "strict" as const },
+		schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
 	},
 };
 
@@ -110,18 +138,9 @@ it.effect("dispatches workflow-owned capabilities through their deterministic ch
 			),
 		),
 	);
-	const authority = {
-		type: "subscription" as const,
-		userId: UserId.make("user-1"),
-		subscriptionRun: {
-			origin: { kind: "api" as const },
-			occurredAt: "2026-08-06T00:00:00.000Z",
-			id: SubscriptionRunId.make("subscription-1"),
-		},
-	};
 	const payload = {
+		subject,
 		scriptId,
-		authority,
 		input: {},
 		executionId,
 		resolutionMode: "exact" as const,
@@ -139,6 +158,7 @@ it.effect("dispatches workflow-owned capabilities through their deterministic ch
 					args: { capability: "emitSignal", args: [] },
 				},
 				payload,
+				principal,
 				executionId,
 			),
 		).toEqual({ state: "success", value: { signalId: "signal-1", wasCreated: true } });
@@ -151,6 +171,7 @@ it.effect("dispatches workflow-owned capabilities through their deterministic ch
 					args: { capability: "sendNotification", args: ["Ready"] },
 				},
 				payload,
+				principal,
 				executionId,
 			),
 		).toEqual({ state: "success", value: null });
@@ -193,8 +214,8 @@ type HttpOutcome = Readonly<{
 }>;
 
 type CapturedLog = Readonly<{
-	logLevel: string;
 	message: string;
+	logLevel: string;
 	annotations: Readonly<Record<string, unknown>>;
 }>;
 
@@ -332,12 +353,13 @@ const makeHttpHarness = (options: {
 				},
 			},
 			{
-				input: {},
 				scriptId,
+				input: {},
 				executionId,
 				resolutionMode: "exact",
-				authority: { type: "system" },
+				subject: principal.subject,
 			},
+			principal,
 			executionId,
 		);
 	}).pipe(
@@ -604,8 +626,9 @@ it.effect("does not swallow coordination interruption", () => {
 					input: {},
 					executionId,
 					resolutionMode: "exact",
-					authority: { type: "system" },
+					subject: principal.subject,
 				},
+				principal,
 				executionId,
 			),
 		);

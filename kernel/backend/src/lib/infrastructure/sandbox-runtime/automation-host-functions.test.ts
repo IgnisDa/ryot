@@ -2,6 +2,8 @@ import { expect, it } from "@effect/vitest";
 import {
 	SignalId,
 	SignalSchemaSlug,
+	SandboxProviderId,
+	SandboxScriptId,
 	SubscriptionRunId,
 	UserId,
 } from "@ryot/contract/schema/brands";
@@ -27,24 +29,45 @@ const changeUserRelationships = () => Effect.succeed([]);
 const ensureUserEntities = () => Effect.succeed([]);
 const getUserPreferences = () => Effect.succeed(null);
 
+const pluginRevision = (isUserBootstrap = false) => ({
+	ownerId: null,
+	id: "plugin-1",
+	slug: "plugin",
+	compiledHashes: {},
+	workflowScripts: {},
+	scope: "system" as const,
+	userBootstrapScriptSlugs: isUserBootstrap ? ["script"] : [],
+	configSchema: { fields: {}, unknownKeys: "strict" as const },
+	schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
+});
+
 const runInput = {
 	context: {},
-	metadata: {},
-	contentHash: "",
-	providerId: null,
 	compiledCode: "",
 	compiledFormat: 1,
-	scriptId: "script-1",
 	executionId: `${runId}-sandbox`,
-	allowedHostFunctions: ["emitSignal", "sendNotification"],
-	authority: {
-		userId,
-		type: "subscription",
-		subscriptionRun: { id: runId, occurredAt, origin: { kind: "api" } },
+	principal: {
+		contentHash: "",
+		providerId: null,
+		pluginRevision: null,
+		scriptSlug: "script",
+		scriptId: SandboxScriptId.make("script-1"),
+		metadata: { capabilities: ["emitSignal", "sendNotification"] },
+		subject: {
+			userId,
+			type: "subscription",
+			subscriptionRun: { id: runId, occurredAt, origin: { kind: "api" } },
+		},
 	},
 } as const satisfies SandboxRunInput;
 
-it.effect("derives signal authority and identity from the subscription run", () => {
+const selectionPrincipal = (
+	subject: SandboxRunInput["principal"]["subject"],
+	kind: NonNullable<SandboxRunInput["principal"]["metadata"]["kind"]>,
+	capabilities: readonly string[],
+) => ({ ...runInput.principal, subject, metadata: { kind, capabilities: [...capabilities] } });
+
+it.effect("derives signal subject and identity from the subscription run", () => {
 	let captured: EmitSignalInput | undefined;
 	const signals = Layer.mock(SignalEmissionService, {
 		emit: (input) => {
@@ -139,7 +162,7 @@ it.effect("returns context failures through the Effect error channel", () => {
 		const host = yield* makeAutomationSandboxApiFunctions;
 		const error = yield* Effect.flip(
 			host.sendNotification(
-				{ ...runInput, authority: { type: "system" } },
+				{ ...runInput, principal: { ...runInput.principal, subject: { type: "system" } } },
 				"Review posted for Dune",
 			),
 		);
@@ -153,15 +176,17 @@ it.effect("returns context failures through the Effect error channel", () => {
 it("exposes automation capabilities only to trusted automation executions", () => {
 	const bound = { emitSignal, sendNotification };
 	const direct = selectSandboxHostFunctions(bound, {
-		metadata: { kind: "script" },
-		authority: { type: "user", userId },
-		allowedHostFunctions: ["emitSignal", "sendNotification"],
+		principal: selectionPrincipal({ type: "user", userId }, "script", [
+			"emitSignal",
+			"sendNotification",
+		]),
 	});
 	const subscription = selectSandboxHostFunctions(bound, runInput);
 	const system = selectSandboxHostFunctions(bound, {
-		authority: { type: "system" },
-		metadata: { kind: "automation" },
-		allowedHostFunctions: ["emitSignal", "sendNotification"],
+		principal: {
+			...selectionPrincipal({ type: "system" }, "automation", ["emitSignal", "sendNotification"]),
+			pluginRevision: pluginRevision(),
+		},
 	});
 
 	expect(direct).toEqual({});
@@ -172,48 +197,52 @@ it("exposes automation capabilities only to trusted automation executions", () =
 it("exposes global writes only to system runs with explicit capabilities", () => {
 	const bound = { upsertGlobalEntities };
 	const user = selectSandboxHostFunctions(bound, {
-		metadata: { kind: "script" },
-		authority: { type: "user", userId },
-		allowedHostFunctions: ["upsertGlobalEntities"],
+		principal: selectionPrincipal({ type: "user", userId }, "script", ["upsertGlobalEntities"]),
 	});
 	const subscription = selectSandboxHostFunctions(bound, {
-		authority: runInput.authority,
-		metadata: { kind: "automation" },
-		allowedHostFunctions: ["upsertGlobalEntities"],
+		principal: selectionPrincipal(runInput.principal.subject, "automation", [
+			"upsertGlobalEntities",
+		]),
 	});
 	const system = selectSandboxHostFunctions(bound, {
-		metadata: { kind: "script" },
-		authority: { type: "system" },
-		allowedHostFunctions: ["upsertGlobalEntities"],
+		principal: selectionPrincipal({ type: "system" }, "script", ["upsertGlobalEntities"]),
 	});
 	const providerSystem = selectSandboxHostFunctions(bound, {
-		authority: { type: "system" },
-		metadata: { kind: "provider" },
-		allowedHostFunctions: ["upsertGlobalEntities"],
+		principal: {
+			...selectionPrincipal({ type: "system" }, "script", ["upsertGlobalEntities"]),
+			pluginRevision: pluginRevision(),
+			providerId: SandboxProviderId.make("provider-1"),
+		},
 	});
 
 	expect(user).toEqual({});
 	expect(subscription).toEqual({});
-	expect(system).toEqual({ upsertGlobalEntities });
-	expect(providerSystem).toEqual({});
+	expect(system).toEqual({});
+	expect(providerSystem).toEqual({ upsertGlobalEntities });
 });
 
-it("filters user-context and user-only capabilities by authority", () => {
+it("filters user-context and user-only capabilities by subject", () => {
 	const bound = { ensureUserEntities, getUserPreferences };
 	const user = selectSandboxHostFunctions(bound, {
-		metadata: { kind: "operation" },
-		authority: { type: "user", userId },
-		allowedHostFunctions: ["ensureUserEntities", "getUserPreferences"],
+		principal: {
+			...selectionPrincipal({ type: "user", userId }, "operation", [
+				"ensureUserEntities",
+				"getUserPreferences",
+			]),
+			pluginRevision: pluginRevision(true),
+		},
 	});
 	const subscription = selectSandboxHostFunctions(bound, {
-		metadata: { kind: "automation" },
-		authority: runInput.authority,
-		allowedHostFunctions: ["ensureUserEntities", "getUserPreferences"],
+		principal: selectionPrincipal(runInput.principal.subject, "automation", [
+			"ensureUserEntities",
+			"getUserPreferences",
+		]),
 	});
 	const system = selectSandboxHostFunctions(bound, {
-		metadata: { kind: "script" },
-		authority: { type: "system" },
-		allowedHostFunctions: ["ensureUserEntities", "getUserPreferences"],
+		principal: selectionPrincipal({ type: "system" }, "script", [
+			"ensureUserEntities",
+			"getUserPreferences",
+		]),
 	});
 
 	expect(user).toEqual({ ensureUserEntities, getUserPreferences });
@@ -221,27 +250,23 @@ it("filters user-context and user-only capabilities by authority", () => {
 	expect(system).toEqual({});
 });
 
-it("exposes declared user relationship changes only to user-bound authority", () => {
+it("exposes declared user relationship changes only to user-bound subject", () => {
 	const bound = { changeUserRelationships };
 	const user = selectSandboxHostFunctions(bound, {
-		metadata: { kind: "operation" },
-		authority: { type: "user", userId },
-		allowedHostFunctions: ["changeUserRelationships"],
+		principal: selectionPrincipal({ type: "user", userId }, "operation", [
+			"changeUserRelationships",
+		]),
 	});
 	const subscription = selectSandboxHostFunctions(bound, {
-		authority: runInput.authority,
-		metadata: { kind: "automation" },
-		allowedHostFunctions: ["changeUserRelationships"],
+		principal: selectionPrincipal(runInput.principal.subject, "automation", [
+			"changeUserRelationships",
+		]),
 	});
 	const undeclared = selectSandboxHostFunctions(bound, {
-		allowedHostFunctions: [],
-		authority: runInput.authority,
-		metadata: { kind: "automation" },
+		principal: selectionPrincipal(runInput.principal.subject, "automation", []),
 	});
 	const system = selectSandboxHostFunctions(bound, {
-		metadata: { kind: "script" },
-		authority: { type: "system" },
-		allowedHostFunctions: ["changeUserRelationships"],
+		principal: selectionPrincipal({ type: "system" }, "script", ["changeUserRelationships"]),
 	});
 
 	expect(user).toEqual({ changeUserRelationships });

@@ -20,6 +20,7 @@ import { UploadIntentsService } from "#modules/uploads/intents/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { PluginDefinitionMaterializer } from "./definition-materializer";
+import { PluginIngestionLock } from "./ingestion-lock";
 import {
 	PluginInstallationRepository,
 	type PluginInstallationState,
@@ -109,12 +110,14 @@ const makeLayer = (input?: {
 	readonly privatePlugins?: Array<StoredPlugin>;
 	readonly created?: Array<Record<string, unknown>>;
 	readonly updated?: Array<Record<string, unknown>>;
+	readonly lockIngestion?: () => Effect.Effect<void>;
 	readonly systemPlugins?: Array<PluginRegistryEntry>;
 	readonly installations?: Array<PluginInstallationState>;
 	readonly healthUpdates?: Array<Record<string, unknown>>;
 	readonly claimedUploads?: Array<Record<string, unknown>>;
 	readonly privateInstallations?: Array<PluginPrivateInstallationRow>;
 	readonly materialize?: (userId: UserId) => Effect.Effect<void, DbError>;
+	readonly listActiveManifests?: () => Effect.Effect<Array<PluginManifest>>;
 	readonly persisted?: Array<{
 		plugin: StoredPlugin["manifest"];
 		identity: Record<string, unknown>;
@@ -124,7 +127,7 @@ const makeLayer = (input?: {
 	const registryLayer = Layer.succeed(DefinitionRegistry, registry);
 	const loaderLayer = PluginLoader.layer.pipe(Layer.provide(registryLayer));
 	const repositoryLayer = Layer.mock(PluginRepository)({
-		lockIngestion: () => Effect.void,
+		lockIngestion: () => input?.lockIngestion?.() ?? Effect.void,
 		listPrivateForUser: () => Effect.succeed(input?.privatePlugins ?? []),
 		persist: (plugin, identity) =>
 			Effect.sync(() => {
@@ -142,8 +145,10 @@ const makeLayer = (input?: {
 			}),
 		deactivate: (pluginId) => Effect.sync(() => void input?.deactivated?.push(pluginId)),
 		listActiveManifests: () =>
+			input?.listActiveManifests?.() ??
 			Effect.succeed((input?.systemPlugins ?? []).map(({ manifest }) => manifest)),
 	});
+	const ingestionLockLayer = PluginIngestionLock.layer.pipe(Layer.provide(repositoryLayer));
 	const installationLayer = Layer.mock(PluginInstallationRepository)({
 		provisionSystemInstallationsForAllUsers: () => Effect.void,
 		listForUser: () => Effect.succeed(input?.installations ?? []),
@@ -224,6 +229,7 @@ const makeLayer = (input?: {
 				loaderLayer,
 				databaseLayer,
 				repositoryLayer,
+				ingestionLockLayer,
 				installationLayer,
 				workflowReferenceLayer,
 				uploadIntentsLayer,
@@ -395,7 +401,7 @@ it.effect("rejects an oversized package before compiling it", () => {
 	}).pipe(Effect.provide(makeLayer()));
 });
 
-it.effect("rejects only the private manifest surfaces that cannot carry user authority", () =>
+it.effect("rejects only the private manifest surfaces that cannot carry user subject", () =>
 	Effect.gen(function* () {
 		const service = yield* PluginInstallationService;
 		const fixture = fixtureManifest();
@@ -430,7 +436,11 @@ it.effect("rejects only the private manifest surfaces that cannot carry user aut
 		const failure = failureOf(exit);
 		assert(failure instanceof PluginRequestError);
 		assert(failure.reason.code === "unsupported-manifest-surface");
-		expect([...failure.reason.surfaces].sort()).toEqual(["boot", "httpRateLimits"]);
+		expect([...failure.reason.surfaces].sort((left, right) => left.localeCompare(right))).toEqual([
+			"boot",
+			"httpRateLimits",
+			"userBootstrap",
+		]);
 	}).pipe(Effect.provide(makeLayer())),
 );
 
@@ -462,6 +472,30 @@ it.effect("reserves slugs owned by active system plugins", () =>
 		),
 	),
 );
+
+it.effect("rejects persistence when a system slug appears after install preparation", () => {
+	let systemSlugExists = false;
+	const persisted: Array<{ plugin: StoredPlugin["manifest"]; identity: Record<string, unknown> }> =
+		[];
+	const manifest = privateManifest();
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		const failure = failureOf(
+			yield* Effect.exit(service.installPrivatePlugin({ userId, files: {}, config: {}, manifest })),
+		);
+		assert(failure instanceof PluginRequestError);
+		expect(failure.reason).toEqual({ code: "slug-reserved", pluginSlug: manifest.metadata.slug });
+		expect(persisted).toEqual([]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				persisted,
+				lockIngestion: () => Effect.sync(() => void (systemSlugExists = true)),
+				listActiveManifests: () => Effect.succeed(systemSlugExists ? [manifest] : []),
+			}),
+		),
+	);
+});
 
 const configuredManifest = privateManifest({
 	configSchema: {
@@ -1278,7 +1312,7 @@ it.effect("marks the installation failed when its lifecycle cannot be dispatched
 	}).pipe(Effect.provide(makeLayer({ dispatched, healthUpdates, dispatchFails: true })));
 });
 
-it.effect("never dispatches installation bootstrap for a package update", () => {
+it.effect("rejects user bootstrap for a private package update", () => {
 	const dispatched: Array<string> = [];
 	const privatePlugin = storedPrivatePlugin(privateManifest());
 	const installation = installationRow({ pluginId: privatePlugin.id });
@@ -1289,13 +1323,21 @@ it.effect("never dispatches installation bootstrap for a package update", () => 
 	});
 	return Effect.gen(function* () {
 		const service = yield* PluginInstallationService;
-		const updated = yield* service.updatePrivatePlugin({
-			userId,
-			manifest: nextManifest,
-			pluginSlug: privatePlugin.slug,
-			files: { [bootstrapScript.entry]: bootstrapScriptSource },
+		const failure = failureOf(
+			yield* Effect.exit(
+				service.updatePrivatePlugin({
+					userId,
+					manifest: nextManifest,
+					pluginSlug: privatePlugin.slug,
+					files: { [bootstrapScript.entry]: bootstrapScriptSource },
+				}),
+			),
+		);
+		assert(failure instanceof PluginRequestError);
+		expect(failure.reason).toEqual({
+			surfaces: ["userBootstrap"],
+			code: "unsupported-manifest-surface",
 		});
-		expect(updated).toMatchObject({ version: "2.0.0", health: "ready" });
 		expect(dispatched).toEqual([]);
 	}).pipe(
 		Effect.provide(

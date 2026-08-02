@@ -238,14 +238,14 @@ it.effect("returns NotFound for a slug that exists only in another user's regist
 	),
 );
 
-it.effect("dispatches a private operation with the owning user's authority", () => {
+it.effect("dispatches a private operation with the owning user's subject", () => {
 	const captured: Array<unknown> = [];
 	return Effect.gen(function* () {
 		expect(yield* invoke({ pluginSlug: PRIVATE_SLUG })).toBe("ok");
 		expect(captured).toEqual([
 			expect.objectContaining({
 				scriptId: "install-private-user-1-script",
-				authority: { type: "user", userId: USER_ONE },
+				subject: { type: "user", userId: USER_ONE },
 			}),
 		]);
 	}).pipe(
@@ -267,12 +267,12 @@ it.effect("dispatches a private operation with the owning user's authority", () 
 	);
 });
 
-it.effect("dispatches authenticated user operations without system authority", () => {
+it.effect("dispatches authenticated user operations without system subject", () => {
 	const captured: Array<unknown> = [];
 	return Effect.gen(function* () {
 		expect(yield* invoke({ pluginSlug: SYSTEM_SLUG })).toBe("ok");
 		expect(captured).toEqual([
-			expect.objectContaining({ authority: { type: "user", userId: USER_ONE } }),
+			expect.objectContaining({ subject: { type: "user", userId: USER_ONE } }),
 		]);
 	}).pipe(
 		Effect.provide(
@@ -291,7 +291,7 @@ it.effect(
 			);
 			expect(captured).toEqual([
 				expect.objectContaining({
-					authority: { type: "user", userId: USER_ONE, integrationId: "int-1" },
+					subject: { type: "user", userId: USER_ONE, integrationId: "int-1" },
 				}),
 			]);
 		}).pipe(
@@ -394,7 +394,7 @@ it.effect("dispatches a private integration operation for its owner's integratio
 		expect(captured).toEqual([
 			expect.objectContaining({
 				scriptId: "install-private-user-1-script",
-				authority: { type: "user", userId: USER_ONE, integrationId: "int-1" },
+				subject: { type: "user", userId: USER_ONE, integrationId: "int-1" },
 			}),
 		]);
 	}).pipe(

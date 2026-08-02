@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { UserId } from "@ryot/contract/schema/brands";
+import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import { describe } from "vitest";
@@ -13,15 +13,18 @@ import type { SandboxRunInput } from "./shared";
 
 const input = {
 	context: {},
-	metadata: {},
-	contentHash: "",
-	providerId: null,
 	compiledCode: "",
 	compiledFormat: 1,
-	scriptId: "script-1",
-	allowedHostFunctions: [],
 	executionId: "execution-1",
-	authority: { type: "user", userId: UserId.make("user-1") },
+	principal: {
+		metadata: {},
+		contentHash: "",
+		providerId: null,
+		pluginRevision: null,
+		scriptSlug: "script",
+		scriptId: SandboxScriptId.make("script-1"),
+		subject: { type: "user", userId: UserId.make("user-1") },
+	},
 } as const satisfies SandboxRunInput;
 
 const makeLayer = (values: Map<string, string>) => {

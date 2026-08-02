@@ -260,7 +260,7 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 			error: testSupportErrors,
 			success: TriggerPluginBootResponse,
 			payload: TestSupportTriggerPluginBootBody,
-		}).annotate(OpenApi.Description, "Triggers one active plugin boot driver"),
+		}).annotate(OpenApi.Description, "Triggers one active system-scope plugin boot entry"),
 	)
 	.add(
 		HttpApiEndpoint.post(
@@ -300,7 +300,7 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 				PluginRequestError.pipe(HttpApiSchema.status(400)),
 				PluginConflictError.pipe(HttpApiSchema.status(409)),
 			],
-		}).annotate(OpenApi.Description, "Installs a trusted system plugin"),
+		}).annotate(OpenApi.Description, "Installs a system-scope plugin for testing"),
 	)
 	.add(
 		HttpApiEndpoint.post(

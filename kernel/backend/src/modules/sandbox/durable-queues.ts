@@ -1,9 +1,12 @@
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
-import { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
-import { SandboxProviderId } from "@ryot/contract/schema/brands";
-import { Clock, DateTime, Effect, Schedule } from "effect";
+import {
+	SandboxExecutionGrants,
+	type SandboxExecutionPayload,
+} from "@ryot/contract/modules/sandbox/schemas";
+import { Clock, DateTime, Effect, Schedule, Schema } from "effect";
 import { DurableQueue } from "effect/unstable/workflow";
 
+import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 
@@ -11,17 +14,27 @@ import { SandboxExecutionResult } from "./execution-result";
 import { SandboxPluginScriptResolver } from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
 
+const SandboxExecutionQueuePayload = Schema.Struct({
+	context: Schema.Unknown,
+	executionId: Schema.String,
+	principal: SandboxExecutionPrincipal,
+	startedAt: Schema.optional(Schema.String),
+	grants: Schema.optional(SandboxExecutionGrants),
+	workflowExecutionId: Schema.optional(Schema.String),
+});
+export type SandboxExecutionQueuePayload = Schema.Schema.Type<typeof SandboxExecutionQueuePayload>;
+
 export const SandboxExecutionQueue = DurableQueue.make({
 	error: SandboxRunError,
 	name: "SandboxExecutionQueue",
 	success: SandboxExecutionResult,
-	payload: SandboxExecutionPayload,
+	payload: SandboxExecutionQueuePayload,
 	idempotencyKey: ({ executionId }) => executionId,
 });
 
 const sandboxRetrySchedule = Schedule.max([Schedule.exponential("1 second"), Schedule.recurs(2)]);
 
-export const processSandboxExecutionQueue = (payload: SandboxExecutionPayload) =>
+export const processSandboxExecutionQueue = (payload: SandboxExecutionQueuePayload) =>
 	DurableQueue.process(SandboxExecutionQueue, payload).pipe(
 		Effect.timeout("1 minute"),
 		Effect.retry(sandboxRetrySchedule),
@@ -51,42 +64,37 @@ export const resolveSandboxExecutionPayload = Effect.fn("resolveSandboxExecution
 );
 
 export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(function* (
-	payload: SandboxExecutionPayload,
+	payload: SandboxExecutionQueuePayload,
 ) {
 	yield* Effect.annotateCurrentSpan({
-		scriptId: payload.scriptId,
 		executionId: payload.executionId,
-		...("userId" in payload.authority ? { userId: payload.authority.userId } : {}),
+		scriptId: payload.principal.scriptId,
+		...("userId" in payload.principal.subject ? { userId: payload.principal.subject.userId } : {}),
 	});
 	const repository = yield* SandboxRepository;
 	const sandbox = yield* RuntimeSandboxService;
 
-	const script = yield* repository.getScript(payload.scriptId);
-	if (!script) {
+	const script = yield* repository.getScript(payload.principal.scriptId);
+	if (!script || script.contentHash !== payload.principal.contentHash) {
 		return yield* new SandboxRunError({ message: "Sandbox script not found" });
 	}
 	const workflowExecutionId =
 		payload.workflowExecutionId ??
-		(script.metadata.kind === "workflow"
+		(payload.principal.metadata.kind === "workflow"
 			? /^(.*)-replay-\d+$/.exec(payload.executionId)?.[1]
 			: undefined);
 	const startedAt =
 		payload.startedAt ?? DateTime.formatIso(DateTime.makeUnsafe(yield* Clock.currentTimeMillis));
 
 	const result = yield* sandbox.run({
-		scriptId: script.id,
-		context: payload.context,
-		metadata: script.metadata,
 		startedAt,
-		authority: payload.authority,
-		contentHash: script.contentHash,
+		context: payload.context,
+		principal: payload.principal,
 		executionId: payload.executionId,
 		compiledCode: script.compiledCode,
 		compiledFormat: script.compiledFormat,
 		...(payload.grants ? { grants: payload.grants } : {}),
 		...(workflowExecutionId ? { workflowExecutionId } : {}),
-		allowedHostFunctions: script.metadata.capabilities ?? [],
-		providerId: script.providerId ? SandboxProviderId.make(script.providerId) : null,
 	});
 
 	return {

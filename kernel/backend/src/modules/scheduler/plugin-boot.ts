@@ -61,8 +61,8 @@ export class PluginBootService extends Context.Service<PluginBootService>()("Plu
 						input: {},
 						executionId,
 						resolutionMode: "exact",
+						subject: { type: "system" },
 						scriptId: resolved.script.id,
-						authority: { type: "system" },
 					},
 				})
 				.pipe(Effect.asVoid);

@@ -195,7 +195,7 @@ export const runEventCreatePolicies = Effect.fn(function* (
 			executionId,
 			context: policyContext,
 			scriptId: step.sandboxScriptId,
-			authority: {
+			subject: {
 				userId,
 				type: "subscription",
 				subscriptionRun: {

@@ -7,8 +7,8 @@ import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { fixtureManifest } from "./test-support";
 import {
 	PluginSurfaceError,
+	validatePluginManifestPolicy,
 	validatePluginManifestReferences,
-	validatePrivateManifestSurfaces,
 } from "./validation";
 
 const requireFixtureScript = () => {
@@ -51,13 +51,12 @@ it.effect("rejects duplicate boot slugs and unknown scripts", () => {
 	});
 });
 
-it.effect("rejects a private boot declaration while allowing per-user surfaces", () =>
+it.effect("applies system and user manifest policy", () =>
 	Effect.gen(function* () {
 		const script = { ...requireFixtureScript(), kind: "script" as const, slug: "fixture.script" };
 		const allowed = {
 			...fixtureManifest(),
 			scripts: [...fixtureManifest().scripts, script],
-			userBootstrap: [{ slug: "seed", scriptSlug: script.slug, description: "Seed" }],
 			crons: [
 				{
 					slug: "hourly",
@@ -67,20 +66,39 @@ it.effect("rejects a private boot declaration while allowing per-user surfaces",
 				},
 			],
 		};
-		yield* validatePrivateManifestSurfaces(allowed);
-
-		const rejected = yield* Effect.exit(
-			validatePrivateManifestSurfaces({
+		yield* validatePluginManifestPolicy(allowed, { scope: "user", systemSlugs: new Set() });
+		yield* validatePluginManifestPolicy(
+			{
 				...allowed,
 				boot: bootManifest().boot,
+				userBootstrap: [{ slug: "seed", scriptSlug: script.slug, description: "Seed" }],
 				httpRateLimits: [
 					{ key: "outbound", requests: 1, intervalMs: 1_000, origins: ["https://example.com"] },
 				],
-			}),
+			},
+			{ scope: "system" },
+		);
+
+		const rejected = yield* Effect.exit(
+			validatePluginManifestPolicy(
+				{
+					...allowed,
+					boot: bootManifest().boot,
+					userBootstrap: [{ slug: "seed", scriptSlug: script.slug, description: "Seed" }],
+					httpRateLimits: [
+						{ requests: 1, key: "outbound", intervalMs: 1_000, origins: ["https://example.com"] },
+					],
+				},
+				{ scope: "user", systemSlugs: new Set() },
+			),
 		);
 		assert(Exit.isFailure(rejected));
 		const failure = Option.getOrThrow(Cause.findErrorOption(rejected.cause));
 		assert(failure instanceof PluginSurfaceError);
-		expect([...failure.surfaces].sort()).toEqual(["boot", "httpRateLimits"]);
+		expect([...failure.surfaces].sort((left, right) => left.localeCompare(right))).toEqual([
+			"boot",
+			"httpRateLimits",
+			"userBootstrap",
+		]);
 	}),
 );

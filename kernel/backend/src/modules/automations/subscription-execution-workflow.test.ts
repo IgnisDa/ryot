@@ -182,7 +182,7 @@ it.effect("runs a signal subscription to completion with full automation context
 			expect(yield* runSubscriptionExecutionWorkflow(payload, "execution-1")).toBe(runId);
 			expect(sandboxPayload).toMatchObject({
 				scriptId,
-				authority: {
+				subject: {
 					userId,
 					type: "subscription",
 					subscriptionRun: { id: runId, origin: payload.origin, occurredAt: payload.occurredAt },
