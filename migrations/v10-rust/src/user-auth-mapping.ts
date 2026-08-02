@@ -23,7 +23,7 @@ INSERT INTO "entity" (
 )
 SELECT
 	md5('legacy-library:' || migrated_user.id),
-	'Library',
+	'Media Library',
 	migrated_user.id,
 	'{}'::jsonb,
 	${quoteSqlString(libraryEntitySchema.slug)},
