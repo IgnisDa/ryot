@@ -422,7 +422,9 @@
     "packages/ryotql-recipes": {
       "name": "@ryot/ryotql-recipes",
       "dependencies": {
+        "@ryot/contract": "workspace:*",
         "@ryot/ryotql": "workspace:*",
+        "effect": "4.0.0-beta.105",
       },
       "devDependencies": {
         "@ryot/testing": "workspace:*",

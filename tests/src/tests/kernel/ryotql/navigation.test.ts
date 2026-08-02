@@ -1,14 +1,12 @@
 import { PluginSlug } from "@ryot/contract/schema/brands";
-import { buildNavigationDocument } from "@ryot/ryotql-recipes/navigation";
-import { Effect } from "effect";
+import { buildNavigationDocument, decodeNavigationResponse } from "@ryot/ryotql-recipes/navigation";
+import { Effect, Result } from "effect";
 
 import {
 	createAuthenticatedClient,
 	createCollection,
 	createSavedView,
 	executeRyotQL,
-	requireRyotQLFieldValue,
-	requireRyotQLTextField,
 	updatePluginState,
 	updateSavedView,
 } from "~/fixtures";
@@ -43,50 +41,25 @@ describe("RyotQL navigation", () => {
 
 			const result = yield* executeRyotQL(first.client, buildNavigationDocument());
 			expect(Object.keys(result.data)).toEqual(["workspaces", "savedViews", "collections"]);
-
-			const workspaces = result.data["workspaces"];
-			const savedViews = result.data["savedViews"];
-			const collections = result.data["collections"];
-			if (
-				workspaces?.type !== "rows" ||
-				savedViews?.type !== "rows" ||
-				collections?.type !== "rows"
-			) {
-				throw new Error("Expected navigation row results");
-			}
-
-			const media = workspaces.items.find(
-				(item) => requireRyotQLTextField(item, "slug") === "media",
-			);
-			const fitness = workspaces.items.find(
-				(item) => requireRyotQLTextField(item, "slug") === "fitness",
-			);
+			const data = Result.getOrThrow(decodeNavigationResponse(result));
+			const media = data.workspaces.find((item) => item.slug === "media");
+			const fitness = data.workspaces.find((item) => item.slug === "fitness");
 			if (!media || !fitness) {
 				throw new Error("Expected built-in workspaces");
 			}
-			expect(requireRyotQLFieldValue(media, "sortOrder")).toEqual({ kind: "number", value: 7 });
-			expect(requireRyotQLFieldValue(media, "isDisabled")).toEqual({
-				value: true,
-				kind: "boolean",
-			});
-			expect(requireRyotQLFieldValue(fitness, "sortOrder").kind).toBe("null");
-			expect(requireRyotQLFieldValue(fitness, "isDisabled").kind).toBe("null");
+			expect(media).toMatchObject({ sortOrder: 7, isDisabled: true });
+			expect(fitness).toMatchObject({ sortOrder: expect.any(Number), isDisabled: false });
 
-			const viewNames = savedViews.items.map((item) => requireRyotQLTextField(item, "name"));
+			const viewNames = data.savedViews.map((item) => item.name);
 			expect(viewNames).toContain(firstViewName);
 			expect(viewNames).not.toContain(secondViewName);
-			const firstViewRow = savedViews.items.find(
-				(item) => requireRyotQLTextField(item, "name") === firstViewName,
-			);
+			const firstViewRow = data.savedViews.find((item) => item.name === firstViewName);
 			if (!firstViewRow) {
 				throw new Error("Expected first user's saved view");
 			}
-			expect(requireRyotQLFieldValue(firstViewRow, "isDisabled")).toEqual({
-				value: true,
-				kind: "boolean",
-			});
+			expect(firstViewRow.isDisabled).toBe(true);
 
-			const collectionIds = collections.items.map((item) => requireRyotQLTextField(item, "id"));
+			const collectionIds = data.collections.map((item) => item.slug);
 			expect(collectionIds).toContain(firstCollection.id);
 			expect(collectionIds).not.toContain(secondCollection.id);
 		}),
