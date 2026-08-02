@@ -256,15 +256,11 @@ client: {
 
 A plugin without client UI may omit the client entry.
 
-A client plugin conceptually exports:
+A client plugin conceptually bootstraps with:
 
 ```ts
-defineClientPlugin({
+bootstrapClientPlugin({
 	home: HomePage,
-
-	entities: {
-		// entity schema slug -> renderer
-	},
 
 	routes: [
 		// plugin-private routes
@@ -412,7 +408,7 @@ When an update replaces artifact A with artifact B, the kernel force-reloads any
 
 ### Artifact identity is embedded, never authored
 
-The artifact hash covers the compiled bundle, stylesheet, and assets, so it cannot exist inside them. The compiler emits `index.html` last, embedding the artifact hash and the exact client markers, including bridge protocol V3, as JSON in a `<script type="application/json" id="ryot-client-artifact">` element.
+The artifact hash covers the compiled bundle, stylesheet, and assets, so it cannot exist inside them. The compiler emits `index.html` last, embedding the artifact hash and the exact client markers, including bridge protocol version 1, as JSON in a `<script type="application/json" id="ryot-client-artifact">` element.
 
 `bootstrapClientPlugin` reads that element and refuses to accept a bridge port when it is absent or malformed. Plugin source therefore never declares, derives, or passes its own artifact identity, and the kernel, the compiler, and the running plugin compare the same embedded values.
 
@@ -620,7 +616,6 @@ Plugin bootstrap and routing imports come from the plugin surface:
 import {
 	PluginLink,
 	bootstrapClientPlugin,
-	defineClientPlugin,
 	usePluginLocation,
 	usePluginParams,
 	usePluginSearch,
@@ -656,7 +651,7 @@ Third-party plugins must not import or invoke native plugins themselves.
 
 A plugin iframe and the kernel execute in separate JavaScript/document contexts.
 
-Communication between a plugin iframe and the kernel occurs through the exact version-tagged bridge protocol V3. V3 is the only supported protocol. V2 is not accepted and has no alias, negotiation path, fallback, adapter, or compatibility bridge.
+Communication between a plugin iframe and the kernel occurs through the exact bridge protocol version 1. The protocol marker is validated by exact equality.
 
 The preferred plugin transport is `MessageChannel`, with the kernel explicitly handing a communication port to the top-level plugin document. The shared `RyotClient` does not depend on this transport: the kernel direct adapter calls kernel services directly, while the plugin runtime serializes the same semantic calls over its session `MessagePort`.
 
@@ -703,7 +698,7 @@ disposed  all runtime resources are released; this state is terminal
 
 The normal path is `ready -> active -> closing -> disposed`. A fatal failure enters `failed` from `ready` or `active` through the same `closing` cleanup; `failed` and `disposed` are terminal states. A close can enter `closing` directly. Every transition is idempotent, and messages received after `failed`, `closing`, or `disposed` are ignored.
 
-`bootstrapClientPlugin` owns embedded metadata validation, the one-time parent-window bootstrap listener, the artifact root, and the top-level React root/unmount coordinator. It accepts exactly one valid init with exactly one transferred port, validates the artifact hash and all exact V3 markers before accepting the session, requires the artifact root, creates the runtime, and supplies its client to `RyotProvider`. It removes the bootstrap listener after acceptance. The runtime owns `port.start()`, the session port listeners, the single dispatcher, lifecycle state, location state, pending calls, the `RyotClient`, and idempotent disposal. Runtime termination tells bootstrap to unmount the root. `PluginHost` owns the iframe element and the kernel-side session handle; it does not create capability-specific bridge objects.
+`bootstrapClientPlugin` owns embedded metadata validation, the one-time parent-window bootstrap listener, the artifact root, and the top-level React root/unmount coordinator. It accepts exactly one valid init with exactly one transferred port, validates the artifact hash and all exact markers, including bridge protocol version 1, before accepting the session, requires the artifact root, creates the runtime, and supplies its client to `RyotProvider`. It removes the bootstrap listener after acceptance. The runtime owns `port.start()`, the session port listeners, the single dispatcher, lifecycle state, location state, pending calls, the `RyotClient`, and idempotent disposal. Runtime termination tells bootstrap to unmount the root. `PluginHost` owns the iframe element and the kernel-side session handle; it does not create capability-specific bridge objects.
 
 The single dispatcher currently routes location, query, operation, and terminal `lifecycle-close` messages. Task 06 adds theme snapshots and updates to this dispatcher and stores them in the same runtime. Query and operation calls use runtime-owned pending registries, even though they may remain separate maps for correlation. No other module may attach a session port listener or own a pending-call registry. The temporary parent-window bootstrap listener is the only listener outside the session runtime and is removed once the runtime is accepted.
 
@@ -711,15 +706,13 @@ Every pending query or operation entry is removed before its promise is settled.
 
 When either peer closes or fails a session, it sends `{ type: "lifecycle-close", reason: "disposed" | "failed" }` when the port is usable, marks the session closing, rejects the plugin-side pending calls, and closes the port. A wire `disposed` close maps to public `disposed`; a wire `failed` close maps to public `protocol`. The wire value `failed` is not a public `RyotClientError` reason. Kernel-side abort signals cancel in-flight service work on a best-effort basis and suppress late responses. Abort is not a transaction or rollback mechanism: an authenticated operation may already have committed before abort, and the committed work cannot be undone by closing the session or rejecting the caller's promise.
 
-### Protocol V3 request/response calls
+### Protocol version 1 request/response calls
 
-Protocol V3 implements strict request/response calls for plugin data access. It currently carries navigation messages, recipe-backed RyotQL query messages, backend operation messages, and terminal runtime messages over the one plugin session port. Task 06 extends the exact V3 contract with semantic theme messages.
-
-Compared with the former V2 contract, V3 makes the bridge version marker `3`, replaces the separate location/query/operation listener ownership with one runtime dispatcher, adds the strict `{ type: "lifecycle-close", reason: "disposed" | "failed" }` message, and makes runtime disposal the source of pending-call rejection. The request and result correlation rules and installation-bound identity rules remain strict; V3 does not preserve a V2 wire shape under another name.
+Protocol version 1 implements strict request/response calls for plugin data access. It carries navigation messages, recipe-backed RyotQL query messages, backend operation messages, semantic theme messages, and terminal runtime messages over the one plugin session port.
 
 Plugin to kernel carries `{ type: "operation-request", requestId, operationSlug, input: JsonValue }`; `input` is required. Kernel to plugin answers `{ type: "operation-result", requestId, outcome }`, where a successful outcome carries a `JsonValue` and a declared backend/platform operation execution failure carries the opaque `"operation-failed"` outcome. The SDK maps local validation, capability, result, lifecycle, protocol, and transport conditions to the exact public `RyotClientError` reasons above. A non-JSON operation output becomes `"malformed-result"` before bridge delivery; it is not stringified or otherwise normalized. Expected plugin business/domain outcomes remain successful values decoded by the caller's output schema.
 
-Recipe queries carry the recipe document through the same exact V3 session protocol. The response is decoded locally by the recipe's decoder after the client receives it. Declared backend/platform query execution failures use `query-failed`; malformed decoded results use `malformed-result`.
+Recipe queries carry the recipe document through the same exact version 1 session protocol. The response is decoded locally by the recipe's decoder after the client receives it. Declared backend/platform query execution failures use `query-failed`; malformed decoded results use `malformed-result`.
 
 `input` is required on the wire. A no-input operation explicitly sends JSON `null`; an omitted input fails strict request decoding and is not treated as a no-input call.
 
@@ -1519,9 +1512,7 @@ The current client contract records exact markers for:
 2. bridge protocol level
 3. client artifact format/compiler version
 
-The client API level remains 1, and the bridge protocol level is exactly V3. Plugin source declares the exact client API level it targets. The compiler emits the exact bridge protocol, artifact format, and compiler versions into artifact metadata. The kernel validates exact expected values before execution. An artifact or handshake that carries V2 is rejected as an unexpected version.
-
-The greenfield implementation does not support version ranges, compatibility negotiation, protocol adapters, aliases, legacy bridges, fallback behavior, or client-state migrations. The kernel, SDKs, compiler, and built-in plugin artifacts advance together. An unexpected marker is a build or installation error, not a request for fallback behavior.
+The client API level is 1, and the bridge protocol level is exactly 1. Plugin source declares the exact client API level it targets. The compiler emits the exact bridge protocol, artifact format, and compiler versions into artifact metadata. The kernel validates exact expected values before execution.
 
 Plugin updates force-reload the mounted iframe so one bridge session never spans package revisions.
 
@@ -1695,7 +1686,6 @@ V1 does not support:
 - direct plugin access to Ryot authentication credentials
 - outbound network permission or origin-allowlist policy
 - Expo-to-DOM client adapters or migrated client state
-- bridge protocol compatibility ranges or legacy adapters
 
 ---
 

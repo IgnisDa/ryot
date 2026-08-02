@@ -12,7 +12,7 @@ import { RyotProvider } from "./react";
 import { PluginRouter, type PluginRouteDefinition } from "./routing";
 import { createPluginRuntime } from "./runtime";
 
-export type ClientPluginDefinition = {
+type ClientPluginDefinition = {
 	readonly home: ComponentType;
 	readonly routes?: readonly PluginRouteDefinition[];
 };
@@ -20,8 +20,6 @@ export type ClientPluginDefinition = {
 const decodeArtifactMetadata = Schema.decodeUnknownResult(
 	Schema.fromJsonString(PluginClientArtifactMetadata),
 );
-
-export const defineClientPlugin = (definition: ClientPluginDefinition) => Object.freeze(definition);
 
 export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
 	const listener = new AbortController();

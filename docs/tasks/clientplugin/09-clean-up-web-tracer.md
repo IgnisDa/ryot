@@ -29,14 +29,14 @@ The cleanup must preserve and enforce the one per-session client plugin runtime:
 - [ ] No hardcoded fixture catalog row, static fixture UI import, alternate artifact loader, test-only bridge runtime, or mutable artifact path remains.
 - [ ] Bootstrap validates metadata before accepting one port and owns the bootstrap listener and React root/unmount coordinator; the runtime owns one session listener/dispatcher, location/theme state, pending calls, client, and idempotent disposal, while `PluginHost` owns the iframe and kernel session handle.
 - [ ] Bridge listeners, ports, pending-call registries, iframe lifecycle state, and catalog subscriptions have clear ownership and teardown; pending query and operation calls reject exactly once before port/iframe release.
-- [ ] Exact markers, including protocol V3, remain simple equality checks without V2 support, aliases, compatibility ranges, negotiation, fallback protocols, or unused compatibility abstractions.
+- [ ] Exact markers, including protocol version 1, remain simple equality checks.
 - [ ] Every bridge value uses a strict contract or a domain schema built on the canonical JSON boundary; operation input is required with explicit `null` for no input, invalid SDK input is `invalid-input`, and non-JSON operation output becomes `malformed-result` before bridge delivery.
 - [ ] `RyotClientError.reason` has exactly the eight public reasons and fixed classifications from the parent plan; expected business/domain outcomes are typed successful values, `query-failed` and `operation-failed` are opaque declared backend/platform execution failures, and no theme-, crash-, reload-, or capability-specific error union exists.
 - [ ] `lifecycle-close` remains the payload-free `{ type: "lifecycle-close", reason: "disposed" | "failed" }` message; wire `failed` maps to public `protocol` and is not a public SDK error reason, with no stack, error, request, or diagnostic expansion.
 - [ ] Kernel and plugin consumers use the explicit Task 05-followup `RyotClient` adapters; no global mutable client, parallel capability facade, direct catalog transport, or bridge-specific component API remains.
 - [ ] Kernel and plugin consumers use the canonical `data`, `operations`, and `navigation` client categories; no stale operation/navigation names or parallel routing, reload, lifecycle, or capability facades remain. `PluginLink` and the reactive location, params, and search hooks remain only as plugin React conveniences on the shared runtime.
 - [ ] Kernel abort remains best effort and is not documented or implemented as rollback for work that committed before abort.
-- [ ] No `@ryot/client-plugin-sdk` package, import, compatibility alias, generated residue, or stale documentation remains.
+- [ ] No `@ryot/client-plugin-sdk` package, import, generated residue, or stale documentation remains.
 - [ ] Package exports, workspace references, task-specific documentation, architecture decisions resolved during implementation, and public API names match the final code.
 - [ ] Formatting, linting, type checks, focused package tests, backend tests, kernel tests, browser tracer tests, and production builds all pass, including exact operation-error classification and shared pending-call/teardown coverage.
 - [ ] Manual verification proves onboarding, authentication, fixture home, private navigation, authenticated operation, theme synchronization, crash recovery, and forced update reload through one production path and one reused runtime lifecycle.
@@ -55,4 +55,4 @@ The cleanup must preserve and enforce the one per-session client plugin runtime:
 
 ## Implementor Notes
 
-The cleanup task is mandatory and must not be skipped or merged into an earlier task. Record any deferred work as explicit later-plan scope rather than leaving TODOs, dead flags, or speculative compatibility hooks in the tracer.
+The cleanup task is mandatory and must not be skipped or merged into an earlier task. Record any deferred work as explicit later-plan scope rather than leaving TODOs, dead flags, or speculative hooks in the tracer.

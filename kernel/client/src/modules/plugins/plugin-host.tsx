@@ -15,7 +15,7 @@ import type { ThemeStore } from "../theme/store";
 import { openPluginBridge, type PluginBridgeSession } from "./bridge";
 import { toNavigationRequest, type PluginNavigationRequest } from "./plugin-location";
 
-export type PluginHostStatus =
+type PluginHostStatus =
 	| "ready"
 	| "loading"
 	| "missing-artifact"
@@ -23,12 +23,12 @@ export type PluginHostStatus =
 	| "unexpected-version"
 	| "compilation-failure";
 
-export type PluginBlockedStatus = Extract<
+type PluginBlockedStatus = Extract<
 	PluginHostStatus,
 	"loading" | "missing-artifact" | "unexpected-version" | "compilation-failure"
 >;
 
-export type PluginArtifactResolution =
+type PluginArtifactResolution =
 	| { readonly kind: "artifact"; readonly artifactHash: string }
 	| { readonly kind: "blocked"; readonly status: PluginBlockedStatus };
 
@@ -40,12 +40,10 @@ const noticeMessages: Record<Exclude<PluginHostStatus, "ready">, string> = {
 	"unexpected-version": "This plugin needs a newer version of Ryot.",
 };
 
-export const pluginArtifactUrl = (server: ServerOrigin, artifactHash: string, fileName: string) =>
+const pluginArtifactUrl = (server: ServerOrigin, artifactHash: string, fileName: string) =>
 	`${serverApiUrl(server)}/plugins/artifacts/${artifactHash}/${fileName}`;
 
-export function resolvePluginArtifact(
-	installation: PluginClientCatalogEntry,
-): PluginArtifactResolution {
+function resolvePluginArtifact(installation: PluginClientCatalogEntry): PluginArtifactResolution {
 	if (installation.health === "failed") {
 		return { kind: "blocked", status: "compilation-failure" };
 	}
