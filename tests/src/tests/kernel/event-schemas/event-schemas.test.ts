@@ -5,7 +5,7 @@ import {
 	createAuthenticatedClient,
 	findBuiltinSchemaBySlug,
 	getBuiltinEntitySchemaSlug,
-	listBuiltinEntitySchemas,
+	listEntitySchemas,
 	listEventSchemas,
 } from "~/fixtures/kernel";
 import { assertPresent, requireObjectRecord } from "~/support/assertions";
@@ -167,7 +167,7 @@ describe("GET /event-schemas", () => {
 	it.live("exposes lifecycle schemas for each supported built-in media schema", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemas } = yield* listBuiltinEntitySchemas(client);
+			const schemas = yield* listEntitySchemas(client, { pluginSlug: "media" });
 			const eventSchemasBySlug = yield* Effect.all(
 				["book", "anime", "manga"].map((slug) =>
 					Effect.gen(function* () {
@@ -313,7 +313,7 @@ describe("GET /event-schemas", () => {
 	it.live("exposes per-entity progress schema variants for episodic media", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemas } = yield* listBuiltinEntitySchemas(client);
+			const schemas = yield* listEntitySchemas(client, { pluginSlug: "media" });
 
 			const getProgressSchema = (slug: string) =>
 				Effect.gen(function* () {
@@ -415,7 +415,7 @@ describe("GET /event-schemas", () => {
 	it.live("exposes per-entity dropped and on_hold schema variants extending progress", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemas } = yield* listBuiltinEntitySchemas(client);
+			const schemas = yield* listEntitySchemas(client, { pluginSlug: "media" });
 			const sessionFields = {
 				startedOn: {
 					type: "datetime",
