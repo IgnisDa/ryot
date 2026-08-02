@@ -421,10 +421,6 @@ export function ProviderSearchPanel(props: {
 							/>
 						)),
 					)}
-
-					<Text className="font-ui text-xs text-text-subtle">
-						{`Results come from ${selected.providerName}. The provider you pick supplies this item's metadata from now on.`}
-					</Text>
 				</View>
 			)}
 		</View>
