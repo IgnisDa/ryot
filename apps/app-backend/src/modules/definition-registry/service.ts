@@ -1,6 +1,6 @@
 import type { DisplayConfiguration } from "@ryot/contract/display-configuration";
 import type { PluginEntitySchema } from "@ryot/contract/modules/plugins/manifest";
-import type { QueryDocument } from "@ryot/contract/modules/query-engine/language";
+import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import type { AppSchema, PropertyValidationError } from "@ryot/contract/schema/property-schema";
 import { Context, Data, Effect, Layer } from "effect";
 
@@ -66,7 +66,7 @@ export type SavedViewDefinition = {
 	readonly sortOrder: number;
 	readonly accentColor: string;
 	readonly pluginSlug: string | null;
-	readonly queryDocument: QueryDocument;
+	readonly queryDocument: RyotQLDocument;
 	readonly displayConfiguration: DisplayConfiguration;
 };
 

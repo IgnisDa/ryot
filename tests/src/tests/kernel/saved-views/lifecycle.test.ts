@@ -52,8 +52,16 @@ describe("Saved views lifecycle E2E", () => {
 				name: "Collections",
 				accentColor: "#F59E0B",
 			});
-			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-			expect(collectionsView!.queryDocument.source).toMatchObject({ schemas: ["collection"] });
+			expect(collectionsView?.queryDocument).toMatchObject({
+				queries: {
+					collections: {
+						where: {
+							right: { type: "literal", value: "collection" },
+							left: { field: "entitySchemaSlug", tableAlias: "collection" },
+						},
+					},
+				},
+			});
 		}),
 	);
 

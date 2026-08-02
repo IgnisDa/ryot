@@ -1,8 +1,8 @@
 ## Tasks
 
-**Overall Progress:** 12 of 15 tasks completed
+**Overall Progress:** 13 of 15 tasks completed
 
-**Current Task:** [Task 13](./13-saved-view-migration.md) (todo)
+**Current Task:** [Task 14](./14-legacy-query-engine-deletion.md) (todo)
 
 ### Task List
 
@@ -20,7 +20,7 @@
 | 10  | [Sandbox Execution And Media Monitoring](./10-sandbox-media-monitoring.md) | completed |
 | 11  | [Media Recipe Migration](./11-media-recipe-migration.md)                   | completed |
 | 12  | [Fitness Recipe Migration](./12-fitness-recipe-migration.md)               | completed |
-| 13  | [Saved-View Migration](./13-saved-view-migration.md)                       | todo      |
+| 13  | [Saved-View Migration](./13-saved-view-migration.md)                       | completed |
 | 14  | [Legacy Query Engine Deletion](./14-legacy-query-engine-deletion.md)       | todo      |
 | 15  | [Codebase Cleanup](./15-codebase-cleanup.md)                               | todo      |
 

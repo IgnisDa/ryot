@@ -8,7 +8,6 @@ import {
 } from "@ryot/contract/display-configuration";
 import type { BadRequest } from "@ryot/contract/errors";
 import { badRequest } from "@ryot/contract/errors";
-import type { QueryDocument } from "@ryot/contract/modules/query-engine/language";
 import type { AppPropertyDefinition } from "@ryot/contract/schema/property-schema";
 import { Effect } from "effect";
 
@@ -189,22 +188,6 @@ const collectDisplayConfigEntitySlugs = (config: DisplayConfiguration): string[]
 		...config.table.columns.flatMap((col) => collectEntitySlugsFromExpr(col.expression)),
 	];
 };
-
-const getQueryDocSourceSchemaList = (doc: QueryDocument): [string, ...string[]] => {
-	if (doc.source.type === "entities") {
-		return [...doc.source.schemas];
-	}
-	if (doc.source.type === "events") {
-		return [...doc.source.entity.schemas];
-	}
-	return [...doc.source.sourceEntity.schemas, ...doc.source.targetEntity.schemas] as [
-		string,
-		...string[],
-	];
-};
-
-const getQueryDocSourceSchemas = (doc: QueryDocument): ReadonlySet<string> =>
-	new Set(getQueryDocSourceSchemaList(doc));
 
 const unifyDisplayExpressionTypes = (
 	types: readonly DisplayExpressionType[],
@@ -410,7 +393,6 @@ const collectDisplayExpressions = (displayConfig: DisplayConfiguration): QueryEx
 export const validateDisplayConfiguration = Effect.fn("validateDisplayConfiguration")(function* <
 	E,
 >(input: {
-	doc: QueryDocument;
 	displayConfig: DisplayConfiguration;
 	loadSchemas: (
 		slugs: readonly [string, ...string[]],
@@ -420,17 +402,11 @@ export const validateDisplayConfiguration = Effect.fn("validateDisplayConfigurat
 		return yield* badRequest("At least one table column is required");
 	}
 
-	const sourceSchemas = getQueryDocSourceSchemas(input.doc);
-	const badSlug = collectDisplayConfigEntitySlugs(input.displayConfig).find(
-		(slug) => !sourceSchemas.has(slug),
-	);
-	if (badSlug) {
-		return yield* badRequest(
-			`Display configuration references entity schema '${badSlug}' which is not in the query document source`,
-		);
-	}
-
-	const schemaRows = yield* input.loadSchemas(getQueryDocSourceSchemaList(input.doc));
+	const displaySchemaSlugs = [...new Set(collectDisplayConfigEntitySlugs(input.displayConfig))];
+	const schemaRows =
+		displaySchemaSlugs.length > 0
+			? yield* input.loadSchemas(displaySchemaSlugs as [string, ...string[]])
+			: [];
 	const schemaMap = new Map(schemaRows.map((schema) => [schema.slug, schema]));
 	for (const expression of collectDisplayExpressions(input.displayConfig)) {
 		yield* inferDisplayExpressionType(expression, schemaMap);

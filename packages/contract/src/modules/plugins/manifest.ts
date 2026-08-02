@@ -2,7 +2,7 @@ import { Result, Schema, SchemaGetter } from "effect";
 
 import { DisplayConfiguration } from "../../display-configuration";
 import { AppSchema } from "../../schema/property-schema";
-import { QueryDocument } from "../query-engine/language";
+import { RyotQLDocument } from "../ryotql/language";
 import { SANDBOX_HOST_CAPABILITIES } from "../sandbox/wire";
 import { pluginConfigEnvironmentKey } from "./plugin-config";
 
@@ -13,7 +13,7 @@ const strictParseOptions = {
 	parseOptions: { onExcessProperty: "error" },
 } satisfies Schema.Annotations.Filter;
 const PluginAppSchema = Schema.toType(AppSchema);
-const PluginQueryDocument = Schema.toType(QueryDocument);
+const PluginQueryDocument = Schema.toType(RyotQLDocument);
 const PluginDisplayConfiguration = Schema.toType(DisplayConfiguration);
 
 export const PluginMetadata = strictStruct({

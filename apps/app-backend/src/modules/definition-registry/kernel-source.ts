@@ -2,7 +2,7 @@ import {
 	createEntityColumnExpression,
 	createEntitySchemaExpression,
 } from "@ryot/contract/display-configuration";
-import { buildAllCollectionsQueryDocument } from "@ryot/query-engine/recipes/app";
+import { buildAllCollectionsDocument } from "@ryot/ryotql-recipes/collections";
 
 import { manifest as notificationManifest } from "./kernel-scripts/notification.sandbox";
 import type { DefinitionSource } from "./service";
@@ -30,9 +30,9 @@ const reviewPropertiesSchema = {
 
 const collectionSchema = {
 	icon: "folders",
+	pluginSlug: null,
 	slug: "collection",
 	name: "Collection",
-	pluginSlug: null,
 	accentColor: "#F59E0B",
 	eventSchemas: [
 		{ name: "Review", slug: "review", propertiesSchema: reviewPropertiesSchema },
@@ -97,6 +97,8 @@ const collectionSchema = {
 
 const entityName = createEntityColumnExpression("collection", "name");
 const collectionDisplayConfiguration = {
+	table: { columns: [{ label: "Name", expression: entityName }] },
+	entityIdProperty: createEntityColumnExpression("collection", "id"),
 	grid: {
 		imageProperty: null,
 		calloutProperty: null,
@@ -113,8 +115,6 @@ const collectionDisplayConfiguration = {
 		secondarySubtitleProperty: null,
 		eyebrowProperty: createEntitySchemaExpression("name"),
 	},
-	table: { columns: [{ label: "Name", expression: entityName }] },
-	entityIdProperty: createEntityColumnExpression("collection", "id"),
 };
 
 export const kernelDefinitionSource = (): DefinitionSource => ({
@@ -143,8 +143,8 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 			catalogState: "active",
 			slug: "integration.disabled",
 			name: "Integration Disabled",
-			notificationScriptSlug: "automation.notification",
 			audiencePolicy: { kind: "actor" },
+			notificationScriptSlug: "automation.notification",
 			propertiesSchema: {
 				unknownKeys: "strict",
 				fields: {
@@ -172,8 +172,8 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 			slug: "collections",
 			icon: collectionSchema.icon,
 			accentColor: collectionSchema.accentColor,
+			queryDocument: buildAllCollectionsDocument(),
 			displayConfiguration: collectionDisplayConfiguration,
-			queryDocument: buildAllCollectionsQueryDocument(),
 		},
 	],
 });

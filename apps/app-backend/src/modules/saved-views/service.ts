@@ -12,7 +12,7 @@ import { DbRunner } from "#lib/infrastructure/db/service";
 import { slugify } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
-import { QueryEngineService } from "#modules/query-engine/service";
+import { RyotQLService } from "#modules/ryotql/service";
 
 import { validateDisplayConfiguration } from "./display-configuration-validation";
 import { SavedViewsRepository } from "./repository";
@@ -23,8 +23,8 @@ const builtinViewMutationMessage = "Cannot modify built-in saved views";
 export class SavedViewsService extends Context.Service<SavedViewsService>()("SavedViewsService", {
 	make: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
+		const ryotql = yield* RyotQLService;
 		const definitions = yield* DefinitionRegistry;
-		const queryEngine = yield* QueryEngineService;
 		const repository = yield* SavedViewsRepository;
 
 		const list = Effect.fn(function* (
@@ -90,9 +90,8 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			) {
 				return yield* badRequest("A saved view with this name already exists");
 			}
-			yield* queryEngine.validate(user, payload.queryDocument);
+			yield* ryotql.validate(payload.queryDocument);
 			yield* validateDisplayConfiguration({
-				doc: payload.queryDocument,
 				displayConfig: payload.displayConfiguration,
 				loadSchemas: (slugs) =>
 					Effect.succeed(
@@ -151,9 +150,8 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			if (!name) {
 				return yield* badRequest("Saved view name is required");
 			}
-			yield* queryEngine.validate(user, payload.queryDocument);
+			yield* ryotql.validate(payload.queryDocument);
 			yield* validateDisplayConfiguration({
-				doc: payload.queryDocument,
 				displayConfig: payload.displayConfiguration,
 				loadSchemas: (slugs) =>
 					Effect.succeed(

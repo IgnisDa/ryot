@@ -1,5 +1,5 @@
 import type { DisplayConfiguration } from "@ryot/contract/display-configuration";
-import type { QueryDocument } from "@ryot/contract/modules/query-engine/language";
+import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import { generateId } from "better-auth";
 import {
 	boolean,
@@ -26,7 +26,7 @@ export const savedView = pgTable(
 		sortOrder: integer().notNull().default(0),
 		isBuiltin: boolean().notNull().default(false),
 		isDisabled: boolean().notNull().default(false),
-		queryDocument: jsonb().$type<QueryDocument>().notNull(),
+		queryDocument: jsonb().$type<RyotQLDocument>().notNull(),
 		displayConfiguration: jsonb().$type<DisplayConfiguration>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		id: text()
