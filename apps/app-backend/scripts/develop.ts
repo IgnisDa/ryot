@@ -1,9 +1,11 @@
 #!/usr/bin/env bun
 
-import "dotenv/config";
 import { BunServices, BunRuntime } from "@effect/platform-bun";
+import dotenv from "dotenv";
 import { Effect } from "effect";
 import { ChildProcess } from "effect/unstable/process";
+
+dotenv.config();
 
 type ProcessCommand = readonly [string, ...string[]];
 
