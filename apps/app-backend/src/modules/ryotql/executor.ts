@@ -1,5 +1,10 @@
 import type {
+	AggregateMeasure,
+	AggregateOutput,
+	AggregateResult,
+	AggregationSpec,
 	CorrelatedQuerySet,
+	FieldSelection,
 	FieldValue,
 	Include,
 	IncludeResult,
@@ -7,6 +12,7 @@ import type {
 	Predicate,
 	RowItem,
 	RowsResult,
+	RowsOutput,
 	ScalarExpression,
 } from "@ryot/contract/modules/ryotql/language";
 import { sql } from "drizzle-orm";
@@ -23,6 +29,8 @@ import {
 
 type SqlFragment = ReturnType<typeof sql>;
 type CompileScope = ReadonlyMap<string, CompileTable>;
+type RowsQuery = NamedQuery & { readonly output: RowsOutput };
+type AggregateQuery = NamedQuery & { readonly output: AggregateOutput };
 type QuerySet = Pick<NamedQuery, "from" | "joins" | "where"> | CorrelatedQuerySet | Include;
 type CompileTable = {
 	readonly alias: string;
@@ -509,7 +517,11 @@ const compileAggregate = (
 	ancestors: CompileScope,
 ) => {
 	const scope = correlatedScope(expr.query, ancestors);
-	const aggregation = expr.aggregation;
+	const value = compileAggregation(expr.aggregation, scope);
+	return sql`(SELECT ${value} ${querySetSql(expr.query, scopeUserId(ancestors), scope)})`;
+};
+
+const compileAggregation = (aggregation: AggregationSpec, scope: CompileScope) => {
 	let value: SqlFragment;
 	if (aggregation.function === "count") {
 		value = sql`COUNT(*)::double precision`;
@@ -527,7 +539,7 @@ const compileAggregate = (
 			value = sql`MAX(${operand})`;
 		}
 	}
-	return sql`(SELECT ${value} ${querySetSql(expr.query, scopeUserId(ancestors), scope)})`;
+	return value;
 };
 
 const compileInclude = (
@@ -580,7 +592,7 @@ const compileInclude = (
 };
 
 const compileRowsQuery = (
-	query: NamedQuery,
+	query: RowsQuery,
 	userId: string,
 	language: string | null,
 ): SqlFragment => {
@@ -621,6 +633,49 @@ const compileRowsQuery = (
 		FROM "queryTotal"
 		LEFT JOIN "queryRows" ON true
 		ORDER BY ${ordering}
+	`;
+};
+
+const compileAggregateQuery = (query: AggregateQuery, userId: string, language: string | null) => {
+	const scope = buildScope(query, userId, language, "");
+	const groups = query.output.groupBy ?? [];
+	const groupColumns = groups.flatMap((group, index) => [
+		sql`${compileExpression(group.expr, scope)} AS ${identifier(`g${index}v`)}`,
+		sql`${outputKind(group.expr, scope)} AS ${identifier(`g${index}k`)}`,
+	]);
+	const measureColumns = query.output.measures.map(
+		(measure, index) =>
+			sql`${compileAggregation(measure.aggregation, scope)} AS ${identifier(`m${index}`)}`,
+	);
+	if (groups.length === 0) {
+		return sql`SELECT ${sql.join(measureColumns, sql`, `)} ${querySetSql(query, userId, scope)}`;
+	}
+	if (query.output.limit === undefined || query.output.orderBy === undefined) {
+		throw new Error("RyotQL grouped aggregate is missing limit or orderBy after validation");
+	}
+	const groupOrdinals = groups.flatMap((_, index) => [index * 2 + 1, index * 2 + 2]);
+	const measureIndexes = new Map(
+		query.output.measures.map((measure, index) => [measure.key, index]),
+	);
+	const ordering = query.output.orderBy.map((order) => {
+		const index = measureIndexes.get(order.key);
+		if (index === undefined) {
+			throw new Error(`RyotQL compiler received unknown aggregate measure '${order.key}'`);
+		}
+		const direction = order.direction === "asc" ? sql`ASC` : sql`DESC`;
+		return sql`${identifier(`m${index}`)} ${direction} NULLS LAST`;
+	});
+	return sql`
+		SELECT
+			${sql.join([...groupColumns, ...measureColumns], sql`, `)},
+			COUNT(*) OVER()::integer AS "totalGroups"
+		${querySetSql(query, userId, scope)}
+		GROUP BY ${sql.join(
+			groupOrdinals.map((ordinal) => sql.raw(String(ordinal))),
+			sql`, `,
+		)}
+		ORDER BY ${sql.join(ordering, sql`, `)}
+		LIMIT ${query.output.limit}
 	`;
 };
 
@@ -669,13 +724,66 @@ const reconstructInclude = (raw: unknown, include: Include): IncludeResult => {
 	return { items, pageInfo: { limit: include.limit, hasMore: raw["hasMore"] } };
 };
 
+const reconstructAggregateItem = (
+	row: Readonly<Record<string, unknown>>,
+	groups: readonly FieldSelection[],
+	measures: readonly AggregateMeasure[],
+) => {
+	const grouped = groups.map((group, index) => {
+		const kind = row[`g${index}k`];
+		if (!isFieldKind(kind)) {
+			throw new Error(`RyotQL received an invalid field kind for '${group.key}'`);
+		}
+		return [group.key, { kind, value: normalizeValue(row[`g${index}v`], kind) }] as const;
+	});
+	const measured = measures.map((measure, index) => {
+		const value = row[`m${index}`];
+		return [
+			measure.key,
+			value === null
+				? ({ kind: "null", value: null } as const)
+				: ({ kind: "number", value: Number(value) } as const),
+		] as const;
+	});
+	return Object.fromEntries([...grouped, ...measured]);
+};
+
+const executeAggregateQuery = Effect.fn("executeRyotQLAggregateQuery")(function* (
+	userId: string,
+	language: string | null,
+	query: AggregateQuery,
+) {
+	const db = yield* CurrentDb;
+	const raw = yield* dbEffect(() => db.execute(compileAggregateQuery(query, userId, language)));
+	const rows = raw.rows as readonly Record<string, unknown>[];
+	const groups = query.output.groupBy ?? [];
+	const items = rows.map((row) => reconstructAggregateItem(row, groups, query.output.measures));
+	if (groups.length === 0) {
+		return { items, type: "aggregate" } satisfies AggregateResult;
+	}
+	const limit = query.output.limit;
+	if (limit === undefined) {
+		throw new Error("RyotQL grouped aggregate is missing a limit after validation");
+	}
+	const totalGroups = rows[0] ? Number(rows[0]["totalGroups"]) : 0;
+	return {
+		items,
+		type: "aggregate",
+		pageInfo: { limit, hasMore: totalGroups > limit },
+	} satisfies AggregateResult;
+});
+
 export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* (
 	userId: string,
 	language: string | null,
 	query: NamedQuery,
 ) {
+	if (query.output.type === "aggregate") {
+		return yield* executeAggregateQuery(userId, language, query as AggregateQuery);
+	}
 	const db = yield* CurrentDb;
-	const raw = yield* dbEffect(() => db.execute(compileRowsQuery(query, userId, language)));
+	const rowsQuery = query as RowsQuery;
+	const raw = yield* dbEffect(() => db.execute(compileRowsQuery(rowsQuery, userId, language)));
 	const rows = raw.rows as readonly Record<string, unknown>[];
 	const first = rows[0];
 	const total = first ? Number(first["totalCount"]) : 0;
@@ -683,19 +791,19 @@ export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* 
 		if (row["rowPresent"] !== true) {
 			return [];
 		}
-		const fields = query.output.fields.map((field, index) => {
+		const fields = rowsQuery.output.fields.map((field, index) => {
 			const kind = row[`f${index}k`];
 			if (!isFieldKind(kind)) {
 				throw new Error(`RyotQL received an invalid field kind for '${field.key}'`);
 			}
 			return [field.key, { kind, value: normalizeValue(row[`f${index}v`], kind) }] as const;
 		});
-		const include = (query.output.include ?? []).map(
+		const include = (rowsQuery.output.include ?? []).map(
 			(entry, index) => [entry.key, reconstructInclude(row[`i${index}`], entry)] as const,
 		);
 		return [Object.fromEntries([...fields, ...include])];
 	});
-	const { page, limit } = query.output.pagination;
+	const { page, limit } = rowsQuery.output.pagination;
 	return {
 		items,
 		type: "rows",

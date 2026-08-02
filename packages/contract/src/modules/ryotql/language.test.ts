@@ -155,6 +155,63 @@ describe("RyotQLDocument", () => {
 		expect(Schema.decodeUnknownSync(RyotQLDocument)(correlated)).toEqual(correlated);
 	});
 
+	it("decodes grouped aggregate documents and responses", () => {
+		const aggregate = {
+			queries: {
+				lessons: {
+					from: { table: "entity", alias: "lesson" },
+					output: {
+						limit: 10,
+						type: "aggregate",
+						orderBy: [{ key: "count", direction: "desc" }],
+						measures: [{ key: "count", aggregation: { function: "count" } }],
+						groupBy: [
+							{ key: "difficulty", expr: { type: "column", tableAlias: "lesson", field: "name" } },
+						],
+					},
+				},
+			},
+		} as const;
+		const response = {
+			data: {
+				lessons: {
+					type: "aggregate",
+					pageInfo: { limit: 10, hasMore: false },
+					items: [
+						{
+							count: { kind: "number", value: 2 },
+							difficulty: { kind: "text", value: "advanced" },
+						},
+					],
+				},
+			},
+		} as const;
+
+		expect(Schema.decodeUnknownSync(RyotQLDocument)(aggregate)).toEqual(aggregate);
+		expect(Schema.decodeUnknownSync(RyotQLResponse)(response)).toEqual(response);
+	});
+
+	it("rejects invalid aggregate output shapes", () => {
+		const expr = { type: "column", tableAlias: "lesson", field: "id" } as const;
+		const output = {
+			type: "aggregate",
+			measures: [{ key: "count", aggregation: { function: "count" } }],
+		} as const;
+		for (const invalid of [
+			{ ...output, measures: [] },
+			{ ...output, limit: 0 },
+			{ ...output, orderBy: [] },
+			{ ...output, unknown: true },
+			{ ...output, measures: [{ key: "count", aggregation: { function: "count", expr } }] },
+		]) {
+			expect(() =>
+				Schema.decodeUnknownSync(RyotQLDocument)({
+					queries: { lessons: { from: { table: "entity", alias: "lesson" }, output: invalid } },
+				}),
+			).toThrow();
+		}
+	});
+
 	it("rejects malformed JSON paths, cast targets, and nested unknown keys", () => {
 		const expression = { type: "column", tableAlias: "entity", field: "properties" };
 

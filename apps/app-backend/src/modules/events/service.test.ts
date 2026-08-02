@@ -230,7 +230,7 @@ it.effect("lists all RyotQL pages for a session scope", () => {
 			execute: (_user, document) =>
 				Effect.sync(() => {
 					const query = document.queries["events"];
-					if (!query) {
+					if (query?.output.type !== "rows") {
 						throw new Error("Expected events query");
 					}
 					const page = query.output.pagination.page;
