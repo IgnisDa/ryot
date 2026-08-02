@@ -10,8 +10,6 @@ import { scopedRequestKey } from "@/api/request-key";
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
 import { useEntityUpdates } from "@/modules/entity-interest/use-entity-updates";
-import { managedAssetResolutionAtom } from "@/modules/ui/managed-asset-resolution";
-import type { ManagedAssetResolutionState } from "@/modules/ui/managed-assets";
 
 import { savedViewRecordAtom } from "./atoms";
 import {
@@ -29,7 +27,6 @@ import {
 	withSavedViewCursor,
 	withSavedViewSearch,
 } from "./controller";
-import type { collectManagedAssets } from "./display-data";
 import { useSavedViewLayout } from "./saved-view-layout-selector";
 import { savedViewReadyState, type SavedViewNormalizedState } from "./state";
 import type { SavedViewLayout } from "./storage";
@@ -269,27 +266,3 @@ export const useSavedViewResult = (record: SavedViewRecord, searchQuery = "") =>
 		isLayoutChanging: isSavedViewLayoutChanging(effectiveController),
 	};
 };
-
-export function SavedViewRuntime(props: {
-	readonly assets: ReturnType<typeof collectManagedAssets>;
-	readonly children: (assets: ManagedAssetResolutionState) => React.ReactNode;
-}) {
-	return props.assets.length === 0 ? (
-		<>{props.children({ status: "ready", urls: new Map() })}</>
-	) : (
-		<SavedViewManagedAssets {...props} />
-	);
-}
-
-function SavedViewManagedAssets(props: {
-	readonly assets: ReturnType<typeof collectManagedAssets>;
-	readonly children: (assets: ManagedAssetResolutionState) => React.ReactNode;
-}) {
-	const scope = useApiScope();
-	const state = useAtomValue(managedAssetResolutionAtom({ scope, assets: props.assets }));
-	useInternalRequestFailureLogging(
-		`saved-view managed asset resolution ${state.status}`,
-		state.status === "unavailable" ? state.cause : undefined,
-	);
-	return <>{props.children(state)}</>;
-}

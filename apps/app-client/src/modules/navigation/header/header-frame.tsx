@@ -33,6 +33,7 @@ export function HeaderFrame(props: {
 	actions?: ReactNode;
 	heroHeight?: number;
 	searchRow?: ReactNode;
+	hideLargeTitle?: boolean;
 	initialScrollOffset?: number;
 	onSearchEdgeSwipe?: () => void;
 	onScrollOffsetChange?: (offset: number) => void;
@@ -91,7 +92,7 @@ export function HeaderFrame(props: {
 				{props.hero ?? (
 					<View className={clsx(MOBILE_ONLY)} style={{ height: insets.top + HEADER_ROW_HEIGHT }} />
 				)}
-				{props.searchRow ? null : (
+				{props.searchRow || props.hideLargeTitle ? null : (
 					<Animated.View
 						style={largeTitleStyle}
 						className={clsx("justify-center gap-1 px-4 pb-2", MOBILE_ONLY)}

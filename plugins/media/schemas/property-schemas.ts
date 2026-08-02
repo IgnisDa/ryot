@@ -11,7 +11,7 @@ import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/pro
 const booleanField = (label: string, description: string) =>
 	({ label, description, type: "boolean" }) as const;
 
-const mediaImagePurposes = [
+export const mediaImagePurposes = [
 	"cover",
 	"backdrop",
 	"profile",
