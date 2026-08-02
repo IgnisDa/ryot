@@ -3,6 +3,7 @@
 	"private": true,
 	"type": "module",
 	"exports": {
+		"./theme.css": "./src/theme.css",
 		".": {
 			"types": "./src/index.tsx",
 			"default": "./src/index.tsx"

@@ -96,15 +96,16 @@ export const compileClientPlugin = ({ entry, files }: ClientPluginCompilerInput)
 
 		const stylesheet = bundled.stylesheets[0];
 		const css = yield* compileClientStyles(
+			entry,
 			stylesheet === undefined ? "" : (files[stylesheet] ?? ""),
+			dependencies.tailwindEntry,
+			dependencies.themeStylesheet,
 			[
 				...clientFiles
 					.filter(([path]) => SCANNED_EXTENSIONS.has(extensionOf(path)))
 					.map(([path, contents]) => ({ content: contents, extension: extensionOf(path) })),
 				...dependencies.uiSdkScanSources,
 			],
-			dependencies.tailwindEntry,
-			entry,
 		);
 
 		const hashedFiles: PluginClientArtifactFile[] = sortBy(

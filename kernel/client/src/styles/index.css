@@ -1,7 +1,8 @@
 @import "@fontsource-variable/outfit";
 @import "@fontsource-variable/lora";
 @import "tailwindcss";
-@import "./tokens.css";
+@import "@ryot/client-ui-sdk/theme.css";
+@import "./palette.css";
 @import "./base.css";
 @import "./components.css";
 
