@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { OAUTH_WEB_CLIENT_ID } from "@ryot-app/contract/oauth";
+import { OAUTH_DEMO_WEB_CLIENT_ID, OAUTH_WEB_CLIENT_ID } from "@ryot-app/contract/oauth";
 import { Effect, Fiber } from "effect";
 
 import { decodeServerOrigin } from "#/api/origin";
@@ -94,7 +94,7 @@ describe("OAuth token service", () => {
 			expect(
 				yield* tokens.completeAuthorization(
 					origin,
-					OAUTH_WEB_CLIENT_ID,
+					[OAUTH_WEB_CLIENT_ID],
 					`${origin}/auth/callback`,
 					"state-1",
 					"code-1",
@@ -114,12 +114,74 @@ describe("OAuth token service", () => {
 				accessToken: "access-1",
 				refreshToken: "refresh-1",
 				idToken: idToken("nonce-1"),
+				clientId: OAUTH_WEB_CLIENT_ID,
 				accessTokenExpiresAt: now + 900_000,
 				scope: "openid profile email offline_access ryot:api",
 			});
 			expect(yield* persisted.takePending(origin, "state-1")).toBeNull();
 		}).pipe(
 			Effect.provide(oauthTokenServiceLayer(fetcher, () => now)),
+			Effect.provide(storage.layer),
+		);
+	});
+
+	it.effect("accepts a demo web authorization and preserves its issuing client", () => {
+		const storage = makeStorage();
+		return Effect.gen(function* () {
+			const persisted = yield* OAuthStorage;
+			yield* persisted.setPending({ ...pending(), clientId: OAUTH_DEMO_WEB_CLIENT_ID });
+			const tokens = yield* OAuthTokenService;
+
+			yield* tokens.completeAuthorization(
+				origin,
+				[OAUTH_WEB_CLIENT_ID, OAUTH_DEMO_WEB_CLIENT_ID],
+				`${origin}/auth/callback`,
+				"state-1",
+				"code-1",
+			);
+
+			expect((yield* persisted.getTokenSet(origin))?.clientId).toBe(OAUTH_DEMO_WEB_CLIENT_ID);
+		}).pipe(
+			Effect.provide(
+				oauthTokenServiceLayer(
+					() => Promise.resolve(jsonResponse(tokenResponse())),
+					() => now,
+				),
+			),
+			Effect.provide(storage.layer),
+		);
+	});
+
+	it.effect("rejects a pending native client on a web callback", () => {
+		const storage = makeStorage();
+		let requests = 0;
+		return Effect.gen(function* () {
+			const persisted = yield* OAuthStorage;
+			yield* persisted.setPending({ ...pending(), clientId: "ryot-native" });
+			const tokens = yield* OAuthTokenService;
+			const failure = yield* Effect.flip(
+				tokens.completeAuthorization(
+					origin,
+					[OAUTH_WEB_CLIENT_ID, OAUTH_DEMO_WEB_CLIENT_ID],
+					`${origin}/auth/callback`,
+					"state-1",
+					"code-1",
+				),
+			);
+
+			expect(failure.reason).toBe("invalid-callback");
+			expect(requests).toBe(0);
+			expect(yield* persisted.getPending(origin, "state-1")).toBeNull();
+		}).pipe(
+			Effect.provide(
+				oauthTokenServiceLayer(
+					() => {
+						requests += 1;
+						return Promise.resolve(jsonResponse(tokenResponse()));
+					},
+					() => now,
+				),
+			),
 			Effect.provide(storage.layer),
 		);
 	});
@@ -133,7 +195,7 @@ describe("OAuth token service", () => {
 			const result = yield* Effect.exit(
 				tokens.completeAuthorization(
 					origin,
-					OAUTH_WEB_CLIENT_ID,
+					[OAUTH_WEB_CLIENT_ID],
 					`${origin}/auth/callback`,
 					"state-1",
 					"code-1",
@@ -169,7 +231,7 @@ describe("OAuth token service", () => {
 			const failure = yield* Effect.flip(
 				tokens.completeAuthorization(
 					origin,
-					OAUTH_WEB_CLIENT_ID,
+					[OAUTH_WEB_CLIENT_ID],
 					`${origin}/auth/callback`,
 					"state-1",
 					"code-1",
@@ -181,7 +243,7 @@ describe("OAuth token service", () => {
 			expect(
 				yield* tokens.completeAuthorization(
 					origin,
-					OAUTH_WEB_CLIENT_ID,
+					[OAUTH_WEB_CLIENT_ID],
 					`${origin}/auth/callback`,
 					"state-1",
 					"code-1",
@@ -204,7 +266,7 @@ describe("OAuth token service", () => {
 			const failure = yield* Effect.flip(
 				tokens.completeAuthorization(
 					origin,
-					OAUTH_WEB_CLIENT_ID,
+					[OAUTH_WEB_CLIENT_ID],
 					`${origin}/auth/callback`,
 					"state-1",
 					"code-1",
@@ -223,9 +285,10 @@ describe("OAuth token service", () => {
 		);
 	});
 
-	it.effect("rotates refresh tokens with one refresh request in flight per server", () => {
+	it.effect("refreshes with each stored web client and keeps one request in flight", () => {
 		const storage = makeStorage();
 		let requests = 0;
+		const requestBodies: string[] = [];
 		return Effect.gen(function* () {
 			const persisted = yield* OAuthStorage;
 			yield* persisted.setTokenSet(origin, {
@@ -235,24 +298,36 @@ describe("OAuth token service", () => {
 				refreshToken: "refresh-1",
 				accessTokenExpiresAt: now,
 				idToken: idToken("nonce-1"),
+				clientId: OAUTH_WEB_CLIENT_ID,
 			});
 			const tokens = yield* OAuthTokenService;
+			expect(yield* tokens.accessToken(origin)).toBe("access-2");
+			yield* persisted.setTokenSet(origin, {
+				tokenType: "Bearer",
+				accessToken: "expired",
+				scope: "openid ryot:api",
+				refreshToken: "refresh-1",
+				accessTokenExpiresAt: now,
+				idToken: idToken("nonce-1"),
+				clientId: OAUTH_DEMO_WEB_CLIENT_ID,
+			});
 			expect(
-				yield* Effect.all(
-					[
-						tokens.accessToken(origin, OAUTH_WEB_CLIENT_ID),
-						tokens.accessToken(origin, OAUTH_WEB_CLIENT_ID),
-					],
-					{ concurrency: "unbounded" },
-				),
+				yield* Effect.all([tokens.accessToken(origin), tokens.accessToken(origin)], {
+					concurrency: "unbounded",
+				}),
 			).toEqual(["access-2", "access-2"]);
-			expect(requests).toBe(1);
+			expect(requests).toBe(2);
+			expect(requestBodies.map((body) => new URLSearchParams(body).get("client_id"))).toEqual([
+				OAUTH_WEB_CLIENT_ID,
+				OAUTH_DEMO_WEB_CLIENT_ID,
+			]);
 			expect((yield* persisted.getTokenSet(origin))?.refreshToken).toBe("refresh-2");
 		}).pipe(
 			Effect.provide(
 				oauthTokenServiceLayer(
-					() => {
+					(_input, init) => {
 						requests += 1;
+						requestBodies.push(init?.body instanceof URLSearchParams ? init.body.toString() : "");
 						return Promise.resolve(
 							jsonResponse(tokenResponse({ access_token: "access-2", refresh_token: "refresh-2" })),
 						);
@@ -275,9 +350,10 @@ describe("OAuth token service", () => {
 				scope: "openid ryot:api",
 				accessTokenExpiresAt: now,
 				idToken: idToken("nonce-1"),
+				clientId: OAUTH_WEB_CLIENT_ID,
 			});
 			const tokens = yield* OAuthTokenService;
-			yield* Effect.exit(tokens.accessToken(origin, OAUTH_WEB_CLIENT_ID));
+			yield* Effect.exit(tokens.accessToken(origin));
 			expect(yield* persisted.getTokenSet(origin)).toBeNull();
 		}).pipe(
 			Effect.provide(
@@ -307,20 +383,25 @@ describe("OAuth token service", () => {
 					refreshToken: "refresh-1",
 					accessTokenExpiresAt: now,
 					idToken: idToken("nonce-1"),
+					clientId: OAUTH_DEMO_WEB_CLIENT_ID,
 				});
 				yield* persisted.setPending(pending());
 				const tokens = yield* OAuthTokenService;
-				const endSession = yield* tokens.logout(
-					origin,
-					OAUTH_WEB_CLIENT_ID,
-					`${origin}/auth/logout/callback`,
-				);
+				const endSession = yield* tokens.logout(origin, `${origin}/auth/logout/callback`);
 
 				expect(requests).toHaveLength(2);
 				expect(requests.every(({ url }) => url === `${origin}/api/auth/oauth2/revoke`)).toBe(true);
 				expect(requests.map(({ body }) => Object.fromEntries(new URLSearchParams(body)))).toEqual([
-					{ token: "refresh-1", client_id: "ryot-web", token_type_hint: "refresh_token" },
-					{ token: "access-1", client_id: "ryot-web", token_type_hint: "access_token" },
+					{
+						token: "refresh-1",
+						token_type_hint: "refresh_token",
+						client_id: OAUTH_DEMO_WEB_CLIENT_ID,
+					},
+					{
+						token: "access-1",
+						token_type_hint: "access_token",
+						client_id: OAUTH_DEMO_WEB_CLIENT_ID,
+					},
 				]);
 				expect(new URL(endSession ?? "").searchParams.get("post_logout_redirect_uri")).toBe(
 					`${origin}/auth/logout/callback`,
@@ -358,13 +439,12 @@ describe("OAuth token service", () => {
 				refreshToken: "refresh-1",
 				accessTokenExpiresAt: now,
 				idToken: idToken("nonce-1"),
+				clientId: OAUTH_WEB_CLIENT_ID,
 			}),
 		);
 		return Effect.gen(function* () {
 			const tokens = yield* OAuthTokenService;
-			const failure = yield* Effect.flip(
-				tokens.logout(origin, OAUTH_WEB_CLIENT_ID, `${origin}/auth/logout/callback`),
-			);
+			const failure = yield* Effect.flip(tokens.logout(origin, `${origin}/auth/logout/callback`));
 			expect(failure.reason).toBe("storage-failed");
 			expect(storage.values.has(oauthTokenKey(origin))).toBe(true);
 		}).pipe(
@@ -390,14 +470,11 @@ describe("OAuth token service", () => {
 				refreshToken: "refresh-1",
 				accessTokenExpiresAt: now,
 				idToken: idToken("nonce-1"),
+				clientId: OAUTH_WEB_CLIENT_ID,
 			});
 			yield* persisted.setPending(pending());
 			const tokens = yield* OAuthTokenService;
-			const endSession = yield* tokens.logout(
-				origin,
-				OAUTH_WEB_CLIENT_ID,
-				`${origin}/auth/logout/callback`,
-			);
+			const endSession = yield* tokens.logout(origin, `${origin}/auth/logout/callback`);
 
 			expect(requests).toBe(2);
 			expect(endSession).not.toBeNull();
@@ -430,11 +507,12 @@ describe("OAuth token service", () => {
 				refreshToken: "refresh-1",
 				accessTokenExpiresAt: now,
 				idToken: idToken("nonce-1"),
+				clientId: OAUTH_WEB_CLIENT_ID,
 			}),
 		);
 		return Effect.gen(function* () {
 			const tokens = yield* OAuthTokenService;
-			const failure = yield* Effect.flip(tokens.accessToken(origin, OAUTH_WEB_CLIENT_ID));
+			const failure = yield* Effect.flip(tokens.accessToken(origin));
 			expect(failure.reason).toBe("storage-failed");
 			expect(storage.values.has(oauthTokenKey(origin))).toBe(false);
 		}).pipe(
@@ -464,12 +542,13 @@ describe("OAuth token service", () => {
 				refreshToken: "refresh-1",
 				accessTokenExpiresAt: now,
 				idToken: idToken("nonce-1"),
+				clientId: OAUTH_WEB_CLIENT_ID,
 			});
 			const tokens = yield* OAuthTokenService;
-			const abandoned = yield* Effect.forkChild(tokens.accessToken(origin, OAUTH_WEB_CLIENT_ID), {
+			const abandoned = yield* Effect.forkChild(tokens.accessToken(origin), {
 				startImmediately: true,
 			});
-			const surviving = yield* Effect.forkChild(tokens.accessToken(origin, OAUTH_WEB_CLIENT_ID), {
+			const surviving = yield* Effect.forkChild(tokens.accessToken(origin), {
 				startImmediately: true,
 			});
 
@@ -506,11 +585,12 @@ describe("OAuth token service", () => {
 				refreshToken: "refresh-1",
 				accessTokenExpiresAt: now,
 				idToken: idToken("nonce-1"),
+				clientId: OAUTH_WEB_CLIENT_ID,
 			}),
 		);
 		return Effect.gen(function* () {
 			const tokens = yield* OAuthTokenService;
-			const failure = yield* Effect.flip(tokens.accessToken(origin, OAUTH_WEB_CLIENT_ID));
+			const failure = yield* Effect.flip(tokens.accessToken(origin));
 			expect(failure.reason).toBe("request-failed");
 			expect(storage.values.has(oauthTokenKey(origin))).toBe(true);
 		}).pipe(

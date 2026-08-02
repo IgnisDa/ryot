@@ -338,6 +338,26 @@ describe("settings navigation", () => {
 });
 
 describe("account settings", () => {
+	it("keeps demo account actions and information available", async () => {
+		const demo = { ...authenticated, accessClass: "demo" as const };
+		mountView(
+			"/settings/account",
+			undefined,
+			undefined,
+			makeAuthStub({}, demo),
+			undefined,
+			undefined,
+			undefined,
+			makeOAuthRouteStubs({}, {}, { isNative: true }),
+		);
+
+		const avatar = await screen.findByRole("button", { name: "New avatar" });
+		expect(avatar.hasAttribute("disabled")).toBe(false);
+		expect(screen.getByRole("button", { name: "Sign out" }).hasAttribute("disabled")).toBe(false);
+		expect(screen.getByRole("heading", { name: "Server" })).not.toBeNull();
+		expect(screen.getByRole("link", { name: /God Mode/ })).not.toBeNull();
+	});
+
 	it("retries a failed account identity query", async () => {
 		let sessionReads = 0;
 		mountView(
@@ -561,16 +581,54 @@ describe("account settings", () => {
 });
 
 describe("preferences settings", () => {
-	const mountPreferences = (userSettingsLayer = makeUserSettingsStub()) =>
+	const mountPreferences = (
+		userSettingsLayer = makeUserSettingsStub(),
+		authLayer: Layer.Layer<AuthService> = AuthStub,
+	) =>
 		mountView(
 			"/settings/preferences",
 			undefined,
 			undefined,
-			undefined,
+			authLayer,
 			undefined,
 			undefined,
 			userSettingsLayer,
 		);
+
+	it("keeps local appearance usable and makes demo server preferences read-only", async () => {
+		let saves = 0;
+		mountPreferences(
+			makeUserSettingsStub({
+				updatePreferences: () =>
+					Effect.sync(() => {
+						saves++;
+						return userSettings.preferences;
+					}),
+			}),
+			makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
+		);
+
+		await screen.findByText("This operation is unavailable while using the shared demo account.");
+		expect(screen.getByRole("switch", { name: "Show NSFW content" }).hasAttribute("disabled")).toBe(
+			true,
+		);
+		expect(
+			screen.getByRole("switch", { name: "Disable integrations" }).hasAttribute("disabled"),
+		).toBe(true);
+		expect(
+			screen
+				.getByRole("button", { name: "Metadata language: Provider default" })
+				.hasAttribute("disabled"),
+		).toBe(true);
+		expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
+			true,
+		);
+		const appearance = within(screen.getByRole("radiogroup", { name: "Appearance" })).getAllByRole(
+			"radio",
+		)[0];
+		expect(appearance.hasAttribute("disabled")).toBe(false);
+		expect(saves).toBe(0);
+	});
 
 	it("renders appearance beside the server-backed preferences", async () => {
 		mountPreferences();
