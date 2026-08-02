@@ -30,7 +30,7 @@ export function ShowBackdrop(props: {
 	return (
 		<View
 			pointerEvents="none"
-			className="absolute inset-x-0 top-0 -mx-4 h-80 overflow-hidden md:-mx-8 md:-mt-8 md:h-104"
+			className="absolute inset-x-0 top-0 -mx-4 hidden h-80 overflow-hidden md:-mx-8 md:-mt-8 md:flex md:h-104"
 		>
 			<RemoteImage key={url} url={url} className="h-full w-full" />
 			<View className="absolute inset-0">

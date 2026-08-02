@@ -3,25 +3,20 @@ import { useEffect, useRef, useState } from "react";
 import { getColors } from "react-native-image-colors";
 import Animated, { FadeIn, ReduceMotion } from "react-native-reanimated";
 
-import { resolveAssetUrl } from "@/modules/ui/managed-assets";
-
-import type { SavedViewImage } from "./display-data";
 import {
-	SAVED_VIEW_COLOR_FALLBACK,
-	deriveSavedViewTint,
-	getSavedViewTintGradientStops,
-} from "./saved-view-tint";
+	IMAGE_TINT_COLOR_FALLBACK,
+	deriveImageTint,
+	getImageTintGradientStops,
+} from "./image-tint";
 
 const TINT_ENTERING = FadeIn.duration(180).reduceMotion(ReduceMotion.System);
 
-export function useSavedViewTint(props: {
-	image: SavedViewImage;
-	managedUrls: ReadonlyMap<string, string>;
-}) {
-	const url =
-		props.image.type === "asset"
-			? resolveAssetUrl(props.image.locator, props.managedUrls)
-			: undefined;
+const GRADIENT_EDGES = {
+	vertical: { start: { x: 0.5, y: 0 }, end: { x: 0.5, y: 1 } },
+	horizontal: { start: { x: 0, y: 0.5 }, end: { x: 1, y: 0.5 } },
+} as const;
+
+export function useImageTint(url: string | undefined) {
 	const currentUrl = useRef(url);
 	const failedUrl = useRef<string | undefined>(undefined);
 	const [gradientStops, setGradientStops] = useState<readonly [string, string, string]>();
@@ -35,14 +30,14 @@ export function useSavedViewTint(props: {
 			void getColors(url, {
 				key: url,
 				cache: true,
-				fallback: SAVED_VIEW_COLOR_FALLBACK,
+				fallback: IMAGE_TINT_COLOR_FALLBACK,
 			})
 				.then((colors) => {
 					if (!active || failedUrl.current === url) {
 						return undefined;
 					}
-					const tint = deriveSavedViewTint(colors);
-					setGradientStops(tint ? getSavedViewTintGradientStops(tint) : undefined);
+					const tint = deriveImageTint(colors);
+					setGradientStops(tint ? getImageTintGradientStops(tint) : undefined);
 					return undefined;
 				})
 				.catch(() => undefined);
@@ -65,16 +60,25 @@ export function useSavedViewTint(props: {
 	};
 }
 
-export function SavedViewTintOverlay(props: { gradientStops?: readonly [string, string, string] }) {
+export function ImageTintOverlay(props: {
+	readonly className?: string;
+	readonly direction: "horizontal" | "vertical";
+	readonly gradientStops?: readonly [string, string, string];
+}) {
 	if (!props.gradientStops) {
 		return null;
 	}
+	const edges = GRADIENT_EDGES[props.direction];
 	return (
-		<Animated.View pointerEvents="none" entering={TINT_ENTERING} className="absolute inset-0">
+		<Animated.View
+			pointerEvents="none"
+			entering={TINT_ENTERING}
+			className={props.className ?? "absolute inset-0"}
+		>
 			<LinearGradient
+				end={edges.end}
+				start={edges.start}
 				style={{ flex: 1 }}
-				end={{ x: 1, y: 0.5 }}
-				start={{ x: 0, y: 0.5 }}
 				locations={[0, 0.45, 1]}
 				colors={props.gradientStops}
 			/>
