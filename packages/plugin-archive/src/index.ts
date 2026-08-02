@@ -42,9 +42,15 @@ export class PluginArchiveError extends Schema.TaggedError<PluginArchiveError>()
 ) {}
 
 const CLIENT_SOURCE_EXTENSIONS = [".ts", ".tsx", ".css", ".svg"];
-const DETERMINISTIC_MTIME = new Date("1980-01-01T00:00:00.000Z");
+const DETERMINISTIC_MTIME = new Date(1980, 0, 1, 0, 0, 0, 0);
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const encoder = new TextEncoder();
+
+const compareCodeUnits = (left: string, right: string) => {
+	if (left < right) {return -1;}
+	if (left > right) {return 1;}
+	return 0;
+};
 
 const failure = (reason: PluginArchiveErrorReason) => new PluginArchiveError({ reason });
 
@@ -72,7 +78,7 @@ export const writePluginArchive = (pluginPackage: PluginPackage) => {
 	const entries: Array<readonly [string, Uint8Array]> = [
 		["manifest.json", encoder.encode(`${JSON.stringify(pluginPackage.manifest, null, "\t")}\n`)],
 		...Object.keys(pluginPackage.files)
-			.sort((left, right) => left.localeCompare(right))
+			.sort(compareCodeUnits)
 			.map((path) => [path, encoder.encode(pluginPackage.files[path])] as const),
 	];
 	for (const [path, bytes] of entries) {
