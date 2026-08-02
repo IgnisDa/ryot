@@ -30,25 +30,3 @@ export const AutomationHistoryRoutesLive = HttpApiBuilder.group(
 				}),
 			),
 );
-
-export const GodModeAutomationHistoryRoutesLive = HttpApiBuilder.group(
-	AppContract,
-	"godModeAutomationHistory",
-	(handlers) =>
-		handlers
-			.handle("listRuns", ({ query: { userId, ...filters } }) =>
-				Effect.gen(function* () {
-					return yield* (yield* AutomationHistoryService).listAdminRuns(filters, userId);
-				}),
-			)
-			.handle("getRun", ({ params }) =>
-				Effect.gen(function* () {
-					return yield* (yield* AutomationHistoryService).getAdminRun(params.runId);
-				}),
-			)
-			.handle("retryRun", ({ params, payload }) =>
-				Effect.gen(function* () {
-					return yield* (yield* AutomationHistoryService).retryAdminRun(params.runId, payload);
-				}),
-			),
-);

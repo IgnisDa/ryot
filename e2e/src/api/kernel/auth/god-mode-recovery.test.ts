@@ -21,7 +21,6 @@ const godModeListQuery = (search?: string) => ({
 	offset: 0,
 	...(search ? { search } : {}),
 });
-const pluginListQuery = { includeDisabled: false };
 const uniqueTimestamp = () => DateTime.toEpochMillis(DateTime.nowUnsafe());
 
 const getUserIdByEmail = (email: string) =>
@@ -282,13 +281,9 @@ describe("God-mode disable set", () => {
 			const userId = yield* getUserIdByEmail(email);
 			const apiKey = yield* createApiKey(sessionCookie);
 
-			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-				Authorization: `Bearer ${token}`,
-			});
+			yield* client.call((c) => c.plugins.list(), { Authorization: `Bearer ${token}` });
 
-			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-				"X-Api-Key": apiKey,
-			});
+			yield* client.call((c) => c.plugins.list(), { "X-Api-Key": apiKey });
 
 			const disabledData = yield* client.call(
 				(c) => c.godMode.setUserDisabled({ params: { userId }, payload: { disabled: true } }),
@@ -303,16 +298,12 @@ describe("God-mode disable set", () => {
 			expect(listData.users[0]?.disabledAt).toBe(disabledData.disabledAt);
 
 			const revokedSession = yield* Effect.flip(
-				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-					Authorization: `Bearer ${token}`,
-				}),
+				client.call((c) => c.plugins.list(), { Authorization: `Bearer ${token}` }),
 			);
 			assertTaggedError(revokedSession, "AuthUnauthorized");
 
 			const blockedApiKey = yield* Effect.flip(
-				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-					"X-Api-Key": apiKey,
-				}),
+				client.call((c) => c.plugins.list(), { "X-Api-Key": apiKey }),
 			);
 			assertTaggedError(blockedApiKey, "AuthUnauthorized");
 
@@ -360,9 +351,7 @@ describe("Reset link generation and completion for credential user", () => {
 			const signInRes = yield* signInWithPassword(email, newPassword);
 			expect(signInRes.error).toBeNull();
 			assertPresent(signInRes.token, "Expected an auth token after sign-in");
-			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-				Authorization: `Bearer ${signInRes.token}`,
-			});
+			yield* client.call((c) => c.plugins.list(), { Authorization: `Bearer ${signInRes.token}` });
 		}),
 	);
 
@@ -371,9 +360,7 @@ describe("Reset link generation and completion for credential user", () => {
 			const client = getApiClient();
 			const { email, refreshToken, token: authToken } = yield* createTestUser();
 
-			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-				Authorization: `Bearer ${authToken}`,
-			});
+			yield* client.call((c) => c.plugins.list(), { Authorization: `Bearer ${authToken}` });
 
 			const userId = yield* getUserIdByEmail(email);
 
@@ -400,9 +387,7 @@ describe("Reset link generation and completion for credential user", () => {
 			const signInRes = yield* signInWithPassword(email, newPassword);
 			expect(signInRes.error).toBeNull();
 			assertPresent(signInRes.token, "Expected an auth token after re-sign-in");
-			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-				Authorization: `Bearer ${signInRes.token}`,
-			});
+			yield* client.call((c) => c.plugins.list(), { Authorization: `Bearer ${signInRes.token}` });
 		}),
 	);
 });
