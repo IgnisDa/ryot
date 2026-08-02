@@ -1,3 +1,4 @@
+import { Button } from "@ryot/client-ui-sdk";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -120,22 +121,22 @@ function KernelShell(props: { email: string; scope: ApiScope; server: ServerOrig
 					<h1 className="ui-heading">Your library</h1>
 				</div>
 				<nav aria-label="Session controls" className="flex flex-wrap gap-2.5">
-					<button
+					<Button
 						type="button"
-						className="ui-button-secondary"
+						variant="secondary"
 						onClick={() => void changeServer()}
 						disabled={pendingAction !== undefined}
 					>
 						{pendingAction === "server" ? "Changing..." : "Change server"}
-					</button>
-					<button
+					</Button>
+					<Button
 						type="button"
-						className="ui-button-primary"
+						variant="primary"
 						onClick={() => void signOut()}
 						disabled={pendingAction !== undefined}
 					>
 						{pendingAction === "signout" ? "Signing out..." : "Sign out"}
-					</button>
+					</Button>
 				</nav>
 			</header>
 			<section
