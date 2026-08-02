@@ -38,7 +38,12 @@ export const Home = () => {
 	const [greetings, setGreetings] = useState(0);
 	const [requested, setRequested] = useState("Ryot");
 	const [greeting, setGreeting] = useState<GreetingState>({ status: "idle" });
+	const [shouldCrash, setShouldCrash] = useState(false);
 	const failed = greeting.status === "refused" || greeting.status === "unavailable";
+
+	if (shouldCrash) {
+		throw new Error("fixture render failure");
+	}
 
 	const requestGreeting = async (name: string) => {
 		setRequested(name);
@@ -62,6 +67,9 @@ export const Home = () => {
 			<h1 className="font-display text-2xl">Fixture plugin</h1>
 			<p className="text-text-muted">Greeted {greetings} times.</p>
 			<Button onClick={() => setGreetings((count) => count + 1)}>Greet</Button>
+			<Button variant="secondary" onClick={() => setShouldCrash(true)}>
+				Crash during render
+			</Button>
 			<section
 				aria-labelledby="fixture-theme-title"
 				className="w-full max-w-md rounded-lg border border-border bg-surface p-4"

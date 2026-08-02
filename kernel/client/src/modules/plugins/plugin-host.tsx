@@ -1,3 +1,4 @@
+import { Button } from "@ryot/client-ui-sdk";
 import {
 	CLIENT_API_VERSION,
 	type PluginLogicalLocation,
@@ -33,7 +34,7 @@ export type PluginArtifactResolution =
 
 const noticeMessages: Record<Exclude<PluginHostStatus, "ready">, string> = {
 	loading: "Preparing this plugin...",
-	"handshake-failure": "This plugin did not finish loading.",
+	"handshake-failure": "This plugin stopped working.",
 	"compilation-failure": "This plugin could not be prepared.",
 	"missing-artifact": "This plugin has no web experience yet.",
 	"unexpected-version": "This plugin needs a newer version of Ryot.",
@@ -116,6 +117,7 @@ function PluginFrame(props: {
 	const frame = useRef<HTMLIFrameElement>(null);
 	const session = useRef<PluginBridgeSession>(undefined);
 	const [status, setStatus] = useState<"ready" | "loading" | "handshake-failure">("loading");
+	const [reload, setReload] = useState(0);
 	latest.current = props;
 
 	const closeBridge = () => {
@@ -145,7 +147,8 @@ function PluginFrame(props: {
 			return;
 		}
 		setStatus("loading");
-		session.current = openPluginBridge({
+		const connection = { failed: false };
+		const nextSession = openPluginBridge({
 			target: plugin,
 			artifactHash: props.artifactHash,
 			location: latest.current.location,
@@ -154,7 +157,8 @@ function PluginFrame(props: {
 			onRyotQL: (request, signal) => latest.current.onQuery(request, signal),
 			onOperation: (request, signal) => latest.current.onInvokeOperation(request, signal),
 			onFailure: () => {
-				session.current = undefined;
+				connection.failed = true;
+				closeBridge();
 				setStatus("handshake-failure");
 			},
 			onNavigate: (request) => {
@@ -164,6 +168,22 @@ function PluginFrame(props: {
 				}
 			},
 		});
+		if (!connection.failed) {
+			session.current = nextSession;
+		}
+	}
+
+	if (status === "handshake-failure") {
+		return (
+			<PluginNotice
+				status={status}
+				onReload={() => {
+					closeBridge();
+					setReload((value) => value + 1);
+					setStatus("loading");
+				}}
+			/>
+		);
 	}
 
 	return (
@@ -171,6 +191,7 @@ function PluginFrame(props: {
 			{status === "ready" ? null : <PluginNotice status={status} />}
 			<iframe
 				ref={frame}
+				key={reload}
 				onLoad={connect}
 				sandbox="allow-scripts"
 				referrerPolicy="no-referrer"
@@ -182,7 +203,10 @@ function PluginFrame(props: {
 	);
 }
 
-function PluginNotice(props: { readonly status: Exclude<PluginHostStatus, "ready"> }) {
+function PluginNotice(props: {
+	readonly onReload?: () => void;
+	readonly status: Exclude<PluginHostStatus, "ready">;
+}) {
 	return (
 		<main className="ui-page">
 			<section
@@ -197,6 +221,11 @@ function PluginNotice(props: { readonly status: Exclude<PluginHostStatus, "ready
 						{noticeMessages[props.status]}
 					</p>
 				</div>
+				{props.onReload ? (
+					<Button type="button" onClick={props.onReload}>
+						Reload plugin
+					</Button>
+				) : null}
 			</section>
 		</main>
 	);

@@ -45,7 +45,11 @@ export const createPluginRuntime = (
 	let state: PluginRuntimeState = "ready";
 	let terminalReason: RyotClientErrorReason | undefined;
 	const listeners = new AbortController();
-	const locations = createPluginLocationStore();
+	const locationStore = createPluginLocationStore();
+	const locations = {
+		getSnapshot: () => (hasLocation ? locationStore.getSnapshot() : undefined),
+		subscribe: locationStore.subscribe,
+	};
 	const operations = new Map<string, PendingCall>();
 	const queries = new Map<string, PendingCall>();
 	const themeListeners = new Set<() => void>();
@@ -74,6 +78,8 @@ export const createPluginRuntime = (
 		terminalReason = reason;
 		rejectPending(reason);
 		themeListeners.clear();
+		hasLocation = false;
+		theme = undefined;
 		if (notify) {
 			try {
 				port.postMessage({ reason: next, type: "lifecycle-close" });
@@ -156,11 +162,16 @@ export const createPluginRuntime = (
 				return theme;
 			},
 			subscribe: (listener) => {
+				if (state === "closing" || state === "failed" || state === "disposed") {
+					throw new RyotClientError(terminalReason ?? "transport");
+				}
 				themeListeners.add(listener);
 				return () => themeListeners.delete(listener);
 			},
 		},
 	});
+
+	const fatal = () => finish("failed", "protocol", true);
 
 	port.addEventListener(
 		"message",
@@ -176,7 +187,7 @@ export const createPluginRuntime = (
 			Match.value(decoded.success).pipe(
 				Match.when({ type: "location" }, ({ location }) => {
 					hasLocation = true;
-					locations.set(location);
+					locationStore.set(location);
 					activate();
 				}),
 				Match.when({ type: "theme" }, ({ generation, theme: nextTheme }) => {
@@ -245,6 +256,7 @@ export const createPluginRuntime = (
 	}
 
 	return {
+		fatal,
 		client,
 		locations,
 		dispose: () => finish("disposed", "disposed", true),
