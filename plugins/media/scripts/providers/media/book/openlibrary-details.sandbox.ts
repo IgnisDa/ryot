@@ -5,11 +5,11 @@ import { details } from "./openlibrary";
 
 export const manifest = defineManifest({
 	kind: "provider",
+	capabilities: ["httpCall"],
 	name: "OpenLibrary Details",
-	slug: "book.openlibrary.details",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall"],
+	slug: "book.openlibrary.details",
 });
 
 export default defineProvider({ manifest, operation: "details", run: details.run });
