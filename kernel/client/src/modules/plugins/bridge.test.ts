@@ -5,8 +5,10 @@ import {
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
+	REQUIRED_THEME_TOKEN_NAMES,
 	type PluginBridgeNavigate,
 	type PluginBridgeReady,
+	PluginThemeSnapshot,
 	type PluginOperationBridgeErrorReason,
 	type PluginOperationOutcome,
 	type PluginOperationRequest,
@@ -23,6 +25,14 @@ const decodeInit = Schema.decodeUnknownSync(PluginBridgeInit);
 
 const artifactHash = "artifact-hash";
 const home = { path: "/", search: "" };
+const lightTheme = Schema.decodeUnknownSync(PluginThemeSnapshot)({
+	resolvedMode: "light",
+	tokens: Object.fromEntries(REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, `light-${name}`])),
+});
+const darkTheme = Schema.decodeUnknownSync(PluginThemeSnapshot)({
+	resolvedMode: "dark",
+	tokens: Object.fromEntries(REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, `dark-${name}`])),
+});
 const document = {
 	queries: {
 		items: {
@@ -58,6 +68,7 @@ function deferred<T>() {
 
 const connect = (
 	options: {
+		readonly autoAck?: boolean;
 		readonly timeoutMs?: number;
 		readonly onOperation?: (
 			request: PluginOperationRequest,
@@ -73,18 +84,20 @@ const connect = (
 	const failures: null[] = [];
 	const origins: string[] = [];
 	const received: unknown[] = [];
+	const messages: unknown[] = [];
 	let init: PluginBridgeInit | undefined;
 	let pluginPort: MessagePort | undefined;
 	const navigations: PluginBridgeNavigate[] = [];
 	const operationCalls: Array<{
 		readonly input: unknown;
-		readonly operationSlug: string;
 		readonly signal: AbortSignal;
+		readonly operationSlug: string;
 	}> = [];
 
 	const session = openPluginBridge({
 		artifactHash,
 		location: home,
+		theme: lightTheme,
 		timeoutMs: options.timeoutMs,
 		onReady: () => readies.push(null),
 		onFailure: () => failures.push(null),
@@ -104,7 +117,19 @@ const connect = (
 				}
 				origins.push(targetOrigin);
 				init = decodeInit(message);
-				transferred.addEventListener("message", (event) => received.push(event.data));
+				transferred.addEventListener("message", (event) => {
+					messages.push(event.data);
+					if (
+						typeof event.data === "object" &&
+						event.data !== null &&
+						event.data.type === "theme" &&
+						options.autoAck !== false
+					) {
+						transferred.postMessage({ generation: event.data.generation, type: "theme-applied" });
+					} else {
+						received.push(event.data);
+					}
+				});
 				transferred.start();
 				ports.push(transferred);
 				pluginPort = transferred;
@@ -122,6 +147,7 @@ const connect = (
 		origins,
 		readies,
 		failures,
+		messages,
 		received,
 		pluginPort,
 		navigations,
@@ -160,6 +186,7 @@ describe("plugin bridge", () => {
 			artifactHash,
 			timeoutMs: 10,
 			location: home,
+			theme: lightTheme,
 			onReady: () => undefined,
 			onNavigate: () => undefined,
 			onFailure: () => failures.push(null),
@@ -178,15 +205,21 @@ describe("plugin bridge", () => {
 		expect(failures).toHaveLength(1);
 	});
 
-	it("readies on a matching handshake and then sends the initial location", async () => {
-		const { init, pluginPort, readies, failures, received } = connect();
+	it("sends theme then location and readies only after the initial theme acknowledgement", async () => {
+		const { init, pluginPort, readies, failures, messages } = connect({ autoAck: false });
 
 		pluginPort.postMessage(readyFor(init));
 
 		await waitFor(() => {
-			expect(readies).toHaveLength(1);
-			expect(received).toEqual([{ type: "location", location: home }]);
+			expect(messages).toEqual([{ generation: 1, type: "theme", theme: lightTheme }]);
 		});
+		expect(readies).toEqual([]);
+		pluginPort.postMessage({ generation: 1, type: "theme-applied" });
+		await waitFor(() => expect(readies).toHaveLength(1));
+		expect(messages).toEqual([
+			{ generation: 1, type: "theme", theme: lightTheme },
+			{ type: "location", location: home },
+		]);
 		expect(failures).toEqual([]);
 	});
 
@@ -275,8 +308,108 @@ describe("plugin bridge", () => {
 		);
 	});
 
+	it("latches the latest pre-ready theme and sends later themes on the active channel", async () => {
+		const { init, messages, pluginPort, readies, session } = connect({ autoAck: false });
+
+		session.sendTheme(darkTheme);
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() =>
+			expect(messages).toEqual([{ generation: 1, type: "theme", theme: darkTheme }]),
+		);
+
+		pluginPort.postMessage({ generation: 1, type: "theme-applied" });
+		await waitFor(() => expect(readies).toHaveLength(1));
+		expect(messages).toEqual([
+			{ generation: 1, type: "theme", theme: darkTheme },
+			{ type: "location", location: home },
+		]);
+		session.sendTheme(lightTheme);
+		await waitFor(() =>
+			expect(messages).toEqual([
+				{ generation: 1, type: "theme", theme: darkTheme },
+				{ type: "location", location: home },
+				{ generation: 2, type: "theme", theme: lightTheme },
+			]),
+		);
+	});
+
+	it("fails on an early, invalid, or duplicate theme acknowledgement", async () => {
+		const early = connect({ autoAck: false });
+		early.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
+		await waitFor(() => expect(early.failures).toHaveLength(1));
+
+		const invalid = connect({ autoAck: false });
+		invalid.pluginPort.postMessage(readyFor(invalid.init));
+		await waitFor(() => expect(invalid.messages).toHaveLength(1));
+		invalid.pluginPort.postMessage({ generation: 1, type: "theme-applied", extra: true });
+		await waitFor(() => expect(invalid.failures).toHaveLength(1));
+
+		const duplicate = connect({ autoAck: false });
+		duplicate.pluginPort.postMessage(readyFor(duplicate.init));
+		await waitFor(() => expect(duplicate.messages).toHaveLength(1));
+		duplicate.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
+		await waitFor(() => expect(duplicate.readies).toHaveLength(1));
+		duplicate.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
+		await waitFor(() => expect(duplicate.failures).toHaveLength(1));
+	});
+
+	it("coalesces theme changes while awaiting initial application", async () => {
+		const { init, messages, pluginPort, readies, session } = connect({ autoAck: false });
+
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() =>
+			expect(messages).toEqual([{ generation: 1, type: "theme", theme: lightTheme }]),
+		);
+		session.sendTheme(darkTheme);
+		expect(messages).toEqual([{ generation: 1, type: "theme", theme: lightTheme }]);
+
+		pluginPort.postMessage({ generation: 1, type: "theme-applied" });
+		await waitFor(() =>
+			expect(messages).toEqual([
+				{ generation: 1, type: "theme", theme: lightTheme },
+				{ generation: 2, type: "theme", theme: darkTheme },
+			]),
+		);
+		expect(readies).toEqual([]);
+
+		pluginPort.postMessage({ generation: 2, type: "theme-applied" });
+		await waitFor(() => expect(readies).toHaveLength(1));
+		expect(messages).toEqual([
+			{ generation: 1, type: "theme", theme: lightTheme },
+			{ generation: 2, type: "theme", theme: darkTheme },
+			{ type: "location", location: home },
+		]);
+	});
+
+	it("fails a stale acknowledgement after coalescing before activation", async () => {
+		const { init, failures, messages, pluginPort, readies, session } = connect({ autoAck: false });
+
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() =>
+			expect(messages).toEqual([{ generation: 1, type: "theme", theme: lightTheme }]),
+		);
+		session.sendTheme(darkTheme);
+		pluginPort.postMessage({ generation: 1, type: "theme-applied" });
+		await waitFor(() =>
+			expect(messages).toEqual([
+				{ generation: 1, type: "theme", theme: lightTheme },
+				{ generation: 2, type: "theme", theme: darkTheme },
+			]),
+		);
+
+		pluginPort.postMessage({ generation: 1, type: "theme-applied" });
+		await waitFor(() => expect(failures).toHaveLength(1));
+
+		expect(readies).toEqual([]);
+		expect(messages).toEqual([
+			{ generation: 1, type: "theme", theme: lightTheme },
+			{ generation: 2, type: "theme", theme: darkTheme },
+			{ reason: "failed", type: "lifecycle-close" },
+		]);
+	});
+
 	it("forwards decoded navigation requests once ready", async () => {
-		const { init, pluginPort, navigations, failures } = connect();
+		const { init, pluginPort, readies, navigations, failures } = connect();
 		const request = {
 			mode: "push",
 			type: "navigate",
@@ -284,6 +417,7 @@ describe("plugin bridge", () => {
 		} satisfies PluginBridgeNavigate;
 
 		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(readies).toHaveLength(1));
 		pluginPort.postMessage(request);
 
 		await waitFor(() => expect(navigations).toEqual([request]));

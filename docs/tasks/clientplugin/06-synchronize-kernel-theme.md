@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Web Client Plugin Tracer](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -18,22 +18,22 @@ Theme state must live behind the existing explicit `RyotClient` and `RyotProvide
 
 ## Acceptance criteria
 
-- [ ] The kernel derives one resolved semantic theme snapshot from its light, dark, or system preference.
-- [ ] `ryot.theme` exposes the same semantic theme capability through the direct kernel adapter and the plugin `MessageChannel` adapter.
-- [ ] Theme extends the existing explicit client/provider and direct/`MessageChannel` adapter factory; it adds no parallel client, provider, runtime, port, or dispatcher.
-- [ ] The theme snapshot has one strict domain schema that reuses the canonical `JsonValue` boundary for its payload; fixed fields are schema-checked and unsupported values are rejected rather than normalized.
-- [ ] Theme messages use the existing per-session runtime dispatcher and lifecycle; they do not add a listener, bridge, client, or disposal path.
-- [ ] Theme synchronization reuses the exact shared `RyotClientError` contract and adds no theme-specific error union; unavailable or undeclared capabilities use `unsupported-capability` where applicable.
-- [ ] The plugin receives and applies the initial snapshot before its UI becomes visible.
-- [ ] Plugin Tailwind output and client UI SDK primitives consume semantic CSS variables rather than copied raw kernel selectors or hardcoded light-theme values.
-- [ ] Changing between light, dark, and system preferences updates the mounted fixture through a bridge event.
-- [ ] A system color-scheme change updates the fixture when preference is `system` and does not override an explicit preference.
-- [ ] Theme updates preserve the iframe identity, bridge session, current private route, and fixture React state.
-- [ ] Theme updates preserve the runtime state and use the same `ready`/`active`/`closing`/`failed`/`disposed` transitions as all other session work.
-- [ ] The fixture demonstrates background, surface, border, primary text, muted text, accent, and at least one status token in both resolved themes.
-- [ ] Unknown extra theme tokens are harmless and missing required theme tokens produce a stable runtime failure rather than silently using privileged parent styles.
-- [ ] Theme values do not use `Schema.Unknown`, ad hoc validators, unchecked casts, or `JSON.stringify` normalization.
-- [ ] Kernel theme unit tests, bridge event tests, plugin runtime tests, and browser tests cover initial paint, live changes, system changes, state preservation, and continued use of the shared runtime/error contract without a theme-specific union; all earlier tracer tests pass.
+- [x] The kernel derives one resolved semantic theme snapshot from its light, dark, or system preference.
+- [x] `ryot.theme` exposes the same semantic theme capability through the direct kernel adapter and the plugin `MessageChannel` adapter.
+- [x] Theme extends the existing explicit client/provider and direct/`MessageChannel` adapter factory; it adds no parallel client, provider, runtime, port, or dispatcher.
+- [x] The theme snapshot has one strict domain schema that reuses the canonical `JsonValue` boundary for its payload; fixed fields are schema-checked and unsupported values are rejected rather than normalized.
+- [x] Theme messages use the existing per-session runtime dispatcher and lifecycle; they do not add a listener, bridge, client, or disposal path.
+- [x] Theme synchronization reuses the exact shared `RyotClientError` contract and adds no theme-specific error union; unavailable or undeclared capabilities use `unsupported-capability` where applicable.
+- [x] The plugin receives and applies the initial snapshot before its UI becomes visible.
+- [x] Plugin Tailwind output and client UI SDK primitives consume semantic CSS variables rather than copied raw kernel selectors or hardcoded light-theme values.
+- [x] Changing between light, dark, and system preferences updates the mounted fixture through a bridge event.
+- [x] A system color-scheme change updates the fixture when preference is `system` and does not override an explicit preference.
+- [x] Theme updates preserve the iframe identity, bridge session, current private route, and fixture React state.
+- [x] Theme updates preserve the runtime state and use the same `ready`/`active`/`closing`/`failed`/`disposed` transitions as all other session work.
+- [x] The fixture demonstrates background, surface, border, primary text, muted text, accent, and at least one status token in both resolved themes.
+- [x] Unknown extra theme tokens are harmless and missing required theme tokens produce a stable runtime failure rather than silently using privileged parent styles.
+- [x] Theme values do not use `Schema.Unknown`, ad hoc validators, unchecked casts, or `JSON.stringify` normalization.
+- [x] Kernel theme unit tests, bridge event tests, plugin runtime tests, and browser tests cover initial paint, live changes, system changes, state preservation, and continued use of the shared runtime/error contract without a theme-specific union; all earlier tracer tests pass.
 
 ## User stories addressed
 
@@ -49,3 +49,13 @@ Two conditions left by Task 03 define where this task attaches:
 - `PluginHost` keeps the iframe hidden until the handshake completes, so the plugin's React tree already mounts at 0x0 before it is revealed. That reveal is the moment to gate on the initial snapshot having been applied, which is what "before its UI becomes visible" means in the second criterion.
 
 Task 05-followup defines the runtime seam: extend the one per-session runtime, `createRyotClient`, its explicit React context, and the two environment adapters. The wire event remains an internal detail of the runtime dispatcher; fixture components consume `ryot.theme`, not `MessagePort` messages. Do not introduce a theme-specific bridge or teardown path; crash and artifact-reload work must continue to reuse this same runtime lifecycle.
+
+## Implementation Notes
+
+- **One strict semantic snapshot.** `PluginThemeSnapshot` has exact `resolvedMode` and `tokens` fields, requires every semantic variable consumed by `@ryot/client-ui-sdk`, admits harmless future string tokens, and composes the token payload through the canonical `JsonValue` schema. Empty, missing, non-string, non-JSON, or extra outer fields fail schema decoding without normalization or unchecked casts.
+- **The kernel CSS palette remains authoritative.** One explicit theme store is created before the router, applies the persisted preference, reads the required values from the kernel document's computed style, and supplies the same schema-decoded snapshot to the direct `RyotClient` adapter and plugin host. Its existing media-query listener publishes system changes only while preference is `system`; explicit light or dark remains authoritative.
+- **Theme extends the existing client and runtime.** `ryot.theme.getSnapshot/subscribe` is implemented by the existing adapter factory and explicit `RyotProvider`. The plugin runtime stores and applies snapshots through its one V3 dispatcher, listener, port, lifecycle, and disposal path. Missing adapters use the shared `unsupported-capability`; malformed direct results use `malformed-result`; malformed wire data uses the shared protocol failure path.
+- **Initial paint is acknowledged before reveal.** After exact V3 ready validation, the kernel sends a complete theme snapshot and waits for a strict generation-correlated `theme-applied` acknowledgement before sending location, activating the session, and revealing the iframe. Pre-active changes coalesce to the newest generation, so a stale or duplicate acknowledgement cannot reveal an obsolete theme. Plugin React mounts only after both initial theme and location arrive.
+- **Live updates preserve the session.** Later snapshots use the same active channel and update runtime-owned CSS variables without changing the iframe key, route, bridge, client, or fixture React state. The fixture consumes `ryot.theme` through `useSyncExternalStore` and demonstrates semantic page, surface, border, text, muted, accent, and status styles without embedding the kernel palette.
+- **Review corrections.** Review found and fixed an initial render race, temporary host/plugin activation disagreement, acceptance of empty computed tokens, an unchecked test assertion, and a stale acknowledgement race during pre-active theme coalescing. The same reviewer approved the generation-correlated result with no remaining findings.
+- **Verification.** Focused contract, client SDK, client UI SDK, client compiler, fixture, and kernel client checks, tests, and builds pass. The affected end-to-end suite `tests/src/tests/kernel/plugins/client-artifact.test.ts` passes 2/2 when run directly. The repository has no browser-driver harness, so real-browser paint timing remains unautomated; focused bootstrap, runtime, bridge, host, store, iframe-identity, route, and system-preference tests cover the production boundaries available in the current test infrastructure.

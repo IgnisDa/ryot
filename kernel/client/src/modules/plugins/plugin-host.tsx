@@ -10,6 +10,7 @@ import type { PluginClientCatalogEntry } from "@ryot/ryotql-recipes/plugin-clien
 import { useEffect, useRef, useState } from "react";
 
 import { serverApiUrl, type ServerOrigin } from "../../api/origin";
+import type { ThemeStore } from "../theme/store";
 import { openPluginBridge, type PluginBridgeSession } from "./bridge";
 import { toNavigationRequest, type PluginNavigationRequest } from "./plugin-location";
 
@@ -60,6 +61,7 @@ export function resolvePluginArtifact(
 }
 
 export function PluginHost(props: {
+	readonly theme: ThemeStore;
 	readonly server: ServerOrigin;
 	readonly location: PluginLogicalLocation;
 	readonly installation: PluginClientCatalogEntry;
@@ -80,6 +82,7 @@ export function PluginHost(props: {
 
 	return (
 		<PluginFrame
+			theme={props.theme}
 			server={props.server}
 			onQuery={props.onQuery}
 			location={props.location}
@@ -93,6 +96,7 @@ export function PluginHost(props: {
 }
 
 function PluginFrame(props: {
+	readonly theme: ThemeStore;
 	readonly pluginSlug: string;
 	readonly server: ServerOrigin;
 	readonly artifactHash: string;
@@ -125,6 +129,14 @@ function PluginFrame(props: {
 		session.current?.sendLocation({ path, search });
 	}, [path, search]);
 
+	useEffect(
+		() =>
+			props.theme.subscribe(() => {
+				session.current?.sendTheme(props.theme.getSnapshot());
+			}),
+		[props.theme],
+	);
+
 	function connect() {
 		const plugin = frame.current?.contentWindow;
 		closeBridge();
@@ -138,6 +150,7 @@ function PluginFrame(props: {
 			artifactHash: props.artifactHash,
 			location: latest.current.location,
 			onReady: () => setStatus("ready"),
+			theme: latest.current.theme.getSnapshot(),
 			onRyotQL: (request, signal) => latest.current.onQuery(request, signal),
 			onOperation: (request, signal) => latest.current.onInvokeOperation(request, signal),
 			onFailure: () => {

@@ -1,11 +1,14 @@
 import {
 	PluginBridgeHostMessage,
+	REQUIRED_THEME_TOKEN_NAMES,
 	type PluginBridgeInit,
 	type PluginBridgeNavigate,
 	type PluginBridgeOperationRequest,
 	type PluginBridgeReady,
 	type PluginBridgeRyotQLRequest,
+	type PluginBridgeThemeApplied,
 	type PluginClientArtifactMetadata,
+	type PluginThemeSnapshot,
 	type RyotClientErrorReason,
 } from "@ryot/contract/modules/plugins/client";
 import type { JsonValue } from "@ryot/contract/schema/json";
@@ -22,14 +25,22 @@ type PendingCall = {
 	readonly resolve: (value: unknown) => void;
 };
 
+type PluginThemeStyle = {
+	readonly setProperty: (property: string, value: string) => void;
+};
+
 const decodeHostMessage = Schema.decodeUnknownResult(PluginBridgeHostMessage);
 
 export const createPluginRuntime = (
 	port: MessagePort,
 	init: PluginBridgeInit,
 	metadata: PluginClientArtifactMetadata,
+	style: PluginThemeStyle,
+	onActive?: () => void,
 	onTerminal?: () => void,
 ) => {
+	let hasLocation = false;
+	let theme: PluginThemeSnapshot | undefined;
 	let nextRequestId = 0;
 	let state: PluginRuntimeState = "ready";
 	let terminalReason: RyotClientErrorReason | undefined;
@@ -37,6 +48,14 @@ export const createPluginRuntime = (
 	const locations = createPluginLocationStore();
 	const operations = new Map<string, PendingCall>();
 	const queries = new Map<string, PendingCall>();
+	const themeListeners = new Set<() => void>();
+
+	const activate = () => {
+		if (state === "ready" && hasLocation && theme) {
+			state = "active";
+			onActive?.();
+		}
+	};
 
 	const rejectPending = (reason: RyotClientErrorReason) => {
 		const pendingCalls = [...operations.values(), ...queries.values()];
@@ -54,6 +73,7 @@ export const createPluginRuntime = (
 		state = "closing";
 		terminalReason = reason;
 		rejectPending(reason);
+		themeListeners.clear();
 		if (notify) {
 			try {
 				port.postMessage({ reason: next, type: "lifecycle-close" });
@@ -124,7 +144,23 @@ export const createPluginRuntime = (
 		} satisfies PluginBridgeNavigate);
 	};
 
-	const client = createRyotClient({ query, invokeOperation, navigate });
+	const client = createRyotClient({
+		query,
+		navigate,
+		invokeOperation,
+		theme: {
+			getSnapshot: () => {
+				if (!theme) {
+					throw new RyotClientError(terminalReason ?? "transport");
+				}
+				return theme;
+			},
+			subscribe: (listener) => {
+				themeListeners.add(listener);
+				return () => themeListeners.delete(listener);
+			},
+		},
+	});
 
 	port.addEventListener(
 		"message",
@@ -139,8 +175,27 @@ export const createPluginRuntime = (
 			}
 			Match.value(decoded.success).pipe(
 				Match.when({ type: "location" }, ({ location }) => {
-					state = "active";
+					hasLocation = true;
 					locations.set(location);
+					activate();
+				}),
+				Match.when({ type: "theme" }, ({ generation, theme: nextTheme }) => {
+					try {
+						for (const token of REQUIRED_THEME_TOKEN_NAMES) {
+							style.setProperty(`--${token}`, nextTheme.tokens[token]);
+						}
+					} catch {
+						finish("failed", "protocol", true);
+						return;
+					}
+					theme = nextTheme;
+					for (const listener of themeListeners) {
+						listener();
+					}
+					if (state === "ready") {
+						post({ generation, type: "theme-applied" } satisfies PluginBridgeThemeApplied);
+					}
+					activate();
 				}),
 				Match.when({ type: "lifecycle-close" }, ({ reason }) =>
 					finish(reason, reason === "disposed" ? "disposed" : "protocol", false),

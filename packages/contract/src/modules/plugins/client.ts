@@ -12,6 +12,53 @@ export const CLIENT_COMPILER_VERSION = 1 as const;
 export const CLIENT_ARTIFACT_ROOT_ELEMENT_ID = "app";
 export const CLIENT_ARTIFACT_METADATA_ELEMENT_ID = "ryot-client-artifact";
 
+export const REQUIRED_THEME_TOKEN_NAMES = [
+	"bg",
+	"info",
+	"text",
+	"accent",
+	"border",
+	"danger",
+	"raised",
+	"success",
+	"surface",
+	"info-soft",
+	"surface-2",
+	"text-muted",
+	"accent-ink",
+	"accent-soft",
+	"accent-text",
+	"text-subtle",
+	"success-soft",
+	"accent-border",
+	"border-strong",
+	"font-family-ui",
+	"font-family-display",
+	"r-sm",
+	"r-md",
+	"r-lg",
+	"r-xl",
+	"r-pill",
+	"shadow-small",
+	"shadow-raised",
+] as const;
+
+const PluginThemeTokens = JsonValue.pipe(
+	Schema.decodeTo(
+		Schema.StructWithRest(
+			Schema.Record(Schema.Literals(REQUIRED_THEME_TOKEN_NAMES), Schema.NonEmptyString),
+			[Schema.Record(Schema.String, Schema.NonEmptyString)],
+		),
+	),
+);
+
+export const PluginThemeSnapshot = strictStruct({
+	tokens: PluginThemeTokens,
+	resolvedMode: Schema.Literals(["light", "dark"]),
+});
+
+export type PluginThemeSnapshot = Schema.Schema.Type<typeof PluginThemeSnapshot>;
+
 export const PluginClientCapability = Schema.Literals([
 	"files",
 	"audio",
@@ -93,6 +140,21 @@ export const PluginBridgeNavigate = strictStruct({
 });
 
 export type PluginBridgeNavigate = Schema.Schema.Type<typeof PluginBridgeNavigate>;
+
+export const PluginBridgeTheme = strictStruct({
+	generation: Schema.Int,
+	theme: PluginThemeSnapshot,
+	type: Schema.Literal("theme"),
+});
+
+export type PluginBridgeTheme = Schema.Schema.Type<typeof PluginBridgeTheme>;
+
+export const PluginBridgeThemeApplied = strictStruct({
+	generation: Schema.Int,
+	type: Schema.Literal("theme-applied"),
+});
+
+export type PluginBridgeThemeApplied = Schema.Schema.Type<typeof PluginBridgeThemeApplied>;
 
 export const PluginBridgeLifecycleClose = strictStruct({
 	type: Schema.Literal("lifecycle-close"),
@@ -214,6 +276,7 @@ export type PluginBridgeRyotQLResult = Schema.Schema.Type<typeof PluginBridgeRyo
 
 export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeNavigate,
+	PluginBridgeThemeApplied,
 	PluginBridgeRyotQLRequest,
 	PluginBridgeLifecycleClose,
 	PluginBridgeOperationRequest,
@@ -222,6 +285,7 @@ export const PluginBridgeClientMessage = Schema.Union([
 export type PluginBridgeClientMessage = Schema.Schema.Type<typeof PluginBridgeClientMessage>;
 
 export const PluginBridgeHostMessage = Schema.Union([
+	PluginBridgeTheme,
 	PluginBridgeLocation,
 	PluginBridgeRyotQLResult,
 	PluginBridgeLifecycleClose,
