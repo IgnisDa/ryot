@@ -3,14 +3,20 @@ import { DbError } from "@ryot/contract/errors";
 import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import {
 	and,
+	ascending,
 	castDate,
 	castNumber,
 	castText,
 	coalesce,
 	column,
 	contains,
+	count,
+	countDistinct,
+	divide,
 	eq,
+	exists,
 	field,
+	first,
 	gte,
 	include,
 	inArray,
@@ -19,6 +25,7 @@ import {
 	literal,
 	not,
 	rows,
+	sum,
 	table,
 } from "@ryot/ryotql";
 import { buildAllCollectionsDocument } from "@ryot/ryotql-recipes/collections";
@@ -349,6 +356,87 @@ it.effect("compiles and reconstructs nested correlated includes in one statement
 				},
 			},
 		]);
+	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
+});
+
+it.effect("compiles correlated scalar expressions with authorized query sets", () => {
+	const statements: string[] = [];
+	const entity = table("entity", "entity");
+	const event = table("event", "event");
+	const related = { where: eq(column(event, "entityId"), column(entity, "id")) };
+	const eventCount = count(event, related);
+	const document = {
+		queries: {
+			entities: rows(entity, {
+				fields: [
+					field("hasEvents", exists(event, related)),
+					field(
+						"latest",
+						first(event, {
+							...related,
+							select: column(event, "occurredAt"),
+							orderBy: [ascending(column(event, "occurredAt"))],
+						}),
+					),
+					field("count", eventCount),
+					field("distinct", countDistinct(event, column(event, "entityId"), related)),
+					field("sum", sum(event, literal(2), related)),
+					field("ratio", divide(eventCount, literal(0))),
+					field(
+						"fallback",
+						coalesce(
+							first(event, {
+								...related,
+								select: column(event, "id"),
+								orderBy: [ascending(column(event, "id"))],
+							}),
+							literal("none"),
+						),
+					),
+				],
+			}),
+		},
+	};
+	const resultRows = [
+		{
+			f0v: true,
+			f0k: "boolean",
+			f1v: null,
+			f1k: "null",
+			f2v: 0,
+			f2k: "number",
+			f3v: 0,
+			f3k: "number",
+			f4v: null,
+			f4k: "null",
+			f5v: null,
+			f5k: "null",
+			f6v: "none",
+			f6k: "text",
+			totalCount: 1,
+			rowPresent: true,
+		},
+	];
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		const response = yield* service.executeForUser("user-1", null, document);
+
+		const statement = statements[2];
+		expect(statement).toContain("EXISTS (SELECT 1");
+		expect(statement).toContain("COUNT(DISTINCT");
+		expect(statement).toContain("SUM(");
+		expect(statement).toContain("NULLIF");
+		expect(statement?.match(/SELECT \* FROM event WHERE/g)?.length).toBeGreaterThan(0);
+		expect(response.data["entities"]?.items[0]).toEqual({
+			sum: { kind: "null", value: null },
+			count: { kind: "number", value: 0 },
+			ratio: { kind: "null", value: null },
+			latest: { kind: "null", value: null },
+			distinct: { kind: "number", value: 0 },
+			fallback: { kind: "text", value: "none" },
+			hasEvents: { kind: "boolean", value: true },
+		});
 	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
 });
 
