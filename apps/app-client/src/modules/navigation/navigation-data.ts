@@ -1,261 +1,132 @@
 import type { ListedPlugin } from "@ryot/contract/modules/definitions/schemas";
+import type { QueryResponse, RowItem } from "@ryot/contract/modules/query-engine/language";
 import type { ListedSavedView } from "@ryot/contract/modules/saved-views/schemas";
 
-type NavigationPlugin = Pick<
-	ListedPlugin,
-	"name" | "icon" | "sortOrder" | "isDisabled" | "accentColor"
-> & {
-	slug: string;
-};
+type NavigationPlugin = Omit<
+	Pick<
+		ListedPlugin,
+		"slug" | "name" | "icon" | "sortOrder" | "isDisabled" | "accentColor" | "description"
+	>,
+	"slug"
+> & { slug: string };
 
-type NavigationView = Pick<
-	ListedSavedView,
-	"name" | "icon" | "sortOrder" | "isDisabled" | "accentColor"
-> & {
-	slug: string;
-	pluginSlug: string | null;
-};
+type NavigationView = Omit<
+	Pick<
+		ListedSavedView,
+		"slug" | "name" | "icon" | "sortOrder" | "isDisabled" | "accentColor" | "pluginSlug"
+	>,
+	"slug" | "pluginSlug"
+> & { slug: string; pluginSlug: string | null };
 
 export type NavigationCollection = NavigationView;
+export type NavigationWorkspace = NavigationPlugin;
 export type NavigationItem = NavigationView & { kind: "view" | "collection" | "home" };
 
-export const navigationData = {
-	// TODO: Replace this fixture with definitions/plugins and savedViews/list API data.
-	workspaces: [
-		{
-			slug: "media",
-			name: "Media",
-			description: "Personal library",
-			icon: "clapperboard",
-		},
-		{
-			slug: "fitness",
-			name: "Fitness",
-			description: "Training and wellness",
-			icon: "dumbbell",
-		},
-		{
-			slug: "collections",
-			name: "Collections",
-			description: "Curated collections",
-			icon: "layers-3",
-		},
-	],
-	views: [
-		{
-			slug: "home",
-			name: "Home",
-			icon: "house",
-			sortOrder: 0,
-			isDisabled: false,
-			accentColor: "#fd7e14",
-			pluginSlug: null,
-		},
-		{
-			slug: "movies",
-			name: "Movies",
-			icon: "film",
-			sortOrder: 1,
-			isDisabled: false,
-			accentColor: "#fd7e14",
-			pluginSlug: "media",
-		},
-		{
-			slug: "shows",
-			name: "Shows",
-			icon: "tv",
-			sortOrder: 2,
-			isDisabled: false,
-			accentColor: "#fd7e14",
-			pluginSlug: "media",
-		},
-		{
-			slug: "books",
-			name: "Books",
-			icon: "book-open",
-			sortOrder: 3,
-			isDisabled: false,
-			accentColor: "#fd7e14",
-			pluginSlug: "media",
-		},
-		{
-			slug: "music",
-			name: "Music",
-			icon: "music-2",
-			sortOrder: 4,
-			isDisabled: false,
-			accentColor: "#fd7e14",
-			pluginSlug: "media",
-		},
-		{
-			slug: "audio-books",
-			name: "Audio Books",
-			icon: "headphones",
-			sortOrder: 5,
-			isDisabled: false,
-			accentColor: "#fd7e14",
-			pluginSlug: "media",
-		},
-		{
-			slug: "video-games",
-			name: "Video Games",
-			icon: "gamepad-2",
-			sortOrder: 6,
-			isDisabled: false,
-			accentColor: "#fd7e14",
-			pluginSlug: "media",
-		},
-		{
-			slug: "people",
-			name: "People",
-			icon: "users",
-			sortOrder: 7,
-			isDisabled: false,
-			accentColor: "#fd7e14",
-			pluginSlug: "media",
-		},
-		{
-			slug: "groups",
-			name: "Groups",
-			icon: "folder-kanban",
-			sortOrder: 8,
-			isDisabled: false,
-			accentColor: "#fd7e14",
-			pluginSlug: "media",
-		},
-		{
-			slug: "genres",
-			name: "Genres",
-			icon: "tags",
-			sortOrder: 9,
-			isDisabled: false,
-			accentColor: "#fd7e14",
-			pluginSlug: "media",
-		},
-	],
-	collections: [
-		{
-			slug: "sci-fi-essentials",
-			name: "Sci-Fi Essentials",
-			icon: "sparkles",
-			sortOrder: 0,
-			isDisabled: false,
-			accentColor: "#3a6389",
-			pluginSlug: "media",
-		},
-		{
-			slug: "comfort-rewatch",
-			name: "Comfort Rewatch",
-			icon: "heart",
-			sortOrder: 1,
-			isDisabled: false,
-			accentColor: "#a8422e",
-			pluginSlug: "media",
-		},
-		{
-			slug: "currently-reading",
-			name: "Currently Reading",
-			icon: "book-marked",
-			sortOrder: 2,
-			isDisabled: false,
-			accentColor: "#3d6d2f",
-			pluginSlug: "media",
-		},
-		{
-			slug: "owned-on-vinyl",
-			name: "Owned on Vinyl",
-			icon: "disc-3",
-			sortOrder: 3,
-			isDisabled: false,
-			accentColor: "#c6871f",
-			pluginSlug: "media",
-		},
-		{
-			slug: "top-rated",
-			name: "Top Rated",
-			icon: "star",
-			sortOrder: 4,
-			isDisabled: false,
-			accentColor: "#c6871f",
-			pluginSlug: "media",
-		},
-	],
-	savedViews: [
-		{
-			slug: "sci-fi-watchlist",
-			name: "Sci-Fi Watchlist",
-			icon: "bookmark",
-			sortOrder: 0,
-			isDisabled: false,
-			accentColor: "#3a6389",
-			pluginSlug: "media",
-		},
-		{
-			slug: "backlog",
-			name: "Backlog",
-			icon: "inbox",
-			sortOrder: 1,
-			isDisabled: false,
-			accentColor: "#a24e08",
-			pluginSlug: "media",
-		},
-		{
-			slug: "2024-rewatch",
-			name: "2024 Rewatch",
-			icon: "rotate-ccw",
-			sortOrder: 2,
-			isDisabled: false,
-			accentColor: "#a8422e",
-			pluginSlug: "media",
-		},
-		{
-			slug: "comfort-shows",
-			name: "Comfort Shows",
-			icon: "heart",
-			sortOrder: 3,
-			isDisabled: false,
-			accentColor: "#a8422e",
-			pluginSlug: "media",
-		},
-		{
-			slug: "owned-on-vinyl",
-			name: "Owned on Vinyl",
-			icon: "disc-3",
-			sortOrder: 4,
-			isDisabled: false,
-			accentColor: "#c6871f",
-			pluginSlug: "media",
-		},
-	],
-} satisfies {
-	workspaces: ReadonlyArray<
-		Pick<NavigationPlugin, "slug" | "name" | "icon"> & { description: string }
-	>;
-	views: ReadonlyArray<NavigationView>;
-	collections: ReadonlyArray<NavigationCollection>;
-	savedViews: ReadonlyArray<NavigationView>;
+export type NavigationData = {
+	savedViews: readonly NavigationView[];
+	workspaces: readonly NavigationWorkspace[];
+	collections: readonly NavigationCollection[];
 };
 
-export const primaryViews = navigationData.views.slice(0, 4);
-export const secondaryViews = navigationData.views.slice(4);
+export type NavigationItems = {
+	views: readonly NavigationItem[];
+	savedViews: readonly NavigationItem[];
+	collections: readonly NavigationItem[];
+};
 
-export function getEnabledItems(items: readonly NavigationItem[]) {
+const homeView = {
+	slug: "home",
+	sortOrder: 0,
+	name: "Home",
+	icon: "house",
+	accentColor: "",
+	pluginSlug: null,
+	isDisabled: false,
+} satisfies NavigationView;
+
+function getTextField(row: RowItem, key: string) {
+	const field = row[key];
+	if (!field || !("kind" in field) || field.kind !== "text" || typeof field.value !== "string") {
+		return undefined;
+	}
+	return field.value;
+}
+
+export function mapCollectionsResponse(response: QueryResponse) {
+	if (response.type !== "rows") {
+		return [];
+	}
+
+	return response.data.items.flatMap((row, index) => {
+		const slug = getTextField(row, "id");
+		const name = getTextField(row, "name");
+		if (!slug || !name) {
+			return [];
+		}
+
+		return [
+			{
+				name,
+				slug,
+				accentColor: "",
+				sortOrder: index,
+				icon: "layers-3",
+				pluginSlug: null,
+				isDisabled: false,
+			},
+		];
+	});
+}
+
+export function getEnabledItems<T extends Pick<NavigationView, "isDisabled" | "sortOrder">>(
+	items: readonly T[],
+) {
 	return items.filter((item) => !item.isDisabled).sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+export function buildNavigationData(props: {
+	collections: QueryResponse;
+	plugins: readonly NavigationPlugin[];
+	savedViews: readonly NavigationView[];
+}) {
+	return {
+		savedViews: props.savedViews,
+		workspaces: getEnabledItems(props.plugins),
+		collections: mapCollectionsResponse(props.collections),
+	};
 }
 
 const withKind = (item: NavigationView, kind: NavigationItem["kind"]) =>
 	Object.assign({}, item, { kind });
 
-export function getNavigationItems() {
+export function getNavigationItems(props: { data: NavigationData; workspaceSlug: string }) {
+	const workspaceViews = props.data.savedViews.filter(
+		(item) => item.pluginSlug === props.workspaceSlug,
+	);
+	const savedViews = props.data.savedViews.filter((item) => item.pluginSlug === null);
+
 	return {
+		savedViews: getEnabledItems(savedViews.map((item) => withKind(item, "view"))),
 		collections: getEnabledItems(
-			navigationData.collections.map((item) => withKind(item, "collection")),
+			props.data.collections.map((item) => withKind(item, "collection")),
 		),
-		savedViews: getEnabledItems(navigationData.savedViews.map((item) => withKind(item, "view"))),
-		views: getEnabledItems(
-			navigationData.views.map((item) => withKind(item, item.slug === "home" ? "home" : "view")),
-		),
+		views: getEnabledItems([
+			withKind(homeView, "home"),
+			...workspaceViews.map((item) => withKind(item, "view")),
+		]),
 	};
+}
+
+export function getCurrentWorkspace(
+	workspaces: readonly NavigationWorkspace[],
+	routeWorkspace: string | undefined,
+	persistedWorkspace: string,
+) {
+	return (
+		workspaces.find((item) => item.slug === routeWorkspace) ??
+		workspaces.find((item) => item.slug === persistedWorkspace) ??
+		workspaces[0]
+	);
 }
 
 export function getNavigationHref(workspace: string, item: Pick<NavigationItem, "kind" | "slug">) {

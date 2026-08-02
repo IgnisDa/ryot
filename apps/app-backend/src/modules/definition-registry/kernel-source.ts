@@ -2,7 +2,7 @@ import {
 	createEntityColumnExpression,
 	createEntitySchemaExpression,
 } from "@ryot/contract/display-configuration";
-import { buildDefaultSavedViewQueryDocument } from "@ryot/query-engine/recipes/app";
+import { buildAllCollectionsQueryDocument } from "@ryot/query-engine/recipes/app";
 
 import { manifest as notificationManifest } from "./kernel-scripts/notification.sandbox";
 import type { DefinitionSource } from "./service";
@@ -173,7 +173,7 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 			icon: collectionSchema.icon,
 			accentColor: collectionSchema.accentColor,
 			displayConfiguration: collectionDisplayConfiguration,
-			queryDocument: buildDefaultSavedViewQueryDocument({ schemas: ["collection"] }),
+			queryDocument: buildAllCollectionsQueryDocument(),
 		},
 	],
 });

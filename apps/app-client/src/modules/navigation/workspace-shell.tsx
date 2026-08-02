@@ -1,113 +1,52 @@
+import { useAtomValue } from "@effect/atom-react";
+import { buildAllCollectionsQueryDocument } from "@ryot/query-engine/recipes/app";
 import clsx from "clsx";
+import { Cause } from "effect";
+import { AsyncResult } from "effect/unstable/reactivity";
 import { router, Slot, useLocalSearchParams, usePathname } from "expo-router";
-import {
-	BookMarked,
-	BookOpen,
-	Bookmark,
-	Check,
-	ChevronDown,
-	ChevronRight,
-	Circle,
-	Clapperboard,
-	Disc3,
-	Dumbbell,
-	Film,
-	FolderKanban,
-	Gamepad2,
-	GripVertical,
-	Headphones,
-	Heart,
-	House,
-	Inbox,
-	Layers3,
-	Menu,
-	Monitor,
-	Moon,
-	MoreHorizontal,
-	Music2,
-	PanelLeft,
-	Plus,
-	RotateCcw,
-	Search,
-	Settings,
-	Sparkles,
-	Star,
-	Sun,
-	Tags,
-	Tv,
-	UserCircle,
-	Users,
-	X,
-} from "lucide-react-native";
 import { useState, type ReactNode } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { appQueryClient } from "@/api/query-client";
+import { useAuthClient } from "@/modules/auth/client";
+import { AppIcon as NavigationIcon } from "@/modules/icons";
 import { useSetWorkspace, useWorkspace } from "@/modules/server/state";
 
 import {
+	buildNavigationData,
 	getActiveNavigationKey,
+	getCurrentWorkspace,
 	getNavigationHref,
 	getNavigationItems,
-	navigationData,
+	type NavigationData,
 	type NavigationItem,
+	type NavigationItems,
+	type NavigationWorkspace,
 } from "./navigation-data";
 
-const iconMap = {
-	"book-marked": BookMarked,
-	"book-open": BookOpen,
-	bookmark: Bookmark,
-	check: Check,
-	"chevron-right": ChevronRight,
-	clapperboard: Clapperboard,
-	"disc-3": Disc3,
-	dumbbell: Dumbbell,
-	film: Film,
-	"folder-kanban": FolderKanban,
-	"gamepad-2": Gamepad2,
-	"grip-vertical": GripVertical,
-	headphones: Headphones,
-	heart: Heart,
-	house: House,
-	inbox: Inbox,
-	"layers-3": Layers3,
-	menu: Menu,
-	monitor: Monitor,
-	moon: Moon,
-	"more-horizontal": MoreHorizontal,
-	"music-2": Music2,
-	"panel-left": PanelLeft,
-	plus: Plus,
-	"rotate-ccw": RotateCcw,
-	search: Search,
-	settings: Settings,
-	sparkles: Sparkles,
-	star: Star,
-	sun: Sun,
-	tags: Tags,
-	tv: Tv,
-	user: UserCircle,
-	users: Users,
-	x: X,
-} as const;
-
-function NavigationIcon(props: { name: string; size?: number }) {
-	const Icon = Object.entries(iconMap).find(([name]) => name === props.name)?.[1] ?? Circle;
-	return <Icon size={props.size ?? 16} color="currentColor" strokeWidth={1.7} />;
-}
+const pluginsAtom = appQueryClient.query("definitions", "listPlugins", {
+	query: { includeDisabled: false },
+});
+const savedViewsAtom = appQueryClient.query("savedViews", "list", {
+	query: { includeDisabled: true },
+});
+const collectionsAtom = appQueryClient.query("queryEngine", "execute", {
+	payload: buildAllCollectionsQueryDocument({ limit: 100 }),
+});
 
 function NavigationRow(props: {
-	item: NavigationItem;
 	isActive: boolean;
 	onPress: () => void;
+	item: NavigationItem;
 	reordering?: boolean;
 	onReorder?: () => void;
 }) {
 	return (
 		<Pressable
-			accessibilityLabel={props.item.name}
-			accessibilityRole="button"
 			onPress={props.onPress}
+			accessibilityRole="button"
+			accessibilityLabel={props.item.name}
 			className={clsx(
 				"min-h-7 flex-row items-center gap-2 rounded-md px-2",
 				props.isActive ? "bg-nav-indicator text-text" : "text-text-muted",
@@ -115,10 +54,10 @@ function NavigationRow(props: {
 		>
 			{props.reordering && (
 				<Pressable
-					accessibilityLabel={`Move ${props.item.name} down`}
-					accessibilityRole="button"
 					onPress={props.onReorder}
+					accessibilityRole="button"
 					className="-ml-1 p-1 text-text-muted"
+					accessibilityLabel={`Move ${props.item.name} down`}
 				>
 					<NavigationIcon name="grip-vertical" size={14} />
 				</Pressable>
@@ -159,16 +98,17 @@ function SectionHeader(props: { title: string; count?: number; action?: ReactNod
 	);
 }
 
-function WorkspaceTrigger(props: {
-	workspace: (typeof navigationData.workspaces)[number];
-	onPress: () => void;
-}) {
+function EmptyNavigationSection(props: { message: string }) {
+	return <Text className="px-2 py-1 font-ui text-xs text-text-subtle">{props.message}</Text>;
+}
+
+function WorkspaceTrigger(props: { workspace: NavigationWorkspace; onPress: () => void }) {
 	const workspace = props.workspace;
 	return (
 		<Pressable
-			accessibilityLabel="Switch workspace"
-			accessibilityRole="button"
 			onPress={props.onPress}
+			accessibilityRole="button"
+			accessibilityLabel="Switch workspace"
 			className="flex-row items-center gap-2 rounded-lg border border-border bg-surface px-2.5 py-2"
 		>
 			<View className="h-7 w-7 items-center justify-center rounded-md bg-accent-soft text-accent-text">
@@ -179,7 +119,7 @@ function WorkspaceTrigger(props: {
 				<Text className="font-ui text-[11px] text-text-muted">{workspace.description}</Text>
 			</View>
 			<View className="text-text-subtle">
-				<ChevronDown size={15} color="currentColor" strokeWidth={1.7} />
+				<NavigationIcon name="chevron-down" size={15} />
 			</View>
 		</Pressable>
 	);
@@ -187,12 +127,15 @@ function WorkspaceTrigger(props: {
 
 function Sidebar(props: {
 	activeKey: string;
-	workspace: (typeof navigationData.workspaces)[number];
-	onNavigate: (item: NavigationItem) => void;
-	onWorkspaceOpen: () => void;
+	accountName: string;
+	accountEmail: string;
+	items: NavigationItems;
 	onAccountOpen: () => void;
+	onWorkspaceOpen: () => void;
+	workspace: NavigationWorkspace;
+	onNavigate: (item: NavigationItem) => void;
 }) {
-	const items = getNavigationItems();
+	const items = props.items;
 	const [isReordering, setIsReordering] = useState(false);
 	const [viewOrder, setViewOrder] = useState(items.views);
 
@@ -217,11 +160,11 @@ function Sidebar(props: {
 				<View className="h-8 flex-row items-center gap-2 rounded-md border border-border bg-bg px-2.5 text-text-muted">
 					<NavigationIcon name="search" size={15} />
 					<TextInput
-						accessibilityLabel="Search navigation"
-						className="min-w-0 flex-1 py-0 font-ui text-xs text-text"
 						placeholder="Search"
 						returnKeyType="search"
 						onSubmitEditing={() => undefined}
+						accessibilityLabel="Search navigation"
+						className="min-w-0 flex-1 py-0 font-ui text-xs text-text"
 					/>
 					<View className="rounded border border-border px-1.5 py-0.5">
 						<Text className="font-mono text-[10px] text-text-subtle">⌘K</Text>
@@ -233,10 +176,10 @@ function Sidebar(props: {
 						title="Views"
 						action={
 							<Pressable
-								accessibilityLabel={isReordering ? "Finish reordering views" : "Reorder views"}
 								accessibilityRole="button"
-								onPress={() => setIsReordering((current) => !current)}
 								className="px-1 text-accent-text"
+								onPress={() => setIsReordering((current) => !current)}
+								accessibilityLabel={isReordering ? "Finish reordering views" : "Reorder views"}
 							>
 								<Text className="font-ui-medium text-[10px] text-accent-text">
 									{isReordering ? "Done" : "Reorder"}
@@ -251,12 +194,12 @@ function Sidebar(props: {
 								key={item.slug}
 								reordering={isReordering}
 								onPress={() => props.onNavigate(item)}
+								onReorder={() => moveView(viewOrder.indexOf(item))}
 								isActive={
 									item.kind === "home"
 										? props.activeKey === "home"
 										: props.activeKey === `view:${item.slug}`
 								}
-								onReorder={() => moveView(viewOrder.indexOf(item))}
 							/>
 						))}
 					</View>
@@ -269,14 +212,18 @@ function Sidebar(props: {
 						count={items.collections.length}
 						action={<Text className="font-ui-medium text-xs text-accent-text">New</Text>}
 					/>
-					{items.collections.map((item) => (
-						<NavigationRow
-							isActive={props.activeKey === `collection:${item.slug}`}
-							item={item}
-							key={item.slug}
-							onPress={() => props.onNavigate(item)}
-						/>
-					))}
+					{items.collections.length === 0 ? (
+						<EmptyNavigationSection message="No collections yet." />
+					) : (
+						items.collections.map((item) => (
+							<NavigationRow
+								item={item}
+								key={item.slug}
+								onPress={() => props.onNavigate(item)}
+								isActive={props.activeKey === `collection:${item.slug}`}
+							/>
+						))
+					)}
 				</View>
 
 				<View className="gap-1">
@@ -285,29 +232,33 @@ function Sidebar(props: {
 						count={items.savedViews.length}
 						action={<Text className="font-ui-medium text-xs text-accent-text">New</Text>}
 					/>
-					{items.savedViews.map((item) => (
-						<NavigationRow
-							isActive={props.activeKey === `view:${item.slug}`}
-							item={item}
-							key={item.slug}
-							onPress={() => props.onNavigate(item)}
-						/>
-					))}
+					{items.savedViews.length === 0 ? (
+						<EmptyNavigationSection message="No saved views yet." />
+					) : (
+						items.savedViews.map((item) => (
+							<NavigationRow
+								item={item}
+								key={item.slug}
+								onPress={() => props.onNavigate(item)}
+								isActive={props.activeKey === `view:${item.slug}`}
+							/>
+						))
+					)}
 				</View>
 			</ScrollView>
 			<View className="border-t border-border px-3 py-3">
 				<Pressable
-					accessibilityLabel="Open account settings"
 					accessibilityRole="button"
 					onPress={props.onAccountOpen}
+					accessibilityLabel="Open account settings"
 					className="flex-row items-center gap-2 rounded-md px-2 py-1.5"
 				>
 					<View className="h-7 w-7 items-center justify-center rounded-full bg-surface-2 text-text-muted">
 						<NavigationIcon name="user" size={15} />
 					</View>
 					<View className="flex-1">
-						<Text className="font-ui-medium text-xs text-text">Diptesh</Text>
-						<Text className="font-ui text-[10px] text-text-muted">Personal account</Text>
+						<Text className="font-ui-medium text-xs text-text">{props.accountName}</Text>
+						<Text className="font-ui text-[10px] text-text-muted">{props.accountEmail}</Text>
 					</View>
 					<View className="flex-row gap-2 text-text-subtle">
 						<NavigationIcon name="moon" size={15} />
@@ -320,6 +271,7 @@ function Sidebar(props: {
 }
 
 function MobileTopBar(props: {
+	workspaceIcon: string;
 	workspaceName: string;
 	onWorkspaceOpen: () => void;
 	onAccountOpen: () => void;
@@ -327,9 +279,9 @@ function MobileTopBar(props: {
 	return (
 		<View className="flex-row items-center gap-3 rounded-xl border border-border bg-nav-surface px-3 py-2 shadow-sm">
 			<Pressable
-				accessibilityLabel="Open account"
 				accessibilityRole="button"
 				onPress={props.onAccountOpen}
+				accessibilityLabel="Open account"
 				className="h-10 w-10 items-center justify-center rounded-full bg-surface-2 text-text-muted"
 			>
 				<NavigationIcon name="user" size={18} />
@@ -339,12 +291,12 @@ function MobileTopBar(props: {
 				<Text className="font-ui text-sm text-text-muted">Search</Text>
 			</View>
 			<Pressable
-				accessibilityLabel={`Switch workspace, current workspace ${props.workspaceName}`}
 				accessibilityRole="button"
 				onPress={props.onWorkspaceOpen}
+				accessibilityLabel={`Switch workspace, current workspace ${props.workspaceName}`}
 				className="h-10 w-10 items-center justify-center rounded-lg bg-accent-soft text-accent-text"
 			>
-				<NavigationIcon name="clapperboard" size={17} />
+				<NavigationIcon name={props.workspaceIcon} size={17} />
 			</Pressable>
 		</View>
 	);
@@ -352,10 +304,11 @@ function MobileTopBar(props: {
 
 function MobileTabBar(props: {
 	activeKey: string;
-	onNavigate: (item: NavigationItem) => void;
+	items: NavigationItems;
 	onMoreOpen: () => void;
+	onNavigate: (item: NavigationItem) => void;
 }) {
-	const items = getNavigationItems().views.slice(0, 4);
+	const items = props.items.views.slice(0, 4);
 	return (
 		<View className="flex-row items-center gap-1 rounded-pill border border-nav-border bg-nav-surface p-1.5 shadow-card">
 			{items.map((item) => {
@@ -365,9 +318,9 @@ function MobileTabBar(props: {
 						: props.activeKey === `view:${item.slug}`;
 				return (
 					<Pressable
-						accessibilityLabel={item.name}
-						accessibilityRole="button"
 						key={item.slug}
+						accessibilityRole="button"
+						accessibilityLabel={item.name}
 						onPress={() => props.onNavigate(item)}
 						className={clsx(
 							"h-10 flex-row items-center justify-center gap-1.5 rounded-pill px-3",
@@ -382,9 +335,9 @@ function MobileTabBar(props: {
 				);
 			})}
 			<Pressable
-				accessibilityLabel="Open more navigation"
 				accessibilityRole="button"
 				onPress={props.onMoreOpen}
+				accessibilityLabel="Open more navigation"
 				className="h-10 w-10 items-center justify-center rounded-pill text-text-muted"
 			>
 				<NavigationIcon name="more-horizontal" size={19} />
@@ -395,9 +348,9 @@ function MobileTabBar(props: {
 
 function Sheet(props: {
 	title: string;
+	className?: string;
 	children: ReactNode;
 	onClose: () => void;
-	className?: string;
 }) {
 	return (
 		<View
@@ -407,20 +360,20 @@ function Sheet(props: {
 			)}
 		>
 			<Pressable
-				accessibilityLabel="Close sheet"
-				accessibilityRole="button"
 				onPress={props.onClose}
+				accessibilityRole="button"
 				className="h-1 items-center"
+				accessibilityLabel="Close sheet"
 			>
 				<View className="h-1 w-10 rounded-pill bg-border-strong" />
 			</Pressable>
 			<View className="flex-row items-center justify-between py-4">
 				<Text className="font-display-semibold text-xl text-text">{props.title}</Text>
 				<Pressable
-					accessibilityLabel="Close sheet"
-					accessibilityRole="button"
 					onPress={props.onClose}
+					accessibilityRole="button"
 					className="p-1 text-text-muted"
+					accessibilityLabel="Close sheet"
 				>
 					<NavigationIcon name="x" size={17} />
 				</Pressable>
@@ -430,16 +383,22 @@ function Sheet(props: {
 	);
 }
 
-function MobileWorkspaceSheet(props: { onClose: () => void; onSelect: (slug: string) => void }) {
+function MobileWorkspaceSheet(props: {
+	onClose: () => void;
+	data: NavigationData;
+	items: NavigationItems;
+	currentWorkspaceSlug: string;
+	onSelect: (slug: string) => void;
+}) {
 	return (
 		<Sheet title="Workspaces" onClose={props.onClose} className="h-116.25">
 			<View className="gap-2">
-				{navigationData.workspaces.map((workspace, index) => (
+				{props.data.workspaces.map((workspace) => (
 					<Pressable
-						accessibilityLabel={`Switch to ${workspace.name} workspace`}
-						accessibilityRole="button"
 						key={workspace.slug}
+						accessibilityRole="button"
 						onPress={() => props.onSelect(workspace.slug)}
+						accessibilityLabel={`Switch to ${workspace.name} workspace`}
 						className="flex-row items-center gap-3 rounded-lg border border-border px-3 py-3"
 					>
 						<View className="h-11 w-11 items-center justify-center rounded-lg bg-accent-soft text-accent-text">
@@ -449,7 +408,7 @@ function MobileWorkspaceSheet(props: { onClose: () => void; onSelect: (slug: str
 							<Text className="font-ui-medium text-sm text-text">{workspace.name}</Text>
 							<Text className="font-ui text-xs text-text-muted">{workspace.description}</Text>
 						</View>
-						{index === 0 ? (
+						{workspace.slug === props.currentWorkspaceSlug ? (
 							<NavigationIcon name="check" size={17} />
 						) : (
 							<NavigationIcon name="chevron-right" size={17} />
@@ -463,18 +422,22 @@ function MobileWorkspaceSheet(props: { onClose: () => void; onSelect: (slug: str
 				</Text>
 				<ScrollView
 					horizontal
-					showsHorizontalScrollIndicator={false}
 					contentContainerClassName="gap-2"
+					showsHorizontalScrollIndicator={false}
 				>
-					{getNavigationItems().savedViews.map((item) => (
-						<View
-							className="flex-row items-center gap-2 rounded-lg border border-border bg-bg px-3 py-2"
-							key={item.slug}
-						>
-							<NavigationIcon name={item.icon} size={15} />
-							<Text className="font-ui text-xs text-text">{item.name}</Text>
-						</View>
-					))}
+					{props.items.savedViews.length === 0 ? (
+						<EmptyNavigationSection message="No saved views yet." />
+					) : (
+						props.items.savedViews.map((item) => (
+							<View
+								className="flex-row items-center gap-2 rounded-lg border border-border bg-bg px-3 py-2"
+								key={item.slug}
+							>
+								<NavigationIcon name={item.icon} size={15} />
+								<Text className="font-ui text-xs text-text">{item.name}</Text>
+							</View>
+						))
+					)}
 				</ScrollView>
 			</View>
 		</Sheet>
@@ -483,17 +446,18 @@ function MobileWorkspaceSheet(props: { onClose: () => void; onSelect: (slug: str
 
 function MobileMoreSheet(props: {
 	onClose: () => void;
+	items: NavigationItems;
 	onNavigate: (item: NavigationItem) => void;
 }) {
-	const items = getNavigationItems();
+	const items = props.items;
 	return (
 		<Sheet title="More Views" onClose={props.onClose} className="h-142.5">
 			<ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="gap-2 pb-4">
 				{items.views.slice(4).map((item) => (
 					<Pressable
-						accessibilityLabel={item.name}
-						accessibilityRole="button"
 						key={item.slug}
+						accessibilityRole="button"
+						accessibilityLabel={item.name}
 						onPress={() => props.onNavigate(item)}
 						className="flex-row items-center gap-3 rounded-lg border border-border px-3 py-3"
 					>
@@ -510,8 +474,8 @@ function MobileMoreSheet(props: {
 							Saved Views
 						</Text>
 						<Pressable
-							accessibilityLabel="Create saved view"
 							accessibilityRole="button"
+							accessibilityLabel="Create saved view"
 							className="flex-row items-center gap-1 text-accent-text"
 						>
 							<NavigationIcon name="plus" size={14} />
@@ -519,15 +483,19 @@ function MobileMoreSheet(props: {
 						</Pressable>
 					</View>
 					<View className="flex-row flex-wrap gap-2">
-						{[...items.collections, ...items.savedViews].map((item) => (
-							<View
-								className="flex-row items-center gap-2 rounded-lg border border-border bg-bg px-3 py-2"
-								key={`${item.kind}-${item.slug}`}
-							>
-								<NavigationIcon name={item.icon} size={14} />
-								<Text className="font-ui text-xs text-text">{item.name}</Text>
-							</View>
-						))}
+						{items.collections.length === 0 && items.savedViews.length === 0 ? (
+							<EmptyNavigationSection message="No collections or saved views yet." />
+						) : (
+							[...items.collections, ...items.savedViews].map((item) => (
+								<View
+									className="flex-row items-center gap-2 rounded-lg border border-border bg-bg px-3 py-2"
+									key={`${item.kind}-${item.slug}`}
+								>
+									<NavigationIcon name={item.icon} size={14} />
+									<Text className="font-ui text-xs text-text">{item.name}</Text>
+								</View>
+							))
+						)}
 					</View>
 				</View>
 			</ScrollView>
@@ -535,20 +503,24 @@ function MobileMoreSheet(props: {
 	);
 }
 
-function MobileAccountSheet(props: { onClose: () => void }) {
+function MobileAccountSheet(props: {
+	accountName: string;
+	onClose: () => void;
+	accountEmail: string;
+}) {
 	return (
 		<Sheet title="Account" onClose={props.onClose} className="h-75">
 			<Pressable
-				accessibilityLabel="Open account profile"
 				accessibilityRole="button"
+				accessibilityLabel="Open account profile"
 				className="flex-row items-center gap-3 border-b border-border pb-4"
 			>
 				<View className="h-11 w-11 items-center justify-center rounded-full bg-surface-2 text-text-muted">
 					<NavigationIcon name="user" size={19} />
 				</View>
 				<View className="flex-1">
-					<Text className="font-ui-medium text-sm text-text">Diptesh</Text>
-					<Text className="font-ui text-xs text-text-muted">Personal account</Text>
+					<Text className="font-ui-medium text-sm text-text">{props.accountName}</Text>
+					<Text className="font-ui text-xs text-text-muted">{props.accountEmail}</Text>
 				</View>
 				<NavigationIcon name="chevron-right" size={17} />
 			</Pressable>
@@ -563,13 +535,13 @@ function MobileAccountSheet(props: { onClose: () => void }) {
 						["monitor", "System"],
 					].map(([icon, label], index) => (
 						<Pressable
-							accessibilityLabel={`Use ${label} appearance`}
+							key={label}
 							accessibilityRole="button"
+							accessibilityLabel={`Use ${label} appearance`}
 							className={clsx(
 								"flex-1 flex-row items-center justify-center gap-1 rounded-md py-2",
 								index === 0 && "bg-nav-indicator",
 							)}
-							key={label}
 						>
 							<NavigationIcon name={icon} size={14} />
 							<Text className="font-ui text-xs text-text">{label}</Text>
@@ -584,21 +556,87 @@ function MobileAccountSheet(props: { onClose: () => void }) {
 	);
 }
 
+function NavigationStatus(props: { detail?: string; title: string }) {
+	return (
+		<View className="flex-1 items-center justify-center gap-2 bg-bg px-6">
+			<Text className="font-ui-medium text-base text-text">{props.title}</Text>
+			{props.detail && (
+				<Text className="max-w-xl text-center font-ui text-sm text-text-muted">{props.detail}</Text>
+			)}
+		</View>
+	);
+}
+
 export function WorkspaceShell() {
-	const insets = useSafeAreaInsets();
+	const client = useAuthClient();
 	const pathname = usePathname();
-	const params = useLocalSearchParams<{ workspace?: string }>();
+	const insets = useSafeAreaInsets();
 	const setWorkspace = useSetWorkspace();
 	const selectedWorkspace = useWorkspace();
+	const { data: session } = client.useSession();
+	const pluginsResult = useAtomValue(pluginsAtom);
+	const savedViewsResult = useAtomValue(savedViewsAtom);
+	const collectionsResult = useAtomValue(collectionsAtom);
+	const params = useLocalSearchParams<{ workspace?: string }>();
 	const routeWorkspace = Array.isArray(params.workspace) ? params.workspace[0] : params.workspace;
 	const activeKey = getActiveNavigationKey(pathname);
 	const [mobileSheet, setMobileSheet] = useState<"more" | "workspace" | "account" | null>(null);
 	const [desktopWorkspaceOpen, setDesktopWorkspaceOpen] = useState(false);
 	const [isScrolled, setIsScrolled] = useState(false);
 
-	const currentWorkspace =
-		navigationData.workspaces.find((item) => item.slug === (routeWorkspace ?? selectedWorkspace)) ??
-		navigationData.workspaces[0];
+	if (AsyncResult.isFailure(pluginsResult)) {
+		return (
+			<NavigationStatus
+				title="Unable to load workspaces"
+				detail={Cause.pretty(pluginsResult.cause)}
+			/>
+		);
+	}
+	if (AsyncResult.isFailure(savedViewsResult)) {
+		return (
+			<NavigationStatus
+				title="Unable to load saved views"
+				detail={Cause.pretty(savedViewsResult.cause)}
+			/>
+		);
+	}
+	if (AsyncResult.isFailure(collectionsResult)) {
+		return (
+			<NavigationStatus
+				title="Unable to load collections"
+				detail={Cause.pretty(collectionsResult.cause)}
+			/>
+		);
+	}
+	if (
+		!AsyncResult.isSuccess(pluginsResult) ||
+		!AsyncResult.isSuccess(savedViewsResult) ||
+		!AsyncResult.isSuccess(collectionsResult)
+	) {
+		return <NavigationStatus title="Loading navigation..." />;
+	}
+
+	const data = buildNavigationData({
+		collections: collectionsResult.value,
+		plugins: pluginsResult.value,
+		savedViews: savedViewsResult.value,
+	});
+	if (data.workspaces.length === 0) {
+		return (
+			<NavigationStatus
+				title="No enabled workspaces"
+				detail="Enable a plugin to create a workspace."
+			/>
+		);
+	}
+
+	const currentWorkspace = getCurrentWorkspace(data.workspaces, routeWorkspace, selectedWorkspace);
+	if (!currentWorkspace) {
+		return <NavigationStatus title="No workspace selected" />;
+	}
+	const items = getNavigationItems({ data, workspaceSlug: currentWorkspace.slug });
+	const accountName = session?.user.name || session?.user.email || "Account";
+	const accountEmail = session?.user.email || "Email unavailable";
 
 	function navigate(item: NavigationItem) {
 		setMobileSheet(null);
@@ -607,6 +645,9 @@ export function WorkspaceShell() {
 	}
 
 	function selectWorkspace(slug: string) {
+		if (!data.workspaces.some((item) => item.slug === slug)) {
+			return;
+		}
 		setMobileSheet(null);
 		setDesktopWorkspaceOpen(false);
 		setWorkspace(slug);
@@ -617,17 +658,21 @@ export function WorkspaceShell() {
 		<View className="flex-1 bg-bg">
 			<View className="flex-1 flex-row">
 				<Sidebar
-					activeKey={activeKey}
-					onAccountOpen={() => setMobileSheet("account")}
+					items={items}
 					onNavigate={navigate}
-					onWorkspaceOpen={() => setDesktopWorkspaceOpen(true)}
+					activeKey={activeKey}
+					accountName={accountName}
+					accountEmail={accountEmail}
+					key={currentWorkspace.slug}
 					workspace={currentWorkspace}
+					onAccountOpen={() => setMobileSheet("account")}
+					onWorkspaceOpen={() => setDesktopWorkspaceOpen(true)}
 				/>
 				<View className="relative flex-1">
 					<ScrollView
 						className="flex-1"
-						onScroll={(event) => setIsScrolled(event.nativeEvent.contentOffset.y > 24)}
 						scrollEventThrottle={16}
+						onScroll={(event) => setIsScrolled(event.nativeEvent.contentOffset.y > 24)}
 						contentContainerClassName="min-h-full px-4 pb-[120px] pt-[110px] md:px-8 md:pb-8 md:pt-8"
 					>
 						<Slot />
@@ -637,9 +682,10 @@ export function WorkspaceShell() {
 						style={{ paddingTop: insets.top + 12 }}
 					>
 						<MobileTopBar
+							workspaceIcon={currentWorkspace.icon}
+							workspaceName={currentWorkspace.name}
 							onAccountOpen={() => setMobileSheet("account")}
 							onWorkspaceOpen={() => setMobileSheet("workspace")}
-							workspaceName={currentWorkspace.name}
 						/>
 					</View>
 					<View
@@ -648,8 +694,8 @@ export function WorkspaceShell() {
 					>
 						{isScrolled ? (
 							<Pressable
-								accessibilityLabel="Open navigation"
 								accessibilityRole="button"
+								accessibilityLabel="Open navigation"
 								onPress={() => setMobileSheet("more")}
 								className="h-14 w-14 items-center justify-center rounded-full border border-nav-border bg-nav-surface text-accent-text shadow-card"
 							>
@@ -657,30 +703,47 @@ export function WorkspaceShell() {
 							</Pressable>
 						) : (
 							<MobileTabBar
+								items={items}
+								onNavigate={navigate}
 								activeKey={activeKey}
 								onMoreOpen={() => setMobileSheet("more")}
-								onNavigate={navigate}
 							/>
 						)}
 					</View>
 					{(mobileSheet ?? desktopWorkspaceOpen) && (
 						<Pressable
-							accessibilityLabel="Close navigation overlay"
 							accessibilityRole="button"
+							accessibilityLabel="Close navigation overlay"
+							className="absolute inset-0 z-30 bg-black/40 md:bg-black/20"
 							onPress={() => {
 								setMobileSheet(null);
 								setDesktopWorkspaceOpen(false);
 							}}
-							className="absolute inset-0 z-30 bg-black/40 md:bg-black/20"
 						/>
 					)}
 					{mobileSheet === "more" && (
-						<MobileMoreSheet onClose={() => setMobileSheet(null)} onNavigate={navigate} />
+						<MobileMoreSheet
+							items={items}
+							onNavigate={navigate}
+							onClose={() => setMobileSheet(null)}
+						/>
 					)}
 					{mobileSheet === "workspace" && (
-						<MobileWorkspaceSheet onClose={() => setMobileSheet(null)} onSelect={selectWorkspace} />
+						<MobileWorkspaceSheet
+							data={data}
+							items={items}
+							onSelect={selectWorkspace}
+							onClose={() => setMobileSheet(null)}
+							currentWorkspaceSlug={currentWorkspace.slug}
+						/>
 					)}
-					{mobileSheet === "account" && <MobileAccountSheet onClose={() => setMobileSheet(null)} />}
+					{mobileSheet === "account" && (
+						<MobileAccountSheet
+							accountName={accountName}
+							accountEmail={accountEmail}
+							onClose={() => setMobileSheet(null)}
+						/>
+					)}
 				</View>
 			</View>
 			{desktopWorkspaceOpen && (
@@ -688,10 +751,10 @@ export function WorkspaceShell() {
 					<View className="flex-row items-center justify-between px-1 pb-2">
 						<Text className="font-ui-semibold text-xs text-text">Switch workspace</Text>
 						<Pressable
-							accessibilityLabel="Close workspace switcher"
 							accessibilityRole="button"
-							onPress={() => setDesktopWorkspaceOpen(false)}
 							className="text-text-muted"
+							accessibilityLabel="Close workspace switcher"
+							onPress={() => setDesktopWorkspaceOpen(false)}
 						>
 							<NavigationIcon name="x" size={15} />
 						</Pressable>
@@ -701,12 +764,12 @@ export function WorkspaceShell() {
 						<Text className="font-ui text-xs text-text-muted">Filter workspaces</Text>
 					</View>
 					<View className="mt-2 gap-1">
-						{navigationData.workspaces.map((item) => (
+						{data.workspaces.map((item) => (
 							<Pressable
-								accessibilityLabel={`Switch to ${item.name} workspace`}
-								accessibilityRole="button"
 								key={item.slug}
+								accessibilityRole="button"
 								onPress={() => selectWorkspace(item.slug)}
+								accessibilityLabel={`Switch to ${item.name} workspace`}
 								className="flex-row items-center gap-3 rounded-lg px-2 py-2 hover:bg-surface-2"
 							>
 								<View className="h-8 w-8 items-center justify-center rounded-md bg-accent-soft text-accent-text">
