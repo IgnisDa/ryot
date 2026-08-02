@@ -21,6 +21,21 @@ const validateExpression = (expr: ScalarExpression, scope: AliasScope): string |
 	if (expr.type === "literal") {
 		return null;
 	}
+	if (expr.type === "cast") {
+		return validateExpression(expr.expr, scope);
+	}
+	if (expr.type === "coalesce") {
+		return expr.values.map((value) => validateExpression(value, scope)).find(Boolean) ?? null;
+	}
+	if (expr.type === "jsonPath") {
+		const expressionError = validateExpression(expr.expr, scope);
+		if (expressionError) {
+			return expressionError;
+		}
+		return expressionKind(expr.expr, scope) === "json"
+			? null
+			: "JSON paths require a JSON expression";
+	}
 	const table = scope.get(expr.tableAlias);
 	if (!table) {
 		return `Unknown table alias '${expr.tableAlias}'`;
@@ -46,6 +61,18 @@ const expressionKind = (expr: ScalarExpression, scope: AliasScope): ScalarKind |
 		}
 		return "json";
 	}
+	if (expr.type === "cast") {
+		return expr.target;
+	}
+	if (expr.type === "jsonPath") {
+		return "json";
+	}
+	if (expr.type === "coalesce") {
+		const kinds = expr.values.map((value) => expressionKind(value, scope));
+		const nonNullKinds = kinds.filter((kind) => kind !== "null");
+		const first = nonNullKinds[0];
+		return first && nonNullKinds.every((kind) => kind === first) ? first : "json";
+	}
 	const table = scope.get(expr.tableAlias);
 	return table ? resolveCatalogField(table, expr.field)?.kind : undefined;
 };
@@ -60,12 +87,37 @@ const validatePredicate = (predicate: Predicate, scope: AliasScope): string | nu
 		if (expressionError) {
 			return expressionError;
 		}
-		return compatibleKinds(
-			expressionKind(predicate.left, scope),
-			expressionKind(predicate.right, scope),
-		)
+		const left = expressionKind(predicate.left, scope);
+		const right = expressionKind(predicate.right, scope);
+		if (!compatibleKinds(left, right)) {
+			return "Comparison operands must have compatible types";
+		}
+		return predicate.operator === "eq" || predicate.operator === "neq" || left !== "json"
 			? null
-			: "Comparison operands must have compatible types";
+			: "Ordering comparisons require scalar operands";
+	}
+	if (predicate.type === "and" || predicate.type === "or") {
+		return (
+			predicate.predicates.map((value) => validatePredicate(value, scope)).find(Boolean) ?? null
+		);
+	}
+	if (predicate.type === "not") {
+		return validatePredicate(predicate.predicate, scope);
+	}
+	if (predicate.type === "isNull" || predicate.type === "isNotNull") {
+		return validateExpression(predicate.expr, scope);
+	}
+	if (predicate.type === "contains") {
+		const expressionError =
+			validateExpression(predicate.left, scope) ?? validateExpression(predicate.right, scope);
+		if (expressionError) {
+			return expressionError;
+		}
+		const left = expressionKind(predicate.left, scope);
+		const right = expressionKind(predicate.right, scope);
+		return (left === "text" && right === "text") || (left === "json" && right === "json")
+			? null
+			: "Containment operands must both be text or JSON";
 	}
 	const expressionError =
 		validateExpression(predicate.expr, scope) ??
@@ -145,14 +197,18 @@ const validateNamedQuery = (query: NamedQuery): string | null => {
 		if (fieldError) {
 			return fieldError;
 		}
-		if (field.expr.type === "literal") {
-			return "Literal field projections are not supported yet";
-		}
 	}
 
-	return (
-		query.output.orderBy.map((order) => validateExpression(order.expr, scope)).find(Boolean) ?? null
-	);
+	for (const order of query.output.orderBy) {
+		const expressionError = validateExpression(order.expr, scope);
+		if (expressionError) {
+			return expressionError;
+		}
+		if (expressionKind(order.expr, scope) === "json") {
+			return "Ordering expressions must resolve to scalar values";
+		}
+	}
+	return null;
 };
 
 export const validateRyotQLDocument = (document: RyotQLDocument): string | null => {

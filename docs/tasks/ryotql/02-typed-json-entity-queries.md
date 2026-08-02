@@ -2,7 +2,7 @@
 
 **Parent Plan:** [RyotQL](./README.md)
 
-**Status:** todo
+**Status:** completed
 
 ## What to build
 
@@ -12,15 +12,15 @@ The query validator must verify AST shape, alias scope, public field access, JSO
 
 ## Acceptance criteria
 
-- [ ] SDK builders exist for deep JSON paths, safe casts, literals, comparisons, boolean logic, null checks, containment, coalesce, and expression ordering
-- [ ] Contract decoding and semantic validation reject malformed expressions, unknown aliases, unknown fields, and JSON paths against non-JSON fields
-- [ ] RyotQL performs no query-time property-schema loading, path validation, type inference, schema metadata resolution, or schema-list validation
-- [ ] Safe text, number, boolean, date, and JSON casts produce null instead of aborting on missing, null, incompatible, malformed, or out-of-range values
-- [ ] Equality, ordering comparisons, null behavior, negation, containment escaping, structural JSON behavior, C collation, and empty combinators match the parent PRD
-- [ ] Schema discriminator filters are ordinary equality or membership predicates, and unknown values return empty rows rather than definition errors
-- [ ] End-to-end tests query single- and multi-discriminator books, movies, and courses with nested JSON values and scalar ordering
-- [ ] Existing collections behavior and the complete legacy query-engine suite remain green
-- [ ] The RyotQL guide documents the new expression and JSON semantics
+- [x] SDK builders exist for deep JSON paths, safe casts, literals, comparisons, boolean logic, null checks, containment, coalesce, and expression ordering
+- [x] Contract decoding and semantic validation reject malformed expressions, unknown aliases, unknown fields, and JSON paths against non-JSON fields
+- [x] RyotQL performs no query-time property-schema loading, path validation, type inference, schema metadata resolution, or schema-list validation
+- [x] Safe text, number, boolean, date, and JSON casts produce null instead of aborting on missing, null, incompatible, malformed, or out-of-range values
+- [x] Equality, ordering comparisons, null behavior, negation, containment escaping, structural JSON behavior, C collation, and empty combinators match the parent PRD
+- [x] Schema discriminator filters are ordinary equality or membership predicates, and unknown values return empty rows rather than definition errors
+- [x] End-to-end tests query single- and multi-discriminator books, movies, and courses with nested JSON values and scalar ordering
+- [x] Existing collections behavior and the complete legacy query-engine suite remain green
+- [x] The RyotQL guide documents the new expression and JSON semantics
 
 ## User stories addressed
 

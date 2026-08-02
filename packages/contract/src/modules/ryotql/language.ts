@@ -15,34 +15,116 @@ export const ColumnExpression = strictStruct({
 }).annotate({ identifier: "RyotQLColumnExpression" });
 export type ColumnExpression = typeof ColumnExpression.Type;
 
+export type JsonValue =
+	| null
+	| string
+	| number
+	| boolean
+	| readonly JsonValue[]
+	| { readonly [key: string]: JsonValue };
+
+export const JsonValue: Schema.Codec<JsonValue, JsonValue> = Schema.suspend(() =>
+	Schema.Union([
+		Schema.Null,
+		Schema.String,
+		Schema.Finite,
+		Schema.Boolean,
+		Schema.Array(JsonValue),
+		Schema.Record(Schema.String, JsonValue),
+	]),
+).annotate({ identifier: "RyotQLJsonValue" });
+
 export const LiteralExpression = strictStruct({
-	value: Schema.Unknown,
+	value: JsonValue,
 	type: Schema.Literal("literal"),
 }).annotate({ identifier: "RyotQLLiteralExpression" });
 export type LiteralExpression = typeof LiteralExpression.Type;
 
-export const ScalarExpression = Schema.Union([ColumnExpression, LiteralExpression]).annotate({
-	identifier: "RyotQLScalarExpression",
-});
-export type ScalarExpression = typeof ScalarExpression.Type;
+export type ScalarExpression =
+	| ColumnExpression
+	| LiteralExpression
+	| {
+			readonly type: "cast";
+			readonly expr: ScalarExpression;
+			readonly target: "boolean" | "date" | "json" | "number" | "text";
+	  }
+	| {
+			readonly type: "jsonPath";
+			readonly expr: ScalarExpression;
+			readonly path: readonly [string | number, ...(string | number)[]];
+	  }
+	| {
+			readonly type: "coalesce";
+			readonly values: readonly [ScalarExpression, ...ScalarExpression[]];
+	  };
 
-const ComparisonPredicate = strictStruct({
-	left: ScalarExpression,
-	right: ScalarExpression,
-	operator: Schema.Literal("eq"),
-	type: Schema.Literal("comparison"),
-}).annotate({ identifier: "RyotQLComparisonPredicate" });
+const JsonPathSegment = Schema.Union([Schema.String, Schema.Number]);
 
-const MembershipPredicate = strictStruct({
-	expr: ScalarExpression,
-	type: Schema.Literal("in"),
-	values: Schema.Array(ScalarExpression),
-}).annotate({ identifier: "RyotQLMembershipPredicate" });
+export const ScalarExpression: Schema.Codec<ScalarExpression, unknown> = Schema.suspend(() =>
+	Schema.Union([
+		ColumnExpression,
+		LiteralExpression,
+		strictStruct({
+			expr: ScalarExpression,
+			type: Schema.Literal("cast"),
+			target: Schema.Literals(["boolean", "date", "json", "number", "text"]),
+		}),
+		strictStruct({
+			expr: ScalarExpression,
+			type: Schema.Literal("jsonPath"),
+			path: Schema.NonEmptyArray(JsonPathSegment),
+		}),
+		strictStruct({
+			type: Schema.Literal("coalesce"),
+			values: Schema.NonEmptyArray(ScalarExpression),
+		}),
+	]),
+).annotate({ identifier: "RyotQLScalarExpression" });
 
-export const Predicate = Schema.Union([ComparisonPredicate, MembershipPredicate]).annotate({
-	identifier: "RyotQLPredicate",
-});
-export type Predicate = typeof Predicate.Type;
+export type Predicate =
+	| { readonly type: "not"; readonly predicate: Predicate }
+	| { readonly expr: ScalarExpression; readonly type: "isNull" }
+	| { readonly expr: ScalarExpression; readonly type: "isNotNull" }
+	| { readonly type: "or"; readonly predicates: readonly Predicate[] }
+	| { readonly type: "and"; readonly predicates: readonly Predicate[] }
+	| {
+			readonly type: "in";
+			readonly expr: ScalarExpression;
+			readonly values: readonly ScalarExpression[];
+	  }
+	| { readonly left: ScalarExpression; readonly right: ScalarExpression; readonly type: "contains" }
+	| {
+			readonly type: "comparison";
+			readonly left: ScalarExpression;
+			readonly right: ScalarExpression;
+			readonly operator: "eq" | "gt" | "gte" | "lt" | "lte" | "neq";
+	  };
+
+export const Predicate: Schema.Codec<Predicate, unknown> = Schema.suspend(() =>
+	Schema.Union([
+		strictStruct({ predicate: Predicate, type: Schema.Literal("not") }),
+		strictStruct({ expr: ScalarExpression, type: Schema.Literal("isNull") }),
+		strictStruct({ expr: ScalarExpression, type: Schema.Literal("isNotNull") }),
+		strictStruct({ type: Schema.Literal("or"), predicates: Schema.Array(Predicate) }),
+		strictStruct({ type: Schema.Literal("and"), predicates: Schema.Array(Predicate) }),
+		strictStruct({
+			expr: ScalarExpression,
+			type: Schema.Literal("in"),
+			values: Schema.Array(ScalarExpression),
+		}),
+		strictStruct({
+			left: ScalarExpression,
+			right: ScalarExpression,
+			type: Schema.Literal("contains"),
+		}),
+		strictStruct({
+			left: ScalarExpression,
+			right: ScalarExpression,
+			type: Schema.Literal("comparison"),
+			operator: Schema.Literals(["eq", "gt", "gte", "lt", "lte", "neq"]),
+		}),
+	]),
+).annotate({ identifier: "RyotQLPredicate" });
 
 export const Join = strictStruct({
 	on: Predicate,
