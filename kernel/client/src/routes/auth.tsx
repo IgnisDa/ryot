@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { changeSelectedServer } from "../modules/auth/server-change";
 import { sanitizeRedirect } from "../modules/server/redirect";
-import { clearServerSelection } from "../persistence/storage";
+import { getServerSelection } from "../persistence/storage";
 
 export const Route = createFileRoute("/auth")({
 	component: AuthDestination,
@@ -11,6 +12,12 @@ export const Route = createFileRoute("/auth")({
 function AuthDestination() {
 	const search = Route.useSearch();
 	const navigate = Route.useNavigate();
+	const server = getServerSelection();
+
+	async function selectAnotherServer() {
+		await changeSelectedServer(server);
+		await navigate({ replace: true, to: "/onboarding", search: { redirect: search.redirect } });
+	}
 
 	return (
 		<main className="auth-shell">
@@ -21,14 +28,7 @@ function AuthDestination() {
 				<button
 					type="button"
 					className="secondary-button"
-					onClick={() => {
-						clearServerSelection();
-						void navigate({
-							replace: true,
-							to: "/onboarding",
-							search: { redirect: search.redirect },
-						});
-					}}
+					onClick={() => void selectAnotherServer()}
 				>
 					Change server
 				</button>
