@@ -597,7 +597,7 @@ describe("plugin bridge", () => {
 		"malformed-result",
 	] satisfies PluginOperationBridgeErrorReason[]) {
 		it(`round-trips a ${reason} operation bridge error without extra details`, async () => {
-			const { init, pluginPort, received } = connect({
+			const { init, pluginPort, received, failures } = connect({
 				onOperation: () =>
 					Promise.resolve(
 						// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- verifies runtime detail redaction
@@ -621,6 +621,7 @@ describe("plugin bridge", () => {
 				requestId: "request-1",
 				type: "operation-result",
 			});
+			expect(failures).toEqual([]);
 		});
 	}
 
@@ -796,6 +797,51 @@ describe("plugin bridge", () => {
 		expect(signal?.aborted).toBe(true);
 
 		call.resolve({ outcome: "success", value: "late" });
+		await delay(10);
+
+		expect(received).toEqual([
+			{ type: "location", location: home },
+			{ reason: "failed", type: "lifecycle-close" },
+		]);
+	});
+
+	it("aborts pending operation and RyotQL work on failure and suppresses both late results", async () => {
+		let operationSignal: AbortSignal | undefined;
+		let querySignal: AbortSignal | undefined;
+		const operationCall = deferred<PluginOperationOutcome>();
+		const queryCall = deferred<PluginRyotQLOutcome>();
+		const { init, pluginPort, received, failures } = connect({
+			onOperation: (_request, signal) => {
+				operationSignal = signal;
+				return operationCall.promise;
+			},
+			onRyotQL: (_request, signal) => {
+				querySignal = signal;
+				return queryCall.promise;
+			},
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+
+		pluginPort.postMessage({
+			input: null,
+			operationSlug: "greet",
+			requestId: "operation-1",
+			type: "operation-request",
+		});
+		pluginPort.postMessage({ document, requestId: "query-1", type: "ryotql-request" });
+		await waitFor(() => {
+			expect(querySignal).toBeDefined();
+			expect(operationSignal).toBeDefined();
+		});
+
+		pluginPort.postMessage({ type: "theme-applied", generation: 1 });
+		await waitFor(() => expect(failures).toHaveLength(1));
+		expect(operationSignal?.aborted).toBe(true);
+		expect(querySignal?.aborted).toBe(true);
+
+		operationCall.resolve({ outcome: "success", value: "late-operation" });
+		queryCall.resolve({ outcome: "success", response: { data: {} } });
 		await delay(10);
 
 		expect(received).toEqual([

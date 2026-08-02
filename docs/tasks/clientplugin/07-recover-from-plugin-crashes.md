@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Web Client Plugin Tracer](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -18,23 +18,23 @@ Crash state, fatal reporting, and plugin-side pending-call rejection belong to t
 
 ## Acceptance criteria
 
-- [ ] The fixture exposes a deterministic action that causes a fatal render/runtime failure for browser testing.
-- [ ] Fatal React render errors and uncaught plugin runtime failures are contained within the plugin document and do not unmount or reload the kernel.
-- [ ] A failure reported before ready transitions the host from loading to a stable kernel-owned failure state.
-- [ ] A failure after ready closes the bridge, rejects all pending calls exactly once, and prevents further calls on the failed session.
-- [ ] The failed `RyotClient` drains both operation and RyotQL pending calls and refuses new capability calls before the iframe is replaced.
-- [ ] Crash lifecycle remains runtime-internal; no public lifecycle capability is added, and failure terminates all runtime-owned categories through the shared teardown.
-- [ ] The shared runtime owns the `ready`/`active`/`closing`/`failed`/`disposed` transitions (`ready`/`active` -> `closing` -> `failed` on failure and `ready`/`active` -> `closing` -> `disposed` on normal disposal), and every pending query or operation settles at most once; late results are ignored.
-- [ ] Kernel abort is best effort, does not claim to roll back committed backend work, and does not create a second teardown path.
-- [ ] Typed backend operation failures continue to render inside fixture UI and do not trigger the kernel crash state.
-- [ ] Expected plugin business/domain outcomes remain typed successful values, and `operation-failed` is not reclassified as a plugin business error or a crash; all operation errors retain the shared public contract.
-- [ ] The failure screen provides one accessible reload action and does not display stack traces, wire payloads, credentials, or internal diagnostics.
-- [ ] Failure signaling keeps `lifecycle-close` payload-free as `{ type: "lifecycle-close", reason: "disposed" | "failed" }`; wire `failed` maps to public `protocol` and is not a public SDK error reason. Diagnostics stay kernel-internal and are not expanded onto the bridge.
-- [ ] Reload mounts a fresh iframe, `RyotClient`, runtime, and `MessageChannel` through the normal initial-mount factory for the same artifact and restores the current logical plugin route.
-- [ ] Successful reload clears the failure state and leaves kernel navigation and authentication intact.
-- [ ] Repeated crash/reload cycles do not leak ports, listeners, pending-request entries, iframe nodes, or global handlers.
-- [ ] Crash recovery reuses the existing runtime's port, dispatcher, client, listeners, and idempotent disposal; it adds no theme-, crash-, or reload-specific bridge or teardown path.
-- [ ] Runtime, host lifecycle, shared `RyotClientError` classification, pending-call teardown, pre-ready failure, post-ready failure, and browser recovery tests pass with all earlier tracer tests.
+- [x] The fixture exposes a deterministic action that causes a fatal render/runtime failure for browser testing.
+- [x] Fatal React render errors and uncaught plugin runtime failures are contained within the plugin document and do not unmount or reload the kernel.
+- [x] A failure reported before ready transitions the host from loading to a stable kernel-owned failure state.
+- [x] A failure after ready closes the bridge, rejects all pending calls exactly once, and prevents further calls on the failed session.
+- [x] The failed `RyotClient` drains both operation and RyotQL pending calls and refuses new capability calls before the iframe is replaced.
+- [x] Crash lifecycle remains runtime-internal; no public lifecycle capability is added, and failure terminates all runtime-owned categories through the shared teardown.
+- [x] The shared runtime owns the `ready`/`active`/`closing`/`failed`/`disposed` transitions (`ready`/`active` -> `closing` -> `failed` on failure and `ready`/`active` -> `closing` -> `disposed` on normal disposal), and every pending query or operation settles at most once; late results are ignored.
+- [x] Kernel abort is best effort, does not claim to roll back committed backend work, and does not create a second teardown path.
+- [x] Typed backend operation failures continue to render inside fixture UI and do not trigger the kernel crash state.
+- [x] Expected plugin business/domain outcomes remain typed successful values, and `operation-failed` is not reclassified as a plugin business error or a crash; all operation errors retain the shared public contract.
+- [x] The failure screen provides one accessible reload action and does not display stack traces, wire payloads, credentials, or internal diagnostics.
+- [x] Failure signaling keeps `lifecycle-close` payload-free as `{ type: "lifecycle-close", reason: "disposed" | "failed" }`; wire `failed` maps to public `protocol` and is not a public SDK error reason. Diagnostics stay kernel-internal and are not expanded onto the bridge.
+- [x] Reload mounts a fresh iframe, `RyotClient`, runtime, and `MessageChannel` through the normal initial-mount factory for the same artifact and restores the current logical plugin route.
+- [x] Successful reload clears the failure state and leaves kernel navigation and authentication intact.
+- [x] Repeated crash/reload cycles do not leak ports, listeners, pending-request entries, iframe nodes, or global handlers.
+- [x] Crash recovery reuses the existing runtime's port, dispatcher, client, listeners, and idempotent disposal; it adds no theme-, crash-, or reload-specific bridge or teardown path.
+- [x] Runtime, host lifecycle, shared `RyotClientError` classification, pending-call teardown, pre-ready failure, post-ready failure, and browser recovery tests pass with all earlier tracer tests.
 
 ## User stories addressed
 
@@ -43,3 +43,11 @@ Crash state, fatal reporting, and plugin-side pending-call rejection belong to t
 ## Implementor Notes
 
 Cross-document browser error events are not a sufficient protocol. The plugin runtime must own its error boundary and fatal reporting because the iframe remains isolated. Extend the Task 05-followup plugin runtime and provider lifecycle rather than introducing a crash-specific SDK or mutable module singleton.
+
+## Implementation Notes
+
+- **Runtime failure and teardown.** Fatal entry is runtime-internal and uses the shared `ready`/`active` -> `closing` -> `failed` teardown. The V3 failed close is payload-free, and public `protocol` rejection settles all pending categories exactly once.
+- **Terminal handler ownership.** Session-scoped React `onUncaughtError` and the window `error`/`unhandledrejection` handlers are removed on terminal state or disposal.
+- **Kernel recovery.** The kernel owns one stable failure screen with one reload action. Reload recreates a fresh iframe, runtime, `RyotClient`, and `MessageChannel` through the normal factory for the same artifact and logical route.
+- **Pending work and fixture behavior.** Kernel operation/query abort is best effort; late results are suppressed and no rollback promise is created. The fixture has a deterministic render crash, while ordinary `operation-failed` remains nonfatal.
+- **Review and verification.** Initial review and same-agent re-review found no findings, with the jsdom/no browser-driver limitation noted. `bun turbo --filter=@ryot/client-sdk --filter=@ryot/kernel-client --filter=@ryot/client-plugin-compiler --filter=@ryot/fixture-plugin check test build` passed 26/26 tasks. From `tests`, `bun --bun run vitest run src/tests/kernel/plugins/client-artifact.test.ts src/tests/kernel/plugins/client-operation.test.ts` passed 2 files/6 tests.
