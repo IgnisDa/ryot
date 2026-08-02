@@ -1,22 +1,22 @@
 import { defineAutomationPolicy, type AutomationPolicyInput } from "@ryot/sandbox-sdk/automation";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { Effect, Result, Schema } from "@ryot/sandbox-sdk/effect";
 import {
 	and,
 	ascending,
 	column,
-	document,
+	defineRecipe,
 	eq,
-	field,
 	isNull,
 	literal,
-	rows,
+	selectedField,
+	selectedOptionalRow,
+	executeRyotqlRecipe,
 	table,
+	userLibraryRecipe,
 } from "@ryot/sandbox-sdk/ryotql";
 
-import { buildUserLibraryDocument, decodeUserLibraryId } from "../../media-monitoring-ryotql";
 import { mediaLibraryEligibleEntitySchemaSlugs } from "../../schemas/media-schema-slugs";
-import { decodeEntityId } from "../../shared/ryotql";
 
 export const manifest = defineManifest({
 	kind: "automation",
@@ -29,21 +29,23 @@ export const manifest = defineManifest({
 
 const eligibleEntitySchemaSlugs = new Set<string>(mediaLibraryEligibleEntitySchemaSlugs);
 
-const buildGlobalEntityQuery = (entityId: string, entitySchemaSlug: string) => {
+const globalEntityRecipe = defineRecipe((entityId: string, entitySchemaSlug: string) => {
 	const entity = table("entity", "entity");
-	return document({
-		entity: rows(entity, {
-			limit: 1,
-			orderBy: [ascending(column(entity, "id"))],
-			where: and(
-				eq(column(entity, "id"), literal(entityId)),
-				isNull(column(entity, "userId")),
-				eq(column(entity, "entitySchemaSlug"), literal(entitySchemaSlug)),
-			),
-			fields: [field("entityId", column(entity, "id"))],
-		}),
-	});
-};
+	return {
+		queries: {
+			entity: selectedOptionalRow(entity, {
+				orderBy: [ascending(column(entity, "id"))],
+				where: and(
+					eq(column(entity, "id"), literal(entityId)),
+					isNull(column(entity, "userId")),
+					eq(column(entity, "entitySchemaSlug"), literal(entitySchemaSlug)),
+				),
+				selection: { entityId: selectedField(column(entity, "id"), Schema.String) },
+			}),
+		},
+		map: ({ entity: row }) => Result.succeed(row?.entityId ?? null),
+	};
+});
 
 const collectionMembershipTarget = (automation: AutomationPolicyInput["automation"]) => {
 	const draft = automation.source.draft;
@@ -69,18 +71,14 @@ export default defineAutomationPolicy({
 			if (!target) {
 				return { action: "allow" } as const;
 			}
-			const entityResponse = yield* host.executeRyotql(
-				buildGlobalEntityQuery(target.entityId, target.entitySchemaSlug),
+			const entityId = yield* executeRyotqlRecipe(
+				host.executeRyotql,
+				globalEntityRecipe(target.entityId, target.entitySchemaSlug),
 			);
-			const entityId = decodeEntityId(entityResponse, "entity");
 			if (!entityId) {
 				return { action: "allow" } as const;
 			}
-			const libraryResponse = yield* host.executeRyotql(buildUserLibraryDocument());
-			const libraryEntityId = decodeUserLibraryId(libraryResponse);
-			if (!libraryEntityId) {
-				return yield* Effect.fail(new Error("Library entity not found for user"));
-			}
+			const library = yield* executeRyotqlRecipe(host.executeRyotql, userLibraryRecipe());
 			yield* host.changeUserRelationships([
 				{
 					deletes: [],
@@ -88,7 +86,7 @@ export default defineAutomationPolicy({
 						{
 							properties: {},
 							sourceEntityId: entityId,
-							targetEntityId: libraryEntityId,
+							targetEntityId: library.entityId,
 							relationshipSchemaSlug: "in-library",
 						},
 					],

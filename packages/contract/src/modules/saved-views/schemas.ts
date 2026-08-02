@@ -2,21 +2,44 @@ import { Schema } from "effect";
 
 import { EntitySchemaSlug, PluginSlug, SavedViewId } from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
-import { OutputFieldKey, RyotQLDocument } from "../ryotql/language";
+import { JsonValue, OutputFieldKey, RyotQLDocument } from "../ryotql/language";
+
+export const SavedViewDisplayKind = Schema.Literals(["text", "date", "json", "number", "boolean"]);
+export type SavedViewDisplayKind = typeof SavedViewDisplayKind.Type;
+
+export const SavedViewDisplayValue = Schema.Union([
+	strictStruct({ value: Schema.NullOr(Schema.String), displayKind: Schema.Literal("text") }),
+	strictStruct({ value: Schema.NullOr(Schema.String), displayKind: Schema.Literal("date") }),
+	strictStruct({ value: JsonValue, displayKind: Schema.Literal("json") }),
+	strictStruct({ value: Schema.NullOr(Schema.Number), displayKind: Schema.Literal("number") }),
+	strictStruct({ value: Schema.NullOr(Schema.Boolean), displayKind: Schema.Literal("boolean") }),
+]);
+export type SavedViewDisplayValue = typeof SavedViewDisplayValue.Type;
+
+const SavedViewValueMapping = strictStruct({
+	field: OutputFieldKey,
+	displayKind: SavedViewDisplayKind,
+});
 
 export const SavedViewCardMapping = strictStruct({
 	titleField: OutputFieldKey,
 	imageField: Schema.NullOr(OutputFieldKey),
-	calloutField: Schema.NullOr(OutputFieldKey),
-	overlineField: Schema.NullOr(OutputFieldKey),
-	primaryMetadataField: Schema.NullOr(OutputFieldKey),
-	secondaryMetadataField: Schema.NullOr(OutputFieldKey),
+	callout: Schema.NullOr(SavedViewValueMapping),
+	overline: Schema.NullOr(SavedViewValueMapping),
+	primaryMetadata: Schema.NullOr(SavedViewValueMapping),
+	secondaryMetadata: Schema.NullOr(SavedViewValueMapping),
 });
 export type SavedViewCardMapping = typeof SavedViewCardMapping.Type;
 
 export const SavedViewTableMapping = strictStruct({
 	imageField: Schema.NullOr(OutputFieldKey),
-	columns: Schema.NonEmptyArray(strictStruct({ label: Schema.String, field: OutputFieldKey })),
+	columns: Schema.NonEmptyArray(
+		strictStruct({
+			label: Schema.String,
+			field: OutputFieldKey,
+			displayKind: SavedViewDisplayKind,
+		}),
+	),
 });
 export type SavedViewTableMapping = typeof SavedViewTableMapping.Type;
 

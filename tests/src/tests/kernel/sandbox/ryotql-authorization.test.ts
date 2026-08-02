@@ -39,7 +39,7 @@ import {
 	literalSandboxSource,
 	pollUntil,
 	providerSandboxSource,
-	requireRyotQLFieldValue,
+	requireRyotQLValue,
 	requireRows,
 	uninstallTestPlugin,
 } from "~/fixtures";
@@ -116,8 +116,12 @@ export default defineScript({
 });
 `;
 
-const fieldValue = (row: Record<string, unknown>, key: string) =>
-	requireObjectRecord(row[key], `Expected '${key}' field`)["value"];
+const requirePlainValue = (row: Record<string, unknown>, key: string) => {
+	if (!(key in row)) {
+		throw new Error(`Expected '${key}' field`);
+	}
+	return row[key];
+};
 
 const responseData = (response: unknown) =>
 	requireObjectRecord(
@@ -139,11 +143,8 @@ const responseRows = (response: unknown, queryName: string) => {
 const markerPayload = (response: RyotQLResponse) => {
 	const markerResult = requireRows(response.data.marker, "marker");
 	const marker = requirePresent(markerResult.items[0], "Expected authorization probe marker");
-	const properties = requireRyotQLFieldValue(marker, "properties");
-	if (properties.kind !== "json") {
-		throw new Error("Expected authorization probe properties JSON");
-	}
-	return requireObjectRecord(properties.value, "Expected authorization probe payload");
+	const properties = requireRyotQLValue(marker, "properties");
+	return requireObjectRecord(properties, "Expected authorization probe payload");
 };
 
 const markerDocument = (externalId: string) => {
@@ -702,12 +703,11 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 					);
 					const markerResult = requireRows(response.data.marker, "marker");
 					const marker = requirePresent(markerResult.items[0], `Missing '${probe.name}' marker`);
-					const markerId = requireRyotQLFieldValue(marker, "id");
-					if (markerId.kind !== "text") {
-						throw new Error(`Probe '${probe.name}' marker ID is not text`);
-					}
 					globalEntityIds.push(
-						requireString(markerId.value, `Probe '${probe.name}' marker ID is invalid`),
+						requireString(
+							requireRyotQLValue(marker, "id"),
+							`Probe '${probe.name}' marker ID is invalid`,
+						),
 					);
 					return response;
 				});
@@ -724,12 +724,12 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 
 			const pluginEntities = rowsFromProbe("Plugin entities", "entities");
 			expect(pluginEntities).toHaveLength(2);
-			expect(pluginEntities.map((row) => fieldValue(row, "id"))).toEqual(
+			expect(pluginEntities.map((row) => requirePlainValue(row, "id"))).toEqual(
 				expect.arrayContaining([globalRoot.id, globalTarget.id]),
 			);
-			expect(pluginEntities.map((row) => fieldValue(row, "id"))).not.toContain(userARoot.id);
-			expect(pluginEntities.map((row) => fieldValue(row, "id"))).not.toContain(userBRoot.id);
-			expect(pluginEntities.every((row) => fieldValue(row, "userId") === null)).toBe(true);
+			expect(pluginEntities.map((row) => requirePlainValue(row, "id"))).not.toContain(userARoot.id);
+			expect(pluginEntities.map((row) => requirePlainValue(row, "id"))).not.toContain(userBRoot.id);
+			expect(pluginEntities.every((row) => requirePlainValue(row, "userId") === null)).toBe(true);
 
 			expect(rowsFromProbe("Foreign entities", "entities")).toEqual([]);
 
@@ -737,19 +737,19 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 			expect(pluginEvents).toHaveLength(2);
 			expect(
 				pluginEvents
-					.map((row) => fieldValue(row, "userId"))
+					.map((row) => requirePlainValue(row, "userId"))
 					.sort((left, right) => String(left).localeCompare(String(right))),
 			).toEqual([userA.userId, userB.userId].sort((left, right) => left.localeCompare(right)));
-			expect(pluginEvents.every((row) => fieldValue(row, "eventSchemaSlug") === eventSlug)).toBe(
-				true,
-			);
+			expect(
+				pluginEvents.every((row) => requirePlainValue(row, "eventSchemaSlug") === eventSlug),
+			).toBe(true);
 			expect(rowsFromProbe("Foreign events", "events")).toEqual([]);
 
 			const pluginRelationships = rowsFromProbe("Plugin relationships", "relationships");
 			expect(pluginRelationships).toHaveLength(3);
 			expect(
 				pluginRelationships
-					.map((row) => fieldValue(row, "userId"))
+					.map((row) => requirePlainValue(row, "userId"))
 					.sort((left, right) => String(left).localeCompare(String(right))),
 			).toEqual(
 				[userA.userId, userA.userId, userB.userId].sort((left, right) => left.localeCompare(right)),
@@ -759,10 +759,10 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 			const nestedRows = rowsFromProbe("Nested authorization", "entities");
 			expect(nestedRows).toHaveLength(1);
 			const nestedRow = requirePresent(nestedRows[0], "Expected nested root row");
-			expect(fieldValue(nestedRow, "hasHiddenEntity")).toBe(false);
-			expect(fieldValue(nestedRow, "hasForeignEvent")).toBe(false);
-			expect(fieldValue(nestedRow, "ownRelationshipCount")).toBe(3);
-			expect(fieldValue(nestedRow, "foreignRelationshipCount")).toBe(0);
+			expect(requirePlainValue(nestedRow, "hasHiddenEntity")).toBe(false);
+			expect(requirePlainValue(nestedRow, "hasForeignEvent")).toBe(false);
+			expect(requirePlainValue(nestedRow, "ownRelationshipCount")).toBe(3);
+			expect(requirePlainValue(nestedRow, "foreignRelationshipCount")).toBe(0);
 
 			const links = requireObjectRecord(nestedRow["links"], "Expected nested links include");
 			const linkRows = requireArray(links["items"], "Expected nested link rows").map((row) =>
@@ -770,15 +770,15 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 			);
 			expect(linkRows).toHaveLength(3);
 			const userTargetLink = requirePresent(
-				linkRows.find((row) => fieldValue(row, "targetId") === userATarget.id),
+				linkRows.find((row) => requirePlainValue(row, "targetId") === userATarget.id),
 				"Expected user-owned target relationship",
 			);
-			expect(fieldValue(userTargetLink, "targetName")).toBeNull();
-			expect(fieldValue(userTargetLink, "targetUserId")).toBeNull();
+			expect(requirePlainValue(userTargetLink, "targetName")).toBeNull();
+			expect(requirePlainValue(userTargetLink, "targetUserId")).toBeNull();
 			expect(
 				linkRows
-					.filter((row) => fieldValue(row, "targetId") === globalTarget.id)
-					.map((row) => fieldValue(row, "targetName")),
+					.filter((row) => requirePlainValue(row, "targetId") === globalTarget.id)
+					.map((row) => requirePlainValue(row, "targetName")),
 			).toEqual(["Global target", "Global target"]);
 
 			const hiddenEntities = requireObjectRecord(
@@ -802,8 +802,8 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 				yield* executeRyotQL(userA.client, pluginEntityDocument),
 				"entities",
 			);
-			expect(httpUserRows.map((row) => fieldValue(row, "id"))).toContain(userARoot.id);
-			expect(httpUserRows.map((row) => fieldValue(row, "id"))).not.toContain(userBRoot.id);
+			expect(httpUserRows.map((row) => requirePlainValue(row, "id"))).toContain(userARoot.id);
+			expect(httpUserRows.map((row) => requirePlainValue(row, "id"))).not.toContain(userBRoot.id);
 		}),
 	);
 });

@@ -1,7 +1,7 @@
 import { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
-import type { ProviderSearchSummary } from "@ryot/ryotql-recipes/provider-search";
 import { describe, expect, it, vi } from "vitest";
 
+import type { ProviderSearchSummary } from "./state";
 import { selectPreferredProvider } from "./use-preferred-provider";
 
 vi.mock("@effect/atom-react", () => ({ useAtomValue: () => undefined }));

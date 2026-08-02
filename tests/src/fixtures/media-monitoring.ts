@@ -14,7 +14,7 @@ import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
 import { getBackendClient } from "./contract-client";
 import { openInterestStreamScoped } from "./interest-sse";
-import { executeRyotQL, requireRyotQLFieldValue } from "./ryotql";
+import { executeRyotQL, requireRyotQLValue } from "./ryotql";
 
 export const triggerCronAndWaitForEntity = (
 	auth: { cookies: string; userId: string },
@@ -125,5 +125,5 @@ export const countMediaMonitoringRelationships = (input: {
 			throw new Error("Expected 'relationships' aggregate");
 		}
 		const count = relationships.items[0];
-		return count ? requireRyotQLFieldValue(count, "count").value : 0;
+		return count ? requireRyotQLValue(count, "count") : 0;
 	});

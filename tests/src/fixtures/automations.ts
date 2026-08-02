@@ -7,19 +7,16 @@ import {
 	UserId,
 } from "@ryot/contract/schema/brands";
 import {
-	buildNotificationSubscriptionStateDocument,
-	buildNotificationSubscriptionStatesDocument,
-	decodeNotificationSubscriptionStateResponse,
-	decodeNotificationSubscriptionStatesResponse,
+	notificationSubscriptionStateRecipe,
+	notificationSubscriptionStatesRecipe,
 } from "@ryot/ryotql-recipes/notification-subscription-states";
 import { Effect } from "effect";
-
-import { resultToEffect } from "~/support/assertions";
 
 import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
 import { getBackendClient } from "./contract-client";
 import { pollUntil } from "./polling";
+import { executeRyotQLRecipe } from "./ryotql";
 
 export const listAutomationCatalog = (client: Client) =>
 	client.call((c) => c.automations.listCatalog());
@@ -33,24 +30,14 @@ export const getAutomationCatalogSchema = (client: Client, signalSchemaSlug: str
 
 export const listNotificationSubscriptionStates = (
 	client: Client,
-	input: Parameters<typeof buildNotificationSubscriptionStatesDocument>[0],
+	input: Parameters<typeof notificationSubscriptionStatesRecipe>[0],
 ) =>
-	Effect.gen(function* () {
-		const response = yield* client.call((c) =>
-			c.ryotql.execute({ payload: buildNotificationSubscriptionStatesDocument(input) }),
-		);
-		const decoded = yield* resultToEffect(decodeNotificationSubscriptionStatesResponse(response));
-
-		return decoded.items;
-	});
+	executeRyotQLRecipe(client, notificationSubscriptionStatesRecipe(input)).pipe(
+		Effect.map((result) => result.items),
+	);
 
 export const getNotificationSubscriptionState = (client: Client, ruleId: string) =>
-	Effect.gen(function* () {
-		const response = yield* client.call((c) =>
-			c.ryotql.execute({ payload: buildNotificationSubscriptionStateDocument({ id: ruleId }) }),
-		);
-		return yield* resultToEffect(decodeNotificationSubscriptionStateResponse(response));
-	});
+	executeRyotQLRecipe(client, notificationSubscriptionStateRecipe({ id: ruleId }));
 
 export const installNotificationRule = (client: Client, signalSchemaSlug: string) =>
 	client.call((c) =>

@@ -21,7 +21,7 @@ const operationSource = (input: { readonly name: string; readonly slug: string }
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineOperation } from "@ryot/sandbox-sdk/operation";
-import { buildEntityReadDocument, ryotqlRows } from "@ryot/sandbox-sdk/ryotql";
+import { entityReadRecipe, executeRyotqlRecipe } from "@ryot/sandbox-sdk/ryotql";
 
 export const manifest = defineManifest({
   kind: "operation",
@@ -53,9 +53,9 @@ export default defineOperation({
   run: (input, host, execution) => Effect.gen(function* () {
     yield* host.log([{ level: "info", message: "durable tracer started" }]);
     const preferences = yield* host.getUserPreferences();
-    const rows = ryotqlRows(yield* host.executeRyotql(buildEntityReadDocument({
-      entityIds: [input.entityId],
-    })), "entities").items;
+     const { items: rows } = yield* executeRyotqlRecipe(host.executeRyotql, entityReadRecipe({
+       entityIds: [input.entityId],
+     }));
     const claim = yield* host.claimPersistentValue(
       "durable-tracer-" + input.entityId,
       { executionId: execution.sandboxScriptId },

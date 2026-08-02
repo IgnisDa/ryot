@@ -1,187 +1,93 @@
-import type { RyotQLResponse } from "@ryot/contract/modules/ryotql/language";
 import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { buildNavigationDocument, decodeNavigationResponse } from "./navigation";
+import { navigationRecipe } from "./navigation";
+import { requireRowsQuery, rowsResult } from "./test-utils";
 
-const navigationResponse = {
+const rows = (items: readonly unknown[], limit = 100) =>
+	rowsResult(items, { hasMore: false, limit, nextCursor: null });
+const response = {
 	data: {
-		workspaces: {
-			type: "rows",
-			pageInfo: { hasMore: false, limit: 100, nextCursor: null },
-			items: [
-				{
-					name: { kind: "text", value: "Media" },
-					slug: { kind: "text", value: "media" },
-					sortOrder: { kind: "null", value: null },
-					isDisabled: { kind: "null", value: null },
-					icon: { kind: "text", value: "clapperboard" },
-				},
-				{
-					sortOrder: { kind: "number", value: 2 },
-					name: { kind: "text", value: "Fitness" },
-					slug: { kind: "text", value: "fitness" },
-					icon: { kind: "text", value: "dumbbell" },
-					isDisabled: { kind: "boolean", value: true },
-				},
-			],
-		},
-		savedViews: {
-			type: "rows",
-			pageInfo: { hasMore: false, limit: 100, nextCursor: null },
-			items: [
-				{
-					icon: { kind: "text", value: "film" },
-					name: { kind: "text", value: "Movies" },
-					slug: { kind: "text", value: "movies" },
-					sortOrder: { kind: "number", value: 1 },
-					pluginSlug: { kind: "text", value: "media" },
-					isDisabled: { kind: "boolean", value: false },
-				},
-				{
-					sortOrder: { kind: "number", value: 2 },
-					icon: { kind: "text", value: "bookmark" },
-					pluginSlug: { kind: "null", value: null },
-					name: { kind: "text", value: "Everything" },
-					slug: { kind: "text", value: "everything" },
-					isDisabled: { kind: "boolean", value: false },
-				},
-			],
-		},
-		collections: {
-			type: "rows",
-			pageInfo: { hasMore: false, limit: 100, nextCursor: null },
-			items: [
-				{
-					id: { kind: "text", value: "collection-1" },
-					name: { kind: "text", value: "Sci-Fi Essentials" },
-				},
-			],
-		},
+		workspaces: rows([
+			{ name: "Media", slug: "media", sortOrder: null, isDisabled: null, icon: "clapperboard" },
+			{ name: "Fitness", slug: "fitness", sortOrder: 2, isDisabled: true, icon: "dumbbell" },
+		]),
+		savedViews: rows([
+			{
+				icon: "film",
+				name: "Movies",
+				slug: "movies",
+				sortOrder: 1,
+				pluginSlug: "media",
+				isDisabled: false,
+			},
+		]),
+		collections: rows([{ id: "collection-1", name: "Sci-Fi Essentials" }]),
 	},
-} satisfies RyotQLResponse;
+};
 
 describe("navigation recipe", () => {
-	it("builds independent focused workspace, saved-view, and collection queries", () => {
-		const document = buildNavigationDocument();
+	it("prepares one document with all navigation queries", () => {
+		const document = navigationRecipe().document;
 
 		expect(Object.keys(document.queries)).toEqual(["workspaces", "savedViews", "collections"]);
 		expect(document.queries.workspaces).toMatchObject({
 			from: { alias: "plugin", table: "plugin" },
-			where: {
-				operator: "eq",
-				right: { type: "literal", value: "active" },
-				left: { field: "status", tableAlias: "plugin" },
-			},
-			joins: [
+			output: { pagination: { limit: 100 } },
+			where: { right: { value: "active" } },
+		});
+		expect(requireRowsQuery(document.queries.savedViews).output.orderBy).toEqual([
+			{ direction: "asc", expr: { field: "pluginSlug", tableAlias: "savedView", type: "column" } },
+			{ direction: "asc", expr: { field: "sortOrder", tableAlias: "savedView", type: "column" } },
+			{ direction: "asc", expr: { field: "createdAt", tableAlias: "savedView", type: "column" } },
+		]);
+	});
+
+	it("decodes plain values and applies navigation defaults", () => {
+		expect(Result.getOrThrow(navigationRecipe().decode(response))).toEqual({
+			workspaces: [
+				{ name: "Media", slug: "media", sortOrder: 0, isDisabled: false, icon: "clapperboard" },
+				{ name: "Fitness", slug: "fitness", sortOrder: 2, isDisabled: true, icon: "dumbbell" },
+			],
+			savedViews: [
 				{
-					type: "left",
-					table: { alias: "state", table: "pluginState" },
-					on: {
-						left: { field: "slug", tableAlias: "plugin" },
-						right: { field: "pluginSlug", tableAlias: "state" },
-					},
+					icon: "film",
+					name: "Movies",
+					slug: "movies",
+					sortOrder: 1,
+					pluginSlug: "media",
+					isDisabled: false,
 				},
 			],
-			output: {
-				pagination: { limit: 100 },
-				fields: [
-					{ key: "slug" },
-					{ key: "name" },
-					{ key: "icon" },
-					{ key: "sortOrder" },
-					{ key: "isDisabled" },
-				],
-			},
-		});
-		expect(document.queries.workspaces.output.orderBy).toEqual([
-			{ direction: "asc", expr: { type: "column", tableAlias: "plugin", field: "ingestedAt" } },
-			{ direction: "asc", expr: { type: "column", tableAlias: "plugin", field: "slug" } },
-		]);
-		expect(
-			document.queries.savedViews.output.fields.map((selection) => {
-				if (!("key" in selection)) {
-					throw new Error("Expected an explicit field selection");
-				}
-				return selection.key;
-			}),
-		).toEqual(["slug", "name", "icon", "sortOrder", "isDisabled", "pluginSlug"]);
-		expect(document.queries.savedViews.output.orderBy).toEqual([
-			{ direction: "asc", expr: { type: "column", tableAlias: "savedView", field: "pluginSlug" } },
-			{ direction: "asc", expr: { type: "column", tableAlias: "savedView", field: "sortOrder" } },
-			{ direction: "asc", expr: { type: "column", tableAlias: "savedView", field: "createdAt" } },
-		]);
-		expect(document.queries.collections).toMatchObject({
-			from: { alias: "collection", table: "entity" },
-			output: { pagination: { limit: 100 } },
+			collections: [
+				{
+					name: "Sci-Fi Essentials",
+					slug: "collection-1",
+					sortOrder: 0,
+					icon: "layers-3",
+					pluginSlug: null,
+					isDisabled: false,
+				},
+			],
 		});
 	});
 
-	it("decodes focused rows and applies missing plugin-state defaults", () => {
-		const data = Result.getOrThrow(decodeNavigationResponse(navigationResponse));
-
-		expect(data.workspaces).toEqual([
-			{
-				sortOrder: 0,
-				name: "Media",
-				slug: "media",
-				isDisabled: false,
-				icon: "clapperboard",
-			},
-			{
-				sortOrder: 2,
-				name: "Fitness",
-				slug: "fitness",
-				isDisabled: true,
-				icon: "dumbbell",
-			},
-		]);
-		expect(data.savedViews.map((item) => [item.slug, item.pluginSlug])).toEqual([
-			["movies", "media"],
-			["everything", null],
-		]);
-		expect(data.collections).toEqual([
-			{
-				sortOrder: 0,
-				pluginSlug: null,
-				icon: "layers-3",
-				isDisabled: false,
-				slug: "collection-1",
-				name: "Sci-Fi Essentials",
-			},
-		]);
-	});
-
-	it("decodes valid empty sections", () => {
-		const emptyRows = {
-			items: [],
-			type: "rows" as const,
-			pageInfo: { hasMore: false, limit: 100, nextCursor: null },
-		};
-
+	it("decodes empty sections", () => {
 		expect(
 			Result.getOrThrow(
-				decodeNavigationResponse({
-					data: { workspaces: emptyRows, savedViews: emptyRows, collections: emptyRows },
+				navigationRecipe().decode({
+					data: { workspaces: rows([]), savedViews: rows([]), collections: rows([]) },
 				}),
 			),
 		).toEqual({ workspaces: [], savedViews: [], collections: [] });
 	});
 
-	it("fails the complete decode when a recipe field has the wrong kind", () => {
+	it("rejects malformed selected fields", () => {
 		expect(
 			Result.isFailure(
-				decodeNavigationResponse({
-					...navigationResponse,
-					data: {
-						...navigationResponse.data,
-						collections: {
-							...navigationResponse.data.collections,
-							items: [
-								{ id: { kind: "number", value: 2 }, name: { kind: "text", value: "Malformed" } },
-							],
-						},
-					},
+				navigationRecipe().decode({
+					...response,
+					data: { ...response.data, collections: rows([{ id: 2, name: "Malformed" }]) },
 				}),
 			),
 		).toBe(true);

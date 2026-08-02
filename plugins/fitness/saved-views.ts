@@ -1,9 +1,6 @@
 import type { OrderBy } from "@ryot/contract/modules/ryotql/language";
 import { column, descending, castDate, jsonPath, table } from "@ryot/ryotql";
-import {
-	buildSavedViewDocument,
-	buildSavedViewLayoutProjections,
-} from "@ryot/ryotql-recipes/saved-views";
+import { buildSavedViewLayoutProjections, savedViewRecipe } from "@ryot/ryotql-recipes/saved-views";
 
 import { fitnessEntitySchemas } from "./schemas/entity-schemas";
 import { buildViewExpressions } from "./shared/view-helpers";
@@ -52,12 +49,26 @@ export const fitnessSavedViews = () => {
 			grid: { entityId, card: expressions.grid },
 			list: { entityId, card: expressions.list },
 		});
-		const queryDocument = (fields: (typeof projections)[keyof typeof projections]["fields"]) =>
-			buildSavedViewDocument({
-				fields,
-				orderBy: input.orderBy,
-				entitySchemaSlugs: [input.entitySchemaSlug],
-			});
+		const cardQueryDocument = (projection: typeof projections.grid) =>
+			savedViewRecipe({
+				layout: { type: "card", mapping: projection.mappings },
+				source: {
+					type: "generated",
+					fields: projection.fields,
+					orderBy: input.orderBy,
+					entitySchemaSlugs: [input.entitySchemaSlug],
+				},
+			}).document;
+		const tableQueryDocument = (projection: typeof projections.table) =>
+			savedViewRecipe({
+				layout: { type: "table", mapping: projection.mappings },
+				source: {
+					type: "generated",
+					fields: projection.fields,
+					orderBy: input.orderBy,
+					entitySchemaSlugs: [input.entitySchemaSlug],
+				},
+			}).document;
 		return {
 			sortOrder,
 			name: input.name,
@@ -68,15 +79,15 @@ export const fitnessSavedViews = () => {
 			layouts: {
 				grid: {
 					...projections.grid.mappings,
-					queryDocument: queryDocument(projections.grid.fields),
+					queryDocument: cardQueryDocument(projections.grid),
 				},
 				list: {
 					...projections.list.mappings,
-					queryDocument: queryDocument(projections.list.fields),
+					queryDocument: cardQueryDocument(projections.list),
 				},
 				table: {
 					...projections.table.mappings,
-					queryDocument: queryDocument(projections.table.fields),
+					queryDocument: tableQueryDocument(projections.table),
 				},
 			},
 		};

@@ -1,4 +1,4 @@
-import { buildNavigationDocument } from "@ryot/ryotql-recipes/navigation";
+import { navigationRecipe } from "@ryot/ryotql-recipes/navigation";
 import { Schema } from "effect";
 import { Atom } from "effect/unstable/reactivity";
 
@@ -21,9 +21,7 @@ export const scopedWorkspaceAtom = (scope: WorkspaceStorageScope) =>
 	workspaceAtom(workspaceStorageKey(scope));
 
 const navigationFamily = Atom.family((scope: ApiScope) =>
-	appClient(scope).query("ryotql", "execute", {
-		payload: buildNavigationDocument(),
-
+	appClient(scope).ryotql.query(navigationRecipe(), {
 		reactivityKeys: scopedReactivityKey("navigation", scope),
 	}),
 );

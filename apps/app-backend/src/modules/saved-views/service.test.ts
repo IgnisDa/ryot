@@ -31,11 +31,11 @@ const cardLayout = {
 	queryDocument,
 	imageField: null,
 	titleField: "name",
-	calloutField: null,
+	callout: null,
 	entityIdField: "id",
-	overlineField: null,
-	primaryMetadataField: null,
-	secondaryMetadataField: null,
+	overline: null,
+	primaryMetadata: null,
+	secondaryMetadata: null,
 } as const;
 const layouts = {
 	grid: cardLayout,
@@ -44,7 +44,7 @@ const layouts = {
 		queryDocument,
 		imageField: null,
 		entityIdField: "id",
-		columns: [{ label: "Name", field: "name" }],
+		columns: [{ label: "Name", field: "name", displayKind: "text" }],
 	},
 } satisfies SavedViewLayouts;
 

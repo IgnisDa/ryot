@@ -1,24 +1,18 @@
 import { randomUUID } from "node:crypto";
 
 import {
-	buildImportRunDocument,
-	buildIntegrationImportRunsDocument,
-	buildManualImportRunsDocument,
-	decodeImportRunResponse,
-	decodeImportRunsResponse,
+	importRunRecipe,
+	integrationImportRunsRecipe,
+	manualImportRunsRecipe,
 } from "@ryot/ryotql-recipes/import-runs";
 import { Effect } from "effect";
 
-import {
-	requireObjectRecord,
-	requirePresent,
-	requireString,
-	resultToEffect,
-} from "~/support/assertions";
+import { requireObjectRecord, requirePresent, requireString } from "~/support/assertions";
 import { getBackendUrl } from "~/support/backend";
 
 import type { Client } from "./auth";
 import { pollUntil } from "./polling";
+import { executeRyotQLRecipe } from "./ryotql";
 import { installTestPluginBundle } from "./test-plugin";
 
 export const FIXTURE_IMPORT_SOURCE = "e2e_archive_import_v2";
@@ -402,42 +396,21 @@ export const startOpenScaleImport = (client: Client, uploadToken: string) =>
 	});
 
 export const listManualImportRuns = (client: Client, after: string | undefined, limit: number) =>
-	Effect.gen(function* () {
-		const response = yield* client.call((c) =>
-			c.ryotql.execute({ payload: buildManualImportRunsDocument({ after, limit }) }),
-		);
-		return yield* resultToEffect(decodeImportRunsResponse(response));
-	});
+	executeRyotQLRecipe(client, manualImportRunsRecipe({ after, limit }));
 
 export const listIntegrationImportRuns = (
 	client: Client,
 	integrationId: string,
 	after: string | undefined,
 	limit: number,
-) =>
-	Effect.gen(function* () {
-		const response = yield* client.call((c) =>
-			c.ryotql.execute({
-				payload: buildIntegrationImportRunsDocument({ integrationId, after, limit }),
-			}),
-		);
-		return yield* resultToEffect(decodeImportRunsResponse(response));
-	});
+) => executeRyotQLRecipe(client, integrationImportRunsRecipe({ integrationId, after, limit }));
 
 export const getImportRun = (
 	client: Client,
 	runId: string,
 	failureAfter: string | undefined,
 	failureLimit: number,
-) =>
-	Effect.gen(function* () {
-		const response = yield* client.call((c) =>
-			c.ryotql.execute({
-				payload: buildImportRunDocument({ runId, failureAfter, failureLimit }),
-			}),
-		);
-		return yield* resultToEffect(decodeImportRunResponse(response));
-	});
+) => executeRyotQLRecipe(client, importRunRecipe({ runId, failureAfter, failureLimit }));
 
 export const pollImportRunUntilTerminal = (client: Client, runId: string) =>
 	pollUntil(

@@ -11,7 +11,10 @@ describe("buildViewExpressions", () => {
 			type: "column",
 			tableAlias: "entity",
 		});
-		expect(config.grid.overline).toEqual({ type: "literal", value: "Movie" });
+		expect(config.grid.overline).toEqual({
+			displayKind: "text",
+			expression: { type: "literal", value: "Movie" },
+		});
 		expect(config.grid.image).toEqual({
 			type: "cast",
 			target: "json",
@@ -24,7 +27,7 @@ describe("buildViewExpressions", () => {
 	});
 
 	it("uses conditional unit subtitles", () => {
-		const expression = buildViewExpressions("movie", "Movie").grid.secondaryMetadata;
+		const expression = buildViewExpressions("movie", "Movie").grid.secondaryMetadata?.expression;
 
 		expect(expression).toMatchObject({
 			type: "conditional",
@@ -35,7 +38,7 @@ describe("buildViewExpressions", () => {
 	});
 
 	it("uses review events for media callouts", () => {
-		const expression = buildViewExpressions("movie", "Movie").grid.callout;
+		const expression = buildViewExpressions("movie", "Movie").grid.callout?.expression;
 
 		expect(expression).toMatchObject({
 			type: "aggregate",
@@ -74,5 +77,18 @@ describe("buildViewExpressions", () => {
 		expect(buildViewExpressions(slug, "Schema").table.columns.map(({ label }) => label)).toEqual(
 			labels,
 		);
+	});
+
+	it("assigns persisted display kinds to media values", () => {
+		const person = buildViewExpressions("person", "Person");
+		const book = buildViewExpressions("book", "Book");
+
+		expect(person.grid.secondaryMetadata?.displayKind).toBe("date");
+		expect(book.grid.callout?.displayKind).toBe("number");
+		expect(book.table.columns.map(({ displayKind }) => displayKind)).toEqual([
+			"text",
+			"number",
+			"number",
+		]);
 	});
 });

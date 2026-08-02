@@ -1,5 +1,10 @@
 import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import {
+	entityReadRecipe,
+	executeRyotqlRecipe,
+	type EntityReadResult,
+} from "@ryot/sandbox-sdk/ryotql";
 import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
 
 import type { LogEntry, SpanEntry } from "../src/core.js";
@@ -199,6 +204,11 @@ defineScript({
 			const deleted: number | undefined = reconciled?.deleted;
 			const query = yield* host.executeRyotql({ queries: {} });
 			const queryResult: Expect<Equal<typeof query, unknown>> = true;
+			const entities = yield* executeRyotqlRecipe(
+				host.executeRyotql,
+				entityReadRecipe({ entityIds: ["entity-1"] }),
+			);
+			const recipeResult: Expect<Equal<typeof entities, EntityReadResult>> = true;
 			const entitySchemasArg: Expect<
 				Equal<Parameters<typeof host.getEntitySchemas>[0], ReadonlyArray<string>>
 			> = true;
@@ -208,6 +218,7 @@ defineScript({
 			void inserted;
 			void providers;
 			void queryResult;
+			void recipeResult;
 			void changedCount;
 			void ensuredEntityId;
 			void entitySchemasArg;

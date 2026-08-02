@@ -9,7 +9,7 @@ RyotQL is the focused read API at `POST /ryotql/execute`. `POST /ryotql/execute`
 - Field selection, typed JSON expressions, predicates, arithmetic, correlated scalar expressions, inner and left joins, ordering, pagination, and correlated row includes.
 - Localized entity names and properties with translation status as a normal catalog field.
 - Visibility for every table occurrence: plugin, `sandboxProvider`, and `sandboxProviderOperation` are public to authenticated users; entity, event, and relationship are user-or-global; `pluginState`, `savedView`, `notificationChannel`, `integration`, `importRun`, and `notificationSubscriptionState` are user-owned; `importRunFailure` is parent-owned through `importRun`.
-- Runtime field kinds: `text`, `date`, `number`, `boolean`, `json`, and `null`.
+- The executor uses runtime field kinds internally: `text`, `date`, `number`, `boolean`, `json`, and `null`.
 - Row and include fields may use the SDK `star(table)` helper to select every approved catalog field for that table alias.
 
 The entity catalog currently exposes `id`, `name`, `userId`, `createdAt`, `updatedAt`, `properties`, `externalId`, `populatedAt`, `providerId`, `translationStatus`, and `entitySchemaSlug`. Other physical columns are not queryable.
@@ -68,7 +68,7 @@ The response is keyed by the same query name:
 	"data": {
 		"collections": {
 			"type": "rows",
-			"items": [{ "id": { "kind": "text", "value": "collection-id" } }],
+			"items": [{ "id": "collection-id" }],
 			"pageInfo": { "limit": 20, "hasMore": false, "nextCursor": null }
 		}
 	}
@@ -109,11 +109,11 @@ Sandbox scripts declare the separate `executeRyotql` capability. User and subscr
 
 Plugin execution can read only global entities whose `entitySchemaSlug` is owned by the plugin. It can read event and relationship rows across users only when their discriminator definition is owned by the plugin. The `plugin`, `pluginState`, `savedView`, `sandboxProvider`, and `sandboxProviderOperation` tables are denied. These policies apply independently to every root, join, include, and correlated query before document predicates.
 
-Sandbox code imports builders, generic entity and event read recipes, field-value schemas, and strict named-response helpers from `@ryot/sandbox-sdk/ryotql`. The helpers accept only the RyotQL `{ data: { [queryName]: result } }` envelope.
+Sandbox code imports builders, generic entity and event read recipes, and strict named-response helpers from `@ryot/sandbox-sdk/ryotql`. The helpers accept only the RyotQL `{ data: { [queryName]: result } }` envelope.
 
 ## Expressions And JSON
 
-`jsonPath` reads deep object keys and array indices from a public JSON expression. Paths are generic and do not load property schemas, validate property names, infer property types, or resolve discriminator definitions. A missing path and JSON `null` both produce null. Raw JSON-path fields derive their response kind from the runtime JSON value.
+`jsonPath` reads deep object keys and array indices from a public JSON expression. Paths are generic and do not load property schemas, validate property names, infer property types, or resolve discriminator definitions. A missing path and JSON `null` both produce null. Raw JSON-path fields derive their internal runtime kind from the JSON value.
 
 Use `castText`, `castNumber`, `castBoolean`, `castDate`, or `castJson` when a query needs scalar behavior. JSON casts accept the matching JSON value type; incompatible values produce null. Number and date input is checked before PostgreSQL casts it, so malformed dates and out-of-range numbers also produce null instead of failing the query. Cast expressions can be selected, filtered, and ordered.
 
@@ -135,7 +135,7 @@ document({
 });
 ```
 
-Comparisons support `eq`, `neq`, `gt`, `gte`, `lt`, and `lte`. Null comparisons are false before `not` is applied. Text comparisons and ordering use C collation. `contains` performs escaped, case-insensitive literal substring matching for text and structural containment for JSON arrays or objects. JSON equality is structural. `isNull`, `isNotNull`, `and`, `or`, and `not` compose predicates; empty `and` is true, empty `or` and empty `inArray` are false. `coalesce` selects the first non-null value and retains that branch's runtime field kind.
+Comparisons support `eq`, `neq`, `gt`, `gte`, `lt`, and `lte`. Null comparisons are false before `not` is applied. Text comparisons and ordering use C collation. `contains` performs escaped, case-insensitive literal substring matching for text and structural containment for JSON arrays or objects. JSON equality is structural. `isNull`, `isNotNull`, `and`, `or`, and `not` compose predicates; empty `and` is true, empty `or` and empty `inArray` are false. `coalesce` selects the first non-null value and retains that branch's internal runtime kind.
 
 Schema discriminators are ordinary `entitySchemaSlug` comparisons. Use `eq` for one slug and `inArray` for several. Unknown slugs return no rows and do not trigger definition lookup.
 
@@ -163,7 +163,7 @@ document({
 });
 ```
 
-Event JSON properties use the same generic JSON paths and safe casts as entity properties. `sessionEntityId` is nullable and reconstructs with the `null` kind when absent; event timestamps reconstruct with the `date` kind.
+Event JSON properties use the same generic JSON paths and safe casts as entity properties. `sessionEntityId` is nullable and returns null when absent; event timestamps return ISO strings.
 
 ## Relationships And Joins
 
@@ -256,13 +256,13 @@ rows(course, {
 });
 ```
 
-`add`, `subtract`, `multiply`, and `divide` operate on safe numeric values. Invalid operands and division by zero return null. `coalesce` returns the first non-null value and preserves the selected branch's runtime field kind, including values selected by `first`.
+`add`, `subtract`, `multiply`, and `divide` operate on safe numeric values. Invalid operands and division by zero return null. `coalesce` returns the first non-null value and preserves the selected branch's internal runtime kind, including values selected by `first`.
 
 ## Aggregate Outputs
 
 Root aggregate outputs run over the same generic table, joins, predicates, localized field resolvers, and authorized relations as rows. Measures support count, count distinct, sum, average, minimum, and maximum. Count operations return zero for an empty input; the other measures return null. Ordinary SQL join multiplicity applies, so use count distinct when multiplied rows must count once.
 
-Ungrouped aggregates return one item without `pageInfo` and otherwise remain unchanged. Grouped aggregates require at least one group field, an explicit limit, and non-empty ordering by measure key. Their page info remains `{ limit, hasMore }`; they support at most 1000 groups and do not support aggregate pagination or ordering by arbitrary expressions. Group values retain their runtime `text`, `date`, `number`, `boolean`, `json`, or `null` kind. Both aggregate ordering directions place null measures last.
+Ungrouped aggregates return one item without `pageInfo` and otherwise remain unchanged. Grouped aggregates require at least one group field, an explicit limit, and non-empty ordering by measure key. Their page info remains `{ limit, hasMore }`; they support at most 1000 groups and do not support aggregate pagination or ordering by arbitrary expressions. Group values return directly as strings, ISO date strings, numbers, booleans, JSON values, or null. Both aggregate ordering directions place null measures last.
 
 ```ts
 const lesson = table("entity", "lesson");

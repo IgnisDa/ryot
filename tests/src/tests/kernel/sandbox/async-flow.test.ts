@@ -200,14 +200,9 @@ describe("sandbox async flow", () => {
 				"Expected executeRyotql sandbox result to be an array",
 			);
 			const first = requireObjectRecord(value[0], "Expected first RyotQL item to be an object");
-			const idField = requireObjectRecord(first.id, "Expected RyotQL id field to be an object");
-			const nameField = requireObjectRecord(
-				first.name,
-				"Expected RyotQL name field to be an object",
-			);
 			expect(value.length).toBe(1);
-			expect(nameField.value).toBe("Test Entity");
-			expect(idField.value).toBeDefined();
+			expect(first.name).toBe("Test Entity");
+			expect(first.id).toBeDefined();
 		}),
 	);
 

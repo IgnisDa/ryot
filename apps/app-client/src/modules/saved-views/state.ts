@@ -1,17 +1,18 @@
 import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import type { DownloadResolutionResponse } from "@ryot/contract/modules/uploads/schemas";
-import {
-	decodeSavedViewRecordResponse,
-	type SavedViewRecord,
-} from "@ryot/ryotql-recipes/saved-view-records";
+import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
+import type {
+	SavedViewCardResultItem,
+	SavedViewResult,
+	SavedViewTableResultItem,
+} from "@ryot/ryotql-recipes/saved-views";
 import type { Cause } from "effect";
-import { Result } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
+
+import { isRyotQLMalformedResultCause } from "@/api/ryotql";
 
 import {
 	collectManagedAssets,
-	decodeSavedViewCardData,
-	decodeSavedViewTableData,
 	resolvedAssetUrls,
 	type SavedViewCardItem,
 	type SavedViewDisplayData,
@@ -40,6 +41,13 @@ export type SavedViewResultState =
 	  } & SavedViewActiveData);
 
 export type SavedViewReadyState = Extract<SavedViewResultState, { status: "ready" }>;
+
+export type SavedViewRecordState =
+	| { readonly status: "loading" }
+	| { readonly status: "not-found" }
+	| { readonly status: "malformed"; readonly cause: unknown }
+	| { readonly status: "transport-error"; readonly cause: unknown }
+	| { readonly status: "ready"; readonly record: SavedViewRecord };
 
 type SavedViewItem = SavedViewCardItem | SavedViewTableItem;
 type SavedViewPageInfo = SavedViewDisplayData<SavedViewCardItem>["pageInfo"];
@@ -166,56 +174,61 @@ export const savedViewError = (state: {
 				detail: "The saved view returned data that could not be displayed. Try again later.",
 			};
 
-export const mapSavedViewRecord = (result: AsyncResult.AsyncResult<unknown, unknown>) => {
+export const mapSavedViewRecord = (
+	result: AsyncResult.AsyncResult<SavedViewRecord | undefined, unknown>,
+): SavedViewRecordState => {
 	if (AsyncResult.isFailure(result)) {
-		return { status: "transport-error", cause: result.cause } as const;
+		return {
+			cause: result.cause,
+			status: isRyotQLMalformedResultCause(result.cause) ? "malformed" : "transport-error",
+		} as const;
 	}
 	if (!AsyncResult.isSuccess(result)) {
 		return { status: "loading" } as const;
 	}
-	const decoded = decodeSavedViewRecordResponse(result.value);
-	if (Result.isFailure(decoded)) {
-		return { status: "malformed", cause: decoded.failure } as const;
+	if (result.value === undefined) {
+		return { status: "not-found" } as const;
 	}
-	return decoded.success === null
-		? ({ status: "not-found" } as const)
-		: ({ status: "ready", record: decoded.success } as const);
+	return { status: "ready", record: result.value } as const;
 };
 
-export const mapSavedViewResult = (
-	result: AsyncResult.AsyncResult<unknown, unknown>,
-	record: SavedViewRecord,
+const savedViewImage = (image: SavedViewCardResultItem["image"]) => {
+	if (image === undefined) {
+		return { type: "unconfigured" } as const;
+	}
+	if (image === null) {
+		return { type: "missing" } as const;
+	}
+	return { type: "asset", locator: image } as const;
+};
+
+export const savedViewReadyState = (
+	result: SavedViewResult<SavedViewCardResultItem | SavedViewTableResultItem>,
 	layout: SavedViewLayout,
-): SavedViewResultState => {
-	if (AsyncResult.isFailure(result)) {
-		return { status: "transport-error", cause: result.cause };
-	}
-	if (!AsyncResult.isSuccess(result)) {
-		return { status: "loading" };
-	}
+): SavedViewReadyState => {
 	if (layout === "table") {
-		const decoded = decodeSavedViewTableData(result.value, record.layouts.table);
-		if (Result.isFailure(decoded)) {
-			return { status: "malformed", cause: decoded.failure };
-		}
-		const items = deduplicateSavedViewItems(decoded.success.items);
+		const items = deduplicateSavedViewItems(
+			result.items
+				.filter((item): item is SavedViewTableResultItem => "cells" in item)
+				.map((item) => Object.assign(item, { image: savedViewImage(item.image) })),
+		);
 		return {
 			layout,
 			status: "ready",
-			data: { ...decoded.success, items },
+			data: { ...result, items },
 			assets: collectManagedAssets(items),
 			entityIds: items.map((item) => item.entityId),
 		};
 	}
-	const decoded = decodeSavedViewCardData(result.value, record.layouts[layout]);
-	if (Result.isFailure(decoded)) {
-		return { status: "malformed", cause: decoded.failure };
-	}
-	const items = deduplicateSavedViewItems(decoded.success.items);
+	const items = deduplicateSavedViewItems(
+		result.items
+			.filter((item): item is SavedViewCardResultItem => "title" in item)
+			.map((item) => Object.assign(item, { image: savedViewImage(item.image) })),
+	);
 	return {
 		layout,
 		status: "ready",
-		data: { ...decoded.success, items },
+		data: { ...result, items },
 		assets: collectManagedAssets(items),
 		entityIds: items.map((item) => item.entityId),
 	};

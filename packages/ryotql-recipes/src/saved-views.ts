@@ -1,45 +1,53 @@
-import { NumberFieldValue } from "@ryot/contract/modules/ryotql/language";
-import type {
-	FieldSelection,
-	OrderBy,
-	Predicate,
-	RyotQLDocument,
-	ScalarExpression,
+import {
+	JsonValue,
+	rowsResultSchema,
+	type FieldSelection,
+	type JsonValue as JsonValueType,
+	type OrderBy,
+	type Predicate,
+	type RyotQLDocument,
+	type ScalarExpression,
 } from "@ryot/contract/modules/ryotql/language";
 import type {
 	SavedViewCardMapping,
+	SavedViewDisplayKind,
+	SavedViewDisplayValue,
 	SavedViewTableMapping,
 } from "@ryot/contract/modules/saved-views/schemas";
-import { strictStruct } from "@ryot/contract/schema/utils";
 import {
-	aggregate,
+	AssetLocator,
+	type AssetLocator as AssetLocatorType,
+} from "@ryot/contract/modules/uploads/schemas";
+import {
 	and,
 	ascending,
 	column,
+	defineRecipe,
 	document,
 	eq,
 	field,
 	inArray,
 	literal,
-	measure,
+	type PreparedRecipe,
 	rows,
+	selectedAggregate,
+	selectedMeasure,
 	table,
 } from "@ryot/ryotql";
-import { Result, Schema } from "effect";
+import { DateTime, Option, Result, Schema } from "effect";
 
-const savedViewCountResponse = strictStruct({
-	data: strictStruct({
-		savedViewCount: strictStruct({
-			type: Schema.Literal("aggregate"),
-			items: Schema.NonEmptyArray(strictStruct({ total: NumberFieldValue })),
-		}),
-	}),
-});
+type DisplayExpression = {
+	readonly expression: ScalarExpression;
+	readonly displayKind: SavedViewDisplayKind;
+};
 
 type CardExpressions = {
-	[Key in keyof SavedViewCardMapping as Key extends `${infer Name}Field`
-		? Name
-		: never]: Key extends "titleField" ? ScalarExpression : ScalarExpression | null;
+	readonly title: ScalarExpression;
+	readonly image: ScalarExpression | null;
+	readonly callout: DisplayExpression | null;
+	readonly overline: DisplayExpression | null;
+	readonly primaryMetadata: DisplayExpression | null;
+	readonly secondaryMetadata: DisplayExpression | null;
 };
 
 type TableColumnExpression = Omit<SavedViewTableMapping["columns"][number], "field"> & {
@@ -76,23 +84,35 @@ const cardProjection = (input: CardProjectionInput) => {
 			field(entityId, input.entityId),
 			field(title, input.card.title),
 			...(input.card.image === null ? [] : [field(image, input.card.image)]),
-			...(input.card.overline === null ? [] : [field(overline, input.card.overline)]),
-			...(input.card.callout === null ? [] : [field(callout, input.card.callout)]),
+			...(input.card.overline === null ? [] : [field(overline, input.card.overline.expression)]),
+			...(input.card.callout === null ? [] : [field(callout, input.card.callout.expression)]),
 			...(input.card.primaryMetadata === null
 				? []
-				: [field(primaryMetadata, input.card.primaryMetadata)]),
+				: [field(primaryMetadata, input.card.primaryMetadata.expression)]),
 			...(input.card.secondaryMetadata === null
 				? []
-				: [field(secondaryMetadata, input.card.secondaryMetadata)]),
+				: [field(secondaryMetadata, input.card.secondaryMetadata.expression)]),
 		] satisfies readonly FieldSelection[],
 		mappings: {
 			titleField: title,
 			entityIdField: entityId,
 			imageField: input.card.image === null ? null : image,
-			calloutField: input.card.callout === null ? null : callout,
-			overlineField: input.card.overline === null ? null : overline,
-			primaryMetadataField: input.card.primaryMetadata === null ? null : primaryMetadata,
-			secondaryMetadataField: input.card.secondaryMetadata === null ? null : secondaryMetadata,
+			callout:
+				input.card.callout === null
+					? null
+					: { field: callout, displayKind: input.card.callout.displayKind },
+			overline:
+				input.card.overline === null
+					? null
+					: { field: overline, displayKind: input.card.overline.displayKind },
+			primaryMetadata:
+				input.card.primaryMetadata === null
+					? null
+					: { field: primaryMetadata, displayKind: input.card.primaryMetadata.displayKind },
+			secondaryMetadata:
+				input.card.secondaryMetadata === null
+					? null
+					: { field: secondaryMetadata, displayKind: input.card.secondaryMetadata.displayKind },
 		} satisfies SavedViewCardMapping & { readonly entityIdField: string },
 	};
 };
@@ -102,10 +122,15 @@ const tableProjection = (input: TableProjectionInput) => {
 	const image = "image";
 	const [firstTableColumn, ...remainingTableColumns] = input.columns;
 	const columns = [
-		{ field: "column0", label: firstTableColumn.label },
+		{
+			field: "column0",
+			label: firstTableColumn.label,
+			displayKind: firstTableColumn.displayKind,
+		},
 		...remainingTableColumns.map((tableColumn, index) => ({
 			label: tableColumn.label,
 			field: `column${index + 1}`,
+			displayKind: tableColumn.displayKind,
 		})),
 	] as const;
 
@@ -129,14 +154,76 @@ export const buildSavedViewLayoutProjections = (input: SavedViewLayoutProjection
 	table: tableProjection(input.table),
 });
 
-export const buildSavedViewDocument = (input: {
+type SavedViewMapping =
+	| {
+			readonly type: "card";
+			readonly mapping: SavedViewCardMapping & { readonly entityIdField: string };
+	  }
+	| {
+			readonly type: "table";
+			readonly mapping: SavedViewTableMapping & { readonly entityIdField: string };
+	  };
+
+type SavedViewGeneratedSource = {
+	readonly type: "generated";
 	readonly after?: string | undefined;
 	readonly limit?: number | undefined;
 	readonly where?: Predicate | undefined;
 	readonly fields: readonly FieldSelection[];
 	readonly orderBy?: readonly OrderBy[] | undefined;
 	readonly entitySchemaSlugs: readonly [string, ...string[]];
-}) => {
+};
+
+type SavedViewPersistedSource = {
+	readonly type: "persisted";
+	readonly queryDocument: RyotQLDocument;
+};
+
+type SavedViewCardRecipeInput = {
+	readonly layout: Extract<SavedViewMapping, { readonly type: "card" }>;
+	readonly source: SavedViewGeneratedSource | SavedViewPersistedSource;
+};
+
+type SavedViewTableRecipeInput = {
+	readonly layout: Extract<SavedViewMapping, { readonly type: "table" }>;
+	readonly source: SavedViewGeneratedSource | SavedViewPersistedSource;
+};
+
+type SavedViewRecipeInput = {
+	readonly layout: SavedViewMapping;
+	readonly source: SavedViewGeneratedSource | SavedViewPersistedSource;
+};
+
+export type SavedViewCardResultItem = {
+	readonly title: string;
+	readonly entityId: string;
+	readonly image: AssetLocatorType | null | undefined;
+	readonly callout?: SavedViewDisplayValue | undefined;
+	readonly overline?: SavedViewDisplayValue | undefined;
+	readonly primaryMetadata?: SavedViewDisplayValue | undefined;
+	readonly secondaryMetadata?: SavedViewDisplayValue | undefined;
+};
+
+export type SavedViewTableResultItem = {
+	readonly entityId: string;
+	readonly image: AssetLocatorType | null | undefined;
+	readonly cells: readonly {
+		readonly key: string;
+		readonly label: string;
+		readonly value: SavedViewDisplayValue;
+	}[];
+};
+
+export type SavedViewResult<Item extends SavedViewCardResultItem | SavedViewTableResultItem> = {
+	readonly items: readonly Item[];
+	readonly pageInfo: {
+		readonly limit: number;
+		readonly hasMore: boolean;
+		readonly nextCursor: string | null;
+	};
+};
+
+const generatedDocument = (input: SavedViewGeneratedSource) => {
 	const entity = table("entity", "entity");
 	const schema = column(entity, "entitySchemaSlug");
 	const schemaFilter =
@@ -158,28 +245,212 @@ export const buildSavedViewDocument = (input: {
 	});
 };
 
-export const buildSavedViewCountDocument = (queryDocument: RyotQLDocument) => {
-	const query = Object.values(queryDocument.queries).at(0);
+const getOnlyRowsQuery = (queryDocument: RyotQLDocument) => {
+	const queries = Object.values(queryDocument.queries);
+	if (queries.length !== 1) {
+		return Result.fail(new Error("Saved-view document must contain exactly one query"));
+	}
+	const [query] = queries;
 	if (!query) {
-		return null;
+		return Result.fail(new Error("Saved-view document must contain one query"));
 	}
 	if (query.output.type !== "rows") {
-		return null;
+		return Result.fail(new Error("Saved-view document query must produce rows"));
 	}
-
-	return document({
-		savedViewCount: aggregate(query.from, {
-			where: query.where,
-			joins: query.joins,
-			measures: [measure("total", { function: "count" })],
-		}),
-	});
+	return Result.succeed(query);
 };
 
-const decodeSavedViewCountResult = Schema.decodeUnknownResult(savedViewCountResponse);
+const displayValue = (
+	value: JsonValueType,
+	displayKind: SavedViewDisplayKind,
+	fieldName: string,
+): Result.Result<SavedViewDisplayValue, Error> => {
+	if (value === null) {
+		return Result.succeed({ displayKind, value } as SavedViewDisplayValue);
+	}
+	if (displayKind === "json") {
+		return Result.succeed({ displayKind, value });
+	}
+	if (displayKind === "date") {
+		return typeof value === "string" && Option.isSome(DateTime.make(value))
+			? Result.succeed({ displayKind, value })
+			: Result.fail(new Error(`Saved-view field '${fieldName}' must be a valid date`));
+	}
+	if (displayKind === "text" && typeof value === "string") {
+		return Result.succeed({ displayKind, value });
+	}
+	if (displayKind === "number" && typeof value === "number") {
+		return Result.succeed({ displayKind, value });
+	}
+	if (displayKind === "boolean" && typeof value === "boolean") {
+		return Result.succeed({ displayKind, value });
+	}
+	return Result.fail(new Error(`Saved-view field '${fieldName}' must be ${displayKind}`));
+};
 
-export const decodeSavedViewCountResponse = (response: unknown) =>
-	Result.map(
-		decodeSavedViewCountResult(response),
-		({ data }) => data.savedViewCount.items[0].total.value,
+type SavedViewRawRow = Readonly<Record<string, JsonValueType>>;
+
+const rawField = (row: SavedViewRawRow, fieldName: string): Result.Result<JsonValueType, Error> => {
+	const value = row[fieldName];
+	return value === undefined
+		? Result.fail(new Error(`Saved-view row is missing field '${fieldName}'`))
+		: Result.succeed(value);
+};
+
+const textField = (row: SavedViewRawRow, fieldName: string) =>
+	Result.flatMap(rawField(row, fieldName), (value) =>
+		typeof value === "string"
+			? Result.succeed(value)
+			: Result.fail(new Error(`Saved-view field '${fieldName}' must be text`)),
 	);
+
+const imageField = (row: SavedViewRawRow, fieldName: string | null) => {
+	if (fieldName === null) {
+		return Result.succeed(undefined);
+	}
+	return Result.flatMap(rawField(row, fieldName), (value) =>
+		value === null ? Result.succeed(null) : Schema.decodeUnknownResult(AssetLocator)(value),
+	);
+};
+
+const optionalDisplayField = (row: SavedViewRawRow, mapping: SavedViewCardMapping["callout"]) => {
+	if (mapping === null) {
+		return Result.succeed(undefined);
+	}
+	return Result.flatMap(rawField(row, mapping.field), (value) =>
+		value === null
+			? Result.succeed(undefined)
+			: displayValue(value, mapping.displayKind, mapping.field),
+	);
+};
+
+const cardItem = (
+	row: SavedViewRawRow,
+	mapping: SavedViewCardMapping & { readonly entityIdField: string },
+) =>
+	Result.gen(function* () {
+		const title = yield* textField(row, mapping.titleField);
+		const entityId = yield* textField(row, mapping.entityIdField);
+		const image = yield* imageField(row, mapping.imageField);
+		const callout = yield* optionalDisplayField(row, mapping.callout);
+		const overline = yield* optionalDisplayField(row, mapping.overline);
+		const primaryMetadata = yield* optionalDisplayField(row, mapping.primaryMetadata);
+		const secondaryMetadata = yield* optionalDisplayField(row, mapping.secondaryMetadata);
+		return { title, entityId, image, callout, overline, primaryMetadata, secondaryMetadata };
+	});
+
+const tableItem = (
+	row: SavedViewRawRow,
+	mapping: SavedViewTableMapping & { readonly entityIdField: string },
+) =>
+	Result.gen(function* () {
+		const entityId = yield* textField(row, mapping.entityIdField);
+		const image = yield* imageField(row, mapping.imageField);
+		const cells = yield* Result.all(
+			mapping.columns.map(({ field: fieldName, label, displayKind }) =>
+				Result.flatMap(rawField(row, fieldName), (value) =>
+					Result.map(displayValue(value, displayKind, fieldName), (decoded) => ({
+						label,
+						key: fieldName,
+						value: decoded,
+					})),
+				),
+			),
+		);
+		return { entityId, image, cells };
+	});
+
+const savedViewRows = rowsResultSchema(Schema.Record(Schema.String, JsonValue));
+
+const mappedFields = (layout: SavedViewMapping) => {
+	if (layout.type === "table") {
+		return [
+			layout.mapping.entityIdField,
+			...(layout.mapping.imageField === null ? [] : [layout.mapping.imageField]),
+			...layout.mapping.columns.map(({ field: fieldName }) => fieldName),
+		];
+	}
+	return [
+		layout.mapping.titleField,
+		layout.mapping.entityIdField,
+		...(layout.mapping.imageField === null ? [] : [layout.mapping.imageField]),
+		...[
+			layout.mapping.callout,
+			layout.mapping.overline,
+			layout.mapping.primaryMetadata,
+			layout.mapping.secondaryMetadata,
+		].flatMap((mapping) => (mapping === null ? [] : [mapping.field])),
+	];
+};
+
+const validateMappedFields = (
+	query: RyotQLDocument["queries"][string],
+	layout: SavedViewMapping,
+) => {
+	const selectedFields = new Set(
+		query.output.type === "rows"
+			? query.output.fields.flatMap((selection) => ("key" in selection ? [selection.key] : []))
+			: [],
+	);
+	const missing = mappedFields(layout).filter((fieldName) => !selectedFields.has(fieldName));
+	if (missing.length > 0) {
+		throw new TypeError(`Saved-view layout references unselected fields: ${missing.join(", ")}`);
+	}
+};
+
+const savedViewQuery = (query: RyotQLDocument["queries"][string], layout: SavedViewMapping) => ({
+	document: query,
+	decodeResult: (result: unknown) =>
+		Result.flatMap(Schema.decodeUnknownResult(savedViewRows)(result), ({ items, pageInfo }) =>
+			Result.map(
+				Result.all(
+					layout.type === "card"
+						? items.map((row) => cardItem(row, layout.mapping))
+						: items.map((row) => tableItem(row, layout.mapping)),
+				),
+				(decodedItems) => ({ items: decodedItems, pageInfo }),
+			),
+		),
+});
+
+export function savedViewRecipe(
+	input: SavedViewCardRecipeInput,
+): PreparedRecipe<SavedViewResult<SavedViewCardResultItem>>;
+export function savedViewRecipe(
+	input: SavedViewTableRecipeInput,
+): PreparedRecipe<SavedViewResult<SavedViewTableResultItem>>;
+export function savedViewRecipe(
+	input: SavedViewRecipeInput,
+): PreparedRecipe<SavedViewResult<SavedViewCardResultItem | SavedViewTableResultItem>>;
+export function savedViewRecipe(
+	input: SavedViewRecipeInput,
+): PreparedRecipe<SavedViewResult<SavedViewCardResultItem | SavedViewTableResultItem>> {
+	const queryDocument =
+		input.source.type === "generated"
+			? generatedDocument(input.source)
+			: input.source.queryDocument;
+	const query = Result.getOrThrow(getOnlyRowsQuery(queryDocument));
+	validateMappedFields(query, input.layout);
+	const recipe = defineRecipe(() => ({
+		map: ({ savedView }) => Result.succeed(savedView),
+		queries: { savedView: savedViewQuery(query, input.layout) },
+	}));
+	return recipe();
+}
+
+export const savedViewCountRecipe = (
+	queryDocument: RyotQLDocument,
+): Result.Result<PreparedRecipe<number>, Error> =>
+	Result.map(getOnlyRowsQuery(queryDocument), (query) => {
+		const recipe = defineRecipe(() => ({
+			queries: {
+				savedViewCount: selectedAggregate(query.from, {
+					where: query.where,
+					joins: query.joins,
+					measures: { total: selectedMeasure({ function: "count" }, Schema.Number) },
+				}),
+			},
+			map: ({ savedViewCount }) => Result.succeed(savedViewCount.total),
+		}));
+		return recipe();
+	});

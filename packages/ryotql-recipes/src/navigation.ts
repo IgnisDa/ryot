@@ -1,151 +1,87 @@
 import {
-	BooleanFieldValue,
-	NullFieldValue,
-	NumberFieldValue,
-	TextFieldValue,
-	rowsResultSchema,
-} from "@ryot/contract/modules/ryotql/language";
-import {
 	ascending,
 	castText,
 	column,
-	document,
+	defineRecipe,
 	eq,
-	field,
 	join,
 	jsonPath,
 	literal,
-	rows,
 	table,
+	selectedField,
+	selectedRows,
+	type Recipe,
 } from "@ryot/ryotql";
 import { Result, Schema } from "effect";
 
-const navigationResponse = Schema.Struct({
-	data: Schema.Struct({
-		workspaces: rowsResultSchema(
-			Schema.Struct({
-				name: TextFieldValue,
-				slug: TextFieldValue,
-				icon: TextFieldValue,
-				sortOrder: Schema.Union([NumberFieldValue, NullFieldValue]),
-				isDisabled: Schema.Union([BooleanFieldValue, NullFieldValue]),
-			}),
-		),
-		savedViews: rowsResultSchema(
-			Schema.Struct({
-				name: TextFieldValue,
-				slug: TextFieldValue,
-				icon: TextFieldValue,
-				sortOrder: NumberFieldValue,
-				isDisabled: BooleanFieldValue,
-				pluginSlug: Schema.Union([TextFieldValue, NullFieldValue]),
-			}),
-		),
-		collections: rowsResultSchema(Schema.Struct({ id: TextFieldValue, name: TextFieldValue })),
-	}),
-});
+const plugin = table("plugin", "plugin");
+const state = table("pluginState", "state");
+const collection = table("entity", "collection");
+const savedView = table("savedView", "savedView");
+const metadata = jsonPath(column(plugin, "manifest"), "metadata");
 
-export const NavigationWorkspace = Schema.Struct({
-	name: Schema.String,
-	slug: Schema.String,
-	icon: Schema.String,
-	sortOrder: Schema.Number,
-	isDisabled: Schema.Boolean,
-});
-export type NavigationWorkspace = typeof NavigationWorkspace.Type;
-
-export const NavigationView = Schema.Struct({
-	name: Schema.String,
-	slug: Schema.String,
-	icon: Schema.String,
-	sortOrder: Schema.Number,
-	isDisabled: Schema.Boolean,
-	pluginSlug: Schema.NullOr(Schema.String),
-});
-export type NavigationView = typeof NavigationView.Type;
-
-export const NavigationData = Schema.Struct({
-	savedViews: Schema.Array(NavigationView),
-	collections: Schema.Array(NavigationView),
-	workspaces: Schema.Array(NavigationWorkspace),
-});
-export type NavigationData = typeof NavigationData.Type;
-
-const decodeNavigationResult = Schema.decodeUnknownResult(navigationResponse);
-
-export const buildNavigationDocument = () => {
-	const plugin = table("plugin", "plugin");
-	const state = table("pluginState", "state");
-	const collection = table("entity", "collection");
-	const savedView = table("savedView", "savedView");
-	const metadata = jsonPath(column(plugin, "manifest"), "metadata");
-
-	return document({
-		workspaces: rows(plugin, {
+export const navigationRecipe = defineRecipe(() => ({
+	queries: {
+		workspaces: selectedRows(plugin, {
 			limit: 100,
 			where: eq(column(plugin, "status"), literal("active")),
 			orderBy: [ascending(column(plugin, "ingestedAt")), ascending(column(plugin, "slug"))],
 			joins: [join("left", state, eq(column(plugin, "slug"), column(state, "pluginSlug")))],
-			fields: [
-				field("slug", column(plugin, "slug")),
-				field("name", castText(jsonPath(metadata, "name"))),
-				field("icon", castText(jsonPath(metadata, "icon"))),
-				field("sortOrder", column(state, "sortOrder")),
-				field("isDisabled", column(state, "isDisabled")),
-			],
+			selection: {
+				slug: selectedField(column(plugin, "slug"), Schema.String),
+				name: selectedField(castText(jsonPath(metadata, "name")), Schema.String),
+				icon: selectedField(castText(jsonPath(metadata, "icon")), Schema.String),
+				sortOrder: selectedField(column(state, "sortOrder"), Schema.NullOr(Schema.Number)),
+				isDisabled: selectedField(column(state, "isDisabled"), Schema.NullOr(Schema.Boolean)),
+			},
 		}),
-		savedViews: rows(savedView, {
+		savedViews: selectedRows(savedView, {
 			limit: 100,
 			orderBy: [
 				ascending(column(savedView, "pluginSlug")),
 				ascending(column(savedView, "sortOrder")),
 				ascending(column(savedView, "createdAt")),
 			],
-			fields: [
-				field("slug", column(savedView, "slug")),
-				field("name", column(savedView, "name")),
-				field("icon", column(savedView, "icon")),
-				field("sortOrder", column(savedView, "sortOrder")),
-				field("isDisabled", column(savedView, "isDisabled")),
-				field("pluginSlug", column(savedView, "pluginSlug")),
-			],
+			selection: {
+				slug: selectedField(column(savedView, "slug"), Schema.String),
+				name: selectedField(column(savedView, "name"), Schema.String),
+				icon: selectedField(column(savedView, "icon"), Schema.String),
+				sortOrder: selectedField(column(savedView, "sortOrder"), Schema.Number),
+				isDisabled: selectedField(column(savedView, "isDisabled"), Schema.Boolean),
+				pluginSlug: selectedField(column(savedView, "pluginSlug"), Schema.NullOr(Schema.String)),
+			},
 		}),
-		collections: rows(collection, {
+		collections: selectedRows(collection, {
 			limit: 100,
 			orderBy: [ascending(column(collection, "name"))],
 			where: eq(column(collection, "entitySchemaSlug"), literal("collection")),
-			fields: [field("id", column(collection, "id")), field("name", column(collection, "name"))],
+			selection: {
+				id: selectedField(column(collection, "id"), Schema.String),
+				name: selectedField(column(collection, "name"), Schema.String),
+			},
 		}),
-	});
-};
+	},
+	map: ({ collections, savedViews, workspaces }) =>
+		Result.succeed({
+			workspaces: workspaces.items.map((workspace, index) => ({
+				name: workspace.name,
+				slug: workspace.slug,
+				icon: workspace.icon,
+				sortOrder: workspace.sortOrder ?? index,
+				isDisabled: workspace.isDisabled ?? false,
+			})),
+			savedViews: savedViews.items,
+			collections: collections.items.map((item, index) => ({
+				name: item.name,
+				slug: item.id,
+				sortOrder: index,
+				icon: "layers-3",
+				pluginSlug: null,
+				isDisabled: false,
+			})),
+		}),
+}));
 
-export const decodeNavigationResponse = (response: unknown) =>
-	Result.map(
-		decodeNavigationResult(response),
-		({ data }) =>
-			({
-				workspaces: data.workspaces.items.map((row, index) => ({
-					name: row.name.value,
-					slug: row.slug.value,
-					icon: row.icon.value,
-					sortOrder: row.sortOrder.kind === "number" ? row.sortOrder.value : index,
-					isDisabled: row.isDisabled.kind === "boolean" ? row.isDisabled.value : false,
-				})),
-				savedViews: data.savedViews.items.map((row) => ({
-					name: row.name.value,
-					slug: row.slug.value,
-					icon: row.icon.value,
-					sortOrder: row.sortOrder.value,
-					isDisabled: row.isDisabled.value,
-					pluginSlug: row.pluginSlug.kind === "text" ? row.pluginSlug.value : null,
-				})),
-				collections: data.collections.items.map((row, index) => ({
-					sortOrder: index,
-					icon: "layers-3",
-					pluginSlug: null,
-					isDisabled: false,
-					slug: row.id.value,
-					name: row.name.value,
-				})),
-			}) satisfies NavigationData,
-	);
+export type NavigationData = Recipe.Success<typeof navigationRecipe>;
+export type NavigationView = NavigationData["savedViews"][number];
+export type NavigationWorkspace = NavigationData["workspaces"][number];

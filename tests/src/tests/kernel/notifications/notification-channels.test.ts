@@ -13,7 +13,7 @@ import {
 	rows,
 	table,
 } from "@ryot/ryotql";
-import { buildNotificationChannelsDocument } from "@ryot/ryotql-recipes/notification-channels";
+import { notificationChannelsRecipe } from "@ryot/ryotql-recipes/notification-channels";
 import { Effect } from "effect";
 
 import {
@@ -29,7 +29,7 @@ import {
 	pollTerminalSubscriptionRuns,
 	pollUntil,
 	requireRows,
-	requireRyotQLFieldValue,
+	requireRyotQLValue,
 	startFakeAppriseServer,
 	testNotificationChannels,
 	updateNotificationChannel,
@@ -204,7 +204,7 @@ describe("notification channel RyotQL authorization", () => {
 			);
 
 			const directRows = requireRows(result.data.directRoot, "directRoot");
-			expect(directRows.items.map((item) => requireRyotQLFieldValue(item, "id").value)).toEqual([
+			expect(directRows.items.map((item) => requireRyotQLValue(item, "id"))).toEqual([
 				ownerChannelId,
 			]);
 
@@ -212,10 +212,7 @@ describe("notification channel RyotQL authorization", () => {
 				requireRows(result.data.craftedJoin, "craftedJoin").items[0],
 				"Expected crafted join row",
 			);
-			expect(requireRyotQLFieldValue(joinedRow, "otherDescription")).toEqual({
-				kind: "null",
-				value: null,
-			});
+			expect(requireRyotQLValue(joinedRow, "otherDescription")).toBeNull();
 
 			const includedRow = requirePresent(
 				requireRows(result.data.craftedInclude, "craftedInclude").items[0],
@@ -231,10 +228,7 @@ describe("notification channel RyotQL authorization", () => {
 				requireRows(result.data.correlated, "correlated").items[0],
 				"Expected correlated row",
 			);
-			expect(requireRyotQLFieldValue(correlatedRow, "hasOtherChannel")).toEqual({
-				value: false,
-				kind: "boolean",
-			});
+			expect(requireRyotQLValue(correlatedRow, "hasOtherChannel")).toBe(false);
 		}),
 	);
 });
@@ -311,7 +305,7 @@ describe("notification delivery", () => {
 
 			const error = yield* Effect.flip(
 				getBackendClient().call((c) =>
-					c.ryotql.execute({ payload: buildNotificationChannelsDocument({ limit: 100 }) }),
+					c.ryotql.execute({ payload: notificationChannelsRecipe({ limit: 100 }).document }),
 				),
 			);
 			assertTaggedError(error, "Unauthorized");

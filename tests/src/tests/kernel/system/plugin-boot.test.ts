@@ -1,10 +1,10 @@
 import type { ChildProcess } from "node:child_process";
 
-import { buildExerciseListQueryDocument } from "@ryot/fitness-plugin/query-recipes";
+import { exerciseListRecipe } from "@ryot/fitness-plugin/query-recipes";
 import { Duration, Effect } from "effect";
 import getPort from "get-port";
 
-import { createAuthenticatedClient, executeRyotQL, requireRows } from "~/fixtures";
+import { createAuthenticatedClient, executeRyotQLRecipe } from "~/fixtures";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 import {
 	buildBackendEnv,
@@ -61,13 +61,12 @@ describe("Plugin boot dispatch", () => {
 
 			yield* Effect.sleep(Duration.seconds(5));
 
-			const result = yield* executeRyotQL(
+			const result = yield* executeRyotQLRecipe(
 				client,
-				buildExerciseListQueryDocument({ limit: 1, name: SEEDED_EXERCISE_NAME }),
+				exerciseListRecipe({ limit: 1, name: SEEDED_EXERCISE_NAME }),
 			);
-			const exercises = requireRows(result.data["exercises"], "exercises");
 
-			expect(exercises.items).toHaveLength(0);
+			expect(result.items).toHaveLength(0);
 		}),
 	);
 });

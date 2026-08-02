@@ -1,12 +1,14 @@
 import { AppContract } from "@ryot/contract/contract";
-import { Effect, Layer, Schedule } from "effect";
+import type { PreparedRecipe } from "@ryot/ryotql";
+import { Effect, Layer, Result, Schedule } from "effect";
 import type { AsyncResult } from "effect/unstable/reactivity";
-import { Atom, AtomHttpApi } from "effect/unstable/reactivity";
+import { AsyncResult as AsyncResultValue, Atom, AtomHttpApi } from "effect/unstable/reactivity";
 import * as Network from "expo-network";
 import { AppState } from "react-native";
 
 import { resolveApiUrl } from "./origin";
 import { apiScopeKey, canonicalApiScope, type ApiScope, serverRequestKey } from "./request-key";
+import { RyotQLMalformedResultError } from "./ryotql";
 import {
 	authenticatedExpoContractClient,
 	authenticatedRequestLayer,
@@ -18,6 +20,14 @@ import {
 const retrySchedule = Schedule.exponential("1 second").pipe(Schedule.upTo({ times: 3 }));
 
 export const retryQueryResponse = Effect.retry(retrySchedule);
+
+const decodeRecipe = <Success>(recipe: PreparedRecipe<Success>, response: unknown) =>
+	Result.mapError(recipe.decode(response), (detail) => new RyotQLMalformedResultError(detail));
+
+const decodeRecipeEffect = <Success>(recipe: PreparedRecipe<Success>, response: unknown) => {
+	const decoded = decodeRecipe(recipe, response);
+	return Result.isFailure(decoded) ? Effect.fail(decoded.failure) : Effect.succeed(decoded.success);
+};
 
 export const appRevalidationSignal = Atom.readable((get) => {
 	let version = 0;
@@ -59,6 +69,7 @@ export function withAppQueryDefaults<A, E>(query: Atom.Atom<AsyncResult.AsyncRes
 }
 
 const createAppClient = (scope: ApiScope) => {
+	const request = authenticatedExpoContractClient(scope.serverUrl);
 	const appApi = AtomHttpApi.Service()("AppApi", {
 		api: AppContract,
 		httpClient: authenticatedRequestLayer(scope.serverUrl).pipe(
@@ -77,11 +88,49 @@ const createAppClient = (scope: ApiScope) => {
 			return withAppQueryDefaults(Reflect.apply(target, thisArg, argumentsList));
 		},
 	});
+	const executeRecipe = <Success>(recipe: PreparedRecipe<Success>) =>
+		request.pipe(
+			Effect.flatMap((client) => client.ryotql.execute({ payload: recipe.document })),
+			retryQueryResponse,
+			Effect.flatMap((response) => decodeRecipeEffect(recipe, response)),
+		);
 	return {
 		query,
+		request,
 		mutation: appApi.mutation,
-		request: authenticatedExpoContractClient(scope.serverUrl),
 		resolveApiUrl: (url: string) => resolveApiUrl(scope.serverUrl, url),
+		ryotql: {
+			execute: executeRecipe,
+			query: <Success>(
+				recipe: PreparedRecipe<Success>,
+				options: { readonly reactivityKeys?: readonly unknown[] | undefined } = {},
+			) => {
+				const decodedQuery = queryApi
+					.query("ryotql", "execute", { ...options, payload: recipe.document })
+					.pipe(
+						Atom.map((result): AsyncResult.AsyncResult<Success, unknown> => {
+							if (AsyncResultValue.isFailure(result)) {
+								return AsyncResultValue.failure<Success, unknown>(result.cause, {
+									waiting: result.waiting,
+								});
+							}
+							if (!AsyncResultValue.isSuccess(result)) {
+								return AsyncResultValue.initial<Success, unknown>(result.waiting);
+							}
+							const decoded = decodeRecipe(recipe, result.value);
+							return Result.isFailure(decoded)
+								? AsyncResultValue.fail(decoded.failure, {
+										waiting: result.waiting,
+									})
+								: AsyncResultValue.success(decoded.success, {
+										waiting: result.waiting,
+										timestamp: result.timestamp,
+									});
+						}),
+					);
+				return withAppQueryDefaults(decodedQuery);
+			},
+		},
 	};
 };
 

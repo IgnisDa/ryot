@@ -1,4 +1,4 @@
-import { buildSavedViewDocument } from "@ryot/ryotql-recipes/saved-views";
+import { savedViewRecipe } from "@ryot/ryotql-recipes/saved-views";
 import { Effect } from "effect";
 
 import {
@@ -14,17 +14,22 @@ import {
 	reorderSavedViews,
 	rowsDocument,
 	rowsFields,
+	rowsLayouts,
 	updateSavedViewWithGridDocument,
 } from "~/fixtures";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
-const buildSchemaRowsDocument = (slug: string) =>
-	buildSavedViewDocument({
-		limit: 2,
-		entitySchemaSlugs: [slug],
-		fields: rowsFields,
-	});
+const schemaRowsDocument = (slug: string) =>
+	savedViewRecipe({
+		layout: { type: "card", mapping: rowsLayouts.grid },
+		source: {
+			type: "generated",
+			limit: 2,
+			entitySchemaSlugs: [slug],
+			fields: rowsFields,
+		},
+	}).document;
 
 const buildBuiltinUpdatePayload = (view: Effect.Success<ReturnType<typeof getSavedView>>) => ({
 	icon: view.icon,
@@ -65,7 +70,7 @@ describe("saved views management", () => {
 				layouts: {
 					grid: {
 						queryDocument: {
-							queries: { collections: { from: { table: "entity", alias: "collection" } } },
+							queries: { savedView: { from: { table: "entity", alias: "entity" } } },
 						},
 					},
 				},
@@ -211,7 +216,7 @@ describe("saved views management", () => {
 			const { pluginSlug, slug } = yield* createPluginEntitySchema(client, {
 				schemaName: `SavedViewTracked ${crypto.randomUUID()}`,
 			});
-			const viewDocument = buildSchemaRowsDocument(slug);
+			const viewDocument = schemaRowsDocument(slug);
 
 			const trackerViewA = yield* createSavedViewWithGridDocument(client, viewDocument, {
 				entitySchemaSlug: slug,

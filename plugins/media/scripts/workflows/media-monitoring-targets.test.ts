@@ -6,8 +6,6 @@ import { describe, expect, it } from "vitest";
 import { execution } from "../automations/automation-test-utils";
 import definition, { manifest } from "./media-monitoring-targets.sandbox";
 
-const field = (value: string) => ({ kind: "text", value });
-
 describe("media monitoring targets", () => {
 	it("extracts provider ids from global monitorable roots and preserves cursor pagination", async () => {
 		const documents: unknown[] = [];
@@ -22,10 +20,10 @@ describe("media monitoring targets", () => {
 								pageInfo: { hasMore: true, limit: 100, nextCursor: "next-targets" },
 								items: [
 									{
-										entityId: field("entity-a"),
-										externalId: field("external-a"),
-										providerId: field("provider-a"),
-										entitySchemaSlug: field("movie"),
+										entityId: "entity-a",
+										externalId: "external-a",
+										providerId: "provider-a",
+										entitySchemaSlug: "movie",
 									},
 								],
 							},

@@ -1,9 +1,9 @@
 import type { IncludeResult, RowItem } from "@ryot/contract/modules/ryotql/language";
 import type { AssetLocator } from "@ryot/contract/modules/uploads/schemas";
 import {
-	buildWorkoutDetailQueryDocument,
-	buildWorkoutTemplateDetailQueryDocument,
-	buildWorkoutTemplateListQueryDocument,
+	workoutDetailRecipe,
+	workoutTemplateDetailRecipe,
+	workoutTemplateListRecipe,
 } from "@ryot/fitness-plugin/query-recipes";
 import { Effect } from "effect";
 
@@ -12,7 +12,7 @@ import {
 	createEntity,
 	createCollection,
 	createWorkoutTemplateEntityFixture,
-	executeRyotQL,
+	executeRyotQLRecipe,
 	findBuiltinRelationshipSchemaSlug,
 	findBuiltinSchemaBySlug,
 	findBuiltinPluginBySlug,
@@ -21,10 +21,9 @@ import {
 	listEntitySchemas,
 	listSavedViews,
 	waitForSeededExerciseIds,
-	requireRyotQLFieldValue,
-	requireRows,
+	requireRyotQLValue,
 } from "~/fixtures";
-import { assertCondition, assertPresent } from "~/support/assertions";
+import { assertCondition, assertPresent, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 type WorkoutTemplateProperties = {
@@ -53,10 +52,32 @@ type WorkoutTemplateProperties = {
 
 const requireRyotQLInclude = (item: RowItem, key: string): IncludeResult => {
 	const value = item[key];
-	if (!value || !("items" in value)) {
+	if (!isIncludeResult(value)) {
 		throw new Error(`Expected '${key}' include`);
 	}
 	return value;
+};
+
+const isIncludeResult = (value: unknown): value is IncludeResult => {
+	if (
+		typeof value !== "object" ||
+		value === null ||
+		!("items" in value) ||
+		!("pageInfo" in value) ||
+		!Array.isArray(value.items)
+	) {
+		return false;
+	}
+	const pageInfo = value.pageInfo;
+	return (
+		typeof pageInfo === "object" &&
+		pageInfo !== null &&
+		"limit" in pageInfo &&
+		"hasMore" in pageInfo &&
+		typeof pageInfo.limit === "number" &&
+		typeof pageInfo.hasMore === "boolean" &&
+		value.items.every((item) => typeof item === "object" && item !== null && !Array.isArray(item))
+	);
 };
 
 describe("Workout Templates E2E", () => {
@@ -214,29 +235,27 @@ describe("Workout Templates E2E", () => {
 					layouts: {
 						grid: {
 							imageField: null,
-							calloutField: null,
 							titleField: "title",
 							entityIdField: "entityId",
-							overlineField: "overline",
-							primaryMetadataField: "primaryMetadata",
-							secondaryMetadataField: "secondaryMetadata",
+							overline: { field: "overline", displayKind: "text" },
+							primaryMetadata: { field: "primaryMetadata", displayKind: "date" },
+							secondaryMetadata: { field: "secondaryMetadata", displayKind: "text" },
 						},
 						list: {
 							imageField: null,
-							calloutField: null,
 							titleField: "title",
 							entityIdField: "entityId",
-							overlineField: "overline",
-							primaryMetadataField: "primaryMetadata",
-							secondaryMetadataField: "secondaryMetadata",
+							overline: { field: "overline", displayKind: "text" },
+							primaryMetadata: { field: "primaryMetadata", displayKind: "date" },
+							secondaryMetadata: { field: "secondaryMetadata", displayKind: "text" },
 						},
 						table: {
 							imageField: null,
 							entityIdField: "entityId",
 							columns: [
-								{ label: "Name", field: "column0" },
-								{ label: "Created At", field: "column1" },
-								{ label: "Comment", field: "column2" },
+								{ label: "Name", field: "column0", displayKind: "text" },
+								{ label: "Created At", field: "column1", displayKind: "date" },
+								{ label: "Comment", field: "column2", displayKind: "text" },
 							],
 						},
 					},
@@ -256,16 +275,15 @@ describe("Workout Templates E2E", () => {
 
 				const { workoutTemplate, workoutTemplateId } =
 					yield* createWorkoutTemplateEntityFixture(client);
-				const result = yield* executeRyotQL(
+				const result = yield* executeRyotQLRecipe(
 					client,
-					buildWorkoutTemplateListQueryDocument({ entityId: workoutTemplateId }),
+					workoutTemplateListRecipe({ entityId: workoutTemplateId }),
 				);
-				const templates = requireRows(result.data["workoutTemplates"], "workoutTemplates");
 
-				const firstTemplate = templates.items[0];
+				const firstTemplate = result.items[0];
 				assertPresent(firstTemplate, "Expected at least one workout template item");
-				expect(templates.items).toHaveLength(1);
-				expect(requireRyotQLFieldValue(firstTemplate, "name").value).toBe(workoutTemplate.name);
+				expect(result.items).toHaveLength(1);
+				expect(firstTemplate.name).toBe(workoutTemplate.name);
 			}),
 	);
 
@@ -399,24 +417,15 @@ describe("Workout Templates E2E", () => {
 				targetEntityId: workoutTemplateId,
 			});
 
-			const result = yield* executeRyotQL(
+			const result = yield* executeRyotQLRecipe(
 				client,
-				buildWorkoutDetailQueryDocument({ entityId: workoutId, templateLimit: 1 }),
+				workoutDetailRecipe({ entityId: workoutId, templateLimit: 1 }),
 			);
-			const workouts = requireRows(result.data["workout"], "workout");
-			expect(workouts.items).toHaveLength(1);
-			const workoutRow = workouts.items[0];
-			assertPresent(workoutRow, "Expected workout row");
+			const workoutRow = requirePresent(result, "Expected workout row");
 			const template = requireRyotQLInclude(workoutRow, "template").items[0];
 			assertPresent(template, "Expected workout template include");
-			expect(requireRyotQLFieldValue(template, "id")).toEqual({
-				kind: "text",
-				value: workoutTemplateId,
-			});
-			expect(requireRyotQLFieldValue(template, "name")).toEqual({
-				kind: "text",
-				value: workoutTemplate.name,
-			});
+			expect(requireRyotQLValue(template, "id")).toBe(workoutTemplateId);
+			expect(requireRyotQLValue(template, "name")).toBe(workoutTemplate.name);
 		}),
 	);
 
@@ -447,24 +456,15 @@ describe("Workout Templates E2E", () => {
 				targetEntityId: workoutTemplateId,
 			});
 
-			const result = yield* executeRyotQL(
+			const result = yield* executeRyotQLRecipe(
 				client,
-				buildWorkoutTemplateDetailQueryDocument({ entityId: workoutTemplateId, workoutLimit: 10 }),
+				workoutTemplateDetailRecipe({ entityId: workoutTemplateId, workoutLimit: 10 }),
 			);
-			const templates = requireRows(result.data["workoutTemplate"], "workoutTemplate");
-			expect(templates.items).toHaveLength(1);
-			const templateRow = templates.items[0];
-			assertPresent(templateRow, "Expected workout template row");
+			const templateRow = requirePresent(result, "Expected workout template row");
 			const workout = requireRyotQLInclude(templateRow, "workouts").items[0];
 			assertPresent(workout, "Expected workout include");
-			expect(requireRyotQLFieldValue(workout, "id")).toEqual({
-				kind: "text",
-				value: workoutId,
-			});
-			expect(requireRyotQLFieldValue(workout, "name")).toEqual({
-				kind: "text",
-				value: workoutName,
-			});
+			expect(requireRyotQLValue(workout, "id")).toBe(workoutId);
+			expect(requireRyotQLValue(workout, "name")).toBe(workoutName);
 		}),
 	);
 });

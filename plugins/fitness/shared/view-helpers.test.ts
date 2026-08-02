@@ -15,22 +15,27 @@ describe("buildViewExpressions", () => {
 				expr: { type: "column", field: "properties", tableAlias: "entity" },
 			},
 		});
-		expect(expressions.grid.callout).toMatchObject({ name: "titleCase", type: "transform" });
-		expect(expressions.grid.primaryMetadata).toMatchObject({
-			name: "titleCase",
-			type: "transform",
+		expect(expressions.grid.callout).toMatchObject({
+			displayKind: "text",
+			expression: { name: "titleCase", type: "transform" },
 		});
 		expect(expressions.grid.secondaryMetadata).toMatchObject({
-			name: "titleCase",
-			type: "transform",
+			displayKind: "text",
+			expression: { name: "titleCase", type: "transform" },
 		});
 	});
 
 	it("uses a literal schema name for every card overline", () => {
 		const expressions = buildViewExpressions("workout", "Workout");
 
-		expect(expressions.grid.overline).toEqual({ type: "literal", value: "Workout" });
-		expect(expressions.list.overline).toEqual({ type: "literal", value: "Workout" });
+		expect(expressions.grid.overline).toEqual({
+			displayKind: "text",
+			expression: { type: "literal", value: "Workout" },
+		});
+		expect(expressions.list.overline).toEqual({
+			displayKind: "text",
+			expression: { type: "literal", value: "Workout" },
+		});
 	});
 
 	it.each([
@@ -40,5 +45,17 @@ describe("buildViewExpressions", () => {
 		expect(buildViewExpressions(slug, "Schema").table.columns.map(({ label }) => label)).toEqual(
 			labels,
 		);
+	});
+
+	it("assigns date display kinds to persisted workout timestamps", () => {
+		const expressions = buildViewExpressions("workout", "Workout");
+
+		expect(expressions.grid.primaryMetadata?.displayKind).toBe("date");
+		expect(expressions.grid.secondaryMetadata?.displayKind).toBe("date");
+		expect(expressions.table.columns.map(({ displayKind }) => displayKind)).toEqual([
+			"text",
+			"date",
+			"date",
+		]);
 	});
 });

@@ -1,12 +1,12 @@
 import { PluginSlug } from "@ryot/contract/schema/brands";
-import { buildNavigationDocument, decodeNavigationResponse } from "@ryot/ryotql-recipes/navigation";
-import { Effect, Result } from "effect";
+import { navigationRecipe } from "@ryot/ryotql-recipes/navigation";
+import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
 	createCollection,
 	createSavedView,
-	executeRyotQL,
+	executeRyotQLRecipe,
 	updatePluginState,
 	updateSavedView,
 } from "~/fixtures";
@@ -39,9 +39,7 @@ describe("RyotQL navigation", () => {
 				name: `Second Navigation Collection ${crypto.randomUUID()}`,
 			});
 
-			const result = yield* executeRyotQL(first.client, buildNavigationDocument());
-			expect(Object.keys(result.data)).toEqual(["workspaces", "savedViews", "collections"]);
-			const data = Result.getOrThrow(decodeNavigationResponse(result));
+			const data = yield* executeRyotQLRecipe(first.client, navigationRecipe());
 			const media = data.workspaces.find((item) => item.slug === "media");
 			const fitness = data.workspaces.find((item) => item.slug === "fitness");
 			if (!media || !fitness) {

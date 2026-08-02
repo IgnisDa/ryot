@@ -35,7 +35,7 @@ import {
 	createPluginEntitySchema,
 	executeRyotQL,
 	requireRows,
-	requireRyotQLFieldValue,
+	requireRyotQLValue,
 } from "~/fixtures";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -187,26 +187,26 @@ describe("RyotQL typed JSON entity queries", () => {
 			expect(books.items).toHaveLength(2);
 			expect(books.items).toEqual([
 				{
-					score: { kind: "number", value: 4.8 },
-					name: { kind: "text", value: "Book Alpha" },
-					available: { kind: "boolean", value: true },
-					contributor: { kind: "json", value: { name: "Editor A" } },
-					publishedAt: { kind: "date", value: "2024-03-10T12:00:00.000Z" },
-					metadata: { kind: "json", value: { edition: 2, format: "hardcover" } },
+					score: 4.8,
+					name: "Book Alpha",
+					available: true,
+					contributor: { name: "Editor A" },
+					publishedAt: "2024-03-10T12:00:00.000Z",
+					metadata: { edition: 2, format: "hardcover" },
 				},
 				{
-					score: { kind: "number", value: 3.1 },
-					publishedAt: { kind: "null", value: null },
-					name: { kind: "text", value: "Book Beta" },
-					contributor: { kind: "null", value: null },
-					available: { kind: "boolean", value: false },
-					metadata: { kind: "json", value: { edition: 2, format: "paperback" } },
+					score: 3.1,
+					publishedAt: null,
+					name: "Book Beta",
+					contributor: null,
+					available: false,
+					metadata: { edition: 2, format: "paperback" },
 				},
 			]);
 			expect(
 				requireRows(result.data["media"], "media").items.map((item) => [
-					requireRyotQLFieldValue(item, "name").value,
-					requireRyotQLFieldValue(item, "creator").value,
+					requireRyotQLValue(item, "name"),
+					requireRyotQLValue(item, "creator"),
 				]),
 			).toEqual([
 				["Book Alpha", "Author A"],
@@ -215,8 +215,8 @@ describe("RyotQL typed JSON entity queries", () => {
 			]);
 			expect(requireRows(result.data["courses"], "courses").items).toEqual([
 				{
-					name: { kind: "text", value: "Course Advanced" },
-					duration: { kind: "number", value: 90 },
+					name: "Course Advanced",
+					duration: 90,
 				},
 			]);
 			expect(requireRows(result.data["structuralBooks"], "structuralBooks").items).toHaveLength(1);
@@ -226,7 +226,7 @@ describe("RyotQL typed JSON entity queries", () => {
 			const bookCounts = result.data["bookCounts"];
 			expect(bookCounts?.type).toBe("aggregate");
 			const count = bookCounts?.type === "aggregate" ? bookCounts.items[0] : undefined;
-			expect(count && requireRyotQLFieldValue(count, "count").value).toBe(2);
+			expect(count && requireRyotQLValue(count, "count")).toBe(2);
 		}),
 	);
 
@@ -290,34 +290,32 @@ describe("RyotQL typed JSON entity queries", () => {
 
 			const casts = requireRows(result.data["casts"], "casts");
 			expect(casts.items).toHaveLength(2);
-			const byName = new Map(
-				casts.items.map((item) => [requireRyotQLFieldValue(item, "name").value, item]),
-			);
+			const byName = new Map(casts.items.map((item) => [requireRyotQLValue(item, "name"), item]));
 			expect(byName.get("Cast Invalid")).toEqual({
-				text: { kind: "null", value: null },
-				date: { kind: "null", value: null },
-				json: { kind: "null", value: null },
-				number: { kind: "null", value: null },
-				missing: { kind: "null", value: null },
-				boolean: { kind: "null", value: null },
-				nonFinite: { kind: "null", value: null },
-				outOfRange: { kind: "null", value: null },
-				constant: { kind: "boolean", value: true },
-				infiniteDate: { kind: "null", value: null },
-				name: { kind: "text", value: "Cast Invalid" },
+				text: null,
+				date: null,
+				json: null,
+				number: null,
+				missing: null,
+				boolean: null,
+				nonFinite: null,
+				outOfRange: null,
+				constant: true,
+				infiniteDate: null,
+				name: "Cast Invalid",
 			});
 			expect(byName.get("Cast Valid")).toEqual({
-				text: { kind: "text", value: "ready" },
-				missing: { kind: "null", value: null },
-				number: { kind: "number", value: 12.5 },
-				nonFinite: { kind: "null", value: null },
-				outOfRange: { kind: "null", value: null },
-				boolean: { kind: "boolean", value: true },
-				constant: { kind: "boolean", value: true },
-				name: { kind: "text", value: "Cast Valid" },
-				infiniteDate: { kind: "null", value: null },
-				json: { kind: "json", value: { nested: true } },
-				date: { kind: "date", value: "2026-08-07T12:00:00.000Z" },
+				text: "ready",
+				missing: null,
+				number: 12.5,
+				nonFinite: null,
+				outOfRange: null,
+				boolean: true,
+				constant: true,
+				name: "Cast Valid",
+				infiniteDate: null,
+				json: { nested: true },
+				date: "2026-08-07T12:00:00.000Z",
 			});
 		}),
 	);

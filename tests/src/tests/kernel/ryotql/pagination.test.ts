@@ -21,12 +21,12 @@ import {
 	executeRyotQL,
 	executeRyotQLError,
 	requireRows,
-	requireRyotQLFieldValue,
+	requireRyotQLValue,
 } from "~/fixtures";
 import { describe, expect, it } from "~/support/effect-test";
 
 const rowNames = (result: RowsResult) =>
-	result.items.map((item) => requireRyotQLFieldValue(item, "name").value);
+	result.items.map((item) => requireRyotQLValue(item, "name"));
 
 const sortById = <T extends { id: string }>(items: readonly T[]) =>
 	[...items].sort((left, right) => {

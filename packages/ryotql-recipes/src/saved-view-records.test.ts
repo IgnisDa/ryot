@@ -1,13 +1,8 @@
-import type { RyotQLResponse } from "@ryot/contract/modules/ryotql/language";
 import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 
-import {
-	buildSavedViewRecordDocument,
-	buildSavedViewRecordsDocument,
-	decodeSavedViewRecordResponse,
-	decodeSavedViewRecordsResponse,
-} from "./saved-view-records";
+import { savedViewRecordRecipe, savedViewRecordsRecipe } from "./saved-view-records";
+import { requireRowsQuery, rowsResult } from "./test-utils";
 
 const queryDocument = {
 	queries: {
@@ -22,277 +17,143 @@ const queryDocument = {
 		},
 	},
 } as const;
-
-const cardConfiguration = {
+const card = {
 	imageField: null,
-	calloutField: null,
+	callout: null,
 	titleField: "title",
-	overlineField: null,
-	primaryMetadataField: null,
-	secondaryMetadataField: null,
+	overline: null,
+	primaryMetadata: null,
+	secondaryMetadata: null,
 } as const;
 const layouts = {
-	grid: { ...cardConfiguration, entityIdField: "entityId", queryDocument },
-	list: { ...cardConfiguration, entityIdField: "entityId", queryDocument },
+	grid: { ...card, entityIdField: "entityId", queryDocument },
+	list: { ...card, entityIdField: "entityId", queryDocument },
 	table: {
 		queryDocument,
 		imageField: null,
 		entityIdField: "entityId",
-		columns: [{ label: "Title", field: "title" }],
+		columns: [{ label: "Title", field: "title", displayKind: "text" }],
 	},
 } as const;
-
-const savedViewRecordsResponse = {
-	data: {
-		savedViews: {
-			type: "rows",
-			pageInfo: { hasMore: true, limit: 2, nextCursor: "next" },
-			items: [
-				{
-					id: { kind: "text", value: "view-1" },
-					sortOrder: { kind: "number", value: 2 },
-					slug: { kind: "text", value: "view-one" },
-					name: { kind: "text", value: "View One" },
-					icon: { kind: "text", value: "bookmark" },
-					layouts: { kind: "json", value: layouts },
-					pluginSlug: { kind: "text", value: "media" },
-					isBuiltin: { kind: "boolean", value: false },
-					isDisabled: { kind: "boolean", value: false },
-					entitySchemaSlug: { kind: "text", value: "book" },
-					createdAt: { kind: "date", value: "2026-01-01T01:00:00+02:00" },
-					updatedAt: { kind: "date", value: "2026-01-02T01:00:00+02:00" },
-				},
-			],
-		},
-	},
-} satisfies RyotQLResponse;
-
-const savedViewRecordItem = savedViewRecordsResponse.data.savedViews.items[0];
-
-const listResponseWithItems = (items: readonly unknown[]) => ({
-	data: { savedViews: { ...savedViewRecordsResponse.data.savedViews, items } },
-});
-
-const detailResponse = (items: readonly unknown[]) => ({
-	data: { savedView: { ...savedViewRecordsResponse.data.savedViews, items } },
-});
+const item = {
+	layouts,
+	id: "view-1",
+	sortOrder: 2,
+	slug: "view-one",
+	name: "View One",
+	icon: "bookmark",
+	isBuiltin: false,
+	isDisabled: false,
+	pluginSlug: "media",
+	entitySchemaSlug: "book",
+	createdAt: "2026-01-01T01:00:00+02:00",
+	updatedAt: "2026-01-02T01:00:00+02:00",
+};
+const pageInfo = { hasMore: true, limit: 2, nextCursor: "next" };
+const rows = (items: readonly unknown[], limit = 2) => rowsResult(items, { ...pageInfo, limit });
 
 describe("saved-view record recipes", () => {
-	it("builds the paginated list with safe fields, filters, ordering, and a named key", () => {
-		const query = buildSavedViewRecordsDocument({
-			after: "cursor",
-			limit: 7,
-			pluginSlug: "media",
-			includeDisabled: false,
-		}).queries.savedViews;
+	it("prepares list filters, fields, pagination, and ordering", () => {
+		const query = requireRowsQuery(
+			savedViewRecordsRecipe({
+				after: "cursor",
+				limit: 7,
+				pluginSlug: "media",
+				includeDisabled: false,
+			}).document.queries.savedViews,
+		);
 
 		expect(query.output.pagination).toEqual({ after: "cursor", limit: 7 });
-		expect(
-			query.output.fields.map((selection) => {
-				if (!("key" in selection)) {
-					throw new Error("Expected an explicit field selection");
-				}
-				return selection.key;
-			}),
-		).toEqual([
+		expect(query.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
 			"id",
 			"slug",
 			"name",
 			"icon",
+			"layouts",
 			"sortOrder",
 			"createdAt",
 			"updatedAt",
 			"isBuiltin",
 			"isDisabled",
-			"layouts",
 			"pluginSlug",
 			"entitySchemaSlug",
 		]);
 		expect(query.where).toMatchObject({
-			type: "and",
 			predicates: [
 				{ left: { field: "isDisabled" }, right: { value: false } },
 				{ left: { field: "pluginSlug" }, right: { value: "media" } },
 			],
 		});
-		expect(query.output.orderBy).toEqual([
-			{ direction: "asc", expr: { field: "pluginSlug", tableAlias: "savedView", type: "column" } },
-			{ direction: "asc", expr: { field: "sortOrder", tableAlias: "savedView", type: "column" } },
-			{ direction: "asc", expr: { field: "createdAt", tableAlias: "savedView", type: "column" } },
-		]);
 	});
 
-	it("omits the disabled predicate when disabled records are included", () => {
-		const query = buildSavedViewRecordsDocument({ includeDisabled: true, limit: 5 }).queries
-			.savedViews;
+	it("prepares optional detail with cardinality limit two", () => {
+		const query = requireRowsQuery(
+			savedViewRecordRecipe({ slug: "view-one" }).document.queries.savedView,
+		);
 
-		expect(query.where).toBeUndefined();
+		expect(query.output.pagination).toEqual({ limit: 2 });
+		expect(query.where).toMatchObject({ right: { value: "view-one" }, left: { field: "slug" } });
 	});
 
-	it("defaults the disabled filter to false", () => {
-		const query = buildSavedViewRecordsDocument({ limit: 5 }).queries.savedViews;
+	it("decodes plain records, page info, nulls, and normalized dates", () => {
+		const decoded = Result.getOrThrow(
+			savedViewRecordsRecipe({ limit: 2 }).decode({ data: { savedViews: rows([item]) } }),
+		);
 
-		expect(query.where).toMatchObject({
-			type: "and",
-			predicates: [{ left: { field: "isDisabled" }, right: { value: false } }],
-		});
-	});
-
-	it("builds the by-slug query with a limit of one and a named key", () => {
-		const query = buildSavedViewRecordDocument({ slug: "view-one" }).queries.savedView;
-
-		expect(query.output.pagination).toEqual({ limit: 1 });
-		expect(query.output.fields).toContainEqual({
-			key: "entitySchemaSlug",
-			expr: { field: "entitySchemaSlug", tableAlias: "savedView", type: "column" },
-		});
-		expect(query.where).toMatchObject({
-			type: "comparison",
-			right: { value: "view-one" },
-			left: { field: "slug", tableAlias: "savedView" },
-		});
-		expect(query.output.orderBy).toEqual([
-			{ direction: "asc", expr: { field: "id", tableAlias: "savedView", type: "column" } },
-		]);
-	});
-
-	it("decodes valid records, nullable plugin slugs, page metadata, and ISO dates", () => {
-		expect(Result.getOrThrow(decodeSavedViewRecordsResponse(savedViewRecordsResponse))).toEqual({
-			pageInfo: { hasMore: true, limit: 2, nextCursor: "next" },
+		expect(decoded).toEqual({
+			pageInfo,
 			items: [
 				{
-					layouts,
-					id: "view-1",
-					sortOrder: 2,
-					slug: "view-one",
-					name: "View One",
-					icon: "bookmark",
-					isBuiltin: false,
-					isDisabled: false,
-					pluginSlug: "media",
-					entitySchemaSlug: "book",
+					...item,
 					createdAt: "2025-12-31T23:00:00.000Z",
 					updatedAt: "2026-01-01T23:00:00.000Z",
 				},
 			],
 		});
-
-		const nullableItem = {
-			...savedViewRecordItem,
-			pluginSlug: { kind: "null", value: null },
-			entitySchemaSlug: { kind: "null", value: null },
-		};
 		expect(
-			Result.getOrThrow(decodeSavedViewRecordsResponse(listResponseWithItems([nullableItem])))
-				.items[0],
-		).toMatchObject({ entitySchemaSlug: null, pluginSlug: null });
+			Result.getOrThrow(
+				savedViewRecordsRecipe({ limit: 2 }).decode({
+					data: {
+						savedViews: rows([{ ...item, pluginSlug: null, entitySchemaSlug: null }]),
+					},
+				}),
+			).items[0],
+		).toMatchObject({ pluginSlug: null, entitySchemaSlug: null });
 	});
 
-	it("decodes a detail record and returns null when it is absent", () => {
-		expect(
-			Result.getOrThrow(decodeSavedViewRecordResponse(detailResponse([savedViewRecordItem]))),
-		).toEqual({
-			layouts,
-			id: "view-1",
-			sortOrder: 2,
-			slug: "view-one",
-			name: "View One",
-			icon: "bookmark",
-			isBuiltin: false,
-			isDisabled: false,
-			pluginSlug: "media",
-			entitySchemaSlug: "book",
-			createdAt: "2025-12-31T23:00:00.000Z",
-			updatedAt: "2026-01-01T23:00:00.000Z",
-		});
-		expect(Result.getOrThrow(decodeSavedViewRecordResponse(detailResponse([])))).toBeNull();
+	it("decodes optional detail and rejects excess cardinality", () => {
+		const recipe = savedViewRecordRecipe({ slug: "view-one" });
+
+		expect(Result.getOrThrow(recipe.decode({ data: { savedView: rows([], 2) } }))).toBeUndefined();
+		expect(Result.isFailure(recipe.decode({ data: { savedView: rows([item, item], 2) } }))).toBe(
+			true,
+		);
 	});
 
-	it("rejects malformed or missing record fields", () => {
-		for (const field of [
-			"id",
-			"slug",
-			"name",
-			"icon",
-			"sortOrder",
-			"createdAt",
-			"updatedAt",
-			"isBuiltin",
-			"isDisabled",
-			"layouts",
-			"pluginSlug",
-			"entitySchemaSlug",
+	it("rejects malformed JSON and dates", () => {
+		const recipe = savedViewRecordsRecipe({ limit: 2 });
+
+		for (const malformed of [
+			{ ...item, layouts: "not-json" },
+			{ ...item, createdAt: "not-a-date" },
+			{ ...item, updatedAt: "not-a-date" },
 		]) {
-			const item = { ...savedViewRecordItem } as Record<string, unknown>;
-			delete item[field];
-			expect(Result.isFailure(decodeSavedViewRecordsResponse(listResponseWithItems([item])))).toBe(
+			expect(Result.isFailure(recipe.decode({ data: { savedViews: rows([malformed]) } }))).toBe(
 				true,
 			);
 		}
 	});
 
-	it("rejects wrong field kinds and invalid dates", () => {
-		const wrongKinds = {
-			id: { kind: "number", value: 1 },
-			slug: { kind: "json", value: {} },
-			name: { kind: "boolean", value: true },
-			sortOrder: { kind: "text", value: "2" },
-			updatedAt: { kind: "number", value: 1 },
-			isBuiltin: { kind: "number", value: 0 },
-			pluginSlug: { kind: "number", value: 1 },
-			icon: { kind: "date", value: "2026-01-01" },
-			isDisabled: { kind: "text", value: "false" },
-			layouts: { kind: "text", value: "not-json" },
-			entitySchemaSlug: { kind: "number", value: 1 },
-			createdAt: { kind: "text", value: "2026-01-01" },
-		};
+	it("rejects missing fields and wrong result shapes", () => {
+		const malformed = { ...item } as Record<string, unknown>;
+		delete malformed.id;
+		const recipe = savedViewRecordsRecipe({ limit: 2 });
 
-		for (const [field, value] of Object.entries(wrongKinds)) {
-			expect(
-				Result.isFailure(
-					decodeSavedViewRecordsResponse(
-						listResponseWithItems([{ ...savedViewRecordItem, [field]: value }]),
-					),
-				),
-			).toBe(true);
-		}
-
-		for (const field of ["createdAt", "updatedAt"]) {
-			expect(
-				Result.isFailure(
-					decodeSavedViewRecordsResponse(
-						listResponseWithItems([
-							{ ...savedViewRecordItem, [field]: { kind: "date", value: "not-a-date" } },
-						]),
-					),
-				),
-			).toBe(true);
-		}
-	});
-
-	it("rejects wrong result types and query names", () => {
-		expect(Result.isFailure(decodeSavedViewRecordsResponse({ data: {} }))).toBe(true);
+		expect(Result.isFailure(recipe.decode({ data: { savedViews: rows([malformed]) } }))).toBe(true);
+		expect(Result.isFailure(recipe.decode({ data: {} }))).toBe(true);
 		expect(
 			Result.isFailure(
-				decodeSavedViewRecordsResponse({
-					data: { savedView: savedViewRecordsResponse.data.savedViews },
-				}),
-			),
-		).toBe(true);
-		expect(
-			Result.isFailure(
-				decodeSavedViewRecordsResponse({
-					data: { savedViews: { ...savedViewRecordsResponse.data.savedViews, type: "aggregate" } },
-				}),
-			),
-		).toBe(true);
-
-		expect(Result.isFailure(decodeSavedViewRecordResponse({ data: {} }))).toBe(true);
-		expect(
-			Result.isFailure(
-				decodeSavedViewRecordResponse({
-					data: { savedViews: savedViewRecordsResponse.data.savedViews },
-				}),
+				recipe.decode({ data: { savedViews: { ...rows([item]), type: "aggregate" } } }),
 			),
 		).toBe(true);
 	});

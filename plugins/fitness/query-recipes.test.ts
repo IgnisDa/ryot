@@ -1,21 +1,25 @@
 import { describe, expect, it } from "vitest";
 
 import {
-	buildExerciseListQueryDocument,
-	buildWorkoutDetailQueryDocument,
-	buildWorkoutTemplateDetailQueryDocument,
+	exerciseListRecipe,
+	workoutDetailRecipe,
+	workoutTemplateDetailRecipe,
 } from "./query-recipes";
 
 describe("fitness query recipes", () => {
 	it("builds typed filtered exercise rows", () => {
-		const doc = buildExerciseListQueryDocument({
+		const recipe = exerciseListRecipe({
 			after: "exercise-cursor",
 			limit: 5,
 			name: "Push Up",
 			entityId: "exercise-id",
 		});
+		const exercises = recipe.document.queries["exercises"];
+		if (exercises?.output.type !== "rows") {
+			throw new Error("Expected exercise rows query");
+		}
 
-		expect(doc.queries.exercises.where).toEqual(
+		expect(exercises.where).toEqual(
 			expect.objectContaining({
 				predicates: expect.arrayContaining([
 					expect.objectContaining({
@@ -33,7 +37,7 @@ describe("fitness query recipes", () => {
 				]),
 			}),
 		);
-		expect(doc.queries.exercises.output).toEqual(
+		expect(exercises.output).toEqual(
 			expect.objectContaining({
 				pagination: { after: "exercise-cursor", limit: 5 },
 				orderBy: [expect.objectContaining({ direction: "asc" })],
@@ -52,12 +56,16 @@ describe("fitness query recipes", () => {
 	});
 
 	it("uses the plural workouts include for template detail", () => {
-		const doc = buildWorkoutTemplateDetailQueryDocument({
+		const recipe = workoutTemplateDetailRecipe({
 			workoutLimit: 6,
 			entityId: "template-id",
 		});
+		const workoutTemplate = recipe.document.queries["workoutTemplate"];
+		if (workoutTemplate?.output.type !== "rows") {
+			throw new Error("Expected workout template rows query");
+		}
 
-		expect(doc.queries.workoutTemplate.output).toMatchObject({
+		expect(workoutTemplate.output).toMatchObject({
 			include: [
 				{
 					limit: 6,
@@ -69,16 +77,21 @@ describe("fitness query recipes", () => {
 	});
 
 	it("uses explicit relationship directions for workout details", () => {
-		const workoutDoc = buildWorkoutDetailQueryDocument({
+		const workoutRecipe = workoutDetailRecipe({
 			templateLimit: 3,
 			entityId: "workout-id",
 		});
-		const templateDoc = buildWorkoutTemplateDetailQueryDocument({
+		const templateRecipe = workoutTemplateDetailRecipe({
 			workoutLimit: 4,
 			entityId: "template-id",
 		});
+		const workout = workoutRecipe.document.queries["workout"];
+		const workoutTemplate = templateRecipe.document.queries["workoutTemplate"];
+		if (workout?.output.type !== "rows" || workoutTemplate?.output.type !== "rows") {
+			throw new Error("Expected workout detail rows queries");
+		}
 
-		expect(workoutDoc.queries.workout.output).toEqual(
+		expect(workout.output).toEqual(
 			expect.objectContaining({
 				include: expect.arrayContaining([
 					expect.objectContaining({
@@ -121,7 +134,7 @@ describe("fitness query recipes", () => {
 				]),
 			}),
 		);
-		expect(templateDoc.queries.workoutTemplate.output).toEqual(
+		expect(workoutTemplate.output).toEqual(
 			expect.objectContaining({
 				include: expect.arrayContaining([
 					expect.objectContaining({
@@ -154,5 +167,30 @@ describe("fitness query recipes", () => {
 				]),
 			}),
 		);
+	});
+
+	it("decodes plain selected exercise values", () => {
+		const recipe = exerciseListRecipe({});
+		expect(
+			recipe.decode({
+				data: {
+					exercises: {
+						type: "rows",
+						pageInfo: { hasMore: false, limit: 20, nextCursor: null },
+						items: [
+							{
+								id: "exercise-1",
+								name: "Push Up",
+								image: null,
+								level: "beginner",
+								kind: "strength",
+								equipment: null,
+								schemaSlug: "exercise",
+							},
+						],
+					},
+				},
+			}),
+		).toMatchObject({ success: { items: [{ id: "exercise-1", level: "beginner" }] } });
 	});
 });

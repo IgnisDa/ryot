@@ -1,4 +1,4 @@
-import { buildExerciseListQueryDocument } from "@ryot/fitness-plugin/query-recipes";
+import { exerciseListRecipe } from "@ryot/fitness-plugin/query-recipes";
 import { Effect } from "effect";
 
 import {
@@ -6,6 +6,7 @@ import {
 	createEntity,
 	createAuthenticatedClient,
 	createWorkoutEntityFixture,
+	executeRyotQLRecipe,
 	executeRyotQL,
 	findBuiltinPluginBySlug,
 	findBuiltinSchemaBySlug,
@@ -16,7 +17,7 @@ import {
 	listSavedViews,
 	mergeUserState,
 	pollUntil,
-	requireRyotQLFieldValue,
+	requireRyotQLValue,
 	requireRows,
 } from "~/fixtures";
 import { assertCondition, assertPresent, assertTaggedError } from "~/support/assertions";
@@ -29,13 +30,12 @@ const waitForSeededExercise = (client: Client) =>
 	pollUntil(
 		`exercise '${seededExerciseName}' to be queryable`,
 		Effect.gen(function* () {
-			const result = yield* executeRyotQL(
+			const result = yield* executeRyotQLRecipe(
 				client,
-				buildExerciseListQueryDocument({ limit: 1, name: seededExerciseName }),
+				exerciseListRecipe({ limit: 1, name: seededExerciseName }),
 			);
 
-			const exercises = requireRows(result.data["exercises"], "exercises");
-			return exercises.items[0] ?? null;
+			return result.items[0] ?? null;
 		}),
 	);
 
@@ -155,26 +155,11 @@ describe("Exercises E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const exercise = yield* waitForSeededExercise(client);
 
-			expect(requireRyotQLFieldValue(exercise, "name")).toEqual({
-				kind: "text",
-				value: seededExerciseName,
-			});
-			expect(requireRyotQLFieldValue(exercise, "image")).toEqual({
-				kind: "json",
-				value: { type: "remote", url: seededExerciseImageUrl },
-			});
-			expect(requireRyotQLFieldValue(exercise, "level")).toEqual({
-				kind: "text",
-				value: "beginner",
-			});
-			expect(requireRyotQLFieldValue(exercise, "kind")).toEqual({
-				kind: "text",
-				value: "reps_and_weight",
-			});
-			expect(requireRyotQLFieldValue(exercise, "equipment")).toEqual({
-				kind: "text",
-				value: "body_only",
-			});
+			expect(exercise.name).toBe(seededExerciseName);
+			expect(exercise.image).toEqual({ type: "remote", url: seededExerciseImageUrl });
+			expect(exercise.level).toBe("beginner");
+			expect(exercise.kind).toBe("reps_and_weight");
+			expect(exercise.equipment).toBe("body_only");
 
 			const savedView = yield* getSavedView(client, "all-exercises");
 			const savedViewResult = requireRows(
@@ -182,12 +167,12 @@ describe("Exercises E2E", () => {
 				"savedView",
 			);
 			const savedViewExercise = savedViewResult.items.find(
-				(item) => requireRyotQLFieldValue(item, "title").value === seededExerciseName,
+				(item) => requireRyotQLValue(item, "title") === seededExerciseName,
 			);
 			assertPresent(savedViewExercise, "Expected the seeded exercise in the built-in saved view");
-			expect(requireRyotQLFieldValue(savedViewExercise, "image")).toEqual({
-				kind: "json",
-				value: { type: "remote", url: seededExerciseImageUrl },
+			expect(requireRyotQLValue(savedViewExercise, "image")).toEqual({
+				type: "remote",
+				url: seededExerciseImageUrl,
 			});
 		}),
 	);
