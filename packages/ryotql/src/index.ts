@@ -13,6 +13,7 @@ import type {
 } from "@ryot/contract/modules/ryotql/language";
 
 type CastExpression = Extract<ScalarExpression, { type: "cast" }>;
+type JsonPathExpression = Extract<ScalarExpression, { type: "jsonPath" }>;
 type ComparisonPredicate = Extract<Predicate, { type: "comparison" }>;
 
 export const table = (tableName: string, alias: string): TableReference => ({
@@ -44,8 +45,8 @@ export const literal = (value: JsonValue): LiteralExpression => {
 
 export const jsonPath = (
 	expr: ScalarExpression,
-	...path: [string | number, ...(string | number)[]]
-): Extract<ScalarExpression, { type: "jsonPath" }> => ({ expr, path, type: "jsonPath" });
+	...path: JsonPathExpression["path"]
+): JsonPathExpression => ({ expr, path, type: "jsonPath" });
 
 const cast = (target: CastExpression["target"], expr: ScalarExpression): CastExpression => ({
 	expr,
@@ -71,12 +72,7 @@ const comparison = (
 	operator: ComparisonPredicate["operator"],
 	left: ScalarExpression,
 	right: ScalarExpression,
-): ComparisonPredicate => ({
-	left,
-	right,
-	operator,
-	type: "comparison",
-});
+): ComparisonPredicate => ({ left, right, operator, type: "comparison" });
 
 export const eq = (left: ScalarExpression, right: ScalarExpression) =>
 	comparison("eq", left, right);
