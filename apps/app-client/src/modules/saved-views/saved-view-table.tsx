@@ -36,6 +36,7 @@ function SavedViewTableRow(props: { item: SavedViewTableItem }) {
 					>
 						<Link.AppleZoom>
 							<SavedViewImageView
+								collapsable={false}
 								onError={onImageError}
 								image={props.item.image}
 								className="h-13 w-9 shrink-0 rounded-sm bg-surface-2"
