@@ -1,7 +1,7 @@
 import { PluginLink } from "@ryot-app/client-sdk/plugin";
 import { fieldSyncState } from "@ryot-app/client-ui-sdk/sync";
 import clsx from "clsx";
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 
 import { imageAssetKey, ManagedAssetImage } from "./managed-assets";
 import type { ShowImageAsset } from "./media-image";
@@ -19,9 +19,17 @@ import {
 	type ShowPerson,
 	type ShowRecommendation,
 } from "./overview-state";
-import { ShowLinkButton, ShowOverviewSection } from "./primitives";
+import { ShowExternalLink, ShowLinkButton, ShowOverviewSection } from "./primitives";
 import { showGalleryAssets, type ShowSummary } from "./summary-state";
 import { showSyncCounts } from "./sync-counts";
+import {
+	regionLabel,
+	viewerRegion,
+	watchProviderAsset,
+	watchProviderGroups,
+	watchProviderLink,
+	type WatchProviderGroup,
+} from "./watch-providers";
 
 const CREDIT_COLUMN_CLASS = "min-w-0 flex-1 border-t-0 pt-0";
 
@@ -67,6 +75,59 @@ export function ShowImageGallery(props: {
 					/>
 				))}
 			</ShowRail>
+		</ShowOverviewSection>
+	);
+}
+
+export function ShowWatchProvidersSection(props: {
+	readonly region: string;
+	readonly compact: boolean;
+	readonly divided: boolean;
+	readonly link: string | undefined;
+	readonly groups: readonly WatchProviderGroup[];
+}) {
+	if (props.groups.length === 0) {
+		return null;
+	}
+	return (
+		<ShowOverviewSection
+			title="Where to watch"
+			divided={props.divided}
+			compact={props.compact}
+			action={
+				props.link === undefined ? null : (
+					<ShowExternalLink href={props.link} label="View all options" />
+				)
+			}
+		>
+			<div className="flex flex-col gap-5">
+				{props.groups.map((group) => (
+					<div key={group.offer} className="flex flex-col gap-2.5">
+						<p className="font-ui font-medium text-[12px] text-text-subtle">{group.label}</p>
+						<ShowRail compact={props.compact}>
+							{group.providers.map((provider) => (
+								<div
+									key={provider.name}
+									className={clsx("flex flex-col gap-2", props.compact ? "w-20" : "w-24")}
+								>
+									<ManagedAssetImage
+										state="ready"
+										monogram={provider.name}
+										className="aspect-square w-full"
+										asset={watchProviderAsset(provider)}
+									/>
+									<p className="line-clamp-2 text-center font-ui text-[12px] leading-4.25 text-text">
+										{provider.name}
+									</p>
+								</div>
+							))}
+						</ShowRail>
+					</div>
+				))}
+				<p className="font-ui text-[11px] leading-3.75 text-text-subtle">
+					{`Availability in ${regionLabel(props.region)}, from JustWatch.`}
+				</p>
+			</div>
 		</ShowOverviewSection>
 	);
 }
@@ -332,7 +393,9 @@ export function ShowOverview(props: {
 	readonly refreshOverview: () => void;
 	readonly overview: ShowOverviewState;
 }) {
+	const region = useMemo(viewerRegion, []);
 	const gallery = showGalleryAssets(props.show);
+	const groups = watchProviderGroups(props.show, region);
 	return (
 		<div className={clsx("flex flex-col", props.compact ? "gap-7 pt-6" : "gap-9 pt-8")}>
 			{props.refreshStatus}
@@ -342,11 +405,20 @@ export function ShowOverview(props: {
 				name={props.show.name}
 				compact={props.compact}
 			/>
+			{region === undefined ? null : (
+				<ShowWatchProvidersSection
+					groups={groups}
+					region={region}
+					compact={props.compact}
+					divided={gallery.length > 0}
+					link={watchProviderLink(props.show, region)}
+				/>
+			)}
 			<ShowOverviewBody
 				state={props.overview}
 				compact={props.compact}
-				divided={gallery.length > 0}
 				refresh={props.refreshOverview}
+				divided={gallery.length > 0 || groups.length > 0}
 			/>
 		</div>
 	);
