@@ -1,7 +1,6 @@
-import { makeContractClient } from "@ryot/contract/client";
 import type { EntityUpdatedFrame } from "@ryot/contract/modules/entity-interest/messages";
 import { Cause, Duration, Effect, Schedule, Stream } from "effect";
-import { FetchHttpClient, HttpClientResponse } from "effect/unstable/http";
+import { HttpClientResponse } from "effect/unstable/http";
 import { randomUUID } from "expo-crypto";
 import {
 	createContext,
@@ -12,8 +11,7 @@ import {
 	useMemo,
 } from "react";
 
-import { expoFetchLayer } from "@/api/app-api";
-import { getAuthCookie } from "@/modules/auth/storage";
+import { authenticatedExpoContractClient } from "@/api/transport";
 
 import { EntityInterestCoordinator } from "./coordinator";
 import { InterestSseParser } from "./sse";
@@ -26,14 +24,6 @@ const retrySchedule = Schedule.exponential("1 second").pipe(
 	),
 );
 
-const clientEffect = (serverUrl: string) => {
-	const cookie = getAuthCookie(serverUrl);
-	return makeContractClient(
-		`${serverUrl.replace(/\/$/, "")}/api`,
-		cookie ? { Cookie: cookie } : {},
-	);
-};
-
 export function EntityInterestProvider(props: {
 	userId: string;
 	serverUrl: string;
@@ -41,20 +31,30 @@ export function EntityInterestProvider(props: {
 }) {
 	const coordinator = useMemo(
 		() =>
-			new EntityInterestCoordinator((streamId, entityIds) =>
-				clientEffect(props.serverUrl).pipe(
-					Effect.flatMap((client) =>
-						client["entity-interest"].declareInterest({
-							payload: { streamId, entityIds: [...entityIds] },
-						}),
+			new EntityInterestCoordinator(
+				(streamId, entityIds, signal) =>
+					authenticatedExpoContractClient(props.serverUrl).pipe(
+						Effect.flatMap((client) =>
+							client["entity-interest"].declareInterest({
+								payload: { streamId, entityIds: [...entityIds] },
+							}),
+						),
+						Effect.map((response) => response.terminal),
+						(effect) => Effect.runPromise(effect, { signal }),
 					),
-					Effect.map((response) => response.terminal),
-					Effect.provide(FetchHttpClient.layer),
-					Effect.provide(expoFetchLayer),
-					Effect.runPromise,
-				),
+				undefined,
+				(error, attempt, retryDelayMs) => {
+					Effect.runFork(
+						Effect.logWarning("entity interest declaration failed; retrying", {
+							error,
+							attempt,
+							userId: props.userId,
+							retryDelayMs,
+						}),
+					);
+				},
 			),
-		[props.serverUrl],
+		[props.serverUrl, props.userId],
 	);
 
 	useEffect(() => {
@@ -62,14 +62,13 @@ export function EntityInterestProvider(props: {
 		const connect = Effect.gen(function* () {
 			const streamId = randomUUID();
 			const parser = new InterestSseParser();
-			const response = yield* clientEffect(props.serverUrl).pipe(
+			const response = yield* authenticatedExpoContractClient(props.serverUrl).pipe(
 				Effect.flatMap((client) =>
 					client["entity-interest"].stream({
 						query: { streamId },
 						responseMode: "response-only",
 					}),
 				),
-				Effect.provide(FetchHttpClient.layer),
 				Effect.flatMap(HttpClientResponse.filterStatusOk),
 			);
 			yield* response.stream.pipe(
@@ -95,10 +94,12 @@ export function EntityInterestProvider(props: {
 			),
 			Effect.retry(retrySchedule),
 			Effect.repeat(Schedule.spaced("1 second")),
-			Effect.provide(expoFetchLayer),
 		);
 		void Effect.runPromise(connect, { signal: controller.signal }).catch(() => undefined);
-		return () => controller.abort();
+		return () => {
+			coordinator.dispose();
+			controller.abort();
+		};
 	}, [coordinator, props.serverUrl]);
 
 	return <InterestContext.Provider value={coordinator}>{props.children}</InterestContext.Provider>;
