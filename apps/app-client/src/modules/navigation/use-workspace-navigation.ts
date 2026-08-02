@@ -1,18 +1,13 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import { Cause, Effect } from "effect";
 import { router, useGlobalSearchParams, usePathname } from "expo-router";
-import { useEffect } from "react";
 
 import { useApiScope } from "@/api/scope";
+import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
 import { useAuthClient } from "@/modules/auth/client";
 import { navigationAtom, scopedWorkspaceAtom } from "@/modules/navigation/atoms";
 
 import { getNavigationHref, getWorkspaceHref, type NavigationItem } from "./navigation-data";
-import {
-	mapNavigationState,
-	type NavigationFailure,
-	type ReadyNavigationState,
-} from "./navigation-state";
+import { mapNavigationState, type ReadyNavigationState } from "./navigation-state";
 
 export type ReadyWorkspaceNavigation = ReadyNavigationState & {
 	accountName: string;
@@ -25,20 +20,6 @@ export type WorkspaceNavigation =
 	| { status: "loading" }
 	| ReadyWorkspaceNavigation
 	| { status: "error"; detail?: string; title: string };
-
-function useNavigationFailureLogging(failure: NavigationFailure | undefined) {
-	const kind = failure?.kind;
-	let detail: string | undefined;
-	if (failure) {
-		detail = Cause.isCause(failure.cause) ? Cause.pretty(failure.cause) : String(failure.cause);
-	}
-	useEffect(() => {
-		if (!kind || !detail) {
-			return;
-		}
-		Effect.runSync(Effect.logWarning(`navigation ${kind} failure`, detail));
-	}, [detail, kind]);
-}
 
 export function useWorkspaceNavigation(): WorkspaceNavigation {
 	const client = useAuthClient();
@@ -57,7 +38,8 @@ export function useWorkspaceNavigation(): WorkspaceNavigation {
 		selectedWorkspace,
 		result: navigationResult,
 	});
-	useNavigationFailureLogging(state.status === "error" ? state.failure : undefined);
+	const failure = state.status === "error" ? state.failure : undefined;
+	useInternalRequestFailureLogging(`navigation ${failure?.kind} failure`, failure?.cause);
 	if (state.status === "error") {
 		return { status: "error", title: state.title, detail: state.detail };
 	}

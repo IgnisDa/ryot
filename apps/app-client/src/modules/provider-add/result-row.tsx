@@ -1,36 +1,20 @@
 import { Match } from "effect";
-import { Image } from "expo-image";
-import { styled } from "nativewind";
-import { useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
-import { MissingImage } from "@/modules/saved-views/saved-view-image";
+import { MissingImage, RemoteImage } from "@/modules/ui/image-with-fallback";
 
 import type { ProviderEntityImportEntry } from "./import-controller";
 import { describeProviderSearchItem } from "./result-display";
 import type { ProviderSearchItem } from "./search-controller";
 
-const StyledImage = styled(Image, {
-	className: { target: "style" },
-});
-
 const IMAGE_CLASS_NAME = "h-16 w-11 shrink-0 overflow-hidden rounded-md";
 
 function ResultImage(props: { url: string | undefined }) {
-	const [failed, setFailed] = useState(false);
-	if (props.url === undefined || failed) {
+	if (props.url === undefined) {
 		return <MissingImage className={IMAGE_CLASS_NAME} />;
 	}
-	return (
-		<StyledImage
-			contentFit="cover"
-			accessible={false}
-			source={{ uri: props.url }}
-			className={IMAGE_CLASS_NAME}
-			onError={() => setFailed(true)}
-		/>
-	);
+	return <RemoteImage className={IMAGE_CLASS_NAME} url={props.url} />;
 }
 
 function InLibraryBadge() {

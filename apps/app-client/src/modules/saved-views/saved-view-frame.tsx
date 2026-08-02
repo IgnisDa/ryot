@@ -1,4 +1,3 @@
-import type { EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import clsx from "clsx";
 import { useRouter } from "expo-router";
 import { useState, type ReactNode } from "react";
@@ -8,7 +7,6 @@ import { AppIcon } from "@/modules/icons";
 import { getNavigationHref } from "@/modules/navigation/navigation-data";
 import { useWorkspaceDrawer } from "@/modules/navigation/workspace-drawer";
 import { WorkspaceScrollFrame } from "@/modules/navigation/workspace-scroll-frame";
-import { ProviderAddHost, useProviderAddFlow } from "@/modules/provider-add/add-flow-host";
 
 import { savedViewLoadedCount } from "./result-count";
 import { SavedViewFilterSheet } from "./saved-view-filter-sheet";
@@ -19,13 +17,11 @@ const TOP_BAR_WEB_HIDDEN = Platform.OS === "web" ? "md:hidden" : null;
 export function SavedViewFrame(props: {
 	viewSlug: string;
 	children: ReactNode;
-	onImported?: () => void;
-	entitySchemaSlug: EntitySchemaSlug | null;
+	onAdd?: () => void;
 	title?: { icon: string; name: string; loaded: number; hasMore: boolean };
 }) {
 	const router = useRouter();
 	const drawer = useWorkspaceDrawer();
-	const providerAdd = useProviderAddFlow();
 	const [isFilterOpen, setIsFilterOpen] = useState(false);
 
 	function goBack() {
@@ -94,9 +90,9 @@ export function SavedViewFrame(props: {
 			>
 				{props.children}
 			</WorkspaceScrollFrame>
-			{props.onImported !== undefined && props.entitySchemaSlug !== null && (
+			{props.onAdd && (
 				<Pressable
-					onPress={providerAdd.open}
+					onPress={props.onAdd}
 					accessibilityRole="button"
 					accessibilityLabel="Add to this view"
 					className={clsx(
@@ -111,9 +107,6 @@ export function SavedViewFrame(props: {
 				<View pointerEvents="box-none" className="absolute inset-0 z-50">
 					<SavedViewFilterSheet viewSlug={props.viewSlug} onClose={() => setIsFilterOpen(false)} />
 				</View>
-			)}
-			{props.onImported !== undefined && props.entitySchemaSlug !== null && (
-				<ProviderAddHost onImported={props.onImported} entitySchemaSlug={props.entitySchemaSlug} />
 			)}
 		</View>
 	);

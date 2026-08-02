@@ -5,14 +5,8 @@ import { buildProviderSearchDocument } from "@ryot/ryotql-recipes/provider-searc
 import { Schema } from "effect";
 import { Atom } from "effect/unstable/reactivity";
 
-import { appQueryClient } from "@/api/query-client";
-import {
-	type ApiScope,
-	canonicalApiScope,
-	keyedRequestFamily,
-	scopedReactivityKey,
-	scopedRequestKey,
-} from "@/api/request-key";
+import { appClient } from "@/api/client";
+import { type ApiScope, canonicalApiScope, scopedReactivityKey } from "@/api/request-key";
 import { appStorageRuntime } from "@/persistence/storage";
 
 import {
@@ -30,32 +24,32 @@ type ProviderEntityLinksRequest = ApiScope & {
 
 const canonicalProviderEntityLinksRequest = (request: ProviderEntityLinksRequest) => {
 	const [first, ...rest] = [...request.externalIds].sort();
-	const externalIds = [first, ...rest] as const;
 	return {
-		externalIds,
 		providerId: request.providerId,
 		scope: canonicalApiScope(request),
+		externalIds: [first, ...rest] as const,
 		entitySchemaSlug: request.entitySchemaSlug,
-		key: scopedRequestKey(request, request.entitySchemaSlug, request.providerId, externalIds),
 	};
 };
 
-export const providerSearchAtom = keyedRequestFamily(
-	(request: ProviderSearchRequest) =>
-		scopedRequestKey(request, "provider-search", request.rootEntitySchemaSlug),
-	(request: ProviderSearchRequest) =>
-		appQueryClient(request.serverUrl).query("ryotql", "execute", {
-			reactivityKeys: scopedReactivityKey("provider-search", request),
-			payload: buildProviderSearchDocument({
-				rootEntitySchemaSlug: request.rootEntitySchemaSlug,
-			}),
+const providerSearchFamily = Atom.family((request: ProviderSearchRequest) =>
+	appClient(request).query("ryotql", "execute", {
+		reactivityKeys: scopedReactivityKey("provider-search", request),
+		payload: buildProviderSearchDocument({
+			rootEntitySchemaSlug: request.rootEntitySchemaSlug,
 		}),
+	}),
 );
 
-const providerEntityLinksFamily = keyedRequestFamily(
-	(request: ReturnType<typeof canonicalProviderEntityLinksRequest>) => request.key,
+export const providerSearchAtom = (request: ProviderSearchRequest) =>
+	providerSearchFamily({
+		...canonicalApiScope(request),
+		rootEntitySchemaSlug: request.rootEntitySchemaSlug,
+	});
+
+const providerEntityLinksFamily = Atom.family(
 	(request: ReturnType<typeof canonicalProviderEntityLinksRequest>) =>
-		appQueryClient(request.scope.serverUrl).query("ryotql", "execute", {
+		appClient(request.scope).query("ryotql", "execute", {
 			reactivityKeys: scopedReactivityKey("provider-entity-links", request.scope),
 			payload: buildProviderEntityLinksDocument({
 				providerId: request.providerId,

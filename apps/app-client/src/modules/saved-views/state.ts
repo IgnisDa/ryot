@@ -17,7 +17,7 @@ import {
 	type SavedViewDisplayData,
 	type SavedViewTableItem,
 } from "./display-data";
-import type { SavedViewLayout } from "./saved-view-layout-selector";
+import type { SavedViewLayout } from "./storage";
 
 export type SavedViewError = {
 	readonly title: string;
@@ -98,14 +98,6 @@ export const appendSavedViewPage = <Item extends SavedViewItem>(
 ): SavedViewNormalizedState<Item> => ({
 	itemsById: copySavedViewItems(state.itemsById, items),
 	pages: [...state.pages, copySavedViewPage(page)],
-});
-
-export const patchSavedViewItems = <Item extends SavedViewItem>(
-	state: SavedViewNormalizedState<Item>,
-	items: readonly Item[],
-): SavedViewNormalizedState<Item> => ({
-	itemsById: copySavedViewItems(state.itemsById, items),
-	pages: [...state.pages],
 });
 
 const materializedSavedViewItems = <Item extends SavedViewItem>(
@@ -231,10 +223,10 @@ export const mapSavedViewResult = (
 
 export const mapManagedAssetResolution = (
 	result: AsyncResult.AsyncResult<DownloadResolutionResponse, unknown>,
-	serverUrl: string,
+	resolveUrl: (url: string) => string,
 ): SavedViewManagedAssetsState => {
 	if (AsyncResult.isSuccess(result)) {
-		return { status: "ready", urls: resolvedAssetUrls(result.value, serverUrl) };
+		return { status: "ready", urls: resolvedAssetUrls(result.value, resolveUrl) };
 	}
 	if (AsyncResult.isFailure(result)) {
 		return { status: "unavailable", cause: result.cause, urls: new Map() };
