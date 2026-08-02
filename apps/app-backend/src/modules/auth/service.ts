@@ -400,9 +400,18 @@ export const AuthMiddlewareLive = Layer.effect(
 						Effect.flatMap(Effect.exit(handler), (exit) => {
 							if (exit._tag === "Failure") {
 								const [response, cause] = HttpServerError.causeResponseStripped(exit.cause);
+								const logResponse = (message: unknown) => {
+									if (response.status >= 500) {
+										return Effect.logError(message);
+									}
+									if (response.status === 429) {
+										return Effect.logWarning(message);
+									}
+									return Effect.logDebug(message);
+								};
 								return Effect.andThen(
 									Effect.annotateLogs(
-										Effect.log(Option.getOrElse(cause, () => "Sent HTTP Response")),
+										logResponse(Option.getOrElse(cause, () => "Sent HTTP Response")),
 										{
 											...annotations,
 											"http.method": request.method,
@@ -414,7 +423,7 @@ export const AuthMiddlewareLive = Layer.effect(
 								);
 							}
 							return Effect.andThen(
-								Effect.annotateLogs(Effect.log("Sent HTTP response"), {
+								Effect.annotateLogs(Effect.logDebug("Sent HTTP response"), {
 									...annotations,
 									"http.method": request.method,
 									"http.url": stripSearchAndHash(request.url),
