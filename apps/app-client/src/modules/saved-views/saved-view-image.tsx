@@ -1,7 +1,7 @@
 import { MissingImage, RemoteImage } from "@/modules/ui/image-with-fallback";
+import { resolveAssetUrl } from "@/modules/ui/managed-assets";
 
 import type { SavedViewImage } from "./display-data";
-import { resolveSavedViewImageUrl } from "./display-data";
 
 export function SavedViewImageView(props: {
 	className: string;
@@ -12,7 +12,10 @@ export function SavedViewImageView(props: {
 	if (props.image.type === "unconfigured") {
 		return null;
 	}
-	const url = resolveSavedViewImageUrl(props.image, props.managedUrls);
+	const url =
+		props.image.type === "asset"
+			? resolveAssetUrl(props.image.locator, props.managedUrls)
+			: undefined;
 	if (!url) {
 		return <MissingImage className={props.className} />;
 	}
