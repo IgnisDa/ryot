@@ -13,7 +13,7 @@ const markEntityPopulated = (entityId: string) =>
 				params: { entityId: EntityId.make(entityId) },
 				payload: { populatedAt: new Date().toISOString() },
 			}),
-		adminHeaders,
+		adminHeaders(),
 	);
 
 export const seedPopulatedProviderEntity = (input: {

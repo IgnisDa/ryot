@@ -4,9 +4,12 @@
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 
+import dotenv from "dotenv";
 import { Effect } from "effect";
 
-import { createTestUser } from "../fixtures/kernel/auth";
+import { getFrontendUrl } from "~/support/harness-target";
+
+import { createAuthenticatedClient } from "../fixtures/kernel/auth";
 import {
 	buildCollectionWorkflowRendererDefinition,
 	createClientRenderer,
@@ -18,15 +21,18 @@ import {
 	updateFixtureClientPlugin,
 } from "../fixtures/kernel/client-plugin";
 import { createCollection } from "../fixtures/kernel/collections";
-import { type ContractSession, makeSession } from "../fixtures/kernel/contract-client";
 import { findBuiltinPluginBySlug, setPluginHomeView } from "../fixtures/kernel/plugins";
 import { createWorkoutEntityFixture } from "../fixtures/plugins/fitness";
 import { createPokemonEntityFixture } from "../fixtures/plugins/fixture";
 import { seedGlobalShowEpisodeTree } from "../fixtures/plugins/media";
 
-const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:3000/api";
-const APP_BASE_URL = process.env.APP_BASE_URL ?? new URL(API_BASE_URL).origin;
 const repositoryRoot = fileURLToPath(new URL("../../..", import.meta.url));
+
+dotenv.config({ path: `${repositoryRoot}apps/server/.env`, quiet: true });
+
+process.env.E2E_API_URL ??= `http://localhost:${process.env.PORT ?? 3000}/api`;
+process.env.E2E_FRONTEND_URL ??= new URL(process.env.E2E_API_URL).origin;
+process.env.E2E_ADMIN_ACCESS_TOKEN ??= process.env.SERVER_ADMIN_ACCESS_TOKEN;
 
 async function buildFixturePlugin() {
 	const build = Bun.spawn(["bun", "turbo", "--filter=@ryot-app/fixture-plugin", "build"], {
@@ -42,11 +48,8 @@ async function buildFixturePlugin() {
 
 async function main() {
 	await buildFixturePlugin();
-	const { token, email, password } = await Effect.runPromise(createTestUser(API_BASE_URL));
-	const client: ContractSession = makeSession(API_BASE_URL, { Authorization: `Bearer ${token}` });
-	const installation = await Effect.runPromise(
-		installFixtureClientPlugin(client, "A", "", API_BASE_URL),
-	);
+	const { client, email, password } = await Effect.runPromise(createAuthenticatedClient());
+	const installation = await Effect.runPromise(installFixtureClientPlugin(client, "A"));
 
 	if (installation.health !== "ready") {
 		throw new Error(
@@ -100,12 +103,14 @@ async function main() {
 	const media = await Effect.runPromise(findBuiltinPluginBySlug(client, "media"));
 	await Effect.runPromise(setPluginHomeView(client, media.slug, primaryView.id));
 
+	const appBaseUrl = getFrontendUrl();
+
 	console.log(`Email: ${email}`);
 	console.log(`Password: ${password}`);
-	console.log(`Plugin URL: ${APP_BASE_URL}/fixture`);
-	console.log(`Home URL: ${APP_BASE_URL}/media`);
-	console.log(`Primary URL: ${APP_BASE_URL}/v/${primaryView.slug}`);
-	console.log(`Secondary URL: ${APP_BASE_URL}/v/${secondaryView.slug}`);
+	console.log(`Plugin URL: ${appBaseUrl}/fixture`);
+	console.log(`Home URL: ${appBaseUrl}/media`);
+	console.log(`Primary URL: ${appBaseUrl}/v/${primaryView.slug}`);
+	console.log(`Secondary URL: ${appBaseUrl}/v/${secondaryView.slug}`);
 	console.log(`Outside Pokemon: ${pokemonB.name}`);
 
 	const input = createInterface({ input: process.stdin, output: process.stdout });
@@ -115,9 +120,7 @@ async function main() {
 		input.close();
 	}
 
-	const updatedInstallation = await Effect.runPromise(
-		updateFixtureClientPlugin(client, "B", "", API_BASE_URL),
-	);
+	const updatedInstallation = await Effect.runPromise(updateFixtureClientPlugin(client, "B"));
 	if (updatedInstallation.health !== "ready") {
 		throw new Error(
 			`Fixture client plugin update finished with health '${updatedInstallation.health}'`,

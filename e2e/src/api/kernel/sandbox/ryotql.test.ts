@@ -211,7 +211,7 @@ describe("sandbox RyotQL reads", () => {
 							yield* api
 								.call(
 									(c) => c.testSupport.deleteGlobalEntities({ payload: { ids: globalEntityIds } }),
-									adminHeaders,
+									adminHeaders(),
 								)
 								.pipe(Effect.ignore);
 						}
@@ -230,7 +230,7 @@ describe("sandbox RyotQL reads", () => {
 							entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
 						},
 					}),
-				adminHeaders,
+				adminHeaders(),
 			);
 			globalEntityIds = [globalEntity.id];
 			yield* createEntity(client, {
@@ -244,7 +244,7 @@ describe("sandbox RyotQL reads", () => {
 					c.testSupport.triggerPluginCron({
 						payload: { pluginSlug: PluginSlug.make(installed.pluginSlug), cronSlug },
 					}),
-				adminHeaders,
+				adminHeaders(),
 			);
 			expect(trigger.status).toBe("executed");
 

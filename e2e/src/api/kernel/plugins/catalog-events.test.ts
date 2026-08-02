@@ -175,13 +175,13 @@ describe("plugin catalog events", () => {
 							files: encodeTestSupportPluginFiles(encodePluginSourceFiles(files)),
 						},
 					}),
-				adminHeaders,
+				adminHeaders(),
 			);
 			yield* reconnected.drainQueuedEvents();
 			yield* outsiderEvents.drainQueuedEvents();
 			yield* adminSession().call(
 				(client) => client.testSupport.reconcilePluginInstallations(),
-				adminHeaders,
+				adminHeaders(),
 			);
 			yield* reconnected.waitForCatalogInvalidated();
 			yield* outsiderEvents.waitForCatalogInvalidated();

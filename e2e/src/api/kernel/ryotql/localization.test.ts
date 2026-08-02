@@ -209,7 +209,7 @@ describe("RyotQL entity localization", () => {
 					getApiClient()
 						.call(
 							(c) => c.testSupport.deleteGlobalEntities({ payload: { ids: [entity.id] } }),
-							adminHeaders,
+							adminHeaders(),
 						)
 						.pipe(Effect.orDie, Effect.asVoid),
 			);

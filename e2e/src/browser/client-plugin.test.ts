@@ -12,11 +12,10 @@ import {
 	updateFixtureClientPlugin,
 } from "~/fixtures/kernel";
 import { seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";
-import { getApiUrl } from "~/support/api";
 import { requirePresent } from "~/support/assertions";
 import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
-import { getFrontendUrl } from "~/support/frontend";
+import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
 
 type ArtifactSession = {
 	readonly src: string;

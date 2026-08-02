@@ -12,9 +12,9 @@ import {
 	waitForEventWithSchema,
 } from "~/fixtures/kernel";
 import { seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";
-import { getApiUrl } from "~/support/api";
 import { requireObjectRecord, requirePresent, requireString } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+import { getApiUrl } from "~/support/harness-target";
 
 const plexMultipartBody = (boundary: string, payload: unknown) =>
 	[
