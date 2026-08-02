@@ -695,12 +695,12 @@ const runInDeno = (compiled: RunnerCompiledModule, context: unknown, options: Ru
 	runInDenoRequest({ compiled, context, options });
 
 const compileHostBridgeFixture = Effect.gen(function* () {
-	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
+	const fs = yield* FileSystem.FileSystem;
 	const entry = "test-fixtures/host-bridge.sandbox.ts";
 	const sourcePath = yield* path.fromFileUrl(new URL(`./${entry}`, import.meta.url));
-	const source = yield* fs.readFileString(sourcePath);
-	const [output] = yield* compilePluginSandboxSourceEntries({ [entry]: source }, [
+	const sourceText = yield* fs.readFileString(sourcePath);
+	const [output] = yield* compilePluginSandboxSourceEntries({ [entry]: sourceText }, [
 		{ entry, kind: "script" },
 	]);
 	assert(output);
@@ -717,11 +717,11 @@ const startCoreHostBridge = (
 	} = {},
 ) =>
 	Effect.gen(function* () {
-		const calls: Array<{ fnName: string; executionId: string; args: readonly unknown[] }> = [];
-		const executionScripts = new Map<string, string>();
-		const runCache = new Map<string, unknown>();
-		const persistentCache = new Map<string, unknown>();
 		const runtime = yield* Effect.context();
+		const runCache = new Map<string, unknown>();
+		const executionScripts = new Map<string, string>();
+		const persistentCache = new Map<string, unknown>();
+		const calls: Array<{ fnName: string; executionId: string; args: readonly unknown[] }> = [];
 
 		const server = yield* BunHttpServer.make({ port: 0, hostname: "127.0.0.1" });
 		yield* HttpServer.serveEffect(

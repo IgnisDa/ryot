@@ -36,19 +36,20 @@ const pluginDefinitionSource = (): DefinitionSource => {
 				{
 					...entitySchema,
 					userState: { deniedOperations: ["clear", "merge"] },
-					eventSchemas: entitySchema.eventSchemas.map((event) => ({
-						...event,
-						propertiesSchema: {
-							fields: {
-								value: {
-									type: "string",
-									label: "Value",
-									description: "Changed value",
-									validation: { required: true },
+					eventSchemas: entitySchema.eventSchemas.map((event) =>
+						Object.assign(event, {
+							propertiesSchema: {
+								fields: {
+									value: {
+										type: "string",
+										label: "Value",
+										description: "Changed value",
+										validation: { required: true },
+									},
 								},
-							},
-						},
-					})),
+							} as const,
+						}),
+					),
 				},
 			],
 		},

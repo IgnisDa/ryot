@@ -127,6 +127,7 @@ export const verifyPluginSandboxScriptsLoad = (packageRoot: string, manifest: Pl
 									message: `${compiled.manifest.slug}: ${String(Reflect.get(error, "message"))}`,
 								});
 							}
+							return yield* Effect.void;
 						}),
 					),
 				{ concurrency: 5, discard: true },
