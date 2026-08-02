@@ -401,10 +401,11 @@ export const validateDisplayConfiguration = Effect.fn("validateDisplayConfigurat
 	}
 
 	const displaySchemaSlugs = [...new Set(collectDisplayConfigEntitySlugs(input.displayConfig))];
+	const [firstDisplaySchemaSlug, ...remainingDisplaySchemaSlugs] = displaySchemaSlugs;
 	const schemaRows =
-		displaySchemaSlugs.length > 0
-			? yield* input.loadSchemas(displaySchemaSlugs as [string, ...string[]])
-			: [];
+		firstDisplaySchemaSlug === undefined
+			? []
+			: yield* input.loadSchemas([firstDisplaySchemaSlug, ...remainingDisplaySchemaSlugs]);
 	const schemaMap = new Map(schemaRows.map((schema) => [schema.slug, schema]));
 	for (const expression of collectDisplayExpressions(input.displayConfig)) {
 		yield* inferDisplayExpressionType(expression, schemaMap);

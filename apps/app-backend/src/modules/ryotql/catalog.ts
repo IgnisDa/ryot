@@ -225,7 +225,6 @@ export const getCatalogTable = (name: string) => tables[name];
 export const canAccessCatalogTable = (
 	table: CatalogTable,
 	scope: Pick<RyotQLExecutionScope, "type">,
-) =>
-	scope.type === "user" || ("plugin" in table.visibility && table.visibility.plugin !== undefined);
+) => scope.type === "user" || "plugin" in table.visibility;
 
 export const resolveCatalogField = (table: CatalogTable, name: string) => table.fields[name];
