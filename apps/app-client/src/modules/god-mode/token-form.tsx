@@ -1,22 +1,28 @@
-import clsx from "clsx";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { useForm } from "@tanstack/react-form";
+import { Text, View } from "react-native";
+
+import {
+	FormCard,
+	FormField,
+	FormMessage,
+	FormSubmitButton,
+	FormTextInput,
+} from "@/modules/ui/form";
 
 export function TokenForm(props: {
-	token: string;
+	onChange: () => void;
 	error?: string | null;
-	onSubmit: () => void;
-	onTokenChange: (value: string) => void;
+	onSubmit: (token: string) => void;
 }) {
-	const canSubmit = props.token.trim().length > 0;
-
-	function handleSubmit() {
-		if (canSubmit) {
-			props.onSubmit();
-		}
-	}
+	const form = useForm({
+		defaultValues: { token: "" },
+		onSubmit: ({ value }) => props.onSubmit(value.token.trim()),
+		errorVisibility: ({ fieldState, state }) =>
+			fieldState.meta.isBlurred || state.submissionAttempts > 0,
+	});
 
 	return (
-		<View className="w-full max-w-md gap-5 rounded-xl border border-border bg-surface p-6 shadow-card">
+		<FormCard>
 			<View className="gap-2">
 				<Text className="font-display-semibold text-3xl text-text">God Mode</Text>
 				<Text className="font-ui text-sm text-text-muted">Server admin user management</Text>
@@ -24,28 +30,51 @@ export function TokenForm(props: {
 			<Text className="font-ui text-sm leading-5 text-text-muted">
 				Enter your server admin access token to view and manage users.
 			</Text>
-			<TextInput
-				autoFocus
-				secureTextEntry
-				returnKeyType="go"
-				autoCorrect={false}
-				value={props.token}
-				autoCapitalize="none"
-				onSubmitEditing={handleSubmit}
-				placeholder="Admin access token"
-				onChangeText={props.onTokenChange}
-				accessibilityLabel="Admin access token"
-				className="rounded-lg border border-border bg-raised px-4 py-3 font-ui text-base text-text"
-			/>
-			{props.error && <Text className="font-ui text-sm text-danger">{props.error}</Text>}
-			<Pressable
-				disabled={!canSubmit}
-				onPress={handleSubmit}
-				accessibilityRole="button"
-				className={clsx("items-center rounded-lg bg-accent px-4 py-3", !canSubmit && "opacity-50")}
+			<form.Field
+				name="token"
+				validators={[
+					{
+						runOnMount: true,
+						triggers: ["change", "blur"],
+						run: ({ value }) =>
+							value.trim() === "" ? "Enter your server admin access token." : undefined,
+					},
+				]}
 			>
-				<Text className="font-ui-semibold text-base text-accent-ink">Continue</Text>
-			</Pressable>
-		</View>
+				{(field) => (
+					<FormField label="Admin access token" error={field.errors[0]?.message}>
+						<FormTextInput
+							autoFocus
+							secureTextEntry
+							returnKeyType="go"
+							value={field.value}
+							autoCorrect={false}
+							autoCapitalize="none"
+							onBlur={field.handleBlur}
+							invalid={field.meta.isInvalid}
+							placeholder="Enter access token"
+							accessibilityLabel="Admin access token"
+							onSubmitEditing={() => void form.handleSubmit()}
+							onChangeText={(token) => {
+								field.handleChange(token);
+								props.onChange();
+							}}
+						/>
+					</FormField>
+				)}
+			</form.Field>
+			{props.error ? <FormMessage>{props.error}</FormMessage> : null}
+			<form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting] as const}>
+				{([canSubmit, isSubmitting]) => (
+					<FormSubmitButton
+						label="Continue"
+						disabled={!canSubmit}
+						pending={isSubmitting}
+						pendingLabel="Continuing..."
+						onPress={() => void form.handleSubmit()}
+					/>
+				)}
+			</form.Subscribe>
+		</FormCard>
 	);
 }
