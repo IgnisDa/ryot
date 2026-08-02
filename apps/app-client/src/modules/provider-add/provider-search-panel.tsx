@@ -238,7 +238,7 @@ export function ProviderSearchPanel(props: {
 				clearTimeout(timer);
 			}
 		};
-	}, [state.query]);
+	}, [options.values, selected?.providerId, state.query]);
 
 	const runSearch = useEffectEvent(async (operation: ProviderSearchOperation) => {
 		if (selected === undefined) {
