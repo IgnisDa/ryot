@@ -3,6 +3,7 @@ import { badRequest, notFound } from "@ryot/contract/errors";
 import type {
 	CreateSavedViewBody,
 	ReorderSavedViewsBody,
+	SavedViewSandboxScripts,
 	UpdateSavedViewBody,
 } from "@ryot/contract/modules/saved-views/schemas";
 import { PluginSlug } from "@ryot/contract/schema/brands";
@@ -37,12 +38,13 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			yield* runWithDb(
 				repository.ensureBuiltinViews(
 					userId,
-					views.map(({ slug, name, icon, layouts, sortOrder, pluginSlug }) => ({
+					views.map(({ slug, name, icon, layouts, sandboxScripts, sortOrder, pluginSlug }) => ({
 						slug,
 						name,
 						icon,
 						layouts,
 						sortOrder,
+						sandboxScripts,
 						pluginSlug: pluginSlug ? PluginSlug.make(pluginSlug) : null,
 					})),
 				),
@@ -59,7 +61,10 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 
 		const create = Effect.fn(function* (
 			user: Pick<CurrentUserValue, "id">,
-			payload: CreateSavedViewBody & { slug?: string | undefined },
+			payload: CreateSavedViewBody & {
+				slug?: string | undefined;
+				sandboxScripts?: SavedViewSandboxScripts | undefined;
+			},
 		) {
 			const name = trimToNull(payload.name);
 			if (!name) {
@@ -84,6 +89,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 					icon: payload.icon,
 					layouts: payload.layouts,
 					pluginSlug: payload.pluginSlug,
+					sandboxScripts: payload.sandboxScripts ?? {},
 				}),
 			);
 			return created ?? (yield* badRequest("A saved view with this name already exists"));
@@ -148,6 +154,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				icon: source.icon,
 				layouts: source.layouts,
 				name: `${source.name} (Copy)`,
+				sandboxScripts: source.sandboxScripts,
 				...(source.pluginSlug ? { pluginSlug: source.pluginSlug } : {}),
 			});
 		});

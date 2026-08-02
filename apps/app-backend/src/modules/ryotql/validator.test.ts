@@ -121,6 +121,7 @@ it("exposes only approved application-table fields", () => {
 			"isDisabled",
 			"pluginSlug",
 			"layouts",
+			"sandboxScripts",
 			"createdAt",
 			"updatedAt",
 		]),
