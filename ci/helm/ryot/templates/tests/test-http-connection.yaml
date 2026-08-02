@@ -16,23 +16,23 @@ spec:
   {{- end }}
   containers:
     - name: http
-      image: {{ include "ryot.image" . | quote }}
-      imagePullPolicy: {{ .Values.image.pullPolicy }}
+      image: "curlimages/curl:8.17.0"
+      imagePullPolicy: IfNotPresent
       command:
         - sh
         - -c
         - |
           set -e
-          url="http://{{ include "ryot.fullname" . }}:{{ .Values.service.port }}/health"
+           url="http://{{ include "ryot.fullname" . }}:{{ .Values.service.port }}/api/health"
           echo "GET $url"
           # Retry to allow the app to finish starting.
           for i in $(seq 1 30); do
             if curl -fsS -m 10 "$url" >/dev/null; then
-              echo "Ryot /health OK"
+               echo "Ryot /api/health OK"
               exit 0
             fi
             echo "attempt $i failed, retrying..."
             sleep 5
           done
-          echo "Ryot /health did not become healthy in time" >&2
+           echo "Ryot /api/health did not become healthy in time" >&2
           exit 1
