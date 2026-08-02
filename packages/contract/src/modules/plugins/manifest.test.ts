@@ -296,16 +296,18 @@ describe("definePlugin", () => {
 	});
 
 	it("accepts a canonical client entry under client/", () => {
-		const client = { entry: "client/index.tsx", apiVersion: 1, capabilities: ["storage"] };
+		const client = { entry: "client/pages/index.tsx", apiVersion: 1 };
 		const decoded = Schema.decodeUnknownSync(PluginManifest)({ ...manifest, client });
 
 		expect(decoded.client).toEqual(client);
 	});
 
-	it("rejects client entries outside client/ or with noncanonical paths", () => {
+	it("rejects non-TypeScript client entries outside client/ or with noncanonical paths", () => {
 		for (const entry of [
 			"index.tsx",
 			"backend/index.ts",
+			"client/index.js",
+			"client/index.css",
 			"client/../index.tsx",
 			"client//index.tsx",
 			"client\\index.tsx",
@@ -313,10 +315,19 @@ describe("definePlugin", () => {
 			expect(() =>
 				Schema.decodeUnknownSync(PluginManifest)({
 					...manifest,
-					client: { entry, apiVersion: 1, capabilities: [] },
+					client: { entry, apiVersion: 1 },
 				}),
 			).toThrow();
 		}
+	});
+
+	it("rejects speculative client capabilities", () => {
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				client: { entry: "client/index.tsx", apiVersion: 1, capabilities: [] },
+			}),
+		).toThrow();
 	});
 
 	it("keeps backend-only manifests valid", () => {
