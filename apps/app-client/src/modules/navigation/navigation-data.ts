@@ -117,6 +117,15 @@ export function getNavigationItems(props: { data: NavigationData; workspaceSlug:
 	};
 }
 
+export function getWorkspaceSummary(items: Pick<NavigationItems, "savedViews" | "views">) {
+	const views = `${items.views.length} view${items.views.length === 1 ? "" : "s"}`;
+	const savedViews =
+		items.savedViews.length === 0
+			? "no saved views"
+			: `${items.savedViews.length} saved view${items.savedViews.length === 1 ? "" : "s"}`;
+	return `${views} · ${savedViews}`;
+}
+
 export function getCurrentWorkspace(
 	workspaces: readonly NavigationWorkspace[],
 	routeWorkspace: string | undefined,
