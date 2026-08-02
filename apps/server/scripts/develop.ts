@@ -9,8 +9,8 @@ dotenv.config();
 
 type ProcessCommand = readonly [string, ...string[]];
 
-const prepareSandboxRuntimeScript = Bun.fileURLToPath(
-	new URL("../../../kernel/backend/scripts/compile-sandbox-runner.ts", import.meta.url),
+const generateSandboxRuntimeScript = Bun.fileURLToPath(
+	new URL("../../../kernel/backend/scripts/generate-sandbox-runtime.ts", import.meta.url),
 );
 
 const generateRenderersScript = Bun.fileURLToPath(
@@ -20,7 +20,7 @@ const generateRenderersScript = Bun.fileURLToPath(
 const prepareRuntimeCommand: ProcessCommand = [
 	process.execPath,
 	"run",
-	prepareSandboxRuntimeScript,
+	generateSandboxRuntimeScript,
 ];
 const generateRenderersCommand: ProcessCommand = [process.execPath, "run", generateRenderersScript];
 const pluginBuildCommand: ProcessCommand = [

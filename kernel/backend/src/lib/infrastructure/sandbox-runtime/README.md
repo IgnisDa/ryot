@@ -6,9 +6,12 @@ The backend executes plugin and source-zero kernel scripts as untrusted TypeScri
 
 Plugin ingestion validates `.sandbox.ts` manifest entries, compiles format-1 JavaScript, and stores immutable rows keyed by script provenance and content hash. Kernel scripts use the same compiler and content-addressed rows under definition source zero. Root scripts are pinned before first execution; child targets resolve from the active pinned plugin revision when first observed and are then pinned to that durable step.
 
-`sandbox:prepare-runtime` uses Vite to generate the Deno runner, embed kernel sandbox sources, and
-build the trusted runtime payload. It runs before normal `check`, `test`, and `build` tasks; server
-development runs the same preparation script in watch mode. The generated files are
+`sandbox:prepare-runtime` runs `scripts/generate-sandbox-runtime.ts` to generate the Deno runner,
+embed kernel sandbox sources, and build the trusted runtime payload. Registry/package resolution is
+in `scripts/sandbox-runtime-registry.ts`; registry-driven module builds, hashes, import-map generation,
+and metadata assembly are in `scripts/sandbox-runtime-payload.ts`. Both runner and dependency modules
+use `@ryot-app/vite-compiler`'s `buildDenoEsm` profile. Generation runs before normal `check`, `test`,
+and `build` tasks; server development runs the same script in watch mode. The generated files are
 `runner.generated.ts`, `kernel-scripts.generated.ts`, and `runtime-payload.generated.ts`.
 `sandbox:check-runner` type-checks Deno globals separately.
 
@@ -53,7 +56,15 @@ Grant paths must be absolute, normalized, and contained by `config.tmpDir`. Thes
 
 Oversized results may be chunked into named scratch files. The kernel, never another sandbox run, copies exactly those files to workflow storage and returns opaque handles. Consumers resolve a handle only against its trusted parent execution. Public results omit harvest metadata.
 
-Format-1 modules may import the SDK root and `/driver`, `/wire`, `/operation`, `/effect`, `/cheerio`, `/youtubei`, `/fflate`, `/papaparse`, and `/fast-xml-parser`. The trusted dependency list comes from `SANDBOX_RUNTIME_REGISTRY` in `@ryot-app/sandbox-sdk`. Preparation builds immutable, content-addressed ESM files, an import map, a canonical payload content hash, and generated metadata containing format, Deno/Vite versions, dependency versions, file sizes, and file hashes. Startup only verifies and materializes this shipped payload; it never resolves packages or rebundles them. Deno runs cached-only with no npm, registry, remote URL, project config, or lock file. SDK and plugin-kit Effect and RyotQL aliases point to the same runtime files and preserve module identity. Backend and browser plugin compilers remain separate engines.
+Format-1 modules may import compiler-bundled SDK entry points and the external specifiers derived from
+`SANDBOX_RUNTIME_REGISTRY` in `@ryot-app/sandbox-sdk`. Preparation builds immutable,
+content-addressed ESM files, an import map, a canonical payload content hash, and generated metadata
+containing format, Deno/Vite versions, dependency versions, file sizes, and file hashes. Startup calls
+`materializeShippedSandboxRuntime` to verify and materialize this payload; it never resolves packages
+or rebundles them. `materializeSandboxRuntimePayload` remains the lower-level validator/materializer.
+Deno runs cached-only with no npm, registry, remote URL, project config, or lock file. SDK and
+plugin-kit Effect and RyotQL aliases point to the same runtime files and preserve module identity.
+Backend and browser plugin compilers remain separate engines.
 
 ## Capabilities
 

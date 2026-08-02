@@ -52,7 +52,7 @@ export const SANDBOX_RUNTIME_REGISTRY = [
 	},
 ] as const;
 
-export const SANDBOX_RUNTIME_SDK_IMPORTS = [
+export const SANDBOX_RUNTIME_EXTERNAL_SPECIFIERS = [
 	...SANDBOX_RUNTIME_REGISTRY.map(({ sdkImport }) => sdkImport),
 	...SANDBOX_RUNTIME_REGISTRY.flatMap(({ aliases }) => aliases),
 ] as const;

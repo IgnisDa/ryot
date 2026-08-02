@@ -2,7 +2,7 @@
 
 `@ryot-app/sandbox-compiler` compiles backend TypeScript into format-1 Deno ESM. It owns sandbox
 source policy, manifest extraction, workflow checks, compiler limits, and sandbox diagnostics. It
-uses `@ryot-app/vite-compiler` for the staged filesystem workspace and the protected Vite build.
+uses `@ryot-app/vite-compiler` for the complete Deno ESM build profile and scoped workspace.
 
 ## Public Entrypoints And Callers
 
@@ -19,19 +19,17 @@ semantic and Vite Deno build stages, but retain their separate public APIs and m
 
 ## Build Pipeline
 
-The compiler first creates a TypeScript 7 no-emit project. Strict semantic diagnostics, manifest
-literal extraction, definition and declaration checks, import policy, and workflow determinism checks
-must pass before Vite runs. A semantic or policy failure never reaches the build stage.
+The compiler creates a TypeScript 7 no-emit project and reports bounded semantic diagnostics. It then
+inspects each entry, validates declarations, workflows, and literal manifests, and compiles validated
+entries with bounded concurrency. A semantic or policy failure never reaches the build stage.
 
-Each build acquires a scoped workspace through `@ryot-app/vite-compiler`. The workspace contains
-`source/` for supplied files, `generated/` for compiler-owned entries, and `output/` for Vite output.
-The source is staged under `source/`; a generated entry re-exports the selected sandbox entry. A
-workspace may use the supervisor's `parentPath` and `jobId`, and its scope removes the workspace.
+Each `buildDenoEsm` call acquires a scoped workspace through `@ryot-app/vite-compiler` and stages the
+package under `source/`. A workspace may use the supervisor's `parentPath` and `jobId`, and its scope
+removes the workspace.
 
-The sandbox Vite profile emits one unminified ESM module. It targets ES2022, disables module preload,
-uses inline source maps, and disables CSS splitting and code splitting. Backend entries emit exactly
-one `sandbox.mjs` file. The runner and trusted runtime preparation use the same profile with their
-own configured output filenames.
+The shared Deno profile emits exactly one `sandbox.mjs` module as unminified ES2022 ESM with an inline
+source map and no CSS, module preload, or code splitting. Runner and trusted runtime generation use
+the same `buildDenoEsm` API with their own output filenames.
 
 Only the following runtime-registry specifiers remain external in a sandbox module:
 
@@ -46,16 +44,17 @@ Only the following runtime-registry specifiers remain external in a sandbox modu
 - `@ryot-app/sandbox-sdk/ryotql`
 - `@ryot-app/plugin-kit/ryotql`
 
-The list is derived from the runtime registry in `@ryot-app/sandbox-sdk`. Other approved SDK entry
-points are bundled through the compiler-owned aliases. Runtime aliases for Effect and RyotQL resolve
-to the same files, so SDK and plugin-kit imports keep one module identity.
+`SANDBOX_RUNTIME_EXTERNAL_SPECIFIERS` is derived from `SANDBOX_RUNTIME_REGISTRY` in
+`@ryot-app/sandbox-sdk`. Other approved SDK entry points remain compiler-bundled through exact aliases.
+Runtime aliases for Effect and RyotQL resolve to the same files, so SDK and plugin-kit imports keep one
+module identity.
 
 ## Output Audit
 
-The compiler requires exactly the expected output file and checks Vite diagnostics, compiled size,
-source-map paths, and emitted runtime imports. The audit rejects Node, Bun, npm, remote, and JSR
-imports; CommonJS loading; browser-only Vite helpers; and any external specifier not in the exact
-runtime list. The result is a format-1 module with an inline source map and no chunks.
+`@ryot-app/vite-compiler` validates the exact output, normalizes source maps, and audits emitted runtime
+imports. The audit rejects Node, Bun, npm, remote, and JSR imports; CommonJS loading; browser-only Vite
+helpers; and any external specifier not in the exact runtime list. The sandbox compiler maps Vite
+diagnostics into its public diagnostic model and enforces the compiled-size limit.
 
 ## Host, Supervision, And Limits
 

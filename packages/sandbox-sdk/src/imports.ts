@@ -2,7 +2,7 @@ import { Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import {
 	PLUGIN_KIT_SCHEMA_IMPORT,
-	SANDBOX_RUNTIME_SDK_IMPORTS,
+	SANDBOX_RUNTIME_EXTERNAL_SPECIFIERS,
 	SANDBOX_SDK_AUTOMATION_IMPORT,
 	SANDBOX_SDK_FILESYSTEM_IMPORT,
 	SANDBOX_SDK_IMPORT_WIRE_IMPORT,
@@ -25,7 +25,7 @@ export const SANDBOX_SDK_IMPORTS = [
 	"@ryot-app/sandbox-sdk/operation",
 	"@ryot-app/sandbox-sdk/wire",
 	PLUGIN_KIT_SCHEMA_IMPORT,
-	...SANDBOX_RUNTIME_SDK_IMPORTS,
+	...SANDBOX_RUNTIME_EXTERNAL_SPECIFIERS,
 ] as const;
 
 const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
