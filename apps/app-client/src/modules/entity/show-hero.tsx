@@ -1,8 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { HEADER_ROW_HEIGHT } from "@/modules/navigation/header/header-metrics";
+import { useHeaderContentOffset } from "@/modules/navigation/header/use-header-content-offset";
 import { withPageAlpha } from "@/modules/theme/page-background-color";
 import { usePageBackgroundColor } from "@/modules/theme/use-page-background-color";
 import { RemoteImage } from "@/modules/ui/image-with-fallback";
@@ -20,14 +19,13 @@ export function ShowHero(props: {
 	readonly show: ShowSummary;
 	readonly managedUrls: ReadonlyMap<string, string>;
 }) {
-	const insets = useSafeAreaInsets();
+	const offset = useHeaderContentOffset();
 	const background = usePageBackgroundColor();
 	const asset = showBackdropAsset(props.show);
 	const url = asset ? resolveAssetUrl(asset, props.managedUrls) : undefined;
 	if (!url) {
 		return null;
 	}
-	const offset = insets.top + HEADER_ROW_HEIGHT;
 	return (
 		<View
 			pointerEvents="none"

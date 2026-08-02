@@ -61,7 +61,6 @@ export function useImageTint(url: string | undefined) {
 }
 
 export function ImageTintOverlay(props: {
-	readonly className?: string;
 	readonly direction: "horizontal" | "vertical";
 	readonly gradientStops?: readonly [string, string, string];
 }) {
@@ -70,11 +69,7 @@ export function ImageTintOverlay(props: {
 	}
 	const edges = GRADIENT_EDGES[props.direction];
 	return (
-		<Animated.View
-			pointerEvents="none"
-			entering={TINT_ENTERING}
-			className={props.className ?? "absolute inset-0"}
-		>
+		<Animated.View pointerEvents="none" entering={TINT_ENTERING} className="absolute inset-0">
 			<LinearGradient
 				end={edges.end}
 				start={edges.start}
