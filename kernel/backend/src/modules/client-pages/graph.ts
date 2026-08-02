@@ -79,7 +79,6 @@ export type ResolvedClientPageGraph = {
 type ClientPageGraphCommon<E, R> = {
 	readonly userId: UserId;
 	readonly plugins: ReadonlyArray<AvailablePlugin>;
-	readonly stylexTracer?: { readonly fingerprint: string };
 	readonly loadPluginFiles: (
 		plugin: AvailablePlugin,
 	) => Effect.Effect<Readonly<Record<string, Uint8Array>> | null, E, R>;
@@ -116,8 +115,6 @@ export const resolveClientPageGraph = <E, R>(
 	Effect.gen(function* () {
 		const isRenderer = "definition" in input;
 		const isKernel = isRenderer && "kernel" in input;
-		const stylexTracer =
-			!isRenderer && input.plugin.slug === "stylex-tracer" ? input.stylexTracer : undefined;
 		const rendererNamespace = isRenderer
 			? namespaceFor(
 					isKernel ? "kernel" : "renderer",
@@ -461,28 +458,14 @@ export const resolveClientPageGraph = <E, R>(
 				installationId: contributor.installationId,
 			};
 		});
-		const graphIdentity = { identity, routeRegistry };
 		return {
 			identity,
 			contributors,
-			graphHash: sha256Hex(
-				stableStringify(
-					stylexTracer
-						? {
-								...graphIdentity,
-								compiler: {
-									engine: "stylex-tracer",
-									dependencyFingerprint: stylexTracer.fingerprint,
-								},
-							}
-						: graphIdentity,
-				),
-			),
+			graphHash: sha256Hex(stableStringify({ identity, routeRegistry })),
 			compilerInput: {
 				publicExports,
 				entry: identity.entry,
 				apiVersion: CLIENT_API_VERSION,
-				...(stylexTracer ? { stylexTracer } : {}),
 				...(routeRegistry ? { routeRegistry } : {}),
 				automaticRegistry: identity.automaticRegistry,
 				application: isRenderer ? "page" : input.application,

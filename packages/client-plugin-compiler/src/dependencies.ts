@@ -6,7 +6,6 @@ import valueParser from "postcss-value-parser";
 
 import { clientAssetArtifactFile, clientAssetName } from "./artifact";
 import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
-import { STYLEX_RUNTIME_MODULE, STYLEX_TRACER_TRUSTED_MODULES } from "./stylex-tracer";
 
 const NEUTRAL_MODULES = [
 	"@ryot-app/plugin-kit/effect",
@@ -38,10 +37,6 @@ const TRUSTED_MODULES = new Set([
 ]);
 
 export const isTrustedClientModule = (specifier: string) => TRUSTED_MODULES.has(specifier);
-
-export const isStylexTracerClientModule = (specifier: string) =>
-	specifier === STYLEX_RUNTIME_MODULE ||
-	STYLEX_TRACER_TRUSTED_MODULES.some((trusted) => trusted === specifier);
 
 export const isNeutralPluginModule = (specifier: string) => NEUTRAL_MODULE_SET.has(specifier);
 
@@ -78,19 +73,6 @@ const resolveTypeScriptEntries = (from: string) => {
 		"@ryot-app/ryotql-recipes/saved-views": Bun.resolveSync(
 			"@ryot-app/ryotql-recipes/saved-views",
 			from,
-		),
-	};
-};
-
-export const resolveStylexTracerTypeScriptEntries = (from: string) => {
-	const stylexRoot = directoryOf(Bun.resolveSync("@stylexjs/stylex/package.json", from));
-	return {
-		[STYLEX_RUNTIME_MODULE]: `${stylexRoot}/lib/es/stylex.d.ts`,
-		...Object.fromEntries(
-			STYLEX_TRACER_TRUSTED_MODULES.map((specifier) => [
-				specifier,
-				Bun.resolveSync(specifier, from),
-			]),
 		),
 	};
 };
@@ -162,59 +144,40 @@ const readScanSources = async (root: string) => {
 	);
 };
 
-const resolveCompilerDependencies = (stylexTracer: boolean) =>
-	Effect.tryPromise({
-		catch: (error) =>
-			clientPluginCompilationFailure([
-				clientPluginCompilerDiagnostic(
-					"RYOT_CLIENT_COMPILER",
-					"client",
-					`Client plugin compiler dependencies could not be resolved: ${String(error)}`,
-				),
-			]),
-		try: async () => {
-			const from = Bun.fileURLToPath(new URL(".", import.meta.url));
-			const fonts = await Promise.all(
-				["@fontsource-variable/outfit", "@fontsource-variable/lora"].map((specifier) =>
-					readFontsource(specifier, from),
-				),
-			);
-			return {
-				compilerRoot: from,
-				typeScriptEntries: resolveTypeScriptEntries(from),
-				tsserverPath: resolveTypeScriptCompilerPath(from),
-				fontAssets: fonts.flatMap(({ assets }) => assets),
-				fontStylesheet: fonts.map(({ stylesheet }) => stylesheet).join("\n"),
-				...(stylexTracer
-					? {
-							themeStylesheet: "",
-							uiSdkScanSources: [],
-							paletteStylesheet: "",
-							clientSdkScanSources: [],
-							tailwindStylesheet: { path: "", content: "" },
-						}
-					: await (async () => {
-							const uiSdkRoot = directoryOf(Bun.resolveSync("@ryot-app/client-ui-sdk", from));
-							const clientSdkRoot = directoryOf(Bun.resolveSync("@ryot-app/client-sdk", from));
-							const tailwindEntry = Bun.resolveSync("tailwindcss/index.css", from);
-							return {
-								uiSdkScanSources: await readScanSources(uiSdkRoot),
-								clientSdkScanSources: await readScanSources(clientSdkRoot),
-								tailwindStylesheet: {
-									path: tailwindEntry,
-									content: await Bun.file(tailwindEntry).text(),
-								},
-								themeStylesheet: await Bun.file(
-									Bun.resolveSync("@ryot-app/client-ui-sdk/theme.css", from),
-								).text(),
-								paletteStylesheet: await Bun.file(
-									Bun.resolveSync("@ryot-app/client-ui-sdk/palette.css", from),
-								).text(),
-							};
-						})()),
-			};
-		},
-	});
-
-export const resolveClientPluginCompilerDependencies = resolveCompilerDependencies(false);
-export const resolveStylexTracerCompilerDependencies = resolveCompilerDependencies(true);
+export const resolveClientPluginCompilerDependencies = Effect.tryPromise({
+	catch: (error) =>
+		clientPluginCompilationFailure([
+			clientPluginCompilerDiagnostic(
+				"RYOT_CLIENT_COMPILER",
+				"client",
+				`Client plugin compiler dependencies could not be resolved: ${String(error)}`,
+			),
+		]),
+	try: async () => {
+		const from = Bun.fileURLToPath(new URL(".", import.meta.url));
+		const uiSdkRoot = directoryOf(Bun.resolveSync("@ryot-app/client-ui-sdk", from));
+		const clientSdkRoot = directoryOf(Bun.resolveSync("@ryot-app/client-sdk", from));
+		const tailwindEntry = Bun.resolveSync("tailwindcss/index.css", from);
+		const fonts = await Promise.all(
+			["@fontsource-variable/outfit", "@fontsource-variable/lora"].map((specifier) =>
+				readFontsource(specifier, from),
+			),
+		);
+		return {
+			compilerRoot: from,
+			typeScriptEntries: resolveTypeScriptEntries(from),
+			tsserverPath: resolveTypeScriptCompilerPath(from),
+			fontAssets: fonts.flatMap(({ assets }) => assets),
+			uiSdkScanSources: await readScanSources(uiSdkRoot),
+			clientSdkScanSources: await readScanSources(clientSdkRoot),
+			fontStylesheet: fonts.map(({ stylesheet }) => stylesheet).join("\n"),
+			tailwindStylesheet: { path: tailwindEntry, content: await Bun.file(tailwindEntry).text() },
+			themeStylesheet: await Bun.file(
+				Bun.resolveSync("@ryot-app/client-ui-sdk/theme.css", from),
+			).text(),
+			paletteStylesheet: await Bun.file(
+				Bun.resolveSync("@ryot-app/client-ui-sdk/palette.css", from),
+			).text(),
+		};
+	},
+});

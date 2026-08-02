@@ -5,22 +5,6 @@
 	"exports": {
 		"./theme.css": "./src/theme.css",
 		"./palette.css": "./src/palette.css",
-		"./overlay": {
-			"types": "./src/overlay.ts",
-			"default": "./src/overlay.ts"
-		},
-		"./shortcut": {
-			"types": "./src/shortcut.tsx",
-			"default": "./src/shortcut.tsx"
-		},
-		"./stylex-tracer": {
-			"types": "./src/stylex-tracer/index.ts",
-			"default": "./src/stylex-tracer/index.ts"
-		},
-		"./stylex-tracer/tokens.stylex": {
-			"types": "./src/stylex-tracer/tokens.stylex.ts",
-			"default": "./src/stylex-tracer/tokens.stylex.ts"
-		},
 		"./schema-form": {
 			"types": "./src/schema-form/index.tsx",
 			"default": "./src/schema-form/index.tsx"
@@ -52,7 +36,6 @@
 	},
 	"dependencies": {
 		"@ryot-app/contract": "workspace:*",
-		"@stylexjs/stylex": "0.19.0",
 		"@tanstack/react-form": "2.0.0-alpha.1",
 		"@tanstack/react-hotkeys": "0.10.0",
 		"@tanstack/react-table": "9.1.2",

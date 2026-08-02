@@ -5,7 +5,6 @@ import {
 	focusableElements,
 	useDismissOnOutside,
 	useFocusTrap,
-	useInertBackground,
 	useRestoreFocus,
 	useScrollLock,
 } from "./overlay";
@@ -83,75 +82,6 @@ describe("focusableElements", () => {
 		expect(focusableElements(container).map((element) => element.textContent)).toEqual(["visible"]);
 
 		container.remove();
-	});
-});
-
-describe("useInertBackground", () => {
-	it("inerts siblings along a nested portal path and preserves existing inert state", () => {
-		const bodyBefore = document.createElement("aside");
-		const bodyAfter = document.createElement("footer");
-		const app = document.createElement("div");
-		const navigation = document.createElement("nav");
-		const screen = document.createElement("main");
-		const content = document.createElement("section");
-		const portalRoot = document.createElement("div");
-		const panel = document.createElement("div");
-		navigation.setAttribute("inert", "");
-		portalRoot.append(panel);
-		screen.append(content, portalRoot);
-		app.append(navigation, screen);
-		document.body.append(bodyBefore, app, bodyAfter);
-
-		const view = renderHook(() => useInertBackground({ current: panel }));
-
-		expect(bodyBefore.hasAttribute("inert")).toBe(true);
-		expect(bodyAfter.hasAttribute("inert")).toBe(true);
-		expect(navigation.hasAttribute("inert")).toBe(true);
-		expect(content.hasAttribute("inert")).toBe(true);
-		expect(app.hasAttribute("inert")).toBe(false);
-		expect(screen.hasAttribute("inert")).toBe(false);
-		expect(portalRoot.hasAttribute("inert")).toBe(false);
-
-		view.unmount();
-
-		expect(bodyBefore.hasAttribute("inert")).toBe(false);
-		expect(bodyAfter.hasAttribute("inert")).toBe(false);
-		expect(navigation.hasAttribute("inert")).toBe(true);
-		expect(content.hasAttribute("inert")).toBe(false);
-		bodyBefore.remove();
-		bodyAfter.remove();
-		app.remove();
-	});
-
-	it("keeps shared background inert until overlapping nested overlays both release it", () => {
-		const background = document.createElement("aside");
-		const app = document.createElement("div");
-		const outerBackground = document.createElement("section");
-		const outerPanel = document.createElement("div");
-		const innerBackground = document.createElement("section");
-		const innerRoot = document.createElement("div");
-		const innerPanel = document.createElement("div");
-		innerRoot.append(innerPanel);
-		outerPanel.append(innerBackground, innerRoot);
-		app.append(outerBackground, outerPanel);
-		document.body.append(background, app);
-
-		const outer = renderHook(() => useInertBackground({ current: outerPanel }));
-		const inner = renderHook(() => useInertBackground({ current: innerPanel }));
-		expect(background.hasAttribute("inert")).toBe(true);
-		expect(outerBackground.hasAttribute("inert")).toBe(true);
-		expect(innerBackground.hasAttribute("inert")).toBe(true);
-
-		outer.unmount();
-		expect(background.hasAttribute("inert")).toBe(true);
-		expect(outerBackground.hasAttribute("inert")).toBe(true);
-
-		inner.unmount();
-		expect(background.hasAttribute("inert")).toBe(false);
-		expect(outerBackground.hasAttribute("inert")).toBe(false);
-		expect(innerBackground.hasAttribute("inert")).toBe(false);
-		background.remove();
-		app.remove();
 	});
 });
 

@@ -18,7 +18,6 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedPluginSlugRouteRouteImport } from './routes/_authenticated/$pluginSlug/route'
 import { Route as AuthenticatedCustomizeSidebarRouteImport } from './routes/_authenticated/customize-sidebar'
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
-import { Route as AuthenticatedStylexTracerKernelRouteImport } from './routes/_authenticated/stylex-tracer-kernel'
 import { Route as AuthCallbackRouteImport } from './routes/auth_.callback'
 import { Route as GodModeIndexRouteImport } from './routes/god-mode/index'
 import { Route as GodModeMigrationReportRouteImport } from './routes/god-mode/migration-report'
@@ -85,12 +84,6 @@ const AuthenticatedSettingsRouteRoute =
   AuthenticatedSettingsRouteRouteImport.update({
     id: '/settings',
     path: '/settings',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedStylexTracerKernelRoute =
-  AuthenticatedStylexTracerKernelRouteImport.update({
-    id: '/stylex-tracer-kernel',
-    path: '/stylex-tracer-kernel',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
@@ -215,7 +208,6 @@ export interface FileRoutesByFullPath {
   '/$pluginSlug': typeof AuthenticatedPluginSlugRouteRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/customize-sidebar': typeof AuthenticatedCustomizeSidebarRoute
-  '/stylex-tracer-kernel': typeof AuthenticatedStylexTracerKernelRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/god-mode/migration-report': typeof GodModeMigrationReportRoute
   '/god-mode/users': typeof GodModeUsersRoute
@@ -242,7 +234,6 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/customize-sidebar': typeof AuthenticatedCustomizeSidebarRoute
-  '/stylex-tracer-kernel': typeof AuthenticatedStylexTracerKernelRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/god-mode/migration-report': typeof GodModeMigrationReportRoute
   '/god-mode/users': typeof GodModeUsersRoute
@@ -275,7 +266,6 @@ export interface FileRoutesById {
   '/_authenticated/$pluginSlug': typeof AuthenticatedPluginSlugRouteRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/_authenticated/customize-sidebar': typeof AuthenticatedCustomizeSidebarRoute
-  '/_authenticated/stylex-tracer-kernel': typeof AuthenticatedStylexTracerKernelRoute
   '/auth_/callback': typeof AuthCallbackRoute
   '/god-mode/migration-report': typeof GodModeMigrationReportRoute
   '/god-mode/users': typeof GodModeUsersRoute
@@ -309,7 +299,6 @@ export interface FileRouteTypes {
     | '/$pluginSlug'
     | '/settings'
     | '/customize-sidebar'
-    | '/stylex-tracer-kernel'
     | '/auth/callback'
     | '/god-mode/migration-report'
     | '/god-mode/users'
@@ -336,7 +325,6 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/reset-password'
     | '/customize-sidebar'
-    | '/stylex-tracer-kernel'
     | '/auth/callback'
     | '/god-mode/migration-report'
     | '/god-mode/users'
@@ -368,7 +356,6 @@ export interface FileRouteTypes {
     | '/_authenticated/$pluginSlug'
     | '/_authenticated/settings'
     | '/_authenticated/customize-sidebar'
-    | '/_authenticated/stylex-tracer-kernel'
     | '/auth_/callback'
     | '/god-mode/migration-report'
     | '/god-mode/users'
@@ -466,13 +453,6 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/stylex-tracer-kernel': {
-      id: '/_authenticated/stylex-tracer-kernel'
-      path: '/stylex-tracer-kernel'
-      fullPath: '/stylex-tracer-kernel'
-      preLoaderRoute: typeof AuthenticatedStylexTracerKernelRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/auth_/callback': {
@@ -676,7 +656,6 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPluginSlugRouteRoute: typeof AuthenticatedPluginSlugRouteRouteWithChildren
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
   AuthenticatedCustomizeSidebarRoute: typeof AuthenticatedCustomizeSidebarRoute
-  AuthenticatedStylexTracerKernelRoute: typeof AuthenticatedStylexTracerKernelRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedEEntityIdRoute: typeof AuthenticatedEEntityIdRoute
   AuthenticatedVViewSlugRoute: typeof AuthenticatedVViewSlugRoute
@@ -687,7 +666,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
     AuthenticatedPluginSlugRouteRouteWithChildren,
   AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
   AuthenticatedCustomizeSidebarRoute: AuthenticatedCustomizeSidebarRoute,
-  AuthenticatedStylexTracerKernelRoute: AuthenticatedStylexTracerKernelRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedEEntityIdRoute: AuthenticatedEEntityIdRoute,
   AuthenticatedVViewSlugRoute: AuthenticatedVViewSlugRoute,

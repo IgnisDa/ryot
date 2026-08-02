@@ -1,5 +1,4 @@
 import { expect, it } from "@effect/vitest";
-import { STYLEX_TRACER_BUILD_FINGERPRINT } from "@ryot-app/client-plugin-compiler";
 import { CLIENT_API_VERSION } from "@ryot-app/client-plugin-contract";
 import type { ClientRendererDefinition } from "@ryot-app/contract/modules/client-pages/schemas";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
@@ -9,10 +8,6 @@ import { Effect } from "effect";
 import { fixtureManifest } from "#modules/plugins/test-support";
 
 import type { AvailablePlugin } from "../plugins/runtime-resolver";
-import {
-	StyleXTracerActivation,
-	styleXTracerActivationLayer,
-} from "../plugins/stylex-tracer-activation";
 import { resolveClientPageGraph } from "./graph";
 import { resolvePluginPageTarget } from "./prepare";
 
@@ -201,87 +196,6 @@ it.effect("roots a page graph at the selected plugin page export", () => {
 		expect(graph.identity.contributors.map(({ kind }) => kind)).toEqual(["plugin"]);
 		expect(graph.identity.selectedExports).toEqual(["@ryot-app/plugins/fixture/details"]);
 		expect(graph.compilerInput.application).toBe("page");
-	});
-});
-
-it.effect("activates StyleX only for the exact enabled root plugin slug", () => {
-	const page = (slug: string) =>
-		plugin({
-			slug,
-			client: {
-				apiVersion: 1,
-				homeView: null,
-				exports: {
-					details: {
-						kind: "page",
-						entry: "client/details.tsx",
-						settingsSchema: { fields: {} },
-						automaticEntityPresentations: false,
-					},
-				},
-			},
-		});
-	const resolvePage = (root: AvailablePlugin, fingerprint?: string) =>
-		resolveClientPageGraph({
-			plugin: root,
-			plugins: [root],
-			application: "page",
-			exportName: "details",
-			userId: UserId.make("user-1"),
-			...(fingerprint ? { stylexTracer: { fingerprint } } : {}),
-			loadPluginFiles: () =>
-				Effect.succeed({ "client/details.tsx": bytes("export default function Details() {}") }),
-		});
-	return Effect.gen(function* () {
-		const activation = yield* StyleXTracerActivation;
-		const tracer = page("stylex-tracer");
-		const disabled = yield* resolvePage(tracer);
-		const enabled = yield* resolvePage(tracer, activation.fingerprint);
-		const other = yield* resolvePage(page("stylex-tracer-other"), activation.fingerprint);
-
-		expect(activation.enabled).toBe(true);
-		expect(disabled.compilerInput.stylexTracer).toBeUndefined();
-		expect(enabled.compilerInput.stylexTracer).toEqual({
-			fingerprint: STYLEX_TRACER_BUILD_FINGERPRINT,
-		});
-		expect(other.compilerInput.stylexTracer).toBeUndefined();
-		expect(enabled.graphHash).not.toBe(disabled.graphHash);
-	}).pipe(Effect.provide(styleXTracerActivationLayer(true)));
-});
-
-it.effect("includes the StyleX dependency fingerprint in graph identity", () => {
-	const tracer = plugin({
-		slug: "stylex-tracer",
-		client: {
-			apiVersion: 1,
-			homeView: null,
-			exports: {
-				details: {
-					kind: "page",
-					entry: "client/details.tsx",
-					settingsSchema: { fields: {} },
-					automaticEntityPresentations: false,
-				},
-			},
-		},
-	});
-	const resolveFingerprint = (fingerprint: string) =>
-		resolveClientPageGraph({
-			plugin: tracer,
-			plugins: [tracer],
-			application: "page",
-			exportName: "details",
-			stylexTracer: { fingerprint },
-			userId: UserId.make("user-1"),
-			loadPluginFiles: () =>
-				Effect.succeed({ "client/details.tsx": bytes("export default function Details() {}") }),
-		});
-	return Effect.gen(function* () {
-		const first = yield* resolveFingerprint("dependency-fingerprint-1");
-		const second = yield* resolveFingerprint("dependency-fingerprint-2");
-
-		expect(second.graphHash).not.toBe(first.graphHash);
-		expect(second.identity).toEqual(first.identity);
 	});
 });
 
