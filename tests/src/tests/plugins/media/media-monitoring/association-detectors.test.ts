@@ -17,9 +17,9 @@ import {
 	seedMediaEntity,
 	startFakeAppriseServer,
 	triggerCronAndWaitForEntity,
-	type InstalledTestProvider,
 	pollUntil,
 } from "~/fixtures";
+import type { InstalledTestProvider } from "~/fixtures/sandbox-provider";
 import { assertCompleted, requireObjectRecord } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 import type { FakeHttpServer } from "~/support/fake-http-server";

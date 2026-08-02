@@ -2,11 +2,11 @@ import {
 	limitSandboxCompilationDiagnostics,
 	sandboxCompilerDiagnostic,
 } from "@ryot/sandbox-compiler/diagnostics";
+import { jsonByteLength, utf8ByteLength } from "@ryot/sandbox-compiler/limits";
 import { describe, expect, it } from "vitest";
 
 import {
 	consumeSandboxHostCall,
-	jsonByteLength,
 	sandboxCacheKeyError,
 	sandboxCacheTtlError,
 	sandboxCacheValueError,
@@ -16,7 +16,6 @@ import {
 	SANDBOX_LIMITS,
 	SANDBOX_RUNNER_LIMITS,
 	sandboxWorkflowJournalByteError,
-	utf8ByteLength,
 } from "./limits";
 
 describe("sandbox limits", () => {
