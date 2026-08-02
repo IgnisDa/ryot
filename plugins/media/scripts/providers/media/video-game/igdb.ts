@@ -1,5 +1,5 @@
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
+import { DateTime, Effect, Option, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
 import { asRecord, numberValue, stringValue } from "../../../script-helpers/records";
@@ -24,6 +24,22 @@ export const manifest = defineManifest({
 	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 const IMAGE_BASE_URL = "https://images.igdb.com/igdb/image/upload/t_cover_big";
+const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
+	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" as const } });
+const stringArray = Schema.Array(Schema.String);
+const igdbSearchOptionsSchema = strictStruct({
+	filters: Schema.optional(
+		strictStruct({
+			themeIds: Schema.optional(stringArray),
+			genreIds: Schema.optional(stringArray),
+			platformIds: Schema.optional(stringArray),
+			gameModeIds: Schema.optional(stringArray),
+			gameTypeIds: Schema.optional(stringArray),
+			releaseDateRegionIds: Schema.optional(stringArray),
+			allowGamesWithParent: Schema.optional(Schema.Boolean),
+		}),
+	),
+});
 const getImageUrl = (imageId: string) => buildIgdbImageUrl(IMAGE_BASE_URL, imageId);
 const extractYear = (unixTimestamp: unknown) => {
 	const value = numberValue(unixTimestamp);
@@ -160,56 +176,75 @@ const DETAIL_FIELDS = [
 export const search = defineProvider({
 	manifest,
 	operation: "search",
-	run: (input, host) => {
-		const offset = (input.page - 1) * input.pageSize;
-		const body = [
-			`fields ${SEARCH_FIELDS};`,
-			"where version_parent = null;",
-			`search "${input.query}";`,
-			`limit ${input.pageSize};`,
-			`offset ${offset};`,
-		].join("\n");
-		return makeIgdbRequest(host, "games", body).pipe(
-			Effect.flatMap(({ data: results, headers }) => {
-				if (!Array.isArray(results)) {
-					return Effect.fail(new Error("IGDB search returned unexpected response format"));
+	run: (input, host) =>
+		Effect.gen(function* () {
+			const options = yield* Schema.decodeUnknownEffect(igdbSearchOptionsSchema)(
+				input.options ?? {},
+			);
+			const filters = options.filters;
+			const conditions = filters?.allowGamesWithParent ? [] : ["version_parent = null"];
+			for (const [ids, field] of [
+				[filters?.themeIds, "themes"],
+				[filters?.genreIds, "genres"],
+				[filters?.platformIds, "platforms"],
+				[filters?.gameModeIds, "game_mode"],
+				[filters?.gameTypeIds, "game_type"],
+				[filters?.releaseDateRegionIds, "release_dates.region"],
+			] as const) {
+				if (ids && ids.length > 0) {
+					conditions.push(`${field} = (${ids.join(",")})`);
 				}
-				const totalItems = readTotalItems(headers, results.length, offset);
-				const items = results.flatMap((game) => {
-					const record = asRecord(game);
-					const id = numberValue(record?.["id"]);
-					const name = stringValue(record?.["name"]);
-					if (id === null || !name) {
-						return [];
+			}
+			const offset = (input.page - 1) * input.pageSize;
+			const body = [
+				`fields ${SEARCH_FIELDS};`,
+				...(conditions.length > 0 ? [`where ${conditions.join(" & ")};`] : []),
+				`search "${input.query}";`,
+				`limit ${input.pageSize};`,
+				`offset ${offset};`,
+			].join("\n");
+			return yield* makeIgdbRequest(host, "games", body).pipe(
+				Effect.flatMap(({ data: results, headers }) => {
+					if (!Array.isArray(results)) {
+						return Effect.fail(new Error("IGDB search returned unexpected response format"));
 					}
-					const publishYear = extractYear(record?.["first_release_date"]);
-					const imageId = stringValue(asRecord(record?.["cover"])?.["image_id"]);
-					const image = imageId ? getImageUrl(imageId) : null;
-					return [
-						{
-							externalId: String(id),
-							calloutProperty: { kind: "null" as const, value: null },
-							titleProperty: { kind: "text" as const, value: name },
-							secondarySubtitleProperty: { kind: "null" as const, value: null },
-							imageProperty:
-								image === null
-									? { kind: "null" as const, value: null }
-									: { kind: "image" as const, value: { type: "remote" as const, url: image } },
-							primarySubtitleProperty:
-								publishYear === null
-									? { kind: "null" as const, value: null }
-									: { kind: "number" as const, value: publishYear },
-						},
-					];
-				});
-				return Effect.succeed({
-					items,
-					details: buildPagination(offset, results.length, totalItems, input.page),
-				});
-			}),
-		);
-	},
+					const totalItems = readTotalItems(headers, results.length, offset);
+					const items = results.flatMap((game) => {
+						const record = asRecord(game);
+						const id = numberValue(record?.["id"]);
+						const name = stringValue(record?.["name"]);
+						if (id === null || !name) {
+							return [];
+						}
+						const publishYear = extractYear(record?.["first_release_date"]);
+						const imageId = stringValue(asRecord(record?.["cover"])?.["image_id"]);
+						const image = imageId ? getImageUrl(imageId) : null;
+						return [
+							{
+								externalId: String(id),
+								calloutProperty: { kind: "null" as const, value: null },
+								titleProperty: { kind: "text" as const, value: name },
+								secondarySubtitleProperty: { kind: "null" as const, value: null },
+								imageProperty:
+									image === null
+										? { kind: "null" as const, value: null }
+										: { kind: "image" as const, value: { type: "remote" as const, url: image } },
+								primarySubtitleProperty:
+									publishYear === null
+										? { kind: "null" as const, value: null }
+										: { kind: "number" as const, value: publishYear },
+							},
+						];
+					});
+					return Effect.succeed({
+						items,
+						details: buildPagination(offset, results.length, totalItems, input.page),
+					});
+				}),
+			);
+		}),
 });
+
 export const details = defineProvider({
 	manifest,
 	operation: "details",

@@ -84,6 +84,7 @@ const declaredScriptMetadata = (
 		providerOperation: script.providerOperation,
 		requiredPluginConfigKeys: script.requiredPluginConfigKeys,
 		requiredSystemConfigKeys: script.requiredSystemConfigKeys,
+		...(script.searchOptionsSchema ? { searchOptionsSchema: script.searchOptionsSchema } : {}),
 	};
 };
 
