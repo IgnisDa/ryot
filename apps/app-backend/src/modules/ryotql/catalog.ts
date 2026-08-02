@@ -256,6 +256,7 @@ const savedView: CatalogTable = {
 		pluginSlug: physicalField("plugin_slug", "text"),
 		isBuiltin: physicalField("is_builtin", "boolean"),
 		isDisabled: physicalField("is_disabled", "boolean"),
+		entitySchemaSlug: physicalField("entity_schema_slug", "text"),
 	},
 };
 

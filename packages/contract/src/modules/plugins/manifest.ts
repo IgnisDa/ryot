@@ -101,6 +101,7 @@ export const PluginSavedView = strictStruct({
 	slug: Schema.String,
 	sortOrder: Schema.Number,
 	pluginSlug: Schema.NullOr(Schema.String),
+	entitySchemaSlug: Schema.NullOr(Schema.String),
 	layouts: strictStruct({
 		grid: PluginSavedViewCardLayout,
 		list: PluginSavedViewCardLayout,

@@ -111,4 +111,12 @@ it("declares the complete fitness-owned source", () => {
 		},
 	]);
 	expect(fitnessPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "fitness")).toBe(true);
+	expect(
+		fitnessPlugin.savedViews.map(({ name, entitySchemaSlug }) => ({ name, entitySchemaSlug })),
+	).toEqual([
+		{ name: "All Exercises", entitySchemaSlug: "exercise" },
+		{ name: "All Workouts", entitySchemaSlug: "workout" },
+		{ name: "All Measurements", entitySchemaSlug: "measurement" },
+		{ name: "All Workout Templates", entitySchemaSlug: "workout-template" },
+	]);
 });

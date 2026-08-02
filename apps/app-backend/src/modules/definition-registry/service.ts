@@ -71,6 +71,7 @@ export type SavedViewDefinition = {
 	readonly sortOrder: number;
 	readonly pluginSlug: string | null;
 	readonly layouts: SavedViewLayouts;
+	readonly entitySchemaSlug: string | null;
 };
 
 export type DefinitionSource = {
@@ -271,6 +272,11 @@ const validateDefinitionSource = (source: DefinitionSource) => {
 		const validationError = getSavedViewValidationError(savedView);
 		if (validationError) {
 			throw new Error(`Invalid saved view ${savedView.slug}: ${validationError}`);
+		}
+		if (savedView.entitySchemaSlug !== null && !entitySchemaSlugs.has(savedView.entitySchemaSlug)) {
+			throw new Error(
+				`Saved view ${savedView.slug} references missing entity schema ${savedView.entitySchemaSlug}`,
+			);
 		}
 	}
 

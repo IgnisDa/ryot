@@ -26,14 +26,14 @@ function SavedViewContent(props: { record: SavedViewRecord }) {
 	const result = useSavedViewResult(props.record);
 	if (result.state.status === "loading") {
 		return (
-			<SavedViewFrame viewSlug={props.record.slug}>
+			<SavedViewFrame entitySchemaSlug={null} viewSlug={props.record.slug}>
 				<NavigationStatus title="Loading saved view..." />
 			</SavedViewFrame>
 		);
 	}
 	if (result.state.status === "transport-error" || result.state.status === "malformed") {
 		return (
-			<SavedViewFrame viewSlug={props.record.slug}>
+			<SavedViewFrame entitySchemaSlug={null} viewSlug={props.record.slug}>
 				<ErrorState {...savedViewError(result.state)} onRetry={result.refresh} />
 			</SavedViewFrame>
 		);
@@ -53,21 +53,21 @@ function SavedViewRecordLoader(props: { slug: string }) {
 	const result = useSavedViewRecord(props.slug);
 	if (result.state.status === "loading") {
 		return (
-			<SavedViewFrame viewSlug={props.slug}>
+			<SavedViewFrame entitySchemaSlug={null} viewSlug={props.slug}>
 				<NavigationStatus title="Loading saved view..." />
 			</SavedViewFrame>
 		);
 	}
 	if (result.state.status === "transport-error" || result.state.status === "malformed") {
 		return (
-			<SavedViewFrame viewSlug={props.slug}>
+			<SavedViewFrame entitySchemaSlug={null} viewSlug={props.slug}>
 				<ErrorState {...savedViewError(result.state)} onRetry={result.refresh} />
 			</SavedViewFrame>
 		);
 	}
 	if (result.state.status === "not-found") {
 		return (
-			<SavedViewFrame viewSlug={props.slug}>
+			<SavedViewFrame entitySchemaSlug={null} viewSlug={props.slug}>
 				<NavigationStatus title="Saved view not found" detail="This saved view does not exist." />
 			</SavedViewFrame>
 		);

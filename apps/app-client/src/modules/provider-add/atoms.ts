@@ -38,14 +38,6 @@ const canonicalProviderEntityLinksRequest = (request: ProviderEntityLinksRequest
 	};
 };
 
-export const entityDefinitionsAtom = keyedRequestFamily(
-	(scope: ApiScope) => scopedRequestKey(scope, "entity-definitions"),
-	(scope: ApiScope) =>
-		appQueryClient(scope.serverUrl).query("definitions", "listEntities", {
-			reactivityKeys: scopedReactivityKey("entity-definitions", scope),
-		}),
-);
-
 export const providerSearchAtom = keyedRequestFamily(
 	(request: ProviderSearchRequest) =>
 		scopedRequestKey(request, "provider-search", request.rootEntitySchemaSlug),

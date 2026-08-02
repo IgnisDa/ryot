@@ -21,6 +21,7 @@ export const savedView = pgTable(
 		slug: text().notNull(),
 		name: text().notNull(),
 		icon: text().notNull(),
+		entitySchemaSlug: text(),
 		sortOrder: integer().notNull().default(0),
 		isBuiltin: boolean().notNull().default(false),
 		layouts: jsonb().$type<SavedViewLayouts>().notNull(),

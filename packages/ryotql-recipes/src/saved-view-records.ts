@@ -9,7 +9,7 @@ import {
 	rowsResultSchema,
 } from "@ryot/contract/modules/ryotql/language";
 import { SavedViewLayouts } from "@ryot/contract/modules/saved-views/schemas";
-import { PluginSlug, SavedViewId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, PluginSlug, SavedViewId } from "@ryot/contract/schema/brands";
 import { strictStruct } from "@ryot/contract/schema/utils";
 import { and, ascending, column, document, eq, field, literal, rows, table } from "@ryot/ryotql";
 import { DateTime, Option, Result, Schema } from "effect";
@@ -28,6 +28,7 @@ const savedViewRecordWire = strictStruct({
 	isBuiltin: BooleanFieldValue,
 	isDisabled: BooleanFieldValue,
 	pluginSlug: nullableTextFieldValue,
+	entitySchemaSlug: nullableTextFieldValue,
 });
 
 const savedViewRecordsResponse = strictStruct({
@@ -50,6 +51,7 @@ export const SavedViewRecord = strictStruct({
 	layouts: SavedViewLayouts,
 	isDisabled: Schema.Boolean,
 	pluginSlug: Schema.NullOr(PluginSlug),
+	entitySchemaSlug: Schema.NullOr(EntitySchemaSlug),
 });
 export type SavedViewRecord = typeof SavedViewRecord.Type;
 
@@ -86,6 +88,10 @@ const decodeSavedViewRecord = (row: typeof savedViewRecordWire.Type) =>
 					isDisabled: row.isDisabled.value,
 					id: SavedViewId.make(row.id.value),
 					pluginSlug: row.pluginSlug.kind === "text" ? PluginSlug.make(row.pluginSlug.value) : null,
+					entitySchemaSlug:
+						row.entitySchemaSlug.kind === "text"
+							? EntitySchemaSlug.make(row.entitySchemaSlug.value)
+							: null,
 				}) satisfies SavedViewRecord,
 		),
 	);
@@ -126,6 +132,7 @@ export const buildSavedViewRecordsDocument = (input: {
 				field("isDisabled", column(savedView, "isDisabled")),
 				field("layouts", column(savedView, "layouts")),
 				field("pluginSlug", column(savedView, "pluginSlug")),
+				field("entitySchemaSlug", column(savedView, "entitySchemaSlug")),
 			],
 		}),
 	});
@@ -150,6 +157,7 @@ export const buildSavedViewRecordDocument = (input: { readonly slug: string }) =
 				field("isDisabled", column(savedView, "isDisabled")),
 				field("layouts", column(savedView, "layouts")),
 				field("pluginSlug", column(savedView, "pluginSlug")),
+				field("entitySchemaSlug", column(savedView, "entitySchemaSlug")),
 			],
 		}),
 	});

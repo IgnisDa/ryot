@@ -77,6 +77,7 @@ export const mediaSavedViews = () => {
 			slug: view.slug,
 			icon: schema.icon,
 			pluginSlug: "media",
+			entitySchemaSlug: view.entitySchemaSlug,
 			layouts: {
 				grid: {
 					...projections.grid.mappings,

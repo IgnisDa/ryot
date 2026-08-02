@@ -9,6 +9,7 @@ import {
 } from "@ryot/contract/client";
 import type { FieldSelection, ScalarExpression } from "@ryot/contract/modules/ryotql/language";
 import {
+	EntitySchemaSlug,
 	EventSchemaSlug,
 	PluginSlug,
 	RemoteImageUrl,
@@ -32,7 +33,7 @@ import { cookieHeaderFromSetCookies } from "./fixtures/auth";
 import { enableTwoFactorForSession } from "./fixtures/auth-2fa";
 import { testPluginManifest } from "./fixtures/test-plugin";
 
-type EntitySchemaSlug = ContractPayload<"entities", "create">["entitySchemaSlug"];
+type EntitySchemaInputSlug = ContractPayload<"entities", "create">["entitySchemaSlug"];
 
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:8000";
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8000/api";
@@ -113,6 +114,7 @@ type SavedViewLayouts = CreateSavedViewBody["layouts"];
 type SavedViewProjectionInput = Parameters<typeof buildSavedViewLayoutProjections>[0];
 
 type SavedViewSpec = {
+	entitySchemaSlug: EntitySchemaInputSlug | null;
 	name: string;
 	icon: string;
 	layouts: SavedViewLayouts;
@@ -432,11 +434,13 @@ async function createSavedView(
 	name: string,
 	icon: string,
 	layouts: SavedViewLayouts,
+	entitySchemaSlug: EntitySchemaInputSlug | null,
 	pluginSlug?: PluginSlug,
 ) {
 	return apiClient.run((c) =>
 		c.savedViews.create({
 			payload: {
+				entitySchemaSlug,
 				name,
 				icon,
 				pluginSlug,
@@ -1794,6 +1798,7 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Premium Aged Whiskeys",
 			icon: "wine",
+			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
 				cardConfig(
@@ -1814,6 +1819,7 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Scotch Whiskeys",
 			icon: "wine",
+			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
 				defaultCard,
@@ -1834,6 +1840,7 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "High Proof Whiskeys",
 			icon: "flame",
+			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
 				defaultCard,
@@ -1855,6 +1862,7 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Recent Whiskey Additions",
 			icon: "clock",
+			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
 				cardConfig(
@@ -1874,6 +1882,7 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Japanese Whiskeys",
 			icon: "wine",
+			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
 				cardConfig(
@@ -1893,6 +1902,7 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Whiskey Regions Atlas",
 			icon: "map",
+			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
 				cardConfig(
@@ -1914,6 +1924,7 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Cask Strength Candidates",
 			icon: "flame",
+			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
 				cardConfig(
@@ -1937,6 +1948,7 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "Restaurants & Cafes",
 			icon: "utensils",
+			entitySchemaSlug: EntitySchemaSlug.make("place"),
 			layouts: buildSeedLayouts(
 				["place"],
 				defaultCard,
@@ -1957,6 +1969,7 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "Cultural Venues",
 			icon: "landmark",
+			entitySchemaSlug: EntitySchemaSlug.make("place"),
 			layouts: buildSeedLayouts(
 				["place"],
 				cardConfig(
@@ -1977,6 +1990,7 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "Parks & Outdoor Spaces",
 			icon: "tree",
+			entitySchemaSlug: EntitySchemaSlug.make("place"),
 			layouts: buildSeedLayouts(
 				["place"],
 				cardConfig(
@@ -1996,6 +2010,7 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "Recently Added Places",
 			icon: "clock",
+			entitySchemaSlug: EntitySchemaSlug.make("place"),
 			layouts: buildSeedLayouts(
 				["place"],
 				defaultCard,
@@ -2016,6 +2031,7 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "Places by Country",
 			icon: "globe",
+			entitySchemaSlug: EntitySchemaSlug.make("place"),
 			layouts: buildSeedLayouts(
 				["place"],
 				defaultCard,
@@ -2037,6 +2053,7 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "Mapped Places",
 			icon: "map-pin",
+			entitySchemaSlug: EntitySchemaSlug.make("place"),
 			layouts: buildSeedLayouts(
 				["place"],
 				cardConfig(
@@ -2057,6 +2074,7 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "City Address Book",
 			icon: "book-open",
+			entitySchemaSlug: EntitySchemaSlug.make("place"),
 			layouts: buildSeedLayouts(
 				["place"],
 				defaultCard,
@@ -2081,6 +2099,7 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Modern Smartphones",
 			icon: "smartphone",
+			entitySchemaSlug: EntitySchemaSlug.make("smartphone"),
 			layouts: buildSeedLayouts(
 				["smartphone"],
 				cardConfig(
@@ -2101,6 +2120,7 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "High Storage Devices",
 			icon: "hard-drive",
+			entitySchemaSlug: null,
 			layouts: buildSeedLayouts(
 				["smartphone", "tablet"],
 				defaultCard,
@@ -2122,6 +2142,7 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Apple Ecosystem Devices",
 			icon: "apple",
+			entitySchemaSlug: null,
 			layouts: buildSeedLayouts(
 				["smartphone", "tablet"],
 				defaultCard,
@@ -2143,6 +2164,7 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Android Devices",
 			icon: "android",
+			entitySchemaSlug: null,
 			layouts: buildSeedLayouts(
 				["smartphone", "tablet"],
 				cardConfig(
@@ -2163,6 +2185,7 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Premium Smartphones",
 			icon: "gem",
+			entitySchemaSlug: EntitySchemaSlug.make("smartphone"),
 			layouts: buildSeedLayouts(
 				["smartphone"],
 				defaultCard,
@@ -2185,6 +2208,7 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Budget-Friendly Phones",
 			icon: "dollar-sign",
+			entitySchemaSlug: EntitySchemaSlug.make("smartphone"),
 			layouts: buildSeedLayouts(
 				["smartphone"],
 				defaultCard,
@@ -2205,6 +2229,7 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Large Screen Devices",
 			icon: "smartphone",
+			entitySchemaSlug: null,
 			layouts: buildSeedLayouts(
 				["smartphone", "tablet"],
 				cardConfig(
@@ -2225,6 +2250,7 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Tablets with Cellular",
 			icon: "signal",
+			entitySchemaSlug: EntitySchemaSlug.make("tablet"),
 			layouts: buildSeedLayouts(
 				["tablet"],
 				cardConfig(
@@ -2245,6 +2271,7 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Feature Phones with Camera",
 			icon: "camera",
+			entitySchemaSlug: EntitySchemaSlug.make("feature-phone"),
 			layouts: buildSeedLayouts(
 				["feature-phone"],
 				defaultCard,
@@ -2266,6 +2293,7 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "All Mobile Devices",
 			icon: "tablet",
+			entitySchemaSlug: null,
 			layouts: buildSeedLayouts(
 				["smartphone", "feature-phone", "tablet"],
 				cardConfig(
@@ -2297,6 +2325,7 @@ async function seedSavedViews(
 		{
 			name: "Everything Recently Added",
 			icon: "star",
+			entitySchemaSlug: null,
 			layouts: buildSeedLayouts(
 				allSchemaSlugs,
 				defaultCard,
@@ -2335,6 +2364,7 @@ async function seedSavedViews(
 		{
 			name: "All Items A-Z",
 			icon: "book",
+			entitySchemaSlug: null,
 			layouts: buildSeedLayouts(
 				allSchemaSlugs,
 				defaultCard,
@@ -2372,6 +2402,7 @@ async function seedSavedViews(
 		{
 			name: "Collection Showcase",
 			icon: "image",
+			entitySchemaSlug: null,
 			layouts: buildSeedLayouts(
 				allSchemaSlugs,
 				cardConfig(
@@ -2415,6 +2446,7 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Latest Tasting",
 			icon: "star",
+			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
 				cardConfig(
@@ -2436,6 +2468,7 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Highly Rated",
 			icon: "trophy",
+			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
 				cardConfig(
@@ -2457,6 +2490,7 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Latest Purchase",
 			icon: "shopping-cart",
+			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
 				cardConfig(
@@ -2478,6 +2512,7 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "Demo: Places – Last Visited",
 			icon: "calendar",
+			entitySchemaSlug: EntitySchemaSlug.make("place"),
 			layouts: buildSeedLayouts(
 				["place"],
 				cardConfig(
@@ -2500,6 +2535,7 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – ABV Reference",
 			icon: "percent",
+			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
 				cardConfig(
@@ -2521,6 +2557,7 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Quality Tiers",
 			icon: "layers",
+			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
 				cardConfig(
@@ -2542,6 +2579,7 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Full Description",
 			icon: "file-text",
+			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
 				cardConfig(
@@ -2561,6 +2599,7 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Rating with ABV",
 			icon: "activity",
+			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
 				cardConfig(
@@ -2582,6 +2621,7 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Rare Bourbons",
 			icon: "award",
+			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
 				cardConfig(
@@ -2602,6 +2642,7 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Not Rye",
 			icon: "x-circle",
+			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
 				cardConfig(
@@ -2622,6 +2663,7 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Bourbon or Scotch, High Proof",
 			icon: "zap",
+			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
 				cardConfig(
@@ -2643,6 +2685,7 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Unknown Region",
 			icon: "help-circle",
+			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
 				cardConfig(
@@ -2663,6 +2706,7 @@ async function seedSavedViews(
 			pluginSlug: placesPluginSlug,
 			name: "Demo: Places – Has Full Address",
 			icon: "map-pin",
+			entitySchemaSlug: EntitySchemaSlug.make("place"),
 			layouts: buildSeedLayouts(
 				["place"],
 				cardConfig(
@@ -2684,6 +2728,7 @@ async function seedSavedViews(
 			pluginSlug: whiskeyPluginSlug,
 			name: "Demo: Whiskeys – Speyside",
 			icon: "map",
+			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
 				cardConfig(
@@ -2704,6 +2749,7 @@ async function seedSavedViews(
 			pluginSlug: phonesPluginSlug,
 			name: "Demo: Phones – Non-Apple",
 			icon: "smartphone",
+			entitySchemaSlug: null,
 			layouts: buildSeedLayouts(
 				["smartphone", "tablet"],
 				cardConfig(
@@ -2736,7 +2782,14 @@ async function seedSavedViews(
 		for (const view of views) {
 			savedViews.push(
 				// oxlint-disable-next-line no-await-in-loop
-				await createSavedView(client, view.name, view.icon, view.layouts, view.pluginSlug),
+				await createSavedView(
+					client,
+					view.name,
+					view.icon,
+					view.layouts,
+					view.entitySchemaSlug,
+					view.pluginSlug,
+				),
 			);
 		}
 	}
