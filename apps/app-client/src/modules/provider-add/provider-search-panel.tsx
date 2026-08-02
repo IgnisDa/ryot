@@ -18,15 +18,13 @@ import {
 	setProviderEntityImportEntry,
 } from "./import-controller";
 import { runProviderEntityImport } from "./import-runner";
-import { ProviderSearchOptionsForm } from "./options-form";
-import { toOptionsPayload, validateOptionValues } from "./options-form-state";
+import { ProviderSearchOptionsForm, useProviderOptionsForm } from "./options-form";
+import { initialOptionValues, toOptionsPayload } from "./options-form-state";
 import {
 	applyProviderOptionsFailure,
 	applyProviderOptionsResponse,
 	createProviderOptionsState,
 	isProviderOptionsRequestCurrent,
-	setProviderOptionErrors,
-	updateProviderOption,
 	type ProviderOptionsState,
 } from "./options-state";
 import { ProviderSearchResultRow } from "./result-row";
@@ -212,8 +210,17 @@ export function ProviderSearchPanel(props: {
 		props.initialQuery,
 		createProviderSearchState,
 	);
+	const optionsSchema = options.status === "ready" ? options.schema : undefined;
+	const optionsForm = useProviderOptionsForm({
+		schema: optionsSchema,
+		onSubmit: () => dispatch({ type: "search-requested" }),
+	});
 	const lastRunToken = useRef<number | undefined>(undefined);
 	const optionsRequestId = useRef(0);
+
+	useEffect(() => {
+		optionsForm.reset(optionsSchema === undefined ? {} : initialOptionValues(optionsSchema));
+	}, [options.providerId, optionsForm, optionsSchema]);
 
 	const loadProviderOptions = useEffectEvent(
 		async (provider: ProviderSearchSummary | undefined) => {
@@ -265,22 +272,18 @@ export function ProviderSearchPanel(props: {
 		options.status === "failed" ? options.cause : undefined,
 	);
 
-	const requestSearch = () => {
+	const requestSearch = async () => {
 		if (options.status === "ready" && options.providerId === selected?.providerId) {
-			const errors = validateOptionValues(options.schema, options.values);
-			if (errors.size > 0) {
+			const errors = await optionsForm.handleSubmit();
+			if (errors.length > 0) {
 				setAdvancedOptionsOpen(true);
-				setOptions((current) => setProviderOptionErrors(current, errors));
-				return;
 			}
-			if (options.errors.size > 0) {
-				setOptions((current) => setProviderOptionErrors(current, new Map()));
-			}
+			return;
 		}
 		dispatch({ type: "search-requested" });
 	};
 
-	const submitSearch = useEffectEvent(() => requestSearch());
+	const submitSearch = useEffectEvent(() => void requestSearch());
 	useEffect(() => {
 		const timer =
 			state.query.trim() === "" ? undefined : setTimeout(() => submitSearch(), SEARCH_DEBOUNCE_MS);
@@ -299,7 +302,7 @@ export function ProviderSearchPanel(props: {
 	};
 	const activeOptionCount =
 		options.status === "ready"
-			? Object.keys(toOptionsPayload(options.schema, options.values)).length
+			? Object.keys(toOptionsPayload(options.schema, optionsForm.state.values)).length
 			: 0;
 
 	const runSearch = useEffectEvent(async (operation: ProviderSearchOperation) => {
@@ -308,7 +311,7 @@ export function ProviderSearchPanel(props: {
 		}
 		const optionPayload =
 			options.status === "ready" && options.providerId === selected.providerId
-				? toOptionsPayload(options.schema, options.values)
+				? toOptionsPayload(options.schema, optionsForm.state.values)
 				: undefined;
 		const result = await Effect.runPromise(
 			searchProviderEntities(
@@ -382,8 +385,8 @@ export function ProviderSearchPanel(props: {
 						returnKeyType="go"
 						value={state.query}
 						placeholder="Search"
-						onSubmitEditing={requestSearch}
 						accessibilityLabel="Search providers"
+						onSubmitEditing={() => void requestSearch()}
 						className="min-w-0 flex-1 font-ui text-sm text-text"
 						onChangeText={(query) => dispatch({ type: "query-changed", query })}
 					/>
@@ -498,11 +501,9 @@ export function ProviderSearchPanel(props: {
 										)),
 										Match.when({ status: "ready" }, (ready) => (
 											<ProviderSearchOptionsForm
-												errors={ready.errors}
-												values={ready.values}
+												form={optionsForm}
 												schema={ready.schema}
-												onChange={(key, value) => {
-													setOptions((current) => updateProviderOption(current, key, value));
+												onChange={() => {
 													dispatch({ type: "options-changed" });
 												}}
 											/>
@@ -524,8 +525,8 @@ export function ProviderSearchPanel(props: {
 							<View className="gap-2">
 								<StatusMessage {...providerAddError({ status: "transport-error" })} />
 								<Pressable
-									onPress={requestSearch}
 									accessibilityRole="button"
+									onPress={() => void requestSearch()}
 									accessibilityLabel="Try searching again"
 									className="items-center rounded-lg border border-border-strong py-2.5"
 								>
