@@ -4,7 +4,7 @@ import { Effect, Schema, Stream, FileSystem, Path } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import { assert, expect, it } from "vitest";
 
-import { validSandboxSource } from "./compiler-test-support";
+import { validSandboxSource } from "./sandbox-compiler-test-support";
 
 const decodeWorkerResponse = Schema.decodeUnknownEffect(
 	Schema.fromJsonString(CompilerWorkerResponse),
@@ -14,33 +14,31 @@ it("builds and executes the standalone production compiler worker", () =>
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const fs = yield* FileSystem.FileSystem;
 				const path = yield* Path.Path;
+				const fs = yield* FileSystem.FileSystem;
 				const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 				const nodeModules = yield* path.fromFileUrl(
 					new URL("../../../node_modules/", import.meta.url),
 				);
 				const outputDirectory = yield* fs.makeTempDirectoryScoped({
-					prefix: "sandbox-compiler-worker-",
 					directory: nodeModules,
+					prefix: "sandbox-compiler-worker-",
 				});
 				const entrypoint = Bun.resolveSync("@ryot/sandbox-compiler/worker", import.meta.url);
 				const build = yield* Effect.tryPromise(() =>
-					Bun.build({
-						target: "bun",
-						outdir: outputDirectory,
-						entrypoints: [entrypoint],
-					}),
+					Bun.build({ target: "bun", outdir: outputDirectory, entrypoints: [entrypoint] }),
 				);
 				expect(build.success).toBe(true);
+				const workerPath = build.outputs[0]?.path;
+				assert(workerPath);
 
 				const command = ChildProcess.make(
 					process.execPath,
-					["--smol", "--no-install", `${outputDirectory}/compiler-worker.js`],
+					["--smol", "--no-install", workerPath],
 					{
-						stdin: Stream.succeed(new TextEncoder().encode(validSandboxSource)),
 						stdout: "pipe",
 						stderr: "pipe",
+						stdin: Stream.succeed(new TextEncoder().encode(validSandboxSource)),
 					},
 				);
 				const worker = yield* spawner.spawn(command);

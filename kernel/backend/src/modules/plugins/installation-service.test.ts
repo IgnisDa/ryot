@@ -15,7 +15,7 @@ import { Cause, Effect, Exit, Layer, Option, Stream } from "effect";
 import { databaseLayer } from "#lib/test-utils/effect";
 import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
-import { ClientPluginCompiler } from "#modules/sandbox/client-compiler";
+import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";

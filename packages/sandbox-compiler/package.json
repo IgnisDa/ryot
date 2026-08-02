@@ -31,7 +31,7 @@
 	"scripts": {
 		"test": "bun --bun run vitest run",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix",
-		"build": "tsc && bun build src/compiler-worker.ts --outdir dist --target bun --sourcemap"
+		"build": "tsc && bun build src/compiler-worker.ts --outdir dist --entry-naming sandbox-compiler-worker.js --target bun --sourcemap"
 	},
 	"dependencies": {
 		"@ryot/sandbox-sdk": "workspace:*",

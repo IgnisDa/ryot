@@ -7,7 +7,7 @@ import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import {
 	compileSandboxSourceForTest as compile,
 	validSandboxSource as validSource,
-} from "./compiler-test-support";
+} from "./sandbox-compiler-test-support";
 
 it.effect("accepts the source byte boundary and rejects ASCII and multi-byte overflow", () =>
 	Effect.gen(function* () {
@@ -75,11 +75,11 @@ export enum LargeCompiledValue { ${enumMembers} }
 export const manifest = defineManifest({
   kind: "script",
   capabilities: [],
-  requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   name: "Large compiled value",
   slug: "large-compiled-value",
-	});
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
+});
 export default defineScript({
 	manifest,
   output: Schema.Null,
