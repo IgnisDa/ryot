@@ -38,13 +38,13 @@ export const installTestProvider = (input: {
 	name?: string;
 	client: Client;
 	pluginSlug?: string;
-	details: ProviderDetailsResult;
+	rootEntitySchemaSlug: string;
 	search?: ProviderSearchResult;
+	details: ProviderDetailsResult;
 	resolve?: ProviderResolveResult;
-	translations?: Readonly<Record<string, ProviderTranslateResult>>;
-	linkToEntitySchemaSlug?: string;
 	information?: PluginProviderInformation;
 	savedViews?: PluginManifest["savedViews"];
+	translations?: Readonly<Record<string, ProviderTranslateResult>>;
 }) =>
 	Effect.gen(function* () {
 		const providerSlug = input.slug ?? `e2e-provider-${randomUUID()}`;
@@ -105,13 +105,13 @@ export const installTestProvider = (input: {
 			scripts,
 			pluginSlug: input.pluginSlug,
 			savedViews: input.savedViews,
-			linkToEntitySchemaSlug: input.linkToEntitySchemaSlug,
 			providers: [
 				{
 					name,
-					slug: providerSlug,
 					information,
+					slug: providerSlug,
 					operations: providerOperations,
+					rootEntitySchemaSlug: input.rootEntitySchemaSlug,
 				},
 			],
 		});

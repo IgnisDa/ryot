@@ -3,11 +3,7 @@ import { Result, Schema, SchemaGetter } from "effect";
 import { AppSchema } from "../../schema/property-schema";
 import { OutputFieldKey, RyotQLDocument } from "../ryotql/language";
 import { SANDBOX_HOST_CAPABILITIES } from "../sandbox/wire";
-import {
-	SavedViewCardMapping,
-	SavedViewSandboxScripts,
-	SavedViewTableMapping,
-} from "../saved-views/schemas";
+import { SavedViewCardMapping, SavedViewTableMapping } from "../saved-views/schemas";
 import { pluginConfigEnvironmentKey } from "./plugin-config";
 
 const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
@@ -105,7 +101,6 @@ export const PluginSavedView = strictStruct({
 	slug: Schema.String,
 	sortOrder: Schema.Number,
 	pluginSlug: Schema.NullOr(Schema.String),
-	sandboxScripts: SavedViewSandboxScripts,
 	layouts: strictStruct({
 		grid: PluginSavedViewCardLayout,
 		list: PluginSavedViewCardLayout,
@@ -246,6 +241,7 @@ export type PluginProviderInformation = Schema.Schema.Type<typeof PluginProvider
 export const PluginProvider = strictStruct({
 	slug: sandboxManifestSlug,
 	name: sandboxManifestString,
+	rootEntitySchemaSlug: Schema.String,
 	information: PluginProviderInformation,
 	operations: strictStruct({
 		details: sandboxManifestSlug,
@@ -279,14 +275,23 @@ export const PluginScript = Schema.Union([
 		capabilities: PluginScriptCapabilities,
 		kind: Schema.Literal("automation"),
 	}),
-	strictStruct({
-		...PluginScriptFields,
-		providerSlug: sandboxManifestSlug,
-		capabilities: PluginScriptCapabilities,
-		kind: Schema.Literal("provider"),
-		providerOperation: PluginProviderOperation,
-		searchOptionsSchema: Schema.optional(PluginAppSchema),
-	}),
+	Schema.Union([
+		strictStruct({
+			...PluginScriptFields,
+			providerSlug: sandboxManifestSlug,
+			capabilities: PluginScriptCapabilities,
+			kind: Schema.Literal("provider"),
+			providerOperation: Schema.Literal("search"),
+			searchOptionsSchema: Schema.optional(PluginAppSchema),
+		}),
+		strictStruct({
+			...PluginScriptFields,
+			providerSlug: sandboxManifestSlug,
+			capabilities: PluginScriptCapabilities,
+			kind: Schema.Literal("provider"),
+			providerOperation: Schema.Literals(["details", "resolve", "translate"]),
+		}),
+	]),
 ]);
 
 export type PluginScript = Schema.Schema.Type<typeof PluginScript>;
@@ -405,13 +410,6 @@ export const PluginImportSource = Schema.Union([
 
 export type PluginImportSource = Schema.Schema.Type<typeof PluginImportSource>;
 
-export const PluginSchemaProviderLink = strictStruct({
-	entitySchemaSlug: Schema.String,
-	providerSlug: sandboxManifestSlug,
-});
-
-export type PluginSchemaProviderLink = Schema.Schema.Type<typeof PluginSchemaProviderLink>;
-
 export const PluginLifecycleOperation = Schema.Literals(["create", "delete", "update"]);
 
 export type PluginLifecycleOperation = Schema.Schema.Type<typeof PluginLifecycleOperation>;
@@ -470,7 +468,6 @@ export const PluginBindings = strictStruct({
 	eventAutomations: Schema.Array(PluginEventAutomation),
 	entityAutomations: Schema.Array(PluginEntityAutomation),
 	signalAutomations: Schema.Array(PluginSignalAutomation),
-	schemaProviderLinks: Schema.Array(PluginSchemaProviderLink),
 	relationshipAutomations: Schema.Array(PluginRelationshipAutomation),
 });
 
@@ -568,25 +565,6 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 		return false;
 	}
 	const providerScripts = manifest.scripts.filter((script) => script.kind === "provider");
-	for (const savedView of manifest.savedViews) {
-		for (const [action, references] of Object.entries(savedView.sandboxScripts)) {
-			if (new Set(references).size !== references.length) {
-				return false;
-			}
-			for (const scriptSlug of references) {
-				const script = manifest.scripts.find(({ slug }) => slug === scriptSlug);
-				if (!script) {
-					return false;
-				}
-				if (
-					action === "search" &&
-					(script.kind !== "provider" || script.providerOperation !== "search")
-				) {
-					return false;
-				}
-			}
-		}
-	}
 
 	const operationAssignments = manifest.providers.flatMap((provider) =>
 		Object.entries(provider.operations).map(([operation, scriptSlug]) => ({
@@ -642,12 +620,7 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 		),
 	];
 
-	return (
-		referencedScriptSlugs.every((scriptSlug) => scriptSlugs.has(scriptSlug)) &&
-		manifest.bindings.schemaProviderLinks.every(({ providerSlug }) =>
-			providerSlugs.has(providerSlug),
-		)
-	);
+	return referencedScriptSlugs.every((scriptSlug) => scriptSlugs.has(scriptSlug));
 };
 
 export const PluginManifest = PluginManifestFields.pipe(

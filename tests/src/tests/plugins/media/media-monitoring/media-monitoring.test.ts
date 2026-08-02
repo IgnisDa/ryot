@@ -82,7 +82,7 @@ beforeAll(async () => {
 				name: providerName,
 				slug: `movie.media-monitoring-e2e-${crypto.randomUUID()}`,
 				details: providerDetails("Continuing"),
-				linkToEntitySchemaSlug: movieSchemaId,
+				rootEntitySchemaSlug: movieSchemaId,
 			});
 			const showSchemaId = yield* getBuiltinEntitySchemaSlug("show");
 			discoveryProvider = yield* installTestProvider({
@@ -90,7 +90,7 @@ beforeAll(async () => {
 				name: `${providerName} Discovery`,
 				details: discoveryProviderDetails(0),
 				slug: `show.media-monitoring-discovery-e2e-${crypto.randomUUID()}`,
-				linkToEntitySchemaSlug: showSchemaId,
+				rootEntitySchemaSlug: showSchemaId,
 			});
 			const apiEntity = yield* seedMediaEntity({
 				properties: {},

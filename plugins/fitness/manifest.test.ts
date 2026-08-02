@@ -34,6 +34,7 @@ it("declares the complete fitness-owned source", () => {
 	expect(fitnessPlugin.providers).toEqual([
 		{
 			name: "Free Exercise DB",
+			rootEntitySchemaSlug: "exercise",
 			slug: "exercise.free-exercise-db",
 			information: { source: "free-exercise-db" },
 			operations: {
@@ -41,9 +42,6 @@ it("declares the complete fitness-owned source", () => {
 				details: "exercise.free-exercise-db.details",
 			},
 		},
-	]);
-	expect(fitnessPlugin.bindings.schemaProviderLinks).toEqual([
-		{ entitySchemaSlug: "exercise", providerSlug: "exercise.free-exercise-db" },
 	]);
 	expect(fitnessPlugin.scripts).toHaveLength(9);
 	expect(fitnessPlugin.scripts.some(({ slug }) => slug.startsWith("activity."))).toBe(false);
@@ -113,10 +111,4 @@ it("declares the complete fitness-owned source", () => {
 		},
 	]);
 	expect(fitnessPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "fitness")).toBe(true);
-	expect(
-		fitnessPlugin.savedViews.find(({ slug }) => slug === "all-exercises")?.sandboxScripts,
-	).toEqual({ search: ["exercise.free-exercise-db.search"] });
-	expect(
-		fitnessPlugin.savedViews.find(({ slug }) => slug === "all-workouts")?.sandboxScripts,
-	).toEqual({});
 });

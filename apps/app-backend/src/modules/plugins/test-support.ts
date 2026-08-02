@@ -83,7 +83,6 @@ export const fixtureManifest = () =>
 		bindings: {
 			eventAutomations: [],
 			signalAutomations: [],
-			schemaProviderLinks: [],
 			relationshipAutomations: [],
 			entityAutomations: [
 				{

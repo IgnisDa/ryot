@@ -8,10 +8,7 @@ import {
 	TextFieldValue,
 	rowsResultSchema,
 } from "@ryot/contract/modules/ryotql/language";
-import {
-	SavedViewLayouts,
-	SavedViewSandboxScripts,
-} from "@ryot/contract/modules/saved-views/schemas";
+import { SavedViewLayouts } from "@ryot/contract/modules/saved-views/schemas";
 import { PluginSlug, SavedViewId } from "@ryot/contract/schema/brands";
 import { strictStruct } from "@ryot/contract/schema/utils";
 import { and, ascending, column, document, eq, field, literal, rows, table } from "@ryot/ryotql";
@@ -30,7 +27,6 @@ const savedViewRecordWire = strictStruct({
 	sortOrder: NumberFieldValue,
 	isBuiltin: BooleanFieldValue,
 	isDisabled: BooleanFieldValue,
-	sandboxScripts: JsonFieldValue,
 	pluginSlug: nullableTextFieldValue,
 });
 
@@ -53,7 +49,6 @@ export const SavedViewRecord = strictStruct({
 	isBuiltin: Schema.Boolean,
 	layouts: SavedViewLayouts,
 	isDisabled: Schema.Boolean,
-	sandboxScripts: SavedViewSandboxScripts,
 	pluginSlug: Schema.NullOr(PluginSlug),
 });
 export type SavedViewRecord = typeof SavedViewRecord.Type;
@@ -76,15 +71,13 @@ const decodeSavedViewRecord = (row: typeof savedViewRecordWire.Type) =>
 		normalizeDate("createdAt", row.createdAt),
 		normalizeDate("updatedAt", row.updatedAt),
 		Schema.decodeUnknownResult(SavedViewLayouts)(row.layouts.value),
-		Schema.decodeUnknownResult(SavedViewSandboxScripts)(row.sandboxScripts.value),
 	] as const).pipe(
 		Result.map(
-			([createdAt, updatedAt, layouts, sandboxScripts]) =>
+			([createdAt, updatedAt, layouts]) =>
 				({
 					layouts,
 					createdAt,
 					updatedAt,
-					sandboxScripts,
 					slug: row.slug.value,
 					name: row.name.value,
 					icon: row.icon.value,
@@ -132,7 +125,6 @@ export const buildSavedViewRecordsDocument = (input: {
 				field("isBuiltin", column(savedView, "isBuiltin")),
 				field("isDisabled", column(savedView, "isDisabled")),
 				field("layouts", column(savedView, "layouts")),
-				field("sandboxScripts", column(savedView, "sandboxScripts")),
 				field("pluginSlug", column(savedView, "pluginSlug")),
 			],
 		}),
@@ -157,7 +149,6 @@ export const buildSavedViewRecordDocument = (input: { readonly slug: string }) =
 				field("isBuiltin", column(savedView, "isBuiltin")),
 				field("isDisabled", column(savedView, "isDisabled")),
 				field("layouts", column(savedView, "layouts")),
-				field("sandboxScripts", column(savedView, "sandboxScripts")),
 				field("pluginSlug", column(savedView, "pluginSlug")),
 			],
 		}),

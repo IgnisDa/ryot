@@ -35,7 +35,6 @@ const normalizedPlugin = (pluginSlug: string): NormalizedPlugin => {
 			eventAutomations: [],
 			entityAutomations: [],
 			signalAutomations: [],
-			schemaProviderLinks: [],
 			relationshipAutomations: [],
 		},
 	} satisfies PluginManifest;

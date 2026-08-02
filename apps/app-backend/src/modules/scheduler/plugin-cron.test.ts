@@ -39,7 +39,6 @@ const normalizedPlugin = (
 			eventAutomations: [],
 			entityAutomations: [],
 			signalAutomations: [],
-			schemaProviderLinks: [],
 			relationshipAutomations: [],
 		},
 		crons: [

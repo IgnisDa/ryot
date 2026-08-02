@@ -10,6 +10,7 @@ import { getBackendClient } from "./contract-client";
 type InstallPluginPayload = ContractPayload<"plugins", "install">;
 type TestPluginManifest = InstallPluginPayload["manifest"];
 type PluginScript = TestPluginManifest["scripts"][number];
+type PluginProvider = TestPluginManifest["providers"][number];
 
 export type TestPluginScript = {
 	[Kind in PluginScript["kind"]]: Omit<Extract<PluginScript, { kind: Kind }>, "entry">;
@@ -23,7 +24,6 @@ type TestPluginManifestInput = Partial<
 		| "savedViews"
 		| "scripts"
 		| "workflows"
-		| "providers"
 		| "operations"
 		| "configSchema"
 		| "importSources"
@@ -34,8 +34,7 @@ type TestPluginManifestInput = Partial<
 	>
 > & {
 	pluginSlug: TestPluginManifest["metadata"]["slug"];
-	linkToProviderSlug?: TestPluginManifest["bindings"]["schemaProviderLinks"][number]["providerSlug"];
-	linkToEntitySchemaSlug?: TestPluginManifest["bindings"]["schemaProviderLinks"][number]["entitySchemaSlug"];
+	providers?: ReadonlyArray<PluginProvider>;
 	eventAutomations?: TestPluginManifest["bindings"]["eventAutomations"];
 };
 
@@ -64,7 +63,7 @@ export const testPluginManifest = (input: TestPluginManifestInput): TestPluginMa
 	crons: input.crons ?? [],
 	scripts: input.scripts ?? [],
 	workflows: input.workflows ?? [],
-	providers: input.providers ?? [],
+	providers: [...(input.providers ?? [])],
 	savedViews: input.savedViews ?? [],
 	operations: input.operations ?? [],
 	importSources: input.importSources ?? [],
@@ -85,14 +84,6 @@ export const testPluginManifest = (input: TestPluginManifestInput): TestPluginMa
 		signalAutomations: [],
 		relationshipAutomations: [],
 		eventAutomations: input.eventAutomations ?? [],
-		schemaProviderLinks: input.linkToEntitySchemaSlug
-			? [
-					{
-						entitySchemaSlug: input.linkToEntitySchemaSlug,
-						providerSlug: input.linkToProviderSlug ?? input.providers?.[0]?.slug ?? "",
-					},
-				]
-			: [],
 	},
 });
 
@@ -115,10 +106,9 @@ export const installTestPlugin = (input: {
 	source: string;
 	pluginSlug?: string;
 	script: TestPluginScript;
-	linkToEntitySchemaSlug?: string;
 	boot?: TestPluginManifest["boot"];
 	crons?: TestPluginManifest["crons"];
-	providers?: TestPluginManifest["providers"];
+	providers?: ReadonlyArray<PluginProvider>;
 	savedViews?: TestPluginManifest["savedViews"];
 	operations?: TestPluginManifest["operations"];
 	configSchema?: TestPluginManifest["configSchema"];
@@ -140,12 +130,6 @@ export const installTestPlugin = (input: {
 			...(input.savedViews ? { savedViews: input.savedViews } : {}),
 			...(input.operations ? { operations: input.operations } : {}),
 			...(input.entitySchemas ? { entitySchemas: input.entitySchemas } : {}),
-			...(input.linkToEntitySchemaSlug && input.providers?.[0]
-				? {
-						linkToEntitySchemaSlug: input.linkToEntitySchemaSlug,
-						linkToProviderSlug: input.providers[0].slug,
-					}
-				: {}),
 		});
 		const files = { [entry]: input.source };
 		yield* getBackendClient().call(
@@ -168,12 +152,11 @@ export const installTestPlugin = (input: {
 
 export const installTestPluginBundle = (input: {
 	pluginSlug?: string;
-	linkToEntitySchemaSlug?: string;
 	crons?: TestPluginManifest["crons"];
 	files: InstallPluginPayload["files"];
 	scripts: TestPluginManifest["scripts"];
 	workflows?: TestPluginManifest["workflows"];
-	providers?: TestPluginManifest["providers"];
+	providers?: ReadonlyArray<PluginProvider>;
 	savedViews?: TestPluginManifest["savedViews"];
 	operations?: TestPluginManifest["operations"];
 	configSchema?: TestPluginManifest["configSchema"];
@@ -202,12 +185,6 @@ export const installTestPluginBundle = (input: {
 			eventAutomations: input.eventAutomations,
 			relationshipSchemas: input.relationshipSchemas,
 			integrationProviders: input.integrationProviders,
-			...(input.linkToEntitySchemaSlug
-				? {
-						linkToProviderSlug: input.providers?.[0]?.slug,
-						linkToEntitySchemaSlug: input.linkToEntitySchemaSlug,
-					}
-				: {}),
 		});
 		yield* getBackendClient().call(
 			(c) => c.plugins.install({ payload: { files: input.files, manifest } }),

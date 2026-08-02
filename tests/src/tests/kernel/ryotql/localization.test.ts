@@ -193,6 +193,7 @@ describe("RyotQL entity localization", () => {
 			const providerWithoutCanonicalLanguage = yield* Effect.acquireRelease(
 				installTestProvider({
 					client: base.client,
+					rootEntitySchemaSlug: schema.id,
 					details: fakeProviderDetailsResult({ name: "Provider without canonical language" }),
 				}),
 				(provider) => uninstallTestPluginStrict(provider).pipe(Effect.orDie),

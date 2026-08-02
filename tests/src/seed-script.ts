@@ -1244,20 +1244,6 @@ const MEDIA_ENTITY_SCHEMA_SLUGS = [
 
 type MediaEntitySchemaSlug = (typeof MEDIA_ENTITY_SCHEMA_SLUGS)[number];
 
-const MEDIA_SAVED_VIEW_SLUGS: Record<MediaEntitySchemaSlug, string> = {
-	anime: "all-anime",
-	audiobook: "all-audiobooks",
-	book: "all-books",
-	"comic-book": "all-comic-books",
-	manga: "all-manga",
-	movie: "all-movies",
-	music: "all-music",
-	podcast: "all-podcasts",
-	show: "all-shows",
-	"video-game": "all-video-games",
-	"visual-novel": "all-visual-novels",
-};
-
 const MEDIA_SEARCH_QUERIES: Record<MediaEntitySchemaSlug, { query: string; pages: number[] }> = {
 	anime: { query: "naruto", pages: [1, 2] },
 	audiobook: { query: "thinking", pages: [1, 2] },
@@ -1280,12 +1266,11 @@ async function importMediaEntity(
 	apiClient: APIClient,
 	providerId: SandboxProviderId,
 	externalId: string,
-	entitySchemaSlug: EntitySchemaSlug,
 ): Promise<SeedEntity | null> {
 	let jobId: string;
 	try {
 		const importResult = await apiClient.run((c) =>
-			c.providerEntities.import({ payload: { providerId, externalId, entitySchemaSlug } }),
+			c.providerEntities.import({ payload: { providerId, externalId } }),
 		);
 		jobId = importResult.jobId;
 	} catch {
@@ -1387,7 +1372,7 @@ async function seedMedia(client: APIClient) {
 			schemasBySlug.get(entitySchemaSlug),
 			`Entity schema '${entitySchemaSlug}' not found`,
 		);
-		const entity = await importMediaEntity(client, providerId, externalId, entitySchemaSlug);
+		const entity = await importMediaEntity(client, providerId, externalId);
 		if (!entity) {
 			return;
 		}
@@ -1458,6 +1443,10 @@ async function seedMedia(client: APIClient) {
 		const eventSchemas = await getMediaLifecycleEventSchemas(client, schema.id);
 
 		const searchConfig = MEDIA_SEARCH_QUERIES[slug];
+		const selectedProvider = requirePresent(
+			schema.providers[0],
+			`No provider found for entity schema '${schema.slug}'`,
+		);
 		const identifiersByProvider = new Map<SandboxProviderId, Set<string>>();
 		const providerNames = new Map<SandboxProviderId, string>();
 		for (const page of searchConfig.pages) {
@@ -1466,38 +1455,27 @@ async function seedMedia(client: APIClient) {
 				const searchResult = await client.run((c) =>
 					c.providerEntities.search({
 						payload: {
-							savedViewSlug: MEDIA_SAVED_VIEW_SLUGS[slug],
+							providerId: selectedProvider.providerId,
 							query: searchConfig.query,
 							page,
 							pageSize: 10,
 						},
 					}),
 				);
-				for (const result of searchResult.providers) {
-					if (result.status === "failure") {
-						console.log(`      Provider ${result.providerName} search failed: ${result.error}`);
-						continue;
+				providerNames.set(searchResult.providerId, searchResult.providerName);
+				const identifiers = identifiersByProvider.get(searchResult.providerId) ?? new Set<string>();
+				identifiersByProvider.set(searchResult.providerId, identifiers);
+				for (const item of searchResult.items) {
+					if (!identifiers.has(item.externalId)) {
+						identifiers.add(item.externalId);
+						processingPromises.push(
+							processMediaEntity(item.externalId, searchResult.providerId, schema.id, eventSchemas),
+						);
 					}
-					providerNames.set(result.providerId, result.providerName);
-					const identifiers = identifiersByProvider.get(result.providerId) ?? new Set<string>();
-					identifiersByProvider.set(result.providerId, identifiers);
-					for (const item of result.items) {
-						if (!identifiers.has(item.externalId)) {
-							identifiers.add(item.externalId);
-							processingPromises.push(
-								processMediaEntity(
-									item.externalId,
-									result.providerId,
-									result.entitySchemaSlug,
-									eventSchemas,
-								),
-							);
-						}
-					}
-					console.log(
-						`      Search "${searchConfig.query}" page ${page}: ${result.items.length} results from ${result.providerName}`,
-					);
 				}
+				console.log(
+					`      Search "${searchConfig.query}" page ${page}: ${searchResult.items.length} results from ${searchResult.providerName}`,
+				);
 			} catch (err) {
 				console.log(`      Search page ${page} failed:`, err);
 			}

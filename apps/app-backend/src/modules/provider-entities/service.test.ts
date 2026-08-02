@@ -14,6 +14,7 @@ import {
 	transactionLayer,
 } from "#lib/test-utils/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { EntityImportService } from "./service";
 
@@ -27,6 +28,16 @@ const user: CurrentUserValue = {
 const externalId = "ext-123";
 const providerId = SandboxProviderId.make("provider-1");
 const entitySchemaSlug = EntitySchemaSlug.make("schema-1");
+const provider = {
+	id: providerId,
+	name: "Provider",
+	pluginSlug: "plugin",
+	slug: "provider.slug",
+	createdAt: new Date(0),
+	updatedAt: new Date(0),
+	information: { source: "provider" },
+	rootEntitySchemaSlug: entitySchemaSlug,
+};
 
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 
@@ -41,7 +52,11 @@ const fakeEntitySchemaScope = {
 	propertiesSchema: { fields: {} },
 };
 
-const makeServiceLayer = (entitiesRepo = makeEntitiesRepository(), engine = makeWorkflowEngine()) =>
+const makeServiceLayer = (
+	entitiesRepo = makeEntitiesRepository(),
+	engine = makeWorkflowEngine(),
+	activeProvider: typeof provider | null = provider,
+) =>
 	EntityImportService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
@@ -50,6 +65,9 @@ const makeServiceLayer = (entitiesRepo = makeEntitiesRepository(), engine = make
 				makeAppConfigLayer(),
 				Layer.succeed(WorkflowEngine, engine),
 				entitiesRepo,
+				Layer.mock(PluginRuntimeResolver)({
+					findActiveProviderById: () => Effect.succeed(activeProvider),
+				}),
 			),
 		),
 	);
@@ -67,51 +85,41 @@ it.effect("returns BadRequest when providerId is blank", () =>
 	Effect.gen(function* () {
 		const service = yield* EntityImportService;
 		const result = yield* Effect.exit(
-			service.import(user, {
-				externalId,
-				entitySchemaSlug,
-				providerId: SandboxProviderId.make("   "),
-			}),
+			service.import(user, { externalId, providerId: SandboxProviderId.make("   ") }),
 		);
-		const failure = getFailure(result);
-		expect(failure).toBeInstanceOf(BadRequest);
+		expect(getFailure(result)).toBeInstanceOf(BadRequest);
 	}).pipe(Effect.provide(makeServiceLayer())),
 );
 
 it.effect("returns BadRequest when externalId is blank", () =>
 	Effect.gen(function* () {
 		const service = yield* EntityImportService;
-		const result = yield* Effect.exit(
-			service.import(user, { providerId, externalId: "  ", entitySchemaSlug }),
-		);
-		const failure = getFailure(result);
-		expect(failure).toBeInstanceOf(BadRequest);
+		const result = yield* Effect.exit(service.import(user, { providerId, externalId: "  " }));
+		expect(getFailure(result)).toBeInstanceOf(BadRequest);
 	}).pipe(Effect.provide(makeServiceLayer())),
 );
 
-it.effect("returns BadRequest when entitySchemaSlug is blank", () =>
+it.effect("returns NotFound when the provider is missing", () =>
 	Effect.gen(function* () {
 		const service = yield* EntityImportService;
-		const result = yield* Effect.exit(
-			service.import(user, {
-				providerId,
-				externalId,
-				entitySchemaSlug: EntitySchemaSlug.make(""),
-			}),
-		);
-		const failure = getFailure(result);
-		expect(failure).toBeInstanceOf(BadRequest);
-	}).pipe(Effect.provide(makeServiceLayer())),
+		const result = yield* Effect.exit(service.import(user, { providerId, externalId }));
+		expect(getFailure(result)).toBeInstanceOf(NotFound);
+	}).pipe(Effect.provide(makeServiceLayer(makeEntitiesRepository(), makeWorkflowEngine(), null))),
 );
 
-it.effect("returns NotFound when the entity schema is not found", () =>
+it.effect("returns NotFound when the provider is inactive", () =>
 	Effect.gen(function* () {
 		const service = yield* EntityImportService;
-		const result = yield* Effect.exit(
-			service.import(user, { providerId, externalId, entitySchemaSlug }),
-		);
-		const failure = getFailure(result);
-		expect(failure).toBeInstanceOf(NotFound);
+		const result = yield* Effect.exit(service.import(user, { providerId, externalId }));
+		expect(getFailure(result)).toBeInstanceOf(NotFound);
+	}).pipe(Effect.provide(makeServiceLayer(makeEntitiesRepository(), makeWorkflowEngine(), null))),
+);
+
+it.effect("returns NotFound when the derived entity schema is not found", () =>
+	Effect.gen(function* () {
+		const service = yield* EntityImportService;
+		const result = yield* Effect.exit(service.import(user, { providerId, externalId }));
+		expect(getFailure(result)).toBeInstanceOf(NotFound);
 	}).pipe(
 		Effect.provide(
 			makeServiceLayer(
@@ -121,15 +129,17 @@ it.effect("returns NotFound when the entity schema is not found", () =>
 	),
 );
 
-it.effect("returns a jobId string on a successful import dispatch", () => {
+it.effect("derives the root entity schema before dispatching the import workflow", () => {
 	const executeCalls: unknown[] = [];
 
 	return Effect.gen(function* () {
 		const service = yield* EntityImportService;
-		const result = yield* service.import(user, { providerId, externalId, entitySchemaSlug });
+		const result = yield* service.import(user, { providerId, externalId });
 		expect(typeof result.jobId).toBe("string");
-		expect(result.jobId.length).toBeGreaterThan(0);
-		expect(executeCalls).toMatchObject([{ payload: { providerId: "provider-1" } }]);
+		expect(executeCalls).toHaveLength(1);
+		expect(executeCalls[0]).toMatchObject({
+			payload: { providerId, externalId, entitySchemaSlug },
+		});
 	}).pipe(
 		Effect.provide(
 			makeServiceLayer(
@@ -151,8 +161,7 @@ it.effect("returns NotFound for a blank getImportResult jobId", () =>
 	Effect.gen(function* () {
 		const service = yield* EntityImportService;
 		const result = yield* Effect.exit(service.getImportResult(user, "   "));
-		const failure = getFailure(result);
-		expect(failure).toBeInstanceOf(NotFound);
+		expect(getFailure(result)).toBeInstanceOf(NotFound);
 	}).pipe(Effect.provide(makeServiceLayer())),
 );
 
@@ -160,8 +169,7 @@ it.effect("returns NotFound for a jobId with an invalid signature", () =>
 	Effect.gen(function* () {
 		const service = yield* EntityImportService;
 		const result = yield* Effect.exit(service.getImportResult(user, "fake-execution-id.badsig"));
-		const failure = getFailure(result);
-		expect(failure).toBeInstanceOf(NotFound);
+		expect(getFailure(result)).toBeInstanceOf(NotFound);
 	}).pipe(Effect.provide(makeServiceLayer())),
 );
 

@@ -210,6 +210,36 @@ const pluginState: CatalogTable = {
 	},
 };
 
+const sandboxProvider: CatalogTable = {
+	primaryKey: "id",
+	name: "sandbox_provider",
+	visibility: { user: { type: "public" } },
+	fields: {
+		id: physicalField("id", "text"),
+		slug: physicalField("slug", "text"),
+		name: physicalField("name", "text"),
+		createdAt: physicalField("created_at", "date"),
+		updatedAt: physicalField("updated_at", "date"),
+		pluginSlug: physicalField("plugin_slug", "text"),
+		information: physicalField("information", "json"),
+		rootEntitySchemaSlug: physicalField("root_entity_schema_slug", "text"),
+	},
+};
+
+const sandboxProviderOperation: CatalogTable = {
+	primaryKey: "id",
+	name: "sandbox_provider_operation",
+	visibility: { user: { type: "public" } },
+	fields: {
+		id: physicalField("id", "text"),
+		operation: physicalField("operation", "text"),
+		createdAt: physicalField("created_at", "date"),
+		updatedAt: physicalField("updated_at", "date"),
+		providerId: physicalField("provider_id", "text"),
+		optionsSchema: physicalField("options_schema", "json"),
+	},
+};
+
 const savedView: CatalogTable = {
 	primaryKey: "id",
 	name: "saved_view",
@@ -219,14 +249,13 @@ const savedView: CatalogTable = {
 		slug: physicalField("slug", "text"),
 		name: physicalField("name", "text"),
 		icon: physicalField("icon", "text"),
+		layouts: physicalField("layouts", "json"),
 		createdAt: physicalField("created_at", "date"),
 		updatedAt: physicalField("updated_at", "date"),
 		sortOrder: physicalField("sort_order", "number"),
 		pluginSlug: physicalField("plugin_slug", "text"),
 		isBuiltin: physicalField("is_builtin", "boolean"),
 		isDisabled: physicalField("is_disabled", "boolean"),
-		layouts: physicalField("layouts", "json"),
-		sandboxScripts: physicalField("sandbox_scripts", "json"),
 	},
 };
 
@@ -337,8 +366,10 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	integration,
 	pluginState,
 	relationship,
+	sandboxProvider,
 	importRunFailure,
 	notificationChannel,
+	sandboxProviderOperation,
 	notificationSubscriptionState,
 };
 

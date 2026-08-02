@@ -31,7 +31,7 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () 
 				const { schema } = yield* findBuiltinSchemaBySlug(firstUser.client, "book");
 				const provider = yield* installTestProvider({
 					client: firstUser.client,
-					linkToEntitySchemaSlug: schema.id,
+					rootEntitySchemaSlug: schema.id,
 					details: fakeProviderDetailsResult({
 						properties: {},
 						name: "Phase 3 Operational Gate Book",

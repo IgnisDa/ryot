@@ -48,7 +48,6 @@ const normalizedPlugin = (auth: PluginOperationAuth): NormalizedPlugin => {
 			eventAutomations: [],
 			entityAutomations: [],
 			signalAutomations: [],
-			schemaProviderLinks: [],
 			relationshipAutomations: [],
 		},
 		operations: [

@@ -284,6 +284,7 @@ it("preserves provider membership for custom scripts in the loader snapshot", ()
 					slug: "fixture-provider",
 					information: { source: "fixture" },
 					operations: { details: details.slug },
+					rootEntitySchemaSlug: "fixture-entity",
 				},
 			],
 		},

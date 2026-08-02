@@ -53,6 +53,7 @@ const makeLayer = (input: {
 							slug: "provider",
 							name: "Provider",
 							pluginSlug: "plugin",
+							rootEntitySchemaSlug: "entity",
 							id: SandboxProviderId.make("provider-1"),
 							createdAt: new Date("2026-08-14T00:00:00.000Z"),
 							updatedAt: new Date("2026-08-14T00:00:00.000Z"),

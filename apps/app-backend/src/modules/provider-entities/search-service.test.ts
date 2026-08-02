@@ -1,22 +1,16 @@
-import { expect, it } from "@effect/vitest";
+import { assert, expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { BadRequest, NotFound } from "@ryot/contract/errors";
-import type { ListedSavedView } from "@ryot/contract/modules/saved-views/schemas";
-import {
-	EntitySchemaSlug,
-	SandboxProviderId,
-	SandboxScriptId,
-	SavedViewId,
-	UserId,
-} from "@ryot/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { SandboxProviderId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
+import { Cause, Effect, Exit, Layer, Option } from "effect";
 
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { dbRunnerLayer } from "#lib/test-utils/effect";
-import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import {
+	PluginRuntimeResolver,
+	UnsupportedProviderOperationError,
+} from "#modules/plugins/runtime-resolver";
 import { SandboxExecutionService } from "#modules/sandbox/service";
-import { SavedViewsRepository } from "#modules/saved-views/repository";
 
 import { ProviderEntitySearchService } from "./search-service";
 
@@ -27,77 +21,77 @@ const user = {
 	preferences: { isNsfw: false, language: null, disableIntegrations: false },
 } satisfies CurrentUserValue;
 
-const kernelView = kernelDefinitionSource().savedViews[0];
-if (!kernelView) {
-	throw new Error("Expected the kernel saved view fixture");
-}
+const providerId = SandboxProviderId.make("provider-1");
+const provider = {
+	name: "Books",
+	id: providerId,
+	pluginSlug: "books",
+	slug: "books.provider",
+	rootEntitySchemaSlug: "book",
+	createdAt: new Date(0),
+	updatedAt: new Date(0),
+	information: { source: "books" },
+};
 
-const view = {
-	sortOrder: 0,
-	icon: "film",
-	isBuiltin: true,
-	pluginSlug: null,
-	isDisabled: false,
-	slug: "all-movies",
-	name: "All Movies",
-	layouts: kernelView.layouts,
-	id: SavedViewId.make("view-1"),
-	createdAt: new Date(0).toISOString(),
-	updatedAt: new Date(0).toISOString(),
-	sandboxScripts: { search: ["movie.tmdb.search", "movie.tvdb.search"] },
-} satisfies ListedSavedView;
+const optionsSchema = {
+	unknownKeys: "strict",
+	fields: {
+		passRawQuery: {
+			type: "boolean",
+			label: "Pass raw query",
+			description: "Pass the raw query to the provider",
+		},
+	},
+} satisfies AppSchema;
 
-const resolved = (slug: string) => {
-	const source = slug.split(".")[1] ?? "provider";
-	const providerId = SandboxProviderId.make(`${source}-provider-id`);
-	return {
-		entitySchemaSlug: EntitySchemaSlug.make("movie"),
-		provider: {
-			id: providerId,
-			pluginSlug: "media",
-			slug: `movie.${source}`,
-			information: { source },
-			name: source.toUpperCase(),
-			createdAt: new Date(0),
-			updatedAt: new Date(0),
-		},
-		script: {
-			slug,
-			providerId,
-			source: "source",
-			compiledFormat: 1,
-			pluginSlug: "media",
-			name: `${source} search`,
-			compiledCode: "compiled",
-			contentHash: `${slug}-hash`,
-			createdAt: new Date(0),
-			updatedAt: new Date(0),
-			metadata: { kind: "provider" as const },
-			id: SandboxScriptId.make(`${source}-script-id`),
-		},
-	};
+const searchScript = {
+	providerId,
+	source: "source",
+	compiledFormat: 1,
+	pluginSlug: "books",
+	name: "Books search",
+	slug: "books.search",
+	compiledCode: "compiled",
+	createdAt: new Date(0),
+	updatedAt: new Date(0),
+	contentHash: "books-search-hash",
+	id: SandboxScriptId.make("search-script-id"),
+	metadata: {
+		capabilities: [],
+		name: "Books search",
+		slug: "books.search",
+		kind: "provider" as const,
+		requiredPluginConfigKeys: [],
+		requiredSystemConfigKeys: [],
+		providerSlug: "books.provider",
+		providerOperation: "search" as const,
+	},
 };
 
 const makeLayer = (input?: {
-	readonly missingView?: boolean;
-	readonly requestedUsers?: UserId[];
-	readonly unavailableScripts?: ReadonlySet<string>;
+	readonly optionsSchema?: AppSchema | null;
+	readonly provider?: typeof provider | null;
+	readonly searchError?: "inactive_provider" | "unsupported_operation";
 	readonly execute?: SandboxExecutionService["Service"]["executeScript"];
 }) =>
 	ProviderEntitySearchService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
-				Layer.mock(SavedViewsRepository)({
-					findBySlug: (userId) =>
-						Effect.sync(() => {
-							input?.requestedUsers?.push(userId);
-							return input?.missingView ? null : view;
-						}),
-				}),
 				Layer.mock(PluginRuntimeResolver)({
-					resolveSavedViewSearchScript: (slug) =>
-						Effect.succeed(input?.unavailableScripts?.has(slug) ? null : resolved(slug)),
+					findActiveProviderById: () =>
+						Effect.succeed(input?.provider === undefined ? provider : input.provider),
+					resolveSearchScript: () =>
+						input?.searchError
+							? Effect.fail(
+									new UnsupportedProviderOperationError({
+										providerId,
+										operation: "search",
+										reason: input.searchError,
+										providerSlug: provider.slug,
+									}),
+								)
+							: Effect.succeed({ ...searchScript, optionsSchema: input?.optionsSchema ?? null }),
 				}),
 				Layer.mock(SandboxExecutionService)({
 					executeScript:
@@ -111,7 +105,7 @@ const makeLayer = (input?: {
 									items: [
 										{
 											externalId: `${run.scriptId}-external`,
-											titleProperty: { kind: "text", value: "Result" },
+											titleProperty: { kind: "text", value: "Book" },
 										},
 									],
 								},
@@ -121,40 +115,47 @@ const makeLayer = (input?: {
 		),
 	);
 
-it.effect("searches every allowed provider with user authority and result provenance", () => {
+const assertFailureInstance = <A, E>(
+	exit: Exit.Exit<A, E>,
+	error: typeof BadRequest | typeof NotFound,
+) => {
+	assert(Exit.isFailure(exit));
+	const failure = Cause.findErrorOption(exit.cause);
+	assert(Option.isSome(failure));
+	expect(failure.value).toBeInstanceOf(error);
+};
+
+it.effect("executes one provider search and returns its singular response", () => {
 	const executions: Array<Parameters<SandboxExecutionService["Service"]["executeScript"]>[0]> = [];
+
 	return Effect.gen(function* () {
 		const service = yield* ProviderEntitySearchService;
 		const result = yield* service.search(user, {
-			savedViewSlug: view.slug,
 			page: 2,
+			providerId,
 			pageSize: 10,
-			query: "matrix",
+			query: "book",
+			options: { passRawQuery: true },
 		});
 
-		expect(result.providers).toEqual([
-			expect.objectContaining({
-				status: "success",
-				providerName: "TMDB",
-				entitySchemaSlug: "movie",
-				providerId: "tmdb-provider-id",
-				items: [expect.objectContaining({ externalId: "tmdb-script-id-external" })],
-			}),
-			expect.objectContaining({
-				status: "success",
-				providerName: "TVDB",
-				entitySchemaSlug: "movie",
-				providerId: "tvdb-provider-id",
-			}),
-		]);
-		expect(executions).toHaveLength(2);
+		expect(result).toEqual({
+			providerId,
+			providerName: "Books",
+			rootEntitySchemaSlug: "book",
+			items: [
+				{ externalId: "search-script-id-external", titleProperty: { kind: "text", value: "Book" } },
+			],
+		});
+		expect(executions).toHaveLength(1);
 		expect(executions[0]).toMatchObject({
-			authority: { type: "user", userId: "user-1" },
-			input: { query: "matrix", page: 2, pageSize: 10 },
+			scriptId: "search-script-id",
+			authority: { type: "user", userId: user.id },
+			input: { query: "book", page: 2, pageSize: 10, options: { passRawQuery: true } },
 		});
 	}).pipe(
 		Effect.provide(
 			makeLayer({
+				optionsSchema,
 				execute: (input) => {
 					executions.push(input);
 					return Effect.succeed({
@@ -164,8 +165,8 @@ it.effect("searches every allowed provider with user authority and result proven
 						value: {
 							items: [
 								{
-									externalId: `${input.scriptId}-external`,
-									titleProperty: { kind: "text", value: "Result" },
+									externalId: "search-script-id-external",
+									titleProperty: { kind: "text", value: "Book" },
 								},
 							],
 						},
@@ -176,95 +177,120 @@ it.effect("searches every allowed provider with user authority and result proven
 	);
 });
 
-it.effect("keeps successful provider results when another provider fails", () =>
-	Effect.gen(function* () {
-		const service = yield* ProviderEntitySearchService;
-		const result = yield* service.search(user, {
-			savedViewSlug: view.slug,
-			page: 1,
-			pageSize: 20,
-			query: "matrix",
-		});
+it.effect("rejects invalid provider search options before execution", () => {
+	let executions = 0;
 
-		expect(result.providers.map(({ status }) => status)).toEqual(["failure", "success"]);
-		expect(result.providers[0]).toMatchObject({
-			status: "failure",
-			providerId: "tmdb-provider-id",
-			error: "execute: provider unavailable",
-		});
+	return Effect.gen(function* () {
+		const service = yield* ProviderEntitySearchService;
+		const exit = yield* Effect.exit(
+			service.search(user, {
+				page: 1,
+				providerId,
+				pageSize: 20,
+				query: "book",
+				options: { passRawQuery: "yes" },
+			}),
+		);
+		assertFailureInstance(exit, BadRequest);
+		expect(executions).toBe(0);
 	}).pipe(
 		Effect.provide(
 			makeLayer({
-				execute: (input) =>
+				optionsSchema,
+				execute: () => {
+					executions += 1;
+					return Effect.succeed({
+						logs: [],
+						error: null,
+						value: { items: [] },
+						status: "completed" as const,
+					});
+				},
+			}),
+		),
+	);
+});
+
+it.effect("rejects options when the provider operation has no options schema", () =>
+	Effect.gen(function* () {
+		const service = yield* ProviderEntitySearchService;
+		const exit = yield* Effect.exit(
+			service.search(user, { page: 1, providerId, options: {}, pageSize: 20, query: "book" }),
+		);
+		assertFailureInstance(exit, BadRequest);
+	}).pipe(Effect.provide(makeLayer())),
+);
+
+it.effect("rejects a missing provider", () =>
+	Effect.gen(function* () {
+		const service = yield* ProviderEntitySearchService;
+		const exit = yield* Effect.exit(
+			service.search(user, { providerId, query: "book", page: 1, pageSize: 20 }),
+		);
+		assertFailureInstance(exit, NotFound);
+	}).pipe(Effect.provide(makeLayer({ provider: null }))),
+);
+
+it.effect("rejects an inactive provider", () =>
+	Effect.gen(function* () {
+		const service = yield* ProviderEntitySearchService;
+		const exit = yield* Effect.exit(
+			service.search(user, { providerId, query: "book", page: 1, pageSize: 20 }),
+		);
+		assertFailureInstance(exit, NotFound);
+	}).pipe(Effect.provide(makeLayer({ searchError: "inactive_provider" }))),
+);
+
+it.effect("rejects a provider without a search operation", () =>
+	Effect.gen(function* () {
+		const service = yield* ProviderEntitySearchService;
+		const exit = yield* Effect.exit(
+			service.search(user, { providerId, query: "book", page: 1, pageSize: 20 }),
+		);
+		assertFailureInstance(exit, BadRequest);
+	}).pipe(Effect.provide(makeLayer({ searchError: "unsupported_operation" }))),
+);
+
+it.effect("fails the whole request when provider execution fails", () =>
+	Effect.gen(function* () {
+		const service = yield* ProviderEntitySearchService;
+		const exit = yield* Effect.exit(
+			service.search(user, { page: 1, providerId, pageSize: 20, query: "book" }),
+		);
+		assertFailureInstance(exit, BadRequest);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				execute: () =>
 					Effect.succeed({
 						logs: [],
+						value: null,
 						status: "completed" as const,
-						value: {
-							items: [{ externalId: "movie-1", titleProperty: { kind: "text", value: "Movie" } }],
-						},
-						error:
-							input.scriptId === "tmdb-script-id"
-								? { phase: "execute" as const, message: "provider unavailable" }
-								: null,
+						error: { phase: "execute" as const, message: "provider unavailable" },
 					}),
 			}),
 		),
 	),
 );
 
-it.effect("reports malformed provider output as a provider-level failure", () =>
+it.effect("fails the whole request when provider output cannot be decoded", () =>
 	Effect.gen(function* () {
 		const service = yield* ProviderEntitySearchService;
-		const result = yield* service.search(user, {
-			savedViewSlug: view.slug,
-			page: 1,
-			pageSize: 20,
-			query: "matrix",
-		});
-		expect(result.providers.every(({ status }) => status === "failure")).toBe(true);
+		const exit = yield* Effect.exit(
+			service.search(user, { providerId, query: "book", page: 1, pageSize: 20 }),
+		);
+		assertFailureInstance(exit, BadRequest);
 	}).pipe(
 		Effect.provide(
 			makeLayer({
 				execute: () =>
-					Effect.succeed({ logs: [], error: null, value: { items: [{}] }, status: "completed" }),
+					Effect.succeed({
+						logs: [],
+						error: null,
+						value: { items: [{}] },
+						status: "completed" as const,
+					}),
 			}),
 		),
 	),
 );
-
-it.effect("rejects unavailable configured scripts before provider execution", () =>
-	Effect.gen(function* () {
-		const service = yield* ProviderEntitySearchService;
-		const exit = yield* Effect.exit(
-			service.search(user, {
-				savedViewSlug: view.slug,
-				query: "matrix",
-				page: 1,
-				pageSize: 20,
-			}),
-		);
-		assertExitFails(
-			exit,
-			new BadRequest({
-				message: "Saved view search script 'movie.tmdb.search' is missing, inactive, or invalid",
-			}),
-		);
-	}).pipe(Effect.provide(makeLayer({ unavailableScripts: new Set(["movie.tmdb.search"]) }))),
-);
-
-it.effect("loads the saved view only within the authenticated user scope", () => {
-	const requestedUsers: UserId[] = [];
-	return Effect.gen(function* () {
-		const service = yield* ProviderEntitySearchService;
-		const exit = yield* Effect.exit(
-			service.search(user, {
-				savedViewSlug: view.slug,
-				query: "matrix",
-				page: 1,
-				pageSize: 20,
-			}),
-		);
-		assertExitFails(exit, new NotFound({ message: "Saved view not found" }));
-		expect(requestedUsers).toEqual([user.id]);
-	}).pipe(Effect.provide(makeLayer({ missingView: true, requestedUsers })));
-});

@@ -74,7 +74,6 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 							result: fakeProviderDetailsResult({ name: "E2E Test Trending Provider" }),
 						}),
 					},
-					linkToEntitySchemaSlug: movieSchemaId,
 					scripts: [
 						{
 							kind: "provider",
@@ -101,6 +100,7 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 					providers: [
 						{
 							slug: PROVIDER_SLUG,
+							rootEntitySchemaSlug: movieSchemaId,
 							information: { source: "e2e" },
 							name: "E2E Test Trending Provider",
 							operations: { details: DETAILS_SCRIPT_SLUG },
