@@ -6,7 +6,7 @@
 
 ## What to build
 
-Contain fatal fixture runtime failures inside `PluginHost` and provide kernel-owned recovery. Add a deliberate fixture crash action. The one per-session `@ryot/client-sdk/plugin` runtime created in Task 05-followup must catch fatal React render errors and relevant uncaught runtime failures, report the payload-free `{ type: "lifecycle-close", reason: "failed" }` through its existing V3 dispatcher when possible, and stop accepting normal calls. Crash lifecycle remains internal to this runtime; it is not a public client capability. Failure terminates all runtime-owned categories through the shared `closing` teardown, rejects pending requests exactly once using the shared `PluginOperationError` contract, and the kernel replaces the iframe viewport with a stable failure state that can reload the same artifact. Normal disposal reaches `disposed`.
+Contain fatal fixture runtime failures inside `PluginHost` and provide kernel-owned recovery. Add a deliberate fixture crash action. The one per-session `@ryot/client-sdk/plugin` runtime created in Task 05-followup must catch fatal React render errors and relevant uncaught runtime failures, report the payload-free `{ type: "lifecycle-close", reason: "failed" }` through its existing V3 dispatcher when possible, and stop accepting normal calls. Crash lifecycle remains internal to this runtime; it is not a public client capability. Failure terminates all runtime-owned categories through the shared `closing` teardown, rejects pending requests exactly once using the shared `RyotClientError` contract, and the kernel replaces the iframe viewport with a stable failure state that can reload the same artifact. Normal disposal reaches `disposed`.
 
 Reload creates a fresh iframe document, `RyotClient`, runtime, and bridge session through the same initial-mount factory after shared disposal, for the same installation, artifact hash, and logical route. It must not reload the kernel document or mutate the immutable artifact. A normal typed operation failure from Task 05 is not a plugin crash and must remain recoverable inside plugin UI. Expected plugin business/domain outcomes remain successful typed values, and `operation-failed` remains an opaque declared backend/platform operation execution failure rather than a plugin business outcome.
 
@@ -14,7 +14,7 @@ Handle failures before ready, after ready, and during an in-flight request. Kern
 
 Crash reporting remains on the exact protocol V3 session dispatcher when a session is available. Do not add V2 support, aliases, negotiation, a compatibility bridge, a crash-specific bridge, or a crash-specific error union.
 
-Crash state, fatal reporting, and plugin-side pending-call rejection belong to the existing per-session client runtime. Reuse its shared schemas, `PluginOperationError`, lifecycle, pending-call, and teardown machinery. The shared teardown must terminate all runtime-owned categories together, including query, operation, location/theme state, listeners, and the client. Do not add global crash handlers that outlive the document, a second bridge client, separate theme/crash/reload bridge or teardown paths, or operation/query teardown paths outside `@ryot/client-sdk`.
+Crash state, fatal reporting, and plugin-side pending-call rejection belong to the existing per-session client runtime. Reuse its shared schemas, `RyotClientError`, lifecycle, pending-call, and teardown machinery. The shared teardown must terminate all runtime-owned categories together, including query, operation, location/theme state, listeners, and the client. Do not add global crash handlers that outlive the document, a second bridge client, separate theme/crash/reload bridge or teardown paths, or operation/query teardown paths outside `@ryot/client-sdk`.
 
 ## Acceptance criteria
 
@@ -34,7 +34,7 @@ Crash state, fatal reporting, and plugin-side pending-call rejection belong to t
 - [ ] Successful reload clears the failure state and leaves kernel navigation and authentication intact.
 - [ ] Repeated crash/reload cycles do not leak ports, listeners, pending-request entries, iframe nodes, or global handlers.
 - [ ] Crash recovery reuses the existing runtime's port, dispatcher, client, listeners, and idempotent disposal; it adds no theme-, crash-, or reload-specific bridge or teardown path.
-- [ ] Runtime, host lifecycle, shared `PluginOperationError` classification, pending-call teardown, pre-ready failure, post-ready failure, and browser recovery tests pass with all earlier tracer tests.
+- [ ] Runtime, host lifecycle, shared `RyotClientError` classification, pending-call teardown, pre-ready failure, post-ready failure, and browser recovery tests pass with all earlier tracer tests.
 
 ## User stories addressed
 

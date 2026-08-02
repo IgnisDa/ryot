@@ -67,6 +67,16 @@ describe("plugin runtime", () => {
 			response: { data: {} },
 		});
 		await expect(query).resolves.toEqual({ data: {} });
+
+		const failure = runtime.client.data.query({ document, decode: Result.succeed });
+		await delay();
+		channel.port1.postMessage({
+			outcome: "failure",
+			type: "ryotql-result",
+			requestId: "ryotql-2",
+			reason: "query-failed",
+		});
+		await expect(failure).rejects.toMatchObject({ reason: "query-failed" });
 	});
 
 	it("sends navigation through the client adapter after activation", async () => {
@@ -108,11 +118,11 @@ describe("plugin runtime", () => {
 		runtime.dispose();
 		runtime.dispose();
 		runtime.client.navigation.push({ path: "/late" });
-		await expect(query).rejects.toMatchObject({ reason: "transport" });
+		await expect(query).rejects.toMatchObject({ reason: "disposed" });
 		await expect(operation).rejects.toMatchObject({ reason: "disposed" });
 		await expect(
 			runtime.client.data.query({ document, decode: Result.succeed }),
-		).rejects.toMatchObject({ reason: "transport" });
+		).rejects.toMatchObject({ reason: "disposed" });
 		await expect(
 			runtime.client.operations.invoke({ input: {}, slug: "late", output: Schema.Unknown }),
 		).rejects.toMatchObject({ reason: "disposed" });
@@ -206,14 +216,14 @@ describe("plugin runtime", () => {
 		).rejects.toMatchObject({ reason: "protocol" });
 	});
 
-	it("classifies peer failure as protocol while keeping query errors compatible", async () => {
+	it("classifies peer failure as protocol for every pending call", async () => {
 		const { channel, messages, runtime } = openRuntime();
 		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
 		await delay();
 		const query = runtime.client.data.query({ document, decode: Result.succeed });
 		await delay();
 		channel.port1.postMessage({ reason: "failed", type: "lifecycle-close" });
-		await expect(query).rejects.toMatchObject({ reason: "transport" });
+		await expect(query).rejects.toMatchObject({ reason: "protocol" });
 		await expect(
 			runtime.client.operations.invoke({ input: {}, slug: "late", output: Schema.Unknown }),
 		).rejects.toMatchObject({ reason: "protocol" });
@@ -232,6 +242,7 @@ describe("plugin runtime", () => {
 		const { channel, runtime } = openRuntime();
 		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
 		await delay();
+		const query = runtime.client.data.query({ document, decode: Result.succeed });
 		const operation = runtime.client.operations.invoke({
 			input: {},
 			slug: "greet",
@@ -239,6 +250,7 @@ describe("plugin runtime", () => {
 		});
 		channel.port1.postMessage({ reason: "disposed", type: "lifecycle-close" });
 
+		await expect(query).rejects.toMatchObject({ reason: "disposed" });
 		await expect(operation).rejects.toMatchObject({ reason: "disposed" });
 	});
 

@@ -6,18 +6,13 @@ import {
 	type PluginBridgeReady,
 	type PluginBridgeRyotQLRequest,
 	type PluginClientArtifactMetadata,
-	type PluginOperationErrorReason,
+	type RyotClientErrorReason,
 } from "@ryot/contract/modules/plugins/client";
 import type { JsonValue } from "@ryot/contract/schema/json";
 import type { PreparedRecipe } from "@ryot/ryotql";
 import { Match, Result, Schema } from "effect";
 
-import {
-	createRyotClient,
-	PluginOperationError,
-	RyotQueryError,
-	type RyotNavigationTarget,
-} from "./index";
+import { createRyotClient, RyotClientError, type RyotNavigationTarget } from "./index";
 import { createPluginLocationStore } from "./routing";
 
 type PluginRuntimeState = "ready" | "active" | "closing" | "failed" | "disposed";
@@ -35,38 +30,30 @@ export const createPluginRuntime = (
 	metadata: PluginClientArtifactMetadata,
 	onTerminal?: () => void,
 ) => {
-	let state: PluginRuntimeState = "ready";
 	let nextRequestId = 0;
-	let terminalOperationReason: PluginOperationErrorReason | undefined;
+	let state: PluginRuntimeState = "ready";
+	let terminalReason: RyotClientErrorReason | undefined;
 	const listeners = new AbortController();
 	const locations = createPluginLocationStore();
 	const operations = new Map<string, PendingCall>();
 	const queries = new Map<string, PendingCall>();
 
-	const rejectPending = (operationReason: PluginOperationErrorReason) => {
-		const pendingOperations = [...operations.values()];
-		const pendingQueries = [...queries.values()];
+	const rejectPending = (reason: RyotClientErrorReason) => {
+		const pendingCalls = [...operations.values(), ...queries.values()];
 		operations.clear();
 		queries.clear();
-		for (const pending of pendingOperations) {
-			pending.reject(new PluginOperationError(operationReason));
-		}
-		for (const pending of pendingQueries) {
-			pending.reject(new RyotQueryError("transport"));
+		for (const pending of pendingCalls) {
+			pending.reject(new RyotClientError(reason));
 		}
 	};
 
-	const finish = (
-		next: "failed" | "disposed",
-		operationReason: PluginOperationErrorReason,
-		notify: boolean,
-	) => {
+	const finish = (next: "failed" | "disposed", reason: RyotClientErrorReason, notify: boolean) => {
 		if (state === "failed" || state === "disposed" || state === "closing") {
 			return;
 		}
 		state = "closing";
-		terminalOperationReason = operationReason;
-		rejectPending(operationReason);
+		terminalReason = reason;
+		rejectPending(reason);
 		if (notify) {
 			try {
 				port.postMessage({ reason: next, type: "lifecycle-close" });
@@ -95,7 +82,7 @@ export const createPluginRuntime = (
 	const query = (document: PreparedRecipe<unknown>["document"]) =>
 		new Promise<unknown>((resolve, reject) => {
 			if (state !== "active") {
-				reject(new RyotQueryError("transport"));
+				reject(new RyotClientError(terminalReason ?? "transport"));
 				return;
 			}
 			nextRequestId += 1;
@@ -111,7 +98,7 @@ export const createPluginRuntime = (
 	const invokeOperation = (request: { readonly slug: string; readonly input: JsonValue }) =>
 		new Promise<unknown>((resolve, reject) => {
 			if (state !== "active") {
-				reject(new PluginOperationError(terminalOperationReason ?? "transport"));
+				reject(new RyotClientError(terminalReason ?? "transport"));
 				return;
 			}
 			nextRequestId += 1;
@@ -164,7 +151,7 @@ export const createPluginRuntime = (
 						return;
 					}
 					if (result.outcome === "failure") {
-						pending.reject(new PluginOperationError(result.reason));
+						pending.reject(new RyotClientError(result.reason));
 					} else {
 						pending.resolve(result.value);
 					}
@@ -175,7 +162,7 @@ export const createPluginRuntime = (
 						return;
 					}
 					if (result.outcome === "failure") {
-						pending.reject(new RyotQueryError(result.reason));
+						pending.reject(new RyotClientError(result.reason));
 					} else {
 						pending.resolve(result.response);
 					}

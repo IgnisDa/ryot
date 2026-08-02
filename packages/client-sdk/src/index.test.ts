@@ -2,7 +2,7 @@ import type { PreparedRecipe } from "@ryot/ryotql";
 import { Result, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { createRyotClient, PluginOperationError, RyotQueryError } from "./index";
+import { createRyotClient, RyotClientError } from "./index";
 
 const Greeting = Schema.Struct({ greeting: Schema.String });
 const QueryResponse = Schema.Struct({ value: Schema.String });
@@ -30,12 +30,12 @@ describe("createRyotClient", () => {
 		});
 		const recipe: PreparedRecipe<string> = { document, decode: () => Result.fail("invalid") };
 		await expect(client.data.query(recipe)).rejects.toMatchObject({ reason: "malformed-result" });
-		await expect(client.data.query(recipe)).rejects.toBeInstanceOf(RyotQueryError);
+		await expect(client.data.query(recipe)).rejects.toBeInstanceOf(RyotClientError);
 		const invocation = { slug: "greet", input: {}, output: Greeting };
 		await expect(client.operations.invoke(invocation)).rejects.toMatchObject({
 			reason: "malformed-result",
 		});
-		await expect(client.operations.invoke(invocation)).rejects.toBeInstanceOf(PluginOperationError);
+		await expect(client.operations.invoke(invocation)).rejects.toBeInstanceOf(RyotClientError);
 	});
 
 	it("rejects non-JSON adapter output before applying a permissive output schema", async () => {
@@ -61,15 +61,18 @@ describe("createRyotClient", () => {
 		).rejects.toMatchObject({ reason: "transport" });
 	});
 
-	it("preserves canonical operation errors from adapters", async () => {
+	it("preserves canonical client errors from adapters", async () => {
+		const error = new RyotClientError("protocol");
 		const client = createRyotClient({
-			query: () => Promise.resolve({}),
-			invokeOperation: () => Promise.reject(new PluginOperationError("protocol")),
+			query: () => Promise.reject(error),
+			invokeOperation: () => Promise.reject(error),
 		});
+		const recipe: PreparedRecipe<string> = { document, decode: () => Result.succeed("unused") };
 
+		await expect(client.data.query(recipe)).rejects.toBe(error);
 		await expect(
 			client.operations.invoke({ slug: "greet", input: {}, output: Greeting }),
-		).rejects.toMatchObject({ reason: "protocol" });
+		).rejects.toBe(error);
 	});
 
 	it("rejects invalid JSON input before consulting the adapter", async () => {
@@ -122,7 +125,7 @@ describe("createRyotClient", () => {
 		const client = createRyotClient({ query: () => Promise.resolve({}) });
 
 		expect(() => client.navigation.push({ path: "/items" })).toThrow(
-			new PluginOperationError("unsupported-capability"),
+			new RyotClientError("unsupported-capability"),
 		);
 	});
 });

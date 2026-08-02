@@ -8,7 +8,8 @@ import {
 	PluginBridgeOperationResult,
 	PluginBridgeRyotQLResult,
 	PluginOperationBridgeErrorReason,
-	PluginOperationErrorReason,
+	PluginRyotQLFailureReason,
+	RyotClientErrorReason,
 } from "./client";
 
 const document = {
@@ -94,27 +95,34 @@ describe("plugin client bridge contract", () => {
 		).toBe(true);
 	});
 
-	it("defines public operation errors as a strict superset of bridge errors", () => {
-		const decodeBridge = Schema.decodeUnknownResult(PluginOperationBridgeErrorReason);
-		const decodePublic = Schema.decodeUnknownResult(PluginOperationErrorReason);
-		const bridgeReasons = ["transport", "operation-failed", "malformed-result"];
+	it("defines independent public client errors and strict wire subsets", () => {
+		const decodeOperationBridge = Schema.decodeUnknownResult(PluginOperationBridgeErrorReason);
+		const decodeQueryBridge = Schema.decodeUnknownResult(PluginRyotQLFailureReason);
+		const decodePublic = Schema.decodeUnknownResult(RyotClientErrorReason);
+		const operationBridgeReasons = ["transport", "operation-failed", "malformed-result"];
+		const queryBridgeReasons = ["transport", "query-failed"];
 		const publicReasons = [
-			...bridgeReasons,
 			"disposed",
 			"protocol",
+			"transport",
 			"invalid-input",
+			"query-failed",
+			"operation-failed",
+			"malformed-result",
 			"unsupported-capability",
 		];
 
 		for (const reason of publicReasons) {
 			expect(Result.isSuccess(decodePublic(reason))).toBe(true);
 		}
-		for (const reason of bridgeReasons) {
-			expect(Result.isSuccess(decodeBridge(reason))).toBe(true);
+		for (const reason of operationBridgeReasons) {
+			expect(Result.isSuccess(decodeOperationBridge(reason))).toBe(true);
 		}
-		for (const reason of publicReasons.slice(bridgeReasons.length)) {
-			expect(Result.isFailure(decodeBridge(reason))).toBe(true);
+		for (const reason of queryBridgeReasons) {
+			expect(Result.isSuccess(decodeQueryBridge(reason))).toBe(true);
 		}
+		expect(Result.isFailure(decodeOperationBridge("query-failed"))).toBe(true);
+		expect(Result.isFailure(decodeQueryBridge("operation-failed"))).toBe(true);
 		expect(Result.isFailure(decodePublic("failure"))).toBe(true);
 	});
 

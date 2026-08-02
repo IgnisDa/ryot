@@ -1,4 +1,4 @@
-import { PluginOperationError } from "@ryot/client-sdk";
+import { RyotClientError } from "@ryot/client-sdk";
 import { Schema } from "@ryot/client-sdk/effect";
 import { PluginLink } from "@ryot/client-sdk/plugin";
 import { useRyot } from "@ryot/client-sdk/react";
@@ -50,7 +50,7 @@ export const Home = () => {
 			});
 			setGreeting({ status: "ready", greeting: result.greeting });
 		} catch (error) {
-			const refused = error instanceof PluginOperationError && error.reason === "operation-failed";
+			const refused = error instanceof RyotClientError && error.reason === "operation-failed";
 			setGreeting({ status: refused ? "refused" : "unavailable" });
 		}
 	};
