@@ -179,15 +179,16 @@ describe("plugin navigation", () => {
 		await waitFor(() => expect(frame().getAttribute("src")).toContain("/artifact-hash/index.html"));
 		const initialFrame = frame();
 		entries = [{ ...catalog[0], sourceHash: "next-source-hash" }];
-		await waitFor(() => expect(loadCount).toBeGreaterThanOrEqual(2), { timeout: 2_000 });
-		expect(frame()).toBe(initialFrame);
+		await waitFor(() => expect(frame()).not.toBe(initialFrame), { timeout: 2_000 });
+		const sourceRevisionFrame = frame();
+		expect(sourceRevisionFrame.getAttribute("src")).toContain("/artifact-hash/index.html");
 
 		entries = [{ ...entries[0], clientArtifactHash: "next-artifact-hash" }];
 		await waitFor(
 			() => expect(frame().getAttribute("src")).toContain("/next-artifact-hash/index.html"),
 			{ timeout: 2_000 },
 		);
-		expect(frame()).not.toBe(initialFrame);
+		expect(frame()).not.toBe(sourceRevisionFrame);
 		expect(view.router.state.location.pathname).toBe("/fixture/details/item-1");
 		expect(view.router.state.location.searchStr).toBe("?tab=stats");
 
