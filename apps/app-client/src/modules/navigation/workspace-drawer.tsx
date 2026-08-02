@@ -181,6 +181,7 @@ export function WorkspaceDrawer(props: {
 						workspace={props.navigation.workspace}
 						accountName={props.navigation.accountName}
 						accountEmail={props.navigation.accountEmail}
+						accountImage={props.navigation.accountImage}
 						onWorkspaceOpen={() => setSheet("workspace")}
 					/>
 				</Animated.View>
