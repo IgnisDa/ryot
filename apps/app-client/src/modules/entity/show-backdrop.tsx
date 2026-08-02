@@ -1,6 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { View } from "react-native";
 
+import { withPageAlpha } from "@/modules/theme/page-background-color";
 import { usePageBackgroundColor } from "@/modules/theme/use-page-background-color";
 import { RemoteImage } from "@/modules/ui/image-with-fallback";
 import { resolveAssetUrl } from "@/modules/ui/managed-assets";
@@ -10,11 +11,6 @@ import { showBackdropAsset, type ShowSummary } from "./show-summary-state";
 const SCRIM_OPACITY = 0.7;
 
 const SCRIM_HOLD_STOP = 0.35;
-
-const withAlpha = (color: string, alpha: number) =>
-	`${color}${Math.round(alpha * 255)
-		.toString(16)
-		.padStart(2, "0")}`;
 
 export function ShowBackdrop(props: {
 	readonly show: ShowSummary;
@@ -26,7 +22,7 @@ export function ShowBackdrop(props: {
 	if (!url) {
 		return null;
 	}
-	const scrim = withAlpha(background, SCRIM_OPACITY);
+	const scrim = withPageAlpha(background, SCRIM_OPACITY);
 	return (
 		<View
 			pointerEvents="none"

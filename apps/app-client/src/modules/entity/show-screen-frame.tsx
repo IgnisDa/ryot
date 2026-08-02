@@ -6,10 +6,10 @@ import { HeaderFrame } from "@/modules/navigation/header/header-frame";
 
 export function ShowScreenFrame(props: {
 	readonly title: string;
+	readonly tint?: ReactNode;
 	readonly onBack: () => void;
 	readonly children: ReactNode;
-	readonly backdrop?: ReactNode;
-	readonly tint?: ReactNode;
+	readonly artwork?: ReactNode;
 }) {
 	return (
 		<HeaderFrame
@@ -18,7 +18,7 @@ export function ShowScreenFrame(props: {
 			leading={<HeaderLeadingControl icon="chevron-left" label="Go back" onPress={props.onBack} />}
 		>
 			{props.tint}
-			{props.backdrop}
+			{props.artwork}
 			<View className="mx-auto w-full max-w-6xl gap-4 pt-3 md:pt-0">{props.children}</View>
 		</HeaderFrame>
 	);
