@@ -255,42 +255,7 @@ On detail screens:
 
 This prevents an edge swipe on a movie detail page from unexpectedly opening the workspace drawer instead of returning to the movie list.
 
-## 5. Remove the bottom navigation from the current concept
-
-The bottom bar shown in the generated mobile design conflicts with the navigation model you described:
-
-```text
-Home
-Collections
-Library
-Profile
-```
-
-Those destinations duplicate concepts already present in the drawer and introduce a second hierarchy.
-
-Under the current information architecture, the mobile app should use:
-
-```text
-Header
-Drawer
-Screen stack
-Contextual sheets or actions
-```
-
-not:
-
-```text
-Header
-Drawer
-Bottom tabs
-Screen stack
-```
-
-Bottom navigation is appropriate only when Ryot has three to five permanent, globally important sections that remain the same across every workspace. Workspace-specific saved views do not meet that criterion.
-
-Profile, theme, workspace switching, and settings can remain in the drawer footer.
-
-## 6. Header dimensions and styling
+## 5. Header dimensions and styling
 
 The current mobile screenshot feels oversized because the back, search, and filter controls are placed inside large circular surfaces.
 
@@ -322,7 +287,7 @@ Recommended visual treatment:
 - Truncate long titles rather than reducing their font size.
 - Match the status-bar background to the header.
 
-## 7. Header component architecture
+## 6. Header component architecture
 
 Use one adaptive header system with explicit variants rather than several unrelated headers:
 
