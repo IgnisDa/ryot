@@ -19,7 +19,7 @@ import { describe, expect, it } from "~/support/effect-test";
 const installOtherOperationPlugin = (client: Client) => {
 	const scriptSlug = `e2e-operation-${crypto.randomUUID()}`;
 	const pluginSlug = PluginSlug.make(`e2e-operations-${crypto.randomUUID()}`);
-	const entry = "api/scripts/operation.sandbox.ts";
+	const entry = "backend/scripts/operation.sandbox.ts";
 	const manifest = testPluginManifest({
 		pluginSlug,
 		configSchema: { fields: {}, unknownKeys: "strict" },

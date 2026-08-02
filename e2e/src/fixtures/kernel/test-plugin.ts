@@ -158,7 +158,7 @@ export const installTestPlugin = (
 	} & TestPluginOwner,
 ) =>
 	Effect.gen(function* () {
-		const entry = `${input.scope === "system" ? "" : "api/"}scripts/${input.script.kind}.sandbox.ts`;
+		const entry = `backend/scripts/${input.script.kind}.sandbox.ts`;
 		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${randomUUID()}`;
 		const pluginSlugId = PluginSlug.make(pluginSlug);
 		const manifest = testPluginManifest({
