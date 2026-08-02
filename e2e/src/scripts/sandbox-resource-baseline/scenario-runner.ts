@@ -78,6 +78,28 @@ const isUnauthorized = (error: unknown) =>
 	"_tag" in error &&
 	error._tag === "AuthUnauthorized";
 
+const isTransportFailure = (error: unknown) =>
+	typeof error === "object" &&
+	error !== null &&
+	"_tag" in error &&
+	error._tag === "HttpClientError" &&
+	"reason" in error &&
+	typeof error.reason === "object" &&
+	error.reason !== null &&
+	"_tag" in error.reason &&
+	error.reason._tag === "TransportError";
+
+/**
+ * A pooled keep-alive socket closed by the proxy surfaces as a transport error before any response,
+ * so a single reset is retried instead of ending a multi-hour phase.
+ */
+const retryTransport = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+	Effect.retry(effect, {
+		times: 3,
+		while: isTransportFailure,
+		schedule: Schedule.spaced("2 seconds"),
+	});
+
 /**
  * The auth endpoints answer a burst of sign-ins with 429, which the OAuth authorize step raises as a
  * thrown error rather than a returned one, so both forms are retried past the rate-limit window.
@@ -125,13 +147,11 @@ export const resilientSession = (email: string, password: string) =>
 		return {
 			call: (program, headers) => {
 				const seen = generation;
-				return session
-					.call(program, headers)
-					.pipe(
-						Effect.catchIf(isUnauthorized, () =>
-							Effect.flatMap(renew(seen), () => session.call(program, headers)),
-						),
-					);
+				return retryTransport(session.call(program, headers)).pipe(
+					Effect.catchIf(isUnauthorized, () =>
+						Effect.flatMap(renew(seen), () => retryTransport(session.call(program, headers))),
+					),
+				);
 			},
 		};
 	});
@@ -230,16 +250,18 @@ const directRequest = (
 ) =>
 	Effect.gen(function* () {
 		const startedAtMs = yield* Clock.currentTimeMillis;
-		const enqueued = yield* getApiClient().call(
-			(client) =>
-				client.testSupport.enqueueSandbox({
-					payload: {
-						scriptId: input.scriptId,
-						context: input.executionContext,
-						executingUserId: UserId.make(context.state.userId),
-					},
-				}),
-			adminHeaders(),
+		const enqueued = yield* retryTransport(
+			getApiClient().call(
+				(client) =>
+					client.testSupport.enqueueSandbox({
+						payload: {
+							scriptId: input.scriptId,
+							context: input.executionContext,
+							executingUserId: UserId.make(context.state.userId),
+						},
+					}),
+				adminHeaders(),
+			),
 		);
 		const jobId = requirePresent(enqueued.jobId, "sandbox enqueue returned no job id");
 		const result = yield* pollSandboxResult(context, jobId);
