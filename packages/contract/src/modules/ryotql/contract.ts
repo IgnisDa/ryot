@@ -2,6 +2,7 @@ import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
+import { DemoAccessPolicy } from "../../http-annotations";
 import { RyotQLDocument, RyotQLResponse } from "./language";
 
 const RyotQLBadRequestReason = Schema.Union([
@@ -29,6 +30,8 @@ export const RyotQLGroup = HttpApiGroup.make("ryotql")
 				RyotQLBadRequest.pipe(HttpApiSchema.status(400)),
 				RyotQLInternalError.pipe(HttpApiSchema.status(500)),
 			],
-		}).annotate(OpenApi.Description, "Execute a RyotQL document and return its named results."),
+		})
+			.annotate(DemoAccessPolicy, "allowed")
+			.annotate(OpenApi.Description, "Execute a RyotQL document and return its named results."),
 	)
 	.middleware(AuthMiddleware);

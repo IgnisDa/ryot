@@ -1,6 +1,7 @@
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
+import { DemoAccessPolicy } from "../../http-annotations";
 import { EntityId } from "../../schema/brands";
 import {
 	ClearUserStateResponse,
@@ -20,7 +21,9 @@ export const UserStateGroup = HttpApiGroup.make("userState")
 				UserStateBadRequest.pipe(HttpApiSchema.status(400)),
 				UserStateNotFound.pipe(HttpApiSchema.status(404)),
 			],
-		}).annotate(OpenApi.Description, "Clear the user's state for an entity."),
+		})
+			.annotate(DemoAccessPolicy, "allowed")
+			.annotate(OpenApi.Description, "Clear the user's state for an entity."),
 	)
 	.add(
 		HttpApiEndpoint.post("mergeUserState", "/user-state/merge", {
@@ -30,6 +33,8 @@ export const UserStateGroup = HttpApiGroup.make("userState")
 				UserStateBadRequest.pipe(HttpApiSchema.status(400)),
 				UserStateNotFound.pipe(HttpApiSchema.status(404)),
 			],
-		}).annotate(OpenApi.Description, "Merge changes into the user's entity state."),
+		})
+			.annotate(DemoAccessPolicy, "allowed")
+			.annotate(OpenApi.Description, "Merge changes into the user's entity state."),
 	)
 	.middleware(AuthMiddleware);

@@ -17,6 +17,7 @@
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
 | `users.allowRegistration` | `USERS_ALLOW_REGISTRATION` | Allow new users to register via email and password | No | No | `true` |
+| `users.demoAccountId` | `USERS_DEMO_ACCOUNT_ID` | Existing user ID used by the shared interactive demo | No | No | — |
 | `users.disableLocalAuth` | `USERS_DISABLE_LOCAL_AUTH` | Disable local email/password authentication, requiring OIDC | No | No | `false` |
 
 ### Server settings
@@ -120,6 +121,7 @@
 | `automations.maxDepth` | `AUTOMATIONS_MAX_DEPTH` | Maximum causal chain depth (1–64) | No | No | `8` |
 | `automations.maxRuns` | `AUTOMATIONS_MAX_RUNS` | Maximum runs per root execution (1–10000) | No | No | `100` |
 | `automations.retryWindowDays` | `AUTOMATIONS_RETRY_WINDOW_DAYS` | Executable and configuration retention in days (1–90) | No | No | `7` |
+| `automations.batchMaxItems` | `AUTOMATIONS_BATCH_MAX_ITEMS` | Maximum items in one batch change trigger (1–1000) | No | No | `200` |
 | `automations.historyRetentionDays` | `AUTOMATIONS_HISTORY_RETENTION_DAYS` | Automation history retention in days (1–365), at least the retry window | No | No | `30` |
 
 ## Fitness plugin configuration

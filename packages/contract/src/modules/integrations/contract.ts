@@ -2,6 +2,7 @@ import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
+import { DemoAccessPolicy } from "../../http-annotations";
 import { ImportRunId, IntegrationId } from "../../schema/brands";
 import {
 	CreateIntegrationBody,
@@ -26,14 +27,18 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 			success: ListedIntegration,
 			params: { integrationId: IntegrationId },
 			error: [IntegrationNotFoundError.pipe(HttpApiSchema.status(404))],
-		}).annotate(OpenApi.Description, "Get an integration by ID."),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Get an integration by ID."),
 	)
 	.add(
 		HttpApiEndpoint.post("create", "/integrations", {
 			payload: CreateIntegrationBody,
 			success: ListedIntegration.pipe(HttpApiSchema.status(201)),
 			error: [IntegrationRequestError.pipe(HttpApiSchema.status(400))],
-		}).annotate(OpenApi.Description, "Create an external service integration."),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Create an external service integration."),
 	)
 	.add(
 		HttpApiEndpoint.patch("update", "/integrations/:integrationId", {
@@ -44,20 +49,26 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 				IntegrationRequestError.pipe(HttpApiSchema.status(400)),
 				IntegrationNotFoundError.pipe(HttpApiSchema.status(404)),
 			],
-		}).annotate(OpenApi.Description, "Update an integration by ID."),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Update an integration by ID."),
 	)
 	.add(
 		HttpApiEndpoint.delete("delete", "/integrations/:integrationId", {
 			params: { integrationId: IntegrationId },
 			success: Schema.Struct({ id: Schema.String }),
 			error: [IntegrationNotFoundError.pipe(HttpApiSchema.status(404))],
-		}).annotate(OpenApi.Description, "Delete an integration by ID."),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Delete an integration by ID."),
 	)
 	.add(
 		HttpApiEndpoint.post("sync", "/integrations/sync", {
 			error: [IntegrationRequestError.pipe(HttpApiSchema.status(400))],
 			success: Schema.Struct({ executionId: Schema.String }).pipe(HttpApiSchema.status(202)),
-		}).annotate(OpenApi.Description, "Start synchronization for the current user's integrations."),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Start synchronization for the current user's integrations."),
 	)
 	.middleware(AuthMiddleware)
 	.add(

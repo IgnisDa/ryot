@@ -11,17 +11,23 @@ import {
 	AuthorizationContext,
 	type CachedUserPreferences,
 	CurrentUser,
+	DemoOperationProtected,
 	defaultUserPreferences,
 	normalizeUserPreferences,
 } from "@ryot-app/contract/auth-middleware";
 import { badRequest, internalError, unknownToDbError } from "@ryot-app/contract/errors";
+import { DemoAccessPolicy } from "@ryot-app/contract/http-annotations";
 import {
+	type AccessClass,
 	getOAuthEndpoint,
 	getOAuthIssuer,
 	getOAuthResource,
 	OAUTH_API_SCOPE,
+	OAUTH_DEMO_WEB_CLIENT_ID,
 	OAUTH_LOGIN_PATH,
+	OAUTH_NATIVE_CLIENT_ID,
 	OAUTH_SCOPES,
+	OAUTH_WEB_CLIENT_ID,
 	type AuthorizationContext as AuthorizationContextValue,
 } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
@@ -41,6 +47,7 @@ import { Database } from "#lib/infrastructure/db/service";
 import { logHttpResponse } from "#lib/infrastructure/http-response-logger";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 
+import { demoAccessPlugin } from "./demo-access-plugin";
 import { effectPostgresAuthAdapter } from "./effect-postgres-adapter";
 import { isUserLifecycleActive, LifecycleWriteGuard } from "./lifecycle-write-guard";
 import { AuthRepository } from "./repository";
@@ -54,16 +61,48 @@ const lifecycleProtectedAuthPaths = new Set([
 	"/api-key/update",
 	"/change-email",
 	"/change-password",
+	"/delete-user",
 	"/link-social",
 	"/set-password",
+	"/revoke-other-sessions",
+	"/revoke-session",
+	"/revoke-sessions",
 	"/two-factor/disable",
 	"/two-factor/enable",
 	"/two-factor/generate-backup-codes",
 	"/unlink-account",
+	"/update-session",
 	"/update-user",
 ]);
 
 export const isLifecycleProtectedAuthPath = (path: string) => lifecycleProtectedAuthPaths.has(path);
+
+const demoProtectedAuthPaths = new Set(lifecycleProtectedAuthPaths);
+
+export const isDemoProtectedAuthRequest = (path: string, accessClass: unknown, clientId?: string) =>
+	accessClass === "demo" &&
+	(demoProtectedAuthPaths.has(path) ||
+		(path === "/oauth2/authorize" &&
+			typeof clientId === "string" &&
+			clientId !== OAUTH_DEMO_WEB_CLIENT_ID));
+
+const requestClientId = (ctx: {
+	readonly query?: unknown;
+	readonly body?: unknown;
+	readonly request?: Request | undefined;
+}) => {
+	for (const value of [ctx.query, ctx.body]) {
+		if (value !== null && typeof value === "object") {
+			const clientId = Reflect.get(value, "client_id");
+			if (typeof clientId === "string") {
+				return clientId;
+			}
+		}
+	}
+	return ctx.request
+		? (new URL(ctx.request.url).searchParams.get("client_id") ?? undefined)
+		: undefined;
+};
 
 const parseResetLinkMessage = (message: string) => {
 	const parsed = Result.try(() => JSON.parse(message));
@@ -121,12 +160,17 @@ const makeAuthInstance = (args: {
 		basePath: "/api/auth",
 		baseURL: args.config.frontendUrl,
 		advanced: { disableCSRFCheck: false },
-		session: { storeSessionInDatabase: true },
 		trustedOrigins: [args.config.frontendUrl],
 		account: { accountLinking: { enabled: false } },
 		secondaryStorage: redisStorage({ client: args.redis }),
 		secret: Redacted.value(args.config.server.adminAccessToken),
 		disabledPaths: args.config.users.disableLocalAuth ? ["/sign-in/email"] : [],
+		session: {
+			storeSessionInDatabase: true,
+			additionalFields: {
+				accessClass: { input: false, type: "string", required: true, defaultValue: "standard" },
+			},
+		},
 		user: {
 			additionalFields: {
 				disabledAt: { type: "date", input: false, required: false },
@@ -160,34 +204,9 @@ const makeAuthInstance = (args: {
 				},
 			},
 		},
-		hooks: {
-			before: createAuthMiddleware((ctx) =>
-				Effect.runPromiseWith(args.runtime)(
-					Effect.gen(function* () {
-						if (!isLifecycleProtectedAuthPath(ctx.path)) {
-							return undefined;
-						}
-						const session = yield* Effect.promise(() =>
-							getSessionFromCtx(ctx, { disableCookieCache: true }),
-						);
-						if (!session) {
-							return undefined;
-						}
-						if (yield* isUserLifecycleActive(UserId.make(session.user.id))) {
-							return yield* Effect.fail(
-								APIError.from("FORBIDDEN", {
-									code: "USER_LIFECYCLE_ACTIVE",
-									message: "This user is temporarily unavailable.",
-								}),
-							);
-						}
-						return undefined;
-					}),
-				),
-			),
-		},
 		plugins: [
 			jwt(),
+			demoAccessPlugin(Option.getOrNull(args.config.users.demoAccountId)),
 			makeOAuthProviderPlugin(args.config.frontendUrl),
 			twoFactor({ allowPasswordless: true }),
 			apiKey({
@@ -220,6 +239,51 @@ const makeAuthInstance = (args: {
 					]
 				: []),
 		],
+		hooks: {
+			before: createAuthMiddleware((ctx) =>
+				Effect.runPromiseWith(args.runtime)(
+					Effect.gen(function* () {
+						const needsSession =
+							isLifecycleProtectedAuthPath(ctx.path) || ctx.path === "/oauth2/authorize";
+						if (!needsSession) {
+							return undefined;
+						}
+						const session = yield* Effect.promise(() =>
+							getSessionFromCtx(ctx, { disableCookieCache: true }),
+						);
+						if (!session) {
+							return undefined;
+						}
+						if (
+							isDemoProtectedAuthRequest(
+								ctx.path,
+								Reflect.get(session.session, "accessClass"),
+								requestClientId(ctx),
+							)
+						) {
+							return yield* Effect.fail(
+								APIError.from("FORBIDDEN", {
+									code: "DEMO_OPERATION_PROTECTED",
+									message: "This operation is unavailable while using the shared demo account.",
+								}),
+							);
+						}
+						if (!isLifecycleProtectedAuthPath(ctx.path)) {
+							return undefined;
+						}
+						if (yield* isUserLifecycleActive(UserId.make(session.user.id))) {
+							return yield* Effect.fail(
+								APIError.from("FORBIDDEN", {
+									code: "USER_LIFECYCLE_ACTIVE",
+									message: "This user is temporarily unavailable.",
+								}),
+							);
+						}
+						return undefined;
+					}),
+				),
+			),
+		},
 		emailAndPassword: {
 			enabled: true,
 			autoSignIn: true,
@@ -283,7 +347,7 @@ export type AuthUserInput = {
 const authenticationRequired = () =>
 	new AuthUnauthorized({ reason: { code: "authentication-required" } });
 
-type ResolvedCredential = {
+export type ResolvedCredential = {
 	readonly user: CurrentUser["Service"];
 	readonly authorization: AuthorizationContextValue;
 };
@@ -307,7 +371,7 @@ type ApiKeyVerification = {
 	readonly key: { readonly id: string; readonly referenceId: string } | null;
 };
 
-type VerifiedCredential = AuthorizationContextValue;
+type VerifiedCredential = Omit<AuthorizationContextValue, "accessClass">;
 
 const rateLimitError = Schema.Struct({
 	code: Schema.Literal("RATE_LIMITED"),
@@ -371,6 +435,7 @@ export const resolveCredential = (
 	verifyOAuth: (token: string) => Promise<unknown>,
 	verifyApiKey: (key: string) => Promise<ApiKeyVerification>,
 	findUserById: (userId: string) => Effect.Effect<AuthUserRecord | null, unknown>,
+	demoAccountId: string | null = null,
 ) =>
 	Effect.gen(function* () {
 		let verified: VerifiedCredential;
@@ -383,8 +448,20 @@ export const resolveCredential = (
 		if (!user || user.disabledAt) {
 			return yield* authenticationRequired();
 		}
+		let accessClass: AccessClass = "standard";
+		if (
+			verified.credential.kind === "oauth" &&
+			(verified.credential.clientId === OAUTH_DEMO_WEB_CLIENT_ID ||
+				(verified.credential.clientId !== OAUTH_WEB_CLIENT_ID &&
+					verified.credential.clientId !== OAUTH_NATIVE_CLIENT_ID &&
+					user.id === demoAccountId))
+		) {
+			accessClass = "demo";
+		} else if (verified.credential.kind === "api-key" && user.id === demoAccountId) {
+			accessClass = "demo";
+		}
 		return {
-			authorization: { userId: user.id, credential: verified.credential },
+			authorization: { accessClass, userId: user.id, credential: verified.credential },
 			user: {
 				name: user.name,
 				email: user.email,
@@ -392,7 +469,7 @@ export const resolveCredential = (
 				id: UserId.make(user.id),
 				preferences: normalizeUserPreferences(user.preferences),
 			},
-		} satisfies ResolvedCredential;
+		};
 	});
 
 export class AuthService extends Context.Service<AuthService>()("AuthService", {
@@ -438,6 +515,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 							key: result.key ? { id: result.key.id, referenceId: result.key.referenceId } : null,
 						})),
 				findUserById,
+				Option.getOrNull(config.users.demoAccountId),
 			);
 		const withInternalAdapter = <A>(operation: (context: AuthContextValue) => Promise<A>) =>
 			Effect.tryPromise({ catch: unknownToDbError, try: () => auth.$context.then(operation) });
@@ -530,6 +608,10 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 				withInternalAdapter(({ internalAdapter }) =>
 					internalAdapter.updateUser(userId, { image }),
 				).pipe(Effect.asVoid),
+			resolveRequestCredential: (headers: Headers) => {
+				const credential = credentialFromHeaders(headers);
+				return credential ? authenticate(credential) : Effect.fail(authenticationRequired());
+			},
 			// Keep the hosted login session copies in secondary storage current.
 			updateUserPreferences: (userId: UserId, preferences: CachedUserPreferences) =>
 				withInternalAdapter(({ internalAdapter }) =>
@@ -601,12 +683,22 @@ export const makeAuthMiddleware = (
 			E,
 			AuthorizationContext | CurrentUser | R
 		>,
-		resolved: Effect.Effect<ResolvedCredential, AuthRateLimited | AuthUnauthorized>,
-		route: string,
+		resolved: Effect.Effect<
+			ResolvedCredential,
+			AuthRateLimited | AuthUnauthorized,
+			HttpServerRequest.HttpServerRequest
+		>,
+		endpoint: HttpApiEndpoint.Top,
 	) =>
 		Effect.gen(function* () {
 			const request = yield* HttpServerRequest.HttpServerRequest;
 			const { user, authorization } = yield* resolved;
+			if (
+				authorization.accessClass === "demo" &&
+				Context.get(endpoint.annotations, DemoAccessPolicy) === "protected"
+			) {
+				return yield* new DemoOperationProtected({ reason: { code: "demo-operation-protected" } });
+			}
 			if (
 				request.method !== "GET" &&
 				request.method !== "HEAD" &&
@@ -624,7 +716,7 @@ export const makeAuthMiddleware = (
 				Effect.provideService(AuthorizationContext, authorization),
 			);
 
-			return yield* logHttpResponse(handler, route, annotations, "Debug");
+			return yield* logHttpResponse(handler, endpoint.path, annotations, "Debug");
 		});
 
 	return {
@@ -634,14 +726,25 @@ export const makeAuthMiddleware = (
 				endpoint,
 				credential,
 			}: { readonly credential: Redacted.Redacted; readonly endpoint: HttpApiEndpoint.Top },
-		) => authenticate(httpEffect, auth.oauthUser(Redacted.value(credential)), endpoint.path),
+		) => authenticate(httpEffect, auth.oauthUser(Redacted.value(credential)), endpoint),
 		apiKey: (
 			httpEffect,
 			{
 				endpoint,
 				credential,
 			}: { readonly credential: Redacted.Redacted; readonly endpoint: HttpApiEndpoint.Top },
-		) => authenticate(httpEffect, auth.apiKeyUser(Redacted.value(credential)), endpoint.path),
+		) => {
+			const key = Redacted.value(credential);
+			const resolved = key
+				? auth.apiKeyUser(key)
+				: Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) => {
+						const requestCredential = credentialFromHeaders(new Headers(request.headers));
+						return requestCredential?.kind === "oauth"
+							? auth.oauthUser(requestCredential.token)
+							: auth.apiKeyUser(key);
+					});
+			return authenticate(httpEffect, resolved, endpoint);
+		},
 	} satisfies AuthMiddleware["Service"];
 };
 

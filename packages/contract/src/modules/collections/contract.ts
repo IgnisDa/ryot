@@ -1,6 +1,7 @@
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
+import { DemoAccessPolicy } from "../../http-annotations";
 import {
 	CollectionBadRequest,
 	CollectionNotFound,
@@ -18,7 +19,9 @@ export const CollectionsGroup = HttpApiGroup.make("collections")
 			payload: CreateCollectionBody,
 			success: CollectionResponse.pipe(HttpApiSchema.status(201)),
 			error: [CollectionBadRequest.pipe(HttpApiSchema.status(400))],
-		}).annotate(OpenApi.Description, "Creates a collection"),
+		})
+			.annotate(DemoAccessPolicy, "allowed")
+			.annotate(OpenApi.Description, "Creates a collection"),
 	)
 	.add(
 		HttpApiEndpoint.post("createMembership", "/collections/memberships", {
@@ -28,7 +31,9 @@ export const CollectionsGroup = HttpApiGroup.make("collections")
 				CollectionBadRequest.pipe(HttpApiSchema.status(400)),
 				CollectionNotFound.pipe(HttpApiSchema.status(404)),
 			],
-		}).annotate(OpenApi.Description, "Adds an entity to a collection"),
+		})
+			.annotate(DemoAccessPolicy, "allowed")
+			.annotate(OpenApi.Description, "Adds an entity to a collection"),
 	)
 	.add(
 		HttpApiEndpoint.delete("deleteMembership", "/collections/memberships", {
@@ -38,6 +43,8 @@ export const CollectionsGroup = HttpApiGroup.make("collections")
 				CollectionBadRequest.pipe(HttpApiSchema.status(400)),
 				CollectionNotFound.pipe(HttpApiSchema.status(404)),
 			],
-		}).annotate(OpenApi.Description, "Removes an entity from a collection"),
+		})
+			.annotate(DemoAccessPolicy, "allowed")
+			.annotate(OpenApi.Description, "Removes an entity from a collection"),
 	)
 	.middleware(AuthMiddleware);
