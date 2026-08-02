@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "d644f35b-6c40-4e78-92b8-6152a7901e90",
+	"id": "29b18c81-80a3-4146-8f3d-78486e618ec0",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{
@@ -91,6 +91,18 @@
 		{
 			"isRlsEnabled": false,
 			"name": "plugin",
+			"entityType": "tables",
+			"schema": "public"
+		},
+		{
+			"isRlsEnabled": false,
+			"name": "plugin_client_artifact",
+			"entityType": "tables",
+			"schema": "public"
+		},
+		{
+			"isRlsEnabled": false,
+			"name": "plugin_client_artifact_file",
 			"entityType": "tables",
 			"schema": "public"
 		},
@@ -2228,19 +2240,6 @@
 		{
 			"type": "text",
 			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "client_artifact_hash",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "plugin"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
 			"default": null,
@@ -2280,19 +2279,6 @@
 		{
 			"type": "jsonb",
 			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "client_artifact",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "plugin"
-		},
-		{
-			"type": "jsonb",
-			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
 			"default": null,
@@ -2312,6 +2298,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "compiled_hashes",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "client_artifact_hash",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin"
@@ -2354,6 +2353,123 @@
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin"
+		},
+		{
+			"type": "smallint",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "format",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_client_artifact"
+		},
+		{
+			"type": "smallint",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "api_version",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_client_artifact"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "hash",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_client_artifact"
+		},
+		{
+			"type": "smallint",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "bridge_version",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_client_artifact"
+		},
+		{
+			"type": "smallint",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "compiler_version",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_client_artifact"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "name",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_client_artifact_file"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "contents",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_client_artifact_file"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "content_type",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_client_artifact_file"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "artifact_hash",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_client_artifact_file"
 		},
 		{
 			"type": "text",
@@ -6435,6 +6551,19 @@
 		},
 		{
 			"nameExplicit": false,
+			"columns": ["client_artifact_hash"],
+			"schemaTo": "public",
+			"tableTo": "plugin_client_artifact",
+			"columnsTo": ["hash"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "NO ACTION",
+			"name": "plugin_client_artifact_hash_plugin_client_artifact_hash_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "plugin"
+		},
+		{
+			"nameExplicit": false,
 			"columns": ["owner_id"],
 			"schemaTo": "public",
 			"tableTo": "user",
@@ -6445,6 +6574,19 @@
 			"entityType": "fks",
 			"schema": "public",
 			"table": "plugin"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["artifact_hash"],
+			"schemaTo": "public",
+			"tableTo": "plugin_client_artifact",
+			"columnsTo": ["hash"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "NO ACTION",
+			"name": "plugin_client_artifact_file_vYqlZNnp2DwH_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "plugin_client_artifact_file"
 		},
 		{
 			"nameExplicit": false,
@@ -6793,6 +6935,14 @@
 			"table": "managed_asset"
 		},
 		{
+			"columns": ["artifact_hash", "name"],
+			"nameExplicit": false,
+			"name": "plugin_client_artifact_file_pkey",
+			"entityType": "pks",
+			"schema": "public",
+			"table": "plugin_client_artifact_file"
+		},
+		{
 			"columns": ["signal_id", "user_id"],
 			"nameExplicit": false,
 			"name": "signal_recipient_pkey",
@@ -6910,6 +7060,14 @@
 			"name": "plugin_pkey",
 			"schema": "public",
 			"table": "plugin",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["hash"],
+			"nameExplicit": false,
+			"name": "plugin_client_artifact_pkey",
+			"schema": "public",
+			"table": "plugin_client_artifact",
 			"entityType": "pks"
 		},
 		{

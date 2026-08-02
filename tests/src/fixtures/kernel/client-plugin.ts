@@ -21,7 +21,7 @@ const clientEntry = "client/index.tsx";
 
 type FixtureClientPluginRevision = keyof typeof FIXTURE_CLIENT_REVISION_MARKERS;
 
-const fixtureClientPluginPackage = (revision: FixtureClientPluginRevision) =>
+const fixtureClientPluginPackage = (revision: FixtureClientPluginRevision, variant = "") =>
 	Effect.gen(function* () {
 		const archive = yield* Effect.promise(async () => {
 			const file = Bun.file(archiveUrl);
@@ -38,7 +38,10 @@ const fixtureClientPluginPackage = (revision: FixtureClientPluginRevision) =>
 		return {
 			files: {
 				...pluginPackage.files,
-				[homeEntry]: home.replace("Fixture plugin", FIXTURE_CLIENT_REVISION_MARKERS[revision]),
+				[homeEntry]: home.replace(
+					"Fixture plugin",
+					`${FIXTURE_CLIENT_REVISION_MARKERS[revision]}${variant}`,
+				),
 			},
 			manifest: {
 				...pluginPackage.manifest,
@@ -53,16 +56,21 @@ const fixtureClientPluginPackage = (revision: FixtureClientPluginRevision) =>
 export const installFixtureClientPlugin = (
 	client: Client,
 	revision: FixtureClientPluginRevision = "A",
+	variant = "",
 ) =>
 	Effect.gen(function* () {
-		const pluginPackage = yield* fixtureClientPluginPackage(revision);
+		const pluginPackage = yield* fixtureClientPluginPackage(revision, variant);
 		yield* installPrivatePluginPackage({ client, config: {}, pluginPackage });
 		return yield* settledPrivateInstallation(client, FIXTURE_CLIENT_PLUGIN_SLUG);
 	});
 
-export const updateFixtureClientPlugin = (client: Client, revision: FixtureClientPluginRevision) =>
+export const updateFixtureClientPlugin = (
+	client: Client,
+	revision: FixtureClientPluginRevision,
+	variant = "",
+) =>
 	Effect.gen(function* () {
-		const pluginPackage = yield* fixtureClientPluginPackage(revision);
+		const pluginPackage = yield* fixtureClientPluginPackage(revision, variant);
 		return yield* updatePrivatePlugin({
 			client,
 			payload: pluginPackage,

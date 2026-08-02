@@ -1,4 +1,3 @@
-import type { PluginClientArtifact } from "@ryot/contract/modules/plugins/client";
 import type {
 	PluginManifest,
 	PluginProviderOperation,
@@ -16,6 +15,7 @@ import {
 	index,
 	integer,
 	jsonb,
+	primaryKey,
 	smallint,
 	snakeCase,
 	text,
@@ -26,19 +26,39 @@ import {
 
 import { user } from "./auth";
 
+export const pluginClientArtifact = snakeCase.table("plugin_client_artifact", {
+	format: smallint().notNull(),
+	apiVersion: smallint().notNull(),
+	hash: text().notNull().primaryKey(),
+	bridgeVersion: smallint().notNull(),
+	compilerVersion: smallint().notNull(),
+});
+
+export const pluginClientArtifactFile = snakeCase.table(
+	"plugin_client_artifact_file",
+	{
+		name: text().notNull(),
+		contents: text().notNull(),
+		contentType: text().notNull(),
+		artifactHash: text()
+			.notNull()
+			.references(() => pluginClientArtifact.hash),
+	},
+	(table) => [primaryKey({ columns: [table.artifactHash, table.name] })],
+);
+
 export const plugin = snakeCase.table(
 	"plugin",
 	{
 		slug: text().notNull(),
 		status: text().notNull(),
 		version: text().notNull(),
-		clientArtifactHash: text(),
 		sourceHash: text().notNull(),
 		scope: text().$type<"system" | "user">().notNull(),
 		manifest: jsonb().$type<PluginManifest>().notNull(),
-		clientArtifact: jsonb().$type<PluginClientArtifact>(),
 		sourceFiles: jsonb().$type<Record<string, string>>().notNull(),
 		compiledHashes: jsonb().$type<Record<string, string>>().notNull(),
+		clientArtifactHash: text().references(() => pluginClientArtifact.hash),
 		ingestedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		ownerId: text().references(() => user.id, { onDelete: "cascade" }),
 		id: text()

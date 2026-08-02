@@ -162,7 +162,6 @@ export const compilePluginPackage = Effect.fn("PluginPipeline.compilePluginPacka
 			manifest: input.manifest,
 			sourceFiles: input.files,
 			sourceHash: input.sourceHash,
-			clientArtifactHash: clientArtifact ? clientArtifact.hash : null,
 		} satisfies NormalizedPlugin;
 	},
 );
