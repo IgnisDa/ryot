@@ -118,6 +118,17 @@ describe("plugin client bridge contract", () => {
 		expect(
 			Result.isFailure(
 				decodeRequest({
+					input: null,
+					requestId: "request-1",
+					operationSlug: "greet",
+					type: "operation-request",
+					sourceHash: "plugin-controlled-source-hash",
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				decodeRequest({
 					requestId: "request-1",
 					operationSlug: "greet",
 					type: "operation-request",

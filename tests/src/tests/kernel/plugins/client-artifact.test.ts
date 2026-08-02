@@ -6,14 +6,24 @@ import {
 	createAuthenticatedClient,
 	executeRyotQLRecipe,
 	FIXTURE_CLIENT_PLUGIN_SLUG,
+	FIXTURE_CLIENT_REVISION_MARKERS,
 	installFixtureClientPlugin,
+	updateFixtureClientPlugin,
+	updateFixtureClientPluginWithCompileFailure,
 } from "~/fixtures/kernel";
-import { requirePresent } from "~/support/assertions";
+import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { getBackendUrl } from "~/support/backend";
 import { describe, expect, it } from "~/support/effect-test";
 
 const fetchArtifact = (artifactHash: string, fileName: string) =>
 	Effect.promise(() => fetch(`${getBackendUrl()}/plugins/artifacts/${artifactHash}/${fileName}`));
+
+const fetchArtifactBytes = (artifactHash: string, fileName: string) =>
+	Effect.gen(function* () {
+		const response = yield* fetchArtifact(artifactHash, fileName);
+		expect(response.status).toBe(200);
+		return new Uint8Array(yield* Effect.promise(() => response.arrayBuffer()));
+	});
 
 const fixtureCatalogEntry = (client: Client) =>
 	Effect.gen(function* () {
@@ -81,6 +91,64 @@ describe("client plugin artifacts", () => {
 
 			expect(unknownFile.status).toBe(404);
 			expect(unknownArtifact.status).toBe(404);
+		}),
+	);
+
+	it.live(
+		"updates a client artifact atomically while retaining plugin identities and A bytes",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
+				const revisionA = yield* installFixtureClientPlugin(client, "A");
+				const before = yield* fixtureCatalogEntry(client);
+				const artifactA = requirePresent(
+					before.clientArtifactHash,
+					"Fixture client plugin revision A has no compiled artifact",
+				);
+				const bytesA = yield* fetchArtifactBytes(artifactA, "plugin.js");
+				expect(new TextDecoder().decode(bytesA)).toContain(FIXTURE_CLIENT_REVISION_MARKERS.A);
+
+				const revisionB = yield* updateFixtureClientPlugin(client, "B");
+				const after = yield* fixtureCatalogEntry(client);
+				const artifactB = requirePresent(
+					after.clientArtifactHash,
+					"Fixture client plugin revision B has no compiled artifact",
+				);
+
+				expect(after).toMatchObject({
+					slug: before.slug,
+					pluginId: before.pluginId,
+					sourceHash: revisionB.sourceHash,
+					installationId: before.installationId,
+				});
+				expect(revisionB.sourceHash).not.toBe(revisionA.sourceHash);
+				expect(after.sourceHash).not.toBe(before.sourceHash);
+				expect(artifactB).not.toBe(artifactA);
+				expect(
+					new TextDecoder().decode(yield* fetchArtifactBytes(artifactB, "plugin.js")),
+				).toContain(FIXTURE_CLIENT_REVISION_MARKERS.B);
+				expect(yield* fetchArtifactBytes(artifactA, "plugin.js")).toEqual(bytesA);
+			}),
+	);
+
+	it.live("preserves revision A when revision B client compilation fails", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			yield* installFixtureClientPlugin(client, "A");
+			const before = yield* fixtureCatalogEntry(client);
+			const artifactA = requirePresent(
+				before.clientArtifactHash,
+				"Fixture client plugin revision A has no compiled artifact",
+			);
+			const bytesA = yield* fetchArtifactBytes(artifactA, "plugin.js");
+
+			const failure = yield* Effect.flip(updateFixtureClientPluginWithCompileFailure(client));
+			assertTaggedError(failure, "PluginRequestError");
+			expect(failure.reason.code).toBe("compilation-failed");
+
+			expect(yield* fixtureCatalogEntry(client)).toEqual(before);
+			expect(yield* fetchArtifactBytes(artifactA, "plugin.js")).toEqual(bytesA);
+			expect(new TextDecoder().decode(bytesA)).toContain(FIXTURE_CLIENT_REVISION_MARKERS.A);
 		}),
 	);
 });

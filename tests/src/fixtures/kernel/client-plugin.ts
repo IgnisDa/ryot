@@ -1,15 +1,27 @@
 import { PluginSlug } from "@ryot/contract/schema/brands";
+import { readPluginArchive } from "@ryot/plugin-archive";
 import { Effect } from "effect";
 
 import type { Client } from "./auth";
-import { settledPrivateInstallation } from "./private-plugin";
-import { uploadTemporaryArchive } from "./temporary-archive";
+import {
+	installPrivatePluginPackage,
+	settledPrivateInstallation,
+	updatePrivatePlugin,
+} from "./private-plugin";
 
 export const FIXTURE_CLIENT_PLUGIN_SLUG = PluginSlug.make("fixture");
+export const FIXTURE_CLIENT_REVISION_MARKERS = {
+	A: "Fixture plugin revision A",
+	B: "Fixture plugin revision B",
+} as const;
 
 const archiveUrl = new URL("../../../../plugins/fixture/dist/fixture.zip", import.meta.url);
+const homeEntry = "client/home.tsx";
+const clientEntry = "client/index.tsx";
 
-export const installFixtureClientPlugin = (client: Client) =>
+type FixtureClientPluginRevision = keyof typeof FIXTURE_CLIENT_REVISION_MARKERS;
+
+const fixtureClientPluginPackage = (revision: FixtureClientPluginRevision) =>
 	Effect.gen(function* () {
 		const archive = yield* Effect.promise(async () => {
 			const file = Bun.file(archiveUrl);
@@ -18,9 +30,55 @@ export const installFixtureClientPlugin = (client: Client) =>
 			}
 			return file.bytes();
 		});
-		const uploadToken = yield* uploadTemporaryArchive(client, archive, {
-			fileName: `${FIXTURE_CLIENT_PLUGIN_SLUG}.zip`,
-		});
-		yield* client.call((c) => c.plugins.install({ payload: { config: {}, uploadToken } }));
+		const pluginPackage = yield* readPluginArchive(archive);
+		const home = pluginPackage.files[homeEntry];
+		if (!home?.includes("Fixture plugin")) {
+			throw new Error(`Fixture client source '${homeEntry}' has no revision marker target`);
+		}
+		return {
+			files: {
+				...pluginPackage.files,
+				[homeEntry]: home.replace("Fixture plugin", FIXTURE_CLIENT_REVISION_MARKERS[revision]),
+			},
+			manifest: {
+				...pluginPackage.manifest,
+				metadata: {
+					...pluginPackage.manifest.metadata,
+					version: revision === "A" ? "1.0.0" : "2.0.0",
+				},
+			},
+		};
+	});
+
+export const installFixtureClientPlugin = (
+	client: Client,
+	revision: FixtureClientPluginRevision = "A",
+) =>
+	Effect.gen(function* () {
+		const pluginPackage = yield* fixtureClientPluginPackage(revision);
+		yield* installPrivatePluginPackage({ client, config: {}, pluginPackage });
 		return yield* settledPrivateInstallation(client, FIXTURE_CLIENT_PLUGIN_SLUG);
+	});
+
+export const updateFixtureClientPlugin = (client: Client, revision: FixtureClientPluginRevision) =>
+	Effect.gen(function* () {
+		const pluginPackage = yield* fixtureClientPluginPackage(revision);
+		return yield* updatePrivatePlugin({
+			client,
+			payload: pluginPackage,
+			pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG,
+		});
+	});
+
+export const updateFixtureClientPluginWithCompileFailure = (client: Client) =>
+	Effect.gen(function* () {
+		const pluginPackage = yield* fixtureClientPluginPackage("B");
+		return yield* updatePrivatePlugin({
+			client,
+			pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG,
+			payload: {
+				...pluginPackage,
+				files: { ...pluginPackage.files, [clientEntry]: "export default <;" },
+			},
+		});
 	});

@@ -221,13 +221,17 @@ export const privateBootstrapPluginPackage = (): PrivateBootstrapPluginPackage =
 export const invokePrivatePluginOperation = (input: {
 	readonly prefix: string;
 	readonly client: Client;
+	readonly sourceHash?: string;
 	readonly operationSlug: string;
 	readonly pluginSlug: PluginSlug;
 }) =>
 	input.client.call((c) =>
 		c.plugins.invoke({
-			payload: { payload: { prefix: input.prefix } },
 			params: { pluginSlug: input.pluginSlug, operationSlug: input.operationSlug },
+			payload: {
+				payload: { prefix: input.prefix },
+				...(input.sourceHash === undefined ? {} : { sourceHash: input.sourceHash }),
+			},
 		}),
 	);
 
@@ -463,14 +467,18 @@ export const installPrivateIntegrationPlugin = (
 
 export const invokePrivateIntegrationOperation = (input: {
 	readonly client: Client;
+	readonly sourceHash?: string;
 	readonly integrationId: string;
 	readonly operationSlug: string;
 	readonly pluginSlug: PluginSlug;
 }) =>
 	input.client.call((c) =>
 		c.plugins.invoke({
-			payload: { payload: { integrationId: input.integrationId } },
 			params: { pluginSlug: input.pluginSlug, operationSlug: input.operationSlug },
+			payload: {
+				payload: { integrationId: input.integrationId },
+				...(input.sourceHash === undefined ? {} : { sourceHash: input.sourceHash }),
+			},
 		}),
 	);
 
