@@ -3,6 +3,13 @@
 @import "tailwindcss/utilities.css";
 @import "nativewind/theme";
 
+@layer base {
+	input:focus,
+	textarea:focus {
+		outline: none;
+	}
+}
+
 @theme inline {
 	--color-bg: var(--bg);
 	--color-gold: var(--gold);
