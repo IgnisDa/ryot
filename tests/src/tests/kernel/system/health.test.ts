@@ -28,9 +28,7 @@ describe("Health endpoint", () => {
 			);
 
 			expect(response.status).toBe(204);
-			expect(response.headers.get("access-control-allow-origin")).toBe(
-				"http://client.test",
-			);
+			expect(response.headers.get("access-control-allow-origin")).toBe("http://client.test");
 			expect(response.headers.get("access-control-allow-credentials")).toBe("true");
 			expect(response.headers.get("access-control-allow-headers")).toBe("b3,traceparent");
 		}),
