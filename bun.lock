@@ -43,6 +43,8 @@
       },
       "devDependencies": {
         "@effect/vitest": "4.0.0-beta.105",
+        "@ryot/ryotql": "workspace:*",
+        "@ryot/ryotql-recipes": "workspace:*",
         "@ryot/testing": "workspace:*",
         "@types/ioredis": "5.0.0",
         "@types/nodemailer": "8.0.0",
@@ -62,7 +64,7 @@
         "@expo-google-fonts/outfit": "^0.4.3",
         "@ryot/app-backend": "workspace:*",
         "@ryot/contract": "workspace:*",
-        "@ryot/query-engine": "workspace:*",
+        "@ryot/ryotql-recipes": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
         "@tailwindcss/postcss": "^4.1.13",
         "better-auth": "1.6.15",
@@ -406,6 +408,27 @@
         "vitest": "4.1.9",
       },
     },
+    "packages/ryotql": {
+      "name": "@ryot/ryotql",
+      "devDependencies": {
+        "@ryot/contract": "workspace:*",
+        "@ryot/testing": "workspace:*",
+        "vitest": "4.1.9",
+      },
+      "peerDependencies": {
+        "@ryot/contract": "workspace:*",
+      },
+    },
+    "packages/ryotql-recipes": {
+      "name": "@ryot/ryotql-recipes",
+      "dependencies": {
+        "@ryot/ryotql": "workspace:*",
+      },
+      "devDependencies": {
+        "@ryot/testing": "workspace:*",
+        "vitest": "4.1.9",
+      },
+    },
     "packages/sandbox-compiler": {
       "name": "@ryot/sandbox-compiler",
       "dependencies": {
@@ -531,6 +554,7 @@
         "@ryot/media-plugin": "workspace:*",
         "@ryot/plugin-kit": "workspace:*",
         "@ryot/query-engine": "workspace:*",
+        "@ryot/ryotql-recipes": "workspace:*",
         "@ryot/sandbox-sdk": "workspace:*",
         "@ryot/testing": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
@@ -1708,6 +1732,10 @@
     "@ryot/plugin-kit": ["@ryot/plugin-kit@workspace:packages/plugin-kit"],
 
     "@ryot/query-engine": ["@ryot/query-engine@workspace:packages/query-engine"],
+
+    "@ryot/ryotql": ["@ryot/ryotql@workspace:packages/ryotql"],
+
+    "@ryot/ryotql-recipes": ["@ryot/ryotql-recipes@workspace:packages/ryotql-recipes"],
 
     "@ryot/sandbox-compiler": ["@ryot/sandbox-compiler@workspace:packages/sandbox-compiler"],
 
