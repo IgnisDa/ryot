@@ -6,11 +6,11 @@ import {
 	createAuthenticatedClient,
 	createNotificationChannel,
 	enableMediaMonitoring,
-	enqueueEntityImport,
+	enqueueProviderEntityImport,
 	fakeProviderDetailsResult,
 	getBackendClient,
 	getBuiltinEntitySchemaSlug,
-	pollEntityImportResult,
+	pollProviderEntityImportResult,
 	providerSandboxSource,
 	replaceSandboxScriptCompiledRepresentation,
 	installTestProvider,
@@ -103,12 +103,12 @@ it.live("notifies only a credited person's monitor once per role on first media 
 		]);
 		yield* enableMediaMonitoring(personMonitor.client, personEntityId);
 
-		const { jobId } = yield* enqueueEntityImport(importer.client, {
+		const { jobId } = yield* enqueueProviderEntityImport(importer.client, {
 			externalId: movieExternalId,
 			entitySchemaSlug: EntitySchemaSlug.make(movieSchemaId),
 			providerId: SandboxProviderId.make(movieProvider.providerId),
 		});
-		const result = yield* pollEntityImportResult(importer.client, jobId);
+		const result = yield* pollProviderEntityImportResult(importer.client, jobId);
 		assertCompleted(result, "association media import");
 
 		const delivered = yield* pollUntil(
@@ -238,12 +238,12 @@ describe("dual-writer canonical identity", () => {
 				yield* enableMediaMonitoring(personMonitor.client, person.id);
 
 				fakeApprise.requests.length = 0;
-				const { jobId } = yield* enqueueEntityImport(importer.client, {
+				const { jobId } = yield* enqueueProviderEntityImport(importer.client, {
 					externalId: dwMovieExternalId,
 					entitySchemaSlug: EntitySchemaSlug.make(movieSchemaId),
 					providerId: SandboxProviderId.make(dwMovieProvider.providerId),
 				});
-				const imported = yield* pollEntityImportResult(importer.client, jobId);
+				const imported = yield* pollProviderEntityImportResult(importer.client, jobId);
 				assertCompleted(imported, "dual-writer media-rooted import");
 				const created = yield* pollAssociationNotification("dual-writer-monitor");
 				expect(created).toHaveLength(1);

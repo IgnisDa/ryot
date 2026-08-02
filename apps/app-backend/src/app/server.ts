@@ -18,7 +18,6 @@ import { AutomationsRoutesLive } from "#modules/automations/routes";
 import { CollectionsRoutesLive } from "#modules/collections/routes";
 import { DefinitionsRoutesLive } from "#modules/definitions/routes";
 import { EntitiesRoutesLive } from "#modules/entities/routes";
-import { EntityImportRoutesLive } from "#modules/entity-import/routes";
 import { InterestRoutesLive } from "#modules/entity-interest/routes";
 import { EventsRoutesLive } from "#modules/events/routes";
 import { GodModeRoutesLive } from "#modules/god-mode/routes";
@@ -26,6 +25,7 @@ import { ImportsRoutesLive } from "#modules/imports/routes";
 import { IntegrationsRoutesLive } from "#modules/integrations/routes";
 import { NotificationsRoutesLive } from "#modules/notifications/routes";
 import { PluginsRoutesLive } from "#modules/plugins/routes";
+import { ProviderEntitiesRoutesLive } from "#modules/provider-entities/routes";
 import { RelationshipsRoutesLive } from "#modules/relationships/routes";
 import { RyotQLRoutesLive } from "#modules/ryotql/routes";
 import { SavedViewsRoutesLive } from "#modules/saved-views/routes";
@@ -84,7 +84,7 @@ const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 	Layer.provide(DefinitionsRoutesLive),
 	Layer.provide(RelationshipsRoutesLive),
 	Layer.provide(EntitiesRoutesLive),
-	Layer.provide(EntityImportRoutesLive),
+	Layer.provide(ProviderEntitiesRoutesLive),
 	Layer.provide(Layer.mergeAll(UserStateRoutesLive, UserPreferencesRoutesLive)),
 	Layer.provide(EventsRoutesLive),
 	Layer.provide(UploadsRoutesLive),

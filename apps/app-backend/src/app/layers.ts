@@ -38,11 +38,6 @@ import { DefinitionsService } from "#modules/definitions/service";
 import { LifecycleDispatchNoop } from "#modules/entities/lifecycle-dispatch";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
-import { EntityImportWorkflowDefinitionsLive } from "#modules/entity-import/entity-import-workflow";
-import { EntityImportWorkflowOperationsLive } from "#modules/entity-import/operations-workflow";
-import { EntityPopulationTriggerLive } from "#modules/entity-import/population-trigger-live";
-import { ProviderEntityPopulationWorkflowDefinitionsLive } from "#modules/entity-import/provider-entity-population-workflow";
-import { EntityImportService } from "#modules/entity-import/service";
 import { LocalStreamConnections } from "#modules/entity-interest/connections";
 import { EntityInterestProgression } from "#modules/entity-interest/progression";
 import { InterestReconciler } from "#modules/entity-interest/reconciler";
@@ -89,6 +84,12 @@ import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
 import { PluginSandboxScriptResolverLive } from "#modules/plugins/sandbox-plugin-script-resolver-live";
 import { ScriptGarbageCollector } from "#modules/plugins/script-garbage-collector";
 import { PluginIngestionService, PluginInvalidationSubscriber } from "#modules/plugins/service";
+import { EntityImportWorkflowDefinitionsLive } from "#modules/provider-entities/entity-import-workflow";
+import { EntityImportWorkflowOperationsLive } from "#modules/provider-entities/operations-workflow";
+import { EntityPopulationTriggerLive } from "#modules/provider-entities/population-trigger-live";
+import { ProviderEntityPopulationWorkflowDefinitionsLive } from "#modules/provider-entities/provider-entity-population-workflow";
+import { ProviderEntitySearchService } from "#modules/provider-entities/search-service";
+import { EntityImportService } from "#modules/provider-entities/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
@@ -97,7 +98,6 @@ import { SandboxRepository } from "#modules/sandbox/repository";
 import { SandboxWorkflowDefinitionsLive } from "#modules/sandbox/sandbox-workflow-live";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
-import { SavedViewEntitySearchService } from "#modules/saved-views/entity-search-service";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { FrequentCronSchedulerLive } from "#modules/scheduler/frequent-cron";
@@ -314,7 +314,7 @@ const SandboxExecutionServiceLive = SandboxExecutionService.layer.pipe(
 	Layer.provide(SandboxPluginScriptResolverLive),
 );
 
-const SavedViewEntitySearchServiceLive = SavedViewEntitySearchService.layer.pipe(
+const ProviderEntitySearchServiceLive = ProviderEntitySearchService.layer.pipe(
 	Layer.provide([SandboxExecutionServiceLive, PluginRuntimeResolverLive]),
 );
 
@@ -391,7 +391,7 @@ const ServicesBaseLive = Layer.mergeAll(ContentServicesLive, PlatformServicesLiv
 
 const ContentAndSandboxServicesLive = Layer.mergeAll(
 	ServicesBaseLive,
-	SavedViewEntitySearchServiceLive,
+	ProviderEntitySearchServiceLive,
 ).pipe(Layer.provideMerge(SandboxServicesLive));
 
 const OperationsServiceLive = OperationsService.layer.pipe(

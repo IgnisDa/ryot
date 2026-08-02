@@ -1,36 +1,30 @@
 import type { ContractPayload } from "@ryot/contract/client";
-import {
-	EntityId,
-	EntitySchemaSlug,
-	EventSchemaSlug,
-	PluginSlug,
-} from "@ryot/contract/schema/brands";
+import { EntityId, EventSchemaSlug, PluginSlug } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
 	adminHeaders,
 	createAuthenticatedClient,
 	enqueueSandboxScript,
-	enqueueEntityImport,
-	enqueueEntitySearch,
+	enqueueProviderEntityImport,
 	fakeProviderDetailsResult,
 	fakeProviderSearchResult,
+	buildSavedViewLayouts,
 	getBackendClient,
 	installTestPluginBundle,
-	pollEntityImportResult,
-	pollSandboxResult,
+	pollProviderEntityImportResult,
 	pollUntil,
 	providerSandboxSource,
 	reinstallTestPluginScript,
 	testPluginManifest,
 	uninstallTestPlugin,
 	waitForEventWithSchema,
+	searchProviderEntities,
 } from "~/fixtures";
 import {
 	assertCompleted,
 	assertPresent,
 	assertTaggedError,
-	requireArray,
 	requireObjectRecord,
 } from "~/support/assertions";
 import { assert, describe, expect, it } from "~/support/effect-test";
@@ -47,6 +41,7 @@ describe("plugins", () => {
 			const externalId = `plugin-entity-${crypto.randomUUID()}`;
 			const schemaSlug = `e2e-lifecycle-entity-${suffix}`;
 			const providerSlug = `e2e-lifecycle-provider-${suffix}`;
+			const viewSlug = `e2e-lifecycle-search-${suffix}`;
 			const automationSlug = `automation.e2e-lifecycle-${suffix}`;
 			const eventSchemaSlug = `${schemaSlug}:${eventSlug}`;
 			const detailsSlug = `${providerSlug}.details`;
@@ -54,7 +49,6 @@ describe("plugins", () => {
 			const detailsEntry = `scripts/${detailsSlug}.sandbox.ts`;
 			const searchEntry = `scripts/${searchSlug}.sandbox.ts`;
 			const automationEntry = `scripts/${automationSlug}.sandbox.ts`;
-			const { client, userId } = yield* createAuthenticatedClient();
 			const detailsScript = {
 				providerSlug,
 				capabilities: [],
@@ -189,6 +183,17 @@ export default defineAutomation({
 							],
 						},
 					],
+					savedViews: [
+						{
+							pluginSlug,
+							icon: "box",
+							name: "Lifecycle Provider Search",
+							slug: viewSlug,
+							sortOrder: 0,
+							layouts: buildSavedViewLayouts({}, [schemaSlug]),
+							sandboxScripts: { search: [searchSlug] },
+						},
+					],
 					eventAutomations: [{ eventSchemaSlug, kind: "subscription", scriptSlug: automationSlug }],
 				}),
 				(installed) =>
@@ -212,6 +217,7 @@ export default defineAutomation({
 						yield* uninstallTestPlugin(installed);
 					}),
 			);
+			const { client: installedClient } = yield* createAuthenticatedClient();
 			const listed = yield* getBackendClient().call((c) => c.plugins.list({}), adminHeaders);
 			const activePlugin = listed.find(({ slug }) => slug === provider.pluginSlug);
 			assertPresent(activePlugin, "Missing hot-installed lifecycle plugin");
@@ -220,7 +226,7 @@ export default defineAutomation({
 				name: "E2E Test Plugin",
 				slug: provider.pluginSlug,
 			});
-			const definitions = yield* client.call((c) => c.definitions.listEntities({}));
+			const definitions = yield* installedClient.call((c) => c.definitions.listEntities({}));
 			const lifecycleSchema = definitions.find(({ slug }) => slug === schemaSlug);
 			assertPresent(lifecycleSchema, "Missing lifecycle entity schema catalog entry");
 			expect(lifecycleSchema.eventSchemas.map(({ slug }) => slug).sort()).toEqual(
@@ -286,26 +292,35 @@ export default defineAutomation({
 				source: updatedSearchSource,
 			});
 
-			const search = yield* enqueueEntitySearch(userId, {
-				scriptId: reingestedSearchScriptId,
-				context: { query: "hot", page: 1, pageSize: 5 },
+			const { client, userId } = yield* createAuthenticatedClient();
+			const search = yield* searchProviderEntities(client, {
+				savedViewSlug: viewSlug,
+				query: "hot",
+				page: 1,
+				pageSize: 5,
 			});
-			const searchResult = yield* pollSandboxResult(userId, search.jobId);
-			assertCompleted(searchResult, "hot-installed provider search");
-			const searchValue = requireObjectRecord(searchResult.value, "Missing provider search result");
-			const searchItems = requireArray(searchValue.items, "Missing provider search items");
-			expect(searchItems).toHaveLength(1);
-			const searchItem = requireObjectRecord(searchItems[0], "Missing provider search item");
-			expect(
-				requireObjectRecord(searchItem.titleProperty, "Missing provider search title"),
-			).toEqual({ kind: "text", value: "Reingested Lifecycle Entity" });
+			const searchResult = search.providers.find(
+				(candidate) => candidate.providerId === providerId,
+			);
+			assertPresent(searchResult, "Missing reingested provider search result");
+			expect(searchResult.status).toBe("success");
+			if (searchResult.status !== "success") {
+				throw new Error("Expected reingested provider search to succeed");
+			}
+			expect(searchResult.items).toHaveLength(1);
+			const searchItem = searchResult.items[0];
+			assertPresent(searchItem, "Missing provider search item");
+			expect(searchItem.titleProperty).toEqual({
+				kind: "text",
+				value: "Reingested Lifecycle Entity",
+			});
 
-			const imported = yield* enqueueEntityImport(client, {
-				externalId,
-				providerId,
-				entitySchemaSlug: EntitySchemaSlug.make(schemaSlug),
+			const imported = yield* enqueueProviderEntityImport(client, {
+				externalId: searchItem.externalId,
+				providerId: searchResult.providerId,
+				entitySchemaSlug: searchResult.entitySchemaSlug,
 			});
-			const importResult = yield* pollEntityImportResult(client, imported.jobId);
+			const importResult = yield* pollProviderEntityImportResult(client, imported.jobId);
 			assertCompleted(importResult, "hot-installed provider import");
 			entityId = importResult.data.id;
 			expect(importResult.data.name).toBe("Reingested Lifecycle Entity");

@@ -9,7 +9,7 @@ import {
 	createApiKey,
 	createEntity,
 	createNotificationChannel,
-	enqueueEntityImport,
+	enqueueProviderEntityImport,
 	fakeProviderDetailsResult,
 	findBuiltinSchemaBySlug,
 	findBuiltinPluginBySlug,
@@ -19,7 +19,7 @@ import {
 	insertMediaMonitoring,
 	listSignals,
 	listSubscriptionRuns,
-	pollEntityImportResult,
+	pollProviderEntityImportResult,
 	pollSignal,
 	pollSignalWithRecipientCount,
 	pollTerminalSubscriptionRuns,
@@ -240,12 +240,12 @@ describe("Delete user automation data cleanup", () => {
 					insertMediaMonitoring(secondMonitor.client, person.id),
 				]);
 
-				const { jobId } = yield* enqueueEntityImport(importer.client, {
+				const { jobId } = yield* enqueueProviderEntityImport(importer.client, {
 					externalId: movieExternalId,
 					entitySchemaSlug: EntitySchemaSlug.make(movieSchemaId),
 					providerId: movieProvider.providerId,
 				});
-				const imported = yield* pollEntityImportResult(importer.client, jobId);
+				const imported = yield* pollProviderEntityImportResult(importer.client, jobId);
 				assertCompleted(imported, "delete-user shared association import");
 
 				const { id: signalId } = yield* pollSignalWithRecipientCount(

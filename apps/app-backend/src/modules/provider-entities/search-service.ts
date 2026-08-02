@@ -1,9 +1,9 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { badRequest, notFound, unknownToMessage } from "@ryot/contract/errors";
 import type {
-	SearchSavedViewEntitiesBody,
-	SearchSavedViewEntitiesResponse,
-} from "@ryot/contract/modules/saved-views/schemas";
+	SearchProviderEntitiesBody,
+	SearchProviderEntitiesResponse,
+} from "@ryot/contract/modules/provider-entities/schemas";
 import { generateId } from "better-auth";
 import { Context, Effect, Layer } from "effect";
 
@@ -11,16 +11,15 @@ import { DbRunner } from "#lib/infrastructure/db/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { decodeProviderSearchResult } from "#modules/sandbox/provider-contracts";
 import { SandboxExecutionService } from "#modules/sandbox/service";
-
-import { SavedViewsRepository } from "./repository";
+import { SavedViewsRepository } from "#modules/saved-views/repository";
 
 const unavailableScript = (scriptSlug: string) =>
 	badRequest(`Saved view search script '${scriptSlug}' is missing, inactive, or invalid`);
 
-type ProviderResult = SearchSavedViewEntitiesResponse["providers"][number];
+type ProviderResult = SearchProviderEntitiesResponse["providers"][number];
 
-export class SavedViewEntitySearchService extends Context.Service<SavedViewEntitySearchService>()(
-	"SavedViewEntitySearchService",
+export class ProviderEntitySearchService extends Context.Service<ProviderEntitySearchService>()(
+	"ProviderEntitySearchService",
 	{
 		make: Effect.gen(function* () {
 			const runWithDb = yield* DbRunner;
@@ -28,12 +27,11 @@ export class SavedViewEntitySearchService extends Context.Service<SavedViewEntit
 			const repository = yield* SavedViewsRepository;
 			const pluginRuntime = yield* PluginRuntimeResolver;
 
-			const search = Effect.fn("SavedViewEntitySearchService.search")(function* (
+			const search = Effect.fn("ProviderEntitySearchService.search")(function* (
 				user: CurrentUserValue,
-				viewSlug: string,
-				input: SearchSavedViewEntitiesBody,
+				input: SearchProviderEntitiesBody,
 			) {
-				const savedView = yield* runWithDb(repository.findBySlug(user.id, viewSlug));
+				const savedView = yield* runWithDb(repository.findBySlug(user.id, input.savedViewSlug));
 				if (!savedView) {
 					return yield* notFound("Saved view not found");
 				}
@@ -61,7 +59,11 @@ export class SavedViewEntitySearchService extends Context.Service<SavedViewEntit
 						});
 						return sandbox
 							.executeScript({
-								input,
+								input: {
+									query: input.query,
+									page: input.page,
+									pageSize: input.pageSize,
+								},
 								scriptId: script.id,
 								authority: { type: "user", userId: user.id },
 								executionId: `saved-view-search-${generateId()}`,
@@ -84,7 +86,7 @@ export class SavedViewEntitySearchService extends Context.Service<SavedViewEntit
 					},
 					{ concurrency: "unbounded" },
 				);
-				return { providers } satisfies SearchSavedViewEntitiesResponse;
+				return { providers } satisfies SearchProviderEntitiesResponse;
 			});
 
 			return { search };
