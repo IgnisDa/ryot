@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { bootstrapClientPlugin, defineClientPlugin } from "./plugin";
+import * as pluginSurface from "./plugin";
 import { useRyot } from "./react";
 
 const metadata = {
@@ -23,9 +24,9 @@ const metadata = {
 };
 const init: PluginBridgeInit = {
 	format: metadata.format,
-	apiVersion: metadata.apiVersion,
-	artifactHash: metadata.hash,
 	sessionId: "session-id",
+	artifactHash: metadata.hash,
+	apiVersion: metadata.apiVersion,
 	bridgeVersion: metadata.bridgeVersion,
 	compilerVersion: metadata.compilerVersion,
 };
@@ -36,8 +37,8 @@ const Home = () => {
 	const ryot = useRyot();
 	const [result, setResult] = useState("pending");
 	useEffect(() => {
-		void ryot.data
-			.invokeOperation({ slug: "greet", input: {}, output: Schema.String })
+		void ryot.operations
+			.invoke({ slug: "greet", input: {}, output: Schema.String })
 			.then(setResult);
 	}, [ryot]);
 	return <p>{result}</p>;
@@ -68,6 +69,10 @@ afterEach(() => {
 });
 
 describe("bootstrapClientPlugin", () => {
+	it("does not expose the removed navigation hook", () => {
+		expect(pluginSurface).not.toHaveProperty("usePluginNavigation");
+	});
+
 	it("does not register a session without valid embedded metadata", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		bootstraps.push(bootstrapClientPlugin(defineClientPlugin({ home: Home })));

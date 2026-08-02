@@ -8,6 +8,8 @@
 
 Perform the mandatory final cleanup pass after Tasks 01-08 are complete. Load and follow the repository's `codebase-cleanup` skill. Review all files changed by this plan and their directly affected modules for temporary scaffolding, dead code, duplicate contracts, speculative abstractions, stale test helpers, obsolete comments, development bypasses, and documentation drift.
 
+Audit the final SDK taxonomy and all public names: `ryot.data.query(recipe)`, `ryot.operations.invoke({ slug, input, output })`, and `ryot.navigation.push/replace`. Remove stale pre-taxonomy operation or navigation names and any parallel client, capability, routing, reload, or lifecycle facades. Keep `PluginLink` and the reactive location, params, and search hooks as plugin React conveniences backed by the same client/runtime.
+
 Preserve the complete demonstrated behavior. This is not a redesign task and must not add features. Keep the production fixture and tests that prove the tracer. Consolidate only verified duplication, remove only code proven unused, and keep package boundaries aligned with the architecture: backend sandbox compiler, client plugin compiler, `@ryot/client-sdk`, `@ryot/client-ui-sdk`, contract/archive, server lifecycle, kernel API/data boundary, route resolver, bridge, and `PluginHost`.
 
 Audit every value crossing the SDK and bridge boundaries against the canonical `JsonValue` type/schema and `isJsonValue` guard from `@ryot/contract/schema/json`. Remove `Schema.Unknown`, ad hoc validators, unchecked casts, and `JSON.stringify` normalization; unsupported values must be rejected, not converted.
@@ -32,6 +34,7 @@ The cleanup must preserve and enforce the one per-session client plugin runtime:
 - [ ] `PluginOperationError.reason` has exactly the seven public reasons and fixed classifications from the parent plan; expected business/domain outcomes are typed successful values, `operation-failed` is opaque declared backend/platform execution failure rather than a business outcome, and no theme-, crash-, reload-, or capability-specific error union exists.
 - [ ] `lifecycle-close` remains the payload-free `{ type: "lifecycle-close", reason: "disposed" | "failed" }` message; wire `failed` maps to public `protocol` and is not a public SDK error reason, with no stack, error, request, or diagnostic expansion.
 - [ ] Kernel and plugin consumers use the explicit Task 05-followup `RyotClient` adapters; no global mutable client, parallel capability facade, direct catalog transport, or bridge-specific component API remains.
+- [ ] Kernel and plugin consumers use the canonical `data`, `operations`, and `navigation` client categories; no stale operation/navigation names or parallel routing, reload, lifecycle, or capability facades remain. `PluginLink` and the reactive location, params, and search hooks remain only as plugin React conveniences on the shared runtime.
 - [ ] Kernel abort remains best effort and is not documented or implemented as rollback for work that committed before abort.
 - [ ] No `@ryot/client-plugin-sdk` package, import, compatibility alias, generated residue, or stale documentation remains.
 - [ ] Package exports, workspace references, task-specific documentation, architecture decisions resolved during implementation, and public API names match the final code.
