@@ -3,10 +3,7 @@ import type { RowItem, RyotQLResponse } from "@ryot/contract/modules/ryotql/lang
 import type { ListedSavedView } from "@ryot/contract/modules/saved-views/schemas";
 
 type NavigationPlugin = Omit<
-	Pick<
-		ListedPlugin,
-		"slug" | "name" | "icon" | "sortOrder" | "isDisabled" | "accentColor" | "description"
-	>,
+	Pick<ListedPlugin, "slug" | "name" | "icon" | "sortOrder" | "isDisabled" | "accentColor">,
 	"slug"
 > & { slug: string };
 
@@ -46,54 +43,126 @@ const homeView = {
 
 function getTextField(row: RowItem, key: string) {
 	const field = row[key];
-	if (!("kind" in field) || field.kind !== "text" || typeof field.value !== "string") {
+	if (!field || !("kind" in field) || field.kind !== "text" || typeof field.value !== "string") {
 		return undefined;
 	}
 	return field.value;
 }
 
-export function mapCollectionsResponse(response: RyotQLResponse) {
-	const collections = response.data.collections;
-	if (collections?.type !== "rows") {
-		return [];
+function getNumberField(row: RowItem, key: string) {
+	const field = row[key];
+	if (!field || !("kind" in field) || field.kind !== "number" || typeof field.value !== "number") {
+		return undefined;
 	}
-	return collections.items.flatMap((row, index) => {
-		const slug = getTextField(row, "id");
-		const name = getTextField(row, "name");
-		if (!slug || !name) {
-			return [];
-		}
+	return field.value;
+}
 
-		return [
-			{
-				name,
-				slug,
-				accentColor: "",
-				sortOrder: index,
-				icon: "layers-3",
-				pluginSlug: null,
-				isDisabled: false,
-			},
-		];
-	});
+function getBooleanField(row: RowItem, key: string) {
+	const field = row[key];
+	if (
+		!field ||
+		!("kind" in field) ||
+		field.kind !== "boolean" ||
+		typeof field.value !== "boolean"
+	) {
+		return undefined;
+	}
+	return field.value;
+}
+
+function getNullableTextField(row: RowItem, key: string) {
+	const field = row[key];
+	if (!field || !("kind" in field)) {
+		return undefined;
+	}
+	if (field.kind === "null") {
+		return null;
+	}
+	return field.kind === "text" && typeof field.value === "string" ? field.value : undefined;
+}
+
+export function mapNavigationResponse(response: RyotQLResponse): NavigationData {
+	const workspaces = response.data.workspaces;
+	const savedViews = response.data.savedViews;
+	const collections = response.data.collections;
+	return {
+		workspaces:
+			workspaces?.type === "rows"
+				? getEnabledItems(
+						workspaces.items.flatMap((row, index) => {
+							const slug = getTextField(row, "slug");
+							const name = getTextField(row, "name");
+							const icon = getTextField(row, "icon");
+							const accentColor = getTextField(row, "accentColor");
+							if (!slug || !name || !icon || !accentColor) {
+								return [];
+							}
+							return [
+								{
+									slug,
+									name,
+									icon,
+									accentColor,
+									sortOrder: getNumberField(row, "sortOrder") ?? index,
+									isDisabled: getBooleanField(row, "isDisabled") ?? false,
+								},
+							];
+						}),
+					)
+				: [],
+		savedViews:
+			savedViews?.type === "rows"
+				? savedViews.items.flatMap((row) => {
+						const slug = getTextField(row, "slug");
+						const name = getTextField(row, "name");
+						const icon = getTextField(row, "icon");
+						const accentColor = getTextField(row, "accentColor");
+						const sortOrder = getNumberField(row, "sortOrder");
+						const isDisabled = getBooleanField(row, "isDisabled");
+						const pluginSlug = getNullableTextField(row, "pluginSlug");
+						if (
+							!slug ||
+							!name ||
+							!icon ||
+							!accentColor ||
+							sortOrder === undefined ||
+							isDisabled === undefined ||
+							pluginSlug === undefined
+						) {
+							return [];
+						}
+						return [{ slug, name, icon, accentColor, sortOrder, isDisabled, pluginSlug }];
+					})
+				: [],
+		collections:
+			collections?.type === "rows"
+				? collections.items.flatMap((row, index) => {
+						const slug = getTextField(row, "id");
+						const name = getTextField(row, "name");
+						if (!slug || !name) {
+							return [];
+						}
+
+						return [
+							{
+								name,
+								slug,
+								accentColor: "",
+								sortOrder: index,
+								icon: "layers-3",
+								pluginSlug: null,
+								isDisabled: false,
+							},
+						];
+					})
+				: [],
+	};
 }
 
 export function getEnabledItems<T extends Pick<NavigationView, "isDisabled" | "sortOrder">>(
 	items: readonly T[],
 ) {
 	return items.filter((item) => !item.isDisabled).sort((a, b) => a.sortOrder - b.sortOrder);
-}
-
-export function buildNavigationData(props: {
-	collections: RyotQLResponse;
-	plugins: readonly NavigationPlugin[];
-	savedViews: readonly NavigationView[];
-}) {
-	return {
-		savedViews: props.savedViews,
-		workspaces: getEnabledItems(props.plugins),
-		collections: mapCollectionsResponse(props.collections),
-	};
 }
 
 const withKind = (item: NavigationView, kind: NavigationItem["kind"]) =>
