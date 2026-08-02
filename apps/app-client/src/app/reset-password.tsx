@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from "react-native";
 
 import { useAuthClient } from "@/modules/auth/client";
+import { reportAuthFailure } from "@/modules/auth/errors";
 import { useServerUrl } from "@/modules/server/state";
 
 export default function ResetPassword() {
@@ -38,12 +39,12 @@ export default function ResetPassword() {
 		try {
 			const result = await client.resetPassword({ token: resetToken, newPassword: password });
 			if (result.error) {
-				setError(result.error.message ?? "Could not reset your password.");
+				setError(reportAuthFailure("reset-password", result.error));
 				return;
 			}
 			setDone(true);
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : "Could not reset your password.");
+			setError(reportAuthFailure("reset-password", cause));
 		} finally {
 			setPending(false);
 		}

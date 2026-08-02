@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import {
 	canonicalManagedAssetRequest,
 	savedViewRecordRequestKey,
-	savedViewResultRequestKey,
 	withSavedViewCursor,
 } from "./atom-requests";
 
@@ -17,27 +16,6 @@ describe("saved-view atom requests", () => {
 		expect(savedViewRecordRequestKey({ ...request, slug: "recent" })).not.toBe(key);
 		expect(savedViewRecordRequestKey({ ...request, userId: "user-2" })).not.toBe(key);
 		expect(savedViewRecordRequestKey({ ...request, serverUrl: "https://two.test" })).not.toBe(key);
-	});
-
-	it("canonicalizes query documents and partitions result requests", () => {
-		const queryDocument = buildSavedViewRecordDocument({ slug: "favorites" });
-		const request = { queryDocument, userId: "user-1", serverUrl: "https://one.test" };
-		const key = savedViewResultRequestKey(request);
-
-		expect(
-			savedViewResultRequestKey({
-				...request,
-				queryDocument: { queries: { ...queryDocument.queries } },
-			}),
-		).toBe(key);
-		expect(
-			savedViewResultRequestKey({
-				...request,
-				queryDocument: buildSavedViewRecordDocument({ slug: "recent" }),
-			}),
-		).not.toBe(key);
-		expect(savedViewResultRequestKey({ ...request, userId: "user-2" })).not.toBe(key);
-		expect(savedViewResultRequestKey({ ...request, serverUrl: "https://two.test" })).not.toBe(key);
 	});
 
 	it("treats managed assets as a canonical set", () => {

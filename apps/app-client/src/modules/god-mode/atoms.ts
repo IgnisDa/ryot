@@ -6,6 +6,7 @@ import { Reactivity } from "effect/unstable/reactivity";
 import { makeAdminApi, makeAdminQueryApi } from "@/api/admin-api";
 import { withAppQueryDefaults } from "@/api/query-client";
 import { adminRequestKey, keyedRequestFamily } from "@/api/request-key";
+import { normalizeServerOrigin } from "@/modules/server/url";
 
 export type GodModeUser = ContractSuccess<"godMode", "listUsers">["users"][number];
 
@@ -15,12 +16,18 @@ const godModeScopeKey = (scope: GodModeScope) => adminRequestKey(scope.serverUrl
 
 const usersReactivityKey = (scope: GodModeScope) => [`god-mode-users:${godModeScopeKey(scope)}`];
 
+const canonicalGodModeScope = (scope: GodModeScope): GodModeScope => ({
+	adminToken: scope.adminToken,
+	serverUrl: normalizeServerOrigin(scope.serverUrl),
+});
+
 export const godModeUsersAtom = keyedRequestFamily(godModeScopeKey, (scope: GodModeScope) => {
-	const api = makeAdminQueryApi(scope.adminToken);
+	const canonical = canonicalGodModeScope(scope);
+	const api = makeAdminQueryApi(canonical.serverUrl, canonical.adminToken);
 	return withAppQueryDefaults(
 		api.query("godMode", "listUsers", {
 			query: { limit: 100, offset: 0 },
-			reactivityKeys: usersReactivityKey(scope),
+			reactivityKeys: usersReactivityKey(canonical),
 		}),
 	);
 });
@@ -33,7 +40,8 @@ const godModeUserRequestKey = (request: GodModeUserRequest) =>
 export const resetUserPasswordAtom = keyedRequestFamily(
 	godModeUserRequestKey,
 	(request: GodModeUserRequest) => {
-		const api = makeAdminApi(request.adminToken);
+		const canonical = canonicalGodModeScope(request);
+		const api = makeAdminApi(canonical.serverUrl, canonical.adminToken);
 		return api.runtime.fn(() =>
 			Effect.flatMap(api, (client) =>
 				client.godMode.resetUserPassword({ params: { userId: UserId.make(request.userId) } }),
@@ -45,7 +53,8 @@ export const resetUserPasswordAtom = keyedRequestFamily(
 export const setUserDisabledAtom = keyedRequestFamily(
 	godModeUserRequestKey,
 	(request: GodModeUserRequest) => {
-		const api = makeAdminApi(request.adminToken);
+		const canonical = canonicalGodModeScope(request);
+		const api = makeAdminApi(canonical.serverUrl, canonical.adminToken);
 		return api.runtime.fn((disabled: boolean) =>
 			Effect.flatMap(api, (client) =>
 				Reactivity.mutation(
@@ -53,7 +62,7 @@ export const setUserDisabledAtom = keyedRequestFamily(
 						payload: { disabled },
 						params: { userId: UserId.make(request.userId) },
 					}),
-					usersReactivityKey(request),
+					usersReactivityKey(canonical),
 				),
 			),
 		);
