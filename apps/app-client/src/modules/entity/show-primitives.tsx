@@ -61,24 +61,21 @@ export function ShowRailRow(props: {
 	);
 }
 
-export function ShowDetailRow(props: { readonly label: string; readonly value: string }) {
-	return (
-		<View className="flex-row items-start justify-between gap-4 py-1.5">
-			<Text className="font-ui text-[13px] text-text-subtle">{props.label}</Text>
-			<Text className="max-w-[60%] text-right font-ui text-[13px] text-text">{props.value}</Text>
-		</View>
-	);
-}
-
-export function ShowSection(props: {
+export function ShowOverviewSection(props: {
 	readonly title: string;
+	readonly divided?: boolean;
 	readonly action?: ReactNode;
+	readonly className?: string;
 	readonly children: ReactNode;
 }) {
 	return (
-		<View className="gap-2 rounded-lg border border-border bg-surface p-4">
-			<View className="flex-row items-center justify-between gap-3">
-				<Text className="font-display-semibold text-lg text-text">{props.title}</Text>
+		<View
+			className={clsx(props.divided !== false && "border-t border-border pt-5", props.className)}
+		>
+			<View className="flex-row items-center justify-between gap-3 pb-4">
+				<Text className="font-display-semibold text-[17px] text-text md:text-xl">
+					{props.title}
+				</Text>
 				{props.action}
 			</View>
 			{props.children}
