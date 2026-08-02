@@ -57,6 +57,7 @@ const availablePlugin = {
 	config: {},
 	compiledHashes: {},
 	scope: "system" as const,
+	sourceHash: "source-hash",
 	slug: gateInput.pluginSlug,
 	manifest: fixtureManifest(),
 	id: "fixture-plugin-plugin-id",

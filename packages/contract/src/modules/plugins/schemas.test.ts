@@ -82,6 +82,12 @@ it("accepts only JSON operation HTTP payloads and results", () => {
 	const decodeBody = Schema.decodeUnknownSync(PluginInvokeBody);
 	const decodeResult = Schema.decodeUnknownSync(PluginInvokeResult);
 
+	expect(
+		decodeBody({ payload: { values: [null, true, 1, "ok"] }, sourceHash: "source-hash" }),
+	).toEqual({
+		sourceHash: "source-hash",
+		payload: { values: [null, true, 1, "ok"] },
+	});
 	expect(decodeBody({ payload: { values: [null, true, 1, "ok"] } })).toEqual({
 		payload: { values: [null, true, 1, "ok"] },
 	});

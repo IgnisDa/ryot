@@ -91,6 +91,7 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 						headers: request.headers,
 						pluginSlug: params.pluginSlug,
 						operationSlug: params.operationSlug,
+						...(payload.sourceHash === undefined ? {} : { sourceHash: payload.sourceHash }),
 					})
 					.pipe(dieOnDbError);
 				return { result };

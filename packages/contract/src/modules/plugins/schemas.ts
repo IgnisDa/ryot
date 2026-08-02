@@ -235,7 +235,10 @@ export type PluginInstallationItem = Schema.Schema.Type<typeof PluginInstallatio
 
 export const PluginInstallationList = Schema.Array(PluginInstallationItem);
 
-export const PluginInvokeBody = Schema.Struct({ payload: JsonValue });
+export const PluginInvokeBody = Schema.Struct({
+	payload: JsonValue,
+	sourceHash: Schema.optional(Schema.String),
+});
 
 export type PluginInvokeBody = Schema.Schema.Type<typeof PluginInvokeBody>;
 
