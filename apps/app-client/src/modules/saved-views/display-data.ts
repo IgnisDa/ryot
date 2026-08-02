@@ -1,10 +1,7 @@
 import type { SavedViewDisplayValue } from "@ryot/contract/modules/saved-views/schemas";
-import type {
-	AssetLocator as AssetLocatorType,
-	ManagedAssetLocator,
-} from "@ryot/contract/modules/uploads/schemas";
+import type { AssetLocator as AssetLocatorType } from "@ryot/contract/modules/uploads/schemas";
 
-import { canonicalManagedAssets } from "@/modules/ui/managed-assets";
+import { collectManagedAssetLocators } from "@/modules/ui/managed-assets";
 
 export type SavedViewScalarValue = SavedViewDisplayValue;
 
@@ -42,15 +39,7 @@ export type SavedViewDisplayData<Item extends SavedViewCardItem | SavedViewTable
 	};
 };
 
-export const collectManagedAssets = (
-	items: readonly (SavedViewCardItem | SavedViewTableItem)[],
-) => {
-	const assets: ManagedAssetLocator[] = [];
-	for (const item of items) {
-		const { image } = item;
-		if (image.type === "asset" && image.locator.type !== "remote") {
-			assets.push(image.locator);
-		}
-	}
-	return canonicalManagedAssets(assets);
-};
+export const collectManagedAssets = (items: readonly (SavedViewCardItem | SavedViewTableItem)[]) =>
+	collectManagedAssetLocators(
+		items.map((item) => (item.image.type === "asset" ? item.image.locator : undefined)),
+	);

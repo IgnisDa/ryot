@@ -40,15 +40,12 @@ const singleRow = (items: readonly unknown[]) =>
 export const decodeShowSummaryResult = (input: {
 	readonly show: readonly Record<string, unknown>[];
 	readonly requested: readonly Record<string, unknown>[];
-}) => {
-	const decoded = showSummaryFixtureRecipe.decode({
-		data: { requested: singleRow(input.requested), show: singleRow(input.show) },
-	});
-	if (Result.isFailure(decoded)) {
-		throw new Error("Expected a decoded show summary result");
-	}
-	return decoded.success;
-};
+}) =>
+	Result.getOrThrow(
+		showSummaryFixtureRecipe.decode({
+			data: { requested: singleRow(input.requested), show: singleRow(input.show) },
+		}),
+	);
 
 export const decodeShowSummary = (overrides: Record<string, unknown> = {}) => {
 	const summary = decodeShowSummaryResult({

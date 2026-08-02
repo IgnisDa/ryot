@@ -4,30 +4,26 @@ import type { ProviderSearchResult } from "@ryot/ryotql-recipes/provider-search"
 import { Match } from "effect";
 import type { AsyncResult } from "effect/unstable/reactivity";
 
-import { classifyRyotQLResult } from "@/api/ryotql";
+import { classifyRyotQLResult, type MappedRyotQLResultState } from "@/api/ryotql";
 
 export type ProviderSearchSummary = ProviderSearchResult["items"][number];
 
-type ProviderAddError = {
-	readonly title: string;
-	readonly detail: string;
-};
+type ProviderSummariesState = MappedRyotQLResultState<{
+	readonly status: "ready";
+	readonly providers: readonly ProviderSearchSummary[];
+}>;
 
-type ProviderSummariesState =
-	| { readonly status: "loading" }
-	| { readonly status: "malformed"; readonly cause: unknown }
-	| { readonly status: "transport-error"; readonly cause: unknown }
-	| { readonly status: "ready"; readonly providers: readonly ProviderSearchSummary[] };
+type ProviderEntityLinksState = MappedRyotQLResultState<{
+	readonly status: "ready";
+	readonly entityIds: ReadonlyMap<string, EntityId>;
+}>;
 
-type ProviderEntityLinksState =
-	| { readonly status: "loading" }
-	| { readonly status: "malformed"; readonly cause: unknown }
-	| { readonly status: "transport-error"; readonly cause: unknown }
-	| { readonly status: "ready"; readonly entityIds: ReadonlyMap<string, EntityId> };
+type ProviderAddFailure = Pick<
+	Extract<ProviderSummariesState, { status: "transport-error" | "malformed" }>,
+	"status"
+>;
 
-export const providerAddError = (state: {
-	readonly status: "transport-error" | "malformed";
-}): ProviderAddError =>
+export const providerAddError = (state: ProviderAddFailure) =>
 	Match.value(state.status).pipe(
 		Match.when("transport-error", () => ({
 			title: "Unable to reach the server",
