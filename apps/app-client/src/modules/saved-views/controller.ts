@@ -1,4 +1,6 @@
-import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
+import type { FieldSelection, RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
+import { and, contains, literal } from "@ryot/ryotql";
+import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
 import { Effect } from "effect";
 
 import {
@@ -231,6 +233,65 @@ export const executeSavedViewRequest = (input: {
 		Effect.flatMap(input.decode),
 	);
 
+type SavedViewLayoutDefinition = SavedViewRecord["layouts"][keyof SavedViewRecord["layouts"]];
+
+export const withSavedViewSearch = (
+	queryDocument: RyotQLDocument,
+	layout: SavedViewLayoutDefinition,
+	queryString: string,
+) => {
+	const tokens = queryString
+		.trim()
+		.split(/[\s_-]+/)
+		.filter(Boolean);
+	if (tokens.length === 0) {
+		return queryDocument;
+	}
+
+	let primaryField: string | undefined;
+	if ("columns" in layout) {
+		primaryField = layout.columns.at(0)?.field;
+	} else {
+		primaryField = layout.titleField;
+	}
+	if (typeof primaryField !== "string") {
+		return queryDocument;
+	}
+
+	const queryEntry = Object.entries(queryDocument.queries).at(0);
+	if (!queryEntry) {
+		return queryDocument;
+	}
+	const [queryName, query] = queryEntry;
+	if (query.output.type !== "rows") {
+		return queryDocument;
+	}
+	const primarySelection = query.output.fields.find(
+		(selection): selection is FieldSelection =>
+			"key" in selection && "expr" in selection && selection.key === primaryField,
+	);
+	if (!primarySelection) {
+		return queryDocument;
+	}
+
+	const searchPredicate = and(
+		...tokens.map((token) => contains(primarySelection.expr, literal(token))),
+	);
+	const pagination = { ...query.output.pagination };
+	delete pagination.after;
+	return {
+		...queryDocument,
+		queries: {
+			...queryDocument.queries,
+			[queryName]: {
+				...query,
+				output: { ...query.output, pagination },
+				where: query.where ? and(query.where, searchPredicate) : searchPredicate,
+			},
+		},
+	};
+};
+
 export const withSavedViewCursor = (queryDocument: RyotQLDocument, after: string) => {
 	const [queryName, query] = Object.entries(queryDocument.queries)[0];
 	if (query.output.type !== "rows") {
@@ -242,10 +303,7 @@ export const withSavedViewCursor = (queryDocument: RyotQLDocument, after: string
 			...queryDocument.queries,
 			[queryName]: {
 				...query,
-				output: {
-					...query.output,
-					pagination: { ...query.output.pagination, after },
-				},
+				output: { ...query.output, pagination: { ...query.output.pagination, after } },
 			},
 		},
 	};

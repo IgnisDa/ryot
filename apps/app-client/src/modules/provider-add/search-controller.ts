@@ -44,12 +44,12 @@ export type ProviderSearchEvent =
 			readonly response: SearchProviderEntitiesResponse;
 	  };
 
-export const createProviderSearchState = (): ProviderSearchState => ({
+export const createProviderSearchState = (initialQuery = ""): ProviderSearchState => ({
 	items: [],
-	query: "",
 	generation: 0,
 	status: "idle",
 	requestToken: 0,
+	query: initialQuery,
 	nextPage: undefined,
 	operation: undefined,
 });
