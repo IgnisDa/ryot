@@ -135,7 +135,11 @@ export function WorkspaceDrawer(props: {
 	return (
 		<WorkspaceDrawerContext.Provider value={drawerValue}>
 			<View className="flex-1 bg-bg">
-				<Animated.View className="flex-1" style={contentStyle}>
+				<Animated.View
+					className="flex-1"
+					style={contentStyle}
+					pointerEvents={isOpen ? "none" : "auto"}
+				>
 					{props.children}
 				</Animated.View>
 				{Platform.OS !== "web" && props.navigation.activeKey === "home" && !isOpen && (
