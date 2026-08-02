@@ -10,10 +10,13 @@ import type {
 import type { PluginClientCatalogEntry } from "@ryot/ryotql-recipes/plugin-client-catalog";
 import { useEffect, useRef, useState } from "react";
 
-import { serverApiUrl, type ServerOrigin } from "../../api/origin";
-import type { ThemeStore } from "../theme/store";
-import { openPluginBridge, type PluginBridgeSession } from "./bridge";
-import { toNavigationRequest, type PluginNavigationRequest } from "./plugin-location";
+import { serverApiUrl, type ServerOrigin } from "#/api/origin";
+import { openPluginBridge, type PluginBridgeSession } from "#/modules/plugins/bridge";
+import {
+	toNavigationRequest,
+	type PluginNavigationRequest,
+} from "#/modules/plugins/plugin-location";
+import type { ThemeStore } from "#/modules/theme/store";
 
 type PluginHostStatus =
 	| "ready"

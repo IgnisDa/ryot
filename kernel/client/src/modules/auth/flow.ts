@@ -1,4 +1,4 @@
-import { sanitizeRedirect, type SafeRedirect } from "../server/redirect";
+import { sanitizeRedirect, type SafeRedirect } from "#/modules/server/redirect";
 
 export type AuthMode = "login" | "signup";
 export type TwoFactorMethod = "totp" | "backupCode";

@@ -1,7 +1,7 @@
 import type { PluginClientCatalogEntry } from "@ryot/ryotql-recipes/plugin-client-catalog";
 import { describe, expect, it } from "vitest";
 
-import { resolveRouteTarget } from "./route-resolver";
+import { resolveRouteTarget } from "#/modules/plugins/route-resolver";
 
 const installation = {
 	slug: "fixture",

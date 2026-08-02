@@ -1,6 +1,6 @@
 import { Effect, Layer } from "effect";
 
-import { PluginCatalogEventsService } from "./events";
+import { PluginCatalogEventsService } from "#/modules/plugins/events";
 
 export const makePluginCatalogEventsTestLayer = () => {
 	const listeners = new Set<() => void>();

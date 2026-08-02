@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { initialConnectionState, reduceConnectionState } from "./connection-state";
+import { initialConnectionState, reduceConnectionState } from "#/modules/server/connection-state";
 
 describe("connection state", () => {
 	it("allows a failed health check to retry through the same workflow", () => {
