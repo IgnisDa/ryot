@@ -10,6 +10,7 @@ import {
 	PluginBridgeClientMessage,
 	PluginBridgeHostMessage,
 	PluginBridgeOperationResult,
+	PluginBridgeRyotQLCancel,
 	PluginBridgeRyotQLResult,
 	PluginOperationBridgeErrorReason,
 	PluginRyotQLFailureReason,
@@ -123,6 +124,16 @@ describe("plugin client bridge contract", () => {
 				decode({ document, userId: "user-1", requestId: "request-1", type: "ryotql-request" }),
 			),
 		).toBe(true);
+	});
+
+	it("decodes only the strict RyotQL cancellation message", () => {
+		const decode = Schema.decodeUnknownResult(PluginBridgeRyotQLCancel);
+
+		expect(Result.isSuccess(decode({ requestId: "request-1", type: "ryotql-cancel" }))).toBe(true);
+		expect(
+			Result.isFailure(decode({ reason: "caller", requestId: "request-1", type: "ryotql-cancel" })),
+		).toBe(true);
+		expect(Result.isFailure(decode({ type: "ryotql-cancel" }))).toBe(true);
 	});
 
 	it("requires JSON operation inputs and success values", () => {
