@@ -156,7 +156,6 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 					scripts: [],
 					ownerId: null,
 					sourceFiles: files,
-					clientArtifact: null,
 					scope: "system" as const,
 					clientArtifactHash: null,
 					id: existing?.id ?? `pending:${slug}`,
@@ -224,12 +223,14 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 									ownerId: null,
 									scope: "system",
 								});
+								const { clientArtifact, ...revision } = normalized;
 								const entry = {
-									...normalized,
+									...revision,
 									slug,
 									id: pluginId,
 									ownerId: null,
 									scope: "system" as const,
+									clientArtifactHash: clientArtifact?.hash ?? null,
 								} satisfies PluginRegistryEntry;
 								const nextInstalled = [
 									...installed.filter((plugin) => plugin.slug !== slug),

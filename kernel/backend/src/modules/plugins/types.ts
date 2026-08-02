@@ -23,13 +23,16 @@ export type NormalizedPluginScript = {
 	readonly metadata: PluginScriptMetadata;
 };
 
-export type NormalizedPlugin = {
+export type PluginRevision = {
 	readonly sourceHash: string;
 	readonly manifest: PluginManifest;
 	readonly clientArtifactHash: string | null;
 	readonly scripts: Array<NormalizedPluginScript>;
-	readonly clientArtifact: PluginClientArtifact | null;
 	readonly sourceFiles: Readonly<Record<string, string>>;
+};
+
+export type NormalizedPlugin = Omit<PluginRevision, "clientArtifactHash"> & {
+	readonly clientArtifact: PluginClientArtifact | null;
 };
 
 export type PluginPersistenceIdentity =
@@ -38,4 +41,4 @@ export type PluginPersistenceIdentity =
 
 export type StoredPluginIdentity = PluginPersistenceIdentity & { readonly id: string };
 
-export type StoredPlugin = NormalizedPlugin & StoredPluginIdentity & { readonly status: string };
+export type StoredPlugin = PluginRevision & StoredPluginIdentity & { readonly status: string };

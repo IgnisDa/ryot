@@ -406,6 +406,8 @@ The important invariants are:
 
 When an update replaces artifact A with artifact B, the kernel force-reloads any mounted iframe for that installation. An old client artifact must not continue calling a newer backend plugin revision.
 
+Artifact persistence is append-only. `plugin_client_artifact` stores metadata keyed by artifact hash, and `plugin_client_artifact_file` stores files keyed by `(artifact_hash, name)`. The plugin row stores only the nullable hash of its active client artifact. Installing or updating inserts an artifact before activating its hash and never updates an existing artifact record. Old artifacts remain addressable and are retained indefinitely; garbage collection requires a separate retention policy and is not implemented.
+
 ### Artifact identity is embedded, never authored
 
 The artifact hash covers the compiled bundle, stylesheet, and assets, so it cannot exist inside them. The compiler emits `index.html` last, embedding the artifact hash and the exact client markers, including bridge protocol version 1, as JSON in a `<script type="application/json" id="ryot-client-artifact">` element.
@@ -1699,7 +1701,6 @@ V1 does not support:
 
 The high-level architecture does not depend on deciding these upfront:
 
-- client artifact storage, retention, and garbage collection
 - exact set of initial SDK methods
 - exact `client-ui-sdk` component catalog
 - exact gesture implementation library
