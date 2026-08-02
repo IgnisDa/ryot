@@ -26,7 +26,7 @@ import { GodModeRoutesLive } from "#modules/god-mode/routes";
 import { ImportsRoutesLive } from "#modules/imports/routes";
 import { IntegrationsRoutesLive } from "#modules/integrations/routes";
 import { NotificationsRoutesLive } from "#modules/notifications/routes";
-import { PluginsRoutesLive } from "#modules/plugins/routes";
+import { PluginArtifactsRoutesLive, PluginsRoutesLive } from "#modules/plugins/routes";
 import { ProviderEntitiesRoutesLive } from "#modules/provider-entities/routes";
 import { RelationshipsRoutesLive } from "#modules/relationships/routes";
 import { RyotQLRoutesLive } from "#modules/ryotql/routes";
@@ -89,6 +89,7 @@ const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 	Layer.provide(EventsRoutesLive),
 	Layer.provide(UploadsRoutesLive),
 	Layer.provide(LocalUploadsRoutesLive),
+	Layer.provide(PluginArtifactsRoutesLive),
 	Layer.provide(SavedViewsRoutesLive),
 	Layer.provide(PluginsRoutesLive),
 	Layer.provide(CollectionsRoutesLive),
