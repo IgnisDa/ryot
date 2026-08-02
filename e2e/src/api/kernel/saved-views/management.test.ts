@@ -39,7 +39,7 @@ describe("saved views management", () => {
 		}),
 	);
 
-	it.live("deletes custom views without deleting a cloned built-in source", () =>
+	it.live("deletes a saved view clone without deleting its built-in source", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const builtin = (yield* listSavedViews(client)).find((view) => view.name === "All Movies");

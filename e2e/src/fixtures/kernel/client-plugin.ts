@@ -18,7 +18,6 @@ export const FIXTURE_CLIENT_REVISION_MARKERS = {
 const archiveUrl = new URL("../../../../plugins/fixture/dist/fixture.zip", import.meta.url);
 const homeEntry = "client/home.tsx";
 const clientEntry = "client/index.tsx";
-const archivedClientEntry = "client/unreachable.ts";
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const semanticFailureSource = new TextEncoder().encode("export const semanticValue: string = 1;\n");
 
@@ -118,23 +117,6 @@ export const updateFixtureClientPluginWithCompileFailure = (client: Client, base
 					...pluginPackage.files,
 					[clientEntry]: new TextEncoder().encode("export default <;"),
 				},
-			},
-		});
-	});
-
-export const updateFixtureClientPluginWithArchivedSemanticFailure = (
-	client: Client,
-	baseUrl?: string,
-) =>
-	Effect.gen(function* () {
-		const pluginPackage = yield* fixtureClientPluginPackage("B");
-		return yield* updatePrivatePlugin({
-			client,
-			baseUrl,
-			pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG,
-			payload: {
-				...pluginPackage,
-				files: { ...pluginPackage.files, [archivedClientEntry]: semanticFailureSource },
 			},
 		});
 	});

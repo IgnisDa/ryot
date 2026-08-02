@@ -43,7 +43,7 @@ type ArchiveAssetInput = {
 	readonly chunks: Iterable<Uint8Array> | AsyncIterable<Uint8Array>;
 };
 
-export type ArchiveEventsInput = {
+type ArchiveEventsInput = {
 	readonly count: number;
 	readonly bytes: number;
 	readonly sha256: string;
@@ -106,7 +106,7 @@ const sortDependencies = (values: ArchiveRecords["entityDependencies"]) => {
 	return sortedIfNeeded(updated ?? values, compareId);
 };
 
-export const sortArchiveRecords = (records: ArchiveRecords): ArchiveRecords => ({
+const sortArchiveRecords = (records: ArchiveRecords): ArchiveRecords => ({
 	profile: records.profile,
 	entities: sortedIfNeeded(records.entities, compareId),
 	entityDependencies: sortDependencies(records.entityDependencies),
@@ -1337,7 +1337,7 @@ const extractArchive = Effect.fn(function* <E>(
 	});
 });
 
-export type ValidateArchiveOptions = {
+type ValidateArchiveOptions = {
 	readonly directory?: string | undefined;
 	readonly limits?: Partial<ArchiveLimits> | undefined;
 };

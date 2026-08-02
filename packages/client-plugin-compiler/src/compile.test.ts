@@ -54,15 +54,16 @@ export default Home;
 	return files;
 });
 
-const compileFixture = (files: Record<string, Uint8Array>, _application?: "page") =>
+const compileFixture = (files: Record<string, Uint8Array>) =>
 	compileClientPlugin({
 		files: {
 			...files,
 			"client/__fixture_page.tsx": bytes(fixturePageSource),
 		},
-		application: "page",
+		publicExports: {
+			fixture: { entry: "client/__fixture_page.tsx", kind: "page" },
+		},
 		name: "Fixture plugin",
-		entry: "client/__fixture_page.tsx",
 		apiVersion: CLIENT_API_VERSION,
 	});
 
@@ -95,17 +96,23 @@ it.effect("generates and executes the single bootstrap for a saved-view page", (
 	Effect.gen(function* () {
 		const { artifact } = yield* compileClientPlugin({
 			name: "User page",
+			publicExports: {},
 			application: "page",
-			entry: "client/page.tsx",
+			contributorOrder: ["user"],
 			apiVersion: CLIENT_API_VERSION,
-			files: {
-				"client/page.tsx": bytes(`
+			entry: { contributor: "user", path: "client/page.tsx" },
+			contributors: {
+				user: {
+					files: {
+						"client/page.tsx": bytes(`
 import { usePageContext } from "@ryot-app/client-sdk/plugin";
 export default function Page() {
   const { settings } = usePageContext();
   return <div>Published user page: {String(settings.title ?? "")}</div>;
 }
 `),
+					},
+				},
 			},
 		});
 		const javascript = text(artifact.files.find(({ name }) => name === "plugin.js")?.contents);
@@ -135,7 +142,7 @@ it.effect(
 						),
 				),
 			};
-			const { artifact } = yield* compileFixture(hotkeyFiles, "page");
+			const { artifact } = yield* compileFixture(hotkeyFiles);
 			const svgName = `asset-${sha256Hex(files["client/logo.svg"] ?? new Uint8Array())}.svg`;
 			const importedPngName = `asset-${sha256Hex(files["client/imported-logo.png"] ?? new Uint8Array())}.png`;
 			const cssPngName = `asset-${sha256Hex(files["client/css-logo.png"] ?? new Uint8Array())}.png`;
@@ -696,16 +703,13 @@ export default function Home() { return (
 
 it.effect("type-checks and bundles the trusted UI icon subpath", () =>
 	Effect.gen(function* () {
-		const { artifact } = yield* compileFixture(
-			{
-				"client/index.tsx": bytes(`
+		const { artifact } = yield* compileFixture({
+			"client/index.tsx": bytes(`
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 
 export default function Home() { return <AppIcon name="menu" size={22} />; }
 `),
-			},
-			"page",
-		);
+		});
 
 		const javascript = text(artifact.files.find(({ name }) => name === "plugin.js")?.contents);
 		// The registry names every icon, so a linked barrel carries the path data of one it never renders.
