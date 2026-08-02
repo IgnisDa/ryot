@@ -201,15 +201,15 @@ function AuthGate(props: { server: ServerOrigin; redirectTo?: string }) {
 					<>
 						<button
 							type="button"
-							className="primary-button"
 							onClick={() => setRetry((value) => value + 1)}
+							className="min-h-11 w-full cursor-pointer rounded-lg border border-accent bg-accent px-4 py-2.5 font-semibold text-accent-ink"
 						>
 							Try again
 						</button>
 						<button
 							type="button"
-							className="text-button"
 							onClick={() => void selectAnotherServer()}
+							className="min-h-10 cursor-pointer font-semibold text-text-muted"
 						>
 							Change server
 						</button>
@@ -225,7 +225,11 @@ function AuthGate(props: { server: ServerOrigin; redirectTo?: string }) {
 				title="Authentication unavailable"
 				message="This server has no browser sign-in method enabled."
 				actions={
-					<button type="button" className="text-button" onClick={() => void selectAnotherServer()}>
+					<button
+						type="button"
+						onClick={() => void selectAnotherServer()}
+						className="min-h-10 cursor-pointer font-semibold text-text-muted"
+					>
 						Change server
 					</button>
 				}
@@ -234,8 +238,11 @@ function AuthGate(props: { server: ServerOrigin; redirectTo?: string }) {
 	}
 
 	return (
-		<main className="auth-shell">
-			<section className="auth-card" aria-labelledby="auth-title">
+		<main className="grid min-h-screen content-center gap-8 px-5 pt-[max(72px,calc(env(safe-area-inset-top)+56px))] pb-[max(32px,env(safe-area-inset-bottom))]">
+			<section
+				aria-labelledby="auth-title"
+				className="mx-auto grid w-[min(100%,480px)] gap-4.5 rounded-xl border border-border bg-surface p-5 shadow-card md:p-6"
+			>
 				{twoFactorMethods ? (
 					<TwoFactorForm
 						method={twoFactorMethod}
@@ -247,10 +254,17 @@ function AuthGate(props: { server: ServerOrigin; redirectTo?: string }) {
 				) : (
 					<>
 						{!methods.emailSignIn && (
-							<div className="auth-form-section">
+							<div className="grid gap-4.5">
 								<div>
-									<h1 id="auth-title">Welcome back</h1>
-									<p>Continue with this server's identity provider.</p>
+									<h1
+										id="auth-title"
+										className="font-display text-[clamp(30px,7vw,42px)] leading-[1.18] font-semibold tracking-tight"
+									>
+										Welcome back
+									</h1>
+									<p className="mt-3 text-text-muted">
+										Continue with this server's identity provider.
+									</p>
 								</div>
 							</div>
 						)}
@@ -264,18 +278,22 @@ function AuthGate(props: { server: ServerOrigin; redirectTo?: string }) {
 							/>
 						)}
 						{methods.oidc && (
-							<div className="oidc-section">
-								{methods.emailSignIn && <p className="auth-divider">or</p>}
+							<div className="grid gap-4.5">
+								{methods.emailSignIn && (
+									<p className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-xs text-text-subtle uppercase before:h-px before:bg-border before:content-[''] after:h-px after:bg-border after:content-['']">
+										or
+									</p>
+								)}
 								{oidcError && (
-									<p className="form-error" role="alert">
+									<p role="alert" className="text-sm font-normal text-danger">
 										{oidcError}
 									</p>
 								)}
 								<button
 									type="button"
 									disabled={oidcPending}
-									className="secondary-button"
 									onClick={() => void signInWithOidc()}
+									className="min-h-11 w-full cursor-pointer rounded-lg border border-border-strong px-4 py-2.5 font-semibold text-text"
 								>
 									{oidcPending
 										? "Opening provider..."
@@ -287,7 +305,7 @@ function AuthGate(props: { server: ServerOrigin; redirectTo?: string }) {
 							type="button"
 							disabled={oidcPending}
 							onClick={() => void selectAnotherServer()}
-							className="text-button change-server-button"
+							className="min-h-10 w-full cursor-pointer font-semibold text-text-muted"
 						>
 							Change server
 						</button>
@@ -300,11 +318,21 @@ function AuthGate(props: { server: ServerOrigin; redirectTo?: string }) {
 
 function AuthStatus(props: { title: string; message: string; actions?: React.ReactNode }) {
 	return (
-		<main className="auth-shell">
-			<section className="auth-card" aria-labelledby="auth-status-title">
-				<h1 id="auth-status-title">{props.title}</h1>
-				<p role="status">{props.message}</p>
-				{props.actions && <div className="status-actions">{props.actions}</div>}
+		<main className="grid min-h-screen content-center gap-8 px-5 pt-[max(72px,calc(env(safe-area-inset-top)+56px))] pb-[max(32px,env(safe-area-inset-bottom))]">
+			<section
+				aria-labelledby="auth-status-title"
+				className="mx-auto grid w-[min(100%,480px)] gap-4.5 rounded-xl border border-border bg-surface p-5 shadow-card md:p-6"
+			>
+				<h1
+					id="auth-status-title"
+					className="font-display text-[clamp(30px,7vw,42px)] leading-[1.18] font-semibold tracking-tight"
+				>
+					{props.title}
+				</h1>
+				<p role="status" className="mt-3 text-text-muted">
+					{props.message}
+				</p>
+				{props.actions && <div className="grid gap-4.5">{props.actions}</div>}
 			</section>
 		</main>
 	);
