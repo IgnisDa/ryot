@@ -1,5 +1,5 @@
 import type { RyotQLResponse } from "@ryot/contract/modules/ryotql/language";
-import { SandboxProviderId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -33,6 +33,7 @@ describe("provider entity links recipe", () => {
 	it("builds the provider-scoped external id lookup", () => {
 		const query = buildProviderEntityLinksDocument({
 			externalIds: ["external-1", "external-2"],
+			entitySchemaSlug: EntitySchemaSlug.make("book"),
 			providerId: SandboxProviderId.make("provider-1"),
 		}).queries.links;
 
@@ -47,6 +48,12 @@ describe("provider entity links recipe", () => {
 				{
 					operator: "eq",
 					type: "comparison",
+					right: { type: "literal", value: "book" },
+					left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
+				},
+				{
+					operator: "eq",
+					type: "comparison",
 					right: { type: "literal", value: "provider-1" },
 					left: { type: "column", tableAlias: "entity", field: "providerId" },
 				},
@@ -57,6 +64,51 @@ describe("provider entity links recipe", () => {
 						{ type: "literal", value: "external-1" },
 						{ type: "literal", value: "external-2" },
 					],
+				},
+				{
+					type: "exists",
+					query: {
+						from: { alias: "inLibrary", table: "relationship" },
+						joins: [
+							{
+								type: "inner",
+								table: { alias: "library", table: "entity" },
+								on: {
+									operator: "eq",
+									type: "comparison",
+									right: { type: "column", tableAlias: "library", field: "id" },
+									left: { type: "column", tableAlias: "inLibrary", field: "targetEntityId" },
+								},
+							},
+						],
+						where: {
+							type: "and",
+							predicates: [
+								{
+									operator: "eq",
+									type: "comparison",
+									right: { type: "column", tableAlias: "entity", field: "id" },
+									left: { type: "column", field: "sourceEntityId", tableAlias: "inLibrary" },
+								},
+								{
+									operator: "eq",
+									type: "comparison",
+									right: { type: "literal", value: "in-library" },
+									left: {
+										type: "column",
+										tableAlias: "inLibrary",
+										field: "relationshipSchemaSlug",
+									},
+								},
+								{
+									operator: "eq",
+									type: "comparison",
+									right: { type: "literal", value: "library" },
+									left: { type: "column", tableAlias: "library", field: "entitySchemaSlug" },
+								},
+							],
+						},
+					},
 				},
 			],
 		});

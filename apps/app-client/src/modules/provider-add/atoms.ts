@@ -24,6 +24,7 @@ type ProviderSearchRequest = ApiScope & { rootEntitySchemaSlug: EntitySchemaSlug
 
 type ProviderEntityLinksRequest = ApiScope & {
 	readonly providerId: SandboxProviderId;
+	readonly entitySchemaSlug: EntitySchemaSlug;
 	readonly externalIds: readonly [string, ...string[]];
 };
 
@@ -34,7 +35,8 @@ const canonicalProviderEntityLinksRequest = (request: ProviderEntityLinksRequest
 		externalIds,
 		providerId: request.providerId,
 		scope: canonicalApiScope(request),
-		key: scopedRequestKey(request, request.providerId, externalIds),
+		entitySchemaSlug: request.entitySchemaSlug,
+		key: scopedRequestKey(request, request.entitySchemaSlug, request.providerId, externalIds),
 	};
 };
 
@@ -58,6 +60,7 @@ const providerEntityLinksFamily = keyedRequestFamily(
 			payload: buildProviderEntityLinksDocument({
 				providerId: request.providerId,
 				externalIds: request.externalIds,
+				entitySchemaSlug: request.entitySchemaSlug,
 			}),
 		}),
 );

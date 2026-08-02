@@ -1,5 +1,5 @@
 import { TextFieldValue, rowsResultSchema } from "@ryot/contract/modules/ryotql/language";
-import type { SandboxProviderId } from "@ryot/contract/schema/brands";
+import type { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { strictStruct } from "@ryot/contract/schema/utils";
 import {
 	and,
@@ -7,8 +7,10 @@ import {
 	column,
 	document,
 	eq,
+	exists,
 	field,
 	inArray,
+	join,
 	literal,
 	rows,
 	table,
@@ -30,9 +32,12 @@ export type ProviderEntityLink = typeof ProviderEntityLink.Type;
 
 export const buildProviderEntityLinksDocument = (input: {
 	readonly providerId: SandboxProviderId;
+	readonly entitySchemaSlug: EntitySchemaSlug;
 	readonly externalIds: readonly [string, ...string[]];
 }) => {
 	const entity = table("entity", "entity");
+	const library = table("entity", "library");
+	const relationship = table("relationship", "inLibrary");
 
 	return document({
 		links: rows(entity, {
@@ -40,11 +45,26 @@ export const buildProviderEntityLinksDocument = (input: {
 			orderBy: [ascending(column(entity, "id"))],
 			fields: [field("externalId", column(entity, "externalId"))],
 			where: and(
+				eq(column(entity, "entitySchemaSlug"), literal(input.entitySchemaSlug)),
 				eq(column(entity, "providerId"), literal(input.providerId)),
 				inArray(
 					column(entity, "externalId"),
 					input.externalIds.map((externalId) => literal(externalId)),
 				),
+				exists(relationship, {
+					joins: [
+						join(
+							"inner",
+							library,
+							eq(column(relationship, "targetEntityId"), column(library, "id")),
+						),
+					],
+					where: and(
+						eq(column(relationship, "sourceEntityId"), column(entity, "id")),
+						eq(column(relationship, "relationshipSchemaSlug"), literal("in-library")),
+						eq(column(library, "entitySchemaSlug"), literal("library")),
+					),
+				}),
 			),
 		}),
 	});
