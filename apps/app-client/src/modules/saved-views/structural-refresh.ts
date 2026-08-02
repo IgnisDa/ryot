@@ -156,9 +156,14 @@ export class SavedViewStructuralRefresh extends Context.Service<
 		) {
 			const entry = entryFor(request.key);
 			entry.request = request;
-			if (entry.pending) {
-				yield* startRefresh(request, entry.manual);
+			if (!entry.pending) {
+				return;
 			}
+			if (entry.retryAt !== undefined) {
+				scheduleRetry(entry);
+				return;
+			}
+			yield* startRefresh(request, entry.manual);
 		});
 
 		const markDirty = Effect.fn("SavedViewStructuralRefresh.markDirty")(function* (
