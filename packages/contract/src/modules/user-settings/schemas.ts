@@ -8,6 +8,15 @@ export const UserPreferences = Schema.Struct({
 
 export type UserPreferences = typeof UserPreferences.Type;
 
+export const UserSettings = Schema.Struct({
+	name: Schema.String,
+	email: Schema.String,
+	preferences: UserPreferences,
+	image: Schema.NullOr(Schema.String),
+});
+
+export type UserSettings = typeof UserSettings.Type;
+
 export const UpdateUserPreferencesBody = Schema.Struct({
 	allowNsfw: Schema.optional(Schema.Boolean),
 	disableIntegrations: Schema.optional(Schema.Boolean),
@@ -15,3 +24,7 @@ export const UpdateUserPreferencesBody = Schema.Struct({
 });
 
 export type UpdateUserPreferencesBody = typeof UpdateUserPreferencesBody.Type;
+
+export const UserAvatar = Schema.Struct({ image: Schema.String });
+
+export type UserAvatar = typeof UserAvatar.Type;

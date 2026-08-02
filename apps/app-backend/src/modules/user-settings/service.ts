@@ -2,18 +2,19 @@ import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import type {
 	UpdateUserPreferencesBody,
 	UserPreferences,
-} from "@ryot/contract/modules/user-preferences/schemas";
+} from "@ryot/contract/modules/user-settings/schemas";
 import { Context, Effect, Layer } from "effect";
 
 import { AuthService } from "#modules/auth/service";
+import { generateUserAvatar } from "#modules/auth/user-avatar";
 
-export class UserPreferencesService extends Context.Service<UserPreferencesService>()(
-	"UserPreferencesService",
+export class UserSettingsService extends Context.Service<UserSettingsService>()(
+	"UserSettingsService",
 	{
 		make: Effect.gen(function* () {
 			const auth = yield* AuthService;
 
-			const update = Effect.fn("UserPreferencesService.update")(function* (
+			const updatePreferences = Effect.fn("UserSettingsService.updatePreferences")(function* (
 				user: CurrentUserValue,
 				body: UpdateUserPreferencesBody,
 			) {
@@ -27,8 +28,15 @@ export class UserPreferencesService extends Context.Service<UserPreferencesServi
 
 				return next;
 			});
+			const refreshAvatar = Effect.fn("UserSettingsService.refreshAvatar")(function* (
+				user: CurrentUserValue,
+			) {
+				const image = generateUserAvatar(crypto.randomUUID());
+				yield* auth.updateUserImage(user.id, image);
+				return { image };
+			});
 
-			return { update };
+			return { refreshAvatar, updatePreferences };
 		}),
 	},
 ) {
