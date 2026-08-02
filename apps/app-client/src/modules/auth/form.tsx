@@ -5,6 +5,7 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 
 import { useAuthClient } from "@/modules/auth/client";
+import { reportAuthFailure } from "@/modules/auth/errors";
 import { getNameFromEmail } from "@/modules/auth/user-name";
 import { getRedirectDestination, type SafeRedirectTo } from "@/modules/navigation/redirect";
 
@@ -99,7 +100,7 @@ export function AuthForm(props: {
 					name: getNameFromEmail(normalizedEmail),
 				});
 				if (signup.error) {
-					setError(signup.error.message ?? "Could not create your account.");
+					setError(reportAuthFailure("sign-up", signup.error));
 					return;
 				}
 			}
@@ -119,11 +120,12 @@ export function AuthForm(props: {
 				},
 			);
 			if (signin.error) {
-				setError(signin.error.message ?? "The email or password is incorrect.");
+				setError(reportAuthFailure("sign-in", signin.error));
 				return;
 			}
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : "Could not contact the server.");
+			const operation = mode === "signup" ? "sign-up" : "sign-in";
+			setError(reportAuthFailure(operation, cause));
 		} finally {
 			setPending(false);
 		}
@@ -143,13 +145,13 @@ export function AuthForm(props: {
 					? await client.twoFactor.verifyBackupCode({ code })
 					: await client.twoFactor.verifyTotp({ code });
 			if (result.error) {
-				setError(result.error.message ?? "That code could not be verified.");
+				setError(reportAuthFailure("two-factor", result.error));
 				setTwoFactorCode("");
 				return;
 			}
 			router.replace(destination);
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : "Could not verify that code.");
+			setError(reportAuthFailure("two-factor", cause));
 		} finally {
 			setPending(false);
 		}
@@ -164,12 +166,12 @@ export function AuthForm(props: {
 		try {
 			const result = await client.signIn.oauth2({ providerId: "oidc", callbackURL: destination });
 			if (result.error) {
-				setError(result.error.message ?? "OpenID Connect sign-in failed.");
+				setError(reportAuthFailure("oidc", result.error));
 				return;
 			}
 			router.replace(destination);
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : "OpenID Connect sign-in failed.");
+			setError(reportAuthFailure("oidc", cause));
 		} finally {
 			setPending(false);
 		}

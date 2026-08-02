@@ -1,13 +1,11 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { Cause, Effect } from "effect";
-import { AsyncResult, Atom } from "effect/unstable/reactivity";
 import { router, useGlobalSearchParams, usePathname } from "expo-router";
 import { useEffect } from "react";
 
+import { useApiScope } from "@/api/scope";
 import { useAuthClient } from "@/modules/auth/client";
 import { navigationAtom, scopedWorkspaceAtom } from "@/modules/navigation/atoms";
-import { useServerUrl } from "@/modules/server/state";
-import { CLOUD_URL } from "@/modules/server/url";
 
 import { getNavigationHref, getWorkspaceHref, type NavigationItem } from "./navigation-data";
 import {
@@ -28,9 +26,6 @@ export type WorkspaceNavigation =
 	| ReadyWorkspaceNavigation
 	| { status: "error"; detail?: string; title: string };
 
-const unavailableNavigationAtom = Atom.make(AsyncResult.initial());
-const unavailableWorkspaceAtom = Atom.make("media");
-
 function useNavigationFailureLogging(failure: NavigationFailure | undefined) {
 	const kind = failure?.kind;
 	let detail: string | undefined;
@@ -48,13 +43,12 @@ function useNavigationFailureLogging(failure: NavigationFailure | undefined) {
 export function useWorkspaceNavigation(): WorkspaceNavigation {
 	const client = useAuthClient();
 	const pathname = usePathname();
-	const serverUrl = useServerUrl() ?? CLOUD_URL;
+	const scope = useApiScope();
 	const { data: session } = client.useSession();
-	const scope = session ? { serverUrl, userId: session.user.id } : undefined;
-	const workspaceAtom = scope ? scopedWorkspaceAtom(scope) : unavailableWorkspaceAtom;
+	const workspaceAtom = scopedWorkspaceAtom(scope);
 	const setWorkspace = useAtomSet(workspaceAtom);
 	const selectedWorkspace = useAtomValue(workspaceAtom);
-	const navigationResult = useAtomValue(scope ? navigationAtom(scope) : unavailableNavigationAtom);
+	const navigationResult = useAtomValue(navigationAtom(scope));
 	const params = useGlobalSearchParams<{ workspace?: string }>();
 	const routeWorkspace = Array.isArray(params.workspace) ? params.workspace[0] : params.workspace;
 	const state = mapNavigationState({
