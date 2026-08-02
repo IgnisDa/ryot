@@ -71,8 +71,7 @@ const setFailurePhase = failurePhases.set.bind(failurePhases);
 const truncationDecoder = new TextDecoder("utf-8", { fatal: true });
 const typedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype) as object;
 const decodeTruncatedText = truncationDecoder.decode.bind(truncationDecoder);
-const sourceFramePattern =
-	/(?:(?:sandbox-user:)?script\.ts|sandbox-built-in:[a-zA-Z0-9_./-]+\.ts|(?:automations|providers|script-helpers)\/[a-zA-Z0-9_./-]+\.ts):(\d+):(\d+)/;
+const stackFramePattern = /(?:^|[\s(])([^\s()]+):(\d+):(\d+)\)?$/;
 
 const ownMethod = <T>(prototype: object, name: string): T => {
 	const descriptor = Object.getOwnPropertyDescriptor(prototype, name);
@@ -298,6 +297,19 @@ const safeErrorProperty = (error: unknown, property: string): string | undefined
 	}
 };
 
+const decodeUrlPath = (value: string): string => {
+	try {
+		return decodeComponent(value);
+	} catch {
+		return value;
+	}
+};
+
+const moduleUrlDirectory = (payload: SandboxRunnerPayload | undefined): string | undefined => {
+	const moduleUrl = payload?.moduleUrl;
+	return moduleUrl ? slice(moduleUrl, 0, lastIndexOf(moduleUrl, "/") + 1) : undefined;
+};
+
 const sanitizeMessage = (
 	message: string,
 	payload: SandboxRunnerPayload | undefined,
@@ -307,9 +319,6 @@ const sanitizeMessage = (
 	let sanitized = message;
 	sanitized = replace(sanitized, /file:\/\/\/[^\s)]*/g, "[internal]");
 	const moduleUrl = payload?.moduleUrl;
-	const moduleUrlDirectory = moduleUrl
-		? slice(moduleUrl, 0, lastIndexOf(moduleUrl, "/") + 1)
-		: undefined;
 	const modulePath =
 		moduleUrl && startsWith(moduleUrl, "file://")
 			? decodeComponent(slice(moduleUrl, "file://".length))
@@ -319,7 +328,7 @@ const sanitizeMessage = (
 		: undefined;
 	const secrets = [
 		moduleUrl,
-		moduleUrlDirectory,
+		moduleUrlDirectory(payload),
 		modulePath,
 		moduleDirectory,
 		payload?.token,
@@ -353,21 +362,31 @@ export const executionError = (
 	payload: SandboxRunnerPayload | undefined,
 ): SandboxRunnerError => {
 	const rawStack = safeErrorProperty(error, "stack") ?? "";
-	const frames: Array<{ line: number; column: number }> = [];
+	const moduleDirectoryUrl = moduleUrlDirectory(payload);
+	const moduleFile =
+		payload?.moduleUrl && moduleDirectoryUrl
+			? slice(payload.moduleUrl, moduleDirectoryUrl.length)
+			: undefined;
+	const frames: Array<{ path: string; line: number; column: number }> = [];
 	const lines = split(rawStack, "\n");
 	for (let index = 0; index < lines.length; index += 1) {
 		const line = lines[index];
-		if (!line) {
+		if (!line || !moduleDirectoryUrl) {
 			continue;
 		}
-		const match = reflectApply(regexpExec, sourceFramePattern, [line]);
-		if (!match?.[1] || !match[2]) {
+		const match = reflectApply(regexpExec, stackFramePattern, [trim(line)]);
+		if (!match?.[1] || !match[2] || !match[3]) {
 			continue;
 		}
-		const mappedLine = nativeNumber(match[1]);
-		const mappedColumn = nativeNumber(match[2]);
-		if (mappedLine > 0 && mappedColumn > 0) {
-			push(frames, { line: mappedLine, column: mappedColumn });
+		const source = match[1];
+		if (!startsWith(source, moduleDirectoryUrl)) {
+			continue;
+		}
+		const path = decodeUrlPath(slice(source, moduleDirectoryUrl.length));
+		const mappedLine = nativeNumber(match[2]);
+		const mappedColumn = nativeNumber(match[3]);
+		if (path && path !== moduleFile && mappedLine > 0 && mappedColumn > 0) {
+			push(frames, { path, line: mappedLine, column: mappedColumn });
 		}
 	}
 
@@ -386,7 +405,7 @@ export const executionError = (
 		if (!frame) {
 			continue;
 		}
-		sanitizedStack += `${sanitizedStack ? "\n" : ""}    at script.ts:${frame.line}:${frame.column}`;
+		sanitizedStack += `${sanitizedStack ? "\n" : ""}    at ${frame.path}:${frame.line}:${frame.column}`;
 	}
 	return {
 		phase,

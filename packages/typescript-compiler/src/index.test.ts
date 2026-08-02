@@ -29,21 +29,23 @@ it.effect("collects project and source diagnostics and exposes entry source file
 				"semantic.ts": "const value: string = 1;",
 				"syntactic.ts": "export const broken = ;",
 			},
-			compilerOptions: {
-				types: [],
-				strict: true,
-				noEmit: true,
-				lib: ["ES2022"],
-				target: "ES2022",
-				module: "ESNext",
+			configuration: {
+				compilerOptions: {
+					types: [],
+					strict: true,
+					noEmit: true,
+					lib: ["ES2022"],
+					target: "ES2022",
+					module: "ESNext",
+				},
 			},
 		});
 
 		expect(Object.keys(project.entrySourceFiles)).toEqual(["semantic.ts", "syntactic.ts"]);
 		expect(project.sourceFiles).toHaveLength(2);
-		expect(project.diagnostics.map(({ code }) => code)).toEqual(
-			expect.arrayContaining([2322, 1109]),
-		);
+		const diagnosticCodes = project.diagnostics.map(({ code }) => code);
+		expect(diagnosticCodes.filter((code) => code === 2322)).toHaveLength(1);
+		expect(diagnosticCodes.filter((code) => code === 1109)).toHaveLength(1);
 	}),
 );
 
@@ -55,13 +57,15 @@ it.effect("normalizes diagnostics with logical files and structural locations", 
 			entries: ["source.ts"],
 			tsserverPath: resolveTypeScriptCompilerPath(from),
 			files: { "source.ts": "\nconst value: string = 1;" },
-			compilerOptions: {
-				types: [],
-				strict: true,
-				noEmit: true,
-				lib: ["ES2022"],
-				target: "ES2022",
-				module: "ESNext",
+			configuration: {
+				compilerOptions: {
+					types: [],
+					strict: true,
+					noEmit: true,
+					lib: ["ES2022"],
+					target: "ES2022",
+					module: "ESNext",
+				},
 			},
 		});
 		const diagnostic = project.diagnostics.find(

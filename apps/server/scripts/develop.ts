@@ -9,15 +9,19 @@ dotenv.config();
 
 type ProcessCommand = readonly [string, ...string[]];
 
-const compileSandboxRunnerScript = Bun.fileURLToPath(
-	new URL("../../../kernel/backend/scripts/compile-sandbox-runner.ts", import.meta.url),
+const generateSandboxRuntimeScript = Bun.fileURLToPath(
+	new URL("../../../kernel/backend/scripts/generate-sandbox-runtime.ts", import.meta.url),
 );
 
 const generateRenderersScript = Bun.fileURLToPath(
 	new URL("../../../packages/kernel-renderers/scripts/generate-sources.ts", import.meta.url),
 );
 
-const compileCommand: ProcessCommand = [process.execPath, "run", compileSandboxRunnerScript];
+const prepareRuntimeCommand: ProcessCommand = [
+	process.execPath,
+	"run",
+	generateSandboxRuntimeScript,
+];
 const generateRenderersCommand: ProcessCommand = [process.execPath, "run", generateRenderersScript];
 const pluginBuildCommand: ProcessCommand = [
 	process.execPath,
@@ -28,7 +32,7 @@ const pluginBuildCommand: ProcessCommand = [
 ];
 const assembleCommand: ProcessCommand = [process.execPath, "run", "assemble"];
 export const developmentCommands: readonly [ProcessCommand, ProcessCommand] = [
-	[...compileCommand, "--watch", "--skip-initial"],
+	[...prepareRuntimeCommand, "--watch", "--skip-initial"],
 	[process.execPath, "run", "assemble", "--watch"],
 ];
 
@@ -44,7 +48,7 @@ const runCommand = ([executable, ...args]: ProcessCommand) =>
 
 const program = Effect.gen(function* () {
 	for (const command of [
-		compileCommand,
+		prepareRuntimeCommand,
 		generateRenderersCommand,
 		pluginBuildCommand,
 		assembleCommand,
