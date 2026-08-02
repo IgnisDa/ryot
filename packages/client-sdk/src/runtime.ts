@@ -6,6 +6,7 @@ import {
 	type PluginBridgeReady,
 	type PluginBridgeRyotQLRequest,
 	type PluginClientArtifactMetadata,
+	type PluginOperationErrorReason,
 } from "@ryot/contract/modules/plugins/client";
 import type { JsonValue } from "@ryot/contract/schema/json";
 import type { PreparedRecipe } from "@ryot/ryotql";
@@ -31,30 +32,36 @@ export const createPluginRuntime = (
 ) => {
 	let state: PluginRuntimeState = "ready";
 	let nextRequestId = 0;
+	let terminalOperationReason: PluginOperationErrorReason | undefined;
 	const listeners = new AbortController();
 	const locations = createPluginLocationStore();
 	const operations = new Map<string, PendingCall>();
 	const queries = new Map<string, PendingCall>();
 
-	const rejectPending = () => {
+	const rejectPending = (operationReason: PluginOperationErrorReason) => {
 		const pendingOperations = [...operations.values()];
 		const pendingQueries = [...queries.values()];
 		operations.clear();
 		queries.clear();
 		for (const pending of pendingOperations) {
-			pending.reject(new PluginOperationError("transport"));
+			pending.reject(new PluginOperationError(operationReason));
 		}
 		for (const pending of pendingQueries) {
 			pending.reject(new RyotQueryError("transport"));
 		}
 	};
 
-	const finish = (next: "failed" | "disposed", notify: boolean) => {
+	const finish = (
+		next: "failed" | "disposed",
+		operationReason: PluginOperationErrorReason,
+		notify: boolean,
+	) => {
 		if (state === "failed" || state === "disposed" || state === "closing") {
 			return;
 		}
 		state = "closing";
-		rejectPending();
+		terminalOperationReason = operationReason;
+		rejectPending(operationReason);
 		if (notify) {
 			try {
 				port.postMessage({ reason: next, type: "lifecycle-close" });
@@ -63,9 +70,21 @@ export const createPluginRuntime = (
 			}
 		}
 		listeners.abort();
-		port.close();
+		try {
+			port.close();
+		} catch {
+			// The transport is already unavailable.
+		}
 		state = next;
 		onTerminal?.();
+	};
+
+	const post = (message: unknown) => {
+		try {
+			port.postMessage(message);
+		} catch {
+			finish("failed", "transport", false);
+		}
 	};
 
 	const query = (document: PreparedRecipe<unknown>["document"]) =>
@@ -77,38 +96,28 @@ export const createPluginRuntime = (
 			nextRequestId += 1;
 			const requestId = `ryotql-${nextRequestId}`;
 			queries.set(requestId, { reject, resolve });
-			try {
-				port.postMessage({
-					document,
-					requestId,
-					type: "ryotql-request",
-				} satisfies PluginBridgeRyotQLRequest);
-			} catch {
-				queries.delete(requestId);
-				reject(new RyotQueryError("transport"));
-			}
+			post({
+				document,
+				requestId,
+				type: "ryotql-request",
+			} satisfies PluginBridgeRyotQLRequest);
 		});
 
 	const invokeOperation = (request: { readonly slug: string; readonly input: JsonValue }) =>
 		new Promise<unknown>((resolve, reject) => {
 			if (state !== "active") {
-				reject(new PluginOperationError("transport"));
+				reject(new PluginOperationError(terminalOperationReason ?? "transport"));
 				return;
 			}
 			nextRequestId += 1;
 			const requestId = `operation-${nextRequestId}`;
 			operations.set(requestId, { reject, resolve });
-			try {
-				port.postMessage({
-					requestId,
-					input: request.input,
-					type: "operation-request",
-					operationSlug: request.slug,
-				} satisfies PluginBridgeOperationRequest);
-			} catch {
-				operations.delete(requestId);
-				reject(new PluginOperationError("transport"));
-			}
+			post({
+				requestId,
+				input: request.input,
+				type: "operation-request",
+				operationSlug: request.slug,
+			} satisfies PluginBridgeOperationRequest);
 		});
 
 	const client = createRyotClient({ query, invokeOperation });
@@ -121,6 +130,7 @@ export const createPluginRuntime = (
 			}
 			const decoded = decodeHostMessage(event.data);
 			if (Result.isFailure(decoded)) {
+				finish("failed", "protocol", true);
 				return;
 			}
 			Match.value(decoded.success).pipe(
@@ -128,7 +138,9 @@ export const createPluginRuntime = (
 					state = "active";
 					locations.set(location);
 				}),
-				Match.when({ type: "lifecycle-close" }, ({ reason }) => finish(reason, false)),
+				Match.when({ type: "lifecycle-close" }, ({ reason }) =>
+					finish(reason, reason === "disposed" ? "disposed" : "protocol", false),
+				),
 				Match.when({ type: "operation-result" }, (result) => {
 					const pending = operations.get(result.requestId);
 					if (!pending || !operations.delete(result.requestId)) {
@@ -156,27 +168,33 @@ export const createPluginRuntime = (
 		},
 		{ signal: listeners.signal },
 	);
-	port.addEventListener("messageerror", () => finish("failed", true), { signal: listeners.signal });
-	port.start();
-	port.postMessage({
-		format: metadata.format,
-		sessionId: init.sessionId,
-		artifactHash: metadata.hash,
-		apiVersion: metadata.apiVersion,
-		bridgeVersion: metadata.bridgeVersion,
-		compilerVersion: metadata.compilerVersion,
-	} satisfies PluginBridgeReady);
+	port.addEventListener("messageerror", () => finish("failed", "transport", true), {
+		signal: listeners.signal,
+	});
+	try {
+		port.start();
+		post({
+			format: metadata.format,
+			sessionId: init.sessionId,
+			artifactHash: metadata.hash,
+			apiVersion: metadata.apiVersion,
+			bridgeVersion: metadata.bridgeVersion,
+			compilerVersion: metadata.compilerVersion,
+		} satisfies PluginBridgeReady);
+	} catch {
+		finish("failed", "transport", false);
+	}
 
 	return {
 		client,
 		locations,
-		dispose: () => finish("disposed", true),
+		dispose: () => finish("disposed", "disposed", true),
 		navigate: (mode: "push" | "replace", to: { path: string; search?: Record<string, string> }) => {
 			if (state !== "active") {
 				return;
 			}
 			const search = to.search ? new URLSearchParams(to.search).toString() : "";
-			port.postMessage({
+			post({
 				mode,
 				type: "navigate",
 				location: { path: to.path, search },

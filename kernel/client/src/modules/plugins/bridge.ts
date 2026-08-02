@@ -5,6 +5,7 @@ import {
 	CLIENT_COMPILER_VERSION,
 	PluginBridgeClientMessage,
 	PluginBridgeLifecycleClose,
+	PluginOperationBridgeErrorReason,
 	PluginBridgeReady,
 	type PluginBridgeInit,
 	type PluginBridgeLocation,
@@ -56,6 +57,7 @@ export type PluginBridgeOptions = {
 const decodeReady = Schema.decodeUnknownResult(PluginBridgeReady);
 const decodeLifecycleClose = Schema.decodeUnknownResult(PluginBridgeLifecycleClose);
 const decodeClientMessage = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+const isOperationBridgeErrorReason = Schema.is(PluginOperationBridgeErrorReason);
 
 const isExpectedReady = (ready: PluginBridgeReady, init: PluginBridgeInit) =>
 	ready.sessionId === init.sessionId && ready.artifactHash === init.artifactHash;
@@ -137,10 +139,16 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				if (state !== "active" || !pending.has(request.requestId)) {
 					return undefined;
 				}
-				const result =
-					outcome.outcome === "success" && !isJsonValue(outcome.value)
-						? ({ outcome: "failure", reason: "transport" } as const)
-						: outcome;
+				let result: PluginOperationOutcome;
+				if (outcome.outcome === "failure" && isOperationBridgeErrorReason(outcome.reason)) {
+					result = { outcome: "failure", reason: outcome.reason };
+				} else if (outcome.outcome === "failure") {
+					result = { outcome: "failure", reason: "transport" };
+				} else if (isJsonValue(outcome.value)) {
+					result = { outcome: "success", value: outcome.value };
+				} else {
+					result = { outcome: "failure", reason: "malformed-result" };
+				}
 				try {
 					channel.port1.postMessage({
 						...result,
@@ -188,6 +196,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			if (state === "active") {
 				const decoded = decodeClientMessage(event.data);
 				if (Result.isFailure(decoded)) {
+					fail();
 					return;
 				}
 				Match.value(decoded.success).pipe(

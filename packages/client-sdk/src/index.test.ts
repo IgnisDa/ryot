@@ -40,6 +40,17 @@ describe("createRyotClient", () => {
 		);
 	});
 
+	it("rejects non-JSON adapter output before applying a permissive output schema", async () => {
+		const client = createRyotClient({
+			query: () => Promise.resolve({}),
+			invokeOperation: () => Promise.resolve(() => undefined),
+		});
+
+		await expect(
+			client.data.invokeOperation({ slug: "greet", input: null, output: Schema.Unknown }),
+		).rejects.toMatchObject({ reason: "malformed-result" });
+	});
+
 	it("normalizes unexpected adapter failures as transport errors", async () => {
 		const client = createRyotClient({
 			query: () => Promise.reject(new Error("network details")),
@@ -50,6 +61,17 @@ describe("createRyotClient", () => {
 		await expect(
 			client.data.invokeOperation({ slug: "greet", input: {}, output: Greeting }),
 		).rejects.toMatchObject({ reason: "transport" });
+	});
+
+	it("preserves canonical operation errors from adapters", async () => {
+		const client = createRyotClient({
+			query: () => Promise.resolve({}),
+			invokeOperation: () => Promise.reject(new PluginOperationError("protocol")),
+		});
+
+		await expect(
+			client.data.invokeOperation({ slug: "greet", input: {}, output: Greeting }),
+		).rejects.toMatchObject({ reason: "protocol" });
 	});
 
 	it("rejects invalid JSON input before consulting the adapter", async () => {
@@ -75,6 +97,6 @@ describe("createRyotClient", () => {
 
 		await expect(
 			client.data.invokeOperation({ slug: "greet", input: {}, output: Greeting }),
-		).rejects.toMatchObject({ reason: "transport" });
+		).rejects.toMatchObject({ reason: "unsupported-capability" });
 	});
 });

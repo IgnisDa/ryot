@@ -101,9 +101,29 @@ export const PluginBridgeLifecycleClose = strictStruct({
 
 export type PluginBridgeLifecycleClose = Schema.Schema.Type<typeof PluginBridgeLifecycleClose>;
 
-export const PluginOperationFailureReason = Schema.Literals(["transport", "operation-failed"]);
+export const PluginOperationBridgeErrorReason = Schema.Literals([
+	"transport",
+	"operation-failed",
+	"malformed-result",
+]);
 
-export type PluginOperationFailureReason = Schema.Schema.Type<typeof PluginOperationFailureReason>;
+export type PluginOperationBridgeErrorReason = Schema.Schema.Type<
+	typeof PluginOperationBridgeErrorReason
+>;
+
+export const PluginOperationErrorReason = Schema.Union([
+	PluginOperationBridgeErrorReason,
+	Schema.Literals(["disposed", "protocol", "invalid-input", "unsupported-capability"]),
+]);
+
+export type PluginOperationErrorReason = Schema.Schema.Type<typeof PluginOperationErrorReason>;
+
+export const PluginOperationRequest = strictStruct({
+	input: JsonValue,
+	operationSlug: Schema.String,
+});
+
+export type PluginOperationRequest = Schema.Schema.Type<typeof PluginOperationRequest>;
 
 export const PluginBridgeOperationRequest = strictStruct({
 	input: JsonValue,
@@ -114,15 +134,13 @@ export const PluginBridgeOperationRequest = strictStruct({
 
 export type PluginBridgeOperationRequest = Schema.Schema.Type<typeof PluginBridgeOperationRequest>;
 
-export type PluginOperationRequest = Pick<PluginBridgeOperationRequest, "input" | "operationSlug">;
-
 const pluginOperationSuccessFields = {
 	value: JsonValue,
 	outcome: Schema.Literal("success"),
 };
 
 const pluginOperationFailureFields = {
-	reason: PluginOperationFailureReason,
+	reason: PluginOperationBridgeErrorReason,
 	outcome: Schema.Literal("failure"),
 };
 
