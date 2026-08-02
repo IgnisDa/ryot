@@ -9,7 +9,6 @@ const installation = {
 	isDisabled: false,
 	clientApiVersion: 1,
 	pluginId: "plugin-1",
-	clientCapabilities: [],
 	sourceHash: "source-hash",
 	installationId: "installation-1",
 	clientArtifactHash: "artifact-hash",

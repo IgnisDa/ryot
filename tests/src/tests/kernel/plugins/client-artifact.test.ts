@@ -29,7 +29,7 @@ const fixtureCatalogEntry = (client: Client) =>
 	Effect.gen(function* () {
 		const catalog = yield* executeRyotQLRecipe(client, pluginClientCatalogRecipe());
 		return requirePresent(
-			catalog.find((entry) => entry.slug === FIXTURE_CLIENT_PLUGIN_SLUG),
+			catalog.items.find((entry) => entry.slug === FIXTURE_CLIENT_PLUGIN_SLUG),
 			"Fixture client plugin was not listed in the client catalog",
 		);
 	});
@@ -48,7 +48,6 @@ describe("client plugin artifacts", () => {
 				health: "ready",
 				isDisabled: false,
 				clientApiVersion: 1,
-				clientCapabilities: [],
 				slug: FIXTURE_CLIENT_PLUGIN_SLUG,
 				sourceHash: installation.sourceHash,
 			});
@@ -72,7 +71,7 @@ describe("client plugin artifacts", () => {
 			const stylesheet = yield* fetchArtifact(artifactHash, "plugin.css");
 
 			expect(document.status).toBe(200);
-			expect(document.headers.get("etag")).toBe(`"${artifactHash}"`);
+			expect(document.headers.get("etag")).toBeNull();
 			expect(document.headers.get("x-content-type-options")).toBe("nosniff");
 			expect(document.headers.get("content-type")).toContain("text/html");
 			expect(document.headers.get("content-security-policy")).toBe("sandbox allow-scripts");

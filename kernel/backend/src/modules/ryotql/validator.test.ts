@@ -118,7 +118,6 @@ it("exposes only approved application-table fields", () => {
 			"sourceHash",
 			"ingestedAt",
 			"clientApiVersion",
-			"clientCapabilities",
 			"clientArtifactHash",
 		]),
 	);

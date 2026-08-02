@@ -1,4 +1,3 @@
-import { canonicalRelativePosixPathIssue } from "@ryot/ts-utils/path";
 import { Result, Schema, SchemaGetter } from "effect";
 
 import { AppSchema, type AppPropertyDefinition } from "../../schema/property-schema";
@@ -598,13 +597,6 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 		...manifest.importSources.flatMap(({ requiredPluginConfigKeys }) => requiredPluginConfigKeys),
 	];
 	if (!requiredConfigKeys.every((key) => configKeys.has(key))) {
-		return false;
-	}
-	if (
-		manifest.client !== undefined &&
-		(canonicalRelativePosixPathIssue(manifest.client.entry) !== null ||
-			!manifest.client.entry.startsWith("client/"))
-	) {
 		return false;
 	}
 	if (scriptSlugs.size !== manifest.scripts.length) {

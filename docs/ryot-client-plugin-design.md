@@ -246,13 +246,12 @@ Conceptually:
 
 ```ts
 client: {
-  entry: "./client/index.tsx",
+  entry: "client/index.tsx",
   apiVersion: 1,
-  capabilities: [
-    // generic capabilities requested by the plugin
-  ],
 }
 ```
+
+The client shape is exact. `entry` is a relative POSIX path under `client/`, ends in `.ts` or `.tsx`, and has no `./` prefix. There is no client capabilities field until a real capability is implemented and enforced.
 
 A plugin without client UI may omit the client entry.
 
@@ -610,7 +609,7 @@ Expected plugin business/domain outcomes are successful typed values encoded by 
 | `query-failed`           | Opaque declared backend/platform query execution failure.                                            |
 | `operation-failed`       | Opaque declared backend/platform operation execution failure; not a plugin business outcome.         |
 | `malformed-result`       | A capability result that fails its JSON or caller-owned result schema.                                |
-| `unsupported-capability` | An unavailable or undeclared capability.                                                             |
+| `unsupported-capability` | An exposed SDK category missing from the supplied adapter.                                        |
 
 The wire value `failed` is not a public SDK error reason. Internal causes, messages, diagnostics, HTTP details, and stack traces never cross the bridge. Synchronous capabilities either dispatch or throw a `RyotClientError`: navigation after teardown uses the stored terminal reason, and a failed adapter call or `postMessage` uses `transport`.
 
@@ -688,7 +687,7 @@ The bridge needs:
 - settle-once pending-call rejection
 - exact protocol-version validation
 - installation-bound session identity
-- declared capabilities from plugin metadata
+- per-session aggregate pending-request limit for operation and RyotQL calls
 
 Plugin authors interact with the TypeScript SDK, not the wire protocol.
 
@@ -708,7 +707,7 @@ The normal path is `ready -> active -> closing -> disposed`. A fatal failure ent
 
 `bootstrapClientPlugin` owns embedded metadata validation, the one-time parent-window bootstrap listener, the artifact root, and the top-level React root/unmount coordinator. It accepts exactly one valid init with exactly one transferred port, validates the artifact hash and all exact markers, including bridge protocol version 1, before accepting the session, requires the artifact root, creates the runtime, and supplies its client to `RyotProvider`. It removes the bootstrap listener after acceptance. The runtime owns `port.start()`, the session port listeners, the single dispatcher, lifecycle state, location state, pending calls, the `RyotClient`, and idempotent disposal. Runtime termination tells bootstrap to unmount the root. `PluginHost` owns the iframe element and the kernel-side session handle; it does not create capability-specific bridge objects.
 
-The single dispatcher currently routes location, query, operation, and terminal `lifecycle-close` messages. Task 06 adds theme snapshots and updates to this dispatcher and stores them in the same runtime. Query and operation calls use runtime-owned pending registries, even though they may remain separate maps for correlation. No other module may attach a session port listener or own a pending-call registry. The temporary parent-window bootstrap listener is the only listener outside the session runtime and is removed once the runtime is accepted.
+The single dispatcher currently routes location, query, operation, and terminal `lifecycle-close` messages. Task 06 adds theme snapshots and updates to this dispatcher and stores them in the same runtime. Query and operation calls use runtime-owned pending registries, even though they may remain separate maps for correlation. Together, operation and RyotQL pending requests share an aggregate maximum of 64 per session, enforced by both the SDK and kernel. Exceeding that limit is a protocol failure using the existing wire `failed` and public `protocol` teardown; requests are not queued or retried, and no new error reason is introduced. No other module may attach a session port listener or own a pending-call registry. The temporary parent-window bootstrap listener is the only listener outside the session runtime and is removed once the runtime is accepted.
 
 Every pending query or operation entry is removed before its promise is settled. A result, runtime failure, or disposal can settle an entry only once. Normal disposal rejects every pending call with `disposed`; malformed session data or a wire `failed` close uses `protocol`; communication, posting, or network failure uses `transport`. The runtime clears the registries and ignores duplicate or late results. Closing the iframe is cleanup after this protocol-level rejection; plugin promises do not merely die with the iframe.
 
@@ -757,7 +756,7 @@ The target model is an isolated iframe/document with:
 
 The kernel renders the plugin document in `<iframe sandbox="allow-scripts" referrerPolicy="no-referrer">`. This gives the plugin document an opaque origin: no kernel DOM access, no same-origin storage, and no readable Ryot credentials.
 
-The kernel serves artifact files from a public, unauthenticated, content-addressed route: `GET /api/plugins/artifacts/:artifactHash/:fileName`. The unguessable sha256 path means the sandboxed document never needs credentials to load. An unknown hash or file name returns 404. Every response carries `x-content-type-options: nosniff`, `cache-control: public, max-age=31536000, immutable`, and `etag: "<artifactHash>"`; `index.html` additionally carries `content-security-policy: sandbox allow-scripts` as defence in depth.
+The kernel serves artifact files from a public, unauthenticated, content-addressed route: `GET /api/plugins/artifacts/:artifactHash/:fileName`. The unguessable sha256 path means the sandboxed document never needs credentials to load. An unknown hash or file name returns 404. Every response carries its correct content type, `x-content-type-options: nosniff`, and `cache-control: public, max-age=31536000, immutable`; artifact routes do not emit an ETag. `index.html` additionally carries `content-security-policy: sandbox allow-scripts` as defence in depth.
 
 The invariant is more important than the mechanism:
 
@@ -1218,7 +1217,7 @@ RouteTarget
 
 This route resolver should be a small, explicit, heavily tested kernel subsystem.
 
-The kernel obtains its installation and client-artifact catalog through an application-owned named RyotQL recipe. `RyotClient` decodes the result locally. Its decoded result includes the stable plugin and installation identities, slug, health, disabled state, package source hash, client artifact hash, client API version, and declared capabilities needed by routing and `PluginHost`.
+The kernel obtains its installation and client-artifact catalog through an application-owned named RyotQL recipe. The catalog returns active plugins only, decodes client API version as exact `1`, and follows bounded cursor pages of at most 100 rows until completion. `RyotClient` decodes the result locally. Its decoded result includes the stable plugin and installation identities, slug, health, disabled state, package source hash, client artifact hash, and client API version needed by routing and `PluginHost`; the catalog exposes no capabilities.
 
 ---
 
@@ -1484,11 +1483,11 @@ New native templates/capabilities should be added only when a real cross-plugin 
 
 ---
 
-## 30. Capability declarations
+## 30. Capability availability
 
-Client-native/kernel capabilities requested by a plugin should be declared in plugin metadata from V1.
+Client-native/kernel capabilities are not declared in plugin metadata in the current V1. No client capabilities field exists until a real capability is implemented and enforced.
 
-Examples may include:
+Future capability APIs may include:
 
 ```text
 storage
@@ -1500,15 +1499,7 @@ keep-awake
 live-activities
 ```
 
-Capability declarations support:
-
-- runtime capability availability checks
-- permission UX
-- auditing
-- platform-specific availability
-- future policy requirements
-
-The capability system does not need to become an elaborate security sandbox in V1, but the declaration boundary should exist.
+When the SDK exposes a category, the supplied adapter must provide it. If that category is missing, the SDK reports `unsupported-capability`; this reason does not represent an undeclared manifest capability.
 
 ---
 
@@ -1633,7 +1624,7 @@ The same client artifact should be exercised on:
 
 Media and Fitness provide additional production dogfooding.
 
-Client boundary tests must verify the exact public `RyotClientError` reasons and their classifications: explicit `null` operation input, omitted input rejected locally as `invalid-input`, unavailable or undeclared capabilities as `unsupported-capability`, declared query and operation execution failures as opaque `query-failed` and `operation-failed`, invalid or throwing result decoders as `malformed-result`, teardown as `disposed`, malformed bridge/session data and wire `failed` closes as `protocol`, and communication/posting/network failures as `transport`. Tests must prove that lifecycle termination classifies every pending and synchronous capability consistently, direct and bridge query adapters classify declared failures identically, expected plugin business/domain outcomes resolve as typed values, and internal causes, messages, diagnostics, HTTP details, and stack traces do not cross the bridge. Routing tests must cover consumer-cancelled links, prevented modifier and auxiliary navigation, explicit home matching, and plugin-supplied and default not-found states.
+Client boundary tests must verify the exact public `RyotClientError` reasons and their classifications: explicit `null` operation input, omitted input rejected locally as `invalid-input`, an exposed SDK category missing from the supplied adapter as `unsupported-capability`, declared query and operation execution failures as opaque `query-failed` and `operation-failed`, invalid or throwing result decoders as `malformed-result`, teardown as `disposed`, malformed bridge/session data and wire `failed` closes as `protocol`, and communication/posting/network failures as `transport`. Tests must prove the shared 64-request operation/RyotQL pending limit and its protocol teardown, that lifecycle termination classifies every pending and synchronous capability consistently, direct and bridge query adapters classify declared failures identically, expected plugin business/domain outcomes resolve as typed values, and internal causes, messages, diagnostics, HTTP details, and stack traces do not cross the bridge. Routing tests must cover consumer-cancelled links, prevented modifier and auxiliary navigation, explicit home matching, and plugin-supplied and default not-found states.
 
 ---
 

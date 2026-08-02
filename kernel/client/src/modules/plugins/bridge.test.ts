@@ -3,6 +3,7 @@ import {
 	PluginBridgeInit,
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
+	CLIENT_BRIDGE_MAX_PENDING_REQUESTS,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 	REQUIRED_THEME_TOKEN_NAMES,
@@ -766,6 +767,46 @@ describe("plugin bridge", () => {
 			}),
 		);
 		expect(received).toHaveLength(2);
+	});
+
+	it("fails the session when aggregate pending requests exceed the admission limit", async () => {
+		const signals: AbortSignal[] = [];
+		const { init, pluginPort, received, failures } = connect({
+			onOperation: (_request, signal) => {
+				signals.push(signal);
+				return new Promise(() => {});
+			},
+			onRyotQL: (_request, signal) => {
+				signals.push(signal);
+				return new Promise(() => {});
+			},
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+
+		for (let index = 0; index < CLIENT_BRIDGE_MAX_PENDING_REQUESTS; index += 1) {
+			if (index % 2 === 0) {
+				pluginPort.postMessage({
+					input: null,
+					operationSlug: "greet",
+					type: "operation-request",
+					requestId: `request-${index}`,
+				});
+			} else {
+				pluginPort.postMessage({ document, type: "ryotql-request", requestId: `request-${index}` });
+			}
+		}
+		await waitFor(() => expect(signals).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS));
+
+		pluginPort.postMessage({ document, requestId: "overflow", type: "ryotql-request" });
+		await waitFor(() => expect(failures).toHaveLength(1));
+
+		expect(signals).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS);
+		expect(signals.every((signal) => signal.aborted)).toBe(true);
+		expect(received).toEqual([
+			{ type: "location", location: home },
+			{ reason: "failed", type: "lifecycle-close" },
+		]);
 	});
 
 	it("fails the session on a malformed active-port message and suppresses late work", async () => {
