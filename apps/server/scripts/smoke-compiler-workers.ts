@@ -147,6 +147,7 @@ const program = Effect.gen(function* () {
 			message: `Client compiler worker omitted artifacts: ${missingArtifacts.join(", ")}`,
 		});
 	}
+	return yield* Effect.void;
 });
 
 BunRuntime.runMain(Effect.scoped(program).pipe(Effect.provide(BunServices.layer)));
