@@ -4,7 +4,7 @@ import { createAuthClient } from "better-auth/react";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
-import { normalizeServerOrigin } from "@/modules/server/url";
+import { normalizeServerOrigin } from "@/api/origin";
 
 const storagePrefix = "ryot";
 const cookieKey = `${storagePrefix}_cookie`;
