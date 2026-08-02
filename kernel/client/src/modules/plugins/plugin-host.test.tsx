@@ -261,11 +261,11 @@ describe("plugin host", () => {
 		expect(frame.getAttribute("src")).toBe(artifactUrl);
 	});
 
-	it("uses the latest source revision for operations without replacing the iframe", async () => {
-		const sourceHashes: string[] = [];
+	it("replaces the iframe and binds operations when the source revision changes", async () => {
+		const invocations: Array<{ readonly operationSlug: string; readonly sourceHash: string }> = [];
 		const { moveTo } = renderHost({}, home, {
-			onInvokeOperation: (_request, sourceHash) => {
-				sourceHashes.push(sourceHash);
+			onInvokeOperation: (request, sourceHash) => {
+				invocations.push({ operationSlug: request.operationSlug, sourceHash });
 				return Promise.resolve({ outcome: "success", value: null });
 			},
 		});
@@ -274,33 +274,50 @@ describe("plugin host", () => {
 		first.pluginPort.postMessage(first.init);
 		await waitFor(() => expect(first.messages).toHaveLength(1));
 		first.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
-
-		moveTo({ location: home, overrides: { sourceHash: "next-source-hash" } });
-		expect(screen.getByTitle("fixture plugin")).toBe(firstFrame);
 		first.pluginPort.postMessage({
 			input: null,
-			operationSlug: "greet",
+			operationSlug: "first",
 			type: "operation-request",
 			requestId: "first-operation",
 		});
-		await waitFor(() => expect(sourceHashes).toEqual(["next-source-hash"]));
+		await waitFor(() =>
+			expect(invocations).toEqual([{ operationSlug: "first", sourceHash: "source-hash" }]),
+		);
 
-		moveTo({
-			location: home,
-			overrides: { sourceHash: "next-source-hash", clientArtifactHash: "next-artifact-hash" },
+		moveTo({ location: home, overrides: { sourceHash: "next-source-hash" } });
+		const replacement = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
+		expect(replacement).not.toBe(firstFrame);
+		expect(replacement.getAttribute("src")).toBe(artifactUrl);
+		expect(screen.getAllByTitle("fixture plugin")).toHaveLength(1);
+		await waitFor(() =>
+			expect(first.messages).toContainEqual({ reason: "disposed", type: "lifecycle-close" }),
+		);
+
+		first.pluginPort.postMessage({
+			input: null,
+			operationSlug: "stale",
+			type: "operation-request",
+			requestId: "stale-operation",
 		});
-		const secondFrame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
-		const second = connectFrame(secondFrame);
+		const second = connectFrame(replacement);
+		expect(second.init.sessionId).not.toBe(first.init.sessionId);
 		second.pluginPort.postMessage(second.init);
 		await waitFor(() => expect(second.messages).toHaveLength(1));
 		second.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
 		second.pluginPort.postMessage({
 			input: null,
-			operationSlug: "greet",
+			operationSlug: "second",
 			type: "operation-request",
 			requestId: "second-operation",
 		});
-		await waitFor(() => expect(sourceHashes).toEqual(["next-source-hash", "next-source-hash"]));
+		await waitFor(() =>
+			expect(invocations).toEqual([
+				{ operationSlug: "first", sourceHash: "source-hash" },
+				{ operationSlug: "second", sourceHash: "next-source-hash" },
+			]),
+		);
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		expect(invocations).toHaveLength(2);
 	});
 
 	it("replaces a changed artifact through a fresh session lifecycle", async () => {

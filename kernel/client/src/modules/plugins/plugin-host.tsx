@@ -90,7 +90,7 @@ export function PluginHost(props: {
 			artifactHash={resolution.artifactHash}
 			sourceHash={props.installation.sourceHash}
 			onInvokeOperation={props.onInvokeOperation}
-			key={`${props.installation.installationId}:${resolution.artifactHash}`}
+			key={`${props.installation.installationId}:${props.installation.sourceHash}:${resolution.artifactHash}`}
 		/>
 	);
 }
@@ -141,6 +141,7 @@ function PluginFrame(props: {
 	);
 
 	function connect() {
+		const sourceHash = props.sourceHash;
 		const plugin = frame.current?.contentWindow;
 		closeBridge();
 		if (!plugin) {
@@ -157,7 +158,7 @@ function PluginFrame(props: {
 			theme: latest.current.theme.getSnapshot(),
 			onRyotQL: (request, signal) => latest.current.onQuery(request, signal),
 			onOperation: (request, signal) =>
-				latest.current.onInvokeOperation(request, latest.current.sourceHash, signal),
+				latest.current.onInvokeOperation(request, sourceHash, signal),
 			onFailure: () => {
 				connection.failed = true;
 				closeBridge();
