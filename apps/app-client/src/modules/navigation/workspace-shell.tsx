@@ -57,7 +57,7 @@ function WorkspaceShellContent() {
 						accessibilityLabel="Close navigation overlay"
 						onPress={() => setIsWorkspaceOpen(false)}
 					/>
-					<View className="absolute left-3.5 top-19.5 z-50 hidden w-[320px] flex-col gap-2.5 rounded-[14px] border border-border bg-surface p-3 shadow-card md:flex">
+					<View className="absolute left-3.5 top-21.5 z-50 hidden w-[320px] flex-col gap-2.5 rounded-[14px] border border-border bg-surface p-3 shadow-card md:flex">
 						<Text className="font-mono text-[10px] font-normal uppercase tracking-[1.1px] text-text-subtle">
 							Workspaces
 						</Text>
