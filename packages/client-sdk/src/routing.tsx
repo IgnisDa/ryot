@@ -400,6 +400,7 @@ export const PluginRouter = () => {
 	);
 	const presentation = popping ?? gesturePresentation;
 	const presented = useMemo(() => presentScreens(screens, presentation), [screens, presentation]);
+	const activeScreenKey = screens.at(-1)?.key;
 
 	const frameFor = (outgoingKey: string | undefined, incomingKey: string | undefined) => ({
 		scrim: scrimRef.current,
@@ -446,7 +447,7 @@ export const PluginRouter = () => {
 	}, [presentation]);
 
 	useEffect(() => {
-		if (presentation.kind !== "idle" || screens.length === 0) {
+		if (presentation.kind !== "idle" || activeScreenKey === undefined) {
 			return;
 		}
 		if (isFirstEntry.current) {
@@ -454,9 +455,9 @@ export const PluginRouter = () => {
 			return;
 		}
 		if (document.hasFocus()) {
-			screenRefs.current.get(screens.at(-1)?.key ?? "")?.focus({ preventScroll: true });
+			screenRefs.current.get(activeScreenKey)?.focus({ preventScroll: true });
 		}
-	}, [screens, presentation]);
+	}, [activeScreenKey, presentation]);
 
 	const beginDrag = (event: PointerEvent<HTMLDivElement>) => {
 		if (drag.current.active || settling.current !== undefined || screens.length < 2) {

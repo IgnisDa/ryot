@@ -56,7 +56,6 @@ const nav = (location: PluginLogicalLocation = home, index = 0) => ({
 	compact: false,
 	edgeBack: false,
 	key: `k${index}`,
-	screenKey: `k${index}`,
 	leading: "none" as const,
 });
 const at = (location: PluginLogicalLocation = home, index = 0) => ({
