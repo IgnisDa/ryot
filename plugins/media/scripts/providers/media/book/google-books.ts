@@ -1,6 +1,6 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
+import { DateTime, Effect, Option, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
 import { toTitleCase } from "../../../script-helpers/title-case";
@@ -10,6 +10,9 @@ type GoogleBooksHost = SandboxHost<readonly ["httpCall", "getPluginConfig"]>;
 type UnknownRecord = Record<string, unknown>;
 
 const GOOGLE_BOOKS_BASE_URL = "https://www.googleapis.com/books/v1";
+const googleBooksSearchOptionsSchema = Schema.Struct({
+	passRawQuery: Schema.optional(Schema.Boolean),
+}).annotate({ parseOptions: { onExcessProperty: "error" as const } });
 
 const isRecord = (value: unknown): value is UnknownRecord =>
 	value !== null && typeof value === "object" && !Array.isArray(value);
@@ -170,10 +173,13 @@ export const search = defineProvider({
 	operation: "search",
 	run: (input, host) =>
 		Effect.gen(function* () {
+			const options = yield* Schema.decodeUnknownEffect(googleBooksSearchOptionsSchema)(
+				input.options ?? {},
+			);
 			const apiKey = yield* getGoogleBooksApiKey(host);
 			const params = new URLSearchParams({
 				printType: "books",
-				q: `intitle:${input.query}`,
+				q: options.passRawQuery ? input.query : `intitle:${input.query}`,
 				maxResults: String(input.pageSize),
 				startIndex: String((input.page - 1) * input.pageSize),
 			});
