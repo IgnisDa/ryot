@@ -38,7 +38,7 @@ Treat the legacy client under `crates/` as read-only behavioral and visual refer
 
 ## Implementation Notes
 
-- Added the contract-backed public health boundary, canonical server-origin validation, scoped browser persistence, safe redirect gates, and focused pure tests under `kernel/client/src`.
-- Replaced the starter screen with TanStack Router onboarding and auth-destination routes, an Effect Atom registry, persisted theme control, and the minimal accessible DOM UI needed to connect, retry, or change servers.
+- Added Effect services for contract-backed public requests, scoped browser persistence, and server connection workflows. Their live layers are composed into the shared client `ManagedRuntime`, while tests provide deterministic layers.
+- Replaced the starter screen with thin TanStack Router adapters, an Effect Atom registry, persisted theme control, safe redirect gates, and the minimal accessible DOM UI needed to connect, retry, or change servers.
 - Ported the semantic light/dark token set and Outfit/Lora browser fonts without NativeWind, Expo aliases, or changes under `crates/**`.
 - Verified with `bun turbo --filter=@ryot/kernel-client check`, `bun turbo --filter=@ryot/kernel-client test`, `bun turbo --filter=@ryot/kernel-client build`, and the affected `src/tests/kernel/system/health.test.ts` end-to-end suite only.

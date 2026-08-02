@@ -1,26 +1,38 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { AuthMode, TwoFactorMethod } from "./flow";
+import type { CredentialsValues } from "./form-values";
 import { CredentialsForm, TwoFactorForm } from "./forms";
 
 const MODE_SWITCHER = { name: "Authentication mode" };
 
 const modeSwitcher = () => within(screen.getByRole("group", MODE_SWITCHER));
 
-const submitButton = () =>
-	screen.getAllByRole<HTMLButtonElement>("button").filter((button) => button.type === "submit")[0];
+const submitButton = () => {
+	const button = screen
+		.getAllByRole<HTMLButtonElement>("button")
+		.find((candidate) => candidate.type === "submit");
+	if (!button) {
+		throw new Error("Missing submit button");
+	}
+	return button;
+};
 
 function renderCredentialsForm(overrides?: {
 	mode?: AuthMode;
 	disabled?: boolean;
+	submitError?: string;
 	signupAllowed?: boolean;
 }) {
-	const onModeChange = vi.fn();
-	const onSubmit = vi.fn<
-		(values: { email: string; password: string }) => Promise<string | undefined>
-	>(async () => undefined);
+	const modeChanges: AuthMode[] = [];
+	const submissions: CredentialsValues[] = [];
+	const onModeChange = (mode: AuthMode) => modeChanges.push(mode);
+	const onSubmit = (values: CredentialsValues) => {
+		submissions.push(values);
+		return Promise.resolve(overrides?.submitError);
+	};
 	const props = {
 		onSubmit,
 		onModeChange,
@@ -30,16 +42,23 @@ function renderCredentialsForm(overrides?: {
 	};
 	const view = render(<CredentialsForm {...props} />);
 
-	return { view, props, onSubmit, onModeChange, user: userEvent.setup() };
+	return { modeChanges, props, submissions, user: userEvent.setup(), view };
 }
 
 function renderTwoFactorForm(overrides?: {
+	submitError?: string;
 	method?: TwoFactorMethod;
 	methods?: readonly TwoFactorMethod[];
 }) {
-	const onBack = vi.fn();
-	const onMethodChange = vi.fn();
-	const onSubmit = vi.fn<(code: string) => Promise<string | undefined>>(async () => undefined);
+	const backRequests: true[] = [];
+	const submissions: string[] = [];
+	const methodChanges: TwoFactorMethod[] = [];
+	const onBack = () => backRequests.push(true);
+	const onMethodChange = (method: TwoFactorMethod) => methodChanges.push(method);
+	const onSubmit = (code: string) => {
+		submissions.push(code);
+		return Promise.resolve(overrides?.submitError);
+	};
 	const props = {
 		onBack,
 		onSubmit,
@@ -49,7 +68,7 @@ function renderTwoFactorForm(overrides?: {
 	};
 	const view = render(<TwoFactorForm {...props} />);
 
-	return { view, props, onBack, onSubmit, onMethodChange, user: userEvent.setup() };
+	return { backRequests, methodChanges, props, submissions, user: userEvent.setup(), view };
 }
 
 describe("credentials form", () => {
@@ -63,8 +82,8 @@ describe("credentials form", () => {
 				mode="login"
 				signupAllowed
 				disabled={false}
-				onModeChange={vi.fn()}
-				onSubmit={async () => undefined}
+				onModeChange={() => undefined}
+				onSubmit={() => Promise.resolve(undefined)}
 			/>,
 		);
 
@@ -78,7 +97,7 @@ describe("credentials form", () => {
 	});
 
 	it("keeps the email and clears the password when switching to signup", async () => {
-		const { user, onModeChange } = renderCredentialsForm();
+		const { modeChanges, user } = renderCredentialsForm();
 		const email = screen.getByLabelText<HTMLInputElement>("Email address");
 		const password = screen.getByLabelText<HTMLInputElement>("Password");
 
@@ -86,37 +105,37 @@ describe("credentials form", () => {
 		await user.type(password, "Sup3rSecret");
 		await user.click(modeSwitcher().getByRole("button", { name: "Sign up" }));
 
-		expect(onModeChange).toHaveBeenCalledWith("signup");
+		expect(modeChanges).toEqual(["signup"]);
 		expect(email.value).toBe("user@example.com");
 		expect(password.value).toBe("");
 	});
 
 	it("moves focus to the password field when Enter is pressed in the email field", async () => {
-		const { user, onSubmit } = renderCredentialsForm();
+		const { submissions, user } = renderCredentialsForm();
 
 		await user.type(screen.getByLabelText("Email address"), "user@example.com{Enter}");
 
 		expect(document.activeElement).toBe(screen.getByLabelText("Password"));
-		expect(onSubmit).not.toHaveBeenCalled();
+		expect(submissions).toEqual([]);
 	});
 
 	it("submits normalized credentials once", async () => {
-		const { user, onSubmit } = renderCredentialsForm();
+		const { submissions, user } = renderCredentialsForm();
 
 		await user.type(screen.getByLabelText("Email address"), "  USER@Example.COM  ");
 		await user.type(screen.getByLabelText("Password"), "Sup3rSecret");
 		await user.click(submitButton());
 
-		expect(onSubmit).toHaveBeenCalledTimes(1);
-		expect(onSubmit).toHaveBeenCalledWith({
-			password: "Sup3rSecret",
-			email: "user@example.com",
-		});
+		expect(submissions).toEqual([
+			{
+				password: "Sup3rSecret",
+				email: "user@example.com",
+			},
+		]);
 	});
 
 	it("shows a submission error until the password changes", async () => {
-		const { user, onSubmit } = renderCredentialsForm();
-		onSubmit.mockResolvedValue("Invalid credentials.");
+		const { user } = renderCredentialsForm({ submitError: "Invalid credentials." });
 
 		await user.type(screen.getByLabelText("Email address"), "user@example.com");
 		await user.type(screen.getByLabelText("Password"), "Sup3rSecret");
@@ -174,9 +193,9 @@ describe("two-factor form", () => {
 			<TwoFactorForm
 				method="backupCode"
 				methods={["totp", "backupCode"]}
-				onBack={vi.fn()}
-				onMethodChange={vi.fn()}
-				onSubmit={async () => undefined}
+				onBack={() => undefined}
+				onMethodChange={() => undefined}
+				onSubmit={() => Promise.resolve(undefined)}
 			/>,
 		);
 
@@ -191,24 +210,23 @@ describe("two-factor form", () => {
 		expect(screen.queryByRole("button", { name: "Use a backup code" })).toBeNull();
 
 		single.view.unmount();
-		const { user, onMethodChange } = renderTwoFactorForm();
+		const { methodChanges, user } = renderTwoFactorForm();
 		await user.click(screen.getByRole("button", { name: "Use a backup code" }));
 
-		expect(onMethodChange).toHaveBeenCalledWith("backupCode");
+		expect(methodChanges).toEqual(["backupCode"]);
 	});
 
 	it("submits the trimmed code", async () => {
-		const { user, onSubmit } = renderTwoFactorForm({ method: "backupCode" });
+		const { submissions, user } = renderTwoFactorForm({ method: "backupCode" });
 
 		await user.type(screen.getByLabelText("Backup code"), " 123456 ");
 		await user.click(screen.getByRole("button", { name: "Verify" }));
 
-		expect(onSubmit).toHaveBeenCalledWith("123456");
+		expect(submissions).toEqual(["123456"]);
 	});
 
 	it("shows a submission error and clears the code", async () => {
-		const { user, onSubmit } = renderTwoFactorForm();
-		onSubmit.mockResolvedValue("That code did not work.");
+		const { user } = renderTwoFactorForm({ submitError: "That code did not work." });
 
 		await user.type(screen.getByLabelText("Authenticator code"), "123456");
 		await user.click(screen.getByRole("button", { name: "Verify" }));
@@ -218,10 +236,10 @@ describe("two-factor form", () => {
 	});
 
 	it("returns to sign in", async () => {
-		const { user, onBack } = renderTwoFactorForm();
+		const { backRequests, user } = renderTwoFactorForm();
 
 		await user.click(screen.getByRole("button", { name: "Back to sign in" }));
 
-		expect(onBack).toHaveBeenCalledTimes(1);
+		expect(backRequests).toEqual([true]);
 	});
 });
