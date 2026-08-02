@@ -126,6 +126,17 @@ export function getWorkspaceSummary(items: Pick<NavigationItems, "savedViews" | 
 	return `${views} · ${savedViews}`;
 }
 
+export function getWorkspacePickerSummary(items: Pick<NavigationItems, "views">) {
+	const views = items.views.filter((item) => item.kind !== "home");
+	if (views.length === 0) {
+		return "Custom workspace · 0 views";
+	}
+
+	const names = views.slice(0, 3).map((item) => item.name);
+	const remaining = views.length - names.length;
+	return `${names.join(", ")}${remaining > 0 ? ` +${remaining}` : ""}`;
+}
+
 export function getCurrentWorkspace(
 	workspaces: readonly NavigationWorkspace[],
 	routeWorkspace: string | undefined,
