@@ -144,7 +144,7 @@ Filters should open in a bottom sheet rather than expanding inside the header. T
 [Filters 3]
 ```
 
-The sheet can contain filtering, sorting, grouping, and saved-view-specific options. This scales better across movies, books, music, workouts, and other domains.
+The sheet can contain filtering, sorting, grouping, and saved-view-specific options. For this task, the sheet will contain only the already existing layout switcher. No changes are needed.
 
 ### Add behavior
 
