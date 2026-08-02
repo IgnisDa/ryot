@@ -1,0 +1,1955 @@
+{
+	"schemaVersion": 4,
+	"status": "PASS",
+	"machine": {
+		"platform": "darwin",
+		"architecture": "arm64",
+		"osVersion": "26.3.1",
+		"model": "Mac16,12",
+		"logicalCpuCount": 10,
+		"memoryBytes": 17179869184
+	},
+	"toolchain": {
+		"bun": "1.4.0",
+		"bunRevision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676",
+		"gitHead": "1fc9e0490c2e871270558fe3783eb52205d1a49b",
+		"baselineCommit": "4c312ef838bf7bdc38896644f262869750f88d9d",
+		"historicalPreTracerCommit": "5228cc84a29d98283800f90b39434825a407f51a",
+		"gitWorktreeDirty": true,
+		"lockfileSha256": "ca94b1a8fd8200c844df0ac0960ccebcff5df296e912f7f8392c2bc219eade99",
+		"stylex": "0.19.0",
+		"stylexBabelPlugin": "0.19.0",
+		"tailwindcss": "4.3.0"
+	},
+	"method": {
+		"fixtureEquivalence": "Committed StyleX and benchmark-local Tailwind fixtures use graph application=page, production compiler options, two fonts, and one SVG.",
+		"freshProcess": "One uninstrumented fresh Bun process per variant. Process caches are empty; filesystem caches are not flushed.",
+		"warm": "One separate process imports once, discards one forced warmup per variant, then records five rounds. Round order alternates StyleX/Tailwind then Tailwind/StyleX.",
+		"instrumentation": "One separate opt-in fresh process per variant records only monotonic compiler hooks. Instrumented artifacts must match uninstrumented identities.",
+		"configuredBoundary": "Kernel ClientPluginCompiler.layer, semaphore concurrency=2, one supervised Bun --smol child per request, and one tsc semantic-check child per compiler worker; timeout=30000 ms and process-tree proportional-memory limit=1073741824 bytes where Linux /proc supervision is available.",
+		"freshRss": "/usr/bin/time -l maximum resident set size for the direct benchmark process. TypeScript checking runs in a child and is not included in that process high-water mark.",
+		"activation": { "RYOT_STYLEX_TRACER": "unset" }
+	},
+	"measurements": {
+		"stylex": {
+			"artifact": {
+				"identity": "60970b75ddafb5654a4704b480ec30b15b3c8185f9e344bb310faa8c425bb927",
+				"artifactHash": "abbb0f01749da0bd51d7bbb762deabb891df223819d501986dd0037991aab9d1",
+				"compilationMs": 1688.648125,
+				"input": {
+					"manifest": [
+						{
+							"path": "client/page.tsx",
+							"bytes": 2681,
+							"sha256": "6cd94606d0d7abd2d19372f012f9a16b1cb9e49db636470f77f58bc1d61cff76"
+						},
+						{
+							"path": "client/tokens.stylex.ts",
+							"bytes": 161,
+							"sha256": "8348206675c02efe1c8707341df0ddb214bc300421c780eb5a3a661cdb01d8c2"
+						},
+						{
+							"path": "client/tracer-mark.svg",
+							"bytes": 230,
+							"sha256": "a5e59f88773784399e0b12beaabad4fd7dc568fc677667b042045a898e789292"
+						}
+					],
+					"manifestSha256": "4e277fe8e782f4957de93cd8d444a7a383d76abe7c0d0ed9723715aa51c52b3a",
+					"readMs": 0.517875,
+					"fileCount": 3,
+					"bytes": 3072,
+					"textModuleCount": 2
+				},
+				"sizes": {
+					"javascript": { "rawBytes": 606248, "gzipBytes": 188928 },
+					"css": { "rawBytes": 11402, "gzipBytes": 4240 },
+					"javascriptAndCss": { "rawBytes": 617650, "gzipBytes": 193168 },
+					"documentBytes": 538,
+					"fontAssets": { "count": 9, "rawBytes": 205324 },
+					"localAssets": { "count": 1, "rawBytes": 230 },
+					"fullArtifactBytes": 823742,
+					"canonicalSourceArchiveBytes": 2285
+				},
+				"archive": {
+					"readerVerified": true,
+					"identity": "ba424c8d1fde363a89c92cc12945e4822c2828641c8e934e161a3381b6bdd0d8"
+				}
+			},
+			"freshProcess": {
+				"wallMs": 1978.346917,
+				"compilationMs": 1688.648125,
+				"importAndFingerprintMs": 239.836667,
+				"processToCompileReadyMs": 239.870417,
+				"peakRssBytes": 652820480
+			},
+			"warmAlternating": {
+				"samplesMs": [1615.030458, 1665.143542, 1636.481542, 1585.938042, 1659.662834],
+				"medianMs": 1636.481542,
+				"minMs": 1585.938042,
+				"maxMs": 1665.143542
+			},
+			"cache": {
+				"artifactCacheHits": 0,
+				"boundary": "Direct calls and supervised boundary calls always compile; no artifact repository is provided."
+			}
+		},
+		"tailwind": {
+			"artifact": {
+				"identity": "04624a90b81bc8bed1bf8555a478efedf5653a9ca5f568898c02300179739df7",
+				"artifactHash": "3d67c14e70e7ae096e1167de22d9e048ff0c6b0dfbd980dea29db922ffaae947",
+				"compilationMs": 688.027917,
+				"input": {
+					"manifest": [
+						{
+							"path": "client/page.tsx",
+							"bytes": 5183,
+							"sha256": "35063be01343b4508a767124c3457029f5f2d26838e0cc71a6eb5645800b1665"
+						},
+						{
+							"path": "client/styles.css",
+							"bytes": 5689,
+							"sha256": "90a522cbb0bce03afe06d4c568ef61af579d7d83ef1ed71f5d50d3bb76f38120"
+						},
+						{
+							"path": "client/tracer-mark.svg",
+							"bytes": 230,
+							"sha256": "a5e59f88773784399e0b12beaabad4fd7dc568fc677667b042045a898e789292"
+						}
+					],
+					"manifestSha256": "c3cdcab3d5c825da323535a92b019eb4227f550f81a5e87a84c25b3ed31aecc5",
+					"readMs": 0.657208,
+					"fileCount": 3,
+					"bytes": 11102,
+					"textModuleCount": 1
+				},
+				"sizes": {
+					"javascript": { "rawBytes": 597595, "gzipBytes": 185327 },
+					"css": { "rawBytes": 44586, "gzipBytes": 9853 },
+					"javascriptAndCss": { "rawBytes": 642181, "gzipBytes": 195180 },
+					"documentBytes": 538,
+					"fontAssets": { "count": 9, "rawBytes": 205324 },
+					"localAssets": { "count": 1, "rawBytes": 230 },
+					"fullArtifactBytes": 848273,
+					"canonicalSourceArchiveBytes": 4571
+				},
+				"archive": {
+					"readerVerified": true,
+					"identity": "b2b5350b444f9b420530cdc9676342d19c093eeb59035b84c11ac3915d12ce42"
+				}
+			},
+			"freshProcess": {
+				"wallMs": 883.528042,
+				"compilationMs": 688.027917,
+				"importAndFingerprintMs": 155.945292,
+				"processToCompileReadyMs": 155.985084,
+				"peakRssBytes": 382599168
+			},
+			"warmAlternating": {
+				"samplesMs": [652.647917, 674.679625, 661.040667, 648.430916, 684.174083],
+				"medianMs": 661.040667,
+				"minMs": 648.430916,
+				"maxMs": 684.174083
+			},
+			"cache": {
+				"artifactCacheHits": 0,
+				"boundary": "Direct calls and supervised boundary calls always compile; no artifact repository is provided."
+			}
+		}
+	},
+	"alternatingRun": {
+		"order": [
+			{ "round": 1, "order": ["stylex", "tailwind"], "variant": "stylex" },
+			{ "round": 1, "order": ["stylex", "tailwind"], "variant": "tailwind" },
+			{ "round": 2, "order": ["tailwind", "stylex"], "variant": "tailwind" },
+			{ "round": 2, "order": ["tailwind", "stylex"], "variant": "stylex" },
+			{ "round": 3, "order": ["stylex", "tailwind"], "variant": "stylex" },
+			{ "round": 3, "order": ["stylex", "tailwind"], "variant": "tailwind" },
+			{ "round": 4, "order": ["tailwind", "stylex"], "variant": "tailwind" },
+			{ "round": 4, "order": ["tailwind", "stylex"], "variant": "stylex" },
+			{ "round": 5, "order": ["stylex", "tailwind"], "variant": "stylex" },
+			{ "round": 5, "order": ["stylex", "tailwind"], "variant": "tailwind" }
+		],
+		"processWallMs": 14153.180167,
+		"peakRssBytes": 654688256
+	},
+	"instrumented": {
+		"stylex": {
+			"wallMs": 1968.31525,
+			"peakRssBytes": 653410304,
+			"importAndFingerprintMs": 243.737709,
+			"processToCompileReadyMs": 243.797,
+			"artifactIdentity": "60970b75ddafb5654a4704b480ec30b15b3c8185f9e344bb310faa8c425bb927",
+			"instrumentation": {
+				"traceId": "direct-stylex",
+				"pid": 49099,
+				"spans": [
+					{
+						"name": "input-validation",
+						"startedNs": 252076208,
+						"endedNs": 252314625,
+						"durationMs": 0.238417,
+						"inclusive": false,
+						"label": "exact"
+					},
+					{
+						"name": "original-source-preflight",
+						"startedNs": 252316792,
+						"endedNs": 281298917,
+						"durationMs": 28.982125,
+						"inclusive": false,
+						"label": "exact"
+					},
+					{
+						"name": "dependency-reads",
+						"startedNs": 281366333,
+						"endedNs": 285468375,
+						"durationMs": 4.102042,
+						"inclusive": false,
+						"label": "exact"
+					},
+					{
+						"name": "trusted-reads-materialization",
+						"startedNs": 285627208,
+						"endedNs": 299706667,
+						"durationMs": 14.079459,
+						"inclusive": true,
+						"label": "inclusive"
+					},
+					{
+						"name": "stylex-transform",
+						"startedNs": 300854458,
+						"endedNs": 307067875,
+						"durationMs": 6.213417,
+						"inclusive": true,
+						"label": "inclusive"
+					},
+					{
+						"name": "stylex-transform",
+						"startedNs": 307344125,
+						"endedNs": 320311292,
+						"durationMs": 12.967167,
+						"inclusive": true,
+						"label": "inclusive"
+					},
+					{
+						"name": "stylex-transform",
+						"startedNs": 321913167,
+						"endedNs": 323126333,
+						"durationMs": 1.213166,
+						"inclusive": true,
+						"label": "inclusive"
+					},
+					{
+						"name": "stylex-transform",
+						"startedNs": 323141750,
+						"endedNs": 325885625,
+						"durationMs": 2.743875,
+						"inclusive": true,
+						"label": "inclusive"
+					},
+					{
+						"name": "stylex-transform",
+						"startedNs": 326909292,
+						"endedNs": 328282208,
+						"durationMs": 1.372916,
+						"inclusive": true,
+						"label": "inclusive"
+					},
+					{
+						"name": "stylex-transform",
+						"startedNs": 330482833,
+						"endedNs": 336826833,
+						"durationMs": 6.344,
+						"inclusive": true,
+						"label": "inclusive"
+					},
+					{
+						"name": "stylex-transform",
+						"startedNs": 336845375,
+						"endedNs": 345489500,
+						"durationMs": 8.644125,
+						"inclusive": true,
+						"label": "inclusive"
+					},
+					{
+						"name": "cleanup",
+						"startedNs": 360125500,
+						"endedNs": 360562417,
+						"durationMs": 0.436917,
+						"inclusive": true,
+						"label": "inclusive"
+					},
+					{
+						"name": "bundle",
+						"startedNs": 285480167,
+						"endedNs": 360792833,
+						"durationMs": 75.312666,
+						"inclusive": true,
+						"label": "inclusive"
+					},
+					{
+						"name": "typescript-check",
+						"startedNs": 360846833,
+						"endedNs": 1917387625,
+						"durationMs": 1556.540792,
+						"inclusive": false,
+						"label": "exact"
+					},
+					{
+						"name": "css-emission",
+						"startedNs": 1917398250,
+						"endedNs": 1918549833,
+						"durationMs": 1.151583,
+						"inclusive": false,
+						"label": "exact"
+					},
+					{
+						"name": "assets",
+						"startedNs": 1918595042,
+						"endedNs": 1918617292,
+						"durationMs": 0.02225,
+						"inclusive": false,
+						"label": "exact"
+					},
+					{
+						"name": "hashing-artifact",
+						"startedNs": 1918629042,
+						"endedNs": 1919317167,
+						"durationMs": 0.688125,
+						"inclusive": false,
+						"label": "exact"
+					},
+					{
+						"name": "compilation-total",
+						"startedNs": 252075708,
+						"endedNs": 1919317708,
+						"durationMs": 1667.242,
+						"inclusive": true,
+						"label": "inclusive"
+					}
+				],
+				"counters": {
+					"input-file-count": 3,
+					"input-source-bytes": 3072,
+					"input-text-module-count": 2,
+					"input-asset-count": 1,
+					"font-asset-count": 9,
+					"font-asset-bytes": 205324,
+					"trusted-source-count": 6,
+					"trusted-source-bytes": 26049,
+					"materialized-source-count": 3,
+					"materialized-source-bytes": 2994,
+					"stylex-transformed-module-count": 7,
+					"stylex-rule-count": 158,
+					"typescript-source-count": 4,
+					"stylex-css-rule-count": 158,
+					"css-output-bytes": 11402,
+					"emitted-asset-count": 10,
+					"emitted-asset-bytes": 205554,
+					"artifact-file-count": 13,
+					"artifact-bytes": 823742
+				},
+				"uninstrumentedResidualMs": 0.2039999999999509,
+				"residualMeaning": "Compilation-total minus sequential top-level hooked spans. It includes generated-entry setup, reachability/limit checks, and other code without a hook. Nested inclusive spans are excluded from this subtraction."
+			}
+		},
+		"tailwind": {
+			"wallMs": 889.956584,
+			"peakRssBytes": 381337600,
+			"importAndFingerprintMs": 157.143541,
+			"processToCompileReadyMs": 157.183667,
+			"artifactIdentity": "04624a90b81bc8bed1bf8555a478efedf5653a9ca5f568898c02300179739df7",
+			"instrumentation": {
+				"traceId": "direct-tailwind",
+				"pid": 49120,
+				"spans": [
+					{
+						"name": "input-validation",
+						"startedNs": 162548000,
+						"endedNs": 162774875,
+						"durationMs": 0.226875,
+						"inclusive": false,
+						"label": "exact"
+					},
+					{
+						"name": "dependency-reads",
+						"startedNs": 162837834,
+						"endedNs": 167783542,
+						"durationMs": 4.945708,
+						"inclusive": false,
+						"label": "exact"
+					},
+					{
+						"name": "bundle",
+						"startedNs": 167790959,
+						"endedNs": 188479209,
+						"durationMs": 20.68825,
+						"inclusive": true,
+						"label": "inclusive"
+					},
+					{
+						"name": "typescript-check",
+						"startedNs": 188541459,
+						"endedNs": 830052209,
+						"durationMs": 641.51075,
+						"inclusive": false,
+						"label": "exact"
+					},
+					{
+						"name": "css-emission",
+						"startedNs": 830058417,
+						"endedNs": 851556375,
+						"durationMs": 21.497958,
+						"inclusive": false,
+						"label": "exact"
+					},
+					{
+						"name": "assets",
+						"startedNs": 851671667,
+						"endedNs": 851684542,
+						"durationMs": 0.012875,
+						"inclusive": false,
+						"label": "exact"
+					},
+					{
+						"name": "hashing-artifact",
+						"startedNs": 851695459,
+						"endedNs": 852394709,
+						"durationMs": 0.69925,
+						"inclusive": false,
+						"label": "exact"
+					},
+					{
+						"name": "compilation-total",
+						"startedNs": 162547625,
+						"endedNs": 852395167,
+						"durationMs": 689.847542,
+						"inclusive": true,
+						"label": "inclusive"
+					}
+				],
+				"counters": {
+					"input-file-count": 3,
+					"input-source-bytes": 11102,
+					"input-text-module-count": 2,
+					"input-asset-count": 1,
+					"font-asset-count": 9,
+					"font-asset-bytes": 205324,
+					"typescript-source-count": 4,
+					"tailwind-scan-source-count": 55,
+					"tailwind-candidate-count": 1979,
+					"css-output-bytes": 44586,
+					"emitted-asset-count": 10,
+					"emitted-asset-bytes": 205554,
+					"artifact-file-count": 13,
+					"artifact-bytes": 848273
+				},
+				"uninstrumentedResidualMs": 0.2658759999999347,
+				"residualMeaning": "Compilation-total minus sequential top-level hooked spans. It includes generated-entry setup, reachability/limit checks, and other code without a hook. Nested inclusive spans are excluded from this subtraction."
+			}
+		}
+	},
+	"concurrency": {
+		"stylex": {
+			"single": {
+				"variant": "stylex",
+				"pairWallMs": 1981.24975,
+				"builds": [
+					{ "index": 0, "startedMs": 1.893375, "finishedMs": 1980.976958, "cssIsolation": true }
+				],
+				"mode": "single",
+				"overlapMs": null,
+				"orchestratorPid": 49122,
+				"observedProcesses": [
+					{ "pid": 49122, "command": "(bun)", "peakRssBytes": 155811840 },
+					{
+						"pid": 49154,
+						"command": "/Users/diptesh/.proto/tools/bun/1.4.0/bun",
+						"peakRssBytes": 261242880
+					},
+					{ "pid": 49172, "command": "(tsc)", "peakRssBytes": 649281536 }
+				],
+				"sampledAggregatePeakRssBytes": 963248128,
+				"instrumentation": [
+					{
+						"traceId": "boundary-stylex-single-1",
+						"pid": 49154,
+						"spans": [
+							{
+								"name": "input-validation",
+								"startedNs": 167838291,
+								"endedNs": 168069500,
+								"durationMs": 0.231209,
+								"inclusive": false
+							},
+							{
+								"name": "original-source-preflight",
+								"startedNs": 168071375,
+								"endedNs": 190275916,
+								"durationMs": 22.204541,
+								"inclusive": false
+							},
+							{
+								"name": "dependency-reads",
+								"startedNs": 190332375,
+								"endedNs": 196060375,
+								"durationMs": 5.728,
+								"inclusive": false
+							},
+							{
+								"name": "trusted-reads-materialization",
+								"startedNs": 196135083,
+								"endedNs": 210930250,
+								"durationMs": 14.795167,
+								"inclusive": true
+							},
+							{
+								"name": "stylex-transform",
+								"startedNs": 212066375,
+								"endedNs": 218192708,
+								"durationMs": 6.126333,
+								"inclusive": true
+							},
+							{
+								"name": "stylex-transform",
+								"startedNs": 218481625,
+								"endedNs": 233700000,
+								"durationMs": 15.218375,
+								"inclusive": true
+							},
+							{
+								"name": "stylex-transform",
+								"startedNs": 236349708,
+								"endedNs": 237932041,
+								"durationMs": 1.582333,
+								"inclusive": true
+							},
+							{
+								"name": "stylex-transform",
+								"startedNs": 238015750,
+								"endedNs": 240818083,
+								"durationMs": 2.802333,
+								"inclusive": true
+							},
+							{
+								"name": "stylex-transform",
+								"startedNs": 240848083,
+								"endedNs": 241847666,
+								"durationMs": 0.999583,
+								"inclusive": true
+							},
+							{
+								"name": "stylex-transform",
+								"startedNs": 244725750,
+								"endedNs": 252361833,
+								"durationMs": 7.636083,
+								"inclusive": true
+							},
+							{
+								"name": "stylex-transform",
+								"startedNs": 252381041,
+								"endedNs": 261584333,
+								"durationMs": 9.203292,
+								"inclusive": true
+							},
+							{
+								"name": "cleanup",
+								"startedNs": 273757583,
+								"endedNs": 274225125,
+								"durationMs": 0.467542,
+								"inclusive": true
+							},
+							{
+								"name": "bundle",
+								"startedNs": 196070000,
+								"endedNs": 274483250,
+								"durationMs": 78.41325,
+								"inclusive": true
+							},
+							{
+								"name": "typescript-check",
+								"startedNs": 274536583,
+								"endedNs": 1920615000,
+								"durationMs": 1646.078417,
+								"inclusive": false
+							},
+							{
+								"name": "css-emission",
+								"startedNs": 1920622500,
+								"endedNs": 1921701625,
+								"durationMs": 1.079125,
+								"inclusive": false
+							},
+							{
+								"name": "assets",
+								"startedNs": 1921752333,
+								"endedNs": 1921772333,
+								"durationMs": 0.02,
+								"inclusive": false
+							},
+							{
+								"name": "hashing-artifact",
+								"startedNs": 1921783916,
+								"endedNs": 1922528708,
+								"durationMs": 0.744792,
+								"inclusive": false
+							},
+							{
+								"name": "compilation-total",
+								"startedNs": 167837666,
+								"endedNs": 1922529041,
+								"durationMs": 1754.691375,
+								"inclusive": true
+							}
+						],
+						"counters": {
+							"input-file-count": 3,
+							"input-source-bytes": 3072,
+							"input-text-module-count": 2,
+							"input-asset-count": 1,
+							"font-asset-count": 9,
+							"font-asset-bytes": 205324,
+							"trusted-source-count": 6,
+							"trusted-source-bytes": 26049,
+							"materialized-source-count": 3,
+							"materialized-source-bytes": 2994,
+							"stylex-transformed-module-count": 7,
+							"stylex-rule-count": 158,
+							"typescript-source-count": 4,
+							"stylex-css-rule-count": 158,
+							"css-output-bytes": 11402,
+							"emitted-asset-count": 10,
+							"emitted-asset-bytes": 205554,
+							"artifact-file-count": 13,
+							"artifact-bytes": 823742
+						},
+						"worker": {
+							"processStartedNs": 3055625,
+							"importsReadyNs": 163264416,
+							"requestReadStartedNs": 3055916,
+							"artifactReadyNs": 1922577750
+						}
+					}
+				],
+				"rssCaveat": "5 ms ps samples can miss short-lived peaks. Aggregate RSS double-counts shared pages and is not proportional memory. macOS does not enforce the Linux /proc proportional-memory limit."
+			},
+			"pair": {
+				"variant": "stylex",
+				"pairWallMs": 2146.489959,
+				"builds": [
+					{ "index": 0, "startedMs": 1.976667, "finishedMs": 2126.850459, "cssIsolation": true },
+					{ "index": 1, "startedMs": 4.131084, "finishedMs": 2146.162, "cssIsolation": true }
+				],
+				"mode": "pair",
+				"overlapMs": 2122.7193749999997,
+				"orchestratorPid": 49284,
+				"observedProcesses": [
+					{ "pid": 49284, "command": "(bun)", "peakRssBytes": 183959552 },
+					{
+						"pid": 49298,
+						"command": "/Users/diptesh/.proto/tools/bun/1.4.0/bun",
+						"peakRssBytes": 262045696
+					},
+					{
+						"pid": 49299,
+						"command": "/Users/diptesh/.proto/tools/bun/1.4.0/bun",
+						"peakRssBytes": 266698752
+					},
+					{ "pid": 49316, "command": "(tsc)", "peakRssBytes": 685375488 },
+					{ "pid": 49317, "command": "(tsc)", "peakRssBytes": 652673024 }
+				],
+				"sampledAggregatePeakRssBytes": 1775534080,
+				"instrumentation": [
+					{
+						"traceId": "boundary-stylex-pair-1",
+						"pid": 49298,
+						"spans": [
+							{
+								"name": "input-validation",
+								"startedNs": 176164791,
+								"endedNs": 176409583,
+								"durationMs": 0.244792,
+								"inclusive": false
+							},
+							{
+								"name": "original-source-preflight",
+								"startedNs": 176411375,
+								"endedNs": 199953666,
+								"durationMs": 23.542291,
+								"inclusive": false
+							},
+							{
+								"name": "dependency-reads",
+								"startedNs": 200004583,
+								"endedNs": 203506833,
+								"durationMs": 3.50225,
+								"inclusive": false
+							},
+							{
+								"name": "trusted-reads-materialization",
+								"startedNs": 203586375,
+								"endedNs": 225066583,
+								"durationMs": 21.480208,
+								"inclusive": true
+							},
+							{
+								"name": "stylex-transform",
+								"startedNs": 226464833,
+								"endedNs": 233862166,
+								"durationMs": 7.397333,
+								"inclusive": true
+							},
+							{
+								"name": "stylex-transform",
+								"startedNs": 234287083,
+								"endedNs": 243526625,
+								"durationMs": 9.239542,
+								"inclusive": true
+							},
+							{
+								"name": "stylex-transform",
+								"startedNs": 246724958,
+								"endedNs": 249323500,
+								"durationMs": 2.598542,
+								"inclusive": true
+							},
+							{
+								"name": "stylex-transform",
+								"startedNs": 249361333,
+								"endedNs": 256758833,
+								"durationMs": 7.3975,
+								"inclusive": true
+							},
+							{
+								"name": "stylex-transform",
+								"startedNs": 257055541,
+								"endedNs": 259734166,
+								"durationMs": 2.678625,
+								"inclusive": true
+							},
+							{
+								"name": "stylex-transform",
+								"startedNs": 264542333,
+								"endedNs": 275850083,
+								"durationMs": 11.30775,
+								"inclusive": true
+							},
+							{
+								"name": "stylex-transform",
+								"startedNs": 275887125,
+								"endedNs": 289775458,
+								"durationMs": 13.888333,
+								"inclusive": true
+							},
+							{
+								"name": "cleanup",
+								"startedNs": 309599458,
+								"endedNs": 310037083,
+								"durationMs": 0.437625,
+								"inclusive": true
+							},
+							{
+								"name": "bundle",
+								"startedNs": 203517000,
+								"endedNs": 310271416,
+								"durationMs": 106.754416,
+								"inclusive": true
+							},
+							{
+								"name": "typescript-check",
+								"startedNs": 310312208,
+								"endedNs": 2058940500,
+								"durationMs": 1748.628292,
+								"inclusive": false
+							},
+							{
+								"name": "css-emission",
+								"startedNs": 2058948375,
+								"endedNs": 2060314750,
+								"durationMs": 1.366375,
+								"inclusive": false
+							},
+							{
+								"name": "assets",
+								"startedNs": 2060362791,
+								"endedNs": 2060395750,
+								"durationMs": 0.032959,
+								"inclusive": false
+							},
+							{
+								"name": "hashing-artifact",
+								"startedNs": 2060408541,
+								"endedNs": 2061278666,
+								"durationMs": 0.870125,
+								"inclusive": false
+							},
+							{
+								"name": "compilation-total",
+								"startedNs": 176164000,
+								"endedNs": 2061279291,
+								"durationMs": 1885.115291,
+								"inclusive": true
+							}
+						],
+						"counters": {
+							"input-file-count": 3,
+							"input-source-bytes": 3072,
+							"input-text-module-count": 2,
+							"input-asset-count": 1,
+							"font-asset-count": 9,
+							"font-asset-bytes": 205324,
+							"trusted-source-count": 6,
+							"trusted-source-bytes": 26049,
+							"materialized-source-count": 3,
+							"materialized-source-bytes": 2994,
+							"stylex-transformed-module-count": 7,
+							"stylex-rule-count": 158,
+							"typescript-source-count": 4,
+							"stylex-css-rule-count": 158,
+							"css-output-bytes": 11402,
+							"emitted-asset-count": 10,
+							"emitted-asset-bytes": 205554,
+							"artifact-file-count": 13,
+							"artifact-bytes": 823742
+						},
+						"worker": {
+							"processStartedNs": 3656083,
+							"importsReadyNs": 169257333,
+							"requestReadStartedNs": 3656375,
+							"artifactReadyNs": 2061347166
+						}
+					},
+					{
+						"traceId": "boundary-stylex-pair-2",
+						"pid": 49299,
+						"spans": [
+							{
+								"name": "input-validation",
+								"startedNs": 174333417,
+								"endedNs": 174626084,
+								"durationMs": 0.292667,
+								"inclusive": false
+							},
+							{
+								"name": "original-source-preflight",
+								"startedNs": 174628334,
+								"endedNs": 197781334,
+								"durationMs": 23.153,
+								"inclusive": false
+							},
+							{
+								"name": "dependency-reads",
+								"startedNs": 197831584,
+								"endedNs": 202068625,
+								"durationMs": 4.237041,
+								"inclusive": false
+							},
+							{
+								"name": "trusted-reads-materialization",
+								"startedNs": 202141000,
+								"endedNs": 226690500,
+								"durationMs": 24.5495,
+								"inclusive": true
+							},
+							{
+								"name": "stylex-transform",
+								"startedNs": 228272167,
+								"endedNs": 234891750,
+								"durationMs": 6.619583,
+								"inclusive": true
+							},
+							{
+								"name": "stylex-transform",
+								"startedNs": 235234750,
+								"endedNs": 245648959,
+								"durationMs": 10.414209,
+								"inclusive": true
+							},
+							{
+								"name": "stylex-transform",
+								"startedNs": 247010459,
+								"endedNs": 248288917,
+								"durationMs": 1.278458,
+								"inclusive": true
+							},
+							{
+								"name": "stylex-transform",
+								"startedNs": 248307667,
+								"endedNs": 253067417,
+								"durationMs": 4.75975,
+								"inclusive": true
+							},
+							{
+								"name": "stylex-transform",
+								"startedNs": 253096334,
+								"endedNs": 254194167,
+								"durationMs": 1.097833,
+								"inclusive": true
+							},
+							{
+								"name": "stylex-transform",
+								"startedNs": 258097125,
+								"endedNs": 265489542,
+								"durationMs": 7.392417,
+								"inclusive": true
+							},
+							{
+								"name": "stylex-transform",
+								"startedNs": 265510959,
+								"endedNs": 282287125,
+								"durationMs": 16.776166,
+								"inclusive": true
+							},
+							{
+								"name": "cleanup",
+								"startedNs": 308641750,
+								"endedNs": 309124542,
+								"durationMs": 0.482792,
+								"inclusive": true
+							},
+							{
+								"name": "bundle",
+								"startedNs": 202079500,
+								"endedNs": 309376334,
+								"durationMs": 107.296834,
+								"inclusive": true
+							},
+							{
+								"name": "typescript-check",
+								"startedNs": 309426167,
+								"endedNs": 2060782417,
+								"durationMs": 1751.35625,
+								"inclusive": false
+							},
+							{
+								"name": "css-emission",
+								"startedNs": 2060787625,
+								"endedNs": 2061998459,
+								"durationMs": 1.210834,
+								"inclusive": false
+							},
+							{
+								"name": "assets",
+								"startedNs": 2062078084,
+								"endedNs": 2062112459,
+								"durationMs": 0.034375,
+								"inclusive": false
+							},
+							{
+								"name": "hashing-artifact",
+								"startedNs": 2062129000,
+								"endedNs": 2063010625,
+								"durationMs": 0.881625,
+								"inclusive": false
+							},
+							{
+								"name": "compilation-total",
+								"startedNs": 174332500,
+								"endedNs": 2063011250,
+								"durationMs": 1888.67875,
+								"inclusive": true
+							}
+						],
+						"counters": {
+							"input-file-count": 3,
+							"input-source-bytes": 3072,
+							"input-text-module-count": 2,
+							"input-asset-count": 1,
+							"font-asset-count": 9,
+							"font-asset-bytes": 205324,
+							"trusted-source-count": 6,
+							"trusted-source-bytes": 26049,
+							"materialized-source-count": 3,
+							"materialized-source-bytes": 2994,
+							"stylex-transformed-module-count": 7,
+							"stylex-rule-count": 158,
+							"typescript-source-count": 4,
+							"stylex-css-rule-count": 158,
+							"css-output-bytes": 11402,
+							"emitted-asset-count": 10,
+							"emitted-asset-bytes": 205554,
+							"artifact-file-count": 13,
+							"artifact-bytes": 823742
+						},
+						"worker": {
+							"processStartedNs": 3054417,
+							"importsReadyNs": 169519459,
+							"requestReadStartedNs": 3054750,
+							"artifactReadyNs": 2063084792
+						}
+					}
+				],
+				"rssCaveat": "5 ms ps samples can miss short-lived peaks. Aggregate RSS double-counts shared pages and is not proportional memory. macOS does not enforce the Linux /proc proportional-memory limit."
+			}
+		},
+		"tailwind": {
+			"single": {
+				"variant": "tailwind",
+				"pairWallMs": 922.85575,
+				"builds": [
+					{ "index": 0, "startedMs": 1.834708, "finishedMs": 922.5565, "cssIsolation": true }
+				],
+				"mode": "single",
+				"overlapMs": null,
+				"orchestratorPid": 49418,
+				"observedProcesses": [
+					{ "pid": 49418, "command": "(bun)", "peakRssBytes": 170393600 },
+					{ "pid": 49432, "command": "(bun)", "peakRssBytes": 253263872 },
+					{
+						"pid": 49446,
+						"command": "/Users/diptesh/Desktop/Personal/ryot/tmp/worktrees/stylex/node_modules/.bun/@typescript+typescript-darwin-arm64@7.0.2/node_modules/@typescript/typescript-darwin-arm64/lib/tsc",
+						"peakRssBytes": 384270336
+					}
+				],
+				"sampledAggregatePeakRssBytes": 728711168,
+				"instrumentation": [
+					{
+						"traceId": "boundary-tailwind-single-1",
+						"pid": 49432,
+						"spans": [
+							{
+								"name": "input-validation",
+								"startedNs": 175957791,
+								"endedNs": 176192458,
+								"durationMs": 0.234667,
+								"inclusive": false
+							},
+							{
+								"name": "dependency-reads",
+								"startedNs": 176229625,
+								"endedNs": 181027125,
+								"durationMs": 4.7975,
+								"inclusive": false
+							},
+							{
+								"name": "bundle",
+								"startedNs": 181037083,
+								"endedNs": 203316625,
+								"durationMs": 22.279542,
+								"inclusive": true
+							},
+							{
+								"name": "typescript-check",
+								"startedNs": 203362416,
+								"endedNs": 850150500,
+								"durationMs": 646.788084,
+								"inclusive": false
+							},
+							{
+								"name": "css-emission",
+								"startedNs": 850156083,
+								"endedNs": 870683125,
+								"durationMs": 20.527042,
+								"inclusive": false
+							},
+							{
+								"name": "assets",
+								"startedNs": 870809625,
+								"endedNs": 870824958,
+								"durationMs": 0.015333,
+								"inclusive": false
+							},
+							{
+								"name": "hashing-artifact",
+								"startedNs": 870836125,
+								"endedNs": 871442916,
+								"durationMs": 0.606791,
+								"inclusive": false
+							},
+							{
+								"name": "compilation-total",
+								"startedNs": 175957208,
+								"endedNs": 871443375,
+								"durationMs": 695.486167,
+								"inclusive": true
+							}
+						],
+						"counters": {
+							"input-file-count": 3,
+							"input-source-bytes": 11102,
+							"input-text-module-count": 2,
+							"input-asset-count": 1,
+							"font-asset-count": 9,
+							"font-asset-bytes": 205324,
+							"typescript-source-count": 4,
+							"tailwind-scan-source-count": 55,
+							"tailwind-candidate-count": 1979,
+							"css-output-bytes": 44586,
+							"emitted-asset-count": 10,
+							"emitted-asset-bytes": 205554,
+							"artifact-file-count": 13,
+							"artifact-bytes": 848273
+						},
+						"worker": {
+							"processStartedNs": 2624500,
+							"importsReadyNs": 170760833,
+							"requestReadStartedNs": 2624958,
+							"artifactReadyNs": 871493166
+						}
+					}
+				],
+				"rssCaveat": "5 ms ps samples can miss short-lived peaks. Aggregate RSS double-counts shared pages and is not proportional memory. macOS does not enforce the Linux /proc proportional-memory limit."
+			},
+			"pair": {
+				"variant": "tailwind",
+				"pairWallMs": 1113.491459,
+				"builds": [
+					{ "index": 0, "startedMs": 1.813042, "finishedMs": 1113.142875, "cssIsolation": true },
+					{ "index": 1, "startedMs": 4.820209, "finishedMs": 1084.033667, "cssIsolation": true }
+				],
+				"mode": "pair",
+				"overlapMs": 1079.213458,
+				"orchestratorPid": 49492,
+				"observedProcesses": [
+					{ "pid": 49492, "command": "(bun)", "peakRssBytes": 186580992 },
+					{
+						"pid": 49505,
+						"command": "/Users/diptesh/.proto/tools/bun/1.4.0/bun",
+						"peakRssBytes": 266895360
+					},
+					{ "pid": 49506, "command": "(bun)", "peakRssBytes": 263946240 },
+					{
+						"pid": 49520,
+						"command": "/Users/diptesh/Desktop/Personal/ryot/tmp/worktrees/stylex/node_modules/.bun/@typescript+typescript-darwin-arm64@7.0.2/node_modules/@typescript/typescript-darwin-arm64/lib/tsc",
+						"peakRssBytes": 382009344
+					},
+					{ "pid": 49521, "command": "(tsc)", "peakRssBytes": 383827968 }
+				],
+				"sampledAggregatePeakRssBytes": 1350762496,
+				"instrumentation": [
+					{
+						"traceId": "boundary-tailwind-pair-2",
+						"pid": 49506,
+						"spans": [
+							{
+								"name": "input-validation",
+								"startedNs": 170718292,
+								"endedNs": 170947875,
+								"durationMs": 0.229583,
+								"inclusive": false
+							},
+							{
+								"name": "dependency-reads",
+								"startedNs": 170984417,
+								"endedNs": 175651042,
+								"durationMs": 4.666625,
+								"inclusive": false
+							},
+							{
+								"name": "bundle",
+								"startedNs": 175665125,
+								"endedNs": 209438667,
+								"durationMs": 33.773542,
+								"inclusive": true
+							},
+							{
+								"name": "typescript-check",
+								"startedNs": 209489208,
+								"endedNs": 989414667,
+								"durationMs": 779.925459,
+								"inclusive": false
+							},
+							{
+								"name": "css-emission",
+								"startedNs": 989421417,
+								"endedNs": 1013969958,
+								"durationMs": 24.548541,
+								"inclusive": false
+							},
+							{
+								"name": "assets",
+								"startedNs": 1014097167,
+								"endedNs": 1014112792,
+								"durationMs": 0.015625,
+								"inclusive": false
+							},
+							{
+								"name": "hashing-artifact",
+								"startedNs": 1014124500,
+								"endedNs": 1014759708,
+								"durationMs": 0.635208,
+								"inclusive": false
+							},
+							{
+								"name": "compilation-total",
+								"startedNs": 170717625,
+								"endedNs": 1014760292,
+								"durationMs": 844.042667,
+								"inclusive": true
+							}
+						],
+						"counters": {
+							"input-file-count": 3,
+							"input-source-bytes": 11102,
+							"input-text-module-count": 2,
+							"input-asset-count": 1,
+							"font-asset-count": 9,
+							"font-asset-bytes": 205324,
+							"typescript-source-count": 4,
+							"tailwind-scan-source-count": 55,
+							"tailwind-candidate-count": 1979,
+							"css-output-bytes": 44586,
+							"emitted-asset-count": 10,
+							"emitted-asset-bytes": 205554,
+							"artifact-file-count": 13,
+							"artifact-bytes": 848273
+						},
+						"worker": {
+							"processStartedNs": 2073083,
+							"importsReadyNs": 165072417,
+							"requestReadStartedNs": 2073250,
+							"artifactReadyNs": 1014808125
+						}
+					},
+					{
+						"traceId": "boundary-tailwind-pair-1",
+						"pid": 49505,
+						"spans": [
+							{
+								"name": "input-validation",
+								"startedNs": 177463583,
+								"endedNs": 177722792,
+								"durationMs": 0.259209,
+								"inclusive": false
+							},
+							{
+								"name": "dependency-reads",
+								"startedNs": 177757917,
+								"endedNs": 184577167,
+								"durationMs": 6.81925,
+								"inclusive": false
+							},
+							{
+								"name": "bundle",
+								"startedNs": 184604625,
+								"endedNs": 216446458,
+								"durationMs": 31.841833,
+								"inclusive": true
+							},
+							{
+								"name": "typescript-check",
+								"startedNs": 216497625,
+								"endedNs": 1003999458,
+								"durationMs": 787.501833,
+								"inclusive": false
+							},
+							{
+								"name": "css-emission",
+								"startedNs": 1004005000,
+								"endedNs": 1029964083,
+								"durationMs": 25.959083,
+								"inclusive": false
+							},
+							{
+								"name": "assets",
+								"startedNs": 1030140833,
+								"endedNs": 1030161083,
+								"durationMs": 0.02025,
+								"inclusive": false
+							},
+							{
+								"name": "hashing-artifact",
+								"startedNs": 1030175333,
+								"endedNs": 1030870792,
+								"durationMs": 0.695459,
+								"inclusive": false
+							},
+							{
+								"name": "compilation-total",
+								"startedNs": 177463000,
+								"endedNs": 1030871417,
+								"durationMs": 853.408417,
+								"inclusive": true
+							}
+						],
+						"counters": {
+							"input-file-count": 3,
+							"input-source-bytes": 11102,
+							"input-text-module-count": 2,
+							"input-asset-count": 1,
+							"font-asset-count": 9,
+							"font-asset-bytes": 205324,
+							"typescript-source-count": 4,
+							"tailwind-scan-source-count": 55,
+							"tailwind-candidate-count": 1979,
+							"css-output-bytes": 44586,
+							"emitted-asset-count": 10,
+							"emitted-asset-bytes": 205554,
+							"artifact-file-count": 13,
+							"artifact-bytes": 848273
+						},
+						"worker": {
+							"processStartedNs": 2733792,
+							"importsReadyNs": 172147000,
+							"requestReadStartedNs": 2734167,
+							"artifactReadyNs": 1030932417
+						}
+					}
+				],
+				"rssCaveat": "5 ms ps samples can miss short-lived peaks. Aggregate RSS double-counts shared pages and is not proportional memory. macOS does not enforce the Linux /proc proportional-memory limit."
+			}
+		}
+	},
+	"measuredInputEvidence": {
+		"graphInputs": {
+			"stylex": {
+				"manifestSha256": "4e277fe8e782f4957de93cd8d444a7a383d76abe7c0d0ed9723715aa51c52b3a",
+				"files": [
+					{
+						"path": "client/page.tsx",
+						"bytes": 2681,
+						"sha256": "6cd94606d0d7abd2d19372f012f9a16b1cb9e49db636470f77f58bc1d61cff76"
+					},
+					{
+						"path": "client/tokens.stylex.ts",
+						"bytes": 161,
+						"sha256": "8348206675c02efe1c8707341df0ddb214bc300421c780eb5a3a661cdb01d8c2"
+					},
+					{
+						"path": "client/tracer-mark.svg",
+						"bytes": 230,
+						"sha256": "a5e59f88773784399e0b12beaabad4fd7dc568fc677667b042045a898e789292"
+					}
+				]
+			},
+			"tailwind": {
+				"manifestSha256": "c3cdcab3d5c825da323535a92b019eb4227f550f81a5e87a84c25b3ed31aecc5",
+				"files": [
+					{
+						"path": "client/page.tsx",
+						"bytes": 5183,
+						"sha256": "35063be01343b4508a767124c3457029f5f2d26838e0cc71a6eb5645800b1665"
+					},
+					{
+						"path": "client/styles.css",
+						"bytes": 5689,
+						"sha256": "90a522cbb0bce03afe06d4c568ef61af579d7d83ef1ed71f5d50d3bb76f38120"
+					},
+					{
+						"path": "client/tracer-mark.svg",
+						"bytes": 230,
+						"sha256": "a5e59f88773784399e0b12beaabad4fd7dc568fc677667b042045a898e789292"
+					}
+				]
+			}
+		},
+		"dirtyTree": {
+			"files": [
+				{
+					"path": "benchmarks/stylex-tracer/alternating-worker.ts",
+					"state": "present",
+					"bytes": 958,
+					"sha256": "0c7314f9bf52159ee6387e942fcfe1d0629a17e936e711db9929bd0ff992f73d"
+				},
+				{
+					"path": "benchmarks/stylex-tracer/benchmark.ts",
+					"state": "present",
+					"bytes": 6495,
+					"sha256": "3a6e7c4a481f538ab32308a400903c16319bca3d13209aa540e81ed54d6eca63"
+				},
+				{
+					"path": "benchmarks/stylex-tracer/boundary-worker.ts",
+					"state": "present",
+					"bytes": 2052,
+					"sha256": "4104d4ac8568c6c2a576e912af49dfdaa5f9080277cbb02245eddd03e24b962f"
+				},
+				{
+					"path": "benchmarks/stylex-tracer/inventory.ts",
+					"state": "present",
+					"bytes": 8353,
+					"sha256": "bf6a380a239bedba4bcd862c21ade18f722499c867a28ec1369b57cd217387e2"
+				},
+				{
+					"path": "benchmarks/stylex-tracer/run.ts",
+					"state": "present",
+					"bytes": 23468,
+					"sha256": "bb60ae1049c7bb2aa2148df816abf9436ad4289580e5c111f8c05aab71fa2d6d"
+				},
+				{
+					"path": "benchmarks/stylex-tracer/worker.ts",
+					"state": "present",
+					"bytes": 1170,
+					"sha256": "d2860c681c42963bc51147fda218d640cad7ffa8fbc1e00b023754cde3dbc1f7"
+				},
+				{
+					"path": "benchmarks/stylex-tracer/workflows/README.md",
+					"state": "present",
+					"bytes": 2417,
+					"sha256": "ab46590c4cf76fc4ff553c251e5230f7706a633caada234095d86e9a3fd51e73"
+				},
+				{
+					"path": "benchmarks/stylex-tracer/workflows/compare-roots.ts",
+					"state": "present",
+					"bytes": 3794,
+					"sha256": "9a57bbfe5aaa4f8e49c46e569841ccdb7b23ead7015a7ed170f42bd6bfe6583c"
+				},
+				{
+					"path": "benchmarks/stylex-tracer/workflows/hmr-evidence.json",
+					"state": "present",
+					"bytes": 1871,
+					"sha256": "e30450911e65a73535ef5f528a5d9a2c4c451f399829b3deae76891e2dbdf188"
+				},
+				{
+					"path": "benchmarks/stylex-tracer/workflows/invalidation-evidence.json",
+					"state": "present",
+					"bytes": 2975,
+					"sha256": "c69b889f5a9ce01f1c0638163a08e8cd3da67b2c5a40238bb9a7450591b4a18b"
+				},
+				{
+					"path": "benchmarks/stylex-tracer/workflows/invalidation-lifecycle.ts",
+					"state": "present",
+					"bytes": 4569,
+					"sha256": "14e677a7866a452c590e90e32fba42a23fc9892f8d42955f78025d026339ef2a"
+				},
+				{
+					"path": "benchmarks/stylex-tracer/workflows/invalidation-worker.ts",
+					"state": "present",
+					"bytes": 2068,
+					"sha256": "baa9411ec9890baf9a37454b7dc6cea2543ab53edf2a7400a993459a15cefb90"
+				},
+				{
+					"path": "benchmarks/stylex-tracer/workflows/production-browser-evidence.json",
+					"state": "present",
+					"bytes": 21057,
+					"sha256": "2bcbee42dbddeaada7c021684a6e46d3e77ac4e62e5b60de1c7f67609cefa839"
+				},
+				{
+					"path": "benchmarks/stylex-tracer/workflows/relocation-evidence.json",
+					"state": "present",
+					"bytes": 177404,
+					"sha256": "ce28ef60d433c434939a6c8b619f630f7d7e8cbb4c792bebd98141755d4d79a1"
+				},
+				{
+					"path": "benchmarks/stylex-tracer/workflows/root-build.ts",
+					"state": "present",
+					"bytes": 8303,
+					"sha256": "68e2d77d949da20c0d9b0cc5dfc8e66a7e1df0c5a00df4d00271322d10675f2a"
+				},
+				{
+					"path": "e2e/README.md",
+					"state": "present",
+					"bytes": 5608,
+					"sha256": "ed2c8d4896f44b4c484a5d3f748cb829dc08ef7d4404f17190c48f2aa60e068d"
+				},
+				{
+					"path": "e2e/global-setup.ts",
+					"state": "present",
+					"bytes": 6719,
+					"sha256": "c0090749766fef5476431a23124da9a59f000bbd9041cda1b5d7fa619d075f5a"
+				},
+				{
+					"path": "e2e/src/browser/stylex-tracer-hmr.test.ts",
+					"state": "present",
+					"bytes": 9630,
+					"sha256": "aa36560182bac2fef23f864fcc81b22f57ebf13523e48300e5a705ff624627d9"
+				},
+				{
+					"path": "e2e/src/browser/stylex-tracer.test.ts",
+					"state": "present",
+					"bytes": 22940,
+					"sha256": "3d9e70da6fd09c577b41840aa7feba3a21cb7c2f82e61d45594786d8409a670d"
+				},
+				{ "path": "enchmarks/stylex-tracer/README.md", "state": "deleted" },
+				{
+					"path": "packages/cli/tests/fixtures/stylex-tracer/client/tracer.tsx",
+					"state": "present",
+					"bytes": 372,
+					"sha256": "53bb61028db6f444b088ed4ab887aeb9d85a630f5005e2e5cac24b8d1afafa80"
+				},
+				{
+					"path": "packages/client-plugin-compiler/README.md",
+					"state": "present",
+					"bytes": 6721,
+					"sha256": "1bd1f72b27985f2be6a5e75df308461e22ff5a4a1f0e4c6acc64028984430e27"
+				},
+				{
+					"path": "packages/client-plugin-compiler/src/bundle.ts",
+					"state": "present",
+					"bytes": 14467,
+					"sha256": "2304b2257eb42e91a42aa18272b127997e79e4f0978bcf2b439e0e961c97ec52"
+				},
+				{
+					"path": "packages/client-plugin-compiler/src/compile.ts",
+					"state": "present",
+					"bytes": 29815,
+					"sha256": "a6ac7a8013d7056412ba8157e653ece6a570732759c5c6aa9d948855ce61eb8d"
+				},
+				{
+					"path": "packages/client-plugin-compiler/src/index.ts",
+					"state": "present",
+					"bytes": 588,
+					"sha256": "47564e23b8ca444fba3c11cee775d668337b4d5cff478cc92001e9969cab1578"
+				},
+				{
+					"path": "packages/client-plugin-compiler/src/instrumentation.ts",
+					"state": "present",
+					"bytes": 1829,
+					"sha256": "6a3b1e1fcd46f98206daac3f1530a90d8646e44e3d657cd1f41ef21ef6859275"
+				},
+				{
+					"path": "packages/client-plugin-compiler/src/protocol.ts",
+					"state": "present",
+					"bytes": 9711,
+					"sha256": "201a7f3e044bac5525cb3f616f9fbd375866213c15511c6eb148580dec080251"
+				},
+				{
+					"path": "packages/client-plugin-compiler/src/styles.ts",
+					"state": "present",
+					"bytes": 8407,
+					"sha256": "9090b8e11d7047ee315bf0c54b798fbdc680497c76c11ea176b2ba7161da5b86"
+				},
+				{
+					"path": "packages/client-plugin-compiler/src/stylex-tracer.test.ts",
+					"state": "present",
+					"bytes": 23557,
+					"sha256": "4ead72e0042b75c3f9ae7617abf9e144d592ded07d2b158e28b93a3c866462d1"
+				},
+				{
+					"path": "packages/client-plugin-compiler/src/stylex-tracer.ts",
+					"state": "present",
+					"bytes": 29668,
+					"sha256": "54ac678307f5fd961df8075153ecf3530067c3d3b5c8021729adf32edb803b7c"
+				},
+				{
+					"path": "packages/client-plugin-compiler/src/worker.ts",
+					"state": "present",
+					"bytes": 2043,
+					"sha256": "0591d84c3e1ac3b5e4daee78b07e69847225d4bf9a19c5342d8de777b12ea143"
+				},
+				{
+					"path": "packages/client-ui-sdk/src/stylex-tracer/controls.tsx",
+					"state": "present",
+					"bytes": 5336,
+					"sha256": "e544cd670ad3c4446d0cc02c78587b8832a203449fc9d10ae96ad05b297a5709"
+				},
+				{
+					"path": "packages/client-ui-sdk/src/stylex-tracer/panel.tsx",
+					"state": "present",
+					"bytes": 9608,
+					"sha256": "3d23b492bda5b5e0349f7dffcabb4fb401ff87a191eef909c7bca809fc475bce"
+				},
+				{
+					"path": "plugins/stylex-tracer/client/page.tsx",
+					"state": "present",
+					"bytes": 2681,
+					"sha256": "6cd94606d0d7abd2d19372f012f9a16b1cb9e49db636470f77f58bc1d61cff76"
+				}
+			],
+			"sha256": "df35dc2ed709547b3550f3ec01e1efb4abb56d2da21a876405210ecaec4b1ec9"
+		},
+		"dirtyTreeStableDuringMeasurement": true,
+		"note": "Graph manifests hash every contributor input byte. The dirty-tree manifest hashes every changed or untracked file except the two self-generated result files, including out-of-scope evidence that was observed but not modified."
+	},
+	"historicalResult": {
+		"sourceCommit": "4c312ef838bf7bdc38896644f262869750f88d9d",
+		"machine": {
+			"platform": "darwin",
+			"architecture": "arm64",
+			"osVersion": "26.3.1",
+			"model": "Mac16,12",
+			"logicalCpuCount": 10,
+			"memoryBytes": 17179869184
+		},
+		"toolchain": {
+			"bun": "1.4.0",
+			"gitCommit": "5228cc84a29d98283800f90b39434825a407f51a",
+			"gitWorktreeDirty": true,
+			"stylex": "0.19.0",
+			"stylexBabelPlugin": "0.19.0",
+			"tailwindcss": "4.3.0"
+		},
+		"measurements": {
+			"stylex": {
+				"artifact": {
+					"identity": "91ffd7ad4efbe238d7c93760c278ecb46fb33f4fb415d227f316c82736b0d45a",
+					"artifactHash": "3546a6d1e1b6ef2e781277c472d80e63abbad941fc2443c76dcbde9cc17a2516",
+					"compilationMs": 1595.990833,
+					"sizes": {
+						"javascript": { "rawBytes": 605879, "gzipBytes": 188835 },
+						"css": { "rawBytes": 11402, "gzipBytes": 4241 },
+						"documentBytes": 538,
+						"fontAssets": { "count": 9, "rawBytes": 205324 },
+						"localAssets": { "count": 1, "rawBytes": 230 },
+						"fullArtifactBytes": 823373,
+						"canonicalSourceArchiveBytes": 2260
+					},
+					"archive": {
+						"readerVerified": true,
+						"identity": "4dbab39b1fb78613cf891175b1d917a3ea7a17e63139f6f6c5a708809e2ab82a"
+					}
+				},
+				"coldProcess": {
+					"wallMs": 1868.790917,
+					"compilationMs": 1595.990833,
+					"peakRssBytes": 660897792
+				},
+				"warmProcess": {
+					"wallMs": 9470.093083,
+					"warmupCompilations": 1,
+					"measuredForcedCompilations": 5,
+					"compilationMs": [1527.320625, 1524.728209, 1516.398458, 1525.58575, 1508.214708],
+					"peakRssBytes": 670400512
+				},
+				"cache": {
+					"artifactCacheHits": 0,
+					"boundary": "Direct compileClientPlugin calls; every call compiles."
+				},
+				"reproducibility": {
+					"byteIdenticalAcrossRepeatedCompilations": true,
+					"canonicalArchiveIdenticalAcrossRepeatedCompilations": true,
+					"byteIdenticalAcrossDistinctCwds": true,
+					"canonicalArchiveIdenticalAcrossDistinctCwds": true,
+					"cwdMethod": "The worker loads workspace modules from the checkout, then changes process cwd to each of two distinct empty directories before compileClientPlugin; compiler and fixtures remain in the same checkout."
+				}
+			},
+			"tailwind": {
+				"artifact": {
+					"identity": "04624a90b81bc8bed1bf8555a478efedf5653a9ca5f568898c02300179739df7",
+					"artifactHash": "3d67c14e70e7ae096e1167de22d9e048ff0c6b0dfbd980dea29db922ffaae947",
+					"compilationMs": 664.434792,
+					"sizes": {
+						"javascript": { "rawBytes": 597595, "gzipBytes": 185327 },
+						"css": { "rawBytes": 44586, "gzipBytes": 9853 },
+						"documentBytes": 538,
+						"fontAssets": { "count": 9, "rawBytes": 205324 },
+						"localAssets": { "count": 1, "rawBytes": 230 },
+						"fullArtifactBytes": 848273,
+						"canonicalSourceArchiveBytes": 4571
+					},
+					"archive": {
+						"readerVerified": true,
+						"identity": "b2b5350b444f9b420530cdc9676342d19c093eeb59035b84c11ac3915d12ce42"
+					}
+				},
+				"coldProcess": {
+					"wallMs": 851.554708,
+					"compilationMs": 664.434792,
+					"peakRssBytes": 385089536
+				},
+				"warmProcess": {
+					"wallMs": 4126.349583,
+					"warmupCompilations": 1,
+					"measuredForcedCompilations": 5,
+					"compilationMs": [667.835, 634.967166, 638.941583, 634.10475, 647.816458],
+					"peakRssBytes": 426098688
+				},
+				"cache": {
+					"artifactCacheHits": 0,
+					"boundary": "Direct compileClientPlugin calls; every call compiles."
+				},
+				"reproducibility": {
+					"byteIdenticalAcrossRepeatedCompilations": true,
+					"canonicalArchiveIdenticalAcrossRepeatedCompilations": true,
+					"byteIdenticalAcrossDistinctCwds": true,
+					"canonicalArchiveIdenticalAcrossDistinctCwds": true,
+					"cwdMethod": "The worker loads workspace modules from the checkout, then changes process cwd to each of two distinct empty directories before compileClientPlugin; compiler and fixtures remain in the same checkout."
+				}
+			}
+		},
+		"note": "Retained historical result. Do not treat differences across revisions, machines, fixture states, or toolchains as an isolated optimization."
+	},
+	"accounting": {
+		"status": "PASS",
+		"historicalAttributionBase": "5228cc84a29d98283800f90b39434825a407f51a",
+		"items": [
+			{
+				"classification": "permanent-stylex",
+				"path": "packages/client-plugin-compiler/src/stylex-tracer.ts",
+				"lines": [667, 856],
+				"symbol": "createStylexTracerBundleAdapter",
+				"responsibility": "Bounded trusted/archive materialization, custom resolution, Babel StyleX transform, rule collection, and cleanup.",
+				"disposition": "Retain after removing tracer naming and narrow it to the adopted client scope.",
+				"dependencies": ["@babel/core", "@stylexjs/babel-plugin", "@stylexjs/stylex"],
+				"measuredLines": 190,
+				"measuredBytes": 6885
+			},
+			{
+				"classification": "permanent-stylex",
+				"path": "packages/client-plugin-compiler/src/stylex-tracer.ts",
+				"lines": [857, 869],
+				"symbol": "compileStylexTracerStyles",
+				"responsibility": "Process extracted StyleX rules and combine reset, fonts, and build marker.",
+				"disposition": "Retain extraction; reconsider experiment marker/reset placement for production.",
+				"dependencies": ["@stylexjs/babel-plugin"],
+				"measuredLines": 13,
+				"measuredBytes": 594
+			},
+			{
+				"classification": "permanent-stylex",
+				"path": "packages/client-plugin-compiler/src/stylex-tracer.ts",
+				"lines": [202, 437],
+				"symbol": "validateStylexAuthoringConvention and AST helpers",
+				"responsibility": "Enforce checked StyleX declaration shapes before Babel transformation by probing the parsed AST.",
+				"disposition": "Retain if the convention is adopted; review the broad object/property probing whenever the parser AST shape changes.",
+				"dependencies": ["oxc-parser"],
+				"measuredLines": 236,
+				"measuredBytes": 7330
+			},
+			{
+				"classification": "permanent-stylex",
+				"path": "packages/client-plugin-compiler/src/stylex-tracer.ts",
+				"lines": [60, 178],
+				"symbol": "deriveStylexTracerBuildFingerprint and tracerDependencyInputs",
+				"responsibility": "Hash compiler, trusted source, package, runtime, lockfile, and font inputs at module startup.",
+				"disposition": "Retain build invalidation but replace tracer naming and review the broad startup read set for an adopted scope.",
+				"dependencies": ["@ryot-app/ts-utils"],
+				"measuredLines": 119,
+				"measuredBytes": 3843
+			},
+			{
+				"classification": "permanent-stylex",
+				"path": "packages/client-plugin-compiler/src/dependencies.ts",
+				"lines": [85, 96],
+				"symbol": "resolveStylexTracerTypeScriptEntries",
+				"responsibility": "Provide TypeScript entries for the StyleX runtime and trusted UI modules.",
+				"disposition": "Retain with the adopted public authoring surface.",
+				"dependencies": ["@stylexjs/stylex"],
+				"measuredLines": 12,
+				"measuredBytes": 384
+			},
+			{
+				"classification": "experiment-only",
+				"path": "packages/client-plugin-compiler/src/stylex-tracer.ts",
+				"lines": [19, 58],
+				"symbol": "tracer modules, reset, options, and adapter identity",
+				"responsibility": "Exact experiment allowlist, tracer reset, pinned options, and tracer build identity.",
+				"disposition": "Remove tracer-specific names and coexistence identity; retain only adopted options/reset requirements.",
+				"dependencies": ["@stylexjs/stylex", "@stylexjs/babel-plugin"],
+				"measuredLines": 40,
+				"measuredBytes": 1408
+			},
+			{
+				"classification": "experiment-only",
+				"path": "kernel/backend/src/modules/plugins/stylex-tracer-activation.ts",
+				"lines": [1, 31],
+				"symbol": "StylexTracerActivation",
+				"responsibility": "Exact-slug, opt-in backend activation seam.",
+				"disposition": "Delete after adoption or rejection.",
+				"dependencies": [],
+				"measuredLines": 31,
+				"measuredBytes": 1060
+			},
+			{
+				"classification": "experiment-only",
+				"path": "kernel/client/src/routes/_authenticated/stylex-tracer-kernel.tsx",
+				"lines": [1, 19],
+				"symbol": "Route",
+				"responsibility": "Opt-in kernel demonstration route.",
+				"disposition": "Delete after the decision.",
+				"dependencies": ["@stylexjs/unplugin"],
+				"measuredLines": 19,
+				"measuredBytes": 676
+			},
+			{
+				"classification": "experiment-only",
+				"path": "plugins/stylex-tracer/client/page.tsx",
+				"lines": [1, 86],
+				"symbol": "StylexTracerPage",
+				"responsibility": "Archived proof-page adapter and local token demonstration.",
+				"disposition": "Delete after the decision; it is not product UI.",
+				"dependencies": ["@stylexjs/stylex", "@ryot-app/client-ui-sdk/stylex-tracer"],
+				"measuredLines": 86,
+				"measuredBytes": 2680
+			},
+			{
+				"classification": "general-safeguard",
+				"path": "packages/client-plugin-compiler/src/compile.ts",
+				"lines": [273, 512],
+				"symbol": "compileClientPlugin input preparation",
+				"responsibility": "Graph/path checks, limits, UTF-8 decoding, and content-addressed asset names.",
+				"disposition": "Retain independent of styling engine.",
+				"dependencies": ["@ryot-app/client-plugin-contract"],
+				"measuredLines": 240,
+				"measuredBytes": 8661
+			},
+			{
+				"classification": "general-safeguard",
+				"path": "packages/client-plugin-compiler/src/source-imports.ts",
+				"lines": [1, 173],
+				"symbol": "validateOriginalClientImports",
+				"responsibility": "Validate original imports before transforms can erase policy evidence.",
+				"disposition": "Retain; StyleX extends its exact policy but does not own the safeguard.",
+				"dependencies": ["oxc-parser"],
+				"measuredLines": 173,
+				"measuredBytes": 4985
+			},
+			{
+				"classification": "general-safeguard",
+				"path": "packages/client-plugin-compiler/src/semantic-check.ts",
+				"lines": [35, 89],
+				"symbol": "checkClientPluginTypes",
+				"responsibility": "TypeScript semantic checking of original reachable sources.",
+				"disposition": "Retain independent of styling engine.",
+				"dependencies": ["@ryot-app/typescript-compiler"],
+				"measuredLines": 55,
+				"measuredBytes": 1693
+			},
+			{
+				"classification": "general-safeguard",
+				"path": "packages/client-plugin-compiler/src/compile.ts",
+				"lines": [697, 821],
+				"symbol": "reachable limits and artifact construction",
+				"responsibility": "Reachability limits, asset deduplication, hashing, document construction, and artifact limits.",
+				"disposition": "Retain independent of styling engine.",
+				"dependencies": ["@ryot-app/client-plugin-contract"],
+				"measuredLines": 125,
+				"measuredBytes": 4005
+			},
+			{
+				"classification": "tailwind-removable",
+				"path": "packages/client-plugin-compiler/src/styles.ts",
+				"lines": [194, 276],
+				"symbol": "compileClientStyles",
+				"responsibility": "Inject Tailwind, scan candidates, build utilities, and combine legacy theme/palette CSS.",
+				"disposition": "Remove only for an in-scope StyleX-only client; preserve generic stylesheet asset rewriting separately.",
+				"dependencies": ["tailwindcss", "@tailwindcss/oxide", "postcss"],
+				"measuredLines": 83,
+				"measuredBytes": 2656
+			},
+			{
+				"classification": "tailwind-removable",
+				"path": "packages/client-plugin-compiler/src/dependencies.ts",
+				"lines": [196, 214],
+				"symbol": "ordinary compiler dependency branch",
+				"responsibility": "Read SDK scan sources, Tailwind entry, theme stylesheet, and palette stylesheet.",
+				"disposition": "Remove from the adopted in-scope client path; excluded repository consumers still use Tailwind.",
+				"dependencies": ["tailwindcss", "@ryot-app/client-ui-sdk"],
+				"measuredLines": 19,
+				"measuredBytes": 835
+			},
+			{
+				"classification": "candidate-ui",
+				"path": "packages/client-ui-sdk/src/stylex-tracer/controls.tsx",
+				"lines": [1, 198],
+				"symbol": "StyleXTracerButton and StyleXTracerTextField",
+				"responsibility": "Semantic accessible controls with constrained StyleX overrides.",
+				"disposition": "Candidate patterns, not production-ready components without API/design-system review.",
+				"dependencies": ["@stylexjs/stylex", "react"],
+				"measuredLines": 198,
+				"measuredBytes": 5335
+			},
+			{
+				"classification": "candidate-ui",
+				"path": "packages/client-ui-sdk/src/stylex-tracer/tokens.stylex.ts",
+				"lines": [1, 56],
+				"symbol": "tracerTokens and tracerTheme",
+				"responsibility": "Typed token and theme authoring proof.",
+				"disposition": "Retain the authoring pattern only; replace demonstration values under a real token contract.",
+				"dependencies": ["@stylexjs/stylex"],
+				"measuredLines": 56,
+				"measuredBytes": 1448
+			},
+			{
+				"classification": "disposable-ui",
+				"path": "packages/client-ui-sdk/src/stylex-tracer/panel.tsx",
+				"lines": [1, 318],
+				"symbol": "StyleXTracerPanel",
+				"responsibility": "Interactive demonstration panel, portal, shortcut, theme, and viewport proof.",
+				"disposition": "Delete after the decision; product behavior was not established.",
+				"dependencies": ["@stylexjs/stylex", "@tanstack/react-hotkeys", "react-dom"],
+				"measuredLines": 318,
+				"measuredBytes": 9607
+			},
+			{
+				"classification": "disposable-ui",
+				"path": "benchmarks/stylex-tracer/fixture/tailwind/page.tsx",
+				"lines": [1, 168],
+				"symbol": "TailwindTracerPage",
+				"responsibility": "Benchmark-only semantic comparison adapter.",
+				"disposition": "Delete when benchmark evidence is no longer retained.",
+				"dependencies": ["tailwindcss"],
+				"measuredLines": 168,
+				"measuredBytes": 5182
+			}
+		],
+		"totals": [
+			{ "classification": "permanent-stylex", "lines": 570, "bytes": 19036 },
+			{ "classification": "experiment-only", "lines": 176, "bytes": 5824 },
+			{ "classification": "general-safeguard", "lines": 593, "bytes": 19344 },
+			{ "classification": "tailwind-removable", "lines": 102, "bytes": 3491 },
+			{ "classification": "candidate-ui", "lines": 254, "bytes": 6783 },
+			{ "classification": "disposable-ui", "lines": 486, "bytes": 14789 }
+		],
+		"dependencies": [
+			{
+				"name": "@stylexjs/stylex",
+				"version": "0.19.0",
+				"immediateRuntimeDependencies": ["css-mediaquery", "invariant", "styleq"]
+			},
+			{
+				"name": "@stylexjs/babel-plugin",
+				"version": "0.19.0",
+				"immediateRuntimeDependencies": [
+					"@babel/core",
+					"@babel/helper-module-imports",
+					"@babel/traverse",
+					"@babel/types",
+					"@dual-bundle/import-meta-resolve",
+					"@stylexjs/shared",
+					"@stylexjs/stylex",
+					"postcss-value-parser"
+				]
+			},
+			{
+				"name": "@stylexjs/unplugin",
+				"version": "0.19.0",
+				"immediateRuntimeDependencies": [
+					"@babel/core",
+					"@babel/plugin-syntax-flow",
+					"@babel/plugin-syntax-jsx",
+					"@babel/plugin-syntax-typescript",
+					"@stylexjs/babel-plugin",
+					"browserslist",
+					"lightningcss"
+				]
+			},
+			{
+				"name": "@babel/core",
+				"version": "7.29.0",
+				"immediateRuntimeDependencies": [
+					"@babel/code-frame",
+					"@babel/generator",
+					"@babel/helper-compilation-targets",
+					"@babel/helper-module-transforms",
+					"@babel/helpers",
+					"@babel/parser",
+					"@babel/template",
+					"@babel/traverse",
+					"@babel/types",
+					"@jridgewell/remapping",
+					"convert-source-map",
+					"debug",
+					"gensync",
+					"json5",
+					"semver"
+				]
+			},
+			{
+				"name": "@babel/plugin-syntax-jsx",
+				"version": "7.28.6",
+				"immediateRuntimeDependencies": ["@babel/helper-plugin-utils"]
+			},
+			{
+				"name": "@babel/plugin-syntax-typescript",
+				"version": "7.28.6",
+				"immediateRuntimeDependencies": ["@babel/helper-plugin-utils"]
+			}
+		],
+		"note": "Ranges can overlap responsibilities and must not be summed as net integration size. The historical pre-tracer commit is the parent of the initial tracer commit. Excluded consumers still require Tailwind repository-wide."
+	},
+	"instrumentationGaps": [
+		"Fresh import timing includes benchmark imports and dependency fingerprinting; those parts are not separately hooked.",
+		"Dependency reads are one enclosing span; individual source, font, and package reads are not separately timed.",
+		"The TypeScript span measures the parent waiting for semantic checking. TypeScript executes in a tsc child, so CPU and memory attribution remain unresolved.",
+		"The bundle span is inclusive. Trusted reads/materialization, each StyleX transform, cleanup, and native Bun.build work occur inside it and cannot be added to it.",
+		"Tailwind scanning and build are inside CSS emission but do not have separate timing hooks; StyleX rule processing is also inside CSS emission. Their exact attribution remains unresolved.",
+		"Font reads occur in dependency reads. Asset emission and hashing/artifact construction are timed, but finer attribution within each span remains unresolved."
+	],
+	"limitations": [
+		"Filesystem caches were not flushed; thermal state and background load are uncontrolled.",
+		"Process RSS does not establish per-library allocation cost; /usr/bin/time and sampled process-tree aggregates use different boundaries.",
+		"macOS ps aggregate RSS can double-count shared pages, is sampled, and does not provide the Linux proportional-memory supervision used by production.",
+		"The fixture is small and does not predict product-screen or whole-application cost.",
+		"No optimization was made."
+	]
+}

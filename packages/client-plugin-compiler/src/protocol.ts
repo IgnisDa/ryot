@@ -1,3 +1,4 @@
+/* oxlint-disable perfectionist/sort-objects -- Wire evidence fields follow timing chronology. */
 import {
 	CLIENT_API_VERSION,
 	PluginClientArtifact,
@@ -8,10 +9,13 @@ import { Effect, Encoding, Schema } from "effect";
 
 import type { ClientPluginCompilerInput } from "./compile";
 import { ClientPluginCompilerFailure } from "./diagnostics";
+import type { ClientCompilerBenchmarkEvidence } from "./instrumentation";
 
 const ClientCompilerWorkerRequestFields = {
 	name: Schema.String,
 	apiVersion: Schema.Literal(CLIENT_API_VERSION),
+	stylexTracer: Schema.optional(Schema.Struct({ fingerprint: Schema.String })),
+	benchmarkInstrumentation: Schema.optional(Schema.Struct({ traceId: Schema.String })),
 };
 
 const ClientCompilerPublicExport = Schema.Struct({
@@ -75,9 +79,48 @@ const ClientCompilerWorkerArtifactBase64 = Schema.Struct({
 	),
 });
 
+const ClientCompilerBenchmarkSpan = Schema.Struct({
+	name: Schema.Literals([
+		"assets",
+		"bundle",
+		"cleanup",
+		"compilation-total",
+		"css-emission",
+		"dependency-reads",
+		"hashing-artifact",
+		"input-validation",
+		"original-source-preflight",
+		"stylex-transform",
+		"trusted-reads-materialization",
+		"typescript-check",
+	]),
+	startedNs: Schema.Number,
+	endedNs: Schema.Number,
+	durationMs: Schema.Number,
+	inclusive: Schema.Boolean,
+});
+
+const ClientCompilerBenchmarkEvidenceSchema = Schema.Struct({
+	traceId: Schema.String,
+	pid: Schema.Number,
+	spans: Schema.Array(ClientCompilerBenchmarkSpan),
+	counters: Schema.Record(Schema.String, Schema.Number),
+	worker: Schema.optional(
+		Schema.Struct({
+			processStartedNs: Schema.Number,
+			importsReadyNs: Schema.Number,
+			requestReadStartedNs: Schema.Number,
+			artifactReadyNs: Schema.Number,
+		}),
+	),
+});
+
 const ClientCompilerWorkerSuccess = Schema.Struct({
 	success: Schema.Literal(true),
-	value: Schema.Struct({ artifact: ClientCompilerWorkerArtifactBase64 }),
+	value: Schema.Struct({
+		artifact: ClientCompilerWorkerArtifactBase64,
+		benchmarkInstrumentation: Schema.optional(ClientCompilerBenchmarkEvidenceSchema),
+	}),
 });
 
 const ClientCompilerWorkerFailure = Schema.Struct({
@@ -96,7 +139,13 @@ export type ClientCompilerWorkerResponseBase64 = Schema.Schema.Type<
 
 export type ClientCompilerResponse =
 	| { readonly error: ClientPluginCompilerFailure; readonly success: false }
-	| { readonly success: true; readonly value: { readonly artifact: PluginClientArtifact } };
+	| {
+			readonly success: true;
+			readonly value: {
+				readonly artifact: PluginClientArtifact;
+				readonly benchmarkInstrumentation?: ClientCompilerBenchmarkEvidence;
+			};
+	  };
 
 const decodeBase64 = Schema.decodeUnknownSync(Schema.Uint8ArrayFromBase64);
 
@@ -133,8 +182,16 @@ export const encodeClientCompilerWorkerRequest = (request: ClientPluginCompilerI
 export const decodeClientCompilerWorkerRequest = (input: string) =>
 	Schema.decodeUnknownEffect(Schema.fromJsonString(ClientCompilerWorkerRequestBase64))(input).pipe(
 		Effect.map((request): ClientPluginCompilerInput => {
+			const stylexTracer =
+				request.stylexTracer === undefined ? {} : { stylexTracer: request.stylexTracer };
+			const benchmarkInstrumentation =
+				request.benchmarkInstrumentation === undefined
+					? {}
+					: { benchmarkInstrumentation: request.benchmarkInstrumentation };
 			if ("contributors" in request) {
 				return {
+					...stylexTracer,
+					...benchmarkInstrumentation,
 					name: request.name,
 					entry: request.entry,
 					apiVersion: request.apiVersion,
@@ -171,6 +228,8 @@ export const decodeClientCompilerWorkerRequest = (input: string) =>
 				};
 			}
 			return {
+				...stylexTracer,
+				...benchmarkInstrumentation,
 				name: request.name,
 				apiVersion: request.apiVersion,
 				publicExports: request.publicExports,
@@ -190,6 +249,9 @@ export const encodeClientCompilerWorkerResponse = (response: ClientCompilerRespo
 			? {
 					success: true,
 					value: {
+						...(response.value.benchmarkInstrumentation === undefined
+							? {}
+							: { benchmarkInstrumentation: response.value.benchmarkInstrumentation }),
 						artifact: {
 							...response.value.artifact,
 							files: response.value.artifact.files.map((file) => ({
@@ -215,9 +277,29 @@ export const decodeClientCompilerWorkerResponse = (input: string) =>
 					contents: decodeBase64(file.contents),
 				})),
 			};
+			const benchmarkInstrumentation = response.value.benchmarkInstrumentation;
 			return Schema.decodeUnknownEffect(PluginClientArtifact)(artifact).pipe(
 				Effect.map(
-					(decodedArtifact) => ({ success: true, value: { artifact: decodedArtifact } }) as const,
+					(decodedArtifact) =>
+						({
+							success: true,
+							value: {
+								artifact: decodedArtifact,
+								...(benchmarkInstrumentation === undefined
+									? {}
+									: {
+											benchmarkInstrumentation: {
+												traceId: benchmarkInstrumentation.traceId,
+												pid: benchmarkInstrumentation.pid,
+												spans: benchmarkInstrumentation.spans,
+												counters: benchmarkInstrumentation.counters,
+												...(benchmarkInstrumentation.worker === undefined
+													? {}
+													: { worker: benchmarkInstrumentation.worker }),
+											},
+										}),
+							},
+						}) as const,
 				),
 			);
 		}),
@@ -229,4 +311,5 @@ export const clientCompilerWorkerFailure = (
 
 export const clientCompilerWorkerSuccess = (value: {
 	readonly artifact: PluginClientArtifact;
+	readonly benchmarkInstrumentation?: ClientCompilerBenchmarkEvidence;
 }): ClientCompilerResponse => ({ value, success: true });
