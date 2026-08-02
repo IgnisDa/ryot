@@ -23,7 +23,7 @@
 </div>
 
 <p align="center">
-    <a href="https://demo.ryot.io/_s/acl_vUMPnPirkHlT" target="_blank">Live Demo</a> •
+    <a href="https://demo.ryot.io/demo" target="_blank">Live Demo</a> •
     <a href="https://docs.ryot.io" target="_blank">Documentation</a> •
     <a href="https://discord.gg/D9XTg2a7R8" target="_blank">Discord</a> •
     <a href="https://ryot.io/features" target="_blank">Pro Features</a>
@@ -68,7 +68,7 @@ Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", tracks media co
 
 ## Demo
 
-Try the [live demo](https://demo.ryot.io/_s/acl_vUMPnPirkHlT). Its data resets every 24 hours.
+Try the [live demo](https://demo.ryot.io/demo). The live demo uses a shared interactive account. Changes to tracked data are visible to other demo visitors.
 
 ### Media Tracking
 

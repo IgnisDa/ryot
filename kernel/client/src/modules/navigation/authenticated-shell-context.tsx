@@ -114,6 +114,7 @@ export type ShellChrome = SafeAreaInsets & {
 export const ShellChromeContext = createContext<ShellChrome | undefined>(undefined);
 
 export type CustomizeController = {
+	readonly readOnly: boolean;
 	readonly onSave: () => void;
 	readonly onLeave: () => void;
 	readonly customize: CustomizeDraftState;

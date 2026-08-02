@@ -49,7 +49,8 @@ describe("OAuth storage", () => {
 				accessToken: "access",
 				refreshToken: "refresh",
 				accessTokenExpiresAt: 123,
-			};
+				clientId: OAUTH_WEB_CLIENT_ID,
+			} as const;
 			yield* service.setPending(pending);
 			yield* service.setTokenSet(equivalentOrigin, tokens);
 
@@ -59,9 +60,19 @@ describe("OAuth storage", () => {
 		}).pipe(Effect.provide(oauthStorageLayer(storage)));
 	});
 
-	it.effect("removes malformed and expired records", () => {
+	it.effect("removes malformed, old, and expired records", () => {
 		const { values, storage } = makeStorage();
-		values.set(oauthTokenKey(origin), "not-json");
+		values.set(
+			oauthTokenKey(origin),
+			JSON.stringify({
+				idToken: "id",
+				scope: "openid",
+				tokenType: "Bearer",
+				accessToken: "access",
+				refreshToken: "refresh",
+				accessTokenExpiresAt: 123,
+			}),
+		);
 		values.set(
 			oauthPendingKey("https://ryot.example", "expired"),
 			JSON.stringify({
@@ -163,6 +174,7 @@ describe("OAuth storage", () => {
 					accessToken: "access",
 					refreshToken: "refresh",
 					accessTokenExpiresAt: 123,
+					clientId: OAUTH_WEB_CLIENT_ID,
 				}),
 			);
 			expect(failure.reason).toBe("write-failed");

@@ -2,6 +2,7 @@ import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
+import { DemoAccessPolicy } from "../../http-annotations";
 import {
 	CreateSavedViewBody,
 	ListedSavedView,
@@ -19,7 +20,9 @@ export const SavedViewsGroup = HttpApiGroup.make("savedViews")
 			payload: CreateSavedViewBody,
 			success: ListedSavedView.pipe(HttpApiSchema.status(201)),
 			error: [SavedViewBadRequest.pipe(HttpApiSchema.status(400))],
-		}).annotate(OpenApi.Description, "Creates a saved view"),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Creates a saved view"),
 	)
 	.add(
 		HttpApiEndpoint.put("update", "/saved-views/:viewSlug", {
@@ -30,7 +33,9 @@ export const SavedViewsGroup = HttpApiGroup.make("savedViews")
 				SavedViewBadRequest.pipe(HttpApiSchema.status(400)),
 				SavedViewNotFound.pipe(HttpApiSchema.status(404)),
 			],
-		}).annotate(OpenApi.Description, "Updates a saved view by slug"),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Updates a saved view by slug"),
 	)
 	.add(
 		HttpApiEndpoint.delete("delete", "/saved-views/:viewSlug", {
@@ -40,7 +45,9 @@ export const SavedViewsGroup = HttpApiGroup.make("savedViews")
 				SavedViewBadRequest.pipe(HttpApiSchema.status(400)),
 				SavedViewNotFound.pipe(HttpApiSchema.status(404)),
 			],
-		}).annotate(OpenApi.Description, "Deletes a saved view by slug"),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Deletes a saved view by slug"),
 	)
 	.add(
 		HttpApiEndpoint.post("clone", "/saved-views/:viewSlug/clone", {
@@ -50,13 +57,17 @@ export const SavedViewsGroup = HttpApiGroup.make("savedViews")
 				SavedViewBadRequest.pipe(HttpApiSchema.status(400)),
 				SavedViewNotFound.pipe(HttpApiSchema.status(404)),
 			],
-		}).annotate(OpenApi.Description, "Clones a saved view by slug"),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Clones a saved view by slug"),
 	)
 	.add(
 		HttpApiEndpoint.post("reorder", "/saved-views/reorder", {
 			payload: ReorderSavedViewsBody,
 			success: ReorderSavedViewsResponse,
 			error: [SavedViewBadRequest.pipe(HttpApiSchema.status(400))],
-		}).annotate(OpenApi.Description, "Reorders saved views"),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Reorders saved views"),
 	)
 	.middleware(AuthMiddleware);

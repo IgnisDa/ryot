@@ -1,6 +1,8 @@
-import { Result } from "effect";
+import { Context, Result } from "effect";
 import { describe, expect, it } from "vitest";
 
+import { DemoOperationProtected } from "../../auth-middleware";
+import { DemoAccessPolicy } from "../../http-annotations";
 import { UserId } from "../../schema/brands";
 import {
 	decodePluginCatalogInvalidatedMessage,
@@ -50,5 +52,27 @@ describe("PluginsGroup", () => {
 		expect(endpoint.method).toBe("PUT");
 		expect(endpoint.path).toBe("/plugins/:pluginSlug/home-view");
 		expect(endpoint.middlewares.size).toBeGreaterThan(0);
+	});
+
+	it("protects plugin management mutations", () => {
+		for (const endpoint of [
+			PluginsGroup.endpoints.install,
+			PluginsGroup.endpoints.update,
+			PluginsGroup.endpoints.uninstall,
+			PluginsGroup.endpoints.setHomeView,
+		]) {
+			expect(Context.get(endpoint.annotations, DemoAccessPolicy)).toBe("protected");
+		}
+	});
+
+	it("declares demo protection as an invocation failure", () => {
+		expect(
+			[...PluginsGroup.endpoints.invoke.error].some(
+				(schema) =>
+					schema.ast.annotations?.identifier ===
+						DemoOperationProtected.ast.annotations?.identifier &&
+					schema.ast.annotations?.httpApiStatus === 403,
+			),
+		).toBe(true);
 	});
 });

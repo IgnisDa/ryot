@@ -1,6 +1,7 @@
 import {
 	OAuthTokenResponse,
 	OAuthUserInfoResponse,
+	OAUTH_DEMO_WEB_CLIENT_ID,
 	getOAuthEndpoint,
 	getOAuthResource,
 	OAUTH_END_SESSION_PATH,
@@ -8,6 +9,8 @@ import {
 	OAUTH_TOKEN_PATH,
 	OAUTH_USERINFO_PATH,
 	type OAuthUserInfoResponse as OAuthUserInfo,
+	type OAuthClientId,
+	type AccessClass,
 	type PendingAuthorization,
 	type StoredTokenSet,
 } from "@ryot-app/contract/oauth";
@@ -39,6 +42,7 @@ const decodeIdTokenNonce = (token: string) => {
 
 const storedTokenSet = (
 	response: typeof OAuthTokenResponse.Type,
+	clientId: OAuthClientId,
 	current?: StoredTokenSet,
 ): StoredTokenSet => {
 	const refreshToken = response.refresh_token ?? current?.refreshToken;
@@ -48,6 +52,7 @@ const storedTokenSet = (
 	}
 	return {
 		idToken,
+		clientId,
 		refreshToken,
 		scope: response.scope,
 		tokenType: response.token_type,
@@ -84,7 +89,7 @@ const makeTokenService = (
 ): OAuthTokenService["Service"] => {
 	const refreshes = makeOriginSingleFlight<StoredTokenSet, OAuthTokenError>();
 
-	const rotate = (canonical: ServerOrigin, clientId: string) =>
+	const rotate = (canonical: ServerOrigin) =>
 		Effect.gen(function* () {
 			const current = yield* fromStorage(storage.getTokenSet(canonical));
 			if (!current) {
@@ -95,7 +100,7 @@ const makeTokenService = (
 				canonical,
 				OAUTH_TOKEN_PATH,
 				new URLSearchParams({
-					client_id: clientId,
+					client_id: current.clientId,
 					grant_type: "refresh_token",
 					refresh_token: current.refreshToken,
 					resource: getOAuthResource(canonical),
@@ -118,7 +123,7 @@ const makeTokenService = (
 			);
 			const tokens = yield* Effect.try({
 				catch: requestFailed,
-				try: () => storedTokenSet(response, current),
+				try: () => storedTokenSet(response, current.clientId, current),
 			});
 			yield* fromStorage(
 				storage
@@ -128,12 +133,10 @@ const makeTokenService = (
 			return tokens;
 		});
 
-	const refresh = (origin: ServerOrigin, clientId: string) =>
-		refreshes(origin, rotate(origin, clientId));
+	const refresh = (origin: ServerOrigin) => refreshes(origin, rotate(origin));
 
 	const accessToken = Effect.fn("OAuthTokenService.accessToken")(function* (
 		origin: ServerOrigin,
-		clientId: string,
 		forceRefresh = false,
 	) {
 		const current = yield* fromStorage(storage.getTokenSet(origin));
@@ -143,17 +146,14 @@ const makeTokenService = (
 		if (!forceRefresh && current.accessTokenExpiresAt - now() > REFRESH_WINDOW_MS) {
 			return current.accessToken;
 		}
-		const refreshed = yield* refresh(origin, clientId);
+		const refreshed = yield* refresh(origin);
 		return refreshed.accessToken;
 	});
 
-	const userInfo = Effect.fn("OAuthTokenService.userInfo")(function* (
-		origin: ServerOrigin,
-		clientId: string,
-	) {
+	const userInfo = Effect.fn("OAuthTokenService.userInfo")(function* (origin: ServerOrigin) {
 		const request = (forceRefresh: boolean) =>
 			Effect.gen(function* () {
-				const token = yield* accessToken(origin, clientId, forceRefresh);
+				const token = yield* accessToken(origin, forceRefresh);
 				if (!token) {
 					return null;
 				}
@@ -179,14 +179,21 @@ const makeTokenService = (
 			catch: requestFailed,
 			try: () => response.json() as Promise<unknown>,
 		});
-		return yield* Schema.decodeUnknownEffect(OAuthUserInfoResponse)(payload).pipe(
+		const user = yield* Schema.decodeUnknownEffect(OAuthUserInfoResponse)(payload).pipe(
 			Effect.catchTag("SchemaError", (cause) => Effect.fail(requestFailed(cause))),
 		);
+		const stored = yield* fromStorage(storage.getTokenSet(origin));
+		if (!stored) {
+			return yield* Effect.fail(new OAuthTokenError({ reason: "missing-authorization" }));
+		}
+		const accessClass: AccessClass =
+			stored.clientId === OAUTH_DEMO_WEB_CLIENT_ID ? "demo" : "standard";
+		return { ...user, accessClass };
 	});
 
 	const completeAuthorization = Effect.fn("OAuthTokenService.completeAuthorization")(function* (
 		origin: ServerOrigin,
-		expectedClientId: PendingAuthorization["clientId"],
+		expectedClientIds: readonly PendingAuthorization["clientId"][],
 		expectedRedirectUri: string,
 		state: string,
 		code: string,
@@ -199,7 +206,7 @@ const makeTokenService = (
 			storage.removePending(origin, state).pipe(Effect.andThen(Effect.fail(error)));
 		if (
 			pending.serverOrigin !== origin ||
-			pending.clientId !== expectedClientId ||
+			!expectedClientIds.includes(pending.clientId) ||
 			pending.redirectUri !== expectedRedirectUri
 		) {
 			return yield* terminalFailure(new OAuthTokenError({ reason: "invalid-callback" }));
@@ -226,7 +233,7 @@ const makeTokenService = (
 		);
 		const tokens = yield* Effect.try({
 			catch: requestFailed,
-			try: () => storedTokenSet(response),
+			try: () => storedTokenSet(response, pending.clientId),
 		}).pipe(Effect.catch(terminalFailure));
 		const nonce = yield* Effect.try({
 			try: () => decodeIdTokenNonce(tokens.idToken),
@@ -252,7 +259,6 @@ const makeTokenService = (
 
 	const logout = Effect.fn("OAuthTokenService.logout")(function* (
 		origin: ServerOrigin,
-		clientId: string,
 		postLogoutRedirectUri: string,
 	) {
 		const clearLocal = Effect.gen(function* () {
@@ -276,14 +282,18 @@ const makeTokenService = (
 						fetcher,
 						origin,
 						OAUTH_REVOKE_PATH,
-						new URLSearchParams({ token, client_id: clientId, token_type_hint: tokenTypeHint }),
+						new URLSearchParams({
+							token,
+							client_id: current.clientId,
+							token_type_hint: tokenTypeHint,
+						}),
 					).pipe(Effect.catch(() => Effect.void)),
 				),
 				{ discard: true },
 			);
 			const url = new URL(getOAuthEndpoint(origin, OAUTH_END_SESSION_PATH));
 			url.search = new URLSearchParams({
-				client_id: clientId,
+				client_id: current.clientId,
 				id_token_hint: current.idToken,
 				post_logout_redirect_uri: postLogoutRedirectUri,
 			}).toString();
@@ -314,26 +324,26 @@ export class OAuthTokenService extends Context.Service<
 	{
 		readonly logout: (
 			origin: ServerOrigin,
-			clientId: string,
 			postLogoutRedirectUri: string,
 		) => Effect.Effect<string | null, OAuthTokenError>;
 		readonly clear: (origin: ServerOrigin) => Effect.Effect<void>;
 		readonly accessToken: (
 			origin: ServerOrigin,
-			clientId: string,
 			forceRefresh?: boolean,
 		) => Effect.Effect<string | null, OAuthTokenError>;
 		readonly userInfo: (
 			origin: ServerOrigin,
-			clientId: string,
-		) => Effect.Effect<OAuthUserInfo | null, OAuthTokenError>;
+		) => Effect.Effect<
+			(OAuthUserInfo & { readonly accessClass: AccessClass }) | null,
+			OAuthTokenError
+		>;
 		readonly rejectAuthorization: (
 			origin: ServerOrigin,
 			state: string,
 		) => Effect.Effect<never, OAuthTokenError>;
 		readonly completeAuthorization: (
 			origin: ServerOrigin,
-			expectedClientId: PendingAuthorization["clientId"],
+			expectedClientIds: readonly PendingAuthorization["clientId"][],
 			expectedRedirectUri: string,
 			state: string,
 			code: string,

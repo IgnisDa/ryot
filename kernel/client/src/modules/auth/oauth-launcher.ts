@@ -32,6 +32,11 @@ export type OAuthLaunchPlan = {
 	readonly client: RuntimeOAuthClientDescriptor;
 };
 
+export type ExplicitOAuthClientDescriptor = {
+	readonly serverOrigin: ServerOrigin;
+	readonly client: RuntimeOAuthClientDescriptor;
+};
+
 export const buildAuthorizationUrl = (
 	serverOrigin: ServerOrigin,
 	pending: PendingAuthorization,
@@ -60,21 +65,31 @@ export class OAuthLauncher extends Context.Service<OAuthLauncher>()("OAuthLaunch
 		const serverService = yield* ServerService;
 		const runtimeClient = yield* RuntimeOAuthClientService;
 
-		const prepare = Effect.fn("OAuthLauncher.prepare")(function* (redirectIntent: unknown) {
-			const selected = runtimeClient.isNative
-				? yield* serverService.selected
-				: decodeServerOrigin(window.location.origin);
+		const prepare = Effect.fn("OAuthLauncher.prepare")(function* (
+			redirectIntent: unknown,
+			explicit?: ExplicitOAuthClientDescriptor,
+		) {
+			let selected: ServerOrigin | null;
+			if (explicit) {
+				selected = explicit.serverOrigin;
+			} else if (runtimeClient.isNative) {
+				selected = yield* serverService.selected;
+			} else {
+				selected = decodeServerOrigin(window.location.origin);
+			}
 			if (selected === null) {
 				return { _tag: "MissingServer" } as const;
 			}
 			const serverOrigin = selected;
-			const client = yield* runtimeClient
-				.forServer(serverOrigin)
-				.pipe(
-					Effect.mapError(
-						(cause) => new OAuthLauncherError({ cause, reason: "unknown-native-application" }),
-					),
-				);
+			const client = explicit
+				? explicit.client
+				: yield* runtimeClient
+						.forServer(serverOrigin)
+						.pipe(
+							Effect.mapError(
+								(cause) => new OAuthLauncherError({ cause, reason: "unknown-native-application" }),
+							),
+						);
 			const session = yield* auth.settledSession(serverOrigin);
 			if (session.status === "authenticated") {
 				return { _tag: "Authenticated", destination: authDestination(redirectIntent) } as const;

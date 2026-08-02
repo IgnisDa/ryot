@@ -1,7 +1,7 @@
 import { Switch } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import clsx from "clsx";
-import type { ReactNode } from "react";
+import { cloneElement, isValidElement, type ComponentProps, type ReactNode } from "react";
 
 import type { CustomizeDraftItem } from "#/modules/navigation/customize/customize-state";
 
@@ -9,10 +9,15 @@ export function CustomizeRow(props: {
 	readonly isLast: boolean;
 	readonly handle: ReactNode;
 	readonly item: CustomizeDraftItem;
+	readonly readOnly?: boolean;
 	readonly toggleDisabled?: boolean;
 	readonly onToggle: (slug: string) => void;
 }) {
 	const muted = props.item.isDisabled ? "text-text-subtle" : "text-text";
+	const handle =
+		props.readOnly === true && isValidElement<ComponentProps<"button">>(props.handle)
+			? cloneElement(props.handle, { disabled: true })
+			: props.handle;
 	return (
 		<div
 			className={clsx(
@@ -20,14 +25,14 @@ export function CustomizeRow(props: {
 				!props.isLast && "border-b border-border",
 			)}
 		>
-			{props.handle}
+			{handle}
 			<AppIcon size={17} name={props.item.icon} className={clsx("shrink-0", muted)} />
 			<span className={clsx("min-w-0 flex-1 truncate text-sm", muted)}>{props.item.name}</span>
 			<Switch
-				disabled={props.toggleDisabled}
 				checked={!props.item.isDisabled}
 				label={`Show ${props.item.name} in sidebar`}
 				onChange={() => props.onToggle(props.item.slug)}
+				disabled={props.readOnly === true || props.toggleDisabled}
 			/>
 		</div>
 	);

@@ -1,6 +1,7 @@
 import { HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
+import { DemoAccessPolicy } from "../../http-annotations";
 import { UpdateUserPreferencesBody, UserAvatar, UserPreferences, UserSettings } from "./schemas";
 
 export const UserSettingsGroup = HttpApiGroup.make("userSettings")
@@ -15,11 +16,13 @@ export const UserSettingsGroup = HttpApiGroup.make("userSettings")
 		HttpApiEndpoint.patch("updatePreferences", "/user-settings/preferences", {
 			success: UserPreferences,
 			payload: UpdateUserPreferencesBody,
-		}).annotate(OpenApi.Description, "Update the current user's preferences."),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Update the current user's preferences."),
 	)
 	.add(
-		HttpApiEndpoint.post("refreshAvatar", "/user-settings/avatar", {
-			success: UserAvatar,
-		}).annotate(OpenApi.Description, "Generate a new profile avatar for the current user."),
+		HttpApiEndpoint.post("refreshAvatar", "/user-settings/avatar", { success: UserAvatar })
+			.annotate(DemoAccessPolicy, "allowed")
+			.annotate(OpenApi.Description, "Generate a new profile avatar for the current user."),
 	)
 	.middleware(AuthMiddleware);
