@@ -440,6 +440,7 @@ export const AuthMiddlewareLive = Layer.effect(
 		return {
 			cookie: (httpEffect, { credential }) => authenticate(httpEffect, credential),
 			apiKey: (httpEffect, { credential }) => authenticate(httpEffect, credential),
+			secureCookie: (httpEffect, { credential }) => authenticate(httpEffect, credential),
 		};
 	}),
 );
