@@ -6,12 +6,12 @@ import {
 	useSchemaForm,
 	type SchemaFormValues,
 } from "@ryot-app/client-ui-sdk/schema-form";
-import type { ListedImportSource } from "@ryot-app/contract/modules/imports/schemas";
 import { Match } from "effect";
 import { useEffect, useEffectEvent, useReducer, useState } from "react";
 
 import { ImportInputStep } from "#/modules/imports/input-step";
 import { ImportReviewStep } from "#/modules/imports/review-step";
+import type { ImportSourceItem } from "#/modules/imports/service";
 import { createImportRunMutation } from "#/modules/imports/service";
 import { importSourceChooseLabel, importSourceEntry } from "#/modules/imports/source-selection";
 import { importStartFailure, type ImportStartFailure } from "#/modules/imports/start-failure";
@@ -29,7 +29,7 @@ import {
 
 export const IMPORT_WIZARD_TITLE = "Start an import";
 
-export type ImportSourcePickerState = CatalogPickerState<ListedImportSource>;
+export type ImportSourcePickerState = CatalogPickerState<ImportSourceItem>;
 
 const stepHeadings = {
 	pick: "Choose a service",

@@ -1,6 +1,6 @@
 import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
-import type { BackupRun } from "@ryot-app/contract/modules/backups/schemas";
+import type { BackupRunItem } from "@ryot-app/ryotql-recipes/backups";
 import clsx from "clsx";
 
 import {
@@ -34,7 +34,7 @@ export const BACKUP_LOAD_ERROR = {
 
 export type BackupRunListState =
 	| { readonly status: "empty" }
-	| { readonly status: "ready"; readonly runs: readonly BackupRun[] };
+	| { readonly status: "ready"; readonly runs: readonly BackupRunItem[] };
 
 type BackupsViewProps = {
 	readonly nowMs: number;
@@ -43,13 +43,13 @@ type BackupsViewProps = {
 	readonly onOpenRestore: () => void;
 	readonly onCreateExport: () => void;
 	readonly downloadingRunId: string | undefined;
-	readonly onDownload: (run: BackupRun) => void;
+	readonly onDownload: (run: BackupRunItem) => void;
 	readonly createFailureDetail: string | undefined;
 	readonly downloadFailureDetail: string | undefined;
-	readonly onRequestDelete: (run: BackupRun, trigger: HTMLButtonElement) => void;
+	readonly onRequestDelete: (run: BackupRunItem, trigger: HTMLButtonElement) => void;
 };
 
-function LiveBackupRunCard(props: { readonly nowMs: number; readonly run: BackupRun }) {
+function LiveBackupRunCard(props: { readonly nowMs: number; readonly run: BackupRunItem }) {
 	const progress = backupRunProgress(props.run);
 	return (
 		<div className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4">
@@ -77,12 +77,12 @@ function LiveBackupRunCard(props: { readonly nowMs: number; readonly run: Backup
 
 function BackupHistoryRow(props: {
 	readonly nowMs: number;
-	readonly run: BackupRun;
+	readonly run: BackupRunItem;
 	readonly isFirst: boolean;
 	readonly isDownloading: boolean;
 	readonly downloadDisabled: boolean;
-	readonly onDownload: (run: BackupRun) => void;
-	readonly onRequestDelete: (run: BackupRun, trigger: HTMLButtonElement) => void;
+	readonly onDownload: (run: BackupRunItem) => void;
+	readonly onRequestDelete: (run: BackupRunItem, trigger: HTMLButtonElement) => void;
 }) {
 	const kind = backupRunKindLabel(props.run.kind);
 	const duration = runDurationLabel(props.run, props.nowMs);

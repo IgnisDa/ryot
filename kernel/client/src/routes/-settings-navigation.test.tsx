@@ -5,8 +5,14 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { Deferred, Effect, Layer, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { KernelApiTestLayer, makeEntityInterestService } from "#/api/ports.test-layer";
+import { AuthenticatedApiError } from "#/api/authenticated";
+import {
+	KernelApiTestLayer,
+	makeEntityInterestService,
+	makeRyotQLApi,
+} from "#/api/ports.test-layer";
 import { PublicApi, PublicApiError } from "#/api/public";
+import type { RyotQLApi } from "#/api/ryotql";
 import type { UserSettingsApi } from "#/api/user-settings";
 import type { AuthService } from "#/modules/auth/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
@@ -47,6 +53,26 @@ import {
 
 const AuthStub = makeAuthStub();
 
+const makeUserSettingsQueries = (get: () => typeof userSettings = () => userSettings) =>
+	makeRyotQLApi({
+		execute: (_scope, request) => {
+			if (!("user" in request.payload.queries)) {
+				return Effect.die("Unexpected RyotQL document");
+			}
+			return Effect.try({ try: get, catch: (cause) => new AuthenticatedApiError({ cause }) }).pipe(
+				Effect.map((settings) => ({
+					data: {
+						user: {
+							items: [settings],
+							type: "rows" as const,
+							pageInfo: { limit: 1, hasMore: false, nextCursor: null },
+						},
+					},
+				})),
+			);
+		},
+	});
+
 const mountView = (
 	initialEntry: string | string[],
 	rememberedSlug: string | null = "fixture",
@@ -56,6 +82,7 @@ const mountView = (
 	storage: ClientStorage["Service"] = makeStorageStub(rememberedSlug),
 	userSettingsLayer: Layer.Layer<UserSettingsApi> = makeUserSettingsStub(),
 	oauthLayer = OAuthRouteStubs,
+	settingsQueries: Layer.Layer<RyotQLApi> = makeUserSettingsQueries(),
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
 	const interestEvents: string[] = [];
@@ -87,6 +114,7 @@ const mountView = (
 				},
 			}),
 			userSettingsLayer,
+			settingsQueries,
 			events.layer,
 			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(entries) }),
 			NavigationRouteStubs,
@@ -117,11 +145,11 @@ describe("authenticated route gate", () => {
 			undefined,
 			undefined,
 			undefined,
-			makeUserSettingsStub({
-				get: () => {
-					settingsReads++;
-					return Effect.succeed(userSettings);
-				},
+			makeUserSettingsStub(),
+			undefined,
+			makeUserSettingsQueries(() => {
+				settingsReads++;
+				return userSettings;
 			}),
 		);
 		await screen.findByRole("heading", { level: 1, name: "Settings" });
@@ -439,7 +467,7 @@ describe("account settings", () => {
 
 	it("generates a new avatar and forces the session to refresh", async () => {
 		const refreshes: boolean[] = [];
-		const generated: string[] = [];
+		let avatar: string | null = null;
 		mountView(
 			"/settings/account",
 			undefined,
@@ -448,7 +476,7 @@ describe("account settings", () => {
 				settledSession: (_origin, forceRefresh = false) =>
 					Effect.sync(() => {
 						refreshes.push(forceRefresh);
-						return authenticated;
+						return { ...authenticated, user: { ...authenticated.user, image: avatar } };
 					}),
 			}),
 			undefined,
@@ -456,8 +484,7 @@ describe("account settings", () => {
 			makeUserSettingsStub({
 				refreshAvatar: () =>
 					Effect.sync(() => {
-						generated.push("https://ryot.example/avatar.png");
-						return { image: "https://ryot.example/avatar.png" };
+						avatar = "https://ryot.example/avatar.png";
 					}),
 			}),
 		);
@@ -472,11 +499,13 @@ describe("account settings", () => {
 				readsBeforeGenerate,
 			);
 		});
-		expect(generated).toEqual(["https://ryot.example/avatar.png"]);
+		expect(screen.getByRole("img", { name: "Test User's avatar" }).getAttribute("src")).toBe(
+			"https://ryot.example/avatar.png",
+		);
 	});
 
 	it("disables the avatar action while it is pending", async () => {
-		const gate = Effect.runSync(Deferred.make<{ image: string }>());
+		const gate = Effect.runSync(Deferred.make<void>());
 		mountView(
 			"/settings/account",
 			undefined,
@@ -492,7 +521,7 @@ describe("account settings", () => {
 
 		const pending = await screen.findByRole("button", { name: "Generating..." });
 		expect(pending.hasAttribute("disabled")).toBe(true);
-		await Effect.runPromise(Deferred.succeed(gate, { image: "https://ryot.example/avatar.png" }));
+		await Effect.runPromise(Deferred.succeed(gate, undefined));
 		await screen.findByRole("button", { name: "New avatar" });
 	});
 
@@ -511,6 +540,29 @@ describe("account settings", () => {
 		fireEvent.click(screen.getByRole("button", { name: "New avatar" }));
 
 		await screen.findByText("Could not generate a new avatar. Try again.");
+		expect(screen.getByRole("button", { name: "New avatar" }).hasAttribute("disabled")).toBe(false);
+	});
+
+	it("keeps the account visible if refreshing the session after avatar generation fails", async () => {
+		mountView(
+			"/settings/account",
+			undefined,
+			undefined,
+			makeAuthStub({
+				settledSession: (_origin, forceRefresh = false) =>
+					forceRefresh ? Effect.die("session refresh failed") : Effect.succeed(authenticated),
+			}),
+			undefined,
+			undefined,
+			makeUserSettingsStub({ refreshAvatar: () => Effect.void }),
+		);
+		await screen.findByRole("button", { name: "New avatar" });
+
+		fireEvent.click(screen.getByRole("button", { name: "New avatar" }));
+
+		await screen.findByText("Could not generate a new avatar. Try again.");
+		const profile = screen.getByRole("heading", { name: "Profile" }).closest("section");
+		expect(profile?.textContent).toContain("user@ryot.example");
 		expect(screen.getByRole("button", { name: "New avatar" }).hasAttribute("disabled")).toBe(false);
 	});
 
@@ -584,6 +636,7 @@ describe("preferences settings", () => {
 	const mountPreferences = (
 		userSettingsLayer = makeUserSettingsStub(),
 		authLayer: Layer.Layer<AuthService> = AuthStub,
+		settingsQueries: Layer.Layer<RyotQLApi> = makeUserSettingsQueries(),
 	) =>
 		mountView(
 			"/settings/preferences",
@@ -593,6 +646,8 @@ describe("preferences settings", () => {
 			undefined,
 			undefined,
 			userSettingsLayer,
+			undefined,
+			settingsQueries,
 		);
 
 	it("keeps local appearance usable and makes demo server preferences read-only", async () => {
@@ -602,7 +657,6 @@ describe("preferences settings", () => {
 				updatePreferences: () =>
 					Effect.sync(() => {
 						saves++;
-						return userSettings.preferences;
 					}),
 			}),
 			makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
@@ -648,17 +702,16 @@ describe("preferences settings", () => {
 		let current = userSettings;
 		const view = mountPreferences(
 			makeUserSettingsStub({
-				get: () =>
-					Effect.sync(() => {
-						settingsReads++;
-						return current;
-					}),
 				updatePreferences: (_scope, request) =>
 					Effect.sync(() => {
 						saved.push(request.payload);
 						current = { ...current, preferences: { ...current.preferences, ...request.payload } };
-						return current.preferences;
 					}),
+			}),
+			undefined,
+			makeUserSettingsQueries(() => {
+				settingsReads++;
+				return current;
 			}),
 		);
 		const submit = await screen.findByRole("button", { name: "Save changes" });
@@ -684,7 +737,6 @@ describe("preferences settings", () => {
 				updatePreferences: (_scope, request) =>
 					Effect.sync(() => {
 						saved.push(request.payload);
-						return { ...userSettings.preferences, ...request.payload };
 					}),
 			}),
 		);
@@ -700,7 +752,7 @@ describe("preferences settings", () => {
 	});
 
 	it("disables preference controls while a save is pending", async () => {
-		const gate = Effect.runSync(Deferred.make<typeof userSettings.preferences>());
+		const gate = Effect.runSync(Deferred.make<void>());
 		mountPreferences(makeUserSettingsStub({ updatePreferences: () => Deferred.await(gate) }));
 		await screen.findByRole("button", { name: "Save changes" });
 		fireEvent.click(screen.getByRole("switch", { name: "Show NSFW content" }));
@@ -720,9 +772,7 @@ describe("preferences settings", () => {
 				.hasAttribute("disabled"),
 		).toBe(true);
 
-		await Effect.runPromise(
-			Deferred.succeed(gate, { ...userSettings.preferences, allowNsfw: true }),
-		);
+		await Effect.runPromise(Deferred.succeed(gate, undefined));
 		await screen.findByText("Preferences saved.");
 	});
 
@@ -759,15 +809,14 @@ describe("preferences settings", () => {
 	it("keeps preferences visible when their mutation refresh fails", async () => {
 		let settingsReads = 0;
 		mountPreferences(
-			makeUserSettingsStub({
-				updatePreferences: (_scope, request) =>
-					Effect.succeed({ ...userSettings.preferences, ...request.payload }),
-				get: () => {
-					settingsReads++;
-					return settingsReads === 1
-						? Effect.succeed(userSettings)
-						: Effect.die("settings refresh failed");
-				},
+			makeUserSettingsStub({ updatePreferences: () => Effect.void }),
+			undefined,
+			makeUserSettingsQueries(() => {
+				settingsReads++;
+				if (settingsReads > 1) {
+					throw new Error("settings refresh failed");
+				}
+				return userSettings;
 			}),
 		);
 		const nsfw = await screen.findByRole("switch", { name: "Show NSFW content" });
@@ -784,7 +833,13 @@ describe("preferences settings", () => {
 	});
 
 	it("keeps appearance usable when the settings request fails", async () => {
-		mountPreferences(makeUserSettingsStub({ get: () => Effect.die("settings unavailable") }));
+		mountPreferences(
+			makeUserSettingsStub(),
+			AuthStub,
+			makeUserSettingsQueries(() => {
+				throw new Error("settings unavailable");
+			}),
+		);
 		await screen.findByRole("heading", { name: "Preferences" });
 
 		expect(screen.getByRole("radiogroup", { name: "Appearance" })).not.toBeNull();

@@ -10,8 +10,8 @@ export class PluginInstallationsApi extends Context.Service<PluginInstallationsA
 		make: Effect.gen(function* () {
 			const api = yield* AuthenticatedApi;
 			return {
-				update: (scope: ApiScope, request: ContractRequest<"definitions", "updatePluginState">) =>
-					api.run(scope, (client) => client.definitions.updatePluginState(request)),
+				update: (scope: ApiScope, request: ContractRequest<"plugins", "updatePluginState">) =>
+					api.run(scope, (client) => client.plugins.updatePluginState(request)),
 			};
 		}),
 	},
