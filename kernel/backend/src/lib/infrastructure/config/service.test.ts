@@ -74,6 +74,7 @@ describe("system log level config", () => {
 	it("defaults filesystem paths relative to the working directory", () => {
 		const result = loadSystemConfig();
 		assert(Exit.isSuccess(result));
+		expect(result.value.server.clientDir).toBe("./client");
 		expect(result.value.server.pluginsSystemDir).toBe("./plugins");
 		expect(result.value.fileStorage.localDir).toBe("./storage");
 		expect(result.value.fileStorage.localTempDir).toBe("./work");
