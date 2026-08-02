@@ -18,7 +18,9 @@ export function resolveRouteTarget(catalog: PluginClientCatalog, pluginSlug: str
 	if (reservedPluginSlugs.has(pluginSlug)) {
 		return notFound;
 	}
-	const installation = catalog.find((candidate) => candidate.slug === pluginSlug);
+	const installation = catalog.find(
+		(candidate) => candidate.slug === pluginSlug && candidate.health !== "incompatible",
+	);
 	return installation === undefined
 		? notFound
 		: { installation, owner: "plugin", surface: { kind: "home" } };
