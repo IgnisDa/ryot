@@ -4,7 +4,11 @@ import { Effect } from "effect";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 import { metadataMigrationTargets } from "./metadata-mapping-targets";
-import { type ResolvedLotEntityMigrationTarget, buildLotEntityTargetValuesSql } from "./shared";
+import {
+	type ResolvedLotEntityMigrationTarget,
+	buildLotEntityTargetValuesSql,
+	buildReportSql,
+} from "./shared";
 
 const metadataMigrationTargetValuesSql = sql.join(
 	metadataMigrationTargets.map(
@@ -198,8 +202,6 @@ DECLARE
 	rows_inserted int := 0;
 	started_at timestamptz := clock_timestamp();
 BEGIN
-	RAISE NOTICE 'metadata -> entity: migration started (% seconds elapsed)', 0.0;
-
 	LOOP
 		WITH metadata_targets (lot, source, entity_schema_slug, provider_id) AS (
 			VALUES ${buildLotEntityTargetValuesSql(targets)}
@@ -269,9 +271,7 @@ BEGIN
 		cursor_id := next_cursor_id;
 	END LOOP;
 
-	RAISE NOTICE 'metadata -> entity: % row(s) migrated total (% seconds elapsed)',
-		rows_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("metadata -> entity", [{ message: "row(s) migrated total", count: "rows_inserted" }])}
 END $$;
 `;
 
@@ -279,6 +279,8 @@ END $$;
 // loudly if a user-authored suggestion is found. See "Slim Migration Strategy" in AGENTS.md.
 export const buildMetadataToMetadataRelationshipMigrationSql = () => `
 DO $$
+DECLARE
+	started_at timestamptz := clock_timestamp();
 BEGIN
 	IF EXISTS (
 		SELECT 1
@@ -291,7 +293,7 @@ BEGIN
 		RAISE EXCEPTION 'metadata_to_metadata -> relationship: found user-authored suggestion links; slim migration would drop them';
 	END IF;
 
-	RAISE NOTICE 'metadata_to_metadata -> relationship: skipped (provider-reconstructed on population)';
+	${buildReportSql("metadata_to_metadata -> relationship", [{ message: "skipped (provider-reconstructed on population)" }])}
 END $$;
 `;
 

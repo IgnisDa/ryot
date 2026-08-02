@@ -9,6 +9,7 @@ import {
 	type ResolvedRelationshipTarget,
 	buildLotEntityTargetValuesSql,
 	buildRelationshipTargetValuesSql,
+	buildReportSql,
 } from "./shared";
 
 type MetadataGroupRelationshipTarget = {
@@ -167,8 +168,6 @@ DECLARE
 	rows_inserted int := 0;
 	started_at timestamptz := clock_timestamp();
 BEGIN
-	RAISE NOTICE 'metadata_group -> entity: migration started (% seconds elapsed)', 0.0;
-
 	LOOP
 		WITH metadata_group_targets (lot, source, entity_schema_slug, provider_id) AS (
 			VALUES ${buildLotEntityTargetValuesSql(targets)}
@@ -238,9 +237,7 @@ BEGIN
 		cursor_id := next_cursor_id;
 	END LOOP;
 
-	RAISE NOTICE 'metadata_group -> entity: % row(s) migrated total (% seconds elapsed)',
-		rows_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("metadata_group -> entity", [{ message: "row(s) migrated total", count: "rows_inserted" }])}
 END $$;
 `;
 
@@ -254,8 +251,6 @@ DECLARE
 	rows_inserted int;
 	started_at timestamptz := clock_timestamp();
 BEGIN
-	RAISE NOTICE 'metadata_group -> relationship: migration started (% seconds elapsed)', 0.0;
-
 	IF EXISTS (
 		WITH lot_to_relationship_schema (lot, relationship_schema_slug) AS (
 			VALUES ${buildRelationshipTargetValuesSql(targets)}
@@ -320,9 +315,7 @@ BEGIN
 	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_slug") DO NOTHING;
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
 
-	RAISE NOTICE 'metadata_group -> relationship: % user-authored row(s) migrated (% seconds elapsed)',
-		rows_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("metadata_group -> relationship", [{ message: "user-authored row(s) migrated", count: "rows_inserted" }])}
 END $$;
 `;
 
