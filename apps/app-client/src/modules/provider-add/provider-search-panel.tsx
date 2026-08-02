@@ -499,7 +499,7 @@ export function ProviderSearchPanel(props: {
 						))}
 
 					{Match.value(state.status).pipe(
-						Match.when("idle", () => <StatusLine text="Type to search this provider." />),
+						Match.when("idle", () => null),
 						Match.when("loading", () => (
 							<View className="min-h-32 items-center justify-center">
 								<ActivityIndicator size="small" accessibilityLabel="Searching" />
