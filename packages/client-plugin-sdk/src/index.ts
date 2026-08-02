@@ -1,7 +1,8 @@
 import {
+	CLIENT_ARTIFACT_METADATA_ELEMENT_ID,
 	PluginBridgeInit,
+	PluginClientArtifactMetadata,
 	type PluginBridgeReady,
-	type PluginClientArtifact,
 } from "@ryot/contract/modules/plugins/client";
 import { Result, Schema } from "effect";
 import { createElement, type ComponentType } from "react";
@@ -11,17 +12,20 @@ export interface ClientPluginDefinition {
 	readonly home: ComponentType;
 }
 
-export type ClientPluginArtifactMetadata = Pick<
-	PluginClientArtifact,
-	"hash" | "format" | "apiVersion" | "bridgeVersion" | "compilerVersion"
->;
+const decodeArtifactMetadata = Schema.decodeUnknownResult(
+	Schema.fromJsonString(PluginClientArtifactMetadata),
+);
 
 export const defineClientPlugin = (definition: ClientPluginDefinition) => Object.freeze(definition);
 
-export const bootstrapClientPlugin = (
-	definition: ClientPluginDefinition,
-	artifactMetadata: ClientPluginArtifactMetadata,
-) => {
+export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
+	const metadataElement = document.getElementById(CLIENT_ARTIFACT_METADATA_ELEMENT_ID);
+	const metadata = decodeArtifactMetadata(metadataElement?.textContent ?? "");
+	if (Result.isFailure(metadata)) {
+		return;
+	}
+
+	const artifactMetadata = metadata.success;
 	let initialized = false;
 
 	window.addEventListener("message", (event) => {
