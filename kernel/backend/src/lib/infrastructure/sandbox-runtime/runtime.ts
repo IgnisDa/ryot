@@ -184,10 +184,7 @@ export const readSandboxBridgeRequestBody = (request: Request) => {
 	}
 
 	return readSandboxByteLimitedText(
-		Stream.fromReadableStream({
-			evaluate: () => stream,
-			onError: () => badRequest("Invalid request body"),
-		}),
+		Stream.fromAsyncIterable(stream, () => badRequest("Invalid request body")),
 		SANDBOX_LIMITS.bridge.requestBytes,
 		oversizedBridgeRequest,
 	).pipe(
