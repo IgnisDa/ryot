@@ -20,6 +20,7 @@ import {
 	fetchSavedViewPages,
 	isSavedViewLoadingMore,
 	isSavedViewOperationCurrent,
+	isSavedViewRequestActiveFor,
 	savedViewControllerReducer,
 	savedViewControllerResult,
 	type SavedViewOperationToken,
@@ -114,8 +115,7 @@ export const useSavedViewResult = (record: SavedViewRecord) => {
 		if (
 			current.identity !== identity ||
 			current.activeLayout !== input.layout ||
-			(activeRequest.current?.identity === identity &&
-				activeRequest.current.layout === input.layout)
+			isSavedViewRequestActiveFor(activeRequest.current, identity, input.layout)
 		) {
 			return false;
 		}
@@ -212,7 +212,7 @@ export const useSavedViewResult = (record: SavedViewRecord) => {
 					!!target &&
 					target.data.pages.length > 0 &&
 					!target.operation &&
-					!activeRequest.current
+					!isSavedViewRequestActiveFor(activeRequest.current, identity, targetLayout)
 				);
 			},
 			onEnd: Effect.sync(() => dispatch({ type: "manual-ended", token: structuralToken })),

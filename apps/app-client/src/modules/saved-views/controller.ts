@@ -21,6 +21,12 @@ export type SavedViewOperationToken = {
 	readonly layout: SavedViewLayout;
 };
 
+export const isSavedViewRequestActiveFor = (
+	token: SavedViewOperationToken | undefined,
+	identity: string,
+	layout: SavedViewLayout,
+) => token?.identity === identity && token.layout === layout;
+
 export type SavedViewRequestFailure = {
 	readonly cause: unknown;
 	readonly status: "transport-error" | "malformed";
