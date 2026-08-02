@@ -32,16 +32,16 @@ it.effect("registers user-scoped queues and removes them with their scope", () =
 				const first = yield* hub.subscribe(firstUser);
 				const second = yield* hub.subscribe(secondUser);
 				released = first;
-				expect(decode(yield* Queue.take(first))).toBe("event: connected\n\n");
-				expect(decode(yield* Queue.take(second))).toBe("event: connected\n\n");
+				expect(decode(yield* Queue.take(first))).toBe("event: connected\ndata:\n\n");
+				expect(decode(yield* Queue.take(second))).toBe("event: connected\ndata:\n\n");
 
 				yield* hub.broadcast(firstUser);
-				expect(decode(yield* Queue.take(first))).toBe("event: catalog-invalidated\n\n");
+				expect(decode(yield* Queue.take(first))).toBe("event: catalog-invalidated\ndata:\n\n");
 				expect(Option.isNone(yield* Queue.poll(second))).toBe(true);
 
 				yield* hub.broadcastAll();
-				expect(decode(yield* Queue.take(first))).toBe("event: catalog-invalidated\n\n");
-				expect(decode(yield* Queue.take(second))).toBe("event: catalog-invalidated\n\n");
+				expect(decode(yield* Queue.take(first))).toBe("event: catalog-invalidated\ndata:\n\n");
+				expect(decode(yield* Queue.take(second))).toBe("event: catalog-invalidated\ndata:\n\n");
 			}),
 		);
 
@@ -58,7 +58,7 @@ it.effect("emits a heartbeat after 25 seconds", () =>
 			Stream.runForEach((message) => Queue.offer(messages, decode(message))),
 			Effect.forkChild,
 		);
-		expect(yield* Queue.take(messages)).toBe("event: connected\n\n");
+		expect(yield* Queue.take(messages)).toBe("event: connected\ndata:\n\n");
 		yield* TestClock.adjust("25 seconds");
 		expect(yield* Queue.take(messages)).toBe(": ping\n\n");
 		yield* Fiber.interrupt(fiber);
@@ -152,7 +152,7 @@ it.effect("routes Redis invalidations by user and refreshes all streams after re
 					redisKeys.pluginCatalogUserChannel,
 					encodePluginCatalogInvalidatedMessage({ userId: firstUser }),
 				);
-				expect(decode(yield* Queue.take(first))).toBe("event: catalog-invalidated\n\n");
+				expect(decode(yield* Queue.take(first))).toBe("event: catalog-invalidated\ndata:\n\n");
 				expect(Option.isNone(yield* Queue.poll(second))).toBe(true);
 
 				yield* subscriber.dispatch(redisKeys.pluginCatalogUserChannel, "malformed");
@@ -163,13 +163,13 @@ it.effect("routes Redis invalidations by user and refreshes all streams after re
 					.dispatch(redisKeys.pluginRegistryChannel, "registry changed")
 					.pipe(Effect.ignoreCause);
 				expect(rebuilds).toBe(1);
-				expect(decode(yield* Queue.take(first))).toBe("event: catalog-invalidated\n\n");
-				expect(decode(yield* Queue.take(second))).toBe("event: catalog-invalidated\n\n");
+				expect(decode(yield* Queue.take(first))).toBe("event: catalog-invalidated\ndata:\n\n");
+				expect(decode(yield* Queue.take(second))).toBe("event: catalog-invalidated\ndata:\n\n");
 
 				yield* subscriber.recover;
 				expect(subscriptions).toBe(2);
-				expect(decode(yield* Queue.take(first))).toBe("event: catalog-invalidated\n\n");
-				expect(decode(yield* Queue.take(second))).toBe("event: catalog-invalidated\n\n");
+				expect(decode(yield* Queue.take(first))).toBe("event: catalog-invalidated\ndata:\n\n");
+				expect(decode(yield* Queue.take(second))).toBe("event: catalog-invalidated\ndata:\n\n");
 			}),
 		);
 	}).pipe(Effect.provide(Layer.provideMerge(PluginInvalidationSubscriber.layer, dependencies)));
