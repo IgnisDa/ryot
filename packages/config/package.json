@@ -13,7 +13,7 @@
 	},
 	"dependencies": {
 		"@ryot/contract": "workspace:*",
-		"effect": "4.0.0-beta.107"
+		"effect": "4.0.0-rc.111"
 	},
 	"devDependencies": {
 		"@effect/vitest": "4.0.0-beta.107",
