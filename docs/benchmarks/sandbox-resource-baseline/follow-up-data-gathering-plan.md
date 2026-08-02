@@ -665,6 +665,9 @@ throughput/headroom point, but make architecture decisions in a separate follow-
 
 ## Phase 16: Decision Outputs
 
+Live import throughput from Effect `4.0.0-rc.116` runs is distorted by an upstream workflow stall.
+Read `effect-workflow-stall.md` before answering the throughput questions below.
+
 The completed data must be sufficient to answer:
 
 1. Is worker concurrency 2 the correct default for the 2-vCPU/4-GB profile?
