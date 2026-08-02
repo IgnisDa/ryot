@@ -1,8 +1,9 @@
+import { utf8ByteLength } from "@ryot/sandbox-compiler/limits";
 import { Effect } from "effect";
 import { FetchHttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
 import { assert, describe, expect, it } from "vitest";
 
-import { SANDBOX_LIMITS, utf8ByteLength } from "./limits";
+import { SANDBOX_LIMITS } from "./limits";
 import { applySandboxHttpRequestInit, readSandboxHttpResponseText } from "./runtime-host-functions";
 
 const request = HttpClientRequest.get("https://example.com");
