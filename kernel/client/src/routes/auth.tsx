@@ -1,8 +1,8 @@
 import { Button } from "@ryot/client-ui-sdk";
 import type { SystemConfigResponse } from "@ryot/contract/modules/system/contract";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect } from "effect";
-import { useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import type { ServerOrigin } from "../api/origin";
 import { PublicApi } from "../api/public";
@@ -10,8 +10,8 @@ import { deriveAuthMethods } from "../modules/auth/config";
 import { type AuthMode, authDestination, type TwoFactorMethod } from "../modules/auth/flow";
 import type { CredentialsValues } from "../modules/auth/form-values";
 import { CredentialsForm, TwoFactorForm } from "../modules/auth/forms";
-import { decideAuthRoute, type AuthSessionState } from "../modules/auth/route-gates";
-import { AuthService } from "../modules/auth/service";
+import { decideAuthRoute } from "../modules/auth/route-gates";
+import { AuthService, toAuthSessionState } from "../modules/auth/service";
 import { sanitizeRedirect } from "../modules/server/redirect";
 import { ServerService } from "../modules/server/service";
 
@@ -25,49 +25,30 @@ const ROUTE_ABORTED = { _tag: "RouteAborted" } as const;
 export const Route = createFileRoute("/auth")({
 	component: AuthDestination,
 	validateSearch: (search) => ({ redirect: sanitizeRedirect(search.redirect) }),
+	beforeLoad: async ({ context, search }) => {
+		const server = context.runtime.runSync(
+			Effect.flatMap(ServerService, (service) => service.selected),
+		);
+		if (server === null) {
+			// oxlint-disable-next-line typescript/only-throw-error
+			throw redirect({ replace: true, to: "/onboarding", search: { redirect: search.redirect } });
+		}
+		const session = await context.runtime.runPromise(
+			Effect.flatMap(AuthService, (service) => service.settledSession(server)),
+		);
+		const decision = decideAuthRoute(server, toAuthSessionState(session), search.redirect);
+		if (decision.action === "redirect") {
+			// oxlint-disable-next-line typescript/only-throw-error
+			throw redirect({ replace: true, to: decision.to, search: { redirect: undefined } });
+		}
+		return { server };
+	},
 });
 
 function AuthDestination() {
-	const { runtime } = Route.useRouteContext();
-	const server = runtime.runSync(Effect.flatMap(ServerService, (service) => service.selected));
-	return server === null ? <MissingServer /> : <ConnectedAuth server={server} />;
-}
-
-function MissingServer() {
+	const { server } = Route.useRouteContext();
 	const search = Route.useSearch();
-	const navigate = Route.useNavigate();
-	useEffect(() => {
-		void navigate({ replace: true, to: "/onboarding", search: { redirect: search.redirect } });
-	}, [navigate, search.redirect]);
-	return <AuthStatus title="Selecting a server" message="Returning to server setup..." />;
-}
-
-function ConnectedAuth(props: { server: ServerOrigin }) {
-	const { runtime } = Route.useRouteContext();
-	const search = Route.useSearch();
-	const navigate = Route.useNavigate();
-	const auth = runtime.runSync(AuthService);
-	const store = auth.session(props.server);
-	const session = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
-	let sessionState: AuthSessionState = { status: "missing" };
-	if (session.status === "pending") {
-		sessionState = { status: "pending" };
-	} else if (session.status === "authenticated") {
-		sessionState = { status: "authenticated", userId: session.user.id };
-	}
-	const decision = decideAuthRoute(props.server, sessionState, search.redirect);
-
-	useEffect(() => {
-		if (decision.action === "redirect") {
-			void navigate({ replace: true, to: decision.to, search: { redirect: undefined } });
-		}
-	}, [decision, navigate]);
-
-	if (decision.action !== "stay") {
-		return <AuthStatus title="Restoring your session" message="Checking your signed-in state..." />;
-	}
-
-	return <AuthGate redirectTo={decision.redirectTo} server={props.server} />;
+	return <AuthGate redirectTo={search.redirect} server={server} />;
 }
 
 function AuthGate(props: { server: ServerOrigin; redirectTo?: string }) {

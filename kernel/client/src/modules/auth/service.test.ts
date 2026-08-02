@@ -18,6 +18,7 @@ const makeAuthClient = (overrides: Partial<AuthClient["Service"]> = {}): AuthCli
 	signInWithOidc: () => Effect.void,
 	verifyTwoFactor: () => Effect.void,
 	signIn: () => Effect.succeed({}),
+	settledSession: () => Effect.succeed({ status: "missing" }),
 	...overrides,
 });
 
