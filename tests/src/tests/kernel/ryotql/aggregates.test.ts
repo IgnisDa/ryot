@@ -21,8 +21,8 @@ import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
-	createQueryEngineEntity,
-	createQueryEnginePluginSchema,
+	createEntityFixture,
+	createPluginEntitySchema,
 	createRelationship,
 	createRelationshipSchema,
 	executeRyotQL,
@@ -42,7 +42,7 @@ describe("RyotQL aggregate outputs", () => {
 	it.live("returns grouped, ungrouped, empty, null, and runtime-kind aggregate values", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
+			const { schemaId, slug } = yield* createPluginEntitySchema(client, {
 				schemaName: "RyotQLAggregateLesson",
 				propertiesSchema: {
 					unknownKeys: "passthrough",
@@ -54,7 +54,7 @@ describe("RyotQL aggregate outputs", () => {
 				},
 			});
 			const lessons = yield* Effect.all([
-				createQueryEngineEntity(client, {
+				createEntityFixture(client, {
 					name: "Advanced One",
 					entitySchemaSlug: schemaId,
 					properties: {
@@ -64,17 +64,17 @@ describe("RyotQL aggregate outputs", () => {
 						metadata: { format: "video" },
 					},
 				}),
-				createQueryEngineEntity(client, {
+				createEntityFixture(client, {
 					name: "Advanced Two",
 					entitySchemaSlug: schemaId,
 					properties: { featured: false, difficulty: "advanced", durationMinutes: 60 },
 				}),
-				createQueryEngineEntity(client, {
+				createEntityFixture(client, {
 					name: "Beginner",
 					entitySchemaSlug: schemaId,
 					properties: { featured: false, difficulty: "beginner", durationMinutes: 90 },
 				}),
-				createQueryEngineEntity(client, {
+				createEntityFixture(client, {
 					name: "Unclassified",
 					entitySchemaSlug: schemaId,
 					properties: { featured: false },
@@ -244,10 +244,10 @@ describe("RyotQL aggregate outputs", () => {
 				createAuthenticatedClient(),
 				createAuthenticatedClient(),
 			]);
-			const ownerSchema = yield* createQueryEnginePluginSchema(owner.client, {
+			const ownerSchema = yield* createPluginEntitySchema(owner.client, {
 				schemaName: "RyotQLAggregateVisible",
 			});
-			const otherSchema = yield* createQueryEnginePluginSchema(other.client, {
+			const otherSchema = yield* createPluginEntitySchema(other.client, {
 				schemaName: "RyotQLAggregateHidden",
 			});
 			const ownerRelationship = yield* createRelationshipSchema(owner.client, {
@@ -264,7 +264,7 @@ describe("RyotQL aggregate outputs", () => {
 			});
 			const ownerEntities = yield* Effect.all(
 				["Visible Source", "Visible Target One", "Visible Target Two"].map((name) =>
-					createQueryEngineEntity(owner.client, {
+					createEntityFixture(owner.client, {
 						name,
 						entitySchemaSlug: ownerSchema.schemaId,
 					}),
@@ -272,7 +272,7 @@ describe("RyotQL aggregate outputs", () => {
 			);
 			const otherEntities = yield* Effect.all(
 				["Hidden Source", "Hidden Target"].map((name) =>
-					createQueryEngineEntity(other.client, { name, entitySchemaSlug: otherSchema.schemaId }),
+					createEntityFixture(other.client, { name, entitySchemaSlug: otherSchema.schemaId }),
 				),
 			);
 			const [ownerSource, ownerTargetOne, ownerTargetTwo] = ownerEntities;

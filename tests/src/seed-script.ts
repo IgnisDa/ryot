@@ -103,7 +103,7 @@ type SavedViewTableColumn = {
 	property?: string[];
 };
 type SavedViewExpression = QueryExpression;
-type SavedViewQueryEngineRef = RuntimeRef;
+type SavedViewReference = RuntimeRef;
 type SavedViewDisplayConfigInput = {
 	entityIdProperty?: string[] | null;
 	grid: {
@@ -414,7 +414,7 @@ const literalExpression = (value: unknown): SavedViewExpression => ({
 	value,
 });
 
-const parseReference = (reference: string): SavedViewQueryEngineRef => {
+const parseReference = (reference: string): SavedViewReference => {
 	const segments = reference.split(".");
 	const [namespace, segment, third, ...rest] = segments;
 
@@ -2745,7 +2745,7 @@ async function seedSavedViews(
 		},
 	];
 
-	// ── Demo views: exercises every query-engine capability ─────────────────
+	// ── Demo views: exercises every RyotQL capability ─────────────────────────
 	const demoViews: SavedViewSpec[] = [
 		// ── Event joins ────────────────────────────────────────────────────────
 		{

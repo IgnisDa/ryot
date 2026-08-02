@@ -1,10 +1,4 @@
-import { buildQueryEngineEntityRowsDocument } from "@ryot/query-engine/documents";
-import {
-	queryEngineComparison,
-	queryEngineIdentityFields,
-	queryEngineLiteral,
-	queryEngineSystemRef,
-} from "@ryot/query-engine/primitives";
+import { ascending, column, document, eq, field, literal, rows, table } from "@ryot/ryotql";
 import { Effect } from "effect";
 
 import {
@@ -14,7 +8,7 @@ import {
 	bootSandboxSource,
 	type Client,
 	createAuthenticatedClient,
-	executeQueryEngine,
+	executeRyotQL,
 	fakeProviderDetailsResult,
 	findBuiltinSchemaBySlug,
 	getBackendClient,
@@ -26,7 +20,6 @@ import {
 import { assertTaggedError } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 
-const ENTITY_ALIAS = "entity";
 const EXTERNAL_ID = "e2e-plugin-boot-1";
 const SCRIPT_SLUG = "movie.e2e-test-boot";
 const PROVIDER_SLUG = "movie.e2e-test-boot-provider";
@@ -40,16 +33,20 @@ const BOOT_SOURCE = bootSandboxSource({
 });
 
 const buildBootEntityQueryDocument = () =>
-	buildQueryEngineEntityRowsDocument({
-		limit: 1,
-		schemas: ["movie"],
-		alias: ENTITY_ALIAS,
-		fields: queryEngineIdentityFields(ENTITY_ALIAS),
-		where: queryEngineComparison(
-			"eq",
-			queryEngineSystemRef(ENTITY_ALIAS, "externalId"),
-			queryEngineLiteral(EXTERNAL_ID),
-		),
+	document({
+		entities: (() => {
+			const entity = table("entity", "entity");
+			return rows(entity, {
+				limit: 1,
+				orderBy: [ascending(column(entity, "id"))],
+				fields: [
+					field("id", column(entity, "id")),
+					field("name", column(entity, "name")),
+					field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
+				],
+				where: eq(column(entity, "externalId"), literal(EXTERNAL_ID)),
+			});
+		})(),
 	});
 
 let queryClient: Client;
@@ -166,11 +163,15 @@ describe("POST /test-support/plugin-boot (custom plugin boot dispatch)", () => {
 				expect(typeof executionId).toBe("string");
 				expect(executionId.length).toBeGreaterThan(0);
 
-				const { data } = yield* executeQueryEngine(queryClient, buildBootEntityQueryDocument());
-				const row = data.items[0];
+				const { data } = yield* executeRyotQL(queryClient, buildBootEntityQueryDocument());
+				const result = data.entities;
+				if (result?.type !== "rows") {
+					throw new Error("Expected boot entity rows");
+				}
+				const row = result.items[0];
 
 				expect(row).toMatchObject({
-					schemaSlug: { kind: "text", value: "movie" },
+					entitySchemaSlug: { kind: "text", value: "movie" },
 					name: { kind: "text", value: "E2E Test Boot" },
 				});
 			}),

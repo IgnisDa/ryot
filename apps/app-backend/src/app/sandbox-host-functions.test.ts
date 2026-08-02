@@ -10,7 +10,6 @@ import {
 	UserId,
 } from "@ryot/contract/schema/brands";
 import type { ChangeUserRelationshipBatch } from "@ryot/sandbox-sdk/core";
-import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { Effect, Result, Layer, Option } from "effect";
 import { describe } from "vitest";
 
@@ -29,7 +28,6 @@ import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
 import { IntegrationsRepository, type IntegrationRecord } from "#modules/integrations/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RyotQLService } from "#modules/ryotql/service";
 
@@ -115,7 +113,6 @@ const runGetCurrentIntegration = (
 				Layer.mock(EventsService)({}),
 				Layer.mock(EntitiesService)({}),
 				Layer.mock(EntitiesRepository)({}),
-				Layer.mock(QueryEngineService)({}),
 				Layer.mock(RyotQLService)({}),
 				Layer.succeed(DefinitionRegistry, {
 					...makeDefinitionRegistry(),
@@ -214,142 +211,6 @@ describe("getCurrentIntegration", () => {
 	);
 });
 
-const queryDocument = {
-	source: { type: "entities", alias: "entity", schemas: ["media"], where: null },
-	output: {
-		fields: [],
-		type: "rows",
-		pagination: { page: 1, limit: 10 },
-		orderBy: [{ order: "asc", expr: { type: "literal", value: 1 } }],
-	},
-} as const satisfies JsonValue;
-
-const queryResponse = {
-	type: "rows" as const,
-	data: { items: [], pageInfo: { page: 1, limit: 10, total: 0, hasMore: false } },
-};
-
-const executeQueryEngine = () => Effect.void;
-
-const systemQueryCaller = {
-	eventSchemas: [],
-	pluginSlug: "media",
-	entitySchemaSlugs: ["media"],
-	relationshipSchemaSlugs: ["media-monitoring"],
-};
-
-const runExecuteQueryEngine = (input: SandboxRunInput, caller: typeof systemQueryCaller | null) => {
-	const userCalls: unknown[] = [];
-	const systemCalls: unknown[] = [];
-	const resolvedScriptIds: string[] = [];
-	return makeAdditionalSandboxApiFunctions.pipe(
-		Effect.flatMap((functions) =>
-			Effect.result(functions.executeQueryEngine(input, queryDocument)),
-		),
-		Effect.map((result) => ({ result, resolvedScriptIds, systemCalls, userCalls })),
-		Effect.provide(
-			Layer.mergeAll(
-				dbRunnerLayer,
-				transactionLayer,
-				makeAppConfigLayer(),
-				Layer.succeed(RedisService, makeRedisService()),
-				Layer.mock(EventsService)({}),
-				Layer.mock(EntitiesService)({}),
-				Layer.mock(EntitiesRepository)({}),
-				Layer.mock(IntegrationsRepository)({}),
-				Layer.mock(RelationshipsRepository)({}),
-				Layer.succeed(DefinitionRegistry, {
-					...makeDefinitionRegistry(),
-				}),
-				Layer.mock(PluginRuntimeResolver)({
-					resolveSystemQueryScript: (scriptId) => {
-						resolvedScriptIds.push(scriptId);
-						return Effect.succeed(caller);
-					},
-				}),
-				Layer.mock(QueryEngineService)({
-					executeSystem: (scope, doc) => {
-						systemCalls.push({ scope, doc });
-						return Effect.succeed(queryResponse);
-					},
-					executeForUser: (userId, language, doc) => {
-						userCalls.push({ userId, language, doc });
-						return Effect.succeed(queryResponse);
-					},
-				}),
-				Layer.mock(RyotQLService)({}),
-			),
-		),
-	);
-};
-
-describe("executeQueryEngine", () => {
-	it.effect("derives system scope from the persisted plugin script identity", () =>
-		Effect.gen(function* () {
-			const execution = yield* runExecuteQueryEngine(
-				{ ...runInput({ type: "system" }), metadata: { kind: "script" } },
-				systemQueryCaller,
-			);
-
-			expect(Result.getOrThrow(execution.result)).toEqual(queryResponse);
-			expect(execution.resolvedScriptIds).toEqual(["script-1"]);
-			expect(execution.systemCalls).toEqual([{ scope: systemQueryCaller, doc: queryDocument }]);
-			expect(execution.userCalls).toEqual([]);
-		}),
-	);
-
-	it.effect("rejects system access when persisted identity is not a pinned plugin script", () =>
-		Effect.gen(function* () {
-			const execution = yield* runExecuteQueryEngine(
-				{ ...runInput({ type: "system" }), metadata: { kind: "script" } },
-				null,
-			);
-
-			expect(Result.getFailure(execution.result)).toEqual(
-				Option.some({
-					message: "executeQueryEngine system access requires a pinned plugin script",
-				}),
-			);
-			expect(execution.systemCalls).toEqual([]);
-		}),
-	);
-
-	it.effect(
-		"keeps direct and delegated user execution in user scope without a synthetic user",
-		() =>
-			Effect.gen(function* () {
-				const execution = yield* runExecuteQueryEngine(
-					runInput(subscriptionAuthority({ kind: "api" })),
-					null,
-				);
-
-				expect(Result.getOrThrow(execution.result)).toEqual(queryResponse);
-				expect(execution.resolvedScriptIds).toEqual([]);
-				expect(execution.systemCalls).toEqual([]);
-				expect(execution.userCalls).toEqual([
-					{ userId: "user-1", language: null, doc: queryDocument },
-				]);
-			}),
-	);
-
-	it("exposes system query execution to direct scripts while preserving user access", () => {
-		const bound = { executeQueryEngine };
-		const systemScript = selectSandboxHostFunctions(bound, {
-			metadata: { kind: "script" },
-			authority: { type: "system" },
-			allowedHostFunctions: ["executeQueryEngine"],
-		});
-		const user = selectSandboxHostFunctions(bound, {
-			metadata: { kind: "operation" },
-			allowedHostFunctions: ["executeQueryEngine"],
-			authority: { type: "user", userId: UserId.make("user-1") },
-		});
-
-		expect(systemScript).toEqual({ executeQueryEngine });
-		expect(user).toEqual({ executeQueryEngine });
-	});
-});
-
 const ryotqlDocument = {
 	queries: {
 		entities: {
@@ -369,9 +230,16 @@ const ryotqlResponse = {
 	},
 };
 
+const systemPluginScope = {
+	eventSchemas: [],
+	pluginSlug: "media",
+	entitySchemaSlugs: ["media"],
+	relationshipSchemaSlugs: ["media-monitoring"],
+};
+
 const runExecuteRyotql = (
 	input: SandboxRunInput,
-	caller: typeof systemQueryCaller | null,
+	caller: typeof systemPluginScope | null,
 	document: RyotQLDocument = ryotqlDocument,
 ) => {
 	const userCalls: unknown[] = [];
@@ -391,7 +259,6 @@ const runExecuteRyotql = (
 				Layer.mock(EntitiesRepository)({}),
 				Layer.mock(IntegrationsRepository)({}),
 				Layer.mock(RelationshipsRepository)({}),
-				Layer.mock(QueryEngineService)({}),
 				Layer.succeed(DefinitionRegistry, makeDefinitionRegistry()),
 				Layer.mock(PluginRuntimeResolver)({
 					resolveSystemQueryScript: (scriptId) => {
@@ -419,7 +286,7 @@ describe("executeRyotql", () => {
 		Effect.gen(function* () {
 			const execution = yield* runExecuteRyotql(
 				{ ...runInput({ type: "system" }), metadata: { kind: "script" } },
-				systemQueryCaller,
+				systemPluginScope,
 			);
 
 			expect(Result.getOrThrow(execution.result)).toEqual(ryotqlResponse);
@@ -486,8 +353,8 @@ describe("executeRyotql", () => {
 		}),
 	);
 
-	it("gates RyotQL independently while retaining the legacy capability", () => {
-		const bound = { executeRyotql, executeQueryEngine };
+	it("gates RyotQL by the declared capability", () => {
+		const bound = { executeRyotql };
 		const selected = selectSandboxHostFunctions(bound, {
 			metadata: { kind: "script" },
 			authority: { type: "system" },
@@ -495,7 +362,6 @@ describe("executeRyotql", () => {
 		});
 
 		expect(selected).toEqual({ executeRyotql });
-		expect(selected).not.toHaveProperty("executeQueryEngine");
 	});
 });
 
@@ -532,7 +398,6 @@ const runChangeUserRelationships = (
 				Layer.succeed(RedisService, makeRedisService()),
 				Layer.mock(EventsService)({}),
 				Layer.mock(EntitiesService)({}),
-				Layer.mock(QueryEngineService)({}),
 				Layer.mock(RyotQLService)({}),
 				Layer.mock(PluginRuntimeResolver)({}),
 				Layer.mock(IntegrationsRepository)({}),
@@ -736,7 +601,6 @@ const runEnsureUserEntities = (options: {
 				makeAppConfigLayer(),
 				Layer.succeed(RedisService, makeRedisService()),
 				Layer.mock(EventsService)({}),
-				Layer.mock(QueryEngineService)({}),
 				Layer.mock(RyotQLService)({}),
 				Layer.mock(IntegrationsRepository)({}),
 				Layer.mock(RelationshipsRepository)({}),

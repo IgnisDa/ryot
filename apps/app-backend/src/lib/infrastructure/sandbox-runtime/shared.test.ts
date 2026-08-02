@@ -64,11 +64,9 @@ describe("requireSandboxCapabilityInput", () => {
 		).toThrow("upsertGlobalEntities is available only to provider-associated scripts");
 	});
 
-	it("limits system query access to approved metadata kinds", () => {
+	it("limits system RyotQL access to approved metadata kinds", () => {
 		const script = makeRunInput({ type: "system" }, null, { kind: "script" });
-		expect(Effect.runSync(requireSandboxCapabilityInput(script, "executeQueryEngine"))).toBe(
-			script,
-		);
+		expect(Effect.runSync(requireSandboxCapabilityInput(script, "executeRyotql"))).toBe(script);
 	});
 
 	it("restricts automation capabilities to trusted automation executions", () => {

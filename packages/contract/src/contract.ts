@@ -12,7 +12,6 @@ import { ImportsGroup } from "./modules/imports/contract";
 import { IntegrationsGroup } from "./modules/integrations/contract";
 import { NotificationsGroup } from "./modules/notifications/contract";
 import { PluginsGroup } from "./modules/plugins/contract";
-import { QueryEngineGroup } from "./modules/query-engine/contract";
 import { RelationshipsGroup } from "./modules/relationships/contract";
 import { RyotQLGroup } from "./modules/ryotql/contract";
 import { SavedViewsGroup } from "./modules/saved-views/contract";
@@ -40,7 +39,6 @@ export const AppContract = HttpApi.make("ryot")
 	.add(TestSupportGroup)
 	.add(ImportsGroup)
 	.add(IntegrationsGroup)
-	.add(QueryEngineGroup)
 	.add(RyotQLGroup)
 	.add(InterestGroup)
 	.add(NotificationsGroup)

@@ -36,7 +36,6 @@ const makeImplementations = (
 	listEventSchemas: () => Effect.fail({ message: "unused" }),
 	listIntegrations: () => Effect.fail({ message: "unused" }),
 	sendNotification: () => Effect.fail({ message: "unused" }),
-	executeQueryEngine: () => Effect.fail({ message: "unused" }),
 	getUserPreferences: () => Effect.fail({ message: "unused" }),
 	ensureUserEntities: () => Effect.fail({ message: "unused" }),
 	claimPersistentValue: () => Effect.fail({ message: "unused" }),
@@ -214,11 +213,6 @@ describe("bindSandboxHostFunctions", () => {
 			expect(yield* bound.listIntegrations([{ provider: 1 }])).toEqual({
 				success: false,
 				error: "0.provider: Expected string | undefined",
-			});
-
-			expect(yield* bound.executeQueryEngine([() => undefined])).toEqual({
-				success: false,
-				error: "0: Expected null | string | number | boolean | array | object",
 			});
 
 			expect(calls).toEqual([

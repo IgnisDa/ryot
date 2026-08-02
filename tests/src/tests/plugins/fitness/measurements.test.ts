@@ -120,7 +120,7 @@ describe("Measurements E2E", () => {
 		}),
 	);
 
-	it.live("shows measurement entities through the query engine", () =>
+	it.live("shows measurement entities through RyotQL", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			yield* createMeasurementEntityFixture(client);

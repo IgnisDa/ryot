@@ -148,11 +148,6 @@ export const bindSandboxHostFunctions = (
 		(...args) => implementations.upsertGlobalEntities(input, ...args),
 		defaultFailure("upsertGlobalEntities"),
 	),
-	executeQueryEngine: bindHostFunction(
-		domainSandboxHostContracts.executeQueryEngine,
-		(...args) => implementations.executeQueryEngine(input, ...args),
-		defaultFailure("executeQueryEngine"),
-	),
 	executeRyotql: bindHostFunction(
 		domainSandboxHostContracts.executeRyotql,
 		(...args) => implementations.executeRyotql(input, ...args),

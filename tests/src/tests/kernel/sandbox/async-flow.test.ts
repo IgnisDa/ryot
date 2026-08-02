@@ -1,3 +1,4 @@
+import { column, document, eq, field, literal, rows, table } from "@ryot/ryotql";
 import { Effect } from "effect";
 
 import {
@@ -13,7 +14,7 @@ import {
 	literalSandboxSource,
 	pluginConfigSandboxSource,
 	pollSandboxResult,
-	queryEngineSandboxSource,
+	ryotqlSandboxSource,
 	reinstallTestPluginScript,
 	requireCompletedSandboxValue,
 	systemConfigSandboxSource,
@@ -157,7 +158,7 @@ describe("sandbox async flow", () => {
 		}),
 	);
 
-	it.live("completes a script that uses executeQueryEngine", () =>
+	it.live("completes a script that uses executeRyotql", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const pluginSlug = createPluginScope();
@@ -171,116 +172,42 @@ describe("sandbox async flow", () => {
 				name: "Test Entity",
 				entitySchemaSlug: schema.id,
 			});
-			const sandboxSlug = `execute-query-engine-${crypto.randomUUID()}`;
+			const sandboxSlug = `execute-ryotql-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug: sandboxSlug,
-				name: "execute-query-engine",
-				capabilities: ["executeQueryEngine"],
-				source: queryEngineSandboxSource({
+				name: "execute-ryotql",
+				capabilities: ["executeRyotql"],
+				source: ryotqlSandboxSource({
 					slug: sandboxSlug,
-					name: "execute-query-engine",
-					query: {
-						source: { type: "entities", alias: "entity", schemas: [slug], where: null },
-						output: {
-							type: "rows",
-							pagination: { page: 1, limit: 10 },
-							orderBy: [
-								{
-									order: "asc",
-									expr: {
-										type: "ref",
-										sourceAlias: "entity",
-										field: { type: "system", name: "name" },
-									},
-								},
-							],
-							fields: [
-								{
-									key: "id",
-									expr: {
-										type: "ref",
-										sourceAlias: "entity",
-										field: { type: "system", name: "id" },
-									},
-								},
-								{
-									key: "name",
-									expr: {
-										type: "ref",
-										sourceAlias: "entity",
-										field: { type: "system", name: "name" },
-									},
-								},
-							],
-						},
-					},
+					name: "execute-ryotql",
+					queryName: "entities",
+					query: (() => {
+						const entity = table("entity", "entity");
+						return document({
+							entities: rows(entity, {
+								limit: 10,
+								fields: [field("id", column(entity, "id")), field("name", column(entity, "name"))],
+								where: eq(column(entity, "entitySchemaSlug"), literal(slug)),
+							}),
+						});
+					})(),
 				}),
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
 
 			const value = requireArray(
 				requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId)),
-				"Expected executeQueryEngine sandbox result to be an array",
+				"Expected executeRyotql sandbox result to be an array",
 			);
-			const first = requireObjectRecord(
-				value[0],
-				"Expected first query engine item to be an object",
-			);
-			const idField = requireObjectRecord(
-				first.id,
-				"Expected query engine id field to be an object",
-			);
+			const first = requireObjectRecord(value[0], "Expected first RyotQL item to be an object");
+			const idField = requireObjectRecord(first.id, "Expected RyotQL id field to be an object");
 			const nameField = requireObjectRecord(
 				first.name,
-				"Expected query engine name field to be an object",
+				"Expected RyotQL name field to be an object",
 			);
 			expect(value.length).toBe(1);
 			expect(nameField.value).toBe("Test Entity");
 			expect(idField.value).toBeDefined();
-		}),
-	);
-
-	it.live("returns an error when executeQueryEngine uses a missing schema slug", () =>
-		Effect.gen(function* () {
-			const { userId } = yield* createAuthenticatedClient();
-			const slug = `execute-query-engine-missing-schema-${crypto.randomUUID()}`;
-			const { scriptId } = yield* installSandboxScriptScoped({
-				slug,
-				capabilities: ["executeQueryEngine"],
-				name: "execute-query-engine-missing-schema",
-				source: queryEngineSandboxSource({
-					slug,
-					name: "execute-query-engine-missing-schema",
-					query: {
-						source: { where: null, alias: "entity", type: "entities", schemas: ["does-not-exist"] },
-						output: {
-							fields: [],
-							type: "rows",
-							pagination: { page: 1, limit: 10 },
-							orderBy: [
-								{
-									order: "asc",
-									expr: {
-										type: "ref",
-										sourceAlias: "entity",
-										field: { type: "system", name: "name" },
-									},
-								},
-							],
-						},
-					},
-				}),
-			});
-			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
-
-			const result = yield* pollSandboxResult(userId, jobId);
-
-			assertCompleted(result, "sandbox job");
-
-			expect(result.error).toMatchObject({
-				phase: "execute",
-				message: expect.stringContaining("Entity schema 'does-not-exist' not found"),
-			});
 		}),
 	);
 

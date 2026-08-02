@@ -23,7 +23,7 @@ import {
 	createAuthenticatedClient,
 	createRelationshipSchema,
 	createSavedViewWithQueryDocument,
-	createQueryEnginePluginSchema,
+	createPluginEntitySchema,
 	entityField,
 	findBuiltinPluginBySlug,
 	getSavedView,
@@ -136,13 +136,13 @@ describe("Saved views query documents E2E", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const { schemaId: courseSchemaId, slug: courseSlug } = yield* createQueryEnginePluginSchema(
+				const { schemaId: courseSchemaId, slug: courseSlug } = yield* createPluginEntitySchema(
 					client,
 					{
 						schemaName: `SavedViewCourse ${crypto.randomUUID()}`,
 					},
 				);
-				const { schemaId: moduleSchemaId, slug: moduleSlug } = yield* createQueryEnginePluginSchema(
+				const { schemaId: moduleSchemaId, slug: moduleSlug } = yield* createPluginEntitySchema(
 					client,
 					{
 						schemaName: `SavedViewModule ${crypto.randomUUID()}`,

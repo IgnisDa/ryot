@@ -20,9 +20,9 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	createEventSchema,
-	createQueryEngineEntity,
-	createQueryEngineEvent,
-	createQueryEnginePluginSchema,
+	createEntityFixture,
+	createEventFixture,
+	createPluginEntitySchema,
 	executeRyotQL,
 	requireRyotQLFieldValue,
 	type Client,
@@ -39,7 +39,7 @@ const requireRows = (result: RyotQLResult | undefined, name: string): RowsResult
 
 const createFixture = (client: Client, name: string) =>
 	Effect.gen(function* () {
-		const { schemaId, slug: entitySchemaSlug } = yield* createQueryEnginePluginSchema(client, {
+		const { schemaId, slug: entitySchemaSlug } = yield* createPluginEntitySchema(client, {
 			schemaName: name,
 		});
 		const eventSchema = yield* createEventSchema(client, {
@@ -50,7 +50,7 @@ const createFixture = (client: Client, name: string) =>
 				fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
 			},
 		});
-		const entity = yield* createQueryEngineEntity(client, {
+		const entity = yield* createEntityFixture(client, {
 			name: `${name} Entity`,
 			entitySchemaSlug: schemaId,
 		});
@@ -63,13 +63,13 @@ describe("RyotQL event queries", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const first = yield* createFixture(client, "RyotQLEventBook");
 			const second = yield* createFixture(client, "RyotQLEventMovie");
-			yield* createQueryEngineEvent(client, {
+			yield* createEventFixture(client, {
 				entityId: first.entity.id,
 				properties: { rating: 3 },
 				occurredAt: "2026-07-01T00:00:00.000Z",
 				eventSchemaSlug: first.eventSchemaSlug,
 			});
-			yield* createQueryEngineEvent(client, {
+			yield* createEventFixture(client, {
 				properties: { rating: 5 },
 				entityId: second.entity.id,
 				occurredAt: "2026-08-01T00:00:00.000Z",
@@ -127,7 +127,7 @@ describe("RyotQL event queries", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const fixture = yield* createFixture(client, "RyotQLEventPagination");
 			for (const rating of [1, 2, 3, 4, 5]) {
-				yield* createQueryEngineEvent(client, {
+				yield* createEventFixture(client, {
 					properties: { rating },
 					entityId: fixture.entity.id,
 					eventSchemaSlug: fixture.eventSchemaSlug,
@@ -173,11 +173,11 @@ describe("RyotQL event queries", () => {
 			]);
 			const own = yield* createFixture(client, "RyotQLEventOwner");
 			const other = yield* createFixture(otherClient, "RyotQLEventOther");
-			yield* createQueryEngineEvent(client, {
+			yield* createEventFixture(client, {
 				entityId: own.entity.id,
 				eventSchemaSlug: own.eventSchemaSlug,
 			});
-			yield* createQueryEngineEvent(otherClient, {
+			yield* createEventFixture(otherClient, {
 				entityId: other.entity.id,
 				eventSchemaSlug: other.eventSchemaSlug,
 			});
