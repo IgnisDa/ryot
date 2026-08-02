@@ -35,6 +35,17 @@ const extensionOf = (path: string) => path.slice(path.lastIndexOf(".") + 1);
 const failure = (entry: string, code: string, message: string) =>
 	clientPluginCompilationFailure([clientPluginCompilerDiagnostic(code, entry, message)]);
 
+const duplicateFileName = (files: readonly PluginClientArtifactFile[]) => {
+	const names = new Set<string>();
+	return files.find(({ name }) => {
+		if (names.has(name)) {
+			return true;
+		}
+		names.add(name);
+		return false;
+	})?.name;
+};
+
 export const compileClientPlugin = ({ entry, files }: ClientPluginCompilerInput) =>
 	Effect.gen(function* () {
 		if (!entry.startsWith(CLIENT_SOURCE_ROOT) || !Object.hasOwn(files, entry)) {
@@ -108,13 +119,26 @@ export const compileClientPlugin = ({ entry, files }: ClientPluginCompilerInput)
 			],
 		);
 
-		const hashedFiles: PluginClientArtifactFile[] = sortBy(
+		const assetsByName = new Map<string, PluginClientArtifactFile>();
+		for (const path of bundled.assets) {
+			const file = clientArtifactFile(assetNames[path] ?? path, files[path] ?? "");
+			const existing = assetsByName.get(file.name);
+			if (existing === undefined) {
+				assetsByName.set(file.name, file);
+			} else if (existing.contents !== file.contents || existing.contentType !== file.contentType) {
+				return yield* failure(
+					path,
+					"RYOT_CLIENT_ARTIFACT_FILE",
+					`Client plugin assets emitted duplicate file name "${file.name}"`,
+				);
+			}
+		}
+
+		const hashedFiles = sortBy(
 			[
 				clientArtifactFile(CLIENT_ARTIFACT_SCRIPT_NAME, bundled.javascript),
 				clientArtifactFile(CLIENT_ARTIFACT_STYLE_NAME, css),
-				...bundled.assets.map((path) =>
-					clientArtifactFile(assetNames[path] ?? path, files[path] ?? ""),
-				),
+				...assetsByName.values(),
 			],
 			(file) => file.name,
 		);
@@ -126,6 +150,14 @@ export const compileClientPlugin = ({ entry, files }: ClientPluginCompilerInput)
 				clientArtifactFile(CLIENT_ARTIFACT_DOCUMENT_NAME, clientArtifactDocument(metadata)),
 			],
 		};
+		const duplicateName = duplicateFileName(artifact.files);
+		if (duplicateName !== undefined) {
+			return yield* failure(
+				entry,
+				"RYOT_CLIENT_ARTIFACT_FILE",
+				`Client plugin emitted duplicate file name "${duplicateName}"`,
+			);
+		}
 
 		const artifactBytes = artifact.files.reduce(
 			(total, file) => total + utf8ByteLength(file.contents),
