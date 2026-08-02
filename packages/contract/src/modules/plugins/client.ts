@@ -69,3 +69,25 @@ export type PluginBridgeInit = Schema.Schema.Type<typeof PluginBridgeInit>;
 export const PluginBridgeReady = strictStruct(PluginBridgeInit.fields);
 
 export type PluginBridgeReady = Schema.Schema.Type<typeof PluginBridgeReady>;
+
+export const PluginLogicalLocation = strictStruct({
+	path: Schema.String,
+	search: Schema.String,
+});
+
+export type PluginLogicalLocation = Schema.Schema.Type<typeof PluginLogicalLocation>;
+
+export const PluginBridgeLocation = strictStruct({
+	location: PluginLogicalLocation,
+	type: Schema.Literal("location"),
+});
+
+export type PluginBridgeLocation = Schema.Schema.Type<typeof PluginBridgeLocation>;
+
+export const PluginBridgeNavigate = strictStruct({
+	location: PluginLogicalLocation,
+	type: Schema.Literal("navigate"),
+	mode: Schema.Literals(["push", "replace"]),
+});
+
+export type PluginBridgeNavigate = Schema.Schema.Type<typeof PluginBridgeNavigate>;

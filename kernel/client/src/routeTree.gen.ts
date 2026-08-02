@@ -10,13 +10,20 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PluginSlugRouteImport } from './routes/$pluginSlug'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PluginSlugIndexRouteImport } from './routes/$pluginSlug/index'
+import { Route as PluginSlugSplatRouteImport } from './routes/$pluginSlug/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PluginSlugRoute = PluginSlugRouteImport.update({
+  id: '/$pluginSlug',
+  path: '/$pluginSlug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -30,43 +37,66 @@ const OnboardingRoute = OnboardingRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const PluginSlugIndexRoute = PluginSlugIndexRouteImport.update({
-  id: '/$pluginSlug/',
-  path: '/$pluginSlug/',
-  getParentRoute: () => rootRouteImport,
+  id: '/',
+  path: '/',
+  getParentRoute: () => PluginSlugRoute,
+} as any)
+const PluginSlugSplatRoute = PluginSlugSplatRouteImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => PluginSlugRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/$pluginSlug': typeof PluginSlugRouteWithChildren
   '/auth': typeof AuthRoute
   '/onboarding': typeof OnboardingRoute
+  '/$pluginSlug/$': typeof PluginSlugSplatRoute
   '/$pluginSlug/': typeof PluginSlugIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/onboarding': typeof OnboardingRoute
+  '/$pluginSlug/$': typeof PluginSlugSplatRoute
   '/$pluginSlug': typeof PluginSlugIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/$pluginSlug': typeof PluginSlugRouteWithChildren
   '/auth': typeof AuthRoute
   '/onboarding': typeof OnboardingRoute
+  '/$pluginSlug/$': typeof PluginSlugSplatRoute
   '/$pluginSlug/': typeof PluginSlugIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/onboarding' | '/$pluginSlug/'
+  fullPaths:
+    | '/'
+    | '/$pluginSlug'
+    | '/auth'
+    | '/onboarding'
+    | '/$pluginSlug/$'
+    | '/$pluginSlug/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/onboarding' | '/$pluginSlug'
-  id: '__root__' | '/' | '/auth' | '/onboarding' | '/$pluginSlug/'
+  to: '/' | '/auth' | '/onboarding' | '/$pluginSlug/$' | '/$pluginSlug'
+  id:
+    | '__root__'
+    | '/'
+    | '/$pluginSlug'
+    | '/auth'
+    | '/onboarding'
+    | '/$pluginSlug/$'
+    | '/$pluginSlug/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  PluginSlugRoute: typeof PluginSlugRouteWithChildren
   AuthRoute: typeof AuthRoute
   OnboardingRoute: typeof OnboardingRoute
-  PluginSlugIndexRoute: typeof PluginSlugIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -76,6 +106,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/$pluginSlug': {
+      id: '/$pluginSlug'
+      path: '/$pluginSlug'
+      fullPath: '/$pluginSlug'
+      preLoaderRoute: typeof PluginSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -94,19 +131,40 @@ declare module '@tanstack/react-router' {
     }
     '/$pluginSlug/': {
       id: '/$pluginSlug/'
-      path: '/$pluginSlug'
+      path: '/'
       fullPath: '/$pluginSlug/'
       preLoaderRoute: typeof PluginSlugIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof PluginSlugRoute
+    }
+    '/$pluginSlug/$': {
+      id: '/$pluginSlug/$'
+      path: '/$'
+      fullPath: '/$pluginSlug/$'
+      preLoaderRoute: typeof PluginSlugSplatRouteImport
+      parentRoute: typeof PluginSlugRoute
     }
   }
 }
 
+interface PluginSlugRouteChildren {
+  PluginSlugSplatRoute: typeof PluginSlugSplatRoute
+  PluginSlugIndexRoute: typeof PluginSlugIndexRoute
+}
+
+const PluginSlugRouteChildren: PluginSlugRouteChildren = {
+  PluginSlugSplatRoute: PluginSlugSplatRoute,
+  PluginSlugIndexRoute: PluginSlugIndexRoute,
+}
+
+const PluginSlugRouteWithChildren = PluginSlugRoute._addFileChildren(
+  PluginSlugRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  PluginSlugRoute: PluginSlugRouteWithChildren,
   AuthRoute: AuthRoute,
   OnboardingRoute: OnboardingRoute,
-  PluginSlugIndexRoute: PluginSlugIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
