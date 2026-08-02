@@ -7,6 +7,7 @@ import {
 	PluginRequestError,
 } from "@ryot/contract/modules/plugins/schemas";
 import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import type { JsonValue } from "@ryot/contract/schema/json";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 import { Headers } from "effect/unstable/http";
 import { assert } from "vitest";
@@ -94,6 +95,7 @@ const makeIntegration = (input: {
 
 const makeLayer = (input: {
 	sandboxError?: string;
+	sandboxValue?: unknown;
 	currentUserId?: UserId;
 	captured?: Array<unknown>;
 	integration?: IntegrationRecord | null;
@@ -145,8 +147,8 @@ const makeLayer = (input: {
 								input.captured?.push(runInput);
 								return {
 									logs: [],
-									value: "ok",
 									status: "completed" as const,
+									value: "sandboxValue" in input ? input.sandboxValue : "ok",
 									error: input.sandboxError
 										? { phase: "execute" as const, message: input.sandboxError }
 										: null,
@@ -192,7 +194,7 @@ const expectError = (
 	expect(error).toBeInstanceOf(ErrorClass);
 };
 
-const invoke = (input: { pluginSlug: string; operationSlug?: string; payload?: unknown }) =>
+const invoke = (input: { pluginSlug: string; operationSlug?: string; payload?: JsonValue }) =>
 	Effect.flatMap(OperationsService, (service) =>
 		service.invoke({
 			headers: Headers.empty,
@@ -507,6 +509,36 @@ it.effect("propagates sandbox failures from operation scripts", () =>
 			makeLayer({
 				currentUserId: USER_ONE,
 				sandboxError: "operation failed",
+				available: [systemUserOperation],
+			}),
+		),
+	),
+);
+
+it.effect("rejects non-JSON operation results as runtime failures", () =>
+	Effect.gen(function* () {
+		const exit = yield* Effect.exit(invoke({ pluginSlug: SYSTEM_SLUG }));
+		assert(Exit.isFailure(exit));
+		expect(Option.getOrThrow(Cause.findErrorOption(exit.cause))).toEqual(
+			new PluginInvocationError({
+				reason: {
+					code: "runtime-failed",
+					diagnostics: [
+						{
+							phase: "output",
+							severity: "error",
+							code: "sandbox-runtime-error",
+							message: "Sandbox operation result must be JSON",
+						},
+					],
+				},
+			}),
+		);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				currentUserId: USER_ONE,
+				sandboxValue: new Date(0),
 				available: [systemUserOperation],
 			}),
 		),

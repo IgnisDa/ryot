@@ -1,6 +1,15 @@
 import { Schema } from "effect";
 
+import {
+	JsonValue as JsonValueSchema,
+	type JsonPrimitive as JsonPrimitiveType,
+	type JsonValue as JsonValueType,
+} from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
+
+export const JsonValue = JsonValueSchema;
+export type JsonValue = JsonValueType;
+export type JsonPrimitive = JsonPrimitiveType;
 
 export const TableReference = strictStruct({
 	alias: Schema.String,
@@ -15,19 +24,8 @@ export const ColumnExpression = strictStruct({
 }).annotate({ identifier: "RyotQLColumnExpression" });
 export type ColumnExpression = typeof ColumnExpression.Type;
 
-const JsonPrimitive = Schema.Union([Schema.Null, Schema.String, Schema.Finite, Schema.Boolean]);
-
-export type JsonValue =
-	| readonly JsonValue[]
-	| typeof JsonPrimitive.Type
-	| { readonly [key: string]: JsonValue };
-
-export const JsonValue: Schema.Codec<JsonValue, JsonValue> = Schema.suspend(() =>
-	Schema.Union([JsonPrimitive, Schema.Array(JsonValue), Schema.Record(Schema.String, JsonValue)]),
-).annotate({ identifier: "RyotQLJsonValue" });
-
 export const LiteralExpression = strictStruct({
-	value: JsonValue,
+	value: JsonValueSchema,
 	type: Schema.Literal("literal"),
 }).annotate({ identifier: "RyotQLLiteralExpression" });
 export type LiteralExpression = typeof LiteralExpression.Type;
@@ -406,11 +404,11 @@ export type RowItem = Readonly<Record<string, unknown>>;
 
 const ResultValue: Schema.Codec<unknown, unknown> = Schema.suspend(() =>
 	Schema.Union([
+		JsonValueSchema,
 		strictStruct({
 			pageInfo: IncludePageInfo,
 			items: Schema.Array(Schema.Record(Schema.String, ResultValue)),
 		}),
-		JsonValue,
 	]),
 );
 

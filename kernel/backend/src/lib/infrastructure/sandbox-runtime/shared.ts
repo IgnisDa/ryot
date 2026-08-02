@@ -1,7 +1,7 @@
 import { unknownToMessage } from "@ryot/contract/errors";
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
 import type { SandboxExecutionGrants } from "@ryot/contract/modules/sandbox/schemas";
 import type { SandboxHostCapability } from "@ryot/contract/modules/sandbox/wire";
+import { isJsonValue, type JsonValue } from "@ryot/contract/schema/json";
 import type { SandboxHostImplementationMap as SdkSandboxHostImplementationMap } from "@ryot/sandbox-sdk/core";
 import type { SandboxHostError } from "@ryot/sandbox-sdk/wire";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
@@ -10,6 +10,8 @@ import { Effect } from "effect";
 import type { SANDBOX_CAPABILITY_REQUIREMENTS } from "./capability-policy";
 import { sandboxCapabilityRequirement } from "./capability-policy";
 import type { SandboxExecutionPrincipal } from "./execution-principal";
+
+export { isJsonValue } from "@ryot/contract/schema/json";
 
 export type SandboxRunInput = {
 	readonly context: unknown;
@@ -82,30 +84,6 @@ export const sandboxHostFailure = (message: string) => Effect.fail(toSandboxHost
 
 export const sandboxHostEffect = <A, E>(effect: Effect.Effect<A, E>) =>
 	effect.pipe(Effect.mapError(toSandboxHostError));
-
-export const isJsonValue = (value: unknown): value is JsonValue => {
-	if (
-		value === null ||
-		typeof value === "boolean" ||
-		typeof value === "string" ||
-		(typeof value === "number" && Number.isFinite(value))
-	) {
-		return true;
-	}
-
-	if (Array.isArray(value)) {
-		return value.every(isJsonValue);
-	}
-
-	if (!isObjectRecord(value)) {
-		return false;
-	}
-	const prototype = Object.getPrototypeOf(value);
-	return (
-		(prototype === Object.prototype || prototype === null) &&
-		Object.values(value).every(isJsonValue)
-	);
-};
 
 export const toSandboxJsonValue = (value: unknown): JsonValue =>
 	isJsonValue(value) ? value : null;

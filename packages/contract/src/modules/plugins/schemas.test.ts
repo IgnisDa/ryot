@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 
 import {
 	PluginConflictError,
+	PluginInvokeBody,
+	PluginInvokeResult,
 	UpdatePluginInstallationBody,
 	UpdatePrivatePluginBody,
 } from "./schemas";
@@ -74,4 +76,16 @@ it("decodes saved-view uninstall conflicts", () => {
 			reason: { code: "saved-view-referenced", pluginSlug: "fixture" },
 		}),
 	).toMatchObject({ reason: { code: "saved-view-referenced", pluginSlug: "fixture" } });
+});
+
+it("accepts only JSON operation HTTP payloads and results", () => {
+	const decodeBody = Schema.decodeUnknownSync(PluginInvokeBody);
+	const decodeResult = Schema.decodeUnknownSync(PluginInvokeResult);
+
+	expect(decodeBody({ payload: { values: [null, true, 1, "ok"] } })).toEqual({
+		payload: { values: [null, true, 1, "ok"] },
+	});
+	expect(decodeResult({ result: ["ok"] })).toEqual({ result: ["ok"] });
+	expect(() => decodeBody({ payload: { invalid: undefined } })).toThrow();
+	expect(() => decodeResult({ result: Number.POSITIVE_INFINITY })).toThrow();
 });

@@ -155,8 +155,15 @@ describe("requireSandboxCapabilityInput", () => {
 });
 
 describe("isJsonValue", () => {
-	it("accepts nested JSON and rejects non-JSON objects", () => {
+	it("uses the canonical cycle-safe JSON predicate", () => {
+		const shared = { value: true };
+		const cyclic: Record<string, unknown> = {};
+		cyclic["self"] = cyclic;
+
 		expect(isJsonValue({ nested: [true, 42, null] })).toBe(true);
+		expect(isJsonValue({ left: shared, right: shared })).toBe(true);
 		expect(isJsonValue(new Date(0))).toBe(false);
+		expect(isJsonValue(Array(1))).toBe(false);
+		expect(isJsonValue(cyclic)).toBe(false);
 	});
 });

@@ -15,8 +15,8 @@ export const invokeOperationRecipe = <Input, InputEncoded, Output, OutputEncoded
 	recipe: OperationRecipe<Input, InputEncoded, Output, OutputEncoded>,
 	input: Input,
 	transport: (request: {
-		readonly payload: unknown;
 		readonly pluginSlug: string;
+		readonly payload: InputEncoded;
 		readonly operationSlug: string;
 	}) => Effect.Effect<unknown, E>,
 ) =>

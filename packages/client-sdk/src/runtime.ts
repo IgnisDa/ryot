@@ -7,6 +7,7 @@ import {
 	type PluginBridgeRyotQLRequest,
 	type PluginClientArtifactMetadata,
 } from "@ryot/contract/modules/plugins/client";
+import type { JsonValue } from "@ryot/contract/schema/json";
 import type { PreparedRecipe } from "@ryot/ryotql";
 import { Match, Result, Schema } from "effect";
 
@@ -88,7 +89,7 @@ export const createPluginRuntime = (
 			}
 		});
 
-	const invokeOperation = (request: { readonly slug: string; readonly input: unknown }) =>
+	const invokeOperation = (request: { readonly slug: string; readonly input: JsonValue }) =>
 		new Promise<unknown>((resolve, reject) => {
 			if (state !== "active") {
 				reject(new PluginOperationError("transport"));
