@@ -1,4 +1,5 @@
 import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
+import { providerSearchOptionsResultSchema } from "@ryot/sandbox-sdk/provider";
 import type {
 	ProviderDetailsChildEntity,
 	ProviderDetailsRelatedEntity,
@@ -6,6 +7,7 @@ import type {
 	ProviderDetailsResult,
 	ProviderResolveResult,
 	ProviderSearchItem,
+	ProviderSearchOptionsResult,
 	ProviderSearchResult,
 	ProviderTranslateResult,
 } from "@ryot/sandbox-sdk/provider";
@@ -58,6 +60,9 @@ const ProviderSearchResultSchema = Schema.Struct({
 	),
 }).annotate(strict) satisfies Schema.Codec<ProviderSearchResult>;
 
+export const ProviderSearchOptionsResultSchema =
+	providerSearchOptionsResultSchema satisfies Schema.Codec<ProviderSearchOptionsResult>;
+
 const ProviderDetailsRelatedEntitySchema = Schema.Struct({
 	name: Schema.String,
 	externalId: Schema.String,
@@ -103,6 +108,9 @@ const ProviderTranslateResultSchema = Schema.Struct({
 }).annotate(strict) satisfies Schema.Codec<ProviderTranslateResult>;
 
 export const decodeProviderSearchResult = Schema.decodeUnknownEffect(ProviderSearchResultSchema);
+export const decodeProviderSearchOptionsResult = Schema.decodeUnknownEffect(
+	ProviderSearchOptionsResultSchema,
+);
 export const decodeProviderDetailsResult = Schema.decodeUnknownEffect(ProviderDetailsResultSchema);
 export const decodeProviderResolveResult = Schema.decodeUnknownEffect(ProviderResolveResultSchema);
 export const decodeProviderTranslateResult = Schema.decodeUnknownEffect(

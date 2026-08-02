@@ -1,5 +1,6 @@
 import { pluginConfigEnvironmentKey } from "@ryot/contract/modules/plugins/plugin-config";
 import {
+	type AppChoice,
 	type AppBooleanProperty,
 	type AppEnumProperty,
 	type AppIntegerProperty,
@@ -136,15 +137,15 @@ export const booleanField = <const O extends FieldOptions<boolean>>(
 });
 
 export const enumField = <
-	const Values extends readonly [string, ...string[]],
-	const O extends FieldOptions<Values[number]>,
+	const Values extends readonly [AppChoice, ...AppChoice[]],
+	const O extends FieldOptions<Values[number]["value"]>,
 >(
-	options: O & { readonly options: Values },
-): ConfigFieldDefinition<FieldValue<Values[number], O>, AppEnumProperty> => ({
+	options: O & { readonly choices: { readonly kind: "static"; readonly values: Values } },
+): ConfigFieldDefinition<FieldValue<Values[number]["value"], O>, AppEnumProperty> => ({
 	kind: "field",
 	envKey: options.envKey,
 	hidden: options.hidden ?? false,
-	schema: { type: "enum", options: options.options, ...fieldSchemaOptions(options) },
+	schema: { type: "enum", choices: options.choices, ...fieldSchemaOptions(options) },
 });
 
 export const group = <const F extends ConfigFields>(
@@ -177,15 +178,31 @@ const primitiveConfig = (field: AppPropertyDefinition, envKey: string): Config.C
 		return Config.number(envKey);
 	}
 	if (field.type === "enum") {
+		if (field.choices.kind === "dynamic") {
+			return Config.string(envKey).pipe(
+				Config.mapOrFail(() =>
+					Effect.fail(
+						new Config.ConfigError(
+							new Schema.SchemaError(
+								new SchemaIssue.InvalidValue({
+									message: `${envKey} has unresolved dynamic choices`,
+								}),
+							),
+						),
+					),
+				),
+			);
+		}
+		const choices = field.choices.values.map((choice) => choice.value);
 		return Config.string(envKey).pipe(
 			Config.mapOrFail((value) =>
-				field.options.includes(value)
+				choices.includes(value)
 					? Effect.succeed(value)
 					: Effect.fail(
 							new Config.ConfigError(
 								new Schema.SchemaError(
 									new SchemaIssue.InvalidValue({
-										message: `${envKey} must be one of: ${field.options.join(", ")}`,
+										message: `${envKey} must be one of: ${choices.join(", ")}`,
 									}),
 								),
 							),
