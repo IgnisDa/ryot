@@ -8,6 +8,7 @@ import {
 	document,
 	eq,
 	field,
+	include,
 	join,
 	jsonPath,
 	literal,
@@ -17,6 +18,17 @@ import {
 
 import { getCatalogTable } from "./catalog";
 import { validateRyotQLDocument } from "./validator";
+
+const nested = (depth: number): ReturnType<typeof include> => {
+	const child = table("entity", `child${depth}`);
+	return include(child, {
+		limit: 10,
+		fields: [],
+		key: `child${depth}`,
+		...(depth < 4 ? { include: [nested(depth + 1)] } : {}),
+		orderBy: [{ direction: "asc", expr: column(child, "id") }],
+	});
+};
 
 it("exposes only approved entity fields", () => {
 	expect(new Set(Object.keys(getCatalogTable("entity")?.fields ?? {}))).toEqual(
@@ -48,6 +60,20 @@ it("exposes only approved event fields", () => {
 			"occurredAt",
 			"eventSchemaSlug",
 			"sessionEntityId",
+		]),
+	);
+});
+
+it("exposes only approved relationship fields", () => {
+	expect(new Set(Object.keys(getCatalogTable("relationship")?.fields ?? {}))).toEqual(
+		new Set([
+			"id",
+			"userId",
+			"createdAt",
+			"properties",
+			"sourceEntityId",
+			"targetEntityId",
+			"relationshipSchemaSlug",
 		]),
 	);
 });
@@ -181,4 +207,127 @@ it("validates nested expression aliases, fields, JSON paths, and scalar kinds", 
 			}),
 		),
 	).toBe("Query 'entities': Comparison operands must have compatible types");
+});
+
+it("validates include correlation, lexical scopes, keys, limits, and depth", () => {
+	const course = table("entity", "course");
+	const relationship = table("relationship", "courseModule");
+	const module = table("entity", "module");
+	const modules = include(relationship, {
+		limit: 10,
+		key: "modules",
+		fields: [field("name", column(module, "name"))],
+		orderBy: [{ direction: "asc", expr: column(module, "name") }],
+		where: eq(column(relationship, "sourceEntityId"), column(course, "id")),
+		joins: [
+			join("inner", module, eq(column(relationship, "targetEntityId"), column(module, "id"))),
+		],
+	});
+	expect(
+		validateRyotQLDocument(
+			document({
+				courses: rows(course, { fields: [field("id", column(course, "id"))], include: [modules] }),
+			}),
+		),
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(
+			document({
+				courses: rows(course, {
+					include: [modules],
+					fields: [field("modules", column(course, "id"))],
+				}),
+			}),
+		),
+	).toBe("Query 'courses': Duplicate output key 'modules'");
+
+	const unknown = table("entity", "siblingAlias");
+	expect(
+		validateRyotQLDocument(
+			document({
+				courses: rows(course, {
+					fields: [],
+					include: [
+						modules,
+						include(module, {
+							limit: 10,
+							fields: [],
+							key: "lessons",
+							orderBy: [{ direction: "asc", expr: column(module, "id") }],
+							where: eq(column(module, "id"), column(unknown, "id")),
+						}),
+					],
+				}),
+			}),
+		),
+	).toBe("Query 'courses': Include 'lessons': Unknown table alias 'siblingAlias'");
+
+	const shadowed = table("entity", "course");
+	expect(
+		validateRyotQLDocument(
+			document({
+				courses: rows(course, {
+					fields: [],
+					include: [
+						include(shadowed, {
+							limit: 10,
+							fields: [],
+							key: "shadowed",
+							orderBy: [{ direction: "asc", expr: column(shadowed, "id") }],
+						}),
+					],
+				}),
+			}),
+		),
+	).toBe("Query 'courses': Include 'shadowed': Duplicate table alias 'course'");
+
+	const joinedRoot = table("entity", "joinedRoot");
+	const tooManyJoins = Array.from({ length: 9 }, (_, index) => {
+		const joined = table("entity", `includeJoin${index}`);
+		return join("inner", joined, eq(column(joinedRoot, "id"), column(joined, "id")));
+	});
+	expect(
+		validateRyotQLDocument(
+			document({
+				courses: rows(course, {
+					fields: [],
+					include: [
+						include(joinedRoot, {
+							limit: 10,
+							fields: [],
+							key: "joined",
+							joins: tooManyJoins,
+							orderBy: [{ direction: "asc", expr: column(joinedRoot, "id") }],
+						}),
+					],
+				}),
+			}),
+		),
+	).toBe("Query 'courses': Include 'joined': A query may contain at most 8 joins");
+
+	const limited = table("entity", "limited");
+	expect(
+		validateRyotQLDocument(
+			document({
+				courses: rows(course, {
+					fields: [],
+					include: [
+						include(limited, {
+							limit: 101,
+							fields: [],
+							key: "limited",
+							orderBy: [{ direction: "asc", expr: column(limited, "id") }],
+						}),
+					],
+				}),
+			}),
+		),
+	).toBe("Query 'courses': Include limit must not exceed 100");
+	expect(
+		validateRyotQLDocument(
+			document({ courses: rows(course, { fields: [], include: [nested(1)] }) }),
+		),
+	).toBe(
+		"Query 'courses': Include 'child1': Include 'child2': Include 'child3': Include depth must not exceed 3",
+	);
 });

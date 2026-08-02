@@ -1,7 +1,10 @@
 import type {
 	FieldValue,
+	Include,
+	IncludeResult,
 	NamedQuery,
 	Predicate,
+	RowItem,
 	RowsResult,
 	ScalarExpression,
 } from "@ryot/contract/modules/ryotql/language";
@@ -19,6 +22,7 @@ import {
 
 type SqlFragment = ReturnType<typeof sql>;
 type CompileScope = ReadonlyMap<string, CompileTable>;
+type QuerySet = Pick<NamedQuery, "from" | "joins" | "where"> | Include;
 type CompileTable = {
 	readonly alias: string;
 	readonly table: CatalogTable;
@@ -304,22 +308,26 @@ const outputKind = (expr: ScalarExpression, scope: CompileScope): SqlFragment =>
 	return sql`CASE WHEN ${compileExpression(expr, scope)} IS NULL THEN 'null' ELSE ${sql.raw(`'${kind}'`)} END`;
 };
 
-const buildScope = (query: NamedQuery, language: string | null) => {
+const buildScope = (
+	query: QuerySet,
+	language: string | null,
+	prefix: string,
+	ancestors: CompileScope = new Map(),
+) => {
 	const root = requireTable(query.from.table);
-	const scope = new Map<string, CompileTable>([
-		[query.from.alias, { language, alias: "t0", table: root }],
-	]);
+	const scope = new Map(ancestors);
+	scope.set(query.from.alias, { language, alias: `${prefix}t0`, table: root });
 	(query.joins ?? []).forEach((join, index) => {
 		scope.set(join.table.alias, {
 			language,
-			alias: `t${index + 1}`,
+			alias: `${prefix}t${index + 1}`,
 			table: requireTable(join.table.table),
 		});
 	});
 	return scope;
 };
 
-const querySetSql = (query: NamedQuery, userId: string, scope: CompileScope): SqlFragment => {
+const querySetSql = (query: QuerySet, userId: string, scope: CompileScope): SqlFragment => {
 	const root = requireCompileTable(scope, query.from.alias);
 	const joins = (query.joins ?? []).map((join) => {
 		const joined = requireCompileTable(scope, join.table.alias);
@@ -333,8 +341,8 @@ const querySetSql = (query: NamedQuery, userId: string, scope: CompileScope): Sq
 	`;
 };
 
-const isRootPrimaryKeyOrder = (expr: ScalarExpression, query: NamedQuery, root: CatalogTable) =>
-	expr.type === "column" && expr.tableAlias === query.from.alias && expr.field === root.primaryKey;
+const isPrimaryKeyOrder = (expr: ScalarExpression, alias: string, table: CatalogTable) =>
+	expr.type === "column" && expr.tableAlias === alias && expr.field === table.primaryKey;
 
 const orderSql = (
 	orders: readonly {
@@ -351,18 +359,91 @@ const orderSql = (
 		sql`, `,
 	);
 
+const expressionOrderSql = (
+	orders: readonly { readonly expr: ScalarExpression; readonly direction: "asc" | "desc" }[],
+	scope: CompileScope,
+) =>
+	sql.join(
+		orders.map((order) => {
+			const expression = compileExpression(order.expr, scope);
+			const collation = expressionKind(order.expr, scope) === "text" ? sql` COLLATE "C"` : sql``;
+			const direction = order.direction === "asc" ? sql`ASC` : sql`DESC`;
+			return sql`${expression}${collation} ${direction} NULLS LAST`;
+		}),
+		sql`, `,
+	);
+
+const compileInclude = (
+	include: Include,
+	userId: string,
+	language: string | null,
+	ancestors: CompileScope,
+	path: readonly number[],
+): SqlFragment => {
+	const scope = buildScope(include, language, `i${path.join("_")}`, ancestors);
+	const orderMetadata = include.orderBy.map((order) => ({
+		direction: order.direction,
+		kind: expressionKind(order.expr, scope),
+	}));
+	const ordering = orderSql(orderMetadata);
+	const queryOrdering = expressionOrderSql(include.orderBy, scope);
+	const fieldValues = include.fields.flatMap((field) => [
+		compileExpression(field.expr, scope),
+		outputKind(field.expr, scope),
+	]);
+	const nestedValues = (include.include ?? []).map((nested, index) =>
+		compileInclude(nested, userId, language, scope, [...path, index]),
+	);
+	const itemValues = [...fieldValues, ...nestedValues];
+	const item = sql`jsonb_build_array(${sql.join(itemValues, sql`, `)})`;
+	const orderColumns = include.orderBy.map(
+		(order, index) => sql`${compileExpression(order.expr, scope)} AS ${identifier(`o${index}`)}`,
+	);
+	const columns = [sql`${item} AS "item"`, ...orderColumns];
+
+	return sql`(
+		SELECT jsonb_build_object(
+			'items', COALESCE(
+				jsonb_agg("indexedIncludeRows"."item" ORDER BY ${ordering})
+					FILTER (WHERE "indexedIncludeRows"."includeIndex" <= ${include.limit}),
+				'[]'::jsonb
+			),
+			'hasMore', COUNT(*) > ${include.limit}
+		)
+		FROM (
+			SELECT "orderedIncludeRows".*, ROW_NUMBER() OVER (ORDER BY ${ordering}) AS "includeIndex"
+			FROM (
+				SELECT ${sql.join(columns, sql`, `)}
+				${querySetSql(include, userId, scope)}
+				ORDER BY ${queryOrdering}
+				LIMIT ${include.limit + 1}
+			) "orderedIncludeRows"
+		) "indexedIncludeRows"
+	)`;
+};
+
 const compileRowsQuery = (
 	query: NamedQuery,
 	userId: string,
 	language: string | null,
 ): SqlFragment => {
-	const scope = buildScope(query, language);
-	const root = requireTable(query.from.table);
-	const rootKey = { field: root.primaryKey, type: "column" as const, tableAlias: query.from.alias };
+	const scope = buildScope(query, language, "");
 	const requestedOrder = query.output.orderBy;
-	const orders = requestedOrder.some((order) => isRootPrimaryKeyOrder(order.expr, query, root))
-		? requestedOrder
-		: [...requestedOrder, { direction: "asc" as const, expr: rootKey }];
+	const tieBreakers = [
+		...(query.joins ?? []).map((join) => ({ alias: join.table.alias, table: join.table.table })),
+		{ alias: query.from.alias, table: query.from.table },
+	].flatMap(({ alias, table: tableName }) => {
+		const table = requireTable(tableName);
+		return requestedOrder.some((order) => isPrimaryKeyOrder(order.expr, alias, table))
+			? []
+			: [
+					{
+						direction: "asc" as const,
+						expr: { field: table.primaryKey, type: "column" as const, tableAlias: alias },
+					},
+				];
+	});
+	const orders = [...requestedOrder, ...tieBreakers];
 	const orderMetadata = orders.map((order) => ({
 		direction: order.direction,
 		kind: expressionKind(order.expr, scope),
@@ -374,23 +455,29 @@ const compileRowsQuery = (
 	const orderColumns = orders.map(
 		(order, index) => sql`${compileExpression(order.expr, scope)} AS ${identifier(`o${index}`)}`,
 	);
-	const columns = [...fieldColumns, ...orderColumns, sql`true AS "rowPresent"`];
+	const includeColumns = (query.output.include ?? []).map(
+		(include, index) =>
+			sql`${compileInclude(include, userId, language, scope, [index])} AS ${identifier(`i${index}`)}`,
+	);
+	const columns = [...fieldColumns, ...includeColumns, ...orderColumns, sql`true AS "rowPresent"`];
 	const pagination = query.output.pagination;
 	const offset = (pagination.page - 1) * pagination.limit;
 	const ordering = orderSql(orderMetadata);
+	const queryOrdering = expressionOrderSql(orders, scope);
 
 	return sql`
-		WITH "queryRows" AS (
+		WITH "queryTotal" AS (
+			SELECT COUNT(*)::integer AS "totalCount"
+			${querySetSql(query, userId, scope)}
+		), "queryRows" AS (
 			SELECT ${sql.join(columns, sql`, `)}
 			${querySetSql(query, userId, scope)}
-		), "pageRows" AS (
-			SELECT * FROM "queryRows"
-			ORDER BY ${ordering}
+			ORDER BY ${queryOrdering}
 			LIMIT ${pagination.limit} OFFSET ${offset}
 		)
-		SELECT "pageRows".*, "queryTotal"."totalCount"
-		FROM (SELECT COUNT(*)::integer AS "totalCount" FROM "queryRows") "queryTotal"
-		LEFT JOIN "pageRows" ON true
+		SELECT "queryRows".*, "queryTotal"."totalCount"
+		FROM "queryTotal"
+		LEFT JOIN "queryRows" ON true
 		ORDER BY ${ordering}
 	`;
 };
@@ -413,6 +500,33 @@ const isFieldKind = (value: unknown): value is FieldValue["kind"] =>
 	value === "number" ||
 	value === "text";
 
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+	typeof value === "object" && value !== null && !Array.isArray(value);
+
+const reconstructInclude = (raw: unknown, include: Include): IncludeResult => {
+	if (!isRecord(raw) || !Array.isArray(raw["items"]) || typeof raw["hasMore"] !== "boolean") {
+		throw new Error(`RyotQL received an invalid include value for '${include.key}'`);
+	}
+	const items = raw["items"].map((item): RowItem => {
+		if (!Array.isArray(item)) {
+			throw new Error(`RyotQL received an invalid include row for '${include.key}'`);
+		}
+		const fields = include.fields.map((field, index) => {
+			const kind = item[index * 2 + 1];
+			if (!isFieldKind(kind)) {
+				throw new Error(`RyotQL received an invalid field kind for '${field.key}'`);
+			}
+			return [field.key, { kind, value: normalizeValue(item[index * 2], kind) }] as const;
+		});
+		const nestedOffset = include.fields.length * 2;
+		const nested = (include.include ?? []).map(
+			(child, index) => [child.key, reconstructInclude(item[nestedOffset + index], child)] as const,
+		);
+		return Object.fromEntries([...fields, ...nested]);
+	});
+	return { items, pageInfo: { limit: include.limit, hasMore: raw["hasMore"] } };
+};
+
 export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* (
 	userId: string,
 	language: string | null,
@@ -434,7 +548,10 @@ export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* 
 			}
 			return [field.key, { kind, value: normalizeValue(row[`f${index}v`], kind) }] as const;
 		});
-		return [Object.fromEntries(fields)];
+		const include = (query.output.include ?? []).map(
+			(entry, index) => [entry.key, reconstructInclude(row[`i${index}`], entry)] as const,
+		);
+		return [Object.fromEntries([...fields, ...include])];
 	});
 	const { page, limit } = query.output.pagination;
 	return {

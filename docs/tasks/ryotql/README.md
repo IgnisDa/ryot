@@ -1,8 +1,8 @@
 ## Tasks
 
-**Overall Progress:** 4 of 15 tasks completed
+**Overall Progress:** 5 of 15 tasks completed
 
-**Current Task:** [Task 05](./05-relationship-rows-and-includes.md) (todo)
+**Current Task:** [Task 06](./06-correlated-query-expressions.md) (todo)
 
 ### Task List
 
@@ -12,7 +12,7 @@
 | 02  | [Typed JSON Entity Queries](./02-typed-json-entity-queries.md)             | completed |
 | 03  | [Localized Entity Reads](./03-localized-entity-reads.md)                   | completed |
 | 04  | [Event History Migration](./04-event-history-migration.md)                 | completed |
-| 05  | [Relationship Rows And Includes](./05-relationship-rows-and-includes.md)   | todo      |
+| 05  | [Relationship Rows And Includes](./05-relationship-rows-and-includes.md)   | completed |
 | 06  | [Correlated Query Expressions](./06-correlated-query-expressions.md)       | todo      |
 | 07  | [Aggregate Outputs](./07-aggregate-outputs.md)                             | todo      |
 | 08  | [Time-Series Outputs](./08-time-series-outputs.md)                         | todo      |
