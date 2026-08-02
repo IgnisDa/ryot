@@ -11,6 +11,7 @@
 - Provider search, resolution, details, and population use sandbox provider scripts. Source connectors may fetch user data but must not call provider enrichment APIs.
 - Resolve foreign identifiers through sandbox resolve operations; pass provider-native identifiers only as resolved inputs.
 - Follow `packages/contract/AGENTS.md` for HTTP boundary changes.
+- Expose persisted-row reads only through RyotQL catalog tables and `@ryot-app/ryotql-recipes`. Reserve HTTP reads for non-row data such as streams, file bytes, workflow job results, process state, health, and public config. Writes return identifiers or genuine command results, not read models.
 
 ## Persistence
 
@@ -22,7 +23,7 @@
 - The backup restore writer is the only kernel production caller allowed to use repository restore methods. The architecture check enforces this historical-write boundary; runtime callers use owning services.
 - Never hold a transaction across sandbox execution, network I/O, workflow boundaries, sleeps, or fan-out.
 - Provider population composes the import workflow. External event creation runs before-stage policy hooks, then plans pinned after-hook runs in the committing transaction.
-- Catalog reads resolve immutable revision content from the `PluginRepository` revision cache and never select script bodies; execution loads compiled code by script id.
+- Catalog reads query persisted revision content and definition views directly and never select sandbox script bodies; execution loads compiled code by script id.
 
 ## Durable Work
 

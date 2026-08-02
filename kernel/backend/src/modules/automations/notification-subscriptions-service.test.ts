@@ -15,8 +15,7 @@ import { Effect, Layer, Schema } from "effect";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { databaseLayer } from "#lib/test-utils/effect";
-import { makeDefinitionRegistry } from "#modules/definition-registry/service";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
 
 import { NotificationSubscriptionsService } from "./notification-subscriptions-service";
 import {
@@ -51,22 +50,18 @@ const state = {
 } as const satisfies StoredNotificationSubscription;
 
 const mockRepository = Layer.mock(AutomationsRepository);
-const mockPluginRuntime = Layer.mock(PluginRuntimeResolver);
 const makeRepository = (overrides: MockOverrides<typeof mockRepository> = {}) =>
 	mockRepository({ ...overrides });
 
-const makePluginRuntime = (
+const makeDefinitions = (
 	catalogState: "active" | "hidden" = "active",
 	includeDefinition = true,
 ) => {
-	const registry = makeDefinitionRegistry({
-		savedViews: [],
-		entitySchemas: [],
-		relationshipSchemas: [],
-		signalSchemas: includeDefinition ? [{ ...signalSchema, catalogState }] : [],
-	});
-	return mockPluginRuntime({
-		getEffectiveDefinitions: () => Effect.succeed(registry.getSnapshot()),
+	const signals = includeDefinition ? [{ ...signalSchema, catalogState, pluginId: null }] : [];
+	return Layer.mock(DefinitionRepository)({
+		listUserSignalSchemas: () => Effect.succeed(signals),
+		findUserSignalSchema: (_userId, slug) =>
+			Effect.succeed(signals.find((signal) => signal.slug === slug) ?? null),
 	});
 };
 
@@ -79,38 +74,24 @@ const makeLayer = (
 		Layer.provideMerge(
 			Layer.mergeAll(
 				databaseLayer,
-				makePluginRuntime(catalogState, includeDefinition),
+				makeDefinitions(catalogState, includeDefinition),
 				makeRepository(repository),
 			),
 		),
 	);
-
-it.effect("lists only active signal schemas supplied by the user runtime", () => {
-	return Effect.gen(function* () {
-		const service = yield* NotificationSubscriptionsService;
-		expect(yield* service.listCatalog(userId)).toEqual([
-			{
-				id: signalSchemaSlug,
-				name: signalSchema.name,
-				slug: signalSchema.slug,
-				propertiesSchema: signalSchema.propertiesSchema,
-			},
-		]);
-	}).pipe(Effect.provide(makeLayer()));
-});
 
 it.effect("installs an active catalog schema with only server-selected state fields", () => {
 	let inserted: InsertNotificationSubscriptionInput | undefined;
 	const layer = makeLayer({
 		insertNotificationSubscription: (input) => {
 			inserted = input;
-			return Effect.succeed(state);
+			return Effect.succeed({ id: state.id });
 		},
 	});
 	return Effect.gen(function* () {
 		const service = yield* NotificationSubscriptionsService;
 		const installed = yield* service.installRule({ userId, signalSchemaSlug });
-		expect(installed.id).toBe(ruleId);
+		expect(installed).toEqual({ id: ruleId });
 		expect(inserted).toEqual({
 			userId,
 			metadata: null,
@@ -183,7 +164,7 @@ it.effect("does not mutate state whose signal definition is no longer registered
 			findNotificationSubscription: () => Effect.succeed(state),
 			setNotificationSubscriptionActive: () => {
 				mutationAttempted = true;
-				return Effect.succeed(state);
+				return Effect.succeed({ id: state.id });
 			},
 		},
 		"active",
@@ -204,7 +185,7 @@ it.effect("installs active defaults idempotently through conflict-do-nothing ins
 	const layer = makeLayer({
 		insertNotificationSubscription: (input) => {
 			inserted.push(input);
-			return Effect.succeed(inserted.length === 1 ? state : null);
+			return Effect.succeed(inserted.length === 1 ? { id: state.id } : null);
 		},
 	});
 	return Effect.gen(function* () {
@@ -228,7 +209,7 @@ it.effect("deactivates, deletes, and reinstalls the same notification rule shape
 		},
 		setNotificationSubscriptionActive: (input) => {
 			currentState = currentState ? { ...currentState, isActive: input.isActive } : null;
-			return Effect.succeed(currentState);
+			return Effect.succeed(currentState ? { id: currentState.id } : null);
 		},
 		insertNotificationSubscription: (input) => {
 			currentState = {
@@ -236,7 +217,7 @@ it.effect("deactivates, deletes, and reinstalls the same notification rule shape
 				...input,
 				id: NotificationSubscriptionId.make(`rule-${nextId++}`),
 			};
-			return Effect.succeed(currentState);
+			return Effect.succeed({ id: currentState.id });
 		},
 	});
 	return Effect.gen(function* () {
@@ -247,23 +228,24 @@ it.effect("deactivates, deletes, and reinstalls the same notification rule shape
 			isActive: false,
 			ruleId: installed.id,
 		});
-		expect(deactivated.isActive).toBe(false);
+		expect(deactivated).toEqual({ id: installed.id });
+		expect(currentState).toMatchObject({ isActive: false });
 
 		const activated = yield* service.setRuleActive({
 			userId,
 			isActive: true,
 			ruleId: installed.id,
 		});
-		expect(activated.isActive).toBe(true);
+		expect(activated).toEqual({ id: installed.id });
+		expect(currentState).toMatchObject({ isActive: true });
 		expect(yield* service.deleteRule({ userId, ruleId: installed.id })).toEqual({
 			id: installed.id,
 		});
 
 		const reinstalled = yield* service.installRule({ userId, signalSchemaSlug });
 		expect(reinstalled.id).not.toBe(installed.id);
-		expect(reinstalled.name).toBe(installed.name);
-		expect(reinstalled.isActive).toBe(true);
-		expect(reinstalled.signalSchema).toEqual(installed.signalSchema);
+		expect(reinstalled).toEqual({ id: NotificationSubscriptionId.make("rule-2") });
+		expect(currentState).toMatchObject({ isActive: true, signalSchemaSlug });
 	}).pipe(Effect.provide(layer));
 });
 

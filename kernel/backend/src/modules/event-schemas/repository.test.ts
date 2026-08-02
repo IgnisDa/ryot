@@ -8,7 +8,8 @@ import {
 import { Effect, Layer } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";
-import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { buildDefinitionSnapshot } from "#modules/definition-registry/snapshot";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { EventSchemasRepository } from "./repository";
@@ -20,7 +21,7 @@ it.effect(
 		const shippedOwner = PluginId.make("shipped-owner");
 		const entitySchemaSlug = EntitySchemaSlug.make("shared-record");
 		const eventSchemaSlug = EventSchemaSlug.make("review");
-		const registry = makeDefinitionRegistry({
+		const snapshot = buildDefinitionSnapshot({
 			savedViews: [],
 			signalSchemas: [],
 			relationshipSchemas: [],
@@ -45,12 +46,12 @@ it.effect(
 		});
 		const layer = EventSchemasRepository.layer.pipe(
 			Layer.provideMerge(Layer.succeed(Database, Database.of(Object.create(null)))),
-			Layer.provideMerge(Layer.succeed(DefinitionRegistry, registry)),
 			Layer.provideMerge(
-				Layer.mock(PluginRuntimeResolver)({
-					getEffectiveDefinitions: () => Effect.succeed(registry.getSnapshot()),
+				Layer.mock(DefinitionRepository)({
+					findUserEntitySchemas: () => Effect.succeed(snapshot.entitySchemas),
 				}),
 			),
+			Layer.provideMerge(Layer.mock(PluginRuntimeResolver)({})),
 		);
 
 		return Effect.gen(function* () {

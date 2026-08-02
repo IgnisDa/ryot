@@ -13,13 +13,13 @@ import {
 	InstallPluginBody,
 	PluginConflictError,
 	PluginHomeViewSelection,
-	PluginInstallationItem,
-	PluginInstallationList,
+	PluginInstallationWriteResult,
 	PluginInvocationError,
 	PluginInvokeBody,
 	PluginInvokeResult,
 	PluginNotFoundError,
 	PluginRequestError,
+	UpdatePluginInstallationBody,
 	UpdatePrivatePluginBody,
 } from "./schemas";
 
@@ -44,12 +44,6 @@ export const encodePluginCatalogInvalidatedMessage = Schema.encodeSync(
 export const PluginsGroup = HttpApiGroup.make("plugins")
 	.annotate(OpenApi.Description, "Manages installed plugins for this instance.")
 	.add(
-		HttpApiEndpoint.get("list", "/plugins", { success: PluginInstallationList }).annotate(
-			OpenApi.Description,
-			"Lists the caller's plugin installations.",
-		),
-	)
-	.add(
 		HttpApiEndpoint.get("events", "/plugins/events", {
 			success: PluginCatalogEventStream,
 		}).annotate(OpenApi.Description, "Streams plugin catalog events for the caller."),
@@ -57,7 +51,7 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 	.add(
 		HttpApiEndpoint.post("install", "/plugins", {
 			payload: InstallPluginBody,
-			success: PluginInstallationItem.pipe(HttpApiSchema.status(201)),
+			success: PluginInstallationWriteResult.pipe(HttpApiSchema.status(201)),
 			error: [
 				PluginRequestError.pipe(HttpApiSchema.status(400)),
 				PluginConflictError.pipe(HttpApiSchema.status(409)),
@@ -71,9 +65,9 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 	)
 	.add(
 		HttpApiEndpoint.put("update", "/plugins/:pluginSlug", {
-			success: PluginInstallationItem,
 			payload: UpdatePrivatePluginBody,
 			params: { pluginSlug: PluginSlug },
+			success: PluginInstallationWriteResult,
 			error: [
 				PluginRequestError.pipe(HttpApiSchema.status(400)),
 				PluginNotFoundError.pipe(HttpApiSchema.status(404)),
@@ -88,8 +82,8 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 	)
 	.add(
 		HttpApiEndpoint.delete("uninstall", "/plugins/:pluginSlug", {
-			success: PluginInstallationItem,
 			params: { pluginSlug: PluginSlug },
+			success: PluginInstallationWriteResult,
 			error: [
 				PluginConflictError.pipe(HttpApiSchema.status(409)),
 				PluginNotFoundError.pipe(HttpApiSchema.status(404)),
@@ -100,6 +94,20 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 				OpenApi.Description,
 				"Uninstalls the caller's private plugin unless a workflow or persistent resource still references it.",
 			),
+	)
+	.add(
+		HttpApiEndpoint.patch("updatePluginState", "/plugins/:pluginSlug/state", {
+			params: { pluginSlug: PluginSlug },
+			payload: UpdatePluginInstallationBody,
+			success: PluginInstallationWriteResult,
+			error: [
+				PluginRequestError.pipe(HttpApiSchema.status(400)),
+				PluginNotFoundError.pipe(HttpApiSchema.status(404)),
+				PluginConflictError.pipe(HttpApiSchema.status(409)),
+			],
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Update the caller's plugin installation."),
 	)
 	.add(
 		HttpApiEndpoint.put("setHomeView", "/plugins/:pluginSlug/home-view", {

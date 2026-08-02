@@ -14,7 +14,8 @@ import {
 	type StoredNotificationSubscription,
 } from "#modules/automations/repository";
 import { ClientPagesRepository } from "#modules/client-pages/repository";
-import { DefinitionRegistry, type SavedViewDefinition } from "#modules/definition-registry/service";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
+import type { SavedViewDefinition } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
@@ -182,7 +183,7 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 			const events = yield* EventsRepository;
 			const entities = yield* EntitiesRepository;
 			const uploads = yield* ManagedAssetsService;
-			const definitions = yield* DefinitionRegistry;
+			const definitions = yield* DefinitionRepository;
 			const savedViews = yield* SavedViewsRepository;
 			const automations = yield* AutomationsRepository;
 			const integrations = yield* IntegrationsRepository;
@@ -206,7 +207,7 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 					const states = yield* installations.listHydratedForUser(userId);
 					const hasIntegrations = yield* integrations.hasAnyForUser(userId);
 					const hasNotificationChannels = yield* notifications.hasAnyForUser(userId);
-					const snapshot = definitions.getSnapshot();
+					const snapshot = yield* definitions.getGlobalSnapshot;
 					const category = classifyAccountCleanliness({
 						profile,
 						hasEvents,

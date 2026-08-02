@@ -22,12 +22,8 @@ import { Database } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
 import { makeRedisService, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import { planFixture } from "#modules/automations/lifecycle.test-support";
-import {
-	DefinitionRegistry,
-	type DefinitionSnapshot,
-	definitionSourceFromSnapshot,
-	makeDefinitionRegistry,
-} from "#modules/definition-registry/service";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
+import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -96,7 +92,12 @@ const definitions = {
 		},
 	},
 } satisfies DefinitionSnapshot;
-const registry = makeDefinitionRegistry(definitionSourceFromSnapshot(definitions));
+const definitionsLayer = Layer.mock(DefinitionRepository)({
+	getGlobalSnapshot: Effect.succeed(definitions),
+	getUserSnapshot: () => Effect.succeed(definitions),
+	findGlobalRelationshipSchema: (slug) =>
+		Effect.succeed(definitions.relationshipSchemas[slug] ?? null),
+});
 
 const population = {
 	rootPreviouslyPopulated: true,
@@ -216,7 +217,7 @@ it.effect("commits a child set atomically and returns entity then relationship p
 	}> = [];
 	const layer = Layer.mergeAll(
 		Layer.succeed(Database, transaction.database),
-		Layer.succeed(DefinitionRegistry, registry),
+		definitionsLayer,
 		Layer.mock(EntitiesRepository)({}),
 		Layer.mock(EntitiesService)({
 			persistPlannedProviderUpserts: childEntityUpserts((item) => {
@@ -291,7 +292,7 @@ it.effect("rolls back every child entity when relationship planning fails", () =
 	const transaction = makeTransaction(() => persisted.splice(0));
 	const layer = Layer.mergeAll(
 		Layer.succeed(Database, transaction.database),
-		Layer.succeed(DefinitionRegistry, registry),
+		definitionsLayer,
 		Layer.mock(EntitiesRepository)({}),
 		Layer.mock(EntitiesService)({
 			persistPlannedProviderUpserts: childEntityUpserts((item) => {
@@ -339,7 +340,7 @@ it.effect("keeps private related entities and reconciliation in one user transac
 	const privateProviderId = SandboxProviderId.make("private-provider");
 	const layer = Layer.mergeAll(
 		Layer.succeed(Database, transaction.database),
-		Layer.succeed(DefinitionRegistry, registry),
+		definitionsLayer,
 		Layer.mock(PluginRuntimeResolver)({
 			findProviderAvailableToUserBySlug: () =>
 				Effect.sync(() => {
@@ -421,7 +422,7 @@ it.effect("rolls back a complete related group when reconciliation fails", () =>
 	const relatedProviderId = SandboxProviderId.make("person-provider");
 	const layer = Layer.mergeAll(
 		Layer.succeed(Database, transaction.database),
-		Layer.succeed(DefinitionRegistry, registry),
+		definitionsLayer,
 		Layer.mock(PluginRuntimeResolver)({}),
 		Layer.mock(EntitiesRepository)({
 			findEntitySchemaProviderBySlug: () =>
@@ -506,11 +507,9 @@ it.effect("uses command causation for deterministic root and final lifecycle wri
 	const instance = WorkflowInstance.initial(ProviderEntityPopulationWorkflow, "population-root");
 	const layer = Layer.mergeAll(
 		Layer.succeed(Database, transaction.database),
-		Layer.succeed(DefinitionRegistry, registry),
+		definitionsLayer,
 		Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(1) })),
-		Layer.mock(PluginRuntimeResolver)({
-			getEffectiveDefinitions: () => Effect.succeed(definitions),
-		}),
+		Layer.mock(PluginRuntimeResolver)({}),
 		Layer.mock(RelationshipsRepository)({}),
 		Layer.mock(RelationshipsService)({
 			persistPlannedReconciliation: () => Effect.die("unexpected reconciliation"),

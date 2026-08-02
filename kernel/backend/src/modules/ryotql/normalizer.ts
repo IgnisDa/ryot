@@ -8,7 +8,12 @@ import type {
 	TimeSeriesOutput,
 } from "@ryot-app/contract/modules/ryotql/language";
 
-import { expandCatalogSelections, getCatalogTable, type CatalogTable } from "./catalog";
+import {
+	expandCatalogSelections,
+	getCatalogTable,
+	type CatalogTable,
+	type RyotQLAccess,
+} from "./catalog";
 
 type AliasScope = ReadonlyMap<string, CatalogTable>;
 type QuerySet = Pick<NamedQuery, "from" | "joins"> | Pick<Include, "from" | "joins">;
@@ -43,26 +48,34 @@ const buildScope = (query: QuerySet, ancestors: AliasScope) => {
 	return scope;
 };
 
-const expandFields = (fields: Include["fields"], scope: AliasScope): readonly FieldSelection[] => {
-	const expanded = expandCatalogSelections(fields, (alias) => scope.get(alias));
+const expandFields = (
+	fields: Include["fields"],
+	scope: AliasScope,
+	access: RyotQLAccess,
+): readonly FieldSelection[] => {
+	const expanded = expandCatalogSelections(fields, (alias) => scope.get(alias), access);
 	if (expanded.error) {
 		throw new Error(`RyotQL normalizer received ${expanded.error}`);
 	}
 	return expanded.fields;
 };
 
-const normalizeInclude = (include: Include, ancestors: AliasScope): NormalizedInclude => {
+const normalizeInclude = (
+	include: Include,
+	ancestors: AliasScope,
+	access: RyotQLAccess,
+): NormalizedInclude => {
 	const scope = buildScope(include, ancestors);
 	const { fields, include: children, ...rest } = include;
-	const nested = children?.map((child) => normalizeInclude(child, scope));
+	const nested = children?.map((child) => normalizeInclude(child, scope, access));
 	return {
 		...rest,
-		fields: expandFields(fields, scope),
+		fields: expandFields(fields, scope, access),
 		...(isNonEmpty(nested) ? { include: nested } : {}),
 	};
 };
 
-const normalizeNamedQuery = (query: NamedQuery): NormalizedNamedQuery => {
+const normalizeNamedQuery = (query: NamedQuery, access: RyotQLAccess): NormalizedNamedQuery => {
 	if (query.output.type === "aggregate") {
 		return { ...query, output: query.output };
 	}
@@ -71,19 +84,25 @@ const normalizeNamedQuery = (query: NamedQuery): NormalizedNamedQuery => {
 	}
 	const scope = buildScope(query, new Map());
 	const { fields, include: children, ...restOutput } = query.output;
-	const include = children?.map((entry) => normalizeInclude(entry, scope));
+	const include = children?.map((entry) => normalizeInclude(entry, scope, access));
 	return {
 		...query,
 		output: {
 			...restOutput,
-			fields: expandFields(fields, scope),
+			fields: expandFields(fields, scope, access),
 			...(isNonEmpty(include) ? { include } : {}),
 		},
 	};
 };
 
-export const normalizeRyotQLDocument = (document: RyotQLDocument): NormalizedRyotQLDocument => ({
+export const normalizeRyotQLDocument = (
+	document: RyotQLDocument,
+	access: RyotQLAccess,
+): NormalizedRyotQLDocument => ({
 	queries: Object.fromEntries(
-		Object.entries(document.queries).map(([name, query]) => [name, normalizeNamedQuery(query)]),
+		Object.entries(document.queries).map(([name, query]) => [
+			name,
+			normalizeNamedQuery(query, access),
+		]),
 	),
 });

@@ -16,7 +16,6 @@ import type {
 	IntegrationWebhookToken,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { generateId } from "better-auth";
 import { Context, Effect, Result, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
@@ -31,7 +30,6 @@ import { ImportsService } from "#modules/imports/service";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 import type { RegisteredIntegrationProvider } from "#modules/plugins/integration-provider-catalog";
 
-import { redactIntegrationForClient } from "./client-redaction";
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
 import type { IntegrationSyncRun } from "./jobs";
 import { IntegrationsRepository, type IntegrationRecord } from "./repository";
@@ -40,56 +38,6 @@ import { IntegrationSyncWorkflow } from "./sync-workflow";
 const defaultExtraSettings = {
 	disableOnContinuousErrors: false,
 } satisfies IntegrationExtraSettings;
-
-const baseCommonFields = {
-	name: { label: "Name", type: "string", description: "Optional name for this integration" },
-	isDisabled: {
-		type: "boolean",
-		label: "Disabled",
-		defaultValue: false,
-		description: "Disable this integration",
-	},
-	disableOnContinuousErrors: {
-		type: "boolean",
-		defaultValue: false,
-		label: "Disable on continuous errors",
-		description: "Disable this integration after continuous errors",
-	},
-} satisfies AppSchema["fields"];
-
-const progressCommonFields = {
-	minimumProgress: {
-		type: "number",
-		defaultValue: 2,
-		label: "Minimum progress",
-		validation: { minimum: 0, maximum: 100 },
-		description: "Minimum progress percentage to synchronize",
-	},
-	maximumProgress: {
-		type: "number",
-		defaultValue: 95,
-		label: "Maximum progress",
-		validation: { minimum: 0, maximum: 100 },
-		description: "Maximum progress percentage to synchronize",
-	},
-} satisfies AppSchema["fields"];
-
-export const integrationCommonSchema = (lot: RegisteredIntegrationProvider["lot"]): AppSchema => ({
-	fields: {
-		...baseCommonFields,
-		...(lot === "push" ? {} : progressCommonFields),
-		...(lot === "yank"
-			? {
-					syncOwnership: {
-						defaultValue: false,
-						label: "Sync ownership",
-						type: "boolean" as const,
-						description: "Synchronize ownership from this integration",
-					},
-				}
-			: {}),
-	},
-});
 
 const validateRegisteredSettings = (
 	provider: IntegrationProvider,
@@ -157,17 +105,6 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			const importsService = yield* ImportsService;
 			const repository = yield* IntegrationsRepository;
 			const providerCatalog = yield* IntegrationProviderCatalog;
-			const redactForClient = Effect.fn("IntegrationsService.redactForClient")(function* (
-				integration: IntegrationRecord,
-			) {
-				const registered = yield* providerCatalog.findOwnedForUser(
-					integration.userId,
-					integration.provider,
-					integration.pluginInstallationId,
-				);
-				return redactIntegrationForClient(registered, integration);
-			});
-
 			const failCreatedRun = (runId: ImportRunId, reason: ImportRunFailureReason) =>
 				importsService.failRunForIntegration(runId, reason);
 
@@ -197,32 +134,6 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				return integration;
 			});
 
-			const listIntegrationProviders = Effect.fn("IntegrationsService.listIntegrationProviders")(
-				function* (userId: UserId) {
-					const isPro = yield* proKey.isValidated;
-					return (yield* providerCatalog.listResolvedForUser(userId)).map(
-						({ script, provider }) => {
-							const requiresProKey = provider.requiresProKey ?? false;
-							return {
-								requiresProKey,
-								lot: provider.lot,
-								slug: provider.slug,
-								name: provider.name,
-								pluginSlug: provider.pluginSlug,
-								description: provider.description,
-								settingsSchema: provider.settingsSchema,
-								commonSchema: integrationCommonSchema(provider.lot),
-								isCreatable:
-									(provider.lot === "push" || script !== null) && (!requiresProKey || isPro),
-							};
-						},
-					);
-				},
-			);
-
-			const getForClient = (userId: UserId, integrationId: IntegrationId) =>
-				requireIntegration(userId, integrationId).pipe(Effect.flatMap(redactForClient));
-
 			const create = Effect.fn("IntegrationsService.create")(function* (
 				user: CurrentUserValue,
 				body: CreateIntegrationBody,
@@ -244,21 +155,27 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					return yield* new IntegrationRequestError({ reason: thresholdError });
 				}
 
-				const created = yield* repository.createForUser({
-					lot,
-					userId: user.id,
-					name: body.name ?? null,
-					provider: body.provider,
-					isDisabled: body.isDisabled ?? false,
-					minimumProgress: String(minimumProgress),
-					maximumProgress: String(maximumProgress),
-					providerSpecifics: body.providerSpecifics,
-					syncOwnership: body.syncOwnership ?? false,
-					pluginInstallationId: registered.installationId,
-					extraSettings: body.extraSettings ?? defaultExtraSettings,
-				});
+				const created = yield* mapDatabaseErrors(
+					database.transaction((transaction) =>
+						repository
+							.createForUser({
+								lot,
+								userId: user.id,
+								name: body.name ?? null,
+								provider: body.provider,
+								isDisabled: body.isDisabled ?? false,
+								minimumProgress: String(minimumProgress),
+								maximumProgress: String(maximumProgress),
+								providerSpecifics: body.providerSpecifics,
+								syncOwnership: body.syncOwnership ?? false,
+								pluginInstallationId: registered.installationId,
+								extraSettings: body.extraSettings ?? defaultExtraSettings,
+							})
+							.pipe(Effect.provideService(Database, transaction)),
+					),
+				);
 
-				return yield* redactForClient(created);
+				return created;
 			});
 
 			const update = Effect.fn("IntegrationsService.update")(function* (
@@ -292,20 +209,26 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					}
 				}
 
-				const updated = yield* repository.updateForUser({
-					userId,
-					integrationId,
-					name: body.name,
-					providerSpecifics,
-					isDisabled: body.isDisabled,
-					extraSettings: body.extraSettings,
-					syncOwnership: body.syncOwnership,
-					lastFinishedAt: body.lastFinishedAt,
-					minimumProgress:
-						body.minimumProgress !== undefined ? String(body.minimumProgress) : undefined,
-					maximumProgress:
-						body.maximumProgress !== undefined ? String(body.maximumProgress) : undefined,
-				});
+				const updated = yield* mapDatabaseErrors(
+					database.transaction((transaction) =>
+						repository
+							.updateForUser({
+								userId,
+								integrationId,
+								name: body.name,
+								providerSpecifics,
+								isDisabled: body.isDisabled,
+								extraSettings: body.extraSettings,
+								syncOwnership: body.syncOwnership,
+								lastFinishedAt: body.lastFinishedAt,
+								minimumProgress:
+									body.minimumProgress !== undefined ? String(body.minimumProgress) : undefined,
+								maximumProgress:
+									body.maximumProgress !== undefined ? String(body.maximumProgress) : undefined,
+							})
+							.pipe(Effect.provideService(Database, transaction)),
+					),
+				);
 
 				if (!updated) {
 					return yield* new IntegrationNotFoundError({
@@ -504,19 +427,13 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				return { executionId };
 			});
 
-			const updateForClient = (...input: Parameters<typeof update>) =>
-				update(...input).pipe(Effect.flatMap(redactForClient));
-
 			return {
 				create,
 				update,
 				syncAll,
-				getForClient,
 				handleWebhook,
 				prepareYankRuns,
-				updateForClient,
 				disableIfEnabled,
-				listIntegrationProviders,
 				delete: deleteIntegration,
 			};
 		}),

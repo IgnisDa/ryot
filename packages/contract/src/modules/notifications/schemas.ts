@@ -66,17 +66,6 @@ export const NotificationChannelSpecifics = Schema.Union([
 
 export type NotificationChannelSpecifics = typeof NotificationChannelSpecifics.Type;
 
-export const ListedNotificationChannel = Schema.Struct({
-	createdAt: Schema.String,
-	updatedAt: Schema.String,
-	id: NotificationChannelId,
-	description: Schema.String,
-	isDisabled: Schema.Boolean,
-	channel: NotificationChannelKind,
-});
-
-export type ListedNotificationChannel = typeof ListedNotificationChannel.Type;
-
 export const CreateNotificationChannelBody = Schema.Struct({
 	channel: NotificationChannelKind,
 	isDisabled: Schema.optional(Schema.Boolean),

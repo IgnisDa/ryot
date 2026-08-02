@@ -41,38 +41,33 @@ const makeServiceLayer = (operations: Partial<AuthSettingsOperations> = {}) =>
 		),
 	);
 
-it.effect("returns the caller's current preferences when the body is empty", () =>
-	Effect.gen(function* () {
+it.effect("persists only the supplied preference changes through better-auth", () => {
+	const calls: unknown[] = [];
+	const layer = makeServiceLayer({
+		updateUserPreferences: (userId, preferences) =>
+			Effect.sync(() => {
+				calls.push({ userId, preferences });
+			}),
+	});
+
+	return Effect.gen(function* () {
 		const service = yield* UserSettingsService;
-		const result = yield* service.updatePreferences(makeUser(defaultUserPreferences), {});
+		const user = makeUser({ language: "es", allowNsfw: true, disableIntegrations: false });
+		yield* service.updatePreferences(user, { disableIntegrations: true });
+		yield* service.updatePreferences(user, { language: null });
 
-		expect(result).toEqual({ language: null, allowNsfw: false, disableIntegrations: false });
-	}).pipe(Effect.provide(makeServiceLayer())),
-);
-
-it.effect("only overwrites the fields provided in the body", () =>
-	Effect.gen(function* () {
-		const service = yield* UserSettingsService;
-		const result = yield* service.updatePreferences(
-			makeUser({ language: "es", allowNsfw: true, disableIntegrations: false }),
-			{ disableIntegrations: true },
-		);
-
-		expect(result).toEqual({ language: "es", allowNsfw: true, disableIntegrations: true });
-	}).pipe(Effect.provide(makeServiceLayer())),
-);
-
-it.effect("allows explicitly clearing the language preference", () =>
-	Effect.gen(function* () {
-		const service = yield* UserSettingsService;
-		const result = yield* service.updatePreferences(
-			makeUser({ language: "es", allowNsfw: false, disableIntegrations: false }),
-			{ language: null },
-		);
-
-		expect(result).toEqual({ language: null, allowNsfw: false, disableIntegrations: false });
-	}).pipe(Effect.provide(makeServiceLayer())),
-);
+		expect(calls).toEqual([
+			{
+				userId: user.id,
+				preferences: { language: "es", allowNsfw: true, disableIntegrations: true },
+			},
+			{
+				userId: user.id,
+				preferences: { language: null, allowNsfw: true, disableIntegrations: false },
+			},
+		]);
+	}).pipe(Effect.provide(layer));
+});
 
 it.effect("persists merged preferences through better-auth", () => {
 	const calls: unknown[] = [];
@@ -98,7 +93,7 @@ it.effect("persists merged preferences through better-auth", () => {
 });
 
 it.effect("generates and persists a fresh avatar", () => {
-	const calls: unknown[] = [];
+	const calls: Array<{ userId: UserId; image: string }> = [];
 	const layer = makeServiceLayer({
 		updateUserImage: (userId, image) =>
 			Effect.sync(() => {
@@ -109,9 +104,10 @@ it.effect("generates and persists a fresh avatar", () => {
 	return Effect.gen(function* () {
 		const service = yield* UserSettingsService;
 		const user = makeUser(defaultUserPreferences);
-		const result = yield* service.refreshAvatar(user);
+		yield* service.refreshAvatar(user);
 
-		expect(result.image.startsWith("data:image/svg+xml;base64,")).toBe(true);
-		expect(calls).toEqual([{ userId: user.id, image: result.image }]);
+		expect(calls).toHaveLength(1);
+		expect(calls[0]?.userId).toBe(user.id);
+		expect(calls[0]?.image.startsWith("data:image/svg+xml;base64,")).toBe(true);
 	}).pipe(Effect.provide(layer));
 });

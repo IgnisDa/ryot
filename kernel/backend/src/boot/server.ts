@@ -21,7 +21,6 @@ import { AutomationsRoutesLive } from "#modules/automations/routes";
 import { BackupsRoutesLive } from "#modules/backups/routes";
 import { ClientPageArtifactsRoutesLive, ClientPagesRoutesLive } from "#modules/client-pages/routes";
 import { CollectionsRoutesLive } from "#modules/collections/routes";
-import { DefinitionsRoutesLive } from "#modules/definitions/routes";
 import { EntitiesRoutesLive } from "#modules/entities/routes";
 import { InterestRoutesLive } from "#modules/entity-interest/routes";
 import { InterestSocketRouteLive } from "#modules/entity-interest/socket-route";
@@ -33,7 +32,7 @@ import { NotificationsRoutesLive } from "#modules/notifications/routes";
 import { PluginsRoutesLive } from "#modules/plugins/routes";
 import { ProviderEntitiesRoutesLive } from "#modules/provider-entities/routes";
 import { RelationshipsRoutesLive } from "#modules/relationships/routes";
-import { RyotQLRoutesLive } from "#modules/ryotql/routes";
+import { AdminRyotQLRoutesLive, RyotQLRoutesLive } from "#modules/ryotql/routes";
 import { SavedViewsRoutesLive } from "#modules/saved-views/routes";
 import { SystemRoutesLive } from "#modules/system/routes";
 import { TestSupportRoutesLive } from "#modules/test-support/routes";
@@ -86,7 +85,6 @@ const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 	Layer.provide(
 		Layer.mergeAll(SystemRoutesLive, AutomationsRoutesLive, AutomationHistoryRoutesLive),
 	),
-	Layer.provide(DefinitionsRoutesLive),
 	Layer.provide(BackupsRoutesLive),
 	Layer.provide(RelationshipsRoutesLive),
 	Layer.provide(EntitiesRoutesLive),
@@ -100,7 +98,7 @@ const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 	Layer.provide(
 		Layer.mergeAll(CollectionsRoutesLive, ClientPagesRoutesLive, ClientPageArtifactsRoutesLive),
 	),
-	Layer.provide(Layer.mergeAll(GodModeRoutesLive, TestSupportRoutesLive)),
+	Layer.provide(Layer.mergeAll(GodModeRoutesLive, AdminRyotQLRoutesLive, TestSupportRoutesLive)),
 	Layer.provide(ImportsRoutesLive),
 	Layer.provide(Layer.mergeAll(IntegrationsRoutesLive, NotificationsRoutesLive)),
 	Layer.provide(Layer.mergeAll(RyotQLRoutesLive, InterestRoutesLive)),

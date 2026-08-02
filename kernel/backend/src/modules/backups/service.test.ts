@@ -66,7 +66,7 @@ it.effect("enforces run ownership through the repository scope", () => {
 	});
 	return Effect.gen(function* () {
 		const service = yield* BackupsService;
-		const error = yield* service.getRun(user, runId).pipe(Effect.flip);
+		const error = yield* service.downloadRun(user, runId).pipe(Effect.flip);
 		expect(error).toMatchObject({ _tag: "BackupNotFound", reason: { code: "run-not-found" } });
 		expect(requestedUserId).toBe(user.id);
 	}).pipe(Effect.provide(layer));

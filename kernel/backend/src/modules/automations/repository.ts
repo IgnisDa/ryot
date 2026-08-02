@@ -9,7 +9,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
-import { and, asc, count, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -164,9 +164,9 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 						.insert(schema.notificationSubscription)
 						.values(input)
 						.onConflictDoNothing()
-						.returning(),
+						.returning({ id: schema.notificationSubscription.id }),
 				);
-				return row ? yield* toStoredNotificationSubscription(row) : null;
+				return row ? { id: NotificationSubscriptionId.make(row.id) } : null;
 			});
 
 			const setNotificationSubscriptionActive = Effect.fn(
@@ -187,9 +187,9 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 								eq(schema.notificationSubscription.userId, input.userId),
 							),
 						)
-						.returning(),
+						.returning({ id: schema.notificationSubscription.id }),
 				);
-				return row ? yield* toStoredNotificationSubscription(row) : null;
+				return row ? { id: NotificationSubscriptionId.make(row.id) } : null;
 			});
 
 			const deleteNotificationSubscription = Effect.fn(
@@ -210,21 +210,7 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 				return row ? { id: NotificationSubscriptionId.make(row.id) } : null;
 			});
 
-			const countByUser = Effect.fn("AutomationsRepository.countByUser")(function* (
-				userId: UserId,
-			) {
-				const db = yield* Database;
-				const [row] = yield* mapDatabaseErrors(
-					db
-						.select({ count: count() })
-						.from(schema.notificationSubscription)
-						.where(eq(schema.notificationSubscription.userId, userId)),
-				);
-				return row?.count ?? 0;
-			});
-
 			return {
-				countByUser,
 				findNotificationSubscription,
 				insertNotificationSubscription,
 				deleteNotificationSubscription,

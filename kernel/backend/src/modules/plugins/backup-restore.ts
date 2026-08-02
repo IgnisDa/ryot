@@ -4,16 +4,16 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import type { ArchivePrivatePlugin } from "#modules/backups/archive/schemas";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
 import {
 	buildDefinitionSnapshot,
-	DefinitionRegistry,
 	definitionSourceFromSnapshot,
 	type DefinitionSnapshot,
-} from "#modules/definition-registry/service";
+} from "#modules/definition-registry/snapshot";
+import { mergeManifestDefinitions } from "#modules/definition-registry/source";
 import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 
 import { PluginIngestionLock } from "./ingestion-lock";
-import { mergeManifestDefinitions } from "./loader";
 import { compilePluginPackage, pluginSourceHash } from "./pipeline";
 import { PluginRepository } from "./repository";
 import type { NormalizedPlugin } from "./types";
@@ -39,7 +39,7 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 	{
 		make: Effect.gen(function* () {
 			const plugins = yield* PluginRepository;
-			const definitions = yield* DefinitionRegistry;
+			const definitions = yield* DefinitionRepository;
 			const ingestionLock = yield* PluginIngestionLock;
 			const clientCompiler = yield* ClientPluginCompiler;
 
@@ -96,15 +96,10 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 					id: key,
 					manifest: normalized.manifest,
 				}));
+				const global = definitionSourceFromSnapshot(yield* definitions.getGlobalSnapshot);
 				const composedDefinitions = yield* Effect.try({
 					catch: (error) => badRequest(String(error)),
-					try: () =>
-						buildDefinitionSnapshot(
-							mergeManifestDefinitions(
-								definitionSourceFromSnapshot(definitions.getSnapshot()),
-								candidates,
-							),
-						),
+					try: () => buildDefinitionSnapshot(mergeManifestDefinitions(global, candidates)),
 				});
 				for (const candidate of prepared) {
 					yield* asInvalidBackup(
@@ -134,12 +129,13 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 				prepared: ReadonlyArray<PreparedBackupPrivatePlugin>,
 				pluginIdByKey: ReadonlyMap<string, string>,
 			) {
+				const global = definitionSourceFromSnapshot(yield* definitions.getGlobalSnapshot);
 				return yield* Effect.try({
 					catch: (error) => badRequest(String(error)),
 					try: (): DefinitionSnapshot =>
 						buildDefinitionSnapshot(
 							mergeManifestDefinitions(
-								definitionSourceFromSnapshot(definitions.getSnapshot()),
+								global,
 								prepared.map((item) => ({
 									slug: item.slug,
 									manifest: item.normalized.manifest,

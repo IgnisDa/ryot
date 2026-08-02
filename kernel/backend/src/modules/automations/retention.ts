@@ -2,6 +2,7 @@ import { DbError } from "@ryot-app/contract/errors";
 import { Context, DateTime, Duration, Effect, Layer } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { ScriptGarbageCollector } from "#modules/plugins/script-garbage-collector";
 
 import { AutomationAttemptRepository } from "./attempt-repository";
@@ -33,11 +34,20 @@ export class AutomationRetention extends Context.Service<AutomationRetention>()(
 						Duration.days(config.automations.historyRetentionDays),
 					),
 				);
-				const prunedTriggers = yield* triggers.prunePayloads({
-					limit,
-					prunedAt: now,
-					before: historyBefore,
-				});
+				const database = yield* Database;
+				const prunedTriggers = yield* mapDatabaseErrors(
+					database.transaction((transaction) =>
+						Effect.gen(function* () {
+							const pruned = yield* triggers.prunePayloads({
+								limit,
+								prunedAt: now,
+								before: historyBefore,
+							});
+							yield* runs.clearHistoryPayloads(pruned.map(({ id }) => id));
+							return pruned;
+						}).pipe(Effect.provideService(Database, transaction)),
+					),
+				);
 				const prunedAttempts = yield* attempts.pruneArtifacts({
 					limit,
 					prunedAt: now,

@@ -6,12 +6,8 @@ import {
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Context, Effect, Layer } from "effect";
 
-import { Database } from "#lib/infrastructure/db/service";
-import {
-	DefinitionRegistry,
-	type RelationshipSchemaDefinition,
-} from "#modules/definition-registry/service";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
+import type { RelationshipSchemaDefinition } from "#modules/definition-registry/snapshot";
 
 export type RelationshipSchemaScope = {
 	readonly name: string;
@@ -28,34 +24,32 @@ export class RelationshipSchemasRepository extends Context.Service<RelationshipS
 	"RelationshipSchemasRepository",
 	{
 		make: Effect.gen(function* () {
-			const database = yield* Database;
-			const definitions = yield* DefinitionRegistry;
-			const pluginRuntime = yield* PluginRuntimeResolver;
-			const findBuiltinBySlug = (slug: string) => {
-				const definition = definitions.getRelationshipSchema(slug);
-				return Effect.succeed(definition ? toScope(definition) : null);
-			};
+			const definitions = yield* DefinitionRepository;
+			const toNullableScope = (definition: RelationshipSchemaDefinition | null | undefined) =>
+				definition ? toScope(definition) : null;
+			const findBuiltinBySlug = (slug: string) =>
+				definitions.findGlobalRelationshipSchema(slug).pipe(Effect.map(toNullableScope));
 			const findById = (slug: RelationshipSchemaSlug, userId: UserId | null) =>
 				userId === null
 					? findBuiltinBySlug(slug)
-					: pluginRuntime.getEffectiveDefinitions(userId).pipe(
-							Effect.map((effective) => {
-								const definition = effective.relationshipSchemas[slug];
-								return definition ? toScope(definition) : null;
-							}),
-							Effect.provideService(Database, database),
-						);
+					: definitions
+							.findUserRelationshipSchemas(userId, [slug])
+							.pipe(Effect.map((found) => toNullableScope(found[slug])));
 			const findGlobalBySchemaIds = (input: {
 				sourceEntitySchemaSlug: EntitySchemaSlug;
 				targetEntitySchemaSlug: EntitySchemaSlug;
-			}) => {
-				const definition = Object.values(definitions.getSnapshot().relationshipSchemas).find(
-					(item) =>
-						item.sourceEntitySchemaSlug === input.sourceEntitySchemaSlug &&
-						item.targetEntitySchemaSlug === input.targetEntitySchemaSlug,
+			}) =>
+				definitions.getGlobalSnapshot.pipe(
+					Effect.map((snapshot) =>
+						toNullableScope(
+							Object.values(snapshot.relationshipSchemas).find(
+								(item) =>
+									item.sourceEntitySchemaSlug === input.sourceEntitySchemaSlug &&
+									item.targetEntitySchemaSlug === input.targetEntitySchemaSlug,
+							),
+						),
+					),
 				);
-				return Effect.succeed(definition ? toScope(definition) : null);
-			};
 			return { findById, findBuiltinBySlug, findGlobalBySchemaIds };
 		}),
 	},

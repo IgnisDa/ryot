@@ -16,18 +16,6 @@ const mapPersistenceFailure = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 
 export const GodModeRoutesLive = HttpApiBuilder.group(AppContract, "godMode", (handlers) =>
 	handlers
-		.handle("getMigrationReport", () =>
-			Effect.gen(function* () {
-				const service = yield* GodModeService;
-				return yield* mapPersistenceFailure(service.getMigrationReport());
-			}),
-		)
-		.handle("listUsers", ({ query }) =>
-			Effect.gen(function* () {
-				const service = yield* GodModeService;
-				return yield* mapPersistenceFailure(service.listUsers(query));
-			}),
-		)
 		.handle("provisionUser", ({ payload }) =>
 			Effect.gen(function* () {
 				const service = yield* GodModeService;
@@ -58,12 +46,6 @@ export const GodModeRoutesLive = HttpApiBuilder.group(AppContract, "godMode", (h
 			Effect.gen(function* () {
 				const service = yield* GodModeService;
 				return yield* mapPersistenceFailure(service.deleteUser(params.userId));
-			}),
-		)
-		.handle("getUserLifecycleOperation", ({ params }) =>
-			Effect.gen(function* () {
-				const service = yield* GodModeService;
-				return yield* mapPersistenceFailure(service.getUserLifecycleOperation(params.operationId));
 			}),
 		),
 );

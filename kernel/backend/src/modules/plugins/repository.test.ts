@@ -189,7 +189,6 @@ describe("plugin repository revisions", () => {
 				});
 				assert(before);
 				expect(before).toMatchObject({
-					scope: "user",
 					id: first.pluginId,
 					activeRevisionId: first.revisionId,
 					installationId: first.installation.id,
@@ -211,8 +210,9 @@ describe("plugin repository revisions", () => {
 				expect(after.installationId).toBe(before.installationId);
 				expect(after.activeRevisionId).toBe(second.revisionId);
 				expect(after.activeRevisionId).not.toBe(before.activeRevisionId);
-				expect(after.scripts.map(({ contentHash }) => contentHash)).toEqual(
-					expect.arrayContaining(["handle-fixture.task-v2", "handle-fixture.workflow-v2"]),
+				expect(after.scripts.map(({ id }) => id)).not.toEqual(before.scripts.map(({ id }) => id));
+				expect(after.scripts.map(({ slug }) => slug)).toEqual(
+					before.scripts.map(({ slug }) => slug),
 				);
 			}),
 		),
@@ -302,6 +302,7 @@ describe("plugin repository revisions", () => {
 						userId: owner,
 						providerSpecifics: {},
 						provider: "notes-sink",
+						clientProviderSpecifics: {},
 						webhookToken: crypto.randomUUID(),
 						pluginInstallationId: first.installation.id,
 						extraSettings: { disableOnContinuousErrors: false },
@@ -320,13 +321,15 @@ describe("plugin repository revisions", () => {
 		),
 	);
 
-	it.effect("loads manifests and source-hash cache entries through the active revision", () =>
+	it.effect("loads manifests and source-hash entries through the active revision", () =>
 		withRevisionDatabase(
 			Effect.gen(function* () {
 				const repository = yield* PluginRepository;
 				const first = revisionPackage();
 				yield* installRevisionPackage(first);
-				expect((yield* repository.listActiveManifests())[0]?.metadata.version).toBe("v1");
+				expect(
+					(yield* repository.findActiveSystemPlugin("fixture"))?.manifest.metadata.version,
+				).toBe("v1");
 				expect(
 					(yield* repository.findBySourceHash({
 						ownerId: null,
@@ -383,7 +386,7 @@ describe("plugin repository revisions", () => {
 				const repository = yield* PluginRepository;
 				const installed = yield* installRevisionPackage(revisionPackage());
 				yield* repository.deactivate(installed.pluginId);
-				expect(yield* repository.list()).toEqual([]);
+				expect(yield* repository.listActiveSystemPlugins()).toEqual([]);
 				expect((yield* db.select().from(tables.sandboxScript)).length).toBe(5);
 			}),
 		),

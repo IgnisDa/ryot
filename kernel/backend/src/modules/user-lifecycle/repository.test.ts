@@ -17,49 +17,6 @@ import { UserLifecycleRepository } from "./repository";
 
 const lifecycleCleanupNow = new Date("2026-09-16T00:00:00Z");
 
-it.effect("normalizes persisted lifecycle rows to the wire operation", () => {
-	const row = {
-		metadata: {},
-		failure: null,
-		userId: "user-1",
-		id: "operation-1",
-		workflowAttempt: 1,
-		kind: "reset" as const,
-		status: "completed" as const,
-		accessRevocationStartedAt: null,
-		createdAt: new Date("2026-08-24T00:00:00.000Z"),
-		startedAt: new Date("2026-08-24T00:00:01.000Z"),
-		finishedAt: new Date("2026-08-24T00:00:03.000Z"),
-		accessRevokedAt: new Date("2026-08-24T00:00:01.000Z"),
-		databaseCleanupCompletedAt: new Date("2026-08-24T00:00:02.000Z"),
-		resetResult: { resetUrl: null, userId: "user-1", email: "user@example.com" },
-	};
-	const database = Database.of(
-		Object.assign(Object.create(null), {
-			select: () => ({ from: () => ({ where: () => ({ limit: () => Effect.succeed([row]) }) }) }),
-		}),
-	);
-	const repositoryLayer = UserLifecycleRepository.layer.pipe(
-		Layer.provide(Layer.succeed(Database, database)),
-	);
-	const layer = Layer.merge(repositoryLayer, Layer.succeed(Database, database));
-
-	return Effect.gen(function* () {
-		const repository = yield* UserLifecycleRepository;
-		expect(yield* repository.getById("operation-1")).toEqual({
-			kind: "reset",
-			failure: null,
-			userId: "user-1",
-			id: "operation-1",
-			status: "completed",
-			createdAt: "2026-08-24T00:00:00.000Z",
-			startedAt: "2026-08-24T00:00:01.000Z",
-			finishedAt: "2026-08-24T00:00:03.000Z",
-			resetResult: { resetUrl: null, userId: "user-1", email: "user@example.com" },
-		});
-	}).pipe(Effect.provide(layer));
-});
-
 it.effect("acquires the per-user lock before reading an active operation", () => {
 	const events: string[] = [];
 	const active = {

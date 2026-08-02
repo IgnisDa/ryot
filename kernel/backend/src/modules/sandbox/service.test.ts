@@ -58,14 +58,11 @@ const makeRepository = (overrides: MockOverrides<typeof mockRepository> = {}) =>
 const makePluginRuntime = (
 	findActiveScriptById: SandboxPluginScriptResolverValue["findActiveScriptById"] = () =>
 		Effect.succeed(null),
-	findActiveWorkflowScript: SandboxPluginScriptResolverValue["findActiveWorkflowScript"] = () =>
-		Effect.succeed(null),
 	findWorkflowScriptAvailableToUser: SandboxPluginScriptResolverValue["findWorkflowScriptAvailableToUser"] = () =>
 		Effect.succeed(null),
 ) =>
 	Layer.mock(SandboxPluginScriptResolver)({
 		findActiveScriptById,
-		findActiveWorkflowScript,
 		findWorkflowScriptAvailableToUser,
 	});
 const makeServiceLayer = (
@@ -311,7 +308,7 @@ it.effect("resolves and executes a manifest workflow with an exact script pin", 
 	});
 	const layer = makeServiceLayer(
 		makeRepository(),
-		makePluginRuntime(undefined, undefined, () =>
+		makePluginRuntime(undefined, () =>
 			Effect.succeed({
 				...storedScript,
 				source: "source",
@@ -533,7 +530,6 @@ it.effect("pins a plugin workflow before accepted dispatch can wait for a worker
 		}),
 		makePluginRuntime(
 			() => Effect.succeed(storedWorkflowScript),
-			undefined,
 			() => Effect.succeed(storedWorkflowScript),
 		),
 		Layer.succeed(
@@ -596,7 +592,6 @@ it.effect("releases a new dispatch pin when workflow enqueue fails", () => {
 		}),
 		makePluginRuntime(
 			() => Effect.succeed(storedWorkflowScript),
-			undefined,
 			() => Effect.succeed(storedWorkflowScript),
 		),
 		Layer.succeed(

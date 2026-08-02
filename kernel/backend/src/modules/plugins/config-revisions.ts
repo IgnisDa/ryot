@@ -438,9 +438,14 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 					.encrypt(properties, attribution(identity))
 					.pipe(Effect.mapError(() => new DbError({ message: "Configuration encryption failed" })));
 				yield* mapDatabaseErrors(
-					db
-						.insert(tables.pluginConfigRevision)
-						.values({ ...identity, ...envelope, pluginInstallationId: input.pluginInstallationId }),
+					db.insert(tables.pluginConfigRevision).values({
+						...identity,
+						...envelope,
+						pluginInstallationId: input.pluginInstallationId,
+						configuredKeys: Object.keys(properties)
+							.filter((key) => properties[key] !== undefined && properties[key] !== null)
+							.sort(),
+					}),
 				);
 				return identity.id;
 			});

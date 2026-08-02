@@ -11,13 +11,6 @@ import { OperationsService } from "./operations-service";
 
 export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (handlers) =>
 	handlers
-		.handle("list", () =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				const service = yield* PluginInstallationService;
-				return yield* service.listInstallations(user.id).pipe(dieOnDbError);
-			}),
-		)
 		.handleRaw("events", () =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
@@ -65,6 +58,15 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 				const user = yield* CurrentUser;
 				const service = yield* PluginInstallationService;
 				return yield* service.uninstallPlugin(user.id, params.pluginSlug).pipe(dieOnDbError);
+			}),
+		)
+		.handle("updatePluginState", ({ params, payload }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* PluginInstallationService;
+				return yield* service
+					.updateInstallation(user.id, params.pluginSlug, payload)
+					.pipe(dieOnDbError);
 			}),
 		)
 		.handle("setHomeView", ({ params, payload }) =>

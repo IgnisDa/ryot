@@ -14,7 +14,7 @@ import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-r
 import { AuthRepository } from "#modules/auth/repository";
 import { AutomationsRepository } from "#modules/automations/repository";
 import { ClientPagesRepository } from "#modules/client-pages/repository";
-import type { DefinitionSnapshot } from "#modules/definition-registry/service";
+import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
 import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { EventsRepository, RESTORE_EVENT_BATCH_SIZE } from "#modules/events/repository";

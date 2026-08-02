@@ -23,11 +23,11 @@ import { Database, mapDatabaseErrors, retryOnDeadlock } from "#lib/infrastructur
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
-import { DefinitionRegistry, DefinitionSnapshot } from "#modules/definition-registry/service";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
 import { EntityMutationOutcome } from "#modules/entities/mutation-outcomes";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import { ChildEntitySetWriteResult, writeChildEntitySet } from "./population";
@@ -92,12 +92,12 @@ const resolveProviderEntityDefinitions = (
 		error: SandboxRunError satisfies DurableSchema,
 		success: DefinitionSnapshot satisfies DurableSchema,
 		execute: Effect.gen(function* () {
-			if (entityScope.scope === "user") {
-				return yield* Effect.flatMap(PluginRuntimeResolver, (runtime) =>
-					runtime.getEffectiveDefinitions(entityScope.userId),
-				).pipe(mapDbErrorToSandbox);
-			}
-			return (yield* DefinitionRegistry).getSnapshot();
+			const definitions = yield* DefinitionRepository;
+			return yield* (
+				entityScope.scope === "user"
+					? definitions.getUserSnapshot(entityScope.userId, { listed: false })
+					: definitions.getGlobalSnapshot
+			).pipe(mapDbErrorToSandbox);
 		}),
 	});
 
