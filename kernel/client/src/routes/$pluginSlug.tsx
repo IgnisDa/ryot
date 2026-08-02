@@ -3,6 +3,7 @@ import { Effect } from "effect";
 
 import { protectedRouteGuard } from "../modules/auth/route-gates";
 import { PluginCatalogService } from "../modules/plugins/catalog";
+import { PluginOperationsService } from "../modules/plugins/operations";
 import { PluginHost } from "../modules/plugins/plugin-host";
 import { toPluginLocation } from "../modules/plugins/plugin-location";
 import { resolveRouteTarget } from "../modules/plugins/route-resolver";
@@ -29,9 +30,9 @@ export const Route = createFileRoute("/$pluginSlug")({
 function PluginDestination() {
 	const navigate = useNavigate();
 	const { pluginSlug } = Route.useParams();
-	const { server } = Route.useRouteContext();
 	const { pathname, searchStr } = useLocation();
 	const { installation } = Route.useLoaderData();
+	const { runtime, scope, server } = Route.useRouteContext();
 
 	return (
 		<PluginHost
@@ -41,6 +42,14 @@ function PluginDestination() {
 			onNavigate={(request) => {
 				void navigate({ href: request.href, replace: request.replace });
 			}}
+			onInvokeOperation={(request, signal) =>
+				runtime.runPromise(
+					Effect.flatMap(PluginOperationsService, (service) =>
+						service.invoke({ scope, request, pluginSlug: installation.slug }),
+					),
+					{ signal },
+				)
+			}
 		/>
 	);
 }

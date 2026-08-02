@@ -1,6 +1,8 @@
 import {
 	CLIENT_API_VERSION,
 	type PluginLogicalLocation,
+	type PluginOperationOutcome,
+	type PluginOperationRequest,
 } from "@ryot/contract/modules/plugins/client";
 import type { PluginClientCatalogEntry } from "@ryot/ryotql-recipes/plugin-client-catalog";
 import { useEffect, useRef, useState } from "react";
@@ -60,6 +62,10 @@ export function PluginHost(props: {
 	readonly location: PluginLogicalLocation;
 	readonly installation: PluginClientCatalogEntry;
 	readonly onNavigate: (request: PluginNavigationRequest) => void;
+	readonly onInvokeOperation: (
+		request: PluginOperationRequest,
+		signal: AbortSignal,
+	) => Promise<PluginOperationOutcome>;
 }) {
 	const resolution = resolvePluginArtifact(props.installation);
 	if (resolution.kind === "blocked") {
@@ -73,6 +79,7 @@ export function PluginHost(props: {
 			onNavigate={props.onNavigate}
 			pluginSlug={props.installation.slug}
 			artifactHash={resolution.artifactHash}
+			onInvokeOperation={props.onInvokeOperation}
 			key={`${props.installation.installationId}:${resolution.artifactHash}`}
 		/>
 	);
@@ -84,6 +91,10 @@ function PluginFrame(props: {
 	readonly artifactHash: string;
 	readonly location: PluginLogicalLocation;
 	readonly onNavigate: (request: PluginNavigationRequest) => void;
+	readonly onInvokeOperation: (
+		request: PluginOperationRequest,
+		signal: AbortSignal,
+	) => Promise<PluginOperationOutcome>;
 }) {
 	const { path, search } = props.location;
 	const latest = useRef(props);
@@ -116,6 +127,7 @@ function PluginFrame(props: {
 			artifactHash: props.artifactHash,
 			location: latest.current.location,
 			onReady: () => setStatus("ready"),
+			onOperation: (request, signal) => latest.current.onInvokeOperation(request, signal),
 			onFailure: () => {
 				session.current = undefined;
 				setStatus("handshake-failure");

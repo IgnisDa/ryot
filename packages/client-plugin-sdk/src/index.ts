@@ -9,7 +9,9 @@ import { Result, Schema } from "effect";
 import { createElement, type ComponentType } from "react";
 import { createRoot } from "react-dom/client";
 
+import { createPluginOperationBridge } from "./operations";
 import { createPluginLocationStore, PluginRouter, type PluginRouteDefinition } from "./routing";
+import { bindOperationBridge } from "./ryot";
 
 export type ClientPluginDefinition = {
 	readonly home: ComponentType;
@@ -59,6 +61,7 @@ export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
 
 		initialized = true;
 		const locations = createPluginLocationStore(port);
+		bindOperationBridge(createPluginOperationBridge(port));
 		port.start();
 		port.postMessage({
 			sessionId: init.sessionId,
@@ -80,3 +83,6 @@ export {
 	usePluginSearch,
 	type PluginRouteDefinition,
 } from "./routing";
+
+export { PluginOperationError } from "./operations";
+export { ryot } from "./ryot";

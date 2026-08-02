@@ -1,13 +1,13 @@
 import { definePlugin } from "@ryot/contract/modules/plugins/manifest";
 
+import { manifest as greetManifest } from "./backend/greet.sandbox";
+
 export const fixturePlugin = definePlugin({
 	boot: [],
 	crons: [],
-	scripts: [],
 	workflows: [],
 	providers: [],
 	savedViews: [],
-	operations: [],
 	entitySchemas: [],
 	signalSchemas: [],
 	importSources: [],
@@ -16,7 +16,16 @@ export const fixturePlugin = definePlugin({
 	relationshipSchemas: [],
 	integrationProviders: [],
 	configSchema: { fields: {}, unknownKeys: "strict" },
+	scripts: [{ ...greetManifest, entry: "backend/greet.sandbox.ts" }],
 	client: { entry: "client/index.tsx", apiVersion: 1, capabilities: [] },
+	operations: [
+		{
+			auth: "user",
+			slug: "greet",
+			scriptSlug: "operation.greet",
+			description: "Return a deterministic greeting for the caller",
+		},
+	],
 	bindings: {
 		eventAutomations: [],
 		entityAutomations: [],

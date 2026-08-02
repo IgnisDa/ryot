@@ -13,7 +13,8 @@
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
-		"@ryot/contract": "workspace:*"
+		"@ryot/contract": "workspace:*",
+		"@ryot/sandbox-sdk": "workspace:*"
 	},
 	"devDependencies": {
 		"@ryot/cli": "workspace:*",

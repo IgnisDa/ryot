@@ -494,6 +494,7 @@
       "name": "@ryot/fixture-plugin",
       "dependencies": {
         "@ryot/contract": "workspace:*",
+        "@ryot/sandbox-sdk": "workspace:*",
       },
       "devDependencies": {
         "@ryot/cli": "workspace:*",
