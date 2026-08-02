@@ -25,6 +25,8 @@ const ItemRoute = () => {
 	return <p>Item {itemId}</p>;
 };
 
+const NotFound = () => <p>Fixture page not found.</p>;
+
 const Home = () => {
 	const [greetings, setGreetings] = useState(0);
 	const { navigation } = useRyot();
@@ -79,6 +81,7 @@ const openChannel = () => {
 const renderRouter = (
 	channel: ReturnType<typeof openChannel>,
 	routes: Array<{ path: string; component: typeof ItemRoute }>,
+	notFound?: typeof NotFound,
 ) => {
 	const container = document.createElement("div");
 	document.body.append(container);
@@ -86,9 +89,10 @@ const renderRouter = (
 	roots.push(root);
 
 	act(() => {
+		const definition = notFound ? { home: Home, routes, notFound } : { home: Home, routes };
 		root.render(
 			<RyotProvider client={channel.client}>
-				<PluginRouter locations={channel.locations} definition={{ home: Home, routes }} />
+				<PluginRouter locations={channel.locations} definition={definition} />
 			</RyotProvider>,
 		);
 	});
@@ -96,9 +100,12 @@ const renderRouter = (
 	return container;
 };
 
-const mount = (routes: Array<{ path: string; component: typeof ItemRoute }> = []) => {
+const mount = (
+	routes: Array<{ path: string; component: typeof ItemRoute }> = [],
+	notFound?: typeof NotFound,
+) => {
 	const channel = openChannel();
-	const container = renderRouter(channel, routes);
+	const container = renderRouter(channel, routes, notFound);
 	return {
 		container,
 		messages: channel.messages,
@@ -142,10 +149,19 @@ describe("PluginRouter", () => {
 		await waitFor(() => expect(container.textContent).toContain("Item %zz"));
 	});
 
-	it("falls back to the home component for an unmatched path", async () => {
+	it("renders the default not-found state for an unmatched path", async () => {
 		const { container, sendLocation } = mount([{ path: "/items/$itemId", component: ItemRoute }]);
 		sendLocation("/does-not-exist");
-		await waitFor(() => expect(container.textContent).toContain("Greeted 0 times."));
+		await waitFor(() => expect(container.textContent).toContain("Page not found"));
+	});
+
+	it("renders a plugin not-found component for an unmatched path", async () => {
+		const { container, sendLocation } = mount(
+			[{ path: "/items/$itemId", component: ItemRoute }],
+			NotFound,
+		);
+		sendLocation("/does-not-exist");
+		await waitFor(() => expect(container.textContent).toContain("Fixture page not found."));
 	});
 
 	it("decodes search values through usePluginSearch", async () => {
@@ -178,7 +194,41 @@ describe("PluginRouter", () => {
 		);
 	});
 
-	it("does not navigate on a modifier click", async () => {
+	it("composes click handlers and lets consumers cancel navigation", () => {
+		const channel = openChannel();
+		const container = document.createElement("div");
+		document.body.append(container);
+		const root = createRoot(container);
+		roots.push(root);
+		let clicks = 0;
+		act(() => {
+			root.render(
+				<RyotProvider client={channel.client}>
+					<PluginLink
+						to="/items/item-1"
+						onClick={(event) => {
+							clicks += 1;
+							event.preventDefault();
+						}}
+					>
+						Item 1
+					</PluginLink>
+				</RyotProvider>,
+			);
+		});
+		const link = container.querySelector("a");
+		if (!link) {
+			throw new Error("expected a rendered plugin link");
+		}
+		const event = new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 });
+		void act(() => link.dispatchEvent(event));
+
+		expect(clicks).toBe(1);
+		expect(event.defaultPrevented).toBe(true);
+		expect(channel.messages).toEqual([]);
+	});
+
+	it("prevents native navigation on modifier and auxiliary clicks", async () => {
 		const { container, messages, sendLocation } = mount();
 		sendLocation("/");
 		await waitFor(() => expect(container.querySelector("a")).not.toBeNull());
@@ -187,13 +237,23 @@ describe("PluginRouter", () => {
 		if (!link) {
 			throw new Error("expected a rendered plugin link");
 		}
-		act(() => {
-			link.dispatchEvent(
-				new MouseEvent("click", { bubbles: true, cancelable: true, button: 0, ctrlKey: true }),
-			);
+		const modified = new MouseEvent("click", {
+			button: 0,
+			bubbles: true,
+			ctrlKey: true,
+			cancelable: true,
 		});
+		const auxiliary = new MouseEvent("auxclick", {
+			button: 1,
+			bubbles: true,
+			cancelable: true,
+		});
+		void act(() => link.dispatchEvent(modified));
+		void act(() => link.dispatchEvent(auxiliary));
 
 		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(modified.defaultPrevented).toBe(true);
+		expect(auxiliary.defaultPrevented).toBe(true);
 		expect(messages).toEqual([]);
 	});
 
