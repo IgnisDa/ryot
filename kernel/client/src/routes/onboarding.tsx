@@ -30,6 +30,7 @@ export const Route = createFileRoute("/onboarding")({
 		if (decision.action === "redirect") {
 			return redirect({ to: decision.to, search: { redirect: decision.redirectTo } });
 		}
+		return undefined;
 	},
 });
 
