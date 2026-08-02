@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useSyncExternalStore, type ReactNode } from "react";
 
 import type { RyotClient } from "./index";
 
@@ -14,4 +14,9 @@ export const useRyot = () => {
 		throw new Error("useRyot must be used within RyotProvider");
 	}
 	return client;
+};
+
+export const useRyotTheme = () => {
+	const { theme } = useRyot();
+	return useSyncExternalStore(theme.subscribe, theme.getSnapshot, theme.getSnapshot);
 };
