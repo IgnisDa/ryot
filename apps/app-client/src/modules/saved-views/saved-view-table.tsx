@@ -7,8 +7,59 @@ import { getEntityHref } from "@/modules/navigation/navigation-data";
 import type { SavedViewTableItem } from "./display-data";
 import { formatSavedViewValue } from "./display-value";
 import { SavedViewImageView } from "./saved-view-image";
+import { SavedViewTintOverlay, useSavedViewTint } from "./saved-view-tint-view";
 
 const columnClassName = (index: number) => (index === 0 ? "min-w-0 flex-[2]" : "min-w-0 flex-1");
+
+function SavedViewTableRow(props: {
+	item: SavedViewTableItem;
+	managedUrls: ReadonlyMap<string, string>;
+}) {
+	const { gradientStops, onImageError } = useSavedViewTint({
+		image: props.item.image,
+		managedUrls: props.managedUrls,
+	});
+
+	return (
+		<Link asChild href={getEntityHref(props.item.entityId)}>
+			<Pressable
+				accessibilityRole="link"
+				className="relative h-12 flex-row items-center gap-4 overflow-hidden border-b border-border focus-visible:outline-2 focus-visible:outline-accent"
+			>
+				<SavedViewTintOverlay gradientStops={gradientStops} />
+				{props.item.cells.map((cell, index) => (
+					<View
+						key={`${props.item.entityId}:${cell.key}`}
+						className={clsx(
+							columnClassName(index),
+							"justify-center",
+							index === 0 && "flex-row items-center gap-2.5",
+						)}
+					>
+						{index === 0 && (
+							<SavedViewImageView
+								onError={onImageError}
+								image={props.item.image}
+								managedUrls={props.managedUrls}
+								className="h-9 w-6.5 shrink-0 rounded-[3px] bg-surface-2"
+							/>
+						)}
+						<Text
+							numberOfLines={1}
+							className={
+								index === 0
+									? "min-w-0 flex-1 font-ui text-sm text-text"
+									: "min-w-0 font-ui text-right text-[13.5px] text-text-muted"
+							}
+						>
+							{formatSavedViewValue(cell.value)}
+						</Text>
+					</View>
+				))}
+			</Pressable>
+		</Link>
+	);
+}
 
 export function SavedViewTable(props: {
 	items: readonly SavedViewTableItem[];
@@ -33,41 +84,7 @@ export function SavedViewTable(props: {
 				))}
 			</View>
 			{props.items.map((item) => (
-				<Link asChild key={item.entityId} href={getEntityHref(item.entityId)}>
-					<Pressable
-						accessibilityRole="link"
-						className="h-12 flex-row items-center gap-4 border-b border-border focus-visible:outline-2 focus-visible:outline-accent"
-					>
-						{item.cells.map((cell, index) => (
-							<View
-								key={`${item.entityId}:${cell.key}`}
-								className={clsx(
-									columnClassName(index),
-									"justify-center",
-									index === 0 && "flex-row items-center gap-2.5",
-								)}
-							>
-								{index === 0 && (
-									<SavedViewImageView
-										image={item.image}
-										managedUrls={props.managedUrls}
-										className="h-9 w-6.5 shrink-0 rounded-[3px] bg-surface-2"
-									/>
-								)}
-								<Text
-									numberOfLines={1}
-									className={
-										index === 0
-											? "min-w-0 flex-1 font-ui text-sm text-text"
-											: "min-w-0 font-ui text-right text-[13.5px] text-text-muted"
-									}
-								>
-									{formatSavedViewValue(cell.value)}
-								</Text>
-							</View>
-						))}
-					</Pressable>
-				</Link>
+				<SavedViewTableRow key={item.entityId} item={item} managedUrls={props.managedUrls} />
 			))}
 		</View>
 	);
