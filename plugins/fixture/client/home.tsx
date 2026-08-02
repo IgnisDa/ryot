@@ -6,6 +6,7 @@ import { Button, StatusMessage } from "@ryot/client-ui-sdk";
 import { useState } from "react";
 
 import logo from "./logo.svg";
+import { fixtureClientPluginCatalogRecipe, type FixtureClientPluginCatalog } from "./query-recipes";
 
 const Greeting = Schema.Struct({ greeting: Schema.String });
 
@@ -25,6 +26,19 @@ const greetingMessages = {
 	unavailable: "Greetings are unavailable right now.",
 } as const;
 
+const catalogTones = {
+	idle: "pending",
+	ready: "success",
+	pending: "pending",
+	unavailable: "error",
+} as const;
+
+const catalogMessages = {
+	idle: "",
+	pending: "Fetching installed client plugins...",
+	unavailable: "Client plugin catalog is unavailable.",
+} as const;
+
 type GreetingState =
 	| { readonly status: "idle" }
 	| { readonly status: "pending" }
@@ -32,14 +46,23 @@ type GreetingState =
 	| { readonly status: "unavailable" }
 	| { readonly status: "ready"; readonly greeting: string };
 
+type CatalogState =
+	| { readonly status: "idle" }
+	| { readonly status: "pending" }
+	| { readonly status: "unavailable" }
+	| { readonly status: "ready"; readonly installations: FixtureClientPluginCatalog };
+
 export const Home = () => {
 	const ryot = useRyot();
 	const theme = useRyotTheme();
 	const [greetings, setGreetings] = useState(0);
 	const [requested, setRequested] = useState("Ryot");
 	const [greeting, setGreeting] = useState<GreetingState>({ status: "idle" });
+	const [catalog, setCatalog] = useState<CatalogState>({ status: "idle" });
 	const [shouldCrash, setShouldCrash] = useState(false);
 	const failed = greeting.status === "refused" || greeting.status === "unavailable";
+	const installedPluginSlugs =
+		catalog.status === "ready" ? catalog.installations.map(({ slug }) => slug).join(", ") : "";
 
 	if (shouldCrash) {
 		throw new Error("fixture render failure");
@@ -58,6 +81,16 @@ export const Home = () => {
 		} catch (error) {
 			const refused = error instanceof RyotClientError && error.reason === "operation-failed";
 			setGreeting({ status: refused ? "refused" : "unavailable" });
+		}
+	};
+
+	const fetchCatalog = async () => {
+		setCatalog({ status: "pending" });
+		try {
+			const installations = await ryot.data.query(fixtureClientPluginCatalogRecipe());
+			setCatalog({ installations, status: "ready" });
+		} catch {
+			setCatalog({ status: "unavailable" });
 		}
 	};
 
@@ -86,6 +119,23 @@ export const Home = () => {
 				<div className="mt-3 rounded-md border border-accent bg-accent-soft p-3 text-sm text-text">
 					Accent surface with semantic border and primary text
 				</div>
+			</section>
+			<section aria-labelledby="fixture-catalog-title" className="flex flex-col items-center gap-2">
+				<h2 id="fixture-catalog-title" className="font-display text-lg">
+					Client plugin catalog
+				</h2>
+				<StatusMessage id="fixture-catalog-status" tone={catalogTones[catalog.status]}>
+					{catalog.status === "ready"
+						? `Installed client plugins: ${installedPluginSlugs}`
+						: catalogMessages[catalog.status]}
+				</StatusMessage>
+				<Button
+					onClick={() => void fetchCatalog()}
+					disabled={catalog.status === "pending"}
+					aria-describedby="fixture-catalog-status"
+				>
+					Fetch catalog
+				</Button>
 			</section>
 			<section
 				aria-labelledby="fixture-greeting-title"

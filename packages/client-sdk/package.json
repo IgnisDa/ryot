@@ -18,6 +18,10 @@
 		"./react": {
 			"types": "./src/react.tsx",
 			"default": "./src/react.tsx"
+		},
+		"./ryotql": {
+			"types": "./src/ryotql.ts",
+			"default": "./src/ryotql.ts"
 		}
 	},
 	"scripts": {
