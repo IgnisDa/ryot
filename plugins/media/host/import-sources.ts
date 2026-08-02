@@ -73,7 +73,10 @@ export const MediaCreateImportRunBody = Schema.Union([
 					: "At least one MyAnimeList export is required",
 			),
 		),
-		Schema.annotate({ identifier: "MediaImportInput_myanimelist" }),
+		Schema.annotate({
+			identifier: "MediaImportInput_myanimelist",
+			parseOptions: { onExcessProperty: "error" },
+		}),
 	),
 	strictStruct({
 		apiUrl: HttpUrl,

@@ -4,13 +4,10 @@ import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import type { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { Schema } from "@ryot-app/sandbox-sdk/effect";
 
-import {
-	hostResultSchema,
-	type JsonValue,
-	jsonValueSchema,
-	type SandboxHostError,
-	strictStruct,
-} from "./wire";
+import { hostResultSchema, jsonValueSchema, type JsonValue, type SandboxHostError } from "./wire";
+
+const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
+	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" as const } });
 
 const nonEmptyString = Schema.String.pipe(Schema.check(Schema.isMinLength(1)));
 const appSchema = Schema.declare<AppSchema>((_value): _value is AppSchema => true);
@@ -407,6 +404,7 @@ export const changeUserRelationshipBatchSchema = strictStruct({
 				USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS.changesPerBatch,
 		),
 	),
+	Schema.annotate({ parseOptions: { onExcessProperty: "error" as const } }),
 );
 export type ChangeUserRelationshipBatch = Schema.Schema.Type<
 	typeof changeUserRelationshipBatchSchema
