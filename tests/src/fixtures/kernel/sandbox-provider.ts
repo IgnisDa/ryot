@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import type { ContractPayload } from "@ryot/contract/client";
+import type { PluginPackage } from "@ryot/contract/modules/plugins/schemas";
 import type { SandboxProviderId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import type {
@@ -23,7 +23,7 @@ import {
 	uninstallTestPlugin,
 } from "./test-plugin";
 
-type PluginManifest = ContractPayload<"plugins", "install">["manifest"];
+type PluginManifest = PluginPackage["manifest"];
 type PluginProviderInformation = PluginManifest["providers"][number]["information"];
 type ProviderOperation = Extract<
 	PluginManifest["scripts"][number],

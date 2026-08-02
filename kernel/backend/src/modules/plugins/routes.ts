@@ -24,9 +24,8 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 				return yield* service
 					.installPrivatePlugin({
 						userId: user.id,
-						files: payload.files,
 						config: payload.config,
-						manifest: payload.manifest,
+						uploadToken: payload.uploadToken,
 					})
 					.pipe(dieOnDbError);
 			}),
@@ -38,10 +37,9 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 				return yield* service
 					.updatePrivatePlugin({
 						userId: user.id,
-						files: payload.files,
 						config: payload.config,
-						manifest: payload.manifest,
 						pluginSlug: params.pluginSlug,
+						uploadToken: payload.uploadToken,
 						unsetConfigKeys: payload.unsetConfigKeys,
 					})
 					.pipe(dieOnDbError);

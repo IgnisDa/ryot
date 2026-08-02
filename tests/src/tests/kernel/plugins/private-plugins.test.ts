@@ -7,6 +7,7 @@ import {
 	createAuthenticatedClient,
 	executeRyotQL,
 	installPrivateBootstrapPlugin,
+	installPrivatePluginPackage,
 	installPrivatePlugin,
 	invokePrivatePluginOperation,
 	PRIVATE_PLUGIN_CONFIG_KEY,
@@ -17,6 +18,8 @@ import {
 	requireRyotQLValue,
 	updatePluginState,
 	updatePrivatePlugin,
+	uploadPrivatePluginPackage,
+	uploadTemporaryArchive,
 } from "~/fixtures/kernel";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -394,22 +397,57 @@ describe("private plugins", () => {
 			).slug;
 
 			const failure = yield* Effect.flip(
-				client.call((c) =>
-					c.plugins.install({
-						payload: {
-							files: plugin.files,
-							config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "alpha" },
-							manifest: {
-								...plugin.manifest,
-								boot: [{ scriptSlug, slug: "startup", description: "Unsupported private surface" }],
-							},
+				installPrivatePluginPackage({
+					client,
+					config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "alpha" },
+					pluginPackage: {
+						files: plugin.files,
+						manifest: {
+							...plugin.manifest,
+							boot: [{ scriptSlug, slug: "startup", description: "Unsupported private surface" }],
 						},
-					}),
-				),
+					},
+				}),
 			);
 
 			assertTaggedError(failure, "PluginRequestError");
 			expect(failure.reason).toEqual({ surfaces: ["boot"], code: "unsupported-manifest-surface" });
+		}),
+	);
+
+	it.live("rejects a corrupt private plugin archive", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const uploadToken = yield* uploadTemporaryArchive(
+				client,
+				new TextEncoder().encode("not a zip archive"),
+				{ fileName: "corrupt-plugin.zip" },
+			);
+
+			const failure = yield* Effect.flip(
+				client.call((c) => c.plugins.install({ payload: { config: {}, uploadToken } })),
+			);
+
+			assertTaggedError(failure, "PluginRequestError");
+			expect(failure.reason).toEqual({
+				issue: "malformed-zip",
+				code: "package-archive-invalid",
+			});
+		}),
+	);
+
+	it.live("rejects a spent private plugin upload token", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const plugin = privatePluginPackage();
+			const uploadToken = yield* uploadPrivatePluginPackage(client, plugin);
+			const payload = { uploadToken, config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "alpha" } };
+
+			yield* client.call((c) => c.plugins.install({ payload }));
+			const failure = yield* Effect.flip(client.call((c) => c.plugins.install({ payload })));
+
+			assertTaggedError(failure, "PluginRequestError");
+			expect(failure.reason).toEqual({ code: "upload-unavailable" });
 		}),
 	);
 

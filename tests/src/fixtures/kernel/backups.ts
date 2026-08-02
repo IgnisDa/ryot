@@ -6,6 +6,7 @@ import { getBackendUrl } from "~/support/backend";
 
 import type { Client } from "./auth";
 import { pollUntil } from "./polling";
+import { uploadTemporaryArchive } from "./temporary-archive";
 
 export const pollBackupRunUntilTerminal = (client: Client, runId: string) =>
 	pollUntil(
@@ -53,37 +54,6 @@ export const downloadBackupArchive = (cookies: string, runId: string) =>
 		return { bytes, headers: response.headers };
 	});
 
-const uploadBackupArchive = (client: Client, bytes: Uint8Array) =>
-	Effect.gen(function* () {
-		const intent = yield* client.call((c) =>
-			c.uploads.createIntent({
-				payload: {
-					kind: "temporary",
-					fileName: "backup.zip",
-					contentType: "application/zip",
-				},
-			}),
-		);
-		const uploadResponse = yield* Effect.promise(() =>
-			fetch(new URL(intent.uploadUrl, `${getBackendUrl()}/`), {
-				method: intent.method,
-				headers: intent.headers,
-				body: new Uint8Array(bytes),
-			}),
-		);
-		if (!uploadResponse.ok) {
-			throw new Error(`Could not upload backup archive (${uploadResponse.status})`);
-		}
-
-		const completion = yield* client.call((c) =>
-			c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
-		);
-		if (!("token" in completion)) {
-			throw new Error("Expected a temporary backup upload token");
-		}
-		return completion.token;
-	});
-
 export const exportAndDownloadBackup = (client: Client, cookies: string) =>
 	Effect.gen(function* () {
 		const id = yield* startBackupExport(client);
@@ -98,7 +68,7 @@ export const exportAndDownloadBackup = (client: Client, cookies: string) =>
 
 export const restoreBackup = (client: Client, bytes: Uint8Array) =>
 	Effect.gen(function* () {
-		const uploadToken = yield* uploadBackupArchive(client, bytes);
+		const uploadToken = yield* uploadTemporaryArchive(client, bytes, { fileName: "backup.zip" });
 		const result = yield* client.call((c) => c.backups.createRestore({ payload: { uploadToken } }));
 		const id = requirePresent(result.id, "Backup restore run id is missing");
 		const run = yield* pollBackupRunUntilTerminal(client, id);

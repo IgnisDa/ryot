@@ -30,9 +30,9 @@ const assemble = Effect.gen(function* () {
 	const slugs = yield* readSlugs;
 	yield* prepareLayout;
 	for (const slug of slugs) {
-		const destination = path.join("plugins", slug);
-		yield* fs.remove(destination, { force: true, recursive: true });
-		yield* fs.copy(path.join(packageRoot(slug), "dist/bundle"), destination);
+		const destination = path.join("plugins", `${slug}.zip`);
+		yield* fs.remove(path.join("plugins", slug), { force: true, recursive: true });
+		yield* fs.copyFile(path.join(packageRoot(slug), `dist/${slug}.zip`), destination);
 	}
 });
 
@@ -43,7 +43,7 @@ const watch = Effect.gen(function* () {
 		slugs.map((slug) =>
 			ChildProcess.make(
 				"ryot",
-				["plugin", "build", "--watch", "--output", `../../apps/server/plugins/${slug}`],
+				["plugin", "build", "--watch", "--output", `../../apps/server/plugins/${slug}.zip`],
 				{ cwd: packageRoot(slug), stderr: "inherit", stdin: "inherit", stdout: "inherit" },
 			).pipe(
 				Effect.flatMap((process) => process.exitCode),

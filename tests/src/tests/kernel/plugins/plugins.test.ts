@@ -1,4 +1,4 @@
-import type { ContractPayload } from "@ryot/contract/client";
+import type { PluginPackage } from "@ryot/contract/modules/plugins/schemas";
 import { EntityId, EventSchemaSlug, PluginSlug } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
@@ -10,6 +10,7 @@ import {
 	fakeProviderDetailsResult,
 	fakeProviderSearchResult,
 	getBackendClient,
+	installPrivatePluginPackage,
 	installTestPluginBundle,
 	pollProviderEntityImportResult,
 	pollUntil,
@@ -28,7 +29,7 @@ import {
 } from "~/support/assertions";
 import { assert, describe, expect, it } from "~/support/effect-test";
 
-type PluginScript = ContractPayload<"plugins", "install">["manifest"]["scripts"][number];
+type PluginScript = PluginPackage["manifest"]["scripts"][number];
 
 describe("plugins", () => {
 	it.live("runs a third-party plugin lifecycle without restarting", () =>
@@ -407,9 +408,11 @@ export default defineAutomation({
 			const manifest = testPluginManifest({ pluginSlug, entitySchemas: [] });
 			const listed = yield* client.call((c) => c.plugins.list({}));
 			expect(listed.every(({ scope }) => scope === "system")).toBe(true);
-			const installed = yield* client.call((c) =>
-				c.plugins.install({ payload: { files: {}, config: {}, manifest } }),
-			);
+			const installed = yield* installPrivatePluginPackage({
+				client,
+				config: {},
+				pluginPackage: { files: {}, manifest },
+			});
 			expect(installed).toMatchObject({ config: {}, scope: "user", slug: pluginSlug });
 			const afterInstall = yield* client.call((c) => c.plugins.list({}));
 			expect(afterInstall.some(({ slug }) => slug === pluginSlug)).toBe(true);

@@ -5,39 +5,53 @@ import {
 	type Client,
 	createAuthenticatedClient,
 	getBackendClient,
-	installTestPlugin,
+	installPrivatePluginPackage,
 	operationSandboxSource,
-	uninstallTestPlugin,
+	releasePrivatePlugin,
+	settledPrivateInstallation,
+	testPluginManifest,
 } from "~/fixtures/kernel";
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const installEchoOperationPlugin = (client: Client) => {
 	const scriptSlug = `e2e-operation-${crypto.randomUUID()}`;
-	return Effect.acquireRelease(
-		installTestPlugin({
-			client,
-			pluginSlug: `e2e-operations-${crypto.randomUUID()}`,
-			configSchema: { fields: {}, unknownKeys: "strict" },
-			source: operationSandboxSource({ name: "E2E Echo Operation", slug: scriptSlug }),
-			operations: [
-				{
-					auth: "user",
-					slug: "echo",
-					scriptSlug,
-					description: "Uppercases every requested title",
-				},
-			],
-			script: {
+	const pluginSlug = PluginSlug.make(`e2e-operations-${crypto.randomUUID()}`);
+	const entry = "backend/scripts/operation.sandbox.ts";
+	const manifest = testPluginManifest({
+		pluginSlug,
+		configSchema: { fields: {}, unknownKeys: "strict" },
+		operations: [
+			{ scriptSlug, auth: "user", slug: "echo", description: "Uppercases every requested title" },
+		],
+		scripts: [
+			{
+				entry,
 				capabilities: [],
 				slug: scriptSlug,
 				kind: "operation",
+				name: "E2E Echo Operation",
 				requiredPluginConfigKeys: [],
 				requiredSystemConfigKeys: [],
-				name: "E2E Echo Operation",
 			},
+		],
+	});
+	return Effect.acquireRelease(
+		Effect.gen(function* () {
+			yield* installPrivatePluginPackage({
+				client,
+				config: {},
+				pluginPackage: {
+					manifest,
+					files: {
+						[entry]: operationSandboxSource({ name: "E2E Echo Operation", slug: scriptSlug }),
+					},
+				},
+			});
+			yield* settledPrivateInstallation(client, pluginSlug);
+			return { pluginSlug };
 		}),
-		uninstallTestPlugin,
+		() => releasePrivatePlugin(client, pluginSlug),
 	);
 };
 

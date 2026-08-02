@@ -6,7 +6,7 @@ import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { Effect, FileSystem, Path, Schema, Stream } from "effect";
 import { ChildProcess } from "effect/unstable/process";
 
-import { loadPluginSource } from "#modules/plugins/source";
+import { loadPluginSource } from "#modules/plugins/source.test-support";
 
 import { materializeSandboxCompiledModule } from "./compiled-modules";
 import { ensureSandboxRuntimeDependencies } from "./dependencies";

@@ -1,64 +1,31 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { PluginManifest } from "./manifest";
 import {
 	PluginConflictError,
 	UpdatePluginInstallationBody,
 	UpdatePrivatePluginBody,
 } from "./schemas";
 
-const packagePayload = {
-	files: {},
-	manifest: Schema.decodeUnknownSync(PluginManifest)({
-		boot: [],
-		crons: [],
-		scripts: [],
-		providers: [],
-		workflows: [],
-		operations: [],
-		savedViews: [],
-		importSources: [],
-		userBootstrap: [],
-		signalSchemas: [],
-		entitySchemas: [],
-		httpRateLimits: [],
-		relationshipSchemas: [],
-		integrationProviders: [],
-		configSchema: { fields: {}, unknownKeys: "strict" },
-		metadata: {
-			icon: "fixture",
-			name: "Fixture",
-			slug: "fixture",
-			version: "2.0.0",
-			description: "Fixture",
-		},
-		bindings: {
-			eventAutomations: [],
-			entityAutomations: [],
-			signalAutomations: [],
-			relationshipAutomations: [],
-			providerEntityImportAutomations: [],
-		},
-	}),
+const uploadPayload = {
+	uploadToken: "fixture-upload-token",
 };
 
 describe("UpdatePrivatePluginBody", () => {
-	it("decodes a complete package and config patch", () => {
+	it("decodes an upload token and config patch", () => {
 		expect(
 			Schema.decodeUnknownSync(UpdatePrivatePluginBody)({
-				...packagePayload,
+				...uploadPayload,
 				unsetConfigKeys: ["region"],
 				config: { token: "replacement" },
 			}),
-		).toEqual({ ...packagePayload, unsetConfigKeys: ["region"], config: { token: "replacement" } });
+		).toEqual({ ...uploadPayload, unsetConfigKeys: ["region"], config: { token: "replacement" } });
 	});
 
-	it("rejects incomplete packages and excess fields", () => {
+	it("rejects incomplete uploads and excess fields", () => {
 		for (const input of [
-			{ ...packagePayload, files: undefined },
-			{ ...packagePayload, manifest: undefined },
-			{ ...packagePayload, unknown: true },
+			{ ...uploadPayload, uploadToken: undefined },
+			{ ...uploadPayload, unknown: true },
 		]) {
 			expect(() => Schema.decodeUnknownSync(UpdatePrivatePluginBody)(input)).toThrow();
 		}

@@ -58,13 +58,14 @@ const program = Effect.gen(function* () {
 				runCommand([process.execPath, "run", "--watch", "src/main.ts"]).pipe(
 					Effect.map((exitCode) => ({ exitCode, restart: false as const })),
 				),
-				fs
-					.watch("plugins")
-					.pipe(
-						Stream.debounce("500 millis"),
-						Stream.runHead,
-						Effect.as({ restart: true as const }),
+				fs.watch("plugins").pipe(
+					Stream.filter(
+						(event) => !event.path.split(/[/\\]/).some((segment) => segment.startsWith(".")),
 					),
+					Stream.debounce("500 millis"),
+					Stream.runHead,
+					Effect.as({ restart: true as const }),
+				),
 			);
 			restart = result.restart;
 			if (!result.restart) {
