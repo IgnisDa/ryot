@@ -22,7 +22,12 @@ import { Context, Effect, Layer, Option, Redacted, Result, Schema } from "effect
 import { HttpMiddleware, HttpServerError, HttpServerRequest } from "effect/unstable/http";
 import type Redis from "ioredis";
 
-import { AppConfig, type AppConfigValue, isOidcEnabled } from "#lib/infrastructure/config/service";
+import {
+	AppConfig,
+	type AppConfigValue,
+	isOidcEnabled,
+	parseCorsOrigins,
+} from "#lib/infrastructure/config/service";
 import * as authSchema from "#lib/infrastructure/db/schema/tables/auth";
 import { Database } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
@@ -91,15 +96,7 @@ const makeAuthInstance = (args: {
 	readonly runtime: Context.Context<Database | RedisService>;
 	readonly bootstrapNewUser: (userId: string) => Effect.Effect<void, unknown>;
 }) => {
-	const corsOrigins = Option.match(args.config.server.corsOrigins, {
-		onNone: () => [],
-		onSome: (value) =>
-			value
-				.split(",")
-				.map((origin) => origin.trim())
-				.filter(Boolean),
-	});
-
+	const corsOrigins = parseCorsOrigins(args.config.server.corsOrigins);
 	const oidcEnabled = isOidcEnabled(args.config);
 
 	const database = effectPostgresAuthAdapter({ db: args.db, context: args.runtime });

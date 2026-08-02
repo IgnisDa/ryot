@@ -19,6 +19,7 @@ it.effect(
 						(request) => Promise.resolve(new Response(`auth:${new URL(request.url).pathname}`)),
 						(pathname) => Effect.succeed(HttpServerResponse.text(`static:${pathname}`)),
 						"http://frontend.test",
+						["http://client.test"],
 					),
 				);
 				return HttpRouter.toWebHandler(RootLive, { disableLogger: true });
@@ -38,6 +39,23 @@ it.effect(
 						);
 						expect(yield* Effect.promise(() => response.text())).toBe(expected);
 					}
+
+					const preflight = yield* Effect.promise(() =>
+						handler(
+							new Request("http://server.test/api/system/health", {
+								method: "OPTIONS",
+								headers: {
+									Origin: "http://client.test",
+									"Access-Control-Request-Method": "GET",
+									"Access-Control-Request-Headers": "b3,traceparent",
+								},
+							}),
+						),
+					);
+					expect(preflight.status).toBe(204);
+					expect(preflight.headers.get("access-control-allow-origin")).toBe("http://client.test");
+					expect(preflight.headers.get("access-control-allow-credentials")).toBe("true");
+					expect(preflight.headers.get("access-control-allow-headers")).toBe("b3,traceparent");
 				}),
 			({ dispose }) => Effect.promise(dispose),
 		),
