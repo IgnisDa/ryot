@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import { manifest } from "./igdb";
 import details, { manifest as detailsManifest } from "./igdb-details.sandbox";
+import searchOptions, { manifest as searchOptionsManifest } from "./igdb-search-options.sandbox";
 import search, { manifest as searchManifest } from "./igdb-search.sandbox";
 
 type IgdbVideoGameHost = SandboxHost<typeof manifest.capabilities>;
@@ -34,6 +35,7 @@ describe("video-game.igdb sandbox script", () => {
 		expect([
 			[searchManifest.slug, search.operation, searchManifest.capabilities],
 			[detailsManifest.slug, details.operation, detailsManifest.capabilities],
+			[searchOptionsManifest.slug, searchOptions.operation, searchOptionsManifest.capabilities],
 		]).toEqual([
 			[
 				"video-game.igdb.search",
@@ -45,7 +47,193 @@ describe("video-game.igdb sandbox script", () => {
 				"details",
 				["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 			],
+			[
+				"video-game.igdb.search-options",
+				"search-options",
+				["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
+			],
 		]);
+	});
+
+	it("loads, normalizes, deduplicates, and sorts search choices", () => {
+		const responses: Record<string, unknown> = {
+			"/v4/themes": [
+				{ id: 2, name: "Zelda" },
+				{ id: 1, name: "Alpha" },
+				{ id: 2, name: "Duplicate" },
+				{ id: "invalid", name: "Invalid ID" },
+				{ id: 3, name: " " },
+				null,
+			],
+			"/v4/genres": [
+				{ id: 4, name: "Strategy" },
+				{ id: 3, name: "Action" },
+			],
+			"/v4/platforms": [
+				{ id: 6, name: "Windows" },
+				{ id: 5, name: "Linux" },
+			],
+			"/v4/game_modes": [
+				{ id: 8, name: "Single-player" },
+				{ id: 7, name: "Co-op" },
+			],
+			"/v4/game_types": [
+				{ id: 10, type: "Expansion" },
+				{ id: 9, type: "Main game" },
+			],
+			"/v4/release_date_regions": [
+				{ id: 12, region: "North America" },
+				{ id: 11, region: "Europe" },
+			],
+		};
+		const requestedPaths: Array<string> = [];
+		const requestedBodies: Record<string, string> = {};
+		let tokenPosts = 0;
+		let cachedToken: JsonValue | null = null;
+		const host = makeHost({
+			getCachedValue: () => Effect.succeed(cachedToken),
+			setCachedValue: (_key, value) => {
+				cachedToken = value;
+				return Effect.succeed(null);
+			},
+			httpCall: (_method, url, options) => {
+				const requestUrl = new URL(url);
+				if (requestUrl.host === "id.twitch.tv") {
+					tokenPosts += 1;
+					return tokenResponse();
+				}
+				requestedPaths.push(requestUrl.pathname);
+				requestedBodies[requestUrl.pathname] =
+					typeof options?.body === "string" ? options.body : "";
+				return httpSuccess(responses[requestUrl.pathname] ?? []);
+			},
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(searchOptions, {}, host, execution).pipe(
+				Effect.map((result) => {
+					expect([...new Set(requestedPaths)].sort()).toEqual([
+						"/v4/game_modes",
+						"/v4/game_types",
+						"/v4/genres",
+						"/v4/platforms",
+						"/v4/release_date_regions",
+						"/v4/themes",
+					]);
+					for (const [path, fields] of Object.entries({
+						"/v4/themes": "id,name",
+						"/v4/genres": "id,name",
+						"/v4/platforms": "id,name",
+						"/v4/game_modes": "id,name",
+						"/v4/game_types": "id,type",
+						"/v4/release_date_regions": "id,region",
+					})) {
+						expect(requestedBodies[path]).toContain(`fields ${fields};`);
+						expect(requestedBodies[path]).toContain("sort id asc;\nlimit 500;");
+						expect(requestedBodies[path]).toContain("offset 0;");
+					}
+					expect(tokenPosts).toBe(1);
+					expect(result).toEqual({
+						sources: {
+							themes: [
+								{ value: "1", label: "Alpha" },
+								{ value: "2", label: "Zelda" },
+							],
+							genres: [
+								{ value: "3", label: "Action" },
+								{ value: "4", label: "Strategy" },
+							],
+							platforms: [
+								{ value: "5", label: "Linux" },
+								{ value: "6", label: "Windows" },
+							],
+							gameModes: [
+								{ value: "7", label: "Co-op" },
+								{ value: "8", label: "Single-player" },
+							],
+							gameTypes: [
+								{ value: "10", label: "Expansion" },
+								{ value: "9", label: "Main game" },
+							],
+							releaseDateRegions: [
+								{ value: "11", label: "Europe" },
+								{ value: "12", label: "North America" },
+							],
+						},
+					});
+					return undefined;
+				}),
+			),
+		);
+	});
+
+	it("requests the next search-options page at offset 500", () => {
+		const themesOffsets: Array<number> = [];
+		const host = makeHost({
+			httpCall: (_method, url, options) => {
+				const requestUrl = new URL(url);
+				if (requestUrl.host === "id.twitch.tv") {
+					return tokenResponse();
+				}
+				const body = typeof options?.body === "string" ? options.body : "";
+				if (requestUrl.pathname === "/v4/themes") {
+					expect(body).toContain("sort id asc;\nlimit 500;");
+					const offset = Number(body.match(/offset (\d+);/)?.[1]);
+					themesOffsets.push(offset);
+					return httpSuccess(
+						offset === 0
+							? Array.from({ length: 500 }, (_, index) => ({
+									id: index + 1,
+									name: `Theme ${index}`,
+								}))
+							: [{ id: 501, name: "Theme 501" }],
+					);
+				}
+				return httpSuccess([]);
+			},
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(searchOptions, {}, host, execution).pipe(
+				Effect.map((result) => {
+					expect(themesOffsets).toEqual([0, 500]);
+					expect(result.sources.themes).toContainEqual({ value: "501", label: "Theme 501" });
+					return undefined;
+				}),
+			),
+		);
+	});
+
+	it("fails when an IGDB search-options response is malformed", async () => {
+		const host = makeHost({
+			httpCall: (_method, url) => {
+				const requestUrl = new URL(url);
+				if (requestUrl.host === "id.twitch.tv") {
+					return tokenResponse();
+				}
+				return httpSuccess(requestUrl.pathname === "/v4/themes" ? { invalid: true } : []);
+			},
+		});
+
+		await expect(
+			Effect.runPromise(runSandboxTestScript(searchOptions, {}, host, execution)),
+		).rejects.toBeDefined();
+	});
+
+	it("propagates IGDB search-options request failures", async () => {
+		const host = makeHost({
+			httpCall: (_method, url) => {
+				const requestUrl = new URL(url);
+				if (requestUrl.host === "id.twitch.tv") {
+					return tokenResponse();
+				}
+				return requestUrl.pathname === "/v4/themes"
+					? Effect.fail(new Error("IGDB unavailable"))
+					: httpSuccess([]);
+			},
+		});
+
+		await expect(
+			Effect.runPromise(runSandboxTestScript(searchOptions, {}, host, execution)),
+		).rejects.toThrow("IGDB unavailable");
 	});
 
 	it("maps search hits and paginates using the x-count header", () => {
@@ -64,8 +252,8 @@ describe("video-game.igdb sandbox script", () => {
 						{
 							id: 1,
 							name: "First Game",
-							first_release_date: 1704067200,
 							cover: { image_id: "abc" },
+							first_release_date: 1704067200,
 						},
 						{ id: 2, name: "" },
 					],

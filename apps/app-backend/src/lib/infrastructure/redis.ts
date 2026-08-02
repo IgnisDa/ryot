@@ -6,6 +6,7 @@ import { AppConfig } from "./config/service";
 export const ENTITY_INTEREST_STREAM_TTL_SECONDS = 15 * 60;
 export const ENTITY_INTEREST_PROGRESSION_LEASE_SECONDS = 30;
 export const ENTITY_INTEREST_STREAM_RENEWAL_INTERVAL_SECONDS = 5 * 60;
+export const PROVIDER_SEARCH_OPTIONS_CACHE_TTL_SECONDS = 24 * 60 * 60;
 
 export const redisKeys = {
 	entityUpdatedChannel: "ryot:entity:updated",
@@ -29,6 +30,8 @@ export const redisKeys = {
 		`ryot:integrations:cache:${integrationId}:${key}`,
 	providerHttpAdmission: (policyKey: string) =>
 		`ryot:provider-http-admission:${encodeURIComponent(policyKey)}`,
+	providerSearchOptions: (providerId: string, scriptId: string) =>
+		`ryot:provider:search-options:${providerId}:${scriptId}`,
 	sandboxCache: (userId: string | null, scriptId: string, key: string) =>
 		`ryot:sandbox:cache:${userId === null ? "kernel" : `user:${userId}`}:${scriptId}:${key}`,
 	sandboxRunCache: (serverRunId: string, userId: string | null, scriptId: string, key: string) =>

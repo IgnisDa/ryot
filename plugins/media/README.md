@@ -14,6 +14,10 @@ Every media operation accepts a list and returns `results`. Per-item misses are 
 
 `metadata-lookup` verifies its integration uses `ryot_browser_extension`; kernel integration auth only establishes enabled integration and owner. It composes movie and show TMDB search scripts in-process, with movie first because result position contributes to match score.
 
+### IGDB Search Choices
+
+IGDB video-game search choices are provider-owned dynamic metadata loaded through `search-options` and cached by the backend.
+
 ### Episode Resolution
 
 `resolve-episodes` builds one query document per reference. Query is rooted at episode entity and uses correlated parent traversals so filtering stays in PostgreSQL and each candidate appears once regardless of relationship count.

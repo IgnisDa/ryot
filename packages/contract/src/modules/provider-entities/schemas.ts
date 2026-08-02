@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 
 import { EntitySchemaSlug, SandboxProviderId } from "../../schema/brands";
+import { AppSchema } from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";
 import { ListedEntity } from "../entities/schemas";
 import { jsonValueSchema } from "../sandbox/wire";
@@ -54,6 +55,12 @@ export const SearchProviderEntitiesBody = strictStruct({
 	options: Schema.optional(Schema.Record(Schema.String, jsonValueSchema)),
 });
 export type SearchProviderEntitiesBody = typeof SearchProviderEntitiesBody.Type;
+
+export const SearchProviderOptionsBody = strictStruct({ providerId: SandboxProviderId });
+export type SearchProviderOptionsBody = typeof SearchProviderOptionsBody.Type;
+
+export const SearchProviderOptionsResponse = strictStruct({ schema: Schema.NullOr(AppSchema) });
+export type SearchProviderOptionsResponse = typeof SearchProviderOptionsResponse.Type;
 
 const ProviderEntitySearchItem = strictStruct({
 	externalId: ProviderEntityReference.fields.externalId,

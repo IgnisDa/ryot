@@ -106,14 +106,37 @@ it("declares the complete media-owned source", () => {
 		"https://coverartarchive.org",
 	);
 	expect(mediaPlugin.providers).toHaveLength(51);
-	expect(mediaPlugin.scripts).toHaveLength(179);
+	expect(mediaPlugin.scripts).toHaveLength(180);
 	expect(mediaPlugin.integrationProviders).toHaveLength(13);
 	expect(mediaPlugin.scripts.every((script) => !("providerInformation" in script))).toBe(true);
 	expect(mediaPlugin.scripts.find(({ slug }) => slug === "book.google-books.search")).toMatchObject(
 		{ searchOptionsSchema: { unknownKeys: "strict" } },
 	);
 	expect(mediaPlugin.scripts.find(({ slug }) => slug === "video-game.igdb.search")).toMatchObject({
-		searchOptionsSchema: { unknownKeys: "strict" },
+		searchOptionsSchema: {
+			unknownKeys: "strict",
+			fields: {
+				themeIds: { type: "enum-array", choices: { kind: "dynamic", source: "themes" } },
+				genreIds: { type: "enum-array", choices: { kind: "dynamic", source: "genres" } },
+				platformIds: { type: "enum-array", choices: { kind: "dynamic", source: "platforms" } },
+				gameModeIds: { type: "enum-array", choices: { kind: "dynamic", source: "gameModes" } },
+				gameTypeIds: { type: "enum-array", choices: { kind: "dynamic", source: "gameTypes" } },
+				releaseDateRegionIds: {
+					type: "enum-array",
+					choices: { kind: "dynamic", source: "releaseDateRegions" },
+				},
+			},
+		},
+	});
+	expect(mediaPlugin.providers.find(({ slug }) => slug === "video-game.igdb")).toMatchObject({
+		operations: { searchOptions: "video-game.igdb.search-options" },
+	});
+	expect(
+		mediaPlugin.scripts.find(({ slug }) => slug === "video-game.igdb.search-options"),
+	).toMatchObject({
+		kind: "provider",
+		providerSlug: "video-game.igdb",
+		providerOperation: "search-options",
 	});
 	expect(
 		mediaPlugin.scripts.filter(({ slug }) => slug.startsWith("media-import-resolve.")),

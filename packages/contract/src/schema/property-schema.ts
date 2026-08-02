@@ -108,15 +108,24 @@ export type AppDateTimeProperty = AppPropertyBase<AppPropertyValidationBase> & {
 	readonly defaultValue?: string | undefined;
 };
 
+export type AppChoice = {
+	readonly value: string;
+	readonly label?: string | undefined;
+};
+
+export type AppChoices =
+	| { readonly kind: "dynamic"; readonly source: string }
+	| { readonly kind: "static"; readonly values: ReadonlyArray<AppChoice> };
+
 export type AppEnumProperty = AppPropertyBase<AppPropertyValidationBase> & {
 	readonly type: "enum";
+	readonly choices: AppChoices;
 	readonly defaultValue?: string | undefined;
-	readonly options: ReadonlyArray<string>;
 };
 
 export type AppEnumArrayProperty = AppPropertyBase<AppArrayPropertyValidation> & {
 	readonly type: "enum-array";
-	readonly options: ReadonlyArray<string>;
+	readonly choices: AppChoices;
 	readonly defaultValue?: ReadonlyArray<string> | undefined;
 };
 
@@ -285,16 +294,172 @@ const rulePathSchema = Schema.Array(nonEmptyTrimmedString).pipe(
 
 const ruleValueSchema = Schema.Union([Schema.Boolean, Schema.Null, Schema.Number, Schema.String]);
 
-const enumOptionsSchema = Schema.Array(nonEmptyTrimmedString).pipe(
-	Schema.check(Schema.isMinLength(1, { message: "Expected at least one enum option" })),
-);
-
 const propertyBaseFields = {
 	label: nonEmptyTrimmedString,
 	description: nonEmptyTrimmedString,
 	secret: Schema.optional(Schema.Literal(true)),
 	translatable: Schema.optional(Schema.Literal(true)),
 };
+
+export const AppChoiceSchema = strictStruct({
+	value: nonEmptyTrimmedString,
+	label: Schema.optional(nonEmptyTrimmedString),
+});
+
+const staticAppChoicesSchema = strictStruct({
+	kind: Schema.Literal("static"),
+	values: Schema.Array(AppChoiceSchema).pipe(
+		Schema.check(Schema.isMinLength(1, { message: "Expected at least one static choice" })),
+		Schema.check(
+			Schema.makeFilter(
+				(values) =>
+					new Set(values.map((choice) => choice.value)).size === values.length ||
+					"Expected unique static choice values",
+			),
+		),
+	),
+});
+
+const dynamicAppChoicesSchema = strictStruct({
+	source: nonEmptyTrimmedString,
+	kind: Schema.Literal("dynamic"),
+});
+
+const appChoicesSchema = Schema.Union([staticAppChoicesSchema, dynamicAppChoicesSchema]);
+
+const staticEnumDefaultIsValid = (value: {
+	readonly choices: AppChoices;
+	readonly defaultValue?: string | undefined;
+}) =>
+	value.choices.kind === "dynamic"
+		? value.defaultValue === undefined
+		: value.defaultValue === undefined ||
+			value.choices.values.some((choice) => choice.value === value.defaultValue);
+
+const staticEnumArrayDefaultIsValid = (value: {
+	readonly choices: AppChoices;
+	readonly defaultValue?: ReadonlyArray<string> | undefined;
+}) => {
+	const choices = value.choices;
+	if (choices.kind === "dynamic") {
+		return value.defaultValue === undefined;
+	}
+	return (
+		value.defaultValue === undefined ||
+		value.defaultValue.every((item) => choices.values.some((choice) => choice.value === item))
+	);
+};
+
+const enumChoicesMaterializationIssue = (
+	path: ReadonlyArray<string>,
+	source: string,
+	message: string,
+) => ({ message, path, source });
+
+export type AppSchemaChoicesMaterializationIssue = ReturnType<
+	typeof enumChoicesMaterializationIssue
+>;
+
+const materializePropertyChoices = (
+	property: AppPropertyDefinition,
+	path: ReadonlyArray<string>,
+	sources: Readonly<Record<string, ReadonlyArray<AppChoice>>>,
+	issues: Array<AppSchemaChoicesMaterializationIssue>,
+): AppPropertyDefinition => {
+	if (property.type === "enum" || property.type === "enum-array") {
+		if (property.choices.kind === "static") {
+			return property;
+		}
+		const sourceValues = sources[property.choices.source];
+		const sourceLabel = `Choice source '${property.choices.source}' for field '${path.join(".")}'`;
+		if (sourceValues === undefined) {
+			issues.push(
+				enumChoicesMaterializationIssue(
+					["fields", ...path, "choices", "source"],
+					property.choices.source,
+					`${sourceLabel} was not provided`,
+				),
+			);
+			return property;
+		}
+		const decoded = Schema.decodeUnknownResult(staticAppChoicesSchema)({
+			kind: "static",
+			values: sourceValues,
+		});
+		if (Result.isFailure(decoded)) {
+			issues.push(
+				enumChoicesMaterializationIssue(
+					["fields", ...path, "choices", "values"],
+					property.choices.source,
+					`${sourceLabel} contains invalid or duplicate choice values`,
+				),
+			);
+			return property;
+		}
+		return { ...property, choices: decoded.success };
+	}
+	if (property.type === "array") {
+		return {
+			...property,
+			items: materializePropertyChoices(property.items, [...path, "items"], sources, issues),
+		};
+	}
+	if (property.type === "object") {
+		return {
+			...property,
+			properties: Object.fromEntries(
+				Object.entries(property.properties).map(([key, value]) => [
+					key,
+					materializePropertyChoices(value, [...path, key], sources, issues),
+				]),
+			),
+		};
+	}
+	return property;
+};
+
+export const materializeAppSchemaChoices = (
+	schema: AppSchema,
+	sources: Readonly<Record<string, ReadonlyArray<AppChoice>>>,
+) => {
+	const issues: Array<AppSchemaChoicesMaterializationIssue> = [];
+	const fields = Object.fromEntries(
+		Object.entries(schema.fields).map(([key, property]) => [
+			key,
+			materializePropertyChoices(property, [key], sources, issues),
+		]),
+	);
+	return issues.length > 0 ? Result.fail(issues) : Result.succeed({ ...schema, fields });
+};
+
+const enumPropertySchema = strictStruct({
+	...propertyBaseFields,
+	choices: appChoicesSchema,
+	type: Schema.Literal("enum"),
+	defaultValue: Schema.optional(Schema.String),
+	validation: Schema.optional(requiredValidationSchema),
+}).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(value) => staticEnumDefaultIsValid(value) || "Enum defaults must match static choices",
+		),
+	),
+);
+
+const enumArrayPropertySchema = strictStruct({
+	...propertyBaseFields,
+	choices: appChoicesSchema,
+	type: Schema.Literal("enum-array"),
+	validation: Schema.optional(arrayValidationSchema),
+	defaultValue: Schema.optional(Schema.Array(Schema.String)),
+}).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(value) =>
+				staticEnumArrayDefaultIsValid(value) || "Enum array defaults must match static choices",
+		),
+	),
+);
 
 const stringPropertySchema = strictStruct({
 	...propertyBaseFields,
@@ -373,34 +538,10 @@ const AppPropertyDefinition: Schema.Codec<AppPropertyDefinition, unknown> = Sche
 				title: "Object Property Definition",
 			}),
 		),
-		strictStruct({
-			...propertyBaseFields,
-			options: enumOptionsSchema,
-			type: Schema.Literal("enum"),
-			defaultValue: Schema.optional(Schema.String),
-			validation: Schema.optional(requiredValidationSchema),
-		}).pipe(
-			Schema.check(
-				Schema.makeFilter(
-					(value) => value.defaultValue === undefined || value.options.includes(value.defaultValue),
-				),
-			),
+		enumPropertySchema.pipe(
 			Schema.annotate({ title: "Enum Property Definition", identifier: "EnumPropertyDefinition" }),
 		),
-		strictStruct({
-			...propertyBaseFields,
-			options: enumOptionsSchema,
-			type: Schema.Literal("enum-array"),
-			validation: Schema.optional(arrayValidationSchema),
-			defaultValue: Schema.optional(Schema.Array(Schema.String)),
-		}).pipe(
-			Schema.check(
-				Schema.makeFilter(
-					(value) =>
-						value.defaultValue === undefined ||
-						value.defaultValue.every((item) => value.options.includes(item)),
-				),
-			),
+		enumArrayPropertySchema.pipe(
 			Schema.annotate({
 				title: "Enum Array Property Definition",
 				identifier: "EnumArrayPropertyDefinition",

@@ -319,6 +319,14 @@ it.effect("persists provider operation bindings and search options separately", 
 		providerOperation: "search" as const,
 		searchOptionsSchema,
 	};
+	const searchOptions = {
+		...automation,
+		kind: "provider" as const,
+		name: "Fixture search options",
+		slug: "fixture.search-options",
+		providerSlug: "fixture-provider",
+		providerOperation: "search-options" as const,
+	};
 	const normalized: NormalizedPlugin = {
 		sourceHash: "source-hash",
 		manifest: {
@@ -329,12 +337,16 @@ it.effect("persists provider operation bindings and search options separately", 
 					slug: "fixture-provider",
 					information: { source: "fixture" },
 					rootEntitySchemaSlug: "fixture-entity",
-					operations: { details: details.slug, search: search.slug },
+					operations: {
+						search: search.slug,
+						details: details.slug,
+						searchOptions: searchOptions.slug,
+					},
 				},
 			],
-			scripts: [...manifest.scripts, details, search],
+			scripts: [...manifest.scripts, details, search, searchOptions],
 		},
-		scripts: [automation, details, search].map((script) => {
+		scripts: [automation, details, search, searchOptions].map((script) => {
 			const { entry, ...metadata } = script;
 			return {
 				entry,
@@ -365,6 +377,11 @@ it.effect("persists provider operation bindings and search options separately", 
 				operation: "search",
 				scriptId: "fixture.search-id",
 				optionsSchema: searchOptionsSchema,
+			}),
+			expect.objectContaining({
+				optionsSchema: null,
+				operation: "search-options",
+				scriptId: "fixture.search-options-id",
 			}),
 		]);
 	}).pipe(Effect.provide(layer));

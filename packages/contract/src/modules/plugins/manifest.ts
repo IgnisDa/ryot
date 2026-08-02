@@ -1,6 +1,6 @@
 import { Result, Schema, SchemaGetter } from "effect";
 
-import { AppSchema } from "../../schema/property-schema";
+import { AppSchema, type AppPropertyDefinition } from "../../schema/property-schema";
 import { OutputFieldKey, RyotQLDocument } from "../ryotql/language";
 import { SANDBOX_HOST_CAPABILITIES } from "../sandbox/wire";
 import { SavedViewCardMapping, SavedViewTableMapping } from "../saved-views/schemas";
@@ -226,6 +226,7 @@ const PluginScriptCapabilities = Schema.Array(Schema.Literals([...SANDBOX_HOST_C
 export const PluginProviderOperation = Schema.Literals([
 	"details",
 	"search",
+	"search-options",
 	"resolve",
 	"translate",
 ]);
@@ -249,6 +250,7 @@ export const PluginProvider = strictStruct({
 		search: Schema.optional(sandboxManifestSlug),
 		resolve: Schema.optional(sandboxManifestSlug),
 		translate: Schema.optional(sandboxManifestSlug),
+		searchOptions: Schema.optional(sandboxManifestSlug),
 	}),
 });
 
@@ -290,7 +292,7 @@ export const PluginScript = Schema.Union([
 			providerSlug: sandboxManifestSlug,
 			capabilities: PluginScriptCapabilities,
 			kind: Schema.Literal("provider"),
-			providerOperation: Schema.Literals(["details", "resolve", "translate"]),
+			providerOperation: Schema.Literals(["details", "resolve", "translate", "search-options"]),
 		}),
 	]),
 ]);
@@ -494,6 +496,22 @@ const PluginManifestFields = strictStruct({
 	integrationProviders: Schema.Array(PluginIntegrationProvider),
 });
 
+const hasDynamicChoices = (property: AppPropertyDefinition): boolean => {
+	if (
+		(property.type === "enum" || property.type === "enum-array") &&
+		property.choices.kind === "dynamic"
+	) {
+		return true;
+	}
+	if (property.type === "array") {
+		return hasDynamicChoices(property.items);
+	}
+	if (property.type === "object") {
+		return Object.values(property.properties).some(hasDynamicChoices);
+	}
+	return false;
+};
+
 const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.Type) => {
 	const scriptSlugs = new Set(manifest.scripts.map(({ slug }) => slug));
 	const workflowSlugs = new Set(manifest.workflows.map(({ slug }) => slug));
@@ -569,9 +587,9 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 
 	const operationAssignments = manifest.providers.flatMap((provider) =>
 		Object.entries(provider.operations).map(([operation, scriptSlug]) => ({
-			operation,
-			providerSlug: provider.slug,
 			scriptSlug,
+			providerSlug: provider.slug,
+			operation: operation === "searchOptions" ? "search-options" : operation,
 		})),
 	);
 	if (
@@ -600,6 +618,21 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 						assignment.scriptSlug === script.slug &&
 						assignment.providerSlug === script.providerSlug &&
 						assignment.operation === script.providerOperation,
+				),
+		)
+	) {
+		return false;
+	}
+	if (
+		providerScripts.some(
+			(script) =>
+				script.providerOperation === "search" &&
+				script.searchOptionsSchema !== undefined &&
+				Object.values(script.searchOptionsSchema.fields).some(hasDynamicChoices) &&
+				!operationAssignments.some(
+					(assignment) =>
+						assignment.providerSlug === script.providerSlug &&
+						assignment.operation === "search-options",
 				),
 		)
 	) {

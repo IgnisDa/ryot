@@ -40,6 +40,7 @@ const assetItemSchema: AppPropertyDefinition = {
 	type: "object",
 	description: "Item",
 	unknownKeys: "strict",
+	validation: { asset: true },
 	properties: {
 		key: { type: "string", label: "Key", description: "Key" },
 		url: { type: "string", label: "Url", description: "Url" },
@@ -48,10 +49,12 @@ const assetItemSchema: AppPropertyDefinition = {
 			label: "Type",
 			description: "Type",
 			validation: { required: true },
-			options: ["local", "s3", "remote"],
+			choices: {
+				kind: "static",
+				values: [{ value: "local" }, { value: "s3" }, { value: "remote" }],
+			},
 		},
 	},
-	validation: { asset: true },
 };
 
 const assetArrayField = (label: string, description: string) =>

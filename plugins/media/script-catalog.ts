@@ -141,6 +141,7 @@ import { manifest as manifest101 } from "./scripts/providers/media/show/tvdb-tra
 import { manifest as manifest102 } from "./scripts/providers/media/video-game/giant-bomb-details.sandbox";
 import { manifest as manifest103 } from "./scripts/providers/media/video-game/giant-bomb-search.sandbox";
 import { manifest as manifest104 } from "./scripts/providers/media/video-game/igdb-details.sandbox";
+import { manifest as manifest179 } from "./scripts/providers/media/video-game/igdb-search-options.sandbox";
 import { manifest as manifest105 } from "./scripts/providers/media/video-game/igdb-search.sandbox";
 import { manifest as manifest106 } from "./scripts/providers/media/visual-novel/vndb-details.sandbox";
 import { manifest as manifest107 } from "./scripts/providers/media/visual-novel/vndb-search.sandbox";
@@ -180,7 +181,7 @@ import { manifest as manifest140 } from "./scripts/workflows/resolve-book-openli
 import { manifest as manifest141 } from "./scripts/workflows/resolve-movie-tmdb.sandbox";
 import { manifest as manifest142 } from "./scripts/workflows/resolve-show-tmdb.sandbox";
 
-type ProviderOperation = "details" | "resolve" | "search" | "translate";
+type ProviderOperation = "details" | "resolve" | "search" | "search-options" | "translate";
 
 const directScript = <const Manifest extends SandboxManifest>(
 	manifest: Manifest,
@@ -811,6 +812,12 @@ export const mediaScripts = [
 		"scripts/providers/media/video-game/igdb-search.sandbox.ts",
 		"video-game.igdb",
 		"search",
+	),
+	providerScript(
+		manifest179,
+		"scripts/providers/media/video-game/igdb-search-options.sandbox.ts",
+		"video-game.igdb",
+		"search-options",
 	),
 	providerScript(
 		manifest106,

@@ -6,7 +6,7 @@ import { Cause, Effect, Match } from "effect";
 import { useEffect, useEffectEvent, useReducer, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
-import { appClient, retryQueryResponse } from "@/api/client";
+import { queryProviderSearchOptions, searchProviderEntities } from "@/api/provider-entities";
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
 import { AppIcon } from "@/modules/icons";
@@ -20,12 +20,16 @@ import {
 } from "./import-controller";
 import { addProviderEntityToLibrary, runProviderEntityImport } from "./import-runner";
 import { ProviderSearchOptionsForm } from "./options-form";
+import { toOptionsPayload, validateOptionValues } from "./options-form-state";
 import {
-	initialOptionValues,
-	type OptionValues,
-	toOptionsPayload,
-	validateOptionValues,
-} from "./options-form-state";
+	applyProviderOptionsFailure,
+	applyProviderOptionsResponse,
+	createProviderOptionsState,
+	isProviderOptionsRequestCurrent,
+	setProviderOptionErrors,
+	updateProviderOption,
+	type ProviderOptionsState,
+} from "./options-state";
 import { ProviderSearchResultRow } from "./result-row";
 import {
 	buildSearchPayload,
@@ -39,21 +43,6 @@ import {
 import { mapProviderEntityLinks, mapProviderSummaries, providerAddError } from "./state";
 
 const SEARCH_DEBOUNCE_MS = 350;
-
-type OptionsState = {
-	readonly values: OptionValues;
-	readonly errors: ReadonlyMap<string, string>;
-	readonly providerId: SandboxProviderId | undefined;
-};
-
-const createOptionsState = (provider: ProviderSearchSummary | undefined): OptionsState => {
-	const schema = provider?.searchOptionsSchema ?? null;
-	return {
-		errors: new Map(),
-		providerId: provider?.providerId,
-		values: schema === null ? {} : initialOptionValues(schema),
-	};
-};
 
 function StatusLine(props: { readonly text: string }) {
 	return <Text className="font-ui text-sm text-text-muted">{props.text}</Text>;
@@ -192,6 +181,7 @@ export function ProviderSearchPanel(props: {
 	readonly entitySchemaSlug: EntitySchemaSlug;
 }) {
 	const scope = useApiScope();
+	const { serverUrl, userId } = scope;
 	const providerScope = { ...scope, entitySchemaSlug: props.entitySchemaSlug };
 	const providers = mapProviderSummaries(
 		useAtomValue(providerSearchAtom({ ...scope, rootEntitySchemaSlug: props.entitySchemaSlug })),
@@ -207,25 +197,73 @@ export function ProviderSearchPanel(props: {
 	const selected =
 		available.find((provider) => provider.providerId === remembered) ?? available.at(0);
 
-	const [options, setOptions] = useState(() => createOptionsState(selected));
+	const [options, setOptions] = useState<ProviderOptionsState>(() =>
+		createProviderOptionsState(selected),
+	);
 	const [importState, setImportState] = useState(createProviderEntityImportState);
 	const [state, dispatch] = useReducer(providerSearchReducer, undefined, createProviderSearchState);
 	const lastRunToken = useRef<number | undefined>(undefined);
+	const optionsRequestId = useRef(0);
 
-	if (options.providerId !== selected?.providerId) {
-		setOptions(createOptionsState(selected));
-	}
+	const loadProviderOptions = useEffectEvent(
+		async (provider: ProviderSearchSummary | undefined) => {
+			const requestId = ++optionsRequestId.current;
+			setOptions(createProviderOptionsState(provider));
+			if (provider === undefined) {
+				return;
+			}
+			if (provider.searchOptionsSchema === null) {
+				return;
+			}
+			const result = await Effect.runPromise(
+				queryProviderSearchOptions(scope, provider.providerId).pipe(
+					Effect.match({
+						onFailure: (cause) => ({ cause }) as const,
+						onSuccess: (response) => ({ response }) as const,
+					}),
+				),
+			);
+			if (optionsRequestId.current !== requestId) {
+				return;
+			}
+			setOptions((current) => {
+				if (
+					!isProviderOptionsRequestCurrent(
+						current,
+						provider.providerId,
+						requestId,
+						optionsRequestId.current,
+					)
+				) {
+					return current;
+				}
+				return "cause" in result
+					? applyProviderOptionsFailure(current, result.cause)
+					: applyProviderOptionsResponse(current, result.response);
+			});
+		},
+	);
+	const loadCurrentProviderOptions = useEffectEvent(() => loadProviderOptions(selected));
+
+	useEffect(() => {
+		dispatch({ type: "provider-changed" });
+		void loadCurrentProviderOptions();
+	}, [selected?.providerId, serverUrl, userId]);
+
+	useInternalRequestFailureLogging(
+		`provider search options ${options.status}`,
+		options.status === "failed" ? options.cause : undefined,
+	);
 
 	const requestSearch = () => {
-		const schema = selected?.searchOptionsSchema ?? null;
-		if (schema !== null) {
-			const errors = validateOptionValues(schema, options.values);
+		if (options.status === "ready" && options.providerId === selected?.providerId) {
+			const errors = validateOptionValues(options.schema, options.values);
 			if (errors.size > 0) {
-				setOptions({ ...options, errors });
+				setOptions((current) => setProviderOptionErrors(current, errors));
 				return;
 			}
 			if (options.errors.size > 0) {
-				setOptions({ ...options, errors: new Map() });
+				setOptions((current) => setProviderOptionErrors(current, new Map()));
 			}
 		}
 		dispatch({ type: "search-requested" });
@@ -240,35 +278,38 @@ export function ProviderSearchPanel(props: {
 				clearTimeout(timer);
 			}
 		};
-	}, [options.values, selected?.providerId, state.query]);
+	}, [state.generation, state.query]);
+
+	const retryProviderOptions = () => {
+		if (selected?.searchOptionsSchema === null) {
+			return;
+		}
+		void loadProviderOptions(selected);
+	};
 
 	const runSearch = useEffectEvent(async (operation: ProviderSearchOperation) => {
 		if (selected === undefined) {
 			return;
 		}
-		const schema = selected.searchOptionsSchema;
+		const optionPayload =
+			options.status === "ready" && options.providerId === selected.providerId
+				? toOptionsPayload(options.schema, options.values)
+				: undefined;
 		const result = await Effect.runPromise(
-			appClient(scope)
-				.request.pipe(
-					Effect.flatMap((client) =>
-						client.providerEntities.search({
-							payload: buildSearchPayload({
-								query: state.query,
-								page: operation.page,
-								providerId: selected.providerId,
-								hasOptionsSchema: schema !== null,
-								options: schema === null ? {} : toOptionsPayload(schema, options.values),
-							}),
-						}),
-					),
-					retryQueryResponse,
-				)
-				.pipe(
-					Effect.match({
-						onFailure: (cause) => ({ cause }) as const,
-						onSuccess: (response) => ({ response }) as const,
-					}),
-				),
+			searchProviderEntities(
+				scope,
+				buildSearchPayload({
+					query: state.query,
+					page: operation.page,
+					options: optionPayload,
+					providerId: selected.providerId,
+				}),
+			).pipe(
+				Effect.match({
+					onFailure: (cause) => ({ cause }) as const,
+					onSuccess: (response) => ({ response }) as const,
+				}),
+			),
 		);
 		if ("cause" in result) {
 			const detail = Cause.isCause(result.cause) ? Cause.pretty(result.cause) : result.cause;
@@ -380,7 +421,6 @@ export function ProviderSearchPanel(props: {
 							selectedProviderId={selected?.providerId}
 							onSelect={(provider) => {
 								setRemembered(provider.providerId);
-								dispatch({ type: "provider-changed" });
 							}}
 						/>
 					),
@@ -390,16 +430,44 @@ export function ProviderSearchPanel(props: {
 
 			{selected === undefined ? null : (
 				<View className="gap-3">
-					{selected.searchOptionsSchema === null ? null : (
-						<ProviderSearchOptionsForm
-							errors={options.errors}
-							values={options.values}
-							schema={selected.searchOptionsSchema}
-							onChange={(key, value) => {
-								setOptions({ ...options, values: { ...options.values, [key]: value } });
-								dispatch({ type: "options-changed" });
-							}}
-						/>
+					{options.providerId !== selected.providerId ? (
+						<View className="items-center py-2">
+							<ActivityIndicator size="small" accessibilityLabel="Loading filters" />
+						</View>
+					) : (
+						Match.value(options).pipe(
+							Match.when({ status: "none" }, () => null),
+							Match.when({ status: "loading" }, () => (
+								<View className="items-center py-2">
+									<ActivityIndicator size="small" accessibilityLabel="Loading filters" />
+								</View>
+							)),
+							Match.when({ status: "failed" }, () => (
+								<View className="gap-2 rounded-lg bg-surface-2 p-3">
+									<Text className="font-ui text-sm text-text-muted">Could not load filters.</Text>
+									<Pressable
+										accessibilityRole="button"
+										onPress={retryProviderOptions}
+										accessibilityLabel="Retry loading filters"
+										className="self-start rounded-lg border border-border-strong px-3 py-2"
+									>
+										<Text className="font-ui-medium text-sm text-text">Retry</Text>
+									</Pressable>
+								</View>
+							)),
+							Match.when({ status: "ready" }, (ready) => (
+								<ProviderSearchOptionsForm
+									errors={ready.errors}
+									values={ready.values}
+									schema={ready.schema}
+									onChange={(key, value) => {
+										setOptions((current) => updateProviderOption(current, key, value));
+										dispatch({ type: "options-changed" });
+									}}
+								/>
+							)),
+							Match.exhaustive,
+						)
 					)}
 
 					{Match.value(state.status).pipe(

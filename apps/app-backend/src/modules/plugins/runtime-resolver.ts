@@ -574,6 +574,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				resolveOperation("search")(providerId).pipe(
 					Effect.map((script) => ({ ...script, optionsSchema: script.optionsSchema ?? null })),
 				);
+			const resolveSearchOptionsScript = resolveOperation("search-options");
 			const resolveDetailsScript = resolveOperation("details");
 			const resolveResolveScript = resolveOperation("resolve");
 			const resolveTranslateScript = resolveOperation("translate");
@@ -736,6 +737,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				findSchemaProviderBySlug,
 				findActiveWorkflowScript,
 				resolveSystemQueryScript,
+				resolveSearchOptionsScript,
 				findAuthorizedSchemaProviderById,
 				findActivePluginConfigByScriptId,
 				resolveActivePluginUserBootstrap,
