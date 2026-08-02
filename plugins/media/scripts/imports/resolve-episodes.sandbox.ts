@@ -9,8 +9,8 @@ export const manifest = defineManifest({
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 	slug: "import.resolve-episodes",
+	capabilities: ["executeRyotql"],
 	name: "Resolve imported episodes",
-	capabilities: ["executeQueryEngine"],
 });
 
 export default defineScript({
@@ -18,7 +18,5 @@ export default defineScript({
 	input: ResolveEpisodesInput,
 	output: ResolveEpisodesOutput,
 	run: (input, host) =>
-		resolveEpisodes(input.refs, host.executeQueryEngine).pipe(
-			Effect.map((results) => ({ results })),
-		),
+		resolveEpisodes(input.refs, host.executeRyotql).pipe(Effect.map((results) => ({ results }))),
 });

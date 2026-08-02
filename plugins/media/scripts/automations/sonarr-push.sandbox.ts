@@ -17,15 +17,15 @@ import {
 export const manifest = defineManifest({
 	kind: "automation",
 	name: "Sonarr Push",
+	slug: "trigger.sonarr-push",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	slug: "trigger.sonarr-push",
 	capabilities: [
 		"httpCall",
+		"executeRyotql",
 		"getEntitySchemas",
 		"listIntegrations",
 		"getUserPreferences",
-		"executeQueryEngine",
 	],
 });
 

@@ -1,10 +1,22 @@
 import { defineAutomationPolicy, type AutomationPolicyInput } from "@ryot/sandbox-sdk/automation";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import type { JsonValue } from "@ryot/sandbox-sdk/wire";
+import {
+	and,
+	ascending,
+	column,
+	document,
+	eq,
+	field,
+	isNull,
+	literal,
+	rows,
+	table,
+} from "@ryot/sandbox-sdk/ryotql";
 
-import { buildUserLibraryQuery, queryFirstEntityId } from "../../media-monitoring";
+import { buildUserLibraryDocument, decodeUserLibraryId } from "../../media-monitoring-ryotql";
 import { mediaLibraryEligibleEntitySchemaSlugs } from "../../schemas/media-schema-slugs";
+import { decodeEntityId } from "../../shared/ryotql";
 
 export const manifest = defineManifest({
 	kind: "automation",
@@ -12,39 +24,25 @@ export const manifest = defineManifest({
 	requiredSystemConfigKeys: [],
 	name: "Media library membership policy",
 	slug: "policy.media-library-membership",
-	capabilities: ["executeQueryEngine", "changeUserRelationships"],
+	capabilities: ["executeRyotql", "changeUserRelationships"],
 });
 
 const eligibleEntitySchemaSlugs = new Set<string>(mediaLibraryEligibleEntitySchemaSlugs);
 
-const systemRef = (sourceAlias: string, name: string): JsonValue => ({
-	type: "ref",
-	sourceAlias,
-	field: { type: "system", name },
-});
-
 const buildGlobalEntityQuery = (entityId: string, entitySchemaSlug: string) => {
-	const where: JsonValue = {
-		type: "and",
-		values: [
-			{
-				operator: "eq",
-				type: "comparison",
-				right: { type: "literal", value: entityId },
-				left: systemRef("entity", "id"),
-			},
-			{ type: "isNull", expr: systemRef("entity", "userId") },
-		],
-	};
-	return {
-		source: { where, alias: "entity", type: "entities", schemas: [entitySchemaSlug] },
-		output: {
-			type: "rows",
-			pagination: { page: 1, limit: 1 },
-			orderBy: [{ order: "asc", expr: systemRef("entity", "id") }],
-			fields: [{ key: "entityId", expr: systemRef("entity", "id") }],
-		},
-	} satisfies JsonValue;
+	const entity = table("entity", "entity");
+	return document({
+		entity: rows(entity, {
+			limit: 1,
+			orderBy: [ascending(column(entity, "id"))],
+			where: and(
+				eq(column(entity, "id"), literal(entityId)),
+				isNull(column(entity, "userId")),
+				eq(column(entity, "entitySchemaSlug"), literal(entitySchemaSlug)),
+			),
+			fields: [field("entityId", column(entity, "id"))],
+		}),
+	});
 };
 
 const collectionMembershipTarget = (automation: AutomationPolicyInput["automation"]) => {
@@ -71,15 +69,15 @@ export default defineAutomationPolicy({
 			if (!target) {
 				return { action: "allow" } as const;
 			}
-			const entityResponse = yield* host.executeQueryEngine(
+			const entityResponse = yield* host.executeRyotql(
 				buildGlobalEntityQuery(target.entityId, target.entitySchemaSlug),
 			);
-			const entityId = queryFirstEntityId(entityResponse);
+			const entityId = decodeEntityId(entityResponse, "entity");
 			if (!entityId) {
 				return { action: "allow" } as const;
 			}
-			const libraryResponse = yield* host.executeQueryEngine(buildUserLibraryQuery());
-			const libraryEntityId = queryFirstEntityId(libraryResponse);
+			const libraryResponse = yield* host.executeRyotql(buildUserLibraryDocument());
+			const libraryEntityId = decodeUserLibraryId(libraryResponse);
 			if (!libraryEntityId) {
 				return yield* Effect.fail(new Error("Library entity not found for user"));
 			}

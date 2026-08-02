@@ -3,16 +3,17 @@ import {
 	type AutomationContext,
 	type AutomationEventSnapshot,
 } from "@ryot/sandbox-sdk/automation";
-import type { EventRecord, EventSchemaRecord, SandboxHost } from "@ryot/sandbox-sdk/core";
+import type { EventSchemaRecord, SandboxHost } from "@ryot/sandbox-sdk/core";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import {
-	buildEntityReadQuery,
-	buildEventReadQuery,
-	queryEngineEntityRows,
-	queryEngineEventRows,
-} from "@ryot/sandbox-sdk/query-engine";
+import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
+import { buildEntityReadDocument, buildEventReadDocument } from "@ryot/sandbox-sdk/ryotql";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
+
+import {
+	decodeEntityReadResponse,
+	decodeProgressEvents,
+	type MediaProgressEvent,
+} from "../../shared/ryotql";
 
 export const manifest = defineManifest({
 	kind: "automation",
@@ -20,14 +21,14 @@ export const manifest = defineManifest({
 	requiredSystemConfigKeys: [],
 	name: "Auto-Complete on Full Progress",
 	slug: "trigger.auto-complete-on-full-progress",
-	capabilities: ["executeQueryEngine", "createEvents", "listEventSchemas"],
+	capabilities: ["executeRyotql", "createEvents", "listEventSchemas"],
 });
 
 type Properties = Readonly<Record<string, JsonValue>>;
 type AutomationHost = SandboxHost<typeof manifest.capabilities>;
 type CompletionCandidate = {
 	readonly emitterEventId: string;
-	readonly completionEvent: EventRecord;
+	readonly completionEvent: MediaProgressEvent;
 };
 
 const isJsonObject = (value: JsonValue): value is Properties =>
@@ -79,7 +80,16 @@ const eventTimestamp = (value: string) => {
 	return Number.isFinite(timestamp) ? timestamp : 0;
 };
 
-const compareCoverageEvents = (left: EventRecord, right: EventRecord) => {
+const normalizeDate = (value: string) => {
+	const date = DateTime.make(value);
+	if (Option.isNone(date)) {
+		return value;
+	}
+	const iso = DateTime.formatIso(date.value);
+	return iso.endsWith("Z") ? iso.replace(/\.000Z$/, "+00:00").replace(/Z$/, "+00:00") : iso;
+};
+
+const compareCoverageEvents = (left: MediaProgressEvent, right: MediaProgressEvent) => {
 	const occurredAtDiff = eventTimestamp(left.occurredAt) - eventTimestamp(right.occurredAt);
 	if (occurredAtDiff !== 0) {
 		return occurredAtDiff;
@@ -103,7 +113,7 @@ const getRequiredCoverageKeys = (entitySchemaSlug: string, properties: Propertie
 const getCompletionCandidates = (
 	entitySchemaSlug: string,
 	requiredKeys: readonly string[],
-	events: readonly EventRecord[],
+	events: readonly MediaProgressEvent[],
 ) => {
 	const completionCandidates: CompletionCandidate[] = [];
 	let coveredKeys = new Set<string>();
@@ -134,22 +144,17 @@ const getCompleteSchema = (host: AutomationHost, entitySchemaSlug: string) =>
 
 const fetchEntity = (host: AutomationHost, entityId: string, entitySchemaSlug: string) =>
 	host
-		.executeQueryEngine(
-			buildEntityReadQuery({ entityIds: [entityId], entitySchemaSlugs: [entitySchemaSlug] }),
+		.executeRyotql(
+			buildEntityReadDocument({ entityIds: [entityId], entitySchemaSlugs: [entitySchemaSlug] }),
 		)
-		.pipe(
-			Effect.map(queryEngineEntityRows),
-			Effect.flatMap(([entity]) =>
-				entity ? Effect.succeed(entity) : Effect.fail({ message: "Entity not found" }),
-			),
-		);
+		.pipe(Effect.map(decodeEntityReadResponse));
 
 const getProgressEvents = (host: AutomationHost, entityId: string, entitySchemaSlug: string) =>
 	host
-		.executeQueryEngine(
-			buildEventReadQuery({ entityId, entitySchemaSlug, eventSchemaSlug: "progress" }),
+		.executeRyotql(
+			buildEventReadDocument({ entityId, entitySchemaSlug, eventSchemaSlug: "progress" }),
 		)
-		.pipe(Effect.map(queryEngineEventRows));
+		.pipe(Effect.map(decodeProgressEvents));
 
 const getInheritedCompletionProperties = (
 	automation: AutomationContext,
@@ -172,9 +177,10 @@ const createCompletionEvent = (
 	automation: AutomationContext,
 	event: AutomationEventSnapshot,
 	completeSchema: EventSchemaRecord,
-	source: AutomationEventSnapshot | EventRecord,
+	source: AutomationEventSnapshot | MediaProgressEvent,
 ) => {
-	const occurredAt = source.occurredAt || event.occurredAt;
+	const occurredAt =
+		source === event ? source.occurredAt || event.occurredAt : normalizeDate(source.occurredAt);
 	const properties = jsonObject(source.properties) ?? {};
 	return host
 		.createEvents([

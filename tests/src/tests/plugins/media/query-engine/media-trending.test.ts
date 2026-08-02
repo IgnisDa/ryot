@@ -4,11 +4,11 @@ import { DateTime, Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	createGlobalBookEntityFixture,
-	executeQueryEngine,
+	executeRyotQL,
 	findBuiltinSchemaBySlug,
 	insertGlobalRelationship,
 	listRelationshipSchemas,
-	requireQueryEngineFieldValue,
+	requireRyotQLFieldValue,
 	requireRelationshipSchemaBySlug,
 } from "~/fixtures";
 import { assertPresent } from "~/support/assertions";
@@ -62,22 +62,26 @@ describe("Query engine media trending", () => {
 				limit: 10,
 			});
 
-			const result = yield* executeQueryEngine(client, doc);
+			const response = yield* executeRyotQL(client, doc);
+			const result = response.data.trending;
+			if (result?.type !== "rows") {
+				throw new Error("Expected trending rows result");
+			}
 
-			expect(result.data.items).toHaveLength(2);
-			const [first, secondRow] = result.data.items;
+			expect(result.items).toHaveLength(2);
+			const [first, secondRow] = result.items;
 			assertPresent(first, "Expected first trending row");
 			assertPresent(secondRow, "Expected second trending row");
-			expect(requireQueryEngineFieldValue(first, "id").value).toBe(top.entity.id);
-			expect(requireQueryEngineFieldValue(first, "name").value).toBe(top.entity.name);
-			expect(requireQueryEngineFieldValue(first, "schemaSlug").value).toBe(schema.slug);
-			expect(requireQueryEngineFieldValue(first, "rank").value).toBe(1);
-			expect(requireQueryEngineFieldValue(first, "fetchedAt").value).toBe(fetchedAt);
-			expect(requireQueryEngineFieldValue(secondRow, "id").value).toBe(second.entity.id);
-			expect(requireQueryEngineFieldValue(secondRow, "rank").value).toBe(2);
-			expect(
-				result.data.items.map((item) => requireQueryEngineFieldValue(item, "id").value),
-			).not.toContain(notTrending.entity.id);
+			expect(requireRyotQLFieldValue(first, "id").value).toBe(top.entity.id);
+			expect(requireRyotQLFieldValue(first, "name").value).toBe(top.entity.name);
+			expect(requireRyotQLFieldValue(first, "schemaSlug").value).toBe(schema.slug);
+			expect(requireRyotQLFieldValue(first, "rank").value).toBe(1);
+			expect(requireRyotQLFieldValue(first, "fetchedAt").value).toBe(fetchedAt);
+			expect(requireRyotQLFieldValue(secondRow, "id").value).toBe(second.entity.id);
+			expect(requireRyotQLFieldValue(secondRow, "rank").value).toBe(2);
+			expect(result.items.map((item) => requireRyotQLFieldValue(item, "id").value)).not.toContain(
+				notTrending.entity.id,
+			);
 		}),
 	);
 });
