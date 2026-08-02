@@ -16,14 +16,14 @@ import {
 	integer,
 	jsonb,
 	numeric,
-	pgTable,
+	snakeCase,
 	text,
 	timestamp,
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 
-export const integration = pgTable(
+export const integration = snakeCase.table(
 	"integration",
 	{
 		name: text(),
@@ -59,7 +59,7 @@ export const integration = pgTable(
 	],
 );
 
-export const importRun = pgTable(
+export const importRun = snakeCase.table(
 	"import_run",
 	{
 		errorSummary: text(),
@@ -96,7 +96,7 @@ export const importRun = pgTable(
 	],
 );
 
-export const integrationAutoDisableClaim = pgTable(
+export const integrationAutoDisableClaim = snakeCase.table(
 	"integration_auto_disable_claim",
 	{
 		importRunId: text().notNull().primaryKey(),
@@ -108,7 +108,7 @@ export const integrationAutoDisableClaim = pgTable(
 	(table) => [index("integration_auto_disable_claim_integration_id_idx").on(table.integrationId)],
 );
 
-export const importRunFailure = pgTable(
+export const importRunFailure = snakeCase.table(
 	"import_run_failure",
 	{
 		sourceLabel: text(),

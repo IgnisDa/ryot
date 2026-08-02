@@ -15,8 +15,8 @@ import {
 	check,
 	index,
 	jsonb,
-	pgTable,
 	primaryKey,
+	snakeCase,
 	text,
 	timestamp,
 	uniqueIndex,
@@ -25,7 +25,7 @@ import {
 import { user } from "./auth";
 import { entity } from "./entities";
 
-export const signal = pgTable(
+export const signal = snakeCase.table(
 	"signal",
 	{
 		id: text().notNull().primaryKey(),
@@ -44,7 +44,7 @@ export const signal = pgTable(
 	],
 );
 
-export const signalRecipient = pgTable(
+export const signalRecipient = snakeCase.table(
 	"signal_recipient",
 	{
 		userId: text()
@@ -60,7 +60,7 @@ export const signalRecipient = pgTable(
 	],
 );
 
-export const notificationSubscriptionState = pgTable(
+export const notificationSubscriptionState = snakeCase.table(
 	"notification_subscription_state",
 	{
 		signalSchemaSlug: text().notNull(),
@@ -89,7 +89,7 @@ export const notificationSubscriptionState = pgTable(
 	],
 );
 
-export const subscriptionRun = pgTable(
+export const subscriptionRun = snakeCase.table(
 	"subscription_run",
 	{
 		recordId: text(),

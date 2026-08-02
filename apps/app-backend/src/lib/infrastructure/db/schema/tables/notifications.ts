@@ -1,11 +1,11 @@
 import type { NotificationChannelSpecifics } from "@ryot/contract/modules/notifications/schemas";
 import type { NotificationChannelKind } from "@ryot/contract/modules/notifications/types";
 import { generateId } from "better-auth";
-import { index, jsonb, pgTable, text, timestamp, boolean } from "drizzle-orm/pg-core";
+import { index, jsonb, snakeCase, text, timestamp, boolean } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 
-export const notificationChannel = pgTable(
+export const notificationChannel = snakeCase.table(
 	"notification_channel",
 	{
 		description: text().notNull(),

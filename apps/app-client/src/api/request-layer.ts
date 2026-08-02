@@ -11,7 +11,7 @@ export class TransportEnvironment extends Context.Service<
 	{
 		readonly fetch: Fetch;
 		readonly expoFetch: Fetch;
-		readonly getAuthCookie: (serverUrl: string) => string | undefined;
+		readonly getAuthCookie: (serverUrl: string) => Promise<string | undefined>;
 	}
 >()("@ryot/app-client/TransportEnvironment") {}
 
@@ -41,9 +41,9 @@ const makeRequestLayer = (options: {
 			const client = yield* HttpClient.HttpClient;
 			const mappedClient = client.pipe(
 				HttpClient.mapRequestEffect((request) =>
-					Effect.sync(() => {
+					Effect.gen(function* () {
 						const authCookie = options.authenticated
-							? environment.getAuthCookie(serverUrl)
+							? yield* Effect.promise(() => environment.getAuthCookie(serverUrl))
 							: undefined;
 						return request.pipe(
 							HttpClientRequest.prependUrl(serverApiUrl(serverUrl)),

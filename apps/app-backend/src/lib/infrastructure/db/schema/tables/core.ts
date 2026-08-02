@@ -14,8 +14,8 @@ import {
 	index,
 	integer,
 	jsonb,
-	pgTable,
 	smallint,
+	snakeCase,
 	text,
 	timestamp,
 	unique,
@@ -24,7 +24,7 @@ import {
 
 import { user } from "./auth";
 
-export const pluginState = pgTable(
+export const pluginState = snakeCase.table(
 	"plugin_state",
 	{
 		pluginSlug: text().notNull(),
@@ -50,7 +50,7 @@ export const pluginState = pgTable(
 	],
 );
 
-export const plugin = pgTable("plugin", {
+export const plugin = snakeCase.table("plugin", {
 	status: text().notNull(),
 	version: text().notNull(),
 	slug: text().primaryKey(),
@@ -60,7 +60,7 @@ export const plugin = pgTable("plugin", {
 	ingestedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 });
 
-export const sandboxProvider = pgTable(
+export const sandboxProvider = snakeCase.table(
 	"sandbox_provider",
 	{
 		slug: text().notNull(),
@@ -87,7 +87,7 @@ export const sandboxProvider = pgTable(
 	],
 );
 
-export const sandboxScript = pgTable(
+export const sandboxScript = snakeCase.table(
 	"sandbox_script",
 	{
 		slug: text().notNull(),
@@ -123,7 +123,7 @@ export const sandboxScript = pgTable(
 	],
 );
 
-export const sandboxProviderOperation = pgTable(
+export const sandboxProviderOperation = snakeCase.table(
 	"sandbox_provider_operation",
 	{
 		optionsSchema: jsonb().$type<AppSchema | null>(),
@@ -155,7 +155,7 @@ export const sandboxProviderOperation = pgTable(
 	],
 );
 
-export const sandboxWorkflowReference = pgTable(
+export const sandboxWorkflowReference = snakeCase.table(
 	"sandbox_workflow_reference",
 	{
 		contentHash: text().notNull(),
