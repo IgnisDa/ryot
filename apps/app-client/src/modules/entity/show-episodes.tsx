@@ -1,5 +1,4 @@
 import clsx from "clsx";
-import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { AppChip } from "@/modules/ui/chip";
@@ -16,6 +15,7 @@ import {
 	showEpisodeSynopsis,
 	showEpisodesError,
 	showNextUpEpisode,
+	showSeasonEpisodesError,
 	showSeasonAsset,
 	showSeasonCompletedLabel,
 	showSeasonCompletionPercent,
@@ -26,6 +26,7 @@ import {
 	type ShowEpisode,
 	type ShowEpisodesState,
 	type ShowSeason,
+	type ShowSeasonEpisodesState,
 	type ShowSeasonList,
 } from "./show-episodes-state";
 import { ShowAssetImage } from "./show-image";
@@ -69,15 +70,21 @@ function ShowSeasonProgressBar(props: { readonly percent: number }) {
 	);
 }
 
-function ShowSeasonHeader(props: { readonly season: ShowSeason }) {
+function ShowSeasonHeader(props: {
+	readonly season: ShowSeason;
+	readonly episodesState: ShowSeasonEpisodesState;
+}) {
 	const { season } = props;
 	const description = showSeasonDescription(season);
-	const percent = showSeasonCompletionPercent(season);
 	const release = showSeasonReleaseLabel(season);
+	const loadedSeason =
+		props.episodesState.status === "ready" ? props.episodesState.season : undefined;
+	const percent =
+		loadedSeason === undefined ? undefined : showSeasonCompletionPercent(loadedSeason);
 	const meta = metaLabel([
 		release === undefined ? undefined : `Released ${release}`,
-		showSeasonEpisodeCountLabel(season),
-		showSeasonCompletedLabel(season),
+		loadedSeason === undefined ? undefined : showSeasonEpisodeCountLabel(loadedSeason),
+		loadedSeason === undefined ? undefined : showSeasonCompletedLabel(loadedSeason),
 	]);
 	return (
 		<View className="gap-3">
@@ -173,8 +180,24 @@ function ShowNextUp(props: { readonly episode: ShowEpisode }) {
 	);
 }
 
-function ShowSeasonEpisodes(props: { readonly season: ShowSeason }) {
-	const episodes = props.season.episodes.items;
+function ShowSeasonEpisodes(props: {
+	readonly refresh: () => void;
+	readonly state: ShowSeasonEpisodesState;
+}) {
+	if (props.state.status === "loading") {
+		return (
+			<ShowStatusMessage title="Loading season..." detail="Fetching this season's episodes." />
+		);
+	}
+	if (props.state.status === "transport-error" || props.state.status === "malformed") {
+		return <ShowStatusMessage {...showSeasonEpisodesError(props.state)} onRetry={props.refresh} />;
+	}
+	if (props.state.status === "empty") {
+		return (
+			<ShowStatusMessage title="Season unavailable" detail="This season could not be found." />
+		);
+	}
+	const episodes = props.state.season.episodes.items;
 	if (episodes.length === 0) {
 		return (
 			<Text className="font-ui text-[13px] text-text-muted">
@@ -191,16 +214,28 @@ function ShowSeasonEpisodes(props: { readonly season: ShowSeason }) {
 	);
 }
 
-function ShowSeasonBrowser(props: { readonly seasons: ShowSeasonList }) {
-	const [selectedId, setSelectedId] = useState<string | null>(null);
-	const season = selectedShowSeason(props.seasons, selectedId);
-	const nextUp = isSpecialsSeason(season) ? undefined : showNextUpEpisode(props.seasons);
+function ShowSeasonBrowser(props: {
+	readonly seasons: ShowSeasonList;
+	readonly selectedId: string | null;
+	readonly onRefreshSeason: () => void;
+	readonly onSelect: (seasonId: string) => void;
+	readonly seasonEpisodes: ShowSeasonEpisodesState;
+}) {
+	const season = selectedShowSeason(props.seasons, props.selectedId);
+	const nextUp =
+		isSpecialsSeason(season) || props.seasonEpisodes.status !== "ready"
+			? undefined
+			: showNextUpEpisode(props.seasonEpisodes.season.episodes.items);
 	return (
 		<View className="gap-5 pt-6 md:gap-6 md:pt-8">
-			<ShowSeasonSelector selectedId={season.id} seasons={props.seasons} onSelect={setSelectedId} />
-			<ShowSeasonHeader season={season} />
+			<ShowSeasonSelector
+				selectedId={season.id}
+				seasons={props.seasons}
+				onSelect={props.onSelect}
+			/>
+			<ShowSeasonHeader season={season} episodesState={props.seasonEpisodes} />
 			{nextUp === undefined ? null : <ShowNextUp episode={nextUp} />}
-			<ShowSeasonEpisodes season={season} />
+			<ShowSeasonEpisodes state={props.seasonEpisodes} refresh={props.onRefreshSeason} />
 		</View>
 	);
 }
@@ -208,14 +243,15 @@ function ShowSeasonBrowser(props: { readonly seasons: ShowSeasonList }) {
 export function ShowEpisodes(props: {
 	readonly refresh: () => void;
 	readonly state: ShowEpisodesState;
+	readonly selectedId: string | null;
+	readonly onRefreshSeason: () => void;
+	readonly onSelect: (seasonId: string) => void;
+	readonly seasonEpisodes: ShowSeasonEpisodesState;
 }) {
 	const { state } = props;
 	if (state.status === "loading") {
 		return (
-			<ShowStatusMessage
-				title="Loading episodes..."
-				detail="Fetching the seasons and episodes for this show."
-			/>
+			<ShowStatusMessage title="Loading episodes..." detail="Fetching the seasons for this show." />
 		);
 	}
 	if (state.status === "transport-error" || state.status === "malformed") {
@@ -229,5 +265,13 @@ export function ShowEpisodes(props: {
 			/>
 		);
 	}
-	return <ShowSeasonBrowser seasons={state.seasons} />;
+	return (
+		<ShowSeasonBrowser
+			seasons={state.seasons}
+			onSelect={props.onSelect}
+			selectedId={props.selectedId}
+			seasonEpisodes={props.seasonEpisodes}
+			onRefreshSeason={props.onRefreshSeason}
+		/>
+	);
 }
