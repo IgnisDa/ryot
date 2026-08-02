@@ -1,0 +1,54 @@
+import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { Atom } from "effect/unstable/reactivity";
+import { useEffect } from "react";
+
+import { getThemePreference, setThemePreference } from "../../persistence/storage";
+import {
+	THEME_PREFERENCES,
+	applyThemePreference,
+	isThemePreference,
+	type ThemePreference,
+} from "./preference";
+
+const initialThemePreference = getThemePreference();
+applyThemePreference(document.documentElement, initialThemePreference);
+
+const themePreferenceAtom = Atom.make<ThemePreference>(initialThemePreference).pipe(Atom.keepAlive);
+
+export function ThemeController() {
+	const preference = useAtomValue(themePreferenceAtom);
+
+	useEffect(() => {
+		applyThemePreference(document.documentElement, preference);
+		setThemePreference(preference);
+	}, [preference]);
+
+	return null;
+}
+
+export function ThemePreferenceControl() {
+	const preference = useAtomValue(themePreferenceAtom);
+	const setPreference = useAtomSet(themePreferenceAtom);
+
+	return (
+		<label className="theme-control">
+			<span>Theme</span>
+			<select
+				value={preference}
+				onChange={(event) => {
+					const newPreference = event.currentTarget.value;
+					if (isThemePreference(newPreference)) {
+						setPreference(newPreference);
+					}
+				}}
+			>
+				{THEME_PREFERENCES.map((value) => (
+					<option key={value} value={value}>
+						{value[0]?.toUpperCase()}
+						{value.slice(1)}
+					</option>
+				))}
+			</select>
+		</label>
+	);
+}
