@@ -18,9 +18,10 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { NavigationItem } from "./navigation-data";
-import { Sidebar } from "./sidebar";
-import type { ReadyWorkspaceNavigation } from "./use-workspace-navigation";
+import { NavigationStatus } from "./navigation-status";
+import { useWorkspaceNavigation, type ReadyWorkspaceNavigation } from "./use-workspace-navigation";
 import { WorkspaceSheet } from "./workspace-sheets";
+import { WorkspaceSidebar } from "./workspace-sidebar";
 
 const EDGE_SWIPE_WIDTH = 24;
 const DRAWER_MAX_WIDTH = 320;
@@ -56,7 +57,7 @@ export function useSuspendedDrawerEdgeSwipe() {
 	useEffect(() => suspend?.(), [suspend]);
 }
 
-export function WorkspaceDrawer(props: {
+function ReadyWorkspaceDrawer(props: {
 	children: ReactNode;
 	navigation: ReadyWorkspaceNavigation;
 }) {
@@ -196,17 +197,11 @@ export function WorkspaceDrawer(props: {
 						{ width: drawerWidth, paddingTop: insets.top, paddingBottom: insets.bottom },
 					]}
 				>
-					<Sidebar
+					<WorkspaceSidebar
 						className="flex-1"
 						onNavigate={navigate}
+						navigation={props.navigation}
 						onOpenSettings={openSettings}
-						items={props.navigation.items}
-						key={props.navigation.workspace.slug}
-						activeKey={props.navigation.activeKey}
-						workspace={props.navigation.workspace}
-						accountName={props.navigation.accountName}
-						accountEmail={props.navigation.accountEmail}
-						accountImage={props.navigation.accountImage}
 						onWorkspaceOpen={() => setSheet("workspace")}
 					/>
 				</Animated.View>
@@ -224,4 +219,15 @@ export function WorkspaceDrawer(props: {
 			</View>
 		</WorkspaceDrawerContext.Provider>
 	);
+}
+
+export function WorkspaceDrawer(props: { children: ReactNode }) {
+	const navigation = useWorkspaceNavigation();
+	if (navigation.status === "loading") {
+		return <NavigationStatus title="Loading navigation..." />;
+	}
+	if (navigation.status === "error") {
+		return <NavigationStatus title={navigation.title} detail={navigation.detail} />;
+	}
+	return <ReadyWorkspaceDrawer navigation={navigation}>{props.children}</ReadyWorkspaceDrawer>;
 }

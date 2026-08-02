@@ -1,7 +1,7 @@
 import type { ShowOverviewResult } from "@ryot/media-plugin/query-recipes";
-import { AsyncResult } from "effect/unstable/reactivity";
+import type { AsyncResult } from "effect/unstable/reactivity";
 
-import { isRyotQLMalformedResultCause } from "@/api/ryotql";
+import { classifyRyotQLResult } from "@/api/ryotql";
 import { canonicalManagedAssets } from "@/modules/ui/managed-assets";
 
 import { preferredMediaImageAsset } from "./media-image";
@@ -23,15 +23,8 @@ export type ShowOverviewState =
 export const mapShowOverview = (
 	result: AsyncResult.AsyncResult<ShowOverviewResult, unknown>,
 ): ShowOverviewState => {
-	if (AsyncResult.isFailure(result)) {
-		return {
-			cause: result.cause,
-			status: isRyotQLMalformedResultCause(result.cause) ? "malformed" : "transport-error",
-		};
-	}
-	return AsyncResult.isSuccess(result)
-		? { status: "ready", overview: result.value }
-		: { status: "loading" };
+	const state = classifyRyotQLResult(result);
+	return state.status === "ready" ? { status: "ready", overview: state.value } : state;
 };
 
 export const showOverviewError = (state: { readonly status: "transport-error" | "malformed" }) => ({

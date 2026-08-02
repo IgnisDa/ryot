@@ -18,6 +18,23 @@ export function MissingImage(props: { className: string }) {
 	);
 }
 
+export function ImageWithFallback(props: {
+	readonly className: string;
+	readonly url: string | undefined;
+	readonly onError?: () => void;
+}) {
+	return props.url === undefined ? (
+		<MissingImage className={props.className} />
+	) : (
+		<RemoteImage
+			key={props.url}
+			url={props.url}
+			onError={props.onError}
+			className={props.className}
+		/>
+	);
+}
+
 export function RemoteImage(props: { className: string; url: string; onError?: () => void }) {
 	const [failed, setFailed] = useState(false);
 	if (failed) {
