@@ -1,4 +1,4 @@
-import { usePluginNavigation, usePluginParams, usePluginSearch } from "@ryot/client-plugin-sdk";
+import { usePluginNavigation, usePluginParams, usePluginSearch } from "@ryot/client-sdk/plugin";
 import { Button } from "@ryot/client-ui-sdk";
 
 export const Details = () => {

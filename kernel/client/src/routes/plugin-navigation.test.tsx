@@ -10,6 +10,7 @@ import { AuthClient } from "../modules/auth/client";
 import { AuthService } from "../modules/auth/service";
 import { PluginCatalogService } from "../modules/plugins/catalog";
 import { PluginOperationsService } from "../modules/plugins/operations";
+import { PluginQueriesService } from "../modules/plugins/queries";
 import { ServerService } from "../modules/server/service";
 import { ClientStorage } from "../persistence/storage";
 import { getRouter } from "../router";
@@ -69,6 +70,7 @@ const mount = (initialEntry: string, entries: PluginClientCatalog = catalog) => 
 			AuthenticatedApi.layer,
 			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(entries) }),
 			Layer.succeed(PluginOperationsService, { invoke: () => Effect.die("not used") }),
+			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
 		).pipe(Layer.provideMerge(StorageStub)),
 	);
 	const router = getRouter(

@@ -1,5 +1,5 @@
 {
-	"name": "@ryot/client-plugin-sdk",
+	"name": "@ryot/client-sdk",
 	"private": true,
 	"type": "module",
 	"exports": {
@@ -10,6 +10,14 @@
 		"./effect": {
 			"types": "./src/effect.ts",
 			"default": "./src/effect.ts"
+		},
+		"./plugin": {
+			"types": "./src/plugin.tsx",
+			"default": "./src/plugin.tsx"
+		},
+		"./react": {
+			"types": "./src/react.tsx",
+			"default": "./src/react.tsx"
 		}
 	},
 	"scripts": {
@@ -18,6 +26,7 @@
 	},
 	"dependencies": {
 		"@ryot/contract": "workspace:*",
+		"@ryot/ryotql": "workspace:*",
 		"effect": "4.0.0-rc.111",
 		"react": "^19.2.0",
 		"react-dom": "^19.2.0"

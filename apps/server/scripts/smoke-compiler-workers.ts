@@ -36,7 +36,7 @@ const clientRequest = JSON.stringify({
 	files: {
 		"client/index.tsx": `
 import "./styles.css";
-import { bootstrapClientPlugin, defineClientPlugin } from "@ryot/client-plugin-sdk";
+import { bootstrapClientPlugin, defineClientPlugin } from "@ryot/client-sdk/plugin";
 import { Button } from "@ryot/client-ui-sdk";
 import { useState } from "react";
 

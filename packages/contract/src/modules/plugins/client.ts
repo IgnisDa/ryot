@@ -1,9 +1,10 @@
 import { Schema } from "effect";
 
 import { strictStruct } from "../../schema/utils";
+import { RyotQLDocument, RyotQLResponse } from "../ryotql/language";
 
 export const CLIENT_API_VERSION = 1 as const;
-export const CLIENT_BRIDGE_PROTOCOL_VERSION = 1 as const;
+export const CLIENT_BRIDGE_PROTOCOL_VERSION = 2 as const;
 export const CLIENT_ARTIFACT_FORMAT = 1 as const;
 export const CLIENT_COMPILER_VERSION = 1 as const;
 
@@ -136,8 +137,52 @@ export const PluginBridgeOperationResult = Schema.Union([
 
 export type PluginBridgeOperationResult = Schema.Schema.Type<typeof PluginBridgeOperationResult>;
 
+export const PluginRyotQLFailureReason = Schema.Literals(["query-failed", "transport"]);
+
+export type PluginRyotQLFailureReason = Schema.Schema.Type<typeof PluginRyotQLFailureReason>;
+
+export const PluginBridgeRyotQLRequest = strictStruct({
+	document: RyotQLDocument,
+	requestId: Schema.String,
+	type: Schema.Literal("ryotql-request"),
+});
+
+export type PluginBridgeRyotQLRequest = Schema.Schema.Type<typeof PluginBridgeRyotQLRequest>;
+
+export type PluginRyotQLRequest = Pick<PluginBridgeRyotQLRequest, "document">;
+
+const pluginRyotQLSuccessFields = {
+	response: RyotQLResponse,
+	outcome: Schema.Literal("success"),
+};
+
+const pluginRyotQLFailureFields = {
+	reason: PluginRyotQLFailureReason,
+	outcome: Schema.Literal("failure"),
+};
+
+const pluginBridgeRyotQLResultFields = {
+	requestId: Schema.String,
+	type: Schema.Literal("ryotql-result"),
+};
+
+export const PluginRyotQLOutcome = Schema.Union([
+	strictStruct(pluginRyotQLSuccessFields),
+	strictStruct(pluginRyotQLFailureFields),
+]);
+
+export type PluginRyotQLOutcome = Schema.Schema.Type<typeof PluginRyotQLOutcome>;
+
+export const PluginBridgeRyotQLResult = Schema.Union([
+	strictStruct({ ...pluginRyotQLSuccessFields, ...pluginBridgeRyotQLResultFields }),
+	strictStruct({ ...pluginRyotQLFailureFields, ...pluginBridgeRyotQLResultFields }),
+]);
+
+export type PluginBridgeRyotQLResult = Schema.Schema.Type<typeof PluginBridgeRyotQLResult>;
+
 export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeNavigate,
+	PluginBridgeRyotQLRequest,
 	PluginBridgeOperationRequest,
 ]);
 

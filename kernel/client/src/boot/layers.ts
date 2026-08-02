@@ -6,6 +6,7 @@ import { AuthClient } from "../modules/auth/client";
 import { AuthService } from "../modules/auth/service";
 import { PluginCatalogService } from "../modules/plugins/catalog";
 import { PluginOperationsService } from "../modules/plugins/operations";
+import { PluginQueriesService } from "../modules/plugins/queries";
 import { ServerService } from "../modules/server/service";
 import { ClientStorage } from "../persistence/storage";
 
@@ -22,4 +23,5 @@ export const ClientLive = Layer.mergeAll(
 	ServerService.layer,
 	PluginCatalogService.layer,
 	PluginOperationsService.layer,
+	PluginQueriesService.layer,
 ).pipe(Layer.provideMerge(AuthClientLive));
