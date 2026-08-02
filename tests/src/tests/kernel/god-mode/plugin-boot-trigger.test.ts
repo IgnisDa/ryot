@@ -75,7 +75,6 @@ describe("POST /test-support/plugin-boot (custom plugin boot dispatch)", () => {
 							result: fakeProviderDetailsResult({ name: "E2E Test Boot Provider" }),
 						}),
 					},
-					linkToEntitySchemaSlug: movieSchema.id,
 					scripts: [
 						{
 							kind: "provider",
@@ -102,6 +101,7 @@ describe("POST /test-support/plugin-boot (custom plugin boot dispatch)", () => {
 					providers: [
 						{
 							slug: PROVIDER_SLUG,
+							rootEntitySchemaSlug: movieSchema.id,
 							name: "E2E Test Boot Provider",
 							information: { source: "e2e" },
 							operations: { details: DETAILS_SCRIPT_SLUG },

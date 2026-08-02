@@ -2,6 +2,8 @@
 
 Media plugin owns media schemas, relationships, saved views, providers, operations, automations, and bindings. Generic plugin manifest and sandbox mechanics live in `@ryot/plugin-kit/README.md`.
 
+Provider declarations explicitly identify their root entity schema. Saved views do not carry sandbox script declarations.
+
 ## Operations
 
 Every media operation accepts a list and returns `results`. Per-item misses are values such as `status: "notFound"` or `entityId: null`, not operation failures.

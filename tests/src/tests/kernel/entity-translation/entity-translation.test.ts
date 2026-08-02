@@ -56,8 +56,10 @@ describe("entity translation via client-declared interest", () => {
 		provider = await Effect.runPromise(
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
+				const { schema } = yield* findBuiltinSchemaBySlug(client, "movie");
 				return yield* installTestProvider({
 					client,
+					rootEntitySchemaSlug: schema.id,
 					information: { source: "e2e", canonicalLanguage: CANONICAL_LANGUAGE },
 					details: fakeProviderDetailsResult({
 						name: POPULATED_NAME,

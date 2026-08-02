@@ -1,4 +1,5 @@
 import { DbError } from "@ryot/contract/errors";
+import type { PluginProviderOperation } from "@ryot/contract/modules/plugins/manifest";
 import { and, eq, inArray, isNull, notExists, notInArray, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
@@ -12,6 +13,18 @@ type PluginRow = typeof schema.plugin.$inferSelect;
 type ScriptRow = typeof schema.sandboxScript.$inferSelect;
 
 type PersistedScript = Omit<NormalizedPluginScript, "entry">;
+
+const toProviderOperation = (operation: string): PluginProviderOperation | undefined => {
+	if (
+		operation === "details" ||
+		operation === "search" ||
+		operation === "resolve" ||
+		operation === "translate"
+	) {
+		return operation;
+	}
+	return undefined;
+};
 
 const toStoredPlugin = Effect.fn(function* (row: PluginRow, scripts: ReadonlyArray<ScriptRow>) {
 	const scriptsBySlugAndHash = new Map(
@@ -208,6 +221,12 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		const persist = Effect.fn("PluginRepository.persist")(function* (plugin: NormalizedPlugin) {
 			const db = yield* CurrentDb;
 			const slug = plugin.manifest.metadata.slug;
+			const existingProviders = yield* dbEffect(() =>
+				db
+					.select({ id: schema.sandboxProvider.id, slug: schema.sandboxProvider.slug })
+					.from(schema.sandboxProvider)
+					.where(eq(schema.sandboxProvider.pluginSlug, slug)),
+			);
 			const compiledHashes = Object.fromEntries(
 				plugin.scripts.map((script) => [script.slug, script.contentHash]),
 			);
@@ -243,6 +262,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 									plugin.manifest.providers.map((provider) => ({
 										slug: provider.slug,
 										name: provider.name,
+										rootEntitySchemaSlug: provider.rootEntitySchemaSlug,
 										pluginSlug: slug,
 										information: provider.information,
 									})),
@@ -253,14 +273,49 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 										updatedAt: sql`now()`,
 										name: sql`excluded.name`,
 										information: sql`excluded.information`,
+										rootEntitySchemaSlug: sql`excluded.root_entity_schema_slug`,
 									},
 								})
 								.returning({ id: schema.sandboxProvider.id, slug: schema.sandboxProvider.slug }),
 						)
 					: [];
 			const providerIdBySlug = new Map(providers.map((provider) => [provider.slug, provider.id]));
+			const providerIds = new Map([
+				...existingProviders.map((provider) => [provider.slug, provider.id] as const),
+				...providers.map((provider) => [provider.slug, provider.id] as const),
+			]);
+			const declaredOperationsByProvider = new Map(
+				plugin.manifest.providers.map((provider) => [
+					provider.slug,
+					new Set(
+						Object.keys(provider.operations).flatMap((operation) => {
+							const typedOperation = toProviderOperation(operation);
+							return typedOperation ? [typedOperation] : [];
+						}),
+					),
+				]),
+			);
+			yield* Effect.forEach(
+				[...providerIds.entries()],
+				([providerSlug, providerId]) => {
+					const operations = declaredOperationsByProvider.get(providerSlug);
+					return dbEffect(() =>
+						db
+							.delete(schema.sandboxProviderOperation)
+							.where(
+								and(
+									eq(schema.sandboxProviderOperation.providerId, providerId),
+									operations && operations.size > 0
+										? notInArray(schema.sandboxProviderOperation.operation, [...operations])
+										: undefined,
+								),
+							),
+					);
+				},
+				{ discard: true },
+			);
 			if (plugin.scripts.length > 0) {
-				yield* Effect.forEach(
+				const persistedScriptRows = yield* Effect.forEach(
 					plugin.scripts,
 					(script) => {
 						const providerSlug =
@@ -298,11 +353,65 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 										providerId: providerId ?? null,
 										metadata: script.metadata,
 									},
+								})
+								.returning({
+									id: schema.sandboxScript.id,
+									slug: schema.sandboxScript.slug,
+									contentHash: schema.sandboxScript.contentHash,
 								}),
 						);
 					},
-					{ discard: true },
+					{ discard: false },
 				);
+				const scriptIdBySlug = new Map<string, string>(
+					persistedScriptRows
+						.flatMap((rows) => rows)
+						.map((script) => [script.slug, script.id] as const),
+				);
+				for (const provider of plugin.manifest.providers) {
+					const providerId = providerIdBySlug.get(provider.slug);
+					if (!providerId) {
+						return yield* new DbError({
+							message: `Plugin ${slug} is missing provider ${provider.slug}`,
+						});
+					}
+					for (const [operation, scriptSlug] of Object.entries(provider.operations)) {
+						const typedOperation = toProviderOperation(operation);
+						if (!typedOperation) {
+							return yield* new DbError({
+								message: `Plugin ${slug} has an invalid provider operation ${provider.slug}:${operation}`,
+							});
+						}
+						if (!scriptSlug) {
+							return yield* new DbError({
+								message: `Plugin ${slug} has no script for provider operation ${provider.slug}:${operation}`,
+							});
+						}
+						const script = plugin.scripts.find((candidate) => candidate.slug === scriptSlug);
+						const scriptId = scriptIdBySlug.get(scriptSlug);
+						if (!script || !scriptId) {
+							return yield* new DbError({
+								message: `Plugin ${slug} has no persisted script for provider operation ${provider.slug}:${operation}`,
+							});
+						}
+						const optionsSchema =
+							typedOperation === "search" && "searchOptionsSchema" in script.metadata
+								? (script.metadata.searchOptionsSchema ?? null)
+								: null;
+						yield* dbEffect(() =>
+							db
+								.insert(schema.sandboxProviderOperation)
+								.values({ scriptId, providerId, optionsSchema, operation: typedOperation })
+								.onConflictDoUpdate({
+									set: { scriptId, optionsSchema, updatedAt: sql`now()` },
+									target: [
+										schema.sandboxProviderOperation.providerId,
+										schema.sandboxProviderOperation.operation,
+									],
+								}),
+						);
+					}
+				}
 			}
 		});
 
@@ -316,6 +425,23 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		const deleteUnreferencedScripts = Effect.fn("PluginRepository.deleteUnreferencedScripts")(
 			function* (liveContentHashes: ReadonlySet<string>) {
 				const db = yield* CurrentDb;
+				yield* dbEffect(() =>
+					db.delete(schema.sandboxProviderOperation).where(
+						notExists(
+							db
+								.select({ id: schema.sandboxScript.id })
+								.from(schema.sandboxScript)
+								.where(
+									and(
+										eq(schema.sandboxScript.id, schema.sandboxProviderOperation.scriptId),
+										liveContentHashes.size > 0
+											? inArray(schema.sandboxScript.contentHash, [...liveContentHashes])
+											: sql`false`,
+									),
+								),
+						),
+					),
+				);
 				return yield* dbEffect(() =>
 					db
 						.delete(schema.sandboxScript)

@@ -557,6 +557,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 					providers: [
 						{
 							slug: providerSlug,
+							rootEntitySchemaSlug: rootSlug,
 							information: { source: "e2e" },
 							name: "RyotQL authorization provider",
 							operations: { details: providerScriptSlug },
