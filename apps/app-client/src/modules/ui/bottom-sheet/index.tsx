@@ -16,6 +16,7 @@ export function BottomSheet(props: {
 	children: ReactNode;
 	onClose: () => void;
 	description: string;
+	dismissible?: boolean;
 	titleClassName?: string;
 	headerAction?: ReactNode;
 	contentClassName?: string;
@@ -24,11 +25,11 @@ export function BottomSheet(props: {
 	return (
 		<ExpoBottomSheet
 			index={0}
-			enablePanDownToClose
 			handleComponent={null}
-			onClose={props.onClose}
 			snapPoints={props.snapPoints}
+			enablePanDownToClose={props.dismissible ?? true}
 			backgroundStyle={{ padding: 0, backgroundColor: "transparent" }}
+			onClose={props.dismissible === false ? () => undefined : props.onClose}
 		>
 			<BottomSheetView style={{ flex: 1 }}>
 				<View

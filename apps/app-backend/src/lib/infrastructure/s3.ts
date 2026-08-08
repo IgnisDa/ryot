@@ -1,8 +1,9 @@
 import { BadRequest, badRequest } from "@ryot/contract/errors";
 import { S3Client } from "bun";
 import { Context, Effect, Layer, Option, Redacted, Stream } from "effect";
+import { FetchHttpClient, HttpBody, HttpClient, HttpClientRequest } from "effect/unstable/http";
 
-import { AppConfig } from "./config/service";
+import { AppConfig, isS3Configured } from "./config/service";
 
 const isMissingObjectError = (error: unknown) => {
 	if (typeof error !== "object" || error === null) {
@@ -26,31 +27,18 @@ const isMissingObjectError = (error: unknown) => {
 export class S3Service extends Context.Service<S3Service>()("S3Service", {
 	make: Effect.gen(function* () {
 		const config = yield* AppConfig;
+		const httpClient = yield* HttpClient.HttpClient;
 		const { url, region, bucketName, accessKeyId, secretAccessKey } = config.fileStorage;
 
-		const s3Url = Option.isSome(url) ? url.value : null;
 		const s3Region = Option.isSome(region) ? region.value : null;
-		const s3Bucket = Option.isSome(bucketName) ? bucketName.value : null;
-		const s3AccessKey = Option.isSome(accessKeyId) ? Redacted.value(accessKeyId.value) : null;
-		const s3Secret = Option.isSome(secretAccessKey) ? Redacted.value(secretAccessKey.value) : null;
 
-		const hasAllConfig =
-			s3Url !== null &&
-			s3Url.length > 0 &&
-			s3Bucket !== null &&
-			s3Bucket.length > 0 &&
-			s3AccessKey !== null &&
-			s3AccessKey.length > 0 &&
-			s3Secret !== null &&
-			s3Secret.length > 0;
-
-		const client: S3Client | null = hasAllConfig
+		const client: S3Client | null = isS3Configured(config)
 			? new S3Client({
-					endpoint: s3Url,
-					bucket: s3Bucket,
-					accessKeyId: s3AccessKey,
-					secretAccessKey: s3Secret,
+					endpoint: Option.getOrThrow(url),
+					bucket: Option.getOrThrow(bucketName),
 					...(s3Region && s3Region.length > 0 ? { region: s3Region } : {}),
+					accessKeyId: Redacted.value(Option.getOrThrow(accessKeyId)),
+					secretAccessKey: Redacted.value(Option.getOrThrow(secretAccessKey)),
 				})
 			: null;
 
@@ -133,6 +121,49 @@ export class S3Service extends Context.Service<S3Service>()("S3Service", {
 			);
 		});
 
+		const writeObjectIfAbsent = Effect.fn("S3Service.writeObjectIfAbsent")(function* (
+			key: string,
+			stream: Stream.Stream<Uint8Array, unknown>,
+			contentType: string,
+			contentLength: number,
+		) {
+			const configuredClient = yield* requireConfigured;
+			const chunks = yield* Stream.runCollect(stream).pipe(
+				Effect.mapError(() => badRequest("S3 object write failed")),
+			);
+			const body = new Uint8Array(contentLength);
+			let offset = 0;
+			for (const chunk of chunks) {
+				if (offset + chunk.byteLength > body.byteLength) {
+					return yield* badRequest("S3 object write failed");
+				}
+				body.set(chunk, offset);
+				offset += chunk.byteLength;
+			}
+			if (offset !== body.byteLength) {
+				return yield* badRequest("S3 object write failed");
+			}
+			const uploadUrl = configuredClient.file(key).presign({
+				method: "PUT",
+				type: contentType,
+				expiresIn: 15 * 60,
+			});
+			const request = HttpClientRequest.make("PUT")(uploadUrl).pipe(
+				HttpClientRequest.setHeaders({ "if-none-match": "*" }),
+				HttpClientRequest.setBody(HttpBody.uint8Array(body, contentType)),
+			);
+			const response = yield* httpClient
+				.execute(request)
+				.pipe(Effect.mapError(() => badRequest("S3 object write failed")));
+			if (response.status === 412) {
+				return false;
+			}
+			if (response.status < 200 || response.status >= 300) {
+				return yield* badRequest("S3 object write failed");
+			}
+			return true;
+		});
+
 		const deleteObject = Effect.fn("S3Service.deleteObject")(function* (key: string) {
 			const configuredClient = yield* requireConfigured;
 			yield* Effect.tryPromise(() => configuredClient.file(key).delete()).pipe(
@@ -152,8 +183,9 @@ export class S3Service extends Context.Service<S3Service>()("S3Service", {
 			isConfigured,
 			presignUpload,
 			presignDownload,
+			writeObjectIfAbsent,
 		};
 	}),
 }) {
-	static readonly layer = Layer.effect(this, this.make);
+	static readonly layer = Layer.effect(this, this.make).pipe(Layer.provide(FetchHttpClient.layer));
 }

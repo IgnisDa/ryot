@@ -5,8 +5,14 @@ import { Context, Effect, FileSystem, Layer, Result, Schedule, Schema } from "ef
 import { Activity, Workflow } from "effect/unstable/workflow";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { acquireUserWriteLock } from "#lib/infrastructure/db/user-write-lock";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
-import { type StagedPermanentAsset, UploadsService } from "#modules/uploads/service";
+import { UploadIntentsService } from "#modules/uploads/intents/service";
+import {
+	ManagedAssetsService,
+	type StagedPermanentAsset,
+} from "#modules/uploads/managed-assets/service";
+import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { validateV1ArchiveStream } from "../archive-v1/archive";
 import { BackupArchiveError } from "../archive-v1/error";
@@ -79,11 +85,13 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 	RestoreBackupWorkflowOperations,
 	Effect.gen(function* () {
 		const database = yield* Database;
-		const writer = yield* BackupRestoreWriter;
-		const cleanliness = yield* BackupAccountCleanliness;
-		const uploads = yield* UploadsService;
 		const fs = yield* FileSystem.FileSystem;
+		const writer = yield* BackupRestoreWriter;
 		const repository = yield* BackupsRepository;
+		const uploadIntents = yield* UploadIntentsService;
+		const managedAssets = yield* ManagedAssetsService;
+		const objectStorage = yield* ObjectStorageService;
+		const cleanliness = yield* BackupAccountCleanliness;
 
 		const begin = (payload: RestoreBackupWorkflowPayload) =>
 			asInternal(
@@ -110,7 +118,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 
 		const claim = (payload: RestoreBackupWorkflowPayload) =>
 			asInternal(
-				uploads.claimTemporaryUpload(payload.uploadToken, payload.userId, payload.runId).pipe(
+				uploadIntents.claimTemporaryUpload(payload.uploadToken, payload.userId, payload.runId).pipe(
 					Effect.map(({ intentId, locator }) => ({
 						intentId,
 						key: locator.key,
@@ -130,7 +138,10 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 					if (run.progress >= 90) {
 						return yield* Effect.void;
 					}
-					const source = yield* uploads.openObject({ type: archive.provider, key: archive.key });
+					const source = yield* objectStorage.openObject({
+						key: archive.key,
+						type: archive.provider,
+					});
 					const validated = yield* validateV1ArchiveStream(source).pipe(
 						Effect.provideService(FileSystem.FileSystem, fs),
 					);
@@ -140,12 +151,12 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 							validated.manifest.requiredPlugins,
 							validated.records,
 						);
-						const provider = yield* uploads.selectStorageProvider("permanent");
+						const provider = yield* objectStorage.selectStorageProvider("permanent");
 						for (const asset of validated.assets) {
 							if (stagedBySha.has(asset.sha256)) {
 								continue;
 							}
-							const staged = yield* uploads.stageContentAddressedPermanentAsset({
+							const staged = yield* managedAssets.stageContentAddressedPermanentAsset({
 								provider,
 								size: asset.size,
 								sha256: asset.sha256,
@@ -164,9 +175,10 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 							database.transaction(
 								(transaction) =>
 									Effect.gen(function* () {
+										yield* acquireUserWriteLock(payload.userId);
 										yield* cleanliness.assertAccountIsClean(payload.userId);
 										for (const staged of stagedBySha.values()) {
-											yield* uploads.registerManagedAsset(staged.metadata);
+											yield* managedAssets.registerManagedAssetInLockedTransaction(staged.metadata);
 										}
 										yield* writer.restoreRecords(payload.userId, validated.records, assetLocators);
 										if (!(yield* repository.updateProgress({ ...payload, progress: 90 }))) {
@@ -176,7 +188,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 										}
 										return yield* Effect.void;
 									}).pipe(Effect.provideService(Database, transaction)),
-								{ isolationLevel: "serializable", accessMode: "read write" },
+								{ isolationLevel: "read committed", accessMode: "read write" },
 							),
 						).pipe(
 							Effect.retry({
@@ -188,11 +200,19 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 						Effect.catchCause((cause) =>
 							Effect.forEach(
 								stagedBySha.values(),
-								(staged) => uploads.cleanupStagedPermanentAsset(staged).pipe(Effect.ignore),
+								(staged) => managedAssets.cleanupStagedPermanentAsset(staged).pipe(Effect.ignore),
 								{ discard: true },
 							).pipe(Effect.andThen(Effect.failCause(cause))),
 						),
-						Effect.ensuring(validated.cleanup.pipe(Effect.orDie)),
+						Effect.ensuring(
+							validated.cleanup.pipe(
+								Effect.catchCause((cause) =>
+									Effect.logWarning("backup restore spool cleanup failed", cause).pipe(
+										Effect.annotateLogs({ runId: payload.runId }),
+									),
+								),
+							),
+						),
 					);
 					return yield* Effect.void;
 				}),
@@ -210,7 +230,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 							return yield* internalError("Backup restore could not be completed");
 						}
 					}
-					yield* uploads.deleteTemporaryUpload(archive.intentId).pipe(
+					yield* uploadIntents.deleteTemporaryUpload(archive.intentId).pipe(
 						Effect.retry(Schedule.recurs(2)),
 						Effect.catchCause((cause) =>
 							Effect.logWarning("backup restore temporary upload cleanup failed", cause).pipe(
@@ -232,7 +252,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 				Effect.gen(function* () {
 					yield* repository.failRun({ ...payload, error: error.message });
 					if (archive) {
-						yield* uploads
+						yield* uploadIntents
 							.deleteTemporaryUpload(archive.intentId)
 							.pipe(Effect.retry(Schedule.recurs(2)), Effect.ignore);
 					}

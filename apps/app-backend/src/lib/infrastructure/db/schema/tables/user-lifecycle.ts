@@ -1,0 +1,41 @@
+import type {
+	UserLifecycleOperationKind,
+	UserLifecycleOperationStatus,
+	UserResetResult,
+} from "@ryot/contract/modules/god-mode/user-lifecycle";
+import { sql } from "drizzle-orm";
+import {
+	index,
+	integer,
+	jsonb,
+	snakeCase,
+	text,
+	timestamp,
+	uniqueIndex,
+} from "drizzle-orm/pg-core";
+
+export const userLifecycleOperation = snakeCase.table(
+	"user_lifecycle_operation",
+	{
+		error: text(),
+		id: text().primaryKey(),
+		userId: text().notNull(),
+		metadata: jsonb().notNull(),
+		resetResult: jsonb().$type<UserResetResult>(),
+		startedAt: timestamp({ withTimezone: true }),
+		finishedAt: timestamp({ withTimezone: true }),
+		workflowAttempt: integer().notNull().default(0),
+		accessRevokedAt: timestamp({ withTimezone: true }),
+		kind: text().notNull().$type<UserLifecycleOperationKind>(),
+		accessRevocationStartedAt: timestamp({ withTimezone: true }),
+		databaseCleanupCompletedAt: timestamp({ withTimezone: true }),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		status: text().notNull().$type<UserLifecycleOperationStatus>().default("pending"),
+	},
+	(table) => [
+		index("user_lifecycle_operation_user_id_idx").on(table.userId),
+		uniqueIndex("user_lifecycle_operation_user_active_unique")
+			.on(table.userId)
+			.where(sql`${table.status} in ('pending', 'running')`),
+	],
+);

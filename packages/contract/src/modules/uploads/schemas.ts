@@ -6,7 +6,6 @@ export const UploadKind = Schema.Literals(["temporary", "permanent"]);
 export const UploadIntentInput = Schema.Struct({
 	kind: UploadKind,
 	fileName: Schema.String,
-	provider: UploadProvider,
 	contentType: Schema.String,
 });
 

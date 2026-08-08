@@ -2,12 +2,16 @@ import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { SandboxRunError } from "@ryot/contract/errors";
 import { ImportRunId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import { Effect, Exit, Layer, Option } from "effect";
+import { Effect, Exit, Layer, Option, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 import { assert } from "vitest";
 
-import { RedisService } from "#lib/infrastructure/redis";
+import {
+	ImportSourceStateFromJson,
+	RedisService,
+	type ImportSourceState,
+} from "#lib/infrastructure/redis";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import {
 	databaseLayer,
@@ -26,15 +30,19 @@ import { ImportsService } from "./service";
 
 const executionId = "import-run-dispatch";
 const payload = {
-	source: "netflix",
-	pluginSlug: "media",
-	sourcePayloadKey: "run-1",
-	namedArtifactPaths: { uploadToken: "/tmp/netflix.zip" },
-	uploadIntentIds: ["intent-netflix"],
 	userId: UserId.make("user-1"),
 	runId: ImportRunId.make("run-1"),
-	workflowScriptId: SandboxScriptId.make("accepted.netflix-import"),
+	sourceStateId: "source-state-1",
 } satisfies ImportRunJobData;
+
+const sourceState = {
+	source: "netflix",
+	sourcePayload: {},
+	pluginSlug: "media",
+	uploadIntentIds: ["intent-netflix"],
+	namedArtifactPaths: { uploadToken: "/tmp/netflix.zip" },
+	workflowScriptId: SandboxScriptId.make("accepted.netflix-import"),
+};
 
 type SandboxCall = { method: string; input: unknown };
 
@@ -42,6 +50,7 @@ const makeHarness = (
 	suspendWorkflow = false,
 	failWorkflow = false,
 	suspended = suspendWorkflow,
+	storedSourceState: ImportSourceState = sourceState,
 ) => {
 	const activityNames: string[] = [];
 	const sandboxCalls: SandboxCall[] = [];
@@ -52,7 +61,10 @@ const makeHarness = (
 		activityExecute: (activity) =>
 			Effect.gen(function* () {
 				activityNames.push(activity.name);
-				if (activity.name === "materialize-import-artifacts") {
+				if (
+					activity.name === "claim-import-source-state" ||
+					activity.name === "materialize-import-artifacts"
+				) {
 					return new Workflow.Complete({ exit: yield* Effect.exit(activity.execute) });
 				}
 				return new Workflow.Complete({ exit: Exit.void });
@@ -95,7 +107,13 @@ const makeHarness = (
 			}),
 			databaseLayer,
 			BunServices.layer,
-			Layer.succeed(RedisService, makeRedisService()),
+			Layer.succeed(
+				RedisService,
+				makeRedisService({
+					claim: () =>
+						Effect.succeed(Schema.encodeSync(ImportSourceStateFromJson)(storedSourceState)),
+				}),
+			),
 			Layer.mock(ImportsService)({}),
 			Layer.mock(ImportRunFailuresService)({}),
 		),
@@ -125,7 +143,7 @@ it.effect("dispatches a registry-declared source to its owning plugin's import w
 		});
 		expect(harness.activityNames).toEqual([
 			"mark-import-run-started",
-			"load-import-source-payload",
+			"claim-import-source-state",
 			"materialize-import-artifacts",
 			"retain-import-dispatch-artifacts",
 			"release-import-dispatch-artifacts",
@@ -137,21 +155,18 @@ it.effect("dispatches a registry-declared source to its owning plugin's import w
 	}).pipe(Effect.provide(harness.layer));
 });
 
-it.effect("grants every queued named artifact to a plugin import workflow", () => {
-	const harness = makeHarness();
+it.effect("grants every stored named artifact to a plugin import workflow", () => {
+	const harness = makeHarness(false, false, false, {
+		...sourceState,
+		source: "movary",
+		namedArtifactPaths: {
+			ignoredFilePath: "/tmp/ignored.csv",
+			historyFilePath: "/tmp/history.csv",
+		},
+	});
 
 	return Effect.gen(function* () {
-		yield* runProcessImportRunWorkflow(
-			{
-				...payload,
-				source: "movary",
-				namedArtifactPaths: {
-					ignoredFilePath: "/tmp/ignored.csv",
-					historyFilePath: "/tmp/history.csv",
-				},
-			},
-			executionId,
-		);
+		yield* runProcessImportRunWorkflow(payload, executionId);
 
 		const executed = harness.sandboxCalls.find(({ method }) => method === "executeWorkflow");
 		assert(executed !== undefined);
@@ -169,19 +184,24 @@ it.effect("grants every queued named artifact to a plugin import workflow", () =
 	}).pipe(Effect.provide(harness.layer));
 });
 
-it.effect("hands declared source payload to the plugin import workflow", () => {
-	const harness = makeHarness();
+it.effect("hands a secret-bearing stored source payload to the plugin import workflow", () => {
+	const harness = makeHarness(false, false, false, {
+		...sourceState,
+		source: "igdb",
+		sourcePayload: { apiKey: "secret", collection: "Favorites" },
+	});
 
 	return Effect.gen(function* () {
-		yield* runProcessImportRunWorkflow(
-			{ ...payload, source: "igdb", sourcePayload: { collection: "Favorites" } },
-			executionId,
-		);
+		yield* runProcessImportRunWorkflow(payload, executionId);
 
 		const executed = harness.sandboxCalls.find(({ method }) => method === "executeWorkflow");
 		expect(executed).toMatchObject({
 			input: {
-				input: { runId: "run-1", source: "igdb", sourcePayload: { collection: "Favorites" } },
+				input: {
+					runId: "run-1",
+					source: "igdb",
+					sourcePayload: { apiKey: "secret", collection: "Favorites" },
+				},
 			},
 		});
 	}).pipe(Effect.provide(harness.layer));

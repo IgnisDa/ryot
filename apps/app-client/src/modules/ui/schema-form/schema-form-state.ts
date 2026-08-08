@@ -1,17 +1,17 @@
 import type { JsonValue } from "@ryot/contract/modules/sandbox/wire";
-import type {
-	AppChoice,
-	AppPropertyDefinition,
-	AppSchema,
-	AppArrayPropertyValidation,
-} from "@ryot/contract/schema/property-schema";
 import {
+	type AppChoice,
+	type AppPropertyDefinition,
+	type AppSchema,
+	type AppArrayPropertyValidation,
 	evaluateAppSchemaRuleCondition,
 	getOrderedAppSchemaFieldEntries,
 	isAppSchemaPathEffectivelyRequired,
 	isAppSchemaPathHidden,
 	isMissingAppSchemaRequiredValue,
 } from "@ryot/contract/schema/property-schema";
+import { Email, HttpUrl } from "@ryot/contract/schema/utils";
+import { Match, Result, Schema } from "effect";
 
 export type SchemaFormArrayValue = boolean | number | string;
 
@@ -274,6 +274,159 @@ const isSchemaFormArrayValue = (
 	);
 };
 
+const stringValidationMessage = (
+	property: Extract<AppPropertyDefinition, { readonly type: "string" }>,
+	value: unknown,
+	label: string,
+) => {
+	if (typeof value !== "string") {
+		return `${label} has an invalid value`;
+	}
+	const validation = property.validation;
+	if (validation?.required === true && value === "") {
+		return `${label} is required`;
+	}
+	if (validation?.minLength !== undefined && value.length < validation.minLength) {
+		return `${label} is too short`;
+	}
+	if (validation?.maxLength !== undefined && value.length > validation.maxLength) {
+		return `${label} is too long`;
+	}
+	if (validation?.pattern !== undefined && !new RegExp(validation.pattern).test(value)) {
+		return `${label} has an invalid format`;
+	}
+	if (
+		property.format?.kind === "url" &&
+		Result.isFailure(Schema.decodeUnknownResult(HttpUrl)(value))
+	) {
+		return `${label} has an invalid format`;
+	}
+	if (
+		property.format?.kind === "email" &&
+		Result.isFailure(Schema.decodeUnknownResult(Email)(value))
+	) {
+		return `${label} has an invalid format`;
+	}
+	return undefined;
+};
+
+const numberValidationMessage = (
+	property: Extract<AppPropertyDefinition, { readonly type: "number" | "integer" }>,
+	value: unknown,
+	label: string,
+) => {
+	if (
+		typeof value !== "number" ||
+		!Number.isFinite(value) ||
+		(property.type === "integer" && !Number.isInteger(value))
+	) {
+		return `${label} has an invalid value`;
+	}
+	const validation = property.validation;
+	if (validation?.minimum !== undefined && value < validation.minimum) {
+		return `${label} is below the minimum`;
+	}
+	if (validation?.maximum !== undefined && value > validation.maximum) {
+		return `${label} is above the maximum`;
+	}
+	if (validation?.exclusiveMinimum !== undefined && value <= validation.exclusiveMinimum) {
+		return `${label} must be above the minimum`;
+	}
+	if (validation?.exclusiveMaximum !== undefined && value >= validation.exclusiveMaximum) {
+		return `${label} must be below the maximum`;
+	}
+	if (validation?.multipleOf !== undefined && value % validation.multipleOf !== 0) {
+		return `${label} is not a valid increment`;
+	}
+	return undefined;
+};
+
+const arrayBoundsValidationMessage = (
+	property: Extract<AppPropertyDefinition, { readonly type: "array" | "enum-array" }>,
+	value: readonly unknown[],
+	label: string,
+) => {
+	if (property.validation?.minItems !== undefined && value.length < property.validation.minItems) {
+		return `${label} needs at least ${property.validation.minItems} items`;
+	}
+	if (property.validation?.maxItems !== undefined && value.length > property.validation.maxItems) {
+		return `${label} allows at most ${property.validation.maxItems} items`;
+	}
+	return undefined;
+};
+
+const propertyValueValidationMessage = (
+	property: AppPropertyDefinition,
+	value: unknown,
+	label: string,
+): string | undefined =>
+	Match.value(property).pipe(
+		Match.when({ type: "string" }, (matched) => stringValidationMessage(matched, value, label)),
+		Match.when({ type: "number" }, (matched) => numberValidationMessage(matched, value, label)),
+		Match.when({ type: "integer" }, (matched) => numberValidationMessage(matched, value, label)),
+		Match.when({ type: "boolean" }, () =>
+			typeof value === "boolean" ? undefined : `${label} has an invalid value`,
+		),
+		Match.when({ type: "date" }, () =>
+			typeof value === "string" &&
+			Result.isSuccess(Schema.decodeUnknownResult(Schema.DateFromString)(value))
+				? undefined
+				: `${label} has an invalid format`,
+		),
+		Match.when({ type: "datetime" }, () =>
+			typeof value === "string" &&
+			Result.isSuccess(Schema.decodeUnknownResult(Schema.DateTimeUtcFromString)(value))
+				? undefined
+				: `${label} has an invalid format`,
+		),
+		Match.when({ type: "enum" }, (matched) =>
+			typeof value === "string" &&
+			matched.choices.kind === "static" &&
+			matched.choices.values.some((choice) => choice.value === value)
+				? undefined
+				: `${label} has an invalid value`,
+		),
+		Match.when({ type: "enum-array" }, (matched) => {
+			if (!Array.isArray(value) || matched.choices.kind !== "static") {
+				return `${label} has an invalid value`;
+			}
+			const boundsMessage = arrayBoundsValidationMessage(matched, value, label);
+			if (boundsMessage !== undefined) {
+				return boundsMessage;
+			}
+			return value.every(
+				(item) =>
+					typeof item === "string" &&
+					matched.choices.kind === "static" &&
+					matched.choices.values.some((choice) => choice.value === item),
+			)
+				? undefined
+				: `${label} has an invalid value`;
+		}),
+		Match.when({ type: "array" }, (matched) => {
+			if (!Array.isArray(value)) {
+				return `${label} has an invalid value`;
+			}
+			const boundsMessage = arrayBoundsValidationMessage(matched, value, label);
+			if (boundsMessage !== undefined) {
+				return boundsMessage;
+			}
+			for (const [index, item] of value.entries()) {
+				const message = propertyValueValidationMessage(
+					matched.items,
+					item,
+					`${matched.items.label} ${index + 1}`,
+				);
+				if (message !== undefined) {
+					return message;
+				}
+			}
+			return undefined;
+		}),
+		Match.when({ type: "object" }, () => `${label} has an invalid value`),
+		Match.exhaustive,
+	);
+
 const schemaFieldDefaultValue = (property: AppPropertyDefinition): SchemaFormValue => {
 	if (property.type === "object") {
 		return undefined;
@@ -319,87 +472,16 @@ export const validateSchemaFormValues = (
 			errors.set(field.key, conditionalMessage ?? `${field.label} is required`);
 			continue;
 		}
-		const value = fieldValue;
-		if (field.type !== "array" || !Array.isArray(value) || field.arrayItem === undefined) {
+		if (fieldValue === undefined) {
 			continue;
 		}
-		if (
-			field.arrayValidation?.minItems !== undefined &&
-			value.length < field.arrayValidation.minItems
-		) {
-			errors.set(
-				field.key,
-				`${field.label} needs at least ${field.arrayValidation.minItems} items`,
-			);
-			continue;
-		}
-		if (
-			field.arrayValidation?.maxItems !== undefined &&
-			value.length > field.arrayValidation.maxItems
-		) {
-			errors.set(
-				field.key,
-				`${field.label} allows at most ${field.arrayValidation.maxItems} items`,
-			);
-			continue;
-		}
-		const item = field.arrayItem;
-		const invalidIndex = value.findIndex((entry) => !isSchemaFormArrayValue(entry, item));
-		if (invalidIndex !== -1) {
-			errors.set(field.key, `${item.label} ${invalidIndex + 1} has an invalid value`);
-			continue;
-		}
-		for (const [index, entry] of (value as readonly SchemaFormArrayValue[]).entries()) {
-			if (item.type === "string") {
-				if (typeof entry !== "string") {
-					continue;
-				}
-				const validation = item.validation;
-				if (validation?.required === true && entry === "") {
-					errors.set(field.key, `${item.label} ${index + 1} is required`);
-					break;
-				}
-				if (validation?.minLength !== undefined && entry.length < validation.minLength) {
-					errors.set(field.key, `${item.label} ${index + 1} is too short`);
-					break;
-				}
-				if (validation?.maxLength !== undefined && entry.length > validation.maxLength) {
-					errors.set(field.key, `${item.label} ${index + 1} is too long`);
-					break;
-				}
-				if (validation?.pattern !== undefined && !new RegExp(validation.pattern).test(entry)) {
-					errors.set(field.key, `${item.label} ${index + 1} has an invalid format`);
-					break;
-				}
-				continue;
-			}
-			if (item.type === "boolean") {
-				continue;
-			}
-			if (typeof entry !== "number") {
-				continue;
-			}
-			const validation = item.validation;
-			if (validation?.minimum !== undefined && entry < validation.minimum) {
-				errors.set(field.key, `${item.label} ${index + 1} is below the minimum`);
-				break;
-			}
-			if (validation?.maximum !== undefined && entry > validation.maximum) {
-				errors.set(field.key, `${item.label} ${index + 1} is above the maximum`);
-				break;
-			}
-			if (validation?.exclusiveMinimum !== undefined && entry <= validation.exclusiveMinimum) {
-				errors.set(field.key, `${item.label} ${index + 1} must be above the minimum`);
-				break;
-			}
-			if (validation?.exclusiveMaximum !== undefined && entry >= validation.exclusiveMaximum) {
-				errors.set(field.key, `${item.label} ${index + 1} must be below the maximum`);
-				break;
-			}
-			if (validation?.multipleOf !== undefined && entry % validation.multipleOf !== 0) {
-				errors.set(field.key, `${item.label} ${index + 1} is not a valid increment`);
-				break;
-			}
+		const validationMessage = propertyValueValidationMessage(
+			schema.fields[field.key],
+			fieldValue,
+			field.label,
+		);
+		if (validationMessage !== undefined) {
+			errors.set(field.key, validationMessage);
 		}
 	}
 	return errors;
