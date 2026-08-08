@@ -7,7 +7,6 @@ import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApi } from "#/api/authenticated";
-import { PublicApi } from "#/api/public";
 import { AuthClient } from "#/modules/auth/client";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
@@ -20,6 +19,7 @@ import {
 	authenticated,
 	catalog,
 	makeAuthStub,
+	makePublicApiStub,
 	makeStorageStub,
 	makeWorkspaceRecorder,
 	server,
@@ -40,7 +40,7 @@ const mountView = (
 		Layer.mergeAll(
 			AuthStub,
 			ServerStub,
-			PublicApi.layer,
+			makePublicApiStub(),
 			AuthClient.layer,
 			AuthenticatedApi.layer,
 			events.layer,

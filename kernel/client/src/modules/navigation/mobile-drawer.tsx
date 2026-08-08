@@ -12,6 +12,7 @@ import { activateLink } from "#/modules/navigation/link-activation";
 import { WorkspaceSwitcher } from "#/modules/navigation/workspace-switcher";
 
 type MobileDrawerProps = {
+	readonly isPro: boolean;
 	readonly isOpen: boolean;
 	readonly drawerId: string;
 	readonly onClose: () => void;
@@ -187,6 +188,7 @@ export function MobileDrawer(props: MobileDrawerProps) {
 
 				<footer className="shrink-0 border-t border-border px-3 pt-3">
 					<AccountSummary
+						isPro={props.isPro}
 						session={props.session}
 						active={props.activeSettings}
 						onNavigate={() => closeThen(props.onNavigateSettings)}
