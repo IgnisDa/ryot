@@ -5,7 +5,7 @@ import type {
 import clsx from "clsx";
 import { type KeyboardEvent, type RefObject, useEffect, useRef } from "react";
 
-import type { AuthSessionStore } from "#/modules/auth/client";
+import type { AuthSessionStore } from "#/modules/auth/service";
 import { AccountSummary } from "#/modules/navigation/account-summary";
 import { AppIcon } from "#/modules/navigation/app-icon";
 import { activateLink } from "#/modules/navigation/link-activation";

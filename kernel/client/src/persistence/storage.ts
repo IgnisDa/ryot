@@ -1,7 +1,7 @@
 import { Slug } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import { normalizeServerOrigin, parseServerOrigin, type ServerOrigin } from "#/api/origin";
+import { parseServerOrigin, type ServerOrigin } from "#/api/origin";
 import { apiScopeKey, type ApiScope } from "#/api/scope";
 import { isThemePreference, type ThemePreference } from "#/modules/theme/preference";
 
@@ -10,8 +10,6 @@ export const THEME_PREFERENCE_KEY = `${RYOT_STORAGE_PREFIX}theme`;
 export const SERVER_SELECTION_KEY = `${RYOT_STORAGE_PREFIX}server-url`;
 export const lastWorkspaceKey = (scope: ApiScope) =>
 	`${RYOT_STORAGE_PREFIX}workspace:${apiScopeKey(scope)}`;
-export const sessionTokenKey = (origin: ServerOrigin) =>
-	`${RYOT_STORAGE_PREFIX}session-token:${normalizeServerOrigin(origin)}`;
 
 export type BrowserStorage = Pick<Storage, "getItem" | "removeItem" | "setItem">;
 
@@ -21,11 +19,7 @@ const isWorkspaceSlug = Schema.is(Slug);
 const makeStorage = (storage: BrowserStorage | undefined): ClientStorage["Service"] => ({
 	clearServerSelection: Effect.sync(() => storage?.removeItem(SERVER_SELECTION_KEY)),
 	remove: (keys) => Effect.sync(() => keys.forEach((key) => storage?.removeItem(key))),
-	clearSessionToken: (origin) => Effect.sync(() => storage?.removeItem(sessionTokenKey(origin))),
 	setServerSelection: (origin) => Effect.sync(() => storage?.setItem(SERVER_SELECTION_KEY, origin)),
-	getSessionToken: (origin) => Effect.sync(() => storage?.getItem(sessionTokenKey(origin)) ?? null),
-	setSessionToken: (origin, token) =>
-		Effect.sync(() => storage?.setItem(sessionTokenKey(origin), token)),
 	setThemePreference: (preference) =>
 		Effect.sync(() => storage?.setItem(THEME_PREFERENCE_KEY, preference)),
 	setLastWorkspace: (scope, slug) =>
@@ -60,13 +54,10 @@ export class ClientStorage extends Context.Service<
 		readonly getThemePreference: Effect.Effect<ThemePreference>;
 		readonly getServerSelection: Effect.Effect<ServerOrigin | null>;
 		readonly remove: (keys: readonly string[]) => Effect.Effect<void>;
-		readonly clearSessionToken: (origin: ServerOrigin) => Effect.Effect<void>;
 		readonly setServerSelection: (origin: ServerOrigin) => Effect.Effect<void>;
 		readonly getLastWorkspace: (scope: ApiScope) => Effect.Effect<string | null>;
-		readonly getSessionToken: (origin: ServerOrigin) => Effect.Effect<string | null>;
 		readonly setLastWorkspace: (scope: ApiScope, slug: string) => Effect.Effect<void>;
 		readonly setThemePreference: (preference: ThemePreference) => Effect.Effect<void>;
-		readonly setSessionToken: (origin: ServerOrigin, token: string) => Effect.Effect<void>;
 	}
 >()("ClientStorage") {
 	static readonly layer = Layer.effect(
