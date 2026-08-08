@@ -7,6 +7,7 @@ import { HEADER_ROW_HEIGHT } from "./header-metrics";
 
 export type HeaderOverflowItem = {
 	label: string;
+	onPress?: () => void;
 	isDestructive?: boolean;
 };
 
@@ -43,9 +44,12 @@ export function HeaderOverflowMenu(props: {
 				{props.items.map((item) => (
 					<Pressable
 						key={item.label}
-						onPress={props.onClose}
 						accessibilityRole="menuitem"
 						className="rounded-lg px-3 py-2.5"
+						onPress={() => {
+							props.onClose();
+							item.onPress?.();
+						}}
 					>
 						<Text
 							className={clsx(
