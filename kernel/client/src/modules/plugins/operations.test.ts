@@ -100,7 +100,7 @@ describe("plugin operations service", () => {
 
 	const declaredFailures = [
 		new AuthUnauthorized({ reason: { code: "authentication-required" } }),
-		new AuthRateLimited({ reason: { code: "session-rate-limited", retryAfterMs: null } }),
+		new AuthRateLimited({ reason: { code: "api-key-rate-limited", retryAfterMs: null } }),
 		new PluginNotFoundError({
 			reason: { code: "plugin-not-found", pluginSlug: PluginSlug.make("fixture") },
 		}),
