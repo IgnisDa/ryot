@@ -45,6 +45,45 @@ export function EntityScreen() {
 						laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis.
 					</Text>
 				</View>
+				<View className="gap-2">
+					<Text className="font-display-semibold text-2xl text-text">Characters</Text>
+					<Text className="font-ui text-base leading-7 text-text-muted">
+						Genly Ai, Estraven, and the wider political world of Gethen shape the emotional core of
+						the story, balancing isolation, trust, and cultural misunderstanding across a fragile
+						interstellar encounter.
+					</Text>
+				</View>
+				<View className="gap-2">
+					<Text className="font-display-semibold text-2xl text-text">Themes</Text>
+					<Text className="font-ui text-base leading-7 text-text-muted">
+						The novel explores gender, diplomacy, identity, and the ethics of political power,
+						asking how societies define difference while struggling to build trust between deeply
+						unlike worlds.
+					</Text>
+				</View>
+				<View className="gap-2">
+					<Text className="font-display-semibold text-2xl text-text">Awards & recognition</Text>
+					<Text className="font-ui text-base leading-7 text-text-muted">
+						Recognized as a landmark of science fiction, the book earned lasting acclaim for its
+						ambitious worldbuilding and its thoughtful treatment of human relationships, language,
+						and cultural perspective.
+					</Text>
+				</View>
+				<View className="gap-2">
+					<Text className="font-display-semibold text-2xl text-text">Reading progress</Text>
+					<Text className="font-ui text-base leading-7 text-text-muted">
+						Currently in your library with a personal reading status set to in progress. Add notes,
+						track your pace, or mark milestones as you continue through the story.
+					</Text>
+				</View>
+				<View className="gap-2">
+					<Text className="font-display-semibold text-2xl text-text">Related editions</Text>
+					<Text className="font-ui text-base leading-7 text-text-muted">
+						This edition is part of a broader collection of classic speculative fiction, with later
+						reprints and annotated editions preserving the novel's place in literary and cultural
+						history.
+					</Text>
+				</View>
 			</View>
 		</ChildScreenFrame>
 	);
