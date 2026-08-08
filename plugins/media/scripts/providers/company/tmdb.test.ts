@@ -29,11 +29,22 @@ describe("company.tmdb sandbox script", () => {
 			if (requestUrl.pathname.endsWith("/discover/tv")) {
 				return httpSuccess({ results: [{ id: 3, name: "Show" }] });
 			}
-			return httpSuccess({ name: "Studio", logo_path: null, origin_country: "US" });
+			return httpSuccess({ name: "Studio", logo_path: "/logo.png", origin_country: "US" });
 		});
 
 		return runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 			Effect.map((result) => {
+				expect(result).toMatchObject({
+					properties: {
+						images: [
+							{
+								type: "remote",
+								purpose: "logo",
+								url: "https://image.tmdb.org/t/p/original/logo.png",
+							},
+						],
+					},
+				});
 				expect(result.relatedEntityGroups).toEqual([
 					{
 						direction: "outgoing",

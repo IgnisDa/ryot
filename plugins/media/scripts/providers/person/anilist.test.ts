@@ -183,7 +183,7 @@ describe("person.anilist sandbox script", () => {
 					birthPlace: "Tokyo, Japan",
 					description: "First line\nSecond line",
 					sourceUrl: "https://anilist.co/staff/9",
-					images: [{ type: "remote", url: "https://img/creator.jpg" }],
+					images: [{ type: "remote", url: "https://img/creator.jpg", purpose: "profile" }],
 				});
 				return undefined;
 			}),

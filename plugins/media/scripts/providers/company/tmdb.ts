@@ -167,8 +167,10 @@ export const details = defineProvider({
 							alternateNames: [],
 							website: stringValue(companyData["homepage"]),
 							description: stringValue(companyData["description"]),
-							images: logo ? [{ type: "remote" as const, url: logo }] : [],
 							sourceUrl: `https://www.themoviedb.org/company/${input.externalId}`,
+							images: logo
+								? [{ type: "remote" as const, url: logo, purpose: "logo" as const }]
+								: [],
 							headquarters:
 								stringValue(companyData["headquarters"]) ??
 								stringValue(companyData["origin_country"]),

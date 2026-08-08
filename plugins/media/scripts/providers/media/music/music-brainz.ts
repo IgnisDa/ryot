@@ -148,7 +148,9 @@ export const details = defineProvider({
 					genres: [],
 					publishYear,
 					byVariousArtists,
-					images: coverUrl ? [{ type: "remote" as const, url: coverUrl }] : [],
+					images: coverUrl
+						? [{ type: "remote" as const, url: coverUrl, purpose: "cover" as const }]
+						: [],
 					sourceUrl: `https://musicbrainz.org/recording/${input.externalId}`,
 				},
 			};

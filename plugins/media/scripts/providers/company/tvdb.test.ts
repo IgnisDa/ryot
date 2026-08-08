@@ -99,7 +99,7 @@ describe("company.tvdb sandbox script", () => {
 				expect(result.properties).toEqual({
 					headquarters: "United States",
 					alternateNames: ["First", "Second"],
-					images: [{ type: "remote", url: "https://img.example/logo.png" }],
+					images: [{ type: "remote", url: "https://img.example/logo.png", purpose: "logo" }],
 				});
 				return undefined;
 			}),

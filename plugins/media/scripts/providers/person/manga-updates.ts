@@ -141,7 +141,9 @@ export const details = defineProvider({
 								gender: stringValue(payload["gender"]),
 								birthPlace: stringValue(payload["birthplace"]),
 								birthDate: formatBirthday(payload["birthday"]),
-								images: image ? [{ type: "remote" as const, url: image }] : [],
+								images: image
+									? [{ type: "remote" as const, url: image, purpose: "profile" as const }]
+									: [],
 								sourceUrl: `https://www.mangaupdates.com/authors/${encodeURIComponent(input.externalId)}`,
 							},
 						};

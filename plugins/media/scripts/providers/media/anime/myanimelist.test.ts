@@ -125,8 +125,8 @@ describe("anime.myanimelist sandbox script", () => {
 						sourceUrl: "https://myanimelist.net/anime/1/Source",
 						airingSchedule: [{ episode: 1, airingAt: "2024-01-05T00:00:00.000Z" }],
 						images: [
-							{ type: "remote", url: "https://img/l.jpg" },
-							{ type: "remote", url: "https://img/m.jpg" },
+							{ type: "remote", url: "https://img/l.jpg", purpose: "cover" },
+							{ type: "remote", url: "https://img/m.jpg", purpose: "cover" },
 						],
 					});
 					return undefined;

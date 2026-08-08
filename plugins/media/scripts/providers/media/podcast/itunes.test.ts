@@ -123,7 +123,7 @@ describe("podcast.itunes sandbox script", () => {
 								description: null,
 								publishDate: "2020-01-02",
 								parentPodcastExternalId: "p1",
-								images: [{ type: "remote", url: "https://img/ep20.jpg" }],
+								images: [{ type: "remote", url: "https://img/ep20.jpg", purpose: "cover" }],
 							},
 						},
 					]);

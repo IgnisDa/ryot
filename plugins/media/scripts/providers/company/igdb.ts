@@ -86,10 +86,10 @@ export const details = defineProvider({
 					throw new Error("IGDB company payload is missing name");
 				}
 
-				const images: Array<{ type: "remote"; url: string }> = [];
+				const images: Array<{ type: "remote"; url: string; purpose: "logo" }> = [];
 				const logoImageId = stringValue(asRecord(company?.["logo"])?.["image_id"]);
 				if (logoImageId) {
-					images.push({ type: "remote", url: getImageUrl(logoImageId) });
+					images.push({ type: "remote", url: getImageUrl(logoImageId), purpose: "logo" });
 				}
 
 				const startDate = numberValue(company?.["start_date"]);

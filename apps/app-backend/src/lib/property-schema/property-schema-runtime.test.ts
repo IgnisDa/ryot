@@ -15,6 +15,7 @@ import type {
 	AppSchemaRuleCondition,
 	AppStringProperty,
 } from "@ryot/contract/schema/property-schema";
+import { moviePropertiesSchema } from "@ryot/media-plugin/schemas/property-schemas";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -120,6 +121,9 @@ const schema = (
 const parse = (fields: Record<string, AppPropertyDefinition>, properties: unknown) =>
 	parseAppSchemaPropertiesSafe({ properties, propertiesSchema: schema(fields) });
 
+const parseMovie = (properties: unknown) =>
+	parseAppSchemaPropertiesSafe({ properties, propertiesSchema: moviePropertiesSchema });
+
 const requiredRule = (targetPath: string[], condition: AppSchemaRuleCondition): AppSchemaRule => ({
 	when: condition,
 	path: targetPath,
@@ -194,6 +198,36 @@ describe("parseAppSchemaPropertiesSafe - managed assets", () => {
 				images: [{ type: "remote", url: "https://example.com/image.jpg", key: "key" }],
 			}).success,
 		).toBe(false);
+	});
+});
+
+describe("parseAppSchemaPropertiesSafe - media images", () => {
+	it("accepts remote, local, and S3 image locators with purposes", () => {
+		const result = parseMovie({
+			images: [
+				{ type: "remote", url: "https://example.com/cover.jpg", purpose: "cover" },
+				{ type: "local", key: "permanent/backdrop.jpg", purpose: "backdrop" },
+				{ type: "s3", key: "permanent/still.jpg", purpose: "still" },
+			],
+		});
+
+		expect(result.success).toBe(true);
+	});
+
+	it("rejects a media image without a purpose", () => {
+		const result = parseMovie({
+			images: [{ type: "remote", url: "https://example.com/image.jpg" }],
+		});
+
+		expect(result.success).toBe(false);
+	});
+
+	it("rejects an unknown media image purpose", () => {
+		const result = parseMovie({
+			images: [{ type: "remote", url: "https://example.com/image.jpg", purpose: "thumbnail" }],
+		});
+
+		expect(result.success).toBe(false);
 	});
 });
 

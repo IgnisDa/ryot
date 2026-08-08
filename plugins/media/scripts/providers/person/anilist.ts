@@ -276,7 +276,9 @@ export const details = defineProvider({
 						birthPlace: stringValue(staffData["homeTown"]),
 						birthDate: formatFuzzyDate(staffData["dateOfBirth"]),
 						deathDate: formatFuzzyDate(staffData["dateOfDeath"]),
-						images: image ? [{ type: "remote" as const, url: image }] : [],
+						images: image
+							? [{ type: "remote" as const, url: image, purpose: "profile" as const }]
+							: [],
 						description: cleanHtmlDescription(staffData["description"]),
 					},
 				};

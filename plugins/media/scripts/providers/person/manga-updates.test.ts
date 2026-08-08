@@ -96,7 +96,7 @@ describe("person.manga-updates sandbox script", () => {
 					birthDate: "1980-03-07",
 					birthPlace: "Osaka, Japan",
 					sourceUrl: "https://www.mangaupdates.com/authors/4",
-					images: [{ type: "remote", url: "https://img/author.jpg" }],
+					images: [{ type: "remote", url: "https://img/author.jpg", purpose: "profile" }],
 				});
 				return undefined;
 			}),

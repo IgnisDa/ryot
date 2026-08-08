@@ -76,7 +76,9 @@ export const details = defineProvider({
 						description,
 						alternateNames: [],
 						sourceUrl: `https://www.audible.com/author/${input.externalId}`,
-						images: image ? [{ type: "remote" as const, url: image }] : [],
+						images: image
+							? [{ type: "remote" as const, url: image, purpose: "profile" as const }]
+							: [],
 					},
 				};
 			}),

@@ -133,7 +133,7 @@ const collectGenres = (genres: unknown, categories: unknown) => {
 
 const collectImages = (image: unknown) => {
 	const url = imageUrlValue(image);
-	return url ? [{ type: "remote" as const, url }] : [];
+	return url ? [{ type: "remote" as const, url, purpose: "cover" as const }] : [];
 };
 
 const collectSuggestions = (host: MangaUpdatesHost, payload: UnknownRecord | null) => {

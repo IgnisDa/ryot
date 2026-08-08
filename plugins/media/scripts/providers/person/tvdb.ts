@@ -129,7 +129,9 @@ export const details = defineProvider({
 						gender,
 						description,
 						alternateNames: [],
-						images: image ? [{ type: "remote" as const, url: image }] : [],
+						images: image
+							? [{ type: "remote" as const, url: image, purpose: "profile" as const }]
+							: [],
 						birthDate: stringValue(person["birth"]),
 						deathDate: stringValue(person["death"]),
 						sourceUrl: slug

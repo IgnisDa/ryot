@@ -188,7 +188,9 @@ export const details = defineProvider({
 						deathDate: formatBirthDate(person["death_date"]),
 						sourceUrl: stringValue(person["site_detail_url"]),
 						birthDate: formatBirthDate(person["birth_date"] ?? person["date_of_birth"]),
-						images: primaryImage ? [{ type: "remote" as const, url: primaryImage }] : [],
+						images: primaryImage
+							? [{ type: "remote" as const, url: primaryImage, purpose: "profile" as const }]
+							: [],
 						description: combineDescription(person["deck"], person["description"]),
 					},
 				};

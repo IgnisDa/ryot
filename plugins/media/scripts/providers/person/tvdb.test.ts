@@ -105,7 +105,7 @@ describe("person.tvdb sandbox script", () => {
 					birthDate: "1980-01-01",
 					deathDate: "2020-01-01",
 					description: "Bio text",
-					images: [{ type: "remote", url: "http://img/1.jpg" }],
+					images: [{ type: "remote", url: "http://img/1.jpg", purpose: "profile" }],
 					sourceUrl: "https://www.thetvdb.com/people/john-doe",
 				});
 				return undefined;

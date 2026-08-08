@@ -74,6 +74,8 @@ describe("show.tvdb sandbox script", () => {
 					data: {
 						slug: "my-show",
 						name: "My Show",
+						image: "show.jpg",
+						artworks: [{ image: "show-art.jpg" }],
 						status: { id: 2, name: "Ended", recordType: "series" },
 						seasons: [
 							{ id: 101, number: 1 },
@@ -162,7 +164,7 @@ describe("show.tvdb sandbox script", () => {
 										episodeNumber: 1,
 										parentShowExternalId: "1",
 										publishDate: "2020-01-01",
-										images: [{ type: "remote", url: "e1.jpg" }],
+										images: [{ type: "remote", url: "e1.jpg", purpose: "still" }],
 									},
 								},
 								{
@@ -187,7 +189,7 @@ describe("show.tvdb sandbox script", () => {
 								seasonNumber: 1,
 								releaseDate: "2020-01-01",
 								parentShowExternalId: "1",
-								images: [{ type: "remote", url: "s1.jpg" }],
+								images: [{ type: "remote", url: "s1.jpg", purpose: "cover" }],
 							},
 						},
 						{
@@ -231,7 +233,10 @@ describe("show.tvdb sandbox script", () => {
 					]);
 					expect(result.properties).toEqual({
 						genres: [],
-						images: [],
+						images: [
+							{ type: "remote", url: "show.jpg", purpose: "cover" },
+							{ type: "remote", url: "show-art.jpg", purpose: "artwork" },
+						],
 						totalSeasons: 3,
 						totalEpisodes: 3,
 						publishYear: null,
@@ -365,7 +370,7 @@ describe("show.tvdb sandbox script", () => {
 							name: "Localized",
 							properties: {
 								description: "Localized Desc",
-								images: [{ type: "remote", url: "art.jpg" }],
+								images: [{ type: "remote", url: "art.jpg", purpose: "cover" }],
 							},
 						});
 						return runSandboxTestScript(
@@ -382,11 +387,18 @@ describe("show.tvdb sandbox script", () => {
 					}),
 				)
 				.pipe(
-					Effect.map(() => {
+					Effect.map((episodeResult) => {
 						expect(requested).toContainEqual({ method: "GET", path: "/v4/episodes/777/extended" });
 						expect(requested).toContainEqual({
 							method: "GET",
 							path: "/v4/episodes/777/translations/eng",
+						});
+						expect(episodeResult).toEqual({
+							name: "Localized",
+							properties: {
+								description: "Localized Desc",
+								images: [{ type: "remote", url: "art.jpg", purpose: "still" }],
+							},
 						});
 						return undefined;
 					}),

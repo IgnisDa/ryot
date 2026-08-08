@@ -657,7 +657,7 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 				seasonNumber: 1,
 				description: "Season",
 				releaseDate: "2026-01-01",
-				images: [{ type: "remote", url: "https://example.com/season.jpg" }],
+				images: [{ type: "remote", url: "https://example.com/season.jpg", purpose: "cover" }],
 			},
 			childEntities: [
 				{
@@ -736,7 +736,7 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 			seasonNumber: 1,
 			description: "Season",
 			releaseDate: "2026-01-01",
-			images: [{ type: "remote", url: "https://example.com/season.jpg" }],
+			images: [{ type: "remote", url: "https://example.com/season.jpg", purpose: "cover" }],
 		});
 		expect(episode?.entitySchemaSlug).toBe("schema-episode");
 		expect(episode?.properties).toEqual({
@@ -843,7 +843,7 @@ it.effect("propagates images through properties for the primary entity", () => {
 	const savedProperties: unknown[] = [];
 
 	const payload = { ...importPayload, executionId: "exec-images-properties" };
-	const images = [{ type: "local" as const, key: "permanent/test-book.jpg" }];
+	const images = [{ type: "local" as const, key: "permanent/test-book.jpg", purpose: "cover" }];
 	const options = {
 		processSandbox: () =>
 			Effect.succeed({

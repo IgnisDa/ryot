@@ -136,7 +136,7 @@ describe("person.spotify sandbox script", () => {
 					alternateNames: [],
 					description: "Genres: rock, indie",
 					sourceUrl: "https://open.spotify.com/artist/a1",
-					images: [{ type: "remote", url: "https://img/a.jpg" }],
+					images: [{ type: "remote", url: "https://img/a.jpg", purpose: "profile" }],
 				});
 				return undefined;
 			}),

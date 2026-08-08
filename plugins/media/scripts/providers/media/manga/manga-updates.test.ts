@@ -90,7 +90,7 @@ describe("manga.manga-updates sandbox script", () => {
 						productionStatus: "Ongoing",
 						genres: ["Action", "Isekai"],
 						sourceUrl: "https://www.mangaupdates.com/series/source",
-						images: [{ type: "remote", url: "https://img/cover.jpg" }],
+						images: [{ type: "remote", url: "https://img/cover.jpg", purpose: "cover" }],
 					});
 					return undefined;
 				}),

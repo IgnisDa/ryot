@@ -29,7 +29,7 @@ describe("music-group.youtube-music sandbox script", () => {
 						parts: 3,
 						description: "Line one\nLine two",
 						sourceUrl: "https://music.youtube.com/playlist?list=PL123",
-						images: [{ type: "remote", url: "https://img/big.jpg" }],
+						images: [{ type: "remote", url: "https://img/big.jpg", purpose: "cover" }],
 					});
 					expect(details.relatedEntityGroups).toEqual([
 						{

@@ -137,6 +137,152 @@ describe("show.tmdb sandbox script", () => {
 			),
 		);
 	});
+	it("classifies show, season, and episode images", () => {
+		const host = makeHost((_method, url) => {
+			if (url.includes("/tv/1/recommendations")) {
+				return httpSuccess({ results: [] });
+			}
+			if (url.includes("/tv/1/credits")) {
+				return httpSuccess({ cast: [], crew: [] });
+			}
+			if (url.includes("/tv/1/images")) {
+				return httpSuccess({ posters: [], backdrops: [] });
+			}
+			if (url.includes("/tv/1/season/1")) {
+				return httpSuccess({
+					id: 101,
+					name: "Season 1",
+					poster_path: "/season.jpg",
+					season_number: 1,
+					episodes: [
+						{
+							id: 11,
+							name: "Pilot",
+							episode_number: 1,
+							still_path: "/still.jpg",
+						},
+					],
+				});
+			}
+			return httpSuccess({
+				id: 1,
+				name: "Source",
+				seasons: [{ season_number: 1 }],
+				poster_path: "/show.jpg",
+				backdrop_path: "/show-backdrop.jpg",
+				genres: [],
+				created_by: [],
+				networks: [],
+				production_companies: [],
+			});
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result).toMatchObject({
+						properties: {
+							images: [
+								{
+									type: "remote",
+									url: "https://image.tmdb.org/t/p/original/show.jpg",
+									purpose: "cover",
+								},
+								{
+									type: "remote",
+									url: "https://image.tmdb.org/t/p/original/show-backdrop.jpg",
+									purpose: "backdrop",
+								},
+							],
+						},
+					});
+					expect(result.childEntities).toMatchObject([
+						{
+							properties: {
+								images: [
+									{
+										type: "remote",
+										url: "https://image.tmdb.org/t/p/original/season.jpg",
+										purpose: "cover",
+									},
+								],
+							},
+							childEntities: [
+								{
+									properties: {
+										images: [
+											{
+												type: "remote",
+												url: "https://image.tmdb.org/t/p/original/still.jpg",
+												purpose: "still",
+											},
+										],
+									},
+								},
+							],
+						},
+					]);
+					return undefined;
+				}),
+			),
+		);
+	});
+	it("classifies localized show posters and episode stills", () => {
+		const host = makeHost((_method, url) =>
+			url.includes("/translations")
+				? httpSuccess({ translations: [{ iso_639_1: "fr", data: { name: "Série" } }] })
+				: httpSuccess({
+						posters: [{ iso_639_1: "fr", file_path: "/poster-fr.jpg" }],
+						stills: [{ iso_639_1: "fr", file_path: "/still-fr.jpg" }],
+					}),
+		);
+		return Effect.runPromise(
+			runSandboxTestScript(
+				translate,
+				{ externalId: "1", language: "fr", entitySchemaSlug: "show" },
+				host,
+				execution,
+			).pipe(
+				Effect.flatMap((showResult) => {
+					expect(showResult.properties).toEqual({
+						images: [
+							{
+								type: "remote",
+								url: "https://image.tmdb.org/t/p/original/poster-fr.jpg",
+								purpose: "cover",
+							},
+						],
+					});
+					return runSandboxTestScript(
+						translate,
+						{
+							externalId: "2",
+							language: "fr",
+							entitySchemaSlug: "show-episode",
+							properties: {
+								parentShowExternalId: "1",
+								seasonNumber: 1,
+								episodeNumber: 2,
+							},
+						},
+						host,
+						execution,
+					);
+				}),
+				Effect.map((episodeResult) => {
+					expect(episodeResult.properties).toEqual({
+						images: [
+							{
+								type: "remote",
+								url: "https://image.tmdb.org/t/p/original/still-fr.jpg",
+								purpose: "still",
+							},
+						],
+					});
+					return undefined;
+				}),
+			),
+		);
+	});
 	it("returns TMDB trending shows", () => {
 		const requestedPages: string[] = [];
 		const host = makeHost((_method, url) => {

@@ -2,8 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { mergeTranslationOverlay, type TranslationFields } from "./overlay-merge";
 
-const canonicalImages = [{ type: "remote", url: "https://example.com/canonical.jpg" }];
-const overlayImages = [{ type: "remote", url: "https://example.com/overlay.jpg" }];
+const canonicalImages = [
+	{ type: "remote", url: "https://example.com/canonical.jpg", purpose: "cover" },
+];
+const overlayImages = [
+	{ type: "remote", url: "https://example.com/overlay.jpg", purpose: "cover" },
+];
 
 const canonical: TranslationFields = {
 	name: "Fight Club",

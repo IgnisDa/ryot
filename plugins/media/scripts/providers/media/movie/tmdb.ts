@@ -139,12 +139,15 @@ export const translate = defineProvider({
 			const name = stringValue(translation?.["title"]);
 			const description = stringValue(translation?.["overview"]);
 			const imageUrl = getLocalizedImageUrl(imagesData, "posters", langCode);
-			const properties: Record<string, string | Array<{ type: "remote"; url: string }>> = {};
+			const properties: Record<
+				string,
+				string | Array<{ type: "remote"; url: string; purpose: "cover" }>
+			> = {};
 			if (description) {
 				properties["description"] = description;
 			}
 			if (imageUrl) {
-				properties["images"] = [{ type: "remote", url: imageUrl }];
+				properties["images"] = [{ type: "remote", url: imageUrl, purpose: "cover" }];
 			}
 			return {
 				...(name ? { name } : {}),
@@ -164,8 +167,8 @@ export const trending = {
 	run: (_input: unknown, host: TmdbHost) =>
 		Effect.flatMap(getTmdbAccessToken(host), (token) =>
 			fetchTrendingItems(host, "/trending/movie/day", canonicalLanguage, token, {
-				nameKeys: ["title", "original_title"],
 				providerSlug: manifest.slug,
+				nameKeys: ["title", "original_title"],
 			}).pipe(Effect.map((items) => ({ items }))),
 		),
 };
