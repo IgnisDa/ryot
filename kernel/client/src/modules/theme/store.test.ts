@@ -62,6 +62,7 @@ describe("theme store", () => {
 		expect(snapshot.tokens).toEqual(
 			Object.fromEntries(REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, `light-${name}`])),
 		);
+		expect(snapshot.tokens["nav-indicator"]).toBe("light-nav-indicator");
 	});
 
 	it("rejects a missing required computed token", () => {

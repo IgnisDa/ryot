@@ -107,6 +107,42 @@ describe("plugin navigation", () => {
 		expect(router.state.location.pathname).toBe("/fixture");
 	});
 
+	it("remembers an enabled workspace opened by its direct route", async () => {
+		const recorder = makeWorkspaceRecorder();
+		const entries: PluginClientCatalog = [
+			catalog[0],
+			{
+				...catalog[0],
+				sortOrder: 1,
+				name: "Journal",
+				slug: "journal",
+				pluginId: "plugin-2",
+				installationId: "installation-2",
+			},
+		];
+		mountView("/journal", entries, undefined, undefined, makeStorageStub("fixture", recorder));
+
+		await waitFor(() =>
+			expect(recorder.setCalls).toEqual([
+				{ slug: "journal", scope: { serverUrl: server, userId: authenticated.user.id } },
+			]),
+		);
+	});
+
+	it("does not remember a disabled workspace opened by its direct route", async () => {
+		const recorder = makeWorkspaceRecorder();
+		mountView(
+			"/fixture",
+			catalog.map((entry) => ({ ...entry, isDisabled: true })),
+			undefined,
+			undefined,
+			makeStorageStub(null, recorder),
+		);
+
+		await waitFor(() => expect(frame()).toBeTruthy());
+		expect(recorder.setCalls).toEqual([]);
+	});
+
 	it("keeps a disabled direct-route workspace as the sidebar identity", async () => {
 		mount(
 			"/fixture",
@@ -443,14 +479,14 @@ describe("desktop navigation", () => {
 		await screen.findByRole("button", { name: "Fixture workspace, fixture" });
 		fireEvent.click(screen.getByRole("button", { name: "Fixture workspace, fixture" }));
 
-		fireEvent.click(screen.getByRole("button", { name: "Switch to Journal workspace" }));
+		fireEvent.click(screen.getByRole("menuitemradio", { name: "Switch to Journal workspace" }));
 
 		await waitFor(() => expect(view.router.state.location.pathname).toBe("/journal"));
 		expect(recorder.setCalls).toEqual([
 			{ scope: { serverUrl: server, userId: authenticated.user.id }, slug: "journal" },
 		]);
 		expect(recorder.popupOpenWhenSet).toEqual([false]);
-		expect(screen.queryByRole("dialog")).toBeNull();
+		expect(screen.queryByRole("menu")).toBeNull();
 
 		view.router.history.back();
 		await waitFor(() => expect(view.router.state.location.pathname).toBe("/before"));

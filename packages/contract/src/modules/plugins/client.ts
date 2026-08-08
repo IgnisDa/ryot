@@ -34,6 +34,7 @@ export const REQUIRED_THEME_TOKEN_NAMES = [
 	"success-soft",
 	"accent-border",
 	"border-strong",
+	"nav-indicator",
 	"font-family-ui",
 	"font-family-display",
 	"r-sm",

@@ -86,7 +86,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 						frame.evaluate((current, initial) => current === initial, shellFrame);
 
 					const switcherTrigger = page.getByRole("button", { name: /workspace,/ });
-					const switcherMenu = page.getByRole("dialog", { name: "Workspaces" });
+					const switcherMenu = page.getByRole("menu", { name: "Workspaces" });
 					await switcherTrigger.click();
 					await switcherMenu.waitFor({ state: "visible" });
 					await switcherTrigger.click();
