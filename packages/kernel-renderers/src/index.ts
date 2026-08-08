@@ -9,6 +9,12 @@ const encoder = new TextEncoder();
 
 const SHARED_PATHS = ["client/display-value.tsx"] as const satisfies readonly KernelRendererPath[];
 
+const BROWSER_PATHS = [
+	"client/browser-states.tsx",
+	"client/browser-table.tsx",
+	"client/entity-browser-controller.tsx",
+] as const satisfies readonly KernelRendererPath[];
+
 const definition = (entry: KernelRendererPath, automaticEntityPresentations: boolean) =>
 	({
 		entry,
@@ -44,7 +50,7 @@ const renderer = (
 export const kernelEntityBrowserRenderer = renderer(
 	"Entity browser",
 	"client/entity-browser.tsx",
-	["client/browser-states.tsx", "client/browser-table.tsx"],
+	BROWSER_PATHS,
 	true,
 );
 
@@ -58,6 +64,6 @@ export const kernelResultsTableRenderer = renderer(
 export const kernelCollectionDetailRenderer = renderer(
 	"Collection detail",
 	"client/collection-detail.tsx",
-	[],
+	BROWSER_PATHS,
 	true,
 );

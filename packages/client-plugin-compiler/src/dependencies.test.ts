@@ -15,6 +15,7 @@ it("derives the exact trusted and neutral client import policies from the regist
 		"@ryot-app/client-sdk/react",
 		"@ryot-app/client-sdk/ryotql",
 		"@ryot-app/client-sdk/screen",
+		"@ryot-app/ryotql-recipes/collections",
 		"@ryot-app/ryotql-recipes/saved-views",
 		"@ryot-app/client-ui-sdk",
 		"@ryot-app/client-ui-sdk/icon",
