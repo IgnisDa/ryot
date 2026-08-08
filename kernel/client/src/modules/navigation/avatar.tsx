@@ -1,0 +1,36 @@
+import { useState } from "react";
+
+import { AppIcon } from "#/modules/navigation/app-icon";
+
+type AvatarProps = {
+	readonly name: string;
+	readonly image: string | null;
+	readonly className?: string;
+};
+
+export function Avatar({ name, image, className }: AvatarProps) {
+	const source = image?.trim() || null;
+	const [failedSource, setFailedSource] = useState<string | null>(null);
+	return (
+		<span
+			data-avatar="root"
+			className={[
+				"inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-2 text-text-muted",
+				className,
+			]
+				.filter(Boolean)
+				.join(" ")}
+		>
+			{source !== null && source !== failedSource ? (
+				<img
+					src={source}
+					alt={`${name}'s avatar`}
+					className="size-full object-cover"
+					onError={() => setFailedSource(source)}
+				/>
+			) : (
+				<AppIcon name="user" className="size-4" />
+			)}
+		</span>
+	);
+}

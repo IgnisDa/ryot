@@ -24,6 +24,7 @@
 		"@tanstack/react-router": "latest",
 		"better-auth": "1.7.0-rc.6",
 		"effect": "4.0.0-rc.111",
+		"lucide-react": "^1.37.0",
 		"react": "^19.2.0",
 		"react-dom": "^19.2.0",
 		"tailwindcss": "^4.1.18"
