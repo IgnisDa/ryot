@@ -5,7 +5,6 @@ import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
 import { useEffect, useState } from "react";
 import { data, Form, redirect, useFetcher, useLoaderData } from "react-router";
-import { toast } from "sonner";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import {
@@ -368,34 +367,15 @@ export default function Index() {
 				<Pricing
 					isLoggedIn
 					prices={loaderData.prices}
-					onClick={(priceId) => {
+					onClick={(priceId, productType, planType) => {
 						if (loaderData.paymentProvider === "polar") {
-							let planType = "";
-							let productType = "";
-							const prices = loaderData.prices;
-
-							for (const product of prices) {
-								const matchingPrice = product.prices.find(
-									(p) => p.priceId === priceId,
-								);
-								if (matchingPrice) {
-									productType = product.type;
-									planType = matchingPrice.name;
-									break;
-								}
-							}
-
-							if (productType && planType) {
-								const formData = new FormData();
-								formData.append("planType", planType);
-								formData.append("productType", productType);
-								fetcher.submit(formData, {
-									method: "POST",
-									action: withQuery(".", { intent: "checkoutPolar" }),
-								});
-							} else {
-								toast.error("Unable to determine product for checkout.");
-							}
+							const formData = new FormData();
+							formData.append("planType", planType);
+							formData.append("productType", productType);
+							fetcher.submit(formData, {
+								method: "POST",
+								action: withQuery(".", { intent: "checkoutPolar" }),
+							});
 							return;
 						}
 

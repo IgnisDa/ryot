@@ -7,8 +7,10 @@ import { GraphQLClient } from "graphql-request";
 import { createCookie } from "react-router";
 import { z } from "zod";
 import * as schema from "~/drizzle/schema.server";
-import { PlanTypes, ProductTypes } from "~/drizzle/schema.server";
-import { PRICING_METADATA } from "./pricing-config";
+import {
+	getActivePaymentCatalog,
+	getPaymentEnvironment,
+} from "./payment-catalog";
 
 // The number of days after a subscription expires that we allow access
 export const GRACE_PERIOD = 7;
@@ -21,9 +23,7 @@ const serverVariablesSchema = z.object({
 	DATABASE_URL: z.string(),
 	RYOT_BASE_URL: z.string(),
 	UNKEY_ROOT_KEY: z.string(),
-	PADDLE_PRICE_IDS: z.string(),
 	SERVER_SMTP_USER: z.string(),
-	POLAR_PRODUCT_IDS: z.string(),
 	SERVER_SMTP_SERVER: z.string(),
 	TURNSTILE_SITE_KEY: z.string(),
 	POLAR_ACCESS_TOKEN: z.string(),
@@ -53,58 +53,19 @@ export const getOauthCallbackUrl = memoize(
 	() => `${getServerVariables().FRONTEND_URL}/callback`,
 );
 
-const paddlePricesEnvSchema = z.array(
-	z.object({
-		type: z.enum(ProductTypes.enum),
-		prices: z.array(
-			z.object({
-				name: z.enum(PlanTypes.enum),
-				priceId: z.string().optional(),
-			}),
-		),
-	}),
-);
-
 export const getPrices = memoize(() => {
-	const envPrices = paddlePricesEnvSchema.parse(
-		JSON.parse(getServerVariables().PADDLE_PRICE_IDS),
+	const { PADDLE_SANDBOX } = getServerVariables();
+	return getActivePaymentCatalog(
+		"paddle",
+		getPaymentEnvironment(PADDLE_SANDBOX),
 	);
-
-	return envPrices.map((product) => ({
-		...product,
-		prices: product.prices.map((price) => ({
-			...price,
-			...PRICING_METADATA[product.type][price.name],
-		})),
-	}));
 });
 
 export type TPrices = ReturnType<typeof getPrices>;
 
-const polarProductsEnvSchema = z.array(
-	z.object({
-		type: z.enum(ProductTypes.enum),
-		prices: z.array(
-			z.object({
-				name: z.enum(PlanTypes.enum),
-				productId: z.string().optional(),
-			}),
-		),
-	}),
-);
-
 export const getPolarProducts = memoize(() => {
-	const productIds = getServerVariables().POLAR_PRODUCT_IDS;
-
-	const envProducts = polarProductsEnvSchema.parse(JSON.parse(productIds));
-
-	return envProducts.map((product) => ({
-		...product,
-		prices: product.prices.map((price) => ({
-			...price,
-			...PRICING_METADATA[product.type][price.name],
-		})),
-	}));
+	const { POLAR_SANDBOX } = getServerVariables();
+	return getActivePaymentCatalog("polar", getPaymentEnvironment(POLAR_SANDBOX));
 });
 
 export const getPolarAbPercent = memoize(() => {

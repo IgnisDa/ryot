@@ -13,12 +13,16 @@ import type { TPlanTypes } from "~/drizzle/schema.server";
 import * as schema from "~/drizzle/schema.server";
 import {
 	getDb,
-	getPrices,
 	getServerVariables,
 	getUnkeyClient,
 	IS_DEVELOPMENT_ENV,
 	websiteAuthCookie,
 } from "./config.server";
+import {
+	getActivePaymentCatalog,
+	getLegacyPaymentCatalog,
+	getPaymentEnvironment,
+} from "./payment-catalog";
 
 export const getClientIp = (request: Request): string | undefined => {
 	const cfConnectingIp = request.headers.get("cf-connecting-ip");
@@ -34,11 +38,90 @@ export const getClientIp = (request: Request): string | undefined => {
 };
 
 export const getProductAndPlanTypeByPriceId = (priceId: string) => {
-	for (const product of getPrices())
-		for (const price of product.prices)
-			if (price.priceId === priceId)
-				return { productType: product.type, planType: price.name };
+	const { PADDLE_SANDBOX } = getServerVariables();
+	const environment = getPaymentEnvironment(PADDLE_SANDBOX);
+	const catalogs = [
+		getActivePaymentCatalog("paddle", environment),
+		getLegacyPaymentCatalog("paddle", environment),
+	];
+
+	for (const catalog of catalogs)
+		for (const product of catalog)
+			for (const price of product.prices)
+				if (price.priceId === priceId)
+					return { productType: product.type, planType: price.name };
+
 	throw new Error("Price ID not found");
+};
+
+export const getProductAndPlanTypeByPolarIds = (
+	productId: string,
+	priceId?: string | null,
+) => {
+	const { POLAR_SANDBOX } = getServerVariables();
+	const environment = getPaymentEnvironment(POLAR_SANDBOX);
+	const catalogs = [
+		getActivePaymentCatalog("polar", environment),
+		getLegacyPaymentCatalog("polar", environment),
+	];
+
+	for (const catalog of catalogs)
+		for (const product of catalog)
+			for (const price of product.prices)
+				if (
+					price.productId === productId &&
+					(priceId == null || price.priceId === priceId)
+				)
+					return { productType: product.type, planType: price.name };
+
+	return null;
+};
+
+export const backfillActivePurchaseProviderIdentity = async (
+	customer: typeof schema.customers.$inferSelect,
+	activePurchase: typeof schema.customerPurchases.$inferSelect,
+) => {
+	if (activePurchase.cancelledOn) return activePurchase;
+
+	const hasProviderIdentity =
+		(activePurchase.paymentProvider === "paddle" &&
+			!!activePurchase.providerPriceId) ||
+		(activePurchase.paymentProvider === "polar" &&
+			!!activePurchase.providerProductId &&
+			!!activePurchase.providerPriceId);
+	if (hasProviderIdentity) return activePurchase;
+
+	const serverVariables = getServerVariables();
+	const environment = getPaymentEnvironment(
+		customer.paymentProvider === "paddle"
+			? serverVariables.PADDLE_SANDBOX
+			: serverVariables.POLAR_SANDBOX,
+	);
+	const product = getLegacyPaymentCatalog(
+		customer.paymentProvider,
+		environment,
+	).find((entry) => entry.type === activePurchase.productType);
+	const price = product?.prices.find(
+		(entry) => entry.name === activePurchase.planType,
+	);
+	if (!price?.priceId) return activePurchase;
+	if (customer.paymentProvider === "polar" && !price.productId)
+		return activePurchase;
+
+	const providerIdentity = {
+		paymentProvider: customer.paymentProvider,
+		providerPriceId: price.priceId,
+		...(customer.paymentProvider === "polar"
+			? { providerProductId: price.productId }
+			: {}),
+	};
+	const [updatedPurchase] = await getDb()
+		.update(schema.customerPurchases)
+		.set(providerIdentity)
+		.where(eq(schema.customerPurchases.id, activePurchase.id))
+		.returning();
+
+	return updatedPurchase ?? activePurchase;
 };
 
 export const oauthConfig = async () => {
@@ -135,20 +218,25 @@ export const getCustomerWithActivePurchase = async (request: Request) => {
 			isNull(schema.customerPurchases.cancelledOn),
 		),
 	});
+	const activePurchaseWithProviderIdentity = activePurchase
+		? await backfillActivePurchaseProviderIdentity(customer, activePurchase)
+		: null;
 
 	return {
 		...customer,
-		activePurchase,
-		planType: activePurchase?.planType || null,
-		hasCancelled: !!activePurchase?.cancelledOn,
-		productType: activePurchase?.productType || null,
+		activePurchase: activePurchaseWithProviderIdentity,
+		planType: activePurchaseWithProviderIdentity?.planType || null,
+		hasCancelled: !!activePurchaseWithProviderIdentity?.cancelledOn,
+		productType: activePurchaseWithProviderIdentity?.productType || null,
 		ryotUserId:
-			activePurchase?.productType === "cloud" ? customer.ryotUserId : null,
-		renewOn: activePurchase?.renewOn
-			? formatDateToNaiveDate(activePurchase.renewOn)
+			activePurchaseWithProviderIdentity?.productType === "cloud"
+				? customer.ryotUserId
+				: null,
+		renewOn: activePurchaseWithProviderIdentity?.renewOn
+			? formatDateToNaiveDate(activePurchaseWithProviderIdentity.renewOn)
 			: null,
 		unkeyKeyId:
-			activePurchase?.productType === "self_hosted"
+			activePurchaseWithProviderIdentity?.productType === "self_hosted"
 				? customer.unkeyKeyId
 				: null,
 	};

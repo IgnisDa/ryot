@@ -10,6 +10,7 @@ import {
 import { useState } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
+import type { TPlanTypes, TProductTypes } from "~/drizzle/schema.server";
 import type { TPrices } from "../config.server";
 import { getIcon, getIconBg, isPopular } from "./pricing-utils";
 import { Badge } from "./ui/badge";
@@ -19,14 +20,31 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 export default function Pricing(props: {
 	prices: TPrices;
 	isLoggedIn?: boolean;
-	onClick?: (priceId: string) => void;
+	onClick?: (
+		priceId: string,
+		productType: TProductTypes,
+		planType: TPlanTypes,
+	) => void;
 }) {
 	const [selectedProductTypeIndex, setSelectedProductTypeIndex] = useState(0);
 	const selectedProductType = props.prices[selectedProductTypeIndex];
 
-	const isThreeColumn = selectedProductType.prices.length === 3;
+	const priceCount = selectedProductType.prices.length;
 	const isCloudType = selectedProductType.type === "cloud";
 	const isSelfHosted = selectedProductType.type === "self_hosted";
+	const isLargeCardLayout = priceCount < 4;
+	const monthlyAmount = selectedProductType.prices.find(
+		(price) => price.name === "monthly",
+	)?.amount;
+	const yearlyAmount = selectedProductType.prices.find(
+		(price) => price.name === "yearly",
+	)?.amount;
+	const yearlySavingsPercentage =
+		monthlyAmount && yearlyAmount
+			? Math.round(
+					((monthlyAmount * 12 - yearlyAmount) / (monthlyAmount * 12)) * 100,
+				)
+			: 0;
 
 	const getProductTypeButtonClass = (index: number) =>
 		cn(
@@ -100,9 +118,11 @@ export default function Pricing(props: {
 					<div
 						className={cn(
 							"grid gap-6 mx-auto",
-							isThreeColumn
-								? "md:grid-cols-3 max-w-5xl"
-								: "md:grid-cols-4 max-w-6xl",
+							priceCount === 2
+								? "md:grid-cols-2 max-w-4xl"
+								: priceCount === 3
+									? "md:grid-cols-3 max-w-5xl"
+									: "md:grid-cols-4 max-w-6xl",
 						)}
 					>
 						{selectedProductType.prices.map((p) => (
@@ -126,23 +146,23 @@ export default function Pricing(props: {
 								<CardHeader
 									className={cn(
 										"text-center pt-8",
-										isThreeColumn ? "pb-6" : "pb-4",
+										isLargeCardLayout ? "pb-6" : "pb-4",
 									)}
 								>
 									<div
 										className={cn(
-											isThreeColumn ? "w-12 h-12" : "w-10 h-10",
+											isLargeCardLayout ? "w-12 h-12" : "w-10 h-10",
 											getIconBg(p.name),
 											"rounded-full flex items-center justify-center mx-auto",
-											isThreeColumn ? "mb-4" : "mb-3",
+											isLargeCardLayout ? "mb-4" : "mb-3",
 										)}
 									>
 										{getIcon(p.name)}
 									</div>
 									<CardTitle
 										className={cn(
-											isThreeColumn ? "text-2xl" : "text-lg",
-											isThreeColumn ? "mb-4" : "mb-3",
+											isLargeCardLayout ? "text-2xl" : "text-lg",
+											isLargeCardLayout ? "mb-4" : "mb-3",
 										)}
 									>
 										{changeCase(p.name)}
@@ -151,12 +171,12 @@ export default function Pricing(props: {
 										<div
 											className={cn(
 												"flex items-center justify-center",
-												isThreeColumn && "mb-2",
+												isLargeCardLayout && "mb-2",
 											)}
 										>
 											<span
 												className={cn(
-													isThreeColumn ? "text-4xl" : "text-2xl",
+													isLargeCardLayout ? "text-4xl" : "text-2xl",
 													"font-bold text-foreground",
 												)}
 											>
@@ -178,28 +198,29 @@ export default function Pricing(props: {
 											Community Edition
 										</div>
 									)}
-									{p.trial && (
+									{(p.trial ||
+										(isPopular(p.name) && yearlySavingsPercentage > 0)) && (
 										<div
 											className={cn(
-												isThreeColumn ? "text-sm" : "text-xs",
+												isLargeCardLayout ? "text-sm" : "text-xs",
 												"text-muted-foreground",
 											)}
 										>
-											{isPopular(p.name) && (
+											{isPopular(p.name) && yearlySavingsPercentage > 0 && (
 												<>
 													<span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">
-														Save 17%
+														Save {yearlySavingsPercentage}%
 													</span>
-													<br />
+													{p.trial && <br />}
 												</>
 											)}
-											with a {p.trial} days trial
+											{p.trial ? `with a ${p.trial} days trial` : null}
 										</div>
 									)}
 									{p.name.toLowerCase() === "lifetime" && (
 										<div
 											className={cn(
-												isThreeColumn ? "text-sm" : "text-xs",
+												isLargeCardLayout ? "text-sm" : "text-xs",
 												"text-muted-foreground",
 											)}
 										>
@@ -220,7 +241,11 @@ export default function Pricing(props: {
 										onClick={(e) => {
 											if (props.onClick && p.priceId) {
 												e.preventDefault();
-												props.onClick(p.priceId);
+												props.onClick(
+													p.priceId,
+													selectedProductType.type,
+													p.name,
+												);
 											}
 										}}
 									>
@@ -228,7 +253,7 @@ export default function Pricing(props: {
 											variant={isPopular(p.name) ? "default" : "outline"}
 											className={cn(
 												"w-full",
-												!isThreeColumn && "text-sm",
+												!isLargeCardLayout && "text-sm",
 												isPopular(p.name) &&
 													"bg-linear-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary",
 											)}

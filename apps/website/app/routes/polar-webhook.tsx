@@ -1,12 +1,11 @@
 import { validateEvent } from "@polar-sh/sdk/webhooks";
 import { data } from "react-router";
 import { match } from "ts-pattern";
-import type { TPlanTypes, TProductTypes } from "~/drizzle/schema.server";
 import {
 	revokeCancellation,
 	revokePurchaseInProgress,
 } from "~/lib/caches.server";
-import { getPolarProducts, getPolarWebhookSecret } from "~/lib/config.server";
+import { getPolarWebhookSecret } from "~/lib/config.server";
 import {
 	findCustomerById,
 	findCustomerByPolarId,
@@ -16,6 +15,7 @@ import {
 	handlePurchaseOrRenewal,
 	revokePurchase,
 } from "~/lib/provisioning.server";
+import { getProductAndPlanTypeByPolarIds } from "~/lib/utilities.server";
 import type { Route } from "./+types/polar-webhook";
 
 async function findCustomer(
@@ -28,20 +28,6 @@ async function findCustomer(
 		externalCustomerId,
 		findCustomerById,
 	);
-}
-
-function findPlanAndProductType(
-	productId: string,
-): { planType: TPlanTypes; productType: TProductTypes } | null {
-	const products = getPolarProducts();
-
-	for (const product of products) {
-		const matchingPrice = product.prices.find((p) => p.productId === productId);
-		if (matchingPrice)
-			return { productType: product.type, planType: matchingPrice.name };
-	}
-
-	return null;
 }
 
 async function handleOrderPaid(
@@ -67,7 +53,8 @@ async function handleOrderPaid(
 	const productId = order.productId;
 	if (!productId) return { error: "Product ID not found in order" };
 
-	const planAndProduct = findPlanAndProductType(productId);
+	const priceId = order.items[0]?.productPriceId;
+	const planAndProduct = getProductAndPlanTypeByPolarIds(productId, priceId);
 	if (!planAndProduct)
 		return { error: `No matching product found for product ID: ${productId}` };
 
@@ -78,6 +65,11 @@ async function handleOrderPaid(
 		planType,
 		productType,
 		polarCustomerId,
+		{
+			paymentProvider: "polar",
+			providerProductId: productId,
+			providerPriceId: priceId ?? undefined,
+		},
 	);
 	revokePurchaseInProgress(customer.id);
 

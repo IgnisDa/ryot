@@ -73,6 +73,9 @@ export const customerPurchases = pgTable(
 		planType: planTypes("plan_type").notNull(),
 		productType: productTypes("product_type").notNull(),
 		id: uuid("id").notNull().primaryKey().defaultRandom(),
+		paymentProvider: paymentProviders("payment_provider"),
+		providerPriceId: text("provider_price_id"),
+		providerProductId: text("provider_product_id"),
 		renewOn: timestamp("renew_on", { withTimezone: true }),
 		cancelledOn: timestamp("cancelled_on", { withTimezone: true }),
 		customerId: uuid("customer_id")
@@ -88,6 +91,12 @@ export const customerPurchases = pgTable(
 	(table) => ({
 		customerIdIdx: index("customer_purchase_customer_id_idx").on(
 			table.customerId,
+		),
+		providerLookupIdx: index("customer_purchase_provider_lookup_idx").on(
+			table.paymentProvider,
+			table.providerPriceId,
+			table.providerProductId,
+			table.cancelledOn,
 		),
 	}),
 );

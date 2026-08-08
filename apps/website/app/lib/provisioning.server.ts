@@ -11,6 +11,7 @@ import { and, eq, type InferSelectModel, isNull } from "drizzle-orm";
 import {
 	customerPurchases,
 	customers,
+	type TPaymentProviders,
 	type TPlanTypes,
 	type TProductTypes,
 } from "~/drizzle/schema.server";
@@ -22,12 +23,19 @@ import {
 	getUnkeyClient,
 } from "./config.server";
 import {
+	backfillActivePurchaseProviderIdentity,
 	calculateRenewalDate,
 	createUnkeyKey,
 	sendEmail,
 } from "./utilities.server";
 
 type Customer = InferSelectModel<typeof customers>;
+
+export type PaymentProviderIdentity = {
+	providerPriceId?: string;
+	providerProductId?: string;
+	paymentProvider: TPaymentProviders;
+};
 
 type CloudAuthDetails = Extract<
 	NonNullable<PurchaseCompleteEmailProps["details"]>,
@@ -159,7 +167,8 @@ export async function provisionNewPurchase(
 	customer: Customer,
 	planType: TPlanTypes,
 	productType: TProductTypes,
-	paymentProviderCustomerId?: string,
+	paymentProviderCustomerId: string,
+	providerIdentity: PaymentProviderIdentity,
 ) {
 	const { ryotUserId, unkeyKeyId, details } =
 		productType === "cloud"
@@ -178,12 +187,15 @@ export async function provisionNewPurchase(
 		subject: PurchaseCompleteEmail.subject,
 	});
 
-	await getDb().insert(customerPurchases).values({
-		planType,
-		productType,
-		customerId: customer.id,
-		renewOn: renewalDate?.toDate(),
-	});
+	await getDb()
+		.insert(customerPurchases)
+		.values({
+			planType,
+			productType,
+			customerId: customer.id,
+			...providerIdentity,
+			renewOn: renewalDate?.toDate(),
+		});
 
 	const updateData: {
 		ryotUserId?: string | null;
@@ -221,6 +233,7 @@ export async function provisionRenewal(
 	planType: TPlanTypes,
 	productType: TProductTypes,
 	activePurchase: InferSelectModel<typeof customerPurchases>,
+	providerIdentity: PaymentProviderIdentity,
 ) {
 	const renewalDate = calculateRenewalDate(planType);
 	await getDb()
@@ -228,6 +241,7 @@ export async function provisionRenewal(
 		.set({
 			planType,
 			productType,
+			...providerIdentity,
 			updatedOn: new Date(),
 			renewOn: renewalDate?.toDate(),
 		})
@@ -295,13 +309,16 @@ export async function revokePurchase(customer: Customer) {
 	}
 }
 
-export async function getActivePurchase(customerId: string) {
-	return await getDb().query.customerPurchases.findFirst({
+export async function getActivePurchase(customer: Customer) {
+	const activePurchase = await getDb().query.customerPurchases.findFirst({
 		where: and(
-			eq(customerPurchases.customerId, customerId),
+			eq(customerPurchases.customerId, customer.id),
 			isNull(customerPurchases.cancelledOn),
 		),
 	});
+	if (!activePurchase) return null;
+
+	return backfillActivePurchaseProviderIdentity(customer, activePurchase);
 }
 
 export async function handlePurchaseOrRenewal(
@@ -309,20 +326,23 @@ export async function handlePurchaseOrRenewal(
 	planType: TPlanTypes,
 	productType: TProductTypes,
 	paymentProviderCustomerId: string,
+	providerIdentity: PaymentProviderIdentity,
 ) {
-	const activePurchase = await getActivePurchase(customer.id);
+	const activePurchase = await getActivePurchase(customer);
 
 	if (!activePurchase) {
 		console.log("Customer purchased plan:", {
 			planType,
 			productType,
 			paymentProviderCustomerId,
+			providerIdentity,
 		});
 		await provisionNewPurchase(
 			customer,
 			planType,
 			productType,
 			paymentProviderCustomerId,
+			providerIdentity,
 		);
 	} else {
 		console.log("Customer renewed plan:", {
@@ -330,6 +350,12 @@ export async function handlePurchaseOrRenewal(
 			productType,
 			paymentProviderCustomerId,
 		});
-		await provisionRenewal(customer, planType, productType, activePurchase);
+		await provisionRenewal(
+			customer,
+			planType,
+			productType,
+			activePurchase,
+			providerIdentity,
+		);
 	}
 }

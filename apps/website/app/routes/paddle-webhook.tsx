@@ -70,6 +70,10 @@ async function handleTransactionCompleted(
 		planType,
 		productType,
 		paddleCustomerId,
+		{
+			providerPriceId: priceId,
+			paymentProvider: "paddle",
+		},
 	);
 	revokePurchaseInProgress(customer.id);
 
