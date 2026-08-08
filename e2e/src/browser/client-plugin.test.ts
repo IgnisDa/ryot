@@ -258,6 +258,25 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 					const artifact = await readArtifactSession(frame, apiUrl);
 					observedArtifacts.push(artifact);
 					await expectVisibleText(home, FIXTURE_CLIENT_REVISION_MARKERS.A);
+					const typography = await home.evaluate(async (element) => {
+						const heading = element.querySelector("h1");
+						if (!heading) {
+							throw new Error("Fixture plugin heading is missing");
+						}
+						const uiFaces = await document.fonts.load('16px "Outfit Variable"', "Fixture");
+						const displayFaces = await document.fonts.load('16px "Lora Variable"', "Fixture");
+						return {
+							uiFamily: getComputedStyle(element).fontFamily,
+							displayFamily: getComputedStyle(heading).fontFamily,
+							uiLoaded: uiFaces.length > 0 && uiFaces.every(({ status }) => status === "loaded"),
+							displayLoaded:
+								displayFaces.length > 0 && displayFaces.every(({ status }) => status === "loaded"),
+						};
+					});
+					expect(typography.uiFamily).toContain("Outfit Variable");
+					expect(typography.displayFamily).toContain("Lora Variable");
+					expect(typography.uiLoaded).toBe(true);
+					expect(typography.displayLoaded).toBe(true);
 					expect(
 						await fixture.getByRole("region", { name: "Theme snapshot" }).getAttribute("class"),
 					).toBe("w-full max-w-md rounded-lg border border-border bg-surface p-4");

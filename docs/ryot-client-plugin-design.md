@@ -516,7 +516,7 @@ font-display
 
 The kernel supplies the current theme to the plugin runtime. The plugin runtime applies corresponding CSS variables inside the iframe.
 
-The font-family tokens name the compiler-owned `Outfit Variable` and `Lora Variable` faces. Their `@font-face` declarations and content-addressed files are emitted into every plugin artifact, because an iframe cannot inherit the kernel document's font declarations. Font availability therefore does not depend on device-installed fonts or kernel CSS.
+The font-family tokens name the compiler-owned `Outfit Variable` and `Lora Variable` faces. Their `@font-face` declarations and content-addressed files are emitted into every plugin artifact, because an iframe cannot inherit the kernel document's font declarations. The compiler also sets the artifact body's `font-family` to `var(--font-family-ui)` as its default typography; plugins use `font-display` where display typography is required. Font availability and default typography therefore do not depend on device-installed fonts or kernel CSS.
 
 Theme changes do not require recompiling a plugin.
 
