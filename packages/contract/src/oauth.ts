@@ -5,6 +5,10 @@ import { strictStruct } from "./schema/utils";
 export const OAUTH_WEB_CLIENT_ID = "ryot-web";
 export const OAUTH_NATIVE_CLIENT_ID = "ryot-native";
 export const OAUTH_CLIENT_IDS = [OAUTH_WEB_CLIENT_ID, OAUTH_NATIVE_CLIENT_ID] as const;
+export const OAUTH_NATIVE_APPLICATION_IDS = ["io.ryot.app", "io.ryot.app.dev"] as const;
+
+export const NativeOAuthApplicationId = Schema.Literals(OAUTH_NATIVE_APPLICATION_IDS);
+export type NativeOAuthApplicationId = typeof NativeOAuthApplicationId.Type;
 
 export const OAUTH_API_SCOPE = "ryot:api";
 export const OAUTH_SCOPES = [
@@ -31,14 +35,15 @@ export const OAUTH_USERINFO_PATH = "/api/auth/oauth2/userinfo";
 export const OAUTH_AUTHORIZE_PATH = "/api/auth/oauth2/authorize";
 export const OAUTH_END_SESSION_PATH = "/api/auth/oauth2/end-session";
 
-export const OAUTH_NATIVE_CALLBACK_URIS = [
-	`io.ryot.app:${OAUTH_CALLBACK_PATH}`,
-	`io.ryot.app.dev:${OAUTH_CALLBACK_PATH}`,
-] as const;
-export const OAUTH_NATIVE_LOGOUT_CALLBACK_URIS = [
-	`io.ryot.app:${OAUTH_LOGOUT_CALLBACK_PATH}`,
-	`io.ryot.app.dev:${OAUTH_LOGOUT_CALLBACK_PATH}`,
-] as const;
+export const getNativeOAuthCallbackUri = (applicationId: NativeOAuthApplicationId) =>
+	`${applicationId}:${OAUTH_CALLBACK_PATH}`;
+export const getNativeOAuthLogoutCallbackUri = (applicationId: NativeOAuthApplicationId) =>
+	`${applicationId}:${OAUTH_LOGOUT_CALLBACK_PATH}`;
+export const OAUTH_NATIVE_CALLBACK_URIS =
+	OAUTH_NATIVE_APPLICATION_IDS.map(getNativeOAuthCallbackUri);
+export const OAUTH_NATIVE_LOGOUT_CALLBACK_URIS = OAUTH_NATIVE_APPLICATION_IDS.map(
+	getNativeOAuthLogoutCallbackUri,
+);
 
 export const isLoopbackOrigin = (origin: string) => {
 	const { hostname } = new URL(origin);

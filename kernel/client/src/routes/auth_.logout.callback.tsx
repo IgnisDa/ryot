@@ -3,19 +3,19 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect } from "effect";
 
 import { decodeServerOrigin } from "#/api/origin";
+import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { OAuthTokenService } from "#/modules/auth/token-service";
-import { isNativePlatform } from "#/modules/navigation/native-navigation";
 import { ServerService } from "#/modules/server/service";
 
 export const Route = createFileRoute("/auth_/logout/callback")({
 	beforeLoad: async ({ context }) => {
 		await context.runtime.runPromise(
 			Effect.gen(function* () {
-				const isNative = isNativePlatform();
-				const selected = isNative
+				const runtimeClient = yield* RuntimeOAuthClientService;
+				const selected = runtimeClient.isNative
 					? yield* Effect.flatMap(ServerService, (service) => service.selected)
 					: decodeServerOrigin(window.location.origin);
-				if (isNative) {
+				if (runtimeClient.isNative) {
 					yield* Effect.tryPromise(() => Browser.close()).pipe(Effect.catch(() => Effect.void));
 				}
 				if (selected) {

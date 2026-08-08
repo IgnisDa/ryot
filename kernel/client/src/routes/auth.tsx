@@ -106,7 +106,7 @@ function OAuthLaunch() {
 						>
 							Try again
 						</Button>
-						{plan.isNative && (
+						{plan.client.nativeApplicationId !== null && (
 							<Button type="button" variant="text" onClick={() => void changeServer()}>
 								Change server
 							</Button>
