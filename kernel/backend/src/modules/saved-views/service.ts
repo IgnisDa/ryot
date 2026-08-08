@@ -17,6 +17,7 @@ import { trimToNull } from "#lib/shared/validation";
 import { ClientPagesRepository } from "#modules/client-pages/repository";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { PluginCatalogInvalidator } from "#modules/plugins/catalog-events";
+import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
 import { PluginDefinitionMaterializer } from "#modules/plugins/definition-materializer";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -31,6 +32,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 		const pluginRuntime = yield* PluginRuntimeResolver;
 		const definitions = yield* DefinitionRepository;
 		const invalidator = yield* PluginCatalogInvalidator;
+		const surfaces = yield* ClientSurfaceMaterializer;
 		const installations = yield* PluginInstallationRepository;
 		const resolvePluginInstallation = Effect.fn(function* (
 			userId: CurrentUserValue["id"],
@@ -125,8 +127,15 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			) {
 				return yield* new SavedViewBadRequest({ reason: { code: "duplicate-name" } });
 			}
+			yield* validateRendererSettings(
+				user.id,
+				payload.renderer,
+				payload.settings,
+				payload.dataSources,
+			);
+			yield* surfaces.materializeRenderer(user.id, payload.renderer);
 			const database = yield* Database;
-			return yield* mapDatabaseErrors(
+			const created = yield* mapDatabaseErrors(
 				database.transaction((transaction) =>
 					Effect.gen(function* () {
 						const rendererId = yield* validateRendererSettings(
@@ -135,7 +144,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 							payload.settings,
 							payload.dataSources,
 						);
-						const created = yield* repository.create(user.id, {
+						const row = yield* repository.create(user.id, {
 							slug,
 							name,
 							userId: user.id,
@@ -148,12 +157,12 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 								? yield* resolvePluginInstallation(user.id, payload.workspacePluginSlug)
 								: null,
 						});
-						return (
-							created ?? (yield* new SavedViewBadRequest({ reason: { code: "duplicate-name" } }))
-						);
+						return row ?? (yield* new SavedViewBadRequest({ reason: { code: "duplicate-name" } }));
 					}).pipe(Effect.provideService(Database, transaction)),
 				),
 			);
+			yield* invalidator.user(user.id);
+			return created;
 		});
 
 		const updateUnlocked = Effect.fn(function* (
@@ -229,8 +238,22 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			viewSlug: string,
 			payload: UpdateSavedViewBody & { sortOrder?: number | undefined },
 		) {
+			const previous = yield* requireSavedView(user, viewSlug);
+			const nextRenderer = payload.renderer ?? previous.renderer;
+			if (
+				!payload.isDisabled &&
+				(previous.isDisabled || !Bun.deepEquals(nextRenderer, previous.renderer))
+			) {
+				yield* validateRendererSettings(
+					user.id,
+					nextRenderer,
+					payload.settings ?? previous.settings,
+					payload.dataSources === undefined ? previous.dataSources : payload.dataSources,
+				);
+				yield* surfaces.materializeRenderer(user.id, nextRenderer);
+			}
 			const database = yield* Database;
-			const updated = yield* mapDatabaseErrors(
+			const { updated, reenabled, rendererChanged } = yield* mapDatabaseErrors(
 				database.transaction((transaction) =>
 					Effect.gen(function* () {
 						const current = yield* repository.lockBySlug(user.id, viewSlug);
@@ -239,15 +262,26 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 								reason: { viewSlug, code: "saved-view-not-found" },
 							});
 						}
+						if (
+							current.isDisabled !== previous.isDisabled ||
+							!Bun.deepEquals(current.renderer, previous.renderer)
+						) {
+							return yield* new SavedViewBadRequest({
+								reason: { code: "renderer-kind-unavailable" },
+							});
+						}
 						const result = yield* updateUnlocked(user, viewSlug, payload, current);
+						const changedRenderer =
+							payload.renderer !== undefined && !Bun.deepEquals(payload.renderer, current.renderer);
+						const becameEnabled = current.isDisabled && !payload.isDisabled;
 						if (payload.isDisabled) {
 							yield* installations.clearHomeSavedViewReferences(user.id, current.id);
 						}
-						return result;
+						return { updated: result, reenabled: becameEnabled, rendererChanged: changedRenderer };
 					}).pipe(Effect.provideService(Database, transaction)),
 				),
 			);
-			if (payload.isDisabled) {
+			if (rendererChanged || reenabled || (payload.isDisabled && !previous.isDisabled)) {
 				yield* invalidator.user(user.id);
 			}
 			return updated;

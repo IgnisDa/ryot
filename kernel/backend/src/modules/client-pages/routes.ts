@@ -1,12 +1,13 @@
 import { CurrentUser } from "@ryot-app/contract/auth-middleware";
 import { AppContract } from "@ryot-app/contract/contract";
 import { dieOnDbError } from "@ryot-app/contract/errors";
-import { Effect } from "effect";
+import { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
+import { Effect, Schema } from "effect";
 import { HttpServerResponse } from "effect/unstable/http";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 
+import { ClientPageArtifactGrantService } from "./grant-service";
 import { ClientPagesService } from "./service";
-import { ClientPageSessionService } from "./session-service";
 
 export const ClientPageArtifactsRoutesLive = HttpApiBuilder.group(
 	AppContract,
@@ -14,15 +15,15 @@ export const ClientPageArtifactsRoutesLive = HttpApiBuilder.group(
 	(handlers) =>
 		handlers.handleRaw("file", ({ params }) =>
 			Effect.gen(function* () {
-				const sessions = yield* ClientPageSessionService;
-				const file = yield* sessions.findFile(params.token, params.fileName).pipe(dieOnDbError);
+				const grants = yield* ClientPageArtifactGrantService;
+				const file = yield* grants.findFile(params.token, params.fileName).pipe(dieOnDbError);
 				return HttpServerResponse.uint8Array(file.contents, {
 					contentType: file.contentType,
 					headers: {
-						"cache-control": "no-store",
 						"referrer-policy": "no-referrer",
 						"access-control-allow-origin": "*",
 						"x-content-type-options": "nosniff",
+						"cache-control": "private, max-age=31536000, immutable",
 						...(file.contentType.startsWith("text/html")
 							? { "content-security-policy": "sandbox allow-scripts" }
 							: {}),
@@ -67,31 +68,26 @@ export const ClientPagesRoutesLive = HttpApiBuilder.group(AppContract, "clientPa
 		.handle("prepare", ({ payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
-				return yield* (yield* ClientPagesService).prepare(user, payload.target).pipe(dieOnDbError);
+				const prepared = yield* (yield* ClientPagesService)
+					.prepare(user, payload.target)
+					.pipe(dieOnDbError);
+				return yield* Schema.decodeUnknownEffect(PreparedClientPage)(prepared).pipe(Effect.orDie);
 			}),
 		)
-		.handle("createSession", ({ payload }) =>
+		.handle("checkFreshness", ({ payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
-				return yield* (yield* ClientPageSessionService)
-					.create(user.id, payload.identity)
-					.pipe(dieOnDbError);
-			}),
-		)
-		.handle("renewSession", ({ params }) =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				return yield* (yield* ClientPageSessionService)
-					.renew(user.id, params.sessionId)
-					.pipe(dieOnDbError);
-			}),
-		)
-		.handle("revokeSession", ({ params }) =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				yield* (yield* ClientPageSessionService)
-					.revoke(user.id, params.sessionId)
-					.pipe(dieOnDbError);
+				return {
+					current: yield* (yield* ClientPagesService)
+						.isIdentityCurrent(user.id, payload.identity)
+						.pipe(
+							Effect.catchTags({
+								ClientRendererBadRequest: () => Effect.succeed(false),
+								ClientPagePreparationError: () => Effect.succeed(false),
+							}),
+							dieOnDbError,
+						),
+				};
 			}),
 		),
 );

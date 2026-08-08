@@ -11,7 +11,7 @@ import {
 import {
 	ClientRendererBadRequest,
 	type ClientPageCodeContributor,
-	type ClientPageGraphIdentity,
+	type ClientPageArtifactIdentity,
 	type ClientRendererDefinition,
 } from "@ryot-app/contract/modules/client-pages/schemas";
 import { comparePluginRoutePaths } from "@ryot-app/contract/modules/plugins/manifest";
@@ -70,16 +70,17 @@ const normalizeRelative = (from: string, specifier: string) => {
 };
 
 export type ResolvedClientPageGraph = {
-	readonly graphHash: string;
-	readonly identity: ClientPageGraphIdentity;
+	readonly artifactKey: string;
+	readonly identity: ClientPageArtifactIdentity;
 	readonly compilerInput: ClientPluginCompilerGraphInput;
 	readonly contributors: readonly ClientPageCodeContributor[];
 };
+export type ResolvedClientPageArtifactGraph = Omit<ResolvedClientPageGraph, "compilerInput">;
 
 type ClientPageGraphCommon<E, R> = {
 	readonly userId: UserId;
 	readonly plugins: ReadonlyArray<AvailablePlugin>;
-	readonly loadPluginFiles: (
+	readonly loadPluginFiles?: (
 		plugin: AvailablePlugin,
 	) => Effect.Effect<Readonly<Record<string, Uint8Array>> | null, E, R>;
 };
@@ -106,11 +107,13 @@ type PluginClientPageGraphInput<E, R> = ClientPageGraphCommon<E, R> & {
 	readonly application: "page" | "plugin-route";
 };
 
-export const resolveClientPageGraph = <E, R>(
-	input:
-		| RendererClientPageGraphInput<E, R>
-		| KernelRendererClientPageGraphInput<E, R>
-		| PluginClientPageGraphInput<E, R>,
+type ClientPageGraphInput<E, R> =
+	| RendererClientPageGraphInput<E, R>
+	| KernelRendererClientPageGraphInput<E, R>
+	| PluginClientPageGraphInput<E, R>;
+
+const resolveGraph = <E, R>(
+	input: ClientPageGraphInput<E, R>,
 ): Effect.Effect<ResolvedClientPageGraph, ClientRendererBadRequest | E, R> =>
 	Effect.gen(function* () {
 		const isRenderer = "definition" in input;
@@ -125,6 +128,8 @@ export const resolveClientPageGraph = <E, R>(
 		const included = new Map<string, AvailablePlugin>();
 		const files = new Map<string, Readonly<Record<string, Uint8Array>>>();
 		const dependencyOrder: string[] = [];
+		const selectedExports = new Set<string>();
+		const primarySlug = isRenderer ? null : input.plugin.slug;
 
 		const includePlugin = (slug: string): Effect.Effect<void, ClientRendererBadRequest | E, R> =>
 			Effect.gen(function* () {
@@ -136,13 +141,20 @@ export const resolveClientPageGraph = <E, R>(
 					return yield* dependencyUnavailable(slug);
 				}
 				included.set(slug, plugin);
-				const loaded = yield* input.loadPluginFiles(plugin);
-				if (!loaded) {
-					return yield* dependencyUnavailable(slug);
+				if (input.loadPluginFiles) {
+					const loaded = yield* input.loadPluginFiles(plugin);
+					if (!loaded) {
+						return yield* dependencyUnavailable(slug);
+					}
+					files.set(slug, sourceFiles(loaded));
 				}
-				files.set(slug, sourceFiles(loaded));
 				for (const dependency of sortBy(plugin.manifest.client.pluginDependencies ?? [])) {
 					yield* includePlugin(dependency);
+				}
+				if (slug !== primarySlug) {
+					for (const exportName of Object.keys(plugin.manifest.client.exports ?? {})) {
+						selectedExports.add(`@ryot-app/plugins/${slug}/${exportName}`);
+					}
 				}
 				dependencyOrder.push(slug);
 				return yield* Effect.void;
@@ -161,7 +173,6 @@ export const resolveClientPageGraph = <E, R>(
 		}
 
 		const visited = new Set<string>();
-		const selectedExports = new Set<string>();
 		const routeRegistry =
 			!isRenderer && input.application === "plugin-route"
 				? (() => {
@@ -218,6 +229,15 @@ export const resolveClientPageGraph = <E, R>(
 						input.plugin.manifest.client?.exports?.[name]?.automaticEntityPresentations ?? false,
 				);
 		}
+		if (!automaticEntityPresentations) {
+			automaticEntityPresentations = [...included.values()].some(
+				(plugin) =>
+					plugin.slug !== primarySlug &&
+					Object.values(plugin.manifest.client?.exports ?? {}).some(
+						(declaration) => declaration.automaticEntityPresentations,
+					),
+			);
+		}
 
 		const scan = (
 			owner: { readonly slug: string | null; readonly dependencies: readonly string[] },
@@ -249,8 +269,6 @@ export const resolveClientPageGraph = <E, R>(
 						if (!plugin || !declaration) {
 							return yield* exportNotFound(specifier);
 						}
-						selectedExports.add(specifier);
-						automaticEntityPresentations ||= declaration.automaticEntityPresentations;
 						yield* scan(
 							{ slug: pluginSlug, dependencies: plugin.manifest.client.pluginDependencies ?? [] },
 							declaration.entry,
@@ -273,11 +291,13 @@ export const resolveClientPageGraph = <E, R>(
 			});
 
 		if (isRenderer) {
-			yield* scan(
-				{ slug: null, dependencies: input.definition.pluginDependencies },
-				input.definition.entry,
-				input.rendererFiles,
-			);
+			if (input.loadPluginFiles) {
+				yield* scan(
+					{ slug: null, dependencies: input.definition.pluginDependencies },
+					input.definition.entry,
+					input.rendererFiles,
+				);
+			}
 		} else {
 			const exportNames =
 				input.application === "plugin-route"
@@ -295,14 +315,16 @@ export const resolveClientPageGraph = <E, R>(
 					return yield* exportNotFound(specifier);
 				}
 				selectedExports.add(specifier);
-				yield* scan(
-					{
-						slug: input.plugin.slug,
-						dependencies: input.plugin.manifest.client?.pluginDependencies ?? [],
-					},
-					declaration.entry,
-					files.get(input.plugin.slug) ?? {},
-				);
+				if (input.loadPluginFiles) {
+					yield* scan(
+						{
+							slug: input.plugin.slug,
+							dependencies: input.plugin.manifest.client?.pluginDependencies ?? [],
+						},
+						declaration.entry,
+						files.get(input.plugin.slug) ?? {},
+					);
+				}
 			}
 		}
 
@@ -378,7 +400,7 @@ export const resolveClientPageGraph = <E, R>(
 					path: selectedPluginExport?.entry ?? "",
 					contributor: namespaceFor("plugin", input.plugin.id),
 				};
-		const rendererContributors: Array<ClientPageGraphIdentity["contributors"][number]> = [];
+		const rendererContributors: Array<ClientPageArtifactIdentity["contributors"][number]> = [];
 		if (isKernel) {
 			rendererContributors.push({
 				kind: "kernel-renderer",
@@ -401,13 +423,16 @@ export const resolveClientPageGraph = <E, R>(
 				automaticEntityPresentations: input.definition.automaticEntityPresentations,
 			});
 		}
-		const identity: ClientPageGraphIdentity = {
+		const identity: ClientPageArtifactIdentity = {
 			entry,
+			routeRegistry,
 			format: CLIENT_ARTIFACT_FORMAT,
 			apiVersion: CLIENT_API_VERSION,
 			compilerVersion: CLIENT_COMPILER_VERSION,
 			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 			selectedExports: sortBy([...selectedExports]),
+			application: isRenderer ? "page" : input.application,
+			name: isRenderer ? input.rendererName : input.plugin.manifest.metadata.name,
 			kernelAutomaticFallback: automaticEntityPresentations
 				? { provider: "kernel", layouts: ["grid", "list"], runtimeVersion: CLIENT_API_VERSION }
 				: null,
@@ -422,7 +447,6 @@ export const resolveClientPageGraph = <E, R>(
 					pluginId: plugin.id,
 					kind: "plugin" as const,
 					sourceHash: plugin.sourceHash,
-					installationId: plugin.installationId,
 					pluginSlug: PluginSlug.make(plugin.slug),
 					namespace: namespaceFor("plugin", plugin.id),
 					pluginDependencies: sortBy(plugin.manifest.client?.pluginDependencies ?? []).map((slug) =>
@@ -450,18 +474,22 @@ export const resolveClientPageGraph = <E, R>(
 					sourceHash: contributor.sourceHash,
 				};
 			}
+			const installed = included.get(contributor.pluginSlug);
+			if (!installed) {
+				throw new Error(`Missing runtime installation for ${contributor.pluginSlug}`);
+			}
 			return {
 				kind: "plugin",
 				pluginId: contributor.pluginId,
 				pluginSlug: contributor.pluginSlug,
 				sourceHash: contributor.sourceHash,
-				installationId: contributor.installationId,
+				installationId: installed.installationId,
 			};
 		});
 		return {
 			identity,
 			contributors,
-			graphHash: sha256Hex(stableStringify({ identity, routeRegistry })),
+			artifactKey: sha256Hex(stableStringify(identity)),
 			compilerInput: {
 				publicExports,
 				entry: identity.entry,
@@ -485,3 +513,17 @@ export const resolveClientPageGraph = <E, R>(
 			},
 		} satisfies ResolvedClientPageGraph;
 	});
+
+export const resolveClientPageGraph = <E, R>(
+	input: ClientPageGraphInput<E, R> & {
+		readonly loadPluginFiles: NonNullable<ClientPageGraphCommon<E, R>["loadPluginFiles"]>;
+	},
+) => resolveGraph(input).pipe(Effect.withSpan("ClientPageBuild.resolve-graph"));
+
+export const resolveClientPageArtifactGraph = (
+	input: ClientPageGraphInput<never, never>,
+): Effect.Effect<ResolvedClientPageArtifactGraph, ClientRendererBadRequest> =>
+	resolveGraph(input).pipe(
+		Effect.map(({ compilerInput: _compilerInput, ...graph }) => graph),
+		Effect.withSpan("ClientPages.resolve-artifact-graph"),
+	);

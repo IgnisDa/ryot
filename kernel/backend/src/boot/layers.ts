@@ -1,15 +1,19 @@
 import { BunServices } from "@effect/platform-bun";
+import { encodePluginCatalogInvalidatedMessage } from "@ryot-app/contract/modules/plugins/contract";
+import { UserId } from "@ryot-app/contract/schema/brands";
+import { isNotNull } from "drizzle-orm";
 import { Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { MigrationsComplete } from "#lib/infrastructure/db/migrate";
-import { DatabaseLive } from "#lib/infrastructure/db/service";
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
+import { Database, DatabaseLive } from "#lib/infrastructure/db/service";
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { ObservabilityLive } from "#lib/infrastructure/observability";
 import { ProKeyService } from "#lib/infrastructure/pro-key";
 import { ProviderHttpAdmissionService } from "#lib/infrastructure/provider-http-admission";
-import { RedisService } from "#lib/infrastructure/redis";
+import { RedisService, redisKeys } from "#lib/infrastructure/redis";
 import { S3Service } from "#lib/infrastructure/s3";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { makeAutomationSandboxApiFunctions } from "#lib/infrastructure/sandbox-runtime/automation-host-functions";
@@ -69,9 +73,10 @@ import {
 import { BackupRestoreWriter } from "#modules/backups/restore/writer";
 import { BackupsRepository } from "#modules/backups/runs/repository";
 import { BackupsService } from "#modules/backups/service";
+import { ClientPageBuildService } from "#modules/client-pages/build-service";
+import { ClientPageArtifactGrantService } from "#modules/client-pages/grant-service";
 import { ClientPagesRepository } from "#modules/client-pages/repository";
 import { ClientPagesService } from "#modules/client-pages/service";
-import { ClientPageSessionService } from "#modules/client-pages/session-service";
 import {
 	AddEntityToCollectionWorkflowDefinitionsLive,
 	AddEntityToCollectionWorkflowOperationsLive,
@@ -125,7 +130,9 @@ import {
 	PluginCatalogInvalidatorLive,
 	PluginInvalidationSubscriber,
 } from "#modules/plugins/catalog-events";
+import { publishAfterCatalogMaterialization } from "#modules/plugins/catalog-materialization";
 import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
+import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
 import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 import { PluginHttpRateLimitAuthority } from "#modules/plugins/http-rate-limit-authority";
 import { ImportSourceCatalog } from "#modules/plugins/import-source-catalog";
@@ -256,18 +263,47 @@ const ScriptGarbageCollectorLive = Layer.provide(
 const PluginRevisionActivationLive = IntegrationPluginRevisionActivationLive.pipe(
 	Layer.provide(IntegrationsRepository.layer),
 );
-const PluginIngestionServiceLive = Layer.provide(
-	PluginIngestionService.layer,
-	Layer.mergeAll(
-		PluginRevisionActivationLive,
-		PluginRepository.layer,
-		DefinitionRepository.layer,
-		ClientPluginCompiler.layer,
-		SystemPlugins.layer,
-		PluginCatalogInvalidatorLive,
+const ClientPageBuildServiceLive = ClientPageBuildService.layer.pipe(
+	Layer.provide(
+		Layer.mergeAll(ClientPagesRepository.layer, PluginRepository.layer, ClientPluginCompiler.layer),
 	),
 );
-const PluginCatalogStateLive = Layer.mergeAll(PluginCatalogHub.layer, PluginIngestionServiceLive);
+const ClientPageArtifactGrantServiceLive = ClientPageArtifactGrantService.layer.pipe(
+	Layer.provide(Layer.mergeAll(ClientPagesRepository.layer, RedisService.layer)),
+);
+const ClientPagesServiceLive = ClientPagesService.layer.pipe(
+	Layer.provide(
+		Layer.mergeAll(
+			ClientPagesRepository.layer,
+			EntitiesRepository.layer.pipe(Layer.provide(PluginRuntimeResolverLive)),
+			ClientPageBuildServiceLive,
+			ClientPageArtifactGrantServiceLive,
+			PluginCatalogInvalidatorLive,
+			PluginRepository.layer,
+			PluginRuntimeResolverLive,
+		),
+	),
+	Layer.provide(DefinitionRepository.layer),
+);
+const ClientSurfaceMaterializerLive = Layer.effect(
+	ClientSurfaceMaterializer,
+	Effect.gen(function* () {
+		const pages = yield* ClientPagesService;
+		const db = yield* Database;
+		return {
+			materializeUser: (userId) =>
+				pages.materializeUser(userId).pipe(Effect.provideService(Database, db), Effect.orDie),
+			materializeRenderer: (userId, renderer) =>
+				pages
+					.materializeRenderer(userId, renderer)
+					.pipe(Effect.provideService(Database, db), Effect.orDie),
+			materializePendingInstallation: (userId, installationId) =>
+				pages
+					.materializePendingInstallation(userId, installationId)
+					.pipe(Effect.provideService(Database, db), Effect.orDie),
+		};
+	}),
+).pipe(Layer.provide(ClientPagesServiceLive));
 const PluginInvalidationSubscriberLive = PluginInvalidationSubscriber.layer.pipe(
 	Layer.provide(PluginCatalogHub.layer),
 );
@@ -353,10 +389,62 @@ const SavedViewsServiceLive = SavedViewsService.layer.pipe(
 			PluginRuntimeResolverLive,
 			PluginInstallationRepository.layer,
 			PluginCatalogInvalidatorLive,
-			ClientPagesRepository.layer,
+			ClientSurfaceMaterializerLive,
 		),
 	),
 );
+const MaterializingPluginCatalogInvalidatorLive = Layer.effect(
+	PluginCatalogInvalidator,
+	Effect.gen(function* () {
+		const pages = yield* ClientPagesService;
+		const savedViews = yield* SavedViewsService;
+		const redis = yield* RedisService;
+		const db = yield* Database;
+		const refreshViews = (userId: UserId) =>
+			savedViews.ensureBuiltinViews(userId).pipe(Effect.provideService(Database, db));
+		const materialize = (userId: UserId) =>
+			pages.materializeUser(userId).pipe(Effect.provideService(Database, db));
+		return {
+			user: (userId: UserId) =>
+				publishAfterCatalogMaterialization(
+					Effect.succeed([userId]),
+					refreshViews,
+					materialize,
+					redis.publish(
+						redisKeys.pluginCatalogUserChannel,
+						encodePluginCatalogInvalidatedMessage({ userId }),
+					),
+				).pipe(Effect.asVoid, Effect.orDie),
+			all: publishAfterCatalogMaterialization(
+				db
+					.select({ id: schema.user.id })
+					.from(schema.user)
+					.where(isNotNull(schema.user.bootstrapCompletedAt))
+					.pipe(Effect.map((users) => users.map((user) => UserId.make(user.id)))),
+				refreshViews,
+				materialize,
+				redis
+					.publish(redisKeys.pluginCatalogChannel, "plugin-catalog-invalidated")
+					.pipe(Effect.asVoid),
+			).pipe(Effect.provideService(Database, db), Effect.orDie),
+		};
+	}),
+).pipe(
+	Layer.provide(Layer.mergeAll(ClientPagesServiceLive, SavedViewsServiceLive)),
+	Layer.provide(RedisService.layer),
+);
+const PluginIngestionServiceLive = Layer.provide(
+	PluginIngestionService.layer,
+	Layer.mergeAll(
+		PluginRevisionActivationLive,
+		PluginRepository.layer,
+		DefinitionRepository.layer,
+		ClientPluginCompiler.layer,
+		SystemPlugins.layer,
+		MaterializingPluginCatalogInvalidatorLive,
+	),
+);
+const PluginCatalogStateLive = Layer.mergeAll(PluginCatalogHub.layer, PluginIngestionServiceLive);
 const PluginDefinitionMaterializerLive = SavedViewPluginDefinitionMaterializerLive.pipe(
 	Layer.provide(SavedViewsServiceLive),
 );
@@ -415,7 +503,7 @@ const RuntimePluginInstallationServiceLive = Layer.provide(
 	Layer.fresh(PluginInstallationService.layer),
 	Layer.mergeAll(
 		pluginInstallationServiceDependencies,
-		PluginCatalogInvalidatorLive,
+		MaterializingPluginCatalogInvalidatorLive,
 		PluginInstallationLifecycleDispatcherLive,
 	),
 );
@@ -427,6 +515,7 @@ const BootstrapServicesLive = Layer.mergeAll(
 );
 
 const AuthUserBootstrapProvidedLive = AuthUserBootstrapLive.pipe(
+	Layer.provide(ClientSurfaceMaterializerLive),
 	Layer.provideMerge(BootstrapServicesLive),
 );
 
@@ -645,30 +734,13 @@ const OperationsServiceLive = OperationsService.layer.pipe(
 	]),
 );
 
-const ClientPagesServiceLive = ClientPagesService.layer.pipe(
-	Layer.provide(
-		Layer.mergeAll(
-			ClientPagesRepository.layer,
-			EntitiesRepository.layer.pipe(Layer.provide(PluginRuntimeResolverLive)),
-			ClientPluginCompiler.layer,
-			PluginCatalogInvalidatorLive,
-			PluginRepository.layer,
-			PluginRuntimeResolverLive,
-		),
-	),
-);
-const ClientPageSessionServiceLive = ClientPageSessionService.layer.pipe(
-	Layer.provideMerge(ClientPagesServiceLive),
-	Layer.provide(Layer.mergeAll(ClientPagesRepository.layer, RedisService.layer)),
-);
-
 const ServicesLive = Layer.provideMerge(
 	Layer.mergeAll(
 		PluginCatalogStateLive,
 		PluginInvalidationSubscriberLive,
 		ContentAndSandboxServicesLive,
 		ClientPagesServiceLive,
-		ClientPageSessionServiceLive,
+		ClientPageArtifactGrantServiceLive,
 		RuntimePluginInstallationServiceLive,
 		OperationsServiceLive,
 		InterestServicesLive,
@@ -754,6 +826,7 @@ export const MigrationInfrastructureLive = Layer.mergeAll(
 	PluginInstallationServiceLive,
 	IntegrationsRepository.layer,
 ).pipe(
+	Layer.provideMerge(ClientSurfaceMaterializerLive),
 	Layer.provideMerge(DatabaseLive),
 	Layer.provideMerge(ManagedAssetsRepository.layer),
 	Layer.provideMerge(RedisService.layer),
@@ -764,44 +837,52 @@ export const MigrationInfrastructureLive = Layer.mergeAll(
 
 export const RuntimeDependenciesLive = Layer.provideMerge(
 	Layer.provideMerge(
-		Layer.mergeAll(
-			Layer.provide(
-				SandboxDurableHostDispatcherLive,
-				Layer.mergeAll(
-					SandboxHostImplementationsLive,
-					PluginHttpRateLimitAuthority.layer,
-					ProviderHttpAdmissionService.layer,
-				),
-			),
-			Layer.provide(SandboxDurableHostServiceWorkflowLive, SandboxHostImplementationsLive),
+		Layer.provideMerge(
 			Layer.mergeAll(
-				AddEntityToCollectionWorkflowOperationsLive,
-				AutomationRunWorkflowOperationsServiceLive,
-			),
-			Layer.provide(
-				EntityImportWorkflowOperationsLive,
-				Layer.mergeAll(LifecycleServicesLive, SandboxExecutionServiceLive),
-			),
-			Layer.provide(TranslateEntityWorkflowOperationsLive, SandboxExecutionServiceLive),
-			Layer.provide(
-				Layer.mergeAll(ExportBackupWorkflowOperationsLive, RestoreBackupWorkflowOperationsLive),
-				ServicesWithTestSupportLive,
-			),
-			Layer.provide(
-				UserLifecycleWorkflowOperationsLive,
-				Layer.mergeAll(ServicesWithTestSupportLive, ObjectStorageServiceLive),
-			),
-			Layer.provide(
-				PluginInstallationWorkflowOperationsLive,
+				Layer.provide(
+					SandboxDurableHostDispatcherLive,
+					Layer.mergeAll(
+						SandboxHostImplementationsLive,
+						PluginHttpRateLimitAuthority.layer,
+						ProviderHttpAdmissionService.layer,
+					),
+				),
+				Layer.provide(SandboxDurableHostServiceWorkflowLive, SandboxHostImplementationsLive),
 				Layer.mergeAll(
-					SandboxExecutionServiceLive,
-					PluginCatalogInvalidatorLive,
-					PluginDefinitionMaterializerLive,
-					PluginInstallationRepository.layer,
+					AddEntityToCollectionWorkflowOperationsLive,
+					AutomationRunWorkflowOperationsServiceLive,
+				),
+				Layer.provide(
+					EntityImportWorkflowOperationsLive,
+					Layer.mergeAll(LifecycleServicesLive, SandboxExecutionServiceLive),
+				),
+				Layer.provide(TranslateEntityWorkflowOperationsLive, SandboxExecutionServiceLive),
+				Layer.provide(
+					Layer.mergeAll(ExportBackupWorkflowOperationsLive, RestoreBackupWorkflowOperationsLive),
+					ServicesWithTestSupportLive,
+				),
+				Layer.provide(
+					UserLifecycleWorkflowOperationsLive,
+					Layer.mergeAll(
+						ServicesWithTestSupportLive,
+						ObjectStorageServiceLive,
+						ClientSurfaceMaterializerLive,
+					),
+				),
+				Layer.provide(
+					PluginInstallationWorkflowOperationsLive,
+					Layer.mergeAll(
+						SandboxExecutionServiceLive,
+						MaterializingPluginCatalogInvalidatorLive,
+						ClientSurfaceMaterializerLive,
+						PluginDefinitionMaterializerLive,
+						PluginInstallationRepository.layer,
+					),
 				),
 			),
+			ServicesWithTestSupportLive,
 		),
-		ServicesWithTestSupportLive,
+		ClientSurfaceMaterializerLive,
 	),
 	ApplicationInfrastructureLive,
 );

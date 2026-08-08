@@ -22,7 +22,8 @@ import {
 	clientRendererRecipe,
 	clientRenderersRecipe,
 } from "@ryot-app/ryotql-recipes/client-renderers";
-import { Encoding } from "effect";
+import { normalizeSlug } from "@ryot-app/ts-utils/slug";
+import { Effect, Encoding } from "effect";
 
 import type { Client } from "./auth";
 import { collectRyotQLRecipeItems, executeRyotQLRecipe } from "./ryotql";
@@ -31,7 +32,7 @@ type CreateSavedViewRequest = ContractRequest<"savedViews", "create">;
 type PrepareClientPageRequest = ContractRequest<"clientPages", "prepare">;
 type CreateRendererRequest = ContractRequest<"clientPages", "createRenderer">;
 type PublishRendererRequest = ContractRequest<"clientPages", "publishRenderer">;
-type CreateClientPageSessionRequest = ContractRequest<"clientPages", "createSession">;
+type CheckClientPageFreshnessRequest = ContractRequest<"clientPages", "checkFreshness">;
 type ReplaceRendererDraftRequest = ContractRequest<"clientPages", "replaceRendererDraft">;
 
 type CreateRendererPayload = CreateRendererRequest["payload"];
@@ -494,24 +495,15 @@ export const publishClientRenderer = (
 export const deleteClientRenderer = (client: Client, rendererId: RendererId) =>
 	client.call((contract) => contract.clientPages.deleteRenderer({ params: { rendererId } }));
 
-export const prepareClientPage = (
-	client: Client,
-	savedViewId: SavedViewClientPageTarget["savedViewId"],
-) =>
+export const prepareClientPage = (client: Client, slug: SavedViewClientPageTarget["slug"]) =>
 	client.call((contract) =>
-		contract.clientPages.prepare({ payload: { target: { savedViewId, kind: "saved-view" } } }),
+		contract.clientPages.prepare({ payload: { target: { slug, kind: "saved-view" } } }),
 	);
 
-export const createClientPageSession = (
+export const checkClientPageFreshness = (
 	client: Client,
-	identity: CreateClientPageSessionRequest["payload"]["identity"],
-) => client.call((contract) => contract.clientPages.createSession({ payload: { identity } }));
-
-export const renewClientPageSession = (client: Client, sessionId: string) =>
-	client.call((contract) => contract.clientPages.renewSession({ params: { sessionId } }));
-
-export const revokeClientPageSession = (client: Client, sessionId: string) =>
-	client.call((contract) => contract.clientPages.revokeSession({ params: { sessionId } }));
+	identity: CheckClientPageFreshnessRequest["payload"]["identity"],
+) => client.call((contract) => contract.clientPages.checkFreshness({ payload: { identity } }));
 
 export const buildRendererSavedViewPayload = (
 	rendererId: CustomRendererId,
@@ -531,12 +523,12 @@ export const createRendererSavedView = (
 	rendererId: Parameters<typeof buildRendererSavedViewPayload>[0],
 	settings: RendererSavedViewPayload["settings"],
 	overrides: Parameters<typeof buildRendererSavedViewPayload>[2] = {},
-) =>
-	client.call((contract) =>
-		contract.savedViews.create({
-			payload: buildRendererSavedViewPayload(rendererId, settings, overrides),
-		}),
-	);
+) => {
+	const payload = buildRendererSavedViewPayload(rendererId, settings, overrides);
+	return client
+		.call((contract) => contract.savedViews.create({ payload }))
+		.pipe(Effect.map((result) => ({ ...result, slug: normalizeSlug(payload.name) })));
+};
 
 export const buildEntityBrowserSavedViewPayload = (
 	overrides: Partial<KernelSavedViewPayload> = {},
@@ -603,17 +595,17 @@ export const createEntityBrowserSavedView = (
 	entityIds: readonly string[] = [],
 	entitySchemaSlug?: string,
 	ownerPluginId?: string,
-) =>
-	client.call((contract) =>
-		contract.savedViews.create({
-			payload: buildEntityBrowserSavedViewPayload(
-				overrides,
-				entityIds,
-				entitySchemaSlug,
-				ownerPluginId,
-			),
-		}),
+) => {
+	const payload = buildEntityBrowserSavedViewPayload(
+		overrides,
+		entityIds,
+		entitySchemaSlug,
+		ownerPluginId,
 	);
+	return client
+		.call((contract) => contract.savedViews.create({ payload }))
+		.pipe(Effect.map((result) => Object.assign(result, { slug: normalizeSlug(payload.name) })));
+};
 
 export const createResultsTableSavedView = (
 	client: Client,

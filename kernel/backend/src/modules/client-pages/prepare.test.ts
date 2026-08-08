@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { EntityId, EntitySchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import { fixtureManifest } from "#modules/plugins/test-support";
@@ -57,10 +57,10 @@ it.effect("selects a declared dynamic route from a disabled but ready direct ins
 			plugins: [owner],
 			findEntity: () => Effect.succeed(null),
 			target: {
-				pluginId: owner.id,
 				search: "tab=stats",
 				kind: "plugin-route",
 				path: "/details/item-1",
+				pluginSlug: PluginSlug.make(owner.slug),
 			},
 		});
 		expect(resolved.kind).toBe("plugin");
@@ -102,7 +102,12 @@ it.effect("decodes dynamic route parameters", () => {
 		const resolved = yield* resolvePluginPageTarget({
 			plugins: [owner],
 			findEntity: () => Effect.succeed(null),
-			target: { search: "", pluginId: owner.id, kind: "plugin-route", path: "/details/item%201" },
+			target: {
+				search: "",
+				kind: "plugin-route",
+				path: "/details/item%201",
+				pluginSlug: PluginSlug.make(owner.slug),
+			},
 		});
 		expect(resolved.kind).toBe("plugin");
 		if (resolved.kind !== "plugin") {
@@ -126,7 +131,12 @@ it.effect("selects a static route before an overlapping dynamic route", () => {
 		const resolved = yield* resolvePluginPageTarget({
 			plugins: [owner],
 			findEntity: () => Effect.succeed(null),
-			target: { search: "", pluginId: owner.id, path: "/items/new", kind: "plugin-route" },
+			target: {
+				search: "",
+				path: "/items/new",
+				kind: "plugin-route",
+				pluginSlug: PluginSlug.make(owner.slug),
+			},
 		});
 		expect(resolved.kind).toBe("plugin");
 		if (resolved.kind !== "plugin") {

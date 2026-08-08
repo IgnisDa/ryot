@@ -4,20 +4,18 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/un
 import { AuthMiddleware } from "../../auth-middleware";
 import { DemoAccessPolicy, LogRouteTemplate } from "../../http-annotations";
 import {
-	ClientPageSessionNotFound,
+	ClientPageArtifactGrantNotFound,
 	ClientPagePreparationError,
-	ClientPageStalePreparation,
 	ClientRendererBadRequest,
 	ClientRendererCommandResponse,
 	ClientRendererNotFound,
-	CreateClientPageSessionBody,
-	CreateClientPageSessionResponse,
+	CheckClientPageFreshnessBody,
+	CheckClientPageFreshnessResponse,
 	CreateClientRendererBody,
 	PrepareClientPageBody,
 	PreparedClientPage,
 	PublishClientRendererBody,
 	PublishClientRendererResponse,
-	RenewClientPageSessionResponse,
 	ReplaceClientRendererDraftBody,
 	ReplaceClientRendererDraftResponse,
 } from "./schemas";
@@ -28,14 +26,14 @@ const rendererErrors = [
 ] as const;
 
 export const ClientPageArtifactsGroup = HttpApiGroup.make("clientPageArtifacts")
-	.annotate(OpenApi.Description, "Serves files from authenticated client page artifact sessions")
+	.annotate(OpenApi.Description, "Serves files from authenticated client page artifact grants")
 	.add(
 		HttpApiEndpoint.get("file", "/client-pages/artifacts/:token/:fileName", {
 			params: { token: Schema.String, fileName: Schema.String },
-			error: [ClientPageSessionNotFound.pipe(HttpApiSchema.status(404))],
+			error: [ClientPageArtifactGrantNotFound.pipe(HttpApiSchema.status(404))],
 		})
 			.annotate(LogRouteTemplate, true)
-			.annotate(OpenApi.Description, "Serves a file from a client page artifact session"),
+			.annotate(OpenApi.Description, "Serves a file from a client page artifact grant"),
 	);
 
 export const ClientPagesGroup = HttpApiGroup.make("clientPages")
@@ -88,33 +86,14 @@ export const ClientPagesGroup = HttpApiGroup.make("clientPages")
 			.annotate(OpenApi.Description, "Resolves and prepares a client page target"),
 	)
 	.add(
-		HttpApiEndpoint.post("createSession", "/client-pages/sessions", {
-			payload: CreateClientPageSessionBody,
-			error: [ClientPageStalePreparation.pipe(HttpApiSchema.status(409))],
-			success: CreateClientPageSessionResponse.pipe(HttpApiSchema.status(201)),
+		HttpApiEndpoint.post("checkFreshness", "/client-pages/freshness", {
+			payload: CheckClientPageFreshnessBody,
+			success: CheckClientPageFreshnessResponse,
 		})
 			.annotate(DemoAccessPolicy, "allowed")
-			.annotate(OpenApi.Description, "Creates an authenticated client page session"),
-	)
-	.add(
-		HttpApiEndpoint.post("renewSession", "/client-pages/sessions/:sessionId/renew", {
-			params: { sessionId: Schema.String },
-			success: RenewClientPageSessionResponse,
-			error: [
-				ClientPageStalePreparation.pipe(HttpApiSchema.status(409)),
-				ClientPageSessionNotFound.pipe(HttpApiSchema.status(404)),
-			],
-		})
-			.annotate(DemoAccessPolicy, "allowed")
-			.annotate(OpenApi.Description, "Renews a client page session"),
-	)
-	.add(
-		HttpApiEndpoint.delete("revokeSession", "/client-pages/sessions/:sessionId", {
-			success: Schema.Void,
-			params: { sessionId: Schema.String },
-			error: [ClientPageSessionNotFound.pipe(HttpApiSchema.status(404))],
-		})
-			.annotate(DemoAccessPolicy, "allowed")
-			.annotate(OpenApi.Description, "Revokes a client page session"),
+			.annotate(
+				OpenApi.Description,
+				"Checks whether a prepared page still matches current catalog state",
+			),
 	)
 	.middleware(AuthMiddleware);
