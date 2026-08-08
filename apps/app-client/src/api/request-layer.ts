@@ -28,10 +28,10 @@ const fetchHttpClientLayer = (useExpoFetch: boolean) =>
 	);
 
 const makeRequestLayer = (options: {
-	authenticated?: boolean;
-	headers?: RequestHeaders;
 	serverUrl: string;
 	useExpoFetch?: boolean;
+	authenticated?: boolean;
+	headers?: RequestHeaders;
 }) => {
 	const serverUrl = normalizeServerOrigin(options.serverUrl);
 	return Layer.effect(
