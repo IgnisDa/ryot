@@ -1,10 +1,8 @@
 #!/usr/bin/env bun
 
-import { createHash } from "node:crypto";
-
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { hostSuccess } from "@ryot-app/sandbox-sdk/wire";
-import { Clock, Data, Effect, FileSystem, Layer, Path, Schema } from "effect";
+import { Clock, Crypto, Data, Effect, Encoding, FileSystem, Layer, Path, Schema } from "effect";
 
 import { materializeSandboxCompiledModule } from "../../../kernel/backend/src/lib/infrastructure/sandbox-runtime/compiled-modules";
 import { SANDBOX_RUNNER_LIMITS } from "../../../kernel/backend/src/lib/infrastructure/sandbox-runtime/limits";
@@ -61,14 +59,14 @@ const program = Effect.gen(function* () {
 	const path = yield* Path.Path;
 	const bridge = yield* BridgeService;
 	const runtime = yield* PackageCacheManager;
+	const crypto = yield* Crypto.Crypto;
 	const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-production-runtime-smoke-" });
 	const runnerPath = `${root}/runner.mjs`;
 	yield* fs.writeFileString(runnerPath, sandboxRunnerSource);
-	const modulePath = yield* materializeSandboxCompiledModule(
-		runtime,
-		createHash("sha256").update(compiledSource).digest("hex"),
-		compiledSource,
+	const sourceHash = Encoding.encodeHex(
+		yield* crypto.digest("SHA-256", new TextEncoder().encode(compiledSource)),
 	);
+	const modulePath = yield* materializeSandboxCompiledModule(runtime, sourceHash, compiledSource);
 	const moduleUrl = (yield* path.toFileUrl(modulePath)).href;
 	const executionId = "production-runtime-smoke";
 	const token = "production-runtime-smoke-token";

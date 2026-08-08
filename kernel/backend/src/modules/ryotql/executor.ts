@@ -1075,7 +1075,9 @@ const normalizeValue = (value: unknown, kind: ScalarKind) => {
 	if (value instanceof Date) {
 		return value.toISOString();
 	}
-	return typeof value === "string" ? new Date(value).toISOString() : value;
+	return typeof value === "string" || typeof value === "number"
+		? new Date(value).toISOString()
+		: value;
 };
 
 const isFieldKind = (value: unknown): value is ScalarKind =>
