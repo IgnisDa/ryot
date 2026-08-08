@@ -60,7 +60,9 @@ import { buildSeenMigrationSql } from "./seen-mapping";
 import {
 	buildReferencedGlobalEntityIdsSql,
 	buildUniqueSlugMap,
+	getLatestReportSequence,
 	legacyBootstrapGate,
+	logReportRows,
 	withReservedConnection,
 } from "./shared";
 import {
@@ -355,6 +357,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		providerIds,
 		"exercise",
 	);
+	let reportSequence = yield* withReservedConnection(getLatestReportSequence);
 
 	// Phase 1: Migrate legacy users and get migrated user IDs
 	const migratedUserRows = yield* withReservedConnection((connection) =>
@@ -368,6 +371,9 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			);
 			return rows;
 		}),
+	);
+	reportSequence = yield* withReservedConnection((connection) =>
+		logReportRows(connection, reportSequence),
 	);
 
 	// Phase 2: Backfill bootstrap data for migrated users
@@ -394,6 +400,9 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			Effect.annotateLogs({ userCount: migratedUserRows.length }),
 		);
 	}
+	reportSequence = yield* withReservedConnection((connection) =>
+		logReportRows(connection, reportSequence),
+	);
 
 	// Phase 3: Migrate entities, events, and relationships
 	//
@@ -511,5 +520,8 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			yield* connection.executeRaw(buildIntegrationMigrationSql(), []);
 			yield* connection.executeRaw(buildNotificationPlatformMigrationSql(), []);
 		}),
+	);
+	reportSequence = yield* withReservedConnection((connection) =>
+		logReportRows(connection, reportSequence),
 	);
 });

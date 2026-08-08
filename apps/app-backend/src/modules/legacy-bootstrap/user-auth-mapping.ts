@@ -1,6 +1,6 @@
 import { createOAuthAccountIssuer } from "@better-auth/core/db";
 
-import { quoteSqlString } from "./shared";
+import { buildReportSql, quoteSqlString } from "./shared";
 
 const legacyEmailRegex = quoteSqlString("^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$");
 const legacyOidcAccountIdPrefix = quoteSqlString("legacy-oidc-account:");
@@ -97,8 +97,6 @@ BEGIN
 			duplicate_oidc_subject_ids;
 	END IF;
 
-	RAISE NOTICE 'old_user auth-state migration started (% seconds elapsed)', 0.0;
-
 	WITH classified_users AS (
 		SELECT
 			old_user.id,
@@ -155,9 +153,7 @@ BEGIN
 	FROM legacy_users
 	ON CONFLICT ("id") DO NOTHING;
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
-	RAISE NOTICE 'old_user -> user: % row(s) migrated (% seconds elapsed)',
-		rows_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("old_user -> user", [{ message: "row(s) migrated", count: "rows_inserted" }])}
 
 	WITH oidc_users AS (
 		SELECT
@@ -202,9 +198,7 @@ BEGIN
 	FROM oidc_users
 	ON CONFLICT ("id") DO NOTHING;
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
-	RAISE NOTICE 'old_user -> account: % row(s) migrated (% seconds elapsed)',
-		rows_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("old_user -> account", [{ message: "row(s) migrated", count: "rows_inserted" }])}
 
 	SELECT string_agg(ou.id, ', ' ORDER BY ou.id)
 	INTO missing_oidc_stub_user_ids
@@ -254,7 +248,6 @@ BEGIN
 			password_user_account_ids;
 	END IF;
 
-	RAISE NOTICE 'old_user auth-state migration finished (% seconds elapsed)',
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("old_user auth-state", [{ message: "migration finished" }])}
 END $$;
 `;

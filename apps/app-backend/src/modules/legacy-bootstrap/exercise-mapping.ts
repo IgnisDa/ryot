@@ -8,6 +8,7 @@ import {
 	type EntityMigrationTarget,
 	type ResolvedEntityMigrationTarget,
 	buildEntityTargetValuesSql,
+	buildReportSql,
 } from "./shared";
 
 export const exerciseEntityTargets = [
@@ -117,8 +118,6 @@ BEGIN
 		RAISE EXCEPTION 'Expected exercise table to exist in a V1 database but it was not found';
 	END IF;
 
-	RAISE NOTICE 'exercise -> entity: migration started (% seconds elapsed)', 0.0;
-
 	LOOP
 		WITH exercise_targets (source, entity_schema_slug, provider_id) AS (
 			VALUES ${buildEntityTargetValuesSql(targets)}
@@ -183,8 +182,6 @@ BEGIN
 		cursor_id := next_cursor_id;
 	END LOOP;
 
-	RAISE NOTICE 'exercise -> entity: % row(s) migrated total (% seconds elapsed)',
-		rows_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("exercise -> entity", [{ message: "row(s) migrated total", count: "rows_inserted" }])}
 END $$;
 `;

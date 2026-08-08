@@ -5,6 +5,7 @@
 - Keep bootstrap logic in this module. Do not edit `src/lib/infrastructure/db/migrate.ts` without prior discussion.
 - Rename legacy tables before Drizzle migrations; copy data after new tables exist.
 - Prefer SQL for set-based work and TypeScript for orchestration.
+- Write progress and anomaly reports to `_legacy_bootstrap_report`; unexpected warning rows must fail the bootstrap.
 - Never hardcode `public.` in legacy SQL; use quoted bare table names so PostgreSQL `search_path` selects schema.
 - Inline only controlled values through `quoteSqlString`; never inline user input.
 - Normal e2e does not cover this path. Verify changes by restoring legacy dumps and running `bun run run-migration` as documented in `README.md`.

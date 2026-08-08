@@ -1,6 +1,12 @@
 import { Effect } from "effect";
 
-import { legacyBootstrapGate, withReservedConnection } from "./shared";
+import {
+	buildReportSql,
+	getLatestReportSequence,
+	legacyBootstrapGate,
+	logReportRows,
+	withReservedConnection,
+} from "./shared";
 
 const dropLegacyTablesSql = `
 DO $$
@@ -27,8 +33,7 @@ BEGIN
 	DROP TABLE IF EXISTS "old_integration" CASCADE;
 	DROP TABLE IF EXISTS "old_notification_platform" CASCADE;
 	DROP TABLE IF EXISTS "old_entity_translation" CASCADE;
-	RAISE NOTICE 'legacy tables dropped (% seconds elapsed)',
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("drop legacy tables", [{ message: "legacy tables dropped" }])}
 END $$;
 `;
 
@@ -38,5 +43,11 @@ export const dropLegacyTables = Effect.gen(function* () {
 		return;
 	}
 
-	yield* withReservedConnection((connection) => connection.executeRaw(dropLegacyTablesSql, []));
+	yield* withReservedConnection((connection) =>
+		Effect.gen(function* () {
+			const reportSequence = yield* getLatestReportSequence(connection);
+			yield* connection.executeRaw(dropLegacyTablesSql, []);
+			yield* logReportRows(connection, reportSequence);
+		}),
+	);
 });
