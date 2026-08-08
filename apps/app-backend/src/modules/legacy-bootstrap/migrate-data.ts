@@ -23,6 +23,10 @@ import {
 	getUnsupportedExerciseSources,
 } from "./exercise-mapping";
 import { buildIntegrationMigrationSql } from "./integration-mapping";
+import {
+	migrateIntegrationProgressCache,
+	readLegacyIntegrationProgressCache,
+} from "./integration-progress-cache-mapping";
 import { buildLegacyS3AssetReportSql, migrateLegacyS3Assets } from "./legacy-asset-migration";
 import {
 	buildMetadataGroupEntityMigrationSql,
@@ -428,7 +432,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	// entity population workflow, so we materialize only the subset referenced by user data (plus
 	// all user-authored custom entities). The referenced-id set is collected up front and consumed
 	// by the metadata / person / company / metadata_group entity migrations.
-	yield* withReservedConnection((connection) =>
+	const legacyIntegrationProgressCache = yield* withReservedConnection((connection) =>
 		Effect.gen(function* () {
 			yield* connection.executeRaw(buildReferencedGlobalEntityIdsSql(), []);
 			yield* connection.executeRaw(buildMetadataMigrationSql(resolvedMetadataTargets), []);
@@ -538,6 +542,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 				}),
 				[],
 			);
+			return yield* readLegacyIntegrationProgressCache(connection);
 		}),
 	);
 	const legacyS3AssetMigration = yield* migrateLegacyS3Assets;
@@ -550,6 +555,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	yield* withReservedConnection((connection) =>
 		connection.executeRaw(buildIntegrationMigrationSql(), []),
 	);
+	yield* migrateIntegrationProgressCache(legacyIntegrationProgressCache);
 	yield* migrateYoutubeMusicCache;
 	yield* withReservedConnection((connection) =>
 		connection.executeRaw(buildNotificationPlatformMigrationSql(), []),
