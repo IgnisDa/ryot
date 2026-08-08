@@ -49,7 +49,6 @@ const toStoredSignal = Effect.fn(function* (row: SignalRow) {
 	};
 });
 
-/** @effect-expect-leaking Database */
 export class SignalsRepository extends Context.Service<SignalsRepository>()("SignalsRepository", {
 	make: Effect.sync(() => {
 		const insert = Effect.fn("SignalsRepository.insert")(function* (input: InsertSignalInput) {

@@ -55,7 +55,6 @@ const toListedSavedView = (row: SavedViewRow) => ({
 const withSavedViewScope = (pluginSlug?: PluginSlug) =>
 	pluginSlug ? eq(schema.savedView.pluginSlug, pluginSlug) : isNull(schema.savedView.pluginSlug);
 
-/** @effect-expect-leaking Database */
 export class SavedViewsRepository extends Context.Service<SavedViewsRepository>()(
 	"SavedViewsRepository",
 	{

@@ -100,7 +100,6 @@ const toMutationSnapshot = (entity: ListedEntity): EntityMutationSnapshot => ({
 	entitySchemaSlug: entity.entitySchemaSlug,
 });
 
-/** @effect-expect-leaking Database */
 export class EntitiesService extends Context.Service<EntitiesService>()("EntitiesService", {
 	make: Effect.gen(function* () {
 		const repository = yield* EntitiesRepository;

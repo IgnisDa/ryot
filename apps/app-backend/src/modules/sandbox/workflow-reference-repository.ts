@@ -25,7 +25,6 @@ const toReference = (row: WorkflowReferenceRow): SandboxWorkflowReference => ({
 	scriptId: SandboxScriptId.make(row.scriptId),
 });
 
-/** @effect-expect-leaking Database */
 export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxWorkflowReferenceRepository>()(
 	"SandboxWorkflowReferenceRepository",
 	{

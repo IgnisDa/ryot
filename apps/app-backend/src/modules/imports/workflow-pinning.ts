@@ -18,7 +18,6 @@ export type ImportWorkflowPinningValue = {
 	release: (executionId: string) => Effect.Effect<void, DbError, Database>;
 };
 
-/** @effect-expect-leaking Database */
 export class ImportWorkflowPinning extends Context.Service<
 	ImportWorkflowPinning,
 	ImportWorkflowPinningValue

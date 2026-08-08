@@ -134,7 +134,6 @@ const globalRelationshipLockKey = (input: GlobalRelationshipListInput) =>
 		? `self:${input.relationshipSchemaSlug}`
 		: `anchored:${input.direction}:${input.anchorEntityId}:${input.relationshipSchemaSlug}`;
 
-/** @effect-expect-leaking Database */
 export class RelationshipsRepository extends Context.Service<RelationshipsRepository>()(
 	"RelationshipsRepository",
 	{
