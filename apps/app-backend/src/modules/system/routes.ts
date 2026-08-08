@@ -1,6 +1,8 @@
 import { AppContract } from "@ryot/contract/contract";
-import { healthCheckFailed, unknownToMessage } from "@ryot/contract/errors";
-import type { SystemConfigResponse } from "@ryot/contract/modules/system/contract";
+import {
+	SystemHealthFailure,
+	type SystemConfigResponse,
+} from "@ryot/contract/modules/system/contract";
 import { sql } from "drizzle-orm";
 import { Effect, Option } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
@@ -39,18 +41,22 @@ export const SystemRoutesLive = HttpApiBuilder.group(AppContract, "system", (han
 				const database = yield* Database;
 				const redis = yield* RedisService;
 
-				yield* database
-					.execute(sql`select 1`)
-					.pipe(
-						Effect.mapError((cause) =>
-							healthCheckFailed(`Database check failed: ${unknownToMessage(cause)}`),
-						),
-					);
+				yield* database.execute(sql`select 1`).pipe(
+					Effect.tapError((cause) => Effect.logError("system health database check failed", cause)),
+					Effect.mapError(
+						() => new SystemHealthFailure({ reason: { code: "database-unavailable" } }),
+					),
+				);
 
 				yield* Effect.tryPromise({
 					try: () => redis.client.ping(),
-					catch: (cause) => healthCheckFailed(`Redis check failed: ${unknownToMessage(cause)}`),
-				});
+					catch: (cause) => ({ cause }),
+				}).pipe(
+					Effect.tapError(({ cause }) =>
+						Effect.logError("system health Redis check failed", cause),
+					),
+					Effect.mapError(() => new SystemHealthFailure({ reason: { code: "redis-unavailable" } })),
+				);
 
 				return { status: "healthy" as const };
 			}),

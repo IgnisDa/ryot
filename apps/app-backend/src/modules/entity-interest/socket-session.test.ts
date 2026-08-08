@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { unauthorized } from "@ryot/contract/errors";
+import { EntityInterestTicketFailure } from "@ryot/contract/modules/entity-interest/contract";
 import {
 	decodeEntityInterestServerMessage,
 	encodeEntityInterestClientMessage,
@@ -206,7 +206,10 @@ describe("entity interest socket session", () => {
 			Effect.gen(function* () {
 				const socket = yield* makeSocket();
 				const layer = Layer.mergeAll(
-					Layer.mock(EntityInterestTicketService)({ consume: () => Effect.fail(unauthorized()) }),
+					Layer.mock(EntityInterestTicketService)({
+						consume: () =>
+							Effect.fail(new EntityInterestTicketFailure({ reason: { code: "invalid-ticket" } })),
+					}),
 					Layer.mock(EntityInterestStore)({}),
 					Layer.mock(InterestService)({}),
 					Layer.mock(LocalInterestSessions)({}),

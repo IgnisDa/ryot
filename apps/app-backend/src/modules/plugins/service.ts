@@ -1,10 +1,16 @@
-import { badRequest, conflict, notFound } from "@ryot/contract/errors";
 import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import type { PluginListItem } from "@ryot/contract/modules/plugins/schemas";
+import {
+	PluginConflictError,
+	PluginNotFoundError,
+	PluginRequestError,
+	type PluginListItem,
+} from "@ryot/contract/modules/plugins/schemas";
+import { PluginSlug } from "@ryot/contract/schema/brands";
+import type { SandboxCompilerFailure } from "@ryot/sandbox-compiler/diagnostics";
 import { compilePluginSandboxSourceEntries } from "@ryot/sandbox-compiler/plugins";
 import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { stableStringify } from "@ryot/ts-utils/json";
-import { Cause, Context, Effect, FiberSet, Layer, Semaphore } from "effect";
+import { Cause, Context, Effect, FiberSet, Layer, Match, Semaphore } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
@@ -113,10 +119,25 @@ const toListItem = (plugin: NormalizedPlugin): PluginListItem => ({
 	sourceHash: plugin.sourceHash,
 });
 
-const validationMessage = (error: PluginValidationError | SchemaEvolutionError) =>
-	error.issues
-		.map((issue) => (typeof issue === "string" ? issue : `${issue.code}: ${issue.path}`))
-		.join("; ");
+const validationDiagnostics = (error: PluginValidationError) =>
+	error.issues.map((message) => ({
+		message,
+		phase: "validate" as const,
+		severity: "error" as const,
+		code: "plugin-validation-error",
+	}));
+
+const schemaEvolutionCode = (code: SchemaEvolutionError["issues"][number]["code"]) =>
+	Match.value(code).pipe(
+		Match.when("enum_narrowed", () => "enum-narrowed" as const),
+		Match.when("schema_changed", () => "schema-changed" as const),
+		Match.when("schema_removed", () => "schema-removed" as const),
+		Match.when("property_changed", () => "property-changed" as const),
+		Match.when("property_removed", () => "property-removed" as const),
+		Match.when("property_type_changed", () => "property-type-changed" as const),
+		Match.when("required_property_added", () => "required-property-added" as const),
+		Match.exhaustive,
+	);
 
 export class PluginIngestionService extends Context.Service<PluginIngestionService>()(
 	"PluginIngestionService",
@@ -349,28 +370,52 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 					return normalized;
 				},
 			);
+			type IngestionError = Effect.Error<ReturnType<typeof ingestPluginUnlocked>>;
+			const structureIngestionFailure = <A, R>(effect: Effect.Effect<A, IngestionError, R>) =>
+				effect.pipe(
+					Effect.catchTags({
+						SchemaEvolutionError: (error: SchemaEvolutionError) =>
+							Effect.fail(
+								new PluginRequestError({
+									reason: {
+										code: "schema-evolution-failed",
+										issues: error.issues.map(({ code, path }) => ({
+											path,
+											code: schemaEvolutionCode(code),
+										})),
+									},
+								}),
+							),
+						PluginValidationError: (error: PluginValidationError) =>
+							Effect.fail(
+								new PluginRequestError({
+									reason: { code: "validation-failed", diagnostics: validationDiagnostics(error) },
+								}),
+							),
+						SandboxCompilerFailure: (error: SandboxCompilerFailure) =>
+							Effect.fail(
+								new PluginRequestError({
+									reason: {
+										code: "compilation-failed",
+										diagnostics: error.diagnostics.map((diagnostic) => ({
+											...diagnostic,
+											phase: "compile" as const,
+										})),
+									},
+								}),
+							),
+					}),
+				);
 			const ingestPlugin = Effect.fn("PluginIngestionService.ingestPlugin")(
 				(source: PluginSource) =>
 					mutationLock.withPermits(1)(
-						ingestPluginUnlocked(source, false).pipe(
-							Effect.catchTags({
-								SchemaEvolutionError: (error) => Effect.fail(badRequest(validationMessage(error))),
-								PluginValidationError: (error) => Effect.fail(badRequest(validationMessage(error))),
-								SandboxCompilerFailure: (error) => Effect.fail(badRequest(error.message)),
-							}),
-						),
+						ingestPluginUnlocked(source, false).pipe(structureIngestionFailure),
 					),
 			);
 			const ingestTrustedPlugin = Effect.fn("PluginIngestionService.ingestTrustedPlugin")(
 				(source: PluginSource) =>
 					mutationLock.withPermits(1)(
-						ingestPluginUnlocked(source, true).pipe(
-							Effect.catchTags({
-								SchemaEvolutionError: (error) => Effect.fail(badRequest(validationMessage(error))),
-								PluginValidationError: (error) => Effect.fail(badRequest(validationMessage(error))),
-								SandboxCompilerFailure: (error) => Effect.fail(badRequest(error.message)),
-							}),
-						),
+						ingestPluginUnlocked(source, true).pipe(structureIngestionFailure),
 					),
 			);
 
@@ -387,6 +432,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 
 			const uninstallPluginUnlocked = Effect.fn("PluginIngestionService.uninstallPluginUnlocked")(
 				function* (slug: string) {
+					const pluginSlug = PluginSlug.make(slug);
 					const result = yield* mapDatabaseErrors(
 						database.transaction((transaction) =>
 							Effect.gen(function* () {
@@ -396,20 +442,24 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 									(candidate) => candidate.manifest.metadata.slug === slug,
 								);
 								if (!plugin) {
-									return yield* notFound(`Active plugin '${slug}' was not found`);
+									return yield* new PluginNotFoundError({
+										reason: { code: "plugin-not-found", pluginSlug },
+									});
 								}
 								if (bootConfiguredPluginSlugs.has(slug)) {
-									return yield* conflict(`Boot-configured plugin '${slug}' cannot be uninstalled`);
+									return yield* new PluginConflictError({
+										reason: { code: "boot-configured", pluginSlug },
+									});
 								}
 								if (yield* workflowReferences.hasReferences(slug)) {
-									return yield* conflict(
-										`Plugin '${slug}' cannot be uninstalled while running or suspended workflows reference it`,
-									);
+									return yield* new PluginConflictError({
+										reason: { code: "workflow-referenced", pluginSlug },
+									});
 								}
 								if (yield* repository.hasIntegrationReferences(slug)) {
-									return yield* conflict(
-										`Plugin '${slug}' cannot be uninstalled while integrations reference it`,
-									);
+									return yield* new PluginConflictError({
+										reason: { code: "integration-referenced", pluginSlug },
+									});
 								}
 								const schemaSlugs = plugin.manifest.entitySchemas.map(
 									({ slug: entitySchemaSlug }) => entitySchemaSlug,
@@ -420,9 +470,9 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 										entitySchemaSlugs: schemaSlugs,
 									})
 								) {
-									return yield* conflict(
-										`Plugin '${slug}' cannot be uninstalled while entities reference its schemas or providers`,
-									);
+									return yield* new PluginConflictError({
+										reason: { code: "entity-referenced", pluginSlug },
+									});
 								}
 								const remaining = installed.filter(
 									(candidate) => candidate.manifest.metadata.slug !== slug,
@@ -430,9 +480,15 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 								const snapshot = yield* Effect.try({
 									try: () => loader.previewAll(remaining),
 									catch: (error) =>
-										conflict(
-											`Plugin '${slug}' cannot be uninstalled while active plugin schemas reference its definitions: ${String(error)}`,
-										),
+										new PluginConflictError({
+											reason: {
+												pluginSlug,
+												code: "definition-referenced",
+												diagnostics: validationDiagnostics(
+													new PluginValidationError({ issues: [String(error)] }),
+												),
+											},
+										}),
 								});
 								const validateAndCatch = validateSnapshot(snapshot).pipe(
 									Effect.as(null),
@@ -440,9 +496,13 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 								);
 								const dangling = yield* validateAndCatch;
 								if (dangling) {
-									return yield* conflict(
-										`Plugin '${slug}' cannot be uninstalled while active plugin bindings reference its definitions: ${validationMessage(dangling)}`,
-									);
+									return yield* new PluginConflictError({
+										reason: {
+											pluginSlug,
+											code: "definition-referenced",
+											diagnostics: validationDiagnostics(dangling),
+										},
+									});
 								}
 								yield* repository.deactivate(slug);
 								return { plugin, snapshot };

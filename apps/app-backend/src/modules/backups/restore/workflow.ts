@@ -1,4 +1,9 @@
-import { BadRequest, Conflict, DbError, InternalError, internalError } from "@ryot/contract/errors";
+import { BadRequest, DbError, internalError } from "@ryot/contract/errors";
+import {
+	BackupConflict,
+	BackupRunFailure,
+	type BackupRunFailure as BackupRunFailureValue,
+} from "@ryot/contract/modules/backups/schemas";
 import type { AssetLocator } from "@ryot/contract/modules/uploads/schemas";
 import { BackupRunId, UserId } from "@ryot/contract/schema/brands";
 import { Context, Effect, FileSystem, Layer, Result, Schedule, Schema } from "effect";
@@ -16,10 +21,10 @@ import {
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { validateV1ArchiveStream } from "../archive-v1/archive";
-import { BackupArchiveError } from "../archive-v1/error";
+import { BackupArchiveError, type BackupArchiveErrorReason } from "../archive-v1/error";
 import { BackupsRepository } from "../runs/repository";
 import { BackupAccountCleanliness } from "./account-cleanliness";
-import { BackupRestoreWriter } from "./writer";
+import { BackupRestoreWriter, RequiredBackupPluginUnavailable } from "./writer";
 
 const RestoreBackupWorkflowPayload = Schema.Struct({
 	userId: UserId,
@@ -35,46 +40,104 @@ const ClaimedArchive = Schema.Struct({
 });
 type ClaimedArchive = typeof ClaimedArchive.Type;
 
+export class BackupWorkflowError extends Schema.TaggedError<BackupWorkflowError>()(
+	"BackupWorkflowError",
+	{ failure: BackupRunFailure },
+) {}
+
 export const RestoreBackupWorkflow = Workflow.make("RestoreBackupWorkflow", {
 	idempotencyKey: ({ runId }) => runId,
 	success: Schema.Void satisfies DurableSchema,
-	error: InternalError satisfies DurableSchema,
+	error: BackupWorkflowError satisfies DurableSchema,
 	payload: RestoreBackupWorkflowPayload satisfies DurableSchema,
 });
 
-const asInternal = <A, E, R>(
+type InvalidArchiveIssue = Extract<BackupRunFailureValue, { code: "archive-invalid" }>["issue"];
+
+const invalidArchiveIssues = {
+	invalid_path: "invalid-path",
+	invalid_entry: "invalid-entry",
+	missing_entry: "missing-entry",
+	count_mismatch: "count-mismatch",
+	duplicate_path: "duplicate-path",
+	entry_too_large: "entry-too-large",
+	invalid_archive: "invalid-archive",
+	unexpected_path: "unexpected-path",
+	truncated_ndjson: "truncated-ndjson",
+	undeclared_asset: "undeclared-asset",
+	checksum_mismatch: "checksum-mismatch",
+	duplicate_record_id: "duplicate-record-id",
+	total_size_exceeded: "total-size-exceeded",
+	entry_count_exceeded: "entry-count-exceeded",
+	missing_reference_mapping: "missing-reference-mapping",
+} as const satisfies Record<
+	Exclude<BackupArchiveErrorReason, "unsupported_compression" | "unsupported_format">,
+	InvalidArchiveIssue
+>;
+
+const archiveFailure = (error: BackupArchiveError): BackupRunFailureValue => {
+	if (error.reason === "unsupported_compression") {
+		return { code: "archive-unsupported", feature: "compression" };
+	}
+	if (error.reason === "unsupported_format") {
+		return { code: "archive-unsupported", feature: "format" };
+	}
+	return { code: "archive-invalid", issue: invalidArchiveIssues[error.reason] };
+};
+
+const restoreFailure = (error: unknown): BackupRunFailureValue => {
+	if (error instanceof BackupArchiveError) {
+		return archiveFailure(error);
+	}
+	if (error instanceof RequiredBackupPluginUnavailable) {
+		return {
+			pluginSlug: error.pluginSlug,
+			code: "required-plugin-unavailable",
+			requiredVersion: error.requiredVersion,
+		};
+	}
+	if (error instanceof BackupConflict && error.reason.code === "account-not-clean") {
+		return error.reason;
+	}
+	if (error instanceof BadRequest) {
+		return { code: "archive-invalid", issue: "invalid-entry" };
+	}
+	return { code: "unexpected-failure", operation: "restore" };
+};
+
+const asWorkflowError = <A, E, R>(
 	effect: Effect.Effect<A, E, R>,
-	message: string,
-	preserveSafeMessage = false,
+	failure: BackupRunFailureValue,
+	classify: (error: E) => BackupRunFailureValue = () => failure,
 ) =>
 	effect.pipe(
-		Effect.mapError((error) =>
-			preserveSafeMessage &&
-			(error instanceof BackupArchiveError ||
-				error instanceof BadRequest ||
-				error instanceof Conflict)
-				? internalError(error.message.slice(0, 500))
-				: internalError(message),
+		Effect.tapError((error) => Effect.logError("backup restore operation failed", error)),
+		Effect.mapError((error) => new BackupWorkflowError({ failure: classify(error) })),
+		Effect.catchDefect((defect) =>
+			Effect.logError("backup restore operation defect", defect).pipe(
+				Effect.andThen(Effect.fail(new BackupWorkflowError({ failure }))),
+			),
 		),
-		Effect.catchDefect(() => Effect.fail(internalError(message))),
 	);
 
 type RestoreBackupWorkflowOperationsValue = {
-	begin: (payload: RestoreBackupWorkflowPayload) => Effect.Effect<boolean, InternalError>;
-	claim: (payload: RestoreBackupWorkflowPayload) => Effect.Effect<ClaimedArchive, InternalError>;
+	begin: (payload: RestoreBackupWorkflowPayload) => Effect.Effect<boolean, BackupWorkflowError>;
+	claim: (
+		payload: RestoreBackupWorkflowPayload,
+	) => Effect.Effect<ClaimedArchive, BackupWorkflowError>;
 	restore: (
 		payload: RestoreBackupWorkflowPayload,
 		archive: ClaimedArchive,
-	) => Effect.Effect<void, InternalError>;
+	) => Effect.Effect<void, BackupWorkflowError>;
 	cleanup: (
 		payload: RestoreBackupWorkflowPayload,
 		archive: ClaimedArchive,
-	) => Effect.Effect<void, InternalError>;
+	) => Effect.Effect<void, BackupWorkflowError>;
 	fail: (
 		payload: RestoreBackupWorkflowPayload,
-		error: InternalError,
+		error: BackupWorkflowError,
 		archive?: ClaimedArchive,
-	) => Effect.Effect<void, InternalError>;
+	) => Effect.Effect<void, BackupWorkflowError>;
 };
 
 export class RestoreBackupWorkflowOperations extends Context.Service<
@@ -96,7 +159,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 		const cleanliness = yield* BackupAccountCleanliness;
 
 		const begin = (payload: RestoreBackupWorkflowPayload) =>
-			asInternal(
+			asWorkflowError(
 				Effect.gen(function* () {
 					const run = yield* repository.getRunById(payload);
 					if (run?.kind !== "restore" || run.status === "failed") {
@@ -114,12 +177,12 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 					}
 					return true;
 				}),
-				"Backup restore could not start",
-				true,
+				{ code: "unexpected-failure", operation: "restore" },
+				restoreFailure,
 			);
 
 		const claim = (payload: RestoreBackupWorkflowPayload) =>
-			asInternal(
+			asWorkflowError(
 				uploadIntents.claimTemporaryUpload(payload.uploadToken, payload.userId, payload.runId).pipe(
 					Effect.map(({ intentId, locator }) => ({
 						intentId,
@@ -127,11 +190,11 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 						provider: locator.type,
 					})),
 				),
-				"Backup upload could not be claimed",
+				{ code: "upload-unavailable" },
 			);
 
 		const restore = (payload: RestoreBackupWorkflowPayload, archive: ClaimedArchive) =>
-			asInternal(
+			asWorkflowError(
 				Effect.gen(function* () {
 					const run = yield* repository.getRunById(payload);
 					if (!run) {
@@ -223,12 +286,12 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 					);
 					return yield* Effect.void;
 				}),
-				"Backup restore failed",
-				true,
+				{ code: "unexpected-failure", operation: "restore" },
+				restoreFailure,
 			);
 
 		const cleanup = (payload: RestoreBackupWorkflowPayload, archive: ClaimedArchive) =>
-			asInternal(
+			asWorkflowError(
 				Effect.gen(function* () {
 					const completed = yield* repository.completeRun(payload);
 					if (!completed) {
@@ -247,24 +310,24 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 					);
 					return yield* Effect.void;
 				}),
-				"Backup restore could not be completed",
+				{ code: "unexpected-failure", operation: "restore" },
 			);
 
 		const fail = (
 			payload: RestoreBackupWorkflowPayload,
-			error: InternalError,
+			error: BackupWorkflowError,
 			archive?: ClaimedArchive,
 		) =>
-			asInternal(
+			asWorkflowError(
 				Effect.gen(function* () {
-					yield* repository.failRun({ ...payload, error: error.message });
+					yield* repository.failRun({ ...payload, failure: error.failure });
 					if (archive) {
 						yield* uploadIntents
 							.deleteTemporaryUpload(archive.intentId)
 							.pipe(Effect.retry(Schedule.recurs(2)), Effect.ignore);
 					}
 				}),
-				"Backup restore failure could not be recorded",
+				{ code: "unexpected-failure", operation: "restore" },
 			);
 
 		const provideDatabase = <A, E>(effect: Effect.Effect<A, E, Database>) =>
@@ -290,14 +353,14 @@ export const runRestoreBackupWorkflow = Effect.fn("RestoreBackupWorkflow")(
 		const started = yield* Activity.make({
 			name: "begin-backup-restore",
 			execute: operations.begin(payload),
-			error: InternalError satisfies DurableSchema,
 			success: Schema.Boolean satisfies DurableSchema,
+			error: BackupWorkflowError satisfies DurableSchema,
 		}).pipe(Effect.result);
 		if (Result.isFailure(started)) {
 			yield* Activity.make({
 				name: "fail-unstarted-backup-restore",
 				success: Schema.Void satisfies DurableSchema,
-				error: InternalError satisfies DurableSchema,
+				error: BackupWorkflowError satisfies DurableSchema,
 				execute: operations.fail(payload, started.failure),
 			});
 			return;
@@ -308,14 +371,14 @@ export const runRestoreBackupWorkflow = Effect.fn("RestoreBackupWorkflow")(
 		const claimed = yield* Activity.make({
 			name: "claim-backup-restore",
 			execute: operations.claim(payload),
-			error: InternalError satisfies DurableSchema,
 			success: ClaimedArchive satisfies DurableSchema,
+			error: BackupWorkflowError satisfies DurableSchema,
 		}).pipe(Effect.result);
 		if (Result.isFailure(claimed)) {
 			yield* Activity.make({
 				name: "fail-unclaimed-backup-restore",
 				success: Schema.Void satisfies DurableSchema,
-				error: InternalError satisfies DurableSchema,
+				error: BackupWorkflowError satisfies DurableSchema,
 				execute: operations.fail(payload, claimed.failure),
 			});
 			return;
@@ -323,14 +386,14 @@ export const runRestoreBackupWorkflow = Effect.fn("RestoreBackupWorkflow")(
 		const restored = yield* Activity.make({
 			name: "write-backup-restore",
 			success: Schema.Void satisfies DurableSchema,
-			error: InternalError satisfies DurableSchema,
+			error: BackupWorkflowError satisfies DurableSchema,
 			execute: operations.restore(payload, claimed.success),
 		}).pipe(Effect.result);
 		if (Result.isFailure(restored)) {
 			yield* Activity.make({
 				name: "fail-backup-restore",
 				success: Schema.Void satisfies DurableSchema,
-				error: InternalError satisfies DurableSchema,
+				error: BackupWorkflowError satisfies DurableSchema,
 				execute: operations.fail(payload, restored.failure, claimed.success),
 			});
 			return;
@@ -338,7 +401,7 @@ export const runRestoreBackupWorkflow = Effect.fn("RestoreBackupWorkflow")(
 		yield* Activity.make({
 			name: "cleanup-backup-restore",
 			success: Schema.Void satisfies DurableSchema,
-			error: InternalError satisfies DurableSchema,
+			error: BackupWorkflowError satisfies DurableSchema,
 			execute: operations.cleanup(payload, claimed.success),
 		});
 	},

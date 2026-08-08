@@ -535,7 +535,10 @@ describe("changeUserRelationships", () => {
 			);
 
 			expect(Result.getFailure(result)).toMatchObject(
-				Option.some({ _tag: "NotFound", message: "Entity not found" }),
+				Option.some({
+					_tag: "RelationshipNotFound",
+					reason: { code: "entity-not-found", entityIds: ["entity-1", "collection-1"] },
+				}),
 			);
 			expect(writes).toBe(0);
 		});
@@ -706,11 +709,13 @@ describe("toSandboxCreateEventsResult", () => {
 				toSandboxCreateEventsResult({
 					count: 0,
 					outcomes: [],
-					failure: { index: 0, reason: { kind: "bad_request", message: "Policy failed" } },
+					failure: { index: 0, reason: { code: "policy-failed" } },
 				}),
 			);
 
-			expect(Result.getFailure(result)).toEqual(Option.some("Policy failed"));
+			expect(Result.getFailure(result)).toEqual(
+				Option.some("Event creation failed: policy-failed"),
+			);
 		}),
 	);
 });

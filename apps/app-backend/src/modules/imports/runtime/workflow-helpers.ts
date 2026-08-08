@@ -1,3 +1,4 @@
+import type { ImportRunFailureReason } from "@ryot/contract/modules/imports/schemas";
 import { Context, Effect, Layer } from "effect";
 import { Activity } from "effect/unstable/workflow";
 
@@ -73,21 +74,21 @@ export const createImportRunLifecycle = (
 		}).pipe(Effect.ignore);
 		return Activity.make({ name, execute: cleanupBestEffortEffect });
 	};
-	const markRunFailed = (name: string, message: string) => {
-		const markFailedEffect = failImportRun(payload.runId, message).pipe(
+	const markRunFailed = (name: string, reason: ImportRunFailureReason) => {
+		const markFailedEffect = failImportRun(payload.runId, reason).pipe(
 			Effect.mapError(toWorkflowError),
 		);
 		return Activity.make({ name, error: ImportRunError, execute: markFailedEffect });
 	};
 
 	const failRunAndCleanup = Effect.fn(function* (input: {
-		message: string;
 		cleanupName: string;
 		failureName: string;
 		uploadCleanupName: string;
+		reason: ImportRunFailureReason;
 		uploadIntentIds: ReadonlyArray<string>;
 	}) {
-		const failedRun = yield* Effect.exit(markRunFailed(input.failureName, input.message));
+		const failedRun = yield* Effect.exit(markRunFailed(input.failureName, input.reason));
 		const cleanedUp = yield* Effect.exit(cleanupArtifacts(input.cleanupName));
 		yield* cleanupUploadsBestEffort(input.uploadCleanupName, input.uploadIntentIds);
 

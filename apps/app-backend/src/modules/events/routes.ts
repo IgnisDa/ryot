@@ -1,6 +1,7 @@
 import { CurrentUser } from "@ryot/contract/auth-middleware";
 import { AppContract } from "@ryot/contract/contract";
-import { dieOnDbError } from "@ryot/contract/errors";
+import { DbError } from "@ryot/contract/errors";
+import { EventsInternalError } from "@ryot/contract/modules/events/schemas";
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 
@@ -11,7 +12,20 @@ export const EventsRoutesLive = HttpApiBuilder.group(AppContract, "events", (han
 		Effect.gen(function* () {
 			const user = yield* CurrentUser;
 			const service = yield* EventsService;
-			return yield* service.create({ userId: user.id, payload, source: "api" }).pipe(dieOnDbError);
+			return yield* service.create({ userId: user.id, payload, source: "api" }).pipe(
+				Effect.catchTag("EventCreateItemError", (error) =>
+					Effect.logError("event creation escaped item failure handling", error).pipe(
+						Effect.andThen(new EventsInternalError({ reason: { code: "unexpected-error" } })),
+					),
+				),
+				Effect.catchIf(
+					(error): error is DbError => error instanceof DbError,
+					(error) =>
+						Effect.logError("event creation failed", error).pipe(
+							Effect.andThen(new EventsInternalError({ reason: { code: "unexpected-error" } })),
+						),
+				),
+			);
 		}),
 	),
 );

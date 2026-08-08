@@ -575,7 +575,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 							return durableHostFailure(unknownToMessage(result.cause));
 						}
 						return result.value.failure
-							? durableHostFailure(result.value.failure.reason.message)
+							? durableHostFailure(`Event creation failed: ${result.value.failure.reason.code}`)
 							: ({
 									state: "success",
 									value: { count: result.value.count },

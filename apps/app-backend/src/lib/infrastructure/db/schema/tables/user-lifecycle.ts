@@ -1,4 +1,5 @@
 import type {
+	UserLifecycleOperationFailure,
 	UserLifecycleOperationKind,
 	UserLifecycleOperationStatus,
 	UserResetResult,
@@ -17,7 +18,6 @@ import {
 export const userLifecycleOperation = snakeCase.table(
 	"user_lifecycle_operation",
 	{
-		error: text(),
 		id: text().primaryKey(),
 		userId: text().notNull(),
 		metadata: jsonb().notNull(),
@@ -25,6 +25,7 @@ export const userLifecycleOperation = snakeCase.table(
 		startedAt: timestamp({ withTimezone: true }),
 		finishedAt: timestamp({ withTimezone: true }),
 		workflowAttempt: integer().notNull().default(0),
+		failure: jsonb().$type<UserLifecycleOperationFailure>(),
 		accessRevokedAt: timestamp({ withTimezone: true }),
 		kind: text().notNull().$type<UserLifecycleOperationKind>(),
 		accessRevocationStartedAt: timestamp({ withTimezone: true }),

@@ -1,6 +1,8 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { notFound } from "@ryot/contract/errors";
-import type { UpdatePluginStateBody } from "@ryot/contract/modules/definitions/schemas";
+import {
+	DefinitionNotFound,
+	type UpdatePluginStateBody,
+} from "@ryot/contract/modules/definitions/schemas";
 import { PluginSlug } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
@@ -51,7 +53,9 @@ export class DefinitionsService extends Context.Service<DefinitionsService>()(
 				const plugins = loader.getSnapshot().plugins;
 				const plugin = plugins[pluginSlug];
 				if (!plugin) {
-					return yield* notFound("Plugin not found");
+					return yield* new DefinitionNotFound({
+						reason: { code: "plugin-not-found", pluginSlug },
+					});
 				}
 				const current = yield* repository.getPluginState(user.id, pluginSlug);
 				const defaultSortOrder = Object.keys(plugins).indexOf(pluginSlug);

@@ -101,15 +101,6 @@ export const registryImportSourceMissingConfigKeys = Effect.fn(
 	return missing.map((key) => pluginConfigEnvironmentKey(source.pluginSlug, key));
 });
 
-export const registryImportSourceStartError = Effect.fn("registryImportSourceStartError")(
-	function* (source: RegisteredImportSource) {
-		const missing = yield* registryImportSourceMissingConfigKeys(source);
-		return missing.length === 0
-			? undefined
-			: `${source.name} importer is not configured. Set ${missing.join(", ")}.`;
-	},
-);
-
 export const buildImportSourcePayload = (
 	properties: Readonly<Record<string, unknown>>,
 	source: RegisteredImportSource,

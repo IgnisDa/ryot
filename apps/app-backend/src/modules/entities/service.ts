@@ -1,6 +1,9 @@
-import { badRequest, notFound } from "@ryot/contract/errors";
 import type { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
-import type { ListedEntity } from "@ryot/contract/modules/entities/schemas";
+import {
+	EntityBadRequest,
+	EntityNotFound,
+	type ListedEntity,
+} from "@ryot/contract/modules/entities/schemas";
 import type {
 	EntityId,
 	EntitySchemaSlug,
@@ -13,7 +16,7 @@ import { Context, DateTime, Effect, Layer } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
-import { requireText } from "#lib/shared/validation";
+import { trimToNull } from "#lib/shared/validation";
 
 import { LifecycleDispatch } from "./lifecycle-dispatch";
 import type { EntityMutationSnapshot } from "./mutation-outcomes";
@@ -89,10 +92,6 @@ type ValidatedGlobalEntityItem = Omit<UpsertGlobalEntityItem, "properties"> & {
 	properties: Record<string, unknown>;
 };
 
-const entityNotFoundError = "Entity not found";
-const entitySchemaNotFoundError = "Entity schema not found";
-const partialProvenanceError = "externalId and providerId must both be provided or both be omitted";
-
 const toMutationSnapshot = (entity: ListedEntity): EntityMutationSnapshot => ({
 	id: entity.id,
 	name: entity.name,
@@ -110,7 +109,12 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			propertiesSchema: Parameters<typeof parseAppSchemaProperties>[0]["propertiesSchema"],
 		) {
 			return yield* parseAppSchemaProperties({ kind: "Entity", properties, propertiesSchema }).pipe(
-				Effect.mapError((error) => badRequest(error.message)),
+				Effect.mapError(
+					(error) =>
+						new EntityBadRequest({
+							reason: { code: "invalid-properties", paths: error.issues.map(({ path }) => path) },
+						}),
+				),
 			);
 		});
 
@@ -122,7 +126,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				const hasExternalId = input.externalId !== undefined;
 				const hasProviderId = input.providerId !== undefined;
 				if (hasExternalId !== hasProviderId) {
-					return yield* badRequest(partialProvenanceError);
+					return yield* new EntityBadRequest({
+						reason: { code: "incomplete-provenance", fields: ["externalId", "providerId"] },
+					});
 				}
 			}
 
@@ -133,7 +139,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					})
 				: repository.findEntitySchemaById(input.entitySchemaSlug);
 			if (!scope) {
-				return yield* notFound(entitySchemaNotFoundError);
+				return yield* new EntityNotFound({
+					reason: { code: "entity-schema-not-found", entitySchemaSlug: input.entitySchemaSlug },
+				});
 			}
 
 			if (
@@ -144,15 +152,18 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				const existing = yield* repository.findEntityByExternalIdForUser({
 					userId: input.userId,
 					externalId: input.externalId,
-					entitySchemaSlug: input.entitySchemaSlug,
 					providerId: input.providerId,
+					entitySchemaSlug: input.entitySchemaSlug,
 				});
 				if (existing) {
 					return existing;
 				}
 			}
 
-			const name = yield* requireText(input.name, "Entity name is required");
+			const name = trimToNull(input.name);
+			if (!name) {
+				return yield* new EntityBadRequest({ reason: { code: "name-required", field: "name" } });
+			}
 			const properties = yield* parseEntityProperties(input.properties, scope.propertiesSchema);
 			const saved = yield* repository.insertEntity({ ...input, name, properties });
 
@@ -258,7 +269,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		const update = Effect.fn("EntitiesService.update")(function* (input: UpdateEntityInput) {
 			const scope = yield* repository.findEntitySchemaById(input.entitySchemaSlug);
 			if (!scope) {
-				return yield* notFound(entitySchemaNotFoundError);
+				return yield* new EntityNotFound({
+					reason: { code: "entity-schema-not-found", entitySchemaSlug: input.entitySchemaSlug },
+				});
 			}
 
 			const properties = yield* parseEntityProperties(input.properties, scope.propertiesSchema);
@@ -274,19 +287,26 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		const upsert = Effect.fn("EntitiesService.upsert")(function* (input: UpsertEntityInput) {
 			const scope = yield* repository.findEntitySchemaById(input.entitySchemaSlug);
 			if (!scope) {
-				return yield* notFound(entitySchemaNotFoundError);
+				return yield* new EntityNotFound({
+					reason: { code: "entity-schema-not-found", entitySchemaSlug: input.entitySchemaSlug },
+				});
 			}
 
-			const name = yield* requireText(input.name, "Entity name is required");
+			const name = trimToNull(input.name);
+			if (!name) {
+				return yield* new EntityBadRequest({
+					reason: { code: "name-required", field: "name" },
+				});
+			}
 			const properties = yield* parseEntityProperties(input.properties, scope.propertiesSchema);
 			const saved = yield* repository.insertEntity({
 				name,
 				properties,
 				scope: "global",
 				externalId: input.externalId,
+				providerId: input.providerId,
 				populatedAt: input.populatedAt,
 				entitySchemaSlug: input.entitySchemaSlug,
-				providerId: input.providerId,
 			});
 			const before = toMutationSnapshot(saved.entity);
 
@@ -328,10 +348,17 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				Effect.gen(function* () {
 					const scope = yield* repository.findEntitySchemaById(input.entitySchemaSlug);
 					if (!scope) {
-						return yield* notFound(entitySchemaNotFoundError);
+						return yield* new EntityNotFound({
+							reason: { code: "entity-schema-not-found", entitySchemaSlug: input.entitySchemaSlug },
+						});
 					}
 
-					const name = yield* requireText(input.name, "Entity name is required");
+					const name = trimToNull(input.name);
+					if (!name) {
+						return yield* new EntityBadRequest({
+							reason: { code: "name-required", field: "name" },
+						});
+					}
 					const properties = yield* parseEntityProperties(input.properties, scope.propertiesSchema);
 					return { ...input, name, properties } satisfies ValidatedGlobalEntityItem;
 				}),
@@ -353,7 +380,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			}
 
 			if (!Number.isInteger(options.maximumTotal) || options.maximumTotal < 0) {
-				return yield* badRequest("maximumTotal must be a nonnegative integer");
+				return yield* new EntityBadRequest({
+					reason: { code: "invalid-maximum-total", field: "maximumTotal" },
+				});
 			}
 
 			const maximumTotal = options.maximumTotal;
@@ -374,8 +403,8 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 							counts.set(
 								entitySchemaSlug,
 								yield* repository.countGlobalEntitiesByProvenanceScope({
-									entitySchemaSlug,
 									providerId,
+									entitySchemaSlug,
 								}),
 							);
 						}
@@ -417,7 +446,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		) {
 			const entity = yield* repository.getById(entityId);
 			if (!entity) {
-				return yield* notFound(entityNotFoundError);
+				return yield* new EntityNotFound({ reason: { code: "entity-not-found", entityId } });
 			}
 			return entity;
 		});

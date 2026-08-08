@@ -36,9 +36,9 @@ it.effect("routes failure creation through its owning service", () => {
 		const service = yield* ImportRunFailuresService;
 		const input = {
 			itemIndex: 0,
-			message: "Source failed",
 			stage: "source_fetch" as const,
 			runId: ImportRunId.make("run-1"),
+			reason: { code: "source-fetch-failed" as const },
 		};
 
 		yield* service.create(input);

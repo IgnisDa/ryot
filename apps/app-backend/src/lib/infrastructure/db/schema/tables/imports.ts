@@ -1,3 +1,4 @@
+import type { ImportRunFailureReason } from "@ryot/contract/modules/imports/schemas";
 import type { ImportRunFailureStage, ImportRunSource } from "@ryot/contract/modules/imports/types";
 import type {
 	IntegrationExtraSettings,
@@ -59,7 +60,6 @@ export const integration = snakeCase.table(
 export const importRun = snakeCase.table(
 	"import_run",
 	{
-		errorSummary: text(),
 		totalItems: integer(),
 		progress: integer().notNull().default(0),
 		source: text().notNull().$type<ImportRunSource>(),
@@ -68,6 +68,7 @@ export const importRun = snakeCase.table(
 		startedAt: timestamp({ withTimezone: true }),
 		finishedAt: timestamp({ withTimezone: true }),
 		processedItems: integer().notNull().default(0),
+		failureReason: jsonb().$type<ImportRunFailureReason>(),
 		status: text().notNull().$type<RunStatus>().default("pending"),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		inputSummary: jsonb().$type<Record<string, unknown>>().notNull().default({}),
@@ -112,10 +113,9 @@ export const importRunFailure = snakeCase.table(
 		eventSchemaSlug: text(),
 		sourceIdentifier: text(),
 		entitySchemaSlug: text(),
-		message: text().notNull(),
 		itemIndex: integer().notNull(),
-		context: jsonb().$type<Record<string, unknown>>(),
 		stage: text().notNull().$type<ImportRunFailureStage>(),
+		reason: jsonb().$type<ImportRunFailureReason>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		runId: text()
 			.notNull()
