@@ -13,6 +13,7 @@ import { events } from "./stream";
 
 const streamId = "stream-1";
 const user = {
+	image: null,
 	name: "User",
 	email: "user@example.com",
 	id: UserId.make("user-1"),

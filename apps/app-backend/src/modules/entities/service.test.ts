@@ -20,6 +20,7 @@ const now = "2026-06-14T00:00:00.000Z";
 const nowDate = new Date(now);
 
 const user = {
+	image: null,
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-id"),
