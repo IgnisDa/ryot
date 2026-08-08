@@ -62,7 +62,7 @@ export const Route = createFileRoute("/auth_/callback")({
 					search.state,
 					search.code,
 				);
-				yield* Effect.flatMap(AuthService, (auth) => auth.settledSession(origin));
+				yield* Effect.flatMap(AuthService, (auth) => auth.settledSession(origin, true));
 				return sanitizeRedirect(pending.destination) ?? "/";
 			}),
 		);
