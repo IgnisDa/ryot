@@ -136,7 +136,7 @@ export const ServerLive = Layer.effectDiscard(
 			const exists = yield* fs.exists(path);
 			const target = exists ? path : "./client/index.html";
 			const bytes = yield* fs.readFile(target);
-			return new Response(bytes, { headers: { "Content-Type": mimeType(target) } });
+			return new Response(new Uint8Array(bytes), { headers: { "Content-Type": mimeType(target) } });
 		});
 
 		const server = yield* BunHttpServer.make({ idleTimeout: 0, port: config.port });

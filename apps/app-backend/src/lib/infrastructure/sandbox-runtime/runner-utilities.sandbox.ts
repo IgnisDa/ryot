@@ -235,8 +235,10 @@ export const createLogCollector = (limits: SandboxRunnerLimits): SandboxLogColle
 
 type BridgeResponse = { body: string; oversized: boolean };
 type BridgeReader = {
-	read: () => Promise<{ done: true; value?: Uint8Array } | { done: false; value: Uint8Array }>;
 	cancel: () => Promise<void>;
+	read: () => Promise<
+		{ done: true; value?: Uint8Array | undefined } | { done: false; value: Uint8Array }
+	>;
 };
 
 const readBridgeChunks = (
