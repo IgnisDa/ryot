@@ -80,10 +80,13 @@ export default function Index() {
 
 							<TermsSection number={5} title="Subscription and Payments">
 								<p className="text-muted-foreground leading-relaxed">
-									The Service offers monthly and yearly subscription plans.
-									Payments must be made on time to maintain access to the Pro
-									features. Failure to pay on time may result in the revocation
-									of your Pro Key and the deactivation of your server.
+									The Service offers monthly and yearly subscription plans, as
+									well as one-time lifetime licenses. Subscription payments
+									recur on a monthly or yearly basis, while lifetime licenses
+									require a one-time payment and do not renew. Payments must be
+									made on time to maintain access to the Pro features. Failure
+									to pay on time may result in the revocation of your Pro Key
+									and the deactivation of your server.
 								</p>
 							</TermsSection>
 
@@ -260,8 +263,11 @@ export default function Index() {
 							>
 								<div className="space-y-4">
 									<p className="text-muted-foreground leading-relaxed">
-										Users may cancel their subscription at any time. To cancel,
-										please contact us at{" "}
+										Users may cancel their subscription at any time, and
+										lifetime-license refund requests may be made in accordance
+										with the eligibility periods below. To cancel a subscription
+										or request a refund for a lifetime license, please contact
+										us at{" "}
 										<a
 											href={`mailto:${contactEmail}`}
 											className="text-primary hover:underline"
@@ -289,6 +295,13 @@ export default function Index() {
 												<span>
 													Yearly subscriptions: Full refund if cancelled within
 													the first 30 days
+												</span>
+											</li>
+											<li className="flex items-start">
+												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 shrink-0" />
+												<span>
+													Lifetime licenses: Full refund if requested within 30
+													days of the one-time purchase
 												</span>
 											</li>
 											<li className="flex items-start">
