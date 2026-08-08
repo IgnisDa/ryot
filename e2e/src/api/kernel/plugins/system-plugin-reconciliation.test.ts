@@ -10,6 +10,8 @@ import type { Client } from "~/fixtures/kernel";
 import {
 	adminHeaders,
 	createAuthenticatedClient,
+	encodePluginSourceFiles,
+	encodeTestSupportPluginFiles,
 	executeRyotQL,
 	installPrivatePlugin,
 	listSavedViews,
@@ -82,7 +84,9 @@ const installShippedPlugin = (
 			},
 		],
 	});
-	const files = { [entry]: literalSandboxSource({ name, slug, value: true }) };
+	const files = encodeTestSupportPluginFiles(
+		encodePluginSourceFiles({ [entry]: literalSandboxSource({ name, slug, value: true }) }),
+	);
 	return Effect.acquireRelease(
 		adminSession()
 			.call(
