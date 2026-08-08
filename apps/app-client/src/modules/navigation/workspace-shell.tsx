@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import { Slot } from "expo-router";
-import { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Modal, Platform, Pressable, Text, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
 
@@ -17,6 +17,22 @@ function WorkspaceShellContent() {
 	const { navigation } = useWorkspaceDrawer();
 	const [customize, setCustomize] = useState<{ section?: CustomizeSection } | null>(null);
 	const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
+	const [isCommandCenterOpen, setIsCommandCenterOpen] = useState(false);
+
+	useEffect(() => {
+		if (Platform.OS !== "web") {
+			return undefined;
+		}
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (event.key.toLowerCase() !== "k" || !event.metaKey) {
+				return;
+			}
+			event.preventDefault();
+			setIsCommandCenterOpen(true);
+		};
+		document.addEventListener("keydown", handleKeyDown);
+		return () => document.removeEventListener("keydown", handleKeyDown);
+	}, []);
 
 	function navigate(item: NavigationItem) {
 		setIsWorkspaceOpen(false);
@@ -61,6 +77,7 @@ function WorkspaceShellContent() {
 							accountEmail={navigation.accountEmail}
 							accountImage={navigation.accountImage}
 							onWorkspaceOpen={() => setIsWorkspaceOpen(true)}
+							onOpenSearch={() => setIsCommandCenterOpen(true)}
 						/>
 					) : (
 						<CustomizeSidebarPanel
@@ -107,6 +124,27 @@ function WorkspaceShellContent() {
 					</View>
 				</>
 			)}
+			<Modal
+				transparent
+				animationType="fade"
+				visible={isCommandCenterOpen}
+				onRequestClose={() => setIsCommandCenterOpen(false)}
+			>
+				<View accessibilityViewIsModal className="flex-1 items-center justify-center p-4">
+					<Pressable
+						accessibilityRole="button"
+						className="absolute inset-0 bg-overlay"
+						accessibilityLabel="Close command center"
+						onPress={() => setIsCommandCenterOpen(false)}
+					/>
+					<View className="w-full max-w-xl rounded-xl border border-border bg-surface p-5 shadow-card">
+						<Text className="font-ui-semibold text-lg text-text">Command center</Text>
+						<Text className="mt-2 font-ui text-sm text-text-muted">
+							Command center content goes here.
+						</Text>
+					</View>
+				</View>
+			</Modal>
 		</View>
 	);
 }
