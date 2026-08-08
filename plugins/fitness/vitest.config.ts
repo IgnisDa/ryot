@@ -1,1 +1,3 @@
-export { default } from "@ryot-app/testing/vitest.shared";
+import { defineClientConfig } from "@ryot-app/testing/vitest.client";
+
+export default defineClientConfig();

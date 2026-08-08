@@ -1,3 +1,5 @@
-import { defineConfig } from "vitest/config";
+import type { ViteUserConfig } from "vitest/config";
 
-export default defineConfig({ test: { reporters: ["agent"] } });
+const shared: ViteUserConfig = { test: { reporters: ["agent"] } };
+
+export default shared;
