@@ -53,7 +53,7 @@ const normalizeIntegration = (frontendUrl: string, row: IntegrationRow): Integra
 	lastFinishedAt: row.lastFinishedAt?.toISOString() ?? null,
 	minimumProgress: Number.parseFloat(row.minimumProgress),
 	maximumProgress: Number.parseFloat(row.maximumProgress),
-	webhookUrl: row.lot === "sink" ? `${frontendUrl}/_i/${row.id}` : undefined,
+	...(row.lot === "sink" ? { webhookUrl: `${frontendUrl}/_i/${row.id}` } : {}),
 });
 
 const ownedIntegrationWhere = (input: { integrationId: IntegrationId; userId: UserId }) =>
