@@ -2,7 +2,7 @@ import { expect, it } from "@effect/vitest";
 import { defaultUserPreferences } from "@ryot/contract/auth-middleware";
 import { BadRequest, DbError } from "@ryot/contract/errors";
 import { UserId } from "@ryot/contract/schema/brands";
-import type { ilike } from "drizzle-orm";
+import type { ilike, SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
 import { assert, describe, it as vitestIt } from "vitest";
@@ -32,6 +32,16 @@ type UserRow = {
 	createdAt: Date;
 	disabledAt: Date | null;
 	twoFactorEnabled: boolean | null;
+};
+
+type MigrationReportRow = {
+	seq: number;
+	count: number | null;
+	phase: string;
+	level: "info" | "warning";
+	message: string;
+	createdAt: Date;
+	elapsedSeconds: number | null;
 };
 
 const baseUser = {
@@ -277,6 +287,21 @@ const makeListUsersDb = (options: {
 	return { db, state };
 };
 
+const makeMigrationReportDb = (rows: ReadonlyArray<MigrationReportRow>) => {
+	const state = { orderBy: [] as SQL[] };
+	const db = Object.assign(Object.create(null), {
+		select: () => ({
+			from: () => ({
+				orderBy: (...orderBy: SQL[]) => {
+					state.orderBy = orderBy;
+					return Effect.succeed(rows);
+				},
+			}),
+		}),
+	});
+	return { db, state };
+};
+
 const makeSetUserDisabledDb = (options: { user: Pick<UserRow, "disabledAt" | "id"> | null }) => {
 	const db = Object.assign(Object.create(null), {
 		select: () => ({
@@ -408,6 +433,33 @@ it.effect("returns users with total count and auth states", () => {
 				},
 			],
 		});
+	}).pipe(Effect.provide(makeServiceLayer(db)));
+});
+
+it.effect("returns migration report entries ordered by severity and newest time", () => {
+	const row = {
+		seq: 12,
+		count: null,
+		phase: "review -> event",
+		level: "warning",
+		message: "rows skipped",
+		elapsedSeconds: 4.2,
+		createdAt: new Date("2026-08-24T12:34:56Z"),
+	} as const satisfies MigrationReportRow;
+	const { db, state } = makeMigrationReportDb([row]);
+
+	return Effect.gen(function* () {
+		const service = yield* GodModeService;
+		const result = yield* service.getMigrationReport();
+
+		expect(result).toEqual({
+			entries: [{ ...row, createdAt: "2026-08-24T12:34:56.000Z" }],
+		});
+		expect(state.orderBy.map((order) => dialect.sqlToQuery(order).sql.toLowerCase())).toEqual([
+			expect.stringContaining("case when"),
+			expect.stringContaining('"created_at" desc'),
+			expect.stringContaining('"seq" desc'),
+		]);
 	}).pipe(Effect.provide(makeServiceLayer(db)));
 });
 
