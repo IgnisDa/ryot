@@ -1,11 +1,13 @@
 import type { NavigationWorkspace } from "@ryot/ryotql-recipes/navigation";
 import clsx from "clsx";
 import { Image } from "expo-image";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 
 import { AppIcon as NavigationIcon } from "@/modules/icons";
 
 import { getWorkspaceSummary, type NavigationItem, type NavigationItems } from "./navigation-data";
+
+const SHORTCUT_HINT_HIDDEN = Platform.OS === "web" ? null : "hidden";
 
 function NavigationRow(props: { isActive: boolean; onPress: () => void; item: NavigationItem }) {
 	return (
@@ -106,13 +108,10 @@ export function Sidebar(props: {
 				/>
 				<View className="h-10 flex-row items-center gap-2.5 rounded-lg border border-border bg-bg px-2.5">
 					<NavigationIcon className="text-text-muted" name="search" size={16} />
-					<TextInput
-						placeholder="Search"
-						returnKeyType="search"
-						accessibilityLabel="Search navigation"
-						className="min-w-0 flex-1 py-0 font-ui text-sm text-text"
-					/>
-					<View className="rounded border border-border px-1.5 py-0.5">
+					<Text className="min-w-0 flex-1 font-ui text-sm text-text-subtle">Search</Text>
+					<View
+						className={clsx("rounded border border-border px-1.5 py-0.5", SHORTCUT_HINT_HIDDEN)}
+					>
 						<Text className="font-mono text-xs text-text-subtle">⌘K</Text>
 					</View>
 				</View>
