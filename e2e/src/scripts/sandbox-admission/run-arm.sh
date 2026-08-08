@@ -3,6 +3,7 @@
 # PostgreSQL cgroup CPU and commit counters; throughout, it samples PostgreSQL connections and lock
 # waits, the admission ledger, and both sandbox queue depths every 3 seconds, none of which the
 # in-container probe can read. Usage (on the host): run-arm.sh <label> <scenario> <repetitions>...
+# Scenarios restart, cancel, duplicate, backlog, and worker-kill run validate-probe.mjs instead.
 set -eu
 LABEL="$1"
 shift
@@ -34,6 +35,22 @@ postgres_counters() {
 	echo "$usage $commits"
 }
 
+# Lifecycle checks from validate-probe.mjs; only `restart` needs the host, to restart the container.
+validate() {
+	docker exec "$APP" bun /tmp/validate-probe.mjs /tmp/adm-state.json "$LABEL" "$1"
+}
+
+wait_healthy() {
+	for _ in $(seq 1 60); do
+		if docker exec "$APP" bun -e "process.exit((await fetch('http://127.0.0.1:8000/api/system/health').catch(() => null))?.ok ? 0 : 1)" 2>/dev/null; then
+			return 0
+		fi
+		sleep 5
+	done
+	echo "service did not become healthy after restart" >&2
+	return 1
+}
+
 sample_pressure &
 SAMPLER=$!
 # On any exit, keep whatever the probe wrote and name the scenario that stopped the arm.
@@ -54,10 +71,30 @@ while [ "$#" -gt 1 ]; do
 	shift 2
 	before=$(postgres_counters)
 	started=$(date +%s%3N)
-	docker exec "$APP" bun /tmp/remote-probe.mjs /tmp/adm-state.json "$LABEL" "$scenario" "$repetitions"
+	case "$scenario" in
+	restart)
+		validate restart-submit
+		docker restart "$APP" >/dev/null
+		wait_healthy
+		validate restart-await
+		;;
+	cancel | duplicate | backlog | worker-kill)
+		validate "$scenario"
+		;;
+	*)
+		docker exec "$APP" bun /tmp/remote-probe.mjs /tmp/adm-state.json "$LABEL" "$scenario" "$repetitions"
+		;;
+	esac
 	after=$(postgres_counters)
 	printf '{"label":"%s","scenario":"%s","repetitions":%s,"startedAtMs":%s,"finishedAtMs":%s,"postgresCpuSeconds":%s,"postgresCommits":%s}\n' \
 		"$LABEL" "$scenario" "$repetitions" "$started" "$(date +%s%3N)" \
 		"$(awk "BEGIN { print (${after% *} - ${before% *}) / 1000000 }")" \
 		"$((${after#* } - ${before#* }))" >>"$OUT/postgres.jsonl"
 done
+# Every check ends drained: a leftover ledger row is an import the admission loop lost track of.
+left=$(psql_value "select count(*) from provider_import_admission")
+[ "$left" = 0 ] || {
+	scenario=ledger
+	echo "$left admission rows left after the arm" >&2
+	exit 1
+}
