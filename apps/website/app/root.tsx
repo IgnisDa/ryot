@@ -199,7 +199,7 @@ export default function App() {
 											Ryot
 										</span>
 									</div>
-									<div className="flex items-center space-x-6 text-muted-foreground">
+									<div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-muted-foreground">
 										<Link
 											to={$path("/features")}
 											className="hover:text-foreground transition-colors"
@@ -213,8 +213,14 @@ export default function App() {
 											Support
 										</Link>
 										<Link
+											to={$path("/pricing-promise")}
+											className="hover:text-foreground transition-colors"
+										>
+											Pricing Promise
+										</Link>
+										<Link
 											to={$path("/terms")}
-											className="hover:text-foreground hidden sm:block transition-colors"
+											className="hover:text-foreground transition-colors"
 										>
 											Terms
 										</Link>

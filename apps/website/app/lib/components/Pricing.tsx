@@ -90,6 +90,14 @@ export default function Pricing(props: {
 						</button>
 						. Choose the one that best fits your needs.
 					</p>
+					<div className="mt-4">
+						<Link
+							to={$path("/pricing-promise")}
+							className="text-blue-500 underline hover:no-underline transition-colors"
+						>
+							Read our pricing promise
+						</Link>
+					</div>
 
 					<div className="flex items-center justify-center gap-4">
 						<div className="flex items-center gap-2 bg-muted/50 px-4 py-2 rounded-full">
