@@ -1,5 +1,7 @@
 import { Schema } from "effect";
 
+import { UserId } from "../../schema/brands";
+
 export const UserPreferences = Schema.Struct({
 	allowNsfw: Schema.Boolean,
 	disableIntegrations: Schema.Boolean,
@@ -9,6 +11,7 @@ export const UserPreferences = Schema.Struct({
 export type UserPreferences = typeof UserPreferences.Type;
 
 export const UserSettings = Schema.Struct({
+	id: UserId,
 	name: Schema.String,
 	email: Schema.String,
 	preferences: UserPreferences,

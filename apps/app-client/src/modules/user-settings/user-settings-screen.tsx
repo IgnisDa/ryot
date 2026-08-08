@@ -5,7 +5,16 @@ import { Exit } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { router } from "expo-router";
 import { useEffect, useState, type ReactNode } from "react";
-import { ActivityIndicator, Keyboard, Pressable, Text, TextInput, View } from "react-native";
+import {
+	ActivityIndicator,
+	Keyboard,
+	Modal,
+	Pressable,
+	ScrollView,
+	Text,
+	TextInput,
+	View,
+} from "react-native";
 
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
@@ -32,6 +41,20 @@ const THEME_OPTIONS = [
 	{ icon: "sun", label: "Light", value: "light" },
 	{ icon: "moon", label: "Dark", value: "dark" },
 	{ icon: "monitor", label: "System", value: "system" },
+] as const;
+
+const LANGUAGE_OPTIONS = [
+	{ code: null, label: "Provider default" },
+	{ code: "en", label: "English" },
+	{ code: "es", label: "Spanish" },
+	{ code: "fr", label: "French" },
+	{ code: "de", label: "German" },
+	{ code: "it", label: "Italian" },
+	{ code: "pt", label: "Portuguese" },
+	{ code: "ja", label: "Japanese" },
+	{ code: "ko", label: "Korean" },
+	{ code: "zh", label: "Chinese" },
+	{ code: "ru", label: "Russian" },
 ] as const;
 
 function SettingsSection(props: { title: string; detail: string; children: ReactNode }) {
@@ -88,7 +111,7 @@ function ThemeSettings() {
 	);
 }
 
-function ProfileSettings(props: { image: string | null; name: string; email: string }) {
+function ProfileSettings(props: { id: string; image: string | null; name: string; email: string }) {
 	const scope = useApiScope();
 	const authClient = useAuthClient();
 	const { refetch: refetchSession } = authClient.useSession();
@@ -130,6 +153,9 @@ function ProfileSettings(props: { image: string | null; name: string; email: str
 							</Text>
 							<Text numberOfLines={1} className="font-ui text-sm text-text-muted">
 								{props.email}
+							</Text>
+							<Text selectable className="font-ui text-xs text-text-subtle">
+								ID: {props.id}
 							</Text>
 						</View>
 					</View>
@@ -183,6 +209,117 @@ function PreferenceRow(props: {
 				onChange={props.onChange}
 			/>
 		</View>
+	);
+}
+
+function LanguagePicker(props: {
+	value: string;
+	disabled: boolean;
+	onChange: (value: string) => void;
+}) {
+	const matched = LANGUAGE_OPTIONS.find((option) => option.code === (props.value.trim() || null));
+	const [open, setOpen] = useState(false);
+	const [custom, setCustom] = useState(matched === undefined);
+	let selectedLabel: string = matched?.label ?? "Provider default";
+	if (custom) {
+		selectedLabel = props.value.trim() === "" ? "Other language" : `Other (${props.value.trim()})`;
+	}
+
+	function select(code: (typeof LANGUAGE_OPTIONS)[number]["code"]) {
+		setOpen(false);
+		setCustom(false);
+		props.onChange(code ?? "");
+	}
+
+	function selectCustom() {
+		setOpen(false);
+		setCustom(true);
+	}
+
+	return (
+		<>
+			<Pressable
+				disabled={props.disabled}
+				accessibilityRole="button"
+				onPress={() => setOpen(true)}
+				accessibilityState={{ expanded: open }}
+				accessibilityLabel={`Metadata language: ${selectedLabel}`}
+				className={clsx(
+					"h-11 flex-row items-center justify-between rounded-lg border border-border bg-raised px-3",
+					props.disabled && "opacity-50",
+				)}
+			>
+				<Text className="font-ui text-sm text-text">{selectedLabel}</Text>
+				<AppIcon name="chevron-down" size={16} className="text-text-muted" />
+			</Pressable>
+
+			{custom ? (
+				<TextInput
+					returnKeyType="go"
+					autoCorrect={false}
+					value={props.value}
+					autoCapitalize="none"
+					editable={!props.disabled}
+					onChangeText={props.onChange}
+					placeholder="For example, sv or pt-BR"
+					onSubmitEditing={() => Keyboard.dismiss()}
+					accessibilityLabel="Custom metadata language code"
+					className="h-10 rounded-lg border border-border bg-raised px-3 font-ui text-sm text-text"
+				/>
+			) : null}
+
+			<Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}>
+				<View accessibilityViewIsModal className="flex-1 items-center justify-center px-5">
+					<Pressable
+						onPress={() => setOpen(false)}
+						accessibilityLabel="Close language picker"
+						className="absolute inset-0 bg-black/45"
+					/>
+					<View className="max-h-[80%] w-full max-w-sm overflow-hidden rounded-xl border border-border bg-raised shadow-card">
+						<View className="border-b border-border px-4 py-3">
+							<Text className="font-ui-semibold text-base text-text">Metadata language</Text>
+						</View>
+						<ScrollView contentContainerClassName="py-1">
+							{LANGUAGE_OPTIONS.map((option) => {
+								const selected = !custom && matched?.code === option.code;
+								return (
+									<Pressable
+										accessibilityRole="radio"
+										key={option.code ?? "default"}
+										onPress={() => select(option.code)}
+										accessibilityState={{ checked: selected }}
+										className={clsx(
+											"h-11 flex-row items-center gap-3 px-4",
+											selected && "bg-accent-soft",
+										)}
+									>
+										<Text className="flex-1 font-ui text-sm text-text">{option.label}</Text>
+										{option.code === null ? null : (
+											<Text className="font-ui text-xs text-text-subtle">{option.code}</Text>
+										)}
+										{selected ? (
+											<AppIcon name="check" size={16} className="text-accent-text" />
+										) : null}
+									</Pressable>
+								);
+							})}
+							<Pressable
+								onPress={selectCustom}
+								accessibilityRole="radio"
+								accessibilityState={{ checked: custom }}
+								className={clsx(
+									"h-11 flex-row items-center gap-3 px-4",
+									custom && "bg-accent-soft",
+								)}
+							>
+								<Text className="flex-1 font-ui text-sm text-text">Other language...</Text>
+								{custom ? <AppIcon name="check" size={16} className="text-accent-text" /> : null}
+							</Pressable>
+						</ScrollView>
+					</View>
+				</View>
+			</Modal>
+		</>
 	);
 }
 
@@ -247,20 +384,13 @@ function PreferenceSettings(props: { preferences: UserPreferences }) {
 					<View className="gap-0.5">
 						<Text className="font-ui-medium text-sm text-text">Metadata language</Text>
 						<Text className="font-ui text-xs leading-4 text-text-muted">
-							Use a language code such as en or es. Leave blank to use the provider default.
+							Used when translated metadata is available. Language availability varies by provider.
 						</Text>
 					</View>
-					<TextInput
-						returnKeyType="go"
-						autoCorrect={false}
-						editable={!pending}
-						autoCapitalize="none"
+					<LanguagePicker
+						disabled={pending}
 						value={draft.language}
-						placeholder="Provider default"
-						onSubmitEditing={() => Keyboard.dismiss()}
-						accessibilityLabel="Metadata language code"
-						onChangeText={(language) => updateDraft({ language })}
-						className="h-10 rounded-lg border border-border bg-raised px-3 font-ui text-sm text-text"
+						onChange={(language) => updateDraft({ language })}
 					/>
 				</View>
 			</View>
@@ -360,6 +490,7 @@ export function UserSettingsScreen() {
 	return (
 		<View className="w-full max-w-2xl gap-8 self-center pb-4">
 			<ProfileSettings
+				id={settings.value.id}
 				name={settings.value.name}
 				email={settings.value.email}
 				image={settings.value.image}
