@@ -137,6 +137,7 @@ export const compileClientPlugin = ({ entry, files }: ClientPluginCompilerInput)
 			files,
 			assetNames,
 			sourceFiles,
+			fontStylesheet: dependencies.fontStylesheet,
 			themeStylesheet: dependencies.themeStylesheet,
 			tailwindStylesheet: dependencies.tailwindStylesheet,
 			stylesheet:
@@ -155,6 +156,7 @@ export const compileClientPlugin = ({ entry, files }: ClientPluginCompilerInput)
 		});
 
 		const assetsByName = new Map<string, PluginClientArtifactFile>();
+		const emittedAssets: Array<readonly [string, PluginClientArtifactFile]> = [];
 		for (const path of new Set([...bundled.assets, ...styles.assets])) {
 			const contents = files[path];
 			const name = assetNames[path];
@@ -165,7 +167,12 @@ export const compileClientPlugin = ({ entry, files }: ClientPluginCompilerInput)
 					`Client plugin asset "${path}" could not be emitted`,
 				);
 			}
-			const file = clientAssetArtifactFile(path, name, contents);
+			emittedAssets.push([path, clientAssetArtifactFile(path, name, contents)]);
+		}
+		for (const file of dependencies.fontAssets) {
+			emittedAssets.push([file.name, file]);
+		}
+		for (const [path, file] of emittedAssets) {
 			const existing = assetsByName.get(file.name);
 			if (existing === undefined) {
 				assetsByName.set(file.name, file);
