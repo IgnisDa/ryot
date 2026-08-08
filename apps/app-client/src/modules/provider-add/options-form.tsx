@@ -5,6 +5,7 @@ import { useDeferredValue, useState } from "react";
 import { FlatList, Keyboard, Modal, Pressable, Text, TextInput, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
+import { AppSwitch } from "@/modules/ui/switch";
 
 import {
 	describeOptionFields,
@@ -54,28 +55,6 @@ function OptionChip(props: {
 			>
 				{props.label}
 			</Text>
-		</Pressable>
-	);
-}
-
-function OptionSwitch(props: {
-	readonly label: string;
-	readonly checked: boolean;
-	readonly onChange: (value: boolean) => void;
-}) {
-	return (
-		<Pressable
-			accessibilityRole="switch"
-			accessibilityLabel={props.label}
-			accessibilityState={{ checked: props.checked }}
-			onPress={() => props.onChange(!props.checked)}
-			className={clsx(
-				"h-6 w-10 justify-center rounded-pill border border-border p-0.5",
-				props.checked && "bg-accent",
-				!props.checked && "bg-surface-2",
-			)}
-		>
-			<View className={clsx("h-5 w-5 rounded-pill bg-raised", props.checked && "self-end")} />
 		</Pressable>
 	);
 }
@@ -259,7 +238,7 @@ function OptionControl(props: {
 	return Match.value(props.field.type).pipe(
 		Match.when("boolean", () => (
 			<View className="flex-row items-center gap-2">
-				<OptionSwitch
+				<AppSwitch
 					label={props.field.label}
 					checked={props.value === true}
 					onChange={(next) => props.onChange(next)}

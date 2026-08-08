@@ -5,6 +5,7 @@ import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { AppIcon as NavigationIcon } from "@/modules/icons";
 import { RemoteImage } from "@/modules/ui/image-with-fallback";
 
+import type { CustomizeSection } from "./customize/customize-state";
 import { getWorkspaceSummary, type NavigationItem, type NavigationItems } from "./navigation-data";
 
 const SHORTCUT_HINT_HIDDEN = Platform.OS === "web" ? null : "hidden";
@@ -36,9 +37,9 @@ function NavigationRow(props: { isActive: boolean; onPress: () => void; item: Na
 	);
 }
 
-function SectionHeader(props: { title: string; count?: number }) {
+function SectionHeader(props: { title: string; count?: number; onEdit?: () => void }) {
 	return (
-		<View className="flex-row items-center justify-between px-1">
+		<View className="group flex-row items-center justify-between px-1">
 			<View className="flex-row items-center gap-2">
 				<Text className="font-ui-semibold text-xs uppercase tracking-[1.6px] text-text-subtle">
 					{props.title}
@@ -47,6 +48,20 @@ function SectionHeader(props: { title: string; count?: number }) {
 					<Text className="font-mono text-xs text-text-subtle">{props.count}</Text>
 				)}
 			</View>
+			{props.onEdit && Platform.OS === "web" ? (
+				<Pressable
+					focusable
+					onPress={props.onEdit}
+					accessibilityRole="button"
+					accessibilityLabel={`Edit ${props.title} section`}
+					className={clsx(
+						"rounded px-1.5 py-0.5",
+						"opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
+					)}
+				>
+					<Text className="font-ui-medium text-xs text-text-muted">Edit</Text>
+				</Pressable>
+			) : null}
 		</View>
 	);
 }
@@ -91,6 +106,7 @@ export function Sidebar(props: {
 	onWorkspaceOpen: () => void;
 	workspace: NavigationWorkspace;
 	onNavigate: (item: NavigationItem) => void;
+	onEditSection?: ((section: CustomizeSection) => void) | undefined;
 }) {
 	const items = props.items;
 
@@ -117,7 +133,10 @@ export function Sidebar(props: {
 				</View>
 
 				<View className="mt-2 gap-1.5">
-					<SectionHeader title="Views" />
+					<SectionHeader
+						title="Views"
+						onEdit={props.onEditSection ? () => props.onEditSection?.("views") : undefined}
+					/>
 					<ScrollView
 						nestedScrollEnabled
 						className="max-h-83.5"
@@ -141,7 +160,11 @@ export function Sidebar(props: {
 
 				<View className="my-2 h-px bg-border" />
 				<View className="gap-1.5">
-					<SectionHeader title="Saved Views" count={items.savedViews.length} />
+					<SectionHeader
+						title="Saved Views"
+						count={items.savedViews.length}
+						onEdit={props.onEditSection ? () => props.onEditSection?.("savedViews") : undefined}
+					/>
 					<ScrollView
 						nestedScrollEnabled
 						className="max-h-52"

@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { router } from "expo-router";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
 	BackHandler,
@@ -150,6 +151,12 @@ export function WorkspaceDrawer(props: {
 		props.navigation.openSettings();
 	}
 
+	function openCustomize() {
+		setSheet(null);
+		close();
+		router.navigate("/customize-sidebar");
+	}
+
 	return (
 		<WorkspaceDrawerContext.Provider value={drawerValue}>
 			<View className="flex-1 bg-bg">
@@ -207,6 +214,7 @@ export function WorkspaceDrawer(props: {
 					<View pointerEvents="box-none" className="absolute inset-0 z-50">
 						<WorkspaceSheet
 							onSelect={selectWorkspace}
+							onCustomize={openCustomize}
 							data={props.navigation.data}
 							onClose={() => setSheet(null)}
 							currentWorkspaceSlug={props.navigation.workspace.slug}

@@ -92,10 +92,10 @@ export type CreateSavedViewBody = typeof CreateSavedViewBody.Type;
 export const UpdateSavedViewBody = Schema.Struct({
 	icon: Schema.String,
 	name: Schema.String,
-	layouts: SavedViewLayouts,
 	isDisabled: Schema.Boolean,
 	pluginSlug: Schema.optional(PluginSlug),
-	entitySchemaSlug: Schema.NullOr(EntitySchemaSlug),
+	layouts: Schema.optional(SavedViewLayouts),
+	entitySchemaSlug: Schema.optional(Schema.NullOr(EntitySchemaSlug)),
 });
 
 export type UpdateSavedViewBody = typeof UpdateSavedViewBody.Type;
