@@ -43,9 +43,11 @@ const EntitySnapshot = Schema.Struct({
 const EventSnapshot = Schema.Struct({
 	id: EventId,
 	subject: EntityReference,
+	createdAt: Schema.String,
 	occurredAt: Schema.String,
 	eventSchemaSlug: Schema.String,
 	properties: AutomationProperties,
+	sessionEntityId: Schema.optional(EntityId),
 });
 
 const RelationshipSnapshot = Schema.Struct({

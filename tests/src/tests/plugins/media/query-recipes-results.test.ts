@@ -1,9 +1,8 @@
 import {
-	completedPodcastsRecipe,
 	collectionMediaSuggestionsRecipe,
-	inProgressPodcastsRecipe,
 	personalMediaSuggestionsRecipe,
 	podcastDetailRecipe,
+	podcastsByLifecycleStateRecipe,
 	showDetailRecipe,
 	trendingMediaRecipe,
 } from "@ryot/media-plugin/query-recipes";
@@ -264,11 +263,14 @@ describe("Media RyotQL query recipe results", () => {
 			assertPresent(firstEpisodeResult, "Expected first episode result");
 			assertPresent(secondSeasonEpisodeResult, "Expected second-season episode result");
 			expect(firstEpisodeResult.name).toBe("Season 1 Episode 1");
-			expect(firstEpisodeResult.hasProgress).toBe(true);
-			expect(firstEpisodeResult.isComplete).toBe(true);
+			expect(firstEpisodeResult.state).toBe("complete");
 			expect(secondSeasonEpisodeResult.name).toBe("Season 2 Episode 1");
-			expect(secondSeasonEpisodeResult.hasProgress).toBe(false);
-			expect(secondSeasonEpisodeResult.isComplete).toBe(false);
+			expect(secondSeasonEpisodeResult.state).toBe("untracked");
+			expect(firstEpisodeResult).not.toHaveProperty("hasProgress");
+			expect(firstEpisodeResult).not.toHaveProperty("isComplete");
+			expect(secondSeasonEpisodeResult).not.toHaveProperty("hasProgress");
+			expect(secondSeasonEpisodeResult).not.toHaveProperty("isComplete");
+			expect(showRow.state).toBe("in_progress");
 		}),
 	);
 
@@ -303,10 +305,13 @@ describe("Media RyotQL query recipe results", () => {
 			const secondEpisodeResult = episodes.items[1];
 			assertPresent(firstEpisodeResult, "Expected first podcast episode result");
 			assertPresent(secondEpisodeResult, "Expected second podcast episode result");
-			expect(firstEpisodeResult.hasProgress).toBe(true);
-			expect(firstEpisodeResult.isComplete).toBe(false);
-			expect(secondEpisodeResult.hasProgress).toBe(false);
-			expect(secondEpisodeResult.isComplete).toBe(true);
+			expect(firstEpisodeResult.state).toBe("in_progress");
+			expect(secondEpisodeResult.state).toBe("complete");
+			expect(firstEpisodeResult).not.toHaveProperty("hasProgress");
+			expect(firstEpisodeResult).not.toHaveProperty("isComplete");
+			expect(secondEpisodeResult).not.toHaveProperty("hasProgress");
+			expect(secondEpisodeResult).not.toHaveProperty("isComplete");
+			expect(podcastRow.state).toBe("in_progress");
 		}),
 	);
 
@@ -318,14 +323,33 @@ describe("Media RyotQL query recipe results", () => {
 			const secondEpisode = seeded.episodes[1];
 			assertPresent(firstEpisode, "Expected first podcast episode");
 			assertPresent(secondEpisode, "Expected second podcast episode");
-			const inProgressRecipe = inProgressPodcastsRecipe({
-				limit: 10,
-				entityId: seeded.podcast.id,
-			});
-			const completedRecipe = completedPodcastsRecipe({
-				limit: 10,
-				entityId: seeded.podcast.id,
-			});
+			const lifecycleStates = [
+				"untracked",
+				"backlog",
+				"in_progress",
+				"on_hold",
+				"dropped",
+				"caught_up",
+				"complete",
+			] as const;
+			const assertPodcastState = (expectedState: (typeof lifecycleStates)[number]) =>
+				Effect.gen(function* () {
+					const responses = yield* Effect.all(
+						lifecycleStates.map((state) =>
+							executeRyotQLRecipe(
+								client,
+								podcastsByLifecycleStateRecipe({ state, limit: 10, entityId: seeded.podcast.id }),
+							),
+						),
+					);
+					const matches = responses.flatMap((response, index) =>
+						response.items
+							.filter((item) => item.id === seeded.podcast.id)
+							.map(() => lifecycleStates[index]),
+					);
+					expect(matches).toHaveLength(1);
+					expect(matches[0]).toBe(expectedState);
+				});
 			yield* createEventFixture(client, {
 				entityId: firstEpisode.id,
 				eventSchemaSlug: seeded.episodeProgressEventSchemaSlug,
@@ -336,30 +360,21 @@ describe("Media RyotQL query recipe results", () => {
 				properties: { completionMode: "unknown" },
 				eventSchemaSlug: seeded.episodeCompleteEventSchemaSlug,
 			});
-			let response = yield* executeRyotQLRecipe(client, inProgressRecipe);
-			expect(response.items).toHaveLength(1);
-			response = yield* executeRyotQLRecipe(client, completedRecipe);
-			expect(response.items).toHaveLength(0);
+			yield* assertPodcastState("in_progress");
 
 			yield* createEventFixture(client, {
 				entityId: secondEpisode.id,
 				properties: { completionMode: "unknown" },
 				eventSchemaSlug: seeded.episodeCompleteEventSchemaSlug,
 			});
-			response = yield* executeRyotQLRecipe(client, inProgressRecipe);
-			expect(response.items).toHaveLength(1);
-			response = yield* executeRyotQLRecipe(client, completedRecipe);
-			expect(response.items).toHaveLength(1);
+			yield* assertPodcastState("caught_up");
 
 			yield* createEventFixture(client, {
 				entityId: seeded.podcast.id,
 				properties: { completionMode: "unknown" },
 				eventSchemaSlug: seeded.podcastCompleteEventSchemaSlug,
 			});
-			response = yield* executeRyotQLRecipe(client, inProgressRecipe);
-			expect(response.items).toHaveLength(0);
-			response = yield* executeRyotQLRecipe(client, completedRecipe);
-			expect(response.items).toHaveLength(1);
+			yield* assertPodcastState("complete");
 		}),
 	);
 

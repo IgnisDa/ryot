@@ -677,13 +677,20 @@ export const mediaPlugin = definePlugin({
 				scriptSlug: "automation.media-library-membership-on-import",
 			}),
 		),
-		entityAutomations: [...builtinMediaEntitySchemaSlugs, "show-episode", "podcast-episode"].map(
-			(entitySchemaSlug) => ({
+		entityAutomations: [
+			...[...builtinMediaEntitySchemaSlugs, "show-episode", "podcast-episode"].map(
+				(entitySchemaSlug) => ({
+					entitySchemaSlug,
+					operation: "update" as const,
+					scriptSlug: "automation.media-entity-updated",
+				}),
+			),
+			...["show", "podcast"].map((entitySchemaSlug) => ({
 				entitySchemaSlug,
 				operation: "update" as const,
-				scriptSlug: "automation.media-entity-updated",
-			}),
-		),
+				scriptSlug: "automation.media-auto-complete-episodic-parent",
+			})),
+		],
 		eventAutomations: [
 			...entitySchemas.flatMap((schema) =>
 				schema.eventSchemas.map(({ slug }) => ({
@@ -720,6 +727,30 @@ export const mediaPlugin = definePlugin({
 					scriptSlug: "trigger.integration-progress-policy",
 				},
 			]),
+			...[
+				"show:backlog",
+				"show:complete",
+				"show:dropped",
+				"show:on_hold",
+				"show-episode:progress",
+				"show-episode:complete",
+				"podcast:backlog",
+				"podcast:complete",
+				"podcast:dropped",
+				"podcast:on_hold",
+				"podcast-episode:progress",
+				"podcast-episode:complete",
+			].map((eventSchemaSlug) => ({
+				position: 200,
+				eventSchemaSlug,
+				kind: "policy" as const,
+				scriptSlug: "policy.media-episodic-session",
+			})),
+			...["show-episode:complete", "podcast-episode:complete"].map((eventSchemaSlug) => ({
+				eventSchemaSlug,
+				kind: "subscription" as const,
+				scriptSlug: "automation.media-auto-complete-episodic-parent",
+			})),
 			{
 				kind: "subscription",
 				scriptSlug: "trigger.radarr-push",

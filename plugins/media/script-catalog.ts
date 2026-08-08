@@ -1,6 +1,8 @@
 import type { SandboxManifest } from "@ryot/sandbox-sdk/core";
 
+import { manifest as manifest181 } from "./scripts/automations/auto-complete-episodic-parent.sandbox";
 import { manifest as manifest0 } from "./scripts/automations/auto-complete-on-full-progress.sandbox";
+import { manifest as manifest182 } from "./scripts/automations/episodic-session-policy.sandbox";
 import { manifest as manifest1 } from "./scripts/automations/integration-progress-policy.sandbox";
 import { manifest as manifest2 } from "./scripts/automations/jellyfin-push.sandbox";
 import { manifest as manifest178 } from "./scripts/automations/library-membership-policy.sandbox";
@@ -203,7 +205,9 @@ const providerResolutionScript = <const Manifest extends SandboxManifest>(
 ) => ({ ...directScript(manifest, entry), providerSlug });
 
 export const mediaScripts = [
+	directScript(manifest181, "scripts/automations/auto-complete-episodic-parent.sandbox.ts"),
 	directScript(manifest0, "scripts/automations/auto-complete-on-full-progress.sandbox.ts"),
+	directScript(manifest182, "scripts/automations/episodic-session-policy.sandbox.ts"),
 	directScript(manifest1, "scripts/automations/integration-progress-policy.sandbox.ts"),
 	directScript(manifest178, "scripts/automations/library-membership-policy.sandbox.ts"),
 	directScript(manifest180, "scripts/automations/media-library-membership-on-import.sandbox.ts"),

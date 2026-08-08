@@ -315,12 +315,12 @@ export const builtinEntitySchemas = () => [
 		eventSchemas: mediaLifecycleEventSchemas("show").filter((schema) => schema.slug !== "progress"),
 	},
 	{
+		eventSchemas: [],
 		icon: "list-video",
 		slug: "show-season",
 		name: "Show Season",
 		pluginSlug: undefined,
 		propertiesSchema: showSeasonPropertiesSchema,
-		eventSchemas: [lifecycleEventSchemaBySlug("complete")],
 	},
 	{
 		icon: "play-square",

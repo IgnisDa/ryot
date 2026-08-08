@@ -33,6 +33,7 @@ export const eventAutomationContext = (
 			after: {
 				id: "event-1",
 				properties: {},
+				createdAt: timestamp,
 				occurredAt: timestamp,
 				eventSchemaSlug: "event-schema-1",
 				subject: { id: "entity-1", name: "Entity", entitySchemaSlug: "movie" },
