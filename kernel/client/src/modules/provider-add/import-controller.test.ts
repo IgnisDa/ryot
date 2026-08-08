@@ -28,7 +28,7 @@ const completed = {
 
 const scripted = (results: readonly ImportEntityRunResult[]) => {
 	const pending = [...results];
-	return () => Effect.sync(() => pending.shift() ?? ({ status: "pending" } as const));
+	return () => Effect.sync(() => pending.shift() ?? ({ status: "running" } as const));
 };
 
 it.effect("polls a pending job until it completes", () =>
@@ -36,7 +36,7 @@ it.effect("polls a pending job until it completes", () =>
 		const fiber = yield* Effect.forkChild(
 			importProviderEntity({
 				start: Effect.succeed({ jobId: "job-1" }),
-				poll: scripted([{ status: "pending" }, { status: "pending" }, completed]),
+				poll: scripted([{ status: "running" }, { status: "running" }, completed]),
 			}),
 		);
 
@@ -69,7 +69,7 @@ it.effect("reports a stable message when the job never leaves pending", () =>
 				poll: () =>
 					Effect.sync(() => {
 						attempts += 1;
-						return { status: "pending" } as const;
+						return { status: "running" } as const;
 					}),
 			}),
 		);

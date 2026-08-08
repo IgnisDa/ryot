@@ -9,19 +9,22 @@ export const toEntityImportRunResult = <
 	result: Workflow.Result<ListedEntity, E> | undefined,
 ): ImportEntityRunResult => {
 	if (result === undefined || result._tag === "Suspended") {
-		return { status: "pending" };
+		return { status: "running" };
 	}
 	return Exit.match(result.exit, {
 		onSuccess: (data) => ({ data, status: "completed" as const }),
-		onFailure: (cause) => ({
-			status: "failed" as const,
-			reason: {
-				code: "import-failed" as const,
-				stage: Option.match(Cause.findErrorOption(cause), {
-					onSome: (error) => error.stage,
-					onNone: () => "unexpected" as const,
-				}),
-			},
-		}),
+		onFailure: (cause) =>
+			Cause.hasInterruptsOnly(cause)
+				? { status: "cancelled" as const }
+				: {
+						status: "failed" as const,
+						reason: {
+							code: "import-failed" as const,
+							stage: Option.match(Cause.findErrorOption(cause), {
+								onSome: (error) => error.stage,
+								onNone: () => "unexpected" as const,
+							}),
+						},
+					},
 	});
 };

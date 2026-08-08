@@ -116,6 +116,7 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 
 				const execution = yield* sandbox.executeScript({
 					input: {},
+					interactive: true,
 					scriptId: searchOptionsScript.id,
 					subject: { type: "user", userId: user.id },
 					executionId: `provider-search-options-${generateId()}`,
@@ -205,6 +206,7 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 					);
 				}
 				const execution = yield* sandbox.executeScript({
+					interactive: true,
 					scriptId: resolved.id,
 					subject: { type: "user", userId: user.id },
 					executionId: `provider-search-${generateId()}`,

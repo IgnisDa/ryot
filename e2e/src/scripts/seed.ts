@@ -1242,7 +1242,7 @@ async function importMediaEntity(
 		} catch {
 			return null;
 		}
-		if (result.status === "pending") {
+		if (result.status === "queued" || result.status === "running") {
 			if (Date.now() - startedAt > 60000) {
 				return null;
 			}
@@ -1250,7 +1250,7 @@ async function importMediaEntity(
 			await sleep(500);
 			continue;
 		}
-		if (result.status === "failed") {
+		if (result.status !== "completed") {
 			return null;
 		}
 		return result.data;

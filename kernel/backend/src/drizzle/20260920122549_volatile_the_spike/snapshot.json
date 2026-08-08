@@ -12796,6 +12796,220 @@
 			"name": "user_signal_schema",
 			"entityType": "views",
 			"schema": "public"
+		},
+		{
+			"isRlsEnabled": false,
+			"name": "provider_import_admission",
+			"entityType": "tables",
+			"schema": "public"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "provider_import_admission"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "payload",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "provider_import_admission"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "external_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "provider_import_admission"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "provider_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "provider_import_admission"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "entity_schema_slug",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "provider_import_admission"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "admitted_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "provider_import_admission"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "status",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "provider_import_admission"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"name": "created_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "provider_import_admission"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "user_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "provider_import_admission"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "status",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "created_at",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "provider_import_admission_status_created_at_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "provider_import_admission"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "user_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "provider_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "entity_schema_slug",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "external_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": true,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "provider_import_admission_identity_unique",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "provider_import_admission"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["user_id"],
+			"schemaTo": "public",
+			"tableTo": "user",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "provider_import_admission_user_id_user_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "provider_import_admission"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "provider_import_admission_pkey",
+			"schema": "public",
+			"table": "provider_import_admission",
+			"entityType": "pks"
 		}
 	],
 	"renames": []
