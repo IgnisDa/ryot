@@ -266,7 +266,8 @@ describe("private plugins", () => {
 					sourceHash: installed.installation.sourceHash,
 				}),
 			);
-			assertTaggedError(stale, "PluginNotFoundError");
+			assertTaggedError(stale, "PluginConflictError");
+			expect(stale.reason.code).toBe("source-revision-stale");
 			expect(
 				(yield* invokePrivatePluginOperation({
 					client,
