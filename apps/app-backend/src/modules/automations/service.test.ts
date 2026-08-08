@@ -13,7 +13,7 @@ import { stableStringify } from "@ryot/ts-utils/json";
 import { Effect, Layer } from "effect";
 
 import type { MockOverrides } from "#lib/test-utils/effect";
-import { dbRunnerLayer, transactionLayer } from "#lib/test-utils/effect";
+import { databaseLayer } from "#lib/test-utils/effect";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 import {
 	PluginRuntimeResolver,
@@ -144,10 +144,9 @@ const makeLayer = (
 	pluginRuntime: MockOverrides<typeof mockPluginRuntime> = {},
 ) =>
 	AutomationsService.layer.pipe(
-		Layer.provide(
+		Layer.provideMerge(
 			Layer.mergeAll(
-				dbRunnerLayer,
-				transactionLayer,
+				databaseLayer,
 				repository,
 				makePluginRuntime(pluginRuntime),
 				Layer.succeed(DefinitionRegistry, { ...definitions }),

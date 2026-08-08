@@ -4,7 +4,7 @@ import { Context, Effect, Layer } from "effect";
 import { Activity } from "effect/unstable/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
+import { Database } from "#lib/infrastructure/db/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import type { SandboxExecutionResult } from "#modules/sandbox/execution-result";
 import { SandboxExecutionService } from "#modules/sandbox/service";
@@ -13,10 +13,9 @@ import type { EntityImportPayload } from "./schemas";
 
 const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: string) =>
 	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
 		const sandbox = yield* SandboxExecutionService;
 		const pluginRuntime = yield* PluginRuntimeResolver;
-		const resolveScript = runWithDb(pluginRuntime.resolveDetailsScript(payload.providerId)).pipe(
+		const resolveScript = pluginRuntime.resolveDetailsScript(payload.providerId).pipe(
 			Effect.map(({ id }) => id),
 			Effect.mapError(toSandboxRunError),
 		);
@@ -49,13 +48,13 @@ export class EntityImportWorkflowOperations extends Context.Service<
 export const EntityImportWorkflowOperationsLive = Layer.effect(
 	EntityImportWorkflowOperations,
 	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
+		const database = yield* Database;
 		const sandbox = yield* SandboxExecutionService;
 		const pluginRuntime = yield* PluginRuntimeResolver;
 		return {
 			processSandbox: (payload, executionId) =>
 				processSandboxEntityDetails(payload, executionId).pipe(
-					Effect.provideService(DbRunner, runWithDb),
+					Effect.provideService(Database, database),
 					Effect.provideService(PluginRuntimeResolver, pluginRuntime),
 					Effect.provideService(SandboxExecutionService, sandbox),
 				),

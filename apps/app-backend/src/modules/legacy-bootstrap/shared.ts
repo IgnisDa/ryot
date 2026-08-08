@@ -1,8 +1,9 @@
+import { PgClient } from "@effect/sql-pg/PgClient";
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
-import type { PoolClient } from "pg";
+import type * as SqlConnection from "effect/unstable/sql/SqlConnection";
 
-import { dbEffect, DbService } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 export type EntityMigrationTarget = {
 	source: string;
@@ -25,13 +26,14 @@ export type ResolvedRelationshipTarget = {
 };
 
 export const legacyBootstrapGate = Effect.gen(function* () {
-	const { db } = yield* DbService;
-	const result = yield* dbEffect(() =>
-		db.execute<{ present: boolean }>(
+	const database = yield* Database;
+	const result = yield* mapDatabaseErrors(
+		database.execute<{ present: boolean }>(
 			sql`SELECT to_regclass('"seaql_migrations"') IS NOT NULL AS "present"`,
+			"objects",
 		),
 	);
-	const row = result.rows[0];
+	const row = result[0];
 	if (row === undefined) {
 		return yield* Effect.die(
 			new Error("Unexpected: seaql_migrations presence check returned no rows"),
@@ -45,30 +47,11 @@ export const quoteSqlString = (value: string) => `'${value.replaceAll("'", "''")
 const quoteNullableSqlString = (value: string | null) =>
 	value === null ? "NULL" : quoteSqlString(value);
 
-export const withRawPgClient = Effect.fn("withRawPgClient")(function* <A>(
-	callback: (client: PoolClient) => Promise<A>,
+export const withReservedConnection = Effect.fn("withReservedConnection")(function* <A, E, R>(
+	callback: (connection: SqlConnection.Connection) => Effect.Effect<A, E, R>,
 ) {
-	const { pool } = yield* DbService;
-	const runtime = yield* Effect.context();
-	const client = yield* Effect.promise(() => pool.connect());
-	const logLegacyBootstrapNotice = (msg: { message?: string | undefined }) => {
-		if (msg.message) {
-			Effect.runForkWith(runtime)(
-				Effect.logInfo("legacy bootstrap notice").pipe(
-					Effect.annotateLogs({ notice: msg.message }),
-				),
-			);
-		}
-	};
-	client.on("notice", logLegacyBootstrapNotice);
-	return yield* Effect.promise(() => callback(client)).pipe(
-		Effect.ensuring(
-			Effect.sync(() => {
-				client.removeListener("notice", logLegacyBootstrapNotice);
-				client.release();
-			}),
-		),
-	);
+	const client = yield* PgClient;
+	return yield* mapDatabaseErrors(Effect.scoped(Effect.flatMap(client.reserve, callback)));
 });
 
 export const buildUniqueSlugMap = (

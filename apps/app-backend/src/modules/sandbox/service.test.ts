@@ -8,11 +8,10 @@ import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/Workf
 import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import {
-	dbRunnerLayer,
+	databaseLayer,
 	makeAppConfigLayer,
 	makeWorkflowActivityEngine,
 	makeWorkflowEngine,
-	transactionLayer,
 } from "#lib/test-utils/effect";
 
 import {
@@ -72,10 +71,9 @@ const makeServiceLayer = (
 	}),
 ) =>
 	SandboxExecutionService.layer.pipe(
-		Layer.provide(
+		Layer.provideMerge(
 			Layer.mergeAll(
-				dbRunnerLayer,
-				transactionLayer,
+				databaseLayer,
 				repository,
 				workflowEngine,
 				workflowReferences,

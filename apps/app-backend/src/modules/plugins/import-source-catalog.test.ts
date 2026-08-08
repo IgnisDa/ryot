@@ -4,7 +4,7 @@ import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 import { assert } from "vitest";
 
-import { CurrentDb } from "#lib/infrastructure/db/service";
+import { Database } from "#lib/infrastructure/db/service";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 
 import { ImportSourceCatalog } from "./import-source-catalog";
@@ -145,12 +145,12 @@ it.effect(
 			};
 			const db = {
 				select: () => ({
-					from: () => ({ where: () => ({ limit: () => Promise.resolve([row]) }) }),
+					from: () => ({ where: () => ({ limit: () => Effect.succeed([row]) }) }),
 				}),
 			};
 			const layer = Layer.merge(
 				ImportSourceCatalog.layer.pipe(Layer.provide(Layer.succeed(PluginLoader, { ...loader }))),
-				Layer.succeed(CurrentDb, Object.assign(Object.create(null), db)),
+				Layer.succeed(Database, Object.assign(Object.create(null), db)),
 			);
 			const fiber = yield* Effect.forkChild(
 				Effect.gen(function* () {

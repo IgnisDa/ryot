@@ -1,5 +1,4 @@
 import { apiKey } from "@better-auth/api-key";
-import { runWithAdapter } from "@better-auth/core/context";
 import { expo } from "@better-auth/expo";
 import { redisStorage } from "@better-auth/redis-storage";
 import {
@@ -14,26 +13,17 @@ import {
 import { rateLimited, unauthorized, unknownToDbError } from "@ryot/contract/errors";
 import { UserId } from "@ryot/contract/schema/brands";
 import { betterAuth } from "better-auth";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { genericOAuth, twoFactor } from "better-auth/plugins";
 import { Context, Effect, Layer, Option, Redacted, Schema } from "effect";
 import { HttpMiddleware, HttpServerError, HttpServerRequest } from "effect/unstable/http";
 import type Redis from "ioredis";
 
 import { AppConfig, type AppConfigValue, isOidcEnabled } from "#lib/infrastructure/config/service";
-import * as schemaAuth from "#lib/infrastructure/db/schema/tables/auth";
-import * as schemaTables from "#lib/infrastructure/db/schema/tables/combined";
-import {
-	CurrentDb,
-	DbService,
-	type DbRoot,
-	type TransactionRunner,
-} from "#lib/infrastructure/db/service";
+import { Database } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 
+import { effectPostgresAuthAdapter } from "./effect-postgres-adapter";
 import { gateSessionCreation } from "./session-gate";
-
-const schema = { ...schemaAuth, ...schemaTables };
 
 const stripSearchAndHash = (url: string) => {
 	const queryIndex = url.indexOf("?");
@@ -54,10 +44,10 @@ export class AuthUserBootstrap extends Context.Service<
 >()("AuthUserBootstrap") {}
 
 const makeAuthInstance = (args: {
-	readonly db: DbRoot;
+	readonly db: Database["Service"];
 	readonly redis: Redis;
 	readonly config: AppConfigValue;
-	readonly runtime: Context.Context<DbService | RedisService | TransactionRunner>;
+	readonly runtime: Context.Context<Database | RedisService>;
 	readonly bootstrapNewUser: (userId: string) => Effect.Effect<void, unknown>;
 }) => {
 	const corsOrigins = Option.match(args.config.server.corsOrigins, {
@@ -71,29 +61,18 @@ const makeAuthInstance = (args: {
 
 	const oidcEnabled = isOidcEnabled(args.config);
 
-	const runBootstrapForSession = (userId: string) =>
-		Effect.runPromiseWith(args.runtime)(
-			args
-				.bootstrapNewUser(userId)
-				.pipe(
-					Effect.tapCause((cause) =>
-						Effect.logError("session bootstrap rerun failed", cause).pipe(
-							Effect.annotateLogs({ userId }),
-						),
-					),
-				),
-		);
-
-	const sessionGateDeps = { db: args.db, runBootstrap: runBootstrapForSession };
-
-	return betterAuth({
+	const database = effectPostgresAuthAdapter({
+		db: args.db,
+		context: args.runtime,
+	});
+	const auth = betterAuth({
 		appName: "Ryot",
 		basePath: "/api/auth",
 		baseURL: args.config.frontendUrl,
 		account: { accountLinking: { enabled: false } },
 		secondaryStorage: redisStorage({ client: args.redis }),
 		secret: Redacted.value(args.config.server.adminAccessToken),
-		database: drizzleAdapter(args.db, { provider: "pg", schema }),
+		database,
 		disabledPaths: args.config.users.disableLocalAuth ? ["/sign-in/email"] : [],
 		trustedOrigins: [
 			"ryot://",
@@ -105,7 +84,11 @@ const makeAuthInstance = (args: {
 			additionalFields: {
 				disabledAt: { type: "date", required: false, input: false },
 				bootstrapCompletedAt: { type: "date", required: false, input: false },
-				preferences: { type: "json", required: true, defaultValue: defaultUserPreferences },
+				preferences: {
+					type: "json",
+					required: true,
+					defaultValue: defaultUserPreferences,
+				},
 			},
 		},
 		emailAndPassword: {
@@ -149,7 +132,12 @@ const makeAuthInstance = (args: {
 		},
 		databaseHooks: {
 			session: {
-				create: { before: (session) => gateSessionCreation(sessionGateDeps, session.userId) },
+				create: {
+					before: (session) =>
+						Effect.runPromiseWith(args.runtime)(
+							gateSessionCreation(session.userId, args.bootstrapNewUser),
+						),
+				},
 			},
 			user: {
 				create: {
@@ -202,10 +190,19 @@ const makeAuthInstance = (args: {
 				: []),
 		],
 	});
+
+	return { auth, database };
 };
 
-export type AuthInstance = ReturnType<typeof makeAuthInstance>;
+export type AuthInstance = ReturnType<typeof makeAuthInstance>["auth"];
 type AuthContextValue = Awaited<AuthInstance["$context"]>;
+export type AuthUserInput = {
+	id: string;
+	name: string;
+	email: string;
+	emailVerified: boolean;
+	preferences: Record<string, unknown>;
+};
 
 const isAPIError = (
 	error: unknown,
@@ -214,40 +211,51 @@ const isAPIError = (
 
 export class AuthService extends Context.Service<AuthService>()("AuthService", {
 	make: Effect.gen(function* () {
-		const db = yield* DbService;
+		const db = yield* Database;
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
 		const userBootstrap = yield* AuthUserBootstrap;
-		const runtime = yield* Effect.context<DbService | RedisService | TransactionRunner>();
-		const auth = makeAuthInstance({
+		const runtime = yield* Effect.context<Database | RedisService>();
+		const authInstance = makeAuthInstance({
 			config,
 			runtime,
-			db: db.db,
+			db,
 			redis: redis.client,
 			bootstrapNewUser: userBootstrap.run,
 		});
+		const { auth, database } = authInstance;
 		const withInternalAdapter = <A>(operation: (context: AuthContextValue) => Promise<A>) =>
-			Effect.gen(function* () {
-				const currentDb = yield* Effect.serviceOption(CurrentDb);
-				return yield* Effect.tryPromise({
-					try: () =>
-						auth.$context.then((context) => {
-							if (Option.isNone(currentDb)) {
-								return operation(context);
-							}
-
-							const adapter = drizzleAdapter(currentDb.value, {
-								provider: "pg",
-								schema,
-							})(context.options);
-							return runWithAdapter(adapter, () => operation(context)).then((result) => result);
-						}),
-					catch: unknownToDbError,
-				});
+			Effect.tryPromise({
+				try: () => auth.$context.then(operation),
+				catch: unknownToDbError,
 			});
 
 		return {
 			auth,
+			transaction: <A, E>(
+				callback: (operations: {
+					createAuthUser: (
+						user: AuthUserInput,
+					) => Effect.Effect<unknown, ReturnType<typeof unknownToDbError>>;
+				}) => Effect.Effect<A, E, Database>,
+			) =>
+				Effect.andThen(
+					Effect.promise(() => auth.$context),
+					database.transaction((adapter, transactionDb) =>
+						callback({
+							createAuthUser: (user) =>
+								Effect.tryPromise({
+									try: () =>
+										adapter.create({
+											model: "user",
+											forceAllowId: true,
+											data: { ...user, email: user.email.toLowerCase() },
+										}),
+									catch: unknownToDbError,
+								}),
+						}).pipe(Effect.provideService(Database, transactionDb)),
+					),
+				),
 			deleteUserSessions: (userId: UserId) =>
 				withInternalAdapter(({ internalAdapter }) =>
 					internalAdapter.deleteUserSessions(userId),
@@ -281,41 +289,13 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 				withInternalAdapter(({ internalAdapter }) =>
 					internalAdapter.updateUser(userId, { preferences }),
 				).pipe(Effect.asVoid),
-			createAuthUser: (user: {
-				id: string;
-				name: string;
-				email: string;
-				emailVerified: boolean;
-				preferences: Record<string, unknown>;
-			}) =>
-				Effect.gen(function* () {
-					const currentDb = yield* Effect.serviceOption(CurrentDb);
-					if (Option.isNone(currentDb)) {
-						return yield* withInternalAdapter(({ internalAdapter }) =>
-							internalAdapter.createUser(user, { method: "admin" }),
-						);
-					}
-
-					return yield* Effect.tryPromise({
-						try: () =>
-							auth.$context.then((context) => {
-								const adapter = drizzleAdapter(currentDb.value, {
-									provider: "pg",
-									schema,
-								})(context.options);
-								// The user-create hook starts bootstrap in another transaction. Use the
-								// caller's adapter here so God Mode can bootstrap atomically below.
-								return runWithAdapter(adapter, () =>
-									adapter.create({
-										model: "user",
-										forceAllowId: true,
-										data: { ...user, email: user.email.toLowerCase() },
-									}),
-								).then((result) => result);
-							}),
-						catch: unknownToDbError,
-					});
-				}),
+			createAuthUser: (user: AuthUserInput) =>
+				withInternalAdapter(({ internalAdapter }) =>
+					internalAdapter.createUser(
+						{ ...user, email: user.email.toLowerCase() },
+						{ method: "admin" },
+					),
+				),
 			linkAuthAccount: (account: {
 				id: string;
 				userId: string;
@@ -436,7 +416,9 @@ export const AdminMiddlewareLive = Layer.effect(
 			adminToken: (httpEffect, { credential }) => {
 				const value = Redacted.value(credential);
 				return value !== "" && value === Redacted.value(config.server.adminAccessToken)
-					? Effect.provideService(httpEffect, AdminAccess, { authorized: true as const })
+					? Effect.provideService(httpEffect, AdminAccess, {
+							authorized: true as const,
+						})
 					: Effect.fail(unauthorized());
 			},
 		};

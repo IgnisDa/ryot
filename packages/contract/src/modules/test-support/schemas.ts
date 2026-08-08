@@ -120,9 +120,6 @@ export const TestSupportOperationalPressure = Schema.Struct({
 		totalConnections: Schema.Number,
 		activeConnections: Schema.Number,
 		lockWaitingConnections: Schema.Number,
-		appPoolIdleConnections: Schema.Number,
-		appPoolWaitingRequests: Schema.Number,
-		appPoolTotalConnections: Schema.Number,
 	}),
 });
 

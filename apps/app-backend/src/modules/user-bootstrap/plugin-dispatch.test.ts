@@ -5,7 +5,7 @@ import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 import { assert } from "vitest";
 
-import { dbRunnerLayer } from "#lib/test-utils/effect";
+import { databaseLayer } from "#lib/test-utils/effect";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { makePluginLoader, PluginLoader } from "#modules/plugins/loader";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -78,7 +78,7 @@ type ActiveScript = NonNullable<
 >;
 
 const layer = Layer.mergeAll(
-	dbRunnerLayer,
+	databaseLayer,
 	Layer.succeed(PluginLoader, {
 		...loader,
 	}),

@@ -1,7 +1,5 @@
 import { Effect } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
-
 import { NotificationDeliveryService } from "./delivery";
 import type {
 	NotificationDeliveryResult,
@@ -21,11 +19,10 @@ const toDeliveryResult = (
 export const deliverEnabledChannels = Effect.fn("deliverEnabledChannels")(function* (
 	payload: NotificationDeliveryWorkflowPayload,
 ) {
-	const runWithDb = yield* DbRunner;
 	const repository = yield* NotificationsRepository;
 	const delivery = yield* NotificationDeliveryService;
 
-	const channels = yield* runWithDb(repository.listEnabledForUser({ userId: payload.userId }));
+	const channels = yield* repository.listEnabledForUser({ userId: payload.userId });
 
 	return yield* Effect.forEach(
 		channels,

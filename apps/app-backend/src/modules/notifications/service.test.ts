@@ -4,7 +4,7 @@ import { UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer, Schema } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { databaseLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 
 import { NotificationDeliveryWorkflowPayload } from "./notification-delivery-workflow";
 import { NotificationsRepository } from "./repository";
@@ -25,7 +25,7 @@ const repositoryLayer = Layer.succeed(
 const makeServiceLayer = (workflowEngine: WorkflowEngine["Service"]) =>
 	NotificationsService.layer.pipe(
 		Layer.provide(
-			Layer.mergeAll(dbRunnerLayer, repositoryLayer, Layer.succeed(WorkflowEngine, workflowEngine)),
+			Layer.mergeAll(databaseLayer, repositoryLayer, Layer.succeed(WorkflowEngine, workflowEngine)),
 		),
 	);
 
