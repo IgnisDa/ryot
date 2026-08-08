@@ -35324,6 +35324,15 @@
           "content": "PAGINATION — LOAD MORE\n\nThe row contract is forward-only keyset cursors. A request carries {limit, after}, a response carries {limit, hasMore, nextCursor}. There is no total.\n\n· So there are no page numbers, no \"prev\", and no \"21–40 of 128\". Pages accumulate, and the only count is a lower bound: \"20+ loaded\". The exact number appears once, in the end cap, because loaded equals total when hasMore is false.\n\n· LOAD MORE IS EXPLICIT on both platforms, mobile included. Without a total, auto-load has no visible end, and each page also costs an interest re-declaration and an asset resolution round trip. The mobile control is a full-width 48pt target, so flick-then-tap stays cheap.\n\n· LAYOUT SWITCH resets to the first page. A cursor encodes the order values of the query that produced it, and each layout carries its own query, so cursors are not portable between layouts. Each layout keeps its own accumulated list for the session, so switching back is instant.\n\n· FILTER, SORT, OR SEARCH CHANGE discards every page and returns to the top. Nothing paginates backwards, so the loaded set is never dropped while the user stays on the screen.\n\n· Limit is 20. Page boundaries are invisible mid-list because items reflow into rows; the boundary only shows at the very end."
         }
       ]
+    },
+    {
+      "type": "note",
+      "id": "Gu1o4",
+      "x": 8114.334477477079,
+      "y": 2464.9414503261637,
+      "width": 250,
+      "height": 219,
+      "content": "// TODO: Remove this design later"
     }
   ],
   "themes": {
