@@ -1,8 +1,6 @@
-import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
+import type { AutomationOccurrencePopulation } from "@ryot-app/sandbox-sdk/automation";
 
-type Population = NonNullable<AutomationInput["automation"]["population"]>;
-
-export const getSeasonContext = (parentEntity: Population["parentEntity"]) => {
+export const getSeasonContext = (parentEntity: AutomationOccurrencePopulation["parentEntity"]) => {
 	if (parentEntity?.entitySchemaSlug !== "show-season") {
 		return null;
 	}

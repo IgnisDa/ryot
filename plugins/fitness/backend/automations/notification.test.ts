@@ -12,15 +12,32 @@ const input: AutomationInput = {
 		origin: { kind: "api" },
 		occurrenceId: "signal-1",
 		occurredAt: "2026-07-20T10:00:00.000Z",
-		source: {
-			kind: "signal",
-			signal: {
-				id: "signal-1",
-				origin: { kind: "api" },
-				signalSchemaSlug: "workout.created",
-				occurredAt: "2026-07-20T10:00:00.000Z",
-				properties: { workoutName: "Morning Run" },
-			},
+		source: { kind: "signal", signalId: "signal-1" },
+	},
+};
+
+const occurrenceResponse = {
+	data: {
+		occurrences: {
+			type: "rows" as const,
+			pageInfo: { limit: 1, hasMore: false, nextCursor: null },
+			items: [
+				{
+					population: null,
+					operation: "signal",
+					origin: { kind: "api" },
+					source: {
+						kind: "signal",
+						signal: {
+							id: "signal-1",
+							origin: { kind: "api" },
+							signalSchemaSlug: "workout.created",
+							occurredAt: "2026-07-20T10:00:00.000Z",
+							properties: { workoutName: "Morning Run" },
+						},
+					},
+				},
+			],
 		},
 	},
 };
@@ -31,6 +48,7 @@ it("formats workout.created exclusively from the signal snapshot", () => {
 		definition.run(
 			input,
 			defineSandboxTestHost(manifest, {
+				executeRyotql: () => Effect.succeed(occurrenceResponse),
 				sendNotification: (message) => {
 					messages.push(message);
 					return Effect.succeed(null);

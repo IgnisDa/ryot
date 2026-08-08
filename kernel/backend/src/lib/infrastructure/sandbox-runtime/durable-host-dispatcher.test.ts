@@ -1,6 +1,11 @@
 import { expect, it } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
-import { SandboxScriptId, SubscriptionRunId, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	AutomationOccurrenceId,
+	SandboxScriptId,
+	SubscriptionRunId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import { Cause, Duration, Effect, Exit, Layer, Logger, References } from "effect";
 import type { Logger as LoggerType } from "effect/Logger";
 import { Workflow } from "effect/unstable/workflow";
@@ -61,6 +66,7 @@ const subject = {
 		origin: { kind: "api" as const },
 		occurredAt: "2026-08-06T00:00:00.000Z",
 		id: SubscriptionRunId.make("subscription-1"),
+		occurrenceId: AutomationOccurrenceId.make("occurrence-1"),
 	},
 };
 const script = {

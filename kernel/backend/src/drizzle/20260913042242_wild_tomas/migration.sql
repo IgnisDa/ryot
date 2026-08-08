@@ -40,6 +40,22 @@ CREATE TABLE "apikey" (
 	"reference_id" text NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "automation_occurrence" (
+	"record_id" text,
+	"origin" jsonb NOT NULL,
+	"occurred_at" timestamp with time zone NOT NULL,
+	"operation" text NOT NULL,
+	"population" jsonb,
+	"source" jsonb NOT NULL,
+	"id" text PRIMARY KEY,
+	"user_id" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"source_kind" text NOT NULL,
+	"signal_id" text,
+	CONSTRAINT "automation_occurrence_source_check" CHECK ((("source_kind" = 'signal' and "operation" = 'signal' and "signal_id" is not null and "record_id" is null) or ("source_kind" <> 'signal' and "operation" <> 'signal' and "signal_id" is null and "record_id" is not null))),
+	CONSTRAINT "automation_occurrence_source_kind_check" CHECK ("source_kind" in ('entity', 'event', 'relationship', 'signal', 'provider-entity-import'))
+);
+--> statement-breakpoint
 CREATE TABLE "backup_run" (
 	"artifact_key" text,
 	"progress" integer DEFAULT 0 NOT NULL,
@@ -533,7 +549,6 @@ CREATE TABLE "subscription_run" (
 	"record_id" text,
 	"rule_id" text NOT NULL,
 	"rule_name" text NOT NULL,
-	"occurrence_id" text NOT NULL,
 	"sandbox_script_id" text NOT NULL,
 	"id" text PRIMARY KEY,
 	"started_at" timestamp with time zone,
@@ -551,6 +566,7 @@ CREATE TABLE "subscription_run" (
 	"signal_id" text,
 	"status" text DEFAULT 'queued' NOT NULL,
 	"execution_user_id" text,
+	"occurrence_id" text NOT NULL,
 	CONSTRAINT "subscription_run_operation_check" CHECK ("operation" in ('create', 'update', 'delete', 'signal')),
 	CONSTRAINT "subscription_run_source_kind_check" CHECK ("source_kind" in ('entity', 'event', 'relationship', 'signal')),
 	CONSTRAINT "subscription_run_status_check" CHECK ("status" in ('queued', 'running', 'succeeded', 'failed', 'skipped')),
@@ -611,6 +627,8 @@ CREATE INDEX "account_userId_idx" ON "account" ("user_id");--> statement-breakpo
 CREATE INDEX "apikey_configId_idx" ON "apikey" ("config_id");--> statement-breakpoint
 CREATE INDEX "apikey_referenceId_idx" ON "apikey" ("reference_id");--> statement-breakpoint
 CREATE INDEX "apikey_key_idx" ON "apikey" ("key");--> statement-breakpoint
+CREATE INDEX "automation_occurrence_user_id_idx" ON "automation_occurrence" ("user_id");--> statement-breakpoint
+CREATE INDEX "automation_occurrence_signal_id_idx" ON "automation_occurrence" ("signal_id");--> statement-breakpoint
 CREATE INDEX "backup_run_user_id_idx" ON "backup_run" ("user_id");--> statement-breakpoint
 CREATE INDEX "backup_run_status_idx" ON "backup_run" ("status");--> statement-breakpoint
 CREATE INDEX "backup_run_expires_at_idx" ON "backup_run" ("expires_at");--> statement-breakpoint
@@ -701,12 +719,15 @@ CREATE INDEX "signal_subject_entity_id_idx" ON "signal" ("subject_entity_id");--
 CREATE INDEX "signal_recipient_user_id_idx" ON "signal_recipient" ("user_id");--> statement-breakpoint
 CREATE INDEX "subscription_run_execution_user_id_idx" ON "subscription_run" ("execution_user_id");--> statement-breakpoint
 CREATE INDEX "subscription_run_rule_id_idx" ON "subscription_run" ("rule_id");--> statement-breakpoint
+CREATE INDEX "subscription_run_occurrence_id_idx" ON "subscription_run" ("occurrence_id");--> statement-breakpoint
 CREATE INDEX "subscription_run_signal_id_idx" ON "subscription_run" ("signal_id");--> statement-breakpoint
 CREATE INDEX "user_lifecycle_operation_user_id_idx" ON "user_lifecycle_operation" ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "user_lifecycle_operation_user_active_unique" ON "user_lifecycle_operation" ("user_id") WHERE "status" in ('pending', 'running');--> statement-breakpoint
 CREATE INDEX "verification_identifier_idx" ON "verification" ("identifier");--> statement-breakpoint
 ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "apikey" ADD CONSTRAINT "apikey_reference_id_user_id_fkey" FOREIGN KEY ("reference_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "automation_occurrence" ADD CONSTRAINT "automation_occurrence_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "automation_occurrence" ADD CONSTRAINT "automation_occurrence_signal_id_signal_id_fkey" FOREIGN KEY ("signal_id") REFERENCES "signal"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "backup_run" ADD CONSTRAINT "backup_run_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "client_page_build" ADD CONSTRAINT "client_page_build_renderer_id_client_renderer_id_fkey" FOREIGN KEY ("renderer_id") REFERENCES "client_renderer"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "client_page_build" ADD CONSTRAINT "client_page_build_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -773,4 +794,5 @@ ALTER TABLE "signal_recipient" ADD CONSTRAINT "signal_recipient_user_id_user_id_
 ALTER TABLE "signal_recipient" ADD CONSTRAINT "signal_recipient_signal_id_signal_id_fkey" FOREIGN KEY ("signal_id") REFERENCES "signal"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "subscription_run" ADD CONSTRAINT "subscription_run_signal_id_signal_id_fkey" FOREIGN KEY ("signal_id") REFERENCES "signal"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "subscription_run" ADD CONSTRAINT "subscription_run_execution_user_id_user_id_fkey" FOREIGN KEY ("execution_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "subscription_run" ADD CONSTRAINT "subscription_run_occurrence_id_automation_occurrence_id_fkey" FOREIGN KEY ("occurrence_id") REFERENCES "automation_occurrence"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "two_factor" ADD CONSTRAINT "two_factor_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;

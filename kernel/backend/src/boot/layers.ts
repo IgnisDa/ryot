@@ -705,7 +705,10 @@ export const RuntimeDependenciesLive = Layer.provideMerge(
 			),
 			ServicesWithTestSupportLive,
 		),
-		Layer.provide(EntityImportWorkflowOperationsLive, SandboxExecutionServiceLive),
+		Layer.provide(
+			EntityImportWorkflowOperationsLive,
+			Layer.mergeAll(AutomationsService.layer, SandboxExecutionServiceLive),
+		),
 		Layer.provide(SubscriptionExecutionWorkflowOperationsLive, ServicesWithTestSupportLive),
 		Layer.provide(TranslateEntityWorkflowOperationsLive, SandboxExecutionServiceLive),
 		Layer.provide(

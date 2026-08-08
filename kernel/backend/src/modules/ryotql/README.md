@@ -46,10 +46,14 @@ HTTP execution always uses the authenticated user. A document cannot provide a u
 | `importRun`                     | `id`, `integrationId`, `source`, `status`, `progress`, `failedItems`, `inputSummary`, `importedItems`, `processedItems`, `totalItems`, `failureReason`, `startedAt`, `finishedAt`, `createdAt`, `updatedAt` | User-owned                             |
 | `importRunFailure`              | `id`, `runId`, `stage`, `reason`, `itemIndex`, `sourceLabel`, `eventSchemaSlug`, `entitySchemaSlug`, `sourceIdentifier`, `createdAt`                                                                        | Through the owned import run           |
 | `notificationSubscriptionState` | `id`, `signalSchemaSlug`, `isActive`, `createdAt`, `updatedAt`                                                                                                                                              | User-owned                             |
+| `automationOccurrence`          | `id`, `recordId`, `signalId`, `origin`, `source`, `population`, `operation`, `occurredAt`, `sourceKind`                                                                                                     | Current execution occurrence only      |
+| `subscriptionRun`               | `id`, `ruleId`, `ruleMetadata`                                                                                                                                                                              | Current execution run only             |
 
 `savedView.pluginSlug` and `integration.pluginSlug` derive from the exact installation. Provider operations join through `providerId`; script IDs, package manifests, installation configuration, raw channel/integration specifics, and ownership columns are not queryable unless listed above.
 
 Sandbox scripts require `executeRyotql`. User and subscription executions retain user visibility. System execution requires a persisted pinned system-scope plugin script and may read only global entities whose schema belongs to that plugin, plus events and relationships whose discriminator definition belongs to it. All application/catalog tables are denied in system scope.
+
+`automationOccurrence` and `subscriptionRun` are execution-only exceptions to normal user and system visibility. They are available only when the sandbox execution carries the corresponding occurrence or run ID, and each table is restricted to that single row. They are unavailable through `POST /ryotql/execute` and cannot be used to browse automation history.
 
 ## Expressions And Predicates
 

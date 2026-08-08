@@ -43,31 +43,18 @@ describe("automation definitions", () => {
 		});
 	});
 
-	test("accepts generic population parent context", () => {
+	test("accepts compact source references", () => {
 		const input = Schema.decodeUnknownSync(automationInputSchema)({
 			automation: {
 				ruleId: "rule-1",
 				operation: "update",
-				source: { kind: "entity" },
 				occurrenceId: "occurrence-1",
 				origin: { kind: "provider_refresh" },
 				occurredAt: "2026-07-29T00:00:00.000Z",
-				population: {
-					rootPreviouslyPopulated: true,
-					scopeEntity: { id: "root-1", name: "Root", entitySchemaSlug: "root" },
-					parentEntity: {
-						name: "Container",
-						properties: { ordinal: 1 },
-						entitySchemaSlug: "container",
-					},
-				},
+				source: { kind: "entity", entityId: "entity-1" },
 			},
 		});
 
-		expect(input.automation.population?.parentEntity).toEqual({
-			name: "Container",
-			properties: { ordinal: 1 },
-			entitySchemaSlug: "container",
-		});
+		expect(input.automation.source).toEqual({ kind: "entity", entityId: "entity-1" });
 	});
 });
