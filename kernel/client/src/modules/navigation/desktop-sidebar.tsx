@@ -25,7 +25,7 @@ export function DesktopSidebar(props: DesktopSidebarProps) {
 	return (
 		<aside
 			data-testid="desktop-sidebar"
-			className="hidden w-66 shrink-0 flex-col border-r border-border bg-surface md:flex"
+			className="ui-chrome hidden w-66 shrink-0 flex-col border-r border-border bg-surface md:flex"
 		>
 			<div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
 				<WorkspaceSwitcher

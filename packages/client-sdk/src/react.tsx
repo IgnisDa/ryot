@@ -8,6 +8,7 @@ import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNod
 
 import type { RyotClient } from "./index";
 
+const staleTime = 30 * 1_000;
 const idleTTL = 5 * 60 * 1_000;
 const queryTypeId = Symbol("@ryot/client-sdk/react/query");
 const mutationTypeId = Symbol("@ryot/client-sdk/react/mutation");
@@ -101,7 +102,7 @@ const makeQueryAtom = <Data,>(
 	const atom =
 		initialData === undefined
 			? requestSource.pipe(
-					Atom.swr({ staleTime: 0, revalidateOnFocus: true, focusSignal: browserFocusSignal }),
+					Atom.swr({ staleTime, revalidateOnFocus: true, focusSignal: browserFocusSignal }),
 					Atom.setIdleTTL(cancelOnUnmount ? 0 : idleTTL),
 				)
 			: requestSource;

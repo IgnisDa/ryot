@@ -631,4 +631,49 @@ describe("authenticated root bootstrap", () => {
 		expect(recorder.getScopes.length).toBeGreaterThan(0);
 		expect(recorder.setCalls).toEqual([]);
 	});
+
+	it("pops global history when the plugin document commits a back gesture", async () => {
+		const view = mountView("/fixture");
+		const { router } = view;
+		await waitFor(() => expect(frame()).toBeTruthy());
+		const connected = connectFrame(frame());
+		connected.pluginPort.postMessage(connected.init);
+		await waitFor(() => expect(connected.messages).toHaveLength(1));
+		connected.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
+		await waitFor(() => expect(connected.messages).toHaveLength(2));
+
+		await router.navigate({ href: "/fixture/details/item-1" });
+		await waitFor(() => expect(router.state.location.pathname).toBe("/fixture/details/item-1"));
+
+		connected.pluginPort.postMessage({ type: "navigate-back" });
+
+		await waitFor(() => expect(router.state.location.pathname).toBe("/fixture"));
+		view.unmount();
+	});
+
+	it("hands the edge to the plugin document only on a child route it can pop", async () => {
+		const view = mountView("/fixture");
+		const { router } = view;
+		await waitFor(() => expect(frame()).toBeTruthy());
+		const connected = connectFrame(frame());
+		connected.pluginPort.postMessage(connected.init);
+		await waitFor(() => expect(connected.messages).toHaveLength(1));
+		connected.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
+		await waitFor(() => expect(connected.messages).toHaveLength(2));
+
+		expect(connected.messages).toContainEqual(
+			expect.objectContaining({ edgeBack: false, type: "location" }),
+		);
+		expect(screen.getByTestId("edge-gesture")).toBeTruthy();
+
+		await router.navigate({ href: "/fixture/details/item-1" });
+
+		await waitFor(() =>
+			expect(connected.messages).toContainEqual(
+				expect.objectContaining({ edgeBack: true, type: "location" }),
+			),
+		);
+		expect(screen.queryByTestId("edge-gesture")).toBeNull();
+		view.unmount();
+	});
 });

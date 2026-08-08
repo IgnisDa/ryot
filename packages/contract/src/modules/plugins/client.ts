@@ -6,10 +6,13 @@ import { strictStruct } from "../../schema/utils";
 import { RyotQLDocument, RyotQLResponse } from "../ryotql/language";
 
 export const CLIENT_API_VERSION = 1 as const;
-export const CLIENT_BRIDGE_PROTOCOL_VERSION = 1 as const;
+export const CLIENT_BRIDGE_PROTOCOL_VERSION = 2 as const;
 export const CLIENT_ARTIFACT_FORMAT = 1 as const;
 export const CLIENT_COMPILER_VERSION = 1 as const;
 export const CLIENT_BRIDGE_MAX_PENDING_REQUESTS = 64;
+
+export const PLUGIN_BACK_SETTLE_MS = 500;
+export const PLUGIN_SCREEN_STACK_LIMIT = 5;
 
 export const CLIENT_ARTIFACT_ROOT_ELEMENT_ID = "app";
 export const CLIENT_ARTIFACT_METADATA_ELEMENT_ID = "ryot-client-artifact";
@@ -194,11 +197,18 @@ export const PluginLogicalLocation = strictStruct({
 export type PluginLogicalLocation = Schema.Schema.Type<typeof PluginLogicalLocation>;
 
 export const PluginBridgeLocation = strictStruct({
+	index: Schema.Int,
+	key: Schema.String,
+	edgeBack: Schema.Boolean,
 	location: PluginLogicalLocation,
 	type: Schema.Literal("location"),
 });
 
 export type PluginBridgeLocation = Schema.Schema.Type<typeof PluginBridgeLocation>;
+
+export const PluginBridgeNavigateBack = strictStruct({ type: Schema.Literal("navigate-back") });
+
+export type PluginBridgeNavigateBack = Schema.Schema.Type<typeof PluginBridgeNavigateBack>;
 
 export const PluginBridgeNavigate = strictStruct({
 	location: PluginLogicalLocation,
@@ -370,6 +380,7 @@ export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeRyotQLCancel,
 	PluginBridgeRyotQLRequest,
 	PluginBridgeLifecycleClose,
+	PluginBridgeNavigateBack,
 	PluginBridgeOperationRequest,
 ]);
 

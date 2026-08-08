@@ -5,6 +5,7 @@ import {
 	type PluginBridgeHeader,
 	type PluginBridgeInit,
 	type PluginBridgeNavigate,
+	type PluginBridgeNavigateBack,
 	type PluginBridgeOperationRequest,
 	type PluginBridgeReady,
 	type PluginBridgeRyotQLCancel,
@@ -20,7 +21,7 @@ import type { PreparedRecipe } from "@ryot/ryotql";
 import { Match, Result, Schema } from "effect";
 
 import { createRyotClient, RyotClientError, type RyotNavigationTarget } from "./index";
-import { createPluginLocationStore } from "./routing";
+import { createPluginNavigationStore } from "./navigation/store";
 
 type PluginRuntimeState = "ready" | "active" | "closing" | "failed" | "disposed";
 
@@ -50,10 +51,11 @@ export const createPluginRuntime = (
 	let state: PluginRuntimeState = "ready";
 	let terminalReason: RyotClientErrorReason | undefined;
 	const listeners = new AbortController();
-	const locationStore = createPluginLocationStore();
-	const locations = {
-		getSnapshot: () => (hasLocation ? locationStore.getSnapshot() : undefined),
-		subscribe: locationStore.subscribe,
+	const navigationStore = createPluginNavigationStore();
+	const navigation = {
+		subscribe: navigationStore.subscribe,
+		getSnapshot: navigationStore.getSnapshot,
+		back: () => post({ type: "navigate-back" } satisfies PluginBridgeNavigateBack),
 	};
 	const operations = new Map<string, PendingCall>();
 	const queries = new Map<string, PendingCall>();
@@ -85,6 +87,7 @@ export const createPluginRuntime = (
 		rejectPending(reason);
 		themeListeners.clear();
 		hasLocation = false;
+		navigationStore.clear();
 		theme = undefined;
 		if (notify) {
 			try {
@@ -240,9 +243,10 @@ export const createPluginRuntime = (
 				return;
 			}
 			Match.value(decoded.success).pipe(
-				Match.when({ type: "location" }, ({ location }) => {
+				Match.when({ type: "location" }, ({ edgeBack, index, key, location }) => {
 					hasLocation = true;
-					locationStore.set(location);
+					navigationStore.setEdgeBack(edgeBack);
+					navigationStore.setEntry({ index, key, location });
 					activate();
 				}),
 				Match.when({ type: "theme" }, ({ generation, theme: nextTheme }) => {
@@ -312,5 +316,5 @@ export const createPluginRuntime = (
 		finish("failed", "transport", false);
 	}
 
-	return { fatal, client, locations, dispose: () => finish("disposed", "disposed", true) };
+	return { fatal, client, navigation, dispose: () => finish("disposed", "disposed", true) };
 };

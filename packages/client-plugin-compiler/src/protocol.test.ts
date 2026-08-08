@@ -1,5 +1,8 @@
 import { expect, it } from "@effect/vitest";
-import { CLIENT_API_VERSION } from "@ryot/contract/modules/plugins/client";
+import {
+	CLIENT_API_VERSION,
+	CLIENT_BRIDGE_PROTOCOL_VERSION,
+} from "@ryot/contract/modules/plugins/client";
 import { Effect } from "effect";
 
 import {
@@ -26,8 +29,8 @@ it.effect("round trips request and response bytes through canonical Base64", () 
 			format: 1,
 			hash: "hash",
 			apiVersion: 1,
-			bridgeVersion: 1,
 			compilerVersion: 1,
+			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 			files: [
 				{ name: "asset.png", contents: new Uint8Array([0xff, 0x00]), contentType: "image/png" },
 			],
