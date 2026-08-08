@@ -1,6 +1,7 @@
+import { useHotkey } from "@tanstack/react-hotkeys";
 import clsx from "clsx";
-import { useEffect, type RefObject } from "react";
-import { ActivityIndicator, Platform, Pressable, Text, TextInput, View } from "react-native";
+import type { RefObject } from "react";
+import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
 
@@ -67,26 +68,5 @@ export const useSavedViewSearchShortcut = (
 	inputRef: RefObject<TextInput | null>,
 	enabled: boolean,
 ) => {
-	useEffect(() => {
-		if (!enabled || Platform.OS !== "web") {
-			return undefined;
-		}
-		const handleKeyDown = (event: KeyboardEvent) => {
-			const target = event.target;
-			if (
-				event.key !== "/" ||
-				event.metaKey ||
-				event.ctrlKey ||
-				event.altKey ||
-				(target instanceof HTMLElement &&
-					(target.isContentEditable || ["INPUT", "SELECT", "TEXTAREA"].includes(target.tagName)))
-			) {
-				return;
-			}
-			event.preventDefault();
-			inputRef.current?.focus();
-		};
-		document.addEventListener("keydown", handleKeyDown);
-		return () => document.removeEventListener("keydown", handleKeyDown);
-	}, [enabled, inputRef]);
+	useHotkey("/", () => inputRef.current?.focus(), { enabled, stopPropagation: false });
 };
