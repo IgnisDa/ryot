@@ -36,7 +36,6 @@ export type NavigationState =
 
 export function mapNavigationState(props: {
 	readonly pathname: string;
-	readonly routeWorkspace?: string;
 	readonly selectedWorkspace: string;
 	readonly result: AsyncResult.AsyncResult<NavigationData, unknown>;
 }): NavigationState {
@@ -67,11 +66,7 @@ export function mapNavigationState(props: {
 		};
 	}
 
-	const workspace = getCurrentWorkspace(
-		data.workspaces,
-		props.routeWorkspace,
-		props.selectedWorkspace,
-	);
+	const workspace = getCurrentWorkspace(data.workspaces, props.selectedWorkspace);
 
 	return {
 		data,

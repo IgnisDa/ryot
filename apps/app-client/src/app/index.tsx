@@ -16,7 +16,7 @@ function SessionRedirect() {
 		);
 	}
 
-	return <Redirect href={session ? "/(app)" : "/auth"} />;
+	return <Redirect href={session ? "/(app)/(shell)/(drawer)" : "/auth"} />;
 }
 
 export default function Index() {

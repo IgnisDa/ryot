@@ -67,23 +67,18 @@ export function getWorkspacePickerSummary(items: Pick<NavigationItems, "views">)
 
 export function getCurrentWorkspace(
 	workspaces: readonly NavigationWorkspace[],
-	routeWorkspace: string | undefined,
 	persistedWorkspace: string,
 ): NavigationWorkspace {
-	return (
-		workspaces.find((item) => item.slug === routeWorkspace) ??
-		workspaces.find((item) => item.slug === persistedWorkspace) ??
-		workspaces[0]
-	);
+	return workspaces.find((item) => item.slug === persistedWorkspace) ?? workspaces[0];
 }
 
-export function getWorkspaceHref(workspace: string) {
-	return `/${encodeURIComponent(workspace)}` as const;
+export function getWorkspaceHref() {
+	return "/" as const;
 }
 
-export function getNavigationHref(workspace: string, item: Pick<NavigationItem, "kind" | "slug">) {
+export function getNavigationHref(item: Pick<NavigationItem, "kind" | "slug">) {
 	if (item.kind === "home") {
-		return getWorkspaceHref(workspace);
+		return getWorkspaceHref();
 	}
 	if (item.kind === "collection") {
 		return { params: { entityId: item.slug }, pathname: "/e/[entityId]" as const };
@@ -109,10 +104,7 @@ export const getEntityHref = (entityId: string) => ({
 	pathname: "/e/[entityId]" as const,
 });
 
-export const getSettingsHref = (workspace: string) => ({
-	params: { workspace },
-	pathname: "/[workspace]/settings" as const,
-});
+export const getSettingsHref = () => "/settings" as const;
 
 export function getActiveNavigationKey(pathname: string) {
 	if (pathname.endsWith("/settings")) {
