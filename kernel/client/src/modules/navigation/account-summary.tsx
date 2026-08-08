@@ -1,9 +1,10 @@
 import clsx from "clsx";
-import { useSyncExternalStore, type MouseEvent } from "react";
+import { useSyncExternalStore } from "react";
 
 import type { AuthSessionStore } from "#/modules/auth/client";
 import { AppIcon } from "#/modules/navigation/app-icon";
 import { Avatar } from "#/modules/navigation/avatar";
+import { activateLink } from "#/modules/navigation/link-activation";
 
 type AccountSummaryProps = {
 	readonly active: boolean;
@@ -20,18 +21,10 @@ export function AccountSummary(props: AccountSummaryProps) {
 	if (snapshot.status !== "authenticated") {
 		return null;
 	}
-	const navigate = (event: MouseEvent<HTMLAnchorElement>) => {
-		if (event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
-			return;
-		}
-		event.preventDefault();
-		void props.onNavigate();
-	};
-
 	return (
 		<a
 			href="/settings"
-			onClick={navigate}
+			onClick={activateLink(props.onNavigate)}
 			aria-label="Open settings"
 			aria-current={props.active ? "page" : undefined}
 			className={clsx(
