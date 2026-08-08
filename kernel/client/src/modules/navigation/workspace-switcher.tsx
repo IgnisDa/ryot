@@ -73,7 +73,7 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 					id={menuId}
 					role="dialog"
 					aria-label="Workspaces"
-					className="absolute top-full left-0 z-50 mt-2 flex w-[320px] flex-col gap-1 rounded-xl border border-border bg-surface p-1.5 shadow-card"
+					className="absolute top-full left-0 z-50 mt-2 flex w-full flex-col gap-1 rounded-xl border border-border bg-surface p-1.5 shadow-card md:w-[320px]"
 				>
 					{workspaces.map((workspace) => {
 						const isCurrent = workspace.slug === props.current?.slug;
