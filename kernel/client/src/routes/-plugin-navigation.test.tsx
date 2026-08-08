@@ -38,6 +38,9 @@ const theme: ThemeStore = {
 
 const catalog: PluginClientCatalog = [
 	{
+		sortOrder: 0,
+		icon: "puzzle",
+		name: "Fixture",
 		health: "ready",
 		slug: "fixture",
 		isDisabled: false,
@@ -52,9 +55,11 @@ const catalog: PluginClientCatalog = [
 const StorageStub = Layer.succeed(ClientStorage, {
 	remove: () => Effect.void,
 	clearServerSelection: Effect.void,
+	setLastWorkspace: () => Effect.void,
 	setServerSelection: () => Effect.void,
 	setThemePreference: () => Effect.void,
 	getServerSelection: Effect.succeed(server),
+	getLastWorkspace: () => Effect.succeed(null),
 	getThemePreference: Effect.succeed("system" as const),
 });
 
