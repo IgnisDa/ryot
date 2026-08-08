@@ -12,7 +12,7 @@ numbers here are readable and which are not.
 - Image `ghcr.io/ignisda/ryot@sha256:48fdd57223c44a7dd22bc2aa2f0b6c60471df2058d203ddb3392e7e5d2550a71`.
 - Bun 1.4.0, Deno 2.8.1, Effect 4.0.0-rc.116, kernel 7.0.0-30-generic.
 - Host: 2 vCPU, 4 000 043 008 B RAM, no swap. Ryot has no CPU or memory limit of its own.
-- 51 scenario artifacts across eight phase invocations, 2026-09-19 09:56 UTC to 2026-09-20 16:16 UTC.
+- 51 scenario artifacts across eight phase invocations, 2026-09-19 09:56 UTC to 2026-09-20 21:57 UTC.
 - Application sampling at 200 ms collected on the benchmark host; host sampling at 1 s from procfs
   and cgroup v2.
 
@@ -252,16 +252,16 @@ Applying `retention.ts::retentionClassification` to the three soaks, with the ma
 | Input                             | soak-control             | soak-control-extended    | soak-hermetic-import  |
 | --------------------------------- | ------------------------ | ------------------------ | --------------------- |
 | operations                        | 100 direct executions    | 1 000 direct executions  | 200 imports           |
-| wall clock                        | 2 h 44 m                 | 3 h 14 m                 | 6 h 39 m              |
-| fresh idle RSS                    | 449.9 MiB                | 468.7 MiB                | 445.3 MiB             |
-| final recovery RSS                | 485.2 MiB                | 517.6 MiB                | 927.5 MiB             |
-| post-GC RSS                       | 491.0 MiB                | 521.9 MiB                | 927.1 MiB             |
-| post-GC RSS growth                | **+9.1 %**               | **+11.3 %**              | **+108.2 %**          |
-| post-GC heap-used growth          | **−4.4 %**               | **−3.7 %**               | **+10.3 %**           |
-| post-GC external growth           | −6.5 %                   | −1.3 %                   | +19.8 %               |
-| JSC object count, fresh → post-GC | 1 011 575 → 982 406      | 1 075 196 → 988 803      | 1 074 991 → 1 072 018 |
-| fitted RSS slope                  | 27.8 MiB / 100 ops       | 3.9 MiB / 100 ops        | 198.1 MiB / 100 ops   |
-| projected per 1 000 ops           | 278 MiB                  | **38.5 MiB**             | 1 981 MiB             |
+| wall clock                        | 2 h 44 m                 | 3 h 29 m                 | 6 h 39 m              |
+| fresh idle RSS                    | 449.9 MiB                | 467.6 MiB                | 445.3 MiB             |
+| final recovery RSS                | 485.2 MiB                | 516.6 MiB                | 927.5 MiB             |
+| post-GC RSS                       | 491.0 MiB                | 519.1 MiB                | 927.1 MiB             |
+| post-GC RSS growth                | **+9.1 %**               | **+11.0 %**              | **+108.2 %**          |
+| post-GC heap-used growth          | **−4.4 %**               | **−10.4 %**              | **+10.3 %**           |
+| post-GC external growth           | −6.5 %                   | −7.3 %                   | +19.8 %               |
+| JSC object count, fresh → post-GC | 1 011 575 → 982 406      | 1 191 721 → 989 673      | 1 074 991 → 1 072 018 |
+| fitted RSS slope                  | 27.8 MiB / 100 ops       | 3.5 MiB / 100 ops        | 198.1 MiB / 100 ops   |
+| projected per 1 000 ops           | 278 MiB                  | **35.5 MiB**             | 1 981 MiB             |
 | **classification**                | **allocator-high-water** | **allocator-high-water** | **heap-retention**    |
 
 `soak-control-extended` is the measurement that settles this section. The other two are kept because
@@ -285,26 +285,28 @@ first-wave cost that does not recur.
 
 ### soak-control-extended answers the slope question
 
-> The complete artifact for this scenario was destroyed after the run by an operator error, and the
-> scenario is being re-run. See defect 25. Every figure below comes from the surviving metrics and
-> request records, but `summary.json` cannot be regenerated from the committed artifacts until the
-> re-run lands.
-
-Ten waves of one hundred sequential direct executions, 1 000 operations, 0 failed, 3 h 14 m. Same
+Ten waves of one hundred sequential direct executions, 1 000 operations, 0 failed, 3 h 29 m. Same
 submission path, same workload shape, same 1/5/15-minute recovery checkpoints. Wave load windows were
-129–165 s with no drift, request latency p50 1.82 s and max 2.81 s, and every wave drained in under
-190 ms.
+144–177 s with no drift, request latency p50 1.80 s, p90 1.89 s and max 2.52 s, and every wave
+drained in under 160 ms.
 
-RSS at the 15-minute checkpoint: 491.2, 501.1, 505.8, 508.2, 522.0, 511.2, 518.7, 519.5, 516.5,
-516.4 MiB. **The series is not monotonic.** After the first wave it oscillates around a level near
-515 MiB, with per-wave increments of +9.8, +4.7, +2.4, +13.9, −10.8, +7.4, +0.8, −3.0 and −0.1 MiB
-— three sign changes, spanning 24.7 MiB from −10.8 to +13.9. That spread is larger than the
-15.3 MiB of total drift across waves 2–10, so single-wave noise dominates the trend being fitted.
-Retention at 1 000 operations is +47.7 MiB above fresh idle at the last checkpoint, +53.2 MiB after a
-forced GC.
+RSS at the 15-minute checkpoint: 492.1, 496.8, 501.2, 507.4, 509.1, 513.1, 509.9, 512.0, 513.0,
+515.2 MiB. **The series flattens rather than climbing.** Per-wave increments are +4.7, +4.4, +6.2,
++1.7, +4.0, −3.2, +2.1, +1.0 and +2.2 MiB: the first four waves carry 15.3 MiB of the total and the
+last five carry 7.8 MiB, with one negative wave. Total drift across all ten waves is 23.1 MiB,
+against a per-wave spread of 9.4 MiB, so the trend is small relative to single-wave noise. Retention
+at 1 000 operations is +47.6 MiB above fresh idle at the last checkpoint, +51.5 MiB after a forced
+GC.
 
-**The fitted slope is 38.5 MiB per 1 000 operations, under the plan's 100 MiB ceiling.** The slope
+**The fitted slope is 35.5 MiB per 1 000 operations, under the plan's 100 MiB ceiling.** The slope
 test that `soak-control` could not pass, passes here.
+
+This scenario was run twice. The first run, invocation `soak-f16b3ad6`, produced 38.5 MiB per 1 000
+operations, 11.3 % post-GC growth and +53.2 MiB post-GC retention; its complete artifact was
+destroyed by an operator error before it was committed (defect 25) and the scenario was re-run as
+`soak-e9171c80`, which is the artifact in this directory and the source of every figure above. Two
+independent 1 000-operation runs agreeing to within 3 MiB of slope and 0.3 points of growth ratio is
+the strongest reproducibility evidence in this run, and the accident is the reason it exists.
 
 The two scenarios together separate growth that tracks operations from growth that tracks wall clock,
 which is what this scenario was built to do:
@@ -312,24 +314,25 @@ which is what this scenario was built to do:
 |                              | soak-control | soak-control-extended | ratio     |
 | ---------------------------- | ------------ | --------------------- | --------- |
 | operations                   | 100          | 1 000                 | 10×       |
-| wall clock                   | 2 h 44 m     | 3 h 14 m              | 1.18×     |
-| post-GC RSS above fresh idle | +41.1 MiB    | +53.2 MiB             | **1.29×** |
+| wall clock                   | 2 h 44 m     | 3 h 29 m              | 1.28×     |
+| post-GC RSS above fresh idle | +41.1 MiB    | +51.5 MiB             | **1.25×** |
 
-Ten times the operations produced 1.29 times the retention. Scaling `soak-control`'s +41.1 MiB by
-wall clock alone predicts +48.6 MiB; the observed figure is +53.2 MiB. Scaling it by operations
-predicts +411 MiB. **Retention tracks elapsed time and a one-time warm-up, not operation count.**
+Ten times the operations produced 1.25 times the retention. Scaling `soak-control`'s +41.1 MiB by
+wall clock alone predicts +52.6 MiB; the observed figure is +51.5 MiB, slightly under. Scaling it by
+operations predicts +411 MiB. **Retention tracks elapsed time and a one-time warm-up, not operation
+count.**
 
 The classification is unchanged from `soak-control` and now rests on ten times the sample:
-allocator-high-water. Post-GC RSS is 11.3 % above fresh idle while live heap is 3.7 % _below_ it,
-external memory is 1.3 % below it, and a forced GC freed 86 393 JSC objects. A forced GC _raised_
-RSS by 4.3 MiB, as it did in `soak-control`. Nothing is retained on the heap.
+allocator-high-water. Post-GC RSS is 11.0 % above fresh idle while live heap is 10.4 % _below_ it,
+external memory is 7.3 % below it, and a forced GC freed 202 048 JSC objects. A forced GC _raised_
+RSS by 2.5 MiB, as it did in `soak-control`. Nothing is retained on the heap.
 
-Two figures qualify this. Post-GC RSS growth of 11.3 % still crosses the 10 % tolerance, which is why
+Two figures qualify this. Post-GC RSS growth of 11.0 % still crosses the 10 % tolerance, which is why
 the classification is `allocator-high-water` rather than `no-material-retention` — it is marginal,
-and a tolerance of 12 % would have flipped it. And the **cgroup** slope is 106.8 MiB per 1 000
-operations, just above the same ceiling the RSS slope passes; cgroup memory includes page cache,
-which grows with the run's own sample and journal writes, so it is not the process's retention. The
-RSS slope is the one the ceiling was written for.
+and a tolerance of 12 % would have flipped it in both runs. And the **cgroup** slope is 106.9 MiB per
+1 000 operations, just above the same ceiling the RSS slope passes; cgroup memory includes page
+cache, which grows with the run's own sample and journal writes, so it is not the process's
+retention. The RSS slope is the one the ceiling was written for.
 
 ### soak-hermetic-import cannot be read as retention
 
@@ -424,15 +427,17 @@ Recorded as measurements. The architecture decisions belong to a separate review
    220 MiB heap spike that GC immediately reclaims logically but not physically. Not live heap, not
    mapped files (flat at 63 MiB), not external buffers (≤ 12.8 MiB), not response data.
 6. **Does Bun retain after drain?** Not on the heap, and the slope is under the ceiling.
-   `soak-control-extended` runs 1 000 direct executions and ends 11.3 % above fresh idle in RSS with
-   live heap 3.7 % _below_ it and 86 393 fewer JSC objects after a forced GC: allocator-high-water,
-   at a fitted **38.5 MiB per 1 000 operations against the plan's 100 MiB ceiling**. The per-wave
-   series oscillates ±10 MiB around a flat level rather than climbing. `soak-control`'s 278 MiB
-   projection was an artefact of extrapolating 100 operations whose growth was dominated by
-   non-recurring first-wave cost.
+   `soak-control-extended` runs 1 000 direct executions and ends 11.0 % above fresh idle in RSS with
+   live heap 10.4 % _below_ it and 202 048 fewer JSC objects after a forced GC: allocator-high-water,
+   at a fitted **35.5 MiB per 1 000 operations against the plan's 100 MiB ceiling**. The per-wave
+   series flattens — 7.8 MiB across the last five waves against 15.3 MiB across the first four —
+   rather than climbing. Two independent runs of the scenario give 35.5 and 38.5 MiB per 1 000
+   operations. `soak-control`'s 278 MiB projection was an artefact of extrapolating 100 operations
+   whose growth was dominated by non-recurring first-wave cost.
 7. **If RSS grows, what is it?** Allocator reservation, per 6, and it is driven by elapsed time and
-   one-time warm-up rather than by operation count: ten times the operations over 1.18 times the wall
-   clock produced 1.29 times the retention, against 10× if it tracked operations. The import soak's
+   one-time warm-up rather than by operation count: ten times the operations over 1.28 times the wall
+   clock produced 1.25 times the retention, against 10× if it tracked operations. Scaling the small
+   sample by wall clock alone predicts the large one to within 1.1 MiB. The import soak's
    heap-retention classification is invalid as a Ryot measurement because it accrued under stall.
 8. **How much replay and spawn work remains?** Every execution is a fresh process. A standard import
    expands into about 185 processes and 777 replay starts; a live import into about 16 and 67. 200
@@ -460,8 +465,8 @@ Recorded as measurements. The architecture decisions belong to a separate review
 - A YouTube Music worker is large because of one phase, and that memory is allocator reservation
   from transient parse garbage rather than retained live data.
 - Ryot does not retain heap across drained executions. Confirmed at 1 000 operations by
-  `soak-control-extended`, with a fitted RSS slope of 38.5 MiB per 1 000 operations under the plan's
-  100 MiB ceiling.
+  `soak-control-extended`, twice, with fitted RSS slopes of 35.5 and 38.5 MiB per 1 000 operations
+  under the plan's 100 MiB ceiling.
 - RSS growth after drain tracks elapsed time and one-time warm-up, not operation count.
 - Scheduler dispatchers cost meaningful idle memory (138–184 MiB) and negligible idle CPU.
 
@@ -475,7 +480,8 @@ Recorded as measurements. The architecture decisions belong to a separate review
   were taking 526–1 582 s.
 - That the 41-minute wave cadence of the import soak was healthy. It was the stall.
 - That `soak-control`'s 278 MiB per 1 000 operations indicated a slow leak. Measuring the thousand
-  directly gives 38.5 MiB; the projection extrapolated a first-wave cost that does not recur.
+  directly gives 35.5 MiB, and 38.5 MiB on a second run; the projection extrapolated a first-wave
+  cost that does not recur.
 
 **Unresolved.**
 

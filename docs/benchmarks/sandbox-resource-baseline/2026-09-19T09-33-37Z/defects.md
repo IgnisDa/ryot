@@ -173,12 +173,14 @@ timeline, and the reconstruction is recorded as a manifest deviation. Start and 
 scenario work rather than the process lifetime. `preflight`, `teardown` and `watchdogDrill` are still
 null for the same reason.
 
-The later `soak-control-extended` invocation did reach the manifest, start and completion both, so
-the symptom is intermittent rather than total — which makes it worse to rely on, not better. That
-record also arrived with `scenarioIds` empty, so the manifest said a soak ran without saying which
-scenario it ran; the artifact carries the id, and the field was filled by hand. `summarize-run.ts`
-validates artifact provenance against these records but does not reject an empty `scenarioIds`,
-which is why the omission is silent.
+Both `soak-control-extended` invocations did reach the manifest, start and completion both, so the
+symptom is intermittent rather than total — which makes it worse to rely on, not better. Both
+records also arrived with `scenarioIds` empty, so the manifest said a soak ran without saying which
+scenario it ran; the artifacts carry the id, and the field was filled by hand twice. Two for two
+makes the empty `scenarioIds` systematic rather than intermittent — a separate defect in the same
+write path, not another instance of the lost writes above. `summarize-run.ts` validates artifact
+provenance against these records but does not reject an empty `scenarioIds`, which is why the
+omission is silent.
 
 ### 12. The final manifest write is unguarded and fails the process after the work is done
 
@@ -305,7 +307,7 @@ last invocation's scenarios and kept health facts that are only known once the r
 
 ### 25. The complete `soak-control-extended` artifact was destroyed after the run
 
-**Status:** the scenario is being re-run; the trimmed copy is committed as an interim record.
+**Status:** recovered by re-running the scenario; the loss itself is unfixed.
 
 `bunx oxfmt` was run over the run directory to format the edited Markdown. It also reformatted all 50
 committed scenario artifacts, converting two-space indentation to tabs. `git checkout` reverted
@@ -316,10 +318,13 @@ directory holds the same file. It does not: the raw copy carries only `metrics`,
 overwritten with 278 KB. There was no snapshot and the file was untracked, so it was unrecoverable.
 
 **Effect:** `series` (200 ms application and 1 s host samples), `waves`, `timeline`, `containers`,
-`phases`, `workers`, `journal`, `watchdog` and `configuration` were lost for that scenario.
-`summarize-run.ts` fails schema decode against the trimmed artifact, so `summary.json` could no
-longer be regenerated from the committed artifacts. The 143 metrics and 1 000 request records
-survived, so every figure quoted in `report.md` remained sourced.
+`phases`, `workers`, `journal`, `watchdog` and `configuration` were lost for that run, and
+`summarize-run.ts` could no longer regenerate `summary.json` from the committed artifacts. The cost
+was 3 h 29 m of VM time to re-run the scenario as invocation `soak-e9171c80`, whose complete artifact
+is what the directory now holds; `report.md` quotes the re-run throughout and keeps the destroyed
+run's slope and growth ratio as an independent replicate, which the two runs agreeing to within
+3 MiB per 1 000 operations turned into the run's best reproducibility evidence. That is luck, not
+mitigation.
 
 **Two things made this possible and both are worth fixing.** The run directory is the only home for a
 complete artifact, and a fresh one is untracked until committed, so there is a window where normal
@@ -352,6 +357,7 @@ When Effect publishes a release that fixes #8312:
 3. Rerun the Phase 12 live concurrency matrix **and** `soak-hermetic-import` into a new run
    directory. The soak is required for a retention figure; the one in this run accrued under stall.
 4. ~~Consider a longer `soak-control` at a higher operation count, to separate a slow leak from
-   allocator high-water.~~ Done. `soak-control-extended` ran 1 000 direct executions on
-   2026-09-20 and returned a fitted slope of 38.5 MiB per 1 000 operations, under the plan's 100 MiB
-   ceiling, classifying as allocator-high-water (see `report.md`, Bun retention).
+   allocator high-water.~~ Done, twice. `soak-control-extended` ran 1 000 direct executions on
+   2026-09-20 and again on 2026-09-21, returning fitted slopes of 38.5 and 35.5 MiB per 1 000
+   operations, under the plan's 100 MiB ceiling, classifying as allocator-high-water (see
+   `report.md`, Bun retention).
