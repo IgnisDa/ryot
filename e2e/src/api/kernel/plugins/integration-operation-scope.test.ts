@@ -78,8 +78,8 @@ describe("integration authenticated operation scope", () => {
 			);
 			assertTaggedError(foreignSystem, "PluginNotFoundError");
 			expect(foreignSystem.reason).toEqual({
-				code: "operation-not-found",
 				pluginSlug: declaring.pluginSlug,
+				code: "operation-scope-not-found",
 				operationSlug: declaring.operationSlug,
 			});
 		}),
