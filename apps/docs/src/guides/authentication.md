@@ -1,62 +1,35 @@
 # Authentication
 
-Ryot supports multiple authentication methods. By default, it uses local authentication
-which means that you can log in using a username and password.
+Ryot supports password and external OpenID Connect (OIDC) sign-in. The web and installed apps use OAuth 2.1 Authorization Code with S256 PKCE to obtain short-lived API access tokens. API keys remain user-owned personal credentials for automation.
 
-## OpenID
+## OpenID Connect
 
-Ryot can be configured to use OpenID Connect (OIDC) for authentication. The following
-environment variables need to be set:
+Create one application in your OIDC provider and configure Ryot:
 
 ```bash
-FRONTEND_URL=https://app.ryot.io # The URL of your Ryot instance
+FRONTEND_URL=https://app.ryot.io
 SERVER_OIDC_CLIENT_ID=********
 SERVER_OIDC_CLIENT_SECRET=********
-SERVER_OIDC_ISSUER_URL=https://accounts.google.com # The URL of your OIDC provider (might end with trailing slash)
-# Below are optional
+SERVER_OIDC_ISSUER_URL=https://accounts.google.com
+# Optional
 FRONTEND_OIDC_BUTTON_LABEL=Use Google
-RUST_LOG=ryot=debug # To debug why OIDC authentication is failing
+USERS_DISABLE_LOCAL_AUTH=true
 ```
 
-::: warning
-`FRONTEND_URL` must be the exact public URL of your own Ryot instance, not just any URL
-your users happen to visit it at. The auth library resolves the OIDC redirect against this
-value, so a wrong `FRONTEND_URL` sends users back to the wrong host and typically looks like
-a broken OIDC provider rather than a Ryot misconfiguration.
-:::
+Register this single callback at Authentik, Google, Keycloak, or your other provider:
 
-In your OIDC provider, you will need to set the redirect URL to
-`<FRONTEND_URL>/api/auth`. The scopes required are `openid email`.
+```text
+<FRONTEND_URL>/api/auth/callback/oidc
+```
 
-Once these are set, restart your Ryot instance and you should be able to see the button to
-"Continue with OpenID Connect" on the authentication pages. New users will have their
-username set to their email address. This can be changed later in the profile settings.
-
-You can set `USERS_DISABLE_LOCAL_AUTH=true` to disable local authentication and only allow
-users to authenticate using OIDC. When OIDC is enabled and local authentication is
-disabled, users will be redirected to the OIDC provider when they visit the auth page. To
-see the authentication page anyway, you can visit
-`<FRONTEND_URL>/auth?autoOidcLaunch=false`.
+The required scopes are `openid email`. Do not register an iOS or Android callback at the external provider. Ryot provisions its internal `ryot-web` and `ryot-native` OAuth clients automatically.
 
 ::: warning
-A user can either authenticate using local authentication or OIDC, but not both.
+`FRONTEND_URL` must be the exact public HTTPS origin users browse to, without a path, query, or fragment. It defines the OAuth issuer, API audience, trusted browser origin, and web callbacks. Ryot rejects malformed values at startup.
 :::
 
-### Converting a local user to an OIDC user
+When local authentication is disabled, `/oauth/login` automatically starts external OIDC. Existing password, OIDC, and two-factor users complete sign-in on this server-hosted route.
 
-- Setup OpenID on your instance using the the above guide.
-- Make a backup of your database using this
-  [guide](../backups.md#whole-server-backups).
-- Logout of your original account and then click on "Continue with OpenID Connect".
-  Continue with user you want to select, after which a new account will be created.
-- Let's say that I want `IgnisDa` below to be able to login using OIDC (of
-  `ignisda2001@gmail.com`): ![image](../images/authentication_original-state.png)
-- Drop into your database (`docker exec -u postgres -it ryot-db psql`) and copy the
-  `oidc_issuer_id` (`104798859970005336426` here) of the new user and then delete it using
-  `DELETE FROM "user" WHERE id = 'usr_v5aGOC9UzrId';`
-- Update details of the old user using
-  `UPDATE "user" SET oidc_issuer_id = '104798859970005336426', password = NULL WHERE id = 'usr_ujrD0pCeKc1Y';`.
-  After this, it should look like this:
-  ![image](../images/authentication_new-state.png)
+## API keys
 
-You should now be able login using OIDC. The same procedure needs to be followed for all users that want their provider changed to OIDC.
+API keys are user-owned personal automation credentials sent through `X-Api-Key`. They are not OAuth client credentials. Expiry, rate limiting, ownership, and revocation apply.

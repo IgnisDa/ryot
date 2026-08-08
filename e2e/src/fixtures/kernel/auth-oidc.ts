@@ -2,6 +2,14 @@ import { Events, OAuth2Server } from "oauth2-mock-server";
 
 import { requirePresent } from "~/support/assertions";
 
+import {
+	continueOAuthAuthorization,
+	exchangeOAuthCallback,
+	prepareOAuth,
+	responseCookie,
+	type PendingOAuth,
+} from "./auth";
+
 export type MockOidcServer = {
 	issuerUrl: string;
 	server: OAuth2Server;
@@ -52,12 +60,26 @@ export async function performOidcSignIn(
 	username: string,
 	apiUrl: string,
 	claims?: Record<string, unknown>,
-): Promise<Response> {
+): Promise<{ pending: PendingOAuth; response: Response }> {
+	const configResponse = await fetch(`${apiUrl}/system/config`);
+	const config: unknown = await configResponse.json();
+	const frontendOrigin = requirePresent(
+		config !== null &&
+			typeof config === "object" &&
+			typeof Reflect.get(config, "frontendOrigin") === "string"
+			? Reflect.get(config, "frontendOrigin")
+			: null,
+		"OIDC server config did not expose its frontend origin",
+	);
+	const pending = await prepareOAuth(apiUrl, frontendOrigin);
 	const step1Response = await fetch(`${apiUrl}/auth/sign-in/social`, {
 		method: "POST",
 		redirect: "manual",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ provider: "oidc", callbackURL: `${new URL(apiUrl).origin}/` }),
+		headers: { "Content-Type": "application/json", Origin: new URL(apiUrl).origin },
+		body: JSON.stringify({
+			provider: "oidc",
+			callbackURL: `${frontendOrigin}/oauth/login`,
+		}),
 	});
 	const step1Data: { url?: string; redirect?: boolean } = await step1Response.json();
 	const authorizeUrl = requirePresent(
@@ -72,8 +94,8 @@ export async function performOidcSignIn(
 
 	mockOidcServer.setNextClaims({
 		sub: username,
-		email: `${username}@example.com`,
 		name: username,
+		email: `${username}@example.com`,
 		...claims,
 	});
 	const step2Response = await fetch(authorizeUrl, { redirect: "manual" });
@@ -83,10 +105,11 @@ export async function performOidcSignIn(
 	);
 
 	const cookieValue = stateCookie ?? "";
-	return fetch(callbackUrl, {
+	const response = await fetch(callbackUrl, {
 		redirect: "manual",
-		headers: { Cookie: cookieValue },
+		headers: { accept: "text/html", Cookie: cookieValue },
 	});
+	return { pending, response };
 }
 
 export async function oidcSignIn(
@@ -95,9 +118,10 @@ export async function oidcSignIn(
 	apiUrl: string,
 	claims?: Record<string, unknown>,
 ): Promise<string> {
-	const step3Response = await performOidcSignIn(mockOidcServer, username, apiUrl, claims);
-	return requirePresent(
-		step3Response.headers.get("set-auth-token"),
-		`oidcSignIn step 3 failed: status=${step3Response.status}, location=${step3Response.headers.get("location")}, no set-auth-token header`,
+	const { pending, response } = await performOidcSignIn(mockOidcServer, username, apiUrl, claims);
+	const sessionCookie = requirePresent(
+		responseCookie(response),
+		"OIDC callback did not establish a hosted session",
 	);
+	return exchangeOAuthCallback(await continueOAuthAuthorization(pending, sessionCookie), pending);
 }

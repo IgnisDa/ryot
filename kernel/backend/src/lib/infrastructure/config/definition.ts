@@ -328,7 +328,7 @@ export const appConfigDefinition = defineConfig(
 			envKey: "FRONTEND_URL",
 			validation: { required: true },
 			defaultValue: "https://app.ryot.io",
-			description: "Public URL of the frontend application",
+			description: "Exact public HTTPS origin users browse to; defines OAuth issuer and callbacks",
 		}),
 		disableTelemetry: booleanField({
 			defaultValue: false,

@@ -164,7 +164,7 @@ it.effect("provides both authentication services to handlers", () => {
 				expect(authorization.credential).toEqual({ kind: "oauth", clientId: "ryot-web" });
 				return HttpServerResponse.empty();
 			}),
-			{ credential: Redacted.make("token"), endpoint: {} as never, group: {} as never },
+			{ credential: Redacted.make("token") },
 		),
 	);
 
@@ -192,7 +192,7 @@ it.effect("rejects authenticated writes while a lifecycle operation is active", 
 				handlerCalled = true;
 				return HttpServerResponse.empty();
 			}),
-			{ credential: Redacted.make("token"), endpoint: {} as never, group: {} as never },
+			{ credential: Redacted.make("token") },
 		),
 	);
 

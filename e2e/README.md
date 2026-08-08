@@ -42,7 +42,7 @@ RUN_SANDBOX_BENCHMARKS=1 bun turbo --env-mode=loose --force --output-logs=full -
 
 ## Harness
 
-`global-setup.ts` assembles the test plugin archive and coordinates the API and frontend setup. `global-setup.api.ts` provisions containers and one shared API process, while `global-setup.frontend.ts` starts the kernel client for browser tests. Their URLs are provided through Vitest `inject`; worker modules cannot import global setup state directly.
+`global-setup.ts` builds the kernel client and test plugin archive, provisions containers, and starts one shared backend process. The backend serves the built SPA and `/api` from the same origin, matching the production topology. The origin and API URL are provided through Vitest `inject`; worker modules cannot import global setup state directly.
 
 Up to two files share the API process concurrently. Tests and hooks have 180-second limits, and the hanging-process reporter identifies leaked handles.
 
@@ -87,7 +87,7 @@ Resolve plugin-owned definition fixtures by plugin slug and definition slug; def
 
 ## OIDC
 
-`oidcSignIn` drives Better Auth OIDC flow through mock server: start sign-in and retain the OAuth state cookie, submit username to authorize endpoint, then request the API callback with the same cookie. That state cookie is Better Auth's own CSRF handshake value, not session auth; the fixture reads the resulting session from the callback's `set-auth-token` header and threads it as a bearer token.
+`oidcSignIn` starts a first-party PKCE authorization, drives Better Auth OIDC through the mock server while preserving its state cookie, continues the signed Ryot authorization, and exchanges the resulting code for an OAuth access token. The fixture threads that token as `Authorization: Bearer`. The state cookie is Better Auth's browser-session and CSRF handshake, not an application API credential.
 
 ## Capacity
 

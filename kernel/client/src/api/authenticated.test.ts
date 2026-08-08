@@ -10,6 +10,7 @@ const tokens = (
 ): OAuthTokenService["Service"] => ({
 	accessToken,
 	clear: () => Effect.void,
+	logout: () => Effect.succeed(null),
 	userInfo: () => Effect.succeed(null),
 	rejectAuthorization: () => Effect.die("not used"),
 	completeAuthorization: () => Effect.die("not used"),
