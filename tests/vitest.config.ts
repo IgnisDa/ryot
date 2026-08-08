@@ -1,3 +1,4 @@
+import "dotenv/config";
 import shared from "@ryot/testing/vitest.shared";
 import { defineConfig, mergeConfig } from "vitest/config";
 
