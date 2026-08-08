@@ -80,6 +80,7 @@ import {
 	buildWorkoutTemplateMigrationSql,
 	buildWorkoutToTemplateRelationshipMigrationSql,
 } from "./workout-mapping";
+import { migrateYoutubeMusicCache } from "./youtube-music-cache-mapping";
 
 export const migrateLegacyTables = Effect.gen(function* () {
 	const gate = yield* legacyBootstrapGate;
@@ -547,10 +548,11 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		logReportRows(connection, reportSequence),
 	);
 	yield* withReservedConnection((connection) =>
-		Effect.gen(function* () {
-			yield* connection.executeRaw(buildIntegrationMigrationSql(), []);
-			yield* connection.executeRaw(buildNotificationPlatformMigrationSql(), []);
-		}),
+		connection.executeRaw(buildIntegrationMigrationSql(), []),
+	);
+	yield* migrateYoutubeMusicCache;
+	yield* withReservedConnection((connection) =>
+		connection.executeRaw(buildNotificationPlatformMigrationSql(), []),
 	);
 	reportSequence = yield* withReservedConnection((connection) =>
 		logReportRows(connection, reportSequence),
