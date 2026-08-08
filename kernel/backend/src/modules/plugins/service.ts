@@ -398,6 +398,11 @@ export class PluginInvalidationSubscriber extends Context.Service<PluginInvalida
 			const hub = yield* PluginCatalogHub;
 			const runFork = yield* FiberSet.makeRuntime();
 			const subscriber = redis.client.duplicate();
+			yield* Effect.addFinalizer(() =>
+				Effect.sync(() => subscriber.removeAllListeners()).pipe(
+					Effect.andThen(Effect.tryPromise(() => subscriber.quit()).pipe(Effect.ignore)),
+				),
+			);
 			const ingestion = yield* PluginIngestionService;
 			const rebuildLock = yield* Semaphore.make(1);
 			const channels = [redisKeys.pluginCatalogUserChannel, redisKeys.pluginRegistryChannel];
@@ -419,10 +424,13 @@ export class PluginInvalidationSubscriber extends Context.Service<PluginInvalida
 					yield* hub.broadcast(decoded.success.userId);
 				}
 			});
-			const recover = Effect.tryPromise(() => subscriber.subscribe(...channels)).pipe(
+			const subscribeAndBroadcast = Effect.tryPromise(() => subscriber.subscribe(...channels)).pipe(
 				Effect.andThen(hub.broadcastAll()),
-				Effect.catchCause((cause) =>
-					Effect.logError("plugin invalidation subscription failed", cause),
+			);
+			const recover = subscribeAndBroadcast.pipe(
+				Effect.catchCauseIf(
+					(cause) => !Cause.hasInterruptsOnly(cause),
+					(cause) => Effect.logError("plugin invalidation subscription failed", cause),
 				),
 			);
 			yield* runPluginRegistryReconciliation(
@@ -430,15 +438,14 @@ export class PluginInvalidationSubscriber extends Context.Service<PluginInvalida
 				ingestion,
 			).pipe(Effect.forkScoped);
 			subscriber.on("message", (incoming, message) =>
-				runFork(dispatch(incoming, message).pipe(Effect.catchCause(Effect.logError))),
-			);
-			subscriber.on("ready", () => runFork(recover));
-			yield* recover;
-			yield* Effect.addFinalizer(() =>
-				Effect.sync(() => subscriber.removeAllListeners()).pipe(
-					Effect.andThen(Effect.tryPromise(() => subscriber.quit()).pipe(Effect.ignore)),
+				runFork(
+					dispatch(incoming, message).pipe(
+						Effect.catchCauseIf((cause) => !Cause.hasInterruptsOnly(cause), Effect.logError),
+					),
 				),
 			);
+			subscriber.on("ready", () => runFork(recover));
+			yield* subscribeAndBroadcast;
 			return { recover, dispatch, subscribed: true as const };
 		}),
 	},

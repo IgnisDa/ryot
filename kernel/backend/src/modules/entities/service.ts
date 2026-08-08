@@ -109,7 +109,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		const repository = yield* EntitiesRepository;
 		const lifecycleDispatch = yield* LifecycleDispatch;
 
-		const createEntity = Effect.fn("EntitiesService.createEntity")(function* (
+		const createEntity = Effect.fnUntraced(function* (
 			input: CreateAnyEntityInput,
 			origin = input.origin,
 		) {
@@ -170,6 +170,28 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			return saved.entity;
 		});
 
+		const ensureUserEntity = Effect.fnUntraced(function* (
+			userId: UserId,
+			item: EnsureUserEntityItem,
+		) {
+			const existing = yield* repository.findUserEntityWithoutProvenance({
+				userId,
+				entitySchemaSlug: item.entitySchemaSlug,
+			});
+			if (existing) {
+				return { entity: existing, wasInserted: false } satisfies EnsuredUserEntity;
+			}
+			const entity = yield* createEntity({
+				userId,
+				scope: "user",
+				name: item.name,
+				properties: item.properties,
+				origin: { kind: "bootstrap" },
+				entitySchemaSlug: item.entitySchemaSlug,
+			});
+			return { entity, wasInserted: true } satisfies EnsuredUserEntity;
+		});
+
 		const create = Effect.fn("EntitiesService.create")(function* (input: CreateEntityInput) {
 			return yield* createEntity(input, input.origin);
 		});
@@ -187,31 +209,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 							userId,
 							entitySchemaSlugs: items.map(({ entitySchemaSlug }) => entitySchemaSlug),
 						});
-						return yield* Effect.forEach(items, (item) =>
-							repository
-								.findUserEntityWithoutProvenance({
-									userId,
-									entitySchemaSlug: item.entitySchemaSlug,
-								})
-								.pipe(
-									Effect.flatMap((existing) =>
-										Effect.gen(function* () {
-											if (existing) {
-												return { entity: existing, wasInserted: false } satisfies EnsuredUserEntity;
-											}
-											const entity = yield* createEntity({
-												userId,
-												scope: "user",
-												name: item.name,
-												properties: item.properties,
-												origin: { kind: "bootstrap" },
-												entitySchemaSlug: item.entitySchemaSlug,
-											});
-											return { entity, wasInserted: true } satisfies EnsuredUserEntity;
-										}),
-									),
-								),
-						);
+						return yield* Effect.forEach(items, (item) => ensureUserEntity(userId, item));
 					}).pipe(Effect.provideService(Database, transaction)),
 				),
 			);

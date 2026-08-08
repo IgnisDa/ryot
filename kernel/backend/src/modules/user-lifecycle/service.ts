@@ -5,7 +5,7 @@ import {
 } from "@ryot-app/contract/modules/god-mode/contract";
 import type { UserLifecycleOperationKind } from "@ryot-app/contract/modules/god-mode/user-lifecycle";
 import type { UserId } from "@ryot-app/contract/schema/brands";
-import { Context, DateTime, Effect, Layer, Result } from "effect";
+import { Cause, Context, DateTime, Effect, Layer, Result } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
@@ -33,6 +33,27 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 			const database = yield* Database;
 			const engine = yield* WorkflowEngine;
 			const repository = yield* UserLifecycleRepository;
+			const revokeClaimedAccess = Effect.fnUntraced(function* (
+				operationId: string,
+				claimed: NonNullable<Effect.Success<ReturnType<typeof repository.claimAccessRevocation>>>,
+			) {
+				if (yield* repository.userExists(claimed.operation.userId)) {
+					const disabledAt = claimed.metadata.user.disabledAt
+						? DateTime.toDate(DateTime.makeUnsafe(claimed.metadata.user.disabledAt))
+						: yield* DateTime.nowAsDate;
+					yield* auth.updateAuthUserDisabled(claimed.operation.userId, {
+						disabledAt,
+						updatedAt: yield* DateTime.nowAsDate,
+					});
+				}
+				yield* auth.deleteUserSessions(claimed.operation.userId);
+				yield* auth.revokeUserOAuthTokens(claimed.operation.userId);
+				yield* auth.purgeApiKeyCaches(claimed.operation.userId, claimed.metadata.apiKeys);
+				return (
+					(yield* repository.markAccessRevoked(operationId)) ??
+					(yield* new GodModeInternalFailure({ reason: { code: "access-revocation-failed" } }))
+				);
+			});
 
 			const ensureAccessRevoked = Effect.fn("UserLifecycleService.ensureAccessRevoked")(function* (
 				operationId: string,
@@ -62,38 +83,28 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 					});
 				}
 
-				return yield* Effect.gen(function* () {
-					if (yield* repository.userExists(claimed.operation.userId)) {
-						const disabledAt = claimed.metadata.user.disabledAt
-							? DateTime.toDate(DateTime.makeUnsafe(claimed.metadata.user.disabledAt))
-							: yield* DateTime.nowAsDate;
-						yield* auth.updateAuthUserDisabled(claimed.operation.userId, {
-							disabledAt,
-							updatedAt: yield* DateTime.nowAsDate,
-						});
-					}
-					yield* auth.deleteUserSessions(claimed.operation.userId);
-					yield* auth.revokeUserOAuthTokens(claimed.operation.userId);
-					yield* auth.purgeApiKeyCaches(claimed.operation.userId, claimed.metadata.apiKeys);
-					return (
-						(yield* repository.markAccessRevoked(operationId)) ??
-						(yield* new GodModeInternalFailure({ reason: { code: "access-revocation-failed" } }))
-					);
-				}).pipe(
+				return yield* revokeClaimedAccess(operationId, claimed).pipe(
 					Effect.catchCause((cause) =>
 						repository
 							.releaseAccessRevocation(operationId)
 							.pipe(
 								Effect.ignoreCause,
 								Effect.andThen(
-									Effect.logError("user lifecycle access revocation failed", cause).pipe(
-										Effect.annotateLogs({ operationId }),
-									),
-								),
-								Effect.andThen(
-									new GodModeInternalFailure({ reason: { code: "access-revocation-failed" } }),
+									Cause.hasInterruptsOnly(cause)
+										? Effect.failCause(cause)
+										: Effect.logError("user lifecycle access revocation failed", cause).pipe(
+												Effect.annotateLogs({ operationId }),
+												Effect.andThen(
+													new GodModeInternalFailure({
+														reason: { code: "access-revocation-failed" },
+													}),
+												),
+											),
 								),
 							),
+					),
+					Effect.mapError(
+						() => new GodModeInternalFailure({ reason: { code: "access-revocation-failed" } }),
 					),
 				);
 			});
@@ -186,10 +197,12 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 					(operation) =>
 						ensureAccessRevoked(operation.operation.id).pipe(
 							Effect.flatMap(dispatch),
-							Effect.catchCause((cause) =>
-								Effect.logError("pending user lifecycle reconciliation failed", cause).pipe(
-									Effect.annotateLogs({ operationId: operation.operation.id }),
-								),
+							Effect.catchCauseIf(
+								(cause) => !Cause.hasInterruptsOnly(cause),
+								(cause) =>
+									Effect.logError("pending user lifecycle reconciliation failed", cause).pipe(
+										Effect.annotateLogs({ operationId: operation.operation.id }),
+									),
 							),
 						),
 					{ discard: true },

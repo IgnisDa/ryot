@@ -6,7 +6,7 @@ import {
 	type UserLifecycleOperationKind,
 	UserResetResult,
 } from "@ryot-app/contract/modules/god-mode/user-lifecycle";
-import { Context, DateTime, Effect, Layer, Result, Schema } from "effect";
+import { Cause, Context, DateTime, Effect, Layer, Result, Schema } from "effect";
 import { Activity, Workflow } from "effect/unstable/workflow";
 
 import { Database } from "#lib/infrastructure/db/service";
@@ -55,9 +55,11 @@ export class UserLifecycleWorkflowOperations extends Context.Service<
 
 const asInternal = <A, E, R>(effect: Effect.Effect<A, E, R>, message: string) =>
 	effect.pipe(
-		Effect.catchCause((cause) =>
-			Effect.logError(message, cause).pipe(Effect.andThen(internalError(message))),
+		Effect.catchCauseIf(
+			(cause) => !Cause.hasInterruptsOnly(cause),
+			(cause) => Effect.logError(message, cause).pipe(Effect.andThen(internalError(message))),
 		),
+		Effect.mapError(() => internalError(message)),
 	);
 
 export const UserLifecycleWorkflowOperationsLive = Layer.effect(

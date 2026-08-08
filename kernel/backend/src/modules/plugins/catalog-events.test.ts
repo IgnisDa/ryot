@@ -174,3 +174,46 @@ it.effect("routes Redis invalidations by user and refreshes all streams after re
 		);
 	}).pipe(Effect.provide(Layer.provideMerge(PluginInvalidationSubscriber.layer, dependencies)));
 });
+
+it.effect("fails subscriber layer acquisition when the initial Redis subscription fails", () => {
+	let quitCalls = 0;
+	let removeListenerCalls = 0;
+	const redisSubscriber = Object.assign(Object.create(Redis.prototype), {
+		on: () => redisSubscriber,
+		subscribe: () => Promise.reject(new Error("redis unavailable")),
+		quit: () => {
+			quitCalls += 1;
+			return Promise.resolve("OK");
+		},
+		removeAllListeners: () => {
+			removeListenerCalls += 1;
+			return redisSubscriber;
+		},
+	}) satisfies Redis;
+	const client = Object.assign(Object.create(Redis.prototype), {
+		duplicate: () => redisSubscriber,
+	}) satisfies Redis;
+	const ingestion = {
+		rebuild: () => Effect.die("unused"),
+		reconcile: () => Effect.succeed(false),
+		listPlugins: () => Effect.die("unused"),
+		installPlugin: () => Effect.die("unused"),
+		uninstallPlugin: () => Effect.die("unused"),
+		ingestSystemPlugin: () => Effect.die("unused"),
+	} satisfies PluginIngestionService["Service"];
+	const dependencies = Layer.mergeAll(
+		databaseLayer,
+		PluginCatalogHub.layer,
+		Layer.succeed(RedisService, makeRedisService({ client })),
+		Layer.succeed(PluginIngestionService, ingestion),
+	);
+
+	return Effect.gen(function* () {
+		const exit = yield* Effect.exit(
+			Layer.build(Layer.provideMerge(PluginInvalidationSubscriber.layer, dependencies)),
+		);
+		expect(exit._tag).toBe("Failure");
+		expect(removeListenerCalls).toBe(1);
+		expect(quitCalls).toBe(1);
+	});
+});
