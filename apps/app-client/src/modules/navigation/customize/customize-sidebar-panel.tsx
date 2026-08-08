@@ -27,7 +27,7 @@ export function CustomizeSidebarPanel(props: {
 		<View className="flex-1 bg-surface">
 			<View className="flex-row items-start gap-3 border-b border-border px-4 py-4">
 				<View className="min-w-0 flex-1 gap-1">
-					<Text className="font-display-semibold text-xl text-text">Customize sidebar</Text>
+					<Text className="font-display-semibold text-base text-text">Customize sidebar</Text>
 					<Text className="font-ui text-xs leading-5 text-text-muted">
 						Reorder and choose which views appear in your sidebar.
 					</Text>
