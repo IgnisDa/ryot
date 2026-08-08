@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { integrationCommonPropertyNames } from "@ryot/contract/modules/integrations/schemas";
-import { SandboxScriptId } from "@ryot/contract/schema/brands";
+import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
@@ -341,5 +341,45 @@ describe("integrationCommonSchema", () => {
 		);
 
 		expect(declared.filter((field) => !integrationCommonPropertyNames.has(field))).toEqual([]);
+	});
+});
+
+describe("syncAll", () => {
+	it.effect("dispatches a user-scoped integration sync", () => {
+		let captured: Parameters<WorkflowEngine["Service"]["execute"]>[1] | undefined;
+		const engine = makeWorkflowEngine({
+			execute: (_workflow, options) => {
+				captured = options;
+				return Effect.succeed(options.executionId);
+			},
+		});
+		const layer = IntegrationsService.layer.pipe(
+			Layer.provideMerge(
+				Layer.mergeAll(
+					databaseLayer,
+					Layer.mock(ImportsService, {}),
+					Layer.mock(IntegrationsRepository, {}),
+					Layer.mock(IntegrationProviderCatalog, {
+						list: () => [],
+						find: () => null,
+						findOwned: () => null,
+						resolveOwned: () => null,
+					}),
+					Layer.succeed(WorkflowEngine, engine),
+				),
+			),
+		);
+		const userId = UserId.make("sync-user");
+
+		return Effect.gen(function* () {
+			const result = yield* (yield* IntegrationsService).syncAll(userId);
+
+			expect(result.executionId).toMatch(/^integration-sync-/);
+			expect(captured).toMatchObject({
+				discard: true,
+				executionId: result.executionId,
+				payload: { userId, executionId: result.executionId },
+			});
+		}).pipe(Effect.provide(layer));
 	});
 });

@@ -11,6 +11,7 @@ import type {
 import { IntegrationWebhookPayload as IntegrationWebhookPayloadSchema } from "@ryot/contract/modules/integrations/schemas";
 import type { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
+import { generateId } from "better-auth";
 import { Context, Effect, Result, Layer, Schema } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
@@ -25,8 +26,9 @@ import type { RegisteredIntegrationProvider } from "#modules/plugins/integration
 
 import { redactIntegrationForClient } from "./client-redaction";
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
-import type { IntegrationReconciliationRun } from "./jobs";
+import type { IntegrationSyncRun } from "./jobs";
 import { IntegrationsRepository, type IntegrationRecord } from "./repository";
+import { IntegrationSyncWorkflow } from "./sync-workflow";
 
 const defaultExtraSettings = {
 	disableOnContinuousErrors: false,
@@ -363,43 +365,57 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				return { runId: run.id };
 			});
 
-			const prepareScheduledYankRuns = Effect.fn("IntegrationsService.prepareScheduledYankRuns")(
-				function* () {
-					const integrations = yield* repository.listEnabledYankIntegrations();
-					const runs: IntegrationReconciliationRun[] = [];
+			const prepareYankRuns = Effect.fn("IntegrationsService.prepareYankRuns")(function* (
+				userId: UserId | null,
+			) {
+				const integrations = yield* repository.listEnabledYankIntegrations({ userId });
+				const runs: IntegrationSyncRun[] = [];
 
-					for (const integration of integrations) {
-						const disableIntegrations = yield* repository.getUserDisableIntegrations({
-							userId: integration.userId,
-						});
-						if (disableIntegrations) {
-							continue;
-						}
-
-						const hasActiveRun = yield* importsService.hasActiveRunForIntegration({
-							integrationId: integration.id,
-						});
-						if (hasActiveRun) {
-							continue;
-						}
-
-						const run = yield* importsService.createRunForIntegration({
-							userId: integration.userId,
-							source: integration.provider,
-							integrationId: integration.id,
-							inputSummary: buildIntegrationInputSummary(integration),
-						});
-
-						runs.push({
-							runId: run.id,
-							userId: integration.userId,
-							integrationId: integration.id,
-						});
+				for (const integration of integrations) {
+					const disableIntegrations = yield* repository.getUserDisableIntegrations({
+						userId: integration.userId,
+					});
+					if (disableIntegrations) {
+						continue;
 					}
 
-					return runs;
-				},
-			);
+					const hasActiveRun = yield* importsService.hasActiveRunForIntegration({
+						integrationId: integration.id,
+					});
+					if (hasActiveRun) {
+						continue;
+					}
+
+					const run = yield* importsService.createRunForIntegration({
+						userId: integration.userId,
+						source: integration.provider,
+						integrationId: integration.id,
+						inputSummary: buildIntegrationInputSummary(integration),
+					});
+
+					runs.push({ runId: run.id, userId: integration.userId, integrationId: integration.id });
+				}
+
+				return runs;
+			});
+
+			const syncAll = Effect.fn("IntegrationsService.syncAll")(function* (userId: UserId) {
+				const executionId = `integration-sync-${generateId()}`;
+				const started = yield* engine
+					.execute(IntegrationSyncWorkflow, {
+						executionId,
+						discard: true,
+						payload: { userId, executionId },
+					})
+					.pipe(Effect.result);
+				if (Result.isFailure(started)) {
+					yield* Effect.logError("integration sync enqueue failed", started.failure).pipe(
+						Effect.annotateLogs({ executionId, userId }),
+					);
+					return yield* badRequest("Could not queue the integration sync; please try again");
+				}
+				return { executionId };
+			});
 
 			const updateForClient = (...input: Parameters<typeof update>) =>
 				update(...input).pipe(Effect.map(redactForClient));
@@ -407,12 +423,13 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			return {
 				create,
 				update,
+				syncAll,
 				getForClient,
 				handleWebhook,
+				prepareYankRuns,
 				updateForClient,
 				disableIfEnabled,
 				listIntegrationProviders,
-				prepareScheduledYankRuns,
 				delete: deleteIntegration,
 			};
 		}),

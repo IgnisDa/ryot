@@ -48,6 +48,12 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
 		}).annotate(OpenApi.Description, "Delete an integration by ID."),
 	)
+	.add(
+		HttpApiEndpoint.post("sync", "/integrations/sync", {
+			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+			success: Schema.Struct({ executionId: Schema.String }).pipe(HttpApiSchema.status(202)),
+		}).annotate(OpenApi.Description, "Start synchronization for the current user's integrations."),
+	)
 	.middleware(AuthMiddleware)
 	.add(
 		HttpApiEndpoint.post("webhook", "/webhooks/integrations/:integrationId", {
