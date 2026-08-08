@@ -10,7 +10,7 @@ import {
 import clsx from "clsx";
 import { useState, type ReactNode } from "react";
 
-import { ManagedAssetImage } from "./managed-assets";
+import { ManagedAssetImage } from "../managed-assets";
 import {
 	ShowActionButton,
 	ShowChip,

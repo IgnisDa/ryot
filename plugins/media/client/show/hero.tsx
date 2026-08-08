@@ -1,6 +1,6 @@
 import { ImageTintOverlay, useImageTint } from "@ryot-app/client-ui-sdk/tint";
 
-import { useManagedAssetUrl } from "./managed-assets";
+import { useManagedAssetUrl } from "../managed-assets";
 import { showBackdropAsset, showPosterAsset, type ShowSummary } from "./summary-state";
 
 export const SHOW_ART_HEIGHT = 280;

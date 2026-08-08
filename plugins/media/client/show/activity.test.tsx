@@ -16,7 +16,7 @@ import {
 	readyQueryResult,
 	transportErrorQueryResult,
 } from "../../tests/client/show/query-result-fixture";
-import { mountRyotClient } from "../../tests/client/show/test-support";
+import { mountRyotClient } from "../../tests/client/test-support";
 import { ShowActivity } from "./activity";
 import { mapShowActivity, type ShowActivityState } from "./activity-state";
 

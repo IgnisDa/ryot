@@ -3,7 +3,7 @@ import {
 	type WatchProvider,
 	type WatchProviderOffer,
 } from "../../shared/watch-provider";
-import type { ShowImageAsset } from "./media-image";
+import type { MediaImageAsset } from "../media-image";
 import type { ShowSummary } from "./summary-state";
 
 const OFFER_LABELS: Record<WatchProviderOffer, string> = {
@@ -53,5 +53,5 @@ export const watchProviderGroups = (
 export const watchProviderLink = (show: ShowWatchProviders, region: string | undefined) =>
 	regionAvailability(show, region)?.link ?? undefined;
 
-export const watchProviderAsset = (provider: WatchProvider): ShowImageAsset | undefined =>
+export const watchProviderAsset = (provider: WatchProvider): MediaImageAsset | undefined =>
 	provider.image === null ? undefined : { type: "remote", url: provider.image };

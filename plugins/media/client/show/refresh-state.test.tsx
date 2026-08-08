@@ -16,7 +16,7 @@ import {
 	readyQueryResult,
 } from "../../tests/client/show/query-result-fixture";
 import { decodeShowSummaryResult, showSummaryRow } from "../../tests/client/show/summary-fixture";
-import { mountRyotClient } from "../../tests/client/show/test-support";
+import { mountRyotClient } from "../../tests/client/test-support";
 import { mapShowActivity } from "./activity-state";
 import { mapShowEpisodes, mapShowSeasonEpisodes } from "./episodes-state";
 import { mapShowOverview } from "./overview-state";

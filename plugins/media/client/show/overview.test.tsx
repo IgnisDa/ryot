@@ -11,7 +11,7 @@ import {
 	showRecommendationRow,
 } from "../../tests/client/show/overview-fixture";
 import { decodeShowSummary } from "../../tests/client/show/summary-fixture";
-import { mountRyotClient } from "../../tests/client/show/test-support";
+import { mountRyotClient } from "../../tests/client/test-support";
 import { ShowOverview, ShowWatchProvidersSection } from "./overview";
 import { watchProviderGroups, watchProviderLink } from "./watch-providers";
 

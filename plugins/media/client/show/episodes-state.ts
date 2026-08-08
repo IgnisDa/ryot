@@ -1,8 +1,8 @@
 import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
 
 import type { ShowSeasonEpisodesResult, ShowSeasonsResult } from "../../shared/show-recipes";
+import { collectManagedAssetLocators, preferredMediaImageAsset } from "../media-image";
 import { formatDateOnlyLabel } from "./date";
-import { collectManagedAssetLocators, preferredMediaImageAsset } from "./media-image";
 import { classifyRyotQueryResult, type MappedRyotQueryState } from "./query-state";
 
 type ShowSeasons = NonNullable<ShowSeasonsResult>;
