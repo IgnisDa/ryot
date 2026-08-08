@@ -1,9 +1,16 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { EntityId, EventSchemaSlug, PluginSlug } from "@ryot-app/contract/schema/brands";
+import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
+import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { Effect } from "effect";
 
+import type { Client } from "~/fixtures/kernel";
 import {
 	adminHeaders,
+	adminSystemPluginsRecipe,
+	collectRyotQLRecipeItems,
+	listAdminSandboxScripts,
+	listAdminSystemPlugins,
 	createAuthenticatedClient,
 	enqueueSandboxScript,
 	enqueueProviderEntityImport,
@@ -30,6 +37,12 @@ import {
 import { assert, describe, expect, it } from "~/support/effect-test";
 
 type PluginScript = PluginManifest["scripts"][number];
+
+const listEntities = (client: Client) =>
+	collectRyotQLRecipeItems(client, (after) => entityDefinitionsRecipe({ after, limit: 100 }));
+
+const listPlugins = (client: Client) =>
+	collectRyotQLRecipeItems(client, (after) => pluginInstallationsRecipe({ after, limit: 100 }));
 
 describe("plugins", () => {
 	it.live("runs a third-party plugin lifecycle without restarting", () =>
@@ -266,10 +279,7 @@ export default defineAutomation({
 					}),
 			);
 			const { client: installedClient } = yield* createAuthenticatedClient();
-			const listed = yield* getApiClient().call(
-				(c) => c.testSupport.listSystemPlugins({}),
-				adminHeaders(),
-			);
+			const listed = yield* listAdminSystemPlugins;
 			const activePlugin = listed.find(({ slug }) => slug === provider.pluginSlug);
 			assertPresent(activePlugin, "Missing hot-installed lifecycle plugin");
 			expect(activePlugin).toMatchObject({
@@ -277,10 +287,11 @@ export default defineAutomation({
 				name: "E2E Test Plugin",
 				slug: provider.pluginSlug,
 			});
-			const definitions = yield* installedClient.call((c) => c.definitions.listEntities({}));
+			expect(activePlugin.activeRevisionId).toBe(provider.activePluginRevisionId);
+			const definitions = yield* listEntities(installedClient);
 			const lifecycleSchema = definitions.find(({ slug }) => slug === schemaSlug);
 			assertPresent(lifecycleSchema, "Missing lifecycle entity schema catalog entry");
-			expect(lifecycleSchema.eventSchemas.map(({ slug }) => slug).sort()).toEqual(
+			expect(lifecycleSchema.eventSchemas.items.map(({ slug }) => slug).sort()).toEqual(
 				[eventSlug, resultEventSlug].sort(),
 			);
 
@@ -288,10 +299,11 @@ export default defineAutomation({
 			const originalSearchScriptId = provider.scriptIds[searchSlug];
 			assertPresent(originalDetailsScriptId, "Missing hot-installed provider details script");
 			assertPresent(originalSearchScriptId, "Missing hot-installed provider search script");
-			const storedDetailsScript = yield* getApiClient().call(
-				(c) => c.testSupport.getSandboxScript({ params: { scriptId: originalDetailsScriptId } }),
-				adminHeaders(),
-			);
+			const originalScripts = yield* listAdminSandboxScripts(provider.activePluginRevisionId);
+			const storedDetailsScript = originalScripts.find(({ id }) => id === originalDetailsScriptId);
+			const storedSearchScript = originalScripts.find(({ id }) => id === originalSearchScriptId);
+			assertPresent(storedDetailsScript, "Missing stored provider details script");
+			assertPresent(storedSearchScript, "Missing stored provider search script");
 			assertPresent(storedDetailsScript.providerId, "Missing hot-installed provider ID");
 			const providerId = storedDetailsScript.providerId;
 			const updatedDetailsSource = providerSandboxSource({
@@ -325,29 +337,27 @@ export default defineAutomation({
 			assertPresent(reingestedSearchScriptId, "Missing reingested provider search script ID");
 			expect(detailsRevision.activePluginRevisionId).not.toBe(provider.activePluginRevisionId);
 			expect(reingested.activePluginRevisionId).not.toBe(detailsRevision.activePluginRevisionId);
-			const [reingestedDetails, reingestedSearch] = yield* Effect.all([
-				getApiClient().call(
-					(c) =>
-						c.testSupport.getSandboxScript({ params: { scriptId: reingestedDetailsScriptId } }),
-					adminHeaders(),
-				),
-				getApiClient().call(
-					(c) => c.testSupport.getSandboxScript({ params: { scriptId: reingestedSearchScriptId } }),
-					adminHeaders(),
-				),
-			]);
+			const reingestedScripts = yield* listAdminSandboxScripts(reingested.activePluginRevisionId);
+			const reingestedDetails = reingestedScripts.find(
+				({ id }) => id === reingestedDetailsScriptId,
+			);
+			const reingestedSearch = reingestedScripts.find(({ id }) => id === reingestedSearchScriptId);
+			assertPresent(reingestedDetails, "Missing reingested provider details script");
+			assertPresent(reingestedSearch, "Missing reingested provider search script");
 			expect(reingestedDetailsScriptId).not.toBe(originalDetailsScriptId);
 			expect(reingestedSearchScriptId).not.toBe(originalSearchScriptId);
 			expect(reingestedDetails).toMatchObject({
 				providerId,
 				slug: detailsSlug,
-				source: updatedDetailsSource,
+				pluginRevisionId: reingested.activePluginRevisionId,
 			});
 			expect(reingestedSearch).toMatchObject({
 				providerId,
 				slug: searchSlug,
-				source: updatedSearchSource,
+				pluginRevisionId: reingested.activePluginRevisionId,
 			});
+			expect(reingestedDetails.contentHash).not.toBe(storedDetailsScript.contentHash);
+			expect(reingestedSearch.contentHash).not.toBe(storedSearchScript.contentHash);
 
 			const { client, userId } = yield* createAuthenticatedClient();
 			const search = yield* searchProviderEntities(client, {
@@ -414,11 +424,11 @@ export default defineAutomation({
 				"Missing automation execution properties",
 			);
 			expect(automatedProperties["runId"]).toEqual(expect.any(String));
-			const reingestedPlugin = (yield* getApiClient().call(
-				(c) => c.testSupport.listSystemPlugins({}),
-				adminHeaders(),
-			)).find(({ slug }) => slug === provider.pluginSlug);
+			const reingestedPlugin = (yield* listAdminSystemPlugins).find(
+				({ slug }) => slug === provider.pluginSlug,
+			);
 			assertPresent(reingestedPlugin, "Missing reingested lifecycle plugin");
+			expect(reingestedPlugin.activeRevisionId).toBe(reingested.activePluginRevisionId);
 			expect(reingestedPlugin.sourceHash).not.toBe(activePlugin.sourceHash);
 
 			const refusal = yield* Effect.flip(
@@ -457,17 +467,10 @@ export default defineAutomation({
 					),
 			);
 			provider.active = false;
-			expect(uninstalled).toEqual(reingestedPlugin);
-			const after = yield* getApiClient().call(
-				(c) => c.testSupport.listSystemPlugins({}),
-				adminHeaders(),
-			);
+			expect(uninstalled).toEqual({ pluginId: reingestedPlugin.id });
+			const after = yield* listAdminSystemPlugins;
 			expect(after.some(({ slug }) => slug === provider.pluginSlug)).toBe(false);
-			expect(
-				(yield* client.call((c) => c.definitions.listEntities({}))).some(
-					({ slug }) => slug === schemaSlug,
-				),
-			).toBe(false);
+			expect((yield* listEntities(client)).some(({ slug }) => slug === schemaSlug)).toBe(false);
 			const historicalFailure = yield* Effect.flip(
 				enqueueSandboxScript(userId, { context: {}, scriptId: reingestedSearchScriptId }),
 			);
@@ -484,22 +487,28 @@ export default defineAutomation({
 			const { client } = yield* createAuthenticatedClient();
 			const pluginSlug = `private-${crypto.randomUUID()}`;
 			const manifest = testPluginManifest({ pluginSlug, entitySchemas: [] });
-			const listed = yield* client.call((c) => c.plugins.list({}));
+			const listed = yield* listPlugins(client);
 			expect(listed.every(({ scope }) => scope === "system")).toBe(true);
 			const installed = yield* installPrivatePluginPackage({
 				client,
 				config: {},
 				pluginPackage: { manifest, files: {} },
 			});
-			expect(installed).toMatchObject({ config: {}, scope: "user", slug: pluginSlug });
-			const afterInstall = yield* client.call((c) => c.plugins.list({}));
-			expect(afterInstall.some(({ slug }) => slug === pluginSlug)).toBe(true);
+			const afterInstall = yield* listPlugins(client);
+			expect(afterInstall.find(({ slug }) => slug === pluginSlug)).toMatchObject({
+				config: {},
+				scope: "user",
+			});
 			const uninstalled = yield* client.call((c) =>
 				c.plugins.uninstall({ params: { pluginSlug: PluginSlug.make(pluginSlug) } }),
 			);
-			expect(uninstalled.slug).toBe(pluginSlug);
+			expect(uninstalled).toEqual(installed);
 			const failures = yield* Effect.all([
-				Effect.flip(client.call((c) => c.testSupport.listSystemPlugins({}))),
+				Effect.flip(
+					client.call((c) =>
+						c.adminRyotql.execute({ payload: adminSystemPluginsRecipe({}).document }),
+					),
+				),
 				Effect.flip(
 					client.call((c) =>
 						c.testSupport.installSystemPlugin({ payload: { manifest, files: {} } }),

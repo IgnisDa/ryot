@@ -74,7 +74,14 @@ describe("notification channel CRUD", () => {
 			});
 
 			const updated = yield* updateNotificationChannel(client, id, { isDisabled: true });
-			expect(updated.isDisabled).toBe(true);
+			expect(updated).toEqual({ id });
+			const channel = requirePresent(
+				(yield* listNotificationChannels(client)).find((item) => item.id === id),
+				"Expected updated notification channel",
+			);
+			expect(channel.isDisabled).toBe(true);
+			expect(channel.description).not.toContain("bot-secret");
+			expect(yield* updateNotificationChannel(client, id, {})).toEqual({ id });
 		}),
 	);
 
@@ -100,6 +107,9 @@ describe("notification channel CRUD", () => {
 			);
 			assertTaggedError(updateError, "NotificationNotFoundError");
 			expect(updateError.reason).toEqual({ channelId: id, code: "channel-not-found" });
+			const emptyUpdateError = yield* Effect.flip(updateNotificationChannel(other.client, id, {}));
+			assertTaggedError(emptyUpdateError, "NotificationNotFoundError");
+			expect(emptyUpdateError.reason).toEqual({ channelId: id, code: "channel-not-found" });
 
 			const deleteError = yield* Effect.flip(
 				other.client.call((c) =>

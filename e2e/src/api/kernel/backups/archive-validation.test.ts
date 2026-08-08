@@ -1,5 +1,5 @@
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { zipSync } from "fflate";
 
 import {
@@ -125,7 +125,9 @@ describe("V1 backup archive validation", () => {
 				),
 				"Restored renderer not found",
 			);
-			const renderer = yield* getClientRenderer(restoredClient, rendererMetadata.id);
+			const renderer = Option.getOrThrow(
+				yield* getClientRenderer(restoredClient, rendererMetadata.id),
+			);
 			expect(renderer.id).not.toBe("renderer-1");
 			expect(renderer.draftDefinition.files[0]?.content).toBe("ZXhwb3J0IGRlZmF1bHQgMQo=");
 			expect(yield* getSavedView(restoredClient, "fixture")).toMatchObject({

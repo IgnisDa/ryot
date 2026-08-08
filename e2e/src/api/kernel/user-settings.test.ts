@@ -36,10 +36,12 @@ describe("user settings", () => {
 	it.live("generates and exposes a new profile avatar", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const refreshed = yield* refreshUserAvatar(client);
+			const before = (yield* getUserSettings(client)).image;
+			yield* refreshUserAvatar(client);
+			const image = (yield* getUserSettings(client)).image;
 
-			expect(refreshed.image.startsWith("data:image/svg+xml;base64,")).toBe(true);
-			expect((yield* getUserSettings(client)).image).toBe(refreshed.image);
+			expect(image?.startsWith("data:image/svg+xml;base64,")).toBe(true);
+			expect(image).not.toBe(before);
 		}),
 	);
 });

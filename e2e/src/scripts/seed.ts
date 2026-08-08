@@ -15,18 +15,36 @@ import {
 	PluginSlug,
 	RemoteImageUrl,
 	type SandboxProviderId,
+	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { imagesField } from "@ryot-app/contract/schema/core";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { castJson, column, coalesce, field, jsonPath, literal, table } from "@ryot-app/ryotql";
+import {
+	and,
+	ascending,
+	castJson,
+	column,
+	coalesce,
+	defineRecipe,
+	eq,
+	field,
+	jsonPath,
+	literal,
+	selectedField,
+	selectedRows,
+	table,
+	type PreparedRecipe,
+} from "@ryot-app/ryotql";
+import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
+import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import {
 	buildSavedViewLayoutProjections,
 	savedViewRecipe,
 } from "@ryot-app/ryotql-recipes/saved-views";
 import { dayjs } from "@ryot-app/ts-utils/dayjs";
 import { createAuthClient } from "better-auth/client";
-import { Effect } from "effect";
+import { Effect, Result, Schema } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 
@@ -152,6 +170,26 @@ class APIClient {
 		return runContract(program, { baseUrl: API_BASE_URL, headers: adminHeaders });
 	}
 
+	async collectRecipeItems<Item>(
+		recipe: (
+			after: string | undefined,
+		) => PreparedRecipe<{
+			items: ReadonlyArray<Item>;
+			pageInfo: { hasMore: boolean; nextCursor: string | null };
+		}>,
+	): Promise<Item[]> {
+		const items: Item[] = [];
+		let after: string | undefined;
+		for (;;) {
+			const prepared = recipe(after);
+			const response = await this.run((c) => c.ryotql.execute({ payload: prepared.document }));
+			const page = Result.getOrThrow(prepared.decode(response));
+			items.push(...page.items);
+			if (!page.pageInfo.hasMore) return items;
+			after = requirePresent(page.pageInfo.nextCursor, "RyotQL page has more items but no cursor");
+		}
+	}
+
 	getRequestCount(): number {
 		return this.requestCount;
 	}
@@ -217,7 +255,7 @@ export default defineScript({
 			},
 		],
 	});
-	await apiClient.runAdmin((c) =>
+	const installed = await apiClient.runAdmin((c) =>
 		c.testSupport.installSystemPlugin({
 			payload: {
 				manifest,
@@ -225,9 +263,26 @@ export default defineScript({
 			},
 		}),
 	);
-	const scripts = await apiClient.runAdmin((c) => c.testSupport.listSandboxScripts({ query: {} }));
+	const scriptTable = table("sandboxScript", "script");
+	const scriptRecipe = defineRecipe(() => ({
+		map: ({ scripts }) => Result.succeed(scripts),
+		queries: {
+			scripts: selectedRows(scriptTable, {
+				limit: 1,
+				orderBy: [ascending(column(scriptTable, "id"))],
+				where: and(
+					eq(column(scriptTable, "slug"), literal(value)),
+					eq(column(scriptTable, "pluginRevisionId"), literal(installed.activePluginRevisionId)),
+				),
+				selection: { id: selectedField(column(scriptTable, "id"), SandboxScriptId) },
+			}),
+		},
+	}))();
+	const response = await apiClient.runAdmin((c) =>
+		c.adminRyotql.execute({ payload: scriptRecipe.document }),
+	);
 	const script = requirePresent(
-		scripts.find((candidate) => candidate.slug === value && candidate.source === source),
+		Result.getOrThrow(scriptRecipe.decode(response)).items[0],
 		"Installed seed sandbox script was not found",
 	);
 	const queued = await apiClient.runAdmin((c) =>
@@ -327,7 +382,9 @@ async function createEventSchema(
 	propertiesSchema: AppSchema,
 ) {
 	console.log(`      Creating event schema: ${name}...`);
-	const schemas = await apiClient.run((c) => c.definitions.listEntities({}));
+	const schemas = await apiClient.collectRecipeItems((after) =>
+		entityDefinitionsRecipe({ after, limit: 100 }),
+	);
 	const entitySchema = requirePresent(
 		schemas.find((schema) => schema.slug === entitySchemaSlug),
 		`Entity schema '${entitySchemaSlug}' not found`,
@@ -346,7 +403,7 @@ async function createEventSchema(
 				slug: entitySchema.slug,
 				propertiesSchema: entitySchema.propertiesSchema,
 				eventSchemas: [
-					...entitySchema.eventSchemas.filter((schema) => schema.slug !== slug),
+					...entitySchema.eventSchemas.items.filter((schema) => schema.slug !== slug),
 					definition,
 				],
 			},
@@ -1079,7 +1136,9 @@ async function seedMobilePhones(client: APIClient) {
 // ─── Builtin media plugin helpers ──────────────────────────────────────────
 
 async function getBuiltinPlugin(apiClient: APIClient) {
-	const plugins = await apiClient.run((c) => c.plugins.list());
+	const plugins = await apiClient.collectRecipeItems((after) =>
+		pluginInstallationsRecipe({ after, limit: 100 }),
+	);
 
 	const builtinPlugin = plugins[0];
 	if (!builtinPlugin) {
@@ -1090,7 +1149,9 @@ async function getBuiltinPlugin(apiClient: APIClient) {
 }
 
 async function listMediaEntitySchemas(apiClient: APIClient, pluginSlug: PluginSlug) {
-	const schemas = await apiClient.run((c) => c.definitions.listEntities({}));
+	const schemas = await apiClient.collectRecipeItems((after) =>
+		entityDefinitionsRecipe({ after, limit: 100 }),
+	);
 	return schemas
 		.filter((schema) => schema.pluginSlug === pluginSlug)
 		.map((schema) => ({ ...schema, id: schema.slug as EntitySchemaSlug }));
@@ -1100,11 +1161,13 @@ async function getMediaLifecycleEventSchemas(
 	apiClient: APIClient,
 	entitySchemaSlug: EntitySchemaSlug,
 ) {
-	const entities = await apiClient.run((c) => c.definitions.listEntities({}));
+	const entities = await apiClient.collectRecipeItems((after) =>
+		entityDefinitionsRecipe({ after, limit: 100 }),
+	);
 	const schemas = requirePresent(
 		entities.find((schema) => schema.slug === entitySchemaSlug),
 		`Entity schema '${entitySchemaSlug}' not found`,
-	).eventSchemas.map((schema) => ({ ...schema, id: EventSchemaSlug.make(schema.slug) }));
+	).eventSchemas.items.map((schema) => ({ ...schema, id: EventSchemaSlug.make(schema.slug) }));
 
 	const backlog = schemas.find((s) => s.slug === "backlog");
 	const progress = schemas.find((s) => s.slug === "progress");
@@ -1332,7 +1395,7 @@ async function seedMedia(client: APIClient) {
 
 		const searchConfig = MEDIA_SEARCH_QUERIES[slug];
 		const selectedProvider = requirePresent(
-			schema.providers[0],
+			schema.providers.items[0],
 			`No provider found for entity schema '${schema.slug}'`,
 		);
 		const identifiersByProvider = new Map<SandboxProviderId, Set<string>>();

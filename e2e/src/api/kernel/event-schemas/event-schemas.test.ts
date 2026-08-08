@@ -333,7 +333,7 @@ describe("GET /event-schemas", () => {
 				Effect.gen(function* () {
 					const schemaId =
 						schemas.find((schema) => schema.slug === slug)?.id ??
-						(yield* getBuiltinEntitySchemaSlug(slug));
+						(yield* getBuiltinEntitySchemaSlug(client, slug));
 					const eventSchemas = yield* listEventSchemas(client, schemaId);
 					const progressSchema = eventSchemas.find((schema) => schema.slug === "progress");
 					assertPresent(progressSchema, `Missing built-in progress schema for ${slug}`);

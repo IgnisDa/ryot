@@ -3,12 +3,14 @@ import { randomUUID } from "node:crypto";
 
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { and, column, document, eq, field, join, literal, rows, table } from "@ryot-app/ryotql";
+import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { Effect } from "effect";
 import getPort from "get-port";
 
 import type { Client } from "~/fixtures/kernel";
 import {
 	adminHeaders,
+	collectRyotQLRecipeItems,
 	createAuthenticatedClient,
 	encodePluginSourceFiles,
 	encodeTestSupportPluginFiles,
@@ -52,6 +54,9 @@ let coreInfrastructure: Awaited<ReturnType<typeof startCoreTestInfrastructure>> 
 const apiUrl = () => `http://127.0.0.1:${apiPort}/api`;
 
 const adminSession = () => makeSession(apiUrl());
+
+const listPlugins = (client: Client) =>
+	collectRyotQLRecipeItems(client, (after) => pluginInstallationsRecipe({ after, limit: 100 }));
 
 const reconcilePluginInstallations = () =>
 	adminSession().call((c) => c.testSupport.reconcilePluginInstallations(), adminHeaders());
@@ -134,29 +139,25 @@ const installationRows = (client: Client, pluginSlug: string, scope: "system" | 
 const settledInstallation = (client: Client, pluginSlug: string, scope: "system" | "user") =>
 	pollUntil(
 		`${scope} installation of '${pluginSlug}'`,
-		client
-			.call((c) => c.plugins.list())
-			.pipe(
-				Effect.map((installations) => {
-					const entry = installations.find(
-						(item) => item.slug === pluginSlug && item.scope === scope,
-					);
-					return entry && entry.health !== "installing" ? entry : null;
-				}),
-			),
+		listPlugins(client).pipe(
+			Effect.map((installations) => {
+				const entry = installations.find(
+					(item) => item.slug === pluginSlug && item.scope === scope,
+				);
+				return entry && entry.health !== "installing" ? entry : null;
+			}),
+		),
 	);
 
 const ownedInstallation = (client: Client, pluginSlug: string) =>
-	client
-		.call((c) => c.plugins.list())
-		.pipe(
-			Effect.map((installations) =>
-				requirePresent(
-					installations.find((entry) => entry.slug === pluginSlug && entry.scope === "user"),
-					`Private installation of '${pluginSlug}' was not listed`,
-				),
+	listPlugins(client).pipe(
+		Effect.map((installations) =>
+			requirePresent(
+				installations.find((entry) => entry.slug === pluginSlug && entry.scope === "user"),
+				`Private installation of '${pluginSlug}' was not listed`,
 			),
-		);
+		),
+	);
 
 beforeAll(async () => {
 	try {
@@ -241,9 +242,15 @@ describe("system plugin reconciliation", () => {
 			yield* reconcilePluginInstallations();
 			expect((yield* ownedInstallation(client, pluginSlug)).health).toBe("incompatible");
 
+			const [before] = yield* installationRows(client, pluginSlug, "user");
 			const removed = yield* client.call((c) => c.plugins.uninstall({ params: { pluginSlug } }));
-			expect(removed.slug).toBe(pluginSlug);
-			const listed = yield* client.call((c) => c.plugins.list());
+			expect(removed.id).toBe(
+				requireRyotQLText(
+					requirePresent(before, "Shadowed private installation was not found"),
+					"id",
+				),
+			);
+			const listed = yield* listPlugins(client);
 			expect(
 				listed.filter((entry) => entry.scope === "user").map(({ slug }) => slug),
 			).not.toContain(pluginSlug);

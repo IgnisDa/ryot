@@ -1,15 +1,18 @@
 import { ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import { BackupRunId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { managedAssetItemSchema } from "@ryot-app/contract/schema/core";
-import { Effect, Schema } from "effect";
+import { backupRunRecipe, backupRunsRecipe } from "@ryot-app/ryotql-recipes/backups";
+import { Effect, Option, Schema } from "effect";
 
 import {
 	createAuthenticatedClient,
+	collectRyotQLRecipeItems,
 	createEntity,
 	createPluginScope,
 	deleteUserAndWait,
 	downloadBackupArchive,
 	exportAndDownloadBackup,
+	executeRyotQLRecipe,
 	getEntity,
 	installTestPluginBundle,
 	literalSandboxSource,
@@ -35,13 +38,13 @@ describe("backup lifecycle", () => {
 				);
 			}
 
-			const fetched = yield* owner.client.call((c) =>
-				c.backups.getRun({ params: { id: BackupRunId.make(runId) } }),
+			const fetched = yield* executeRyotQLRecipe(owner.client, backupRunRecipe({ id: runId }));
+			const listed = yield* collectRyotQLRecipeItems(owner.client, (after) =>
+				backupRunsRecipe({ after, limit: 100 }),
 			);
-			const listed = yield* owner.client.call((c) => c.backups.listRuns({}));
 
-			expect(fetched).toEqual(completed);
-			expect(listed.items.find(({ id }) => id === runId)).toEqual(completed);
+			expect(Option.getOrUndefined(fetched)).toEqual(completed);
+			expect(listed.find(({ id }) => id === runId)).toEqual(completed);
 			expect(completed).toMatchObject({ id: runId, failure: null, progress: 100, kind: "export" });
 			expect(["local", "s3"]).toContain(completed.artifactProvider);
 			for (const timestamp of [
@@ -61,15 +64,13 @@ describe("backup lifecycle", () => {
 				/^attachment; filename="ryot-backup-.+\.zip"$/,
 			);
 
-			const getError = yield* Effect.flip(
-				other.client.call((c) => c.backups.getRun({ params: { id: BackupRunId.make(runId) } })),
-			);
+			expect(
+				Option.isNone(yield* executeRyotQLRecipe(other.client, backupRunRecipe({ id: runId }))),
+			).toBe(true);
 			const deleteError = yield* Effect.flip(
 				other.client.call((c) => c.backups.deleteRun({ params: { id: BackupRunId.make(runId) } })),
 			);
-			assertTaggedError(getError, "BackupNotFound");
 			assertTaggedError(deleteError, "BackupNotFound");
-			expect(getError.reason).toEqual({ code: "run-not-found" });
 			expect(deleteError.reason).toEqual({ code: "run-not-found" });
 
 			const otherDownload = yield* Effect.promise(() =>
@@ -88,15 +89,13 @@ describe("backup lifecycle", () => {
 					c.backups.deleteRun({ params: { id: BackupRunId.make(runId) } }),
 				),
 			).toEqual({ id: runId });
-			const deletedError = yield* Effect.flip(
-				owner.client.call((c) => c.backups.getRun({ params: { id: BackupRunId.make(runId) } })),
-			);
-			assertTaggedError(deletedError, "BackupNotFound");
-			expect(deletedError.reason).toEqual({ code: "run-not-found" });
 			expect(
-				(yield* owner.client.call((c) => c.backups.listRuns({}))).items.some(
-					({ id }) => id === runId,
-				),
+				Option.isNone(yield* executeRyotQLRecipe(owner.client, backupRunRecipe({ id: runId }))),
+			).toBe(true);
+			expect(
+				(yield* collectRyotQLRecipeItems(owner.client, (after) =>
+					backupRunsRecipe({ after, limit: 100 }),
+				)).some(({ id }) => id === runId),
 			).toBe(false);
 		}),
 	);
