@@ -54,8 +54,7 @@ const createGodModeSession = (scope: GodModeScope) => {
 		setUserDisabled,
 		users: withAppQueryDefaults(
 			queryApi.query("godMode", "listUsers", {
-				query: { limit: 100, offset: 0 },
-
+				query: { limit: 1000, offset: 0 },
 				reactivityKeys: usersReactivityKey,
 			}),
 		),
