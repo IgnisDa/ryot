@@ -37,6 +37,7 @@ export const SystemConfigResponse = Schema.Struct({
 	pro: ProConfig,
 	auth: AuthConfig,
 	analytics: AnalyticsConfig,
+	frontendOrigin: Schema.String,
 	fileStorage: FileStorageConfig,
 	notifications: NotificationConfig,
 });

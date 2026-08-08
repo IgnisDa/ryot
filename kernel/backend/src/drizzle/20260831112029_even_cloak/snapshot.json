@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "006d5025-8b46-43f5-a5b8-7783ab87a95d",
+	"id": "d4a0c743-cfc9-4b04-80ad-a0a14849ebf9",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{
@@ -8425,10 +8425,10 @@
 			"columns": ["resource_id"],
 			"schemaTo": "public",
 			"tableTo": "oauth_resource",
-			"columnsTo": ["id"],
+			"columnsTo": ["identifier"],
 			"onUpdate": "NO ACTION",
 			"onDelete": "CASCADE",
-			"name": "oauth_client_resource_resource_id_oauth_resource_id_fkey",
+			"name": "oauth_client_resource_dn2L1gs9Dolm_fkey",
 			"entityType": "fks",
 			"schema": "public",
 			"table": "oauth_client_resource"

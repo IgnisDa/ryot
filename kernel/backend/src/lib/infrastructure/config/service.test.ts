@@ -109,3 +109,29 @@ describe("validateSystemConfig shared application/workflow pool capacity", () =>
 		expect(Exit.isSuccess(result)).toBe(true);
 	});
 });
+
+describe("FRONTEND_URL validation", () => {
+	it("normalizes an absolute HTTP origin", () => {
+		const result = validate({ frontendUrl: "https://ryot.example/" });
+		assert(Exit.isSuccess(result));
+		expect(result.value.frontendUrl).toBe("https://ryot.example");
+	});
+
+	it.each([
+		"ryot.example",
+		"ftp://ryot.example",
+		"https://ryot.example/path",
+		"https://user@ryot.example",
+		"https://ryot.example?",
+		"https://ryot.example?query=yes",
+		"https://ryot.example#fragment",
+	])("rejects non-origin value %s", (frontendUrl) => {
+		const result = validate({ frontendUrl });
+		expect(Exit.isFailure(result)).toBe(true);
+		if (Exit.isFailure(result)) {
+			expect(JSON.stringify(result.cause)).toContain(
+				"FRONTEND_URL must be an absolute HTTP or HTTPS origin",
+			);
+		}
+	});
+});

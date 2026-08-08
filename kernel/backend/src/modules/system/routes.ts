@@ -36,6 +36,7 @@ const umamiAnalytics = (config: AppConfigValue) => {
 export const publicSystemConfig = (config: AppConfigValue, isServerKeyValidated: boolean) =>
 	({
 		pro: { isServerKeyValidated },
+		frontendOrigin: config.frontendUrl,
 		analytics: { umami: umamiAnalytics(config) },
 		notifications: { smtpEnabled: isSmtpEnabled(config) },
 		fileStorage: {
