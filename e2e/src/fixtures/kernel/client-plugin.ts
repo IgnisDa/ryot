@@ -35,14 +35,21 @@ export const fixtureClientPluginPackage = (revision: FixtureClientPluginRevision
 		if (!home?.includes("Fixture plugin")) {
 			throw new Error(`Fixture client source '${homeEntry}' has no revision marker target`);
 		}
+		const revisedHome = home.replace(
+			"Fixture plugin",
+			`${FIXTURE_CLIENT_REVISION_MARKERS[revision]}${variant}`,
+		);
+		const revisionHome =
+			revision === "B"
+				? revisedHome
+						.replace("bg-bg p-8 text-text", "bg-accent-soft p-8 text-text")
+						.replace(
+							'<img alt="" src={logo} className="plugin-logo" />',
+							'<StatusMessage tone="success">Revision B is active.</StatusMessage>\n\t\t\t<img alt="" src={logo} className="plugin-logo" />',
+						)
+				: revisedHome;
 		return {
-			files: {
-				...pluginPackage.files,
-				[homeEntry]: home.replace(
-					"Fixture plugin",
-					`${FIXTURE_CLIENT_REVISION_MARKERS[revision]}${variant}`,
-				),
-			},
+			files: { ...pluginPackage.files, [homeEntry]: revisionHome },
 			manifest: {
 				...pluginPackage.manifest,
 				metadata: {

@@ -14,7 +14,7 @@ import {
 import { type ContractSession, makeSession } from "../fixtures/kernel/contract-client";
 
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:3000/api";
-const repositoryRoot = fileURLToPath(new URL("../..", import.meta.url));
+const repositoryRoot = fileURLToPath(new URL("../../..", import.meta.url));
 
 async function buildFixturePlugin() {
 	const build = Bun.spawn(["bun", "turbo", "--filter=@ryot/fixture-plugin", "build"], {
