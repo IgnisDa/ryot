@@ -4,20 +4,25 @@
 	"sideEffects": false,
 	"type": "module",
 	"scripts": {
-		"typecheck": "tsc",
 		"lint": "biome check .",
 		"build": "react-router build",
-		"dev": "react-router dev --port 5200 --host"
+		"dev": "react-router dev --port 5200 --host",
+		"typecheck": "react-router typegen && safe-routes typegen && tsc"
 	},
 	"installConfig": {
 		"hoistingLimits": "workspaces"
 	},
 	"devDependencies": {
+		"@mdx-js/rollup": "3.1.1",
 		"@react-router/dev": "7.13.0",
 		"@types/nodemailer": "7.0.9",
 		"@types/react": "19.2.14",
 		"@types/react-dom": "19.2.3",
 		"drizzle-kit": "0.31.9",
+		"rehype-slug": "6.0.0",
+		"remark-frontmatter": "5.0.0",
+		"remark-mdx-frontmatter": "5.2.0",
+		"rollup": "4.50.0",
 		"tailwindcss": "4.1.18",
 		"typescript": "5.9.3",
 		"vite": "7.3.1",
