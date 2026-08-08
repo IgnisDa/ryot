@@ -1,12 +1,11 @@
-import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
+import { RyotProvider, useRyotQuery } from "@ryot/client-sdk/react";
 import { createFileRoute, notFound, useLocation, useNavigate } from "@tanstack/react-router";
-import { Effect, Fiber, Option } from "effect";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { Effect, Fiber } from "effect";
 import { useEffect, useEffectEvent, useMemo } from "react";
 
 import { createKernelRyotClient } from "#/api/ryot-client";
 import { protectedRouteGuard } from "#/modules/auth/route-gates";
-import { makePluginCatalogAtom, PluginCatalogService } from "#/modules/plugins/catalog";
+import { pluginCatalogQuery, PluginCatalogService } from "#/modules/plugins/catalog";
 import { PluginCatalogEventsService } from "#/modules/plugins/events";
 import { PluginOperationsService } from "#/modules/plugins/operations";
 import { PluginHost } from "#/modules/plugins/plugin-host";
@@ -35,18 +34,30 @@ export const Route = createFileRoute("/$pluginSlug")({
 });
 
 function PluginDestination() {
+	const { ryot } = Route.useLoaderData();
+	return (
+		<RyotProvider client={ryot}>
+			<AuthenticatedPluginDestination />
+		</RyotProvider>
+	);
+}
+
+function AuthenticatedPluginDestination() {
 	const navigate = useNavigate();
 	const initial = Route.useLoaderData();
 	const { pluginSlug } = Route.useParams();
 	const { pathname, searchStr } = useLocation();
 	const { runtime, scope, server, theme } = Route.useRouteContext();
 	const { serverUrl, userId } = scope;
-	const catalogAtom = useMemo(
-		() => makePluginCatalogAtom(runtime, initial.ryot, initial.catalog),
-		[initial.catalog, initial.ryot, runtime],
+	const catalogInput = useMemo(
+		() => ({ runtime, initialData: initial.catalog }),
+		[initial.catalog, runtime],
 	);
-	const catalogResult = useAtomValue(catalogAtom);
-	const refreshCatalog = useEffectEvent(useAtomRefresh(catalogAtom));
+	const { data: catalog = initial.catalog, refetch } = useRyotQuery(
+		pluginCatalogQuery,
+		catalogInput,
+	);
+	const refreshCatalog = useEffectEvent(refetch);
 	useEffect(() => {
 		const subscription = runtime.runFork(
 			Effect.flatMap(PluginCatalogEventsService, (service) =>
@@ -57,7 +68,6 @@ function PluginDestination() {
 			Effect.runFork(Fiber.interrupt(subscription));
 		};
 	}, [runtime, serverUrl, userId]);
-	const catalog = Option.getOrElse(AsyncResult.value(catalogResult), () => initial.catalog);
 	const target = resolveRouteTarget(catalog, pluginSlug);
 	if (target.owner === "kernel") {
 		return <PluginNotFound />;

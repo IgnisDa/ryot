@@ -14,6 +14,7 @@ import {
 	type PluginBridgeTheme,
 	type PluginBridgeOperationRequest,
 	type PluginBridgeOperationResult,
+	type PluginBridgeRyotQLCancel,
 	type PluginBridgeRyotQLRequest,
 	type PluginBridgeRyotQLResult,
 	type PluginLogicalLocation,
@@ -39,6 +40,11 @@ export type PluginBridgeSession = {
 };
 
 type PluginBridgeState = "ready" | "active" | "closing" | "failed" | "disposed";
+
+type PendingRequest = {
+	readonly controller: AbortController;
+	readonly type: "operation" | "ryotql";
+};
 
 type PluginBridgeOptions = {
 	readonly timeoutMs?: number;
@@ -86,7 +92,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 	const listeners = new AbortController();
 	let sentTheme: PluginThemeSnapshot | undefined;
 	let awaitingThemeGeneration: number | undefined;
-	const pending = new Map<string, AbortController>();
+	const pending = new Map<string, PendingRequest>();
 	const timer = window.setTimeout(() => fail(), options.timeoutMs ?? HANDSHAKE_TIMEOUT_MS);
 
 	function finish(next: "failed" | "disposed", notify: boolean) {
@@ -103,7 +109,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			}
 		}
 		listeners.abort();
-		for (const controller of pending.values()) {
+		for (const { controller } of pending.values()) {
 			controller.abort();
 		}
 		pending.clear();
@@ -177,7 +183,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			return;
 		}
 		const controller = new AbortController();
-		pending.set(request.requestId, controller);
+		pending.set(request.requestId, { controller, type: "operation" });
 		void Promise.resolve()
 			.then(() =>
 				options.onOperation(
@@ -187,7 +193,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			)
 			.catch(() => ({ outcome: "failure", reason: "transport" }) satisfies PluginOperationOutcome)
 			.then((outcome) => {
-				if (state !== "active" || !pending.has(request.requestId)) {
+				if (state !== "active" || pending.get(request.requestId)?.controller !== controller) {
 					return undefined;
 				}
 				let result: PluginOperationOutcome;
@@ -206,7 +212,9 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 						type: "operation-result",
 						requestId: request.requestId,
 					} satisfies PluginBridgeOperationResult);
-					pending.delete(request.requestId);
+					if (pending.get(request.requestId)?.controller === controller) {
+						pending.delete(request.requestId);
+					}
 				} catch {
 					fail();
 				}
@@ -223,12 +231,12 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			return;
 		}
 		const controller = new AbortController();
-		pending.set(request.requestId, controller);
+		pending.set(request.requestId, { controller, type: "ryotql" });
 		void Promise.resolve()
 			.then(() => options.onRyotQL({ document: request.document }, controller.signal))
 			.catch(() => ({ outcome: "failure", reason: "transport" }) satisfies PluginRyotQLOutcome)
 			.then((outcome) => {
-				if (state !== "active" || !pending.has(request.requestId)) {
+				if (state !== "active" || pending.get(request.requestId)?.controller !== controller) {
 					return undefined;
 				}
 				try {
@@ -237,12 +245,22 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 						type: "ryotql-result",
 						requestId: request.requestId,
 					} satisfies PluginBridgeRyotQLResult);
-					pending.delete(request.requestId);
+					if (pending.get(request.requestId)?.controller === controller) {
+						pending.delete(request.requestId);
+					}
 				} catch {
 					fail();
 				}
 				return undefined;
 			});
+	}
+
+	function handleRyotQLCancel(request: PluginBridgeRyotQLCancel) {
+		const current = pending.get(request.requestId);
+		if (current?.type !== "ryotql" || !pending.delete(request.requestId)) {
+			return;
+		}
+		current.controller.abort();
 	}
 
 	channel.port1.addEventListener(
@@ -258,6 +276,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 					Match.when({ type: "theme-applied" }, () => fail()),
 					Match.when({ type: "navigate" }, (request) => options.onNavigate(request)),
 					Match.when({ type: "lifecycle-close" }, ({ reason }) => handleLifecycleClose(reason)),
+					Match.when({ type: "ryotql-cancel" }, (request) => handleRyotQLCancel(request)),
 					Match.when({ type: "ryotql-request" }, (request) => handleRyotQL(request)),
 					Match.when({ type: "operation-request" }, (request) => handleOperation(request)),
 					Match.exhaustive,

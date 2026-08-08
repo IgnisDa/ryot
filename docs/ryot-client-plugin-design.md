@@ -527,18 +527,20 @@ For example, the chart API should remain a Ryot chart API even if its internal i
 
 `@ryot/client-sdk` is the shared, environment-neutral client contract between the Ryot kernel and plugin JavaScript.
 
-`RyotClient` exposes semantic capability APIs, not kernel implementation details. Its asynchronous request APIs return Promises. Hosts construct it with an explicit adapter and pass the client to consumers through the provider/client boundary. It does not bind a global mutable bridge.
+`RyotClient` is a framework-neutral Promise capability. It exposes semantic capability APIs, not kernel implementation details. Hosts construct it with an explicit adapter and pass the client to consumers through the provider/client boundary. It does not bind a global mutable bridge.
 
 The package has four public surfaces:
 
 - `@ryot/client-sdk` — the shared client contract and `RyotClient`
-- `@ryot/client-sdk/react` — React integration
+- `@ryot/client-sdk/react` — React integration, including `RyotProvider`, `useRyot`, `createRyotQuery`, `useRyotQuery`, `createRyotMutation`, and `useRyotMutation`
 - `@ryot/client-sdk/plugin` — the plugin runtime adapter plus plugin React routing conveniences
 - `@ryot/client-sdk/effect` — the supported schema surface
 
 The kernel supplies a direct adapter to kernel services. The plugin runtime supplies a `MessageChannel` adapter. Both use the same environment-neutral client contract.
 
-Each mounted plugin document has exactly one per-session client plugin runtime. That runtime owns the session `MessagePort`, its lifecycle state, one message dispatcher, logical location, pending query and operation calls, all session listeners, the bridge-backed `RyotClient`, and disposal. Theme synchronization and fatal reporting extend this runtime in their tracer tasks; they must not create separate bridge clients or listener/teardown paths.
+The React integration is backed internally by `@effect/atom-react`. Each `RyotProvider` owns one `RegistryProvider`, and therefore one atom registry and query/mutation cache for that provider/session. Query definitions use `Atom.family`; query atoms use SWR revalidation on mount when unhydrated and on browser focus, with a five-minute idle TTL. Initial data hydrates a query without a duplicate mount request. These implementation details remain local to the React surface and are not part of the client or bridge ABI. There is no compatibility or manual plugin-request-state path.
+
+Each mounted plugin document has exactly one per-session client plugin runtime. That runtime owns the session `MessagePort`, its lifecycle state, one message dispatcher, logical location, pending query and operation calls, all session listeners, the bridge-backed `RyotClient`, and disposal. Theme synchronization and fatal reporting use this runtime; they do not create separate bridge clients or listener/teardown paths.
 
 Initial categories should be approximately:
 
@@ -558,7 +560,7 @@ system
 theme
 ```
 
-Runtime lifecycle is internal session machinery, not a public client category. The exact public capability methods should be added incrementally.
+Runtime lifecycle is internal session machinery, not a public client category. Additional public capability methods should be added incrementally without changing the shared client or React query/mutation surface.
 
 The canonical client taxonomy is:
 
@@ -591,25 +593,42 @@ const { greeting } = await ryot.operations.invoke({
 The shared query API is recipe-based:
 
 ```ts
-const result = await ryot.data.query(recipe);
+const result = await ryot.data.query(recipe, { signal });
 ```
 
-The recipe owns its query document and result decoder. The client executes the document and decodes the result locally; consumers do not parse generic `RowItem` values directly. A decoder failure result or thrown decoder exception becomes `malformed-result` and never escapes the SDK as an arbitrary error. Query requests use the existing user-scoped backend authorization behavior rather than a client-specific bypass. The direct kernel adapter and plugin bridge use one kernel-owned classifier so declared query failures have the same public reason in both environments.
+The recipe owns its query document and result decoder. The client executes the document and decodes the result locally; consumers do not parse generic `RowItem` values directly. A decoder failure result or thrown decoder exception becomes `malformed-result` and never escapes the SDK as an arbitrary error. Query requests accept an optional `AbortSignal` and use the existing user-scoped backend authorization behavior rather than a client-specific bypass. The direct kernel adapter and plugin bridge use one kernel-owned classifier so declared query failures have the same public reason in both environments.
+
+The React query and mutation helpers are thin bindings over that Promise client:
+
+```ts
+const greetingQuery = createRyotQuery(({ client, signal }) =>
+	client.data.query(greetingRecipe, { signal }),
+);
+
+const greeting = useRyotQuery(greetingQuery);
+const saveGreeting = useRyotMutation(
+	createRyotMutation(({ client, input }) =>
+		client.operations.invoke({ slug: "save-greeting", input, output: Greeting }),
+	),
+);
+```
+
+`useRyotQuery` returns plain React Query-like result state: `data`, `error`, `status`, `isPending`, `isFetching`, `isError`, `isSuccess`, and `refetch`. `useRyotMutation` returns plain `idle`/`pending`/`error`/`success` state with `data`, `error`, `mutate`, `mutateAsync`, and `reset`. These are SDK result objects, not TanStack Query objects.
 
 `ryot.operations.invoke({ slug, input, output })` is the plugin operation API. It takes an operation slug, a required JSON-compatible `input`, and an output codec, but no input codec. A no-input operation sends `input: null`; omission is invalid and is not converted to `null`. The SDK checks the input with the canonical `isJsonValue` guard from `@ryot/contract/schema/json` and rejects invalid input locally, before invoking the adapter. The client decodes a successful JSON result against `output`.
 
 Expected plugin business/domain outcomes are successful typed values encoded by each operation output schema. They are never SDK errors. Queries, operations, navigation, and later capabilities use one public `RyotClientError`; its `reason` is exactly one of:
 
-| Reason                   | Meaning                                                                                              |
-| ------------------------ | ---------------------------------------------------------------------------------------------------- |
-| `disposed`               | Normal local or peer teardown.                                                                       |
-| `protocol`               | Malformed bridge/session data or a wire `lifecycle-close` reason of `failed`.                        |
-| `transport`              | Communication, posting, or network failure.                                                          |
-| `invalid-input`          | Invalid input found locally before dispatch.                                                         |
-| `query-failed`           | Opaque declared backend/platform query execution failure.                                            |
-| `operation-failed`       | Opaque declared backend/platform operation execution failure; not a plugin business outcome.         |
-| `malformed-result`       | A capability result that fails its JSON or caller-owned result schema.                                |
-| `unsupported-capability` | An exposed SDK category missing from the supplied adapter.                                        |
+| Reason                   | Meaning                                                                                      |
+| ------------------------ | -------------------------------------------------------------------------------------------- |
+| `disposed`               | Normal local or peer teardown.                                                               |
+| `protocol`               | Malformed bridge/session data or a wire `lifecycle-close` reason of `failed`.                |
+| `transport`              | Communication, posting, or network failure.                                                  |
+| `invalid-input`          | Invalid input found locally before dispatch.                                                 |
+| `query-failed`           | Opaque declared backend/platform query execution failure.                                    |
+| `operation-failed`       | Opaque declared backend/platform operation execution failure; not a plugin business outcome. |
+| `malformed-result`       | A capability result that fails its JSON or caller-owned result schema.                       |
+| `unsupported-capability` | An exposed SDK category missing from the supplied adapter.                                   |
 
 The wire value `failed` is not a public SDK error reason. Internal causes, messages, diagnostics, HTTP details, and stack traces never cross the bridge. Synchronous capabilities either dispatch or throw a `RyotClientError`: navigation after teardown uses the stored terminal reason, and a failed adapter call or `postMessage` uses `transport`.
 
@@ -719,7 +738,7 @@ Protocol version 1 implements strict request/response calls for plugin data acce
 
 Plugin to kernel carries `{ type: "operation-request", requestId, operationSlug, input: JsonValue }`; `input` is required. Kernel to plugin answers `{ type: "operation-result", requestId, outcome }`, where a successful outcome carries a `JsonValue` and a declared backend/platform operation execution failure carries the opaque `"operation-failed"` outcome. The SDK maps local validation, capability, result, lifecycle, protocol, and transport conditions to the exact public `RyotClientError` reasons above. A non-JSON operation output becomes `"malformed-result"` before bridge delivery; it is not stringified or otherwise normalized. Expected plugin business/domain outcomes remain successful values decoded by the caller's output schema.
 
-Recipe queries carry the recipe document through the same exact version 1 session protocol. The response is decoded locally by the recipe's decoder after the client receives it. Declared backend/platform query execution failures use `query-failed`; malformed decoded results use `malformed-result`.
+Recipe queries carry the recipe document through the same exact version 1 session protocol. `RyotClient.data.query(recipe, { signal })` forwards its `AbortSignal` to the adapter. If a plugin query is aborted, the plugin runtime removes its pending entry and sends the strict `{ type: "ryotql-cancel", requestId }` message; the kernel validates it under protocol version 1, aborts the corresponding service work on a best-effort basis, and suppresses late results. The response is decoded locally by the recipe's decoder after the client receives it. Declared backend/platform query execution failures use `query-failed`; malformed decoded results use `malformed-result`.
 
 `input` is required on the wire. A no-input operation explicitly sends JSON `null`; an omitted input fails strict request decoding and is not treated as a no-input call.
 
@@ -770,7 +789,7 @@ Plugin browser storage such as LocalStorage or IndexedDB must be treated as non-
 
 Plugin UI does not receive the user's Ryot authentication cookie, bearer token, or other primary Ryot credentials.
 
-Authenticated application data is accessed through `RyotClient` and its explicit adapter.
+Authenticated application data is accessed through the same `RyotClient` Promise capability and its explicit adapter in both kernel and plugin React applications.
 
 Conceptually:
 
@@ -810,7 +829,7 @@ ryot.data.query(recipe)
 
 The plugin names only an operation slug and its input. The installed plugin slug, the authenticated user, and the selected server all come from the kernel-owned session, so a plugin cannot reach another installation's operation or substitute another installation's identity.
 
-The kernel uses Effect services and `@effect/atom-react` internally for application I/O, workflows, request state, reactivity, caching, and invalidation. These dependencies are resolved by the kernel runtime and do not cross the plugin boundary.
+The shared React SDK uses `@effect/atom-react` internally for query and mutation state, reactivity, caching, and invalidation in both the kernel and plugin documents. Each `RyotProvider` keeps its registry/cache local to that provider and session; the atom implementation does not cross the bridge as an ABI.
 
 Plugins do not need to know that internal implementation.
 
@@ -1254,7 +1273,7 @@ A long-lived plugin document preserves:
 - bridge session
 - same-document View Transitions
 
-The bridge session and the per-session client plugin runtime have the same lifetime. Route changes only update runtime location state. Theme changes only update runtime theme state. Crash recovery, artifact replacement, unmount, and host disposal all call the same idempotent runtime disposal path; none may add a theme-specific, crash-specific, reload-specific, or component-specific bridge teardown path.
+The bridge session and the per-session client plugin runtime have the same lifetime. Route changes only update runtime location state. Theme changes only update runtime theme state. Crash recovery, artifact replacement, unmount, and host disposal all call the same idempotent runtime disposal path; none may add a theme-specific, crash-specific, reload-specific, or component-specific bridge teardown path. Query caches belong to the provider/session atom registry and are released after five minutes of idleness when unobserved.
 
 Artifact replacement then creates a fresh client and runtime through the same bootstrap/runtime factory used for an initial mount. Reload is a host lifecycle operation, not a public client capability.
 
@@ -1264,7 +1283,7 @@ The initial implementation can keep only the active plugin alive and add an LRU/
 
 A package update is the exception to route-stable iframe reuse. The iframe session is keyed by installation ID, package source hash, and client artifact hash. When either revision hash changes, the kernel destroys the existing iframe and mounts a fresh document and bridge session.
 
-The mounted plugin route keeps one credentialed EventSource for catalog changes. The backend publishes user-scoped invalidations through Redis and routes them into the same process-local catalog hub used by authenticated SSE responses. Both the initial `connected` event and later `catalog-invalidated` events are named, standards-valid SSE messages with a `data:` field. They refresh the route-scoped catalog atom through the existing `RyotClient` recipe path; they do not carry catalog rows or add a second plugin transport. Browser reconnection remains native EventSource behavior, and ordinary route or catalog renders must not recreate the subscription.
+The mounted plugin route's loader loads the catalog through the direct kernel `RyotClient` adapter and returns it as initial data. The route then seeds `pluginCatalogQuery` through `RyotProvider` and `useRyotQuery`; the shared query surface uses that hydrated catalog on mount and revalidates it on browser focus. The route keeps one credentialed EventSource for catalog changes. The backend publishes user-scoped invalidations through Redis and routes them into the same process-local catalog hub used by authenticated SSE responses. Both the initial `connected` event and later `catalog-invalidated` events are named, standards-valid SSE messages with a `data:` field. Those events call the query's `refetch`; they do not carry catalog rows or add a second plugin transport. Browser reconnection remains native EventSource behavior, and ordinary route or catalog renders must not recreate the subscription.
 
 ---
 
@@ -1521,34 +1540,32 @@ Plugin updates force-reload the mounted iframe so one bridge session never spans
 
 ## 32. Kernel async/reactive state
 
-The kernel continues using Effect and `@effect/atom-react` for reactive and asynchronous application state.
+The kernel and plugins use the same framework-neutral `RyotClient` Promise capability and the same React SDK surface. The kernel uses a direct adapter into its Effect services; a plugin session uses the `MessageChannel` adapter. There is no compatibility path between these environments.
 
-TanStack Query is not introduced.
+`@ryot/client-sdk/react` provides `createRyotQuery`/`useRyotQuery` and `createRyotMutation`/`useRyotMutation`. They expose plain result objects and use `@effect/atom-react` internally: one `RegistryProvider` and atom registry/cache per `RyotProvider`/session, `Atom.family` for query inputs, SWR refresh on mount and focus, and a five-minute idle TTL. The shared Promise client remains the capability boundary; these React helpers do not introduce TanStack Query.
 
 A conceptual kernel data flow remains:
 
 ```text
-screen / feature
+React screen / feature
   │
   ▼
-RyotClient Promise API
+@ryot/client-sdk/react result state
   │
   ▼
-direct kernel adapter
+RyotClient Promise capability
   │
   ▼
-Effect service / atom
+direct kernel adapter or MessageChannel adapter
   │
   ▼
-authenticated transport
+Effect service / authenticated transport
   │
   ▼
 backend
 ```
 
 Plugin authors do not need direct knowledge of this implementation.
-
-The shared client SDK may expose React-friendly query hooks or data abstractions through `@ryot/client-sdk/react`, backed by the explicit `RyotClient`.
 
 ---
 
@@ -1694,7 +1711,7 @@ V1 does not support:
 
 The high-level architecture does not depend on deciding these upfront:
 
-- exact set of initial SDK methods
+- exact set of additional SDK methods beyond the implemented data, operations, navigation, theme, query, and mutation surfaces
 - exact `client-ui-sdk` component catalog
 - exact gesture implementation library
 - exact native implementation of iOS back gestures
