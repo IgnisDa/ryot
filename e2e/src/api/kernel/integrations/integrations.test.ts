@@ -1,4 +1,8 @@
-import { ImportRunId, IntegrationId } from "@ryot-app/contract/schema/brands";
+import {
+	ImportRunId,
+	IntegrationId,
+	IntegrationWebhookToken,
+} from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -8,6 +12,7 @@ import {
 	createKodiIntegration,
 	deleteIntegration,
 	getIntegration,
+	integrationWebhookToken,
 	listIntegrationImportRuns,
 	listIntegrations,
 	listManualImportRuns,
@@ -24,7 +29,6 @@ import {
 	requireString,
 } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-import { getApiUrl } from "~/support/harness-target";
 
 const kodiPayload = { lot: "movie", progress: 50, identifier: "tt1234567" };
 
@@ -64,7 +68,7 @@ describe("Integration CRUD", () => {
 			expect(integration.minimumProgress).toBe(2);
 			expect(integration.maximumProgress).toBe(95);
 			expect(integration.extraSettings.disableOnContinuousErrors).toBe(false);
-			expect(integration.webhookUrl).toContain(`/_i/${integration.id}`);
+			expect(integration.webhookUrl).toContain(`/_i/${integrationWebhookToken(integration)}`);
 		}),
 	);
 
@@ -288,7 +292,7 @@ describe("Integration sync", () => {
 });
 
 describe("Webhook routes", () => {
-	it.live("POST /api/webhooks/integrations/{unknownId} returns NotFound", () =>
+	it.live("POST /api/webhooks/integrations/{unknownWebhookToken} returns NotFound", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
@@ -296,34 +300,40 @@ describe("Webhook routes", () => {
 				client.call((c) =>
 					c.integrations.webhook({
 						payload: "{}",
-						params: { integrationId: IntegrationId.make("nonexistent-id-abc123") },
+						params: {
+							webhookToken: IntegrationWebhookToken.make("nonexistent-webhook-token-abc123"),
+						},
 					}),
 				),
 			);
 
 			assertTaggedError(error, "IntegrationNotFoundError");
+			expect(error.reason).toEqual({ code: "integration-webhook-not-found" });
 		}),
 	);
 
-	it.live("POST /api/webhooks/integrations/{validKodiIntegrationId} creates a run", () =>
+	it.live("POST /api/webhooks/integrations/{validKodiWebhookToken} creates a run", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { id } = yield* createKodiIntegration(client);
+			const integration = yield* createKodiIntegration(client);
 
-			const { data } = yield* postIntegrationWebhookAndWait(client, id, kodiPayload);
+			const { data } = yield* postIntegrationWebhookAndWait(client, integration, kodiPayload);
 
 			expect(data.runId).toBeDefined();
 		}),
 	);
 
-	it.live("POST /_i/{validKodiIntegrationId} creates a run from a JSON payload", () =>
+	it.live("POST /_i/{validKodiWebhookToken} creates a run from a JSON payload", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { id } = yield* createKodiIntegration(client);
-			const apiRootUrl = getApiUrl().replace(/\/api$/, "");
+			const integration = yield* createKodiIntegration(client);
+			const webhookUrl = requirePresent(
+				integration.webhookUrl,
+				"Expected sink integration webhook URL",
+			);
 
 			const response = yield* Effect.promise(() =>
-				fetch(`${apiRootUrl}/_i/${id}`, {
+				fetch(webhookUrl, {
 					method: "POST",
 					body: JSON.stringify(kodiPayload),
 					headers: { "Content-Type": "application/json" },
@@ -344,16 +354,16 @@ describe("Webhook routes", () => {
 	it.live("POST to a disabled integration returns 202 with a failed run", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { id } = yield* createKodiIntegration(client);
+			const integration = yield* createKodiIntegration(client);
 
 			yield* client.call((c) =>
 				c.integrations.update({
 					payload: { isDisabled: true },
-					params: { integrationId: IntegrationId.make(id) },
+					params: { integrationId: IntegrationId.make(integration.id) },
 				}),
 			);
 
-			const { run } = yield* postIntegrationWebhookAndWait(client, id, kodiPayload);
+			const { run } = yield* postIntegrationWebhookAndWait(client, integration, kodiPayload);
 			expect(run.status).toBe("failed");
 		}),
 	);
@@ -361,31 +371,31 @@ describe("Webhook routes", () => {
 	it.live("POST when disableIntegrations preference is true returns 202 with failed run", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { id } = yield* createKodiIntegration(client);
+			const integration = yield* createKodiIntegration(client);
 
 			yield* updateUserSettingsPreferences(client, { disableIntegrations: true });
 
-			const { run } = yield* postIntegrationWebhookAndWait(client, id, kodiPayload);
+			const { run } = yield* postIntegrationWebhookAndWait(client, integration, kodiPayload);
 			expect(run.status).toBe("failed");
 		}),
 	);
 
-	it.live("POST to a non-Sink integration returns a structured lot failure", () =>
+	it.live("POST with a non-Sink webhook token returns NotFound", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { id } = yield* createAudiobookshelfIntegration(client);
+			const integration = yield* createAudiobookshelfIntegration(client);
 
 			const error = yield* Effect.flip(
 				client.call((c) =>
 					c.integrations.webhook({
 						payload: "{}",
-						params: { integrationId: IntegrationId.make(id) },
+						params: { webhookToken: IntegrationWebhookToken.make(integration.id) },
 					}),
 				),
 			);
 
-			assertTaggedError(error, "IntegrationRequestError");
-			expect(error.reason).toMatchObject({ expected: "sink", code: "wrong-integration-lot" });
+			assertTaggedError(error, "IntegrationNotFoundError");
+			expect(error.reason).toEqual({ code: "integration-webhook-not-found" });
 		}),
 	);
 });
@@ -396,11 +406,11 @@ describe("Import run visibility", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const { id: integrationId } = yield* createKodiIntegration(client);
+				const integration = yield* createKodiIntegration(client);
 
 				const { run, runId } = yield* postIntegrationWebhookAndWait(
 					client,
-					integrationId,
+					integration,
 					kodiPayload,
 				);
 
@@ -411,7 +421,7 @@ describe("Import run visibility", () => {
 
 				const integrationRuns = yield* listIntegrationImportRuns(
 					client,
-					integrationId,
+					integration.id,
 					undefined,
 					20,
 				);

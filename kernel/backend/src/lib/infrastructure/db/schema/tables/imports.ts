@@ -14,6 +14,7 @@ import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
 import {
 	boolean,
+	check,
 	foreignKey,
 	index,
 	integer,
@@ -32,6 +33,7 @@ export const integration = snakeCase.table(
 	"integration",
 	{
 		name: text(),
+		webhookToken: text(),
 		pluginInstallationId: text().notNull(),
 		lot: text().notNull().$type<IntegrationLot>(),
 		isDisabled: boolean().notNull().default(false),
@@ -61,6 +63,11 @@ export const integration = snakeCase.table(
 		index("integration_plugin_installation_id_idx").on(table.pluginInstallationId),
 		index("integration_lot_is_disabled_idx").on(table.lot, table.isDisabled),
 		index("integration_provider_is_disabled_idx").on(table.provider, table.isDisabled),
+		uniqueIndex("integration_webhook_token_unique").on(table.webhookToken),
+		check(
+			"integration_webhook_token_lot_check",
+			sql`(${table.lot} = 'sink') = (${table.webhookToken} is not null)`,
+		),
 		foreignKey({
 			columns: [table.pluginInstallationId, table.userId],
 			foreignColumns: [pluginInstallation.id, pluginInstallation.userId],

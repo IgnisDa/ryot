@@ -1,5 +1,5 @@
 import { runContract, type ContractProgram } from "@ryot-app/contract/client";
-import { IntegrationId, PluginSlug } from "@ryot-app/contract/schema/brands";
+import { IntegrationWebhookToken, PluginSlug } from "@ryot-app/contract/schema/brands";
 import { metadataLookupRecipe } from "@ryot-app/media-plugin/contracts/operation-recipes";
 import { invokeOperationRecipe } from "@ryot-app/plugin-kit/operations";
 import { Effect } from "effect";
@@ -7,14 +7,14 @@ import { Effect } from "effect";
 const resolveConnection = (integrationUrl: string) => {
 	const url = new URL(integrationUrl);
 	const matched = url.pathname.match(/\/(?:_i|api\/webhooks\/integrations)\/([^/]+)\/?$/);
-	const integrationId = matched?.[1];
-	if (!integrationId) {
+	const webhookToken = matched?.[1];
+	if (!webhookToken) {
 		throw new Error("Integration URL must be a Ryot webhook URL");
 	}
 
 	return {
 		baseUrl: `${url.origin}/api`,
-		integrationId: IntegrationId.make(decodeURIComponent(integrationId)),
+		webhookToken: IntegrationWebhookToken.make(decodeURIComponent(webhookToken)),
 	};
 };
 
@@ -24,9 +24,9 @@ const runForIntegration = <A, E>(integrationUrl: string, program: ContractProgra
 };
 
 export const lookupMetadata = async (integrationUrl: string, title: string) => {
-	const { integrationId } = resolveConnection(integrationUrl);
+	const { webhookToken } = resolveConnection(integrationUrl);
 	const { results } = await runForIntegration(integrationUrl, (client) =>
-		invokeOperationRecipe(metadataLookupRecipe, { integrationId, titles: [title] }, (request) =>
+		invokeOperationRecipe(metadataLookupRecipe, { webhookToken, titles: [title] }, (request) =>
 			client.plugins
 				.invoke({
 					payload: { payload: request.payload },
@@ -48,8 +48,8 @@ export const lookupMetadata = async (integrationUrl: string, title: string) => {
 };
 
 export const postIntegrationWebhook = (integrationUrl: string, payload: unknown) => {
-	const { integrationId } = resolveConnection(integrationUrl);
+	const { webhookToken } = resolveConnection(integrationUrl);
 	return runForIntegration(integrationUrl, (client) =>
-		client.integrations.webhook({ params: { integrationId }, payload: JSON.stringify(payload) }),
+		client.integrations.webhook({ params: { webhookToken }, payload: JSON.stringify(payload) }),
 	);
 };

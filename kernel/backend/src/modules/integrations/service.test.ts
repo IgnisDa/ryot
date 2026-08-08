@@ -4,7 +4,7 @@ import {
 	IntegrationRequestError,
 	integrationCommonPropertyNames,
 } from "@ryot-app/contract/modules/integrations/schemas";
-import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { IntegrationWebhookToken, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
@@ -23,7 +23,7 @@ import {
 	IntegrationsService,
 	validateProgressThresholds,
 } from "./service";
-import { makeIntegration, makeRun } from "./test-support";
+import { makeIntegration, makeRun, testWebhookToken } from "./test-support";
 
 const user: CurrentUserValue = {
 	image: null,
@@ -556,7 +556,9 @@ describe("installation availability", () => {
 				Layer.mergeAll(
 					databaseLayer,
 					mockProKey(true),
-					Layer.mock(IntegrationsRepository)({ getByIdAnyUser: () => Effect.succeed(integration) }),
+					Layer.mock(IntegrationsRepository)({
+						getByWebhookToken: () => Effect.succeed(integration),
+					}),
 					Layer.mock(IntegrationProviderCatalog)({
 						listForUser: () => Effect.succeed([]),
 						findForUser: () => Effect.succeed(null),
@@ -577,7 +579,7 @@ describe("installation availability", () => {
 			const error = yield* Effect.flip(
 				service.handleWebhook({
 					rawBody: "{}",
-					integrationId: integration.id,
+					webhookToken: testWebhookToken,
 					contentType: "application/json",
 				}),
 			);
@@ -700,6 +702,36 @@ describe("prepareYankRuns", () => {
 });
 
 describe("handleWebhook", () => {
+	it.effect("rejects an unknown webhook token", () => {
+		const layer = integrationsServiceLayer.pipe(
+			Layer.provideMerge(
+				Layer.mergeAll(
+					databaseLayer,
+					mockProKey(true),
+					Layer.mock(IntegrationsRepository)({ getByWebhookToken: () => Effect.succeed(null) }),
+					Layer.mock(IntegrationProviderCatalog, {}),
+					Layer.mock(ImportsService, {}),
+					Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
+				),
+			),
+		);
+
+		return Effect.gen(function* () {
+			const service = yield* IntegrationsService;
+			const error = yield* Effect.flip(
+				service.handleWebhook({
+					rawBody: "{}",
+					contentType: "application/json",
+					webhookToken: IntegrationWebhookToken.make("unknown-webhook-token"),
+				}),
+			);
+			expect(error).toMatchObject({
+				_tag: "IntegrationNotFoundError",
+				reason: { code: "integration-webhook-not-found" },
+			});
+		}).pipe(Effect.provide(layer));
+	});
+
 	it.effect("admits sink runs without idle exclusion", () => {
 		const integration = makeIntegration({
 			lot: "sink",
@@ -724,7 +756,7 @@ describe("handleWebhook", () => {
 					databaseLayer,
 					mockProKey(true),
 					Layer.mock(IntegrationsRepository)({
-						getByIdAnyUser: () => Effect.succeed(integration),
+						getByWebhookToken: () => Effect.succeed(integration),
 						getUserDisableIntegrations: () => Effect.succeed(false),
 					}),
 					Layer.mock(IntegrationProviderCatalog)({
@@ -752,7 +784,7 @@ describe("handleWebhook", () => {
 			expect(
 				yield* service.handleWebhook({
 					rawBody: "{}",
-					integrationId: integration.id,
+					webhookToken: testWebhookToken,
 					contentType: "application/json",
 				}),
 			).toEqual({ runId: makeRun("completed").id });
@@ -791,7 +823,7 @@ describe("handleWebhook", () => {
 					databaseLayer,
 					mockProKey(true),
 					Layer.mock(IntegrationsRepository)({
-						getByIdAnyUser: () => Effect.succeed(integration),
+						getByWebhookToken: () => Effect.succeed(integration),
 						getUserDisableIntegrations: () => Effect.succeed(false),
 					}),
 					Layer.mock(IntegrationProviderCatalog)({
@@ -815,7 +847,7 @@ describe("handleWebhook", () => {
 
 		return Effect.gen(function* () {
 			const service = yield* IntegrationsService;
-			yield* service.handleWebhook({ rawBody, contentType, integrationId: integration.id });
+			yield* service.handleWebhook({ rawBody, contentType, webhookToken: testWebhookToken });
 			expect(captured?.payload).toMatchObject({ webhook: { rawBody, contentType } });
 		}).pipe(Effect.provide(layer));
 	});

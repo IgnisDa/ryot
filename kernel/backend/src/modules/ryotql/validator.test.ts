@@ -299,6 +299,7 @@ it("rejects hidden application-table fields", () => {
 		["integration", "userId"],
 		["integration", "providerSpecifics"],
 		["integration", "webhookUrl"],
+		["integration", "webhookToken"],
 		["importRun", "userId"],
 	] as const) {
 		const source = table(tableName, "source");

@@ -14,12 +14,13 @@ behavior in its settings.
 Sink webhook URLs have this format:
 
 ```txt
-https://<instance_url>/_i/<slug>
-https://app.ryot.io/_i/int_a6cGGXEq6KOI # example
+https://<instance_url>/_i/<webhook_token>
+https://app.ryot.io/_i/018f15d2-5d80-7b7b-9b41-31fe9268c4bb # example
 ```
 
 ::: warning
-Keep webhook URLs private. Anyone with the URL can send data to the integration.
+Keep webhook URLs private. The random token in the URL is a secret capability. Anyone with the URL
+can send data to the integration.
 :::
 
 Ryot passes `multipart/form-data` and `application/json` bodies to the integration without changes.
