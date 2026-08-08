@@ -106,12 +106,12 @@ describe("visual-novel.vndb sandbox script", () => {
 						{
 							direction: "incoming",
 							synchronization: "authoritative",
-							relationshipSchemaSlug: "company-to-visual-novel",
+							relationshipSchemaSlug: "person-to-visual-novel",
 							entities: [
 								{
 									name: "KID",
 									externalId: "p1",
-									providerSlug: "company.vndb",
+									providerSlug: "person.vndb",
 									relationshipProperties: { roles: ["Developer"] },
 								},
 							],

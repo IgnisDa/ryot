@@ -156,7 +156,7 @@ export const details = defineProvider({
 			const relatedEntities = collectDevelopers(vn["developers"]).map((dev) => ({
 				name: dev.name,
 				externalId: dev.id,
-				providerSlug: "company.vndb",
+				providerSlug: "person.vndb",
 				relationshipProperties: { roles: ["Developer"] },
 			}));
 
@@ -173,7 +173,7 @@ export const details = defineProvider({
 						direction: "incoming" as const,
 						entities: relatedEntities,
 						synchronization: "authoritative" as const,
-						relationshipSchemaSlug: "company-to-visual-novel",
+						relationshipSchemaSlug: "person-to-visual-novel",
 					},
 				],
 				properties: {

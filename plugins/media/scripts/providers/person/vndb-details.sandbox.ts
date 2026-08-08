@@ -5,9 +5,9 @@ import { details } from "./vndb";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	name: "VNDB Company Details",
-	slug: "company.vndb.details",
 	capabilities: ["httpCall"],
+	name: "VNDB Person Details",
+	slug: "person.vndb.details",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 });

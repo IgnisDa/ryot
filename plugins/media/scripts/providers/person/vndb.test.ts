@@ -14,7 +14,7 @@ const makeHost = (httpCall: VndbHost["httpCall"]) => defineSandboxTestHost(manif
 
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 
-describe("company.vndb sandbox script", () => {
+describe("person.vndb sandbox script", () => {
 	it("maps producer search hits and drops entries missing an id or name", () => {
 		const host = makeHost(() =>
 			httpSuccess({
@@ -34,9 +34,9 @@ describe("company.vndb sandbox script", () => {
 				expect(result.items).toEqual([
 					{
 						externalId: "p1",
-						calloutProperty: { kind: "null", value: null },
-						titleProperty: { kind: "text", value: "KID" },
 						imageProperty: { kind: "null", value: null },
+						titleProperty: { kind: "text", value: "KID" },
+						calloutProperty: { kind: "null", value: null },
 						primarySubtitleProperty: { kind: "null", value: null },
 						secondarySubtitleProperty: { kind: "null", value: null },
 					},
@@ -68,8 +68,8 @@ describe("company.vndb sandbox script", () => {
 				expect(result.relatedEntityGroups).toBeUndefined();
 				expect(result.properties).toEqual({
 					images: [],
-					description: "A game developer.",
 					sourceUrl: "https://vndb.org/p1",
+					description: "A game developer.",
 					alternateNames: ["Kindle Imagine Develop"],
 				});
 				return undefined;
