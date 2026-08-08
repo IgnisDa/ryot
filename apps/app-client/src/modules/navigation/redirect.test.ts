@@ -3,7 +3,7 @@ import { assert, describe, expect, it } from "vitest";
 import { getGateHref, getRedirectDestination, getSafeRedirectTo } from "./redirect";
 
 describe("getSafeRedirectTo", () => {
-	it.each(["/", "/(app)", "/library/123?tab=history#details"])(
+	it.each(["/", "/(shell)", "/library/123?tab=history#details"])(
 		"accepts internal destination %s",
 		(redirectTo) => {
 			expect(getSafeRedirectTo(redirectTo)).toBe(redirectTo);
@@ -46,8 +46,6 @@ describe("redirect destinations", () => {
 	});
 
 	it("uses the fallback without a safe destination", () => {
-		expect(getRedirectDestination(undefined, "/(app)/(shell)/(drawer)")).toBe(
-			"/(app)/(shell)/(drawer)",
-		);
+		expect(getRedirectDestination(undefined, "/(shell)/(drawer)")).toBe("/(shell)/(drawer)");
 	});
 });
