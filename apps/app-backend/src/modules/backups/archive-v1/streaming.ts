@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { archiveError, BackupArchiveError } from "#modules/backup-data/archive-error";
+import { archiveError, BackupArchiveError } from "./error";
 
 const encoder = new TextEncoder();
 
