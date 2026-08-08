@@ -8,6 +8,8 @@ import getPort from "get-port";
 import {
 	adminHeaders,
 	createAuthenticatedClient,
+	encodePluginSourceFiles,
+	encodeTestSupportPluginFiles,
 	getApiClient,
 	httpCallFailureSandboxSource,
 	httpCallSandboxSource,
@@ -432,7 +434,10 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 				yield* clientA.call(
 					(c) =>
 						c.testSupport.installSystemPlugin({
-							payload: { manifest, files: { [entry]: source } },
+							payload: {
+								manifest,
+								files: encodeTestSupportPluginFiles(encodePluginSourceFiles({ [entry]: source })),
+							},
 						}),
 					adminHeaders,
 				);
