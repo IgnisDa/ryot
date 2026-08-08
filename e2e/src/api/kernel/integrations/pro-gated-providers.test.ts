@@ -75,6 +75,9 @@ beforeAll(async () => {
 	keylessApiUrl = `http://127.0.0.1:${keylessPort}/api`;
 	lapsedApiUrl = `http://127.0.0.1:${lapsedPort}/api`;
 
+	// Processes on one database share a FRONTEND_URL: the internal OAuth client and API resource
+	// are provisioned from it, as they are for replicas of a single deployment.
+	const sharedFrontendUrl = `http://127.0.0.1:${keyedPort}`;
 	const startApi = (label: string, port: number, extraEnv: Record<string, string>) =>
 		spawnApiProcess(
 			buildApiEnv({
@@ -83,9 +86,9 @@ beforeAll(async () => {
 				label: `Pro-gated ${label}`,
 				dbUrl: infrastructure.dbUrl,
 				s3BucketName: S3_BUCKET_NAME,
+				frontendUrl: sharedFrontendUrl,
 				redisUrl: infrastructure.redisUrl,
 				s3Endpoint: infrastructure.s3Endpoint,
-				frontendUrl: `http://127.0.0.1:${port}`,
 			}),
 		);
 

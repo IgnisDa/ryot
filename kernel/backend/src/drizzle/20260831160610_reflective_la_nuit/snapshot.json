@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "d4a0c743-cfc9-4b04-80ad-a0a14849ebf9",
+	"id": "47d4c209-a1e0-4891-b8f8-3aca350f70cf",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{
@@ -2435,19 +2435,6 @@
 			"table": "oauth_access_token"
 		},
 		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "user_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "oauth_access_token"
-		},
-		{
 			"type": "timestamp with time zone",
 			"typeSchema": null,
 			"notNull": false,
@@ -2474,19 +2461,6 @@
 			"table": "oauth_access_token"
 		},
 		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "refresh_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "oauth_access_token"
-		},
-		{
 			"type": "timestamp with time zone",
 			"typeSchema": null,
 			"notNull": true,
@@ -2508,6 +2482,32 @@
 			"generated": null,
 			"identity": null,
 			"name": "created_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "oauth_access_token"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "user_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "oauth_access_token"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "refresh_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "oauth_access_token"
@@ -2929,19 +2929,6 @@
 			"table": "oauth_client"
 		},
 		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "user_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "oauth_client"
-		},
-		{
 			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": false,
@@ -3002,6 +2989,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "client_credentials_scopes",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "oauth_client"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "user_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "oauth_client"
@@ -3163,19 +3163,6 @@
 			"table": "oauth_consent"
 		},
 		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "user_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "oauth_consent"
-		},
-		{
 			"type": "timestamp with time zone",
 			"typeSchema": null,
 			"notNull": true,
@@ -3197,6 +3184,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "updated_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "oauth_consent"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "user_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "oauth_consent"
@@ -8349,7 +8349,7 @@
 			"tableTo": "user",
 			"columnsTo": ["id"],
 			"onUpdate": "NO ACTION",
-			"onDelete": "NO ACTION",
+			"onDelete": "CASCADE",
 			"name": "oauth_access_token_user_id_user_id_fkey",
 			"entityType": "fks",
 			"schema": "public",
@@ -8362,7 +8362,7 @@
 			"tableTo": "oauth_refresh_token",
 			"columnsTo": ["id"],
 			"onUpdate": "NO ACTION",
-			"onDelete": "NO ACTION",
+			"onDelete": "CASCADE",
 			"name": "oauth_access_token_refresh_id_oauth_refresh_token_id_fkey",
 			"entityType": "fks",
 			"schema": "public",
@@ -8401,7 +8401,7 @@
 			"tableTo": "user",
 			"columnsTo": ["id"],
 			"onUpdate": "NO ACTION",
-			"onDelete": "NO ACTION",
+			"onDelete": "CASCADE",
 			"name": "oauth_client_user_id_user_id_fkey",
 			"entityType": "fks",
 			"schema": "public",
@@ -8440,7 +8440,7 @@
 			"tableTo": "user",
 			"columnsTo": ["id"],
 			"onUpdate": "NO ACTION",
-			"onDelete": "NO ACTION",
+			"onDelete": "CASCADE",
 			"name": "oauth_consent_user_id_user_id_fkey",
 			"entityType": "fks",
 			"schema": "public",
@@ -8492,7 +8492,7 @@
 			"tableTo": "user",
 			"columnsTo": ["id"],
 			"onUpdate": "NO ACTION",
-			"onDelete": "NO ACTION",
+			"onDelete": "CASCADE",
 			"name": "oauth_refresh_token_user_id_user_id_fkey",
 			"entityType": "fks",
 			"schema": "public",

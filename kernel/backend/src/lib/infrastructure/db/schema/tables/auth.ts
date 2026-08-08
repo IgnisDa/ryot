@@ -175,12 +175,12 @@ export const oauthClient = snakeCase.table(
 		postLogoutRedirectUris: text().array(),
 		disabled: boolean().default(false),
 		backchannelLogoutSessionRequired: boolean(),
-		userId: text().references(() => user.id),
 		metadata: jsonb().$type<Record<string, unknown>>(),
 		createdAt: timestamp({ withTimezone: true }),
 		updatedAt: timestamp({ withTimezone: true }),
 		dpopBoundAccessTokens: boolean().default(false),
 		clientCredentialsScopes: text().array().default([]),
+		userId: text().references(() => user.id, { onDelete: "cascade" }),
 	},
 	(table) => [index("oauth_client_userId_idx").on(table.userId)],
 );
@@ -250,7 +250,7 @@ export const oauthRefreshToken = snakeCase.table(
 			.references(() => oauthClient.clientId),
 		userId: text()
 			.notNull()
-			.references(() => user.id),
+			.references(() => user.id, { onDelete: "cascade" }),
 	},
 	(table) => [
 		index("oauth_refresh_token_clientId_idx").on(table.clientId),
@@ -270,12 +270,12 @@ export const oauthAccessToken = snakeCase.table(
 		authorizationCodeId: text(),
 		scopes: text().array().notNull(),
 		requestedUserInfoClaims: text().array(),
-		userId: text().references(() => user.id),
 		revoked: timestamp({ withTimezone: true }),
 		confirmation: jsonb().$type<Record<string, unknown>>(),
-		refreshId: text().references(() => oauthRefreshToken.id),
 		expiresAt: timestamp({ withTimezone: true }).notNull(),
 		createdAt: timestamp({ withTimezone: true }).notNull(),
+		userId: text().references(() => user.id, { onDelete: "cascade" }),
+		refreshId: text().references(() => oauthRefreshToken.id, { onDelete: "cascade" }),
 		sessionId: text().references(() => session.id, { onDelete: "set null" }),
 		clientId: text()
 			.notNull()
@@ -298,9 +298,9 @@ export const oauthConsent = snakeCase.table(
 		resources: text().array(),
 		scopes: text().array().notNull(),
 		requestedUserInfoClaims: text().array(),
-		userId: text().references(() => user.id),
 		createdAt: timestamp({ withTimezone: true }).notNull(),
 		updatedAt: timestamp({ withTimezone: true }).notNull(),
+		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		clientId: text()
 			.notNull()
 			.references(() => oauthClient.clientId),

@@ -17,7 +17,7 @@ The web client always uses `window.location.origin`. Only the installed native a
 
 OAuth access tokens expire after 15 minutes and refresh tokens after 30 days. API middleware verifies the JWT signature, issuer `<FRONTEND_URL>/api/auth`, audience `<FRONTEND_URL>/api`, expiry, and `ryot:api` scope, then loads the authoritative user row. Disabled or deleted users are rejected immediately. API keys retain Better Auth's expiry, rate limiting, cache, database fallback, and user ownership behavior.
 
-The client stores OAuth access, refresh, and ID tokens in asynchronous storage backed by `localStorage` for now. It coordinates refresh per server and clears authentication on `invalid_grant`. Logout revokes refresh and access tokens, clears local tokens and pending transactions even if remote logout fails, and opens the provider end-session endpoint with an exact registered callback. User disable and deletion revoke browser sessions, OAuth token records, and API-key caches.
+The client stores OAuth access, refresh, and ID tokens in asynchronous storage backed by `localStorage` for now. It coordinates refresh per server and clears authentication on `invalid_grant`. Logout revokes refresh and access tokens, clears local tokens and pending transactions even if remote logout fails, and opens the provider end-session endpoint with an exact registered callback. User disable and deletion revoke browser sessions, OAuth token records, and API-key caches. A password reset revokes browser sessions and OAuth token records too; access tokens already issued stay valid until they expire, because verification never reads the token record.
 
 ## External OIDC
 
