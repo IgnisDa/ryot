@@ -9,20 +9,20 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
-import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated.index'
-import { Route as AuthenticatedPluginSlugRouteImport } from './routes/_authenticated.$pluginSlug'
-import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated.settings'
-import { Route as AuthenticatedPluginSlugIndexRouteImport } from './routes/_authenticated.$pluginSlug.index'
-import { Route as AuthenticatedPluginSlugSplatRouteImport } from './routes/_authenticated.$pluginSlug.$'
-import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated.settings.index'
-import { Route as AuthenticatedSettingsSplatRouteImport } from './routes/_authenticated.settings.$'
-import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated.settings.account'
-import { Route as AuthenticatedSettingsPreferencesRouteImport } from './routes/_authenticated.settings.preferences'
+import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedPluginSlugRouteRouteImport } from './routes/_authenticated/$pluginSlug/route'
+import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
+import { Route as AuthenticatedPluginSlugIndexRouteImport } from './routes/_authenticated/$pluginSlug/index'
+import { Route as AuthenticatedPluginSlugSplatRouteImport } from './routes/_authenticated/$pluginSlug/$'
+import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
+import { Route as AuthenticatedSettingsSplatRouteImport } from './routes/_authenticated/settings/$'
+import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
+import { Route as AuthenticatedSettingsPreferencesRouteImport } from './routes/_authenticated/settings/preferences'
 
-const AuthenticatedRoute = AuthenticatedRouteImport.update({
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
@@ -39,61 +39,63 @@ const OnboardingRoute = OnboardingRouteImport.update({
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AuthenticatedRoute,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedPluginSlugRoute = AuthenticatedPluginSlugRouteImport.update({
-  id: '/$pluginSlug',
-  path: '/$pluginSlug',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
+const AuthenticatedPluginSlugRouteRoute =
+  AuthenticatedPluginSlugRouteRouteImport.update({
+    id: '/$pluginSlug',
+    path: '/$pluginSlug',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedSettingsRouteRoute =
+  AuthenticatedSettingsRouteRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedPluginSlugIndexRoute =
   AuthenticatedPluginSlugIndexRouteImport.update({
     id: '/',
     path: '/',
-    getParentRoute: () => AuthenticatedPluginSlugRoute,
+    getParentRoute: () => AuthenticatedPluginSlugRouteRoute,
   } as any)
 const AuthenticatedPluginSlugSplatRoute =
   AuthenticatedPluginSlugSplatRouteImport.update({
     id: '/$',
     path: '/$',
-    getParentRoute: () => AuthenticatedPluginSlugRoute,
+    getParentRoute: () => AuthenticatedPluginSlugRouteRoute,
   } as any)
 const AuthenticatedSettingsIndexRoute =
   AuthenticatedSettingsIndexRouteImport.update({
     id: '/',
     path: '/',
-    getParentRoute: () => AuthenticatedSettingsRoute,
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
 const AuthenticatedSettingsSplatRoute =
   AuthenticatedSettingsSplatRouteImport.update({
     id: '/$',
     path: '/$',
-    getParentRoute: () => AuthenticatedSettingsRoute,
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
 const AuthenticatedSettingsAccountRoute =
   AuthenticatedSettingsAccountRouteImport.update({
     id: '/account',
     path: '/account',
-    getParentRoute: () => AuthenticatedSettingsRoute,
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
 const AuthenticatedSettingsPreferencesRoute =
   AuthenticatedSettingsPreferencesRouteImport.update({
     id: '/preferences',
     path: '/preferences',
-    getParentRoute: () => AuthenticatedSettingsRoute,
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/auth': typeof AuthRoute
   '/onboarding': typeof OnboardingRoute
-  '/$pluginSlug': typeof AuthenticatedPluginSlugRouteWithChildren
-  '/settings': typeof AuthenticatedSettingsRouteWithChildren
+  '/$pluginSlug': typeof AuthenticatedPluginSlugRouteRouteWithChildren
+  '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
@@ -114,11 +116,11 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/onboarding': typeof OnboardingRoute
-  '/_authenticated/$pluginSlug': typeof AuthenticatedPluginSlugRouteWithChildren
-  '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
+  '/_authenticated/$pluginSlug': typeof AuthenticatedPluginSlugRouteRouteWithChildren
+  '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
   '/_authenticated/settings/$': typeof AuthenticatedSettingsSplatRoute
@@ -169,7 +171,7 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   OnboardingRoute: typeof OnboardingRoute
 }
@@ -180,7 +182,7 @@ declare module '@tanstack/react-router' {
       id: '/_authenticated'
       path: ''
       fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedRouteImport
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -202,120 +204,122 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/$pluginSlug': {
       id: '/_authenticated/$pluginSlug'
       path: '/$pluginSlug'
       fullPath: '/$pluginSlug'
-      preLoaderRoute: typeof AuthenticatedPluginSlugRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      preLoaderRoute: typeof AuthenticatedPluginSlugRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/settings': {
       id: '/_authenticated/settings'
       path: '/settings'
       fullPath: '/settings'
-      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      preLoaderRoute: typeof AuthenticatedSettingsRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/$pluginSlug/': {
       id: '/_authenticated/$pluginSlug/'
       path: '/'
       fullPath: '/$pluginSlug/'
       preLoaderRoute: typeof AuthenticatedPluginSlugIndexRouteImport
-      parentRoute: typeof AuthenticatedPluginSlugRoute
+      parentRoute: typeof AuthenticatedPluginSlugRouteRoute
     }
     '/_authenticated/$pluginSlug/$': {
       id: '/_authenticated/$pluginSlug/$'
       path: '/$'
       fullPath: '/$pluginSlug/$'
       preLoaderRoute: typeof AuthenticatedPluginSlugSplatRouteImport
-      parentRoute: typeof AuthenticatedPluginSlugRoute
+      parentRoute: typeof AuthenticatedPluginSlugRouteRoute
     }
     '/_authenticated/settings/': {
       id: '/_authenticated/settings/'
       path: '/'
       fullPath: '/settings/'
       preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
-      parentRoute: typeof AuthenticatedSettingsRoute
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
     '/_authenticated/settings/$': {
       id: '/_authenticated/settings/$'
       path: '/$'
       fullPath: '/settings/$'
       preLoaderRoute: typeof AuthenticatedSettingsSplatRouteImport
-      parentRoute: typeof AuthenticatedSettingsRoute
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
     '/_authenticated/settings/account': {
       id: '/_authenticated/settings/account'
       path: '/account'
       fullPath: '/settings/account'
       preLoaderRoute: typeof AuthenticatedSettingsAccountRouteImport
-      parentRoute: typeof AuthenticatedSettingsRoute
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
     '/_authenticated/settings/preferences': {
       id: '/_authenticated/settings/preferences'
       path: '/preferences'
       fullPath: '/settings/preferences'
       preLoaderRoute: typeof AuthenticatedSettingsPreferencesRouteImport
-      parentRoute: typeof AuthenticatedSettingsRoute
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
   }
 }
 
-interface AuthenticatedPluginSlugRouteChildren {
+interface AuthenticatedPluginSlugRouteRouteChildren {
   AuthenticatedPluginSlugSplatRoute: typeof AuthenticatedPluginSlugSplatRoute
   AuthenticatedPluginSlugIndexRoute: typeof AuthenticatedPluginSlugIndexRoute
 }
 
-const AuthenticatedPluginSlugRouteChildren: AuthenticatedPluginSlugRouteChildren =
+const AuthenticatedPluginSlugRouteRouteChildren: AuthenticatedPluginSlugRouteRouteChildren =
   {
     AuthenticatedPluginSlugSplatRoute: AuthenticatedPluginSlugSplatRoute,
     AuthenticatedPluginSlugIndexRoute: AuthenticatedPluginSlugIndexRoute,
   }
 
-const AuthenticatedPluginSlugRouteWithChildren =
-  AuthenticatedPluginSlugRoute._addFileChildren(
-    AuthenticatedPluginSlugRouteChildren,
+const AuthenticatedPluginSlugRouteRouteWithChildren =
+  AuthenticatedPluginSlugRouteRoute._addFileChildren(
+    AuthenticatedPluginSlugRouteRouteChildren,
   )
 
-interface AuthenticatedSettingsRouteChildren {
+interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsSplatRoute: typeof AuthenticatedSettingsSplatRoute
   AuthenticatedSettingsAccountRoute: typeof AuthenticatedSettingsAccountRoute
   AuthenticatedSettingsPreferencesRoute: typeof AuthenticatedSettingsPreferencesRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
 }
 
-const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
-  AuthenticatedSettingsSplatRoute: AuthenticatedSettingsSplatRoute,
-  AuthenticatedSettingsAccountRoute: AuthenticatedSettingsAccountRoute,
-  AuthenticatedSettingsPreferencesRoute: AuthenticatedSettingsPreferencesRoute,
-  AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
-}
+const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteChildren =
+  {
+    AuthenticatedSettingsSplatRoute: AuthenticatedSettingsSplatRoute,
+    AuthenticatedSettingsAccountRoute: AuthenticatedSettingsAccountRoute,
+    AuthenticatedSettingsPreferencesRoute:
+      AuthenticatedSettingsPreferencesRoute,
+    AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
+  }
 
-const AuthenticatedSettingsRouteWithChildren =
-  AuthenticatedSettingsRoute._addFileChildren(
-    AuthenticatedSettingsRouteChildren,
+const AuthenticatedSettingsRouteRouteWithChildren =
+  AuthenticatedSettingsRouteRoute._addFileChildren(
+    AuthenticatedSettingsRouteRouteChildren,
   )
 
-interface AuthenticatedRouteChildren {
-  AuthenticatedPluginSlugRoute: typeof AuthenticatedPluginSlugRouteWithChildren
-  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedPluginSlugRouteRoute: typeof AuthenticatedPluginSlugRouteRouteWithChildren
+  AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
-const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
-  AuthenticatedPluginSlugRoute: AuthenticatedPluginSlugRouteWithChildren,
-  AuthenticatedSettingsRoute: AuthenticatedSettingsRouteWithChildren,
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedPluginSlugRouteRoute:
+    AuthenticatedPluginSlugRouteRouteWithChildren,
+  AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
 
-const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
-  AuthenticatedRouteChildren,
-)
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   OnboardingRoute: OnboardingRoute,
 }
