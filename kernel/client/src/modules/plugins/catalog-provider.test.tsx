@@ -1,0 +1,138 @@
+import { createRyotClient } from "@ryot/client-sdk";
+import { RyotProvider } from "@ryot/client-sdk/react";
+import type { PluginClientCatalog } from "@ryot/ryotql-recipes/plugin-client-catalog";
+import { act, render, screen, waitFor } from "@testing-library/react";
+import { Effect, Layer, ManagedRuntime } from "effect";
+import type { ReactNode } from "react";
+import { describe, expect, it } from "vitest";
+
+import type { ApiScope } from "#/api/scope";
+import { PluginCatalogService } from "#/modules/plugins/catalog";
+import { PluginCatalogProvider, usePluginCatalog } from "#/modules/plugins/catalog-provider";
+import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
+
+const scope: ApiScope = { userId: "user-1", serverUrl: "https://ryot.example" };
+const catalog: PluginClientCatalog = [
+	{
+		sortOrder: 0,
+		icon: "puzzle",
+		name: "Fixture",
+		slug: "fixture",
+		health: "ready",
+		isDisabled: false,
+		clientApiVersion: 1,
+		pluginId: "plugin-1",
+		sourceHash: "source-hash",
+		installationId: "installation-1",
+		clientArtifactHash: "artifact-hash",
+	},
+];
+const client = createRyotClient({ query: () => Promise.resolve({}) });
+
+function CatalogConsumer(props: { readonly name: string }) {
+	const { catalog: current, refetch } = usePluginCatalog();
+	return (
+		<div>
+			<p>{`${props.name}:${current.map((entry) => entry.sourceHash).join(",")}`}</p>
+			<button type="button" onClick={refetch}>
+				{`Refresh ${props.name}`}
+			</button>
+		</div>
+	);
+}
+
+const makeView = (
+	load: PluginCatalogService["Service"]["load"],
+	children: ReactNode = <CatalogConsumer name="catalog" />,
+) => {
+	const events = makePluginCatalogEventsTestLayer();
+	const runtime = ManagedRuntime.make(
+		Layer.mergeAll(events.layer, Layer.succeed(PluginCatalogService, { load })),
+	);
+	const tree = (content: ReactNode) => (
+		<RyotProvider client={client}>
+			<PluginCatalogProvider scope={scope} runtime={runtime} initialCatalog={catalog}>
+				{content}
+			</PluginCatalogProvider>
+		</RyotProvider>
+	);
+	return { events, runtime, tree, ...render(tree(children)) };
+};
+
+describe("plugin catalog provider", () => {
+	it("hydrates without a duplicate load and publishes event refreshes", async () => {
+		let loads = 0;
+		let current = catalog;
+		const view = makeView(() =>
+			Effect.sync(() => {
+				loads += 1;
+				return current;
+			}),
+		);
+
+		expect(screen.getByText("catalog:source-hash")).toBeTruthy();
+		await waitFor(() => expect(view.events.isSubscribed()).toBe(true));
+		expect(loads).toBe(0);
+
+		current = [{ ...catalog[0], sourceHash: "updated-source-hash" }];
+		act(() => view.events.send());
+
+		await screen.findByText("catalog:updated-source-hash");
+		expect(loads).toBe(1);
+		view.unmount();
+		await view.runtime.dispose();
+	});
+
+	it("keeps one subscription across child rerenders and multiple consumers", async () => {
+		const view = makeView(
+			() => Effect.die("not used"),
+			<>
+				<CatalogConsumer name="first" />
+				<CatalogConsumer name="second" />
+			</>,
+		);
+
+		await waitFor(() => expect(view.events.isSubscribed()).toBe(true));
+		expect(view.events.getSubscriptionCount()).toBe(1);
+
+		view.rerender(
+			view.tree(
+				<>
+					<CatalogConsumer name="first" />
+					<CatalogConsumer name="second" />
+					<CatalogConsumer name="third" />
+				</>,
+			),
+		);
+
+		expect(screen.getByText("third:source-hash")).toBeTruthy();
+		expect(view.events.getSubscriptionCount()).toBe(1);
+		view.unmount();
+		await view.runtime.dispose();
+	});
+
+	it("interrupts the subscription and prevents refreshes after unmount", async () => {
+		let loads = 0;
+		const view = makeView(() =>
+			Effect.sync(() => {
+				loads += 1;
+				return catalog;
+			}),
+		);
+		await waitFor(() => expect(view.events.isSubscribed()).toBe(true));
+
+		view.unmount();
+		await waitFor(() => expect(view.events.isSubscribed()).toBe(false));
+		act(() => view.events.send());
+		await Promise.resolve();
+
+		expect(loads).toBe(0);
+		await view.runtime.dispose();
+	});
+
+	it("requires consumers to be inside the provider", () => {
+		expect(() => render(<CatalogConsumer name="outside" />)).toThrow(
+			"usePluginCatalog must be used within PluginCatalogProvider",
+		);
+	});
+});

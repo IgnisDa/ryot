@@ -1,16 +1,12 @@
-import { useRyotQuery } from "@ryot/client-sdk/react";
 import { createFileRoute, useLocation, useNavigate } from "@tanstack/react-router";
-import { Effect, Fiber } from "effect";
-import { useEffect, useEffectEvent, useMemo } from "react";
+import { Effect } from "effect";
 
-import { pluginCatalogQuery } from "#/modules/plugins/catalog";
-import { PluginCatalogEventsService } from "#/modules/plugins/events";
+import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
 import { PluginOperationsService } from "#/modules/plugins/operations";
 import { PluginHost } from "#/modules/plugins/plugin-host";
 import { toPluginLocation } from "#/modules/plugins/plugin-location";
 import { PluginQueriesService } from "#/modules/plugins/queries";
 import { resolveRouteTarget } from "#/modules/plugins/route-resolver";
-import { Route as AuthenticatedRoute } from "#/routes/_authenticated";
 
 export const Route = createFileRoute("/_authenticated/$pluginSlug")({
 	shouldReload: false,
@@ -22,28 +18,8 @@ function PluginDestination() {
 	const navigate = useNavigate();
 	const { pluginSlug } = Route.useParams();
 	const { pathname, searchStr } = useLocation();
-	const initial = AuthenticatedRoute.useLoaderData();
 	const { runtime, scope, server, theme } = Route.useRouteContext();
-	const { serverUrl, userId } = scope;
-	const catalogInput = useMemo(
-		() => ({ runtime, initialData: initial.catalog }),
-		[initial.catalog, runtime],
-	);
-	const { data: catalog = initial.catalog, refetch } = useRyotQuery(
-		pluginCatalogQuery,
-		catalogInput,
-	);
-	const refreshCatalog = useEffectEvent(refetch);
-	useEffect(() => {
-		const subscription = runtime.runFork(
-			Effect.flatMap(PluginCatalogEventsService, (service) =>
-				service.subscribe({ serverUrl, userId }, refreshCatalog),
-			),
-		);
-		return () => {
-			Effect.runFork(Fiber.interrupt(subscription));
-		};
-	}, [runtime, serverUrl, userId]);
+	const { catalog, refetch } = usePluginCatalog();
 	const target = resolveRouteTarget(catalog, pluginSlug);
 	if (target.owner === "kernel") {
 		return <PluginNotFound />;
@@ -54,8 +30,8 @@ function PluginDestination() {
 		<PluginHost
 			theme={theme}
 			server={server}
+			onStaleSession={refetch}
 			installation={installation}
-			onStaleSession={refreshCatalog}
 			location={toPluginLocation(pluginSlug, pathname, searchStr)}
 			onNavigate={(request) => {
 				void navigate({ href: request.href, replace: request.replace });
