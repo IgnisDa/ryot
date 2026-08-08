@@ -9,6 +9,8 @@ import { Effect } from "effect";
 
 import type { AvailablePlugin } from "#modules/plugins/runtime-resolver";
 
+import { getKernelEntityRenderer } from "./kernel-renderers";
+
 type PageEntity = {
 	readonly entityId: EntityId;
 	readonly entitySchemaSlug: EntitySchemaSlug;
@@ -56,16 +58,29 @@ const matchRoute = (pattern: string, path: string) => {
 	return params;
 };
 
-type ResolvedPluginPageTarget = {
-	readonly exportName: string;
-	readonly plugin: AvailablePlugin;
-	readonly params: Readonly<Record<string, string>>;
-	readonly entity: {
-		readonly entityId: EntityId;
-		readonly ownerPluginId: string;
-		readonly entitySchemaSlug: EntitySchemaSlug;
-	} | null;
-};
+export type ResolvedPluginPageTarget =
+	| {
+			readonly kind: "plugin";
+			readonly exportName: string;
+			readonly plugin: AvailablePlugin;
+			readonly params: Readonly<Record<string, string>>;
+			readonly entity: {
+				readonly entityId: EntityId;
+				readonly ownerPluginId: string;
+				readonly entitySchemaSlug: EntitySchemaSlug;
+			} | null;
+	  }
+	| {
+			readonly kind: "kernel-entity";
+			readonly rendererName: string;
+			readonly sourceHash: string;
+			readonly params: Readonly<Record<string, string>>;
+			readonly entity: {
+				readonly entityId: EntityId;
+				readonly ownerPluginId: null;
+				readonly entitySchemaSlug: EntitySchemaSlug;
+			};
+	  };
 
 export const resolvePluginPageTarget = <E, R>(input: {
 	readonly plugins: ReadonlyArray<AvailablePlugin>;
@@ -84,12 +99,12 @@ export const resolvePluginPageTarget = <E, R>(input: {
 			)) {
 				const params = matchRoute(pattern, target.path);
 				if (params !== null) {
-					return { plugin, params, exportName, entity: null };
+					return { plugin, params, exportName, entity: null, kind: "plugin" as const };
 				}
 			}
 			const exportName = plugin.manifest.client.notFoundPage;
 			if (exportName) {
-				return { plugin, exportName, params: {}, entity: null };
+				return { plugin, exportName, params: {}, entity: null, kind: "plugin" as const };
 			}
 			return yield* failure({
 				path: target.path,
@@ -101,6 +116,28 @@ export const resolvePluginPageTarget = <E, R>(input: {
 		const entity = yield* input.findEntity(input.target.entityId);
 		if (!entity) {
 			return yield* failure({ code: "entity-not-found", entityId: input.target.entityId });
+		}
+		if (entity.entitySchemaPluginId === null) {
+			const renderer = getKernelEntityRenderer(entity.entitySchemaSlug);
+			if (!renderer) {
+				return yield* failure({
+					ownerPluginId: null,
+					entityId: entity.entityId,
+					code: "entity-detail-page-not-registered",
+					entitySchemaSlug: entity.entitySchemaSlug,
+				});
+			}
+			return {
+				params: {},
+				rendererName: renderer.name,
+				kind: "kernel-entity" as const,
+				sourceHash: renderer.sourceHash,
+				entity: {
+					ownerPluginId: null,
+					entityId: entity.entityId,
+					entitySchemaSlug: entity.entitySchemaSlug,
+				},
+			};
 		}
 		const owner = input.plugins.find(({ id }) => id === entity.entitySchemaPluginId);
 		if (owner?.health !== "ready" || !owner.manifest.client) {
@@ -123,6 +160,7 @@ export const resolvePluginPageTarget = <E, R>(input: {
 			params: {},
 			exportName,
 			plugin: owner,
+			kind: "plugin" as const,
 			entity: {
 				ownerPluginId: owner.id,
 				entityId: entity.entityId,

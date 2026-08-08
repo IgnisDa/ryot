@@ -7,6 +7,7 @@ import {
 } from "@ryot-app/client-plugin-contract";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
+	ClientPagePreparationError,
 	ClientRendererBadRequest,
 	ClientRendererDefinition,
 	ClientRendererNotFound,
@@ -34,7 +35,7 @@ import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { resolveClientPageGraph, type ResolvedClientPageGraph } from "./graph";
-import { getKernelClientRenderer } from "./kernel-renderers";
+import { getKernelClientRenderer, getKernelEntityRenderer } from "./kernel-renderers";
 import { clientPageOperationTargets, resolvePluginPageTarget } from "./prepare";
 import { ClientPagesRepository } from "./repository";
 
@@ -198,6 +199,36 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					plugins: snapshot,
 					findEntity: (entityId) => entities.getClientPageEntityForUser({ userId, entityId }),
 				});
+				if (resolved.kind === "kernel-entity") {
+					const kernelRenderer = getKernelEntityRenderer(resolved.entity.entitySchemaSlug);
+					if (!kernelRenderer) {
+						return yield* new ClientPagePreparationError({
+							reason: {
+								ownerPluginId: null,
+								entityId: resolved.entity.entityId,
+								code: "entity-detail-page-not-registered",
+								entitySchemaSlug: resolved.entity.entitySchemaSlug,
+							},
+						});
+					}
+					const graph = yield* resolveClientPageGraph({
+						userId,
+						kernel: true,
+						plugins: snapshot,
+						rendererName: kernelRenderer.name,
+						rendererFiles: kernelRenderer.files,
+						definition: kernelRenderer.definition,
+						sourceHash: kernelRenderer.sourceHash,
+						loadPluginFiles: (plugin) =>
+							plugins.listAuthorizedSourceFiles({
+								userId,
+								pluginId: plugin.id,
+								sourceHash: plugin.sourceHash,
+								installationId: plugin.installationId,
+							}),
+					});
+					return { ...resolved, graph, operationTargets: clientPageOperationTargets(snapshot) };
+				}
 				const graph = yield* resolveClientPageGraph({
 					userId,
 					plugins: snapshot,
@@ -410,6 +441,9 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				}
 				if (identity.kind === "plugin-page") {
 					const resolved = yield* resolvePluginTarget(userId, identity.target);
+					if (resolved.kind !== "plugin") {
+						return false;
+					}
 					const build = yield* repository.findBuild({
 						userId,
 						graphHash: resolved.graph.graphHash,
@@ -419,6 +453,32 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						resolved.plugin.sourceHash === identity.sourceHash &&
 						resolved.plugin.installationId === identity.installationId &&
 						resolved.exportName === identity.exportName &&
+						resolved.graph.graphHash === identity.graphHash &&
+						Bun.deepEquals(resolved.graph.contributors, identity.contributors) &&
+						build?.id === identity.buildId &&
+						build.artifactHash === identity.artifactHash &&
+						Bun.deepEquals(build.graphIdentity, resolved.graph.identity)
+					);
+				}
+				if (identity.kind === "kernel-entity-page") {
+					const resolved = yield* resolvePluginTarget(userId, identity.target);
+					if (resolved.kind !== "kernel-entity") {
+						return false;
+					}
+					const kernelRenderer = getKernelEntityRenderer(resolved.entity.entitySchemaSlug);
+					if (
+						!kernelRenderer ||
+						kernelRenderer.name !== identity.rendererName ||
+						kernelRenderer.sourceHash !== identity.sourceHash ||
+						resolved.entity.entitySchemaSlug !== identity.entitySchemaSlug
+					) {
+						return false;
+					}
+					const build = yield* repository.findBuild({
+						userId,
+						graphHash: resolved.graph.graphHash,
+					});
+					return (
 						resolved.graph.graphHash === identity.graphHash &&
 						Bun.deepEquals(resolved.graph.contributors, identity.contributors) &&
 						build?.id === identity.buildId &&
@@ -781,6 +841,45 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						bridgeVersion: artifact.bridgeVersion,
 						graphIdentity: resolved.graph.identity,
 						compilerVersion: artifact.compilerVersion,
+					};
+				}
+				if (resolved.kind === "kernel-entity") {
+					if (target.kind !== "entity") {
+						return yield* invalid("Resolved kernel entity page is missing entity target");
+					}
+					const contextTarget = {
+						...target,
+						entitySchemaSlug: resolved.entity.entitySchemaSlug,
+						entitySchemaPluginId: resolved.entity.ownerPluginId,
+					};
+					return {
+						artifact: {
+							format: build.format,
+							hash: build.artifactHash,
+							apiVersion: build.apiVersion,
+							bridgeVersion: build.bridgeVersion,
+							compilerVersion: build.compilerVersion,
+						},
+						context: {
+							view: null,
+							settings: {},
+							dataSources: null,
+							target: contextTarget,
+							route: { params: resolved.params },
+							renderer: { kind: "kernel" as const, name: resolved.rendererName },
+						},
+						identity: {
+							target,
+							buildId: build.id,
+							sourceHash: resolved.sourceHash,
+							artifactHash: build.artifactHash,
+							kind: "kernel-entity-page" as const,
+							rendererName: resolved.rendererName,
+							graphHash: resolved.graph.graphHash,
+							contributors: resolved.graph.contributors,
+							operationTargets: resolved.operationTargets,
+							entitySchemaSlug: resolved.entity.entitySchemaSlug,
+						},
 					};
 				}
 				let contextTarget;

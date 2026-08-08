@@ -186,6 +186,26 @@ export const savedViewPageContext = (options: {
 		target: { kind: "saved-view", savedViewId: options.savedViewId },
 	});
 
+export const kernelEntityPageContext = (options: {
+	readonly entityId: string;
+	readonly entitySchemaSlug: string;
+	readonly rendererName: string;
+	readonly settings?: Record<string, unknown> | undefined;
+}): ClientPageContext =>
+	Schema.decodeUnknownSync(ClientPageContext)({
+		view: null,
+		dataSources: null,
+		route: { params: {} },
+		settings: options.settings ?? {},
+		renderer: { kind: "kernel", name: options.rendererName },
+		target: {
+			kind: "entity",
+			entityId: options.entityId,
+			entitySchemaPluginId: null,
+			entitySchemaSlug: options.entitySchemaSlug,
+		},
+	});
+
 const mounted: Array<{ dispose: () => void }> = [];
 
 export const disposePluginBridges = () => {
