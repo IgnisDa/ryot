@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import type { MouseEvent } from "react";
 
 import { AppIcon } from "#/modules/navigation/app-icon";
@@ -37,10 +38,10 @@ export function SettingsSectionNav(props: SettingsSectionNavProps) {
 						onClick={navigate}
 						href={section.path}
 						aria-current={isActive ? "page" : undefined}
-						className={[
+						className={clsx(
 							"flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm",
 							isActive ? "bg-nav-indicator text-text" : "text-text-muted hover:bg-surface-2",
-						].join(" ")}
+						)}
 					>
 						<AppIcon name={section.icon} size={17} className="text-text-muted" />
 						<span className="flex-1">{section.label}</span>
