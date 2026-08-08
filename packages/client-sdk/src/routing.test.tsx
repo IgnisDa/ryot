@@ -125,7 +125,8 @@ const mount = (
 		container,
 		store: channel.store,
 		messages: channel.messages,
-		setEdgeBack: (enabled: boolean) => act(() => channel.store.setEdgeBack(enabled)),
+		setEdge: (edge: { readonly compact: boolean; readonly edgeBack: boolean }) =>
+			act(() => channel.store.setEdge(edge)),
 		sendLocation: (
 			path: string,
 			search = "",
@@ -360,6 +361,38 @@ describe("PluginRouter", () => {
 		expect(mountCount).toBe(1);
 	});
 
+	it("paints the retained screen instead of hiding it while a compact pop settles", async () => {
+		const { container, sendLocation, setEdge } = mount([
+			{ path: "/items/$itemId", component: ItemRoute },
+		]);
+		setEdge({ compact: true, edgeBack: true });
+		sendLocation("/");
+		sendLocation("/items/item-1");
+		await waitFor(() => expect(container.textContent).toContain("Item item-1"));
+
+		sendLocation("/", "", { index: 0 });
+		await waitFor(() => expect(container.textContent).not.toContain("Item item-1"));
+
+		const screens = container.querySelectorAll('[tabindex="-1"]');
+		expect(screens).toHaveLength(1);
+		expect((screens[0] as HTMLElement).style.visibility).toBe("visible");
+		expect((screens[0] as HTMLElement).style.transform).toBe("");
+	});
+
+	it("swaps without retaining a leaving screen when the viewport is not compact", async () => {
+		const { container, sendLocation } = mount([{ path: "/items/$itemId", component: ItemRoute }]);
+		sendLocation("/");
+		await waitFor(() => expect(container.textContent).toContain("Greeted 0 times."));
+		sendLocation("/items/item-1");
+		await waitFor(() => expect(container.textContent).toContain("Item item-1"));
+
+		sendLocation("/", "", { index: 0 });
+		await waitFor(() => expect(container.querySelectorAll('[tabindex="-1"]')).toHaveLength(1));
+
+		expect(container.textContent).toContain("Greeted 0 times.");
+		expect(mountCount).toBe(1);
+	});
+
 	it("keeps a retained screen mounted and inert beneath the top screen", async () => {
 		const { container, sendLocation } = mount([{ path: "/items/$itemId", component: ItemRoute }]);
 		sendLocation("/");
@@ -384,13 +417,13 @@ describe("PluginRouter", () => {
 	});
 
 	it("posts one navigate-back when an edge drag passes the commit threshold", async () => {
-		const { container, messages, sendLocation, setEdgeBack } = mount([
+		const { container, messages, sendLocation, setEdge } = mount([
 			{ path: "/items/$itemId", component: ItemRoute },
 		]);
 		sendLocation("/");
 		sendLocation("/items/item-1");
 		await waitFor(() => expect(container.textContent).toContain("Item item-1"));
-		setEdgeBack(true);
+		setEdge({ compact: true, edgeBack: true });
 
 		const edge = container.querySelector('[data-plugin-edge="back"]');
 		const root = container.firstElementChild;
@@ -405,17 +438,27 @@ describe("PluginRouter", () => {
 			edge.dispatchEvent(pointer("pointerup", 160));
 		});
 
+		const committing = container.querySelectorAll('[tabindex="-1"]');
+		expect(committing).toHaveLength(2);
+		for (const screen of committing) {
+			expect((screen as HTMLElement).style.visibility).toBe("visible");
+		}
+
 		await waitFor(() => expect(messages).toEqual([{ type: "navigate-back" }]));
+
+		sendLocation("/", "", { index: 0 });
+		await waitFor(() => expect(container.querySelectorAll('[tabindex="-1"]')).toHaveLength(1));
+		expect(container.textContent).not.toContain("Item item-1");
 	});
 
 	it("posts nothing when an edge drag is released below the commit threshold", async () => {
-		const { container, messages, sendLocation, setEdgeBack } = mount([
+		const { container, messages, sendLocation, setEdge } = mount([
 			{ path: "/items/$itemId", component: ItemRoute },
 		]);
 		sendLocation("/");
 		sendLocation("/items/item-1");
 		await waitFor(() => expect(container.textContent).toContain("Item item-1"));
-		setEdgeBack(true);
+		setEdge({ compact: true, edgeBack: true });
 
 		const edge = container.querySelector('[data-plugin-edge="back"]');
 		const root = container.firstElementChild;
@@ -430,7 +473,9 @@ describe("PluginRouter", () => {
 			edge.dispatchEvent(pointer("pointerup", 30));
 		});
 
-		await new Promise((resolve) => setTimeout(resolve, 0));
+		await act(async () => {
+			await new Promise((resolve) => setTimeout(resolve, 0));
+		});
 		expect(messages).toEqual([]);
 	});
 

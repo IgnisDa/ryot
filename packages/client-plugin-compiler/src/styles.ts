@@ -36,6 +36,7 @@ const clientBaseStylesheet = `@layer base {
 	}
 
 	body {
+		background: var(--bg);
 		font-family: var(--font-family-ui);
 	}
 

@@ -185,7 +185,7 @@ function PluginFrame(props: {
 		signal: AbortSignal,
 	) => Promise<PluginOperationDispatchOutcome>;
 }) {
-	const { edgeBack, index, key, location } = props.navigation;
+	const { compact, edgeBack, index, key, location } = props.navigation;
 	const { path, search } = location;
 	const latest = useRef(props);
 	const frame = useRef<HTMLIFrameElement>(null);
@@ -361,8 +361,8 @@ function PluginFrame(props: {
 
 	useEffect(() => {
 		window.clearTimeout(backSettle.current);
-		bridge.current?.sendLocation({ edgeBack, index, key, location: { path, search } });
-	}, [edgeBack, index, key, path, search]);
+		bridge.current?.sendLocation({ compact, edgeBack, index, key, location: { path, search } });
+	}, [compact, edgeBack, index, key, path, search]);
 
 	useEffect(
 		() =>
