@@ -7,6 +7,7 @@ import { Text } from "react-native";
 import { temporaryFileUploadOperation } from "@/api/files/upload";
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
+import { useTrackEvent } from "@/modules/analytics/state";
 import { openExternalLink } from "@/modules/ui/external-link";
 import { CatalogPicker } from "@/modules/ui/plugin-catalog/catalog-picker";
 import { findBySlug } from "@/modules/ui/plugin-catalog/catalog-selection";
@@ -54,6 +55,7 @@ export function ImportStartWizard(props: { readonly onClose: () => void }) {
 	const sourcesAtom = importSourcesAtom(scope);
 	const result = useAtomValue(sourcesAtom);
 	const refreshSources = useAtomRefresh(sourcesAtom);
+	const trackEvent = useTrackEvent();
 	const createRun = useAtomSet(createImportRunAtom(scope), { mode: "promiseExit" });
 	const [pending, setPending] = useState(false);
 	const [startCause, setStartCause] = useState<unknown>();
@@ -92,6 +94,7 @@ export function ImportStartWizard(props: { readonly onClose: () => void }) {
 			}
 			return;
 		}
+		trackEvent("Deploy Import", { source: source.slug });
 		props.onClose();
 	});
 
