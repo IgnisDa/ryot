@@ -7,7 +7,11 @@ import { Effect, FileSystem, Layer, Stream } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { Database } from "#lib/infrastructure/db/service";
-import { makeWorkflowActivityEngine, type MockOverrides } from "#lib/test-utils/effect";
+import {
+	makeAppConfigLayer,
+	makeWorkflowActivityEngine,
+	type MockOverrides,
+} from "#lib/test-utils/effect";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
@@ -23,6 +27,8 @@ import {
 } from "./workflow";
 import { BackupRestoreWriter } from "./writer";
 
+const localTempDir = "/tmp/ryot-backup-restore-tests";
+const EMPTY_SHA256 = new CryptoHasher("sha256").digest("hex");
 const userId = UserId.make("user-id");
 const runId = BackupRunId.make("run-id");
 const payload = { runId, userId, uploadToken: "upload-token" };
@@ -60,6 +66,7 @@ const makeLayer = (input: {
 		Layer.provide(
 			Layer.mergeAll(
 				input.fileSystem ?? BunFileSystem.layer,
+				makeAppConfigLayer({ fileStorage: { localTempDir } }),
 				Layer.succeed(Database, Object.assign(Object.create(null), input.database ?? {})),
 				mockRepository(input.repository),
 				mockWriter(input.writer ?? {}),
@@ -184,8 +191,8 @@ it.effect("keeps a committed restore successful when spool cleanup fails", () =>
 		archiveId: "archive-id",
 		appVersion: "backend-v1",
 		createdAt: "2026-08-23T12:00:00.000Z",
+		events: { count: 0, bytes: 0, chunks: [], sha256: EMPTY_SHA256 },
 		records: {
-			events: [],
 			entities: [],
 			savedViews: [],
 			pluginState: [],
@@ -297,8 +304,8 @@ it.effect("rolls back managed assets and domain rows and removes newly staged ob
 		archiveId: "archive-id",
 		appVersion: "backend-v1",
 		createdAt: "2026-08-23T12:00:00.000Z",
+		events: { count: 0, bytes: 0, chunks: [], sha256: EMPTY_SHA256 },
 		records: {
-			events: [],
 			entities: [],
 			savedViews: [],
 			pluginState: [],

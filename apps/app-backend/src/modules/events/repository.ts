@@ -46,6 +46,7 @@ type RestoreEventInput = Pick<
 >;
 
 export const BACKUP_EVENT_PAGE_SIZE = 500;
+export const RESTORE_EVENT_BATCH_SIZE = 1_000;
 
 const createdEventSelection = {
 	id: schema.event.id,
@@ -103,16 +104,14 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 			return row !== undefined;
 		});
 
-		const restoreEvent = Effect.fn("EventsRepository.restoreEvent")(function* (
-			input: RestoreEventInput,
+		const restoreEvents = Effect.fn("EventsRepository.restoreEvents")(function* (
+			inputs: ReadonlyArray<RestoreEventInput>,
 		) {
+			if (inputs.length === 0) {
+				return;
+			}
 			const db = yield* Database;
-			const [row] = yield* mapDatabaseErrors(
-				db.insert(schema.event).values(input).returning({ id: schema.event.id }),
-			);
-			return row
-				? EventId.make(row.id)
-				: yield* new DbError({ message: "Event restore returned no row" });
+			yield* mapDatabaseErrors(db.insert(schema.event).values([...inputs]));
 		});
 
 		const createEvent = Effect.fn("EventsRepository.createEvent")(function* (input: {
@@ -233,7 +232,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 		return {
 			deleteEvent,
 			createEvent,
-			restoreEvent,
+			restoreEvents,
 			hasUserEvents,
 			listUserEventsForBackup,
 			listUserEventIdsForEntity,

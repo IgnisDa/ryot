@@ -6,34 +6,35 @@ import { Database } from "#lib/infrastructure/db/service";
 
 import { BACKUP_EVENT_PAGE_SIZE, EventsRepository } from "./repository";
 
-it.effect("restores an event with its archived identity and timestamps", () => {
-	let persisted: Record<string, unknown> | undefined;
+const restoreEventInput = (id: string) => ({
+	sessionEntityId: null,
+	properties: { rating: 80 },
+	id: EventId.make(id),
+	userId: UserId.make("user-id"),
+	entityId: EntityId.make("entity-id"),
+	eventSchemaSlug: EventSchemaSlug.make("review"),
+	createdAt: new Date("2024-01-01T00:00:00.000Z"),
+	updatedAt: new Date("2024-02-01T00:00:00.000Z"),
+	occurredAt: new Date("2023-12-01T00:00:00.000Z"),
+});
+
+it.effect("restores archived events as one batched insert and skips empty batches", () => {
+	const inserts: Array<ReadonlyArray<Record<string, unknown>>> = [];
 	const db = {
 		insert: () => ({
-			values: (values: Record<string, unknown>) => ({
-				returning: () => {
-					persisted = values;
-					return Effect.succeed([{ id: values["id"] }]);
-				},
-			}),
+			values: (values: ReadonlyArray<Record<string, unknown>>) => {
+				inserts.push(values);
+				return Effect.void;
+			},
 		}),
 	};
-	const input = {
-		sessionEntityId: null,
-		properties: { rating: 80 },
-		id: EventId.make("event-id"),
-		userId: UserId.make("user-id"),
-		entityId: EntityId.make("entity-id"),
-		eventSchemaSlug: EventSchemaSlug.make("review"),
-		createdAt: new Date("2024-01-01T00:00:00.000Z"),
-		updatedAt: new Date("2024-02-01T00:00:00.000Z"),
-		occurredAt: new Date("2023-12-01T00:00:00.000Z"),
-	};
+	const batch = [restoreEventInput("event-1"), restoreEventInput("event-2")];
 
 	return Effect.gen(function* () {
 		const repository = yield* EventsRepository;
-		expect(yield* repository.restoreEvent(input)).toBe(input.id);
-		expect(persisted).toEqual(input);
+		yield* repository.restoreEvents(batch);
+		yield* repository.restoreEvents([]);
+		expect(inserts).toEqual([batch]);
 	}).pipe(
 		Effect.provide(
 			Layer.mergeAll(
