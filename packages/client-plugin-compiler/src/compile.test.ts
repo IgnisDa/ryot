@@ -10,7 +10,6 @@ import {
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { waitFor } from "@testing-library/dom";
 import { Effect } from "effect";
-// @ts-expect-error jsdom does not publish bundled TypeScript declarations.
 import { JSDOM } from "jsdom";
 import { parse } from "postcss";
 
