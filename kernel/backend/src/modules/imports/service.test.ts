@@ -340,7 +340,7 @@ it.effect("claims only the visible upload from mutually exclusive required field
 		Layer.mergeAll(
 			makeImportSourceCatalog(source),
 			mockUploadsService({
-				deleteTemporaryUpload: () => Effect.sync(() => undefined),
+				deleteTemporaryUpload: () => Effect.void.pipe(Effect.as(undefined)),
 				claimTemporaryUpload: (token, _userId, claimId) =>
 					Effect.sync(() => {
 						claims.push({ token, claimId });
@@ -392,7 +392,7 @@ it.effect("claims only the visible upload from mutually exclusive required field
 			ttlSeconds: IMPORT_SOURCE_STATE_PENDING_TTL_SECONDS,
 		});
 		assert(stored[0]);
-		expect(yield* Schema.decodeUnknownEffect(ImportSourceStateFromJson)(stored[0].value)).toEqual({
+		expect(yield* Schema.decodeEffect(ImportSourceStateFromJson)(stored[0].value)).toEqual({
 			source: "movary",
 			pluginId: "example-plugin-id",
 			uploadIntentIds: ["intent-history"],
@@ -566,7 +566,7 @@ it.effect("stores decoded payload credentials without exposing them in the input
 		expect(options).not.toHaveProperty("payload.sourcePayload");
 		expect(options).not.toHaveProperty("payload.apiKey");
 		assert(stored[0]);
-		expect(yield* Schema.decodeUnknownEffect(ImportSourceStateFromJson)(stored[0])).toMatchObject({
+		expect(yield* Schema.decodeEffect(ImportSourceStateFromJson)(stored[0])).toMatchObject({
 			sourcePayload: { apiKey: "secret" },
 		});
 	}).pipe(Effect.provide(layer));
@@ -638,7 +638,7 @@ it.effect("records the resolving installation on the run and its durable source 
 
 		expect(createdInput?.pluginInstallationId).toBe("private-installation");
 		assert(stored[0]);
-		expect(yield* Schema.decodeUnknownEffect(ImportSourceStateFromJson)(stored[0])).toMatchObject({
+		expect(yield* Schema.decodeEffect(ImportSourceStateFromJson)(stored[0])).toMatchObject({
 			pluginId: "private-plugin-id",
 			workflowScriptId: "accepted-import-script",
 			pluginInstallationId: "private-installation",

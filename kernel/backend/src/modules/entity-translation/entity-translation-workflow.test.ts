@@ -44,7 +44,7 @@ const mockTranslationsService = Layer.mock(TranslationsService);
 const makeTranslationsService = (overrides: MockOverrides<typeof mockTranslationsService> = {}) =>
 	mockTranslationsService({
 		requestFill: () => Effect.void,
-		upsert: () => Effect.sync(() => undefined),
+		upsert: () => Effect.void.pipe(Effect.as(undefined)),
 		...overrides,
 	});
 
@@ -96,7 +96,7 @@ it.effect("upserts the translation overlay and publishes an update on success", 
 		translationsService: makeTranslationsService({
 			upsert: (input) => {
 				upsertedInput = input;
-				return Effect.sync(() => undefined);
+				return Effect.void.pipe(Effect.as(undefined));
 			},
 		}),
 		processSandbox: () =>

@@ -25,7 +25,7 @@ const makeTranslationsRepository = (
 	mockTranslationsRepository({
 		listByEntity: () => Effect.succeed([]),
 		findUserLanguage: () => Effect.succeed(null),
-		upsertOverlay: () => Effect.sync(() => undefined),
+		upsertOverlay: () => Effect.void.pipe(Effect.as(undefined)),
 		...overrides,
 	});
 

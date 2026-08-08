@@ -53,14 +53,14 @@ describe("RyotQL row pagination", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schemaId } = yield* createSchema(client, "RyotQLPaginationTies");
-			const entities = yield* Effect.all(
-				["Tie One", "Tie Two", "Tie Three", "Tie Four", "Tie Five"].map((name) =>
+			const entities = yield* Effect.forEach(
+				["Tie One", "Tie Two", "Tie Three", "Tie Four", "Tie Five"],
+				(name) =>
 					createEntityFixture(client, {
 						name,
 						entitySchemaSlug: schemaId,
 						properties: { sortValue: 1 },
 					}),
-				),
 			);
 
 			const entity = table("entity", "entity");
@@ -169,10 +169,8 @@ describe("RyotQL row pagination", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schemaId } = yield* createSchema(client, "RyotQLPaginationInvalidCursor");
-			yield* Effect.all(
-				["First", "Second", "Third"].map((name) =>
-					createEntityFixture(client, { name, entitySchemaSlug: schemaId }),
-				),
+			yield* Effect.forEach(["First", "Second", "Third"], (name) =>
+				createEntityFixture(client, { name, entitySchemaSlug: schemaId }),
 			);
 
 			const entity = table("entity", "entity");

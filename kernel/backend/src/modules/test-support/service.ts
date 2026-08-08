@@ -92,7 +92,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				}) {
 					const files = Object.fromEntries(
 						yield* Effect.forEach(Object.entries(input.files), ([path, contents]) =>
-							Schema.decodeUnknownEffect(Schema.Uint8ArrayFromBase64)(contents).pipe(
+							Schema.decodeEffect(Schema.Uint8ArrayFromBase64)(contents).pipe(
 								Effect.map((decoded) => [path, decoded] as const),
 								Effect.mapError(
 									() =>

@@ -44,9 +44,9 @@ export class ClientPageSessionService extends Context.Service<ClientPageSessionS
 				if (raw === null) {
 					return yield* notFound();
 				}
-				const payload = yield* Schema.decodeUnknownEffect(ClientPageSessionPayloadFromJson)(
-					raw,
-				).pipe(Effect.mapError(notFound));
+				const payload = yield* Schema.decodeEffect(ClientPageSessionPayloadFromJson)(raw).pipe(
+					Effect.mapError(notFound),
+				);
 				return { raw, payload };
 			});
 			const current = Effect.fn(function* (
