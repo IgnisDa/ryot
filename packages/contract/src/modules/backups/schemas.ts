@@ -1,20 +1,18 @@
 import { Schema } from "effect";
 
 import { BackupRunId } from "../../schema/brands";
+import { RunStatus } from "../../schema/run-status";
 
 export const BackupRunKind = Schema.Literals(["export", "restore"]);
 export type BackupRunKind = typeof BackupRunKind.Type;
-
-export const BackupRunStatus = Schema.Literals(["pending", "running", "completed", "failed"]);
-export type BackupRunStatus = typeof BackupRunStatus.Type;
 
 export const BackupRunArtifactProvider = Schema.Literals(["local", "s3"]);
 export type BackupRunArtifactProvider = typeof BackupRunArtifactProvider.Type;
 
 export const BackupRun = Schema.Struct({
 	id: BackupRunId,
+	status: RunStatus,
 	kind: BackupRunKind,
-	status: BackupRunStatus,
 	progress: Schema.Number,
 	createdAt: Schema.String,
 	error: Schema.NullOr(Schema.String),

@@ -6,18 +6,15 @@ import { router } from "expo-router";
 import { useEffect, useEffectEvent, useState } from "react";
 import { Text, View } from "react-native";
 
-import { badRequestMessage } from "@/api/request-failure";
+import { requestFailureMessage } from "@/api/request-failure";
 import { useApiScope } from "@/api/scope";
 import { temporaryFileUploadOperation } from "@/api/uploads";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
-import { isTerminalImportRunStatus } from "@/modules/import-runs/run-presentation";
-import {
-	IMPORT_LIST_POLL_MS,
-	useImportRunPolling,
-} from "@/modules/import-runs/use-import-run-polling";
 import { ChildScreenFrame } from "@/modules/navigation/child-screen-frame";
 import type { HeaderOverflowItem } from "@/modules/navigation/header/header-overflow-menu";
 import { copyTextToClipboard } from "@/modules/ui/clipboard";
+import { isTerminalRunStatus } from "@/modules/ui/run/run-status";
+import { RUN_LIST_POLL_MS, useRunPolling } from "@/modules/ui/run/use-run-polling";
 import { useSchemaForm } from "@/modules/ui/schema-form/schema-form";
 import type { SchemaFormValues } from "@/modules/ui/schema-form/schema-form-state";
 
@@ -89,10 +86,10 @@ export function IntegrationDetailScreen(props: { integrationId: string }) {
 	);
 	useInternalRequestFailureLogging("integration update failed", saveCause);
 	useInternalRequestFailureLogging("integration delete failed", deleteFailure);
-	useImportRunPolling({
+	useRunPolling({
 		refresh: refreshRuns,
-		intervalMs: IMPORT_LIST_POLL_MS,
-		enabled: runs.some((run) => !isTerminalImportRunStatus(run.status)),
+		intervalMs: RUN_LIST_POLL_MS,
+		enabled: runs.some((run) => !isTerminalRunStatus(run.status)),
 	});
 
 	const save = useEffectEvent(async (values: SchemaFormValues) => {
@@ -110,7 +107,7 @@ export function IntegrationDetailScreen(props: { integrationId: string }) {
 		setSaving(false);
 		if (Exit.isFailure(exit)) {
 			setSaveCause(exit.cause);
-			setSaveDetail(integrationSaveFailure(badRequestMessage(exit.cause)).detail);
+			setSaveDetail(integrationSaveFailure(requestFailureMessage(exit.cause)).detail);
 		}
 	});
 
