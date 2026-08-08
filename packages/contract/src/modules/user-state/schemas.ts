@@ -2,6 +2,38 @@ import { Schema } from "effect";
 
 import { EntityId } from "../../schema/brands";
 
+const UserStateBadRequestReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("same-entity-merge") }),
+	Schema.Struct({ code: Schema.Literal("entity-schema-mismatch") }),
+	Schema.Struct({ code: Schema.Literal("relationship-merge-failed") }),
+	Schema.Struct({ code: Schema.Literal("identity-property-mismatch"), property: Schema.String }),
+	Schema.Struct({
+		code: Schema.Literal("required-field"),
+		field: Schema.Literals(["entityId", "mergeFrom", "mergeInto"]),
+	}),
+	Schema.Struct({
+		code: Schema.Literal("operation-denied"),
+		operation: Schema.Literals(["clear", "merge"]),
+	}),
+]);
+
+const UserStateNotFoundReason = Schema.Union([
+	Schema.Struct({
+		entityIds: Schema.NonEmptyArray(EntityId),
+		code: Schema.Literal("entity-not-found"),
+	}),
+]);
+
+export class UserStateBadRequest extends Schema.TaggedError<UserStateBadRequest>()(
+	"UserStateBadRequest",
+	{ reason: UserStateBadRequestReason },
+) {}
+
+export class UserStateNotFound extends Schema.TaggedError<UserStateNotFound>()(
+	"UserStateNotFound",
+	{ reason: UserStateNotFoundReason },
+) {}
+
 export const ClearUserStateResponse = Schema.Struct({
 	entityId: EntityId,
 	deletedEventsCount: Schema.Number,

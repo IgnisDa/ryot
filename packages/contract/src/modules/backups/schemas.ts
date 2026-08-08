@@ -6,6 +6,102 @@ import { RunStatus } from "../../schema/run-status";
 export const BackupRunKind = Schema.Literals(["export", "restore"]);
 export type BackupRunKind = typeof BackupRunKind.Type;
 
+export const BackupAccountDataCategory = Schema.Literals([
+	"events",
+	"entities",
+	"preferences",
+	"relationships",
+	"saved-views",
+	"plugin-state",
+	"integrations",
+	"managed-assets",
+	"notification-channels",
+	"notification-subscriptions",
+]);
+export type BackupAccountDataCategory = typeof BackupAccountDataCategory.Type;
+
+export const BackupRunFailure = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("account-not-clean"), category: BackupAccountDataCategory }),
+	Schema.Struct({
+		code: Schema.Literal("archive-invalid"),
+		issue: Schema.Literals([
+			"invalid-entry",
+			"invalid-path",
+			"missing-entry",
+			"count-mismatch",
+			"duplicate-path",
+			"entry-too-large",
+			"invalid-archive",
+			"unexpected-path",
+			"truncated-ndjson",
+			"undeclared-asset",
+			"checksum-mismatch",
+			"duplicate-record-id",
+			"total-size-exceeded",
+			"entry-count-exceeded",
+			"missing-reference-mapping",
+		]),
+	}),
+	Schema.Struct({
+		code: Schema.Literal("archive-unsupported"),
+		feature: Schema.Literals(["format", "compression"]),
+	}),
+	Schema.Struct({
+		code: Schema.Literal("required-plugin-unavailable"),
+		pluginSlug: Schema.String,
+		requiredVersion: Schema.String,
+	}),
+	Schema.Struct({ code: Schema.Literal("upload-unavailable") }),
+	Schema.Struct({ code: Schema.Literal("unexpected-failure"), operation: BackupRunKind }),
+]);
+export type BackupRunFailure = typeof BackupRunFailure.Type;
+
+const BackupBadRequestReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("account-not-found") }),
+	Schema.Struct({ code: Schema.Literal("bootstrap-definition-unavailable") }),
+	Schema.Struct({ code: Schema.Literal("restore-has-no-artifact") }),
+	Schema.Struct({ code: Schema.Literal("export-has-no-artifact") }),
+]);
+
+const BackupConflictReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("active-run-exists") }),
+	Schema.Struct({ code: Schema.Literal("account-not-clean"), category: BackupAccountDataCategory }),
+	Schema.Struct({ code: Schema.Literal("export-still-running") }),
+	Schema.Struct({ code: Schema.Literal("run-still-active") }),
+]);
+
+const BackupNotFoundReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("run-not-found") }),
+	Schema.Struct({ code: Schema.Literal("artifact-expired") }),
+	Schema.Struct({ code: Schema.Literal("artifact-not-found") }),
+]);
+
+const BackupInternalErrorReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("persistence-failed") }),
+	Schema.Struct({ code: Schema.Literal("export-dispatch-failed") }),
+	Schema.Struct({ code: Schema.Literal("restore-dispatch-failed") }),
+	Schema.Struct({ code: Schema.Literal("artifact-storage-unavailable") }),
+	Schema.Struct({ code: Schema.Literal("artifact-delete-failed") }),
+	Schema.Struct({ code: Schema.Literal("unexpected-error") }),
+]);
+
+export class BackupBadRequest extends Schema.TaggedError<BackupBadRequest>()("BackupBadRequest", {
+	reason: BackupBadRequestReason,
+}) {}
+
+export class BackupConflict extends Schema.TaggedError<BackupConflict>()("BackupConflict", {
+	reason: BackupConflictReason,
+}) {}
+
+export class BackupNotFound extends Schema.TaggedError<BackupNotFound>()("BackupNotFound", {
+	reason: BackupNotFoundReason,
+}) {}
+
+export class BackupInternalError extends Schema.TaggedError<BackupInternalError>()(
+	"BackupInternalError",
+	{ reason: BackupInternalErrorReason },
+) {}
+
 export const BackupRunArtifactProvider = Schema.Literals(["local", "s3"]);
 export type BackupRunArtifactProvider = typeof BackupRunArtifactProvider.Type;
 
@@ -15,7 +111,7 @@ export const BackupRun = Schema.Struct({
 	kind: BackupRunKind,
 	progress: Schema.Number,
 	createdAt: Schema.String,
-	error: Schema.NullOr(Schema.String),
+	failure: Schema.NullOr(BackupRunFailure),
 	expiresAt: Schema.NullOr(Schema.String),
 	startedAt: Schema.NullOr(Schema.String),
 	finishedAt: Schema.NullOr(Schema.String),
