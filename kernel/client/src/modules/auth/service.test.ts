@@ -43,16 +43,12 @@ const makeStorage = (
 	});
 
 describe("authentication service", () => {
-	it.effect("registers before signing in and returns the available two-factor methods", () => {
+	it.effect("uses the session established by password signup without signing in again", () => {
 		const calls: string[] = [];
 		const client = makeAuthClient({
 			refreshSession: () => Effect.sync(() => calls.push("refresh-session")),
 			signUp: (_origin, values) => Effect.sync(() => calls.push(`signup:${values.name}`)),
-			signIn: (_origin, values) =>
-				Effect.sync(() => {
-					calls.push(`signin:${values.email}`);
-					return { twoFactorRedirect: true, twoFactorMethods: ["totp"] };
-				}),
+			signIn: (_origin, values) => Effect.sync(() => calls.push(`signin:${values.email}`)),
 		});
 		const dependencies = Layer.mergeAll(Layer.succeed(AuthClient, client), makeStorage());
 
@@ -64,8 +60,8 @@ describe("authentication service", () => {
 				values: { email: "user@example.com", password: "password" },
 			});
 
-			expect(result).toEqual({ _tag: "TwoFactor", methods: ["totp", "backupCode"] });
-			expect(calls).toEqual(["signup:user", "signin:user@example.com"]);
+			expect(result).toEqual({ _tag: "Authenticated" });
+			expect(calls).toEqual(["signup:user", "refresh-session"]);
 		}).pipe(Effect.provide(AuthService.layer), Effect.provide(dependencies));
 	});
 

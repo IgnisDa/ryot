@@ -39,29 +39,38 @@ describe("route gates", () => {
 	const result = parseServerOrigin("https://example.com");
 	assert(result.ok);
 
-	it("routes root according to server selection", () => {
-		expect(decideRootGate(null)).toEqual({ action: "redirect", to: "/onboarding" });
-		expect(decideRootGate(result.origin)).toEqual({ action: "redirect", to: "/auth" });
+	it("always routes web to auth and keeps native onboarding", () => {
+		expect(decideRootGate(false, null)).toEqual({ action: "redirect", to: "/auth" });
+		expect(decideRootGate(true, null)).toEqual({ action: "redirect", to: "/onboarding" });
+		expect(decideRootGate(true, result.origin)).toEqual({ action: "redirect", to: "/auth" });
 	});
 
 	it("keeps safe intent while onboarding and uses it after connection", () => {
-		expect(decideOnboardingGate(null, "/library?tab=history")).toEqual({
+		expect(decideOnboardingGate(true, null, "/library?tab=history")).toEqual({
 			action: "stay",
 			redirectTo: "/library?tab=history",
 		});
-		expect(decideOnboardingGate(result.origin, "/library?tab=history")).toEqual({
+		expect(decideOnboardingGate(true, result.origin, "/library?tab=history")).toEqual({
 			to: "/auth",
 			action: "redirect",
 			redirectTo: "/library?tab=history",
 		});
 	});
 
+	it("makes onboarding unreachable on web", () => {
+		expect(decideOnboardingGate(false, null, "/library")).toEqual({
+			to: "/auth",
+			action: "redirect",
+			redirectTo: "/library",
+		});
+	});
+
 	it("falls back safely for unsafe intent", () => {
-		expect(decideOnboardingGate(null, "https://evil.example")).toEqual({
+		expect(decideOnboardingGate(true, null, "https://evil.example")).toEqual({
 			action: "stay",
 			redirectTo: undefined,
 		});
-		expect(decideOnboardingGate(result.origin, "/auth/reset")).toEqual({
+		expect(decideOnboardingGate(true, result.origin, "/auth/reset")).toEqual({
 			to: "/auth",
 			action: "redirect",
 			redirectTo: undefined,

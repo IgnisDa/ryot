@@ -7,6 +7,9 @@ import { Effect, Layer, Schema } from "effect";
 
 import { PublicApi } from "#/api/public";
 import type { ApiScope } from "#/api/scope";
+import { HostedAuthService } from "#/modules/auth/hosted-service";
+import { OAuthLauncher } from "#/modules/auth/oauth-launcher";
+import { OAuthStorage } from "#/modules/auth/oauth-storage";
 import { AuthService } from "#/modules/auth/service";
 import { ServerService } from "#/modules/server/service";
 import type { ThemeStore } from "#/modules/theme/store";
@@ -69,6 +72,41 @@ export const ServerStub = Layer.succeed(ServerService, {
 	connect: () => Effect.void,
 	selected: Effect.succeed(server),
 });
+
+export const OAuthRouteStubs = Layer.mergeAll(
+	Layer.succeed(HostedAuthService, {
+		signInWithOidc: () => Effect.void,
+		verifyTwoFactor: () => Effect.void,
+		submitCredentials: () => Effect.succeed({ _tag: "Authenticated" } as const),
+	}),
+	Layer.succeed(OAuthStorage, {
+		setPending: () => Effect.void,
+		setTokenSet: () => Effect.void,
+		getPending: () => Effect.succeed(null),
+		getTokenSet: () => Effect.succeed(null),
+	}),
+	Layer.succeed(OAuthLauncher, {
+		launch: () => Effect.void,
+		prepare: () =>
+			Effect.succeed({
+				_tag: "Ready",
+				plan: {
+					isNative: false,
+					authorizationUrl: `${server}/api/auth/oauth2/authorize`,
+					pending: {
+						createdAt: 1,
+						state: "state",
+						nonce: "nonce",
+						destination: "/",
+						clientId: "ryot-web",
+						serverOrigin: server,
+						codeVerifier: "verifier",
+						redirectUri: `${server}/auth/callback`,
+					},
+				},
+			} as const),
+	}),
+);
 
 export type WorkspaceStorageRecorder = {
 	readonly getScopes: ApiScope[];
