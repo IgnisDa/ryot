@@ -11,7 +11,9 @@
     "soak-hermetic-import stalled 171 of its 200 imports above 600 s on Effect 4.0.0-rc.116, upstream issue 8312. Its latency, throughput and retention figures measure the defect, not the sandbox. See effect-workflow-stall.md.",
     "This manifest was completed by hand. The soak-hermetic-import run exited 1 when its final updateManifest hit EPERM opening this file during a host filesystem fault; the scenario itself had already completed all 10 waves and written its artifact.",
     "The seven phase invocation records were reconstructed from the scenario artifacts. Each phase command recorded itself in this manifest when it started, but those writes did not survive: the file on disk matched its last committed state, which predates the idle phase. Every field is derived from the artifacts that invocation produced, so the start and end times bound the scenario work rather than the process lifetime.",
-    "The manifest profiles block was filled by hand from profiles/summary.json. No command writes it, so a verified raw-profile deletion would otherwise not be recorded in the manifest."
+    "The manifest profiles block was filled by hand from profiles/summary.json. No command writes it, so a verified raw-profile deletion would otherwise not be recorded in the manifest.",
+    "The soak-control-extended invocation recorded scenarioIds as an empty array. The scenario id was filled in by hand from the artifact, which carries its own invocationId. summarize-run.ts validates artifact provenance against invocation records but does not reject an empty scenarioIds, so the omission was silent.",
+    "The complete soak-control-extended artifact was destroyed after the run by an operator error and the scenario is being re-run. See defects.md defect 25. The trimmed copy committed in the interim carries metrics and request records only, so summarize-run.ts cannot regenerate summary.json from the artifacts until the re-run lands."
   ],
   "completedAtUtc": null,
   "invocations": [
@@ -137,6 +139,17 @@
       ],
       "stopReason": null,
       "completedAtUtc": "2026-09-20T11:57:31.039Z",
+      "outcome": "completed"
+    },
+    {
+      "command": "soak",
+      "invocationId": "soak-f16b3ad6",
+      "startedAtUtc": "2026-09-20T12:45:04.075Z",
+      "scenarioIds": [
+        "soak-control-extended"
+      ],
+      "stopReason": null,
+      "completedAtUtc": "2026-09-20T16:16:14.650Z",
       "outcome": "completed"
     }
   ],
