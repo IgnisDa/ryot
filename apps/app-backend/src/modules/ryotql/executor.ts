@@ -6,7 +6,6 @@ import type {
 	AggregationSpec,
 	CorrelatedQuerySet,
 	FieldSelection,
-	FieldValue,
 	Include,
 	IncludeResult,
 	NamedQuery,
@@ -48,6 +47,7 @@ type Order = {
 	readonly expr: ScalarExpression;
 	readonly direction: "asc" | "desc";
 };
+type RuntimeKind = CatalogFieldKind | "null";
 type CursorValue =
 	| { readonly kind: "null"; readonly value: null }
 	| { readonly kind: "boolean"; readonly value: boolean }
@@ -1082,7 +1082,7 @@ const compileTimeSeriesQuery = (query: TimeSeriesQuery, executionScope: RyotQLEx
 	`;
 };
 
-const normalizeValue = (value: unknown, kind: FieldValue["kind"]) => {
+const normalizeValue = (value: unknown, kind: RuntimeKind) => {
 	if (kind === "number") {
 		return Number(value);
 	}
@@ -1095,7 +1095,7 @@ const normalizeValue = (value: unknown, kind: FieldValue["kind"]) => {
 	return typeof value === "string" ? new Date(value).toISOString() : value;
 };
 
-const isFieldKind = (value: unknown): value is FieldValue["kind"] =>
+const isFieldKind = (value: unknown): value is RuntimeKind =>
 	value === "boolean" ||
 	value === "date" ||
 	value === "json" ||
@@ -1149,7 +1149,7 @@ const reconstructInclude = (
 			if (hasRuntimeOutputKind(field.expr, scope)) {
 				offset += 1;
 			}
-			return [field.key, { kind, value: normalizeValue(value, kind) }] as const;
+			return [field.key, normalizeValue(value, kind)] as const;
 		});
 		const nested = (include.include ?? []).map(
 			(child, index) =>
@@ -1172,16 +1172,11 @@ const reconstructAggregateItem = (
 	const grouped = groups.map((group, index) => {
 		const value = row[`g${index}v`];
 		const kind = reconstructKind(group.expr, scope, value, row[`g${index}k`]);
-		return [group.key, { kind, value: normalizeValue(value, kind) }] as const;
+		return [group.key, normalizeValue(value, kind)] as const;
 	});
 	const measured = measures.map((measure, index) => {
 		const value = row[`m${index}`];
-		return [
-			measure.key,
-			value === null
-				? ({ kind: "null", value: null } as const)
-				: ({ kind: "number", value: Number(value) } as const),
-		] as const;
+		return [measure.key, value === null ? null : Number(value)] as const;
 	});
 	return Object.fromEntries([...grouped, ...measured]);
 };
@@ -1266,7 +1261,7 @@ export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* 
 		const fields = rowsQuery.output.fields.map((field, index) => {
 			const value = row[`f${index}v`];
 			const kind = reconstructKind(field.expr, scope, value, row[`f${index}k`]);
-			return [field.key, { kind, value: normalizeValue(value, kind) }] as const;
+			return [field.key, normalizeValue(value, kind)] as const;
 		});
 		const include = (rowsQuery.output.include ?? []).map(
 			(entry, index) =>

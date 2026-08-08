@@ -1,5 +1,7 @@
+import { Result, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
+import type { Recipe } from "./index";
 import {
 	add,
 	aggregate,
@@ -18,6 +20,7 @@ import {
 	conditional,
 	count,
 	countDistinct,
+	defineRecipe,
 	document,
 	divide,
 	eq,
@@ -53,6 +56,14 @@ import {
 	titleCase,
 	kebabCase,
 	round,
+	selectedField,
+	selectedAggregate,
+	selectedInclude,
+	selectedMeasure,
+	selectedOptionalRow,
+	selectedRow,
+	selectedRows,
+	selectedTimeSeries,
 } from "./index";
 
 describe("RyotQL builders", () => {
@@ -76,6 +87,279 @@ describe("RyotQL builders", () => {
 				},
 			},
 		});
+	});
+
+	it("compiles selected rows from object keys and decodes plain values and codecs", () => {
+		const entity = table("entity", "entity");
+		const EntityId = Schema.String.pipe(Schema.brand("EntityId"));
+		const query = selectedRows(entity, {
+			limit: 1,
+			selection: {
+				entityId: selectedField(column(entity, "id"), EntityId),
+				score: selectedField(column(entity, "score"), Schema.NumberFromString),
+			},
+		});
+		const result = query.decodeResult({
+			pageInfo: { hasMore: false, limit: 1, nextCursor: null },
+			items: [{ entityId: "entity-1", score: "42" }],
+			type: "rows",
+		});
+
+		expect(query.document.output.fields).toEqual([
+			{ key: "entityId", expr: column(entity, "id") },
+			{ key: "score", expr: column(entity, "score") },
+		]);
+		expect(Result.getOrThrow(result)).toEqual({
+			items: [{ entityId: "entity-1", score: 42 }],
+			pageInfo: { hasMore: false, limit: 1, nextCursor: null },
+		});
+	});
+
+	it("supports parameterized recipe builders", () => {
+		const recipe = defineRecipe((input: { readonly entitySchemaSlug: string }) => {
+			const entity = table("entity", "entity");
+			return {
+				queries: {
+					entities: selectedRows(entity, {
+						selection: { id: selectedField(column(entity, "id"), Schema.String) },
+						where: eq(column(entity, "entitySchemaSlug"), literal(input.entitySchemaSlug)),
+					}),
+				},
+				map: () => Result.succeed(input.entitySchemaSlug),
+			};
+		});
+		const prepared = recipe({ entitySchemaSlug: "course" });
+
+		expect(prepared.document).toMatchObject({
+			queries: {
+				entities: { where: { right: { value: "course" } } },
+			},
+		});
+		const success = Result.getOrThrow(
+			prepared.decode({
+				data: {
+					entities: {
+						items: [{ id: "entity-1" }],
+						pageInfo: { hasMore: false, limit: 20, nextCursor: null },
+						type: "rows",
+					},
+				},
+			}),
+		) satisfies Recipe.Success<typeof recipe>;
+		expect(success).toBe("course");
+	});
+
+	it("defaults recipe success to decoded queries without a mapper", () => {
+		const entity = table("entity", "entity");
+		const recipe = defineRecipe(() => ({
+			queries: {
+				entities: selectedRows(entity, {
+					selection: { id: selectedField(column(entity, "id"), Schema.String) },
+				}),
+			},
+		}));
+		const success = Result.getOrThrow(
+			recipe().decode({
+				data: {
+					entities: {
+						items: [{ id: "entity-1" }],
+						pageInfo: { hasMore: false, limit: 20, nextCursor: null },
+						type: "rows",
+					},
+				},
+			}),
+		);
+
+		expect(success.entities.items[0]?.id).toBe("entity-1");
+	});
+
+	it("rejects missing and malformed selected fields", () => {
+		const entity = table("entity", "entity");
+		const query = selectedRows(entity, {
+			selection: { entityId: selectedField(column(entity, "id"), Schema.String) },
+		});
+		const pageInfo = { hasMore: false, limit: 1, nextCursor: null };
+
+		expect(Result.isFailure(query.decodeResult({ items: [{}], pageInfo, type: "rows" }))).toBe(
+			true,
+		);
+		expect(
+			Result.isFailure(
+				query.decodeResult({
+					items: [{ entityId: 1 }],
+					pageInfo,
+					type: "rows",
+				}),
+			),
+		).toBe(true);
+	});
+
+	it("decodes required and optional row cardinality and rejects extra or wrong results", () => {
+		const entity = table("entity", "entity");
+		const selection = { id: selectedField(column(entity, "id"), Schema.String) };
+		const required = selectedRow(entity, { selection });
+		const optional = selectedOptionalRow(entity, { selection });
+		const pageInfo = { hasMore: false, limit: 2, nextCursor: null };
+
+		expect(required.document.output).toMatchObject({ pagination: { limit: 2 } });
+		expect(
+			Result.getOrThrow(
+				required.decodeResult({ items: [{ id: "entity-1" }], pageInfo, type: "rows" }),
+			),
+		).toEqual({ id: "entity-1" });
+		expect(
+			Result.getOrThrow(optional.decodeResult({ items: [], pageInfo, type: "rows" })),
+		).toBeUndefined();
+		expect(Result.isFailure(required.decodeResult({ items: [], pageInfo, type: "rows" }))).toBe(
+			true,
+		);
+		expect(
+			Result.isFailure(
+				optional.decodeResult({ items: [{ id: "1" }, { id: "2" }], pageInfo, type: "rows" }),
+			),
+		).toBe(true);
+		expect(Result.isFailure(required.decodeResult({ items: [], type: "aggregate" }))).toBe(true);
+	});
+
+	it("derives and recursively decodes typed includes", () => {
+		const entity = table("entity", "entity");
+		const child = table("entity", "child");
+		const leaf = table("entity", "leaf");
+		const leaves = selectedInclude(leaf, {
+			limit: 2,
+			orderBy: [ascending(column(leaf, "id"))],
+			selection: { label: selectedField(column(leaf, "name"), Schema.String) },
+		});
+		const children = selectedInclude(child, {
+			limit: 2,
+			include: { leaves },
+			orderBy: [ascending(column(child, "id"))],
+			selection: { id: selectedField(column(child, "id"), Schema.String) },
+		});
+		const query = selectedRows(entity, {
+			include: { children },
+			selection: { id: selectedField(column(entity, "id"), Schema.String) },
+		});
+		const decoded = Result.getOrThrow(
+			query.decodeResult({
+				items: [
+					{
+						id: "parent",
+						children: {
+							items: [
+								{
+									id: "child",
+									leaves: {
+										items: [{ label: "Leaf" }],
+										pageInfo: { hasMore: false, limit: 2 },
+									},
+								},
+							],
+							pageInfo: { hasMore: false, limit: 2 },
+						},
+					},
+				],
+				pageInfo: { hasMore: false, limit: 20, nextCursor: null },
+				type: "rows",
+			}),
+		);
+
+		expect(query.document.output.include?.[0]).toMatchObject({
+			key: "children",
+			fields: [{ key: "id" }],
+			include: [{ key: "leaves", fields: [{ key: "label" }] }],
+		});
+		expect(decoded.items[0]?.children.items[0]?.leaves.items[0]?.label).toBe("Leaf");
+	});
+
+	it("decodes grouped and required ungrouped selected aggregates", () => {
+		const entity = table("entity", "entity");
+		const grouped = selectedAggregate(entity, {
+			groupBy: { status: selectedField(column(entity, "status"), Schema.String) },
+			measures: {
+				count: selectedMeasure({ function: "count" }, Schema.NumberFromString),
+			},
+		});
+		const countQuery = selectedAggregate(entity, {
+			measures: { count: selectedMeasure({ function: "count" }, Schema.Number) },
+		});
+
+		expect(grouped.document.output).toMatchObject({
+			groupBy: [{ key: "status" }],
+			measures: [{ key: "count", aggregation: { function: "count" } }],
+		});
+		expect(
+			Result.getOrThrow(
+				grouped.decodeResult({
+					items: [{ count: "2", status: "active" }],
+					pageInfo: { hasMore: false, limit: 20 },
+					type: "aggregate",
+				}),
+			).items,
+		).toEqual([{ count: 2, status: "active" }]);
+		expect(
+			Result.getOrThrow(countQuery.decodeResult({ items: [{ count: 3 }], type: "aggregate" })),
+		).toEqual({ count: 3 });
+		expect(Result.isFailure(countQuery.decodeResult({ items: [], type: "aggregate" }))).toBe(true);
+	});
+
+	it("decodes selected time-series bucket boundaries and values", () => {
+		const event = table("event", "event");
+		const query = selectedTimeSeries(event, {
+			bucket: "day",
+			endAt: "2026-01-02",
+			measure: { function: "count" },
+			selection: {
+				endAt: Schema.String,
+				startAt: Schema.String,
+				value: Schema.NumberFromString,
+			},
+			startAt: "2026-01-01",
+			time: column(event, "occurredAt"),
+		});
+
+		expect(
+			Result.getOrThrow(
+				query.decodeResult({
+					buckets: [{ endAt: "2026-01-02", startAt: "2026-01-01", value: "4" }],
+					type: "timeSeries",
+				}),
+			),
+		).toEqual({
+			buckets: [{ endAt: "2026-01-02", startAt: "2026-01-01", value: 4 }],
+		});
+		expect(Result.isFailure(query.decodeResult({ items: [], type: "aggregate" }))).toBe(true);
+	});
+
+	it("decodes multiple named queries and infers recipe success for zero-argument factories", () => {
+		const entity = table("entity", "entity");
+		const recipe = defineRecipe(() => ({
+			queries: {
+				count: selectedAggregate(entity, {
+					measures: { count: selectedMeasure({ function: "count" }, Schema.Number) },
+				}),
+				first: selectedOptionalRow(entity, {
+					selection: { id: selectedField(column(entity, "id"), Schema.String) },
+				}),
+			},
+			map: ({ count: countResult, first: firstResult }) =>
+				Result.succeed({ count: countResult.count, firstId: firstResult?.id }),
+		}));
+		const success = Result.getOrThrow(
+			recipe().decode({
+				data: {
+					count: { items: [{ count: 1 }], type: "aggregate" },
+					first: {
+						items: [{ id: "entity-1" }],
+						pageInfo: { hasMore: false, limit: 2, nextCursor: null },
+						type: "rows",
+					},
+				},
+			}),
+		) satisfies Recipe.Success<typeof recipe>;
+
+		expect(success).toEqual({ count: 1, firstId: "entity-1" });
+		expect(Result.isFailure(recipe().decode({ data: { count: {} } }))).toBe(true);
 	});
 
 	it("builds qualified wildcard row selections", () => {

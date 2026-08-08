@@ -33,7 +33,7 @@ const BOOT_SOURCE = bootSandboxSource({
 	entitySchemaSlug: "movie",
 });
 
-const buildBootEntityQueryDocument = () =>
+const bootEntityQueryDocument = () =>
 	document({
 		entities: (() => {
 			const entity = table("entity", "entity");
@@ -164,13 +164,13 @@ describe("POST /test-support/plugin-boot (custom plugin boot dispatch)", () => {
 				expect(typeof executionId).toBe("string");
 				expect(executionId.length).toBeGreaterThan(0);
 
-				const { data } = yield* executeRyotQL(queryClient, buildBootEntityQueryDocument());
+				const { data } = yield* executeRyotQL(queryClient, bootEntityQueryDocument());
 				const result = requireRows(data.entities, "entities");
 				const row = result.items[0];
 
 				expect(row).toMatchObject({
-					entitySchemaSlug: { kind: "text", value: "movie" },
-					name: { kind: "text", value: "E2E Test Boot" },
+					entitySchemaSlug: "movie",
+					name: "E2E Test Boot",
 				});
 			}),
 	);

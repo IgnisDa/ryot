@@ -21,7 +21,7 @@ import {
 	createPluginEntitySchema,
 	executeRyotQL,
 	requireRows,
-	requireRyotQLFieldValue,
+	requireRyotQLValue,
 	waitForEventWithSchema,
 	type Client,
 } from "~/fixtures";
@@ -30,10 +30,32 @@ import { describe, expect, it } from "~/support/effect-test";
 
 const requireInclude = (item: RowItem, key: string): IncludeResult => {
 	const value = item[key];
-	if (!value || !("items" in value)) {
+	if (!isIncludeResult(value)) {
 		throw new Error(`Expected '${key}' include`);
 	}
 	return value;
+};
+
+const isIncludeResult = (value: unknown): value is IncludeResult => {
+	if (
+		typeof value !== "object" ||
+		value === null ||
+		!("items" in value) ||
+		!("pageInfo" in value) ||
+		!Array.isArray(value.items)
+	) {
+		return false;
+	}
+	const pageInfo = value.pageInfo;
+	return (
+		typeof pageInfo === "object" &&
+		pageInfo !== null &&
+		"limit" in pageInfo &&
+		"hasMore" in pageInfo &&
+		typeof pageInfo.limit === "number" &&
+		typeof pageInfo.hasMore === "boolean" &&
+		value.items.every((item) => typeof item === "object" && item !== null && !Array.isArray(item))
+	);
 };
 
 const createFixture = (client: Client, name: string) =>
@@ -99,35 +121,17 @@ describe("RyotQL wildcard projections", () => {
 					"userId",
 				].sort(),
 			);
-			expect(requireRyotQLFieldValue(item, "id")).toMatchObject({
-				kind: "text",
-				value: fixture.event.id,
-			});
-			expect(requireRyotQLFieldValue(item, "entityId")).toMatchObject({
-				kind: "text",
-				value: fixture.entity.id,
-			});
-			expect(requireRyotQLFieldValue(item, "entityName")).toEqual({
-				kind: "text",
-				value: "RyotQLWildcardRoot Entity",
-			});
-			expect(requireRyotQLFieldValue(item, "properties")).toEqual({
-				kind: "json",
-				value: { rating: 5 },
-			});
-			expect(requireRyotQLFieldValue(item, "occurredAt")).toEqual({
-				kind: "date",
-				value: "2026-08-01T00:00:00.000Z",
-			});
-			expect(requireRyotQLFieldValue(item, "sessionEntityId")).toEqual({
-				value: null,
-				kind: "null",
-			});
+			expect(requireRyotQLValue(item, "id")).toBe(fixture.event.id);
+			expect(requireRyotQLValue(item, "entityId")).toBe(fixture.entity.id);
+			expect(requireRyotQLValue(item, "entityName")).toBe("RyotQLWildcardRoot Entity");
+			expect(requireRyotQLValue(item, "properties")).toEqual({ rating: 5 });
+			expect(requireRyotQLValue(item, "occurredAt")).toBe("2026-08-01T00:00:00.000Z");
+			expect(requireRyotQLValue(item, "sessionEntityId")).toBeNull();
 			expect(item["name"]).toBeUndefined();
 		}),
 	);
 
-	it.live("expands root and nested include wildcards with runtime kinds", () =>
+	it.live("expands root and nested include wildcards with plain values", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const fixture = yield* createFixture(client, "RyotQLWildcardInclude");
@@ -171,14 +175,8 @@ describe("RyotQL wildcard projections", () => {
 					"userId",
 				].sort(),
 			);
-			expect(requireRyotQLFieldValue(entityItem, "name")).toEqual({
-				kind: "text",
-				value: "RyotQLWildcardInclude Entity",
-			});
-			expect(requireRyotQLFieldValue(entityItem, "properties")).toEqual({
-				value: {},
-				kind: "json",
-			});
+			expect(requireRyotQLValue(entityItem, "name")).toBe("RyotQLWildcardInclude Entity");
+			expect(requireRyotQLValue(entityItem, "properties")).toEqual({});
 
 			const includedEvents = requireInclude(entityItem, "events");
 			expect(includedEvents.pageInfo).toEqual({ limit: 10, hasMore: false });
@@ -197,14 +195,8 @@ describe("RyotQL wildcard projections", () => {
 					"userId",
 				].sort(),
 			);
-			expect(requireRyotQLFieldValue(includedEvent, "id")).toMatchObject({
-				kind: "text",
-				value: fixture.event.id,
-			});
-			expect(requireRyotQLFieldValue(includedEvent, "properties")).toEqual({
-				kind: "json",
-				value: { rating: 5 },
-			});
+			expect(requireRyotQLValue(includedEvent, "id")).toBe(fixture.event.id);
+			expect(requireRyotQLValue(includedEvent, "properties")).toEqual({ rating: 5 });
 		}),
 	);
 });

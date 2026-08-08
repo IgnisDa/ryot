@@ -2,7 +2,7 @@ import { EntityId, EventId, EventSchemaSlug } from "@ryot/contract/schema/brands
 import { and, column, descending, document, eq, field, literal, rows, table } from "@ryot/ryotql";
 import { Effect } from "effect";
 
-import { assertPresent, requireObjectRecord, requireString } from "~/support/assertions";
+import { assertPresent, requireObjectRecord } from "~/support/assertions";
 
 import type { Client } from "./auth";
 import { createEntity } from "./entities";
@@ -13,9 +13,9 @@ import { pollUntil } from "./polling";
 import {
 	executeRyotQL,
 	requireRows,
-	requireRyotQLDateField,
-	requireRyotQLFieldValue,
-	requireRyotQLTextField,
+	requireRyotQLDate,
+	requireRyotQLText,
+	requireRyotQLValue,
 } from "./ryotql";
 
 const defaultMediaProperties = {
@@ -184,25 +184,18 @@ export const listEventsForEntity = (
 		const events = requireRows(result.data.events, "events");
 
 		return events.items.map((item) => {
-			const properties = requireRyotQLFieldValue(item, "properties");
-			if (properties.kind !== "json") {
-				throw new Error("Expected event properties to be JSON");
-			}
-			const sessionEntityId = requireRyotQLFieldValue(item, "sessionEntityId");
-			if (sessionEntityId.kind !== "null" && sessionEntityId.kind !== "text") {
+			const properties = requireRyotQLValue(item, "properties");
+			const sessionEntityId = requireRyotQLValue(item, "sessionEntityId");
+			if (sessionEntityId !== null && typeof sessionEntityId !== "string") {
 				throw new Error("Expected event sessionEntityId to be text or null");
 			}
 			return {
-				occurredAt: requireRyotQLDateField(item, "occurredAt"),
-				id: EventId.make(requireRyotQLTextField(item, "id")),
-				properties: requireObjectRecord(properties.value, "Event properties must be an object"),
-				eventSchemaSlug: EventSchemaSlug.make(requireRyotQLTextField(item, "eventSchemaSlug")),
+				occurredAt: requireRyotQLDate(item, "occurredAt"),
+				id: EventId.make(requireRyotQLText(item, "id")),
+				properties: requireObjectRecord(properties, "Event properties must be an object"),
+				eventSchemaSlug: EventSchemaSlug.make(requireRyotQLText(item, "eventSchemaSlug")),
 				sessionEntityId:
-					sessionEntityId.kind === "text"
-						? EntityId.make(
-								requireString(sessionEntityId.value, "Expected sessionEntityId to contain text"),
-							)
-						: undefined,
+					typeof sessionEntityId === "string" ? EntityId.make(sessionEntityId) : undefined,
 			};
 		});
 	});

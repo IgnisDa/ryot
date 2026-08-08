@@ -38,6 +38,7 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 				{ name: "fflate", version: "0.8.3" },
 				{ name: "papaparse", version: "5.5.3" },
 				{ name: "fast-xml-parser", version: "5.8.0" },
+				{ name: "ryotql", version: "workspace" },
 			]);
 			const importMap = yield* fs.readFileString(runtime.importMapPath);
 			expect(importMap).toBe(SANDBOX_RUNTIME_IMPORT_MAP_CONTENT);
@@ -50,6 +51,7 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 				"import-map.json",
 				"modules",
 				"papaparse-5.5.3.mjs",
+				"ryotql-workspace.mjs",
 				"youtubei-17.2.0.mjs",
 			]);
 			const parsedImportMap = yield* Schema.decodeUnknownEffect(
@@ -61,10 +63,11 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 				"./effect-4.0.0-beta.107.mjs",
 			);
 			expect(
-				Object.values(parsedImportMap.imports).filter(
-					(file) => file === "./effect-4.0.0-beta.107.mjs",
-				),
-			).toHaveLength(1);
+				Object.entries(parsedImportMap.imports)
+					.filter(([, file]) => file === "./effect-4.0.0-beta.107.mjs")
+					.map(([specifier]) => specifier)
+					.sort(),
+			).toEqual(["@ryot/sandbox-sdk/effect", "effect"]);
 
 			const directory = yield* fs.stat(runtime.directory);
 			const importMapInfo = yield* fs.stat(runtime.importMapPath);
@@ -81,6 +84,11 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 				expect(module).not.toContain("npm:");
 				if (dependency.name === "youtubei") {
 					expect(module).toContain('@ryot/sandbox-sdk/effect"');
+				} else if (dependency.name === "ryotql") {
+					expect(module).toContain('from "effect"');
+					expect(module.replaceAll("@ryot/sandbox-sdk/effect", "")).not.toContain(
+						"@ryot/sandbox-sdk",
+					);
 				} else {
 					expect(module).not.toContain("@ryot/sandbox-sdk");
 				}

@@ -85,12 +85,12 @@ describe("notification subscription catalog and rules", () => {
 			);
 
 			const inaccessible = yield* getNotificationSubscriptionState(other.client, reviewRule.id);
-			expect(inaccessible).toBeNull();
+			expect(inaccessible).toBeUndefined();
 			const nonexistent = yield* getNotificationSubscriptionState(
 				owner.client,
 				`missing-${crypto.randomUUID()}`,
 			);
-			expect(nonexistent).toBeNull();
+			expect(nonexistent).toBeUndefined();
 
 			const deactivated = yield* setNotificationRuleActive(owner.client, reviewRule.id, false);
 			expect(deactivated.isActive).toBe(false);

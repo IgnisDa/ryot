@@ -1,7 +1,7 @@
 import type { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { SandboxProviderId as SandboxProviderIdSchema } from "@ryot/contract/schema/brands";
-import { buildProviderEntityLinksDocument } from "@ryot/ryotql-recipes/provider-entity-links";
-import { buildProviderSearchDocument } from "@ryot/ryotql-recipes/provider-search";
+import { providerEntityLinksRecipe } from "@ryot/ryotql-recipes/provider-entity-links";
+import { providerSearchRecipe } from "@ryot/ryotql-recipes/provider-search";
 import { Schema } from "effect";
 import { Atom } from "effect/unstable/reactivity";
 
@@ -33,12 +33,14 @@ const canonicalProviderEntityLinksRequest = (request: ProviderEntityLinksRequest
 };
 
 const providerSearchFamily = Atom.family((request: ProviderSearchRequest) =>
-	appClient(request).query("ryotql", "execute", {
-		reactivityKeys: scopedReactivityKey("provider-search", request),
-		payload: buildProviderSearchDocument({
+	appClient(request).ryotql.query(
+		providerSearchRecipe({
 			rootEntitySchemaSlug: request.rootEntitySchemaSlug,
 		}),
-	}),
+		{
+			reactivityKeys: scopedReactivityKey("provider-search", request),
+		},
+	),
 );
 
 export const providerSearchAtom = (request: ProviderSearchRequest) =>
@@ -49,14 +51,16 @@ export const providerSearchAtom = (request: ProviderSearchRequest) =>
 
 const providerEntityLinksFamily = Atom.family(
 	(request: ReturnType<typeof canonicalProviderEntityLinksRequest>) =>
-		appClient(request.scope).query("ryotql", "execute", {
-			reactivityKeys: scopedReactivityKey("provider-entity-links", request.scope),
-			payload: buildProviderEntityLinksDocument({
+		appClient(request.scope).ryotql.query(
+			providerEntityLinksRecipe({
 				providerId: request.providerId,
 				externalIds: request.externalIds,
 				entitySchemaSlug: request.entitySchemaSlug,
 			}),
-		}),
+			{
+				reactivityKeys: scopedReactivityKey("provider-entity-links", request.scope),
+			},
+		),
 );
 
 export const providerEntityLinksAtom = (request: ProviderEntityLinksRequest) =>
