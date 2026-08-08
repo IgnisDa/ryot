@@ -86,17 +86,15 @@ function UserManagement(props: {
 export default function GodMode() {
 	const serverUrl = useServerUrl();
 	const insets = useSafeAreaInsets();
-	const [token, setToken] = useState("");
 	const [tokenError, setTokenError] = useState<string | null>(null);
 	const [submittedToken, setSubmittedToken] = useState<{
 		token: string;
 		sessionId: string;
 	} | null>(null);
 
-	function handleSubmit() {
-		const submitted = token.trim();
+	function handleSubmit(token: string) {
 		setTokenError(null);
-		setSubmittedToken({ token: submitted, sessionId: randomUUID() });
+		setSubmittedToken({ token, sessionId: randomUUID() });
 	}
 
 	function handleUnauthorized() {
@@ -106,7 +104,6 @@ export default function GodMode() {
 				sessionId: submittedToken.sessionId,
 			});
 		}
-		setToken("");
 		setSubmittedToken(null);
 		setTokenError("That admin access token is invalid.");
 	}
@@ -126,13 +123,9 @@ export default function GodMode() {
 					contentContainerClassName="flex-grow items-center justify-center px-6 py-10"
 				>
 					<TokenForm
-						token={token}
 						error={tokenError}
 						onSubmit={handleSubmit}
-						onTokenChange={(value) => {
-							setToken(value);
-							setTokenError(null);
-						}}
+						onChange={() => setTokenError(null)}
 					/>
 				</ScrollView>
 			) : (
