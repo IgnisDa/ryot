@@ -1,11 +1,7 @@
-import { useAtomValue } from "@effect/atom-react";
 import { useRouter } from "expo-router";
 import { useState, type ReactNode } from "react";
 import { View } from "react-native";
 
-import { useApiScope } from "@/api/scope";
-
-import { scopedWorkspaceAtom } from "./atoms";
 import { HeaderAction, HeaderLeadingControl } from "./header/header-control";
 import { HeaderFrame } from "./header/header-frame";
 import { HeaderOverflowMenu, type HeaderOverflowItem } from "./header/header-overflow-menu";
@@ -20,8 +16,6 @@ export function ChildScreenFrame(props: {
 	overflowItems?: readonly HeaderOverflowItem[];
 }) {
 	const router = useRouter();
-	const scope = useApiScope();
-	const workspace = useAtomValue(scopedWorkspaceAtom(scope));
 	const [isOverflowOpen, setIsOverflowOpen] = useState(false);
 
 	function goBack() {
@@ -29,7 +23,7 @@ export function ChildScreenFrame(props: {
 			router.back();
 			return;
 		}
-		router.replace(getWorkspaceHref(workspace));
+		router.replace(getWorkspaceHref());
 	}
 
 	return (

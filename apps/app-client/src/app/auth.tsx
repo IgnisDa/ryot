@@ -52,7 +52,7 @@ export default function Auth() {
 		return <AuthLoading />;
 	}
 	if (session) {
-		return <Redirect href={getRedirectDestination(redirectTo, "/(app)")} />;
+		return <Redirect href={getRedirectDestination(redirectTo, "/(app)/(shell)/(drawer)")} />;
 	}
 
 	return AsyncResult.builder(config)
