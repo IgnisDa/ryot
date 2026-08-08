@@ -76,7 +76,7 @@ export default defineConfig({
 				items: guidesSourceFiles,
 				link: guidesSourceFiles[0].link,
 			},
-			{ text: "Exporting", link: "/exporting" },
+			{ text: "Backups", link: "/backups" },
 			{ text: "Migration", link: "/migration" },
 			{ text: "Contributing", link: "/contributing" },
 		],
