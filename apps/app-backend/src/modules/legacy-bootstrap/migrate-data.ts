@@ -1,5 +1,5 @@
 import { builtinMediaEntitySchemaSlugs } from "@ryot/media-plugin/schemas/media-schema-slugs";
-import { Effect } from "effect";
+import { Clock, Effect } from "effect";
 
 import { sandboxProvider } from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
@@ -81,6 +81,7 @@ import {
 
 export const migrateLegacyTables = Effect.gen(function* () {
 	const gate = yield* legacyBootstrapGate;
+	const startedAtMs = yield* Clock.currentTimeMillis;
 	if (!gate) {
 		return;
 	}
@@ -523,5 +524,10 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	);
 	reportSequence = yield* withReservedConnection((connection) =>
 		logReportRows(connection, reportSequence),
+	);
+
+	const elapsedSeconds = Math.round(((yield* Clock.currentTimeMillis) - startedAtMs) / 1000);
+	yield* Effect.logInfo("legacy data migration finished").pipe(
+		Effect.annotateLogs({ elapsedSeconds }),
 	);
 });
