@@ -4,3 +4,6 @@ project(':capacitor-android').projectDir = new File('../../../node_modules/.bun/
 
 include ':capacitor-app'
 project(':capacitor-app').projectDir = new File('../../../node_modules/.bun/@capacitor+app@8.1.1+6139e07751574bda/node_modules/@capacitor/app/android')
+
+include ':capacitor-browser'
+project(':capacitor-browser').projectDir = new File('../../../node_modules/.bun/@capacitor+browser@8.0.4+6139e07751574bda/node_modules/@capacitor/browser/android')
