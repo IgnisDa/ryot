@@ -16,7 +16,7 @@
 		"@ryot-app/media-plugin": "workspace:*",
 		"@ryot-app/plugin-archive": "workspace:*",
 		"bun-types": "1.4.0",
-		"effect": "4.0.0-rc.116",
+		"effect": "4.0.0-rc.117",
 		"vitepress": "2.0.0-alpha.15"
 	}
 }
