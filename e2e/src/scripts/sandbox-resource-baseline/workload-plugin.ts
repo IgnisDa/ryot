@@ -9,6 +9,7 @@ import {
 	type BenchmarkRateLimitedCalls,
 	benchmarkBookDetailsSource,
 	benchmarkBookSearchSource,
+	benchmarkMemorySource,
 	benchmarkPersonDetailsSource,
 	benchmarkScriptSource,
 } from "./workload-sources";
@@ -47,7 +48,17 @@ export const installBenchmarkWorkloadPlugin = (input: {
 			findBuiltinSchemaBySlug(input.client, "book"),
 			findBuiltinSchemaBySlug(input.client, "person"),
 		]);
+		const memoryScriptSlug = `${pluginSlug}.memory`;
 		const scripts = [
+			{
+				capabilities: [],
+				slug: memoryScriptSlug,
+				kind: "script" as const,
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
+				name: "Benchmark memory allocation",
+				entry: "backend/scripts/memory.sandbox.ts",
+			},
 			{
 				slug: scriptSlug,
 				kind: "script" as const,
@@ -153,6 +164,10 @@ export const installBenchmarkWorkloadPlugin = (input: {
 					}
 				: {}),
 			files: {
+				"backend/scripts/memory.sandbox.ts": benchmarkMemorySource({
+					slug: memoryScriptSlug,
+					name: "Benchmark memory allocation",
+				}),
 				...(slow
 					? {
 							[`backend/providers/${slowProviderSlug}/details.sandbox.ts`]:
@@ -216,11 +231,16 @@ export const installBenchmarkWorkloadPlugin = (input: {
 					"Benchmark rate-limited book provider ID was not returned by test support",
 				)
 			: null;
+		const memoryScriptId = requirePresent(
+			installed.scriptIds[memoryScriptSlug],
+			"Benchmark memory script was not installed",
+		);
 		return {
 			scriptId,
 			installed,
 			pluginSlug,
 			bookProviderId,
+			memoryScriptId,
 			bookProviderSlug,
 			slowBookProviderId,
 		};
