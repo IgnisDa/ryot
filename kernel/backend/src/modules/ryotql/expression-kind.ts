@@ -48,6 +48,18 @@ export const scalarExpressionKind = <Scope>(
 	if (expr.type === "jsonPath") {
 		return "json";
 	}
+	if (expr.type === "jsonElement") {
+		return "json";
+	}
+	if (expr.type === "jsonExists") {
+		return "boolean";
+	}
+	if (expr.type === "jsonCount") {
+		return "number";
+	}
+	if (expr.type === "jsonFirst") {
+		return scalarExpressionKind(expr.select, scope, resolver);
+	}
 	if (expr.type === "exists" || expr.type === "isNotNull") {
 		return "boolean";
 	}
