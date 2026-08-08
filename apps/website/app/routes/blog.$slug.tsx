@@ -34,8 +34,8 @@ export default function Page(props: Route.ComponentProps) {
 
 	const Article = post.content;
 	const publishedDate = new Intl.DateTimeFormat("en-US", {
-		dateStyle: "long",
 		timeZone: "UTC",
+		dateStyle: "long",
 	}).format(new Date(`${post.frontmatter.publishedAt}T00:00:00Z`));
 
 	return (

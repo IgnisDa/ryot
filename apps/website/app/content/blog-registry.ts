@@ -45,5 +45,5 @@ const posts: Record<string, BlogPost> = Object.fromEntries(
 );
 
 export function getBlogPost(slug: string | undefined) {
-	return slug ? posts[slug] : undefined;
+	return slug && Object.hasOwn(posts, slug) ? posts[slug] : undefined;
 }
