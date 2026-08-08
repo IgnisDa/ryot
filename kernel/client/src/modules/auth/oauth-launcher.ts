@@ -25,7 +25,8 @@ import { ServerService } from "#/modules/server/service";
 const NATIVE_APPLICATION_IDS = ["io.ryot.app", "io.ryot.app.dev"] as const;
 
 export class OAuthLauncherError extends Data.TaggedError("OAuthLauncherError")<{
-	readonly reason: "unknown-native-application" | "launch-failed";
+	readonly reason: "unknown-native-application" | "launch-failed" | "storage-failed";
+	readonly cause?: unknown;
 }> {}
 
 export type OAuthLaunchPlan = {
@@ -113,7 +114,13 @@ export class OAuthLauncher extends Context.Service<OAuthLauncher>()("OAuthLaunch
 				destination: authDestination(redirectIntent),
 			};
 			const codeChallenge = yield* Effect.tryPromise(() => deriveCodeChallenge(codeVerifier));
-			yield* storage.setPending(pending);
+			yield* storage
+				.setPending(pending)
+				.pipe(
+					Effect.catchTag("OAuthStorageError", (cause) =>
+						Effect.fail(new OAuthLauncherError({ reason: "storage-failed", cause })),
+					),
+				);
 			return {
 				_tag: "Ready",
 				plan: {

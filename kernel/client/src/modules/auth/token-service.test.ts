@@ -2,7 +2,13 @@ import { describe, expect, it } from "@effect/vitest";
 import { OAUTH_WEB_CLIENT_ID } from "@ryot/contract/oauth";
 import { Effect } from "effect";
 
-import { OAuthStorage, oauthStorageLayer } from "#/modules/auth/oauth-storage";
+import {
+	OAuthStorage,
+	OAuthStorageError,
+	oauthStorageLayer,
+	oauthTokenKey,
+	type OAuthStorageAdapter,
+} from "#/modules/auth/oauth-storage";
 import { OAuthTokenService, oauthTokenServiceLayer } from "#/modules/auth/token-service";
 
 const origin = "https://ryot.example";
@@ -39,18 +45,16 @@ const tokenResponse = (overrides: Record<string, unknown> = {}) => ({
 	...overrides,
 });
 
-const makeStorage = () => {
+const makeStorage = (overrides: Partial<OAuthStorageAdapter> = {}) => {
 	const values = new Map<string, string>();
 	return {
 		values,
 		layer: oauthStorageLayer({
-			get length() {
-				return values.size;
-			},
-			key: (index) => [...values.keys()][index] ?? null,
-			removeItem: (key) => values.delete(key),
-			getItem: (key) => values.get(key) ?? null,
-			setItem: (key, value) => values.set(key, value),
+			keys: Effect.sync(() => [...values.keys()]),
+			removeItem: (key) => Effect.sync(() => void values.delete(key)),
+			getItem: (key) => Effect.sync(() => values.get(key) ?? null),
+			setItem: (key, value) => Effect.sync(() => void values.set(key, value)),
+			...overrides,
 		}),
 	};
 };
@@ -262,4 +266,37 @@ describe("OAuth token service", () => {
 			);
 		},
 	);
+	it.effect("drops the stored token set when persisting a rotated refresh token fails", () => {
+		const storage = makeStorage({
+			setItem: () => Effect.fail(new OAuthStorageError({ reason: "write-failed" })),
+		});
+		storage.values.set(
+			oauthTokenKey(origin),
+			JSON.stringify({
+				tokenType: "Bearer",
+				accessToken: "expired",
+				scope: "openid ryot:api",
+				refreshToken: "refresh-1",
+				accessTokenExpiresAt: now,
+				idToken: idToken("nonce-1"),
+			}),
+		);
+		return Effect.gen(function* () {
+			const tokens = yield* OAuthTokenService;
+			const failure = yield* Effect.flip(tokens.accessToken(origin, OAUTH_WEB_CLIENT_ID));
+			expect(failure.reason).toBe("storage-failed");
+			expect(storage.values.has(oauthTokenKey(origin))).toBe(false);
+		}).pipe(
+			Effect.provide(
+				oauthTokenServiceLayer(
+					() =>
+						Promise.resolve(
+							jsonResponse(tokenResponse({ access_token: "access-2", refresh_token: "refresh-2" })),
+						),
+					() => now,
+				),
+			),
+			Effect.provide(storage.layer),
+		);
+	});
 });

@@ -4,101 +4,158 @@ import {
 	StoredTokenSet,
 	type StoredTokenSet as StoredTokenSetValue,
 } from "@ryot/contract/oauth";
-import { Context, Effect, Layer, Schema } from "effect";
+import { Context, Data, Effect, Layer, Schema } from "effect";
 
 import { normalizeServerOrigin, type ServerOrigin } from "#/api/origin";
+import { isNativePlatform } from "#/modules/navigation/native-navigation";
 
+const SECURE_KEY_PREFIX = "ryot_";
 const PENDING_AUTHORIZATION_TTL_MS = 10 * 60 * 1000;
 const OAUTH_PENDING_PREFIX = "ryot:oauth:pending:";
 const OAUTH_TOKEN_PREFIX = "ryot:oauth:tokens:";
 
-export type OAuthBrowserStorage = Pick<
-	Storage,
-	"getItem" | "key" | "length" | "removeItem" | "setItem"
->;
+export class OAuthStorageError extends Data.TaggedError("OAuthStorageError")<{
+	readonly reason: "read-failed" | "write-failed";
+	readonly cause?: unknown;
+}> {}
+
+export type OAuthStorageAdapter = {
+	readonly keys: Effect.Effect<readonly string[], OAuthStorageError>;
+	readonly removeItem: (key: string) => Effect.Effect<void, OAuthStorageError>;
+	readonly getItem: (key: string) => Effect.Effect<string | null, OAuthStorageError>;
+	readonly setItem: (key: string, value: string) => Effect.Effect<void, OAuthStorageError>;
+};
 
 export const oauthPendingKey = (origin: ServerOrigin, state: string) =>
 	`${OAUTH_PENDING_PREFIX}${encodeURIComponent(normalizeServerOrigin(origin))}:${state}`;
 export const oauthTokenKey = (origin: ServerOrigin) =>
 	`${OAUTH_TOKEN_PREFIX}${normalizeServerOrigin(origin)}`;
 
-const decodeStored = <A>(schema: Schema.Codec<A, unknown>, value: string | null) => {
-	if (value === null) {
-		return null;
-	}
-	return Schema.decodeUnknownSync(schema)(JSON.parse(value));
+const browserOAuthStorage = (): OAuthStorageAdapter => {
+	const storage = typeof localStorage === "undefined" ? undefined : localStorage;
+	const attempt = <A>(reason: OAuthStorageError["reason"], evaluate: () => A) =>
+		Effect.try({ try: evaluate, catch: (cause) => new OAuthStorageError({ reason, cause }) });
+	return {
+		getItem: (key) => attempt("read-failed", () => storage?.getItem(key) ?? null),
+		removeItem: (key) => attempt("write-failed", () => storage?.removeItem(key)),
+		setItem: (key, value) => attempt("write-failed", () => storage?.setItem(key, value)),
+		keys: attempt("read-failed", () =>
+			Array.from({ length: storage?.length ?? 0 }, (_, index) => storage?.key(index)).filter(
+				(key): key is string => typeof key === "string",
+			),
+		),
+	};
 };
 
-const makeStorage = (storage: OAuthBrowserStorage | undefined): OAuthStorage["Service"] => ({
-	clearPending: (origin) =>
-		Effect.sync(() => {
-			const prefix = `${OAUTH_PENDING_PREFIX}${encodeURIComponent(normalizeServerOrigin(origin))}:`;
-			const keys = Array.from({ length: storage?.length ?? 0 }, (_, index) =>
-				storage?.key(index),
-			).filter((key): key is string => key?.startsWith(prefix) === true);
-			keys.forEach((key) => storage?.removeItem(key));
-		}),
-	setPending: (pending) =>
-		Effect.sync(() =>
-			storage?.setItem(
+const secureOAuthStorage = (): OAuthStorageAdapter => {
+	const ready = import("@aparajita/capacitor-secure-storage").then(
+		async ({ KeychainAccess, SecureStorage }) => {
+			await SecureStorage.setKeyPrefix(SECURE_KEY_PREFIX);
+			await SecureStorage.setSynchronize(false);
+			await SecureStorage.setDefaultKeychainAccess(KeychainAccess.afterFirstUnlockThisDeviceOnly);
+			return { plugin: SecureStorage };
+		},
+	);
+	void ready.catch(() => undefined);
+	const attempt = <A>(
+		reason: OAuthStorageError["reason"],
+		operation: (storage: Awaited<typeof ready>["plugin"]) => Promise<A>,
+	) =>
+		Effect.tryPromise({
+			try: () => ready.then(({ plugin }) => operation(plugin)),
+			catch: (cause) => new OAuthStorageError({ reason, cause }),
+		});
+	return {
+		keys: attempt("read-failed", (storage) => storage.keys()),
+		getItem: (key) => attempt("read-failed", (storage) => storage.getItem(key)),
+		removeItem: (key) => attempt("write-failed", (storage) => storage.removeItem(key)),
+		setItem: (key, value) => attempt("write-failed", (storage) => storage.setItem(key, value)),
+	};
+};
+
+const makeStorage = (adapter: OAuthStorageAdapter): OAuthStorage["Service"] => {
+	const evict = (key: string) => adapter.removeItem(key).pipe(Effect.catch(() => Effect.void));
+	const readUnverified = (key: string) =>
+		adapter.getItem(key).pipe(Effect.catch(() => Effect.succeed(undefined)));
+	const decodeOrEvict = <A>(schema: Schema.Codec<A, unknown>, key: string, value: string) =>
+		Effect.try(() => Schema.decodeUnknownSync(schema)(JSON.parse(value))).pipe(
+			Effect.catch(() => Effect.as(evict(key), null)),
+		);
+	const isFresh = (pending: PendingAuthorizationValue) =>
+		Date.now() - pending.createdAt <= PENDING_AUTHORIZATION_TTL_MS;
+	const readPending = (key: string) =>
+		Effect.gen(function* () {
+			const value = yield* readUnverified(key);
+			if (value === undefined || value === null) {
+				return null;
+			}
+			return yield* decodeOrEvict(PendingAuthorization, key, value);
+		});
+	return {
+		removeTokenSet: (origin) => evict(oauthTokenKey(origin)),
+		setTokenSet: (origin, tokenSet) =>
+			adapter.setItem(oauthTokenKey(origin), JSON.stringify(tokenSet)),
+		setPending: (pending) =>
+			adapter.setItem(
 				oauthPendingKey(pending.serverOrigin, pending.state),
 				JSON.stringify(pending),
 			),
-		),
-	setTokenSet: (origin, tokenSet) =>
-		Effect.sync(() => storage?.setItem(oauthTokenKey(origin), JSON.stringify(tokenSet))),
-	removeTokenSet: (origin) => Effect.sync(() => storage?.removeItem(oauthTokenKey(origin))),
-	getTokenSet: (origin) =>
-		Effect.sync(() => {
-			const key = oauthTokenKey(origin);
-			try {
-				return decodeStored(StoredTokenSet, storage?.getItem(key) ?? null);
-			} catch {
-				storage?.removeItem(key);
-				return null;
-			}
-		}),
-	getPending: (origin, state) =>
-		Effect.sync(() => {
-			const key = oauthPendingKey(origin, state);
-			try {
-				const pending = decodeStored(PendingAuthorization, storage?.getItem(key) ?? null);
-				if (pending && Date.now() - pending.createdAt <= PENDING_AUTHORIZATION_TTL_MS) {
+		getTokenSet: (origin) =>
+			Effect.gen(function* () {
+				const key = oauthTokenKey(origin);
+				const value = yield* readUnverified(key);
+				if (value === undefined || value === null) {
+					return null;
+				}
+				return yield* decodeOrEvict(StoredTokenSet, key, value);
+			}),
+		getPending: (origin, state) =>
+			Effect.gen(function* () {
+				const key = oauthPendingKey(origin, state);
+				const pending = yield* readPending(key);
+				if (pending === null) {
+					return null;
+				}
+				if (isFresh(pending)) {
 					return pending;
 				}
-				storage?.removeItem(key);
+				yield* evict(key);
 				return null;
-			} catch {
-				storage?.removeItem(key);
-				return null;
-			}
-		}),
-	takePending: (origin, state) =>
-		Effect.sync(() => {
-			const key = oauthPendingKey(origin, state);
-			try {
-				const pending = decodeStored(PendingAuthorization, storage?.getItem(key) ?? null);
-				storage?.removeItem(key);
-				return pending && Date.now() - pending.createdAt <= PENDING_AUTHORIZATION_TTL_MS
-					? pending
-					: null;
-			} catch {
-				storage?.removeItem(key);
-				return null;
-			}
-		}),
-});
+			}),
+		takePending: (origin, state) =>
+			Effect.gen(function* () {
+				const key = oauthPendingKey(origin, state);
+				const pending = yield* readPending(key);
+				if (pending === null) {
+					return null;
+				}
+				yield* evict(key);
+				return isFresh(pending) ? pending : null;
+			}),
+		clearPending: (origin) =>
+			Effect.gen(function* () {
+				const prefix = `${OAUTH_PENDING_PREFIX}${encodeURIComponent(normalizeServerOrigin(origin))}:`;
+				const keys = yield* adapter.keys.pipe(
+					Effect.catch(() => Effect.succeed<readonly string[]>([])),
+				);
+				yield* Effect.forEach(
+					keys.filter((key) => key.startsWith(prefix)),
+					evict,
+					{ discard: true },
+				);
+			}),
+	};
+};
 
 export class OAuthStorage extends Context.Service<
 	OAuthStorage,
 	{
 		readonly clearPending: (origin: ServerOrigin) => Effect.Effect<void>;
 		readonly removeTokenSet: (origin: ServerOrigin) => Effect.Effect<void>;
-		readonly setPending: (pending: PendingAuthorizationValue) => Effect.Effect<void>;
-		readonly setTokenSet: (
-			origin: ServerOrigin,
-			tokenSet: StoredTokenSetValue,
-		) => Effect.Effect<void>;
+		readonly getTokenSet: (origin: ServerOrigin) => Effect.Effect<StoredTokenSetValue | null>;
+		readonly setPending: (
+			pending: PendingAuthorizationValue,
+		) => Effect.Effect<void, OAuthStorageError>;
 		readonly getPending: (
 			origin: ServerOrigin,
 			state: string,
@@ -107,15 +164,16 @@ export class OAuthStorage extends Context.Service<
 			origin: ServerOrigin,
 			state: string,
 		) => Effect.Effect<PendingAuthorizationValue | null>;
-		readonly getTokenSet: (origin: ServerOrigin) => Effect.Effect<StoredTokenSetValue | null>;
+		readonly setTokenSet: (
+			origin: ServerOrigin,
+			tokenSet: StoredTokenSetValue,
+		) => Effect.Effect<void, OAuthStorageError>;
 	}
 >()("OAuthStorage") {
-	// TODO: Replace native localStorage with Keychain/Keystore-backed storage.
-	static readonly layer = Layer.succeed(
-		this,
-		makeStorage(typeof localStorage === "undefined" ? undefined : localStorage),
+	static readonly layer = Layer.sync(this, () =>
+		makeStorage(isNativePlatform() ? secureOAuthStorage() : browserOAuthStorage()),
 	);
 }
 
-export const oauthStorageLayer = (storage: OAuthBrowserStorage | undefined) =>
-	Layer.succeed(OAuthStorage, makeStorage(storage));
+export const oauthStorageLayer = (adapter: OAuthStorageAdapter) =>
+	Layer.succeed(OAuthStorage, makeStorage(adapter));
