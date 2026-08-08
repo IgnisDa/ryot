@@ -8,8 +8,8 @@ import { getNavigationHref } from "@/modules/navigation/navigation-data";
 import { useWorkspaceDrawer } from "@/modules/navigation/workspace-drawer";
 import { WorkspaceScrollFrame } from "@/modules/navigation/workspace-scroll-frame";
 
-import { savedViewLoadedCount } from "./result-count";
 import { SavedViewFilterSheet } from "./saved-view-filter-sheet";
+import { SavedViewResultCount } from "./saved-view-result-count";
 
 const TOP_BAR_HEIGHT = 44;
 const TOP_BAR_WEB_HIDDEN = Platform.OS === "web" ? "md:hidden" : null;
@@ -65,9 +65,11 @@ export function SavedViewFrame(props: {
 										{props.title.name}
 									</Text>
 								</View>
-								<Text className="font-ui text-[11px] text-text-muted">
-									{savedViewLoadedCount(props.title.loaded, props.title.hasMore)}
-								</Text>
+								<SavedViewResultCount
+									loaded={props.title.loaded}
+									hasMore={props.title.hasMore}
+									textClassName="font-ui text-[11px]"
+								/>
 							</View>
 						)}
 						<Pressable
