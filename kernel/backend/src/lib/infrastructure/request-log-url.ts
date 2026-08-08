@@ -1,0 +1,47 @@
+import { AppContract } from "@ryot/contract/contract";
+import { LogRouteTemplate } from "@ryot/contract/http-annotations";
+import { Context, Effect, Layer } from "effect";
+import type { HttpServerRequest } from "effect/unstable/http";
+import { HttpApi } from "effect/unstable/httpapi";
+
+const apiPrefix = "/api";
+const routeTemplates: string[] = [];
+
+HttpApi.reflect(AppContract, {
+	onGroup: () => undefined,
+	onEndpoint: ({ endpoint, mergedAnnotations }) => {
+		if (Context.get(mergedAnnotations, LogRouteTemplate)) {
+			routeTemplates.push(`${apiPrefix}${endpoint.path}`);
+		}
+	},
+});
+
+const matchesRouteTemplate = (pathname: string, template: string) => {
+	const pathSegments = pathname.split("/");
+	const templateSegments = template.split("/");
+	return (
+		pathSegments.length === templateSegments.length &&
+		templateSegments.every(
+			(segment, index) => segment.startsWith(":") || segment === pathSegments[index],
+		)
+	);
+};
+
+export class RequestLogUrl extends Context.Service<
+	RequestLogUrl,
+	{ readonly resolve: (request: HttpServerRequest.HttpServerRequest) => Effect.Effect<string> }
+>()("RequestLogUrl") {
+	static readonly layer = Layer.succeed(
+		this,
+		this.of({
+			resolve: (request) =>
+				Effect.sync(() => {
+					const pathname = new URL(request.originalUrl).pathname;
+					return (
+						routeTemplates.find((template) => matchesRouteTemplate(pathname, template)) ??
+						request.url
+					);
+				}),
+		}),
+	);
+}

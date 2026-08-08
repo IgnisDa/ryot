@@ -30,12 +30,14 @@ import { verifyBearerToken } from "better-auth/oauth2";
 import { genericOAuth, jwt, twoFactor } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Option, Redacted, Result, Schema } from "effect";
-import { HttpMiddleware, HttpServerError, HttpServerRequest } from "effect/unstable/http";
+import { HttpServerRequest, type HttpServerResponse } from "effect/unstable/http";
+import type { HttpApiEndpoint } from "effect/unstable/httpapi";
 import type Redis from "ioredis";
 
 import { AppConfig, type AppConfigValue, isOidcEnabled } from "#lib/infrastructure/config/service";
 import * as authSchema from "#lib/infrastructure/db/schema/tables/auth";
 import { Database } from "#lib/infrastructure/db/service";
+import { logHttpResponse } from "#lib/infrastructure/http-response-logger";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 
 import { effectPostgresAuthAdapter } from "./effect-postgres-adapter";
@@ -76,19 +78,6 @@ const parseResetLinkMessage = (message: string) => {
 		}
 	}
 	return null;
-};
-
-const stripSearchAndHash = (url: string) => {
-	const queryIndex = url.indexOf("?");
-	const hashIndex = url.indexOf("#");
-
-	if (queryIndex === -1) {
-		return hashIndex === -1 ? url : url.slice(0, hashIndex);
-	}
-	if (hashIndex === -1) {
-		return url.slice(0, queryIndex);
-	}
-	return url.slice(0, Math.min(queryIndex, hashIndex));
 };
 
 export class AuthUserBootstrap extends Context.Service<
@@ -616,9 +605,14 @@ export const makeAuthMiddleware = (
 	auth: Pick<AuthService["Service"], "apiKeyUser" | "oauthUser">,
 	lifecycle: Pick<LifecycleWriteGuard["Service"], "isActive">,
 ) => {
-	const authenticate = <A extends { readonly status: number }, E, R>(
-		httpEffect: Effect.Effect<A, E, AuthorizationContext | CurrentUser | R>,
+	const authenticate = <E, R>(
+		httpEffect: Effect.Effect<
+			HttpServerResponse.HttpServerResponse,
+			E,
+			AuthorizationContext | CurrentUser | R
+		>,
 		resolved: Effect.Effect<ResolvedCredential, AuthRateLimited | AuthUnauthorized>,
+		route: string,
 	) =>
 		Effect.gen(function* () {
 			const request = yield* HttpServerRequest.HttpServerRequest;
@@ -640,51 +634,24 @@ export const makeAuthMiddleware = (
 				Effect.provideService(AuthorizationContext, authorization),
 			);
 
-			return yield* Effect.withLogSpan(
-				Effect.flatMap(Effect.exit(handler), (exit) => {
-					if (exit._tag === "Failure") {
-						const [response, cause] = HttpServerError.causeResponseStripped(exit.cause);
-						const logResponse = (message: unknown) => {
-							if (response.status >= 500) {
-								return Effect.logError(message);
-							}
-							if (response.status === 429) {
-								return Effect.logWarning(message);
-							}
-							return Effect.logDebug(message);
-						};
-						return Effect.andThen(
-							Effect.annotateLogs(
-								logResponse(Option.getOrElse(cause, () => "Sent HTTP Response")),
-								{
-									...annotations,
-									"http.method": request.method,
-									"http.status": response.status,
-									"http.url": stripSearchAndHash(request.url),
-								},
-							),
-							exit,
-						);
-					}
-					return Effect.andThen(
-						Effect.annotateLogs(Effect.logDebug("Sent HTTP response"), {
-							...annotations,
-							"http.method": request.method,
-							"http.status": exit.value.status,
-							"http.url": stripSearchAndHash(request.url),
-						}),
-						exit,
-					);
-				}),
-				"http.span",
-			);
-		}).pipe(HttpMiddleware.withLoggerDisabled);
+			return yield* logHttpResponse(handler, route, annotations, "Debug");
+		});
 
 	return {
-		oauth: (httpEffect, { credential }: { readonly credential: Redacted.Redacted }) =>
-			authenticate(httpEffect, auth.oauthUser(Redacted.value(credential))),
-		apiKey: (httpEffect, { credential }: { readonly credential: Redacted.Redacted }) =>
-			authenticate(httpEffect, auth.apiKeyUser(Redacted.value(credential))),
+		oauth: (
+			httpEffect,
+			{
+				credential,
+				endpoint,
+			}: { readonly credential: Redacted.Redacted; readonly endpoint: HttpApiEndpoint.Top },
+		) => authenticate(httpEffect, auth.oauthUser(Redacted.value(credential)), endpoint.path),
+		apiKey: (
+			httpEffect,
+			{
+				credential,
+				endpoint,
+			}: { readonly credential: Redacted.Redacted; readonly endpoint: HttpApiEndpoint.Top },
+		) => authenticate(httpEffect, auth.apiKeyUser(Redacted.value(credential)), endpoint.path),
 	} satisfies AuthMiddleware["Service"];
 };
 
