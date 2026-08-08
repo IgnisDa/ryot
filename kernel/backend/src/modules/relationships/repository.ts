@@ -540,6 +540,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 						.select(relationshipSnapshotSelection)
 						.from(schema.relationship)
 						.where(relationshipReconciliationWhere(input))
+						.orderBy(asc(schema.relationship.id))
 						.for("update"),
 				);
 

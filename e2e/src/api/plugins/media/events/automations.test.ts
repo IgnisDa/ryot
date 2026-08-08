@@ -178,16 +178,16 @@ describe("Event automations", () => {
 					{ entitySchemaSlug: "anime", properties: { images: [], episodes: 101 } },
 				);
 
-				yield* client.call((c) =>
-					c.events.create({
-						payload: Array.from({ length: 101 }, (_, index) => ({
-							entityId,
-							occurredAt: isoMinuteAt(index),
-							eventSchemaSlug: progressEventSchemaSlug,
-							properties: { progressPercent: 100, animeEpisode: index + 1 },
-						})),
-					}),
-				);
+				const progressItems = Array.from({ length: 101 }, (_, index) => ({
+					entityId,
+					occurredAt: isoMinuteAt(index),
+					eventSchemaSlug: progressEventSchemaSlug,
+					properties: { progressPercent: 100, animeEpisode: index + 1 },
+				}));
+				for (let start = 0; start < progressItems.length; start += 20) {
+					const batch = progressItems.slice(start, start + 20);
+					yield* client.call((c) => c.events.create({ payload: batch }));
+				}
 
 				const completeEvent = yield* waitForEventWithSchema(client, entityId, "complete");
 
