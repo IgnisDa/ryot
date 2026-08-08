@@ -3,11 +3,12 @@ import type {
 	PluginClientCatalogEntry,
 } from "@ryot/ryotql-recipes/plugin-client-catalog";
 import clsx from "clsx";
-import { type KeyboardEvent, type MouseEvent, type RefObject, useEffect, useRef } from "react";
+import { type KeyboardEvent, type RefObject, useEffect, useRef } from "react";
 
 import type { AuthSessionStore } from "#/modules/auth/client";
 import { AccountSummary } from "#/modules/navigation/account-summary";
 import { AppIcon } from "#/modules/navigation/app-icon";
+import { activateLink } from "#/modules/navigation/link-activation";
 import { WorkspaceSwitcher } from "#/modules/navigation/workspace-switcher";
 
 type MobileDrawerProps = {
@@ -66,13 +67,6 @@ export function MobileDrawer(props: MobileDrawerProps) {
 	const closeThen = (operation: () => void | Promise<void>) => {
 		close();
 		queueMicrotask(() => void operation());
-	};
-	const navigateHome = (event: MouseEvent<HTMLAnchorElement>) => {
-		if (event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
-			return;
-		}
-		event.preventDefault();
-		closeThen(props.onNavigateHome);
 	};
 	const containFocus = (event: KeyboardEvent<HTMLDialogElement>) => {
 		if (event.defaultPrevented) {
@@ -176,7 +170,7 @@ export function MobileDrawer(props: MobileDrawerProps) {
 					{props.current !== null && (
 						<nav aria-label="Workspace" className="mt-3">
 							<a
-								onClick={navigateHome}
+								onClick={activateLink(() => closeThen(props.onNavigateHome))}
 								href={`/${props.current.slug}`}
 								aria-current={props.activeHome ? "page" : undefined}
 								className={clsx(

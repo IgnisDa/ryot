@@ -1,9 +1,5 @@
 // oxlint-disable unicorn/require-post-message-target-origin -- MessagePort has no target origin
-import {
-	PluginBridgeInit,
-	PluginThemeSnapshot,
-	REQUIRED_THEME_TOKEN_NAMES,
-} from "@ryot/contract/modules/plugins/client";
+import { PluginBridgeInit } from "@ryot/contract/modules/plugins/client";
 import type { PluginClientCatalog } from "@ryot/ryotql-recipes/plugin-client-catalog";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -12,100 +8,25 @@ import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApi } from "#/api/authenticated";
 import { PublicApi } from "#/api/public";
-import type { ApiScope } from "#/api/scope";
 import { AuthClient } from "#/modules/auth/client";
-import { AuthService } from "#/modules/auth/service";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
 import { PluginOperationsService } from "#/modules/plugins/operations";
 import { PluginQueriesService } from "#/modules/plugins/queries";
-import { ServerService } from "#/modules/server/service";
-import type { ThemeStore } from "#/modules/theme/store";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
+import {
+	ServerStub,
+	authenticated,
+	catalog,
+	makeAuthStub,
+	makeStorageStub,
+	makeWorkspaceRecorder,
+	server,
+	theme,
+} from "#/routes/-route-fixtures";
 
-const server = "https://ryot.example";
-const theme: ThemeStore = {
-	destroy: () => undefined,
-	getPreference: () => "system",
-	setPreference: () => undefined,
-	subscribe: () => () => undefined,
-	getSnapshot: () =>
-		Schema.decodeUnknownSync(PluginThemeSnapshot)({
-			resolvedMode: "light",
-			tokens: Object.fromEntries(REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, name])),
-		}),
-};
-
-const catalog: PluginClientCatalog = [
-	{
-		sortOrder: 0,
-		icon: "puzzle",
-		name: "Fixture",
-		health: "ready",
-		slug: "fixture",
-		isDisabled: false,
-		clientApiVersion: 1,
-		pluginId: "plugin-1",
-		sourceHash: "source-hash",
-		installationId: "installation-1",
-		clientArtifactHash: "artifact-hash",
-	},
-];
-
-type WorkspaceStorageRecorder = {
-	readonly getScopes: ApiScope[];
-	readonly popupOpenWhenSet: boolean[];
-	readonly setCalls: Array<{ readonly scope: ApiScope; readonly slug: string }>;
-};
-
-const makeWorkspaceRecorder = (): WorkspaceStorageRecorder => ({
-	setCalls: [],
-	getScopes: [],
-	popupOpenWhenSet: [],
-});
-
-const makeStorageStub = (
-	rememberedSlug: string | null = null,
-	recorder?: WorkspaceStorageRecorder,
-): ClientStorage["Service"] => ({
-	remove: () => Effect.void,
-	clearServerSelection: Effect.void,
-	setServerSelection: () => Effect.void,
-	setThemePreference: () => Effect.void,
-	getServerSelection: Effect.succeed(server),
-	getThemePreference: Effect.succeed("system" as const),
-	getLastWorkspace: (scope) =>
-		Effect.sync(() => {
-			recorder?.getScopes.push(scope);
-			return rememberedSlug;
-		}),
-	setLastWorkspace: (scope, slug) =>
-		Effect.sync(() => {
-			recorder?.setCalls.push({ scope, slug });
-			recorder?.popupOpenWhenSet.push(document.querySelector('[role="dialog"]') !== null);
-		}),
-});
-
-const ServerStub = Layer.succeed(ServerService, {
-	connect: () => Effect.void,
-	selected: Effect.succeed(server),
-});
-
-const AuthStub = Layer.succeed(AuthService, {
-	signOut: () => Effect.void,
-	changeServer: () => Effect.void,
-	signInWithOidc: () => Effect.void,
-	verifyTwoFactor: () => Effect.void,
-	settledSession: () => Effect.succeed(authenticated),
-	submitCredentials: () => Effect.succeed({ _tag: "Authenticated" } as const),
-	session: () => ({ subscribe: () => () => undefined, getSnapshot: () => authenticated }),
-});
-
-const authenticated = {
-	status: "authenticated",
-	user: { image: null, id: "user-1", name: "Test User", email: "user@ryot.example" },
-} as const;
+const AuthStub = makeAuthStub();
 
 const mountView = (
 	initialEntry: string | string[],

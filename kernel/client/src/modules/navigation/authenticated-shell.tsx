@@ -1,14 +1,15 @@
 import { Outlet, useLocation, useNavigate, useRouteContext } from "@tanstack/react-router";
 import { Effect } from "effect";
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 
 import { AuthService } from "#/modules/auth/service";
+import { useDesktopEffect } from "#/modules/navigation/breakpoint";
 import { DesktopSidebar } from "#/modules/navigation/desktop-sidebar";
 import { MobileDrawer } from "#/modules/navigation/mobile-drawer";
 import { MobileHeader } from "#/modules/navigation/mobile-header";
 import {
 	resolvePluginRouteWorkspace,
-	resolveSettingsWorkspace,
+	resolveRememberedWorkspace,
 } from "#/modules/navigation/workspace-state";
 import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
 import { ClientStorage } from "#/persistence/storage";
@@ -27,7 +28,7 @@ export function AuthenticatedShell(props: { readonly initialRememberedSlug: stri
 	const settingsActive = isSettingsPath(pathname);
 	const routeSlug = pathname.split("/")[1] ?? "";
 	const current = settingsActive
-		? resolveSettingsWorkspace(catalog, rememberedSlug)
+		? resolveRememberedWorkspace(catalog, rememberedSlug)
 		: resolvePluginRouteWorkspace(catalog, routeSlug);
 	const homePath = current === null ? null : `/${current.slug}`;
 	const homeActive = homePath !== null && (pathname === homePath || pathname === `${homePath}/`);
@@ -40,20 +41,7 @@ export function AuthenticatedShell(props: { readonly initialRememberedSlug: stri
 		await navigate({ replace: true, to: "/$pluginSlug", params: { pluginSlug: slug } });
 	};
 
-	useEffect(() => {
-		if (typeof window.matchMedia !== "function") {
-			return undefined;
-		}
-		const desktop = window.matchMedia("(min-width: 768px)");
-		const closeOnDesktop = () => {
-			if (desktop.matches) {
-				setDrawerOpen(false);
-			}
-		};
-		closeOnDesktop();
-		desktop.addEventListener("change", closeOnDesktop);
-		return () => desktop.removeEventListener("change", closeOnDesktop);
-	}, []);
+	useDesktopEffect(() => setDrawerOpen(false));
 
 	return (
 		<div data-testid="authenticated-shell" className="flex h-dvh min-h-0 flex-col md:flex-row">
