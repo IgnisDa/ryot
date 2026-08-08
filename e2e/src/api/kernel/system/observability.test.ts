@@ -123,7 +123,11 @@ beforeAll(async () => {
 		s3BucketName: S3_BUCKET_NAME,
 		redisUrl: infrastructure.redisUrl,
 		s3Endpoint: infrastructure.s3Endpoint,
-		extraEnv: { SERVER_LOG_LEVEL: "debug", SERVER_OTLP_ENDPOINT: server.url },
+		extraEnv: {
+			SERVER_LOG_LEVEL: "debug",
+			SERVER_OTLP_ENDPOINT: server.url,
+			SERVER_OTLP_HEADERS: "x-ryot-collector-token=collector-secret",
+		},
 	});
 	logFile = requireString(env.SERVER_LOG_FILE, "Observability api log file is missing");
 	apiProcess = spawnApiProcess(env);
@@ -151,6 +155,13 @@ describe("API observability", () => {
 				Effect.sync(() => findRequestSpan()),
 			);
 			expect(getStringAttribute(resource["attributes"], "service.name")).toBe("ryot-backend");
+			expect(getStringAttribute(resource["attributes"], "deployment.environment")).toBe("test");
+
+			const traceRequest = requirePresent(
+				requireOtlpServer().requests.find((request) => request.path === "/v1/traces"),
+				"OTLP trace request is missing",
+			);
+			expect(traceRequest.headers["x-ryot-collector-token"]).toBe("collector-secret");
 
 			const requestTraceId = requirePresent(
 				requireString(requestSpan["traceId"], "Request trace ID is missing"),

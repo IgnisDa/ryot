@@ -1,6 +1,16 @@
 import { isLoopbackOrigin } from "@ryot-app/contract/oauth";
 import type { LogLevel } from "effect";
-import { Config, Context, Effect, Layer, Option, Redacted, Schema, SchemaIssue } from "effect";
+import {
+	Config,
+	Context,
+	Effect,
+	Layer,
+	Option,
+	Redacted,
+	Result,
+	Schema,
+	SchemaIssue,
+} from "effect";
 
 import { SANDBOX_LIMITS } from "../sandbox-runtime/limits";
 import { SystemConfigSource, type SystemConfigValue } from "./system";
@@ -46,6 +56,47 @@ const normalizePath = (path: string) => path.replaceAll("\\", "/").replace(/\/+$
 
 const pathsOverlap = (root: string, target: string) =>
 	target === root || target.startsWith(`${root}/`);
+
+const otlpEndpointError = (endpoint: string) => {
+	const parsed = Result.try(() => new URL(endpoint));
+	if (Result.isFailure(parsed)) {
+		return "SERVER_OTLP_ENDPOINT must be an absolute HTTP or HTTPS URL.";
+	}
+	const url = parsed.success;
+	if (url.protocol !== "http:" && url.protocol !== "https:") {
+		return "SERVER_OTLP_ENDPOINT must be an absolute HTTP or HTTPS URL.";
+	}
+	if (url.search !== "" || url.hash !== "" || url.username !== "" || url.password !== "") {
+		return "SERVER_OTLP_ENDPOINT must not contain a query, fragment, or credentials.";
+	}
+	if (/\/v1\/traces\/*$/i.test(url.pathname)) {
+		return "SERVER_OTLP_ENDPOINT must be the collector base URL without '/v1/traces'; the signal path is appended automatically.";
+	}
+	return undefined;
+};
+
+export const parseOtlpHeaders = (value: string): Result.Result<Record<string, string>, string> => {
+	const headers: Record<string, string> = {};
+	for (const [index, entry] of value.split(",").entries()) {
+		const trimmed = entry.trim();
+		if (trimmed.length === 0) {
+			continue;
+		}
+		const separator = trimmed.indexOf("=");
+		const name = separator === -1 ? "" : trimmed.slice(0, separator).trim();
+		const headerValue = separator === -1 ? "" : trimmed.slice(separator + 1).trim();
+		if (name.length === 0) {
+			return Result.fail(`entry ${index + 1} is not a key=value pair`);
+		}
+		if (headerValue.length === 0) {
+			return Result.fail(`header '${name}' has an empty value`);
+		}
+		headers[name] = headerValue;
+	}
+	return Object.keys(headers).length === 0
+		? Result.fail("it is set but contains no headers")
+		: Result.succeed(headers);
+};
 
 export const isOidcEnabled = (config: AppConfigValue): boolean => {
 	const { clientId, issuerUrl, clientSecret } = config.server.oidc;
@@ -101,6 +152,22 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 			yield* Effect.logWarning(
 				"FRONTEND_URL uses plain HTTP, so logins and API keys cross the network unencrypted and anyone on it can read them. Use HTTPS for anything reachable from the internet.",
 			).pipe(Effect.annotateLogs({ frontendUrl: frontendUrl.origin }));
+		}
+
+		if (Option.isSome(config.server.otlpEndpoint)) {
+			const endpointError = otlpEndpointError(config.server.otlpEndpoint.value);
+			if (endpointError !== undefined) {
+				return yield* Effect.fail(configError(endpointError));
+			}
+		}
+
+		if (Option.isSome(config.server.otlpHeaders)) {
+			const headers = parseOtlpHeaders(Redacted.value(config.server.otlpHeaders.value));
+			if (Result.isFailure(headers)) {
+				return yield* Effect.fail(
+					configError(`SERVER_OTLP_HEADERS is invalid: ${headers.failure}.`),
+				);
+			}
 		}
 
 		const { clientId, issuerUrl, clientSecret } = config.server.oidc;
