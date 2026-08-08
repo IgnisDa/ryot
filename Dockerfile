@@ -30,7 +30,7 @@ FROM base AS compiler-runtime
 COPY --from=prepare /app/out/json/ .
 COPY --from=prepare /app/out/full/packages ./packages
 RUN --mount=type=cache,target=/root/.bun/install/cache \
-    bun install --filter @ryot/sandbox-compiler --filter @ryot/client-plugin-compiler --production --frozen-lockfile
+    bun install --filter @ryot/typescript-compiler --filter @ryot/sandbox-compiler --filter @ryot/client-plugin-compiler --production --frozen-lockfile
 
 FROM base AS runner
 RUN useradd -m -u 1001 ryot

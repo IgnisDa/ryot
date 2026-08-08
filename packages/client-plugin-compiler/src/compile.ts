@@ -24,6 +24,7 @@ import { bundleClientPlugin } from "./bundle";
 import { resolveClientPluginCompilerDependencies } from "./dependencies";
 import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
 import { CLIENT_PLUGIN_COMPILER_LIMITS } from "./limits";
+import { checkClientPluginTypes } from "./semantic-check";
 import { compileClientStyles } from "./styles";
 
 const CLIENT_SOURCE_ROOT = "client/";
@@ -122,6 +123,20 @@ export const compileClientPlugin = ({ entry, files }: ClientPluginCompilerInput)
 		);
 		if ("diagnostics" in bundled) {
 			return yield* clientPluginCompilationFailure(bundled.diagnostics);
+		}
+		const typeDiagnostics = yield* checkClientPluginTypes(sourceFiles, dependencies).pipe(
+			Effect.mapError((error) =>
+				clientPluginCompilationFailure([
+					clientPluginCompilerDiagnostic(
+						"RYOT_CLIENT_COMPILER",
+						entry,
+						`TypeScript compiler failed: ${String(error)}`,
+					),
+				]),
+			),
+		);
+		if (typeDiagnostics.length > 0) {
+			return yield* clientPluginCompilationFailure(typeDiagnostics);
 		}
 		if (bundled.stylesheets.length > 1) {
 			return yield* failure(
