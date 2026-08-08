@@ -5,6 +5,7 @@ import {
 	savedViewRecipe,
 } from "@ryot-app/ryotql-recipes/saved-views";
 
+import { fitnessLibraryLinkExists } from "../shared/fitness-recipes";
 import { fitnessEntitySchemas } from "./schemas/entity";
 import { buildViewExpressions } from "./view-helpers";
 
@@ -47,6 +48,10 @@ export const fitnessSavedViews = () => {
 				type: "generated",
 				orderBy: input.orderBy,
 				entitySchemaSlugs: [input.entitySchemaSlug],
+				where:
+					input.entitySchemaSlug === "exercise"
+						? fitnessLibraryLinkExists(entity, "fitnessLibrary")
+						: undefined,
 				fields: [
 					...projections.table.fields,
 					field("ownerPluginId", column(entity, "entitySchemaPluginId")),

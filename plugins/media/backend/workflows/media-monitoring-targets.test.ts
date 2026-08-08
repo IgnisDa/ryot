@@ -64,7 +64,7 @@ describe("media monitoring targets", () => {
 		);
 		expect(serialized).toContain('"field":"providerId"');
 		expect(serialized).toContain('"field":"externalId"');
-		expect(serialized).not.toContain('"table":"entity","alias":"library"');
+		expect(serialized).not.toContain('"table":"entity","alias":"mediaLibrary"');
 		expect(serialized).not.toContain("show-season");
 	});
 });

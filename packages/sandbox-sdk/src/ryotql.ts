@@ -10,7 +10,8 @@ export {
 	type EntityReadResult,
 	type EventReadResult,
 } from "@ryot-app/ryotql-recipes/sandbox";
-export { userLibraryRecipe } from "@ryot-app/ryotql-recipes/user-library";
+export { userMediaLibraryRecipe } from "@ryot-app/ryotql-recipes/user-media-library";
+export { userFitnessLibraryRecipe } from "@ryot-app/ryotql-recipes/user-fitness-library";
 export { IsoDateString } from "@ryot-app/ryotql-recipes/codecs";
 export {
 	eventIsAfter,

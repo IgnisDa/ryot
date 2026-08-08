@@ -216,7 +216,7 @@ it.live("shows a kernel notice for a Media schema with no detail renderer", () =
 		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
 		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
-		const { schema } = yield* findBuiltinSchemaBySlug(client, "library");
+		const { schema } = yield* findBuiltinSchemaBySlug(client, "media-library");
 		const library = yield* createEntity(client, {
 			properties: {},
 			entitySchemaSlug: schema.id,

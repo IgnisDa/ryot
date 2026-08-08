@@ -69,6 +69,21 @@ export type ProviderEntityLinksInput = {
 	readonly providerId: SandboxProviderId;
 	readonly entitySchemaSlug: EntitySchemaSlug;
 	readonly externalIds: readonly [string, ...string[]];
+	readonly relationshipSlug: string;
+	readonly librarySchemaSlug: string;
+};
+
+export const resolveLibraryMembership = (
+	ownerPluginId: string | undefined,
+	entitySchemaSlug: EntitySchemaSlug,
+) => {
+	if (ownerPluginId === "fitness" && entitySchemaSlug === "exercise") {
+		return {
+			librarySchemaSlug: "fitness-library",
+			relationshipSlug: "in-fitness-library",
+		} as const;
+	}
+	return { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" } as const;
 };
 
 type ProviderSearchPanelProps = {
@@ -78,6 +93,8 @@ type ProviderSearchPanelProps = {
 	readonly providers: ProviderSummariesState;
 	readonly initialQuery?: string | undefined;
 	readonly entitySchemaSlug: EntitySchemaSlug;
+	readonly relationshipSlug: string;
+	readonly librarySchemaSlug: string;
 	readonly selectedProviderId: SandboxProviderId | undefined;
 	readonly onSelectProvider: (providerId: SandboxProviderId) => void;
 	readonly loadSearchOptions: (
@@ -167,6 +184,9 @@ function ProviderChips(props: {
 function ProviderSearchResultList(props: {
 	readonly providerId: SandboxProviderId;
 	readonly entitySchemaSlug: EntitySchemaSlug;
+	readonly libraryName: string;
+	readonly relationshipSlug: string;
+	readonly librarySchemaSlug: string;
 	readonly onAdd: (externalId: string) => void;
 	readonly importState: ProviderEntityImportState;
 	readonly items: readonly ProviderSearchResultItem[];
@@ -187,6 +207,8 @@ function ProviderSearchResultList(props: {
 			externalIds,
 			providerId: props.providerId,
 			entitySchemaSlug: props.entitySchemaSlug,
+			relationshipSlug: props.relationshipSlug,
+			librarySchemaSlug: props.librarySchemaSlug,
 		});
 		if (linksRequest.current !== request) {
 			return;
@@ -199,7 +221,13 @@ function ProviderSearchResultList(props: {
 		linksRequest.current = request;
 		setLinks(undefined);
 		void loadLinks(request);
-	}, [externalIdsKey, props.providerId]);
+	}, [
+		externalIdsKey,
+		props.entitySchemaSlug,
+		props.librarySchemaSlug,
+		props.providerId,
+		props.relationshipSlug,
+	]);
 
 	return (
 		<div className="grid gap-1">
@@ -207,6 +235,7 @@ function ProviderSearchResultList(props: {
 				<ProviderSearchResultRow
 					item={item}
 					key={item.externalId}
+					libraryName={props.libraryName}
 					onAdd={() => props.onAdd(item.externalId)}
 					linkedEntityId={links?.get(item.externalId)}
 					entry={providerEntityImportEntry(props.importState, item.externalId)}
@@ -221,6 +250,9 @@ function ProviderSearchResults(props: {
 	readonly state: ProviderSearchState;
 	readonly providerId: SandboxProviderId;
 	readonly entitySchemaSlug: EntitySchemaSlug;
+	readonly libraryName: string;
+	readonly relationshipSlug: string;
+	readonly librarySchemaSlug: string;
 	readonly onAdd: (externalId: string) => void;
 	readonly importState: ProviderEntityImportState;
 	readonly loadEntityLinks: ProviderSearchPanelProps["loadEntityLinks"];
@@ -235,8 +267,11 @@ function ProviderSearchResults(props: {
 				items={props.state.items}
 				providerId={props.providerId}
 				importState={props.importState}
+				libraryName={props.libraryName}
 				loadEntityLinks={props.loadEntityLinks}
 				entitySchemaSlug={props.entitySchemaSlug}
+				relationshipSlug={props.relationshipSlug}
+				librarySchemaSlug={props.librarySchemaSlug}
 			/>
 			{hasMoreProviderSearchResults(props.state) && props.state.status !== "loading-more" ? (
 				<Button onClick={props.onLoadMore} aria-label="Load more results">
@@ -251,6 +286,8 @@ function ProviderSearchResults(props: {
 export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 	const available = props.providers.status === "ready" ? props.providers.providers : [];
 	const selected = selectPreferredProvider(available, props.selectedProviderId ?? null);
+	const libraryName =
+		props.librarySchemaSlug === "fitness-library" ? "fitness library" : "media library";
 
 	const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
 	const [importState, setImportState] = useState(createProviderEntityImportState);
@@ -547,9 +584,12 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 								state={state}
 								onAdd={addProviderEntity}
 								importState={importState}
+								libraryName={libraryName}
 								providerId={selected.providerId}
 								loadEntityLinks={props.loadEntityLinks}
 								entitySchemaSlug={props.entitySchemaSlug}
+								relationshipSlug={props.relationshipSlug}
+								librarySchemaSlug={props.librarySchemaSlug}
 								onLoadMore={() => dispatch({ type: "next-page-requested" })}
 							/>
 						)),

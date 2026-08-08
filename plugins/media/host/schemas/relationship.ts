@@ -71,10 +71,10 @@ const buildCreditRelationshipSchemas = (input: {
 
 export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 	{
-		slug: "in-library",
-		name: "In Library",
+		slug: "in-media-library",
+		name: "In Media Library",
 		sourceEntitySchemaSlug: null,
-		targetEntitySchemaSlug: "library",
+		targetEntitySchemaSlug: "media-library",
 		propertiesSchema: {
 			fields: {
 				owned: {
@@ -105,7 +105,7 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 		name: "Media Monitoring",
 		sourceEntitySchemaSlug: null,
 		propertiesSchema: { fields: {} },
-		targetEntitySchemaSlug: "library",
+		targetEntitySchemaSlug: "media-library",
 	},
 	{
 		slug: "media-suggestion",

@@ -8,7 +8,10 @@ import {
 	uploadImportFile,
 	waitForEventSlugs,
 } from "~/fixtures/kernel";
-import { queryInLibraryRelationship, seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";
+import {
+	queryInMediaLibraryRelationship,
+	seedGlobalShowEpisodeTree,
+} from "~/fixtures/plugins/media";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("Watcharr Show Import E2E (episode resolution)", () => {
@@ -59,7 +62,7 @@ describe("Watcharr Show Import E2E (episode resolution)", () => {
 					c.imports.createRun({ payload: { uploadToken, source: "watcharr" } }),
 				);
 				const completedRun = yield* pollImportRunUntilTerminal(client, created.id);
-				const membership = yield* queryInLibraryRelationship(client, showId, "show");
+				const membership = yield* queryInMediaLibraryRelationship(client, showId, "show");
 				expect(
 					membership.data.entity?.type === "rows" ? membership.data.entity.items : [],
 				).toHaveLength(1);

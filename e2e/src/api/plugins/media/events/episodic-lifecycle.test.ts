@@ -186,7 +186,7 @@ describe("Episodic lifecycle sessions", () => {
 					dropped: entityId,
 					on_hold: entityId,
 					complete: entityId,
-					"add-to-library": undefined,
+					"add-to-media-library": undefined,
 				});
 			}
 		}),

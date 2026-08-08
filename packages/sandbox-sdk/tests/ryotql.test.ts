@@ -9,7 +9,7 @@ import {
 	field,
 	rows,
 	table,
-	userLibraryRecipe,
+	userMediaLibraryRecipe,
 } from "@ryot-app/sandbox-sdk/ryotql";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
@@ -48,7 +48,7 @@ describe("RyotQL sandbox SDK", () => {
 		expect(
 			eventReadRecipe({ entitySchemaSlug: "book", eventSchemaSlug: "progress" }).document,
 		).toHaveProperty("queries.events");
-		expect(userLibraryRecipe().document).toHaveProperty("queries.library");
+		expect(userMediaLibraryRecipe().document).toHaveProperty("queries.mediaLibrary");
 	});
 
 	it("executes and decodes a prepared recipe", async () => {

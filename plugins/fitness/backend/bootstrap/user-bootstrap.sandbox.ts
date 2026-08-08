@@ -5,8 +5,8 @@ export const manifest = defineManifest({
 	kind: "script",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	slug: "bootstrap.media-workspace",
-	name: "Initialize Media Workspace",
+	slug: "bootstrap.fitness-workspace",
+	name: "Initialize Fitness Workspace",
 	capabilities: ["ensureUserEntities"],
 });
 
@@ -19,7 +19,7 @@ export default defineScript({
 	run: (_input, host) =>
 		host
 			.ensureUserEntities([
-				{ properties: {}, name: "Media Library", entitySchemaSlug: "media-library" },
+				{ properties: {}, name: "Fitness Library", entitySchemaSlug: "fitness-library" },
 			])
 			.pipe(Effect.map((results) => ({ results }))),
 });

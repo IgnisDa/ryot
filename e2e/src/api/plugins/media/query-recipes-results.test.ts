@@ -499,7 +499,7 @@ describe("Media RyotQL query recipe results", () => {
 			expect(summary.entitySchemaSlug).toBe("show");
 			expect(summaryRow.owned).toBe(true);
 			expect(summaryRow.state).toBe("untracked");
-			expect(summaryRow.isInLibrary).toBe(true);
+			expect(summaryRow.isInMediaLibrary).toBe(true);
 			expect(summaryRow.isMonitored).toBe(true);
 			expect(summaryRow.publishYear).toBe(2025);
 			expect(summaryRow.totalSeasons).toBe(1);
@@ -1320,7 +1320,7 @@ describe("Media RyotQL query recipe results", () => {
 					kind: "parent",
 					seasonNumber: null,
 					episodeNumber: null,
-					eventSchemaSlug: "add-to-library",
+					eventSchemaSlug: "add-to-media-library",
 				}),
 				{
 					kind: "parent",
@@ -1493,7 +1493,7 @@ describe("Media RyotQL query recipe results", () => {
 			expect(activity.events).toHaveLength(2);
 			expect(activity.events[0]).toMatchObject({
 				kind: "parent",
-				eventSchemaSlug: "add-to-library",
+				eventSchemaSlug: "add-to-media-library",
 			});
 			expect(activity.events[1]).toMatchObject({
 				eventSchemaSlug: "complete",

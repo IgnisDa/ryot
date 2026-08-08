@@ -15,6 +15,8 @@ import { ProviderAddService } from "#/modules/provider-add/service";
 const ownerPluginId = "stable-plugin-id";
 const entitySchemaSlug = EntitySchemaSlug.make("book");
 const providerId = SandboxProviderId.make("provider-1");
+const relationshipSlug = "in-media-library";
+const librarySchemaSlug = "media-library";
 const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 
 const pageInfo = { limit: 100, hasMore: false, nextCursor: null } as const;
@@ -92,6 +94,8 @@ describe("ProviderAddService", () => {
 			const links = yield* service.loadEntityLinks(client, {
 				providerId,
 				entitySchemaSlug,
+				relationshipSlug,
+				librarySchemaSlug,
 				externalIds: ["ext-1"],
 			});
 
@@ -148,7 +152,13 @@ describe("ProviderAddService", () => {
 			const stages = [
 				yield* Effect.flip(service.loadProviders(client, entitySchemaSlug)),
 				yield* Effect.flip(
-					service.loadEntityLinks(client, { providerId, entitySchemaSlug, externalIds: ["ext-1"] }),
+					service.loadEntityLinks(client, {
+						providerId,
+						entitySchemaSlug,
+						relationshipSlug,
+						librarySchemaSlug,
+						externalIds: ["ext-1"],
+					}),
 				),
 				yield* Effect.flip(service.loadSearchOptions(scope, providerId)),
 				yield* Effect.flip(
