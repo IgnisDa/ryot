@@ -1,7 +1,12 @@
 import { activeSectionSlug, type SectionNavItem } from "@/modules/ui/sections";
 
 export const settingsSections = [
-	{ slug: "general", label: "General", href: "/settings/general", icon: "sliders-horizontal" },
+	{
+		slug: "preferences",
+		label: "Preferences",
+		icon: "sliders-horizontal",
+		href: "/settings/preferences",
+	},
 	{ icon: "globe", slug: "integrations", label: "Integrations", href: "/settings/integrations" },
 	{
 		icon: "inbox",
@@ -22,4 +27,4 @@ export const settingsSections = [
 export type SettingsSectionSlug = (typeof settingsSections)[number]["slug"];
 
 export const getActiveSettingsSection = (pathname: string): SettingsSectionSlug =>
-	activeSectionSlug(pathname, settingsSections, "general");
+	activeSectionSlug(pathname, settingsSections, "preferences");
