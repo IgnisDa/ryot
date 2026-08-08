@@ -1,10 +1,10 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { assert, expect, it } from "@effect/vitest";
+import type { ClientPluginCompilerInput } from "@ryot/client-plugin-compiler";
 import {
 	clientPluginCompilationFailure,
 	clientPluginCompilerDiagnostic,
 } from "@ryot/client-plugin-compiler/diagnostics";
-import type { ClientPluginCompilerRequest } from "@ryot/client-plugin-compiler/protocol";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
@@ -57,7 +57,6 @@ const makeStoredPlugin = (manifest: PluginManifest, sourceHash: string): StoredP
 		sourceHash,
 		ownerId: null,
 		scope: "system",
-		sourceFiles: {},
 		status: "active",
 		clientArtifactHash: null,
 		slug: manifest.metadata.slug,
@@ -252,7 +251,7 @@ const makeLayer = (input?: {
 				const pluginId = `${identity.slug}-plugin-id`;
 				yield* Effect.sync(() => {
 					input?.persisted?.push(plugin);
-					const { clientArtifact, ...revision } = plugin;
+					const { clientArtifact, files: _files, ...revision } = plugin;
 					const stored = {
 						...revision,
 						...identity,
@@ -335,11 +334,11 @@ it.effect("validates, compiles, content-addresses, persists, loads, and publishe
 		expect(plugin.scripts[0]?.contentHash).toMatch(/^[a-f0-9]{64}$/);
 		expect(persisted).toEqual([
 			{
+				files: source.files,
 				clientArtifact: null,
 				scripts: plugin.scripts,
 				manifest: plugin.manifest,
 				sourceHash: plugin.sourceHash,
-				sourceFiles: plugin.sourceFiles,
 			},
 		]);
 		expect(loader.getSnapshot().definitions.entitySchemas["fixture-entity"]?.name).toBe("Fixture");
@@ -423,11 +422,11 @@ it.effect("returns a committed install when Redis publication fails", () => {
 
 		expect(persisted).toEqual([
 			{
+				files: source.files,
 				clientArtifact: null,
 				scripts: plugin.scripts,
 				manifest: plugin.manifest,
 				sourceHash: plugin.sourceHash,
-				sourceFiles: plugin.sourceFiles,
 			},
 		]);
 		expect(loader.getSnapshot().plugins["fixture"]?.sourceHash).toBe(plugin.sourceHash);
@@ -482,11 +481,11 @@ it.effect("accepts user bootstrap declarations through explicit system ingestion
 		]);
 		expect(persisted).toEqual([
 			{
+				files: source.files,
 				clientArtifact: null,
 				scripts: plugin.scripts,
 				manifest: plugin.manifest,
 				sourceHash: plugin.sourceHash,
-				sourceFiles: plugin.sourceFiles,
 			},
 		]);
 	}).pipe(Effect.provide(makeLayer({ persisted })));
@@ -1278,23 +1277,29 @@ const clientArtifact = (): PluginClientArtifact => ({
 	bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 	hash: "client-artifact-hash",
 	files: [
-		{ name: "plugin.js", contents: "export {};", contentType: "text/javascript; charset=utf-8" },
-		{ name: "index.html", contents: "<!doctype html>", contentType: "text/html; charset=utf-8" },
+		{
+			name: "plugin.js",
+			contents: new TextEncoder().encode("export {};"),
+			contentType: "text/javascript; charset=utf-8",
+		},
+		{
+			name: "index.html",
+			contents: new TextEncoder().encode("<!doctype html>"),
+			contentType: "text/html; charset=utf-8",
+		},
 	],
 });
 
 it.effect("compiles the declared client entry and persists its artifact", () => {
 	const artifact = clientArtifact();
 	const persisted: Array<NormalizedPlugin> = [];
-	const requests: Array<ClientPluginCompilerRequest> = [];
+	const requests: Array<ClientPluginCompilerInput> = [];
 	return Effect.gen(function* () {
 		const ingestion = yield* PluginIngestionService;
 		const source = yield* loadPluginSource(fixturePackageRoot(), clientManifest());
-		const plugin = yield* ingestion.ingestSystemPlugin(source);
+		yield* ingestion.ingestSystemPlugin(source);
 
-		expect(requests).toEqual([
-			{ apiVersion: 1, entry: "client/index.tsx", files: plugin.sourceFiles },
-		]);
+		expect(requests).toEqual([{ apiVersion: 1, entry: "client/index.tsx", files: source.files }]);
 		expect(persisted).toEqual([expect.objectContaining({ clientArtifact: artifact })]);
 	}).pipe(
 		Effect.provide(
@@ -1376,7 +1381,8 @@ it.effect("rejects non-canonical and missing plugin source paths as bad requests
 			assert(script);
 			const exit = yield* Effect.exit(
 				ingestion.ingestSystemPlugin({
-					files: path === entry ? {} : { ...source.files, [path]: "source" },
+					files:
+						path === entry ? {} : { ...source.files, [path]: new TextEncoder().encode("source") },
 					manifest: { ...manifest, scripts: [{ ...script, entry: scriptEntry }] },
 				}),
 			);

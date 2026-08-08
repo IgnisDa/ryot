@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 
+import { CanonicalBase64 } from "../../schema/base64";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -15,7 +16,7 @@ import {
 } from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
 import { SubscriptionRunStatus } from "../automations/schemas";
-import { PluginPackage } from "../plugins/schemas";
+import { PluginManifest } from "../plugins/manifest";
 import { EnqueueSandboxBody, SandboxScriptMetadata } from "../sandbox/schemas";
 
 const TestSupportDiagnosticReason = Schema.Union([
@@ -42,9 +43,13 @@ export class TestSupportOperationFailure extends Schema.TaggedError<TestSupportO
 	{ reason: TestSupportDiagnosticReason },
 ) {}
 
-export const TestSupportInstallSystemPluginBody = Schema.Struct({ ...PluginPackage.fields });
+export const TestSupportInstallSystemPluginBodyBase64 = Schema.Struct({
+	manifest: PluginManifest,
+	files: Schema.Record(Schema.String, CanonicalBase64),
+});
 
-export type TestSupportInstallSystemPluginBody = typeof TestSupportInstallSystemPluginBody.Type;
+export type TestSupportInstallSystemPluginBodyBase64 =
+	typeof TestSupportInstallSystemPluginBodyBase64.Type;
 
 export const TestSupportSystemPlugin = Schema.Struct({
 	slug: PluginSlug,

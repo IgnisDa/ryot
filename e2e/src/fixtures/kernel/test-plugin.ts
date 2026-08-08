@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 
 import type { ContractPayload } from "@ryot/contract/client";
-import type { PluginPackage } from "@ryot/contract/modules/plugins/schemas";
+import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { PluginSlug, type SandboxScriptId } from "@ryot/contract/schema/brands";
-import { Effect } from "effect";
+import type { PluginArchivePackage } from "@ryot/plugin-archive";
+import { Effect, Encoding } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 
@@ -15,7 +16,7 @@ import { buildSavedViewLayouts } from "./saved-views";
 import { uploadPrivatePluginPackage } from "./temporary-archive";
 
 type InstallPluginPayload = ContractPayload<"plugins", "install">;
-type TestPluginManifest = PluginPackage["manifest"];
+type TestPluginManifest = PluginManifest;
 type PluginScript = TestPluginManifest["scripts"][number];
 type PluginProvider = TestPluginManifest["providers"][number];
 
@@ -57,7 +58,7 @@ export type InstalledTestPlugin = {
 	scope: "system" | "user";
 	scriptId: SandboxScriptId;
 	manifest: TestPluginManifest;
-	files: PluginPackage["files"];
+	files: PluginArchivePackage["files"];
 	scriptIds: Record<string, SandboxScriptId>;
 };
 
@@ -68,6 +69,18 @@ type InstalledScriptRegistration = {
 
 const definitionManifests = new Map<string, { client: Client; manifest: TestPluginManifest }>();
 const installedByScriptId = new Map<string, InstalledScriptRegistration>();
+const encoder = new TextEncoder();
+const decoder = new TextDecoder("utf-8", { fatal: true });
+
+export const encodePluginSourceFiles = (files: Readonly<Record<string, string>>) =>
+	Object.fromEntries(
+		Object.entries(files).map(([path, contents]) => [path, encoder.encode(contents)]),
+	);
+
+export const encodeTestSupportPluginFiles = (files: Readonly<Record<string, Uint8Array>>) =>
+	Object.fromEntries(
+		Object.entries(files).map(([path, contents]) => [path, Encoding.encodeBase64(contents)]),
+	);
 
 export const findTestEntitySchema = (slug: string) => {
 	for (const [pluginSlug, { manifest }] of definitionManifests) {
@@ -174,10 +187,13 @@ export const installTestPlugin = (
 			...(input.entitySchemas ? { entitySchemas: input.entitySchemas } : {}),
 			...(input.integrationProviders ? { integrationProviders: input.integrationProviders } : {}),
 		});
-		const files = { [entry]: input.source };
+		const files = { [entry]: encoder.encode(input.source) };
 		if (input.scope === "system") {
 			yield* getApiClient().call(
-				(c) => c.testSupport.installSystemPlugin({ payload: { files, manifest } }),
+				(c) =>
+					c.testSupport.installSystemPlugin({
+						payload: { manifest, files: encodeTestSupportPluginFiles(files) },
+					}),
 				adminHeaders,
 			);
 		} else {
@@ -218,8 +234,8 @@ export const installTestPluginBundle = (
 		baseUrl?: string;
 		pluginSlug?: string;
 		crons?: TestPluginManifest["crons"];
-		files: PluginPackage["files"];
 		scripts: TestPluginManifest["scripts"];
+		files: Readonly<Record<string, string>>;
 		config?: InstallPluginPayload["config"];
 		providers?: ReadonlyArray<PluginProvider>;
 		workflows?: TestPluginManifest["workflows"];
@@ -235,6 +251,7 @@ export const installTestPluginBundle = (
 	} & TestPluginOwner,
 ) =>
 	Effect.gen(function* () {
+		const files = encodePluginSourceFiles(input.files);
 		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${randomUUID()}`;
 		const pluginSlugId = PluginSlug.make(pluginSlug);
 		const manifest = testPluginManifest({
@@ -255,13 +272,16 @@ export const installTestPluginBundle = (
 		});
 		if (input.scope === "system") {
 			yield* getApiClient(input.baseUrl).call(
-				(c) => c.testSupport.installSystemPlugin({ payload: { files: input.files, manifest } }),
+				(c) =>
+					c.testSupport.installSystemPlugin({
+						payload: { manifest, files: encodeTestSupportPluginFiles(files) },
+					}),
 				adminHeaders,
 			);
 		} else {
 			const uploadToken = yield* uploadPrivatePluginPackage(
 				input.client,
-				{ files: input.files, manifest },
+				{ files, manifest },
 				input.baseUrl,
 			);
 			yield* input.client.call((c) =>
@@ -284,9 +304,11 @@ export const installTestPluginBundle = (
 		const scriptIds = Object.fromEntries(
 			yield* Effect.all(
 				input.scripts.map((script) =>
-					findInstalledScriptId(script.slug, input.files[script.entry] ?? "", input.baseUrl).pipe(
-						Effect.map((scriptId) => [script.slug, scriptId] as const),
-					),
+					findInstalledScriptId(
+						script.slug,
+						decoder.decode(files[script.entry] ?? new Uint8Array()),
+						input.baseUrl,
+					).pipe(Effect.map((scriptId) => [script.slug, scriptId] as const)),
 				),
 			),
 		);
@@ -297,11 +319,11 @@ export const installTestPluginBundle = (
 			return yield* Effect.die(new Error("Test plugin bundle requires at least one script"));
 		}
 		const installed: InstalledTestPlugin = {
+			files,
 			manifest,
 			scriptId,
 			scriptIds,
 			active: true,
-			files: input.files,
 			client: input.client,
 			pluginSlug: pluginSlugId,
 			scope: input.scope ?? "user",
@@ -382,13 +404,16 @@ export const reinstallTestPluginScript = (
 		if (!target) {
 			throw new Error(`Installed test plugin '${installed.pluginSlug}' has no script entry`);
 		}
-		const files = { ...installed.files, [target.entry]: source };
+		const files = { ...installed.files, [target.entry]: encoder.encode(source) };
 		const scripts = [...installed.manifest.scripts];
 		scripts[targetIndex] = { ...script, entry: target.entry };
 		const manifest = { ...installed.manifest, scripts };
 		if (installed.scope === "system") {
 			yield* getApiClient().call(
-				(c) => c.testSupport.installSystemPlugin({ payload: { files, manifest } }),
+				(c) =>
+					c.testSupport.installSystemPlugin({
+						payload: { manifest, files: encodeTestSupportPluginFiles(files) },
+					}),
 				adminHeaders,
 			);
 		} else {

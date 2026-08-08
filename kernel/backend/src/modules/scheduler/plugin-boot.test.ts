@@ -42,7 +42,6 @@ const normalizedPlugin = (pluginSlug: string): PluginRegistryEntry => {
 	const { entry, ...metadata } = script;
 	return {
 		ownerId: null,
-		sourceFiles: {},
 		slug: pluginSlug,
 		id: `${pluginSlug}-id`,
 		scope: "system" as const,

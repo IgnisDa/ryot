@@ -35,7 +35,11 @@ const tokens = Object.fromEntries(
 describe("plugin client artifact contract", () => {
 	it("rejects duplicate emitted file names", () => {
 		const decode = Schema.decodeUnknownResult(PluginClientArtifact);
-		const file = { name: "plugin.js", contents: "", contentType: "text/javascript" };
+		const file = {
+			name: "plugin.js",
+			contents: new Uint8Array(),
+			contentType: "text/javascript",
+		};
 
 		expect(
 			Result.isFailure(
@@ -46,6 +50,36 @@ describe("plugin client artifact contract", () => {
 					apiVersion: CLIENT_API_VERSION,
 					compilerVersion: CLIENT_COMPILER_VERSION,
 					bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+				}),
+			),
+		).toBe(true);
+	});
+
+	it("requires artifact file contents to be bytes", () => {
+		const decode = Schema.decodeUnknownResult(PluginClientArtifact);
+		const artifact = {
+			hash: "hash",
+			format: CLIENT_ARTIFACT_FORMAT,
+			apiVersion: CLIENT_API_VERSION,
+			compilerVersion: CLIENT_COMPILER_VERSION,
+			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+		};
+
+		expect(
+			Result.isSuccess(
+				decode({
+					...artifact,
+					files: [
+						{ name: "plugin.js", contents: new Uint8Array([0xff]), contentType: "text/javascript" },
+					],
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				decode({
+					...artifact,
+					files: [{ name: "plugin.js", contents: "", contentType: "text/javascript" }],
 				}),
 			),
 		).toBe(true);

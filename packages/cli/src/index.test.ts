@@ -4,6 +4,8 @@ import { readPluginArchive } from "@ryot/plugin-archive";
 import { Effect, FileSystem, Path, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
+const decoder = new TextDecoder();
+
 const createPlugin = Effect.fn("createPlugin")(function* () {
 	const path = yield* Path.Path;
 	const fs = yield* FileSystem.FileSystem;
@@ -65,6 +67,21 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 				const path = yield* Path.Path;
 				const fs = yield* FileSystem.FileSystem;
 				const plugin = yield* createPlugin();
+				const assetBytes = new Uint8Array([0xff, 0x00, 0x7f]);
+				for (const extension of [
+					"png",
+					"jpg",
+					"jpeg",
+					"gif",
+					"webp",
+					"avif",
+					"ico",
+					"woff2",
+					"wasm",
+				]) {
+					yield* fs.writeFile(path.join(plugin, "client", `asset.${extension}`), assetBytes);
+				}
+				yield* fs.writeFile(path.join(plugin, "client", "ignored.PNG"), assetBytes);
 				const result = yield* run(plugin, ["plugin", "build"]);
 				const output = path.join(plugin, "dist", "cli-test.zip");
 				const first = yield* fs.readFile(output);
@@ -78,17 +95,28 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 				expect(pluginPackage.manifest).toMatchObject({
 					httpRateLimits: [{ origins: ["https://example.com"] }],
 				});
-				expect(pluginPackage.files["backend/main.ts"]).toContain('"initial"');
-				expect(pluginPackage.files["backend/nested/worker.ts"]).toContain("worker");
+				expect(decoder.decode(pluginPackage.files["backend/main.ts"])).toContain('"initial"');
+				expect(decoder.decode(pluginPackage.files["backend/nested/worker.ts"])).toContain("worker");
 				expect(pluginPackage.files["backend/ignored.test.ts"]).toBeUndefined();
 				expect(Object.keys(pluginPackage.files)).toEqual([
 					"backend/main.ts",
 					"backend/nested/worker.ts",
+					"client/asset.avif",
+					"client/asset.gif",
+					"client/asset.ico",
+					"client/asset.jpeg",
+					"client/asset.jpg",
+					"client/asset.png",
+					"client/asset.wasm",
+					"client/asset.webp",
+					"client/asset.woff2",
 					"client/home.tsx",
 					"client/index.tsx",
 					"client/logo.svg",
 					"client/styles.css",
 				]);
+				expect(pluginPackage.files["client/asset.png"]).toEqual(assetBytes);
+				expect(pluginPackage.files["client/ignored.PNG"]).toBeUndefined();
 				expect(pluginPackage.files["client/ignored.test.tsx"]).toBeUndefined();
 			}),
 	);
@@ -222,7 +250,7 @@ it.live("rebuilds after a watched backend change", () =>
 					return false;
 				}
 				const pluginPackage = yield* readPluginArchive(yield* fs.readFile(output));
-				return pluginPackage.files["backend/main.ts"]?.includes('"updated"') ?? false;
+				return decoder.decode(pluginPackage.files["backend/main.ts"]).includes('"updated"');
 			}),
 		);
 	}).pipe(Effect.provide(BunServices.layer)),

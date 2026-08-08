@@ -36,6 +36,9 @@ const workerFailure = Match.type<CompilerWorkerFailure>().pipe(
 			"Sandbox compiler memory supervision became unavailable",
 		),
 	),
+	Match.tag("OutputExceeded", () =>
+		processFailure("RYOT_COMPILER_PROCESS", "Sandbox compiler returned an oversized result"),
+	),
 	Match.tag("ProcessExited", () =>
 		processFailure(
 			"RYOT_COMPILER_PROCESS",

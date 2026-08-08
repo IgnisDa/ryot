@@ -9,7 +9,7 @@ export type PluginScriptMetadata = PluginScript extends infer Script
 
 export type PluginSource = {
 	readonly manifest: unknown;
-	readonly files: Readonly<Record<string, string>>;
+	readonly files: Readonly<Record<string, Uint8Array>>;
 };
 
 export type NormalizedPluginScript = {
@@ -28,10 +28,10 @@ export type PluginRevision = {
 	readonly manifest: PluginManifest;
 	readonly clientArtifactHash: string | null;
 	readonly scripts: Array<NormalizedPluginScript>;
-	readonly sourceFiles: Readonly<Record<string, string>>;
 };
 
 export type NormalizedPlugin = Omit<PluginRevision, "clientArtifactHash"> & {
+	readonly files: Readonly<Record<string, Uint8Array>>;
 	readonly clientArtifact: PluginClientArtifact | null;
 };
 

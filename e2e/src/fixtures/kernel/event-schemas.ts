@@ -1,4 +1,4 @@
-import type { PluginPackage } from "@ryot/contract/modules/plugins/schemas";
+import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { EntitySchemaSlug, EventSchemaSlug } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
@@ -7,7 +7,6 @@ import { requirePresent } from "~/support/assertions";
 import type { Client } from "./auth";
 import { findTestEntitySchema, installTestDefinitions } from "./test-plugin";
 
-type PluginManifest = PluginPackage["manifest"];
 type PluginEntitySchema = PluginManifest["entitySchemas"][number];
 type PluginEventSchema = PluginEntitySchema["eventSchemas"][number];
 
