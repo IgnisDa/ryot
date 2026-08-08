@@ -42,13 +42,25 @@ describe("browser auth client", () => {
 		expect(store.getSnapshot()).toBe(initial);
 		state = {
 			isPending: false,
-			data: { user: { email: "user@example.com", id: "user-1" } },
+			data: {
+				user: {
+					id: "user-1",
+					name: "Test User",
+					email: "user@example.com",
+					image: "https://example.com/avatar.png",
+				},
+			},
 		};
 		listeners.forEach((listener) => listener());
 		expect(notifications).toBe(1);
 		expect(store.getSnapshot()).toEqual({
 			status: "authenticated",
-			user: { email: "user@example.com", id: "user-1" },
+			user: {
+				id: "user-1",
+				name: "Test User",
+				email: "user@example.com",
+				image: "https://example.com/avatar.png",
+			},
 		});
 
 		unsubscribe();
