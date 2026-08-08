@@ -123,7 +123,6 @@ export const validatePluginPackageLimits = (
 	});
 
 const userRejectedCollections = [
-	"boot",
 	"userBootstrap",
 	"httpRateLimits",
 ] as const satisfies ReadonlyArray<
@@ -163,7 +162,6 @@ export const validatePluginManifestReferences = (
 	snapshot: DefinitionSnapshot,
 ) =>
 	Effect.gen(function* () {
-		const bootSlugs = new Set<string>();
 		const cronSlugs = new Set<string>();
 		const scriptSlugs = new Set<string>();
 		const workflowSlugs = new Set<string>();
@@ -204,14 +202,6 @@ export const validatePluginManifestReferences = (
 				return yield* fail(`Duplicate script slug: ${script.slug}`);
 			}
 			scriptSlugs.add(script.slug);
-		}
-		for (const boot of manifest.boot) {
-			yield* assertSlug("boot", boot.slug);
-			if (bootSlugs.has(boot.slug)) {
-				return yield* fail(`Duplicate boot slug: ${boot.slug}`);
-			}
-			bootSlugs.add(boot.slug);
-			yield* assertReference("Boot", boot.scriptSlug, scriptSlugs);
 		}
 		for (const entry of manifest.userBootstrap) {
 			yield* assertSlug("user bootstrap", entry.slug);

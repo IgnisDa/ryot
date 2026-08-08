@@ -465,7 +465,6 @@ it.effect("rejects only the private manifest surfaces that cannot carry user sub
 					signalSchemas: fixture.signalSchemas,
 					scripts: [...fixture.scripts, bootstrapScript],
 					relationshipSchemas: fixture.relationshipSchemas,
-					boot: [{ slug: "startup", description: "Startup", scriptSlug: script.slug }],
 					httpRateLimits: [
 						{ requests: 1, key: "outbound", intervalMs: 1_000, origins: ["https://example.com"] },
 					],
@@ -484,7 +483,6 @@ it.effect("rejects only the private manifest surfaces that cannot carry user sub
 		assert(failure instanceof PluginRequestError);
 		assert(failure.reason.code === "unsupported-manifest-surface");
 		expect([...failure.reason.surfaces].sort((left, right) => left.localeCompare(right))).toEqual([
-			"boot",
 			"httpRateLimits",
 			"userBootstrap",
 		]);

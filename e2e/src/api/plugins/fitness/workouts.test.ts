@@ -15,9 +15,9 @@ import {
 } from "~/fixtures/kernel";
 import {
 	createWorkoutEntityFixture,
+	createExerciseEntityFixture,
 	findBuiltinRelationshipSchemaSlug,
 	findWorkoutSetEventSchema,
-	waitForSeededExerciseId,
 	waitForSessionEventCount,
 } from "~/fixtures/plugins/fitness";
 import { assertCondition, assertPresent, requirePresent } from "~/support/assertions";
@@ -209,7 +209,7 @@ describe("Workouts E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const { workoutId } = yield* createWorkoutEntityFixture(client);
 			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
-			const exerciseId = yield* waitForSeededExerciseId(client);
+			const { exerciseId } = yield* createExerciseEntityFixture(client);
 
 			const createResult = yield* client.call((c) =>
 				c.events.create({
@@ -262,7 +262,7 @@ describe("Workouts E2E", () => {
 			const { workoutId: workoutOneId } = yield* createWorkoutEntityFixture(client);
 			const { workoutId: workoutTwoId } = yield* createWorkoutEntityFixture(client);
 			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
-			const exerciseId = yield* waitForSeededExerciseId(client);
+			const { exerciseId } = yield* createExerciseEntityFixture(client);
 
 			yield* client.call((c) =>
 				c.events.create({
@@ -301,7 +301,7 @@ describe("Workouts E2E", () => {
 			const { workoutId: workoutOneId } = yield* createWorkoutEntityFixture(client);
 			const { workoutId: workoutTwoId } = yield* createWorkoutEntityFixture(client);
 			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
-			const exerciseId = yield* waitForSeededExerciseId(client);
+			const { exerciseId } = yield* createExerciseEntityFixture(client);
 
 			yield* client.call((c) =>
 				c.events.create({

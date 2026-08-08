@@ -78,6 +78,13 @@ export const genericImportEntityIntentSchema = strictStruct({
 	entityId: Schema.optional(Schema.String),
 	existingOnly: Schema.optional(Schema.Boolean),
 	scope: Schema.optional(Schema.Literals(["global", "user"])),
+	providerResolution: Schema.optional(
+		strictStruct({
+			value: Schema.String,
+			providerSlug: Schema.String,
+			identifierType: Schema.String,
+		}),
+	),
 	match: Schema.optional(
 		strictStruct({
 			name: Schema.String,

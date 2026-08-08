@@ -22,7 +22,7 @@ const scheduler = group(
 			label: "Disable dispatchers",
 			envKey: "SCHEDULER_DISABLE_DISPATCHERS",
 			description:
-				"Disable automatic scheduler dispatchers (the frequent/infrequent cron tiers, plugin manifest crons, and the one-time plugin boot dispatcher)",
+				"Disable automatic scheduler dispatchers (the frequent/infrequent cron tiers and plugin manifest crons)",
 		}),
 		frequentCronJobsSchedule: stringField({
 			defaultValue: "every 5 minutes",

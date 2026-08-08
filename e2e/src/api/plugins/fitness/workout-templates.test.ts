@@ -22,8 +22,8 @@ import {
 } from "~/fixtures/kernel";
 import {
 	createWorkoutTemplateEntityFixture,
+	createExerciseEntityFixture,
 	findBuiltinRelationshipSchemaSlug,
-	waitForSeededExerciseIds,
 } from "~/fixtures/plugins/fitness";
 import { assertCondition, assertPresent, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -324,11 +324,14 @@ describe("Workout Templates E2E", () => {
 				client,
 				"workout-template",
 			);
-			const exerciseIds = yield* waitForSeededExerciseIds(client, 2);
-			const firstExerciseId = exerciseIds[0];
-			const secondExerciseId = exerciseIds[1];
-			assertPresent(firstExerciseId, "Missing seeded exercise ids for workout template fixture");
-			assertPresent(secondExerciseId, "Missing seeded exercise ids for workout template fixture");
+			const { exerciseId: firstExerciseId } = yield* createExerciseEntityFixture(client, {
+				kind: "reps_and_weight",
+				name: "Primary Template Exercise",
+			});
+			const { exerciseId: secondExerciseId } = yield* createExerciseEntityFixture(client, {
+				kind: "reps_and_weight",
+				name: "Secondary Template Exercise",
+			});
 			const workoutTemplateProperties = {
 				videos: [{ type: "s3", key: "templates/video.mp4" }],
 				images: [{ type: "remote", url: "https://example.com/template.jpg" }],

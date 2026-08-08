@@ -87,6 +87,7 @@ const importWithoutMembership = (entitySchemaSlug: string) => {
 		Effect.provideService(WorkflowInstance, instance),
 		Effect.provideService(EntityImportWorkflowOperations, {
 			processSandbox: () => Effect.die("unused"),
+			processProviderResolve: () => Effect.die("unused"),
 			completeProviderEntityImport: (_payload, _entity, hookExecutionId) =>
 				Effect.sync(() => {
 					calls.push({
@@ -149,6 +150,7 @@ it.effect("fails the import when provider-import completion fails", () => {
 		Effect.provideService(WorkflowInstance, instance),
 		Effect.provideService(EntityImportWorkflowOperations, {
 			processSandbox: () => Effect.die("unused"),
+			processProviderResolve: () => Effect.die("unused"),
 			completeProviderEntityImport: () =>
 				Effect.fail(
 					new SandboxRunError({ kind: "script-failure", message: "membership hook failed" }),
@@ -195,6 +197,7 @@ it.effect(
 				Effect.provideService(EntityImportWorkflowOperations, {
 					processSandbox: () => Effect.die("unused"),
 					completeProviderEntityImport: () => Effect.void,
+					processProviderResolve: () => Effect.die("unused"),
 				}),
 			);
 		};
