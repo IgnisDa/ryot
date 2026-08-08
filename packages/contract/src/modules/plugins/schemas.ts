@@ -116,17 +116,18 @@ const PluginConflictReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("already-installed"), pluginSlug: PluginSlug }),
 	Schema.Struct({ code: Schema.Literal("entity-referenced"), pluginSlug: PluginSlug }),
 	Schema.Struct({ code: Schema.Literal("workflow-referenced"), pluginSlug: PluginSlug }),
-	Schema.Struct({ code: Schema.Literal("integration-referenced"), pluginSlug: PluginSlug }),
+	Schema.Struct({ code: Schema.Literal("source-revision-stale"), pluginSlug: PluginSlug }),
 	Schema.Struct({ code: Schema.Literal("saved-view-referenced"), pluginSlug: PluginSlug }),
-	Schema.Struct({
-		pluginSlug: PluginSlug,
-		code: Schema.Literal("installation-not-ready"),
-		health: Schema.Literals(["failed", "installing", "incompatible", "needs-configuration"]),
-	}),
+	Schema.Struct({ code: Schema.Literal("integration-referenced"), pluginSlug: PluginSlug }),
 	Schema.Struct({
 		pluginSlug: PluginSlug,
 		code: Schema.Literal("definition-referenced"),
 		diagnostics: Schema.Array(PluginValidationDiagnostic),
+	}),
+	Schema.Struct({
+		pluginSlug: PluginSlug,
+		code: Schema.Literal("installation-not-ready"),
+		health: Schema.Literals(["failed", "installing", "incompatible", "needs-configuration"]),
 	}),
 ]);
 

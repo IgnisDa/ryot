@@ -79,6 +79,7 @@ function AuthenticatedPluginDestination() {
 			theme={theme}
 			server={server}
 			installation={installation}
+			onStaleSession={refreshCatalog}
 			location={toPluginLocation(pluginSlug, pathname, searchStr)}
 			onNavigate={(request) => {
 				void navigate({ href: request.href, replace: request.replace });

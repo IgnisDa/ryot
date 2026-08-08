@@ -1,5 +1,6 @@
 import type { BadRequest, DbError, NotFound } from "@ryot/contract/errors";
 import {
+	PluginConflictError,
 	PluginInvocationError,
 	PluginNotFoundError,
 	PluginRequestError,
@@ -124,6 +125,9 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 				reason: { code: "operation-scope-not-found", ...operation },
 			});
 			const sourceHash = input.sourceHash;
+			const staleRevision = new PluginConflictError({
+				reason: { code: "source-revision-stale", pluginSlug: operation.pluginSlug },
+			});
 			const resolveOperation = Effect.fn(function* (userId: UserId) {
 				const resolved = yield* runtime.findOperationAvailableToUser({
 					userId,
@@ -134,14 +138,12 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 					return resolved;
 				}
 				if (resolved.plugin.sourceHash !== sourceHash) {
-					return null;
+					return yield* staleRevision;
 				}
-				return (yield* repository.isActiveRevision({
-					pluginId: resolved.plugin.id,
-					sourceHash,
-				}))
-					? resolved
-					: null;
+				if (!(yield* repository.isActiveRevision({ sourceHash, pluginId: resolved.plugin.id }))) {
+					return yield* staleRevision;
+				}
+				return resolved;
 			});
 			const resolveIntegrationScope = integrationScopeResolver
 				.resolve(input.payload)

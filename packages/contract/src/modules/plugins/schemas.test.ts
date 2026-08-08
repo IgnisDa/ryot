@@ -80,6 +80,15 @@ it("decodes saved-view uninstall conflicts", () => {
 	).toMatchObject({ reason: { code: "saved-view-referenced", pluginSlug: "fixture" } });
 });
 
+it("decodes stale plugin source revision conflicts", () => {
+	expect(
+		Schema.decodeUnknownSync(PluginConflictError)({
+			_tag: "PluginConflictError",
+			reason: { code: "source-revision-stale", pluginSlug: "fixture" },
+		}),
+	).toMatchObject({ reason: { code: "source-revision-stale", pluginSlug: "fixture" } });
+});
+
 it("accepts only JSON operation HTTP payloads and results", () => {
 	const decodeBody = Schema.decodeUnknownSync(PluginInvokeBody);
 	const decodeResult = Schema.decodeUnknownSync(PluginInvokeResult);
