@@ -57,17 +57,9 @@ export const search = defineProvider({
 					return [
 						{
 							externalId,
-							calloutProperty: { kind: "null" as const, value: null },
-							titleProperty: { kind: "text" as const, value: name },
-							secondarySubtitleProperty: { kind: "null" as const, value: null },
-							primarySubtitleProperty:
-								birthYear === null
-									? { kind: "null" as const, value: null }
-									: { kind: "number" as const, value: birthYear },
-							imageProperty:
-								image === null
-									? { kind: "null" as const, value: null }
-									: { kind: "image" as const, value: { type: "remote" as const, url: image } },
+							title: name,
+							...(image === null ? {} : { imageUrl: image }),
+							...(birthYear === null ? {} : { metadata: [birthYear] as const }),
 						},
 					];
 				});

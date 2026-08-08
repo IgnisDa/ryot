@@ -58,14 +58,7 @@ describe("person.spotify sandbox script", () => {
 					"https://api.spotify.com/v1/search?type=artist&q=artist&offset=20&limit=20",
 				]);
 				expect(result.items).toEqual([
-					{
-						externalId: "a1",
-						calloutProperty: { kind: "null", value: null },
-						titleProperty: { kind: "text", value: "The Artist" },
-						primarySubtitleProperty: { kind: "null", value: null },
-						secondarySubtitleProperty: { kind: "null", value: null },
-						imageProperty: { kind: "image", value: { type: "remote", url: "https://img/a.jpg" } },
-					},
+					{ externalId: "a1", title: "The Artist", imageUrl: "https://img/a.jpg" },
 				]);
 				expect(result.details).toEqual({ totalItems: 1, nextPage: null });
 				return undefined;

@@ -46,16 +46,7 @@ describe("music.music-brainz sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(search, { query: "song", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
-					expect(result.items).toEqual([
-						{
-							externalId: "r1",
-							imageProperty: { kind: "null", value: null },
-							calloutProperty: { kind: "null", value: null },
-							titleProperty: { kind: "text", value: "Song One" },
-							primarySubtitleProperty: { kind: "number", value: 2001 },
-							secondarySubtitleProperty: { kind: "null", value: null },
-						},
-					]);
+					expect(result.items).toEqual([{ metadata: [2001], externalId: "r1", title: "Song One" }]);
 					expect(result.details).toEqual({ totalItems: 2, nextPage: null });
 					return undefined;
 				}),

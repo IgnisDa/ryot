@@ -54,12 +54,10 @@ describe("book-group.hardcover sandbox script", () => {
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{
+							metadata: [5],
 							externalId: "100",
-							calloutProperty: { kind: "null", value: null },
-							titleProperty: { kind: "text", value: "The Series" },
-							primarySubtitleProperty: { kind: "number", value: 5 },
-							secondarySubtitleProperty: { kind: "null", value: null },
-							imageProperty: { kind: "image", value: { type: "remote", url: "https://img/s.jpg" } },
+							title: "The Series",
+							imageUrl: "https://img/s.jpg",
 						},
 					]);
 				}),

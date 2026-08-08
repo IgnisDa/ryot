@@ -68,13 +68,7 @@ describe("comic-book.metron sandbox script", () => {
 					expect(configKeys).toEqual(["metronUsername", "metronPassword"]);
 					expect(result).toMatchObject({
 						details: { totalItems: 1, nextPage: null },
-						items: [
-							{
-								externalId: "5",
-								titleProperty: { kind: "text", value: "My Series #1" },
-								primarySubtitleProperty: { kind: "number", value: 2021 },
-							},
-						],
+						items: [{ externalId: "5", metadata: [2021], title: "My Series #1" }],
 					});
 					return undefined;
 				}),

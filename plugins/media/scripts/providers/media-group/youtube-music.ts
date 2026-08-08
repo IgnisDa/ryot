@@ -30,18 +30,9 @@ export const buildAlbumSearch = (client: MusicSearchClient, query: string, pageS
 					const imageUrl = getBestThumbnailUrl(record["thumbnail"]);
 					return [
 						{
+							title: coerceTrimmed(name),
 							externalId: coerceTrimmed(id),
-							calloutProperty: { kind: "null" as const, value: null },
-							titleProperty: { kind: "text" as const, value: coerceTrimmed(name) },
-							primarySubtitleProperty: { kind: "null" as const, value: null },
-							secondarySubtitleProperty: { kind: "null" as const, value: null },
-							imageProperty:
-								imageUrl === null
-									? { kind: "null" as const, value: null }
-									: {
-											kind: "image" as const,
-											value: { type: "remote" as const, url: imageUrl },
-										},
+							...(imageUrl === null ? {} : { imageUrl }),
 						},
 					];
 				});

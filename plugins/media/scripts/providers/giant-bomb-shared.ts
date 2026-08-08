@@ -130,10 +130,3 @@ export const paginate = (page: number, pageSize: number, totalItems: number) => 
 	totalItems,
 	nextPage: page * pageSize < totalItems ? page + 1 : null,
 });
-
-export type ImageProperty =
-	| { kind: "null"; value: null }
-	| { kind: "image"; value: { type: "remote"; url: string } };
-
-export const imageProperty = (url: string | null): ImageProperty =>
-	url === null ? { kind: "null", value: null } : { kind: "image", value: { type: "remote", url } };

@@ -45,12 +45,10 @@ describe("person.giant-bomb sandbox script", () => {
 			Effect.map((result) => {
 				expect(result.items).toEqual([
 					{
+						metadata: [1980],
+						title: "Jane Dev",
 						externalId: "4010-1",
-						calloutProperty: { kind: "null", value: null },
-						titleProperty: { kind: "text", value: "Jane Dev" },
-						primarySubtitleProperty: { kind: "number", value: 1980 },
-						secondarySubtitleProperty: { kind: "null", value: null },
-						imageProperty: { kind: "image", value: { type: "remote", url: "https://img/p.jpg" } },
+						imageUrl: "https://img/p.jpg",
 					},
 				]);
 				expect(result.details).toEqual({ totalItems: 1, nextPage: null });

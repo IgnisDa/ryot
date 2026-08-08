@@ -88,16 +88,9 @@ export const search = defineProvider({
 					return [
 						{
 							externalId,
-							calloutProperty: { kind: "null" as const, value: null },
-							titleProperty: { kind: "text" as const, value: name },
-							secondarySubtitleProperty: { kind: "null" as const, value: null },
-							primarySubtitleProperty:
-								publishYear === null
-									? { kind: "null" as const, value: null }
-									: { kind: "number" as const, value: publishYear },
-							imageProperty: image
-								? { kind: "image" as const, value: { type: "remote" as const, url: image } }
-								: { kind: "null" as const, value: null },
+							title: name,
+							...(image === null ? {} : { imageUrl: image }),
+							...(publishYear === null ? {} : { metadata: [publishYear] as const }),
 						},
 					];
 				});

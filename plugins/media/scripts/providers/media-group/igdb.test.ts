@@ -57,18 +57,10 @@ describe("video-game-group.igdb sandbox script", () => {
 					expect(tokenPosts).toBe(1);
 					expect(result.items).toEqual([
 						{
+							metadata: [2],
 							externalId: "3",
-							calloutProperty: { kind: "null", value: null },
-							titleProperty: { kind: "text", value: "The Saga" },
-							primarySubtitleProperty: { kind: "number", value: 2 },
-							secondarySubtitleProperty: { kind: "null", value: null },
-							imageProperty: {
-								kind: "image",
-								value: {
-									type: "remote",
-									url: "https://images.igdb.com/igdb/image/upload/t_cover_big/cov1.jpg",
-								},
-							},
+							title: "The Saga",
+							imageUrl: "https://images.igdb.com/igdb/image/upload/t_cover_big/cov1.jpg",
 						},
 					]);
 					expect(result.details).toEqual({ totalItems: 1, nextPage: null });

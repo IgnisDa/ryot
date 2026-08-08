@@ -32,16 +32,7 @@ describe("person.music-brainz sandbox script", () => {
 			execution,
 		).pipe(
 			Effect.map((result) => {
-				expect(result.items).toEqual([
-					{
-						externalId: "a1",
-						calloutProperty: { kind: "null", value: null },
-						imageProperty: { kind: "null", value: null },
-						titleProperty: { kind: "text", value: "Artist One" },
-						primarySubtitleProperty: { kind: "null", value: null },
-						secondarySubtitleProperty: { kind: "null", value: null },
-					},
-				]);
+				expect(result.items).toEqual([{ externalId: "a1", title: "Artist One" }]);
 				expect(result.details).toEqual({ totalItems: 1, nextPage: null });
 				return undefined;
 			}),

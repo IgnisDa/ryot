@@ -480,18 +480,11 @@ export const searchExercises = (
 		const pageStart = (input.page - 1) * input.pageSize;
 		const pageRows = matchedRows.slice(pageStart, pageStart + input.pageSize);
 		const items = pageRows.map((row) => {
-			const image = row.properties.images[0] ?? null;
-			return {
-				externalId: row.externalId,
-				calloutProperty: { kind: "null" as const, value: null },
-				titleProperty: { kind: "text" as const, value: row.name },
-				primarySubtitleProperty: { kind: "null" as const, value: null },
-				secondarySubtitleProperty: { kind: "null" as const, value: null },
-				imageProperty:
-					image === null
-						? { kind: "null" as const, value: null }
-						: { kind: "image" as const, value: image },
-			};
+			const image = row.properties.images[0];
+			return Object.assign(
+				{ title: row.name, externalId: row.externalId },
+				image === undefined ? {} : { imageUrl: image.url },
+			);
 		});
 
 		return {

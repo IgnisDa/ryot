@@ -79,15 +79,9 @@ export const buildArtistSearch = (client: MusicSearchClient, query: string) =>
 					const thumb = getBestThumbnailUrl(record["thumbnail"]);
 					return [
 						{
+							title: coerceTrimmed(name),
 							externalId: coerceTrimmed(id),
-							calloutProperty: { kind: "null" as const, value: null },
-							titleProperty: { kind: "text" as const, value: coerceTrimmed(name) },
-							primarySubtitleProperty: { kind: "null" as const, value: null },
-							secondarySubtitleProperty: { kind: "null" as const, value: null },
-							imageProperty:
-								thumb === null
-									? { kind: "null" as const, value: null }
-									: { kind: "image" as const, value: { type: "remote" as const, url: thumb } },
+							...(thumb === null ? {} : { imageUrl: thumb }),
 						},
 					];
 				});

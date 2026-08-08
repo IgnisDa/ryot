@@ -6,7 +6,7 @@ import type {
 	ProviderDetailsRelatedEntityGroup,
 	ProviderDetailsResult,
 	ProviderResolveResult,
-	ProviderSearchItem,
+	ProviderSearchResultItem,
 	ProviderSearchOptionsResult,
 	ProviderSearchResult,
 	ProviderTranslateResult,
@@ -28,35 +28,23 @@ const strict = { parseOptions: { onExcessProperty: "error" as const } };
 const NonEmptyTrimmedString = Schema.Trim.pipe(
 	Schema.check(Schema.isNonEmpty()),
 ) satisfies Schema.Codec<string>;
-const NullProperty = Schema.Struct({
-	value: Schema.Null,
-	kind: Schema.Literal("null"),
-}).annotate(strict);
-const NumberProperty = Schema.Struct({
-	value: Schema.Finite,
-	kind: Schema.Literal("number"),
-}).annotate(strict);
-const TextProperty = Schema.Struct({
-	kind: Schema.Literal("text"),
-	value: NonEmptyTrimmedString,
-}).annotate(strict);
-
-const ProviderSearchItemSchema = Schema.Struct({
-	titleProperty: TextProperty,
+const ProviderSearchResultMetadataValueSchema = Schema.Union([
+	Schema.Finite,
+	NonEmptyTrimmedString,
+]);
+const ProviderSearchResultItemSchema = Schema.Struct({
+	title: NonEmptyTrimmedString,
 	externalId: NonEmptyTrimmedString,
-	imageProperty: Schema.optional(SandboxJsonValueSchema),
-	calloutProperty: Schema.optional(SandboxJsonValueSchema),
-	secondarySubtitleProperty: Schema.optional(SandboxJsonValueSchema),
-	primarySubtitleProperty: Schema.optional(Schema.Union([NullProperty, NumberProperty])),
-}).annotate(strict) satisfies Schema.Codec<ProviderSearchItem>;
+	imageUrl: Schema.optional(NonEmptyTrimmedString),
+	metadata: Schema.optional(Schema.NonEmptyArray(ProviderSearchResultMetadataValueSchema)),
+}).annotate(strict) satisfies Schema.Codec<ProviderSearchResultItem>;
 
 const ProviderSearchResultSchema = Schema.Struct({
-	items: Schema.Array(ProviderSearchItemSchema),
+	items: Schema.Array(ProviderSearchResultItemSchema),
 	details: Schema.optional(
-		Schema.Struct({
-			totalItems: Schema.Finite,
-			nextPage: Schema.NullOr(Schema.Finite),
-		}).annotate(strict),
+		Schema.Struct({ totalItems: Schema.Finite, nextPage: Schema.NullOr(Schema.Finite) }).annotate(
+			strict,
+		),
 	),
 }).annotate(strict) satisfies Schema.Codec<ProviderSearchResult>;
 
@@ -74,8 +62,8 @@ export const ProviderDetailsRelatedEntityGroupSchema: Schema.Codec<ProviderDetai
 	Schema.Struct({
 		relationshipSchemaSlug: Schema.String,
 		direction: Schema.Literals(["outgoing", "incoming"]),
-		synchronization: Schema.Literals(["authoritative", "additive"]),
 		entities: Schema.Array(ProviderDetailsRelatedEntitySchema),
+		synchronization: Schema.Literals(["authoritative", "additive"]),
 	}).annotate(strict);
 
 export const ProviderDetailsChildEntitySchema: Schema.Codec<ProviderDetailsChildEntity> =
@@ -83,8 +71,8 @@ export const ProviderDetailsChildEntitySchema: Schema.Codec<ProviderDetailsChild
 		Schema.Struct({
 			name: Schema.String,
 			externalId: Schema.String,
-			properties: SandboxJsonValueSchema,
 			entitySchemaSlug: Schema.String,
+			properties: SandboxJsonValueSchema,
 			expectedChildEntitySchemaSlug: Schema.optional(Schema.String),
 			childEntities: Schema.optional(Schema.Array(ProviderDetailsChildEntitySchema)),
 		}).annotate(strict),

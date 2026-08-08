@@ -5,8 +5,8 @@ import { AppIcon } from "@/modules/icons";
 import { MissingImage, RemoteImage } from "@/modules/ui/image-with-fallback";
 
 import type { ProviderEntityImportEntry } from "./import-controller";
-import { describeProviderSearchItem } from "./result-display";
-import type { ProviderSearchItem } from "./search-controller";
+import { describeProviderSearchResultItem } from "./result-display";
+import type { ProviderSearchResultItem } from "./search-controller";
 
 const IMAGE_CLASS_NAME = "h-16 w-11 shrink-0 overflow-hidden rounded-md";
 
@@ -65,12 +65,12 @@ function ResultAction(props: {
 }
 
 export function ProviderSearchResultRow(props: {
-	readonly isLinked: boolean;
 	readonly onAdd: () => void;
-	readonly item: ProviderSearchItem;
+	readonly isLinked: boolean;
+	readonly item: ProviderSearchResultItem;
 	readonly entry: ProviderEntityImportEntry;
 }) {
-	const display = describeProviderSearchItem(props.item);
+	const display = describeProviderSearchResultItem(props.item);
 	return (
 		<View className="flex-row items-center gap-3 rounded-lg bg-surface-2 px-3 py-2.5 md:bg-transparent">
 			<ResultImage key={display.imageUrl} url={display.imageUrl} />

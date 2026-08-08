@@ -45,8 +45,8 @@ beforeAll(async () => {
 					properties: { description: "Imported by the e2e fake provider." },
 				}),
 				search: fakeProviderSearchResult([
-					{ externalId: IMPORT_EXTERNAL_ID, title: "E2E Audiobook One", subtitle: null },
-					{ externalId: "e2e-audiobook-2", title: "E2E Audiobook Two", subtitle: 2 },
+					{ externalId: IMPORT_EXTERNAL_ID, title: "E2E Audiobook One" },
+					{ externalId: "e2e-audiobook-2", title: "E2E Audiobook Two", metadata: [2] },
 				]),
 			});
 			const { schema: workoutSchema } = yield* findBuiltinSchemaBySlug(client, "workout");
@@ -79,7 +79,10 @@ describe("provider entity search", () => {
 				pageSize: 5,
 			});
 			expect(search.providerId).toBe(provider.providerId);
-			expect(search.items).toHaveLength(2);
+			expect(search.items).toEqual([
+				{ externalId: IMPORT_EXTERNAL_ID, title: "E2E Audiobook One" },
+				{ externalId: "e2e-audiobook-2", title: "E2E Audiobook Two", metadata: [2] },
+			]);
 			const firstItem = search.items[0];
 			assertPresent(firstItem, "Expected the first search item");
 			expect(firstItem.externalId).toBe(IMPORT_EXTERNAL_ID);

@@ -47,22 +47,8 @@ describe("visual-novel.vndb sandbox script", () => {
 			runSandboxTestScript(search, { query: "ever", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
-						{
-							externalId: "v17",
-							calloutProperty: { kind: "null", value: null },
-							titleProperty: { kind: "text", value: "Ever17" },
-							primarySubtitleProperty: { kind: "number", value: 2002 },
-							secondarySubtitleProperty: { kind: "null", value: null },
-							imageProperty: { kind: "image", value: { type: "remote", url: "https://i/17.jpg" } },
-						},
-						{
-							externalId: "v18",
-							calloutProperty: { kind: "null", value: null },
-							titleProperty: { kind: "text", value: "Partial" },
-							primarySubtitleProperty: { kind: "number", value: 2005 },
-							secondarySubtitleProperty: { kind: "null", value: null },
-							imageProperty: { kind: "null", value: null },
-						},
+						{ title: "Ever17", metadata: [2002], externalId: "v17", imageUrl: "https://i/17.jpg" },
+						{ title: "Partial", metadata: [2005], externalId: "v18" },
 					]);
 					expect(result.details).toEqual({ totalItems: 3, nextPage: 2 });
 					return undefined;

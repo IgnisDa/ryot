@@ -11,7 +11,6 @@ import {
 	getPrioritizedImage,
 	GUID_PATTERN,
 	giantBombRequest,
-	imageProperty,
 	paginate,
 	readResults,
 	readTotalItems,
@@ -89,17 +88,13 @@ export const search = defineProvider({
 					}
 					const externalId = guid ?? lastNonEmptySegment(record["api_detail_url"]) ?? "";
 					const birthYear = extractYear(record["birth_date"]);
+					const image = getPrioritizedImage(record["image"]);
 					return [
 						{
 							externalId,
-							calloutProperty: { kind: "null" as const, value: null },
-							titleProperty: { kind: "text" as const, value: name },
-							secondarySubtitleProperty: { kind: "null" as const, value: null },
-							imageProperty: imageProperty(getPrioritizedImage(record["image"])),
-							primarySubtitleProperty:
-								birthYear === null
-									? { kind: "null" as const, value: null }
-									: { kind: "number" as const, value: birthYear },
+							title: name,
+							...(image === null ? {} : { imageUrl: image }),
+							...(birthYear === null ? {} : { metadata: [birthYear] as const }),
 						},
 					];
 				});

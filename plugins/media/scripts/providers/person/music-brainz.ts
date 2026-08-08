@@ -73,16 +73,7 @@ export const search = defineProvider({
 						return [];
 					}
 					const name = stringValue(record?.["name"]) ?? id;
-					return [
-						{
-							externalId: id,
-							titleProperty: { kind: "text" as const, value: name },
-							calloutProperty: { kind: "null" as const, value: null },
-							imageProperty: { kind: "null" as const, value: null },
-							primarySubtitleProperty: { kind: "null" as const, value: null },
-							secondarySubtitleProperty: { kind: "null" as const, value: null },
-						},
-					];
+					return [{ title: name, externalId: id }];
 				});
 				return {
 					items,

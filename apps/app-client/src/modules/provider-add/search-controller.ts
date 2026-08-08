@@ -8,7 +8,7 @@ import { Match } from "effect";
 
 const PROVIDER_SEARCH_PAGE_SIZE = 20;
 
-export type ProviderSearchItem = SearchProviderEntitiesResponse["items"][number];
+export type ProviderSearchResultItem = SearchProviderEntitiesResponse["items"][number];
 
 type ProviderSearchStatus = "idle" | "loading" | "loading-more" | "failed" | "ready";
 
@@ -23,8 +23,8 @@ export type ProviderSearchState = {
 	readonly generation: number;
 	readonly requestToken: number;
 	readonly status: ProviderSearchStatus;
-	readonly items: readonly ProviderSearchItem[];
 	readonly nextPage: number | null | undefined;
+	readonly items: readonly ProviderSearchResultItem[];
 	readonly operation: ProviderSearchOperation | undefined;
 };
 
@@ -34,10 +34,7 @@ export type ProviderSearchEvent =
 	| { readonly type: "search-requested" }
 	| { readonly type: "next-page-requested" }
 	| { readonly type: "query-changed"; readonly query: string }
-	| {
-			readonly type: "request-failed";
-			readonly token: number;
-	  }
+	| { readonly token: number; readonly type: "request-failed" }
 	| {
 			readonly token: number;
 			readonly type: "response-received";

@@ -47,7 +47,7 @@ export default defineProvider({
     const data = yield* host.getCachedValue(${JSON.stringify(input.key)});
     return {
       items: typeof data === "string"
-        ? [{ externalId: "cached", titleProperty: { kind: "text", value: data } }]
+        ? [{ externalId: "cached", title: data }]
         : [],
     };
   })`
@@ -257,8 +257,7 @@ describe("sandbox cache functions", () => {
 
 			const sharedItems = yield* readProviderCache(userIdA, readerScriptId);
 			const sharedItem = requireObjectRecord(sharedItems[0], "Expected provider cache item");
-			const title = requireObjectRecord(sharedItem.titleProperty, "Expected cache item title");
-			expect(title.value).toBe(cachedValue);
+			expect(sharedItem.title).toBe(cachedValue);
 			expect(yield* readProviderCache(userIdB, readerScriptId)).toEqual([]);
 			expect(yield* readProviderCache(userIdA, otherProviderReaderScriptId)).toEqual([]);
 		}),

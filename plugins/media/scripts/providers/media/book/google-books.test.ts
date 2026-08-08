@@ -60,14 +60,7 @@ describe("book.google-books sandbox script", () => {
 			runSandboxTestScript(search, { query: "g", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
-						{
-							externalId: "g1",
-							calloutProperty: { kind: "null", value: null },
-							titleProperty: { kind: "text", value: "G Book" },
-							primarySubtitleProperty: { kind: "number", value: 2010 },
-							secondarySubtitleProperty: { kind: "null", value: null },
-							imageProperty: { kind: "image", value: { type: "remote", url: "https://img/t.jpg" } },
-						},
+						{ title: "G Book", metadata: [2010], externalId: "g1", imageUrl: "https://img/t.jpg" },
 					]);
 					expect(result.details).toEqual({ totalItems: 2, nextPage: null });
 					return undefined;

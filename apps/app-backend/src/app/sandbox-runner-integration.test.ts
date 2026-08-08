@@ -1315,12 +1315,7 @@ it(
 					expect(result).toMatchObject({ success: true });
 					expect(Reflect.get(result, "value")).toMatchObject({
 						details: { totalItems: 1, nextPage: null },
-						items: [
-							{
-								externalId: "42",
-								titleProperty: { kind: "text", value: "Compiled Series" },
-							},
-						],
+						items: [{ externalId: "42", title: "Compiled Series" }],
 					});
 					const cacheWrite = bridge.calls.find((call) => call.fnName === "setCachedValue");
 					expect(cacheWrite?.args).toEqual(["tvdb_access_token", "Bearer compiled-token", 82_800]);
