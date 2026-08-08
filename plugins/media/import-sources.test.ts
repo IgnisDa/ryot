@@ -65,6 +65,7 @@ it("declares every upload field with its extensions and required state", () => {
 							[
 								`${source.slug}.${field}`,
 								{
+									minLength: property.validation?.minLength,
 									required: property.validation?.required === true,
 									extensions: property.format.allowedFileExtensions,
 								},
@@ -76,21 +77,21 @@ it("declares every upload field with its extensions and required state", () => {
 	);
 
 	expect(uploads).toEqual({
-		"imdb.uploadToken": { required: true, extensions: ["csv"] },
-		"igdb.uploadToken": { required: true, extensions: ["csv"] },
-		"trakt.exportUploadToken": { required: true, extensions: ["zip"] },
-		"movary.historyUploadToken": { required: true, extensions: ["csv"] },
-		"movary.ratingsUploadToken": { required: true, extensions: ["csv"] },
-		"movary.watchlistUploadToken": { required: true, extensions: ["csv"] },
-		"anilist.uploadToken": { required: true, extensions: ["json"] },
-		"grouvee.uploadToken": { required: true, extensions: ["csv"] },
-		"netflix.uploadToken": { required: true, extensions: ["zip"] },
-		"watcharr.uploadToken": { required: true, extensions: ["json"] },
-		"hardcover.uploadToken": { required: true, extensions: ["csv"] },
-		"goodreads.uploadToken": { required: true, extensions: ["csv"] },
-		"storygraph.uploadToken": { required: true, extensions: ["csv"] },
-		"myanimelist.animeUploadToken": { required: false, extensions: ["gz", "xml"] },
-		"myanimelist.mangaUploadToken": { required: false, extensions: ["gz", "xml"] },
+		"imdb.uploadToken": { minLength: 1, required: true, extensions: ["csv"] },
+		"igdb.uploadToken": { minLength: 1, required: true, extensions: ["csv"] },
+		"trakt.exportUploadToken": { minLength: 1, required: true, extensions: ["zip"] },
+		"movary.historyUploadToken": { minLength: 1, required: true, extensions: ["csv"] },
+		"movary.ratingsUploadToken": { minLength: 1, required: true, extensions: ["csv"] },
+		"movary.watchlistUploadToken": { minLength: 1, required: true, extensions: ["csv"] },
+		"anilist.uploadToken": { minLength: 1, required: true, extensions: ["json"] },
+		"grouvee.uploadToken": { minLength: 1, required: true, extensions: ["csv"] },
+		"netflix.uploadToken": { minLength: 1, required: true, extensions: ["zip"] },
+		"watcharr.uploadToken": { minLength: 1, required: true, extensions: ["json"] },
+		"hardcover.uploadToken": { minLength: 1, required: true, extensions: ["csv"] },
+		"goodreads.uploadToken": { minLength: 1, required: true, extensions: ["csv"] },
+		"storygraph.uploadToken": { minLength: 1, required: true, extensions: ["csv"] },
+		"myanimelist.animeUploadToken": { minLength: 1, required: false, extensions: ["gz", "xml"] },
+		"myanimelist.mangaUploadToken": { minLength: 1, required: false, extensions: ["gz", "xml"] },
 	});
 });
 

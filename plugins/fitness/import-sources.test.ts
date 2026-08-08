@@ -4,7 +4,7 @@ import { expect, it } from "vitest";
 
 import { createFitnessImportRunBody, FitnessCreateImportRunBody } from "./import-sources";
 
-const uploadToken = { token: "upload-1", expiresAt: "2026-08-23T00:00:00.000Z" } as const;
+const uploadToken = "upload-1";
 const sources = ["hevy", "strong_app", "open_scale"] as const;
 
 it.each(sources)("builds a typed %s request accepted by the open import envelope", (source) => {
@@ -17,9 +17,12 @@ it.each(sources)("builds a typed %s request accepted by the open import envelope
 
 it("keeps fitness-specific request validation strict and contract-owned", () => {
 	expect(() =>
+		Schema.decodeUnknownSync(FitnessCreateImportRunBody)({ source: "hevy", uploadToken: "" }),
+	).toThrow();
+	expect(() =>
 		Schema.decodeUnknownSync(FitnessCreateImportRunBody)({
 			source: "hevy",
-			uploadToken: "upload-1",
+			uploadToken: { token: "upload-1", expiresAt: "2026-08-23T00:00:00.000Z" },
 		}),
 	).toThrow();
 	expect(() =>
