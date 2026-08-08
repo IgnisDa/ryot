@@ -3,7 +3,13 @@ import { describe, expect, it } from "vitest";
 
 import {
 	AppSchema,
+	evaluateAppSchemaRuleCondition,
+	getAppPropertyDefinitionAtPath,
+	getAppSchemaValueAtPath,
 	getOrderedAppSchemaFieldEntries,
+	isAppSchemaPathEffectivelyRequired,
+	isAppSchemaPathHidden,
+	isMissingAppSchemaRequiredValue,
 	materializeAppSchemaChoices,
 } from "./property-schema";
 
@@ -140,6 +146,185 @@ describe("AppSchema presentation metadata", () => {
 				},
 			}),
 		).toThrow();
+	});
+});
+
+describe("AppSchema rule semantics", () => {
+	const schema = {
+		fields: {
+			enabled: { type: "boolean", label: "Enabled", description: "Enabled" },
+			settings: {
+				type: "object",
+				label: "Settings",
+				description: "Settings",
+				properties: {
+					secret: { type: "string", label: "Secret", description: "Secret" },
+					required: {
+						type: "string",
+						label: "Required",
+						description: "Required",
+						validation: { required: true },
+					},
+				},
+			},
+		},
+	} satisfies AppSchema;
+
+	it("gets nested values and property definitions", () => {
+		expect(getAppSchemaValueAtPath({ settings: { secret: "value" } }, ["settings", "secret"])).toBe(
+			"value",
+		);
+		expect(getAppSchemaValueAtPath({ settings: null }, ["settings", "secret"])).toBeUndefined();
+		expect(getAppPropertyDefinitionAtPath(schema.fields, ["settings", "secret"])).toMatchObject({
+			type: "string",
+			label: "Secret",
+		});
+		expect(getAppPropertyDefinitionAtPath(schema.fields, ["settings", "missing"])).toBeUndefined();
+		expect(getAppPropertyDefinitionAtPath(schema.fields, ["enabled", "nested"])).toBeUndefined();
+		expect(getAppPropertyDefinitionAtPath(schema.fields, [])).toBeUndefined();
+	});
+
+	it.each([
+		["all", { operator: "all", conditions: [{ operator: "exists", path: ["present"] }] }, true],
+		[
+			"any",
+			{
+				operator: "any",
+				conditions: [
+					{ operator: "eq", path: ["status"], value: "inactive" },
+					{ operator: "not_exists", path: ["missing"] },
+				],
+			},
+			true,
+		],
+		["exists", { operator: "exists", path: ["present"] }, true],
+		["not_exists", { operator: "not_exists", path: ["undefined"] }, true],
+		["eq", { operator: "eq", path: ["notANumber"], value: Number.NaN }, true],
+		["neq", { operator: "neq", path: ["negativeZero"], value: 0 }, true],
+		["in", { operator: "in", path: ["notANumber"], value: [Number.NaN, 1] }, true],
+		["not_in", { operator: "not_in", path: ["negativeZero"], value: [0, 1] }, true],
+	] as const)("evaluates %s conditions", (_operator, condition, expected) => {
+		expect(
+			evaluateAppSchemaRuleCondition(condition, {
+				present: null,
+				status: "active",
+				undefined,
+				notANumber: Number.NaN,
+				negativeZero: -0,
+			}),
+		).toBe(expected);
+	});
+
+	it("hides a path when any exact visibility rule matches", () => {
+		const ruleSchema = {
+			...schema,
+			rules: [
+				{
+					kind: "visibility",
+					path: ["settings", "secret"],
+					visibility: { hidden: true },
+					when: { operator: "eq", path: ["enabled"], value: false },
+				},
+				{
+					kind: "visibility",
+					path: ["settings", "secret"],
+					visibility: { hidden: true },
+					when: { operator: "eq", path: ["enabled"], value: true },
+				},
+			],
+		} satisfies AppSchema;
+
+		expect(isAppSchemaPathHidden(ruleSchema, ["settings", "secret"], { enabled: true })).toBe(true);
+		expect(isAppSchemaPathHidden(ruleSchema, ["settings"], { enabled: true })).toBe(false);
+	});
+
+	it("hides descendants when an ancestor visibility rule matches", () => {
+		const ruleSchema = {
+			...schema,
+			rules: [
+				{
+					kind: "visibility",
+					path: ["settings"],
+					visibility: { hidden: true },
+					when: { operator: "eq", path: ["enabled"], value: true },
+				},
+			],
+		} satisfies AppSchema;
+		const input = { enabled: true };
+
+		expect(isAppSchemaPathHidden(ruleSchema, ["settings", "required"], input)).toBe(true);
+		expect(isAppSchemaPathEffectivelyRequired(ruleSchema, ["settings", "required"], input)).toBe(
+			false,
+		);
+	});
+
+	it("hidden paths suppress declared and conditional requiredness", () => {
+		const ruleSchema = {
+			...schema,
+			rules: [
+				{
+					kind: "visibility",
+					visibility: { hidden: true },
+					path: ["settings", "required"],
+					when: { operator: "exists", path: ["enabled"] },
+				},
+				{
+					kind: "visibility",
+					path: ["settings", "secret"],
+					visibility: { hidden: true },
+					when: { operator: "exists", path: ["enabled"] },
+				},
+				{
+					kind: "validation",
+					path: ["settings", "secret"],
+					validation: { required: true },
+					when: { operator: "exists", path: ["enabled"] },
+				},
+			],
+		} satisfies AppSchema;
+		const input = { enabled: true };
+
+		expect(isAppSchemaPathEffectivelyRequired(ruleSchema, ["settings", "required"], input)).toBe(
+			false,
+		);
+		expect(isAppSchemaPathEffectivelyRequired(ruleSchema, ["settings", "secret"], input)).toBe(
+			false,
+		);
+	});
+
+	it("applies visible conditional requiredness without inspecting the target value", () => {
+		const ruleSchema = {
+			...schema,
+			rules: [
+				{
+					kind: "validation",
+					path: ["settings", "secret"],
+					validation: { required: true },
+					when: { operator: "eq", path: ["enabled"], value: true },
+				},
+			],
+		} satisfies AppSchema;
+
+		expect(
+			isAppSchemaPathEffectivelyRequired(ruleSchema, ["settings", "secret"], {
+				enabled: true,
+				settings: { secret: "already present" },
+			}),
+		).toBe(true);
+		expect(isAppSchemaPathEffectivelyRequired(ruleSchema, ["missing"], { enabled: true })).toBe(
+			false,
+		);
+	});
+
+	it.each([
+		[undefined, true],
+		[null, true],
+		["", false],
+		[false, false],
+		[0, false],
+		[[], false],
+	])("identifies missing required values", (value, expected) => {
+		expect(isMissingAppSchemaRequiredValue(value)).toBe(expected);
 	});
 });
 

@@ -1,4 +1,8 @@
-import type { CreateImportRunBody } from "@ryot/contract/modules/imports/schemas";
+import {
+	importInternalPropertyNames,
+	isImportUploadTokenField,
+	type CreateImportRunBody,
+} from "@ryot/contract/modules/imports/schemas";
 import { pluginConfigEnvironmentKey } from "@ryot/contract/modules/plugins/plugin-config";
 import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
 import { jsonValueSchema } from "@ryot/contract/modules/sandbox/wire";
@@ -22,15 +26,6 @@ export type ImportSourceFileInput = {
 	allowedExtensions: string[];
 };
 
-const isUploadTokenField = (field: string) =>
-	field === "uploadToken" || field.endsWith("UploadToken");
-
-const internalPayloadFields = new Set([
-	"integrationId",
-	"integrationContext",
-	"integrationScriptSlug",
-]);
-
 type UploadProperty = Extract<AppPropertyDefinition, { type: "string" }> & {
 	readonly format: {
 		readonly kind: "upload";
@@ -51,7 +46,7 @@ export const parseRegistryImportSourceInput = Effect.fn("parseRegistryImportSour
 	function* (source: RegisteredImportSource, body: CreateImportRunBody) {
 		const declaredUploadFields = new Set(uploadFields(source).map(([field]) => field));
 		const undeclaredTokenField = Object.keys(body).find(
-			(field) => isUploadTokenField(field) && !declaredUploadFields.has(field),
+			(field) => isImportUploadTokenField(field) && !declaredUploadFields.has(field),
 		);
 		if (undeclaredTokenField) {
 			return yield* Effect.fail(
@@ -59,7 +54,7 @@ export const parseRegistryImportSourceInput = Effect.fn("parseRegistryImportSour
 			);
 		}
 		const reservedPayloadField = Object.keys(body).find((field) =>
-			internalPayloadFields.has(field),
+			importInternalPropertyNames.has(field),
 		);
 		if (reservedPayloadField) {
 			return yield* Effect.fail(`Import source payload field is reserved: ${reservedPayloadField}`);
