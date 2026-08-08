@@ -18,6 +18,7 @@ export const FIXTURE_CLIENT_REVISION_MARKERS = {
 const archiveUrl = new URL("../../../../plugins/fixture/dist/fixture.zip", import.meta.url);
 const homeEntry = "client/home.tsx";
 const clientEntry = "client/index.tsx";
+const decoder = new TextDecoder("utf-8", { fatal: true });
 
 type FixtureClientPluginRevision = keyof typeof FIXTURE_CLIENT_REVISION_MARKERS;
 
@@ -31,7 +32,8 @@ export const fixtureClientPluginPackage = (revision: FixtureClientPluginRevision
 			return file.bytes();
 		});
 		const pluginPackage = yield* readPluginArchive(archive);
-		const home = pluginPackage.files[homeEntry];
+		const homeBytes = pluginPackage.files[homeEntry];
+		const home = homeBytes ? decoder.decode(homeBytes) : undefined;
 		if (!home?.includes("Fixture plugin")) {
 			throw new Error(`Fixture client source '${homeEntry}' has no revision marker target`);
 		}
@@ -49,7 +51,7 @@ export const fixtureClientPluginPackage = (revision: FixtureClientPluginRevision
 						)
 				: revisedHome;
 		return {
-			files: { ...pluginPackage.files, [homeEntry]: revisionHome },
+			files: { ...pluginPackage.files, [homeEntry]: new TextEncoder().encode(revisionHome) },
 			manifest: {
 				...pluginPackage.manifest,
 				metadata: {
@@ -97,7 +99,10 @@ export const updateFixtureClientPluginWithCompileFailure = (client: Client, base
 			pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG,
 			payload: {
 				...pluginPackage,
-				files: { ...pluginPackage.files, [clientEntry]: "export default <;" },
+				files: {
+					...pluginPackage.files,
+					[clientEntry]: new TextEncoder().encode("export default <;"),
+				},
 			},
 		});
 	});

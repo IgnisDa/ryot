@@ -13,6 +13,7 @@ import { Button, StatusMessage } from "@ryot/client-ui-sdk";
 import clsx from "clsx";
 import { useState } from "react";
 
+import importedLogo from "./imported-logo.png";
 import logo from "./logo.svg";
 import { fixtureClientPluginCatalogRecipe } from "./query-recipes";
 
@@ -80,6 +81,26 @@ export const Home = () => {
 		<main className="flex min-h-screen w-full flex-col items-center gap-4 bg-bg p-8 text-text">
 			<img alt="" src={logo} className="plugin-logo" />
 			<h1 className="font-display text-2xl">Fixture plugin</h1>
+			<section
+				aria-labelledby="fixture-binary-assets-title"
+				className="flex flex-col items-center gap-3"
+			>
+				<h2 id="fixture-binary-assets-title" className="font-display text-lg">
+					Binary plugin assets
+				</h2>
+				<div className="flex items-center gap-2">
+					<img
+						alt="Fixture plugin binary TSX import logo"
+						src={importedLogo}
+						className="plugin-logo"
+					/>
+					<span>Binary TSX import asset</span>
+				</div>
+				<div className="flex items-center gap-2">
+					<div role="img" aria-label="Fixture plugin binary CSS URL logo" className="css-logo" />
+					<span>Binary CSS URL asset</span>
+				</div>
+			</section>
 			<p className="text-text-muted">Greeted {greetings} times.</p>
 			<Button onClick={() => setGreetings((count) => count + 1)}>Greet</Button>
 			<Button variant="secondary" onClick={() => setShouldCrash(true)}>

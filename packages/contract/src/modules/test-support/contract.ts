@@ -20,7 +20,7 @@ import { SandboxRunResult } from "../sandbox/schemas";
 import {
 	TestSupportBuiltinEntitySchema,
 	TestSupportEntityTranslation,
-	TestSupportInstallSystemPluginBody,
+	TestSupportInstallSystemPluginBodyBase64,
 	TestSupportSystemPlugin,
 	TestSupportGlobalRelationship,
 	TestSupportSignal,
@@ -293,7 +293,7 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 	)
 	.add(
 		HttpApiEndpoint.post("installSystemPlugin", "/test-support/system-plugins", {
-			payload: TestSupportInstallSystemPluginBody,
+			payload: TestSupportInstallSystemPluginBodyBase64,
 			success: TestSupportSystemPlugin.pipe(HttpApiSchema.status(201)),
 			error: [
 				...testSupportErrors,

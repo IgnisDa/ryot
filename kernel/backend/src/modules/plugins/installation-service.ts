@@ -4,14 +4,13 @@ import {
 	PluginNotFoundError,
 	PluginRequestError,
 	type PluginInstallationItem,
-	type PluginPackage,
 	type UpdatePrivatePluginBody,
 	type UpdatePluginInstallationBody,
 } from "@ryot/contract/modules/plugins/schemas";
 import { PluginSlug, UserId } from "@ryot/contract/schema/brands";
 import { isJsonValue } from "@ryot/contract/schema/json";
 import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
-import { readPluginArchiveStream } from "@ryot/plugin-archive";
+import { readPluginArchiveStream, type PluginArchivePackage } from "@ryot/plugin-archive";
 import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { Context, Effect, Layer, Result } from "effect";
 
@@ -40,28 +39,27 @@ import {
 } from "./installation-repository";
 import { PluginInstallationLifecycleDispatcher } from "./installation-workflow";
 import { mergeManifestDefinitions, PluginLoader } from "./loader";
-import { compilePluginPackage, pluginSourceHash, structurePluginFailure } from "./pipeline";
+import { compilePluginPackage, normalizePluginSource, structurePluginFailure } from "./pipeline";
 import { PluginRepository } from "./repository";
 import { validateAdditiveSchemaEvolution } from "./schema-evolution";
 import type { StoredPlugin } from "./types";
 import {
-	decodePluginManifest,
 	PluginValidationError,
 	validatePluginExecutableScripts,
 	validatePluginManifestPolicy,
 	validatePluginManifestReferences,
-	validatePluginPackageLimits,
 	validatePluginSourcePaths,
+	validatePluginPackageLimits,
 } from "./validation";
 
-type PrivatePluginPackageInput = PluginPackage | { readonly uploadToken: string };
+type PrivatePluginPackageInput = PluginArchivePackage | { readonly uploadToken: string };
 
 type InstallPrivatePluginInput = PrivatePluginPackageInput & {
 	readonly userId: UserId;
 	readonly config: Record<string, unknown>;
 };
 
-type DecodedInstallPrivatePluginInput = PluginPackage & {
+type DecodedInstallPrivatePluginInput = PluginArchivePackage & {
 	readonly userId: UserId;
 	readonly config: Record<string, unknown>;
 };
@@ -334,7 +332,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const withPrivatePluginPackage = <A, E, R>(
 				input: PrivatePluginPackageInput,
 				userId: UserId,
-				consume: (pluginPackage: PluginPackage) => Effect.Effect<A, E, R>,
+				consume: (pluginPackage: PluginArchivePackage) => Effect.Effect<A, E, R>,
 			) => {
 				if (!("uploadToken" in input)) {
 					return consume(input);
@@ -562,16 +560,16 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 
 			const installPrivateUnlocked = Effect.fn("PluginInstallationService.installPrivateUnlocked")(
 				function* (input: DecodedInstallPrivatePluginInput) {
-					const manifest = yield* decodePluginManifest(input.manifest);
+					const { files, manifest, sourceHash } = yield* normalizePluginSource(input);
 					const slug = manifest.metadata.slug;
 					const pluginSlug = PluginSlug.make(slug);
-					yield* validatePluginPackageLimits(input.files, manifest);
+					yield* validatePluginPackageLimits(files, manifest);
 					const systemManifests = yield* repository.listActiveManifests();
 					yield* validatePluginManifestPolicy(manifest, {
 						scope: "user",
 						systemSlugs: new Set(systemManifests.map(({ metadata }) => metadata.slug)),
 					});
-					yield* validatePluginSourcePaths(input.files, manifest.scripts);
+					yield* validatePluginSourcePaths(files, manifest.scripts);
 					const owned = yield* repository.listPrivateForUser(input.userId);
 					if (owned.some((plugin) => plugin.slug === slug)) {
 						return yield* new PluginConflictError({
@@ -600,11 +598,10 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 								}),
 						),
 					);
-					const sourceHash = pluginSourceHash(manifest, input.files);
 					const normalized = yield* compilePluginPackage({
+						files,
 						manifest,
 						sourceHash,
-						files: input.files,
 					}).pipe(Effect.provideService(ClientPluginCompiler, clientCompiler));
 					yield* validatePluginExecutableScripts(normalized);
 					const state = yield* Effect.uninterruptible(
@@ -692,7 +689,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					}
 					return yield* withPrivatePluginPackage(input, input.userId, (pluginPackage) =>
 						Effect.gen(function* () {
-							const manifest = yield* decodePluginManifest(pluginPackage.manifest);
+							const { files, manifest, sourceHash } = yield* normalizePluginSource(pluginPackage);
 							if (manifest.metadata.slug !== plugin.slug) {
 								return yield* new PluginValidationError({
 									issues: [
@@ -700,14 +697,14 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 									],
 								});
 							}
-							yield* validatePluginPackageLimits(pluginPackage.files, manifest);
+							yield* validatePluginPackageLimits(files, manifest);
 							yield* validatePluginManifestPolicy(manifest, {
 								scope: "user",
 								systemSlugs: new Set(
 									(yield* repository.listActiveManifests()).map(({ metadata }) => metadata.slug),
 								),
 							});
-							yield* validatePluginSourcePaths(pluginPackage.files, manifest.scripts);
+							yield* validatePluginSourcePaths(files, manifest.scripts);
 							const effectiveDefinitions = yield* buildEffectiveDefinitions(
 								loader.getSnapshot().definitions,
 								[
@@ -727,11 +724,10 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 							yield* validatePluginManifestReferences(manifest, effectiveDefinitions);
 							yield* validateAdditiveSchemaEvolution(plugin.manifest, manifest);
 							yield* validateConfigPatch(manifest, installation.config, input);
-							const sourceHash = pluginSourceHash(manifest, pluginPackage.files);
 							const normalized = yield* compilePluginPackage({
 								manifest,
 								sourceHash,
-								files: pluginPackage.files,
+								files,
 							}).pipe(Effect.provideService(ClientPluginCompiler, clientCompiler));
 							yield* validatePluginExecutableScripts(normalized);
 

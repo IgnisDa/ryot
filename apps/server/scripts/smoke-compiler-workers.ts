@@ -1,7 +1,10 @@
 #!/usr/bin/env bun
 
 import { BunServices, BunRuntime } from "@effect/platform-bun";
-import { ClientCompilerWorkerResponse } from "@ryot/client-plugin-compiler/protocol";
+import {
+	decodeClientCompilerWorkerResponse,
+	encodeClientCompilerWorkerRequest,
+} from "@ryot/client-plugin-compiler/protocol";
 import { CompilerWorkerResponse } from "@ryot/sandbox-compiler/protocol";
 import { Data, Effect, Schema, Stream } from "effect";
 import { ChildProcess } from "effect/unstable/process";
@@ -30,11 +33,11 @@ export default defineWorkflow({
 });
 `;
 
-const clientRequest = JSON.stringify({
+const clientRequest = encodeClientCompilerWorkerRequest({
 	apiVersion: 1,
 	entry: "client/index.tsx",
 	files: {
-		"client/index.tsx": `
+		"client/index.tsx": new TextEncoder().encode(`
 import "./styles.css";
 import { bootstrapClientPlugin } from "@ryot/client-sdk/plugin";
 import { Button } from "@ryot/client-ui-sdk";
@@ -46,16 +49,13 @@ const Home = () => {
 };
 
 bootstrapClientPlugin({ home: Home });
-`,
-		"client/styles.css": '@import "tailwindcss";\n',
+`),
+		"client/styles.css": new TextEncoder().encode('@import "tailwindcss";\n'),
 	},
 });
 
 const decodeSandboxResponse = Schema.decodeUnknownEffect(
 	Schema.fromJsonString(CompilerWorkerResponse),
-);
-const decodeClientResponse = Schema.decodeUnknownEffect(
-	Schema.fromJsonString(ClientCompilerWorkerResponse),
 );
 
 const runWorker = (name: string, workerPath: string, input: string) =>
@@ -124,7 +124,7 @@ const program = Effect.gen(function* () {
 	}
 
 	const clientOutput = yield* runWorker("Client compiler", clientWorkerPath, clientRequest);
-	const clientResponse = yield* decodeClientResponse(clientOutput).pipe(
+	const clientResponse = yield* decodeClientCompilerWorkerResponse(clientOutput).pipe(
 		Effect.mapError(
 			(error) =>
 				new CompilerWorkerSmokeError({

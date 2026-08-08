@@ -1,0 +1,1 @@
+import{$ as e,X as t,Z as n}from"./index-BnMFOfJ-.js";function r(r){let i=e();return n(i.stores.location,t(r,i))}export{r as t};

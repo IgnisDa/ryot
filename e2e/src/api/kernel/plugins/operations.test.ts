@@ -44,7 +44,9 @@ const installEchoOperationPlugin = (client: Client) => {
 				pluginPackage: {
 					manifest,
 					files: {
-						[entry]: operationSandboxSource({ name: "E2E Echo Operation", slug: scriptSlug }),
+						[entry]: new TextEncoder().encode(
+							operationSandboxSource({ name: "E2E Echo Operation", slug: scriptSlug }),
+						),
 					},
 				},
 			});

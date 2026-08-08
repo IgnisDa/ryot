@@ -73,6 +73,7 @@ const normalizeRelativePath = (importer: string, specifier: string) => {
 
 const resolveLocalImport = (
 	files: Readonly<Record<string, string>>,
+	assetNames: Readonly<Record<string, string>>,
 	importer: string,
 	specifier: string,
 ) => {
@@ -81,7 +82,11 @@ const resolveLocalImport = (
 		return null;
 	}
 	const candidates = [path, `${path}.tsx`, `${path}.ts`, `${path}/index.tsx`, `${path}/index.ts`];
-	return candidates.find((candidate) => Object.hasOwn(files, candidate)) ?? null;
+	return (
+		candidates.find(
+			(candidate) => Object.hasOwn(files, candidate) || Object.hasOwn(assetNames, candidate),
+		) ?? null
+	);
 };
 
 const sourceLoader = (path: string) => (path.endsWith(".tsx") ? "tsx" : "ts");
@@ -103,7 +108,7 @@ export const bundleClientPlugin = (sources: ClientPluginSources, compilerRoot: s
 					if (!Object.hasOwn(sources.files, importer)) {
 						return undefined;
 					}
-					const resolved = resolveLocalImport(sources.files, importer, path);
+					const resolved = resolveLocalImport(sources.files, sources.assetNames, importer, path);
 					if (resolved === null) {
 						rejected.push(
 							clientPluginCompilerDiagnostic(
@@ -150,6 +155,14 @@ export * as Schema from "effect/Schema";
 					loader: "js" as const,
 				}));
 				builder.onLoad({ filter: /.*/, namespace: CLIENT_NAMESPACE }, ({ path }) => {
+					const assetName = sources.assetNames[path];
+					if (assetName !== undefined) {
+						assets.add(path);
+						return {
+							loader: "js" as const,
+							contents: `export default ${JSON.stringify(`./${assetName}`)};`,
+						};
+					}
 					const source = sources.files[path];
 					if (source === undefined) {
 						rejected.push(
@@ -164,14 +177,6 @@ export * as Schema from "effect/Schema";
 					if (path.endsWith(".css")) {
 						stylesheets.add(path);
 						return { contents: "", loader: "js" as const };
-					}
-					const assetName = sources.assetNames[path];
-					if (assetName !== undefined) {
-						assets.add(path);
-						return {
-							loader: "js" as const,
-							contents: `export default ${JSON.stringify(`./${assetName}`)};`,
-						};
 					}
 					return { contents: source, loader: sourceLoader(path) };
 				});

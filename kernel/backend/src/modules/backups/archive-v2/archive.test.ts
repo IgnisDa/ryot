@@ -482,3 +482,26 @@ it.effect("releases the spool directory on success, failure, and interruption", 
 		yield* fs.remove(root, { recursive: true, force: true });
 	}).pipe(Effect.provide(BunFileSystem.layer)),
 );
+
+it.effect("rejects noncanonical base64 private plugin files", () =>
+	Effect.gen(function* () {
+		const archive = yield* mutateArchive(input(), (files) => {
+			replaceSection(
+				files,
+				"private-plugins.ndjson",
+				encoder.encode(
+					`${JSON.stringify({
+						manifest: {},
+						slug: "fixture",
+						version: "1.0.0",
+						sourceHash: "a".repeat(64),
+						files: { "backend/main.ts": "Zg" },
+						key: `user:fixture:${"a".repeat(64)}`,
+					})}\n`,
+				),
+			);
+		});
+		const error = yield* validationError(archive);
+		expect(error).toMatchObject({ reason: "invalid_entry", path: "private-plugins.ndjson" });
+	}),
+);

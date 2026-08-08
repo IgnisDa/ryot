@@ -4,7 +4,7 @@ import { PluginSlug } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
 import { SandboxCompilationDiagnostic, SandboxExecutionError } from "../sandbox/schemas";
-import { PluginConfigSchema, PluginManifest } from "./manifest";
+import { PluginConfigSchema } from "./manifest";
 
 const PluginValidationDiagnostic = Schema.Struct({
 	code: Schema.String,
@@ -171,13 +171,6 @@ export class PluginInvocationError extends Schema.TaggedError<PluginInvocationEr
 	"PluginInvocationError",
 	{ reason: PluginInvocationFailureReason },
 ) {}
-
-export const PluginPackage = Schema.Struct({
-	manifest: PluginManifest,
-	files: Schema.Record(Schema.String, Schema.String),
-});
-
-export type PluginPackage = Schema.Schema.Type<typeof PluginPackage>;
 
 export const InstallPluginBody = Schema.Struct({
 	uploadToken: Schema.String,

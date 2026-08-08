@@ -1,7 +1,7 @@
 import os from "node:os";
 
 import type { ContractSuccess } from "@ryot/contract/client";
-import type { PluginPackage } from "@ryot/contract/modules/plugins/schemas";
+import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { UserId } from "@ryot/contract/schema/brands";
 import { Clock, Effect } from "effect";
 
@@ -413,7 +413,7 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("sandbox runtime benchmark", () => {
 						name: "Benchmark controlled HTTP provider",
 						entry: "scripts/provider-search.sandbox.ts",
 					},
-				] satisfies PluginPackage["manifest"]["scripts"];
+				] satisfies PluginManifest["scripts"];
 				const { client, userId } = yield* createAuthenticatedClient();
 				const benchmarkPlugin = yield* Effect.acquireRelease(
 					installTestPluginBundle({

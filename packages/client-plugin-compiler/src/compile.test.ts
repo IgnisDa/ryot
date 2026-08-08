@@ -2,35 +2,43 @@ import { expect, it } from "@effect/vitest";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
+	pluginClientFileExtension,
 } from "@ryot/contract/modules/plugins/client";
+import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { sortBy } from "@ryot/ts-utils/lodash";
 import { Effect } from "effect";
 
 import { compileClientPlugin } from "./compile";
 import { isTrustedClientModule } from "./dependencies";
+import { CLIENT_PLUGIN_COMPILER_LIMITS } from "./limits";
 
 const fixtureRoot = new URL("../../../plugins/fixture", import.meta.url).pathname;
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
+const bytes = (value: string) => encoder.encode(value);
+const text = (value: Uint8Array | undefined) => decoder.decode(value);
 
 const fixtureFiles = Effect.promise(async () => {
 	const paths = await Array.fromAsync(
-		new Bun.Glob("client/**/*.{ts,tsx,css,svg}").scan({ cwd: fixtureRoot, onlyFiles: true }),
+		new Bun.Glob("client/**/*").scan({ cwd: fixtureRoot, onlyFiles: true }),
 	);
 	const entries = await Promise.all(
-		sortBy(paths).map(
-			async (path) => [path, await Bun.file(`${fixtureRoot}/${path}`).text()] as const,
+		sortBy(paths.filter((path) => pluginClientFileExtension(path) !== undefined)).map(
+			async (path) =>
+				[path, new Uint8Array(await Bun.file(`${fixtureRoot}/${path}`).arrayBuffer())] as const,
 		),
 	);
 	return Object.fromEntries(entries);
 });
 
-const compileFixture = (files: Record<string, string>) =>
+const compileFixture = (files: Record<string, Uint8Array>) =>
 	compileClientPlugin({ files, apiVersion: CLIENT_API_VERSION, entry: "client/index.tsx" });
 
-const compileStylesheet = (stylesheet: string, files: Record<string, string> = {}) =>
+const compileStylesheet = (stylesheet: string, files: Record<string, Uint8Array> = {}) =>
 	compileFixture({
 		...files,
-		"client/index.tsx": 'import "./styles.css";',
-		"client/styles.css": stylesheet,
+		"client/index.tsx": bytes('import "./styles.css";'),
+		"client/styles.css": bytes(stylesheet),
 	});
 
 it.effect(
@@ -39,35 +47,41 @@ it.effect(
 		Effect.gen(function* () {
 			const files = yield* fixtureFiles;
 			const { artifact } = yield* compileFixture(files);
+			const svgName = `asset-${sha256Hex(files["client/logo.svg"] ?? new Uint8Array())}.svg`;
+			const importedPngName = `asset-${sha256Hex(files["client/imported-logo.png"] ?? new Uint8Array())}.png`;
+			const cssPngName = `asset-${sha256Hex(files["client/css-logo.png"] ?? new Uint8Array())}.png`;
 
 			const names = artifact.files.map(({ name }) => name);
-			expect(names.filter((name) => name.startsWith("asset-")).length).toBe(1);
+			expect(names.filter((name) => name.startsWith("asset-"))).toHaveLength(3);
 			expect(names.at(-1)).toBe("index.html");
 			expect(names).toContain("plugin.js");
 			expect(names).toContain("plugin.css");
+			expect(names).toEqual(expect.arrayContaining([svgName, importedPngName, cssPngName]));
 
 			const byName = new Map(artifact.files.map((file) => [file.name, file]));
-			const asset = names.find((name) => name.startsWith("asset-")) ?? "";
-			expect(asset).toMatch(/^asset-[a-f0-9]{64}\.svg$/);
 			expect(byName.get("plugin.js")?.contentType).toBe("text/javascript; charset=utf-8");
 			expect(byName.get("plugin.css")?.contentType).toBe("text/css; charset=utf-8");
 			expect(byName.get("index.html")?.contentType).toBe("text/html; charset=utf-8");
-			expect(byName.get(asset)?.contentType).toBe("image/svg+xml");
-			expect(byName.get(asset)?.contents).toBe(files["client/logo.svg"]);
+			expect(byName.get(svgName)?.contentType).toBe("image/svg+xml");
+			expect(byName.get(importedPngName)?.contentType).toBe("image/png");
+			expect(byName.get(cssPngName)?.contentType).toBe("image/png");
+			expect(byName.get(svgName)?.contents).toEqual(files["client/logo.svg"]);
 
-			const javascript = byName.get("plugin.js")?.contents ?? "";
-			expect(javascript).toContain(`"./${asset}"`);
+			const javascript = text(byName.get("plugin.js")?.contents);
+			expect(javascript).toContain(`"./${svgName}"`);
+			expect(javascript).toContain(`"./${importedPngName}"`);
 			expect(javascript).not.toContain("@ryot/client-ui-sdk");
 			expect(javascript).not.toContain("./styles.css");
 			// oxlint-disable-next-line typescript/no-implied-eval -- verifies the generated browser module can execute
 			expect(() => Function("document", javascript)({ getElementById: () => null })).not.toThrow();
 
-			const css = byName.get("plugin.css")?.contents ?? "";
+			const css = text(byName.get("plugin.css")?.contents);
 			expect(css).toContain(".plugin-logo");
+			expect(css).toContain(`./${cssPngName}`);
 			expect(css).toContain("background-color: var(--accent)");
 			expect(css).toContain("color: var(--text-muted)");
 
-			const document = byName.get("index.html")?.contents ?? "";
+			const document = text(byName.get("index.html")?.contents);
 			expect(document).toContain(`"hash":"${artifact.hash}"`);
 			expect(document).toContain('<script type="module" src="./plugin.js">');
 			expect(document).toContain('<link rel="stylesheet" href="./plugin.css" />');
@@ -87,13 +101,14 @@ it.effect(
 			const { artifact } = yield* compileStylesheet(
 				'@import "tailwindcss";\n@import "./components.css";',
 				{
-					"client/components.css":
+					"client/components.css": bytes(
 						'@import "./nested/details.css";\n.local-component { color: red; }',
-					"client/nested/details.css": ".local-detail { color: blue; }",
+					),
+					"client/nested/details.css": bytes(".local-detail { color: blue; }"),
 				},
 			);
 
-			const css = artifact.files.find(({ name }) => name === "plugin.css")?.contents ?? "";
+			const css = text(artifact.files.find(({ name }) => name === "plugin.css")?.contents);
 			expect(css).toContain(".local-component");
 			expect(css).toContain(".local-detail");
 		}),
@@ -144,7 +159,7 @@ it.effect(
 	() =>
 		Effect.gen(function* () {
 			const files = yield* fixtureFiles;
-			const home = (files["client/home.tsx"] ?? "")
+			const home = text(files["client/home.tsx"])
 				.replace(
 					'import logo from "./logo.svg";',
 					'import logo from "./logo.svg";\nimport logoCopy from "./logo-copy.svg";',
@@ -155,16 +170,176 @@ it.effect(
 				);
 			const { artifact } = yield* compileFixture({
 				...files,
-				"client/home.tsx": home,
-				"client/logo-copy.svg": files["client/logo.svg"] ?? "",
+				"client/home.tsx": bytes(home),
+				"client/logo-copy.svg": files["client/logo.svg"] ?? new Uint8Array(),
 			});
 
-			const assets = artifact.files.filter(({ name }) => name.startsWith("asset-"));
+			const assets = artifact.files.filter(({ name }) => name.endsWith(".svg"));
 			expect(assets).toHaveLength(1);
-			expect(assets[0]?.contents).toBe(files["client/logo.svg"]);
-			expect(artifact.files.find(({ name }) => name === "plugin.js")?.contents).toContain(
+			expect(assets[0]?.contents).toEqual(files["client/logo.svg"]);
+			expect(text(artifact.files.find(({ name }) => name === "plugin.js")?.contents)).toContain(
 				`"./${assets[0]?.name}"`,
 			);
+		}),
+	30_000,
+);
+
+it.effect(
+	"imports binary assets without UTF-8 decoding",
+	() =>
+		Effect.gen(function* () {
+			const image = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0xff, 0x00]);
+			const { artifact } = yield* compileFixture({
+				"client/index.tsx": bytes('import image from "./image.png"; console.log(image);'),
+				"client/image.png": image,
+			});
+			const asset = artifact.files.find(({ name }) => name.endsWith(".png"));
+
+			expect(asset?.contents).toEqual(image);
+			expect(asset?.contentType).toBe("image/png");
+			expect(text(artifact.files.find(({ name }) => name === "plugin.js")?.contents)).toContain(
+				`"./${asset?.name}"`,
+			);
+		}),
+	30_000,
+);
+
+it.effect("rejects invalid UTF-8 in text sources", () =>
+	Effect.gen(function* () {
+		const failure = yield* compileFixture({
+			"client/index.tsx": new Uint8Array([0xff]),
+		}).pipe(Effect.flip);
+
+		expect(failure.diagnostics[0]?.code).toBe("RYOT_CLIENT_UTF8");
+		expect(failure.diagnostics[0]?.file).toBe("client/index.tsx");
+	}),
+);
+
+it.effect(
+	"rewrites CSS assets relative to root and nested stylesheets",
+	() =>
+		Effect.gen(function* () {
+			const rootImage = new Uint8Array([1, 2, 3]);
+			const nestedImage = new Uint8Array([4, 5, 6]);
+			const { artifact } = yield* compileStylesheet(
+				'@import "./nested/details.css"; .root { background: url("./root.png"); }',
+				{
+					"client/root.png": rootImage,
+					"client/nested/details.css": bytes(".nested { background-image: url(../nested.png); }"),
+					"client/nested.png": nestedImage,
+				},
+			);
+			const css = text(artifact.files.find(({ name }) => name === "plugin.css")?.contents);
+			const assets = artifact.files.filter(({ name }) => name.startsWith("asset-"));
+
+			expect(assets).toHaveLength(2);
+			for (const asset of assets) {
+				expect(css).toContain(`./${asset.name}`);
+			}
+			expect(css).not.toContain("../nested.png");
+			expect(css).not.toContain("./root.png");
+		}),
+	30_000,
+);
+
+it.effect(
+	"deduplicates an asset imported from JavaScript and CSS",
+	() =>
+		Effect.gen(function* () {
+			const image = new Uint8Array([7, 8, 9]);
+			const { artifact } = yield* compileFixture({
+				"client/index.tsx": bytes(
+					'import image from "./image.png"; import "./styles.css"; console.log(image);',
+				),
+				"client/styles.css": bytes(".image { background: url(./image.png); }"),
+				"client/image.png": image,
+			});
+			const assets = artifact.files.filter(({ name }) => name.startsWith("asset-"));
+
+			expect(assets).toHaveLength(1);
+			expect(text(artifact.files.find(({ name }) => name === "plugin.js")?.contents)).toContain(
+				`./${assets[0]?.name}`,
+			);
+			expect(text(artifact.files.find(({ name }) => name === "plugin.css")?.contents)).toContain(
+				`./${assets[0]?.name}`,
+			);
+		}),
+	30_000,
+);
+
+it.effect(
+	"rejects invalid local CSS asset URLs",
+	() =>
+		Effect.gen(function* () {
+			for (const [specifier, message] of [
+				["./missing.png", "does not exist"],
+				["../../outside.png", "traverses outside"],
+				["../client/hidden.png", "traverses outside"],
+				["/root.png", "root-relative"],
+				["./script.ts", "allowed client asset extension"],
+			] as const) {
+				const failure = yield* compileStylesheet(`.asset { background: url(${specifier}); }`, {
+					"client/script.ts": bytes("export {}"),
+				}).pipe(Effect.flip);
+
+				expect(failure.diagnostics[0]?.code).toBe("RYOT_CLIENT_STYLES");
+				expect(failure.diagnostics[0]?.file).toBe("client/styles.css");
+				expect(failure.diagnostics[0]?.message).toContain(message);
+			}
+		}),
+	30_000,
+);
+
+it.effect(
+	"enforces source and per-asset limits on exact raw byte lengths",
+	() =>
+		Effect.gen(function* () {
+			const prefix = "export {};";
+			const exactSource = bytes(
+				prefix + " ".repeat(CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes - prefix.length),
+			);
+			const exact = yield* compileFixture({ "client/index.tsx": exactSource });
+			expect(exact.artifact.files.at(-1)?.name).toBe("index.html");
+
+			const oversizedSource = yield* compileFixture({
+				"client/index.tsx": new Uint8Array(CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes + 1),
+			}).pipe(Effect.flip);
+			expect(oversizedSource.diagnostics[0]?.code).toBe("RYOT_CLIENT_SOURCE_SIZE");
+
+			const assetPrefix = bytes('import image from "./image.png"; console.log(image);');
+			const exactAsset = yield* compileFixture({
+				"client/index.tsx": assetPrefix,
+				"client/image.png": new Uint8Array(CLIENT_PLUGIN_COMPILER_LIMITS.assetBytes),
+			});
+			expect(exactAsset.artifact.files.some(({ name }) => name.endsWith(".png"))).toBe(true);
+
+			const oversizedAsset = yield* compileFixture({
+				"client/index.tsx": assetPrefix,
+				"client/image.png": new Uint8Array(CLIENT_PLUGIN_COMPILER_LIMITS.assetBytes + 1),
+			}).pipe(Effect.flip);
+			expect(oversizedAsset.diagnostics[0]?.code).toBe("RYOT_CLIENT_ASSET_SIZE");
+		}),
+	30_000,
+);
+
+it.effect(
+	"preserves external, data, protocol-relative, and fragment CSS URLs",
+	() =>
+		Effect.gen(function* () {
+			const stylesheet = [
+				'url("https://example.com/image.png")',
+				"url(data:image/png;base64,iVBORw0KGgo=)",
+				"url(//cdn.example.com/image.png)",
+				"url(#filter)",
+			].join(", ");
+			const { artifact } = yield* compileStylesheet(`.asset { background-image: ${stylesheet}; }`);
+			const css = text(artifact.files.find(({ name }) => name === "plugin.css")?.contents);
+
+			expect(css).toContain("https://example.com/image.png");
+			expect(css).toContain("data:image/png;base64,iVBORw0KGgo=");
+			expect(css).toContain("//cdn.example.com/image.png");
+			expect(css).toContain("#filter");
+			expect(artifact.files.filter(({ name }) => name.startsWith("asset-"))).toHaveLength(0);
 		}),
 	30_000,
 );
@@ -195,7 +370,9 @@ it.effect(
 			const second = yield* compileFixture(files);
 			const changed = yield* compileFixture({
 				...files,
-				"client/home.tsx": (files["client/home.tsx"] ?? "").replace("Fixture plugin", "Changed"),
+				"client/home.tsx": bytes(
+					text(files["client/home.tsx"]).replace("Fixture plugin", "Changed"),
+				),
 			});
 
 			expect(second.artifact.hash).toBe(first.artifact.hash);
@@ -212,7 +389,7 @@ it.effect(
 			const files = yield* fixtureFiles;
 			const failure = yield* compileFixture({
 				...files,
-				"client/home.tsx": `import "effect";\n${files["client/home.tsx"]}`,
+				"client/home.tsx": bytes(`import "effect";\n${text(files["client/home.tsx"])}`),
 			}).pipe(Effect.flip);
 
 			expect(failure._tag).toBe("ClientPluginCompilerFailure");

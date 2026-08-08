@@ -12,25 +12,62 @@ import type { SandboxCompilerFailure } from "@ryot/sandbox-compiler/diagnostics"
 import { compilePluginSandboxSourceEntries } from "@ryot/sandbox-compiler/plugins";
 import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { stableStringify } from "@ryot/ts-utils/json";
+import { sortBy } from "@ryot/ts-utils/lodash";
 import { Effect, Match } from "effect";
 
 import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 
 import type { SchemaEvolutionError } from "./schema-evolution";
-import type { NormalizedPlugin, PluginScriptMetadata } from "./types";
-import type {
-	PluginPackageLimitError,
-	PluginSlugReservedError,
-	PluginSurfaceError,
+import type { NormalizedPlugin, PluginScriptMetadata, PluginSource } from "./types";
+import {
+	decodePluginManifest,
+	type PluginPackageLimitError,
+	type PluginSlugReservedError,
+	type PluginSurfaceError,
+	PluginValidationError,
 } from "./validation";
-import { PluginValidationError } from "./validation";
 
 export const digest = sha256Hex;
 
 export const pluginSourceHash = (
 	manifest: PluginManifest,
-	files: Readonly<Record<string, string>>,
-) => digest(stableStringify({ files, manifest }));
+	files: Readonly<Record<string, Uint8Array>>,
+) =>
+	digest(
+		stableStringify({
+			manifest,
+			files: sortBy(Object.entries(files), ([path]) => path).map(([path, contents]) => [
+				path,
+				digest(contents),
+			]),
+		}),
+	);
+
+export const decodePluginBackendFiles = (files: Readonly<Record<string, Uint8Array>>) =>
+	Effect.try({
+		try: () =>
+			Object.fromEntries(
+				Object.entries(files)
+					.filter(([path]) => !path.startsWith("client/"))
+					.map(([path, contents]) => [
+						path,
+						new TextDecoder("utf-8", { fatal: true }).decode(contents),
+					]),
+			),
+		catch: () =>
+			new PluginValidationError({ issues: ["Plugin backend source is not valid UTF-8"] }),
+	});
+
+export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSource")(function* (
+	source: PluginSource,
+) {
+	const manifest = yield* decodePluginManifest(source.manifest);
+	return {
+		manifest,
+		files: source.files,
+		sourceHash: pluginSourceHash(manifest, source.files),
+	};
+});
 
 export const declaredScriptMetadata = (
 	script: PluginManifest["scripts"][number],
@@ -102,8 +139,9 @@ export const compilePluginPackage = Effect.fn("PluginPipeline.compilePluginPacka
 	function* (input: {
 		readonly sourceHash: string;
 		readonly manifest: PluginManifest;
-		readonly files: Readonly<Record<string, string>>;
+		readonly files: Readonly<Record<string, Uint8Array>>;
 	}) {
+		const backendFiles = yield* decodePluginBackendFiles(input.files);
 		const compilerScripts = input.manifest.scripts.map((script) => {
 			if (script.kind === "script") {
 				const { providerSlug, ...genericScript } = script;
@@ -111,7 +149,7 @@ export const compilePluginPackage = Effect.fn("PluginPipeline.compilePluginPacka
 			}
 			return script;
 		});
-		const compiled = yield* compilePluginSandboxSourceEntries(input.files, compilerScripts).pipe(
+		const compiled = yield* compilePluginSandboxSourceEntries(backendFiles, compilerScripts).pipe(
 			Effect.tapError((error) => Effect.logError("plugin compile error", error)),
 		);
 		const compiledByEntry = new Map(compiled.map((script) => [script.entry, script]));
@@ -159,8 +197,8 @@ export const compilePluginPackage = Effect.fn("PluginPipeline.compilePluginPacka
 		return {
 			scripts,
 			clientArtifact,
+			files: input.files,
 			manifest: input.manifest,
-			sourceFiles: input.files,
 			sourceHash: input.sourceHash,
 		} satisfies NormalizedPlugin;
 	},

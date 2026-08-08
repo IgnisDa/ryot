@@ -1,10 +1,13 @@
 import { Duration, Effect, Fiber, FileSystem, Ref, Result, Stream, type Semaphore } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
+const encoder = new TextEncoder();
+
 export type CompilerWorkerFailure =
 	| { readonly _tag: "Timeout" }
 	| { readonly _tag: "ProcessExited" }
 	| { readonly _tag: "MemoryExceeded" }
+	| { readonly _tag: "OutputExceeded" }
 	| { readonly _tag: "ProcessUnavailable" }
 	| { readonly _tag: "MemorySupervisionFailed" };
 
@@ -48,6 +51,7 @@ export const makeCompilerWorkerRunner = <E>(options: {
 	readonly path: string;
 	readonly timeoutMs: number;
 	readonly memoryBytes: number;
+	readonly stdoutBytes?: number;
 	readonly memoryPollIntervalMs: number;
 	readonly semaphore: Semaphore.Semaphore;
 	readonly failure: (failure: CompilerWorkerFailure) => E;
@@ -63,22 +67,30 @@ export const makeCompilerWorkerRunner = <E>(options: {
 						ChildProcess.make(
 							process.execPath,
 							["--smol", "--no-orphans", "--no-install", "--no-env-file", options.path],
-							{
-								stdout: "pipe",
-								stderr: "pipe",
-								stdin: Stream.succeed(new TextEncoder().encode(input)),
-							},
+							{ stdout: "pipe", stderr: "pipe", stdin: Stream.succeed(encoder.encode(input)) },
 						),
 					);
 					yield* Effect.addFinalizer(() =>
 						worker.kill({ killSignal: "SIGKILL" }).pipe(Effect.ignore),
 					);
 
+					const stdoutExceeded = yield* Ref.make(false);
+					let stdoutByteLength = 0;
 					const stdout = yield* worker.stdout.pipe(
 						Stream.decodeText({ encoding: "utf-8" }),
-						Stream.runFold(
+						Stream.runFoldEffect(
 							() => "",
-							(output, chunk) => output + chunk,
+							(output, chunk) => {
+								const next = output + chunk;
+								stdoutByteLength += encoder.encode(chunk).byteLength;
+								if (options.stdoutBytes !== undefined && stdoutByteLength > options.stdoutBytes) {
+									return Ref.set(stdoutExceeded, true).pipe(
+										Effect.andThen(worker.kill({ killSignal: "SIGKILL" }).pipe(Effect.ignore)),
+										Effect.as(output),
+									);
+								}
+								return Effect.succeed(next);
+							},
 						),
 						Effect.forkScoped,
 					);
@@ -118,6 +130,9 @@ export const makeCompilerWorkerRunner = <E>(options: {
 					const exitCode = yield* Effect.result(worker.exitCode);
 					if (yield* Ref.get(memoryExceeded)) {
 						return { failure: "MemoryExceeded" } as const;
+					}
+					if (yield* Ref.get(stdoutExceeded)) {
+						return { failure: "OutputExceeded" } as const;
 					}
 					if (yield* Ref.get(memorySupervisionFailed)) {
 						return { failure: "MemorySupervisionFailed" } as const;
