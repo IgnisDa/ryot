@@ -262,4 +262,34 @@ describe("collection detail", () => {
 		await waitFor(() => expect(screen.getByRole("radio", { name: "Recently added" })).toBeTruthy());
 		expect(dialog.textContent).toContain("Filters are not available yet.");
 	});
+
+	it("keeps the desktop toolbar aligned with saved views and sorts from the Filters dialog", async () => {
+		const page = openCollection();
+		await answerCollection(page, {
+			name: "Mixed",
+			members: [
+				{
+					name: "Dune",
+					properties: {},
+					entityId: "book-1",
+					ownerPluginId: "media",
+					ownerPluginName: "Media",
+					entitySchemaSlug: "book",
+					populationStatus: "ready",
+					translationStatus: "ready",
+				},
+			],
+		});
+		await waitFor(() =>
+			expect(screen.getByRole("heading", { level: 1, name: "Mixed" })).toBeTruthy(),
+		);
+		expect(screen.queryByRole("button", { name: /^Sort results/ })).toBeNull();
+		fireEvent.click(screen.getByRole("button", { name: /Filters/ }));
+		const dialog = await waitFor(() => screen.getByRole("dialog", { name: "Filters" }));
+		expect(dialog.textContent).toContain("Collection order");
+		expect(dialog.textContent).toContain("Filters are not available yet.");
+		expect(dialog.textContent).not.toContain("View as");
+		fireEvent.click(screen.getByRole("button", { name: "Sort results: Collection order" }));
+		await waitFor(() => expect(screen.getByRole("radio", { name: "Recently added" })).toBeTruthy());
+	});
 });

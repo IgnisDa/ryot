@@ -169,6 +169,7 @@ it.live("browses collection members with membership properties", () =>
 		yield* page.waitForURL((url) => url.searchParams.get("search") === null);
 		yield* detail.getByText(zuluName, { exact: true }).waitFor({ state: "visible" });
 
+		yield* detail.getByRole("button", { name: /Filters/ }).click();
 		yield* detail.getByRole("button", { name: "Sort results: Collection order" }).click();
 		yield* detail.getByRole("radio", { name: "Name Z-A" }).click();
 		yield* page.waitForURL((url) => url.searchParams.get("sort") === "name-desc");
