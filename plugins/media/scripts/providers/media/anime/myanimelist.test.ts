@@ -12,12 +12,12 @@ type MyAnimeListAnimeHost = SandboxHost<typeof manifest.capabilities>;
 const httpSuccess = (body: unknown) =>
 	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
-const makeHost = (httpCall: MyAnimeListAnimeHost["httpCall"], isNsfw = false) =>
+const makeHost = (httpCall: MyAnimeListAnimeHost["httpCall"], allowNsfw = false) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
 		getPluginConfig: (keys) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "client-id"]))),
-		getUserPreferences: () => Effect.succeed({ isNsfw, disableIntegrations: false }),
+		getUserPreferences: () => Effect.succeed({ allowNsfw, disableIntegrations: false }),
 	});
 
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
@@ -40,7 +40,7 @@ describe("anime.myanimelist sandbox script", () => {
 				configKeys.push(...keys);
 				return Effect.succeed(Object.fromEntries(keys.map((key) => [key, "client-id"])));
 			},
-			getUserPreferences: () => Effect.succeed({ isNsfw: false, disableIntegrations: false }),
+			getUserPreferences: () => Effect.succeed({ allowNsfw: false, disableIntegrations: false }),
 			httpCall: (_method, _url, options) => {
 				expect(options?.headers).toEqual({ "X-MAL-CLIENT-ID": "client-id" });
 				return httpSuccess({ data: [], paging: {} });
