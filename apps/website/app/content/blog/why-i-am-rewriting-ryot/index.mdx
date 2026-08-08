@@ -1,0 +1,245 @@
+---
+title: Why I am rewriting Ryot
+description: After nearly three years and 66,000 lines of code, I started over. Here is why.
+publishedAt: 2026-05-06
+properties:
+  labels:
+    - ryot
+    - open source
+    - rewrite
+    - self hosting
+---
+
+export const tableOfContents = [
+  { id: "how-it-started", label: "How it started", depth: 2 },
+  {
+    id: "the-app-stopped-feeling-like-mine",
+    label: "The app stopped feeling like mine",
+    depth: 2,
+  },
+  {
+    id: "the-same-request-again-and-again",
+    label: "The same request, again and again",
+    depth: 2,
+  },
+  {
+    id: "the-ui-was-not-where-i-wanted-it",
+    label: "The UI was not where I wanted it",
+    depth: 2,
+  },
+  { id: "i-want-to-bet-on-this", label: "I want to bet on this", depth: 2 },
+  { id: "the-technical-decisions", label: "The technical decisions", depth: 2 },
+  { id: "everything-is-an-entity", label: "Everything is an entity", depth: 3 },
+  { id: "typescript-over-rust", label: "TypeScript over Rust", depth: 3 },
+  {
+    id: "bullmq-for-background-work",
+    label: "BullMQ for background work",
+    depth: 3,
+  },
+  { id: "fixing-the-data-model", label: "Fixing the data model", depth: 3 },
+  { id: "native-mobile", label: "Native mobile", depth: 3 },
+  { id: "where-things-stand", label: "Where things stand", depth: 2 },
+];
+
+In February 2026, I created a branch called `ultra-rewrite` in the Ryot repository.
+It now has over 1,400 commits.
+
+This is why.
+
+## How it started
+
+I built the first version of Ryot in April 2023, during college. It was as much a
+learning project as a real product - I wanted to get serious with Rust, and building
+something I would actually use felt like the right way to do it. The idea was simple:
+a self-hosted tracker for media and fitness. Movies you watched, books you read,
+workouts you logged.
+
+Nearly three years later, Ryot has over 3,000 GitHub stars, a real community, ten major
+releases, and roughly 66,000 lines of code - 42,000 in Rust for the backend, 24,000 in
+TypeScript for the frontend - across nearly 460 files. It is not a learning project
+anymore. It is software that people self-host on their own servers, and a growing
+number of people use through [ryot.io](https://ryot.io), the cloud-hosted version I run.
+People depend on it daily.
+
+## The app stopped feeling like mine
+
+At some point I noticed I was not using Ryot the way I wanted to. Not because it did
+not work - it worked fine. But Ryot drew hard lines around what you could track: media
+consumption and fitness, full stop. Everything outside those categories had no home.
+
+I hit that wall with my own life. I wanted to track junk food habits I was trying to
+break, places I visited, and things personal enough that I never even considered filing
+them as feature requests. None of them fit into movies, books, or workouts.
+
+Every personal use case I had became a product decision. The app had quietly turned
+from something I built for myself into a product I maintained for everyone else.
+
+That is the part that wore me down. Not the bug reports or the feature requests - those
+are fine. It was opening my own app and feeling like a user of it, not the owner.
+
+## The same request, again and again
+
+Two months after Ryot's first commit, I opened
+[issue #73](https://github.com/IgnisDa/ryot/issues/73) and titled it "Allow Ryot to
+track anything." I already knew the ceiling was there.
+
+The comments that accumulated over the next two years read like a wishlist for a
+different product. People wanted to track restaurants they had been to - not just that
+they went, but which dishes they liked, which flavors to avoid next time. Someone wanted
+to log every place they had visited with photos, tags, and a map link. Another person
+wanted to track their kids' screen time across different apps.
+
+Every single one was a no. Not because the ideas were bad - most of them are genuinely
+useful. But accommodating any of them properly meant a new engineering project: new
+database tables, new API endpoints, new UI, a new release to everyone. There was no way
+to say yes without the codebase growing unboundedly.
+
+That issue is still open. The rewrite closes it by design.
+
+## The UI was not where I wanted it
+
+The current frontend works but has never looked the way I wanted. It felt like a data
+entry application - you logged something, looked up a number, moved on. I wanted
+something that felt more like a personal journal: a timeline of your life that you
+opened to reflect on, not just a form you filled in and closed.
+
+## I want to bet on this
+
+For the past few months I have been maintaining the current version - shipping patches,
+closing issues, responding to questions - while privately working on a complete
+replacement. If you
+follow the repository closely, you might have noticed that meaningful new features have
+not shipped in a while, and I understand if that looks like neglect or abandonment. It
+is not. Bugs went unresolved and features went unbuilt during this time, and I am sorry
+for that. The work was happening, just not where it was visible.
+
+I want Ryot to eventually be the project I work on full time. Ryot has paying
+customers - cloud subscriptions and Pro licenses for self-hosted users - but it does not
+generate enough yet to justify that. I believe it can, and I want to build toward that
+intentionally. Doing that with an architecture that cannot support the product I want
+to build felt like wasting the runway.
+
+The rewrite is not just a technical refactor. It is a deliberate reset to build
+something I am genuinely proud of, that I use every day for things that matter to me,
+and that has a real path to becoming sustainable.
+
+---
+
+## The technical decisions
+
+The personal reasons are why I decided to rewrite. The technical decisions are what
+shaped how.
+
+The standard argument against full rewrites - that you discard years of accumulated bug
+fixes along with the code you disliked - is usually correct. What makes this one
+justified is that the current architecture is not merely messy: it is structurally
+incompatible with what the rewrite needs. You cannot retrofit a schema-driven entity
+system onto a codebase where every entity type is its own hardcoded table and API
+surface. The data model has to change fundamentally, and that change cannot be made
+incrementally.
+
+### Everything is an entity
+
+The original codebase was built around a fixed set of entity types - every new
+trackable thing required new database tables, new API endpoints, and a new UI page.
+The rewrite replaces that with a **schema-driven entity system**: there is one `entity` table, and every
+trackable thing - movies, workouts, junk food habits, places visited - is just an entity
+with a schema that defines its shape.
+
+Events (things that happen to an entity) and relationships (connections between
+entities) follow the same model. This means new trackable types require no code changes
+or database migrations. They are data, not code.
+
+The side effect of this architecture is that cross-tracker features - collections, saved
+views, global search, the query builder - work uniformly across everything. A collection
+can contain movies and places and habit logs because they are all just entities.
+
+### TypeScript over Rust
+
+The Rust backend worked. Rust was not the wrong choice for what Ryot originally was.
+It is the wrong choice for what the rewrite needs to be.
+
+Rust's compile times on a large web backend are a constant tax on iteration speed, and
+that cost compounds for a solo maintainer.
+
+The scripting system made the decision concrete. The rewrite includes a sandboxed
+JavaScript environment where users can write scripts to extend Ryot's behavior: custom dashboard
+widgets, automation rules, detail fetchers for external APIs. Running a JS sandbox from
+a Rust process is significantly more complex than running it natively.
+
+Beyond the scripting system: TypeScript lets the frontend and backend share types,
+validation schemas, and utilities. The workload is IO-bound - external API calls,
+database queries, JSON manipulation - which removes Rust's strongest justification.
+Moving to [Hono](https://hono.dev) on TypeScript is the right call for this specific
+application, even if it would be the wrong call for many others.
+
+### BullMQ for background work
+
+The background job failure pattern in the current version was consistent: worker pools exhausting themselves at midnight
+and panicking silently, users waking up to stale data with no way to diagnose why,
+imports hanging past their deadline with no cancellation, notifications simply not
+sending. [A representative issue](https://github.com/IgnisDa/ryot/issues/1750) captures
+the pattern well.
+
+BullMQ solves the entire surface: retries with exponential backoff, a proper dashboard
+([Bull Board](https://github.com/felixmosh/bull-board)) where you can see exactly which
+jobs ran and why they failed, concurrency controls, and rate limiting built in for
+external API calls. I liked it enough to
+[contribute to Bull Board directly](https://github.com/felixmosh/bull-board/pulls?q=author%3AIgnisDa).
+The scripting system, external API rate limiting, per-user job fairness, and observable
+retries all pointed to the same answer.
+
+### Fixing the data model
+
+Ryot used collections to represent media lifecycle states - Watchlist, In Progress,
+Completed. These were not really collections. They were auto-managed by the system
+whenever you updated progress. The rewrite models these as proper lifecycle events and
+derives state from them, rather than pretending they are user-curated buckets.
+
+### Native mobile
+
+Anonymous application analytics - opt-out, and [disclosed in the docs](https://docs.ryot.io/#telemetry) - showed 65% of cloud users and 43% of self-hosted users (who skew desktop, as expected) accessing Ryot on mobile. The features they asked for most - rest timers that survive the screen
+locking, workout notifications, home screen widgets - are impossible in a PWA. These are
+platform-level capabilities that require a native app.
+
+The rewrite replaces the PWA frontend with a React Native app built on
+[Expo](https://expo.dev). The web version is preserved - Expo exports a single-page app
+that the backend serves identically to the old setup - but iOS and Android users get a
+real native app.
+
+---
+
+## Where things stand
+
+As of writing this post (May 2026), the backend is the most complete part of the rewrite. All the core modules are built
+and working: entities, events, trackers, collections, fitness, media, saved views, the
+query engine, and the sandbox scripting system. All 18 external media data providers
+from the current version are re-integrated - TMDB, TVDB, IGDB, AniList, Open Library, Audible, Spotify,
+and the rest. BullMQ is running with separate queues for media jobs, event processing,
+and sandbox execution.
+
+One of the clearest lessons from maintaining Ryot: shipping without automated tests
+meant things broke in unpredictable ways and often at the worst times. The rewrite's
+backend has 51 test files covering the query engine, sandbox host functions,
+authentication, module services, and infrastructure. It is not complete coverage, but
+it is a foundation built from the start rather than retrofitted later.
+
+The frontend is earlier in the process. Onboarding, authentication, and the media
+tracker overview are built - the dashboard that shows what you are currently watching,
+what is queued, what needs a rating, and your recent activity. The individual detail
+pages, entry creation flows, the fitness tracker UI, and the full custom tracker
+experience are the work immediately ahead.
+
+One concern I know existing users will have: your data is not going anywhere. Migration
+will follow the same approach as every previous Ryot major upgrade - update your Docker
+image and automated database migrations handle the rest on startup. Ryot has worked this
+way since the beginning and the rewrite will be no different. The migration tooling is
+not written yet, but the approach is proven: self-hosted and cloud users alike will have
+a clear, documented upgrade path before the rewrite ships publicly.
+
+The current version will continue receiving security patches throughout. When the rewrite
+is ready, the branch will be merged into `main` - the old code won't be in the active
+tree, but it remains accessible in git history for anyone who needs it.
+
+I am targeting later this year. When it is ready, I will announce it properly - and
+issue #73 will finally be closed.
