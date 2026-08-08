@@ -59,6 +59,7 @@ it.effect(
 			expect(javascript).toContain(`"./${asset}"`);
 			expect(javascript).not.toContain("@ryot/client-ui-sdk");
 			expect(javascript).not.toContain("./styles.css");
+			// oxlint-disable-next-line typescript/no-implied-eval -- verifies the generated browser module can execute
 			expect(() => Function("document", javascript)({ getElementById: () => null })).not.toThrow();
 
 			const css = byName.get("plugin.css")?.contents ?? "";
