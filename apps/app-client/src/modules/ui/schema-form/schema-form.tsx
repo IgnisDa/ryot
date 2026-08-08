@@ -10,6 +10,9 @@ import { FormMessage, FormTextInput } from "@/modules/ui/form";
 import { AppSegmentedControl } from "@/modules/ui/segmented-control";
 import { AppSwitch } from "@/modules/ui/switch";
 
+import type { SchemaFileUpload } from "./file-upload";
+import { pickUploadFile } from "./pick-upload-file";
+import { SchemaFileField } from "./schema-file-field";
 import {
 	describeSchemaFormFields,
 	schemaChoiceLabel,
@@ -106,6 +109,7 @@ function SchemaFieldControl(props: {
 	readonly field: SchemaFormField;
 	readonly value: SchemaFormValue;
 	readonly inputRef: Ref<TextInput>;
+	readonly uploadFile: SchemaFileUpload;
 	readonly onSubmitEditing: () => void;
 	readonly onChange: (value: SchemaFormValue) => void;
 }) {
@@ -148,6 +152,16 @@ function SchemaFieldControl(props: {
 				))}
 			</View>
 		)),
+		Match.when("file", () => (
+			<SchemaFileField
+				pickFile={pickUploadFile}
+				onChange={props.onChange}
+				label={props.field.label}
+				uploadFile={props.uploadFile}
+				value={schemaText(props.value) === "" ? undefined : schemaText(props.value)}
+				allowedFileExtensions={props.field.allowedFileExtensions ?? []}
+			/>
+		)),
 		Match.when("multi-select", () => (
 			<SchemaMultiSelect
 				choices={choices}
@@ -182,12 +196,15 @@ function SchemaFieldRow(props: {
 	readonly value: SchemaFormValue;
 	readonly inputRef: Ref<TextInput>;
 	readonly error: string | undefined;
+	readonly uploadFile: SchemaFileUpload;
 	readonly onSubmitEditing: () => void;
 	readonly onChange: (value: SchemaFormValue) => void;
 }) {
 	const showsDescriptionBelow =
 		props.field.description !== "" &&
-		(props.field.control === "chips" || props.field.control === "segmented");
+		(props.field.control === "chips" ||
+			props.field.control === "file" ||
+			props.field.control === "segmented");
 	return (
 		<View className="gap-1.5">
 			<Text className="font-ui-medium text-xs text-text-muted">
@@ -198,6 +215,7 @@ function SchemaFieldRow(props: {
 				field={props.field}
 				value={props.value}
 				inputRef={props.inputRef}
+				uploadFile={props.uploadFile}
 				onChange={props.onChange}
 				isLastInput={props.isLastInput}
 				description={props.field.description}
@@ -215,6 +233,7 @@ export function SchemaForm(props: {
 	readonly schema: AppSchema;
 	readonly onChange: () => void;
 	readonly form: SchemaFormApi;
+	readonly uploadFile: SchemaFileUpload;
 }) {
 	const inputs = useRef(new Map<string, TextInput | null>());
 	return (
@@ -240,6 +259,7 @@ export function SchemaForm(props: {
 									<SchemaFieldRow
 										field={field}
 										value={formField.value}
+										uploadFile={props.uploadFile}
 										error={formField.errors[0]?.message}
 										isLastInput={inputKeys.at(-1) === field.key}
 										onSubmitEditing={() => submitFrom(field.key)}

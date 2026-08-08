@@ -4,6 +4,7 @@ import { render, screen, userEvent } from "@testing-library/react-native";
 import { useEffect } from "react";
 import { Pressable, Text } from "react-native";
 
+import type { SchemaFileUpload } from "./file-upload";
 import { SchemaForm, useSchemaForm } from "./schema-form";
 import { initialSchemaFormValues, type SchemaFormValues } from "./schema-form-state";
 
@@ -80,6 +81,9 @@ const uploadSchema = {
 	},
 } satisfies AppSchema;
 
+const uploadNothing: SchemaFileUpload = () =>
+	Promise.resolve({ kind: "uploaded", token: "upload-token" });
+
 function SchemaFormHarness(props: {
 	onSubmit: (values: SchemaFormValues) => void;
 	schema?: AppSchema;
@@ -89,7 +93,12 @@ function SchemaFormHarness(props: {
 	useEffect(() => form.reset(initialSchemaFormValues(selectedSchema)), [form, selectedSchema]);
 	return (
 		<>
-			<SchemaForm form={form} schema={selectedSchema} onChange={() => undefined} />
+			<SchemaForm
+				form={form}
+				schema={selectedSchema}
+				uploadFile={uploadNothing}
+				onChange={() => undefined}
+			/>
 			<Pressable accessibilityRole="button" onPress={() => void form.handleSubmit()}>
 				<Text>Search</Text>
 			</Pressable>
@@ -170,13 +179,14 @@ describe("schema form", () => {
 		expect(submitted).toEqual([{ adult: false, region: "uk", title: "Dune" }]);
 	});
 
-	it("reports upload formats as unsupported instead of rendering a text box", async () => {
+	it("renders upload formats as a file control instead of a text box", async () => {
 		await render(<SchemaFormHarness schema={uploadSchema} onSubmit={() => undefined} />);
 
 		expect(screen.getByLabelText("Name")).toBeOnTheScreen();
-		expect(screen.queryByLabelText("Archive")).toBeNull();
+		expect(screen.queryByLabelText("Archive")).not.toBeOnTheScreen();
+		expect(screen.getByRole("button", { name: "Choose a file for Archive" })).toBeOnTheScreen();
 		expect(
-			screen.getByText("Some fields are not supported in this app version."),
-		).toBeOnTheScreen();
+			screen.queryByText("Some fields are not supported in this app version."),
+		).not.toBeOnTheScreen();
 	});
 });
