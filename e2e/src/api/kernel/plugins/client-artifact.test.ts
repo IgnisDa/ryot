@@ -45,13 +45,13 @@ describe("client plugin artifacts", () => {
 			const entry = yield* fixtureCatalogEntry(client);
 
 			expect(entry).toMatchObject({
-				sortOrder: 2,
 				icon: "puzzle",
 				name: "Fixture",
 				health: "ready",
 				isDisabled: false,
 				clientApiVersion: 1,
 				slug: FIXTURE_CLIENT_PLUGIN_SLUG,
+				sortOrder: installation.sortOrder,
 				sourceHash: installation.sourceHash,
 			});
 			expect(entry.clientArtifactHash).toMatch(/^[0-9a-f]{64}$/);
