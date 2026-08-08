@@ -1,5 +1,6 @@
 import { jsonValueSchema } from "@ryot/contract/modules/sandbox/wire";
-import { SandboxScriptId } from "@ryot/contract/schema/brands";
+import { PluginSlug, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { Context, Effect, Layer, Redacted, Schema } from "effect";
 import Redis from "ioredis";
 
@@ -7,6 +8,7 @@ import { AppConfig } from "./config/service";
 
 export const ENTITY_INTEREST_SESSION_TTL_SECONDS = 15 * 60;
 export const ENTITY_INTEREST_PROGRESSION_LEASE_SECONDS = 30;
+export const PLUGIN_CLIENT_ARTIFACT_SESSION_TTL_SECONDS = 900;
 export const IMPORT_SOURCE_STATE_PENDING_TTL_SECONDS = 24 * 60 * 60;
 export const IMPORT_SOURCE_STATE_CLAIMED_TTL_SECONDS = 24 * 60 * 60;
 export const PROVIDER_SEARCH_OPTIONS_CACHE_TTL_SECONDS = 24 * 60 * 60;
@@ -26,6 +28,23 @@ export type ImportSourceState = typeof ImportSourceState.Type;
 
 export const ImportSourceStateFromJson = Schema.fromJsonString(ImportSourceState);
 
+export const PluginClientArtifactSessionPayload = Schema.Struct({
+	userId: UserId,
+	pluginId: Schema.String,
+	pluginSlug: PluginSlug,
+	sourceHash: Schema.String,
+	artifactHash: Schema.String,
+	installationId: Schema.String,
+}).annotate({ parseOptions: { onExcessProperty: "error" as const } });
+
+export type PluginClientArtifactSessionPayload = typeof PluginClientArtifactSessionPayload.Type;
+
+export const PluginClientArtifactSessionPayloadFromJson = Schema.fromJsonString(
+	PluginClientArtifactSessionPayload,
+);
+
+export const hashPluginClientArtifactSessionToken = sha256Hex;
+
 export const redisKeys = {
 	entityUpdatedChannel: "ryot:entity:updated",
 	pluginRegistryChannel: "ryot:plugins:registry",
@@ -42,6 +61,8 @@ export const redisKeys = {
 	sandboxWorkflowJournal: (executionId: string) => `ryot:sandbox:workflow:${executionId}:journal`,
 	entityInterestSessions: (entityId: string) => `ryot:entity-interest:entity:${entityId}:sessions`,
 	entityInterestProgressionLease: (entityId: string) => `ryot:entity-interest:progress:${entityId}`,
+	pluginClientArtifactSession: (sessionId: string) =>
+		`ryot:plugins:client-artifact-session:${sessionId}`,
 	entityInterestSessionEntities: (sessionId: string) =>
 		`ryot:entity-interest:session:${sessionId}:entities`,
 	integrationCache: (integrationId: string, key: string) =>

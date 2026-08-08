@@ -102,7 +102,7 @@ import {
 	PluginCatalogInvalidator,
 	PluginCatalogInvalidatorLive,
 } from "#modules/plugins/catalog-events";
-import { PluginClientArtifactService } from "#modules/plugins/client-artifact-service";
+import { PluginClientArtifactSessionService } from "#modules/plugins/client-artifact-session-service";
 import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 import { PluginHttpRateLimitAuthority } from "#modules/plugins/http-rate-limit-authority";
 import { ImportSourceCatalogLive } from "#modules/plugins/import-source-catalog";
@@ -565,15 +565,15 @@ const OperationsServiceLive = OperationsService.layer.pipe(
 	]),
 );
 
-const PluginClientArtifactServiceLive = PluginClientArtifactService.layer.pipe(
-	Layer.provide(PluginRepository.layer),
+const PluginClientArtifactSessionServiceLive = PluginClientArtifactSessionService.layer.pipe(
+	Layer.provide(Layer.mergeAll(PluginRepository.layer, RedisService.layer)),
 );
 
 const ServicesLive = Layer.mergeAll(
 	PluginCatalogStateLive,
 	PluginInvalidationSubscriberLive,
 	ContentAndSandboxServicesLive,
-	PluginClientArtifactServiceLive,
+	PluginClientArtifactSessionServiceLive,
 	RuntimePluginInstallationServiceLive,
 	OperationsServiceLive,
 	InterestServicesLive,

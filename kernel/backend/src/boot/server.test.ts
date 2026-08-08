@@ -2,7 +2,15 @@ import { expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 
-import { registerRootRoutes } from "./server";
+import { redactPluginArtifactSessionUrl, registerRootRoutes } from "./server";
+
+it("redacts artifact session tokens without changing other request URLs", () => {
+	const token = "a".repeat(43);
+	expect(
+		redactPluginArtifactSessionUrl(`/api/plugin-artifact-sessions/${token}/plugin.js?q=1`),
+	).toBe("/api/plugin-artifact-sessions/<redacted>/plugin.js?q=1");
+	expect(redactPluginArtifactSessionUrl(`/api/plugins/${token}`)).toBe(`/api/plugins/${token}`);
+});
 
 it.effect(
 	"routes API, docs, auth, webhooks, and static fallback without replacing native requests",
@@ -10,11 +18,7 @@ it.effect(
 		Effect.acquireUseRelease(
 			Effect.sync(() => {
 				const inner = Effect.map(HttpServerRequest.HttpServerRequest, (request) =>
-					HttpServerResponse.text(`api:${request.url}`, {
-						headers: request.url.startsWith("/plugins/artifacts/")
-							? { "access-control-allow-origin": "*" }
-							: undefined,
-					}),
+					HttpServerResponse.text(`api:${request.url}`),
 				);
 				const RootLive = HttpRouter.use((router) =>
 					registerRootRoutes(
@@ -43,7 +47,6 @@ it.effect(
 						);
 						expect(yield* Effect.promise(() => response.text())).toBe(expected);
 					}
-
 					const preflight = yield* Effect.promise(() =>
 						handler(
 							new Request("http://server.test/api/system/health", {
@@ -63,13 +66,32 @@ it.effect(
 
 					const artifact = yield* Effect.promise(() =>
 						handler(
-							new Request("http://server.test/api/plugins/artifacts/hash/plugin.js", {
-								headers: { Origin: "null" },
-							}),
+							new Request(
+								`http://server.test/api/plugin-artifact-sessions/${"a".repeat(43)}/plugin.js`,
+								{ headers: { Origin: "null" } },
+							),
 						),
 					);
 					expect(artifact.headers.get("access-control-allow-origin")).toBe("*");
 					expect(artifact.headers.has("access-control-allow-credentials")).toBe(false);
+					expect(artifact.headers.get("cache-control")).toBe("no-store");
+					expect(artifact.headers.get("referrer-policy")).toBe("no-referrer");
+					expect(artifact.headers.get("x-content-type-options")).toBe("nosniff");
+
+					const artifactPreflight = yield* Effect.promise(() =>
+						handler(
+							new Request(
+								`http://server.test/api/plugin-artifact-sessions/${"a".repeat(43)}/plugin.js`,
+								{
+									method: "OPTIONS",
+									headers: { Origin: "null", "Access-Control-Request-Method": "GET" },
+								},
+							),
+						),
+					);
+					expect(artifactPreflight.status).toBe(204);
+					expect(artifactPreflight.headers.get("access-control-allow-origin")).toBe("*");
+					expect(artifactPreflight.headers.has("access-control-allow-credentials")).toBe(false);
 				}),
 			({ dispose }) => Effect.promise(dispose),
 		),

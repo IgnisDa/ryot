@@ -160,6 +160,59 @@ it.effect("resolves a provider by portable plugin and provider slugs", () => {
 	);
 });
 
+it.effect("revalidates the exact private installation revision when reading artifact bytes", () => {
+	const dialect = new PgDialect();
+	const statements: Array<{ sql: string; params: Array<unknown> }> = [];
+	const chain = {
+		innerJoin: () => chain,
+		where: (condition: SQLWrapper) => {
+			statements.push(dialect.sqlToQuery(condition.getSQL()));
+			return chain;
+		},
+		limit: () =>
+			Effect.succeed([
+				{
+					name: "plugin.js",
+					contentType: "application/javascript",
+					contents: Buffer.from([0, 255]),
+				},
+			]),
+	};
+	const db = { select: () => ({ from: () => chain }) };
+	return Effect.gen(function* () {
+		const repository = yield* PluginRepository;
+		const file = yield* repository.findPrivateClientArtifactFile({
+			userId: "user-id",
+			pluginId: "plugin-id",
+			fileName: "plugin.js",
+			pluginSlug: "fixture",
+			sourceHash: "source-hash",
+			artifactHash: "artifact-hash",
+			installationId: "installation-id",
+		});
+
+		expect(file?.contents).toEqual(new Uint8Array([0, 255]));
+		expect(statements[0]?.params).toEqual(
+			expect.arrayContaining([
+				"ready",
+				"needs-configuration",
+				"user-id",
+				"plugin-id",
+				"fixture",
+				"source-hash",
+				"artifact-hash",
+				"installation-id",
+			]),
+		);
+	}).pipe(
+		Effect.provide(
+			PluginRepository.layer.pipe(
+				Layer.provideMerge(Layer.succeed(Database, Object.assign(Object.create(null), db))),
+			),
+		),
+	);
+});
+
 it.effect("detects entity references to plugin schema slugs", () =>
 	Effect.gen(function* () {
 		const repository = yield* PluginRepository;

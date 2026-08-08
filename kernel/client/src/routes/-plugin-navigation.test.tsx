@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApi } from "#/api/authenticated";
 import { AuthClient } from "#/modules/auth/client";
+import { ArtifactSessions, ArtifactSessionStaleError } from "#/modules/plugins/artifact-sessions";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
 import { PluginOperationsService } from "#/modules/plugins/operations";
@@ -28,12 +29,24 @@ import {
 
 const AuthStub = makeAuthStub();
 
+const makeArtifactSessionsStub = (): ArtifactSessions["Service"] => ({
+	revoke: () => Effect.void,
+	renew: () => Effect.die("not used"),
+	create: ({ clientArtifactHash }) =>
+		Effect.succeed({
+			sessionId: "session-1",
+			expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+			src: `https://ryot.example/session/${clientArtifactHash}/index.html`,
+		}),
+});
+
 const mountView = (
 	initialEntry: string | string[],
 	entries: PluginClientCatalog = catalog,
 	load = () => Effect.succeed(entries),
 	invoke: PluginOperationsService["Service"]["invoke"] = () => Effect.die("not used"),
 	storage: ClientStorage["Service"] = makeStorageStub(),
+	artifactSessions: ArtifactSessions["Service"] = makeArtifactSessionsStub(),
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
 	const runtime = ManagedRuntime.make(
@@ -43,6 +56,7 @@ const mountView = (
 			makePublicApiStub(),
 			AuthClient.layer,
 			AuthenticatedApi.layer,
+			Layer.succeed(ArtifactSessions, artifactSessions),
 			events.layer,
 			Layer.succeed(PluginCatalogService, { load }),
 			Layer.succeed(PluginOperationsService, { invoke }),
@@ -274,6 +288,40 @@ describe("plugin navigation", () => {
 		expect(frame()).not.toBe(sourceRevisionFrame);
 		expect(view.router.state.location.pathname).toBe("/fixture/details/item-1");
 		expect(view.router.state.location.searchStr).toBe("?tab=stats");
+	});
+
+	it("refreshes the catalog when artifact session creation finds a stale installation", async () => {
+		let loads = 0;
+		const creates: Parameters<ArtifactSessions["Service"]["create"]>[0][] = [];
+		mountView(
+			"/fixture",
+			catalog,
+			() =>
+				Effect.sync(() => {
+					loads += 1;
+					return catalog;
+				}),
+			undefined,
+			undefined,
+			{
+				...makeArtifactSessionsStub(),
+				create: (input) => {
+					creates.push(input);
+					return Effect.fail(new ArtifactSessionStaleError());
+				},
+			},
+		);
+
+		await waitFor(() => expect(loads).toBe(2));
+		expect(creates).toEqual([
+			{
+				pluginSlug: "fixture",
+				sourceHash: "source-hash",
+				installationId: "installation-1",
+				clientArtifactHash: "artifact-hash",
+				scope: { serverUrl: server, userId: authenticated.user.id },
+			},
+		]);
 	});
 
 	it("refreshes and replaces the iframe when an operation finds a stale session", async () => {
