@@ -65,5 +65,5 @@ export const pluginCatalogQuery = createRyotQuery<PluginCatalogQueryInput, Plugi
 			Effect.flatMap(PluginCatalogService, (service) => service.load(client)),
 			{ signal },
 		),
-	{ initialData: (input) => input.initialData },
+	{ cancelOnUnmount: true, initialData: (input) => input.initialData },
 );
