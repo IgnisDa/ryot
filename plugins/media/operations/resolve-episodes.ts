@@ -20,6 +20,40 @@ import {
 import type { ResolveEpisodesRef } from "./schemas";
 
 export const resolveEpisodeRecipe = defineRecipe((ref: ResolveEpisodesRef) => {
+	if (ref.kind === "show-season") {
+		const show = table("entity", "show");
+		const season = table("entity", "season");
+		const showSeason = table("relationship", "showSeason");
+		return {
+			queries: {
+				episodes: selectedRows(season, {
+					limit: 2,
+					selection: { entityId: selectedField(column(season, "id"), Schema.String) },
+					orderBy: [ascending(column(season, "id"))],
+					joins: [
+						join(
+							"inner",
+							showSeason,
+							eq(column(showSeason, "targetEntityId"), column(season, "id")),
+						),
+						join("inner", show, eq(column(showSeason, "sourceEntityId"), column(show, "id"))),
+					],
+					where: and(
+						eq(column(season, "entitySchemaSlug"), literal("show-season")),
+						eq(
+							castNumber(jsonPath(column(season, "properties"), "seasonNumber")),
+							literal(ref.seasonNumber),
+						),
+						eq(column(show, "entitySchemaSlug"), literal("show")),
+						eq(column(show, "id"), literal(ref.showEntityId)),
+						eq(column(showSeason, "relationshipSchemaSlug"), literal("show-to-show-season")),
+					),
+				}),
+			},
+			map: ({ episodes }) =>
+				Result.succeed(episodes.items.length === 1 ? (episodes.items[0]?.entityId ?? null) : null),
+		};
+	}
 	const episode = table("entity", "episode");
 	const selection = { entityId: selectedField(column(episode, "id"), Schema.String) };
 	if (ref.kind === "show") {

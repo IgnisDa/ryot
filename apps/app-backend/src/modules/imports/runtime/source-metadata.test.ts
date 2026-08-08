@@ -186,6 +186,7 @@ it("keeps omitted optional named artifact tokens unclaimed", () => {
 			allowedExtensions: ["gz", "xml"],
 		},
 	]);
+	expect(registryImportSourceInputError(source, { source: "myanimelist" })).toBeUndefined();
 });
 
 it("rejects token fields not declared by the source without treating ordinary payload as tokens", () => {
