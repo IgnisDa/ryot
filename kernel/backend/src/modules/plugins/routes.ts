@@ -5,6 +5,7 @@ import { Effect } from "effect";
 import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 
+import { PluginCatalogHub } from "./catalog-events";
 import { PluginClientArtifactService } from "./client-artifact-service";
 import { PluginInstallationService } from "./installation-service";
 import { OperationsService } from "./operations-service";
@@ -44,6 +45,20 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 				const user = yield* CurrentUser;
 				const service = yield* PluginInstallationService;
 				return yield* service.listInstallations(user.id).pipe(dieOnDbError);
+			}),
+		)
+		.handleRaw("events", () =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const hub = yield* PluginCatalogHub;
+				return HttpServerResponse.stream(hub.stream(user.id), {
+					headers: {
+						connection: "keep-alive",
+						"x-accel-buffering": "no",
+						"cache-control": "no-cache",
+						"content-type": "text/event-stream",
+					},
+				});
 			}),
 		)
 		.handle("install", ({ payload }) =>

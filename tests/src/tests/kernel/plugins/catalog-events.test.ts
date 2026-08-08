@@ -1,0 +1,215 @@
+import type { ChildProcess } from "node:child_process";
+import { randomUUID } from "node:crypto";
+
+import { PluginSlug } from "@ryot/contract/schema/brands";
+import { pluginClientCatalogRecipe } from "@ryot/ryotql-recipes/plugin-client-catalog";
+import { Effect } from "effect";
+import getPort from "get-port";
+
+import {
+	adminHeaders,
+	createAuthenticatedClient,
+	executeRyotQLRecipe,
+	fixtureClientPluginPackage,
+	FIXTURE_CLIENT_PLUGIN_SLUG,
+	FIXTURE_CLIENT_REVISION_MARKERS,
+	installPrivatePluginPackage,
+	literalSandboxSource,
+	makeSession,
+	openPluginCatalogEventsScoped,
+	settledPrivateInstallation,
+	testPluginManifest,
+	updateFixtureClientPlugin,
+	updateFixtureClientPluginWithCompileFailure,
+} from "~/fixtures/kernel";
+import { assertTaggedError, requirePresent } from "~/support/assertions";
+import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+import {
+	buildBackendEnv,
+	spawnBackendProcess,
+	startCoreTestInfrastructure,
+	stopBackendProcess,
+	stopCoreTestInfrastructure,
+	waitForHealthCheck,
+} from "~/support/provisioning";
+
+const S3_BUCKET_NAME = "ryot-plugin-catalog-events-test";
+const BACKEND_LABEL = "Plugin Catalog Events Backend";
+
+let backendPort: number;
+let backendProcess: ChildProcess | undefined;
+let coreInfrastructure: Awaited<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
+
+const backendUrl = () => `http://127.0.0.1:${backendPort}/api`;
+const adminSession = () => makeSession(backendUrl());
+
+const fixtureCatalogEntry = (client: Parameters<typeof executeRyotQLRecipe>[0]) =>
+	Effect.gen(function* () {
+		const catalog = yield* executeRyotQLRecipe(client, pluginClientCatalogRecipe());
+		return requirePresent(
+			catalog.items.find((entry) => entry.slug === FIXTURE_CLIENT_PLUGIN_SLUG),
+			"Fixture client plugin was not listed in the client catalog",
+		);
+	});
+
+const fetchArtifactBytes = (artifactHash: string) =>
+	Effect.gen(function* () {
+		const response = yield* Effect.promise(() =>
+			fetch(`${backendUrl()}/plugins/artifacts/${artifactHash}/plugin.js`),
+		);
+		expect(response.status).toBe(200);
+		return new Uint8Array(yield* Effect.promise(() => response.arrayBuffer()));
+	});
+
+beforeAll(async () => {
+	try {
+		const [infrastructure, port] = await Promise.all([
+			startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME }),
+			getPort(),
+		]);
+		backendPort = port;
+		coreInfrastructure = infrastructure;
+		const backendOrigin = `http://127.0.0.1:${backendPort}`;
+		backendProcess = spawnBackendProcess(
+			buildBackendEnv({
+				port: backendPort,
+				label: BACKEND_LABEL,
+				frontendUrl: backendOrigin,
+				dbUrl: infrastructure.dbUrl,
+				s3BucketName: S3_BUCKET_NAME,
+				redisUrl: infrastructure.redisUrl,
+				s3Endpoint: infrastructure.s3Endpoint,
+			}),
+		);
+		await waitForHealthCheck(`${backendOrigin}/api/system/health`, BACKEND_LABEL, 90);
+	} catch (error) {
+		await stopBackendProcess(backendProcess);
+		await stopCoreTestInfrastructure(coreInfrastructure).catch(() => undefined);
+		throw error;
+	}
+}, 180_000);
+
+afterAll(async () => {
+	await stopBackendProcess(backendProcess);
+	await stopCoreTestInfrastructure(coreInfrastructure).catch(() => undefined);
+});
+
+describe("plugin catalog events", () => {
+	it.live("streams isolated private changes, reconnect state, and global reconciliation", () =>
+		Effect.gen(function* () {
+			const owner = yield* createAuthenticatedClient(backendUrl());
+			const outsider = yield* createAuthenticatedClient(backendUrl());
+			const ownerEvents = yield* openPluginCatalogEventsScoped(owner);
+			const outsiderEvents = yield* openPluginCatalogEventsScoped(outsider);
+			yield* ownerEvents.waitForConnected();
+			yield* outsiderEvents.waitForConnected();
+
+			const variant = randomUUID();
+			const packageA = yield* fixtureClientPluginPackage("A", variant);
+			const installing = yield* installPrivatePluginPackage({
+				config: {},
+				client: owner.client,
+				baseUrl: backendUrl(),
+				pluginPackage: packageA,
+			});
+			expect(installing).toMatchObject({
+				health: "installing",
+				slug: FIXTURE_CLIENT_PLUGIN_SLUG,
+			});
+			yield* ownerEvents.waitForCatalogInvalidated();
+			yield* outsiderEvents.assertNoInvalidation();
+
+			const revisionA = yield* settledPrivateInstallation(owner.client, FIXTURE_CLIENT_PLUGIN_SLUG);
+			expect(revisionA.health).toBe("ready");
+			yield* ownerEvents.waitForCatalogInvalidated();
+			yield* outsiderEvents.assertNoInvalidation();
+			yield* ownerEvents.drainQueuedEvents();
+			yield* outsiderEvents.drainQueuedEvents();
+
+			const before = yield* fixtureCatalogEntry(owner.client);
+			const artifactA = requirePresent(
+				before.clientArtifactHash,
+				"Fixture client plugin revision A has no artifact",
+			);
+			const bytesA = yield* fetchArtifactBytes(artifactA);
+			expect(new TextDecoder().decode(bytesA)).toContain(FIXTURE_CLIENT_REVISION_MARKERS.A);
+
+			const revisionB = yield* updateFixtureClientPlugin(owner.client, "B", variant, backendUrl());
+			yield* ownerEvents.waitForCatalogInvalidated();
+			yield* outsiderEvents.assertNoInvalidation();
+			const after = yield* fixtureCatalogEntry(owner.client);
+			const artifactB = requirePresent(
+				after.clientArtifactHash,
+				"Fixture client plugin revision B has no artifact",
+			);
+			expect(after.sourceHash).toBe(revisionB.sourceHash);
+			expect(after.sourceHash).not.toBe(before.sourceHash);
+			expect(artifactB).not.toBe(artifactA);
+			expect(new TextDecoder().decode(yield* fetchArtifactBytes(artifactB))).toContain(
+				FIXTURE_CLIENT_REVISION_MARKERS.B,
+			);
+			expect(yield* fetchArtifactBytes(artifactA)).toEqual(bytesA);
+
+			yield* ownerEvents.drainQueuedEvents();
+			const failure = yield* Effect.flip(
+				updateFixtureClientPluginWithCompileFailure(owner.client, backendUrl()),
+			);
+			assertTaggedError(failure, "PluginRequestError");
+			expect(failure.reason.code).toBe("compilation-failed");
+			yield* ownerEvents.assertNoInvalidation();
+			expect(yield* fixtureCatalogEntry(owner.client)).toEqual(after);
+
+			yield* ownerEvents.close();
+			const missed = yield* updateFixtureClientPlugin(
+				owner.client,
+				"B",
+				`${variant}-missed`,
+				backendUrl(),
+			);
+			const reconnected = yield* openPluginCatalogEventsScoped(owner);
+			yield* reconnected.waitForConnected();
+			expect((yield* fixtureCatalogEntry(owner.client)).sourceHash).toBe(missed.sourceHash);
+
+			const pluginSlug = PluginSlug.make(`e2e-catalog-system-${randomUUID()}`);
+			const scriptSlug = `e2e-catalog-system-script-${randomUUID()}`;
+			const entry = "scripts/catalog-events.sandbox.ts";
+			const name = "E2E catalog events system plugin";
+			const manifest = testPluginManifest({
+				pluginSlug,
+				scripts: [
+					{
+						name,
+						entry,
+						kind: "script",
+						capabilities: [],
+						slug: scriptSlug,
+						requiredPluginConfigKeys: [],
+						requiredSystemConfigKeys: [],
+					},
+				],
+			});
+			const files = { [entry]: literalSandboxSource({ name, slug: scriptSlug, value: true }) };
+			yield* adminSession().call(
+				(client) => client.testSupport.installSystemPlugin({ payload: { files, manifest } }),
+				adminHeaders,
+			);
+			yield* reconnected.drainQueuedEvents();
+			yield* outsiderEvents.drainQueuedEvents();
+			yield* adminSession().call(
+				(client) => client.testSupport.reconcilePluginInstallations(),
+				adminHeaders,
+			);
+			yield* reconnected.waitForCatalogInvalidated();
+			yield* outsiderEvents.waitForCatalogInvalidated();
+		}),
+	);
+
+	it.live("rejects an unauthenticated stream", () =>
+		Effect.gen(function* () {
+			const response = yield* makeSession(backendUrl()).call((client) =>
+				client.plugins.events({ responseMode: "response-only" }),
+			);
+			expect(response.status).toBe(401);
+		}),
+	);
+});

@@ -20,6 +20,7 @@ import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-re
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
+import { PluginCatalogInvalidator } from "./catalog-events";
 import { PluginDefinitionMaterializer } from "./definition-materializer";
 import { PluginIngestionLock } from "./ingestion-lock";
 import {
@@ -98,6 +99,7 @@ const makeLayer = (input?: {
 	readonly dispatched?: Array<string>;
 	readonly deleteUploadFails?: boolean;
 	readonly deactivated?: Array<string>;
+	readonly invalidatedAll?: Array<void>;
 	readonly hasEntityReferences?: boolean;
 	readonly deletedUploads?: Array<string>;
 	readonly hasWorkflowReferences?: boolean;
@@ -105,6 +107,7 @@ const makeLayer = (input?: {
 	readonly dispatchFailsFor?: Array<string>;
 	readonly removedGenerated?: Array<string>;
 	readonly savedViewFences?: Array<unknown>;
+	readonly invalidatedUsers?: Array<UserId>;
 	readonly hasSavedViewReferences?: boolean;
 	readonly hasDefinitionReferences?: boolean;
 	readonly hasIntegrationReferences?: boolean;
@@ -127,6 +130,10 @@ const makeLayer = (input?: {
 }) => {
 	const registry = makeDefinitionRegistry();
 	const registryLayer = Layer.succeed(DefinitionRegistry, registry);
+	const invalidatorLayer = Layer.succeed(PluginCatalogInvalidator, {
+		all: Effect.sync(() => void input?.invalidatedAll?.push(undefined)),
+		user: (ownerId) => Effect.sync(() => void input?.invalidatedUsers?.push(ownerId)),
+	});
 	const loaderLayer = PluginLoader.layer.pipe(Layer.provide(registryLayer));
 	const repositoryLayer = Layer.mock(PluginRepository)({
 		lockIngestion: () => input?.lockIngestion?.() ?? Effect.void,
@@ -231,6 +238,7 @@ const makeLayer = (input?: {
 			Layer.mergeAll(
 				loaderLayer,
 				databaseLayer,
+				invalidatorLayer,
 				repositoryLayer,
 				ingestionLockLayer,
 				installationLayer,
@@ -565,6 +573,7 @@ const nestedConfiguredManifest = privateManifest({
 
 it.effect("applies config defaults and persists validated config", () => {
 	const created: Array<Record<string, unknown>> = [];
+	const invalidatedUsers: Array<UserId> = [];
 	return Effect.gen(function* () {
 		const service = yield* PluginInstallationService;
 		const installed = yield* service.installPrivatePlugin({
@@ -581,7 +590,8 @@ it.effect("applies config defaults and persists validated config", () => {
 		expect(installed.config).toEqual({ region: "eu" });
 		expect(installed.configuredSecrets).toEqual(["token"]);
 		expect(installed.scope).toBe("user");
-	}).pipe(Effect.provide(makeLayer({ created })));
+		expect(invalidatedUsers).toEqual([userId]);
+	}).pipe(Effect.provide(makeLayer({ created, invalidatedUsers })));
 });
 
 it.effect("rejects config missing a required value before persisting", () => {
@@ -760,6 +770,7 @@ it.effect("applies defaults after explicit unsets and rejects removing required 
 });
 
 it.effect("allows system controls but rejects system config changes", () => {
+	const invalidatedUsers: Array<UserId> = [];
 	const updated: Array<Record<string, unknown>> = [];
 	const systemPlugin = systemEntry(
 		privateManifest({ metadata: { ...privateManifest().metadata, slug: "example" } }),
@@ -781,7 +792,8 @@ it.effect("allows system controls but rejects system config changes", () => {
 			_tag: "PluginConflictError",
 			reason: { code: "system-plugin", pluginSlug: "example" },
 		});
-	}).pipe(Effect.provide(makeLayer({ updated, installations })));
+		expect(invalidatedUsers).toEqual([userId]);
+	}).pipe(Effect.provide(makeLayer({ updated, installations, invalidatedUsers })));
 });
 
 it.effect("hides foreign installations and rejects enabling an unready installation", () => {
@@ -853,6 +865,7 @@ it.effect("hides private plugins owned by another user", () =>
 it.effect("uninstalls a private plugin the caller owns", () => {
 	const removedIds: Array<string> = [];
 	const deactivated: Array<string> = [];
+	const invalidatedUsers: Array<UserId> = [];
 	const removedGenerated: Array<string> = [];
 	const privatePlugin = storedPrivatePlugin(privateManifest());
 	const installations = [installationRow({ pluginId: privatePlugin.id })];
@@ -863,12 +876,14 @@ it.effect("uninstalls a private plugin the caller owns", () => {
 		expect(deactivated).toEqual([privatePlugin.id]);
 		expect(removedIds).toEqual([installations[0]?.id]);
 		expect(removedGenerated).toEqual([installations[0]?.id]);
+		expect(invalidatedUsers).toEqual([userId]);
 	}).pipe(
 		Effect.provide(
 			makeLayer({
 				deactivated,
 				installations,
 				removedGenerated,
+				invalidatedUsers,
 				removed: removedIds,
 				privatePlugins: [privatePlugin],
 			}),
@@ -1012,12 +1027,13 @@ export default defineOperation({
 `;
 
 it.effect("updates source while retaining plugin, installation, and omitted secret config", () => {
+	const manifest = configuredManifest;
+	const invalidatedUsers: Array<UserId> = [];
+	const updated: Array<Record<string, unknown>> = [];
 	const persisted: Array<{
 		plugin: StoredPlugin["manifest"];
 		identity: Record<string, unknown>;
 	}> = [];
-	const updated: Array<Record<string, unknown>> = [];
-	const manifest = configuredManifest;
 	const nextManifest: PluginManifest = {
 		...manifest,
 		scripts: [operationScript],
@@ -1060,11 +1076,13 @@ it.effect("updates source while retaining plugin, installation, and omitted secr
 			config: { region: "ca" },
 			configuredSecrets: ["token"],
 		});
+		expect(invalidatedUsers).toEqual([userId]);
 	}).pipe(
 		Effect.provide(
 			makeLayer({
 				updated,
 				persisted,
+				invalidatedUsers,
 				installations: [installation],
 				privatePlugins: [privatePlugin],
 			}),
@@ -1414,6 +1432,8 @@ const shippedEntry = (overrides: Partial<PluginManifest> = {}) =>
 	);
 
 it.effect("marks a private installation incompatible when a shipped plugin claims its slug", () => {
+	const invalidatedAll: Array<void> = [];
+	const invalidatedUsers: Array<UserId> = [];
 	const healthUpdates: Array<Record<string, unknown>> = [];
 	const shadowed = privateInstallationRow({ pluginSlug: "example" });
 	const untouched = privateInstallationRow({ pluginSlug: "notes" });
@@ -1429,8 +1449,17 @@ it.effect("marks a private installation incompatible when a shipped plugin claim
 				healthReason: shippedConflict("Shipped plugins already use the slug 'example'"),
 			},
 		]);
+		expect(invalidatedAll).toHaveLength(1);
+		expect(invalidatedUsers).toEqual([userId]);
 	}).pipe(
-		Effect.provide(makeLayer({ healthUpdates, privateInstallations: [shadowed, untouched] })),
+		Effect.provide(
+			makeLayer({
+				healthUpdates,
+				invalidatedAll,
+				invalidatedUsers,
+				privateInstallations: [shadowed, untouched],
+			}),
+		),
 	);
 });
 

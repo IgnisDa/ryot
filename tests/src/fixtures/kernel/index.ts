@@ -30,6 +30,7 @@ export * from "./test-plugin";
 export * from "./temporary-archive";
 export * from "./saved-views";
 export * from "./plugins";
+export * from "./plugin-catalog-events";
 export * from "./translations";
 export * from "./user-settings";
 export * from "./user-state";

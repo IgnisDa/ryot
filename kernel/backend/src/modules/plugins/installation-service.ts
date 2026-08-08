@@ -30,6 +30,7 @@ import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-re
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
+import { PluginCatalogInvalidator } from "./catalog-events";
 import { PluginDefinitionMaterializer } from "./definition-materializer";
 import { PluginIngestionLock } from "./ingestion-lock";
 import {
@@ -324,6 +325,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const uploadIntents = yield* UploadIntentsService;
 			const clientCompiler = yield* ClientPluginCompiler;
 			const objectStorage = yield* ObjectStorageService;
+			const invalidator = yield* PluginCatalogInvalidator;
 			const installations = yield* PluginInstallationRepository;
 			const definitionMaterializer = yield* PluginDefinitionMaterializer;
 			const workflowReferences = yield* SandboxWorkflowReferenceRepository;
@@ -476,6 +478,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					}
 					if (healthChanged) {
 						yield* definitionMaterializer.materialize(userId);
+						yield* invalidator.user(userId);
 					}
 				}
 			});
@@ -485,6 +488,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			)(function* () {
 				yield* installations.provisionSystemInstallationsForAllUsers();
 				yield* reconcilePrivateConflicts();
+				yield* invalidator.all;
 			});
 
 			const dispatchPendingInstallationLifecycle = Effect.fn(
@@ -548,7 +552,11 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					Effect.annotateLogs({ installationId: state.id }),
 				);
 				const healthReason = "Installation lifecycle could not be started";
-				yield* installations.updateHealth({ healthReason, id: state.id, health: "failed" });
+				yield* Effect.uninterruptible(
+					installations
+						.updateHealth({ healthReason, id: state.id, health: "failed" })
+						.pipe(Effect.andThen(invalidator.user(UserId.make(state.userId)))),
+				);
 				return { ...state, healthReason, health: "failed" as const };
 			});
 
@@ -637,7 +645,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 									return existingState;
 								}).pipe(Effect.provideService(Database, transaction)),
 							),
-						),
+						).pipe(Effect.tap(() => invalidator.user(input.userId))),
 					);
 					return toInstallationItem({
 						manifest,
@@ -781,7 +789,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 											return { ...resolved, healthReason: null, health: "ready" as const };
 										}).pipe(Effect.provideService(Database, transaction)),
 									),
-								),
+								).pipe(Effect.tap(() => invalidator.user(input.userId))),
 							);
 							return toInstallationItem({
 								manifest,
@@ -847,12 +855,16 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					plugin.scope === "system"
 						? {}
 						: yield* validateConfigPatch(plugin.manifest, state.config, payload);
-				const updated = yield* installations.updateState({
-					config,
-					isDisabled,
-					id: state.id,
-					sortOrder: payload.sortOrder ?? state.sortOrder,
-				});
+				const updated = yield* Effect.uninterruptible(
+					installations
+						.updateState({
+							config,
+							isDisabled,
+							id: state.id,
+							sortOrder: payload.sortOrder ?? state.sortOrder,
+						})
+						.pipe(Effect.tap(() => invalidator.user(userId))),
+				);
 				return toInstallationItem({
 					scope: plugin.scope,
 					state: updated ?? state,
@@ -952,27 +964,29 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						reason: { code: "plugin-not-found", pluginSlug },
 					});
 				}
-				yield* mapDatabaseErrors(
-					database.transaction((transaction) =>
-						Effect.gen(function* () {
-							yield* repository.lockIngestion();
-							const current = yield* repository.findPrivateByIdForUser(plugin.id, userId);
-							const currentInstallation = yield* installations.findByUserAndPlugin(
-								userId,
-								plugin.id,
-							);
-							if (!current || currentInstallation?.id !== installation.id) {
-								return yield* new PluginNotFoundError({
-									reason: { code: "plugin-not-found", pluginSlug },
-								});
-							}
-							yield* definitionMaterializer.removeGenerated(currentInstallation.id);
-							yield* assertUnreferenced(current, currentInstallation, pluginSlug);
-							yield* installations.remove(currentInstallation.id);
-							yield* repository.deactivate(current.id);
-							return undefined;
-						}).pipe(Effect.provideService(Database, transaction)),
-					),
+				yield* Effect.uninterruptible(
+					mapDatabaseErrors(
+						database.transaction((transaction) =>
+							Effect.gen(function* () {
+								yield* repository.lockIngestion();
+								const current = yield* repository.findPrivateByIdForUser(plugin.id, userId);
+								const currentInstallation = yield* installations.findByUserAndPlugin(
+									userId,
+									plugin.id,
+								);
+								if (!current || currentInstallation?.id !== installation.id) {
+									return yield* new PluginNotFoundError({
+										reason: { code: "plugin-not-found", pluginSlug },
+									});
+								}
+								yield* definitionMaterializer.removeGenerated(currentInstallation.id);
+								yield* assertUnreferenced(current, currentInstallation, pluginSlug);
+								yield* installations.remove(currentInstallation.id);
+								yield* repository.deactivate(current.id);
+								return undefined;
+							}).pipe(Effect.provideService(Database, transaction)),
+						),
+					).pipe(Effect.andThen(invalidator.user(userId))),
 				);
 				return toInstallationItem({
 					scope: "user",

@@ -2,7 +2,7 @@ import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware, AuthRateLimited, AuthUnauthorized } from "../../auth-middleware";
-import { PluginSlug } from "../../schema/brands";
+import { PluginSlug, UserId } from "../../schema/brands";
 import {
 	InstallPluginBody,
 	PluginConflictError,
@@ -15,6 +15,26 @@ import {
 	PluginRequestError,
 	UpdatePrivatePluginBody,
 } from "./schemas";
+
+export const PLUGIN_CATALOG_CONNECTED_EVENT = "connected";
+export const PLUGIN_CATALOG_INVALIDATED_EVENT = "catalog-invalidated";
+export const PluginCatalogEventStream = HttpApiSchema.StreamUint8Array({
+	contentType: "text/event-stream",
+});
+
+export const PluginCatalogInvalidatedMessage = Schema.Struct({
+	userId: UserId,
+});
+export type PluginCatalogInvalidatedMessage = typeof PluginCatalogInvalidatedMessage.Type;
+
+export const decodePluginCatalogInvalidatedMessage = Schema.decodeUnknownResult(
+	Schema.fromJsonString(PluginCatalogInvalidatedMessage),
+	{ onExcessProperty: "error" },
+);
+export const encodePluginCatalogInvalidatedMessage = Schema.encodeSync(
+	Schema.fromJsonString(PluginCatalogInvalidatedMessage),
+	{ onExcessProperty: "error" },
+);
 
 export const PluginArtifactsGroup = HttpApiGroup.make("pluginArtifacts")
 	.annotate(OpenApi.Description, "Serves public plugin client artifacts.")
@@ -31,6 +51,11 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 		HttpApiEndpoint.get("list", "/plugins", {
 			success: PluginInstallationList,
 		}).annotate(OpenApi.Description, "Lists the caller's plugin installations."),
+	)
+	.add(
+		HttpApiEndpoint.get("events", "/plugins/events", {
+			success: PluginCatalogEventStream,
+		}).annotate(OpenApi.Description, "Streams plugin catalog events for the caller."),
 	)
 	.add(
 		HttpApiEndpoint.post("install", "/plugins", {
