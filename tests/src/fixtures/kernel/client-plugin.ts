@@ -69,11 +69,13 @@ export const updateFixtureClientPlugin = (
 	client: Client,
 	revision: FixtureClientPluginRevision,
 	variant = "",
+	baseUrl?: string,
 ) =>
 	Effect.gen(function* () {
 		const pluginPackage = yield* fixtureClientPluginPackage(revision, variant);
 		return yield* updatePrivatePlugin({
 			client,
+			baseUrl,
 			payload: pluginPackage,
 			pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG,
 		});
