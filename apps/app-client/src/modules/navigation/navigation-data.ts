@@ -94,6 +94,11 @@ export const getEntityHref = (entityId: string) => ({
 	pathname: "/e/[entityId]" as const,
 });
 
+export const getSettingsHref = (workspace: string) => ({
+	params: { workspace },
+	pathname: "/[workspace]/settings" as const,
+});
+
 export function getActiveNavigationKey(pathname: string) {
 	if (pathname.endsWith("/settings")) {
 		return "settings";

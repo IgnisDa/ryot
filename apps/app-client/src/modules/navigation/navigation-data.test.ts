@@ -8,6 +8,7 @@ import {
 	getEnabledItems,
 	getNavigationHref,
 	getNavigationItems,
+	getSettingsHref,
 	getWorkspaceHref,
 	getWorkspacePickerSummary,
 	getWorkspaceSummary,
@@ -147,6 +148,13 @@ it("creates an entity route", () => {
 	expect(getEntityHref("entity-1")).toEqual({
 		pathname: "/e/[entityId]",
 		params: { entityId: "entity-1" },
+	});
+});
+
+it("creates a settings route", () => {
+	expect(getSettingsHref("media")).toEqual({
+		params: { workspace: "media" },
+		pathname: "/[workspace]/settings",
 	});
 });
 
