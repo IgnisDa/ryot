@@ -4,10 +4,10 @@ import { Effect } from "effect";
 import { useEffect } from "react";
 import ReactDOM from "react-dom/client";
 
-import { createThemeStore, type ThemeStore } from "./modules/theme/store";
-import { ClientStorage } from "./persistence/storage";
-import { getRouter } from "./router";
-import { makeClientRuntime, type ClientRuntime } from "./runtime";
+import { createThemeStore, type ThemeStore } from "#/modules/theme/store";
+import { ClientStorage } from "#/persistence/storage";
+import { getRouter } from "#/router";
+import { makeClientRuntime, type ClientRuntime } from "#/runtime";
 
 function ClientApplication(props: {
 	readonly router: ReturnType<typeof getRouter>;

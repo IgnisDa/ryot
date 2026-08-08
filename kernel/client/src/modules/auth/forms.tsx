@@ -2,13 +2,13 @@ import { Button } from "@ryot/client-ui-sdk";
 import { createErrorVisibility, useForm } from "@tanstack/react-form";
 import { useRef, useState } from "react";
 
-import type { AuthMode, TwoFactorMethod } from "./flow";
+import type { AuthMode, TwoFactorMethod } from "#/modules/auth/flow";
 import {
 	type CredentialsValues,
 	normalizeCredentials,
 	validateEmail,
 	validatePassword,
-} from "./form-values";
+} from "#/modules/auth/form-values";
 
 const errorVisibility = createErrorVisibility(
 	({ fieldState, state }) => fieldState.meta.isBlurred || state.submissionAttempts > 0,

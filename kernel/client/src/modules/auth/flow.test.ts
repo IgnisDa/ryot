@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { authDestination, availableTwoFactorMethods, isTwoFactorRedirect } from "./flow";
+import {
+	authDestination,
+	availableTwoFactorMethods,
+	isTwoFactorRedirect,
+} from "#/modules/auth/flow";
 
 describe("authentication flow", () => {
 	it("uses only safe local callback destinations", () => {

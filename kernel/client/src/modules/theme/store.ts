@@ -9,7 +9,7 @@ import {
 	resolveTheme,
 	type ThemeRoot,
 	type ThemePreference,
-} from "./preference";
+} from "#/modules/theme/preference";
 
 type ThemeMedia = {
 	readonly matches: boolean;

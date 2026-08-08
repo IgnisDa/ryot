@@ -4,7 +4,7 @@ import {
 } from "@ryot/contract/modules/plugins/client";
 import { describe, expect, it } from "vitest";
 
-import { createThemeStore } from "./store";
+import { createThemeStore } from "#/modules/theme/store";
 
 function setup(matches: boolean, initial: "light" | "dark" | "system" = "system") {
 	const attributes = new Map<string, string>();

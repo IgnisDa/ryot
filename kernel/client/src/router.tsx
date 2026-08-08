@@ -1,7 +1,7 @@
 import { createRouter as createTanStackRouter, type RouterHistory } from "@tanstack/react-router";
 
-import type { RouterContext } from "./routes/__root";
-import { routeTree } from "./routeTree.gen";
+import type { RouterContext } from "#/routes/__root";
+import { routeTree } from "#/routeTree.gen";
 
 function RestoringSession() {
 	return (

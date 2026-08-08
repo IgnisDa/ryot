@@ -1,4 +1,4 @@
-import { normalizeServerOrigin } from "./origin";
+import { normalizeServerOrigin } from "#/api/origin";
 
 export type ApiScope = {
 	readonly userId: string;

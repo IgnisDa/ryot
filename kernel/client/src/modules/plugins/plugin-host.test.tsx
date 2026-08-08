@@ -17,9 +17,9 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
-import type { ThemeStore } from "../theme/store";
-import { PluginHost } from "./plugin-host";
-import type { PluginNavigationRequest } from "./plugin-location";
+import { PluginHost } from "#/modules/plugins/plugin-host";
+import type { PluginNavigationRequest } from "#/modules/plugins/plugin-location";
+import type { ThemeStore } from "#/modules/theme/store";
 
 const server = "https://ryot.example";
 const home: PluginLogicalLocation = { path: "/", search: "" };

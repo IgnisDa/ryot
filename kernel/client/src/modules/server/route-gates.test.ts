@@ -1,8 +1,8 @@
 import { assert, describe, expect, it } from "vitest";
 
-import { parseServerOrigin } from "../../api/origin";
-import { sanitizeRedirect } from "./redirect";
-import { decideOnboardingGate, decideRootGate } from "./route-gates";
+import { parseServerOrigin } from "#/api/origin";
+import { sanitizeRedirect } from "#/modules/server/redirect";
+import { decideOnboardingGate, decideRootGate } from "#/modules/server/route-gates";
 
 describe("redirect sanitization", () => {
 	it.each([

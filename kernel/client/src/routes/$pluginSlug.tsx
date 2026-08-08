@@ -4,15 +4,15 @@ import { Effect, Fiber, Option } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { useEffect, useMemo } from "react";
 
-import { createKernelRyotClient } from "../api/ryot-client";
-import { protectedRouteGuard } from "../modules/auth/route-gates";
-import { makePluginCatalogAtom, PluginCatalogService } from "../modules/plugins/catalog";
-import { PluginCatalogEventsService } from "../modules/plugins/events";
-import { PluginOperationsService } from "../modules/plugins/operations";
-import { PluginHost } from "../modules/plugins/plugin-host";
-import { toPluginLocation } from "../modules/plugins/plugin-location";
-import { PluginQueriesService } from "../modules/plugins/queries";
-import { resolveRouteTarget } from "../modules/plugins/route-resolver";
+import { createKernelRyotClient } from "#/api/ryot-client";
+import { protectedRouteGuard } from "#/modules/auth/route-gates";
+import { makePluginCatalogAtom, PluginCatalogService } from "#/modules/plugins/catalog";
+import { PluginCatalogEventsService } from "#/modules/plugins/events";
+import { PluginOperationsService } from "#/modules/plugins/operations";
+import { PluginHost } from "#/modules/plugins/plugin-host";
+import { toPluginLocation } from "#/modules/plugins/plugin-location";
+import { PluginQueriesService } from "#/modules/plugins/queries";
+import { resolveRouteTarget } from "#/modules/plugins/route-resolver";
 
 export const Route = createFileRoute("/$pluginSlug")({
 	shouldReload: false,

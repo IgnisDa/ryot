@@ -2,7 +2,7 @@ import { AuthRateLimited, AuthUnauthorized } from "@ryot/contract/auth-middlewar
 import { RyotQLBadRequest, RyotQLInternalError } from "@ryot/contract/modules/ryotql/contract";
 import { Schema } from "effect";
 
-import { AuthenticatedApiError } from "./authenticated";
+import { AuthenticatedApiError } from "#/api/authenticated";
 
 const isDeclaredFailure = Schema.is(
 	Schema.Union([AuthRateLimited, AuthUnauthorized, RyotQLBadRequest, RyotQLInternalError]),

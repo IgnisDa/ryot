@@ -1,7 +1,7 @@
 import { Context, Effect, Layer } from "effect";
 
-import { parseServerOrigin, type ServerOrigin } from "../api/origin";
-import { isThemePreference, type ThemePreference } from "../modules/theme/preference";
+import { parseServerOrigin, type ServerOrigin } from "#/api/origin";
+import { isThemePreference, type ThemePreference } from "#/modules/theme/preference";
 
 export const RYOT_STORAGE_PREFIX = "ryot:";
 export const THEME_PREFERENCE_KEY = `${RYOT_STORAGE_PREFIX}theme`;

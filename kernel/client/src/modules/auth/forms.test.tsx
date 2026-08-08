@@ -2,9 +2,9 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
-import type { AuthMode, TwoFactorMethod } from "./flow";
-import type { CredentialsValues } from "./form-values";
-import { CredentialsForm, TwoFactorForm } from "./forms";
+import type { AuthMode, TwoFactorMethod } from "#/modules/auth/flow";
+import type { CredentialsValues } from "#/modules/auth/form-values";
+import { CredentialsForm, TwoFactorForm } from "#/modules/auth/forms";
 
 const MODE_SWITCHER = { name: "Authentication mode" };
 

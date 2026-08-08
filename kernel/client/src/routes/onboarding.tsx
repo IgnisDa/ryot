@@ -3,11 +3,11 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect, useReducer, useRef, useState } from "react";
 
-import { type ServerMode, resolveServerOrigin } from "../api/origin";
-import { initialConnectionState, reduceConnectionState } from "../modules/server/connection-state";
-import { sanitizeRedirect } from "../modules/server/redirect";
-import { decideOnboardingGate } from "../modules/server/route-gates";
-import { ServerService } from "../modules/server/service";
+import { type ServerMode, resolveServerOrigin } from "#/api/origin";
+import { initialConnectionState, reduceConnectionState } from "#/modules/server/connection-state";
+import { sanitizeRedirect } from "#/modules/server/redirect";
+import { decideOnboardingGate } from "#/modules/server/route-gates";
+import { ServerService } from "#/modules/server/service";
 
 const serverOptions = [
 	{

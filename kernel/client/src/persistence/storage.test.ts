@@ -1,14 +1,14 @@
 import { assert, describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { parseServerOrigin } from "../api/origin";
+import { parseServerOrigin } from "#/api/origin";
 import {
 	ClientStorage,
 	clientStorageLayer,
 	SERVER_SELECTION_KEY,
 	THEME_PREFERENCE_KEY,
 	type BrowserStorage,
-} from "./storage";
+} from "#/persistence/storage";
 
 const makeStorage = (entries: readonly (readonly [string, string])[] = []) => {
 	const values = new Map(entries);

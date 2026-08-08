@@ -4,9 +4,9 @@ import type { ContractClient, ContractPayload } from "@ryot/contract/client";
 import { RyotQLBadRequest, RyotQLInternalError } from "@ryot/contract/modules/ryotql/contract";
 import { Effect, Layer } from "effect";
 
-import { AuthenticatedApi, AuthenticatedApiError } from "../../api/authenticated";
-import type { ApiScope } from "../../api/scope";
-import { PluginQueriesService } from "./queries";
+import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
+import type { ApiScope } from "#/api/scope";
+import { PluginQueriesService } from "#/modules/plugins/queries";
 
 const scope: ApiScope = { userId: "user-1", serverUrl: "https://ryot.example" };
 const document = {
