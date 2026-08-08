@@ -44,15 +44,16 @@ const normalizedPlugin = (auth: PluginOperationAuth): NormalizedPlugin => {
 		signalSchemas: [],
 		relationshipSchemas: [],
 		scripts: [operationScript],
+		operations: [
+			{ auth, slug: OPERATION_SLUG, scriptSlug: DRIVER_REF, description: "Resolve fixture" },
+		],
 		bindings: {
 			eventAutomations: [],
 			entityAutomations: [],
 			signalAutomations: [],
 			relationshipAutomations: [],
+			providerEntityImportAutomations: [],
 		},
-		operations: [
-			{ auth, slug: OPERATION_SLUG, scriptSlug: DRIVER_REF, description: "Resolve fixture" },
-		],
 	} satisfies PluginManifest;
 	const { entry, ...metadata } = operationScript;
 	return {
@@ -61,13 +62,13 @@ const normalizedPlugin = (auth: PluginOperationAuth): NormalizedPlugin => {
 		scripts: [
 			{
 				entry,
-				name: "Operation",
+				metadata,
 				slug: DRIVER_REF,
 				source: "source",
+				name: "Operation",
 				compiledFormat: 1,
 				compiledCode: "compiled",
 				contentHash: "fixture-compiled",
-				metadata,
 			},
 		],
 	};

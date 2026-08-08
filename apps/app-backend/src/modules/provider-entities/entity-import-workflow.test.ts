@@ -265,6 +265,7 @@ const makeTestLayer = (options: TestLayerOptions) => {
 		Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(0) })),
 		options.lifecycleDispatch ?? LifecycleDispatchNoop,
 		Layer.mock(EntityImportWorkflowOperations, {
+			runProviderImportAutomations: () => Effect.void,
 			processSandbox: options.processSandbox ?? (() => Effect.die("unused")),
 		}),
 		options.entitiesService ?? makeEntitiesService(),

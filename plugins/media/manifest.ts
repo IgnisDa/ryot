@@ -3,7 +3,10 @@ import { definePlugin } from "@ryot/contract/modules/plugins/manifest";
 import { mediaConfigSchema } from "./config-schema";
 import { mediaSavedViews } from "./saved-views";
 import { mediaEntitySchemas } from "./schemas/entity-schemas";
-import { builtinMediaEntitySchemaSlugs } from "./schemas/media-schema-slugs";
+import {
+	builtinMediaEntitySchemaSlugs,
+	mediaLibraryEligibleEntitySchemaSlugs,
+} from "./schemas/media-schema-slugs";
 import { builtinRelationshipSchemas } from "./schemas/relationship-schemas";
 import { mediaSignalSchemas } from "./schemas/signal-schemas";
 import { mediaScripts } from "./script-catalog";
@@ -659,6 +662,12 @@ export const mediaPlugin = definePlugin({
 	},
 	bindings: {
 		signalAutomations: [],
+		providerEntityImportAutomations: mediaLibraryEligibleEntitySchemaSlugs.map(
+			(entitySchemaSlug) => ({
+				entitySchemaSlug,
+				scriptSlug: "automation.media-library-membership-on-import",
+			}),
+		),
 		entityAutomations: [...builtinMediaEntitySchemaSlugs, "show-episode", "podcast-episode"].map(
 			(entitySchemaSlug) => ({
 				entitySchemaSlug,
@@ -691,8 +700,8 @@ export const mediaPlugin = definePlugin({
 				{
 					eventSchemaSlug,
 					kind: "subscription" as const,
-					scriptSlug: "trigger.auto-complete-on-full-progress",
 					metadata: { inheritedProperties: ["consumedOn"] },
+					scriptSlug: "trigger.auto-complete-on-full-progress",
 				},
 				{
 					position: 100,
@@ -704,13 +713,13 @@ export const mediaPlugin = definePlugin({
 			]),
 			{
 				kind: "subscription",
-				eventSchemaSlug: "collection:add-entity-to-collection",
 				scriptSlug: "trigger.radarr-push",
+				eventSchemaSlug: "collection:add-entity-to-collection",
 			},
 			{
 				kind: "subscription",
-				eventSchemaSlug: "collection:add-entity-to-collection",
 				scriptSlug: "trigger.sonarr-push",
+				eventSchemaSlug: "collection:add-entity-to-collection",
 			},
 			...eventSlugs("complete").map((eventSchemaSlug) => ({
 				eventSchemaSlug,

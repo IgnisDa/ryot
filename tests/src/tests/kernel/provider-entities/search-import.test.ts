@@ -12,6 +12,7 @@ import {
 	getGlobalEntityByProvenance,
 	getRelationshipBySchemaSlug,
 	pollProviderEntityImportResult,
+	queryInLibraryRelationship,
 	searchProviderEntities,
 	installTestProvider,
 } from "~/fixtures";
@@ -211,6 +212,10 @@ describe("GET /provider-entities/imports/{jobId}", () => {
 
 			assertCompleted(result, "import job");
 			expect(result.data.name).toBe(BOOK_IMPORT_NAME);
+			const inLibrary = yield* queryInLibraryRelationship(client, result.data.id, "book");
+			expect(
+				inLibrary.data.entity?.type === "rows" ? inLibrary.data.entity.items : [],
+			).toHaveLength(1);
 		}),
 	);
 

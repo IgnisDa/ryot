@@ -36,6 +36,7 @@ const normalizedPlugin = (pluginSlug: string): NormalizedPlugin => {
 			entityAutomations: [],
 			signalAutomations: [],
 			relationshipAutomations: [],
+			providerEntityImportAutomations: [],
 		},
 	} satisfies PluginManifest;
 	const { entry, ...metadata } = script;
