@@ -110,7 +110,7 @@ const waitUntil = (predicate: () => boolean, message: string) =>
 	});
 
 describe("plugin catalog events service", () => {
-	it("streams the canonical endpoint with a bearer token and routes catalog events", async () => {
+	it("does not refresh on connection and refreshes only on invalidation", async () => {
 		const { runtime, streams, requests } = makeRuntime({ token: "token-1" });
 		let refreshes = 0;
 		const subscription = runtime.runFork(
@@ -129,9 +129,11 @@ describe("plugin catalog events service", () => {
 
 			streams[0]?.send(": ping\n\n");
 			streams[0]?.send(frame(PLUGIN_CATALOG_CONNECTED_EVENT));
+			await waitUntil(() => streams[0]?.body.locked ?? false, "stream was not consumed");
+			expect(refreshes).toBe(0);
 			streams[0]?.send(`${frame("unrelated")}${frame(PLUGIN_CATALOG_INVALIDATED_EVENT)}`);
-			await waitUntil(() => refreshes === 2, "catalog events were never routed");
-			expect(refreshes).toBe(2);
+			await waitUntil(() => refreshes === 1, "catalog invalidation was never routed");
+			expect(refreshes).toBe(1);
 		} finally {
 			await Effect.runPromise(Fiber.interrupt(subscription));
 			await runtime.dispose();

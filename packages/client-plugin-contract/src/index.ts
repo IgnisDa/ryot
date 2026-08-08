@@ -24,7 +24,6 @@ import {
 	EntityId,
 	EntitySchemaSlug,
 	PluginSlug,
-	SavedViewId,
 } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { HttpUrl, IsoUtcString, strictStruct } from "@ryot-app/contract/schema/utils";
@@ -34,7 +33,7 @@ export { CLIENT_API_VERSION };
 export const CLIENT_ARTIFACT_FORMAT = 1 as const;
 export const CLIENT_COMPILER_VERSION = 1 as const;
 export const CLIENT_BRIDGE_MAX_PENDING_REQUESTS = 64;
-export const CLIENT_BRIDGE_PROTOCOL_VERSION = 1 as const;
+export const CLIENT_BRIDGE_PROTOCOL_VERSION = 2 as const;
 
 export const KERNEL_SHORTCUTS = {
 	commandCenter: "Mod+K",
@@ -148,11 +147,11 @@ export const PluginThemeSnapshot = strictStruct({ resolvedMode: PluginThemeMode 
 export type PluginThemeSnapshot = Schema.Schema.Type<typeof PluginThemeSnapshot>;
 
 export const ClientPageTarget = Schema.Union([
-	strictStruct({ savedViewId: SavedViewId, kind: Schema.Literal("saved-view") }),
+	strictStruct({ slug: Schema.String, kind: Schema.Literal("saved-view") }),
 	strictStruct({
 		path: Schema.String,
 		search: Schema.String,
-		pluginId: Schema.String,
+		pluginSlug: PluginSlug,
 		kind: Schema.Literal("plugin-route"),
 	}),
 	strictStruct({
@@ -259,6 +258,7 @@ const pluginSafeAreaInset = Schema.Number.pipe(Schema.check(Schema.isGreaterThan
 export const PluginBridgeInit = strictStruct({
 	...pluginBridgeIdentityFields,
 	mode: PluginThemeMode,
+	documentKey: Schema.String,
 	safeAreaTop: pluginSafeAreaInset,
 	safeAreaBottom: pluginSafeAreaInset,
 	page: Schema.optional(ClientPageContext),
@@ -292,7 +292,7 @@ export const PluginLogicalLocation = Schema.Union([PluginRouteLocation, PluginEn
 export type PluginLogicalLocation = Schema.Schema.Type<typeof PluginLogicalLocation>;
 
 export const PluginNavigationTarget = Schema.Union([
-	strictStruct({ savedViewId: SavedViewId, kind: Schema.Literal("saved-view") }),
+	strictStruct({ slug: Schema.String, kind: Schema.Literal("saved-view") }),
 	strictStruct({ entityId: EntityId, kind: Schema.Literal("entity") }),
 	strictStruct({
 		path: Schema.String,
@@ -319,6 +319,15 @@ export const PluginBridgeLocation = strictStruct({
 });
 
 export type PluginBridgeLocation = Schema.Schema.Type<typeof PluginBridgeLocation>;
+
+export const PluginBridgeDocument = strictStruct({
+	documentKey: Schema.String,
+	type: Schema.Literal("document"),
+	navigation: PluginBridgeLocation,
+	page: Schema.optional(ClientPageContext),
+});
+
+export type PluginBridgeDocument = Schema.Schema.Type<typeof PluginBridgeDocument>;
 
 export const PluginBridgeNavigateBack = strictStruct({ type: Schema.Literal("navigate-back") });
 
@@ -825,6 +834,7 @@ export const PluginBridgeClientMessage = Schema.Union([
 export type PluginBridgeClientMessage = Schema.Schema.Type<typeof PluginBridgeClientMessage>;
 
 export const PluginBridgeHostMessage = Schema.Union([
+	PluginBridgeDocument,
 	PluginBridgeTheme,
 	PluginBridgeLocation,
 	PluginBridgeViewport,

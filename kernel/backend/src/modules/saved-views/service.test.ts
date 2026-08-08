@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import type { ListedSavedView } from "@ryot-app/contract/modules/saved-views/schemas";
-import { SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
+import { ClientRendererId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
 import { column, document, field, rows, table } from "@ryot-app/ryotql";
 import { Effect, Layer } from "effect";
 
@@ -9,6 +9,7 @@ import { databaseLayer, type MockOverrides } from "#lib/test-utils/effect";
 import { ClientPagesRepository } from "#modules/client-pages/repository";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { PluginCatalogInvalidator } from "#modules/plugins/catalog-events";
+import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
@@ -67,6 +68,9 @@ const makeLayer = (
 			ReturnType<PluginRuntimeResolver["Service"]["listPluginsAvailableToUser"]>
 		>[number]
 	> = [],
+	onMaterializeRenderer?: () => void,
+	onInvalidate?: () => void,
+	clientPageRepository: Layer.Layer<ClientPagesRepository> = ClientPagesRepository.layer,
 ) =>
 	SavedViewsService.layer.pipe(
 		Layer.provideMerge(
@@ -74,8 +78,16 @@ const makeLayer = (
 				databaseLayer,
 				repository,
 				installations,
-				ClientPagesRepository.layer,
-				PluginCatalogInvalidator.layer,
+				clientPageRepository,
+				Layer.succeed(PluginCatalogInvalidator, {
+					all: Effect.void,
+					user: () => Effect.sync(() => onInvalidate?.()),
+				}),
+				Layer.succeed(ClientSurfaceMaterializer, {
+					materializeUser: () => Effect.void,
+					materializePendingInstallation: () => Effect.void,
+					materializeRenderer: () => Effect.sync(() => onMaterializeRenderer?.()),
+				}),
 				Layer.mock(DefinitionRepository)({ listUserSavedViews: () => Effect.succeed([]) }),
 				Layer.mock(PluginRuntimeResolver)({
 					listPluginsAvailableToUser: () => Effect.succeed([...availablePlugins]),
@@ -86,6 +98,7 @@ const makeLayer = (
 
 it.effect("clones a validated plugin-rendered builtin with its stable runtime reference", () => {
 	const created: unknown[] = [];
+	const order: string[] = [];
 	const renderer = {
 		exportName: "summary",
 		kind: "plugin" as const,
@@ -128,6 +141,7 @@ it.effect("clones a validated plugin-rendered builtin with its stable runtime re
 		const cloned = yield* service.clone(user, pluginView.slug);
 		expect(cloned).toEqual({ id: SavedViewId.make("plugin-copy-id") });
 		expect(created).toMatchObject([{ renderer, settings: { title: "Fixture" } }]);
+		expect(order).toEqual(["materialize", "create"]);
 	}).pipe(
 		Effect.provide(
 			makeLayer(
@@ -136,6 +150,7 @@ it.effect("clones a validated plugin-rendered builtin with its stable runtime re
 						Effect.succeed(slug === pluginView.slug ? pluginView : null),
 					create: (_userId, input) =>
 						Effect.sync(() => {
+							order.push("create");
 							created.push(input);
 							return { id: SavedViewId.make("plugin-copy-id") };
 						}),
@@ -157,6 +172,7 @@ it.effect("clones a validated plugin-rendered builtin with its stable runtime re
 						installationId: "fixture-installation-id",
 					},
 				],
+				() => order.push("materialize"),
 			),
 		),
 	);
@@ -192,6 +208,61 @@ it.effect("clones renderer settings and data sources without copying source code
 	);
 });
 
+it.effect("reports an unpublished renderer before attempting to materialize its saved view", () => {
+	const rendererId = ClientRendererId.make("unpublished-renderer");
+	const renderer = {
+		id: rendererId,
+		userId: user.id,
+		draftRevision: 1,
+		publishedHash: null,
+		createdAt: new Date(0),
+		updatedAt: new Date(0),
+		publishedRevision: null,
+		publishedDefinition: null,
+		slug: "unpublished-renderer",
+		name: "Unpublished renderer",
+		draftDefinition: {
+			files: [],
+			pluginDependencies: [],
+			entry: "client/page.tsx",
+			settingsSchema: { fields: {} },
+			automaticEntityPresentations: false,
+		},
+	} satisfies NonNullable<
+		Effect.Success<ReturnType<ClientPagesRepository["Service"]["lockRenderer"]>>
+	>;
+	let materializations = 0;
+	return Effect.gen(function* () {
+		const error = yield* Effect.flip(
+			(yield* SavedViewsService).create(user, {
+				settings: {},
+				icon: "record",
+				dataSources: null,
+				name: "Unpublished view",
+				renderer: { rendererId, kind: "custom" },
+			}),
+		);
+		expect(error).toMatchObject({
+			_tag: "SavedViewBadRequest",
+			reason: { code: "renderer-unpublished" },
+		});
+		expect(materializations).toBe(0);
+	}).pipe(
+		Effect.provide(
+			makeLayer(
+				makeRepository({ findBySlug: () => Effect.succeed(null) }),
+				undefined,
+				[],
+				() => {
+					materializations++;
+				},
+				undefined,
+				Layer.mock(ClientPagesRepository)({ lockRenderer: () => Effect.succeed(renderer) }),
+			),
+		),
+	);
+});
+
 it.effect("clears home references when disabling a saved view", () => {
 	const events: string[] = [];
 	return Effect.gen(function* () {
@@ -207,6 +278,7 @@ it.effect("clears home references when disabling a saved view", () => {
 		Effect.provide(
 			makeLayer(
 				makeRepository({
+					findBySlug: () => Effect.succeed(baseView),
 					lockBySlug: () => Effect.succeed(baseView),
 					updateBySlug: () =>
 						Effect.sync(() => {
@@ -219,6 +291,75 @@ it.effect("clears home references when disabling a saved view", () => {
 					clearHomeSavedViewReferences: (_userId, id) =>
 						Effect.sync(() => events.push(`clear:${id}`)),
 				}),
+			),
+		),
+	);
+});
+
+it.effect(
+	"materializes a disabled view after its dependency changes, before re-enabling it",
+	() => {
+		const order: string[] = [];
+		const disabledView = { ...baseView, isDisabled: true };
+		const currentDependencyHash = "source-v2";
+		return Effect.gen(function* () {
+			const service = yield* SavedViewsService;
+			const updated = yield* service.update(user, baseView.slug, {
+				isDisabled: false,
+				icon: baseView.icon,
+				name: baseView.name,
+			});
+			expect(updated).toEqual({ id: baseView.id });
+			expect(order).toEqual([`materialize:${currentDependencyHash}`, "update", "invalidate"]);
+		}).pipe(
+			Effect.provide(
+				makeLayer(
+					makeRepository({
+						findBySlug: () => Effect.succeed(disabledView),
+						lockBySlug: () => Effect.succeed(disabledView),
+						updateBySlug: () =>
+							Effect.sync(() => {
+								order.push("update");
+								return { id: baseView.id };
+							}),
+					}),
+					undefined,
+					[],
+					() => order.push(`materialize:${currentDependencyHash}`),
+					() => order.push("invalidate"),
+				),
+			),
+		);
+	},
+);
+
+it.effect("updates a disabled view without materializing an unavailable renderer", () => {
+	const order: string[] = [];
+	const disabledView = { ...baseView, isDisabled: true };
+	return Effect.gen(function* () {
+		const updated = yield* (yield* SavedViewsService).update(user, baseView.slug, {
+			isDisabled: true,
+			icon: baseView.icon,
+			name: "Renamed View",
+		});
+		expect(updated).toEqual({ id: baseView.id });
+		expect(order).toEqual(["update"]);
+	}).pipe(
+		Effect.provide(
+			makeLayer(
+				makeRepository({
+					findBySlug: () => Effect.succeed(disabledView),
+					lockBySlug: () => Effect.succeed(disabledView),
+					updateBySlug: () =>
+						Effect.sync(() => {
+							order.push("update");
+							return { id: baseView.id };
+						}),
+				}),
+				undefined,
+				[],
+				() => order.push("materialize"),
+				() => order.push("invalidate"),
 			),
 		),
 	);
@@ -250,6 +391,11 @@ it.effect("materializes canonical builtin definitions and preserves repository-o
 				}),
 				ClientPagesRepository.layer,
 				PluginCatalogInvalidator.layer,
+				Layer.succeed(ClientSurfaceMaterializer, {
+					materializeUser: () => Effect.void,
+					materializeRenderer: () => Effect.void,
+					materializePendingInstallation: () => Effect.void,
+				}),
 				Layer.mock(PluginInstallationRepository)({ listForUser: () => Effect.succeed([]) }),
 				Layer.mock(PluginRuntimeResolver)({}),
 				Layer.mock(DefinitionRepository)({

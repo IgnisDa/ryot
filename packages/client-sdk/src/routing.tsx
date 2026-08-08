@@ -166,10 +166,7 @@ const navigationTargetHref = (target: RyotNavigationTarget) =>
 			return searchString ? `${route}?${searchString}` : route;
 		}),
 		Match.when({ kind: "entity" }, ({ entityId }) => `/e/${encodeURIComponent(entityId)}`),
-		Match.when(
-			{ kind: "saved-view" },
-			({ savedViewId }) => `/v/${encodeURIComponent(savedViewId)}`,
-		),
+		Match.when({ kind: "saved-view" }, ({ slug }) => `/v/${encodeURIComponent(slug)}`),
 		Match.exhaustive,
 	);
 

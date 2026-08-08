@@ -6,6 +6,7 @@ import { Effect, Layer } from "effect";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database } from "#lib/infrastructure/db/service";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
+import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
 import { PluginInstallationService } from "#modules/plugins/installation-service";
 import { SavedViewsService } from "#modules/saved-views/service";
 
@@ -49,6 +50,7 @@ const makeLayer = (options: {
 	db?: object;
 	onDefaultRules?: (userId: UserId) => void;
 	onBuiltinViews?: (userId: UserId) => void;
+	onMaterialize?: (userId: UserId) => Effect.Effect<void>;
 	onProvisionInstallations?: (userId: UserId) => void;
 	dispatch: (userId: UserId) => Effect.Effect<undefined, SandboxRunError>;
 }) => {
@@ -73,6 +75,11 @@ const makeLayer = (options: {
 		Layer.mock(SavedViewsService)({
 			ensureBuiltinViews: (inputUserId) => Effect.sync(() => options.onBuiltinViews?.(inputUserId)),
 		}),
+		Layer.succeed(ClientSurfaceMaterializer, {
+			materializeRenderer: () => Effect.void,
+			materializePendingInstallation: () => Effect.void,
+			materializeUser: (inputUserId) => options.onMaterialize?.(inputUserId) ?? Effect.void,
+		}),
 	);
 };
 
@@ -89,7 +96,7 @@ it.effect(
 		return Effect.gen(function* () {
 			yield* performBootstrap(userId);
 
-			expect(order).toEqual(["provision", "dispatch"]);
+			expect(order).toEqual(["provision", "dispatch", "views", "materialize", "complete"]);
 			expect(dispatchedUserIds).toEqual([userId]);
 			expect(provisionedUserIds).toEqual([userId]);
 			expect(builtinViewUserIds).toEqual([userId]);
@@ -98,13 +105,25 @@ it.effect(
 		}).pipe(
 			Effect.provide(
 				makeLayer({
-					db: makeBootstrapDb({ onMarkComplete: () => (markerUpdated = true) }),
 					onDefaultRules: (inputUserId) => defaultRuleUserIds.push(inputUserId),
-					onBuiltinViews: (inputUserId) => builtinViewUserIds.push(inputUserId),
+					onMaterialize: () =>
+						Effect.sync(() => {
+							order.push("materialize");
+						}),
+					onBuiltinViews: (inputUserId) => {
+						order.push("views");
+						builtinViewUserIds.push(inputUserId);
+					},
 					onProvisionInstallations: (inputUserId) => {
 						order.push("provision");
 						provisionedUserIds.push(inputUserId);
 					},
+					db: makeBootstrapDb({
+						onMarkComplete: () => {
+							order.push("complete");
+							markerUpdated = true;
+						},
+					}),
 					dispatch: (inputUserId) =>
 						Effect.sync(() => {
 							order.push("dispatch");

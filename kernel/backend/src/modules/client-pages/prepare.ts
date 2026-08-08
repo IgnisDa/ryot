@@ -90,9 +90,12 @@ export const resolvePluginPageTarget = <E, R>(input: {
 	Effect.gen(function* () {
 		if (input.target.kind === "plugin-route") {
 			const target = input.target;
-			const plugin = input.plugins.find(({ id }) => id === target.pluginId);
+			const plugin = input.plugins.find(({ slug }) => slug === target.pluginSlug);
 			if (plugin?.health !== "ready" || !plugin.manifest.client) {
-				return yield* failure({ pluginId: target.pluginId, code: "plugin-unavailable" });
+				return yield* failure({
+					code: "plugin-unavailable",
+					pluginId: plugin?.id ?? target.pluginSlug,
+				});
 			}
 			for (const [pattern, exportName] of Object.entries(plugin.manifest.client.routes ?? {}).sort(
 				([left], [right]) => comparePluginRoutePaths(left, right),
@@ -108,7 +111,7 @@ export const resolvePluginPageTarget = <E, R>(input: {
 			}
 			return yield* failure({
 				path: target.path,
-				pluginId: target.pluginId,
+				pluginId: plugin.id,
 				code: "plugin-route-not-registered",
 			});
 		}
