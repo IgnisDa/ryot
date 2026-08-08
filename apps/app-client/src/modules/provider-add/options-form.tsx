@@ -70,7 +70,7 @@ function OptionSwitch(props: {
 			accessibilityState={{ checked: props.checked }}
 			onPress={() => props.onChange(!props.checked)}
 			className={clsx(
-				"h-6 w-10 justify-center rounded-pill p-0.5",
+				"h-6 w-10 justify-center rounded-pill border border-border p-0.5",
 				props.checked && "bg-accent",
 				!props.checked && "bg-surface-2",
 			)}
