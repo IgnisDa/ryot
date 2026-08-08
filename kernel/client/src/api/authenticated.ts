@@ -4,7 +4,7 @@ import { OAUTH_NATIVE_CLIENT_ID, OAUTH_WEB_CLIENT_ID } from "@ryot/contract/oaut
 import { Context, Data, Effect, Layer } from "effect";
 
 import { serverApiUrl } from "#/api/origin";
-import { canonicalApiScope, type ApiScope } from "#/api/scope";
+import type { ApiScope } from "#/api/scope";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { isNativePlatform } from "#/modules/navigation/native-navigation";
 
@@ -25,16 +25,15 @@ export const makeAuthenticatedApi = (
 ): AuthenticatedApiService => ({
 	run: <A, E>(scope: ApiScope, program: ContractProgram<A, E>) =>
 		Effect.gen(function* () {
-			const canonical = canonicalApiScope(scope);
 			const clientId = isNative() ? OAUTH_NATIVE_CLIENT_ID : OAUTH_WEB_CLIENT_ID;
 			const attempt = (forceRefresh: boolean) =>
 				Effect.gen(function* () {
-					const token = yield* tokens.accessToken(canonical.serverUrl, clientId, forceRefresh);
+					const token = yield* tokens.accessToken(scope.serverUrl, clientId, forceRefresh);
 					return yield* Effect.tryPromise({
 						try: (signal) =>
 							runContract(program, {
 								signal,
-								baseUrl: serverApiUrl(canonical.serverUrl),
+								baseUrl: serverApiUrl(scope.serverUrl),
 								...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
 							}),
 						catch: (cause) => new AuthenticatedApiError({ cause }),

@@ -5,6 +5,7 @@ import {
 import type { PluginClientCatalog } from "@ryot/ryotql-recipes/plugin-client-catalog";
 import { Effect, Layer, Schema } from "effect";
 
+import { decodeServerOrigin } from "#/api/origin";
 import { PublicApi } from "#/api/public";
 import type { ApiScope } from "#/api/scope";
 import { HostedAuthService } from "#/modules/auth/hosted-service";
@@ -16,7 +17,7 @@ import { ServerService } from "#/modules/server/service";
 import type { ThemeStore } from "#/modules/theme/store";
 import type { ClientStorage } from "#/persistence/storage";
 
-export const server = "https://ryot.example";
+export const server = decodeServerOrigin("https://ryot.example");
 
 export const theme: ThemeStore = {
 	destroy: () => undefined,

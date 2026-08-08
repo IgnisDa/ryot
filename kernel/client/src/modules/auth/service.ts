@@ -7,7 +7,7 @@ import {
 } from "@ryot/contract/oauth";
 import { Context, Effect, Layer } from "effect";
 
-import { normalizeServerOrigin, type ServerOrigin } from "#/api/origin";
+import type { ServerOrigin } from "#/api/origin";
 import { makeOriginSingleFlight } from "#/modules/auth/single-flight";
 import type { OAuthTokenError } from "#/modules/auth/token-service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
@@ -74,13 +74,12 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 		const sessions = new Map<ServerOrigin, ReturnType<typeof makeSessionStore>>();
 		const resolutions = makeOriginSingleFlight<SettledAuthSession, OAuthTokenError>();
 		const getSession = (origin: ServerOrigin) => {
-			const canonical = normalizeServerOrigin(origin);
-			const existing = sessions.get(canonical);
+			const existing = sessions.get(origin);
 			if (existing) {
 				return existing;
 			}
 			const created = makeSessionStore();
-			sessions.set(canonical, created);
+			sessions.set(origin, created);
 			return created;
 		};
 		const resolveUserInfo = (canonical: ServerOrigin, clientId: string) =>
@@ -110,11 +109,10 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			origin: ServerOrigin,
 			forceRefresh = false,
 		) {
-			const canonical = normalizeServerOrigin(origin);
-			const session = getSession(canonical);
+			const session = getSession(origin);
 			const cached = session.store.getSnapshot();
 			const clientId = isNativePlatform() ? OAUTH_NATIVE_CLIENT_ID : OAUTH_WEB_CLIENT_ID;
-			const probe = yield* tokens.accessToken(canonical, clientId).pipe(
+			const probe = yield* tokens.accessToken(origin, clientId).pipe(
 				Effect.map(
 					(token): AuthorizationProbe => ({
 						kind: token === null ? "unauthorized" : "authorized",
@@ -143,7 +141,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			if (!forceRefresh && cached.status === "authenticated") {
 				return cached;
 			}
-			return yield* resolutions(canonical, resolveUserInfo(canonical, clientId));
+			return yield* resolutions(origin, resolveUserInfo(origin, clientId));
 		});
 		const clearSession = Effect.fn("AuthService.clearSession")(function* (origin: ServerOrigin) {
 			yield* tokens.clear(origin);

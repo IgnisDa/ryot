@@ -13,7 +13,7 @@ import {
 } from "@ryot/contract/oauth";
 import { Context, Data, Effect, Layer } from "effect";
 
-import { normalizeServerOrigin, type ServerOrigin } from "#/api/origin";
+import { decodeServerOrigin, type ServerOrigin } from "#/api/origin";
 import { PublicApi } from "#/api/public";
 import { authDestination } from "#/modules/auth/flow";
 import { OAuthStorage } from "#/modules/auth/oauth-storage";
@@ -83,11 +83,13 @@ export class OAuthLauncher extends Context.Service<OAuthLauncher>()("OAuthLaunch
 		const serverService = yield* ServerService;
 		const prepare = Effect.fn("OAuthLauncher.prepare")(function* (redirectIntent: unknown) {
 			const isNative = isNativePlatform();
-			const selected = isNative ? yield* serverService.selected : window.location.origin;
+			const selected = isNative
+				? yield* serverService.selected
+				: decodeServerOrigin(window.location.origin);
 			if (selected === null) {
 				return { _tag: "MissingServer" } as const;
 			}
-			const serverOrigin = normalizeServerOrigin(selected);
+			const serverOrigin = selected;
 			const session = yield* auth.settledSession(serverOrigin);
 			if (session.status === "authenticated") {
 				return { _tag: "Authenticated", destination: authDestination(redirectIntent) } as const;

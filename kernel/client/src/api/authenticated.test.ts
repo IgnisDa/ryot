@@ -3,7 +3,10 @@ import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { makeAuthenticatedApi } from "#/api/authenticated";
+import { decodeServerOrigin } from "#/api/origin";
 import type { OAuthTokenService } from "#/modules/auth/token-service";
+
+const scope = { serverUrl: decodeServerOrigin("https://ryot.example"), userId: "user-1" };
 
 const tokens = (
 	accessToken: OAuthTokenService["Service"]["accessToken"],
@@ -30,7 +33,7 @@ describe("authenticated API", () => {
 
 		await expect(
 			Effect.runPromise(
-				api.run({ serverUrl: "https://ryot.example", userId: "user-1" }, () => {
+				api.run(scope, () => {
 					attempts += 1;
 					return attempts === 1
 						? Effect.fail(new AuthUnauthorized({ reason: { code: "authentication-required" } }))
@@ -51,7 +54,7 @@ describe("authenticated API", () => {
 
 		await expect(
 			Effect.runPromise(
-				api.run({ serverUrl: "https://ryot.example", userId: "user-1" }, () => {
+				api.run(scope, () => {
 					attempts += 1;
 					return Effect.fail(new TypeError("offline"));
 				}),

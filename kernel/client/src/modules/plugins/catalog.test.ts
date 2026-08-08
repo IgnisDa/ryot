@@ -8,12 +8,13 @@ import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
+import { decodeServerOrigin } from "#/api/origin";
 import { createKernelRyotClient } from "#/api/ryot-client";
 import type { ApiScope } from "#/api/scope";
 import { PluginCatalogError, PluginCatalogService } from "#/modules/plugins/catalog";
 import type { ThemeStore } from "#/modules/theme/store";
 
-const scope: ApiScope = { userId: "user-1", serverUrl: "https://ryot.example" };
+const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 const themeSnapshot = Schema.decodeUnknownSync(PluginThemeSnapshot)({
 	resolvedMode: "light",
 	tokens: Object.fromEntries(REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, name])),

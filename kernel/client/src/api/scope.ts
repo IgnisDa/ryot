@@ -1,16 +1,10 @@
-import { normalizeServerOrigin } from "#/api/origin";
+import type { ServerOrigin } from "#/api/origin";
 
 export type ApiScope = {
 	readonly userId: string;
-	readonly serverUrl: string;
+	readonly serverUrl: ServerOrigin;
 };
 
-export const canonicalApiScope = (scope: ApiScope): ApiScope => ({
-	userId: scope.userId,
-	serverUrl: normalizeServerOrigin(scope.serverUrl),
-});
-
 export const apiScopeKey = (scope: ApiScope) => {
-	const canonical = canonicalApiScope(scope);
-	return JSON.stringify([canonical.serverUrl, canonical.userId]);
+	return JSON.stringify([scope.serverUrl, scope.userId]);
 };

@@ -6,7 +6,7 @@ import { OAUTH_NATIVE_CLIENT_ID, OAUTH_WEB_CLIENT_ID } from "@ryot/contract/oaut
 import { Context, Data, Duration, Effect, Layer, Match, Schedule } from "effect";
 
 import { serverApiUrl } from "#/api/origin";
-import { canonicalApiScope, type ApiScope } from "#/api/scope";
+import type { ApiScope } from "#/api/scope";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { isNativePlatform } from "#/modules/navigation/native-navigation";
 
@@ -126,8 +126,7 @@ const makePluginCatalogEventsService = (
 	reconnect: Schedule.Schedule<unknown>,
 ) => ({
 	subscribe: (scope: ApiScope, onCatalogChanged: () => void) => {
-		const canonical = canonicalApiScope(scope);
-		const url = `${serverApiUrl(canonical.serverUrl)}/plugins/events`;
+		const url = `${serverApiUrl(scope.serverUrl)}/plugins/events`;
 		const onEvent = (type: string) => {
 			if (type === PLUGIN_CATALOG_CONNECTED_EVENT || type === PLUGIN_CATALOG_INVALIDATED_EVENT) {
 				onCatalogChanged();
@@ -136,7 +135,7 @@ const makePluginCatalogEventsService = (
 
 		return Effect.gen(function* () {
 			const token = yield* tokens.accessToken(
-				canonical.serverUrl,
+				scope.serverUrl,
 				isNativePlatform() ? OAUTH_NATIVE_CLIENT_ID : OAUTH_WEB_CLIENT_ID,
 			);
 			yield* Effect.tryPromise({

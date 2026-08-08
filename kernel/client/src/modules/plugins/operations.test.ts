@@ -11,10 +11,11 @@ import { PluginSlug } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
+import { decodeServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import { PluginOperationsService } from "#/modules/plugins/operations";
 
-const scope: ApiScope = { userId: "user-1", serverUrl: "https://ryot.example" };
+const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 
 type InvokeRequest = {
 	readonly payload: ContractPayload<"plugins", "invoke">;

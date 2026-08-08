@@ -4,7 +4,7 @@ import { OAuthCallbackQuery } from "@ryot/contract/oauth";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect, Schema } from "effect";
 
-import { normalizeServerOrigin } from "#/api/origin";
+import { decodeServerOrigin } from "#/api/origin";
 import { selectOAuthClient } from "#/modules/auth/oauth-launcher";
 import { AuthService } from "#/modules/auth/service";
 import { AuthStatus } from "#/modules/auth/status";
@@ -33,11 +33,11 @@ export const Route = createFileRoute("/auth_/callback")({
 				const isNative = isNativePlatform();
 				const selected = isNative
 					? yield* Effect.flatMap(ServerService, (service) => service.selected)
-					: window.location.origin;
+					: decodeServerOrigin(window.location.origin);
 				if (selected === null) {
 					return yield* new OAuthTokenError({ reason: "missing-authorization" });
 				}
-				const origin = normalizeServerOrigin(selected);
+				const origin = selected;
 				const applicationId = isNative
 					? yield* Effect.tryPromise(() => App.getInfo().then((info) => info.id))
 					: undefined;

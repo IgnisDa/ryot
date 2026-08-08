@@ -9,10 +9,11 @@ import { Effect, Layer, ManagedRuntime, Result, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
+import { decodeServerOrigin } from "#/api/origin";
 import { createKernelRyotClient } from "#/api/ryot-client";
 import type { ThemeStore } from "#/modules/theme/store";
 
-const scope = { userId: "user-1", serverUrl: "https://ryot.example" };
+const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 const document = { queries: {}, output: {} } as PreparedRecipe<unknown>["document"];
 const recipe = { document, decode: Result.succeed };
 const themeSnapshot = Schema.decodeUnknownSync(PluginThemeSnapshot)({

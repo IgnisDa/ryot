@@ -2,7 +2,7 @@ import { redirect } from "@tanstack/react-router";
 import { Effect } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";
-import { canonicalApiScope, type ApiScope } from "#/api/scope";
+import type { ApiScope } from "#/api/scope";
 import { AuthService, toAuthSessionState } from "#/modules/auth/service";
 import { sanitizeRedirect, type SafeRedirect } from "#/modules/server/redirect";
 import { ServerService } from "#/modules/server/service";
@@ -67,7 +67,7 @@ export function decideProtectedRoute(
 	}
 	return {
 		action: "allow",
-		scope: canonicalApiScope({ serverUrl: server, userId: session.userId }),
+		scope: { serverUrl: server, userId: session.userId },
 	};
 }
 
