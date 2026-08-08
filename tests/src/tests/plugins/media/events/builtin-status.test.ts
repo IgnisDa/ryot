@@ -45,7 +45,7 @@ describe("Events built-in status schemas", () => {
 	);
 
 	it.live(
-		"creates built-in progress events with rounded values and no completion side effects",
+		"creates built-in progress events with normalized values and no completion side effects",
 		() =>
 			Effect.gen(function* () {
 				const { client: apiClient } = yield* createAuthenticatedClient();

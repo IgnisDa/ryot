@@ -21,6 +21,19 @@ const enumArrayField = (choices: unknown, defaultValue?: unknown) => ({
 	description: "Status values",
 });
 
+const numberField = (extra: Record<string, unknown>) => ({
+	...extra,
+	type: "number",
+	label: "Progress",
+	description: "Progress value",
+});
+
+describe("AppSchema number normalization", () => {
+	it("requires a round definition", () => {
+		expect(() => decodeSchema({ fields: { progress: numberField({ normalize: {} }) } })).toThrow();
+	});
+});
+
 describe("AppSchema enum choices", () => {
 	it("accepts labeled static and dynamic choices", () => {
 		expect(

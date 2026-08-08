@@ -194,7 +194,7 @@ describe("GET /event-schemas", () => {
 						progressPercent: {
 							type: "number",
 							label: "Progress Percent",
-							transform: { round: { mode: "half_up", scale: 2 } },
+							normalize: { round: { scale: 2 } },
 							validation: { maximum: 100, required: true, exclusiveMinimum: 0 },
 							description: "Percentage of the media completed so far (0 to 100)",
 						},
@@ -274,7 +274,7 @@ describe("GET /event-schemas", () => {
 						progressPercent: {
 							type: "number",
 							label: "Progress Percent",
-							transform: { round: { mode: "half_up", scale: 2 } },
+							normalize: { round: { scale: 2 } },
 							validation: { maximum: 100, required: true, exclusiveMinimum: 0 },
 							description: "Percentage of the media completed so far (0 to 100)",
 						},
@@ -294,7 +294,7 @@ describe("GET /event-schemas", () => {
 						progressPercent: {
 							type: "number",
 							label: "Progress Percent",
-							transform: { round: { mode: "half_up", scale: 2 } },
+							normalize: { round: { scale: 2 } },
 							validation: { maximum: 100, required: true, exclusiveMinimum: 0 },
 							description: "Percentage of the media completed so far (0 to 100)",
 						},
@@ -390,7 +390,7 @@ describe("GET /event-schemas", () => {
 					progressPercent: {
 						type: "number",
 						label: "Progress Percent",
-						transform: { round: { mode: "half_up", scale: 2 } },
+						normalize: { round: { scale: 2 } },
 						validation: { maximum: 100, required: true, exclusiveMinimum: 0 },
 						description: "Percentage of the media completed so far (0 to 100)",
 					},
