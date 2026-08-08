@@ -18,6 +18,7 @@ const showRows = (items: readonly Record<string, unknown>[]) =>
 	rowsResult(items, { hasMore: false, limit: 1, nextCursor: null });
 
 const ACTIVITY_RECIPE = showActivityRecipe({
+	seasonLimit: 50,
 	entityId: "show-1",
 	parentEventLimit: 60,
 	episodeEventLimit: 100,
@@ -44,7 +45,9 @@ const PARENT_EVENT_ROW = {
 	rating: null,
 	timeSpent: null,
 	isSpoiler: null,
+	startedOn: null,
 	consumedOn: null,
+	completedOn: null,
 	id: "parent-complete",
 	eventSchemaSlug: "complete",
 	createdAt: "2024-02-02T10:00:00.000Z",
@@ -58,6 +61,7 @@ const EPISODE_EVENT_ROW = {
 	timeSpent: null,
 	isSpoiler: null,
 	episodeNumber: 1,
+	episodeRuntime: 66,
 	id: "episode-complete",
 	consumedOn: "Jellyfin",
 	episodeId: "episode-1",
@@ -65,7 +69,6 @@ const EPISODE_EVENT_ROW = {
 	eventSchemaSlug: "complete",
 	createdAt: "2024-02-01T10:00:00.000Z",
 	occurredAt: "2024-02-01T09:00:00.000Z",
-	episodeImages: [{ type: "remote", url: "https://images.test/e1.jpg", purpose: "still" }],
 };
 
 const EPISODE_PROGRESS_ROW = {
@@ -73,7 +76,7 @@ const EPISODE_PROGRESS_ROW = {
 	consumedOn: null,
 	episodeNumber: 3,
 	progressPercent: 40,
-	episodeImages: null,
+	episodeRuntime: null,
 	id: "special-progress",
 	episodeId: "special-3",
 	episodeName: "Behind the scenes",
@@ -90,8 +93,19 @@ const COLLECTION_EVENT_ROW = {
 	eventSchemaSlug: "add-entity-to-collection",
 };
 
+const SEASON_ROW = {
+	id: "season-1",
+	seasonNumber: 1,
+	episodeTotal: 4,
+	watchedTotal: 1,
+	watchedMinutes: 66,
+	watchedUnknownRuntime: 0,
+};
+
 const decodeActivity = (
 	input: {
+		readonly watchCount?: number;
+		readonly seasons?: readonly Record<string, unknown>[];
 		readonly parentEvents?: readonly Record<string, unknown>[];
 		readonly episodeEvents?: readonly Record<string, unknown>[];
 		readonly episodeProgress?: readonly Record<string, unknown>[];
@@ -100,6 +114,8 @@ const decodeActivity = (
 ) =>
 	ACTIVITY_RECIPE.decode({
 		data: {
+			totals: activityRows([{ watchCount: input.watchCount ?? 0 }]),
+			seasons: activityRows(input.seasons ?? [SEASON_ROW]),
 			parentEvents: activityRows(input.parentEvents ?? []),
 			episodeEvents: activityRows(input.episodeEvents ?? []),
 			episodeProgress: progressRows(input.episodeProgress ?? []),
@@ -782,6 +798,8 @@ describe("media query recipes", () => {
 			"timeSpent",
 			"isSpoiler",
 			"consumedOn",
+			"startedOn",
+			"completedOn",
 			"eventSchemaSlug",
 		]);
 		expect(episodeEvents.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual(
@@ -796,15 +814,42 @@ describe("media query recipes", () => {
 				"consumedOn",
 				"episodeId",
 				"episodeName",
-				"episodeImages",
 				"seasonNumber",
 				"episodeNumber",
+				"episodeRuntime",
 				"eventSchemaSlug",
 			],
 		);
 		expect(
 			episodeProgress.output.fields.map((field) => ("key" in field ? field.key : null)),
-		).toEqual(["episodeId", "episodeName", "episodeImages", "seasonNumber", "episodeNumber"]);
+		).toEqual(["episodeId", "episodeName", "seasonNumber", "episodeNumber", "episodeRuntime"]);
+	});
+
+	it("counts every season's episodes for coverage, specials included", () => {
+		const seasons = ACTIVITY_RECIPE.document.queries["seasons"];
+		if (seasons?.output.type !== "rows" || seasons.where?.type !== "and") {
+			throw new Error("Expected filtered season rows query");
+		}
+
+		expect(seasons.output.pagination).toMatchObject({ limit: 50 });
+		expect(seasons.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
+			"id",
+			"seasonNumber",
+			"episodeTotal",
+			"watchedTotal",
+			"watchedMinutes",
+			"watchedUnknownRuntime",
+		]);
+		expect(seasons.where.predicates[1]).toMatchObject({
+			type: "comparison",
+			right: { type: "literal", value: "show-1" },
+			left: { field: "sourceEntityId", tableAlias: "coverageShowSeason" },
+		});
+		expect(
+			seasons.where.predicates.some(
+				(predicate) => predicate.type === "comparison" && predicate.operator === "gt",
+			),
+		).toBe(false);
 	});
 
 	it("scopes parent activity to the show entity and its lifecycle events", () => {
@@ -964,7 +1009,7 @@ describe("media query recipes", () => {
 						progressPercent: 40,
 						eventSchemaSlug: "progress",
 						episode: {
-							images: null,
+							runtime: null,
 							id: "special-3",
 							seasonNumber: 0,
 							episodeNumber: 3,
@@ -982,7 +1027,7 @@ describe("media query recipes", () => {
 				parentEvents: [{ ...PARENT_EVENT_ROW, eventSchemaSlug: "review" }],
 				episodeProgress: [{ ...EPISODE_PROGRESS_ROW, progressPercent: null }],
 				episodeEvents: [
-					{ ...EPISODE_EVENT_ROW, consumedOn: null, episodeImages: null, timeSpent: null },
+					{ ...EPISODE_EVENT_ROW, consumedOn: null, timeSpent: null, episodeRuntime: null },
 				],
 			}),
 		).toMatchObject({
@@ -990,7 +1035,7 @@ describe("media query recipes", () => {
 				events: [
 					{ progressPercent: null, consumedOn: null },
 					{ text: null, rating: null, isSpoiler: null, eventSchemaSlug: "review" },
-					{ timeSpent: null, consumedOn: null, episode: { images: null } },
+					{ timeSpent: null, consumedOn: null, episode: { runtime: null } },
 				],
 			},
 		});
@@ -1030,6 +1075,8 @@ describe("media query recipes", () => {
 				data: {
 					episodeProgress: activityRows([]),
 					collectionEvents: activityRows([]),
+					seasons: activityRows([SEASON_ROW]),
+					totals: activityRows([{ watchCount: 1 }]),
 					parentEvents: activityRows([PARENT_EVENT_ROW]),
 					episodeEvents: rowsResult([EPISODE_EVENT_ROW], {
 						limit: 100,
@@ -1088,6 +1135,8 @@ describe("media query recipes", () => {
 					parentEvents: activityRows([]),
 					episodeEvents: activityRows([]),
 					episodeProgress: progressRows([]),
+					seasons: activityRows([SEASON_ROW]),
+					totals: activityRows([{ watchCount: 1 }]),
 					collectionEvents: rowsResult([COLLECTION_EVENT_ROW], {
 						limit: 40,
 						hasMore: true,
@@ -1115,11 +1164,22 @@ describe("media query recipes", () => {
 		).toBe("Failure");
 	});
 
-	it("rejects episode activity whose image locators are malformed", () => {
+	it("counts a season's episodes independently of the events that were fetched", () => {
 		expect(
 			decodeActivity({
-				episodeEvents: [{ ...EPISODE_EVENT_ROW, episodeImages: [{ type: "ftp", url: 12 }] }],
-			})._tag,
-		).toBe("Failure");
+				episodeEvents: [EPISODE_EVENT_ROW],
+				seasons: [
+					{ ...SEASON_ROW, id: "season-0", seasonNumber: 0, episodeTotal: 2 },
+					{ ...SEASON_ROW, id: "season-1", seasonNumber: 1, episodeTotal: 6 },
+				],
+			}),
+		).toMatchObject({
+			success: {
+				seasons: [
+					{ seasonNumber: 0, episodeTotal: 2 },
+					{ seasonNumber: 1, episodeTotal: 6 },
+				],
+			},
+		});
 	});
 });
