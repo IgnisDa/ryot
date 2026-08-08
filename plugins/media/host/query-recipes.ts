@@ -13,6 +13,7 @@ import {
 	join,
 	jsonPath,
 	literal,
+	maximum,
 	measureDescending,
 	not,
 	selectedAggregate,
@@ -304,6 +305,70 @@ export const trendingMediaRecipe = defineRecipe(
 	},
 );
 
+export const trendingLatestMediaRecipe = defineRecipe(
+	(input: {
+		readonly entitySchemaSlug: string;
+		readonly after?: string | undefined;
+		readonly limit?: number | undefined;
+	}) => {
+		const source = table("entity", "sourceEntity");
+		const target = table("entity", "targetEntity");
+		const relationship = table("relationship", "relationship");
+		const rank = castNumber(jsonPath(column(relationship, "properties"), "rank"));
+		const fetchedAt = castDate(jsonPath(column(relationship, "properties"), "fetchedAt"));
+		const latestSource = table("entity", "latestSourceEntity");
+		const latestTarget = table("entity", "latestTargetEntity");
+		const latestRelationship = table("relationship", "latestRelationship");
+		const latestFetchedAt = castDate(
+			jsonPath(column(latestRelationship, "properties"), "fetchedAt"),
+		);
+		const latestBatch = maximum(latestRelationship, latestFetchedAt, {
+			where: and(
+				eq(column(latestRelationship, "relationshipSchemaSlug"), literal("media-trending")),
+				entitySchema(latestSource, input.entitySchemaSlug),
+				entitySchema(latestTarget, input.entitySchemaSlug),
+			),
+			joins: [
+				join(
+					"inner",
+					latestSource,
+					eq(column(latestRelationship, "sourceEntityId"), column(latestSource, "id")),
+				),
+				join(
+					"inner",
+					latestTarget,
+					eq(column(latestRelationship, "targetEntityId"), column(latestTarget, "id")),
+				),
+			],
+		});
+		return {
+			map: ({ trending }) => Result.succeed(trending),
+			queries: {
+				trending: selectedRows(relationship, {
+					after: input.after,
+					limit: input.limit,
+					orderBy: [ascending(rank), descending(column(target, "updatedAt"))],
+					selection: {
+						...entityIdentitySelection(target),
+						rank: selectedField(rank, Schema.Number),
+						fetchedAt: selectedField(fetchedAt, Schema.String),
+					},
+					joins: [
+						join("inner", source, eq(column(relationship, "sourceEntityId"), column(source, "id"))),
+						join("inner", target, eq(column(relationship, "targetEntityId"), column(target, "id"))),
+					],
+					where: and(
+						eq(column(relationship, "relationshipSchemaSlug"), literal("media-trending")),
+						entitySchema(source, input.entitySchemaSlug),
+						entitySchema(target, input.entitySchemaSlug),
+						eq(fetchedAt, latestBatch),
+					),
+				}),
+			},
+		};
+	},
+);
+
 export const defaultMediaSavedViewRecipe = (input: {
 	readonly after?: string | undefined;
 	readonly limit?: number | undefined;
@@ -343,6 +408,7 @@ export const defaultMediaSavedViewRecipe = (input: {
 
 export type PodcastDetailResult = Recipe.Success<typeof podcastDetailRecipe>;
 export type TrendingMediaResult = Recipe.Success<typeof trendingMediaRecipe>;
+export type TrendingLatestMediaResult = Recipe.Success<typeof trendingLatestMediaRecipe>;
 export type DefaultMediaSavedViewResult = Recipe.Success<typeof defaultMediaSavedViewRecipe>;
 export type ShowsByLifecycleStateResult = Recipe.Success<typeof showsByLifecycleStateRecipe>;
 export type PodcastsByLifecycleStateResult = Recipe.Success<typeof podcastsByLifecycleStateRecipe>;
