@@ -12,10 +12,10 @@ import {
 	Scripts,
 	ScrollRestoration,
 	useLocation,
-	useRouteError,
 } from "react-router";
 import { $path } from "safe-routes";
 import { withFragment } from "ufo";
+import type { Route } from "./+types/root";
 import { Button } from "./lib/components/ui/button";
 import { Toaster } from "./lib/components/ui/sonner";
 import { logoUrl, queryClient, startUrl, useConfigData } from "./lib/general";
@@ -252,15 +252,38 @@ export default function App() {
 	);
 }
 
-export function ErrorBoundary() {
-	const error = useRouteError() as Error;
-	const message = isRouteErrorResponse(error)
-		? error.data.message
-		: error.message;
+export function ErrorBoundary(props: Route.ErrorBoundaryProps) {
+	if (isRouteErrorResponse(props.error) && props.error.status === 404) {
+		return (
+			<div className="flex min-h-dvh items-center justify-center px-4">
+				<div className="max-w-lg text-center">
+					<p className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-primary">
+						404
+					</p>
+					<h1 className="mb-4 text-4xl font-bold text-foreground sm:text-5xl">
+						Page not found
+					</h1>
+					<p className="mb-8 text-muted-foreground">
+						The page you are looking for does not exist or has moved.
+					</p>
+					<Link to={$path("/")}>
+						<Button>Return to Ryot</Button>
+					</Link>
+				</div>
+			</div>
+		);
+	}
+
+	const message =
+		props.error instanceof Error
+			? props.error.message
+			: "An unexpected error occurred.";
 
 	return (
-		<div>
-			<p>We encountered an error: {message}</p>
+		<div className="flex min-h-dvh items-center justify-center px-4">
+			<p className="text-center text-muted-foreground">
+				We encountered an error: {message}
+			</p>
 		</div>
 	);
 }
