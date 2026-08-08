@@ -7,4 +7,3 @@ export * from "./notifications";
 export * from "./translations";
 export * from "./views";
 export * from "./auth";
-export * from "./relations";

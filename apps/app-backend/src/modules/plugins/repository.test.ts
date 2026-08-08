@@ -453,8 +453,8 @@ it.effect("lists persisted source-zero and pinned-plugin script hashes as live",
 		expect(
 			yield* repository.listPersistedLivenessContentHashes(new Set(["pinned-plugin"])),
 		).toEqual(["kernel-history", "plugin-history"]);
-		expect(statements[0]?.sql).toContain('"sandbox_script"."pluginSlug" is null');
-		expect(statements[0]?.sql).toContain('"sandbox_script"."pluginSlug" in');
+		expect(statements[0]?.sql).toContain('"sandbox_script"."plugin_slug" is null');
+		expect(statements[0]?.sql).toContain('"sandbox_script"."plugin_slug" in');
 		expect(statements[0]?.params).toEqual(["pinned-plugin"]);
 	}).pipe(Effect.provide(layer));
 });

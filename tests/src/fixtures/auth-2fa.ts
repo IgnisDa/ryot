@@ -72,19 +72,24 @@ export async function enableTwoFactorForSession(input: {
 		},
 	});
 	const { data: enableData, error: enableError } = await authClient.twoFactor.enable({
+		method: "totp",
 		password: input.password,
 		issuer: input.issuer ?? "Ryot",
 	});
 	if (enableError) {
-		throw new Error(`Two-factor enable failed: ${enableError.message}`);
+		throw new Error(`Two-factor enable failed: ${JSON.stringify(enableError)}`);
+	}
+	const enabled = requirePresent(enableData, "Two-factor enable returned no data");
+	if (enabled.method !== "totp") {
+		throw new Error(`Two-factor enable returned unexpected method: ${enabled.method}`);
 	}
 	const totpURI = requireString(
-		requirePresent(enableData, "Two-factor enable returned no data").totpURI,
+		enabled.totpURI,
 		"Two-factor enable succeeded but no TOTP URI was returned",
 	);
 	const totpSecret = parseTotpSecret(totpURI);
 	const totpCodes = generateTotpWindowCodes(totpSecret);
-	const backupCodes = enableData.backupCodes;
+	const backupCodes = enabled.backupCodes;
 
 	requireNonEmptyArray(
 		backupCodes,
