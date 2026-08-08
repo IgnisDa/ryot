@@ -15,6 +15,7 @@ import {
 	mapShowOverview,
 	showCharacterLabel,
 	showCompanyAsset,
+	showOverviewEntityIds,
 	showOverviewError,
 	showOverviewIsEmpty,
 	showOverviewManagedAssets,
@@ -56,6 +57,18 @@ describe("show overview state", () => {
 				recommendations: { items: [{ id: "show-2", name: "Bad Girls" }] },
 			},
 		});
+	});
+
+	it("extracts displayed related entity IDs by overview group", () => {
+		expect(showOverviewEntityIds(decodeShowOverview())).toEqual([
+			"person-1",
+			"company-1",
+			"show-2",
+		]);
+	});
+
+	it("returns no related entity IDs for an empty overview", () => {
+		expect(showOverviewEntityIds(emptyShowOverview())).toEqual([]);
 	});
 
 	it("reports a show with no credits, companies or suggestions as empty", () => {
