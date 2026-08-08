@@ -95,18 +95,6 @@ export class ProviderImportAdmissionRepository extends Context.Service<ProviderI
 				return row !== undefined;
 			});
 
-			const removeRunning = Effect.fn("ProviderImportAdmissionRepository.removeRunning")(function* (
-				ids: ReadonlyArray<string>,
-			) {
-				if (ids.length === 0) {
-					return;
-				}
-				const db = yield* Database;
-				yield* mapDatabaseErrors(
-					db.delete(table).where(and(inArray(table.id, [...ids]), eq(table.status, "running"))),
-				);
-			});
-
 			/** Deletes the row only while it is still queued, so an admitted import is never lost. */
 			const cancelQueued = Effect.fn("ProviderImportAdmissionRepository.cancelQueued")(
 				function* (input: { id: string; userId: UserId }) {
@@ -128,15 +116,28 @@ export class ProviderImportAdmissionRepository extends Context.Service<ProviderI
 			);
 
 			/**
-			 * Promotes queued rows while fewer than `limit` run, under one installation-wide lock. The
-			 * next row belongs to the user with the fewest running imports, oldest request first, so a
-			 * large batch never starves another user's request.
+			 * Removes the `finished` imports and promotes queued rows while fewer than `limit` run, under
+			 * one installation-wide lock. The next row belongs to the user with the fewest imports running
+			 * or finished in this pass, oldest request first, so a finishing import hands its slot to
+			 * another user rather than its own next request.
 			 */
-			const admit = Effect.fn("ProviderImportAdmissionRepository.admit")(function* (limit: number) {
+			const admit = Effect.fn("ProviderImportAdmissionRepository.admit")(function* (input: {
+				limit: number;
+				finished: ReadonlyArray<string>;
+			}) {
 				const db = yield* Database;
 				yield* mapDatabaseErrors(
 					db.execute(sql`select pg_advisory_xact_lock(hashtext(${ADMISSION_LOCK_KEY}))`),
 				);
+				const served =
+					input.finished.length === 0
+						? []
+						: yield* mapDatabaseErrors(
+								db
+									.delete(table)
+									.where(and(inArray(table.id, [...input.finished]), eq(table.status, "running")))
+									.returning({ userId: table.userId }),
+							);
 				return yield* mapDatabaseErrors(
 					db.execute<{ id: string; payload: unknown }>(
 						sql`with running as (
@@ -144,14 +145,22 @@ export class ProviderImportAdmissionRepository extends Context.Service<ProviderI
 							from provider_import_admission
 							where status = 'running'
 							group by user_id
+						), served as (
+							select user_id, count(*)::int as finished
+							from unnest(array[${sql.join(
+								served.map(({ userId }) => sql`${userId}`),
+								sql`, `,
+							)}]::text[]) as user_id
+							group by user_id
 						), slots as (
-							select greatest(${limit} - coalesce(sum(active), 0), 0)::int as available from running
+							select greatest(${input.limit} - coalesce(sum(active), 0), 0)::int as available from running
 						), ranked as (
 							select q.id, q.created_at,
-								coalesce(r.active, 0)
+								coalesce(r.active, 0) + coalesce(s.finished, 0)
 									+ row_number() over (partition by q.user_id order by q.created_at, q.id) as turn
 							from provider_import_admission q
 							left join running r on r.user_id = q.user_id
+							left join served s on s.user_id = q.user_id
 							where q.status = 'queued'
 						), chosen as (
 							select id from ranked
@@ -168,7 +177,7 @@ export class ProviderImportAdmissionRepository extends Context.Service<ProviderI
 				);
 			});
 
-			return { find, admit, enqueue, hasPending, listRunning, cancelQueued, removeRunning };
+			return { find, admit, enqueue, hasPending, listRunning, cancelQueued };
 		}),
 	},
 ) {

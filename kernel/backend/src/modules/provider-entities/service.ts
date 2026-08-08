@@ -105,12 +105,6 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 						]),
 					}),
 				};
-				if (!admission.enabled) {
-					yield* engine
-						.execute(EntityImportWorkflow, { executionId, discard: true, payload: workflowPayload })
-						.pipe(Effect.orDie);
-					return { jobId: createWorkflowJobId(jobIdSecret, executionId, user.id) };
-				}
 				const admitted = yield* admission.submit({ userId: user.id, payload: workflowPayload });
 				if (admitted.status === "backlog-full") {
 					return yield* new ProviderEntityImportBacklogFull({
@@ -145,15 +139,13 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 				jobId: string,
 			) {
 				const executionId = yield* resolveJob(user, jobId);
-				const admitted = admission.enabled
-					? yield* admission.status({ id: executionId, userId: user.id })
-					: null;
+				const admitted = yield* admission.status({ id: executionId, userId: user.id });
 				if (admitted === "queued") {
 					return { status: "queued" } satisfies ImportEntityRunResult;
 				}
 				const result = Option.getOrUndefined(yield* engine.poll(EntityImportWorkflow, executionId));
 				// A signed job with neither a ledger row nor a workflow was cancelled before admission.
-				if (result === undefined && admission.enabled && admitted === null) {
+				if (result === undefined && admitted === null) {
 					return { status: "cancelled" } satisfies ImportEntityRunResult;
 				}
 				return toEntityImportRunResult(result);
@@ -172,7 +164,5 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make).pipe(
-		Layer.provide(ProviderImportAdmission.layer),
-	);
+	static readonly layer = Layer.effect(this, this.make);
 }

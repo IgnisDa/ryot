@@ -15,6 +15,7 @@ import { HttpApiBuilder, HttpApiError, HttpApiScalar } from "effect/unstable/htt
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { logHttpResponseAtRoot } from "#lib/infrastructure/http-response-logger";
 import { RequestLogUrl } from "#lib/infrastructure/request-log-url";
+import { readCgroupSample } from "#lib/infrastructure/sandbox-runtime/process-sampling";
 import { AdminMiddlewareLive, AuthMiddlewareLive, AuthService } from "#modules/auth/service";
 import { AutomationHistoryRoutesLive } from "#modules/automations/history-routes";
 import { AutomationsRoutesLive } from "#modules/automations/routes";
@@ -206,6 +207,12 @@ const ListeningLive = Layer.effectDiscard(
 		yield* Effect.logInfo("app backend listening").pipe(
 			Effect.annotateLogs({ url: HttpServer.formatAddress(server.address) }),
 		);
+		const cgroup = yield* readCgroupSample();
+		if (cgroup?.memoryMaxBytes === null) {
+			yield* Effect.logWarning(
+				"no container memory limit: sandbox memory can exhaust the host that PostgreSQL and Redis share; set one so the kernel terminates a sandbox worker instead",
+			);
+		}
 		return yield* Effect.never;
 	}),
 );

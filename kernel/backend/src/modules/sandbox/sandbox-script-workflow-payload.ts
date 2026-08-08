@@ -16,8 +16,6 @@ export const SandboxScriptWorkflowPayload = Schema.Struct({
 	startedAt: Schema.optional(Schema.String),
 	grants: Schema.optional(SandboxExecutionGrants),
 	resolutionMode: Schema.Literals(["active", "exact"]),
-	/** Interactive replays run on the reserved worker; child workflows always run in the background. */
-	lane: Schema.optional(Schema.Literal("interactive")),
 	pluginRevision: Schema.optional(SandboxPluginRevision),
 	resultMode: Schema.optional(Schema.Literal("execution")),
 });
