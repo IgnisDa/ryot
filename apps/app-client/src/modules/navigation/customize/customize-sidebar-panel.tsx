@@ -77,7 +77,7 @@ export function CustomizeSidebarPanel(props: {
 						<Text
 							className={clsx(
 								"font-ui-medium text-sm",
-								customize.isDirty && !customize.isSaving ? "text-accent-text" : "text-text-subtle",
+								customize.isDirty && !customize.isSaving ? "text-accent-ink" : "text-text-subtle",
 							)}
 						>
 							{customize.isSaving ? "Saving..." : "Save changes"}
