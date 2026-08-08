@@ -24,6 +24,12 @@ type CompileClientStylesInput = {
 	readonly stylesheet: StylesheetSource | undefined;
 };
 
+const clientBaseStylesheet = `@layer base {
+	body {
+		font-family: var(--font-family-ui);
+	}
+}`;
+
 const directoryOf = (path: string) => path.slice(0, path.lastIndexOf("/"));
 
 const resolveClientStylesheet = (
@@ -184,7 +190,8 @@ export const compileClientStyles = ({
 				));
 			const rootStylesheet =
 				stylesheet === undefined ? "" : rewrite(stylesheet.path, stylesheet.content);
-			const compiled = await compile(`${fontStylesheet}\n${rootStylesheet}\n${themeStylesheet}`, {
+			const inputStylesheet = `${fontStylesheet}\n${clientBaseStylesheet}\n${rootStylesheet}\n${themeStylesheet}`;
+			const compiled = await compile(inputStylesheet, {
 				base: stylesheet === undefined ? "client" : directoryOf(stylesheet.path),
 				loadStylesheet: (id, base) =>
 					Promise.resolve().then(() => {
