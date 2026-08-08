@@ -45,7 +45,6 @@ This distinction determines the header:
 | Saved view     | Menu            | Saved-view name             | Search, filter     |
 | Entity details | Back            | Entity name after scrolling | Overflow or edit   |
 | Search mode    | Close/back      | Search field                | Clear or filter    |
-| Selection mode | Close           | Selection count             | Batch actions      |
 
 The leading control should be determined by the **screen’s role**, not by how the user happened to reach it.
 
@@ -76,7 +75,7 @@ The search action on this page should search across the workspace. In Media, it 
 Switching from Media to Fitness should:
 
 1. Close the drawer.
-2. Dismiss search, filters, sheets, and selection states.
+2. Dismiss search, filters, and sheets.
 3. Reset the navigation stack.
 4. Replace the current route with Fitness home.
 
@@ -137,7 +136,9 @@ Back behavior while searching:
 2. Exit search mode.
 3. Only then perform navigation.
 
-The search query, filter state, sort order, and scroll position should belong to the saved view. Opening a movie and returning should restore the exact list state.
+A left-edge swipe while searching should also exit search mode rather than opening the drawer.
+
+The search query, filter state, sort order, and scroll position should belong to the saved view. Opening a movie and returning should restore the exact list state. This state also survives switching between saved views within the same workspace, but is dropped on a workspace switch together with the navigation stack reset.
 
 ### Filter behavior
 
@@ -148,6 +149,8 @@ Filters should open in a bottom sheet rather than expanding inside the header. T
 ```
 
 The sheet can contain filtering, sorting, grouping, and saved-view-specific options. For this task, the sheet will contain only the already existing layout switcher. No changes are needed.
+
+The active-filter count badge is aspirational but should be rendered by default, showing zero when nothing is set. Wiring it to real filter state is out of scope for this task.
 
 ### Add behavior
 
@@ -305,7 +308,7 @@ The central rule is:
 
 ---
 
-Please note that this is a greenfield project so breaking changes are fine. Moving
+Please note that the mobile header is being redesigned from scratch, so breaking changes are fine. Moving
 files around is fine. Please also find attached screenshots for the task. Some notes:
 
 - The search mode displays history. This is not needed.
