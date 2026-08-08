@@ -47,6 +47,10 @@ Current scopes:
 
 Storage clearing removes only Ryot-owned keys. Auth storage is cleared through the auth module.
 
+## Mobile Navigation
+
+Mobile headers are driven by route role: workspace homes and saved views use the drawer menu, while entity details and settings use stack back navigation. Workspace switching resets the stack and in-memory saved-view search and scroll state. Saved-view state is keyed by view inside the active workspace so detail navigation and sibling-view changes can restore the source list.
+
 ## Errors
 
 Feature state maps transport and decoder failures to stable user-facing copy. Internal causes may be logged for diagnosis, but must not be rendered or serialized into the UI.
