@@ -1,12 +1,22 @@
 import { Schema } from "effect";
 
 import { ImportRunId } from "../../schema/brands";
+import { PluginImportSource } from "../plugins/manifest";
 import { jsonValueSchema } from "../sandbox/wire";
 import { importRunStatuses } from "./types";
 
 const ImportRunStatus = Schema.Literals([...importRunStatuses]);
 
 const InputSummary = Schema.Record(Schema.String, Schema.Unknown);
+
+export const ListedImportSource = Schema.Struct({
+	...PluginImportSource.fields,
+	pluginSlug: Schema.String,
+	isStartable: Schema.Boolean,
+	missingPluginConfigKeys: Schema.Array(Schema.String),
+});
+
+export type ListedImportSource = typeof ListedImportSource.Type;
 
 export const ListedImportRun = Schema.Struct({
 	id: ImportRunId,

@@ -27,7 +27,7 @@ export default defineScript({
 		Effect.gen(function* () {
 			if (input.mode === "export") {
 				let totalBytes = 0;
-				const archive = unzipSync(yield* readNamedArtifact("exportFilePath"), {
+				const archive = unzipSync(yield* readNamedArtifact("exportUploadToken"), {
 					filter: (file) => {
 						if (!classifyTraktExportName(file.name)) {
 							return false;

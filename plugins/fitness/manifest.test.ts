@@ -2,7 +2,30 @@ import { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { Schema } from "effect";
 import { assert, expect, it } from "vitest";
 
+import { FitnessCreateImportRunBody } from "./import-sources";
 import { fitnessPlugin } from "./manifest";
+
+const uploadToken = { token: "upload-1", expiresAt: "2026-08-23T00:00:00.000Z" } as const;
+const expectedImportSources = [
+	{
+		slug: "hevy",
+		label: "Hevy export",
+		docsUrl: "https://docs.ryot.io/importing/hevy.html",
+		description: "Import workouts from a Hevy CSV export",
+	},
+	{
+		slug: "strong_app",
+		label: "Strong App export",
+		description: "Import workouts from a Strong CSV export",
+		docsUrl: "https://docs.ryot.io/importing/strong-app.html",
+	},
+	{
+		slug: "open_scale",
+		label: "OpenScale export",
+		docsUrl: "https://docs.ryot.io/importing/open-scale.html",
+		description: "Import measurements from an OpenScale CSV export",
+	},
+] as const;
 
 it("declares the complete fitness-owned source", () => {
 	expect(() => Schema.decodeUnknownSync(PluginManifest)(fitnessPlugin)).not.toThrow();
@@ -46,11 +69,37 @@ it("declares the complete fitness-owned source", () => {
 	expect(fitnessPlugin.scripts).toHaveLength(9);
 	expect(fitnessPlugin.scripts.some(({ slug }) => slug.startsWith("activity."))).toBe(false);
 	expect(fitnessPlugin.workflows).toEqual([{ slug: "import", scriptSlug: "workflow.import" }]);
-	expect(fitnessPlugin.importSources).toEqual([
-		expect.objectContaining({ slug: "hevy", workflowSlug: "import" }),
-		expect.objectContaining({ slug: "strong_app", workflowSlug: "import" }),
-		expect.objectContaining({ slug: "open_scale", workflowSlug: "import" }),
-	]);
+	expect(fitnessPlugin.importSources.map(({ slug }) => slug)).toEqual(
+		expectedImportSources.map(({ slug }) => slug),
+	);
+	for (const [index, source] of fitnessPlugin.importSources.entries()) {
+		const expected = expectedImportSources[index];
+		assert(expected);
+		expect(source).toMatchObject({
+			workflowSlug: "import",
+			description: expected.description,
+			exportHelp: { docsUrl: expected.docsUrl },
+		});
+		expect(source.inputSchema).toEqual({
+			unknownKeys: "strict",
+			fields: {
+				uploadToken: {
+					position: 0,
+					type: "string",
+					label: expected.label,
+					validation: { required: true },
+					description: expect.any(String),
+					format: { kind: "upload", allowedFileExtensions: ["csv"] },
+				},
+			},
+		});
+		expect(() =>
+			Schema.decodeUnknownSync(FitnessCreateImportRunBody)({
+				uploadToken,
+				source: source.slug,
+			}),
+		).not.toThrow();
+	}
 	expect(
 		fitnessPlugin.scripts
 			.filter(({ slug }) => slug.startsWith("import."))
@@ -61,11 +110,7 @@ it("declares the complete fitness-owned source", () => {
 			slug: "import.hevy",
 			capabilities: ["artifact-read", "scratch", "getSystemConfig"],
 		},
-		{
-			kind: "script",
-			slug: "import.open-scale",
-			capabilities: ["artifact-read", "scratch"],
-		},
+		{ kind: "script", slug: "import.open-scale", capabilities: ["artifact-read", "scratch"] },
 		{
 			kind: "script",
 			slug: "import.strong-app",
@@ -95,19 +140,19 @@ it("declares the complete fitness-owned source", () => {
 		),
 	).toEqual([
 		{
+			providerOperation: "details",
 			slug: "exercise.free-exercise-db.details",
 			providerSlug: "exercise.free-exercise-db",
-			providerOperation: "details",
 		},
 		{
+			providerOperation: undefined,
 			slug: "exercise.free-exercise-db.preload",
 			providerSlug: "exercise.free-exercise-db",
-			providerOperation: undefined,
 		},
 		{
+			providerOperation: "search",
 			slug: "exercise.free-exercise-db.search",
 			providerSlug: "exercise.free-exercise-db",
-			providerOperation: "search",
 		},
 	]);
 	expect(fitnessPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "fitness")).toBe(true);

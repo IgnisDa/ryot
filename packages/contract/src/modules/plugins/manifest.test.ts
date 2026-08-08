@@ -1,6 +1,8 @@
 import { Schema } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
+import { ImportsGroup } from "../imports/contract";
+import { ListedImportSource } from "../imports/schemas";
 import { definePlugin, PluginManifest } from "./manifest";
 
 const queryDocument = {
@@ -102,14 +104,27 @@ const manifest = definePlugin({
 	workflows: [{ slug: "refresh.workflow", scriptSlug: "workflow.test" }],
 	importSources: [
 		{
-			lot: "single",
-			input: "file",
 			slug: "import.test",
 			name: "Test import source",
-			allowedFileExtensions: ["json"],
 			workflowSlug: "refresh.workflow",
 			requiredPluginConfigKeys: ["TEST_KEY"],
 			description: "Import test data from a file",
+			exportHelp: {
+				docsUrl: "https://example.com/export",
+				steps: ["Export the data as JSON", "Upload the exported file"],
+			},
+			inputSchema: {
+				unknownKeys: "strict",
+				fields: {
+					file: {
+						label: "File",
+						type: "string",
+						validation: { required: true },
+						description: "Exported JSON file",
+						format: { kind: "upload", allowedFileExtensions: ["json"] },
+					},
+				},
+			},
 		},
 	],
 	integrationProviders: [
@@ -172,34 +187,34 @@ const manifest = definePlugin({
 			entry: "scripts/test.sandbox.ts",
 		},
 		{
+			capabilities: [],
 			kind: "operation",
 			name: "Test operation",
 			slug: "operation.test",
 			requiredPluginConfigKeys: [],
 			requiredSystemConfigKeys: [],
-			capabilities: [],
 			entry: "scripts/operation.sandbox.ts",
 		},
 		{
 			kind: "provider",
-			name: "Test provider details",
-			slug: "provider.test.details",
-			providerSlug: "provider.test",
+			capabilities: [],
 			providerOperation: "details",
 			requiredPluginConfigKeys: [],
 			requiredSystemConfigKeys: [],
-			capabilities: [],
+			name: "Test provider details",
+			slug: "provider.test.details",
+			providerSlug: "provider.test",
 			entry: "scripts/provider-details.sandbox.ts",
 		},
 		{
 			kind: "provider",
-			name: "Test provider search",
-			slug: "provider.test.search",
-			providerSlug: "provider.test",
+			capabilities: [],
 			providerOperation: "search",
 			requiredPluginConfigKeys: [],
 			requiredSystemConfigKeys: [],
-			capabilities: [],
+			name: "Test provider search",
+			slug: "provider.test.search",
+			providerSlug: "provider.test",
 			entry: "scripts/provider-search.sandbox.ts",
 			searchOptionsSchema: {
 				unknownKeys: "strict",
@@ -214,19 +229,19 @@ const manifest = definePlugin({
 		},
 		{
 			kind: "script",
+			capabilities: [],
+			requiredPluginConfigKeys: [],
+			requiredSystemConfigKeys: [],
 			name: "Test provider preload",
 			slug: "provider.test.preload",
 			providerSlug: "provider.test",
-			requiredPluginConfigKeys: [],
-			requiredSystemConfigKeys: [],
-			capabilities: [],
 			entry: "scripts/provider-preload.sandbox.ts",
 		},
 		{
 			kind: "workflow",
+			capabilities: [],
 			name: "Test workflow",
 			slug: "workflow.test",
-			capabilities: [],
 			requiredPluginConfigKeys: [],
 			requiredSystemConfigKeys: [],
 			entry: "scripts/workflow.sandbox.ts",
@@ -277,6 +292,30 @@ describe("definePlugin", () => {
 		expect(Schema.decodeUnknownSync(PluginManifest)(manifest).scripts[3]).toMatchObject({
 			searchOptionsSchema: { unknownKeys: "strict" },
 		});
+	});
+
+	it("exposes listed import sources from the authenticated imports endpoint", () => {
+		const listedSource = {
+			...manifest.importSources[0],
+			pluginSlug: "test",
+			isStartable: false,
+			missingPluginConfigKeys: ["TEST_KEY"],
+		};
+		const endpoint = ImportsGroup.endpoints.listSources;
+
+		expect(endpoint.method).toBe("GET");
+		expect(endpoint.path).toBe("/imports/sources");
+		expect(endpoint.middlewares.size).toBeGreaterThan(0);
+		expect(Schema.decodeUnknownSync(ListedImportSource)(listedSource)).toEqual(listedSource);
+		expect(() =>
+			Schema.decodeUnknownSync(ListedImportSource)({
+				...listedSource,
+				lot: "single",
+				input: "file",
+				inputSchema: undefined,
+				allowedFileExtensions: ["json"],
+			}),
+		).toThrow();
 	});
 
 	it("requires and decodes every saved-view layout", () => {
@@ -1114,87 +1153,146 @@ describe("definePlugin", () => {
 		).toThrow();
 	});
 
-	it("strictly validates import source declarations", () => {
+	it("strictly validates schema-driven import source declarations", () => {
 		const importSource = manifest.importSources[0];
 		const decoded = Schema.decodeUnknownSync(PluginManifest)(manifest);
 		expect(decoded.importSources[0]).toMatchObject({
-			lot: "single",
-			input: "file",
 			slug: "import.test",
 			workflowSlug: "refresh.workflow",
+			exportHelp: { docsUrl: "https://example.com/export" },
+			inputSchema: {
+				unknownKeys: "strict",
+				fields: { file: { format: { kind: "upload", allowedFileExtensions: ["json"] } } },
+			},
 		});
-		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
-				...manifest,
-				importSources: [{ ...importSource, workflowSlug: "missing.workflow" }],
-			}),
-		).toThrow();
-		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
-				...manifest,
-				importSources: [{ ...importSource, workflowSlug: "workflow.test" }],
-			}),
-		).toThrow();
-		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
-				...manifest,
-				importSources: [{ ...importSource, input: "stream" }],
-			}),
-		).toThrow();
+
+		for (const source of [
+			{ ...importSource, workflowSlug: "missing.workflow" },
+			{ ...importSource, workflowSlug: "workflow.test" },
+			{ ...importSource, input: "file" },
+			{ ...importSource, lot: "single" },
+			{ ...importSource, artifacts: [] },
+			{ ...importSource, exportHelp: {} },
+			{ ...importSource, maxFileSizeBytes: 1024 },
+		]) {
+			expect(() =>
+				Schema.decodeUnknownSync(PluginManifest)({ ...manifest, importSources: [source] }),
+			).toThrow();
+		}
+
 		expect(() =>
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
 				importSources: [importSource, { ...importSource }],
 			}),
 		).toThrow();
-		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
-				...manifest,
-				importSources: [{ ...importSource, allowedFileExtensions: [""] }],
-			}),
-		).toThrow();
-		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
-				...manifest,
-				importSources: [{ ...importSource, maxFileSizeBytes: 1024 }],
-			}),
-		).toThrow();
-		const namedSource = {
-			input: "file",
-			lot: "named",
-			slug: "import.named",
-			name: "Named import source",
-			workflowSlug: "refresh.workflow",
-			requiredPluginConfigKeys: [],
-			description: "Import named files",
-			artifacts: [
-				{
-					key: "historyFilePath",
-					required: true,
-					allowedFileExtensions: ["csv"],
-					uploadTokenField: "historyUploadToken",
+	});
+
+	it("requires strict import inputs with resolved choices and only top-level uploads", () => {
+		const importSource = manifest.importSources[0];
+		const nestedUpload = {
+			type: "object",
+			label: "Options",
+			description: "Import options",
+			properties: {
+				file: {
+					label: "File",
+					type: "string",
+					description: "Import file",
+					format: { kind: "upload", allowedFileExtensions: ["json"] },
 				},
-			],
+			},
 		};
-		expect(
-			Schema.decodeUnknownSync(PluginManifest)({ ...manifest, importSources: [namedSource] })
-				.importSources[0],
-		).toEqual(namedSource);
-		for (const artifacts of [
-			[],
-			[namedSource.artifacts[0], namedSource.artifacts[0]],
-			[namedSource.artifacts[0], { ...namedSource.artifacts[0], key: "ratingsFilePath" }],
-			[
-				namedSource.artifacts[0],
-				{ ...namedSource.artifacts[0], uploadTokenField: "ratingsUploadToken" },
-			],
+		const dynamicChoice = {
+			type: "enum",
+			label: "Account",
+			description: "Import account",
+			choices: { kind: "dynamic", source: "accounts" },
+		};
+
+		for (const inputSchema of [
+			{ fields: {} },
+			{ unknownKeys: "strip", fields: {} },
+			{ unknownKeys: "strict", fields: { options: nestedUpload } },
+			{ unknownKeys: "strict", fields: { account: dynamicChoice } },
 		]) {
 			expect(() =>
 				Schema.decodeUnknownSync(PluginManifest)({
 					...manifest,
-					importSources: [{ ...namedSource, artifacts }],
+					importSources: [{ ...importSource, inputSchema }],
 				}),
 			).toThrow();
+		}
+	});
+
+	it("rejects upload fields in non-import plugin schemas", () => {
+		const uploadSchema = {
+			fields: {
+				options: {
+					type: "object",
+					label: "Options",
+					description: "Options",
+					properties: {
+						file: {
+							label: "File",
+							type: "string",
+							description: "File",
+							format: { kind: "upload", allowedFileExtensions: ["json"] },
+						},
+					},
+				},
+			},
+		};
+		const entitySchema = {
+			icon: "box",
+			name: "Entity",
+			slug: "entity",
+			eventSchemas: [],
+			propertiesSchema: { fields: {} },
+		};
+		const eventSchema = { name: "Event", slug: "event", propertiesSchema: uploadSchema };
+		const relationshipSchema = {
+			name: "Relationship",
+			slug: "relationship",
+			sourceEntitySchemaSlug: null,
+			targetEntitySchemaSlug: null,
+			propertiesSchema: uploadSchema,
+		};
+		const integrationProvider = manifest.integrationProviders[0];
+		const searchScript = manifest.scripts[3];
+
+		for (const candidate of [
+			{ ...manifest, entitySchemas: [{ ...entitySchema, propertiesSchema: uploadSchema }] },
+			{ ...manifest, entitySchemas: [{ ...entitySchema, eventSchemas: [eventSchema] }] },
+			{
+				...manifest,
+				signalSchemas: [{ ...manifest.signalSchemas[0], propertiesSchema: uploadSchema }],
+			},
+			{ ...manifest, relationshipSchemas: [relationshipSchema] },
+			{
+				...manifest,
+				configSchema: {
+					unknownKeys: "strict",
+					fields: { file: uploadSchema.fields.options.properties.file },
+				},
+			},
+			{
+				...manifest,
+				integrationProviders: [
+					{ ...integrationProvider, settingsSchema: uploadSchema },
+					manifest.integrationProviders[1],
+				],
+			},
+			{
+				...manifest,
+				scripts: [
+					...manifest.scripts.slice(0, 3),
+					{ ...searchScript, searchOptionsSchema: uploadSchema },
+					...manifest.scripts.slice(4),
+				],
+			},
+		]) {
+			expect(() => Schema.decodeUnknownSync(PluginManifest)(candidate)).toThrow();
 		}
 	});
 });

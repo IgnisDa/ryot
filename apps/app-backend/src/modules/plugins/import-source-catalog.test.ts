@@ -15,6 +15,20 @@ import type { NormalizedPlugin } from "./types";
 const epoch = new Date(0);
 const fixtureScript = fixtureManifest().scripts[0];
 assert(fixtureScript);
+const inputSchema = { fields: {}, unknownKeys: "strict" as const };
+
+const activeWorkflowDatabaseLayer = Layer.succeed(
+	Database,
+	Object.assign(Object.create(null), {
+		select: () => ({
+			from: () => ({
+				where: () => ({
+					limit: () => Effect.succeed([{ id: "active-workflow-script" }]),
+				}),
+			}),
+		}),
+	}),
+);
 
 const pluginWithImportSources = (
 	slug: string,
@@ -64,48 +78,53 @@ const catalogLayer = () => {
 	loader.rebuild([
 		pluginWithImportSources("zebra", [
 			{
-				lot: "single",
-				input: "file",
+				inputSchema,
 				name: "OpenScale",
 				slug: "open-scale",
 				requiredPluginConfigKeys: [],
-				allowedFileExtensions: ["csv"],
 				description: "OpenScale export",
 				workflowSlug: "open-scale-import",
 			},
 		]),
 		pluginWithImportSources("apple", [
 			{
-				lot: "single",
-				input: "file",
+				inputSchema,
 				slug: "netflix",
 				name: "Netflix",
 				description: "Netflix export",
 				workflowSlug: "netflix-import",
-				allowedFileExtensions: ["zip"],
 				requiredPluginConfigKeys: ["tmdbAccessToken"],
 			},
 			{
+				inputSchema,
 				slug: "trakt",
 				name: "Trakt",
-				input: "payload",
 				description: "Trakt account",
 				workflowSlug: "trakt-import",
 				requiredPluginConfigKeys: ["traktClientId"],
 			},
 		]),
 	]);
-	return ImportSourceCatalog.layer.pipe(Layer.provide(Layer.succeed(PluginLoader, { ...loader })));
+	return Layer.merge(
+		ImportSourceCatalog.layer.pipe(Layer.provide(Layer.succeed(PluginLoader, { ...loader }))),
+		activeWorkflowDatabaseLayer,
+	);
 };
 
-it.effect("lists import sources from every plugin ordered by plugin slug then source slug", () =>
+it.effect("lists import sources with workflow status in stable order", () =>
 	Effect.gen(function* () {
 		const catalog = yield* ImportSourceCatalog;
+		const sources = yield* catalog.listWithWorkflowStatus;
 
-		expect(catalog.list().map(({ pluginSlug, slug }) => `${pluginSlug}/${slug}`)).toEqual([
-			"apple/netflix",
-			"apple/trakt",
-			"zebra/open-scale",
+		expect(
+			sources.map(({ source, hasActiveWorkflow }) => ({
+				hasActiveWorkflow,
+				slug: `${source.pluginSlug}/${source.slug}`,
+			})),
+		).toEqual([
+			{ slug: "apple/netflix", hasActiveWorkflow: true },
+			{ slug: "apple/trakt", hasActiveWorkflow: true },
+			{ slug: "zebra/open-scale", hasActiveWorkflow: true },
 		]);
 	}).pipe(Effect.provide(catalogLayer())),
 );
@@ -120,9 +139,9 @@ it.effect(
 			loader.load(
 				pluginWithImportSources("apple", [
 					{
+						inputSchema,
 						slug: "trakt",
 						name: "Trakt",
-						input: "payload",
 						description: "Old source",
 						workflowSlug: "trakt-import",
 						requiredPluginConfigKeys: [],
@@ -137,15 +156,24 @@ it.effect(
 				compiledFormat: 1,
 				pluginSlug: "apple",
 				compiledCode: "compiled",
-				name: "Fixture Automation",
 				slug: "apple.automation",
+				name: "Fixture Automation",
 				contentHash: "script-apple",
 				id: SandboxScriptId.make("old-workflow-script"),
 				metadata: { ...fixtureScript, slug: "apple.automation" },
 			};
 			const db = {
 				select: () => ({
-					from: () => ({ where: () => ({ limit: () => Effect.succeed([row]) }) }),
+					from: () => ({
+						where: () => ({
+							limit: () =>
+								Effect.gen(function* () {
+									yield* Deferred.succeed(selected, undefined);
+									yield* Deferred.await(release);
+									return [row];
+								}),
+						}),
+					}),
 				}),
 			};
 			const layer = Layer.merge(
@@ -153,22 +181,16 @@ it.effect(
 				Layer.succeed(Database, Object.assign(Object.create(null), db)),
 			);
 			const fiber = yield* Effect.forkChild(
-				Effect.gen(function* () {
-					const resolution = (yield* ImportSourceCatalog).resolve("trakt");
-					yield* Deferred.succeed(selected, undefined);
-					yield* Deferred.await(release);
-					return resolution
-						? { source: resolution.source, script: yield* resolution.script }
-						: null;
-				}).pipe(Effect.provide(layer)),
+				Effect.flatMap(ImportSourceCatalog, (catalog) => catalog.listWithWorkflowStatus).pipe(
+					Effect.provide(layer),
+				),
 			);
 			yield* Deferred.await(selected);
 			loader.load(pluginWithImportSources("apple", []));
 			yield* Deferred.succeed(release, undefined);
 
-			expect(yield* Fiber.join(fiber)).toMatchObject({
-				source: { description: "Old source", slug: "trakt" },
-				script: { id: "old-workflow-script" },
-			});
+			expect(yield* Fiber.join(fiber)).toMatchObject([
+				{ hasActiveWorkflow: true, source: { description: "Old source", slug: "trakt" } },
+			]);
 		}),
 );

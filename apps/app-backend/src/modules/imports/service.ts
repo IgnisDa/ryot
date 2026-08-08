@@ -25,8 +25,9 @@ import { validateFileExtension } from "./runtime/import-files";
 import {
 	buildImportInputSummary,
 	buildImportSourcePayload,
+	parseRegistryImportSourceInput,
 	registryImportSourceFileInputs,
-	registryImportSourceInputError,
+	registryImportSourceMissingConfigKeys,
 	registryImportSourceStartError,
 	type ImportSourceFileInput,
 } from "./runtime/source-metadata";
@@ -102,28 +103,20 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 		const startFileImportRun = Effect.fn("ImportsService.startFileImportRun")(function* (
 			user: CurrentUserValue,
 			body: CreateImportRunBody,
-			inputSummary: Record<string, unknown>,
+			properties: Readonly<Record<string, unknown>>,
 			sourceFileInputs: ReadonlyArray<ImportSourceFileInput>,
 			registered: RegisteredImportSource,
 			workflowScriptId: SandboxScriptId,
 		) {
-			const queuedFilePaths: string[] = [];
+			const fileNames: Record<string, string> = {};
 			const claimedUploadIntentIds: string[] = [];
 			const namedArtifactPaths: Record<string, string> = {};
 
-			const sourcePayload = buildImportSourcePayload(body, registered) ?? {};
+			const sourcePayload = buildImportSourcePayload(properties, registered) ?? {};
 
 			for (const sourceFileInput of sourceFileInputs) {
-				if (!sourceFileInput.uploadToken) {
-					if (sourceFileInput.required === false) {
-						continue;
-					}
-					yield* cleanupUploads(claimedUploadIntentIds);
-					return yield* badRequest("Import source requires an upload token");
-				}
-
 				const claim = yield* uploads
-					.claimTemporaryUpload(sourceFileInput.uploadToken, user.id)
+					.claimTemporaryUpload(sourceFileInput.uploadToken.token, user.id)
 					.pipe(Effect.result);
 				if (Result.isFailure(claim)) {
 					yield* cleanupUploads(claimedUploadIntentIds);
@@ -137,28 +130,21 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 
 				const safePath = claim.success.resolvedPath;
 
-				yield* validateFileExtension(safePath, sourceFileInput.allowedExtensions).pipe(
+				yield* validateFileExtension(
+					claim.success.fileName,
+					sourceFileInput.allowedExtensions,
+				).pipe(
 					Effect.catch((message) =>
 						cleanupUploads(claimedUploadIntentIds).pipe(Effect.flatMap(() => badRequest(message))),
 					),
 				);
 
-				queuedFilePaths.push(safePath);
-				if (sourceFileInput.payloadKey) {
-					sourcePayload[sourceFileInput.payloadKey] = sourceFileInput.payloadKey;
-				}
-				if (sourceFileInput.artifactKey) {
-					namedArtifactPaths[sourceFileInput.artifactKey] = safePath;
-				}
+				fileNames[sourceFileInput.key] = claim.success.fileName;
+				namedArtifactPaths[sourceFileInput.key] = safePath;
 			}
 
-			const filePath = queuedFilePaths[0];
-			if (!filePath) {
-				yield* cleanupUploads(claimedUploadIntentIds);
-				return yield* badRequest("Import source requires at least one upload token");
-			}
-
-			const created = yield* create({ userId: user.id, source: body.source, inputSummary }).pipe(
+			const inputSummary = buildImportInputSummary(body.source, fileNames);
+			const created = yield* create({ inputSummary, userId: user.id, source: body.source }).pipe(
 				Effect.result,
 			);
 			if (Result.isFailure(created)) {
@@ -186,7 +172,6 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 					discard: true,
 					executionId: run.id,
 					payload: {
-						filePath,
 						runId: run.id,
 						userId: user.id,
 						workflowScriptId,
@@ -214,19 +199,20 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			function* (
 				user: CurrentUserValue,
 				body: CreateImportRunBody,
-				inputSummary: Record<string, unknown>,
+				properties: Readonly<Record<string, unknown>>,
 				registered: RegisteredImportSource,
 				workflowScriptId: SandboxScriptId,
 			) {
-				const sourcePayload = buildImportSourcePayload(body, registered);
-				const run = yield* create({ userId: user.id, source: body.source, inputSummary });
+				const inputSummary = buildImportInputSummary(body.source, {});
+				const sourcePayload = buildImportSourcePayload(properties, registered);
+				const run = yield* create({ inputSummary, userId: user.id, source: body.source });
 				const sandboxExecutionId = `${run.id}-import`;
 
 				if (sourcePayload) {
-					const stored = yield* storeImportSourcePayload({ runId: run.id, sourcePayload }).pipe(
-						Effect.provideService(RedisService, redis),
-						Effect.result,
-					);
+					const stored = yield* storeImportSourcePayload({
+						runId: run.id,
+						sourcePayload,
+					}).pipe(Effect.provideService(RedisService, redis), Effect.result);
 					if (Result.isFailure(stored)) {
 						yield* failRun(run.id, "Failed to queue import credentials");
 						return yield* badRequest("Could not queue the import job; please try again");
@@ -299,30 +285,37 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			if (startError) {
 				return yield* badRequest(startError);
 			}
-			const inputError = registryImportSourceInputError(registered, body);
-			if (inputError) {
-				return yield* badRequest(inputError);
-			}
+			const properties = yield* parseRegistryImportSourceInput(registered, body).pipe(
+				Effect.mapError(badRequest),
+			);
+			const sourceFileInputs = registryImportSourceFileInputs(registered, properties);
 
-			const inputSummary = buildImportInputSummary(body, registered);
-			const sourceFileInputs = registryImportSourceFileInputs(registered, body);
-
-			return sourceFileInputs.some(({ uploadToken }) => uploadToken !== undefined)
+			return sourceFileInputs.length > 0
 				? yield* startFileImportRun(
 						user,
 						body,
-						inputSummary,
+						properties,
 						sourceFileInputs,
 						registered,
 						workflowScript.id,
 					)
-				: yield* startSourcePayloadImportRun(
-						user,
-						body,
-						inputSummary,
-						registered,
-						workflowScript.id,
-					);
+				: yield* startSourcePayloadImportRun(user, body, properties, registered, workflowScript.id);
+		});
+
+		const listImportSources = Effect.fn("ImportsService.listImportSources")(function* () {
+			const sources = yield* importSources.listWithWorkflowStatus;
+			return yield* Effect.forEach(sources, ({ source, hasActiveWorkflow }) =>
+				Effect.gen(function* () {
+					const missingPluginConfigKeys = yield* registryImportSourceMissingConfigKeys(source);
+					const { configSchema: _configSchema, pluginSlug, ...manifestSource } = source;
+					return {
+						...manifestSource,
+						pluginSlug,
+						missingPluginConfigKeys,
+						isStartable: hasActiveWorkflow && missingPluginConfigKeys.length === 0,
+					};
+				}),
+			);
 		});
 
 		const requireImportRun = Effect.fn("ImportsService.requireImportRun")(function* (
@@ -385,9 +378,10 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 		return {
 			create,
 			update,
-			delete: deleteRun,
 			startImportRun,
 			removeImportRun,
+			delete: deleteRun,
+			listImportSources,
 			failRunForIntegration,
 			createRunForIntegration,
 			hasActiveRunForIntegration,

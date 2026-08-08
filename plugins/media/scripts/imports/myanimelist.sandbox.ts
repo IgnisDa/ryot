@@ -33,10 +33,10 @@ export default defineScript({
 				throw new Error("Import job is missing MyAnimeList export files");
 			}
 			const animeXml = input.hasAnimeFile
-				? decodeXml(yield* readNamedArtifact("animeFilePath"))
+				? decodeXml(yield* readNamedArtifact("animeUploadToken"))
 				: undefined;
 			const mangaXml = input.hasMangaFile
-				? decodeXml(yield* readNamedArtifact("mangaFilePath"))
+				? decodeXml(yield* readNamedArtifact("mangaUploadToken"))
 				: undefined;
 			return batchMediaImportResult(
 				adaptMyanimelistExports({ animeXml, mangaXml }),
