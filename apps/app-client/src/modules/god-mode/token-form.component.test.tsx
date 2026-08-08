@@ -6,13 +6,13 @@ import { TokenForm } from "./token-form";
 
 function TokenFormWithServerError(props: { onSubmit: (token: string) => void }) {
 	const [error, setError] = useState<string | null>("That admin access token is invalid.");
-	return <TokenForm error={error} onSubmit={props.onSubmit} onChange={() => setError(null)} />;
+	return <TokenForm error={error} onSubmit={props.onSubmit} onEdit={() => setError(null)} />;
 }
 
 describe("admin token form", () => {
 	it("requires a token before submission", async () => {
 		const onSubmit = jest.fn<(token: string) => void>();
-		await render(<TokenForm onSubmit={onSubmit} onChange={() => undefined} />);
+		await render(<TokenForm onSubmit={onSubmit} onEdit={() => undefined} />);
 
 		expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
 		await fireEvent(screen.getByLabelText("Admin access token"), "submitEditing");
@@ -26,7 +26,7 @@ describe("admin token form", () => {
 	it("submits a trimmed token from the primary action", async () => {
 		const user = userEvent.setup();
 		const onSubmit = jest.fn<(token: string) => void>();
-		await render(<TokenForm onSubmit={onSubmit} onChange={() => undefined} />);
+		await render(<TokenForm onSubmit={onSubmit} onEdit={() => undefined} />);
 
 		await user.type(screen.getByLabelText("Admin access token"), "  secret  ");
 		await user.press(screen.getByRole("button", { name: "Continue" }));
@@ -37,7 +37,7 @@ describe("admin token form", () => {
 	it("submits from the keyboard", async () => {
 		const user = userEvent.setup();
 		const onSubmit = jest.fn<(token: string) => void>();
-		await render(<TokenForm onSubmit={onSubmit} onChange={() => undefined} />);
+		await render(<TokenForm onSubmit={onSubmit} onEdit={() => undefined} />);
 		const input = screen.getByLabelText("Admin access token");
 
 		await user.type(input, "secret");

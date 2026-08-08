@@ -1,10 +1,12 @@
 import type { AppChoice, AppSchema } from "@ryot/contract/schema/property-schema";
+import { useForm } from "@tanstack/react-form";
 import clsx from "clsx";
 import { Match } from "effect";
 import { useDeferredValue, useState } from "react";
 import { FlatList, Keyboard, Modal, Pressable, Text, TextInput, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
+import { FormMessage, FormTextInput } from "@/modules/ui/form";
 import { AppSwitch } from "@/modules/ui/switch";
 
 import {
@@ -12,7 +14,40 @@ import {
 	type OptionField,
 	type OptionValue,
 	type OptionValues,
+	validateOptionValues,
 } from "./options-form-state";
+
+export function useProviderOptionsForm(props: {
+	schema: AppSchema | undefined;
+	onSubmit: (values: OptionValues) => void;
+}) {
+	return useForm({
+		defaultValues: {} as OptionValues,
+		onSubmit: ({ value }) => props.onSubmit(value),
+		errorVisibility: ({ state }) => state.submissionAttempts > 0,
+		validators: [
+			{
+				triggers: [],
+				run: ({ value, createErrorMap }) => {
+					if (props.schema === undefined) {
+						return undefined;
+					}
+					const validationErrors = validateOptionValues(props.schema, value);
+					if (validationErrors.size === 0) {
+						return undefined;
+					}
+					const errors = createErrorMap();
+					for (const [key, message] of validationErrors) {
+						errors.fields[key] = message;
+					}
+					return errors;
+				},
+			},
+		],
+	});
+}
+
+type ProviderOptionsFormApi = ReturnType<typeof useProviderOptionsForm>;
 
 const isNumericField = (field: OptionField) => field.type === "number" || field.type === "integer";
 
@@ -231,6 +266,7 @@ function OptionControl(props: {
 	readonly field: OptionField;
 	readonly value: OptionValue;
 	readonly description: string;
+	readonly onSubmit: () => void;
 	readonly onChange: (value: OptionValue) => void;
 }) {
 	const selected = optionStringArray(props.value);
@@ -271,14 +307,14 @@ function OptionControl(props: {
 			/>
 		)),
 		Match.orElse(() => (
-			<TextInput
+			<FormTextInput
+				density="compact"
 				returnKeyType="go"
 				value={optionText(props.value)}
+				onSubmitEditing={props.onSubmit}
 				accessibilityLabel={props.field.label}
 				placeholder={props.description || undefined}
 				keyboardType={isNumericField(props.field) ? "numeric" : "default"}
-				onSubmitEditing={() => Keyboard.dismiss()}
-				className="rounded-lg border border-border bg-raised px-3 py-2 font-ui text-sm text-text"
 				onChangeText={(text) =>
 					props.onChange(isNumericField(props.field) ? parseNumericOption(text) : text)
 				}
@@ -290,6 +326,7 @@ function OptionControl(props: {
 function OptionFieldRow(props: {
 	readonly field: OptionField;
 	readonly value: OptionValue;
+	readonly onSubmit: () => void;
 	readonly error: string | undefined;
 	readonly onChange: (value: OptionValue) => void;
 }) {
@@ -303,36 +340,41 @@ function OptionFieldRow(props: {
 			<OptionControl
 				field={props.field}
 				value={props.value}
+				onSubmit={props.onSubmit}
 				onChange={props.onChange}
 				description={props.field.description}
 			/>
 			{hasPlaceholder || props.field.description === "" ? null : (
 				<Text className="font-ui text-xs text-text-subtle">{props.field.description}</Text>
 			)}
-			{props.error === undefined ? null : (
-				<Text className="font-ui text-xs text-danger">{props.error}</Text>
-			)}
+			{props.error === undefined ? null : <FormMessage>{props.error}</FormMessage>}
 		</View>
 	);
 }
 
 export function ProviderSearchOptionsForm(props: {
 	readonly schema: AppSchema;
-	readonly values: OptionValues;
-	readonly errors: ReadonlyMap<string, string>;
-	readonly onChange: (key: string, value: OptionValue) => void;
+	readonly onChange: () => void;
+	readonly form: ProviderOptionsFormApi;
 }) {
 	const description = describeOptionFields(props.schema);
 	return (
 		<View className="gap-3 rounded-lg bg-surface-2 p-3 md:bg-transparent md:p-0">
-			{description.fields.map((field) => (
-				<OptionFieldRow
-					field={field}
-					key={field.key}
-					value={props.values[field.key]}
-					error={props.errors.get(field.key)}
-					onChange={(value) => props.onChange(field.key, value)}
-				/>
+			{description.fields.map((option) => (
+				<props.form.Field key={option.key} name={option.key}>
+					{(field) => (
+						<OptionFieldRow
+							field={option}
+							value={field.value}
+							error={field.errors[0]?.message}
+							onSubmit={() => void props.form.handleSubmit()}
+							onChange={(value) => {
+								field.handleChange(value);
+								props.onChange();
+							}}
+						/>
+					)}
+				</props.form.Field>
 			))}
 			{description.unsupported.length === 0 ? null : (
 				<Text className="font-ui text-xs text-text-subtle">

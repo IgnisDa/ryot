@@ -11,8 +11,8 @@ const preferences = { allowNsfw: false, language: null, disableIntegrations: fal
 describe("preference settings form", () => {
 	it("submits changed preferences and resets the dirty state", async () => {
 		const user = userEvent.setup();
-		const save = jest.fn(async (payload: UpdateUserPreferencesBody) =>
-			Exit.succeed({ ...preferences, ...payload }),
+		const save = jest.fn((payload: UpdateUserPreferencesBody) =>
+			Promise.resolve(Exit.succeed({ ...preferences, ...payload })),
 		);
 		await render(<PreferenceSettingsForm preferences={preferences} onSave={save} />);
 		const submit = screen.getByRole("button", { name: "Save changes" });
@@ -29,7 +29,9 @@ describe("preference settings form", () => {
 
 	it("keeps edits available after a failed update", async () => {
 		const user = userEvent.setup();
-		const save = jest.fn(async (_payload: UpdateUserPreferencesBody) => Exit.fail("failed"));
+		const save = jest.fn((_payload: UpdateUserPreferencesBody) =>
+			Promise.resolve(Exit.fail("failed")),
+		);
 		await render(<PreferenceSettingsForm preferences={preferences} onSave={save} />);
 		const toggle = screen.getByRole("switch", { name: "Disable integrations" });
 
@@ -45,8 +47,8 @@ describe("preference settings form", () => {
 
 	it("submits a selected metadata language", async () => {
 		const user = userEvent.setup();
-		const save = jest.fn(async (payload: UpdateUserPreferencesBody) =>
-			Exit.succeed({ ...preferences, ...payload }),
+		const save = jest.fn((payload: UpdateUserPreferencesBody) =>
+			Promise.resolve(Exit.succeed({ ...preferences, ...payload })),
 		);
 		await render(<PreferenceSettingsForm preferences={preferences} onSave={save} />);
 
