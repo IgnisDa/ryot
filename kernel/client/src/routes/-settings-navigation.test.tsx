@@ -55,15 +55,20 @@ const authenticated = {
 	user: { image: null, id: "user-1", name: "Test User", email: "user@ryot.example" },
 } as const;
 
-const makeAuthStub = (overrides: Partial<AuthService["Service"]> = {}) =>
+const unauthenticated = { status: "missing" } as const;
+
+const makeAuthStub = (
+	overrides: Partial<AuthService["Service"]> = {},
+	session: typeof authenticated | typeof unauthenticated = authenticated,
+) =>
 	Layer.succeed(AuthService, {
 		signOut: () => Effect.void,
 		changeServer: () => Effect.void,
 		signInWithOidc: () => Effect.void,
 		verifyTwoFactor: () => Effect.void,
-		settledSession: () => Effect.succeed(authenticated),
+		settledSession: () => Effect.succeed(session),
 		submitCredentials: () => Effect.succeed({ _tag: "Authenticated" } as const),
-		session: () => ({ subscribe: () => () => undefined, getSnapshot: () => authenticated }),
+		session: () => ({ subscribe: () => () => undefined, getSnapshot: () => session }),
 		...overrides,
 	});
 
@@ -127,6 +132,17 @@ const stubDesktopMatchMedia = () => {
 		window.matchMedia = original;
 	};
 };
+
+describe("authenticated route gate", () => {
+	it.each(["/", "/fixture", "/settings", "/settings/preferences", "/settings/account"])(
+		"redirects an unauthenticated visitor from %s to /auth",
+		async (path) => {
+			const view = mountView(path, undefined, undefined, makeAuthStub({}, unauthenticated));
+			await waitFor(() => expect(view.router.state.location.pathname).toBe("/auth"));
+			expect(view.router.state.location.search.redirect).toBe(path);
+		},
+	);
+});
 
 describe("settings navigation", () => {
 	it("marks the active section on the desktop settings sidebar", async () => {
