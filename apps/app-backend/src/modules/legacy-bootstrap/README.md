@@ -41,7 +41,9 @@ Provider targets resolve against active plugin-loader declarations. Persisted pr
 
 ### Events And Collections
 
-- Expand V1 `seen` rows into V2 events. Resolve show and podcast positions to episode entities; skip unresolved positions. Anime and manga retain flat positional properties.
+- Expand V1 `seen` rows into V2 events. Resolve show and podcast positions to episode entities; skip unresolved positions. Regular show-episode and podcast-episode lifecycle events use their parent as `sessionEntityId`, while season-zero specials remain sessionless. Completed episode rows create explicit child `complete` events after their final progress event. Anime and manga retain flat positional properties.
+- Replay migrated show and podcast child lifecycle events in `occurredAt`, `createdAt`, and `id` order. Later progress reopens an episode; complete regular-episode coverage emits an authoritative parent `complete` event and starts the next rewatch cycle. Preserve every V1 full-watch cycle as complete regardless of production status. Empty regular seasons, specials-only shows, and empty podcasts cannot complete.
+- Migrate show and podcast `dropped` and `on_hold` as parent events with self-session so they interrupt child-derived progress. Reviews remain historical events outside lifecycle sessions.
 - Convert reviews to `review` events with matching episode resolution. Omit visibility and comments.
 - Migrate `user_to_entity` global rows to `in-library`; skip collections and user-owned custom exercises in this path.
 - Migrate `Owned` collection normally, then annotate existing library relationships with legacy ownership metadata.
