@@ -49,9 +49,8 @@ describe("OAuth storage", () => {
 			yield* service.setPending(pending);
 			yield* service.setTokenSet("https://ryot.example/", tokens);
 
-			expect(yield* service.getPending("https://ryot.example/", "state")).toEqual(pending);
 			expect(yield* service.getTokenSet("https://ryot.example")).toEqual(tokens);
-			expect(yield* service.takePending("https://ryot.example", "state")).toEqual(pending);
+			expect(yield* service.takePending("https://ryot.example/", "state")).toEqual(pending);
 			expect(yield* service.takePending("https://ryot.example", "state")).toBeNull();
 		}).pipe(Effect.provide(oauthStorageLayer(storage)));
 	});
@@ -76,7 +75,7 @@ describe("OAuth storage", () => {
 		return Effect.gen(function* () {
 			const service = yield* OAuthStorage;
 			expect(yield* service.getTokenSet("https://ryot.example")).toBeNull();
-			expect(yield* service.getPending("https://ryot.example", "expired")).toBeNull();
+			expect(yield* service.takePending("https://ryot.example", "expired")).toBeNull();
 			expect(values.size).toBe(0);
 		}).pipe(Effect.provide(oauthStorageLayer(storage)));
 	});
@@ -105,7 +104,6 @@ describe("OAuth storage", () => {
 		return Effect.gen(function* () {
 			const service = yield* OAuthStorage;
 			expect(yield* service.getTokenSet("https://ryot.example")).toBeNull();
-			expect(yield* service.getPending("https://ryot.example", "state")).toBeNull();
 			expect(yield* service.takePending("https://ryot.example", "state")).toBeNull();
 			expect(values.size).toBe(2);
 		}).pipe(Effect.provide(oauthStorageLayer(storage)));
