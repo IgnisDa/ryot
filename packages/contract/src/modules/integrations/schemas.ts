@@ -20,6 +20,20 @@ const IntegrationExtraSettings = Schema.Struct({
 
 export type IntegrationExtraSettings = typeof IntegrationExtraSettings.Type;
 
+/**
+ * A provider form renders `commonSchema` and `settingsSchema` against one flat value record, so a
+ * `settingsSchema` field sharing a name with a common one would silently collide. Plugin manifest
+ * validation rejects those names.
+ */
+export const integrationCommonPropertyNames: ReadonlySet<string> = new Set([
+	"name",
+	"isDisabled",
+	"syncOwnership",
+	"minimumProgress",
+	"maximumProgress",
+	"disableOnContinuousErrors",
+]);
+
 export const ListedIntegrationProvider = Schema.Struct({
 	slug: Schema.String,
 	name: Schema.String,
@@ -38,6 +52,7 @@ export const ListedIntegration = Schema.Struct({
 	lot: IntegrationLot,
 	createdAt: Schema.String,
 	updatedAt: Schema.String,
+	pluginSlug: Schema.String,
 	isDisabled: Schema.Boolean,
 	provider: IntegrationProvider,
 	syncOwnership: Schema.Boolean,

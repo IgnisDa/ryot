@@ -2,38 +2,52 @@ import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react";
 import { Exit, Match } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { useEffect, useEffectEvent, useReducer, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Text } from "react-native";
 
+import { badRequestMessage } from "@/api/request-failure";
 import { useApiScope } from "@/api/scope";
 import { temporaryFileUploadOperation } from "@/api/uploads";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
-import { AppIcon } from "@/modules/icons";
 import { openExternalLink } from "@/modules/ui/external-link";
+import { CatalogPicker } from "@/modules/ui/plugin-catalog/catalog-picker";
+import { findBySlug } from "@/modules/ui/plugin-catalog/catalog-selection";
 import { useSchemaForm } from "@/modules/ui/schema-form/schema-form";
 import {
 	initialSchemaFormValues,
 	type SchemaFormValues,
 	toSchemaFormPayload,
 } from "@/modules/ui/schema-form/schema-form-state";
+import { WizardShell } from "@/modules/ui/wizard/wizard-shell";
+import {
+	createWizardState,
+	wizardReducer,
+	wizardStepLabel,
+	type WizardStepHeadings,
+} from "@/modules/ui/wizard/wizard-state";
 
 import { createImportRunAtom, importRunReactivityKeys, importSourcesAtom } from "./atoms";
 import { ImportInputStep } from "./import-input-step";
 import { ImportReviewStep } from "./import-review-step";
-import { ImportSourcePicker } from "./import-source-picker";
-import { findImportSource } from "./source-selection";
-import {
-	type ImportStartFailure,
-	importStartFailure,
-	importStartFailureMessage,
-} from "./start-failure";
-import {
-	createImportWizardState,
-	importWizardReducer,
-	importWizardStepLabel,
-} from "./start-wizard-state";
+import { importSourceChooseLabel, importSourceEntry } from "./source-selection";
+import { type ImportStartFailure, importStartFailure } from "./start-failure";
 import { mapImportSourceList } from "./state";
 
 export const IMPORT_WIZARD_TITLE = "Start an import";
+
+const stepHeadings = {
+	pick: "Choose a service",
+	review: "Review and start",
+	configure: "Provide the details",
+} as const satisfies WizardStepHeadings;
+
+const pickerCopy = {
+	emptyTitle: "No services yet",
+	loadingLabel: "Loading services",
+	errorSubject: "The list of services",
+	errorTitle: "Unable to load services",
+	loadingDetail: "Loading the services you can import from...",
+	emptyDetail: "Once a plugin on this server contributes an importer, it shows up here.",
+};
 
 export function ImportStartWizard(props: { readonly onClose: () => void }) {
 	const scope = useApiScope();
@@ -44,10 +58,10 @@ export function ImportStartWizard(props: { readonly onClose: () => void }) {
 	const [pending, setPending] = useState(false);
 	const [startCause, setStartCause] = useState<unknown>();
 	const [failure, setFailure] = useState<ImportStartFailure | undefined>();
-	const [state, dispatch] = useReducer(importWizardReducer, undefined, createImportWizardState);
+	const [state, dispatch] = useReducer(wizardReducer, undefined, createWizardState);
 	const sources = mapImportSourceList(result);
 	const listed = sources.status === "ready" ? sources.sources : [];
-	const source = findImportSource(listed, state.sourceSlug);
+	const source = findBySlug(listed, state.slug);
 	const schema = source?.inputSchema;
 	const uploadFile = temporaryFileUploadOperation(scope);
 
@@ -70,7 +84,7 @@ export function ImportStartWizard(props: { readonly onClose: () => void }) {
 		});
 		setPending(false);
 		if (Exit.isFailure(exit)) {
-			const mapped = importStartFailure(importStartFailureMessage(exit.cause));
+			const mapped = importStartFailure(badRequestMessage(exit.cause));
 			setStartCause(exit.cause);
 			setFailure(mapped);
 			if (mapped.step !== undefined) {
@@ -86,7 +100,7 @@ export function ImportStartWizard(props: { readonly onClose: () => void }) {
 		dispatch({ type: "review-requested" });
 	});
 
-	const form = useSchemaForm({ schema, onSubmit: requestReview });
+	const form = useSchemaForm({ schemas: [schema], onSubmit: requestReview });
 
 	const seedForm = useEffectEvent(() => {
 		form.reset(schema === undefined ? {} : initialSchemaFormValues(schema));
@@ -94,7 +108,7 @@ export function ImportStartWizard(props: { readonly onClose: () => void }) {
 
 	useEffect(() => {
 		seedForm();
-	}, [state.sourceSlug]);
+	}, [state.slug]);
 
 	const goBack = () => {
 		setFailure(undefined);
@@ -103,25 +117,34 @@ export function ImportStartWizard(props: { readonly onClose: () => void }) {
 
 	const chooseSource = (slug: string) => {
 		setFailure(undefined);
-		dispatch({ slug, type: "source-chosen" });
+		dispatch({ slug, type: "picked" });
 	};
 
-	const inputFailure = failure?.step === "input" ? failure.detail : undefined;
 	const reviewFailure = failure?.step === undefined ? failure?.detail : undefined;
-	const sourceFailure = failure?.step === "source" ? failure.detail : undefined;
+	const inputFailure = failure?.step === "configure" ? failure.detail : undefined;
+	const sourceFailure = failure?.step === "pick" ? failure.detail : undefined;
 
 	const stepBody = Match.value(state.step).pipe(
-		Match.when("source", () => (
+		Match.when("pick", () => (
 			<>
 				{sourceFailure === undefined ? null : (
 					<Text accessibilityRole="alert" className="font-ui text-sm text-danger">
 						{sourceFailure}
 					</Text>
 				)}
-				<ImportSourcePicker state={sources} onChoose={chooseSource} onRetry={refreshSources} />
+				<CatalogPicker
+					copy={pickerCopy}
+					onChoose={chooseSource}
+					onRetry={refreshSources}
+					toEntry={importSourceEntry}
+					chooseLabel={importSourceChooseLabel}
+					state={
+						sources.status === "ready" ? { status: "ready", sources: sources.sources } : sources
+					}
+				/>
 			</>
 		)),
-		Match.when("input", () =>
+		Match.when("configure", () =>
 			source === undefined ? null : (
 				<ImportInputStep
 					form={form}
@@ -154,28 +177,13 @@ export function ImportStartWizard(props: { readonly onClose: () => void }) {
 	);
 
 	return (
-		<View className="flex-1">
-			<View className="gap-1 border-b border-border px-4 py-3">
-				<View className="flex-row items-center justify-between gap-3">
-					<Text accessibilityRole="header" className="font-display-semibold text-xl text-text">
-						{IMPORT_WIZARD_TITLE}
-					</Text>
-					<Pressable
-						className="p-1"
-						onPress={props.onClose}
-						accessibilityRole="button"
-						accessibilityLabel="Close the import wizard"
-					>
-						<AppIcon size={20} name="x" className="text-text-muted" />
-					</Pressable>
-				</View>
-				<Text className="font-ui text-xs text-text-subtle">
-					{importWizardStepLabel(state.step)}
-				</Text>
-			</View>
-			<ScrollView className="flex-1" keyboardShouldPersistTaps="handled">
-				<View className="gap-4 p-4">{stepBody}</View>
-			</ScrollView>
-		</View>
+		<WizardShell
+			onClose={props.onClose}
+			title={IMPORT_WIZARD_TITLE}
+			closeLabel="Close the import wizard"
+			stepLabel={wizardStepLabel(state.step, stepHeadings)}
+		>
+			{stepBody}
+		</WizardShell>
 	);
 }

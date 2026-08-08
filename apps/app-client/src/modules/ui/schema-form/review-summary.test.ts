@@ -1,8 +1,40 @@
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { describe, expect, it } from "vitest";
 
-import { credentialImportSchema, uploadImportSchema } from "./import-fixture";
-import { importReviewRows, MASKED_REVIEW_VALUE, UPLOADED_REVIEW_VALUE } from "./review-summary";
+import { schemaReviewRows, MASKED_REVIEW_VALUE, UPLOADED_REVIEW_VALUE } from "./review-summary";
+
+const uploadImportSchema = () =>
+	({
+		unknownKeys: "strict",
+		fields: {
+			archiveUploadToken: {
+				type: "string",
+				label: "Export archive",
+				validation: { required: true },
+				description: "The export file from your account",
+				format: { kind: "upload", allowedFileExtensions: ["csv"] },
+			},
+		},
+	}) satisfies AppSchema;
+
+const credentialImportSchema = {
+	unknownKeys: "strict",
+	fields: {
+		apiKey: {
+			secret: true,
+			type: "string",
+			label: "API key",
+			validation: { required: true },
+			description: "The key from your account settings",
+		},
+		includeArchived: {
+			type: "boolean",
+			defaultValue: false,
+			label: "Include archived",
+			description: "Also bring over archived entries",
+		},
+	},
+} satisfies AppSchema;
 
 const modeSchema = {
 	unknownKeys: "strict",
@@ -20,8 +52,8 @@ const modeSchema = {
 			},
 		},
 		tags: {
-			type: "enum-array",
 			label: "Tags",
+			type: "enum-array",
 			description: "Tags to apply",
 			choices: { kind: "static", values: [{ value: "owned", label: "Owned" }, { value: "wish" }] },
 		},
@@ -30,13 +62,13 @@ const modeSchema = {
 
 describe("import review rows", () => {
 	it("never shows an upload token, only that the file is ready", () => {
-		const rows = importReviewRows(uploadImportSchema(), { archiveUploadToken: "tok_secret" });
+		const rows = schemaReviewRows(uploadImportSchema(), { archiveUploadToken: "tok_secret" });
 
 		expect(rows).toEqual([{ label: "Export archive", value: UPLOADED_REVIEW_VALUE }]);
 	});
 
 	it("masks a secret and reads booleans back in words", () => {
-		const rows = importReviewRows(credentialImportSchema, {
+		const rows = schemaReviewRows(credentialImportSchema, {
 			includeArchived: true,
 			apiKey: "key_live_1234",
 		});
@@ -48,7 +80,7 @@ describe("import review rows", () => {
 	});
 
 	it("shows choice labels instead of stored values", () => {
-		expect(importReviewRows(modeSchema, { mode: "recent", tags: ["owned", "wish"] })).toEqual([
+		expect(schemaReviewRows(modeSchema, { mode: "recent", tags: ["owned", "wish"] })).toEqual([
 			{ label: "Mode", value: "Recent only" },
 			{ label: "Tags", value: "Owned, wish" },
 		]);
@@ -56,8 +88,8 @@ describe("import review rows", () => {
 
 	it("leaves out anything the person did not fill in", () => {
 		expect(
-			importReviewRows(credentialImportSchema, { apiKey: "", includeArchived: false }),
+			schemaReviewRows(credentialImportSchema, { apiKey: "", includeArchived: false }),
 		).toEqual([{ label: "Include archived", value: "No" }]);
-		expect(importReviewRows(modeSchema, { tags: [] })).toEqual([]);
+		expect(schemaReviewRows(modeSchema, { tags: [] })).toEqual([]);
 	});
 });
