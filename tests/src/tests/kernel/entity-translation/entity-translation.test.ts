@@ -10,7 +10,7 @@ import {
 	getEntity,
 	getEntityTranslationRow,
 	enqueueSandboxScript,
-	openInterestStreamScoped,
+	openInterestWebSocketScoped,
 	pollSandboxResult,
 	pollEntityUntilTranslationStatus,
 	requireCompletedSandboxValue,
@@ -44,11 +44,11 @@ const seedPopulatedMovie = (client: Client, name: string) =>
 		});
 	});
 
-const declareInterest = (auth: { cookies: string }, entityIds: string[]) =>
+const openInterestSocket = (auth: { client: Client }, entityIds: string[]) =>
 	Effect.gen(function* () {
-		const stream = yield* openInterestStreamScoped(auth);
-		const terminal = yield* Effect.promise(() => stream.declareInterest(entityIds));
-		return { stream, terminal };
+		const socket = yield* openInterestWebSocketScoped(auth);
+		const applied = yield* Effect.promise(() => socket.replaceInterest(entityIds));
+		return { applied, socket };
 	});
 
 describe("entity translation via client-declared interest", () => {
@@ -110,10 +110,10 @@ describe("entity translation via client-declared interest", () => {
 			expect(beforeInterest.translationStatus).toBe("pending");
 			expect(beforeInterest.name).toBe("Canonical Fight Club");
 
-			const { stream, terminal } = yield* declareInterest(auth, [movie.id]);
-			expect(terminal).toEqual([]);
+			const { applied, socket } = yield* openInterestSocket(auth, [movie.id]);
+			expect(applied).toEqual({ type: "applied", revision: 1 });
 			const event = yield* Effect.promise(() =>
-				stream.waitForEntityUpdated(movie.id, "translated", { timeoutMs: 30_000 }),
+				socket.waitForEntityUpdated(movie.id, "translated", { timeoutMs: 30_000 }),
 			);
 			expect(event.reason).toBe("translated");
 
@@ -140,10 +140,10 @@ describe("entity translation via client-declared interest", () => {
 			const firstRead = yield* getEntity(client, movie.id);
 			expect(firstRead.translationStatus).toBe("pending");
 
-			const { stream, terminal } = yield* declareInterest(auth, [movie.id]);
-			expect(terminal).toEqual([]);
+			const { applied, socket } = yield* openInterestSocket(auth, [movie.id]);
+			expect(applied).toEqual({ type: "applied", revision: 1 });
 			const event = yield* Effect.promise(() =>
-				stream.waitForEntityUpdated(movie.id, "translated", { timeoutMs: 30_000 }),
+				socket.waitForEntityUpdated(movie.id, "translated", { timeoutMs: 30_000 }),
 			);
 			expect(event.reason).toBe("translated");
 
@@ -170,8 +170,13 @@ describe("entity translation via client-declared interest", () => {
 				expect(canonicalPreferenceRead.translationStatus).toBe("none");
 				expect(canonicalPreferenceRead.name).toBe("Canonical The Shawshank Redemption");
 				expect(yield* countEntityTranslations(movie.id)).toBe(0);
-				const canonicalInterest = yield* declareInterest(canonical, [movie.id]);
-				expect(canonicalInterest.terminal).toEqual([{ entityId: movie.id, reason: "populated" }]);
+				const canonicalInterest = yield* openInterestSocket(canonical, [movie.id]);
+				expect(canonicalInterest.applied).toEqual({ type: "applied", revision: 1 });
+				expect(
+					yield* Effect.promise(() =>
+						canonicalInterest.socket.waitForEntityUpdated(movie.id, "populated"),
+					),
+				).toEqual({ type: "entity-updated", entityId: movie.id, reason: "populated" });
 
 				const noPreference = yield* createAuthenticatedClient();
 				const { client: noPreferenceClient } = noPreference;
@@ -179,10 +184,13 @@ describe("entity translation via client-declared interest", () => {
 				expect(noPreferenceRead.translationStatus).toBe("none");
 				expect(noPreferenceRead.name).toBe("Canonical The Shawshank Redemption");
 				expect(yield* countEntityTranslations(movie.id)).toBe(0);
-				const noPreferenceInterest = yield* declareInterest(noPreference, [movie.id]);
-				expect(noPreferenceInterest.terminal).toEqual([
-					{ entityId: movie.id, reason: "populated" },
-				]);
+				const noPreferenceInterest = yield* openInterestSocket(noPreference, [movie.id]);
+				expect(noPreferenceInterest.applied).toEqual({ type: "applied", revision: 1 });
+				expect(
+					yield* Effect.promise(() =>
+						noPreferenceInterest.socket.waitForEntityUpdated(movie.id, "populated"),
+					),
+				).toEqual({ type: "entity-updated", entityId: movie.id, reason: "populated" });
 			}),
 	);
 
@@ -208,19 +216,19 @@ describe("entity translation via client-declared interest", () => {
 
 			yield* setUserLanguage(client, "es");
 
-			const { stream, terminal } = yield* declareInterest(auth, [seeded.id]);
-			expect(terminal).toEqual([]);
+			const { applied, socket } = yield* openInterestSocket(auth, [seeded.id]);
+			expect(applied).toEqual({ type: "applied", revision: 1 });
 			const populatedEvent = yield* Effect.promise(() =>
-				stream.waitForEntityUpdated(seeded.id, "populated", { timeoutMs: 30_000 }),
+				socket.waitForEntityUpdated(seeded.id, "populated", { timeoutMs: 30_000 }),
 			);
 			expect(populatedEvent.reason).toBe("populated");
 			const translatedEvent = yield* Effect.promise(() =>
-				stream.waitForEntityUpdated(seeded.id, "translated", { timeoutMs: 30_000 }),
+				socket.waitForEntityUpdated(seeded.id, "translated", { timeoutMs: 30_000 }),
 			);
 			expect(translatedEvent.reason).toBe("translated");
 
-			const reasons = stream
-				.getEntityUpdatedFrames()
+			const reasons = socket
+				.getEntityUpdatedMessages()
 				.filter((frame) => frame.entityId === seeded.id)
 				.map((frame) => frame.reason);
 			expect(reasons).toEqual(["populated", "translated"]);

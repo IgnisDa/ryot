@@ -258,32 +258,35 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 		}).annotate(OpenApi.Description, "Triggers all installed plugin boot drivers"),
 	)
 	.add(
-		HttpApiEndpoint.post("setEntityInterest", "/test-support/entity-interest", {
-			payload: Schema.Struct({
-				userId: UserId,
-				streamId: Schema.String,
-				entityIds: Schema.Array(EntityId),
-			}),
-			success: Schema.Void,
-			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
-		}).annotate(OpenApi.Description, "Registers entity interest without reconciliation"),
+		HttpApiEndpoint.post(
+			"setEntityInterestMembership",
+			"/test-support/entity-interest-membership",
+			{
+				success: Schema.Void,
+				payload: Schema.Struct({ sessionId: Schema.String, entityIds: Schema.Array(EntityId) }),
+				error: [
+					BadRequest.pipe(HttpApiSchema.status(400)),
+					NotFound.pipe(HttpApiSchema.status(404)),
+				],
+			},
+		).annotate(OpenApi.Description, "Sets entity interest membership without reconciliation"),
 	)
 	.add(
 		HttpApiEndpoint.post("listSignals", "/test-support/signals/list", {
+			success: Schema.Array(TestSupportSignal),
+			error: [BadRequest.pipe(HttpApiSchema.status(400))],
 			payload: Schema.Struct({
 				schemaSlug: Schema.String,
 				actorUserId: Schema.optional(UserId),
 				subjectEntityId: Schema.optional(EntityId),
 			}),
-			success: Schema.Array(TestSupportSignal),
-			error: [BadRequest.pipe(HttpApiSchema.status(400))],
 		}).annotate(OpenApi.Description, "Lists signals matching test filters"),
 	)
 	.add(
 		HttpApiEndpoint.post("listSubscriptionRuns", "/test-support/subscription-runs/list", {
-			payload: Schema.Struct({ executionUserId: UserId, signalId: Schema.optional(SignalId) }),
 			success: Schema.Array(TestSupportSubscriptionRun),
 			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+			payload: Schema.Struct({ executionUserId: UserId, signalId: Schema.optional(SignalId) }),
 		}).annotate(OpenApi.Description, "Lists subscription runs for an execution user"),
 	)
 	.middleware(AdminMiddleware);

@@ -1,5 +1,6 @@
 import { expect, it } from "@effect/vitest";
-import type { EntityUpdatedFrame } from "@ryot/contract/modules/entity-interest/messages";
+import type { EntityInterestEntityUpdatedMessage } from "@ryot/contract/modules/entity-interest/messages";
+import { EntityId } from "@ryot/contract/schema/brands";
 import { Deferred, Effect, Exit, ManagedRuntime, Scope } from "effect";
 import { TestClock } from "effect/testing";
 
@@ -11,14 +12,18 @@ const settle = Effect.gen(function* () {
 	yield* Effect.yieldNow;
 });
 
-const update = (entityId: string, reason: EntityUpdatedFrame["reason"]): EntityUpdatedFrame => ({
+const update = (
+	entityId: string,
+	reason: EntityInterestEntityUpdatedMessage["reason"],
+): EntityInterestEntityUpdatedMessage => ({
 	reason,
-	entityId,
+	type: "entity-updated",
+	entityId: EntityId.make(entityId),
 });
 
 it.effect("uses a fixed window and keeps the latest reason per entity", () =>
 	Effect.gen(function* () {
-		const batches: EntityUpdatedFrame[][] = [];
+		const batches: EntityInterestEntityUpdatedMessage[][] = [];
 		const drains: number[] = [];
 		const batcher = yield* EntityUpdateBatcher.make({
 			onBatch: (updates) => Effect.sync(() => void batches.push([...updates])),
@@ -38,7 +43,7 @@ it.effect("uses a fixed window and keeps the latest reason per entity", () =>
 
 it.effect("flushes at the maximum batch size", () =>
 	Effect.gen(function* () {
-		const batches: EntityUpdatedFrame[][] = [];
+		const batches: EntityInterestEntityUpdatedMessage[][] = [];
 		const batcher = yield* EntityUpdateBatcher.make({
 			onBatch: (updates) => Effect.sync(() => void batches.push([...updates])),
 		});
@@ -62,7 +67,7 @@ it.effect("allows one trailing batch while keeping one batch in flight", () =>
 		const first = yield* Deferred.make<void>();
 		const second = yield* Deferred.make<void>();
 		const drains: number[] = [];
-		const batches: EntityUpdatedFrame[][] = [];
+		const batches: EntityInterestEntityUpdatedMessage[][] = [];
 		const batcher = yield* EntityUpdateBatcher.make({
 			onBatch: (updates) => {
 				batches.push([...updates]);
@@ -94,7 +99,7 @@ it.effect("allows one trailing batch while keeping one batch in flight", () =>
 
 it.effect("accumulates while blocked and flushes on unblock", () =>
 	Effect.gen(function* () {
-		const batches: EntityUpdatedFrame[][] = [];
+		const batches: EntityInterestEntityUpdatedMessage[][] = [];
 		const batcher = yield* EntityUpdateBatcher.make({
 			onBatch: (updates) => Effect.sync(() => void batches.push([...updates])),
 		});
@@ -113,7 +118,7 @@ it.effect("accumulates while blocked and flushes on unblock", () =>
 it.effect("does not drain blocked pending updates until they flush", () =>
 	Effect.gen(function* () {
 		const first = yield* Deferred.make<void>();
-		const batches: EntityUpdatedFrame[][] = [];
+		const batches: EntityInterestEntityUpdatedMessage[][] = [];
 		const drains: number[] = [];
 		const batcher = yield* EntityUpdateBatcher.make({
 			onBatch: (updates) => {
@@ -175,7 +180,7 @@ it.effect("scope disposal interrupts the active batch and clears pending updates
 	Effect.gen(function* () {
 		const scope = yield* Scope.make();
 		const interrupted = yield* Deferred.make<void>();
-		const batches: EntityUpdatedFrame[][] = [];
+		const batches: EntityInterestEntityUpdatedMessage[][] = [];
 		const drains: string[] = [];
 		const batcher = yield* EntityUpdateBatcher.make({
 			onBatch: (updates) => {
@@ -205,8 +210,8 @@ it.effect("ManagedRuntime owner replacement cannot carry pending or in-flight ba
 		const oldInterrupted = yield* Deferred.make<void>();
 		const oldStarted = yield* Deferred.make<void>();
 		const newDelivered = yield* Deferred.make<void>();
-		const oldBatches: EntityUpdatedFrame[][] = [];
-		const newBatches: EntityUpdatedFrame[][] = [];
+		const oldBatches: EntityInterestEntityUpdatedMessage[][] = [];
+		const newBatches: EntityInterestEntityUpdatedMessage[][] = [];
 		const oldRuntime = ManagedRuntime.make(
 			EntityUpdateBatcher.layer({
 				maxBatchSize: 1,

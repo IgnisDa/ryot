@@ -1,6 +1,7 @@
 import { Effect, ManagedRuntime } from "effect";
 import { useEffect, useEffectEvent, useRef } from "react";
 
+import type { EntityInterestPriority } from "./coordinator";
 import { useEntityInterest } from "./provider";
 import { EntityUpdateBatcher, type EntityUpdateBatchHandler } from "./update-batcher";
 
@@ -11,6 +12,7 @@ type UseEntityUpdatesProps = {
 	readonly onDrain?: () => void;
 	readonly maxBatchSize?: number;
 	readonly entityIds: readonly string[];
+	readonly priority: EntityInterestPriority;
 	readonly onBatch: EntityUpdateBatchHandler;
 };
 
@@ -39,7 +41,7 @@ export function useEntityUpdates(props: UseEntityUpdatesProps) {
 		};
 	}, [props.maxBatchSize, props.owner, props.windowMs]);
 
-	useEntityInterest(props.owner, props.entityIds, (frame) => {
+	useEntityInterest(props.owner, props.entityIds, props.priority, (frame) => {
 		runtime.current?.runFork(Effect.flatMap(EntityUpdateBatcher, (batcher) => batcher.push(frame)));
 	});
 

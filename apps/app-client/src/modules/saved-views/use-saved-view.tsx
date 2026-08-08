@@ -215,9 +215,10 @@ export const useSavedViewResult = (record: SavedViewRecord, searchQuery = "") =>
 		runtime?.failure?.cause,
 	);
 	useEntityUpdates({
+		priority: "visible",
 		blocked: !!runtime?.operation,
-		entityIds: state.status === "ready" ? state.entityIds : [],
 		owner: `saved-view:${identity}`,
+		entityIds: state.status === "ready" ? state.entityIds : [],
 		onBatch: () => Effect.sync(() => dispatch({ type: "refresh-requested" })),
 	});
 
