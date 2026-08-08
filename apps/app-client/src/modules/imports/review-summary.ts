@@ -30,7 +30,9 @@ const reviewValue = (field: SchemaFormField, value: Exclude<SchemaFormValue, und
 		return value ? "Yes" : "No";
 	}
 	if (typeof value === "object") {
-		return value.map((entry) => choiceLabel(field, entry)).join(", ");
+		return value
+			.map((entry) => (typeof entry === "string" ? choiceLabel(field, entry) : String(entry)))
+			.join(", ");
 	}
 	return typeof value === "string" ? choiceLabel(field, value) : String(value);
 };

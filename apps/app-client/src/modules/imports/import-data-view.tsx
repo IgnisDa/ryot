@@ -3,11 +3,8 @@ import clsx from "clsx";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
-import { AppButton } from "@/modules/ui/button";
-import { AppStatusState } from "@/modules/ui/status-state";
-
-import { ImportProgressBar } from "./import-progress-bar";
-import { ImportStatusGlyph, ImportStatusPill } from "./import-status-pill";
+import { ImportProgressBar } from "@/modules/import-runs/import-progress-bar";
+import { ImportStatusGlyph, ImportStatusPill } from "@/modules/import-runs/import-status-pill";
 import {
 	formatImportRelativeTime,
 	importRunCountsLabel,
@@ -18,7 +15,10 @@ import {
 	importRunStartedLabel,
 	importSourceName,
 	liveImportRun,
-} from "./run-presentation";
+} from "@/modules/import-runs/run-presentation";
+import { AppButton } from "@/modules/ui/button";
+import { AppStatusState } from "@/modules/ui/status-state";
+
 import { importRunListError, type ImportRunListState } from "./state";
 
 const INTRO =
