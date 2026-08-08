@@ -1,4 +1,6 @@
+import { render } from "@react-email/components";
 import type { NotificationChannelSpecifics } from "@ryot/contract/modules/notifications/schemas";
+import GenericEmail from "@ryot/transactional/emails/generic";
 import { Context, Data, Duration, Effect, Layer, Match, Option, Redacted } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 import { createTransport } from "nodemailer";
@@ -14,6 +16,17 @@ const AVATAR_URL =
 export class NotificationDeliveryError extends Data.TaggedError("NotificationDeliveryError")<{
 	message: string;
 }> {}
+
+type NotificationMailerInput = {
+	credentials: { user: string; server: string; password: string };
+	mail: {
+		to: string;
+		from: string;
+		html: string;
+		text: string;
+		subject: string;
+	};
+};
 
 const encodePathSegment = (value: string) => encodeURIComponent(value);
 
@@ -33,21 +46,45 @@ const textRequest = (input: { url: string; body: string; headers?: Record<string
 	return HttpClientRequest.setHeaders(input.headers ?? {})(request);
 };
 
-const escapeHtml = (value: string) =>
-	value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
-
 const originLessBaseUrl = (value: string) => value.replace(/\/+$/, "");
+
+export class NotificationMailer extends Context.Service<NotificationMailer>()(
+	"NotificationMailer",
+	{
+		make: Effect.succeed({
+			send: (input: NotificationMailerInput) => {
+				const transport = createTransport({
+					port: 465,
+					secure: true,
+					host: input.credentials.server,
+					socketTimeout: HTTP_TIMEOUT_MS,
+					greetingTimeout: HTTP_TIMEOUT_MS,
+					connectionTimeout: HTTP_TIMEOUT_MS,
+					auth: { user: input.credentials.user, pass: input.credentials.password },
+				});
+
+				return Effect.tryPromise({
+					catch: () => new NotificationDeliveryError({ message: "SMTP request failed" }),
+					try: () => transport.sendMail(input.mail),
+				}).pipe(Effect.asVoid);
+			},
+		}),
+	},
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
 
 export class NotificationDeliveryService extends Context.Service<NotificationDeliveryService>()(
 	"NotificationDeliveryService",
 	{
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;
+			const mailer = yield* NotificationMailer;
 			const httpClient = (yield* HttpClient.HttpClient).pipe(HttpClient.filterStatusOk);
 
 			const sendHttp = Effect.fn("NotificationDeliveryService.sendHttp")(function* (input: {
-				request: HttpClientRequest.HttpClientRequest;
 				provider: string;
+				request: HttpClientRequest.HttpClientRequest;
 			}) {
 				yield* httpClient.execute(input.request).pipe(
 					Effect.flatMap((response) => response.text),
@@ -69,27 +106,21 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 
 				const { mailbox } = config.server.smtp;
 				const { server, user, password } = credentials.value;
-
-				const transport = createTransport({
-					port: 465,
-					host: server,
-					secure: true,
-					socketTimeout: HTTP_TIMEOUT_MS,
-					greetingTimeout: HTTP_TIMEOUT_MS,
-					connectionTimeout: HTTP_TIMEOUT_MS,
-					auth: { user: Redacted.value(user), pass: Redacted.value(password) },
+				const email = GenericEmail({ message: input.message });
+				const [html, text] = yield* Effect.tryPromise({
+					catch: () => new NotificationDeliveryError({ message: "SMTP request failed" }),
+					try: () => Promise.all([render(email), render(email, { plainText: true })]),
 				});
 
-				yield* Effect.tryPromise({
-					catch: () => new NotificationDeliveryError({ message: "SMTP request failed" }),
-					try: () =>
-						transport.sendMail({
-							from: mailbox,
-							text: input.message,
-							to: input.recipient,
-							subject: `${PROJECT_NAME} notification`,
-							html: `<p>${escapeHtml(input.message)}</p>`,
-						}),
+				yield* mailer.send({
+					credentials: { server, user: Redacted.value(user), password: Redacted.value(password) },
+					mail: {
+						text,
+						html,
+						from: mailbox,
+						to: input.recipient,
+						subject: `${PROJECT_NAME} notification`,
+					},
 				});
 				return yield* Effect.void;
 			});

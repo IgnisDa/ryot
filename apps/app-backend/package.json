@@ -23,6 +23,7 @@
 		"@effect/platform-bun": "4.0.0-beta.107",
 		"@effect/sql-pg": "4.0.0-beta.107",
 		"@opentelemetry/api": "1.9.1",
+		"@react-email/components": "1.0.7",
 		"@ryot/config": "workspace:*",
 		"@ryot/contract": "workspace:*",
 		"@ryot/fitness-plugin": "workspace:*",
@@ -30,13 +31,16 @@
 		"@ryot/ryotql-recipes": "workspace:*",
 		"@ryot/sandbox-compiler": "workspace:*",
 		"@ryot/sandbox-sdk": "workspace:*",
+		"@ryot/transactional": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
 		"better-auth": "1.6.15",
 		"drizzle-orm": "0.45.2",
 		"effect": "4.0.0-beta.107",
 		"ioredis": "5.11.1",
 		"nodemailer": "8.0.10",
-		"pg": "8.21.0"
+		"pg": "8.21.0",
+		"react": "19.2.4",
+		"react-dom": "19.2.4"
 	},
 	"devDependencies": {
 		"@effect/vitest": "4.0.0-beta.107",

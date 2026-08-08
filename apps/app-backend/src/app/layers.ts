@@ -69,7 +69,7 @@ import { IntegrationOperationScopeResolverLive } from "#modules/integrations/ope
 import { IntegrationReconciliationWorkflowDefinitionsLive } from "#modules/integrations/reconciliation-workflow";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { IntegrationsService } from "#modules/integrations/service";
-import { NotificationDeliveryService } from "#modules/notifications/delivery";
+import { NotificationDeliveryService, NotificationMailer } from "#modules/notifications/delivery";
 import { NotificationDeliveryWorkflowDefinitionsLive } from "#modules/notifications/notification-delivery-workflow-live";
 import { NotificationsRepository } from "#modules/notifications/repository";
 import { NotificationsService } from "#modules/notifications/service";
@@ -378,7 +378,7 @@ const PlatformServicesLive = Layer.mergeAll(
 		Layer.provide([ImportsServiceLive, IntegrationProviderCatalogLive]),
 	),
 	NotificationsService.layer,
-	NotificationDeliveryService.layer,
+	NotificationDeliveryService.layer.pipe(Layer.provide(NotificationMailer.layer)),
 );
 
 const CollectionsServiceLive = CollectionsService.layer.pipe(
