@@ -9,7 +9,7 @@
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
-		"@effect/platform-bun": "4.0.0-beta.107",
+		"@effect/platform-bun": "4.0.0-rc.111",
 		"@ryot-app/client-plugin-compiler": "workspace:*",
 		"@ryot-app/client-plugin-contract": "workspace:*",
 		"@ryot-app/contract": "workspace:*",
@@ -18,7 +18,7 @@
 		"effect": "4.0.0-rc.111"
 	},
 	"devDependencies": {
-		"@effect/vitest": "4.0.0-beta.107",
+		"@effect/vitest": "4.0.0-rc.111",
 		"@ryot-app/sandbox-sdk": "workspace:*",
 		"@ryot-app/testing": "workspace:*",
 		"bun-types": "1.4.0",
