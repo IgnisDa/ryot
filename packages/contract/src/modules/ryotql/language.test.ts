@@ -176,6 +176,7 @@ describe("RyotQLDocument", () => {
 
 	it("decodes scalar operations with recursive expressions and predicates", () => {
 		const value = { type: "column", tableAlias: "entity", field: "name" } as const;
+		const createdAt = { type: "column", tableAlias: "entity", field: "createdAt" } as const;
 		const expressions = [
 			{ type: "concat", values: [value, { type: "literal", value: " suffix" }] },
 			{
@@ -189,6 +190,7 @@ describe("RyotQLDocument", () => {
 			{ type: "floor", expr: value },
 			{ type: "integer", expr: value },
 			{ type: "isNotNull", expr: value },
+			{ bucket: "day", expr: createdAt, type: "dateBucket", timeZone: "America/New_York" },
 		] as const;
 
 		for (const expr of expressions) {
@@ -209,9 +211,15 @@ describe("RyotQLDocument", () => {
 		}
 	});
 
-	it("rejects empty concat values and legacy scalar expression keys", () => {
+	it("rejects malformed scalar expressions and legacy keys", () => {
 		for (const expr of [
 			{ type: "concat", values: [] },
+			{
+				type: "dateBucket",
+				bucket: "year",
+				timeZone: "America/New_York",
+				expr: { type: "column", tableAlias: "entity", field: "createdAt" },
+			},
 			{ type: "transform", expression: { type: "literal", value: "value" }, name: "titleCase" },
 		]) {
 			expect(() => Schema.decodeUnknownSync(RyotQLDocument)(makeDocument(expr))).toThrow();

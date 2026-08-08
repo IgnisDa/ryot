@@ -36,6 +36,7 @@ const JsonPathSegment = Schema.Union([Schema.String, Schema.Number]);
 const CastTarget = Schema.Literals(["boolean", "date", "json", "number", "text"]);
 const JsonPath = Schema.NonEmptyArray(JsonPathSegment);
 const TransformName = Schema.Literals(["kebabCase", "titleCase"]);
+const DateBucketUnit = Schema.Literals(["hour", "day", "week", "month"]);
 
 export type CorrelatedQuerySet = {
 	readonly from: TableReference;
@@ -65,6 +66,14 @@ export type ScalarExpression =
 	| { readonly type: "integer"; readonly expr: ScalarExpression }
 	| { readonly type: "isNotNull"; readonly expr: ScalarExpression }
 	| {
+			readonly type: "coalesce";
+			readonly values: readonly [ScalarExpression, ...ScalarExpression[]];
+	  }
+	| {
+			readonly type: "concat";
+			readonly values: readonly [ScalarExpression, ...ScalarExpression[]];
+	  }
+	| {
 			readonly type: "cast";
 			readonly expr: ScalarExpression;
 			readonly target: typeof CastTarget.Type;
@@ -75,12 +84,10 @@ export type ScalarExpression =
 			readonly path: typeof JsonPath.Type;
 	  }
 	| {
-			readonly type: "coalesce";
-			readonly values: readonly [ScalarExpression, ...ScalarExpression[]];
-	  }
-	| {
-			readonly type: "concat";
-			readonly values: readonly [ScalarExpression, ...ScalarExpression[]];
+			readonly timeZone: string;
+			readonly type: "dateBucket";
+			readonly expr: ScalarExpression;
+			readonly bucket: typeof DateBucketUnit.Type;
 	  }
 	| {
 			readonly type: "conditional";
@@ -167,6 +174,12 @@ export const ScalarExpression: Schema.Codec<ScalarExpression, unknown> = Schema.
 		strictStruct({ expr: ScalarExpression, type: Schema.Literal("integer") }),
 		strictStruct({ expr: ScalarExpression, type: Schema.Literal("isNotNull") }),
 		strictStruct({ expr: ScalarExpression, type: Schema.Literal("round") }),
+		strictStruct({
+			expr: ScalarExpression,
+			bucket: DateBucketUnit,
+			timeZone: Schema.String,
+			type: Schema.Literal("dateBucket"),
+		}),
 		strictStruct({ path: JsonPath, expr: ScalarExpression, type: Schema.Literal("jsonPath") }),
 		strictStruct({
 			query: CorrelatedQuerySet,
