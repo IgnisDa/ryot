@@ -136,13 +136,18 @@ it.effect("resolves create rules for the source target and enqueues one executio
 });
 
 it.effect("derives the rule target from each lifecycle source kind", () => {
+	const executions: unknown[] = [];
+	const eventRule = rule("event", userId);
 	const resolvedTargets: AutomationRuleTarget[] = [];
 	const instance = WorkflowInstance.initial(SubscriptionExecutionWorkflow, "target-test");
-	const engine = executionEngine(instance, () => Effect.void);
+	const engine = executionEngine(instance, (payload) => {
+		executions.push(payload);
+		return Effect.void;
+	});
 	const automations = Layer.mock(AutomationsService, {
 		resolveActive: ({ target }) => {
 			resolvedTargets.push(target);
-			return Effect.succeed([]);
+			return Effect.succeed(target.kind === "event_schema" ? [eventRule] : []);
 		},
 	});
 	const layer = Layer.provideMerge(
@@ -163,9 +168,11 @@ it.effect("derives the rule target from each lifecycle source kind", () => {
 				kind: "event",
 				after: {
 					properties: {},
-					eventSchemaSlug: EventSchemaSlug.make("finished"),
 					id: EventId.make("event-1"),
+					createdAt: "2026-07-20T11:00:00.000Z",
 					occurredAt: "2026-07-20T10:00:00.000Z",
+					sessionEntityId: EntityId.make("session-1"),
+					eventSchemaSlug: EventSchemaSlug.make("finished"),
 					subject: { id: EntityId.make("entity-1"), name: "Dune", entitySchemaSlug: "book" },
 				},
 			},
@@ -173,6 +180,14 @@ it.effect("derives the rule target from each lifecycle source kind", () => {
 		expect(resolvedTargets).toEqual([
 			{ id: entitySchemaSlug, kind: "entity_schema" },
 			{ id: `${entitySchemaSlug}:${eventSchemaSlug}`, kind: "event_schema" },
+		]);
+		expect(executions).toMatchObject([
+			{
+				source: {
+					kind: "event",
+					after: { sessionEntityId: "session-1", createdAt: "2026-07-20T11:00:00.000Z" },
+				},
+			},
 		]);
 	}).pipe(Effect.provide(layer));
 });

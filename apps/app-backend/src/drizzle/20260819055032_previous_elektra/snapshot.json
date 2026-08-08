@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "5cbcb9eb-8558-4082-8a48-f82055cf5460",
+	"id": "e0c58af1-a276-4461-a1aa-e0effc63901d",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{
@@ -3837,6 +3837,27 @@
 					"asc": true,
 					"nullsFirst": false,
 					"opclass": null
+				},
+				{
+					"value": "occurred_at",
+					"isExpression": false,
+					"asc": false,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "created_at",
+					"isExpression": false,
+					"asc": false,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "id",
+					"isExpression": false,
+					"asc": false,
+					"nullsFirst": false,
+					"opclass": null
 				}
 			],
 			"isUnique": false,
@@ -3844,7 +3865,56 @@
 			"with": "",
 			"method": "btree",
 			"concurrently": false,
-			"name": "event_user_entity_schema_slugx",
+			"name": "event_user_entity_schema_order_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "event"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "user_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "session_entity_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "occurred_at",
+					"isExpression": false,
+					"asc": false,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "created_at",
+					"isExpression": false,
+					"asc": false,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "id",
+					"isExpression": false,
+					"asc": false,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "event_user_session_order_idx",
 			"entityType": "indexes",
 			"schema": "public",
 			"table": "event"
