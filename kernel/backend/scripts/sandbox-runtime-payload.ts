@@ -1,4 +1,4 @@
-import { createSha256Hasher, sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { canonicalFileSetHash, sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { buildDenoEsm } from "@ryot-app/vite-compiler";
 import { Effect, Schema } from "effect";
 
@@ -15,20 +15,6 @@ import {
 } from "./sandbox-runtime-registry";
 
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
-
-const canonicalPayloadHash = (
-	files: readonly { readonly path: string; readonly contents: string }[],
-) => {
-	const hasher = createSha256Hasher();
-	for (const { path, contents } of files
-		.slice()
-		.sort(({ path: left }, { path: right }) => left.localeCompare(right))) {
-		const bytes = new TextEncoder().encode(contents);
-		hasher.update(`${path.length}:${path}:${bytes.byteLength}:`);
-		hasher.update(bytes);
-	}
-	return hasher.digest("hex");
-};
 
 export const buildSandboxRuntimePayload = (resolveFrom: string) =>
 	Effect.gen(function* () {
@@ -100,6 +86,6 @@ export const buildSandboxRuntimePayload = (resolveFrom: string) =>
 		return {
 			files,
 			metadata,
-			contentHash: canonicalPayloadHash(files),
+			contentHash: canonicalFileSetHash(files),
 		} satisfies SandboxRuntimePayload;
 	});

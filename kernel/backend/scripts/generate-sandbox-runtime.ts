@@ -1,12 +1,13 @@
 #!/usr/bin/env bun
 
-import { BunFileSystem, BunPath, BunRuntime } from "@effect/platform-bun";
-import { createSha256Hasher } from "@ryot-app/ts-utils/crypto";
+import { BunRuntime, BunServices } from "@effect/platform-bun";
+import { canonicalFileSetHash } from "@ryot-app/ts-utils/crypto";
 import { buildDenoEsm, ViteBuildService } from "@ryot-app/vite-compiler";
-import { Data, Effect, Layer, Ref, Schema, FileSystem, Path } from "effect";
+import { Data, Effect, FileSystem, Layer, Path, Ref, Schema } from "effect";
 
+import { sandboxRuntimeInputs } from "./sandbox-runtime-inputs";
 import { buildSandboxRuntimePayload } from "./sandbox-runtime-payload";
-import { preparationSources } from "./sandbox-runtime-preparation";
+import { walkSourceFiles } from "./walk-source-tree";
 
 class RunnerGenerationError extends Data.TaggedError("RunnerGenerationError")<{
 	message: string;
@@ -15,34 +16,16 @@ class RunnerGenerationError extends Data.TaggedError("RunnerGenerationError")<{
 const encodeGeneratedString = Schema.encodeSync(Schema.fromJsonString(Schema.String));
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
-const walkSandboxSources = (
-	directory: string,
-	root: string,
-): Effect.Effect<Readonly<Record<string, string>>, unknown, FileSystem.FileSystem | Path.Path> =>
-	Effect.gen(function* () {
-		const path = yield* Path.Path;
-		const fs = yield* FileSystem.FileSystem;
-		const files: Record<string, string> = {};
-		for (const entry of (yield* fs.readDirectory(directory)).sort()) {
-			const absolutePath = path.join(directory, entry);
-			const info = yield* fs.stat(absolutePath);
-			if (info.type === "Directory") {
-				Object.assign(files, yield* walkSandboxSources(absolutePath, root));
-			} else if (entry.endsWith(".sandbox.ts")) {
-				const relativePath = path.relative(root, absolutePath).split(path.sep).join("/");
-				files[relativePath] = yield* fs.readFileString(absolutePath);
-			}
-		}
-		return files;
-	});
+const sandboxSource = (file: string) => file.endsWith(".sandbox.ts");
 
 const embedKernelScripts = (kernelDirectory: string) =>
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
 		const path = yield* Path.Path;
-		const scripts = yield* walkSandboxSources(
+		const scripts = yield* walkSourceFiles(
 			path.join(kernelDirectory, "src/modules/definition-registry/kernel-scripts"),
 			kernelDirectory,
+			sandboxSource,
 		);
 		const entries = Object.entries(scripts)
 			.sort(([left], [right]) => left.localeCompare(right))
@@ -60,7 +43,11 @@ const embedKernelScripts = (kernelDirectory: string) =>
 const compileRunner = (sandboxRuntimeDirectory: string) =>
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
-		const sources = yield* walkSandboxSources(sandboxRuntimeDirectory, sandboxRuntimeDirectory);
+		const sources = yield* walkSourceFiles(
+			sandboxRuntimeDirectory,
+			sandboxRuntimeDirectory,
+			sandboxSource,
+		);
 		const { javascript } = yield* buildDenoEsm({
 			outputFile: "runner.mjs",
 			entry: "runner-source.sandbox.ts",
@@ -98,16 +85,8 @@ const compileRuntimePayload = (kernelDirectory: string, sandboxRuntimeDirectory:
 		yield* Effect.logInfo("Compiled trusted Deno runtime payload");
 	});
 
-const fingerprint = (files: Readonly<Record<string, string>>) => {
-	const hasher = createSha256Hasher();
-	for (const [path, source] of Object.entries(files).sort(([left], [right]) =>
-		left.localeCompare(right),
-	)) {
-		hasher.update(`${path.length}:${path}:${source.length}:`);
-		hasher.update(source);
-	}
-	return hasher.digest("hex");
-};
+const fingerprintOf = (files: Readonly<Record<string, string>>) =>
+	canonicalFileSetHash(Object.entries(files).map(([path, contents]) => ({ path, contents })));
 
 const program = Effect.gen(function* () {
 	const path = yield* Path.Path;
@@ -134,12 +113,12 @@ const program = Effect.gen(function* () {
 		return yield* Effect.void;
 	}
 
-	const sources = yield* preparationSources(kernelDirectory, sandboxRuntimeDirectory);
-	const currentFingerprint = yield* Ref.make(fingerprint(sources));
+	const sources = yield* sandboxRuntimeInputs(kernelDirectory, sandboxRuntimeDirectory);
+	const currentFingerprint = yield* Ref.make(fingerprintOf(sources));
 	return yield* Effect.gen(function* () {
 		yield* Effect.sleep("250 millis");
-		const nextSources = yield* preparationSources(kernelDirectory, sandboxRuntimeDirectory);
-		const nextFingerprint = fingerprint(nextSources);
+		const nextSources = yield* sandboxRuntimeInputs(kernelDirectory, sandboxRuntimeDirectory);
+		const nextFingerprint = fingerprintOf(nextSources);
 		if (nextFingerprint !== (yield* Ref.get(currentFingerprint))) {
 			const compiled = yield* Effect.result(
 				Effect.all(
@@ -161,7 +140,5 @@ const program = Effect.gen(function* () {
 }).pipe(Effect.tapError((error) => Effect.logError(JSON.stringify(error, null, 2))));
 
 BunRuntime.runMain(
-	program.pipe(
-		Effect.provide(Layer.mergeAll(BunFileSystem.layer, BunPath.layer, ViteBuildService.layer)),
-	),
+	program.pipe(Effect.provide(Layer.mergeAll(BunServices.layer, ViteBuildService.layer))),
 );
