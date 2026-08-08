@@ -447,13 +447,11 @@ describe("plugin navigation", () => {
 
 	it("never renders a plugin for a reserved or uninstalled slug", async () => {
 		mount("/settings");
-		await waitFor(() =>
-			expect(screen.getByRole("status").textContent).toBe("This page does not exist."),
-		);
+		await screen.findByRole("heading", { level: 1, name: "Settings" });
 		expect(screen.queryByTitle("fixture plugin")).toBeNull();
 
 		mount("/missing");
-		await waitFor(() => expect(screen.getAllByRole("status")).toHaveLength(2));
+		await waitFor(() => expect(screen.getAllByRole("status")).toHaveLength(1));
 	});
 });
 
