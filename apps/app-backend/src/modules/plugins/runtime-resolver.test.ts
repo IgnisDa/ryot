@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import { SandboxProviderId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, SandboxProviderId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Cause, Deferred, Effect, Exit, Fiber, Layer, Option } from "effect";
 import { assert } from "vitest";
@@ -10,7 +10,11 @@ import { Database } from "#lib/infrastructure/db/service";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 
 import { makePluginLoader, PluginLoader } from "./loader";
-import { PluginRuntimeResolver, UnsupportedProviderOperationError } from "./runtime-resolver";
+import {
+	InvalidProviderEntityImportAutomationError,
+	PluginRuntimeResolver,
+	UnsupportedProviderOperationError,
+} from "./runtime-resolver";
 import { fixtureManifest } from "./test-support";
 import type { NormalizedPlugin } from "./types";
 
@@ -25,7 +29,9 @@ const limitable = (rows: ReadonlyArray<unknown>): MockQuery => {
 	return Object.assign(effect, { limit: () => effect });
 };
 
-const normalizedPlugin = (): NormalizedPlugin => {
+const normalizedPlugin = (
+	providerEntityImportAutomations: PluginManifest["bindings"]["providerEntityImportAutomations"] = [],
+): NormalizedPlugin => {
 	const manifest = fixtureManifest();
 	const automation = manifest.scripts[0];
 	const fixtureEntitySchema = manifest.entitySchemas[0];
@@ -77,8 +83,8 @@ const normalizedPlugin = (): NormalizedPlugin => {
 	};
 	const normalizedManifest: PluginManifest = {
 		...manifest,
-		bindings: manifest.bindings,
 		workflows: [{ slug: "fixture-run", scriptSlug: workflow.slug }],
+		bindings: { ...manifest.bindings, providerEntityImportAutomations },
 		scripts: [...manifest.scripts, queryScript, details, search, searchOptions, preload, workflow],
 		entitySchemas: [...manifest.entitySchemas, { ...fixtureEntitySchema, slug: "unbound-entity" }],
 		providers: [
@@ -141,6 +147,7 @@ const providerOwnerPlugin = (): NormalizedPlugin => {
 				entityAutomations: [],
 				signalAutomations: [],
 				relationshipAutomations: [],
+				providerEntityImportAutomations: [],
 			},
 		},
 	};
@@ -176,6 +183,20 @@ const scriptRow = {
 		kind: "provider" as const,
 		requiredPluginConfigKeys: [],
 		requiredSystemConfigKeys: [],
+	},
+};
+
+const providerImportScriptRow = {
+	...scriptRow,
+	name: "Fixture automation",
+	slug: "fixture.automation",
+	contentHash: "fixture.automation-hash",
+	id: SandboxScriptId.make("provider-import-script-id"),
+	metadata: {
+		...scriptRow.metadata,
+		name: "Fixture automation",
+		slug: "fixture.automation",
+		kind: "automation" as const,
 	},
 };
 
@@ -263,9 +284,10 @@ const makeLayer = (
 	storedProvider: typeof providerRow | null = providerRow,
 	crossPlugin = false,
 	firstScript: typeof scriptRow = scriptRow,
+	providerEntityImportAutomations: PluginManifest["bindings"]["providerEntityImportAutomations"] = [],
 ) => {
 	const loader = makePluginLoader(makeDefinitionRegistry());
-	const callerPlugin = normalizedPlugin();
+	const callerPlugin = normalizedPlugin(providerEntityImportAutomations);
 	loader.load(
 		crossPlugin
 			? { ...callerPlugin, manifest: { ...callerPlugin.manifest, providers: [] } }
@@ -288,6 +310,9 @@ const makeLayer = (
 	};
 	const scriptRows = (condition: unknown) => {
 		const params = sqlParams(condition);
+		if (params.includes("fixture.automation")) {
+			return [providerImportScriptRow];
+		}
 		if (params.includes("fixture.preload")) {
 			return [customScriptRow];
 		}
@@ -411,6 +436,75 @@ it.effect("resolves active schema providers and their operation-specific scripts
 	}).pipe(Effect.provide(makeLayer())),
 );
 
+it.effect("resolves provider-import automations in manifest order", () =>
+	Effect.gen(function* () {
+		const resolver = yield* PluginRuntimeResolver;
+		expect(
+			yield* resolver.listProviderEntityImportAutomations(EntitySchemaSlug.make("fixture-entity")),
+		).toEqual([
+			{
+				sandboxScriptId: "provider-import-script-id",
+				ruleId: "binding:fixture:provider_entity_import:fixture-entity:fixture.automation:0",
+			},
+			{
+				sandboxScriptId: "provider-import-script-id",
+				ruleId: "binding:fixture:provider_entity_import:fixture-entity:fixture.automation:1",
+			},
+		]);
+	}).pipe(
+		Effect.provide(
+			makeLayer(providerRow, false, scriptRow, [
+				{ entitySchemaSlug: "fixture-entity", scriptSlug: "fixture.automation" },
+				{ entitySchemaSlug: "fixture-entity", scriptSlug: "fixture.automation" },
+			]),
+		),
+	),
+);
+
+it.effect("returns no provider-import automation for an unmatched schema", () =>
+	Effect.gen(function* () {
+		const resolver = yield* PluginRuntimeResolver;
+		expect(
+			yield* resolver.listProviderEntityImportAutomations(EntitySchemaSlug.make("unbound-entity")),
+		).toEqual([]);
+	}).pipe(Effect.provide(makeLayer())),
+);
+
+it.effect("rejects invalid provider-import automation bindings", () =>
+	Effect.gen(function* () {
+		const resolver = yield* PluginRuntimeResolver;
+		const missing = yield* Effect.exit(
+			resolver.listProviderEntityImportAutomations(EntitySchemaSlug.make("fixture-entity")),
+		);
+		assert(Exit.isFailure(missing));
+		expect(String(missing)).toContain(InvalidProviderEntityImportAutomationError.name);
+	}).pipe(
+		Effect.provide(
+			makeLayer(providerRow, false, scriptRow, [
+				{ entitySchemaSlug: "fixture-entity", scriptSlug: "fixture.missing" },
+			]),
+		),
+	),
+);
+
+it.effect("rejects provider-import bindings that reference a non-automation script", () =>
+	Effect.gen(function* () {
+		const resolver = yield* PluginRuntimeResolver;
+		const result = yield* Effect.exit(
+			resolver.listProviderEntityImportAutomations(EntitySchemaSlug.make("fixture-entity")),
+		);
+		assert(Exit.isFailure(result));
+		const error = Option.getOrThrow(Cause.findErrorOption(result.cause));
+		expect(error).toMatchObject({ reason: "wrong_script_kind" });
+	}).pipe(
+		Effect.provide(
+			makeLayer(providerRow, false, scriptRow, [
+				{ entitySchemaSlug: "fixture-entity", scriptSlug: "fixture.details" },
+			]),
+		),
+	),
+);
+
 it.effect("resolves provider operations from persisted operation rows", () =>
 	Effect.gen(function* () {
 		const resolver = yield* PluginRuntimeResolver;
@@ -501,8 +595,8 @@ it.effect("returns a contextual typed failure for an unsupported operation", () 
 		expect(error).toMatchObject({
 			providerId,
 			operation: "translate",
-			providerSlug: "fixture-provider",
 			reason: "unsupported_operation",
+			providerSlug: "fixture-provider",
 		});
 	}).pipe(Effect.provide(makeLayer())),
 );

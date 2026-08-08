@@ -83,6 +83,7 @@ export const testPluginManifest = (input: TestPluginManifestInput): TestPluginMa
 		entityAutomations: [],
 		signalAutomations: [],
 		relationshipAutomations: [],
+		providerEntityImportAutomations: [],
 		eventAutomations: input.eventAutomations ?? [],
 	},
 });
