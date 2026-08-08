@@ -3,6 +3,7 @@ export * from "./auth-2fa";
 export * from "./auth-oidc";
 export * from "./admin";
 export * from "./automations";
+export * from "./backups";
 export * from "./contract-client";
 export * from "./collections";
 export * from "./integrations";
