@@ -3,7 +3,6 @@ import { Exit, Match } from "effect";
 import { useEffectEvent, useState } from "react";
 
 import { temporaryFileUploadOperation } from "@/api/files/upload";
-import { requestFailureMessage } from "@/api/request-failure";
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
 import { pickUploadFile } from "@/modules/ui/schema-form/file/pick-upload-file";
@@ -56,7 +55,7 @@ export function BackupRestoreWizard(props: {
 		});
 		setPending(false);
 		if (Exit.isFailure(exit)) {
-			const mapped = backupRestoreFailure(requestFailureMessage(exit.cause));
+			const mapped = backupRestoreFailure(exit.cause);
 			setRestoreCause(exit.cause);
 			setFailure(mapped);
 			if (mapped.step !== undefined) {

@@ -5,7 +5,6 @@ import { useEffect, useEffectEvent, useReducer, useState } from "react";
 import { Text } from "react-native";
 
 import { temporaryFileUploadOperation } from "@/api/files/upload";
-import { requestFailureMessage } from "@/api/request-failure";
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
 import { openExternalLink } from "@/modules/ui/external-link";
@@ -85,7 +84,7 @@ export function ImportStartWizard(props: { readonly onClose: () => void }) {
 		});
 		setPending(false);
 		if (Exit.isFailure(exit)) {
-			const mapped = importStartFailure(requestFailureMessage(exit.cause));
+			const mapped = importStartFailure(exit.cause);
 			setStartCause(exit.cause);
 			setFailure(mapped);
 			if (mapped.step !== undefined) {
