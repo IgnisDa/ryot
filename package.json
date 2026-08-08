@@ -6,7 +6,7 @@
 		"migrations/*",
 		"packages/*",
 		"plugins/*",
-		"tests*"
+		"e2e*"
 	],
 	"scripts": {
 		"dev": "turbo dev",

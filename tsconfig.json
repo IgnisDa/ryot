@@ -18,6 +18,6 @@
 		{ "path": "packages/testing" },
 		{ "path": "packages/transactional" },
 		{ "path": "packages/ts-utils" },
-		{ "path": "tests" }
+		{ "path": "e2e" }
 	]
 }
