@@ -8,15 +8,15 @@ Use a dedicated **Customize sidebar** mode rather than exposing drag handles and
 
 The normal sidebar should remain optimized for opening pages. Permanent handles, eye icons, or row menus would make the current design noisier and increase accidental edits—particularly on mobile.
 
-The customization should be **workspace-specific**, so the action belongs in the menu opened from the **Media** workspace selector:
+The customization should be **workspace-specific**, so the action belongs in the menu opened from the workspace selector:
 
 > Customize sidebar…
 
-On web, a secondary **Edit** action will appear beside the **Views** and **Saved Views** headings on hover or keyboard focus. Selecting it would open the same global customization mode, initially scrolled to that section. The workspace menu should remain the discoverable entry point; hover and long-press should never be the only way to find it.
+On web, a secondary **Edit** action will appear beside the **Views** and **Saved Views** headings on hover or keyboard focus. Selecting it would open the same global customization mode, initially scrolled to that section. The workspace menu should remain the discoverable entry point; hover should never be the only way to find it.
 
 ## Shared behavior across web and mobile
 
-In customization mode, show only the two editable sections:
+In customization mode, show a fixed Home row (described below) above the two editable sections:
 
 ### Views
 
@@ -52,7 +52,8 @@ The section heading can communicate the state:
 
 - Show in sidebar
 - Hide from sidebar
-- Hidden
+
+Toggle states in the customizer read **On** / **Off**, as in the example above.
 
 ## Home should be the one exception
 
@@ -62,7 +63,7 @@ Make **Home always visible and fixed at the top**:
 ⌂  Home             Always shown
 ```
 
-It would have no visibility toggle and no active drag handle. A small lock indicator and label saying “Always shown”.
+It would have no visibility toggle and no active drag handle. A small lock indicator and label saying “Always shown”. It stays the first item of the Views list, is excluded from reordering, and counts toward the Views heading total as always shown.
 
 ## Collections
 
