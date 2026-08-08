@@ -22,8 +22,10 @@ describe("server service", () => {
 			Layer.succeed(ClientStorage, {
 				remove: () => Effect.void,
 				clearServerSelection: Effect.void,
+				setLastWorkspace: () => Effect.void,
 				setThemePreference: () => Effect.void,
 				getServerSelection: Effect.succeed(null),
+				getLastWorkspace: () => Effect.succeed(null),
 				getThemePreference: Effect.succeed("system" as const),
 				setServerSelection: (origin) => Effect.sync(() => saved.push(origin)),
 			}),

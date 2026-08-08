@@ -2,9 +2,12 @@ import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { pluginClientCatalogRecipe } from "./plugin-client-catalog";
-import { rowsResult } from "./test-utils";
+import { requireRowsQuery, rowsResult } from "./test-utils";
 
 const entry = {
+	sortOrder: 0,
+	icon: "puzzle",
+	name: "Fixture",
 	slug: "fixture",
 	health: "ready",
 	isDisabled: false,
@@ -23,14 +26,24 @@ const response = {
 
 describe("plugin client catalog recipe", () => {
 	it("queries one active-plugin page after the supplied cursor", () => {
-		const document = pluginClientCatalogRecipe({ after: "cursor" }).document;
+		const query = requireRowsQuery(
+			pluginClientCatalogRecipe({ after: "cursor" }).document.queries.installations,
+		);
 
-		expect(document.queries.installations).toMatchObject({
+		expect(query).toMatchObject({
 			where: { right: { value: "active" } },
 			output: { pagination: { after: "cursor", limit: 100 } },
 			from: { alias: "installation", table: "pluginInstallation" },
 			joins: [{ type: "inner", table: { alias: "plugin", table: "plugin" } }],
 		});
+		expect(query.output.orderBy).toEqual([
+			{
+				direction: "asc",
+				expr: { field: "sortOrder", tableAlias: "installation", type: "column" },
+			},
+			{ direction: "asc", expr: { field: "slug", tableAlias: "plugin", type: "column" } },
+			{ direction: "asc", expr: { field: "id", tableAlias: "installation", type: "column" } },
+		]);
 	});
 
 	it("decodes installations with their client artifact identity", () => {
@@ -68,6 +81,22 @@ describe("plugin client catalog recipe", () => {
 		});
 
 		expect(Result.getOrThrow(decoded).items[0]?.clientApiVersion).toBe(2);
+	});
+
+	it("retains disabled and incompatible installations", () => {
+		const disabled = { ...entry, isDisabled: true };
+		const incompatible = { ...entry, health: "incompatible", installationId: "installation-2" };
+		const decoded = pluginClientCatalogRecipe().decode({
+			data: {
+				installations: rowsResult([disabled, incompatible], {
+					limit: 100,
+					hasMore: false,
+					nextCursor: null,
+				}),
+			},
+		});
+
+		expect(Result.getOrThrow(decoded).items).toEqual([disabled, incompatible]);
 	});
 
 	it("rejects an unknown installation health", () => {

@@ -4,6 +4,9 @@ import { describe, expect, it } from "vitest";
 import { resolveRouteTarget } from "#/modules/plugins/route-resolver";
 
 const installation = {
+	sortOrder: 0,
+	icon: "puzzle",
+	name: "Fixture",
 	slug: "fixture",
 	health: "ready",
 	isDisabled: false,
@@ -30,20 +33,23 @@ describe("plugin route resolver", () => {
 		});
 	});
 
-	it("prefers a compatible installation when duplicate slugs include an incompatible installation", () => {
+	it("uses the first catalog entry when duplicate slugs have different health", () => {
 		const incompatible = { ...installation, health: "incompatible" as const };
 
 		expect(resolveRouteTarget([incompatible, installation], "fixture")).toEqual({
-			installation,
 			owner: "plugin",
 			surface: { kind: "home" },
+			installation: incompatible,
 		});
 	});
 
-	it("does not resolve a slug with only an incompatible installation", () => {
-		expect(resolveRouteTarget([{ ...installation, health: "incompatible" }], "fixture")).toEqual({
-			owner: "kernel",
-			surface: { kind: "not-found" },
+	it("resolves an incompatible installation to plugin ownership", () => {
+		const incompatible = { ...installation, health: "incompatible" as const };
+
+		expect(resolveRouteTarget([incompatible], "fixture")).toEqual({
+			owner: "plugin",
+			surface: { kind: "home" },
+			installation: incompatible,
 		});
 	});
 
