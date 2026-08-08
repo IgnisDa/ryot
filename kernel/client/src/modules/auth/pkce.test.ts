@@ -17,4 +17,21 @@ describe("OAuth PKCE", () => {
 			"E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
 		);
 	});
+
+	it("derives the same challenge without WebCrypto, as on a plain-HTTP origin", async () => {
+		const secure = globalThis.crypto;
+		Object.defineProperty(globalThis, "crypto", {
+			configurable: true,
+			value: { subtle: undefined, getRandomValues: secure.getRandomValues.bind(secure) },
+		});
+		try {
+			expect(globalThis.crypto.subtle).toBeUndefined();
+			expect(await deriveCodeChallenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk")).toBe(
+				"E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+			);
+			expect(generateOAuthRandomValue()).toMatch(/^[A-Za-z0-9_-]{43}$/);
+		} finally {
+			Object.defineProperty(globalThis, "crypto", { configurable: true, value: secure });
+		}
+	});
 });
