@@ -1,6 +1,10 @@
+import {
+	normalizeTypeScriptDiagnostic,
+	TypeScriptCompilerDiagnostic,
+} from "@ryot/typescript-compiler";
 import { Schema } from "effect";
 import * as ts from "typescript/unstable/ast";
-import { DiagnosticCategory, type Diagnostic } from "typescript/unstable/async";
+import type { Diagnostic } from "typescript/unstable/async";
 
 import { SANDBOX_COMPILER_LIMITS, utf8ByteLength } from "./limits";
 
@@ -12,15 +16,7 @@ const compilationFailedMessage = "Sandbox TypeScript compilation failed";
 export const sandboxLogicalFile = (fileName: string) =>
 	fileName.startsWith(sandboxVirtualRoot) ? fileName.slice(sandboxVirtualRoot.length) : fileName;
 
-export const SandboxCompilerDiagnostic = Schema.Struct({
-	code: Schema.String,
-	file: Schema.String,
-	line: Schema.Number,
-	column: Schema.Number,
-	message: Schema.String,
-	length: Schema.optional(Schema.Number),
-	severity: Schema.Literals(["error", "warning", "info"]),
-});
+export const SandboxCompilerDiagnostic = TypeScriptCompilerDiagnostic;
 
 export type SandboxCompilerDiagnostic = Schema.Schema.Type<typeof SandboxCompilerDiagnostic>;
 
@@ -94,38 +90,12 @@ export const sandboxCompilationFailure = (diagnostics: readonly SandboxCompilerD
 		diagnostics: limitSandboxCompilationDiagnostics(diagnostics),
 	});
 
-const diagnosticSeverity = (category: DiagnosticCategory) => {
-	if (category === DiagnosticCategory.Warning) {
-		return "warning" as const;
-	}
-	if (category === DiagnosticCategory.Message || category === DiagnosticCategory.Suggestion) {
-		return "info" as const;
-	}
-	return "error" as const;
-};
-
-const diagnosticMessage = (diagnostic: Diagnostic): string =>
-	[diagnostic.text, ...(diagnostic.messageChain ?? []).map(diagnosticMessage)].join("\n");
-
 export const toTypeScriptDiagnostic = (
 	diagnostic: Diagnostic,
 	files: readonly ts.SourceFile[],
 	entry: ts.SourceFile,
-): SandboxCompilerDiagnostic => {
-	const file = files.find((sourceFile) => sourceFile.fileName === diagnostic.fileName) ?? entry;
-	const start = Math.max(0, diagnostic.pos);
-	const location = diagnostic.fileName ? file.getLineAndCharacterOfPosition(start) : undefined;
-
-	return {
-		code: `TS${diagnostic.code}`,
-		line: (location?.line ?? 0) + 1,
-		column: (location?.character ?? 0) + 1,
-		message: diagnosticMessage(diagnostic),
-		severity: diagnosticSeverity(diagnostic.category),
-		file: sandboxLogicalFile(diagnostic.fileName ?? entry.fileName),
-		...(diagnostic.end > diagnostic.pos ? { length: diagnostic.end - diagnostic.pos } : {}),
-	};
-};
+): SandboxCompilerDiagnostic =>
+	normalizeTypeScriptDiagnostic(diagnostic, files, entry, sandboxLogicalFile);
 
 export const sandboxDiagnosticAt = (
 	node: ts.Node,

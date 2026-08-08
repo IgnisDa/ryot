@@ -50,16 +50,17 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 	}, [activeIndex, isOpen]);
 
 	useEffect(() => {
-		if (!isOpen) {
-			return;
-		}
 		const dismiss = (event: PointerEvent) => {
-			if (!container.current?.contains(event.target as Node)) {
+			if (!(event.target instanceof Node) || !container.current?.contains(event.target)) {
 				setIsOpen(false);
 			}
 		};
-		document.addEventListener("pointerdown", dismiss);
-		return () => document.removeEventListener("pointerdown", dismiss);
+		if (isOpen) {
+			document.addEventListener("pointerdown", dismiss);
+		}
+		return () => {
+			document.removeEventListener("pointerdown", dismiss);
+		};
 	}, [isOpen]);
 
 	return (

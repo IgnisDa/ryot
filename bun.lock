@@ -298,7 +298,10 @@
         "@ryot/client-ui-sdk": "workspace:*",
         "@ryot/contract": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
+        "@ryot/typescript-compiler": "workspace:*",
         "@tailwindcss/oxide": "^4.1.18",
+        "@types/react": "^19.2.0",
+        "@types/react-dom": "^19.2.0",
         "clsx": "2.1.1",
         "effect": "4.0.0-rc.111",
         "postcss": "^8.5.26",
@@ -438,6 +441,7 @@
       "dependencies": {
         "@ryot/sandbox-sdk": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
+        "@ryot/typescript-compiler": "workspace:*",
         "effect": "4.0.0-rc.111",
         "typescript": "7.0.2",
       },
@@ -508,6 +512,19 @@
       },
       "devDependencies": {
         "@types/lodash": "4.17.24",
+      },
+    },
+    "packages/typescript-compiler": {
+      "name": "@ryot/typescript-compiler",
+      "dependencies": {
+        "effect": "4.0.0-rc.111",
+        "typescript": "7.0.2",
+      },
+      "devDependencies": {
+        "@effect/vitest": "4.0.0-beta.107",
+        "@ryot/testing": "workspace:*",
+        "bun-types": "1.4.0",
+        "vitest": "4.1.9",
       },
     },
     "plugins/fitness": {
@@ -1359,6 +1376,8 @@
     "@ryot/transactional": ["@ryot/transactional@workspace:packages/transactional"],
 
     "@ryot/ts-utils": ["@ryot/ts-utils@workspace:packages/ts-utils"],
+
+    "@ryot/typescript-compiler": ["@ryot/typescript-compiler@workspace:packages/typescript-compiler"],
 
     "@ryot/v10-rust-migration": ["@ryot/v10-rust-migration@workspace:migrations/v10-rust"],
 
@@ -3393,6 +3412,8 @@
     "@rolldown/binding-wasm32-wasi/@emnapi/runtime": ["@emnapi/runtime@1.10.0", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-ewvYlk86xUoGI0zQRNq/mC+16R1QeDlKQy21Ki3oSYXNgLb45GV1P6A0M+/s6nyCuNDqe5VpaY84BzXGwVbwFA=="],
 
     "@rollup/pluginutils/estree-walker": ["estree-walker@2.0.2", "", {}, "sha512-Rfkk/Mp/DL7JVje3u18FxFujQlTNR2q6QfMSMB7AvCBx91NGj/ba3kCfza0f6dVDbw7YlRf/nDrn7pQrCCyQ/w=="],
+
+    "@ryot/client-plugin-compiler/@types/react": ["@types/react@19.2.15", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-eRwcGNHve+E8qtEQSSRl6urh+rFop4v8gm6O8rGv25CodbvFdLjA1vVQ1KkiFE0w0UPOnb8tDiFKL5lp0rtY5Q=="],
 
     "@ryot/client-plugin-compiler/react": ["react@19.2.6", "", {}, "sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q=="],
 

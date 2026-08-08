@@ -35,6 +35,26 @@ export default defineAutomation({
 });
 `;
 
+const workflowSource = `
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot/sandbox-sdk/workflow";
+
+export const manifest = defineManifest({
+  capabilities: [],
+  kind: "workflow",
+  name: "Workflow",
+  slug: "workflow.test",
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
+});
+
+export default defineWorkflow({
+  manifest,
+  input: Schema.Struct({}),
+  output: Schema.String,
+  run: () => Effect.succeed("workflow"),
+});
+`;
+
 it.effect("compiles one SDK script to an inline-source-mapped ESM module", () =>
 	Effect.gen(function* () {
 		const compiled = yield* compile(
@@ -65,6 +85,15 @@ it.effect("compiles a typed automation definition", () =>
 		expect(compiled.manifest.kind).toBe("automation");
 		expect(compiled.manifest.slug).toBe("automation.test");
 		expect(compiled.javascript).toContain("ryot:sandbox-script");
+	}),
+);
+
+it.effect("compiles a workflow definition through the compiler worker-facing API", () =>
+	Effect.gen(function* () {
+		const compiled = yield* compile(workflowSource);
+
+		expect(compiled.manifest).toMatchObject({ kind: "workflow", slug: "workflow.test" });
+		expect(compiled.javascript).toContain("sourceMappingURL=data:application/json;base64,");
 	}),
 );
 
