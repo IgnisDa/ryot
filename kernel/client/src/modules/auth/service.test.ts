@@ -18,19 +18,26 @@ const makeAuthClient = (overrides: Partial<AuthClient["Service"]> = {}): AuthCli
 	refreshSession: () => Effect.void,
 	signInWithOidc: () => Effect.void,
 	verifyTwoFactor: () => Effect.void,
+	verifyOneTimeToken: () => Effect.void,
 	signIn: () => Effect.succeed({}),
 	settledSession: () => Effect.succeed({ status: "missing" }),
 	...overrides,
 });
 
-const makeStorage = (clearServerSelection: Effect.Effect<void> = Effect.void) =>
+const makeStorage = (
+	clearServerSelection: Effect.Effect<void> = Effect.void,
+	clearSessionToken: (origin: string) => Effect.Effect<void> = () => Effect.void,
+) =>
 	Layer.succeed(ClientStorage, {
+		clearSessionToken,
 		clearServerSelection,
 		remove: () => Effect.void,
+		setSessionToken: () => Effect.void,
 		setLastWorkspace: () => Effect.void,
 		setServerSelection: () => Effect.void,
 		setThemePreference: () => Effect.void,
 		getServerSelection: Effect.succeed(null),
+		getSessionToken: () => Effect.succeed(null),
 		getLastWorkspace: () => Effect.succeed(null),
 		getThemePreference: Effect.succeed("system" as const),
 	});
@@ -109,13 +116,21 @@ describe("authentication service", () => {
 		});
 		const dependencies = Layer.mergeAll(
 			Layer.succeed(AuthClient, client),
-			makeStorage(Effect.sync(() => calls.push("clear-server"))),
+			makeStorage(
+				Effect.sync(() => calls.push("clear-server")),
+				(origin) => Effect.sync(() => calls.push(`clear-token:${origin}`)),
+			),
 		);
 
 		return Effect.gen(function* () {
 			const service = yield* AuthService;
 			yield* service.changeServer("https://example.com");
-			expect(calls).toEqual(["sign-out", "clear-auth", "clear-server"]);
+			expect(calls).toEqual([
+				"sign-out",
+				"clear-auth",
+				"clear-token:https://example.com",
+				"clear-server",
+			]);
 		}).pipe(Effect.provide(AuthService.layer), Effect.provide(dependencies));
 	});
 });

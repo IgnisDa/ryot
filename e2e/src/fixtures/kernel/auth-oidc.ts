@@ -96,14 +96,8 @@ export async function oidcSignIn(
 	claims?: Record<string, unknown>,
 ): Promise<string> {
 	const step3Response = await performOidcSignIn(mockOidcServer, username, apiUrl, claims);
-	const sessionCookieHeader = requirePresent(
-		step3Response.headers.get("set-cookie"),
-		`oidcSignIn step 3 failed: status=${step3Response.status}, location=${step3Response.headers.get("location")}, no set-cookie header`,
+	return requirePresent(
+		step3Response.headers.get("set-auth-token"),
+		`oidcSignIn step 3 failed: status=${step3Response.status}, location=${step3Response.headers.get("location")}, no set-auth-token header`,
 	);
-	const sessionCookie = requirePresent(
-		sessionCookieHeader.match(/better-auth\.session_token=[^;]+/),
-		`oidcSignIn step 3 failed: session cookie missing from ${sessionCookieHeader}`,
-	);
-
-	return sessionCookie[0];
 }

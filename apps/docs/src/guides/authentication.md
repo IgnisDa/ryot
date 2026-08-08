@@ -18,6 +18,13 @@ FRONTEND_OIDC_BUTTON_LABEL=Use Google
 RUST_LOG=ryot=debug # To debug why OIDC authentication is failing
 ```
 
+::: warning
+`FRONTEND_URL` must be the exact public URL of your own Ryot instance, not just any URL
+your users happen to visit it at. The auth library resolves the OIDC redirect against this
+value, so a wrong `FRONTEND_URL` sends users back to the wrong host and typically looks like
+a broken OIDC provider rather than a Ryot misconfiguration.
+:::
+
 In your OIDC provider, you will need to set the redirect URL to
 `<FRONTEND_URL>/api/auth`. The scopes required are `openid email`.
 

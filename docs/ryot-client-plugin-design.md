@@ -455,7 +455,7 @@ Artifact bytes are available only through an authenticated private session. The 
 
 The response contains an opaque session ID and a 32-byte random bearer token. Only the token's SHA-256 hash is stored in Redis, with a 15-minute TTL. Authenticated renewal refreshes that lease only while the exact current revision remains valid; authenticated revocation deletes it. A source or artifact revision change therefore invalidates the old session, and the old or historical artifact cannot be fetched with its hash or with a session for another revision.
 
-The token file route is `GET /plugin-artifact-sessions/:token/:fileName`. It hashes the bearer token, loads the Redis session, and performs the exact current installation/source/artifact check again before returning the selected raw bytes. Possession of the token authorizes only that exact artifact and file, not another artifact or any bridge capability. The response uses the file MIME type, `x-content-type-options: nosniff`, `cache-control: no-store`, `referrer-policy: no-referrer`, and wildcard non-credentialed CORS; the wildcard policy is required because the sandboxed iframe has the opaque `null` origin. HTML also carries `content-security-policy: sandbox allow-scripts`.
+The token file route is `GET /plugin-artifact-sessions/:token/:fileName`. It hashes the bearer token, loads the Redis session, and performs the exact current installation/source/artifact check again before returning the selected raw bytes. Possession of the token authorizes only that exact artifact and file, not another artifact or any bridge capability. The response uses the file MIME type, `x-content-type-options: nosniff`, `cache-control: no-store`, and `referrer-policy: no-referrer`. CORS is wildcard and non-credentialed API-wide — every route in the backend runs behind a single `HttpMiddleware.cors({ allowedOrigins: ["*"], credentials: false })`, not a per-route exception for this one — which is what the sandboxed iframe's opaque `null` origin needs, and is safe everywhere else too because the API carries no ambient credentials (auth is `Authorization: Bearer`, not cookies) for a permissive origin to expose. See `kernel/backend/src/modules/auth/README.md`. HTML also carries `content-security-policy: sandbox allow-scripts`.
 
 The token must not be logged, placed in a referrer, or sent across the bridge. Reverse proxies must redact the token-bearing path segment from access logs and tracing and must not cache these responses. This protects artifact delivery, not code confidentiality: an authorized user can inspect the compiled code, and compiled artifacts must not contain secrets.
 
@@ -829,7 +829,7 @@ The kernel renders the plugin document in `<iframe sandbox="allow-scripts" refer
 
 The kernel does not expose artifact files by hash alone. After authenticated private session creation, the iframe loads `GET /plugin-artifact-sessions/:token/:fileName`; the token identifies the Redis-backed session, and the server checks the exact current installation, source revision, and artifact before serving the file. The token is in the iframe URL only: it is not part of bootstrap metadata or the bridge protocol.
 
-Artifact files are returned as raw byte HTTP responses. The server derives the MIME type for client assets from their canonical lowercase extensions; generated HTML, JavaScript, and CSS use their generated content types. Responses use wildcard non-credentialed CORS for the opaque `null` iframe origin, `cache-control: no-store`, `referrer-policy: no-referrer`, and `x-content-type-options: nosniff`; `index.html` additionally carries `content-security-policy: sandbox allow-scripts`. Reverse proxies must redact the token path segment in logs and traces and must not cache the response.
+Artifact files are returned as raw byte HTTP responses. The server derives the MIME type for client assets from their canonical lowercase extensions; generated HTML, JavaScript, and CSS use their generated content types. Responses carry `cache-control: no-store`, `referrer-policy: no-referrer`, and `x-content-type-options: nosniff`; `index.html` additionally carries `content-security-policy: sandbox allow-scripts`. Reverse proxies must redact the token path segment in logs and traces and must not cache the response.
 
 The invariant is more important than the mechanism:
 
@@ -841,7 +841,27 @@ Plugin browser storage such as LocalStorage or IndexedDB must be treated as non-
 
 ## 13. Authentication and data access
 
-Plugin UI does not receive the user's Ryot authentication cookie, bearer token, or other primary Ryot credentials.
+Plugin UI does not receive the user's Ryot bearer token or other primary Ryot credentials.
+
+### The kernel's own auth transport
+
+Every Ryot client - web, iOS, and Android - authenticates with an `Authorization: Bearer <token>` header on every request. There are no cookies and no `credentials: "include"` anywhere in the stack.
+
+This matters to the plugin architecture because the kernel client is a *portable* client of a user-chosen backend, exactly as the plugin runtime is a portable guest of the kernel document. A Capacitor shell serves its own document from a fixed local origin - `capacitor://localhost` on iOS, `https://localhost` on Android - which no self-hoster can enumerate in advance, so cookies were only ever conditionally correct. Cookies were also already the exception rather than the rule here: the entity-interest WebSocket authenticates with its own opaque single-use ticket, and the private artifact routes described in section 7 were already wildcard and non-credentialed.
+
+The consequences that shape everything else in this document:
+
+- **CORS is wildcard and non-credentialed API-wide.** There is no operator-configured origin allowlist. This is safe precisely because bearer tokens are not ambient credentials - a browser never attaches one to a cross-origin request on its own - so origin allowlisting protects nothing and only adds self-hosting friction. Section 7's artifact routes are no longer a special case; they are simply the policy applied everywhere.
+- **The token lives in `localStorage`, keyed by server origin.** Plugin documents run sandboxed on an opaque `null` origin and therefore cannot read that storage, which is what keeps the guarantee at the top of this section true.
+- **The kernel's authenticated transport attaches the header.** Where this document says "authenticated transport" or "browser credentials", that is now a bearer header the kernel injects per `ApiScope`, never an ambient cookie the browser attaches.
+- **Server-sent events use a `fetch` reader, not `EventSource`.** `EventSource` cannot send an `Authorization` header, so the plugin catalog stream parses `text/event-stream` itself and reconnects on its own schedule.
+
+Two flows cannot carry a bearer token by their nature, and each gets a narrow, server-owned bridge rather than a return to ambient credentials:
+
+- **OIDC** completes as a browser redirect that establishes a cookie the app cannot read. Web and native use the same mechanism: the client's own `callbackURL` - a relative `/auth/callback` on web, `ryot://auth/callback` on native - rides through the OAuth round trip unresolved and lands verbatim in the callback's `Location`, and an after-hook on that callback appends a single-use, hashed, one-minute one-time token, but only once the redirect target has already passed a same-origin-relative or `trustedOrigins` check. There is no longer a standalone endpoint that mints a token from an ambient cookie outside a real, in-progress OAuth callback.
+- **Two-factor sign-in** is carried by better-auth in a signed `two_factor` cookie, and its verify endpoints accept no equivalent in the request body. A hook pair mirrors the bearer plugin for that one cookie: the already-signed value is exposed as a `set-two-factor-token` response header and accepted back as an `x-two-factor-token` request header, passed through verbatim so the server keeps doing all signing and verification. The client holds it in memory for the sign-in attempt only, never in storage.
+
+See `kernel/backend/src/modules/auth/README.md` for the full transport, its `FRONTEND_URL` invariant, and the accepted XSS trade-off of storing a token instead of an httpOnly cookie.
 
 Authenticated application data is accessed through the same `RyotClient` Promise capability and its explicit adapter in both kernel and plugin React applications.
 
@@ -865,7 +885,7 @@ The concrete operation path is:
 ryot.operations.invoke({ slug, input, output })
   -> plugin SDK operation adapter on the session MessagePort
   -> kernel bridge session, which supplies the installation's plugin slug
-  -> kernel authenticated transport (browser credentials, ApiScope, expected package source hash)
+  -> kernel authenticated transport (bearer header, ApiScope, expected package source hash)
   -> POST /plugins/:pluginSlug/operations/:operationSlug with the kernel-owned expected hash
   -> backend operation authorization for the authenticated user
   -> plugin backend sandbox
@@ -896,6 +916,8 @@ Authenticated third-party integrations should normally be implemented in the plu
 Plugin applications may use ordinary public browser networking directly. Installing a plugin means trusting it with every piece of user data exposed through its client SDK APIs, including the ability to transmit that data to external services.
 
 Ryot does not add an outbound-origin allowlist, network permission system, or data-exfiltration prevention layer. Plugin documents still receive no Ryot authentication credentials and no privileged access to the kernel document.
+
+The API's wildcard non-credentialed CORS does not widen this. A plugin document could already issue ordinary public requests to any origin; what it cannot do is authenticate as the user, because the bearer token is never handed across the bridge and cannot be read from the sandboxed document's opaque origin.
 
 ---
 

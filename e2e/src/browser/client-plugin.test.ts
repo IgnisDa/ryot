@@ -212,8 +212,8 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
-		const { cookies, email, password } = yield* createTestUser(apiUrl);
-		const client = makeSession(apiUrl, { Cookie: cookies });
+		const { token, email, password } = yield* createTestUser(apiUrl);
+		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
 		const effectContext = yield* Effect.context();
 		yield* installFixtureClientPlugin(client, "A", "", apiUrl);
 

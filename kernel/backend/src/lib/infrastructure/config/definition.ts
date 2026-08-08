@@ -254,11 +254,6 @@ const server = group(
 			envKey: "SERVER_LOG_FILE",
 			description: "File path for appended structured logs",
 		}),
-		corsOrigins: stringField({
-			label: "CORS origins",
-			envKey: "SERVER_CORS_ORIGINS",
-			description: "Comma-separated list of allowed CORS origins",
-		}),
 		otlpEndpoint: stringField({
 			label: "OTLP endpoint",
 			envKey: "SERVER_OTLP_ENDPOINT",

@@ -7,6 +7,7 @@ import {
 	clientStorageLayer,
 	lastWorkspaceKey,
 	SERVER_SELECTION_KEY,
+	sessionTokenKey,
 	THEME_PREFERENCE_KEY,
 	type BrowserStorage,
 } from "#/persistence/storage";
@@ -92,6 +93,23 @@ describe("browser persistence", () => {
 			expect(values.has(lastWorkspaceKey(scope))).toBe(false);
 			values.set(lastWorkspaceKey(scope), '{"slug":"media"}');
 			expect(yield* service.getLastWorkspace(scope)).toBeNull();
+		}).pipe(Effect.provide(clientStorageLayer(storage)));
+	});
+
+	it.effect("partitions session tokens by normalized server origin", () => {
+		const { storage, values } = makeStorage();
+		return Effect.gen(function* () {
+			const service = yield* ClientStorage;
+			yield* service.setSessionToken(" https://one.test/// ", "token-one");
+			yield* service.setSessionToken("https://two.test", "token-two");
+
+			expect(values.get(sessionTokenKey("https://one.test"))).toBe("token-one");
+			expect(yield* service.getSessionToken("https://one.test/")).toBe("token-one");
+			expect(yield* service.getSessionToken("https://two.test")).toBe("token-two");
+
+			yield* service.clearSessionToken(" https://one.test/ ");
+			expect(yield* service.getSessionToken("https://one.test")).toBeNull();
+			expect(yield* service.getSessionToken("https://two.test")).toBe("token-two");
 		}).pipe(Effect.provide(clientStorageLayer(storage)));
 	});
 

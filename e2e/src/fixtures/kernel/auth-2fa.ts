@@ -3,10 +3,10 @@ import { base32 } from "rfc4648";
 
 import { requireNonEmptyArray, requirePresent, requireString } from "~/support/assertions";
 
-import { cookieHeaderFromSetCookies, createTestAuthClient } from "./auth";
+import { createTestAuthClient } from "./auth";
 
 type TwoFactorSetupResult = {
-	cookies: string;
+	token: string;
 	backupCodes: string[];
 	totpCodes: { past: string; current: string; future: string };
 };
@@ -59,16 +59,16 @@ function generateTotpWindowCodes(secret: string) {
 export async function enableTwoFactorForSession(input: {
 	baseUrl: string;
 	origin?: string;
-	cookies: string;
+	token: string;
 	issuer?: string;
 	password: string;
 }): Promise<TwoFactorSetupResult> {
-	let setCookies: string[] = [];
+	let nextToken: string | undefined;
 	const authClient = createTestAuthClient(input.baseUrl, {
-		cookies: input.cookies,
+		token: input.token,
 		origin: input.origin,
-		onSetCookies: (nextCookies) => {
-			setCookies = nextCookies;
+		onSetToken: (token) => {
+			nextToken = token;
 		},
 	});
 	const { data: enableData, error: enableError } = await authClient.twoFactor.enable({
@@ -106,25 +106,27 @@ export async function enableTwoFactorForSession(input: {
 	return {
 		totpCodes,
 		backupCodes,
-		cookies: setCookies.length ? cookieHeaderFromSetCookies(setCookies) : input.cookies,
+		token: nextToken ?? input.token,
 	};
 }
 
 export async function verifyBackupCodeForSession(input: {
 	code: string;
-	cookies: string;
+	token: string;
 	baseUrl: string;
+	twoFactorToken?: string;
 }) {
-	let setCookies: string[] = [];
+	let nextToken: string | undefined;
 	const authClient = createTestAuthClient(input.baseUrl, {
-		cookies: input.cookies,
-		onSetCookies: (nextCookies) => {
-			setCookies = nextCookies;
+		token: input.token,
+		twoFactorToken: input.twoFactorToken,
+		onSetToken: (token) => {
+			nextToken = token;
 		},
 	});
 	const result = await authClient.twoFactor.verifyBackupCode({ code: input.code });
 	return {
 		...result,
-		cookies: setCookies.length ? cookieHeaderFromSetCookies(setCookies) : input.cookies,
+		token: nextToken ?? input.token,
 	};
 }

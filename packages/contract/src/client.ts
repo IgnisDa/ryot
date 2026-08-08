@@ -21,18 +21,14 @@ export interface RunContractOptions {
 	baseUrl: string;
 	signal?: AbortSignal;
 	headers?: RequestHeaders;
-	credentials?: RequestCredentials;
 }
 
 export const runContract = <A, E>(
 	program: ContractProgram<A, E>,
-	{ baseUrl, headers = {}, credentials, signal }: RunContractOptions,
+	{ baseUrl, headers = {}, signal }: RunContractOptions,
 ): Promise<A> => {
 	const program$ = makeContractClient(baseUrl, headers).pipe(Effect.flatMap(program));
-	const provisioned = credentials
-		? program$.pipe(Effect.provideService(FetchHttpClient.RequestInit, { credentials }))
-		: program$;
-	return Effect.runPromise(provisioned.pipe(Effect.provide(FetchHttpClient.layer)), { signal });
+	return Effect.runPromise(program$.pipe(Effect.provide(FetchHttpClient.layer)), { signal });
 };
 
 export const runContractError = <A, E>(

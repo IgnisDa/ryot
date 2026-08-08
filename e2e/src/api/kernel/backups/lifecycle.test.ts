@@ -59,7 +59,7 @@ describe("backup lifecycle", () => {
 				expect(Number.isNaN(Date.parse(timestamp ?? ""))).toBe(false);
 			}
 
-			const download = yield* downloadBackupArchive(owner.cookies, runId);
+			const download = yield* downloadBackupArchive(owner.token, runId);
 			expect(download.bytes.byteLength).toBeGreaterThan(0);
 			expect(download.bytes.slice(0, 2)).toEqual(new Uint8Array([0x50, 0x4b]));
 			expect(download.headers.get("content-disposition")).toMatch(
@@ -79,7 +79,7 @@ describe("backup lifecycle", () => {
 
 			const otherDownload = yield* Effect.promise(() =>
 				fetch(`${getApiUrl()}/backups/runs/${runId}/download`, {
-					headers: { Cookie: other.cookies },
+					headers: { Authorization: `Bearer ${other.token}` },
 				}),
 			);
 			const unauthenticatedDownload = yield* Effect.promise(() =>
@@ -200,7 +200,7 @@ describe("backup lifecycle", () => {
 			);
 			assertTaggedError(sourceOwnershipError, "UploadBadRequest");
 
-			const { bytes: archive } = yield* exportAndDownloadBackup(source.client, source.cookies);
+			const { bytes: archive } = yield* exportAndDownloadBackup(source.client, source.token);
 			yield* deleteUserAndWait(source.userId);
 
 			const target = yield* createAuthenticatedClient();

@@ -30,8 +30,8 @@ async function buildFixturePlugin() {
 
 async function main() {
 	await buildFixturePlugin();
-	const { cookies, email, password } = await Effect.runPromise(createTestUser(API_BASE_URL));
-	const client: ContractSession = makeSession(API_BASE_URL, { Cookie: cookies });
+	const { token, email, password } = await Effect.runPromise(createTestUser(API_BASE_URL));
+	const client: ContractSession = makeSession(API_BASE_URL, { Authorization: `Bearer ${token}` });
 	const installation = await Effect.runPromise(
 		installFixtureClientPlugin(client, "A", "", API_BASE_URL),
 	);

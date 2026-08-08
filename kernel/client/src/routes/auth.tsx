@@ -7,11 +7,17 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { ServerOrigin } from "#/api/origin";
 import { PublicApi } from "#/api/public";
 import { deriveAuthMethods } from "#/modules/auth/config";
-import { type AuthMode, authDestination, type TwoFactorMethod } from "#/modules/auth/flow";
+import {
+	type AuthMode,
+	authDestination,
+	oidcCallbackURL,
+	type TwoFactorMethod,
+} from "#/modules/auth/flow";
 import type { CredentialsValues } from "#/modules/auth/form-values";
 import { CredentialsForm, TwoFactorForm } from "#/modules/auth/forms";
 import { decideAuthRoute } from "#/modules/auth/route-gates";
 import { AuthService, toAuthSessionState } from "#/modules/auth/service";
+import { isNativePlatform } from "#/modules/navigation/native-navigation";
 import { sanitizeRedirect } from "#/modules/server/redirect";
 import { ServerService } from "#/modules/server/service";
 
@@ -159,7 +165,7 @@ function AuthGate(props: { server: ServerOrigin; redirectTo?: string }) {
 		const error = await runtime
 			.runPromise(
 				auth
-					.signInWithOidc(props.server, destination)
+					.signInWithOidc(props.server, oidcCallbackURL(destination, isNativePlatform()))
 					.pipe(
 						Effect.match({ onSuccess: () => undefined, onFailure: (failure) => failure.message }),
 					),
@@ -307,7 +313,7 @@ function AuthGate(props: { server: ServerOrigin; redirectTo?: string }) {
 	);
 }
 
-function AuthStatus(props: { title: string; message: string; actions?: React.ReactNode }) {
+export function AuthStatus(props: { title: string; message: string; actions?: React.ReactNode }) {
 	return (
 		<main className="ui-page">
 			<section

@@ -109,16 +109,16 @@ describe("Reset user for credential user", () => {
 			const client = getApiClient();
 			const {
 				email,
-				cookies,
+				token: authToken,
 				userId: rawUserId,
 				client: userClient,
 			} = yield* createAuthenticatedClient();
 			const userId = UserId.make(rawUserId);
-			const apiKey = yield* createApiKey(cookies);
+			const apiKey = yield* createApiKey(authToken);
 
 			// Both auth methods work before the reset.
 			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-				Cookie: cookies,
+				Authorization: `Bearer ${authToken}`,
 			});
 			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 				"X-Api-Key": apiKey,
@@ -136,7 +136,7 @@ describe("Reset user for credential user", () => {
 
 			const oldSession = yield* Effect.flip(
 				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-					Cookie: cookies,
+					Authorization: `Bearer ${authToken}`,
 				}),
 			);
 			assertTaggedError(oldSession, "AuthUnauthorized");
@@ -169,11 +169,11 @@ describe("Reset user for credential user", () => {
 
 			const signInRes = yield* signInWithPassword(email, newPassword);
 			expect(signInRes.error).toBeNull();
-			assertPresent(signInRes.cookies, "expected cookies after sign-in");
+			assertPresent(signInRes.token, "expected an auth token after sign-in");
 
 			const plugins = yield* client.call(
 				(c) => c.definitions.listPlugins({ query: { includeDisabled: true } }),
-				{ Cookie: signInRes.cookies },
+				{ Authorization: `Bearer ${signInRes.token}` },
 			);
 			expect(plugins.some((candidate) => candidate.slug === "media")).toBe(true);
 			const resetPlugin = plugins.find((candidate) => candidate.slug === plugin.slug);
@@ -240,7 +240,7 @@ describe("Reset user for mixed-auth user", () => {
 	it.live("rejects the reset and leaves the existing session intact", () =>
 		Effect.gen(function* () {
 			const client = getApiClient();
-			const { cookies, email } = yield* createTestUser();
+			const { token, email } = yield* createTestUser();
 			const userId = yield* getUserIdByEmail(email);
 
 			yield* client.call(
@@ -262,7 +262,7 @@ describe("Reset user for mixed-auth user", () => {
 
 			// The reset is rejected before any mutation, so the pre-existing session keeps working.
 			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-				Cookie: cookies,
+				Authorization: `Bearer ${token}`,
 			});
 		}),
 	);
