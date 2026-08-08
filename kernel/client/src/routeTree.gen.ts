@@ -9,21 +9,16 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as PluginSlugRouteImport } from './routes/$pluginSlug'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
-import { Route as PluginSlugIndexRouteImport } from './routes/$pluginSlug/index'
-import { Route as PluginSlugSplatRouteImport } from './routes/$pluginSlug/$'
+import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated.index'
+import { Route as AuthenticatedPluginSlugRouteImport } from './routes/_authenticated.$pluginSlug'
+import { Route as AuthenticatedPluginSlugIndexRouteImport } from './routes/_authenticated.$pluginSlug.index'
+import { Route as AuthenticatedPluginSlugSplatRouteImport } from './routes/_authenticated.$pluginSlug.$'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PluginSlugRoute = PluginSlugRouteImport.update({
-  id: '/$pluginSlug',
-  path: '/$pluginSlug',
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -36,83 +31,89 @@ const OnboardingRoute = OnboardingRouteImport.update({
   path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PluginSlugIndexRoute = PluginSlugIndexRouteImport.update({
+const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => PluginSlugRoute,
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
-const PluginSlugSplatRoute = PluginSlugSplatRouteImport.update({
-  id: '/$',
-  path: '/$',
-  getParentRoute: () => PluginSlugRoute,
+const AuthenticatedPluginSlugRoute = AuthenticatedPluginSlugRouteImport.update({
+  id: '/$pluginSlug',
+  path: '/$pluginSlug',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedPluginSlugIndexRoute =
+  AuthenticatedPluginSlugIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedPluginSlugRoute,
+  } as any)
+const AuthenticatedPluginSlugSplatRoute =
+  AuthenticatedPluginSlugSplatRouteImport.update({
+    id: '/$',
+    path: '/$',
+    getParentRoute: () => AuthenticatedPluginSlugRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/$pluginSlug': typeof PluginSlugRouteWithChildren
+  '/': typeof AuthenticatedIndexRoute
   '/auth': typeof AuthRoute
   '/onboarding': typeof OnboardingRoute
-  '/$pluginSlug/$': typeof PluginSlugSplatRoute
-  '/$pluginSlug/': typeof PluginSlugIndexRoute
+  '/$pluginSlug': typeof AuthenticatedPluginSlugRouteWithChildren
+  '/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
+  '/$pluginSlug/': typeof AuthenticatedPluginSlugIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/onboarding': typeof OnboardingRoute
-  '/$pluginSlug/$': typeof PluginSlugSplatRoute
-  '/$pluginSlug': typeof PluginSlugIndexRoute
+  '/': typeof AuthenticatedIndexRoute
+  '/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
+  '/$pluginSlug': typeof AuthenticatedPluginSlugIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/$pluginSlug': typeof PluginSlugRouteWithChildren
+  '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/auth': typeof AuthRoute
   '/onboarding': typeof OnboardingRoute
-  '/$pluginSlug/$': typeof PluginSlugSplatRoute
-  '/$pluginSlug/': typeof PluginSlugIndexRoute
+  '/_authenticated/$pluginSlug': typeof AuthenticatedPluginSlugRouteWithChildren
+  '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
+  '/_authenticated/$pluginSlug/': typeof AuthenticatedPluginSlugIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/$pluginSlug'
     | '/auth'
     | '/onboarding'
+    | '/$pluginSlug'
     | '/$pluginSlug/$'
     | '/$pluginSlug/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/onboarding' | '/$pluginSlug/$' | '/$pluginSlug'
+  to: '/auth' | '/onboarding' | '/' | '/$pluginSlug/$' | '/$pluginSlug'
   id:
     | '__root__'
-    | '/'
-    | '/$pluginSlug'
+    | '/_authenticated'
     | '/auth'
     | '/onboarding'
-    | '/$pluginSlug/$'
-    | '/$pluginSlug/'
+    | '/_authenticated/$pluginSlug'
+    | '/_authenticated/'
+    | '/_authenticated/$pluginSlug/$'
+    | '/_authenticated/$pluginSlug/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  PluginSlugRoute: typeof PluginSlugRouteWithChildren
+  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AuthRoute: typeof AuthRoute
   OnboardingRoute: typeof OnboardingRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/$pluginSlug': {
-      id: '/$pluginSlug'
-      path: '/$pluginSlug'
-      fullPath: '/$pluginSlug'
-      preLoaderRoute: typeof PluginSlugRouteImport
+      preLoaderRoute: typeof AuthenticatedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -129,40 +130,69 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/$pluginSlug/': {
-      id: '/$pluginSlug/'
+    '/_authenticated/': {
+      id: '/_authenticated/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/$pluginSlug': {
+      id: '/_authenticated/$pluginSlug'
+      path: '/$pluginSlug'
+      fullPath: '/$pluginSlug'
+      preLoaderRoute: typeof AuthenticatedPluginSlugRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/$pluginSlug/': {
+      id: '/_authenticated/$pluginSlug/'
       path: '/'
       fullPath: '/$pluginSlug/'
-      preLoaderRoute: typeof PluginSlugIndexRouteImport
-      parentRoute: typeof PluginSlugRoute
+      preLoaderRoute: typeof AuthenticatedPluginSlugIndexRouteImport
+      parentRoute: typeof AuthenticatedPluginSlugRoute
     }
-    '/$pluginSlug/$': {
-      id: '/$pluginSlug/$'
+    '/_authenticated/$pluginSlug/$': {
+      id: '/_authenticated/$pluginSlug/$'
       path: '/$'
       fullPath: '/$pluginSlug/$'
-      preLoaderRoute: typeof PluginSlugSplatRouteImport
-      parentRoute: typeof PluginSlugRoute
+      preLoaderRoute: typeof AuthenticatedPluginSlugSplatRouteImport
+      parentRoute: typeof AuthenticatedPluginSlugRoute
     }
   }
 }
 
-interface PluginSlugRouteChildren {
-  PluginSlugSplatRoute: typeof PluginSlugSplatRoute
-  PluginSlugIndexRoute: typeof PluginSlugIndexRoute
+interface AuthenticatedPluginSlugRouteChildren {
+  AuthenticatedPluginSlugSplatRoute: typeof AuthenticatedPluginSlugSplatRoute
+  AuthenticatedPluginSlugIndexRoute: typeof AuthenticatedPluginSlugIndexRoute
 }
 
-const PluginSlugRouteChildren: PluginSlugRouteChildren = {
-  PluginSlugSplatRoute: PluginSlugSplatRoute,
-  PluginSlugIndexRoute: PluginSlugIndexRoute,
+const AuthenticatedPluginSlugRouteChildren: AuthenticatedPluginSlugRouteChildren =
+  {
+    AuthenticatedPluginSlugSplatRoute: AuthenticatedPluginSlugSplatRoute,
+    AuthenticatedPluginSlugIndexRoute: AuthenticatedPluginSlugIndexRoute,
+  }
+
+const AuthenticatedPluginSlugRouteWithChildren =
+  AuthenticatedPluginSlugRoute._addFileChildren(
+    AuthenticatedPluginSlugRouteChildren,
+  )
+
+interface AuthenticatedRouteChildren {
+  AuthenticatedPluginSlugRoute: typeof AuthenticatedPluginSlugRouteWithChildren
+  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
-const PluginSlugRouteWithChildren = PluginSlugRoute._addFileChildren(
-  PluginSlugRouteChildren,
+const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedPluginSlugRoute: AuthenticatedPluginSlugRouteWithChildren,
+  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+}
+
+const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
+  AuthenticatedRouteChildren,
 )
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  PluginSlugRoute: PluginSlugRouteWithChildren,
+  AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AuthRoute: AuthRoute,
   OnboardingRoute: OnboardingRoute,
 }
