@@ -7,7 +7,6 @@ import {
 import { Context, Data, Effect, Layer } from "effect";
 
 import type { KernelRyotClient } from "#/api/ryot-client";
-import type { ClientRuntime } from "#/runtime";
 
 export class PluginCatalogError extends Data.TaggedError("PluginCatalogError")<{
 	readonly cause: unknown;
@@ -48,8 +47,15 @@ export class PluginCatalogService extends Context.Service<PluginCatalogService>(
 	static readonly layer = Layer.effect(this, this.make);
 }
 
+export type PluginCatalogRuntime = {
+	readonly runPromise: <A, E>(
+		effect: Effect.Effect<A, E, PluginCatalogService>,
+		options?: Effect.RunOptions,
+	) => Promise<A>;
+};
+
 type PluginCatalogQueryInput = {
-	readonly runtime: ClientRuntime;
+	readonly runtime: PluginCatalogRuntime;
 	readonly initialData: PluginClientCatalog;
 };
 
