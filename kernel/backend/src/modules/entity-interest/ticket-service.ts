@@ -2,7 +2,7 @@ import { EntityInterestTicketFailure } from "@ryot/contract/modules/entity-inter
 import type { EntityInterestSocketTicketResponse } from "@ryot/contract/modules/entity-interest/messages";
 import { UserId } from "@ryot/contract/schema/brands";
 import { sha256Hex } from "@ryot/ts-utils/crypto";
-import { Clock, Context, DateTime, Effect, Layer, Schema } from "effect";
+import { Clock, Context, Data, DateTime, Effect, Layer, Schema } from "effect";
 
 import { RedisService } from "#lib/infrastructure/redis";
 
@@ -16,7 +16,9 @@ end
 return value
 `;
 const TICKET_PATTERN = /^[A-Za-z0-9_-]{43}$/;
-const invalidTicket = () => new EntityInterestTicketFailure({ reason: { code: "invalid-ticket" } });
+export class EntityInterestInvalidTicket extends Data.TaggedError("EntityInterestInvalidTicket") {}
+
+const invalidTicket = () => new EntityInterestInvalidTicket();
 const storeUnavailable = () =>
 	new EntityInterestTicketFailure({ reason: { code: "ticket-store-unavailable" } });
 const TicketValue = Schema.Struct({

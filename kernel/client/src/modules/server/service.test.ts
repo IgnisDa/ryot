@@ -30,7 +30,7 @@ describe("server service", () => {
 				getServerSelection: Effect.succeed(null),
 				getLastWorkspace: () => Effect.succeed(null),
 				getThemePreference: Effect.succeed("system" as const),
-				setServerSelection: (origin) => Effect.sync(() => saved.push(origin)),
+				setServerSelection: (serverOrigin) => Effect.sync(() => saved.push(serverOrigin)),
 			}),
 		);
 

@@ -1,6 +1,5 @@
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import type { EntityUpdatedReason } from "@ryot/contract/modules/entity-interest/messages";
-import type { EntityId } from "@ryot/contract/schema/brands";
+import type { EntityId, UserId } from "@ryot/contract/schema/brands";
 import { entityInterestRecipe, type EntityInterestResult } from "@ryot/ryotql-recipes/entities";
 import { Context, Effect, Layer, Result } from "effect";
 
@@ -18,6 +17,11 @@ type ReconciliationResult = {
 	readonly reconciledEntityIds: readonly EntityId[];
 };
 
+export type InterestPrincipal = {
+	readonly userId: UserId;
+	readonly preferredLanguage: string | null;
+};
+
 export class InterestReconciler extends Context.Service<InterestReconciler>()(
 	"InterestReconciler",
 	{
@@ -26,14 +30,14 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 			const translations = yield* TranslationsService;
 			const populationTrigger = yield* EntityPopulationTrigger;
 
-			const handleRow = (user: CurrentUserValue, row: EntityInterestResult[number]) =>
+			const handleRow = (principal: InterestPrincipal, row: EntityInterestResult[number]) =>
 				Effect.gen(function* () {
 					if (row.populatedAt === null) {
 						if (row.externalId !== null && row.providerId !== null) {
 							yield* populationTrigger.request({
-								userId: user.id,
 								entityId: row.id,
 								origin: { kind: "api" },
+								userId: principal.userId,
 								externalId: row.externalId,
 								providerId: row.providerId,
 								entitySchemaSlug: row.entitySchemaSlug,
@@ -45,17 +49,17 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 
 					if (row.translationStatus === "pending") {
 						if (
-							user.preferences.language !== null &&
+							principal.preferredLanguage !== null &&
 							row.externalId !== null &&
 							row.providerId !== null
 						) {
 							yield* translations.requestFill({
-								userId: user.id,
 								entityId: row.id,
+								userId: principal.userId,
 								externalId: row.externalId,
 								properties: row.properties,
 								providerId: row.providerId,
-								language: user.preferences.language,
+								language: principal.preferredLanguage,
 								entitySchemaSlug: row.entitySchemaSlug,
 							});
 						}
@@ -69,23 +73,24 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 				});
 
 			const reconcile = Effect.fn("InterestReconciler.reconcile")(function* (
-				user: CurrentUserValue,
+				principal: InterestPrincipal,
 				entityIds: readonly string[],
 			) {
 				const [firstId, ...restIds] = entityIds;
 				if (firstId === undefined) {
-					return {
-						terminal: [],
-						reconciledEntityIds: [],
-					} satisfies ReconciliationResult;
+					return { terminal: [], reconciledEntityIds: [] } satisfies ReconciliationResult;
 				}
 
 				const recipe = entityInterestRecipe({ entityIds: [firstId, ...restIds] });
-				const response = yield* ryotql.execute(user, recipe.document);
+				const response = yield* ryotql.executeForUser(
+					principal.userId,
+					principal.preferredLanguage,
+					recipe.document,
+				);
 				const rows = yield* Effect.sync(() => Result.getOrThrow(recipe.decode(response)));
 				const terminal: TerminalUpdate[] = [];
 				for (const row of rows) {
-					const result = yield* handleRow(user, row);
+					const result = yield* handleRow(principal, row);
 					if (result) {
 						terminal.push(result);
 					}
