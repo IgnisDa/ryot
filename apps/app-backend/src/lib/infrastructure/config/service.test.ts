@@ -19,7 +19,6 @@ const loadSystemConfig = (
 	options: {
 		readonly logLevel?: string;
 		readonly processMode?: string;
-		readonly localSigningSecret?: string | null;
 	} = {},
 ) =>
 	Effect.runSyncExit(
@@ -35,12 +34,6 @@ const loadSystemConfig = (
 							...(options.processMode === undefined
 								? {}
 								: { SANDBOX_PROCESS_MODE: options.processMode }),
-							...(options.localSigningSecret === null
-								? {}
-								: {
-										FILE_STORAGE_LOCAL_SIGNING_SECRET:
-											options.localSigningSecret ?? "test-local-signing-secret",
-									}),
 						}),
 					),
 				),
@@ -83,24 +76,6 @@ describe("system log level config", () => {
 		const result = loadSystemConfig({ logLevel: "verbose" });
 		assert(Exit.isFailure(result));
 		expect(JSON.stringify(result.cause)).toContain("Unsupported SERVER_LOG_LEVEL 'verbose'");
-	});
-});
-
-describe("local file storage config", () => {
-	it("fails loading when the local signing secret is absent", () => {
-		const result = loadSystemConfig({ localSigningSecret: null });
-		assert(Exit.isFailure(result));
-		expect(JSON.stringify(result.cause)).toContain(
-			"FILE_STORAGE_LOCAL_SIGNING_SECRET is required and must not be empty.",
-		);
-	});
-
-	it("fails validation when the local signing secret is empty", () => {
-		const result = loadSystemConfig({ localSigningSecret: "" });
-		assert(Exit.isFailure(result));
-		expect(JSON.stringify(result.cause)).toContain(
-			"FILE_STORAGE_LOCAL_SIGNING_SECRET is required and must not be empty.",
-		);
 	});
 });
 
