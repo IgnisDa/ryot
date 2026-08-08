@@ -99,7 +99,7 @@ export const installTestProvider = (input: {
 				requiredPluginConfigKeys: [],
 				requiredSystemConfigKeys: [],
 				name: `${name} ${operation}`,
-				entry: `api/scripts/${slug}.sandbox.ts`,
+				entry: `backend/scripts/${slug}.sandbox.ts`,
 				...(operation === "search" && input.searchOptionsSchema !== undefined
 					? { searchOptionsSchema: input.searchOptionsSchema }
 					: {}),
