@@ -16,6 +16,7 @@ node_modules
 out/
 target
 tmp
+ryot-vite-*
 /config/ryot.json
 .venv
 **/public/workbox-*.js
