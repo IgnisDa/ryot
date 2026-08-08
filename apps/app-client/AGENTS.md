@@ -16,6 +16,8 @@ Ryot is a self-hosted personal tracker. Keep the UI warm, calm, compact, scannab
 - Use canonical immutable values directly with `Atom.family`; do not use mutable registries to pass request data into atom factories.
 - Keep request documents, response decoding, typed application states, and atoms in the feature that owns them. Routes may handle route and session prerequisites, but must not decode generic backend responses.
 - Shared presentation primitives belong under `src/modules/ui`; features must not import generic UI components from another feature module.
+- Use `@tanstack/react-form` for submitted data-entry forms and the shared controls under `src/modules/ui/form.tsx`; keep search inputs, workflow state, domain validation, and payload construction with their existing owners.
+- Resolve Effect dependencies in feature containers and inject focused form operations through props. Component tests must inject deterministic operations or test `Layer` implementations instead of mocking application services, atoms, or Effect hooks.
 - Show stable user-facing errors and log internal transport or decoder details separately.
 - Keep persisted state in its owning module and make each key's global or server/user scope explicit. Never clear storage outside Ryot-owned keys.
 - When working on client behavior that integrates with the backend, consult the relevant end-to-end and integration tests under `tests/src/tests/`, along with supporting fixtures in `tests/src/fixtures/` and `tests/src/support/`, to follow established API, authentication, data setup, and async-operation patterns. Reuse those patterns where applicable.

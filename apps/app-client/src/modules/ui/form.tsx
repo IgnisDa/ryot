@@ -28,14 +28,17 @@ export function FormMessage(props: { children: ReactNode }) {
 	);
 }
 
-export function FormTextInput(props: ComponentProps<typeof TextInput> & { invalid?: boolean }) {
-	const { invalid, ...inputProps } = props;
+export function FormTextInput(
+	props: ComponentProps<typeof TextInput> & { density?: "compact" | "default"; invalid?: boolean },
+) {
+	const { density = "default", invalid, ...inputProps } = props;
 	return (
 		<TextInput
 			{...inputProps}
 			aria-invalid={invalid}
 			className={clsx(
-				"rounded-lg border border-border bg-raised px-4 py-3 font-ui text-base text-text",
+				"rounded-lg border border-border bg-raised font-ui text-text",
+				density === "default" ? "px-4 py-3 text-base" : "h-10 px-3 text-sm",
 				invalid && "border-danger",
 				props.className,
 			)}
@@ -47,19 +50,32 @@ export function FormSubmitButton(props: {
 	label: string;
 	pending?: boolean;
 	disabled?: boolean;
+	className?: string;
 	onPress: () => void;
 	pendingLabel?: string;
+	density?: "compact" | "default";
 }) {
 	const disabled = props.disabled || props.pending;
+	const density = props.density ?? "default";
 	return (
 		<Pressable
 			disabled={disabled}
 			onPress={props.onPress}
 			accessibilityRole="button"
 			accessibilityState={{ disabled }}
-			className={clsx("items-center rounded-lg bg-accent px-4 py-3", disabled && "opacity-50")}
+			className={clsx(
+				"items-center justify-center rounded-lg bg-accent px-4",
+				density === "default" ? "py-3" : "h-10",
+				disabled && "opacity-50",
+				props.className,
+			)}
 		>
-			<Text className="font-ui-semibold text-base text-accent-ink">
+			<Text
+				className={clsx(
+					"font-ui-semibold text-accent-ink",
+					density === "default" ? "text-base" : "text-sm",
+				)}
+			>
 				{props.pending ? (props.pendingLabel ?? props.label) : props.label}
 			</Text>
 		</Pressable>
