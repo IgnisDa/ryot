@@ -90,9 +90,12 @@ const query = Schema.decodeSync(ryotqlDocumentSchema)(JSON.parse(${JSON.stringif
 	JSON.stringify(input.query),
 )}));
 
-const errorMessage = (error: unknown) => typeof error === "object" && error !== null && "message" in error
-  ? String(error.message)
-  : String(error);
+const errorReasonCode = (error: unknown) => {
+	if (typeof error !== "object" || error === null || !("data" in error)) return null;
+	const reason = error.data;
+  if (typeof reason !== "object" || reason === null || !("code" in reason)) return null;
+  return typeof reason.code === "string" ? reason.code : null;
+};
 
 export default defineScript({
   manifest,
@@ -102,7 +105,7 @@ export default defineScript({
     const outcome = yield* host.executeRyotql(query).pipe(
       Effect.flatMap((value) => Schema.decodeUnknownEffect(jsonValueSchema)(value)),
       Effect.map((result) => ({ error: null, ok: true as const, result })),
-      Effect.catch((error) => Effect.succeed({ error: errorMessage(error), ok: false as const, result: null })),
+      Effect.catch((error) => Effect.succeed({ error: errorReasonCode(error), ok: false as const, result: null })),
     );
     yield* host.upsertGlobalEntities([{
       populatedAt: null,
@@ -789,9 +792,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 
 			const applicationTable = probe("Application table");
 			expect(applicationTable["ok"]).toBe(false);
-			expect(applicationTable["error"]).toEqual(
-				expect.stringContaining("Table 'plugin' is not available to plugin execution"),
-			);
+			expect(applicationTable["error"]).toBe("invalid-query");
 
 			const httpUserRows = responseRows(
 				yield* executeRyotQL(userA.client, pluginEntityDocument),

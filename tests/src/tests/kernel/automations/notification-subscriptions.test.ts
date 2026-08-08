@@ -118,7 +118,11 @@ describe("notification subscription catalog and rules", () => {
 					}),
 				),
 			);
-			assertTaggedError(conflict, "Conflict");
+			assertTaggedError(conflict, "AutomationConflictError");
+			expect(conflict.reason).toEqual({
+				code: "rule-already-installed",
+				signalSchemaSlug: reviewRule.signalSchemaSlug,
+			});
 
 			const arbitraryFields = yield* Effect.promise(() =>
 				postBackendJson(

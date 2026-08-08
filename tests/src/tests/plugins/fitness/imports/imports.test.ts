@@ -92,7 +92,7 @@ describe("OpenScale Import E2E", () => {
 				),
 			);
 
-			assertTaggedError(error, "BadRequest");
+			assertTaggedError(error, "ImportRequestError");
 		}),
 	);
 
@@ -111,7 +111,7 @@ describe("OpenScale Import E2E", () => {
 				client.call((c) => c.imports.createRun({ payload: { source: "open_scale", uploadToken } })),
 			);
 
-			assertTaggedError(error, "BadRequest");
+			assertTaggedError(error, "ImportRequestError");
 		}),
 	);
 
@@ -155,13 +155,13 @@ describe("OpenScale Import E2E", () => {
 					itemIndex: 1,
 					sourceLabel: "Row 2",
 					sourceIdentifier: "2",
-					message: "Row is missing a date/time value",
+					reason: { code: "input-transformation-failed" },
 				},
 				{
 					itemIndex: 2,
 					sourceLabel: "2026-01-03 08:00",
 					sourceIdentifier: "2026-01-03T08:00:00.000Z",
-					message: 'Could not parse numeric value for column "weight"',
+					reason: { code: "input-transformation-failed" },
 				},
 			]);
 		}),

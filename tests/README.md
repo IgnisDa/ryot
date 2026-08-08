@@ -50,6 +50,13 @@ Effect-native fixtures return effects rather than promises. Scoped network fixtu
 
 `pollUntil` retries an Effect check until it returns non-null. Every spawned backend writes to unique `SERVER_LOG_FILE` under OS temp directory; startup output prints path for diagnosis.
 
+## Failure Assertions
+
+Assert typed failure structure: the transport tag or category, the module-owned kebab-case code,
+and its structured parameters. Do not assert backend English, localized copy, or diagnostic prose.
+Raw compiler/runtime diagnostics may be asserted only by tests for the explicit plugin-author,
+admin, or test surfaces that are allowed to expose them.
+
 ## Provider Fixtures
 
 Provider-driven tests install complete offline scripts through real admin plugin endpoint with `installTestProvider`. Pair with best-effort uninstall when production references may correctly block removal.

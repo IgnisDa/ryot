@@ -109,8 +109,12 @@ describe("Integration CRUD", () => {
 				),
 			);
 
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toContain("minimumProgress");
+			assertTaggedError(error, "IntegrationRequestError");
+			expect(error.reason).toEqual({
+				minimumProgress: 80,
+				maximumProgress: 20,
+				code: "invalid-progress-range",
+			});
 		}),
 	);
 
@@ -126,8 +130,8 @@ describe("Integration CRUD", () => {
 				),
 			);
 
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toContain("provider");
+			assertTaggedError(error, "IntegrationRequestError");
+			expect(error.reason).toEqual({ code: "invalid-provider-settings", provider: "emby" });
 		}),
 	);
 
@@ -224,8 +228,12 @@ describe("Integration CRUD", () => {
 				),
 			);
 
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toContain("minimumProgress");
+			assertTaggedError(error, "IntegrationRequestError");
+			expect(error.reason).toEqual({
+				minimumProgress: 90,
+				maximumProgress: 10,
+				code: "invalid-progress-range",
+			});
 		}),
 	);
 
@@ -296,7 +304,7 @@ describe("Webhook routes", () => {
 				),
 			);
 
-			assertTaggedError(error, "NotFound");
+			assertTaggedError(error, "IntegrationNotFoundError");
 		}),
 	);
 
@@ -365,7 +373,7 @@ describe("Webhook routes", () => {
 		}),
 	);
 
-	it.live("POST to a non-Sink integration returns BadRequest", () =>
+	it.live("POST to a non-Sink integration returns a structured lot failure", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { id } = yield* createAudiobookshelfIntegration(client);
@@ -379,7 +387,8 @@ describe("Webhook routes", () => {
 				),
 			);
 
-			assertTaggedError(error, "BadRequest");
+			assertTaggedError(error, "IntegrationRequestError");
+			expect(error.reason).toMatchObject({ code: "wrong-integration-lot", expected: "sink" });
 		}),
 	);
 });
