@@ -123,8 +123,13 @@ export const registerRootRoutes = Effect.fn("registerRootRoutes")(function* <E, 
 	corsOrigins: ReadonlyArray<string>,
 ) {
 	if (corsOrigins.length > 0) {
-		yield* router.addGlobalMiddleware(
-			HttpMiddleware.cors({ allowedOrigins: corsOrigins, credentials: true }),
+		const cors = HttpMiddleware.cors({ allowedOrigins: corsOrigins, credentials: true });
+		yield* router.addGlobalMiddleware((httpApp) =>
+			Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) =>
+				new URL(request.originalUrl).pathname.startsWith("/api/plugins/artifacts/")
+					? httpApp
+					: cors(httpApp),
+			),
 		);
 	}
 	yield* router.add("*", "/api/auth/*", (request) =>
