@@ -10,7 +10,8 @@ type AvatarProps = {
 };
 
 export function Avatar({ name, image, className }: AvatarProps) {
-	const source = image?.trim() || null;
+	const trimmed = image?.trim() ?? "";
+	const source = trimmed === "" ? null : trimmed;
 	const [failedSource, setFailedSource] = useState<string | null>(null);
 	return (
 		<span
