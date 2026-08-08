@@ -38,8 +38,8 @@ The installation path in this slice may use a fixture with no boot, cron, bootst
 - User story 13
 - User story 14
 - User story 26
-- User story 59
-- User story 60
+- User story 57
+- User story 58
 
 ## Implementor Notes
 
