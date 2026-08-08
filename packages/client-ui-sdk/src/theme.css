@@ -2,6 +2,12 @@
 	--color-bg: var(--bg);
 	--color-info: var(--info);
 	--color-text: var(--text);
+	--color-gold: var(--gold);
+	--color-overlay: var(--overlay);
+	--color-nav-border: var(--nav-border);
+	--color-nav-surface: var(--nav-surface);
+	--color-accent-deep: var(--accent-deep);
+	--color-sheet-divider: var(--sheet-divider);
 	--color-accent: var(--accent);
 	--color-border: var(--border);
 	--color-danger: var(--danger);

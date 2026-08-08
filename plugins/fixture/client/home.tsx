@@ -11,7 +11,7 @@ import {
 } from "@ryot/client-sdk/react";
 import { Button, StatusMessage } from "@ryot/client-ui-sdk";
 import clsx from "clsx";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import importedLogo from "./imported-logo.png";
 import logo from "./logo.svg";
@@ -67,6 +67,8 @@ export const Home = () => {
 	} else if (greeting.status === "success") {
 		greetingMessage = greeting.data?.greeting ?? "";
 	}
+
+	useEffect(() => ryot.header.set({ title: "Fixture home" }), [ryot]);
 
 	if (shouldCrash) {
 		throw new Error("fixture render failure");

@@ -1,5 +1,12 @@
-import { Outlet, useLocation, useNavigate, useRouteContext } from "@tanstack/react-router";
+import {
+	Outlet,
+	useLocation,
+	useNavigate,
+	useRouteContext,
+	useRouter,
+} from "@tanstack/react-router";
 import { Effect } from "effect";
+import { useMotionValue } from "motion/react";
 import {
 	createContext,
 	useContext,
@@ -13,6 +20,8 @@ import {
 import { AuthService } from "#/modules/auth/service";
 import { useDesktopEffect } from "#/modules/navigation/breakpoint";
 import { DesktopSidebar } from "#/modules/navigation/desktop-sidebar";
+import { EdgeGesture } from "#/modules/navigation/edge-gesture";
+import { isSettingsPath, resolveEdgeIntent } from "#/modules/navigation/edge-intent";
 import { MobileDrawer } from "#/modules/navigation/mobile-drawer";
 import { MobileHeader } from "#/modules/navigation/mobile-header";
 import {
@@ -22,9 +31,9 @@ import {
 import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
 import { ClientStorage } from "#/persistence/storage";
 
-const isSettingsPath = (pathname: string) => /^\/settings(?:\/|$)/.test(pathname);
-
 const RememberedWorkspaceContext = createContext<string | null | undefined>(undefined);
+
+const PluginHeaderContext = createContext<((title: string | null) => void) | undefined>(undefined);
 
 export const useRememberedWorkspaceSlug = () => {
 	const slug = useContext(RememberedWorkspaceContext);
@@ -34,17 +43,28 @@ export const useRememberedWorkspaceSlug = () => {
 	return slug;
 };
 
+export const useSetPluginHeaderTitle = () => {
+	const setTitle = useContext(PluginHeaderContext);
+	if (setTitle === undefined) {
+		throw new Error("useSetPluginHeaderTitle must be used inside AuthenticatedShell");
+	}
+	return setTitle;
+};
+
 export function AuthenticatedShell(props: {
 	readonly isPro: boolean;
 	readonly initialRememberedSlug: string | null;
 }) {
+	const router = useRouter();
 	const drawerId = useId();
 	const navigate = useNavigate();
 	const { pathname } = useLocation();
 	const { catalog } = usePluginCatalog();
+	const progress = useMotionValue(0);
 	const triggerRef = useRef<HTMLButtonElement>(null);
-	const { runtime, scope, server } = useRouteContext({ from: "/_authenticated" });
+	const { backInterceptors, runtime, scope, server } = useRouteContext({ from: "/_authenticated" });
 	const [drawerOpen, setDrawerOpen] = useState(false);
+	const [pluginTitle, setPluginTitle] = useState<string | null>(null);
 	const [rememberedSlug, setRememberedSlug] = useState(props.initialRememberedSlug);
 	const settingsActive = isSettingsPath(pathname);
 	const routeSlug = pathname.split("/")[1] ?? "";
@@ -72,11 +92,31 @@ export function AuthenticatedShell(props: {
 		await navigate({ replace: true, to: "/$pluginSlug", params: { pluginSlug: slug } });
 	};
 
+	const edgeIntent = resolveEdgeIntent({
+		pathname,
+		atRoot: homeActive,
+		canGoBack: router.history.canGoBack(),
+	});
+
 	useEffect(() => {
 		if (routeWorkspace !== null && !routeWorkspace.isDisabled) {
 			rememberRouteWorkspace(routeWorkspace.slug);
 		}
 	}, [routeWorkspace]);
+	useEffect(() => {
+		if (!drawerOpen) {
+			return undefined;
+		}
+		return backInterceptors.register(() => {
+			setDrawerOpen(false);
+			return true;
+		});
+	}, [backInterceptors, drawerOpen]);
+	useEffect(() => {
+		if (settingsActive) {
+			setDrawerOpen(false);
+		}
+	}, [settingsActive]);
 	useDesktopEffect(() => setDrawerOpen(false));
 
 	return (
@@ -91,40 +131,51 @@ export function AuthenticatedShell(props: {
 				onSelectWorkspace={selectWorkspace}
 				onNavigateSettings={() => navigate({ href: "/settings" })}
 			/>
+			<EdgeGesture
+				progress={progress}
+				intent={edgeIntent}
+				isOpen={drawerOpen}
+				onBack={() => router.history.back()}
+				onOpenChange={(open) => setDrawerOpen(open)}
+			/>
 			{!settingsActive && (
 				<MobileHeader
-					current={current}
 					drawerId={drawerId}
 					isOpen={drawerOpen}
+					intent={edgeIntent}
 					triggerRef={triggerRef}
+					onBack={() => router.history.back()}
 					onOpen={() => setDrawerOpen(true)}
+					title={pluginTitle ?? current?.name ?? "No workspace"}
 				/>
 			)}
-			{!settingsActive && (
-				<MobileDrawer
-					current={current}
-					catalog={catalog}
-					session={session}
-					isPro={props.isPro}
-					drawerId={drawerId}
-					isOpen={drawerOpen}
-					triggerRef={triggerRef}
-					activeHome={homeActive}
-					activeSettings={settingsActive}
-					onSelectWorkspace={selectWorkspace}
-					onClose={() => setDrawerOpen(false)}
-					onNavigateSettings={() => navigate({ href: "/settings" })}
-					onNavigateHome={() =>
-						current === null
-							? undefined
-							: navigate({ to: "/$pluginSlug", params: { pluginSlug: current.slug } })
-					}
-				/>
-			)}
+			<MobileDrawer
+				current={current}
+				catalog={catalog}
+				session={session}
+				progress={progress}
+				isPro={props.isPro}
+				drawerId={drawerId}
+				isOpen={drawerOpen}
+				triggerRef={triggerRef}
+				activeHome={homeActive}
+				hasDrawer={!settingsActive}
+				activeSettings={settingsActive}
+				onSelectWorkspace={selectWorkspace}
+				onClose={() => setDrawerOpen(false)}
+				onNavigateSettings={() => navigate({ href: "/settings" })}
+				onNavigateHome={() =>
+					current === null
+						? undefined
+						: navigate({ to: "/$pluginSlug", params: { pluginSlug: current.slug } })
+				}
+			/>
 			<RememberedWorkspaceContext value={rememberedSlug}>
-				<div data-testid="shell-content" className="min-h-0 min-w-0 flex-1 overflow-hidden">
-					<Outlet />
-				</div>
+				<PluginHeaderContext value={setPluginTitle}>
+					<div data-testid="shell-content" className="min-h-0 min-w-0 flex-1 overflow-hidden">
+						<Outlet />
+					</div>
+				</PluginHeaderContext>
 			</RememberedWorkspaceContext>
 		</div>
 	);

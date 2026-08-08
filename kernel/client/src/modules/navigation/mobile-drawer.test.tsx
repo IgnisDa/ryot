@@ -2,7 +2,8 @@ import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
 } from "@ryot/ryotql-recipes/plugin-client-catalog";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { type MotionValue, motionValue, useMotionValue } from "motion/react";
 import { useRef, useState } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -37,13 +38,17 @@ const session: AuthSessionStore = {
 };
 
 type HarnessProps = {
+	readonly hasDrawer?: boolean;
 	readonly onNavigateHome?: () => void;
 	readonly catalog?: PluginClientCatalog;
+	readonly progress?: MotionValue<number>;
 	readonly onSelectWorkspace?: (slug: string) => void;
 };
 
 function Harness(props: HarnessProps) {
 	const current = workspace();
+	const fallback = useMotionValue(0);
+	const progress = props.progress ?? fallback;
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const [isOpen, setIsOpen] = useState(false);
 	return (
@@ -61,9 +66,11 @@ function Harness(props: HarnessProps) {
 				session={session}
 				current={current}
 				activeHome={true}
+				progress={progress}
 				drawerId="test-drawer"
-				triggerRef={triggerRef}
 				activeSettings={false}
+				triggerRef={triggerRef}
+				hasDrawer={props.hasDrawer ?? true}
 				onNavigateSettings={() => undefined}
 				catalog={props.catalog ?? [current]}
 				onClose={() => setIsOpen(false)}
@@ -109,11 +116,24 @@ describe("mobile drawer", () => {
 		expect(document.activeElement).toBe(first);
 	});
 
-	it("closes on backdrop click", async () => {
-		render(<Harness />);
-		const { dialog, trigger } = await openDrawer();
+	it("stays mounted off its route until the closing panel settles off screen", () => {
+		const progress = motionValue(0);
+		render(<Harness progress={progress} hasDrawer={false} />);
 
-		fireEvent.click(dialog);
+		expect(screen.queryByTestId("mobile-drawer")).toBeNull();
+
+		act(() => progress.set(0.5));
+		expect(screen.getByTestId("mobile-drawer")).toBeTruthy();
+
+		act(() => progress.set(0));
+		expect(screen.queryByTestId("mobile-drawer")).toBeNull();
+	});
+
+	it("closes on scrim click", async () => {
+		render(<Harness />);
+		const { trigger } = await openDrawer();
+
+		fireEvent.click(screen.getByTestId("drawer-scrim"));
 
 		await waitFor(() => expect(document.activeElement).toBe(trigger));
 		expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull();
@@ -136,14 +156,14 @@ describe("mobile drawer", () => {
 				catalog={[workspace(), journal]}
 				onNavigateHome={() => {
 					homeOpen =
-						screen.getByTestId("mobile-drawer").hasAttribute("open") ||
+						screen.queryByRole("dialog", { name: "Navigation" }) !== null ||
 						document.body.style.overflow === "hidden";
 				}}
 				onSelectWorkspace={(slug) => {
 					selected = {
 						slug,
 						open:
-							screen.getByTestId("mobile-drawer").hasAttribute("open") ||
+							screen.queryByRole("dialog", { name: "Navigation" }) !== null ||
 							document.body.style.overflow === "hidden",
 					};
 				}}

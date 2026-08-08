@@ -186,6 +186,51 @@ describe("createRyotClient", () => {
 		);
 	});
 
+	it("delegates a header title through the adapter", () => {
+		const headers: Array<{ readonly title: string }> = [];
+		const client = createRyotClient({
+			query: () => Promise.resolve({}),
+			setHeader: (header) => headers.push(header),
+		});
+
+		client.header.set({ title: "Workouts" });
+
+		expect(headers).toEqual([{ title: "Workouts" }]);
+	});
+
+	it("rejects a header title that is empty or over the maximum length", () => {
+		const client = createRyotClient({
+			query: () => Promise.resolve({}),
+			setHeader: () => undefined,
+		});
+
+		expect(() => client.header.set({ title: "" })).toThrow(new RyotClientError("invalid-input"));
+		expect(() => client.header.set({ title: "a".repeat(121) })).toThrow(
+			new RyotClientError("invalid-input"),
+		);
+	});
+
+	it("rejects a header when the environment does not provide that capability", () => {
+		const client = createRyotClient({ query: () => Promise.resolve({}) });
+
+		expect(() => client.header.set({ title: "Workouts" })).toThrow(
+			new RyotClientError("unsupported-capability"),
+		);
+	});
+
+	it("normalizes unexpected header failures as transport errors", () => {
+		const client = createRyotClient({
+			query: () => Promise.resolve({}),
+			setHeader: () => {
+				throw new Error("transport detail");
+			},
+		});
+
+		expect(() => client.header.set({ title: "Workouts" })).toThrow(
+			new RyotClientError("transport"),
+		);
+	});
+
 	it("normalizes unexpected navigation failures as transport errors", () => {
 		const client = createRyotClient({
 			query: () => Promise.resolve({}),
