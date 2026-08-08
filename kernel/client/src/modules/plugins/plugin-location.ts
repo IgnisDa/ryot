@@ -35,10 +35,7 @@ export function toGlobalHref(target: PluginNavigationTarget) {
 			return `/${encodeURIComponent(location.pluginSlug)}${location.path === "/" ? "" : location.path}${search}`;
 		}),
 		Match.when({ kind: "entity" }, ({ entityId }) => `/e/${encodeURIComponent(entityId)}`),
-		Match.when(
-			{ kind: "saved-view" },
-			({ savedViewId }) => `/v/${encodeURIComponent(savedViewId)}`,
-		),
+		Match.when({ kind: "saved-view" }, ({ slug }) => `/v/${encodeURIComponent(slug)}`),
 		Match.exhaustive,
 	);
 }
@@ -67,7 +64,7 @@ export function toNavigationRequest(
 			return location === undefined ? undefined : { ...route, path: location.path };
 		}),
 		Match.when({ kind: "entity" }, (entity) => (entity.entityId === "" ? undefined : entity)),
-		Match.when({ kind: "saved-view" }, (view) => (view.savedViewId === "" ? undefined : view)),
+		Match.when({ kind: "saved-view" }, (view) => (view.slug === "" ? undefined : view)),
 		Match.exhaustive,
 	);
 	return target === undefined

@@ -30,7 +30,7 @@ import {
 	type ManagedAssetLocator as ManagedAssetLocatorValue,
 	TemporaryUploadToken,
 } from "@ryot-app/contract/modules/uploads/schemas";
-import { EntityId, PluginSlug, SavedViewId } from "@ryot-app/contract/schema/brands";
+import { EntityId, PluginSlug } from "@ryot-app/contract/schema/brands";
 import { isJsonValue } from "@ryot-app/contract/schema/json";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
@@ -101,7 +101,7 @@ export type TemporaryUploadRequest = {
 
 export const RyotNavigationTarget = Schema.Union([
 	strictStruct({ entityId: EntityId, kind: Schema.Literal("entity") }),
-	strictStruct({ savedViewId: SavedViewId, kind: Schema.Literal("saved-view") }),
+	strictStruct({ slug: Schema.String, kind: Schema.Literal("saved-view") }),
 	strictStruct({
 		path: Schema.String,
 		pluginSlug: PluginSlug,

@@ -26,7 +26,7 @@ import { OAuthStorage } from "#/modules/auth/oauth-storage";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
-import { ClientPageSessions } from "#/modules/client-pages/sessions";
+import { ClientPageFreshness } from "#/modules/client-pages/freshness";
 import { EntitiesService } from "#/modules/entities/service";
 import { EntityInterestService } from "#/modules/entity-interest/service";
 import { EntityInterestTransport } from "#/modules/entity-interest/transport";
@@ -102,7 +102,7 @@ export const ClientLive = Layer.mergeAll(
 	EntitiesService.layer,
 	ManagedAssetsService.layer,
 	ServerLive,
-	ClientPageSessions.layer,
+	ClientPageFreshness.layer,
 	NavigationService.layer,
 	CustomizeSidebarService.layer,
 	PluginCatalogService.layer,
