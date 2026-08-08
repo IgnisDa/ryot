@@ -95,7 +95,6 @@ const mediaProviders = [
 	provider("company", "company.igdb", "IGDB", "igdb", ["details", "search"]),
 	provider("company", "company.tmdb", "TMDB", "tmdb", ["details", "search"]),
 	provider("company", "company.tvdb", "TVDB", "tvdb", ["details", "search"]),
-	provider("company", "company.vndb", "VNDB", "vndb", ["details", "search"]),
 	provider(
 		"manga",
 		"manga.anilist",
@@ -168,6 +167,7 @@ const mediaProviders = [
 	provider("person", "person.spotify", "Spotify", "spotify", ["details", "search"]),
 	provider("person", "person.tmdb", "TMDB", "tmdb", ["details", "search", "translate"], "en"),
 	provider("person", "person.tvdb", "TVDB", "tvdb", ["details", "search", "translate"], "en"),
+	provider("person", "person.vndb", "VNDB", "vndb", ["details", "search"]),
 	provider(
 		"person",
 		"person.youtube-music",
