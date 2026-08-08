@@ -4,6 +4,7 @@ import { Effect } from "effect";
 import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
 
 const TRUSTED_MODULES = new Set([
+	"clsx",
 	"react",
 	"react-dom",
 	"react-dom/client",

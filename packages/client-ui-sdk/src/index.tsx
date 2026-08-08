@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import type { ComponentProps } from "react";
 
 const variantClasses = {
@@ -15,9 +16,7 @@ type ButtonProps = ComponentProps<"button"> & {
 };
 
 export function Button({ className, variant = "primary", ...props }: ButtonProps) {
-	return (
-		<button className={[variantClasses[variant], className].filter(Boolean).join(" ")} {...props} />
-	);
+	return <button className={clsx(variantClasses[variant], className)} {...props} />;
 }
 
 const toneClasses = {
@@ -34,7 +33,7 @@ export function StatusMessage({ className, tone, ...props }: StatusMessageProps)
 	return (
 		<p
 			role={tone === "error" ? "alert" : "status"}
-			className={[toneClasses[tone], className].filter(Boolean).join(" ")}
+			className={clsx(toneClasses[tone], className)}
 			{...props}
 		/>
 	);

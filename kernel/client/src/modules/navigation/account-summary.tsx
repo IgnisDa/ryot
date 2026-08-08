@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import { useSyncExternalStore, type MouseEvent } from "react";
 
 import type { AuthSessionStore } from "#/modules/auth/client";
@@ -33,10 +34,10 @@ export function AccountSummary(props: AccountSummaryProps) {
 			onClick={navigate}
 			aria-label="Open settings"
 			aria-current={props.active ? "page" : undefined}
-			className={[
+			className={clsx(
 				"flex items-center gap-2.5 rounded-md px-2 py-2",
 				props.active ? "bg-nav-indicator" : "hover:bg-surface-2",
-			].join(" ")}
+			)}
 		>
 			<Avatar name={snapshot.user.name} image={snapshot.user.image} />
 			<span className="min-w-0 flex-1">

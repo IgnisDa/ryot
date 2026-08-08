@@ -2,6 +2,7 @@ import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
 } from "@ryot/ryotql-recipes/plugin-client-catalog";
+import clsx from "clsx";
 import { type KeyboardEvent, type MouseEvent, type RefObject, useEffect, useRef } from "react";
 
 import type { AuthSessionStore } from "#/modules/auth/client";
@@ -178,10 +179,10 @@ export function MobileDrawer(props: MobileDrawerProps) {
 								onClick={navigateHome}
 								href={`/${props.current.slug}`}
 								aria-current={props.activeHome ? "page" : undefined}
-								className={[
+								className={clsx(
 									"flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-text",
 									props.activeHome ? "bg-nav-indicator" : "hover:bg-surface-2",
-								].join(" ")}
+								)}
 							>
 								<AppIcon name="house" size={16} className="text-text-muted" />
 								<span>Home</span>

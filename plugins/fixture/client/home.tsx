@@ -10,6 +10,7 @@ import {
 	useRyotTheme,
 } from "@ryot/client-sdk/react";
 import { Button, StatusMessage } from "@ryot/client-ui-sdk";
+import clsx from "clsx";
 import { useState } from "react";
 
 import logo from "./logo.svg";
@@ -86,7 +87,7 @@ export const Home = () => {
 			</Button>
 			<section
 				aria-labelledby="fixture-theme-title"
-				className="w-full max-w-md rounded-lg border border-border bg-surface p-4"
+				className={clsx("w-full max-w-md", "rounded-lg border border-border bg-surface p-4")}
 			>
 				<h2 id="fixture-theme-title" className="font-display text-lg text-accent-text">
 					Theme snapshot

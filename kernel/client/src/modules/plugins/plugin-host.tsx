@@ -8,6 +8,7 @@ import type {
 	PluginRyotQLRequest,
 } from "@ryot/contract/modules/plugins/client";
 import type { PluginClientCatalogEntry } from "@ryot/ryotql-recipes/plugin-client-catalog";
+import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 
 import { serverApiUrl, type ServerOrigin } from "#/api/origin";
@@ -226,8 +227,8 @@ function PluginFrame(props: {
 				sandbox="allow-scripts"
 				referrerPolicy="no-referrer"
 				title={`${props.pluginSlug} plugin`}
-				className={status === "ready" ? "h-full w-full border-0" : "hidden"}
 				src={pluginArtifactUrl(props.server, props.artifactHash, "index.html")}
+				className={clsx(status === "ready" ? "h-full w-full border-0" : "hidden")}
 			/>
 		</>
 	);

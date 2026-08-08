@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import { useState } from "react";
 
 import { AppIcon } from "#/modules/navigation/app-icon";
@@ -14,12 +15,10 @@ export function Avatar({ name, image, className }: AvatarProps) {
 	return (
 		<span
 			data-avatar="root"
-			className={[
+			className={clsx(
 				"inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-2 text-text-muted",
 				className,
-			]
-				.filter(Boolean)
-				.join(" ")}
+			)}
 		>
 			{source !== null && source !== failedSource ? (
 				<img
