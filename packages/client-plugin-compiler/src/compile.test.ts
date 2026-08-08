@@ -9,7 +9,7 @@ import { sortBy } from "@ryot/ts-utils/lodash";
 import { Effect } from "effect";
 
 import { compileClientPlugin } from "./compile";
-import { isTrustedClientModule } from "./dependencies";
+import { isTrustedClientModule, resolveClientPluginCompilerDependencies } from "./dependencies";
 import { CLIENT_PLUGIN_COMPILER_LIMITS } from "./limits";
 
 const fixtureRoot = new URL("../../../plugins/fixture", import.meta.url).pathname;
@@ -52,7 +52,8 @@ it.effect(
 			const cssPngName = `asset-${sha256Hex(files["client/css-logo.png"] ?? new Uint8Array())}.png`;
 
 			const names = artifact.files.map(({ name }) => name);
-			expect(names.filter((name) => name.startsWith("asset-"))).toHaveLength(3);
+			expect(names.filter((name) => name.startsWith("asset-"))).toHaveLength(12);
+			expect(names.filter((name) => name.endsWith(".woff2"))).toHaveLength(9);
 			expect(names.at(-1)).toBe("index.html");
 			expect(names).toContain("plugin.js");
 			expect(names).toContain("plugin.css");
@@ -76,6 +77,8 @@ it.effect(
 			expect(() => Function("document", javascript)({ getElementById: () => null })).not.toThrow();
 
 			const css = text(byName.get("plugin.css")?.contents);
+			expect(css).toContain("font-family: 'Outfit Variable'");
+			expect(css).toContain("font-family: 'Lora Variable'");
 			expect(css).toContain(".plugin-logo");
 			expect(css).toContain(`./${cssPngName}`);
 			expect(css).toContain("background-color: var(--accent)");
@@ -90,6 +93,30 @@ it.effect(
 			expect(artifact.apiVersion).toBe(1);
 			expect(artifact.bridgeVersion).toBe(CLIENT_BRIDGE_PROTOCOL_VERSION);
 			expect(artifact.compilerVersion).toBe(1);
+		}),
+	30_000,
+);
+
+it.effect(
+	"embeds compiler-owned fonts without a plugin stylesheet",
+	() =>
+		Effect.gen(function* () {
+			const dependencies = yield* resolveClientPluginCompilerDependencies;
+			const { artifact } = yield* compileFixture({
+				"client/index.tsx": bytes("export {};"),
+			});
+			const css = text(artifact.files.find(({ name }) => name === "plugin.css")?.contents);
+			const expected = new Map(dependencies.fontAssets.map((file) => [file.name, file]));
+			const fonts = artifact.files.filter(({ name }) => name.endsWith(".woff2"));
+
+			expect(fonts).toHaveLength(9);
+			expect(css).toContain("font-family: 'Outfit Variable'");
+			expect(css).toContain("font-family: 'Lora Variable'");
+			for (const font of fonts) {
+				expect(font.contentType).toBe("font/woff2");
+				expect(font.contents).toEqual(expected.get(font.name)?.contents);
+				expect(css).toContain(`./${font.name}`);
+			}
 		}),
 	30_000,
 );
@@ -230,7 +257,7 @@ it.effect(
 				},
 			);
 			const css = text(artifact.files.find(({ name }) => name === "plugin.css")?.contents);
-			const assets = artifact.files.filter(({ name }) => name.startsWith("asset-"));
+			const assets = artifact.files.filter(({ name }) => name.endsWith(".png"));
 
 			expect(assets).toHaveLength(2);
 			for (const asset of assets) {
@@ -254,7 +281,7 @@ it.effect(
 				"client/styles.css": bytes(".image { background: url(./image.png); }"),
 				"client/image.png": image,
 			});
-			const assets = artifact.files.filter(({ name }) => name.startsWith("asset-"));
+			const assets = artifact.files.filter(({ name }) => name.endsWith(".png"));
 
 			expect(assets).toHaveLength(1);
 			expect(text(artifact.files.find(({ name }) => name === "plugin.js")?.contents)).toContain(
@@ -339,7 +366,7 @@ it.effect(
 			expect(css).toContain("data:image/png;base64,iVBORw0KGgo=");
 			expect(css).toContain("//cdn.example.com/image.png");
 			expect(css).toContain("#filter");
-			expect(artifact.files.filter(({ name }) => name.startsWith("asset-"))).toHaveLength(0);
+			expect(artifact.files.filter(({ name }) => name.endsWith(".png"))).toHaveLength(0);
 		}),
 	30_000,
 );

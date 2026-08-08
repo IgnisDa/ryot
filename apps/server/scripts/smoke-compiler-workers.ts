@@ -147,6 +147,19 @@ const program = Effect.gen(function* () {
 			message: `Client compiler worker omitted artifacts: ${missingArtifacts.join(", ")}`,
 		});
 	}
+	const fontNames = [...artifactNames].filter((name) => name.endsWith(".woff2"));
+	const stylesheet = clientResponse.value.artifact.files.find(({ name }) => name === "plugin.css");
+	const stylesheetText = stylesheet && new TextDecoder().decode(stylesheet.contents);
+	if (
+		fontNames.length !== 9 ||
+		!stylesheetText?.includes("Outfit Variable") ||
+		!stylesheetText.includes("Lora Variable") ||
+		fontNames.some((name) => !stylesheetText.includes(`./${name}`))
+	) {
+		return yield* new CompilerWorkerSmokeError({
+			message: "Client compiler worker omitted compiler-owned fonts",
+		});
+	}
 	return yield* Effect.void;
 });
 
