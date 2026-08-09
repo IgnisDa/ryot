@@ -1,7 +1,20 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
+
+import {
+	API_BASE_URL,
+	INDEX_LIMIT,
+	asRecord,
+	integerValue,
+	intersectEntries,
+	loadJson,
+	stringValue,
+	titleCase,
+	toEntries,
+	type PokeApiEntry,
+	type PokeApiHost,
+} from "./pokeapi-shared";
 
 export const manifest = defineManifest({
 	name: "PokeAPI",
@@ -12,63 +25,12 @@ export const manifest = defineManifest({
 	requiredSystemConfigKeys: [],
 });
 
-const INDEX_LIMIT = 10_000;
 const ALTERNATE_FORM_ID_START = 10_000;
-const API_BASE_URL = "https://pokeapi.co/api/v2";
-
-type PokeApiHost = SandboxHost<readonly ["httpCall"]>;
-type PokemonEntry = { readonly id: number; readonly name: string };
 
 const searchOptionsSchema = Schema.Struct({
 	includeAlternateForms: Schema.optional(Schema.Boolean),
 	typeNames: Schema.optional(Schema.Array(Schema.String)),
 }).annotate({ parseOptions: { onExcessProperty: "error" as const } });
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-	value !== null && typeof value === "object" && !Array.isArray(value);
-
-const asRecord = (value: unknown) => (isRecord(value) ? value : null);
-
-const stringValue = (value: unknown) =>
-	typeof value === "string" && value.trim() ? value.trim() : null;
-
-const integerValue = (value: unknown) =>
-	typeof value === "number" && Number.isFinite(value) ? Math.trunc(value) : null;
-
-const titleCase = (value: string) =>
-	value
-		.split("-")
-		.map((word) => (word ? `${word.charAt(0).toUpperCase()}${word.slice(1)}` : word))
-		.join(" ");
-
-export const loadJson = (host: PokeApiHost, url: string) =>
-	host.httpCall("GET", url).pipe(
-		Effect.mapError((error) => new Error(error.message || `PokeAPI request failed: ${url}`)),
-		Effect.flatMap((response) =>
-			Effect.try({
-				try: () => JSON.parse(response.body) as unknown,
-				catch: () => new Error(`PokeAPI returned invalid JSON: ${url}`),
-			}),
-		),
-	);
-
-const toEntry = (value: unknown): PokemonEntry | null => {
-	const record = asRecord(value);
-	const url = stringValue(record?.["url"]);
-	const name = stringValue(record?.["name"]);
-	if (!url || !name) {
-		return null;
-	}
-	const segments = url.split("/").filter(Boolean);
-	const id = Number(segments[segments.length - 1]);
-	return Number.isInteger(id) ? { id, name } : null;
-};
-
-const toEntries = (value: unknown) =>
-	(Array.isArray(value) ? value : []).flatMap((item) => {
-		const entry = toEntry(item);
-		return entry ? [entry] : [];
-	});
 
 const loadIndexEntries = (host: PokeApiHost) =>
 	loadJson(host, `${API_BASE_URL}/pokemon?limit=${INDEX_LIMIT}&offset=0`).pipe(
@@ -84,17 +46,6 @@ const loadTypeEntries = (host: PokeApiHost, typeName: string) =>
 			);
 		}),
 	);
-
-const intersectEntries = (groups: ReadonlyArray<ReadonlyArray<PokemonEntry>>) => {
-	const [first, ...rest] = groups;
-	if (!first) {
-		return [];
-	}
-	return rest.reduce<ReadonlyArray<PokemonEntry>>((accumulator, group) => {
-		const ids = new Set(group.map((entry) => entry.id));
-		return accumulator.filter((entry) => ids.has(entry.id));
-	}, first);
-};
 
 const loadPokemon = (host: PokeApiHost, externalId: string) =>
 	loadJson(host, `${API_BASE_URL}/pokemon/${encodeURIComponent(externalId)}`).pipe(
@@ -118,7 +69,7 @@ const artworkUrl = (pokemon: Record<string, unknown>) => {
 	return stringValue(official?.["front_default"]) ?? stringValue(sprites?.["front_default"]);
 };
 
-const toSearchItem = (host: PokeApiHost, entry: PokemonEntry) =>
+const toSearchItem = (host: PokeApiHost, entry: PokeApiEntry) =>
 	loadPokemon(host, String(entry.id)).pipe(
 		Effect.map((pokemon) => {
 			const imageUrl = artworkUrl(pokemon);
