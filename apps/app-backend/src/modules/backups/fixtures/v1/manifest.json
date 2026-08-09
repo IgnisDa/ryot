@@ -1,0 +1,59 @@
+{
+	"format": "ryot-backup",
+	"version": 1,
+	"archiveId": "golden-v1-archive",
+	"appVersion": "golden-fixture",
+	"createdAt": "2026-08-23T12:00:00.000Z",
+	"sections": [
+		{
+			"path": "profile.json",
+			"count": 1,
+			"sha256": "48034e099f0a5003924652b229d0e87f18adb213e8f36ba46cc65387513242ee"
+		},
+		{
+			"path": "plugin-state.ndjson",
+			"count": 1,
+			"sha256": "8c81fdb21290dda7a082800fb601d126d1b46697bad2b076c0be83d1dc12db24"
+		},
+		{
+			"path": "entities.ndjson",
+			"count": 1,
+			"sha256": "56a692df2ce2e2c39a2815b01056d49a55546f2cf14d498064008d0a51b1c4b9"
+		},
+		{
+			"path": "entity-dependencies.ndjson",
+			"count": 1,
+			"sha256": "34888ae23eb9018d6b38e9e16085149a5fcdfc717aa543e8210ecc461fa842ca"
+		},
+		{
+			"path": "relationships.ndjson",
+			"count": 1,
+			"sha256": "f15e3bea42dc518aa7b6839d285658644b365f100df7ade30877cf284491efe3"
+		},
+		{
+			"path": "events.ndjson",
+			"count": 1,
+			"sha256": "b8254dbfdfca5c1a619c376ebee8dc03eb2a7047307eba8f7fe291135021e725"
+		},
+		{
+			"path": "saved-views.ndjson",
+			"count": 2,
+			"sha256": "ac57488ca6ddbe92b469d1083093cf86db8e2e7acc2453fc89e83d78fef055e4"
+		},
+		{
+			"path": "notification-subscriptions.ndjson",
+			"count": 1,
+			"sha256": "1e8091a93918df6d739b5ac209a1d7e4189a253977911d2fee2fc1a8ad9ff08e"
+		}
+	],
+	"assets": [
+		{
+			"path": "assets/4e9f9b5970ac45bda328dad77c7d42509ed643390b7084c699b5460225ab4643",
+			"size": 13,
+			"sha256": "4e9f9b5970ac45bda328dad77c7d42509ed643390b7084c699b5460225ab4643",
+			"contentType": "text/plain"
+		}
+	],
+	"requiredPlugins": [{ "slug": "fixture-plugin", "version": "1.0.0" }],
+	"redactions": ["/plugin-state/fixture-plugin/config/token"]
+}
