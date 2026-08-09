@@ -203,7 +203,7 @@ DECLARE
 	started_at timestamptz := clock_timestamp();
 BEGIN
 	LOOP
-		WITH metadata_targets (lot, source, entity_schema_slug, provider_id) AS (
+		WITH metadata_targets (lot, source, entity_schema_slug, entity_schema_plugin_id, provider_id) AS (
 			VALUES ${buildLotEntityTargetValuesSql(targets)}
 		), batch AS (
 			SELECT metadata.id::text AS id
@@ -221,7 +221,7 @@ BEGIN
 
 		EXIT WHEN next_cursor_id IS NULL;
 
-		WITH metadata_targets (lot, source, entity_schema_slug, provider_id) AS (
+		WITH metadata_targets (lot, source, entity_schema_slug, entity_schema_plugin_id, provider_id) AS (
 			VALUES ${buildLotEntityTargetValuesSql(targets)}
 		)
 		INSERT INTO entity (
@@ -233,6 +233,7 @@ BEGIN
 			"user_id",
 			"properties",
 			"entity_schema_slug",
+			"entity_schema_plugin_id",
 			"provider_id",
 			"updated_at"
 		)
@@ -248,6 +249,7 @@ BEGIN
 				ELSE '{}'::jsonb
 			END,
 			metadata_targets.entity_schema_slug,
+			metadata_targets.entity_schema_plugin_id,
 			metadata_targets.provider_id,
 			metadata.last_updated_on
 		FROM metadata

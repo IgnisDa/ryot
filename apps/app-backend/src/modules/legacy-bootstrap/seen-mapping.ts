@@ -7,9 +7,9 @@
 // manual_time_spent (seconds) becomes timeSpent (minutes). Unresolved show/podcast episode rows and
 // rows whose metadata_id has no migrated entity are skipped. Dropped: review_id, and
 // manual_time_spent/started_on on progress events (V2 progress has neither).
-import { buildReportSql } from "./shared";
+import { buildReportSql, quoteSqlString } from "./shared";
 
-export const buildSeenMigrationSql = () => `
+export const buildSeenMigrationSql = (mediaPluginId: string) => `
 DO $$
 DECLARE
 	batch_size     constant int := 500;
@@ -141,6 +141,7 @@ BEGIN
 			"user_id",
 			"entity_id",
 			"event_schema_slug",
+			"event_schema_plugin_id",
 			"session_entity_id",
 			"properties",
 			"created_at",
@@ -214,6 +215,7 @@ BEGIN
 			r.user_id,
 			r.target_entity_id,
 			'progress',
+			${quoteSqlString(mediaPluginId)},
 			r.session_entity_id,
 			jsonb_strip_nulls(jsonb_build_object(
 				'progressPercent',
@@ -263,6 +265,7 @@ BEGIN
 			"user_id",
 			"entity_id",
 			"event_schema_slug",
+			"event_schema_plugin_id",
 			"session_entity_id",
 			"properties",
 			"created_at",
@@ -305,6 +308,7 @@ BEGIN
 			r.user_id,
 			COALESCE(r.show_episode_entity_id, r.podcast_episode_entity_id),
 			'complete',
+			${quoteSqlString(mediaPluginId)},
 			CASE
 				WHEN r.entity_schema_slug = 'show'
 					AND (r.show_extra_information ->> 'season')::int > 0 THEN r.metadata_id
@@ -336,6 +340,7 @@ BEGIN
 			"user_id",
 			"entity_id",
 			"event_schema_slug",
+			"event_schema_plugin_id",
 			"session_entity_id",
 			"properties",
 			"created_at",
@@ -377,6 +382,7 @@ BEGIN
 			r.user_id,
 			r.metadata_id,
 			r.terminal_slug,
+			${quoteSqlString(mediaPluginId)},
 			CASE WHEN r.entity_schema_slug IN ('show', 'podcast') THEN r.metadata_id END,
 			CASE r.terminal_slug
 				WHEN 'complete' THEN
