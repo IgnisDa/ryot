@@ -1,15 +1,15 @@
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
-import { Effect, Option } from "effect";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { Effect } from "effect";
 import { zipSync } from "fflate";
 
 import {
 	type Client,
 	createAuthenticatedClient,
 	executeRyotQL,
-	getClientRenderer,
 	getSavedView,
 	getUserSettings,
-	listClientRenderers,
+	buildSavedViewBody,
 	makeSession,
 	pollBackupRunUntilTerminal,
 	requireRows,
@@ -30,7 +30,6 @@ const fixturePaths = [
 	"manifest.json",
 	"profile.json",
 	"private-plugins.ndjson",
-	"client-renderers.ndjson",
 	"installations.ndjson",
 	"entities.ndjson",
 	"entity-dependencies.ndjson",
@@ -53,16 +52,30 @@ const readFixtureEntries = Effect.fn(function* () {
 	assert(manifestBytes);
 	const manifest = JSON.parse(new TextDecoder().decode(manifestBytes));
 	manifest.requiredPlugins = [];
-	manifest.sections = manifest.sections.map((section: { path: string }) =>
-		section.path === "installations.ndjson"
-			? {
-					...section,
-					count: 0,
-					sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-				}
-			: section,
+	manifest.sections = manifest.sections.filter(
+		(section: { path: string }) => section.path !== "client-renderers.ndjson",
 	);
+	const installationsSection = manifest.sections.find(
+		(section: { path: string }) => section.path === "installations.ndjson",
+	);
+	assert(installationsSection);
+	installationsSection.count = 0;
+	installationsSection.sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 	files["installations.ndjson"] = new Uint8Array();
+	const savedViews = files["saved-views.ndjson"];
+	assert(savedViews);
+	const archivedView = JSON.parse(new TextDecoder().decode(savedViews));
+	const savedView = buildSavedViewBody({ name: archivedView.name });
+	const rewrittenSavedViews = new TextEncoder().encode(
+		JSON.stringify({ ...archivedView, ...savedView }) + "\n",
+	);
+	files["saved-views.ndjson"] = rewrittenSavedViews;
+	const savedViewsSection = manifest.sections.find(
+		(section: { path: string }) => section.path === "saved-views.ndjson",
+	);
+	assert(savedViewsSection);
+	savedViewsSection.count = 1;
+	savedViewsSection.sha256 = sha256Hex(rewrittenSavedViews);
 	files["manifest.json"] = new TextEncoder().encode(JSON.stringify(manifest));
 	return files;
 });
@@ -119,21 +132,10 @@ describe("V1 backup archive validation", () => {
 			});
 			expect(after.libraryId).toBe(before.libraryId);
 			expect(after.libraryId).not.toBe(archivedLibraryId);
-			const rendererMetadata = requirePresent(
-				(yield* listClientRenderers(restoredClient)).find(
-					(candidate) => candidate.slug === "fixture-renderer",
-				),
-				"Restored renderer not found",
-			);
-			const renderer = Option.getOrThrow(
-				yield* getClientRenderer(restoredClient, rendererMetadata.id),
-			);
-			expect(renderer.id).not.toBe("renderer-1");
-			expect(renderer.draftDefinition.files[0]?.content).toBe("ZXhwb3J0IGRlZmF1bHQgMQo=");
 			expect(yield* getSavedView(restoredClient, "fixture")).toMatchObject({
-				dataSources: null,
-				settings: { heading: "Fixture" },
-				renderer: { kind: "custom", rendererId: renderer.id },
+				dataSources: expect.any(Object),
+				settings: { sourceName: "savedView" },
+				renderer: { kind: "kernel", name: "entity-browser" },
 			});
 		}),
 	);
