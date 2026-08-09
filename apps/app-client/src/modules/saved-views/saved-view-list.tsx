@@ -25,12 +25,14 @@ function SavedViewListRow(props: {
 				className="relative min-h-28 flex-row items-center gap-3 overflow-hidden border-b border-border py-2 focus-visible:outline-2 focus-visible:outline-accent md:min-h-18 md:gap-3.5 px-1"
 			>
 				<ImageTintOverlay direction="horizontal" gradientStops={gradientStops} />
-				<SavedViewImageView
-					onError={onImageError}
-					image={props.item.image}
-					managedUrls={props.managedUrls}
-					className="h-24 w-16 rounded-md bg-surface-2 md:h-16 md:w-11 md:rounded-sm"
-				/>
+				<Link.AppleZoom>
+					<SavedViewImageView
+						onError={onImageError}
+						image={props.item.image}
+						managedUrls={props.managedUrls}
+						className="h-24 w-16 rounded-md bg-surface-2 md:h-16 md:w-11 md:rounded-sm"
+					/>
+				</Link.AppleZoom>
 				<View className="min-w-0 flex-1 gap-0.5">
 					{props.item.overline && (
 						<SavedViewValue
