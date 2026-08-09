@@ -34,6 +34,10 @@
 			"types": "./shared/book-recipes.ts",
 			"default": "./shared/book-recipes.ts"
 		},
+		"./shared/manga-recipes": {
+			"types": "./shared/manga-recipes.ts",
+			"default": "./shared/manga-recipes.ts"
+		},
 		"./shared/video-game-recipes": {
 			"types": "./shared/video-game-recipes.ts",
 			"default": "./shared/video-game-recipes.ts"

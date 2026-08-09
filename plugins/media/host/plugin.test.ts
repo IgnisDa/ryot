@@ -85,6 +85,11 @@ it("declares the complete media-owned source", () => {
 				automaticEntityPresentations: false,
 				entry: "client/book-row-presentation.ts",
 			},
+			"manga-row": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/manga-row-presentation.ts",
+			},
 			"show-card": {
 				kind: "presentation",
 				automaticEntityPresentations: false,
@@ -109,6 +114,11 @@ it("declares the complete media-owned source", () => {
 				kind: "presentation",
 				automaticEntityPresentations: false,
 				entry: "client/book-card-presentation.ts",
+			},
+			"manga-card": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/manga-card-presentation.ts",
 			},
 			"media-card": {
 				kind: "presentation",
@@ -163,6 +173,12 @@ it("declares the complete media-owned source", () => {
 				entry: "client/book/screen.tsx",
 				automaticEntityPresentations: false,
 			},
+			"manga-detail": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				entry: "client/manga/screen.tsx",
+				automaticEntityPresentations: false,
+			},
 			"movie-detail": {
 				kind: "page",
 				settingsSchema: { fields: {} },
@@ -201,6 +217,11 @@ it("declares the complete media-owned source", () => {
 			detailPage: "book-detail",
 			listPresentation: "book-row",
 			gridPresentation: "book-card",
+		},
+		manga: {
+			detailPage: "manga-detail",
+			listPresentation: "manga-row",
+			gridPresentation: "manga-card",
 		},
 		movie: {
 			detailPage: "movie-detail",

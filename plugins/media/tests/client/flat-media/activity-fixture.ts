@@ -1,13 +1,13 @@
 import { Result } from "@ryot-app/client-sdk/effect";
 
 import { rowsResult } from "../query-result-fixture";
-import { flatFixtureRecipes } from "./recipes";
+import { flatFixtureRecipes, flatUngroupedFixtureRecipes } from "./recipes";
 
-const fixtureActivityRecipe = flatFixtureRecipes.activityRecipe({
-	eventLimit: 60,
-	entityId: "media-1",
-	collectionEventLimit: 60,
-});
+const ACTIVITY_INPUT = { eventLimit: 60, entityId: "media-1", collectionEventLimit: 60 };
+
+const fixtureActivityRecipe = flatFixtureRecipes.activityRecipe(ACTIVITY_INPUT);
+
+const ungroupedActivityRecipe = flatUngroupedFixtureRecipes.activityRecipe(ACTIVITY_INPUT);
 
 const emptyEventProperties = {
 	text: null,
@@ -138,3 +138,19 @@ export const repeatedFlatActivity = () =>
 			flatRepeatCompletionEventRow,
 		],
 	});
+
+export const flatChapterProgressEventRow = { ...flatProgressEventRow, fixtureChapter: 45 };
+
+export const decodeUngroupedFlatActivity = (events: readonly Record<string, unknown>[]) =>
+	Result.getOrThrow(
+		ungroupedActivityRecipe.decode({
+			data: {
+				events: activityRows(events, false),
+				collectionEvents: activityRows([], false),
+				totals: activityRows(
+					[{ completionCount: 1, consumedAmount: 169, unknownAmountCount: 0 }],
+					false,
+				),
+			},
+		}),
+	);

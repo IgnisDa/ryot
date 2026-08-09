@@ -2,15 +2,20 @@ import { assert, describe, expect, it } from "vitest";
 
 import {
 	decodeFlatActivity,
+	decodeUngroupedFlatActivity,
 	emptyFlatActivity,
 	flatBacklogEventRow,
+	flatChapterProgressEventRow,
 	flatCollectionAddedEventRow,
 	flatCompletionEventRow,
 	flatProgressEventRow,
 	flatReviewEventRow,
 	repeatedFlatActivity,
 } from "../../tests/client/flat-media/activity-fixture";
-import { fixtureSchema } from "../../tests/client/flat-media/schema-fixture";
+import {
+	fixtureSchema,
+	ungroupedFixtureSchema,
+} from "../../tests/client/flat-media/schema-fixture";
 import { readyQueryResult } from "../../tests/client/query-result-fixture";
 import type { MediaFlatSchemaActivityView, MediaFlatSchemaRow } from "./flat-schema";
 
@@ -127,6 +132,17 @@ describe("flat media activity state", () => {
 			bound: "partial",
 			latest: flatReviewEventRow.occurredAt,
 		});
+	});
+
+	it("carries a schema's own event fields on its progress rows", () => {
+		const view = ungroupedFixtureSchema.activityView(
+			decodeUngroupedFlatActivity([flatChapterProgressEventRow]),
+		);
+		const progress = view?.timeline.layout === "flat" ? view.timeline.rows[0] : undefined;
+
+		assert(progress?.type === "progress");
+		expect(progress.extra.fixtureChapter).toBe(45);
+		expect(ungroupedFixtureSchema.activityRowLabel(progress)).toBe("Chapter 45");
 	});
 
 	it("labels a collection removal apart from an addition", () => {

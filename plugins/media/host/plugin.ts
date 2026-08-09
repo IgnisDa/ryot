@@ -475,7 +475,9 @@ const schemaClient = (slug: string) => ({
 	},
 });
 
-const schemaClients = ["show", "movie", "music", "book", "podcast", "video-game"].map(schemaClient);
+const schemaClients = ["show", "movie", "music", "book", "manga", "podcast", "video-game"].map(
+	schemaClient,
+);
 
 export const mediaPlugin = definePlugin({
 	boot: [],
@@ -587,7 +589,6 @@ export const mediaPlugin = definePlugin({
 		},
 		entities: {
 			anime: { listPresentation: "media-row", gridPresentation: "media-card" },
-			manga: { listPresentation: "media-row", gridPresentation: "media-card" },
 			person: { listPresentation: "media-row", gridPresentation: "media-card" },
 			company: { listPresentation: "media-row", gridPresentation: "media-card" },
 			audiobook: { listPresentation: "media-row", gridPresentation: "media-card" },

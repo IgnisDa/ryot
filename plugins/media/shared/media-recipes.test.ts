@@ -1,7 +1,10 @@
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { describe, expect, it } from "vitest";
 
-import { flatFixtureRecipes } from "../tests/client/flat-media/recipes";
+import {
+	flatFixtureRecipes,
+	flatUngroupedFixtureRecipes,
+} from "../tests/client/flat-media/recipes";
 
 const singleRows = (items: readonly Record<string, unknown>[]) =>
 	rowsResult(items, { limit: 1, hasMore: false, nextCursor: null });
@@ -219,6 +222,79 @@ describe("media flat recipes", () => {
 				},
 			}),
 		).toMatchObject({ success: { group: undefined } });
+	});
+
+	it("omits the group query entirely for a schema that declares no group", () => {
+		const overview = flatUngroupedFixtureRecipes.overviewRecipe({
+			groupLimit: 20,
+			peopleLimit: 12,
+			companyLimit: 6,
+			entityId: "media-1",
+			recommendationLimit: 12,
+		});
+
+		expect(Object.keys(overview.document.queries)).toEqual([
+			"companies",
+			"people",
+			"recommendations",
+		]);
+	});
+
+	it("appends the schema's own activity event fields to the shared event selection", () => {
+		const activity = flatUngroupedFixtureRecipes.activityRecipe({
+			eventLimit: 60,
+			entityId: "media-1",
+			collectionEventLimit: 40,
+		});
+		const events = activity.document.queries["events"];
+		if (events?.output.type !== "rows") {
+			throw new Error("Expected an events rows query");
+		}
+
+		expect(fieldKeys(events.output.fields)).toEqual([
+			"id",
+			"createdAt",
+			"occurredAt",
+			"text",
+			"rating",
+			"timeSpent",
+			"consumedOn",
+			"isSpoiler",
+			"startedOn",
+			"completedOn",
+			"progressPercent",
+			"eventSchemaSlug",
+			"fixtureChapter",
+		]);
+		expect(
+			activity.decode({
+				data: {
+					collectionEvents: activityRows([]),
+					totals: activityRows([
+						{ completionCount: 0, consumedAmount: null, unknownAmountCount: 0 },
+					]),
+					events: activityRows([
+						{
+							text: null,
+							rating: null,
+							timeSpent: null,
+							isSpoiler: null,
+							startedOn: null,
+							consumedOn: null,
+							completedOn: null,
+							fixtureChapter: 45,
+							progressPercent: 62,
+							id: "media-progress",
+							eventSchemaSlug: "progress",
+							createdAt: "2024-02-03T10:00:00.000Z",
+							occurredAt: "2024-02-03T09:00:00.000Z",
+						},
+					]),
+				},
+			}),
+		).toMatchObject({
+			success: { events: [{ kind: "media", fixtureChapter: 45, id: "media-progress" }] },
+		});
 	});
 
 	it("tracks the item's own progress events alongside the lifecycle beats", () => {
