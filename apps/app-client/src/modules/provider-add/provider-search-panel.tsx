@@ -10,6 +10,11 @@ import { useInternalRequestFailureLogging } from "@/api/use-internal-request-fai
 import { AppIcon } from "@/modules/icons";
 import { AppButton } from "@/modules/ui/button";
 import { AppChip } from "@/modules/ui/chip";
+import { SchemaForm, useSchemaForm } from "@/modules/ui/schema-form/schema-form";
+import {
+	initialSchemaFormValues,
+	toSchemaFormPayload,
+} from "@/modules/ui/schema-form/schema-form-state";
 import { AppStatusState } from "@/modules/ui/status-state";
 
 import { providerEntityLinksAtom, providerSearchAtom, rememberedProviderAtom } from "./atoms";
@@ -20,8 +25,6 @@ import {
 	setProviderEntityImportEntry,
 } from "./import-controller";
 import { runProviderEntityImport } from "./import-runner";
-import { ProviderSearchOptionsForm, useProviderOptionsForm } from "./options-form";
-import { initialOptionValues, toOptionsPayload } from "./options-form-state";
 import {
 	applyProviderOptionsFailure,
 	applyProviderOptionsResponse,
@@ -186,7 +189,7 @@ export function ProviderSearchPanel(props: {
 		createProviderSearchState,
 	);
 	const optionsSchema = options.status === "ready" ? options.schema : undefined;
-	const optionsForm = useProviderOptionsForm({
+	const optionsForm = useSchemaForm({
 		schema: optionsSchema,
 		onSubmit: () => dispatch({ type: "search-requested" }),
 	});
@@ -194,7 +197,7 @@ export function ProviderSearchPanel(props: {
 	const optionsRequestId = useRef(0);
 
 	useEffect(() => {
-		optionsForm.reset(optionsSchema === undefined ? {} : initialOptionValues(optionsSchema));
+		optionsForm.reset(optionsSchema === undefined ? {} : initialSchemaFormValues(optionsSchema));
 	}, [options.providerId, optionsForm, optionsSchema]);
 
 	const loadProviderOptions = useEffectEvent(
@@ -277,7 +280,7 @@ export function ProviderSearchPanel(props: {
 	};
 	const activeOptionCount =
 		options.status === "ready"
-			? Object.keys(toOptionsPayload(options.schema, optionsForm.state.values)).length
+			? Object.keys(toSchemaFormPayload(options.schema, optionsForm.state.values)).length
 			: 0;
 
 	const runSearch = useEffectEvent(async (operation: ProviderSearchOperation) => {
@@ -286,7 +289,7 @@ export function ProviderSearchPanel(props: {
 		}
 		const optionPayload =
 			options.status === "ready" && options.providerId === selected.providerId
-				? toOptionsPayload(options.schema, optionsForm.state.values)
+				? toSchemaFormPayload(options.schema, optionsForm.state.values)
 				: undefined;
 		const result = await Effect.runPromise(
 			searchProviderEntities(
@@ -473,7 +476,7 @@ export function ProviderSearchPanel(props: {
 											</View>
 										)),
 										Match.when({ status: "ready" }, (ready) => (
-											<ProviderSearchOptionsForm
+											<SchemaForm
 												form={optionsForm}
 												schema={ready.schema}
 												onChange={() => {
