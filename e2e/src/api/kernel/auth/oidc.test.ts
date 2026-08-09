@@ -2,7 +2,8 @@ import type { ChildProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { OAUTH_WEB_CLIENT_ID } from "@ryot-app/contract/oauth";
-import { Effect } from "effect";
+import { Effect, Fiber, Option, Stream } from "effect";
+import { Playwright, PlaywrightSpawner } from "effect-playwright";
 import getPort from "get-port";
 
 import {
@@ -17,7 +18,7 @@ import {
 	stopMockOidcServer,
 } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
-import { withBrowser } from "~/support/browser";
+import { browserLayer } from "~/support/browser";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 import {
 	buildApiEnv,
@@ -36,6 +37,7 @@ const clientDist = fileURLToPath(new URL("../../../../../kernel/client/dist", im
 const existingOidcUsername = `user-${crypto.randomUUID()}`;
 const pluginListQuery = { includeDisabled: false };
 const godModeListQuery = (search: string) => ({ limit: 50, offset: 0, search });
+const attempt = <A>(run: () => Promise<A>) => Effect.tryPromise(run).pipe(Effect.orDie);
 
 const countUsersByEmail = (apiUrl: string, email: string) =>
 	Effect.gen(function* () {
@@ -119,30 +121,45 @@ const waitForApi = (port: number) =>
 	waitForHealthCheck(`http://127.0.0.1:${port}/api/system/health`, "OIDC Setup");
 
 beforeAll(async () => {
-	coreInfrastructure = await startCoreTestInfrastructure({
-		bucketName: S3_BUCKET_NAME,
-	});
-
-	mockOidcServer = await startMockOidcServer();
-
-	[apiPortA, apiPortB, apiPortC] = await Promise.all([getPort(), getPort(), getPort()]);
-	apiProcessA = startApi("A", apiPortA, {
-		FRONTEND_OIDC_BUTTON_LABEL: OIDC_BUTTON_LABEL,
-	});
-	await waitForApi(apiPortA);
+	await Effect.runPromise(
+		Effect.gen(function* () {
+			coreInfrastructure = yield* attempt(() =>
+				startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME }),
+			);
+			mockOidcServer = yield* startMockOidcServer;
+			[apiPortA, apiPortB, apiPortC] = yield* Effect.all(
+				[attempt(() => getPort()), attempt(() => getPort()), attempt(() => getPort())],
+				{ concurrency: "unbounded" },
+			);
+			apiProcessA = startApi("A", apiPortA, {
+				FRONTEND_OIDC_BUTTON_LABEL: OIDC_BUTTON_LABEL,
+			});
+			yield* attempt(() => waitForApi(apiPortA));
+		}),
+	);
 });
 
 afterAll(async () => {
-	await Promise.all([
-		stopApiProcess(apiProcessA),
-		stopApiProcess(apiProcessB),
-		stopApiProcess(apiProcessC),
-	]);
-
-	await Promise.all([
-		stopCoreTestInfrastructure(coreInfrastructure),
-		stopMockOidcServer(mockOidcServer),
-	]);
+	await Effect.runPromise(
+		Effect.all(
+			[
+				attempt(() => stopApiProcess(apiProcessA)),
+				attempt(() => stopApiProcess(apiProcessB)),
+				attempt(() => stopApiProcess(apiProcessC)),
+			],
+			{ concurrency: "unbounded", discard: true },
+		).pipe(
+			Effect.andThen(
+				Effect.all(
+					[
+						attempt(() => stopCoreTestInfrastructure(coreInfrastructure)),
+						stopMockOidcServer(mockOidcServer),
+					],
+					{ concurrency: "unbounded", discard: true },
+				),
+			),
+		),
+	);
 });
 
 describe("GET /system/config with OIDC enabled (API A)", () => {
@@ -165,9 +182,16 @@ describe("GET /system/config with OIDC enabled (API A)", () => {
 
 describe("Local auth disabled (API B)", () => {
 	beforeAll(async () => {
-		await stopApiProcess(apiProcessA);
-		apiProcessB = startApi("B", apiPortB, { USERS_DISABLE_LOCAL_AUTH: "true" });
-		await waitForApi(apiPortB);
+		await Effect.runPromise(
+			attempt(() => stopApiProcess(apiProcessA)).pipe(
+				Effect.andThen(
+					Effect.sync(() => {
+						apiProcessB = startApi("B", apiPortB, { USERS_DISABLE_LOCAL_AUTH: "true" });
+					}),
+				),
+				Effect.andThen(attempt(() => waitForApi(apiPortB))),
+			),
+		);
 	});
 
 	it.live("returns localAuthDisabled: true", () =>
@@ -183,7 +207,7 @@ describe("Local auth disabled (API B)", () => {
 		Effect.gen(function* () {
 			const email = "test@example.com";
 			const authClient = createTestAuthClient(getApiUrlB());
-			const { error } = yield* Effect.promise(() =>
+			const { error } = yield* attempt(() =>
 				authClient.signUp.email({ email, name: "Test", password: "password123" }),
 			);
 			expect(error).toBeDefined();
@@ -196,72 +220,89 @@ describe("Local auth disabled (API B)", () => {
 			const mockServer = requireMockOidcServer();
 			const frontendUrl = new URL(getApiUrlB()).origin;
 			const issuer = new URL(mockServer.issuerUrl);
-			yield* withBrowser(undefined, ({ context, page }) =>
-				Effect.promise(async () => {
-					const { promise: stateCookieObserved, resolve: resolveStateCookie } =
-						Promise.withResolvers<boolean>();
-					await context.route(
-						(url) => url.origin === issuer.origin && url.pathname === "/authorize",
-						async (route) => {
-							const cookies = await context.cookies(frontendUrl);
-							resolveStateCookie(cookies.some((cookie) => cookie.name.endsWith(".state")));
-							await route.continue();
-						},
-					);
-
-					const hostedLoginRequest = page.waitForRequest(
-						(request) => new URL(request.url()).pathname === "/oauth/login",
-					);
-					const hostedSignInRequest = page.waitForRequest(
-						(request) => new URL(request.url()).pathname === "/api/auth/sign-in/social",
-					);
-					const providerRequest = page.waitForRequest((request) => {
-						const url = new URL(request.url());
-						return url.origin === issuer.origin && url.pathname === "/authorize";
-					});
-					const tokenResponse = page.waitForResponse(
-						(response) => new URL(response.url()).pathname === "/api/auth/oauth2/token",
-					);
-
-					const username = `browser-${crypto.randomUUID()}`;
-					mockServer.setNextClaims({
-						sub: username,
-						name: username,
-						email: `${username}@example.com`,
-					});
-					await page.goto(`${frontendUrl}/auth`);
-
-					const [loginRequest, signInRequest, oidcRequest, observedStateCookie, oauthResponse] =
-						await Promise.all([
-							hostedLoginRequest,
-							hostedSignInRequest,
-							providerRequest,
-							stateCookieObserved,
-							tokenResponse,
-						]);
-					expect(new URL(loginRequest.url()).searchParams.get("client_id")).toBe(
-						OAUTH_WEB_CLIENT_ID,
-					);
-					const body: unknown = signInRequest.postDataJSON();
-					const oauthQuery =
-						body && typeof body === "object" ? Reflect.get(body, "oauth_query") : null;
-					expect(typeof oauthQuery).toBe("string");
-					expect(new URL(oidcRequest.url()).searchParams.get("client_id")).toBe(OIDC_CLIENT_ID);
-					expect(observedStateCookie).toBe(true);
-					expect(oauthResponse.ok()).toBe(true);
-					await page.getByTestId("authenticated-shell").waitFor({ state: "visible" });
-					expect(new URL(page.url()).pathname).not.toMatch(/^\/auth(?:\/|$)/);
-				}),
+			const browser = yield* Playwright.Browser;
+			const page = yield* browser.newPage();
+			const request = (pathname: string) =>
+				page.eventStream("request").pipe(
+					Stream.filter((item) => new URL(item.url()).pathname === pathname),
+					Stream.runHead,
+					Effect.map(Option.getOrThrow),
+					Effect.forkChild({ startImmediately: true }),
+				);
+			const hostedLoginRequest = yield* request("/oauth/login");
+			// TODO: Return to event-stream requests after the upstream postData fixes:
+			// https://github.com/Jobflow-io/effect-playwright/issues/29 and https://github.com/Jobflow-io/effect-playwright/issues/30
+			const hostedSignInRequest = yield* page
+				.use((nativePage) =>
+					nativePage.waitForRequest(
+						(item) => new URL(item.url()).pathname === "/api/auth/sign-in/social",
+					),
+				)
+				.pipe(Effect.forkChild({ startImmediately: true }));
+			const tokenResponse = yield* page.eventStream("response").pipe(
+				Stream.filter((response) => new URL(response.url()).pathname === "/api/auth/oauth2/token"),
+				Stream.runHead,
+				Effect.map(Option.getOrThrow),
+				Effect.forkChild({ startImmediately: true }),
 			);
-		}),
+			const providerObservation = yield* page.eventStream("request").pipe(
+				Stream.filter((item) => {
+					const url = new URL(item.url());
+					return url.origin === issuer.origin && url.pathname === "/authorize";
+				}),
+				Stream.runHead,
+				Effect.map(Option.getOrThrow),
+				Effect.flatMap((req) =>
+					page
+						.context()
+						.cookies(frontendUrl)
+						.pipe(
+							Effect.map((cookies) => ({
+								request: req,
+								stateCookieObserved: cookies.some((cookie) => cookie.name.endsWith(".state")),
+							})),
+						),
+				),
+				Effect.forkChild({ startImmediately: true }),
+			);
+
+			const username = `browser-${crypto.randomUUID()}`;
+			mockServer.setNextClaims({
+				sub: username,
+				name: username,
+				email: `${username}@example.com`,
+			});
+			yield* page.goto(`${frontendUrl}/auth`);
+
+			const loginRequest = yield* Fiber.join(hostedLoginRequest);
+			const signInRequest = yield* Fiber.join(hostedSignInRequest);
+			const { request: oidcRequest, stateCookieObserved } = yield* Fiber.join(providerObservation);
+			const oauthResponse = yield* Fiber.join(tokenResponse);
+			expect(new URL(loginRequest.url()).searchParams.get("client_id")).toBe(OAUTH_WEB_CLIENT_ID);
+			const body: unknown = signInRequest.postDataJSON();
+			const oauthQuery = body && typeof body === "object" ? Reflect.get(body, "oauth_query") : null;
+			expect(typeof oauthQuery).toBe("string");
+			expect(new URL(oidcRequest.url()).searchParams.get("client_id")).toBe(OIDC_CLIENT_ID);
+			expect(stateCookieObserved).toBe(true);
+			expect(oauthResponse.ok()).toBe(true);
+			yield* page.getByTestId("authenticated-shell").waitFor({ state: "visible" });
+			expect(new URL(page.url()).pathname).not.toMatch(/^\/auth(?:\/|$)/);
+		}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 	);
 
 	afterAll(async () => {
-		await stopApiProcess(apiProcessB);
-		apiProcessA = startApi("A", apiPortA, {
-			FRONTEND_OIDC_BUTTON_LABEL: OIDC_BUTTON_LABEL,
-		});
-		await waitForApi(apiPortA);
+		await Effect.runPromise(
+			attempt(() => stopApiProcess(apiProcessB)).pipe(
+				Effect.andThen(
+					Effect.sync(() => {
+						apiProcessA = startApi("A", apiPortA, {
+							FRONTEND_OIDC_BUTTON_LABEL: OIDC_BUTTON_LABEL,
+						});
+					}),
+				),
+				Effect.andThen(attempt(() => waitForApi(apiPortA))),
+			),
+		);
 	});
 });
 
@@ -269,9 +310,7 @@ describe("OIDC sign-in happy path (API A)", () => {
 	it.live("first-time OIDC sign-in produces a valid session", () =>
 		Effect.gen(function* () {
 			const username = `user-${crypto.randomUUID()}`;
-			const sessionToken = yield* Effect.promise(() =>
-				oidcSignIn(requireMockOidcServer(), username, getApiUrlA()),
-			);
+			const sessionToken = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
 			const client = makeSession(getApiUrlA());
 			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 				Authorization: `Bearer ${sessionToken}`,
@@ -282,7 +321,7 @@ describe("OIDC sign-in happy path (API A)", () => {
 	it.live("first-time OIDC sign-in creates a user row", () =>
 		Effect.gen(function* () {
 			const username = `user-${crypto.randomUUID()}`;
-			yield* Effect.promise(() => oidcSignIn(requireMockOidcServer(), username, getApiUrlA()));
+			yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
 			expect(yield* countUsersByEmail(getApiUrlA(), `${username}@example.com`)).toBe(1);
 		}),
 	);
@@ -290,9 +329,7 @@ describe("OIDC sign-in happy path (API A)", () => {
 	it.live("first-time OIDC sign-in bootstraps the user with plugin state", () =>
 		Effect.gen(function* () {
 			const username = `user-${crypto.randomUUID()}`;
-			const sessionToken = yield* Effect.promise(() =>
-				oidcSignIn(requireMockOidcServer(), username, getApiUrlA()),
-			);
+			const sessionToken = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
 			expect(yield* listPluginCount(getApiUrlA(), sessionToken)).toBeGreaterThan(0);
 		}),
 	);
@@ -300,9 +337,7 @@ describe("OIDC sign-in happy path (API A)", () => {
 	it.live("first-time OIDC sign-in bootstraps the user with the default notification rules", () =>
 		Effect.gen(function* () {
 			const username = `user-${crypto.randomUUID()}`;
-			const sessionToken = yield* Effect.promise(() =>
-				oidcSignIn(requireMockOidcServer(), username, getApiUrlA()),
-			);
+			const sessionToken = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
 
 			const headers = { Authorization: `Bearer ${sessionToken}` };
 			const client = makeSession(getApiUrlA(), headers);
@@ -324,12 +359,8 @@ describe("OIDC idempotency (API A)", () => {
 		Effect.gen(function* () {
 			const username = `user-${crypto.randomUUID()}`;
 
-			const token1 = yield* Effect.promise(() =>
-				oidcSignIn(requireMockOidcServer(), username, getApiUrlA()),
-			);
-			const token2 = yield* Effect.promise(() =>
-				oidcSignIn(requireMockOidcServer(), username, getApiUrlA()),
-			);
+			const token1 = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
+			const token2 = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
 
 			expect(yield* countUsersByEmail(getApiUrlA(), `${username}@example.com`)).toBe(1);
 
@@ -349,15 +380,11 @@ describe("OIDC idempotency (API A)", () => {
 		Effect.gen(function* () {
 			const username = `user-${crypto.randomUUID()}`;
 
-			const token1 = yield* Effect.promise(() =>
-				oidcSignIn(requireMockOidcServer(), username, getApiUrlA()),
-			);
+			const token1 = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
 			const firstCount = yield* listPluginCount(getApiUrlA(), token1);
 			expect(firstCount).toBeGreaterThan(0);
 
-			const token2 = yield* Effect.promise(() =>
-				oidcSignIn(requireMockOidcServer(), username, getApiUrlA()),
-			);
+			const token2 = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
 			const secondCount = yield* listPluginCount(getApiUrlA(), token2);
 			expect(secondCount).toBe(firstCount);
 		}),
@@ -366,10 +393,17 @@ describe("OIDC idempotency (API A)", () => {
 
 describe("Registration gating for OIDC (API C)", () => {
 	beforeAll(async () => {
-		await oidcSignIn(requireMockOidcServer(), existingOidcUsername, getApiUrlA());
-		await stopApiProcess(apiProcessA);
-		apiProcessC = startApi("C", apiPortC, { USERS_ALLOW_REGISTRATION: "false" });
-		await waitForApi(apiPortC);
+		await Effect.runPromise(
+			oidcSignIn(requireMockOidcServer(), existingOidcUsername, getApiUrlA()).pipe(
+				Effect.andThen(attempt(() => stopApiProcess(apiProcessA))),
+				Effect.andThen(
+					Effect.sync(() => {
+						apiProcessC = startApi("C", apiPortC, { USERS_ALLOW_REGISTRATION: "false" });
+					}),
+				),
+				Effect.andThen(attempt(() => waitForApi(apiPortC))),
+			),
+		);
 	});
 
 	it.live("first-time OIDC sign-in is rejected when registration is disabled", () =>
@@ -377,8 +411,10 @@ describe("Registration gating for OIDC (API C)", () => {
 			const username = `user-${crypto.randomUUID()}`;
 			const apiUrl = getApiUrlC();
 
-			const { response: step3Response } = yield* Effect.promise(() =>
-				performOidcSignIn(requireMockOidcServer(), username, apiUrl),
+			const { response: step3Response } = yield* performOidcSignIn(
+				requireMockOidcServer(),
+				username,
+				apiUrl,
 			);
 			expect(step3Response.status).toBe(302);
 
@@ -396,8 +432,10 @@ describe("Registration gating for OIDC (API C)", () => {
 			const beforeId = yield* findUserIdByEmail(getApiUrlC(), email);
 			expect(beforeId).not.toBeNull();
 
-			const sessionToken = yield* Effect.promise(() =>
-				oidcSignIn(requireMockOidcServer(), existingOidcUsername, getApiUrlC()),
+			const sessionToken = yield* oidcSignIn(
+				requireMockOidcServer(),
+				existingOidcUsername,
+				getApiUrlC(),
 			);
 			const client = makeSession(getApiUrlC());
 			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
