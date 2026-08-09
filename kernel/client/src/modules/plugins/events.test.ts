@@ -5,11 +5,13 @@ import {
 import { Effect, Fiber, Layer, ManagedRuntime, Schedule } from "effect";
 import { describe, expect, it } from "vitest";
 
+import { decodeServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { makePluginCatalogEventsLayer, PluginCatalogEventsService } from "#/modules/plugins/events";
 
-const scope: ApiScope = { userId: "user-1", serverUrl: "https://ryot.example/root/" };
+const serverOrigin = decodeServerOrigin("https://ryot.example");
+const scope: ApiScope = { userId: "user-1", serverUrl: serverOrigin };
 
 const encoder = new TextEncoder();
 const frame = (type: string) => `event: ${type}\ndata:\n\n`;
@@ -108,7 +110,7 @@ describe("plugin catalog events service", () => {
 
 		try {
 			await waitUntil(() => streams.length === 1, "stream was never opened");
-			expect(requests[0]?.url).toBe("https://ryot.example/root/api/plugins/events");
+			expect(requests[0]?.url).toBe(`${serverOrigin}/api/plugins/events`);
 			expect(requests[0]?.headers.authorization).toBe("Bearer token-1");
 			expect(requests[0]?.headers.accept).toBe("text/event-stream");
 

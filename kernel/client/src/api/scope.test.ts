@@ -1,25 +1,30 @@
 import { describe, expect, it } from "vitest";
 
-import { apiScopeKey, canonicalApiScope } from "#/api/scope";
+import { decodeServerOrigin } from "#/api/origin";
+import { apiScopeKey } from "#/api/scope";
 
 describe("API scope", () => {
-	it("canonicalizes the server and partitions users and servers", () => {
-		const first = apiScopeKey({ serverUrl: " https://one.test/// ", userId: "user-1" });
+	it("uses canonical origins to partition users and servers", () => {
+		const firstOrigin = decodeServerOrigin("https://one.test");
+		const first = apiScopeKey({ serverUrl: firstOrigin, userId: "user-1" });
 
-		expect(first).toBe(apiScopeKey({ serverUrl: "https://one.test", userId: "user-1" }));
-		expect(first).not.toBe(apiScopeKey({ serverUrl: "https://one.test", userId: "user-2" }));
-		expect(first).not.toBe(apiScopeKey({ serverUrl: "https://two.test", userId: "user-1" }));
+		expect(first).toBe(
+			apiScopeKey({ serverUrl: decodeServerOrigin("https://one.test/"), userId: "user-1" }),
+		);
+		expect(first).not.toBe(apiScopeKey({ serverUrl: firstOrigin, userId: "user-2" }));
+		expect(first).not.toBe(
+			apiScopeKey({ serverUrl: decodeServerOrigin("https://two.test"), userId: "user-1" }),
+		);
 	});
 
-	it("keys only normalized server URL and user ID", () => {
+	it("excludes unrelated fields from the key", () => {
 		const input = {
 			userId: "user-1",
 			cookie: "session=secret",
 			accessToken: "secret-token",
-			serverUrl: "https://one.test/",
+			serverUrl: decodeServerOrigin("https://one.test/"),
 		};
 
-		expect(canonicalApiScope(input)).toEqual({ userId: "user-1", serverUrl: "https://one.test" });
 		expect(apiScopeKey(input)).toBe('["https://one.test","user-1"]');
 		expect(apiScopeKey(input)).not.toContain("secret");
 	});

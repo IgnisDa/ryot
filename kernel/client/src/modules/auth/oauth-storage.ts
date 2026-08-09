@@ -26,10 +26,9 @@ export type OAuthStorageAdapter = {
 	readonly setItem: (key: string, value: string) => Effect.Effect<void, OAuthStorageError>;
 };
 
-export const oauthPendingKey = (origin: ServerOrigin, state: string) =>
+export const oauthPendingKey = (origin: string, state: string) =>
 	`${OAUTH_PENDING_PREFIX}${encodeURIComponent(normalizeServerOrigin(origin))}:${state}`;
-export const oauthTokenKey = (origin: ServerOrigin) =>
-	`${OAUTH_TOKEN_PREFIX}${normalizeServerOrigin(origin)}`;
+export const oauthTokenKey = (origin: ServerOrigin) => `${OAUTH_TOKEN_PREFIX}${origin}`;
 
 const browserOAuthStorage = (): OAuthStorageAdapter => {
 	const storage = typeof localStorage === "undefined" ? undefined : localStorage;
@@ -121,7 +120,7 @@ const makeStorage = (adapter: OAuthStorageAdapter): OAuthStorage["Service"] => {
 			}),
 		clearPending: (origin) =>
 			Effect.gen(function* () {
-				const prefix = `${OAUTH_PENDING_PREFIX}${encodeURIComponent(normalizeServerOrigin(origin))}:`;
+				const prefix = `${OAUTH_PENDING_PREFIX}${encodeURIComponent(origin)}:`;
 				const keys = yield* adapter.keys.pipe(
 					Effect.catch(() => Effect.succeed<readonly string[]>([])),
 				);
