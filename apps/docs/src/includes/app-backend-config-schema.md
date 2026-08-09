@@ -9,7 +9,7 @@
 | `port` | `PORT` | HTTP port the server listens on | No | No | `8000` |
 | `timezone` | `TZ` | IANA timezone used for interpreting timezone-less datetimes during imports | No | No | `Etc/GMT` |
 | `redisUrl` | `REDIS_URL` | Redis connection string | Yes | Yes | — |
-| `frontendUrl` | `FRONTEND_URL` | Exact public HTTPS origin users browse to; defines OAuth issuer and callbacks | Yes | No | `https://app.ryot.io` |
+| `frontendUrl` | `FRONTEND_URL` | Exact origin users browse to; defines OAuth issuer and callbacks. HTTPS strongly recommended | Yes | No | `https://app.ryot.io` |
 | `disableTelemetry` | `DISABLE_TELEMETRY` | Disable anonymous usage analytics reported by the client | No | No | `false` |
 
 ### User account settings

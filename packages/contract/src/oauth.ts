@@ -40,6 +40,16 @@ export const OAUTH_NATIVE_LOGOUT_CALLBACK_URIS = [
 	`io.ryot.app.dev:${OAUTH_LOGOUT_CALLBACK_PATH}`,
 ] as const;
 
+export const isLoopbackOrigin = (origin: string) => {
+	const { hostname } = new URL(origin);
+	return (
+		hostname === "[::1]" ||
+		hostname === "localhost" ||
+		hostname.endsWith(".localhost") ||
+		/^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)
+	);
+};
+
 const fromOrigin = (origin: string, path: string) => new URL(path, origin).toString();
 
 export const getOAuthResource = (origin: string) => fromOrigin(origin, "/api");
