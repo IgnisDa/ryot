@@ -43,6 +43,8 @@ services:
 
   ryot:
     restart: unless-stopped
+    env_file:
+      - apps/app-backend/.env
     ports:
       - "8000:8000"
     build:
@@ -54,12 +56,11 @@ services:
       ryot-postgres:
         condition: service_healthy
     environment:
-      FRONTEND_URL: http://localhost:8000
       REDIS_URL: redis://ryot-redis:6379
-      SERVER_ADMIN_ACCESS_TOKEN: super-secret-token-that-should-be-changed
-      SANDBOX_PROCESS_MODE: ${SANDBOX_PROCESS_MODE:-on-demand}
-      DATABASE_URL: postgresql://postgres:postgres@ryot-postgres:5432/postgres
+      FRONTEND_URL: http://localhost:8000
       FILE_STORAGE_LOCAL_SIGNING_SECRET: change-this-local-signing-secret
+      SERVER_ADMIN_ACCESS_TOKEN: super-secret-token-that-should-be-changed
+      DATABASE_URL: postgresql://postgres:postgres@ryot-postgres:5432/postgres
     volumes:
       - ryot_local_storage:/home/ryot/storage
     tmpfs:
