@@ -39,6 +39,12 @@ type SeasonEpisodesInput = Record<string, unknown> & {
 	readonly episodes?: readonly Record<string, unknown>[];
 };
 
+type SeasonEpisodeRows = {
+	readonly hasMore?: boolean;
+	readonly season?: SeasonEpisodesInput | null;
+	readonly episodes?: readonly Record<string, unknown>[];
+};
+
 const defaultSeason: SeasonInput = { ...showSeasonRow };
 
 const defaultSeasonEpisodes: SeasonEpisodesInput = { ...showSeasonRow, episodes: [showEpisodeRow] };
@@ -47,6 +53,20 @@ const nestedRows = (items: readonly unknown[], hasMore: boolean, limit: number) 
 	items,
 	pageInfo: { hasMore, limit },
 });
+
+const seasonRows = (input: SeasonEpisodeRows) => {
+	const season = input.season === null ? null : (input.season ?? defaultSeasonEpisodes);
+	if (season === null) {
+		return [];
+	}
+	const { episodes = [], hasMore = false, ...row } = season;
+	return [
+		{
+			...row,
+			episodes: nestedRows(input.episodes ?? episodes, input.hasMore ?? hasMore, 60),
+		},
+	];
+};
 
 export const decodeShowEpisodesResult = (input: {
 	readonly seasons?: readonly SeasonInput[];
@@ -65,47 +85,19 @@ export const decodeShowEpisodesResult = (input: {
 						seasons: { items: seasons, pageInfo: { hasMore: false, limit: 40 } },
 					},
 				];
-	const decoded = showEpisodesFixtureRecipe.decode({
-		data: { show: rowsResult(show, { hasMore: false, limit: 1, nextCursor: null }) },
-	});
-	if (Result.isFailure(decoded)) {
-		throw new Error("Expected a decoded show detail result");
-	}
-	return decoded.success;
+	return Result.getOrThrow(
+		showEpisodesFixtureRecipe.decode({
+			data: { show: rowsResult(show, { hasMore: false, limit: 1, nextCursor: null }) },
+		}),
+	);
 };
 
-export const decodeShowSeasonEpisodesResult = (input: {
-	readonly hasMore?: boolean;
-	readonly season?: Record<string, unknown> | null;
-	readonly episodes?: readonly Record<string, unknown>[];
-}) => {
-	const seasonInput = input.season === null ? null : (input.season ?? defaultSeasonEpisodes);
-	const seasonRecord =
-		seasonInput === null
-			? null
-			: {
-					...seasonInput,
-					...(input.episodes === undefined ? {} : { episodes: input.episodes }),
-					...(input.hasMore === undefined ? {} : { hasMore: input.hasMore }),
-				};
-	const seasonItem =
-		seasonRecord === null
-			? []
-			: [
-					(({ episodes: seasonEpisodes, hasMore: seasonHasMore, ...season }: SeasonEpisodesInput) =>
-						Object.assign(season, {
-							episodes: nestedRows(
-								input.episodes ?? seasonEpisodes ?? [],
-								input.hasMore ?? seasonHasMore === true,
-								60,
-							),
-						}))(seasonRecord),
-				];
-	const decoded = showSeasonEpisodesFixtureRecipe.decode({
-		data: { season: rowsResult(seasonItem, { hasMore: false, limit: 1, nextCursor: null }) },
-	});
-	if (Result.isFailure(decoded)) {
-		throw new Error("Expected a decoded show season episodes result");
-	}
-	return decoded.success;
+export const decodeShowSeasonEpisodesResult = (input: SeasonEpisodeRows) => {
+	return Result.getOrThrow(
+		showSeasonEpisodesFixtureRecipe.decode({
+			data: {
+				season: rowsResult(seasonRows(input), { limit: 1, hasMore: false, nextCursor: null }),
+			},
+		}),
+	);
 };
