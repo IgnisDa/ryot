@@ -73,32 +73,10 @@ const records: ArchiveRecords = {
 			updatedAt: timestamp,
 			dataSources: savedViewQuery,
 			settings: { heading: "Fixture" },
-			renderer: { kind: "custom", rendererId: "renderer-1" },
-		},
-	],
-	clientRenderers: [
-		{
-			id: "renderer-1",
-			draftRevision: 2,
-			createdAt: timestamp,
-			updatedAt: timestamp,
-			publishedRevision: 1,
-			slug: "fixture-renderer",
-			name: "Fixture renderer",
-			publishedHash: "published-source-hash",
-			draftDefinition: {
-				pluginDependencies: [],
-				entry: "client/page.tsx",
-				settingsSchema: { fields: {} },
-				automaticEntityPresentations: false,
-				files: [{ path: "client/page.tsx", content: "ZXhwb3J0IGRlZmF1bHQgMQo=" }],
-			},
-			publishedDefinition: {
-				pluginDependencies: [],
-				entry: "client/page.tsx",
-				settingsSchema: { fields: {} },
-				automaticEntityPresentations: false,
-				files: [{ path: "client/page.tsx", content: "ZXhwb3J0IGRlZmF1bHQgMQo=" }],
+			renderer: {
+				kind: "plugin",
+				exportName: "FixturePage",
+				pluginKey: `system:fixture:${"a".repeat(64)}`,
 			},
 		},
 	],
@@ -271,6 +249,10 @@ it.effect("creates deterministic V1 archives and validates the round trip", () =
 		const validated = yield* validateArchive(asChunks(first));
 		expect(validated.manifest.version).toBe(1);
 		expect(validated.records).toEqual(records);
+		expect(validated.manifest.sections.map(({ path }) => path)).not.toContain(
+			"client-renderers.ndjson",
+		);
+		expect(unzipSync(first)).not.toHaveProperty("client-renderers.ndjson");
 	}).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer)),
 );
 
@@ -287,11 +269,11 @@ it.effect("excludes automation history and configuration revision sections", () 
 	}).pipe(Effect.provide(BunFileSystem.layer)),
 );
 
-it.effect("validates the V1 golden fixture", () =>
+it.effect("rejects the legacy custom-renderer V1 fixture", () =>
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
 		const paths = ["manifest.json", ...ARCHIVE_SECTION_PATHS];
-		const validated = yield* validateArchive(
+		const error = yield* validateArchive(
 			zipChunks(
 				paths.map((path) => ({
 					path,
@@ -299,8 +281,8 @@ it.effect("validates the V1 golden fixture", () =>
 					chunks: Stream.toAsyncIterable(fs.stream(new URL(path, fixtureRoot).pathname)),
 				})),
 			),
-		);
-		expect(validated.manifest.archiveId).toBe("fixture-v1");
+		).pipe(Effect.flip);
+		expect(error.reason).toBe("unsupported_format");
 	}).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer)),
 );
 
@@ -517,7 +499,7 @@ it.effect("releases the spool directory on success, failure, and interruption", 
 	}).pipe(Effect.provide(BunFileSystem.layer)),
 );
 
-it.effect("rejects noncanonical base64 private plugin files", () =>
+it.effect("rejects invalid private plugin archive records", () =>
 	Effect.gen(function* () {
 		const archive = yield* mutateArchive(input(), (files) => {
 			replaceSection(
@@ -528,6 +510,7 @@ it.effect("rejects noncanonical base64 private plugin files", () =>
 						manifest: {},
 						slug: "fixture",
 						version: "1.0.0",
+						compiledScripts: [],
 						sourceHash: "a".repeat(64),
 						files: { "backend/main.ts": "Zg" },
 						key: `user:fixture:${"a".repeat(64)}`,

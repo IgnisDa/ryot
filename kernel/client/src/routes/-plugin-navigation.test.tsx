@@ -2,6 +2,7 @@
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
+	CLIENT_BRIDGE_BOOTSTRAP_READY,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 	PluginBridgeInit,
@@ -254,7 +255,9 @@ function connectFrame(frame: HTMLIFrameElement) {
 			},
 		},
 	});
-	fireEvent.load(frame);
+	const readyEvent = new MessageEvent("message", { data: { type: CLIENT_BRIDGE_BOOTSTRAP_READY } });
+	Object.defineProperty(readyEvent, "source", { value: frame.contentWindow });
+	fireEvent(window, readyEvent);
 	if (init === undefined || port === undefined) {
 		throw new Error("Bridge did not connect");
 	}

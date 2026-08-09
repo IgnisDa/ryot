@@ -152,21 +152,6 @@ CREATE TABLE "client_page_build" (
 	"artifact_hash" text NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "client_renderer" (
-	"published_hash" text,
-	"slug" text NOT NULL,
-	"name" text NOT NULL,
-	"published_revision" integer,
-	"draft_revision" integer DEFAULT 1 NOT NULL,
-	"published_definition" jsonb,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"draft_definition" jsonb NOT NULL,
-	"id" text PRIMARY KEY,
-	"user_id" text NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "client_renderer_user_slug_unique" UNIQUE("user_id","slug")
-);
---> statement-breakpoint
 CREATE TABLE "definition_entity_schema" (
 	"slug" text NOT NULL,
 	"name" text NOT NULL,
@@ -639,6 +624,7 @@ CREATE TABLE "plugin_installation" (
 CREATE TABLE "plugin_revision" (
 	"version" text NOT NULL,
 	"source_hash" text NOT NULL,
+	"client_artifact_hash" text,
 	"manifest" jsonb NOT NULL,
 	"client_config_schema" jsonb NOT NULL,
 	"id" text PRIMARY KEY,
@@ -730,7 +716,6 @@ CREATE TABLE "saved_view" (
 	"settings" jsonb NOT NULL,
 	"id" text PRIMARY KEY,
 	"user_id" text NOT NULL,
-	"client_renderer_id" text,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "saved_view_user_slug_unique" UNIQUE("user_id","slug")
 );
@@ -834,7 +819,6 @@ CREATE INDEX "backup_run_user_id_idx" ON "backup_run" ("user_id");--> statement-
 CREATE INDEX "backup_run_status_idx" ON "backup_run" ("status");--> statement-breakpoint
 CREATE INDEX "backup_run_expires_at_idx" ON "backup_run" ("expires_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "backup_run_user_active_unique" ON "backup_run" ("user_id") WHERE "status" in ('pending', 'running');--> statement-breakpoint
-CREATE INDEX "client_renderer_user_id_idx" ON "client_renderer" ("user_id");--> statement-breakpoint
 CREATE INDEX "definition_entity_schema_slug_idx" ON "definition_entity_schema" ("slug");--> statement-breakpoint
 CREATE INDEX "definition_import_source_slug_idx" ON "definition_import_source" ("slug");--> statement-breakpoint
 CREATE INDEX "definition_integration_provider_slug_idx" ON "definition_integration_provider" ("slug");--> statement-breakpoint
@@ -920,7 +904,6 @@ CREATE INDEX "sandbox_workflow_reference_script_id_idx" ON "sandbox_workflow_ref
 CREATE INDEX "sandbox_workflow_reference_plugin_installation_id_idx" ON "sandbox_workflow_reference" ("plugin_installation_id");--> statement-breakpoint
 CREATE INDEX "saved_view_user_id_idx" ON "saved_view" ("user_id");--> statement-breakpoint
 CREATE INDEX "saved_view_plugin_installation_id_idx" ON "saved_view" ("plugin_installation_id");--> statement-breakpoint
-CREATE INDEX "saved_view_client_renderer_id_idx" ON "saved_view" ("client_renderer_id");--> statement-breakpoint
 CREATE INDEX "session_userId_idx" ON "session" ("user_id");--> statement-breakpoint
 CREATE INDEX "user_lifecycle_operation_user_id_idx" ON "user_lifecycle_operation" ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "user_lifecycle_operation_user_active_unique" ON "user_lifecycle_operation" ("user_id") WHERE "status" in ('pending', 'running');--> statement-breakpoint
@@ -944,7 +927,6 @@ ALTER TABLE "automation_trigger_recipient" ADD CONSTRAINT "automation_trigger_re
 ALTER TABLE "automation_trigger_recipient" ADD CONSTRAINT "automation_trigger_recipient_79FlgkqvTsH0_fkey" FOREIGN KEY ("trigger_id") REFERENCES "automation_trigger"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "backup_run" ADD CONSTRAINT "backup_run_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "client_page_build" ADD CONSTRAINT "client_page_build_h5bSY8fiMNIQ_fkey" FOREIGN KEY ("artifact_hash") REFERENCES "plugin_client_artifact"("hash") ON DELETE RESTRICT;--> statement-breakpoint
-ALTER TABLE "client_renderer" ADD CONSTRAINT "client_renderer_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_entity_schema" ADD CONSTRAINT "definition_entity_schema_revision_fk" FOREIGN KEY ("plugin_revision_id","plugin_id") REFERENCES "plugin_revision"("id","plugin_id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_event_schema" ADD CONSTRAINT "definition_event_schema_teyj1WWBsLDW_fkey" FOREIGN KEY ("entity_schema_id") REFERENCES "definition_entity_schema"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_import_source" ADD CONSTRAINT "definition_import_source_revision_fk" FOREIGN KEY ("plugin_revision_id","plugin_id") REFERENCES "plugin_revision"("id","plugin_id") ON DELETE CASCADE;--> statement-breakpoint
@@ -997,6 +979,7 @@ ALTER TABLE "plugin_installation" ADD CONSTRAINT "plugin_installation_user_id_us
 ALTER TABLE "plugin_installation" ADD CONSTRAINT "plugin_installation_Y0qNbD8s1JVH_fkey" FOREIGN KEY ("active_config_revision_id") REFERENCES "plugin_config_revision"("id");--> statement-breakpoint
 ALTER TABLE "plugin_installation" ADD CONSTRAINT "plugin_installation_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin_revision" ADD CONSTRAINT "plugin_revision_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "plugin_revision" ADD CONSTRAINT "plugin_revision_client_artifact_hash_fk" FOREIGN KEY ("client_artifact_hash") REFERENCES "plugin_client_artifact"("hash");--> statement-breakpoint
 ALTER TABLE "plugin_revision_source_file" ADD CONSTRAINT "plugin_revision_source_file_jXWqpu8aM8FE_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_relationship_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("relationship_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
@@ -1011,7 +994,6 @@ ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_refere
 ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_NZbiTLiwtL2v_fkey" FOREIGN KEY ("plugin_installation_id") REFERENCES "plugin_installation"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_script_id_sandbox_script_id_fkey" FOREIGN KEY ("script_id") REFERENCES "sandbox_script"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_client_renderer_id_client_renderer_id_fkey" FOREIGN KEY ("client_renderer_id") REFERENCES "client_renderer"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_plugin_installation_owner_fk" FOREIGN KEY ("plugin_installation_id","user_id") REFERENCES "plugin_installation"("id","user_id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "two_factor" ADD CONSTRAINT "two_factor_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint

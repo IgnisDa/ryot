@@ -9,7 +9,6 @@ import { Context, Effect, Encoding, FileSystem, Layer } from "effect";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { AuthRepository } from "#modules/auth/repository";
 import { AutomationsRepository } from "#modules/automations/repository";
-import { ClientPagesRepository } from "#modules/client-pages/repository";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import type {
 	DefinitionSnapshot,
@@ -329,7 +328,6 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 	{
 		make: Effect.gen(function* () {
 			const auth = yield* AuthRepository;
-			const clientPages = yield* ClientPagesRepository;
 			const events = yield* EventsRepository;
 			const fs = yield* FileSystem.FileSystem;
 			const plugins = yield* PluginRepository;
@@ -427,7 +425,6 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				const storedRelationships = yield* relationships.listUserRelationshipsForBackup(userId);
 				const storedIntegrations = yield* integrations.listForBackup(userId);
 				const storedViews = yield* savedViews.listForBackup(userId);
-				const storedRenderers = yield* clientPages.listRenderers(userId);
 				const storedSubscriptions =
 					yield* automations.listNotificationSubscriptionsForBackup(userId);
 				const translationRows = yield* translations.listForBackup(
@@ -548,12 +545,6 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							};
 						}),
 				);
-				const rendererDependencySlugs = new Set<string>(
-					storedRenderers.flatMap(({ draftDefinition, publishedDefinition }) => [
-						...draftDefinition.pluginDependencies,
-						...(publishedDefinition?.pluginDependencies ?? []),
-					]),
-				);
 				const referencedInstallationIds = new Set([
 					...storedIntegrations.map(({ pluginInstallationId }) => pluginInstallationId),
 					...storedViews.flatMap(({ pluginInstallationId }) =>
@@ -561,9 +552,6 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					),
 					...allStoredInstallations.flatMap(({ id, homeSavedViewId }) =>
 						homeSavedViewId === null ? [] : [id],
-					),
-					...storedInstallations.flatMap(({ id, pluginSlug }) =>
-						rendererDependencySlugs.has(pluginSlug) ? [id] : [],
 					),
 				]);
 				const installationRecords: ArchiveInstallation[] = yield* Effect.forEach(
@@ -651,7 +639,6 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					entityDependencies,
 					savedViews: viewRecords,
 					integrations: integrationRecords,
-					clientRenderers: storedRenderers,
 					installations: installationRecords,
 					relationships: relationshipRecords,
 					notificationSubscriptions: subscriptionRecords,
@@ -662,6 +649,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					privatePlugins: yield* Effect.forEach(privatePlugins, (plugin) =>
 						Effect.gen(function* () {
 							const sourceFiles = yield* plugins.listSourceFiles(plugin.id);
+							const compiledArtifacts = yield* plugins.listCompiledPackageArtifacts(plugin.id);
 							return {
 								slug: plugin.slug,
 								manifest: plugin.manifest,
@@ -673,6 +661,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 										.sort(([left], [right]) => comparePaths(left, right))
 										.map(([path, contents]) => [path, Encoding.encodeBase64(contents)]),
 								),
+								...compiledArtifacts,
 							};
 						}),
 					),
@@ -1035,7 +1024,6 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						privatePlugins: data.privatePlugins,
 						relationships: exportedRelationships,
 						installations: exportedInstallations,
-						clientRenderers: data.clientRenderers,
 					} satisfies ArchiveRecords;
 					const referencedPluginKeys = collectReferencedPluginKeys(records);
 					const requiredPlugins = context.installedPlugins

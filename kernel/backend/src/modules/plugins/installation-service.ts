@@ -26,7 +26,6 @@ import {
 	type DefinitionSnapshot,
 } from "#modules/definition-registry/snapshot";
 import { mergeManifestDefinitions } from "#modules/definition-registry/source";
-import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
@@ -39,7 +38,7 @@ import {
 	type PluginPrivateInstallationRow,
 } from "./installation-repository";
 import { PluginInstallationLifecycleDispatcher } from "./installation-workflow";
-import { compilePluginPackage, normalizePluginSource, structurePluginFailure } from "./pipeline";
+import { normalizePluginPackage, normalizePluginSource, structurePluginFailure } from "./pipeline";
 import { PluginRepository } from "./repository";
 import { validateAdditiveSchemaEvolution } from "./schema-evolution";
 import type { StoredPlugin } from "./types";
@@ -75,7 +74,6 @@ type HomeSavedViewTarget = NonNullable<
 >;
 
 const isUsableHomeSavedView = (
-	userId: UserId,
 	target: HomeSavedViewTarget,
 	pluginsById: ReadonlyMap<string, Pick<StoredPlugin, "manifest">>,
 ) => {
@@ -85,18 +83,10 @@ const isUsableHomeSavedView = (
 	if (target.view.renderer.kind === "kernel") {
 		return Schema.is(KernelSavedViewRendererName)(target.view.renderer.name);
 	}
-	if (target.view.renderer.kind === "plugin") {
-		return (
-			pluginsById.get(target.view.renderer.pluginId)?.manifest.client?.exports?.[
-				target.view.renderer.exportName
-			]?.kind === "page"
-		);
-	}
 	return (
-		target.renderer?.userId === userId &&
-		target.renderer.publishedHash !== null &&
-		target.renderer.publishedRevision !== null &&
-		target.renderer.publishedDefinition !== null
+		pluginsById.get(target.view.renderer.pluginId)?.manifest.client?.exports?.[
+			target.view.renderer.exportName
+		]?.kind === "page"
 	);
 };
 
@@ -220,7 +210,6 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const definitions = yield* DefinitionRepository;
 			const ingestionLock = yield* PluginIngestionLock;
 			const uploadIntents = yield* UploadIntentsService;
-			const clientCompiler = yield* ClientPluginCompiler;
 			const objectStorage = yield* ObjectStorageService;
 			const invalidator = yield* PluginCatalogInvalidator;
 			const installations = yield* PluginInstallationRepository;
@@ -453,7 +442,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 										reason: { code: "home-view-disabled", savedViewId: payload.savedViewId },
 									});
 								}
-								if (!isUsableHomeSavedView(userId, target, rendererPlugins)) {
+								if (!isUsableHomeSavedView(target, rendererPlugins)) {
 									return yield* new PluginRequestError({
 										reason: {
 											savedViewId: payload.savedViewId,
@@ -496,7 +485,8 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 
 			const installPrivateUnlocked = Effect.fn("PluginInstallationService.installPrivateUnlocked")(
 				function* (input: DecodedInstallPrivatePluginInput) {
-					const { files, manifest, sourceHash } = yield* normalizePluginSource(input);
+					const normalizedSource = yield* normalizePluginSource(input);
+					const { files, manifest } = normalizedSource;
 					const slug = manifest.metadata.slug;
 					const pluginSlug = PluginSlug.make(slug);
 					yield* validatePluginPackageLimits(files, manifest);
@@ -534,9 +524,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 								}),
 						),
 					);
-					const normalized = yield* compilePluginPackage({ files, manifest, sourceHash }).pipe(
-						Effect.provideService(ClientPluginCompiler, clientCompiler),
-					);
+					const normalized = yield* normalizePluginPackage(normalizedSource);
 					yield* validatePluginExecutableScripts(normalized);
 					const state = yield* Effect.uninterruptible(
 						mapDatabaseErrors(
@@ -614,7 +602,8 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					}
 					return yield* withPrivatePluginPackage(input, input.userId, (pluginPackage) =>
 						Effect.gen(function* () {
-							const { files, manifest, sourceHash } = yield* normalizePluginSource(pluginPackage);
+							const normalizedSource = yield* normalizePluginSource(pluginPackage);
+							const { files, manifest } = normalizedSource;
 							if (manifest.metadata.slug !== plugin.slug) {
 								return yield* new PluginValidationError({
 									issues: [
@@ -646,9 +635,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 							]);
 							yield* validatePluginManifestReferences(manifest, effectiveDefinitions);
 							yield* validateAdditiveSchemaEvolution(plugin.manifest, manifest);
-							const normalized = yield* compilePluginPackage({ files, manifest, sourceHash }).pipe(
-								Effect.provideService(ClientPluginCompiler, clientCompiler),
-							);
+							const normalized = yield* normalizePluginPackage(normalizedSource);
 							yield* validatePluginExecutableScripts(normalized);
 
 							const updated = yield* Effect.uninterruptible(

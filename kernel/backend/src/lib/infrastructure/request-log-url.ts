@@ -19,9 +19,13 @@ HttpApi.reflect(AppContract, {
 const matchesRouteTemplate = (pathname: string, template: string) => {
 	const pathSegments = pathname.split("/");
 	const templateSegments = template.split("/");
+	const hasTerminalWildcard = templateSegments.at(-1) === "*";
+	const matchedSegments = hasTerminalWildcard ? templateSegments.slice(0, -1) : templateSegments;
 	return (
-		pathSegments.length === templateSegments.length &&
-		templateSegments.every(
+		(hasTerminalWildcard
+			? pathSegments.length >= templateSegments.length
+			: pathSegments.length === templateSegments.length) &&
+		matchedSegments.every(
 			(segment, index) => segment.startsWith(":") || segment === pathSegments[index],
 		)
 	);
