@@ -1,1 +1,0 @@
-{"id":"entity-1","name":"Golden Book","externalId":"provider-book-1","properties":{"rating":4.5,"tags":["golden","book"],"metadata":{"favorite":true}},"createdAt":"2026-08-23T12:00:00.000Z","updatedAt":"2026-08-23T12:05:00.000Z","populatedAt":"2026-08-23T12:10:00.000Z","entitySchemaSlug":"fixture.book","provider":{"pluginSlug":"fixture-plugin","providerSlug":"fixture-books"}}
