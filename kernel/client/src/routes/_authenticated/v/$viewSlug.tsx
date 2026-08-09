@@ -1,6 +1,6 @@
 import { RyotClientError } from "@ryot-app/client-sdk";
 import { useRyot } from "@ryot-app/client-sdk/react";
-import { Button } from "@ryot-app/client-ui-sdk";
+import { Badge, Button, SearchField, SegmentedControl, useShortcut } from "@ryot-app/client-ui-sdk";
 import type { SavedViewLayoutName } from "@ryot-app/contract/modules/saved-views/schemas";
 import type {
 	SavedViewCardResultItem,
@@ -9,15 +9,7 @@ import type {
 import { createFileRoute, notFound, useRouter } from "@tanstack/react-router";
 import clsx from "clsx";
 import { Effect } from "effect";
-import {
-	type SyntheticEvent,
-	type ReactNode,
-	useEffect,
-	useEffectEvent,
-	useReducer,
-	useRef,
-	useState,
-} from "react";
+import { type ReactNode, useEffect, useEffectEvent, useReducer, useRef, useState } from "react";
 
 import { collectManagedAssets, ManagedAssetsService } from "#/modules/assets/managed-assets";
 import { AppIcon } from "#/modules/navigation/app-icon";
@@ -102,6 +94,12 @@ type PageRequest = {
 	readonly token: SavedViewRequestToken;
 };
 
+const layoutOptions = (["grid", "list", "table"] as const).map((layout) => ({
+	value: layout,
+	content: <AppIcon name={layout} size={15} />,
+	label: `${layout[0]?.toUpperCase()}${layout.slice(1)} view`,
+}));
+
 function SavedViewPage() {
 	const { data, layout, record } = Route.useLoaderData();
 	return (
@@ -114,6 +112,8 @@ function SavedViewPage() {
 	);
 }
 
+const onAdd = () => console.log("TODO: open the provider add flow");
+
 function SavedViewContent(props: {
 	readonly data: SavedViewData;
 	readonly layout: SavedViewLayoutName;
@@ -121,6 +121,7 @@ function SavedViewContent(props: {
 }) {
 	const ryot = useRyot();
 	const { runtime, scope } = Route.useRouteContext();
+	const canAdd = props.record.entitySchemaSlug !== null;
 	const initialIdentity = savedViewQueryIdentity(props.record, "");
 	const [search, setSearch] = useState("");
 	const [committedSearch, setCommittedSearch] = useState("");
@@ -140,6 +141,8 @@ function SavedViewContent(props: {
 	>(undefined);
 	const pageRequest = useRef<PageRequest | undefined>(undefined);
 	stateRef.current = state;
+
+	useShortcut("A", onAdd, { enabled: canAdd });
 
 	const runPageRequest = useEffectEvent(
 		async (input: {
@@ -341,11 +344,8 @@ function SavedViewContent(props: {
 	const transitioning =
 		visible !== undefined &&
 		(visible.identity !== state.identity || visible.layout !== state.activeLayout);
-	const submitSearch = (event: SyntheticEvent<HTMLFormElement>) => {
-		event.preventDefault();
-		setCommittedSearch(normalizeSavedViewSearch(search));
-	};
 	const data = visible?.data;
+	const hasItems = data !== undefined && data.items.length > 0;
 	const resultCount = data
 		? savedViewResultLabel(data.items.length, data.pageInfo.hasMore, currentCount)
 		: "";
@@ -359,38 +359,20 @@ function SavedViewContent(props: {
 	if (data === undefined) {
 		content = <SavedViewInlineError onRetry={retryPage} />;
 	} else if (data.items.length === 0) {
-		const searching = state.operation?.phase === "initial" && committedSearch !== "";
-		let emptyIcon: "library" | "search" | "search-x" = "search-x";
-		if (searching) {
-			emptyIcon = "search";
+		if (state.operation?.phase === "initial" && committedSearch !== "") {
+			content = <SavedViewSearching />;
 		} else if (committedSearch === "") {
-			emptyIcon = "library";
-		}
-		content = (
-			<section className="grid min-h-96 place-content-center justify-items-center gap-2 text-center">
-				<AppIcon
-					name={emptyIcon}
-					size={committedSearch === "" ? 40 : 36}
-					className={clsx("text-text-subtle", searching && "animate-pulse")}
+			content = <SavedViewEmpty canAdd={canAdd} onAdd={onAdd} name={props.record.name} />;
+		} else {
+			content = (
+				<SavedViewNoMatches
+					onAdd={onAdd}
+					canAdd={canAdd}
+					query={committedSearch}
+					name={props.record.name}
 				/>
-				{searching ? (
-					<p className="text-sm text-text-muted">Searching...</p>
-				) : (
-					<>
-						<h2 className="text-xl font-semibold">
-							{committedSearch === ""
-								? `${props.record.name} is empty`
-								: `No matches in ${props.record.name}`}
-						</h2>
-						<p className="text-sm text-text-muted">
-							{committedSearch === ""
-								? "No items have been added to this view yet."
-								: `Nothing in this view matches “${committedSearch}”.`}
-						</p>
-					</>
-				)}
-			</section>
-		);
+			);
+		}
 	} else {
 		content = (
 			<SavedViewItems
@@ -402,149 +384,123 @@ function SavedViewContent(props: {
 	}
 
 	return (
-		<main className="h-full overflow-y-auto bg-bg px-4 pb-[max(32px,env(safe-area-inset-bottom))] md:px-8 md:pt-8">
-			<div className="grid min-h-full w-full gap-5" aria-busy={state.operation !== undefined}>
-				<header className="grid gap-3 md:h-15 md:grid-cols-[minmax(0,1fr)_auto] md:items-start md:gap-6">
-					<div className="grid min-w-0 gap-1">
-						<div className="flex min-w-0 items-center gap-2.5">
-							<AppIcon size={20} name={props.record.icon} className="shrink-0 text-text-muted" />
-							<h1 className="min-w-0 flex-1 truncate text-xl font-semibold text-text md:font-display md:text-3xl">
-								{props.record.name}
-							</h1>
+		<div className="relative h-full min-h-0">
+			<main className="h-full overflow-y-auto bg-bg px-4 pb-[max(32px,env(safe-area-inset-bottom))] md:px-8 md:pt-8">
+				<div className="grid min-h-full w-full gap-5" aria-busy={state.operation !== undefined}>
+					<header className="grid gap-3 lg:h-15 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start lg:gap-6">
+						<div className="grid min-w-0 gap-1">
+							<div className="flex min-w-0 items-center gap-2.5">
+								<AppIcon size={20} name={props.record.icon} className="shrink-0 text-text-muted" />
+								<h1 className="min-w-0 flex-1 truncate text-xl font-semibold text-text md:font-display md:text-3xl">
+									{props.record.name}
+								</h1>
+							</div>
+							<div className="flex min-h-5 items-center gap-2 text-xs text-text-muted md:text-sm">
+								<span>{resultCount}</span>
+								{data?.pageInfo.hasMore && !transitioning && currentCount.status !== "resolved" && (
+									<Button
+										variant="text"
+										onClick={() => void countAll()}
+										className="min-h-0 text-sm text-accent-text"
+										disabled={currentCount.status === "counting"}
+									>
+										{countActionLabel}
+									</Button>
+								)}
+								{transitioning && <span role="status">Updating...</span>}
+							</div>
 						</div>
-						<div className="flex min-h-5 items-center gap-2 text-xs text-text-muted md:text-sm">
-							<span>{resultCount}</span>
-							{data?.pageInfo.hasMore && !transitioning && currentCount.status !== "resolved" && (
-								<Button
-									variant="text"
-									onClick={() => void countAll()}
-									className="min-h-0 text-sm text-accent-text"
-									disabled={currentCount.status === "counting"}
+						<div className="flex items-center gap-2.5">
+							<SearchField
+								shortcut="/"
+								value={search}
+								onChange={setSearch}
+								label={`Search ${props.record.name}`}
+								icon={<AppIcon name="search" size={15} />}
+								clearIcon={<AppIcon name="x" size={14} />}
+								className="h-9.5 flex-1 md:h-8.5 md:w-60 md:flex-none"
+								onSubmit={() => setCommittedSearch(normalizeSavedViewSearch(search))}
+							/>
+							<SegmentedControl
+								className="self-start"
+								options={layoutOptions}
+								onChange={selectLayout}
+								label="Saved view layout"
+								value={state.activeLayout}
+							/>
+							<button
+								type="button"
+								disabled={!hasItems}
+								aria-label="Open filters, 0 active"
+								onClick={() => console.log("TODO: open the saved-view filters")}
+								className={clsx(
+									"hidden h-8.5 items-center gap-2 self-start rounded-md border border-border-strong bg-bg px-3 md:flex",
+									!hasItems && "opacity-50",
+								)}
+							>
+								<AppIcon name="sliders-horizontal" size={15} className="text-text-muted" />
+								<span className="text-[13px] text-text">Filters</span>
+								<Badge aria-hidden="true">0</Badge>
+							</button>
+							{canAdd && (
+								<button
+									type="button"
+									onClick={onAdd}
+									aria-label="Add"
+									className="hidden h-8.5 items-center gap-2 self-start rounded-md bg-accent px-3.5 md:flex"
 								>
-									{countActionLabel}
-								</Button>
+									<AppIcon name="plus" size={15} className="text-accent-ink" />
+									<span className="text-[13px] font-semibold text-accent-ink">Add</span>
+									<Badge variant="keyOnAccent" aria-hidden="true" className="ml-1">
+										A
+									</Badge>
+								</button>
 							)}
-							{transitioning && <span role="status">Updating...</span>}
 						</div>
-					</div>
-					<div className="flex items-center gap-2.5 md:self-start">
-						<SavedViewSearch
-							value={search}
-							onChange={setSearch}
-							onSubmit={submitSearch}
-							name={props.record.name}
-						/>
-						<LayoutSelector value={state.activeLayout} onChange={selectLayout} />
-					</div>
-				</header>
+					</header>
 
-				{content}
+					{content}
 
-				{state.failure !== undefined && data !== undefined && (
-					<div role="alert" className="flex items-center justify-center gap-3 text-sm text-danger">
-						<span>
-							{state.failedPhase === "load-more"
-								? "Could not load more results."
-								: "Could not update this view."}
-						</span>
-						<Button variant="text" className="min-h-0 text-sm" onClick={retryPage}>
-							Retry
-						</Button>
-					</div>
-				)}
-				{data !== undefined &&
-					data.items.length > 0 &&
-					!transitioning &&
-					state.failure === undefined && (
-						<SavedViewPagination
-							onLoadMore={loadMore}
-							name={props.record.name}
-							loaded={data.items.length}
-							hasMore={data.pageInfo.hasMore}
-							isLoading={state.operation?.phase === "load-more"}
-						/>
+					{state.failure !== undefined && data !== undefined && (
+						<div
+							role="alert"
+							className="flex items-center justify-center gap-3 text-sm text-danger"
+						>
+							<span>
+								{state.failedPhase === "load-more"
+									? "Could not load more results."
+									: "Could not update this view."}
+							</span>
+							<Button variant="text" className="min-h-0 text-sm" onClick={retryPage}>
+								Retry
+							</Button>
+						</div>
 					)}
-			</div>
-		</main>
-	);
-}
-
-function LayoutSelector(props: {
-	readonly value: SavedViewLayoutName;
-	readonly onChange: (layout: SavedViewLayoutName) => void;
-}) {
-	return (
-		<div
-			role="radiogroup"
-			aria-label="Saved view layout"
-			className="flex h-9 items-center self-start rounded-full bg-surface-2 p-0.75 md:h-8.5 md:items-stretch md:rounded-md md:border md:border-border-strong"
-		>
-			{(["grid", "list", "table"] as const).map((layout) => {
-				const selected = props.value === layout;
-				return (
-					<button
-						role="radio"
-						key={layout}
-						type="button"
-						aria-checked={selected}
-						onClick={() => props.onChange(layout)}
-						aria-label={`${layout[0]?.toUpperCase()}${layout.slice(1)} view`}
-						className={clsx(
-							"flex h-7 w-9.5 items-center justify-center rounded-full border border-transparent focus-visible:border-accent focus-visible:outline-none md:w-7.5 md:rounded-sm",
-							selected && "bg-raised shadow-sm",
+					{data !== undefined &&
+						data.items.length > 0 &&
+						!transitioning &&
+						state.failure === undefined && (
+							<SavedViewPagination
+								onLoadMore={loadMore}
+								name={props.record.name}
+								loaded={data.items.length}
+								hasMore={data.pageInfo.hasMore}
+								isLoading={state.operation?.phase === "load-more"}
+							/>
 						)}
-					>
-						<AppIcon
-							size={15}
-							name={layout}
-							className={selected ? "text-accent-text" : "text-text-muted"}
-						/>
-					</button>
-				);
-			})}
-		</div>
-	);
-}
-
-function SavedViewSearch(props: {
-	readonly name: string;
-	readonly value: string;
-	readonly onChange: (value: string) => void;
-	readonly onSubmit: (event: SyntheticEvent<HTMLFormElement>) => void;
-}) {
-	return (
-		<form
-			role="search"
-			onSubmit={props.onSubmit}
-			className="relative h-9.5 min-w-0 flex-1 md:h-8.5 md:w-60 md:flex-none"
-		>
-			<label className="sr-only" htmlFor="saved-view-search">
-				Search {props.name}
-			</label>
-			<AppIcon
-				size={15}
-				name="search"
-				className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-text-muted"
-			/>
-			<input
-				type="search"
-				value={props.value}
-				id="saved-view-search"
-				placeholder={`Search ${props.name}`}
-				onChange={(event) => props.onChange(event.currentTarget.value)}
-				className="h-full w-full rounded-full border border-border-strong bg-surface-2 pr-9 pl-9 text-[15px] text-text outline-none placeholder:text-text-subtle focus:border-accent md:rounded-md md:bg-bg md:text-[13px]"
-			/>
-			{props.value !== "" && (
+				</div>
+			</main>
+			{canAdd && (
 				<button
 					type="button"
-					aria-label="Clear search"
-					onClick={() => props.onChange("")}
-					className="absolute top-1/2 right-2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-text-muted"
+					onClick={onAdd}
+					aria-label="Add to this view"
+					className="absolute right-8 bottom-[max(48px,calc(env(safe-area-inset-bottom)+16px))] z-20 flex size-14 items-center justify-center rounded-pill bg-accent shadow-card md:hidden"
 				>
-					<AppIcon name="x" size={14} />
+					<AppIcon name="plus" size={28} className="text-accent-ink" />
 				</button>
 			)}
-		</form>
+		</div>
 	);
 }
 
@@ -623,6 +579,72 @@ const savedViewResultLabel = (loaded: number, hasMore: boolean, count: CountStat
 	}
 	return `${loaded.toLocaleString()}${hasMore ? "+" : ""} ${loaded === 1 && !hasMore ? "result" : "results"}`;
 };
+
+function SavedViewSearching() {
+	return (
+		<section className="grid min-h-96 place-content-center justify-items-center gap-2 text-center">
+			<AppIcon name="search" size={36} className="animate-pulse text-text-subtle" />
+			<p className="text-sm text-text-muted">Searching...</p>
+		</section>
+	);
+}
+
+function SavedViewEmpty(props: {
+	readonly name: string;
+	readonly canAdd: boolean;
+	readonly onAdd: () => void;
+}) {
+	return (
+		<section className="grid min-h-96 place-content-center justify-items-center gap-2 text-center">
+			<AppIcon name="library" size={40} className="text-text-subtle" />
+			<h2 className="text-xl font-semibold">{props.name} is empty</h2>
+			<p className="text-sm text-text-muted">
+				{props.canAdd
+					? "Search online to add your first item."
+					: "No items have been added to this view yet."}
+			</p>
+			{props.canAdd && (
+				<Button onClick={props.onAdd} className="mt-2 flex items-center gap-2 rounded-pill py-2">
+					<AppIcon name="search" size={16} />
+					Search online
+				</Button>
+			)}
+		</section>
+	);
+}
+
+function SavedViewNoMatches(props: {
+	readonly name: string;
+	readonly query: string;
+	readonly canAdd: boolean;
+	readonly onAdd: () => void;
+}) {
+	return (
+		<section className="grid min-h-96 place-content-center justify-items-center gap-2 text-center">
+			<AppIcon name="search-x" size={36} className="text-text-subtle" />
+			<h2 className="text-xl font-semibold">No matches in {props.name}</h2>
+			<p className="text-sm text-text-muted">Nothing in this view matches “{props.query}”.</p>
+			{props.canAdd && (
+				<div className="mt-2 grid w-full max-w-md justify-items-center gap-2">
+					<button
+						type="button"
+						onClick={props.onAdd}
+						className="flex w-full items-center gap-2 rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-left"
+					>
+						<AppIcon name="globe" size={16} className="text-accent-text" />
+						<span className="min-w-0 flex-1 truncate text-sm font-medium text-text">
+							Search online for “{props.query}”
+						</span>
+						<AppIcon name="arrow-right" size={15} className="text-text-subtle" />
+					</button>
+					<p className="hidden text-center text-xs text-text-subtle md:block">
+						Opens online search. Results come from one provider and get added to your library.
+					</p>
+				</div>
+			)}
+		</section>
+	);
+}
 
 function SavedViewInlineError(props: { readonly onRetry: () => void }) {
 	return (
