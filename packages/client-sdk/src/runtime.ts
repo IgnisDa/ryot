@@ -5,6 +5,7 @@ import {
 	type PluginBridgeInit,
 	type PluginBridgeNavigate,
 	type PluginBridgeNavigateBack,
+	type PluginBridgeOpenDrawer,
 	type PluginBridgeOperationRequest,
 	type PluginBridgeReady,
 	type PluginBridgeRyotQLCancel,
@@ -51,7 +52,20 @@ export const createPluginRuntime = (
 		subscribe: navigationStore.subscribe,
 		getSnapshot: navigationStore.getSnapshot,
 		back: () => post({ type: "navigate-back" } satisfies PluginBridgeNavigateBack),
+		openDrawer: () => post({ type: "open-drawer" } satisfies PluginBridgeOpenDrawer),
 		completeTransition: navigationStore.completeTransition,
+		publishTitle: (title: string | null) => {
+			const entry = navigationStore.getSnapshot().entry;
+			if (entry === undefined) {
+				return;
+			}
+			post({
+				key: entry.key,
+				index: entry.index,
+				type: "header",
+				header: title === null ? null : { title },
+			} satisfies PluginBridgeHeader);
+		},
 	};
 	const applyThemeMode = (mode: PluginThemeSnapshot["resolvedMode"]) =>
 		root.setAttribute("data-theme", mode);
@@ -234,9 +248,8 @@ export const createPluginRuntime = (
 			}
 			Match.value(decoded.success).pipe(
 				Match.when({ type: "location" }, ({ compact, edgeBack, index, key, location }) => {
-					let next;
 					try {
-						next = navigationStore.setLocation({
+						navigationStore.setLocation({
 							compact,
 							edgeBack,
 							entry: { index, key, location },
@@ -246,14 +259,11 @@ export const createPluginRuntime = (
 						return;
 					}
 					hasLocation = true;
-					post({
-						key,
-						index,
-						type: "header",
-						header: next.screens.at(-1)?.header ?? null,
-					} satisfies PluginBridgeHeader);
 					activate();
 				}),
+				Match.when({ type: "viewport" }, ({ safeAreaTop }) =>
+					navigationStore.setViewport(safeAreaTop),
+				),
 				Match.when({ type: "theme" }, ({ mode }) => {
 					applyThemeMode(mode);
 					theme = { resolvedMode: mode };
@@ -297,6 +307,7 @@ export const createPluginRuntime = (
 		signal: listeners.signal,
 	});
 	applyThemeMode(init.mode);
+	navigationStore.setViewport(init.safeAreaTop);
 
 	try {
 		port.start();

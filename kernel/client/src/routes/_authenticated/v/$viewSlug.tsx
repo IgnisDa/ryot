@@ -1,6 +1,13 @@
 import { RyotClientError } from "@ryot-app/client-sdk";
 import { useRyot } from "@ryot-app/client-sdk/react";
-import { Badge, Button, SearchField, SegmentedControl, useShortcut } from "@ryot-app/client-ui-sdk";
+import {
+	Badge,
+	Button,
+	Modal,
+	SearchField,
+	SegmentedControl,
+	useShortcut,
+} from "@ryot-app/client-ui-sdk";
 import type { SavedViewLayoutName } from "@ryot-app/contract/modules/saved-views/schemas";
 import type {
 	SavedViewCardResultItem,
@@ -13,6 +20,7 @@ import { type ReactNode, useEffect, useEffectEvent, useReducer, useRef, useState
 
 import { collectManagedAssets, ManagedAssetsService } from "#/modules/assets/managed-assets";
 import { AppIcon } from "#/modules/navigation/app-icon";
+import { AppScreen } from "#/modules/navigation/app-screen";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
 import { ProviderAddModal } from "#/modules/provider-add/modal";
@@ -178,11 +186,12 @@ function SavedViewContent(props: {
 	readonly record: ReturnType<typeof Route.useLoaderData>["record"];
 }) {
 	const ryot = useRyot();
-	const { runtime, scope } = Route.useRouteContext();
-	usePageTitle(props.record.name);
+	const { backInterceptors, runtime, scope } = Route.useRouteContext();
 	const canAdd = props.record.entitySchemaSlug !== null;
 	const initialIdentity = savedViewQueryIdentity(props.record, "");
 	const [searchText, setSearchText] = useState("");
+	const [searchOpen, setSearchOpen] = useState(false);
+	const [optionsOpen, setOptionsOpen] = useState(false);
 	const [committedSearch, setCommittedSearch] = useState("");
 	const [count, setCount] = useState<CountState>({ key: "", status: "idle" });
 	const [state, dispatch] = useReducer(
@@ -304,6 +313,16 @@ function SavedViewContent(props: {
 		},
 		[],
 	);
+
+	useEffect(() => {
+		if (!searchOpen) {
+			return undefined;
+		}
+		return backInterceptors.register(() => {
+			setSearchOpen(false);
+			return true;
+		});
+	}, [backInterceptors, searchOpen]);
 
 	const selectLayout = (nextLayout: SavedViewLayoutName) => {
 		const current = stateRef.current;
@@ -443,89 +462,124 @@ function SavedViewContent(props: {
 		);
 	}
 
+	const searchField = (
+		<SearchField
+			shortcut="/"
+			value={searchText}
+			onChange={setSearchText}
+			label={`Search ${props.record.name}`}
+			icon={<AppIcon name="search" size={15} />}
+			clearIcon={<AppIcon name="x" size={14} />}
+			className="h-9.5 flex-1 md:h-8.5 md:w-60 md:flex-none"
+			onSubmit={() => setCommittedSearch(normalizeSavedViewSearch(searchText))}
+		/>
+	);
+
 	return (
 		<div className="relative h-full min-h-0">
-			<main
-				{...mainContentProps}
-				className="h-full overflow-y-auto bg-bg px-4 pb-[max(32px,env(safe-area-inset-bottom))] md:px-8 md:pt-8"
+			<AppScreen
+				headerClassName="grid gap-3 lg:h-15 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start lg:gap-6"
+				meta={
+					<div className="flex min-h-5 items-center gap-2 text-xs text-text-muted md:text-sm">
+						<span>{resultCount}</span>
+						{data?.pageInfo.hasMore && !transitioning && currentCount.status !== "resolved" && (
+							<Button
+								variant="text"
+								onClick={() => void countAll()}
+								className="min-h-6 text-sm text-accent-text"
+								disabled={currentCount.status === "counting"}
+							>
+								{countActionLabel}
+							</Button>
+						)}
+						{transitioning && <span role="status">Updating...</span>}
+					</div>
+				}
+				title={props.record.name}
+				titleIcon={
+					<AppIcon size={20} name={props.record.icon} className="shrink-0 text-text-muted" />
+				}
+				searchRow={
+					searchOpen ? (
+						<div className="relative flex h-13.5 items-center gap-1.5 px-4">
+							<button
+								type="button"
+								aria-label="Exit search"
+								onClick={() => setSearchOpen(false)}
+								className="flex size-11 shrink-0 items-center justify-center rounded-pill text-text"
+							>
+								<AppIcon name="chevron-left" size={22} />
+							</button>
+							{searchField}
+						</div>
+					) : undefined
+				}
+				barActions={
+					<>
+						<button
+							type="button"
+							aria-label="Search this view"
+							onClick={() => setSearchOpen(true)}
+							className="flex size-11 shrink-0 items-center justify-center rounded-pill text-text-muted"
+						>
+							<AppIcon name="search" size={22} />
+						</button>
+						<button
+							type="button"
+							onClick={() => setOptionsOpen(true)}
+							aria-label="View options, 0 active filters"
+							className="relative flex size-11 shrink-0 items-center justify-center rounded-pill text-text-muted"
+						>
+							<AppIcon name="sliders-horizontal" size={22} />
+						</button>
+					</>
+				}
+				actions={
+					<div className="flex items-center gap-2.5">
+						{searchField}
+						<SegmentedControl
+							className="self-start"
+							options={layoutOptions}
+							onChange={selectLayout}
+							label="Saved view layout"
+							value={state.activeLayout}
+						/>
+						<button
+							type="button"
+							disabled={!hasItems}
+							aria-disabled="true"
+							onClick={() => console.log("TODO: open the saved-view filters")}
+							className={clsx(
+								"hidden h-8.5 items-center gap-2 self-start rounded-md border border-border-strong bg-bg px-3 md:flex",
+								!hasItems && "opacity-50",
+							)}
+						>
+							<AppIcon name="sliders-horizontal" size={15} className="text-text-muted" />
+							<span className="text-[13px] text-text">Filters</span>
+							<Badge aria-hidden="true">0</Badge>
+						</button>
+						{canAdd && (
+							<button
+								type="button"
+								onClick={onAdd}
+								aria-label="Add"
+								aria-keyshortcuts="A"
+								className="hidden h-8.5 items-center gap-2 self-start rounded-md bg-accent px-3.5 md:flex"
+							>
+								<AppIcon name="plus" size={15} className="text-accent-ink" />
+								<span className="text-[13px] font-semibold text-accent-ink">Add</span>
+								<Badge variant="keyOnAccent" aria-hidden="true" className="ml-1">
+									A
+								</Badge>
+							</button>
+						)}
+					</div>
+				}
 			>
 				<div
 					aria-busy={state.operation !== undefined}
 					className="grid min-h-full w-full content-start gap-5"
 				>
-					<header className="grid gap-3 lg:h-15 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start lg:gap-6">
-						<div className="grid min-w-0 gap-1">
-							<div className="flex min-w-0 items-center gap-2.5">
-								<AppIcon size={20} name={props.record.icon} className="shrink-0 text-text-muted" />
-								<h1 className="min-w-0 flex-1 truncate text-xl font-semibold text-text md:font-display md:text-3xl">
-									{props.record.name}
-								</h1>
-							</div>
-							<div className="flex min-h-5 items-center gap-2 text-xs text-text-muted md:text-sm">
-								<span>{resultCount}</span>
-								{data?.pageInfo.hasMore && !transitioning && currentCount.status !== "resolved" && (
-									<Button
-										variant="text"
-										onClick={() => void countAll()}
-										className="min-h-6 text-sm text-accent-text"
-										disabled={currentCount.status === "counting"}
-									>
-										{countActionLabel}
-									</Button>
-								)}
-								{transitioning && <span role="status">Updating...</span>}
-							</div>
-						</div>
-						<div className="flex items-center gap-2.5">
-							<SearchField
-								shortcut="/"
-								value={searchText}
-								onChange={setSearchText}
-								label={`Search ${props.record.name}`}
-								icon={<AppIcon name="search" size={15} />}
-								clearIcon={<AppIcon name="x" size={14} />}
-								className="h-9.5 flex-1 md:h-8.5 md:w-60 md:flex-none"
-								onSubmit={() => setCommittedSearch(normalizeSavedViewSearch(searchText))}
-							/>
-							<SegmentedControl
-								className="self-start"
-								options={layoutOptions}
-								onChange={selectLayout}
-								label="Saved view layout"
-								value={state.activeLayout}
-							/>
-							<button
-								type="button"
-								disabled={!hasItems}
-								aria-disabled="true"
-								onClick={() => console.log("TODO: open the saved-view filters")}
-								className={clsx(
-									"hidden h-8.5 items-center gap-2 self-start rounded-md border border-border-strong bg-bg px-3 md:flex",
-									!hasItems && "opacity-50",
-								)}
-							>
-								<AppIcon name="sliders-horizontal" size={15} className="text-text-muted" />
-								<span className="text-[13px] text-text">Filters</span>
-								<Badge aria-hidden="true">0</Badge>
-							</button>
-							{canAdd && (
-								<button
-									type="button"
-									onClick={onAdd}
-									aria-label="Add"
-									aria-keyshortcuts="A"
-									className="hidden h-8.5 items-center gap-2 self-start rounded-md bg-accent px-3.5 md:flex"
-								>
-									<AppIcon name="plus" size={15} className="text-accent-ink" />
-									<span className="text-[13px] font-semibold text-accent-ink">Add</span>
-									<Badge variant="keyOnAccent" aria-hidden="true" className="ml-1">
-										A
-									</Badge>
-								</button>
-							)}
-						</div>
-					</header>
-
 					{content}
 
 					{state.failure !== undefined && data !== undefined && (
@@ -556,7 +610,7 @@ function SavedViewContent(props: {
 							/>
 						)}
 				</div>
-			</main>
+			</AppScreen>
 			{canAdd && (
 				<button
 					type="button"
@@ -567,6 +621,30 @@ function SavedViewContent(props: {
 				>
 					<AppIcon name="plus" size={28} className="text-accent-ink" />
 				</button>
+			)}
+			{optionsOpen && (
+				<Modal
+					label="View options"
+					closeLabel="Close view options"
+					onClose={() => setOptionsOpen(false)}
+					containerClassName="items-end justify-center"
+					className="w-full rounded-t-xl border-t border-border bg-surface p-5 pb-[max(20px,env(safe-area-inset-bottom))]"
+				>
+					<h2 className="font-display text-lg font-semibold text-text">View options</h2>
+					<div className="mt-4 flex items-center justify-between gap-3">
+						<span className="text-[15px] text-text">View as</span>
+						<SegmentedControl
+							options={layoutOptions}
+							label="Saved view layout"
+							value={state.activeLayout}
+							onChange={(layout) => {
+								selectLayout(layout);
+								setOptionsOpen(false);
+							}}
+						/>
+					</div>
+					<p className="mt-4 text-xs text-text-subtle">Filters are not available yet.</p>
+				</Modal>
 			)}
 		</div>
 	);
@@ -584,8 +662,8 @@ function SavedViewPagination(props: {
 			{props.hasMore ? (
 				<button
 					type="button"
-					disabled={props.isLoading}
 					onClick={props.onLoadMore}
+					disabled={props.isLoading}
 					aria-label={props.isLoading ? "Loading more results" : "Load more results"}
 					className={clsx(
 						"flex h-12 w-full items-center justify-center gap-2 rounded-md bg-surface-2 px-4 text-[15px] text-text md:h-8.5 md:w-auto md:border md:border-border md:bg-surface md:text-[13px]",

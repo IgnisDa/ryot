@@ -11,7 +11,7 @@ import { Schema } from "effect";
 import { useEffect, useState } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { bootstrapClientPlugin } from "./plugin";
+import { bootstrapClientPlugin, usePluginParams, usePluginTitle } from "./plugin";
 import * as pluginSurface from "./plugin";
 import { useRyot, useRyotTheme } from "./react";
 
@@ -24,6 +24,7 @@ const metadata = {
 };
 const init: PluginBridgeInit = {
 	mode: "light",
+	safeAreaTop: 0,
 	format: metadata.format,
 	sessionId: "session-id",
 	artifactHash: metadata.hash,
@@ -47,6 +48,17 @@ const Home = () => {
 };
 
 const StaticHome = () => <p>Mounted</p>;
+
+const TitledHome = () => {
+	usePluginTitle("Home");
+	return <p>Mounted</p>;
+};
+
+const TitledDetail = () => {
+	const { itemId } = usePluginParams();
+	usePluginTitle(`Item ${itemId}`);
+	return <p>Mounted</p>;
+};
 
 const CrashingHome = () => {
 	throw new Error("fatal render");
@@ -130,19 +142,13 @@ describe("bootstrapClientPlugin", () => {
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("dark:Hello"));
 	});
 
-	it("publishes the declarative header for every active retained screen", async () => {
+	it("publishes the active screen's own title, including after a pop", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		embedMetadata();
 		bootstraps.push(
 			bootstrapClientPlugin({
-				home: { component: StaticHome, header: () => ({ title: "Home" }) },
-				routes: [
-					{
-						component: StaticHome,
-						path: "/items/$itemId",
-						header: ({ params }) => ({ title: `Item ${params.itemId}` }),
-					},
-				],
+				home: { component: TitledHome },
+				routes: [{ component: TitledDetail, path: "/items/$itemId" }],
 			}),
 		);
 		const channel = new MessageChannel();
@@ -153,45 +159,51 @@ describe("bootstrapClientPlugin", () => {
 		window.dispatchEvent(
 			new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
 		);
-		channel.port1.postMessage({
-			index: 0,
-			key: "home",
-			compact: false,
-			edgeBack: false,
-			type: "location",
-			location: { path: "/", search: "" },
-		});
-		channel.port1.postMessage({
-			index: 1,
-			key: "detail",
-			compact: false,
-			edgeBack: true,
-			type: "location",
-			location: { path: "/items/1", search: "" },
-		});
-		channel.port1.postMessage({
-			index: 0,
-			key: "home",
-			compact: false,
-			edgeBack: false,
-			type: "location",
-			location: { path: "/", search: "" },
-		});
+		const headers = () =>
+			messages.filter(
+				(message) =>
+					typeof message === "object" &&
+					message !== null &&
+					"type" in message &&
+					message.type === "header",
+			);
+		const goTo = async (index: number, key: string, path: string) => {
+			channel.port1.postMessage({
+				key,
+				index,
+				compact: false,
+				type: "location",
+				edgeBack: index > 0,
+				location: { path, search: "" },
+			});
+			await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
+		};
 
+		await goTo(0, "home", "/");
 		await waitFor(() =>
-			expect(
-				messages.filter(
-					(message) =>
-						typeof message === "object" &&
-						message !== null &&
-						"type" in message &&
-						message.type === "header",
-				),
-			).toEqual([
-				{ index: 0, key: "home", header: { title: "Home" }, type: "header" },
-				{ index: 1, key: "detail", header: { title: "Item 1" }, type: "header" },
+			expect(headers()).toEqual([
 				{ index: 0, key: "home", header: { title: "Home" }, type: "header" },
 			]),
+		);
+
+		await goTo(1, "detail", "/items/1");
+		await waitFor(() =>
+			expect(headers().at(-1)).toEqual({
+				index: 1,
+				key: "detail",
+				type: "header",
+				header: { title: "Item 1" },
+			}),
+		);
+
+		await goTo(0, "home", "/");
+		await waitFor(() =>
+			expect(headers().at(-1)).toEqual({
+				index: 0,
+				key: "home",
+				type: "header",
+				header: { title: "Home" },
+			}),
 		);
 	});
 
