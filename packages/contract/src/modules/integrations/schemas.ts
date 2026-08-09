@@ -129,25 +129,12 @@ export const UpdateIntegrationBody = Schema.Struct({
 
 export type UpdateIntegrationBody = typeof UpdateIntegrationBody.Type;
 
-export type IntegrationWebhookPayload =
-	| null
-	| string
-	| number
-	| boolean
-	| ReadonlyArray<IntegrationWebhookPayload>
-	| { readonly [key: string]: IntegrationWebhookPayload };
+export const integrationWebhookContentTypes = ["application/json", "multipart/form-data"] as const;
 
-export const IntegrationWebhookPayload: Schema.Codec<IntegrationWebhookPayload, unknown> =
-	Schema.suspend(() =>
-		Schema.Union([
-			Schema.Null,
-			Schema.String,
-			Schema.Number,
-			Schema.Boolean,
-			Schema.Array(IntegrationWebhookPayload),
-			Schema.Record(Schema.String, IntegrationWebhookPayload),
-		]),
-	).annotate({
-		title: "Integration Webhook Payload",
-		identifier: "IntegrationWebhookPayload",
-	});
+export const IntegrationWebhookBody = Schema.String.annotate({
+	title: "Integration Webhook Body",
+	identifier: "IntegrationWebhookBody",
+	description: "Unparsed webhook request body, forwarded to the integration script verbatim.",
+});
+
+export type IntegrationWebhookBody = typeof IntegrationWebhookBody.Type;
