@@ -36,6 +36,10 @@ const importRunFamily = Atom.family((request: ImportRunRequest) =>
 	),
 );
 
+const createImportRunFamily = Atom.family((scope: ApiScope) =>
+	appClient(scope).mutation("imports", "createRun"),
+);
+
 const deleteImportRunFamily = Atom.family((scope: ApiScope) =>
 	appClient(scope).mutation("imports", "deleteRun"),
 );
@@ -43,6 +47,9 @@ const deleteImportRunFamily = Atom.family((scope: ApiScope) =>
 export const importRunReactivityKeys = importRunKeys;
 
 export const importSourcesAtom = (scope: ApiScope) => importSourcesFamily(canonicalApiScope(scope));
+
+export const createImportRunAtom = (scope: ApiScope) =>
+	createImportRunFamily(canonicalApiScope(scope));
 
 export const deleteImportRunAtom = (scope: ApiScope) =>
 	deleteImportRunFamily(canonicalApiScope(scope));

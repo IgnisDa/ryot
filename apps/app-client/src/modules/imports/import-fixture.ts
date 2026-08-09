@@ -1,3 +1,5 @@
+import type { ListedImportSource } from "@ryot/contract/modules/imports/schemas";
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { importRunRecipe, manualImportRunsRecipe } from "@ryot/ryotql-recipes/import-runs";
 import { rowsResult } from "@ryot/ryotql-recipes/test-utils";
 import { Result } from "effect";
@@ -142,3 +144,52 @@ export const decodeImportRunDetail = (
 			},
 		}),
 	);
+
+export const uploadImportSchema = (
+	input: { readonly label?: string; readonly extensions?: readonly string[] } = {},
+) =>
+	({
+		unknownKeys: "strict",
+		fields: {
+			archiveUploadToken: {
+				type: "string",
+				validation: { required: true },
+				label: input.label ?? "Export archive",
+				description: "The export file from your account",
+				format: { kind: "upload", allowedFileExtensions: input.extensions ?? ["csv"] },
+			},
+		},
+	}) satisfies AppSchema;
+
+export const credentialImportSchema = {
+	unknownKeys: "strict",
+	fields: {
+		apiKey: {
+			secret: true,
+			type: "string",
+			label: "API key",
+			validation: { required: true },
+			description: "The key from your account settings",
+		},
+		includeArchived: {
+			type: "boolean",
+			defaultValue: false,
+			label: "Include archived",
+			description: "Also bring over archived entries",
+		},
+	},
+} satisfies AppSchema;
+
+export const listedImportSource = (
+	input: Partial<ListedImportSource> & { readonly slug: string; readonly name: string },
+): ListedImportSource => ({
+	isStartable: true,
+	pluginSlug: "media",
+	exportHelp: undefined,
+	workflowSlug: "import",
+	missingPluginConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	inputSchema: uploadImportSchema(),
+	description: `Bring your history over from ${input.name}`,
+	...input,
+});
