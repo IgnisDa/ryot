@@ -1,7 +1,7 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
-import { numberValue, parseJsonResponse, stringValue } from "../script-helpers/records";
+import { numberValue, parseJsonResponse, stringValue } from "../../shared/records";
 
 export type MetronHost = SandboxHost<readonly ["httpCall", "getPluginConfig"]>;
 

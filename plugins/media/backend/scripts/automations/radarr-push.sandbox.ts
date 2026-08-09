@@ -12,7 +12,7 @@ import {
 	normalizeBaseUrl,
 	resolveEntityProviderName,
 	type IntegrationPushHost,
-} from "../script-helpers/integration-push";
+} from "../../shared/integration-push";
 
 export const manifest = defineManifest({
 	kind: "automation",

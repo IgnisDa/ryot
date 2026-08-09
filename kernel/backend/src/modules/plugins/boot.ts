@@ -5,27 +5,27 @@ import { Context, Effect, FileSystem, Layer, Path } from "effect";
 
 import { kernelScripts } from "#modules/definition-registry/kernel-source";
 
-import { bootPluginSources } from "./boot-sources";
 import { PluginInstallationService } from "./installation-service";
 import { PluginRepository } from "./repository";
 import { ScriptGarbageCollector } from "./script-garbage-collector";
 import { PluginIngestionService } from "./service";
-import { loadPluginSource } from "./source";
+import { SystemPlugins } from "./system";
 
 const digest = sha256Hex;
 
-export class FirstPartyPluginBootstrap extends Context.Service<FirstPartyPluginBootstrap>()(
-	"FirstPartyPluginBootstrap",
+export class SystemPluginBootstrap extends Context.Service<SystemPluginBootstrap>()(
+	"SystemPluginBootstrap",
 	{
 		make: Effect.gen(function* () {
 			const repository = yield* PluginRepository;
+			const systemPlugins = yield* SystemPlugins;
 			const ingestion = yield* PluginIngestionService;
 			const installations = yield* PluginInstallationService;
 			const scriptGarbageCollector = yield* ScriptGarbageCollector;
 			const fs = yield* FileSystem.FileSystem;
 			const path = yield* Path.Path;
 
-			const ingestKernelScripts = Effect.fn("FirstPartyPluginBootstrap.ingestKernelScripts")(
+			const ingestKernelScripts = Effect.fn("SystemPluginBootstrap.ingestKernelScripts")(
 				function* () {
 					const files = Object.fromEntries(
 						yield* Effect.forEach(kernelScripts, (script) =>
@@ -75,14 +75,11 @@ export class FirstPartyPluginBootstrap extends Context.Service<FirstPartyPluginB
 				},
 			);
 
-			const ingest = Effect.fn("FirstPartyPluginBootstrap.ingest")(function* () {
+			const ingest = Effect.fn("SystemPluginBootstrap.ingest")(function* () {
 				yield* ingestion.rebuild();
 				yield* ingestKernelScripts();
-				for (const source of bootPluginSources) {
-					const sourceEffect = loadPluginSource(source.packageRoot, source.manifest).pipe(
-						Effect.flatMap(ingestion.ingestTrustedPlugin),
-					);
-					yield* sourceEffect;
+				for (const source of systemPlugins.sources) {
+					yield* ingestion.ingestTrustedPlugin(source);
 				}
 				yield* installations.reconcileSystemInstallations();
 				yield* scriptGarbageCollector.collect();

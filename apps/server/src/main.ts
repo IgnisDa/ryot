@@ -2,11 +2,9 @@ import { BunServices, BunRuntime } from "@effect/platform-bun";
 import { renderConfigReference } from "@ryot/config";
 import { AppLive, MigrationOnlyLive } from "@ryot/kernel-backend/boot/layers";
 import { appConfigDefinition } from "@ryot/kernel-backend/lib/infrastructure/config/definition";
-import { bootPluginSources } from "@ryot/kernel-backend/modules/plugins/boot-sources";
+import { AppConfig } from "@ryot/kernel-backend/lib/infrastructure/config/service";
+import { discoverSystemPlugins } from "@ryot/kernel-backend/modules/plugins/system";
 import { Config, ConfigProvider, Effect, Layer, FileSystem, Path } from "effect";
-
-// TODO(kernel-assembly): `src/drizzle` is a committed symlink to the kernel migrations so this
-// package can be the working directory. Task 03 replaces it with the ignored `assemble` output.
 
 const { nodeEnv, runMigrationOnly } = await Effect.runPromise(
 	Config.all({
@@ -25,16 +23,18 @@ if (nodeEnv !== "production") {
 		Effect.gen(function* () {
 			const path = yield* Path.Path;
 			const fs = yield* FileSystem.FileSystem;
+			const config = yield* AppConfig;
 			const outputPath = yield* path.fromFileUrl(
 				new URL("../../../apps/docs/src/includes/app-backend-config-schema.md", import.meta.url),
 			);
-			const plugins = bootPluginSources.map(({ manifest }) => ({
+			const sources = yield* discoverSystemPlugins(config.server.pluginsSystemDir);
+			const plugins = sources.map(({ manifest }) => ({
 				name: manifest.metadata.name,
 				slug: manifest.metadata.slug,
 				schema: manifest.configSchema,
 			}));
 			yield* fs.writeFileString(outputPath, renderConfigReference(appConfigDefinition, plugins));
-		}).pipe(Effect.provide(BunServices.layer)),
+		}).pipe(Effect.provide(Layer.mergeAll(AppConfig.layer, BunServices.layer))),
 	);
 }
 

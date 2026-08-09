@@ -5,13 +5,13 @@ import type {
 	ProviderDetailsResult,
 } from "@ryot/sandbox-sdk/provider";
 
-import { parsePublishYear } from "../../../script-helpers/parse-publish-year";
+import { parsePublishYear } from "../../../../shared/parse-publish-year";
 import {
 	type UnknownRecord,
 	numberValue,
 	recordsValue,
 	stringValue,
-} from "../../../script-helpers/records";
+} from "../../../../shared/records";
 import {
 	collectCompanies,
 	collectGenres,

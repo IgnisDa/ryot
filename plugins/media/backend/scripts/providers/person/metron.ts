@@ -2,7 +2,7 @@ import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
-import { asRecord, numberValue, stringValue } from "../../script-helpers/records";
+import { asRecord, numberValue, stringValue } from "../../../shared/records";
 import { getIdentifier, loadMetronJson } from "../metron-shared";
 
 export const manifest = defineManifest({

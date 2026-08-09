@@ -1,7 +1,7 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
-import { asRecord, numberValue, parseJsonResponse, stringValue } from "../script-helpers/records";
+import { asRecord, numberValue, parseJsonResponse, stringValue } from "../../shared/records";
 
 export type SpotifyHost = SandboxHost<
 	readonly ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"]

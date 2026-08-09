@@ -2,12 +2,7 @@ import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
-import {
-	type UnknownRecord,
-	asRecord,
-	numberValue,
-	stringValue,
-} from "../../script-helpers/records";
+import { type UnknownRecord, asRecord, numberValue, stringValue } from "../../../shared/records";
 import { buildLuceneQuery, fetchCoverArtUrl, mbGet } from "../music-brainz-shared";
 
 export const manifest = defineManifest({
