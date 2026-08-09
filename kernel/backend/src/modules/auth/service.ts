@@ -7,16 +7,26 @@ import {
 	AuthRateLimited,
 	AuthMiddleware,
 	AuthUnauthorized,
+	AuthorizationContext,
 	type CachedUserPreferences,
 	CurrentUser,
 	defaultUserPreferences,
 	normalizeUserPreferences,
 } from "@ryot/contract/auth-middleware";
 import { badRequest, internalError, unknownToDbError } from "@ryot/contract/errors";
-import { getOAuthResource, OAUTH_LOGIN_PATH, OAUTH_SCOPES } from "@ryot/contract/oauth";
+import {
+	getOAuthEndpoint,
+	getOAuthIssuer,
+	getOAuthResource,
+	OAUTH_API_SCOPE,
+	OAUTH_LOGIN_PATH,
+	OAUTH_SCOPES,
+	type AuthorizationContext as AuthorizationContextValue,
+} from "@ryot/contract/oauth";
 import { UserId } from "@ryot/contract/schema/brands";
 import { betterAuth, type BetterAuthPlugin } from "better-auth";
 import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
+import { verifyBearerToken } from "better-auth/oauth2";
 import { genericOAuth, jwt, twoFactor } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Option, Redacted, Result, Schema } from "effect";
@@ -230,7 +240,7 @@ const makeAuthInstance = (args: {
 			apiKey({
 				fallbackToDatabase: true,
 				storage: "secondary-storage",
-				enableSessionForAPIKeys: true,
+				enableSessionForAPIKeys: false,
 				rateLimit: {
 					maxRequests: 60,
 					timeWindow: 60 * 1000,
@@ -276,59 +286,129 @@ export type AuthUserInput = {
 	preferences: Record<string, unknown>;
 };
 
-const isAPIError = (
-	error: unknown,
-): error is { body?: { code?: string; details?: { tryAgainIn?: number } } } =>
-	typeof error === "object" && error !== null && "body" in error;
-
 const authenticationRequired = () =>
 	new AuthUnauthorized({ reason: { code: "authentication-required" } });
 
-export const resolveCurrentUser = (
-	headers: Headers,
-	getSession: (options: {
-		headers: Headers;
-		query: { disableCookieCache: true };
-	}) => Promise<{ user: { id: string } } | null>,
+type ResolvedCredential = {
+	readonly user: CurrentUser["Service"];
+	readonly authorization: AuthorizationContextValue;
+};
+
+type CredentialInput =
+	| { readonly kind: "oauth"; readonly token: string }
+	| { readonly kind: "api-key"; readonly key: string };
+
+export const credentialFromHeaders = (headers: Headers): CredentialInput | null => {
+	const authorization = headers.get("authorization");
+	if (authorization?.startsWith("Bearer ") && authorization.length > "Bearer ".length) {
+		return { kind: "oauth", token: authorization.slice("Bearer ".length) };
+	}
+	const key = headers.get("x-api-key");
+	return key ? { kind: "api-key", key } : null;
+};
+
+type ApiKeyVerification = {
+	readonly valid: boolean;
+	readonly error: unknown;
+	readonly key: { readonly id: string; readonly referenceId: string } | null;
+};
+
+type VerifiedCredential = AuthorizationContextValue;
+
+const rateLimitError = Schema.Struct({
+	code: Schema.Literal("RATE_LIMITED"),
+	details: Schema.optional(Schema.Struct({ tryAgainIn: Schema.Finite })),
+});
+
+const rateLimited = (error: unknown) => {
+	const decoded = Schema.decodeUnknownOption(rateLimitError)(error);
+	const tryAgainIn = Option.isSome(decoded) ? decoded.value.details?.tryAgainIn : undefined;
+	return new AuthRateLimited({
+		reason: {
+			code: "api-key-rate-limited",
+			retryAfterMs:
+				typeof tryAgainIn === "number" && Number.isFinite(tryAgainIn) && tryAgainIn >= 0
+					? tryAgainIn
+					: null,
+		},
+	});
+};
+
+const resolveOAuthCredential = (
+	token: string,
+	verifyOAuth: (token: string) => Promise<unknown>,
+): Effect.Effect<VerifiedCredential, AuthUnauthorized> =>
+	Effect.tryPromise({
+		try: () => verifyOAuth(token),
+		catch: authenticationRequired,
+	}).pipe(
+		Effect.flatMap(
+			Schema.decodeUnknownEffect(Schema.Struct({ sub: Schema.String, client_id: Schema.String })),
+		),
+		Effect.mapError(authenticationRequired),
+		Effect.map(({ client_id, sub }) => ({
+			userId: sub,
+			credential: { kind: "oauth", clientId: client_id },
+		})),
+	);
+
+const resolveApiKeyCredential = Effect.fn("resolveApiKeyCredential")(function* (
+	key: string,
+	verifyApiKey: (key: string) => Promise<ApiKeyVerification>,
+): Effect.fn.Return<VerifiedCredential, AuthRateLimited | AuthUnauthorized> {
+	const result = yield* Effect.tryPromise({
+		try: () => verifyApiKey(key),
+		catch: authenticationRequired,
+	});
+	if (Option.isSome(Schema.decodeUnknownOption(rateLimitError)(result.error))) {
+		return yield* rateLimited(result.error);
+	}
+	if (!result.valid || !result.key) {
+		return yield* authenticationRequired();
+	}
+	return {
+		userId: result.key.referenceId,
+		credential: { kind: "api-key", keyId: result.key.id },
+	};
+});
+
+export const getOAuthVerificationOptions = (frontendUrl: string) => ({
+	requiredScopes: [OAUTH_API_SCOPE],
+	jwksUrl: getOAuthEndpoint(frontendUrl, "/api/auth/jwks"),
+	verifyOptions: {
+		issuer: getOAuthIssuer(frontendUrl),
+		audience: getOAuthResource(frontendUrl),
+	},
+});
+
+export const resolveCredential = (
+	credential: CredentialInput,
+	verifyOAuth: (token: string) => Promise<unknown>,
+	verifyApiKey: (key: string) => Promise<ApiKeyVerification>,
 	findUserById: (userId: string) => Effect.Effect<AuthUserRecord | null, unknown>,
 ) =>
-	Effect.tryPromise({
-		try: () => getSession({ headers, query: { disableCookieCache: true } }),
-		catch: (error) => {
-			if (isAPIError(error) && error.body?.code === "RATE_LIMITED") {
-				const tryAgainIn = error.body.details?.tryAgainIn;
-				return new AuthRateLimited({
-					reason: {
-						code: "session-rate-limited",
-						retryAfterMs:
-							typeof tryAgainIn === "number" && Number.isFinite(tryAgainIn) && tryAgainIn >= 0
-								? tryAgainIn
-								: null,
-					},
-				});
-			}
-			return authenticationRequired();
-		},
-	}).pipe(
-		Effect.flatMap((session) => {
-			if (!session) {
-				return Effect.fail(authenticationRequired());
-			}
-			return findUserById(session.user.id).pipe(Effect.mapError(authenticationRequired));
-		}),
-		Effect.flatMap((user) => {
-			if (!user || user.disabledAt) {
-				return Effect.fail(authenticationRequired());
-			}
-			return Effect.succeed({
+	Effect.gen(function* () {
+		let verified: VerifiedCredential;
+		if (credential.kind === "oauth") {
+			verified = yield* resolveOAuthCredential(credential.token, verifyOAuth);
+		} else {
+			verified = yield* resolveApiKeyCredential(credential.key, verifyApiKey);
+		}
+		const user = yield* findUserById(verified.userId).pipe(Effect.mapError(authenticationRequired));
+		if (!user || user.disabledAt) {
+			return yield* authenticationRequired();
+		}
+		return {
+			authorization: { userId: user.id, credential: verified.credential },
+			user: {
 				name: user.name,
 				email: user.email,
 				image: user.image,
 				id: UserId.make(user.id),
 				preferences: normalizeUserPreferences(user.preferences),
-			});
-		}),
-	);
+			},
+		} satisfies ResolvedCredential;
+	});
 
 export class AuthService extends Context.Service<AuthService>()("AuthService", {
 	make: Effect.gen(function* () {
@@ -344,6 +424,32 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			redis: redis.client,
 			bootstrapNewUser: userBootstrap.run,
 		});
+		const findUserById = (userId: string) =>
+			db
+				.select({
+					id: authSchema.user.id,
+					name: authSchema.user.name,
+					email: authSchema.user.email,
+					image: authSchema.user.image,
+					disabledAt: authSchema.user.disabledAt,
+					preferences: authSchema.user.preferences,
+				})
+				.from(authSchema.user)
+				.where(eq(authSchema.user.id, userId))
+				.limit(1)
+				.pipe(Effect.map((users) => users[0] ?? null));
+		const authenticate = (credential: CredentialInput) =>
+			resolveCredential(
+				credential,
+				(token) => verifyBearerToken(token, getOAuthVerificationOptions(config.frontendUrl)),
+				(key) =>
+					auth.api.verifyApiKey({ body: { key } }).then((result) => ({
+						valid: result.valid,
+						error: result.error,
+						key: result.key ? { id: result.key.id, referenceId: result.key.referenceId } : null,
+					})),
+				findUserById,
+			);
 		const withInternalAdapter = <A>(operation: (context: AuthContextValue) => Promise<A>) =>
 			Effect.tryPromise({ catch: unknownToDbError, try: () => auth.$context.then(operation) });
 		const requestPasswordResetLink = Effect.fn("AuthService.requestPasswordResetLink")(function* (
@@ -450,8 +556,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 						]);
 					}),
 				).pipe(Effect.orDie),
-			// Writing preferences through better-auth refreshes the cached session copies in secondary
-			// storage, so a later getSession (and thus CurrentUserValue) reflects the new value.
+			// Keep the hosted login session copies in secondary storage current.
 			updateUserPreferences: (userId: UserId, preferences: CachedUserPreferences) =>
 				withInternalAdapter(({ internalAdapter }) =>
 					internalAdapter.updateUser(userId, { preferences }),
@@ -485,25 +590,14 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 				withInternalAdapter(({ internalAdapter }) => internalAdapter.updateUser(userId, data)).pipe(
 					Effect.asVoid,
 				),
-			currentUser: (headers: Headers) =>
-				resolveCurrentUser(
-					headers,
-					(options) => auth.api.getSession(options),
-					(userId) =>
-						db
-							.select({
-								id: authSchema.user.id,
-								name: authSchema.user.name,
-								email: authSchema.user.email,
-								image: authSchema.user.image,
-								disabledAt: authSchema.user.disabledAt,
-								preferences: authSchema.user.preferences,
-							})
-							.from(authSchema.user)
-							.where(eq(authSchema.user.id, userId))
-							.limit(1)
-							.pipe(Effect.map((users) => users[0] ?? null)),
-				),
+			oauthUser: (token: string) => authenticate({ kind: "oauth", token }),
+			apiKeyUser: (key: string) => authenticate({ kind: "api-key", key }),
+			currentUser: (headers: Headers) => {
+				const credential = credentialFromHeaders(headers);
+				return credential
+					? authenticate(credential).pipe(Effect.map(({ user }) => user))
+					: Effect.fail(authenticationRequired());
+			},
 		};
 	}),
 }) {
@@ -511,15 +605,16 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 }
 
 export const makeAuthMiddleware = (
-	auth: Pick<AuthService["Service"], "currentUser">,
+	auth: Pick<AuthService["Service"], "apiKeyUser" | "oauthUser">,
 	lifecycle: Pick<LifecycleWriteGuard["Service"], "isActive">,
 ) => {
 	const authenticate = <A extends { readonly status: number }, E, R>(
-		httpEffect: Effect.Effect<A, E, CurrentUser | R>,
+		httpEffect: Effect.Effect<A, E, AuthorizationContext | CurrentUser | R>,
+		resolved: Effect.Effect<ResolvedCredential, AuthRateLimited | AuthUnauthorized>,
 	) =>
 		Effect.gen(function* () {
 			const request = yield* HttpServerRequest.HttpServerRequest;
-			const user = yield* auth.currentUser(new Headers(request.headers));
+			const { authorization, user } = yield* resolved;
 			if (
 				request.method !== "GET" &&
 				request.method !== "HEAD" &&
@@ -532,7 +627,10 @@ export const makeAuthMiddleware = (
 			const annotations = Option.isSome(span)
 				? { userId: user.id, traceId: span.value.traceId }
 				: { userId: user.id };
-			const handler = Effect.provideService(httpEffect, CurrentUser, user);
+			const handler = httpEffect.pipe(
+				Effect.provideService(CurrentUser, user),
+				Effect.provideService(AuthorizationContext, authorization),
+			);
 
 			return yield* Effect.withLogSpan(
 				Effect.flatMap(Effect.exit(handler), (exit) => {
@@ -574,7 +672,12 @@ export const makeAuthMiddleware = (
 			);
 		}).pipe(HttpMiddleware.withLoggerDisabled);
 
-	return authenticate;
+	return {
+		oauth: (httpEffect, { credential }) =>
+			authenticate(httpEffect, auth.oauthUser(Redacted.value(credential))),
+		apiKey: (httpEffect, { credential }) =>
+			authenticate(httpEffect, auth.apiKeyUser(Redacted.value(credential))),
+	} satisfies AuthMiddleware["Service"];
 };
 
 export const AuthMiddlewareLive = Layer.effect(
@@ -582,7 +685,7 @@ export const AuthMiddlewareLive = Layer.effect(
 	Effect.gen(function* () {
 		const auth = yield* AuthService;
 		const lifecycle = yield* LifecycleWriteGuard;
-		return { apiKey: makeAuthMiddleware(auth, lifecycle) };
+		return makeAuthMiddleware(auth, lifecycle);
 	}),
 );
 
