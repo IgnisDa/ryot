@@ -37,14 +37,19 @@ describe("credentialed media import adapters", () => {
 								: [],
 					},
 		);
-		const result = await run(adaptTraktData("alice", "client-id", host));
+		const result = await run(
+			adaptTraktData({ mode: "user", username: "alice" }, "client-id", host),
+		);
 		expect(result.failures).toEqual([]);
+		expect(result.totalItems).toBe(2);
 		expect(result.entityGroups).toHaveLength(2);
 		expect(result.entityGroups[0]).toMatchObject({
-			entityRef: { kind: "resolved", externalId: "603", providerSlug: "movie.tmdb" },
+			itemIndex: 0,
 			events: [{ eventSchemaSlug: "complete" }],
+			entityRef: { kind: "resolved", externalId: "603", providerSlug: "movie.tmdb" },
 		});
 		expect(result.entityGroups[1]).toMatchObject({
+			itemIndex: 1,
 			entityRef: { kind: "resolved", externalId: "1399", providerSlug: "show.tmdb" },
 			events: [
 				{
@@ -73,14 +78,159 @@ describe("credentialed media import adapters", () => {
 								: [],
 					},
 		);
-		const result = await run(adaptTraktData("alice", "client-id", host));
+		const result = await run(
+			adaptTraktData({ mode: "user", username: "alice" }, "client-id", host),
+		);
 		expect(result.entityGroups).toEqual([]);
+		expect(result.totalItems).toBe(1);
 		expect(result.failures).toHaveLength(1);
 		expect(result.failures[0]).toMatchObject({
+			itemIndex: 0,
 			sourceLabel: "Mystery",
 			sourceIdentifier: "77",
 			message: "Movie does not have a TMDB or IMDb id",
 		});
+	});
+
+	it("imports a public Trakt list through its encoded path and paginates items", async () => {
+		const requests: Array<{ method: string; path: string; url: URL }> = [];
+		const host = stubHttpHost(({ method, path, url }) => {
+			requests.push({ method, path, url });
+			if (method === "HEAD") {
+				return { headers: { "x-pagination-page-count": "2" } };
+			}
+			return {
+				body:
+					url.searchParams.get("page") === "1"
+						? [{ type: "movie", movie: { ids: { tmdb: 603 }, title: "The Matrix" } }]
+						: [{ type: "show", show: { ids: { imdb: "tt0944947" }, title: "Game of Thrones" } }],
+			};
+		});
+		const result = await run(
+			adaptTraktData(
+				{
+					mode: "list",
+					collection: "Favorites",
+					url: "https://www.trakt.tv/users/alice%20smith/lists/my%20list/?source=test#items",
+				},
+				"client-id",
+				host,
+			),
+		);
+
+		expect(result.failures).toEqual([]);
+		expect(result.totalItems).toBe(2);
+		expect(result.entityGroups).toMatchObject([
+			{
+				itemIndex: 0,
+				collectionMemberships: [{ collectionName: "Favorites" }],
+				entityRef: { externalId: "603", providerSlug: "movie.tmdb" },
+			},
+			{
+				itemIndex: 1,
+				collectionMemberships: [{ collectionName: "Favorites" }],
+				entityRef: { kind: "unresolved", identifierValue: "tt0944947" },
+			},
+		]);
+		expect(requests).toHaveLength(3);
+		expect(
+			requests.every(({ path }) => path === "/users/alice%20smith/lists/my%20list/items"),
+		).toBe(true);
+		expect(requests[0]).toMatchObject({ method: "HEAD" });
+		expect(requests[0]?.url.searchParams.get("limit")).toBe("1000");
+		expect(requests[1]?.url.searchParams.get("page")).toBe("1");
+		expect(requests[2]?.url.searchParams.get("page")).toBe("2");
+		expect(requests.every(({ url }) => !url.searchParams.has("source") && url.hash === "")).toBe(
+			true,
+		);
+	});
+
+	it.each([
+		"ftp://trakt.tv/users/alice/lists/favorites",
+		"https://example.com/users/alice/lists/favorites",
+		"https://trakt.tv/users/alice/lists",
+		"https://trakt.tv/users//lists/favorites",
+		"https://trakt.tv/users/alice/lists/favorites/extra",
+	])("rejects an invalid public Trakt list URL before HTTP: %s", async (url) => {
+		let calls = 0;
+		const host = stubHttpHost(() => {
+			calls += 1;
+			return { body: [] };
+		});
+
+		await expect(
+			run(adaptTraktData({ mode: "list", url, collection: "Favorites" }, "client-id", host)),
+		).rejects.toThrow("Invalid Trakt list URL");
+		expect(calls).toBe(0);
+	});
+
+	it("returns an empty result for an empty public Trakt list", async () => {
+		const host = stubHttpHost(({ method }) =>
+			method === "HEAD" ? { headers: { "x-pagination-page-count": "1" } } : { body: [] },
+		);
+		const result = await run(
+			adaptTraktData(
+				{ mode: "list", url: "http://trakt.tv/users/alice/lists/empty/", collection: "Favorites" },
+				"client-id",
+				host,
+			),
+		);
+
+		expect(result).toEqual({ failures: [], totalItems: 0, entityGroups: [] });
+	});
+
+	it("records a normal failure for a public Trakt list item without identifiers", async () => {
+		const host = stubHttpHost(({ method }) =>
+			method === "HEAD"
+				? { headers: { "x-pagination-page-count": "1" } }
+				: { body: [{ type: "movie", movie: { ids: { trakt: 77 }, title: "Mystery" } }] },
+		);
+		const result = await run(
+			adaptTraktData(
+				{
+					mode: "list",
+					collection: "Favorites",
+					url: "https://trakt.tv/users/alice/lists/mystery",
+				},
+				"client-id",
+				host,
+			),
+		);
+
+		expect(result.totalItems).toBe(1);
+		expect(result.entityGroups).toEqual([]);
+		expect(result.failures).toEqual([
+			expect.objectContaining({
+				itemIndex: 0,
+				sourceLabel: "Mystery",
+				sourceIdentifier: "77",
+				message: "Movie does not have a TMDB or IMDb id",
+			}),
+		]);
+	});
+
+	it("skips unsupported public Trakt list item types", async () => {
+		const host = stubHttpHost(({ method }) =>
+			method === "HEAD"
+				? { headers: { "x-pagination-page-count": "1" } }
+				: {
+						body: [
+							{ type: "movie", movie: { ids: { tmdb: 603 }, title: "The Matrix" } },
+							{ type: "episode", episode: { ids: {}, number: 1, season: 1 } },
+						],
+					},
+		);
+		const result = await run(
+			adaptTraktData(
+				{ mode: "list", url: "https://trakt.tv/users/alice/lists/mixed", collection: "Favorites" },
+				"client-id",
+				host,
+			),
+		);
+
+		expect(result.failures).toEqual([]);
+		expect(result.totalItems).toBe(2);
+		expect(result.entityGroups).toMatchObject([{ itemIndex: 0 }]);
 	});
 
 	it("maps Jellyfin played movies and episodes via series details", async () => {
