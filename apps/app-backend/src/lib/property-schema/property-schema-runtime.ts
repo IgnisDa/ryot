@@ -13,8 +13,15 @@ import {
 	type AppSchemaRulePath,
 	type AppSchemaRuleValue,
 	type AppSchemaUnknownKeysPolicy,
+	areAppSchemaPathsEqual,
 	createPropertySchemaMessage,
+	evaluateAppSchemaRuleCondition,
+	getAppPropertyDefinitionAtPath,
+	getAppSchemaValueAtPath,
 	isAppPropertyRequired,
+	isAppSchemaPathEffectivelyRequired,
+	isAppSchemaPathHidden,
+	isMissingAppSchemaRequiredValue,
 	type PropertyValidationError,
 	type PropertyValidationIssue,
 } from "@ryot/contract/schema/property-schema";
@@ -53,17 +60,6 @@ const dateTimeDecoder = Schema.decodeUnknownResult(Schema.DateTimeUtcFromString)
 const isStringRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
-const getValueAtPath = (input: unknown, path: AppSchemaRulePath) => {
-	let value = input;
-	for (const segment of path) {
-		if (!isStringRecord(value)) {
-			return undefined;
-		}
-		value = value[segment];
-	}
-	return value;
-};
-
 const hasValueAtPath = (input: unknown, path: AppSchemaRulePath) => {
 	let value = input;
 	for (const segment of path) {
@@ -74,12 +70,6 @@ const hasValueAtPath = (input: unknown, path: AppSchemaRulePath) => {
 	}
 	return true;
 };
-
-const pathsEqual = (left: AppSchemaRulePath, right: AppSchemaRulePath) =>
-	left.length === right.length && left.every((segment, index) => segment === right[index]);
-
-const pathStartsWith = (path: AppSchemaRulePath, prefix: AppSchemaRulePath) =>
-	prefix.length <= path.length && prefix.every((segment, index) => segment === path[index]);
 
 const unknownKeysPolicyToParseOption = (policy?: AppSchemaUnknownKeysPolicy) => {
 	if (policy === "strict") {
@@ -122,22 +112,6 @@ const isCompatibleRuleValue = (type: AppPropertyPrimitiveType, value: AppSchemaR
 		return typeof value === "number" && Number.isFinite(value);
 	}
 	return typeof value === "string";
-};
-
-export const getAppPropertyDefinitionAtPath = (
-	fields: AppSchemaFields,
-	path: AppSchemaRulePath,
-): AppPropertyDefinition | undefined => {
-	let currentFields: AppSchemaFields = fields;
-	let currentProperty: AppPropertyDefinition | undefined;
-	for (const segment of path) {
-		currentProperty = currentFields[segment];
-		if (!currentProperty) {
-			return undefined;
-		}
-		currentFields = currentProperty.type === "object" ? currentProperty.properties : {};
-	}
-	return currentProperty;
 };
 
 const collectConditionDefinitionIssues = (
@@ -255,49 +229,56 @@ const collectUnresolvedDynamicChoiceIssues = (
 	return [];
 };
 
-const evaluateRuleCondition = (
+const canEvaluateRuleConditionFromRawInput = (
+	schema: AppSchema,
 	condition: AppSchemaRuleCondition,
-	input: Record<string, unknown>,
+	input: unknown,
 ): boolean => {
-	if (condition.operator === "all") {
-		return condition.conditions.every((value) => evaluateRuleCondition(value, input));
+	if (condition.operator === "all" || condition.operator === "any") {
+		return condition.conditions.every((value) =>
+			canEvaluateRuleConditionFromRawInput(schema, value, input),
+		);
 	}
-	if (condition.operator === "any") {
-		return condition.conditions.some((value) => evaluateRuleCondition(value, input));
+	if (!hasValueAtPath(input, condition.path)) {
+		return false;
 	}
-	const actual = getValueAtPath(input, condition.path);
-	if (condition.operator === "exists") {
-		return actual !== undefined;
+	const property = getAppPropertyDefinitionAtPath(schema.fields, condition.path);
+	if (property === undefined) {
+		return false;
 	}
-	if (condition.operator === "not_exists") {
-		return actual === undefined;
+	const value = getAppSchemaValueAtPath(input, condition.path);
+	const decoded = Schema.decodeUnknownResult(createPropertyValueSchema(property))(value);
+	if (Result.isFailure(decoded)) {
+		return false;
 	}
-	if (condition.operator === "eq") {
-		return Object.is(actual, condition.value);
-	}
-	if (condition.operator === "neq") {
-		return !Object.is(actual, condition.value);
-	}
-	if (condition.operator === "in") {
-		return condition.value.some((value) => Object.is(actual, value));
-	}
-	return condition.value.every((value) => !Object.is(actual, value));
+	return (
+		condition.operator === "exists" ||
+		condition.operator === "not_exists" ||
+		Object.is(decoded.success, value)
+	);
 };
 
 const collectRequiredPropertyIssues = (
+	schema: AppSchema,
 	property: AppPropertyDefinition,
 	value: unknown,
 	path: ReadonlyArray<string>,
-	hiddenPaths: ReadonlyArray<AppSchemaRulePath>,
+	input: PropertyValues,
 	requiredRules: ReadonlyArray<AppSchemaRule>,
+	schemaAddressable = true,
 ): ReadonlyArray<PropertyValidationIssue> => {
-	if (hiddenPaths.some((hiddenPath) => pathStartsWith(path, hiddenPath))) {
+	if (schemaAddressable && isAppSchemaPathHidden(schema, path, input)) {
 		return [];
 	}
-	const requiredRule = requiredRules.find((rule) => pathsEqual(rule.path, path));
-	const propertyRequired = isAppPropertyRequired(property);
-	if (value === undefined || value === null) {
-		if (!propertyRequired && !requiredRule) {
+	const requiredRule = schemaAddressable
+		? requiredRules.find((rule) => areAppSchemaPathsEqual(rule.path, path))
+		: undefined;
+	const declaredRequired = isAppPropertyRequired(property);
+	const effectivelyRequired = schemaAddressable
+		? isAppSchemaPathEffectivelyRequired(schema, path, input)
+		: declaredRequired;
+	if (isMissingAppSchemaRequiredValue(value)) {
+		if (!effectivelyRequired) {
 			return [];
 		}
 		return [
@@ -305,23 +286,33 @@ const collectRequiredPropertyIssues = (
 				path: [...path],
 				message:
 					requiredRule?.message ??
-					(propertyRequired ? "is missing" : `${path.join(".")} is required`),
+					(declaredRequired ? "is missing" : `${path.join(".")} is required`),
 			},
 		];
 	}
 	if (property.type === "object" && isStringRecord(value)) {
 		return Object.entries(property.properties).flatMap(([key, child]) =>
-			collectRequiredPropertyIssues(child, value[key], [...path, key], hiddenPaths, requiredRules),
+			collectRequiredPropertyIssues(
+				schema,
+				child,
+				value[key],
+				[...path, key],
+				input,
+				requiredRules,
+				schemaAddressable,
+			),
 		);
 	}
 	if (property.type === "array" && Array.isArray(value)) {
 		return value.flatMap((item, index) =>
 			collectRequiredPropertyIssues(
+				schema,
 				property.items,
 				item,
 				[...path, String(index)],
-				hiddenPaths,
+				input,
 				requiredRules,
+				false,
 			),
 		);
 	}
@@ -331,21 +322,20 @@ const collectRequiredPropertyIssues = (
 const collectRequiredIssues = (
 	schema: AppSchema,
 	input: PropertyValues,
-	hiddenPaths: ReadonlyArray<AppSchemaRulePath>,
 	requiredRules: ReadonlyArray<AppSchemaRule>,
 ) => {
 	const issues = Object.entries(schema.fields).flatMap(([key, property]) =>
-		collectRequiredPropertyIssues(property, input[key], [key], hiddenPaths, requiredRules),
+		collectRequiredPropertyIssues(schema, property, input[key], [key], input, requiredRules),
 	);
 	for (const rule of requiredRules) {
 		if (
-			hiddenPaths.some((path) => pathStartsWith(rule.path, path)) ||
-			issues.some((issue) => pathsEqual(issue.path, rule.path))
+			!isAppSchemaPathEffectivelyRequired(schema, rule.path, input) ||
+			issues.some((issue) => areAppSchemaPathsEqual(issue.path, rule.path))
 		) {
 			continue;
 		}
-		const value = getValueAtPath(input, rule.path);
-		if (value === undefined || value === null) {
+		const value = getAppSchemaValueAtPath(input, rule.path);
+		if (isMissingAppSchemaRequiredValue(value)) {
 			issues.push({
 				path: [...rule.path],
 				message: rule.message ?? `${rule.path.join(".")} is required`,
@@ -647,6 +637,25 @@ export const parseAppSchemaPropertiesSafe = (input: {
 	if (dynamicChoiceIssues.length > 0) {
 		return { success: false, issues: dynamicChoiceIssues };
 	}
+	const rawVisibilityRules = (input.propertiesSchema.rules ?? []).filter(
+		(rule) =>
+			rule.kind === "visibility" &&
+			canEvaluateRuleConditionFromRawInput(input.propertiesSchema, rule.when, input.properties) &&
+			evaluateAppSchemaRuleCondition(rule.when, input.properties),
+	);
+	const rawHiddenIssues = rawVisibilityRules.flatMap((rule) =>
+		hasValueAtPath(input.properties, rule.path)
+			? [
+					{
+						path: [...rule.path],
+						message: rule.message ?? `${rule.path.join(".")} must be absent when hidden`,
+					},
+				]
+			: [],
+	);
+	if (rawHiddenIssues.length > 0) {
+		return { success: false, issues: rawHiddenIssues };
+	}
 	const decoded = Schema.decodeUnknownResult(createPropertiesValueSchema(input.propertiesSchema))(
 		input.properties,
 	);
@@ -654,7 +663,7 @@ export const parseAppSchemaPropertiesSafe = (input: {
 		return { success: false, issues: parseErrorToIssues(decoded.failure) };
 	}
 	const activeRules = (input.propertiesSchema.rules ?? []).filter((rule) =>
-		evaluateRuleCondition(rule.when, decoded.success),
+		evaluateAppSchemaRuleCondition(rule.when, decoded.success),
 	);
 	const visibilityRules = activeRules.filter((rule) => rule.kind === "visibility");
 	const hiddenPaths = visibilityRules.map((rule) => rule.path);
@@ -675,7 +684,6 @@ export const parseAppSchemaPropertiesSafe = (input: {
 	const requiredIssues = collectRequiredIssues(
 		input.propertiesSchema,
 		decoded.success,
-		hiddenPaths,
 		requiredRules,
 	);
 	if (requiredIssues.length > 0) {
