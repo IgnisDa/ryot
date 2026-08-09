@@ -31,6 +31,12 @@ export type PluginArtifactSession = {
 	readonly sessionId: string;
 };
 
+export type PluginHeaderPublication = {
+	readonly index: number;
+	readonly key: string;
+	readonly title: string | null;
+};
+
 export type CreatePluginArtifactSession = (
 	request: {
 		readonly sourceHash: string;
@@ -117,7 +123,7 @@ export function PluginHost(props: {
 	readonly artifactSessionScopeKey: string;
 	readonly installation: PluginClientCatalogEntry;
 	readonly navigation: PluginBridgeNavigationState;
-	readonly onHeader: (title: string | null) => void;
+	readonly onHeader: (header: PluginHeaderPublication) => void;
 	readonly onRenewArtifactSession: RenewPluginArtifactSession;
 	readonly onCreateArtifactSession: CreatePluginArtifactSession;
 	readonly onRevokeArtifactSession: RevokePluginArtifactSession;
@@ -170,7 +176,7 @@ function PluginFrame(props: {
 	readonly onNavigateBack: () => void;
 	readonly artifactSessionScopeKey: string;
 	readonly navigation: PluginBridgeNavigationState;
-	readonly onHeader: (title: string | null) => void;
+	readonly onHeader: (header: PluginHeaderPublication) => void;
 	readonly onRenewArtifactSession: RenewPluginArtifactSession;
 	readonly onCreateArtifactSession: CreatePluginArtifactSession;
 	readonly onRevokeArtifactSession: RevokePluginArtifactSession;
@@ -391,8 +397,17 @@ function PluginFrame(props: {
 			navigation: latest.current.navigation,
 			theme: latest.current.theme.getSnapshot(),
 			onReady: () => setFrameStatus("ready"),
-			onHeader: (request) => latest.current.onHeader(request.header.title),
 			onRyotQL: (request, signal) => latest.current.onQuery(request, signal),
+			onHeader: (request) => {
+				const current = latest.current.navigation;
+				if (request.index === current.index && request.key === current.key) {
+					latest.current.onHeader({
+						index: request.index,
+						key: request.key,
+						title: request.header?.title ?? null,
+					});
+				}
+			},
 			onFailure: () => {
 				connection.failed = true;
 				closeBridge();

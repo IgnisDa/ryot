@@ -341,7 +341,7 @@ const Home = () => {
 	const [count, setCount] = useState(0);
 	return <Button onClick={() => setCount(count + 1)}><img alt="" src={logo} />{count}</Button>;
 };
-bootstrapClientPlugin({ home: Home });
+bootstrapClientPlugin({ home: { component: Home } });
 `),
 				"client/styles.css": bytes(".logo { display: block; }"),
 				"client/logo.svg": bytes('<svg xmlns="http://www.w3.org/2000/svg" />'),

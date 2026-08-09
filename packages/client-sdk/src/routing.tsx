@@ -1,10 +1,12 @@
-import type { PluginLogicalLocation } from "@ryot/contract/modules/plugins/client";
+import type {
+	PluginHeaderContent,
+	PluginLogicalLocation,
+} from "@ryot/contract/modules/plugins/client";
 import {
 	Fragment,
 	createContext,
 	useContext,
 	useEffect,
-	useEffectEvent,
 	useLayoutEffect,
 	useMemo,
 	useRef,
@@ -22,21 +24,34 @@ import { applyProgress, prefersReducedMotion, settleProgress } from "./navigatio
 import { EDGE_SWIPE_WIDTH, dragProgress, shouldCommit, shouldEngage } from "./navigation/gesture";
 import {
 	presentScreens,
-	reconcileStack,
 	type Presentation,
 	type PluginScreen,
+	type ResolvePluginScreen,
 	type ScreenRole,
 } from "./navigation/stack";
-import type { PluginNavigationEntry, PluginRouterNavigation } from "./navigation/store";
+import type { PluginRouterNavigation } from "./navigation/store";
 import { useRyot } from "./react";
 
 export type PluginRouteDefinition = {
 	readonly path: string;
 	readonly component: ComponentType;
+	readonly header?: PluginHeaderResolver;
 };
 
-type PluginRouterDefinition = {
-	readonly home: ComponentType;
+export type PluginHeaderResolver = (context: PluginRouteContext) => PluginHeaderContent | null;
+
+export type PluginRouteContext = {
+	readonly location: PluginLogicalLocation;
+	readonly params: Readonly<Record<string, string>>;
+};
+
+export type PluginHomeDefinition = {
+	readonly component: ComponentType;
+	readonly header?: PluginHeaderResolver;
+};
+
+export type PluginRouterDefinition = {
+	readonly home: PluginHomeDefinition;
 	readonly notFound?: ComponentType;
 	readonly routes?: readonly PluginRouteDefinition[];
 };
@@ -137,11 +152,35 @@ const matchRoute = (routes: readonly PluginRouteDefinition[], path: string) => {
 		});
 
 		if (matched) {
-			return { component: route.component, params };
+			return { params, route };
 		}
 	}
 
 	return undefined;
+};
+
+export const createPluginRouteResolver = (
+	definition: PluginRouterDefinition,
+): ResolvePluginScreen => {
+	return (location) => {
+		if (location.path === "/") {
+			const params = {};
+			return {
+				params,
+				component: definition.home.component,
+				header: definition.home.header?.({ location, params }) ?? null,
+			};
+		}
+		const matched = matchRoute(definition.routes ?? [], location.path);
+		if (matched === undefined) {
+			return { params: {}, header: null, component: definition.notFound ?? DefaultNotFound };
+		}
+		return {
+			params: matched.params,
+			component: matched.route.component,
+			header: matched.route.header?.({ location, params: matched.params }) ?? null,
+		};
+	};
 };
 
 const screenBase: CSSProperties = {
@@ -179,10 +218,9 @@ const idle: Presentation = { kind: "idle" };
 
 type PluginRouterProps = {
 	readonly navigation: PluginRouterNavigation;
-	readonly definition: PluginRouterDefinition;
 };
 
-export const PluginRouter = ({ definition, navigation }: PluginRouterProps) => {
+export const PluginRouter = ({ navigation }: PluginRouterProps) => {
 	const rootRef = useRef<HTMLDivElement>(null);
 	const scrimRef = useRef<HTMLDivElement>(null);
 	const settling = useRef<Promise<void> | undefined>(undefined);
@@ -198,24 +236,27 @@ export const PluginRouter = ({ definition, navigation }: PluginRouterProps) => {
 		active: false,
 		engaged: false,
 	});
-	const [screens, setScreens] = useState<readonly PluginScreen[]>([]);
-	const [presentation, setPresentation] = useState<Presentation>(idle);
-	const { compact, edgeBack, entry } = useSyncExternalStore(
+	const [gesturePresentation, setGesturePresentation] = useState<Presentation>(idle);
+	const { compact, edgeBack, screens, transition } = useSyncExternalStore(
 		navigation.subscribe,
 		navigation.getSnapshot,
 	);
-
-	const resolve = (location: PluginLogicalLocation) => {
-		if (location.path === "/") {
-			return { component: definition.home, params: {} };
-		}
-		const matched = matchRoute(definition.routes ?? [], location.path);
-		return {
-			params: matched?.params ?? {},
-			component: matched?.component ?? definition.notFound ?? DefaultNotFound,
-		};
-	};
-
+	const popping = useMemo(
+		() =>
+			transition !== undefined && compact && !prefersReducedMotion()
+				? {
+						kind: "popping" as const,
+						leaving: transition.leaving,
+						incoming: transition.incoming,
+						from:
+							gesturePresentation.kind === "dragging"
+								? dragProgress(drag.current.dx, drag.current.width)
+								: 0,
+					}
+				: undefined,
+		[compact, gesturePresentation, transition],
+	);
+	const presentation = popping ?? gesturePresentation;
 	const presented = useMemo(() => presentScreens(screens, presentation), [screens, presentation]);
 
 	const frameFor = (outgoingKey: string | undefined, incomingKey: string | undefined) => ({
@@ -224,52 +265,31 @@ export const PluginRouter = ({ definition, navigation }: PluginRouterProps) => {
 		outgoing: outgoingKey === undefined ? null : (screenRefs.current.get(outgoingKey) ?? null),
 	});
 
-	const applyEntry = useEffectEvent((effectEntry: PluginNavigationEntry) => {
-		const result = reconcileStack(screens, effectEntry, resolve);
-		const previousTop = screens.at(-1);
-		setScreens(result.stack);
-		if (
-			result.transition !== "pop" ||
-			previousTop === undefined ||
-			!(compact && !prefersReducedMotion())
-		) {
-			settling.current = undefined;
-			setPresentation(idle);
-			return;
-		}
-		setPresentation({
-			kind: "popping",
-			leaving: previousTop,
-			incoming: result.stack.at(-1)?.key,
-			from:
-				presentation.kind === "dragging" ? dragProgress(drag.current.dx, drag.current.width) : 0,
-		});
-	});
-
-	useEffect(() => {
-		if (entry !== undefined) {
-			applyEntry(entry);
-		}
-	}, [entry]);
-
 	useLayoutEffect(() => {
-		if (presentation.kind !== "popping") {
+		if (transition === undefined) {
 			return undefined;
 		}
-		const frame = frameFor(presentation.leaving.key, presentation.incoming);
-		const settle = settling.current ?? settleProgress(frame, presentation.from, 1);
+		if (popping === undefined) {
+			settling.current = undefined;
+			setGesturePresentation(idle);
+			navigation.completeTransition(transition.id);
+			return undefined;
+		}
+		const frame = frameFor(popping.leaving.key, popping.incoming);
+		const settle = settling.current ?? settleProgress(frame, popping.from, 1);
 		settling.current = undefined;
 		let cancelled = false;
 		void settle.then(() => {
 			if (!cancelled) {
-				setPresentation(idle);
+				setGesturePresentation(idle);
+				navigation.completeTransition(transition.id);
 			}
 			return undefined;
 		});
 		return () => {
 			cancelled = true;
 		};
-	}, [presentation]);
+	}, [navigation, popping, transition]);
 
 	useLayoutEffect(() => {
 		if (presentation.kind !== "idle") {
@@ -325,7 +345,7 @@ export const PluginRouter = ({ definition, navigation }: PluginRouterProps) => {
 		current.dy = event.clientY - originY;
 		if (!current.engaged && shouldEngage(current)) {
 			current.engaged = true;
-			setPresentation({ kind: "dragging" });
+			setGesturePresentation({ kind: "dragging" });
 		}
 		if (!current.engaged || prefersReducedMotion()) {
 			return;
@@ -347,7 +367,7 @@ export const PluginRouter = ({ definition, navigation }: PluginRouterProps) => {
 		if (!current.engaged || !shouldCommit(current)) {
 			void settleProgress(frame, progress, 0).then(() => {
 				if (!drag.current.active) {
-					setPresentation(idle);
+					setGesturePresentation(idle);
 				}
 				return undefined;
 			});

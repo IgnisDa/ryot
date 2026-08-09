@@ -12,7 +12,13 @@ const NotFound = () => (
 );
 
 bootstrapClientPlugin({
-	home: Home,
 	notFound: NotFound,
-	routes: [{ path: "/details/$itemId", component: Details }],
+	home: { component: Home, header: () => ({ title: "Fixture home" }) },
+	routes: [
+		{
+			component: Details,
+			path: "/details/$itemId",
+			header: ({ params }) => ({ title: `Item ${params.itemId}` }),
+		},
+	],
 });

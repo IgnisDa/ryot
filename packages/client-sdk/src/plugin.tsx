@@ -5,24 +5,21 @@ import {
 	PluginClientArtifactMetadata,
 } from "@ryot/contract/modules/plugins/client";
 import { Result, Schema } from "effect";
-import type { ComponentType } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
+import { createPluginNavigationStore } from "./navigation/store";
 import { RyotProvider } from "./react";
-import { PluginRouter, type PluginRouteDefinition } from "./routing";
+import { createPluginRouteResolver, PluginRouter, type PluginRouterDefinition } from "./routing";
 import { createPluginRuntime } from "./runtime";
 
-type ClientPluginDefinition = {
-	readonly home: ComponentType;
-	readonly notFound?: ComponentType;
-	readonly routes?: readonly PluginRouteDefinition[];
-};
+type ClientPluginDefinition = PluginRouterDefinition;
 
 const decodeArtifactMetadata = Schema.decodeUnknownResult(
 	Schema.fromJsonString(PluginClientArtifactMetadata),
 );
 
 export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
+	const navigationStore = createPluginNavigationStore(createPluginRouteResolver(definition));
 	const listener = new AbortController();
 	let root: Root | undefined;
 	let runtime: ReturnType<typeof createPluginRuntime> | undefined;
@@ -43,7 +40,7 @@ export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
 				});
 				root.render(
 					<RyotProvider client={runtime.client}>
-						<PluginRouter definition={definition} navigation={runtime.navigation} />
+						<PluginRouter navigation={runtime.navigation} />
 					</RyotProvider>,
 				);
 			} catch {
@@ -98,6 +95,7 @@ export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
 				init,
 				artifactMetadata,
 				document.documentElement.style,
+				navigationStore,
 				mount,
 				() => {
 					sessionListener?.abort();
@@ -116,5 +114,8 @@ export {
 	usePluginParams,
 	usePluginSearch,
 	usePluginLocation,
+	type PluginHomeDefinition,
+	type PluginHeaderResolver,
+	type PluginRouteContext,
 	type PluginRouteDefinition,
 } from "./routing";

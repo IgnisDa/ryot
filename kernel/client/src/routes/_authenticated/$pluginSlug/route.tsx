@@ -1,8 +1,8 @@
 import { createFileRoute, useLocation, useNavigate, useRouter } from "@tanstack/react-router";
 import { Effect } from "effect";
-import { useCallback, useEffect } from "react";
+import { useCallback, useLayoutEffect } from "react";
 
-import { useEdge, useSetPluginHeaderTitle } from "#/modules/navigation/authenticated-shell";
+import { useEdge, usePluginHeader } from "#/modules/navigation/authenticated-shell";
 import { historyEntry } from "#/modules/navigation/history-entry";
 import { ArtifactSessions, ArtifactSessionStaleError } from "#/modules/plugins/artifact-sessions";
 import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
@@ -35,7 +35,7 @@ function PluginInstallation(props: {
 	const edge = useEdge();
 	const router = useRouter();
 	const navigate = useNavigate();
-	const setHeaderTitle = useSetPluginHeaderTitle();
+	const header = usePluginHeader();
 	const { pluginSlug } = Route.useParams();
 	const { pathname, searchStr, state } = useLocation();
 	const { runtime, scope, theme } = Route.useRouteContext();
@@ -90,19 +90,19 @@ function PluginInstallation(props: {
 		[runtime, serverUrl, userId],
 	);
 
-	useEffect(() => () => setHeaderTitle(null), [setHeaderTitle]);
+	useLayoutEffect(() => () => header.clear(pluginSlug), [header, pluginSlug]);
 
 	return (
 		<PluginHost
 			theme={theme}
 			onStaleSession={refetch}
-			onHeader={setHeaderTitle}
 			installation={installation}
+			onNavigateBack={() => router.history.back()}
 			onRenewArtifactSession={onRenewArtifactSession}
 			onCreateArtifactSession={onCreateArtifactSession}
 			onRevokeArtifactSession={onRevokeArtifactSession}
 			artifactSessionScopeKey={`${serverUrl}\0${userId}`}
-			onNavigateBack={() => router.history.back()}
+			onHeader={(publication) => header.publish(pluginSlug, publication)}
 			onNavigate={(request) => {
 				void navigate({ href: request.href, replace: request.replace });
 			}}
