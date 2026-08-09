@@ -6,6 +6,7 @@ import { ProviderEntitiesApi } from "#/api/provider-entities";
 import { RyotQLApi } from "#/api/ryotql";
 import { SavedViewsApi } from "#/api/saved-views";
 import { UploadsApi } from "#/api/uploads";
+import { UserSettingsApi } from "#/api/user-settings";
 
 export const unused = () => Effect.die("not used");
 
@@ -41,6 +42,14 @@ export const makeProviderEntitiesApi = (overrides: Partial<ProviderEntitiesApi["
 		...overrides,
 	});
 
+export const makeUserSettingsApi = (overrides: Partial<UserSettingsApi["Service"]> = {}) =>
+	Layer.succeed(UserSettingsApi, {
+		get: unused,
+		refreshAvatar: unused,
+		updatePreferences: unused,
+		...overrides,
+	});
+
 export const makeGodModeApi = (overrides: Partial<GodModeApi["Service"]> = {}) =>
 	Layer.succeed(GodModeApi, {
 		listUsers: unused,
@@ -58,5 +67,6 @@ export const KernelApiTestLayer = Layer.mergeAll(
 	makeUploadsApi(),
 	makePluginsApi(),
 	makeSavedViewsApi(),
+	makeUserSettingsApi(),
 	makeProviderEntitiesApi(),
 );

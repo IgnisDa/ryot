@@ -1,11 +1,14 @@
+import type { UserSettings } from "@ryot-app/contract/modules/user-settings/schemas";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { Effect, Layer } from "effect";
 
 import { decodeServerOrigin } from "#/api/origin";
-import { makeGodModeApi } from "#/api/ports.test-layer";
+import { makeGodModeApi, makeUserSettingsApi } from "#/api/ports.test-layer";
 import { PublicApi } from "#/api/public";
 import type { ApiScope } from "#/api/scope";
+import type { UserSettingsApi } from "#/api/user-settings";
 import { ManagedAssetsService } from "#/modules/assets/managed-assets";
 import { HostedAuthService } from "#/modules/auth/hosted-service";
 import { OAuthLauncher } from "#/modules/auth/oauth-launcher";
@@ -97,6 +100,17 @@ export const authenticated = {
 
 export const unauthenticated = { status: "missing" } as const;
 
+export const userSettings: UserSettings = {
+	image: null,
+	name: "Test User",
+	email: "user@ryot.example",
+	id: UserId.make("user-1"),
+	preferences: { allowNsfw: false, language: null, disableIntegrations: false },
+};
+
+export const makeUserSettingsStub = (overrides: Partial<UserSettingsApi["Service"]> = {}) =>
+	makeUserSettingsApi({ get: () => Effect.succeed(userSettings), ...overrides });
+
 export const makeAuthStub = (
 	overrides: Partial<AuthService["Service"]> = {},
 	session: typeof authenticated | typeof unauthenticated = authenticated,
@@ -117,6 +131,7 @@ export const ServerStub = Layer.succeed(ServerService, {
 export const makeOAuthRouteStubs = (
 	tokenOverrides: Partial<OAuthTokenService["Service"]> = {},
 	hostedOverrides: Partial<HostedAuthService["Service"]> = {},
+	runtimeOverrides: Partial<RuntimeOAuthClientService["Service"]> = {},
 ) =>
 	Layer.mergeAll(
 		Layer.succeed(HostedAuthService, {
@@ -145,6 +160,7 @@ export const makeOAuthRouteStubs = (
 					callbackUri: `${origin}/auth/callback`,
 					logoutUri: `${origin}/auth/logout/callback`,
 				}),
+			...runtimeOverrides,
 		}),
 		Layer.succeed(OAuthTokenService, {
 			clear: () => Effect.void,
