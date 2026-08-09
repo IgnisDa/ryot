@@ -5,9 +5,9 @@ import type {
 	SavedViewResult,
 	SavedViewTableResultItem,
 } from "@ryot/ryotql-recipes/saved-views";
-import { AsyncResult } from "effect/unstable/reactivity";
+import type { AsyncResult } from "effect/unstable/reactivity";
 
-import { isRyotQLMalformedResultCause } from "@/api/ryotql";
+import { classifyRyotQLResult } from "@/api/ryotql";
 
 import {
 	collectManagedAssets,
@@ -165,19 +165,14 @@ export const savedViewError = (state: {
 export const mapSavedViewRecord = (
 	result: AsyncResult.AsyncResult<SavedViewRecord | undefined, unknown>,
 ): SavedViewRecordState => {
-	if (AsyncResult.isFailure(result)) {
-		return {
-			cause: result.cause,
-			status: isRyotQLMalformedResultCause(result.cause) ? "malformed" : "transport-error",
-		} as const;
+	const state = classifyRyotQLResult(result);
+	if (state.status !== "ready") {
+		return state;
 	}
-	if (!AsyncResult.isSuccess(result)) {
-		return { status: "loading" } as const;
-	}
-	if (result.value === undefined) {
+	if (state.value === undefined) {
 		return { status: "not-found" } as const;
 	}
-	return { status: "ready", record: result.value } as const;
+	return { status: "ready", record: state.value } as const;
 };
 
 const savedViewImage = (image: SavedViewCardResultItem["image"]) => {

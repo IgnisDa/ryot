@@ -15,7 +15,9 @@ import { useInternalRequestFailureLogging } from "@/api/use-internal-request-fai
 import { useAuthClient } from "@/modules/auth/client";
 import { AppIcon } from "@/modules/icons";
 import { themeAtom } from "@/modules/theme/atoms";
-import { RemoteImage } from "@/modules/ui/image-with-fallback";
+import { AppAvatar } from "@/modules/ui/avatar";
+import { AppButton } from "@/modules/ui/button";
+import { AppStatusState } from "@/modules/ui/status-state";
 
 import {
 	refreshUserAvatarAtom,
@@ -114,13 +116,7 @@ function ProfileSettings(props: { id: string; image: string | null; name: string
 			<View className="gap-3 rounded-xl border border-border bg-surface p-4">
 				<View className="gap-4 sm:flex-row sm:items-center">
 					<View className="flex-row items-center gap-3 sm:flex-1">
-						{image === null ? (
-							<View className="h-16 w-16 items-center justify-center rounded-full bg-surface-2">
-								<AppIcon name="user" size={30} className="text-text-subtle" />
-							</View>
-						) : (
-							<RemoteImage key={image} url={image} className="h-16 w-16 rounded-full" />
-						)}
+						<AppAvatar className="h-16 w-16 rounded-full" iconSize={30} url={image} />
 						<View className="min-w-0 flex-1 gap-0.5">
 							<Text numberOfLines={1} className="font-ui-semibold text-base text-text">
 								{props.name}
@@ -133,25 +129,20 @@ function ProfileSettings(props: { id: string; image: string | null; name: string
 							</Text>
 						</View>
 					</View>
-					<Pressable
-						disabled={pending}
-						accessibilityRole="button"
+					<AppButton
+						pending={pending}
+						label="New avatar"
+						pendingLabel="Generating..."
 						onPress={() => void handleRefresh()}
 						accessibilityLabel="Generate a new profile avatar"
-						className={clsx(
-							"h-10 flex-row items-center justify-center gap-2 rounded-lg border border-border-strong px-3",
-							pending && "opacity-60",
-						)}
-					>
-						{pending ? (
-							<ActivityIndicator size="small" accessibilityLabel="Generating avatar" />
-						) : (
-							<AppIcon name="rotate-ccw" size={15} className="text-text-muted" />
-						)}
-						<Text className="font-ui-medium text-sm text-text">
-							{pending ? "Generating..." : "New avatar"}
-						</Text>
-					</Pressable>
+						leading={
+							pending ? (
+								<ActivityIndicator size="small" accessibilityLabel="Generating avatar" />
+							) : (
+								<AppIcon name="rotate-ccw" size={15} className="text-text-muted" />
+							)
+						}
+					/>
 				</View>
 				{failure === undefined ? null : (
 					<Text className="font-ui text-xs text-danger">
@@ -226,26 +217,21 @@ export function UserSettingsScreen() {
 
 	if (settings.waiting && !AsyncResult.isSuccess(settings)) {
 		return (
-			<View className="items-center gap-2 py-16">
-				<ActivityIndicator accessibilityLabel="Loading settings" />
-				<Text className="font-ui text-sm text-text-muted">Loading your settings...</Text>
-			</View>
+			<AppStatusState
+				className="py-16"
+				detail="Loading your settings..."
+				icon={<ActivityIndicator accessibilityLabel="Loading settings" />}
+			/>
 		);
 	}
 	if (AsyncResult.isFailure(settings)) {
 		return (
-			<View className="items-center gap-3 rounded-xl border border-border bg-surface p-6">
-				<Text className="text-center font-ui text-sm text-danger">
-					Could not load your settings. Check the server and try again.
-				</Text>
-				<Pressable
-					onPress={refresh}
-					accessibilityRole="button"
-					className="rounded-lg border border-border-strong px-4 py-2"
-				>
-					<Text className="font-ui-medium text-sm text-text">Retry</Text>
-				</Pressable>
-			</View>
+			<AppStatusState
+				detailTone="danger"
+				action={<AppButton label="Retry" onPress={refresh} />}
+				className="rounded-xl border border-border bg-surface p-6"
+				detail="Could not load your settings. Check the server and try again."
+			/>
 		);
 	}
 	if (!AsyncResult.isSuccess(settings)) {
