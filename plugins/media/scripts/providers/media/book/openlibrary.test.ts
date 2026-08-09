@@ -104,10 +104,12 @@ describe("book.openlibrary sandbox script", () => {
 						images: [
 							{
 								type: "remote",
+								purpose: "cover",
 								url: "https://covers.openlibrary.org/b/id/111-M.jpg?default=false",
 							},
 							{
 								type: "remote",
+								purpose: "cover",
 								url: "https://covers.openlibrary.org/b/id/222-M.jpg?default=false",
 							},
 						],

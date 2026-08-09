@@ -120,6 +120,7 @@ describe("company.igdb sandbox script", () => {
 					images: [
 						{
 							type: "remote",
+							purpose: "logo",
 							url: "https://images.igdb.com/igdb/image/upload/t_logo_med/logo1.jpg",
 						},
 					],

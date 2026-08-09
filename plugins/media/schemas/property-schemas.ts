@@ -1,6 +1,6 @@
 import {
-	imagesField,
 	integerField,
+	managedAssetItemSchema,
 	numberField,
 	stringArrayField,
 	stringField,
@@ -10,6 +10,37 @@ import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/pro
 
 const booleanField = (label: string, description: string) =>
 	({ label, description, type: "boolean" }) as const;
+
+const mediaImagePurposes = [
+	"cover",
+	"backdrop",
+	"profile",
+	"logo",
+	"still",
+	"screenshot",
+	"artwork",
+] as const;
+
+const mediaImagesField = (description: string) =>
+	({
+		description,
+		type: "array",
+		label: "Images",
+		translatable: true,
+		items: {
+			...managedAssetItemSchema,
+			properties: {
+				...managedAssetItemSchema.properties,
+				purpose: {
+					type: "enum",
+					label: "Purpose",
+					description: "Purpose",
+					validation: { required: true },
+					choices: { kind: "static", values: mediaImagePurposes.map((value) => ({ value })) },
+				},
+			},
+		},
+	}) satisfies AppPropertyDefinition;
 
 const mediaBaseFields = {
 	genres: stringArrayField("Genres", "List of genres this media is categorized under"),
@@ -66,14 +97,14 @@ export const moviePropertiesSchema: AppSchema = {
 	fields: {
 		...mediaBaseFields,
 		runtime: integerField("Runtime", "Runtime in minutes"),
-		images: imagesField("Cover and promotional images for this movie"),
+		images: mediaImagesField("Cover and promotional images for this movie"),
 	},
 };
 
 export const showPropertiesSchema: AppSchema = {
 	fields: {
 		...mediaBaseFields,
-		images: imagesField("Cover and promotional images for this show"),
+		images: mediaImagesField("Cover and promotional images for this show"),
 		totalSeasons: integerField("Total Seasons", "Total number of seasons in this show"),
 		totalEpisodes: integerField("Total Episodes", "Total number of episodes in this show"),
 	},
@@ -81,7 +112,7 @@ export const showPropertiesSchema: AppSchema = {
 
 export const showSeasonPropertiesSchema: AppSchema = {
 	fields: {
-		images: imagesField("Cover and promotional images for this season"),
+		images: mediaImagesField("Cover and promotional images for this season"),
 		description: translatableStringField("Description", "Season overview or summary"),
 		releaseDate: stringField("Release Date", "Season release date as an ISO 8601 date string"),
 		parentShowExternalId: stringField(
@@ -100,7 +131,7 @@ export const showSeasonPropertiesSchema: AppSchema = {
 export const showEpisodePropertiesSchema: AppSchema = {
 	fields: {
 		runtime: integerField("Runtime", "Runtime in minutes"),
-		images: imagesField("Cover and promotional images for this episode"),
+		images: mediaImagesField("Cover and promotional images for this episode"),
 		description: translatableStringField("Description", "Episode overview or summary"),
 		publishDate: stringField("Publish Date", "Episode air date as an ISO 8601 date string"),
 		parentShowExternalId: stringField(
@@ -125,7 +156,7 @@ export const showEpisodePropertiesSchema: AppSchema = {
 export const podcastEpisodePropertiesSchema: AppSchema = {
 	fields: {
 		runtime: integerField("Runtime", "Runtime in minutes"),
-		images: imagesField("Cover and promotional images for this episode"),
+		images: mediaImagesField("Cover and promotional images for this episode"),
 		description: translatableStringField("Description", "Episode overview or summary"),
 		publishDate: stringField("Publish Date", "Episode publish date as an ISO 8601 date string"),
 		parentPodcastExternalId: stringField(
@@ -145,7 +176,7 @@ export const animePropertiesSchema: AppSchema = {
 	fields: {
 		...mediaBaseFields,
 		episodes: integerField("Episodes", "Total number of episodes, if known"),
-		images: imagesField("Cover and promotional images for this anime"),
+		images: mediaImagesField("Cover and promotional images for this anime"),
 		airingSchedule: {
 			type: "array",
 			label: "Airing Schedule",
@@ -177,7 +208,7 @@ export const animePropertiesSchema: AppSchema = {
 export const bookPropertiesSchema: AppSchema = {
 	fields: {
 		...mediaWithCreatorsBaseFields,
-		images: imagesField("Cover and related images for this book"),
+		images: mediaImagesField("Cover and related images for this book"),
 		pages: integerField("Pages", "Total number of pages in this edition"),
 		isCompilation: {
 			label: "Is Compilation",
@@ -190,7 +221,7 @@ export const bookPropertiesSchema: AppSchema = {
 export const comicBookPropertiesSchema: AppSchema = {
 	fields: {
 		...mediaBaseFields,
-		images: imagesField("Cover and promotional images for this comic book"),
+		images: mediaImagesField("Cover and promotional images for this comic book"),
 		pages: integerField("Pages", "Total number of pages in this issue or volume"),
 	},
 };
@@ -198,7 +229,7 @@ export const comicBookPropertiesSchema: AppSchema = {
 export const mangaPropertiesSchema: AppSchema = {
 	fields: {
 		...mediaBaseFields,
-		images: imagesField("Cover and promotional images for this manga"),
+		images: mediaImagesField("Cover and promotional images for this manga"),
 		volumes: integerField("Volumes", "Total number of volumes, if known"),
 		chapters: numberField("Chapters", "Total number of chapters, if known"),
 	},
@@ -207,7 +238,7 @@ export const mangaPropertiesSchema: AppSchema = {
 export const visualNovelPropertiesSchema: AppSchema = {
 	fields: {
 		...mediaBaseFields,
-		images: imagesField("Cover and promotional images for this visual novel"),
+		images: mediaImagesField("Cover and promotional images for this visual novel"),
 		lengthMinutes: integerField(
 			"Length Minutes",
 			"Approximate time to complete this visual novel in minutes",
@@ -219,7 +250,7 @@ export const musicPropertiesSchema: AppSchema = {
 	fields: {
 		...mediaBaseFields,
 		duration: integerField("Duration", "Total duration in seconds"),
-		images: imagesField("Cover art and promotional images for this music release"),
+		images: mediaImagesField("Cover art and promotional images for this music release"),
 		byVariousArtists: {
 			label: "By Various Artists",
 			type: "boolean",
@@ -232,14 +263,14 @@ export const audiobookPropertiesSchema: AppSchema = {
 	fields: {
 		...mediaWithCreatorsBaseFields,
 		runtime: integerField("Runtime", "Total listening time in minutes"),
-		images: imagesField("Cover and promotional images for this audiobook"),
+		images: mediaImagesField("Cover and promotional images for this audiobook"),
 	},
 };
 
 export const podcastPropertiesSchema: AppSchema = {
 	fields: {
 		...mediaWithCreatorsBaseFields,
-		images: imagesField("Cover and promotional images for this podcast"),
+		images: mediaImagesField("Cover and promotional images for this podcast"),
 		totalEpisodes: integerField(
 			"Total Episodes",
 			"Total number of episodes published by this podcast",
@@ -250,28 +281,16 @@ export const podcastPropertiesSchema: AppSchema = {
 export const videoGamePropertiesSchema: AppSchema = {
 	fields: {
 		...mediaBaseFields,
-		images: imagesField("Cover and promotional images for this video game"),
+		images: mediaImagesField("Cover and promotional images for this video game"),
 		timeToBeat: {
 			type: "object",
 			label: "Time To Beat",
 			unknownKeys: "strict",
 			description: "Estimated time to complete the game at different paces",
 			properties: {
-				normally: {
-					type: "integer",
-					label: "Normally",
-					description: "Normally",
-				},
-				hastily: {
-					type: "integer",
-					label: "Hastily",
-					description: "Hastily",
-				},
-				completely: {
-					type: "integer",
-					label: "Completely",
-					description: "Completely",
-				},
+				hastily: { type: "integer", label: "Hastily", description: "Hastily" },
+				normally: { type: "integer", label: "Normally", description: "Normally" },
+				completely: { type: "integer", label: "Completely", description: "Completely" },
 			},
 		},
 		platformReleases: {
@@ -284,17 +303,13 @@ export const videoGamePropertiesSchema: AppSchema = {
 				description: "Item",
 				unknownKeys: "strict",
 				properties: {
+					releaseDate: { type: "string", label: "Release Date", description: "Release Date" },
+					releaseRegion: { type: "string", label: "Release Region", description: "Release Region" },
 					name: {
 						label: "Name",
 						type: "string",
 						description: "Name",
 						validation: { required: true },
-					},
-					releaseDate: { type: "string", label: "Release Date", description: "Release Date" },
-					releaseRegion: {
-						type: "string",
-						label: "Release Region",
-						description: "Release Region",
 					},
 				},
 			},
@@ -305,7 +320,7 @@ export const videoGamePropertiesSchema: AppSchema = {
 export const personPropertiesSchema: AppSchema = {
 	fields: {
 		birthDate: stringField("Birth Date", "Date of birth"),
-		images: imagesField("Photos or profile images of this person"),
+		images: mediaImagesField("Photos or profile images of this person"),
 		gender: stringField("Gender", "Reported gender of this person"),
 		deathDate: stringField("Death Date", "Date of death, if applicable"),
 		birthPlace: stringField("Birth Place", "City or country where this person was born"),
@@ -327,7 +342,7 @@ export const personPropertiesSchema: AppSchema = {
 
 export const companyPropertiesSchema: AppSchema = {
 	fields: {
-		images: imagesField("Logos or images associated with this company"),
+		images: mediaImagesField("Logos or images associated with this company"),
 		website: stringField("Website", "Official website of this company"),
 		foundedYear: integerField("Founded Year", "Year this company was founded"),
 		description: translatableStringField(
@@ -351,7 +366,7 @@ export const companyPropertiesSchema: AppSchema = {
 
 export const mediaGroupPropertiesSchema: AppSchema = {
 	fields: {
-		images: imagesField("Cover and promotional images for this group"),
+		images: mediaImagesField("Cover and promotional images for this group"),
 		parts: integerField("Parts", "Number of items in this group"),
 		sourceUrl: stringField("Source Url", "Link to the original source or external provider page"),
 		description: translatableStringField(

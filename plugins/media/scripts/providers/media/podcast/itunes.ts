@@ -302,7 +302,7 @@ export const details = defineProvider({
 									publishDate: episode.publishDate,
 									parentPodcastExternalId: input.externalId,
 									...(episode.thumbnail
-										? { images: [{ type: "remote", url: episode.thumbnail }] }
+										? { images: [{ type: "remote", url: episode.thumbnail, purpose: "cover" }] }
 										: {}),
 								},
 							}));
@@ -318,7 +318,11 @@ export const details = defineProvider({
 									sourceUrl: buildSourceUrl(input.externalId, title),
 									totalEpisodes: totalEpisodes ?? episodes.length,
 									description: stringValue(podcast["description"]),
-									images: collectImages(podcast).map((url) => ({ type: "remote" as const, url })),
+									images: collectImages(podcast).map((url) => ({
+										type: "remote" as const,
+										url,
+										purpose: "cover" as const,
+									})),
 								},
 							};
 						}),
