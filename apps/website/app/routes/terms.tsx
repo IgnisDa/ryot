@@ -1,4 +1,4 @@
-import { FileText, Mail, MapPin, Scale } from "lucide-react";
+import { FileText, Mail, Scale } from "lucide-react";
 import { SectionHeader } from "~/lib/components/SectionHeader";
 import { TermsSection } from "~/lib/components/TermsSection";
 import { Card, CardContent } from "~/lib/components/ui/card";
@@ -37,23 +37,20 @@ export default function Index() {
 								</p>
 							</TermsSection>
 
-							<TermsSection number={2} title="Company Information">
+							<TermsSection number={2} title="Contact Information">
 								<div className="bg-muted/50 p-4 sm:p-6 rounded-lg space-y-3">
-									<div className="flex items-center">
-										<MapPin className="w-4 h-4 text-muted-foreground mr-3" />
-										<span className="text-foreground">
-											Ryot, Pocket A-3, Kalkaji Extension, New Delhi 110019,
-											Delhi, India
-										</span>
-									</div>
-									<div className="flex items-center">
+									<div className="flex items-start">
 										<Mail className="w-4 h-4 text-muted-foreground mr-3" />
-										<a
-											href={`mailto:${contactEmail}`}
-											className="text-primary hover:underline"
-										>
-											{contactEmail}
-										</a>
+										<span className="text-foreground">
+											For support and legal notices, contact us at{" "}
+											<a
+												href={`mailto:${contactEmail}`}
+												className="text-primary hover:underline"
+											>
+												{contactEmail}
+											</a>
+											.
+										</span>
 									</div>
 								</div>
 							</TermsSection>
