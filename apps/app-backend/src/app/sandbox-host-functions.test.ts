@@ -61,6 +61,7 @@ const ownedIntegration = (input: GetForUserInput): IntegrationRecord => ({
 	id: input.integrationId,
 	createdAt: "2026-01-01T00:00:00.000Z",
 	updatedAt: "2026-01-01T00:00:00.000Z",
+	pluginInstallationId: "media-installation",
 	extraSettings: { disableOnContinuousErrors: false },
 	providerSpecifics: { kind: "plex_yank", token: "plex-token", baseUrl: "https://plex.example" },
 });

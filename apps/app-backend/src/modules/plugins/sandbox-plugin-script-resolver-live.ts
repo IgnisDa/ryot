@@ -9,5 +9,6 @@ export const PluginSandboxScriptResolverLive = Layer.effect(
 	Effect.map(PluginRuntimeResolver, (runtime) => ({
 		findActiveScriptById: runtime.findActiveScriptById,
 		findActiveWorkflowScript: runtime.findActiveWorkflowScript,
+		findWorkflowScriptAvailableToUser: runtime.findWorkflowScriptAvailableToUser,
 	})),
 );

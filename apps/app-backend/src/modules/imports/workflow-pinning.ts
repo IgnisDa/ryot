@@ -6,7 +6,7 @@ import type { Database } from "#lib/infrastructure/db/service";
 
 export type ImportWorkflowPinningValue = {
 	preRegister: (input: {
-		readonly pluginSlug: string;
+		readonly pluginId: string;
 		readonly executionId: string;
 		readonly executingUserId: UserId;
 		readonly scriptId: SandboxScriptId;

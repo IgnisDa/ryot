@@ -77,8 +77,9 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 		}
 		uploadIntentIds = sourceState.uploadIntentIds;
 		yield* Effect.annotateCurrentSpan({
-			pluginSlug: sourceState.pluginSlug,
+			pluginId: sourceState.pluginId,
 			workflowScriptId: sourceState.workflowScriptId,
+			pluginInstallationId: sourceState.pluginInstallationId,
 		});
 		const grants: SandboxExecutionGrants | undefined =
 			Object.keys(sourceState.namedArtifactPaths).length > 0

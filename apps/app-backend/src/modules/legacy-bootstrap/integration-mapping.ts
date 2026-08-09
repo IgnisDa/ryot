@@ -8,6 +8,7 @@ DECLARE
 	started_at timestamptz := clock_timestamp();
 	unknown_providers text;
 	invalid_required_field_ids text;
+	unresolved_installation_ids text;
 BEGIN
 	IF to_regclass('"old_integration"') IS NULL THEN
 		RAISE EXCEPTION 'Expected old_integration table to exist (created by renameLegacyTables) but it was not found';
@@ -60,12 +61,29 @@ BEGIN
 		RAISE EXCEPTION 'Legacy integrations with missing required provider-specific fields: %', invalid_required_field_ids;
 	END IF;
 
+	SELECT string_agg(oi.id, ', ' ORDER BY oi.id)
+	INTO unresolved_installation_ids
+	FROM "old_integration" oi
+	WHERE oi.provider <> 'generic_json'
+		AND NOT EXISTS (
+			SELECT 1
+			FROM "plugin_installation" pi
+			JOIN "plugin" p ON p."id" = pi."plugin_id"
+			WHERE pi."user_id" = oi.user_id
+				AND p."scope" = 'system'
+				AND p."slug" = 'media'
+		);
+	IF unresolved_installation_ids IS NOT NULL THEN
+		RAISE EXCEPTION 'Legacy integrations without a media system plugin installation for their owner: %', unresolved_installation_ids;
+	END IF;
+
 	INSERT INTO "integration" (
 		"id",
 		"user_id",
 		"lot",
 		"provider",
 		"plugin_slug",
+		"plugin_installation_id",
 		"name",
 		"is_disabled",
 		"minimum_progress",
@@ -83,6 +101,14 @@ BEGIN
 		oi.lot,
 		oi.provider,
 		'media',
+		(
+			SELECT pi."id"
+			FROM "plugin_installation" pi
+			JOIN "plugin" p ON p."id" = pi."plugin_id"
+			WHERE pi."user_id" = oi.user_id
+				AND p."scope" = 'system'
+				AND p."slug" = 'media'
+		),
 		oi.name,
 		COALESCE(oi.is_disabled, false),
 		COALESCE(oi.minimum_progress, 2),

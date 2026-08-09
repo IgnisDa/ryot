@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import { SandboxScriptId } from "@ryot/contract/schema/brands";
+import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 import { assert } from "vitest";
 
@@ -8,22 +8,57 @@ import { Database } from "#lib/infrastructure/db/service";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 
 import { ImportSourceCatalog } from "./import-source-catalog";
+import { PluginInstallationRepository } from "./installation-repository";
 import { makePluginLoader, PluginLoader, type PluginRegistryEntry } from "./loader";
+import { PluginRuntimeResolver } from "./runtime-resolver";
 import { fixtureManifest, fixturePluginIdentity } from "./test-support";
 
 const epoch = new Date(0);
+const userId = UserId.make("user-1");
 const fixtureScript = fixtureManifest().scripts[0];
 assert(fixtureScript);
 const inputSchema = { fields: {}, unknownKeys: "strict" as const };
+
+const queryable = (rows: ReadonlyArray<unknown>, limited: Effect.Effect<ReadonlyArray<unknown>>) =>
+	Object.assign(Effect.succeed(rows), { limit: () => limited });
+
+const installationFor = (plugin: { id: string; slug: string }) =>
+	Object.assign(Object.create(null), {
+		userId,
+		config: {},
+		sortOrder: 0,
+		health: "ready",
+		isDisabled: false,
+		healthReason: null,
+		pluginId: plugin.id,
+		pluginScope: "system",
+		pluginSlug: plugin.slug,
+		id: `${plugin.id}-installation`,
+	});
+
+const resolverLayer = (
+	loader: ReturnType<typeof makePluginLoader>,
+	database: Layer.Layer<Database>,
+) =>
+	PluginRuntimeResolver.layer.pipe(
+		Layer.provide(
+			Layer.mergeAll(
+				Layer.succeed(PluginLoader, { ...loader }),
+				Layer.mock(PluginInstallationRepository)({
+					listForUser: () =>
+						Effect.sync(() => Object.values(loader.getSnapshot().plugins).map(installationFor)),
+				}),
+				database,
+			),
+		),
+	);
 
 const activeWorkflowDatabaseLayer = Layer.succeed(
 	Database,
 	Object.assign(Object.create(null), {
 		select: () => ({
 			from: () => ({
-				where: () => ({
-					limit: () => Effect.succeed([{ id: "active-workflow-script" }]),
-				}),
+				where: () => queryable([], Effect.succeed([{ id: "active-workflow-script" }])),
 			}),
 		}),
 	}),
@@ -106,7 +141,9 @@ const catalogLayer = () => {
 		]),
 	]);
 	return Layer.merge(
-		ImportSourceCatalog.layer.pipe(Layer.provide(Layer.succeed(PluginLoader, { ...loader }))),
+		ImportSourceCatalog.layer.pipe(
+			Layer.provide(resolverLayer(loader, activeWorkflowDatabaseLayer)),
+		),
 		activeWorkflowDatabaseLayer,
 	);
 };
@@ -114,7 +151,7 @@ const catalogLayer = () => {
 it.effect("lists import sources with workflow status in stable order", () =>
 	Effect.gen(function* () {
 		const catalog = yield* ImportSourceCatalog;
-		const sources = yield* catalog.listWithWorkflowStatus;
+		const sources = yield* catalog.listForUser(userId);
 
 		expect(
 			sources.map(({ source, hasActiveWorkflow }) => ({
@@ -129,8 +166,26 @@ it.effect("lists import sources with workflow status in stable order", () =>
 	}).pipe(Effect.provide(catalogLayer())),
 );
 
+it.effect("carries plugin scope, installation identity and config context on every source", () =>
+	Effect.gen(function* () {
+		const catalog = yield* ImportSourceCatalog;
+		const resolved = yield* catalog.resolveForUser(userId, "trakt");
+
+		expect(resolved?.source).toMatchObject({
+			slug: "trakt",
+			pluginSlug: "apple",
+			pluginScope: "system",
+			pluginId: "apple-plugin-id",
+			installationId: "apple-plugin-id-installation",
+			configContext: { kind: "environment", pluginSlug: "apple" },
+		});
+		expect(resolved?.script).toMatchObject({ id: "active-workflow-script" });
+		expect(yield* catalog.resolveForUser(userId, "missing")).toBeNull();
+	}).pipe(Effect.provide(catalogLayer())),
+);
+
 it.effect(
-	"keeps import source and active workflow resolution on one snapshot during replacement",
+	"keeps import source and active workflow resolution on one registry view during replacement",
 	() =>
 		Effect.gen(function* () {
 			const selected = yield* Deferred.make<void>();
@@ -165,23 +220,25 @@ it.effect(
 			const db = {
 				select: () => ({
 					from: () => ({
-						where: () => ({
-							limit: () =>
+						where: () =>
+							queryable(
+								[],
 								Effect.gen(function* () {
 									yield* Deferred.succeed(selected, undefined);
 									yield* Deferred.await(release);
 									return [row];
 								}),
-						}),
+							),
 					}),
 				}),
 			};
+			const databaseLayer = Layer.succeed(Database, Object.assign(Object.create(null), db));
 			const layer = Layer.merge(
-				ImportSourceCatalog.layer.pipe(Layer.provide(Layer.succeed(PluginLoader, { ...loader }))),
-				Layer.succeed(Database, Object.assign(Object.create(null), db)),
+				ImportSourceCatalog.layer.pipe(Layer.provide(resolverLayer(loader, databaseLayer))),
+				databaseLayer,
 			);
 			const fiber = yield* Effect.forkChild(
-				Effect.flatMap(ImportSourceCatalog, (catalog) => catalog.listWithWorkflowStatus).pipe(
+				Effect.flatMap(ImportSourceCatalog, (catalog) => catalog.listForUser(userId)).pipe(
 					Effect.provide(layer),
 				),
 			);

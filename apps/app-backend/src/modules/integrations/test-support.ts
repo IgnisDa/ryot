@@ -17,6 +17,7 @@ export const makeIntegration = (overrides: Partial<IntegrationRecord> = {}): Int
 	providerSpecifics: {},
 	pluginSlug: "fixture",
 	provider: "test-provider",
+	pluginInstallationId: "inst_1",
 	userId: UserId.make("user_1"),
 	id: IntegrationId.make("int_1"),
 	webhookUrl: "http://localhost:3000/_i/int_1",

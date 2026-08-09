@@ -2,22 +2,39 @@ import type {
 	PluginConfigSchema,
 	PluginImportSource,
 } from "@ryot/contract/modules/plugins/manifest";
+import type { UserId } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
-import { PluginLoader, type PluginRegistrySnapshot } from "./loader";
-import { findActiveWorkflowScriptInSnapshot } from "./runtime-resolver";
+import type { PluginConfigContext } from "#lib/infrastructure/sandbox-runtime/app-config";
+
+import {
+	pluginConfigContextFor,
+	PluginRuntimeResolver,
+	PluginRuntimeResolverLive,
+	type AvailablePlugin,
+} from "./runtime-resolver";
 
 export type RegisteredImportSource = PluginImportSource & {
+	readonly pluginId: string;
 	readonly pluginSlug: string;
+	readonly installationId: string;
+	readonly pluginScope: "system" | "user";
 	readonly configSchema: PluginConfigSchema;
+	readonly configContext: PluginConfigContext;
 };
 
-const fromSnapshot = (snapshot: PluginRegistrySnapshot): ReadonlyArray<RegisteredImportSource> =>
-	Object.entries(snapshot.plugins)
-		.flatMap(([pluginSlug, plugin]) =>
+const fromAvailablePlugins = (
+	plugins: ReadonlyArray<AvailablePlugin>,
+): ReadonlyArray<RegisteredImportSource> =>
+	plugins
+		.flatMap((plugin) =>
 			plugin.manifest.importSources.map((source) => ({
 				...source,
-				pluginSlug,
+				pluginId: plugin.id,
+				pluginSlug: plugin.slug,
+				pluginScope: plugin.scope,
+				installationId: plugin.installationId,
+				configContext: pluginConfigContextFor(plugin),
 				configSchema: plugin.manifest.configSchema,
 			})),
 		)
@@ -26,48 +43,47 @@ const fromSnapshot = (snapshot: PluginRegistrySnapshot): ReadonlyArray<Registere
 				left.pluginSlug.localeCompare(right.pluginSlug) || left.slug.localeCompare(right.slug),
 		);
 
-const findWorkflowInSnapshot = (
-	snapshot: PluginRegistrySnapshot,
-	pluginSlug: string,
-	workflowSlug: string,
-) =>
-	findActiveWorkflowScriptInSnapshot(snapshot, {
-		pluginSlug,
-		workflowSlug,
-	}).pipe(Effect.map((script) => (script ? { id: script.id } : null)));
-
 export class ImportSourceCatalog extends Context.Service<ImportSourceCatalog>()(
 	"ImportSourceCatalog",
 	{
 		make: Effect.gen(function* () {
-			const loader = yield* PluginLoader;
+			const runtime = yield* PluginRuntimeResolver;
 
-			const listWithWorkflowStatus = Effect.suspend(() => {
-				const snapshot = loader.getSnapshot();
-				return Effect.forEach(fromSnapshot(snapshot), (source) =>
-					findWorkflowInSnapshot(snapshot, source.pluginSlug, source.workflowSlug).pipe(
-						Effect.map((script) => ({
-							source,
-							hasActiveWorkflow: script !== null,
-						})),
+			const findWorkflowScript = (
+				plugins: ReadonlyArray<AvailablePlugin>,
+				source: RegisteredImportSource,
+			) => {
+				const plugin = plugins.find(({ id }) => id === source.pluginId);
+				return plugin
+					? runtime.findWorkflowScriptInAvailablePlugin(plugin, source.workflowSlug)
+					: Effect.succeed(null);
+			};
+
+			const listForUser = Effect.fn("ImportSourceCatalog.listForUser")(function* (userId: UserId) {
+				const plugins = yield* runtime.listPluginsAvailableToUser(userId);
+				return yield* Effect.forEach(fromAvailablePlugins(plugins), (source) =>
+					findWorkflowScript(plugins, source).pipe(
+						Effect.map((script) => ({ source, hasActiveWorkflow: script !== null })),
 					),
 				);
 			});
 
-			const resolve = (sourceSlug: string) => {
-				const snapshot = loader.getSnapshot();
-				const source = fromSnapshot(snapshot).find(({ slug }) => slug === sourceSlug);
-				return source
-					? {
-							source,
-							script: findWorkflowInSnapshot(snapshot, source.pluginSlug, source.workflowSlug),
-						}
-					: null;
-			};
+			const resolveForUser = Effect.fn("ImportSourceCatalog.resolveForUser")(function* (
+				userId: UserId,
+				sourceSlug: string,
+			) {
+				const plugins = yield* runtime.listPluginsAvailableToUser(userId);
+				const source = fromAvailablePlugins(plugins).find(({ slug }) => slug === sourceSlug);
+				return source ? { source, script: yield* findWorkflowScript(plugins, source) } : null;
+			});
 
-			return { resolve, listWithWorkflowStatus };
+			return { listForUser, resolveForUser };
 		}),
 	},
 ) {
 	static readonly layer = Layer.effect(this, this.make);
 }
+
+export const ImportSourceCatalogLive = ImportSourceCatalog.layer.pipe(
+	Layer.provide(PluginRuntimeResolverLive),
+);

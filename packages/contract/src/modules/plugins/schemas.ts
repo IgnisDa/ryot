@@ -106,6 +106,8 @@ const PluginInvocationFailureReason = Schema.Union([
 		code: Schema.Literal("runtime-failed"),
 		diagnostics: Schema.Array(PluginRuntimeDiagnostic),
 	}),
+	// TODO(plugins): Task 11 should decide whether to keep this variant. Operation dispatch now folds
+	// a missing compiled script into `operation-not-found`, so nothing emits `script-unavailable`.
 	Schema.Struct({
 		pluginSlug: PluginSlug,
 		operationSlug: Schema.String,

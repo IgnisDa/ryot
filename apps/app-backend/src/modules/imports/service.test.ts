@@ -25,7 +25,6 @@ import {
 	ImportSourceCatalog,
 	type RegisteredImportSource,
 } from "#modules/plugins/import-source-catalog";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 
 import { ImportRunFailuresService } from "./failure-service";
@@ -85,23 +84,30 @@ const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsReposi
 const makeImportRunFailuresService = () =>
 	mockImportRunFailuresService({ create: () => Effect.void });
 
+const importWorkflowScript = {
+	source: "source",
+	providerId: null,
+	compiledFormat: 1,
+	compiledCode: "compiled",
+	name: "Goodreads workflow",
+	pluginId: "media-plugin-id",
+	contentHash: "workflow-hash",
+	createdAt: new Date(0),
+	updatedAt: new Date(0),
+	slug: "workflow.goodreads-import",
+	metadata: { kind: "workflow" as const },
+	id: SandboxScriptId.make("accepted-import-script"),
+};
+
 const makeImportSourceCatalog = (
 	registered: RegisteredImportSource | null = null,
 	hasActiveWorkflow = true,
 ) =>
 	Layer.mock(ImportSourceCatalog)({
-		listWithWorkflowStatus: Effect.succeed(
-			registered ? [{ source: registered, hasActiveWorkflow }] : [],
-		),
-		resolve: () =>
-			registered
-				? {
-						source: registered,
-						script: Effect.succeed({
-							id: SandboxScriptId.make("accepted-import-script"),
-						}),
-					}
-				: null,
+		listForUser: () =>
+			Effect.succeed(registered ? [{ source: registered, hasActiveWorkflow }] : []),
+		resolveForUser: () =>
+			Effect.succeed(registered ? { source: registered, script: importWorkflowScript } : null),
 	});
 
 const importWorkflowPinningLayer = Layer.succeed(ImportWorkflowPinning, {
@@ -120,9 +126,6 @@ const makeServiceLayer = (
 	),
 	pinning = importWorkflowPinningLayer,
 	redis = makeRedisService(),
-	pluginRuntime = Layer.mock(PluginRuntimeResolver)({
-		isSystemPluginAvailableToUser: () => Effect.succeed(true),
-	}),
 ) =>
 	ImportsService.layer.pipe(
 		Layer.provideMerge(
@@ -133,7 +136,6 @@ const makeServiceLayer = (
 				pinning,
 				Layer.succeed(RedisService, redis),
 				makeImportRunFailuresService(),
-				pluginRuntime,
 				dependencies,
 				repository,
 			),
@@ -155,9 +157,13 @@ const goodreadsSource = (
 	slug: "goodreads",
 	name: "Goodreads",
 	pluginSlug: "media",
+	pluginScope: "system",
+	pluginId: "media-plugin-id",
 	requiredPluginConfigKeys: [],
 	description: "Goodreads export",
 	workflowSlug: "goodreads-import",
+	installationId: "media-installation",
+	configContext: { kind: "environment", pluginSlug: "media", configSchema },
 	inputSchema: { unknownKeys: "strict", fields: { uploadToken: uploadProperty(["csv"]) } },
 	...overrides,
 });
@@ -184,6 +190,7 @@ it.effect("delegates import run CRUD through the canonical service methods", () 
 			source: "goodreads" as const,
 			inputSummary: { source: "test" },
 			userId: UserId.make("user-1"),
+			pluginInstallationId: "media-installation",
 		} satisfies CreateImportRunInput;
 
 		const run = yield* service.create(createInput);
@@ -384,9 +391,10 @@ it.effect("claims only the visible upload from mutually exclusive required field
 		assert(stored[0]);
 		expect(yield* Schema.decodeUnknownEffect(ImportSourceStateFromJson)(stored[0].value)).toEqual({
 			source: "movary",
-			pluginSlug: "media",
+			pluginId: "media-plugin-id",
 			uploadIntentIds: ["intent-history"],
 			workflowScriptId: "accepted-import-script",
+			pluginInstallationId: "media-installation",
 			namedArtifactPaths: { historyUploadToken: "/tmp/history.csv" },
 			sourcePayload: {
 				mode: "history",
@@ -504,17 +512,15 @@ it.effect("lists a configured source with an active workflow as startable", () =
 it.effect("hides and rejects import sources from an unavailable system installation", () => {
 	const source = goodreadsSource();
 	const layer = makeServiceLayer(
-		makeImportsRepository(),
+		makeImportsRepository({ createRun: () => Effect.die("run must not be created") }),
 		Layer.mergeAll(
-			makeImportSourceCatalog(source),
-			mockUploadsService({}),
-			Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
+			makeImportSourceCatalog(),
+			mockUploadsService({ claimTemporaryUpload: () => Effect.die("must not claim") }),
+			Layer.succeed(
+				WorkflowEngine,
+				makeWorkflowEngine({ execute: () => Effect.die("must not start") }),
+			),
 		),
-		importWorkflowPinningLayer,
-		makeRedisService(),
-		Layer.mock(PluginRuntimeResolver)({
-			isSystemPluginAvailableToUser: () => Effect.succeed(false),
-		}),
 	);
 
 	return Effect.gen(function* () {
@@ -633,5 +639,46 @@ it.effect("deletes pending source state when workflow dispatch fails", () => {
 
 		expect(error).toMatchObject({ reason: { code: "queue-unavailable", operation: "import-run" } });
 		expect(deletedKeys).toEqual([[redisKeys.importSourceState("run-1")]]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("records the resolving installation on the run and its durable source state", () => {
+	const stored: string[] = [];
+	let createdInput: CreateImportRunInput | undefined;
+	const source = goodreadsSource({
+		pluginScope: "user",
+		pluginSlug: "my-media",
+		pluginId: "private-plugin-id",
+		installationId: "private-installation",
+		inputSchema: { unknownKeys: "strict", fields: {} },
+		configContext: { kind: "installation", config: {}, configSchema },
+	});
+	const layer = makeServiceLayer(
+		makeImportsRepository({
+			createRun: (input) =>
+				Effect.sync(() => {
+					createdInput = input;
+					return createdRun;
+				}),
+		}),
+		Layer.mergeAll(
+			makeImportSourceCatalog(source),
+			mockUploadsService({}),
+			Layer.succeed(WorkflowEngine, makeWorkflowEngine({ execute: () => Effect.void })),
+		),
+		importWorkflowPinningLayer,
+		makeRedisService({ set: (_key, value) => Effect.sync(() => void stored.push(value)) }),
+	);
+
+	return Effect.gen(function* () {
+		yield* (yield* ImportsService).startImportRun(user, { source: "goodreads" });
+
+		expect(createdInput?.pluginInstallationId).toBe("private-installation");
+		assert(stored[0]);
+		expect(yield* Schema.decodeUnknownEffect(ImportSourceStateFromJson)(stored[0])).toMatchObject({
+			pluginId: "private-plugin-id",
+			workflowScriptId: "accepted-import-script",
+			pluginInstallationId: "private-installation",
+		});
 	}).pipe(Effect.provide(layer));
 });
