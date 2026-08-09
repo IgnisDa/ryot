@@ -32,7 +32,10 @@ describe("provider search recipe", () => {
 		assert(query);
 		assert(query.output.type === "rows");
 
-		expect(query.joins).toHaveLength(2);
+		expect(query.joins).toMatchObject([
+			{ on: { left: { field: "id" }, right: { field: "providerId" } } },
+			{ on: { left: { field: "pluginId" }, right: { field: "id" } } },
+		]);
 		expect(
 			query.output.fields.map((selection) => ("key" in selection ? selection.key : null)),
 		).toEqual([
