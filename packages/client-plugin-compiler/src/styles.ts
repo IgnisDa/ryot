@@ -25,8 +25,24 @@ type CompileClientStylesInput = {
 };
 
 const clientBaseStylesheet = `@layer base {
+	html,
+	body {
+		height: 100%;
+		margin: 0;
+		overflow: hidden;
+		overscroll-behavior: none;
+		-webkit-tap-highlight-color: transparent;
+	}
+
 	body {
 		font-family: var(--font-family-ui);
+	}
+
+	#app {
+		height: 100%;
+		isolation: isolate;
+		overflow: hidden;
+		position: relative;
 	}
 }`;
 
