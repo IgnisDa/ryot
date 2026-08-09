@@ -86,7 +86,7 @@ export const fixtureManifest = () =>
 				slug: "fixture.automation",
 				requiredPluginConfigKeys: [],
 				requiredSystemConfigKeys: [],
-				entry: "scripts/fixture.sandbox.ts",
+				entry: "backend/automations/fixture.sandbox.ts",
 			},
 		],
 		bindings: {

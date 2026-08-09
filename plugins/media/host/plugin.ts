@@ -9,7 +9,6 @@ import { mediaSavedViews } from "./saved-views";
 import { mediaEntitySchemas } from "./schemas/entity";
 import { builtinRelationshipSchemas } from "./schemas/relationship";
 import { mediaSignalSchemas } from "./schemas/signal";
-import { mediaScripts } from "./script-catalog";
 
 const entitySchemas = mediaEntitySchemas();
 
@@ -454,7 +453,6 @@ export const mediaPlugin = definePlugin({
 	entitySchemas,
 	relationshipSchemas,
 	integrationProviders,
-	scripts: mediaScripts,
 	providers: mediaProviders,
 	savedViews: mediaSavedViews(),
 	configSchema: mediaConfigSchema,

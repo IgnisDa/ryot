@@ -95,11 +95,13 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 				expect(pluginPackage.manifest).toMatchObject({
 					httpRateLimits: [{ origins: ["https://example.com"] }],
 				});
-				expect(decoder.decode(pluginPackage.files["backend/main.ts"])).toContain('"initial"');
+				expect(decoder.decode(pluginPackage.files["backend/main.sandbox.ts"])).toContain(
+					'"initial"',
+				);
 				expect(decoder.decode(pluginPackage.files["backend/nested/worker.ts"])).toContain("worker");
 				expect(pluginPackage.files["backend/ignored.test.ts"]).toBeUndefined();
 				expect(Object.keys(pluginPackage.files)).toEqual([
-					"backend/main.ts",
+					"backend/main.sandbox.ts",
 					"backend/nested/worker.ts",
 					"client/asset.avif",
 					"client/asset.gif",
@@ -157,7 +159,7 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 		}),
 	);
 
-	test.effect("does not mutate an existing output when a script is missing", () =>
+	test.effect("does not mutate an existing output when a script does not compile", () =>
 		Effect.gen(function* () {
 			const path = yield* Path.Path;
 			const fs = yield* FileSystem.FileSystem;
@@ -165,12 +167,9 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 			const output = path.join(plugin, "dist", "cli-test.zip");
 			yield* fs.makeDirectory(path.dirname(output), { recursive: true });
 			yield* fs.writeFileString(output, "keep");
-			const manifestPath = path.join(plugin, "manifest.ts");
-			const manifest = yield* fs.readFileString(manifestPath);
-			yield* fs.writeFileString(
-				manifestPath,
-				manifest.replace("backend/main.ts", "backend/missing.ts"),
-			);
+			const entryPath = path.join(plugin, "backend", "main.sandbox.ts");
+			const entry = yield* fs.readFileString(entryPath);
+			yield* fs.writeFileString(entryPath, entry.replace("Effect.succeed", "Effect.missing"));
 
 			const result = yield* run(plugin, ["plugin", "build"]);
 
@@ -206,7 +205,7 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 			const path = yield* Path.Path;
 			const fs = yield* FileSystem.FileSystem;
 			const plugin = yield* createPlugin();
-			const mainPath = path.join(plugin, "backend", "main.ts");
+			const mainPath = path.join(plugin, "backend", "main.sandbox.ts");
 			yield* fs.writeFileString(
 				path.join(plugin, "backend", "shared.ts"),
 				'export const CONFIG_KEYS = ["alpha"] as const;\n',
@@ -224,7 +223,7 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 
 			expect(result.exitCode).not.toBe(0);
 			expect(result.stdout).toMatch(
-				/backend\/main\.ts:\d+:\d+ error RYOT_MANIFEST: Manifest values must be JSON-safe literals/,
+				/backend\/main\.sandbox\.ts:\d+:\d+ error RYOT_MANIFEST: Manifest values must be JSON-safe literals/,
 			);
 			expect(yield* fs.exists(path.join(plugin, "dist", "cli-test.zip"))).toBe(false);
 		}),
@@ -269,7 +268,7 @@ it.live("rebuilds after a watched backend change", () =>
 		yield* Effect.addFinalizer(() => child.kill().pipe(Effect.ignore));
 
 		yield* waitFor(fs.exists(output));
-		const mainPath = path.join(plugin, "backend", "main.ts");
+		const mainPath = path.join(plugin, "backend", "main.sandbox.ts");
 		const main = yield* fs.readFileString(mainPath);
 		yield* fs.writeFileString(mainPath, main.replace('"initial"', '"updated"'));
 		yield* waitFor(
@@ -278,7 +277,7 @@ it.live("rebuilds after a watched backend change", () =>
 					return false;
 				}
 				const pluginPackage = yield* readPluginArchive(yield* fs.readFile(output));
-				return decoder.decode(pluginPackage.files["backend/main.ts"]).includes('"updated"');
+				return decoder.decode(pluginPackage.files["backend/main.sandbox.ts"]).includes('"updated"');
 			}),
 		);
 	}).pipe(Effect.provide(BunServices.layer)),

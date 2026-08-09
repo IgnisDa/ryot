@@ -1,8 +1,11 @@
-import type { PluginManifest, PluginScript } from "@ryot-app/contract/modules/plugins/manifest";
+import { type PluginManifest, PluginScript } from "@ryot-app/contract/modules/plugins/manifest";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Match, Schema } from "effect";
 
-import { compilePluginSandboxSourceEntries } from "./compiler-plugins";
+import {
+	type CompiledPluginSandboxEntry,
+	compilePluginSandboxEntryPaths,
+} from "./compiler-plugins";
 import type { SandboxTypeScriptSources } from "./compiler-project";
 
 export type PluginScriptMetadata = PluginScript extends infer Script
@@ -15,7 +18,7 @@ export class PluginScriptCompileMismatch extends Schema.TaggedError<PluginScript
 	"PluginScriptCompileMismatch",
 	{
 		entry: Schema.String,
-		reason: Schema.Literals(["missing-output", "metadata-mismatch"]),
+		reason: Schema.Literals(["missing-output", "metadata-mismatch", "provider-path"]),
 	},
 ) {}
 
@@ -23,17 +26,13 @@ export const pluginScriptCompileMismatchIssue = (error: PluginScriptCompileMisma
 	Match.value(error.reason).pipe(
 		Match.when("missing-output", () => `Compiler returned no output for ${error.entry}`),
 		Match.when("metadata-mismatch", () => `Declared script metadata does not match ${error.entry}`),
+		Match.when(
+			"provider-path",
+			() =>
+				`Provider script must live at backend/providers/<entity-schema>/<vendor>/<operation>.sandbox.ts: ${error.entry}`,
+		),
 		Match.exhaustive,
 	);
-
-export const pluginSandboxScriptEntries = (scripts: PluginManifest["scripts"]) =>
-	scripts.map((script) => {
-		if (script.kind === "script") {
-			const { providerSlug, ...genericScript } = script;
-			return providerSlug ? { ...genericScript, providerSlug } : genericScript;
-		}
-		return script;
-	});
 
 export const declaredScriptMetadata = (script: PluginScript): PluginScriptMetadata => {
 	if (script.kind === "script") {
@@ -82,42 +81,71 @@ export const declaredScriptMetadata = (script: PluginScript): PluginScriptMetada
 	};
 };
 
-const compiledScriptMetadata = (script: PluginScript) => {
-	if (script.kind === "script") {
-		const { entry: _entry, providerSlug: _providerSlug, ...compiledMetadata } = script;
-		return compiledMetadata;
+const PLUGIN_SANDBOX_ENTRY_SUFFIX = ".sandbox.ts";
+
+const PLUGIN_PROVIDER_ROOT = "backend/providers/";
+
+export const pluginSandboxEntryPaths = (files: SandboxTypeScriptSources["files"]) =>
+	Object.keys(files)
+		.filter((path) => path.endsWith(PLUGIN_SANDBOX_ENTRY_SUFFIX))
+		.sort();
+
+const providerSlugForEntry = (entry: string) => {
+	if (!entry.startsWith(PLUGIN_PROVIDER_ROOT)) {
+		return undefined;
 	}
-	if (script.kind !== "provider") {
-		return declaredScriptMetadata(script);
-	}
-	const {
-		entry: _entry,
-		providerSlug: _providerSlug,
-		providerOperation: _providerOperation,
-		...compiledMetadata
-	} = script;
-	return compiledMetadata;
+	const segments = entry.slice(PLUGIN_PROVIDER_ROOT.length).split("/");
+	return segments.length >= 2 ? segments.slice(0, -1).join(".") : undefined;
 };
+
+const derivedPluginScript = (
+	output: CompiledPluginSandboxEntry,
+): Effect.Effect<PluginScript, PluginScriptCompileMismatch> => {
+	const manifest = output.compiled.manifest;
+	const providerSlug = providerSlugForEntry(output.entry);
+	const providerFields = Match.value(manifest.kind).pipe(
+		Match.when("provider", () => ({
+			providerSlug,
+			providerOperation: output.providerOperation,
+		})),
+		Match.orElse(() => (providerSlug ? { providerSlug } : {})),
+	);
+	return Schema.decodeUnknownEffect(PluginScript)({
+		...manifest,
+		...providerFields,
+		entry: output.entry,
+	}).pipe(
+		Effect.mapError(
+			() => new PluginScriptCompileMismatch({ entry: output.entry, reason: "provider-path" }),
+		),
+	);
+};
+
+export const derivePluginSandboxScripts = Effect.fn("derivePluginSandboxScripts")(function* (
+	files: SandboxTypeScriptSources["files"],
+) {
+	const compiled = yield* compilePluginSandboxEntryPaths(files, pluginSandboxEntryPaths(files));
+	return yield* Effect.forEach(compiled, (output) =>
+		derivedPluginScript(output).pipe(
+			Effect.map((script) => ({ script, source: output.source, compiled: output.compiled })),
+		),
+	);
+});
 
 export const compilePluginManifestScripts = Effect.fn("compilePluginManifestScripts")(function* (
 	manifest: PluginManifest,
 	files: SandboxTypeScriptSources["files"],
 ) {
-	const compiled = yield* compilePluginSandboxSourceEntries(
-		files,
-		pluginSandboxScriptEntries(manifest.scripts),
-	);
-	const compiledByEntry = new Map(compiled.map((output) => [output.entry, output]));
+	const derived = yield* derivePluginSandboxScripts(files);
+	const derivedByEntry = new Map(derived.map((output) => [output.script.entry, output]));
 	return yield* Effect.forEach(manifest.scripts, (script) => {
-		const output = compiledByEntry.get(script.entry);
+		const output = derivedByEntry.get(script.entry);
 		if (!output) {
 			return Effect.fail(
 				new PluginScriptCompileMismatch({ entry: script.entry, reason: "missing-output" }),
 			);
 		}
-		if (
-			stableStringify(compiledScriptMetadata(script)) !== stableStringify(output.compiled.manifest)
-		) {
+		if (stableStringify(script) !== stableStringify(output.script)) {
 			return Effect.fail(
 				new PluginScriptCompileMismatch({ entry: script.entry, reason: "metadata-mismatch" }),
 			);

@@ -2,8 +2,10 @@
 
 `@ryot-app/plugin-kit/manifest` provides the schemas and types used to declare plugins.
 
-The manifest is strict: every top-level section is required, even when its value is an empty array,
+The manifest is strict: every authored section is required, even when its value is an empty array,
 and unknown fields are rejected. `definePlugin` preserves literal types while checking this contract.
+It accepts the authored manifest; `scripts` is derived at build time and belongs only to the built
+manifest inside the archive.
 Sandbox slugs use lowercase letters and numbers separated by `.`, `_`, or `-`; `/` is reserved.
 
 ## Package Layout
@@ -33,17 +35,34 @@ declarations. Tests colocate with their subject in every root.
 helpers live in `backend/lib/`, and per-vendor HTTP and mapping helpers shared across providers live
 in `backend/lib/vendors/<vendor>.ts`.
 
-Provider entrypoints are addressed by path:
+Provider entrypoints are addressed by path. The directory path under `backend/providers/` **is** the
+provider slug, with `/` standing in for `.`, and the file name is the operation:
 
 ```
-backend/providers/<rootEntitySchemaSlug>/<vendor>/<operation>.sandbox.ts
+backend/providers/<provider slug path>/<operation>.sandbox.ts
 ```
 
-so `backend/providers/movie/tmdb/details.sandbox.ts` is the `details` operation of provider
-`movie.tmdb`. A basename outside the operation set (`details`, `search`, `search-options`, `resolve`,
-`translate`) is a provider-associated `script` rather than a provider operation. Modules shared inside
-one provider directory use local names such as `shared.ts`, since the directory already names the
-provider.
+So `backend/providers/movie/tmdb/details.sandbox.ts` is the `details` operation of provider
+`movie.tmdb`, and a single-segment slug uses a single directory. A basename outside the operation set
+(`details`, `search`, `search-options`, `resolve`, `translate`) is a provider-associated `script`
+rather than a provider operation. Modules shared inside one provider directory use local names such as
+`shared.ts`, since the directory already names the provider.
+
+### Script Discovery
+
+`scripts` is not authored. `definePlugin` rejects it: every `*.sandbox.ts` file under `backend/` is an
+entrypoint, and `ryot plugin build` compiles each one, reads `slug`, `name`, `kind`, `capabilities`,
+and the two config-key lists out of its `defineManifest`, takes `providerOperation` from its
+`defineProvider` call, and derives `entry` and `providerSlug` from the file's path. The assembled
+`scripts` array is written into the archive's `manifest.json` and validated against `PluginManifest`
+along with the rest of the manifest, so a cron, binding, or provider operation naming a script that
+does not exist fails the build.
+
+Installation recomputes the same list from the archive's sources and rejects a package whose
+`manifest.json` disagrees, so a hand-edited archive cannot widen what a script declares.
+
+Everything else in the manifest still names scripts by slug, and a script's slug lives in its own
+module — renaming a slug therefore means updating the manifest references to it.
 
 ## Manifest Reference
 
@@ -51,7 +70,7 @@ provider.
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `metadata`             | Package `slug`, `name`, `description`, `version`, and `icon`.                                                                  |
 | `configSchema`         | Plugin-owned environment configuration available to declared scripts and import sources.                                       |
-| `scripts`              | Sandbox source entries, definition kinds, capabilities, and configuration requirements.                                        |
+| `scripts`              | Derived, not authored. Sandbox source entries, definition kinds, capabilities, and configuration requirements.                 |
 | `providers`            | Logical provider identities and their required `details` plus optional `search`, `resolve`, and `translate` operation scripts. |
 | `workflows`            | Public logical workflow slugs mapped to `workflow`-kind scripts.                                                               |
 | `operations`           | Public operation slugs mapped to `operation`-kind scripts with `user` or `integration` auth.                                   |
@@ -107,9 +126,9 @@ then durably retries. Other failures are returned without an automatic retry.
 
 ## Script Kinds And Entrypoints
 
-Every `scripts` item declares `entry`, `slug`, `name`, `kind`, `capabilities`,
-`requiredPluginConfigKeys`, and `requiredSystemConfigKeys`. `script` may optionally declare
-`providerSlug`; `provider` must declare both `providerSlug` and `providerOperation`.
+Every derived `scripts` item carries `entry`, `slug`, `name`, `kind`, `capabilities`,
+`requiredPluginConfigKeys`, and `requiredSystemConfigKeys`. A `script` under `backend/providers/`
+also carries `providerSlug`; a `provider` carries both `providerSlug` and `providerOperation`.
 
 | Kind         | Authoring helper   | Use                                                                       |
 | ------------ | ------------------ | ------------------------------------------------------------------------- |
@@ -120,8 +139,8 @@ Every `scripts` item declares `entry`, `slug`, `name`, `kind`, `capabilities`,
 | `provider`   | `defineProvider`   | One logical provider operation.                                           |
 
 Each entry is a complete ES module that default-exports exactly one direct definition containing its
-static manifest, input schema, output schema, and Effect-returning `run`. The entry's static manifest
-must match its `scripts` metadata. There are no driver maps, conventional driver names, or runtime
+static manifest, input schema, output schema, and Effect-returning `run`. That static manifest is the
+single source of the script's metadata. There are no driver maps, conventional driver names, or runtime
 selection inside a module. The matching `@ryot-app/sandbox-sdk` kind-specific entrypoint owns exact
 input/output contracts.
 
