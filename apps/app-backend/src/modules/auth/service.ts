@@ -51,7 +51,7 @@ const makeAuthInstance = (args: {
 	readonly bootstrapNewUser: (userId: string) => Effect.Effect<void, unknown>;
 }) => {
 	const corsOrigins = Option.match(args.config.server.corsOrigins, {
-		onNone: () => [] as string[],
+		onNone: () => [],
 		onSome: (value) =>
 			value
 				.split(",")
@@ -61,10 +61,7 @@ const makeAuthInstance = (args: {
 
 	const oidcEnabled = isOidcEnabled(args.config);
 
-	const database = effectPostgresAuthAdapter({
-		db: args.db,
-		context: args.runtime,
-	});
+	const database = effectPostgresAuthAdapter({ db: args.db, context: args.runtime });
 	const auth = betterAuth({
 		appName: "Ryot",
 		basePath: "/api/auth",
@@ -84,11 +81,7 @@ const makeAuthInstance = (args: {
 			additionalFields: {
 				disabledAt: { type: "date", required: false, input: false },
 				bootstrapCompletedAt: { type: "date", required: false, input: false },
-				preferences: {
-					type: "json",
-					required: true,
-					defaultValue: defaultUserPreferences,
-				},
+				preferences: { type: "json", required: true, defaultValue: defaultUserPreferences },
 			},
 		},
 		emailAndPassword: {
@@ -194,7 +187,7 @@ const makeAuthInstance = (args: {
 	return { auth, database };
 };
 
-export type AuthInstance = ReturnType<typeof makeAuthInstance>["auth"];
+type AuthInstance = ReturnType<typeof makeAuthInstance>["auth"];
 type AuthContextValue = Awaited<AuthInstance["$context"]>;
 export type AuthUserInput = {
 	id: string;
@@ -217,18 +210,15 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 		const userBootstrap = yield* AuthUserBootstrap;
 		const runtime = yield* Effect.context<Database | RedisService>();
 		const authInstance = makeAuthInstance({
+			db,
 			config,
 			runtime,
-			db,
 			redis: redis.client,
 			bootstrapNewUser: userBootstrap.run,
 		});
 		const { auth, database } = authInstance;
 		const withInternalAdapter = <A>(operation: (context: AuthContextValue) => Promise<A>) =>
-			Effect.tryPromise({
-				try: () => auth.$context.then(operation),
-				catch: unknownToDbError,
-			});
+			Effect.tryPromise({ catch: unknownToDbError, try: () => auth.$context.then(operation) });
 
 		return {
 			auth,
@@ -245,13 +235,13 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 						callback({
 							createAuthUser: (user) =>
 								Effect.tryPromise({
+									catch: unknownToDbError,
 									try: () =>
 										adapter.create({
 											model: "user",
 											forceAllowId: true,
 											data: { ...user, email: user.email.toLowerCase() },
 										}),
-									catch: unknownToDbError,
 								}),
 						}).pipe(Effect.provideService(Database, transactionDb)),
 					),
@@ -333,9 +323,9 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 							return Effect.fail(unauthorized());
 						}
 						return Effect.succeed({
-							id: UserId.make(session.user.id),
 							name: session.user.name,
 							email: session.user.email,
+							id: UserId.make(session.user.id),
 							preferences: normalizeUserPreferences(session.user.preferences),
 						});
 					}),
@@ -378,8 +368,8 @@ export const makeAuthMiddleware = (auth: Pick<AuthService["Service"], "currentUs
 								{
 									...annotations,
 									"http.method": request.method,
-									"http.url": stripSearchAndHash(request.url),
 									"http.status": response.status,
+									"http.url": stripSearchAndHash(request.url),
 								},
 							),
 							exit,
@@ -389,8 +379,8 @@ export const makeAuthMiddleware = (auth: Pick<AuthService["Service"], "currentUs
 						Effect.annotateLogs(Effect.logDebug("Sent HTTP response"), {
 							...annotations,
 							"http.method": request.method,
-							"http.url": stripSearchAndHash(request.url),
 							"http.status": exit.value.status,
+							"http.url": stripSearchAndHash(request.url),
 						}),
 						exit,
 					);
@@ -416,9 +406,7 @@ export const AdminMiddlewareLive = Layer.effect(
 			adminToken: (httpEffect, { credential }) => {
 				const value = Redacted.value(credential);
 				return value !== "" && value === Redacted.value(config.server.adminAccessToken)
-					? Effect.provideService(httpEffect, AdminAccess, {
-							authorized: true as const,
-						})
+					? Effect.provideService(httpEffect, AdminAccess, { authorized: true })
 					: Effect.fail(unauthorized());
 			},
 		};

@@ -15,7 +15,7 @@ const user = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-1"),
-	preferences: { isNsfw: false, language: "es", disableIntegrations: false },
+	preferences: { allowNsfw: false, language: "es", disableIntegrations: false },
 } satisfies CurrentUserValue;
 
 type InterestItem = {
