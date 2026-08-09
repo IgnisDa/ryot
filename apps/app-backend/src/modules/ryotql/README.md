@@ -9,7 +9,7 @@ RyotQL is the focused read API at `POST /ryotql/execute`. `POST /ryotql/execute`
 - Field selection, typed JSON expressions, predicates, arithmetic, correlated scalar expressions, inner and left joins, ordering, pagination, and correlated row includes.
 - Localized entity names and properties with translation status as a normal catalog field.
 - Visibility for every table occurrence: plugin, `sandboxProvider`, and `sandboxProviderOperation` are public to authenticated users; entity, event, and relationship are user-or-global; `pluginState`, `savedView`, `notificationChannel`, `integration`, `importRun`, and `notificationSubscriptionState` are user-owned; `importRunFailure` is parent-owned through `importRun`.
-- The executor uses runtime field kinds internally: `text`, `date`, `number`, `boolean`, `json`, and `null`.
+- Internal field kinds are `text`, `date`, `number`, `boolean`, `json`, and `null`. `expression-kind.ts` owns kind inference for every expression variant; the validator and the executor supply their own alias resolution and share that one function, so a document can never validate as one kind and compile as another. Unresolved aliases or fields are a validation error for the validator and a compiler invariant for the executor.
 - Row and include fields may use the SDK `star(table)` helper to select every approved catalog field for that table alias.
 
 The entity catalog currently exposes `id`, `name`, `userId`, `createdAt`, `updatedAt`, `properties`, `externalId`, `populatedAt`, `providerId`, `translationStatus`, and `entitySchemaSlug`. Other physical columns are not queryable.
