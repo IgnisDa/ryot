@@ -77,53 +77,6 @@ export const getProductAndPlanTypeByPolarIds = (
 	return null;
 };
 
-export const backfillActivePurchaseProviderIdentity = async (
-	customer: typeof schema.customers.$inferSelect,
-	activePurchase: typeof schema.customerPurchases.$inferSelect,
-) => {
-	if (activePurchase.cancelledOn) return activePurchase;
-
-	const hasProviderIdentity =
-		(activePurchase.paymentProvider === "paddle" &&
-			!!activePurchase.providerPriceId) ||
-		(activePurchase.paymentProvider === "polar" &&
-			!!activePurchase.providerProductId &&
-			!!activePurchase.providerPriceId);
-	if (hasProviderIdentity) return activePurchase;
-
-	const serverVariables = getServerVariables();
-	const environment = getPaymentEnvironment(
-		customer.paymentProvider === "paddle"
-			? serverVariables.PADDLE_SANDBOX
-			: serverVariables.POLAR_SANDBOX,
-	);
-	const product = getLegacyPaymentCatalog(
-		customer.paymentProvider,
-		environment,
-	).find((entry) => entry.type === activePurchase.productType);
-	const price = product?.prices.find(
-		(entry) => entry.name === activePurchase.planType,
-	);
-	if (!price?.priceId) return activePurchase;
-	if (customer.paymentProvider === "polar" && !price.productId)
-		return activePurchase;
-
-	const providerIdentity = {
-		paymentProvider: customer.paymentProvider,
-		providerPriceId: price.priceId,
-		...(customer.paymentProvider === "polar"
-			? { providerProductId: price.productId }
-			: {}),
-	};
-	const [updatedPurchase] = await getDb()
-		.update(schema.customerPurchases)
-		.set(providerIdentity)
-		.where(eq(schema.customerPurchases.id, activePurchase.id))
-		.returning();
-
-	return updatedPurchase ?? activePurchase;
-};
-
 export const oauthConfig = async () => {
 	const serverVariables = getServerVariables();
 	const config = await openidClient.discovery(
@@ -218,25 +171,20 @@ export const getCustomerWithActivePurchase = async (request: Request) => {
 			isNull(schema.customerPurchases.cancelledOn),
 		),
 	});
-	const activePurchaseWithProviderIdentity = activePurchase
-		? await backfillActivePurchaseProviderIdentity(customer, activePurchase)
-		: null;
 
 	return {
 		...customer,
-		activePurchase: activePurchaseWithProviderIdentity,
-		planType: activePurchaseWithProviderIdentity?.planType || null,
-		hasCancelled: !!activePurchaseWithProviderIdentity?.cancelledOn,
-		productType: activePurchaseWithProviderIdentity?.productType || null,
+		activePurchase,
+		planType: activePurchase?.planType || null,
+		hasCancelled: !!activePurchase?.cancelledOn,
+		productType: activePurchase?.productType || null,
 		ryotUserId:
-			activePurchaseWithProviderIdentity?.productType === "cloud"
-				? customer.ryotUserId
-				: null,
-		renewOn: activePurchaseWithProviderIdentity?.renewOn
-			? formatDateToNaiveDate(activePurchaseWithProviderIdentity.renewOn)
+			activePurchase?.productType === "cloud" ? customer.ryotUserId : null,
+		renewOn: activePurchase?.renewOn
+			? formatDateToNaiveDate(activePurchase.renewOn)
 			: null,
 		unkeyKeyId:
-			activePurchaseWithProviderIdentity?.productType === "self_hosted"
+			activePurchase?.productType === "self_hosted"
 				? customer.unkeyKeyId
 				: null,
 	};

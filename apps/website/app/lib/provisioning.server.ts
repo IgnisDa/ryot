@@ -23,7 +23,6 @@ import {
 	getUnkeyClient,
 } from "./config.server";
 import {
-	backfillActivePurchaseProviderIdentity,
 	calculateRenewalDate,
 	createUnkeyKey,
 	sendEmail,
@@ -309,16 +308,13 @@ export async function revokePurchase(customer: Customer) {
 	}
 }
 
-export async function getActivePurchase(customer: Customer) {
-	const activePurchase = await getDb().query.customerPurchases.findFirst({
+export async function getActivePurchase(customerId: string) {
+	return await getDb().query.customerPurchases.findFirst({
 		where: and(
-			eq(customerPurchases.customerId, customer.id),
+			eq(customerPurchases.customerId, customerId),
 			isNull(customerPurchases.cancelledOn),
 		),
 	});
-	if (!activePurchase) return null;
-
-	return backfillActivePurchaseProviderIdentity(customer, activePurchase);
 }
 
 export async function handlePurchaseOrRenewal(
@@ -328,7 +324,7 @@ export async function handlePurchaseOrRenewal(
 	paymentProviderCustomerId: string,
 	providerIdentity: PaymentProviderIdentity,
 ) {
-	const activePurchase = await getActivePurchase(customer);
+	const activePurchase = await getActivePurchase(customer.id);
 
 	if (!activePurchase) {
 		console.log("Customer purchased plan:", {
