@@ -11,11 +11,15 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as GodModeRouteRouteImport } from './routes/god-mode/route'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedPluginSlugRouteRouteImport } from './routes/_authenticated/$pluginSlug/route'
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
 import { Route as AuthCallbackRouteImport } from './routes/auth_.callback'
+import { Route as GodModeIndexRouteImport } from './routes/god-mode/index'
+import { Route as GodModeMigrationReportRouteImport } from './routes/god-mode/migration-report'
+import { Route as GodModeUsersRouteImport } from './routes/god-mode/users'
 import { Route as OauthLoginRouteImport } from './routes/oauth.login'
 import { Route as AuthenticatedPluginSlugIndexRouteImport } from './routes/_authenticated/$pluginSlug/index'
 import { Route as AuthenticatedPluginSlugSplatRouteImport } from './routes/_authenticated/$pluginSlug/$'
@@ -34,6 +38,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GodModeRouteRoute = GodModeRouteRouteImport.update({
+  id: '/god-mode',
+  path: '/god-mode',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnboardingRoute = OnboardingRouteImport.update({
@@ -62,6 +71,21 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth_/callback',
   path: '/auth/callback',
   getParentRoute: () => rootRouteImport,
+} as any)
+const GodModeIndexRoute = GodModeIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => GodModeRouteRoute,
+} as any)
+const GodModeMigrationReportRoute = GodModeMigrationReportRouteImport.update({
+  id: '/migration-report',
+  path: '/migration-report',
+  getParentRoute: () => GodModeRouteRoute,
+} as any)
+const GodModeUsersRoute = GodModeUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => GodModeRouteRoute,
 } as any)
 const OauthLoginRoute = OauthLoginRouteImport.update({
   id: '/oauth/login',
@@ -122,12 +146,16 @@ const AuthLogoutCallbackRoute = AuthLogoutCallbackRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
+  '/god-mode': typeof GodModeRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/onboarding': typeof OnboardingRoute
   '/$pluginSlug': typeof AuthenticatedPluginSlugRouteRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
+  '/god-mode/migration-report': typeof GodModeMigrationReportRoute
+  '/god-mode/users': typeof GodModeUsersRoute
   '/oauth/login': typeof OauthLoginRoute
+  '/god-mode/': typeof GodModeIndexRoute
   '/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
   '/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
@@ -142,8 +170,11 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/onboarding': typeof OnboardingRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/god-mode/migration-report': typeof GodModeMigrationReportRoute
+  '/god-mode/users': typeof GodModeUsersRoute
   '/oauth/login': typeof OauthLoginRoute
   '/': typeof AuthenticatedIndexRoute
+  '/god-mode': typeof GodModeIndexRoute
   '/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
   '/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
@@ -157,13 +188,17 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/god-mode': typeof GodModeRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/onboarding': typeof OnboardingRoute
   '/_authenticated/$pluginSlug': typeof AuthenticatedPluginSlugRouteRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/auth_/callback': typeof AuthCallbackRoute
+  '/god-mode/migration-report': typeof GodModeMigrationReportRoute
+  '/god-mode/users': typeof GodModeUsersRoute
   '/oauth/login': typeof OauthLoginRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/god-mode/': typeof GodModeIndexRoute
   '/_authenticated/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
   '/_authenticated/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/_authenticated/settings/$': typeof AuthenticatedSettingsSplatRoute
@@ -178,12 +213,16 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/god-mode'
     | '/auth'
     | '/onboarding'
     | '/$pluginSlug'
     | '/settings'
     | '/auth/callback'
+    | '/god-mode/migration-report'
+    | '/god-mode/users'
     | '/oauth/login'
+    | '/god-mode/'
     | '/$pluginSlug/$'
     | '/e/$entityId'
     | '/settings/$'
@@ -198,8 +237,11 @@ export interface FileRouteTypes {
     | '/auth'
     | '/onboarding'
     | '/auth/callback'
+    | '/god-mode/migration-report'
+    | '/god-mode/users'
     | '/oauth/login'
     | '/'
+    | '/god-mode'
     | '/$pluginSlug/$'
     | '/e/$entityId'
     | '/settings/$'
@@ -212,13 +254,17 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_authenticated'
+    | '/god-mode'
     | '/auth'
     | '/onboarding'
     | '/_authenticated/$pluginSlug'
     | '/_authenticated/settings'
     | '/auth_/callback'
+    | '/god-mode/migration-report'
+    | '/god-mode/users'
     | '/oauth/login'
     | '/_authenticated/'
+    | '/god-mode/'
     | '/_authenticated/$pluginSlug/$'
     | '/_authenticated/e/$entityId'
     | '/_authenticated/settings/$'
@@ -232,6 +278,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  GodModeRouteRoute: typeof GodModeRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   OnboardingRoute: typeof OnboardingRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
@@ -253,6 +300,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/god-mode': {
+      id: '/god-mode'
+      path: '/god-mode'
+      fullPath: '/god-mode'
+      preLoaderRoute: typeof GodModeRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/onboarding': {
@@ -289,6 +343,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/auth/callback'
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/god-mode/': {
+      id: '/god-mode/'
+      path: '/'
+      fullPath: '/god-mode/'
+      preLoaderRoute: typeof GodModeIndexRouteImport
+      parentRoute: typeof GodModeRouteRoute
+    }
+    '/god-mode/migration-report': {
+      id: '/god-mode/migration-report'
+      path: '/migration-report'
+      fullPath: '/god-mode/migration-report'
+      preLoaderRoute: typeof GodModeMigrationReportRouteImport
+      parentRoute: typeof GodModeRouteRoute
+    }
+    '/god-mode/users': {
+      id: '/god-mode/users'
+      path: '/users'
+      fullPath: '/god-mode/users'
+      preLoaderRoute: typeof GodModeUsersRouteImport
+      parentRoute: typeof GodModeRouteRoute
     }
     '/oauth/login': {
       id: '/oauth/login'
@@ -420,8 +495,25 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface GodModeRouteRouteChildren {
+  GodModeMigrationReportRoute: typeof GodModeMigrationReportRoute
+  GodModeUsersRoute: typeof GodModeUsersRoute
+  GodModeIndexRoute: typeof GodModeIndexRoute
+}
+
+const GodModeRouteRouteChildren: GodModeRouteRouteChildren = {
+  GodModeMigrationReportRoute: GodModeMigrationReportRoute,
+  GodModeUsersRoute: GodModeUsersRoute,
+  GodModeIndexRoute: GodModeIndexRoute,
+}
+
+const GodModeRouteRouteWithChildren = GodModeRouteRoute._addFileChildren(
+  GodModeRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  GodModeRouteRoute: GodModeRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   OnboardingRoute: OnboardingRoute,
   AuthCallbackRoute: AuthCallbackRoute,

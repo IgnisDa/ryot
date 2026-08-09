@@ -1,0 +1,150 @@
+import { UserId } from "@ryot-app/contract/schema/brands";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { Exit } from "effect";
+import { describe, expect, it } from "vitest";
+
+import type { ResetLinkTransfer } from "#/modules/god-mode/reset-link-transfer";
+import type { GodModeUser } from "#/modules/god-mode/service";
+import {
+	type GodModeUserOperations,
+	UsersAdministration,
+} from "#/modules/god-mode/users-administration";
+import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
+
+const makeUser = (index: number, authState: GodModeUser["authState"] = "credential") =>
+	({
+		authState,
+		disabledAt: null,
+		name: `Reader ${index}`,
+		twoFactorEnabled: false,
+		id: UserId.make(`user-${index}`),
+		email: `reader-${index}@example.com`,
+		createdAt: "2026-09-01T00:00:00.000Z",
+	}) satisfies GodModeUser;
+
+const makeOperations = (users: ReadonlyArray<GodModeUser>, calls: Array<unknown>) =>
+	({
+		resetUserPassword: () =>
+			Promise.resolve(
+				Exit.succeed({ email: "reader-0@example.com", resetUrl: "https://example.com/reset" }),
+			),
+		listUsers: (search, offset, limit) => {
+			calls.push({ search, offset, limit });
+			const matching = users.filter((user) => user.email.includes(search));
+			return Promise.resolve(
+				Exit.succeed({ total: matching.length, users: matching.slice(offset, offset + limit) }),
+			);
+		},
+		setUserDisabled: (userId, disabled) => {
+			calls.push({ userId, disabled });
+			return Promise.resolve(
+				Exit.succeed({ id: userId, disabledAt: disabled ? "2026-09-02T00:00:00.000Z" : null }),
+			);
+		},
+		resetUser: () =>
+			Promise.resolve(
+				Exit.succeed({
+					email: "reader-0@example.com",
+					userId: UserId.make("user-0"),
+					resetUrl: "https://example.com/reset-after-account-reset",
+				}),
+			),
+		deleteUser: () =>
+			Promise.resolve(
+				Exit.succeed({
+					failure: null,
+					startedAt: null,
+					finishedAt: null,
+					id: "operation-1",
+					resetResult: null,
+					kind: "delete" as const,
+					status: "completed" as const,
+					userId: UserId.make("user-0"),
+					createdAt: "2026-09-01T00:00:00.000Z",
+				}),
+			),
+	}) satisfies GodModeUserOperations;
+
+const renderUsers = (
+	users: ReadonlyArray<GodModeUser>,
+	transfer: ResetLinkTransfer = () => Promise.resolve("copied"),
+) => {
+	const calls: Array<unknown> = [];
+	const backInterceptors = createBackInterceptors();
+	render(
+		<UsersAdministration
+			transferResetLink={transfer}
+			backInterceptors={backInterceptors}
+			operations={makeOperations(users, calls)}
+			onUnauthorized={() => calls.push("unauthorized")}
+		/>,
+	);
+	return { calls, backInterceptors };
+};
+
+describe("God Mode users administration", () => {
+	it("loads 50-user pages, preserves loaded rows, and trims debounced searches", async () => {
+		const user = userEvent.setup();
+		const users = Array.from({ length: 51 }, (_, index) => makeUser(index));
+		const view = renderUsers(users);
+
+		await screen.findByText("reader-0@example.com");
+		expect(screen.queryByText("reader-50@example.com")).toBeNull();
+		await user.click(screen.getByRole("button", { name: "Load more users" }));
+		await screen.findByText("reader-50@example.com");
+		expect(screen.getByText("reader-0@example.com")).toBeTruthy();
+
+		fireEvent.change(screen.getByRole("searchbox"), {
+			target: { value: "  reader-50@example.com  " },
+		});
+		await waitFor(
+			() =>
+				expect(view.calls).toContainEqual({
+					limit: 50,
+					offset: 0,
+					search: "reader-50@example.com",
+				}),
+			{ timeout: 700 },
+		);
+		expect(await screen.findByText("reader-50@example.com")).toBeTruthy();
+		expect(screen.queryByText("reader-0@example.com")).toBeNull();
+	});
+
+	it("shows a reset-password result and injects reset-link transfer", async () => {
+		const user = userEvent.setup();
+		const transferred: string[] = [];
+		renderUsers([makeUser(0)], (url) => {
+			transferred.push(url);
+			return Promise.resolve("copied");
+		});
+		await screen.findByText("reader-0@example.com");
+
+		await user.click(screen.getByRole("button", { name: "Reset password" }));
+		const resetLink = await screen.findByLabelText<HTMLInputElement>("Password reset link");
+		expect(resetLink.value).toBe("https://example.com/reset");
+		await user.click(screen.getByRole("button", { name: "Copy or share" }));
+		expect(transferred).toEqual(["https://example.com/reset"]);
+		expect(screen.getByRole<HTMLButtonElement>("button", { name: "Copied!" }).disabled).toBe(true);
+	});
+
+	it("makes destructive confirmation accessible to Escape and hardware Back", async () => {
+		const user = userEvent.setup();
+		const view = renderUsers([makeUser(0)]);
+		await screen.findByText("reader-0@example.com");
+		const trigger = screen.getByRole("button", { name: "Reset account" });
+		trigger.focus();
+		await user.click(trigger);
+		let dialog = await screen.findByRole("dialog", { name: "Reset this user?" });
+		expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Cancel" }));
+
+		fireEvent.keyDown(dialog, { key: "Escape" });
+		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+		await waitFor(() => expect(document.activeElement).toBe(trigger));
+
+		await user.click(trigger);
+		dialog = await screen.findByRole("dialog", { name: "Reset this user?" });
+		expect(view.backInterceptors.run()).toBe(true);
+		await waitFor(() => expect(dialog.isConnected).toBe(false));
+	});
+});

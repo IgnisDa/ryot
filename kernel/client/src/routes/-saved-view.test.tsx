@@ -17,6 +17,7 @@ import { SavedViewLoadError, SavedViewsService } from "#/modules/saved-views/ser
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
+	GodModeRouteStubs,
 	ServerStub,
 	catalog,
 	makeAuthStub,
@@ -87,6 +88,7 @@ const mountView = (loadGrid: Load, resolve: Resolve = () => Effect.succeed(new M
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
 			makeAuthStub(),
+			GodModeRouteStubs,
 			ServerStub,
 			makePublicApiStub(),
 			AuthenticatedApi.layer,
