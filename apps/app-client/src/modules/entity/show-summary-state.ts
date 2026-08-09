@@ -1,10 +1,11 @@
-import type { AssetLocator } from "@ryot/contract/modules/uploads/schemas";
-import type { MediaImage, ShowSummaryResult } from "@ryot/media-plugin/query-recipes";
+import type { ShowSummaryResult } from "@ryot/media-plugin/query-recipes";
 import { Match } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 import { isRyotQLMalformedResultCause } from "@/api/ryotql";
 import { canonicalManagedAssets } from "@/modules/ui/managed-assets";
+
+import { mediaImageAsset, mediaImageAssets, preferredMediaImageAsset } from "./media-image";
 
 export type ShowSummary = NonNullable<ShowSummaryResult["show"]>;
 
@@ -59,31 +60,19 @@ export const showSummaryUnavailable = (reason: ShowSummaryUnavailableReason): Sh
 			: "This entity is not a show, and only shows can be opened here.",
 });
 
-const showImages = (show: ShowSummary): readonly MediaImage[] => show.images ?? [];
+const SHOW_GALLERY_LIMIT = 10;
 
-const imageLocator = (image: MediaImage | undefined): AssetLocator | undefined => {
-	if (image === undefined) {
-		return undefined;
-	}
-	return image.type === "remote"
-		? { type: "remote", url: image.url }
-		: { type: image.type, key: image.key };
-};
+export const showPosterAsset = (show: ShowSummary) =>
+	preferredMediaImageAsset(show.images, "cover");
 
-const imageByPurpose = (images: readonly MediaImage[], purpose: MediaImage["purpose"]) =>
-	images.find((image) => image.purpose === purpose);
+export const showBackdropAsset = (show: ShowSummary) => mediaImageAsset(show.images, "backdrop");
 
-export const showPosterAsset = (show: ShowSummary) => {
-	const images = showImages(show);
-	return imageLocator(imageByPurpose(images, "cover") ?? images.at(0));
-};
-
-export const showBackdropAsset = (show: ShowSummary) =>
-	imageLocator(imageByPurpose(showImages(show), "backdrop"));
+export const showGalleryAssets = (show: ShowSummary) =>
+	mediaImageAssets(show.images).slice(0, SHOW_GALLERY_LIMIT);
 
 export const showManagedAssets = (show: ShowSummary) =>
 	canonicalManagedAssets(
-		[showPosterAsset(show), showBackdropAsset(show)].flatMap((asset) =>
+		[showPosterAsset(show), showBackdropAsset(show), ...showGalleryAssets(show)].flatMap((asset) =>
 			asset === undefined || asset.type === "remote" ? [] : [asset],
 		),
 	);

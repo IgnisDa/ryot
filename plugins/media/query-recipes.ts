@@ -455,6 +455,118 @@ export const showSummaryRecipe = defineRecipe(
 	},
 );
 
+const MediaImageListSchema = Schema.NullOr(Schema.Array(MediaImageSchema));
+
+const creditSelection = (credit: Table, relationship: Table) => ({
+	id: selectedField(column(credit, "id"), EntityId),
+	name: selectedField(column(credit, "name"), Schema.String),
+	images: selectedField(propertyJson(credit, "images"), MediaImageListSchema),
+	order: selectedField(propertyNumber(relationship, "order"), Schema.NullOr(Schema.Number)),
+	roles: selectedField(
+		propertyJson(relationship, "roles"),
+		Schema.NullOr(Schema.Array(Schema.String)),
+	),
+});
+
+const creditRows = (input: {
+	readonly limit: number;
+	readonly credit: Table;
+	readonly entityId: string;
+	readonly relationship: Table;
+	readonly creditSchemaSlug: string;
+	readonly relationshipSchemaSlug: string;
+}) => ({
+	limit: input.limit,
+	orderBy: [
+		ascending(propertyNumber(input.relationship, "order")),
+		ascending(column(input.credit, "name")),
+	],
+	joins: [
+		join(
+			"inner",
+			input.credit,
+			eq(column(input.relationship, "sourceEntityId"), column(input.credit, "id")),
+		),
+	],
+	where: and(
+		entitySchema(input.credit, input.creditSchemaSlug),
+		eq(column(input.relationship, "targetEntityId"), literal(input.entityId)),
+		eq(column(input.relationship, "relationshipSchemaSlug"), literal(input.relationshipSchemaSlug)),
+	),
+});
+
+export const showOverviewRecipe = defineRecipe(
+	(input: {
+		readonly entityId: string;
+		readonly peopleLimit: number;
+		readonly companyLimit: number;
+		readonly recommendationLimit: number;
+	}) => {
+		const person = table("entity", "person");
+		const company = table("entity", "company");
+		const suggested = table("entity", "suggested");
+		const personRelationship = table("relationship", "personRelationship");
+		const companyRelationship = table("relationship", "companyRelationship");
+		const suggestionRelationship = table("relationship", "suggestionRelationship");
+		return {
+			queries: {
+				people: selectedRows(personRelationship, {
+					...creditRows({
+						credit: person,
+						entityId: input.entityId,
+						limit: input.peopleLimit,
+						creditSchemaSlug: "person",
+						relationship: personRelationship,
+						relationshipSchemaSlug: "person-to-show",
+					}),
+					selection: {
+						...creditSelection(person, personRelationship),
+						character: selectedField(
+							propertyText(personRelationship, "character"),
+							Schema.NullOr(Schema.String),
+						),
+					},
+				}),
+				companies: selectedRows(companyRelationship, {
+					...creditRows({
+						credit: company,
+						entityId: input.entityId,
+						limit: input.companyLimit,
+						creditSchemaSlug: "company",
+						relationship: companyRelationship,
+						relationshipSchemaSlug: "company-to-show",
+					}),
+					selection: creditSelection(company, companyRelationship),
+				}),
+				recommendations: selectedRows(suggestionRelationship, {
+					limit: input.recommendationLimit,
+					orderBy: [ascending(column(suggested, "name"))],
+					joins: [
+						join(
+							"inner",
+							suggested,
+							eq(column(suggestionRelationship, "targetEntityId"), column(suggested, "id")),
+						),
+					],
+					where: and(
+						entitySchema(suggested, "show"),
+						eq(column(suggestionRelationship, "sourceEntityId"), literal(input.entityId)),
+						eq(
+							column(suggestionRelationship, "relationshipSchemaSlug"),
+							literal("media-suggestion"),
+						),
+					),
+					selection: {
+						id: selectedField(column(suggested, "id"), EntityId),
+						name: selectedField(column(suggested, "name"), Schema.String),
+						images: selectedField(propertyJson(suggested, "images"), MediaImageListSchema),
+					},
+				}),
+			},
+		};
+	},
+);
+
 const recommendationQuery = (input: {
 	readonly limit: number;
 	readonly entitySchemaSlug: string;
@@ -625,6 +737,7 @@ export const defaultMediaSavedViewRecipe = (input: {
 
 export type ShowDetailResult = Recipe.Success<typeof showDetailRecipe>;
 export type ShowSummaryResult = Recipe.Success<typeof showSummaryRecipe>;
+export type ShowOverviewResult = Recipe.Success<typeof showOverviewRecipe>;
 export type PodcastDetailResult = Recipe.Success<typeof podcastDetailRecipe>;
 export type TrendingMediaResult = Recipe.Success<typeof trendingMediaRecipe>;
 export type DefaultMediaSavedViewResult = Recipe.Success<typeof defaultMediaSavedViewRecipe>;
