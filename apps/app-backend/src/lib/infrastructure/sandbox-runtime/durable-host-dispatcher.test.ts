@@ -140,7 +140,6 @@ it.effect("dispatches workflow-owned capabilities through their deterministic ch
 				},
 				payload,
 				executionId,
-				0,
 			),
 		).toEqual({ state: "success", value: { signalId: "signal-1", wasCreated: true } });
 		expect(
@@ -153,7 +152,6 @@ it.effect("dispatches workflow-owned capabilities through their deterministic ch
 				},
 				payload,
 				executionId,
-				1,
 			),
 		).toEqual({ state: "success", value: null });
 		expect(executions).toMatchObject([
@@ -325,7 +323,7 @@ const makeHttpHarness = (options: {
 		const dispatcher = yield* SandboxDurableHostDispatcher;
 		return yield* dispatcher.dispatch(
 			{
-				index: 4,
+				index: 7,
 				kind: "host",
 				name: "httpCall",
 				args: {
@@ -341,7 +339,6 @@ const makeHttpHarness = (options: {
 				authority: { type: "system" },
 			},
 			executionId,
-			7,
 		);
 	}).pipe(
 		Effect.provide(
@@ -610,7 +607,6 @@ it.effect("does not swallow coordination interruption", () => {
 					authority: { type: "system" },
 				},
 				executionId,
-				0,
 			),
 		);
 		expect(Exit.isFailure(exit) && Cause.hasInterrupts(exit.cause)).toBe(true);
