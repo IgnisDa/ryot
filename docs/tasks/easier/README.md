@@ -123,6 +123,8 @@ Best first slices: ranks 4-7 are narrow and migration-free. Then implement rank 
 
 **Validation:** Future, expired, malformed, and just-expired metadata; cached verification after advancing the clock.
 
+**Implemented.** `ProKeyMeta` decodes `expiry` with `Schema.DateTimeUtcFromString`, so a malformed or non-string expiry now fails the existing decode branch and verification fails safe to `false` instead of being read as "no expiry". `serverStartTime` is gone: `verify` compares the decoded `DateTime` against `DateTime.now` in its own body, so each uncached verification re-evaluates expiry. `isValidated` keeps its one-hour `Effect.cachedWithTTL`, which now bounds how long a key that expires while the process runs stays accepted, rather than letting it stay accepted for the life of the process.
+
 ### 6. Atomic Translation Upsert
 
 **Owner:** D11 Entity translation

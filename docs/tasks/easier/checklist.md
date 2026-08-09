@@ -21,7 +21,7 @@
   - Owner: D08 Entities
   - Scope: Validate first, then use `insertEntity` as sole conflict primitive
 
-- [ ] **5. Correct Pro-key expiry representation** [H/S/N]
+- [x] **5. Correct Pro-key expiry representation** [H/S/N]
   - Owner: I01 Configuration
   - Scope: Decode expiry to `DateTime`, compare with `DateTime.now` each verification
 
