@@ -30,7 +30,9 @@ const uninstallWhenReleased = (installed: InstalledTestPlugin) =>
 		`uninstall of '${installed.pluginSlug}' after import completion`,
 		uninstallTestPluginStrict(installed).pipe(
 			Effect.as(true),
-			Effect.catchTag("PluginConflictError", () => Effect.succeed(null)),
+			Effect.catchTag("PluginConflictError", (error) =>
+				error.reason.code === "workflow-referenced" ? Effect.succeed(null) : Effect.fail(error),
+			),
 		),
 	);
 

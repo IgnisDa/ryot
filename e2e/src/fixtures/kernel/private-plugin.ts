@@ -492,6 +492,8 @@ export const releasePrivatePlugin = (client: Client, pluginSlug: PluginSlug) =>
 		`uninstall of private plugin '${pluginSlug}'`,
 		uninstallPrivatePlugin(client, pluginSlug).pipe(
 			Effect.as(true),
-			Effect.catchTag("PluginConflictError", () => Effect.succeed(null)),
+			Effect.catchTag("PluginConflictError", (error) =>
+				Effect.succeed(error.reason.code === "workflow-referenced" ? null : true),
+			),
 		),
 	).pipe(Effect.asVoid, Effect.orDie);

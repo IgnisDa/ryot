@@ -63,7 +63,11 @@ admin, or test surfaces that are allowed to expose them.
 
 ## Provider Fixtures
 
-Provider-driven tests install complete offline scripts through real admin plugin endpoint with `installTestProvider`. Pair with best-effort uninstall when production references may correctly block removal.
+Provider-driven tests install complete offline scripts through the real admin plugin endpoint with
+`installTestProvider`. Best-effort fixture teardown polls only while a running or suspended workflow
+references the plugin. A persistent-reference conflict ends best-effort teardown without failing the
+test or waiting for a timeout. Tests that assert successful removal must use strict uninstall and
+explicitly remove entities, integrations, saved views, and other persistent references first.
 
 - Build fixed operations with `fakeProviderSearchResult`, `fakeProviderDetailsResult`, and `fakeProviderTranslations`.
 - Add schema-provider link only when provider details reference related entities owned by another provider.
