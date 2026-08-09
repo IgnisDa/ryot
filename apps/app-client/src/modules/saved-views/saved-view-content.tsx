@@ -160,17 +160,16 @@ function SavedViewItems(props: { readonly state: SavedViewActiveData }) {
 }
 
 function SavedViewWebActions(props: {
-	readonly isEmpty: boolean;
 	readonly viewName: string;
 	readonly viewSlug: string;
+	readonly hasItems: boolean;
 	readonly onAdd?: () => void;
 	readonly search: SavedViewSearch;
 }) {
 	const onAdd = props.onAdd;
 	const [layout, setLayout] = useSavedViewLayout(props.viewSlug);
 	const searchInputRef = useRef<TextInput>(null);
-	const isUnavailable = props.isEmpty && props.search.query === "";
-	useSavedViewSearchShortcut(searchInputRef, !isUnavailable);
+	useSavedViewSearchShortcut(searchInputRef);
 	useHotkey("A", () => onAdd?.(), { enabled: Boolean(onAdd), stopPropagation: false });
 	return (
 		<View className="hidden flex-row items-center gap-2.5 md:flex">
@@ -178,19 +177,18 @@ function SavedViewWebActions(props: {
 				showShortcut
 				name={props.viewName}
 				search={props.search}
-				disabled={isUnavailable}
 				inputRef={searchInputRef}
 				className="h-8.5 w-60 rounded-md"
 			/>
 			<SavedViewLayoutSelector value={layout} onChange={setLayout} />
 			<Pressable
-				disabled={props.isEmpty}
 				onPress={() => undefined}
+				disabled={!props.hasItems}
 				accessibilityRole="button"
 				accessibilityLabel="Open filters"
 				className={clsx(
 					"h-8.5 flex-row items-center gap-2 rounded-md border border-border-strong bg-bg px-3",
-					props.isEmpty && "opacity-50",
+					!props.hasItems && "opacity-50",
 				)}
 			>
 				<AppIcon className="text-text-muted" name="sliders-horizontal" size={15} />
@@ -225,7 +223,6 @@ function SavedViewDisplay(
 		readonly record: SavedViewRecord;
 		readonly search: SavedViewSearch;
 		readonly isTransitioning: boolean;
-		readonly queryDocument: RyotQLDocument;
 	},
 ) {
 	const { items, pageInfo } = props.data;
@@ -263,43 +260,7 @@ function SavedViewDisplay(
 			/>
 		);
 	}
-	return (
-		<View className="w-full gap-5">
-			<View
-				className={clsx(
-					"gap-3 md:h-15 md:flex-row md:items-start md:justify-between md:gap-6",
-					DESKTOP_HEADER_ONLY,
-				)}
-			>
-				<View className="min-w-0 gap-1">
-					<View className="flex-row items-center gap-2.5">
-						<AppIcon size={20} name={props.record.icon} className="shrink-0 text-text-muted" />
-						<Text
-							numberOfLines={1}
-							className="min-w-0 flex-1 font-ui-semibold text-xl text-text md:font-display md:text-3xl"
-						>
-							{props.record.name}
-						</Text>
-					</View>
-					<SavedViewResultCount
-						loaded={items.length}
-						hasMore={pageInfo.hasMore}
-						queryDocument={props.queryDocument}
-						textClassName="font-ui text-xs md:text-sm"
-					/>
-				</View>
-				<SavedViewWebActions
-					onAdd={props.onAdd}
-					search={props.search}
-					isEmpty={items.length === 0}
-					viewName={props.record.name}
-					viewSlug={props.record.slug}
-				/>
-			</View>
-
-			{content}
-		</View>
-	);
+	return content;
 }
 
 export function SavedViewResultContent(props: {
@@ -316,34 +277,32 @@ export function SavedViewResultContent(props: {
 }) {
 	const providerAdd = useProviderAddFlow();
 	const entitySchemaSlug = props.record.entitySchemaSlug;
-	const onAdd =
-		props.state.status === "ready" && entitySchemaSlug !== null ? providerAdd.open : undefined;
-	const meta =
-		props.state.status === "ready" ? (
-			<View className="flex-row items-center gap-2">
-				<SavedViewResultCount
-					textClassName="font-ui text-[13px]"
-					queryDocument={props.queryDocument}
-					loaded={props.state.data.items.length}
-					hasMore={props.state.data.pageInfo.hasMore}
-				/>
-				{props.isLayoutChanging ? (
-					<ActivityIndicator size="small" accessibilityLabel="Loading saved view layout" />
-				) : null}
-			</View>
-		) : undefined;
+	const readyState = props.state.status === "ready" ? props.state : undefined;
+	const onAdd = readyState && entitySchemaSlug !== null ? providerAdd.open : undefined;
+	const meta = readyState ? (
+		<View className="flex-row items-center gap-2">
+			<SavedViewResultCount
+				textClassName="font-ui text-[13px]"
+				queryDocument={props.queryDocument}
+				loaded={readyState.data.items.length}
+				hasMore={readyState.data.pageInfo.hasMore}
+			/>
+			{props.isLayoutChanging ? (
+				<ActivityIndicator size="small" accessibilityLabel="Loading saved view layout" />
+			) : null}
+		</View>
+	) : undefined;
 	let content: ReactNode;
 	if (props.state.status === "ready") {
-		const readyState = props.state;
+		const propReadyState = props.state;
 		content = (
-			<ManagedAssetHost label="saved-view" assets={readyState.assets}>
+			<ManagedAssetHost label="saved-view" assets={propReadyState.assets}>
 				<SavedViewDisplay
-					{...readyState}
+					{...propReadyState}
 					onAdd={onAdd}
 					record={props.record}
 					search={props.search}
 					loadMore={props.loadMore}
-					queryDocument={props.queryDocument}
 					isLoadingMore={props.isLoadingMore}
 					isTransitioning={props.isLayoutChanging || props.search.isSearching}
 				/>
@@ -365,7 +324,42 @@ export function SavedViewResultContent(props: {
 				initialScrollOffset={props.initialScrollOffset}
 				onScrollOffsetChange={props.onScrollOffsetChange}
 			>
-				{content}
+				<View className="w-full gap-5">
+					<View
+						className={clsx(
+							"gap-3 md:h-15 md:flex-row md:items-start md:justify-between md:gap-6",
+							DESKTOP_HEADER_ONLY,
+						)}
+					>
+						<View className="min-w-0 gap-1">
+							<View className="flex-row items-center gap-2.5">
+								<AppIcon size={20} name={props.record.icon} className="shrink-0 text-text-muted" />
+								<Text
+									numberOfLines={1}
+									className="min-w-0 flex-1 font-ui-semibold text-xl text-text md:font-display md:text-3xl"
+								>
+									{props.record.name}
+								</Text>
+							</View>
+							{readyState ? (
+								<SavedViewResultCount
+									queryDocument={props.queryDocument}
+									loaded={readyState.data.items.length}
+									hasMore={readyState.data.pageInfo.hasMore}
+									textClassName="font-ui text-xs md:text-sm"
+								/>
+							) : null}
+						</View>
+						<SavedViewWebActions
+							onAdd={onAdd}
+							search={props.search}
+							viewName={props.record.name}
+							viewSlug={props.record.slug}
+							hasItems={Boolean(readyState?.data.items.length)}
+						/>
+					</View>
+					{content}
+				</View>
 			</SavedViewFrame>
 			{onAdd && entitySchemaSlug !== null ? (
 				<ProviderAddHost
