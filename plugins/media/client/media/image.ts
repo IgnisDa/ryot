@@ -1,9 +1,9 @@
 import type { ManagedAssetLocator } from "@ryot-app/client-sdk";
 import { managedAssetKey } from "@ryot-app/client-sdk/react";
 
-import type { MediaImage } from "../shared/media-image";
+import type { MediaImage } from "../../shared/media-image";
 
-type MediaImages = readonly MediaImage[] | null;
+export type MediaImages = readonly MediaImage[] | null;
 
 export type MediaImageAsset = MediaImage extends infer Image
 	? Image extends MediaImage

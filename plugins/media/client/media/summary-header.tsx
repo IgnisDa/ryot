@@ -10,62 +10,32 @@ import {
 import clsx from "clsx";
 import { useState, type ReactNode } from "react";
 
-import { ManagedAssetImage } from "../managed-assets";
+import { ManagedAssetImage } from "./managed-assets";
 import {
-	ShowActionButton,
-	ShowChip,
-	ShowFact,
-	ShowFactDivider,
-	ShowLinkButton,
-	ShowRailRow,
+	MediaActionButton,
+	MediaChip,
+	MediaFact,
+	MediaFactDivider,
+	MediaLinkButton,
+	MediaProgressBar,
+	MediaRailRow,
 } from "./primitives";
 import {
-	showCollectionsLabel,
-	showEpisodeFact,
-	showLifecycleLabel,
-	showOwnershipLabel,
-	showPosterAsset,
-	showRatingLabel,
-	showReleaseLabel,
-	showSeasonFact,
-	type ShowSummary,
+	mediaCollectionsLabel,
+	mediaOwnershipLabel,
+	mediaPosterAsset,
+	mediaReleaseLabel,
+	type MediaCollectionList,
+	type MediaSummaryFact,
+	type MediaSummaryFields,
 } from "./summary-state";
 
-const SHOW_TYPE_LABEL = "TV Show";
+export type MediaSummaryValue = MediaSummaryFields & { readonly collections: MediaCollectionList };
 
-const RATING_SUFFIX = " / 100";
-
-type SummaryFact = {
-	readonly icon: string;
-	readonly label: string;
-	readonly value: string;
-	readonly suffix?: string | undefined;
-	readonly iconClass?: string;
-};
-
-const summaryFacts = (show: ShowSummary): readonly SummaryFact[] => {
-	const seasons = showSeasonFact(show);
-	const episodes = showEpisodeFact(show);
-	const ratingLabel = showRatingLabel(show);
-	return [
-		ratingLabel === undefined
-			? undefined
-			: {
-					icon: "star",
-					value: ratingLabel,
-					suffix: RATING_SUFFIX,
-					iconClass: "text-accent-text",
-					label: show.providerName === null ? "Provider rating" : `${show.providerName} rating`,
-				},
-		show.productionStatus === null
-			? undefined
-			: { icon: "clapperboard", label: "Production status", value: show.productionStatus },
-		seasons === undefined ? undefined : { icon: "layers-3", ...seasons },
-		episodes === undefined ? undefined : { icon: "tv", ...episodes },
-	].filter((fact) => fact !== undefined);
-};
-
-function ShowFactRow(props: { readonly compact: boolean; readonly show: ShowSummary }) {
+function MediaFactRow(props: {
+	readonly compact: boolean;
+	readonly facts: readonly MediaSummaryFact[];
+}) {
 	const { compact } = props;
 	return (
 		<div
@@ -74,14 +44,14 @@ function ShowFactRow(props: { readonly compact: boolean; readonly show: ShowSumm
 				!compact && "flex-nowrap gap-x-4",
 			)}
 		>
-			{summaryFacts(props.show).map((fact, index) => (
+			{props.facts.map((fact, index) => (
 				<div
 					key={fact.label}
 					className={clsx("flex items-center gap-3", compact ? "w-1/2" : "w-auto flex-none")}
 				>
 					{index === 0 || (compact && index % 2 === 0) ? null : (
 						<div className={clsx("flex", compact ? "mr-3" : "mr-4")}>
-							<ShowFactDivider />
+							<MediaFactDivider />
 						</div>
 					)}
 					{compact && (
@@ -93,23 +63,26 @@ function ShowFactRow(props: { readonly compact: boolean; readonly show: ShowSumm
 							/>
 						</div>
 					)}
-					<ShowFact label={fact.label} value={fact.value} suffix={fact.suffix} />
+					<MediaFact label={fact.label} value={fact.value} suffix={fact.suffix} />
 				</div>
 			))}
 		</div>
 	);
 }
 
-function ShowIdentityLine(props: { readonly show: ShowSummary }) {
-	const { show } = props;
-	const release = showReleaseLabel(show);
+function MediaIdentityLine(props: {
+	readonly typeLabel: string;
+	readonly media: MediaSummaryValue;
+}) {
+	const { media } = props;
+	const release = mediaReleaseLabel(media);
 	return (
 		<p className="font-ui text-[13px] text-text">
-			{SHOW_TYPE_LABEL}
-			{show.providerName === null ? null : (
+			{props.typeLabel}
+			{media.providerName === null ? null : (
 				<>
 					{" • "}
-					<span className="font-ui font-medium">{show.providerName}</span>
+					<span className="font-ui font-medium">{media.providerName}</span>
 				</>
 			)}
 			{release === undefined ? null : ` • ${release}`}
@@ -117,7 +90,7 @@ function ShowIdentityLine(props: { readonly show: ShowSummary }) {
 	);
 }
 
-function ShowDescription(props: {
+function MediaDescription(props: {
 	readonly text: string;
 	readonly onToggle: () => void;
 	readonly isExpanded: boolean;
@@ -133,7 +106,7 @@ function ShowDescription(props: {
 				{props.text}
 			</p>
 			<div className="flex items-start">
-				<ShowLinkButton
+				<MediaLinkButton
 					tone="plain"
 					onClick={props.onToggle}
 					label={props.isExpanded ? "Less" : "More"}
@@ -143,13 +116,15 @@ function ShowDescription(props: {
 	);
 }
 
-function ShowIdentity(props: {
+function MediaIdentity(props: {
 	readonly compact: boolean;
-	readonly show: ShowSummary;
+	readonly typeLabel: string;
 	readonly description: ReactNode;
+	readonly media: MediaSummaryValue;
+	readonly facts: readonly MediaSummaryFact[];
 	readonly settled: EntitySettleReason | undefined;
 }) {
-	const { show, compact } = props;
+	const { media, compact } = props;
 	return (
 		<div className={clsx("flex min-w-0 flex-col", compact ? "gap-4" : "flex-1 gap-2.5")}>
 			<SettleHighlight
@@ -165,20 +140,20 @@ function ShowIdentity(props: {
 						compact ? "text-[22px] leading-7" : "text-[34px] leading-10",
 					)}
 				>
-					{show.name}
+					{media.name}
 				</h1>
-				<ShowIdentityLine show={show} />
-				{show.genres === null || show.genres.length === 0 ? null : (
+				<MediaIdentityLine media={media} typeLabel={props.typeLabel} />
+				{media.genres === null || media.genres.length === 0 ? null : (
 					<div className="flex flex-wrap gap-1.5">
-						{show.genres.map((genre) => (
-							<ShowChip key={genre} label={genre} />
+						{media.genres.map((genre) => (
+							<MediaChip key={genre} label={genre} />
 						))}
 					</div>
 				)}
 			</SettleHighlight>
-			<ShowFactRow show={show} compact={compact} />
+			<MediaFactRow compact={compact} facts={props.facts} />
 			{props.description}
-			{isTitleProvisional(show) && (
+			{isTitleProvisional(media) && (
 				<div className="flex items-start">
 					<TranslationChip icon={<AppIcon size={13} name="globe" />} />
 				</div>
@@ -187,7 +162,7 @@ function ShowIdentity(props: {
 	);
 }
 
-function ShowLibraryBadge(props: { readonly isInLibrary: boolean }) {
+function MediaLibraryBadge(props: { readonly isInLibrary: boolean }) {
 	if (!props.isInLibrary) {
 		return <AppIcon size={20} name="circle-check" className="text-text-subtle" />;
 	}
@@ -198,59 +173,69 @@ function ShowLibraryBadge(props: { readonly isInLibrary: boolean }) {
 	);
 }
 
-function ShowStatusRail(props: { readonly compact: boolean; readonly show: ShowSummary }) {
-	const { show, compact } = props;
+function MediaStatusRail(props: {
+	readonly compact: boolean;
+	readonly lifecycleLabel: string;
+	readonly media: MediaSummaryValue;
+	readonly progress: { readonly percent: number } | undefined;
+}) {
+	const { media, compact } = props;
 	return (
 		<div className={clsx("flex flex-col", compact ? "gap-3" : "w-84 gap-2")}>
 			<div className="overflow-hidden rounded-lg border border-border bg-surface">
-				<ShowRailRow
+				<MediaRailRow
 					compact={compact}
 					icon="circle-check"
 					title="Your status"
 					detail="Status is calculated from your activity"
 					trailing={
 						<span className="font-ui font-medium text-[13px] text-success">
-							{showLifecycleLabel(show.state)}
+							{props.lifecycleLabel}
 						</span>
 					}
 				/>
-				<ShowRailRow
+				{props.progress === undefined ? null : (
+					<div className="px-4 py-3.5">
+						<MediaProgressBar percent={props.progress.percent} />
+					</div>
+				)}
+				<MediaRailRow
 					icon="radio"
 					compact={compact}
 					title="Monitoring"
 					detail="Keep provider details up to date"
 					trailing={
 						<Switch
-							checked={show.isMonitored}
+							checked={media.isMonitored}
 							label="Toggle media monitoring"
 							onChange={() => console.log("TODO: toggle media monitoring")}
 						/>
 					}
 				/>
-				<ShowRailRow
+				<MediaRailRow
 					icon="library"
 					compact={compact}
 					title="In library"
-					trailing={<ShowLibraryBadge isInLibrary={show.isInLibrary} />}
+					trailing={<MediaLibraryBadge isInLibrary={media.isInLibrary} />}
 				/>
-				<ShowRailRow
+				<MediaRailRow
 					icon="tags"
 					compact={compact}
 					title="Ownership"
 					trailing={
 						<span className="font-ui text-[13px] text-text-muted">
-							{showOwnershipLabel(show.owned)}
+							{mediaOwnershipLabel(media.owned)}
 						</span>
 					}
 				/>
-				<ShowRailRow
+				<MediaRailRow
 					divided={false}
 					icon="layers-3"
 					compact={compact}
 					title="Collections"
-					detail={showCollectionsLabel(show.collections)}
+					detail={mediaCollectionsLabel(media.collections)}
 					trailing={
-						<ShowLinkButton
+						<MediaLinkButton
 							label="Manage"
 							onClick={() => console.log("TODO: manage collections")}
 						/>
@@ -258,13 +243,13 @@ function ShowStatusRail(props: { readonly compact: boolean; readonly show: ShowS
 				/>
 			</div>
 			<div className={clsx("flex gap-2", !compact && "flex-col")}>
-				<ShowActionButton
+				<MediaActionButton
 					variant="primary"
 					compact={compact}
 					label="Log activity"
 					onClick={() => console.log("TODO: open activity form")}
 				/>
-				<ShowActionButton
+				<MediaActionButton
 					compact={compact}
 					variant="secondary"
 					label="Write review"
@@ -275,17 +260,21 @@ function ShowStatusRail(props: { readonly compact: boolean; readonly show: ShowS
 	);
 }
 
-export function ShowSummaryHeader(props: {
+export function MediaSummaryHeader(props: {
 	readonly compact: boolean;
-	readonly show: ShowSummary;
+	readonly typeLabel: string;
+	readonly lifecycleLabel: string;
+	readonly media: MediaSummaryValue;
+	readonly facts: readonly MediaSummaryFact[];
 	readonly settled: EntitySettleReason | undefined;
+	readonly progress?: { readonly percent: number } | undefined;
 }) {
-	const { compact } = props;
-	const { description } = props.show;
+	const { media, compact } = props;
+	const { description } = media;
 	const [isExpanded, setIsExpanded] = useState(false);
 	const descriptionNode =
 		description === null ? null : (
-			<ShowDescription
+			<MediaDescription
 				text={description}
 				isExpanded={isExpanded}
 				onToggle={() => setIsExpanded(!isExpanded)}
@@ -297,22 +286,29 @@ export function ShowSummaryHeader(props: {
 				className={clsx("relative flex min-w-0", compact ? "flex-col" : "flex-1 flex-row gap-8")}
 			>
 				<ManagedAssetImage
-					monogram={props.show.name}
-					asset={showPosterAsset(props.show)}
-					state={fieldSyncState(showPosterAsset(props.show), props.show)}
+					monogram={media.name}
+					asset={mediaPosterAsset(media)}
+					state={fieldSyncState(mediaPosterAsset(media), media)}
 					className={clsx(
 						"aspect-2/3",
 						compact ? "absolute top-0 left-0 w-32" : "relative w-60 shrink-0",
 					)}
 				/>
-				<ShowIdentity
+				<MediaIdentity
+					media={media}
 					compact={compact}
-					show={props.show}
+					facts={props.facts}
 					settled={props.settled}
+					typeLabel={props.typeLabel}
 					description={descriptionNode}
 				/>
 			</div>
-			<ShowStatusRail show={props.show} compact={compact} />
+			<MediaStatusRail
+				media={media}
+				compact={compact}
+				progress={props.progress}
+				lifecycleLabel={props.lifecycleLabel}
+			/>
 		</div>
 	);
 }

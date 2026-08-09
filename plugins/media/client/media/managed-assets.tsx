@@ -4,7 +4,7 @@ import {
 } from "@ryot-app/client-sdk/react";
 import { EntityArtWell, type FieldSyncState } from "@ryot-app/client-ui-sdk/sync";
 
-import type { MediaImageAsset } from "./media-image";
+import type { MediaImageAsset } from "./image";
 
 export const imageAssetKey = (asset: MediaImageAsset) =>
 	asset.type === "remote" ? `remote:${asset.url}` : managedAssetKey(asset);

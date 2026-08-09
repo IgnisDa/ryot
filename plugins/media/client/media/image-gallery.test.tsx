@@ -1,15 +1,33 @@
 import { createRef } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import type { MediaImage } from "../shared/media-image";
-import { emptyShowOverview } from "../tests/client/show/overview-fixture";
-import { decodeShowSummary } from "../tests/client/show/summary-fixture";
-import { clickRyotElement, mountRyotClient, pressRyotKey } from "../tests/client/test-support";
+import type { MediaImage } from "../../shared/media-image";
+import type { MediaOverviewRows } from "../../shared/media-recipes";
+import { emptyShowOverview } from "../../tests/client/show/overview-fixture";
+import { decodeShowSummary } from "../../tests/client/show/summary-fixture";
+import { clickRyotElement, mountRyotClient, pressRyotKey } from "../../tests/client/test-support";
 import { MediaImageGallery } from "./image-gallery";
 import { galleryImages } from "./image-gallery-state";
-import { ShowOverview } from "./show/overview";
+import {
+	MediaOverview,
+	MediaOverviewRelations,
+	type MediaOverviewRelationsRender,
+} from "./overview";
+import { mediaRelationsAreEmpty } from "./overview-state";
 
 const noopAdapter = { query: () => Promise.resolve({}) };
+
+const relationsRender: MediaOverviewRelationsRender<MediaOverviewRows> = ({
+	divided,
+	overview,
+}) => (
+	<MediaOverviewRelations
+		compact
+		divided={divided}
+		overview={overview}
+		onViewAllPeople={() => undefined}
+	/>
+);
 
 const remote = (index: number, purpose: MediaImage["purpose"]): MediaImage => ({
 	purpose,
@@ -85,11 +103,14 @@ describe("MediaImageGallery", () => {
 	it("opens from the overview button and shows every image, not the rail's ten", () => {
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
-			<ShowOverview
+			<MediaOverview
 				compact
+				relations={relationsRender}
+				isEmpty={mediaRelationsAreEmpty}
 				refreshOverview={() => undefined}
+				loadingDetail="Fetching the details."
 				overview={{ status: "ready", overview: emptyShowOverview() }}
-				show={decodeShowSummary({ name: "Dark", images: twelveImages })}
+				media={decodeShowSummary({ name: "Dark", images: twelveImages })}
 			/>,
 		);
 

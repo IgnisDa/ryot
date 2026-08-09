@@ -25,6 +25,7 @@ import { DateTime, Effect } from "effect";
 import { adminHeaders } from "~/fixtures/kernel/admin";
 import type { Client } from "~/fixtures/kernel/auth";
 import { getApiClient } from "~/fixtures/kernel/contract-client";
+import { insertGlobalRelationship } from "~/fixtures/kernel/entity-graph";
 import {
 	findBuiltinSchemaBySlug,
 	getBuiltinEntitySchemaSlug,
@@ -384,6 +385,141 @@ export const seedGlobalShowEpisodeTree = (
 		);
 
 		return { tmdbId, showId: show.id, seasonId: season.id, episodeId: episode.id };
+	});
+
+export const seedGlobalMovieWithCollection = (
+	client: Client,
+	options: {
+		readonly movieName: string;
+		readonly collectionName: string;
+		readonly siblingName: string;
+		readonly withCredits?: boolean;
+		readonly movieProperties?: Record<string, unknown>;
+		readonly siblingProperties?: Record<string, unknown>;
+	},
+) =>
+	Effect.gen(function* () {
+		const { schema: movieSchema } = yield* findBuiltinSchemaBySlug(client, "movie");
+		const tmdbProvider = movieSchema.providers.find((provider) => provider.name === "TMDB");
+		assertPresent(tmdbProvider, "Missing TMDB provider for built-in movie schema");
+
+		const [groupSchemaId, personSchemaId, companySchemaId, relationshipSchemas] = yield* Effect.all(
+			[
+				getBuiltinEntitySchemaSlug("movie-group"),
+				getBuiltinEntitySchemaSlug("person"),
+				getBuiltinEntitySchemaSlug("company"),
+				listRelationshipSchemas(client, {
+					slugs: [
+						"movie-group-to-movie",
+						"person-to-movie",
+						"company-to-movie",
+						"media-suggestion",
+					],
+				}),
+			],
+		);
+		const groupToMovie = requireRelationshipSchemaBySlug(
+			relationshipSchemas,
+			"movie-group-to-movie",
+		);
+		const personToMovie = requireRelationshipSchemaBySlug(relationshipSchemas, "person-to-movie");
+		const companyToMovie = requireRelationshipSchemaBySlug(relationshipSchemas, "company-to-movie");
+		const suggestion = requireRelationshipSchemaBySlug(relationshipSchemas, "media-suggestion");
+
+		const tmdbId = String(Math.floor(Math.random() * 1_000_000_000));
+		const populatedAt = DateTime.formatIso(DateTime.nowUnsafe());
+		const api = getApiClient();
+		const createGlobalEntity = (input: {
+			name: string;
+			externalId: string;
+			entitySchemaSlug: string;
+			properties: Record<string, unknown>;
+		}) =>
+			api.call(
+				(c) =>
+					c.testSupport.createGlobalEntity({
+						payload: {
+							...input,
+							populatedAt,
+							providerId: SandboxProviderId.make(tmdbProvider.providerId),
+							entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug),
+						},
+					}),
+				adminHeaders(),
+			);
+
+		const movie = yield* createGlobalEntity({
+			externalId: tmdbId,
+			name: options.movieName,
+			entitySchemaSlug: movieSchema.id,
+			properties: options.movieProperties ?? {},
+		});
+		const group = yield* createGlobalEntity({
+			properties: {},
+			name: options.collectionName,
+			entitySchemaSlug: groupSchemaId,
+			externalId: `movie-group-${tmdbId}`,
+		});
+		const sibling = yield* createGlobalEntity({
+			name: options.siblingName,
+			entitySchemaSlug: movieSchema.id,
+			externalId: `movie-sibling-${tmdbId}`,
+			properties: options.siblingProperties ?? {},
+		});
+		yield* insertGlobalRelationship({
+			properties: { order: 1 },
+			targetEntityId: movie.id,
+			sourceEntityId: group.id,
+			relationshipSchemaSlug: groupToMovie.id,
+		});
+		yield* insertGlobalRelationship({
+			properties: { order: 2 },
+			sourceEntityId: group.id,
+			targetEntityId: sibling.id,
+			relationshipSchemaSlug: groupToMovie.id,
+		});
+
+		if (options.withCredits !== true) {
+			return { movie, group, sibling, credits: null };
+		}
+
+		const person = yield* createGlobalEntity({
+			properties: {},
+			entitySchemaSlug: personSchemaId,
+			name: `Credited Person ${tmdbId}`,
+			externalId: `movie-person-${tmdbId}`,
+		});
+		const company = yield* createGlobalEntity({
+			properties: {},
+			entitySchemaSlug: companySchemaId,
+			name: `Credited Company ${tmdbId}`,
+			externalId: `movie-company-${tmdbId}`,
+		});
+		const suggested = yield* createGlobalEntity({
+			properties: {},
+			entitySchemaSlug: movieSchema.id,
+			name: `Suggested Movie ${tmdbId}`,
+			externalId: `movie-suggested-${tmdbId}`,
+		});
+		yield* insertGlobalRelationship({
+			targetEntityId: movie.id,
+			sourceEntityId: person.id,
+			relationshipSchemaSlug: personToMovie.id,
+			properties: { order: 1, roles: ["Actor"], character: "The Lead" },
+		});
+		yield* insertGlobalRelationship({
+			targetEntityId: movie.id,
+			sourceEntityId: company.id,
+			relationshipSchemaSlug: companyToMovie.id,
+			properties: { order: 1, roles: ["Production Company"] },
+		});
+		yield* insertGlobalRelationship({
+			properties: {},
+			sourceEntityId: movie.id,
+			targetEntityId: suggested.id,
+			relationshipSchemaSlug: suggestion.id,
+		});
+		return { movie, group, sibling, credits: { person, company, suggested } };
 	});
 
 export const insertLibraryMembership = (

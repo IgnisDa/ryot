@@ -13,9 +13,9 @@ import clsx from "clsx";
 import {
 	mediaPresentationRecipe,
 	type MediaPresentationData,
-} from "../shared/entity-presentations";
+} from "../../shared/entity-presentations";
+import { collectManagedAssetLocators, preferredMediaImageAsset } from "./image";
 import { ManagedAssetImage } from "./managed-assets";
-import { collectManagedAssetLocators, preferredMediaImageAsset } from "./media-image";
 
 export type MediaPresentationViewData = MediaPresentationData & {
 	readonly batchAssets: readonly ManagedAssetLocator[];

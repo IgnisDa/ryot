@@ -8,26 +8,72 @@ import { ManagedAssetProvider, useRyotQuery } from "@ryot-app/client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
 import { useEffect, useState, type ReactNode } from "react";
 
+import type { MediaOverviewRows } from "../../shared/media-recipes";
+import { MEDIA_ART_HEIGHT, MEDIA_BACKDROP_HEIGHT, MediaHero } from "../media/hero";
+import {
+	MediaOverview,
+	MediaOverviewRelations,
+	type MediaOverviewRelationsRender,
+} from "../media/overview";
+import {
+	mapMediaOverview,
+	mediaOverviewManagedAssets,
+	mediaRelationsAreEmpty,
+	type MediaOverviewState,
+} from "../media/overview-state";
+import { MediaRefreshStatus, MediaStatusMessage } from "../media/primitives";
+import { MediaSummaryHeader } from "../media/summary-header";
+import { mediaManagedAssets, mediaRatingFact } from "../media/summary-state";
+import { MediaTabBar, type MediaTab } from "../media/tabs";
 import { ShowActivityTab } from "./activity";
 import { ShowEpisodesTab } from "./episodes";
-import { SHOW_ART_HEIGHT, SHOW_BACKDROP_HEIGHT, ShowHero } from "./hero";
-import { ShowOverview } from "./overview";
-import {
-	mapShowOverview,
-	showOverviewManagedAssets,
-	type ShowOverviewState,
-} from "./overview-state";
-import { ShowRefreshStatus, ShowStatusMessage } from "./primitives";
 import { showOverviewQuery, showSummaryQuery, useShowEntitySettle } from "./queries";
-import { ShowSummaryHeader } from "./summary-header";
 import {
 	mapShowSummary,
-	showManagedAssets,
+	showEpisodeFact,
+	showLifecycleLabel,
+	showSeasonFact,
 	showSummaryError,
 	showSummaryUnavailable,
+	type ShowSummary,
 	type ShowSummaryState,
 } from "./summary-state";
-import { ShowTabBar, type ShowTabKey } from "./tabs";
+
+const SHOW_TYPE_LABEL = "TV Show";
+
+type ShowTabKey = "overview" | "episodes" | "activity";
+
+const SHOW_TABS: readonly MediaTab<ShowTabKey>[] = [
+	{ key: "overview", label: "Overview" },
+	{ key: "episodes", label: "Episodes" },
+	{ key: "activity", label: "Activity" },
+];
+
+const showOverviewRelations: MediaOverviewRelationsRender<MediaOverviewRows> = ({
+	compact,
+	divided,
+	overview,
+}) => (
+	<MediaOverviewRelations
+		compact={compact}
+		divided={divided}
+		overview={overview}
+		onViewAllPeople={() => console.log("TODO: open all show credits")}
+	/>
+);
+
+const showSummaryFacts = (show: ShowSummary) => {
+	const seasons = showSeasonFact(show);
+	const episodes = showEpisodeFact(show);
+	return [
+		mediaRatingFact(show),
+		show.productionStatus === null
+			? undefined
+			: { icon: "clapperboard", label: "Production status", value: show.productionStatus },
+		seasons === undefined ? undefined : { icon: "layers-3", ...seasons },
+		episodes === undefined ? undefined : { icon: "tv", ...episodes },
+	].filter((fact) => fact !== undefined);
+};
 
 export function ShowScreenBody(props: {
 	readonly compact: boolean;
@@ -35,30 +81,30 @@ export function ShowScreenBody(props: {
 	readonly episodes: ReactNode;
 	readonly activity: ReactNode;
 	readonly state: ShowSummaryState;
-	readonly overview: ShowOverviewState;
 	readonly refreshOverview: () => void;
 	readonly summaryRefreshStatus?: ReactNode;
 	readonly overviewRefreshStatus?: ReactNode;
 	readonly settled: EntitySettleReason | undefined;
+	readonly overview: MediaOverviewState<MediaOverviewRows>;
 }) {
 	const { state } = props;
 	const [activeTab, setActiveTab] = useState<ShowTabKey>("overview");
 	if (state.status === "loading") {
 		return (
-			<ShowStatusMessage
+			<MediaStatusMessage
 				title="Loading show..."
 				detail="Fetching the latest details for this show."
 			/>
 		);
 	}
 	if (state.status === "transport-error" || state.status === "malformed") {
-		return <ShowStatusMessage {...showSummaryError(state)} onRetry={props.refresh} />;
+		return <MediaStatusMessage {...showSummaryError(state)} onRetry={props.refresh} />;
 	}
 	if (state.status === "unavailable") {
 		return (
 			<>
 				{props.summaryRefreshStatus}
-				<ShowStatusMessage {...showSummaryUnavailable(state.reason)} />
+				<MediaStatusMessage {...showSummaryUnavailable(state.reason)} />
 			</>
 		);
 	}
@@ -66,20 +112,35 @@ export function ShowScreenBody(props: {
 		episodes: props.episodes,
 		activity: props.activity,
 		overview: (
-			<ShowOverview
-				show={state.show}
+			<MediaOverview
+				media={state.show}
 				compact={props.compact}
 				overview={props.overview}
+				isEmpty={mediaRelationsAreEmpty}
+				relations={showOverviewRelations}
 				refreshOverview={props.refreshOverview}
 				refreshStatus={props.overviewRefreshStatus}
+				loadingDetail="Fetching the cast, companies and recommendations for this show."
 			/>
 		),
 	};
 	return (
 		<div className="flex flex-col gap-4">
 			{props.summaryRefreshStatus}
-			<ShowSummaryHeader show={state.show} compact={props.compact} settled={props.settled} />
-			<ShowTabBar activeTab={activeTab} compact={props.compact} onSelect={setActiveTab} />
+			<MediaSummaryHeader
+				media={state.show}
+				compact={props.compact}
+				settled={props.settled}
+				typeLabel={SHOW_TYPE_LABEL}
+				facts={showSummaryFacts(state.show)}
+				lifecycleLabel={showLifecycleLabel(state.show.state)}
+			/>
+			<MediaTabBar
+				tabs={SHOW_TABS}
+				activeTab={activeTab}
+				compact={props.compact}
+				onSelect={setActiveTab}
+			/>
 			{tabContent[activeTab]}
 		</div>
 	);
@@ -94,10 +155,10 @@ export function ShowScreen(props: EntityRendererProps) {
 		commit();
 	}, [commit, summaryResult.data, overviewResult.data]);
 	const state = mapShowSummary(summaryResult);
-	const overview = mapShowOverview(overviewResult);
-	const assets = state.status === "ready" ? showManagedAssets(state.show) : [];
+	const overview = mapMediaOverview(overviewResult);
+	const assets = state.status === "ready" ? mediaManagedAssets(state.show) : [];
 	const overviewAssets =
-		overview.status === "ready" ? showOverviewManagedAssets(overview.overview) : [];
+		overview.status === "ready" ? mediaOverviewManagedAssets(overview.overview) : [];
 	return (
 		<ManagedAssetProvider assets={assets}>
 			<PluginScreenFrame
@@ -106,8 +167,8 @@ export function ShowScreen(props: EntityRendererProps) {
 				hero={
 					state.status === "ready"
 						? {
-								node: <ShowHero compact={compact} show={state.show} />,
-								height: compact ? SHOW_ART_HEIGHT : SHOW_BACKDROP_HEIGHT,
+								node: <MediaHero compact={compact} media={state.show} />,
+								height: compact ? MEDIA_ART_HEIGHT : MEDIA_BACKDROP_HEIGHT,
 							}
 						: undefined
 				}
@@ -120,8 +181,8 @@ export function ShowScreen(props: EntityRendererProps) {
 						refresh={summaryResult.refetch}
 						settled={settled.get(props.entityId)}
 						refreshOverview={overviewResult.refetch}
-						summaryRefreshStatus={<ShowRefreshStatus result={summaryResult} />}
-						overviewRefreshStatus={<ShowRefreshStatus result={overviewResult} />}
+						summaryRefreshStatus={<MediaRefreshStatus result={summaryResult} />}
+						overviewRefreshStatus={<MediaRefreshStatus result={overviewResult} />}
 						episodes={<ShowEpisodesTab compact={compact} entityId={props.entityId} />}
 						activity={<ShowActivityTab compact={compact} entityId={props.entityId} />}
 					/>

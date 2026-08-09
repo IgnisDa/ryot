@@ -346,7 +346,6 @@ describe("media show query recipes", () => {
 			"schemaSlug",
 			"populationStatus",
 			"translationStatus",
-			"state",
 			"owned",
 			"providerName",
 			"description",
@@ -354,13 +353,14 @@ describe("media show query recipes", () => {
 			"watchProviders",
 			"publishYear",
 			"genres",
-			"totalSeasons",
-			"totalEpisodes",
 			"images",
 			"providerRating",
 			"productionStatus",
 			"isInLibrary",
 			"isMonitored",
+			"state",
+			"totalSeasons",
+			"totalEpisodes",
 		]);
 		expect(show.output.include?.[0]).toMatchObject({ limit: 6, key: "collections" });
 		expect(show.joins?.[0]).toMatchObject({ type: "left", table: { alias: "provider" } });

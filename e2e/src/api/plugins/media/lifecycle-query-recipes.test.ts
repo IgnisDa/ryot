@@ -4,6 +4,7 @@ import {
 	podcastsByLifecycleStateRecipe,
 	showsByLifecycleStateRecipe,
 } from "@ryot-app/media-plugin/query-recipes";
+import { movieSummaryRecipe } from "@ryot-app/media-plugin/shared/movie-recipes";
 import { showSeasonEpisodesRecipe } from "@ryot-app/media-plugin/shared/show-recipes";
 import { column, descending, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { Effect } from "effect";
@@ -802,5 +803,133 @@ describe("Media episodic lifecycle query recipes", () => {
 				const parentEvents = yield* listEventsForEntity(auth.client, show.id, undefined, 100);
 				expect(parentEvents.some((event) => event.eventSchemaSlug === "complete")).toBe(false);
 			}),
+	);
+});
+
+const loadMovieLifecycleSchemas = (client: Client) =>
+	Effect.gen(function* () {
+		const movieSchemaId = yield* getBuiltinEntitySchemaSlug("movie");
+		const movieEvents = yield* listEventSchemas(client, movieSchemaId);
+		return {
+			movieSchemaId,
+			movieEvents: {
+				onHold: requireEventSchemaBySlug(movieEvents, "on_hold").id,
+				backlog: requireEventSchemaBySlug(movieEvents, "backlog").id,
+				dropped: requireEventSchemaBySlug(movieEvents, "dropped").id,
+				progress: requireEventSchemaBySlug(movieEvents, "progress").id,
+				complete: requireEventSchemaBySlug(movieEvents, "complete").id,
+			},
+		};
+	});
+
+const seedMovie = (movieSchemaId: string) => {
+	const suffix = crypto.randomUUID();
+	return seedMediaEntity({
+		userId: null,
+		providerId: null,
+		properties: { runtime: 139 },
+		entitySchemaSlug: movieSchemaId,
+		name: `Lifecycle Movie ${suffix}`,
+		externalId: `lifecycle-movie-${suffix}`,
+	});
+};
+
+const readMovieSummary = (client: Client, entityId: string) =>
+	Effect.gen(function* () {
+		const result = yield* executeRyotQLRecipe(
+			client,
+			movieSummaryRecipe({ entityId, collectionLimit: 1 }),
+		);
+		assertPresent(result.movie, "Expected a movie summary row");
+		return result.movie;
+	});
+
+describe("Media flat lifecycle query recipes", () => {
+	it.live("derives movie state from its own latest signal, with no caught up state", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const schemas = yield* loadMovieLifecycleSchemas(client);
+			const movie = yield* seedMovie(schemas.movieSchemaId);
+
+			expect((yield* readMovieSummary(client, movie.id)).state).toBe("untracked");
+
+			yield* createEventFixture(client, {
+				properties: {},
+				entityId: movie.id,
+				occurredAt: "2026-06-01T01:00:00.000Z",
+				eventSchemaSlug: schemas.movieEvents.backlog,
+			});
+			expect((yield* readMovieSummary(client, movie.id)).state).toBe("backlog");
+
+			yield* createProgress(
+				client,
+				movie.id,
+				schemas.movieEvents.progress,
+				"2026-06-01T02:00:00.000Z",
+			);
+			const inProgress = yield* readMovieSummary(client, movie.id);
+			expect(inProgress.state).toBe("in_progress");
+			expect(inProgress.progressPercent).toBe(50);
+
+			yield* createEventFixture(client, {
+				entityId: movie.id,
+				properties: { progressPercent: 50 },
+				occurredAt: "2026-06-01T03:00:00.000Z",
+				eventSchemaSlug: schemas.movieEvents.onHold,
+			});
+			expect((yield* readMovieSummary(client, movie.id)).state).toBe("on_hold");
+
+			yield* createEventFixture(client, {
+				entityId: movie.id,
+				properties: { progressPercent: 50 },
+				occurredAt: "2026-06-01T04:00:00.000Z",
+				eventSchemaSlug: schemas.movieEvents.dropped,
+			});
+			expect((yield* readMovieSummary(client, movie.id)).state).toBe("dropped");
+
+			yield* createComplete(
+				client,
+				movie.id,
+				schemas.movieEvents.complete,
+				"2026-06-01T05:00:00.000Z",
+			);
+			expect((yield* readMovieSummary(client, movie.id)).state).toBe("complete");
+		}),
+	);
+
+	it.live("reports a rewatch percent but drops the one that preceded the completion", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const schemas = yield* loadMovieLifecycleSchemas(client);
+			const movie = yield* seedMovie(schemas.movieSchemaId);
+
+			yield* createProgress(
+				client,
+				movie.id,
+				schemas.movieEvents.progress,
+				"2026-06-02T01:00:00.000Z",
+			);
+			yield* createComplete(
+				client,
+				movie.id,
+				schemas.movieEvents.complete,
+				"2026-06-02T02:00:00.000Z",
+			);
+
+			const completed = yield* readMovieSummary(client, movie.id);
+			expect(completed.state).toBe("complete");
+			expect(completed.progressPercent).toBeNull();
+
+			yield* createEventFixture(client, {
+				entityId: movie.id,
+				properties: { progressPercent: 20 },
+				occurredAt: "2026-06-02T03:00:00.000Z",
+				eventSchemaSlug: schemas.movieEvents.progress,
+			});
+
+			const rewatching = yield* readMovieSummary(client, movie.id);
+			expect(rewatching.state).toBe("in_progress");
+			expect(rewatching.progressPercent).toBe(20);
+		}),
 	);
 });

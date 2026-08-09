@@ -3,6 +3,7 @@ import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import clsx from "clsx";
 import { useEffect, useRef, useState, type RefObject } from "react";
 
+import type { MediaGalleryImage } from "./image";
 import {
 	galleryCountLabel,
 	galleryFilterImages,
@@ -14,7 +15,6 @@ import {
 	type GalleryFilter,
 } from "./image-gallery-state";
 import { imageAssetKey, ManagedAssetImage } from "./managed-assets";
-import type { MediaGalleryImage } from "./media-image";
 
 const SWIPE_THRESHOLD = 44;
 

@@ -2,6 +2,13 @@ import { fireEvent, waitFor } from "@testing-library/dom";
 import { useEffect, type ReactNode } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
+import type { MediaOverviewRows } from "../../shared/media-recipes";
+import {
+	errorQueryResult,
+	malformedQueryResult,
+	pendingQueryResult,
+	readyQueryResult,
+} from "../../tests/client/query-result-fixture";
 import { decodeShowActivity } from "../../tests/client/show/activity-fixture";
 import {
 	decodeShowEpisodesResult,
@@ -13,26 +20,22 @@ import {
 	showCompanyRow,
 	showPersonRow,
 } from "../../tests/client/show/overview-fixture";
-import {
-	errorQueryResult,
-	malformedQueryResult,
-	pendingQueryResult,
-	readyQueryResult,
-} from "../../tests/client/show/query-result-fixture";
 import { decodeShowSummaryResult, showSummaryRow } from "../../tests/client/show/summary-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
+import { mapMediaOverview, type MediaOverviewState } from "../media/overview-state";
 import { ShowActivity } from "./activity";
 import { mapShowActivity, type ShowActivityState } from "./activity-state";
 import { ShowEpisodes } from "./episodes";
 import { mapShowEpisodes, mapShowSeasonEpisodes, type ShowEpisodesState } from "./episodes-state";
-import { mapShowOverview, type ShowOverviewState } from "./overview-state";
 import { ShowScreenBody } from "./screen";
 import { mapShowSummary, type ShowSummaryState } from "./summary-state";
 
 const noopAdapter = { query: () => Promise.resolve({}) };
 
-const overviewState = (rows: Parameters<typeof decodeShowOverview>[0] = {}): ShowOverviewState =>
-	mapShowOverview(readyQueryResult(decodeShowOverview(rows)));
+const overviewState = (
+	rows: Parameters<typeof decodeShowOverview>[0] = {},
+): MediaOverviewState<MediaOverviewRows> =>
+	mapMediaOverview(readyQueryResult(decodeShowOverview(rows)));
 
 const episodesState = (): ShowEpisodesState =>
 	mapShowEpisodes(readyQueryResult(decodeShowEpisodesResult({})));
@@ -86,7 +89,7 @@ const renderContent = (
 		readonly episodes?: ReactNode;
 		readonly activity?: ReactNode;
 		readonly refresh?: () => void;
-		readonly overview?: ShowOverviewState;
+		readonly overview?: MediaOverviewState<MediaOverviewRows>;
 		readonly refreshOverview?: () => void;
 	} = {},
 ) =>
@@ -436,7 +439,7 @@ describe("show screen content", () => {
 
 	it("renders nothing relational when the show has no credits or suggestions", () => {
 		const { unmount, container } = renderContent(readyState(), {
-			overview: mapShowOverview(readyQueryResult(emptyShowOverview())),
+			overview: mapMediaOverview(readyQueryResult(emptyShowOverview())),
 		});
 
 		expect(container.textContent).toContain("Images");
@@ -458,7 +461,7 @@ describe("show screen content", () => {
 
 	it("keeps the summary hero readable while the overview query is pending", () => {
 		const { unmount, container } = renderContent(readyState(), {
-			overview: mapShowOverview(pendingQueryResult()),
+			overview: mapMediaOverview(pendingQueryResult()),
 		});
 
 		expect(container.textContent).toContain("Adolescence");
@@ -471,7 +474,7 @@ describe("show screen content", () => {
 		const retries: number[] = [];
 		const { unmount, container } = renderContent(readyState(), {
 			refreshOverview: () => retries.push(1),
-			overview: mapShowOverview(errorQueryResult(new Error("offline"))),
+			overview: mapMediaOverview(errorQueryResult(new Error("offline"))),
 		});
 
 		const retry = Array.from(container.querySelectorAll("button")).find(
