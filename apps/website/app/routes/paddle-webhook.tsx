@@ -123,36 +123,68 @@ async function handleSubscriptionResumed(
 
 export const action = async ({ request }: Route.ActionArgs) => {
 	const paddleSignature = request.headers.get("paddle-signature");
-	if (!paddleSignature) return data({ error: "No paddle signature" });
+	if (!paddleSignature)
+		return data({ error: "No paddle signature" }, { status: 401 });
 
 	const serverVariables = getServerVariables();
 	const paddleClient = getPaddleServerClient();
 	const requestBody = await request.text();
-	const eventData = await paddleClient.webhooks.unmarshal(
-		requestBody,
-		serverVariables.PADDLE_WEBHOOK_SECRET_KEY,
-		paddleSignature,
-	);
-	if (!eventData) return data({ error: "No event data found in request body" });
+	let eventData: Awaited<
+		ReturnType<typeof paddleClient.webhooks.unmarshal>
+	>;
+	try {
+		eventData = await paddleClient.webhooks.unmarshal(
+			requestBody,
+			serverVariables.PADDLE_WEBHOOK_SECRET_KEY,
+			paddleSignature,
+		);
+	} catch (error) {
+		console.error("Paddle webhook validation failed:", error);
+		const isInvalidSignature =
+			error instanceof Error &&
+			error.message.toLowerCase().includes("signature verification failed");
+		return data(
+			{
+				error: isInvalidSignature
+					? "Invalid paddle signature"
+					: "Invalid webhook payload",
+			},
+			{ status: isInvalidSignature ? 401 : 400 },
+		);
+	}
+	if (!eventData)
+		return data(
+			{ error: "No event data found in request body" },
+			{ status: 400 },
+		);
 
 	const { eventType, data: paddleData } = eventData;
 	console.log("Received event:", { eventType });
 
 	let result: WebhookResponse;
-
-	if (eventType === EventName.TransactionCompleted)
-		result = await handleTransactionCompleted(paddleData);
-	else if (
-		eventType === EventName.SubscriptionCanceled ||
-		eventType === EventName.SubscriptionPaused ||
-		eventType === EventName.SubscriptionPastDue
-	)
-		result = await handleSubscriptionCancelled(paddleData);
-	else if (eventType === EventName.SubscriptionResumed)
-		result = await handleSubscriptionResumed(paddleData);
-	else result = { message: "Webhook event not handled" };
+	try {
+		if (eventType === EventName.TransactionCompleted)
+			result = await handleTransactionCompleted(paddleData);
+		else if (
+			eventType === EventName.SubscriptionCanceled ||
+			eventType === EventName.SubscriptionPaused ||
+			eventType === EventName.SubscriptionPastDue
+		)
+			result = await handleSubscriptionCancelled(paddleData);
+		else if (eventType === EventName.SubscriptionResumed)
+			result = await handleSubscriptionResumed(paddleData);
+		else result = { message: "Webhook event not handled" };
+	} catch (error) {
+		console.error("Paddle webhook handling failed:", error);
+		return data(
+			{ error: "Paddle webhook could not be processed" },
+			{ status: 503 },
+		);
+	}
 
 	console.log("Webhook handling result:", result);
 
-	return data(result);
+	return data(result, {
+		status: result.error === "Price ID not found" ? 400 : 200,
+	});
 };
