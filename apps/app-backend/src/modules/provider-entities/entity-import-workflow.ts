@@ -46,6 +46,7 @@ export const runEntityImportWorkflow = Effect.fn("EntityImportWorkflow")(functio
 				userId: payload.userId,
 				providerId: payload.providerId,
 				externalId: payload.externalId,
+				entityScope: payload.entityScope,
 				executionId: populationExecutionId,
 				entitySchemaSlug: payload.entitySchemaSlug,
 			},

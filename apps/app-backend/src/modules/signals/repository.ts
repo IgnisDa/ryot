@@ -18,9 +18,10 @@ export type StoredSignal = {
 	occurredAt: string;
 	actorUserId: UserId | null;
 	origin: AutomationOriginValue;
-	signalSchemaSlug: SignalSchemaSlug;
 	subjectEntityId: EntityId | null;
+	signalSchemaSlug: SignalSchemaSlug;
 	properties: Record<string, unknown>;
+	signalSchemaPluginId?: string | null | undefined;
 };
 
 export type InsertSignalInput = {
@@ -29,25 +30,31 @@ export type InsertSignalInput = {
 	actorUserId: UserId | null;
 	origin: AutomationOriginValue;
 	signalSchemaSlug: SignalSchemaSlug;
+	signalSchemaPluginId?: string | null | undefined;
 	subjectEntityId: EntityId | null;
 	properties: Record<string, unknown>;
 };
 
-const toStoredSignal = Effect.fn(function* (row: SignalRow) {
-	const origin = yield* Schema.decodeUnknownEffect(AutomationOrigin)(row.origin).pipe(
-		Effect.mapError(() => new DbError({ message: `Invalid origin for signal ${row.id}` })),
-	);
-	return {
-		origin,
-		properties: row.properties,
-		id: SignalId.make(row.id),
-		createdAt: row.createdAt.toISOString(),
-		occurredAt: row.occurredAt.toISOString(),
-		signalSchemaSlug: SignalSchemaSlug.make(row.signalSchemaSlug),
-		actorUserId: row.actorUserId ? UserId.make(row.actorUserId) : null,
-		subjectEntityId: row.subjectEntityId ? EntityId.make(row.subjectEntityId) : null,
-	};
-});
+const toStoredSignal: (row: SignalRow) => Effect.Effect<StoredSignal, DbError> = Effect.fn(
+	function* (row: SignalRow) {
+		const origin = yield* Schema.decodeUnknownEffect(AutomationOrigin)(row.origin).pipe(
+			Effect.mapError(() => new DbError({ message: `Invalid origin for signal ${row.id}` })),
+		);
+		return {
+			origin,
+			properties: row.properties,
+			id: SignalId.make(row.id),
+			createdAt: row.createdAt.toISOString(),
+			occurredAt: row.occurredAt.toISOString(),
+			signalSchemaSlug: SignalSchemaSlug.make(row.signalSchemaSlug),
+			actorUserId: row.actorUserId ? UserId.make(row.actorUserId) : null,
+			subjectEntityId: row.subjectEntityId ? EntityId.make(row.subjectEntityId) : null,
+			...(row.signalSchemaPluginId === null
+				? {}
+				: { signalSchemaPluginId: row.signalSchemaPluginId }),
+		};
+	},
+);
 
 export class SignalsRepository extends Context.Service<SignalsRepository>()("SignalsRepository", {
 	make: Effect.sync(() => {

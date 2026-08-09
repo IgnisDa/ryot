@@ -248,12 +248,10 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							eq(schema.entity.providerId, schema.sandboxProvider.id),
 						)
 						.where(
-							input.entitySchemaSlugs.length > 0
-								? or(
-										inArray(schema.entity.entitySchemaSlug, [...input.entitySchemaSlugs]),
-										eq(schema.sandboxProvider.pluginId, input.pluginId),
-									)
-								: eq(schema.sandboxProvider.pluginId, input.pluginId),
+							or(
+								eq(schema.entity.entitySchemaPluginId, input.pluginId),
+								eq(schema.sandboxProvider.pluginId, input.pluginId),
+							),
 						)
 						.limit(1),
 				);
@@ -277,6 +275,58 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 						.limit(1),
 				);
 				return row !== undefined;
+			},
+		);
+
+		const hasDefinitionReferences = Effect.fn("PluginRepository.hasDefinitionReferences")(
+			function* (pluginId: string) {
+				const db = yield* Database;
+				const [relationship] = yield* mapDatabaseErrors(
+					db
+						.select({ id: schema.relationship.id })
+						.from(schema.relationship)
+						.where(eq(schema.relationship.relationshipSchemaPluginId, pluginId))
+						.limit(1),
+				);
+				if (relationship) {
+					return true;
+				}
+
+				const [signal] = yield* mapDatabaseErrors(
+					db
+						.select({ id: schema.signal.id })
+						.from(schema.signal)
+						.where(eq(schema.signal.signalSchemaPluginId, pluginId))
+						.limit(1),
+				);
+				if (signal) {
+					return true;
+				}
+
+				const [subscription] = yield* mapDatabaseErrors(
+					db
+						.select({ id: schema.notificationSubscriptionState.id })
+						.from(schema.notificationSubscriptionState)
+						.where(eq(schema.notificationSubscriptionState.signalSchemaPluginId, pluginId))
+						.limit(1),
+				);
+				if (subscription) {
+					return true;
+				}
+
+				const [customView] = yield* mapDatabaseErrors(
+					db
+						.select({ id: schema.savedView.id })
+						.from(schema.savedView)
+						.where(
+							and(
+								eq(schema.savedView.entitySchemaPluginId, pluginId),
+								isNull(schema.savedView.pluginInstallationId),
+							),
+						)
+						.limit(1),
+				);
+				return customView !== undefined;
 			},
 		);
 
@@ -586,6 +636,44 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							),
 							notExists(
 								db
+									.select({ id: schema.entity.id })
+									.from(schema.entity)
+									.where(eq(schema.entity.entitySchemaPluginId, schema.plugin.id)),
+							),
+							notExists(
+								db
+									.select({ id: schema.event.id })
+									.from(schema.event)
+									.where(eq(schema.event.eventSchemaPluginId, schema.plugin.id)),
+							),
+							notExists(
+								db
+									.select({ id: schema.relationship.id })
+									.from(schema.relationship)
+									.where(eq(schema.relationship.relationshipSchemaPluginId, schema.plugin.id)),
+							),
+							notExists(
+								db
+									.select({ id: schema.signal.id })
+									.from(schema.signal)
+									.where(eq(schema.signal.signalSchemaPluginId, schema.plugin.id)),
+							),
+							notExists(
+								db
+									.select({ id: schema.notificationSubscriptionState.id })
+									.from(schema.notificationSubscriptionState)
+									.where(
+										eq(schema.notificationSubscriptionState.signalSchemaPluginId, schema.plugin.id),
+									),
+							),
+							notExists(
+								db
+									.select({ id: schema.savedView.id })
+									.from(schema.savedView)
+									.where(eq(schema.savedView.entitySchemaPluginId, schema.plugin.id)),
+							),
+							notExists(
+								db
 									.select({ executionId: schema.sandboxWorkflowReference.executionId })
 									.from(schema.sandboxWorkflowReference)
 									.where(eq(schema.sandboxWorkflowReference.pluginId, schema.plugin.id)),
@@ -696,6 +784,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			listActiveManifests,
 			resolveProviderBySlugs,
 			findPrivateByIdForUser,
+			hasDefinitionReferences,
 			hasIntegrationReferences,
 			deleteUnreferencedScripts,
 			listPortablePluginMetadata,

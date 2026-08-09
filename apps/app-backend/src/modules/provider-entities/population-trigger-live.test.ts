@@ -59,7 +59,7 @@ it.effect("does not enqueue user population for a disabled system provider", () 
 			Layer.mergeAll(
 				databaseLayer,
 				Layer.mock(PluginRuntimeResolver)({
-					isSystemProviderAvailableToUser: () => Effect.succeed(false),
+					findProviderAvailableToUser: () => Effect.succeed(null),
 				}),
 				Layer.succeed(
 					WorkflowEngine,
@@ -83,4 +83,72 @@ it.effect("does not enqueue user population for a disabled system provider", () 
 		});
 		expect(enqueued).toBe(false);
 	}).pipe(Effect.provide(layer));
+});
+
+const availableProvider = {
+	name: "Provider",
+	pluginId: "plugin-id",
+	slug: "provider.slug",
+	createdAt: new Date(0),
+	updatedAt: new Date(0),
+	information: { source: "provider" },
+	providerId: SandboxProviderId.make("provider-1"),
+	rootEntitySchemaSlug: EntitySchemaSlug.make("book"),
+};
+
+const capturePopulationPayload = (pluginScope: "system" | "user") => {
+	let payload: unknown;
+	const layer = EntityPopulationTriggerLive.pipe(
+		Layer.provide(
+			Layer.mergeAll(
+				databaseLayer,
+				Layer.mock(PluginRuntimeResolver)({
+					findProviderAvailableToUser: () =>
+						Effect.succeed({ ...availableProvider, id: availableProvider.providerId, pluginScope }),
+				}),
+				Layer.succeed(
+					WorkflowEngine,
+					makeWorkflowEngine({
+						execute: (_workflow, options) => {
+							payload = options.payload;
+							return Effect.void;
+						},
+					}),
+				),
+			),
+		),
+	);
+	return { layer, getPayload: () => payload };
+};
+
+it.effect("keeps user-triggered system provider entities global", () => {
+	const capture = capturePopulationPayload("system");
+	return Effect.gen(function* () {
+		const trigger = yield* EntityPopulationTrigger;
+		yield* trigger.request({
+			externalId: "book-1",
+			origin: { kind: "api" },
+			userId: UserId.make("user-1"),
+			entityId: EntityId.make("entity-1"),
+			entitySchemaSlug: EntitySchemaSlug.make("book"),
+			providerId: SandboxProviderId.make("provider-1"),
+		});
+		expect(capture.getPayload()).toMatchObject({ entityScope: "global", userId: "user-1" });
+	}).pipe(Effect.provide(capture.layer));
+});
+
+it.effect("keeps user-triggered private provider entities user-owned", () => {
+	const capture = capturePopulationPayload("user");
+	return Effect.gen(function* () {
+		const trigger = yield* EntityPopulationTrigger;
+		yield* trigger.request({
+			externalId: "book-1",
+			origin: { kind: "api" },
+			userId: UserId.make("user-1"),
+			entityId: EntityId.make("entity-1"),
+			entitySchemaSlug: EntitySchemaSlug.make("book"),
+			providerId: SandboxProviderId.make("provider-1"),
+		});
+		expect(capture.getPayload()).toMatchObject({ entityScope: "user", userId: "user-1" });
+	}).pipe(Effect.provide(capture.layer));
 });

@@ -7,11 +7,12 @@ import type { EntityId, UserId } from "@ryot/contract/schema/brands";
 import { SignalId } from "@ryot/contract/schema/brands";
 import { sha256Base64Url } from "@ryot/ts-utils/crypto";
 import { stableStringify } from "@ryot/ts-utils/json";
-import { Context, Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer, Option, Schema } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { EntitiesRepository } from "#modules/entities/repository";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 
@@ -174,6 +175,9 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 			const signalSchemasRepository = yield* SignalSchemasRepository;
 			const relationshipsRepository = yield* RelationshipsRepository;
 			const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
+			const pluginRuntime = Option.getOrUndefined(
+				yield* Effect.serviceOption(PluginRuntimeResolver),
+			);
 
 			const validateSubject = Effect.fn("SignalEmissionService.validateSubject")(function* (
 				principal: AutomationPrincipal,
@@ -250,6 +254,7 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 								subjectEntityId,
 								occurredAt: input.occurredAt,
 								signalSchemaSlug: signalSchema.id,
+								signalSchemaPluginId: signalSchema.pluginId ?? null,
 							});
 
 							if (!inserted) {
@@ -272,10 +277,18 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 									return yield* new DbError({ message: "Related-users signal lost its subject" });
 								}
 								const policy = signalSchema.audiencePolicy;
-								const relationshipSchema = yield* relationshipSchemasRepository.findById(
-									policy.relationshipSchemaSlug,
-									principalUserId,
-								);
+								const effective =
+									principalUserId && pluginRuntime
+										? yield* pluginRuntime.getEffectiveDefinitions(principalUserId)
+										: null;
+								const relationshipDefinition =
+									effective?.relationshipSchemas[policy.relationshipSchemaSlug];
+								const relationshipSchema = effective
+									? relationshipDefinition
+									: yield* relationshipSchemasRepository.findById(
+											policy.relationshipSchemaSlug,
+											principalUserId,
+										);
 								if (!relationshipSchema) {
 									return yield* new DbError({
 										message: `Invalid audience policy for signal schema ${signalSchema.id}`,
@@ -285,6 +298,8 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 									subjectEntityId,
 									subjectSide: policy.subjectSide,
 									relationshipSchemaSlug: policy.relationshipSchemaSlug,
+									relationshipSchemaPluginId:
+										(relationshipDefinition ?? relationshipSchema).pluginId ?? null,
 								});
 							}
 

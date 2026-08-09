@@ -116,7 +116,8 @@ const makePluginRuntime = (overrides: MockOverrides<typeof mockPluginRuntime> = 
 		listAutomations: () => Effect.succeed([]),
 		findAutomation: () => Effect.succeed(null),
 		findKernelScript: () => Effect.succeed(null),
-		findActiveScript: () => Effect.succeed(null),
+		getEffectiveDefinitions: () => Effect.succeed(definitions.getSnapshot()),
+		findScriptAvailableToUser: () => Effect.succeed(null),
 		...overrides,
 	});
 
@@ -201,28 +202,56 @@ it.effect("resolves a source-zero notification formatter for the row owner", () 
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("resolves notification state through an active plugin formatter", () => {
-	const pluginScript = { ...kernelScript, pluginId: "reviews", slug: kernelScript.slug };
-	const layer = makeLayer(
-		makeRepository({
-			isUserEnabled: () => Effect.succeed(true),
-			listActiveNotificationSubscriptions: () => Effect.succeed([storedState()]),
-		}),
-		{
-			findActiveScript: (slug) => {
-				expect(slug).toBe(kernelScript.slug);
-				return Effect.succeed(pluginScript);
+it.effect(
+	"resolves a colliding formatter slug only from the notification definition plugin",
+	() => {
+		const pluginId = "reviews-plugin-id";
+		const pluginScript = { ...kernelScript, pluginId, slug: kernelScript.slug };
+		const pluginDefinitions = makeDefinitionRegistry({
+			savedViews: [],
+			entitySchemas: [],
+			relationshipSchemas: [],
+			signalSchemas: [
+				{
+					pluginId,
+					name: definition.name,
+					slug: signalSchemaSlug,
+					catalogState: "active",
+					propertiesSchema: { fields: {} },
+					audiencePolicy: { kind: "actor" },
+					notificationScriptSlug: kernelScript.slug,
+				},
+			],
+		}).getSnapshot();
+		const layer = makeLayer(
+			makeRepository({
+				isUserEnabled: () => Effect.succeed(true),
+				listActiveNotificationSubscriptions: () =>
+					Effect.succeed([storedState({ signalSchemaPluginId: pluginId })]),
+			}),
+			{
+				getEffectiveDefinitions: () => Effect.succeed(pluginDefinitions),
+				findScriptAvailableToUser: (ownerId, definitionPluginId, slug) => {
+					expect(ownerId).toBe(userId);
+					expect(definitionPluginId).toBe(pluginId);
+					expect(slug).toBe(kernelScript.slug);
+					return Effect.succeed(pluginScript);
+				},
+				findKernelScript: () => Effect.die("plugin formatter fell back to source zero"),
 			},
-			findKernelScript: () => Effect.die("plugin formatter fell back to source zero"),
-		},
-	);
+		);
 
-	return Effect.gen(function* () {
-		const service = yield* AutomationsService;
-		const rules = yield* service.resolveActive({ target, operation: "signal", rowUserId: userId });
-		expect(rules).toEqual([storedRule()]);
-	}).pipe(Effect.provide(layer));
-});
+		return Effect.gen(function* () {
+			const service = yield* AutomationsService;
+			const rules = yield* service.resolveActive({
+				target,
+				rowUserId: userId,
+				operation: "signal",
+			});
+			expect(rules).toEqual([storedRule()]);
+		}).pipe(Effect.provide(layer));
+	},
+);
 
 it.effect("treats state with no live formatter as inert", () => {
 	const layer = makeLayer(

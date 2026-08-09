@@ -15,8 +15,8 @@ it("defines generated, user-owned notification subscription state", () => {
 	expect(id).toMatchObject({ notNull: true, primary: true });
 	expect(id?.defaultFn).toBeTypeOf("function");
 	expect(userId?.notNull).toBe(true);
-	expect(config.foreignKeys).toHaveLength(1);
-	expect(config.foreignKeys[0]?.onDelete).toBe("cascade");
+	expect(config.foreignKeys.some(({ onDelete }) => onDelete === "cascade")).toBe(true);
+	expect(config.foreignKeys.some(({ onDelete }) => onDelete === "restrict")).toBe(true);
 });
 
 it("uniquely identifies notification state by user and signal schema", () => {
@@ -34,7 +34,6 @@ it("stores one non-null durable rule attribution without a foreign key", () => {
 	const ruleIdColumns = config.columns.filter((column) => column.name === "rule_id");
 	expect(ruleIdColumns).toHaveLength(1);
 	expect(ruleIdColumns[0]?.notNull).toBe(true);
-	expect(config.foreignKeys).toHaveLength(2);
 	expect(config.foreignKeys.some((entry) => entry.getName().includes("ruleId"))).toBe(false);
 	expect(config.indexes.map((entry) => entry.config.name)).toContain(
 		"subscription_run_rule_id_idx",

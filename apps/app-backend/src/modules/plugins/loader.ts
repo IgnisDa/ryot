@@ -43,27 +43,45 @@ const emptyBindings = (): PluginBindings => ({
 	providerEntityImportAutomations: [],
 });
 
-const mergeManifestDefinitions = (
+export const mergeManifestDefinitions = (
 	base: DefinitionSource,
-	manifests: ReadonlyArray<PluginManifest>,
+	plugins: ReadonlyArray<Pick<PluginRegistryEntry, "id" | "manifest" | "slug">>,
 ): DefinitionSource => ({
-	savedViews: [...base.savedViews, ...manifests.flatMap(({ savedViews }) => savedViews)],
+	savedViews: [
+		...base.savedViews,
+		...plugins.flatMap(({ id, manifest, slug }) =>
+			manifest.savedViews.map((definition) => ({
+				...definition,
+				pluginId: id,
+				pluginSlug: slug,
+			})),
+		),
+	],
 	entitySchemas: [
 		...base.entitySchemas,
-		...manifests.flatMap(({ entitySchemas, metadata }) =>
-			entitySchemas.map((definition) => ({
+		...plugins.flatMap(({ id, manifest, slug }) =>
+			manifest.entitySchemas.map((definition) => ({
 				...definition,
-				pluginSlug: metadata.slug,
+				pluginId: id,
+				pluginSlug: slug,
 				mergeIdentityProperties: definition.mergeIdentityProperties ?? [],
+				eventSchemas: definition.eventSchemas.map((eventSchema) => ({
+					...eventSchema,
+					pluginId: id,
+				})),
 			})),
 		),
 	],
 	signalSchemas: [
 		...base.signalSchemas,
-		...manifests.flatMap(({ signalSchemas }) => signalSchemas),
+		...plugins.flatMap(({ id, manifest }) =>
+			manifest.signalSchemas.map((definition) => ({ ...definition, pluginId: id })),
+		),
 	],
 	relationshipSchemas: [
-		...manifests.flatMap(({ relationshipSchemas }) => relationshipSchemas),
+		...plugins.flatMap(({ id, manifest }) =>
+			manifest.relationshipSchemas.map((definition) => ({ ...definition, pluginId: id })),
+		),
 		...base.relationshipSchemas,
 	],
 });
@@ -179,12 +197,13 @@ export const makePluginLoader = (
 			({ manifest }) => manifest.integrationProviders,
 		);
 		const clonedPlugins = structuredClone(plugins);
-		const manifests = Object.values(clonedPlugins).map(({ manifest }) => manifest);
+		const pluginEntries = Object.values(clonedPlugins);
+		const manifests = pluginEntries.map(({ manifest }) => manifest);
 		return deepFreeze({
 			plugins: clonedPlugins,
 			bindings: mergeBindings(manifests),
 			httpRateLimits: buildHttpRateLimitLookups(manifests),
-			definitions: buildDefinitionSnapshot(mergeManifestDefinitions(base, manifests)),
+			definitions: buildDefinitionSnapshot(mergeManifestDefinitions(base, pluginEntries)),
 		} satisfies PluginRegistrySnapshot);
 	};
 	const preview = (plugin: PluginRegistryEntry) =>
