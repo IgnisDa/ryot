@@ -148,6 +148,8 @@
         "@effect/platform-bun": "4.0.0-rc.117",
         "@effect/vitest": "4.0.0-rc.117",
         "@faker-js/faker": "10.4.0",
+        "@ryot-app/client-plugin-compiler": "workspace:*",
+        "@ryot-app/client-plugin-contract": "workspace:*",
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/fitness-plugin": "workspace:*",
         "@ryot-app/fixture-plugin": "workspace:*",
@@ -156,6 +158,7 @@
         "@ryot-app/plugin-kit": "workspace:*",
         "@ryot-app/ryotql": "workspace:*",
         "@ryot-app/ryotql-recipes": "workspace:*",
+        "@ryot-app/sandbox-compiler": "workspace:*",
         "@ryot-app/sandbox-sdk": "workspace:*",
         "@ryot-app/server": "workspace:*",
         "@ryot-app/testing": "workspace:*",
@@ -365,6 +368,7 @@
       "name": "@ryot-app/client-plugin-contract",
       "dependencies": {
         "@ryot-app/contract": "workspace:*",
+        "@ryot-app/ts-utils": "workspace:*",
         "effect": "4.0.0-rc.117",
       },
       "devDependencies": {
