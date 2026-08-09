@@ -1,5 +1,5 @@
-import type { SandboxHostCapability } from "@ryot/contract/modules/sandbox/wire";
-import type { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import type { SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/wire";
+import type { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import type { ExecutionMetadata, SandboxHost, SandboxManifest, ScriptManifest } from "./core";
 

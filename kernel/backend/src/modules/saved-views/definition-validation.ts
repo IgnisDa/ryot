@@ -1,7 +1,7 @@
 import {
 	SavedViewBadRequest,
 	type SavedViewLayouts,
-} from "@ryot/contract/modules/saved-views/schemas";
+} from "@ryot-app/contract/modules/saved-views/schemas";
 import { Effect } from "effect";
 
 import { validateSavedViewLayouts } from "#modules/definition-registry/service";

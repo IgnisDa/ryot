@@ -96,7 +96,7 @@ validated native application ID when running under Capacitor. Web descriptors us
 server origin and have no native application ID. Native descriptors accept only `io.ryot.app` and
 `io.ryot.app.dev`; an unreadable or unknown application ID fails closed before tokens are used.
 
-The native identifiers and callback URI builders live in `@ryot/contract/oauth`. Backend client
+The native identifiers and callback URI builders live in `@ryot-app/contract/oauth`. Backend client
 provisioning and native deep-link filtering consume the same identifiers, so build variants,
 registered OAuth callbacks, and runtime validation cannot drift independently.
 

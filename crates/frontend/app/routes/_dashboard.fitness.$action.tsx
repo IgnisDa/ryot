@@ -1,8 +1,8 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { Button, Container, Group, Skeleton, Stack } from "@mantine/core";
-import { isNumber } from "@ryot/ts-utils/lodash";
-import { isString } from "@ryot/ts-utils/lodash";
-import { parseParameters } from "@ryot/ts-utils/request";
+import { isNumber } from "@ryot-app/ts-utils/lodash";
+import { isString } from "@ryot-app/ts-utils/lodash";
+import { parseParameters } from "@ryot-app/ts-utils/request";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
 import { useEffect, useRef, useState } from "react";

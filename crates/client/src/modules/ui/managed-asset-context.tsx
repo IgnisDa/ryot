@@ -1,4 +1,4 @@
-import type { AssetLocator } from "@ryot/contract/modules/uploads/schemas";
+import type { AssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import { createContext, type ReactNode, useContext, useMemo } from "react";
 
 import { ImageWithFallback } from "./image-with-fallback";

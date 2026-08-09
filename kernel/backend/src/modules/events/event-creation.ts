@@ -1,6 +1,9 @@
-import { EventCreateItemError, type CreateEventItem } from "@ryot/contract/modules/events/schemas";
-import { EntityId, EntitySchemaSlug, EventSchemaSlug } from "@ryot/contract/schema/brands";
-import type { UserId } from "@ryot/contract/schema/brands";
+import {
+	EventCreateItemError,
+	type CreateEventItem,
+} from "@ryot-app/contract/modules/events/schemas";
+import { EntityId, EntitySchemaSlug, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
+import type { UserId } from "@ryot-app/contract/schema/brands";
 import { DateTime, Effect, Option } from "effect";
 
 import { EntitiesRepository } from "#modules/entities/repository";

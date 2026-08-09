@@ -6,7 +6,7 @@ import {
 	OAUTH_PKCE_METHOD,
 	OAUTH_SCOPE,
 	type PendingAuthorization,
-} from "@ryot/contract/oauth";
+} from "@ryot-app/contract/oauth";
 import { Context, Data, Effect, Layer } from "effect";
 
 import { decodeServerOrigin, type ServerOrigin } from "#/api/origin";

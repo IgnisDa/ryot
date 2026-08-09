@@ -1,13 +1,13 @@
 import type {
 	SandboxExecutionSubject,
 	SandboxScriptMetadata,
-} from "@ryot/contract/modules/sandbox/schemas";
+} from "@ryot-app/contract/modules/sandbox/schemas";
 import {
 	SandboxProviderId,
 	SandboxScriptId,
 	SubscriptionRunId,
 	UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 

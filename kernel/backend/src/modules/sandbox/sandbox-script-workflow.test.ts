@@ -1,12 +1,12 @@
 import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
-import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
-import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import {
 	workflowDurableResultSchema,
 	workflowReplayJournalEntrySchema,
 	workflowReplayEnvelopeSchema,
-} from "@ryot/sandbox-sdk/workflow";
+} from "@ryot-app/sandbox-sdk/workflow";
 import type { Exit } from "effect";
 import { Deferred, Effect, Layer, Schema, Stream } from "effect";
 import { ChildProcess } from "effect/unstable/process";

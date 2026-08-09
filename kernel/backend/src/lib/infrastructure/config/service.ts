@@ -1,4 +1,4 @@
-import { isLoopbackOrigin } from "@ryot/contract/oauth";
+import { isLoopbackOrigin } from "@ryot-app/contract/oauth";
 import type { LogLevel } from "effect";
 import { Config, Context, Effect, Layer, Option, Redacted, Schema, SchemaIssue } from "effect";
 

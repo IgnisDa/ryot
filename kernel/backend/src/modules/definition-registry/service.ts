@@ -1,15 +1,15 @@
-import type { PluginEntitySchema } from "@ryot/contract/modules/plugins/manifest";
+import type { PluginEntitySchema } from "@ryot-app/contract/modules/plugins/manifest";
 import type {
 	FieldSelection,
 	RyotQLDocument,
 	RowSelection,
-} from "@ryot/contract/modules/ryotql/language";
+} from "@ryot-app/contract/modules/ryotql/language";
 import type {
 	SavedViewDefinitionIssue,
 	SavedViewLayoutName,
 	SavedViewLayouts,
-} from "@ryot/contract/modules/saved-views/schemas";
-import type { AppSchema, PropertyValidationError } from "@ryot/contract/schema/property-schema";
+} from "@ryot-app/contract/modules/saved-views/schemas";
+import type { AppSchema, PropertyValidationError } from "@ryot-app/contract/schema/property-schema";
 import { Context, Data, Effect, Layer } from "effect";
 
 import {

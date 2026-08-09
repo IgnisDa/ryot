@@ -1,6 +1,6 @@
-import { DbError, unknownToMessage } from "@ryot/contract/errors";
-import { AutomationProperties } from "@ryot/contract/modules/automations/schemas";
-import { SignalSchemaSlug } from "@ryot/contract/schema/brands";
+import { DbError, unknownToMessage } from "@ryot-app/contract/errors";
+import { AutomationProperties } from "@ryot-app/contract/modules/automations/schemas";
+import { SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Effect, Result, Layer, Schema } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 

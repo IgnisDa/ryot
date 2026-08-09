@@ -1,4 +1,4 @@
-import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { Effect } from "effect";
 
 import { installTestPluginBundle } from "./test-plugin";
@@ -14,8 +14,8 @@ export const installTestIntegrationProvider = (
 	const entry = `scripts/${scriptSlug}.sandbox.ts`;
 	const name = "E2E integration sink";
 	const source = `
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",

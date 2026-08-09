@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
+import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 

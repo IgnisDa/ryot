@@ -1,8 +1,8 @@
 import { BunServices } from "@effect/platform-bun";
-import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
-import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import { compilePluginSandboxSourceEntries } from "@ryot/sandbox-compiler/plugins";
-import { sha256Hex } from "@ryot/ts-utils/crypto";
+import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { compilePluginSandboxSourceEntries } from "@ryot-app/sandbox-compiler/plugins";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect, FileSystem, Path, Schema, Stream } from "effect";
 import { ChildProcess } from "effect/unstable/process";
 

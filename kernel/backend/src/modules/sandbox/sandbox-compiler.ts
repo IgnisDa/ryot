@@ -1,8 +1,8 @@
 import { BunServices } from "@effect/platform-bun";
-import { SandboxCompilationFailure } from "@ryot/contract/modules/sandbox/schemas";
-import { utf8ByteLength } from "@ryot/sandbox-compiler/limits";
-import { CompilerWorkerResponse } from "@ryot/sandbox-compiler/protocol";
-import { sandboxManifestSchema } from "@ryot/sandbox-sdk/core";
+import { SandboxCompilationFailure } from "@ryot-app/contract/modules/sandbox/schemas";
+import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
+import { CompilerWorkerResponse } from "@ryot-app/sandbox-compiler/protocol";
+import { sandboxManifestSchema } from "@ryot-app/sandbox-sdk/core";
 import { Context, Effect, Layer, Match, Path, Schema, Semaphore } from "effect";
 
 import {
@@ -65,7 +65,7 @@ export class SandboxCompiler extends Context.Service<SandboxCompiler>()("Sandbox
 		const current = new URL(import.meta.url);
 		const currentPath = yield* path.fromFileUrl(current).pipe(Effect.orDie);
 		const workerPath = currentPath.endsWith(".ts")
-			? Bun.resolveSync("@ryot/sandbox-compiler/worker", currentPath)
+			? Bun.resolveSync("@ryot-app/sandbox-compiler/worker", currentPath)
 			: yield* path
 					.fromFileUrl(new URL("./sandbox-compiler-worker.js", current))
 					.pipe(Effect.orDie);

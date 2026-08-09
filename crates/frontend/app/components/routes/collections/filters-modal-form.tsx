@@ -7,9 +7,9 @@ import {
 	MediaGeneralFilter,
 	MediaLot,
 	MediaSource,
-} from "@ryot/generated/graphql/backend/graphql";
-import { snakeCase } from "@ryot/ts-utils/lodash";
-import { startCase } from "@ryot/ts-utils/lodash";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { snakeCase } from "@ryot-app/ts-utils/lodash";
+import { startCase } from "@ryot-app/ts-utils/lodash";
 
 import { CollectionsFilter, SortOrderToggle } from "~/components/common/filters";
 import type { FilterState } from "~/components/routes/collections/filters-state";

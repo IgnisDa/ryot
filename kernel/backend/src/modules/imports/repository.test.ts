@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
-import { DbError } from "@ryot/contract/errors";
-import { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
+import { DbError } from "@ryot-app/contract/errors";
+import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";

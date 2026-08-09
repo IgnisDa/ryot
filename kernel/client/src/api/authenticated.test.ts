@@ -1,4 +1,4 @@
-import { AuthUnauthorized } from "@ryot/contract/auth-middleware";
+import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 

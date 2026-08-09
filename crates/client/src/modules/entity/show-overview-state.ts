@@ -1,4 +1,4 @@
-import type { ShowOverviewResult } from "@ryot/media-plugin/query-recipes";
+import type { ShowOverviewResult } from "@ryot-app/media-plugin/query-recipes";
 import type { AsyncResult } from "effect/unstable/reactivity";
 
 import { classifyRyotQLResult, type MappedRyotQLResultState } from "@/api/ryotql";

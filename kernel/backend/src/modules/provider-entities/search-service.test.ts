@@ -1,11 +1,11 @@
 import { assert, expect, it } from "@effect/vitest";
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
 	ProviderEntityBadRequest,
 	ProviderEntityNotFound,
-} from "@ryot/contract/modules/provider-entities/schemas";
-import { SandboxProviderId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
+} from "@ryot-app/contract/modules/provider-entities/schemas";
+import { SandboxProviderId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 
 import { RedisService } from "#lib/infrastructure/redis";

@@ -1,7 +1,7 @@
-import type { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
-import { SandboxProviderId as SandboxProviderIdSchema } from "@ryot/contract/schema/brands";
-import { providerEntityLinksRecipe } from "@ryot/ryotql-recipes/provider-entity-links";
-import { providerSearchRecipe } from "@ryot/ryotql-recipes/provider-search";
+import type { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { SandboxProviderId as SandboxProviderIdSchema } from "@ryot-app/contract/schema/brands";
+import { providerEntityLinksRecipe } from "@ryot-app/ryotql-recipes/provider-entity-links";
+import { providerSearchRecipe } from "@ryot-app/ryotql-recipes/provider-search";
 import { Schema } from "effect";
 import { Atom } from "effect/unstable/reactivity";
 

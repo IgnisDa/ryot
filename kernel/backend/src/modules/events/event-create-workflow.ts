@@ -1,13 +1,13 @@
-import { DbError } from "@ryot/contract/errors";
-import { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
+import { DbError } from "@ryot-app/contract/errors";
+import { AutomationOrigin } from "@ryot-app/contract/modules/automations/schemas";
 import {
 	CreateEventItem,
 	CreateEventsResponse,
 	EventCreateOrigin,
 	EventCreateItemError,
 	EventsBadRequest,
-} from "@ryot/contract/modules/events/schemas";
-import { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/events/schemas";
+import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import { generateId } from "better-auth";
 import { Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";

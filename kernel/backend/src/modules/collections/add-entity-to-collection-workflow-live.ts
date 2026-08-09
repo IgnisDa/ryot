@@ -1,8 +1,8 @@
 import {
 	CollectionBadRequest,
 	MembershipResponse,
-} from "@ryot/contract/modules/collections/schemas";
-import { EntityId, EventSchemaSlug } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/collections/schemas";
+import { EntityId, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";
 import { Activity } from "effect/unstable/workflow";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";

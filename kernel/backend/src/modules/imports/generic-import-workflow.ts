@@ -1,7 +1,7 @@
-import { unknownToMessage } from "@ryot/contract/errors";
-import { CreateEventItem } from "@ryot/contract/modules/events/schemas";
-import type { ImportRunFailureReason } from "@ryot/contract/modules/imports/schemas";
-import type { ImportRunFailureStage } from "@ryot/contract/modules/imports/types";
+import { unknownToMessage } from "@ryot-app/contract/errors";
+import { CreateEventItem } from "@ryot-app/contract/modules/events/schemas";
+import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
+import type { ImportRunFailureStage } from "@ryot-app/contract/modules/imports/types";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -10,13 +10,13 @@ import {
 	IntegrationId,
 	RelationshipSchemaSlug,
 	UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import {
 	genericImportChunkSchema,
 	genericImportWorkflowResultSchema,
 	type GenericImportWriteItem,
-} from "@ryot/sandbox-sdk/imports";
-import { isObjectRecord } from "@ryot/ts-utils/predicates";
+} from "@ryot-app/sandbox-sdk/imports";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Cause, DateTime, Effect, FileSystem, Schema } from "effect";
 import { Activity, Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";

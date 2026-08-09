@@ -1,6 +1,6 @@
-import type { PluginIntegrationProvider } from "@ryot/contract/modules/plugins/manifest";
-import type { UserId } from "@ryot/contract/schema/brands";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
+import type { PluginIntegrationProvider } from "@ryot-app/contract/modules/plugins/manifest";
+import type { UserId } from "@ryot-app/contract/schema/brands";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Context, Effect, Layer } from "effect";
 
 import type { PluginConfigContext } from "#lib/infrastructure/sandbox-runtime/app-config";

@@ -38,12 +38,12 @@ import {
 	MergeExerciseDocument,
 	UserExercisesListDocument,
 	type UserExercisesListInput,
-} from "@ryot/generated/graphql/backend/graphql";
-import { cloneDeep } from "@ryot/ts-utils/lodash";
-import { isNumber } from "@ryot/ts-utils/lodash";
-import { snakeCase } from "@ryot/ts-utils/lodash";
-import { startCase } from "@ryot/ts-utils/lodash";
-import { getActionIntent, processSubmission } from "@ryot/ts-utils/request";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { cloneDeep } from "@ryot-app/ts-utils/lodash";
+import { isNumber } from "@ryot-app/ts-utils/lodash";
+import { snakeCase } from "@ryot-app/ts-utils/lodash";
+import { startCase } from "@ryot-app/ts-utils/lodash";
+import { getActionIntent, processSubmission } from "@ryot-app/ts-utils/request";
 import { IconAlertCircle, IconCheck, IconFilter, IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";

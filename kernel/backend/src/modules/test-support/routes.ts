@@ -1,11 +1,11 @@
-import { AppContract } from "@ryot/contract/contract";
-import { dieOnDbError, unknownToMessage } from "@ryot/contract/errors";
+import { AppContract } from "@ryot-app/contract/contract";
+import { dieOnDbError, unknownToMessage } from "@ryot-app/contract/errors";
 import {
 	TestSupportBadRequest,
 	TestSupportConflict,
 	TestSupportNotFound,
 	TestSupportOperationFailure,
-} from "@ryot/contract/modules/test-support/schemas";
+} from "@ryot-app/contract/modules/test-support/schemas";
 import { Effect, Match } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 

@@ -1,8 +1,8 @@
-import { SandboxRunError, toSandboxRunError } from "@ryot/contract/errors";
-import type { ListedEntity } from "@ryot/contract/modules/entities/schemas";
-import { SandboxScriptId } from "@ryot/contract/schema/brands";
-import type { AutomationInput } from "@ryot/sandbox-sdk/automation";
-import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
+import { SandboxRunError, toSandboxRunError } from "@ryot-app/contract/errors";
+import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
+import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
+import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import { Context, Effect, Layer, Schema } from "effect";
 import { Activity } from "effect/unstable/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";

@@ -27,11 +27,11 @@ import {
 	EntityLot,
 	ExerciseSource,
 	WorkoutSetPersonalBest,
-} from "@ryot/generated/graphql/backend/graphql";
-import { sortBy } from "@ryot/ts-utils/lodash";
-import { startCase } from "@ryot/ts-utils/lodash";
-import { parseParameters, parseSearchQuery } from "@ryot/ts-utils/request";
-import { changeCase } from "@ryot/ts-utils/string";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { sortBy } from "@ryot-app/ts-utils/lodash";
+import { startCase } from "@ryot-app/ts-utils/lodash";
+import { parseParameters, parseSearchQuery } from "@ryot-app/ts-utils/request";
+import { changeCase } from "@ryot-app/ts-utils/string";
 import {
 	IconChartPie,
 	IconCheck,

@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
-import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import { hostSuccess } from "@ryot/sandbox-sdk/wire";
+import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { hostSuccess } from "@ryot-app/sandbox-sdk/wire";
 import { Effect, Layer, Logger, Option, Tracer, type Exit, References } from "effect";
 import type { Logger as LoggerType } from "effect/Logger";
 import { describe } from "vitest";

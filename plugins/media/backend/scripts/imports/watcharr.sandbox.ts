@@ -1,6 +1,6 @@
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import { readNamedArtifact } from "@ryot/sandbox-sdk/filesystem";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { readNamedArtifact } from "@ryot-app/sandbox-sdk/filesystem";
 
 import { MediaImportAdapterBatch, MediaImportParserInput } from "../../imports/schemas";
 import { adaptWatcharrExportBatch } from "../../imports/watcharr";

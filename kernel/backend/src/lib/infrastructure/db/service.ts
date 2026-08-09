@@ -1,5 +1,5 @@
 import { PgClient } from "@effect/sql-pg";
-import { DbError, unknownToDbError } from "@ryot/contract/errors";
+import { DbError, unknownToDbError } from "@ryot-app/contract/errors";
 import { sql } from "drizzle-orm";
 import { EffectDrizzleQueryError } from "drizzle-orm/effect-core";
 import * as PgDrizzle from "drizzle-orm/effect-postgres";

@@ -1,7 +1,10 @@
-import { decodePluginCatalogInvalidatedMessage } from "@ryot/contract/modules/plugins/contract";
-import { PluginConflictError, PluginNotFoundError } from "@ryot/contract/modules/plugins/schemas";
-import { PluginSlug } from "@ryot/contract/schema/brands";
-import { stableStringify } from "@ryot/ts-utils/json";
+import { decodePluginCatalogInvalidatedMessage } from "@ryot-app/contract/modules/plugins/contract";
+import {
+	PluginConflictError,
+	PluginNotFoundError,
+} from "@ryot-app/contract/modules/plugins/schemas";
+import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, Context, Effect, FiberSet, Layer, Result, Semaphore } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";

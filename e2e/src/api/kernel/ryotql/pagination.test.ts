@@ -1,4 +1,4 @@
-import type { RowsResult } from "@ryot/contract/modules/ryotql/language";
+import type { RowsResult } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	ascending,
 	castNumber,
@@ -11,7 +11,7 @@ import {
 	literal,
 	rows,
 	table,
-} from "@ryot/ryotql";
+} from "@ryot-app/ryotql";
 import { Effect } from "effect";
 
 import {

@@ -1,4 +1,4 @@
-import type { EntityId } from "@ryot/contract/schema/brands";
+import type { EntityId } from "@ryot-app/contract/schema/brands";
 import { Match } from "effect";
 import { Link } from "expo-router";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";

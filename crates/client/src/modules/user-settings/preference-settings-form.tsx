@@ -1,7 +1,7 @@
 import type {
 	UpdateUserPreferencesBody,
 	UserPreferences,
-} from "@ryot/contract/modules/user-settings/schemas";
+} from "@ryot-app/contract/modules/user-settings/schemas";
 import { useForm } from "@tanstack/react-form";
 import clsx from "clsx";
 import { Exit } from "effect";

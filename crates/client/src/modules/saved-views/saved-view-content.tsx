@@ -1,6 +1,6 @@
-import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
-import type { EntitySchemaSlug } from "@ryot/contract/schema/brands";
-import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import type { SavedViewRecord } from "@ryot-app/ryotql-recipes/saved-view-records";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import clsx from "clsx";
 import { useRef, type ReactNode } from "react";

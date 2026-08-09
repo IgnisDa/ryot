@@ -1,6 +1,6 @@
-import type { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
+import type { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { eq, isNull, or } from "drizzle-orm";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";

@@ -17,8 +17,8 @@ import {
 	DeployBackgroundJobDocument,
 	GenerateLogDownloadUrlDocument,
 	UserLot,
-} from "@ryot/generated/graphql/backend/graphql";
-import { processSubmission } from "@ryot/ts-utils/request";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { processSubmission } from "@ryot-app/ts-utils/request";
 import {
 	IconActivity,
 	IconBarbell,

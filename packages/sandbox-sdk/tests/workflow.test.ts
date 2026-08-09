@@ -1,11 +1,11 @@
-import { sandboxManifestSchema } from "@ryot/sandbox-sdk/core";
+import { sandboxManifestSchema } from "@ryot-app/sandbox-sdk/core";
 import {
 	defineManifest,
 	defineWorkflow,
 	Effect,
 	Schema,
 	workflowDurableCallRequestSchema,
-} from "@ryot/sandbox-sdk/workflow";
+} from "@ryot-app/sandbox-sdk/workflow";
 import { Effect as RuntimeEffect } from "effect";
 import { describe, expect, test } from "vitest";
 

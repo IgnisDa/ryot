@@ -1,8 +1,12 @@
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import { readArtifact, readNamedArtifact, writeScratchChunks } from "@ryot/sandbox-sdk/filesystem";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import {
+	readArtifact,
+	readNamedArtifact,
+	writeScratchChunks,
+} from "@ryot-app/sandbox-sdk/filesystem";
 import { afterEach, expect, test } from "vitest";
 
-const filesystemKey = Symbol.for("@ryot/sandbox-sdk/filesystem");
+const filesystemKey = Symbol.for("@ryot-app/sandbox-sdk/filesystem");
 
 afterEach(() => {
 	Reflect.deleteProperty(globalThis, filesystemKey);

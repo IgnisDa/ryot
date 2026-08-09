@@ -1,10 +1,10 @@
-import type { SandboxHost } from "@ryot/sandbox-sdk/core";
-import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
+import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
 import type {
 	ProviderDetailsRelatedEntity,
 	ProviderSearchInput,
 	ProviderSearchResult,
-} from "@ryot/sandbox-sdk/provider";
+} from "@ryot-app/sandbox-sdk/provider";
 
 import { getUserAllowNsfw } from "../../shared/host";
 import { asRecord, numberValue, parseJsonResponse, stringValue } from "../../shared/records";

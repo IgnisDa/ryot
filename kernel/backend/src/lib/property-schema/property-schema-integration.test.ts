@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { PropertyValidationError } from "@ryot/contract/schema/property-schema";
+import { PropertyValidationError } from "@ryot-app/contract/schema/property-schema";
 import { Effect } from "effect";
 import { describe } from "vitest";
 

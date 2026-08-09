@@ -2,7 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import type {
 	UpdateUserPreferencesBody,
 	UserPreferences,
-} from "@ryot/contract/modules/user-settings/schemas";
+} from "@ryot-app/contract/modules/user-settings/schemas";
 import clsx from "clsx";
 import { Exit } from "effect";
 import { useState } from "react";

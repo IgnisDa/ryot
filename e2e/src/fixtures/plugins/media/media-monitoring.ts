@@ -1,12 +1,22 @@
-import { EntityId, PluginSlug } from "@ryot/contract/schema/brands";
-import type { JsonValue } from "@ryot/contract/schema/json";
+import { EntityId, PluginSlug } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	mediaMonitoringDisableRecipe,
 	mediaMonitoringEnableRecipe,
 	mediaMonitoringStatusRecipe,
-} from "@ryot/media-plugin/operations/recipes";
-import { invokeOperationRecipe } from "@ryot/plugin-kit/operations";
-import { aggregate, and, column, document, eq, join, literal, measure, table } from "@ryot/ryotql";
+} from "@ryot-app/media-plugin/operations/recipes";
+import { invokeOperationRecipe } from "@ryot-app/plugin-kit/operations";
+import {
+	aggregate,
+	and,
+	column,
+	document,
+	eq,
+	join,
+	literal,
+	measure,
+	table,
+} from "@ryot-app/ryotql";
 import { Effect } from "effect";
 
 import { adminHeaders } from "~/fixtures/kernel/admin";

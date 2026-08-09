@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
-import { SandboxScriptManifest } from "@ryot/contract/modules/sandbox/schemas";
-import { sandboxManifestSchema, type SandboxManifest } from "@ryot/sandbox-sdk/core";
-import { Schema as SandboxSchema } from "@ryot/sandbox-sdk/effect";
+import { SandboxScriptManifest } from "@ryot-app/contract/modules/sandbox/schemas";
+import { sandboxManifestSchema, type SandboxManifest } from "@ryot-app/sandbox-sdk/core";
+import { Schema as SandboxSchema } from "@ryot-app/sandbox-sdk/effect";
 import { Effect, Schema } from "effect";
 
 const manifests = [

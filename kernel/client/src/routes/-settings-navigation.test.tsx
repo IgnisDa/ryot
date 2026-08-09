@@ -1,4 +1,4 @@
-import type { PluginClientCatalog } from "@ryot/ryotql-recipes/plugin-client-catalog";
+import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Deferred, Effect, Layer, ManagedRuntime } from "effect";

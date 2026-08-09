@@ -1,6 +1,6 @@
-import { RyotClientError } from "@ryot/client-sdk";
-import { Schema } from "@ryot/client-sdk/effect";
-import { PluginLink } from "@ryot/client-sdk/plugin";
+import { RyotClientError } from "@ryot-app/client-sdk";
+import { Schema } from "@ryot-app/client-sdk/effect";
+import { PluginLink } from "@ryot-app/client-sdk/plugin";
 import {
 	createRyotMutation,
 	createRyotQuery,
@@ -8,8 +8,8 @@ import {
 	useRyotMutation,
 	useRyotQuery,
 	useRyotTheme,
-} from "@ryot/client-sdk/react";
-import { Button, StatusMessage } from "@ryot/client-ui-sdk";
+} from "@ryot-app/client-sdk/react";
+import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
 import clsx from "clsx";
 import { useState } from "react";
 

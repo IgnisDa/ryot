@@ -1,5 +1,5 @@
-import { EntityId } from "@ryot/contract/schema/brands";
-import { column, descending, document, eq, field, literal, rows, table } from "@ryot/ryotql";
+import { EntityId } from "@ryot-app/contract/schema/brands";
+import { column, descending, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";

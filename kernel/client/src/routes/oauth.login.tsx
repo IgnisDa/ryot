@@ -1,4 +1,4 @@
-import { Button } from "@ryot/client-ui-sdk";
+import { Button } from "@ryot-app/client-ui-sdk";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect, useEffectEvent, useRef, useState } from "react";

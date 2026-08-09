@@ -1,6 +1,6 @@
-import type { ContractPayload } from "@ryot/contract/client";
-import { NotificationChannelId } from "@ryot/contract/schema/brands";
-import { notificationChannelsRecipe } from "@ryot/ryotql-recipes/notification-channels";
+import type { ContractPayload } from "@ryot-app/contract/client";
+import { NotificationChannelId } from "@ryot-app/contract/schema/brands";
+import { notificationChannelsRecipe } from "@ryot-app/ryotql-recipes/notification-channels";
 import { Effect } from "effect";
 
 import { startFakeHttpServer } from "~/support/fake-http-server";

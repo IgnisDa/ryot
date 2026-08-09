@@ -1,9 +1,9 @@
 import type {
 	ListedIntegration,
 	ListedIntegrationProvider,
-} from "@ryot/contract/modules/integrations/schemas";
-import type { ImportRunSummary } from "@ryot/ryotql-recipes/import-runs";
-import type { IntegrationList, IntegrationSummary } from "@ryot/ryotql-recipes/integrations";
+} from "@ryot-app/contract/modules/integrations/schemas";
+import type { ImportRunSummary } from "@ryot-app/ryotql-recipes/import-runs";
+import type { IntegrationList, IntegrationSummary } from "@ryot-app/ryotql-recipes/integrations";
 import type { AsyncResult } from "effect/unstable/reactivity";
 
 import { requestFailureCopy, type RequestFailureState } from "@/api/request-failure";

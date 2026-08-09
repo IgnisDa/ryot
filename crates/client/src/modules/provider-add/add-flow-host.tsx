@@ -1,4 +1,4 @@
-import type { EntitySchemaSlug } from "@ryot/contract/schema/brands";
+import type { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { ScrollView, View } from "react-native";
 
 import { SearchParamModalHost, useSearchParamModal } from "@/modules/ui/search-param-modal";

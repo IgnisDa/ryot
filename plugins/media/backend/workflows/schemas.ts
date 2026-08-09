@@ -1,4 +1,4 @@
-import { Schema } from "@ryot/sandbox-sdk/workflow";
+import { Schema } from "@ryot-app/sandbox-sdk/workflow";
 
 export const MediaImportResolutionActivityInput = Schema.Struct({
 	value: Schema.String,

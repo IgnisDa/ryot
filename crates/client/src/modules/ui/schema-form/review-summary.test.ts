@@ -1,4 +1,4 @@
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { describe, expect, it } from "vitest";
 
 import { schemaReviewRows, MASKED_REVIEW_VALUE, UPLOADED_REVIEW_VALUE } from "./review-summary";

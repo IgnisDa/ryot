@@ -7,17 +7,17 @@ import {
 	type Predicate,
 	type RyotQLDocument,
 	type ScalarExpression,
-} from "@ryot/contract/modules/ryotql/language";
+} from "@ryot-app/contract/modules/ryotql/language";
 import type {
 	SavedViewCardMapping,
 	SavedViewDisplayKind,
 	SavedViewDisplayValue,
 	SavedViewTableMapping,
-} from "@ryot/contract/modules/saved-views/schemas";
+} from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	AssetLocator,
 	type AssetLocator as AssetLocatorType,
-} from "@ryot/contract/modules/uploads/schemas";
+} from "@ryot-app/contract/modules/uploads/schemas";
 import {
 	and,
 	ascending,
@@ -33,7 +33,7 @@ import {
 	selectedAggregate,
 	selectedMeasure,
 	table,
-} from "@ryot/ryotql";
+} from "@ryot-app/ryotql";
 import { DateTime, Option, Result, Schema } from "effect";
 
 type DisplayExpression = {

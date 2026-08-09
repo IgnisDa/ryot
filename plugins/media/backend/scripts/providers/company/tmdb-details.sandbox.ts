@@ -1,5 +1,5 @@
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { defineProvider } from "@ryot/sandbox-sdk/provider";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 import { details } from "./tmdb";
 

@@ -1,11 +1,11 @@
-import { SandboxRunError, mapDbErrorToSandbox } from "@ryot/contract/errors";
+import { SandboxRunError, mapDbErrorToSandbox } from "@ryot-app/contract/errors";
 import type {
 	EntityId,
 	RelationshipId,
 	RelationshipSchemaSlug,
 	UserId,
-} from "@ryot/contract/schema/brands";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
+} from "@ryot-app/contract/schema/brands";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Effect } from "effect";
 
 import { EntitiesRepository } from "#modules/entities/repository";

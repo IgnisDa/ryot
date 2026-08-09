@@ -1,4 +1,4 @@
-import { imagesField, videosField } from "@ryot/contract/schema/core";
+import { imagesField, videosField } from "@ryot-app/contract/schema/core";
 import type {
 	AppArrayProperty,
 	AppBooleanProperty,
@@ -14,7 +14,7 @@ import type {
 	AppSchemaRule,
 	AppSchemaRuleCondition,
 	AppStringProperty,
-} from "@ryot/contract/schema/property-schema";
+} from "@ryot-app/contract/schema/property-schema";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 

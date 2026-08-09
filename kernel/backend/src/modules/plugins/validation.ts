@@ -1,16 +1,16 @@
 import {
 	importInternalPropertyNames,
 	isImportUploadTokenField,
-} from "@ryot/contract/modules/imports/schemas";
-import { integrationCommonPropertyNames } from "@ryot/contract/modules/integrations/schemas";
+} from "@ryot-app/contract/modules/imports/schemas";
+import { integrationCommonPropertyNames } from "@ryot-app/contract/modules/integrations/schemas";
 import {
 	PluginManifest,
 	type PluginManifest as PluginManifestValue,
 	type PluginScript,
-} from "@ryot/contract/modules/plugins/manifest";
-import { reservedPluginSlugs } from "@ryot/contract/modules/plugins/schemas";
-import { utf8ByteLength } from "@ryot/sandbox-compiler/limits";
-import { canonicalRelativePosixPathIssue } from "@ryot/ts-utils/path";
+} from "@ryot-app/contract/modules/plugins/manifest";
+import { reservedPluginSlugs } from "@ryot-app/contract/modules/plugins/schemas";
+import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
+import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Cron, Data, Effect, Result, Schema } from "effect";
 
 import {

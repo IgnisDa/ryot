@@ -1,5 +1,5 @@
-import { PluginSlug } from "@ryot/contract/schema/brands";
-import { navigationRecipe } from "@ryot/ryotql-recipes/navigation";
+import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import { navigationRecipe } from "@ryot-app/ryotql-recipes/navigation";
 import { Effect } from "effect";
 
 import {

@@ -1,7 +1,7 @@
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineProvider } from "@ryot/sandbox-sdk/provider";
-import type { ProviderTranslateInput } from "@ryot/sandbox-sdk/provider";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
+import type { ProviderTranslateInput } from "@ryot-app/sandbox-sdk/provider";
 
 import { asRecord, stringValue } from "../../../../shared/records";
 import {

@@ -1,4 +1,4 @@
-import { TypeScriptCompilerDiagnostic } from "@ryot/typescript-compiler";
+import { TypeScriptCompilerDiagnostic } from "@ryot-app/typescript-compiler";
 import { Schema } from "effect";
 
 import { CLIENT_PLUGIN_COMPILER_LIMITS } from "./limits";

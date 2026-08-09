@@ -1,4 +1,4 @@
-import { CLIENT_BRIDGE_PROTOCOL_VERSION } from "@ryot/contract/modules/plugins/client";
+import { CLIENT_BRIDGE_PROTOCOL_VERSION } from "@ryot-app/contract/modules/plugins/client";
 import { expect, it } from "vitest";
 
 import { clientArtifactMetadata, clientAssetName, clientGeneratedArtifactFile } from "./artifact";

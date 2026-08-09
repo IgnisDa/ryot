@@ -1,4 +1,4 @@
-import { AppContract } from "@ryot/contract/contract";
+import { AppContract } from "@ryot-app/contract/contract";
 import { Layer } from "effect";
 import { AtomHttpApi } from "effect/unstable/reactivity";
 

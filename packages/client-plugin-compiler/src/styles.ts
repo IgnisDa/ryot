@@ -1,6 +1,6 @@
-import { pluginClientAssetMimeType } from "@ryot/contract/modules/plugins/client";
-import { sortBy } from "@ryot/ts-utils/lodash";
-import { canonicalRelativePosixPathIssue } from "@ryot/ts-utils/path";
+import { pluginClientAssetMimeType } from "@ryot-app/contract/modules/plugins/client";
+import { sortBy } from "@ryot-app/ts-utils/lodash";
+import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Scanner } from "@tailwindcss/oxide";
 import { Effect } from "effect";
 import { parse } from "postcss";

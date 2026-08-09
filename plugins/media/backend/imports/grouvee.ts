@@ -1,4 +1,4 @@
-import { Result, Option, Schema } from "@ryot/sandbox-sdk/effect";
+import { Result, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import { parseCsvText } from "./csv";
 import { nowIso, parseDateTime, parseDateWithFormat } from "./dates";

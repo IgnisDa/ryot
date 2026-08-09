@@ -1,4 +1,4 @@
-import { PluginSlug } from "@ryot/contract/schema/brands";
+import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import {

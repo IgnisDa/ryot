@@ -1,7 +1,14 @@
-import { NotificationChannelKind } from "@ryot/contract/modules/notifications/types";
-import { NotificationChannelId } from "@ryot/contract/schema/brands";
-import type { Recipe } from "@ryot/ryotql";
-import { column, defineRecipe, descending, selectedField, selectedRows, table } from "@ryot/ryotql";
+import { NotificationChannelKind } from "@ryot-app/contract/modules/notifications/types";
+import { NotificationChannelId } from "@ryot-app/contract/schema/brands";
+import type { Recipe } from "@ryot-app/ryotql";
+import {
+	column,
+	defineRecipe,
+	descending,
+	selectedField,
+	selectedRows,
+	table,
+} from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
 import { IsoDateString } from "./codecs";

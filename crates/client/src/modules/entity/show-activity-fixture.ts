@@ -1,5 +1,5 @@
-import { showActivityRecipe } from "@ryot/media-plugin/query-recipes";
-import { rowsResult } from "@ryot/ryotql-recipes/test-utils";
+import { showActivityRecipe } from "@ryot-app/media-plugin/query-recipes";
+import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { Result } from "effect";
 
 const showActivityFixtureRecipe = showActivityRecipe({

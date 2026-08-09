@@ -7,9 +7,9 @@ import {
 	SignalSchemaSlug,
 	SubscriptionRunId,
 	UserId,
-} from "@ryot/contract/schema/brands";
-import { utf8ByteLength } from "@ryot/sandbox-compiler/limits";
-import { stableStringify } from "@ryot/ts-utils/json";
+} from "@ryot-app/contract/schema/brands";
+import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Layer } from "effect";
 
 import type { MockOverrides } from "#lib/test-utils/effect";

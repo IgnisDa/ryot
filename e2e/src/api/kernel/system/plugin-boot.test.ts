@@ -1,6 +1,6 @@
 import type { ChildProcess } from "node:child_process";
 
-import { exerciseListRecipe } from "@ryot/fitness-plugin/query-recipes";
+import { exerciseListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
 import { Duration, Effect } from "effect";
 import getPort from "get-port";
 

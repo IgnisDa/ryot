@@ -8,9 +8,9 @@ import {
 	pluginClientAssetMimeType,
 	type PluginClientArtifactFile,
 	type PluginClientArtifactMetadata,
-} from "@ryot/contract/modules/plugins/client";
-import { sha256Hex } from "@ryot/ts-utils/crypto";
-import { stableStringify } from "@ryot/ts-utils/json";
+} from "@ryot-app/contract/modules/plugins/client";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 
 export const CLIENT_ARTIFACT_SCRIPT_NAME = "plugin.js";
 export const CLIENT_ARTIFACT_STYLE_NAME = "plugin.css";

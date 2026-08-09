@@ -4,7 +4,7 @@ import {
 	OAUTH_SCOPE,
 	OAUTH_WEB_CLIENT_ID,
 	type PendingAuthorization,
-} from "@ryot/contract/oauth";
+} from "@ryot-app/contract/oauth";
 import { describe, expect, it } from "vitest";
 
 import { decodeServerOrigin } from "#/api/origin";

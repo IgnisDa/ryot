@@ -1,5 +1,5 @@
-import { pluginClientCatalogRecipe } from "@ryot/ryotql-recipes/plugin-client-catalog";
-import { sha256Hex } from "@ryot/ts-utils/crypto";
+import { pluginClientCatalogRecipe } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Clock, Effect } from "effect";
 
 import {

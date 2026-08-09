@@ -3,9 +3,9 @@ import type {
 	IntegrationRecord,
 	ListIntegrationsOptions,
 	SandboxHost,
-} from "@ryot/sandbox-sdk/core";
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import { entityReadRecipe, executeRyotqlRecipe } from "@ryot/sandbox-sdk/ryotql";
+} from "@ryot-app/sandbox-sdk/core";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
 
 export type IntegrationPushHost = SandboxHost<
 	readonly [

@@ -1,4 +1,4 @@
-import type { ContractSuccess } from "@ryot/contract/client";
+import type { ContractSuccess } from "@ryot-app/contract/client";
 import { Effect, Match, Schedule } from "effect";
 
 const USER_LIFECYCLE_POLL_ATTEMPTS = 60;

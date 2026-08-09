@@ -2,9 +2,9 @@ import type {
 	ListedNotificationChannel,
 	NotificationChannelSpecifics,
 	UpdateNotificationChannelBody,
-} from "@ryot/contract/modules/notifications/schemas";
-import type { NotificationChannelKind } from "@ryot/contract/modules/notifications/types";
-import { NotificationChannelId, UserId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/notifications/schemas";
+import type { NotificationChannelKind } from "@ryot-app/contract/modules/notifications/types";
+import { NotificationChannelId, UserId } from "@ryot-app/contract/schema/brands";
 import { and, desc, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Match, Option } from "effect";
 

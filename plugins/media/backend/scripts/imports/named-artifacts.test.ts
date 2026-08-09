@@ -1,6 +1,6 @@
-import type { ExecutionMetadata, SandboxHost } from "@ryot/sandbox-sdk/core";
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import { gzipSync } from "@ryot/sandbox-sdk/fflate";
+import type { ExecutionMetadata, SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { gzipSync } from "@ryot-app/sandbox-sdk/fflate";
 import { afterEach, expect, it } from "vitest";
 
 import movary from "./movary.sandbox";
@@ -8,7 +8,7 @@ import myanimelist from "./myanimelist.sandbox";
 import { readImportArtifactText } from "./shared";
 import trakt from "./trakt.sandbox";
 
-const filesystemKey = Symbol.for("@ryot/sandbox-sdk/filesystem");
+const filesystemKey = Symbol.for("@ryot-app/sandbox-sdk/filesystem");
 const encoder = new TextEncoder();
 const host = {} satisfies SandboxHost<["artifact-read"]>;
 const execution = {

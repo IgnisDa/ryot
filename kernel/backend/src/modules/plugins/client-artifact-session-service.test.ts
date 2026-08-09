@@ -4,13 +4,13 @@ import {
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
-} from "@ryot/contract/modules/plugins/client";
+} from "@ryot-app/contract/modules/plugins/client";
 import {
 	PluginArtifactSessionNotFoundError,
 	PluginConflictError,
 	PluginNotFoundError,
-} from "@ryot/contract/modules/plugins/schemas";
-import { PluginSlug, UserId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/plugins/schemas";
+import { PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Effect, Exit, Layer, Option, Schema } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";

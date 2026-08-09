@@ -4,7 +4,7 @@ import type {
 	MetadataProgressUpdateChange,
 	MetadataProgressUpdateCommonInput,
 	MetadataProgressUpdateInput,
-} from "@ryot/generated/graphql/backend/graphql";
+} from "@ryot-app/generated/graphql/backend/graphql";
 import { match } from "ts-pattern";
 
 import { useSavedForm } from "~/lib/hooks/use-saved-form";

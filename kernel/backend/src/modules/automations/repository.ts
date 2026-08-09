@@ -1,4 +1,4 @@
-import type { DbError } from "@ryot/contract/errors";
+import type { DbError } from "@ryot-app/contract/errors";
 import {
 	AutomationRuleMetadata,
 	type AutomationOperation,
@@ -6,7 +6,7 @@ import {
 	type SubscriptionRunSourceKind,
 	type SubscriptionRunSkipReason,
 	type SubscriptionRunTiming,
-} from "@ryot/contract/modules/automations/schemas";
+} from "@ryot-app/contract/modules/automations/schemas";
 import {
 	AutomationRuleId,
 	SandboxScriptId,
@@ -14,8 +14,8 @@ import {
 	SignalSchemaSlug,
 	SubscriptionRunId,
 	UserId,
-} from "@ryot/contract/schema/brands";
-import { decodeStoredSchema } from "@ryot/contract/schema/core";
+} from "@ryot-app/contract/schema/brands";
+import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
 import { and, asc, count, eq, isNull } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 

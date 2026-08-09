@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
-import { SandboxRunError } from "@ryot/contract/errors";
-import { UserId } from "@ryot/contract/schema/brands";
+import { SandboxRunError } from "@ryot-app/contract/errors";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";

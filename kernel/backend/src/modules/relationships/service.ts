@@ -1,15 +1,15 @@
 import {
 	RelationshipBadRequest,
 	RelationshipNotFound,
-} from "@ryot/contract/modules/relationships/schemas";
+} from "@ryot-app/contract/modules/relationships/schemas";
 import type {
 	EntityId,
 	RelationshipId,
 	RelationshipSchemaSlug,
 	UserId,
-} from "@ryot/contract/schema/brands";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import { isObjectRecord } from "@ryot/ts-utils/predicates";
+} from "@ryot-app/contract/schema/brands";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Context, Effect, Layer } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";

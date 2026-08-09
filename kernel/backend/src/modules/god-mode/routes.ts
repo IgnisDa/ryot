@@ -1,6 +1,6 @@
-import { AppContract } from "@ryot/contract/contract";
-import { DbError } from "@ryot/contract/errors";
-import { GodModeInternalFailure } from "@ryot/contract/modules/god-mode/contract";
+import { AppContract } from "@ryot-app/contract/contract";
+import { DbError } from "@ryot-app/contract/errors";
+import { GodModeInternalFailure } from "@ryot-app/contract/modules/god-mode/contract";
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 

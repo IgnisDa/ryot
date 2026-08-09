@@ -6,8 +6,8 @@ import type {
 	SubscriptionRunSourceKind,
 	SubscriptionRunStatus,
 	SubscriptionRunTiming,
-} from "@ryot/contract/modules/automations/schemas";
-import { AutomationRuleId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/automations/schemas";
+import { AutomationRuleId } from "@ryot-app/contract/schema/brands";
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
 import {

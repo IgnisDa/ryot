@@ -1,6 +1,6 @@
-import type { ExecutionMetadata } from "@ryot/sandbox-sdk/core";
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import type { ExecutionMetadata } from "@ryot-app/sandbox-sdk/core";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import {
 	createYoutubeHistoryClient,

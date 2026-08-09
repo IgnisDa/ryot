@@ -1,9 +1,9 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { SandboxRunError } from "@ryot/contract/errors";
-import type { ListedImportRun } from "@ryot/contract/modules/imports/schemas";
-import { ImportRunId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import { SandboxRunError } from "@ryot-app/contract/errors";
+import type { ListedImportRun } from "@ryot-app/contract/modules/imports/schemas";
+import { ImportRunId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer, Schema } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 import { assert } from "vitest";

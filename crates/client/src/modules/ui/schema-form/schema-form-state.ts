@@ -1,4 +1,4 @@
-import type { JsonValue } from "@ryot/contract/modules/sandbox/wire";
+import type { JsonValue } from "@ryot-app/contract/modules/sandbox/wire";
 import {
 	type AppChoice,
 	type AppPropertyDefinition,
@@ -9,8 +9,8 @@ import {
 	isAppSchemaPathEffectivelyRequired,
 	isAppSchemaPathHidden,
 	isMissingAppSchemaRequiredValue,
-} from "@ryot/contract/schema/property-schema";
-import { Email, HttpUrl } from "@ryot/contract/schema/utils";
+} from "@ryot-app/contract/schema/property-schema";
+import { Email, HttpUrl } from "@ryot-app/contract/schema/utils";
 import { Match, Result, Schema } from "effect";
 
 export type SchemaFormArrayValue = boolean | number | string;

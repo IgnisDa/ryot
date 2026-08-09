@@ -4,7 +4,7 @@ import {
 	RelationshipId,
 	RelationshipSchemaSlug,
 	UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { databaseLayer } from "#lib/test-utils/effect";

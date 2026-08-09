@@ -1,6 +1,6 @@
 // oxlint-disable unicorn/require-post-message-target-origin -- MessagePort has no target origin
-import { PluginBridgeInit } from "@ryot/contract/modules/plugins/client";
-import type { PluginClientCatalog } from "@ryot/ryotql-recipes/plugin-client-catalog";
+import { PluginBridgeInit } from "@ryot-app/contract/modules/plugins/client";
+import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime, Schema } from "effect";

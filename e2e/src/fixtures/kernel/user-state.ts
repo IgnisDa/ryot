@@ -1,7 +1,17 @@
-import type { ContractPayload } from "@ryot/contract/client";
-import { EntityId } from "@ryot/contract/schema/brands";
-import { aggregate, and, column, document, eq, join, literal, measure, table } from "@ryot/ryotql";
-import { eventHistoryRecipe } from "@ryot/ryotql-recipes/events";
+import type { ContractPayload } from "@ryot-app/contract/client";
+import { EntityId } from "@ryot-app/contract/schema/brands";
+import {
+	aggregate,
+	and,
+	column,
+	document,
+	eq,
+	join,
+	literal,
+	measure,
+	table,
+} from "@ryot-app/ryotql";
+import { eventHistoryRecipe } from "@ryot-app/ryotql-recipes/events";
 import { Effect } from "effect";
 
 import { requirePresent } from "~/support/assertions";

@@ -1,5 +1,5 @@
 {
-	"name": "@ryot/graphql",
+	"name": "@ryot-app/graphql",
 	"scripts": {
 		"check": "tsc"
 	},

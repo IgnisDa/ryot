@@ -1,15 +1,15 @@
 import { assert, expect, it } from "@effect/vitest";
-import { badRequest, DbError, type InternalError, internalError } from "@ryot/contract/errors";
-import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
+import { badRequest, DbError, type InternalError, internalError } from "@ryot-app/contract/errors";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	PluginConflictError,
 	PluginNotFoundError,
 	PluginRequestError,
-} from "@ryot/contract/modules/plugins/schemas";
-import { UploadBadRequest } from "@ryot/contract/modules/uploads/schemas";
-import { UserId } from "@ryot/contract/schema/brands";
-import { writePluginArchive } from "@ryot/plugin-archive";
-import { sha256Hex } from "@ryot/ts-utils/crypto";
+} from "@ryot-app/contract/modules/plugins/schemas";
+import { UploadBadRequest } from "@ryot-app/contract/modules/uploads/schemas";
+import { UserId } from "@ryot-app/contract/schema/brands";
+import { writePluginArchive } from "@ryot-app/plugin-archive";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Cause, Effect, Exit, Layer, Option, Stream } from "effect";
 
 import { databaseLayer } from "#lib/test-utils/effect";
@@ -264,8 +264,8 @@ const bootstrapScript = {
 	entry: "scripts/bootstrap.sandbox.ts",
 };
 
-const bootstrapScriptSource = `import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+const bootstrapScriptSource = `import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
 	kind: "script",
@@ -1004,9 +1004,9 @@ const operationScript = {
 	entry: "scripts/operation.sandbox.ts",
 };
 
-const operationScriptSource = `import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { defineOperation } from "@ryot/sandbox-sdk/operation";
+const operationScriptSource = `import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
 
 export const manifest = defineManifest({
 	capabilities: [],

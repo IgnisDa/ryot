@@ -1,5 +1,5 @@
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
-import { Effect as RuntimeEffect, Schema } from "@ryot/sandbox-sdk/effect";
+import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import { Effect as RuntimeEffect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import type { ExecutionMetadata, SandboxWorkflowReference, WorkflowManifest } from "./core";
 import { sandboxHostCapabilitySchema } from "./core";

@@ -1,4 +1,4 @@
-import { writePluginArchive, type PluginArchivePackage } from "@ryot/plugin-archive";
+import { writePluginArchive, type PluginArchivePackage } from "@ryot-app/plugin-archive";
 import { Effect } from "effect";
 
 import { getApiUrl } from "~/support/api";

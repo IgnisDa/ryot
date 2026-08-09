@@ -13,7 +13,7 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
-import { MediaLot, SeenState } from "@ryot/generated/graphql/backend/graphql";
+import { MediaLot, SeenState } from "@ryot-app/generated/graphql/backend/graphql";
 import { useState } from "react";
 import { Form } from "react-router";
 import { withQuery } from "ufo";

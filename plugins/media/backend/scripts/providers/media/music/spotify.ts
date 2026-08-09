@@ -1,6 +1,6 @@
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
-import { defineProvider } from "@ryot/sandbox-sdk/provider";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
+import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 import { asRecord, numberValue, stringValue, trimmedString } from "../../../../shared/records";
 import { createRoleAccumulator } from "../../../../shared/role-accumulator";

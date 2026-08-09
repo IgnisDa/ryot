@@ -1,5 +1,5 @@
-import { AuthUnauthorized } from "@ryot/contract/auth-middleware";
-import { runContract, type ContractProgram } from "@ryot/contract/client";
+import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
+import { runContract, type ContractProgram } from "@ryot-app/contract/client";
 import { Context, Data, Effect, Layer } from "effect";
 
 import { serverApiUrl } from "#/api/origin";

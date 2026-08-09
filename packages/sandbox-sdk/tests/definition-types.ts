@@ -1,6 +1,6 @@
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { defineOperation } from "@ryot/sandbox-sdk/operation";
-import { defineWorkflow, type WorkflowReplayEnvelope } from "@ryot/sandbox-sdk/workflow";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
+import { defineWorkflow, type WorkflowReplayEnvelope } from "@ryot-app/sandbox-sdk/workflow";
 
 import { defineManifest, defineScript } from "../src/driver.js";
 import type { Equal, Expect } from "./type-assertions.js";

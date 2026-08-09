@@ -1,5 +1,5 @@
-import type { SandboxHost } from "@ryot/sandbox-sdk/core";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
 import { asRecord, parseJsonResponse } from "../../shared/records";
 

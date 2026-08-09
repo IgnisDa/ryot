@@ -1,5 +1,5 @@
-import type { CollectionResponse } from "@ryot/contract/modules/collections/schemas";
-import type { ListedEntity } from "@ryot/contract/modules/entities/schemas";
+import type { CollectionResponse } from "@ryot-app/contract/modules/collections/schemas";
+import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 
 export const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 	value !== null && typeof value === "object" && !Array.isArray(value);

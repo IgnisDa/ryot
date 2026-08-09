@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
-import { NotFound, SandboxRunError } from "@ryot/contract/errors";
-import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import { NotFound, SandboxRunError } from "@ryot-app/contract/errors";
+import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Exit, Layer, Option } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "@effect/vitest";
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
 	IntegrationRequestError,
 	integrationCommonPropertyNames,
-} from "@ryot/contract/modules/integrations/schemas";
-import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/integrations/schemas";
+import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 

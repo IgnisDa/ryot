@@ -1,17 +1,17 @@
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
+import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import type {
 	AutomationInput,
 	AutomationPolicyInput,
 	AutomationEventSnapshot,
-} from "@ryot/sandbox-sdk/automation";
+} from "@ryot-app/sandbox-sdk/automation";
 import type {
 	EntityRecord,
 	EntitySchemaRecord,
 	EventRecord,
 	IntegrationRecord,
-} from "@ryot/sandbox-sdk/core";
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import { isObjectRecord } from "@ryot/ts-utils/predicates";
+} from "@ryot-app/sandbox-sdk/core";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 
 const timestamp = "2026-01-01T00:00:00.000Z";
 

@@ -1,8 +1,8 @@
-import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
-import type { SandboxHostCapability } from "@ryot/contract/modules/sandbox/wire";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import type { Effect } from "@ryot/sandbox-sdk/effect";
-import { Schema } from "@ryot/sandbox-sdk/effect";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/wire";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import { hostResultSchema, jsonValueSchema, type JsonValue, type SandboxHostError } from "./wire";
 

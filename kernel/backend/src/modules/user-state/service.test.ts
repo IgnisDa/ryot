@@ -1,6 +1,9 @@
 import { expect, it } from "@effect/vitest";
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { UserStateBadRequest, UserStateNotFound } from "@ryot/contract/modules/user-state/schemas";
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import {
+	UserStateBadRequest,
+	UserStateNotFound,
+} from "@ryot-app/contract/modules/user-state/schemas";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -8,7 +11,7 @@ import {
 	RelationshipId,
 	RelationshipSchemaSlug,
 	UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";

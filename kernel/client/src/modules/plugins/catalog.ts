@@ -1,9 +1,9 @@
-import { createRyotQuery } from "@ryot/client-sdk/react";
+import { createRyotQuery } from "@ryot-app/client-sdk/react";
 import {
 	pluginClientCatalogRecipe,
 	type PluginClientCatalog,
 	type PluginClientCatalogEntry,
-} from "@ryot/ryotql-recipes/plugin-client-catalog";
+} from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { Context, Data, Effect, Layer } from "effect";
 
 import type { KernelRyotClient } from "#/api/ryot-client";

@@ -1,11 +1,11 @@
-import { EntityId, RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
+import { EntityId, RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
 	podcastDetailRecipe,
 	podcastsByLifecycleStateRecipe,
 	showSeasonEpisodesRecipe,
 	showsByLifecycleStateRecipe,
-} from "@ryot/media-plugin/query-recipes";
-import { column, descending, document, eq, field, literal, rows, table } from "@ryot/ryotql";
+} from "@ryot-app/media-plugin/query-recipes";
+import { column, descending, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { Effect } from "effect";
 
 import {

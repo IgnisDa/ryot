@@ -1,21 +1,21 @@
-import type { SandboxRunError } from "@ryot/contract/errors";
+import type { SandboxRunError } from "@ryot-app/contract/errors";
 import {
 	AutomationPolicyResult,
 	AutomationProperties,
 	AutomationRuleMetadata,
 	type AutomationOrigin,
-} from "@ryot/contract/modules/automations/schemas";
-import { EventCreateItemError, EventsBadRequest } from "@ryot/contract/modules/events/schemas";
-import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
-import type { EntitySchemaSlug, EventSchemaSlug } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/automations/schemas";
+import { EventCreateItemError, EventsBadRequest } from "@ryot-app/contract/modules/events/schemas";
+import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/sandbox/schemas";
+import type { EntitySchemaSlug, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
 	AutomationRuleId,
 	EntityId,
 	SandboxScriptId,
 	SubscriptionRunId,
-} from "@ryot/contract/schema/brands";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import type { AutomationPolicyInput } from "@ryot/sandbox-sdk/automation";
+} from "@ryot-app/contract/schema/brands";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { AutomationPolicyInput } from "@ryot-app/sandbox-sdk/automation";
 import { Effect, Match, Schema } from "effect";
 import { Activity } from "effect/unstable/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";

@@ -1,11 +1,14 @@
-import type { ContractPayload } from "@ryot/contract/client";
-import { EntitySchemaSlug } from "@ryot/contract/schema/brands";
-import { castJson, column, jsonPath, literal, table } from "@ryot/ryotql";
+import type { ContractPayload } from "@ryot-app/contract/client";
+import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import { castJson, column, jsonPath, literal, table } from "@ryot-app/ryotql";
 import {
 	savedViewRecordRecipe,
 	savedViewRecordsRecipe,
-} from "@ryot/ryotql-recipes/saved-view-records";
-import { buildSavedViewLayoutProjections, savedViewRecipe } from "@ryot/ryotql-recipes/saved-views";
+} from "@ryot-app/ryotql-recipes/saved-view-records";
+import {
+	buildSavedViewLayoutProjections,
+	savedViewRecipe,
+} from "@ryot-app/ryotql-recipes/saved-views";
 import { Data, Effect } from "effect";
 
 import { requirePresent } from "~/support/assertions";

@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
-import { BadRequest } from "@ryot/contract/errors";
-import { UploadBadRequest } from "@ryot/contract/modules/uploads/schemas";
-import { UserId } from "@ryot/contract/schema/brands";
+import { BadRequest } from "@ryot-app/contract/errors";
+import { UploadBadRequest } from "@ryot-app/contract/modules/uploads/schemas";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { CryptoHasher } from "bun";
 import { Effect, Layer, Stream } from "effect";
 

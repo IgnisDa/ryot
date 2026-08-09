@@ -1,4 +1,4 @@
-import { SandboxScriptId } from "@ryot/contract/schema/brands";
+import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { and, eq, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 

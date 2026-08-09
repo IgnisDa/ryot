@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 
-import { TemporaryUploadToken } from "@ryot/contract/modules/uploads/schemas";
+import { TemporaryUploadToken } from "@ryot-app/contract/modules/uploads/schemas";
 import {
 	importRunRecipe,
 	integrationImportRunsRecipe,
 	manualImportRunsRecipe,
-} from "@ryot/ryotql-recipes/import-runs";
+} from "@ryot-app/ryotql-recipes/import-runs";
 import { Effect, Schema } from "effect";
 
 import { getApiUrl } from "~/support/api";
@@ -26,8 +26,8 @@ import {
   genericImportKernelInputSchema,
   genericImportWorkflowInputSchema,
   genericImportWorkflowResultSchema,
-} from "@ryot/sandbox-sdk/imports";
-import { Effect, Schema, defineManifest, defineWorkflow } from "@ryot/sandbox-sdk/workflow";
+} from "@ryot-app/sandbox-sdk/imports";
+import { Effect, Schema, defineManifest, defineWorkflow } from "@ryot-app/sandbox-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "workflow",
@@ -72,9 +72,9 @@ export default defineWorkflow({
 `;
 
 const FIXTURE_IMPORT_VALIDATE_SOURCE = `
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { readNamedArtifact } from "@ryot/sandbox-sdk/filesystem";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { readNamedArtifact } from "@ryot-app/sandbox-sdk/filesystem";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -172,8 +172,8 @@ import {
   genericImportWorkflowManifestSchema,
   genericImportWorkflowInputSchema,
   genericImportWorkflowResultSchema,
-} from "@ryot/sandbox-sdk/imports";
-import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot/sandbox-sdk/workflow";
+} from "@ryot-app/sandbox-sdk/imports";
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "workflow",
@@ -213,10 +213,10 @@ export default defineWorkflow({
 `;
 
 const FIXTURE_HANDLE_IMPORT_CHUNK_SOURCE = `
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { writeScratchChunks } from "@ryot/sandbox-sdk/filesystem";
-import { genericImportAdapterManifestSchema } from "@ryot/sandbox-sdk/imports";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { writeScratchChunks } from "@ryot-app/sandbox-sdk/filesystem";
+import { genericImportAdapterManifestSchema } from "@ryot-app/sandbox-sdk/imports";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -305,8 +305,8 @@ import {
   genericImportKernelInputSchema,
   genericImportWorkflowInputSchema,
   genericImportWorkflowResultSchema,
-} from "@ryot/sandbox-sdk/imports";
-import { Effect, defineManifest, defineWorkflow } from "@ryot/sandbox-sdk/workflow";
+} from "@ryot-app/sandbox-sdk/imports";
+import { Effect, defineManifest, defineWorkflow } from "@ryot-app/sandbox-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "workflow",

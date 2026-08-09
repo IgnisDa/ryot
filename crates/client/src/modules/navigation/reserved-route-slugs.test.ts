@@ -1,7 +1,7 @@
 import { readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { reservedPluginSlugs } from "@ryot/contract/modules/plugins/schemas";
+import { reservedPluginSlugs } from "@ryot-app/contract/modules/plugins/schemas";
 import { expect, it } from "vitest";
 
 const appDirectory = fileURLToPath(new URL("../../app", import.meta.url));

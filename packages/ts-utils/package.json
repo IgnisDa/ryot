@@ -1,5 +1,5 @@
 {
-	"name": "@ryot/ts-utils",
+	"name": "@ryot-app/ts-utils",
 	"exports": {
 		"./*": {
 			"types": "./src/*.ts",

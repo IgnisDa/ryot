@@ -1,5 +1,5 @@
 import { it } from "@effect/vitest";
-import { BadRequest } from "@ryot/contract/errors";
+import { BadRequest } from "@ryot-app/contract/errors";
 import { Effect, Layer, Option, Redacted, Stream } from "effect";
 import { expect } from "vitest";
 

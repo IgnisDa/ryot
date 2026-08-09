@@ -1,18 +1,21 @@
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import type {
 	SearchProviderEntitiesBody,
 	SearchProviderEntitiesResponse,
-} from "@ryot/contract/modules/provider-entities/schemas";
+} from "@ryot-app/contract/modules/provider-entities/schemas";
 import {
 	ProviderEntityBadRequest,
 	ProviderEntityNotFound,
-} from "@ryot/contract/modules/provider-entities/schemas";
-import { EntitySchemaSlug } from "@ryot/contract/schema/brands";
-import { materializeAppSchemaChoices, type AppSchema } from "@ryot/contract/schema/property-schema";
+} from "@ryot-app/contract/modules/provider-entities/schemas";
+import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import {
+	materializeAppSchemaChoices,
+	type AppSchema,
+} from "@ryot-app/contract/schema/property-schema";
 import {
 	providerSearchOptionsResultSchema,
 	providerSearchResultSchema,
-} from "@ryot/sandbox-sdk/provider";
+} from "@ryot-app/sandbox-sdk/provider";
 import { generateId } from "better-auth";
 import { Context, Effect, Layer, Result, Schema } from "effect";
 

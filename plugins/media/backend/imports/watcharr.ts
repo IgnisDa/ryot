@@ -1,4 +1,4 @@
-import { Result, Schema } from "@ryot/sandbox-sdk/effect";
+import { Result, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import { getOccurredAtValue, nowIso, parseDateInput } from "./dates";
 import {

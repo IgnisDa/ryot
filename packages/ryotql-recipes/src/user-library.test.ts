@@ -1,4 +1,4 @@
-import type { RyotQLResponse } from "@ryot/contract/modules/ryotql/language";
+import type { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
 import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 

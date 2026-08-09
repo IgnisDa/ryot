@@ -3,8 +3,8 @@ import { DateInput } from "@mantine/dates";
 import {
 	CreateCustomPersonDocument,
 	UpdateCustomPersonDocument,
-} from "@ryot/generated/graphql/backend/graphql";
-import { parseParameters, parseSearchQuery } from "@ryot/ts-utils/request";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { parseParameters, parseSearchQuery } from "@ryot-app/ts-utils/request";
 import { IconCalendar } from "@tabler/icons-react";
 import { useEffect } from "react";
 import { useLoaderData } from "react-router";

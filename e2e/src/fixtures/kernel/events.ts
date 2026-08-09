@@ -1,5 +1,15 @@
-import { EntityId, EventId, EventSchemaSlug } from "@ryot/contract/schema/brands";
-import { and, column, descending, document, eq, field, literal, rows, table } from "@ryot/ryotql";
+import { EntityId, EventId, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
+import {
+	and,
+	column,
+	descending,
+	document,
+	eq,
+	field,
+	literal,
+	rows,
+	table,
+} from "@ryot-app/ryotql";
 import { Effect } from "effect";
 
 import { requireObjectRecord } from "~/support/assertions";

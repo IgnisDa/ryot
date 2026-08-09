@@ -2,8 +2,8 @@ import {
 	JsonValue as jsonValueSchema,
 	type JsonPrimitive,
 	type JsonValue,
-} from "@ryot/contract/schema/json";
-import { Schema } from "@ryot/sandbox-sdk/effect";
+} from "@ryot-app/contract/schema/json";
+import { Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export { jsonValueSchema };
 export type { JsonPrimitive, JsonValue };

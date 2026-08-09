@@ -1,4 +1,4 @@
-import type { SystemConfigResponse } from "@ryot/contract/modules/system/contract";
+import type { SystemConfigResponse } from "@ryot-app/contract/modules/system/contract";
 import { Cause } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { describe, expect, it } from "vitest";

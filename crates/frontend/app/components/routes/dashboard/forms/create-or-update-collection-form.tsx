@@ -20,7 +20,7 @@ import {
 	type CollectionExtraInformation,
 	CollectionExtraInformationLot,
 	CreateOrUpdateCollectionDocument,
-} from "@ryot/generated/graphql/backend/graphql";
+} from "@ryot-app/generated/graphql/backend/graphql";
 import { IconTrash } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 

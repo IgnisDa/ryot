@@ -1,4 +1,4 @@
-import { navigationRecipe } from "@ryot/ryotql-recipes/navigation";
+import { navigationRecipe } from "@ryot-app/ryotql-recipes/navigation";
 import { Schema } from "effect";
 import { Atom } from "effect/unstable/reactivity";
 

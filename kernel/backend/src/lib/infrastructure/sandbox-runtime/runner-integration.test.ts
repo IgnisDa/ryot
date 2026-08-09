@@ -1,8 +1,8 @@
 import { BunServices, BunHttpServer } from "@effect/platform-bun";
-import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
-import { compilePluginSandboxSourceEntries } from "@ryot/sandbox-compiler/plugins";
-import type { SandboxManifest } from "@ryot/sandbox-sdk/core";
-import { sha256Hex } from "@ryot/ts-utils/crypto";
+import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import { compilePluginSandboxSourceEntries } from "@ryot-app/sandbox-compiler/plugins";
+import type { SandboxManifest } from "@ryot-app/sandbox-sdk/core";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect, Layer, Schema, Stream, FileSystem, Path } from "effect";
 import { HttpEffect, HttpServer } from "effect/unstable/http";
 import { ChildProcess } from "effect/unstable/process";
@@ -58,8 +58,8 @@ afterAll(() => {
 });
 
 const source = `
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -80,8 +80,8 @@ export default defineScript({
 `;
 
 const failureSource = `
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -103,8 +103,8 @@ export default defineScript({
 `;
 
 const limitsSource = `
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -135,9 +135,9 @@ export default defineScript({
 `;
 
 const filesystemSource = `
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { readArtifact, readNamedArtifact, sandboxScratchManifestSchema, writeScratchChunks } from "@ryot/sandbox-sdk/filesystem";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { readArtifact, readNamedArtifact, sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/sandbox-sdk/filesystem";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -164,10 +164,10 @@ import {
   cacheClaimSchema,
   httpCallResponseSchema,
   userPreferencesSchema,
-} from "@ryot/sandbox-sdk/core";
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+} from "@ryot-app/sandbox-sdk/core";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -217,9 +217,9 @@ export default defineScript({
 `;
 
 const approvedHostSource = `
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -242,8 +242,8 @@ export default defineScript({
 `;
 
 const hostBudgetSource = `
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -275,15 +275,15 @@ export default defineScript({
 `;
 
 const domainHostSource = `
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import {
   createEventsResultDataSchema,
   entitySchemaRecordSchema,
   eventSchemaRecordSchema,
   integrationRecordSchema,
-} from "@ryot/sandbox-sdk/core";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { entityReadRecipe, executeRyotqlRecipe } from "@ryot/sandbox-sdk/ryotql";
+} from "@ryot-app/sandbox-sdk/core";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -334,8 +334,8 @@ export default defineScript({
 
 const dependencySource = (name: string, sdkImport: string) => `
 import "${sdkImport}";
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -355,7 +355,7 @@ export default defineScript({
 `;
 
 const workflowHostSource = `
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 const manifest = {
   kind: "workflow",
@@ -382,7 +382,7 @@ export default {
 `;
 
 const workflowNondeterminismSource = `
-import { Effect as RuntimeEffect, Schema } from "@ryot/sandbox-sdk/effect";
+import { Effect as RuntimeEffect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 const Effect = {
   as: RuntimeEffect.as,
@@ -442,7 +442,7 @@ export default {
 `;
 
 const ambientScriptSource = `
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 const manifest = {
   kind: "script",
@@ -463,9 +463,9 @@ export default {
 `;
 
 const approvedYoutubeiDeterminismSource = `
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { createYoutubeMusicClient } from "@ryot/sandbox-sdk/youtubei";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { createYoutubeMusicClient } from "@ryot-app/sandbox-sdk/youtubei";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -488,8 +488,8 @@ export default defineScript({
 `;
 
 const generatedNpmImportSource = `
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -513,7 +513,7 @@ export default defineScript({
 `;
 
 const durableRoleSource = `
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = {
   kind: "operation",
@@ -850,7 +850,7 @@ it("loads compiled ESM in Deno and validates definition input and output", () =>
 				{
 					format: 1,
 					manifest: promiseManifest,
-					javascript: `import { Schema } from "@ryot/sandbox-sdk/effect";
+					javascript: `import { Schema } from "@ryot-app/sandbox-sdk/effect";
 export default {
 	output: Schema.Boolean,
 	input: Schema.Struct({}),

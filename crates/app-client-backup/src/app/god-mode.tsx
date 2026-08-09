@@ -1,5 +1,5 @@
-import { UserId } from "@ryot/contract/schema/brands";
-import { dayjs } from "@ryot/ts-utils/dayjs";
+import { UserId } from "@ryot-app/contract/schema/brands";
+import { dayjs } from "@ryot-app/ts-utils/dayjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
 import { Redirect } from "expo-router";

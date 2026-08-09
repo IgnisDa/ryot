@@ -10,8 +10,8 @@ import {
 	Tabs,
 	Text,
 } from "@mantine/core";
-import { EntityLot, EntityTranslationVariant } from "@ryot/generated/graphql/backend/graphql";
-import { parseParameters, parseSearchQuery } from "@ryot/ts-utils/request";
+import { EntityLot, EntityTranslationVariant } from "@ryot-app/generated/graphql/backend/graphql";
+import { parseParameters, parseSearchQuery } from "@ryot-app/ts-utils/request";
 import {
 	IconDeviceTv,
 	IconInfoCircle,

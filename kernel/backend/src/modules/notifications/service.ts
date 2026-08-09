@@ -1,11 +1,11 @@
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
 	NotificationNotFoundError,
 	NotificationRequestError,
 	type CreateNotificationChannelBody,
 	type UpdateNotificationChannelBody,
-} from "@ryot/contract/modules/notifications/schemas";
-import type { NotificationChannelId, UserId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/notifications/schemas";
+import type { NotificationChannelId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 

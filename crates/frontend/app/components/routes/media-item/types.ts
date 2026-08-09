@@ -1,7 +1,7 @@
 import type {
 	MetadataDetailsQuery,
 	UserMetadataDetailsQuery,
-} from "@ryot/generated/graphql/backend/graphql";
+} from "@ryot-app/generated/graphql/backend/graphql";
 
 export type MetadataDetails = MetadataDetailsQuery["metadataDetails"]["response"];
 export type UserMetadataDetails = UserMetadataDetailsQuery["userMetadataDetails"]["response"];

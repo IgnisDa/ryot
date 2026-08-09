@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { RelationshipSchemaSlug, SignalSchemaSlug } from "@ryot/contract/schema/brands";
+import { RelationshipSchemaSlug, SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";

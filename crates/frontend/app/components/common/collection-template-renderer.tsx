@@ -4,7 +4,7 @@ import {
 	type CollectionExtraInformation,
 	CollectionExtraInformationLot,
 	type Scalars,
-} from "@ryot/generated/graphql/backend/graphql";
+} from "@ryot-app/generated/graphql/backend/graphql";
 import { match } from "ts-pattern";
 
 import { dayjsLib } from "~/lib/shared/date-utils";

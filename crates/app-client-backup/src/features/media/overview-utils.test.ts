@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { dayjs } from "@ryot/ts-utils/dayjs";
+import { dayjs } from "@ryot-app/ts-utils/dayjs";
 
 import { activityLabel, hexToRgba, timeAgo } from "./overview-utils";
 

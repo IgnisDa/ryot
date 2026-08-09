@@ -1,5 +1,5 @@
 {
-	"name": "@ryot/media-plugin",
+	"name": "@ryot-app/media-plugin",
 	"private": true,
 	"exports": {
 		".": {
@@ -41,22 +41,22 @@
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
-		"@ryot/config": "workspace:*",
-		"@ryot/contract": "workspace:*",
-		"@ryot/plugin-kit": "workspace:*",
-		"@ryot/ryotql": "workspace:*",
-		"@ryot/ryotql-recipes": "workspace:*",
-		"@ryot/sandbox-sdk": "workspace:*",
-		"@ryot/ts-utils": "workspace:*",
+		"@ryot-app/config": "workspace:*",
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/plugin-kit": "workspace:*",
+		"@ryot-app/ryotql": "workspace:*",
+		"@ryot-app/ryotql-recipes": "workspace:*",
+		"@ryot-app/sandbox-sdk": "workspace:*",
+		"@ryot-app/ts-utils": "workspace:*",
 		"effect": "4.0.0-rc.111"
 	},
 	"devDependencies": {
 		"@effect/platform-bun": "4.0.0-beta.107",
 		"@effect/vitest": "4.0.0-beta.107",
-		"@ryot/cli": "workspace:*",
-		"@ryot/kernel-backend": "workspace:*",
-		"@ryot/sandbox-compiler": "workspace:*",
-		"@ryot/testing": "workspace:*",
+		"@ryot-app/cli": "workspace:*",
+		"@ryot-app/kernel-backend": "workspace:*",
+		"@ryot-app/sandbox-compiler": "workspace:*",
+		"@ryot-app/testing": "workspace:*",
 		"bun-types": "1.4.0",
 		"vitest": "4.1.9"
 	}

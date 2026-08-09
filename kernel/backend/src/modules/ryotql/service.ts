@@ -1,7 +1,7 @@
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { DbError } from "@ryot/contract/errors";
-import { RyotQLBadRequest, RyotQLInternalError } from "@ryot/contract/modules/ryotql/contract";
-import type { RyotQLDocument, RyotQLResult } from "@ryot/contract/modules/ryotql/language";
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import { DbError } from "@ryot-app/contract/errors";
+import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/modules/ryotql/contract";
+import type { RyotQLDocument, RyotQLResult } from "@ryot-app/contract/modules/ryotql/language";
 import { sql } from "drizzle-orm";
 import { Context, Effect, Layer, Match } from "effect";
 

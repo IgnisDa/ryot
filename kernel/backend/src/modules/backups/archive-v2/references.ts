@@ -1,6 +1,6 @@
-import type { JsonValue } from "@ryot/contract/modules/sandbox/wire";
-import type { AssetLocator } from "@ryot/contract/modules/uploads/schemas";
-import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
+import type { JsonValue } from "@ryot-app/contract/modules/sandbox/wire";
+import type { AssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
+import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Effect } from "effect";
 
 import { archiveError, type BackupArchiveError } from "./error";

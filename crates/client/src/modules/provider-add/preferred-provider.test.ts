@@ -1,4 +1,4 @@
-import { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { describe, expect, it } from "vitest";
 
 import { selectPreferredProvider } from "./preferred-provider";

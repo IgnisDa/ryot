@@ -1,5 +1,5 @@
 {
-	"name": "@ryot/contract",
+	"name": "@ryot-app/contract",
 	"exports": {
 		"./*": {
 			"types": "./src/*.ts",
@@ -11,11 +11,11 @@
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
-		"@ryot/ts-utils": "workspace:*",
+		"@ryot-app/ts-utils": "workspace:*",
 		"effect": "4.0.0-rc.111"
 	},
 	"devDependencies": {
-		"@ryot/testing": "workspace:*",
+		"@ryot-app/testing": "workspace:*",
 		"bun-types": "1.4.0",
 		"vitest": "4.1.9"
 	}

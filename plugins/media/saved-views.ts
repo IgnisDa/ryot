@@ -1,5 +1,5 @@
-import { column, table } from "@ryot/ryotql";
-import { buildSavedViewLayoutProjections } from "@ryot/ryotql-recipes/saved-views";
+import { column, table } from "@ryot-app/ryotql";
+import { buildSavedViewLayoutProjections } from "@ryot-app/ryotql-recipes/saved-views";
 
 import { mediaEntitySchemas } from "./backend/schemas/entity-schemas";
 import { slugify } from "./backend/shared/slug";

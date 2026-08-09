@@ -3,9 +3,9 @@ import type {
 	ListedIntegration,
 	ListedIntegrationProvider,
 	UpdateIntegrationBody,
-} from "@ryot/contract/modules/integrations/schemas";
-import type { JsonValue } from "@ryot/contract/modules/sandbox/wire";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
+} from "@ryot-app/contract/modules/integrations/schemas";
+import type { JsonValue } from "@ryot-app/contract/modules/sandbox/wire";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 
 import {
 	initialSchemaFormValues,

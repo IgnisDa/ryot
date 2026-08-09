@@ -1,10 +1,10 @@
-import type { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
+import type { AutomationOrigin } from "@ryot-app/contract/modules/automations/schemas";
 import type {
 	EntityId,
 	EntitySchemaSlug,
 	SandboxProviderId,
 	UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import type { Effect } from "effect";
 import { Context } from "effect";
 

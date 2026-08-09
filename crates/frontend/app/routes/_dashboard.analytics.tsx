@@ -23,18 +23,18 @@ import {
 	UserAnalyticsDocument,
 	UserAnalyticsParametersDocument,
 	type UserAnalyticsQuery,
-} from "@ryot/generated/graphql/backend/graphql";
+} from "@ryot-app/generated/graphql/backend/graphql";
 import {
 	formatDateToNaiveDate,
 	formatQuantityWithCompactNotation,
 	humanizeDuration,
-} from "@ryot/ts-utils/format";
-import { isBoolean } from "@ryot/ts-utils/lodash";
-import { mapValues } from "@ryot/ts-utils/lodash";
-import { pickBy } from "@ryot/ts-utils/lodash";
-import { snakeCase } from "@ryot/ts-utils/lodash";
-import { sum } from "@ryot/ts-utils/lodash";
-import { changeCase } from "@ryot/ts-utils/string";
+} from "@ryot-app/ts-utils/format";
+import { isBoolean } from "@ryot-app/ts-utils/lodash";
+import { mapValues } from "@ryot-app/ts-utils/lodash";
+import { pickBy } from "@ryot-app/ts-utils/lodash";
+import { snakeCase } from "@ryot-app/ts-utils/lodash";
+import { sum } from "@ryot-app/ts-utils/lodash";
+import { changeCase } from "@ryot-app/ts-utils/string";
 import {
 	IconBarbell,
 	IconClock,

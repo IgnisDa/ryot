@@ -1,9 +1,9 @@
 import {
 	isPluginClientTextSource,
 	pluginClientFileExtension,
-} from "@ryot/contract/modules/plugins/client";
-import { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import { canonicalRelativePosixPathIssue } from "@ryot/ts-utils/path";
+} from "@ryot-app/contract/modules/plugins/client";
+import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Effect, Schema, Stream } from "effect";
 import { Unzip, UnzipInflate, UnzipPassThrough, Zip, ZipDeflate } from "fflate";
 

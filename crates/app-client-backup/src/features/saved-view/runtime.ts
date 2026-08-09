@@ -1,5 +1,5 @@
-import { dayjs } from "@ryot/ts-utils/dayjs";
-import { getQueryEngineField } from "@ryot/ts-utils/query-engine";
+import { dayjs } from "@ryot-app/ts-utils/dayjs";
+import { getQueryEngineField } from "@ryot-app/ts-utils/query-engine";
 import { match } from "ts-pattern";
 
 import type { ContractSuccess } from "@/lib/contract-client";

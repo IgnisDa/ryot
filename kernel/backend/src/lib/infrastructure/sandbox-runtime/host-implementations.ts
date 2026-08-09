@@ -1,4 +1,4 @@
-import type { AutomationSandboxHostImplementationMap } from "@ryot/sandbox-sdk/core";
+import type { AutomationSandboxHostImplementationMap } from "@ryot-app/sandbox-sdk/core";
 import { Context } from "effect";
 
 import type { RuntimeSandboxHostImplementationMap } from "./runtime-host-functions";

@@ -1,7 +1,7 @@
 import {
 	decodeEntityInterestServerMessage,
 	encodeEntityInterestClientMessage,
-} from "@ryot/contract/modules/entity-interest/messages";
+} from "@ryot-app/contract/modules/entity-interest/messages";
 import { Duration, Effect, Result } from "effect";
 
 import {

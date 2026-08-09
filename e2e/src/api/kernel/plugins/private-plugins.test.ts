@@ -1,6 +1,6 @@
-import { PluginSlug } from "@ryot/contract/schema/brands";
-import { column, document, eq, field, join, literal, rows, table } from "@ryot/ryotql";
-import { sortBy } from "@ryot/ts-utils/lodash";
+import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import { column, document, eq, field, join, literal, rows, table } from "@ryot-app/ryotql";
+import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect } from "effect";
 
 import {

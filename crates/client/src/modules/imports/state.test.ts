@@ -1,4 +1,4 @@
-import type { ListedImportSource } from "@ryot/contract/modules/imports/schemas";
+import type { ListedImportSource } from "@ryot-app/contract/modules/imports/schemas";
 import { Cause } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { describe, expect, it } from "vitest";

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { UserId } from "@ryot/contract/schema/brands";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { useTable } from "@tanstack/react-table";
 import { act, render, screen, userEvent } from "@testing-library/react-native";
 import { Exit } from "effect";

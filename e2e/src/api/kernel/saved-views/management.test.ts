@@ -1,4 +1,4 @@
-import { savedViewRecipe } from "@ryot/ryotql-recipes/saved-views";
+import { savedViewRecipe } from "@ryot-app/ryotql-recipes/saved-views";
 import { Effect } from "effect";
 
 import {

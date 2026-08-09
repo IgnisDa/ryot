@@ -1,7 +1,7 @@
-import type { ContractPayload } from "@ryot/contract/client";
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
-import { IntegrationId } from "@ryot/contract/schema/brands";
-import { integrationRecipe, integrationsRecipe } from "@ryot/ryotql-recipes/integrations";
+import type { ContractPayload } from "@ryot-app/contract/client";
+import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import { IntegrationId } from "@ryot-app/contract/schema/brands";
+import { integrationRecipe, integrationsRecipe } from "@ryot-app/ryotql-recipes/integrations";
 import { Effect } from "effect";
 
 import { requirePresent } from "~/support/assertions";

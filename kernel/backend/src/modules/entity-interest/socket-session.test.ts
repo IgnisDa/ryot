@@ -1,10 +1,10 @@
 import { assert, describe, expect, it } from "@effect/vitest";
-import { EntityInterestTicketFailure } from "@ryot/contract/modules/entity-interest/contract";
+import { EntityInterestTicketFailure } from "@ryot-app/contract/modules/entity-interest/contract";
 import {
 	decodeEntityInterestServerMessage,
 	encodeEntityInterestClientMessage,
-} from "@ryot/contract/modules/entity-interest/messages";
-import { EntityId, UserId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/entity-interest/messages";
+import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { Deferred, Effect, Fiber, Layer, Option, Queue, Result } from "effect";
 import { TestClock } from "effect/testing";
 import * as Socket from "effect/unstable/socket/Socket";

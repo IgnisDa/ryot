@@ -2,7 +2,7 @@ import { ActionIcon, Button, Group, Stack, Text } from "@mantine/core";
 import {
 	type CollectionContentsQuery,
 	CollectionContentsSortBy,
-} from "@ryot/generated/graphql/backend/graphql";
+} from "@ryot-app/generated/graphql/backend/graphql";
 import { IconFilter } from "@tabler/icons-react";
 
 import { ApplicationPagination, DisplayListDetailsAndRefresh } from "~/components/common";

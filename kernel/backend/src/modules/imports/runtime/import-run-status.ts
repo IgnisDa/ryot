@@ -1,5 +1,5 @@
-import type { ImportRunFailureReason } from "@ryot/contract/modules/imports/schemas";
-import type { ImportRunId } from "@ryot/contract/schema/brands";
+import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
+import type { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { DateTime, Effect } from "effect";
 
 import { ImportRunFailuresService, type ImportRunFailureInput } from "../failure-service";

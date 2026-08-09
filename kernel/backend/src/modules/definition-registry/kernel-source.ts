@@ -1,5 +1,8 @@
-import { column, literal, table } from "@ryot/ryotql";
-import { buildSavedViewLayoutProjections, savedViewRecipe } from "@ryot/ryotql-recipes/saved-views";
+import { column, literal, table } from "@ryot-app/ryotql";
+import {
+	buildSavedViewLayoutProjections,
+	savedViewRecipe,
+} from "@ryot-app/ryotql-recipes/saved-views";
 
 import { manifest as notificationManifest } from "./kernel-scripts/notification.sandbox";
 import type { DefinitionSource } from "./service";

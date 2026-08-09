@@ -23,7 +23,7 @@ import type {
 	TableReference,
 	TimeSeriesOutput,
 	WildcardSelection,
-} from "@ryot/contract/modules/ryotql/language";
+} from "@ryot-app/contract/modules/ryotql/language";
 import { Result, Schema } from "effect";
 
 type CastExpression = Extract<ScalarExpression, { type: "cast" }>;

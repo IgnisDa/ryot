@@ -1,5 +1,5 @@
 {
-	"name": "@ryot/ryotql",
+	"name": "@ryot-app/ryotql",
 	"exports": {
 		".": {
 			"types": "./src/index.ts",
@@ -14,11 +14,11 @@
 		"effect": "4.0.0-rc.111"
 	},
 	"devDependencies": {
-		"@ryot/contract": "workspace:*",
-		"@ryot/testing": "workspace:*",
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/testing": "workspace:*",
 		"vitest": "4.1.9"
 	},
 	"peerDependencies": {
-		"@ryot/contract": "workspace:*"
+		"@ryot-app/contract": "workspace:*"
 	}
 }

@@ -1,8 +1,8 @@
 import {
 	FILESYSTEM_GRANT_SANDBOX_CAPABILITIES,
 	type FilesystemGrantSandboxCapability,
-} from "@ryot/sandbox-sdk/core";
-import { sandboxScratchManifestSchema } from "@ryot/sandbox-sdk/filesystem";
+} from "@ryot-app/sandbox-sdk/core";
+import { sandboxScratchManifestSchema } from "@ryot-app/sandbox-sdk/filesystem";
 import { Effect, Schema, FileSystem, Path } from "effect";
 import type { PlatformError } from "effect/PlatformError";
 

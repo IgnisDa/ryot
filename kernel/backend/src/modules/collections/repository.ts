@@ -1,10 +1,10 @@
-import type { UserId } from "@ryot/contract/schema/brands";
+import type { UserId } from "@ryot-app/contract/schema/brands";
 import {
 	EntityId,
 	EntitySchemaSlug,
 	EventSchemaSlug,
 	SandboxProviderId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { and, eq, isNull, or } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 

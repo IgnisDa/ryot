@@ -1,8 +1,8 @@
 import type { ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 
-import { PluginSlug } from "@ryot/contract/schema/brands";
-import { pluginClientCatalogRecipe } from "@ryot/ryotql-recipes/plugin-client-catalog";
+import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import { pluginClientCatalogRecipe } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { Effect } from "effect";
 import getPort from "get-port";
 

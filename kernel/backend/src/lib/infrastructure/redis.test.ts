@@ -1,4 +1,4 @@
-import { PluginSlug, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import { PluginSlug, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 

@@ -1,4 +1,4 @@
-import type { AppChoice } from "@ryot/contract/schema/property-schema";
+import type { AppChoice } from "@ryot-app/contract/schema/property-schema";
 import clsx from "clsx";
 import { useDeferredValue, useState } from "react";
 import { FlatList, Keyboard, Pressable, Text, TextInput, View } from "react-native";

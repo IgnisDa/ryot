@@ -1,4 +1,4 @@
-import type { ImportRunId } from "@ryot/contract/schema/brands";
+import type { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import { adminHeaders } from "./admin";

@@ -2,8 +2,8 @@ import type {
 	BackupRun,
 	BackupRunFailure,
 	BackupRunKind,
-} from "@ryot/contract/modules/backups/schemas";
-import type { RunStatus } from "@ryot/contract/schema/run-status";
+} from "@ryot-app/contract/modules/backups/schemas";
+import type { RunStatus } from "@ryot-app/contract/schema/run-status";
 import { DateTime, Match } from "effect";
 
 import {

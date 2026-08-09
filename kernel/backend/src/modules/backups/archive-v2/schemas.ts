@@ -1,9 +1,9 @@
-import { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
-import { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import { jsonValueSchema, type JsonValue } from "@ryot/contract/modules/sandbox/wire";
-import { SavedViewLayouts } from "@ryot/contract/modules/saved-views/schemas";
-import { CanonicalBase64 } from "@ryot/contract/schema/base64";
-import { strictStruct } from "@ryot/contract/schema/utils";
+import { AutomationOrigin } from "@ryot-app/contract/modules/automations/schemas";
+import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { jsonValueSchema, type JsonValue } from "@ryot-app/contract/modules/sandbox/wire";
+import { SavedViewLayouts } from "@ryot-app/contract/modules/saved-views/schemas";
+import { CanonicalBase64 } from "@ryot-app/contract/schema/base64";
+import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { Result, Schema } from "effect";
 
 const nonNegativeInteger = Schema.Finite.pipe(

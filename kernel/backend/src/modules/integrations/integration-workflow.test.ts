@@ -1,6 +1,6 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
-import { SandboxRunError } from "@ryot/contract/errors";
+import { SandboxRunError } from "@ryot-app/contract/errors";
 import {
 	ImportRunId,
 	IntegrationId,
@@ -8,7 +8,7 @@ import {
 	SignalId,
 	SignalSchemaSlug,
 	UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 

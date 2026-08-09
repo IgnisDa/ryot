@@ -10,8 +10,8 @@ import type { RyotClient } from "./index";
 
 const staleTime = 30 * 1_000;
 const idleTTL = 5 * 60 * 1_000;
-const queryTypeId = Symbol("@ryot/client-sdk/react/query");
-const mutationTypeId = Symbol("@ryot/client-sdk/react/mutation");
+const queryTypeId = Symbol("@ryot-app/client-sdk/react/query");
+const mutationTypeId = Symbol("@ryot-app/client-sdk/react/mutation");
 const RyotContext = createContext<RyotClient | undefined>(undefined);
 
 type QueryContext<Input> = {

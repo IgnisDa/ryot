@@ -10,7 +10,7 @@ import type {
 	ScalarExpression,
 	TableReference,
 	TimeSeriesOutput,
-} from "@ryot/contract/modules/ryotql/language";
+} from "@ryot-app/contract/modules/ryotql/language";
 import { DateTime, Duration, Option } from "effect";
 
 import {

@@ -1,5 +1,5 @@
-import { AppContract } from "@ryot/contract/contract";
-import { LogRouteTemplate } from "@ryot/contract/http-annotations";
+import { AppContract } from "@ryot-app/contract/contract";
+import { LogRouteTemplate } from "@ryot-app/contract/http-annotations";
 import { Context, Effect, Layer } from "effect";
 import type { HttpServerRequest } from "effect/unstable/http";
 import { HttpApi } from "effect/unstable/httpapi";

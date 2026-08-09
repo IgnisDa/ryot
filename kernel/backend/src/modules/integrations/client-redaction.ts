@@ -1,4 +1,4 @@
-import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
+import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 
 import type { RegisteredIntegrationProvider } from "#modules/plugins/integration-provider-catalog";
 

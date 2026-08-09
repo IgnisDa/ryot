@@ -1,11 +1,11 @@
 import { expect, it } from "@effect/vitest";
-import { compileBuiltInSandboxEntry } from "@ryot/sandbox-compiler/builtins";
+import { compileBuiltInSandboxEntry } from "@ryot-app/sandbox-compiler/builtins";
 import { Effect } from "effect";
 
 const entry = `
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineProvider } from "@ryot/sandbox-sdk/provider";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 import { value } from "./helper";
 
 export const manifest = defineManifest({

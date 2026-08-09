@@ -1,6 +1,6 @@
-import { sortBy } from "@ryot/ts-utils/lodash";
-import { getQueryEngineField } from "@ryot/ts-utils/query-engine";
-import { normalizeSlug } from "@ryot/ts-utils/slug";
+import { sortBy } from "@ryot-app/ts-utils/lodash";
+import { getQueryEngineField } from "@ryot-app/ts-utils/query-engine";
+import { normalizeSlug } from "@ryot-app/ts-utils/slug";
 
 import { toEntityImage } from "@/lib/entity-image";
 

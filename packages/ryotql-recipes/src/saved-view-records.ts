@@ -1,5 +1,5 @@
-import { SavedViewLayouts } from "@ryot/contract/modules/saved-views/schemas";
-import { EntitySchemaSlug, PluginSlug, SavedViewId } from "@ryot/contract/schema/brands";
+import { SavedViewLayouts } from "@ryot-app/contract/modules/saved-views/schemas";
+import { EntitySchemaSlug, PluginSlug, SavedViewId } from "@ryot-app/contract/schema/brands";
 import {
 	and,
 	ascending,
@@ -12,7 +12,7 @@ import {
 	selectedOptionalRow,
 	selectedRows,
 	type Recipe,
-} from "@ryot/ryotql";
+} from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
 import { IsoDateString } from "./codecs";

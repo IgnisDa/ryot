@@ -1,4 +1,4 @@
-import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import clsx from "clsx";
 import { Pressable, Text, View } from "react-native";
 

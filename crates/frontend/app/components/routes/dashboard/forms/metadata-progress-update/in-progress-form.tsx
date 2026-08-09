@@ -1,6 +1,6 @@
 import { Button, Flex, Group, NumberInput, Slider, Stack, Text } from "@mantine/core";
-import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
-import { isNumber } from "@ryot/ts-utils/lodash";
+import { MediaLot } from "@ryot-app/generated/graphql/backend/graphql";
+import { isNumber } from "@ryot-app/ts-utils/lodash";
 import {
 	IconBook,
 	IconBrandPagekit,

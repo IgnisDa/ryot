@@ -1,6 +1,6 @@
 import { expect as effectExpect, it as effectIt } from "@effect/vitest";
-import { SandboxScriptId } from "@ryot/contract/schema/brands";
-import type { WorkflowDurableCallRequest } from "@ryot/sandbox-sdk/workflow";
+import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import type { WorkflowDurableCallRequest } from "@ryot-app/sandbox-sdk/workflow";
 import type { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";

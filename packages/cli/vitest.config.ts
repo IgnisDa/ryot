@@ -1,4 +1,4 @@
-import shared from "@ryot/testing/vitest.shared";
+import shared from "@ryot-app/testing/vitest.shared";
 import { mergeConfig } from "vitest/config";
 
 export default mergeConfig(shared, {

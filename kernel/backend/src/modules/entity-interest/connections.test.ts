@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
-import { NotFound } from "@ryot/contract/errors";
-import { EntityId } from "@ryot/contract/schema/brands";
+import { NotFound } from "@ryot-app/contract/errors";
+import { EntityId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";

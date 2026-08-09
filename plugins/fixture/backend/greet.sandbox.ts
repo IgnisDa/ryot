@@ -1,6 +1,6 @@
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { defineOperation } from "@ryot/sandbox-sdk/operation";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
 
 export const manifest = defineManifest({
 	capabilities: [],

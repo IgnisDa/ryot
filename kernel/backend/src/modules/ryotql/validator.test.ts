@@ -34,7 +34,7 @@ import {
 	table,
 	timeSeries,
 	titleCase,
-} from "@ryot/ryotql";
+} from "@ryot-app/ryotql";
 
 import { getCatalogTable } from "./catalog";
 import { validateRyotQLDocument } from "./validator";

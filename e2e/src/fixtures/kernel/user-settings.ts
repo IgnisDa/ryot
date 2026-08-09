@@ -1,4 +1,4 @@
-import type { ContractPayload } from "@ryot/contract/client";
+import type { ContractPayload } from "@ryot-app/contract/client";
 
 import type { Client } from "./auth";
 

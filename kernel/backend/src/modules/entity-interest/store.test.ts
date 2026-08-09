@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
-import { NotFound } from "@ryot/contract/errors";
-import { UserId } from "@ryot/contract/schema/brands";
+import { NotFound } from "@ryot-app/contract/errors";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { Clock, Effect, Layer } from "effect";
 import Redis from "ioredis";
 import { afterAll, afterEach, beforeAll, describe } from "vitest";

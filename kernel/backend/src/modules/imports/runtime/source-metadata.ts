@@ -2,14 +2,14 @@ import {
 	importInternalPropertyNames,
 	isImportUploadTokenField,
 	type CreateImportRunBody,
-} from "@ryot/contract/modules/imports/schemas";
-import { pluginConfigEnvironmentKey } from "@ryot/contract/modules/plugins/plugin-config";
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
-import { jsonValueSchema } from "@ryot/contract/modules/sandbox/wire";
+} from "@ryot-app/contract/modules/imports/schemas";
+import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
+import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
 import {
 	type AppPropertyDefinition,
 	getOrderedAppSchemaFieldEntries,
-} from "@ryot/contract/schema/property-schema";
+} from "@ryot-app/contract/schema/property-schema";
 import { Effect, Schema } from "effect";
 
 import { isPluginConfigKeyConfigured } from "#lib/infrastructure/sandbox-runtime/app-config";

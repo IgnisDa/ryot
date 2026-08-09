@@ -3,8 +3,8 @@ import {
 	genericImportWorkflowManifestSchema,
 	genericImportWorkflowInputSchema,
 	genericImportWorkflowResultSchema,
-} from "@ryot/sandbox-sdk/imports";
-import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot/sandbox-sdk/workflow";
+} from "@ryot-app/sandbox-sdk/imports";
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
 
 import { importEntityRefIdentifier } from "../../imports/groups";
 import type { MediaImportAdapterFailure, UnresolvedEpisodeRef } from "../../imports/schemas";

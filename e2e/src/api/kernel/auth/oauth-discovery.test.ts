@@ -5,7 +5,7 @@ import {
 	OAUTH_AUTHORIZE_PATH,
 	OAUTH_PKCE_METHOD,
 	OAUTH_TOKEN_PATH,
-} from "@ryot/contract/oauth";
+} from "@ryot-app/contract/oauth";
 import { Effect } from "effect";
 
 import { getApiUrl } from "~/support/api";

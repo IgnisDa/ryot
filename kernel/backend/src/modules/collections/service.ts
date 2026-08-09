@@ -1,21 +1,21 @@
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import type {
 	CreateCollectionBody,
 	CreateMembershipBody,
 	DeleteMembershipBody,
-} from "@ryot/contract/modules/collections/schemas";
+} from "@ryot-app/contract/modules/collections/schemas";
 import {
 	CollectionBadRequest,
 	CollectionNotFound,
-} from "@ryot/contract/modules/collections/schemas";
+} from "@ryot-app/contract/modules/collections/schemas";
 import type {
 	EntityId,
 	EventSchemaSlug,
 	RelationshipId,
 	UserId,
-} from "@ryot/contract/schema/brands";
-import { decodeStoredSchema } from "@ryot/contract/schema/core";
-import { AppSchema } from "@ryot/contract/schema/property-schema";
+} from "@ryot-app/contract/schema/brands";
+import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
+import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { generateId } from "better-auth";
 import { Context, DateTime, Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";

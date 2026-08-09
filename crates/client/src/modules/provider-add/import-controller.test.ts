@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
-import type { ImportEntityRunResult } from "@ryot/contract/modules/provider-entities/schemas";
-import { EntityId, EntitySchemaSlug } from "@ryot/contract/schema/brands";
+import type { ImportEntityRunResult } from "@ryot-app/contract/modules/provider-entities/schemas";
+import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Effect, Fiber } from "effect";
 import { TestClock } from "effect/testing";
 

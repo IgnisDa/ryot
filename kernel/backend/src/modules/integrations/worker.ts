@@ -1,4 +1,4 @@
-import type { ImportRunId } from "@ryot/contract/schema/brands";
+import type { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { DateTime, Effect } from "effect";
 
 import { ImportsRepository } from "#modules/imports/repository";

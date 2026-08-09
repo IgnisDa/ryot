@@ -1,4 +1,4 @@
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
 import { type UnknownRecord, asRecord, stringValue } from "../../../shared/records";
 import {

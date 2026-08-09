@@ -1,6 +1,9 @@
-import type { PluginHttpRateLimit, PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import { sha256Hex } from "@ryot/ts-utils/crypto";
-import { stableStringify } from "@ryot/ts-utils/json";
+import type {
+	PluginHttpRateLimit,
+	PluginManifest,
+} from "@ryot-app/contract/modules/plugins/manifest";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 
 export type CanonicalHttpRateLimitPolicy = Readonly<{
 	hash: string;
