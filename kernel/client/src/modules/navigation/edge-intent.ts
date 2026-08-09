@@ -3,6 +3,7 @@ export type EdgeIntent = "back" | "drawer" | "none";
 
 export type EdgeResolution = {
 	readonly owner: EdgeOwner;
+	readonly compact: boolean;
 	readonly intent: EdgeIntent;
 };
 
@@ -15,11 +16,11 @@ export function resolveEdge(input: {
 	readonly isDesktop: boolean;
 	readonly hasPluginDocument: boolean;
 }): EdgeResolution {
+	const compact = !input.isDesktop;
 	const hasDrawer = !isSettingsPath(input.pathname);
 	const intent = resolveIntent(input, hasDrawer);
-	const owner =
-		intent === "back" && input.hasPluginDocument && !input.isDesktop ? "plugin" : "kernel";
-	return { owner, intent };
+	const owner = intent === "back" && input.hasPluginDocument && compact ? "plugin" : "kernel";
+	return { owner, compact, intent };
 }
 
 function resolveIntent(
