@@ -10,9 +10,9 @@ type WebColors = Pick<
 	"darkMuted" | "dominant" | "platform"
 >;
 
-type SavedViewImageColors = AndroidColors | IOSColors | WebColors;
+type ImageTintColors = AndroidColors | IOSColors | WebColors;
 
-export const SAVED_VIEW_COLOR_FALLBACK = "#010203";
+export const IMAGE_TINT_COLOR_FALLBACK = "#010203";
 
 const parseHexColor = (color: string) => {
 	if (!/^#[\dA-F]{3}(?:[\dA-F]{3})?$/i.test(color)) {
@@ -27,7 +27,7 @@ const parseHexColor = (color: string) => {
 
 const normalizeTint = (color: string) => {
 	const rgb = parseHexColor(color);
-	if (!rgb || color.toUpperCase() === SAVED_VIEW_COLOR_FALLBACK) {
+	if (!rgb || color.toUpperCase() === IMAGE_TINT_COLOR_FALLBACK) {
 		return undefined;
 	}
 	const max = Math.max(...rgb);
@@ -75,7 +75,7 @@ const normalizeTint = (color: string) => {
 		.join("")}`.toUpperCase();
 };
 
-export const deriveSavedViewTint = (colors: SavedViewImageColors) => {
+export const deriveImageTint = (colors: ImageTintColors) => {
 	const candidates =
 		colors.platform === "ios" ? [colors.background] : [colors.darkMuted, colors.dominant];
 	for (const color of candidates) {
@@ -87,7 +87,7 @@ export const deriveSavedViewTint = (colors: SavedViewImageColors) => {
 	return undefined;
 };
 
-export const getSavedViewTintGradientStops = (tint: string) => {
+export const getImageTintGradientStops = (tint: string) => {
 	const normalized = parseHexColor(tint);
 	if (!normalized) {
 		return undefined;

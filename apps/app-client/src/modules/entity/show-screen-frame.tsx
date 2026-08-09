@@ -9,6 +9,7 @@ export function ShowScreenFrame(props: {
 	readonly onBack: () => void;
 	readonly children: ReactNode;
 	readonly backdrop?: ReactNode;
+	readonly tint?: ReactNode;
 }) {
 	return (
 		<HeaderFrame
@@ -16,8 +17,9 @@ export function ShowScreenFrame(props: {
 			title={props.title}
 			leading={<HeaderLeadingControl icon="chevron-left" label="Go back" onPress={props.onBack} />}
 		>
+			{props.tint}
 			{props.backdrop}
-			<View className="mx-auto w-full max-w-6xl gap-4">{props.children}</View>
+			<View className="mx-auto w-full max-w-6xl gap-4 pt-3 md:pt-0">{props.children}</View>
 		</HeaderFrame>
 	);
 }

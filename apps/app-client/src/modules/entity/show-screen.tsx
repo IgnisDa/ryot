@@ -5,6 +5,7 @@ import { ShowBackdrop } from "./show-backdrop";
 import { ShowScreenContent } from "./show-screen-content";
 import { ShowScreenFrame } from "./show-screen-frame";
 import { showManagedAssets } from "./show-summary-state";
+import { ShowTint } from "./show-tint";
 import { useShowSummary } from "./use-show-summary";
 
 export function ShowScreen(props: { readonly entityId: string }) {
@@ -18,6 +19,11 @@ export function ShowScreen(props: { readonly entityId: string }) {
 				<ShowScreenFrame
 					title={title}
 					onBack={goBack}
+					tint={
+						state.status === "ready" ? (
+							<ShowTint show={state.show} managedUrls={resolution.urls} />
+						) : null
+					}
 					backdrop={
 						state.status === "ready" ? (
 							<ShowBackdrop show={state.show} managedUrls={resolution.urls} />
