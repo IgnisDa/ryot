@@ -2,7 +2,7 @@ import type { OrderBy } from "@ryot/contract/modules/ryotql/language";
 import { column, descending, castDate, jsonPath, table } from "@ryot/ryotql";
 import { buildSavedViewLayoutProjections, savedViewRecipe } from "@ryot/ryotql-recipes/saved-views";
 
-import { fitnessEntitySchemas } from "./schemas/entity-schemas";
+import { fitnessEntitySchemas } from "./backend/schemas/entity-schemas";
 import { buildViewExpressions } from "./shared/view-helpers";
 
 export const fitnessSavedViews = () => {
