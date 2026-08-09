@@ -105,6 +105,12 @@ export const makeAppConfigLayer = (
 			oidcButtonLabel: Option.none(),
 			umami: { hostUrl: Option.none(), websiteId: Option.none() },
 		},
+		sandbox: {
+			denoDir: "./tmp",
+			workerConcurrency: 2,
+			importConcurrency: 2,
+			processMode: "on-demand",
+		},
 		automations: {
 			maxDepth: 8,
 			maxRuns: 100,
@@ -116,13 +122,6 @@ export const makeAppConfigLayer = (
 			disableDispatchers: false,
 			infrequentCronJobsSchedule: "0 0 * * *",
 			frequentCronJobsSchedule: "every 5 minutes",
-		},
-		sandbox: {
-			denoDir: "./tmp",
-			workerConcurrency: 2,
-			importConcurrency: 2,
-			processMode: "on-demand",
-			benchmarkProfileDir: Option.none(),
 		},
 		observability: {
 			otlp: { headers: Option.none(), endpoint: Option.none() },

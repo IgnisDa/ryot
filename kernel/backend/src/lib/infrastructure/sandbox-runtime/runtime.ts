@@ -5,11 +5,9 @@ import { hostFailure } from "@ryot-app/sandbox-sdk/wire";
 import {
 	Clock,
 	Context,
-	Data,
 	Deferred,
 	Effect,
 	Layer,
-	Option,
 	Pool,
 	Queue,
 	Schema,
@@ -29,25 +27,13 @@ import {
 	recordSandboxProcessCompleted,
 	recordSandboxProcessSpawned,
 	recordSandboxRuntimeGauges,
-	getSandboxReplayCounters,
-	getProviderImportExecutingBodies,
-	getProviderImportPhaseSegments,
 	type SandboxProcessOutcome,
 } from "../runtime-metrics";
 import { materializeShippedSandboxRuntime } from "./dependencies";
 import type { SandboxProcessGrants } from "./filesystem-grants";
 import { consumeSandboxHostCall, SANDBOX_LIMITS, type SandboxHostCallBudget } from "./limits";
-import {
-	readCgroupSample,
-	readProcessCpuSample,
-	readProcessMemoryStatus,
-	readProcessSmapsRollup,
-	type CgroupSample,
-	type ProcessCpuSample,
-	type SmapsRollup,
-} from "./process-sampling";
+import { readProcessRssBytes } from "./process-sampling";
 import { sandboxRunnerSource } from "./runner.generated";
-import { sandboxRuntimePayloadMetadata } from "./runtime-payload-metadata.generated";
 import type { BoundHostFunction } from "./shared";
 import { readSandboxByteLimitedText } from "./stream-utils";
 
@@ -64,7 +50,6 @@ const closeSession = (session: ActiveExecutionSession | undefined) => {
 
 const oversizedBridgeRequest = Symbol("oversizedBridgeRequest");
 const SANDBOX_PROCESS_GAUGE_INTERVAL = "1 second";
-const COMPLETED_WORKER_CAPACITY = 1_024;
 let totalSandboxExecutions = 0;
 let activeSandboxExecutions = 0;
 let maxActiveSandboxExecutions = 0;
@@ -85,22 +70,15 @@ export const getSandboxProcessMetrics = () => ({
 	maxActiveExecutions: maxActiveSandboxExecutions,
 });
 
-export type SandboxProfileCheckpointHandler = (
-	checkpoint: string,
-	body: string,
-) => Effect.Effect<void, unknown>;
-
 type ExecutionSession = {
 	readonly token: string;
 	readonly expiresAt: number;
 	readonly hostCallLimit: number;
 	readonly parentSpan: Tracer.AnySpan;
 	readonly apiFunctions: Record<string, BoundHostFunction>;
-	readonly onProfileCheckpoint?: SandboxProfileCheckpointHandler;
 };
 
 type ActiveExecutionSession = {
-	readonly onProfileCheckpoint?: SandboxProfileCheckpointHandler;
 	readonly token: string;
 	expiresAt: number;
 	readonly hostCallLimit: number;
@@ -122,210 +100,12 @@ export type SandboxStderrTail = {
 };
 
 type SandboxProcess = {
-	readonly inspectorUrl: Deferred.Deferred<string> | undefined;
 	readonly stderrTail: SandboxStderrTail;
 	readonly responseQueue: Queue.Queue<string>;
 	readonly stdinQueue: Queue.Queue<Uint8Array>;
 	readonly stderrClosed: Deferred.Deferred<void>;
 	readonly process: ChildProcessSpawner.ChildProcessHandle;
 };
-
-export type SandboxWorkerSample = {
-	readonly pid: number;
-	readonly rssBytes: number;
-	readonly hwmBytes: number | null;
-	readonly smapsRollup: SmapsRollup | null;
-	readonly userCpuTicks: number | null;
-	readonly systemCpuTicks: number | null;
-	readonly startTimeTicks: number | null;
-};
-
-export type SandboxCompletedWorker = {
-	readonly pid: number;
-	readonly executionKey: string | null;
-	readonly sequence: number;
-	readonly spawnedAtMs: number;
-	readonly releasedAtMs: number;
-	readonly outcome: SandboxProcessOutcome;
-	readonly lifetimePeakRssBytes: number | null;
-};
-
-export type SandboxRuntimeMetricsOptions = {
-	readonly includeSmaps: boolean;
-	readonly completedAfterSequence: number;
-};
-
-export type SandboxProcessRuntimeMetrics = {
-	readonly timestampMs: number;
-	readonly completedWorkerSequence: number;
-	readonly completedWorkers: ReadonlyArray<SandboxCompletedWorker>;
-	readonly configuration: {
-		readonly processMode: string;
-		readonly workerConcurrency: number;
-		readonly benchmarkProfilingEnabled: boolean;
-		readonly schedulerDispatchersDisabled: boolean;
-	};
-	readonly runtime: { readonly bunVersion: string; readonly denoVersion: string };
-	readonly providerImports: {
-		readonly executingBodies: number;
-		readonly phaseSegmentSequence: number;
-	};
-	readonly totalSpawned: number;
-	readonly workerRssBytes: number;
-	readonly totalCompleted: number;
-	readonly backendRssBytes: number;
-	readonly activeProcessCount: number;
-	readonly cgroup: CgroupSample | null;
-	readonly workers: ReadonlyArray<SandboxWorkerSample>;
-	readonly backend: {
-		readonly hwmBytes: number | null;
-		readonly smapsRollup: SmapsRollup | null;
-		readonly rssBytes: number;
-		readonly heapUsedBytes: number;
-		readonly heapTotalBytes: number;
-		readonly externalBytes: number;
-		readonly arrayBuffersBytes: number;
-		readonly userCpuMicros: number | null;
-		readonly systemCpuMicros: number | null;
-	};
-	readonly deno: {
-		readonly processCount: number;
-		readonly rssBytes: number;
-		readonly userCpuTicks: number | null;
-		readonly systemCpuTicks: number | null;
-	};
-	readonly executions: {
-		readonly total: number;
-		readonly active: number;
-		readonly maxActive: number;
-	};
-	readonly replays: {
-		readonly totalStarted: number;
-		readonly totalFailed: number;
-		readonly totalCompleted: number;
-		readonly totalJournalBytes: number;
-		readonly totalDurableRequests: number;
-	};
-};
-
-class SandboxProcessMemoryReadError extends Data.TaggedError("SandboxProcessMemoryReadError")<{}> {}
-
-const readBackendSample = () => {
-	const memory = process.memoryUsage();
-	const cpu = process.cpuUsage();
-	return {
-		rssBytes: memory.rss,
-		userCpuMicros: cpu.user,
-		systemCpuMicros: cpu.system,
-		heapUsedBytes: memory.heapUsed,
-		externalBytes: memory.external,
-		heapTotalBytes: memory.heapTotal,
-		arrayBuffersBytes: memory.arrayBuffers,
-	};
-};
-
-type WorkerProcessSample = {
-	readonly rssBytes: number;
-	readonly hwmBytes: number | null;
-	readonly cpu: ProcessCpuSample | null;
-	readonly smapsRollup: SmapsRollup | null;
-};
-
-// A worker can exit between listing and reading, so an unreadable PID is omitted from the
-// sample instead of failing it.
-const readWorkerSamples = (pids: ReadonlyArray<number>, includeSmaps: boolean) =>
-	Effect.forEach(
-		pids,
-		(pid) =>
-			Effect.all([
-				readProcessMemoryStatus(pid),
-				readProcessCpuSample(pid),
-				includeSmaps ? readProcessSmapsRollup(pid) : Effect.succeed(null),
-			]).pipe(
-				Effect.map(([status, cpu, smapsRollup]) =>
-					status?.rssBytes === null || status === null
-						? null
-						: ([
-								pid,
-								{ cpu, smapsRollup, rssBytes: status.rssBytes, hwmBytes: status.hwmBytes },
-							] as const),
-				),
-			),
-		{ concurrency: "unbounded" },
-	).pipe(
-		Effect.map(
-			(entries) =>
-				new Map<number, WorkerProcessSample>(
-					entries.flatMap((entry) => (entry === null ? [] : [entry])),
-				),
-		),
-	);
-
-const readBackendProcessSample = (includeSmaps: boolean) =>
-	process.platform === "linux"
-		? Effect.all([
-				readProcessMemoryStatus("self"),
-				includeSmaps ? readProcessSmapsRollup("self") : Effect.succeed(null),
-			]).pipe(
-				Effect.map(([status, smapsRollup]) => ({
-					...readBackendSample(),
-					smapsRollup,
-					hwmBytes: status?.hwmBytes ?? null,
-				})),
-			)
-		: Effect.succeed({ ...readBackendSample(), hwmBytes: null, smapsRollup: null });
-
-const sandboxRuntimeVersions = {
-	bunVersion: Bun.version,
-	denoVersion: sandboxRuntimePayloadMetadata.metadata.denoVersion,
-};
-
-const providerImportMetrics = () => ({
-	executingBodies: getProviderImportExecutingBodies(),
-	phaseSegmentSequence: getProviderImportPhaseSegments(0).at(-1)?.sequence ?? 0,
-});
-
-const emptySandboxProcessRuntimeMetrics = (options: SandboxRuntimeMetricsOptions) =>
-	Effect.all([Clock.currentTimeMillis, readBackendProcessSample(options.includeSmaps)]).pipe(
-		Effect.map(
-			([timestampMs, backend]): SandboxProcessRuntimeMetrics => ({
-				backend,
-				timestampMs,
-				workers: [],
-				cgroup: null,
-				totalSpawned: 0,
-				totalCompleted: 0,
-				workerRssBytes: 0,
-				completedWorkers: [],
-				activeProcessCount: 0,
-				completedWorkerSequence: 0,
-				runtime: sandboxRuntimeVersions,
-				backendRssBytes: backend.rssBytes,
-				replays: getSandboxReplayCounters(),
-				providerImports: providerImportMetrics(),
-				deno: { rssBytes: 0, processCount: 0, userCpuTicks: null, systemCpuTicks: null },
-				executions: {
-					total: totalSandboxExecutions,
-					active: activeSandboxExecutions,
-					maxActive: maxActiveSandboxExecutions,
-				},
-				configuration: {
-					workerConcurrency: 0,
-					processMode: "unavailable",
-					benchmarkProfilingEnabled: false,
-					schedulerDispatchersDisabled: false,
-				},
-			}),
-		),
-	);
-
-let runtimeMetricsReader: (
-	options: SandboxRuntimeMetricsOptions,
-) => Effect.Effect<SandboxProcessRuntimeMetrics> = emptySandboxProcessRuntimeMetrics;
-
-export const getSandboxRuntimeMetrics = (
-	options: SandboxRuntimeMetricsOptions = { includeSmaps: false, completedAfterSequence: 0 },
-) => Effect.suspend(() => runtimeMetricsReader(options));
 
 const truncateSandboxStderrLine = (line: string) => {
 	const limit = SANDBOX_LIMITS.diagnostics.stderrBytes;
@@ -440,14 +220,7 @@ export const withSandboxHostCallPermit = <A, E, R>(
 const killProcessHandle = (process: ChildProcessSpawner.ChildProcessHandle) =>
 	process.kill().pipe(Effect.ignore);
 
-export type SandboxProcessProfiling = {
-	readonly directory: string;
-	readonly inspector: boolean;
-	readonly cpuProfile: boolean;
-};
-
 type SpawnDenoProcessOptions = {
-	readonly profiling?: SandboxProcessProfiling;
 	readonly denoDir: string;
 	readonly bridgePort: number;
 	readonly runnerPath: string;
@@ -487,16 +260,6 @@ export const sandboxDenoRunFlags = (options: Omit<SpawnDenoProcessOptions, "deno
 	];
 };
 
-export const sandboxProfilingFlags = (profiling: SandboxProcessProfiling | undefined) =>
-	profiling === undefined
-		? []
-		: [
-				...(profiling.cpuProfile
-					? [`--cpu-prof-dir=${profiling.directory}`, "--cpu-prof-name=cpu.cpuprofile"]
-					: []),
-				...(profiling.inspector ? ["--inspect=127.0.0.1:0"] : []),
-			];
-
 const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
 	options: SpawnDenoProcessOptions,
 ) {
@@ -506,12 +269,7 @@ const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
 	}
 	const denoProcess = yield* ChildProcess.make(
 		"deno",
-		[
-			"run",
-			...sandboxDenoRunFlags(options),
-			...sandboxProfilingFlags(options.profiling),
-			options.runnerPath,
-		],
+		["run", ...sandboxDenoRunFlags(options), options.runnerPath],
 		{
 			stdin: "pipe",
 			stdout: "pipe",
@@ -528,7 +286,6 @@ const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
 	const stdinQueue = yield* Queue.unbounded<Uint8Array>();
 	const stderrClosed = yield* Deferred.make<void>();
 	const stderrTail = makeSandboxStderrTail();
-	const inspectorUrl = options.profiling?.inspector ? yield* Deferred.make<string>() : undefined;
 
 	yield* Stream.fromQueue(stdinQueue).pipe(Stream.run(denoProcess.stdin), Effect.forkScoped);
 
@@ -542,23 +299,12 @@ const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
 	yield* denoProcess.stderr.pipe(
 		Stream.decodeText({ encoding: "utf-8" }),
 		Stream.splitLines,
-		Stream.runForEach((line) => {
-			stderrTail.append(line);
-			const listening = inspectorUrl && /Debugger listening on (ws:\/\/\S+)/.exec(line)?.[1];
-			return listening ? Deferred.succeed(inspectorUrl, listening) : Effect.void;
-		}),
+		Stream.runForEach((line) => Effect.sync(() => stderrTail.append(line))),
 		Effect.ensuring(Deferred.succeed(stderrClosed, undefined)),
 		Effect.forkScoped,
 	);
 
-	return {
-		stdinQueue,
-		stderrTail,
-		inspectorUrl,
-		stderrClosed,
-		responseQueue,
-		process: denoProcess,
-	};
+	return { stdinQueue, stderrTail, stderrClosed, responseQueue, process: denoProcess };
 });
 
 export class BridgeService extends Context.Service<BridgeService>()("BridgeService", {
@@ -587,9 +333,6 @@ export class BridgeService extends Context.Service<BridgeService>()("BridgeServi
 				parentSpan: session.parentSpan,
 				apiFunctions: session.apiFunctions,
 				hostCallLimit: session.hostCallLimit,
-				...(session.onProfileCheckpoint
-					? { onProfileCheckpoint: session.onProfileCheckpoint }
-					: {}),
 			};
 			yield* Effect.acquireRelease(
 				Effect.sync(() => {
@@ -615,7 +358,7 @@ export class BridgeService extends Context.Service<BridgeService>()("BridgeServi
 
 				const url = new URL(request.url);
 				const parts = url.pathname.split("/").filter(Boolean);
-				if (parts.length !== 3 || (parts[0] !== "rpc" && parts[0] !== "profile")) {
+				if (parts.length !== 3 || parts[0] !== "rpc") {
 					return Response.json({ error: "Not found" }, { status: 404 });
 				}
 
@@ -635,20 +378,6 @@ export class BridgeService extends Context.Service<BridgeService>()("BridgeServi
 				const authHeader = request.headers.get("authorization");
 				if (authHeader !== `Bearer ${activeSession.token}`) {
 					return Response.json({ error: "Unauthorized" }, { status: 401 });
-				}
-
-				if (parts[0] === "profile") {
-					const onProfileCheckpoint = activeSession.onProfileCheckpoint;
-					if (!onProfileCheckpoint) {
-						return Response.json({ error: "Not found" }, { status: 404 });
-					}
-					const checkpointBody = yield* readSandboxBridgeRequestBody(request);
-					yield* onProfileCheckpoint(fnName, checkpointBody.body).pipe(
-						Effect.catchCause((cause) =>
-							Effect.logWarning("Sandbox profile checkpoint failed", cause),
-						),
-					);
-					return Response.json({}, { status: 200 });
 				}
 
 				const budgetError = consumeSandboxHostCall(
@@ -779,72 +508,32 @@ export class SandboxProcessManager extends Context.Service<SandboxProcessManager
 			const dependencies = yield* PackageCacheManager;
 			const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 			// Capture the executor so callers only need the process manager service.
-			const spawn = (grants?: SandboxProcessGrants, profiling?: SandboxProcessProfiling) =>
+			const spawn = (grants?: SandboxProcessGrants) =>
 				makeSpawnDenoProcess({
 					bridgePort: bridge.port,
 					runnerPath: runner.path,
 					...(grants ? { grants } : {}),
-					...(profiling ? { profiling } : {}),
 					denoDir: dependencies.cacheDirectory,
 					runtimeDirectory: dependencies.directory,
 					importMapPath: dependencies.importMapPath,
 				}).pipe(Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner));
-			const spawnedAt = new Map<number, number>();
-			const executionKeys = new Map<number, string>();
-			const completedWorkers: SandboxCompletedWorker[] = [];
-			let totalSpawned = 0;
-			let totalCompleted = 0;
-			let completedWorkerSequence = 0;
+			const activePids = new Set<number>();
 			const track = (worker: SandboxProcess) =>
-				Effect.map(Clock.currentTimeMillis, (now) => {
+				Effect.sync(() => {
 					const pid = Number(worker.process.pid);
 					if (Number.isSafeInteger(pid) && pid > 0) {
-						spawnedAt.set(pid, now);
-						totalSpawned += 1;
+						activePids.add(pid);
 					}
 				});
-			// The lifetime high-water mark is read before the kill, so workers that start and exit
-			// between two snapshots still report an observed peak.
-			const finish = (worker: SandboxProcess, outcome: SandboxProcessOutcome) =>
-				Effect.gen(function* () {
-					const pid = Number(worker.process.pid);
-					const startedAtMs = spawnedAt.get(pid);
-					if (startedAtMs === undefined) {
-						return;
-					}
-					const status = process.platform === "linux" ? yield* readProcessMemoryStatus(pid) : null;
-					const releasedAtMs = yield* Clock.currentTimeMillis;
-					if (!spawnedAt.delete(pid)) {
-						return;
-					}
-					const executionKey = executionKeys.get(pid) ?? null;
-					executionKeys.delete(pid);
-					totalCompleted += 1;
-					completedWorkerSequence += 1;
-					completedWorkers.push({
-						pid,
-						outcome,
-						executionKey,
-						releasedAtMs,
-						spawnedAtMs: startedAtMs,
-						sequence: completedWorkerSequence,
-						lifetimePeakRssBytes: status?.hwmBytes ?? null,
-					});
-					if (completedWorkers.length > COMPLETED_WORKER_CAPACITY) {
-						completedWorkers.shift();
-					}
-				});
-			const spawnTracked = (
-				dedicated: boolean,
-				grants?: SandboxProcessGrants,
-				profiling?: SandboxProcessProfiling,
-			) =>
-				spawn(grants, profiling).pipe(
+			const spawnTracked = (dedicated: boolean, grants?: SandboxProcessGrants) =>
+				spawn(grants).pipe(
 					Effect.tap(track),
 					Effect.tap(() => recordSandboxProcessSpawned(dedicated)),
 				);
 			const complete = (worker: SandboxProcess, outcome: SandboxProcessOutcome) =>
-				finish(worker, outcome).pipe(Effect.andThen(recordSandboxProcessCompleted(outcome)));
+				Effect.sync(() => activePids.delete(Number(worker.process.pid))).pipe(
+					Effect.andThen(recordSandboxProcessCompleted(outcome)),
+				);
 			const pool =
 				config.sandbox.processMode === "warm"
 					? yield* Pool.make({
@@ -861,146 +550,54 @@ export class SandboxProcessManager extends Context.Service<SandboxProcessManager
 			const spawnDedicated = (
 				outcome: () => SandboxProcessOutcome,
 				grants?: SandboxProcessGrants,
-				profiling?: SandboxProcessProfiling,
 			) =>
-				spawnTracked(true, grants, profiling).pipe(
+				spawnTracked(true, grants).pipe(
 					Effect.tap((worker) =>
 						Effect.addFinalizer(() => Effect.suspend(() => complete(worker, outcome()))),
 					),
 				);
-			const readWorkerMemory = (pids: ReadonlyArray<number>, includeSmaps: boolean) => {
+			const readWorkerMemory = () => {
+				const pids = Array.from(activePids);
 				if (process.platform === "linux") {
-					return readWorkerSamples(pids, includeSmaps);
+					return Effect.forEach(pids, readProcessRssBytes, { concurrency: "unbounded" }).pipe(
+						Effect.map((values) => values.reduce((total: number, rss) => total + (rss ?? 0), 0)),
+					);
 				}
-				return Effect.try({
-					catch: () => new SandboxProcessMemoryReadError(),
-					try: () => {
-						const samples = new Map<number, WorkerProcessSample>();
+				return Effect.sync(() => {
+					try {
 						if (pids.length === 0) {
-							return samples;
+							return 0;
 						}
 						const result = Bun.spawnSync(["ps", "-o", "pid=,rss=", "-p", pids.join(",")]);
 						if (result.exitCode !== 0) {
-							return samples;
+							return 0;
 						}
+						let total = 0;
 						for (const line of new TextDecoder().decode(result.stdout).split("\n")) {
 							const match = /^\s*(\d+)\s+(\d+)\s*$/.exec(line);
-							if (match?.[1] && match[2]) {
-								samples.set(Number(match[1]), {
-									cpu: null,
-									hwmBytes: null,
-									smapsRollup: null,
-									rssBytes: Number(match[2]) * 1024,
-								});
+							if (match?.[2]) {
+								total += Number(match[2]) * 1024;
 							}
 						}
-						return samples;
-					},
-				}).pipe(Effect.orElseSucceed(() => new Map<number, WorkerProcessSample>()));
-			};
-			const configuration = {
-				processMode: config.sandbox.processMode,
-				workerConcurrency: config.sandbox.workerConcurrency,
-				schedulerDispatchersDisabled: config.scheduler.disableDispatchers,
-				benchmarkProfilingEnabled: Option.isSome(config.sandbox.benchmarkProfileDir),
-			};
-			const getRuntimeMetrics = Effect.fn("SandboxProcessManager.getRuntimeMetrics")(function* (
-				options: SandboxRuntimeMetricsOptions,
-			) {
-				const pids = Array.from(spawnedAt.keys());
-				const timestampMs = yield* Clock.currentTimeMillis;
-				const [samples, cgroup, backend] = yield* Effect.all([
-					readWorkerMemory(pids, options.includeSmaps),
-					readCgroupSample(),
-					readBackendProcessSample(options.includeSmaps),
-				]);
-				const workers = pids.flatMap((pid) => {
-					const sample = samples.get(pid);
-					return sample === undefined
-						? []
-						: [
-								{
-									pid,
-									rssBytes: sample.rssBytes,
-									hwmBytes: sample.hwmBytes,
-									smapsRollup: sample.smapsRollup,
-									userCpuTicks: sample.cpu?.userTicks ?? null,
-									systemCpuTicks: sample.cpu?.systemTicks ?? null,
-									startTimeTicks: sample.cpu?.startTimeTicks ?? null,
-								},
-							];
-				});
-				const workerRssBytes = workers.reduce((total, worker) => total + worker.rssBytes, 0);
-				const cpuTotals = workers.reduce(
-					(totals, worker) => ({
-						user:
-							worker.userCpuTicks === null ? totals.user : (totals.user ?? 0) + worker.userCpuTicks,
-						system:
-							worker.systemCpuTicks === null
-								? totals.system
-								: (totals.system ?? 0) + worker.systemCpuTicks,
-					}),
-					{ user: null as number | null, system: null as number | null },
-				);
-				return {
-					cgroup,
-					workers,
-					backend,
-					timestampMs,
-					totalSpawned,
-					configuration,
-					totalCompleted,
-					workerRssBytes,
-					completedWorkerSequence,
-					runtime: sandboxRuntimeVersions,
-					backendRssBytes: backend.rssBytes,
-					activeProcessCount: workers.length,
-					replays: getSandboxReplayCounters(),
-					providerImports: providerImportMetrics(),
-					completedWorkers: completedWorkers.filter(
-						({ sequence }) => sequence > options.completedAfterSequence,
-					),
-					executions: {
-						total: totalSandboxExecutions,
-						active: activeSandboxExecutions,
-						maxActive: maxActiveSandboxExecutions,
-					},
-					deno: {
-						rssBytes: workerRssBytes,
-						userCpuTicks: cpuTotals.user,
-						processCount: workers.length,
-						systemCpuTicks: cpuTotals.system,
-					},
-				} satisfies SandboxProcessRuntimeMetrics;
-			});
-			runtimeMetricsReader = getRuntimeMetrics;
-			yield* Effect.addFinalizer(() =>
-				Effect.sync(() => {
-					runtimeMetricsReader = emptySandboxProcessRuntimeMetrics;
-				}),
-			);
-			yield* Effect.gen(function* () {
-				yield* Effect.sleep(SANDBOX_PROCESS_GAUGE_INTERVAL);
-				const metrics = yield* getRuntimeMetrics({
-					includeSmaps: false,
-					completedAfterSequence: completedWorkerSequence,
-				});
-				yield* recordSandboxRuntimeGauges({
-					workerRssBytes: metrics.workerRssBytes,
-					backendRssBytes: metrics.backend.rssBytes,
-					activeExecutions: metrics.executions.active,
-					heapUsedBytes: metrics.backend.heapUsedBytes,
-					externalMemoryBytes: metrics.backend.externalBytes,
-				});
-			}).pipe(Effect.ignore, Effect.forever, Effect.forkScoped);
-			const annotate = (worker: SandboxProcess, executionKey: string) =>
-				Effect.sync(() => {
-					const pid = Number(worker.process.pid);
-					if (spawnedAt.has(pid)) {
-						executionKeys.set(pid, executionKey);
+						return total;
+					} catch {
+						return 0;
 					}
 				});
-			return { acquire, release, annotate, spawnDedicated, runtimePaths: dependencies };
+			};
+			yield* Effect.gen(function* () {
+				yield* Effect.sleep(SANDBOX_PROCESS_GAUGE_INTERVAL);
+				const workerRssBytes = yield* readWorkerMemory();
+				const backend = process.memoryUsage();
+				yield* recordSandboxRuntimeGauges({
+					workerRssBytes,
+					backendRssBytes: backend.rss,
+					heapUsedBytes: backend.heapUsed,
+					externalMemoryBytes: backend.external,
+					activeExecutions: activeSandboxExecutions,
+				});
+			}).pipe(Effect.ignore, Effect.forever, Effect.forkScoped);
+			return { acquire, release, spawnDedicated, runtimePaths: dependencies };
 		}),
 	},
 ) {

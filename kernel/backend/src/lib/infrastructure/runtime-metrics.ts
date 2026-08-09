@@ -210,30 +210,6 @@ export const recordSandboxHostCall = (input: {
 		1,
 	);
 
-// Monotonic for the process lifetime so two snapshots can be subtracted without a reset race.
-let totalWorkflowJournalBytes = 0;
-let totalWorkflowReplaysFailed = 0;
-let totalWorkflowReplaysStarted = 0;
-let totalWorkflowReplaysCompleted = 0;
-let totalDurableRequests = 0;
-
-export const getSandboxReplayCounters = () => ({
-	totalDurableRequests,
-	totalFailed: totalWorkflowReplaysFailed,
-	totalStarted: totalWorkflowReplaysStarted,
-	totalJournalBytes: totalWorkflowJournalBytes,
-	totalCompleted: totalWorkflowReplaysCompleted,
-});
-
-export const recordSandboxWorkflowReplayStarted = Effect.sync(() => {
-	totalWorkflowReplaysStarted += 1;
-});
-
-export const recordSandboxDurableRequests = (count: number) =>
-	Effect.sync(() => {
-		totalDurableRequests += count;
-	});
-
 export const recordSandboxWorkflowReplayFinished = (input: {
 	readonly durationMs: number;
 	readonly journalBytes: number;
@@ -242,32 +218,24 @@ export const recordSandboxWorkflowReplayFinished = (input: {
 	readonly outcome: SandboxReplayOutcome;
 }) => {
 	const attributes = { kind: input.kind, outcome: input.outcome };
-	return Effect.suspend(() => {
-		totalWorkflowJournalBytes += input.journalBytes;
-		if (input.outcome === "failed") {
-			totalWorkflowReplaysFailed += 1;
-		} else if (input.outcome === "completed") {
-			totalWorkflowReplaysCompleted += 1;
-		}
-		return Effect.all(
-			[
-				Metric.update(Metric.withAttributes(sandboxWorkflowReplays, attributes), 1),
-				Metric.update(
-					Metric.withAttributes(sandboxWorkflowReplayDuration, attributes),
-					input.durationMs,
-				),
-				Metric.update(
-					Metric.withAttributes(sandboxWorkflowJournalSize, { kind: input.kind }),
-					input.journalBytes,
-				),
-				Metric.update(
-					Metric.withAttributes(sandboxWorkflowJournalEntries, { kind: input.kind }),
-					input.journalEntries,
-				),
-			],
-			{ discard: true },
-		);
-	});
+	return Effect.all(
+		[
+			Metric.update(Metric.withAttributes(sandboxWorkflowReplays, attributes), 1),
+			Metric.update(
+				Metric.withAttributes(sandboxWorkflowReplayDuration, attributes),
+				input.durationMs,
+			),
+			Metric.update(
+				Metric.withAttributes(sandboxWorkflowJournalSize, { kind: input.kind }),
+				input.journalBytes,
+			),
+			Metric.update(
+				Metric.withAttributes(sandboxWorkflowJournalEntries, { kind: input.kind }),
+				input.journalEntries,
+			),
+		],
+		{ discard: true },
+	);
 };
 
 export const recordSandboxRuntimeGauges = (input: {
@@ -296,8 +264,6 @@ const setProviderImportExecutingBodies = (delta: number) =>
 		return Metric.update(providerImportExecutingBodies, executingProviderImportBodies);
 	});
 
-export const getProviderImportExecutingBodies = () => executingProviderImportBodies;
-
 export const recordProviderImportBodyStarted = setProviderImportExecutingBodies(1);
 
 export const recordProviderImportBodySettled = setProviderImportExecutingBodies(-1);
@@ -314,44 +280,16 @@ export const recordProviderImportBodyOutcome = (input: {
 		1,
 	);
 
-export type ProviderImportPhaseSegment = {
-	readonly sequence: number;
-	readonly executionId: string;
-	readonly startedAtMs: number;
-	readonly finishedAtMs: number;
-	readonly phase: ProviderImportPhase;
-	readonly outcome: ProviderImportAttemptOutcome;
-};
-
-/**
- * Bounded process-local trace of phase attempts for benchmark overlap analysis. Replayed attempts
- * are kept as separate segments keyed by the same execution ID so a reader can merge them.
- */
-export const PROVIDER_IMPORT_PHASE_SEGMENT_CAPACITY = 4_096;
-let providerImportPhaseSequence = 0;
-const providerImportPhaseSegments: ProviderImportPhaseSegment[] = [];
-
-export const getProviderImportPhaseSegments = (afterSequence: number) =>
-	providerImportPhaseSegments.filter(({ sequence }) => sequence > afterSequence);
-
 export const recordProviderImportPhaseAttempt = (input: {
-	readonly executionId: string;
 	readonly startedAtMs: number;
 	readonly finishedAtMs: number;
 	readonly phase: ProviderImportPhase;
 	readonly outcome: ProviderImportAttemptOutcome;
 }) =>
-	Effect.suspend(() => {
-		providerImportPhaseSequence += 1;
-		providerImportPhaseSegments.push({ ...input, sequence: providerImportPhaseSequence });
-		if (providerImportPhaseSegments.length > PROVIDER_IMPORT_PHASE_SEGMENT_CAPACITY) {
-			providerImportPhaseSegments.shift();
-		}
-		return Metric.update(
-			Metric.withAttributes(providerImportPhaseAttemptDuration, {
-				phase: input.phase,
-				outcome: input.outcome,
-			}),
-			Math.max(0, input.finishedAtMs - input.startedAtMs),
-		);
-	});
+	Metric.update(
+		Metric.withAttributes(providerImportPhaseAttemptDuration, {
+			phase: input.phase,
+			outcome: input.outcome,
+		}),
+		Math.max(0, input.finishedAtMs - input.startedAtMs),
+	);
