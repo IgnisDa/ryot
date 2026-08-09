@@ -6,6 +6,7 @@ import { useRef, type ComponentProps, type ReactNode, type Ref } from "react";
 import { Chip } from "../chips";
 import { Button } from "../index";
 import { MultiSelect } from "../multi-select";
+import { RadioGroup } from "../radio-group";
 import { SegmentedControl } from "../segmented-control";
 import { Switch } from "../switch";
 import { FieldMessage, TextField } from "../text-field";
@@ -255,18 +256,19 @@ function SchemaFieldControl(props: {
 			/>
 		)),
 		Match.when("chips", () => (
-			<div className="flex flex-row flex-wrap gap-1.5">
-				{choices.map((choice) => (
-					<Chip
-						role="radio"
-						key={choice.value}
-						className="px-2.5"
-						label={schemaChoiceLabel(choice)}
-						checked={props.value === choice.value}
-						onSelect={() => props.onChange(choice.value)}
-					/>
-				))}
-			</div>
+			<RadioGroup
+				label={props.field.label}
+				onChange={props.onChange}
+				value={schemaText(props.value)}
+				className="flex flex-row flex-wrap gap-1.5"
+				renderOption={(option, selected) => ({
+					content: <Chip className="px-2.5" label={option.label} checked={selected} />,
+				})}
+				options={choices.map((choice) => ({
+					value: choice.value,
+					label: schemaChoiceLabel(choice),
+				}))}
+			/>
 		)),
 		Match.when("file", () => (
 			<SchemaFileField
@@ -275,8 +277,8 @@ function SchemaFieldControl(props: {
 				label={props.field.label}
 				uploadFile={props.uploadFile}
 				pickFile={pickBrowserUploadFile}
-				value={schemaText(props.value) === "" ? undefined : schemaText(props.value)}
 				allowedFileExtensions={props.field.allowedFileExtensions ?? []}
+				value={schemaText(props.value) === "" ? undefined : schemaText(props.value)}
 			/>
 		)),
 		Match.when("multi-select", () => (
@@ -284,10 +286,10 @@ function SchemaFieldControl(props: {
 				choices={choices}
 				label={props.field.label}
 				onChange={props.onChange}
-				placeholder={props.description}
 				checkIcon={props.icons.check}
 				closeIcon={props.icons.close}
 				searchIcon={props.icons.search}
+				placeholder={props.description}
 				chevronIcon={props.icons.chevron}
 				selected={schemaStringArray(props.value)}
 			/>

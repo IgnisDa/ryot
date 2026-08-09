@@ -431,3 +431,33 @@ describe("pro instance badge", () => {
 		expect(screen.getByRole("heading", { name: "Preferences" })).not.toBeNull();
 	});
 });
+
+const mainContents = () => document.querySelectorAll("#main-content");
+
+describe("document title and skip-link target", () => {
+	it("titles a literal kernel route and gives the skip link a single target", async () => {
+		mountView("/", null, []);
+		await screen.findByRole("heading", { name: "No workspaces enabled" });
+
+		expect(document.title).toBe("No workspaces — Ryot");
+		expect(mainContents()).toHaveLength(1);
+	});
+
+	it("titles an AuthStatus branch from the shared frame", async () => {
+		mountView("/auth", undefined, undefined, makeAuthStub({}, unauthenticated));
+		await screen.findByRole("heading", { name: "Opening sign-in" });
+
+		expect(document.title).toBe("Opening sign-in — Ryot");
+		expect(mainContents()).toHaveLength(1);
+	});
+
+	it("retitles when navigating between routes", async () => {
+		const view = mountView("/settings/preferences");
+		await screen.findByRole("heading", { name: "Preferences" });
+		expect(document.title).toBe("Preferences — Ryot");
+
+		await view.router.navigate({ href: "/settings/account" });
+		await waitFor(() => expect(document.title).toBe("Account — Ryot"));
+		expect(mainContents()).toHaveLength(1);
+	});
+});

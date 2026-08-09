@@ -208,13 +208,20 @@ export const compileClientStyles = ({
 				));
 			const rootStylesheet =
 				stylesheet === undefined ? "" : rewrite(stylesheet.path, stylesheet.content);
-			const inputStylesheet = `${fontStylesheet}\n${clientBaseStylesheet}\n${rootStylesheet}\n${themeStylesheet}`;
+			const inputStylesheet = `@import "tailwindcss";\n${fontStylesheet}\n${clientBaseStylesheet}\n${rootStylesheet}\n${themeStylesheet}`;
+			let tailwindLoaded = false;
 			const compiled = await compile(inputStylesheet, {
 				base: stylesheet === undefined ? "client" : directoryOf(stylesheet.path),
 				loadStylesheet: (id, base) =>
 					Promise.resolve().then(() => {
 						if (id === "tailwindcss") {
-							return { ...tailwindStylesheet, base: directoryOf(tailwindStylesheet.path) };
+							const content = tailwindLoaded ? "" : tailwindStylesheet.content;
+							tailwindLoaded = true;
+							return {
+								content,
+								path: tailwindStylesheet.path,
+								base: directoryOf(tailwindStylesheet.path),
+							};
 						}
 
 						const path = resolveClientStylesheet(id, base, sourceFiles);

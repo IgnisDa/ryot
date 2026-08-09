@@ -77,12 +77,18 @@ export const clientArtifactMetadata = (
 	};
 };
 
-export const clientArtifactDocument = (metadata: PluginClientArtifactMetadata) => `<!doctype html>
+const escapeHtmlText = (value: string) =>
+	value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+
+export const clientArtifactDocument = (
+	name: string,
+	metadata: PluginClientArtifactMetadata,
+) => `<!doctype html>
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>Ryot client plugin</title>
+		<title>${escapeHtmlText(name)}</title>
 		<link rel="stylesheet" href="./${CLIENT_ARTIFACT_STYLE_NAME}" />
 		<script type="application/json" id="${CLIENT_ARTIFACT_METADATA_ELEMENT_ID}">${stableStringify(metadata)}</script>
 	</head>

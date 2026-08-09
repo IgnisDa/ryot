@@ -1,4 +1,4 @@
-import { Button, Chip, StatusMessage } from "@ryot-app/client-ui-sdk";
+import { Button, Chip, RadioGroup, StatusMessage } from "@ryot-app/client-ui-sdk";
 import {
 	initialSchemaFormValues,
 	SchemaForm,
@@ -137,19 +137,29 @@ function ProviderChips(props: {
 	readonly selectedProviderId: SandboxProviderId | undefined;
 	readonly onSelect: (provider: ProviderSearchSummary) => void;
 }) {
+	const options = props.providers.map((provider) => ({
+		provider,
+		value: provider.providerId,
+		label: provider.providerName,
+	}));
+
 	return (
 		<div className="overflow-x-auto">
-			<div role="radiogroup" aria-label="Search provider" className="flex gap-1.5">
-				{props.providers.map((provider) => (
-					<Chip
-						role="radio"
-						key={provider.providerId}
-						label={provider.providerName}
-						onSelect={() => props.onSelect(provider)}
-						checked={provider.providerId === props.selectedProviderId}
-					/>
-				))}
-			</div>
+			<RadioGroup
+				options={options}
+				label="Search provider"
+				className="flex gap-1.5"
+				value={props.selectedProviderId}
+				renderOption={(option, selected) => ({
+					content: <Chip label={option.label} checked={selected} />,
+				})}
+				onChange={(value) => {
+					const selected = options.find((option) => option.value === value);
+					if (selected !== undefined) {
+						props.onSelect(selected.provider);
+					}
+				}}
+			/>
 		</div>
 	);
 }
@@ -409,13 +419,18 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 						<button
 							type="button"
 							aria-label="Clear search"
+							className="flex size-6 shrink-0 items-center justify-center rounded"
 							onClick={() => dispatch({ type: "query-changed", query: "" })}
 						>
 							<AppIcon size={15} name="x" className="shrink-0 text-text-subtle" />
 						</button>
 					)}
 				</div>
-				<button type="button" aria-label="Close" onClick={props.onClose} className="md:hidden">
+				<button
+					type="button"
+					onClick={props.onClose}
+					className="flex min-h-6 items-center px-1 md:hidden"
+				>
 					<span className="text-sm font-medium text-text-muted">Cancel</span>
 				</button>
 				<button

@@ -2,8 +2,10 @@ import { createFileRoute, useLocation, useNavigate, useRouter } from "@tanstack/
 import { Effect } from "effect";
 import { useCallback, useLayoutEffect } from "react";
 
-import { useEdge, usePluginHeader } from "#/modules/navigation/authenticated-shell";
+import { useEdge, usePluginHeader, usePluginTitle } from "#/modules/navigation/authenticated-shell";
 import { historyEntry } from "#/modules/navigation/history-entry";
+import { usePageTitle } from "#/modules/navigation/page-title";
+import { mainContentProps } from "#/modules/navigation/skip-link";
 import { ArtifactSessions, ArtifactSessionStaleError } from "#/modules/plugins/artifact-sessions";
 import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
 import { PluginOperationsService } from "#/modules/plugins/operations";
@@ -36,11 +38,13 @@ function PluginInstallation(props: {
 	const router = useRouter();
 	const navigate = useNavigate();
 	const header = usePluginHeader();
+	const publishedTitle = usePluginTitle();
 	const { pluginSlug } = Route.useParams();
 	const { pathname, searchStr, state } = useLocation();
 	const { runtime, scope, theme } = Route.useRouteContext();
 	const { installation, refetch } = props;
 	const { serverUrl, userId } = scope;
+	usePageTitle(publishedTitle ?? installation.name);
 	const onCreateArtifactSession = useCallback(
 		(
 			request: {
@@ -131,12 +135,13 @@ function PluginInstallation(props: {
 }
 
 function PluginNotFound() {
-	return <PluginRouteNotice title="Not found" message="This page does not exist." />;
+	return <PluginRouteNotice title="Plugin not found" message="This page does not exist." />;
 }
 
 function PluginRouteNotice(props: { readonly title: string; readonly message: string }) {
+	usePageTitle(props.title);
 	return (
-		<main className="ui-page">
+		<main {...mainContentProps} className="ui-page">
 			<section
 				aria-labelledby="plugin-route-title"
 				className="ui-stack ui-card mx-auto w-[min(100%,480px)]"

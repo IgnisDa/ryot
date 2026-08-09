@@ -171,9 +171,9 @@ export function Menu({
 						menuItems.current[index] = element;
 					}}
 					className={clsx(
-						"flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-left text-sm font-semibold outline-none hover:bg-surface-2 focus-visible:bg-surface-2",
+						"flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-left text-sm font-semibold hover:bg-surface-2 focus-visible:bg-surface-2",
 						item.destructive === true ? "text-danger" : "text-text",
-						"disabled:cursor-not-allowed disabled:text-text-subtle",
+						"disabled:text-text-subtle",
 					)}
 				>
 					{item.label}

@@ -31,6 +31,7 @@ const CLIENT_SOURCE_ROOT = "client/";
 const SCANNED_EXTENSIONS = new Set(["ts", "tsx"]);
 
 export type ClientPluginCompilerInput = {
+	readonly name: string;
 	readonly entry: string;
 	readonly apiVersion: typeof CLIENT_API_VERSION;
 	readonly files: Readonly<Record<string, Uint8Array>>;
@@ -55,7 +56,11 @@ const duplicateFileName = (files: readonly PluginClientArtifactFile[]) => {
 const bytesEqual = (left: Uint8Array, right: Uint8Array) =>
 	left.byteLength === right.byteLength && left.every((value, index) => value === right[index]);
 
-export const compileClientPlugin = ({ entry, files }: ClientPluginCompilerInput) =>
+export const compileClientPlugin = ({
+	entry,
+	files,
+	name: pluginName,
+}: ClientPluginCompilerInput) =>
 	Effect.gen(function* () {
 		if (
 			(!entry.endsWith(".ts") && !entry.endsWith(".tsx")) ||
@@ -218,7 +223,7 @@ export const compileClientPlugin = ({ entry, files }: ClientPluginCompilerInput)
 				...hashedFiles,
 				clientGeneratedArtifactFile(
 					CLIENT_ARTIFACT_DOCUMENT_NAME,
-					clientArtifactDocument(metadata),
+					clientArtifactDocument(pluginName, metadata),
 				),
 			],
 		};

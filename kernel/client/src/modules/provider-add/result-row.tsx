@@ -56,7 +56,7 @@ function ResultAction(props: {
 				type="button"
 				onClick={props.onAdd}
 				aria-label={`Retry adding ${props.title}`}
-				className="text-xs font-medium text-accent-text"
+				className="flex h-7 shrink-0 items-center px-1 text-xs font-medium text-accent-text"
 			>
 				Retry
 			</button>

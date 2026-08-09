@@ -5,6 +5,8 @@ import { useEffect, useReducer, useRef, useState } from "react";
 
 import { type ServerMode, resolveServerOrigin, suggestedServerOrigin } from "#/api/origin";
 import { isNativePlatform } from "#/modules/navigation/native-navigation";
+import { usePageTitle } from "#/modules/navigation/page-title";
+import { mainContentProps } from "#/modules/navigation/skip-link";
 import { initialConnectionState, reduceConnectionState } from "#/modules/server/connection-state";
 import { sanitizeRedirect } from "#/modules/server/redirect";
 import { decideOnboardingCompletion, decideOnboardingGate } from "#/modules/server/route-gates";
@@ -53,6 +55,7 @@ function Onboarding() {
 	const [connection, dispatch] = useReducer(reduceConnectionState, initialConnectionState);
 	const connectionController = useRef<AbortController>(null);
 	const checking = connection.status === "checking";
+	usePageTitle("Set up your server");
 	useEffect(() => () => connectionController.current?.abort(), []);
 
 	function changeMode(nextMode: ServerMode) {
@@ -105,7 +108,10 @@ function Onboarding() {
 	}
 
 	return (
-		<main className="ui-page md:grid-cols-[minmax(260px,400px)_minmax(400px,480px)] md:items-center md:justify-center md:gap-[clamp(48px,8vw,112px)] md:px-12">
+		<main
+			{...mainContentProps}
+			className="ui-page md:grid-cols-[minmax(260px,400px)_minmax(400px,480px)] md:items-center md:justify-center md:gap-[clamp(48px,8vw,112px)] md:px-12"
+		>
 			<section aria-labelledby="onboarding-title" className="mx-auto w-[min(100%,480px)] md:mx-0">
 				<p className="ui-overline">Your private library</p>
 				<h1 id="onboarding-title" className="ui-heading">
@@ -130,7 +136,7 @@ function Onboarding() {
 						{serverOptions.map((option) => (
 							<label
 								key={option.mode}
-								className="grid min-h-18 cursor-pointer grid-cols-[auto_1fr] items-start gap-3 rounded-lg border border-border p-3.5 has-checked:border-accent has-checked:bg-accent-soft has-checked:shadow-sm"
+								className="grid min-h-18 grid-cols-[auto_1fr] items-start gap-3 rounded-lg border border-border p-3.5 has-checked:border-accent-deep has-checked:bg-accent-soft has-checked:shadow-sm"
 							>
 								<input
 									type="radio"

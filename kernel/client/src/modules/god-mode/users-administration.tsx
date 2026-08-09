@@ -689,7 +689,7 @@ function ConfirmationDialog(props: {
 					type="button"
 					disabled={props.pending}
 					onClick={props.onConfirm}
-					className="min-h-11 rounded-lg bg-danger px-4 py-2.5 font-semibold text-white disabled:opacity-50"
+					className="min-h-11 rounded-lg bg-danger-solid px-4 py-2.5 font-semibold text-danger-ink disabled:opacity-50"
 				>
 					{pendingLabel}
 				</button>

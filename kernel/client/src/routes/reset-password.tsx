@@ -2,12 +2,14 @@ import { Button } from "@ryot-app/client-ui-sdk";
 import { createErrorVisibility, useForm } from "@tanstack/react-form";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect } from "effect";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import type { ServerOrigin } from "#/api/origin";
 import { validatePassword } from "#/modules/auth/form-values";
 import { HostedAuthService } from "#/modules/auth/hosted-service";
 import { AuthStatus } from "#/modules/auth/status";
+import { usePageTitle } from "#/modules/navigation/page-title";
+import { mainContentProps } from "#/modules/navigation/skip-link";
 import { ServerService } from "#/modules/server/service";
 import type { ClientRuntime } from "#/runtime";
 
@@ -139,7 +141,7 @@ function ResetPasswordForm(props: {
 	}
 
 	return (
-		<main className="ui-page">
+		<ResetPasswordFrame>
 			<section
 				aria-labelledby="reset-password-title"
 				className="ui-stack ui-card mx-auto w-[min(100%,480px)]"
@@ -246,6 +248,15 @@ function ResetPasswordForm(props: {
 					</form.Subscribe>
 				</form>
 			</section>
+		</ResetPasswordFrame>
+	);
+}
+
+function ResetPasswordFrame(props: { readonly children: ReactNode }) {
+	usePageTitle("Choose a new password");
+	return (
+		<main {...mainContentProps} className="ui-page">
+			{props.children}
 		</main>
 	);
 }

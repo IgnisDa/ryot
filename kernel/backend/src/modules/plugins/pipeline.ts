@@ -105,6 +105,7 @@ export const compilePluginPackage = Effect.fn("PluginPipeline.compilePluginPacka
 					.compile({
 						files: input.files,
 						entry: clientEntry.entry,
+						name: input.manifest.metadata.name,
 						apiVersion: clientEntry.apiVersion,
 					})
 					.pipe(Effect.tapError((error) => Effect.logError("plugin client compile error", error)))

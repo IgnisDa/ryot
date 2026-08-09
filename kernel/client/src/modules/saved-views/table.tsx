@@ -32,7 +32,7 @@ const savedViewColumns = (
 				<Link
 					to="/e/$entityId"
 					params={{ entityId: item.entityId }}
-					className="flex h-13 min-w-0 items-center gap-3 rounded outline-none focus-visible:ring-2 focus-visible:ring-accent"
+					className="flex h-13 min-w-0 items-center gap-3 rounded outline-none focus-visible:ring-2 focus-visible:ring-focus"
 				>
 					{item.image !== undefined && (
 						<ManagedImage
