@@ -15,6 +15,7 @@ import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
 	ServerStub,
+	SavedViewRouteStubs,
 	catalog,
 	makeAuthStub,
 	makeOAuthRouteStubs,
@@ -53,6 +54,7 @@ const mountLogin = (config: ReturnType<typeof systemConfig>) => {
 		Layer.mergeAll(
 			makeAuthStub(),
 			ServerStub,
+			SavedViewRouteStubs,
 			Layer.succeed(PublicApi, {
 				checkHealth: () => Effect.void,
 				getSystemConfig: (origin) =>

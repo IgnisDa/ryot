@@ -17,6 +17,7 @@ import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
 	ServerStub,
+	SavedViewRouteStubs,
 	authenticated,
 	catalog,
 	makeAuthStub,
@@ -54,6 +55,7 @@ const mountView = (
 		Layer.mergeAll(
 			AuthStub,
 			ServerStub,
+			SavedViewRouteStubs,
 			makePublicApiStub(),
 			AuthenticatedApi.layer,
 			Layer.succeed(ArtifactSessions, artifactSessions),

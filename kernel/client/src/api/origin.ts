@@ -47,6 +47,9 @@ export const normalizeServerOrigin = (value: string) => value.trim().replace(/\/
 
 export const serverApiUrl = (origin: ServerOrigin) => `${origin}/api`;
 
+export const resolveApiUrl = (origin: ServerOrigin, value: string) =>
+	new URL(value.replace(/^\/+/, ""), `${serverApiUrl(origin)}/`).toString();
+
 export function parseServerOrigin(value: string): ServerOriginResult {
 	try {
 		return { ok: true, origin: decodeServerOrigin(value) };
