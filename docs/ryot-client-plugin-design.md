@@ -278,6 +278,8 @@ The exact public API may evolve during implementation, but the contribution mode
 
 Additional kernel extension points must be added deliberately in response to concrete requirements. V1 must not introduce a general-purpose arbitrary slot-injection system for settings, headers, sidebars, dialogs, or other kernel internals.
 
+The header capability in §10 is the boundary case that shows the intended shape: the kernel keeps ownership of the header element, and the plugin contributes one validated scalar to it. A capability that carried markup, elements, or arbitrary React nodes into kernel chrome would be the slot system this rule forbids.
+
 ---
 
 ## 5. No arbitrary third-party dependency installation
@@ -600,6 +602,7 @@ Initial categories should be approximately:
 data
 operations
 navigation
+header
 storage
 assets
 feedback
@@ -621,7 +624,22 @@ await ryot.data.query(recipe);
 await ryot.operations.invoke({ slug, input, output });
 ryot.navigation.push({ path: "/workouts/456" });
 ryot.navigation.replace({ path: "/workouts/456" });
+ryot.header.set({ title: "Bench Press" });
 ```
+
+### Header
+
+The kernel owns the mobile header chrome; a plugin supplies only its semantic content.
+`ryot.header.set({ title })` sends one `header` message per plugin route change, which is a semantic
+low-frequency signal rather than the high-frequency data §36 forbids. The title is a strict
+`NonEmptyString` capped at `PLUGIN_HEADER_TITLE_MAX`; a value outside that fails locally as
+`invalid-input`. The kernel falls back to the workspace name when a plugin sets no title, and clears
+the title on plugin route changes so a stale title cannot outlive its screen.
+
+This is deliberately narrow. §4 forbids a general-purpose slot-injection system for kernel internals,
+headers included, so the capability carries a validated scalar rather than markup, elements, or
+arbitrary React nodes. Header actions and a floating action button are not part of it; they follow the
+deferred surfaces in §16 that would drive them.
 
 ### Current data and operations API
 
@@ -1120,7 +1138,11 @@ The switcher lists every enabled installation in catalog order. Selecting the cu
 
 ### Shell chrome
 
-At `md` and above, a desktop workspace sidebar (~264px, hidden below `md`) is always present: a workspace trigger, a Home row for the current workspace, and an account/settings footer. It carries no search, saved views, collections, customization, or Pro affordance. Below `md`, a mobile header with a menu button replaces it, opening a modal `<dialog>` drawer that carries the same trigger, Home row, and footer. The drawer supports Escape, backdrop, and close-button dismissal, traps focus while open, restores focus to the menu trigger on close, locks body scroll, and respects reduced motion. Neither the mobile header nor the drawer renders on settings routes.
+At `md` and above, a desktop workspace sidebar (~264px, hidden below `md`) is always present: a workspace trigger, a Home row for the current workspace, and an account/settings footer. It carries no search, saved views, collections, or customization. Below `md`, a mobile header replaces it, opening a drawer that carries the same trigger, Home row, and footer.
+
+The mobile header is a 54px row with `size-11 rounded-pill` controls on a `bg-bg` surface. Its leading control is the menu button or a back chevron, chosen by the §25 edge rule. Its title is the workspace name, overridden by the plugin-supplied title described in §10 when one is set.
+
+The drawer is a controlled overlay rather than a modal `<dialog>`, because `showModal()` is binary and cannot be dragged progressively open. Its panel and scrim are driven by one shared progress value, so the button and the edge gesture animate through the same path. It supports Escape, scrim, and close-button dismissal, traps focus while open, restores focus to the menu trigger on close, locks body scroll, leaves the accessibility tree as soon as it closes rather than when its exit animation ends, and respects reduced motion. Selecting a destination commits the close before the navigation runs, so the destination never appears behind an open drawer. Neither the mobile header nor the drawer belongs to settings routes, but the drawer unmounts on its progress value reaching zero rather than on the route changing, so choosing settings from inside it animates the panel out instead of cutting it away, and returning to a workspace never remounts a panel that is still part-way open.
 
 ---
 
@@ -1454,30 +1476,34 @@ delete threshold crossed
 
 ## 25. Sidebar and back gestures
 
-The kernel owns the application-level edge gesture policy.
+The kernel owns the application-level edge gesture policy, and implements it in the DOM. Both left-edge
+gestures are ordinary Pointer Events driven by `motion`; no native gesture recognizer is involved.
 
-At a workspace root:
-
-```text
-/media
-/fitness
-```
-
-the left edge may open the kernel sidebar.
-
-At a child route:
+The arbitration rule is that **the left edge does whatever the header's leading control does**. A route
+whose header offers the drawer trigger binds the edge to opening the drawer; a route whose header offers
+Back binds the edge to Back. The gesture can therefore never contradict the control the user is looking
+at. `resolveEdgeIntent` in `kernel/client/src/modules/navigation/edge-intent.ts` is the single source of
+truth, and both `EdgeGesture` and `MobileHeader` read it.
 
 ```text
-/fitness/workouts/123
-/e/entity123
-/settings/preferences
+workspace root (/:pluginSlug)   edge opens the drawer      header shows the menu button
+plugin child route              edge goes back             header shows the back chevron
+settings routes                 edge goes back             SettingsFrame owns its back control
+"back" with nothing to pop      falls through to the drawer where one is mounted
 ```
 
-the application may prioritize Back instead.
+The recognizer ports the Expo client's constants exactly: a 24px left-edge strip, activation at
+`dx > 6 && |dx| > |dy|`, progress tracked as `dx / drawerWidth`, and completion at
+`dx > drawerWidth / 3 || vx > 0.5` over 240ms, honouring `prefers-reduced-motion`.
 
-The exact use of WKWebView's native back/forward gesture and Android predictive back requires a focused implementation spike, but the routing authority remains the kernel regardless of gesture implementation.
+WKWebView's native back/forward gesture is deliberately **not** enabled. It drives the WebView's own
+back-forward list with screenshot-based transitions, which contradicts §2.4's single-history rule, and
+it cannot be arbitrated per route against the drawer's own edge gesture. Android predictive back is
+likewise not adopted; the hardware Back button is handled through the kernel, where an open overlay is
+dismissed before history is popped.
 
-The web kernel must be able to implement the drawer interaction itself; retaining a React Native shell solely for drawer gestures is not required.
+The web kernel implements the drawer interaction itself; retaining a React Native shell solely for
+drawer gestures is not required.
 
 ---
 
@@ -1764,6 +1790,8 @@ Media and Fitness provide additional production dogfooding.
 Client boundary tests must verify the exact public `RyotClientError` reasons and their classifications: explicit `null` operation input, omitted input rejected locally as `invalid-input`, an exposed SDK category missing from the supplied adapter as `unsupported-capability`, declared query and operation execution failures as opaque `query-failed` and `operation-failed`, invalid or throwing result decoders as `malformed-result`, teardown as `disposed`, malformed bridge/session data and wire `failed` closes as `protocol`, and communication/posting/network failures as `transport`. Tests must prove the shared 64-request operation/RyotQL pending limit and its protocol teardown, that lifecycle termination classifies every pending and synchronous capability consistently, direct and bridge query adapters classify declared failures identically, expected plugin business/domain outcomes resolve as typed values, and internal causes, messages, diagnostics, HTTP details, and stack traces do not cross the bridge. Routing tests must cover consumer-cancelled links, prevented modifier and auxiliary navigation, explicit home matching, and plugin-supplied and default not-found states.
 
 Client compiler tests must also cover semantic checking of every archived non-test client `.ts`/`.tsx` file, fatal normalized TypeScript diagnostics, bundling from only the manifest entry's reachable graph, and Tailwind scanning of all archived client `.ts`/`.tsx` files.
+
+Shell tests must cover the §25 edge rule as a pure resolver across a workspace root, a plugin child route, a settings route, and a route with nothing to pop, and must prove that the header's leading control and the edge gesture never disagree. Drawer tests must keep Escape, scrim, and close-button dismissal, forward and reverse Tab containment, focus restoration, body-scroll release, removal from the accessibility tree on close, and the guarantee that a destination selection commits the close before navigation runs. Hardware Back tests must prove an open overlay is dismissed before history is popped and before the application exits. Header capability tests must cover a delegated title, a title rejected locally as `invalid-input`, a missing adapter category as `unsupported-capability`, and a failing adapter as `transport`.
 
 The browser lifecycle suite drives theme changes through `/settings/preferences` rather than a global theme selector, accepts that entering settings unmounts the plugin, and verifies that the fresh iframe mounted on return receives the persisted theme. Live theme synchronization on an already-mounted plugin host is covered by unit tests instead of the browser suite.
 

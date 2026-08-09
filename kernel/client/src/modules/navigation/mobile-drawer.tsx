@@ -3,7 +3,16 @@ import type {
 	PluginClientCatalogEntry,
 } from "@ryot/ryotql-recipes/plugin-client-catalog";
 import clsx from "clsx";
-import { type KeyboardEvent, type RefObject, useEffect, useRef } from "react";
+import {
+	type MotionValue,
+	animate,
+	motion,
+	useMotionValueEvent,
+	useReducedMotion,
+	useTransform,
+} from "motion/react";
+import { type KeyboardEvent, type RefObject, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 
 import type { AuthSessionStore } from "#/modules/auth/service";
 import { AccountSummary } from "#/modules/navigation/account-summary";
@@ -15,11 +24,13 @@ type MobileDrawerProps = {
 	readonly isPro: boolean;
 	readonly isOpen: boolean;
 	readonly drawerId: string;
+	readonly hasDrawer: boolean;
 	readonly onClose: () => void;
 	readonly activeHome: boolean;
 	readonly activeSettings: boolean;
 	readonly session: AuthSessionStore;
 	readonly catalog: PluginClientCatalog;
+	readonly progress: MotionValue<number>;
 	readonly current: PluginClientCatalogEntry | null;
 	readonly onNavigateHome: () => void | Promise<void>;
 	readonly onNavigateSettings: () => void | Promise<void>;
@@ -27,37 +38,22 @@ type MobileDrawerProps = {
 	readonly onSelectWorkspace: (slug: string) => void | Promise<void>;
 };
 
+const TIMING = { duration: 0.24, ease: "easeOut" } as const;
+
 const focusable =
 	'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
-const showModal = (dialog: HTMLDialogElement) => {
-	const operation: unknown = Reflect.get(dialog, "showModal");
-	if (typeof operation === "function") {
-		Reflect.apply(operation, dialog, []);
-	} else {
-		dialog.setAttribute("open", "");
-	}
-};
-
-const dismiss = (dialog: HTMLDialogElement) => {
-	const operation: unknown = Reflect.get(dialog, "close");
-	if (typeof operation === "function") {
-		Reflect.apply(operation, dialog, []);
-	} else {
-		dialog.removeAttribute("open");
-	}
-};
 
 const restoreFocus = (trigger: RefObject<HTMLButtonElement | null>) =>
 	queueMicrotask(() => trigger.current?.focus());
 
 export function MobileDrawer(props: MobileDrawerProps) {
-	const dialogRef = useRef<HTMLDialogElement>(null);
+	const panelRef = useRef<HTMLDivElement>(null);
 	const previousOverflow = useRef<string | null>(null);
+	const [isSettling, setIsSettling] = useState(false);
+	const reduceMotion = useReducedMotion() === true;
+	const x = useTransform(props.progress, [0, 1], ["-100%", "0%"]);
+	const presented = props.isOpen || isSettling;
 	const close = () => {
-		if (dialogRef.current?.open) {
-			dismiss(dialogRef.current);
-		}
 		if (previousOverflow.current !== null) {
 			document.body.style.overflow = previousOverflow.current;
 			previousOverflow.current = null;
@@ -66,11 +62,11 @@ export function MobileDrawer(props: MobileDrawerProps) {
 		restoreFocus(props.triggerRef);
 	};
 	const closeThen = (operation: () => void | Promise<void>) => {
-		close();
+		flushSync(close);
 		queueMicrotask(() => void operation());
 	};
-	const containFocus = (event: KeyboardEvent<HTMLDialogElement>) => {
-		if (event.defaultPrevented) {
+	const containFocus = (event: KeyboardEvent<HTMLDivElement>) => {
+		if (event.defaultPrevented || !props.isOpen) {
 			return;
 		}
 		if (event.key === "Escape") {
@@ -81,7 +77,7 @@ export function MobileDrawer(props: MobileDrawerProps) {
 		if (event.key !== "Tab") {
 			return;
 		}
-		const items = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(focusable) ?? []);
+		const items = Array.from(panelRef.current?.querySelectorAll<HTMLElement>(focusable) ?? []);
 		if (items.length === 0) {
 			return;
 		}
@@ -96,19 +92,16 @@ export function MobileDrawer(props: MobileDrawerProps) {
 		}
 	};
 
+	useMotionValueEvent(props.progress, "change", (value) => setIsSettling(value > 0));
+
 	useEffect(() => {
-		const dialog = dialogRef.current;
-		if (dialog === null) {
+		if (reduceMotion) {
+			props.progress.set(props.isOpen ? 1 : 0);
 			return undefined;
 		}
-		if (props.isOpen && !dialog.open) {
-			showModal(dialog);
-		} else if (!props.isOpen && dialog.open) {
-			dismiss(dialog);
-			restoreFocus(props.triggerRef);
-		}
-		return undefined;
-	}, [props.isOpen, props.triggerRef]);
+		const controls = animate(props.progress, props.isOpen ? 1 : 0, TIMING);
+		return () => controls.stop();
+	}, [props.isOpen, props.progress, reduceMotion]);
 
 	useEffect(() => {
 		if (!props.isOpen) {
@@ -124,26 +117,34 @@ export function MobileDrawer(props: MobileDrawerProps) {
 		};
 	}, [props.isOpen]);
 
+	if (!props.hasDrawer && !presented) {
+		return null;
+	}
+
 	return (
-		<dialog
-			ref={dialogRef}
-			aria-modal="true"
+		<div
 			id={props.drawerId}
+			hidden={!presented}
 			onKeyDown={containFocus}
 			data-testid="mobile-drawer"
+			role={props.isOpen ? "dialog" : undefined}
 			aria-labelledby={`${props.drawerId}-title`}
-			className="fixed inset-y-0 left-0 m-0 h-dvh max-h-none w-[min(320px,82vw)] max-w-none overflow-visible border-0 bg-transparent p-0 text-text backdrop:bg-overlay md:hidden"
-			onCancel={(event) => {
-				event.preventDefault();
-				close();
-			}}
-			onClick={(event) => {
-				if (event.target === event.currentTarget) {
-					close();
-				}
-			}}
+			aria-modal={props.isOpen ? true : undefined}
+			aria-hidden={props.isOpen ? undefined : true}
+			className={clsx("fixed inset-0 z-40 md:hidden", presented ? "block" : "hidden")}
 		>
-			<div className="flex h-full flex-col border-r border-border bg-surface pt-[max(env(safe-area-inset-top),1rem)] pb-[max(env(safe-area-inset-bottom),0.75rem)] shadow-card">
+			<motion.div
+				onClick={close}
+				aria-hidden="true"
+				data-testid="drawer-scrim"
+				style={{ opacity: props.progress }}
+				className="absolute inset-0 bg-overlay"
+			/>
+			<motion.div
+				style={{ x }}
+				ref={panelRef}
+				className="absolute inset-y-0 left-0 flex w-[min(320px,82vw)] flex-col border-r border-border bg-surface pt-[max(env(safe-area-inset-top),1rem)] pb-[max(env(safe-area-inset-bottom),0.75rem)] text-text shadow-card"
+			>
 				<div className="flex shrink-0 items-center justify-between gap-3 px-4 pb-3">
 					<h2
 						id={`${props.drawerId}-title`}
@@ -194,7 +195,7 @@ export function MobileDrawer(props: MobileDrawerProps) {
 						onNavigate={() => closeThen(props.onNavigateSettings)}
 					/>
 				</footer>
-			</div>
-		</dialog>
+			</motion.div>
+		</div>
 	);
 }

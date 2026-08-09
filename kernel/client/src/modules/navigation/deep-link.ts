@@ -10,6 +10,7 @@ export type NativeAppSource = {
 export type DeepLinkNavigator = {
 	readonly back: () => void;
 	readonly canGoBack: () => boolean;
+	readonly dismissOverlay: () => boolean;
 	readonly navigate: (href: string, options: { readonly replace: boolean }) => void;
 };
 
@@ -61,6 +62,9 @@ export function createDeepLinkBridge(source: NativeAppSource, navigator: DeepLin
 	void source
 		.onBackButton(() => {
 			if (isDisposed) {
+				return;
+			}
+			if (navigator.dismissOverlay()) {
 				return;
 			}
 			if (navigator.canGoBack()) {
