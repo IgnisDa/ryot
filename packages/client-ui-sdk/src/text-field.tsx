@@ -13,7 +13,7 @@ export function TextField({ invalid, className, density = "default", ...props }:
 			aria-invalid={invalid}
 			className={clsx(
 				"rounded-lg border border-border bg-raised text-text",
-				density === "default" ? "px-4 py-3 text-base" : "h-10 px-3 text-sm",
+				density === "default" ? "px-4 py-3 text-base" : "h-10 px-3 text-base md:text-sm",
 				invalid === true && "border-danger",
 				className,
 			)}
