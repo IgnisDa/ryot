@@ -1,5 +1,5 @@
 import { Effect, Layer } from "effect";
-import { KeyValueStore } from "effect/unstable/persistence";
+import * as KeyValueStore from "effect/unstable/persistence/KeyValueStore";
 import { Atom } from "effect/unstable/reactivity";
 import { Platform } from "react-native";
 import { createMMKV } from "react-native-mmkv";
