@@ -3,6 +3,10 @@ import { render, screen, userEvent } from "@testing-library/react-native";
 import { useEffect, useState } from "react";
 
 import type { SchemaFileUpload } from "@/modules/ui/schema-form/file-upload";
+import {
+	MASKED_REVIEW_VALUE,
+	UPLOADED_REVIEW_VALUE,
+} from "@/modules/ui/schema-form/review-summary";
 import { useSchemaForm } from "@/modules/ui/schema-form/schema-form";
 import {
 	initialSchemaFormValues,
@@ -12,7 +16,6 @@ import {
 import { credentialImportSchema, listedImportSource, uploadImportSchema } from "./import-fixture";
 import { ImportInputStep } from "./import-input-step";
 import { ImportReviewStep } from "./import-review-step";
-import { MASKED_REVIEW_VALUE, UPLOADED_REVIEW_VALUE } from "./review-summary";
 
 const uploadNothing: SchemaFileUpload = () =>
 	Promise.resolve({ kind: "uploaded", token: "upload-token" });
@@ -53,7 +56,7 @@ const renderReview = (
 function WizardStepsHarness(props: { readonly onStart?: (values: SchemaFormValues) => void }) {
 	const [reviewing, setReviewing] = useState(false);
 	const form = useSchemaForm({
-		schema: credentialImportSchema,
+		schemas: [credentialImportSchema],
 		onSubmit: () => setReviewing(true),
 	});
 	useEffect(() => {

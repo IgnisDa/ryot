@@ -16,8 +16,10 @@ import { pickUploadFile } from "./pick-upload-file";
 import { SchemaFileField } from "./schema-file-field";
 import {
 	describeSchemaFormFields,
+	isRetainedSecretField,
 	schemaChoiceLabel,
 	type SchemaFormField,
+	type SchemaFormMode,
 	type SchemaFormArrayValue,
 	type SchemaFormValue,
 	type SchemaFormValues,
@@ -25,8 +27,14 @@ import {
 } from "./schema-form-state";
 import { SchemaMultiSelect } from "./schema-multi-select";
 
+/**
+ * Accepts several schemas so a form can render more than one of them against a single flat value
+ * record. They stay separate rather than being merged because each carries its own `rules`, whose
+ * paths are single-segment and only resolve within their own schema.
+ */
 export function useSchemaForm(props: {
-	schema: AppSchema | undefined;
+	mode?: SchemaFormMode;
+	schemas: readonly (AppSchema | undefined)[];
 	onSubmit: (values: SchemaFormValues) => void;
 }) {
 	return useForm({
@@ -37,11 +45,12 @@ export function useSchemaForm(props: {
 			{
 				triggers: [],
 				run: ({ value, createErrorMap }) => {
-					if (props.schema === undefined) {
-						return undefined;
-					}
-					const validationErrors = validateSchemaFormValues(props.schema, value);
-					if (validationErrors.size === 0) {
+					const validationErrors = props.schemas.flatMap((schema) =>
+						schema === undefined
+							? []
+							: [...validateSchemaFormValues(schema, value, props.mode ?? "create")],
+					);
+					if (validationErrors.length === 0) {
 						return undefined;
 					}
 					const errors = createErrorMap();
@@ -298,15 +307,17 @@ function SchemaFieldControl(props: {
 }
 
 function SchemaFieldRow(props: {
+	readonly mode: SchemaFormMode;
 	readonly isLastInput: boolean;
 	readonly field: SchemaFormField;
 	readonly value: SchemaFormValue;
 	readonly inputRef: Ref<TextInput>;
 	readonly error: string | undefined;
-	readonly uploadFile: SchemaFileUpload;
 	readonly onSubmitEditing: () => void;
+	readonly uploadFile: SchemaFileUpload;
 	readonly onChange: (value: SchemaFormValue) => void;
 }) {
+	const retainsSecret = isRetainedSecretField(props.field, props.mode);
 	const showsDescriptionBelow =
 		props.field.description !== "" &&
 		(props.field.control === "chips" ||
@@ -317,20 +328,25 @@ function SchemaFieldRow(props: {
 		<View className="gap-1.5">
 			<Text className="font-ui-medium text-xs text-text-muted">
 				{props.field.label}
-				{props.field.required ? <Text className="text-danger"> *</Text> : null}
+				{props.field.required && !retainsSecret ? <Text className="text-danger"> *</Text> : null}
 			</Text>
 			<SchemaFieldControl
 				field={props.field}
 				value={props.value}
 				inputRef={props.inputRef}
-				uploadFile={props.uploadFile}
 				onChange={props.onChange}
+				uploadFile={props.uploadFile}
 				isLastInput={props.isLastInput}
 				description={props.field.description}
 				onSubmitEditing={props.onSubmitEditing}
 			/>
 			{showsDescriptionBelow ? (
 				<Text className="font-ui text-xs text-text-subtle">{props.field.description}</Text>
+			) : null}
+			{retainsSecret ? (
+				<Text className="font-ui text-xs text-text-subtle">
+					Leave blank to keep the current value.
+				</Text>
 			) : null}
 			{props.error === undefined ? null : <FormMessage>{props.error}</FormMessage>}
 		</View>
@@ -341,8 +357,10 @@ export function SchemaForm(props: {
 	readonly schema: AppSchema;
 	readonly onChange: () => void;
 	readonly form: SchemaFormApi;
+	readonly mode?: SchemaFormMode;
 	readonly uploadFile: SchemaFileUpload;
 }) {
+	const mode = props.mode ?? "create";
 	const inputs = useRef(new Map<string, TextInput | null>());
 	return (
 		<props.form.Subscribe selector={(state) => state.values}>
@@ -368,12 +386,13 @@ export function SchemaForm(props: {
 							<props.form.Field key={field.key} name={field.key}>
 								{(formField) => (
 									<SchemaFieldRow
+										mode={mode}
 										field={field}
 										value={formField.value}
 										uploadFile={props.uploadFile}
 										error={formField.errors[0]?.message}
-										isLastInput={inputKeys.at(-1) === field.key}
 										onSubmitEditing={() => submitFrom(field.key)}
+										isLastInput={inputKeys.at(-1) === field.key}
 										inputRef={(instance) => {
 											inputs.current.set(field.key, instance);
 										}}

@@ -2,9 +2,9 @@ import { Text, View } from "react-native";
 
 import { AppButton } from "@/modules/ui/button";
 import { FormMessage } from "@/modules/ui/form";
+import { schemaReviewRows } from "@/modules/ui/schema-form/review-summary";
 import type { SchemaFormValues } from "@/modules/ui/schema-form/schema-form-state";
 
-import { importReviewRows } from "./review-summary";
 import { importSourceInputShape, type ImportWizardSource } from "./source-selection";
 
 const UNDOABLE_NOTE =
@@ -18,7 +18,7 @@ export function ImportReviewStep(props: {
 	readonly source: ImportWizardSource;
 	readonly failureDetail: string | undefined;
 }) {
-	const rows = importReviewRows(props.source.inputSchema, props.values);
+	const rows = schemaReviewRows(props.source.inputSchema, props.values);
 	return (
 		<View className="gap-4">
 			<View className="gap-3 rounded-lg border border-border bg-surface p-3">
