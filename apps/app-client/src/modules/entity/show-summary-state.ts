@@ -133,3 +133,10 @@ const countFact = (count: number | null, singular: string) =>
 export const showSeasonFact = (show: ShowSummary) => countFact(show.totalSeasons, "Season");
 
 export const showEpisodeFact = (show: ShowSummary) => countFact(show.totalEpisodes, "Episode");
+
+export const showCollectionsLabel = ({ items, pageInfo }: ShowSummary["collections"]) => {
+	if (items.length === 0) {
+		return "Not in any collection";
+	}
+	return pageInfo.hasMore ? `${items.length}+ collections` : countLabel(items.length, "collection");
+};
