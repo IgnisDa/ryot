@@ -20,8 +20,8 @@ Images, all `ghcr.io/ignisda/ryot`:
 - Experiment image (every arm below): `pr-1832@sha256:efd6f21bb43fbbc2bcae93a86dda4a6d0e2099fa5e6fea93365dd9f67043579d`.
   It carried temporary `EXPERIMENT_*` switches for the admission limit (0 disables it), the lane,
   and the worker priority.
-- Final image: `pr-1832@sha256:5767928fb672954dfa7ed693b855681de9fe1e712ca992edac1a0906866f10f6`,
-  commit `f68208a504`. The switches are gone; admission is always on.
+- Final image: `pr-1832@sha256:099f6d06172f93da0966416059a7d0de1539cff5a1e72a6e7d90dc4969d39ad4`,
+  commit `5bf2512806`. The switches are gone; admission is always on.
 
 The raw rows, reduced to the fields below with no user, job, or external identifiers, are in
 [`summary.json`](./summary.json).
@@ -114,13 +114,13 @@ cost of bounding a single user.
 
 ## Lifecycle validation (a2, experiment image)
 
-| Check       | Expectation                                                              | Result                                                    |
-| ----------- | ------------------------------------------------------------------------ | --------------------------------------------------------- |
-| duplicate   | 6 concurrent requests for one import return one job                      | 1 job, completed                                          |
-| cancel      | Cancel a queued and a running import out of 3                            | both `cancelled`; the third completed                     |
-| backlog     | The 51st queued import is refused; another user is unaffected            | 50 accepted, 51st `429 import-backlog-full`, retry 30 s; neighbour and a later import completed |
-| worker-kill | Kill every Deno worker mid-import                                        | 2 killed; both imports completed; next import completed   |
-| restart     | Restart the container with 2 running and 4 queued imports                | all 6 completed; a repeat request then got a new job      |
+| Check       | Expectation                                                   | Result                                                                                          |
+| ----------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| duplicate   | 6 concurrent requests for one import return one job           | 1 job, completed                                                                                |
+| cancel      | Cancel a queued and a running import out of 3                 | both `cancelled`; the third completed                                                           |
+| backlog     | The 51st queued import is refused; another user is unaffected | 50 accepted, 51st `429 import-backlog-full`, retry 30 s; neighbour and a later import completed |
+| worker-kill | Kill every Deno worker mid-import                             | 2 killed; both imports completed; next import completed                                         |
+| restart     | Restart the container with 2 running and 4 queued imports     | all 6 completed; a repeat request then got a new job                                            |
 
 Nested work under a full limit is covered by design: only API submissions are admitted, so an
 import started by running sandbox work never waits for a slot.
@@ -130,10 +130,10 @@ import started by running sandbox work never waits for a slot.
 The container got an 1,800 MiB limit with no swap. Two executions of a script that touches
 750 MiB of array buffers (outside the V8 heap limit) ran together for 8 s.
 
-| Workers preferred as victims | Killed                     | Backend restarted | Health failures | Executions               |
-| ---------------------------- | -------------------------- | ----------------- | --------------- | ------------------------ |
-| no                           | the backend (Bun, PID 1)   | yes               | —               | lost with the container  |
-| yes (`oom_score_adj` 1000)   | one sandbox worker         | no                | 0 of 12         | 1 completed, 1 failed    |
+| Workers preferred as victims | Killed                   | Backend restarted | Health failures | Executions              |
+| ---------------------------- | ------------------------ | ----------------- | --------------- | ----------------------- |
+| no                           | the backend (Bun, PID 1) | yes               | —               | lost with the container |
+| yes (`oom_score_adj` 1000)   | one sandbox worker       | no                | 0 of 12         | 1 completed, 1 failed   |
 
 The first attempt, holding 400 MiB for 30 s, never reached the limit: the 30 s sandbox execution
 timeout ended the executions first. The failed execution is not retried; its import fails and the
@@ -152,4 +152,24 @@ user may retry it.
 
 ## Final image validation
 
-Pending.
+The final image ran once per scenario with the deployed 2 GB memory limit, on 2026-09-24 between
+22:15 and 00:25 IST. f2 uses `SANDBOX_IMPORT_CONCURRENCY=2` (the default); f1 uses 1.
+
+| Arm | Scenario | First / last completion (s) | Health p95 / max (ms) | Search p95 (s) | Peak memory (MiB) |
+| --- | -------- | --------------------------- | --------------------- | -------------- | ----------------- |
+| f2  | single   | 102 / 102                   | 53 / 166              | —              | 1,032             |
+| f2  | mixed    | 131 / 1,423                 | 91 / 955              | 6.8            | 1,438             |
+| f2  | slow     | 37 / 352                    | 67 / 514              | —              | 1,484             |
+| f1  | mixed    | 103 / 2,189                 | 48 / 551              | 4.4            | 1,365             |
+
+- The results are close to the experiment's a2 and a1 arms. No import, replay, or health check failed,
+  and there was no out-of-memory event outside the memory test.
+- The lifecycle checks all passed: one job for duplicate requests; queued and running imports
+  cancelled, the third completed; the 51st queued import got `429 import-backlog-full` while a
+  neighbour completed; imports completed after a worker was killed; all 6 imports completed after a
+  restart with 2 running and 4 queued.
+- Memory test at the 2 GB limit: the kernel killed one sandbox worker, the backend did not
+  restart, all 13 health checks passed, and 1 execution completed while the other failed.
+- A cold start of this image takes about 7 minutes on this host: before it reports healthy, the
+  server builds the shipped client pages one at a time, about 16 s each. Commit `62744adea3`, after
+  this image, builds them in parallel up to the compiler limit. Restarts reuse the stored builds.
