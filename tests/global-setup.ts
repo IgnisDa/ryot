@@ -56,6 +56,7 @@ export default async function ({ provide }: TestProject) {
 				SERVER_OIDC_ISSUER_URL: "",
 				SERVER_OIDC_CLIENT_SECRET: "",
 				SERVER_DISABLE_NOTIFICATIONS: "false",
+				SERVER_CORS_ORIGINS: "http://client.test",
 				SERVER_SMTP_MAILBOX: "Ryot <no-reply@ryot.io>",
 			},
 		}),
