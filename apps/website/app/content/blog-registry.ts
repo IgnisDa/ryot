@@ -25,10 +25,7 @@ export type BlogPost = {
 	tableOfContents?: readonly BlogTableOfContentsItem[];
 };
 
-const modules = import.meta.glob("./blog/**/*.mdx", { eager: true }) as Record<
-	string,
-	BlogPostModule
->;
+const modules = import.meta.glob<BlogPostModule>("./blog/**/*.mdx", { eager: true });
 
 const posts: Record<string, BlogPost> = Object.fromEntries(
 	Object.entries(modules).map(([path, module]) => [
