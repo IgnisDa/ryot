@@ -88,6 +88,7 @@ const storedState = (
 	id: ruleId,
 	isActive: true,
 	signalSchemaSlug,
+	signalSchemaPluginId: null,
 	metadata: definition.metadata,
 	createdAt: "2026-07-20T10:00:00.000Z",
 	updatedAt: "2026-07-20T10:00:00.000Z",

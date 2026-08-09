@@ -66,8 +66,7 @@ CREATE TABLE "entity" (
 	"provider_id" text,
 	"entity_schema_plugin_id" text,
 	"id" text PRIMARY KEY,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "entity_user_schema_provider_external_id_unique" UNIQUE("user_id","external_id","entity_schema_slug","provider_id")
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "entity_translation" (
@@ -130,7 +129,6 @@ CREATE TABLE "import_run_failure" (
 --> statement-breakpoint
 CREATE TABLE "integration" (
 	"name" text,
-	"plugin_slug" text NOT NULL,
 	"plugin_installation_id" text NOT NULL,
 	"lot" text NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
@@ -194,7 +192,8 @@ CREATE TABLE "notification_subscription_state" (
 	"signal_schema_plugin_id" text,
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "notification_subscription_state_user_signal_unique" UNIQUE NULLS NOT DISTINCT("user_id","signal_schema_slug","signal_schema_plugin_id")
 );
 --> statement-breakpoint
 CREATE TABLE "plugin" (
@@ -236,7 +235,7 @@ CREATE TABLE "relationship" (
 	"source_entity_id" text NOT NULL,
 	"target_entity_id" text NOT NULL,
 	"id" text PRIMARY KEY,
-	CONSTRAINT "relationship_user_source_target_schema_unique" UNIQUE("user_id","source_entity_id","target_entity_id","relationship_schema_slug")
+	CONSTRAINT "relationship_identity_unique" UNIQUE NULLS NOT DISTINCT("user_id","source_entity_id","target_entity_id","relationship_schema_slug","relationship_schema_plugin_id")
 );
 --> statement-breakpoint
 CREATE TABLE "sandbox_provider" (
@@ -287,7 +286,6 @@ CREATE TABLE "sandbox_workflow_reference" (
 );
 --> statement-breakpoint
 CREATE TABLE "saved_view" (
-	"plugin_slug" text,
 	"slug" text NOT NULL,
 	"name" text NOT NULL,
 	"icon" text NOT NULL,
@@ -426,8 +424,12 @@ CREATE INDEX "entity_provider_id_idx" ON "entity" ("provider_id");--> statement-
 CREATE INDEX "entity_entity_schema_slug_idx" ON "entity" ("entity_schema_slug");--> statement-breakpoint
 CREATE INDEX "entity_entity_schema_plugin_id_idx" ON "entity" ("entity_schema_plugin_id");--> statement-breakpoint
 CREATE INDEX "entity_properties_idx" ON "entity" USING gin ("properties");--> statement-breakpoint
-CREATE UNIQUE INDEX "entity_global_external_id_unique" ON "entity" ("external_id","entity_schema_slug","provider_id") WHERE ("user_id" is null);--> statement-breakpoint
-CREATE UNIQUE INDEX "entity_global_no_provider_external_id_unique" ON "entity" ("external_id","entity_schema_slug") WHERE "user_id" IS NULL AND "provider_id" IS NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "entity_user_plugin_external_id_unique" ON "entity" ("user_id","external_id","entity_schema_slug","provider_id","entity_schema_plugin_id") WHERE "user_id" IS NOT NULL AND "external_id" IS NOT NULL AND "provider_id" IS NOT NULL AND "entity_schema_plugin_id" IS NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "entity_user_kernel_external_id_unique" ON "entity" ("user_id","external_id","entity_schema_slug","provider_id") WHERE "user_id" IS NOT NULL AND "external_id" IS NOT NULL AND "provider_id" IS NOT NULL AND "entity_schema_plugin_id" IS NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "entity_global_plugin_external_id_unique" ON "entity" ("external_id","entity_schema_slug","provider_id","entity_schema_plugin_id") WHERE "user_id" IS NULL AND "provider_id" IS NOT NULL AND "entity_schema_plugin_id" IS NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "entity_global_kernel_external_id_unique" ON "entity" ("external_id","entity_schema_slug","provider_id") WHERE "user_id" IS NULL AND "provider_id" IS NOT NULL AND "entity_schema_plugin_id" IS NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "entity_global_plugin_no_provider_external_id_unique" ON "entity" ("external_id","entity_schema_slug","entity_schema_plugin_id") WHERE "user_id" IS NULL AND "provider_id" IS NULL AND "entity_schema_plugin_id" IS NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "entity_global_kernel_no_provider_external_id_unique" ON "entity" ("external_id","entity_schema_slug") WHERE "user_id" IS NULL AND "provider_id" IS NULL AND "entity_schema_plugin_id" IS NULL;--> statement-breakpoint
 CREATE INDEX "entity_translation_entity_id_idx" ON "entity_translation" ("entity_id");--> statement-breakpoint
 CREATE INDEX "event_user_id_idx" ON "event" ("user_id");--> statement-breakpoint
 CREATE INDEX "event_entity_id_idx" ON "event" ("entity_id");--> statement-breakpoint
@@ -443,7 +445,6 @@ CREATE INDEX "import_run_plugin_installation_id_idx" ON "import_run" ("plugin_in
 CREATE INDEX "import_run_failure_run_id_created_at_idx" ON "import_run_failure" ("run_id","created_at");--> statement-breakpoint
 CREATE INDEX "integration_user_id_created_at_idx" ON "integration" ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "integration_user_id_provider_idx" ON "integration" ("user_id","provider");--> statement-breakpoint
-CREATE INDEX "integration_plugin_slug_idx" ON "integration" ("plugin_slug");--> statement-breakpoint
 CREATE INDEX "integration_plugin_installation_id_idx" ON "integration" ("plugin_installation_id");--> statement-breakpoint
 CREATE INDEX "integration_lot_is_disabled_idx" ON "integration" ("lot","is_disabled");--> statement-breakpoint
 CREATE INDEX "integration_provider_is_disabled_idx" ON "integration" ("provider","is_disabled");--> statement-breakpoint
@@ -453,7 +454,6 @@ CREATE INDEX "notification_channel_user_id_created_at_idx" ON "notification_chan
 CREATE INDEX "notification_channel_user_id_is_disabled_idx" ON "notification_channel" ("user_id","is_disabled");--> statement-breakpoint
 CREATE INDEX "notification_subscription_state_user_id_idx" ON "notification_subscription_state" ("user_id");--> statement-breakpoint
 CREATE INDEX "notification_subscription_state_signal_schema_plugin_id_idx" ON "notification_subscription_state" ("signal_schema_plugin_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "notification_subscription_state_user_signal_unique" ON "notification_subscription_state" ("user_id","signal_schema_slug");--> statement-breakpoint
 CREATE INDEX "plugin_owner_id_idx" ON "plugin" ("owner_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "plugin_system_slug_unique" ON "plugin" ("slug") WHERE "scope" = 'system';--> statement-breakpoint
 CREATE UNIQUE INDEX "plugin_owner_slug_unique" ON "plugin" ("owner_id","slug") WHERE "scope" = 'user';--> statement-breakpoint
@@ -464,7 +464,6 @@ CREATE INDEX "relationship_schema_plugin_id_idx" ON "relationship" ("relationshi
 CREATE INDEX "relationship_source_entity_id_idx" ON "relationship" ("source_entity_id");--> statement-breakpoint
 CREATE INDEX "relationship_target_entity_id_idx" ON "relationship" ("target_entity_id");--> statement-breakpoint
 CREATE INDEX "relationship_properties_idx" ON "relationship" USING gin ("properties");--> statement-breakpoint
-CREATE UNIQUE INDEX "relationship_global_source_target_schema_unique" ON "relationship" ("source_entity_id","target_entity_id","relationship_schema_slug") WHERE ("user_id" is null);--> statement-breakpoint
 CREATE INDEX "sandbox_provider_plugin_id_idx" ON "sandbox_provider" ("plugin_id");--> statement-breakpoint
 CREATE INDEX "sandbox_provider_root_entity_schema_slug_idx" ON "sandbox_provider" ("root_entity_schema_slug");--> statement-breakpoint
 CREATE INDEX "sandbox_provider_operation_provider_id_idx" ON "sandbox_provider_operation" ("provider_id");--> statement-breakpoint
@@ -476,7 +475,6 @@ CREATE INDEX "sandbox_workflow_reference_plugin_id_idx" ON "sandbox_workflow_ref
 CREATE INDEX "sandbox_workflow_reference_script_id_idx" ON "sandbox_workflow_reference" ("script_id");--> statement-breakpoint
 CREATE INDEX "sandbox_workflow_reference_plugin_installation_id_idx" ON "sandbox_workflow_reference" ("plugin_installation_id");--> statement-breakpoint
 CREATE INDEX "saved_view_user_id_idx" ON "saved_view" ("user_id");--> statement-breakpoint
-CREATE INDEX "saved_view_plugin_slug_idx" ON "saved_view" ("plugin_slug");--> statement-breakpoint
 CREATE INDEX "saved_view_entity_schema_plugin_id_idx" ON "saved_view" ("entity_schema_plugin_id");--> statement-breakpoint
 CREATE INDEX "saved_view_plugin_installation_id_idx" ON "saved_view" ("plugin_installation_id");--> statement-breakpoint
 CREATE INDEX "session_userId_idx" ON "session" ("user_id");--> statement-breakpoint
@@ -529,8 +527,8 @@ ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_refere
 ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_script_id_sandbox_script_id_fkey" FOREIGN KEY ("script_id") REFERENCES "sandbox_script"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_entity_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("entity_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
-ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_plugin_installation_id_plugin_installation_id_fkey" FOREIGN KEY ("plugin_installation_id") REFERENCES "plugin_installation"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_plugin_installation_owner_fk" FOREIGN KEY ("plugin_installation_id","user_id") REFERENCES "plugin_installation"("id","user_id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "signal" ADD CONSTRAINT "signal_actor_user_id_user_id_fkey" FOREIGN KEY ("actor_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "signal" ADD CONSTRAINT "signal_subject_entity_id_entity_id_fkey" FOREIGN KEY ("subject_entity_id") REFERENCES "entity"("id") ON DELETE SET NULL;--> statement-breakpoint

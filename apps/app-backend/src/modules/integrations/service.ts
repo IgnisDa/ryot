@@ -201,17 +201,8 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			const listIntegrationProviders = Effect.fn("IntegrationsService.listIntegrationProviders")(
 				function* (userId: UserId) {
 					const isPro = yield* proKey.isValidated;
-					return yield* Effect.forEach(yield* providerCatalog.listForUser(userId), (provider) =>
-						Effect.gen(function* () {
-							const resolution =
-								provider.lot === "push"
-									? null
-									: yield* providerCatalog.resolveOwnedForUser(
-											userId,
-											provider.slug,
-											provider.installationId,
-										);
-							const script = resolution === null ? null : resolution.script;
+					return (yield* providerCatalog.listResolvedForUser(userId)).map(
+						({ provider, script }) => {
 							const requiresProKey = provider.requiresProKey ?? false;
 							return {
 								requiresProKey,
@@ -225,7 +216,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 								isCreatable:
 									(provider.lot === "push" || script !== null) && (!requiresProKey || isPro),
 							};
-						}),
+						},
 					);
 				},
 			);
@@ -259,7 +250,6 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					userId: user.id,
 					name: body.name ?? null,
 					provider: body.provider,
-					pluginSlug: registered.pluginSlug,
 					isDisabled: body.isDisabled ?? false,
 					providerSpecifics: body.providerSpecifics,
 					syncOwnership: body.syncOwnership ?? false,
@@ -455,6 +445,10 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				const integrations = yield* repository.listEnabledYankIntegrations({ userId });
 				const runs: IntegrationSyncRun[] = [];
 				const isPro = yield* proKey.isValidated;
+				const resolvedByUser = new Map<
+					UserId,
+					Effect.Success<ReturnType<typeof providerCatalog.listResolvedForUser>>
+				>();
 
 				for (const integration of integrations) {
 					const disableIntegrations = yield* repository.getUserDisableIntegrations({
@@ -464,11 +458,16 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 						continue;
 					}
 
-					const registered = yield* providerCatalog.findOwnedForUser(
-						integration.userId,
-						integration.provider,
-						integration.pluginInstallationId,
-					);
+					let resolved = resolvedByUser.get(integration.userId);
+					if (!resolved) {
+						resolved = yield* providerCatalog.listResolvedForUser(integration.userId);
+						resolvedByUser.set(integration.userId, resolved);
+					}
+					const registered = resolved.find(
+						({ provider }) =>
+							provider.slug === integration.provider &&
+							provider.installationId === integration.pluginInstallationId,
+					)?.provider;
 					if (!registered || (registered.requiresProKey && !isPro)) {
 						continue;
 					}

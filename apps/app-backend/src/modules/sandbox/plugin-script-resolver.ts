@@ -18,6 +18,7 @@ export type SandboxPluginScriptResolverValue = {
 		userId: UserId,
 		pluginId: string,
 		workflowSlug: string,
+		pluginInstallationId: string,
 	) => Effect.Effect<ActiveSandboxScript | null, DbError, Database>;
 };
 
