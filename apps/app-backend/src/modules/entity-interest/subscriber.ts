@@ -4,7 +4,7 @@ import { Cause, Context, Effect, FiberSet, Layer, Result } from "effect";
 import { Database } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 
-import { LocalStreamConnections } from "./connections";
+import { LocalInterestSessions } from "./connections";
 import { EntityInterestProgression } from "./progression";
 import { EntityInterestStore } from "./store";
 
@@ -16,8 +16,8 @@ export class EntityInterestSubscriber extends Context.Service<EntityInterestSubs
 			const redis = yield* RedisService;
 			const store = yield* EntityInterestStore;
 			const runFork = yield* FiberSet.makeRuntime();
+			const sessions = yield* LocalInterestSessions;
 			const channel = redisKeys.entityUpdatedChannel;
-			const connections = yield* LocalStreamConnections;
 			const progression = yield* EntityInterestProgression;
 
 			const dispatch = Effect.fn("EntityInterestSubscriber.dispatch")(function* (raw: string) {
@@ -25,13 +25,14 @@ export class EntityInterestSubscriber extends Context.Service<EntityInterestSubs
 				if (Result.isFailure(decoded)) {
 					return;
 				}
-				const frame = decoded.success;
-				const streamIds = yield* store.listInterestedStreams(frame.entityId);
-				for (const streamId of streamIds) {
-					yield* connections.enqueue(streamId, frame);
+				const update = decoded.success;
+				const message = { type: "entity-updated", ...update } as const;
+				const sessionIds = yield* store.listWatchingSessions(update.entityId);
+				for (const sessionId of sessionIds) {
+					yield* sessions.enqueue(sessionId, message);
 				}
-				if (frame.reason === "populated") {
-					yield* progression.populated(frame.entityId).pipe(
+				if (update.reason === "populated") {
+					yield* progression.populated(update.entityId).pipe(
 						Effect.sandbox,
 						Effect.retry({
 							times: 2,
@@ -39,11 +40,11 @@ export class EntityInterestSubscriber extends Context.Service<EntityInterestSubs
 						}),
 						Effect.catch((cause) =>
 							store
-								.markPending({ entityId: frame.entityId, streamIds })
+								.markPending({ entityId: update.entityId, sessionIds })
 								.pipe(
 									Effect.andThen(
 										Effect.logError("entity interest progression failed", cause).pipe(
-											Effect.annotateLogs({ entityId: frame.entityId }),
+											Effect.annotateLogs({ entityId: update.entityId }),
 										),
 									),
 								),
