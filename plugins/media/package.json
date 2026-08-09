@@ -22,6 +22,10 @@
 			"types": "./shared/music-recipes.ts",
 			"default": "./shared/music-recipes.ts"
 		},
+		"./shared/book-recipes": {
+			"types": "./shared/book-recipes.ts",
+			"default": "./shared/book-recipes.ts"
+		},
 		"./import-sources": {
 			"types": "./host/import-sources.ts",
 			"default": "./host/import-sources.ts"

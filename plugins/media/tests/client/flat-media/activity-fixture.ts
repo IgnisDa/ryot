@@ -1,11 +1,11 @@
 import { Result } from "@ryot-app/client-sdk/effect";
 
-import { musicActivityRecipe } from "../../../shared/music-recipes";
 import { rowsResult } from "../query-result-fixture";
+import { flatFixtureRecipes } from "./recipes";
 
-const musicActivityFixtureRecipe = musicActivityRecipe({
+const fixtureActivityRecipe = flatFixtureRecipes.activityRecipe({
 	eventLimit: 60,
-	entityId: "music-1",
+	entityId: "media-1",
 	collectionEventLimit: 60,
 });
 
@@ -20,54 +20,56 @@ const emptyEventProperties = {
 	progressPercent: null,
 };
 
-export const musicBacklogEventRow = {
+export const flatBacklogEventRow = {
 	...emptyEventProperties,
-	id: "music-backlog",
+	id: "media-backlog",
 	eventSchemaSlug: "backlog",
 	createdAt: "2025-11-01T12:00:05.000Z",
 	occurredAt: "2025-11-01T12:00:00.000Z",
 };
 
-export const musicProgressEventRow = {
+export const flatProgressEventRow = {
 	...emptyEventProperties,
 	progressPercent: 42,
-	id: "music-progress",
-	consumedOn: "Spotify",
+	id: "media-progress",
+	consumedOn: "Jellyfin",
 	eventSchemaSlug: "progress",
 	createdAt: "2025-11-03T12:00:05.000Z",
 	occurredAt: "2025-11-03T12:00:00.000Z",
 };
 
-export const musicCompletionEventRow = {
+export const flatCompletionEventRow = {
 	...emptyEventProperties,
-	id: "music-complete",
+	timeSpent: 169,
+	id: "media-complete",
 	eventSchemaSlug: "complete",
 	createdAt: "2025-11-04T12:00:05.000Z",
 	occurredAt: "2025-11-04T12:00:00.000Z",
 };
 
-export const musicReviewEventRow = {
+export const flatReviewEventRow = {
 	...emptyEventProperties,
-	rating: 96,
+	rating: 91,
 	isSpoiler: false,
-	id: "music-review",
+	id: "media-review",
 	eventSchemaSlug: "review",
-	text: "Three songs in one.",
+	text: "The twist still lands.",
 	createdAt: "2025-11-05T12:00:05.000Z",
 	occurredAt: "2025-11-05T12:00:00.000Z",
 };
 
-export const musicRelistenCompletionEventRow = {
+export const flatRepeatCompletionEventRow = {
 	...emptyEventProperties,
+	timeSpent: 169,
 	eventSchemaSlug: "complete",
-	id: "music-complete-relisten",
+	id: "media-complete-repeat",
 	createdAt: "2026-03-02T12:00:05.000Z",
 	occurredAt: "2026-03-02T12:00:00.000Z",
 };
 
-export const musicCollectionAddedEventRow = {
-	id: "playlist-added",
-	collectionName: "Favourites",
+export const flatCollectionAddedEventRow = {
+	id: "watchlist-added",
+	collectionName: "Watchlist",
 	collectionId: "collection-1",
 	createdAt: "2025-11-02T09:00:05.000Z",
 	occurredAt: "2025-11-02T09:00:00.000Z",
@@ -77,39 +79,38 @@ export const musicCollectionAddedEventRow = {
 type ActivityRows = {
 	readonly truncated?: boolean;
 	readonly completionCount?: number;
-	readonly consumedMinutes?: number | null;
-	readonly unknownDurationCount?: number;
-	readonly musicEvents?: readonly Record<string, unknown>[];
+	readonly consumedAmount?: number | null;
+	readonly unknownAmountCount?: number;
+	readonly events?: readonly Record<string, unknown>[];
 	readonly collectionEvents?: readonly Record<string, unknown>[];
 };
 
 const activityRows = (items: readonly Record<string, unknown>[], hasMore: boolean) =>
 	rowsResult(items, { hasMore, limit: 60, nextCursor: hasMore ? "activity-cursor" : null });
 
-export const decodeMusicActivity = (input: ActivityRows = {}) => {
-	const hasMore = input.truncated === true;
-	return Result.getOrThrow(
-		musicActivityFixtureRecipe.decode({
+export const decodeFlatActivity = (input: ActivityRows = {}) =>
+	Result.getOrThrow(
+		fixtureActivityRecipe.decode({
 			data: {
 				collectionEvents: activityRows(
-					input.collectionEvents ?? [musicCollectionAddedEventRow],
+					input.collectionEvents ?? [flatCollectionAddedEventRow],
 					false,
 				),
-				musicEvents: activityRows(
-					input.musicEvents ?? [
-						musicBacklogEventRow,
-						musicProgressEventRow,
-						musicCompletionEventRow,
-						musicReviewEventRow,
+				events: activityRows(
+					input.events ?? [
+						flatBacklogEventRow,
+						flatProgressEventRow,
+						flatCompletionEventRow,
+						flatReviewEventRow,
 					],
-					hasMore,
+					input.truncated === true,
 				),
 				totals: activityRows(
 					[
 						{
 							completionCount: input.completionCount ?? 1,
-							consumedMinutes: input.consumedMinutes ?? 3.7,
-							unknownDurationCount: input.unknownDurationCount ?? 0,
+							unknownAmountCount: input.unknownAmountCount ?? 0,
+							consumedAmount: input.consumedAmount === undefined ? 169 : input.consumedAmount,
 						},
 					],
 					false,
@@ -117,24 +118,23 @@ export const decodeMusicActivity = (input: ActivityRows = {}) => {
 			},
 		}),
 	);
-};
 
-export const emptyMusicActivity = () =>
-	decodeMusicActivity({
-		musicEvents: [],
+export const emptyFlatActivity = () =>
+	decodeFlatActivity({
+		events: [],
 		completionCount: 0,
+		consumedAmount: null,
 		collectionEvents: [],
-		consumedMinutes: null,
 	});
 
-export const relistenedMusicActivity = () =>
-	decodeMusicActivity({
+export const repeatedFlatActivity = () =>
+	decodeFlatActivity({
 		completionCount: 2,
 		collectionEvents: [],
-		musicEvents: [
-			musicBacklogEventRow,
-			musicProgressEventRow,
-			musicCompletionEventRow,
-			musicRelistenCompletionEventRow,
+		events: [
+			flatBacklogEventRow,
+			flatProgressEventRow,
+			flatCompletionEventRow,
+			flatRepeatCompletionEventRow,
 		],
 	});

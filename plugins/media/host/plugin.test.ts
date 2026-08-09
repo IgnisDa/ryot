@@ -80,6 +80,11 @@ it("declares the complete media-owned source", () => {
 				automaticEntityPresentations: false,
 				entry: "client/show-row-presentation.ts",
 			},
+			"book-row": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/book-row-presentation.ts",
+			},
 			"show-card": {
 				kind: "presentation",
 				automaticEntityPresentations: false,
@@ -99,6 +104,11 @@ it("declares the complete media-owned source", () => {
 				kind: "presentation",
 				automaticEntityPresentations: false,
 				entry: "client/music-row-presentation.ts",
+			},
+			"book-card": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/book-card-presentation.ts",
 			},
 			"media-card": {
 				kind: "presentation",
@@ -127,6 +137,12 @@ it("declares the complete media-owned source", () => {
 				entry: "client/show/screen.tsx",
 				automaticEntityPresentations: false,
 			},
+			"book-detail": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				entry: "client/book/screen.tsx",
+				automaticEntityPresentations: false,
+			},
 			"movie-detail": {
 				kind: "page",
 				settingsSchema: { fields: {} },
@@ -148,6 +164,11 @@ it("declares the complete media-owned source", () => {
 			detailPage: "show-detail",
 			listPresentation: "show-row",
 			gridPresentation: "show-card",
+		},
+		book: {
+			detailPage: "book-detail",
+			listPresentation: "book-row",
+			gridPresentation: "book-card",
 		},
 		movie: {
 			detailPage: "movie-detail",
