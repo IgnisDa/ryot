@@ -203,6 +203,7 @@ export const getTvdbShowDetails = (
 				unlinkedCreators,
 				totalSeasons: childEntities.length,
 				description: translation.description ?? stringValue(show["overview"]),
+				productionStatus: stringValue(asRecord(show["status"])?.["name"]),
 			},
 		};
 	});
