@@ -281,7 +281,7 @@ export default function Index() {
 					role="alert"
 					className="mx-auto mt-6 w-full max-w-md rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
 				>
-					Cancellation in progress. This can take a minute to sync.
+					Cancellation in progress. This can take a minute to sync. Please refresh the page after a minute to see the updated status.
 				</div>
 			) : null}
 			{loaderData.isPurchaseInProgress ? (
@@ -289,7 +289,7 @@ export default function Index() {
 					role="alert"
 					className="mx-auto mt-6 w-full max-w-md rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900"
 				>
-					Purchase in progress. This can take a minute to sync.
+					Purchase in progress. This can take a minute to sync. Please refresh the page after a minute to see the updated status.
 				</div>
 			) : null}
 			{!loaderData.customerDetails.hasCancelled &&
