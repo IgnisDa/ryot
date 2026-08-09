@@ -25,8 +25,8 @@ const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: 
 		const sandbox = yield* SandboxExecutionService;
 		const pluginRuntime = yield* PluginRuntimeResolver;
 		const resolveScript = (
-			payload.userId
-				? pluginRuntime.resolveUserDetailsScript(payload.userId, payload.providerId)
+			payload.entityScope.userId
+				? pluginRuntime.resolveUserDetailsScript(payload.entityScope.userId, payload.providerId)
 				: pluginRuntime.resolveDetailsScript(payload.providerId)
 		).pipe(
 			Effect.map(({ id }) => id),
@@ -42,7 +42,9 @@ const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: 
 			scriptId,
 			input: { externalId: payload.externalId },
 			executionId: `${executionId}-sandbox-details`,
-			subject: payload.userId ? { type: "user", userId: payload.userId } : { type: "system" },
+			subject: payload.entityScope.userId
+				? { type: "user", userId: payload.entityScope.userId }
+				: { type: "system" },
 		});
 	}).pipe(Effect.mapError(toSandboxRunError));
 
@@ -59,15 +61,15 @@ const runProviderImportAutomations = (
 			name: `resolve-provider-import-automations-${executionId}`,
 			success: Schema.Array(ResolvedProviderEntityImportAutomation),
 			execute: pluginRuntime
-				.listProviderEntityImportAutomations(payload.userId, payload.entitySchemaSlug)
+				.listProviderEntityImportAutomations(payload.entityScope.userId, payload.entitySchemaSlug)
 				.pipe(Effect.mapError(toSandboxRunError)),
 		});
-		if (automations.length > 0 && !payload.userId) {
+		if (automations.length > 0 && !payload.entityScope.userId) {
 			return yield* new SandboxRunError({
 				message: "Provider import automations require a user subject",
 			});
 		}
-		if (payload.userId) {
+		if (payload.entityScope.userId) {
 			const properties = yield* Schema.decodeUnknownEffect(entityPropertiesSchema)(
 				importedEntity.properties,
 			).pipe(Effect.mapError((error) => new SandboxRunError({ message: String(error) })));
@@ -96,7 +98,7 @@ const runProviderImportAutomations = (
 						input: context,
 						executionId: hookExecutionId,
 						scriptId: automation.sandboxScriptId,
-						subject: { type: "user", userId: payload.userId },
+						subject: { type: "user", userId: payload.entityScope.userId },
 					})
 					.pipe(Effect.mapError(toSandboxRunError));
 				if (result.error) {

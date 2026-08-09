@@ -8,13 +8,11 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { ProviderDetailsChildEntity } from "@ryot-app/sandbox-sdk/provider";
-import { DateTime, Effect, Option, Schema } from "effect";
+import { DateTime, Effect, Schema } from "effect";
 
+import type { DefinitionSnapshot } from "#modules/definition-registry/service";
 import { EntityMutationOutcome } from "#modules/entities/mutation-outcomes";
 import { EntitiesService } from "#modules/entities/service";
-import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import {
 	RelationshipMutationOutcomes,
 	type RelationshipMutationOutcome,
@@ -40,22 +38,16 @@ export type ChildEntitySetWriteResult = typeof ChildEntitySetWriteResult.Type;
 
 export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 	input: {
+		definitions: DefinitionSnapshot;
 		syncExisting?: boolean;
 		parentEntityId: EntityId;
 		providerId: SandboxProviderId;
 		parentEntitySchemaSlug: EntitySchemaSlug;
 		expectedChildEntitySchemaSlug?: string | undefined;
 		childEntities: ReadonlyArray<ProviderDetailsChildEntity>;
-	} & ({ scope?: "global" } | { scope: "user"; userId: UserId }),
+	} & ({ scope: "global" } | { scope: "user"; userId: UserId }),
 ) {
 	const entities = yield* EntitiesService;
-	const entitySchemasRepository = yield* EntitySchemasRepository;
-	const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
-	const pluginRuntime = Option.getOrUndefined(yield* Effect.serviceOption(PluginRuntimeResolver));
-	const definitions =
-		input.scope === "user" && pluginRuntime
-			? yield* pluginRuntime.getEffectiveDefinitions(input.userId)
-			: null;
 
 	const childSchemaSlugs = new Set(
 		input.childEntities.map(({ entitySchemaSlug }) => entitySchemaSlug),
@@ -77,16 +69,8 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 	}
 	const childEntitySchemaSlug = input.expectedChildEntitySchemaSlug ?? rowChildEntitySchemaSlug;
 	let childEntitySchema: { id: EntitySchemaSlug } | null = null;
-	if (childEntitySchemaSlug) {
-		if (definitions) {
-			childEntitySchema = definitions.entitySchemas[childEntitySchemaSlug]
-				? { id: EntitySchemaSlug.make(childEntitySchemaSlug) }
-				: null;
-		} else {
-			childEntitySchema = yield* entitySchemasRepository
-				.getBuiltinBySlug(childEntitySchemaSlug)
-				.pipe(mapDbErrorToSandbox);
-		}
+	if (childEntitySchemaSlug && input.definitions.entitySchemas[childEntitySchemaSlug]) {
+		childEntitySchema = { id: EntitySchemaSlug.make(childEntitySchemaSlug) };
 	}
 	if (childEntitySchemaSlug && !childEntitySchema) {
 		return yield* new SandboxRunError({
@@ -100,35 +84,18 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 		if (!targetEntitySchemaSlug) {
 			return null;
 		}
-		const relationshipDefinition = definitions
-			? Object.values(definitions.relationshipSchemas).find(
-					(definition) =>
-						definition.sourceEntitySchemaSlug === input.parentEntitySchemaSlug &&
-						definition.targetEntitySchemaSlug === targetEntitySchemaSlug,
-				)
-			: null;
-		let relationshipSchema = relationshipDefinition
+		const relationshipDefinition = Object.values(input.definitions.relationshipSchemas).find(
+			(definition) =>
+				definition.sourceEntitySchemaSlug === input.parentEntitySchemaSlug &&
+				definition.targetEntitySchemaSlug === targetEntitySchemaSlug,
+		);
+		const relationshipSchema = relationshipDefinition
 			? {
 					pluginId: relationshipDefinition.pluginId ?? null,
 					propertiesSchema: relationshipDefinition.propertiesSchema,
 					id: RelationshipSchemaSlug.make(relationshipDefinition.slug),
 				}
 			: null;
-		if (!definitions) {
-			const globalSchema = yield* relationshipSchemasRepository
-				.findGlobalBySchemaIds({
-					targetEntitySchemaSlug,
-					sourceEntitySchemaSlug: input.parentEntitySchemaSlug,
-				})
-				.pipe(mapDbErrorToSandbox);
-			relationshipSchema = globalSchema
-				? {
-						id: globalSchema.id,
-						pluginId: globalSchema.pluginId ?? null,
-						propertiesSchema: globalSchema.propertiesSchema,
-					}
-				: null;
-		}
 		if (!relationshipSchema) {
 			return yield* new SandboxRunError({
 				message: `Child relationship schema not found: ${input.parentEntitySchemaSlug} -> ${targetEntitySchemaSlug}`,

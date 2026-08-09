@@ -212,12 +212,14 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				Effect.gen(function* () {
 					const input = yield* requireSandboxCapabilityInput(rawInput, "ensureUserEntities");
 					const revision = input.principal.pluginRevision;
+					const userId = UserId.make(input.principal.subject.userId);
+					const effectiveDefinitions = yield* pluginRuntime.getEffectiveDefinitions(userId);
 					for (const item of items) {
-						const definition = definitions.getEntitySchema(item.entitySchemaSlug);
+						const definition = effectiveDefinitions.entitySchemas[item.entitySchemaSlug];
 						if (
 							!revision?.schemaScope.entitySchemaSlugs.includes(item.entitySchemaSlug) ||
 							!definition ||
-							definition.pluginSlug !== revision.slug
+							definition.pluginId !== revision.id
 						) {
 							return yield* Effect.fail(
 								`ensureUserEntities cannot write foreign entity schema: ${item.entitySchemaSlug}`,
@@ -226,7 +228,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					}
 					return yield* entities
 						.ensureUserEntities(
-							UserId.make(input.principal.subject.userId),
+							userId,
 							items.map((item) => ({
 								...item,
 								entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
@@ -408,12 +410,10 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 									),
 									Effect.flatMap((schemas) =>
 										Effect.gen(function* () {
-											const links = yield* pluginRuntime.listSchemaProviders(
-												resolvedEntitySchemaSlugs,
-												"userId" in rawInput.principal.subject
-													? rawInput.principal.subject.userId
-													: undefined,
-											);
+											const links = yield* pluginRuntime.listSchemaProviders({
+												userId: input.principal.subject.userId,
+												entitySchemaSlugs: resolvedEntitySchemaSlugs,
+											});
 											const providersBySchema = new Map<
 												string,
 												Array<{ name: string; providerId: string }>

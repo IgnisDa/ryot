@@ -43,7 +43,7 @@ const makeServiceLayer = (repository = makeEntitiesRepository()) =>
 it.effect("reuses the row insertEntity resolves for an existing provenance conflict", () => {
 	const layer = makeServiceLayer(
 		makeEntitiesRepository({
-			getEntitySchemaScopeForUser: () =>
+			findEntitySchemaForUser: () =>
 				Effect.succeed({
 					slug: "record",
 					userId: user.id,
@@ -97,7 +97,7 @@ it.effect("validates provenance creation input before inserting", () => {
 					insertCalled = true;
 					throw new Error("insertEntity must not run for invalid input");
 				}),
-			getEntitySchemaScopeForUser: () =>
+			findEntitySchemaForUser: () =>
 				Effect.succeed({
 					slug: "record",
 					userId: user.id,
@@ -134,7 +134,7 @@ it.effect("validates provenance creation input before inserting", () => {
 
 it.effect("returns not found when entity schema is not visible", () => {
 	const layer = makeServiceLayer(
-		makeEntitiesRepository({ getEntitySchemaScopeForUser: () => Effect.succeed(null) }),
+		makeEntitiesRepository({ findEntitySchemaForUser: () => Effect.succeed(null) }),
 	);
 
 	return Effect.gen(function* () {
@@ -164,7 +164,7 @@ it.effect("returns not found when entity schema is not visible", () => {
 it.effect("does not reuse the bootstrap service with its no-op lifecycle dispatcher", () => {
 	let dispatched = false;
 	const repository = makeEntitiesRepository({
-		getEntitySchemaScopeForUser: () =>
+		findEntitySchemaForUser: () =>
 			Effect.succeed({
 				slug: "routine",
 				userId: user.id,
@@ -227,7 +227,7 @@ it.effect(
 		const repository = makeEntitiesRepository({
 			lockUserEntityEnsureScopes: () => Effect.void,
 			findUserEntityWithoutProvenance: () => Effect.succeed(null),
-			getEntitySchemaScopeForUser: () =>
+			findEntitySchemaForUser: () =>
 				Effect.succeed({
 					slug: "routine",
 					userId: user.id,
@@ -338,7 +338,7 @@ it.effect("upsert creates a new global entity when none exists", () => {
 					updateCalled = true;
 					return globalEntity;
 				}),
-			findEntitySchemaById: () => Effect.succeed(globalSchemaScope),
+			findSystemEntitySchemaById: () => Effect.succeed(globalSchemaScope),
 			insertEntity: () =>
 				Effect.succeed({
 					wasInserted: true,
@@ -349,7 +349,7 @@ it.effect("upsert creates a new global entity when none exists", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* EntitiesService;
-		const result = yield* service.upsert(upsertInput(false));
+		const result = yield* service.upsert({ ...upsertInput(false), scope: "global" });
 
 		expect(result.entity.id).toBe("created-entity");
 		expect(result.outcome).toEqual({
@@ -366,11 +366,96 @@ it.effect("upsert creates a new global entity when none exists", () => {
 	}).pipe(Effect.provide(layer));
 });
 
+it.effect("updates a global entity with its system schema", () => {
+	const updates: unknown[] = [];
+	const layer = makeServiceLayer(
+		makeEntitiesRepository({
+			findGlobalEntityById: () =>
+				Effect.succeed({ id: globalEntity.id, entitySchemaSlug: globalEntity.entitySchemaSlug }),
+			findSystemEntitySchemaById: () => Effect.succeed(globalSchemaScope),
+			updateEntity: (input) =>
+				Effect.sync(() => {
+					updates.push(input);
+					return {
+						...globalEntity,
+						...input,
+						populatedAt: input.populatedAt?.toISOString() ?? null,
+					};
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* EntitiesService;
+		const updated = yield* service.update({
+			scope: "global",
+			name: "Updated",
+			populatedAt: null,
+			entityId: globalEntity.id,
+			properties: { title: "Updated" },
+		});
+
+		expect(updated.name).toBe("Updated");
+		expect(updates).toEqual([
+			{
+				name: "Updated",
+				populatedAt: null,
+				entityId: globalEntity.id,
+				properties: { title: "Updated" },
+			},
+		]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("updates a user entity with the user's private schema", () => {
+	let userSchemaResolved = false;
+	const layer = makeServiceLayer(
+		makeEntitiesRepository({
+			getEntityScopeForUser: () =>
+				Effect.succeed({
+					isBuiltin: true,
+					entityUserId: user.id,
+					entityId: globalEntity.id,
+					entityName: globalEntity.name,
+					entitySchemaSlug: EntitySchemaSlug.make("private-record"),
+				}),
+			findSystemEntitySchemaById: () => Effect.die("unexpected system schema lookup"),
+			findEntitySchemaForUser: ({ userId, entitySchemaSlug }) => {
+				expect(userId).toBe(user.id);
+				expect(entitySchemaSlug).toBe("private-record");
+				userSchemaResolved = true;
+				return Effect.succeed({
+					...globalSchemaScope,
+					userId: user.id,
+					isBuiltin: true,
+					id: EntitySchemaSlug.make("private-record"),
+				});
+			},
+			updateEntity: (input) => Effect.succeed({ ...globalEntity, ...input, populatedAt: null }),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* EntitiesService;
+		const updated = yield* service.update({
+			scope: "user",
+			userId: user.id,
+			name: "Private",
+			populatedAt: null,
+			entityId: globalEntity.id,
+			properties: { title: "Private" },
+		});
+
+		expect(updated.name).toBe("Private");
+		expect(userSchemaResolved).toBe(true);
+	}).pipe(Effect.provide(layer));
+});
+
 it.effect("upsert persists private provider entities in the user scope", () => {
 	const inserts: unknown[] = [];
 	const layer = makeServiceLayer(
 		makeEntitiesRepository({
-			getEntitySchemaScopeForUser: () =>
+			findEntitySchemaForUser: () =>
 				Effect.succeed({
 					...globalSchemaScope,
 					userId: user.id,
@@ -415,7 +500,7 @@ it.effect("upsertGlobalEntities remains unbounded without maximumTotal", () => {
 					countCalled = true;
 					return 0;
 				}),
-			findEntitySchemaById: () => Effect.succeed(globalSchemaScope),
+			findSystemEntitySchemaById: () => Effect.succeed(globalSchemaScope),
 			lockGlobalEntityProvenanceScope: () =>
 				Effect.sync(() => {
 					lockCalled = true;
@@ -468,8 +553,8 @@ it.effect("counts existing entities outside the submitted prefix before admittin
 	const layer = makeServiceLayer(
 		makeEntitiesRepository({
 			lockGlobalEntityProvenanceScope: () => Effect.void,
-			findGlobalEntityByExternalId: () => Effect.succeed(null),
-			findEntitySchemaById: () => Effect.succeed(globalSchemaScope),
+			findEntityByExternalId: () => Effect.succeed(null),
+			findSystemEntitySchemaById: () => Effect.succeed(globalSchemaScope),
 			countGlobalEntitiesByProvenanceScope: () => Effect.succeed(2),
 			insertEntity: () =>
 				Effect.sync(() => {
@@ -504,9 +589,9 @@ it.effect("locks affected provenance scopes in deterministic order", () => {
 	const locked: EntitySchemaSlug[] = [];
 	const layer = makeServiceLayer(
 		makeEntitiesRepository({
-			findEntitySchemaById: () => Effect.succeed(globalSchemaScope),
+			findSystemEntitySchemaById: () => Effect.succeed(globalSchemaScope),
 			countGlobalEntitiesByProvenanceScope: () => Effect.succeed(0),
-			findGlobalEntityByExternalId: () => Effect.succeed(null),
+			findEntityByExternalId: () => Effect.succeed(null),
 			lockGlobalEntityProvenanceScope: ({ entitySchemaSlug }) =>
 				Effect.sync(() => {
 					locked.push(entitySchemaSlug);
@@ -536,10 +621,10 @@ it.effect("locks affected provenance scopes in deterministic order", () => {
 it.effect("preserves submitted existing entities when maximumTotal is zero", () => {
 	const layer = makeServiceLayer(
 		makeEntitiesRepository({
-			findEntitySchemaById: () => Effect.succeed(globalSchemaScope),
+			findSystemEntitySchemaById: () => Effect.succeed(globalSchemaScope),
 			lockGlobalEntityProvenanceScope: () => Effect.void,
 			countGlobalEntitiesByProvenanceScope: () => Effect.succeed(1),
-			findGlobalEntityByExternalId: ({ externalId }) =>
+			findEntityByExternalId: ({ externalId }) =>
 				Effect.succeed(externalId === "ext-1" ? globalEntity : null),
 		}),
 	);
@@ -578,11 +663,10 @@ it.effect("returns aligned existing, inserted, and skipped outcomes at the scope
 	const stored = new Map([["ext-1", globalEntity]]);
 	const layer = makeServiceLayer(
 		makeEntitiesRepository({
-			findEntitySchemaById: () => Effect.succeed(globalSchemaScope),
 			lockGlobalEntityProvenanceScope: () => Effect.void,
 			countGlobalEntitiesByProvenanceScope: () => Effect.succeed(1),
-			findGlobalEntityByExternalId: ({ externalId }) =>
-				Effect.succeed(stored.get(externalId) ?? null),
+			findSystemEntitySchemaById: () => Effect.succeed(globalSchemaScope),
+			findEntityByExternalId: ({ externalId }) => Effect.succeed(stored.get(externalId) ?? null),
 			insertEntity: (input) => {
 				const entity = {
 					...globalEntity,
@@ -628,7 +712,7 @@ it.effect("upsert captures a material update", () => {
 	};
 	const layer = makeServiceLayer(
 		makeEntitiesRepository({
-			findEntitySchemaById: () => Effect.succeed(globalSchemaScope),
+			findSystemEntitySchemaById: () => Effect.succeed(globalSchemaScope),
 			insertEntity: () => Effect.succeed({ entity: existing, wasInserted: false }),
 			updateEntity: (input) =>
 				Effect.succeed({
@@ -643,7 +727,7 @@ it.effect("upsert captures a material update", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* EntitiesService;
-		const result = yield* service.upsert(upsertInput(true));
+		const result = yield* service.upsert({ ...upsertInput(true), scope: "global" });
 
 		expect(result.entity.name).toBe("Cooper");
 		expect(result.outcome.operation).toBe("update");
@@ -663,7 +747,7 @@ it.effect("upsert classifies a timestamp-only skeleton population as noop", () =
 	const skeleton = { ...globalEntity, populatedAt: null, id: EntityId.make("skeleton-entity") };
 	const layer = makeServiceLayer(
 		makeEntitiesRepository({
-			findEntitySchemaById: () => Effect.succeed(globalSchemaScope),
+			findSystemEntitySchemaById: () => Effect.succeed(globalSchemaScope),
 			insertEntity: () => Effect.succeed({ entity: skeleton, wasInserted: false }),
 			updateEntity: (input) =>
 				Effect.sync(() => {
@@ -675,7 +759,11 @@ it.effect("upsert classifies a timestamp-only skeleton population as noop", () =
 
 	return Effect.gen(function* () {
 		const service = yield* EntitiesService;
-		const result = yield* service.upsert({ ...upsertInput(false), populatedAt: nowDate });
+		const result = yield* service.upsert({
+			...upsertInput(false),
+			scope: "global",
+			populatedAt: nowDate,
+		});
 
 		expect(result.entity.id).toBe("skeleton-entity");
 		expect(result.outcome.operation).toBe("noop");
@@ -694,7 +782,7 @@ it.effect("upsert preserves an existing populated entity when updateExisting is 
 	};
 	const layer = makeServiceLayer(
 		makeEntitiesRepository({
-			findEntitySchemaById: () => Effect.succeed(globalSchemaScope),
+			findSystemEntitySchemaById: () => Effect.succeed(globalSchemaScope),
 			insertEntity: () => Effect.succeed({ entity: existing, wasInserted: false }),
 			updateEntity: () =>
 				Effect.sync(() => {
@@ -706,7 +794,7 @@ it.effect("upsert preserves an existing populated entity when updateExisting is 
 
 	return Effect.gen(function* () {
 		const service = yield* EntitiesService;
-		const result = yield* service.upsert(upsertInput(false));
+		const result = yield* service.upsert({ ...upsertInput(false), scope: "global" });
 
 		expect(result.entity.id).toBe("existing-entity");
 		expect(result.entity.name).toBe("Existing");

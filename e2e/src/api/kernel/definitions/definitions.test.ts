@@ -1,6 +1,16 @@
+import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import { providerSearchRecipe } from "@ryot-app/ryotql-recipes/provider-search";
 import { Effect } from "effect";
 
-import { createAuthenticatedClient } from "~/fixtures/kernel";
+import {
+	createAuthenticatedClient,
+	executeRyotQLRecipe,
+	fakeProviderDetailsResult,
+	fakeProviderSearchResult,
+	installTestProvider,
+	uninstallTestProvider,
+} from "~/fixtures/kernel";
+import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("Definitions E2E", () => {
@@ -16,6 +26,58 @@ describe("Definitions E2E", () => {
 			expect(firstSchema?.slug).toBeDefined();
 			expect(firstSchema?.icon).toBeDefined();
 			expect(firstSchema?.propertiesSchema).toBeDefined();
+		}),
+	);
+
+	it.live("lists providers from the caller's private plugin installation", () =>
+		Effect.gen(function* () {
+			const providerName = "Private provider";
+			const { client } = yield* createAuthenticatedClient();
+			const schemaSlug = `private-provider-entity-${crypto.randomUUID()}`;
+			const provider = yield* Effect.acquireRelease(
+				installTestProvider({
+					client,
+					name: providerName,
+					rootEntitySchemaSlug: schemaSlug,
+					search: fakeProviderSearchResult([]),
+					details: fakeProviderDetailsResult({ name: "Private entity" }),
+					entitySchemas: [
+						{
+							icon: "box",
+							eventSchemas: [],
+							slug: schemaSlug,
+							name: "Private entity",
+							propertiesSchema: { fields: {} },
+						},
+					],
+				}),
+				uninstallTestProvider,
+			);
+
+			const schemas = yield* client.call((c) => c.definitions.listEntities({}));
+			const schema = schemas.find(({ slug }) => slug === schemaSlug);
+			assertPresent(schema, "Private entity schema was not listed");
+			expect(schema.providers).toContainEqual({
+				name: providerName,
+				providerId: provider.providerId,
+			});
+
+			const providers = yield* executeRyotQLRecipe(
+				client,
+				providerSearchRecipe({ rootEntitySchemaSlug: EntitySchemaSlug.make(schemaSlug) }),
+			);
+			expect(providers.items).toContainEqual(
+				expect.objectContaining({ providerId: provider.providerId, providerName }),
+			);
+
+			const outsider = yield* createAuthenticatedClient();
+			const outsiderSchemas = yield* outsider.client.call((c) => c.definitions.listEntities({}));
+			expect(outsiderSchemas.some(({ slug }) => slug === schemaSlug)).toBe(false);
+			const outsiderProviders = yield* executeRyotQLRecipe(
+				outsider.client,
+				providerSearchRecipe({ rootEntitySchemaSlug: EntitySchemaSlug.make(schemaSlug) }),
+			);
+			expect(outsiderProviders.items).toEqual([]);
 		}),
 	);
 

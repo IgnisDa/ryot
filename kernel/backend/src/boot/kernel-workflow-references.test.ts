@@ -131,7 +131,10 @@ it.effect("binds kernel workflow user ids to the trusted execution subject", () 
 		);
 
 		expect(payloads).toMatchObject([
-			{ userId: "trusted-user", executionId: "entity-import-execution" },
+			{
+				executionId: "entity-import-execution",
+				entityScope: { type: "global", userId: "trusted-user" },
+			},
 			{ userId: "trusted-user", executionId: "event-create-execution" },
 		]);
 	}).pipe(
@@ -191,9 +194,9 @@ it.effect("resolves plugin provider slugs before dispatching entity imports", ()
 
 		expect(payloads).toEqual([
 			expect.objectContaining({
-				userId: "trusted-user",
 				entitySchemaSlug: "group",
 				providerId: "provider-group-alpha",
+				entityScope: { type: "global", userId: "trusted-user" },
 			}),
 		]);
 	}).pipe(Effect.provide(layer), Effect.provideService(WorkflowEngine, engine));
@@ -388,7 +391,7 @@ it.effect(
 			expect(executionIds).toEqual(["population-reference-item-0", "population-reference-item-1"]);
 			expect(payloads).toEqual([
 				expect.objectContaining({
-					userId: null,
+					entityScope: { type: "global", userId: null },
 					mode: "refresh",
 					externalId: "record-1",
 					entitySchemaSlug: "record",

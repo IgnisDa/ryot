@@ -607,7 +607,7 @@ describe("changeUserRelationships", () => {
 });
 
 const runEnsureUserEntities = (options: {
-	schemaPluginSlug?: string;
+	schemaPluginId?: string;
 	subject: SandboxExecutionSubject;
 	caller: { pluginSlug: string } | null;
 	allowedHostFunctions?: readonly string[];
@@ -616,8 +616,25 @@ const runEnsureUserEntities = (options: {
 		userId: UserId,
 		items: ReadonlyArray<{ name: string; properties: unknown; entitySchemaSlug: EntitySchemaSlug }>,
 	) => Effect.Effect<Array<{ entityId: EntityId; wasInserted: boolean }>>;
-}) =>
-	makeAdditionalSandboxApiFunctions.pipe(
+}) => {
+	const definitions = makeDefinitionRegistry({
+		savedViews: [],
+		signalSchemas: [],
+		relationshipSchemas: [],
+		entitySchemas: [
+			{
+				icon: "box",
+				eventSchemas: [],
+				slug: "workspace",
+				name: "Workspace",
+				pluginSlug: "example",
+				mergeIdentityProperties: [],
+				propertiesSchema: { fields: {} },
+				pluginId: options.schemaPluginId ?? systemPluginRevision.id,
+			},
+		],
+	});
+	return makeAdditionalSandboxApiFunctions.pipe(
 		Effect.flatMap((functions) =>
 			Effect.result(
 				functions.ensureUserEntities(
@@ -654,22 +671,14 @@ const runEnsureUserEntities = (options: {
 						(() =>
 							Effect.succeed([{ entityId: EntityId.make("workspace-id"), wasInserted: true }])),
 				}),
-				Layer.mock(PluginRuntimeResolver)({}),
-				Layer.succeed(DefinitionRegistry, {
-					...makeDefinitionRegistry(),
-					getEntitySchema: () => ({
-						icon: "box",
-						eventSchemas: {},
-						slug: "workspace",
-						name: "Workspace",
-						mergeIdentityProperties: [],
-						propertiesSchema: { fields: {} },
-						pluginSlug: options.schemaPluginSlug ?? "example",
-					}),
+				Layer.mock(PluginRuntimeResolver)({
+					getEffectiveDefinitions: () => Effect.succeed(definitions.getSnapshot()),
 				}),
+				Layer.succeed(DefinitionRegistry, definitions),
 			),
 		),
 	);
+};
 
 describe("ensureUserEntities", () => {
 	it.effect("binds the direct user and preserves first-create/idempotent results", () => {
@@ -721,7 +730,7 @@ describe("ensureUserEntities", () => {
 			});
 			const foreign = yield* runEnsureUserEntities({
 				caller: trusted,
-				schemaPluginSlug: "sample",
+				schemaPluginId: "sample-plugin-id",
 				subject: { type: "user", userId: UserId.make("user-1") },
 			});
 

@@ -411,7 +411,7 @@ it.effect("resolves active schema providers and their operation-specific scripts
 			entitySchemaSlug: "fixture-entity",
 			provider: { id: providerId, slug: "fixture-provider" },
 		});
-		expect(yield* resolver.listSchemaProviders()).toMatchObject([
+		expect(yield* resolver.listSchemaProviders({ userId: UserId.make("user-1") })).toMatchObject([
 			{
 				entitySchemaSlug: "fixture-entity",
 				provider: { id: providerId, name: "Fixture provider" },
@@ -469,7 +469,7 @@ it.effect("filters disabled system providers and automations for new user dispat
 		expect(yield* resolver.isSystemProviderAvailableToUser(UserId.make("user-1"), providerId)).toBe(
 			false,
 		);
-		expect(yield* resolver.listSchemaProviders(undefined, UserId.make("user-1"))).toEqual([]);
+		expect(yield* resolver.listSchemaProviders({ userId: UserId.make("user-1") })).toEqual([]);
 		expect(
 			yield* resolver.listAutomations({
 				operation: "create",
@@ -1434,7 +1434,7 @@ it.effect("drops private automation bindings from unavailable installations", ()
 	),
 );
 
-it.effect("keeps an installing plugin readable while its runtime stays unavailable", () => {
+it.effect("includes an installing private plugin only in unavailable definition snapshots", () => {
 	const layer = makeNotesLayer(
 		[noteInstallation("notes-a", "user-1", { health: "installing" })],
 		[notePluginRow("notes-a", "user-1")],
@@ -1443,7 +1443,9 @@ it.effect("keeps an installing plugin readable while its runtime stays unavailab
 	return Effect.gen(function* () {
 		const resolver = yield* PluginRuntimeResolver;
 		const definitions = yield* resolver.getEffectiveDefinitions(UserId.make("user-1"));
-		expect(definitions.entitySchemas["note"]).toMatchObject({ pluginId: "notes-a" });
+		const unavailable = yield* resolver.getEffectiveDefinitions(UserId.make("user-1"), true);
+		expect(definitions.entitySchemas["note"]).toBeUndefined();
+		expect(unavailable.entitySchemas["note"]).toMatchObject({ pluginId: "notes-a" });
 		expect(yield* resolver.listPluginsAvailableToUser(UserId.make("user-1"))).toEqual([]);
 	}).pipe(Effect.provide(layer));
 });

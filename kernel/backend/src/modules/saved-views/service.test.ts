@@ -79,32 +79,44 @@ const createBody = { layouts, icon: "record", name: "My View", entitySchemaSlug:
 const mockRepository = Layer.mock(SavedViewsRepository);
 const makeRepository = (overrides: MockOverrides<typeof mockRepository> = {}) =>
 	mockRepository({ ...overrides });
-const makeDefinitionRegistryLayer = (...views: ReadonlyArray<ListedSavedView>) =>
-	Layer.succeed(
-		DefinitionRegistry,
-		makeDefinitionRegistry({
-			entitySchemas: [],
-			signalSchemas: [],
-			relationshipSchemas: [],
-			savedViews: views.map(
-				({ icon, layouts: viewLayouts, name, pluginSlug, entitySchemaSlug, slug, sortOrder }) => ({
-					icon,
-					name,
-					slug,
-					sortOrder,
-					pluginSlug,
-					entitySchemaSlug,
-					layouts: viewLayouts,
-				}),
-			),
+const makeDefinitionRegistryLayer = (...views: ReadonlyArray<ListedSavedView>) => {
+	const registry = makeDefinitionRegistry({
+		entitySchemas: [],
+		signalSchemas: [],
+		relationshipSchemas: [],
+		savedViews: views.map(
+			({ icon, layouts: viewLayouts, name, pluginSlug, entitySchemaSlug, slug, sortOrder }) => ({
+				icon,
+				name,
+				slug,
+				sortOrder,
+				pluginSlug,
+				entitySchemaSlug,
+				layouts: viewLayouts,
+			}),
+		),
+	});
+	return Layer.mergeAll(
+		Layer.succeed(DefinitionRegistry, registry),
+		Layer.mock(PluginRuntimeResolver)({
+			listPluginsAvailableToUser: () => Effect.succeed([]),
+			getEffectiveDefinitions: () => Effect.succeed(registry.getSnapshot()),
 		}),
 	);
+};
 const makeServiceLayer = (
 	repository = makeRepository(),
 	definitionRegistry = makeDefinitionRegistryLayer(),
 ) =>
 	SavedViewsService.layer.pipe(
-		Layer.provideMerge(Layer.mergeAll(databaseLayer, definitionRegistry, repository)),
+		Layer.provideMerge(
+			Layer.mergeAll(
+				databaseLayer,
+				definitionRegistry,
+				repository,
+				Layer.mock(PluginInstallationRepository)({ listForUser: () => Effect.succeed([]) }),
+			),
+		),
 	);
 
 it.effect("creates and clones saved views without changing layouts", () => {

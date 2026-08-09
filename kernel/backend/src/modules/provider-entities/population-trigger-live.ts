@@ -32,11 +32,13 @@ export const EntityPopulationTriggerLive = Layer.effect(
 								executionId,
 								mode: "ensure",
 								origin: input.origin,
-								userId: input.userId,
 								externalId: input.externalId,
 								providerId: input.providerId,
 								entitySchemaSlug: input.entitySchemaSlug,
-								entityScope: provider?.pluginScope === "user" ? "user" : "global",
+								entityScope:
+									provider?.pluginScope === "user" && input.userId
+										? { type: "user", userId: input.userId }
+										: { type: "global", userId: input.userId },
 							},
 						})
 						.pipe(

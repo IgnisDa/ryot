@@ -13,7 +13,9 @@ import { Cause, Effect, Exit, Layer, Option } from "effect";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { databaseLayer } from "#lib/test-utils/effect";
+import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 
@@ -66,6 +68,12 @@ const relationshipScope = {
 	targetEntitySchemaSlug: null,
 	propertiesSchema: { fields: {} },
 };
+const definitions = makeDefinitionRegistry({
+	savedViews: [],
+	entitySchemas: [],
+	signalSchemas: [],
+	relationshipSchemas: [relationshipScope],
+});
 
 const subjectScope = {
 	isBuiltin: true,
@@ -137,6 +145,9 @@ const makeLayer = (input: {
 				input.signals,
 				input.dispatch ?? signalDispatchLayer,
 				databaseLayer,
+				Layer.mock(PluginRuntimeResolver)({
+					getEffectiveDefinitions: () => Effect.succeed(definitions.getSnapshot()),
+				}),
 				input.entities ?? makeEntitiesRepository(),
 				input.relationships ?? makeRelationshipsRepository(),
 				input.signalSchemas ??

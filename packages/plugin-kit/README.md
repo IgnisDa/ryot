@@ -95,6 +95,21 @@ versioned independently while callers continue addressing provider ID plus opera
 `script` may join provider identity with `providerSlug`; omitting it makes that script
 standalone within its plugin.
 
+`rootEntitySchemaSlug` may reference an entity schema declared by the same plugin. For a user-installed
+plugin, provider population resolves entity and relationship schemas from that owner's effective
+installation set and writes user-scoped entities. Private definitions are not added to the process-wide
+system definition registry and are not visible to other users. System plugin providers continue to
+resolve system definitions and write global entities.
+
+User-facing provider catalogs are also resolved from the caller's effective plugin installation set.
+Ready, enabled private providers appear only for their owner; process-wide loader snapshots are not a
+source of private provider metadata.
+
+Authenticated imports and mutations resolve kernel, installed system-plugin, and ready private-plugin
+definitions as one user-effective snapshot. They never fall back to the system registry. APIs without
+user context may only resolve system definitions and write global entities. Persisted entity, event, and
+relationship provenance uses the stable plugin ID, not the user's installation ID.
+
 ## Subject And Capabilities
 
 Plugin scope is not declared in the manifest. Ingestion establishes `system` or `user`, and this is

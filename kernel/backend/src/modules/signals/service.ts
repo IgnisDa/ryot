@@ -7,7 +7,7 @@ import type { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { SignalId } from "@ryot-app/contract/schema/brands";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Context, Effect, Layer, Option, Schema } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
@@ -175,9 +175,7 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 			const signalSchemasRepository = yield* SignalSchemasRepository;
 			const relationshipsRepository = yield* RelationshipsRepository;
 			const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
-			const pluginRuntime = Option.getOrUndefined(
-				yield* Effect.serviceOption(PluginRuntimeResolver),
-			);
+			const pluginRuntime = yield* PluginRuntimeResolver;
 
 			const validateSubject = Effect.fn("SignalEmissionService.validateSubject")(function* (
 				principal: AutomationPrincipal,
@@ -277,10 +275,9 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 									return yield* new DbError({ message: "Related-users signal lost its subject" });
 								}
 								const policy = signalSchema.audiencePolicy;
-								const effective =
-									principalUserId && pluginRuntime
-										? yield* pluginRuntime.getEffectiveDefinitions(principalUserId)
-										: null;
+								const effective = principalUserId
+									? yield* pluginRuntime.getEffectiveDefinitions(principalUserId)
+									: null;
 								const relationshipDefinition =
 									effective?.relationshipSchemas[policy.relationshipSchemaSlug];
 								const relationshipSchema = effective

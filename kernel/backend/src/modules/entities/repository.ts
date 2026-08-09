@@ -290,11 +290,11 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				return rows.map(toPortableEntity);
 			});
 
-			const getEntitySchemaScopeForUser: (input: {
+			const findEntitySchemaForUser: (input: {
 				userId: UserId;
 				entitySchemaSlug: EntitySchemaSlug;
 			}) => Effect.Effect<EntitySchemaScope | null, DbError, Database> = Effect.fn(
-				"EntitiesRepository.getEntitySchemaScopeForUser",
+				"EntitiesRepository.findEntitySchemaForUser",
 			)(function* (input: { userId: UserId; entitySchemaSlug: EntitySchemaSlug }) {
 				const effectiveDefinitions = yield* pluginRuntime.getEffectiveDefinitions(input.userId);
 				const definition = effectiveDefinitions.entitySchemas[input.entitySchemaSlug];
@@ -478,33 +478,37 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					: null;
 			});
 
-			const findGlobalEntityByExternalId = Effect.fn(
-				"EntitiesRepository.findGlobalEntityByExternalId",
-			)(function* (input: {
-				externalId: string;
-				entitySchemaSlug: EntitySchemaSlug;
-				providerId: SandboxProviderId;
-				entitySchemaPluginId: string | null;
-			}) {
-				const db = yield* Database;
-				const [row] = yield* mapDatabaseErrors(
-					db
-						.select(entitySelection)
-						.from(schema.entity)
-						.where(
-							and(
-								isNull(schema.entity.userId),
-								eq(schema.entity.externalId, input.externalId),
-								eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
-								eq(schema.entity.providerId, input.providerId),
-								entitySchemaPluginWhere(input.entitySchemaPluginId),
-							),
-						)
-						.limit(1),
-				);
+			const findEntityByExternalId = Effect.fn("EntitiesRepository.findEntityByExternalId")(
+				function* (
+					input: {
+						externalId: string;
+						providerId: SandboxProviderId;
+						entitySchemaSlug: EntitySchemaSlug;
+						entitySchemaPluginId: string | null;
+					} & ({ scope: "global" } | { scope: "user"; userId: UserId }),
+				) {
+					const db = yield* Database;
+					const [row] = yield* mapDatabaseErrors(
+						db
+							.select(entitySelection)
+							.from(schema.entity)
+							.where(
+								and(
+									input.scope === "user"
+										? eq(schema.entity.userId, input.userId)
+										: isNull(schema.entity.userId),
+									eq(schema.entity.externalId, input.externalId),
+									eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
+									eq(schema.entity.providerId, input.providerId),
+									entitySchemaPluginWhere(input.entitySchemaPluginId),
+								),
+							)
+							.limit(1),
+					);
 
-				return row ? toListedEntity(row) : null;
-			});
+					return row ? toListedEntity(row) : null;
+				},
+			);
 
 			const findGlobalEntityForRestore = Effect.fn("EntitiesRepository.findGlobalEntityForRestore")(
 				function* (input: {
@@ -591,20 +595,20 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				return row?.count ?? 0;
 			});
 
-			const findEntitySchemaById = Effect.fn("EntitiesRepository.findEntitySchemaById")((
-				entitySchemaSlug: EntitySchemaSlug,
-			) => {
-				const definition = definitions.getEntitySchema(entitySchemaSlug);
-				return Effect.succeed(
-					definition
-						? {
-								slug: definition.slug,
-								propertiesSchema: definition.propertiesSchema,
-								...(definition.pluginId == null ? {} : { pluginId: definition.pluginId }),
-							}
-						: null,
-				);
-			});
+			const findSystemEntitySchemaById = Effect.fn("EntitiesRepository.findSystemEntitySchemaById")(
+				(entitySchemaSlug: EntitySchemaSlug) => {
+					const definition = definitions.getEntitySchema(entitySchemaSlug);
+					return Effect.succeed(
+						definition
+							? {
+									slug: definition.slug,
+									propertiesSchema: definition.propertiesSchema,
+									...(definition.pluginId == null ? {} : { pluginId: definition.pluginId }),
+								}
+							: null,
+					);
+				},
+			);
 
 			const findEntitySchemaProviderBySlug = Effect.fn(
 				"EntitiesRepository.findEntitySchemaProviderBySlug",
@@ -793,17 +797,17 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				updateEntity,
 				restoreEntity,
 				getByIdForUser,
-				findEntitySchemaById,
 				findGlobalEntityById,
 				getEntityScopeForUser,
+				findEntityByExternalId,
+				findEntitySchemaForUser,
 				listEntityReferencesByIds,
 				listUserEntitiesForBackup,
 				lockUserEntityEnsureScopes,
 				getEntityMergeScopeForUser,
 				findGlobalEntityForRestore,
+				findSystemEntitySchemaById,
 				listMatchCandidatesBySchema,
-				getEntitySchemaScopeForUser,
-				findGlobalEntityByExternalId,
 				findEntitySchemaProviderBySlug,
 				findUserEntityWithoutProvenance,
 				lockGlobalEntityProvenanceScope,
