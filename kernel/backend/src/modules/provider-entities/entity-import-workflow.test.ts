@@ -60,10 +60,10 @@ const baseEntity = {
 	createdAt: now,
 	updatedAt: now,
 	populatedAt: now,
-	name: "Test Book",
+	name: "Test Record",
 	externalId: "ext-1",
 	id: EntityId.make("entity-1"),
-	properties: { title: "Test Book" },
+	properties: { title: "Test Record" },
 	entitySchemaSlug: EntitySchemaSlug.make("schema-1"),
 	providerId: SandboxProviderId.make("provider-1"),
 } satisfies ListedEntity;
@@ -115,26 +115,26 @@ const relationshipForInput = (
 	relationshipSchemaSlug: input.relationshipSchemaSlug,
 });
 
-const mediaSuggestionSchema = {
+const relatedSuggestionSchema = {
 	isBuiltin: true,
-	name: "Media Suggestion",
-	slug: "media-suggestion",
+	name: "Related Suggestion",
+	slug: "related-suggestion",
 	sourceEntitySchemaSlug: null,
 	targetEntitySchemaSlug: null,
 	propertiesSchema: { fields: {} },
-	id: RelationshipSchemaSlug.make("media-suggestion-schema-id"),
+	id: RelationshipSchemaSlug.make("related-suggestion-schema-id"),
 };
 
 const effectiveRelationshipSchemas = Object.fromEntries(
 	[
 		"cast-member-schema-id",
-		"media-suggestion-schema-id",
+		"related-suggestion-schema-id",
 		"rel-schema-1",
-		"rel-season-episode",
-		"rel-show-season",
+		"rel-part-part-item",
+		"rel-group-part",
 		"relationship-schema-id",
-		"show-season-to-show-episode",
-		"show-to-show-season",
+		"group-part-to-group-part-item",
+		"group-to-group-part",
 	].map((slug) => [
 		slug,
 		{
@@ -148,7 +148,7 @@ const effectiveRelationshipSchemas = Object.fromEntries(
 );
 
 const baseEntitySchema = {
-	slug: "book",
+	slug: "record",
 	propertiesSchema: {
 		fields: { title: { type: "string" as const, label: "Title", description: "Title" } },
 	},
@@ -167,8 +167,8 @@ const entityKey = (entitySchemaSlug: string, externalId: string) =>
 	`${entitySchemaSlug}:${externalId}`;
 
 const childEntitySchemaSlugs = new Map([
-	["show-season", EntitySchemaSlug.make("schema-season")],
-	["show-episode", EntitySchemaSlug.make("schema-episode")],
+	["group-part", EntitySchemaSlug.make("schema-part")],
+	["group-part-item", EntitySchemaSlug.make("schema-part-item")],
 ]);
 
 const findChildEntitySchemaBySlug = (slug: string) => {
@@ -176,11 +176,11 @@ const findChildEntitySchemaBySlug = (slug: string) => {
 	return Effect.succeed(id ? { id, propertiesSchema: { fields: {} } } : null);
 };
 
-const makeEpisodeChild = (externalId: string) => ({
+const makePartItemChild = (externalId: string) => ({
 	externalId,
-	name: "Episode",
-	properties: { episodeNumber: 1 },
-	entitySchemaSlug: "show-episode",
+	name: "Part Item",
+	properties: { partItemNumber: 1 },
+	entitySchemaSlug: "group-part-item",
 });
 
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
@@ -259,7 +259,7 @@ const makeRelationshipSchemasRepository = (
 ) =>
 	mockRelationshipSchemasRepository({
 		findBuiltinBySlug: (slug: string) =>
-			Effect.succeed(slug === "media-suggestion" ? mediaSuggestionSchema : null),
+			Effect.succeed(slug === "related-suggestion" ? relatedSuggestionSchema : null),
 		findGlobalBySchemaIds: () => Effect.succeed(null),
 		...overrides,
 	});
@@ -376,8 +376,8 @@ it.effect("populates entity and writes related entities", () => {
 				error: null,
 				status: "completed" as const,
 				value: {
-					name: "Test Book",
-					properties: { title: "Test Book" },
+					name: "Test Record",
+					properties: { title: "Test Record" },
 					relatedEntityGroups: [
 						{
 							direction: "incoming",
@@ -456,7 +456,7 @@ it.effect("populates entity and writes related entities", () => {
 				payload.executionId,
 			);
 			expect(result.id).toBe("entity-1");
-			expect(result.name).toBe("Test Book");
+			expect(result.name).toBe("Test Record");
 			expect(result.populatedAt).toBe(now);
 			expect(globalEntityWritten).toBe(true);
 			expect(relatedEntityWritten).toBe(true);
@@ -477,15 +477,15 @@ it.effect("preserves stale relationships during additive related-entity sync", (
 				error: null,
 				status: "completed" as const,
 				value: {
-					name: "Test Book",
-					properties: { title: "Test Book" },
+					name: "Test Record",
+					properties: { title: "Test Record" },
 					relatedEntityGroups: [
 						{
 							direction: "outgoing" as const,
 							synchronization: "additive" as const,
-							relationshipSchemaSlug: "media-suggestion",
+							relationshipSchemaSlug: "related-suggestion",
 							entities: [
-								{ externalId: "movie-1", name: "Suggested Movie", providerSlug: "movie.test" },
+								{ externalId: "item-1", name: "Suggested Item", providerSlug: "item.test" },
 							],
 						},
 					],
@@ -494,18 +494,18 @@ it.effect("preserves stale relationships during additive related-entity sync", (
 		entitiesRepository: makeEntitiesRepository({
 			findEntitySchemaProviderBySlug: () =>
 				Effect.succeed({
-					entitySchemaSlug: EntitySchemaSlug.make("schema-movie"),
-					providerId: SandboxProviderId.make("movie-provider"),
-					detailsScriptId: SandboxScriptId.make("movie-details"),
+					entitySchemaSlug: EntitySchemaSlug.make("schema-item"),
+					providerId: SandboxProviderId.make("item-provider"),
+					detailsScriptId: SandboxScriptId.make("item-details"),
 				}),
 		}),
 		entitiesService: makeEntitiesService({
 			create: () =>
 				Effect.succeed({
 					...baseEntity,
-					id: EntityId.make("suggested-movie"),
-					entitySchemaSlug: EntitySchemaSlug.make("schema-movie"),
-					providerId: SandboxProviderId.make("movie-provider"),
+					id: EntityId.make("suggested-item"),
+					entitySchemaSlug: EntitySchemaSlug.make("schema-item"),
+					providerId: SandboxProviderId.make("item-provider"),
 				}),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
@@ -514,7 +514,7 @@ it.effect("preserves stale relationships during additive related-entity sync", (
 					{
 						...savedRelationship,
 						sourceEntityId: baseEntity.id,
-						relationshipSchemaSlug: mediaSuggestionSchema.id,
+						relationshipSchemaSlug: relatedSuggestionSchema.id,
 						targetEntityId: EntityId.make("stale-target"),
 					},
 				]),
@@ -558,27 +558,27 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 	}> = [];
 	const relationshipSchemas = new Map([
 		[
-			"schema-1->schema-season",
+			"schema-1->schema-part",
 			{
 				isBuiltin: true,
-				name: "Show to Show Season",
-				slug: "show-to-show-season",
+				name: "Group to Group Part",
+				slug: "group-to-group-part",
 				propertiesSchema: { fields: {} },
-				id: RelationshipSchemaSlug.make("rel-show-season"),
+				id: RelationshipSchemaSlug.make("rel-group-part"),
 				sourceEntitySchemaSlug: EntitySchemaSlug.make("schema-1"),
-				targetEntitySchemaSlug: EntitySchemaSlug.make("schema-season"),
+				targetEntitySchemaSlug: EntitySchemaSlug.make("schema-part"),
 			},
 		],
 		[
-			"schema-season->schema-episode",
+			"schema-part->schema-part-item",
 			{
 				isBuiltin: true,
 				propertiesSchema: { fields: {} },
-				name: "Show Season to Show Episode",
-				slug: "show-season-to-show-episode",
-				id: RelationshipSchemaSlug.make("rel-season-episode"),
-				sourceEntitySchemaSlug: EntitySchemaSlug.make("schema-season"),
-				targetEntitySchemaSlug: EntitySchemaSlug.make("schema-episode"),
+				name: "Group Part to Group Part Item",
+				slug: "group-part-to-group-part-item",
+				id: RelationshipSchemaSlug.make("rel-part-part-item"),
+				sourceEntitySchemaSlug: EntitySchemaSlug.make("schema-part"),
+				targetEntitySchemaSlug: EntitySchemaSlug.make("schema-part-item"),
 			},
 		],
 	]);
@@ -587,16 +587,16 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 			getBuiltinBySlug: (slug: string) => {
 				let result: { id: EntitySchemaSlug; propertiesSchema: { fields: {} } } | null = null;
 				switch (slug) {
-					case "show-season": {
+					case "group-part": {
 						result = {
-							id: EntitySchemaSlug.make("schema-season"),
+							id: EntitySchemaSlug.make("schema-part"),
 							propertiesSchema: { fields: {} },
 						};
 						break;
 					}
-					case "show-episode": {
+					case "group-part-item": {
 						result = {
-							id: EntitySchemaSlug.make("schema-episode"),
+							id: EntitySchemaSlug.make("schema-part-item"),
 							propertiesSchema: { fields: {} },
 						};
 						break;
@@ -685,41 +685,41 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 		}),
 	} satisfies TestLayerOptions;
 
-	const runScopes = (executionId: string, syncExisting: boolean, discoverEpisode: boolean) => {
-		const season = {
-			name: "Season 1",
-			externalId: "season-1",
-			entitySchemaSlug: "show-season",
+	const runScopes = (executionId: string, syncExisting: boolean, discoverPartItem: boolean) => {
+		const part = {
+			name: "Part 1",
+			externalId: "part-1",
+			entitySchemaSlug: "group-part",
 			properties: {
-				seasonNumber: 1,
-				description: "Season",
+				partNumber: 1,
+				description: "Part",
 				releaseDate: "2026-01-01",
-				images: [{ type: "remote", url: "https://example.com/season.jpg", purpose: "cover" }],
+				images: [{ type: "remote", url: "https://example.com/part.jpg", purpose: "cover" }],
 			},
 			childEntities: [
 				{
-					name: "Episode 1",
-					externalId: "episode-1",
-					entitySchemaSlug: "show-episode",
+					name: "Part Item 1",
+					externalId: "part-item-1",
+					entitySchemaSlug: "group-part-item",
 					properties: {
 						runtime: 45,
-						seasonNumber: 1,
-						episodeNumber: 1,
-						description: "Episode",
+						partNumber: 1,
+						partItemNumber: 1,
+						description: "Part Item",
 						publishDate: "2026-01-02",
 					},
 				},
-				...(discoverEpisode
+				...(discoverPartItem
 					? [
 							{
-								name: "Episode 2",
-								externalId: "episode-2",
-								entitySchemaSlug: "show-episode",
+								name: "Part Item 2",
+								externalId: "part-item-2",
+								entitySchemaSlug: "group-part-item",
 								properties: {
 									runtime: 45,
-									seasonNumber: 1,
-									episodeNumber: 2,
-									description: "Episode",
+									partNumber: 1,
+									partItemNumber: 2,
+									description: "Part Item",
 									publishDate: "2026-01-09",
 								},
 							},
@@ -731,21 +731,21 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 			options,
 			executionId,
 			Effect.gen(function* () {
-				const processedSeasons = yield* writeChildEntitySet({
+				const processedParts = yield* writeChildEntitySet({
 					syncExisting,
-					childEntities: [season],
+					childEntities: [part],
 					parentEntityId: baseEntity.id,
 					providerId: SandboxProviderId.make("provider-1"),
 					parentEntitySchemaSlug: EntitySchemaSlug.make("schema-1"),
 				});
-				const processedSeason = processedSeasons.processedChildren[0];
-				assert(processedSeason);
+				const processedPart = processedParts.processedChildren[0];
+				assert(processedPart);
 				yield* writeChildEntitySet({
 					syncExisting,
-					childEntities: season.childEntities,
-					parentEntityId: processedSeason.entity.id,
+					childEntities: part.childEntities,
+					parentEntityId: processedPart.entity.id,
 					providerId: SandboxProviderId.make("provider-1"),
-					parentEntitySchemaSlug: processedSeason.entitySchemaSlug,
+					parentEntitySchemaSlug: processedPart.entitySchemaSlug,
 				});
 			}),
 		);
@@ -758,29 +758,29 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 		expect(entityWrites).toHaveLength(2);
 		expect(entityWrites.every((write) => !write.updateExisting)).toBe(true);
 		expect(relationshipOperations).toEqual([
-			"list:rel-show-season:entity-1",
-			"create:rel-show-season:entity-1->schema-season-season-1",
-			"list:rel-season-episode:schema-season-season-1",
-			"create:rel-season-episode:schema-season-season-1->schema-episode-episode-1",
+			"list:rel-group-part:entity-1",
+			"create:rel-group-part:entity-1->schema-part-part-1",
+			"list:rel-part-part-item:schema-part-part-1",
+			"create:rel-part-part-item:schema-part-part-1->schema-part-item-part-item-1",
 		]);
 
-		const season = entityWrites.find((write) => write.externalId === "season-1");
-		const episode = entityWrites.find((write) => write.externalId === "episode-1");
+		const part = entityWrites.find((write) => write.externalId === "part-1");
+		const partItem = entityWrites.find((write) => write.externalId === "part-item-1");
 
-		expect(season?.providerId).toBe("provider-1");
-		expect(season?.entitySchemaSlug).toBe("schema-season");
-		expect(season?.properties).toEqual({
-			seasonNumber: 1,
-			description: "Season",
+		expect(part?.providerId).toBe("provider-1");
+		expect(part?.entitySchemaSlug).toBe("schema-part");
+		expect(part?.properties).toEqual({
+			partNumber: 1,
+			description: "Part",
 			releaseDate: "2026-01-01",
-			images: [{ type: "remote", url: "https://example.com/season.jpg", purpose: "cover" }],
+			images: [{ type: "remote", url: "https://example.com/part.jpg", purpose: "cover" }],
 		});
-		expect(episode?.entitySchemaSlug).toBe("schema-episode");
-		expect(episode?.properties).toEqual({
+		expect(partItem?.entitySchemaSlug).toBe("schema-part-item");
+		expect(partItem?.properties).toEqual({
 			runtime: 45,
-			seasonNumber: 1,
-			episodeNumber: 1,
-			description: "Episode",
+			partNumber: 1,
+			partItemNumber: 1,
+			description: "Part Item",
 			publishDate: "2026-01-02",
 		});
 
@@ -792,9 +792,9 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 		expect(entityWrites).toHaveLength(3);
 		expect(entityWrites.every((write) => write.updateExisting)).toBe(true);
 		expect(relationshipOperations).toEqual([
-			"list:rel-show-season:entity-1",
-			"list:rel-season-episode:schema-season-season-1",
-			"create:rel-season-episode:schema-season-season-1->schema-episode-episode-2",
+			"list:rel-group-part:entity-1",
+			"list:rel-part-part-item:schema-part-part-1",
+			"create:rel-part-part-item:schema-part-part-1->schema-part-item-part-item-2",
 		]);
 
 		entityWrites.length = 0;
@@ -812,13 +812,13 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 							name: "Container",
 							externalId: "container-mismatch",
 							properties: {},
-							entitySchemaSlug: "show-season",
+							entitySchemaSlug: "group-part",
 						},
 						{
-							name: "Episode",
-							externalId: "episode-mismatch",
+							name: "Part Item",
+							externalId: "part-item-mismatch",
 							properties: {},
-							entitySchemaSlug: "show-episode",
+							entitySchemaSlug: "group-part-item",
 						},
 					],
 				}),
@@ -835,14 +835,14 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 					syncExisting: true,
 					providerId: SandboxProviderId.make("provider-1"),
 					parentEntityId: baseEntity.id,
-					expectedChildEntitySchemaSlug: "show-episode",
+					expectedChildEntitySchemaSlug: "group-part-item",
 					parentEntitySchemaSlug: EntitySchemaSlug.make("schema-1"),
 					childEntities: [
 						{
 							name: "Container",
 							externalId: "declared-mismatch",
 							properties: {},
-							entitySchemaSlug: "show-season",
+							entitySchemaSlug: "group-part",
 						},
 					],
 				}),
@@ -850,7 +850,7 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 		);
 		expect(declaredMismatch).toBeInstanceOf(SandboxRunError);
 		expect(declaredMismatch.message).toBe(
-			"Child entity schema does not match declared schema: show-season !== show-episode",
+			"Child entity schema does not match declared schema: group-part !== group-part-item",
 		);
 		expect(entityWrites).toEqual([]);
 
@@ -861,16 +861,16 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 			writeChildEntitySet({
 				syncExisting: true,
 				childEntities: [],
-				expectedChildEntitySchemaSlug: "show-episode",
+				expectedChildEntitySchemaSlug: "group-part-item",
 				providerId: SandboxProviderId.make("provider-1"),
-				parentEntitySchemaSlug: EntitySchemaSlug.make("schema-season"),
-				parentEntityId: EntityId.make("schema-season-season-1"),
+				parentEntitySchemaSlug: EntitySchemaSlug.make("schema-part"),
+				parentEntityId: EntityId.make("schema-part-part-1"),
 			}),
 		);
 		expect(relationshipOperations).toEqual([
-			"list:rel-season-episode:schema-season-season-1",
-			"delete:rel-season-episode:schema-season-season-1->schema-episode-episode-1",
-			"delete:rel-season-episode:schema-season-season-1->schema-episode-episode-2",
+			"list:rel-part-part-item:schema-part-part-1",
+			"delete:rel-part-part-item:schema-part-part-1->schema-part-item-part-item-1",
+			"delete:rel-part-part-item:schema-part-part-1->schema-part-item-part-item-2",
 		]);
 		expect(storedRelationships.size).toBe(1);
 	});
@@ -880,14 +880,14 @@ it.effect("propagates images through properties for the primary entity", () => {
 	const savedProperties: unknown[] = [];
 
 	const payload = { ...importPayload, executionId: "exec-images-properties" };
-	const images = [{ type: "local" as const, key: "permanent/test-book.jpg", purpose: "cover" }];
+	const images = [{ type: "local" as const, key: "permanent/test-record.jpg", purpose: "cover" }];
 	const options = {
 		processSandbox: () =>
 			Effect.succeed({
 				logs: [],
 				error: null,
 				status: "completed" as const,
-				value: { name: "Test Book", properties: { title: "Test Book", images } },
+				value: { name: "Test Record", properties: { title: "Test Record", images } },
 			}),
 		entitiesService: makeEntitiesService({
 			upsert: (input) => {
@@ -923,8 +923,8 @@ it.effect("propagates images through properties for the primary entity", () => {
 			);
 
 			expect(savedProperties).toEqual([
-				{ title: "Test Book", images },
-				{ title: "Test Book", images },
+				{ title: "Test Record", images },
+				{ title: "Test Record", images },
 			]);
 		}),
 	);
@@ -940,10 +940,10 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 		providerId: SandboxProviderId;
 		properties: Record<string, unknown>;
 	}> = [];
-	const movieSchemaScript = {
-		entitySchemaSlug: EntitySchemaSlug.make("schema-movie"),
-		providerId: SandboxProviderId.make("movie-provider"),
-		detailsScriptId: SandboxScriptId.make("movie-details"),
+	const itemSchemaScript = {
+		entitySchemaSlug: EntitySchemaSlug.make("schema-item"),
+		providerId: SandboxProviderId.make("item-provider"),
+		detailsScriptId: SandboxScriptId.make("item-details"),
 	};
 	const payload = { ...importPayload, executionId: "exec-suggestions" };
 	const options = {
@@ -953,15 +953,15 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 				error: null,
 				status: "completed" as const,
 				value: {
-					name: "Test Book",
-					properties: { title: "Test Book" },
+					name: "Test Record",
+					properties: { title: "Test Record" },
 					relatedEntityGroups: [
 						{
 							direction: "outgoing",
 							synchronization: "authoritative",
-							relationshipSchemaSlug: "media-suggestion",
+							relationshipSchemaSlug: "related-suggestion",
 							entities: [
-								{ externalId: "movie-1", providerSlug: "movie.tmdb", name: "Recommended Movie" },
+								{ externalId: "item-1", providerSlug: "item.alpha", name: "Recommended Item" },
 								{
 									externalId: "missing-1",
 									name: "Missing Suggestion",
@@ -974,7 +974,7 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 			}),
 		entitiesRepository: makeEntitiesRepository({
 			findEntitySchemaProviderBySlug: (slug: string) =>
-				Effect.succeed(slug === "movie.tmdb" ? movieSchemaScript : null),
+				Effect.succeed(slug === "item.alpha" ? itemSchemaScript : null),
 		}),
 		entitiesService: makeEntitiesService({
 			upsert: (input) =>
@@ -1042,10 +1042,10 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 				{
 					properties: {},
 					populatedAt: null,
-					externalId: "movie-1",
-					name: "Recommended Movie",
-					entitySchemaSlug: EntitySchemaSlug.make("schema-movie"),
-					providerId: SandboxProviderId.make("movie-provider"),
+					externalId: "item-1",
+					name: "Recommended Item",
+					entitySchemaSlug: EntitySchemaSlug.make("schema-item"),
+					providerId: SandboxProviderId.make("item-provider"),
 				},
 			]);
 			expect(relationshipWrites).toEqual([
@@ -1053,8 +1053,8 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 					properties: {},
 					scope: "global",
 					sourceEntityId: EntityId.make("entity-1"),
-					relationshipSchemaSlug: mediaSuggestionSchema.id,
-					targetEntityId: EntityId.make("suggestion-movie-1"),
+					relationshipSchemaSlug: relatedSuggestionSchema.id,
+					targetEntityId: EntityId.make("suggestion-item-1"),
 				}),
 			]);
 		}),
@@ -1065,10 +1065,10 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 	let storedPrimaryEntity: StoredEntity | null = null;
 	const currentTargets = new Set<string>();
 	const syncCalls: Array<ReadonlyArray<EntityId>> = [];
-	const movieSchemaScript = {
-		entitySchemaSlug: EntitySchemaSlug.make("schema-movie"),
-		providerId: SandboxProviderId.make("movie-provider"),
-		detailsScriptId: SandboxScriptId.make("movie-details"),
+	const itemSchemaScript = {
+		entitySchemaSlug: EntitySchemaSlug.make("schema-item"),
+		providerId: SandboxProviderId.make("item-provider"),
+		detailsScriptId: SandboxScriptId.make("item-details"),
 	};
 	const makeStoredRelationship = (targetEntityId: EntityId) => ({
 		targetEntityId,
@@ -1077,7 +1077,7 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 		wasInserted: true,
 		sourceEntityId: baseEntity.id,
 		id: RelationshipId.make("relationship-1"),
-		relationshipSchemaSlug: mediaSuggestionSchema.id,
+		relationshipSchemaSlug: relatedSuggestionSchema.id,
 	});
 
 	const runAttempt = (
@@ -1092,21 +1092,21 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 						error: null,
 						status: "completed" as const,
 						value: {
-							name: "Test Book",
-							properties: { title: "Test Book" },
+							name: "Test Record",
+							properties: { title: "Test Record" },
 							relatedEntityGroups: [
 								{
 									entities: suggestions,
 									direction: "outgoing",
 									synchronization: "authoritative",
-									relationshipSchemaSlug: "media-suggestion",
+									relationshipSchemaSlug: "related-suggestion",
 								},
 							],
 						},
 					}),
 				entitiesRepository: makeEntitiesRepository({
 					findEntitySchemaProviderBySlug: (slug: string) =>
-						Effect.succeed(slug === "movie.tmdb" ? movieSchemaScript : null),
+						Effect.succeed(slug === "item.alpha" ? itemSchemaScript : null),
 					findGlobalEntityByExternalId: () => Effect.succeed(storedPrimaryEntity),
 				}),
 				entitiesService: makeEntitiesService({
@@ -1119,7 +1119,7 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 							name: input.name,
 							populatedAt: null,
 							externalId: input.externalId,
-							properties: { title: "Test Book" },
+							properties: { title: "Test Record" },
 							entitySchemaSlug: input.entitySchemaSlug,
 							providerId: input.providerId,
 						};
@@ -1191,24 +1191,24 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 	return Effect.gen(function* () {
 		yield* runAttempt("exec-suggestions-replace-1", [
 			{
-				externalId: "movie-1",
-				providerSlug: "movie.tmdb",
+				externalId: "item-1",
+				providerSlug: "item.alpha",
 				name: "First Recommendation",
 			},
 		]);
 		yield* runAttempt("exec-suggestions-replace-2", [
 			{
-				externalId: "movie-2",
-				providerSlug: "movie.tmdb",
+				externalId: "item-2",
+				providerSlug: "item.alpha",
 				name: "Second Recommendation",
 			},
 		]);
 
 		expect(syncCalls).toEqual([
-			[EntityId.make("suggestion-movie-1")],
-			[EntityId.make("suggestion-movie-2")],
+			[EntityId.make("suggestion-item-1")],
+			[EntityId.make("suggestion-item-2")],
 		]);
-		expect([...currentTargets]).toEqual(["suggestion-movie-2"]);
+		expect([...currentTargets]).toEqual(["suggestion-item-2"]);
 	});
 });
 
@@ -1222,7 +1222,11 @@ it.effect("does not synchronize relationships when the provider declares no grou
 				logs: [],
 				error: null,
 				status: "completed" as const,
-				value: { name: "Test Book", relatedEntityGroups: [], properties: { title: "Test Book" } },
+				value: {
+					name: "Test Record",
+					relatedEntityGroups: [],
+					properties: { title: "Test Record" },
+				},
 			}),
 		relationshipsRepository: makeRelationshipsRepository({
 			createRelationship: () =>
@@ -1340,7 +1344,10 @@ it.effect("workflow body executes the sandbox step as part of orchestration", ()
 it.effect("keeps the refresh baseline when related relationship properties are invalid", () => {
 	let relationshipWritten = false;
 	let primaryWritten = false;
-	let storedEntity: StoredEntity | null = { ...baseEntity, properties: { title: "Previous Book" } };
+	let storedEntity: StoredEntity | null = {
+		...baseEntity,
+		properties: { title: "Previous Record" },
+	};
 	const payload = { ...importPayload, executionId: "exec-related-validation" };
 	const options = {
 		processSandbox: () =>
@@ -1349,8 +1356,8 @@ it.effect("keeps the refresh baseline when related relationship properties are i
 				error: null,
 				status: "completed" as const,
 				value: {
-					name: "Test Book",
-					properties: { title: "Test Book" },
+					name: "Test Record",
+					properties: { title: "Test Record" },
 					relatedEntityGroups: [
 						{
 							direction: "incoming",
@@ -1375,7 +1382,7 @@ it.effect("keeps the refresh baseline when related relationship properties are i
 					slug: "authored-by",
 					name: "Authored By",
 					id: RelationshipSchemaSlug.make("rel-schema-1"),
-					targetEntitySchemaSlug: EntitySchemaSlug.make("book"),
+					targetEntitySchemaSlug: EntitySchemaSlug.make("record"),
 					sourceEntitySchemaSlug: EntitySchemaSlug.make("person"),
 					propertiesSchema: {
 						fields: {
@@ -1400,7 +1407,7 @@ it.effect("keeps the refresh baseline when related relationship properties are i
 		}),
 		entitiesService: makeEntitiesService({
 			upsert: (input) => {
-				if (input.entitySchemaSlug !== "book") {
+				if (input.entitySchemaSlug !== "record") {
 					return Effect.die("unexpected upsert for non-primary entity");
 				}
 				assert(storedEntity);
@@ -1445,7 +1452,7 @@ it.effect("keeps the refresh baseline when related relationship properties are i
 		Effect.gen(function* () {
 			const exit = yield* Effect.exit(
 				runProviderEntityPopulationWorkflow(
-					{ ...payload, mode: "refresh", entitySchemaSlug: EntitySchemaSlug.make("book") },
+					{ ...payload, mode: "refresh", entitySchemaSlug: EntitySchemaSlug.make("record") },
 					payload.executionId,
 				),
 			);
@@ -1454,7 +1461,7 @@ it.effect("keeps the refresh baseline when related relationship properties are i
 			expect(primaryWritten).toBe(false);
 			expect(storedEntity).toMatchObject({
 				populatedAt: now,
-				properties: { title: "Previous Book" },
+				properties: { title: "Previous Record" },
 			});
 			assert(Exit.isFailure(exit));
 			const failure = Cause.findErrorOption(exit.cause);
@@ -1475,8 +1482,8 @@ it.effect("fails workflow when related relationship properties are not objects",
 				error: null,
 				status: "completed" as const,
 				value: {
-					name: "Test Book",
-					properties: { title: "Test Book" },
+					name: "Test Record",
+					properties: { title: "Test Record" },
 					relatedEntityGroups: [
 						{
 							direction: "incoming",
@@ -1637,8 +1644,8 @@ it.effect("retries related writes after a failed related validation", () => {
 						error: null,
 						status: "completed" as const,
 						value: {
-							name: "Test Book",
-							properties: { title: "Test Book" },
+							name: "Test Record",
+							properties: { title: "Test Record" },
 							relatedEntityGroups: [
 								{
 									direction: "incoming",
@@ -1709,8 +1716,8 @@ it.effect("commits earlier population scopes when a later scope fails", () => {
 				error: null,
 				status: "completed" as const,
 				value: {
-					name: "Test Book",
-					properties: { title: "Test Book" },
+					name: "Test Record",
+					properties: { title: "Test Record" },
 					childEntities: [
 						{
 							properties: {},
@@ -1723,9 +1730,9 @@ it.effect("commits earlier population scopes when a later scope fails", () => {
 						{
 							direction: "outgoing" as const,
 							synchronization: "authoritative" as const,
-							relationshipSchemaSlug: "media-suggestion",
+							relationshipSchemaSlug: "related-suggestion",
 							entities: [
-								{ name: "Suggestion", providerSlug: "media.test", externalId: "suggestion-1" },
+								{ name: "Suggestion", providerSlug: "example.test", externalId: "suggestion-1" },
 							],
 						},
 					],
@@ -1780,7 +1787,7 @@ it.effect("commits earlier population scopes when a later scope fails", () => {
 		relationshipsRepository: makeRelationshipsRepository({
 			createRelationship: (input) =>
 				Effect.sync(() => {
-					writes.push("relationship:media-suggestion");
+					writes.push("relationship:related-suggestion");
 					return relationshipForInput(input);
 				}),
 		}),
@@ -1797,9 +1804,9 @@ it.effect("commits earlier population scopes when a later scope fails", () => {
 			expect(exit._tag).toBe("Failure");
 			expect(stamped).toBe(false);
 			expect(writes).toEqual([
-				"entity:Test Book",
+				"entity:Test Record",
 				"entity:Suggestion",
-				"relationship:media-suggestion",
+				"relationship:related-suggestion",
 			]);
 		}),
 	);
@@ -1814,12 +1821,12 @@ it.effect("refresh synchronization replaces provider-owned primary and child val
 	}> = [];
 	const relationshipSchema = {
 		isBuiltin: true,
-		name: "Show to Season",
-		slug: "show-to-show-season",
+		name: "Group to Part",
+		slug: "group-to-group-part",
 		propertiesSchema: { fields: {} },
-		id: RelationshipSchemaSlug.make("show-to-show-season"),
-		sourceEntitySchemaSlug: EntitySchemaSlug.make("show"),
-		targetEntitySchemaSlug: EntitySchemaSlug.make("show-season"),
+		id: RelationshipSchemaSlug.make("group-to-group-part"),
+		sourceEntitySchemaSlug: EntitySchemaSlug.make("group"),
+		targetEntitySchemaSlug: EntitySchemaSlug.make("group-part"),
 	};
 	const payload = { ...importPayload, executionId: "refresh-overwrite" };
 	const options = {
@@ -1829,14 +1836,14 @@ it.effect("refresh synchronization replaces provider-owned primary and child val
 				error: null,
 				status: "completed" as const,
 				value: {
-					name: "Updated Show",
-					properties: { title: "Updated Show", productionStatus: "Ended" },
+					name: "Updated Group",
+					properties: { title: "Updated Group", productionStatus: "Ended" },
 					childEntities: [
 						{
-							name: "Updated Season",
-							externalId: "season-1",
-							properties: { seasonNumber: 1 },
-							entitySchemaSlug: "show-season",
+							name: "Updated Part",
+							externalId: "part-1",
+							properties: { partNumber: 1 },
+							entitySchemaSlug: "group-part",
 						},
 					],
 				},
@@ -1844,7 +1851,7 @@ it.effect("refresh synchronization replaces provider-owned primary and child val
 		entitySchemasRepository: makeEntitySchemasRepository({
 			getBuiltinBySlug: () =>
 				Effect.succeed({
-					id: EntitySchemaSlug.make("show-season"),
+					id: EntitySchemaSlug.make("group-part"),
 					propertiesSchema: { fields: {} },
 				}),
 		}),
@@ -1858,9 +1865,9 @@ it.effect("refresh synchronization replaces provider-owned primary and child val
 					populatedAt: now,
 					entitySchemaSlug: input.entitySchemaSlug,
 					id:
-						input.entitySchemaSlug === "show"
+						input.entitySchemaSlug === "group"
 							? EntityId.make("entity-1")
-							: EntityId.make("season-1"),
+							: EntityId.make("part-1"),
 				}),
 		}),
 		entitiesService: makeEntitiesService({
@@ -1882,9 +1889,9 @@ it.effect("refresh synchronization replaces provider-owned primary and child val
 					entitySchemaSlug: input.entitySchemaSlug,
 					populatedAt: input.populatedAt?.toISOString() ?? null,
 					id:
-						input.entitySchemaSlug === "show"
+						input.entitySchemaSlug === "group"
 							? EntityId.make("entity-1")
-							: EntityId.make("season-1"),
+							: EntityId.make("part-1"),
 				});
 			},
 			update: (input) => {
@@ -1902,9 +1909,9 @@ it.effect("refresh synchronization replaces provider-owned primary and child val
 					entitySchemaSlug: input.entitySchemaSlug,
 					populatedAt: input.populatedAt?.toISOString() ?? null,
 					id:
-						input.entitySchemaSlug === "show"
+						input.entitySchemaSlug === "group"
 							? EntityId.make("entity-1")
-							: EntityId.make("season-1"),
+							: EntityId.make("part-1"),
 				});
 			},
 		}),
@@ -1915,22 +1922,22 @@ it.effect("refresh synchronization replaces provider-owned primary and child val
 		payload.executionId,
 		Effect.gen(function* () {
 			yield* runProviderEntityPopulationWorkflow(
-				{ ...payload, mode: "refresh", entitySchemaSlug: EntitySchemaSlug.make("show") },
+				{ ...payload, mode: "refresh", entitySchemaSlug: EntitySchemaSlug.make("group") },
 				payload.executionId,
 			);
 
 			expect(writes).toHaveLength(2);
 			expect(writes[0]).toMatchObject({
-				name: "Updated Season",
-				properties: { seasonNumber: 1 },
+				name: "Updated Part",
+				properties: { partNumber: 1 },
 				populatedAt: expect.any(Date),
-				entitySchemaSlug: EntitySchemaSlug.make("show-season"),
+				entitySchemaSlug: EntitySchemaSlug.make("group-part"),
 			});
 			expect(writes[1]).toMatchObject({
-				name: "Updated Show",
+				name: "Updated Group",
 				populatedAt: expect.any(Date),
-				entitySchemaSlug: EntitySchemaSlug.make("show"),
-				properties: { title: "Updated Show", productionStatus: "Ended" },
+				entitySchemaSlug: EntitySchemaSlug.make("group"),
+				properties: { title: "Updated Group", productionStatus: "Ended" },
 			});
 		}),
 	);
@@ -1949,7 +1956,7 @@ it.effect("dies when a refresh payload omits entitySchemaSlug", () => {
 					logs: [],
 					error: null,
 					status: "completed" as const,
-					value: { name: "Test Book", properties: { title: "Test Book" } },
+					value: { name: "Test Record", properties: { title: "Test Record" } },
 				};
 			}),
 	} satisfies TestLayerOptions;
@@ -1981,14 +1988,14 @@ it.effect("clears an explicit empty relationship group", () => {
 				error: null,
 				status: "completed" as const,
 				value: {
-					name: "Test Book",
-					properties: { title: "Test Book" },
+					name: "Test Record",
+					properties: { title: "Test Record" },
 					relatedEntityGroups: [
 						{
 							entities: [],
 							direction: "outgoing",
 							synchronization: "authoritative",
-							relationshipSchemaSlug: "media-suggestion",
+							relationshipSchemaSlug: "related-suggestion",
 						},
 					],
 				},
@@ -2000,7 +2007,7 @@ it.effect("clears an explicit empty relationship group", () => {
 						...savedRelationship,
 						sourceEntityId: EntityId.make("entity-1"),
 						targetEntityId: EntityId.make("stale-target"),
-						relationshipSchemaSlug: mediaSuggestionSchema.id,
+						relationshipSchemaSlug: relatedSuggestionSchema.id,
 					},
 				]),
 			deleteRelationship: (input) =>
@@ -2029,7 +2036,7 @@ it.effect("clears an explicit empty relationship group", () => {
 					scope: "global",
 					relationshipSchemaPluginId: null,
 					sourceEntityId: EntityId.make("entity-1"),
-					relationshipSchemaSlug: mediaSuggestionSchema.id,
+					relationshipSchemaSlug: relatedSuggestionSchema.id,
 					targetEntityId: EntityId.make("stale-target"),
 				},
 			]);
@@ -2038,33 +2045,33 @@ it.effect("clears an explicit empty relationship group", () => {
 });
 
 it.effect("resumes from the failed population scope without duplicating committed work", () => {
-	let failSeasonTwo = true;
+	let failPartTwo = true;
 	let stamped = false;
 	const storedEntities = new Map<string, StoredEntity>();
 	const storedRelationships = new Map<string, typeof savedRelationship>();
 	const relationshipSchemas = new Map([
 		[
-			"schema-show->schema-season",
+			"schema-group->schema-part",
 			{
 				isBuiltin: true,
-				name: "Show to Show Season",
-				slug: "show-to-show-season",
+				name: "Group to Group Part",
+				slug: "group-to-group-part",
 				propertiesSchema: { fields: {} },
-				id: RelationshipSchemaSlug.make("rel-show-season"),
-				sourceEntitySchemaSlug: EntitySchemaSlug.make("schema-show"),
-				targetEntitySchemaSlug: EntitySchemaSlug.make("schema-season"),
+				id: RelationshipSchemaSlug.make("rel-group-part"),
+				sourceEntitySchemaSlug: EntitySchemaSlug.make("schema-group"),
+				targetEntitySchemaSlug: EntitySchemaSlug.make("schema-part"),
 			},
 		],
 		[
-			"schema-season->schema-episode",
+			"schema-part->schema-part-item",
 			{
 				isBuiltin: true,
 				propertiesSchema: { fields: {} },
-				name: "Show Season to Show Episode",
-				slug: "show-season-to-show-episode",
-				id: RelationshipSchemaSlug.make("rel-season-episode"),
-				sourceEntitySchemaSlug: EntitySchemaSlug.make("schema-season"),
-				targetEntitySchemaSlug: EntitySchemaSlug.make("schema-episode"),
+				name: "Group Part to Group Part Item",
+				slug: "group-part-to-group-part-item",
+				id: RelationshipSchemaSlug.make("rel-part-part-item"),
+				sourceEntitySchemaSlug: EntitySchemaSlug.make("schema-part"),
+				targetEntitySchemaSlug: EntitySchemaSlug.make("schema-part-item"),
 			},
 		],
 	]);
@@ -2073,30 +2080,30 @@ it.effect("resumes from the failed population scope without duplicating committe
 		properties: { title: "Severance" },
 		childEntities: [
 			{
-				name: "Season 1",
-				externalId: "season-1",
-				entitySchemaSlug: "show-season",
-				properties: { seasonNumber: 1 },
+				name: "Part 1",
+				externalId: "part-1",
+				entitySchemaSlug: "group-part",
+				properties: { partNumber: 1 },
 				childEntities: [
 					{
-						name: "Episode 1",
-						externalId: "episode-1",
-						entitySchemaSlug: "show-episode",
-						properties: { episodeNumber: 1 },
+						name: "Part Item 1",
+						externalId: "part-item-1",
+						entitySchemaSlug: "group-part-item",
+						properties: { partItemNumber: 1 },
 					},
 				],
 			},
 			{
-				name: "Season 2",
-				externalId: "season-2",
-				entitySchemaSlug: "show-season",
-				properties: { seasonNumber: 2 },
+				name: "Part 2",
+				externalId: "part-2",
+				entitySchemaSlug: "group-part",
+				properties: { partNumber: 2 },
 				childEntities: [
 					{
-						name: "Episode 3",
-						externalId: "episode-3",
-						entitySchemaSlug: "show-episode",
-						properties: { episodeNumber: 1 },
+						name: "Part Item 3",
+						externalId: "part-item-3",
+						entitySchemaSlug: "group-part-item",
+						properties: { partItemNumber: 1 },
 					},
 				],
 			},
@@ -2129,7 +2136,7 @@ it.effect("resumes from the failed population scope without duplicating committe
 		}),
 		entitiesService: makeEntitiesService({
 			upsert: (input) => {
-				if (failSeasonTwo && input.externalId === "episode-3") {
+				if (failPartTwo && input.externalId === "part-item-3") {
 					return Effect.die(new Error("transient store failure"));
 				}
 				const properties: unknown = input.properties;
@@ -2204,8 +2211,8 @@ it.effect("resumes from the failed population scope without duplicating committe
 					...importPayload,
 					executionId,
 					mode: "ensure",
-					externalId: "tmdb-show-1",
-					entitySchemaSlug: EntitySchemaSlug.make("schema-show"),
+					externalId: "alpha-group-1",
+					entitySchemaSlug: EntitySchemaSlug.make("schema-group"),
 				},
 				executionId,
 			),
@@ -2218,42 +2225,44 @@ it.effect("resumes from the failed population scope without duplicating committe
 		expect(stamped).toBe(false);
 		expect(storedEntities.size).toBe(4);
 		expect(storedRelationships.size).toBe(3);
-		expect(storedEntities.get(entityKey("schema-show", "tmdb-show-1"))?.populatedAt).toBeNull();
+		expect(storedEntities.get(entityKey("schema-group", "alpha-group-1"))?.populatedAt).toBeNull();
 
-		failSeasonTwo = false;
+		failPartTwo = false;
 		const result = yield* runPopulation("exec-scope-resume-2");
 
 		expect(result.populatedAt).not.toBeNull();
 		expect(storedEntities.size).toBe(5);
 		expect(storedRelationships.size).toBe(4);
-		expect(storedEntities.get(entityKey("schema-show", "tmdb-show-1"))?.populatedAt).not.toBeNull();
+		expect(
+			storedEntities.get(entityKey("schema-group", "alpha-group-1"))?.populatedAt,
+		).not.toBeNull();
 	});
 });
 
 it.effect("uses unique deterministic activity names per population scope", () => {
 	const relationshipSchemas = new Map([
 		[
-			"schema-show->schema-season",
+			"schema-group->schema-part",
 			{
 				isBuiltin: true,
-				name: "Show to Show Season",
-				slug: "show-to-show-season",
+				name: "Group to Group Part",
+				slug: "group-to-group-part",
 				propertiesSchema: { fields: {} },
-				id: RelationshipSchemaSlug.make("rel-show-season"),
-				sourceEntitySchemaSlug: EntitySchemaSlug.make("schema-show"),
-				targetEntitySchemaSlug: EntitySchemaSlug.make("schema-season"),
+				id: RelationshipSchemaSlug.make("rel-group-part"),
+				sourceEntitySchemaSlug: EntitySchemaSlug.make("schema-group"),
+				targetEntitySchemaSlug: EntitySchemaSlug.make("schema-part"),
 			},
 		],
 		[
-			"schema-season->schema-episode",
+			"schema-part->schema-part-item",
 			{
 				isBuiltin: true,
 				propertiesSchema: { fields: {} },
-				name: "Show Season to Show Episode",
-				slug: "show-season-to-show-episode",
-				id: RelationshipSchemaSlug.make("rel-season-episode"),
-				sourceEntitySchemaSlug: EntitySchemaSlug.make("schema-season"),
-				targetEntitySchemaSlug: EntitySchemaSlug.make("schema-episode"),
+				name: "Group Part to Group Part Item",
+				slug: "group-part-to-group-part-item",
+				id: RelationshipSchemaSlug.make("rel-part-part-item"),
+				sourceEntitySchemaSlug: EntitySchemaSlug.make("schema-part"),
+				targetEntitySchemaSlug: EntitySchemaSlug.make("schema-part-item"),
 			},
 		],
 	]);
@@ -2268,25 +2277,25 @@ it.effect("uses unique deterministic activity names per population scope", () =>
 	};
 	const builtinRelationshipSchemas = new Map([
 		["cast-member", castMemberSchema],
-		["media-suggestion", mediaSuggestionSchema],
+		["related-suggestion", relatedSuggestionSchema],
 	]);
 	const sandboxValue = {
 		name: "Severance",
 		properties: { title: "Severance" },
 		childEntities: [
 			{
-				name: "Season 1",
-				externalId: "season-1",
-				entitySchemaSlug: "show-season",
-				properties: { seasonNumber: 1 },
-				childEntities: [makeEpisodeChild("episode-1")],
+				name: "Part 1",
+				externalId: "part-1",
+				entitySchemaSlug: "group-part",
+				properties: { partNumber: 1 },
+				childEntities: [makePartItemChild("part-item-1")],
 			},
 			{
-				name: "Season 2",
-				externalId: "season-2",
-				entitySchemaSlug: "show-season",
-				properties: { seasonNumber: 2 },
-				childEntities: [makeEpisodeChild("episode-3")],
+				name: "Part 2",
+				externalId: "part-2",
+				entitySchemaSlug: "group-part",
+				properties: { partNumber: 2 },
+				childEntities: [makePartItemChild("part-item-3")],
 			},
 		],
 		relatedEntityGroups: [
@@ -2294,7 +2303,7 @@ it.effect("uses unique deterministic activity names per population scope", () =>
 				entities: [],
 				direction: "outgoing",
 				synchronization: "authoritative",
-				relationshipSchemaSlug: "media-suggestion",
+				relationshipSchemaSlug: "related-suggestion",
 			},
 			{
 				entities: [],
@@ -2347,9 +2356,9 @@ it.effect("uses unique deterministic activity names per population scope", () =>
 			{
 				...importPayload,
 				mode: "ensure",
-				externalId: "tmdb-show-1",
+				externalId: "alpha-group-1",
 				executionId: "exec-activity-names",
-				entitySchemaSlug: EntitySchemaSlug.make("schema-show"),
+				entitySchemaSlug: EntitySchemaSlug.make("schema-group"),
 			},
 			"exec-activity-names",
 		).pipe(
@@ -2367,11 +2376,11 @@ it.effect("uses unique deterministic activity names per population scope", () =>
 			"check-existing-entity",
 			"validate-entity-details",
 			"upsert-root-entity",
-			"sync-related-entity-group:0:media-suggestion",
+			"sync-related-entity-group:0:related-suggestion",
 			"sync-related-entity-group:1:cast-member",
-			"write-child-entity-set:tmdb-show-1",
-			"write-child-entity-set:season-1",
-			"write-child-entity-set:season-2",
+			"write-child-entity-set:alpha-group-1",
+			"write-child-entity-set:part-1",
+			"write-child-entity-set:part-2",
 			"stamp-root-populated-at",
 			"publish-primary-entity",
 		]);
@@ -2389,61 +2398,61 @@ it.effect("dispatches only material nested entity updates with the root populati
 	const rootEntity = {
 		...baseEntity,
 		name: "Old Severance",
-		externalId: "show-1",
-		id: EntityId.make("show-1"),
-		entitySchemaSlug: EntitySchemaSlug.make("show"),
+		externalId: "group-1",
+		id: EntityId.make("group-1"),
+		entitySchemaSlug: EntitySchemaSlug.make("group"),
 	};
-	const seasonEntity = {
+	const partEntity = {
 		...baseEntity,
-		name: "Season 1",
-		externalId: "season-1",
-		properties: { seasonNumber: 1 },
-		id: EntityId.make("season-1"),
-		entitySchemaSlug: EntitySchemaSlug.make("show-season"),
+		name: "Part 1",
+		externalId: "part-1",
+		properties: { partNumber: 1 },
+		id: EntityId.make("part-1"),
+		entitySchemaSlug: EntitySchemaSlug.make("group-part"),
 	};
-	const secondSeasonEntity = {
-		...seasonEntity,
-		name: "Season 2",
-		externalId: "season-2",
-		properties: { seasonNumber: 2 },
-		id: EntityId.make("season-2"),
+	const secondPartEntity = {
+		...partEntity,
+		name: "Part 2",
+		externalId: "part-2",
+		properties: { partNumber: 2 },
+		id: EntityId.make("part-2"),
 	};
-	const episodeBefore = {
+	const partItemBefore = {
 		...baseEntity,
 		name: "Pilot",
-		externalId: "episode-1",
-		properties: { episodeNumber: 1 },
-		id: EntityId.make("episode-1"),
-		entitySchemaSlug: EntitySchemaSlug.make("show-episode"),
+		externalId: "part-item-1",
+		properties: { partItemNumber: 1 },
+		id: EntityId.make("part-item-1"),
+		entitySchemaSlug: EntitySchemaSlug.make("group-part-item"),
 	};
-	const episodeAfter = { ...episodeBefore, name: "Premiere" };
+	const partItemAfter = { ...partItemBefore, name: "Premiere" };
 	const noop = (entity: ProviderEntity): ProviderEntitySaveResult => {
 		const value = providerSnapshot(entity);
 		return { entity, outcome: { before: value, after: value, operation: "noop" } };
 	};
 	const relationshipSchemas = new Map([
 		[
-			"show->show-season",
+			"group->group-part",
 			{
 				isBuiltin: true,
-				name: "Show Seasons",
-				slug: "show-to-show-season",
+				name: "Group Parts",
+				slug: "group-to-group-part",
 				propertiesSchema: { fields: {} },
-				sourceEntitySchemaSlug: EntitySchemaSlug.make("show"),
-				id: RelationshipSchemaSlug.make("show-to-show-season"),
-				targetEntitySchemaSlug: EntitySchemaSlug.make("show-season"),
+				sourceEntitySchemaSlug: EntitySchemaSlug.make("group"),
+				id: RelationshipSchemaSlug.make("group-to-group-part"),
+				targetEntitySchemaSlug: EntitySchemaSlug.make("group-part"),
 			},
 		],
 		[
-			"show-season->show-episode",
+			"group-part->group-part-item",
 			{
 				isBuiltin: true,
-				name: "Show Episodes",
+				name: "Group Part Items",
 				propertiesSchema: { fields: {} },
-				slug: "show-season-to-show-episode",
-				sourceEntitySchemaSlug: EntitySchemaSlug.make("show-season"),
-				targetEntitySchemaSlug: EntitySchemaSlug.make("show-episode"),
-				id: RelationshipSchemaSlug.make("show-season-to-show-episode"),
+				slug: "group-part-to-group-part-item",
+				sourceEntitySchemaSlug: EntitySchemaSlug.make("group-part"),
+				targetEntitySchemaSlug: EntitySchemaSlug.make("group-part-item"),
+				id: RelationshipSchemaSlug.make("group-part-to-group-part-item"),
 			},
 		],
 	]);
@@ -2459,30 +2468,30 @@ it.effect("dispatches only material nested entity updates with the root populati
 				value: {
 					name: "Severance",
 					properties: {},
-					expectedChildEntitySchemaSlug: "show-season",
+					expectedChildEntitySchemaSlug: "group-part",
 					childEntities: [
 						{
-							name: "Season 1",
-							externalId: "season-1",
-							properties: { seasonNumber: 1 },
-							entitySchemaSlug: "show-season",
-							expectedChildEntitySchemaSlug: "show-episode",
+							name: "Part 1",
+							externalId: "part-1",
+							properties: { partNumber: 1 },
+							entitySchemaSlug: "group-part",
+							expectedChildEntitySchemaSlug: "group-part-item",
 							childEntities: [
 								{
 									name: "Premiere",
-									externalId: "episode-1",
-									properties: { episodeNumber: 1 },
-									entitySchemaSlug: "show-episode",
+									externalId: "part-item-1",
+									properties: { partItemNumber: 1 },
+									entitySchemaSlug: "group-part-item",
 								},
 							],
 						},
 						{
-							name: "Season 2",
+							name: "Part 2",
 							childEntities: [],
-							externalId: "season-2",
-							properties: { seasonNumber: 2 },
-							entitySchemaSlug: "show-season",
-							expectedChildEntitySchemaSlug: "show-episode",
+							externalId: "part-2",
+							properties: { partNumber: 2 },
+							entitySchemaSlug: "group-part",
+							expectedChildEntitySchemaSlug: "group-part-item",
 						},
 					],
 				},
@@ -2493,7 +2502,7 @@ it.effect("dispatches only material nested entity updates with the root populati
 		entitySchemasRepository: makeEntitySchemasRepository({
 			getBuiltinBySlug: (slug: string) =>
 				Effect.succeed(
-					slug === "show-season" || slug === "show-episode"
+					slug === "group-part" || slug === "group-part-item"
 						? { id: EntitySchemaSlug.make(slug), propertiesSchema: { fields: {} } }
 						: null,
 				),
@@ -2508,19 +2517,19 @@ it.effect("dispatches only material nested entity updates with the root populati
 		}),
 		entitiesService: makeEntitiesService({
 			upsertResult: (input) => {
-				if (input.externalId === "season-1") {
-					return Effect.succeed(noop(seasonEntity));
+				if (input.externalId === "part-1") {
+					return Effect.succeed(noop(partEntity));
 				}
-				if (input.externalId === "season-2") {
-					return Effect.succeed(noop(secondSeasonEntity));
+				if (input.externalId === "part-2") {
+					return Effect.succeed(noop(secondPartEntity));
 				}
-				if (input.externalId === "episode-1") {
+				if (input.externalId === "part-item-1") {
 					return Effect.succeed({
-						entity: episodeAfter,
+						entity: partItemAfter,
 						outcome: {
 							operation: "update",
-							before: providerSnapshot(episodeBefore),
-							after: providerSnapshot(episodeAfter),
+							before: providerSnapshot(partItemBefore),
+							after: providerSnapshot(partItemAfter),
 						},
 					});
 				}
@@ -2530,9 +2539,9 @@ it.effect("dispatches only material nested entity updates with the root populati
 	} satisfies TestLayerOptions;
 	const payload = {
 		...importPayload,
-		externalId: "show-1",
+		externalId: "group-1",
 		mode: "refresh" as const,
-		entitySchemaSlug: EntitySchemaSlug.make("show"),
+		entitySchemaSlug: EntitySchemaSlug.make("group"),
 		origin: { kind: "provider_refresh" as const },
 	};
 
@@ -2546,7 +2555,7 @@ it.effect("dispatches only material nested entity updates with the root populati
 			assert(entityDispatch);
 			expect(entityDispatch).toMatchObject({
 				operation: "update",
-				recordId: "episode-1",
+				recordId: "part-item-1",
 				origin: { kind: "provider_refresh" },
 				source: {
 					kind: "entity",
@@ -2556,27 +2565,27 @@ it.effect("dispatches only material nested entity updates with the root populati
 				population: {
 					rootPreviouslyPopulated: true,
 					parentEntity: {
-						name: "Season 1",
-						properties: { seasonNumber: 1 },
-						entitySchemaSlug: "show-season",
+						name: "Part 1",
+						properties: { partNumber: 1 },
+						entitySchemaSlug: "group-part",
 					},
-					scopeEntity: { id: "show-1", name: "Severance", entitySchemaSlug: "show" },
+					scopeEntity: { id: "group-1", name: "Severance", entitySchemaSlug: "group" },
 				},
 			});
 			const relationshipDispatches = dispatched.filter(
 				({ source }) => source.kind === "relationship",
 			);
-			const seasonDispatches = relationshipDispatches.filter(
+			const partDispatches = relationshipDispatches.filter(
 				({ source }) =>
 					source.kind === "relationship" &&
-					source.after?.relationshipSchemaSlug === "show-to-show-season",
+					source.after?.relationshipSchemaSlug === "group-to-group-part",
 			);
-			expect(seasonDispatches).toHaveLength(2);
-			expect(seasonDispatches.filter(({ population }) => population?.batch?.isLeader)).toHaveLength(
+			expect(partDispatches).toHaveLength(2);
+			expect(partDispatches.filter(({ population }) => population?.batch?.isLeader)).toHaveLength(
 				1,
 			);
-			expect(new Set(seasonDispatches.map(({ population }) => population?.batch?.id)).size).toBe(1);
-			for (const dispatch of seasonDispatches) {
+			expect(new Set(partDispatches.map(({ population }) => population?.batch?.id)).size).toBe(1);
+			for (const dispatch of partDispatches) {
 				expect(dispatch.population?.batch).toMatchObject({
 					afterCount: 2,
 					beforeCount: 0,
@@ -2585,13 +2594,13 @@ it.effect("dispatches only material nested entity updates with the root populati
 					updatedCount: 0,
 				});
 			}
-			const episodeDispatch = relationshipDispatches.find(
+			const partItemDispatch = relationshipDispatches.find(
 				({ source }) =>
 					source.kind === "relationship" &&
-					source.after?.relationshipSchemaSlug === "show-season-to-show-episode",
+					source.after?.relationshipSchemaSlug === "group-part-to-group-part-item",
 			);
-			assert(episodeDispatch);
-			expect(episodeDispatch.population?.batch).toMatchObject({
+			assert(partItemDispatch);
+			expect(partItemDispatch.population?.batch).toMatchObject({
 				isLeader: true,
 				afterCount: 1,
 				beforeCount: 0,

@@ -71,7 +71,7 @@ it.effect("derives signal authority and identity from the subscription run", () 
 	return Effect.gen(function* () {
 		const host = yield* makeAutomationSandboxApiFunctions;
 		const result = yield* host.emitSignal(runInput, {
-			discriminator: "episode-1",
+			discriminator: "part-item-1",
 			schemaSlug: "review.created",
 			properties: { message: "trace" },
 		});
@@ -80,7 +80,7 @@ it.effect("derives signal authority and identity from the subscription run", () 
 		expect(captured).toMatchObject({
 			executionId: runId,
 			origin: { kind: "api" },
-			discriminator: "episode-1",
+			discriminator: "part-item-1",
 			schemaSlug: "review.created",
 			properties: { message: "trace" },
 			principal: { kind: "user", userId },
