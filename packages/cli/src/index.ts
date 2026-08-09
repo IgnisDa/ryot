@@ -2,7 +2,8 @@
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { PluginManifest as PluginManifestSchema } from "@ryot/contract/modules/plugins/manifest";
-import { Data, Effect, FileSystem, Path, Schema, Stream } from "effect";
+import { writePluginArchive } from "@ryot/plugin-archive";
+import { Data, Effect, FileSystem, Option, Path, Schema, Stream } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
@@ -20,15 +21,12 @@ const PackageJson = Schema.Struct({
 
 type BuildOptions = {
 	readonly cwd: string;
-	readonly output: string;
+	readonly output: string | undefined;
 };
 
 type PluginManifest = Schema.Schema.Type<typeof PluginManifestSchema>;
 
-type SourceFile = {
-	readonly path: string;
-	readonly contents: Uint8Array;
-};
+type SourceFile = { readonly path: string; readonly contents: string };
 
 const isWithin = (path: Path.Path, root: string, candidate: string) => {
 	const relative = path.relative(root, candidate);
@@ -86,7 +84,7 @@ const collectBackend = Effect.fn("collectBackend")(function* (cwd: string) {
 
 	const sources = yield* Effect.forEach(paths, (sourcePath) =>
 		fs
-			.readFile(path.join(cwd, sourcePath))
+			.readFileString(path.join(cwd, sourcePath))
 			.pipe(Effect.map((contents) => ({ contents, path: sourcePath }))),
 	);
 	return sources.sort((left, right) => left.path.localeCompare(right.path));
@@ -117,24 +115,28 @@ const validateScriptEntries = Effect.fn("validateScriptEntries")(function* (
 	return yield* Effect.void;
 });
 
-const replaceOutput = Effect.fn("replaceOutput")(function* (
+const writeOutput = Effect.fn("writeOutput")(function* (
 	output: string,
 	manifest: PluginManifest,
 	sources: ReadonlyArray<SourceFile>,
 ) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
-	yield* fs.remove(output, { force: true, recursive: true });
-	yield* fs.makeDirectory(output, { recursive: true });
-	yield* fs.writeFileString(
-		path.join(output, "manifest.json"),
-		`${JSON.stringify(manifest, null, "\t")}\n`,
+	const temporary = path.join(path.dirname(output), `.${path.basename(output)}.tmp`);
+	const archive = writePluginArchive({
+		manifest,
+		files: Object.fromEntries(
+			sources.map(({ contents, path: sourcePath }) => [sourcePath, contents]),
+		),
+	});
+	yield* fs.makeDirectory(path.dirname(output), { recursive: true });
+	yield* fs.remove(temporary, { force: true, recursive: true });
+	yield* Effect.gen(function* () {
+		yield* fs.writeFile(temporary, archive);
+		yield* fs.rename(temporary, output);
+	}).pipe(
+		Effect.ensuring(fs.remove(temporary, { force: true, recursive: true }).pipe(Effect.orDie)),
 	);
-	for (const source of sources) {
-		const destination = path.join(output, source.path);
-		yield* fs.makeDirectory(path.dirname(destination), { recursive: true });
-		yield* fs.writeFile(destination, source.contents);
-	}
 });
 
 const buildPlugin = Effect.fn("buildPlugin")(function* ({ cwd, output }: BuildOptions) {
@@ -142,13 +144,17 @@ const buildPlugin = Effect.fn("buildPlugin")(function* ({ cwd, output }: BuildOp
 	const manifest = yield* loadManifest(cwd);
 	const sources = yield* collectBackend(cwd);
 	yield* validateScriptEntries(manifest, sources, cwd);
-	yield* replaceOutput(path.resolve(cwd, output), manifest, sources);
+	yield* writeOutput(
+		path.resolve(cwd, output ?? `dist/${manifest.metadata.slug}.zip`),
+		manifest,
+		sources,
+	);
 });
 
 const isRelevantAuthoringPath = (
 	path: Path.Path,
 	cwd: string,
-	output: string,
+	output: string | undefined,
 	filePath: string,
 ) => {
 	const absolutePath = path.resolve(cwd, filePath);
@@ -157,7 +163,7 @@ const isRelevantAuthoringPath = (
 	return (
 		!segments.includes("node_modules") &&
 		!segments.includes("dist") &&
-		!isWithin(path, path.resolve(cwd, output), absolutePath)
+		(output === undefined || !isWithin(path, path.resolve(cwd, output), absolutePath))
 	);
 };
 
@@ -198,7 +204,12 @@ const runBuildChild = Effect.fn("runBuildChild")(function* (options: BuildOption
 	return yield* spawner.exitCode(
 		ChildProcess.make(
 			process.execPath,
-			[scriptPath, "plugin", "build", "--output", options.output],
+			[
+				scriptPath,
+				"plugin",
+				"build",
+				...(options.output === undefined ? [] : ["--output", options.output]),
+			],
 			{ cwd: options.cwd, stderr: "inherit", stdin: "inherit", stdout: "inherit" },
 		),
 	);
@@ -240,13 +251,10 @@ const buildCommand = Command.make(
 	"build",
 	{
 		watch: Flag.boolean("watch").pipe(Flag.withDefault(false)),
-		output: Flag.string("output").pipe(
-			Flag.withSchema(Schema.NonEmptyString),
-			Flag.withDefault("dist/bundle"),
-		),
+		output: Flag.string("output").pipe(Flag.withSchema(Schema.NonEmptyString), Flag.optional),
 	},
 	Effect.fn("buildCommand")(function* ({ output, watch }) {
-		const options = { cwd: process.cwd(), output };
+		const options = { cwd: process.cwd(), output: Option.getOrUndefined(output) };
 		if (watch) {
 			return yield* watchPlugin(options);
 		}

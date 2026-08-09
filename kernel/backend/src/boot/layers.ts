@@ -321,6 +321,8 @@ const BackupServicesLive = Layer.mergeAll(
 );
 const pluginInstallationServiceDependencies = Layer.mergeAll(
 	PluginLoaderLive,
+	UploadServicesLive,
+	ObjectStorageServiceLive,
 	PluginRepository.layer,
 	PluginDefinitionMaterializerLive,
 	PluginInstallationRepository.layer,
@@ -613,6 +615,7 @@ export const MigrationInfrastructureLive = Layer.mergeAll(
 	Layer.provideMerge(DatabaseLive),
 	Layer.provideMerge(ManagedAssetsRepository.layer),
 	Layer.provideMerge(RedisService.layer),
+	Layer.provideMerge(LocalStorageService.layer),
 	Layer.provideMerge(S3Service.layer),
 	Layer.provideMerge(ConfigLive),
 );
