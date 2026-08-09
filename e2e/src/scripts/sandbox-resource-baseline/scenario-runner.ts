@@ -902,7 +902,17 @@ export const runFreshRepetition = (
 		}).pipe(
 			Effect.timeoutOrElse({
 				duration: `${context.config.requestTimeoutMs} millis`,
-				orElse: () => Effect.succeed({ requests: [], importRecords: [] }),
+				/**
+				 * A timed-out repetition yields no requests, which is indistinguishable in the artifact
+				 * from a repetition that submitted nothing. The soak path logs its own stop reason, so
+				 * this logs the equivalent for the matrix paths rather than losing the wave silently.
+				 */
+				orElse: () =>
+					Effect.log("sandbox-resource-baseline.repetition.timeout", {
+						scenarioId: scenario.id,
+						repetition: plan.repetition,
+						timeoutMs: context.config.requestTimeoutMs,
+					}).pipe(Effect.as({ requests: [], importRecords: [] })),
 			}),
 		);
 		const terminalAtMs = yield* Clock.currentTimeMillis;
