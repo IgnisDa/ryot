@@ -79,6 +79,22 @@ describe("palette contrast", () => {
 		expect(dark.get("--border")).toMatch(/^#[\da-f]{6}$/i);
 	});
 
+	for (const [theme, palette, direction] of [
+		["light", light, -1],
+		["dark", dark, 1],
+	] as const) {
+		it(`steps the ${theme} chart activity ramp monotonically away from the surface`, () => {
+			for (let level = 2; level <= 5; level++) {
+				const step =
+					colorOf(palette, `--chart-seq-${level}`) - colorOf(palette, `--chart-seq-${level - 1}`);
+				expect(
+					step * direction,
+					`${theme}: --chart-seq-${level} does not step away from --chart-seq-${level - 1}`,
+				).toBeGreaterThan(0);
+			}
+		});
+	}
+
 	for (const [theme, palette] of themes) {
 		it(`keeps ${theme} text pairs at or above 4.5:1`, () => {
 			for (const [foreground, backgrounds] of textPairs) {
