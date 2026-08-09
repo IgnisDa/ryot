@@ -3,6 +3,7 @@ import {
 	type PluginThemeSnapshot as PluginThemeSnapshotValue,
 	type RyotClientErrorReason,
 } from "@ryot-app/contract/modules/plugins/client";
+import { TemporaryUploadToken } from "@ryot-app/contract/modules/uploads/schemas";
 import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
@@ -29,6 +30,12 @@ export type OperationInvocation<Output extends Schema.Codec<unknown, unknown>> =
 	readonly input: JsonValue;
 };
 
+export type TemporaryUploadRequest = {
+	readonly source: Blob;
+	readonly fileName: string;
+	readonly contentType: string;
+};
+
 export type RyotNavigationTarget = {
 	readonly path: string;
 	readonly search?: Record<string, string>;
@@ -48,6 +55,7 @@ export type RyotClientAdapter = {
 		readonly slug: string;
 		readonly input: JsonValue;
 	}) => Promise<unknown>;
+	readonly uploadTemporary?: (request: TemporaryUploadRequest) => Promise<unknown>;
 };
 
 export const createRyotClient = (adapter: RyotClientAdapter) => {
@@ -140,6 +148,24 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 					throw new RyotClientError("malformed-result");
 				}
 				const decoded = Schema.decodeUnknownResult(request.output)(value);
+				if (Result.isFailure(decoded)) {
+					throw new RyotClientError("malformed-result");
+				}
+				return decoded.success;
+			},
+		},
+		uploads: {
+			uploadTemporary: async (request: TemporaryUploadRequest) => {
+				if (!adapter.uploadTemporary) {
+					throw new RyotClientError("unsupported-capability");
+				}
+				let value: unknown;
+				try {
+					value = await adapter.uploadTemporary(request);
+				} catch (error) {
+					throw asTransportError(error);
+				}
+				const decoded = Schema.decodeUnknownResult(TemporaryUploadToken)(value);
 				if (Result.isFailure(decoded)) {
 					throw new RyotClientError("malformed-result");
 				}
