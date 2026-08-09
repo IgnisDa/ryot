@@ -2,7 +2,7 @@
 @import "@fontsource-variable/lora";
 @import "tailwindcss";
 @import "@ryot-app/client-ui-sdk/theme.css";
-@import "./palette.css";
+@import "@ryot-app/client-ui-sdk/palette.css";
 @import "./base.css";
 @import "./components.css";
 

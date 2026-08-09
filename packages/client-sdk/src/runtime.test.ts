@@ -4,8 +4,6 @@ import {
 	CLIENT_BRIDGE_MAX_PENDING_REQUESTS,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
-	PluginBridgeThemeApplied,
-	REQUIRED_THEME_TOKEN_NAMES,
 	type PluginBridgeInit,
 	type PluginClientArtifactMetadata,
 } from "@ryot-app/contract/modules/plugins/client";
@@ -30,15 +28,12 @@ const init: PluginBridgeInit = {
 	sessionId: "session-id",
 	artifactHash: metadata.hash,
 	apiVersion: metadata.apiVersion,
+	mode: "light",
 	bridgeVersion: metadata.bridgeVersion,
 	compilerVersion: metadata.compilerVersion,
 };
 const document = { queries: {}, output: {} } as PreparedRecipe<unknown>["document"];
 const channels: MessageChannel[] = [];
-const tokens = Object.fromEntries(
-	REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, `light-${name}`]),
-);
-const theme = { resolvedMode: "light", tokens };
 const routeResolver = () => ({ component: () => null, header: null, params: {} });
 
 const openRuntime = () => {
@@ -47,19 +42,19 @@ const openRuntime = () => {
 	channel.port1.addEventListener("message", ({ data }) => messages.push(data));
 	channel.port1.start();
 	channels.push(channel);
-	const properties = new Map<string, string>();
-	const style = {
-		setProperty: (property: string, value: string) => properties.set(property, value),
+	const attributes = new Map<string, string>();
+	const root = {
+		setAttribute: (name: string, value: string) => attributes.set(name, value),
 	};
 	return {
 		channel,
 		messages,
-		properties,
+		attributes,
 		runtime: createPluginRuntime(
 			channel.port2,
 			init,
 			metadata,
-			style,
+			root,
 			createPluginNavigationStore(routeResolver),
 		),
 	};
@@ -75,7 +70,6 @@ const activate = (channel: MessageChannel) => {
 		type: "location",
 		location: { path: "/", search: "" },
 	});
-	channel.port1.postMessage({ generation: 1, type: "theme", theme });
 };
 
 afterEach(() => {
@@ -563,8 +557,11 @@ describe("plugin runtime", () => {
 		);
 	});
 
-	it("applies the initial theme before acknowledging it and gates activation on both inputs", async () => {
-		const { channel, messages, properties, runtime } = openRuntime();
+	it("applies the init theme mode before any host message arrives", async () => {
+		const { channel, messages, attributes, runtime } = openRuntime();
+
+		expect(attributes.get("data-theme")).toBe("light");
+
 		channel.port1.postMessage({
 			index: 0,
 			key: "k0",
@@ -574,21 +571,7 @@ describe("plugin runtime", () => {
 			location: { path: "/", search: "" },
 		});
 		await delay();
-		await expect(
-			runtime.client.data.query({ document, decode: Result.succeed }),
-		).rejects.toMatchObject({ reason: "transport" });
 
-		channel.port1.postMessage({
-			type: "theme",
-			generation: 17,
-			theme: { resolvedMode: "light", tokens: { ...tokens, future: "ignored" } },
-		});
-		await delay();
-
-		expect(properties.get("--bg")).toBe("light-bg");
-		expect(properties.get("--nav-indicator")).toBe("light-nav-indicator");
-		expect(properties.has("--future")).toBe(false);
-		expect(messages).toContainEqual({ generation: 17, type: "theme-applied" });
 		const query = runtime.client.data.query({ document, decode: Result.succeed });
 		await delay();
 		expect(messages).toContainEqual({ document, requestId: "ryotql-1", type: "ryotql-request" });
@@ -597,7 +580,7 @@ describe("plugin runtime", () => {
 	});
 
 	it("publishes live themes without changing location, runtime identity, or pending calls", async () => {
-		const { channel, messages, properties, runtime } = openRuntime();
+		const { channel, attributes, runtime } = openRuntime();
 		activate(channel);
 		await delay();
 		const client = runtime.client;
@@ -608,23 +591,14 @@ describe("plugin runtime", () => {
 		});
 		const query = client.data.query({ document, decode: Result.succeed });
 		await delay();
-		channel.port1.postMessage({
-			type: "theme",
-			generation: 2,
-			theme: { resolvedMode: "dark", tokens: { ...tokens, bg: "dark-bg" } },
-		});
+		channel.port1.postMessage({ mode: "dark", type: "theme" });
 		await delay();
 
 		expect(runtime.client).toBe(client);
 		expect(runtime.navigation.getSnapshot().entry).toBe(location);
 		expect(client.theme.getSnapshot().resolvedMode).toBe("dark");
-		expect(properties.get("--bg")).toBe("dark-bg");
+		expect(attributes.get("data-theme")).toBe("dark");
 		expect(notifications).toBe(1);
-		expect(
-			messages.filter((message) =>
-				Result.isSuccess(Schema.decodeUnknownResult(PluginBridgeThemeApplied)(message)),
-			),
-		).toHaveLength(1);
 
 		channel.port1.postMessage({
 			outcome: "success",
@@ -642,11 +616,7 @@ describe("plugin runtime", () => {
 		await delay();
 		const query = runtime.client.data.query({ document, decode: Result.succeed });
 		await delay();
-		channel.port1.postMessage({
-			generation: 2,
-			type: "theme",
-			theme: { resolvedMode: "dark", tokens: {} },
-		});
+		channel.port1.postMessage({ mode: "system", type: "theme" });
 
 		await expect(query).rejects.toMatchObject({ reason: "protocol" });
 		await expect(

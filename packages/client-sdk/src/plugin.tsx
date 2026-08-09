@@ -94,7 +94,7 @@ export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
 				port,
 				init,
 				artifactMetadata,
-				document.documentElement.style,
+				document.documentElement,
 				navigationStore,
 				mount,
 				() => {
