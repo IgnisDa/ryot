@@ -10,7 +10,7 @@ Use local storage when Ryot runs on one backend replica and has a persistent loc
 The container uses two fixed directories, created and owned by the non-root backend user:
 
 - `/home/ryot/storage` for permanent files.
-- `/home/ryot/work` for temporary uploads, imports, and sandbox files.
+- `/home/ryot/work` for temporary uploads, imports, backups, and sandbox files.
 
 The paths are not configurable. Only the signing secret must be set:
 
@@ -95,7 +95,7 @@ for the import or other consumer. Retrying completion is safe.
 
 ## Limits and cleanup
 
-- Uploads are limited to 50 MiB for both providers and both lifetimes.
+- Regular uploads are limited to 50 MiB. Backup archives have a separate, larger limit.
 - Upload intents and their upload targets expire 15 minutes after creation.
 - A completed temporary upload is claimable for 15 minutes if it is not claimed.
 - Claiming replaces that unclaimed lifetime with a 24-hour processing lease.

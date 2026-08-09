@@ -83,6 +83,19 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 	"NotificationsRepository",
 	{
 		make: Effect.sync(() => {
+			const hasAnyForUser = Effect.fn("NotificationsRepository.hasAnyForUser")(function* (
+				userId: UserId,
+			) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select({ id: schema.notificationChannel.id })
+						.from(schema.notificationChannel)
+						.where(eq(schema.notificationChannel.userId, userId))
+						.limit(1),
+				);
+				return row !== undefined;
+			});
 			const createForUser = Effect.fn("NotificationsRepository.createForUser")(function* (input: {
 				userId: UserId;
 				isDisabled: boolean;
@@ -177,7 +190,7 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 				},
 			);
 
-			return { createForUser, deleteForUser, updateForUser, listEnabledForUser };
+			return { hasAnyForUser, createForUser, deleteForUser, updateForUser, listEnabledForUser };
 		}),
 	},
 ) {
