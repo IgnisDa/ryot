@@ -4,22 +4,19 @@ import { Pressable, Text, View } from "react-native";
 
 import { getEntityHref } from "@/modules/navigation/navigation-data";
 import { ImageTintOverlay, useImageTint } from "@/modules/ui/image-tint-view";
+import { useManagedAssetUrl } from "@/modules/ui/managed-asset-context";
 
 import type { SavedViewTableItem } from "./display-data";
 import { formatSavedViewValue } from "./display-value";
 import { SavedViewImageView } from "./saved-view-image";
-import { savedViewImageUrl } from "./saved-view-image-url";
 
 const columnClassName = (index: number) =>
 	index === 0 ? "min-w-0 flex-1" : "w-16 shrink-0 md:w-28";
 
-function SavedViewTableRow(props: {
-	item: SavedViewTableItem;
-	managedUrls: ReadonlyMap<string, string>;
-}) {
-	const { gradientStops, onImageError } = useImageTint(
-		savedViewImageUrl(props.item.image, props.managedUrls),
-	);
+function SavedViewTableRow(props: { item: SavedViewTableItem }) {
+	const image = props.item.image;
+	const url = useManagedAssetUrl(image.type === "asset" ? image.locator : undefined);
+	const { gradientStops, onImageError } = useImageTint(url);
 
 	return (
 		<Link asChild href={getEntityHref(props.item.entityId)}>
@@ -41,7 +38,6 @@ function SavedViewTableRow(props: {
 							<SavedViewImageView
 								onError={onImageError}
 								image={props.item.image}
-								managedUrls={props.managedUrls}
 								className="h-13 w-9 shrink-0 rounded-sm bg-surface-2"
 							/>
 						</Link.AppleZoom>
@@ -62,10 +58,7 @@ function SavedViewTableRow(props: {
 	);
 }
 
-export function SavedViewTable(props: {
-	items: readonly SavedViewTableItem[];
-	managedUrls: ReadonlyMap<string, string>;
-}) {
+export function SavedViewTable(props: { items: readonly SavedViewTableItem[] }) {
 	const headers = props.items[0]?.cells ?? [];
 	return (
 		<View className="w-full max-w-6xl">
@@ -85,7 +78,7 @@ export function SavedViewTable(props: {
 				))}
 			</View>
 			{props.items.map((item) => (
-				<SavedViewTableRow key={item.entityId} item={item} managedUrls={props.managedUrls} />
+				<SavedViewTableRow key={item.entityId} item={item} />
 			))}
 		</View>
 	);

@@ -19,8 +19,6 @@ import {
 } from "./show-overview-state";
 import { ShowLinkButton, ShowOverviewSection } from "./show-primitives";
 
-type ManagedUrls = ReadonlyMap<string, string>;
-
 const CREDIT_COLUMN_CLASS = "md:min-w-0 md:flex-1 md:border-t-0 md:pt-0";
 
 const COMPANY_COLUMN_CLASS = "md:w-72 md:shrink-0 md:border-t-0 md:pt-0";
@@ -35,7 +33,6 @@ function ShowRail(props: { readonly children: ReactNode }) {
 
 export function ShowImageGallery(props: {
 	readonly divided: boolean;
-	readonly managedUrls: ManagedUrls;
 	readonly assets: readonly AssetLocator[];
 }) {
 	if (props.assets.length === 0) {
@@ -57,7 +54,6 @@ export function ShowImageGallery(props: {
 					<ShowAssetImage
 						asset={asset}
 						key={assetLocatorKey(asset)}
-						managedUrls={props.managedUrls}
 						className="aspect-video w-64 sm:w-72 md:w-96"
 					/>
 				))}
@@ -68,7 +64,6 @@ export function ShowImageGallery(props: {
 
 export function ShowPeopleSection(props: {
 	readonly divided: boolean;
-	readonly managedUrls: ManagedUrls;
 	readonly people: readonly ShowPerson[];
 }) {
 	if (props.people.length === 0) {
@@ -96,7 +91,6 @@ export function ShowPeopleSection(props: {
 								shape="circle"
 								className="aspect-square w-full"
 								asset={showPersonAsset(person)}
-								managedUrls={props.managedUrls}
 							/>
 							<View className="gap-1">
 								<Text
@@ -132,7 +126,6 @@ export function ShowPeopleSection(props: {
 
 export function ShowCompaniesSection(props: {
 	readonly divided: boolean;
-	readonly managedUrls: ManagedUrls;
 	readonly companies: readonly ShowCompany[];
 }) {
 	if (props.companies.length === 0) {
@@ -149,11 +142,7 @@ export function ShowCompaniesSection(props: {
 					const roles = showRolesLabel(company.roles);
 					return (
 						<View key={company.id} className="flex-row items-center gap-3">
-							<ShowAssetImage
-								className="h-9 w-9 shrink-0"
-								asset={showCompanyAsset(company)}
-								managedUrls={props.managedUrls}
-							/>
+							<ShowAssetImage className="h-9 w-9 shrink-0" asset={showCompanyAsset(company)} />
 							<View className="min-w-0 flex-1">
 								<Text
 									numberOfLines={1}
@@ -180,7 +169,6 @@ export function ShowCompaniesSection(props: {
 
 export function ShowRecommendationsSection(props: {
 	readonly divided: boolean;
-	readonly managedUrls: ManagedUrls;
 	readonly recommendations: readonly ShowRecommendation[];
 }) {
 	if (props.recommendations.length === 0) {
@@ -204,7 +192,6 @@ export function ShowRecommendationsSection(props: {
 						>
 							<ShowAssetImage
 								className="aspect-2/3 w-full"
-								managedUrls={props.managedUrls}
 								asset={showRecommendationAsset(recommendation)}
 							/>
 							<Text numberOfLines={2} className="font-ui text-[12px] leading-4.25 text-text">

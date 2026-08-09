@@ -227,10 +227,7 @@ function ShowStatusRail(props: { readonly show: ShowSummary }) {
 	);
 }
 
-export function ShowSummaryHeader(props: {
-	readonly show: ShowSummary;
-	readonly managedUrls: ReadonlyMap<string, string>;
-}) {
+export function ShowSummaryHeader(props: { readonly show: ShowSummary }) {
 	const { description } = props.show;
 	const [isExpanded, setIsExpanded] = useState(false);
 	const descriptionNode =
@@ -245,7 +242,6 @@ export function ShowSummaryHeader(props: {
 		<View className="gap-4 md:flex-row md:items-start md:gap-8">
 			<View className="min-w-0 md:flex-1 md:flex-row md:gap-8">
 				<ShowAssetImage
-					managedUrls={props.managedUrls}
 					asset={showPosterAsset(props.show)}
 					className="absolute top-0 left-0 aspect-2/3 w-32 md:relative md:w-60 md:shrink-0"
 				/>
