@@ -18,7 +18,9 @@ const showRows = (items: readonly Record<string, unknown>[]) =>
 	rowsResult(items, { hasMore: false, limit: 1, nextCursor: null });
 
 const ACTIVITY_RECIPE = showActivityRecipe({
+	timeZone: "UTC",
 	seasonLimit: 50,
+	watchDayLimit: 500,
 	entityId: "show-1",
 	parentEventLimit: 60,
 	episodeEventLimit: 100,
@@ -62,11 +64,11 @@ const EPISODE_EVENT_ROW = {
 	isSpoiler: null,
 	episodeNumber: 1,
 	episodeRuntime: 66,
-	id: "episode-complete",
+	id: "episode-review",
 	consumedOn: "Jellyfin",
 	episodeId: "episode-1",
 	episodeName: "The Arrest",
-	eventSchemaSlug: "complete",
+	eventSchemaSlug: "review",
 	createdAt: "2024-02-01T10:00:00.000Z",
 	occurredAt: "2024-02-01T09:00:00.000Z",
 };
@@ -93,6 +95,23 @@ const COLLECTION_EVENT_ROW = {
 	eventSchemaSlug: "add-entity-to-collection",
 };
 
+const WATCH_DAY_ROW = {
+	minutes: 45,
+	runtime: 31,
+	seasonNumber: 1,
+	episodeNumber: 1,
+	episodeId: "episode-1",
+	consumedOn: "Jellyfin",
+	episodeName: "The Arrest",
+	day: "2024-02-01T00:00:00.000Z",
+};
+
+const aggregateRows = (items: readonly Record<string, unknown>[]) => ({
+	items,
+	type: "aggregate" as const,
+	pageInfo: { hasMore: false, limit: 500 },
+});
+
 const SEASON_ROW = {
 	id: "season-1",
 	seasonNumber: 1,
@@ -106,6 +125,7 @@ const decodeActivity = (
 	input: {
 		readonly watchCount?: number;
 		readonly seasons?: readonly Record<string, unknown>[];
+		readonly watchDays?: readonly Record<string, unknown>[];
 		readonly parentEvents?: readonly Record<string, unknown>[];
 		readonly episodeEvents?: readonly Record<string, unknown>[];
 		readonly episodeProgress?: readonly Record<string, unknown>[];
@@ -114,12 +134,13 @@ const decodeActivity = (
 ) =>
 	ACTIVITY_RECIPE.decode({
 		data: {
-			totals: activityRows([{ watchCount: input.watchCount ?? 0 }]),
 			seasons: activityRows(input.seasons ?? [SEASON_ROW]),
 			parentEvents: activityRows(input.parentEvents ?? []),
 			episodeEvents: activityRows(input.episodeEvents ?? []),
 			episodeProgress: progressRows(input.episodeProgress ?? []),
+			watchDays: aggregateRows(input.watchDays ?? [WATCH_DAY_ROW]),
 			collectionEvents: activityRows(input.collectionEvents ?? []),
+			totals: activityRows([{ watchCount: input.watchCount ?? 0 }]),
 		},
 	});
 
@@ -975,7 +996,7 @@ describe("media query recipes", () => {
 					{ id: "b" },
 					{ id: "a" },
 					{ id: "special-progress" },
-					{ id: "episode-complete" },
+					{ id: "episode-review" },
 				],
 			},
 		});
@@ -1077,6 +1098,7 @@ describe("media query recipes", () => {
 					collectionEvents: activityRows([]),
 					seasons: activityRows([SEASON_ROW]),
 					totals: activityRows([{ watchCount: 1 }]),
+					watchDays: aggregateRows([WATCH_DAY_ROW]),
 					parentEvents: activityRows([PARENT_EVENT_ROW]),
 					episodeEvents: rowsResult([EPISODE_EVENT_ROW], {
 						limit: 100,
@@ -1137,6 +1159,7 @@ describe("media query recipes", () => {
 					episodeProgress: progressRows([]),
 					seasons: activityRows([SEASON_ROW]),
 					totals: activityRows([{ watchCount: 1 }]),
+					watchDays: aggregateRows([WATCH_DAY_ROW]),
 					collectionEvents: rowsResult([COLLECTION_EVENT_ROW], {
 						limit: 40,
 						hasMore: true,
