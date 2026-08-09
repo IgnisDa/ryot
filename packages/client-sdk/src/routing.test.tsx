@@ -1,6 +1,7 @@
 import {
 	PluginEntityLocation,
 	type PluginBridgeNavigate,
+	type PluginLeadingIntent,
 	type PluginLogicalLocation,
 	type PluginRouteLocation,
 } from "@ryot-app/contract/modules/plugins/client";
@@ -16,6 +17,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { createRyotClient } from "./index";
 import { createPluginNavigationStore } from "./navigation/store";
+import { PluginScreenFrame } from "./plugin-screen";
 import { RyotProvider, useRyot } from "./react";
 import {
 	createPluginRouteResolver,
@@ -35,6 +37,8 @@ const ItemRoute = () => {
 };
 
 const NotFound = () => <p>Fixture page not found.</p>;
+
+const FramedHome = () => <PluginScreenFrame title="Home">Content</PluginScreenFrame>;
 
 const Home = () => {
 	const [greetings, setGreetings] = useState(0);
@@ -102,6 +106,7 @@ const openChannel = (
 	const store = createPluginNavigationStore(resolve);
 	let compact = false;
 	let edgeBack = false;
+	let leading: PluginLeadingIntent = "none";
 	let position = -1;
 	const send = (
 		path: string,
@@ -112,6 +117,7 @@ const openChannel = (
 		store.setLocation({
 			compact,
 			edgeBack,
+			leading,
 			entry: {
 				index: position,
 				key: options.key ?? `k${position}`,
@@ -128,6 +134,7 @@ const openChannel = (
 		const location = entityLocation(entityId, entitySchemaSlug);
 		store.setLocation({
 			compact,
+			leading,
 			edgeBack,
 			entry: { index: position, location, key: options.key ?? `k${position}` },
 		});
@@ -150,12 +157,17 @@ const openChannel = (
 		messages,
 		sendEntity,
 		client: createRyotClient({ navigate, query: () => Promise.resolve({}) }),
-		setEdge: (edge: { readonly compact: boolean; readonly edgeBack: boolean }) => {
+		setEdge: (edge: {
+			readonly compact: boolean;
+			readonly edgeBack: boolean;
+			readonly leading?: PluginLeadingIntent;
+		}) => {
 			compact = edge.compact;
 			edgeBack = edge.edgeBack;
+			leading = edge.leading ?? leading;
 			const { entry } = store.getSnapshot();
 			if (entry !== undefined) {
-				store.setLocation({ compact, edgeBack, entry });
+				store.setLocation({ compact, edgeBack, entry, leading });
 			}
 		},
 		navigation: {
@@ -199,8 +211,11 @@ const mount = (
 		container,
 		store: channel.store,
 		messages: channel.messages,
-		setEdge: (edge: { readonly compact: boolean; readonly edgeBack: boolean }) =>
-			act(() => channel.setEdge(edge)),
+		setEdge: (edge: {
+			readonly compact: boolean;
+			readonly edgeBack: boolean;
+			readonly leading?: PluginLeadingIntent;
+		}) => act(() => channel.setEdge(edge)),
 		sendLocation: (
 			path: string,
 			search = "",
@@ -528,6 +543,28 @@ describe("PluginRouter", () => {
 		await waitFor(() => expect(container.textContent).toContain("Item item-1"));
 
 		expect(container.querySelector('[data-plugin-edge="back"]')).toBeNull();
+	});
+
+	it("keeps the visible leading intent independent from back-edge ownership", async () => {
+		const channel = openChannel({ home: { component: FramedHome } });
+		channel.setEdge({ compact: true, edgeBack: false, leading: "back" });
+		const container = renderRouter(channel);
+		act(() => channel.send("/"));
+
+		await waitFor(() => expect(container.querySelector('[aria-label="Go back"]')).not.toBeNull());
+		expect(container.querySelector('[aria-label="Open navigation"]')).toBeNull();
+		expect(container.querySelector('[data-plugin-edge="back"]')).toBeNull();
+
+		act(() => channel.setEdge({ compact: true, edgeBack: true, leading: "drawer" }));
+		await waitFor(() =>
+			expect(container.querySelector('[aria-label="Open navigation"]')).not.toBeNull(),
+		);
+		expect(container.querySelector('[aria-label="Go back"]')).toBeNull();
+		expect(container.querySelector('[data-plugin-edge="back"]')).not.toBeNull();
+
+		act(() => channel.setEdge({ compact: true, edgeBack: true, leading: "none" }));
+		await waitFor(() => expect(container.querySelector("button")).toBeNull());
+		expect(container.querySelector('[data-plugin-edge="back"]')).not.toBeNull();
 	});
 
 	it("posts one navigate-back when an edge drag passes the commit threshold", async () => {

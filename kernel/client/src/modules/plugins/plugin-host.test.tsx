@@ -3,6 +3,7 @@ import {
 	CLIENT_API_VERSION,
 	PluginBridgeInit,
 	PluginEntityLocation,
+	type PluginLeadingIntent,
 	type PluginThemeSnapshot,
 	type PluginLogicalLocation,
 	type PluginRouteLocation,
@@ -15,6 +16,7 @@ import { Schema } from "effect";
 import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { PluginScreenReadiness } from "#/modules/plugins/bridge";
 import {
 	PluginHost,
 	type CreatePluginArtifactSession,
@@ -34,11 +36,15 @@ const entity = Schema.decodeUnknownSync(PluginEntityLocation)({
 });
 const navigationFor = (state: {
 	readonly index?: number;
+	readonly compact?: boolean;
+	readonly edgeBack?: boolean;
+	readonly leading?: PluginLeadingIntent;
 	readonly location: PluginLogicalLocation;
 }) => ({
-	compact: false,
-	edgeBack: false,
+	compact: state.compact ?? false,
+	edgeBack: state.edgeBack ?? false,
 	index: state.index ?? 0,
+	leading: state.leading ?? "none",
 	location: state.location,
 	key: `k${state.index ?? 0}`,
 });
@@ -60,7 +66,10 @@ const installation = {
 
 type HostState = {
 	readonly index?: number;
+	readonly compact?: boolean;
 	readonly scopeKey?: string;
+	readonly edgeBack?: boolean;
+	readonly leading?: PluginLeadingIntent;
 	readonly location: PluginLogicalLocation;
 	readonly overrides: Partial<PluginClientCatalogEntry>;
 };
@@ -151,9 +160,10 @@ function renderHost(
 	overrides: Partial<PluginClientCatalogEntry> = {},
 	location = home,
 	callbacks: {
-		readonly onHeader?: Parameters<typeof PluginHost>[0]["onHeader"];
 		readonly onStaleSession?: () => void;
 		readonly onQuery?: Parameters<typeof PluginHost>[0]["onQuery"];
+		readonly onHeader?: Parameters<typeof PluginHost>[0]["onHeader"];
+		readonly onScreenState?: Parameters<typeof PluginHost>[0]["onScreenState"];
 		readonly onInvokeOperation?: Parameters<typeof PluginHost>[0]["onInvokeOperation"];
 	} = {},
 ) {
@@ -162,6 +172,7 @@ function renderHost(
 	const chromeTrigger = { current: null };
 	const theme = createTheme();
 	const navigations: PluginNavigationRequest[] = [];
+	const screenStates: Array<PluginScreenReadiness | null> = [];
 	const host = (state: HostState) => (
 		<PluginHost
 			theme={theme}
@@ -179,6 +190,10 @@ function renderHost(
 			onRevokeArtifactSession={recorder.onRevokeArtifactSession}
 			onNavigate={(request) => navigations.push(request)}
 			onStaleSession={callbacks.onStaleSession ?? (() => undefined)}
+			onScreenState={(screenState) => {
+				screenStates.push(screenState);
+				callbacks.onScreenState?.(screenState);
+			}}
 			onQuery={
 				callbacks.onQuery ??
 				(() => Promise.resolve({ outcome: "failure", reason: "transport" } as PluginRyotQLOutcome))
@@ -194,6 +209,7 @@ function renderHost(
 	return {
 		...recorder,
 		navigations,
+		screenStates,
 		unmount: view.unmount,
 		moveTo: (next: HostState) => view.rerender(host(next)),
 	};
@@ -291,20 +307,85 @@ describe("plugin artifact session lifecycle", () => {
 		expect(host.revokes).toEqual(["session-1"]);
 	});
 
-	it("reuses the session and iframe across logical location changes", async () => {
+	it("forwards current screen readiness and sends only location for navigation chrome changes", async () => {
 		const host = renderHost();
 		await flush();
-		const frame = screen.getByTitle("fixture plugin");
+		const frame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
+		const connected = connectFrame(frame);
+		connected.pluginPort.postMessage(connected.ready);
+		await flush();
+		host.screenStates.splice(0);
+		connected.pluginPort.postMessage({
+			index: 0,
+			key: "k0",
+			type: "screen-state",
+			hasPreviousScreen: false,
+		});
+		await flush();
 
 		host.moveTo({
+			index: 1,
+			compact: true,
 			overrides: {},
+			edgeBack: true,
+			leading: "back",
 			location: { kind: "route", path: "/items/one", search: "tab=stats" },
+		});
+		await flush();
+		connected.pluginPort.postMessage({
+			index: 0,
+			key: "k0",
+			type: "screen-state",
+			hasPreviousScreen: true,
+		});
+		connected.pluginPort.postMessage({
+			index: 1,
+			key: "k1",
+			type: "screen-state",
+			hasPreviousScreen: true,
 		});
 		await flush();
 
 		expect(host.creates).toHaveLength(1);
 		expect(host.revokes).toEqual([]);
 		expect(screen.getByTitle("fixture plugin")).toBe(frame);
+		expect(connected.messages).toEqual([
+			{
+				index: 0,
+				key: "k0",
+				location: home,
+				compact: false,
+				edgeBack: false,
+				leading: "none",
+				type: "location",
+			},
+			{
+				index: 1,
+				key: "k1",
+				compact: true,
+				edgeBack: true,
+				leading: "back",
+				type: "location",
+				location: { kind: "route", path: "/items/one", search: "tab=stats" },
+			},
+		]);
+		expect(host.screenStates).toEqual([
+			{ index: 0, key: "k0", hasPreviousScreen: false },
+			{ index: 1, key: "k1", hasPreviousScreen: true },
+		]);
+
+		connectFrame(frame);
+		expect(host.screenStates.at(-1)).toBeNull();
+		expect(host.creates).toHaveLength(1);
+		const replacedStates = [...host.screenStates];
+		connected.pluginPort.postMessage({
+			index: 1,
+			key: "k1",
+			type: "screen-state",
+			hasPreviousScreen: false,
+		});
+		await flush();
+		expect(host.screenStates).toEqual(replacedStates);
 	});
 
 	it("passes entity locations once for equivalent values", async () => {
@@ -320,10 +401,11 @@ describe("plugin artifact session lifecycle", () => {
 		expect(connected.messages).toContainEqual({
 			index: 0,
 			key: "k0",
-			location: entity,
 			compact: false,
 			edgeBack: false,
+			leading: "none",
 			type: "location",
+			location: entity,
 		});
 		const messageCount = connected.messages.length;
 
@@ -342,12 +424,24 @@ describe("plugin artifact session lifecycle", () => {
 		async (overrides) => {
 			const host = renderHost();
 			await flush();
-			const frame = screen.getByTitle("fixture plugin");
+			const frame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
+			const connected = connectFrame(frame);
+			connected.pluginPort.postMessage(connected.ready);
+			await flush();
+			connected.pluginPort.postMessage({
+				index: 0,
+				key: "k0",
+				type: "screen-state",
+				hasPreviousScreen: false,
+			});
+			await flush();
+			host.screenStates.splice(0);
 
 			host.moveTo({ location: home, overrides });
 			await flush();
 
 			expect(host.creates).toHaveLength(2);
+			expect(host.screenStates).toContain(null);
 			expect(host.revokes).toEqual(["session-1"]);
 			expect(screen.getByTitle("fixture plugin")).not.toBe(frame);
 			expect(host.events).toEqual([
@@ -379,6 +473,7 @@ describe("plugin artifact session lifecycle", () => {
 					installation={installation}
 					onNavigate={() => undefined}
 					onOpenDrawer={() => undefined}
+					onScreenState={() => undefined}
 					onStaleSession={() => undefined}
 					onNavigateBack={() => undefined}
 					chromeTriggerRef={{ current: null }}
@@ -413,7 +508,7 @@ describe("plugin artifact session lifecycle", () => {
 					: Promise.resolve(artifactSession("retry"));
 			},
 		});
-		renderHost(recorder);
+		const host = renderHost(recorder);
 		await flush();
 
 		expect(screen.queryByTitle("fixture plugin")).toBeNull();
@@ -422,6 +517,7 @@ describe("plugin artifact session lifecycle", () => {
 
 		expect(recorder.creates).toHaveLength(2);
 		expect(recorder.creates[0]?.signal.aborted).toBe(true);
+		expect(host.screenStates).toContain(null);
 		expect(screen.getByTitle("fixture plugin").getAttribute("src")).toContain("retry");
 	});
 
@@ -442,6 +538,13 @@ describe("plugin artifact session lifecycle", () => {
 		await flush();
 		await flush();
 		connected.pluginPort.postMessage({
+			index: 0,
+			key: "k0",
+			type: "screen-state",
+			hasPreviousScreen: false,
+		});
+		await flush();
+		connected.pluginPort.postMessage({
 			requestId: "query",
 			type: "ryotql-request",
 			document: { queries: {} },
@@ -451,8 +554,13 @@ describe("plugin artifact session lifecycle", () => {
 		await flush();
 
 		expect(querySignal?.aborted).toBe(true);
+		expect(host.screenStates.at(-1)).toBeNull();
 		expect(screen.queryByTitle("fixture plugin")).toBeNull();
+		const clearsBeforeRetry = host.screenStates.filter((state) => state === null).length;
 		fireEvent.click(screen.getByRole("button", { name: "Reload plugin" }));
+		expect(host.screenStates.filter((state) => state === null).length).toBeGreaterThan(
+			clearsBeforeRetry,
+		);
 		await flush();
 
 		expect(host.revokes).toEqual(["session-1"]);
