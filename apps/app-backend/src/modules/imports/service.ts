@@ -21,6 +21,7 @@ import {
 	ImportSourceCatalog,
 	type RegisteredImportSource,
 } from "#modules/plugins/import-source-catalog";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 
 import { ImportRunFailuresService, type ImportRunFailureDetails } from "./failure-service";
@@ -71,6 +72,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 		const uploads = yield* UploadIntentsService;
 		const repository = yield* ImportsRepository;
 		const importSources = yield* ImportSourceCatalog;
+		const pluginRuntime = yield* PluginRuntimeResolver;
 		const workflowPinning = yield* ImportWorkflowPinning;
 		const failureService = yield* ImportRunFailuresService;
 
@@ -332,6 +334,15 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				});
 			}
 			const registered = resolution.source;
+			const isSystemPluginAvailableToUser = yield* pluginRuntime.isSystemPluginAvailableToUser(
+				user.id,
+				registered.pluginSlug,
+			);
+			if (!isSystemPluginAvailableToUser) {
+				return yield* new ImportRequestError({
+					reason: { code: "source-not-found", source: body.source },
+				});
+			}
 			const workflowScript = yield* resolution.script;
 			if (!workflowScript) {
 				return yield* new ImportRequestError({
@@ -364,9 +375,14 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				: yield* startSourcePayloadImportRun(user, body, properties, registered, workflowScript.id);
 		});
 
-		const listImportSources = Effect.fn("ImportsService.listImportSources")(function* () {
+		const listImportSources = Effect.fn("ImportsService.listImportSources")(function* (
+			user: CurrentUserValue,
+		) {
 			const sources = yield* importSources.listWithWorkflowStatus;
-			return yield* Effect.forEach(sources, ({ source, hasActiveWorkflow }) =>
+			const available = yield* Effect.filter(sources, ({ source }) =>
+				pluginRuntime.isSystemPluginAvailableToUser(user.id, source.pluginSlug),
+			);
+			return yield* Effect.forEach(available, ({ source, hasActiveWorkflow }) =>
 				Effect.gen(function* () {
 					const missingPluginConfigKeys = yield* registryImportSourceMissingConfigKeys(source);
 					const { configSchema: _configSchema, pluginSlug, ...manifestSource } = source;
