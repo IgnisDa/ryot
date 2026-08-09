@@ -7,6 +7,7 @@ Ryot is a self-hosted personal tracker. Keep the UI warm, calm, compact, scannab
 - Prefer `className` for static layout, spacing, sizing, opacity, borders, and colors. Use inline `style` only for dynamic runtime values, safe-area insets, animation output, or native-only props that Tailwind cannot express.
 - Use a single `props` parameter, not destructured arguments.
 - Use `@tanstack/react-hotkeys` for web keyboard shortcuts. Do not register document keyboard listeners manually.
+- Use `AppModal` from `src/modules/ui/modal.tsx` for true modal dialogs so backdrop, native back, accessibility, and web Escape behavior stay consistent.
 - Construct contract clients and HTTP layers only under `src/api`; feature modules must use the shared clients and query wrappers.
 - Authenticated feature operations must accept `ApiScope`, not raw server URLs. Public onboarding and admin flows are the only exceptions.
 - Do not create parallel authenticated API clients or feature-owned transport wrappers; extend the scoped client under `src/api`.
