@@ -410,13 +410,20 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				}
 				if (identity.kind === "plugin-page") {
 					const resolved = yield* resolvePluginTarget(userId, identity.target);
+					const build = yield* repository.findBuild({
+						userId,
+						graphHash: resolved.graph.graphHash,
+					});
 					return (
 						resolved.plugin.id === identity.pluginId &&
 						resolved.plugin.sourceHash === identity.sourceHash &&
 						resolved.plugin.installationId === identity.installationId &&
 						resolved.exportName === identity.exportName &&
 						resolved.graph.graphHash === identity.graphHash &&
-						Bun.deepEquals(resolved.graph.contributors, identity.contributors)
+						Bun.deepEquals(resolved.graph.contributors, identity.contributors) &&
+						build?.id === identity.buildId &&
+						build.artifactHash === identity.artifactHash &&
+						Bun.deepEquals(build.graphIdentity, resolved.graph.identity)
 					);
 				}
 				const prepared = yield* repository.findPreparedTarget(userId, identity.savedViewId);
@@ -439,12 +446,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						definition: kernelRenderer.definition,
 						sourceHash: kernelRenderer.sourceHash,
 					});
-					const build = yield* repository.findKernelBuild({
-						userId,
-						graphHash: graph.graphHash,
-						sourceHash: identity.sourceHash,
-						kernelRendererName: identity.rendererName,
-					});
+					const build = yield* repository.findBuild({ userId, graphHash: graph.graphHash });
 					return (
 						graph.graphHash === identity.graphHash &&
 						Bun.deepEquals(graph.contributors, identity.contributors) &&
@@ -483,12 +485,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				) {
 					return false;
 				}
-				const build = yield* repository.findBuild({
-					userId,
-					rendererId,
-					graphHash: graph.graphHash,
-					publishedHash: identity.publishedHash,
-				});
+				const build = yield* repository.findBuild({ userId, graphHash: graph.graphHash });
 				return (
 					build?.id === identity.buildId &&
 					build.artifactHash === identity.artifactHash &&
@@ -515,12 +512,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						definition: kernelRenderer.definition,
 						sourceHash: kernelRenderer.sourceHash,
 					});
-					let build = yield* repository.findKernelBuild({
-						userId: user.id,
-						kernelRendererName,
-						graphHash: graph.graphHash,
-						sourceHash: kernelRenderer.sourceHash,
-					});
+					let build = yield* repository.findBuild({ userId: user.id, graphHash: graph.graphHash });
 					if (build && !Bun.deepEquals(build.graphIdentity, graph.identity)) {
 						return yield* invalid(
 							"Stored kernel client page graph identity does not match its hash",
@@ -566,13 +558,13 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 										);
 									}
 									yield* plugins.persistClientArtifact(artifact);
-									return yield* repository.createKernelBuild({
+									return yield* repository.createBuild({
 										userId: user.id,
 										kernelRendererName,
 										graphHash: graph.graphHash,
 										artifactHash: artifact.hash,
 										graphIdentity: graph.identity,
-										sourceHash: kernelRenderer.sourceHash,
+										publishedHash: kernelRenderer.sourceHash,
 									});
 								}).pipe(Effect.provideService(Database, transaction)),
 							),
@@ -650,12 +642,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				const preparedOperationTargets = clientPageOperationTargets(
 					yield* pluginRuntime.listPluginsAvailableToUser(user.id, true),
 				);
-				let build = yield* repository.findBuild({
-					rendererId,
-					publishedHash,
-					userId: user.id,
-					graphHash: graph.graphHash,
-				});
+				let build = yield* repository.findBuild({ userId: user.id, graphHash: graph.graphHash });
 				if (build && !Bun.deepEquals(build.graphIdentity, graph.identity)) {
 					return yield* invalid("Stored client page graph identity does not match its hash");
 				}
@@ -758,18 +745,47 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					return yield* prepareSavedView(user, target.savedViewId);
 				}
 				const resolved = yield* resolvePluginTarget(user.id, target);
-				const artifact = yield* compileGraph(resolved.graph).pipe(
-					Effect.mapError(
-						(error) =>
-							new ClientRendererBadRequest({
-								reason: {
-									code: "build-failed",
-									diagnostics: error.diagnostics.map(({ file, message }) => `${file}: ${message}`),
-								},
-							}),
-					),
-				);
-				yield* plugins.persistClientArtifact(artifact);
+				let build = yield* repository.findBuild({
+					userId: user.id,
+					graphHash: resolved.graph.graphHash,
+				});
+				if (build && !Bun.deepEquals(build.graphIdentity, resolved.graph.identity)) {
+					return yield* invalid("Stored plugin page graph identity does not match its hash");
+				}
+				if (!build) {
+					const artifact = yield* compileGraph(resolved.graph).pipe(
+						Effect.mapError(
+							(error) =>
+								new ClientRendererBadRequest({
+									reason: {
+										code: "build-failed",
+										diagnostics: error.diagnostics.map(
+											({ file, message }) => `${file}: ${message}`,
+										),
+									},
+								}),
+						),
+					);
+					yield* plugins.persistClientArtifact(artifact);
+					const buildId = yield* repository.createBuild({
+						userId: user.id,
+						artifactHash: artifact.hash,
+						graphHash: resolved.graph.graphHash,
+						graphIdentity: resolved.graph.identity,
+					});
+					if (!buildId) {
+						return yield* invalid("Plugin page build could not be stored");
+					}
+					build = {
+						id: buildId,
+						format: artifact.format,
+						artifactHash: artifact.hash,
+						apiVersion: artifact.apiVersion,
+						bridgeVersion: artifact.bridgeVersion,
+						graphIdentity: resolved.graph.identity,
+						compilerVersion: artifact.compilerVersion,
+					};
+				}
 				let contextTarget;
 				if (target.kind === "entity") {
 					if (!resolved.entity) {
@@ -785,11 +801,11 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				}
 				return {
 					artifact: {
-						hash: artifact.hash,
-						format: artifact.format,
-						apiVersion: artifact.apiVersion,
-						bridgeVersion: artifact.bridgeVersion,
-						compilerVersion: artifact.compilerVersion,
+						format: build.format,
+						hash: build.artifactHash,
+						apiVersion: build.apiVersion,
+						bridgeVersion: build.bridgeVersion,
+						compilerVersion: build.compilerVersion,
 					},
 					context: {
 						view: null,
@@ -805,11 +821,11 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					},
 					identity: {
 						target,
-						artifactHash: artifact.hash,
+						buildId: build.id,
 						kind: "plugin-page" as const,
 						pluginId: resolved.plugin.id,
 						exportName: resolved.exportName,
-						buildId: resolved.graph.graphHash,
+						artifactHash: build.artifactHash,
 						graphHash: resolved.graph.graphHash,
 						sourceHash: resolved.plugin.sourceHash,
 						contributors: resolved.graph.contributors,

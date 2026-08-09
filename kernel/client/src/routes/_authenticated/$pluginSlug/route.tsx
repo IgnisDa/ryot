@@ -1,7 +1,11 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { Effect } from "effect";
 
-import { ClientPageHost } from "#/modules/client-pages/page-host";
+import {
+	useClearClientPageDocument,
+	useClientPageDocument,
+	useHasPublishedClientPageDocument,
+} from "#/modules/client-pages/document";
 import { prepareClientPage } from "#/modules/client-pages/preparation";
 import { AppScreen } from "#/modules/navigation/app-screen";
 import { usePageTitle } from "#/modules/navigation/page-title";
@@ -12,9 +16,9 @@ import { toPluginLocation } from "#/modules/plugins/plugin-location";
 export const Route = createFileRoute("/_authenticated/$pluginSlug")({
 	shouldReload: true,
 	component: PluginRoute,
+	pendingComponent: PluginPending,
 	notFoundComponent: PluginNotFound,
-	pendingComponent: () => <PluginNotice title="Plugin loading" />,
-	errorComponent: () => <PluginNotice title="Plugin page unavailable" />,
+	errorComponent: () => <PluginNotice clear title="Plugin page unavailable" />,
 	loader: async ({ params, context, location, abortController }) => {
 		const catalog = await context.runtime.runPromise(
 			Effect.flatMap(PluginCatalogService, (service) => service.load(context.ryot)),
@@ -49,16 +53,34 @@ export const Route = createFileRoute("/_authenticated/$pluginSlug")({
 function PluginRoute() {
 	const loaded = Route.useLoaderData();
 	if (loaded.preparation.kind === "unavailable") {
-		return <PluginNotice title="Plugin page not found" />;
+		return <PluginNotice clear title="Plugin page not found" />;
 	}
-	return <ClientPageHost title={loaded.installation.name} prepared={loaded.preparation.prepared} />;
+	return <PluginDocument title={loaded.installation.name} prepared={loaded.preparation.prepared} />;
 }
 
-function PluginNotice(props: { readonly title: string }) {
+function PluginDocument(props: Parameters<typeof useClientPageDocument>[0]) {
+	useClientPageDocument(props);
+	return null;
+}
+
+function PluginPending() {
+	return useHasPublishedClientPageDocument() ? null : <PluginNotice title="Plugin loading" />;
+}
+
+function PluginNotice(props: { readonly title: string; readonly clear?: boolean }) {
+	if (props.clear) {
+		return <ClearedPluginNotice title={props.title} />;
+	}
+	return <AppScreen title={props.title}>{null}</AppScreen>;
+}
+
+function ClearedPluginNotice(props: { readonly title: string }) {
+	useClearClientPageDocument();
 	return <AppScreen title={props.title}>{null}</AppScreen>;
 }
 
 function PluginNotFound() {
+	useClearClientPageDocument();
 	usePageTitle("Plugin not found");
 	return (
 		<main {...mainContentProps} className="ui-page">

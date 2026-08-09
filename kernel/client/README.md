@@ -7,8 +7,8 @@ same build in Capacitor WebViews.
 
 The kernel owns authentication, server selection, the single global URL and history, client-page
 sessions, bridge dispatch, and all native and platform authority. Plugins own domain UI and behavior.
-The kernel renders plugin routes, entity pages, saved views, and workspace homes through one
-`ClientPageHost`; each prepared page is an independently compiled React DOM application in a
+Routes publish plugin routes, entity pages, saved views, and workspace homes to the shell-owned client
+page document host. Each prepared page is an independently compiled React DOM application in a
 sandboxed, opaque-origin iframe.
 
 The iframe receives no bearer credentials and has no direct Capacitor access. Its only privileged
@@ -27,9 +27,12 @@ plugin-owned artifact selection or session route.
 The kernel resolves every committed URL explicitly. Kernel routes render kernel surfaces;
 `/:pluginSlug/*`, `/v/:viewSlug`, and `/e/:entityId` resolve to client-page targets for plugin routes,
 saved views, and persisted entity provenance. A workspace home resolves to its selected saved-view
-target while retaining the workspace URL. The active iframe is reused only while its prepared build,
-graph, artifact, and document identity stay unchanged. Disabled installations stay out of workspace
-discovery but remain reachable through direct plugin and delegated entity URLs.
+target while retaining the workspace URL. The shell retains the three most recently active client-page
+iframes. It reuses a frame only while its prepared build, graph, artifact, document identity, and
+non-location page context stay unchanged; location-derived route and entity fields arrive through live
+navigation updates. Retained frames keep artifact sessions and entity interests warm, but only the
+active frame owns shell integrations. Disabled installations stay out of workspace discovery but
+remain reachable through direct plugin and delegated entity URLs.
 
 There is one global history. Plugins request tagged route or entity navigation, and the kernel writes
 the canonical URL. The kernel sends each accepted location with its history `index` and stable entry

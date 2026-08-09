@@ -22,6 +22,9 @@ Client entries default-export components or presentation definitions. They do no
 an application. The compiler generates one application bootstrap and React root for plugin routes,
 entity pages, saved-view renderers, and workspace homes. Public cross-plugin imports use
 `@ryot-app/plugins/<plugin-slug>/<export-name>` and must name a declared client dependency.
+Client code may read `usePageContext().target.kind`, but must derive target paths, route parameters,
+entity IDs, and entity schema slugs from the live routing APIs. The kernel retains and reuses a client
+realm across locations, so the initial page context is not a navigation state source.
 
 Backend areas group entrypoints under `automations/`, `bootstrap/`, `imports/`, `integrations/`,
 `operations/`, `workflows/`, and `providers/`; cross-area code belongs in `backend/lib/`.

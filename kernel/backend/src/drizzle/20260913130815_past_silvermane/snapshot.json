@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "e4c3814a-7ae7-498a-aad1-db21b72d4155",
+	"id": "edc053a7-10bf-4b91-a4a6-a83b0e88b0de",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -944,6 +944,19 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
+			"name": "published_hash",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_page_build"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
 			"name": "kernel_renderer_name",
 			"entityType": "columns",
 			"schema": "public",
@@ -958,19 +971,6 @@
 			"generated": null,
 			"identity": null,
 			"name": "graph_hash",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "client_page_build"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "published_hash",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "client_page_build"
@@ -9868,18 +9868,9 @@
 		},
 		{
 			"nameExplicit": true,
-			"columns": ["renderer_id", "published_hash", "graph_hash"],
+			"columns": ["user_id", "graph_hash"],
 			"nullsNotDistinct": false,
-			"name": "client_page_build_graph_unique",
-			"entityType": "uniques",
-			"schema": "public",
-			"table": "client_page_build"
-		},
-		{
-			"nameExplicit": true,
-			"columns": ["user_id", "kernel_renderer_name", "published_hash", "graph_hash"],
-			"nullsNotDistinct": false,
-			"name": "client_page_build_kernel_graph_unique",
+			"name": "client_page_build_user_graph_unique",
 			"entityType": "uniques",
 			"schema": "public",
 			"table": "client_page_build"

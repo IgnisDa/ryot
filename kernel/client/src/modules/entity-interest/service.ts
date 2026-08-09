@@ -14,7 +14,11 @@ import { EntityInterestTransport, type InterestSocket } from "./transport";
 
 export type WatchEntities = RyotClient["entities"]["watch"];
 
-type Owner = { interest: EntityInterest; readonly onUpdate: Parameters<WatchEntities>[1] };
+type Owner = {
+	interest: EntityInterest;
+	readonly active: () => boolean;
+	readonly onUpdate: Parameters<WatchEntities>[1];
+};
 
 export class EntityInterestService extends Context.Service<EntityInterestService>()(
 	"EntityInterestService",
@@ -33,11 +37,16 @@ export class EntityInterestService extends Context.Service<EntityInterestService
 				  }
 				| undefined;
 
-			const watch = (scope: ApiScope, interest: EntityInterest, onUpdate: Owner["onUpdate"]) => {
+			const watch = (
+				scope: ApiScope,
+				interest: EntityInterest,
+				onUpdate: Owner["onUpdate"],
+				isActive: () => boolean = () => true,
+			) => {
 				const key = apiScopeKey(scope);
 				const owners = declarations.get(key) ?? new Set<Owner>();
 				declarations.set(key, owners);
-				const owner = { interest, onUpdate };
+				const owner = { interest, onUpdate, active: isActive };
 				owners.add(owner);
 				if (active?.key === key) {
 					active.refresh();
@@ -153,9 +162,15 @@ export class EntityInterestService extends Context.Service<EntityInterestService
 						return;
 					}
 					const owners = [...(declarations.get(key) ?? [])];
+					const ordered = [
+						owners.filter((owner) => owner.active()),
+						owners.filter((owner) => !owner.active()),
+					];
 					const selected = new Set(
-						(["foreground", "visible"] as const).flatMap((priority) =>
-							[...new Set(owners.flatMap((owner) => owner.interest[priority]))].sort(),
+						ordered.flatMap((group) =>
+							(["foreground", "visible"] as const).flatMap((priority) =>
+								[...new Set(group.flatMap((owner) => owner.interest[priority]))].sort(),
+							),
 						),
 					);
 					const next = new Set([...selected].slice(0, MAX_INTEREST_ENTITY_IDS));
@@ -357,6 +372,11 @@ export class EntityInterestService extends Context.Service<EntityInterestService
 			return {
 				watch,
 				acquire,
+				refresh: (scope: ApiScope) => {
+					if (active?.key === apiScopeKey(scope)) {
+						active.refresh();
+					}
+				},
 				reconnect: (scope: ApiScope) => {
 					if (active?.key === apiScopeKey(scope)) {
 						active.reconnect();

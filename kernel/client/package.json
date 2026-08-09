@@ -35,6 +35,7 @@
 		"@ryot-app/contract": "workspace:*",
 		"@ryot-app/ryotql": "workspace:*",
 		"@ryot-app/ryotql-recipes": "workspace:*",
+		"@ryot-app/ts-utils": "workspace:*",
 		"@tailwindcss/vite": "^4.1.18",
 		"@tanstack/react-form": "2.0.0-alpha.1",
 		"@tanstack/react-router": "latest",

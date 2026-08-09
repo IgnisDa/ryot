@@ -55,9 +55,9 @@ export const clientRenderer = snakeCase.table(
 export const clientPageBuild = snakeCase.table(
 	"client_page_build",
 	{
+		publishedHash: text(),
 		kernelRendererName: text(),
 		graphHash: text().notNull(),
-		publishedHash: text().notNull(),
 		graphIdentity: jsonb().$type<ClientPageGraphIdentity>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		id: text()
@@ -73,17 +73,7 @@ export const clientPageBuild = snakeCase.table(
 	},
 	(table) => [
 		index("client_page_build_user_id_idx").on(table.userId),
-		unique("client_page_build_graph_unique").on(
-			table.rendererId,
-			table.publishedHash,
-			table.graphHash,
-		),
-		unique("client_page_build_kernel_graph_unique").on(
-			table.userId,
-			table.kernelRendererName,
-			table.publishedHash,
-			table.graphHash,
-		),
+		unique("client_page_build_user_graph_unique").on(table.userId, table.graphHash),
 	],
 );
 
