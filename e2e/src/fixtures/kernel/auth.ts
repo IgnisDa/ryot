@@ -32,8 +32,11 @@ export type PendingOAuth = {
 	redirectUri: string;
 	codeVerifier: string;
 	serverOrigin: string;
+	frontendOrigin: string;
 	authorizationUrl: string;
 };
+
+const frontendOrigins = new Map<string, Promise<string>>();
 
 const pendingTwoFactor = new Map<string, PendingOAuth>();
 
@@ -47,11 +50,29 @@ export const responseCookie = (response: Response) =>
 		.filter((cookie): cookie is string => cookie !== undefined)
 		.join("; ");
 
-export const prepareOAuth = async (
-	baseUrl: string,
-	frontendOrigin = new URL(baseUrl).origin,
-): Promise<PendingOAuth> => {
+const getServerFrontendOrigin = (baseUrl: string) => {
 	const serverOrigin = new URL(baseUrl).origin;
+	const cached = frontendOrigins.get(serverOrigin);
+	if (cached) {
+		return cached;
+	}
+	const resolved = fetch(`${serverOrigin}/api/system/config`)
+		.then((response) => response.json())
+		.then((config: unknown) =>
+			requireString(
+				config !== null && typeof config === "object"
+					? Reflect.get(config, "frontendOrigin")
+					: null,
+				`Server ${serverOrigin} did not expose its frontend origin`,
+			),
+		);
+	frontendOrigins.set(serverOrigin, resolved);
+	return resolved;
+};
+
+export const prepareOAuth = async (baseUrl: string): Promise<PendingOAuth> => {
+	const serverOrigin = new URL(baseUrl).origin;
+	const frontendOrigin = await getServerFrontendOrigin(baseUrl);
 	const redirectUri = getWebOAuthCallbackUri(frontendOrigin);
 	const state = randomValue();
 	const codeVerifier = randomValue();
@@ -78,6 +99,7 @@ export const prepareOAuth = async (
 		redirectUri,
 		serverOrigin,
 		codeVerifier,
+		frontendOrigin,
 		authorizationUrl: authorizationUrl.toString(),
 	};
 };
@@ -88,7 +110,7 @@ export const continueOAuthAuthorization = (pending: PendingOAuth, sessionCookie:
 		headers: { Cookie: sessionCookie },
 	});
 
-export const exchangeOAuthCallback = async (response: Response, pending: PendingOAuth) => {
+export const exchangeOAuthTokens = async (response: Response, pending: PendingOAuth) => {
 	const location = requirePresent(
 		response.headers.get("location"),
 		`OAuth continuation did not redirect: ${response.status}`,
@@ -118,7 +140,26 @@ export const exchangeOAuthCallback = async (response: Response, pending: Pending
 			`OAuth token exchange failed: ${tokenResponse.status} ${await tokenResponse.text()}`,
 		);
 	}
-	return Schema.decodeUnknownSync(OAuthTokenResponse)(await tokenResponse.json()).access_token;
+	return Schema.decodeUnknownSync(OAuthTokenResponse)(await tokenResponse.json());
+};
+
+export const exchangeOAuthCallback = async (response: Response, pending: PendingOAuth) => {
+	const tokens = await exchangeOAuthTokens(response, pending);
+	return tokens.access_token;
+};
+
+export const refreshOAuthTokens = async (baseUrl: string, refreshToken: string) => {
+	const frontendOrigin = await getServerFrontendOrigin(baseUrl);
+	return fetch(getOAuthEndpoint(new URL(baseUrl).origin, OAUTH_TOKEN_PATH), {
+		method: "POST",
+		headers: { "content-type": "application/x-www-form-urlencoded" },
+		body: new URLSearchParams({
+			refresh_token: refreshToken,
+			grant_type: "refresh_token",
+			client_id: OAUTH_WEB_CLIENT_ID,
+			resource: getOAuthResource(frontendOrigin),
+		}),
+	});
 };
 
 export const createTestAuthClient = (baseUrl = getApiUrl(), options: TestAuthClientOptions = {}) =>
@@ -146,13 +187,17 @@ export const createTestAuthClient = (baseUrl = getApiUrl(), options: TestAuthCli
 export const signInWithPassword = (email: string, password: string, baseUrl = getApiUrl()) =>
 	Effect.promise(async () => {
 		const pending = await prepareOAuth(baseUrl);
+		const completed = async (source: Response) => {
+			const tokens = await exchangeOAuthTokens(source, pending);
+			return { token: tokens.access_token, refreshToken: tokens.refresh_token };
+		};
 		const response = await fetch(`${pending.serverOrigin}/api/auth/sign-in/email`, {
 			method: "POST",
 			redirect: "manual",
 			body: JSON.stringify({ email, password }),
 			headers: {
 				accept: "text/html",
-				Origin: pending.serverOrigin,
+				Origin: pending.frontendOrigin,
 				"content-type": "application/json",
 			},
 		});
@@ -168,6 +213,7 @@ export const signInWithPassword = (email: string, password: string, baseUrl = ge
 				data: null,
 				sessionCookie,
 				token: undefined,
+				refreshToken: undefined,
 				twoFactorToken: undefined,
 				error: { message, status: response.status },
 			};
@@ -184,10 +230,9 @@ export const signInWithPassword = (email: string, password: string, baseUrl = ge
 					error: null,
 					sessionCookie,
 					twoFactorToken: undefined,
-					token: await exchangeOAuthCallback(
+					...(await completed(
 						new Response(null, { status: 302, headers: { location: redirectUrl } }),
-						pending,
-					),
+					)),
 				};
 			}
 			const needsTwoFactor =
@@ -200,20 +245,18 @@ export const signInWithPassword = (email: string, password: string, baseUrl = ge
 					error: null,
 					sessionCookie,
 					twoFactorToken: undefined,
-					token: await exchangeOAuthCallback(
-						await continueOAuthAuthorization(pending, sessionCookie),
-						pending,
-					),
+					...(await completed(await continueOAuthAuthorization(pending, sessionCookie))),
 				};
 			}
 			if (sessionCookie) {
 				pendingTwoFactor.set(sessionCookie, pending);
 			}
 			return {
+				data,
 				error: null,
 				token: undefined,
+				refreshToken: undefined,
 				sessionCookie: undefined,
-				data,
 				twoFactorToken: sessionCookie || undefined,
 			};
 		}
@@ -222,7 +265,7 @@ export const signInWithPassword = (email: string, password: string, baseUrl = ge
 			error: null,
 			sessionCookie,
 			twoFactorToken: undefined,
-			token: await exchangeOAuthCallback(response, pending),
+			...(await completed(response)),
 		};
 	});
 
@@ -244,7 +287,7 @@ export const completeTwoFactorSignIn = async (
 		headers: {
 			accept: "text/html",
 			Cookie: twoFactorCookie,
-			Origin: pending.serverOrigin,
+			Origin: pending.frontendOrigin,
 			"content-type": "application/json",
 		},
 	});
@@ -319,11 +362,12 @@ export const createTestUser = (baseUrl = getApiUrl()) =>
 			throw new Error(`Sign in failed: ${signIn.error.message}`);
 		}
 		const token = requirePresent(signIn.token, "Failed to get OAuth access token");
+		const refreshToken = requirePresent(signIn.refreshToken, "Failed to get OAuth refresh token");
 		const sessionCookie = requirePresent(
 			signIn.sessionCookie,
 			"Failed to get browser session cookie",
 		);
-		return { token, email, userId, password, sessionCookie };
+		return { token, email, userId, password, refreshToken, sessionCookie };
 	});
 
 export const createAuthenticatedClient = (baseUrl = getApiUrl()) =>
