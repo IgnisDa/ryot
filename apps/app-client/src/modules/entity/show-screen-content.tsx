@@ -1,3 +1,5 @@
+import { type ReactNode, useState } from "react";
+
 import { ShowOverview } from "./show-overview";
 import type { ShowOverviewState } from "./show-overview-state";
 import { ShowStatusMessage } from "./show-primitives";
@@ -7,15 +9,17 @@ import {
 	showSummaryUnavailable,
 	type ShowSummaryState,
 } from "./show-summary-state";
-import { ShowTabBar } from "./show-tabs";
+import { ShowTabBar, type ShowTabKey } from "./show-tabs";
 
 export function ShowScreenContent(props: {
 	readonly refresh: () => void;
+	readonly episodes: ReactNode;
 	readonly state: ShowSummaryState;
 	readonly refreshOverview: () => void;
 	readonly overview: ShowOverviewState;
 }) {
 	const { state } = props;
+	const [activeTab, setActiveTab] = useState<ShowTabKey>("overview");
 	if (state.status === "loading") {
 		return (
 			<ShowStatusMessage
@@ -33,12 +37,16 @@ export function ShowScreenContent(props: {
 	return (
 		<>
 			<ShowSummaryHeader show={state.show} />
-			<ShowTabBar activeTab="overview" />
-			<ShowOverview
-				show={state.show}
-				overview={props.overview}
-				refreshOverview={props.refreshOverview}
-			/>
+			<ShowTabBar activeTab={activeTab} onSelect={setActiveTab} />
+			{activeTab === "episodes" ? (
+				props.episodes
+			) : (
+				<ShowOverview
+					show={state.show}
+					overview={props.overview}
+					refreshOverview={props.refreshOverview}
+				/>
+			)}
 		</>
 	);
 }
