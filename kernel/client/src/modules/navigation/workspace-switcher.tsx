@@ -10,6 +10,7 @@ import { AppIcon } from "#/modules/navigation/app-icon";
 import { visibleWorkspaces } from "#/modules/navigation/workspace-state";
 
 type WorkspaceSwitcherProps = {
+	readonly summary: string;
 	readonly catalog: PluginClientCatalog;
 	readonly current: PluginClientCatalogEntry | null;
 	readonly onSelect: (slug: string) => void | Promise<void>;
@@ -91,9 +92,7 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 					<span className="block truncate text-sm font-medium text-text">
 						{props.current?.name ?? "No workspace"}
 					</span>
-					<span className="block truncate text-xs text-text-muted">
-						{props.current?.slug ?? "Plugin workspace"}
-					</span>
+					<span className="block truncate text-xs text-text-muted">{props.summary}</span>
 				</span>
 				<AppIcon name="chevron-down" size={15} className="shrink-0 text-text-subtle" />
 			</button>

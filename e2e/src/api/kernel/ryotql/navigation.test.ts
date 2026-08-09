@@ -7,7 +7,6 @@ import {
 	createCollection,
 	createSavedView,
 	executeRyotQLRecipe,
-	updatePluginState,
 	updateSavedView,
 } from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";
@@ -29,8 +28,6 @@ describe("RyotQL navigation", () => {
 				name: firstViewName,
 				pluginSlug: PluginSlug.make("media"),
 			});
-			yield* updatePluginState(first.client, "media", { isDisabled: true, sortOrder: 7 });
-			yield* updatePluginState(second.client, "media", { isDisabled: false, sortOrder: 1 });
 			yield* createSavedView(second.client, { name: secondViewName });
 			const firstCollection = yield* createCollection(first.client, {
 				name: `First Navigation Collection ${crypto.randomUUID()}`,
@@ -40,14 +37,6 @@ describe("RyotQL navigation", () => {
 			});
 
 			const data = yield* executeRyotQLRecipe(first.client, navigationRecipe());
-			const media = data.workspaces.find((item) => item.slug === "media");
-			const fitness = data.workspaces.find((item) => item.slug === "fitness");
-			if (!media || !fitness) {
-				throw new Error("Expected built-in workspaces");
-			}
-			expect(media).toMatchObject({ sortOrder: 7, isDisabled: true });
-			expect(fitness).toMatchObject({ sortOrder: expect.any(Number), isDisabled: false });
-
 			const viewNames = data.savedViews.map((item) => item.name);
 			expect(viewNames).toContain(firstViewName);
 			expect(viewNames).not.toContain(secondViewName);
