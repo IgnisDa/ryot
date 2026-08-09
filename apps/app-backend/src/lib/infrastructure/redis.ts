@@ -38,7 +38,6 @@ export const redisKeys = {
 	importSourceState: (stateId: string) => `ryot:imports:source-state:${stateId}`,
 	godModeResetChannel: (correlationId: string) => `ryot:god-mode:reset:${correlationId}`,
 	entityInterestSession: (sessionId: string) => `ryot:entity-interest:session:${sessionId}`,
-	uploadIntentCleanupLock: (intentId: string) => `ryot:upload:intent-cleanup-lock:${intentId}`,
 	sandboxWorkflowJournal: (executionId: string) => `ryot:sandbox:workflow:${executionId}:journal`,
 	entityInterestSessions: (entityId: string) => `ryot:entity-interest:entity:${entityId}:sessions`,
 	entityInterestProgressionLease: (entityId: string) => `ryot:entity-interest:progress:${entityId}`,
@@ -122,6 +121,8 @@ export class RedisService extends Context.Service<RedisService>()("RedisService"
 					Effect.map((result) => result === 1),
 					Effect.orDie,
 				),
+			zadd: (key: string, score: number, member: string) =>
+				Effect.tryPromise(() => client.zadd(key, score, member)).pipe(Effect.asVoid, Effect.orDie),
 			zrem: (key: string, ...members: ReadonlyArray<string>) =>
 				Effect.tryPromise(() => client.zrem(key, ...members)).pipe(Effect.asVoid, Effect.orDie),
 			zrangeByScore: (key: string, max: number, limit: number) =>
