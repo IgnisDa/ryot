@@ -4,9 +4,9 @@ Entity interest lets authenticated clients select the entities they display and 
 
 ## Protocol
 
-- `POST /api/entity-interest/socket-ticket` is the only entity-interest HTTP endpoint. It uses the existing authentication middleware and returns `{ ticket, expiresAt }`.
+- `POST /api/entity-interest/socket-ticket` is the only entity-interest HTTP endpoint. It accepts the normal OAuth or API-key authentication middleware and returns `{ ticket, expiresAt }`.
 - `GET /api/entity-interest/ws` is a raw WebSocket route. The client sends no credential in the URL and sends `{ type: "authenticate", ticket }` as its first JSON text frame.
-- Tickets are opaque, single-use values generated from 32 cryptographically secure random bytes. Redis stores only their SHA-256 hashes for 30 seconds. Missing, expired, reused, and malformed tickets have the same policy failure.
+- Tickets are opaque, single-use values generated from 32 cryptographically secure random bytes. Each ticket stores only `userId` and `preferredLanguage`; Redis stores only its SHA-256 hash for 30 seconds. Missing, expired, reused, and malformed tickets close with the generic authentication close `1008` (`Authentication failed`). A ticket-store outage closes with `1011` (`Internal error`).
 - After authentication, the server creates an opaque `sessionId` and sends `ready` with `sessionId`, `maxEntityIds`, and `heartbeatIntervalMs`.
 
 Client commands are `replace` with a complete `entityIds` snapshot, `update` with `add` and `remove` deltas, and `pong` responses. Every `replace` or `update` carries a revision. The first command is `replace` revision `1`; each later command increments the current revision by one. The server sends `applied` when Redis membership and indexes are durable for that revision, before reconciliation begins.
@@ -28,7 +28,7 @@ Redis owns shared membership, revision state, and delivery lookup. The keys are:
 - `ryot:entity-interest:entity:<entityId>:sessions`: reverse sorted set of interested session IDs, scored by session expiry in milliseconds.
 - `ryot:entity-interest:progress:<entityId>`: per-entity progression lease.
 
-Session and membership keys have a 15-minute TTL. Renewal runs every five minutes and refreshes session metadata, membership TTLs, and reverse-index expiry scores. If renewal finds missing session metadata, the socket closes and the client reconnects. Expired reverse members are removed during lookup. Ticket keys expire after 30 seconds.
+Session and membership keys have a 15-minute TTL. Renewal runs every five minutes and refreshes session metadata, membership TTLs, and reverse-index expiry scores. Every established session also has a fixed 15-minute lease, then closes with application code `4001` (`Session expired`); clients obtain a new ticket and reconnect. If renewal finds missing session metadata, the socket closes and the client reconnects. Expired reverse members are removed during lookup. Ticket keys expire after 30 seconds.
 
 ## Replacement, Updates, And Reconciliation
 
