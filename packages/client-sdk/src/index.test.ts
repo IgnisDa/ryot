@@ -2,7 +2,12 @@ import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { createRyotClient, RyotClientError, type TemporaryUploadRequest } from "./index";
+import {
+	createRyotClient,
+	RyotClientError,
+	type RyotNavigationTarget,
+	type TemporaryUploadRequest,
+} from "./index";
 
 let notify: () => void = () => undefined;
 const Greeting = Schema.Struct({ greeting: Schema.String });
@@ -204,26 +209,29 @@ describe("createRyotClient", () => {
 	it("delegates navigation through the adapter", () => {
 		const navigations: Array<{
 			readonly mode: "push" | "replace";
-			readonly target: { readonly path: string; readonly search?: Record<string, string> };
+			readonly target: RyotNavigationTarget;
 		}> = [];
 		const client = createRyotClient({
 			query: () => Promise.resolve({}),
 			navigate: (mode, target) => navigations.push({ mode, target }),
 		});
 
-		client.navigation.push({ path: "/items", search: { tab: "stats" } });
-		client.navigation.replace({ path: "/" });
+		client.navigation.push({ kind: "route", path: "/items", search: { tab: "stats" } });
+		client.navigation.replace({ kind: "entity", entityId: "entity-1" });
 
 		expect(navigations).toEqual([
-			{ mode: "push", target: { path: "/items", search: { tab: "stats" } } },
-			{ mode: "replace", target: { path: "/" } },
+			{
+				mode: "push",
+				target: { kind: "route", path: "/items", search: { tab: "stats" } },
+			},
+			{ mode: "replace", target: { kind: "entity", entityId: "entity-1" } },
 		]);
 	});
 
 	it("rejects navigation when the environment does not provide that capability", () => {
 		const client = createRyotClient({ query: () => Promise.resolve({}) });
 
-		expect(() => client.navigation.push({ path: "/items" })).toThrow(
+		expect(() => client.navigation.push({ kind: "route", path: "/items" })).toThrow(
 			new RyotClientError("unsupported-capability"),
 		);
 	});
@@ -236,7 +244,7 @@ describe("createRyotClient", () => {
 			},
 		});
 
-		expect(() => client.navigation.push({ path: "/items" })).toThrow(
+		expect(() => client.navigation.push({ kind: "route", path: "/items" })).toThrow(
 			new RyotClientError("transport"),
 		);
 	});

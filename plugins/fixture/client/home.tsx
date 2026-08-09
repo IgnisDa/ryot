@@ -163,16 +163,19 @@ export const Home = () => {
 						Fetch with invalid payload
 					</Button>
 				</section>
-				<PluginLink to="/details/item-1" search={{ tab: "stats" }}>
+				<PluginLink to={{ kind: "route", path: "/details/item-1", search: { tab: "stats" } }}>
 					Item 1 details
 				</PluginLink>
 				<Button
 					variant="secondary"
-					onClick={() => ryot.navigation.push({ path: "/details/item-2" })}
+					onClick={() => ryot.navigation.push({ kind: "route", path: "/details/item-2" })}
 				>
 					Open item 2
 				</Button>
-				<PluginLink to="/full-bleed">Full-bleed screen</PluginLink>
+				<PluginLink to={{ kind: "route", path: "/full-bleed" }}>Full-bleed screen</PluginLink>
+				<PluginLink to={{ kind: "entity", entityId: "fixture-entity" }}>
+					Open fixture entity
+				</PluginLink>
 			</div>
 		</PluginScreenFrame>
 	);

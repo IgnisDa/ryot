@@ -36,10 +36,9 @@ export type TemporaryUploadRequest = {
 	readonly contentType: string;
 };
 
-export type RyotNavigationTarget = {
-	readonly path: string;
-	readonly search?: Record<string, string>;
-};
+export type RyotNavigationTarget =
+	| { readonly kind: "entity"; readonly entityId: string }
+	| { readonly path: string; readonly kind: "route"; readonly search?: Record<string, string> };
 
 export type RyotClientAdapter = {
 	readonly query: (
