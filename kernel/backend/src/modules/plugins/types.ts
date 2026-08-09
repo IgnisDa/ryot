@@ -1,11 +1,8 @@
 import type { PluginClientArtifact } from "@ryot-app/contract/modules/plugins/client";
-import type { PluginManifest, PluginScript } from "@ryot-app/contract/modules/plugins/manifest";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import type { PluginScriptMetadata } from "@ryot-app/sandbox-compiler/plugin-manifest";
 
-export type PluginScriptMetadata = PluginScript extends infer Script
-	? Script extends { readonly entry: string }
-		? Omit<Script, "entry">
-		: never
-	: never;
+export type { PluginScriptMetadata };
 
 export type PluginSource = {
 	readonly manifest: unknown;
