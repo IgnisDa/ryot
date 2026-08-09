@@ -9,6 +9,7 @@ import {
 import { mediaActivityDurationLabel, mediaActivityTimeLabel } from "../media/activity-timeline";
 import { defineFlatMediaSchema } from "../media/flat-schema";
 import { MEDIA_ART_HEIGHT, MEDIA_BACKDROP_HEIGHT } from "../media/hero";
+import { mediaWatchProvidersTrailing } from "../media/overview";
 import { mediaRatingFact, type MediaSummaryFact } from "../media/summary-state";
 
 type MovieSummary = NonNullable<MovieSummaryResult["summary"]>;
@@ -31,10 +32,10 @@ export const movieSchema = defineFlatMediaSchema({
 	aspect: "poster",
 	progressVerb: "watched",
 	facts: movieSummaryFacts,
-	watchProviders: (movie) => movie,
 	presentationFacts: moviePresentationFacts,
 	nouns: { title: "Movie", plural: "movies", singular: "movie" },
 	measureFigure: { label: "Time", value: mediaActivityTimeLabel },
+	overviewTrailing: mediaWatchProvidersTrailing((summary) => summary),
 	heroHeight: (compact) => (compact ? MEDIA_ART_HEIGHT : MEDIA_BACKDROP_HEIGHT),
 	group: { actionLabel: "View collection", title: (name) => `Part of ${name}` },
 	overviewLoadingDetail: "Fetching the cast, companies and recommendations for this movie.",

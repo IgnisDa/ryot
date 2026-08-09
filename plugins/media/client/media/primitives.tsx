@@ -4,6 +4,7 @@ import { SyncCountLine } from "@ryot-app/client-ui-sdk/sync";
 import clsx from "clsx";
 import type { ReactNode, Ref } from "react";
 
+import type { MediaSummaryFact } from "./summary-state";
 import type { MediaSyncCounts } from "./sync-counts";
 
 export function MediaRefreshStatus(props: { readonly result: RyotQueryResult<unknown> }) {
@@ -46,6 +47,44 @@ export function MediaFact(props: {
 
 export function MediaFactDivider() {
 	return <div className="h-9 w-px bg-border" />;
+}
+
+export function MediaFactRow(props: {
+	readonly compact: boolean;
+	readonly facts: readonly MediaSummaryFact[];
+}) {
+	const { compact } = props;
+	return (
+		<div
+			className={clsx(
+				"flex flex-wrap items-center gap-y-4 pt-0.5",
+				!compact && "flex-nowrap gap-x-4",
+			)}
+		>
+			{props.facts.map((fact, index) => (
+				<div
+					key={fact.label}
+					className={clsx("flex items-center gap-3", compact ? "w-1/2" : "w-auto flex-none")}
+				>
+					{index === 0 || (compact && index % 2 === 0) ? null : (
+						<div className={clsx("flex", compact ? "mr-3" : "mr-4")}>
+							<MediaFactDivider />
+						</div>
+					)}
+					{compact && (
+						<div className="flex w-5 items-center">
+							<AppIcon
+								size={18}
+								name={fact.icon}
+								className={fact.iconClass ?? "text-text-subtle"}
+							/>
+						</div>
+					)}
+					<MediaFact label={fact.label} value={fact.value} suffix={fact.suffix} />
+				</div>
+			))}
+		</div>
+	);
 }
 
 export function MediaProgressBar(props: { readonly percent: number }) {

@@ -165,6 +165,36 @@ export function MediaWatchProvidersSection(props: {
 	);
 }
 
+function MediaRegionWatchProvidersSection(props: {
+	readonly compact: boolean;
+	readonly divided: boolean;
+	readonly media: MediaWatchProviders;
+}) {
+	const region = useMemo(viewerRegion, []);
+	if (region === undefined) {
+		return null;
+	}
+	return (
+		<MediaWatchProvidersSection
+			region={region}
+			compact={props.compact}
+			divided={props.divided}
+			link={watchProviderLink(props.media, region)}
+			groups={watchProviderGroups(props.media, region)}
+		/>
+	);
+}
+
+export const mediaWatchProvidersTrailing =
+	<Summary,>(select: (summary: Summary) => MediaWatchProviders) =>
+	(input: { readonly summary: Summary; readonly compact: boolean; readonly divided: boolean }) => (
+		<MediaRegionWatchProvidersSection
+			compact={input.compact}
+			divided={input.divided}
+			media={select(input.summary)}
+		/>
+	);
+
 export function MediaPeopleSection(props: {
 	readonly title: string;
 	readonly compact: boolean;
@@ -484,12 +514,13 @@ export function MediaOverview<Overview>(props: {
 	readonly refreshStatus?: ReactNode;
 	readonly refreshOverview: () => void;
 	readonly media: MediaOverviewSubject;
-	readonly watchProviders?: MediaWatchProviders | undefined;
 	readonly isEmpty: (overview: Overview) => boolean;
 	readonly overview: MediaOverviewState<Overview>;
 	readonly relations: MediaOverviewRelationsRender<Overview>;
+	readonly trailing?:
+		| ((input: { readonly compact: boolean; readonly divided: boolean }) => ReactNode)
+		| undefined;
 }) {
-	const region = useMemo(viewerRegion, []);
 	const gallery = mediaGalleryAssets(props.media);
 	const relations = props.overview.status !== "ready" || !props.isEmpty(props.overview.overview);
 	return (
@@ -512,15 +543,7 @@ export function MediaOverview<Overview>(props: {
 				refresh={props.refreshOverview}
 				loadingDetail={props.loadingDetail}
 			/>
-			{props.watchProviders === undefined || region === undefined ? null : (
-				<MediaWatchProvidersSection
-					region={region}
-					compact={props.compact}
-					divided={gallery.length > 0 || relations}
-					link={watchProviderLink(props.watchProviders, region)}
-					groups={watchProviderGroups(props.watchProviders, region)}
-				/>
-			)}
+			{props.trailing?.({ compact: props.compact, divided: gallery.length > 0 || relations })}
 		</div>
 	);
 }

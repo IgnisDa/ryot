@@ -13,6 +13,8 @@ export type MediaImageAsset = MediaImage extends infer Image
 
 export type MediaGalleryImage = MediaImageAsset & Pick<MediaImage, "purpose">;
 
+export type MediaImagePurposes = readonly MediaImage["purpose"][];
+
 const locator = (image: MediaImage | undefined): MediaImageAsset | undefined => {
 	if (image === undefined) {
 		return undefined;
@@ -38,6 +40,17 @@ export const mediaImageAsset = (images: MediaImages, purpose: MediaImage["purpos
 
 export const preferredMediaImageAsset = (images: MediaImages, purpose: MediaImage["purpose"]) =>
 	mediaImageAsset(images, purpose) ?? locator((images ?? []).at(0));
+
+export const orderedMediaImageAsset = (
+	images: MediaImages,
+	purposes: MediaImagePurposes,
+): MediaImageAsset | undefined =>
+	purposes
+		.flatMap((purpose) => {
+			const asset = mediaImageAsset(images, purpose);
+			return asset === undefined ? [] : [asset];
+		})
+		.at(0);
 
 export const collectManagedAssetLocators = (assets: readonly (MediaImageAsset | undefined)[]) => {
 	const managed = assets.filter(
