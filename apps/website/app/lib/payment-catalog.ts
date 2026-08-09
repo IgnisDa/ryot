@@ -30,14 +30,14 @@ const paddlePrice = (
 	name: TPlanTypes,
 	priceId: string,
 	metadata: PricingMetadata = {},
-): PaymentPrice => ({ name, priceId, ...metadata });
+) => ({ name, priceId, ...metadata });
 
 const polarPrice = (
 	name: TPlanTypes,
 	productId: string,
 	priceId: string,
 	metadata: PricingMetadata = {},
-): PaymentPrice => ({ name, productId, priceId, ...metadata });
+) => ({ name, productId, priceId, ...metadata });
 
 export const PAYMENT_CATALOG: PaymentCatalog = {
 	paddle: {
