@@ -24,6 +24,9 @@ export type ManagedAssetResolutionRequest = {
 
 export const managedAssetKey = (asset: ManagedAssetLocator) => `${asset.type}:${asset.key}`;
 
+export const assetLocatorKey = (asset: AssetLocator) =>
+	asset.type === "remote" ? `remote:${asset.url}` : managedAssetKey(asset);
+
 export const canonicalManagedAssets = (assets: readonly ManagedAssetLocator[]) =>
 	[...new Map(assets.map((asset) => [managedAssetKey(asset), asset])).values()].sort(
 		(left, right) => managedAssetKey(left).localeCompare(managedAssetKey(right)),

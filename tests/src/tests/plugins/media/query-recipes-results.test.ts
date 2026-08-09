@@ -4,6 +4,7 @@ import {
 	podcastDetailRecipe,
 	podcastsByLifecycleStateRecipe,
 	showDetailRecipe,
+	showOverviewRecipe,
 	showSummaryRecipe,
 	trendingMediaRecipe,
 } from "@ryot/media-plugin/query-recipes";
@@ -98,6 +99,20 @@ const seedPodcast = (client: Client, episodeCount: number) =>
 			episodeCompleteEventSchemaSlug: requireEventSchemaBySlug(episodeEventSchemas, "complete").id,
 			podcastCompleteEventSchemaSlug: requireEventSchemaBySlug(podcastEventSchemas, "complete").id,
 		};
+	});
+
+const seedCredit = (input: {
+	name: string;
+	schemaSlug: string;
+	images: readonly Record<string, unknown>[];
+}) =>
+	seedMediaEntity({
+		userId: null,
+		providerId: null,
+		name: input.name,
+		entitySchemaSlug: input.schemaSlug,
+		externalId: `overview-${crypto.randomUUID()}`,
+		properties: { images: input.images, description: null, sourceUrl: null },
 	});
 
 describe("Media RyotQL query recipe results", () => {
@@ -348,6 +363,201 @@ describe("Media RyotQL query recipe results", () => {
 				{ type: "remote", purpose: "cover", url: "https://images.test/cover.jpg" },
 			]);
 			expect(summaryRow.collections.items.map(({ name }) => name)).toEqual([collection.name]);
+		}),
+	);
+
+	it.live("reconstructs show overview credits, companies and outgoing suggestions", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const showSchemaId = yield* getBuiltinEntitySchemaSlug("show");
+			const personSchemaId = yield* getBuiltinEntitySchemaSlug("person");
+			const companySchemaId = yield* getBuiltinEntitySchemaSlug("company");
+			const relationshipSchemas = yield* listRelationshipSchemas(client, {
+				slugs: ["person-to-show", "company-to-show", "media-suggestion"],
+			});
+			const personToShow = requireRelationshipSchemaBySlug(relationshipSchemas, "person-to-show");
+			const mediaSuggestion = requireRelationshipSchemaBySlug(
+				relationshipSchemas,
+				"media-suggestion",
+			);
+			const companyToShow = requireRelationshipSchemaBySlug(relationshipSchemas, "company-to-show");
+			const suffix = crypto.randomUUID();
+			const seedShow = (name: string, images: readonly Record<string, unknown>[]) =>
+				seedMediaEntity({
+					name,
+					userId: null,
+					providerId: null,
+					entitySchemaSlug: showSchemaId,
+					externalId: `overview-${crypto.randomUUID()}`,
+					properties: {
+						images,
+						genres: [],
+						isNsfw: null,
+						sourceUrl: null,
+						totalSeasons: 1,
+						totalEpisodes: 1,
+						description: null,
+						publishYear: null,
+						publishDate: null,
+						providerRating: null,
+						unlinkedCreators: [],
+						productionStatus: null,
+					},
+				});
+
+			const show = yield* seedShow(`Overview Show ${suffix}`, []);
+			const [lead, writer, studio, network, suggestedFirst, suggestedSecond, incomingSource] =
+				yield* Effect.all([
+					seedCredit({
+						schemaSlug: personSchemaId,
+						name: `Overview Lead ${suffix}`,
+						images: [{ type: "remote", purpose: "profile", url: "https://images.test/lead.jpg" }],
+					}),
+					seedCredit({ images: [], schemaSlug: personSchemaId, name: `Overview Writer ${suffix}` }),
+					seedCredit({
+						schemaSlug: companySchemaId,
+						name: `Overview Studio ${suffix}`,
+						images: [{ type: "s3", key: "studio-logo", purpose: "logo" }],
+					}),
+					seedCredit({
+						images: [],
+						schemaSlug: companySchemaId,
+						name: `Overview Network ${suffix}`,
+					}),
+					seedShow(`Overview Suggested A ${suffix}`, [
+						{ type: "remote", purpose: "cover", url: "https://images.test/suggested-a.jpg" },
+					]),
+					seedShow(`Overview Suggested B ${suffix}`, []),
+					seedShow(`Overview Incoming ${suffix}`, []),
+				]);
+			yield* Effect.all([
+				insertGlobalRelationship({
+					targetEntityId: show.id,
+					sourceEntityId: lead.id,
+					relationshipSchemaSlug: personToShow.id,
+					properties: { order: 1, roles: ["Actor"], character: "Jamie" },
+				}),
+				insertGlobalRelationship({
+					targetEntityId: show.id,
+					sourceEntityId: writer.id,
+					relationshipSchemaSlug: personToShow.id,
+					properties: { order: 2, roles: ["Writer", "Creator"] },
+				}),
+				insertGlobalRelationship({
+					targetEntityId: show.id,
+					sourceEntityId: studio.id,
+					relationshipSchemaSlug: companyToShow.id,
+					properties: { order: 1, roles: ["Production Company"] },
+				}),
+				insertGlobalRelationship({
+					targetEntityId: show.id,
+					sourceEntityId: network.id,
+					relationshipSchemaSlug: companyToShow.id,
+					properties: { order: 2, roles: ["Network"] },
+				}),
+				insertGlobalRelationship({
+					sourceEntityId: show.id,
+					targetEntityId: suggestedFirst.id,
+					relationshipSchemaSlug: mediaSuggestion.id,
+				}),
+				insertGlobalRelationship({
+					sourceEntityId: show.id,
+					targetEntityId: suggestedSecond.id,
+					relationshipSchemaSlug: mediaSuggestion.id,
+				}),
+				insertGlobalRelationship({
+					targetEntityId: show.id,
+					sourceEntityId: incomingSource.id,
+					relationshipSchemaSlug: mediaSuggestion.id,
+				}),
+			]);
+
+			const overview = yield* executeRyotQLRecipe(
+				client,
+				showOverviewRecipe({
+					peopleLimit: 12,
+					companyLimit: 6,
+					entityId: show.id,
+					recommendationLimit: 12,
+				}),
+			);
+
+			expect(overview.people.items.map((person) => person.name)).toEqual([lead.name, writer.name]);
+			const leadCredit = overview.people.items[0];
+			assertPresent(leadCredit, "Expected the lead credit");
+			expect(leadCredit.order).toBe(1);
+			expect(leadCredit.character).toBe("Jamie");
+			expect(leadCredit.roles).toEqual(["Actor"]);
+			expect(leadCredit.images).toEqual([
+				{ type: "remote", purpose: "profile", url: "https://images.test/lead.jpg" },
+			]);
+			const writerCredit = overview.people.items[1];
+			assertPresent(writerCredit, "Expected the writer credit");
+			expect(writerCredit.character).toBeNull();
+			expect(writerCredit.roles).toEqual(["Writer", "Creator"]);
+			expect(overview.companies.items.map((company) => company.name)).toEqual([
+				studio.name,
+				network.name,
+			]);
+			const studioCredit = overview.companies.items[0];
+			assertPresent(studioCredit, "Expected the studio credit");
+			expect(studioCredit.roles).toEqual(["Production Company"]);
+			expect(studioCredit.images).toEqual([{ type: "s3", key: "studio-logo", purpose: "logo" }]);
+			expect(overview.recommendations.items.map((item) => item.id)).toEqual([
+				suggestedFirst.id,
+				suggestedSecond.id,
+			]);
+			expect(overview.recommendations.items.map((item) => item.id)).not.toContain(
+				incomingSource.id,
+			);
+			const suggestedA = overview.recommendations.items[0];
+			assertPresent(suggestedA, "Expected the first suggestion");
+			expect(suggestedA.images).toEqual([
+				{ type: "remote", purpose: "cover", url: "https://images.test/suggested-a.jpg" },
+			]);
+		}),
+	);
+
+	it.live("returns empty overview sections for a show with no relationships", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const showSchemaId = yield* getBuiltinEntitySchemaSlug("show");
+			const suffix = crypto.randomUUID();
+			const show = yield* seedMediaEntity({
+				userId: null,
+				providerId: null,
+				entitySchemaSlug: showSchemaId,
+				name: `Overview Bare ${suffix}`,
+				externalId: `overview-bare-${suffix}`,
+				properties: {
+					images: [],
+					genres: [],
+					isNsfw: null,
+					sourceUrl: null,
+					totalSeasons: 1,
+					totalEpisodes: 1,
+					description: null,
+					publishYear: null,
+					publishDate: null,
+					providerRating: null,
+					unlinkedCreators: [],
+					productionStatus: null,
+				},
+			});
+
+			const overview = yield* executeRyotQLRecipe(
+				client,
+				showOverviewRecipe({
+					peopleLimit: 12,
+					companyLimit: 6,
+					entityId: show.id,
+					recommendationLimit: 12,
+				}),
+			);
+
+			expect(overview.people.items).toEqual([]);
+			expect(overview.companies.items).toEqual([]);
+			expect(overview.recommendations.items).toEqual([]);
 		}),
 	);
 
