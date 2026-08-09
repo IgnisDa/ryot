@@ -8,7 +8,6 @@ import type {
 	PluginManifest,
 	PluginProviderOperation,
 } from "@ryot/contract/modules/plugins/manifest";
-import type { ExecutionAuthority } from "@ryot/contract/modules/sandbox/schemas";
 import {
 	AutomationRuleId,
 	EntitySchemaSlug,
@@ -25,6 +24,7 @@ import { Context, Data, Effect, Layer } from "effect";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import type { PluginConfigContext } from "#lib/infrastructure/sandbox-runtime/app-config";
+import type { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import {
 	buildDefinitionSnapshot,
 	definitionSourceFromSnapshot,
@@ -798,88 +798,39 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					return yield* findActiveScriptByIdInSnapshot(loader.getSnapshot(), scriptId);
 				},
 			);
-			const resolveTrustedUserBootstrapCaller = Effect.fn(
-				"PluginRuntimeResolver.resolveTrustedUserBootstrapCaller",
-			)(function* (scriptId: SandboxScriptId) {
-				const snapshot = loader.getSnapshot();
-				const db = yield* Database;
-				const [stored] = yield* mapDatabaseErrors(
-					db
-						.select({
-							pluginId: schema.plugin.id,
-							pluginSlug: schema.plugin.slug,
-							slug: schema.sandboxScript.slug,
-							pluginScope: schema.plugin.scope,
-							contentHash: schema.sandboxScript.contentHash,
-						})
-						.from(schema.sandboxScript)
-						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.sandboxScript.pluginId))
-						.where(eq(schema.sandboxScript.id, scriptId))
-						.limit(1),
-				);
-				if (stored?.pluginScope !== "system") {
-					return null;
-				}
-				const plugin = snapshot.plugins[stored.pluginSlug];
-				if (plugin?.id !== stored.pluginId) {
-					return null;
-				}
-				const active = plugin.scripts.find(
-					(script) =>
-						script.slug === stored.slug &&
-						script.contentHash === stored.contentHash &&
-						script.metadata.kind === "script",
-				);
-				if (
-					!active ||
-					!plugin.manifest.userBootstrap.some(({ scriptSlug }) => scriptSlug === stored.slug)
-				) {
-					return null;
-				}
-				return {
-					pluginSlug: stored.pluginSlug,
-					entitySchemaSlugs: plugin.manifest.entitySchemas.map(({ slug }) => slug),
-				};
-			});
 			const resolvePluginConfigContext = Effect.fn(
 				"PluginRuntimeResolver.resolvePluginConfigContext",
-			)(function* (input: {
-				readonly authority: ExecutionAuthority;
-				readonly scriptId: SandboxScriptId;
-			}) {
-				const snapshot = loader.getSnapshot();
-				const script = yield* findActiveScriptByIdInSnapshot(snapshot, input.scriptId);
-				if (!script?.pluginSlug || !script.pluginId) {
+			)(function* (principal: SandboxExecutionPrincipal) {
+				const revision = principal.pluginRevision;
+				if (!revision) {
 					return null;
 				}
-				const systemPlugin = snapshot.plugins[script.pluginSlug];
-				if (systemPlugin?.id === script.pluginId) {
+				if (revision.scope === "system") {
 					if (
-						"userId" in input.authority &&
-						!(yield* installations.findByUserAndPlugin(input.authority.userId, systemPlugin.id))
+						"userId" in principal.subject &&
+						!(yield* installations.findByUserAndPlugin(principal.subject.userId, revision.id))
 					) {
 						return null;
 					}
 					return {
 						kind: "environment",
-						pluginSlug: script.pluginSlug,
-						configSchema: systemPlugin.manifest.configSchema,
+						pluginSlug: revision.slug,
+						configSchema: revision.configSchema,
 					} satisfies PluginConfigContext;
 				}
-				if (!("userId" in input.authority)) {
+				if (!("userId" in principal.subject)) {
 					return null;
 				}
-				const userId = input.authority.userId;
-				const plugin = yield* findActivePluginRow(eq(schema.plugin.id, script.pluginId));
-				if (plugin?.scope !== "user" || plugin.ownerId !== userId) {
+				const userId = principal.subject.userId;
+				if (revision.ownerId !== userId) {
 					return null;
 				}
-				const installation = yield* installations.findByUserAndPlugin(userId, plugin.id);
+				const installation = yield* installations.findByUserAndPlugin(userId, revision.id);
 				return installation
 					? ({
 							kind: "installation",
 							config: installation.config,
-							configSchema: plugin.manifest.configSchema,
+							configSchema: revision.configSchema,
 						} satisfies PluginConfigContext)
 					: null;
 			});
@@ -938,42 +889,6 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				findProviderAvailableToUserWhere(userId, eq(schema.sandboxProvider.id, providerId));
 			const findProviderAvailableToUserBySlug = (userId: UserId, providerSlug: string) =>
 				findProviderAvailableToUserWhere(userId, eq(schema.sandboxProvider.slug, providerSlug));
-
-			const resolveSystemQueryScript = Effect.fn("PluginRuntimeResolver.resolveSystemQueryScript")(
-				function* (scriptId: SandboxScriptId) {
-					const snapshot = loader.getSnapshot();
-					const db = yield* Database;
-					const [script] = yield* mapDatabaseErrors(
-						db
-							.select()
-							.from(schema.sandboxScript)
-							.where(eq(schema.sandboxScript.id, scriptId))
-							.limit(1),
-					);
-					if (!script?.pluginId || script.metadata.kind !== "script") {
-						return null;
-					}
-					const plugin = findPluginEntryById(snapshot, script.pluginId);
-					const active = plugin?.scripts.find(
-						(candidate) =>
-							candidate.slug === script.slug && candidate.contentHash === script.contentHash,
-					);
-					if (!plugin || active?.metadata.kind !== "script") {
-						return null;
-					}
-					return {
-						pluginSlug: plugin.slug,
-						entitySchemaSlugs: plugin.manifest.entitySchemas.map(({ slug }) => slug),
-						relationshipSchemaSlugs: plugin.manifest.relationshipSchemas.map(({ slug }) => slug),
-						eventSchemas: plugin.manifest.entitySchemas.flatMap((entitySchema) =>
-							entitySchema.eventSchemas.map((eventSchema) => ({
-								eventSchemaSlug: eventSchema.slug,
-								entitySchemaSlug: entitySchema.slug,
-							})),
-						),
-					};
-				},
-			);
 
 			const findKernelScript = Effect.fn("PluginRuntimeResolver.findKernelScript")(function* (
 				scriptSlug: string,
@@ -1508,7 +1423,6 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				findSchemaProviderBySlug,
 				resolveUserDetailsScript,
 				findActiveWorkflowScript,
-				resolveSystemQueryScript,
 				findScriptAvailableToUser,
 				findPluginAvailableToUser,
 				listPluginsAvailableToUser,
@@ -1524,7 +1438,6 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				findAuthorizedSchemaProviderById,
 				resolveActivePluginUserBootstrap,
 				findProviderAvailableToUserBySlug,
-				resolveTrustedUserBootstrapCaller,
 				findWorkflowScriptAvailableToUser,
 				findWorkflowScriptInAvailablePlugin,
 				listProviderEntityImportAutomations,

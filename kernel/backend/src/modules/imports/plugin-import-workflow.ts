@@ -118,7 +118,7 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 				executionId: artifactOwnerExecutionId,
 				scriptId: sourceState.workflowScriptId,
 				...(pinnedGrants ? { grants: pinnedGrants } : {}),
-				authority: { type: "user", userId: payload.userId },
+				subject: { type: "user", userId: payload.userId },
 			})
 			.pipe(withoutWorkflowParent, Effect.mapError(toWorkflowError));
 

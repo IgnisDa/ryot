@@ -110,7 +110,7 @@ it.effect("registers under the plugin ingestion lock after confirming the plugin
 	);
 });
 
-it.effect("refuses private plugin registration without user installation authority", () => {
+it.effect("refuses private plugin registration without user installation subject", () => {
 	const events: string[] = [];
 	return Effect.gen(function* () {
 		const repository = yield* SandboxWorkflowReferenceRepository;

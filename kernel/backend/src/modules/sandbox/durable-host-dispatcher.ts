@@ -1,7 +1,6 @@
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
 import type { SandboxHostCapability } from "@ryot/contract/modules/sandbox/wire";
-import { SandboxProviderId } from "@ryot/contract/schema/brands";
 import { httpCallArgsSchema, sandboxHostContracts } from "@ryot/sandbox-sdk/core";
 import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import {
@@ -15,9 +14,13 @@ import { Workflow } from "effect/unstable/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { bindSandboxHostFunctions } from "#lib/infrastructure/sandbox-runtime/bridge-adapter";
+import {
+	SandboxExecutionPrincipal,
+	type SandboxExecutionPrincipal as SandboxExecutionPrincipalValue,
+} from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
+import { requireSandboxCapabilityInput } from "#lib/infrastructure/sandbox-runtime/shared";
 
-import { SandboxRepository } from "./repository";
 import {
 	SandboxScriptWorkflowPayload,
 	type SandboxScriptWorkflowPayload as SandboxScriptWorkflowPayloadValue,
@@ -90,50 +93,43 @@ export const sandboxDurableHttpRequestUrl = (request: HostRequest) =>
 const loadDispatchInput = Effect.fn("loadSandboxDurableHostDispatchInput")(function* (
 	request: HostRequest,
 	payload: SandboxScriptWorkflowPayloadValue,
+	principal: SandboxExecutionPrincipalValue,
 	executionId: string,
 	startedAt: string,
 ) {
-	const repository = yield* SandboxRepository;
-	const script = yield* repository
-		.getScript(payload.scriptId)
-		.pipe(Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })));
-	if (!script) {
-		return yield* new SandboxRunError({ message: "Sandbox durable host script not found" });
-	}
 	if (
 		request.name !== request.args.capability ||
-		!(script.metadata.capabilities ?? []).includes(request.args.capability)
+		!(principal.metadata.capabilities ?? []).includes(request.args.capability)
 	) {
 		return yield* new SandboxRunError({
 			message: `Sandbox durable host capability is not declared: ${request.args.capability}`,
 		});
 	}
-	return {
-		input: {
-			startedAt,
-			scriptId: script.id,
-			context: payload.input,
-			metadata: script.metadata,
-			authority: payload.authority,
-			contentHash: script.contentHash,
-			workflowExecutionId: executionId,
-			compiledCode: script.compiledCode,
-			compiledFormat: script.compiledFormat,
-			executionId: `${executionId}-host-${request.index}`,
-			allowedHostFunctions: script.metadata.capabilities ?? [],
-			providerId: script.providerId ? SandboxProviderId.make(script.providerId) : null,
-		},
-		script,
+	const input = {
+		startedAt,
+		principal,
+		compiledCode: "",
+		compiledFormat: 1,
+		context: payload.input,
+		workflowExecutionId: executionId,
+		executionId: `${executionId}-host-${request.index}`,
 	};
+	yield* requireSandboxCapabilityInput(input, request.args.capability).pipe(
+		Effect.mapError(
+			(error) => new SandboxRunError({ message: `Sandbox durable host denied: ${error.message}` }),
+		),
+	);
+	return { input };
 });
 
 export const dispatchSandboxHostActivity = Effect.fn("dispatchSandboxHostActivity")(function* (
 	request: HostRequest,
 	payload: SandboxScriptWorkflowPayloadValue,
+	principal: SandboxExecutionPrincipalValue,
 	executionId: string,
 	startedAt: string,
 ) {
-	const { input } = yield* loadDispatchInput(request, payload, executionId, startedAt);
+	const { input } = yield* loadDispatchInput(request, payload, principal, executionId, startedAt);
 	const implementations = yield* SandboxHostImplementations;
 	const boundFunctions = bindSandboxHostFunctions(
 		{
@@ -165,10 +161,11 @@ export const dispatchSandboxHostActivity = Effect.fn("dispatchSandboxHostActivit
 export const prepareSandboxCreateEvents = Effect.fn("prepareSandboxCreateEvents")(function* (
 	request: HostRequest,
 	payload: SandboxScriptWorkflowPayloadValue,
+	principal: SandboxExecutionPrincipalValue,
 	executionId: string,
 	startedAt: string,
 ) {
-	yield* loadDispatchInput(request, payload, executionId, startedAt);
+	yield* loadDispatchInput(request, payload, principal, executionId, startedAt);
 	const args = yield* Schema.decodeUnknownEffect(sandboxHostContracts.createEvents.args)(
 		request.args.args,
 	).pipe(
@@ -179,12 +176,12 @@ export const prepareSandboxCreateEvents = Effect.fn("prepareSandboxCreateEvents"
 				}),
 		),
 	);
-	if (!("userId" in payload.authority)) {
-		return yield* new SandboxRunError({ message: "createEvents requires a user authority" });
+	if (!("userId" in principal.subject)) {
+		return yield* new SandboxRunError({ message: "createEvents requires a user subject" });
 	}
 	return {
 		payload: args[0],
-		userId: payload.authority.userId,
+		userId: principal.subject.userId,
 		executionId: `${executionId}-create-events-${request.index}`,
 	};
 });
@@ -193,10 +190,11 @@ export const prepareSandboxSendNotification = Effect.fn("prepareSandboxSendNotif
 	function* (
 		request: HostRequest,
 		payload: SandboxScriptWorkflowPayloadValue,
+		principal: SandboxExecutionPrincipalValue,
 		executionId: string,
 		startedAt: string,
 	) {
-		yield* loadDispatchInput(request, payload, executionId, startedAt);
+		yield* loadDispatchInput(request, payload, principal, executionId, startedAt);
 		const args = yield* Schema.decodeUnknownEffect(sandboxHostContracts.sendNotification.args)(
 			request.args.args,
 		).pipe(
@@ -207,14 +205,14 @@ export const prepareSandboxSendNotification = Effect.fn("prepareSandboxSendNotif
 					}),
 			),
 		);
-		if (payload.authority.type !== "subscription") {
+		if (principal.subject.type !== "subscription") {
 			return yield* new SandboxRunError({
-				message: "sendNotification requires a subscription authority",
+				message: "sendNotification requires a subscription subject",
 			});
 		}
 		return {
 			message: args[0],
-			userId: payload.authority.userId,
+			userId: principal.subject.userId,
 			executionId: `${executionId}-send-notification-${request.index}`,
 		};
 	},
@@ -224,6 +222,7 @@ export const SandboxDurableHostServiceWorkflowPayload = Schema.Struct({
 	startedAt: Schema.String,
 	parentExecutionId: Schema.String,
 	request: workflowHostRequestSchema,
+	principal: SandboxExecutionPrincipal,
 	sandbox: SandboxScriptWorkflowPayload,
 });
 
@@ -243,6 +242,7 @@ export const runSandboxDurableHostServiceWorkflow = Effect.fn("SandboxDurableHos
 		return yield* dispatchSandboxHostActivity(
 			payload.request,
 			payload.sandbox,
+			payload.principal,
 			payload.parentExecutionId,
 			payload.startedAt,
 		);
@@ -255,6 +255,7 @@ export type SandboxDurableHostDispatcherValue = {
 	readonly dispatch: (
 		request: HostRequest,
 		payload: SandboxScriptWorkflowPayloadValue,
+		principal: SandboxExecutionPrincipalValue,
 		executionId: string,
 	) => Effect.Effect<WorkflowDurableResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 };

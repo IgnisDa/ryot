@@ -65,7 +65,7 @@ export const makePluginUserBootstrapDispatcher = (
 					context: {},
 					executionId,
 					scriptId: resolved.script.id,
-					authority: { type: "user", userId },
+					subject: { type: "user", userId },
 				}).pipe(
 					Effect.mapError(
 						(error) =>
@@ -97,8 +97,8 @@ export class PluginUserBootstrapDispatcher extends Context.Service<PluginUserBoo
 			return yield* makePluginUserBootstrapDispatcher((payload) =>
 				sandbox.executeScript({
 					input: payload.context,
+					subject: payload.subject,
 					scriptId: payload.scriptId,
-					authority: payload.authority,
 					executionId: payload.executionId,
 				}),
 			).pipe(

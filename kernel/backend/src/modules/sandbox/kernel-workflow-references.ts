@@ -1,6 +1,6 @@
 import type { SandboxRunError } from "@ryot/contract/errors";
 import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
-import type { ExecutionAuthority } from "@ryot/contract/modules/sandbox/schemas";
+import type { SandboxExecutionSubject } from "@ryot/contract/modules/sandbox/schemas";
 import type { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Context, type Effect } from "effect";
 import type { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
@@ -16,7 +16,7 @@ export class KernelWorkflowReferences extends Context.Service<
 		readonly execute: (
 			workflowSlug: string,
 			input: JsonValue,
-			authority: ExecutionAuthority,
+			subject: SandboxExecutionSubject,
 			executionId: string,
 			parentExecutionId: string,
 			callerScriptId: SandboxScriptId,

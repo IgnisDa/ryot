@@ -11,6 +11,7 @@ import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import type {
 	NormalizedPlugin,
 	NormalizedPluginScript,
+	PluginPersistenceIdentity,
 	StoredPlugin,
 	StoredPluginIdentity,
 } from "./types";
@@ -63,12 +64,18 @@ const toStoredPlugin = Effect.fn(function* (row: PluginRow, scripts: ReadonlyArr
 			compiledFormat: stored.compiledFormat,
 		});
 	}
+	let identity: StoredPluginIdentity | null = null;
+	if (row.scope === "system" && row.ownerId === null) {
+		identity = { id: row.id, slug: row.slug, ownerId: null, scope: "system" };
+	} else if (row.scope === "user" && row.ownerId !== null) {
+		identity = { id: row.id, slug: row.slug, ownerId: row.ownerId, scope: "user" };
+	}
+	if (!identity) {
+		return yield* new DbError({ message: `Plugin ${row.slug} has invalid persisted identity` });
+	}
 	return {
-		id: row.id,
-		slug: row.slug,
-		scope: row.scope,
+		...identity,
 		status: row.status,
-		ownerId: row.ownerId,
 		manifest: row.manifest,
 		scripts: currentScripts,
 		sourceHash: row.sourceHash,
@@ -340,7 +347,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		);
 
 		const findBySourceHash = Effect.fn("PluginRepository.findBySourceHash")(function* (
-			input: Omit<StoredPluginIdentity, "id"> & { sourceHash: string },
+			input: PluginPersistenceIdentity & { readonly sourceHash: string },
 		) {
 			const db = yield* Database;
 			const [row] = yield* mapDatabaseErrors(
@@ -412,7 +419,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 
 		const persist = Effect.fn("PluginRepository.persist")(function* (
 			plugin: NormalizedPlugin,
-			identity: Omit<StoredPluginIdentity, "id">,
+			identity: PluginPersistenceIdentity,
 		) {
 			const db = yield* Database;
 			const slug = identity.slug;
