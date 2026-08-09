@@ -8,6 +8,7 @@ import { Cron, Data, Effect, Result, Schema } from "effect";
 import {
 	formatPropertyIssues,
 	parseLabeledPropertySchemaInput,
+	validateAppSchemaDefinition,
 } from "#lib/property-schema/property-schema-runtime";
 import type { DefinitionSnapshot } from "#modules/definition-registry/service";
 
@@ -230,6 +231,56 @@ export const validateIntegrationProviderSettingsSchemas = (manifest: PluginManif
 					),
 				),
 			),
+		{ discard: true },
+	);
+
+const reservedImportSourceFields = new Set([
+	"source",
+	"integrationId",
+	"integrationContext",
+	"integrationScriptSlug",
+]);
+
+const isUploadTokenField = (field: string) =>
+	field === "uploadToken" || field.endsWith("UploadToken");
+
+export const validateImportSourceInputSchemas = (manifest: PluginManifestValue) =>
+	Effect.forEach(
+		manifest.importSources,
+		(source) => {
+			const reservedField = Object.keys(source.inputSchema.fields).find((field) =>
+				reservedImportSourceFields.has(field),
+			);
+			if (reservedField) {
+				return Effect.fail(
+					fail(
+						`Import source ${source.slug} in plugin ${manifest.metadata.slug} declares reserved input field: ${reservedField}`,
+					),
+				);
+			}
+			const invalidUploadTokenField = Object.entries(source.inputSchema.fields).find(
+				([field, property]) =>
+					isUploadTokenField(field) &&
+					(property.type !== "string" || property.format?.kind !== "upload"),
+			)?.[0];
+			if (invalidUploadTokenField) {
+				return Effect.fail(
+					fail(
+						`Import source ${source.slug} in plugin ${manifest.metadata.slug} declares upload token field without upload format: ${invalidUploadTokenField}`,
+					),
+				);
+			}
+			const issues = validateAppSchemaDefinition(source.inputSchema, {
+				allowUpload: true,
+			});
+			return issues.length === 0
+				? Effect.void
+				: Effect.fail(
+						fail(
+							`Import source ${source.slug} in plugin ${manifest.metadata.slug} has an invalid inputSchema: ${formatPropertyIssues(issues)}`,
+						),
+					);
+		},
 		{ discard: true },
 	);
 

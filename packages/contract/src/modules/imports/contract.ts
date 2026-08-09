@@ -4,10 +4,15 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/un
 import { AuthMiddleware } from "../../auth-middleware";
 import { BadRequest, NotFound } from "../../errors";
 import { ImportRunId } from "../../schema/brands";
-import { CreateImportRunBody } from "./schemas";
+import { CreateImportRunBody, ListedImportSource } from "./schemas";
 
 export const ImportsGroup = HttpApiGroup.make("imports")
 	.annotate(OpenApi.Description, "Creates and manages data import runs")
+	.add(
+		HttpApiEndpoint.get("listSources", "/imports/sources", {
+			success: Schema.Array(ListedImportSource),
+		}).annotate(OpenApi.Description, "Lists available import sources"),
+	)
 	.add(
 		HttpApiEndpoint.post("createRun", "/imports/runs", {
 			payload: CreateImportRunBody,

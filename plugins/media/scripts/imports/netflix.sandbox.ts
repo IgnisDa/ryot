@@ -1,7 +1,7 @@
 import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { strFromU8, unzipSync } from "@ryot/sandbox-sdk/fflate";
-import { readArtifact } from "@ryot/sandbox-sdk/filesystem";
+import { readNamedArtifact } from "@ryot/sandbox-sdk/filesystem";
 
 import { nowIso } from "../../imports/dates";
 import { batchMediaImportResult } from "../../imports/helpers";
@@ -39,7 +39,7 @@ export default defineScript({
 	output: MediaImportAdapterBatch,
 	run: (input, host, execution) =>
 		Effect.gen(function* () {
-			const archive = unzipSync(yield* readArtifact());
+			const archive = unzipSync(yield* readNamedArtifact("uploadToken"));
 			const myListCsv = csvEntry(archive, "MyList.csv");
 			const ratingsCsv = csvEntry(archive, "Ratings.csv");
 			const viewingActivityCsv = csvEntry(archive, "ViewingActivity.csv");

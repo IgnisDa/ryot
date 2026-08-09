@@ -146,6 +146,7 @@ it.effect("creates and indexes a local permanent upload intent", () => {
 		expect(result.uploadUrl).toMatch(new RegExp(`^/uploads/local/${result.intentId}`));
 		expect(indexed).toHaveLength(1);
 		expect(stored.get(redisKeys.uploadIntent(result.intentId))).toContain('"provider":"local"');
+		expect(stored.get(redisKeys.uploadIntent(result.intentId))).toContain('"fileName":"photo.png"');
 	}).pipe(
 		Effect.provide(
 			makeUploadsLayer({
@@ -231,6 +232,7 @@ it.effect("completes an S3 intent idempotently after verification", () => {
 				state: "pending",
 				kind: "permanent",
 				userId: "user-id",
+				fileName: "object.png",
 				createdAt: 1_700_000_000,
 				expiresAt: 4_102_444_800,
 				contentType: "image/png",
@@ -359,6 +361,7 @@ it.effect("cleans up due local and S3 pending intents in a bounded batch", () =>
 				userId: "user-id",
 				provider: "local",
 				kind: "permanent",
+				fileName: "local.png",
 				intentId: "local-intent",
 				contentType: "image/png",
 				objectKey: "permanent/local.png",
@@ -373,6 +376,7 @@ it.effect("cleans up due local and S3 pending intents in a bounded batch", () =>
 				state: "pending",
 				kind: "permanent",
 				userId: "user-id",
+				fileName: "s3.png",
 				intentId: "s3-intent",
 				contentType: "image/png",
 				objectKey: "permanent/s3.png",
@@ -437,6 +441,7 @@ it.effect("keeps duplicate cleanup dispatches idempotent", () => {
 				userId: "user-id",
 				provider: "local",
 				contentType: "text/csv",
+				fileName: "duplicate.csv",
 				objectKey: "temporary/duplicate.csv",
 			}),
 		],
@@ -492,6 +497,7 @@ it.effect("does not clean an intent while its processing lease is held", () => {
 				kind: "temporary",
 				state: "completed",
 				contentType: "text/csv",
+				fileName: "claimed.csv",
 				objectKey: "temporary/claimed.csv",
 				completion: { expiresAt: 0, token: "token" },
 			}),
@@ -526,7 +532,7 @@ it.effect("completes a local intent idempotently and removes its expiry index", 
 	const stored = new Map([
 		[
 			intentKey,
-			'{"intentId":"intent-id","userId":"user-id","provider":"local","kind":"permanent","objectKey":"permanent/object.png","contentType":"image/png","state":"pending","createdAt":1700000000,"expiresAt":4102444800}',
+			'{"intentId":"intent-id","userId":"user-id","provider":"local","kind":"permanent","objectKey":"permanent/object.png","fileName":"object.png","contentType":"image/png","state":"pending","createdAt":1700000000,"expiresAt":4102444800}',
 		],
 	]);
 	const removed: string[] = [];
@@ -564,10 +570,10 @@ it.effect("completes, claims, and deletes a local temporary intent", () => {
 	return Effect.gen(function* () {
 		const service = yield* UploadsService;
 		const intent = yield* service.createUploadIntent(user, {
-			provider: "local",
 			kind: "temporary",
-			fileName: "report.csv",
+			provider: "local",
 			contentType: "text/csv",
+			fileName: "/exports/report.csv",
 		});
 		const intentKey = redisKeys.uploadIntent(intent.intentId);
 		const completed = yield* service.completeUploadIntent(user, intent.intentId);
@@ -583,6 +589,7 @@ it.effect("completes, claims, and deletes a local temporary intent", () => {
 			new BadRequest({ message: "Upload token does not belong to this user" }),
 		);
 		const claimed = yield* service.claimTemporaryUpload(completed.token, user.id);
+		expect(claimed.fileName).toBe("report.csv");
 		expect(claimed.locator.type).toBe("local");
 		expect(claimed.locator.key).toMatch(/^temporary\/.+\.csv$/);
 		expect(claimed.resolvedPath).toBe("/tmp/object");
@@ -675,6 +682,7 @@ it.effect("completes, claims, and deletes an S3 temporary intent", () => {
 			throw new Error("Expected a temporary upload token");
 		}
 		const claimed = yield* service.claimTemporaryUpload(completed.token, user.id);
+		expect(claimed.fileName).toBe("report.csv");
 		expect(claimed.locator).toMatchObject({ type: "s3" });
 		expect(claimed.locator.key).toMatch(/^temporary\/.+\.csv$/);
 		expect("resolvedPath" in claimed).toBe(false);
@@ -743,6 +751,7 @@ it.effect("deletes invalid S3 objects when completion rejects them", () => {
 				userId: "user-id",
 				contentType: "text/csv",
 				expiresAt: 4_102_444_800,
+				fileName: `${intentId}.csv`,
 				objectKey: `temporary/${intentId}.csv`,
 			}),
 		]),
@@ -799,7 +808,7 @@ it.effect("retries failed cleanup for an expired claimed local upload", () => {
 	const stored = new Map([
 		[
 			intentKey,
-			`{"intentId":"${intentId}","userId":"user-id","provider":"local","kind":"temporary","objectKey":"temporary/object.csv","contentType":"text/csv","state":"claimed","createdAt":1,"expiresAt":0,"claimedAt":1}`,
+			`{"intentId":"${intentId}","userId":"user-id","provider":"local","kind":"temporary","objectKey":"temporary/object.csv","fileName":"object.csv","contentType":"text/csv","state":"claimed","createdAt":1,"expiresAt":0,"claimedAt":1}`,
 		],
 	]);
 	let attempts = 0;

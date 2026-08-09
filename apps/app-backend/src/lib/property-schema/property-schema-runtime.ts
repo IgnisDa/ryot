@@ -1,3 +1,4 @@
+import { TemporaryUploadToken } from "@ryot/contract/modules/uploads/schemas";
 import {
 	type AppPropertyDefinition,
 	type AppArrayPropertyValidation,
@@ -17,6 +18,7 @@ import {
 	type PropertyValidationError,
 	type PropertyValidationIssue,
 } from "@ryot/contract/schema/property-schema";
+import { Email, HttpUrl } from "@ryot/contract/schema/utils";
 import { Result, Effect, Schema, SchemaGetter } from "effect";
 
 import {
@@ -36,6 +38,10 @@ type PropertyValueSchema = Schema.ConstraintCodec<unknown, unknown>;
 export type PropertyValueField = PropertyValueSchema;
 type StringValueSchema = Schema.Codec<string>;
 type PropertyValues = Record<string, unknown>;
+
+type AppSchemaDefinitionValidationOptions = {
+	readonly allowUpload?: boolean;
+};
 
 type ValidationResult =
 	| { readonly success: true; readonly data: PropertyValues }
@@ -57,6 +63,23 @@ const getValueAtPath = (input: unknown, path: AppSchemaRulePath) => {
 	}
 	return value;
 };
+
+const hasValueAtPath = (input: unknown, path: AppSchemaRulePath) => {
+	let value = input;
+	for (const segment of path) {
+		if (!isStringRecord(value) || !Object.hasOwn(value, segment)) {
+			return false;
+		}
+		value = value[segment];
+	}
+	return true;
+};
+
+const pathsEqual = (left: AppSchemaRulePath, right: AppSchemaRulePath) =>
+	left.length === right.length && left.every((segment, index) => segment === right[index]);
+
+const pathStartsWith = (path: AppSchemaRulePath, prefix: AppSchemaRulePath) =>
+	prefix.length <= path.length && prefix.every((segment, index) => segment === path[index]);
 
 const unknownKeysPolicyToParseOption = (policy?: AppSchemaUnknownKeysPolicy) => {
 	if (policy === "strict") {
@@ -160,22 +183,50 @@ const collectConditionDefinitionIssues = (
 			];
 };
 
+const collectUploadDefinitionIssues = (
+	property: AppPropertyDefinition,
+	path: ReadonlyArray<string>,
+): ReadonlyArray<PropertyValidationIssue> => {
+	if (property.type === "string" && property.format?.kind === "upload") {
+		return [
+			{
+				path: [...path, "format"],
+				message: "Upload properties are only allowed in import schemas",
+			},
+		];
+	}
+	if (property.type === "array") {
+		return collectUploadDefinitionIssues(property.items, [...path, "items"]);
+	}
+	if (property.type === "object") {
+		return Object.entries(property.properties).flatMap(([key, value]) =>
+			collectUploadDefinitionIssues(value, [...path, "properties", key]),
+		);
+	}
+	return [];
+};
+
 export const validateAppSchemaDefinition = (
 	schema: AppSchema,
-): ReadonlyArray<PropertyValidationIssue> =>
-	(schema.rules ?? []).flatMap((rule, index) => {
+	options: AppSchemaDefinitionValidationOptions = {},
+): ReadonlyArray<PropertyValidationIssue> => {
+	const uploadIssues = options.allowUpload
+		? []
+		: Object.entries(schema.fields).flatMap(([key, property]) =>
+				collectUploadDefinitionIssues(property, ["fields", key]),
+			);
+	const ruleIssues = (schema.rules ?? []).flatMap((rule, index) => {
 		const property = getAppPropertyDefinitionAtPath(schema.fields, rule.path);
 		const path = ["rules", String(index)];
 		if (!property) {
 			return [
-				{
-					path: [...path, "path"],
-					message: `Rule path '${rule.path.join(".")}' does not exist`,
-				},
+				{ path: [...path, "path"], message: `Rule path '${rule.path.join(".")}' does not exist` },
 			];
 		}
 		return collectConditionDefinitionIssues(schema.fields, rule.when, [...path, "when"]);
 	});
+	return [...uploadIssues, ...ruleIssues];
+};
 
 const collectUnresolvedDynamicChoiceIssues = (
 	property: AppPropertyDefinition,
@@ -233,24 +284,91 @@ const evaluateRuleCondition = (
 	return condition.value.every((value) => !Object.is(actual, value));
 };
 
-const collectPayloadRuleIssues = (
-	schema: AppSchema,
-	input: Record<string, unknown>,
-): ReadonlyArray<PropertyValidationIssue> =>
-	(schema.rules ?? []).flatMap((rule: AppSchemaRule) => {
-		if (!evaluateRuleCondition(rule.when, input)) {
+const collectRequiredPropertyIssues = (
+	property: AppPropertyDefinition,
+	value: unknown,
+	path: ReadonlyArray<string>,
+	hiddenPaths: ReadonlyArray<AppSchemaRulePath>,
+	requiredRules: ReadonlyArray<AppSchemaRule>,
+): ReadonlyArray<PropertyValidationIssue> => {
+	if (hiddenPaths.some((hiddenPath) => pathStartsWith(path, hiddenPath))) {
+		return [];
+	}
+	const requiredRule = requiredRules.find((rule) => pathsEqual(rule.path, path));
+	const propertyRequired = isAppPropertyRequired(property);
+	if (value === undefined || value === null) {
+		if (!propertyRequired && !requiredRule) {
 			return [];
 		}
+		return [
+			{
+				path: [...path],
+				message:
+					requiredRule?.message ??
+					(propertyRequired ? "is missing" : `${path.join(".")} is required`),
+			},
+		];
+	}
+	if (property.type === "object" && isStringRecord(value)) {
+		return Object.entries(property.properties).flatMap(([key, child]) =>
+			collectRequiredPropertyIssues(child, value[key], [...path, key], hiddenPaths, requiredRules),
+		);
+	}
+	if (property.type === "array" && Array.isArray(value)) {
+		return value.flatMap((item, index) =>
+			collectRequiredPropertyIssues(
+				property.items,
+				item,
+				[...path, String(index)],
+				hiddenPaths,
+				requiredRules,
+			),
+		);
+	}
+	return [];
+};
+
+const collectRequiredIssues = (
+	schema: AppSchema,
+	input: PropertyValues,
+	hiddenPaths: ReadonlyArray<AppSchemaRulePath>,
+	requiredRules: ReadonlyArray<AppSchemaRule>,
+) => {
+	const issues = Object.entries(schema.fields).flatMap(([key, property]) =>
+		collectRequiredPropertyIssues(property, input[key], [key], hiddenPaths, requiredRules),
+	);
+	for (const rule of requiredRules) {
+		if (
+			hiddenPaths.some((path) => pathStartsWith(rule.path, path)) ||
+			issues.some((issue) => pathsEqual(issue.path, rule.path))
+		) {
+			continue;
+		}
 		const value = getValueAtPath(input, rule.path);
-		return value === undefined || value === null
-			? [
-					{
-						path: [...rule.path],
-						message: rule.message ?? `${rule.path.join(".")} is required`,
-					},
-				]
-			: [];
-	});
+		if (value === undefined || value === null) {
+			issues.push({
+				path: [...rule.path],
+				message: rule.message ?? `${rule.path.join(".")} is required`,
+			});
+		}
+	}
+	return issues;
+};
+
+const omitValueAtPath = (input: PropertyValues, path: AppSchemaRulePath) => {
+	let value: PropertyValues = input;
+	for (const segment of path.slice(0, -1)) {
+		const child = value[segment];
+		if (!isStringRecord(child)) {
+			return;
+		}
+		value = child;
+	}
+	const key = path.at(-1);
+	if (key !== undefined) {
+		delete value[key];
+	}
+};
 
 const dateValueSchema = Schema.String.pipe(
 	Schema.check(Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/)),
@@ -287,6 +405,22 @@ const applyStringValidation = (
 		value = value.pipe(Schema.check(Schema.isPattern(new RegExp(validation.pattern))));
 	}
 	return value;
+};
+
+const createStringValueSchema = (property: Extract<AppPropertyDefinition, { type: "string" }>) => {
+	if (property.format?.kind === "upload") {
+		return Schema.Struct({
+			...TemporaryUploadToken.fields,
+			token: applyStringValidation(Schema.String, property.validation),
+		});
+	}
+	if (property.format?.kind === "url") {
+		return applyStringValidation(HttpUrl, property.validation);
+	}
+	if (property.format?.kind === "email") {
+		return applyStringValidation(Email, property.validation);
+	}
+	return applyStringValidation(Schema.String, property.validation);
 };
 
 const applyNumberValidation = (
@@ -351,7 +485,7 @@ const toStructField = (property: AppPropertyDefinition): PropertyValueField => {
 			Effect.sync(() => property.defaultValue),
 		)(valueSchema);
 	}
-	return isAppPropertyRequired(property) ? valueSchema : Schema.optional(valueSchema);
+	return Schema.optional(valueSchema);
 };
 
 const createObjectValueSchema = (
@@ -388,33 +522,30 @@ const isManagedAsset = (value: unknown) => {
 
 const createPropertyValueSchema = (property: AppPropertyDefinition): PropertyValueSchema => {
 	if (property.type === "string") {
-		const value = applyStringValidation(Schema.String, property.validation);
-		return isAppPropertyRequired(property) ? value : Schema.NullOr(value);
+		return Schema.NullOr(createStringValueSchema(property));
 	}
 	if (property.type === "date") {
-		return isAppPropertyRequired(property) ? dateValueSchema : Schema.NullOr(dateValueSchema);
+		return Schema.NullOr(dateValueSchema);
 	}
 	if (property.type === "datetime") {
-		return isAppPropertyRequired(property)
-			? datetimeValueSchema
-			: Schema.NullOr(datetimeValueSchema);
+		return Schema.NullOr(datetimeValueSchema);
 	}
 	if (property.type === "boolean") {
-		return isAppPropertyRequired(property) ? Schema.Boolean : Schema.NullOr(Schema.Boolean);
+		return Schema.NullOr(Schema.Boolean);
 	}
 	if (property.type === "number") {
 		const value = withRoundNormalization(
 			applyNumberValidation(Schema.Finite, property.validation),
 			property.normalize,
 		);
-		return isAppPropertyRequired(property) ? value : Schema.NullOr(value);
+		return Schema.NullOr(value);
 	}
 	if (property.type === "integer") {
 		const value = withRoundNormalization(
 			applyNumberValidation(Schema.Finite.pipe(Schema.check(Schema.isInt())), property.validation),
 			property.normalize,
 		);
-		return isAppPropertyRequired(property) ? value : Schema.NullOr(value);
+		return Schema.NullOr(value);
 	}
 	if (property.type === "enum") {
 		if (property.choices.kind === "dynamic") {
@@ -430,7 +561,7 @@ const createPropertyValueSchema = (property: AppPropertyDefinition): PropertyVal
 				Schema.makeFilter((item) => choices.has(item) || "Expected one of the enum choices"),
 			),
 		);
-		return isAppPropertyRequired(property) ? value : Schema.NullOr(value);
+		return Schema.NullOr(value);
 	}
 	if (property.type === "enum-array") {
 		if (property.choices.kind === "dynamic") {
@@ -449,20 +580,20 @@ const createPropertyValueSchema = (property: AppPropertyDefinition): PropertyVal
 			),
 		);
 		const value = applyArrayValidation(Schema.Array(item), property.validation);
-		return isAppPropertyRequired(property) ? value : Schema.NullOr(value);
+		return Schema.NullOr(value);
 	}
 	if (property.type === "array") {
 		const value = applyArrayValidation(
 			Schema.Array(createPropertyValueSchema(property.items)),
 			property.validation,
 		);
-		return isAppPropertyRequired(property) ? value : Schema.NullOr(value);
+		return Schema.NullOr(value);
 	}
 	const objectSchema = createObjectValueSchema(property.properties, property.unknownKeys);
 	const value = property.validation?.asset
 		? objectSchema.pipe(Schema.check(Schema.makeFilter(isManagedAsset)))
 		: objectSchema;
-	return isAppPropertyRequired(property) ? value : Schema.NullOr(value);
+	return Schema.NullOr(value);
 };
 
 const createPropertiesValueSchema = (schema: AppSchema) =>
@@ -522,8 +653,38 @@ export const parseAppSchemaPropertiesSafe = (input: {
 	if (Result.isFailure(decoded)) {
 		return { success: false, issues: parseErrorToIssues(decoded.failure) };
 	}
-	const issues = collectPayloadRuleIssues(input.propertiesSchema, decoded.success);
-	return issues.length > 0 ? { success: false, issues } : { success: true, data: decoded.success };
+	const activeRules = (input.propertiesSchema.rules ?? []).filter((rule) =>
+		evaluateRuleCondition(rule.when, decoded.success),
+	);
+	const visibilityRules = activeRules.filter((rule) => rule.kind === "visibility");
+	const hiddenPaths = visibilityRules.map((rule) => rule.path);
+	const hiddenIssues = visibilityRules.flatMap((rule) =>
+		hasValueAtPath(input.properties, rule.path)
+			? [
+					{
+						path: [...rule.path],
+						message: rule.message ?? `${rule.path.join(".")} must be absent when hidden`,
+					},
+				]
+			: [],
+	);
+	if (hiddenIssues.length > 0) {
+		return { success: false, issues: hiddenIssues };
+	}
+	const requiredRules = activeRules.filter((rule) => rule.kind === "validation");
+	const requiredIssues = collectRequiredIssues(
+		input.propertiesSchema,
+		decoded.success,
+		hiddenPaths,
+		requiredRules,
+	);
+	if (requiredIssues.length > 0) {
+		return { success: false, issues: requiredIssues };
+	}
+	for (const path of hiddenPaths) {
+		omitValueAtPath(decoded.success, path);
+	}
+	return { success: true, data: decoded.success };
 };
 
 export const parseAppSchemaProperties = (input: {

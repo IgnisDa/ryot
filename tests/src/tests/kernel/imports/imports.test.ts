@@ -1,3 +1,5 @@
+import type { ContractSuccess } from "@ryot/contract/client";
+import { pluginConfigEnvironmentKey } from "@ryot/contract/modules/plugins/plugin-config";
 import { Effect } from "effect";
 
 import {
@@ -21,6 +23,8 @@ import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test
 
 let fixtureImportPlugin: InstalledTestPlugin | undefined;
 
+type ListedImportSource = ContractSuccess<"imports", "listSources">[number];
+
 const uninstallWhenReleased = (installed: InstalledTestPlugin) =>
 	pollUntil(
 		`uninstall of '${installed.pluginSlug}' after import completion`,
@@ -41,6 +45,37 @@ describe("Plugin Import Public Boundary", () => {
 		}
 	});
 
+	it.live("lists authenticated manifest sources with start availability", () =>
+		Effect.gen(function* () {
+			assertPresent(fixtureImportPlugin, "Fixture import plugin is missing");
+			const { client } = yield* createAuthenticatedClient();
+			const sources = yield* client.call((c) => c.imports.listSources());
+			const fixtureSource = fixtureImportPlugin.manifest.importSources.find(
+				({ slug }) => slug === FIXTURE_IMPORT_SOURCE,
+			);
+			const configSource = fixtureImportPlugin.manifest.importSources.find(
+				({ slug }) => slug === FIXTURE_CONFIG_IMPORT_SOURCE,
+			);
+			assertPresent(fixtureSource, "Fixture import source declaration is missing");
+			assertPresent(configSource, "Fixture config import source declaration is missing");
+
+			expect(sources.find(({ slug }) => slug === FIXTURE_IMPORT_SOURCE)).toEqual({
+				...fixtureSource,
+				isStartable: true,
+				missingPluginConfigKeys: [],
+				pluginSlug: fixtureImportPlugin.pluginSlug,
+			} satisfies ListedImportSource);
+			expect(sources.find(({ slug }) => slug === FIXTURE_CONFIG_IMPORT_SOURCE)).toEqual({
+				...configSource,
+				isStartable: false,
+				pluginSlug: fixtureImportPlugin.pluginSlug,
+				missingPluginConfigKeys: [
+					pluginConfigEnvironmentKey(fixtureImportPlugin.pluginSlug, "fixtureToken"),
+				],
+			} satisfies ListedImportSource);
+		}),
+	);
+
 	it.live("runs an installed source absent from the central contract to terminal success", () =>
 		Effect.gen(function* () {
 			const { client, cookies } = yield* createAuthenticatedClient();
@@ -51,10 +86,13 @@ describe("Plugin Import Public Boundary", () => {
 				"text/csv",
 			);
 			const created = yield* client.call((c) =>
-				c.imports.createRun({ payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken } }),
+				c.imports.createRun({
+					payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken },
+				}),
 			);
 
 			const completed = yield* pollImportRunUntilTerminal(client, created.id);
+			expect(completed.errorSummary).toBeNull();
 			expect(completed).toMatchObject({
 				progress: 100,
 				failedItems: 0,
@@ -143,10 +181,13 @@ describe("Plugin Import Public Boundary", () => {
 			);
 
 			assertTaggedError(error, "BadRequest");
+			expect(error.message).toBe(
+				"Import source does not declare upload token field: undeclaredUploadToken",
+			);
 		}),
 	);
 
-	it.live("rejects internal dispatch and artifact path fields before claiming uploads", () =>
+	it.live("rejects reserved and schema-invalid fields before claiming uploads", () =>
 		Effect.gen(function* () {
 			const { client, cookies } = yield* createAuthenticatedClient();
 			const archiveUploadToken = yield* uploadImportFile(
@@ -159,32 +200,32 @@ describe("Plugin Import Public Boundary", () => {
 				client.call((c) =>
 					c.imports.createRun({
 						payload: {
-							source: FIXTURE_IMPORT_SOURCE,
 							archiveUploadToken,
+							source: FIXTURE_IMPORT_SOURCE,
 							integrationScriptSlug: "integration.spoofed",
 						},
 					}),
 				),
 			);
 			assertTaggedError(integrationError, "BadRequest");
+			expect(integrationError.message).toBe(
+				"Import source payload field is reserved: integrationScriptSlug",
+			);
 
-			const artifactPathError = yield* Effect.flip(
+			const schemaError = yield* Effect.flip(
 				client.call((c) =>
 					c.imports.createRun({
 						payload: {
 							source: FIXTURE_IMPORT_SOURCE,
-							archiveUploadToken,
-							archiveFilePath: "/tmp/unclaimed.csv",
+							archiveUploadToken: archiveUploadToken.token,
 						},
 					}),
 				),
 			);
-			assertTaggedError(artifactPathError, "BadRequest");
+			assertTaggedError(schemaError, "BadRequest");
 
 			const created = yield* client.call((c) =>
-				c.imports.createRun({
-					payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken },
-				}),
+				c.imports.createRun({ payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken } }),
 			);
 			expect((yield* pollImportRunUntilTerminal(client, created.id)).status).toBe("completed");
 		}),
@@ -212,9 +253,7 @@ describe("Plugin Import Public Boundary", () => {
 			);
 			const error = yield* Effect.flip(
 				client.call((c) =>
-					c.imports.createRun({
-						payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken },
-					}),
+					c.imports.createRun({ payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken } }),
 				),
 			);
 
@@ -234,7 +273,7 @@ describe("Plugin Import Public Boundary", () => {
 			const error = yield* Effect.flip(
 				client.call((c) =>
 					c.imports.createRun({
-						payload: { source: "e2e_missing_import_source", archiveUploadToken },
+						payload: { archiveUploadToken, source: "e2e_missing_import_source" },
 					}),
 				),
 			);

@@ -5,6 +5,30 @@ import { assert, expect, it } from "vitest";
 
 import workflow from "./import.sandbox";
 
+it("dispatches every fitness source to its matching parser activity", async () => {
+	await Promise.all(
+		(
+			[
+				["hevy", "import.hevy"],
+				["strong_app", "import.strong-app"],
+				["open_scale", "import.open-scale"],
+			] as const
+		).map(async ([source, scriptSlug]) => {
+			const envelope = await Effect.runPromise(
+				workflow.run(
+					{ runId: `run-${source}`, source },
+					{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
+					{ metadata: {}, sandboxScriptId: "fitness-import" },
+				),
+			);
+			expect(envelope).toMatchObject({
+				state: "pending",
+				requests: [{ kind: "activity", args: { scriptSlug } }],
+			});
+		}),
+	);
+});
+
 it("orchestrates the source script and kernel chunk consumer", async () => {
 	const journal: JsonValue[] = [];
 	const requests: Array<WorkflowReplayEnvelope["requests"][number]> = [];

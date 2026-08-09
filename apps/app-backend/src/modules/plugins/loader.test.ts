@@ -211,12 +211,22 @@ it("rejects integration provider and import source slug collisions across active
 					{
 						slug: "hevy",
 						name: "Hevy",
-						lot: "single" as const,
-						input: "file" as const,
 						description: "Hevy CSV",
 						requiredPluginConfigKeys: [],
-						allowedFileExtensions: ["csv"],
 						workflowSlug: "fixture.workflow",
+						inputSchema: {
+							unknownKeys: "strict" as const,
+							fields: {
+								uploadToken: {
+									position: 1,
+									label: "Upload token",
+									type: "string" as const,
+									description: "Upload token",
+									validation: { required: true as const },
+									format: { kind: "upload" as const, allowedFileExtensions: ["csv"] },
+								},
+							},
+						},
 					},
 				],
 			},
