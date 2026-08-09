@@ -21,8 +21,8 @@ if (runMigrationOnly) {
 if (nodeEnv !== "production") {
 	await Effect.runPromise(
 		Effect.gen(function* () {
-			const fs = yield* FileSystem.FileSystem;
 			const path = yield* Path.Path;
+			const fs = yield* FileSystem.FileSystem;
 			const outputPath = yield* path.fromFileUrl(
 				new URL("../../../apps/docs/src/includes/app-backend-config-schema.md", import.meta.url),
 			);
