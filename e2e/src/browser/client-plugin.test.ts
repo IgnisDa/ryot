@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { chromium, type APIRequestContext, type BrowserContext, type Locator } from "playwright";
+import type { APIRequestContext, BrowserContext, Locator } from "playwright";
 
 import {
 	createTestUser,
@@ -9,16 +9,9 @@ import {
 	updateFixtureClientPlugin,
 } from "~/fixtures/kernel";
 import { getApiUrl } from "~/support/api";
+import { browserStep, signInThroughHostedOAuth, withBrowserContext } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/frontend";
-
-const step = async <T>(name: string, run: () => Promise<T>) => {
-	try {
-		return await run();
-	} catch (error) {
-		throw new Error(`Browser step failed: ${name}`, { cause: error });
-	}
-};
 
 type ArtifactSession = {
 	readonly src: string;
@@ -104,12 +97,10 @@ const readArtifactSession = async (
 	if (src === null) {
 		throw new Error("Plugin artifact session URL is missing [credential redacted]");
 	}
-	let url: URL;
-	try {
-		url = new URL(src);
-	} catch {
+	if (!URL.canParse(src)) {
 		throw new Error("Plugin artifact session URL is invalid [credential redacted]");
 	}
+	const url = new URL(src);
 	const credential = artifactSessionPath.exec(url.pathname)?.[1];
 	if (
 		url.origin !== new URL(selectedApiUrl).origin ||
@@ -217,109 +208,116 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		const effectContext = yield* Effect.context();
 		yield* installFixtureClientPlugin(client, "A", "", apiUrl);
 
-		yield* Effect.promise(async () => {
-			const browser = await chromium.launch();
-			const context = await browser.newContext();
-			try {
+		yield* withBrowserContext(undefined, ({ context }) =>
+			Effect.gen(function* () {
 				const bridgeObservations: BridgeObservation[] = [];
 				const observedArtifacts: ArtifactSession[] = [];
-				await observeBridgeMessages(context, bridgeObservations);
-				const page = await context.newPage();
+				yield* Effect.promise(() => observeBridgeMessages(context, bridgeObservations));
+				const page = yield* Effect.promise(() => context.newPage());
 				const frame = page.locator('iframe[title="fixture plugin"]');
 				const fixture = page.frameLocator('iframe[title="fixture plugin"]');
 				const home = fixture.locator("main");
 
-				await step("sign in", async () => {
-					await page.goto(`${frontendUrl}/`);
-					await page.waitForURL((url) => url.pathname === "/oauth/login");
-					await page.getByLabel("Email address").fill(email);
-					await page.getByLabel("Password").fill(password);
-					const entriesBeforeBootstrap = await page.evaluate(() => history.length);
-					await page.getByRole("button", { name: "Sign in", exact: true }).last().click();
+				const { historyLengthBeforeSubmit } = yield* signInThroughHostedOAuth(
+					page,
+					email,
+					password,
+					{ captureHistory: true, entryPath: "/" },
+				);
+				yield* browserStep("verify sign-in workspace redirect", async () => {
 					// Sign-in lands on the first enabled workspace by (sortOrder, slug), which earlier
 					// suites change by installing system plugins into the shared database.
 					await page.waitForURL((url) => /^\/[^/]+$/.test(url.pathname));
-					expect(await page.evaluate(() => history.length)).toBe(entriesBeforeBootstrap + 1);
+					expect(await page.evaluate(() => history.length)).toBe(historyLengthBeforeSubmit! + 1);
 				});
 
-				await step("enter Fixture through the workspace switcher", async () => {
+				yield* browserStep("enter Fixture through the workspace switcher", async () => {
 					await page.getByRole("button", { name: /workspace,/ }).click();
 					await page.getByRole("menuitemradio", { name: "Switch to Fixture workspace" }).click();
 					await page.waitForURL(`${frontendUrl}/fixture`);
 					await frame.waitFor({ state: "visible" });
 				});
 
-				const initialArtifact = await step("verify the isolated revision A frame", async () => {
-					await frame.waitFor({ state: "visible" });
-					expect(await frame.getAttribute("title")).toBe("fixture plugin");
-					expect(await frame.getAttribute("sandbox")).toBe("allow-scripts");
-					expect(await frame.getAttribute("referrerpolicy")).toBe("no-referrer");
-					const artifact = await readArtifactSession(frame, apiUrl);
-					observedArtifacts.push(artifact);
-					await expectVisibleText(home, FIXTURE_CLIENT_REVISION_MARKERS.A);
-					const typography = await home.evaluate(async (element) => {
-						const heading = element.querySelector("h1");
-						if (!heading) {
-							throw new Error("Fixture plugin heading is missing");
-						}
-						const uiFaces = await document.fonts.load('16px "Outfit Variable"', "Fixture");
-						const displayFaces = await document.fonts.load('16px "Lora Variable"', "Fixture");
-						return {
-							uiFamily: getComputedStyle(element).fontFamily,
-							displayFamily: getComputedStyle(heading).fontFamily,
-							uiLoaded: uiFaces.length > 0 && uiFaces.every(({ status }) => status === "loaded"),
-							displayLoaded:
-								displayFaces.length > 0 && displayFaces.every(({ status }) => status === "loaded"),
-						};
-					});
-					expect(typography.uiFamily).toContain("Outfit Variable");
-					expect(typography.displayFamily).toContain("Lora Variable");
-					expect(typography.uiLoaded).toBe(true);
-					expect(typography.displayLoaded).toBe(true);
-					expect(
-						await fixture.getByRole("region", { name: "Theme snapshot" }).getAttribute("class"),
-					).toBe("w-full max-w-md rounded-lg border border-border bg-surface p-4");
-					return artifact;
-				});
-				const initialBridgeSession = await waitForFreshBridgeSession(bridgeObservations);
+				const initialArtifact = yield* browserStep(
+					"verify the isolated revision A frame",
+					async () => {
+						await frame.waitFor({ state: "visible" });
+						expect(await frame.getAttribute("title")).toBe("fixture plugin");
+						expect(await frame.getAttribute("sandbox")).toBe("allow-scripts");
+						expect(await frame.getAttribute("referrerpolicy")).toBe("no-referrer");
+						const artifact = await readArtifactSession(frame, apiUrl);
+						observedArtifacts.push(artifact);
+						await expectVisibleText(home, FIXTURE_CLIENT_REVISION_MARKERS.A);
+						const typography = await home.evaluate(async (element) => {
+							const heading = element.querySelector("h1");
+							const uiFaces = await document.fonts.load('16px "Outfit Variable"', "Fixture");
+							const displayFaces = await document.fonts.load('16px "Lora Variable"', "Fixture");
+							return {
+								hasHeading: heading !== null,
+								uiFamily: getComputedStyle(element).fontFamily,
+								displayFamily: heading ? getComputedStyle(heading).fontFamily : "",
+								uiLoaded: uiFaces.length > 0 && uiFaces.every(({ status }) => status === "loaded"),
+								displayLoaded:
+									displayFaces.length > 0 &&
+									displayFaces.every(({ status }) => status === "loaded"),
+							};
+						});
+						expect(typography.hasHeading).toBe(true);
+						expect(typography.uiFamily).toContain("Outfit Variable");
+						expect(typography.displayFamily).toContain("Lora Variable");
+						expect(typography.uiLoaded).toBe(true);
+						expect(typography.displayLoaded).toBe(true);
+						expect(
+							await fixture.getByRole("region", { name: "Theme snapshot" }).getAttribute("class"),
+						).toBe("w-full max-w-md rounded-lg border border-border bg-surface p-4");
+						return artifact;
+					},
+				);
+				const initialBridgeSession = yield* browserStep(
+					"establish the initial bridge session",
+					() => waitForFreshBridgeSession(bridgeObservations),
+				);
 
-				await step("preserve the iframe and bridge across shell-only interactions", async () => {
-					const shellFrame = await frame.elementHandle();
-					expect(shellFrame).not.toBeNull();
-					const sameFrame = () =>
-						frame.evaluate((current, initial) => current === initial, shellFrame);
+				yield* browserStep(
+					"preserve the iframe and bridge across shell-only interactions",
+					async () => {
+						const shellFrame = await frame.elementHandle();
+						expect(shellFrame).not.toBeNull();
+						const sameFrame = () =>
+							frame.evaluate((current, initial) => current === initial, shellFrame);
 
-					const switcherTrigger = page.getByRole("button", { name: /workspace,/ });
-					const switcherMenu = page.getByRole("menu", { name: "Workspaces" });
-					await switcherTrigger.click();
-					await switcherMenu.waitFor({ state: "visible" });
-					await switcherTrigger.click();
-					await switcherMenu.waitFor({ state: "hidden" });
-					expect(await sameFrame()).toBe(true);
-					expectSameArtifactSession(await readArtifactSession(frame, apiUrl), initialArtifact);
-					expectCurrentBridgeSession(bridgeObservations, initialBridgeSession);
+						const switcherTrigger = page.getByRole("button", { name: /workspace,/ });
+						const switcherMenu = page.getByRole("menu", { name: "Workspaces" });
+						await switcherTrigger.click();
+						await switcherMenu.waitFor({ state: "visible" });
+						await switcherTrigger.click();
+						await switcherMenu.waitFor({ state: "hidden" });
+						expect(await sameFrame()).toBe(true);
+						expectSameArtifactSession(await readArtifactSession(frame, apiUrl), initialArtifact);
+						expectCurrentBridgeSession(bridgeObservations, initialBridgeSession);
 
-					await page.setViewportSize({ width: 390, height: 844 });
-					expect(await sameFrame()).toBe(true);
+						await page.setViewportSize({ width: 390, height: 844 });
+						expect(await sameFrame()).toBe(true);
 
-					const menuTrigger = page.getByRole("button", { name: "Open navigation" });
-					const drawer = page.getByRole("dialog", { name: "Navigation" });
-					await menuTrigger.click();
-					await drawer.waitFor({ state: "visible" });
-					await page.getByRole("button", { name: "Close navigation" }).click();
-					await drawer.waitFor({ state: "hidden" });
-					expect(await sameFrame()).toBe(true);
-					expect(await menuTrigger.evaluate((element) => element === document.activeElement)).toBe(
-						true,
-					);
+						const menuTrigger = page.getByRole("button", { name: "Open navigation" });
+						const drawer = page.getByRole("dialog", { name: "Navigation" });
+						await menuTrigger.click();
+						await drawer.waitFor({ state: "visible" });
+						await page.getByRole("button", { name: "Close navigation" }).click();
+						await drawer.waitFor({ state: "hidden" });
+						expect(await sameFrame()).toBe(true);
+						expect(
+							await menuTrigger.evaluate((element) => element === document.activeElement),
+						).toBe(true);
 
-					await page.setViewportSize({ width: 1280, height: 800 });
-					expect(await sameFrame()).toBe(true);
-					expectSameArtifactSession(await readArtifactSession(frame, apiUrl), initialArtifact);
-					expectCurrentBridgeSession(bridgeObservations, initialBridgeSession);
-				});
+						await page.setViewportSize({ width: 1280, height: 800 });
+						expect(await sameFrame()).toBe(true);
+						expectSameArtifactSession(await readArtifactSession(frame, apiUrl), initialArtifact);
+						expectCurrentBridgeSession(bridgeObservations, initialBridgeSession);
+					},
+				);
 
-				await step("use catalog and operation bridges", async () => {
+				yield* browserStep("use catalog and operation bridges", async () => {
 					await expectVisibleText(home, "Installed client plugins: fixture");
 					await fixture.getByRole("button", { name: "Refresh catalog" }).click();
 					await expectVisibleText(home, "Installed client plugins: fixture");
@@ -329,7 +327,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 					await expectVisibleText(home, "Greetings are unavailable right now.");
 				});
 
-				await step("synchronize theme through settings/preferences", async () => {
+				yield* browserStep("synchronize theme through settings/preferences", async () => {
 					const html = page.locator("html");
 					const openSettings = async () => {
 						await page.getByRole("link", { name: "Open settings" }).click();
@@ -360,14 +358,18 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 					await returnToFixture("dark");
 				});
 
-				const navigationFrame = await frame.elementHandle();
-				const navigationArtifact = await readArtifactSession(frame, apiUrl);
-				const navigationBridgeSession = await waitForFreshBridgeSession(
-					bridgeObservations,
-					initialBridgeSession,
+				const navigationFrame = yield* browserStep("capture the navigation frame", () =>
+					frame.elementHandle(),
+				);
+				const navigationArtifact = yield* browserStep("capture the navigation artifact", () =>
+					readArtifactSession(frame, apiUrl),
+				);
+				const navigationBridgeSession = yield* browserStep(
+					"establish the navigation bridge session",
+					() => waitForFreshBridgeSession(bridgeObservations, initialBridgeSession),
 				);
 				expect(navigationFrame).not.toBeNull();
-				await step("navigate while preserving the iframe", async () => {
+				yield* browserStep("navigate while preserving the iframe", async () => {
 					await fixture.getByRole("link", { name: "Item 1 details" }).click();
 					await page.waitForURL(`${frontendUrl}/fixture/details/item-1?tab=stats`);
 					await expectVisibleText(fixture.locator("main"), "Item item-1, tab stats.");
@@ -405,7 +407,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 					expectCurrentBridgeSession(bridgeObservations, navigationBridgeSession);
 				});
 
-				await step("recover from a plugin crash", async () => {
+				yield* browserStep("recover from a plugin crash", async () => {
 					await fixture.getByRole("button", { name: "Crash during render" }).click();
 					await expectVisibleText(page.locator("body"), "This plugin stopped working.");
 					const reload = page.getByRole("button", { name: "Reload plugin" });
@@ -424,7 +426,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 					await waitForArtifactSessionRevoked(context.request, navigationArtifact);
 				});
 
-				await step("replace the frame from the live revision event", async () => {
+				yield* browserStep("replace the frame from the live revision event", async () => {
 					await fixture.getByRole("button", { name: "Greet", exact: true }).click();
 					await expectVisibleText(home, "Greeted 1 times.");
 					const revisionAArtifact = await readArtifactSession(frame, apiUrl);
@@ -451,13 +453,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 				});
 
 				expectNoCredentialsInBridgeMessages(bridgeObservations, observedArtifacts);
-			} finally {
-				try {
-					await context.close();
-				} finally {
-					await browser.close();
-				}
-			}
-		});
+			}),
+		);
 	}),
 );
