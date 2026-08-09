@@ -29,14 +29,14 @@ describe("browser persistence", () => {
 			["ryot:other-setting", "keep-too"],
 		]);
 		const first = parseServerOrigin("https://one.example.com");
-		const second = parseServerOrigin("https://two.example.com/base");
+		const second = parseServerOrigin("https://two.example.com/");
 		assert(first.ok && second.ok);
 
 		return Effect.gen(function* () {
 			const service = yield* ClientStorage;
 			yield* service.setServerSelection(first.origin);
 			yield* service.setServerSelection(second.origin);
-			expect(yield* service.getServerSelection).toBe("https://two.example.com/base");
+			expect(yield* service.getServerSelection).toBe("https://two.example.com");
 			yield* service.clearServerSelection;
 
 			expect(values.has(SERVER_SELECTION_KEY)).toBe(false);

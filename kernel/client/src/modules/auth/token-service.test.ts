@@ -118,7 +118,7 @@ describe("OAuth token service", () => {
 				idToken: idToken("nonce-1"),
 				accessTokenExpiresAt: now + 900_000,
 			});
-			expect(yield* persisted.getPending(origin, "state-1")).toBeNull();
+			expect(yield* persisted.takePending(origin, "state-1")).toBeNull();
 		}).pipe(
 			Effect.provide(oauthTokenServiceLayer(fetcher, () => now)),
 			Effect.provide(storage.layer),
@@ -141,7 +141,7 @@ describe("OAuth token service", () => {
 				),
 			);
 			expect(result._tag).toBe("Failure");
-			expect(yield* persisted.getPending(origin, "state-1")).toBeNull();
+			expect(yield* persisted.takePending(origin, "state-1")).toBeNull();
 		}).pipe(
 			Effect.provide(
 				oauthTokenServiceLayer(
@@ -256,7 +256,7 @@ describe("OAuth token service", () => {
 					`${origin}/auth/logout/callback`,
 				);
 				expect(yield* persisted.getTokenSet(origin)).toBeNull();
-				expect(yield* persisted.getPending(origin, "state-1")).toBeNull();
+				expect(yield* persisted.takePending(origin, "state-1")).toBeNull();
 			}).pipe(
 				Effect.provide(
 					oauthTokenServiceLayer(
