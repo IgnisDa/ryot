@@ -1,0 +1,48 @@
+export default {
+	metadata: {
+		icon: "test",
+		name: "CLI test plugin",
+		slug: "cli-test",
+		version: "1.0.0",
+		description: "A fixture for the CLI tests.",
+	},
+	bindings: {
+		eventAutomations: [],
+		entityAutomations: [],
+		signalAutomations: [],
+		relationshipAutomations: [],
+		providerEntityImportAutomations: [],
+	},
+	configSchema: { unknownKeys: "strict", fields: {} },
+	boot: [],
+	crons: [],
+	scripts: [
+		{
+			entry: "backend/main.ts",
+			slug: "main",
+			name: "Main",
+			requiredPluginConfigKeys: [],
+			requiredSystemConfigKeys: [],
+			capabilities: [],
+			kind: "script",
+		},
+	],
+	workflows: [],
+	providers: [],
+	savedViews: [],
+	operations: [],
+	entitySchemas: [],
+	signalSchemas: [],
+	importSources: [],
+	userBootstrap: [],
+	httpRateLimits: [
+		{
+			key: "test-api",
+			requests: 1,
+			intervalMs: 1000,
+			origins: ["https://example.com/"],
+		},
+	],
+	relationshipSchemas: [],
+	integrationProviders: [],
+};
