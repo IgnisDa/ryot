@@ -97,7 +97,7 @@
   - Owner: W18 Transactional email
   - Scope: Remove static build/copy pipeline
 
-- [ ] **24. Remove website-local admin result protocol** [M/S/M]
+- [x] **24. Remove website-local admin result protocol** [M/S/M]
   - Owner: C02 Website bridge
   - Scope: Use shared rejecting contract runner
 
