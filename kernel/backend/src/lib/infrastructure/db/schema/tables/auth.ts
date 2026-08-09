@@ -1,4 +1,13 @@
-import { boolean, index, integer, jsonb, snakeCase, text, timestamp } from "drizzle-orm/pg-core";
+import {
+	boolean,
+	index,
+	integer,
+	jsonb,
+	snakeCase,
+	text,
+	timestamp,
+	uniqueIndex,
+} from "drizzle-orm/pg-core";
 
 export const user = snakeCase.table("user", {
 	image: text(),
@@ -114,11 +123,195 @@ export const apikey = snakeCase.table(
 export const twoFactor = snakeCase.table("two_factor", {
 	id: text().primaryKey(),
 	secret: text().notNull(),
-	backupCodes: text().notNull(),
 	verified: boolean().notNull(),
+	backupCodes: text().notNull(),
 	failedVerificationCount: integer().default(0),
 	lockedUntil: timestamp({ withTimezone: true }),
 	userId: text()
 		.notNull()
 		.references(() => user.id, { onDelete: "cascade" }),
+});
+
+export const jwks = snakeCase.table("jwks", {
+	alg: text(),
+	crv: text(),
+	id: text().primaryKey(),
+	publicKey: text().notNull(),
+	privateKey: text().notNull(),
+	expiresAt: timestamp({ withTimezone: true }),
+	createdAt: timestamp({ withTimezone: true }).notNull(),
+});
+
+export const oauthClient = snakeCase.table(
+	"oauth_client",
+	{
+		tos: text(),
+		uri: text(),
+		icon: text(),
+		jwks: text(),
+		name: text(),
+		policy: text(),
+		jwksUri: text(),
+		softwareId: text(),
+		referenceId: text(),
+		subjectType: text(),
+		clientSecret: text(),
+		scopes: text().array(),
+		skipConsent: boolean(),
+		requirePKCE: boolean(),
+		id: text().primaryKey(),
+		softwareVersion: text(),
+		applicationType: text(),
+		contacts: text().array(),
+		clientDiscoveryId: text(),
+		softwareStatement: text(),
+		grantTypes: text().array(),
+		enableEndSession: boolean(),
+		backchannelLogoutUri: text(),
+		responseTypes: text().array(),
+		tokenEndpointAuthMethod: text(),
+		clientId: text().notNull().unique(),
+		redirectUris: text().array().notNull(),
+		postLogoutRedirectUris: text().array(),
+		disabled: boolean().default(false),
+		backchannelLogoutSessionRequired: boolean(),
+		userId: text().references(() => user.id),
+		metadata: jsonb().$type<Record<string, unknown>>(),
+		createdAt: timestamp({ withTimezone: true }),
+		updatedAt: timestamp({ withTimezone: true }),
+		dpopBoundAccessTokens: boolean().default(false),
+		clientCredentialsScopes: text().array().default([]),
+	},
+	(table) => [index("oauth_client_userId_idx").on(table.userId)],
+);
+
+export const oauthResource = snakeCase.table("oauth_resource", {
+	signingKeyId: text(),
+	name: text().notNull(),
+	id: text().primaryKey(),
+	signingAlgorithm: text(),
+	accessTokenTtl: integer(),
+	refreshTokenTtl: integer(),
+	allowedScopes: text().array(),
+	identifier: text().notNull().unique(),
+	disabled: boolean().default(false),
+	policyVersion: integer().default(1),
+	metadata: jsonb().$type<Record<string, unknown>>(),
+	createdAt: timestamp({ withTimezone: true }),
+	updatedAt: timestamp({ withTimezone: true }),
+	customClaims: jsonb().$type<Record<string, unknown>>(),
+	dpopBoundAccessTokensRequired: boolean().default(false),
+});
+
+export const oauthClientResource = snakeCase.table(
+	"oauth_client_resource",
+	{
+		id: text().primaryKey(),
+		metadata: jsonb().$type<Record<string, unknown>>(),
+		createdAt: timestamp({ withTimezone: true }),
+		clientId: text()
+			.notNull()
+			.references(() => oauthClient.clientId, { onDelete: "cascade" }),
+		resourceId: text()
+			.notNull()
+			.references(() => oauthResource.id, { onDelete: "cascade" }),
+	},
+	(table) => [
+		index("oauth_client_resource_clientId_idx").on(table.clientId),
+		index("oauth_client_resource_resourceId_idx").on(table.resourceId),
+		uniqueIndex("oauth_client_resource_clientId_resourceId_uidx").on(
+			table.clientId,
+			table.resourceId,
+		),
+	],
+);
+
+export const oauthRefreshToken = snakeCase.table(
+	"oauth_refresh_token",
+	{
+		referenceId: text(),
+		id: text().primaryKey(),
+		resources: text().array(),
+		authorizationCodeId: text(),
+		rotationReplayResponse: text(),
+		token: text().notNull().unique(),
+		scopes: text().array().notNull(),
+		requestedUserInfoClaims: text().array(),
+		revoked: timestamp({ withTimezone: true }),
+		authTime: timestamp({ withTimezone: true }),
+		rotatedAt: timestamp({ withTimezone: true }),
+		confirmation: jsonb().$type<Record<string, unknown>>(),
+		expiresAt: timestamp({ withTimezone: true }).notNull(),
+		createdAt: timestamp({ withTimezone: true }).notNull(),
+		rotationReplayExpiresAt: timestamp({ withTimezone: true }),
+		sessionId: text().references(() => session.id, { onDelete: "set null" }),
+		clientId: text()
+			.notNull()
+			.references(() => oauthClient.clientId),
+		userId: text()
+			.notNull()
+			.references(() => user.id),
+	},
+	(table) => [
+		index("oauth_refresh_token_clientId_idx").on(table.clientId),
+		index("oauth_refresh_token_sessionId_idx").on(table.sessionId),
+		index("oauth_refresh_token_userId_idx").on(table.userId),
+		index("oauth_refresh_token_authorizationCodeId_idx").on(table.authorizationCodeId),
+	],
+);
+
+export const oauthAccessToken = snakeCase.table(
+	"oauth_access_token",
+	{
+		referenceId: text(),
+		token: text().unique(),
+		id: text().primaryKey(),
+		resources: text().array(),
+		authorizationCodeId: text(),
+		scopes: text().array().notNull(),
+		requestedUserInfoClaims: text().array(),
+		userId: text().references(() => user.id),
+		revoked: timestamp({ withTimezone: true }),
+		confirmation: jsonb().$type<Record<string, unknown>>(),
+		refreshId: text().references(() => oauthRefreshToken.id),
+		expiresAt: timestamp({ withTimezone: true }).notNull(),
+		createdAt: timestamp({ withTimezone: true }).notNull(),
+		sessionId: text().references(() => session.id, { onDelete: "set null" }),
+		clientId: text()
+			.notNull()
+			.references(() => oauthClient.clientId),
+	},
+	(table) => [
+		index("oauth_access_token_clientId_idx").on(table.clientId),
+		index("oauth_access_token_sessionId_idx").on(table.sessionId),
+		index("oauth_access_token_userId_idx").on(table.userId),
+		index("oauth_access_token_refreshId_idx").on(table.refreshId),
+		index("oauth_access_token_authorizationCodeId_idx").on(table.authorizationCodeId),
+	],
+);
+
+export const oauthConsent = snakeCase.table(
+	"oauth_consent",
+	{
+		referenceId: text(),
+		id: text().primaryKey(),
+		resources: text().array(),
+		scopes: text().array().notNull(),
+		requestedUserInfoClaims: text().array(),
+		userId: text().references(() => user.id),
+		createdAt: timestamp({ withTimezone: true }).notNull(),
+		updatedAt: timestamp({ withTimezone: true }).notNull(),
+		clientId: text()
+			.notNull()
+			.references(() => oauthClient.clientId),
+	},
+	(table) => [
+		index("oauth_consent_clientId_idx").on(table.clientId),
+		index("oauth_consent_userId_idx").on(table.userId),
+	],
+);
+
+export const oauthClientAssertion = snakeCase.table("oauth_client_assertion", {
+	id: text().primaryKey(),
+	expiresAt: timestamp({ withTimezone: true }).notNull(),
 });
