@@ -12,6 +12,7 @@ it.effect("passes complete request headers to the auth service", () => {
 		currentUser: (headers) => {
 			capturedCookie = headers.get("cookie");
 			return Effect.succeed({
+				image: null,
 				name: "User",
 				email: "user@example.com",
 				id: UserId.make("user-1"),
