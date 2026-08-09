@@ -1,10 +1,8 @@
-import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
-import { Effect } from "effect";
 import type { Atom } from "effect/unstable/reactivity";
 
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
-import { useEntityUpdates } from "@/modules/entity-interest/use-entity-updates";
+import { useInterestedAtom } from "@/modules/entity-interest/use-interested-atom";
 
 import {
 	showActivityAtom,
@@ -18,26 +16,20 @@ import { showOverviewEntityIds } from "./show-overview-state";
 
 function useShowQuery<State extends { readonly status: string }>(props: {
 	readonly label: string;
-	readonly owner: string;
 	readonly blocked: boolean;
 	readonly atom: Atom.Atom<State>;
 	readonly selectEntityIds: (state: State) => readonly string[];
 }) {
-	const state = useAtomValue(props.atom);
-	const refresh = useAtomRefresh(props.atom);
-	const entityIds = props.selectEntityIds(state);
+	const { state, refresh } = useInterestedAtom({
+		atom: props.atom,
+		blocked: props.blocked,
+		selectEntityIds: props.selectEntityIds,
+	});
 
 	useInternalRequestFailureLogging(
 		`${props.label} ${state.status}`,
 		"cause" in state ? state.cause : undefined,
 	);
-	useEntityUpdates({
-		entityIds,
-		owner: props.owner,
-		priority: "visible",
-		blocked: props.blocked,
-		onBatch: () => Effect.sync(refresh),
-	});
 
 	return { state, refresh };
 }
@@ -47,7 +39,6 @@ export const useShowSummary = (entityId: string) => {
 	return useShowQuery({
 		blocked: false,
 		label: "show summary",
-		owner: `show-summary:${entityId}`,
 		selectEntityIds: () => [entityId],
 		atom: showSummaryAtom({ scope, entityId }),
 	});
@@ -58,7 +49,6 @@ export const useShowOverview = (entityId: string) => {
 	return useShowQuery({
 		blocked: false,
 		label: "show overview",
-		owner: `show-overview:${entityId}`,
 		atom: showOverviewAtom({ scope, entityId }),
 		selectEntityIds: (state) =>
 			state.status === "ready" ? [entityId, ...showOverviewEntityIds(state.overview)] : [entityId],
@@ -71,7 +61,6 @@ export const useShowEpisodes = (entityId: string) => {
 		blocked: false,
 		label: "show episodes",
 		selectEntityIds: () => [entityId],
-		owner: `show-episodes:${entityId}`,
 		atom: showEpisodesAtom({ scope, entityId }),
 	});
 };
@@ -81,7 +70,6 @@ export const useShowSeasonEpisodes = (entityId: string, seasonId: string | null)
 	return useShowQuery({
 		blocked: seasonId === null,
 		label: "show season episodes",
-		owner: `show-season-episodes:${seasonId ?? entityId}`,
 		atom: showSeasonEpisodesAtom({ scope, entityId, seasonId }),
 		selectEntityIds: (state) =>
 			seasonId === null ? [entityId] : [entityId, seasonId, ...showSeasonEpisodeEntityIds(state)],
@@ -94,7 +82,6 @@ export const useShowActivity = (entityId: string) => {
 		blocked: false,
 		label: "show activity",
 		selectEntityIds: () => [entityId],
-		owner: `show-activity:${entityId}`,
 		atom: showActivityAtom({ scope, entityId }),
 	});
 };
