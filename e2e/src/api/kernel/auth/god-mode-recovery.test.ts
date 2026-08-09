@@ -285,9 +285,9 @@ describe("God-mode disable set", () => {
 	it.live("disables a user, revokes sessions, blocks API keys, and then enables the user", () =>
 		Effect.gen(function* () {
 			const client = getApiClient();
-			const { token, email, password } = yield* createTestUser();
+			const { token, email, password, sessionCookie } = yield* createTestUser();
 			const userId = yield* getUserIdByEmail(email);
-			const apiKey = yield* createApiKey(token);
+			const apiKey = yield* createApiKey(sessionCookie);
 
 			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 				Authorization: `Bearer ${token}`,

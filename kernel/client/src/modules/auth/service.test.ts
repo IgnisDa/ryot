@@ -9,6 +9,7 @@ const makeTokens = (
 	overrides: Partial<OAuthTokenService["Service"]> = {},
 ): OAuthTokenService["Service"] => ({
 	clear: () => Effect.void,
+	logout: () => Effect.succeed(null),
 	userInfo: () => Effect.succeed(null),
 	accessToken: () => Effect.succeed(null),
 	rejectAuthorization: () => Effect.die("not used"),
@@ -78,7 +79,7 @@ describe("authentication service", () => {
 		}).pipe(Effect.provide(authLayer(makeTokens()))),
 	);
 
-	it.effect("clears local OAuth authentication and updates subscribers", () => {
+	it.effect("logs out OAuth authentication and updates subscribers", () => {
 		const calls: string[] = [];
 		return Effect.gen(function* () {
 			const auth = yield* AuthService;
@@ -90,7 +91,7 @@ describe("authentication service", () => {
 			Effect.provide(
 				authLayer(
 					makeTokens({
-						clear: (origin) => Effect.sync(() => calls.push(`clear:${origin}`)),
+						logout: (origin) => Effect.sync(() => (calls.push(`clear:${origin}`), null)),
 					}),
 				),
 			),

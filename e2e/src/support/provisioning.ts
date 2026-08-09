@@ -112,14 +112,6 @@ export function spawnApiProcess(env: NodeJS.ProcessEnv, cwd = "../apps/server") 
 	return spawn("bun", ["run", "src/main.ts"], { env, cwd, stdio: "ignore" });
 }
 
-export function spawnFrontendProcess(port: number, cwd = "../kernel/client") {
-	return spawn(
-		"bun",
-		["run", "vite", "dev", "--host", "127.0.0.1", "--port", port.toString(), "--strictPort"],
-		{ cwd, stdio: "inherit" },
-	);
-}
-
 export async function waitForHealthCheck(
 	url: string,
 	label: string,
@@ -149,10 +141,6 @@ export async function waitForHealthCheck(
 
 export async function stopApiProcess(proc?: ReturnType<typeof spawn>) {
 	return stopProcess(proc, "API");
-}
-
-export async function stopFrontendProcess(proc?: ReturnType<typeof spawn>) {
-	return stopProcess(proc, "Frontend");
 }
 
 async function stopProcess(proc: ReturnType<typeof spawn> | undefined, label: string) {

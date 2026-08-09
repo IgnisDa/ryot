@@ -4,7 +4,6 @@ import {
 	getWebOAuthLogoutRedirectUris,
 	getWebOAuthRedirectUris,
 	OAUTH_ACCESS_TOKEN_TTL_SECONDS,
-	OAUTH_API_SCOPE,
 	OAUTH_NATIVE_CALLBACK_URIS,
 	OAUTH_NATIVE_CLIENT_ID,
 	OAUTH_NATIVE_LOGOUT_CALLBACK_URIS,
@@ -69,7 +68,7 @@ export const internalOAuthRecords = (frontendOrigin: string, now: Date) => {
 		name: "Ryot API",
 		identifier: resourceIdentifier,
 		id: INTERNAL_OAUTH_RESOURCE_ID,
-		allowedScopes: [OAUTH_API_SCOPE],
+		allowedScopes: [...OAUTH_SCOPES],
 		accessTokenTtl: OAUTH_ACCESS_TOKEN_TTL_SECONDS,
 		refreshTokenTtl: OAUTH_REFRESH_TOKEN_TTL_SECONDS,
 	} satisfies InternalOAuthResource;

@@ -1,6 +1,6 @@
 import type { UserId } from "@ryot/contract/schema/brands";
-import { eq, inArray } from "drizzle-orm";
-import { Context, Effect, Layer } from "effect";
+import { and, eq, inArray, isNull } from "drizzle-orm";
+import { Context, DateTime, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
@@ -162,9 +162,41 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 			);
 			return row !== undefined;
 		});
+		const revokeUserOAuthTokens = Effect.fn("AuthRepository.revokeUserOAuthTokens")(function* (
+			userId: UserId,
+		) {
+			const db = yield* Database;
+			const revoked = yield* DateTime.nowAsDate;
+			yield* mapDatabaseErrors(
+				Effect.all(
+					[
+						db
+							.update(schema.oauthRefreshToken)
+							.set({ revoked })
+							.where(
+								and(
+									eq(schema.oauthRefreshToken.userId, userId),
+									isNull(schema.oauthRefreshToken.revoked),
+								),
+							),
+						db
+							.update(schema.oauthAccessToken)
+							.set({ revoked })
+							.where(
+								and(
+									eq(schema.oauthAccessToken.userId, userId),
+									isNull(schema.oauthAccessToken.revoked),
+								),
+							),
+					],
+					{ discard: true },
+				),
+			);
+		});
 
 		return {
 			getPortableProfile,
+			revokeUserOAuthTokens,
 			restorePortableProfile,
 			upsertInternalOAuthClient,
 			upsertInternalOAuthResource,

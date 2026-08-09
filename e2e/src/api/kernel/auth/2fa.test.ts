@@ -8,7 +8,7 @@ import {
 	verifyBackupCodeForSession,
 } from "~/fixtures/kernel";
 import { getApiUrl } from "~/support/api";
-import { assertTaggedError, requireNonEmptyArray, requirePresent } from "~/support/assertions";
+import { requireNonEmptyArray } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const pluginListQuery = { includeDisabled: false };
@@ -18,10 +18,10 @@ describe("Two-factor sign-in flow", () => {
 		Effect.gen(function* () {
 			const baseUrl = getApiUrl();
 			const client = getApiClient();
-			const { token, email, password } = yield* createTestUser();
+			const { token, email, password, sessionCookie } = yield* createTestUser();
 
 			const { backupCodes, token: twoFactorToken } = yield* Effect.promise(() =>
-				enableTwoFactorForSession({ baseUrl, token, password }),
+				enableTwoFactorForSession({ baseUrl, token, password, sessionCookie }),
 			);
 
 			const [backupCode] = requireNonEmptyArray(
@@ -35,24 +35,14 @@ describe("Two-factor sign-in flow", () => {
 
 			const signIn = yield* signInWithPassword(email, password, baseUrl);
 			expect(signIn.error).toBeNull();
-			const signInToken = requirePresent(
-				signIn.token,
-				"Sign in succeeded but no auth token was returned",
-			);
+			expect(signIn.token).toBeUndefined();
 			expect(signIn.data).toHaveProperty("twoFactorRedirect", true);
-
-			const unauthorizedError = yield* Effect.flip(
-				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-					Authorization: `Bearer ${signInToken}`,
-				}),
-			);
-			assertTaggedError(unauthorizedError, "AuthUnauthorized");
 
 			const verification = yield* Effect.promise(() =>
 				verifyBackupCodeForSession({
+					token,
 					baseUrl,
 					code: backupCode,
-					token: signInToken,
 					twoFactorToken: signIn.twoFactorToken,
 				}),
 			);
@@ -63,21 +53,20 @@ describe("Two-factor sign-in flow", () => {
 
 			const secondSignIn = yield* signInWithPassword(email, password, baseUrl);
 			expect(secondSignIn.error).toBeNull();
-			const secondSignInToken = requirePresent(
-				secondSignIn.token,
-				"Second sign in succeeded but no auth token was returned",
-			);
+			expect(secondSignIn.token).toBeUndefined();
 			expect(secondSignIn.data).toHaveProperty("twoFactorRedirect", true);
 
 			const reuse = yield* Effect.promise(() =>
 				verifyBackupCodeForSession({
+					token,
 					baseUrl,
 					code: backupCode,
-					token: secondSignInToken,
 					twoFactorToken: secondSignIn.twoFactorToken,
 				}),
 			);
-			expect(reuse.error?.message).toMatch(/invalid/i);
+			expect(reuse.error).toEqual(
+				expect.objectContaining({ message: expect.stringMatching(/invalid/i) }),
+			);
 		}),
 	);
 });

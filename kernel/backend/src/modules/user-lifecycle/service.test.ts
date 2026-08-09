@@ -50,6 +50,7 @@ it.effect("returns one active operation without repeating completed access revoc
 		auth: Object.create(null),
 		updateAuthUserDisabled: () => Effect.sync(() => void calls.push("disable")),
 		deleteUserSessions: () => Effect.sync(() => void calls.push("sessions")),
+		revokeUserOAuthTokens: () => Effect.sync(() => void calls.push("oauth")),
 		purgeApiKeyCaches: (_userId, apiKeys) =>
 			Effect.sync(() => {
 				calls.push(`keys:${apiKeys.map(({ id }) => id).join(",")}`);
@@ -131,6 +132,7 @@ it.effect("revokes access once and clears persisted API-key cache lookup metadat
 					auth: Object.create(null),
 					updateAuthUserDisabled: () => Effect.sync(() => void calls.push("disable")),
 					deleteUserSessions: () => Effect.sync(() => void calls.push("sessions")),
+					revokeUserOAuthTokens: () => Effect.sync(() => void calls.push("oauth")),
 					purgeApiKeyCaches: (_userId, apiKeys) =>
 						Effect.sync(() => void calls.push(`keys:${apiKeys.map(({ id }) => id).join(",")}`)),
 				}),
@@ -142,7 +144,7 @@ it.effect("revokes access once and clears persisted API-key cache lookup metadat
 		const service = yield* UserLifecycleService;
 		yield* service.deleteUser(userId);
 		yield* service.deleteUser(userId);
-		expect(calls).toEqual(["disable", "sessions", "keys:key-1", "record"]);
+		expect(calls).toEqual(["disable", "sessions", "oauth", "keys:key-1", "record"]);
 		expect(revokedOperation.metadata.apiKeys).toEqual([]);
 	}).pipe(Effect.provide(Layer.merge(serviceLayer, databaseLayer)));
 });

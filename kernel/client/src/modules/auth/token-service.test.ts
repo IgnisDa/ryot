@@ -44,6 +44,10 @@ const makeStorage = () => {
 	return {
 		values,
 		layer: oauthStorageLayer({
+			get length() {
+				return values.size;
+			},
+			key: (index) => [...values.keys()][index] ?? null,
 			removeItem: (key) => values.delete(key),
 			getItem: (key) => values.get(key) ?? null,
 			setItem: (key, value) => values.set(key, value),
@@ -206,4 +210,56 @@ describe("OAuth token service", () => {
 			Effect.provide(storage.layer),
 		);
 	});
+
+	it.effect(
+		"revokes both tokens, clears local state, and builds an exact end-session callback",
+		() => {
+			const storage = makeStorage();
+			const requests: Array<{ readonly url: string; readonly body: string }> = [];
+			return Effect.gen(function* () {
+				const persisted = yield* OAuthStorage;
+				yield* persisted.setTokenSet(origin, {
+					tokenType: "Bearer",
+					accessToken: "access-1",
+					scope: "openid ryot:api",
+					refreshToken: "refresh-1",
+					accessTokenExpiresAt: now,
+					idToken: idToken("nonce-1"),
+				});
+				yield* persisted.setPending(pending());
+				const tokens = yield* OAuthTokenService;
+				const endSession = yield* tokens.logout(
+					origin,
+					OAUTH_WEB_CLIENT_ID,
+					`${origin}/auth/logout/callback`,
+				);
+
+				expect(requests).toHaveLength(2);
+				expect(requests.every(({ url }) => url === `${origin}/api/auth/oauth2/revoke`)).toBe(true);
+				expect(requests.map(({ body }) => Object.fromEntries(new URLSearchParams(body)))).toEqual([
+					{ client_id: "ryot-web", token: "refresh-1", token_type_hint: "refresh_token" },
+					{ client_id: "ryot-web", token: "access-1", token_type_hint: "access_token" },
+				]);
+				expect(new URL(endSession ?? "").searchParams.get("post_logout_redirect_uri")).toBe(
+					`${origin}/auth/logout/callback`,
+				);
+				expect(yield* persisted.getTokenSet(origin)).toBeNull();
+				expect(yield* persisted.getPending(origin, "state-1")).toBeNull();
+			}).pipe(
+				Effect.provide(
+					oauthTokenServiceLayer(
+						(input, init) => {
+							requests.push({
+								url: requestUrl(input),
+								body: init?.body instanceof URLSearchParams ? init.body.toString() : "",
+							});
+							return Promise.resolve(new Response(null, { status: 200 }));
+						},
+						() => now,
+					),
+				),
+				Effect.provide(storage.layer),
+			);
+		},
+	);
 });

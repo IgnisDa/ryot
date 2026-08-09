@@ -109,12 +109,13 @@ describe("Reset user for credential user", () => {
 			const client = getApiClient();
 			const {
 				email,
+				sessionCookie,
 				token: authToken,
 				userId: rawUserId,
 				client: userClient,
 			} = yield* createAuthenticatedClient();
 			const userId = UserId.make(rawUserId);
-			const apiKey = yield* createApiKey(authToken);
+			const apiKey = yield* createApiKey(sessionCookie);
 
 			// Both auth methods work before the reset.
 			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {

@@ -39,11 +39,17 @@ export function AccountSession(props: {
 
 	async function signOut() {
 		const auth = props.runtime.runSync(AuthService);
-		if (!(await run("sign-out", auth.signOut(props.server)))) {
-			reportFailure("Could not sign out.");
-			return;
+		setPending("sign-out");
+		setError(undefined);
+		const launched = await props.runtime
+			.runPromise(auth.signOut(props.server), { signal: actionController.current.signal })
+			.catch(() => null);
+		if (launched === null) {
+			return reportFailure("Could not sign out.");
 		}
-		await navigate({ replace: true, to: "/auth", search: { redirect: undefined } });
+		if (!launched) {
+			await navigate({ replace: true, to: "/auth", search: { redirect: undefined } });
+		}
 	}
 
 	async function changeServer() {
