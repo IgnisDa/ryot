@@ -15,12 +15,12 @@ import { Context, Data, Effect, Layer, Schema } from "effect";
 
 import { normalizeServerOrigin, type ServerOrigin } from "#/api/origin";
 import {
-	OAuthEndpointError,
 	postOAuthForm,
 	postOAuthFormRequest,
 	type OAuthFetch,
 } from "#/modules/auth/oauth-endpoint";
-import { OAuthStorage, OAuthStorageError } from "#/modules/auth/oauth-storage";
+import { OAuthStorage, type OAuthStorageError } from "#/modules/auth/oauth-storage";
+import { makeOriginSingleFlight } from "#/modules/auth/single-flight";
 
 const REFRESH_WINDOW_MS = 60_000;
 const IdTokenClaims = Schema.Struct({ nonce: Schema.String });
@@ -68,200 +68,225 @@ export class OAuthTokenError extends Data.TaggedError("OAuthTokenError")<{
 	readonly cause?: unknown;
 }> {}
 
+const requestFailed = (cause: unknown) => new OAuthTokenError({ cause, reason: "request-failed" });
+
+const fromStorage = <A>(effect: Effect.Effect<A, OAuthStorageError>) =>
+	effect.pipe(
+		Effect.catchTag("OAuthStorageError", (cause) =>
+			Effect.fail(new OAuthTokenError({ cause, reason: "storage-failed" })),
+		),
+	);
+
 const makeTokenService = (
 	storage: OAuthStorage["Service"],
 	fetcher: OAuthFetch,
 	now: () => number,
 ): OAuthTokenService["Service"] => {
-	const refreshes = new Map<ServerOrigin, Promise<StoredTokenSet>>();
-	const run = <A>(promise: () => Promise<A>) =>
-		Effect.tryPromise({
-			try: promise,
-			catch: (cause) => {
-				if (cause instanceof OAuthTokenError) {
-					return cause;
-				}
-				return cause instanceof OAuthStorageError
-					? new OAuthTokenError({ reason: "storage-failed", cause })
-					: new OAuthTokenError({ reason: "request-failed", cause });
-			},
+	const refreshes = makeOriginSingleFlight<StoredTokenSet, OAuthTokenError>();
+
+	const rotate = (canonical: ServerOrigin, clientId: string) =>
+		Effect.gen(function* () {
+			const current = yield* fromStorage(storage.getTokenSet(canonical));
+			if (!current) {
+				return yield* Effect.fail(new OAuthTokenError({ reason: "missing-authorization" }));
+			}
+			const response = yield* postOAuthForm(
+				fetcher,
+				canonical,
+				OAUTH_TOKEN_PATH,
+				new URLSearchParams({
+					client_id: clientId,
+					grant_type: "refresh_token",
+					refresh_token: current.refreshToken,
+					resource: getOAuthResource(canonical),
+				}),
+				OAuthTokenResponse,
+			).pipe(
+				Effect.catchTags({
+					SchemaError: (cause) => Effect.fail(requestFailed(cause)),
+					OAuthTransportError: (cause) => Effect.fail(requestFailed(cause)),
+					OAuthEndpointError: (cause) =>
+						cause.code === "invalid_grant"
+							? Effect.gen(function* () {
+									yield* storage.removeTokenSet(canonical);
+									return yield* Effect.fail(
+										new OAuthTokenError({ cause, reason: "invalid-grant" }),
+									);
+								})
+							: Effect.fail(requestFailed(cause)),
+				}),
+			);
+			const tokens = yield* Effect.try({
+				catch: requestFailed,
+				try: () => storedTokenSet(response, current),
+			});
+			yield* fromStorage(
+				storage
+					.setTokenSet(canonical, tokens)
+					.pipe(Effect.tapError(() => storage.removeTokenSet(canonical))),
+			);
+			return tokens;
 		});
-	const refresh = (origin: ServerOrigin, clientId: string) => {
+
+	const refresh = (origin: ServerOrigin, clientId: string) =>
+		refreshes(origin, rotate(normalizeServerOrigin(origin), clientId));
+
+	const accessToken = Effect.fn("OAuthTokenService.accessToken")(function* (
+		origin: ServerOrigin,
+		clientId: string,
+		forceRefresh = false,
+	) {
 		const canonical = normalizeServerOrigin(origin);
-		const existing = refreshes.get(canonical);
-		if (existing) {
-			return existing;
+		const current = yield* fromStorage(storage.getTokenSet(canonical));
+		if (!current) {
+			return null;
 		}
-		const pending = (async () => {
-			const current = await Effect.runPromise(storage.getTokenSet(canonical));
-			if (!current) {
-				throw new OAuthTokenError({ reason: "missing-authorization" });
-			}
-			try {
-				const response = await postOAuthForm(
-					fetcher,
-					canonical,
-					OAUTH_TOKEN_PATH,
-					new URLSearchParams({
-						client_id: clientId,
-						grant_type: "refresh_token",
-						refresh_token: current.refreshToken,
-						resource: getOAuthResource(canonical),
-					}),
-					OAuthTokenResponse,
-				);
-				const tokens = storedTokenSet(response, current);
-				await Effect.runPromise(
-					storage
-						.setTokenSet(canonical, tokens)
-						.pipe(Effect.tapError(() => storage.removeTokenSet(canonical))),
-				);
-				return tokens;
-			} catch (cause) {
-				if (cause instanceof OAuthEndpointError && cause.code === "invalid_grant") {
-					await Effect.runPromise(storage.removeTokenSet(canonical));
-					throw new OAuthTokenError({ reason: "invalid-grant", cause });
-				}
-				throw cause;
-			}
-		})().finally(() => refreshes.delete(canonical));
-		refreshes.set(canonical, pending);
-		return pending;
-	};
-	const accessToken = (origin: ServerOrigin, clientId: string, forceRefresh = false) =>
-		run(async () => {
-			const canonical = normalizeServerOrigin(origin);
-			const current = await Effect.runPromise(storage.getTokenSet(canonical));
-			if (!current) {
-				return null;
-			}
-			if (!forceRefresh && current.accessTokenExpiresAt - now() > REFRESH_WINDOW_MS) {
-				return current.accessToken;
-			}
-			const refreshed = await refresh(canonical, clientId);
-			return refreshed.accessToken;
-		});
-	const userInfo = (origin: ServerOrigin, clientId: string) =>
-		run(async () => {
-			const request = async (forceRefresh: boolean) => {
-				const token = await Effect.runPromise(accessToken(origin, clientId, forceRefresh));
+		if (!forceRefresh && current.accessTokenExpiresAt - now() > REFRESH_WINDOW_MS) {
+			return current.accessToken;
+		}
+		const refreshed = yield* refresh(canonical, clientId);
+		return refreshed.accessToken;
+	});
+
+	const userInfo = Effect.fn("OAuthTokenService.userInfo")(function* (
+		origin: ServerOrigin,
+		clientId: string,
+	) {
+		const request = (forceRefresh: boolean) =>
+			Effect.gen(function* () {
+				const token = yield* accessToken(origin, clientId, forceRefresh);
 				if (!token) {
 					return null;
 				}
-				return fetcher(getOAuthEndpoint(origin, OAUTH_USERINFO_PATH), {
-					cache: "no-store",
-					credentials: "omit",
-					headers: { authorization: `Bearer ${token}` },
+				return yield* Effect.tryPromise({
+					catch: requestFailed,
+					try: () =>
+						fetcher(getOAuthEndpoint(origin, OAUTH_USERINFO_PATH), {
+							cache: "no-store",
+							credentials: "omit",
+							headers: { authorization: `Bearer ${token}` },
+						}),
 				});
-			};
-			let response = await request(false);
-			if (response === null) {
-				return null;
-			}
-			if (response.status === 401) {
-				response = await request(true);
-			}
-			if (response === null || !response.ok) {
-				throw new OAuthTokenError({ reason: "request-failed" });
-			}
-			return Schema.decodeUnknownSync(OAuthUserInfoResponse)(await response.json());
+			});
+		const first = yield* request(false);
+		if (first === null) {
+			return null;
+		}
+		const response = first.status === 401 ? yield* request(true) : first;
+		if (response === null || !response.ok) {
+			return yield* Effect.fail(new OAuthTokenError({ reason: "request-failed" }));
+		}
+		const payload = yield* Effect.tryPromise({
+			catch: requestFailed,
+			try: () => response.json() as Promise<unknown>,
 		});
-	const completeAuthorization = (
+		return yield* Schema.decodeUnknownEffect(OAuthUserInfoResponse)(payload).pipe(
+			Effect.catchTag("SchemaError", (cause) => Effect.fail(requestFailed(cause))),
+		);
+	});
+
+	const completeAuthorization = Effect.fn("OAuthTokenService.completeAuthorization")(function* (
 		origin: ServerOrigin,
 		expectedClientId: PendingAuthorization["clientId"],
 		expectedRedirectUri: string,
 		state: string,
 		code: string,
-	) =>
-		run(async () => {
-			const canonical = normalizeServerOrigin(origin);
-			const pending = await Effect.runPromise(storage.takePending(canonical, state));
-			if (!pending) {
-				throw new OAuthTokenError({ reason: "missing-authorization" });
-			}
-			if (
-				normalizeServerOrigin(pending.serverOrigin) !== canonical ||
-				pending.clientId !== expectedClientId ||
-				pending.redirectUri !== expectedRedirectUri
-			) {
-				throw new OAuthTokenError({ reason: "invalid-callback" });
-			}
-			const response = await postOAuthForm(
-				fetcher,
-				canonical,
-				OAUTH_TOKEN_PATH,
-				new URLSearchParams({
-					code,
-					client_id: pending.clientId,
-					grant_type: "authorization_code",
-					redirect_uri: pending.redirectUri,
-					code_verifier: pending.codeVerifier,
-					resource: getOAuthResource(canonical),
-				}),
-				OAuthTokenResponse,
+	) {
+		const canonical = normalizeServerOrigin(origin);
+		const pending = yield* fromStorage(storage.takePending(canonical, state));
+		if (!pending) {
+			return yield* Effect.fail(new OAuthTokenError({ reason: "missing-authorization" }));
+		}
+		if (
+			normalizeServerOrigin(pending.serverOrigin) !== canonical ||
+			pending.clientId !== expectedClientId ||
+			pending.redirectUri !== expectedRedirectUri
+		) {
+			return yield* Effect.fail(new OAuthTokenError({ reason: "invalid-callback" }));
+		}
+		const response = yield* postOAuthForm(
+			fetcher,
+			canonical,
+			OAUTH_TOKEN_PATH,
+			new URLSearchParams({
+				code,
+				client_id: pending.clientId,
+				grant_type: "authorization_code",
+				redirect_uri: pending.redirectUri,
+				code_verifier: pending.codeVerifier,
+				resource: getOAuthResource(canonical),
+			}),
+			OAuthTokenResponse,
+		).pipe(
+			Effect.catchTags({
+				SchemaError: (cause) => Effect.fail(requestFailed(cause)),
+				OAuthEndpointError: (cause) => Effect.fail(requestFailed(cause)),
+				OAuthTransportError: (cause) => Effect.fail(requestFailed(cause)),
+			}),
+		);
+		const tokens = yield* Effect.try({ catch: requestFailed, try: () => storedTokenSet(response) });
+		const nonce = yield* Effect.try({
+			try: () => decodeIdTokenNonce(tokens.idToken),
+			catch: (cause) => new OAuthTokenError({ cause, reason: "invalid-nonce" }),
+		});
+		if (nonce !== pending.nonce) {
+			return yield* Effect.fail(new OAuthTokenError({ reason: "invalid-nonce" }));
+		}
+		yield* fromStorage(storage.setTokenSet(canonical, tokens));
+		return pending;
+	});
+
+	const rejectAuthorization = Effect.fn("OAuthTokenService.rejectAuthorization")(function* (
+		origin: ServerOrigin,
+		state: string,
+	) {
+		const pending = yield* fromStorage(storage.takePending(origin, state));
+		return yield* Effect.fail(
+			new OAuthTokenError({ reason: pending ? "authorization-rejected" : "missing-authorization" }),
+		);
+	});
+
+	const logout = Effect.fn("OAuthTokenService.logout")(function* (
+		origin: ServerOrigin,
+		clientId: string,
+		postLogoutRedirectUri: string,
+	) {
+		const canonical = normalizeServerOrigin(origin);
+		const clearLocal = Effect.all(
+			[storage.removeTokenSet(canonical), storage.clearPending(canonical)],
+			{ discard: true },
+		);
+		const current = yield* fromStorage(storage.getTokenSet(canonical));
+		if (!current) {
+			yield* clearLocal;
+			return null;
+		}
+		return yield* Effect.gen(function* () {
+			yield* Effect.all(
+				(
+					[
+						[current.refreshToken, "refresh_token"],
+						[current.accessToken, "access_token"],
+					] as const
+				).map(([token, tokenTypeHint]) =>
+					postOAuthFormRequest(
+						fetcher,
+						canonical,
+						OAUTH_REVOKE_PATH,
+						new URLSearchParams({ token, client_id: clientId, token_type_hint: tokenTypeHint }),
+					).pipe(Effect.catch(() => Effect.void)),
+				),
+				{ discard: true },
 			);
-			const tokens = storedTokenSet(response);
-			let nonce: string;
-			try {
-				nonce = decodeIdTokenNonce(tokens.idToken);
-			} catch (cause) {
-				throw new OAuthTokenError({ reason: "invalid-nonce", cause });
-			}
-			if (nonce !== pending.nonce) {
-				throw new OAuthTokenError({ reason: "invalid-nonce" });
-			}
-			await Effect.runPromise(storage.setTokenSet(canonical, tokens));
-			return pending;
-		});
-	const rejectAuthorization = (origin: ServerOrigin, state: string) =>
-		run(async () => {
-			const pending = await Effect.runPromise(storage.takePending(origin, state));
-			if (!pending) {
-				throw new OAuthTokenError({ reason: "missing-authorization" });
-			}
-			throw new OAuthTokenError({ reason: "authorization-rejected" });
-		});
-	const logout = (origin: ServerOrigin, clientId: string, postLogoutRedirectUri: string) =>
-		run(async () => {
-			const canonical = normalizeServerOrigin(origin);
-			const current = await Effect.runPromise(storage.getTokenSet(canonical));
-			try {
-				if (!current) {
-					return null;
-				}
-				await Promise.allSettled(
-					(
-						[
-							[current.refreshToken, "refresh_token"],
-							[current.accessToken, "access_token"],
-						] as const
-					).map(([token, tokenTypeHint]) =>
-						postOAuthFormRequest(
-							fetcher,
-							canonical,
-							OAUTH_REVOKE_PATH,
-							new URLSearchParams({
-								token,
-								client_id: clientId,
-								token_type_hint: tokenTypeHint,
-							}),
-						),
-					),
-				);
-				const url = new URL(getOAuthEndpoint(canonical, OAUTH_END_SESSION_PATH));
-				url.search = new URLSearchParams({
-					client_id: clientId,
-					id_token_hint: current.idToken,
-					post_logout_redirect_uri: postLogoutRedirectUri,
-				}).toString();
-				return url.toString();
-			} finally {
-				await Promise.all([
-					Effect.runPromise(storage.removeTokenSet(canonical)),
-					Effect.runPromise(storage.clearPending(canonical)),
-				]);
-			}
-		});
+			const url = new URL(getOAuthEndpoint(canonical, OAUTH_END_SESSION_PATH));
+			url.search = new URLSearchParams({
+				client_id: clientId,
+				id_token_hint: current.idToken,
+				post_logout_redirect_uri: postLogoutRedirectUri,
+			}).toString();
+			return url.toString();
+		}).pipe(Effect.ensuring(clearLocal));
+	});
 
 	return {
 		logout,

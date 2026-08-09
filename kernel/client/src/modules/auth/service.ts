@@ -8,6 +8,8 @@ import {
 import { Context, Effect, Layer } from "effect";
 
 import { normalizeServerOrigin, type ServerOrigin } from "#/api/origin";
+import { makeOriginSingleFlight } from "#/modules/auth/single-flight";
+import type { OAuthTokenError } from "#/modules/auth/token-service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { isNativePlatform } from "#/modules/navigation/native-navigation";
 import { ClientStorage } from "#/persistence/storage";
@@ -32,15 +34,27 @@ export type AuthSessionStore = {
 	readonly subscribe: (listener: () => void) => () => void;
 };
 
+type AuthorizationProbe =
+	| { readonly kind: "authorized" }
+	| { readonly kind: "unauthorized" }
+	| { readonly kind: "indeterminate"; readonly fallback: SettledAuthSession };
+
 export const toAuthSessionState = (session: SettledAuthSession) =>
 	session.status === "authenticated"
 		? { status: "authenticated" as const, userId: session.user.id }
 		: { status: "missing" as const };
 
+const isLostAuthorization = (error: OAuthTokenError) =>
+	error.reason === "invalid-grant" || error.reason === "missing-authorization";
+
 const makeSessionStore = () => {
 	let snapshot: AuthSessionSnapshot = { status: "pending" };
 	const listeners = new Set<() => void>();
 	return {
+		set: (next: AuthSessionSnapshot) => {
+			snapshot = next;
+			listeners.forEach((listener) => listener());
+		},
 		store: {
 			getSnapshot: () => snapshot,
 			subscribe: (listener: () => void) => {
@@ -50,10 +64,6 @@ const makeSessionStore = () => {
 				};
 			},
 		},
-		set: (next: AuthSessionSnapshot) => {
-			snapshot = next;
-			listeners.forEach((listener) => listener());
-		},
 	};
 };
 
@@ -62,6 +72,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 		const storage = yield* ClientStorage;
 		const tokens = yield* OAuthTokenService;
 		const sessions = new Map<ServerOrigin, ReturnType<typeof makeSessionStore>>();
+		const resolutions = makeOriginSingleFlight<SettledAuthSession, OAuthTokenError>();
 		const getSession = (origin: ServerOrigin) => {
 			const canonical = normalizeServerOrigin(origin);
 			const existing = sessions.get(canonical);
@@ -72,33 +83,67 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			sessions.set(canonical, created);
 			return created;
 		};
+		const resolveUserInfo = (canonical: ServerOrigin, clientId: string) =>
+			Effect.gen(function* () {
+				const user = yield* tokens
+					.userInfo(canonical, clientId)
+					.pipe(
+						Effect.catchTag("OAuthTokenError", (error) =>
+							isLostAuthorization(error) ? Effect.succeed(null) : Effect.fail(error),
+						),
+					);
+				const snapshot: SettledAuthSession = user
+					? {
+							status: "authenticated",
+							user: {
+								id: user.sub,
+								email: user.email ?? "",
+								image: user.picture ?? null,
+								name: user.name ?? user.email ?? user.sub,
+							},
+						}
+					: { status: "missing" };
+				getSession(canonical).set(snapshot);
+				return snapshot;
+			});
 		const settledSession = Effect.fn("AuthService.settledSession")(function* (
 			origin: ServerOrigin,
+			forceRefresh = false,
 		) {
-			const session = getSession(origin);
-			session.set({ status: "pending" });
-			const user = yield* tokens
-				.userInfo(origin, isNativePlatform() ? OAUTH_NATIVE_CLIENT_ID : OAUTH_WEB_CLIENT_ID)
-				.pipe(
-					Effect.catchTag("OAuthTokenError", (error) =>
-						error.reason === "invalid-grant" || error.reason === "missing-authorization"
-							? Effect.succeed(null)
-							: Effect.fail(error),
-					),
-				);
-			const snapshot: SettledAuthSession = user
-				? {
-						status: "authenticated",
-						user: {
-							id: user.sub,
-							email: user.email ?? "",
-							image: user.picture ?? null,
-							name: user.name ?? user.email ?? user.sub,
-						},
+			const canonical = normalizeServerOrigin(origin);
+			const session = getSession(canonical);
+			const cached = session.store.getSnapshot();
+			const clientId = isNativePlatform() ? OAUTH_NATIVE_CLIENT_ID : OAUTH_WEB_CLIENT_ID;
+			const probe = yield* tokens.accessToken(canonical, clientId).pipe(
+				Effect.map(
+					(token): AuthorizationProbe => ({
+						kind: token === null ? "unauthorized" : "authorized",
+					}),
+				),
+				Effect.catchTag("OAuthTokenError", (error) => {
+					if (isLostAuthorization(error)) {
+						return Effect.succeed<AuthorizationProbe>({ kind: "unauthorized" });
 					}
-				: { status: "missing" };
-			session.set(snapshot);
-			return snapshot;
+					if (cached.status === "pending") {
+						return Effect.fail(error);
+					}
+					return Effect.succeed<AuthorizationProbe>({ fallback: cached, kind: "indeterminate" });
+				}),
+			);
+			if (probe.kind === "indeterminate") {
+				return probe.fallback;
+			}
+			if (probe.kind === "unauthorized") {
+				const snapshot: SettledAuthSession = { status: "missing" };
+				if (cached.status !== "missing") {
+					session.set(snapshot);
+				}
+				return snapshot;
+			}
+			if (!forceRefresh && cached.status === "authenticated") {
+				return cached;
+			}
+			return yield* resolutions(canonical, resolveUserInfo(canonical, clientId));
 		});
 		const clearSession = Effect.fn("AuthService.clearSession")(function* (origin: ServerOrigin) {
 			yield* tokens.clear(origin);
