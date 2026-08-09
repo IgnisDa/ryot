@@ -79,21 +79,10 @@ export const search = defineProvider({
 					const coverId = numberValue(record?.["cover_i"]);
 					return [
 						{
+							title,
 							externalId,
-							calloutProperty: { kind: "null" as const, value: null },
-							titleProperty: { kind: "text" as const, value: title },
-							secondarySubtitleProperty: { kind: "null" as const, value: null },
-							primarySubtitleProperty:
-								publishYear === null
-									? { kind: "null" as const, value: null }
-									: { kind: "number" as const, value: publishYear },
-							imageProperty:
-								coverId === null
-									? { kind: "null" as const, value: null }
-									: {
-											kind: "image" as const,
-											value: { type: "remote" as const, url: coverImageUrl(coverId) },
-										},
+							...(coverId === null ? {} : { imageUrl: coverImageUrl(coverId) }),
+							...(publishYear === null ? {} : { metadata: [publishYear] as const }),
 						},
 					];
 				});

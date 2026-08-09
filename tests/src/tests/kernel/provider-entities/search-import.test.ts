@@ -80,8 +80,8 @@ beforeAll(async () => {
 				client,
 				rootEntitySchemaSlug: bookSchema.id,
 				search: fakeProviderSearchResult([
-					{ externalId: "e2e-book-1", title: "E2E Book One", subtitle: null },
-					{ externalId: "e2e-book-2", title: "E2E Book Two", subtitle: 2 },
+					{ externalId: "e2e-book-1", title: "E2E Book One" },
+					{ externalId: "e2e-book-2", title: "E2E Book Two", metadata: [2] },
 				]),
 				details: fakeProviderDetailsResult({
 					name: BOOK_IMPORT_NAME,
@@ -113,7 +113,10 @@ describe("provider entity search result", () => {
 				pageSize: 5,
 			});
 			expect(search.providerId).toBe(bookProvider.providerId);
-			expect(search.items).toHaveLength(2);
+			expect(search.items).toEqual([
+				{ externalId: "e2e-book-1", title: "E2E Book One" },
+				{ externalId: "e2e-book-2", title: "E2E Book Two", metadata: [2] },
+			]);
 		}),
 	);
 });

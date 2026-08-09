@@ -59,18 +59,10 @@ export const search = defineProvider({
 				const image = firstCover ? getImageUrl(firstCover) : null;
 				return [
 					{
+						title: name,
 						externalId: String(id),
-						calloutProperty: { kind: "null" as const, value: null },
-						titleProperty: { kind: "text" as const, value: name },
-						secondarySubtitleProperty: { kind: "null" as const, value: null },
-						primarySubtitleProperty:
-							parts === null
-								? { kind: "null" as const, value: null }
-								: { kind: "number" as const, value: parts },
-						imageProperty:
-							image === null
-								? { kind: "null" as const, value: null }
-								: { kind: "image" as const, value: { type: "remote" as const, url: image } },
+						...(image === null ? {} : { imageUrl: image }),
+						...(parts === null ? {} : { metadata: [parts] as const }),
 					},
 				];
 			});

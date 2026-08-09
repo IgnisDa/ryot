@@ -199,7 +199,7 @@ export default defineProvider({
     const serverUrl = ${JSON.stringify(serverUrl)};
     yield* host.httpCall("GET", serverUrl + "/provider-first");
     yield* host.httpCall("GET", serverUrl + "/provider-second");
-    return { items: [{ externalId: "benchmark", titleProperty: { kind: "text", value: "Benchmark" } }] };
+    return { items: [{ externalId: "benchmark", title: "Benchmark" }] };
   }),
 });
 `;

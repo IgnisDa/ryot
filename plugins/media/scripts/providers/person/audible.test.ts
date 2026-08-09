@@ -33,16 +33,7 @@ describe("person.audible sandbox script", () => {
 			execution,
 		).pipe(
 			Effect.map((result) => {
-				expect(result.items).toEqual([
-					{
-						externalId: "a1",
-						titleProperty: { kind: "text", value: "First Author" },
-						calloutProperty: { kind: "null", value: null },
-						imageProperty: { kind: "null", value: null },
-						primarySubtitleProperty: { kind: "null", value: null },
-						secondarySubtitleProperty: { kind: "null", value: null },
-					},
-				]);
+				expect(result.items).toEqual([{ externalId: "a1", title: "First Author" }]);
 				expect(result.details).toEqual({ totalItems: 4, nextPage: 2 });
 				return undefined;
 			}),

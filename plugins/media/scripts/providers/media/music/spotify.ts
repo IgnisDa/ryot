@@ -63,18 +63,10 @@ export const search = defineProvider({
 					const imageUrl = album ? getFirstImage(album["images"]) : null;
 					return [
 						{
+							title,
 							externalId,
-							titleProperty: { kind: "text" as const, value: title },
-							calloutProperty: { kind: "null" as const, value: null },
-							secondarySubtitleProperty: { kind: "null" as const, value: null },
-							imageProperty:
-								imageUrl === null
-									? { kind: "null" as const, value: null }
-									: { kind: "image" as const, value: { type: "remote" as const, url: imageUrl } },
-							primarySubtitleProperty:
-								publishYear === null
-									? { kind: "null" as const, value: null }
-									: { kind: "number" as const, value: publishYear },
+							...(imageUrl === null ? {} : { imageUrl }),
+							...(publishYear === null ? {} : { metadata: [publishYear] as const }),
 						},
 					];
 				});

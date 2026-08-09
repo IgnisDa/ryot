@@ -43,14 +43,9 @@ describe("person.metron sandbox script", () => {
 				expect(result.items).toEqual([
 					{
 						externalId: "3",
-						calloutProperty: { kind: "null", value: null },
-						titleProperty: { kind: "text", value: "Jane Doe" },
-						primarySubtitleProperty: { kind: "number", value: 1980 },
-						secondarySubtitleProperty: { kind: "null", value: null },
-						imageProperty: {
-							kind: "image",
-							value: { type: "remote", url: "https://img/jane.jpg" },
-						},
+						metadata: [1980],
+						title: "Jane Doe",
+						imageUrl: "https://img/jane.jpg",
 					},
 				]);
 				expect(result.details).toEqual({ totalItems: 2, nextPage: null });

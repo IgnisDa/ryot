@@ -63,15 +63,10 @@ describe("music-group.spotify sandbox script", () => {
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{
+							metadata: [12],
 							externalId: "al1",
-							calloutProperty: { kind: "null", value: null },
-							titleProperty: { kind: "text", value: "Album One" },
-							primarySubtitleProperty: { kind: "number", value: 12 },
-							secondarySubtitleProperty: { kind: "null", value: null },
-							imageProperty: {
-								kind: "image",
-								value: { type: "remote", url: "https://img/big.jpg" },
-							},
+							title: "Album One",
+							imageUrl: "https://img/big.jpg",
 						},
 					]);
 					expect(result.details).toEqual({ totalItems: 3, nextPage: null });

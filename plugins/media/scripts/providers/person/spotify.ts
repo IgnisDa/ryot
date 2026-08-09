@@ -45,19 +45,7 @@ export const search = defineProvider({
 					}
 					const name = stringValue(record?.["name"]) ?? externalId;
 					const imageUrl = getFirstImage(record?.["images"]);
-					return [
-						{
-							externalId,
-							titleProperty: { kind: "text" as const, value: name },
-							calloutProperty: { kind: "null" as const, value: null },
-							primarySubtitleProperty: { kind: "null" as const, value: null },
-							secondarySubtitleProperty: { kind: "null" as const, value: null },
-							imageProperty:
-								imageUrl === null
-									? { kind: "null" as const, value: null }
-									: { kind: "image" as const, value: { type: "remote" as const, url: imageUrl } },
-						},
-					];
+					return [{ externalId, title: name, ...(imageUrl === null ? {} : { imageUrl }) }];
 				});
 				return {
 					items,
