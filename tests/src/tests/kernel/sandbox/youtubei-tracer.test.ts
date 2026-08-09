@@ -63,7 +63,7 @@ describe("Youtubei durable tracer", () => {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const http = yield* startFakeHttpServerScoped();
 			const scriptSlug = `youtubei-tracer-${crypto.randomUUID()}`;
-			const entry = "scripts/youtubei-tracer.sandbox.ts";
+			const entry = "backend/scripts/youtubei-tracer.sandbox.ts";
 			const plugin = yield* Effect.acquireRelease(
 				installTestPluginBundle({
 					client,
