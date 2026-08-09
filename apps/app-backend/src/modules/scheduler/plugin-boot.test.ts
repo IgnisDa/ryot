@@ -8,15 +8,15 @@ import { assert } from "vitest";
 import { databaseLayer, makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { makePluginLoader, PluginLoader } from "#modules/plugins/loader";
+import type { PluginRegistryEntry } from "#modules/plugins/loader";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
-import type { NormalizedPlugin } from "#modules/plugins/types";
 
 import { pluginBootExecutionId, PluginBootService } from "./plugin-boot";
 
 type CapturedRun = Parameters<WorkflowEngine["Service"]["execute"]>[1];
 
-const normalizedPlugin = (pluginSlug: string): NormalizedPlugin => {
+const normalizedPlugin = (pluginSlug: string): PluginRegistryEntry => {
 	const manifest = fixtureManifest();
 	const declared = manifest.scripts[0];
 	assert(declared);
@@ -41,18 +41,23 @@ const normalizedPlugin = (pluginSlug: string): NormalizedPlugin => {
 	} satisfies PluginManifest;
 	const { entry, ...metadata } = script;
 	return {
+		ownerId: null,
+		sourceFiles: {},
+		slug: pluginSlug,
+		id: `${pluginSlug}-id`,
+		scope: "system" as const,
 		manifest: normalizedManifest,
 		sourceHash: `${pluginSlug}-source`,
 		scripts: [
 			{
 				entry,
+				metadata,
 				source: "source",
 				slug: scriptSlug,
 				compiledFormat: 1,
 				name: declared.name,
 				compiledCode: "compiled",
 				contentHash: `${pluginSlug}-compiled`,
-				metadata,
 			},
 		],
 	};
@@ -79,10 +84,10 @@ const makeLayer = (
 								? {
 										boot,
 										script: {
-											pluginSlug,
 											source: "source",
 											providerId: null,
 											compiledFormat: 1,
+											pluginId: pluginSlug,
 											slug: boot.scriptSlug,
 											name: boot.scriptSlug,
 											compiledCode: "compiled",

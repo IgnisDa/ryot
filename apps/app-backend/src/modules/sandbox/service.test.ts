@@ -402,6 +402,7 @@ it.effect("pins a plugin workflow before accepted dispatch can wait for a worker
 			getScriptPin: () =>
 				Effect.succeed({
 					scriptId,
+					pluginId: "fixture",
 					pluginSlug: "fixture",
 					contentHash: storedScript.contentHash,
 				}),
@@ -448,6 +449,7 @@ it.effect("releases a new dispatch pin when workflow enqueue fails", () => {
 			getScriptPin: () =>
 				Effect.succeed({
 					scriptId,
+					pluginId: "fixture",
 					pluginSlug: "fixture",
 					contentHash: storedScript.contentHash,
 				}),

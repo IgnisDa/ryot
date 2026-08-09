@@ -41,8 +41,8 @@ CREATE TABLE "apikey" (
 );
 --> statement-breakpoint
 CREATE TABLE "backup_run" (
-	"failure" jsonb,
 	"artifact_key" text,
+	"failure" jsonb,
 	"kind" text NOT NULL,
 	"progress" integer DEFAULT 0 NOT NULL,
 	"expires_at" timestamp with time zone,
@@ -94,7 +94,6 @@ CREATE TABLE "event" (
 );
 --> statement-breakpoint
 CREATE TABLE "import_run" (
-	"failure_reason" jsonb,
 	"total_items" integer,
 	"progress" integer DEFAULT 0 NOT NULL,
 	"source" text NOT NULL,
@@ -103,6 +102,7 @@ CREATE TABLE "import_run" (
 	"started_at" timestamp with time zone,
 	"finished_at" timestamp with time zone,
 	"processed_items" integer DEFAULT 0 NOT NULL,
+	"failure_reason" jsonb,
 	"status" text DEFAULT 'pending' NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"input_summary" jsonb DEFAULT '{}' NOT NULL,
@@ -117,9 +117,9 @@ CREATE TABLE "import_run_failure" (
 	"event_schema_slug" text,
 	"source_identifier" text,
 	"entity_schema_slug" text,
-	"reason" jsonb NOT NULL,
 	"item_index" integer NOT NULL,
 	"stage" text NOT NULL,
+	"reason" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"run_id" text NOT NULL,
 	"id" text PRIMARY KEY
@@ -195,23 +195,30 @@ CREATE TABLE "notification_subscription_state" (
 CREATE TABLE "plugin" (
 	"status" text NOT NULL,
 	"version" text NOT NULL,
-	"slug" text PRIMARY KEY,
+	"slug" text NOT NULL,
 	"source_hash" text NOT NULL,
+	"scope" text NOT NULL,
 	"manifest" jsonb NOT NULL,
+	"owner_id" text,
+	"source_files" jsonb NOT NULL,
 	"compiled_hashes" jsonb NOT NULL,
-	"ingested_at" timestamp with time zone DEFAULT now() NOT NULL
+	"ingested_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"id" text PRIMARY KEY,
+	CONSTRAINT "plugin_scope_owner_check" CHECK (("scope" = 'system' and "owner_id" is null) or ("scope" = 'user' and "owner_id" is not null))
 );
 --> statement-breakpoint
-CREATE TABLE "plugin_state" (
-	"plugin_slug" text NOT NULL,
+CREATE TABLE "plugin_installation" (
+	"health_reason" text,
 	"sort_order" integer DEFAULT 0 NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"config" jsonb DEFAULT '{}' NOT NULL,
 	"user_id" text NOT NULL,
+	"plugin_id" text NOT NULL,
+	"health" text DEFAULT 'ready' NOT NULL,
 	"id" text PRIMARY KEY,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "plugin_state_user_slug_unique" UNIQUE("user_id","plugin_slug")
+	CONSTRAINT "plugin_installation_user_plugin_unique" UNIQUE("user_id","plugin_id")
 );
 --> statement-breakpoint
 CREATE TABLE "relationship" (
@@ -231,10 +238,10 @@ CREATE TABLE "sandbox_provider" (
 	"root_entity_schema_slug" text NOT NULL,
 	"information" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"plugin_slug" text NOT NULL,
+	"plugin_id" text NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"id" text PRIMARY KEY,
-	CONSTRAINT "sandbox_provider_plugin_slug_unique" UNIQUE("plugin_slug","slug")
+	CONSTRAINT "sandbox_provider_plugin_id_unique" UNIQUE("plugin_id","slug")
 );
 --> statement-breakpoint
 CREATE TABLE "sandbox_provider_operation" (
@@ -257,17 +264,17 @@ CREATE TABLE "sandbox_script" (
 	"compiled_format" smallint DEFAULT 1 NOT NULL,
 	"metadata" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"plugin_slug" text,
+	"plugin_id" text,
 	"provider_id" text,
 	"id" text PRIMARY KEY,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "sandbox_script_plugin_slug_content_hash_unique" UNIQUE("plugin_slug","slug","content_hash")
+	CONSTRAINT "sandbox_script_plugin_id_content_hash_unique" UNIQUE("plugin_id","slug","content_hash")
 );
 --> statement-breakpoint
 CREATE TABLE "sandbox_workflow_reference" (
 	"content_hash" text NOT NULL,
 	"execution_id" text PRIMARY KEY,
-	"plugin_slug" text NOT NULL,
+	"plugin_id" text NOT NULL,
 	"script_id" text NOT NULL
 );
 --> statement-breakpoint
@@ -369,7 +376,6 @@ CREATE TABLE "user" (
 );
 --> statement-breakpoint
 CREATE TABLE "user_lifecycle_operation" (
-	"failure" jsonb,
 	"id" text PRIMARY KEY,
 	"user_id" text NOT NULL,
 	"metadata" jsonb NOT NULL,
@@ -377,6 +383,7 @@ CREATE TABLE "user_lifecycle_operation" (
 	"started_at" timestamp with time zone,
 	"finished_at" timestamp with time zone,
 	"workflow_attempt" integer DEFAULT 0 NOT NULL,
+	"failure" jsonb,
 	"access_revoked_at" timestamp with time zone,
 	"kind" text NOT NULL,
 	"access_revocation_started_at" timestamp with time zone,
@@ -431,20 +438,24 @@ CREATE INDEX "notification_channel_user_id_created_at_idx" ON "notification_chan
 CREATE INDEX "notification_channel_user_id_is_disabled_idx" ON "notification_channel" ("user_id","is_disabled");--> statement-breakpoint
 CREATE INDEX "notification_subscription_state_user_id_idx" ON "notification_subscription_state" ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "notification_subscription_state_user_signal_unique" ON "notification_subscription_state" ("user_id","signal_schema_slug");--> statement-breakpoint
-CREATE INDEX "plugin_state_user_id_idx" ON "plugin_state" ("user_id");--> statement-breakpoint
+CREATE INDEX "plugin_owner_id_idx" ON "plugin" ("owner_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "plugin_system_slug_unique" ON "plugin" ("slug") WHERE "scope" = 'system';--> statement-breakpoint
+CREATE UNIQUE INDEX "plugin_owner_slug_unique" ON "plugin" ("owner_id","slug") WHERE "scope" = 'user';--> statement-breakpoint
+CREATE INDEX "plugin_installation_user_id_idx" ON "plugin_installation" ("user_id");--> statement-breakpoint
+CREATE INDEX "plugin_installation_plugin_id_idx" ON "plugin_installation" ("plugin_id");--> statement-breakpoint
 CREATE INDEX "relationship_schema_slug_idx" ON "relationship" ("relationship_schema_slug");--> statement-breakpoint
 CREATE INDEX "relationship_source_entity_id_idx" ON "relationship" ("source_entity_id");--> statement-breakpoint
 CREATE INDEX "relationship_target_entity_id_idx" ON "relationship" ("target_entity_id");--> statement-breakpoint
 CREATE INDEX "relationship_properties_idx" ON "relationship" USING gin ("properties");--> statement-breakpoint
 CREATE UNIQUE INDEX "relationship_global_source_target_schema_unique" ON "relationship" ("source_entity_id","target_entity_id","relationship_schema_slug") WHERE ("user_id" is null);--> statement-breakpoint
-CREATE INDEX "sandbox_provider_plugin_slug_idx" ON "sandbox_provider" ("plugin_slug");--> statement-breakpoint
+CREATE INDEX "sandbox_provider_plugin_id_idx" ON "sandbox_provider" ("plugin_id");--> statement-breakpoint
 CREATE INDEX "sandbox_provider_root_entity_schema_slug_idx" ON "sandbox_provider" ("root_entity_schema_slug");--> statement-breakpoint
 CREATE INDEX "sandbox_provider_operation_provider_id_idx" ON "sandbox_provider_operation" ("provider_id");--> statement-breakpoint
 CREATE INDEX "sandbox_provider_operation_script_id_idx" ON "sandbox_provider_operation" ("script_id");--> statement-breakpoint
 CREATE INDEX "sandbox_script_provider_id_idx" ON "sandbox_script" ("provider_id");--> statement-breakpoint
-CREATE INDEX "sandbox_script_plugin_slug_idx" ON "sandbox_script" ("plugin_slug");--> statement-breakpoint
-CREATE UNIQUE INDEX "sandbox_script_kernel_slug_content_hash_unique" ON "sandbox_script" ("slug","content_hash") WHERE "plugin_slug" is null;--> statement-breakpoint
-CREATE INDEX "sandbox_workflow_reference_plugin_slug_idx" ON "sandbox_workflow_reference" ("plugin_slug");--> statement-breakpoint
+CREATE INDEX "sandbox_script_plugin_id_idx" ON "sandbox_script" ("plugin_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "sandbox_script_kernel_slug_content_hash_unique" ON "sandbox_script" ("slug","content_hash") WHERE "plugin_id" is null;--> statement-breakpoint
+CREATE INDEX "sandbox_workflow_reference_plugin_id_idx" ON "sandbox_workflow_reference" ("plugin_id");--> statement-breakpoint
 CREATE INDEX "sandbox_workflow_reference_script_id_idx" ON "sandbox_workflow_reference" ("script_id");--> statement-breakpoint
 CREATE INDEX "saved_view_user_id_idx" ON "saved_view" ("user_id");--> statement-breakpoint
 CREATE INDEX "saved_view_plugin_slug_idx" ON "saved_view" ("plugin_slug");--> statement-breakpoint
@@ -476,17 +487,19 @@ ALTER TABLE "integration_auto_disable_claim" ADD CONSTRAINT "integration_auto_di
 ALTER TABLE "managed_asset" ADD CONSTRAINT "managed_asset_owner_user_id_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "notification_channel" ADD CONSTRAINT "notification_channel_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "notification_subscription_state" ADD CONSTRAINT "notification_subscription_state_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "plugin_state" ADD CONSTRAINT "plugin_state_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "plugin" ADD CONSTRAINT "plugin_owner_id_user_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "plugin_installation" ADD CONSTRAINT "plugin_installation_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "plugin_installation" ADD CONSTRAINT "plugin_installation_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_source_entity_id_entity_id_fkey" FOREIGN KEY ("source_entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_target_entity_id_entity_id_fkey" FOREIGN KEY ("target_entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "sandbox_provider" ADD CONSTRAINT "sandbox_provider_plugin_slug_plugin_slug_fkey" FOREIGN KEY ("plugin_slug") REFERENCES "plugin"("slug") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "sandbox_provider" ADD CONSTRAINT "sandbox_provider_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "sandbox_provider_operation" ADD CONSTRAINT "sandbox_provider_operation_script_id_sandbox_script_id_fkey" FOREIGN KEY ("script_id") REFERENCES "sandbox_script"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "sandbox_provider_operation" ADD CONSTRAINT "sandbox_provider_operation_provider_id_sandbox_provider_id_fkey" FOREIGN KEY ("provider_id") REFERENCES "sandbox_provider"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_plugin_slug_plugin_slug_fkey" FOREIGN KEY ("plugin_slug") REFERENCES "plugin"("slug") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_provider_id_sandbox_provider_id_fkey" FOREIGN KEY ("provider_id") REFERENCES "sandbox_provider"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_plugin_slug_plugin_slug_fkey" FOREIGN KEY ("plugin_slug") REFERENCES "plugin"("slug") ON DELETE RESTRICT;--> statement-breakpoint
-ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_script_id_sandbox_script_id_fkey" FOREIGN KEY ("script_id") REFERENCES "sandbox_script"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_script_id_sandbox_script_id_fkey" FOREIGN KEY ("script_id") REFERENCES "sandbox_script"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "signal" ADD CONSTRAINT "signal_actor_user_id_user_id_fkey" FOREIGN KEY ("actor_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint

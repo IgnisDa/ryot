@@ -1,7 +1,7 @@
 import { pluginConfigEnvironmentKey } from "@ryot/contract/modules/plugins/plugin-config";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect } from "effect";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { makeConfigProviderLayer } from "#lib/test-utils/effect";
 
@@ -44,12 +44,24 @@ const runPluginConfig = (
 	return Effect.runSync(
 		getPluginConfig({
 			keys,
-			pluginSlug,
-			configSchema: pluginConfigSchema,
 			metadata: { requiredPluginConfigKeys },
+			context: { kind: "environment", pluginSlug, configSchema: pluginConfigSchema },
 		}).pipe(Effect.result, Effect.provide(makeConfigProviderLayer(configValues))),
 	);
 };
+
+const runInstallationConfig = (
+	keys: ReadonlyArray<string>,
+	config: Readonly<Record<string, unknown>>,
+	requiredPluginConfigKeys: ReadonlyArray<string> = keys,
+) =>
+	Effect.runSync(
+		getPluginConfig({
+			keys,
+			metadata: { requiredPluginConfigKeys },
+			context: { kind: "installation", config, configSchema: pluginConfigSchema },
+		}).pipe(Effect.result, Effect.provide(makeConfigProviderLayer())),
+	);
 
 const runSystemConfig = (
 	keys: ReadonlyArray<string>,
@@ -101,6 +113,38 @@ describe("getPluginConfig", () => {
 			_tag: "Failure",
 			failure: expect.stringContaining("is not configured"),
 		});
+	});
+});
+
+describe("getPluginConfig for an installation", () => {
+	it("reads declared plugin config from the stored installation values", () => {
+		expect(
+			runInstallationConfig(["requestLimit", "enabled"], {
+				enabled: true,
+				requestLimit: 12,
+				apiToken: "secret",
+			}),
+		).toMatchObject({ _tag: "Success", success: { requestLimit: 12, enabled: true } });
+	});
+
+	it("rejects undeclared and unknown installation config keys", () => {
+		expect(
+			runInstallationConfig(["apiToken", "requestLimit"], { apiToken: "secret" }, ["apiToken"]),
+		).toMatchObject({ _tag: "Failure", failure: expect.stringContaining("is not declared") });
+		expect(runInstallationConfig(["missing"], { apiToken: "secret" })).toMatchObject({
+			_tag: "Failure",
+			failure: expect.stringContaining("does not exist"),
+		});
+	});
+
+	it("reports unconfigured installation keys without naming environment variables", () => {
+		const result = runInstallationConfig(["enabled"], { apiToken: "secret" });
+		expect(result).toMatchObject({
+			_tag: "Failure",
+			failure: expect.stringContaining("is not configured for this installation"),
+		});
+		assert(result._tag === "Failure");
+		expect(result.failure).not.toContain("RYOT_PLUGIN");
 	});
 });
 

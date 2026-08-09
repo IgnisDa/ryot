@@ -8,9 +8,8 @@ import { Database } from "#lib/infrastructure/db/service";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 
 import { ImportSourceCatalog } from "./import-source-catalog";
-import { makePluginLoader, PluginLoader } from "./loader";
-import { fixtureManifest } from "./test-support";
-import type { NormalizedPlugin } from "./types";
+import { makePluginLoader, PluginLoader, type PluginRegistryEntry } from "./loader";
+import { fixtureManifest, fixturePluginIdentity } from "./test-support";
 
 const epoch = new Date(0);
 const fixtureScript = fixtureManifest().scripts[0];
@@ -33,7 +32,8 @@ const activeWorkflowDatabaseLayer = Layer.succeed(
 const pluginWithImportSources = (
 	slug: string,
 	importSources: PluginManifest["importSources"],
-): NormalizedPlugin => ({
+): PluginRegistryEntry => ({
+	...fixturePluginIdentity(slug),
 	sourceHash: `source-${slug}`,
 	scripts: [
 		{

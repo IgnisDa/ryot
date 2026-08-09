@@ -185,10 +185,12 @@ const relationship: CatalogTable = {
 
 const plugin: CatalogTable = {
 	name: "plugin",
-	primaryKey: "slug",
-	visibility: { user: { type: "public" } },
+	primaryKey: "id",
+	visibility: { user: { type: "owned", column: "owner_id", includeGlobal: true } },
 	fields: {
+		id: physicalField("id", "text", false),
 		slug: physicalField("slug", "text", false),
+		scope: physicalField("scope", "text", false),
 		status: physicalField("status", "text", false),
 		version: physicalField("version", "text", false),
 		manifest: physicalField("manifest", "json", false),
@@ -196,15 +198,16 @@ const plugin: CatalogTable = {
 	},
 };
 
-const pluginState: CatalogTable = {
+const pluginInstallation: CatalogTable = {
 	primaryKey: "id",
-	name: "plugin_state",
+	name: "plugin_installation",
 	visibility: { user: { type: "owned", column: "user_id", includeGlobal: false } },
 	fields: {
 		id: physicalField("id", "text", false),
+		health: physicalField("health", "text", false),
 		createdAt: physicalField("created_at", "date", false),
 		updatedAt: physicalField("updated_at", "date", false),
-		pluginSlug: physicalField("plugin_slug", "text", false),
+		pluginId: physicalField("plugin_id", "text", false),
 		sortOrder: physicalField("sort_order", "number", false),
 		isDisabled: physicalField("is_disabled", "boolean", false),
 	},
@@ -220,7 +223,7 @@ const sandboxProvider: CatalogTable = {
 		name: physicalField("name", "text", false),
 		createdAt: physicalField("created_at", "date", false),
 		updatedAt: physicalField("updated_at", "date", false),
-		pluginSlug: physicalField("plugin_slug", "text", false),
+		pluginId: physicalField("plugin_id", "text", false),
 		information: physicalField("information", "json", false),
 		rootEntitySchemaSlug: physicalField("root_entity_schema_slug", "text", false),
 	},
@@ -364,10 +367,10 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	importRun,
 	savedView,
 	integration,
-	pluginState,
 	relationship,
 	sandboxProvider,
 	importRunFailure,
+	pluginInstallation,
 	notificationChannel,
 	sandboxProviderOperation,
 	notificationSubscriptionState,

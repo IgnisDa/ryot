@@ -120,39 +120,55 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 			readonly operationSlug: string;
 			readonly headers: PlatformHeaders.Headers;
 		}) {
-			const resolved = yield* runtime.findActiveOperation({
-				pluginSlug: input.pluginSlug,
-				operationSlug: input.operationSlug,
-			});
-			if (!resolved) {
-				return yield* new PluginNotFoundError({
-					reason: {
-						code: "operation-not-found",
-						operationSlug: input.operationSlug,
-						pluginSlug: PluginSlug.make(input.pluginSlug),
-					},
-				});
-			}
 			const operation = {
 				operationSlug: input.operationSlug,
 				pluginSlug: PluginSlug.make(input.pluginSlug),
 			};
-			const scope = yield* resolveScope(
-				resolved.operation.auth,
-				input.payload,
-				input.headers,
-				operation,
-			);
-			const script = yield* resolved.script;
-			if (!script) {
-				return yield* new PluginInvocationError({
-					reason: { code: "script-unavailable", ...operation },
+			const resolved = yield* runtime.findActiveOperation({
+				pluginSlug: input.pluginSlug,
+				operationSlug: input.operationSlug,
+			});
+			if (resolved) {
+				const scope = yield* resolveScope(
+					resolved.operation.auth,
+					input.payload,
+					input.headers,
+					operation,
+				);
+				const script = yield* resolved.script;
+				if (!script) {
+					return yield* new PluginInvocationError({
+						reason: { code: "script-unavailable", ...operation },
+					});
+				}
+				return yield* dispatch({
+					...scope,
+					scriptId: script.id,
+					payload: input.payload,
+					pluginSlug: input.pluginSlug,
+					operationSlug: input.operationSlug,
+				});
+			}
+			const user = yield* auth.currentUser(new Headers(input.headers));
+			const owned = yield* runtime.findUserOperation({
+				userId: user.id,
+				pluginSlug: input.pluginSlug,
+				operationSlug: input.operationSlug,
+			});
+			if (!owned) {
+				return yield* new PluginNotFoundError({
+					reason: { code: "operation-not-found", ...operation },
+				});
+			}
+			if (owned.operation.auth === "integration") {
+				return yield* new PluginRequestError({
+					reason: { code: "invalid-operation-scope", ...operation },
 				});
 			}
 			return yield* dispatch({
-				...scope,
-				scriptId: script.id,
+				userId: user.id,
 				payload: input.payload,
+				scriptId: owned.script.id,
 				pluginSlug: input.pluginSlug,
 				operationSlug: input.operationSlug,
 			});
