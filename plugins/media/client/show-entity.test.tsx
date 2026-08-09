@@ -53,7 +53,10 @@ const readyResponse = {
 				genres: ["Drama", "Mystery"],
 				productionStatus: "Returning Series",
 				description: "A deterministic show description.",
-				images: [{ type: "remote", url: "https://images.test/cover.jpg", purpose: "cover" }],
+				images: [
+					{ type: "remote", url: "https://images.test/backdrop.jpg", purpose: "backdrop" },
+					{ type: "remote", url: "https://images.test/cover.jpg", purpose: "cover" },
+				],
 			},
 		]),
 	},
@@ -214,9 +217,14 @@ describe("ShowEntityScreen", () => {
 		expect(container?.textContent).toContain("2 seasons");
 		expect(container?.textContent).toContain("12 episodes");
 		expect(container?.textContent).toContain("A deterministic show description.");
-		expect(container?.querySelector("img")?.getAttribute("src")).toBe(
-			"https://images.test/cover.jpg",
-		);
+		expect(
+			Array.from(container?.querySelectorAll("img") ?? []).map((image) =>
+				image.getAttribute("src"),
+			),
+		).toEqual(["https://images.test/backdrop.jpg", "https://images.test/cover.jpg"]);
+		expect(
+			Array.from(container?.querySelectorAll("h1") ?? []).map((heading) => heading.textContent),
+		).toEqual(["Tracer Show"]);
 		await waitFor(() =>
 			expect(messages).toContainEqual({
 				index: 0,
