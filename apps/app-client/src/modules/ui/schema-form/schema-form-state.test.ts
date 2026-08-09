@@ -96,7 +96,94 @@ const cascadingVisibilitySchema = {
 	},
 } satisfies AppSchema;
 
+const uploadSchema = {
+	rules: [
+		{
+			kind: "visibility",
+			path: ["exportUploadToken"],
+			visibility: { hidden: true },
+			when: { path: ["mode"], value: "export", operator: "neq" },
+		},
+		{
+			path: ["username"],
+			kind: "visibility",
+			visibility: { hidden: true },
+			when: { path: ["mode"], value: "user", operator: "neq" },
+		},
+		{
+			path: ["collection"],
+			kind: "validation",
+			validation: { required: true },
+			message: "An export needs a collection",
+			when: { operator: "exists", path: ["exportUploadToken"] },
+		},
+	],
+	fields: {
+		collection: { ...described("Collection"), type: "string" },
+		username: { ...described("Username"), type: "string", validation: { required: true } },
+		mode: {
+			...described("Import method"),
+			type: "enum",
+			validation: { required: true },
+			choices: choices("export", "user"),
+		},
+		exportUploadToken: {
+			...described("Export file"),
+			type: "string",
+			validation: { required: true },
+			format: { kind: "upload", allowedFileExtensions: ["zip"] },
+		},
+	},
+} satisfies AppSchema;
+
 describe("schema form state", () => {
+	it("describes upload properties as required file controls with their extensions", () => {
+		const { fields, unsupported } = describeSchemaFormFields(uploadSchema, { mode: "export" });
+
+		expect(unsupported).toEqual([]);
+		expect(fields.map((field) => field.key)).toEqual(["collection", "mode", "exportUploadToken"]);
+		expect(fields.find((field) => field.key === "exportUploadToken")).toMatchObject({
+			required: true,
+			control: "file",
+			allowedFileExtensions: ["zip"],
+		});
+		expect(initialSchemaFormValues(uploadSchema)).toEqual({
+			mode: undefined,
+			username: undefined,
+			collection: undefined,
+			exportUploadToken: undefined,
+		});
+	});
+
+	it("carries an upload token into the payload as a string", () => {
+		const values = { mode: "export", collection: "Imported", exportUploadToken: "token-1" };
+
+		expect(validateSchemaFormValues(uploadSchema, values).size).toBe(0);
+		expect(toSchemaFormPayload(uploadSchema, values)).toEqual({
+			mode: "export",
+			collection: "Imported",
+			exportUploadToken: "token-1",
+		});
+	});
+
+	it("clears a hidden upload token from the payload and from rule conditions", () => {
+		const values = {
+			mode: "user",
+			username: "ryot",
+			collection: undefined,
+			exportUploadToken: "token-1",
+		};
+
+		expect(describeSchemaFormFields(uploadSchema, values).fields.map((field) => field.key)).toEqual(
+			["collection", "username", "mode"],
+		);
+		expect(validateSchemaFormValues(uploadSchema, values).has("collection")).toBe(false);
+		expect(toSchemaFormPayload(uploadSchema, values)).toEqual({
+			mode: "user",
+			username: "ryot",
+		});
+	});
+
 	it("describes supported fields and reports unsupported property types", () => {
 		const { fields, unsupported } = describeSchemaFormFields(schema);
 
@@ -423,28 +510,6 @@ describe("schema form state", () => {
 			advanced: true,
 			secret: "included",
 		});
-	});
-
-	it("reports upload formats as unsupported and keeps them out of values", () => {
-		const uploadSchema = {
-			fields: {
-				name: { ...described("Name"), type: "string" },
-				archive: {
-					...described("Archive"),
-					type: "string",
-					validation: { required: true },
-					format: { kind: "upload", allowedFileExtensions: ["zip"] },
-				},
-			},
-		} satisfies AppSchema;
-
-		expect(describeSchemaFormFields(uploadSchema)).toEqual({
-			unsupported: ["archive"],
-			fields: [expect.objectContaining({ key: "name", control: "text", format: undefined })],
-		});
-		expect(initialSchemaFormValues(uploadSchema)).toEqual({ name: undefined });
-		expect(validateSchemaFormValues(uploadSchema, {}).size).toBe(0);
-		expect(toSchemaFormPayload(uploadSchema, { archive: "token" })).toEqual({});
 	});
 
 	it("projects secret and text-format declarations onto described fields", () => {
