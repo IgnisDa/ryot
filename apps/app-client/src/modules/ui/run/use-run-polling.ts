@@ -1,10 +1,10 @@
 import { useEffect, useEffectEvent } from "react";
 import { AppState } from "react-native";
 
-export const IMPORT_RUN_POLL_MS = 2_000;
-export const IMPORT_LIST_POLL_MS = 10_000;
+export const RUN_POLL_MS = 2_000;
+export const RUN_LIST_POLL_MS = 10_000;
 
-export function useImportRunPolling(props: {
+export function useRunPolling(props: {
 	readonly enabled: boolean;
 	readonly intervalMs: number;
 	readonly refresh: () => void;

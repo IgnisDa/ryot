@@ -4,20 +4,18 @@ import { useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
-import { ImportProgressBar } from "@/modules/import-runs/import-progress-bar";
-import { ImportStatusPill } from "@/modules/import-runs/import-status-pill";
 import {
-	formatImportCount,
 	importRunCountsLabel,
-	importRunDurationLabel,
 	importRunFailureNotice,
 	importRunProgress,
 	importRunProgressValue,
 	importRunProvenanceLabel,
-	importRunTimestampLabel,
 	importSourceName,
 } from "@/modules/import-runs/run-presentation";
 import { AppButton } from "@/modules/ui/button";
+import { RunProgressBar } from "@/modules/ui/run/run-progress-bar";
+import { formatRunCount, runDurationLabel, runTimestampLabel } from "@/modules/ui/run/run-status";
+import { RunStatusPill } from "@/modules/ui/run/run-status-pill";
 import { AppStatusState } from "@/modules/ui/status-state";
 
 import {
@@ -36,11 +34,11 @@ function RunHeading(props: {
 	return (
 		<View className="hidden gap-1.5 md:flex">
 			<Text className="font-ui-medium text-[11px] uppercase tracking-[0.8px] text-text-subtle">
-				{`Import · ${importRunTimestampLabel(props.run.createdAt)}`}
+				{`Import · ${runTimestampLabel(props.run.createdAt)}`}
 			</Text>
 			<Text className="font-display-semibold text-3xl text-text">{props.sourceName}</Text>
 			<View className="flex-row items-center gap-2">
-				<ImportStatusPill status={props.run.status} />
+				<RunStatusPill status={props.run.status} />
 				{props.duration === undefined ? null : (
 					<Text className="font-ui text-xs tabular-nums text-text-subtle">{props.duration}</Text>
 				)}
@@ -52,9 +50,9 @@ function RunHeading(props: {
 function RunCounts(props: { readonly run: ImportRunSummary }) {
 	const progress = importRunProgress(props.run);
 	const figures = [
-		{ label: "Read", value: formatImportCount(props.run.processedItems) },
-		{ label: "Added", value: formatImportCount(props.run.importedItems) },
-		{ label: "Failed", value: formatImportCount(props.run.failedItems) },
+		{ label: "Read", value: formatRunCount(props.run.processedItems) },
+		{ label: "Added", value: formatRunCount(props.run.importedItems) },
+		{ label: "Failed", value: formatRunCount(props.run.failedItems) },
 	];
 	return (
 		<View className="gap-4 rounded-2xl border border-border bg-surface p-4">
@@ -69,7 +67,7 @@ function RunCounts(props: { readonly run: ImportRunSummary }) {
 				))}
 			</View>
 			<View className="gap-2">
-				<ImportProgressBar progress={progress} value={importRunProgressValue(props.run)} />
+				<RunProgressBar progress={progress} value={importRunProgressValue(props.run)} />
 				<View className="flex-row items-center justify-between gap-3">
 					<Text className="font-ui text-xs tabular-nums text-text-muted">
 						{importRunCountsLabel(props.run)}
@@ -235,11 +233,7 @@ export function ImportRunView(props: {
 	const sourceName = importSourceName(run.source, props.sourceNames);
 	return (
 		<View className="gap-6 pb-4">
-			<RunHeading
-				run={run}
-				sourceName={sourceName}
-				duration={importRunDurationLabel(run, props.nowMs)}
-			/>
+			<RunHeading run={run} sourceName={sourceName} duration={runDurationLabel(run, props.nowMs)} />
 			{provenance === undefined ? null : (
 				<Text numberOfLines={2} className="font-ui text-sm text-text-muted">
 					{provenance}
