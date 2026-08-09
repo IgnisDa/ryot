@@ -254,6 +254,15 @@ export const collectGenres = (genres: unknown) =>
 		return name ? [name] : [];
 	});
 
+export const collectCompanyTypes = (companyTypes: unknown) =>
+	new Map(
+		recordsValue(companyTypes).flatMap((companyType) => {
+			const id = numberValue(companyType["companyTypeId"]);
+			const name = stringValue(companyType["companyTypeName"]);
+			return id === null || !name ? [] : ([[Math.trunc(id), name]] as const);
+		}),
+	);
+
 const TVDB_COMPANY_ROLES: ReadonlyArray<readonly [string, string]> = [
 	["studio", "Studio"],
 	["network", "Network"],
@@ -262,19 +271,18 @@ const TVDB_COMPANY_ROLES: ReadonlyArray<readonly [string, string]> = [
 	["special_effects", "Special Effects"],
 ];
 
-export const collectCompanies = (companies: unknown) => {
-	const companiesRecord = asRecord(companies);
-	if (!companiesRecord) {
-		return [];
-	}
-
+export const collectCompanies = (
+	companies: unknown,
+	companyTypes: ReadonlyMap<number, string> = new Map(),
+) => {
 	const companyByKey = new Map<string, RoleRelatedEntity>();
-	for (const [key, role] of TVDB_COMPANY_ROLES) {
-		for (const company of recordsValue(companiesRecord[key])) {
+	const addCompanies = (values: unknown, getRole: (company: UnknownRecord) => string) => {
+		for (const company of recordsValue(values)) {
 			const id = numberValue(company["id"]);
 			if (id === null) {
 				continue;
 			}
+			const role = getRole(company);
 			const name = stringValue(company["name"]) ?? "Loading...";
 			const externalId = String(Math.trunc(id));
 			const companyKey = `company.tvdb:${externalId}`;
@@ -295,6 +303,24 @@ export const collectCompanies = (companies: unknown) => {
 				relationshipProperties: { roles: [role] },
 			});
 		}
+	};
+
+	if (Array.isArray(companies)) {
+		addCompanies(companies, (company) => {
+			const companyType = numberValue(company["primaryCompanyType"]);
+			return companyType === null
+				? "Company"
+				: (companyTypes.get(Math.trunc(companyType)) ?? "Company");
+		});
+		return [...companyByKey.values()];
+	}
+
+	const companiesRecord = asRecord(companies);
+	if (!companiesRecord) {
+		return [];
+	}
+	for (const [key, role] of TVDB_COMPANY_ROLES) {
+		addCompanies(companiesRecord[key], () => role);
 	}
 	return [...companyByKey.values()];
 };
