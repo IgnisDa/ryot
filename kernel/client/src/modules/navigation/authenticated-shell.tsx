@@ -361,6 +361,7 @@ export function AuthenticatedShell(props: {
 				isPro={props.isPro}
 				activeKey={activeKey}
 				activeHome={homeActive}
+				navigation={props.navigation}
 				onNavigateHome={navigateHome}
 				onNavigateItem={navigateItem}
 				onEditSection={openCustomize}
@@ -399,6 +400,7 @@ export function AuthenticatedShell(props: {
 				triggerRef={triggerRef}
 				activeHome={homeActive}
 				hasDrawer={workspaceChrome}
+				navigation={props.navigation}
 				onNavigateItem={navigateItem}
 				onNavigateHome={navigateHome}
 				activeSettings={settingsActive}
