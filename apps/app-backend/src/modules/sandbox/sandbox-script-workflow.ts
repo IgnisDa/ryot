@@ -138,6 +138,7 @@ export const establishSandboxWorkflowPin = Effect.fn("establishSandboxWorkflowPi
 							pluginId: pinned.pluginId,
 							scriptId: pinned.scriptId,
 							contentHash: pinned.contentHash,
+							...("userId" in payload.authority ? { userId: payload.authority.userId } : {}),
 						})).status
 					: ("not-required" as const);
 				return { ...pinned, registrationStatus };

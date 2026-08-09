@@ -31,6 +31,22 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 					.pipe(dieOnDbError);
 			}),
 		)
+		.handle("update", ({ params, payload }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* PluginInstallationService;
+				return yield* service
+					.updatePrivatePlugin({
+						userId: user.id,
+						files: payload.files,
+						config: payload.config,
+						manifest: payload.manifest,
+						pluginSlug: params.pluginSlug,
+						unsetConfigKeys: payload.unsetConfigKeys,
+					})
+					.pipe(dieOnDbError);
+			}),
+		)
 		.handle("uninstall", ({ params }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;

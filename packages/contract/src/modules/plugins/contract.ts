@@ -13,6 +13,7 @@ import {
 	PluginInvokeResult,
 	PluginNotFoundError,
 	PluginRequestError,
+	UpdatePrivatePluginBody,
 } from "./schemas";
 
 export const PluginsGroup = HttpApiGroup.make("plugins")
@@ -33,6 +34,21 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 		}).annotate(
 			OpenApi.Description,
 			"Validates, compiles, and installs a private plugin from a manifest, source file map, and initial config.",
+		),
+	)
+	.add(
+		HttpApiEndpoint.put("update", "/plugins/:pluginSlug", {
+			success: PluginInstallationItem,
+			payload: UpdatePrivatePluginBody,
+			params: { pluginSlug: PluginSlug },
+			error: [
+				PluginRequestError.pipe(HttpApiSchema.status(400)),
+				PluginNotFoundError.pipe(HttpApiSchema.status(404)),
+				PluginConflictError.pipe(HttpApiSchema.status(409)),
+			],
+		}).annotate(
+			OpenApi.Description,
+			"Validates, compiles, and atomically replaces the caller's private plugin package.",
 		),
 	)
 	.add(
