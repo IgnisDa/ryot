@@ -21,9 +21,9 @@ import { collectManagedAssetLocators, type MediaImages } from "./image";
 import { ManagedAssetImage } from "./managed-assets";
 import { mediaPosterAsset } from "./summary-state";
 
-export type MediaArtworkAspect = "poster" | "square";
+export type MediaArtworkAspect = "poster" | "square" | "still";
 
-export type MediaArtworkLayout = "grid" | "list";
+export type MediaArtworkLayout = "grid" | "list" | "rail";
 
 export type MediaPresentationSubject = EntitySyncState & {
 	readonly id: string;
@@ -35,16 +35,45 @@ export type MediaPresentationViewData<Data> = Data & {
 	readonly batchAssets: readonly ManagedAssetLocator[];
 };
 
+const GRID_ASPECT_CLASS: Record<MediaArtworkAspect, string> = {
+	poster: "aspect-2/3",
+	still: "aspect-video",
+	square: "aspect-square",
+};
+
+export const mediaAspectClass = (aspect: MediaArtworkAspect) => GRID_ASPECT_CLASS[aspect];
+
+const RAIL_WIDTH_CLASS: Record<MediaArtworkAspect, { compact: string; regular: string }> = {
+	poster: { compact: "w-28", regular: "w-32" },
+	square: { compact: "w-42", regular: "w-48" },
+	still: { compact: "w-74.75", regular: "w-85.25" },
+};
+
+export const mediaRailWidthClass = (input: {
+	readonly compact: boolean;
+	readonly aspect: MediaArtworkAspect;
+}) => RAIL_WIDTH_CLASS[input.aspect][input.compact ? "compact" : "regular"];
+
 export const mediaArtworkClass = (input: {
 	readonly compact: boolean;
 	readonly layout: MediaArtworkLayout;
 	readonly aspect: MediaArtworkAspect;
 }) => {
 	if (input.layout === "grid") {
-		return input.aspect === "square" ? "aspect-square w-full" : "aspect-2/3 w-full";
+		return `${mediaAspectClass(input.aspect)} w-full`;
+	}
+	if (input.layout === "rail") {
+		return clsx(
+			input.compact ? "h-42" : "h-48",
+			mediaRailWidthClass(input),
+			mediaAspectClass(input.aspect),
+		);
 	}
 	if (input.aspect === "square") {
 		return input.compact ? "h-20 w-20" : "h-24 w-24";
+	}
+	if (input.aspect === "still") {
+		return input.compact ? "h-20 w-35.5" : "h-24 w-42.75";
 	}
 	return input.compact ? "h-20 w-14" : "h-24 w-16";
 };

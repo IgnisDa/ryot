@@ -129,10 +129,10 @@ describe("creator credit rails", () => {
 
 		expect(sectionTitles(container)).toEqual(["Films", "Records"]);
 		expect(
-			container.querySelector(`a[href="/e/${creatorMovieCreditRow.id}"] > *`)?.className,
+			container.querySelector(`a[href="/e/${creatorMovieCreditRow.id}"] > div > *`)?.className,
 		).toContain("aspect-2/3");
 		expect(
-			container.querySelector(`a[href="/e/${creatorAlbumCreditRow.id}"] > *`)?.className,
+			container.querySelector(`a[href="/e/${creatorAlbumCreditRow.id}"] > div > *`)?.className,
 		).toContain("aspect-square");
 		unmount();
 	});
