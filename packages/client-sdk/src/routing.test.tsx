@@ -11,7 +11,14 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createRyotClient } from "./index";
 import { createPluginNavigationStore } from "./navigation/store";
 import { RyotProvider, useRyot } from "./react";
-import { PluginLink, PluginRouter, usePluginParams, usePluginSearch } from "./routing";
+import {
+	createPluginRouteResolver,
+	PluginLink,
+	PluginRouter,
+	usePluginParams,
+	usePluginSearch,
+	type PluginRouterDefinition,
+} from "./routing";
 
 let mountCount = 0;
 
@@ -56,9 +63,11 @@ let roots: Root[] = [];
 const pointer = (type: string, clientX: number) =>
 	new PointerEvent(type, { bubbles: true, clientX, clientY: 0, pointerId: 1 });
 
-const openChannel = () => {
+const openChannel = (definition: PluginRouterDefinition = { home: { component: Home } }) => {
 	const messages: unknown[] = [];
-	const store = createPluginNavigationStore();
+	const store = createPluginNavigationStore(createPluginRouteResolver(definition));
+	let compact = false;
+	let edgeBack = false;
 	let position = -1;
 	const send = (
 		path: string,
@@ -66,10 +75,10 @@ const openChannel = () => {
 		options: { readonly key?: string; readonly index?: number } = {},
 	) => {
 		position = options.index ?? position + 1;
-		store.setEntry({
-			index: position,
-			key: options.key ?? `k${position}`,
-			location: { path, search },
+		store.setLocation({
+			compact,
+			edgeBack,
+			entry: { index: position, location: { path, search }, key: options.key ?? `k${position}` },
 		});
 	};
 	const navigate = (
@@ -85,29 +94,33 @@ const openChannel = () => {
 		store,
 		messages,
 		client: createRyotClient({ navigate, query: () => Promise.resolve({}) }),
+		setEdge: (edge: { readonly compact: boolean; readonly edgeBack: boolean }) => {
+			compact = edge.compact;
+			edgeBack = edge.edgeBack;
+			const { entry } = store.getSnapshot();
+			if (entry !== undefined) {
+				store.setLocation({ compact, edgeBack, entry });
+			}
+		},
 		navigation: {
 			subscribe: store.subscribe,
 			getSnapshot: store.getSnapshot,
+			completeTransition: store.completeTransition,
 			back: () => messages.push({ type: "navigate-back" }),
 		},
 	};
 };
 
-const renderRouter = (
-	channel: ReturnType<typeof openChannel>,
-	routes: Array<{ path: string; component: typeof ItemRoute }>,
-	notFound?: typeof NotFound,
-) => {
+const renderRouter = (channel: ReturnType<typeof openChannel>) => {
 	const container = document.createElement("div");
 	document.body.append(container);
 	const root = createRoot(container);
 	roots.push(root);
 
 	act(() => {
-		const definition = notFound ? { home: Home, routes, notFound } : { home: Home, routes };
 		root.render(
 			<RyotProvider client={channel.client}>
-				<PluginRouter navigation={channel.navigation} definition={definition} />
+				<PluginRouter navigation={channel.navigation} />
 			</RyotProvider>,
 		);
 	});
@@ -119,14 +132,17 @@ const mount = (
 	routes: Array<{ path: string; component: typeof ItemRoute }> = [],
 	notFound?: typeof NotFound,
 ) => {
-	const channel = openChannel();
-	const container = renderRouter(channel, routes, notFound);
+	const definition = notFound
+		? { home: { component: Home }, routes, notFound }
+		: { home: { component: Home }, routes };
+	const channel = openChannel(definition);
+	const container = renderRouter(channel);
 	return {
 		container,
 		store: channel.store,
 		messages: channel.messages,
 		setEdge: (edge: { readonly compact: boolean; readonly edgeBack: boolean }) =>
-			act(() => channel.store.setEdge(edge)),
+			act(() => channel.setEdge(edge)),
 		sendLocation: (
 			path: string,
 			search = "",
@@ -150,11 +166,14 @@ describe("PluginRouter", () => {
 	});
 
 	it("renders a location that arrived before the router mounted", async () => {
-		const channel = openChannel();
+		const channel = openChannel({
+			home: { component: Home },
+			routes: [{ path: "/items/$itemId", component: ItemRoute }],
+		});
 		channel.send("/items/item-9");
 		await waitFor(() => expect(channel.store.getSnapshot().entry).toBeDefined());
 
-		const container = renderRouter(channel, [{ path: "/items/$itemId", component: ItemRoute }]);
+		const container = renderRouter(channel);
 
 		expect(container.textContent).toContain("Item item-9");
 	});
