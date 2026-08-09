@@ -11,6 +11,7 @@ import type { ApiScope } from "#/api/scope";
 import { HostedAuthService } from "#/modules/auth/hosted-service";
 import { OAuthLauncher } from "#/modules/auth/oauth-launcher";
 import { OAuthStorage } from "#/modules/auth/oauth-storage";
+import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { ServerService } from "#/modules/server/service";
@@ -86,6 +87,16 @@ export const makeOAuthRouteStubs = (tokenOverrides: Partial<OAuthTokenService["S
 			takePending: () => Effect.succeed(null),
 			getTokenSet: () => Effect.succeed(null),
 		}),
+		Layer.succeed(RuntimeOAuthClientService, {
+			isNative: false,
+			forServer: (origin) =>
+				Effect.succeed({
+					clientId: "ryot-web",
+					nativeApplicationId: null,
+					callbackUri: `${origin}/auth/callback`,
+					logoutUri: `${origin}/auth/logout/callback`,
+				}),
+		}),
 		Layer.succeed(OAuthTokenService, {
 			clear: () => Effect.void,
 			logout: () => Effect.succeed(null),
@@ -101,8 +112,13 @@ export const makeOAuthRouteStubs = (tokenOverrides: Partial<OAuthTokenService["S
 				Effect.succeed({
 					_tag: "Ready",
 					plan: {
-						isNative: false,
 						authorizationUrl: `${server}/api/auth/oauth2/authorize`,
+						client: {
+							clientId: "ryot-web",
+							nativeApplicationId: null,
+							callbackUri: `${server}/auth/callback`,
+							logoutUri: `${server}/auth/logout/callback`,
+						},
 						pending: {
 							createdAt: 1,
 							state: "state",

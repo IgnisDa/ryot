@@ -1,15 +1,13 @@
-import { App } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
 import { OAuthCallbackQuery } from "@ryot/contract/oauth";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect, Schema } from "effect";
 
 import { decodeServerOrigin } from "#/api/origin";
-import { selectOAuthClient } from "#/modules/auth/oauth-launcher";
+import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
 import { AuthStatus } from "#/modules/auth/status";
 import { OAuthTokenError, OAuthTokenService } from "#/modules/auth/token-service";
-import { isNativePlatform } from "#/modules/navigation/native-navigation";
 import { sanitizeRedirect } from "#/modules/server/redirect";
 import { ServerService } from "#/modules/server/service";
 
@@ -30,22 +28,25 @@ export const Route = createFileRoute("/auth_/callback")({
 	beforeLoad: async ({ context, search }) => {
 		const destination = await context.runtime.runPromise(
 			Effect.gen(function* () {
-				const isNative = isNativePlatform();
-				const selected = isNative
+				const runtimeClient = yield* RuntimeOAuthClientService;
+				const selected = runtimeClient.isNative
 					? yield* Effect.flatMap(ServerService, (service) => service.selected)
 					: decodeServerOrigin(window.location.origin);
 				if (selected === null) {
 					return yield* new OAuthTokenError({ reason: "missing-authorization" });
 				}
 				const origin = selected;
-				const applicationId = isNative
-					? yield* Effect.tryPromise(() => App.getInfo().then((info) => info.id))
-					: undefined;
-				const client = selectOAuthClient(isNative, origin, applicationId);
-				if (!client || !search.state) {
+				const client = yield* runtimeClient
+					.forServer(origin)
+					.pipe(
+						Effect.catchTag("RuntimeOAuthClientError", () =>
+							Effect.fail(new OAuthTokenError({ reason: "invalid-callback" })),
+						),
+					);
+				if (!search.state) {
 					return yield* new OAuthTokenError({ reason: "invalid-callback" });
 				}
-				if (isNative) {
+				if (client.nativeApplicationId !== null) {
 					yield* Effect.tryPromise(() => Browser.close()).pipe(Effect.catch(() => Effect.void));
 				}
 				const tokens = yield* OAuthTokenService;
@@ -58,7 +59,7 @@ export const Route = createFileRoute("/auth_/callback")({
 				const pending = yield* tokens.completeAuthorization(
 					origin,
 					client.clientId,
-					client.redirectUri,
+					client.callbackUri,
 					search.state,
 					search.code,
 				);
