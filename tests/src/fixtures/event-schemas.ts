@@ -5,7 +5,7 @@ import { Effect } from "effect";
 import { requirePresent } from "~/support/assertions";
 
 import type { Client } from "./auth";
-import { installTestDefinitions } from "./test-plugin";
+import { findTestEntitySchema, installTestDefinitions } from "./test-plugin";
 
 type PluginManifest = ContractPayload<"plugins", "install">["manifest"];
 type PluginEntitySchema = PluginManifest["entitySchemas"][number];
@@ -26,9 +26,8 @@ export function requireEventSchemaBySlug<T extends { slug: string }>(
 
 export const createEventSchema = (client: Client, body: CreateEventSchemaOptions) =>
 	Effect.gen(function* () {
-		const schemas = yield* client.call((c) => c.definitions.listEntities({}));
-		const entitySchema = requirePresent(
-			schemas.find((schema) => schema.slug === body.entitySchemaSlug),
+		const registered = requirePresent(
+			findTestEntitySchema(body.entitySchemaSlug),
 			`Entity schema '${body.entitySchemaSlug}' not found`,
 		);
 		const eventSchema = {
@@ -38,20 +37,14 @@ export const createEventSchema = (client: Client, body: CreateEventSchemaOptions
 				fields: { note: { label: "Note", description: "Note", type: "string" as const } },
 			},
 		};
-		const pluginSlug = requirePresent(
-			entitySchema.pluginSlug,
-			`Entity schema '${body.entitySchemaSlug}' is not owned by an installed plugin`,
-		);
 		yield* installTestDefinitions({
-			pluginSlug,
+			client,
+			pluginSlug: registered.pluginSlug,
 			entitySchemas: [
 				{
-					icon: entitySchema.icon,
-					name: entitySchema.name,
-					slug: entitySchema.slug,
-					propertiesSchema: entitySchema.propertiesSchema,
+					...registered.schema,
 					eventSchemas: [
-						...entitySchema.eventSchemas.filter((schema) => schema.slug !== body.slug),
+						...registered.schema.eventSchemas.filter((schema) => schema.slug !== body.slug),
 						eventSchema,
 					],
 				},

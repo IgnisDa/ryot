@@ -3,6 +3,7 @@ import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { Effect, Fiber, Layer, Ref } from "effect";
 import { assert } from "vitest";
 
+import { databaseLayer } from "#lib/test-utils/effect";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 
@@ -322,6 +323,7 @@ it("preserves provider membership for custom scripts in the loader snapshot", ()
 it.effect("shares boot-loaded definitions with runtime repositories", () => {
 	const layer = RelationshipSchemasRepository.layer.pipe(
 		Layer.provideMerge(PluginRuntimeResolverLive),
+		Layer.provide(databaseLayer),
 	);
 
 	return Effect.gen(function* () {

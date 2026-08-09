@@ -1,11 +1,12 @@
 import { SandboxRunError } from "@ryot/contract/errors";
-import { EntityId, SandboxProviderId } from "@ryot/contract/schema/brands";
+import { EntityId, SandboxProviderId, UserId } from "@ryot/contract/schema/brands";
 import { Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 
 export const TranslateEntityWorkflowPayload = Schema.Struct({
+	userId: UserId,
 	entityId: EntityId,
 	language: Schema.String,
 	externalId: Schema.String,

@@ -46,6 +46,7 @@ describe("sandbox RyotQL reads", () => {
 			});
 			const slug = `ryotql-entities-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
+				client,
 				slug,
 				name: "Query entities",
 				capabilities: ["executeRyotql"],
@@ -90,6 +91,7 @@ describe("sandbox RyotQL reads", () => {
 			);
 			const slug = `ryotql-events-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
+				client,
 				slug,
 				name: "Query events",
 				capabilities: ["executeRyotql"],
@@ -111,7 +113,6 @@ describe("sandbox RyotQL reads", () => {
 
 	it.live("runs a pinned system script through executeRyotql", () =>
 		Effect.gen(function* () {
-			const { client, userId } = yield* createAuthenticatedClient();
 			const suffix = crypto.randomUUID();
 			const pluginSlug = `e2e-ryotql-system-${suffix}`;
 			const providerSlug = `e2e-ryotql-system-provider-${suffix}`;
@@ -137,6 +138,7 @@ describe("sandbox RyotQL reads", () => {
 			let globalEntityIds: EntityId[] = [];
 			const installed = yield* Effect.acquireRelease(
 				installTestPluginBundle({
+					scope: "system",
 					pluginSlug,
 					files: {
 						[providerEntry]: providerSandboxSource({
@@ -213,10 +215,11 @@ describe("sandbox RyotQL reads", () => {
 								)
 								.pipe(Effect.ignore);
 						}
-						yield* deleteUserAndWait(userId).pipe(Effect.ignore);
 						yield* uninstallTestPlugin(plugin).pipe(Effect.ignore);
 					}),
 			);
+			const { client, userId } = yield* createAuthenticatedClient();
+			yield* Effect.addFinalizer(() => deleteUserAndWait(userId).pipe(Effect.ignore));
 			const globalEntity = yield* backend.call(
 				(c) =>
 					c.testSupport.createGlobalEntity({

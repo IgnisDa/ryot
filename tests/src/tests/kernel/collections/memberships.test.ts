@@ -5,10 +5,12 @@ import {
 	createAuthenticatedClient,
 	createCollection,
 	createGlobalBookEntityFixture,
-	createPluginSchema,
+	createPluginScope,
 	createPluginSchemaAndEntity,
 	findBuiltinSchemaBySlug,
 	getBackendClient,
+	installTestPluginBundle,
+	literalSandboxSource,
 	queryInLibraryRelationship,
 	seedMediaEntity,
 } from "~/fixtures";
@@ -146,12 +148,48 @@ describe("POST /collections/memberships", () => {
 
 	it.live("does not add an unrelated global plugin entity to the media library", () =>
 		Effect.gen(function* () {
+			const pluginSlug = createPluginScope();
+			const schemaSlug = `schema-${crypto.randomUUID()}`;
+			const scriptSlug = `${pluginSlug}.fixture`;
+			const entry = "scripts/fixture.sandbox.ts";
+			yield* installTestPluginBundle({
+				scope: "system",
+				files: {
+					[entry]: literalSandboxSource({
+						value: true,
+						slug: scriptSlug,
+						name: "Global fixture schema",
+					}),
+				},
+				scripts: [
+					{
+						entry,
+						kind: "script",
+						slug: scriptSlug,
+						capabilities: [],
+						requiredPluginConfigKeys: [],
+						requiredSystemConfigKeys: [],
+						name: "Global fixture schema",
+					},
+				],
+				pluginSlug,
+				entitySchemas: [
+					{
+						icon: "book",
+						slug: schemaSlug,
+						eventSchemas: [],
+						name: "Global Fixture Schema",
+						propertiesSchema: {
+							fields: { title: { type: "string", label: "Title", description: "Title" } },
+						},
+					},
+				],
+			});
 			const { client } = yield* createAuthenticatedClient();
-			const { slug, schemaId } = yield* createPluginSchema(client);
 			const entity = yield* seedMediaEntity({
 				userId: null,
 				providerId: null,
-				entitySchemaSlug: schemaId,
+				entitySchemaSlug: schemaSlug,
 				properties: { title: "Unrelated" },
 				name: `Global Fixture ${crypto.randomUUID()}`,
 				externalId: `global-fixture-${crypto.randomUUID()}`,
@@ -164,7 +202,7 @@ describe("POST /collections/memberships", () => {
 				}),
 			);
 
-			const membership = yield* queryInLibraryRelationship(client, entity.id, slug);
+			const membership = yield* queryInLibraryRelationship(client, entity.id, schemaSlug);
 			expect(
 				membership.data.entity?.type === "rows" ? membership.data.entity.items : [],
 			).toHaveLength(0);

@@ -20,8 +20,6 @@ describe("RyotQL navigation", () => {
 			const firstViewName = `First Navigation View ${crypto.randomUUID()}`;
 			const secondViewName = `Second Navigation View ${crypto.randomUUID()}`;
 
-			yield* updatePluginState(first.client, "media", { isDisabled: true, sortOrder: 7 });
-			yield* updatePluginState(second.client, "media", { isDisabled: false, sortOrder: 1 });
 			const firstView = yield* createSavedView(first.client, {
 				name: firstViewName,
 				pluginSlug: PluginSlug.make("media"),
@@ -31,6 +29,8 @@ describe("RyotQL navigation", () => {
 				name: firstViewName,
 				pluginSlug: PluginSlug.make("media"),
 			});
+			yield* updatePluginState(first.client, "media", { isDisabled: true, sortOrder: 7 });
+			yield* updatePluginState(second.client, "media", { isDisabled: false, sortOrder: 1 });
 			yield* createSavedView(second.client, { name: secondViewName });
 			const firstCollection = yield* createCollection(first.client, {
 				name: `First Navigation Collection ${crypto.randomUUID()}`,

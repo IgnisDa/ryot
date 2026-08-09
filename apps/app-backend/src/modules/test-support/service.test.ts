@@ -82,7 +82,7 @@ const makeServiceLayer = (
 					...overrides.pluginCrons,
 				}),
 				mockPluginBoots({
-					triggerAll: () => Effect.void,
+					trigger: () => Effect.void,
 					...overrides.pluginBoots,
 				}),
 				mockPluginIngestion({}),
@@ -286,10 +286,12 @@ it.effect("triggers exactly one requested plugin cron with a manual execution id
 
 it.effect("triggers plugin boots with the manual boot execution id", () => {
 	let pluginBootExecutionId: string | undefined;
+	let pluginBootIdentity: { bootSlug: string; pluginSlug: string } | undefined;
 	const layer = makeServiceLayer({
 		pluginBoots: {
-			triggerAll: (executionId) =>
+			trigger: (identity, executionId) =>
 				Effect.sync(() => {
+					pluginBootIdentity = identity;
 					pluginBootExecutionId = executionId;
 				}),
 		},
@@ -297,8 +299,12 @@ it.effect("triggers plugin boots with the manual boot execution id", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* TestSupportService;
-		const result = yield* service.triggerPluginBoot;
+		const result = yield* service.triggerPluginBoot({
+			bootSlug: "fixture",
+			pluginSlug: PluginSlug.make("media"),
+		});
 		expect(result.executionId).toMatch(/^plugin-boot-manual-/);
+		expect(pluginBootIdentity).toEqual({ bootSlug: "fixture", pluginSlug: "media" });
 		expect(pluginBootExecutionId).toBe(result.executionId);
 	}).pipe(Effect.provide(layer));
 });

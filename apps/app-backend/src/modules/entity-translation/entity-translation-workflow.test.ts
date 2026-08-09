@@ -1,6 +1,6 @@
 import { assert, expect, it } from "@effect/vitest";
 import { Conflict, SandboxRunError } from "@ryot/contract/errors";
-import { EntityId, SandboxProviderId } from "@ryot/contract/schema/brands";
+import { EntityId, SandboxProviderId, UserId } from "@ryot/contract/schema/brands";
 import { Cause, Effect, Exit, Layer, Option, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
@@ -35,6 +35,7 @@ const payload = {
 	executionId: "exec-1",
 	entitySchemaSlug: "book",
 	properties: { title: "Test Book" },
+	userId: UserId.make("user-1"),
 	entityId: EntityId.make("entity-1"),
 	providerId: SandboxProviderId.make("provider-1"),
 } satisfies TranslateEntityWorkflowPayload;

@@ -94,15 +94,7 @@ export class PluginBootService extends Context.Service<PluginBootService>()("Plu
 				]),
 			);
 
-		const triggerAll = (parentExecutionId: string) =>
-			dispatchEntries(
-				list().map((entry) => [
-					{ bootSlug: entry.boot.slug, pluginSlug: entry.pluginSlug },
-					pluginBootExecutionId(entry.pluginSlug, entry.boot.slug, parentExecutionId),
-				]),
-			);
-
-		return { dispatchAll, triggerAll };
+		return { trigger: dispatch, dispatchAll };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);

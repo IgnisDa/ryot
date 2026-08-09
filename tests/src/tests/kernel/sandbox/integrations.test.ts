@@ -13,10 +13,12 @@ import { describe, expect, it } from "~/support/effect-test";
 describe("sandbox integration reads", () => {
 	it.live("resolves current integration from trusted scope and filters integrations", () =>
 		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
 			const slug = `integration-read-${crypto.randomUUID()}`;
 			const providerSlug = `integration-read-provider-${crypto.randomUUID()}`;
 			const plugin = yield* Effect.acquireRelease(
 				installTestPlugin({
+					client,
 					source: integrationReadOperationSandboxSource({
 						slug,
 						providerSlug,
@@ -55,7 +57,6 @@ describe("sandbox integration reads", () => {
 				}),
 				uninstallTestPlugin,
 			);
-			const { client } = yield* createAuthenticatedClient();
 			const release = (integration: { readonly id: string }) =>
 				deleteIntegration(client, integration.id).pipe(Effect.asVoid, Effect.orDie);
 			const current = yield* Effect.acquireRelease(
