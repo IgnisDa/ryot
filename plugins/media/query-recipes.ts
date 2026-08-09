@@ -123,14 +123,14 @@ const showSeasonInclude = (input: {
 				),
 				selection: {
 					...entityIdentitySelection(episode),
-					episodeNumber: selectedField(episodeNumber, Schema.Number),
-					images: selectedField(propertyJson(episode, "images"), MediaImageListSchema),
-					seasonNumber: selectedField(propertyNumber(episode, "seasonNumber"), Schema.Number),
-					runtime: selectedField(propertyNumber(episode, "runtime"), Schema.NullOr(Schema.Number)),
 					state: selectedField(
 						episodeLifecycleStateExpression(episode, "showEpisodeDetailLifecycle"),
 						EpisodeLifecycleStateSchema,
 					),
+					episodeNumber: selectedField(episodeNumber, Schema.Number),
+					seasonNumber: selectedField(propertyNumber(episode, "seasonNumber"), Schema.Number),
+					images: selectedField(propertyJson(episode, "images"), MediaImageListSchema),
+					runtime: selectedField(propertyNumber(episode, "runtime"), Schema.NullOr(Schema.Number)),
 					publishDate: selectedField(
 						propertyText(episode, "publishDate"),
 						Schema.NullOr(Schema.String),
