@@ -55,6 +55,17 @@ scroll listener would be needed in both documents. The frame never creates a scr
 sticks against the one its caller already owns, which is why the plugin's per-screen scroll div and
 the kernel's `<main>` both work unchanged.
 
+Everything inside that scroller belongs to the frame: the bar, the title block, the header, the
+gutters, and the gap between the header and the content. `AppScreen`'s `<main>` keeps only
+scrolling, the background, and the bottom inset, and a route hands the frame content and semantics
+rather than layout classes — a class that reaches into the header can clamp a height the frame
+decides, and the overflow lands on the content underneath. The UI SDK's README carries the rest of
+why the frame takes no class names at all.
+
+Search takes the compact bar over, and the title block goes with it. The `<h1>` does not: it stays
+in the document as a visually hidden heading, so the screen still names itself exactly once while
+the bar is a search field.
+
 The safe-area inset reaches the plugin as a discrete `safeAreaTop` on init and a `viewport` message
 on change, measured in the kernel from a probe element. `env(safe-area-inset-top)` is zero inside an
 iframe, and `/e/:entityId` resolves to a plugin-owned renderer, so a hero that bleeds behind the
@@ -287,7 +298,7 @@ a single run. Polling stops the moment the run completes or fails, so a settled 
 
 `SettingsFrame` is a thin `AppScreen`, so settings gets the same bar every other mobile screen
 gets, with its title collapsing into it. On desktop the settings sidebar is the navigation and the
-frame draws no bar at all, leaving the title to scroll inside a `max-w-2xl` column. The branch is
+frame draws no bar at all, leaving the title to scroll inside the frame's `width="readable"` column. The branch is
 taken in JavaScript rather than with an `md:` class pair: two headings differing only by a
 visibility utility are both in the accessibility tree, and a name that resolves to two `<h1>`
 elements is ambiguous to a screen reader and to every query that looks one up by name.
