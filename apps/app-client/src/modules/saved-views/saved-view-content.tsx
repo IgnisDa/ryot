@@ -11,6 +11,7 @@ import { AppIcon } from "@/modules/icons";
 import { NavigationStatus } from "@/modules/navigation/navigation-status";
 import { ProviderAddHost, useProviderAddFlow } from "@/modules/provider-add/add-flow-host";
 import { usePreferredProvider } from "@/modules/provider-add/use-preferred-provider";
+import { ManagedAssets } from "@/modules/ui/managed-asset-host";
 
 import { SavedViewFrame } from "./saved-view-frame";
 import { SavedViewGrid } from "./saved-view-grid";
@@ -30,7 +31,6 @@ import {
 	type SavedViewError,
 	type SavedViewResultState,
 } from "./state";
-import { SavedViewRuntime } from "./use-saved-view";
 
 const DESKTOP_HEADER_ONLY = Platform.OS === "web" ? "hidden md:flex" : "hidden";
 
@@ -328,21 +328,21 @@ export function SavedViewResultContent(props: {
 	if (props.state.status === "ready") {
 		const readyState = props.state;
 		content = (
-			<SavedViewRuntime assets={readyState.assets}>
-				{(assets) => (
+			<ManagedAssets label="saved-view" assets={readyState.assets}>
+				{(resolution) => (
 					<SavedViewDisplay
 						{...readyState}
 						onAdd={onAdd}
 						record={props.record}
 						search={props.search}
 						loadMore={props.loadMore}
-						managedUrls={assets.urls}
+						managedUrls={resolution.urls}
 						queryDocument={props.queryDocument}
 						isLoadingMore={props.isLoadingMore}
 						isTransitioning={props.isLayoutChanging || props.search.isSearching}
 					/>
 				)}
-			</SavedViewRuntime>
+			</ManagedAssets>
 		);
 	} else if (props.state.status === "loading") {
 		content = <NavigationStatus title="Loading saved view..." />;
