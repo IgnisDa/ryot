@@ -693,6 +693,7 @@ describe("saved-view provider add flow", () => {
 
 			await waitFor(() => expect(addDialog()).toBeNull());
 			expect(view.router.state.location.search).toEqual({});
+			expect(view.router.history.canGoBack()).toBe(false);
 			expect(records).toBe(1);
 		} finally {
 			view.unmount();
@@ -980,15 +981,19 @@ describe("saved-view provider add flow", () => {
 		}
 	});
 
-	it("closes the flow when Android back runs the registered interceptor", async () => {
+	it("closes the flow when Android back pops the entry it pushed", async () => {
 		const view = mountAddableView(makeProviderAdd());
 		try {
 			fireEvent.click(await screen.findByRole("button", { name: "Add" }));
 			await findAddDialog();
+			expect(view.router.history.canGoBack()).toBe(true);
 
-			expect(view.backInterceptors.run()).toBe(true);
+			expect(view.backInterceptors.run()).toBe(false);
+			view.router.history.back();
 
 			await waitFor(() => expect(addDialog()).toBeNull());
+			expect(view.router.state.location.search).toEqual({});
+			expect(view.router.history.canGoBack()).toBe(false);
 		} finally {
 			view.unmount();
 			await view.runtime.dispose();

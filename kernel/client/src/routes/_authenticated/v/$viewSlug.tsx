@@ -113,6 +113,7 @@ function SavedViewPage() {
 	const navigate = Route.useNavigate();
 	const { data, layout, record } = Route.useLoaderData();
 	const imported = useRef(false);
+	const pushedAdd = useRef(false);
 	const loadedData = useRef(data);
 	const dataGeneration = useRef(0);
 	if (loadedData.current !== data) {
@@ -123,15 +124,29 @@ function SavedViewPage() {
 	const addOpen = addSchemaSlug !== null;
 
 	const openAdd = (query?: string) => {
+		pushedAdd.current = true;
 		void navigate({ search: { add: true, q: query === "" ? undefined : query } });
 	};
 	const closeAdd = () => {
-		const changed = imported.current;
-		imported.current = false;
-		void navigate({ search: { add: undefined, q: undefined } }).then(() =>
-			changed ? router.invalidate() : undefined,
-		);
+		if (pushedAdd.current) {
+			pushedAdd.current = false;
+			router.history.back();
+			return;
+		}
+		void navigate({ replace: true, search: { add: undefined, q: undefined } });
 	};
+
+	useEffect(() => {
+		if (addOpen) {
+			return;
+		}
+		pushedAdd.current = false;
+		if (!imported.current) {
+			return;
+		}
+		imported.current = false;
+		void router.invalidate();
+	}, [addOpen, router]);
 
 	return (
 		<>

@@ -34,20 +34,12 @@ type ProviderAddModalState = {
 
 export function ProviderAddModal(props: ProviderAddModalProps) {
 	const ryot = useRyot();
-	const { backInterceptors, runtime, scope } = useRouteContext({ from: "/_authenticated" });
+	const { runtime, scope } = useRouteContext({ from: "/_authenticated" });
 	const { entitySchemaSlug } = props;
 	const [state, setState] = useState<ProviderAddModalState>({
 		selectedProviderId: undefined,
 		providers: { status: "loading" },
 	});
-
-	const close = useEffectEvent(() => props.onClose());
-	const interceptBack = useEffectEvent(() => {
-		close();
-		return true;
-	});
-
-	useEffect(() => backInterceptors.register(interceptBack), [backInterceptors]);
 
 	const runOutcome = <A,>(effect: Effect.Effect<A, unknown, ProviderAddService>) =>
 		runtime.runPromise(
@@ -115,7 +107,6 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 			closeLabel="Close"
 			onClose={props.onClose}
 			label={PROVIDER_ADD_TITLE}
-			onInterceptBack={interceptBack}
 			containerClassName="md:items-center md:justify-center md:p-6"
 			className="flex w-full flex-1 flex-col overflow-hidden bg-bg pt-[env(safe-area-inset-top)] md:max-h-[85%] md:max-w-2xl md:flex-initial md:rounded-xl md:border md:border-border md:bg-surface md:shadow-card md:pt-0"
 		>
