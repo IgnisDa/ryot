@@ -107,6 +107,8 @@ Best first slices: ranks 4-7 are narrow and migration-free. Then implement rank 
 
 **Validation:** Matching global row does not satisfy user creation, same-user conflict reuse, invalid replacement input, concurrent conflict handling.
 
+**Implemented.** `createEntity` no longer pre-reads provenance. It resolves the schema scope, validates the name and properties, and then calls `insertEntity`, which owns exact conflict handling through the scope-specific partial unique indexes and returns `{ entity, wasInserted }`. A user-scoped create can no longer return a global row that merely happens to share `externalId`/`providerId`, and invalid payloads now fail instead of short-circuiting to an existing entity. `findEntityByExternalIdForUser` had no other caller and is removed.
+
 ### 5. Correct Pro-Key Expiry Representation
 
 **Owner:** I01 Configuration and operations
