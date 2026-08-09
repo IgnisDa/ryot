@@ -135,6 +135,7 @@ function GalleryLightboxBody(props: {
 	readonly name: string;
 	readonly index: number;
 	readonly compact: boolean;
+	readonly safeAreaTop: number;
 	readonly onClose: () => void;
 	readonly onSelect: (index: number) => void;
 	readonly images: readonly MediaGalleryImage[];
@@ -156,7 +157,10 @@ function GalleryLightboxBody(props: {
 
 	return (
 		<>
-			<div className="flex items-center justify-between gap-4 px-4 py-3">
+			<div
+				className="flex items-center justify-between gap-4 px-4 py-3"
+				style={{ paddingTop: props.compact ? props.safeAreaTop + 12 : undefined }}
+			>
 				<div className="flex items-center gap-3">
 					<span className="font-ui font-medium text-[13px] text-text tabular-nums">
 						{`${index + 1} / ${images.length}`}
@@ -230,6 +234,7 @@ function GalleryLightboxBody(props: {
 export function MediaImageGallery(props: {
 	readonly name: string;
 	readonly compact: boolean;
+	readonly safeAreaTop: number;
 	readonly onClose: () => void;
 	readonly triggerRef: RefObject<HTMLElement | null>;
 	readonly images: readonly MediaGalleryImage[];
@@ -263,7 +268,10 @@ export function MediaImageGallery(props: {
 					: "h-full max-h-[46rem] w-full max-w-5xl rounded-xl border border-border",
 			)}
 		>
-			<div className="flex items-center justify-between gap-4 px-4 pt-4 pb-3">
+			<div
+				className="flex items-center justify-between gap-4 px-4 pt-4 pb-3"
+				style={{ paddingTop: props.compact ? props.safeAreaTop + 16 : undefined }}
+			>
 				<div className="flex min-w-0 items-baseline gap-3">
 					<h2 className="font-display font-semibold text-lg text-text">Images</h2>
 					<span className="font-ui text-[12px] text-text-muted">
@@ -314,6 +322,7 @@ export function MediaImageGallery(props: {
 						name={props.name}
 						onSelect={setLightbox}
 						compact={props.compact}
+						safeAreaTop={props.safeAreaTop}
 						onClose={() => setLightbox(undefined)}
 					/>
 				</Modal>

@@ -88,6 +88,7 @@ const mountGallery = (compact: boolean) =>
 		noopAdapter,
 		<MediaImageGallery
 			name="Dark"
+			safeAreaTop={59}
 			compact={compact}
 			triggerRef={createRef()}
 			onClose={() => undefined}
@@ -105,6 +106,7 @@ describe("MediaImageGallery", () => {
 			noopAdapter,
 			<MediaOverview
 				compact
+				safeAreaTop={0}
 				relations={relationsRender}
 				isEmpty={mediaRelationsAreEmpty}
 				refreshOverview={() => undefined}
@@ -138,6 +140,22 @@ describe("MediaImageGallery", () => {
 
 		expect(tiles()).toHaveLength(2);
 		expect(dialog("Dark images").textContent).toContain("2 images");
+		unmount();
+	});
+
+	it("keeps compact gallery controls below the top safe area", () => {
+		const { unmount } = mountGallery(true);
+		const close = dialog("Dark images").querySelector<HTMLElement>(
+			'button[aria-label="Close images"]',
+		);
+
+		expect(close?.parentElement?.style.paddingTop).toBe("75px");
+
+		clickRyotElement(tile(0));
+		const lightboxClose = dialog("Image 1 of 12").querySelector<HTMLElement>(
+			'button[aria-label="Close image"]',
+		);
+		expect(lightboxClose?.parentElement?.style.paddingTop).toBe("71px");
 		unmount();
 	});
 
