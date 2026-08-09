@@ -254,31 +254,22 @@ it.effect("rejects unknown entity schemas on create and update", () => {
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("updates and reorders while preserving each layout set", () => {
+it.effect("reorders through one repository operation without rewriting definitions", () => {
 	const views = [
 		{ ...baseView, slug: "view-a", sortOrder: 0 },
 		{ ...baseView, slug: "view-b", sortOrder: 1 },
 	];
-	const updates: Array<{ layouts: SavedViewLayouts; slug: string; sortOrder?: number }> = [];
+	const reorders: Array<{ pluginInstallationId: string | null; viewSlugs: ReadonlyArray<string> }> =
+		[];
+	let updateCalls = 0;
 	const layer = makeServiceLayer(
 		makeRepository({
 			listByUser: () => Effect.succeed(views),
-			findBySlug: (_userId, slug) =>
-				Effect.succeed(views.find((view) => view.slug === slug) ?? null),
-			updateBySlug: (_userId, slug, data) =>
+			updateBySlug: () => Effect.sync(() => (updateCalls++, baseView)),
+			reorderBySlugs: (_userId, pluginInstallationId, viewSlugs) =>
 				Effect.sync(() => {
-					updates.push({
-						slug,
-						layouts: data.layouts,
-						...(data.sortOrder === undefined ? {} : { sortOrder: data.sortOrder }),
-					});
-					return {
-						...baseView,
-						...data,
-						slug,
-						pluginSlug: data.pluginInstallationId ? PluginSlug.make("plugin-a") : null,
-						sortOrder: data.sortOrder ?? baseView.sortOrder,
-					};
+					reorders.push({ pluginInstallationId, viewSlugs });
+					return viewSlugs.length;
 				}),
 		}),
 	);
@@ -288,10 +279,8 @@ it.effect("updates and reorders while preserving each layout set", () => {
 		expect(yield* service.reorder(user, { viewSlugs: ["view-b", "view-a"] })).toEqual({
 			viewSlugs: ["view-b", "view-a"],
 		});
-		expect(updates).toEqual([
-			{ layouts, slug: "view-b", sortOrder: 0 },
-			{ layouts, slug: "view-a", sortOrder: 1 },
-		]);
+		expect(reorders).toEqual([{ pluginInstallationId: null, viewSlugs: ["view-b", "view-a"] }]);
+		expect(updateCalls).toBe(0);
 	}).pipe(Effect.provide(layer));
 });
 
@@ -306,25 +295,14 @@ it.effect("reorders only saved views in the requested scope", () => {
 			pluginSlug: PluginSlug.make("plugin-a"),
 		},
 	];
-	const updates: Array<{ slug: string; sortOrder?: number }> = [];
+	const reorders: Array<ReadonlyArray<string>> = [];
 	const layer = makeServiceLayer(
 		makeRepository({
 			listByUser: () => Effect.succeed(views),
-			findBySlug: (_userId, slug) =>
-				Effect.succeed(views.find((view) => view.slug === slug) ?? null),
-			updateBySlug: (_userId, slug, data) =>
+			reorderBySlugs: (_userId, _pluginInstallationId, viewSlugs) =>
 				Effect.sync(() => {
-					updates.push({
-						slug,
-						...(data.sortOrder === undefined ? {} : { sortOrder: data.sortOrder }),
-					});
-					return {
-						...baseView,
-						...data,
-						slug,
-						pluginSlug: data.pluginInstallationId ? PluginSlug.make("plugin-a") : null,
-						sortOrder: data.sortOrder ?? baseView.sortOrder,
-					};
+					reorders.push(viewSlugs);
+					return viewSlugs.length;
 				}),
 		}),
 	);
@@ -334,10 +312,35 @@ it.effect("reorders only saved views in the requested scope", () => {
 		expect(yield* service.reorder(user, { viewSlugs: ["global-b", "global-a"] })).toEqual({
 			viewSlugs: ["global-b", "global-a"],
 		});
-		expect(updates).toEqual([
-			{ slug: "global-b", sortOrder: 0 },
-			{ slug: "global-a", sortOrder: 1 },
-		]);
+		expect(reorders).toEqual([["global-b", "global-a"]]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("fails the whole reorder when a scoped view disappears before the write", () => {
+	const layer = makeServiceLayer(
+		makeRepository({
+			reorderBySlugs: () => Effect.succeed(1),
+			listByUser: () =>
+				Effect.succeed([
+					{ ...baseView, slug: "view-a", sortOrder: 0 },
+					{ ...baseView, slug: "view-b", sortOrder: 1 },
+				]),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* SavedViewsService;
+		const exit = yield* Effect.exit(service.reorder(user, { viewSlugs: ["view-b", "view-a"] }));
+		assertExitFails(
+			exit,
+			new SavedViewBadRequest({
+				reason: {
+					issue: "update-failed",
+					code: "invalid-reorder",
+					viewSlugs: ["view-b", "view-a"],
+				},
+			}),
+		);
 	}).pipe(Effect.provide(layer));
 });
 
