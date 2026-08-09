@@ -8,6 +8,7 @@ import { Database } from "#lib/infrastructure/db/service";
 import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
+import { PluginInstallationService } from "#modules/plugins/installation-service";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 import { PluginUserBootstrapDispatcher } from "#modules/user-bootstrap/plugin-dispatch";
@@ -157,6 +158,7 @@ it.effect(
 					Layer.mock(AuthService)({ auth: Object.create(null) }),
 					Layer.mock(SavedViewsService)({}),
 					Layer.mock(PluginUserBootstrapDispatcher)({}),
+					Layer.mock(PluginInstallationService)({}),
 					Layer.mock(NotificationSubscriptionsService)({}),
 					Layer.mock(UserLifecycleRepository)({
 						getInternalById: () => Effect.succeed(operation),
@@ -277,6 +279,7 @@ it.effect("keeps a recreated reset user disabled until completion", () => {
 				}),
 				Layer.mock(SavedViewsService)({}),
 				Layer.mock(PluginUserBootstrapDispatcher)({}),
+				Layer.mock(PluginInstallationService)({}),
 				Layer.mock(NotificationSubscriptionsService)({}),
 				Layer.mock(ObjectStorageService)({}),
 			),
@@ -316,6 +319,7 @@ it.effect("uses one database transaction for reset enablement and completion", (
 				Layer.mock(AuthService)({ auth: Object.create(null) }),
 				Layer.mock(SavedViewsService)({}),
 				Layer.mock(PluginUserBootstrapDispatcher)({}),
+				Layer.mock(PluginInstallationService)({}),
 				Layer.mock(NotificationSubscriptionsService)({}),
 				Layer.mock(ObjectStorageService)({}),
 			),

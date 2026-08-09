@@ -6,6 +6,7 @@ import { Context, Effect, FileSystem, Layer, Path } from "effect";
 import { kernelScripts } from "#modules/definition-registry/kernel-source";
 
 import { bootPluginSources } from "./boot-sources";
+import { PluginInstallationService } from "./installation-service";
 import { PluginRepository } from "./repository";
 import { ScriptGarbageCollector } from "./script-garbage-collector";
 import { PluginIngestionService } from "./service";
@@ -19,6 +20,7 @@ export class FirstPartyPluginBootstrap extends Context.Service<FirstPartyPluginB
 		make: Effect.gen(function* () {
 			const repository = yield* PluginRepository;
 			const ingestion = yield* PluginIngestionService;
+			const installations = yield* PluginInstallationService;
 			const scriptGarbageCollector = yield* ScriptGarbageCollector;
 			const fs = yield* FileSystem.FileSystem;
 			const path = yield* Path.Path;
@@ -82,6 +84,8 @@ export class FirstPartyPluginBootstrap extends Context.Service<FirstPartyPluginB
 					);
 					yield* sourceEffect;
 				}
+				// TODO(plugins): Task 08 owns durable fan-out of system user-bootstrap entries to users backfilled here.
+				yield* installations.provisionSystemInstallationsForAllUsers();
 				yield* scriptGarbageCollector.collect();
 			});
 
