@@ -16,19 +16,20 @@ import { PluginQueriesService } from "#/modules/plugins/queries";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
-	GodModeRouteStubs,
 	ServerStub,
+	OAuthRouteStubs,
+	GodModeRouteStubs,
 	SavedViewRouteStubs,
-	authenticated,
+	ProviderAddRouteStubs,
+	theme,
+	server,
 	catalog,
 	makeAuthStub,
-	makePublicApiStub,
-	OAuthRouteStubs,
+	authenticated,
 	makeStorageStub,
-	makeWorkspaceRecorder,
-	server,
-	theme,
 	unauthenticated,
+	makePublicApiStub,
+	makeWorkspaceRecorder,
 } from "#/routes/-route-fixtures";
 
 const AuthStub = makeAuthStub();
@@ -44,6 +45,7 @@ const mountView = (
 	const events = makePluginCatalogEventsTestLayer();
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
+			ProviderAddRouteStubs,
 			authLayer,
 			GodModeRouteStubs,
 			ServerStub,
