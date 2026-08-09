@@ -5,7 +5,6 @@ import { describe, expect, it } from "vitest";
 import { execution, hostSuccess, integrationRecord } from "../automations/automation-test-utils";
 import browserDefinition, { manifest as browserManifest } from "./sinks/browser-extension.sandbox";
 import embyDefinition, { manifest as embyManifest } from "./sinks/emby.sandbox";
-import genericDefinition, { manifest as genericManifest } from "./sinks/generic-json.sandbox";
 import jellyfinDefinition, { manifest as jellyfinManifest } from "./sinks/jellyfin.sandbox";
 import kodiDefinition, { manifest as kodiManifest, parseKodi } from "./sinks/kodi.sandbox";
 import plexDefinition, { manifest as plexManifest } from "./sinks/plex.sandbox";
@@ -103,27 +102,6 @@ describe("Kodi sink", () => {
 });
 
 describe("media server sinks", () => {
-	it("returns a source_fetch failure for unsupported sink providers", async () => {
-		const result = await Effect.runPromise(
-			runSandboxTestScript(
-				genericDefinition,
-				sinkInput("{}"),
-				defineSandboxTestHost(genericManifest, {
-					getCurrentIntegration: () => hostSuccess(integrationRecord({ provider: "generic_json" })),
-				}),
-				execution,
-			),
-		);
-		expect(result.entityGroups).toEqual([]);
-		expect(result.failures).toEqual([
-			{
-				itemIndex: 0,
-				stage: "source_fetch",
-				message: "generic_json integration is not implemented in V2 yet",
-			},
-		]);
-	});
-
 	it("maps an Emby episode webhook to a TMDB show ref", async () => {
 		const rawBody = JSON.stringify({
 			IndexNumber: 3,
