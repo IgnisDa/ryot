@@ -63,8 +63,8 @@ describe("POST /test-support/plugin-boot (custom plugin boot dispatch)", () => {
 
 				const { schema: movieSchema } = yield* findBuiltinSchemaBySlug(client, "movie");
 
-				const detailsEntry = "scripts/provider-details.sandbox.ts";
-				const bootEntry = "scripts/plugin-boot.sandbox.ts";
+				const detailsEntry = `backend/providers/${PROVIDER_SLUG}/details.sandbox.ts`;
+				const bootEntry = `backend/providers/${PROVIDER_SLUG}/plugin-boot.sandbox.ts`;
 				const installed = yield* installTestPluginBundle({
 					scope: "system",
 					configSchema: { fields: {}, unknownKeys: "strict" },

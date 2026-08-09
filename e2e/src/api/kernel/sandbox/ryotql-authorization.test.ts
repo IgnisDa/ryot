@@ -258,7 +258,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 			const pluginSlug = `e2e-ryotql-auth-owned-${suffix}`;
 			const providerSlug = `e2e-ryotql-auth-provider-${suffix}`;
 			const providerScriptSlug = `${providerSlug}.details`;
-			const providerEntry = "scripts/provider-details.sandbox.ts";
+			const providerEntry = `backend/providers/${providerSlug}/details.sandbox.ts`;
 			const rootSlug = `e2e-ryotql-auth-root-${suffix}`;
 			const targetSlug = `e2e-ryotql-auth-target-${suffix}`;
 			const eventSlug = `e2e-ryotql-auth-event-${suffix}`;
@@ -510,7 +510,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 					files: {
 						...Object.fromEntries(
 							probes.map((probe) => [
-								`scripts/${probe.slug}.sandbox.ts`,
+								`backend/providers/${providerSlug}/${probe.slug}.sandbox.ts`,
 								authorizationProbeSource({ ...probe, markerSchemaSlug: markerSlug }),
 							]),
 						),
@@ -542,7 +542,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 									name: probe.name,
 									requiredPluginConfigKeys: [],
 									requiredSystemConfigKeys: [],
-									entry: `scripts/${probe.slug}.sandbox.ts`,
+									entry: `backend/providers/${providerSlug}/${probe.slug}.sandbox.ts`,
 									capabilities: ["executeRyotql", "upsertGlobalEntities"],
 								}) satisfies PluginScript,
 						),

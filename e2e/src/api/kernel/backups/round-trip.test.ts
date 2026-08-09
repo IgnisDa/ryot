@@ -436,7 +436,7 @@ describe("backup export and restore round trip", () => {
 			const entitySchemaSlug = `backup-provider-entity-${suffix}`;
 			const providerSlug = `${entitySchemaSlug}.provider`;
 			const detailsScriptSlug = `${providerSlug}.details`;
-			const detailsEntry = `scripts/${detailsScriptSlug}.sandbox.ts`;
+			const detailsEntry = `backend/providers/${providerSlug}/details.sandbox.ts`;
 			const archivedProperties = { description: "Archived provider state" };
 			const installProvider = (name: string, properties: { description: string }) => {
 				const scriptSource = providerSandboxSource({
