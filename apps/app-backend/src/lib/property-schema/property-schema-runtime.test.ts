@@ -310,23 +310,22 @@ describe("parseAppSchemaPropertiesSafe - string property", () => {
 		);
 	});
 
-	it("accepts a complete temporary upload token object", () => {
+	it("accepts a bare temporary upload token string", () => {
 		const field = str({ format: { kind: "upload", allowedFileExtensions: ["pdf"] } });
-		const result = parse(
-			{ attachment: field },
-			{ attachment: { token: "temporary-token", expiresAt: "2026-08-23T12:00:00Z" } },
-		);
+		const result = parse({ attachment: field }, { attachment: "temporary-token" });
 
-		expect(result).toMatchObject({
-			success: true,
-			data: { attachment: { token: "temporary-token", expiresAt: "2026-08-23T12:00:00Z" } },
-		});
+		expect(result).toMatchObject({ success: true, data: { attachment: "temporary-token" } });
 	});
 
-	it("rejects a string or malformed temporary upload token", () => {
+	it("rejects a temporary upload token carried as an object", () => {
 		const field = str({ format: { kind: "upload", allowedFileExtensions: ["pdf"] } });
 
-		expect(parse({ attachment: field }, { attachment: "temporary-token" }).success).toBe(false);
+		expect(
+			parse(
+				{ attachment: field },
+				{ attachment: { token: "temporary-token", expiresAt: "2026-08-23T12:00:00Z" } },
+			).success,
+		).toBe(false);
 		expect(parse({ attachment: field }, { attachment: { token: "temporary-token" } }).success).toBe(
 			false,
 		);
@@ -338,12 +337,18 @@ describe("parseAppSchemaPropertiesSafe - string property", () => {
 			format: { kind: "upload", allowedFileExtensions: ["pdf"] },
 		});
 
-		expect(
-			parse(
-				{ attachment: field },
-				{ attachment: { token: "invalid", expiresAt: "2026-08-23T12:00:00Z" } },
-			).success,
-		).toBe(false);
+		expect(parse({ attachment: field }, { attachment: "invalid" }).success).toBe(false);
+		expect(parse({ attachment: field }, { attachment: "upload_valid" }).success).toBe(true);
+	});
+
+	it("rejects an empty token for a required upload field", () => {
+		const field = str({
+			validation: { minLength: 1, required: true },
+			format: { kind: "upload", allowedFileExtensions: ["pdf"] },
+		});
+
+		expect(parse({ attachment: field }, { attachment: "" }).success).toBe(false);
+		expect(parse({ attachment: field }, { attachment: "token" }).success).toBe(true);
 	});
 });
 

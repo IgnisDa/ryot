@@ -6,7 +6,6 @@ import {
 import { pluginConfigEnvironmentKey } from "@ryot/contract/modules/plugins/plugin-config";
 import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
 import { jsonValueSchema } from "@ryot/contract/modules/sandbox/wire";
-import { TemporaryUploadToken } from "@ryot/contract/modules/uploads/schemas";
 import {
 	type AppPropertyDefinition,
 	getOrderedAppSchemaFieldEntries,
@@ -22,7 +21,7 @@ import type { RegisteredImportSource } from "#modules/plugins/import-source-cata
 
 export type ImportSourceFileInput = {
 	key: string;
-	uploadToken: TemporaryUploadToken;
+	uploadToken: string;
 	allowedExtensions: string[];
 };
 
@@ -40,7 +39,6 @@ const uploadFields = (source: RegisteredImportSource) =>
 	);
 
 const isJsonValue = Schema.is(jsonValueSchema);
-const isTemporaryUploadToken = Schema.is(TemporaryUploadToken);
 
 export const parseRegistryImportSourceInput = Effect.fn("parseRegistryImportSourceInput")(
 	function* (source: RegisteredImportSource, body: CreateImportRunBody) {
@@ -79,7 +77,7 @@ export const registryImportSourceFileInputs = (
 ): ImportSourceFileInput[] =>
 	uploadFields(source).flatMap(([key, property]) => {
 		const uploadToken = properties[key];
-		return isTemporaryUploadToken(uploadToken)
+		return typeof uploadToken === "string" && uploadToken.length > 0
 			? [
 					{
 						key,
