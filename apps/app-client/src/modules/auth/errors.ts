@@ -40,7 +40,7 @@ export const getAuthErrorMessage = (operation: AuthOperation, cause: unknown) =>
 	);
 };
 
-export const logAuthError = (operation: AuthOperation, cause: unknown) => {
+export const getAuthErrorDiagnostic = (operation: AuthOperation, cause: unknown) => {
 	const error = asAuthError(cause);
 	const code = typeof error.code === "string" && diagnosticCodes.has(error.code);
 	const status =
@@ -48,13 +48,19 @@ export const logAuthError = (operation: AuthOperation, cause: unknown) => {
 		Number.isInteger(error.status) &&
 		error.status >= 100 &&
 		error.status <= 599;
-	globalThis.console.error("Authentication request failed", {
+	return {
 		operation,
 		kind: cause instanceof Error ? "exception" : "response",
 		...(code ? { code: error.code } : {}),
 		...(status ? { status: error.status } : {}),
-	});
+	} as const;
 };
+
+export const logAuthError = (operation: AuthOperation, cause: unknown) =>
+	globalThis.console.error(
+		"Authentication request failed",
+		getAuthErrorDiagnostic(operation, cause),
+	);
 
 export const reportAuthFailure = (operation: AuthOperation, cause: unknown) => {
 	logAuthError(operation, cause);
