@@ -4,7 +4,7 @@ import type { SchemaFileUpload } from "@ryot-app/client-ui-sdk/schema-form";
 import type { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { useRouteContext } from "@tanstack/react-router";
 import { Effect } from "effect";
-import { useEffect, useEffectEvent, useState, type ComponentProps } from "react";
+import { useEffect, useEffectEvent, useRef, useState, type ComponentProps } from "react";
 
 import { importProviderEntity } from "#/modules/provider-add/import-controller";
 import {
@@ -23,7 +23,6 @@ const UPLOAD_FAILURE_MESSAGE = "Could not upload this file. Try again.";
 
 type ProviderAddModalProps = {
 	readonly onClose: () => void;
-	readonly onImported: () => void;
 	readonly initialQuery?: string | undefined;
 	readonly ownerPluginId?: string | undefined;
 	readonly entitySchemaSlug: EntitySchemaSlug;
@@ -39,6 +38,7 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 	const { scope, runtime } = useRouteContext({ from: "/_authenticated" });
 	const { entitySchemaSlug } = props;
 	const libraryMembership = resolveLibraryMembership(props.ownerPluginId, entitySchemaSlug);
+	const imported = useRef(false);
 	const [state, setState] = useState<ProviderAddModalState>({
 		selectedProviderId: undefined,
 		providers: { status: "loading" },
@@ -78,6 +78,15 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 					: { status: "failed" },
 		});
 	});
+
+	useEffect(
+		() => () => {
+			if (imported.current) {
+				ryot.mutationCompleted.hint();
+			}
+		},
+		[ryot],
+	);
 
 	useEffect(() => {
 		let active = true;
@@ -152,7 +161,6 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 						onClose={props.onClose}
 						providers={state.providers}
 						importEntity={importEntity}
-						onImported={props.onImported}
 						onSelectProvider={selectProvider}
 						initialQuery={props.initialQuery}
 						loadEntityLinks={loadEntityLinks}
@@ -161,6 +169,9 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 						selectedProviderId={state.selectedProviderId}
 						relationshipSlug={libraryMembership.relationshipSlug}
 						librarySchemaSlug={libraryMembership.librarySchemaSlug}
+						onImported={() => {
+							imported.current = true;
+						}}
 					/>
 				</div>
 			</div>
