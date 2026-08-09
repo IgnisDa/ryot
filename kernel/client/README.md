@@ -18,10 +18,12 @@ applies authentication, installation scope, and platform policy. A plugin upload
 a proposed file name and content type; the kernel keeps intent creation, transfer, and completion.
 
 Client artifacts are immutable, content-addressed outputs of a compile-only contributor graph.
-Mutation and user bootstrap materialize missing builds before publishing catalog changes; navigation
-preparation only resolves the current page, finds its global build, and issues or reuses an authenticated
-grant for its artifact. The grant authorizes static artifact files until expiry. A separate freshness
-check on catalog invalidation detects changed page or plugin state and offers an explicit reload.
+Shipped client-page builds are materialized during server boot, including when the database has no
+users. Plugin and renderer mutations materialize affected builds; user bootstrap checks that its
+required builds already exist without invoking the compiler. Navigation preparation only resolves
+the current page, finds its global build, and issues or reuses an authenticated grant for its
+artifact. The grant authorizes static artifact files until expiry. A separate freshness check on
+catalog invalidation detects changed page or plugin state and offers an explicit reload.
 There is no plugin-owned artifact selection or grant route.
 
 The kernel resolves every committed URL explicitly. Kernel routes render kernel surfaces;

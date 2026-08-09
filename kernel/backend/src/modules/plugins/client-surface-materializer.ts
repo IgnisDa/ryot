@@ -6,7 +6,12 @@ export class ClientSurfaceMaterializer extends Context.Service<ClientSurfaceMate
 	"ClientSurfaceMaterializer",
 	{
 		make: Effect.succeed({
+			materializeSystemBaseline: Effect.die(
+				new Error("Client surface materializer is not configured"),
+			).pipe(Effect.asVoid),
 			materializeUser: (_userId: UserId): Effect.Effect<void> =>
+				Effect.die(new Error("Client surface materializer is not configured")),
+			assertUserBuilds: (_userId: UserId): Effect.Effect<void> =>
 				Effect.die(new Error("Client surface materializer is not configured")),
 			materializeRenderer: (_userId: UserId, _renderer: SavedViewRenderer): Effect.Effect<void> =>
 				Effect.die(new Error("Client surface materializer is not configured")),
