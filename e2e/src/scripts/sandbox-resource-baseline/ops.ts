@@ -170,6 +170,7 @@ export const makeRemote = (serverIp: string) => {
 		isRunning,
 		containerId,
 		readAppended,
+		removeSampleFiles,
 		stopHostSampler: stopDetached(REMOTE_FILES.hostPid),
 		stopAppCollector: stopDetached(REMOTE_FILES.appPid),
 		stopWatchdog: stopDetached(REMOTE_FILES.watchdogPid),
@@ -196,7 +197,6 @@ export const makeRemote = (serverIp: string) => {
 			run(`umask 077 && cat > ${REMOTE_FILES.tokenFile} && chmod 600 ${REMOTE_FILES.tokenFile}`, {
 				stdin: new TextEncoder().encode(token),
 			}),
-		removeSampleFiles,
 		watchdogTriggers: run(`cat ${REMOTE_FILES.watchdogTriggers} 2>/dev/null || true`).pipe(
 			Effect.map((output) =>
 				decodeHostLines(output).lines.filter(
@@ -253,35 +253,6 @@ export const makeRemote = (serverIp: string) => {
 			};
 		},
 		/**
-		 * Takes `removeSampleFiles` rather than leaving the caller to remove the samples afterwards,
-		 * because the listing has to describe the state the run is actually left in. Removing them
-		 * after this returned is how the teardown of run `2026-09-19T09-33-37Z` came to record a
-		 * directory listing of files it had already deleted.
-		 */
-		teardown: (options: { readonly removeSampleFiles: boolean }) =>
-			Effect.gen(function* () {
-				yield* stopDetached(REMOTE_FILES.watchdogPid);
-				yield* stopDetached(REMOTE_FILES.appPid);
-				yield* stopDetached(REMOTE_FILES.hostPid);
-				yield* run(`rm -f ${REMOTE_FILES.tokenFile}`);
-				if (options.removeSampleFiles) yield* removeSampleFiles;
-				const remaining = yield* run(`ls -A ${tools} 2>/dev/null | tr '\n' ' '`);
-				/**
-				 * The first character is bracketed so the pattern cannot match the `bash -c` wrapper
-				 * this very command runs inside. Without it the probe reports `running` whether or not
-				 * a sampler exists, and `pgrep -x` is no substitute because the kernel truncates the
-				 * process name to fifteen characters.
-				 */
-				const processes = yield* run(
-					`pgrep -f ${tools}/'[r]'yot-benchmark-host >/dev/null 2>&1 && echo running || echo none`,
-				);
-				return {
-					processes: processes.trim(),
-					remaining: remaining.trim(),
-					removedSampleFiles: options.removeSampleFiles,
-				};
-			}),
-		/**
 		 * File-exporter sizes for the benchmark collector; a shrinking file means rotation loss. The
 		 * collector image is distroless, so the sizes are read from the host side of its output mount.
 		 */
@@ -331,6 +302,37 @@ export const makeRemote = (serverIp: string) => {
 					`docker compose --project-name ${project} --project-directory . -f docker-compose.yml up -d --no-deps --force-recreate --pull never ryot`,
 				].join(" && "),
 			),
+		/**
+		 * Takes `removeSampleFiles` rather than leaving the caller to remove the samples afterwards,
+		 * because the listing has to describe the state the run is actually left in. Removing them
+		 * after this returned is how the teardown of run `2026-09-19T09-33-37Z` came to record a
+		 * directory listing of files it had already deleted.
+		 */
+		teardown: (options: { readonly removeSampleFiles: boolean }) =>
+			Effect.gen(function* () {
+				yield* stopDetached(REMOTE_FILES.watchdogPid);
+				yield* stopDetached(REMOTE_FILES.appPid);
+				yield* stopDetached(REMOTE_FILES.hostPid);
+				yield* run(`rm -f ${REMOTE_FILES.tokenFile}`);
+				if (options.removeSampleFiles) {
+					yield* removeSampleFiles;
+				}
+				const remaining = yield* run(`ls -A ${tools} 2>/dev/null | tr '\n' ' '`);
+				/**
+				 * The first character is bracketed so the pattern cannot match the `bash -c` wrapper
+				 * this very command runs inside. Without it the probe reports `running` whether or not
+				 * a sampler exists, and `pgrep -x` is no substitute because the kernel truncates the
+				 * process name to fifteen characters.
+				 */
+				const processes = yield* run(
+					`pgrep -f ${tools}/'[r]'yot-benchmark-host >/dev/null 2>&1 && echo running || echo none`,
+				);
+				return {
+					processes: processes.trim(),
+					remaining: remaining.trim(),
+					removedSampleFiles: options.removeSampleFiles,
+				};
+			}),
 		/** Copies one token's raw profiles off the container and host, deleting both remote copies. */
 		fetchProfiles: (token: string, localDirectory: string) =>
 			Effect.gen(function* () {
