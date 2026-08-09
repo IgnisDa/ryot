@@ -5,20 +5,13 @@ import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
 import { getEntityHref } from "@/modules/navigation/navigation-data";
-import { MissingImage, RemoteImage } from "@/modules/ui/image-with-fallback";
+import { ImageWithFallback } from "@/modules/ui/image-with-fallback";
 
 import type { ProviderEntityImportEntry } from "./import-controller";
 import { describeProviderSearchResultItem } from "./result-display";
 import type { ProviderSearchResultItem } from "./search-controller";
 
 const IMAGE_CLASS_NAME = "h-16 w-11 shrink-0 overflow-hidden rounded-md";
-
-function ResultImage(props: { url: string | undefined }) {
-	if (props.url === undefined) {
-		return <MissingImage className={IMAGE_CLASS_NAME} />;
-	}
-	return <RemoteImage className={IMAGE_CLASS_NAME} url={props.url} />;
-}
 
 function InLibraryBadge() {
 	return (
@@ -88,7 +81,7 @@ export function ProviderSearchResultRow(props: {
 	const display = describeProviderSearchResultItem(props.item);
 	return (
 		<View className="flex-row items-center gap-3 rounded-lg bg-surface-2 px-3 py-2.5 md:bg-transparent">
-			<ResultImage key={display.imageUrl} url={display.imageUrl} />
+			<ImageWithFallback className={IMAGE_CLASS_NAME} url={display.imageUrl} />
 			<View className="min-w-0 flex-1 gap-0.5">
 				<Text numberOfLines={2} className="font-ui-medium text-[15px] text-text">
 					{display.title}
