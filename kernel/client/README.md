@@ -133,6 +133,14 @@ The connected server is shown only on native. On the web `ServerService.selected
 `window.location.origin`, so there is no origin to choose and nothing to change; on native the
 origin is a stored selection, and clearing it is part of signing out rather than a separate action.
 
+`SettingsFrame` renders two different pages. Below the desktop breakpoint it keeps a bordered
+header carrying the back control, because settings routes opt out of the shell's own
+`MobileHeader`. On desktop the settings sidebar is the navigation, so the frame drops the header
+entirely and the title scrolls with the content inside a `max-w-2xl` column. The branch is taken
+with `useIsDesktop` rather than an `md:` class pair: two headings differing only by a visibility
+utility are both in the accessibility tree, and a name that resolves to two `<h1>` elements is
+ambiguous to a screen reader and to every query that looks one up by name.
+
 ## Secure Storage
 
 `OAuthStorage` owns every OAuth record: the access, refresh, and ID tokens, and the short-lived
