@@ -1,4 +1,4 @@
-import { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { describe, expect, it } from "vitest";
 
@@ -30,7 +30,7 @@ const providerRow = {
 	rootEntitySchemaSlug: EntitySchemaSlug.make("book"),
 };
 
-const linkRow = { externalId: "ext-1" };
+const linkRow = { externalId: "ext-1", entityId: EntityId.make("entity-1") };
 
 const providerWithOptions = {
 	...providerRow,
@@ -60,7 +60,7 @@ describe("provider-add application state", () => {
 		});
 	});
 
-	it("maps provider entity links into an external-id set", () => {
+	it("maps provider entity links by external ID", () => {
 		expect(mapProviderEntityLinks(AsyncResult.initial())).toEqual({ status: "loading" });
 		expect(mapProviderEntityLinks(AsyncResult.fail("offline")).status).toBe("transport-error");
 		expect(
@@ -69,7 +69,7 @@ describe("provider-add application state", () => {
 
 		const ready = mapProviderEntityLinks(AsyncResult.success([linkRow]));
 		expect(ready).toMatchObject({ status: "ready" });
-		expect(ready.status === "ready" ? ready.externalIds.has("ext-1") : false).toBe(true);
+		expect(ready.status === "ready" ? ready.entityIds.get("ext-1") : undefined).toBe("entity-1");
 	});
 
 	it("resets, loads, and ignores stale provider option responses", () => {

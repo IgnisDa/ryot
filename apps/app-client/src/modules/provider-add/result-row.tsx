@@ -1,7 +1,10 @@
+import type { EntityId } from "@ryot/contract/schema/brands";
 import { Match } from "effect";
+import { Link } from "expo-router";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
+import { getEntityHref } from "@/modules/navigation/navigation-data";
 import { MissingImage, RemoteImage } from "@/modules/ui/image-with-fallback";
 
 import type { ProviderEntityImportEntry } from "./import-controller";
@@ -26,17 +29,29 @@ function InLibraryBadge() {
 	);
 }
 
+function InLibraryLink(props: { entityId: EntityId; title: string }) {
+	return (
+		<Link asChild href={getEntityHref(props.entityId)}>
+			<Pressable accessibilityRole="link" accessibilityLabel={`Open ${props.title} in library`}>
+				<InLibraryBadge />
+			</Pressable>
+		</Link>
+	);
+}
+
 function ResultAction(props: {
 	readonly title: string;
-	readonly isLinked: boolean;
 	readonly onAdd: () => void;
 	readonly entry: ProviderEntityImportEntry;
+	readonly linkedEntityId: EntityId | undefined;
 }) {
-	if (props.isLinked) {
-		return <InLibraryBadge />;
+	if (props.linkedEntityId !== undefined) {
+		return <InLibraryLink title={props.title} entityId={props.linkedEntityId} />;
 	}
 	return Match.value(props.entry).pipe(
-		Match.when({ status: "imported" }, () => <InLibraryBadge />),
+		Match.when({ status: "imported" }, (entry) => (
+			<InLibraryLink title={props.title} entityId={entry.entityId} />
+		)),
 		Match.when({ status: "importing" }, () => (
 			<ActivityIndicator accessibilityLabel="Adding to library" size="small" />
 		)),
@@ -66,9 +81,9 @@ function ResultAction(props: {
 
 export function ProviderSearchResultRow(props: {
 	readonly onAdd: () => void;
-	readonly isLinked: boolean;
 	readonly item: ProviderSearchResultItem;
 	readonly entry: ProviderEntityImportEntry;
+	readonly linkedEntityId: EntityId | undefined;
 }) {
 	const display = describeProviderSearchResultItem(props.item);
 	return (
@@ -91,7 +106,7 @@ export function ProviderSearchResultRow(props: {
 				entry={props.entry}
 				onAdd={props.onAdd}
 				title={display.title}
-				isLinked={props.isLinked}
+				linkedEntityId={props.linkedEntityId}
 			/>
 		</View>
 	);

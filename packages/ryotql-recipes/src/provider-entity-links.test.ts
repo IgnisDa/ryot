@@ -1,4 +1,4 @@
-import { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { Result } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
@@ -20,7 +20,7 @@ describe("provider entity links recipe", () => {
 		assert(query.output.type === "rows");
 
 		expect(query.output.pagination).toEqual({ limit: 2 });
-		expect(query.output.fields).toMatchObject([{ key: "externalId" }]);
+		expect(query.output.fields).toMatchObject([{ key: "entityId" }, { key: "externalId" }]);
 		expect(query.where).toMatchObject({
 			type: "and",
 			predicates: [
@@ -33,10 +33,16 @@ describe("provider entity links recipe", () => {
 		expect(
 			Result.getOrThrow(
 				recipe.decode(
-					responseWithItems([{ externalId: "external-1" }, { externalId: "external-2" }]),
+					responseWithItems([
+						{ externalId: "external-1", entityId: "entity-1" },
+						{ externalId: "external-2", entityId: "entity-2" },
+					]),
 				),
 			),
-		).toEqual([{ externalId: "external-1" }, { externalId: "external-2" }]);
+		).toEqual([
+			{ externalId: "external-1", entityId: EntityId.make("entity-1") },
+			{ externalId: "external-2", entityId: EntityId.make("entity-2") },
+		]);
 	});
 
 	it("rejects malformed fields and non-rows results", () => {
