@@ -71,11 +71,11 @@ export const customerPurchases = pgTable(
 	"customer_purchase",
 	{
 		planType: planTypes("plan_type").notNull(),
-		productType: productTypes("product_type").notNull(),
-		id: uuid("id").notNull().primaryKey().defaultRandom(),
-		paymentProvider: paymentProviders("payment_provider"),
 		providerPriceId: text("provider_price_id"),
 		providerProductId: text("provider_product_id"),
+		productType: productTypes("product_type").notNull(),
+		paymentProvider: paymentProviders("payment_provider"),
+		id: uuid("id").notNull().primaryKey().defaultRandom(),
 		renewOn: timestamp("renew_on", { withTimezone: true }),
 		cancelledOn: timestamp("cancelled_on", { withTimezone: true }),
 		customerId: uuid("customer_id")
