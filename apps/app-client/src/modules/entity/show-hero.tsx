@@ -9,7 +9,7 @@ import { resolveAssetUrl } from "@/modules/ui/managed-assets";
 
 import { showBackdropAsset, type ShowSummary } from "./show-summary-state";
 
-export const SHOW_ART_HEIGHT = 176;
+export const SHOW_ART_HEIGHT = 204;
 
 const SCRIM_TOP_ALPHA = 0.35;
 
