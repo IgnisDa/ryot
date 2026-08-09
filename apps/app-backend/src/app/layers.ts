@@ -94,6 +94,7 @@ import { PluginHttpRateLimitAuthority } from "#modules/plugins/http-rate-limit-a
 import { ImportSourceCatalogLive } from "#modules/plugins/import-source-catalog";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginInstallationService } from "#modules/plugins/installation-service";
+import { PluginInstallationSweepDispatcherLive } from "#modules/plugins/installation-sweep";
 import {
 	PluginInstallationLifecycleDispatcher,
 	PluginInstallationLifecycleDispatcherLive,
@@ -560,6 +561,7 @@ export const RuntimeLive = Layer.mergeAll(
 	FrequentCronWorkflowDefinitionsLive,
 	FrequentCronSchedulerLive,
 	PluginBootDispatcherLive,
+	PluginInstallationSweepDispatcherLive,
 	PluginCronSchedulerLive,
 );
 
@@ -631,7 +633,11 @@ export const RuntimeDependenciesLive = Layer.provideMerge(
 		),
 		Layer.provide(
 			PluginInstallationWorkflowOperationsLive,
-			Layer.mergeAll(SandboxExecutionServiceLive, PluginInstallationRepository.layer),
+			Layer.mergeAll(
+				SandboxExecutionServiceLive,
+				PluginDefinitionMaterializerLive,
+				PluginInstallationRepository.layer,
+			),
 		),
 	),
 	ApplicationInfrastructureLive,
