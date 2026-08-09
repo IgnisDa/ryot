@@ -72,7 +72,7 @@ When Ryot selects S3 for a permanent upload, the direct browser upload uses `PUT
 ```json
 [
 	{
-		"AllowedOrigins": ["https://app.example.com"],
+		"AllowedOrigins": ["https://app.example.com", "https://localhost"],
 		"AllowedMethods": ["PUT"],
 		"AllowedHeaders": ["content-type"]
 	}

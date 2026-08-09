@@ -15,6 +15,7 @@ import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedPluginSlugRouteRouteImport } from './routes/_authenticated/$pluginSlug/route'
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
+import { Route as AuthCallbackRouteImport } from './routes/auth_.callback'
 import { Route as AuthenticatedPluginSlugIndexRouteImport } from './routes/_authenticated/$pluginSlug/index'
 import { Route as AuthenticatedPluginSlugSplatRouteImport } from './routes/_authenticated/$pluginSlug/$'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
@@ -53,6 +54,11 @@ const AuthenticatedSettingsRouteRoute =
     path: '/settings',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth_/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedPluginSlugIndexRoute =
   AuthenticatedPluginSlugIndexRouteImport.update({
     id: '/',
@@ -96,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/$pluginSlug': typeof AuthenticatedPluginSlugRouteRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
+  '/auth/callback': typeof AuthCallbackRoute
   '/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
@@ -106,6 +113,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/onboarding': typeof OnboardingRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/': typeof AuthenticatedIndexRoute
   '/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
@@ -121,6 +129,7 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/_authenticated/$pluginSlug': typeof AuthenticatedPluginSlugRouteRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
+  '/auth_/callback': typeof AuthCallbackRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
   '/_authenticated/settings/$': typeof AuthenticatedSettingsSplatRoute
@@ -137,6 +146,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/$pluginSlug'
     | '/settings'
+    | '/auth/callback'
     | '/$pluginSlug/$'
     | '/settings/$'
     | '/settings/account'
@@ -147,6 +157,7 @@ export interface FileRouteTypes {
   to:
     | '/auth'
     | '/onboarding'
+    | '/auth/callback'
     | '/'
     | '/$pluginSlug/$'
     | '/settings/$'
@@ -161,6 +172,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/_authenticated/$pluginSlug'
     | '/_authenticated/settings'
+    | '/auth_/callback'
     | '/_authenticated/'
     | '/_authenticated/$pluginSlug/$'
     | '/_authenticated/settings/$'
@@ -174,6 +186,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   OnboardingRoute: typeof OnboardingRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -219,6 +232,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/auth_/callback': {
+      id: '/auth_/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/$pluginSlug/': {
       id: '/_authenticated/$pluginSlug/'
@@ -322,6 +342,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   OnboardingRoute: OnboardingRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

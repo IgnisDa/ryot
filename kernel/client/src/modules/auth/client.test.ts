@@ -10,7 +10,7 @@ import {
 	type AuthSessionSource,
 	type AuthSessionStore,
 } from "#/modules/auth/client";
-import { clientStorageLayer, type BrowserStorage } from "#/persistence/storage";
+import { clientStorageLayer, sessionTokenKey, type BrowserStorage } from "#/persistence/storage";
 
 const makeStorage = (entries: readonly (readonly [string, string])[]) => {
 	const values = new Map(entries);
@@ -136,12 +136,14 @@ describe("browser auth client", () => {
 		}).pipe(Effect.provide(AuthClient.layer), Effect.provide(clientStorageLayer(storage)));
 	});
 
-	it.effect("clears only Better Auth storage and resets cached stores", () => {
+	it.effect("clears Better Auth storage and session tokens, and resets cached stores", () => {
 		const { storage, values } = makeStorage([
 			["unrelated", "keep"],
 			["ryot:theme", "dark"],
 			["ryot:other-setting", "keep"],
 			[BETTER_AUTH_STORAGE_KEYS[0], "session-event"],
+			[sessionTokenKey("https://one.test"), "token-one"],
+			[sessionTokenKey("https://other.test"), "token-other"],
 		]);
 
 		return Effect.gen(function* () {
@@ -153,6 +155,7 @@ describe("browser auth client", () => {
 				unrelated: "keep",
 				"ryot:theme": "dark",
 				"ryot:other-setting": "keep",
+				[sessionTokenKey("https://other.test")]: "token-other",
 			});
 			expect(client.session("https://one.test")).not.toBe(first);
 		}).pipe(Effect.provide(AuthClient.layer), Effect.provide(clientStorageLayer(storage)));

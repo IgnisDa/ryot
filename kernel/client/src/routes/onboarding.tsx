@@ -3,7 +3,8 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect, useReducer, useRef, useState } from "react";
 
-import { type ServerMode, resolveServerOrigin } from "#/api/origin";
+import { type ServerMode, resolveServerOrigin, suggestedServerOrigin } from "#/api/origin";
+import { isNativePlatform } from "#/modules/navigation/native-navigation";
 import { initialConnectionState, reduceConnectionState } from "#/modules/server/connection-state";
 import { sanitizeRedirect } from "#/modules/server/redirect";
 import { decideOnboardingGate } from "#/modules/server/route-gates";
@@ -43,7 +44,9 @@ function Onboarding() {
 	const navigate = Route.useNavigate();
 	const serverService = runtime.runSync(ServerService);
 	const [mode, setMode] = useState<ServerMode>("cloud");
-	const [serverUrl, setServerUrl] = useState("");
+	const [serverUrl, setServerUrl] = useState(() =>
+		suggestedServerOrigin(isNativePlatform() ? undefined : window.location.origin),
+	);
 	const [validationError, setValidationError] = useState<string>();
 	const [connection, dispatch] = useReducer(reduceConnectionState, initialConnectionState);
 	const connectionController = useRef<AbortController>(null);

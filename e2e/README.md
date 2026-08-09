@@ -87,7 +87,7 @@ Resolve plugin-owned definition fixtures by plugin slug and definition slug; def
 
 ## OIDC
 
-`oidcSignIn` drives Better Auth OIDC flow through mock server: start sign-in and retain state cookie, submit username to authorize endpoint, then request the API callback with the same cookie to establish a session.
+`oidcSignIn` drives Better Auth OIDC flow through mock server: start sign-in and retain the OAuth state cookie, submit username to authorize endpoint, then request the API callback with the same cookie. That state cookie is Better Auth's own CSRF handshake value, not session auth; the fixture reads the resulting session from the callback's `set-auth-token` header and threads it as a bearer token.
 
 ## Capacity
 

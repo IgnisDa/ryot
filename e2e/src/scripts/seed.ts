@@ -26,7 +26,6 @@ import { createAuthClient } from "better-auth/client";
 import { requirePresent } from "~/support/assertions";
 
 import { adminAccessTokenHeaders } from "../fixtures/kernel/admin";
-import { cookieHeaderFromSetCookies } from "../fixtures/kernel/auth";
 import { enableTwoFactorForSession } from "../fixtures/kernel/auth-2fa";
 import {
 	encodePluginSourceFiles,
@@ -46,7 +45,7 @@ const adminHeaders = adminAccessTokenHeaders(
 async function createAndSignIn(): Promise<{
 	email: string;
 	userId: string;
-	cookies: string;
+	token: string;
 	password: string;
 	backupCodes?: string[];
 	totpCodes?: { past: string; future: string; current: string };
@@ -76,24 +75,23 @@ async function createAndSignIn(): Promise<{
 		throw new Error(`Sign in failed: ${error}`);
 	}
 
-	const setCookies = signInResponse.headers.getSetCookie();
-	if (!setCookies.length) {
-		throw new Error("Sign in succeeded but no cookies were returned");
+	const token = signInResponse.headers.get("set-auth-token");
+	if (!token) {
+		throw new Error("Sign in succeeded but no auth token was returned");
 	}
-	const cookies = cookieHeaderFromSetCookies(setCookies);
 
-	let finalCookies = cookies;
+	let finalToken = token;
 	let backupCodes: string[] | undefined;
 	let totpCodes: { past: string; future: string; current: string } | undefined;
 
 	if (ENABLE_2FA) {
 		const twoFactor = await enableTwoFactorForSession({
-			cookies,
+			token,
 			password,
 			origin: FRONTEND_URL,
 			baseUrl: API_BASE_URL,
 		});
-		finalCookies = twoFactor.cookies;
+		finalToken = twoFactor.token;
 		backupCodes = twoFactor.backupCodes;
 		totpCodes = twoFactor.totpCodes;
 	}
@@ -103,7 +101,7 @@ async function createAndSignIn(): Promise<{
 		password,
 		totpCodes,
 		backupCodes,
-		cookies: finalCookies,
+		token: finalToken,
 		userId: requirePresent(signUpData, "Sign up did not return a user").user.id,
 	};
 }
@@ -123,16 +121,19 @@ type SavedViewSpec = {
 };
 
 class APIClient {
-	private cookies: string;
+	private token: string;
 	private requestCount = 0;
 
-	constructor(cookies: string) {
-		this.cookies = cookies;
+	constructor(token: string) {
+		this.token = token;
 	}
 
 	run<A, E>(program: ContractProgram<A, E>): Promise<A> {
 		this.requestCount++;
-		return runContract(program, { baseUrl: API_BASE_URL, headers: { Cookie: this.cookies } });
+		return runContract(program, {
+			baseUrl: API_BASE_URL,
+			headers: { Authorization: `Bearer ${this.token}` },
+		});
 	}
 
 	runAdmin<A, E>(program: ContractProgram<A, E>): Promise<A> {
@@ -2858,7 +2859,7 @@ async function main() {
 
 	console.log(`✓ API Base URL: ${API_BASE_URL}`);
 
-	const { backupCodes, cookies, email, password, totpCodes, userId } = await createAndSignIn();
+	const { backupCodes, email, password, token, totpCodes, userId } = await createAndSignIn();
 	console.log(`✓ Created and signed in as ${email}`);
 	if (ENABLE_2FA) {
 		console.log(`✓ Enabled two-factor authentication`);
@@ -2868,7 +2869,7 @@ async function main() {
 		console.log(`  Backup codes: ${backupCodes?.join(", ")}`);
 	}
 
-	const client = new APIClient(cookies);
+	const client = new APIClient(token);
 	const startTime = dayjs();
 	const mediaStats = await seedMedia(client);
 	await seedSandboxScript(client, userId);
