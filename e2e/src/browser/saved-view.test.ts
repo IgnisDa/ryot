@@ -184,6 +184,28 @@ it.live("opens the provider add flow from every saved-view affordance", () =>
 	}),
 );
 
+it.live("clears then releases the search field on Escape so page shortcuts return", () =>
+	Effect.promise(async () => {
+		await openSavedView();
+
+		await page.keyboard.press("/");
+		await expect.poll(() => activeElementAttribute("type")).toBe("search");
+		await page.keyboard.type("dune");
+		await expect.poll(() => pageSearch().inputValue()).toBe("dune");
+
+		await page.keyboard.press("Escape");
+		await expect.poll(() => pageSearch().inputValue()).toBe("");
+		expect(await activeElementAttribute("type")).toBe("search");
+
+		await page.keyboard.press("Escape");
+		await expect.poll(() => activeElementAttribute("type")).not.toBe("search");
+
+		await page.keyboard.press("a");
+		await openedDialog();
+		await closedDialog();
+	}),
+);
+
 it.live("seeds the provider search from the no-matches action and guards page shortcuts", () =>
 	Effect.promise(async () => {
 		await openSavedView({ coldLoad: true });

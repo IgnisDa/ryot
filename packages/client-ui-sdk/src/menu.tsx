@@ -11,7 +11,7 @@ import {
 import { createPortal } from "react-dom";
 
 import { useDismissOnOutside } from "./overlay";
-import { useShortcut } from "./shortcut";
+import { OverlayScope } from "./shortcut";
 
 const MENU_GAP = 4;
 const MENU_WIDTH = 224;
@@ -112,7 +112,6 @@ export function Menu({
 	}, [activeIndex, items, onActiveIndexChange]);
 
 	useDismissOnOutside([menuRef, triggerRef], () => close(false), { enabled: true });
-	useShortcut("Escape", () => close(true));
 
 	const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
 		const indices = enabledIndices(items);
@@ -136,53 +135,55 @@ export function Menu({
 	};
 
 	return createPortal(
-		<div
-			id={id}
-			role="menu"
-			ref={menuRef}
-			aria-label={label}
-			onKeyDown={onKeyDown}
-			style={{ left: position.left, top: position.top }}
-			onBlur={(event) => {
-				const relatedTarget = event.relatedTarget;
-				if (
-					!(relatedTarget instanceof Node) ||
-					(!event.currentTarget.contains(relatedTarget) &&
-						triggerRef.current?.contains(relatedTarget) !== true)
-				) {
-					close(false);
-				}
-			}}
-			className={clsx(
-				"fixed z-50 flex max-h-[calc(100vh-1rem)] w-56 max-w-[calc(100vw-1rem)] flex-col overflow-y-auto rounded-xl border border-border bg-surface p-1.5 shadow-card",
-				className,
-			)}
-		>
-			{items.map((item, index) => (
-				<button
-					type="button"
-					key={item.key}
-					role="menuitem"
-					onClick={item.onSelect}
-					disabled={item.disabled}
-					tabIndex={index === activeIndex ? 0 : -1}
-					onFocus={() => onActiveIndexChange(index)}
-					ref={(element) => {
-						menuItems.current[index] = element;
-					}}
-					className={clsx(
-						"flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-left text-sm font-semibold hover:bg-surface-2 focus-visible:bg-surface-2",
-						item.destructive === true ? "text-danger" : "text-text",
-						"disabled:text-text-subtle",
-					)}
-				>
-					{item.label}
-				</button>
-			))}
-			{note !== undefined && (
-				<p className="border-t border-border px-3 pt-2 pb-1 text-xs text-text-subtle">{note}</p>
-			)}
-		</div>,
+		<OverlayScope onEscape={() => close(true)}>
+			<div
+				id={id}
+				role="menu"
+				ref={menuRef}
+				aria-label={label}
+				onKeyDown={onKeyDown}
+				style={{ left: position.left, top: position.top }}
+				className={clsx(
+					"fixed z-50 flex max-h-[calc(100vh-1rem)] w-56 max-w-[calc(100vw-1rem)] flex-col overflow-y-auto rounded-xl border border-border bg-surface p-1.5 shadow-card",
+					className,
+				)}
+				onBlur={(event) => {
+					const relatedTarget = event.relatedTarget;
+					if (
+						!(relatedTarget instanceof Node) ||
+						(!event.currentTarget.contains(relatedTarget) &&
+							triggerRef.current?.contains(relatedTarget) !== true)
+					) {
+						close(false);
+					}
+				}}
+			>
+				{items.map((item, index) => (
+					<button
+						type="button"
+						key={item.key}
+						role="menuitem"
+						onClick={item.onSelect}
+						disabled={item.disabled}
+						tabIndex={index === activeIndex ? 0 : -1}
+						onFocus={() => onActiveIndexChange(index)}
+						ref={(element) => {
+							menuItems.current[index] = element;
+						}}
+						className={clsx(
+							"flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-left text-sm font-semibold hover:bg-surface-2 focus-visible:bg-surface-2",
+							item.destructive === true ? "text-danger" : "text-text",
+							"disabled:text-text-subtle",
+						)}
+					>
+						{item.label}
+					</button>
+				))}
+				{note !== undefined && (
+					<p className="border-t border-border px-3 pt-2 pb-1 text-xs text-text-subtle">{note}</p>
+				)}
+			</div>
+		</OverlayScope>,
 		document.body,
 	);
 }

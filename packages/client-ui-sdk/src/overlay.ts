@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, type RefObject } from "react";
 
-import { useShortcut } from "./shortcut";
-
 const focusable =
 	'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, iframe, [contenteditable]:not([contenteditable="false"]), audio[controls], video[controls], [tabindex]:not([tabindex="-1"])';
 
@@ -49,14 +47,8 @@ export function useInertBackground(ref: RefObject<HTMLElement | null>) {
 
 export function useFocusTrap(
 	ref: RefObject<HTMLElement | null>,
-	options: { readonly enabled: boolean; readonly onEscape?: () => void },
+	options: { readonly enabled: boolean },
 ) {
-	const escape = useEffectEvent(() => options.onEscape?.());
-
-	useShortcut("Escape", escape, {
-		enabled: options.enabled && options.onEscape !== undefined,
-	});
-
 	const enabled = options.enabled;
 	useEffect(() => {
 		const container = ref.current;
