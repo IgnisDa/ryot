@@ -373,10 +373,10 @@ describe("PluginRouter", () => {
 		sendLocation("/", "", { index: 0 });
 		await waitFor(() => expect(container.textContent).not.toContain("Item item-1"));
 
-		const screens = container.querySelectorAll('[tabindex="-1"]');
+		const screens = container.querySelectorAll<HTMLElement>('[tabindex="-1"]');
 		expect(screens).toHaveLength(1);
-		expect((screens[0] as HTMLElement).style.visibility).toBe("visible");
-		expect((screens[0] as HTMLElement).style.transform).toBe("");
+		expect(screens[0]?.style.visibility).toBe("visible");
+		expect(screens[0]?.style.transform).toBe("");
 	});
 
 	it("swaps without retaining a leaving screen when the viewport is not compact", async () => {
@@ -438,10 +438,10 @@ describe("PluginRouter", () => {
 			edge.dispatchEvent(pointer("pointerup", 160));
 		});
 
-		const committing = container.querySelectorAll('[tabindex="-1"]');
+		const committing = container.querySelectorAll<HTMLElement>('[tabindex="-1"]');
 		expect(committing).toHaveLength(2);
 		for (const screen of committing) {
-			expect((screen as HTMLElement).style.visibility).toBe("visible");
+			expect(screen.style.visibility).toBe("visible");
 		}
 
 		await waitFor(() => expect(messages).toEqual([{ type: "navigate-back" }]));
