@@ -80,7 +80,6 @@ it.effect(
 					}),
 					mockS3({ isConfigured: true }),
 					mockLocalStorage({
-						isConfiguredForKind: () => true,
 						createUploadTarget: (intentId) =>
 							Effect.succeed({
 								method: "PUT" as const,
@@ -122,7 +121,7 @@ const makeCleanupLayer = (
 					makeRedisService({ client: makeRedisClient(), ...redisOverrides }),
 				),
 				mockS3({ isConfigured: true }),
-				mockLocalStorage({ isConfiguredForKind: () => true }),
+				mockLocalStorage({}),
 				mockManagedAssets({}),
 				mockObjectStorage(objectStorageOverrides),
 			),

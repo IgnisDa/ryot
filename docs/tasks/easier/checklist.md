@@ -77,7 +77,7 @@
   - Owner: D31 User lifecycle
   - Scope: Tagged `active`, `retryable`, `new`, or `missing` cases
 
-- [ ] **18. Remove unreachable local-storage states** [M/M/M]
+- [x] **18. Remove unreachable local-storage states** [M/M/M]
   - Owner: I06 Storage
   - Scope: Both local roots as required resolved strings
 

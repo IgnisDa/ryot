@@ -58,12 +58,12 @@ it.effect("signs and validates local upload targets", () =>
 	}).pipe(Effect.provide(makeLayer())),
 );
 
-it.effect("creates and configures the local temporary directory", () =>
+it.effect("creates both configured local roots", () =>
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
-		const localStorage = yield* LocalStorageService;
+		yield* LocalStorageService;
+		expect(yield* fs.exists(ROOT)).toBe(true);
 		expect(yield* fs.exists(TEMP_ROOT)).toBe(true);
-		expect(localStorage.isConfiguredForKind("temporary")).toBe(true);
 	}).pipe(Effect.provide(makeLayer())),
 );
 
