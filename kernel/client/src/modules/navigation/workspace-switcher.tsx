@@ -1,4 +1,4 @@
-import { OverlayScope, useDismissOnOutside } from "@ryot-app/client-ui-sdk";
+import { OverlayScope, useDismissOnOutside, useShortcut } from "@ryot-app/client-ui-sdk";
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
@@ -12,10 +12,18 @@ import { visibleWorkspaces } from "#/modules/navigation/workspace-state";
 type WorkspaceSwitcherProps = {
 	readonly summary: string;
 	readonly catalog: PluginClientCatalog;
+	readonly showShortcut?: boolean | undefined;
 	readonly onCustomize?: (() => void) | undefined;
 	readonly current: PluginClientCatalogEntry | null;
 	readonly onSelect: (slug: string) => void | Promise<void>;
 };
+
+const WORKSPACE_SHORTCUT = "Mod+Shift+Space";
+
+function WorkspaceShortcut(props: { readonly enabled: boolean; readonly onOpen: () => void }) {
+	useShortcut(WORKSPACE_SHORTCUT, props.onOpen, { enabled: props.enabled });
+	return null;
+}
 
 export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 	const menuId = useId();
@@ -37,9 +45,13 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 		}
 	};
 	const open = () => {
+		if (workspaces.length === 0) {
+			return;
+		}
 		setActiveIndex(initialIndex);
 		setIsOpen(true);
 	};
+	useShortcut(WORKSPACE_SHORTCUT, open, { enabled: props.showShortcut === true });
 	const select = (workspace: PluginClientCatalogEntry) => {
 		close(true);
 		if (workspace.slug !== props.current?.slug) {
@@ -61,6 +73,7 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 
 	return (
 		<OverlayScope enabled={isOpen} onEscape={() => close(true)}>
+			<WorkspaceShortcut enabled={props.showShortcut === true} onOpen={open} />
 			<div ref={container} className="relative">
 				<button
 					type="button"
@@ -70,6 +83,7 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 					aria-expanded={isOpen}
 					disabled={workspaces.length === 0}
 					onClick={() => (isOpen ? close(true) : open())}
+					aria-keyshortcuts={props.showShortcut === true ? WORKSPACE_SHORTCUT : undefined}
 					className="flex w-full items-center gap-2.5 rounded-lg border border-border bg-surface px-2.5 py-2 text-left shadow-sm"
 					aria-label={
 						props.current === null
@@ -91,6 +105,14 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 						</span>
 						<span className="block truncate text-xs text-text-muted">{props.summary}</span>
 					</span>
+					{props.showShortcut === true && (
+						<span
+							aria-hidden="true"
+							className="shrink-0 rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-text-subtle"
+						>
+							{WORKSPACE_SHORTCUT}
+						</span>
+					)}
 					<AppIcon name="chevron-down" size={15} className="shrink-0 text-text-subtle" />
 				</button>
 
