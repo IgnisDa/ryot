@@ -1,4 +1,7 @@
-import { validateEvent } from "@polar-sh/sdk/webhooks";
+import {
+	validateEvent,
+	WebhookVerificationError,
+} from "@polar-sh/sdk/webhooks";
 import { data } from "react-router";
 import { match } from "ts-pattern";
 import {
@@ -112,18 +115,40 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	try {
 		event = validateEvent(body, headers, webhookSecret);
 	} catch (error) {
-		console.error("Webhook validation failed:", error);
-		return data({ error: "Invalid webhook signature" }, { status: 401 });
+		console.error("Polar webhook validation failed:", error);
+		const isInvalidSignature = error instanceof WebhookVerificationError;
+		return data(
+			{
+				error: isInvalidSignature
+					? "Invalid webhook signature"
+					: "Invalid webhook payload",
+			},
+			{ status: isInvalidSignature ? 401 : 400 },
+		);
 	}
 
 	console.log("Received Polar webhook event:", { type: event.type });
 
-	const result = await match(event.type)
-		.with("order.paid", () => handleOrderPaid(event))
-		.with("subscription.revoked", () => handleSubscriptionRevoked(event))
-		.otherwise(() => ({ message: "Webhook event not handled" }));
+	let result: { error?: string; message?: string };
+	try {
+		result = await match(event.type)
+			.with("order.paid", () => handleOrderPaid(event))
+			.with("subscription.revoked", () => handleSubscriptionRevoked(event))
+			.otherwise(() => ({ message: "Webhook event not handled" }));
+	} catch (error) {
+		console.error("Polar webhook handling failed:", error);
+		return data(
+			{ error: "Polar webhook could not be processed" },
+			{ status: 503 },
+		);
+	}
 
 	console.log("Webhook handling result:", result);
 
-	return data(result);
+	const status = result.error?.startsWith("No matching product found")
+		? 503
+		: result.error === "Product ID not found in order"
+			? 400
+			: 200;
+	return data(result, { status });
 };
