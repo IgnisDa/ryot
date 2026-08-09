@@ -1,3 +1,4 @@
+import { useDismissOnOutside } from "@ryot-app/client-ui-sdk";
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
@@ -49,19 +50,7 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 		}
 	}, [activeIndex, isOpen]);
 
-	useEffect(() => {
-		const dismiss = (event: PointerEvent) => {
-			if (!(event.target instanceof Node) || !container.current?.contains(event.target)) {
-				setIsOpen(false);
-			}
-		};
-		if (isOpen) {
-			document.addEventListener("pointerdown", dismiss);
-		}
-		return () => {
-			document.removeEventListener("pointerdown", dismiss);
-		};
-	}, [isOpen]);
+	useDismissOnOutside([container], () => setIsOpen(false), { enabled: isOpen });
 
 	return (
 		<div
