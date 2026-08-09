@@ -1,5 +1,5 @@
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type { AssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
-import { ImageIcon } from "lucide-react";
 import { useState } from "react";
 
 import { resolveAssetUrl } from "#/modules/assets/managed-assets";
@@ -37,7 +37,7 @@ function ResolvedImage(props: { readonly url: string; readonly className: string
 function MissingImage(props: { readonly className: string }) {
 	return (
 		<div aria-hidden="true" className={`${props.className} grid place-items-center bg-raised`}>
-			<ImageIcon className="size-5 text-text-subtle" />
+			<AppIcon name="image" className="size-5 text-text-subtle" />
 		</div>
 	);
 }
