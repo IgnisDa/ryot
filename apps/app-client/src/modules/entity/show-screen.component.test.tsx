@@ -182,7 +182,6 @@ describe("show screen content", () => {
 		const monitoring = screen.getByRole("switch", { name: "Toggle media monitoring" });
 
 		await user.press(screen.getByRole("tab", { name: "Activity" }));
-		await user.press(screen.getByRole("tab", { name: "Related" }));
 		await user.press(monitoring);
 		await user.press(screen.getByRole("button", { name: "Log activity" }));
 
@@ -317,7 +316,6 @@ describe("show screen content", () => {
 
 		await user.press(screen.getByRole("button", { name: "View all images" }));
 		await user.press(screen.getByRole("button", { name: "View all people" }));
-		await user.press(screen.getByRole("button", { name: "View all" }));
 
 		expect(screen.getByRole("tab", { name: "Overview" })).toBeSelected();
 		expect(screen.getByText("Owen Cooper")).toBeOnTheScreen();
