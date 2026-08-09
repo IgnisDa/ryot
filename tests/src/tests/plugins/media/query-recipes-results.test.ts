@@ -16,21 +16,23 @@ import {
 	createAuthenticatedClient,
 	createCollection,
 	createEventFixture,
-	createGlobalBookEntityFixture,
 	createRelationship,
 	executeRyotQLRecipe,
 	findBuiltinSchemaBySlug,
 	getBuiltinEntitySchemaSlug,
 	insertGlobalRelationship,
-	insertLibraryMembership,
-	insertMediaMonitoring,
 	listEventSchemas,
 	listRelationshipSchemas,
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,
-	seedMediaEntity,
 	type Client,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import {
+	createGlobalBookEntityFixture,
+	insertLibraryMembership,
+	insertMediaMonitoring,
+	seedMediaEntity,
+} from "~/fixtures/plugins/media";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
