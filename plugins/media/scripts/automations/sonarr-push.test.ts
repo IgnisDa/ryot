@@ -32,7 +32,7 @@ const showEntity = entityRecord({
 const sonarrIntegration = integrationRecord({
 	provider: "sonarr",
 	providerSpecifics: {
-		tagIds: 5,
+		tagIds: [5, 8],
 		profileId: "2",
 		apiKey: "sonarr-key",
 		rootFolderPath: "/tv",
@@ -78,7 +78,7 @@ const createHost = (options: {
 	});
 
 describe("sonarr-push sandbox script", () => {
-	it("adds a TVDB show and wraps the single Sonarr tag id in an array", () => {
+	it("adds a TVDB show with the configured Sonarr tag ids", () => {
 		const calls: HttpCall[] = [];
 		const host = createHost({
 			entity: showEntity,
@@ -93,7 +93,7 @@ describe("sonarr-push sandbox script", () => {
 						expect(calls).toHaveLength(1);
 						expect(calls[0]?.url).toBe("http://sonarr.local/api/v3/series");
 						expect(JSON.parse(String(calls[0]?.options["body"]))).toEqual({
-							tags: [5],
+							tags: [5, 8],
 							tvdbId: 371980,
 							monitored: true,
 							qualityProfileId: 2,

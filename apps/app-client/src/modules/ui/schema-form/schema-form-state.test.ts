@@ -29,6 +29,11 @@ const schema = {
 		note: { ...described("Note"), type: "string" },
 		year: { ...described("Year"), type: "integer", defaultValue: 2026 },
 		payload: { ...described("Payload"), type: "object", properties: {} },
+		records: {
+			...described("Records"),
+			type: "array",
+			items: { ...described("Record"), type: "object", properties: {} },
+		},
 		adult: { ...described("Adult"), type: "boolean", defaultValue: false },
 		title: { ...described("Title"), type: "string", validation: { required: true } },
 		tags: { ...described("Tags"), type: "array", items: { ...described("Tag"), type: "string" } },
@@ -192,10 +197,16 @@ describe("schema form state", () => {
 			"genres",
 			"note",
 			"region",
+			"tags",
 			"title",
 			"year",
 		]);
-		expect([...unsupported].sort()).toEqual(["payload", "tags"]);
+		expect([...unsupported].sort()).toEqual(["payload", "records"]);
+		expect(fields.find((field) => field.key === "tags")).toMatchObject({
+			type: "array",
+			control: "list",
+			arrayItem: { type: "string" },
+		});
 		expect(fields.find((field) => field.key === "title")?.required).toBe(true);
 		expect(fields.find((field) => field.key === "genres")?.choices).toEqual([
 			{ value: "epic", label: "Epic" },
@@ -274,6 +285,7 @@ describe("schema form state", () => {
 			region: "us",
 			adult: false,
 			note: undefined,
+			tags: undefined,
 			title: undefined,
 			genres: undefined,
 		});
@@ -502,6 +514,76 @@ describe("schema form state", () => {
 		expect(toSchemaFormPayload(schema, { genres: [] })).toEqual({});
 	});
 
+	it("validates primitive array bounds and item declarations", () => {
+		const arrays = {
+			fields: {
+				tags: {
+					...described("Tags"),
+					type: "array",
+					validation: { minItems: 2, maxItems: 3 },
+					items: { ...described("Tag"), type: "string", validation: { minLength: 2 } },
+				},
+				scores: {
+					...described("Scores"),
+					type: "array",
+					items: {
+						...described("Score"),
+						type: "integer",
+						validation: { minimum: 0, maximum: 100 },
+					},
+				},
+			},
+		} satisfies AppSchema;
+
+		expect(validateSchemaFormValues(arrays, { tags: ["ok"] }).get("tags")).toContain("at least 2");
+		expect(
+			validateSchemaFormValues(arrays, { tags: ["ok", "yes", "no", "extra"] }).get("tags"),
+		).toContain("at most 3");
+		expect(validateSchemaFormValues(arrays, { tags: ["x", "ok"] }).get("tags")).toContain(
+			"too short",
+		);
+		expect(validateSchemaFormValues(arrays, { scores: [101] }).get("scores")).toContain(
+			"above the maximum",
+		);
+		expect(validateSchemaFormValues(arrays, { scores: [1.5] }).get("scores")).toContain(
+			"invalid value",
+		);
+		expect(validateSchemaFormValues(arrays, { tags: ["ok", "yes"], scores: [50] }).size).toBe(0);
+		expect(toSchemaFormPayload(arrays, { tags: ["ok", "yes"], scores: [50] })).toEqual({
+			tags: ["ok", "yes"],
+			scores: [50],
+		});
+	});
+
+	it("keeps a defaulted single-choice enum in the payload without rendering it", () => {
+		const fixed = {
+			fields: {
+				baseUrl: { ...described("Base URL"), type: "string" },
+				kind: {
+					...described("Kind"),
+					type: "enum",
+					defaultValue: "radarr",
+					validation: { required: true },
+					choices: choices("radarr"),
+				},
+			},
+		} satisfies AppSchema;
+
+		expect(describeSchemaFormFields(fixed)).toEqual({
+			unsupported: [],
+			fields: [expect.objectContaining({ key: "baseUrl" })],
+		});
+		expect(initialSchemaFormValues(fixed)).toEqual({ kind: "radarr", baseUrl: undefined });
+		expect(toSchemaFormPayload(fixed, { baseUrl: "https://radarr.test" })).toEqual({
+			kind: "radarr",
+			baseUrl: "https://radarr.test",
+		});
+		expect(toSchemaFormPayload(fixed, { kind: "wrong", baseUrl: "https://radarr.test" })).toEqual({
+			kind: "radarr",
+			baseUrl: "https://radarr.test",
+		});
+	});
+
 	it("omits hidden values from the payload", () => {
 		expect(toSchemaFormPayload(visibilitySchema, { advanced: false, secret: "retained" })).toEqual({
 			advanced: false,
@@ -545,6 +627,11 @@ describe("schema form state", () => {
 					choices: choices("a", "an extremely long label"),
 				},
 				tags: { ...described("Tags"), type: "enum-array", choices: choices("epic", "scifi") },
+				list: {
+					...described("List"),
+					type: "array",
+					items: { ...described("Item"), type: "boolean" },
+				},
 			},
 		} satisfies AppSchema;
 
@@ -559,6 +646,7 @@ describe("schema form state", () => {
 			["many", "chips"],
 			["wordy", "chips"],
 			["tags", "multi-select"],
+			["list", "list"],
 		]);
 	});
 });

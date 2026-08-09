@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 
 import { IntegrationId } from "../../schema/brands";
+import { AppSchema } from "../../schema/property-schema";
 import { integrationLots } from "./types";
 
 const IntegrationLot = Schema.Literals([...integrationLots]);
@@ -18,6 +19,19 @@ const IntegrationExtraSettings = Schema.Struct({
 });
 
 export type IntegrationExtraSettings = typeof IntegrationExtraSettings.Type;
+
+export const ListedIntegrationProvider = Schema.Struct({
+	slug: Schema.String,
+	name: Schema.String,
+	lot: IntegrationLot,
+	commonSchema: AppSchema,
+	settingsSchema: AppSchema,
+	pluginSlug: Schema.String,
+	description: Schema.String,
+	isCreatable: Schema.Boolean,
+});
+
+export type ListedIntegrationProvider = typeof ListedIntegrationProvider.Type;
 
 export const ListedIntegration = Schema.Struct({
 	id: IntegrationId,
