@@ -1,3 +1,4 @@
+import type { PluginRouteLocation } from "@ryot-app/contract/modules/plugins/client";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -7,17 +8,19 @@ import {
 	validatePluginLocation,
 } from "#/modules/plugins/plugin-location";
 
-const home = { path: "/", search: "" };
+const home: PluginRouteLocation = { kind: "route", path: "/", search: "" };
 
 describe("plugin logical locations", () => {
 	it("strips the installed namespace from the global location", () => {
 		expect(toPluginLocation("fixture", "/fixture", "")).toEqual(home);
 		expect(toPluginLocation("fixture", "/fixture/", "")).toEqual(home);
 		expect(toPluginLocation("fixture", "/fixture/details/item-1", "?tab=stats")).toEqual({
+			kind: "route",
 			search: "tab=stats",
 			path: "/details/item-1",
 		});
 		expect(toPluginLocation("fixture", "/fixture/details/item-1/", "tab=stats")).toEqual({
+			kind: "route",
 			search: "tab=stats",
 			path: "/details/item-1",
 		});
@@ -25,10 +28,12 @@ describe("plugin logical locations", () => {
 
 	it("restores the installed namespace when building a global href", () => {
 		expect(toGlobalHref("fixture", home)).toBe("/fixture");
-		expect(toGlobalHref("fixture", { path: "/", search: "tab=stats" })).toBe("/fixture?tab=stats");
-		expect(toGlobalHref("fixture", { path: "/details/item-1", search: "tab=stats" })).toBe(
-			"/fixture/details/item-1?tab=stats",
+		expect(toGlobalHref("fixture", { kind: "route", path: "/", search: "tab=stats" })).toBe(
+			"/fixture?tab=stats",
 		);
+		expect(
+			toGlobalHref("fixture", { kind: "route", path: "/details/item-1", search: "tab=stats" }),
+		).toBe("/fixture/details/item-1?tab=stats");
 	});
 
 	it("round-trips a global location through the plugin location", () => {
@@ -38,9 +43,9 @@ describe("plugin logical locations", () => {
 	});
 
 	it("accepts a relative plugin path and keeps it inside the namespace", () => {
-		const settings = validatePluginLocation({ path: "/settings", search: "" });
+		const settings = validatePluginLocation({ kind: "route", path: "/settings", search: "" });
 
-		expect(settings).toEqual({ path: "/settings", search: "" });
+		expect(settings).toEqual({ kind: "route", path: "/settings", search: "" });
 		expect(toGlobalHref("fixture", settings ?? home)).toBe("/fixture/settings");
 	});
 
@@ -65,13 +70,17 @@ describe("plugin logical locations", () => {
 			"/details/1#top",
 			"/details /1",
 		]) {
-			expect(validatePluginLocation({ path, search: "" })).toBeUndefined();
+			expect(validatePluginLocation({ kind: "route", path, search: "" })).toBeUndefined();
 		}
 	});
 
 	it("rejects a search value that carries a fragment or whitespace", () => {
-		expect(validatePluginLocation({ path: "/details/1", search: "tab=stats#top" })).toBeUndefined();
-		expect(validatePluginLocation({ path: "/details/1", search: "tab=a b" })).toBeUndefined();
+		expect(
+			validatePluginLocation({ kind: "route", path: "/details/1", search: "tab=stats#top" }),
+		).toBeUndefined();
+		expect(
+			validatePluginLocation({ kind: "route", path: "/details/1", search: "tab=a b" }),
+		).toBeUndefined();
 	});
 
 	it("turns a plugin navigation request into a namespaced kernel navigation", () => {
@@ -79,7 +88,7 @@ describe("plugin logical locations", () => {
 			toNavigationRequest("fixture", {
 				mode: "push",
 				type: "navigate",
-				location: { path: "/details/item-1", search: "tab=stats" },
+				location: { kind: "route", path: "/details/item-1", search: "tab=stats" },
 			}),
 		).toEqual({ replace: false, href: "/fixture/details/item-1?tab=stats" });
 
@@ -87,7 +96,7 @@ describe("plugin logical locations", () => {
 			toNavigationRequest("fixture", {
 				mode: "replace",
 				type: "navigate",
-				location: { path: "/", search: "" },
+				location: { kind: "route", path: "/", search: "" },
 			}),
 		).toEqual({ replace: true, href: "/fixture" });
 	});
@@ -98,7 +107,7 @@ describe("plugin logical locations", () => {
 				toNavigationRequest("fixture", {
 					mode: "push",
 					type: "navigate",
-					location: { path, search: "" },
+					location: { kind: "route", path, search: "" },
 				}),
 			).toBeUndefined();
 		}
@@ -110,7 +119,7 @@ describe("plugin logical locations", () => {
 				toNavigationRequest("fixture", {
 					mode: "push",
 					type: "navigate",
-					location: { path, search: "" },
+					location: { kind: "route", path, search: "" },
 				}),
 			).toEqual({ replace: false, href: `/fixture${path}` });
 		}

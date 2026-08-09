@@ -1,4 +1,8 @@
-import { PLUGIN_SCREEN_STACK_LIMIT } from "@ryot-app/contract/modules/plugins/client";
+import {
+	PLUGIN_SCREEN_STACK_LIMIT,
+	type PluginLogicalLocation,
+	type PluginRouteLocation,
+} from "@ryot-app/contract/modules/plugins/client";
 import { describe, expect, it } from "vitest";
 
 import { presentScreens, reconcileStack, type PluginScreen } from "./stack";
@@ -6,16 +10,27 @@ import { presentScreens, reconcileStack, type PluginScreen } from "./stack";
 const Home = () => null;
 const Detail = () => null;
 
-const resolve = (location: { readonly path: string }) => ({
-	params: {},
-	header: { title: location.path },
-	component: location.path === "/" ? Home : Detail,
+const resolve = (location: PluginLogicalLocation) => {
+	if (location.kind === "route") {
+		return {
+			params: {},
+			header: { title: location.path },
+			component: location.path === "/" ? Home : Detail,
+		};
+	}
+	return { params: {}, header: { title: location.entityId }, component: Detail };
+};
+
+const routeLocation = (path: string, search = ""): PluginRouteLocation => ({
+	path,
+	search,
+	kind: "route",
 });
 
 const entry = (index: number, path = `/p${index}`, key = `k${index}`) => ({
 	key,
 	index,
-	location: { path, search: "" },
+	location: routeLocation(path),
 });
 
 const build = (...indexes: readonly number[]) =>
@@ -37,13 +52,17 @@ describe("reconcileStack", () => {
 		const stack = build(0);
 		const result = reconcileStack(
 			stack,
-			{ ...entry(0), location: { path: "/p0", search: "tab=stats" } },
+			{ ...entry(0), location: routeLocation("/p0", "tab=stats") },
 			resolve,
 		);
 
 		expect(result.transition).toBe("same");
 		expect(result.stack).toHaveLength(1);
-		expect(result.stack[0]?.location.search).toBe("tab=stats");
+		const location = result.stack[0]?.location;
+		if (location?.kind !== "route") {
+			throw new Error("expected a route location");
+		}
+		expect(location.search).toBe("tab=stats");
 	});
 
 	it("replaces the top screen when the index holds but the key changes", () => {
