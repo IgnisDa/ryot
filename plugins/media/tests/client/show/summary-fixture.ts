@@ -13,13 +13,16 @@ export const showSummaryRow = {
 	id: "show-1",
 	totalSeasons: 1,
 	totalEpisodes: 4,
+	storedEpisodes: 4,
 	state: "complete",
 	publishYear: 2025,
 	isInLibrary: true,
+	watchedEpisodes: 1,
 	isMonitored: false,
 	schemaSlug: "show",
 	name: "Adolescence",
 	providerName: "TMDB",
+	inProgressEpisodes: 0,
 	providerRating: 78.25,
 	populationStatus: "ready",
 	translationStatus: "none",
@@ -61,7 +64,7 @@ export const decodeShowSummaryResult = (input: {
 }) =>
 	Result.getOrThrow(
 		showSummaryFixtureRecipe.decode({
-			data: { show: singleRow(input.show), requested: singleRow(input.requested) },
+			data: { summary: singleRow(input.show), requested: singleRow(input.requested) },
 		}),
 	);
 
@@ -70,8 +73,8 @@ export const decodeShowSummary = (overrides: Record<string, unknown> = {}) => {
 		requested: [{ schemaSlug: "show" }],
 		show: [{ ...showSummaryRow, ...overrides }],
 	});
-	if (summary.show === null) {
+	if (summary.summary === null) {
 		throw new Error("Expected a decoded show summary");
 	}
-	return summary.show;
+	return summary.summary;
 };

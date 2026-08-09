@@ -125,6 +125,16 @@ it("declares the complete media-owned source", () => {
 				automaticEntityPresentations: false,
 				entry: "client/music-card-presentation.ts",
 			},
+			"podcast-row": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/podcast-row-presentation.ts",
+			},
+			"podcast-card": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/podcast-card-presentation.ts",
+			},
 			"media-home": {
 				kind: "page",
 				entry: "client/home.tsx",
@@ -155,6 +165,12 @@ it("declares the complete media-owned source", () => {
 				entry: "client/music/screen.tsx",
 				automaticEntityPresentations: false,
 			},
+			"podcast-detail": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				entry: "client/podcast/screen.tsx",
+				automaticEntityPresentations: false,
+			},
 		},
 	});
 	const registrations = mediaPlugin.client.entities;
@@ -179,6 +195,11 @@ it("declares the complete media-owned source", () => {
 			detailPage: "music-detail",
 			listPresentation: "music-row",
 			gridPresentation: "music-card",
+		},
+		podcast: {
+			detailPage: "podcast-detail",
+			listPresentation: "podcast-row",
+			gridPresentation: "podcast-card",
 		},
 	};
 	for (const [slug, registration] of Object.entries(registrations)) {

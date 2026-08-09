@@ -346,7 +346,7 @@ export const details = defineProvider({
 					providerRating: numberValue(firstPage?.["listen_score"]),
 					genres: collectGenres(firstPage?.["genre_ids"], genresById),
 					publishDate: getIsoDateFromTimestamp(firstPage?.["earliest_pub_date_ms"]),
-					unlinkedCreators: publisher ? [{ name: publisher, role: "Publishing" }] : [],
+					unlinkedCreators: publisher ? [{ name: publisher, role: "Publisher" }] : [],
 					publishYear: getPublishYearFromTimestamp(firstPage?.["earliest_pub_date_ms"]),
 					images: image ? [{ url: image, type: "remote" as const, purpose: "cover" as const }] : [],
 				},

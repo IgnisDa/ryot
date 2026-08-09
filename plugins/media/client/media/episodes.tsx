@@ -1,0 +1,258 @@
+import { ManagedAssetProvider, useRyotQuery, type RyotQuery } from "@ryot-app/client-sdk/react";
+import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/client-ui-sdk/sync";
+import clsx from "clsx";
+import { useState } from "react";
+
+import type { MediaStatusCopy } from "./detail-screen";
+import {
+	mapMediaEpisodePage,
+	mediaEpisodeAirDateLabel,
+	mediaEpisodeAsset,
+	mediaEpisodeRuntimeLabel,
+	mediaEpisodeStateLabel,
+	mediaEpisodeSynopsis,
+	mediaEpisodesManagedAssets,
+	mediaNextUpEpisode,
+	type MediaEpisode,
+	type MediaEpisodeImagePurpose,
+	type MediaEpisodePage,
+	type MediaEpisodePageFailure,
+	type MediaEpisodeStateLabels,
+	type MediaNextUpDirection,
+} from "./episodes-state";
+import { ManagedAssetImage } from "./managed-assets";
+import { MediaLinkButton, MediaRefreshStatus, MediaStatusMessage } from "./primitives";
+
+export type MediaEpisodeArtworkAspect = "video" | "square";
+
+export type MediaEpisodeRender<Episode extends MediaEpisode> = {
+	readonly aspect: MediaEpisodeArtworkAspect;
+	readonly purpose: MediaEpisodeImagePurpose;
+	readonly stateLabels: MediaEpisodeStateLabels;
+	readonly numberLabel: (episode: Episode) => string;
+	readonly originLabel: (episode: Episode) => string;
+};
+
+export type MediaEpisodePagesCopy = {
+	readonly empty: string;
+	readonly loading: MediaStatusCopy;
+	readonly error: (state: MediaEpisodePageFailure) => MediaStatusCopy;
+};
+
+export type MediaEpisodePageInput = {
+	readonly after: string | null;
+	readonly entityId: string;
+	readonly containerId: string;
+};
+
+type MediaEpisodePageQuery<Episode> = RyotQuery<MediaEpisodePageInput, MediaEpisodePage<Episode>>;
+
+const metaLabel = (parts: readonly (string | undefined)[]) =>
+	parts.filter((part) => part !== undefined).join(" • ");
+
+const artworkClass = (aspect: MediaEpisodeArtworkAspect, compact: boolean) => {
+	if (aspect === "square") {
+		return compact ? "aspect-square w-20" : "aspect-square w-24";
+	}
+	return compact ? "aspect-video w-28" : "aspect-video w-44";
+};
+
+function MediaEpisodeRow<Episode extends MediaEpisode>(props: {
+	readonly compact: boolean;
+	readonly divided: boolean;
+	readonly episode: Episode;
+	readonly render: MediaEpisodeRender<Episode>;
+}) {
+	const { render, episode } = props;
+	const asset = mediaEpisodeAsset(episode, render.purpose);
+	const synopsis = mediaEpisodeSynopsis(episode);
+	const lifecycle = mediaEpisodeStateLabel(episode.state, render.stateLabels);
+	const meta = metaLabel([mediaEpisodeAirDateLabel(episode), mediaEpisodeRuntimeLabel(episode)]);
+	return (
+		<button
+			type="button"
+			aria-label={`Open ${episode.name}`}
+			onClick={() => console.log("TODO: open episode details")}
+			className={clsx(
+				"flex w-full items-start text-left focus-visible:outline-2 focus-visible:outline-accent",
+				props.compact ? "gap-3 py-3" : "gap-4 py-4",
+				props.divided && "border-t border-border",
+			)}
+		>
+			<ManagedAssetImage
+				asset={asset}
+				monogram={episode.name}
+				state={fieldSyncState(asset, episode)}
+				className={clsx("shrink-0", artworkClass(render.aspect, props.compact))}
+			/>
+			<div className="flex min-w-0 flex-1 flex-col gap-1">
+				<div className="flex items-baseline gap-2">
+					<span className="font-ui font-medium text-[12px] text-text-subtle">
+						{render.numberLabel(episode)}
+					</span>
+					<span className="line-clamp-1 min-w-0 flex-1 font-ui font-medium text-[14px] text-text">
+						{episode.name}
+						{isTitleProvisional(episode) && <SyncPip className="ml-1.5" reason="translating" />}
+					</span>
+					{lifecycle === undefined ? null : (
+						<span
+							className={clsx(
+								"font-ui text-[12px]",
+								episode.state === "complete" ? "text-success" : "text-accent-text",
+							)}
+						>
+							{lifecycle}
+						</span>
+					)}
+				</div>
+				{meta === "" ? null : <span className="font-ui text-[12px] text-text-subtle">{meta}</span>}
+				{synopsis === undefined ? null : (
+					<span className="line-clamp-2 font-ui text-[13px] leading-5 text-text-muted">
+						{synopsis}
+					</span>
+				)}
+			</div>
+		</button>
+	);
+}
+
+function MediaNextUpCard<Episode extends MediaEpisode>(props: {
+	readonly compact: boolean;
+	readonly episode: Episode;
+	readonly render: MediaEpisodeRender<Episode>;
+}) {
+	return (
+		<div
+			className={clsx(
+				"rounded-lg border border-border bg-surface pt-2.5 pb-1",
+				props.compact ? "px-3.5" : "px-4",
+			)}
+		>
+			<div className="flex items-center gap-2">
+				<p className="font-ui font-medium text-[11px] tracking-widest text-text-subtle uppercase">
+					Next up
+				</p>
+				<p className="font-ui text-[11px] text-text-subtle">
+					{props.render.originLabel(props.episode)}
+				</p>
+			</div>
+			<MediaEpisodeRow
+				divided={false}
+				render={props.render}
+				episode={props.episode}
+				compact={props.compact}
+			/>
+		</div>
+	);
+}
+
+function MediaEpisodeList<Episode extends MediaEpisode>(props: {
+	readonly compact: boolean;
+	readonly leadingDivider: boolean;
+	readonly episodes: readonly Episode[];
+	readonly render: MediaEpisodeRender<Episode>;
+}) {
+	return (
+		<div>
+			{props.episodes.map((episode, index) => (
+				<MediaEpisodeRow
+					key={episode.id}
+					episode={episode}
+					render={props.render}
+					compact={props.compact}
+					divided={props.leadingDivider || index > 0}
+				/>
+			))}
+		</div>
+	);
+}
+
+type MediaEpisodePageProps<Episode extends MediaEpisode> = {
+	readonly index: number;
+	readonly compact: boolean;
+	readonly entityId: string;
+	readonly containerId: string;
+	readonly after: string | null;
+	readonly copy: MediaEpisodePagesCopy;
+	readonly render: MediaEpisodeRender<Episode>;
+	readonly query: MediaEpisodePageQuery<Episode>;
+	readonly nextUp: MediaNextUpDirection | undefined;
+};
+
+function MediaEpisodePageView<Episode extends MediaEpisode>(props: MediaEpisodePageProps<Episode>) {
+	const [expanded, setExpanded] = useState(false);
+	const result = useRyotQuery(props.query, {
+		after: props.after,
+		entityId: props.entityId,
+		containerId: props.containerId,
+	});
+	const state = mapMediaEpisodePage(result);
+	if (state.status === "loading") {
+		return <MediaStatusMessage {...props.copy.loading} />;
+	}
+	if (state.status === "transport-error" || state.status === "malformed") {
+		return <MediaStatusMessage {...props.copy.error(state)} onRetry={result.refetch} />;
+	}
+	const { episodes, nextCursor } = state;
+	if (props.index === 0 && episodes.length === 0) {
+		return <p className="font-ui text-[13px] text-text-muted">{props.copy.empty}</p>;
+	}
+	// Next up is read from the first page alone, which is the newest end of either ordering.
+	const nextUp =
+		props.index === 0 && props.nextUp !== undefined
+			? mediaNextUpEpisode(episodes, props.nextUp)
+			: undefined;
+	return (
+		<>
+			<MediaRefreshStatus result={result} />
+			<ManagedAssetProvider assets={mediaEpisodesManagedAssets(episodes, props.render.purpose)}>
+				{nextUp === undefined ? null : (
+					<MediaNextUpCard episode={nextUp} render={props.render} compact={props.compact} />
+				)}
+				<MediaEpisodeList
+					episodes={episodes}
+					render={props.render}
+					compact={props.compact}
+					leadingDivider={props.index > 0}
+				/>
+			</ManagedAssetProvider>
+			{nextCursor !== null && expanded ? (
+				<MediaEpisodePageView {...props} after={nextCursor} index={props.index + 1} />
+			) : null}
+			{nextCursor === null || expanded ? null : (
+				<div className="pt-1">
+					<MediaLinkButton label="Load more" onClick={() => setExpanded(true)} />
+				</div>
+			)}
+		</>
+	);
+}
+
+/**
+ * Cursor-paged episode list. Every page owns its query and its own managed assets, so pressing
+ * Load more appends a page without refetching the ones already on screen.
+ */
+export function MediaEpisodePages<Episode extends MediaEpisode>(props: {
+	readonly compact: boolean;
+	readonly entityId: string;
+	readonly containerId: string;
+	readonly copy: MediaEpisodePagesCopy;
+	readonly render: MediaEpisodeRender<Episode>;
+	readonly query: MediaEpisodePageQuery<Episode>;
+	readonly nextUp?: MediaNextUpDirection | undefined;
+}) {
+	return (
+		<MediaEpisodePageView
+			index={0}
+			after={null}
+			copy={props.copy}
+			query={props.query}
+			nextUp={props.nextUp}
+			render={props.render}
+			key={props.containerId}
+			compact={props.compact}
+			entityId={props.entityId}
+			containerId={props.containerId}
+		/>
+	);
+}

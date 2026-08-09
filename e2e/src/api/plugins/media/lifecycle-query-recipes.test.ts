@@ -455,10 +455,10 @@ describe("Media episodic lifecycle query recipes", () => {
 			assertPresent(season, "Expected show season");
 			const detail = yield* executeRyotQLRecipe(
 				client,
-				showSeasonEpisodesRecipe({ episodeLimit: 10, seasonId: season.id }),
+				showSeasonEpisodesRecipe({ limit: 10, containerId: season.id }),
 			);
 			assertPresent(detail, "Expected season episodes");
-			const episode = detail.episodes.items[0];
+			const episode = detail.items[0];
 			assertPresent(episode, "Expected episode detail");
 			expect(episode.state).toBe("in_progress");
 			expect(episode).not.toHaveProperty("hasProgress");
@@ -546,10 +546,10 @@ describe("Media episodic lifecycle query recipes", () => {
 			assertPresent(specialSeason, "Expected specials season");
 			const specialDetail = yield* executeRyotQLRecipe(
 				client,
-				showSeasonEpisodesRecipe({ episodeLimit: 10, seasonId: specialSeason.id }),
+				showSeasonEpisodesRecipe({ limit: 10, containerId: specialSeason.id }),
 			);
 			assertPresent(specialDetail, "Expected specials season episodes");
-			const specialEpisode = specialDetail.episodes.items[0];
+			const specialEpisode = specialDetail.items[0];
 			assertPresent(specialEpisode, "Expected special episode detail");
 			expect(specialEpisode.state).toBe("complete");
 

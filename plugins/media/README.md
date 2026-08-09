@@ -7,11 +7,33 @@ schema; saved views do not declare sandbox scripts.
 
 ## Client
 
-The plugin client supplies a workspace home and `show`, `movie`, `music`, and `book` entity
+The plugin client supplies a workspace home and `show`, `movie`, `music`, `book`, and `podcast` entity
 renderers. Entity links use `PluginLink` so the kernel resolves canonical entity routes.
 
-`client/media/` owns everything the screens share and carries no schema copy. Show composes it
-directly over its own recipes in `shared/show-recipes.ts`.
+`client/media/` owns everything the screens share and carries no schema copy.
+
+Show and Podcast are episodic: the parent's state, coverage, and activity derive from its episodes.
+Each is one `mediaEpisodicRecipes` config in `shared/<slug>-recipes.ts` and one
+`defineEpisodicMediaSchema` descriptor in `client/<slug>/schema.tsx`, and gets a fixed
+`Overview | Episodes | Activity` tab set. The only structural difference is where episodes hang:
+show episodes hang off a season (`show-to-show-season` then `show-season-to-show-episode`), podcast
+episodes hang off the parent (`podcast-to-podcast-episode`). `EpisodicKindConfig` in
+`shared/lifecycle-expressions.ts` carries that difference, and `shared/episodic-recipes.ts` builds
+every query from it.
+
+Episode lists are cursor-paged top-level row queries with a Load more control, never nested includes,
+because only a top-level rows query exposes `pageInfo.nextCursor`. Every page owns its query and its
+managed assets, so Load more appends a page without refetching the ones on screen. Container-level
+counts - a season header's episode and watched totals, a podcast's played count - come from the
+container query's own aggregates, never from a loaded page, which would be wrong once the page is
+partial. Show season episodes list ascending and offer the first untracked episode after the last
+completed one as "Next up"; podcast episodes list newest first and offer the newest unplayed episode.
+Show's activity coverage is one bar per season with specials last; podcast's is a single Episodes bar.
+
+Podcast providers (iTunes and ListenNotes) emit no person or company credit relationships, so its
+credits arrive as `unlinkedCreators`, the way Book's do. They also ship cover art only - no backdrops,
+and episode artwork is square `cover` rather than show's `aspect-video` `still` - so the podcast hero
+uses art height at both widths.
 
 Movie, Music, and Book are flat, non-episodic schemas. Each is one `mediaFlatRecipes` config in
 `shared/<slug>-recipes.ts` - the fields its entity schema declares and a measure for activity totals -
