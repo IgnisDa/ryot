@@ -25,7 +25,7 @@ export function SavedViewList(props: {
 							className="h-24 w-16 shrink-0 rounded-md bg-surface-2 object-cover md:h-16 md:w-11 md:rounded-sm"
 						/>
 					)}
-					<div className="grid min-w-0 gap-0.5">
+					<div className="grid min-w-0 flex-1 gap-0.5">
 						{item.overline && (
 							<span className="truncate text-[11px] font-semibold tracking-wide text-text-subtle uppercase">
 								{formatSavedViewValue(item.overline)}
@@ -46,7 +46,7 @@ export function SavedViewList(props: {
 						)}
 					</div>
 					{item.callout && (
-						<span className="max-w-24 truncate text-sm font-semibold text-accent-text">
+						<span className="max-w-24 shrink-0 truncate text-sm font-semibold text-accent-text">
 							{formatSavedViewValue(item.callout)}
 						</span>
 					)}
