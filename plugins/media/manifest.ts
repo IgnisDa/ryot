@@ -475,11 +475,20 @@ export const mediaPlugin = definePlugin({
 				"Import anime, manga, progress, reviews, favorites, and custom lists from AniList",
 		},
 		{
+			lot: "named",
 			slug: "trakt",
 			name: "Trakt",
-			input: "payload",
+			input: "file",
 			workflowSlug: "import",
-			requiredPluginConfigKeys: ["traktClientId"],
+			requiredPluginConfigKeys: [],
+			artifacts: [
+				{
+					required: false,
+					key: "exportFilePath",
+					allowedFileExtensions: ["zip"],
+					uploadTokenField: "exportUploadToken",
+				},
+			],
 			description:
 				"Import movies, shows, history, ratings, watchlist, lists, and ownership from Trakt",
 		},

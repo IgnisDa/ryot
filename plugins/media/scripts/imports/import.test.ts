@@ -311,6 +311,7 @@ it.each([
 		{ mode: "other", username: "alice" },
 		"Import job is missing or invalid Trakt mode",
 	],
+	["missing export ZIP", { mode: "export" }, "Import job is missing Trakt export ZIP"],
 ])("fails the Trakt workflow on $0", async (_, sourcePayload, error) => {
 	const envelope = await Effect.runPromise(
 		workflow.run(
