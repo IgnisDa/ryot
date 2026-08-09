@@ -163,7 +163,7 @@ export const workerLifecycle = (input: {
 	};
 };
 
-type ExecutionTiming = {
+export type RequestTiming = {
 	readonly queueWaitMs: number;
 	readonly executionMs: number;
 	readonly attempts: number;
@@ -174,7 +174,7 @@ export const executionTimings = (
 	completedWorkers: ReadonlyArray<CompletedWorkerRecord>,
 	submissions: ReadonlyArray<{ readonly executionKey: string; readonly submittedAtMs: number }>,
 ) => {
-	const timings = new Map<string, ExecutionTiming>();
+	const timings = new Map<string, RequestTiming>();
 	for (const submission of submissions) {
 		const attempts = completedWorkers.filter(
 			(worker) => worker.executionKey === submission.executionKey,
@@ -193,6 +193,32 @@ export const executionTimings = (
 		});
 	}
 	return timings;
+};
+
+/**
+ * Joins per-request queue/execution timings. Import submissions join to workflow phase segments
+ * (keyed by the import workflow's execution id); every other submission joins to completed
+ * sandbox workers. A request with no key, or whose key has no timing record, keeps nulls rather
+ * than a fabricated zero.
+ */
+export const attachRequestTimings = (
+	requests: ReadonlyArray<ScenarioRequest & { readonly executionKey: string | null }>,
+	timings: {
+		readonly workers: ReadonlyMap<string, RequestTiming>;
+		readonly phases: ReadonlyMap<string, RequestTiming>;
+		readonly usePhaseTimings: boolean;
+	},
+): ScenarioRequest[] => {
+	const source = timings.usePhaseTimings ? timings.phases : timings.workers;
+	return requests.map(({ executionKey, ...request }) => {
+		const timing = executionKey === null ? undefined : source.get(executionKey);
+		return {
+			...request,
+			attempts: timing?.attempts ?? null,
+			queueWaitMs: timing?.queueWaitMs ?? null,
+			executionMs: timing?.executionMs ?? null,
+		} satisfies ScenarioRequest;
+	});
 };
 
 const pressureAvg10 = (

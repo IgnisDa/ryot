@@ -55,8 +55,32 @@ describe("aggregateScenario", () => {
 
 		expect(aggregate.metrics["peakDelta.denoAggregateRssBytes"]?.max).toBe(300);
 		expect(aggregate.metrics["peakDelta.denoAggregateRssBytes"]?.n).toBe(2);
-		expect(aggregate.outcomes).toEqual({ failed: 1, aborted: 1, skipped: 1, completed: 1 });
+		expect(aggregate.outcomes).toEqual({
+			failed: 1,
+			aborted: 1,
+			skipped: 1,
+			completed: 1,
+			truncated: 0,
+		});
 		expect(aggregate.repetitionResults).toHaveLength(4);
+	});
+
+	it("excludes truncated repetitions from resource statistics but still lists them", () => {
+		const aggregate = aggregateScenario([
+			repetition("hermetic-c2", 1, 100),
+			repetition("hermetic-c2", 2, 900, "truncated"),
+		]);
+
+		expect(aggregate.metrics["peakDelta.denoAggregateRssBytes"]?.max).toBe(100);
+		expect(aggregate.metrics["peakDelta.denoAggregateRssBytes"]?.n).toBe(1);
+		expect(aggregate.outcomes).toEqual({
+			failed: 0,
+			aborted: 0,
+			skipped: 0,
+			completed: 1,
+			truncated: 1,
+		});
+		expect(aggregate.repetitionResults).toHaveLength(2);
 	});
 });
 

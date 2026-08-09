@@ -3,7 +3,7 @@ import { Clock, Effect } from "effect";
 
 import { adminHeaders, getApiClient } from "~/fixtures/kernel";
 
-import type { MetricValues, ScenarioArtifact, WaveSummary } from "./artifacts";
+import type { MetricValues, ScenarioArtifact, ScenarioRequest, WaveSummary } from "./artifacts";
 import { REMOTE_FILES } from "./ops";
 import type { ImportRecord } from "./phases";
 import { retentionSlopes } from "./retention";
@@ -82,11 +82,11 @@ export const runSoak = (
 		let offsets = { appOffset, hostOffset };
 		const waves: WaveSummary[] = [];
 		const retentionPoints = [{ operations: 0, values: checkpointValues(freshIdle) }];
-		const allRequests: Array<ScenarioArtifact["requests"][number]> = [];
+		const allRequests: Array<ScenarioRequest & { readonly executionKey: string | null }> = [];
 		const importRecords: ImportRecord[] = [];
 		let submittedAtMs = 0;
 		let terminalAtMs = 0;
-		let timedOutWave: number | null = null;
+		let earlyStop: { readonly stopReason: string; readonly wave: number } | null = null;
 		/**
 		 * Profiling a concurrent wave costs about 1.9 GB on top of the load itself, which drove host
 		 * available memory under the watchdog floor and had the ryot container stopped mid-soak. The
@@ -121,17 +121,20 @@ export const runSoak = (
 				yield* backendProfile(profileToken, `wave-${wave}`, "cpu-stop");
 			}
 			if (submission === null) {
-				timedOutWave = wave;
+				earlyStop = { wave, stopReason: "wave-request-timeout" };
 				yield* Effect.log("sandbox-resource-baseline.soak.stopped", {
 					wave,
-					reason: "wave-timeout",
 					scenarioId: scenario.id,
+					reason: "wave-request-timeout",
 				});
 				break;
 			}
-			allRequests.push(
-				...submission.requests.map(({ executionKey: _executionKey, ...request }) => request),
-			);
+			/**
+			 * The execution keys travel with the requests into `captureRepetition`, which strips
+			 * them before writing the artifact; dropping them here would break the queue/execution
+			 * join for every soak request.
+			 */
+			allRequests.push(...submission.requests);
 			importRecords.push(...submission.importRecords);
 			const checkpoints: Array<WaveSummary["checkpoints"][number]> = [];
 			let elapsedMs = 0;
@@ -172,8 +175,10 @@ export const runSoak = (
 				rss: retentionPoints.at(-1)?.values["post.bunRssBytes"],
 			});
 			if ((waves.at(-1)?.failed ?? 0) > scenario.requestCount / 2) {
+				earlyStop = { wave, stopReason: "wave-failures" };
 				yield* Effect.log("sandbox-resource-baseline.soak.stopped", {
 					wave,
+					scenarioId: scenario.id,
 					reason: "wave-failures",
 				});
 				break;
@@ -203,18 +208,19 @@ export const runSoak = (
 			sources: merged,
 			containersBefore,
 			orderInRound: null,
+			requests: allRequests,
 			preSample: prepared.sample,
 			profileIds: [profileToken],
-			requests: allRequests.map((request) => Object.assign({ executionKey: null }, request)),
+			earlyStop: earlyStop === null ? null : { stopReason: earlyStop.stopReason },
 			peakReset:
 				peakReset === null
 					? null
 					: { verified: peakReset.verified, supported: peakReset.supported },
 			notes: [
 				"heap snapshots are taken from a separate fresh process and after the final recovery",
-				...(timedOutWave === null
+				...(earlyStop === null
 					? []
-					: [`wave ${timedOutWave} exceeded the request timeout and ended the soak`]),
+					: [`wave ${earlyStop.wave} ended the soak early: ${earlyStop.stopReason}`]),
 			],
 		});
 		return {
@@ -241,6 +247,8 @@ export const runSoak = (
 					]),
 				),
 				"soak.waves": waves.length,
+				"soak.expectedWaves": scenario.waves,
+				...(earlyStop === null ? {} : { "soak.truncatedAtWave": earlyStop.wave }),
 				"soak.operations": waves.reduce((total, wave) => total + wave.requests, 0),
 			},
 		} satisfies ScenarioArtifact;
