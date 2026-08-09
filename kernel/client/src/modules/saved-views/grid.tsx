@@ -10,25 +10,25 @@ export function SavedViewGrid(props: {
 	readonly items: readonly SavedViewCardResultItem[];
 }) {
 	return (
-		<div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 md:grid-cols-4 md:gap-x-5 lg:grid-cols-5 xl:grid-cols-6">
+		<div className="-mx-1.5 flex flex-wrap md:-mx-2.5">
 			{props.items.map((item) => (
 				<Link
 					to="/e/$entityId"
 					key={item.entityId}
 					aria-label={`Open ${item.title}`}
 					params={{ entityId: item.entityId }}
-					className="group grid content-start gap-2 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-accent"
+					className="grid w-1/2 content-start gap-2 rounded-lg px-1.5 pb-5 outline-none focus-visible:ring-2 focus-visible:ring-accent sm:w-1/3 md:w-1/4 md:px-2.5 lg:w-1/5 xl:w-1/6"
 				>
 					{item.image !== undefined && (
 						<ManagedImage
 							asset={item.image}
 							urls={props.managedUrls}
-							className="aspect-3/4 w-full rounded-lg object-cover"
+							className="aspect-3/4 w-full rounded-lg bg-surface-2 object-cover"
 						/>
 					)}
-					<div className="grid min-w-0 gap-1 px-0.5">
+					<div className="grid min-w-0 gap-1">
 						{item.overline && <SavedViewValue tone="overline" value={item.overline} />}
-						<span className="line-clamp-2 text-sm leading-snug font-semibold text-text">
+						<span className="line-clamp-2 text-base font-semibold text-text md:text-sm md:font-normal">
 							{item.title}
 						</span>
 						{item.primaryMetadata && <SavedViewValue tone="primary" value={item.primaryMetadata} />}

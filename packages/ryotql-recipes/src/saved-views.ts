@@ -440,17 +440,37 @@ export function savedViewRecipe(
 
 export const savedViewCountRecipe = (
 	queryDocument: RyotQLDocument,
+	entityIdField: string,
 ): Result.Result<PreparedRecipe<number>, Error> =>
-	Result.map(getOnlyRowsQuery(queryDocument), (query) => {
-		const recipe = defineRecipe(() => ({
-			queries: {
-				savedViewCount: selectedAggregate(query.from, {
-					where: query.where,
-					joins: query.joins,
-					measures: { total: selectedMeasure({ function: "count" }, Schema.Number) },
-				}),
-			},
-			map: ({ savedViewCount }) => Result.succeed(savedViewCount.total),
-		}));
-		return recipe();
-	});
+	Result.flatMap(getOnlyRowsQuery(queryDocument), (query) =>
+		Result.gen(function* () {
+			if (query.output.type !== "rows") {
+				return yield* Result.fail(new Error("Saved-view document query must produce rows"));
+			}
+			const selection = query.output.fields.find(
+				(outSelection): outSelection is FieldSelection =>
+					"key" in outSelection && outSelection.key === entityIdField,
+			);
+			if (selection === undefined) {
+				return yield* Result.fail(
+					new Error(`Saved-view count field '${entityIdField}' is missing or unusable`),
+				);
+			}
+			const recipe = defineRecipe(() => ({
+				queries: {
+					savedViewCount: selectedAggregate(query.from, {
+						where: query.where,
+						joins: query.joins,
+						measures: {
+							total: selectedMeasure(
+								{ expr: selection.expr, function: "countDistinct" },
+								Schema.Number,
+							),
+						},
+					}),
+				},
+				map: ({ savedViewCount }) => Result.succeed(savedViewCount.total),
+			}));
+			return recipe();
+		}),
+	);
