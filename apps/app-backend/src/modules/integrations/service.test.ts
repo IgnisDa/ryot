@@ -23,7 +23,7 @@ import {
 	IntegrationsService,
 	validateProgressThresholds,
 } from "./service";
-import { makeIntegration } from "./test-support";
+import { makeIntegration, makeRun } from "./test-support";
 
 const user: CurrentUserValue = {
 	image: null,
@@ -618,7 +618,7 @@ describe("installation availability", () => {
 						resolveOwnedForUser: () => Effect.succeed(null),
 					}),
 					Layer.mock(ImportsService)({
-						createRunForIntegration: () => Effect.die("run should not be created"),
+						createRunForIntegrationIfIdle: () => Effect.die("run should not be created"),
 					}),
 					Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 				),
@@ -628,6 +628,141 @@ describe("installation availability", () => {
 		return Effect.gen(function* () {
 			const service = yield* IntegrationsService;
 			expect(yield* service.prepareYankRuns(null)).toEqual([]);
+		}).pipe(Effect.provide(layer));
+	});
+});
+
+describe("prepareYankRuns", () => {
+	const yankIntegration = makeIntegration({
+		lot: "yank",
+		provider: "komga",
+		pluginSlug: "media",
+		pluginInstallationId: "media-installation-id",
+	});
+	const registeredYank: RegisteredIntegrationProvider = {
+		...systemPlugin("media"),
+		lot: "yank",
+		name: "Komga",
+		slug: "komga",
+		description: "Komga",
+		requiresProKey: false,
+		scriptSlug: "komga-sync",
+		settingsSchema: { fields: {} },
+	};
+
+	const layerFor = (
+		createRunForIntegrationIfIdle: ImportsService["Service"]["createRunForIntegrationIfIdle"],
+	) =>
+		integrationsServiceLayer.pipe(
+			Layer.provideMerge(
+				Layer.mergeAll(
+					databaseLayer,
+					mockProKey(true),
+					Layer.mock(IntegrationsRepository)({
+						getUserDisableIntegrations: () => Effect.succeed(false),
+						listEnabledYankIntegrations: () => Effect.succeed([yankIntegration]),
+					}),
+					Layer.mock(IntegrationProviderCatalog)({
+						listResolvedForUser: () => Effect.succeed([{ provider: registeredYank, script: null }]),
+					}),
+					Layer.mock(ImportsService)({ createRunForIntegrationIfIdle }),
+					Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
+				),
+			),
+		);
+
+	it.effect("admits an idle yank integration as a yank-owned run", () => {
+		let captured: Record<string, unknown> | undefined;
+		const layer = layerFor((input) => {
+			captured = input;
+			return Effect.succeed(makeRun("completed"));
+		});
+
+		return Effect.gen(function* () {
+			const service = yield* IntegrationsService;
+			expect(yield* service.prepareYankRuns(null)).toEqual([
+				{
+					userId: yankIntegration.userId,
+					integrationId: yankIntegration.id,
+					runId: makeRun("completed").id,
+				},
+			]);
+			expect(captured).toMatchObject({
+				source: "komga",
+				integrationId: yankIntegration.id,
+				pluginInstallationId: "media-installation-id",
+			});
+		}).pipe(Effect.provide(layer));
+	});
+
+	it.effect("skips a yank integration the database refused to admit", () => {
+		const layer = layerFor(() => Effect.succeed(null));
+
+		return Effect.gen(function* () {
+			const service = yield* IntegrationsService;
+			expect(yield* service.prepareYankRuns(null)).toEqual([]);
+		}).pipe(Effect.provide(layer));
+	});
+});
+
+describe("handleWebhook", () => {
+	it.effect("admits sink runs without idle exclusion", () => {
+		const integration = makeIntegration({
+			lot: "sink",
+			provider: "kodi",
+			pluginSlug: "media",
+			pluginInstallationId: "media-installation-id",
+		});
+		const registeredSink: RegisteredIntegrationProvider = {
+			...systemPlugin("media"),
+			lot: "sink",
+			name: "Kodi",
+			slug: "kodi",
+			description: "Kodi",
+			requiresProKey: false,
+			scriptSlug: "kodi-webhook",
+			settingsSchema: { fields: {} },
+		};
+		let captured: Record<string, unknown> | undefined;
+		const layer = integrationsServiceLayer.pipe(
+			Layer.provideMerge(
+				Layer.mergeAll(
+					databaseLayer,
+					mockProKey(true),
+					Layer.mock(IntegrationsRepository)({
+						getByIdAnyUser: () => Effect.succeed(integration),
+						getUserDisableIntegrations: () => Effect.succeed(false),
+					}),
+					Layer.mock(IntegrationProviderCatalog)({
+						findOwnedForUser: () => Effect.succeed(registeredSink),
+					}),
+					Layer.mock(ImportsService)({
+						createRunForIntegration: (input) => {
+							captured = input;
+							return Effect.succeed(makeRun("completed"));
+						},
+						createRunForIntegrationIfIdle: () => Effect.die("sink runs must not be idle-gated"),
+					}),
+					Layer.succeed(
+						WorkflowEngine,
+						makeWorkflowEngine({
+							execute: (_workflow, options) => Effect.succeed(options.executionId),
+						}),
+					),
+				),
+			),
+		);
+
+		return Effect.gen(function* () {
+			const service = yield* IntegrationsService;
+			expect(yield* service.handleWebhook({ payload: {}, integrationId: integration.id })).toEqual({
+				runId: makeRun("completed").id,
+			});
+			expect(captured).toMatchObject({
+				source: "kodi",
+				integrationLot: "sink",
+				integrationId: integration.id,
+			});
 		}).pipe(Effect.provide(layer));
 	});
 });

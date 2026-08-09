@@ -59,6 +59,8 @@ Best first slices: ranks 4-7 are narrow and migration-free. Then implement rank 
 
 **Validation:** Concurrent same-integration admission, different integrations, terminal-run replacement, scheduler loss of admission, integration service tests.
 
+**Implemented.** Exclusivity is scoped to yank admission: `import_run.integration_lot` records how a run was admitted, and `import_run_integration_active_unique` covers `integration_id` only where `integration_lot = 'yank'` and the status is `pending` or `running`. Sink runs stay unconstrained because `handleWebhook` legitimately creates one run per webhook delivery, which a blanket index would reject. `hasActiveRunForIntegration` is removed.
+
 ### 2. Preserve Raw Webhook Transport
 
 **Owner:** D15 Integrations
