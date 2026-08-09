@@ -107,7 +107,7 @@ export const getEntityHref = (entityId: string) => ({
 export const getSettingsHref = () => "/settings" as const;
 
 export function getActiveNavigationKey(pathname: string) {
-	if (pathname.endsWith("/settings")) {
+	if (/\/settings(?:\/|$)/.test(pathname)) {
 		return "settings";
 	}
 	const viewMatch = pathname.match(/\/v\/([^/]+)/);
