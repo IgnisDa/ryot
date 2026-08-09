@@ -18,9 +18,9 @@ const makeUser = (index: number, authState: GodModeUser["authState"] = "credenti
 		disabledAt: null,
 		name: `Reader ${index}`,
 		twoFactorEnabled: false,
-		id: UserId.make(`user-${index}`),
 		email: `reader-${index}@example.com`,
 		createdAt: "2026-09-01T00:00:00.000Z",
+		id: UserId.make(`user-${index}`),
 	}) satisfies GodModeUser;
 
 const makeOperations = (users: ReadonlyArray<GodModeUser>, calls: Array<unknown>) =>
@@ -120,7 +120,8 @@ describe("God Mode users administration", () => {
 		});
 		await screen.findByText("reader-0@example.com");
 
-		await user.click(screen.getByRole("button", { name: "Reset password" }));
+		await user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" }));
+		await user.click(screen.getByRole("menuitem", { name: "Generate reset link" }));
 		const resetLink = await screen.findByLabelText<HTMLInputElement>("Password reset link");
 		expect(resetLink.value).toBe("https://example.com/reset");
 		await user.click(screen.getByRole("button", { name: "Copy or share" }));
@@ -128,23 +129,90 @@ describe("God Mode users administration", () => {
 		expect(screen.getByRole<HTMLButtonElement>("button", { name: "Copied!" }).disabled).toBe(true);
 	});
 
-	it("makes destructive confirmation accessible to Escape and hardware Back", async () => {
+	it("opens and dismisses the accessible action menu", async () => {
 		const user = userEvent.setup();
 		const view = renderUsers([makeUser(0)]);
 		await screen.findByText("reader-0@example.com");
-		const trigger = screen.getByRole("button", { name: "Reset account" });
-		trigger.focus();
+		const trigger = screen.getByRole("button", { name: "Actions for reader-0@example.com" });
+		expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
+		expect(trigger.getAttribute("aria-expanded")).toBe("false");
 		await user.click(trigger);
-		let dialog = await screen.findByRole("dialog", { name: "Reset this user?" });
+		const menu = await screen.findByRole("menu", { name: "User actions" });
+		const generate = within(menu).getByRole("menuitem", { name: "Generate reset link" });
+		expect(trigger.getAttribute("aria-expanded")).toBe("true");
+		expect(trigger.getAttribute("aria-controls")).toBe(menu.id);
+		expect(document.activeElement).toBe(generate);
+
+		await user.keyboard("{ArrowDown}");
+		expect(document.activeElement).toBe(
+			within(menu).getByRole("menuitem", { name: "Disable user" }),
+		);
+		await user.keyboard("{End}");
+		expect(document.activeElement).toBe(
+			within(menu).getByRole("menuitem", { name: "Delete user" }),
+		);
+		await user.keyboard("{Home}");
+		expect(document.activeElement).toBe(generate);
+
+		fireEvent.keyDown(menu, { key: "Escape" });
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+		await waitFor(() => expect(document.activeElement).toBe(trigger));
+
+		await user.click(trigger);
+		await user.click(document.body);
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+
+		await user.click(trigger);
+		expect(view.backInterceptors.run()).toBe(true);
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+		await waitFor(() => expect(document.activeElement).toBe(trigger));
+	});
+
+	it("restores focus to the action trigger after destructive confirmation", async () => {
+		const user = userEvent.setup();
+		const view = renderUsers([makeUser(0)]);
+		await screen.findByText("reader-0@example.com");
+		const trigger = screen.getByRole("button", { name: "Actions for reader-0@example.com" });
+
+		await user.click(trigger);
+		await user.click(screen.getByRole("menuitem", { name: "Reset account" }));
+		const dialog = await screen.findByRole("dialog", { name: "Reset this user?" });
+		expect(screen.queryByRole("menu")).toBeNull();
 		expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Cancel" }));
 
-		fireEvent.keyDown(dialog, { key: "Escape" });
+		await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
 		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 		await waitFor(() => expect(document.activeElement).toBe(trigger));
 
 		await user.click(trigger);
-		dialog = await screen.findByRole("dialog", { name: "Reset this user?" });
+		await user.click(screen.getByRole("menuitem", { name: "Delete user" }));
+		const deleteDialog = await screen.findByRole("dialog", { name: "Delete this user?" });
 		expect(view.backInterceptors.run()).toBe(true);
-		await waitFor(() => expect(dialog.isConnected).toBe(false));
+		await waitFor(() => expect(deleteDialog.isConnected).toBe(false));
+		await waitFor(() => expect(document.activeElement).toBe(trigger));
+	});
+
+	it("disables unavailable reset links and keeps the note in the menu", async () => {
+		const user = userEvent.setup();
+		renderUsers([makeUser(0, "oidc")]);
+		await screen.findByText("reader-0@example.com");
+		const trigger = screen.getByRole("button", { name: "Actions for reader-0@example.com" });
+
+		await user.click(trigger);
+		const menu = screen.getByRole("menu", { name: "User actions" });
+		const resetLink = within(menu).getByRole<HTMLButtonElement>("menuitem", {
+			name: "Generate reset link",
+		});
+		expect(resetLink.disabled).toBe(true);
+		expect(
+			within(menu).getByText("OIDC-only user: password reset links are unavailable."),
+		).toBeTruthy();
+
+		await user.keyboard("{Escape}");
+		await waitFor(() =>
+			expect(
+				screen.queryByText("OIDC-only user: password reset links are unavailable."),
+			).toBeNull(),
+		);
 	});
 });
