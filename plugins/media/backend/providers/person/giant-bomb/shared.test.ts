@@ -1,0 +1,127 @@
+import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
+import { describe, expect, it } from "vitest";
+
+import { details, manifest, search } from "./shared";
+
+type GiantBombHost = SandboxHost<typeof manifest.capabilities>;
+
+const httpSuccess = (body: unknown) =>
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
+
+const makeHost = (httpCall: GiantBombHost["httpCall"]) =>
+	defineSandboxTestHost(manifest, {
+		httpCall,
+		getPluginConfig: (keys) =>
+			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "api-key"]))),
+	});
+
+const execution = { metadata: {}, sandboxScriptId: "script_test" };
+
+describe("person.giant-bomb sandbox script", () => {
+	it("maps search hits with birth year and image", () => {
+		const host = makeHost(() =>
+			httpSuccess({
+				error: "OK",
+				number_of_total_results: 1,
+				results: [
+					{
+						guid: "4010-1",
+						name: "Jane Dev",
+						birth_date: "1980-05-02",
+						image: { original_url: "https://img/p.jpg" },
+					},
+				],
+			}),
+		);
+
+		return runSandboxTestScript(
+			search,
+			{ query: "jane", page: 1, pageSize: 20 },
+			host,
+			execution,
+		).pipe(
+			Effect.map((result) => {
+				expect(result.items).toEqual([
+					{
+						metadata: [1980],
+						title: "Jane Dev",
+						externalId: "4010-1",
+						imageUrl: "https://img/p.jpg",
+					},
+				]);
+				expect(result.details).toEqual({ totalItems: 1, nextPage: null });
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
+	});
+
+	it("maps games and franchises to outgoing authoritative relationships", () => {
+		const host = makeHost(() =>
+			httpSuccess({
+				error: "OK",
+				results: {
+					name: "Jane Dev",
+					deck: "A dev.",
+					hometown: "Tokyo",
+					death_date: null,
+					description: "<p>bio</p>",
+					birth_date: "1980-05-02",
+					image: { original_url: "https://img/p.jpg" },
+					site_detail_url: "https://www.giantbomb.com/jane/",
+					games: [{ name: "Game A", api_detail_url: "https://www.giantbomb.com/api/game/3030-9/" }],
+					franchises: [
+						{ name: "Zelda", api_detail_url: "https://www.giantbomb.com/api/franchise/3025-1/" },
+					],
+				},
+			}),
+		);
+
+		return runSandboxTestScript(details, { externalId: "4010-1" }, host, execution).pipe(
+			Effect.map((result) => {
+				expect(result.name).toBe("Jane Dev");
+				expect(result.relatedEntityGroups).toEqual([
+					{
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "person-to-video-game",
+						entities: [
+							{
+								name: "Game A",
+								externalId: "3030-9",
+								providerSlug: "video-game.giant-bomb",
+								relationshipProperties: { roles: ["Person"] },
+							},
+						],
+					},
+					{
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "person-to-video-game-group",
+						entities: [
+							{
+								name: "Zelda",
+								externalId: "3025-1",
+								providerSlug: "video-game-group.giant-bomb",
+								relationshipProperties: { roles: ["Person"] },
+							},
+						],
+					},
+				]);
+				expect(result.properties).toEqual({
+					alternateNames: [],
+					birthPlace: "Tokyo",
+					deathDate: null,
+					birthDate: "1980-05-02",
+					description: "A dev.\n\n<p>bio</p>",
+					sourceUrl: "https://www.giantbomb.com/jane/",
+					images: [{ type: "remote", url: "https://img/p.jpg", purpose: "profile" }],
+				});
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
+	});
+});

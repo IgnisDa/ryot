@@ -4,8 +4,8 @@
 	"type": "module",
 	"exports": {
 		".": {
-			"types": "./manifest.ts",
-			"default": "./manifest.ts"
+			"types": "./host/plugin.ts",
+			"default": "./host/plugin.ts"
 		}
 	},
 	"scripts": {

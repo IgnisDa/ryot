@@ -8,7 +8,7 @@
 
 - `kernel/backend` is the domain-agnostic backend; `kernel/client` is the client kernel.
 - `apps/server` assembles the backend kernel, migrations, and shipped plugin archives.
-- `plugins/*` own first-party plugin manifests and backend sandbox sources.
+- `plugins/*` own first-party plugins, each split into host-side `host/`, archived `backend/`, and archived `client/`.
 - `migrations/*` own one-time migrations that depend on the kernel.
 - `packages/cli` builds canonical plugin archives for first-party and third-party plugins.
 - `packages/plugin-archive` owns the shared deterministic plugin archive reader and writer.

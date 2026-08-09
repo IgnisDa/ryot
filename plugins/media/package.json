@@ -3,36 +3,32 @@
 	"private": true,
 	"exports": {
 		".": {
-			"types": "./manifest.ts",
-			"default": "./manifest.ts"
-		},
-		"./import-sources": {
-			"types": "./import-sources.ts",
-			"default": "./import-sources.ts"
-		},
-		"./operations/recipes": {
-			"types": "./backend/operations/recipes.ts",
-			"default": "./backend/operations/recipes.ts"
-		},
-		"./operations/schemas": {
-			"types": "./backend/operations/schemas.ts",
-			"default": "./backend/operations/schemas.ts"
+			"types": "./host/plugin.ts",
+			"default": "./host/plugin.ts"
 		},
 		"./query-recipes": {
-			"types": "./query-recipes.ts",
-			"default": "./query-recipes.ts"
+			"types": "./host/query-recipes.ts",
+			"default": "./host/query-recipes.ts"
 		},
-		"./schemas/media-schema-slugs": {
-			"types": "./backend/schemas/media-schema-slugs.ts",
-			"default": "./backend/schemas/media-schema-slugs.ts"
+		"./import-sources": {
+			"types": "./host/import-sources.ts",
+			"default": "./host/import-sources.ts"
 		},
-		"./schemas/property-schemas": {
-			"types": "./backend/schemas/property-schemas.ts",
-			"default": "./backend/schemas/property-schemas.ts"
+		"./contracts/workflows": {
+			"types": "./backend/contracts/workflows.ts",
+			"default": "./backend/contracts/workflows.ts"
 		},
-		"./workflows/schemas": {
-			"types": "./backend/workflows/schemas.ts",
-			"default": "./backend/workflows/schemas.ts"
+		"./contracts/operations": {
+			"types": "./backend/contracts/operations.ts",
+			"default": "./backend/contracts/operations.ts"
+		},
+		"./contracts/schema-slugs": {
+			"types": "./backend/contracts/schema-slugs.ts",
+			"default": "./backend/contracts/schema-slugs.ts"
+		},
+		"./contracts/operation-recipes": {
+			"types": "./backend/contracts/operation-recipes.ts",
+			"default": "./backend/contracts/operation-recipes.ts"
 		}
 	},
 	"scripts": {
