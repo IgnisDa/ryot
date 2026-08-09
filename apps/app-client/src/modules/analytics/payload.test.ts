@@ -54,6 +54,21 @@ describe("umamiRequestBody", () => {
 		expect(body.payload).toMatchObject({ name: "Deploy Import", data: { source: "trakt" } });
 	});
 
+	it("omits the os and device so a browser session is classified from its user agent", () => {
+		const body = umamiRequestBody({ settings, environment, event: { url: "/settings" } });
+		expect(body.payload).not.toHaveProperty("os");
+		expect(body.payload).not.toHaveProperty("device");
+	});
+
+	it("includes the os and device overrides reported by a native session", () => {
+		const body = umamiRequestBody({
+			settings,
+			event: { url: "/settings" },
+			environment: { ...environment, os: "iOS", device: "mobile" },
+		});
+		expect(body.payload).toMatchObject({ os: "iOS", device: "mobile" });
+	});
+
 	it("prefers an explicit title over the url", () => {
 		const body = umamiRequestBody({
 			settings,
