@@ -1,5 +1,6 @@
 import { BunRuntime } from "@effect/platform-bun";
 import {
+	InternalOAuthProvisioningLive,
 	MigrationInfrastructureLive,
 	ObservabilityProvidedLive,
 	RuntimeServerLive,
@@ -11,6 +12,7 @@ import { Config, ConfigProvider, Effect, Layer } from "effect";
 
 const MigrationSequenceLive = LegacyTableRenameLive.pipe(
 	Layer.flatMap(() => SchemaMigrationLive),
+	Layer.flatMap(() => InternalOAuthProvisioningLive),
 	Layer.flatMap(() => SystemPluginIngestionLive),
 	Layer.flatMap(() => LegacyDataMigrationLive),
 );
