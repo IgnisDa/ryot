@@ -2,11 +2,11 @@ import { Layer } from "effect";
 
 import { AuthenticatedApi } from "#/api/authenticated";
 import { PublicApi } from "#/api/public";
-import { AuthClient } from "#/modules/auth/client";
 import { HostedAuthService } from "#/modules/auth/hosted-service";
 import { OAuthLauncher } from "#/modules/auth/oauth-launcher";
 import { OAuthStorage } from "#/modules/auth/oauth-storage";
 import { AuthService } from "#/modules/auth/service";
+import { OAuthTokenService } from "#/modules/auth/token-service";
 import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { PluginCatalogEventsService } from "#/modules/plugins/events";
@@ -15,26 +15,35 @@ import { PluginQueriesService } from "#/modules/plugins/queries";
 import { ServerService } from "#/modules/server/service";
 import { ClientStorage } from "#/persistence/storage";
 
+const OAuthTokenLive = OAuthTokenService.layer.pipe(Layer.provideMerge(OAuthStorage.layer));
 const InfrastructureLive = Layer.mergeAll(PublicApi.layer, AuthenticatedApi.layer).pipe(
-	Layer.provideMerge(ClientStorage.layer),
+	Layer.provideMerge(OAuthTokenLive),
 );
 
-const AuthClientLive = AuthClient.layer.pipe(Layer.provideMerge(InfrastructureLive));
-const ServerLive = ServerService.layer.pipe(Layer.provideMerge(InfrastructureLive));
+const ServerLive = ServerService.layer.pipe(
+	Layer.provideMerge(ClientStorage.layer),
+	Layer.provideMerge(InfrastructureLive),
+);
+const AuthLive = AuthService.layer.pipe(
+	Layer.provideMerge(ClientStorage.layer),
+	Layer.provideMerge(OAuthTokenLive),
+);
 const OAuthLauncherLive = OAuthLauncher.layer.pipe(
 	Layer.provideMerge(OAuthStorage.layer),
+	Layer.provideMerge(AuthLive),
 	Layer.provideMerge(ServerLive),
 	Layer.provideMerge(InfrastructureLive),
 );
 
 export const ClientLive = Layer.mergeAll(
-	AuthService.layer,
+	AuthLive,
 	OAuthLauncherLive,
 	HostedAuthService.layer,
 	ServerLive,
 	ArtifactSessions.layer,
 	PluginCatalogService.layer,
-	PluginCatalogEventsService.layer,
+	PluginCatalogEventsService.layer.pipe(Layer.provideMerge(OAuthTokenLive)),
 	PluginOperationsService.layer,
 	PluginQueriesService.layer,
-).pipe(Layer.provideMerge(AuthClientLive));
+	OAuthTokenLive,
+).pipe(Layer.provideMerge(InfrastructureLive));
