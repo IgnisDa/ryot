@@ -14,6 +14,7 @@ import {
 	type PuritySource,
 } from "./kernel-purity";
 import { kernelPurityAllowlist } from "./kernel-purity-allowlist";
+import { findDuplicateServiceLayers } from "./layer-wiring";
 import { analyzeRuntimeModules, formatRuntimeCycleDiagnostics } from "./runtime-module-analysis";
 
 class KernelPurityError extends Data.TaggedError("KernelPurityError")<{ message: string }> {}
@@ -53,11 +54,13 @@ const program = Effect.gen(function* () {
 	const sources = (yield* Effect.forEach(roots, (root) => walkSources(root, workspaceRoot))).flat();
 	const terms = deriveDomainVocabulary([mediaPlugin, fitnessPlugin]);
 	const findings = scanPuritySources(sources, terms);
+	const duplicateLayers = findDuplicateServiceLayers(sources);
 	const { errors, violations } = applyPurityAllowlist(findings, kernelPurityAllowlist);
-	if (cycles.length || errors.length || violations.length) {
+	if (cycles.length || errors.length || violations.length || duplicateLayers.length) {
 		return yield* new KernelPurityError({
 			message: [
 				...errors,
+				...duplicateLayers,
 				...violations.map(formatPurityFinding),
 				...(cycles.length ? [formatRuntimeCycleDiagnostics(cycles)] : []),
 			].join("\n"),
