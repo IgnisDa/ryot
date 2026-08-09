@@ -91,6 +91,7 @@ function Harness(props: HarnessProps) {
 				drawerId="test-drawer"
 				activeSettings={false}
 				triggerRef={triggerRef}
+				onCustomize={() => undefined}
 				onOpenSearch={() => undefined}
 				onNavigateItem={() => undefined}
 				hasDrawer={props.hasDrawer ?? true}

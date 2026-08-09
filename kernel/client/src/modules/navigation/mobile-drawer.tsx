@@ -29,19 +29,20 @@ type MobileDrawerProps = {
 	readonly hasDrawer: boolean;
 	readonly onClose: () => void;
 	readonly activeHome: boolean;
-	readonly activeKey: string | null;
+	readonly onCustomize: () => void;
 	readonly activeSettings: boolean;
+	readonly activeKey: string | null;
+	readonly onOpenSearch: () => void;
 	readonly sections: SidebarSections;
 	readonly session: AuthSessionStore;
 	readonly catalog: PluginClientCatalog;
 	readonly progress: MotionValue<number>;
 	readonly current: PluginClientCatalogEntry | null;
-	readonly onOpenSearch: () => void;
 	readonly onNavigateHome: () => void | Promise<void>;
-	readonly onNavigateItem: (item: SidebarItem) => void | Promise<void>;
 	readonly onNavigateSettings: () => void | Promise<void>;
 	readonly triggerRef: RefObject<HTMLButtonElement | null>;
 	readonly onSelectWorkspace: (slug: string) => void | Promise<void>;
+	readonly onNavigateItem: (item: SidebarItem) => void | Promise<void>;
 };
 
 const restoreFocus = (trigger: RefObject<HTMLButtonElement | null>) =>
@@ -130,6 +131,7 @@ export function MobileDrawer(props: MobileDrawerProps) {
 						activeKey={props.activeKey}
 						activeHome={props.activeHome}
 						key={props.isOpen ? "open" : "closed"}
+						onCustomize={() => closeThen(props.onCustomize)}
 						onOpenSearch={() => closeThen(props.onOpenSearch)}
 						onNavigateHome={() => closeThen(props.onNavigateHome)}
 						onNavigateItem={(item) => closeThen(() => props.onNavigateItem(item))}

@@ -12,6 +12,7 @@ import { visibleWorkspaces } from "#/modules/navigation/workspace-state";
 type WorkspaceSwitcherProps = {
 	readonly summary: string;
 	readonly catalog: PluginClientCatalog;
+	readonly onCustomize?: (() => void) | undefined;
 	readonly current: PluginClientCatalogEntry | null;
 	readonly onSelect: (slug: string) => void | Promise<void>;
 };
@@ -23,6 +24,7 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 	const items = useRef<Array<HTMLButtonElement | null>>([]);
 	const [isOpen, setIsOpen] = useState(false);
 	const workspaces = visibleWorkspaces(props.catalog);
+	const menuLength = workspaces.length + (props.onCustomize === undefined ? 0 : 1);
 	const initialIndex = Math.max(
 		0,
 		workspaces.findIndex((workspace) => workspace.slug === props.current?.slug),
@@ -43,6 +45,10 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 		if (workspace.slug !== props.current?.slug) {
 			queueMicrotask(() => void props.onSelect(workspace.slug));
 		}
+	};
+	const customize = () => {
+		close(true);
+		queueMicrotask(() => props.onCustomize?.());
 	};
 
 	useEffect(() => {
@@ -114,13 +120,13 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 							nextIndex = 0;
 						}
 						if (event.key === "End") {
-							nextIndex = workspaces.length - 1;
+							nextIndex = menuLength - 1;
 						}
 						if (event.key === "ArrowDown") {
-							nextIndex = (activeIndex + 1) % workspaces.length;
+							nextIndex = (activeIndex + 1) % menuLength;
 						}
 						if (event.key === "ArrowUp") {
-							nextIndex = (activeIndex - 1 + workspaces.length) % workspaces.length;
+							nextIndex = (activeIndex - 1 + menuLength) % menuLength;
 						}
 						if (nextIndex !== null) {
 							event.preventDefault();
@@ -168,6 +174,26 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 							</button>
 						);
 					})}
+					{props.onCustomize !== undefined && (
+						<>
+							<div role="none" className="my-1 h-px bg-border" />
+							<button
+								type="button"
+								role="menuitem"
+								onClick={customize}
+								aria-label="Customize sidebar"
+								tabIndex={activeIndex === workspaces.length ? 0 : -1}
+								onFocus={() => setActiveIndex(workspaces.length)}
+								className="flex w-full items-center gap-2.5 rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-left hover:bg-surface"
+								ref={(item) => {
+									items.current[workspaces.length] = item;
+								}}
+							>
+								<AppIcon name="sliders-horizontal" size={16} className="text-text-muted" />
+								<span className="text-sm font-medium text-text">Customize sidebar…</span>
+							</button>
+						</>
+					)}
 				</div>
 			)}
 		</div>

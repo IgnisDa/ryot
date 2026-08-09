@@ -301,4 +301,62 @@ describe("workspace switcher", () => {
 		expect(screen.queryByRole("menu")).toBeNull();
 		expect(document.activeElement).toBe(screen.getByRole("button", { name: "After switcher" }));
 	});
+
+	it("offers no customize entry when the consumer supplies no handler", () => {
+		const current = workspace();
+		render(
+			<WorkspaceSwitcher
+				current={current}
+				summary="2 views"
+				catalog={[current]}
+				onSelect={() => undefined}
+			/>,
+		);
+
+		fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
+
+		expect(screen.queryByRole("menuitem", { name: "Customize sidebar" })).toBeNull();
+	});
+
+	it("closes before reporting a customize request", () => {
+		const events: string[] = [];
+		const current = workspace();
+		render(
+			<WorkspaceSwitcher
+				current={current}
+				summary="2 views"
+				catalog={[current]}
+				onSelect={() => undefined}
+				onCustomize={() => events.push(screen.queryByRole("menu") === null ? "closed" : "open")}
+			/>,
+		);
+
+		fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
+		fireEvent.click(screen.getByRole("menuitem", { name: "Customize sidebar" }));
+
+		return waitFor(() => expect(events).toEqual(["closed"]));
+	});
+
+	it("walks the arrow keys past the workspaces onto the customize entry", async () => {
+		const current = workspace();
+		render(
+			<WorkspaceSwitcher
+				current={current}
+				summary="2 views"
+				catalog={[current]}
+				onSelect={() => undefined}
+				onCustomize={() => undefined}
+			/>,
+		);
+
+		fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
+		const menu = screen.getByRole("menu", { name: "Workspaces" });
+		fireEvent.keyDown(menu, { key: "ArrowDown" });
+
+		await waitFor(() =>
+			expect(document.activeElement).toBe(
+				screen.getByRole("menuitem", { name: "Customize sidebar" }),
+			),
+		);
+	});
 });

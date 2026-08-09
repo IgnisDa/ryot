@@ -9,6 +9,14 @@ export type EdgeResolution = {
 
 export const isSettingsPath = (pathname: string) => /^\/settings(?:\/|$)/.test(pathname);
 
+export const isCustomizeSidebarPath = (pathname: string) =>
+	/^\/customize-sidebar(?:\/|$)/.test(pathname);
+
+// A route that carries its own back affordance keeps the drawer, the mobile header, and the edge
+// gesture out of its way; the route's own control is the only way out.
+export const hasWorkspaceChrome = (pathname: string) =>
+	!isSettingsPath(pathname) && !isCustomizeSidebarPath(pathname);
+
 export function resolveEdge(input: {
 	readonly atRoot: boolean;
 	readonly pathname: string;
@@ -17,7 +25,7 @@ export function resolveEdge(input: {
 	readonly hasPluginDocument: boolean;
 }): EdgeResolution {
 	const compact = !input.isDesktop;
-	const hasDrawer = !isSettingsPath(input.pathname);
+	const hasDrawer = hasWorkspaceChrome(input.pathname);
 	const intent = resolveIntent(input, hasDrawer);
 	const owner = intent === "back" && input.hasPluginDocument && compact ? "plugin" : "kernel";
 	return { owner, compact, intent };

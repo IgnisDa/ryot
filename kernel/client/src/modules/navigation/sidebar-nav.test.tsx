@@ -45,7 +45,13 @@ const sections: SidebarSections = {
 	],
 };
 
-const renderSidebar = (showSearchShortcut: boolean) =>
+const renderSidebar = (
+	showSearchShortcut: boolean,
+	customize?: {
+		readonly onCustomize?: () => void;
+		readonly onEditSection?: (section: "views" | "savedViews") => void;
+	},
+) =>
 	render(
 		<SidebarNav
 			current={current}
@@ -53,11 +59,13 @@ const renderSidebar = (showSearchShortcut: boolean) =>
 			sections={sections}
 			activeHome={false}
 			activeKey="view:media-queue"
-			showSearchShortcut={showSearchShortcut}
 			onOpenSearch={() => undefined}
 			onNavigateHome={() => undefined}
 			onNavigateItem={() => undefined}
 			onSelectWorkspace={() => undefined}
+			onCustomize={customize?.onCustomize}
+			showSearchShortcut={showSearchShortcut}
+			onEditSection={customize?.onEditSection}
 		/>,
 	);
 
@@ -84,18 +92,18 @@ describe("sidebar navigation", () => {
 		let opened = false;
 		render(
 			<SidebarNav
+				activeKey={null}
 				current={current}
+				activeHome={true}
 				catalog={[current]}
 				sections={sections}
-				activeHome={true}
-				activeKey={null}
 				showSearchShortcut={false}
-				onOpenSearch={() => {
-					opened = true;
-				}}
 				onNavigateHome={() => undefined}
 				onNavigateItem={() => undefined}
 				onSelectWorkspace={() => undefined}
+				onOpenSearch={() => {
+					opened = true;
+				}}
 			/>,
 		);
 
@@ -111,5 +119,28 @@ describe("sidebar navigation", () => {
 			rules: { "color-contrast": { enabled: false } },
 		});
 		expect(results.violations.map((violation) => violation.id)).toEqual([]);
+	});
+
+	it("offers no customize affordances when the consumer supplies no handlers", () => {
+		renderSidebar(true);
+
+		expect(screen.queryByRole("button", { name: "Edit Views section" })).toBeNull();
+		expect(screen.queryByRole("button", { name: "Edit Saved Views section" })).toBeNull();
+	});
+
+	it("names the edited section on each header's Edit control", () => {
+		const edited: string[] = [];
+		renderSidebar(true, { onEditSection: (section) => edited.push(section) });
+
+		fireEvent.click(screen.getByRole("button", { name: "Edit Views section" }));
+		fireEvent.click(screen.getByRole("button", { name: "Edit Saved Views section" }));
+
+		expect(edited).toEqual(["views", "savedViews"]);
+	});
+
+	it("offers no Edit control on the Collections section", () => {
+		renderSidebar(true, { onEditSection: () => undefined });
+
+		expect(screen.queryByRole("button", { name: "Edit Collections section" })).toBeNull();
 	});
 });

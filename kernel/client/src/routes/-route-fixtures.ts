@@ -15,6 +15,7 @@ import { AuthService } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { GodModeService } from "#/modules/god-mode/service";
 import { GodModeSessionService, makeGodModeSessionService } from "#/modules/god-mode/session";
+import { CustomizeSidebarService } from "#/modules/navigation/customize/service";
 import { NavigationService } from "#/modules/navigation/service";
 import { ProviderAddService } from "#/modules/provider-add/service";
 import { SavedViewsService } from "#/modules/saved-views/service";
@@ -82,6 +83,12 @@ export const navigationData: NavigationData = {
 export const NavigationRouteStubs = Layer.succeed(NavigationService, {
 	load: () => Effect.succeed(navigationData),
 });
+
+export const makeCustomizeStub = (
+	save: CustomizeSidebarService["Service"]["save"] = () => Effect.void,
+) => Layer.succeed(CustomizeSidebarService, { save });
+
+export const CustomizeRouteStubs = makeCustomizeStub();
 
 export const authenticated = {
 	status: "authenticated",
