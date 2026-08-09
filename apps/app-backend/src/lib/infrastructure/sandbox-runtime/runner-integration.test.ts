@@ -1175,7 +1175,7 @@ it(
 					yield* Effect.forEach(kernelScripts, (script) =>
 						Effect.gen(function* () {
 							const filePath = yield* path.fromFileUrl(
-								new URL(`../../${script.entry}`, import.meta.url),
+								new URL(`../../../../${script.entry}`, import.meta.url),
 							);
 							const scriptSource = yield* fs.readFileString(filePath);
 							return [script.entry, scriptSource] as const;

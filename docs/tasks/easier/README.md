@@ -319,7 +319,7 @@ Best first slices: ranks 4-7 are narrow and migration-free. Then implement rank 
 
 **Owner:** D24 Durable sandbox orchestration
 
-**Evidence:** Dispatcher accepts both `request.index` and `requestIndex` at `sandbox/durable-host-dispatcher.ts:254-260`. The workflow passes the same value twice at `sandbox-script-workflow.ts:520-529`. App dispatch names use both at `app/sandbox-durable-host-dispatcher.ts:512-539`.
+**Evidence:** Dispatcher accepts both `request.index` and `requestIndex` at `sandbox/durable-host-dispatcher.ts:254-260`. The workflow passes the same value twice at `sandbox-script-workflow.ts:520-529`. Runtime dispatch names use both at `lib/infrastructure/sandbox-runtime/durable-host-dispatcher.ts:512-539`.
 
 **Current complexity:** One request can produce activity names from one index and child execution IDs from another. A test deliberately demonstrates the mismatch.
 
@@ -409,8 +409,8 @@ Colocated tests are included unless the boundary explicitly assigns them elsewhe
 
 | ID  | Subsystem and exact boundary                                                                                                   | Interfaces, callers, tests                                                         | Status                                        |
 | --- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- | --------------------------------------------- |
-| A01 | Bootstrap/server: `B/src/main.ts`, `src/app/{layers,server,cron-workflow-definitions,kernel-workflow-references}.ts`           | `AppLive`, `MigrationOnlyLive`, `ServerLive`; all route/workflow layers; app tests | skip                                          |
-| A02 | App sandbox bridges: `B/src/app/{automation-sandbox-host-functions,sandbox-host-functions,sandbox-durable-host-dispatcher}.ts` | SDK hosts; sandbox workflows; matching tests                                       | skip, D24 authoritative                       |
+| A01 | Bootstrap/server: `B/src/main.ts`, `src/boot/{layers,server,cron-workflow-definitions,kernel-workflow-references}.ts`                        | `AppLive`, `MigrationOnlyLive`, `ServerLive`; all route/workflow layers; boot tests | skip                    |
+| A02 | Sandbox runtime wiring: `B/src/lib/infrastructure/sandbox-runtime/{automation-host-functions,host-functions,durable-host-dispatcher}.ts` | SDK hosts; sandbox workflows; matching tests                                        | skip, D24 authoritative |
 | I01 | Config/process: `B/src/lib/infrastructure/config/**`, `observability.ts`, `pro-key.ts`, `unkey.ts`, `server-run.ts`            | `AppConfig`, Pro key, telemetry; main/system/server; tests                         | **recommend**                                 |
 | I02 | DB runtime: `db/{service,advisory-locks,user-write-lock,migrate}.ts`                                                           | `Database`, `PgClientLive`, migrations; repositories; tests                        | skip                                          |
 | I03 | DB schema/generated migration: `db/schema/**`, `B/src/drizzle/**`, `drizzle.config.ts`                                         | Drizzle tables; repositories; generated SQL                                        | skip, index removal needs production evidence |

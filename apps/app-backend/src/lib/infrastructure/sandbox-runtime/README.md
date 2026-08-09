@@ -18,7 +18,8 @@ while a request is dispatched.
 - `runner-source.sandbox.ts` + `runner-utilities.sandbox.ts`: the TypeScript-authored Deno runner. `sandbox:compile-runner` bundles them ahead of execution into the ignored `runner.generated.ts`, and `sandbox:check-runner` (`deno check` with `deno.json`) type-checks them with Deno globals outside the backend `tsc`.
 - `host-implementations.ts`: typed injection contract for app-owned host implementation maps.
 - `shared.ts`: runtime contracts and helpers used by app-owned host implementations.
-- `src/app/sandbox-host-functions.ts` and `src/app/automation-sandbox-host-functions.ts`: app-bound bridge functions for user, entity, event, integration, RyotQL, config, signal, and notification access.
+- `host-functions.ts` and `automation-host-functions.ts`: app-bound bridge functions for user, entity, event, integration, RyotQL, config, signal, and notification access.
+- `durable-host-dispatcher.ts`: application wiring that maps durable host requests to infrastructure, activities, and module-owned workflows.
 - Plugin scripts and script-side helpers live under `plugins/*/scripts/`; the generic notification script lives under `modules/definition-registry/kernel-scripts/`. This folder owns only execution runtime code.
 
 ## Compilation Pipeline
@@ -195,7 +196,7 @@ Cache keys are isolated per `(executing user, providerId)`. Cache host functions
 ### Adding A Host Function
 
 1. Define the script-facing schema and method in `@ryot/sandbox-sdk`.
-2. Implement app-bound context-first methods in `src/app/sandbox-host-functions.ts` or `src/app/automation-sandbox-host-functions.ts`; runtime-owned methods go in `runtime-host-functions.ts`.
+2. Implement app-bound context-first methods in `host-functions.ts` or `automation-host-functions.ts`; runtime-owned methods go in `runtime-host-functions.ts`.
 3. Decode its untrusted RPC argument array in `bridge-adapter.ts`; implementation functions must not accept unknown argument arrays.
 4. Use `requireSandboxCapabilityInput(input, capability)` for capability authorization.
 5. Add the function name to this section.
