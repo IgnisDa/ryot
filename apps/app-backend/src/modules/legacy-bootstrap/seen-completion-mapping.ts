@@ -174,6 +174,8 @@ BEGIN
 		INNER JOIN _seen_required_counts required
 			ON  required.entity_id = child.entity_id
 			AND required.entity_schema_slug IN ('show', 'podcast')
+		INNER JOIN "metadata" legacy_metadata ON legacy_metadata.id = child.entity_id
+		WHERE lower(trim(legacy_metadata.production_status)) IN ('ended', 'canceled', 'cancelled')
 		ORDER BY child.user_id, child.entity_id
 	LOOP
 		covered_keys := ARRAY[]::text[];
