@@ -1061,9 +1061,13 @@ rather than implementation-oriented routes such as:
 
 ## 16. Selected workspace and URL authority
 
-The current workspace is navigation state and should normally be derived from the route.
+The route determines which document is mounted; it does not determine the surrounding workspace.
+The **remembered last workspace** is the sole authority for workspace context, and it is what the
+sidebar, the workspace switcher, and the Home row display on every authenticated route.
 
 Persistent storage records the **last workspace**, not an authoritative hidden selected workspace.
+Only a deliberate choice writes it: the workspace switcher, and the `/` bootstrap redirect below.
+Reaching a plugin route by URL or by cross-plugin delegation never changes what is remembered.
 
 A pathless TanStack Router layout route owns everything authenticated. Its `beforeLoad` runs the authenticated route guard, and its `loader` loads the plugin catalog and the remembered workspace before any authenticated screen renders. It creates one direct kernel `RyotClient` and mounts one `RyotProvider`, one plugin-catalog provider, and the authenticated shell around the routed screen. Every authenticated route, including the settings tree, is reparented under it; public URLs are unaffected.
 
@@ -1099,7 +1103,13 @@ For:
 /fitness/workouts/123
 ```
 
-the active workspace is unambiguously `fitness`.
+`fitness` unambiguously owns the renderer, the mounted plugin document, and the left edge.
+It does not become the surrounding workspace: a user can arrive here by cross-plugin delegation,
+such as opening a collection in the Media plugin that contains a workout. The sidebar therefore
+keeps showing the remembered workspace, and nothing is persisted.
+
+Whether the edge offers the drawer or a back gesture stays route-derived, so a plugin workspace
+root still resolves to the drawer even when it is not the remembered workspace.
 
 ### Entity routes
 
@@ -1121,13 +1131,13 @@ For:
 
 the kernel owns the screen.
 
-If the saved view is associated with a plugin, that plugin may determine the surrounding workspace context.
-
-A global saved view with no plugin owner may use the remembered last workspace only for surrounding navigation context.
+A saved view's plugin association never determines the surrounding workspace context. Every saved
+view uses the remembered last workspace for surrounding navigation context.
 
 ### Settings and other global routes
 
-Global kernel screens do not intrinsically belong to a plugin. The kernel may preserve the remembered workspace for surrounding navigation context where appropriate.
+Global kernel screens do not intrinsically belong to a plugin, and neither does any other route:
+the kernel preserves the remembered workspace for surrounding navigation context everywhere.
 
 Settings lives at `/settings`, `/settings/preferences`, and `/settings/account`, with a settings-specific sidebar rendered inside the shell's content region rather than replacing the workspace sidebar. On desktop this gives two levels of navigation at once: the workspace sidebar and a 240px settings sidebar whose active section is derived from the pathname, with nested paths active under their parent and `replace` navigation between sections; `/settings` itself replaces to `/settings/preferences`, including when the viewport crosses into desktop while already on the index. Below the desktop breakpoint, `/settings` is a section index of disclosure rows reached with push navigation; detail routes carry a back control that prefers browser history and otherwise falls back to `/settings`, and the index's own back fallback is the remembered workspace route. The global mobile header and drawer described in §17 are not rendered on settings routes, so a settings detail header never stacks on top of them.
 
@@ -1159,13 +1169,13 @@ It should not normally create:
 
 Workspace switching should preserve the current semantic behavior of replacing the active workspace context.
 
-The switcher lists every enabled installation in catalog order. Selecting the current workspace does nothing; selecting a different one persists the slug, closes the switcher, and navigates with `replace` — closing happens before the navigation so the transition never briefly shows the destination workspace behind an open switcher.
+The switcher lists every enabled installation in catalog order. Selecting the current workspace does nothing; selecting a different one persists the slug, closes the switcher, and navigates with `replace` — closing happens before the navigation so the transition never briefly shows the destination workspace behind an open switcher. Together with the `/` bootstrap redirect in §16, this switcher is the only writer of `lastWorkspace`.
 
 ### Shell chrome
 
-At `md` and above, a desktop workspace sidebar (~264px, hidden below `md`) is always present: a workspace trigger, a Home row for the current workspace, and an account/settings footer. It carries no search, saved views, collections, or customization. Below `md`, a mobile header replaces it, opening a drawer that carries the same trigger, Home row, and footer.
+At `md` and above, a desktop workspace sidebar (~264px, hidden below `md`) is always present: a workspace trigger, a Home row for the remembered workspace, and an account/settings footer. It carries no search, saved views, collections, or customization. Below `md`, a mobile header replaces it, opening a drawer that carries the same trigger, Home row, and footer.
 
-The mobile header is a 54px row with `size-11 rounded-pill` controls on a `bg-bg` surface. Its leading control is the menu button or a back chevron, chosen by the §25 edge rule. Its title is the workspace name, overridden by the plugin-supplied title described in §10 when one is set.
+The mobile header is a 54px row with `size-11 rounded-pill` controls on a `bg-bg` surface. Its leading control is the menu button or a back chevron, chosen by the §25 edge rule. Its title is the remembered workspace's name, overridden by the plugin-supplied title described in §10 when one is set.
 
 The drawer is a controlled overlay rather than a modal `<dialog>`, because `showModal()` is binary and cannot be dragged progressively open. Its panel and scrim are driven by one shared progress value, so the button and the edge gesture animate through the same path. It supports Escape, scrim, and close-button dismissal, traps focus while open, restores focus to the menu trigger on close, locks body scroll, leaves the accessibility tree as soon as it closes rather than when its exit animation ends, and respects reduced motion. Selecting a destination commits the close before the navigation runs, so the destination never appears behind an open drawer. Neither the mobile header nor the drawer belongs to settings routes, but the drawer unmounts on its progress value reaching zero rather than on the route changing, so choosing settings from inside it animates the panel out instead of cutting it away, and returning to a workspace never remounts a panel that is still part-way open.
 

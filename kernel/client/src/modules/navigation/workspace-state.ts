@@ -34,3 +34,6 @@ export const resolvePluginRouteWorkspace = (
 	pluginSlug: string,
 ): PluginClientCatalogEntry | null =>
 	sortWorkspaces(catalog).find(({ slug }) => slug === pluginSlug) ?? null;
+
+export const isWorkspaceRoot = (pathname: string, workspace: PluginClientCatalogEntry | null) =>
+	workspace !== null && (pathname === `/${workspace.slug}` || pathname === `/${workspace.slug}/`);

@@ -5,6 +5,7 @@ import type {
 import { describe, expect, it } from "vitest";
 
 import {
+	isWorkspaceRoot,
 	resolvePluginRouteWorkspace,
 	resolveRememberedWorkspace,
 	sortWorkspaces,
@@ -101,5 +102,22 @@ describe("workspace state", () => {
 		expect(visibleWorkspaces(catalog)).toEqual([]);
 		expect(resolveRememberedWorkspace(catalog, "media")).toBeNull();
 		expect(resolvePluginRouteWorkspace(catalog, "media")?.slug).toBe("media");
+	});
+
+	it("recognizes a workspace root with or without a trailing slash", () => {
+		const media = workspace();
+
+		expect(isWorkspaceRoot("/media", media)).toBe(true);
+		expect(isWorkspaceRoot("/media/", media)).toBe(true);
+	});
+
+	it("rejects child routes, other workspaces, and an absent workspace", () => {
+		const media = workspace();
+
+		expect(isWorkspaceRoot("/media/workouts/1", media)).toBe(false);
+		expect(isWorkspaceRoot("/mediation", media)).toBe(false);
+		expect(isWorkspaceRoot("/fitness", media)).toBe(false);
+		expect(isWorkspaceRoot("/v/all-movies", media)).toBe(false);
+		expect(isWorkspaceRoot("/media", null)).toBe(false);
 	});
 });

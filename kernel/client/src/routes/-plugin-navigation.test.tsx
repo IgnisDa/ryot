@@ -95,6 +95,18 @@ const mountBootstrap = (
 		storage,
 	);
 
+const journalEntries: PluginClientCatalog = [
+	catalog[0],
+	{
+		...catalog[0],
+		sortOrder: 1,
+		name: "Journal",
+		slug: "journal",
+		pluginId: "plugin-2",
+		installationId: "installation-2",
+	},
+];
+
 const frame = () => screen.getByTitle<HTMLIFrameElement>("fixture plugin");
 
 const connectFrame = (element: HTMLIFrameElement) => {
@@ -131,51 +143,65 @@ describe("plugin navigation", () => {
 		expect(router.state.location.pathname).toBe("/fixture");
 	});
 
-	it("remembers an enabled workspace opened by its direct route", async () => {
+	it("keeps the remembered workspace as the sidebar identity on another workspace's route", async () => {
 		const recorder = makeWorkspaceRecorder();
-		const entries: PluginClientCatalog = [
-			catalog[0],
-			{
-				...catalog[0],
-				sortOrder: 1,
-				name: "Journal",
-				slug: "journal",
-				pluginId: "plugin-2",
-				installationId: "installation-2",
-			},
-		];
-		mountView("/journal", entries, undefined, undefined, makeStorageStub("fixture", recorder));
-
-		await waitFor(() =>
-			expect(recorder.setCalls).toEqual([
-				{ slug: "journal", scope: { serverUrl: server, userId: authenticated.user.id } },
-			]),
+		mountView(
+			"/journal",
+			journalEntries,
+			undefined,
+			undefined,
+			makeStorageStub("fixture", recorder),
 		);
+
+		await screen.findByTitle("journal plugin");
+		expect(screen.getByRole("button", { name: "Fixture workspace, fixture" })).toBeTruthy();
+		expect(screen.getByRole("link", { name: "Home" }).getAttribute("href")).toBe("/fixture");
+		expect(screen.getByRole("link", { name: "Home" }).getAttribute("aria-current")).toBeNull();
+		expect(recorder.setCalls).toEqual([]);
 	});
 
-	it("does not remember a disabled workspace opened by its direct route", async () => {
+	it("keeps the edge on the drawer at a workspace root the user did not choose", async () => {
+		mountView(
+			["/fixture", "/journal"],
+			journalEntries,
+			undefined,
+			undefined,
+			makeStorageStub("fixture"),
+		);
+
+		await screen.findByTitle("journal plugin");
+		expect(screen.getByRole("button", { name: "Open navigation" })).toBeTruthy();
+		expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
+	});
+
+	it("hands the edge back when the remembered workspace sits on a plugin child route", async () => {
+		mountView(
+			["/fixture", "/journal/entries/1"],
+			journalEntries,
+			undefined,
+			undefined,
+			makeStorageStub("fixture"),
+		);
+
+		await screen.findByTitle("journal plugin");
+		expect(screen.getByRole("button", { name: "Go back" })).toBeTruthy();
+		expect(screen.queryByRole("button", { name: "Open navigation" })).toBeNull();
+	});
+
+	it("shows no workspace identity when every workspace is disabled", async () => {
 		const recorder = makeWorkspaceRecorder();
 		mountView(
 			"/fixture",
 			catalog.map((entry) => ({ ...entry, isDisabled: true })),
 			undefined,
 			undefined,
-			makeStorageStub(null, recorder),
+			makeStorageStub("fixture", recorder),
 		);
 
 		await waitFor(() => expect(frame()).toBeTruthy());
+		expect(screen.getByRole("button", { name: "No workspace, Plugin workspace" })).toBeTruthy();
+		expect(screen.queryByRole("link", { name: "Home" })).toBeNull();
 		expect(recorder.setCalls).toEqual([]);
-	});
-
-	it("keeps a disabled direct-route workspace as the sidebar identity", async () => {
-		mount(
-			"/fixture",
-			catalog.map((entry) => ({ ...entry, isDisabled: true })),
-		);
-
-		await waitFor(() => expect(frame()).toBeTruthy());
-		expect(screen.getByRole("button", { name: "Fixture workspace, fixture" })).toBeTruthy();
-		expect(screen.getByRole("link", { name: "Home" }).getAttribute("aria-current")).toBe("page");
 	});
 
 	it("keeps the authenticated shell stable across plugin child routes", async () => {
