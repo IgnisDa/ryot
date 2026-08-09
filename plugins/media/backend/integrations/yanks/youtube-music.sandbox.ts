@@ -17,7 +17,7 @@ export const manifest = defineManifest({
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 	slug: "integration.youtube-music",
-	capabilities: ["httpCall", "getCurrentIntegration", "claimPersistentValue"],
+	capabilities: ["log", "span", "httpCall", "getCurrentIntegration", "claimPersistentValue"],
 });
 
 const Input = Schema.Struct({});
@@ -69,6 +69,28 @@ export const runYoutubeMusicYank = (
 		);
 		const songs = [...new Map(history.songs.map((song) => [song.videoId, song])).values()];
 		const { localDate, ttlSeconds, isFinalWindow } = dailyProgressWindow(timezone, occurredAt);
+		yield* host.span([
+			{
+				name: "ytmusic.history.fetched",
+				attributes: {
+					timezone,
+					localDate,
+					ttlSeconds,
+					isFinalWindow,
+					uniqueSongCount: songs.length,
+					historySongCount: history.songs.length,
+				},
+			},
+		]);
+		if (songs.length === 0) {
+			yield* host.log([
+				{
+					level: "warning",
+					attributes: { timezone, localDate },
+					message: "YouTube Music history returned no songs for the local day",
+				},
+			]);
+		}
 		const groups = yield* Effect.forEach(songs, (song, itemIndex) =>
 			Effect.gen(function* () {
 				const key = `${integration.id}:${song.videoId}:${localDate}`;
@@ -113,6 +135,25 @@ export const runYoutubeMusicYank = (
 			}),
 		);
 		const entityGroups = groups.filter((group) => group !== null);
+		yield* host.span([
+			{
+				name: "ytmusic.progress.resolved",
+				attributes: {
+					localDate,
+					isFinalWindow,
+					emittedCount: entityGroups.length,
+					skippedCount: songs.length - entityGroups.length,
+				},
+			},
+			...entityGroups.map((group) => ({
+				name: "ytmusic.progress.emitted",
+				attributes: {
+					itemIndex: group.itemIndex,
+					videoId: group.entityRef.externalId,
+					sourceLabel: group.entityRef.sourceLabel,
+				},
+			})),
+		]);
 		return { failures: [], entityGroups };
 	});
 
