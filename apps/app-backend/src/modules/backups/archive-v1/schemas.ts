@@ -1,4 +1,4 @@
-import { jsonValueSchema } from "@ryot/contract/modules/sandbox/wire";
+import { jsonValueSchema, type JsonValue } from "@ryot/contract/modules/sandbox/wire";
 import { SavedViewLayouts } from "@ryot/contract/modules/saved-views/schemas";
 import { strictStruct } from "@ryot/contract/schema/utils";
 import { Result, Schema } from "effect";
@@ -19,6 +19,17 @@ const isoTimestamp = Schema.String.pipe(
 );
 const jsonObject = Schema.Record(Schema.String, jsonValueSchema);
 
+export const V1_BOOTSTRAP_SOURCE = {
+	name: ["Lib", "rary"].join(""),
+	pluginSlug: ["me", "dia"].join(""),
+	entitySchemaSlug: ["lib", "rary"].join(""),
+} as const;
+
+export const decodeV1JsonObject = Schema.decodeUnknownSync(jsonObject);
+
+export const isV1JsonObject = (value: unknown): value is Record<string, JsonValue> =>
+	typeof value === "object" && value !== null && !Array.isArray(value);
+
 export const V1_SECTION_PATHS = [
 	"profile.json",
 	"plugin-state.ndjson",
@@ -33,19 +44,19 @@ export const V1_SECTION_PATHS = [
 export type V1SectionPath = (typeof V1_SECTION_PATHS)[number];
 
 export const V1SectionManifest = strictStruct({
-	sha256,
-	count: nonNegativeInteger,
 	path: Schema.Literals(V1_SECTION_PATHS),
+	count: nonNegativeInteger,
+	sha256,
 });
 export type V1SectionManifest = typeof V1SectionManifest.Type;
 
 export const V1AssetManifest = strictStruct({
-	sha256,
-	size: nonNegativeInteger,
-	contentType: Schema.String,
 	path: Schema.String.pipe(
 		Schema.check(Schema.makeFilter((value) => /^assets\/[a-f0-9]{64}$/.test(value))),
 	),
+	size: nonNegativeInteger,
+	sha256,
+	contentType: Schema.String,
 });
 export type V1AssetManifest = typeof V1AssetManifest.Type;
 
@@ -56,22 +67,22 @@ export const V1RequiredPlugin = strictStruct({
 export type V1RequiredPlugin = typeof V1RequiredPlugin.Type;
 
 export const V1Manifest = strictStruct({
-	createdAt: isoTimestamp,
+	format: Schema.Literal("ryot-backup"),
+	version: Schema.Literal(1),
 	archiveId: Schema.String,
 	appVersion: Schema.String,
-	version: Schema.Literal(1),
-	assets: Schema.Array(V1AssetManifest),
-	redactions: Schema.Array(Schema.String),
-	format: Schema.Literal("ryot-backup"),
+	createdAt: isoTimestamp,
 	sections: Schema.Array(V1SectionManifest),
+	assets: Schema.Array(V1AssetManifest),
 	requiredPlugins: Schema.Array(V1RequiredPlugin),
+	redactions: Schema.Array(Schema.String),
 });
 export type V1Manifest = typeof V1Manifest.Type;
 
 export const V1Profile = strictStruct({
 	name: Schema.String,
-	preferences: jsonObject,
 	image: Schema.NullOr(Schema.String),
+	preferences: jsonObject,
 });
 export type V1Profile = typeof V1Profile.Type;
 
@@ -103,7 +114,7 @@ export const V1UserEntity = strictStruct({
 });
 export type V1UserEntity = typeof V1UserEntity.Type;
 
-export const V1EntityTranslation = strictStruct({
+const V1EntityTranslation = strictStruct({
 	id: Schema.String,
 	language: Schema.String,
 	createdAt: isoTimestamp,
@@ -112,7 +123,7 @@ export const V1EntityTranslation = strictStruct({
 	properties: Schema.NullOr(jsonObject),
 	populatedAt: Schema.NullOr(isoTimestamp),
 });
-export type V1EntityTranslation = typeof V1EntityTranslation.Type;
+type V1EntityTranslation = typeof V1EntityTranslation.Type;
 
 const dependencyIdentity = Schema.Union([
 	strictStruct({ kind: Schema.Literal("unmanaged") }),

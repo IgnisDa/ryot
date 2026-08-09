@@ -2,8 +2,8 @@ import { Effect } from "effect";
 import type { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import type { Database } from "#lib/infrastructure/db/service";
-import { backupsFrequentTask } from "#modules/backups/frequent-task";
-import type { BackupsService } from "#modules/backups/service";
+import { makeBackupsFrequentTask } from "#modules/backups/runs/cleanup";
+import { BackupsService } from "#modules/backups/service";
 import { integrationsFrequentTask } from "#modules/integrations/frequent-task";
 import {
 	type CronRunPayload,
@@ -16,7 +16,16 @@ import type { UploadsService } from "#modules/uploads/service";
 
 const frequentCronTasks: ReadonlyArray<
 	CronTask<never, BackupsService | Database | WorkflowEngine | UploadsService>
-> = [backupsFrequentTask, integrationsFrequentTask, uploadsFrequentTask];
+> = [
+	makeBackupsFrequentTask(
+		Effect.gen(function* () {
+			const service = yield* BackupsService;
+			yield* service.cleanupExpiredArtifacts(100);
+		}),
+	),
+	integrationsFrequentTask,
+	uploadsFrequentTask,
+];
 
 const runFrequentCronWorkflow = Effect.fn("FrequentCronWorkflow")(
 	function* (_payload: CronRunPayload, executionId: string) {
