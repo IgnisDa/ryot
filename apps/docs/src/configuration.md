@@ -14,7 +14,7 @@ Ryot serves the final configuration loaded at the `/api/system/config` endpoint 
 | `DATABASE_URL`                           | The Postgres database connection string. **Required**.                                                                                            |
 | `SERVER_ADMIN_ACCESS_TOKEN`              | Bearer token guarding the god-mode admin endpoints. **Required**.                                                                                 |
 | `TZ`                                     | Timezone used to interpret timezone-less datetimes during imports. Accepts values according to the IANA database. Defaults to `Etc/GMT`.          |
-| `FRONTEND_URL`                           | Public URL of the frontend application. Defaults to `https://app.ryot.io`.                                                                        |
+| `FRONTEND_URL`                           | Public URL of the frontend application. **Required**. Defaults to `https://app.ryot.io`.                                                           |
 | `DISABLE_TELEMETRY`                      | Disables usage analytics collected using [Umami](https://umami.is). Defaults to `false`.                                                          |
 | `RYOT_PLUGIN_MEDIA_MAL_CLIENT_ID`        | The client ID issued by MyAnimeList. **Required** to enable MyAnimeList tracking and import. [More information](guides/anime-and-manga.md)        |
 | `RYOT_PLUGIN_MEDIA_TRAKT_CLIENT_ID`      | The client ID issued by Trakt. **Required only** for Trakt username/public-list API imports, not ZIP exports. [More information](guides/trakt.md) |
