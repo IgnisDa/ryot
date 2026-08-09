@@ -57,7 +57,7 @@ const progressPercentPropertiesSchema = (): AppSchema => ({
 		progressPercent: {
 			type: "number" as const,
 			label: "Progress Percent",
-			transform: { round: { mode: "half_up" as const, scale: 2 } },
+			normalize: { round: { scale: 2 } },
 			description: "Percentage of the media completed so far (0 to 100)",
 			validation: { maximum: 100, exclusiveMinimum: 0, required: true as const },
 		},
