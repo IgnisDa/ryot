@@ -24,6 +24,7 @@ function SavedViewListRow(props: { item: SavedViewCardItem }) {
 				<ImageTintOverlay direction="horizontal" gradientStops={gradientStops} />
 				<Link.AppleZoom>
 					<SavedViewImageView
+						collapsable={false}
 						onError={onImageError}
 						image={props.item.image}
 						className="h-24 w-16 rounded-md bg-surface-2 md:h-16 md:w-11 md:rounded-sm"
