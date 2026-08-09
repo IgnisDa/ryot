@@ -4,6 +4,7 @@ import {
 	podcastDetailRecipe,
 	podcastsByLifecycleStateRecipe,
 	showDetailRecipe,
+	showSummaryRecipe,
 	trendingMediaRecipe,
 } from "@ryot/media-plugin/query-recipes";
 import { DateTime, Effect } from "effect";
@@ -19,6 +20,7 @@ import {
 	getBuiltinEntitySchemaSlug,
 	insertGlobalRelationship,
 	insertLibraryMembership,
+	insertMediaMonitoring,
 	listEventSchemas,
 	listRelationshipSchemas,
 	requireEventSchemaBySlug,
@@ -271,6 +273,112 @@ describe("Media RyotQL query recipe results", () => {
 			expect(secondSeasonEpisodeResult).not.toHaveProperty("hasProgress");
 			expect(secondSeasonEpisodeResult).not.toHaveProperty("isComplete");
 			expect(showRow.state).toBe("in_progress");
+		}),
+	);
+
+	it.live("reconstructs the show summary with provider, library, and collection state", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { schema: showSchema } = yield* findBuiltinSchemaBySlug(client, "show");
+			const relationshipSchemas = yield* listRelationshipSchemas(client, { slugs: ["member-of"] });
+			const memberOf = requireRelationshipSchemaBySlug(relationshipSchemas, "member-of");
+			const collection = yield* createCollection(client, {
+				name: `Summary Collection ${crypto.randomUUID()}`,
+			});
+			const suffix = crypto.randomUUID();
+			const show = yield* seedMediaEntity({
+				userId: null,
+				providerId: null,
+				name: `Summary Show ${suffix}`,
+				entitySchemaSlug: showSchema.id,
+				externalId: `summary-show-${suffix}`,
+				properties: {
+					isNsfw: null,
+					sourceUrl: null,
+					totalSeasons: 1,
+					totalEpisodes: 4,
+					publishYear: 2025,
+					unlinkedCreators: [],
+					providerRating: 78.25,
+					publishDate: "2025-03-13",
+					productionStatus: "Ended",
+					genres: ["Drama", "Crime"],
+					description: "A four-part limited series.",
+					images: [
+						{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
+						{ type: "remote", purpose: "cover", url: "https://images.test/cover.jpg" },
+					],
+				},
+			});
+			yield* insertLibraryMembership(client, {
+				mediaEntityId: show.id,
+				properties: { owned: true },
+			});
+			yield* insertMediaMonitoring(client, show.id);
+			yield* createRelationship(client, {
+				properties: {},
+				sourceEntityId: show.id,
+				targetEntityId: collection.id,
+				relationshipSchemaSlug: memberOf.id,
+			});
+
+			const summary = yield* executeRyotQLRecipe(
+				client,
+				showSummaryRecipe({ collectionLimit: 5, entityId: show.id }),
+			);
+			const summaryRow = summary.show;
+			assertPresent(summaryRow, "Expected show summary row");
+
+			expect(summary.entitySchemaSlug).toBe("show");
+			expect(summaryRow.owned).toBe(true);
+			expect(summaryRow.state).toBe("untracked");
+			expect(summaryRow.isInLibrary).toBe(true);
+			expect(summaryRow.isMonitored).toBe(true);
+			expect(summaryRow.publishYear).toBe(2025);
+			expect(summaryRow.totalSeasons).toBe(1);
+			expect(summaryRow.totalEpisodes).toBe(4);
+			expect(summaryRow.providerName).toBeNull();
+			expect(summaryRow.providerRating).toBe(78.25);
+			expect(summaryRow.productionStatus).toBe("Ended");
+			expect(summaryRow.publishDate).toBe("2025-03-13");
+			expect(summaryRow.genres).toEqual(["Drama", "Crime"]);
+			expect(summaryRow.description).toBe("A four-part limited series.");
+			expect(summaryRow.images).toEqual([
+				{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
+				{ type: "remote", purpose: "cover", url: "https://images.test/cover.jpg" },
+			]);
+			expect(summaryRow.collections.items.map(({ name }) => name)).toEqual([collection.name]);
+		}),
+	);
+
+	it.live("reports a non-show entity through the show summary schema slug", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const book = yield* createGlobalBookEntityFixture(client, {
+				name: `Summary Book ${crypto.randomUUID()}`,
+			});
+
+			const summary = yield* executeRyotQLRecipe(
+				client,
+				showSummaryRecipe({ collectionLimit: 5, entityId: book.entity.id }),
+			);
+
+			expect(summary.show).toBeNull();
+			expect(summary.entitySchemaSlug).toBe("book");
+		}),
+	);
+
+	it.live("reports a missing entity through an absent show summary", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+
+			const summary = yield* executeRyotQLRecipe(
+				client,
+				showSummaryRecipe({ collectionLimit: 5, entityId: `missing-${crypto.randomUUID()}` }),
+			);
+
+			expect(summary.show).toBeNull();
+			expect(summary.entitySchemaSlug).toBeNull();
 		}),
 	);
 
