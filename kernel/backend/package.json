@@ -15,9 +15,9 @@
 		"sandbox:check-runner": "deno check --config src/lib/infrastructure/sandbox-runtime/deno.json src/lib/infrastructure/sandbox-runtime/runner-source.sandbox.ts"
 	},
 	"dependencies": {
-		"@better-auth/api-key": "1.7.0-rc.6",
-		"@better-auth/core": "1.7.0-rc.6",
-		"@better-auth/redis-storage": "1.7.0-rc.6",
+		"@better-auth/api-key": "1.7.2",
+		"@better-auth/core": "1.7.2",
+		"@better-auth/redis-storage": "1.7.2",
 		"@dicebear/core": "10.6.0",
 		"@dicebear/styles": "10.5.0",
 		"@effect/opentelemetry": "4.0.0-beta.107",
@@ -35,7 +35,7 @@
 		"@ryot/transactional": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
 		"@unkey/api": "2.3.5",
-		"better-auth": "1.7.0-rc.6",
+		"better-auth": "1.7.2",
 		"drizzle-orm": "1.0.0-rc.5-169397b",
 		"effect": "4.0.0-rc.111",
 		"fflate": "0.8.3",
