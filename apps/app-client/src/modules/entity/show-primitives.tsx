@@ -35,6 +35,14 @@ export function ShowFactDivider() {
 	return <View className="h-9 w-px bg-border" />;
 }
 
+export function ShowProgressBar(props: { readonly percent: number }) {
+	return (
+		<View className="h-1 max-w-md overflow-hidden rounded-pill bg-surface-2">
+			<View className="h-full rounded-pill bg-success" style={{ width: `${props.percent}%` }} />
+		</View>
+	);
+}
+
 export function ShowRailRow(props: {
 	readonly icon: string;
 	readonly title: string;

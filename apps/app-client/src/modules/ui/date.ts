@@ -35,3 +35,11 @@ export const formatLocalMonthDayLabel = (value: string) =>
 
 export const formatLocalYearLabel = (value: string) =>
 	DateTime.formatLocal(localDate(value), { locale: "en-US", year: "numeric" });
+
+const localDayIndex = (value: string) => {
+	const parts = formatLocalDateKey(value).split("-");
+	return Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])) / 86_400_000;
+};
+
+export const localDayCount = (earliest: string, latest: string) =>
+	Math.abs(localDayIndex(latest) - localDayIndex(earliest)) + 1;
