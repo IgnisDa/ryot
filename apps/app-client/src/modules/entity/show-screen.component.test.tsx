@@ -17,8 +17,6 @@ import { ShowScreenContent } from "./show-screen-content";
 import { decodeShowSummaryResult, showSummaryRow } from "./show-summary-fixture";
 import { mapShowSummary, type ShowSummaryState } from "./show-summary-state";
 
-const NO_MANAGED_URLS: ReadonlyMap<string, string> = new Map();
-
 const description = () => screen.getByText("A four-part limited series.");
 
 const overviewState = (rows: Parameters<typeof decodeShowOverview>[0] = {}): ShowOverviewState =>
@@ -48,8 +46,6 @@ const renderContent = (
 	render(
 		<ShowScreenContent
 			state={state}
-			managedUrls={NO_MANAGED_URLS}
-			overviewManagedUrls={NO_MANAGED_URLS}
 			refresh={options.refresh ?? (() => undefined)}
 			overview={options.overview ?? overviewState()}
 			refreshOverview={options.refreshOverview ?? (() => undefined)}

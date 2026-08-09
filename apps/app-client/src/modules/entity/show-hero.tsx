@@ -5,7 +5,7 @@ import { useHeaderContentOffset } from "@/modules/navigation/header/use-header-c
 import { withPageAlpha } from "@/modules/theme/page-background-color";
 import { usePageBackgroundColor } from "@/modules/theme/use-page-background-color";
 import { RemoteImage } from "@/modules/ui/image-with-fallback";
-import { resolveAssetUrl } from "@/modules/ui/managed-assets";
+import { useManagedAssetUrl } from "@/modules/ui/managed-asset-context";
 
 import { showBackdropAsset, type ShowSummary } from "./show-summary-state";
 
@@ -21,14 +21,11 @@ const SCRIM_FADE_ALPHA = 0.92;
 
 const SCRIM_FADE_HEIGHT = 76;
 
-export function ShowHero(props: {
-	readonly show: ShowSummary;
-	readonly managedUrls: ReadonlyMap<string, string>;
-}) {
+export function ShowHero(props: { readonly show: ShowSummary }) {
 	const offset = useHeaderContentOffset();
 	const background = usePageBackgroundColor();
 	const asset = showBackdropAsset(props.show);
-	const url = asset ? resolveAssetUrl(asset, props.managedUrls) : undefined;
+	const url = useManagedAssetUrl(asset);
 	if (!url) {
 		return null;
 	}
