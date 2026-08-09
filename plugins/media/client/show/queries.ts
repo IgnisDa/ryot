@@ -1,5 +1,4 @@
-import { createRyotQuery, useEntitySettle } from "@ryot-app/client-sdk/react";
-import { useMemo } from "react";
+import { createRyotQuery } from "@ryot-app/client-sdk/react";
 
 import {
 	showActivityRecipe,
@@ -131,6 +130,3 @@ export const showActivityQuery = createRyotQuery<{ readonly entityId: string }, 
 		}),
 	},
 );
-
-export const useShowEntitySettle = (entityId: string) =>
-	useEntitySettle(useMemo(() => ({ visible: [], foreground: [entityId] }), [entityId]));

@@ -73,7 +73,7 @@ const groupRows = (
 	rowsResult(
 		group.map((row) => ({
 			...row,
-			movies: { items: movies, pageInfo: { limit: 20, hasMore: false } },
+			members: { items: movies, pageInfo: { limit: 20, hasMore: false } },
 		})),
 		{ limit: 1, hasMore: false, nextCursor: null },
 	);

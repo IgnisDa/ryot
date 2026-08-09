@@ -106,9 +106,9 @@ export const decodeMovieActivity = (input: ActivityRows = {}) => {
 				totals: activityRows(
 					[
 						{
-							watchCount: input.watchCount ?? 1,
-							watchedMinutes: input.watchedMinutes ?? 169,
-							watchedUnknownRuntime: input.watchedUnknownRuntime ?? 0,
+							completionCount: input.watchCount ?? 1,
+							consumedMinutes: input.watchedMinutes ?? 169,
+							unknownDurationCount: input.watchedUnknownRuntime ?? 0,
 						},
 					],
 					false,
