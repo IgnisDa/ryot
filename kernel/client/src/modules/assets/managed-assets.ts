@@ -1,9 +1,9 @@
 import type { AssetLocator, ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import { Context, Data, Effect, Layer } from "effect";
 
-import { AuthenticatedApi } from "#/api/authenticated";
 import { resolveApiUrl } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
+import { UploadsApi } from "#/api/uploads";
 
 export class ManagedAssetResolutionError extends Data.TaggedError("ManagedAssetResolutionError")<{
 	readonly cause: unknown;
@@ -29,7 +29,7 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 	"ManagedAssetsService",
 	{
 		make: Effect.gen(function* () {
-			const api = yield* AuthenticatedApi;
+			const api = yield* UploadsApi;
 			const resolve = Effect.fn("ManagedAssetsService.resolve")(function* (
 				scope: ApiScope,
 				assets: readonly ManagedAssetLocator[],
@@ -37,22 +37,18 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 				if (assets.length === 0) {
 					return new Map<string, string>();
 				}
-				return yield* api
-					.run(scope, (client) =>
-						client.uploads.resolveDownloads({ payload: { assets: [...assets] } }),
-					)
-					.pipe(
-						Effect.map(
-							(response) =>
-								new Map(
-									response.map(({ asset, downloadUrl }) => [
-										managedAssetKey(asset),
-										resolveApiUrl(scope.serverUrl, downloadUrl),
-									]),
-								),
-						),
-						Effect.mapError((error) => new ManagedAssetResolutionError({ cause: error.cause })),
-					);
+				return yield* api.resolveDownloads(scope, { payload: { assets: [...assets] } }).pipe(
+					Effect.map(
+						(response) =>
+							new Map(
+								response.map(({ asset, downloadUrl }) => [
+									managedAssetKey(asset),
+									resolveApiUrl(scope.serverUrl, downloadUrl),
+								]),
+							),
+					),
+					Effect.mapError((error) => new ManagedAssetResolutionError({ cause: error.cause })),
+				);
 			});
 			return { resolve };
 		}),

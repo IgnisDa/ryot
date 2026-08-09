@@ -1,7 +1,7 @@
-import type {
-	ContractClient,
-	ContractProgram,
-	RunContractOptions,
+import {
+	runContract,
+	type ContractProgram,
+	type RunContractOptions,
 } from "@ryot-app/contract/client";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
@@ -14,13 +14,10 @@ const origin = decodeServerOrigin("https://ryot.example");
 describe("admin API", () => {
 	it("runs a typed contract program at the server API with only the admin token header", async () => {
 		const requests: RunContractOptions[] = [];
-		// Contract programs receive the complete client even when this test does not call an endpoint.
-		// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-		const client = {} as ContractClient;
 		const api = makeAdminApi(
 			<A, E>(program: ContractProgram<A, E>, options: RunContractOptions) => {
 				requests.push(options);
-				return Effect.runPromise(program(client));
+				return runContract(program, options);
 			},
 		);
 

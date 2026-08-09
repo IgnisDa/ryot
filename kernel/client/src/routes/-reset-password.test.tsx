@@ -5,8 +5,8 @@ import userEvent from "@testing-library/user-event";
 import { Effect, Layer, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { AuthenticatedApi } from "#/api/authenticated";
 import type { ServerOrigin } from "#/api/origin";
+import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { HostedAuthError, type HostedAuthService } from "#/modules/auth/hosted-service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
@@ -18,18 +18,18 @@ import { ServerService } from "#/modules/server/service";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
-	GodModeRouteStubs,
-	SavedViewRouteStubs,
-	ProviderAddRouteStubs,
-	CustomizeRouteStubs,
-	NavigationRouteStubs,
 	theme,
 	server,
 	catalog,
 	makeAuthStub,
 	makeStorageStub,
+	GodModeRouteStubs,
 	makePublicApiStub,
+	CustomizeRouteStubs,
+	SavedViewRouteStubs,
 	makeOAuthRouteStubs,
+	NavigationRouteStubs,
+	ProviderAddRouteStubs,
 } from "#/routes/-route-fixtures";
 
 type ResetCall = {
@@ -60,7 +60,7 @@ const makeView = (
 			GodModeRouteStubs,
 			SavedViewRouteStubs,
 			makePublicApiStub(),
-			AuthenticatedApi.layer,
+			KernelApiTestLayer,
 			makePluginCatalogEventsTestLayer().layer,
 			Layer.succeed(ServerService, {
 				connect: () => Effect.void,

@@ -7,8 +7,8 @@ import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { Context, Data, Effect, Layer, Schema } from "effect";
 import { HttpClientError } from "effect/unstable/http";
 
-import { AuthenticatedApi } from "#/api/authenticated";
 import { serverApiUrl } from "#/api/origin";
+import { PluginsApi } from "#/api/plugins";
 import type { ApiScope } from "#/api/scope";
 
 export class ArtifactSessionStaleError extends Data.TaggedError("ArtifactSessionStaleError") {}
@@ -33,7 +33,7 @@ export type ArtifactSession = {
 
 export class ArtifactSessions extends Context.Service<ArtifactSessions>()("ArtifactSessions", {
 	make: Effect.gen(function* () {
-		const api = yield* AuthenticatedApi;
+		const api = yield* PluginsApi;
 
 		const create = Effect.fn("ArtifactSessions.create")(function* (input: {
 			readonly scope: ApiScope;
@@ -43,15 +43,13 @@ export class ArtifactSessions extends Context.Service<ArtifactSessions>()("Artif
 			readonly clientArtifactHash: string;
 		}) {
 			return yield* api
-				.run(input.scope, (client) =>
-					client.plugins.createArtifactSession({
-						payload: { sourceHash: input.sourceHash, artifactHash: input.clientArtifactHash },
-						params: {
-							installationId: input.installationId,
-							pluginSlug: PluginSlug.make(input.pluginSlug),
-						},
-					}),
-				)
+				.createArtifactSession(input.scope, {
+					payload: { sourceHash: input.sourceHash, artifactHash: input.clientArtifactHash },
+					params: {
+						installationId: input.installationId,
+						pluginSlug: PluginSlug.make(input.pluginSlug),
+					},
+				})
 				.pipe(
 					Effect.map(({ expiresAt, sessionId, token }) => ({
 						expiresAt,
@@ -75,11 +73,7 @@ export class ArtifactSessions extends Context.Service<ArtifactSessions>()("Artif
 			readonly sessionId: string;
 		}) {
 			return yield* api
-				.run(input.scope, (client) =>
-					client.plugins.renewArtifactSession({
-						params: { sessionId: input.sessionId },
-					}),
-				)
+				.renewArtifactSession(input.scope, { params: { sessionId: input.sessionId } })
 				.pipe(
 					Effect.map(({ expiresAt }) => ({ expiresAt, outcome: "renewed" }) as const),
 					Effect.catchTag("AuthenticatedApiError", (error) =>
@@ -95,9 +89,7 @@ export class ArtifactSessions extends Context.Service<ArtifactSessions>()("Artif
 			readonly sessionId: string;
 		}) {
 			return yield* api
-				.run(input.scope, (client) =>
-					client.plugins.revokeArtifactSession({ params: { sessionId: input.sessionId } }),
-				)
+				.revokeArtifactSession(input.scope, { params: { sessionId: input.sessionId } })
 				.pipe(
 					Effect.catchTag("AuthenticatedApiError", (error) =>
 						isNotFound(error.cause)

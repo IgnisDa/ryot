@@ -985,6 +985,25 @@ Plugins do not need to know that internal implementation.
 
 The React adapter exposes `RyotProvider` and `useRyot`; it supplies the explicit `RyotClient` to plugin components without creating a module-global client.
 
+### Kernel API ports
+
+`HttpApiClient` generates one client object covering every contract group. Handing that object to a
+service would make every service depend on the whole API: nothing at the type level would stop the
+sidebar from calling a God Mode endpoint, and no test could supply a partial client without lying
+to the type system.
+
+So the generated client stays inside `kernel/client/src/api`. `AuthenticatedApi` and `AdminApi` own
+the transport — token refresh and retry, admin token headers — and are the only services that run a
+contract program. Each contract group the kernel uses is then exposed as a narrow port service in
+the same directory: `RyotQLApi`, `UploadsApi`, `PluginsApi`, `SavedViewsApi`, `ProviderEntitiesApi`,
+`GodModeApi`. A port declares only the endpoints the kernel actually calls, derives every request
+type from the contract with `ContractRequest`, and returns the transport's error unchanged so the
+consuming service keeps owning classification.
+
+Application services depend on ports, never on the transport. `ClientLive` does not export
+`AuthenticatedApi` or `AdminApi`, so a module cannot resolve them even by accident, and a service
+test provides a complete, exactly typed port implementation instead of forging a client.
+
 ### External networking
 
 Authenticated third-party integrations should normally be implemented in the plugin's backend code, where credentials, rate limiting, durable work, and external service access can be handled safely and consistently.

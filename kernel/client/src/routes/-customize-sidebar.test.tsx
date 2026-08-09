@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { Effect, Layer, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { AuthenticatedApi } from "#/api/authenticated";
+import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import type { CustomizeSidebarService } from "#/modules/navigation/customize/service";
 import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
@@ -14,18 +14,18 @@ import { PluginQueriesService } from "#/modules/plugins/queries";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
-	ServerStub,
-	OAuthRouteStubs,
-	GodModeRouteStubs,
-	SavedViewRouteStubs,
-	ProviderAddRouteStubs,
-	NavigationRouteStubs,
 	theme,
 	catalog,
+	ServerStub,
 	makeAuthStub,
+	OAuthRouteStubs,
 	makeStorageStub,
+	GodModeRouteStubs,
 	makeCustomizeStub,
 	makePublicApiStub,
+	SavedViewRouteStubs,
+	NavigationRouteStubs,
+	ProviderAddRouteStubs,
 } from "#/routes/-route-fixtures";
 
 type SavedPlan = Parameters<CustomizeSidebarService["Service"]["save"]>[1];
@@ -40,7 +40,7 @@ const mountView = (initialEntry: string, saves: SavedPlan[] = []) => {
 			ServerStub,
 			SavedViewRouteStubs,
 			makePublicApiStub(),
-			AuthenticatedApi.layer,
+			KernelApiTestLayer,
 			events.layer,
 			Layer.succeed(ArtifactSessions, {
 				renew: () => Effect.die("not used"),

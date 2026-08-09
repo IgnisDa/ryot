@@ -2,7 +2,13 @@ import { Layer } from "effect";
 
 import { AdminApi } from "#/api/admin";
 import { AuthenticatedApi } from "#/api/authenticated";
+import { GodModeApi } from "#/api/god-mode";
+import { PluginsApi } from "#/api/plugins";
+import { ProviderEntitiesApi } from "#/api/provider-entities";
 import { PublicApi } from "#/api/public";
+import { RyotQLApi } from "#/api/ryotql";
+import { SavedViewsApi } from "#/api/saved-views";
+import { UploadsApi } from "#/api/uploads";
 import { ManagedAssetsService } from "#/modules/assets/managed-assets";
 import { HostedAuthService } from "#/modules/auth/hosted-service";
 import { OAuthLauncher } from "#/modules/auth/oauth-launcher";
@@ -25,11 +31,20 @@ import { ServerService } from "#/modules/server/service";
 import { ClientStorage } from "#/persistence/storage";
 
 const OAuthTokenLive = OAuthTokenService.layer.pipe(Layer.provideMerge(OAuthStorage.layer));
+const TransportLive = Layer.mergeAll(AdminApi.layer, AuthenticatedApi.layer).pipe(
+	Layer.provide(OAuthTokenLive),
+	Layer.provide(RuntimeOAuthClientService.layer),
+);
+
 const InfrastructureLive = Layer.mergeAll(
-	AdminApi.layer,
 	PublicApi.layer,
-	AuthenticatedApi.layer,
-).pipe(Layer.provideMerge(OAuthTokenLive), Layer.provideMerge(RuntimeOAuthClientService.layer));
+	RyotQLApi.layer,
+	UploadsApi.layer,
+	PluginsApi.layer,
+	GodModeApi.layer,
+	SavedViewsApi.layer,
+	ProviderEntitiesApi.layer,
+).pipe(Layer.provide(TransportLive));
 
 const ServerLive = ServerService.layer.pipe(
 	Layer.provideMerge(ClientStorage.layer),

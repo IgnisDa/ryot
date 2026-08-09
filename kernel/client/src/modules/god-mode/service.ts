@@ -1,8 +1,8 @@
-import type { ContractProgram, ContractSuccess } from "@ryot-app/contract/client";
+import type { ContractSuccess } from "@ryot-app/contract/client";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Data, Effect, Layer } from "effect";
 
-import { AdminApi } from "#/api/admin";
+import { GodModeApi } from "#/api/god-mode";
 import { GodModeSessionService } from "#/modules/god-mode/session";
 import {
 	type GodModeUserResetResult,
@@ -25,54 +25,68 @@ export class GodModeResetResultMissing extends Data.TaggedError("GodModeResetRes
 
 export class GodModeService extends Context.Service<GodModeService>()("GodModeService", {
 	make: Effect.gen(function* () {
-		const api = yield* AdminApi;
+		const api = yield* GodModeApi;
 		const sessions = yield* GodModeSessionService;
-		const run = <A, E>(sessionId: string, program: ContractProgram<A, E>) =>
-			Effect.gen(function* () {
-				const session = yield* sessions.get(sessionId);
-				if (session === null) {
-					return yield* new GodModeSessionNotFound({ sessionId });
-				}
-				return yield* api.run(session.origin, session.token, program);
+		const credentials = Effect.fn("GodModeService.credentials")(function* (sessionId: string) {
+			const session = yield* sessions.get(sessionId);
+			if (session === null) {
+				return yield* new GodModeSessionNotFound({ sessionId });
+			}
+			return session;
+		});
+		const listUsers = Effect.fn("GodModeService.listUsers")(function* (
+			sessionId: string,
+			search: string,
+			offset: number,
+			limit: number,
+		) {
+			const { origin, token } = yield* credentials(sessionId);
+			return yield* api.listUsers(origin, token, {
+				query: { offset, limit, ...(search === "" ? {} : { search }) },
 			});
-		const listUsers = Effect.fn("GodModeService.listUsers")(
-			(sessionId: string, search: string, offset: number, limit: number) =>
-				run(sessionId, (client) =>
-					client.godMode.listUsers({
-						query: { offset, limit, ...(search === "" ? {} : { search }) },
-					}),
-				),
-		);
-		const getMigrationReport = Effect.fn("GodModeService.getMigrationReport")((sessionId: string) =>
-			run(sessionId, (client) => client.godMode.getMigrationReport()),
-		);
-		const resetUserPassword = Effect.fn("GodModeService.resetUserPassword")(
-			(sessionId: string, userId: string) =>
-				run(sessionId, (client) =>
-					client.godMode.resetUserPassword({ params: { userId: UserId.make(userId) } }),
-				),
-		);
-		const setUserDisabled = Effect.fn("GodModeService.setUserDisabled")(
-			(sessionId: string, userId: string, disabled: boolean) =>
-				run(sessionId, (client) =>
-					client.godMode.setUserDisabled({
-						payload: { disabled },
-						params: { userId: UserId.make(userId) },
-					}),
-				),
-		);
-		const lifecycle = (sessionId: string, userId: string, kind: "delete" | "reset") =>
-			runUserLifecycleOperation({
+		});
+		const getMigrationReport = Effect.fn("GodModeService.getMigrationReport")(function* (
+			sessionId: string,
+		) {
+			const { origin, token } = yield* credentials(sessionId);
+			return yield* api.getMigrationReport(origin, token);
+		});
+		const resetUserPassword = Effect.fn("GodModeService.resetUserPassword")(function* (
+			sessionId: string,
+			userId: string,
+		) {
+			const { origin, token } = yield* credentials(sessionId);
+			return yield* api.resetUserPassword(origin, token, {
+				params: { userId: UserId.make(userId) },
+			});
+		});
+		const setUserDisabled = Effect.fn("GodModeService.setUserDisabled")(function* (
+			sessionId: string,
+			userId: string,
+			disabled: boolean,
+		) {
+			const { origin, token } = yield* credentials(sessionId);
+			return yield* api.setUserDisabled(origin, token, {
+				payload: { disabled },
+				params: { userId: UserId.make(userId) },
+			});
+		});
+		const lifecycle = Effect.fn("GodModeService.lifecycle")(function* (
+			sessionId: string,
+			userId: string,
+			kind: "delete" | "reset",
+		) {
+			const { origin, token } = yield* credentials(sessionId);
+			const params = { userId: UserId.make(userId) };
+			return yield* runUserLifecycleOperation({
 				poll: (operationId) =>
-					run(sessionId, (client) =>
-						client.godMode.getUserLifecycleOperation({ params: { operationId } }),
-					),
-				start: run(sessionId, (client) =>
+					api.getUserLifecycleOperation(origin, token, { params: { operationId } }),
+				start:
 					kind === "delete"
-						? client.godMode.deleteUser({ params: { userId: UserId.make(userId) } })
-						: client.godMode.resetUser({ params: { userId: UserId.make(userId) } }),
-				),
+						? api.deleteUser(origin, token, { params })
+						: api.resetUser(origin, token, { params }),
 			});
+		});
 		const deleteUser = Effect.fn("GodModeService.deleteUser")((sessionId: string, userId: string) =>
 			lifecycle(sessionId, userId, "delete"),
 		);
