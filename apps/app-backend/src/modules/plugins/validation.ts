@@ -141,14 +141,7 @@ const privateRejectedCollections = ["boot", "httpRateLimits"] as const satisfies
 
 export const validatePrivateManifestSurfaces = (manifest: PluginManifestValue) =>
 	Effect.gen(function* () {
-		const surfaces = [
-			...privateRejectedCollections.filter((field) => manifest[field].length > 0),
-			...(manifest.operations.some(
-				(operation) => operation.auth !== "user" && operation.auth !== "integration",
-			)
-				? ["operations"]
-				: []),
-		];
+		const surfaces = privateRejectedCollections.filter((field) => manifest[field].length > 0);
 		return surfaces.length > 0 ? yield* new PluginSurfaceError({ surfaces }) : yield* Effect.void;
 	});
 

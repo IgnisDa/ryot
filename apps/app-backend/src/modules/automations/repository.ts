@@ -134,12 +134,17 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 				isActive: boolean;
 				signalSchemaSlug: SignalSchemaSlug;
 				metadata: AutomationRuleMetadataValue | null;
+				signalSchemaPluginId?: string | null | undefined;
 			}) {
 				const db = yield* Database;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.update(schema.notificationSubscriptionState)
-						.set({ isActive: input.isActive, metadata: input.metadata })
+						.set({
+							isActive: input.isActive,
+							metadata: input.metadata,
+							signalSchemaPluginId: input.signalSchemaPluginId,
+						})
 						.where(
 							and(
 								eq(schema.notificationSubscriptionState.userId, input.userId),

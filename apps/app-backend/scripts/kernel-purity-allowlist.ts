@@ -18,8 +18,8 @@ export const kernelPurityAllowlist = [
 	...(["library", "media"] as const).map((term) => ({
 		term,
 		kind: "permanent" as const,
-		category: "v1-backup" as const,
-		path: "apps/app-backend/src/modules/backups/archive-v1/schemas.ts",
-		reason: "The frozen V1 bootstrap identity must retain its exact wire vocabulary",
+		category: "v2-backup-bootstrap" as const,
+		path: "apps/app-backend/src/modules/backups/archive-v2/schemas.ts",
+		reason: "The backup bootstrap identity must retain its exact wire vocabulary",
 	})),
 ] satisfies ReadonlyArray<PurityAllowlistEntry>;

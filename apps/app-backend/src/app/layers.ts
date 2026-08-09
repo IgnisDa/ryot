@@ -89,6 +89,7 @@ import { NotificationDeliveryService, NotificationMailer } from "#modules/notifi
 import { NotificationDeliveryWorkflowDefinitionsLive } from "#modules/notifications/notification-delivery-workflow-live";
 import { NotificationsRepository } from "#modules/notifications/repository";
 import { NotificationsService } from "#modules/notifications/service";
+import { PluginBackupRestore } from "#modules/plugins/backup-restore";
 import { FirstPartyPluginBootstrap } from "#modules/plugins/boot";
 import { PluginHttpRateLimitAuthority } from "#modules/plugins/http-rate-limit-authority";
 import { ImportSourceCatalogLive } from "#modules/plugins/import-source-catalog";
@@ -275,16 +276,6 @@ const ManagedAssetsServiceLive = ManagedAssetsService.layer.pipe(
 const UploadServicesLive = UploadIntentsService.layer.pipe(
 	Layer.provideMerge(ManagedAssetsServiceLive),
 );
-const BackupExportSnapshotLive = BackupExportSnapshot.layer.pipe(Layer.provide(UploadServicesLive));
-const BackupAccountCleanlinessLive = BackupAccountCleanliness.layer.pipe(
-	Layer.provide(UploadServicesLive),
-);
-const BackupServicesLive = Layer.mergeAll(
-	BackupRestoreWriter.layer,
-	BackupExportSnapshotLive,
-	BackupAccountCleanlinessLive,
-	BackupsService.layer.pipe(Layer.provide([BackupAccountCleanlinessLive, UploadServicesLive])),
-);
 const NotificationSubscriptionsServiceLive = NotificationSubscriptionsService.layer.pipe(
 	Layer.provide(
 		Layer.mergeAll(
@@ -312,6 +303,19 @@ const SavedViewsServiceLive = SavedViewsService.layer.pipe(
 );
 const PluginDefinitionMaterializerLive = SavedViewPluginDefinitionMaterializerLive.pipe(
 	Layer.provide(SavedViewsServiceLive),
+);
+const BackupExportSnapshotLive = BackupExportSnapshot.layer.pipe(
+	Layer.provide(Layer.mergeAll(UploadServicesLive, PluginRuntimeResolverLive)),
+);
+const BackupAccountCleanlinessLive = BackupAccountCleanliness.layer.pipe(
+	Layer.provide(UploadServicesLive),
+);
+const BackupServicesLive = Layer.mergeAll(
+	BackupRestoreWriter.layer,
+	PluginBackupRestore.layer,
+	BackupExportSnapshotLive,
+	BackupAccountCleanlinessLive,
+	BackupsService.layer.pipe(Layer.provide([BackupAccountCleanlinessLive, UploadServicesLive])),
 );
 const pluginInstallationServiceDependencies = Layer.mergeAll(
 	PluginLoaderLive,
