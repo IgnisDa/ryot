@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Kernel Assembly](./README.md)
 
-**Status:** pending
+**Status:** done
 
 ## What to build
 
@@ -16,15 +16,23 @@ Update documentation to the new structure. The root agent guidance gains the wor
 
 ## Acceptance criteria
 
-- [ ] The Dockerfile builds plugin bundles in a dedicated stage and copies one directory per shipped plugin into the discovered plugin directory.
-- [ ] Removing the plugin copy lines produces a working plugin-free kernel image.
-- [ ] The image contains no path derived from the repository source layout, and the sandbox compiler runtime, Deno installation, smoke test, and sandbox runtime preparation steps still work.
-- [ ] Configuration reference generation runs from `apps/docs`, reading the kernel configuration definition and built bundle manifests.
-- [ ] The server writes nothing into the documentation site at startup.
-- [ ] The generated configuration reference is unchanged apart from a corrected header, and remains a single committed include on a single page.
-- [ ] The configuration rendering helper keeps its signature and names no plugin.
-- [ ] The orphaned V1 configuration schema include is deleted.
-- [ ] Root agent guidance documents the workspace map, and `apps/server`, `@ryot/cli`, and the migration package have their own guidance.
-- [ ] The repository README reflects the new development commands and the reduced environment setup.
-- [ ] The published migration guide still describes the supported upgrade flow.
-- [ ] Repository check and test tasks pass.
+- [x] The Dockerfile builds plugin bundles in a dedicated stage and copies one directory per shipped plugin into the discovered plugin directory.
+- [x] Removing the plugin copy lines produces a working plugin-free kernel image.
+- [x] The image contains no path derived from the repository source layout, and the sandbox compiler runtime, Deno installation, smoke test, and sandbox runtime preparation steps still work.
+- [x] Configuration reference generation runs from `apps/docs`, reading the kernel configuration definition and built bundle manifests.
+- [x] The server writes nothing into the documentation site at startup.
+- [x] The generated configuration reference is unchanged apart from a corrected header, and remains a single committed include on a single page.
+- [x] The configuration rendering helper keeps its signature and names no plugin.
+- [x] The orphaned V1 configuration schema include is deleted.
+- [x] Root agent guidance documents the workspace map, and `apps/server`, `@ryot/cli`, and the migration package have their own guidance.
+- [x] The repository README reflects the new development commands and the reduced environment setup.
+- [x] The published migration guide still describes the supported upgrade flow.
+- [x] Repository check and test tasks pass.
+
+## Implementation Notes
+
+- The image now prunes the complete assembly graph, builds first-party plugin bundles in a dedicated stage, and copies each shipped bundle into `/home/ryot/plugins` explicitly. The server, client, Deno runtime, compiler smoke test, and sandbox runtime preparation remain separate assembly steps.
+- Upgraded Turborepo from `2.9.16` to `2.10.12`. The stable release contains `vercel/turborepo#13740`, which preserves workspace `bin` metadata in pruned Bun lockfiles so the plugin packages can execute the workspace-owned `ryot` binary during Docker builds.
+- Configuration reference generation now belongs to `apps/docs`, decodes manifests from the built fitness and media bundles, and writes the existing committed include. Server startup no longer imports documentation rendering or writes into the docs tree.
+- Added stable workspace guidance for the server assembly, docs assembly, CLI, and root workspace map. Updated development setup instructions while leaving the published migration runbook unchanged.
+- `bun turbo --filter=@ryot/docs --filter=@ryot/server --filter=@ryot/config check`, forced plugin bundle builds, docs generation, and `docker build --target runner --tag ryot-kernel-assembly-task-06 .` pass. The Docker build also passes the compiler smoke test and sandbox runtime preparation step.
