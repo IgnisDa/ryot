@@ -1,4 +1,3 @@
-import { notFound } from "@ryot/contract/errors";
 import type { EntityId, SandboxProviderId, UserId } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
@@ -54,30 +53,10 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 					);
 			};
 
-			const create = Effect.fn("TranslationsService.create")(function* (
-				input: TranslationOverlayInput,
-			) {
-				return yield* repository.createOverlay(input);
-			});
-
-			const update = Effect.fn("TranslationsService.update")(function* (
-				input: TranslationOverlayInput,
-			) {
-				const updated = yield* repository.updateOverlay(input);
-				if (!updated) {
-					return yield* notFound("Translation overlay not found");
-				}
-				return undefined;
-			});
-
 			const upsert = Effect.fn("TranslationsService.upsert")(function* (
 				input: TranslationOverlayInput,
 			) {
-				const existing = yield* repository.findOverlay({
-					entityId: input.entityId,
-					language: input.language,
-				});
-				return yield* existing ? update(input) : create(input);
+				return yield* repository.upsertOverlay(input);
 			});
 
 			const listByEntity = Effect.fn("TranslationsService.listByEntity")(function* (
@@ -86,7 +65,7 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 				return yield* repository.listByEntity(entityId);
 			});
 
-			return { requestFill, create, update, upsert, listByEntity };
+			return { upsert, requestFill, listByEntity };
 		}),
 	},
 ) {
