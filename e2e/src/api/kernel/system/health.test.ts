@@ -3,6 +3,7 @@ import { Effect } from "effect";
 import { getApiClient } from "~/fixtures/kernel";
 import { getApiUrl } from "~/support/api";
 import { describe, expect, it } from "~/support/effect-test";
+import { getFrontendUrl } from "~/support/frontend";
 
 describe("Health endpoint", () => {
 	it.live("should return healthy status", () =>
@@ -16,11 +17,12 @@ describe("Health endpoint", () => {
 
 	it.live("should handle configured CORS preflight requests", () =>
 		Effect.gen(function* () {
+			const frontendUrl = getFrontendUrl();
 			const response = yield* Effect.promise(() =>
 				fetch(`${getApiUrl()}/system/health`, {
 					method: "OPTIONS",
 					headers: {
-						Origin: "http://client.test",
+						Origin: frontendUrl,
 						"Access-Control-Request-Method": "GET",
 						"Access-Control-Request-Headers": "b3,traceparent",
 					},
@@ -28,7 +30,7 @@ describe("Health endpoint", () => {
 			);
 
 			expect(response.status).toBe(204);
-			expect(response.headers.get("access-control-allow-origin")).toBe("http://client.test");
+			expect(response.headers.get("access-control-allow-origin")).toBe(frontendUrl);
 			expect(response.headers.get("access-control-allow-credentials")).toBe("true");
 			expect(response.headers.get("access-control-allow-headers")).toBe("b3,traceparent");
 		}),
