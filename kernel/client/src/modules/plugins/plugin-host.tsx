@@ -1,11 +1,10 @@
 import { Button } from "@ryot/client-ui-sdk";
-import {
-	CLIENT_API_VERSION,
-	type PluginLogicalLocation,
-	type PluginOperationOutcome,
-	type PluginOperationRequest,
-	type PluginRyotQLOutcome,
-	type PluginRyotQLRequest,
+import type {
+	PluginLogicalLocation,
+	PluginOperationOutcome,
+	PluginOperationRequest,
+	PluginRyotQLOutcome,
+	PluginRyotQLRequest,
 } from "@ryot/contract/modules/plugins/client";
 import type { PluginClientCatalogEntry } from "@ryot/ryotql-recipes/plugin-client-catalog";
 import { useEffect, useRef, useState } from "react";
@@ -53,7 +52,7 @@ function resolvePluginArtifact(installation: PluginClientCatalogEntry): PluginAr
 	if (installation.clientArtifactHash === null) {
 		return { kind: "blocked", status: "missing-artifact" };
 	}
-	if (installation.clientApiVersion !== CLIENT_API_VERSION) {
+	if (installation.clientApiVersion === null) {
 		return { kind: "blocked", status: "unexpected-version" };
 	}
 	return { artifactHash: installation.clientArtifactHash, kind: "artifact" };
