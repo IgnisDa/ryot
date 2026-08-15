@@ -1,20 +1,19 @@
-import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
+import { CLIENT_API_VERSION } from "@ryot-app/contract/modules/plugins/manifest";
+import { RyotQLDocument, RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
+import {
+	ManagedAssetResolutionBatch,
+	ManagedAssetLocator,
+} from "@ryot-app/contract/modules/uploads/schemas";
+import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import { JsonValue } from "@ryot-app/contract/schema/json";
+import { HttpUrl, IsoUtcString, strictStruct } from "@ryot-app/contract/schema/utils";
 import { Schema } from "effect";
 
-import { EntityId, EntitySchemaSlug } from "../../schema/brands";
-import { JsonValue } from "../../schema/json";
-import { HttpUrl, IsoUtcString, strictStruct } from "../../schema/utils";
-import { RyotQLDocument, RyotQLResponse } from "../ryotql/language";
-import { ManagedAssetResolutionBatch, ManagedAssetLocator } from "../uploads/schemas";
-
-export const CLIENT_API_VERSION = 1 as const;
+export { CLIENT_API_VERSION };
 export const CLIENT_BRIDGE_PROTOCOL_VERSION = 1 as const;
 export const CLIENT_ARTIFACT_FORMAT = 1 as const;
 export const CLIENT_COMPILER_VERSION = 1 as const;
 export const CLIENT_BRIDGE_MAX_PENDING_REQUESTS = 64;
-
-export const PLUGIN_BACK_SETTLE_MS = 500;
-export const PLUGIN_SCREEN_STACK_LIMIT = 5;
 
 export const CLIENT_ARTIFACT_ROOT_ELEMENT_ID = "app";
 export const CLIENT_ARTIFACT_METADATA_ELEMENT_ID = "ryot-client-artifact";
@@ -75,25 +74,6 @@ export type PluginThemeMode = Schema.Schema.Type<typeof PluginThemeMode>;
 export const PluginThemeSnapshot = strictStruct({ resolvedMode: PluginThemeMode });
 
 export type PluginThemeSnapshot = Schema.Schema.Type<typeof PluginThemeSnapshot>;
-
-const PluginClientSourceEntry = Schema.String.pipe(
-	Schema.check(
-		Schema.makeFilter((entry) =>
-			canonicalRelativePosixPathIssue(entry) === null &&
-			entry.startsWith("client/") &&
-			(entry.endsWith(".ts") || entry.endsWith(".tsx"))
-				? true
-				: "Expected a canonical client/**/*.ts or client/**/*.tsx entry",
-		),
-	),
-);
-
-export const PluginClientEntry = strictStruct({
-	entry: PluginClientSourceEntry,
-	apiVersion: Schema.Literal(CLIENT_API_VERSION),
-});
-
-export type PluginClientEntry = Schema.Schema.Type<typeof PluginClientEntry>;
 
 export const PluginClientArtifactFile = strictStruct({
 	name: Schema.String,

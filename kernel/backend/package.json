@@ -27,6 +27,7 @@
 		"@opentelemetry/api": "1.9.1",
 		"@react-email/components": "1.0.7",
 		"@ryot-app/client-plugin-compiler": "workspace:*",
+		"@ryot-app/client-plugin-contract": "workspace:*",
 		"@ryot-app/config": "workspace:*",
 		"@ryot-app/contract": "workspace:*",
 		"@ryot-app/plugin-archive": "workspace:*",
