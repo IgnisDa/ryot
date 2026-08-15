@@ -8,11 +8,11 @@
 	},
 	"dependencies": {
 		"@better-auth/core": "1.7.2",
-		"@effect/sql-pg": "4.0.0-rc.113",
+		"@effect/sql-pg": "4.0.0-beta.107",
 		"@ryot-app/contract": "workspace:*",
 		"@ryot-app/kernel-backend": "workspace:*",
 		"drizzle-orm": "1.0.0-rc.5-169397b",
-		"effect": "4.0.0-rc.113"
+		"effect": "4.0.0-rc.111"
 	},
 	"devDependencies": {
 		"bun-types": "1.4.0"

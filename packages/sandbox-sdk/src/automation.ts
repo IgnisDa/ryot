@@ -2,8 +2,10 @@ import { Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import type { SandboxManifest } from "./core";
 import { type GenericScriptDefinition, SANDBOX_SCRIPT_DEFINITION } from "./driver";
-import { jsonValueSchema, strictStruct } from "./wire";
+import { jsonValueSchema } from "./wire";
 
+const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
+	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" as const } });
 const propertiesSchema = Schema.Record(Schema.String, jsonValueSchema);
 const entityReferenceSchema = strictStruct({
 	id: Schema.String,
