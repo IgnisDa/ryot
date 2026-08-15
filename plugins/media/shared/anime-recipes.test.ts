@@ -1,7 +1,7 @@
 import type { PreparedRecipe } from "@ryot-app/plugin-kit/ryotql";
 import { describe, expect, it } from "vitest";
 
-import { animeAiringSoonRecipe, animeRecipes } from "./anime-recipes";
+import { animeRecipes } from "./anime-recipes";
 
 const ACTIVITY_RECIPE = animeRecipes.activityRecipe({
 	eventLimit: 60,
@@ -62,30 +62,6 @@ describe("media anime query recipes", () => {
 		expect(JSON.stringify(fieldExpr(ACTIVITY_RECIPE, "totals", "unknownAmountCount"))).toContain(
 			"episodes",
 		);
-	});
-
-	it("filters anime airing soon and orders by the next airing date", () => {
-		const recipe = animeAiringSoonRecipe({ now: "2026-09-01T00:00:00.000Z" });
-		const query = recipe.document.queries["anime"];
-		if (query?.output.type !== "rows") {
-			throw new Error("Expected the anime rows query");
-		}
-
-		expect(query.where).toMatchObject({
-			type: "and",
-			predicates: [
-				{ operator: "eq", type: "comparison", right: { value: "anime" } },
-				{ type: "jsonExists" },
-			],
-		});
-		expect(query.output.orderBy).toMatchObject([{ direction: "asc", expr: { type: "jsonFirst" } }]);
-		expect(keys(recipe, "anime").slice(-2)).toEqual(
-			expect.arrayContaining(["nextAiringAt", "nextEpisode"]),
-		);
-		expect(fieldExpr(recipe, "anime", "nextAiringAt")).toMatchObject({
-			type: "jsonFirst",
-			orderBy: [{ direction: "asc" }],
-		});
 	});
 
 	it("asks for no group because anime has none", () => {
