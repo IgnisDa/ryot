@@ -12,6 +12,7 @@ dotenv.config();
 type ProcessCommand = readonly [string, ...string[]];
 
 const repositoryRoot = Bun.fileURLToPath(new URL("../../..", import.meta.url));
+const serverRoot = `${repositoryRoot}/apps/server`;
 
 const pluginRoot = (slug: string) => `${repositoryRoot}/plugins/${slug}`;
 
@@ -19,8 +20,9 @@ const rendererSourceRoot = `${repositoryRoot}/packages/kernel-renderers/src`;
 
 const sandboxRuntimeGenerator = `${repositoryRoot}/kernel/backend/scripts/generate-sandbox-runtime.ts`;
 
-const runCommand = ([executable, ...args]: ProcessCommand) =>
+const runCommand = ([executable, ...args]: ProcessCommand, cwd?: string) =>
 	ChildProcess.make(executable, args, {
+		cwd,
 		stdin: "inherit",
 		stdout: "inherit",
 		stderr: "inherit",
@@ -92,7 +94,7 @@ const program = Effect.gen(function* () {
 		let outerExitCode = 0;
 		while (restart) {
 			const result = yield* Effect.raceFirst(
-				runCommand([process.execPath, "run", "--watch", "src/main.ts"]).pipe(
+				runCommand([process.execPath, "run", "--watch", "src/main.ts"], serverRoot).pipe(
 					Effect.map((exitCode) => ({ exitCode, restart: false as const })),
 				),
 				archiveAssembled.pipe(Effect.as({ restart: true as const })),

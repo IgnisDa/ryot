@@ -131,6 +131,49 @@ function findMetric(name: string) {
 	return null;
 }
 
+function findLog(predicate: (log: Record<string, unknown>) => boolean) {
+	for (const request of requireOtlpServer().requests) {
+		if (request.path !== "/v1/logs") {
+			continue;
+		}
+		const body = requireObjectRecord(request.body, "OTLP request body is not an object");
+		for (const resourceLogValue of requireArray(
+			body["resourceLogs"],
+			"OTLP resource logs are not an array",
+		)) {
+			const resourceLog = requireObjectRecord(
+				resourceLogValue,
+				"OTLP resource log is not an object",
+			);
+			const resource = requireObjectRecord(
+				resourceLog["resource"],
+				"OTLP resource is not an object",
+			);
+			for (const scopeLogValue of requireArray(
+				resourceLog["scopeLogs"],
+				"OTLP scope logs are not an array",
+			)) {
+				const scopeLog = requireObjectRecord(scopeLogValue, "OTLP scope log is not an object");
+				for (const logValue of requireArray(
+					scopeLog["logRecords"],
+					"OTLP log records are not an array",
+				)) {
+					const log = requireObjectRecord(logValue, "OTLP log record is not an object");
+					if (predicate(log)) {
+						return { log, resource };
+					}
+				}
+			}
+		}
+	}
+	return null;
+}
+
+function getLogMessage(log: Record<string, unknown>) {
+	const body = requireObjectRecord(log["body"], "OTLP log body is not an object");
+	return typeof body["stringValue"] === "string" ? body["stringValue"] : null;
+}
+
 function findRequestSpan() {
 	return findSpan(
 		(span) =>
@@ -257,6 +300,32 @@ describe("API observability", () => {
 				}),
 			);
 			expect(requestLogLine).toContain("http.url=/notifications/channels/test");
+
+			const { log: otlpLog, resource: logResource } = yield* pollUntil(
+				"correlated HTTP response OTLP log",
+				Effect.sync(() =>
+					findLog(
+						(log) =>
+							getLogMessage(log) === "Sent HTTP response" &&
+							getStringAttribute(log["attributes"], "userId") === userId,
+					),
+				),
+			);
+			expect(otlpLog["severityText"]).toBe("Debug");
+			expect(otlpLog["traceId"]).toBe(requestTraceId);
+			expect(getStringAttribute(logResource["attributes"], "service.name")).toBe("ryot-backend");
+
+			const debugLog = yield* pollUntil(
+				"debug span completion OTLP log",
+				Effect.sync(() => findLog((log) => getLogMessage(log) === "span completed")),
+			);
+			expect(debugLog.log["severityText"]).toBe("Debug");
+
+			const logRequest = requirePresent(
+				requireOtlpServer().requests.find((request) => request.path === "/v1/logs"),
+				"OTLP log request is missing",
+			);
+			expect(logRequest.headers["x-ryot-collector-token"]).toBe("collector-secret");
 		}),
 	);
 

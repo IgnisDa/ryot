@@ -14,7 +14,7 @@ Imports are one-time operations. A repeated import can create duplicates. Make a
 - Provider data cannot always be matched. Review the report after the import and add failed items
   manually.
 - Metadata requests can make large imports slow. The UI shows an estimated finish time.
-- Set `SERVER_LOG_LEVEL=debug` temporarily to show import progress in server logs.
+- Set `SERVER_LOG_LEVEL=debug` temporarily to show import progress in file or OTLP logs.
 
 ::: danger
 Resetting user data can recover from a bad import, but it permanently deletes all data for that

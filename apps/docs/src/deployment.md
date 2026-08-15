@@ -12,6 +12,18 @@ Keep `SERVER_ADMIN_ACCESS_TOKEN` stable because it signs local file URLs. Mount
 `/home/ryot/storage` if you do not configure S3. Never persist `/home/ryot/work`. See
 [File Storage](guides/file-storage.md).
 
+## Logging
+
+The server always writes structured logs to `./logs/ryot.log`, which resolves to
+`/home/ryot/logs/ryot.log` in the container. Logs rotate daily or at 10 MB, are compressed,
+and retain seven archives by default. Use the `SERVER_LOG_*` settings to change the path,
+level, rotation, or retention. Mount `/home/ryot/logs` separately if logs must survive
+container replacement; do not place logs in the application-data storage volume.
+
+Console logs always use the `info` level. `SERVER_LOG_LEVEL` controls file logs and OTLP
+logs sent to `SERVER_OTLP_ENDPOINT`; it does not disable traces or metrics. Each server
+instance must write to its own log file.
+
 ## Railway
 
 1. Create an empty Railway project.

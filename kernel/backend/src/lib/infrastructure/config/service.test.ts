@@ -21,9 +21,13 @@ const validate = (overrides?: Overrides) =>
 
 const loadSystemConfig = (
 	options: {
+		readonly logFile?: string;
 		readonly logLevel?: string;
 		readonly processMode?: string;
+		readonly logRotationSize?: string;
+		readonly logRetentionFiles?: string;
 		readonly workerConcurrency?: string;
+		readonly logRotationInterval?: string;
 	} = {},
 ) =>
 	Effect.runSyncExit(
@@ -35,7 +39,17 @@ const loadSystemConfig = (
 							REDIS_URL: "unused",
 							DATABASE_URL: "unused",
 							SERVER_ADMIN_ACCESS_TOKEN: "unused",
+							...(options.logFile === undefined ? {} : { SERVER_LOG_FILE: options.logFile }),
 							...(options.logLevel === undefined ? {} : { SERVER_LOG_LEVEL: options.logLevel }),
+							...(options.logRotationSize === undefined
+								? {}
+								: { SERVER_LOG_ROTATION_SIZE: options.logRotationSize }),
+							...(options.logRetentionFiles === undefined
+								? {}
+								: { SERVER_LOG_RETENTION_FILES: options.logRetentionFiles }),
+							...(options.logRotationInterval === undefined
+								? {}
+								: { SERVER_LOG_ROTATION_INTERVAL: options.logRotationInterval }),
 							...(options.processMode === undefined
 								? {}
 								: { SANDBOX_PROCESS_MODE: options.processMode }),
@@ -49,11 +63,15 @@ const loadSystemConfig = (
 		),
 	);
 
-describe("system log level config", () => {
-	it("defaults to info", () => {
+describe("system log config", () => {
+	it("loads the logging defaults", () => {
 		const result = loadSystemConfig();
 		assert(Exit.isSuccess(result));
 		expect(result.value.server.logLevel).toBe("Info");
+		expect(result.value.server.logFile).toBe("./logs/ryot.log");
+		expect(result.value.server.logRotationSize).toBe("10M");
+		expect(result.value.server.logRotationInterval).toBe("1d");
+		expect(result.value.server.logRetentionFiles).toBe(7);
 	});
 
 	it("retains the infrequent scheduler phrase default", () => {
@@ -106,6 +124,17 @@ describe("system log level config", () => {
 		const result = loadSystemConfig({ logLevel: "verbose" });
 		assert(Exit.isFailure(result));
 		expect(JSON.stringify(result.cause)).toContain("Unsupported SERVER_LOG_LEVEL 'verbose'");
+	});
+
+	it.each([
+		[{ logFile: " " }, "SERVER_LOG_FILE"],
+		[{ logRotationSize: "10" }, "SERVER_LOG_ROTATION_SIZE"],
+		[{ logRotationInterval: "7m" }, "SERVER_LOG_ROTATION_INTERVAL"],
+		[{ logRetentionFiles: "0" }, "SERVER_LOG_RETENTION_FILES"],
+	] as const)("rejects invalid file logging configuration", (options, message) => {
+		const result = loadSystemConfig(options);
+		assert(Exit.isFailure(result));
+		expect(JSON.stringify(result.cause)).toContain(message);
 	});
 });
 
