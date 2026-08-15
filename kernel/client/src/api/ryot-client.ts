@@ -1,4 +1,5 @@
 import { createRyotClient, RyotClientError } from "@ryot-app/client-sdk";
+import { makeRyotRuntime, type RyotRuntime } from "@ryot-app/client-sdk/schedule";
 import { Effect } from "effect";
 
 import { classifyRyotQLFailure, RyotQLApi } from "#/api/ryotql";
@@ -77,25 +78,31 @@ export const createKernelRyotClient = (
 
 export type KernelRyotClient = ReturnType<typeof createKernelRyotClient>;
 
+export type KernelRyotSession = {
+	readonly runtime: RyotRuntime;
+	readonly client: KernelRyotClient;
+};
+
 export type KernelRyotClientStore = {
-	readonly get: (scope: ApiScope) => KernelRyotClient;
+	readonly get: (scope: ApiScope) => KernelRyotSession;
 };
 
 export const createKernelRyotClientStore = (
 	runtime: KernelApiRuntime,
 	theme: ThemeStore,
 ): KernelRyotClientStore => {
-	const clients = new Map<string, KernelRyotClient>();
+	const sessions = new Map<string, KernelRyotSession>();
 	return {
 		get: (scope) => {
 			const key = apiScopeKey(scope);
-			const existing = clients.get(key);
+			const existing = sessions.get(key);
 			if (existing !== undefined) {
 				return existing;
 			}
 			const client = createKernelRyotClient(runtime, scope, theme);
-			clients.set(key, client);
-			return client;
+			const session = { client, runtime: makeRyotRuntime(client) };
+			sessions.set(key, session);
+			return session;
 		},
 	};
 };
