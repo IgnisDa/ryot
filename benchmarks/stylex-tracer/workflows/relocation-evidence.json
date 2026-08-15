@@ -1,0 +1,3183 @@
+{
+  "generatedAt": "2026-09-09T03:56:25.555Z",
+  "command": [
+    "/Users/diptesh/.proto/tools/bun/1.4.0/bun",
+    "/Users/diptesh/Desktop/Personal/ryot/tmp/worktrees/stylex/benchmarks/stylex-tracer/workflows/compare-roots.ts",
+    "/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a",
+    "/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b"
+  ],
+  "roots": [
+    {
+      "repositoryRoot": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a",
+      "revision": "1fc9e0490c2e871270558fe3783eb52205d1a49b",
+      "bun": {
+        "version": "1.4.0",
+        "revision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676"
+      },
+      "lockfileSha256": "ca94b1a8fd8200c844df0ac0960ccebcff5df296e912f7f8392c2bc219eade99",
+      "dependencyFingerprint": "b59edd82abf4396a3bf5b548eba15ddc84f691861fe8ed2b4831a2a40deca871",
+      "sourceManifest": {
+        "roots": [
+          "benchmarks/stylex-tracer/benchmark.ts",
+          "benchmarks/stylex-tracer/fixture",
+          "bun.lock",
+          "packages/client-plugin-compiler/package.json",
+          "packages/client-plugin-compiler/src",
+          "packages/client-plugin-contract/package.json",
+          "packages/client-plugin-contract/src",
+          "packages/client-sdk/package.json",
+          "packages/client-sdk/src",
+          "packages/client-ui-sdk/package.json",
+          "packages/client-ui-sdk/src",
+          "packages/contract/package.json",
+          "packages/contract/src",
+          "packages/plugin-archive/package.json",
+          "packages/plugin-archive/src",
+          "packages/ryotql/package.json",
+          "packages/ryotql/src",
+          "packages/ts-utils/package.json",
+          "packages/ts-utils/src",
+          "plugins/stylex-tracer/assets.d.ts",
+          "plugins/stylex-tracer/client",
+          "plugins/stylex-tracer/host",
+          "plugins/stylex-tracer/package.json",
+          "plugins/stylex-tracer/tsconfig.json"
+        ],
+        "files": [
+          {
+            "path": "benchmarks/stylex-tracer/benchmark.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/benchmarks/stylex-tracer/benchmark.ts",
+            "containedInRoot": true,
+            "bytes": 5816,
+            "sha256": "e6f7403bb6afa6e31088362c5a5ec74dff98f3350cb91728a10295d811483d65"
+          },
+          {
+            "path": "benchmarks/stylex-tracer/fixture/tailwind/page.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/benchmarks/stylex-tracer/fixture/tailwind/page.tsx",
+            "containedInRoot": true,
+            "bytes": 5183,
+            "sha256": "35063be01343b4508a767124c3457029f5f2d26838e0cc71a6eb5645800b1665"
+          },
+          {
+            "path": "benchmarks/stylex-tracer/fixture/tailwind/styles.css",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/benchmarks/stylex-tracer/fixture/tailwind/styles.css",
+            "containedInRoot": true,
+            "bytes": 5689,
+            "sha256": "90a522cbb0bce03afe06d4c568ef61af579d7d83ef1ed71f5d50d3bb76f38120"
+          },
+          {
+            "path": "benchmarks/stylex-tracer/fixture/tailwind/tracer-mark.svg",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/benchmarks/stylex-tracer/fixture/tailwind/tracer-mark.svg",
+            "containedInRoot": true,
+            "bytes": 230,
+            "sha256": "a5e59f88773784399e0b12beaabad4fd7dc568fc677667b042045a898e789292"
+          },
+          {
+            "path": "bun.lock",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/bun.lock",
+            "containedInRoot": true,
+            "bytes": 593832,
+            "sha256": "ca94b1a8fd8200c844df0ac0960ccebcff5df296e912f7f8392c2bc219eade99"
+          },
+          {
+            "path": "packages/client-plugin-compiler/package.json",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-plugin-compiler/package.json",
+            "containedInRoot": true,
+            "bytes": 2104,
+            "sha256": "ca98d2324bb26acfcb2d12d51189ecfd0ffe570fb9a3ea46d5bc05b618a14664"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/artifact.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-plugin-compiler/src/artifact.ts",
+            "containedInRoot": true,
+            "bytes": 3147,
+            "sha256": "929a7c0811a3aa2873ac80c4e63d82260c96db4ad3d3b1352803342f6093f0e3"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/bundle.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-plugin-compiler/src/bundle.ts",
+            "containedInRoot": true,
+            "bytes": 13907,
+            "sha256": "1c165d0fab9a79318b14a44901ed6978604967ac83a0531a3c793661d040d90f"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/compile.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-plugin-compiler/src/compile.ts",
+            "containedInRoot": true,
+            "bytes": 27413,
+            "sha256": "3286b6e96413d49cced108732be0f2e52e03972f9a30a8e65a7344f5e8811762"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/dependencies.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-plugin-compiler/src/dependencies.ts",
+            "containedInRoot": true,
+            "bytes": 8515,
+            "sha256": "6988c927b8758023c65b0b18773e685bd16856c4ecc3a208ffa47eaa0d7af3e2"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/diagnostics.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-plugin-compiler/src/diagnostics.ts",
+            "containedInRoot": true,
+            "bytes": 1480,
+            "sha256": "568dc1dc89d21727aaa76d53a2bc1110f8e0ed29c8e5ce9c7c5fd5015c8c9437"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/external-modules.d.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-plugin-compiler/src/external-modules.d.ts",
+            "containedInRoot": true,
+            "bytes": 446,
+            "sha256": "e16d19f59352d0a4ea01ffa845bb92a66c6f65781bbdc862a9f3da95656b8b4f"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/import-policy.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-plugin-compiler/src/import-policy.ts",
+            "containedInRoot": true,
+            "bytes": 3634,
+            "sha256": "239fc6b25c07ec10025824f5e5a9f23d7b54310e109d697661e8609b4366d0bd"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/index.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-plugin-compiler/src/index.ts",
+            "containedInRoot": true,
+            "bytes": 514,
+            "sha256": "b948864b609316547304443c1eba66c2153bfd7a63ff2687444c9863e855d87b"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/limits.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-plugin-compiler/src/limits.ts",
+            "containedInRoot": true,
+            "bytes": 445,
+            "sha256": "3e42fe7b8685a328d55a45f57cca49ef90389ea9c97243ed7915e0008bfe25ad"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/protocol.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-plugin-compiler/src/protocol.ts",
+            "containedInRoot": true,
+            "bytes": 7327,
+            "sha256": "7ee5221ea821b055c6e4a74052ae5334845595d6f7682abcb89b1192e710fac2"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/semantic-check.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-plugin-compiler/src/semantic-check.ts",
+            "containedInRoot": true,
+            "bytes": 3124,
+            "sha256": "87982c027b54f5b428c4129b0c555b1385fb91ea8d89f68a44ef3aba689f91c9"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/source-imports.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-plugin-compiler/src/source-imports.ts",
+            "containedInRoot": true,
+            "bytes": 4986,
+            "sha256": "c45599a3b8ac4b4546a61cc1f22be6bbb2a172dacf86101907831bcb8511c848"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/styles.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-plugin-compiler/src/styles.ts",
+            "containedInRoot": true,
+            "bytes": 8101,
+            "sha256": "166f75cfb779ca8371c7c9e00c1f6f88fa8e9d8d3471a6efe73400a3e4ad87db"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/stylex-tracer.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-plugin-compiler/src/stylex-tracer.ts",
+            "containedInRoot": true,
+            "bytes": 28253,
+            "sha256": "decd99977fc6115d32f88f3fbf3095b24323bea554ee58fa5ac21f46dd3e8384"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/worker.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-plugin-compiler/src/worker.ts",
+            "containedInRoot": true,
+            "bytes": 1170,
+            "sha256": "4ae389837077c14afa0c21427c3b3a1db9ede45ee562008190a9a03265acf978"
+          },
+          {
+            "path": "packages/client-plugin-contract/package.json",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-plugin-contract/package.json",
+            "containedInRoot": true,
+            "bytes": 497,
+            "sha256": "ac69ab25f6bbbfadee5cdcd0797716df66ac2f3c190277a5a308b79c56a28a96"
+          },
+          {
+            "path": "packages/client-plugin-contract/src/index.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-plugin-contract/src/index.ts",
+            "containedInRoot": true,
+            "bytes": 25784,
+            "sha256": "22405512cbfba70f55daa5b386d66bd07ea30169b8fafdb50f6f890d4a559980"
+          },
+          {
+            "path": "packages/client-sdk/package.json",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-sdk/package.json",
+            "containedInRoot": true,
+            "bytes": 1563,
+            "sha256": "b2d5e56fd378f2f7f2864bc07d2f695c1f14de5758ef2765180fa946c62c75a1"
+          },
+          {
+            "path": "packages/client-sdk/src/active-screen.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-sdk/src/active-screen.ts",
+            "containedInRoot": true,
+            "bytes": 96,
+            "sha256": "a42d6e3b8120f99bb57999c3d8056bf84e10ded5479223d08704eb3f018a4ef4"
+          },
+          {
+            "path": "packages/client-sdk/src/effect.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-sdk/src/effect.ts",
+            "containedInRoot": true,
+            "bytes": 80,
+            "sha256": "243dbc1ee4107fab5020568f49720b7f56dedefce6151e16a82528c9f65b3b7c"
+          },
+          {
+            "path": "packages/client-sdk/src/entity-refresh.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-sdk/src/entity-refresh.ts",
+            "containedInRoot": true,
+            "bytes": 1885,
+            "sha256": "79ac63b4802b743d00f999bde1a60533d86588bb4dfed5a89353558766d55713"
+          },
+          {
+            "path": "packages/client-sdk/src/entity-results.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-sdk/src/entity-results.tsx",
+            "containedInRoot": true,
+            "bytes": 17576,
+            "sha256": "99e28548f78c0efbc33534003d48614eaf49d6ff2641b6661a75c4dc38fa8bc2"
+          },
+          {
+            "path": "packages/client-sdk/src/index.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-sdk/src/index.ts",
+            "containedInRoot": true,
+            "bytes": 15034,
+            "sha256": "230d79ffde3679d025a116a97e158bed5ce2d004012612872fbc0e65c887b434"
+          },
+          {
+            "path": "packages/client-sdk/src/navigation/animator.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-sdk/src/navigation/animator.ts",
+            "containedInRoot": true,
+            "bytes": 2005,
+            "sha256": "059898c2b9361c162daf93c2d7c67375a947fe3c38428cedeadf8863c63ef090"
+          },
+          {
+            "path": "packages/client-sdk/src/navigation/gesture.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-sdk/src/navigation/gesture.ts",
+            "containedInRoot": true,
+            "bytes": 595,
+            "sha256": "1ab8fd164e25a99a7ccd029df395290dcab3c6e4f32ad12952b0a2c579757c4d"
+          },
+          {
+            "path": "packages/client-sdk/src/navigation/stack.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-sdk/src/navigation/stack.ts",
+            "containedInRoot": true,
+            "bytes": 2834,
+            "sha256": "08adf74147586be576fd98ab3d4c8a787e4013fdca6b31f2e3bf780190283e4d"
+          },
+          {
+            "path": "packages/client-sdk/src/navigation/store.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-sdk/src/navigation/store.ts",
+            "containedInRoot": true,
+            "bytes": 3780,
+            "sha256": "eb5b9bb3909bf4d5633106cda9b3d1e5a3d93d207a13939f537fc5e0b58ff0e9"
+          },
+          {
+            "path": "packages/client-sdk/src/plugin-screen.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-sdk/src/plugin-screen.tsx",
+            "containedInRoot": true,
+            "bytes": 2219,
+            "sha256": "9daaed79fd8817f88c0190b0ab4b35d599d87338bfdbd216c7dd52c37e567b5e"
+          },
+          {
+            "path": "packages/client-sdk/src/plugin.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-sdk/src/plugin.tsx",
+            "containedInRoot": true,
+            "bytes": 6407,
+            "sha256": "541a538d955ffc3ddf57b614a71b8a0473802c7643c88ef7978ece0770a477bd"
+          },
+          {
+            "path": "packages/client-sdk/src/react.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-sdk/src/react.tsx",
+            "containedInRoot": true,
+            "bytes": 30603,
+            "sha256": "6362336ad863a12e0f47378961e75c479485251d64717a66e47234192d511540"
+          },
+          {
+            "path": "packages/client-sdk/src/routing.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-sdk/src/routing.tsx",
+            "containedInRoot": true,
+            "bytes": 17811,
+            "sha256": "87342a4eb642ddfa72811a4dfe7fbaa60e7a9f882801902597a234cc95298873"
+          },
+          {
+            "path": "packages/client-sdk/src/runtime.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-sdk/src/runtime.ts",
+            "containedInRoot": true,
+            "bytes": 20094,
+            "sha256": "03b400d2bebc8a1edce795545a64f2dcc976aef5c83874fdc9dcf8ace9f9f21d"
+          },
+          {
+            "path": "packages/client-sdk/src/ryotql.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-sdk/src/ryotql.ts",
+            "containedInRoot": true,
+            "bytes": 34,
+            "sha256": "da8301cad416a1fecbd5a188846f8abbdcde9fbf5935c141e349a272d7f9a2c2"
+          },
+          {
+            "path": "packages/client-sdk/src/schedule.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-sdk/src/schedule.ts",
+            "containedInRoot": true,
+            "bytes": 4173,
+            "sha256": "dc9cda5fc4e99440578a33abc75571dfddfc540a85280333a30f481ff8a7abb5"
+          },
+          {
+            "path": "packages/client-sdk/src/settle.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-sdk/src/settle.ts",
+            "containedInRoot": true,
+            "bytes": 1823,
+            "sha256": "11334b84b4e7d0f67e72972a81c0a719fd80563f32aafc76470739728467f732"
+          },
+          {
+            "path": "packages/client-sdk/src/testing.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-sdk/src/testing.ts",
+            "containedInRoot": true,
+            "bytes": 10161,
+            "sha256": "10ea4bdb326bde112ece752204f881ef237a1be136a12a31cd116a9aa581f98f"
+          },
+          {
+            "path": "packages/client-ui-sdk/package.json",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/package.json",
+            "containedInRoot": true,
+            "bytes": 1897,
+            "sha256": "feb80c5b9f23eb7bcb6a303b6b3ea4b55a784743959b17e1d23a21306dcaf84f"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/badge.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/badge.tsx",
+            "containedInRoot": true,
+            "bytes": 648,
+            "sha256": "2e92c135657f1acebce3fdb76e7ec6ed7f87bd968f881c38052d29d133f6f610"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/chips.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/chips.tsx",
+            "containedInRoot": true,
+            "bytes": 493,
+            "sha256": "84fd7970883cf4e5c712e2a7e4565a2f1457e5490f1c6b061da9f838fd14cce3"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/field-escape.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/field-escape.ts",
+            "containedInRoot": true,
+            "bytes": 778,
+            "sha256": "c5c1391ef896c75b4146402a9d450c4df22cdbf4c8e90f643a789fcd9394fb5e"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/icon.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/icon.tsx",
+            "containedInRoot": true,
+            "bytes": 3228,
+            "sha256": "972f557892573a3ba29fd35ff88ec88df9bdd730e58d840f77c2e91a760287ee"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/image-tint.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/image-tint.ts",
+            "containedInRoot": true,
+            "bytes": 4902,
+            "sha256": "d90b8a0cf70edeb3e36f8c438a7e280ec304e0724011d2fc00516a2ff4274e57"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/index.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/index.tsx",
+            "containedInRoot": true,
+            "bytes": 2297,
+            "sha256": "cd4f732898a75fe41e371d2613a0b34c5b097dcdeaea29b7242e32a365035701"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/menu.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/menu.tsx",
+            "containedInRoot": true,
+            "bytes": 5741,
+            "sha256": "1b44cac058438f679722a72c9d25b89cc1accc05e74240919c85227b83d90042"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/modal.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/modal.tsx",
+            "containedInRoot": true,
+            "bytes": 2313,
+            "sha256": "95abf3fa1a61dc07d60cfd2b89d69a1fe35253ab7d4eb071929f2ca8a295b066"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/multi-select.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/multi-select.tsx",
+            "containedInRoot": true,
+            "bytes": 5827,
+            "sha256": "8f709e9c03c6436ac5707619ca46d297b6b973739956ae8a5964343870be1f25"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/overlay.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/overlay.ts",
+            "containedInRoot": true,
+            "bytes": 5439,
+            "sha256": "9ef0bcf729c9b0a74aff57905b35c67eb7130e8f286fa67c9db442c4e7396d1f"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/palette.css",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/palette.css",
+            "containedInRoot": true,
+            "bytes": 2454,
+            "sha256": "e25dfaa8d5ee8da28793a36a01dc6a0cb3afff7b605d844e1c5914d99ae6f372"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/radio-group.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/radio-group.tsx",
+            "containedInRoot": true,
+            "bytes": 2294,
+            "sha256": "5769c5d70b9bb7995e08eb89348e6ccf5a5101050ae928ff8e21bbe92a80b88a"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/reorderable-list-state.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/reorderable-list-state.ts",
+            "containedInRoot": true,
+            "bytes": 950,
+            "sha256": "8368990299ea9a6a1d90f2a059d94bf76853c66ec71c4b46f754d8f36d0b9045"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/reorderable-list.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/reorderable-list.tsx",
+            "containedInRoot": true,
+            "bytes": 7405,
+            "sha256": "a9266a9628b6d9f61810ef099beb3fa14a72f311ae3fb10770eaa0cc98fb50ef"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/schema-form/file/browser-file.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/schema-form/file/browser-file.ts",
+            "containedInRoot": true,
+            "bytes": 1085,
+            "sha256": "216c5ffdb90a28b34e433eac2e4543a7a40e27a13298870d98dd29ecb1add8dc"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/schema-form/file/drop-zone.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/schema-form/file/drop-zone.tsx",
+            "containedInRoot": true,
+            "bytes": 1008,
+            "sha256": "d2b1a8aea878b37cc72869b5349a7f807c758ca9b74ab7b3e1c947d0466552d9"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/schema-form/file/field.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/schema-form/file/field.tsx",
+            "containedInRoot": true,
+            "bytes": 6364,
+            "sha256": "a2b49d0154d1adb2b1093d17ad4a61560bf6b93505d924b2bfa03b99a95caefe"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/schema-form/file/upload.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/schema-form/file/upload.ts",
+            "containedInRoot": true,
+            "bytes": 2967,
+            "sha256": "891fefc2eec704d1fc8c926b7e798c4892a655f39425ffc5021ee4444c490f8f"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/schema-form/form.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/schema-form/form.tsx",
+            "containedInRoot": true,
+            "bytes": 13702,
+            "sha256": "f24cb2d67e9ae2829352866036b446ce626c3846e7bd6ef5cfb9585c78f9adb5"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/schema-form/index.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/schema-form/index.tsx",
+            "containedInRoot": true,
+            "bytes": 713,
+            "sha256": "9a014e05631cf392f1a95b46e03a7fae605f7541ef663be55e5323316d882629"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/schema-form/state.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/schema-form/state.ts",
+            "containedInRoot": true,
+            "bytes": 16751,
+            "sha256": "0b972edd6f49971b2e9db75eda4568adb9e806cfd38870dd7fdd2e6568a5261d"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/screen-frame.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/screen-frame.tsx",
+            "containedInRoot": true,
+            "bytes": 5092,
+            "sha256": "8a0d078aa09e6830b5ea4d7685fcdd399d939e1b7dd0ad89cc9627b2f0c157c4"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/search-field.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/search-field.tsx",
+            "containedInRoot": true,
+            "bytes": 2430,
+            "sha256": "c249a7cdf85e5cdac83a8891f738eddac53043e5f68030d6f51b7aefa35f072b"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/segmented-control.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/segmented-control.tsx",
+            "containedInRoot": true,
+            "bytes": 1264,
+            "sha256": "3de38a7e796250272fc9ee48610020f89b0d8a1d202ca30bd67718fc45b68c72"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/select.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/select.tsx",
+            "containedInRoot": true,
+            "bytes": 3598,
+            "sha256": "6557175341b06b0d81cebb9d9d61af86a7010031c3889112cb52b04466dfaed0"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/shortcut.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/shortcut.tsx",
+            "containedInRoot": true,
+            "bytes": 3958,
+            "sha256": "750a7875902f46735b9f36fe560ae43781778afcb24c70b5379743bf68bacdc0"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/stylex-tracer/controls.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/stylex-tracer/controls.tsx",
+            "containedInRoot": true,
+            "bytes": 5336,
+            "sha256": "e544cd670ad3c4446d0cc02c78587b8832a203449fc9d10ae96ad05b297a5709"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/stylex-tracer/index.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/stylex-tracer/index.ts",
+            "containedInRoot": true,
+            "bytes": 259,
+            "sha256": "7a62206d4f7655317d312b7902f9268dcd88800ae1363431a94bc54eb51221ab"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/stylex-tracer/panel.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/stylex-tracer/panel.tsx",
+            "containedInRoot": true,
+            "bytes": 9608,
+            "sha256": "3d23b492bda5b5e0349f7dffcabb4fb401ff87a191eef909c7bca809fc475bce"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/stylex-tracer/tokens.stylex.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/stylex-tracer/tokens.stylex.ts",
+            "containedInRoot": true,
+            "bytes": 1449,
+            "sha256": "c08b186883786e11ff0215694de78f5a88cdc613d1ab03358d30d1dd199c0d4e"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/switch.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/switch.tsx",
+            "containedInRoot": true,
+            "bytes": 772,
+            "sha256": "e3331fd9629363620c52c452260012f8188dd2937d2a84a193f3ed76c93fbf5e"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/sync-state.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/sync-state.ts",
+            "containedInRoot": true,
+            "bytes": 807,
+            "sha256": "1ad0170af74a47a8e0426a5df63d3724aac7f2ee9572fb420d5279aee5a78262"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/sync.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/sync.tsx",
+            "containedInRoot": true,
+            "bytes": 3956,
+            "sha256": "036f7581efbf3c9a173a119525dfe37600d7bc39306fb0eabe01f0c2e148a483"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/table.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/table.tsx",
+            "containedInRoot": true,
+            "bytes": 2931,
+            "sha256": "8ce3dccc7a187a0f8076c4ef0c4c59e2724bf59b015e015c1754b6b98602d2e2"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/text-field.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/text-field.tsx",
+            "containedInRoot": true,
+            "bytes": 763,
+            "sha256": "bfa8b525c75b03327ce522c142346387c8579c626fabf9170919734658b518c0"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/theme.css",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/theme.css",
+            "containedInRoot": true,
+            "bytes": 2127,
+            "sha256": "bbc557dc7997fda1422358fc284d833f539dfb6d32d186155eeabce411ab2bd0"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/tint.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/tint.tsx",
+            "containedInRoot": true,
+            "bytes": 3044,
+            "sha256": "de2f5997605ac4807386234a1d3073ebe3ebb583034864dd8a22b94146eb0800"
+          },
+          {
+            "path": "packages/contract/package.json",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/package.json",
+            "containedInRoot": true,
+            "bytes": 440,
+            "sha256": "912986d4c53d2c35be0f4ecc352b2fecbf1561d1ccf2d8b7317aded6b9989761"
+          },
+          {
+            "path": "packages/contract/src/auth-middleware.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/auth-middleware.ts",
+            "containedInRoot": true,
+            "bytes": 3227,
+            "sha256": "51eb9b6a5249b14c412ae6e595747251a27ba2a7c92787fd9bdc322f7e531f94"
+          },
+          {
+            "path": "packages/contract/src/client.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/client.ts",
+            "containedInRoot": true,
+            "bytes": 2490,
+            "sha256": "030e33c1a83e91221a622b2dfb9fa1c3d7dd25d10368cff10a0790723f96b17f"
+          },
+          {
+            "path": "packages/contract/src/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/contract.ts",
+            "containedInRoot": true,
+            "bytes": 2928,
+            "sha256": "b7ee99f7a4b773794bcfc0383d0ac2cc9e3c91c1d76373b43d2fb8efd8800c9f"
+          },
+          {
+            "path": "packages/contract/src/errors.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/errors.ts",
+            "containedInRoot": true,
+            "bytes": 3885,
+            "sha256": "8a3e5a1e8586bc1f31df7b0a3e123ff3079cae0bb3d8cb1e20b6017ea41d168a"
+          },
+          {
+            "path": "packages/contract/src/http-annotations.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/http-annotations.ts",
+            "containedInRoot": true,
+            "bytes": 167,
+            "sha256": "e5b8760d27fc7c2a1681db7764263a5b6d1f03967eb0bea88b6775e1e125911b"
+          },
+          {
+            "path": "packages/contract/src/modules/automations/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/automations/contract.ts",
+            "containedInRoot": true,
+            "bytes": 2505,
+            "sha256": "041d1865f8bd024672ae699e065a261b1cb9e8cb3588d8b88b1748cdc111a426"
+          },
+          {
+            "path": "packages/contract/src/modules/automations/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/automations/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 4684,
+            "sha256": "f482a10114a43187db13eab509e00dadcb6fd69a4c6782afc47f023cde773207"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/backups/contract.ts",
+            "containedInRoot": true,
+            "bytes": 2876,
+            "sha256": "3e180527be3b59e399578e1c69bbe66b99d2b684d2e3e83a472bcfcea81ed1a2"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/fixtures/v1/client-renderers.ndjson",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/backups/fixtures/v1/client-renderers.ndjson",
+            "containedInRoot": true,
+            "bytes": 658,
+            "sha256": "c6917a666d2eba2b67d4a3bee6dd765fde459ccf62eff8ab9b0cf9aa7339d2e2"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/fixtures/v1/entities.ndjson",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/backups/fixtures/v1/entities.ndjson",
+            "containedInRoot": true,
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/fixtures/v1/entity-dependencies.ndjson",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/backups/fixtures/v1/entity-dependencies.ndjson",
+            "containedInRoot": true,
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/fixtures/v1/events.ndjson",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/backups/fixtures/v1/events.ndjson",
+            "containedInRoot": true,
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/fixtures/v1/installations.ndjson",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/backups/fixtures/v1/installations.ndjson",
+            "containedInRoot": true,
+            "bytes": 326,
+            "sha256": "97fe1461b522ba8552949b65ab083999aa4b9dfb3a36122599024f1064feb392"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/fixtures/v1/integrations.ndjson",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/backups/fixtures/v1/integrations.ndjson",
+            "containedInRoot": true,
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/fixtures/v1/manifest.json",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/backups/fixtures/v1/manifest.json",
+            "containedInRoot": true,
+            "bytes": 1888,
+            "sha256": "951404842607fd447a69581070237331542a9d0e6b0621b6051906fd8f5c7807"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/fixtures/v1/notification-subscriptions.ndjson",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/backups/fixtures/v1/notification-subscriptions.ndjson",
+            "containedInRoot": true,
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/fixtures/v1/private-plugins.ndjson",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/backups/fixtures/v1/private-plugins.ndjson",
+            "containedInRoot": true,
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/fixtures/v1/profile.json",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/backups/fixtures/v1/profile.json",
+            "containedInRoot": true,
+            "bytes": 56,
+            "sha256": "a7d10765a6d377d4fc2d2b6683c3841f25fefa456a596b656f62cb1ed1fb973c"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/fixtures/v1/relationships.ndjson",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/backups/fixtures/v1/relationships.ndjson",
+            "containedInRoot": true,
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/fixtures/v1/saved-views.ndjson",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/backups/fixtures/v1/saved-views.ndjson",
+            "containedInRoot": true,
+            "bytes": 333,
+            "sha256": "9a91e4ea0dc3f3775c294ec6e65ff655964fc2f841b03f5a3190d78ebc5a4804"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/backups/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 4534,
+            "sha256": "758839a430e3964fc25392fefa893588478ef39b3abb14561db17668a06b733c"
+          },
+          {
+            "path": "packages/contract/src/modules/client-pages/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/client-pages/contract.ts",
+            "containedInRoot": true,
+            "bytes": 4643,
+            "sha256": "092fcb4f0cb0d06a467a675d5ab3703723a9ae7b68eb144a8a09f63b980c7c4b"
+          },
+          {
+            "path": "packages/contract/src/modules/client-pages/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/client-pages/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 10882,
+            "sha256": "bd97f852d92367b204f059556706ea95b110d4c35fd2e30e23a39ffbe6d1d6e3"
+          },
+          {
+            "path": "packages/contract/src/modules/collections/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/collections/contract.ts",
+            "containedInRoot": true,
+            "bytes": 1537,
+            "sha256": "68816c47371a339e8e34a4f6bbb9aa5d57452984412aca7deb96e6048fa0b54e"
+          },
+          {
+            "path": "packages/contract/src/modules/collections/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/collections/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 3013,
+            "sha256": "ba976b94374fb1accd636ed61ed2d87622f5f2e996160109ded276835a160256"
+          },
+          {
+            "path": "packages/contract/src/modules/definitions/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/definitions/contract.ts",
+            "containedInRoot": true,
+            "bytes": 2105,
+            "sha256": "882ff1f0ebac01cc4922bbed6738a58104b269f5667d914e4de4ddea0a9ef80f"
+          },
+          {
+            "path": "packages/contract/src/modules/definitions/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/definitions/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 1619,
+            "sha256": "28e4f48cf9ac0bfc5fb1304a652339e8d3a0d5f9beba90c68a3f334bad338532"
+          },
+          {
+            "path": "packages/contract/src/modules/entities/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/entities/contract.ts",
+            "containedInRoot": true,
+            "bytes": 717,
+            "sha256": "88082caa792e45dd67c31090dc8d566c815d93eb70b9b313d025ed849a64ab56"
+          },
+          {
+            "path": "packages/contract/src/modules/entities/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/entities/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 3141,
+            "sha256": "c8e4bab467ba218f71f9607c68e49eb7217c6d4f06e891158d1bbfeab9778945"
+          },
+          {
+            "path": "packages/contract/src/modules/entity-interest/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/entity-interest/contract.ts",
+            "containedInRoot": true,
+            "bytes": 1138,
+            "sha256": "ff77e20de5d187f714f035bb33b4834d605288d6dce91df1a3cae2b03d72347c"
+          },
+          {
+            "path": "packages/contract/src/modules/entity-interest/messages.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/entity-interest/messages.ts",
+            "containedInRoot": true,
+            "bytes": 5027,
+            "sha256": "bf4d0e2ac67090f7cedaa916d243135712866fffc424776dfb45e198bf9566eb"
+          },
+          {
+            "path": "packages/contract/src/modules/events/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/events/contract.ts",
+            "containedInRoot": true,
+            "bytes": 801,
+            "sha256": "b8719c17b2518c04c793779f35b332761f58ce5426131fdbc474fa1c9bbfade4"
+          },
+          {
+            "path": "packages/contract/src/modules/events/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/events/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 3071,
+            "sha256": "127b12a00aae9392da679cf8d3924fe5908009dcbbc6a5398923e6796b6e59a8"
+          },
+          {
+            "path": "packages/contract/src/modules/god-mode/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/god-mode/contract.ts",
+            "containedInRoot": true,
+            "bytes": 7479,
+            "sha256": "64e475fa2d6d196c10a06714664541c0968aea79e1eb0883d0f5d6172143e6e4"
+          },
+          {
+            "path": "packages/contract/src/modules/god-mode/user-lifecycle.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/god-mode/user-lifecycle.ts",
+            "containedInRoot": true,
+            "bytes": 1595,
+            "sha256": "a7fb90a81d3d122cf5baae2f9378cc1843cd182f6a20fe1728ecf4f68d7a9af0"
+          },
+          {
+            "path": "packages/contract/src/modules/imports/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/imports/contract.ts",
+            "containedInRoot": true,
+            "bytes": 1360,
+            "sha256": "8ac65cf62a83379bda43f0de2426b7e6a0badc76f80dba6c8c0e041366ad62f8"
+          },
+          {
+            "path": "packages/contract/src/modules/imports/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/imports/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 4036,
+            "sha256": "0a812ecb0f56c263a4b900c3fde4fb6f7ac5a509637bfc57d2aba957a842d34d"
+          },
+          {
+            "path": "packages/contract/src/modules/imports/types.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/imports/types.ts",
+            "containedInRoot": true,
+            "bytes": 293,
+            "sha256": "e69c9047a6d8376b8d4489b08db8b85addf39bb463eba40ea48bc8a88202609b"
+          },
+          {
+            "path": "packages/contract/src/modules/integrations/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/integrations/contract.ts",
+            "containedInRoot": true,
+            "bytes": 3098,
+            "sha256": "3e5e2534160ed1fa7385d01f5d563f1c8c91b2776db9f55c928d2d2377528fc0"
+          },
+          {
+            "path": "packages/contract/src/modules/integrations/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/integrations/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 4983,
+            "sha256": "bc7bd9ab51f1238c4e3bf29520ec6b7baa1328934c516a845e663e2d003c8d9e"
+          },
+          {
+            "path": "packages/contract/src/modules/integrations/types.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/integrations/types.ts",
+            "containedInRoot": true,
+            "bytes": 130,
+            "sha256": "c09f48de44f512e92c72d62de3e20cb372d1eacd3854c71179aea055577d7888"
+          },
+          {
+            "path": "packages/contract/src/modules/notifications/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/notifications/contract.ts",
+            "containedInRoot": true,
+            "bytes": 1898,
+            "sha256": "594ca0e20a5b359b4ecc0497dae51c0fa15ea5d437dd1843a5e3365569b7f5b9"
+          },
+          {
+            "path": "packages/contract/src/modules/notifications/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/notifications/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 3269,
+            "sha256": "6f89ef1165d5b3aafd4e31c31be6b7d7591dfe31406e87a498dfec618bbb8888"
+          },
+          {
+            "path": "packages/contract/src/modules/notifications/types.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/notifications/types.ts",
+            "containedInRoot": true,
+            "bytes": 358,
+            "sha256": "25b2934fa49866a6e540bea590512ecb5d9ac3fcf5acaeb843663ed0b319777a"
+          },
+          {
+            "path": "packages/contract/src/modules/plugins/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/plugins/contract.ts",
+            "containedInRoot": true,
+            "bytes": 4392,
+            "sha256": "4633745bab2206a9c751a84f4e77234e0482c4690f7157416eb279e371a1e977"
+          },
+          {
+            "path": "packages/contract/src/modules/plugins/manifest.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/plugins/manifest.ts",
+            "containedInRoot": true,
+            "bytes": 29645,
+            "sha256": "7666fe2c36867e0d66ed6bab18d89f3f634629ffd48c029e993aa50b5fbc5bda"
+          },
+          {
+            "path": "packages/contract/src/modules/plugins/plugin-config.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/plugins/plugin-config.ts",
+            "containedInRoot": true,
+            "bytes": 358,
+            "sha256": "65552c4be2b44d7f0469b6b2cb4a884da8f969e031b3ae7aefed82114f4ea6e6"
+          },
+          {
+            "path": "packages/contract/src/modules/plugins/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/plugins/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 8087,
+            "sha256": "fce3c9adeb23b13232f9183ca4a45539cdf926d0f7edd7b4f6786c8553c7a145"
+          },
+          {
+            "path": "packages/contract/src/modules/plugins/shared-file-policy.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/plugins/shared-file-policy.ts",
+            "containedInRoot": true,
+            "bytes": 462,
+            "sha256": "f13a577ffea84a7869a0e0341899fcbfde425862697d17d7e640af5317ecce2c"
+          },
+          {
+            "path": "packages/contract/src/modules/provider-entities/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/provider-entities/contract.ts",
+            "containedInRoot": true,
+            "bytes": 1967,
+            "sha256": "147dbb73b9b9963698f51fc66a48151cdc37bc2801f682e3ab2a5d2a3d10ff7c"
+          },
+          {
+            "path": "packages/contract/src/modules/provider-entities/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/provider-entities/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 5024,
+            "sha256": "3f8413964e4bc57406e915a910862515a6aa292f04b68882f548d73655d695d5"
+          },
+          {
+            "path": "packages/contract/src/modules/relationships/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/relationships/contract.ts",
+            "containedInRoot": true,
+            "bytes": 827,
+            "sha256": "d1802c6ae715cec77155a4aec0c15ff9c06b1d78748cc0b7095f4c0385fa69b5"
+          },
+          {
+            "path": "packages/contract/src/modules/relationships/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/relationships/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 1910,
+            "sha256": "ac28c0a861d87636c213b9e190f933898b05937cf32e05c904d2e08a83b2a278"
+          },
+          {
+            "path": "packages/contract/src/modules/ryotql/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/ryotql/contract.ts",
+            "containedInRoot": true,
+            "bytes": 1353,
+            "sha256": "1e434f11c4476ca835767eaddffc895fbfaf4df68fd823fbd517f3e297efb4e6"
+          },
+          {
+            "path": "packages/contract/src/modules/ryotql/language.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/ryotql/language.ts",
+            "containedInRoot": true,
+            "bytes": 15162,
+            "sha256": "4c2496857068f8a7207e448aa82cee8463cd57af5cbdf1bddfcafce621bb690c"
+          },
+          {
+            "path": "packages/contract/src/modules/sandbox/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/sandbox/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 5640,
+            "sha256": "e08083b68f254d5e9a871774466786d87fc3f1668574d7cec632b540d6595086"
+          },
+          {
+            "path": "packages/contract/src/modules/sandbox/wire.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/sandbox/wire.ts",
+            "containedInRoot": true,
+            "bytes": 722,
+            "sha256": "cfe7e787f6046434a5dc5dacd4dc6825d99359b93b0d719d6cbf73267cb4af6d"
+          },
+          {
+            "path": "packages/contract/src/modules/saved-views/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/saved-views/contract.ts",
+            "containedInRoot": true,
+            "bytes": 2154,
+            "sha256": "242894527b0b803684e2ec36b8f30fe176e3bd53c9868b9253ac26789c03f773"
+          },
+          {
+            "path": "packages/contract/src/modules/saved-views/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/saved-views/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 7236,
+            "sha256": "dd8735ef541f03e36d1dd763cbcaa0de1c5065946cc27f0f13eda6e5afb868e6"
+          },
+          {
+            "path": "packages/contract/src/modules/system/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/system/contract.ts",
+            "containedInRoot": true,
+            "bytes": 2126,
+            "sha256": "0c639bf3abf4809722e6d1efdc85593ba2d60dcce07e3b5207edf5f185b02cc3"
+          },
+          {
+            "path": "packages/contract/src/modules/test-support/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/test-support/contract.ts",
+            "containedInRoot": true,
+            "bytes": 12377,
+            "sha256": "2518be3ae9a44fa799e79c4d820d1bf789a64ae470922db37f7108d4f052b46b"
+          },
+          {
+            "path": "packages/contract/src/modules/test-support/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/test-support/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 6770,
+            "sha256": "9bbf73c29f9e11e8497a682316077df324f77679957f67b079586a20e9f205a0"
+          },
+          {
+            "path": "packages/contract/src/modules/uploads/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/uploads/contract.ts",
+            "containedInRoot": true,
+            "bytes": 2565,
+            "sha256": "c52f64871ef009a5f2c6b2e0de0cf87cf4474eb0699f48879d7cb2d637cbed2d"
+          },
+          {
+            "path": "packages/contract/src/modules/uploads/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/uploads/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 4710,
+            "sha256": "7c24db9bb6f2ba3394813bd6bd97ff8b80506e4cbfda96d748dd6a1b7dafb14b"
+          },
+          {
+            "path": "packages/contract/src/modules/uploads/upload-policy.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/uploads/upload-policy.ts",
+            "containedInRoot": true,
+            "bytes": 1729,
+            "sha256": "e841526f2a8e16de29b2c4b11ff9ab9bde16988d6d3d2765a64ea49ec8449db6"
+          },
+          {
+            "path": "packages/contract/src/modules/user-settings/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/user-settings/contract.ts",
+            "containedInRoot": true,
+            "bytes": 993,
+            "sha256": "b3932aa19d924e4e27ea5b73ec192e50d32640106e8aabb64b829c9180dff86e"
+          },
+          {
+            "path": "packages/contract/src/modules/user-settings/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/user-settings/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 947,
+            "sha256": "800ac1bfc9a030a85b0133baa939268c372ce45c18ef48f21335e7bdb3943413"
+          },
+          {
+            "path": "packages/contract/src/modules/user-state/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/user-state/contract.ts",
+            "containedInRoot": true,
+            "bytes": 1222,
+            "sha256": "e44be486117dc38fa943d80a156dea04c705d18ae45421da3876569fbee5d3fb"
+          },
+          {
+            "path": "packages/contract/src/modules/user-state/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/modules/user-state/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 1791,
+            "sha256": "f5ff8bb73b9fb57dc8b6f86a7744e44c088eebad799f3159feab1612d408d256"
+          },
+          {
+            "path": "packages/contract/src/oauth.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/oauth.ts",
+            "containedInRoot": true,
+            "bytes": 5135,
+            "sha256": "4959ab7134c3e643331ba0095f69af267a3135a302484c7233fc4e53ed21e6c9"
+          },
+          {
+            "path": "packages/contract/src/schema/base64.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/schema/base64.ts",
+            "containedInRoot": true,
+            "bytes": 532,
+            "sha256": "c5757a1a5c40630223aea12acc2b50ce59d9bc126fa73afb14b62bd31bdfb11a"
+          },
+          {
+            "path": "packages/contract/src/schema/brands.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/schema/brands.ts",
+            "containedInRoot": true,
+            "bytes": 3236,
+            "sha256": "c50f659e87fde229558104330fb6cc263918c7847c5c06f0949d0a2d3df801f5"
+          },
+          {
+            "path": "packages/contract/src/schema/core.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/schema/core.ts",
+            "containedInRoot": true,
+            "bytes": 2139,
+            "sha256": "0b12ac3ecd4ca65bd57fadab567bf94e8a77e767f8775f4ee21f730fd76b2633"
+          },
+          {
+            "path": "packages/contract/src/schema/json.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/schema/json.ts",
+            "containedInRoot": true,
+            "bytes": 1968,
+            "sha256": "9db4c307d4f7f2599f034266d78b789fd371bd475100170f92866b4cba09843e"
+          },
+          {
+            "path": "packages/contract/src/schema/operators.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/schema/operators.ts",
+            "containedInRoot": true,
+            "bytes": 351,
+            "sha256": "983b787ffe3e17926a19d1d9d72bf85213e8be9686a1abd246ba83f126ce4bb8"
+          },
+          {
+            "path": "packages/contract/src/schema/property-schema.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/schema/property-schema.ts",
+            "containedInRoot": true,
+            "bytes": 25270,
+            "sha256": "ec902ee96d3153703264ee5bed0716a554844854ed3a84f49b44456b04786348"
+          },
+          {
+            "path": "packages/contract/src/schema/run-status.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/schema/run-status.ts",
+            "containedInRoot": true,
+            "bytes": 226,
+            "sha256": "9fe9135fc02350877f9a3fba124a33662ac5fc3dae91cca69e97b5bdb7604693"
+          },
+          {
+            "path": "packages/contract/src/schema/utils.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/contract/src/schema/utils.ts",
+            "containedInRoot": true,
+            "bytes": 990,
+            "sha256": "997d05097a9f8bf9ebf92b8b515bfc4a8b8e635285754f1da7b578588d94aaa3"
+          },
+          {
+            "path": "packages/plugin-archive/package.json",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/plugin-archive/package.json",
+            "containedInRoot": true,
+            "bytes": 584,
+            "sha256": "68c3469ac81b9b58ed41e6772a2ce60f27b9b7a3519cefb69447186baf5e0bcc"
+          },
+          {
+            "path": "packages/plugin-archive/src/index.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/plugin-archive/src/index.ts",
+            "containedInRoot": true,
+            "bytes": 11708,
+            "sha256": "29812831f5e93747acc4552c253e995e6a735ff09970e5d9b97e0346dcb1a95c"
+          },
+          {
+            "path": "packages/ryotql/package.json",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/ryotql/package.json",
+            "containedInRoot": true,
+            "bytes": 485,
+            "sha256": "f140b2f0da2884e06ad8e5b0ac1062699a91f3b6842b614645e80f7ae91fdeba"
+          },
+          {
+            "path": "packages/ryotql/src/index.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/ryotql/src/index.ts",
+            "containedInRoot": true,
+            "bytes": 32758,
+            "sha256": "be897a995d3361906ff6e971e90d0701b7ef68d53fd8f5d7c9208f3afe61ea18"
+          },
+          {
+            "path": "packages/ts-utils/package.json",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/ts-utils/package.json",
+            "containedInRoot": true,
+            "bytes": 562,
+            "sha256": "7254e5775261a63c615b5e293c068dbdd348dbe8c7494bd48e87b06d68606739"
+          },
+          {
+            "path": "packages/ts-utils/src/cn.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/ts-utils/src/cn.ts",
+            "containedInRoot": true,
+            "bytes": 159,
+            "sha256": "b2179073a79ec11767b731747e283e3e92cb6f409fe9968a224f6949d1331517"
+          },
+          {
+            "path": "packages/ts-utils/src/crypto.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/ts-utils/src/crypto.ts",
+            "containedInRoot": true,
+            "bytes": 1148,
+            "sha256": "2426a68cf24a089ebf0c312d1f72629f919a40a84d1fc02b881e54896e900221"
+          },
+          {
+            "path": "packages/ts-utils/src/dayjs.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/ts-utils/src/dayjs.ts",
+            "containedInRoot": true,
+            "bytes": 375,
+            "sha256": "3001f4fca8d1bd652a4a65ea667a4d933bffa2dba450fb38a140f1b916f11ac6"
+          },
+          {
+            "path": "packages/ts-utils/src/format.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/ts-utils/src/format.ts",
+            "containedInRoot": true,
+            "bytes": 718,
+            "sha256": "9255150d7c7fe591c76d3210a48b4e6805ca1796841f370dbdb1ba18b6304e96"
+          },
+          {
+            "path": "packages/ts-utils/src/json.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/ts-utils/src/json.ts",
+            "containedInRoot": true,
+            "bytes": 893,
+            "sha256": "c73426d01c41af49cc56d0ebb7a284435ca6413e1dcc60b7c6e9f0c159073795"
+          },
+          {
+            "path": "packages/ts-utils/src/lodash.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/ts-utils/src/lodash.ts",
+            "containedInRoot": true,
+            "bytes": 1528,
+            "sha256": "cac1b2f3286448d85bca02340ec2c4fcb77a55c82a6b80286b49d85f229b2818"
+          },
+          {
+            "path": "packages/ts-utils/src/path.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/ts-utils/src/path.ts",
+            "containedInRoot": true,
+            "bytes": 431,
+            "sha256": "ade3f3e0fef0b5f1025e28a9b18849e20fe3b83e4a1e8961319358104dc27d70"
+          },
+          {
+            "path": "packages/ts-utils/src/predicates.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/ts-utils/src/predicates.ts",
+            "containedInRoot": true,
+            "bytes": 271,
+            "sha256": "2a106b0ed1e60f7f68c38daa5bb4bfbfe86c4c89833d30f82e23584d77943b97"
+          },
+          {
+            "path": "packages/ts-utils/src/request.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/ts-utils/src/request.ts",
+            "containedInRoot": true,
+            "bytes": 1208,
+            "sha256": "58aee1d6b4139ed6a406a970b0d8b77b36fcd32e1544350c9dc99391e6e72a8f"
+          },
+          {
+            "path": "packages/ts-utils/src/slug.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/ts-utils/src/slug.ts",
+            "containedInRoot": true,
+            "bytes": 668,
+            "sha256": "706483e60a6b81968e941bb24c754031afd8af7737495ef7a95a493b390ce7dd"
+          },
+          {
+            "path": "packages/ts-utils/src/string.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/ts-utils/src/string.ts",
+            "containedInRoot": true,
+            "bytes": 999,
+            "sha256": "ae2238cf31a702d232aa02a38b78eda221d5006c6e18310235a69d60e8e5824b"
+          },
+          {
+            "path": "packages/ts-utils/src/zod.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/ts-utils/src/zod.ts",
+            "containedInRoot": true,
+            "bytes": 814,
+            "sha256": "6e832838bf2a41c9c4b9d6abc9bac0b62780a5d47a1e4f9ff99cfe58a651f0d2"
+          },
+          {
+            "path": "plugins/stylex-tracer/assets.d.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/plugins/stylex-tracer/assets.d.ts",
+            "containedInRoot": true,
+            "bytes": 74,
+            "sha256": "0fbf889d45dc48f682321c4e9d9a750580c11f28dd28d4d33a1e3e31cd6e2a36"
+          },
+          {
+            "path": "plugins/stylex-tracer/client/page.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/plugins/stylex-tracer/client/page.tsx",
+            "containedInRoot": true,
+            "bytes": 2681,
+            "sha256": "6cd94606d0d7abd2d19372f012f9a16b1cb9e49db636470f77f58bc1d61cff76"
+          },
+          {
+            "path": "plugins/stylex-tracer/client/tokens.stylex.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/plugins/stylex-tracer/client/tokens.stylex.ts",
+            "containedInRoot": true,
+            "bytes": 161,
+            "sha256": "8348206675c02efe1c8707341df0ddb214bc300421c780eb5a3a661cdb01d8c2"
+          },
+          {
+            "path": "plugins/stylex-tracer/client/tracer-mark.svg",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/plugins/stylex-tracer/client/tracer-mark.svg",
+            "containedInRoot": true,
+            "bytes": 230,
+            "sha256": "a5e59f88773784399e0b12beaabad4fd7dc568fc677667b042045a898e789292"
+          },
+          {
+            "path": "plugins/stylex-tracer/host/plugin.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/plugins/stylex-tracer/host/plugin.ts",
+            "containedInRoot": true,
+            "bytes": 1085,
+            "sha256": "96e4913d45b3d1d76aa49b63d3b06bf30ed54110b7611c1d85f3ec776a11295f"
+          },
+          {
+            "path": "plugins/stylex-tracer/package.json",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/plugins/stylex-tracer/package.json",
+            "containedInRoot": true,
+            "bytes": 689,
+            "sha256": "d1981986bdffc063a76fe34cc98ee2eab131f7ac101587a0ee3befbffb044c5b"
+          },
+          {
+            "path": "plugins/stylex-tracer/tsconfig.json",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/plugins/stylex-tracer/tsconfig.json",
+            "containedInRoot": true,
+            "bytes": 396,
+            "sha256": "d3fea81550eea5e76b6c7e33f36bd9bdeb48b46614c030ec67278b2599447860"
+          }
+        ],
+        "sha256": "411c2204bbba0f57af619a8c7eaf057c8505aec1b84762f57b712e20551fcc14"
+      },
+      "treeIdentity": {
+        "kind": "source-manifest-sha256",
+        "value": "411c2204bbba0f57af619a8c7eaf057c8505aec1b84762f57b712e20551fcc14"
+      },
+      "contentIdentity": "9aeea137d20066357921ddfa5685ff78c97e20a0b31ff28077afd7fd6b376fb8",
+      "cacheRoots": {
+        "bunInstall": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-cache-a",
+        "xdg": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-xdg-a",
+        "temporary": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-tmp-a"
+      },
+      "resolutions": {
+        "workspace": {
+          "packages/client-plugin-compiler/src/index.ts": {
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-plugin-compiler/src/index.ts",
+            "containedInRoot": true,
+            "sha256": "b948864b609316547304443c1eba66c2153bfd7a63ff2687444c9863e855d87b"
+          },
+          "packages/client-ui-sdk/src/stylex-tracer/panel.tsx": {
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/packages/client-ui-sdk/src/stylex-tracer/panel.tsx",
+            "containedInRoot": true,
+            "sha256": "3d23b492bda5b5e0349f7dffcabb4fb401ff87a191eef909c7bca809fc475bce"
+          },
+          "plugins/stylex-tracer/client/page.tsx": {
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/plugins/stylex-tracer/client/page.tsx",
+            "containedInRoot": true,
+            "sha256": "6cd94606d0d7abd2d19372f012f9a16b1cb9e49db636470f77f58bc1d61cff76"
+          },
+          "benchmarks/stylex-tracer/fixture/tailwind/page.tsx": {
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/benchmarks/stylex-tracer/fixture/tailwind/page.tsx",
+            "containedInRoot": true,
+            "sha256": "35063be01343b4508a767124c3457029f5f2d26838e0cc71a6eb5645800b1665"
+          }
+        },
+        "packages": {
+          "@stylexjs/stylex/package.json": {
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/node_modules/.bun/@stylexjs+stylex@0.19.0/node_modules/@stylexjs/stylex/package.json",
+            "containedInRoot": true,
+            "sha256": "175af0021645f444babee4f1174c8d6beb2ea03a6e9b73875c24681782912dfb"
+          },
+          "tailwindcss/package.json": {
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-a/node_modules/.bun/tailwindcss@4.3.0/node_modules/tailwindcss/package.json",
+            "containedInRoot": true,
+            "sha256": "3e87bf49f863a5b83b473e1e10212561b406c69e6101423e757340c876f374ee"
+          }
+        }
+      },
+      "apiVersion": 1,
+      "variants": {
+        "stylex": {
+          "artifactHash": "1bd0663be076f1c50ff540ac155da9767bd88341f1d4c39b83df9c78c90a8056",
+          "archive": {
+            "bytes": 2285,
+            "sha256": "ba424c8d1fde363a89c92cc12945e4822c2828641c8e934e161a3381b6bdd0d8"
+          },
+          "files": [
+            {
+              "name": "asset-0e523e4bc3c6308f002a3208ea2990cb4f64282d4fbb67c12f5726d13b66eef6.woff2",
+              "contentType": "font/woff2",
+              "bytes": 23636,
+              "sha256": "0e523e4bc3c6308f002a3208ea2990cb4f64282d4fbb67c12f5726d13b66eef6"
+            },
+            {
+              "name": "asset-0f53d1c03b3918d744a843b5039001ee31695ca1e255e3914188df81beb461e9.woff2",
+              "contentType": "font/woff2",
+              "bytes": 14808,
+              "sha256": "0f53d1c03b3918d744a843b5039001ee31695ca1e255e3914188df81beb461e9"
+            },
+            {
+              "name": "asset-2a2d9c22c9863086a23f5013fede1428585321812b25f2662542c39d02967c5e.woff2",
+              "contentType": "font/woff2",
+              "bytes": 20088,
+              "sha256": "2a2d9c22c9863086a23f5013fede1428585321812b25f2662542c39d02967c5e"
+            },
+            {
+              "name": "asset-2df52199eac56e2ec7a735e609bb151bdab79422c3e73948f4b6580c66bb5a50.woff2",
+              "contentType": "font/woff2",
+              "bytes": 17248,
+              "sha256": "2df52199eac56e2ec7a735e609bb151bdab79422c3e73948f4b6580c66bb5a50"
+            },
+            {
+              "name": "asset-6c18d579fd87c3776be068b762cbc83fde3acb543d49eabd3ade842eb987e887.woff2",
+              "contentType": "font/woff2",
+              "bytes": 32292,
+              "sha256": "6c18d579fd87c3776be068b762cbc83fde3acb543d49eabd3ade842eb987e887"
+            },
+            {
+              "name": "asset-98c22de85f6e83bcd6ae1a443e12e256fbc8de7142bec4f76b059f8ff9c2797e.woff2",
+              "contentType": "font/woff2",
+              "bytes": 8992,
+              "sha256": "98c22de85f6e83bcd6ae1a443e12e256fbc8de7142bec4f76b059f8ff9c2797e"
+            },
+            {
+              "name": "asset-a5e59f88773784399e0b12beaabad4fd7dc568fc677667b042045a898e789292.svg",
+              "contentType": "image/svg+xml",
+              "bytes": 230,
+              "sha256": "a5e59f88773784399e0b12beaabad4fd7dc568fc677667b042045a898e789292"
+            },
+            {
+              "name": "asset-a8c4cb778ab6202d22bdea2ccc8d7e7caf802cfe0a7ce37df7b212f82341468f.woff2",
+              "contentType": "font/woff2",
+              "bytes": 29240,
+              "sha256": "a8c4cb778ab6202d22bdea2ccc8d7e7caf802cfe0a7ce37df7b212f82341468f"
+            },
+            {
+              "name": "asset-c57d9ca3bd42e6bc093badc7744dd2059a78f66a3a4dc6ca40574480c870f553.woff2",
+              "contentType": "font/woff2",
+              "bytes": 21232,
+              "sha256": "c57d9ca3bd42e6bc093badc7744dd2059a78f66a3a4dc6ca40574480c870f553"
+            },
+            {
+              "name": "asset-ddb8c66035104e233fc024669183aad3738b6daa16deee2ebb1241bd0f98ace1.woff2",
+              "contentType": "font/woff2",
+              "bytes": 37788,
+              "sha256": "ddb8c66035104e233fc024669183aad3738b6daa16deee2ebb1241bd0f98ace1"
+            },
+            {
+              "name": "plugin.css",
+              "contentType": "text/css; charset=utf-8",
+              "bytes": 11402,
+              "sha256": "b5d4c96a1cb58e1d45df96e2f7c3ea4af1e162f3aea8e130871b695718831a92"
+            },
+            {
+              "name": "plugin.js",
+              "contentType": "text/javascript; charset=utf-8",
+              "bytes": 606248,
+              "sha256": "cc7e7cdd775090c50ccd6b2b34f72cb4624cce622bb3fd9224f8b20aeb810bba"
+            },
+            {
+              "name": "index.html",
+              "contentType": "text/html; charset=utf-8",
+              "bytes": 538,
+              "sha256": "8234faa59f10dd02f89a089c88d67237559f603b07bda8b2dee1dbd2b8e273e8"
+            }
+          ],
+          "input": [
+            {
+              "path": "page.tsx",
+              "bytes": 2681,
+              "sha256": "6cd94606d0d7abd2d19372f012f9a16b1cb9e49db636470f77f58bc1d61cff76"
+            },
+            {
+              "path": "tokens.stylex.ts",
+              "bytes": 161,
+              "sha256": "8348206675c02efe1c8707341df0ddb214bc300421c780eb5a3a661cdb01d8c2"
+            },
+            {
+              "path": "tracer-mark.svg",
+              "bytes": 230,
+              "sha256": "a5e59f88773784399e0b12beaabad4fd7dc568fc677667b042045a898e789292"
+            }
+          ]
+        },
+        "tailwind": {
+          "artifactHash": "3d67c14e70e7ae096e1167de22d9e048ff0c6b0dfbd980dea29db922ffaae947",
+          "archive": {
+            "bytes": 4571,
+            "sha256": "b2b5350b444f9b420530cdc9676342d19c093eeb59035b84c11ac3915d12ce42"
+          },
+          "files": [
+            {
+              "name": "asset-0e523e4bc3c6308f002a3208ea2990cb4f64282d4fbb67c12f5726d13b66eef6.woff2",
+              "contentType": "font/woff2",
+              "bytes": 23636,
+              "sha256": "0e523e4bc3c6308f002a3208ea2990cb4f64282d4fbb67c12f5726d13b66eef6"
+            },
+            {
+              "name": "asset-0f53d1c03b3918d744a843b5039001ee31695ca1e255e3914188df81beb461e9.woff2",
+              "contentType": "font/woff2",
+              "bytes": 14808,
+              "sha256": "0f53d1c03b3918d744a843b5039001ee31695ca1e255e3914188df81beb461e9"
+            },
+            {
+              "name": "asset-2a2d9c22c9863086a23f5013fede1428585321812b25f2662542c39d02967c5e.woff2",
+              "contentType": "font/woff2",
+              "bytes": 20088,
+              "sha256": "2a2d9c22c9863086a23f5013fede1428585321812b25f2662542c39d02967c5e"
+            },
+            {
+              "name": "asset-2df52199eac56e2ec7a735e609bb151bdab79422c3e73948f4b6580c66bb5a50.woff2",
+              "contentType": "font/woff2",
+              "bytes": 17248,
+              "sha256": "2df52199eac56e2ec7a735e609bb151bdab79422c3e73948f4b6580c66bb5a50"
+            },
+            {
+              "name": "asset-6c18d579fd87c3776be068b762cbc83fde3acb543d49eabd3ade842eb987e887.woff2",
+              "contentType": "font/woff2",
+              "bytes": 32292,
+              "sha256": "6c18d579fd87c3776be068b762cbc83fde3acb543d49eabd3ade842eb987e887"
+            },
+            {
+              "name": "asset-98c22de85f6e83bcd6ae1a443e12e256fbc8de7142bec4f76b059f8ff9c2797e.woff2",
+              "contentType": "font/woff2",
+              "bytes": 8992,
+              "sha256": "98c22de85f6e83bcd6ae1a443e12e256fbc8de7142bec4f76b059f8ff9c2797e"
+            },
+            {
+              "name": "asset-a5e59f88773784399e0b12beaabad4fd7dc568fc677667b042045a898e789292.svg",
+              "contentType": "image/svg+xml",
+              "bytes": 230,
+              "sha256": "a5e59f88773784399e0b12beaabad4fd7dc568fc677667b042045a898e789292"
+            },
+            {
+              "name": "asset-a8c4cb778ab6202d22bdea2ccc8d7e7caf802cfe0a7ce37df7b212f82341468f.woff2",
+              "contentType": "font/woff2",
+              "bytes": 29240,
+              "sha256": "a8c4cb778ab6202d22bdea2ccc8d7e7caf802cfe0a7ce37df7b212f82341468f"
+            },
+            {
+              "name": "asset-c57d9ca3bd42e6bc093badc7744dd2059a78f66a3a4dc6ca40574480c870f553.woff2",
+              "contentType": "font/woff2",
+              "bytes": 21232,
+              "sha256": "c57d9ca3bd42e6bc093badc7744dd2059a78f66a3a4dc6ca40574480c870f553"
+            },
+            {
+              "name": "asset-ddb8c66035104e233fc024669183aad3738b6daa16deee2ebb1241bd0f98ace1.woff2",
+              "contentType": "font/woff2",
+              "bytes": 37788,
+              "sha256": "ddb8c66035104e233fc024669183aad3738b6daa16deee2ebb1241bd0f98ace1"
+            },
+            {
+              "name": "plugin.css",
+              "contentType": "text/css; charset=utf-8",
+              "bytes": 44586,
+              "sha256": "f6a203637cdf1b27870a276cc5f7056cbe178473742c408bf75f1f741dd869f6"
+            },
+            {
+              "name": "plugin.js",
+              "contentType": "text/javascript; charset=utf-8",
+              "bytes": 597595,
+              "sha256": "07f9602d3b1c542eb4bef6ac743970d7408f30de4fbbce6ac7251e70c7899fd5"
+            },
+            {
+              "name": "index.html",
+              "contentType": "text/html; charset=utf-8",
+              "bytes": 538,
+              "sha256": "687c76505acda070bb6bd0ee1f629b6a0a9a78e3f9f9b961c4a63b52b5789f37"
+            }
+          ],
+          "input": [
+            {
+              "path": "page.tsx",
+              "bytes": 5183,
+              "sha256": "35063be01343b4508a767124c3457029f5f2d26838e0cc71a6eb5645800b1665"
+            },
+            {
+              "path": "styles.css",
+              "bytes": 5689,
+              "sha256": "90a522cbb0bce03afe06d4c568ef61af579d7d83ef1ed71f5d50d3bb76f38120"
+            },
+            {
+              "path": "tracer-mark.svg",
+              "bytes": 230,
+              "sha256": "a5e59f88773784399e0b12beaabad4fd7dc568fc677667b042045a898e789292"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "repositoryRoot": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b",
+      "revision": "1fc9e0490c2e871270558fe3783eb52205d1a49b",
+      "bun": {
+        "version": "1.4.0",
+        "revision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676"
+      },
+      "lockfileSha256": "ca94b1a8fd8200c844df0ac0960ccebcff5df296e912f7f8392c2bc219eade99",
+      "dependencyFingerprint": "b59edd82abf4396a3bf5b548eba15ddc84f691861fe8ed2b4831a2a40deca871",
+      "sourceManifest": {
+        "roots": [
+          "benchmarks/stylex-tracer/benchmark.ts",
+          "benchmarks/stylex-tracer/fixture",
+          "bun.lock",
+          "packages/client-plugin-compiler/package.json",
+          "packages/client-plugin-compiler/src",
+          "packages/client-plugin-contract/package.json",
+          "packages/client-plugin-contract/src",
+          "packages/client-sdk/package.json",
+          "packages/client-sdk/src",
+          "packages/client-ui-sdk/package.json",
+          "packages/client-ui-sdk/src",
+          "packages/contract/package.json",
+          "packages/contract/src",
+          "packages/plugin-archive/package.json",
+          "packages/plugin-archive/src",
+          "packages/ryotql/package.json",
+          "packages/ryotql/src",
+          "packages/ts-utils/package.json",
+          "packages/ts-utils/src",
+          "plugins/stylex-tracer/assets.d.ts",
+          "plugins/stylex-tracer/client",
+          "plugins/stylex-tracer/host",
+          "plugins/stylex-tracer/package.json",
+          "plugins/stylex-tracer/tsconfig.json"
+        ],
+        "files": [
+          {
+            "path": "benchmarks/stylex-tracer/benchmark.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/benchmarks/stylex-tracer/benchmark.ts",
+            "containedInRoot": true,
+            "bytes": 5816,
+            "sha256": "e6f7403bb6afa6e31088362c5a5ec74dff98f3350cb91728a10295d811483d65"
+          },
+          {
+            "path": "benchmarks/stylex-tracer/fixture/tailwind/page.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/benchmarks/stylex-tracer/fixture/tailwind/page.tsx",
+            "containedInRoot": true,
+            "bytes": 5183,
+            "sha256": "35063be01343b4508a767124c3457029f5f2d26838e0cc71a6eb5645800b1665"
+          },
+          {
+            "path": "benchmarks/stylex-tracer/fixture/tailwind/styles.css",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/benchmarks/stylex-tracer/fixture/tailwind/styles.css",
+            "containedInRoot": true,
+            "bytes": 5689,
+            "sha256": "90a522cbb0bce03afe06d4c568ef61af579d7d83ef1ed71f5d50d3bb76f38120"
+          },
+          {
+            "path": "benchmarks/stylex-tracer/fixture/tailwind/tracer-mark.svg",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/benchmarks/stylex-tracer/fixture/tailwind/tracer-mark.svg",
+            "containedInRoot": true,
+            "bytes": 230,
+            "sha256": "a5e59f88773784399e0b12beaabad4fd7dc568fc677667b042045a898e789292"
+          },
+          {
+            "path": "bun.lock",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/bun.lock",
+            "containedInRoot": true,
+            "bytes": 593832,
+            "sha256": "ca94b1a8fd8200c844df0ac0960ccebcff5df296e912f7f8392c2bc219eade99"
+          },
+          {
+            "path": "packages/client-plugin-compiler/package.json",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-plugin-compiler/package.json",
+            "containedInRoot": true,
+            "bytes": 2104,
+            "sha256": "ca98d2324bb26acfcb2d12d51189ecfd0ffe570fb9a3ea46d5bc05b618a14664"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/artifact.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-plugin-compiler/src/artifact.ts",
+            "containedInRoot": true,
+            "bytes": 3147,
+            "sha256": "929a7c0811a3aa2873ac80c4e63d82260c96db4ad3d3b1352803342f6093f0e3"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/bundle.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-plugin-compiler/src/bundle.ts",
+            "containedInRoot": true,
+            "bytes": 13907,
+            "sha256": "1c165d0fab9a79318b14a44901ed6978604967ac83a0531a3c793661d040d90f"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/compile.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-plugin-compiler/src/compile.ts",
+            "containedInRoot": true,
+            "bytes": 27413,
+            "sha256": "3286b6e96413d49cced108732be0f2e52e03972f9a30a8e65a7344f5e8811762"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/dependencies.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-plugin-compiler/src/dependencies.ts",
+            "containedInRoot": true,
+            "bytes": 8515,
+            "sha256": "6988c927b8758023c65b0b18773e685bd16856c4ecc3a208ffa47eaa0d7af3e2"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/diagnostics.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-plugin-compiler/src/diagnostics.ts",
+            "containedInRoot": true,
+            "bytes": 1480,
+            "sha256": "568dc1dc89d21727aaa76d53a2bc1110f8e0ed29c8e5ce9c7c5fd5015c8c9437"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/external-modules.d.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-plugin-compiler/src/external-modules.d.ts",
+            "containedInRoot": true,
+            "bytes": 446,
+            "sha256": "e16d19f59352d0a4ea01ffa845bb92a66c6f65781bbdc862a9f3da95656b8b4f"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/import-policy.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-plugin-compiler/src/import-policy.ts",
+            "containedInRoot": true,
+            "bytes": 3634,
+            "sha256": "239fc6b25c07ec10025824f5e5a9f23d7b54310e109d697661e8609b4366d0bd"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/index.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-plugin-compiler/src/index.ts",
+            "containedInRoot": true,
+            "bytes": 514,
+            "sha256": "b948864b609316547304443c1eba66c2153bfd7a63ff2687444c9863e855d87b"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/limits.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-plugin-compiler/src/limits.ts",
+            "containedInRoot": true,
+            "bytes": 445,
+            "sha256": "3e42fe7b8685a328d55a45f57cca49ef90389ea9c97243ed7915e0008bfe25ad"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/protocol.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-plugin-compiler/src/protocol.ts",
+            "containedInRoot": true,
+            "bytes": 7327,
+            "sha256": "7ee5221ea821b055c6e4a74052ae5334845595d6f7682abcb89b1192e710fac2"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/semantic-check.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-plugin-compiler/src/semantic-check.ts",
+            "containedInRoot": true,
+            "bytes": 3124,
+            "sha256": "87982c027b54f5b428c4129b0c555b1385fb91ea8d89f68a44ef3aba689f91c9"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/source-imports.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-plugin-compiler/src/source-imports.ts",
+            "containedInRoot": true,
+            "bytes": 4986,
+            "sha256": "c45599a3b8ac4b4546a61cc1f22be6bbb2a172dacf86101907831bcb8511c848"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/styles.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-plugin-compiler/src/styles.ts",
+            "containedInRoot": true,
+            "bytes": 8101,
+            "sha256": "166f75cfb779ca8371c7c9e00c1f6f88fa8e9d8d3471a6efe73400a3e4ad87db"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/stylex-tracer.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-plugin-compiler/src/stylex-tracer.ts",
+            "containedInRoot": true,
+            "bytes": 28253,
+            "sha256": "decd99977fc6115d32f88f3fbf3095b24323bea554ee58fa5ac21f46dd3e8384"
+          },
+          {
+            "path": "packages/client-plugin-compiler/src/worker.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-plugin-compiler/src/worker.ts",
+            "containedInRoot": true,
+            "bytes": 1170,
+            "sha256": "4ae389837077c14afa0c21427c3b3a1db9ede45ee562008190a9a03265acf978"
+          },
+          {
+            "path": "packages/client-plugin-contract/package.json",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-plugin-contract/package.json",
+            "containedInRoot": true,
+            "bytes": 497,
+            "sha256": "ac69ab25f6bbbfadee5cdcd0797716df66ac2f3c190277a5a308b79c56a28a96"
+          },
+          {
+            "path": "packages/client-plugin-contract/src/index.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-plugin-contract/src/index.ts",
+            "containedInRoot": true,
+            "bytes": 25784,
+            "sha256": "22405512cbfba70f55daa5b386d66bd07ea30169b8fafdb50f6f890d4a559980"
+          },
+          {
+            "path": "packages/client-sdk/package.json",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-sdk/package.json",
+            "containedInRoot": true,
+            "bytes": 1563,
+            "sha256": "b2d5e56fd378f2f7f2864bc07d2f695c1f14de5758ef2765180fa946c62c75a1"
+          },
+          {
+            "path": "packages/client-sdk/src/active-screen.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-sdk/src/active-screen.ts",
+            "containedInRoot": true,
+            "bytes": 96,
+            "sha256": "a42d6e3b8120f99bb57999c3d8056bf84e10ded5479223d08704eb3f018a4ef4"
+          },
+          {
+            "path": "packages/client-sdk/src/effect.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-sdk/src/effect.ts",
+            "containedInRoot": true,
+            "bytes": 80,
+            "sha256": "243dbc1ee4107fab5020568f49720b7f56dedefce6151e16a82528c9f65b3b7c"
+          },
+          {
+            "path": "packages/client-sdk/src/entity-refresh.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-sdk/src/entity-refresh.ts",
+            "containedInRoot": true,
+            "bytes": 1885,
+            "sha256": "79ac63b4802b743d00f999bde1a60533d86588bb4dfed5a89353558766d55713"
+          },
+          {
+            "path": "packages/client-sdk/src/entity-results.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-sdk/src/entity-results.tsx",
+            "containedInRoot": true,
+            "bytes": 17576,
+            "sha256": "99e28548f78c0efbc33534003d48614eaf49d6ff2641b6661a75c4dc38fa8bc2"
+          },
+          {
+            "path": "packages/client-sdk/src/index.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-sdk/src/index.ts",
+            "containedInRoot": true,
+            "bytes": 15034,
+            "sha256": "230d79ffde3679d025a116a97e158bed5ce2d004012612872fbc0e65c887b434"
+          },
+          {
+            "path": "packages/client-sdk/src/navigation/animator.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-sdk/src/navigation/animator.ts",
+            "containedInRoot": true,
+            "bytes": 2005,
+            "sha256": "059898c2b9361c162daf93c2d7c67375a947fe3c38428cedeadf8863c63ef090"
+          },
+          {
+            "path": "packages/client-sdk/src/navigation/gesture.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-sdk/src/navigation/gesture.ts",
+            "containedInRoot": true,
+            "bytes": 595,
+            "sha256": "1ab8fd164e25a99a7ccd029df395290dcab3c6e4f32ad12952b0a2c579757c4d"
+          },
+          {
+            "path": "packages/client-sdk/src/navigation/stack.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-sdk/src/navigation/stack.ts",
+            "containedInRoot": true,
+            "bytes": 2834,
+            "sha256": "08adf74147586be576fd98ab3d4c8a787e4013fdca6b31f2e3bf780190283e4d"
+          },
+          {
+            "path": "packages/client-sdk/src/navigation/store.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-sdk/src/navigation/store.ts",
+            "containedInRoot": true,
+            "bytes": 3780,
+            "sha256": "eb5b9bb3909bf4d5633106cda9b3d1e5a3d93d207a13939f537fc5e0b58ff0e9"
+          },
+          {
+            "path": "packages/client-sdk/src/plugin-screen.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-sdk/src/plugin-screen.tsx",
+            "containedInRoot": true,
+            "bytes": 2219,
+            "sha256": "9daaed79fd8817f88c0190b0ab4b35d599d87338bfdbd216c7dd52c37e567b5e"
+          },
+          {
+            "path": "packages/client-sdk/src/plugin.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-sdk/src/plugin.tsx",
+            "containedInRoot": true,
+            "bytes": 6407,
+            "sha256": "541a538d955ffc3ddf57b614a71b8a0473802c7643c88ef7978ece0770a477bd"
+          },
+          {
+            "path": "packages/client-sdk/src/react.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-sdk/src/react.tsx",
+            "containedInRoot": true,
+            "bytes": 30603,
+            "sha256": "6362336ad863a12e0f47378961e75c479485251d64717a66e47234192d511540"
+          },
+          {
+            "path": "packages/client-sdk/src/routing.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-sdk/src/routing.tsx",
+            "containedInRoot": true,
+            "bytes": 17811,
+            "sha256": "87342a4eb642ddfa72811a4dfe7fbaa60e7a9f882801902597a234cc95298873"
+          },
+          {
+            "path": "packages/client-sdk/src/runtime.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-sdk/src/runtime.ts",
+            "containedInRoot": true,
+            "bytes": 20094,
+            "sha256": "03b400d2bebc8a1edce795545a64f2dcc976aef5c83874fdc9dcf8ace9f9f21d"
+          },
+          {
+            "path": "packages/client-sdk/src/ryotql.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-sdk/src/ryotql.ts",
+            "containedInRoot": true,
+            "bytes": 34,
+            "sha256": "da8301cad416a1fecbd5a188846f8abbdcde9fbf5935c141e349a272d7f9a2c2"
+          },
+          {
+            "path": "packages/client-sdk/src/schedule.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-sdk/src/schedule.ts",
+            "containedInRoot": true,
+            "bytes": 4173,
+            "sha256": "dc9cda5fc4e99440578a33abc75571dfddfc540a85280333a30f481ff8a7abb5"
+          },
+          {
+            "path": "packages/client-sdk/src/settle.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-sdk/src/settle.ts",
+            "containedInRoot": true,
+            "bytes": 1823,
+            "sha256": "11334b84b4e7d0f67e72972a81c0a719fd80563f32aafc76470739728467f732"
+          },
+          {
+            "path": "packages/client-sdk/src/testing.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-sdk/src/testing.ts",
+            "containedInRoot": true,
+            "bytes": 10161,
+            "sha256": "10ea4bdb326bde112ece752204f881ef237a1be136a12a31cd116a9aa581f98f"
+          },
+          {
+            "path": "packages/client-ui-sdk/package.json",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/package.json",
+            "containedInRoot": true,
+            "bytes": 1897,
+            "sha256": "feb80c5b9f23eb7bcb6a303b6b3ea4b55a784743959b17e1d23a21306dcaf84f"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/badge.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/badge.tsx",
+            "containedInRoot": true,
+            "bytes": 648,
+            "sha256": "2e92c135657f1acebce3fdb76e7ec6ed7f87bd968f881c38052d29d133f6f610"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/chips.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/chips.tsx",
+            "containedInRoot": true,
+            "bytes": 493,
+            "sha256": "84fd7970883cf4e5c712e2a7e4565a2f1457e5490f1c6b061da9f838fd14cce3"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/field-escape.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/field-escape.ts",
+            "containedInRoot": true,
+            "bytes": 778,
+            "sha256": "c5c1391ef896c75b4146402a9d450c4df22cdbf4c8e90f643a789fcd9394fb5e"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/icon.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/icon.tsx",
+            "containedInRoot": true,
+            "bytes": 3228,
+            "sha256": "972f557892573a3ba29fd35ff88ec88df9bdd730e58d840f77c2e91a760287ee"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/image-tint.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/image-tint.ts",
+            "containedInRoot": true,
+            "bytes": 4902,
+            "sha256": "d90b8a0cf70edeb3e36f8c438a7e280ec304e0724011d2fc00516a2ff4274e57"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/index.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/index.tsx",
+            "containedInRoot": true,
+            "bytes": 2297,
+            "sha256": "cd4f732898a75fe41e371d2613a0b34c5b097dcdeaea29b7242e32a365035701"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/menu.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/menu.tsx",
+            "containedInRoot": true,
+            "bytes": 5741,
+            "sha256": "1b44cac058438f679722a72c9d25b89cc1accc05e74240919c85227b83d90042"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/modal.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/modal.tsx",
+            "containedInRoot": true,
+            "bytes": 2313,
+            "sha256": "95abf3fa1a61dc07d60cfd2b89d69a1fe35253ab7d4eb071929f2ca8a295b066"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/multi-select.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/multi-select.tsx",
+            "containedInRoot": true,
+            "bytes": 5827,
+            "sha256": "8f709e9c03c6436ac5707619ca46d297b6b973739956ae8a5964343870be1f25"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/overlay.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/overlay.ts",
+            "containedInRoot": true,
+            "bytes": 5439,
+            "sha256": "9ef0bcf729c9b0a74aff57905b35c67eb7130e8f286fa67c9db442c4e7396d1f"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/palette.css",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/palette.css",
+            "containedInRoot": true,
+            "bytes": 2454,
+            "sha256": "e25dfaa8d5ee8da28793a36a01dc6a0cb3afff7b605d844e1c5914d99ae6f372"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/radio-group.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/radio-group.tsx",
+            "containedInRoot": true,
+            "bytes": 2294,
+            "sha256": "5769c5d70b9bb7995e08eb89348e6ccf5a5101050ae928ff8e21bbe92a80b88a"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/reorderable-list-state.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/reorderable-list-state.ts",
+            "containedInRoot": true,
+            "bytes": 950,
+            "sha256": "8368990299ea9a6a1d90f2a059d94bf76853c66ec71c4b46f754d8f36d0b9045"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/reorderable-list.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/reorderable-list.tsx",
+            "containedInRoot": true,
+            "bytes": 7405,
+            "sha256": "a9266a9628b6d9f61810ef099beb3fa14a72f311ae3fb10770eaa0cc98fb50ef"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/schema-form/file/browser-file.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/schema-form/file/browser-file.ts",
+            "containedInRoot": true,
+            "bytes": 1085,
+            "sha256": "216c5ffdb90a28b34e433eac2e4543a7a40e27a13298870d98dd29ecb1add8dc"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/schema-form/file/drop-zone.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/schema-form/file/drop-zone.tsx",
+            "containedInRoot": true,
+            "bytes": 1008,
+            "sha256": "d2b1a8aea878b37cc72869b5349a7f807c758ca9b74ab7b3e1c947d0466552d9"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/schema-form/file/field.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/schema-form/file/field.tsx",
+            "containedInRoot": true,
+            "bytes": 6364,
+            "sha256": "a2b49d0154d1adb2b1093d17ad4a61560bf6b93505d924b2bfa03b99a95caefe"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/schema-form/file/upload.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/schema-form/file/upload.ts",
+            "containedInRoot": true,
+            "bytes": 2967,
+            "sha256": "891fefc2eec704d1fc8c926b7e798c4892a655f39425ffc5021ee4444c490f8f"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/schema-form/form.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/schema-form/form.tsx",
+            "containedInRoot": true,
+            "bytes": 13702,
+            "sha256": "f24cb2d67e9ae2829352866036b446ce626c3846e7bd6ef5cfb9585c78f9adb5"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/schema-form/index.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/schema-form/index.tsx",
+            "containedInRoot": true,
+            "bytes": 713,
+            "sha256": "9a014e05631cf392f1a95b46e03a7fae605f7541ef663be55e5323316d882629"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/schema-form/state.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/schema-form/state.ts",
+            "containedInRoot": true,
+            "bytes": 16751,
+            "sha256": "0b972edd6f49971b2e9db75eda4568adb9e806cfd38870dd7fdd2e6568a5261d"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/screen-frame.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/screen-frame.tsx",
+            "containedInRoot": true,
+            "bytes": 5092,
+            "sha256": "8a0d078aa09e6830b5ea4d7685fcdd399d939e1b7dd0ad89cc9627b2f0c157c4"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/search-field.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/search-field.tsx",
+            "containedInRoot": true,
+            "bytes": 2430,
+            "sha256": "c249a7cdf85e5cdac83a8891f738eddac53043e5f68030d6f51b7aefa35f072b"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/segmented-control.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/segmented-control.tsx",
+            "containedInRoot": true,
+            "bytes": 1264,
+            "sha256": "3de38a7e796250272fc9ee48610020f89b0d8a1d202ca30bd67718fc45b68c72"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/select.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/select.tsx",
+            "containedInRoot": true,
+            "bytes": 3598,
+            "sha256": "6557175341b06b0d81cebb9d9d61af86a7010031c3889112cb52b04466dfaed0"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/shortcut.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/shortcut.tsx",
+            "containedInRoot": true,
+            "bytes": 3958,
+            "sha256": "750a7875902f46735b9f36fe560ae43781778afcb24c70b5379743bf68bacdc0"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/stylex-tracer/controls.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/stylex-tracer/controls.tsx",
+            "containedInRoot": true,
+            "bytes": 5336,
+            "sha256": "e544cd670ad3c4446d0cc02c78587b8832a203449fc9d10ae96ad05b297a5709"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/stylex-tracer/index.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/stylex-tracer/index.ts",
+            "containedInRoot": true,
+            "bytes": 259,
+            "sha256": "7a62206d4f7655317d312b7902f9268dcd88800ae1363431a94bc54eb51221ab"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/stylex-tracer/panel.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/stylex-tracer/panel.tsx",
+            "containedInRoot": true,
+            "bytes": 9608,
+            "sha256": "3d23b492bda5b5e0349f7dffcabb4fb401ff87a191eef909c7bca809fc475bce"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/stylex-tracer/tokens.stylex.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/stylex-tracer/tokens.stylex.ts",
+            "containedInRoot": true,
+            "bytes": 1449,
+            "sha256": "c08b186883786e11ff0215694de78f5a88cdc613d1ab03358d30d1dd199c0d4e"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/switch.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/switch.tsx",
+            "containedInRoot": true,
+            "bytes": 772,
+            "sha256": "e3331fd9629363620c52c452260012f8188dd2937d2a84a193f3ed76c93fbf5e"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/sync-state.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/sync-state.ts",
+            "containedInRoot": true,
+            "bytes": 807,
+            "sha256": "1ad0170af74a47a8e0426a5df63d3724aac7f2ee9572fb420d5279aee5a78262"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/sync.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/sync.tsx",
+            "containedInRoot": true,
+            "bytes": 3956,
+            "sha256": "036f7581efbf3c9a173a119525dfe37600d7bc39306fb0eabe01f0c2e148a483"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/table.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/table.tsx",
+            "containedInRoot": true,
+            "bytes": 2931,
+            "sha256": "8ce3dccc7a187a0f8076c4ef0c4c59e2724bf59b015e015c1754b6b98602d2e2"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/text-field.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/text-field.tsx",
+            "containedInRoot": true,
+            "bytes": 763,
+            "sha256": "bfa8b525c75b03327ce522c142346387c8579c626fabf9170919734658b518c0"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/theme.css",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/theme.css",
+            "containedInRoot": true,
+            "bytes": 2127,
+            "sha256": "bbc557dc7997fda1422358fc284d833f539dfb6d32d186155eeabce411ab2bd0"
+          },
+          {
+            "path": "packages/client-ui-sdk/src/tint.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/tint.tsx",
+            "containedInRoot": true,
+            "bytes": 3044,
+            "sha256": "de2f5997605ac4807386234a1d3073ebe3ebb583034864dd8a22b94146eb0800"
+          },
+          {
+            "path": "packages/contract/package.json",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/package.json",
+            "containedInRoot": true,
+            "bytes": 440,
+            "sha256": "912986d4c53d2c35be0f4ecc352b2fecbf1561d1ccf2d8b7317aded6b9989761"
+          },
+          {
+            "path": "packages/contract/src/auth-middleware.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/auth-middleware.ts",
+            "containedInRoot": true,
+            "bytes": 3227,
+            "sha256": "51eb9b6a5249b14c412ae6e595747251a27ba2a7c92787fd9bdc322f7e531f94"
+          },
+          {
+            "path": "packages/contract/src/client.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/client.ts",
+            "containedInRoot": true,
+            "bytes": 2490,
+            "sha256": "030e33c1a83e91221a622b2dfb9fa1c3d7dd25d10368cff10a0790723f96b17f"
+          },
+          {
+            "path": "packages/contract/src/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/contract.ts",
+            "containedInRoot": true,
+            "bytes": 2928,
+            "sha256": "b7ee99f7a4b773794bcfc0383d0ac2cc9e3c91c1d76373b43d2fb8efd8800c9f"
+          },
+          {
+            "path": "packages/contract/src/errors.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/errors.ts",
+            "containedInRoot": true,
+            "bytes": 3885,
+            "sha256": "8a3e5a1e8586bc1f31df7b0a3e123ff3079cae0bb3d8cb1e20b6017ea41d168a"
+          },
+          {
+            "path": "packages/contract/src/http-annotations.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/http-annotations.ts",
+            "containedInRoot": true,
+            "bytes": 167,
+            "sha256": "e5b8760d27fc7c2a1681db7764263a5b6d1f03967eb0bea88b6775e1e125911b"
+          },
+          {
+            "path": "packages/contract/src/modules/automations/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/automations/contract.ts",
+            "containedInRoot": true,
+            "bytes": 2505,
+            "sha256": "041d1865f8bd024672ae699e065a261b1cb9e8cb3588d8b88b1748cdc111a426"
+          },
+          {
+            "path": "packages/contract/src/modules/automations/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/automations/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 4684,
+            "sha256": "f482a10114a43187db13eab509e00dadcb6fd69a4c6782afc47f023cde773207"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/backups/contract.ts",
+            "containedInRoot": true,
+            "bytes": 2876,
+            "sha256": "3e180527be3b59e399578e1c69bbe66b99d2b684d2e3e83a472bcfcea81ed1a2"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/fixtures/v1/client-renderers.ndjson",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/backups/fixtures/v1/client-renderers.ndjson",
+            "containedInRoot": true,
+            "bytes": 658,
+            "sha256": "c6917a666d2eba2b67d4a3bee6dd765fde459ccf62eff8ab9b0cf9aa7339d2e2"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/fixtures/v1/entities.ndjson",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/backups/fixtures/v1/entities.ndjson",
+            "containedInRoot": true,
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/fixtures/v1/entity-dependencies.ndjson",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/backups/fixtures/v1/entity-dependencies.ndjson",
+            "containedInRoot": true,
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/fixtures/v1/events.ndjson",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/backups/fixtures/v1/events.ndjson",
+            "containedInRoot": true,
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/fixtures/v1/installations.ndjson",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/backups/fixtures/v1/installations.ndjson",
+            "containedInRoot": true,
+            "bytes": 326,
+            "sha256": "97fe1461b522ba8552949b65ab083999aa4b9dfb3a36122599024f1064feb392"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/fixtures/v1/integrations.ndjson",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/backups/fixtures/v1/integrations.ndjson",
+            "containedInRoot": true,
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/fixtures/v1/manifest.json",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/backups/fixtures/v1/manifest.json",
+            "containedInRoot": true,
+            "bytes": 1888,
+            "sha256": "951404842607fd447a69581070237331542a9d0e6b0621b6051906fd8f5c7807"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/fixtures/v1/notification-subscriptions.ndjson",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/backups/fixtures/v1/notification-subscriptions.ndjson",
+            "containedInRoot": true,
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/fixtures/v1/private-plugins.ndjson",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/backups/fixtures/v1/private-plugins.ndjson",
+            "containedInRoot": true,
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/fixtures/v1/profile.json",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/backups/fixtures/v1/profile.json",
+            "containedInRoot": true,
+            "bytes": 56,
+            "sha256": "a7d10765a6d377d4fc2d2b6683c3841f25fefa456a596b656f62cb1ed1fb973c"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/fixtures/v1/relationships.ndjson",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/backups/fixtures/v1/relationships.ndjson",
+            "containedInRoot": true,
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/fixtures/v1/saved-views.ndjson",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/backups/fixtures/v1/saved-views.ndjson",
+            "containedInRoot": true,
+            "bytes": 333,
+            "sha256": "9a91e4ea0dc3f3775c294ec6e65ff655964fc2f841b03f5a3190d78ebc5a4804"
+          },
+          {
+            "path": "packages/contract/src/modules/backups/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/backups/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 4534,
+            "sha256": "758839a430e3964fc25392fefa893588478ef39b3abb14561db17668a06b733c"
+          },
+          {
+            "path": "packages/contract/src/modules/client-pages/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/client-pages/contract.ts",
+            "containedInRoot": true,
+            "bytes": 4643,
+            "sha256": "092fcb4f0cb0d06a467a675d5ab3703723a9ae7b68eb144a8a09f63b980c7c4b"
+          },
+          {
+            "path": "packages/contract/src/modules/client-pages/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/client-pages/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 10882,
+            "sha256": "bd97f852d92367b204f059556706ea95b110d4c35fd2e30e23a39ffbe6d1d6e3"
+          },
+          {
+            "path": "packages/contract/src/modules/collections/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/collections/contract.ts",
+            "containedInRoot": true,
+            "bytes": 1537,
+            "sha256": "68816c47371a339e8e34a4f6bbb9aa5d57452984412aca7deb96e6048fa0b54e"
+          },
+          {
+            "path": "packages/contract/src/modules/collections/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/collections/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 3013,
+            "sha256": "ba976b94374fb1accd636ed61ed2d87622f5f2e996160109ded276835a160256"
+          },
+          {
+            "path": "packages/contract/src/modules/definitions/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/definitions/contract.ts",
+            "containedInRoot": true,
+            "bytes": 2105,
+            "sha256": "882ff1f0ebac01cc4922bbed6738a58104b269f5667d914e4de4ddea0a9ef80f"
+          },
+          {
+            "path": "packages/contract/src/modules/definitions/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/definitions/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 1619,
+            "sha256": "28e4f48cf9ac0bfc5fb1304a652339e8d3a0d5f9beba90c68a3f334bad338532"
+          },
+          {
+            "path": "packages/contract/src/modules/entities/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/entities/contract.ts",
+            "containedInRoot": true,
+            "bytes": 717,
+            "sha256": "88082caa792e45dd67c31090dc8d566c815d93eb70b9b313d025ed849a64ab56"
+          },
+          {
+            "path": "packages/contract/src/modules/entities/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/entities/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 3141,
+            "sha256": "c8e4bab467ba218f71f9607c68e49eb7217c6d4f06e891158d1bbfeab9778945"
+          },
+          {
+            "path": "packages/contract/src/modules/entity-interest/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/entity-interest/contract.ts",
+            "containedInRoot": true,
+            "bytes": 1138,
+            "sha256": "ff77e20de5d187f714f035bb33b4834d605288d6dce91df1a3cae2b03d72347c"
+          },
+          {
+            "path": "packages/contract/src/modules/entity-interest/messages.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/entity-interest/messages.ts",
+            "containedInRoot": true,
+            "bytes": 5027,
+            "sha256": "bf4d0e2ac67090f7cedaa916d243135712866fffc424776dfb45e198bf9566eb"
+          },
+          {
+            "path": "packages/contract/src/modules/events/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/events/contract.ts",
+            "containedInRoot": true,
+            "bytes": 801,
+            "sha256": "b8719c17b2518c04c793779f35b332761f58ce5426131fdbc474fa1c9bbfade4"
+          },
+          {
+            "path": "packages/contract/src/modules/events/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/events/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 3071,
+            "sha256": "127b12a00aae9392da679cf8d3924fe5908009dcbbc6a5398923e6796b6e59a8"
+          },
+          {
+            "path": "packages/contract/src/modules/god-mode/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/god-mode/contract.ts",
+            "containedInRoot": true,
+            "bytes": 7479,
+            "sha256": "64e475fa2d6d196c10a06714664541c0968aea79e1eb0883d0f5d6172143e6e4"
+          },
+          {
+            "path": "packages/contract/src/modules/god-mode/user-lifecycle.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/god-mode/user-lifecycle.ts",
+            "containedInRoot": true,
+            "bytes": 1595,
+            "sha256": "a7fb90a81d3d122cf5baae2f9378cc1843cd182f6a20fe1728ecf4f68d7a9af0"
+          },
+          {
+            "path": "packages/contract/src/modules/imports/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/imports/contract.ts",
+            "containedInRoot": true,
+            "bytes": 1360,
+            "sha256": "8ac65cf62a83379bda43f0de2426b7e6a0badc76f80dba6c8c0e041366ad62f8"
+          },
+          {
+            "path": "packages/contract/src/modules/imports/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/imports/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 4036,
+            "sha256": "0a812ecb0f56c263a4b900c3fde4fb6f7ac5a509637bfc57d2aba957a842d34d"
+          },
+          {
+            "path": "packages/contract/src/modules/imports/types.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/imports/types.ts",
+            "containedInRoot": true,
+            "bytes": 293,
+            "sha256": "e69c9047a6d8376b8d4489b08db8b85addf39bb463eba40ea48bc8a88202609b"
+          },
+          {
+            "path": "packages/contract/src/modules/integrations/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/integrations/contract.ts",
+            "containedInRoot": true,
+            "bytes": 3098,
+            "sha256": "3e5e2534160ed1fa7385d01f5d563f1c8c91b2776db9f55c928d2d2377528fc0"
+          },
+          {
+            "path": "packages/contract/src/modules/integrations/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/integrations/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 4983,
+            "sha256": "bc7bd9ab51f1238c4e3bf29520ec6b7baa1328934c516a845e663e2d003c8d9e"
+          },
+          {
+            "path": "packages/contract/src/modules/integrations/types.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/integrations/types.ts",
+            "containedInRoot": true,
+            "bytes": 130,
+            "sha256": "c09f48de44f512e92c72d62de3e20cb372d1eacd3854c71179aea055577d7888"
+          },
+          {
+            "path": "packages/contract/src/modules/notifications/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/notifications/contract.ts",
+            "containedInRoot": true,
+            "bytes": 1898,
+            "sha256": "594ca0e20a5b359b4ecc0497dae51c0fa15ea5d437dd1843a5e3365569b7f5b9"
+          },
+          {
+            "path": "packages/contract/src/modules/notifications/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/notifications/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 3269,
+            "sha256": "6f89ef1165d5b3aafd4e31c31be6b7d7591dfe31406e87a498dfec618bbb8888"
+          },
+          {
+            "path": "packages/contract/src/modules/notifications/types.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/notifications/types.ts",
+            "containedInRoot": true,
+            "bytes": 358,
+            "sha256": "25b2934fa49866a6e540bea590512ecb5d9ac3fcf5acaeb843663ed0b319777a"
+          },
+          {
+            "path": "packages/contract/src/modules/plugins/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/plugins/contract.ts",
+            "containedInRoot": true,
+            "bytes": 4392,
+            "sha256": "4633745bab2206a9c751a84f4e77234e0482c4690f7157416eb279e371a1e977"
+          },
+          {
+            "path": "packages/contract/src/modules/plugins/manifest.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/plugins/manifest.ts",
+            "containedInRoot": true,
+            "bytes": 29645,
+            "sha256": "7666fe2c36867e0d66ed6bab18d89f3f634629ffd48c029e993aa50b5fbc5bda"
+          },
+          {
+            "path": "packages/contract/src/modules/plugins/plugin-config.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/plugins/plugin-config.ts",
+            "containedInRoot": true,
+            "bytes": 358,
+            "sha256": "65552c4be2b44d7f0469b6b2cb4a884da8f969e031b3ae7aefed82114f4ea6e6"
+          },
+          {
+            "path": "packages/contract/src/modules/plugins/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/plugins/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 8087,
+            "sha256": "fce3c9adeb23b13232f9183ca4a45539cdf926d0f7edd7b4f6786c8553c7a145"
+          },
+          {
+            "path": "packages/contract/src/modules/plugins/shared-file-policy.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/plugins/shared-file-policy.ts",
+            "containedInRoot": true,
+            "bytes": 462,
+            "sha256": "f13a577ffea84a7869a0e0341899fcbfde425862697d17d7e640af5317ecce2c"
+          },
+          {
+            "path": "packages/contract/src/modules/provider-entities/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/provider-entities/contract.ts",
+            "containedInRoot": true,
+            "bytes": 1967,
+            "sha256": "147dbb73b9b9963698f51fc66a48151cdc37bc2801f682e3ab2a5d2a3d10ff7c"
+          },
+          {
+            "path": "packages/contract/src/modules/provider-entities/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/provider-entities/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 5024,
+            "sha256": "3f8413964e4bc57406e915a910862515a6aa292f04b68882f548d73655d695d5"
+          },
+          {
+            "path": "packages/contract/src/modules/relationships/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/relationships/contract.ts",
+            "containedInRoot": true,
+            "bytes": 827,
+            "sha256": "d1802c6ae715cec77155a4aec0c15ff9c06b1d78748cc0b7095f4c0385fa69b5"
+          },
+          {
+            "path": "packages/contract/src/modules/relationships/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/relationships/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 1910,
+            "sha256": "ac28c0a861d87636c213b9e190f933898b05937cf32e05c904d2e08a83b2a278"
+          },
+          {
+            "path": "packages/contract/src/modules/ryotql/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/ryotql/contract.ts",
+            "containedInRoot": true,
+            "bytes": 1353,
+            "sha256": "1e434f11c4476ca835767eaddffc895fbfaf4df68fd823fbd517f3e297efb4e6"
+          },
+          {
+            "path": "packages/contract/src/modules/ryotql/language.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/ryotql/language.ts",
+            "containedInRoot": true,
+            "bytes": 15162,
+            "sha256": "4c2496857068f8a7207e448aa82cee8463cd57af5cbdf1bddfcafce621bb690c"
+          },
+          {
+            "path": "packages/contract/src/modules/sandbox/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/sandbox/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 5640,
+            "sha256": "e08083b68f254d5e9a871774466786d87fc3f1668574d7cec632b540d6595086"
+          },
+          {
+            "path": "packages/contract/src/modules/sandbox/wire.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/sandbox/wire.ts",
+            "containedInRoot": true,
+            "bytes": 722,
+            "sha256": "cfe7e787f6046434a5dc5dacd4dc6825d99359b93b0d719d6cbf73267cb4af6d"
+          },
+          {
+            "path": "packages/contract/src/modules/saved-views/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/saved-views/contract.ts",
+            "containedInRoot": true,
+            "bytes": 2154,
+            "sha256": "242894527b0b803684e2ec36b8f30fe176e3bd53c9868b9253ac26789c03f773"
+          },
+          {
+            "path": "packages/contract/src/modules/saved-views/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/saved-views/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 7236,
+            "sha256": "dd8735ef541f03e36d1dd763cbcaa0de1c5065946cc27f0f13eda6e5afb868e6"
+          },
+          {
+            "path": "packages/contract/src/modules/system/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/system/contract.ts",
+            "containedInRoot": true,
+            "bytes": 2126,
+            "sha256": "0c639bf3abf4809722e6d1efdc85593ba2d60dcce07e3b5207edf5f185b02cc3"
+          },
+          {
+            "path": "packages/contract/src/modules/test-support/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/test-support/contract.ts",
+            "containedInRoot": true,
+            "bytes": 12377,
+            "sha256": "2518be3ae9a44fa799e79c4d820d1bf789a64ae470922db37f7108d4f052b46b"
+          },
+          {
+            "path": "packages/contract/src/modules/test-support/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/test-support/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 6770,
+            "sha256": "9bbf73c29f9e11e8497a682316077df324f77679957f67b079586a20e9f205a0"
+          },
+          {
+            "path": "packages/contract/src/modules/uploads/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/uploads/contract.ts",
+            "containedInRoot": true,
+            "bytes": 2565,
+            "sha256": "c52f64871ef009a5f2c6b2e0de0cf87cf4474eb0699f48879d7cb2d637cbed2d"
+          },
+          {
+            "path": "packages/contract/src/modules/uploads/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/uploads/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 4710,
+            "sha256": "7c24db9bb6f2ba3394813bd6bd97ff8b80506e4cbfda96d748dd6a1b7dafb14b"
+          },
+          {
+            "path": "packages/contract/src/modules/uploads/upload-policy.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/uploads/upload-policy.ts",
+            "containedInRoot": true,
+            "bytes": 1729,
+            "sha256": "e841526f2a8e16de29b2c4b11ff9ab9bde16988d6d3d2765a64ea49ec8449db6"
+          },
+          {
+            "path": "packages/contract/src/modules/user-settings/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/user-settings/contract.ts",
+            "containedInRoot": true,
+            "bytes": 993,
+            "sha256": "b3932aa19d924e4e27ea5b73ec192e50d32640106e8aabb64b829c9180dff86e"
+          },
+          {
+            "path": "packages/contract/src/modules/user-settings/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/user-settings/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 947,
+            "sha256": "800ac1bfc9a030a85b0133baa939268c372ce45c18ef48f21335e7bdb3943413"
+          },
+          {
+            "path": "packages/contract/src/modules/user-state/contract.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/user-state/contract.ts",
+            "containedInRoot": true,
+            "bytes": 1222,
+            "sha256": "e44be486117dc38fa943d80a156dea04c705d18ae45421da3876569fbee5d3fb"
+          },
+          {
+            "path": "packages/contract/src/modules/user-state/schemas.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/modules/user-state/schemas.ts",
+            "containedInRoot": true,
+            "bytes": 1791,
+            "sha256": "f5ff8bb73b9fb57dc8b6f86a7744e44c088eebad799f3159feab1612d408d256"
+          },
+          {
+            "path": "packages/contract/src/oauth.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/oauth.ts",
+            "containedInRoot": true,
+            "bytes": 5135,
+            "sha256": "4959ab7134c3e643331ba0095f69af267a3135a302484c7233fc4e53ed21e6c9"
+          },
+          {
+            "path": "packages/contract/src/schema/base64.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/schema/base64.ts",
+            "containedInRoot": true,
+            "bytes": 532,
+            "sha256": "c5757a1a5c40630223aea12acc2b50ce59d9bc126fa73afb14b62bd31bdfb11a"
+          },
+          {
+            "path": "packages/contract/src/schema/brands.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/schema/brands.ts",
+            "containedInRoot": true,
+            "bytes": 3236,
+            "sha256": "c50f659e87fde229558104330fb6cc263918c7847c5c06f0949d0a2d3df801f5"
+          },
+          {
+            "path": "packages/contract/src/schema/core.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/schema/core.ts",
+            "containedInRoot": true,
+            "bytes": 2139,
+            "sha256": "0b12ac3ecd4ca65bd57fadab567bf94e8a77e767f8775f4ee21f730fd76b2633"
+          },
+          {
+            "path": "packages/contract/src/schema/json.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/schema/json.ts",
+            "containedInRoot": true,
+            "bytes": 1968,
+            "sha256": "9db4c307d4f7f2599f034266d78b789fd371bd475100170f92866b4cba09843e"
+          },
+          {
+            "path": "packages/contract/src/schema/operators.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/schema/operators.ts",
+            "containedInRoot": true,
+            "bytes": 351,
+            "sha256": "983b787ffe3e17926a19d1d9d72bf85213e8be9686a1abd246ba83f126ce4bb8"
+          },
+          {
+            "path": "packages/contract/src/schema/property-schema.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/schema/property-schema.ts",
+            "containedInRoot": true,
+            "bytes": 25270,
+            "sha256": "ec902ee96d3153703264ee5bed0716a554844854ed3a84f49b44456b04786348"
+          },
+          {
+            "path": "packages/contract/src/schema/run-status.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/schema/run-status.ts",
+            "containedInRoot": true,
+            "bytes": 226,
+            "sha256": "9fe9135fc02350877f9a3fba124a33662ac5fc3dae91cca69e97b5bdb7604693"
+          },
+          {
+            "path": "packages/contract/src/schema/utils.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/contract/src/schema/utils.ts",
+            "containedInRoot": true,
+            "bytes": 990,
+            "sha256": "997d05097a9f8bf9ebf92b8b515bfc4a8b8e635285754f1da7b578588d94aaa3"
+          },
+          {
+            "path": "packages/plugin-archive/package.json",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/plugin-archive/package.json",
+            "containedInRoot": true,
+            "bytes": 584,
+            "sha256": "68c3469ac81b9b58ed41e6772a2ce60f27b9b7a3519cefb69447186baf5e0bcc"
+          },
+          {
+            "path": "packages/plugin-archive/src/index.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/plugin-archive/src/index.ts",
+            "containedInRoot": true,
+            "bytes": 11708,
+            "sha256": "29812831f5e93747acc4552c253e995e6a735ff09970e5d9b97e0346dcb1a95c"
+          },
+          {
+            "path": "packages/ryotql/package.json",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/ryotql/package.json",
+            "containedInRoot": true,
+            "bytes": 485,
+            "sha256": "f140b2f0da2884e06ad8e5b0ac1062699a91f3b6842b614645e80f7ae91fdeba"
+          },
+          {
+            "path": "packages/ryotql/src/index.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/ryotql/src/index.ts",
+            "containedInRoot": true,
+            "bytes": 32758,
+            "sha256": "be897a995d3361906ff6e971e90d0701b7ef68d53fd8f5d7c9208f3afe61ea18"
+          },
+          {
+            "path": "packages/ts-utils/package.json",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/ts-utils/package.json",
+            "containedInRoot": true,
+            "bytes": 562,
+            "sha256": "7254e5775261a63c615b5e293c068dbdd348dbe8c7494bd48e87b06d68606739"
+          },
+          {
+            "path": "packages/ts-utils/src/cn.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/ts-utils/src/cn.ts",
+            "containedInRoot": true,
+            "bytes": 159,
+            "sha256": "b2179073a79ec11767b731747e283e3e92cb6f409fe9968a224f6949d1331517"
+          },
+          {
+            "path": "packages/ts-utils/src/crypto.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/ts-utils/src/crypto.ts",
+            "containedInRoot": true,
+            "bytes": 1148,
+            "sha256": "2426a68cf24a089ebf0c312d1f72629f919a40a84d1fc02b881e54896e900221"
+          },
+          {
+            "path": "packages/ts-utils/src/dayjs.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/ts-utils/src/dayjs.ts",
+            "containedInRoot": true,
+            "bytes": 375,
+            "sha256": "3001f4fca8d1bd652a4a65ea667a4d933bffa2dba450fb38a140f1b916f11ac6"
+          },
+          {
+            "path": "packages/ts-utils/src/format.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/ts-utils/src/format.ts",
+            "containedInRoot": true,
+            "bytes": 718,
+            "sha256": "9255150d7c7fe591c76d3210a48b4e6805ca1796841f370dbdb1ba18b6304e96"
+          },
+          {
+            "path": "packages/ts-utils/src/json.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/ts-utils/src/json.ts",
+            "containedInRoot": true,
+            "bytes": 893,
+            "sha256": "c73426d01c41af49cc56d0ebb7a284435ca6413e1dcc60b7c6e9f0c159073795"
+          },
+          {
+            "path": "packages/ts-utils/src/lodash.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/ts-utils/src/lodash.ts",
+            "containedInRoot": true,
+            "bytes": 1528,
+            "sha256": "cac1b2f3286448d85bca02340ec2c4fcb77a55c82a6b80286b49d85f229b2818"
+          },
+          {
+            "path": "packages/ts-utils/src/path.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/ts-utils/src/path.ts",
+            "containedInRoot": true,
+            "bytes": 431,
+            "sha256": "ade3f3e0fef0b5f1025e28a9b18849e20fe3b83e4a1e8961319358104dc27d70"
+          },
+          {
+            "path": "packages/ts-utils/src/predicates.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/ts-utils/src/predicates.ts",
+            "containedInRoot": true,
+            "bytes": 271,
+            "sha256": "2a106b0ed1e60f7f68c38daa5bb4bfbfe86c4c89833d30f82e23584d77943b97"
+          },
+          {
+            "path": "packages/ts-utils/src/request.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/ts-utils/src/request.ts",
+            "containedInRoot": true,
+            "bytes": 1208,
+            "sha256": "58aee1d6b4139ed6a406a970b0d8b77b36fcd32e1544350c9dc99391e6e72a8f"
+          },
+          {
+            "path": "packages/ts-utils/src/slug.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/ts-utils/src/slug.ts",
+            "containedInRoot": true,
+            "bytes": 668,
+            "sha256": "706483e60a6b81968e941bb24c754031afd8af7737495ef7a95a493b390ce7dd"
+          },
+          {
+            "path": "packages/ts-utils/src/string.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/ts-utils/src/string.ts",
+            "containedInRoot": true,
+            "bytes": 999,
+            "sha256": "ae2238cf31a702d232aa02a38b78eda221d5006c6e18310235a69d60e8e5824b"
+          },
+          {
+            "path": "packages/ts-utils/src/zod.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/ts-utils/src/zod.ts",
+            "containedInRoot": true,
+            "bytes": 814,
+            "sha256": "6e832838bf2a41c9c4b9d6abc9bac0b62780a5d47a1e4f9ff99cfe58a651f0d2"
+          },
+          {
+            "path": "plugins/stylex-tracer/assets.d.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/plugins/stylex-tracer/assets.d.ts",
+            "containedInRoot": true,
+            "bytes": 74,
+            "sha256": "0fbf889d45dc48f682321c4e9d9a750580c11f28dd28d4d33a1e3e31cd6e2a36"
+          },
+          {
+            "path": "plugins/stylex-tracer/client/page.tsx",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/plugins/stylex-tracer/client/page.tsx",
+            "containedInRoot": true,
+            "bytes": 2681,
+            "sha256": "6cd94606d0d7abd2d19372f012f9a16b1cb9e49db636470f77f58bc1d61cff76"
+          },
+          {
+            "path": "plugins/stylex-tracer/client/tokens.stylex.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/plugins/stylex-tracer/client/tokens.stylex.ts",
+            "containedInRoot": true,
+            "bytes": 161,
+            "sha256": "8348206675c02efe1c8707341df0ddb214bc300421c780eb5a3a661cdb01d8c2"
+          },
+          {
+            "path": "plugins/stylex-tracer/client/tracer-mark.svg",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/plugins/stylex-tracer/client/tracer-mark.svg",
+            "containedInRoot": true,
+            "bytes": 230,
+            "sha256": "a5e59f88773784399e0b12beaabad4fd7dc568fc677667b042045a898e789292"
+          },
+          {
+            "path": "plugins/stylex-tracer/host/plugin.ts",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/plugins/stylex-tracer/host/plugin.ts",
+            "containedInRoot": true,
+            "bytes": 1085,
+            "sha256": "96e4913d45b3d1d76aa49b63d3b06bf30ed54110b7611c1d85f3ec776a11295f"
+          },
+          {
+            "path": "plugins/stylex-tracer/package.json",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/plugins/stylex-tracer/package.json",
+            "containedInRoot": true,
+            "bytes": 689,
+            "sha256": "d1981986bdffc063a76fe34cc98ee2eab131f7ac101587a0ee3befbffb044c5b"
+          },
+          {
+            "path": "plugins/stylex-tracer/tsconfig.json",
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/plugins/stylex-tracer/tsconfig.json",
+            "containedInRoot": true,
+            "bytes": 396,
+            "sha256": "d3fea81550eea5e76b6c7e33f36bd9bdeb48b46614c030ec67278b2599447860"
+          }
+        ],
+        "sha256": "411c2204bbba0f57af619a8c7eaf057c8505aec1b84762f57b712e20551fcc14"
+      },
+      "treeIdentity": {
+        "kind": "source-manifest-sha256",
+        "value": "411c2204bbba0f57af619a8c7eaf057c8505aec1b84762f57b712e20551fcc14"
+      },
+      "contentIdentity": "9aeea137d20066357921ddfa5685ff78c97e20a0b31ff28077afd7fd6b376fb8",
+      "cacheRoots": {
+        "bunInstall": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-cache-b",
+        "xdg": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-xdg-b",
+        "temporary": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-tmp-b"
+      },
+      "resolutions": {
+        "workspace": {
+          "packages/client-plugin-compiler/src/index.ts": {
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-plugin-compiler/src/index.ts",
+            "containedInRoot": true,
+            "sha256": "b948864b609316547304443c1eba66c2153bfd7a63ff2687444c9863e855d87b"
+          },
+          "packages/client-ui-sdk/src/stylex-tracer/panel.tsx": {
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/packages/client-ui-sdk/src/stylex-tracer/panel.tsx",
+            "containedInRoot": true,
+            "sha256": "3d23b492bda5b5e0349f7dffcabb4fb401ff87a191eef909c7bca809fc475bce"
+          },
+          "plugins/stylex-tracer/client/page.tsx": {
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/plugins/stylex-tracer/client/page.tsx",
+            "containedInRoot": true,
+            "sha256": "6cd94606d0d7abd2d19372f012f9a16b1cb9e49db636470f77f58bc1d61cff76"
+          },
+          "benchmarks/stylex-tracer/fixture/tailwind/page.tsx": {
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/benchmarks/stylex-tracer/fixture/tailwind/page.tsx",
+            "containedInRoot": true,
+            "sha256": "35063be01343b4508a767124c3457029f5f2d26838e0cc71a6eb5645800b1665"
+          }
+        },
+        "packages": {
+          "@stylexjs/stylex/package.json": {
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/node_modules/.bun/@stylexjs+stylex@0.19.0/node_modules/@stylexjs/stylex/package.json",
+            "containedInRoot": true,
+            "sha256": "175af0021645f444babee4f1174c8d6beb2ea03a6e9b73875c24681782912dfb"
+          },
+          "tailwindcss/package.json": {
+            "physicalPath": "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/stylex-b2-root-b/node_modules/.bun/tailwindcss@4.3.0/node_modules/tailwindcss/package.json",
+            "containedInRoot": true,
+            "sha256": "3e87bf49f863a5b83b473e1e10212561b406c69e6101423e757340c876f374ee"
+          }
+        }
+      },
+      "apiVersion": 1,
+      "variants": {
+        "stylex": {
+          "artifactHash": "1bd0663be076f1c50ff540ac155da9767bd88341f1d4c39b83df9c78c90a8056",
+          "archive": {
+            "bytes": 2285,
+            "sha256": "ba424c8d1fde363a89c92cc12945e4822c2828641c8e934e161a3381b6bdd0d8"
+          },
+          "files": [
+            {
+              "name": "asset-0e523e4bc3c6308f002a3208ea2990cb4f64282d4fbb67c12f5726d13b66eef6.woff2",
+              "contentType": "font/woff2",
+              "bytes": 23636,
+              "sha256": "0e523e4bc3c6308f002a3208ea2990cb4f64282d4fbb67c12f5726d13b66eef6"
+            },
+            {
+              "name": "asset-0f53d1c03b3918d744a843b5039001ee31695ca1e255e3914188df81beb461e9.woff2",
+              "contentType": "font/woff2",
+              "bytes": 14808,
+              "sha256": "0f53d1c03b3918d744a843b5039001ee31695ca1e255e3914188df81beb461e9"
+            },
+            {
+              "name": "asset-2a2d9c22c9863086a23f5013fede1428585321812b25f2662542c39d02967c5e.woff2",
+              "contentType": "font/woff2",
+              "bytes": 20088,
+              "sha256": "2a2d9c22c9863086a23f5013fede1428585321812b25f2662542c39d02967c5e"
+            },
+            {
+              "name": "asset-2df52199eac56e2ec7a735e609bb151bdab79422c3e73948f4b6580c66bb5a50.woff2",
+              "contentType": "font/woff2",
+              "bytes": 17248,
+              "sha256": "2df52199eac56e2ec7a735e609bb151bdab79422c3e73948f4b6580c66bb5a50"
+            },
+            {
+              "name": "asset-6c18d579fd87c3776be068b762cbc83fde3acb543d49eabd3ade842eb987e887.woff2",
+              "contentType": "font/woff2",
+              "bytes": 32292,
+              "sha256": "6c18d579fd87c3776be068b762cbc83fde3acb543d49eabd3ade842eb987e887"
+            },
+            {
+              "name": "asset-98c22de85f6e83bcd6ae1a443e12e256fbc8de7142bec4f76b059f8ff9c2797e.woff2",
+              "contentType": "font/woff2",
+              "bytes": 8992,
+              "sha256": "98c22de85f6e83bcd6ae1a443e12e256fbc8de7142bec4f76b059f8ff9c2797e"
+            },
+            {
+              "name": "asset-a5e59f88773784399e0b12beaabad4fd7dc568fc677667b042045a898e789292.svg",
+              "contentType": "image/svg+xml",
+              "bytes": 230,
+              "sha256": "a5e59f88773784399e0b12beaabad4fd7dc568fc677667b042045a898e789292"
+            },
+            {
+              "name": "asset-a8c4cb778ab6202d22bdea2ccc8d7e7caf802cfe0a7ce37df7b212f82341468f.woff2",
+              "contentType": "font/woff2",
+              "bytes": 29240,
+              "sha256": "a8c4cb778ab6202d22bdea2ccc8d7e7caf802cfe0a7ce37df7b212f82341468f"
+            },
+            {
+              "name": "asset-c57d9ca3bd42e6bc093badc7744dd2059a78f66a3a4dc6ca40574480c870f553.woff2",
+              "contentType": "font/woff2",
+              "bytes": 21232,
+              "sha256": "c57d9ca3bd42e6bc093badc7744dd2059a78f66a3a4dc6ca40574480c870f553"
+            },
+            {
+              "name": "asset-ddb8c66035104e233fc024669183aad3738b6daa16deee2ebb1241bd0f98ace1.woff2",
+              "contentType": "font/woff2",
+              "bytes": 37788,
+              "sha256": "ddb8c66035104e233fc024669183aad3738b6daa16deee2ebb1241bd0f98ace1"
+            },
+            {
+              "name": "plugin.css",
+              "contentType": "text/css; charset=utf-8",
+              "bytes": 11402,
+              "sha256": "b5d4c96a1cb58e1d45df96e2f7c3ea4af1e162f3aea8e130871b695718831a92"
+            },
+            {
+              "name": "plugin.js",
+              "contentType": "text/javascript; charset=utf-8",
+              "bytes": 606248,
+              "sha256": "cc7e7cdd775090c50ccd6b2b34f72cb4624cce622bb3fd9224f8b20aeb810bba"
+            },
+            {
+              "name": "index.html",
+              "contentType": "text/html; charset=utf-8",
+              "bytes": 538,
+              "sha256": "8234faa59f10dd02f89a089c88d67237559f603b07bda8b2dee1dbd2b8e273e8"
+            }
+          ],
+          "input": [
+            {
+              "path": "page.tsx",
+              "bytes": 2681,
+              "sha256": "6cd94606d0d7abd2d19372f012f9a16b1cb9e49db636470f77f58bc1d61cff76"
+            },
+            {
+              "path": "tokens.stylex.ts",
+              "bytes": 161,
+              "sha256": "8348206675c02efe1c8707341df0ddb214bc300421c780eb5a3a661cdb01d8c2"
+            },
+            {
+              "path": "tracer-mark.svg",
+              "bytes": 230,
+              "sha256": "a5e59f88773784399e0b12beaabad4fd7dc568fc677667b042045a898e789292"
+            }
+          ]
+        },
+        "tailwind": {
+          "artifactHash": "3d67c14e70e7ae096e1167de22d9e048ff0c6b0dfbd980dea29db922ffaae947",
+          "archive": {
+            "bytes": 4571,
+            "sha256": "b2b5350b444f9b420530cdc9676342d19c093eeb59035b84c11ac3915d12ce42"
+          },
+          "files": [
+            {
+              "name": "asset-0e523e4bc3c6308f002a3208ea2990cb4f64282d4fbb67c12f5726d13b66eef6.woff2",
+              "contentType": "font/woff2",
+              "bytes": 23636,
+              "sha256": "0e523e4bc3c6308f002a3208ea2990cb4f64282d4fbb67c12f5726d13b66eef6"
+            },
+            {
+              "name": "asset-0f53d1c03b3918d744a843b5039001ee31695ca1e255e3914188df81beb461e9.woff2",
+              "contentType": "font/woff2",
+              "bytes": 14808,
+              "sha256": "0f53d1c03b3918d744a843b5039001ee31695ca1e255e3914188df81beb461e9"
+            },
+            {
+              "name": "asset-2a2d9c22c9863086a23f5013fede1428585321812b25f2662542c39d02967c5e.woff2",
+              "contentType": "font/woff2",
+              "bytes": 20088,
+              "sha256": "2a2d9c22c9863086a23f5013fede1428585321812b25f2662542c39d02967c5e"
+            },
+            {
+              "name": "asset-2df52199eac56e2ec7a735e609bb151bdab79422c3e73948f4b6580c66bb5a50.woff2",
+              "contentType": "font/woff2",
+              "bytes": 17248,
+              "sha256": "2df52199eac56e2ec7a735e609bb151bdab79422c3e73948f4b6580c66bb5a50"
+            },
+            {
+              "name": "asset-6c18d579fd87c3776be068b762cbc83fde3acb543d49eabd3ade842eb987e887.woff2",
+              "contentType": "font/woff2",
+              "bytes": 32292,
+              "sha256": "6c18d579fd87c3776be068b762cbc83fde3acb543d49eabd3ade842eb987e887"
+            },
+            {
+              "name": "asset-98c22de85f6e83bcd6ae1a443e12e256fbc8de7142bec4f76b059f8ff9c2797e.woff2",
+              "contentType": "font/woff2",
+              "bytes": 8992,
+              "sha256": "98c22de85f6e83bcd6ae1a443e12e256fbc8de7142bec4f76b059f8ff9c2797e"
+            },
+            {
+              "name": "asset-a5e59f88773784399e0b12beaabad4fd7dc568fc677667b042045a898e789292.svg",
+              "contentType": "image/svg+xml",
+              "bytes": 230,
+              "sha256": "a5e59f88773784399e0b12beaabad4fd7dc568fc677667b042045a898e789292"
+            },
+            {
+              "name": "asset-a8c4cb778ab6202d22bdea2ccc8d7e7caf802cfe0a7ce37df7b212f82341468f.woff2",
+              "contentType": "font/woff2",
+              "bytes": 29240,
+              "sha256": "a8c4cb778ab6202d22bdea2ccc8d7e7caf802cfe0a7ce37df7b212f82341468f"
+            },
+            {
+              "name": "asset-c57d9ca3bd42e6bc093badc7744dd2059a78f66a3a4dc6ca40574480c870f553.woff2",
+              "contentType": "font/woff2",
+              "bytes": 21232,
+              "sha256": "c57d9ca3bd42e6bc093badc7744dd2059a78f66a3a4dc6ca40574480c870f553"
+            },
+            {
+              "name": "asset-ddb8c66035104e233fc024669183aad3738b6daa16deee2ebb1241bd0f98ace1.woff2",
+              "contentType": "font/woff2",
+              "bytes": 37788,
+              "sha256": "ddb8c66035104e233fc024669183aad3738b6daa16deee2ebb1241bd0f98ace1"
+            },
+            {
+              "name": "plugin.css",
+              "contentType": "text/css; charset=utf-8",
+              "bytes": 44586,
+              "sha256": "f6a203637cdf1b27870a276cc5f7056cbe178473742c408bf75f1f741dd869f6"
+            },
+            {
+              "name": "plugin.js",
+              "contentType": "text/javascript; charset=utf-8",
+              "bytes": 597595,
+              "sha256": "07f9602d3b1c542eb4bef6ac743970d7408f30de4fbbce6ac7251e70c7899fd5"
+            },
+            {
+              "name": "index.html",
+              "contentType": "text/html; charset=utf-8",
+              "bytes": 538,
+              "sha256": "687c76505acda070bb6bd0ee1f629b6a0a9a78e3f9f9b961c4a63b52b5789f37"
+            }
+          ],
+          "input": [
+            {
+              "path": "page.tsx",
+              "bytes": 5183,
+              "sha256": "35063be01343b4508a767124c3457029f5f2d26838e0cc71a6eb5645800b1665"
+            },
+            {
+              "path": "styles.css",
+              "bytes": 5689,
+              "sha256": "90a522cbb0bce03afe06d4c568ef61af579d7d83ef1ed71f5d50d3bb76f38120"
+            },
+            {
+              "path": "tracer-mark.svg",
+              "bytes": 230,
+              "sha256": "a5e59f88773784399e0b12beaabad4fd7dc568fc677667b042045a898e789292"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "equality": {
+    "logicalOutputs": true,
+    "revision": true,
+    "treeIdentity": true,
+    "contentIdentity": true,
+    "sourceManifest": true,
+    "rootContainment": true,
+    "isolatedCacheRoots": true,
+    "stylexArtifactFiles": true,
+    "stylexArchive": true,
+    "tailwindArtifactFiles": true,
+    "tailwindArchive": true
+  },
+  "pass": true
+}

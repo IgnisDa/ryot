@@ -1,5 +1,7 @@
 {
+	"exclude": ["dist", "tests/fixtures"],
 	"extends": "../../tsconfig.options.json",
+	"include": ["src", "../client-plugin-compiler/src/external-modules.d.ts"],
 	"compilerOptions": {
 		"strict": true,
 		"outDir": "dist",
