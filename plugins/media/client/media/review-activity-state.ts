@@ -1,4 +1,4 @@
-import type { MediaCreatorActivityResult } from "../../shared/creator-recipes";
+import type { MediaReviewActivityResult } from "../../shared/media-recipes";
 import {
 	mediaActivityRowsView,
 	mediaCollectionRow,
@@ -9,26 +9,26 @@ import {
 	type MediaActivityTimeline,
 } from "./activity-timeline";
 
-type CreatorReviewSubject = { readonly on: "creator" };
+type ReviewSubject = { readonly on: "entity" };
 
-const REVIEW_SUBJECT: CreatorReviewSubject = { on: "creator" };
+const REVIEW_SUBJECT: ReviewSubject = { on: "entity" };
 
-export type MediaCreatorActivityRow =
+export type MediaReviewActivityRow =
 	| MediaActivityCollectionRow
-	| MediaActivityReviewRow<CreatorReviewSubject>;
+	| MediaActivityReviewRow<ReviewSubject>;
 
-export type MediaCreatorActivityView = {
-	readonly timeline: MediaActivityTimeline<MediaCreatorActivityRow>;
+export type MediaReviewActivityView = {
+	readonly timeline: MediaActivityTimeline<MediaReviewActivityRow>;
 	readonly summary: { readonly reviews: number; readonly span: MediaActivitySpan };
 };
 
 const FLAT_PREDICATES = { isWatching: () => false, isCompletion: () => false };
 
-/** Reviews and collection changes as one flat timeline; creators have no watches to segment. */
-export const mediaCreatorActivityView = (
-	result: MediaCreatorActivityResult,
-): MediaCreatorActivityView | undefined => {
-	const view = mediaActivityRowsView<MediaCreatorActivityRow>(
+/** Reviews and collection changes as one flat timeline; the entity has no watches to segment. */
+export const mediaReviewActivityView = (
+	result: MediaReviewActivityResult,
+): MediaReviewActivityView | undefined => {
+	const view = mediaActivityRowsView<MediaReviewActivityRow>(
 		result.events.map((event) =>
 			event.kind === "media" ? mediaReviewRow(event, REVIEW_SUBJECT) : mediaCollectionRow(event),
 		),

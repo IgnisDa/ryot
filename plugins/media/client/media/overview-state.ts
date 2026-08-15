@@ -1,11 +1,20 @@
 import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
+import type { SelectedRow } from "@ryot-app/client-sdk/ryotql";
 
-import type { MediaOverviewRows, MediaUnlinkedCreatorsOverview } from "../../shared/media-recipes";
+import type {
+	creditSelection,
+	MediaOverviewRows,
+	MediaUnlinkedCreatorsOverview,
+} from "../../shared/media-recipes";
 import { collectManagedAssetLocators, preferredMediaImageAsset } from "./image";
 import { classifyRyotQueryResult, type MappedRyotQueryState } from "./query-state";
 import { mediaPosterAsset } from "./summary-state";
 
 export type MediaPerson = MediaOverviewRows["people"]["items"][number];
+
+export type MediaCreditPerson = SelectedRow<ReturnType<typeof creditSelection>> & {
+	readonly character?: string | null | undefined;
+};
 
 export type MediaCompany = MediaOverviewRows["companies"]["items"][number];
 
@@ -41,15 +50,22 @@ export const mediaOverviewError = (state: MediaOverviewFailure, subject: string)
 			: "These details came back in a form that could not be displayed. Try again later.",
 });
 
-export const mediaPersonAsset = (person: MediaPerson) =>
+export const mediaPersonAsset = (person: MediaCreditPerson) =>
 	preferredMediaImageAsset(person.images, "profile");
 
 export const mediaCompanyAsset = (company: MediaCompany) =>
 	preferredMediaImageAsset(company.images, "logo");
 
+export const mediaCreditAssets = (credits: {
+	readonly people: { readonly items: readonly MediaCreditPerson[] };
+	readonly companies: { readonly items: readonly MediaCompany[] };
+}) => [
+	...credits.people.items.map(mediaPersonAsset),
+	...credits.companies.items.map(mediaCompanyAsset),
+];
+
 export const mediaOverviewAssets = (overview: MediaOverviewRows) => [
-	...overview.people.items.map(mediaPersonAsset),
-	...overview.companies.items.map(mediaCompanyAsset),
+	...mediaCreditAssets(overview),
 	...overview.recommendations.items.map((recommendation) => mediaPosterAsset(recommendation)),
 ];
 

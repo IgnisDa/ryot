@@ -17,7 +17,7 @@ import { decodeShowSummaryResult, showSummaryRow } from "../../tests/client/show
 import { mountRyotClient } from "../../tests/client/test-support";
 import { mapShowSeasons } from "../show/episodes-state";
 import { showSchema } from "../show/schema";
-import { mapMediaEpisodePage } from "./episodes-state";
+import { mapMediaCursorPage } from "./cursor-page-state";
 import { mapMediaOverview } from "./overview-state";
 import { MediaRefreshStatus } from "./primitives";
 import { classifyRyotQueryResult } from "./query-state";
@@ -36,7 +36,7 @@ describe("show refresh failures", () => {
 			const episodes = errorQueryResult(error, decodeShowSeasonEpisodesResult());
 			const activity = errorQueryResult(error, decodeShowActivity());
 			expect(mapShowSeasons(seasons).status).toBe("ready");
-			expect(mapMediaEpisodePage(episodes).status).toBe("ready");
+			expect(mapMediaCursorPage(episodes).status).toBe("ready");
 			expect(showSchema.mapActivity(activity).status).toBe("ready");
 			let retries = 0;
 			const retry = () => {

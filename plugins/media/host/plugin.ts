@@ -1,7 +1,7 @@
 import { definePlugin } from "@ryot-app/contract/modules/plugins/manifest";
 
 import { mediaLibraryEligibleEntitySchemaSlugs } from "../backend/contracts/schema-slugs";
-import { builtinMediaEntitySchemaSlugs } from "../shared/media-schema-slugs";
+import { builtinMediaEntitySchemaSlugs, mediaGroupSlugs } from "../shared/media-schema-slugs";
 import { mediaConfigSchema } from "./config";
 import { mediaSavedViews } from "./saved-views";
 import { mediaEntitySchemas } from "./schemas/entity";
@@ -487,8 +487,9 @@ const schemaClients = [
 	"podcast",
 	"audiobook",
 	"comic-book",
-	"visual-novel",
 	"video-game",
+	"visual-novel",
+	...mediaGroupSlugs,
 ].map(schemaClient);
 
 const creatorClients = ["person", "company"].map((slug) => ({
@@ -551,6 +552,36 @@ export const mediaPlugin = definePlugin({
 			description: "Refresh global media trending rankings",
 		},
 	],
+	client: {
+		apiVersion: 1,
+		homeView: null,
+		routes: { "/": "media-home" },
+		entities: Object.fromEntries(entityClients.map(({ slug, entity }) => [slug, entity])),
+		exports: {
+			"show-progress": {
+				kind: "component",
+				entry: "client/show/progress.tsx",
+				automaticEntityPresentations: false,
+			},
+			"media-row": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/media-row-presentation.ts",
+			},
+			"media-card": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/media-card-presentation.ts",
+			},
+			"media-home": {
+				kind: "page",
+				entry: "client/home.tsx",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+			},
+			...Object.fromEntries(entityClients.flatMap((client) => Object.entries(client.exports))),
+		},
+	},
 	operations: [
 		{
 			auth: "user",
@@ -583,44 +614,6 @@ export const mediaPlugin = definePlugin({
 			description: "Resolve show and podcast episode references to entity ids",
 		},
 	],
-	client: {
-		apiVersion: 1,
-		homeView: null,
-		routes: { "/": "media-home" },
-		entities: {
-			"book-group": { listPresentation: "media-row", gridPresentation: "media-card" },
-			"music-group": { listPresentation: "media-row", gridPresentation: "media-card" },
-			"movie-group": { listPresentation: "media-row", gridPresentation: "media-card" },
-			"audiobook-group": { listPresentation: "media-row", gridPresentation: "media-card" },
-			"comic-book-group": { listPresentation: "media-row", gridPresentation: "media-card" },
-			"video-game-group": { listPresentation: "media-row", gridPresentation: "media-card" },
-			...Object.fromEntries(entityClients.map(({ slug, entity }) => [slug, entity])),
-		},
-		exports: {
-			"show-progress": {
-				kind: "component",
-				entry: "client/show/progress.tsx",
-				automaticEntityPresentations: false,
-			},
-			"media-row": {
-				kind: "presentation",
-				automaticEntityPresentations: false,
-				entry: "client/media-row-presentation.ts",
-			},
-			"media-card": {
-				kind: "presentation",
-				automaticEntityPresentations: false,
-				entry: "client/media-card-presentation.ts",
-			},
-			"media-home": {
-				kind: "page",
-				entry: "client/home.tsx",
-				settingsSchema: { fields: {} },
-				automaticEntityPresentations: false,
-			},
-			...Object.fromEntries(entityClients.flatMap((client) => Object.entries(client.exports))),
-		},
-	},
 	bindings: {
 		signalAutomations: [],
 		providerEntityImportAutomations: mediaLibraryEligibleEntitySchemaSlugs.map(

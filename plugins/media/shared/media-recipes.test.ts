@@ -7,7 +7,11 @@ import {
 	flatUngroupedFixtureRecipes,
 } from "../tests/client/flat-media/recipes";
 import { propertyNumber } from "./entity-selections";
-import { mediaEntityCountMeasure, mediaTimeSpentMeasure } from "./media-recipes";
+import {
+	mediaEntityCountMeasure,
+	mediaReviewActivityRecipe,
+	mediaTimeSpentMeasure,
+} from "./media-recipes";
 
 const singleRows = (items: readonly Record<string, unknown>[]) =>
 	rowsResult(items, { limit: 1, hasMore: false, nextCursor: null });
@@ -509,5 +513,84 @@ describe("media flat measures", () => {
 			amount: pages,
 			isUnknown: { expr: pages, type: "isNull" },
 		});
+	});
+});
+
+const REVIEW_ACTIVITY_RECIPE = mediaReviewActivityRecipe({ slug: "reviewed", alias: "reviewed" })({
+	eventLimit: 60,
+	entityId: "reviewed-1",
+	collectionEventLimit: 40,
+});
+
+const reviewActivityRows = (items: readonly Record<string, unknown>[], hasMore = false) =>
+	rowsResult(items, { hasMore, limit: 60, nextCursor: hasMore ? "cursor" : null });
+
+const decodeReviewActivity = (input: { readonly hasMore: boolean }) =>
+	REVIEW_ACTIVITY_RECIPE.decode({
+		data: {
+			totals: reviewActivityRows([{ reviewCount: 1 }]),
+			events: reviewActivityRows(
+				[
+					{
+						rating: 80,
+						text: "Great.",
+						isSpoiler: false,
+						id: "entity-review",
+						createdAt: "2024-02-03T10:00:00.000Z",
+						occurredAt: "2024-02-03T09:00:00.000Z",
+					},
+				],
+				input.hasMore,
+			),
+			collectionEvents: reviewActivityRows([
+				{
+					id: "collection-added",
+					collectionName: "Favourites",
+					collectionId: "collection-1",
+					createdAt: "2024-02-04T10:00:00.000Z",
+					occurredAt: "2024-02-04T09:00:00.000Z",
+					eventSchemaSlug: "add-entity-to-collection",
+				},
+			]),
+		},
+	});
+
+describe("media review activity recipe", () => {
+	it("counts and lists only review events", () => {
+		const events = REVIEW_ACTIVITY_RECIPE.document.queries["events"];
+		const totals = REVIEW_ACTIVITY_RECIPE.document.queries["totals"];
+		if (events?.output.type !== "rows" || totals?.output.type !== "rows") {
+			throw new Error("Expected the events and totals rows queries");
+		}
+
+		expect(events.where).toMatchObject({
+			predicates: [{}, { type: "in", values: [{ value: "review" }] }],
+		});
+		expect(JSON.stringify(totals.output.fields)).toContain('"value":"review"');
+		expect(fieldKeys(events.output.fields)).toEqual([
+			"id",
+			"createdAt",
+			"occurredAt",
+			"text",
+			"rating",
+			"isSpoiler",
+		]);
+	});
+
+	it("merges reviews and collection events newest first", () => {
+		expect(decodeReviewActivity({ hasMore: false })).toMatchObject({
+			success: {
+				reviewCount: 1,
+				truncated: false,
+				events: [
+					{ kind: "collection", id: "collection-added" },
+					{ rating: 80, kind: "media", id: "entity-review" },
+				],
+			},
+		});
+	});
+
+	it("reports the activity as truncated when a page has more events", () => {
+		expect(decodeReviewActivity({ hasMore: true })).toMatchObject({ success: { truncated: true } });
 	});
 });

@@ -142,6 +142,7 @@ export function MediaRowContent<Data extends MediaPresentationSubject>(props: {
 	readonly compact: boolean;
 	readonly entityId: string;
 	readonly facts: ReactNode;
+	readonly position?: string | undefined;
 	readonly aspect: MediaArtworkAspect;
 	readonly data: MediaPresentationViewData<Data>;
 }) {
@@ -151,10 +152,18 @@ export function MediaRowContent<Data extends MediaPresentationSubject>(props: {
 				data-layout="list"
 				data-entity-id={props.entityId}
 				className={clsx(
-					"grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center border-b border-border",
+					"grid min-w-0 items-center border-b border-border",
+					props.position === undefined
+						? "grid-cols-[auto_minmax(0,1fr)]"
+						: "grid-cols-[2rem_auto_minmax(0,1fr)]",
 					props.compact ? "gap-3 py-2.5" : "gap-4 py-3",
 				)}
 			>
+				{props.position === undefined ? null : (
+					<span className="text-right font-ui font-medium text-[12px] text-text-subtle tabular-nums">
+						{props.position}
+					</span>
+				)}
 				<PluginLink className="block min-w-0" to={{ kind: "entity", entityId: props.entityId }}>
 					<MediaEntityArtwork
 						layout="list"

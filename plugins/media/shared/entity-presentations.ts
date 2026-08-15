@@ -52,9 +52,6 @@ const primaryExpression = (media: Table, slug: string) => {
 	if (slug === "company") {
 		return castText(propertyNumber(media, "foundedYear"));
 	}
-	if (slug.endsWith("-group")) {
-		return castText(propertyNumber(media, "parts"));
-	}
 	return castText(propertyNumber(media, "publishYear"));
 };
 

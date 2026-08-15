@@ -258,19 +258,24 @@ const creditOrder = (credit: Table, relationship: Table) => [
 	ascending(column(credit, "name")),
 ];
 
-export const mediaOverviewQueries = (input: {
+type SelectedQuerySuccess<Query> = Query extends SelectedQuery<infer Success> ? Success : never;
+
+type SelectedQueryRows<Queries> = {
+	readonly [Key in keyof Queries]: SelectedQuerySuccess<Queries[Key]>;
+};
+
+/** People and company credits of one entity of `slug`, with the schema's own person credit fields. */
+export const mediaCreditQueries = <const PersonFields extends SelectedSelection>(input: {
 	readonly slug: string;
 	readonly entityId: string;
 	readonly peopleLimit: number;
 	readonly companyLimit: number;
-	readonly recommendationLimit: number;
+	readonly personFields: (relationship: Table) => PersonFields;
 }) => {
 	const person = table("entity", "person");
 	const company = table("entity", "company");
-	const suggested = table("entity", "suggested");
 	const personRelationship = table("relationship", "personRelationship");
 	const companyRelationship = table("relationship", "companyRelationship");
-	const suggestionRelationship = table("relationship", "suggestionRelationship");
 	return {
 		companies: selectedRows(companyRelationship, {
 			...relatedRows({
@@ -298,9 +303,27 @@ export const mediaOverviewQueries = (input: {
 			}),
 			selection: {
 				...creditSelection(person, personRelationship),
-				...creditCharacterSelection(personRelationship),
+				...input.personFields(personRelationship),
 			},
 		}),
+	};
+};
+
+export type MediaCreditRows<PersonFields extends SelectedSelection> = SelectedQueryRows<
+	ReturnType<typeof mediaCreditQueries<PersonFields>>
+>;
+
+export const mediaOverviewQueries = (input: {
+	readonly slug: string;
+	readonly entityId: string;
+	readonly peopleLimit: number;
+	readonly companyLimit: number;
+	readonly recommendationLimit: number;
+}) => {
+	const suggested = table("entity", "suggested");
+	const suggestionRelationship = table("relationship", "suggestionRelationship");
+	return {
+		...mediaCreditQueries({ ...input, personFields: creditCharacterSelection }),
 		recommendations: selectedRows(suggestionRelationship, {
 			...relatedRows({
 				related: suggested,
@@ -322,13 +345,7 @@ export const mediaOverviewQueries = (input: {
 	};
 };
 
-type SelectedQuerySuccess<Query> = Query extends SelectedQuery<infer Success> ? Success : never;
-
-export type MediaOverviewRows = {
-	readonly [Key in keyof ReturnType<typeof mediaOverviewQueries>]: SelectedQuerySuccess<
-		ReturnType<typeof mediaOverviewQueries>[Key]
-	>;
-};
+export type MediaOverviewRows = SelectedQueryRows<ReturnType<typeof mediaOverviewQueries>>;
 
 export const mediaGroupQuery = (input: {
 	readonly limit: number;
@@ -389,7 +406,7 @@ export const mediaGroupQuery = (input: {
 	});
 };
 
-export const mediaFlatPresentationSelection = <Duration extends SelectedSelection>(
+const mediaFlatPresentationSelection = <Duration extends SelectedSelection>(
 	entity: Table,
 	lifecycle: { readonly state: ScalarExpression; readonly progressPercent: ScalarExpression },
 	duration: Duration,
@@ -641,6 +658,73 @@ export type MediaFlatActivityEvent<Extra = unknown> =
 	| MediaFlatActivityMediaEvent<Extra>
 	| MediaFlatActivityCollectionEvent;
 
+type MediaReviewActivityParentRow = SelectedRow<ReturnType<typeof mediaReviewEventSelection>>;
+
+export type MediaReviewActivityEvent = ReturnType<
+	typeof mergeMediaActivityEvents<MediaReviewActivityParentRow, MediaActivityCollectionRow>
+>[number];
+
+export type MediaReviewActivityResult = {
+	readonly reviewCount: number;
+	readonly truncated: boolean;
+	readonly events: readonly MediaReviewActivityEvent[];
+};
+
+/** Reviews and collection changes of an entity whose only own event is `review`. */
+export const mediaReviewActivityRecipe = (config: {
+	readonly slug: string;
+	readonly alias: string;
+}) =>
+	defineRecipe(
+		(input: {
+			readonly entityId: string;
+			readonly eventLimit: number;
+			readonly collectionEventLimit: number;
+		}) => {
+			const entity = table("entity", `${config.alias}ActivityEntity`);
+			const review = table("event", `${config.alias}ReviewCountEvent`);
+			return {
+				map: ({ totals, events, collectionEvents }) =>
+					Result.succeed({
+						reviewCount: totals?.reviewCount ?? 0,
+						truncated: events.pageInfo.hasMore || collectionEvents.pageInfo.hasMore,
+						events: mergeMediaActivityEvents({
+							parentEvents: events.items,
+							collectionEvents: collectionEvents.items,
+						}),
+					}),
+				queries: {
+					collectionEvents: mediaCollectionEventsQuery({
+						entityId: input.entityId,
+						limit: input.collectionEventLimit,
+					}),
+					events: mediaEntityEventsQuery({
+						slugs: ["review"],
+						limit: input.eventLimit,
+						entityId: input.entityId,
+						alias: `${config.alias}Event`,
+						selection: mediaReviewEventSelection,
+					}),
+					totals: selectedOptionalRow(entity, {
+						orderBy: [ascending(column(entity, "id"))],
+						where: and(entitySchema(entity, config.slug), entityId(entity, input.entityId)),
+						selection: {
+							reviewCount: selectedField(
+								count(review, {
+									where: and(
+										eq(column(review, "entityId"), column(entity, "id")),
+										eq(column(review, "eventSchemaSlug"), literal("review")),
+									),
+								}),
+								Schema.Number,
+							),
+						},
+					}),
+				},
+			};
+		},
+	);
+
 export const mediaUnlinkedCreatorsQuery = (id: string) => {
 	const entity = table("entity", "creatorsEntity");
 	return selectedOptionalRow(entity, {
@@ -810,20 +894,22 @@ export const mediaFlatRecipes = <
 		},
 	);
 
+	const presentationSelection = (entity: Table, alias: string) =>
+		mediaFlatPresentationSelection(
+			entity,
+			mediaLifecycleExpressions(entity, `${alias}Lifecycle`),
+			config.presentationFields(entity),
+		);
+
 	const presentationRecipe = defineRecipe((entityIds: readonly string[]) => {
 		const entity = table("entity", `${config.alias}PresentationEntity`);
-		const lifecycle = mediaLifecycleExpressions(entity, `${config.alias}PresentationLifecycle`);
 		return {
 			map: ({ rows }) => Result.succeed(rows.items),
 			queries: {
 				rows: selectedRows(entity, {
 					limit: MEDIA_FLAT_PRESENTATION_LIMIT,
 					orderBy: [ascending(column(entity, "id"))],
-					selection: mediaFlatPresentationSelection(
-						entity,
-						lifecycle,
-						config.presentationFields(entity),
-					),
+					selection: presentationSelection(entity, `${config.alias}Presentation`),
 					where: and(
 						entitySchema(entity, config.slug),
 						inArray(
@@ -836,5 +922,11 @@ export const mediaFlatRecipes = <
 		};
 	});
 
-	return { summaryRecipe, overviewRecipe, activityRecipe, presentationRecipe };
+	return {
+		summaryRecipe,
+		overviewRecipe,
+		activityRecipe,
+		presentationRecipe,
+		presentationSelection,
+	};
 };

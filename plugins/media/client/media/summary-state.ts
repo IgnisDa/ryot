@@ -64,6 +64,18 @@ export type MediaSummaryArtwork = {
 
 export type MediaSummaryLink = { readonly label: string; readonly href: string };
 
+export const mediaSourceLinks = (entity: {
+	readonly website?: string | null | undefined;
+	readonly sourceUrl: string | null;
+	readonly providerName: string | null;
+}): readonly MediaSummaryLink[] =>
+	[
+		{ label: "Website", href: entity.website ?? null },
+		{ href: entity.sourceUrl, label: `${entity.providerName ?? "Source"} page` },
+	].flatMap(({ href, label }) =>
+		href !== null && /^https?:\/\//i.test(href) ? [{ href, label }] : [],
+	);
+
 export type MediaStatusRailConfig = {
 	readonly logActivity: boolean;
 	readonly ownership?: { readonly owned: boolean | null } | undefined;

@@ -1,6 +1,5 @@
 import type { MediaCreatorCreditSlug } from "../../shared/media-schema-slugs";
 import type { MediaCreditSection } from "../media/credit-rails";
-import type { MediaSummaryLink } from "../media/summary-state";
 import { mediaSchemaAspects } from "../schema-aspects";
 
 const CREDIT_SECTION_TITLES: Record<MediaCreatorCreditSlug, string> = {
@@ -47,15 +46,3 @@ export const creatorCreditSections: readonly MediaCreditSection<MediaCreatorCred
 		aspect: mediaSchemaAspects[slug],
 		title: CREDIT_SECTION_TITLES[slug],
 	}));
-
-export const creatorLinks = (creator: {
-	readonly website: string | null;
-	readonly sourceUrl: string | null;
-	readonly providerName: string | null;
-}): readonly MediaSummaryLink[] =>
-	[
-		{ label: "Website", href: creator.website },
-		{ href: creator.sourceUrl, label: `${creator.providerName ?? "Source"} page` },
-	].flatMap(({ href, label }) =>
-		href !== null && /^https?:\/\//i.test(href) ? [{ href, label }] : [],
-	);

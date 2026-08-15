@@ -175,6 +175,11 @@ it("declares the complete media-owned source", () => {
 				automaticEntityPresentations: false,
 				entry: "client/video-game-row-presentation.ts",
 			},
+			"book-group-row": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/book-group-row-presentation.ts",
+			},
 			"comic-book-card": {
 				kind: "presentation",
 				automaticEntityPresentations: false,
@@ -191,10 +196,35 @@ it("declares the complete media-owned source", () => {
 				automaticEntityPresentations: false,
 				entry: "client/video-game-card-presentation.ts",
 			},
+			"movie-group-row": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/movie-group-row-presentation.ts",
+			},
+			"book-group-card": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/book-group-card-presentation.ts",
+			},
+			"music-group-row": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/music-group-row-presentation.ts",
+			},
 			"visual-novel-row": {
 				kind: "presentation",
 				automaticEntityPresentations: false,
 				entry: "client/visual-novel-row-presentation.ts",
+			},
+			"movie-group-card": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/movie-group-card-presentation.ts",
+			},
+			"music-group-card": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/music-group-card-presentation.ts",
 			},
 			"visual-novel-card": {
 				kind: "presentation",
@@ -212,6 +242,11 @@ it("declares the complete media-owned source", () => {
 				settingsSchema: { fields: {} },
 				entry: "client/book/screen.tsx",
 				automaticEntityPresentations: false,
+			},
+			"audiobook-group-row": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/audiobook-group-row-presentation.ts",
 			},
 			"anime-detail": {
 				kind: "page",
@@ -237,11 +272,36 @@ it("declares the complete media-owned source", () => {
 				entry: "client/music/screen.tsx",
 				automaticEntityPresentations: false,
 			},
+			"audiobook-group-card": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/audiobook-group-card-presentation.ts",
+			},
+			"comic-book-group-row": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/comic-book-group-row-presentation.ts",
+			},
+			"video-game-group-row": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/video-game-group-row-presentation.ts",
+			},
 			"person-detail": {
 				kind: "page",
 				settingsSchema: { fields: {} },
 				entry: "client/person/screen.tsx",
 				automaticEntityPresentations: false,
+			},
+			"comic-book-group-card": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/comic-book-group-card-presentation.ts",
+			},
+			"video-game-group-card": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/video-game-group-card-presentation.ts",
 			},
 			"podcast-detail": {
 				kind: "page",
@@ -273,11 +333,47 @@ it("declares the complete media-owned source", () => {
 				automaticEntityPresentations: false,
 				entry: "client/video-game/screen.tsx",
 			},
+			"book-group-detail": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				entry: "client/book-group/screen.tsx",
+			},
+			"movie-group-detail": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				entry: "client/movie-group/screen.tsx",
+			},
+			"music-group-detail": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				entry: "client/music-group/screen.tsx",
+			},
 			"visual-novel-detail": {
 				kind: "page",
 				settingsSchema: { fields: {} },
 				automaticEntityPresentations: false,
 				entry: "client/visual-novel/screen.tsx",
+			},
+			"audiobook-group-detail": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				entry: "client/audiobook-group/screen.tsx",
+			},
+			"comic-book-group-detail": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				entry: "client/comic-book-group/screen.tsx",
+			},
+			"video-game-group-detail": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				entry: "client/video-game-group/screen.tsx",
 			},
 		},
 	});
@@ -344,10 +440,40 @@ it("declares the complete media-owned source", () => {
 			listPresentation: "video-game-row",
 			gridPresentation: "video-game-card",
 		},
+		"book-group": {
+			detailPage: "book-group-detail",
+			listPresentation: "book-group-row",
+			gridPresentation: "book-group-card",
+		},
+		"movie-group": {
+			detailPage: "movie-group-detail",
+			listPresentation: "movie-group-row",
+			gridPresentation: "movie-group-card",
+		},
+		"music-group": {
+			detailPage: "music-group-detail",
+			listPresentation: "music-group-row",
+			gridPresentation: "music-group-card",
+		},
 		"visual-novel": {
 			detailPage: "visual-novel-detail",
 			listPresentation: "visual-novel-row",
 			gridPresentation: "visual-novel-card",
+		},
+		"audiobook-group": {
+			detailPage: "audiobook-group-detail",
+			listPresentation: "audiobook-group-row",
+			gridPresentation: "audiobook-group-card",
+		},
+		"comic-book-group": {
+			detailPage: "comic-book-group-detail",
+			listPresentation: "comic-book-group-row",
+			gridPresentation: "comic-book-group-card",
+		},
+		"video-game-group": {
+			detailPage: "video-game-group-detail",
+			listPresentation: "video-game-group-row",
+			gridPresentation: "video-game-group-card",
 		},
 	};
 	for (const [slug, registration] of Object.entries(registrations)) {
