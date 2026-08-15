@@ -6,6 +6,7 @@ import {
 	V1_CODECS,
 	V1Manifest,
 	V1Profile,
+	type V1Event,
 	type V1EntityDependency,
 	V1_SECTION_PATHS,
 	type V1AssetManifest,
@@ -14,7 +15,7 @@ import {
 	type V1SectionManifest,
 	type V1SectionPath,
 } from "./schemas";
-import { decodeNdjson, encodeNdjson, IncrementalSha256 } from "./streaming";
+import { decodeNdjson, encodeNdjson, IncrementalSha256, NdjsonDecoder } from "./streaming";
 
 const ZIP_EOCD_BYTES = 22;
 const MAX_ZIP_PATH_BYTES = 71;
@@ -41,11 +42,19 @@ type V1ArchiveAssetInput = {
 	readonly chunks: Iterable<Uint8Array> | AsyncIterable<Uint8Array>;
 };
 
+export type V1ArchiveEventsInput = {
+	readonly count: number;
+	readonly bytes: number;
+	readonly sha256: string;
+	readonly chunks: Iterable<Uint8Array> | AsyncIterable<Uint8Array>;
+};
+
 export type CreateV1ArchiveInput = {
 	readonly archiveId: string;
-	readonly appVersion: string;
 	readonly createdAt: string;
+	readonly appVersion: string;
 	readonly records: V1ArchiveRecords;
+	readonly events: V1ArchiveEventsInput;
 	readonly redactions: ReadonlyArray<string>;
 	readonly compression?: "deflate" | "store";
 	readonly assets: ReadonlyArray<V1ArchiveAssetInput>;
@@ -59,7 +68,6 @@ type V1ZipEntryInput = {
 };
 
 const recordCollections = (records: V1ArchiveRecords) => ({
-	"events.ndjson": records.events,
 	"entities.ndjson": records.entities,
 	"saved-views.ndjson": records.savedViews,
 	"plugin-state.ndjson": records.pluginState,
@@ -96,7 +104,6 @@ const sortDependencies = (values: V1ArchiveRecords["entityDependencies"]) => {
 
 export const sortV1ArchiveRecords = (records: V1ArchiveRecords): V1ArchiveRecords => ({
 	profile: records.profile,
-	events: sortedIfNeeded(records.events, compareId),
 	entities: sortedIfNeeded(records.entities, compareId),
 	entityDependencies: sortDependencies(records.entityDependencies),
 	savedViews: sortedIfNeeded(records.savedViews, compareId),
@@ -107,7 +114,9 @@ export const sortV1ArchiveRecords = (records: V1ArchiveRecords): V1ArchiveRecord
 	),
 });
 
-function* sectionChunks(path: Exclude<V1SectionPath, "profile.json">, records: V1ArchiveRecords) {
+type V1BoundedSectionPath = Exclude<V1SectionPath, "profile.json" | "events.ndjson">;
+
+function* sectionChunks(path: V1BoundedSectionPath, records: V1ArchiveRecords) {
 	const values = recordCollections(records)[path];
 	const codec = V1_CODECS[path] as Schema.Codec<(typeof values)[number], unknown>;
 	yield* encodeNdjson(values, codec);
@@ -116,18 +125,37 @@ function* sectionChunks(path: Exclude<V1SectionPath, "profile.json">, records: V
 const profileChunk = (profile: V1Profile) =>
 	encoder.encode(`${JSON.stringify(Schema.encodeUnknownSync(V1Profile)(profile))}\n`);
 
-const measureChunks = (chunks: Iterable<Uint8Array>, count: number) => {
+type ArchiveSection = {
+	readonly bytes: number;
+	readonly manifest: V1SectionManifest;
+	readonly payload?: Uint8Array | undefined;
+};
+
+const bufferSection = (
+	path: V1SectionPath,
+	chunks: Iterable<Uint8Array>,
+	count: number,
+	limit: number,
+): ArchiveSection => {
+	const buffered: Uint8Array[] = [];
 	const hash = new IncrementalSha256();
 	for (const chunk of chunks) {
 		hash.update(chunk);
+		if (hash.bytes > limit) {
+			throw archiveError("entry_too_large", "ZIP entry is too large", path);
+		}
+		buffered.push(chunk);
 	}
-	return { count, ...hash.digest() };
+	const { bytes, sha256 } = hash.digest();
+	return { bytes, payload: concatChunks(buffered), manifest: { path, count, sha256 } };
 };
 
-const sectionManifest = (path: V1SectionPath, chunks: Iterable<Uint8Array>, count: number) => {
-	const { bytes, ...measured } = measureChunks(chunks, count);
-	return { bytes, manifest: { ...measured, path } satisfies V1SectionManifest };
-};
+const boundedSection = (
+	path: V1BoundedSectionPath,
+	records: V1ArchiveRecords,
+	count: number,
+	limits: V1ArchiveLimits,
+) => bufferSection(path, sectionChunks(path, records), count, limits.maxMetadataEntryBytes);
 
 const requireUniqueIds = (path: string, records: ReadonlyArray<{ readonly id: string }>) => {
 	const ids = new Set<string>();
@@ -140,7 +168,6 @@ const requireUniqueIds = (path: string, records: ReadonlyArray<{ readonly id: st
 };
 
 const validateRecordKeys = (records: V1ArchiveRecords) => {
-	requireUniqueIds("events.ndjson", records.events);
 	requireUniqueIds("entities.ndjson", records.entities);
 	requireUniqueIds("saved-views.ndjson", records.savedViews);
 	requireUniqueIds("plugin-state.ndjson", records.pluginState);
@@ -233,49 +260,33 @@ const buildManifest = (
 			throw archiveError("count_mismatch", "Section record limit exceeded", path);
 		}
 	}
-	const sections = [
-		sectionManifest("profile.json", [profileChunk(records.profile)], 1),
-		sectionManifest(
-			"plugin-state.ndjson",
-			sectionChunks("plugin-state.ndjson", records),
-			records.pluginState.length,
-		),
-		sectionManifest(
-			"entities.ndjson",
-			sectionChunks("entities.ndjson", records),
-			records.entities.length,
-		),
-		sectionManifest(
+	if (input.events.bytes > limits.maxEntryBytes) {
+		throw archiveError("entry_too_large", "ZIP entry is too large", "events.ndjson");
+	}
+	const eventsSection: ArchiveSection = {
+		bytes: input.events.bytes,
+		manifest: { path: "events.ndjson", count: input.events.count, sha256: input.events.sha256 },
+	};
+	const sections: ReadonlyArray<ArchiveSection> = [
+		bufferSection("profile.json", [profileChunk(records.profile)], 1, limits.maxMetadataEntryBytes),
+		boundedSection("plugin-state.ndjson", records, records.pluginState.length, limits),
+		boundedSection("entities.ndjson", records, records.entities.length, limits),
+		boundedSection(
 			"entity-dependencies.ndjson",
-			sectionChunks("entity-dependencies.ndjson", records),
+			records,
 			records.entityDependencies.length,
+			limits,
 		),
-		sectionManifest(
-			"relationships.ndjson",
-			sectionChunks("relationships.ndjson", records),
-			records.relationships.length,
-		),
-		sectionManifest(
-			"events.ndjson",
-			sectionChunks("events.ndjson", records),
-			records.events.length,
-		),
-		sectionManifest(
-			"saved-views.ndjson",
-			sectionChunks("saved-views.ndjson", records),
-			records.savedViews.length,
-		),
-		sectionManifest(
+		boundedSection("relationships.ndjson", records, records.relationships.length, limits),
+		eventsSection,
+		boundedSection("saved-views.ndjson", records, records.savedViews.length, limits),
+		boundedSection(
 			"notification-subscriptions.ndjson",
-			sectionChunks("notification-subscriptions.ndjson", records),
+			records,
 			records.notificationSubscriptions.length,
+			limits,
 		),
 	];
-	for (const section of sections) {
-		if (section.bytes > limits.maxMetadataEntryBytes) {
-			throw archiveError("entry_too_large", "ZIP entry is too large", section.manifest.path);
-		}
-	}
 	const declaredAssets = new Set<string>();
 	for (const asset of input.assets) {
 		if (asset.metadata.path !== `assets/${asset.metadata.sha256}`) {
@@ -309,20 +320,20 @@ const buildManifest = (
 			.map(({ metadata }) => metadata)
 			.sort((a, b) => a.path.localeCompare(b.path)),
 	});
-	const manifestBytes = encoder.encode(
+	const manifestPayload = encoder.encode(
 		`${JSON.stringify(Schema.encodeUnknownSync(V1Manifest)(manifest))}\n`,
-	).byteLength;
-	if (manifestBytes > limits.maxMetadataEntryBytes) {
+	);
+	if (manifestPayload.byteLength > limits.maxMetadataEntryBytes) {
 		throw archiveError("entry_too_large", "ZIP entry is too large", "manifest.json");
 	}
 	const totalBytes =
-		manifestBytes +
+		manifestPayload.byteLength +
 		sections.reduce((total, section) => total + section.bytes, 0) +
 		input.assets.reduce((total, asset) => total + asset.metadata.size, 0);
 	if (totalBytes > limits.maxTotalUncompressedBytes) {
 		throw archiveError("total_size_exceeded", "ZIP total size limit exceeded");
 	}
-	return manifest;
+	return { sections, manifestPayload };
 };
 
 const asyncIterator = <A>(values: Iterable<A> | AsyncIterable<A>): AsyncIterator<A> => {
@@ -417,16 +428,24 @@ class ZipChunkIterator implements AsyncIterableIterator<Uint8Array> {
 export const zipChunks = (entries: Iterable<V1ZipEntryInput> | AsyncIterable<V1ZipEntryInput>) =>
 	new ZipChunkIterator(entries);
 
-class VerifiedAssetChunks implements AsyncIterableIterator<Uint8Array> {
-	readonly #limits: V1ArchiveLimits;
-	readonly #asset: V1ArchiveAssetInput;
+type VerifiedEntry = {
+	readonly path: string;
+	readonly size: number;
+	readonly sha256: string;
+	readonly mismatch: string;
+	readonly chunks: Iterable<Uint8Array> | AsyncIterable<Uint8Array>;
+};
+
+class VerifiedEntryChunks implements AsyncIterableIterator<Uint8Array> {
+	readonly #limit: number;
+	readonly #entry: VerifiedEntry;
 	readonly #hash = new IncrementalSha256();
 	readonly #chunks: AsyncIterator<Uint8Array>;
 
-	constructor(asset: V1ArchiveAssetInput, limits: V1ArchiveLimits) {
-		this.#asset = asset;
-		this.#limits = limits;
-		this.#chunks = asyncIterator(asset.chunks);
+	constructor(entry: VerifiedEntry, limit: number) {
+		this.#limit = limit;
+		this.#entry = entry;
+		this.#chunks = asyncIterator(entry.chunks);
 	}
 
 	[Symbol.asyncIterator]() {
@@ -437,25 +456,14 @@ class VerifiedAssetChunks implements AsyncIterableIterator<Uint8Array> {
 		return this.#chunks.next().then((next) => {
 			if (!next.done) {
 				this.#hash.update(next.value);
-				if (this.#hash.bytes > this.#limits.maxEntryBytes) {
-					throw archiveError(
-						"entry_too_large",
-						"ZIP entry is too large",
-						this.#asset.metadata.path,
-					);
+				if (this.#hash.bytes > this.#limit) {
+					throw archiveError("entry_too_large", "ZIP entry is too large", this.#entry.path);
 				}
 				return next;
 			}
 			const measured = this.#hash.digest();
-			if (
-				measured.bytes !== this.#asset.metadata.size ||
-				measured.sha256 !== this.#asset.metadata.sha256
-			) {
-				throw archiveError(
-					"checksum_mismatch",
-					"Asset stream does not match its manifest metadata",
-					this.#asset.metadata.path,
-				);
+			if (measured.bytes !== this.#entry.size || measured.sha256 !== this.#entry.sha256) {
+				throw archiveError("checksum_mismatch", this.#entry.mismatch, this.#entry.path);
 			}
 			return next;
 		});
@@ -465,29 +473,41 @@ class VerifiedAssetChunks implements AsyncIterableIterator<Uint8Array> {
 const createV1Archive = (input: CreateV1ArchiveInput, overrides: Partial<V1ArchiveLimits> = {}) => {
 	const limits = { ...V1_ARCHIVE_LIMITS, ...overrides };
 	const records = sortV1ArchiveRecords(input.records);
-	const manifest = buildManifest(input, records, limits);
+	const { sections, manifestPayload } = buildManifest(input, records, limits);
 	const compression = input.compression ?? "deflate";
 	const assets = [...input.assets].sort((left, right) =>
 		left.metadata.path.localeCompare(right.metadata.path),
 	);
-	const entries: V1ZipEntryInput[] = [
+	const eventChunks = new VerifiedEntryChunks(
 		{
-			compression,
-			path: "manifest.json",
-			chunks: [
-				encoder.encode(`${JSON.stringify(Schema.encodeUnknownSync(V1Manifest)(manifest))}\n`),
-			],
+			path: "events.ndjson",
+			size: input.events.bytes,
+			chunks: input.events.chunks,
+			sha256: input.events.sha256,
+			mismatch: "Event stream does not match its manifest metadata",
 		},
-		{ compression, path: "profile.json", chunks: [profileChunk(records.profile)] },
-		...V1_SECTION_PATHS.filter((path) => path !== "profile.json").map((path) => ({
-			path,
+		limits.maxEntryBytes,
+	);
+	const entries: V1ZipEntryInput[] = [
+		{ compression, path: "manifest.json", chunks: [manifestPayload] },
+		...sections.map((section) => ({
 			compression,
-			chunks: sectionChunks(path, records),
+			path: section.manifest.path,
+			chunks: section.payload === undefined ? eventChunks : [section.payload],
 		})),
 		...assets.map((asset) => ({
 			path: asset.metadata.path,
 			compression: "store" as const,
-			chunks: new VerifiedAssetChunks(asset, limits),
+			chunks: new VerifiedEntryChunks(
+				{
+					chunks: asset.chunks,
+					path: asset.metadata.path,
+					size: asset.metadata.size,
+					sha256: asset.metadata.sha256,
+					mismatch: "Asset stream does not match its manifest metadata",
+				},
+				limits.maxEntryBytes,
+			),
 		})),
 	];
 	return zipChunks(entries);
@@ -497,17 +517,26 @@ export const createV1ArchiveStream = (
 	input: CreateV1ArchiveInput,
 	overrides: Partial<V1ArchiveLimits> = {},
 ) =>
-	Stream.fromAsyncIterable(createV1Archive(input, overrides), (error) =>
-		error instanceof BackupArchiveError
-			? error
-			: archiveError("invalid_archive", "ZIP encoding failed"),
+	Stream.unwrap(
+		Effect.try({
+			try: () =>
+				Stream.fromAsyncIterable(createV1Archive(input, overrides), (error) =>
+					error instanceof BackupArchiveError
+						? error
+						: archiveError("invalid_archive", "ZIP encoding failed"),
+				),
+			catch: (error) =>
+				error instanceof BackupArchiveError
+					? error
+					: archiveError("invalid_archive", "ZIP encoding failed"),
+		}),
 	);
 
 type ExtractedEntry = {
 	readonly path: string;
 	readonly bytes: number;
 	readonly sha256: string;
-	readonly assetPath?: string;
+	readonly filePath?: string;
 	readonly compression: number;
 	chunks?: Uint8Array[] | undefined;
 };
@@ -517,9 +546,16 @@ type ValidatedV1Asset = V1AssetManifest & {
 	readonly stream: Stream.Stream<Uint8Array, PlatformError.PlatformError>;
 };
 
+export type ValidatedV1Events = {
+	readonly count: number;
+	readonly sha256: string;
+	readonly read: () => Stream.Stream<V1Event, BackupArchiveError>;
+};
+
 type ValidatedV1Archive = {
 	readonly manifest: V1Manifest;
 	readonly records: V1ArchiveRecords;
+	readonly events: ValidatedV1Events;
 	readonly assets: ReadonlyArray<ValidatedV1Asset>;
 	readonly cleanup: Effect.Effect<void, PlatformError.PlatformError>;
 };
@@ -621,6 +657,72 @@ const manifestSections = (sections: ReadonlyArray<V1SectionManifest>) => {
 	return byPath;
 };
 
+class SpooledRecords<A, I> implements AsyncIterableIterator<A> {
+	#count = 0;
+	#offset = 0;
+	#ended = false;
+	#pending: A[] = [];
+	readonly #path: string;
+	readonly #declared: number;
+	readonly #decoder: NdjsonDecoder<A, I>;
+	readonly #chunks: AsyncIterator<Uint8Array>;
+
+	constructor(
+		chunks: AsyncIterable<Uint8Array>,
+		codec: Schema.Codec<A, I>,
+		path: string,
+		declared: number,
+	) {
+		this.#path = path;
+		this.#declared = declared;
+		this.#chunks = asyncIterator(chunks);
+		this.#decoder = new NdjsonDecoder(codec, path);
+	}
+
+	[Symbol.asyncIterator]() {
+		return this;
+	}
+
+	next(): Promise<IteratorResult<A, void>> {
+		const value = this.#pending[this.#offset];
+		if (value !== undefined) {
+			this.#count += 1;
+			this.#offset += 1;
+			return Promise.resolve({ done: false, value });
+		}
+		if (this.#ended) {
+			return Promise.resolve({ done: true, value: undefined });
+		}
+		return this.#chunks.next().then((next) => {
+			if (next.done) {
+				this.#ended = true;
+				this.#decoder.end();
+				if (this.#count !== this.#declared) {
+					throw archiveError("count_mismatch", "Section count mismatch", this.#path);
+				}
+			} else {
+				this.#offset = 0;
+				this.#pending = [...this.#decoder.push(next.value)];
+			}
+			return this.next();
+		});
+	}
+}
+
+const streamSpooledEvents = (fs: FileSystem.FileSystem, filePath: string, declared: number) =>
+	Stream.fromAsyncIterable(
+		new SpooledRecords(
+			Stream.toAsyncIterable(fs.stream(filePath)),
+			V1_CODECS["events.ndjson"],
+			"events.ndjson",
+			declared,
+		),
+		(error) =>
+			error instanceof BackupArchiveError
+				? error
+				: archiveError("invalid_entry", "Could not read events.ndjson", "events.ndjson"),
+	);
+
 const validateExtracted = (
 	entries: ReadonlyMap<string, ExtractedEntry>,
 	directory: string,
@@ -669,7 +771,6 @@ const validateExtracted = (
 		validateSectionCount(path, section, records.length);
 		return records;
 	};
-	const events = readSection("events.ndjson", V1_CODECS["events.ndjson"]);
 	const entities = readSection("entities.ndjson", V1_CODECS["entities.ndjson"]);
 	const savedViews = readSection("saved-views.ndjson", V1_CODECS["saved-views.ndjson"]);
 	const pluginState = readSection("plugin-state.ndjson", V1_CODECS["plugin-state.ndjson"]);
@@ -684,7 +785,6 @@ const validateExtracted = (
 	);
 	validateRecordKeys({
 		profile,
-		events,
 		entities,
 		savedViews,
 		pluginState,
@@ -692,6 +792,17 @@ const validateExtracted = (
 		notificationSubscriptions,
 		entityDependencies: dependencies,
 	});
+
+	const eventsEntry = requireEntry(entries, "events.ndjson");
+	const eventsSection = sections.get("events.ndjson");
+	if (eventsSection === undefined) {
+		throw archiveError("missing_entry", "Manifest section is missing", "events.ndjson");
+	}
+	validateSectionIntegrity("events.ndjson", eventsEntry, eventsSection);
+	const eventsPath = eventsEntry.filePath;
+	if (eventsPath === undefined) {
+		throw archiveError("invalid_entry", "Events section was not spooled", "events.ndjson");
+	}
 
 	const declaredAssets = new Map<string, V1AssetManifest>();
 	for (const asset of manifest.assets) {
@@ -718,7 +829,7 @@ const validateExtracted = (
 		}
 	}
 	const assets = [...declaredAssets.values()].map((asset) => {
-		const filePath = requireEntry(entries, asset.path).assetPath;
+		const filePath = requireEntry(entries, asset.path).filePath;
 		if (filePath === undefined) {
 			throw archiveError("invalid_entry", "Asset was not spooled", asset.path);
 		}
@@ -728,8 +839,12 @@ const validateExtracted = (
 		assets,
 		manifest,
 		cleanup: fs.remove(directory, { recursive: true, force: true }),
+		events: {
+			count: eventsSection.count,
+			sha256: eventsSection.sha256,
+			read: () => streamSpooledEvents(fs, eventsPath, eventsSection.count),
+		},
 		records: {
-			events,
 			profile,
 			entities,
 			savedViews,
@@ -971,22 +1086,24 @@ const extractArchive = Effect.fn(function* <E>(
 			return;
 		}
 		const isAsset = path.startsWith("assets/");
-		const entryLimit = isAsset ? limits.maxEntryBytes : limits.maxMetadataEntryBytes;
+		const isSpooled = isAsset || path === "events.ndjson";
+		const entryLimit = isSpooled ? limits.maxEntryBytes : limits.maxMetadataEntryBytes;
 		if (file.originalSize !== undefined && file.originalSize > entryLimit) {
 			failure = archiveError("entry_too_large", "ZIP entry is too large", path);
 			return;
 		}
 		const hash = new IncrementalSha256();
 		const buffered: Uint8Array[] = [];
-		const assetPath = isAsset ? `${directory}/${path.slice("assets/".length)}` : undefined;
-		const writer = assetPath === undefined ? undefined : Bun.file(assetPath).writer();
+		const spoolName = isAsset ? path.slice("assets/".length) : path;
+		const filePath = isSpooled ? `${directory}/${spoolName}` : undefined;
+		const writer = filePath === undefined ? undefined : Bun.file(filePath).writer();
 		entries.set(path, {
 			path,
 			bytes: 0,
 			sha256: "",
-			compression: file.compression,
 			chunks: buffered,
-			...(assetPath ? { assetPath } : {}),
+			compression: file.compression,
+			...(filePath ? { filePath } : {}),
 		});
 		file.ondata = (error, data, final) => {
 			if (failure !== null) {
@@ -1025,11 +1142,11 @@ const extractArchive = Effect.fn(function* <E>(
 						chunks: buffered,
 						compression: file.compression,
 					});
-				} else if (assetPath === undefined) {
-					failure = archiveError("invalid_archive", "Asset spool path is missing", path);
+				} else if (filePath === undefined) {
+					failure = archiveError("invalid_archive", "Entry spool path is missing", path);
 					return;
 				} else {
-					entries.set(path, { path, ...completed, assetPath, compression: file.compression });
+					entries.set(path, { path, ...completed, filePath, compression: file.compression });
 				}
 				const ended = writer?.end();
 				if (ended instanceof Promise) {
@@ -1047,7 +1164,7 @@ const extractArchive = Effect.fn(function* <E>(
 			? Effect.void
 			: Effect.tryPromise({
 					try: () => Promise.all(writes).then(() => undefined),
-					catch: () => archiveError("invalid_archive", "Could not spool backup asset"),
+					catch: () => archiveError("invalid_archive", "Could not spool backup archive entry"),
 				});
 	};
 	const checkFailure = () => (failure === null ? Effect.void : Effect.fail(failure));
@@ -1092,13 +1209,24 @@ const extractArchive = Effect.fn(function* <E>(
 	});
 });
 
+export type ValidateV1ArchiveOptions = {
+	readonly directory?: string | undefined;
+	readonly limits?: Partial<V1ArchiveLimits> | undefined;
+};
+
 export const validateV1ArchiveStream = Effect.fn(function* <E>(
 	stream: Stream.Stream<Uint8Array, E>,
-	overrides: Partial<V1ArchiveLimits> = {},
+	options: ValidateV1ArchiveOptions = {},
 ) {
 	const fs = yield* FileSystem.FileSystem;
-	const directory = yield* fs.makeTempDirectory({ prefix: "ryot-backup-v1-" });
-	const limits = { ...V1_ARCHIVE_LIMITS, ...overrides };
+	if (options.directory !== undefined) {
+		yield* fs.makeDirectory(options.directory, { recursive: true });
+	}
+	const directory = yield* fs.makeTempDirectory({
+		prefix: "ryot-backup-v1-",
+		...(options.directory === undefined ? {} : { directory: options.directory }),
+	});
+	const limits = { ...V1_ARCHIVE_LIMITS, ...options.limits };
 	return yield* extractArchive(stream, directory, fs, limits).pipe(
 		Effect.catch((error) =>
 			fs
@@ -1110,12 +1238,12 @@ export const validateV1ArchiveStream = Effect.fn(function* <E>(
 
 export const validateV1Archive = Effect.fn(function* (
 	chunks: AsyncIterable<Uint8Array>,
-	overrides: Partial<V1ArchiveLimits> = {},
+	options: ValidateV1ArchiveOptions = {},
 ) {
 	return yield* validateV1ArchiveStream(
 		Stream.fromAsyncIterable(chunks, () =>
 			archiveError("invalid_archive", "Could not read archive"),
 		),
-		overrides,
+		options,
 	);
 });

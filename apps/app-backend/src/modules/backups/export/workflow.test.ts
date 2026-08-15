@@ -1,3 +1,4 @@
+import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { DbError } from "@ryot/contract/errors";
 import { BackupRunId, UserId } from "@ryot/contract/schema/brands";
@@ -5,7 +6,7 @@ import { Effect, Layer } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { Database } from "#lib/infrastructure/db/service";
-import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
+import { makeAppConfigLayer, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { BackupsRepository } from "../runs/repository";
@@ -73,6 +74,8 @@ it.effect("preserves an artifact after an ambiguous export completion", () => {
 	const layer = ExportBackupWorkflowOperationsLive.pipe(
 		Layer.provide(
 			Layer.mergeAll(
+				makeAppConfigLayer(),
+				BunFileSystem.layer,
 				Layer.succeed(Database, Object.create(null)),
 				Layer.mock(BackupExportSnapshot, {}),
 				Layer.mock(ObjectStorageService, {
@@ -107,7 +110,7 @@ it.effect("preserves an artifact after an ambiguous export completion", () => {
 		const operations = yield* ExportBackupWorkflowOperations;
 		const error = yield* operations.complete({ runId, userId }, artifact).pipe(Effect.flip);
 		expect(error._tag).toBe("InternalError");
-		yield* operations.fail({ runId, userId }, artifact);
+		yield* operations.fail({ runId, userId }, error, artifact);
 		expect(deletes).toBe(0);
 		expect(failures).toBe(0);
 	}).pipe(Effect.provide(layer));
