@@ -50,6 +50,12 @@ Provider targets resolve against active plugin-loader declarations. Persisted pr
 - Migrate `Monitoring` collection normally and create `media-monitoring` relationships for monitorable global provider entities.
 - Create a historical `add-entity-to-collection` event for each migrated collection membership.
 
+### Assets
+
+- Migrate legacy `s3` asset locators embedded in `entity` and `event` properties into `managed_asset` rows. Each locator is streamed from its legacy key to compute a SHA-256 digest and copied to a content-addressed `permanent/<owner-namespace>_<sha256>.<extension>` key owned by the referencing user, then the source row's properties are rewritten to the new key.
+- Registration is per user, so a legacy key referenced by several users produces one permanent object per owner. Locators with no user, unresolvable metadata, or an unsupported content type are reported and keep their original locator.
+- Delete legacy objects only after the property rewrite is committed, and only when every reference to that key migrated. Keys still referenced by a retained locator survive. Deletion failures are reported and do not fail the bootstrap because the migrated data is already correct; only unreferenced bytes remain in the bucket.
+
 ### Integrations, Notifications, And Preferences
 
 - Rename V1 `integration` before Drizzle creates V2 table. Convert provider settings using active manifest schema, skip removed `generic_json` rows with a report entry, and fail on other unknown providers or missing required fields. Omit trigger history.
@@ -71,8 +77,8 @@ message, optional count, and elapsed seconds. The orchestration logs new rows af
 retains the table for post-migration inspection. Pre-migration table renames do not write report rows.
 
 Information rows describe completed work. Warning rows are allowed for the documented unresolved
-episode omissions in seen and review migration and unresolved legacy S3 assets. Any other warning fails
-the bootstrap.
+episode omissions in seen and review migration, unresolved legacy S3 assets, and legacy S3 objects
+that could not be deleted after migration. Any other warning fails the bootstrap.
 
 ## Validation Runbook
 

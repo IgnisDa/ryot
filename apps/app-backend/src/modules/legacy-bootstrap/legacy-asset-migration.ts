@@ -30,6 +30,8 @@ type LegacyS3AssetReference = {
 };
 
 type LegacyS3AssetMigrationResult = {
+	deleted: number;
+	deletionFailures: number;
 	discovered: number;
 	managedAssetRows: number;
 	referencesMigrated: number;
@@ -194,14 +196,18 @@ export const migrateLegacyS3Assets = Effect.gen(function* () {
 
 	const replacements = new Map<string, string>();
 	const managedAssetKeys = new Set<string>();
+	const migratedKeys = new Set<string>();
+	const retainedKeys = new Set<string>();
 	let unresolved = 0;
 	for (const asset of references.values()) {
 		const replacement = yield* migrateAsset(s3, repository, asset);
 		if (replacement === null) {
+			retainedKeys.add(asset.key);
 			unresolved += 1;
 		} else {
 			replacements.set(referenceKey(asset.userId, asset.key), replacement);
 			managedAssetKeys.add(replacement);
+			migratedKeys.add(asset.key);
 		}
 	}
 
@@ -229,7 +235,26 @@ export const migrateLegacyS3Assets = Effect.gen(function* () {
 		updatedRows += 1;
 	}
 
+	let deleted = 0;
+	let deletionFailures = 0;
+	for (const key of migratedKeys) {
+		if (retainedKeys.has(key) || managedAssetKeys.has(key)) {
+			continue;
+		}
+		const removed = yield* s3.deleteObject(key).pipe(
+			Effect.as(true),
+			Effect.catchCause(() => Effect.succeed(false)),
+		);
+		if (removed) {
+			deleted += 1;
+		} else {
+			deletionFailures += 1;
+		}
+	}
+
 	return {
+		deleted,
+		deletionFailures,
 		discovered: references.size,
 		managedAssetRows: managedAssetKeys.size,
 		referencesMigrated: replacements.size,
@@ -256,6 +281,10 @@ export const buildLegacyS3AssetReportSql = (result: LegacyS3AssetMigrationResult
 			count: String(result.updatedRows),
 			message: "entity/event row(s) updated with managed asset keys",
 		},
+		{
+			count: String(result.deleted),
+			message: "legacy S3 object(s) deleted",
+		},
 	];
 	if (result.unresolved > 0) {
 		entries.push({
@@ -263,6 +292,13 @@ export const buildLegacyS3AssetReportSql = (result: LegacyS3AssetMigrationResult
 			level: "warning" as const,
 			message:
 				"asset locator(s) could not be resolved or registered; original locators were retained",
+		});
+	}
+	if (result.deletionFailures > 0) {
+		entries.push({
+			count: String(result.deletionFailures),
+			level: "warning" as const,
+			message: "legacy S3 object(s) could not be deleted; orphaned bytes remain in the bucket",
 		});
 	}
 	return `
