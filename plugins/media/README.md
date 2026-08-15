@@ -7,9 +7,9 @@ schema; saved views do not declare sandbox scripts.
 
 ## Client
 
-The plugin client supplies a workspace home and `show`, `movie`, `music`, `book`, `manga`, `podcast`,
-and `video-game` entity renderers. Entity links use `PluginLink` so the kernel resolves canonical
-entity routes.
+The plugin client supplies a workspace home and `show`, `anime`, `movie`, `music`, `book`, `manga`,
+`podcast`, and `video-game` entity renderers. Entity links use `PluginLink` so the kernel resolves
+canonical entity routes.
 
 `client/media/` owns everything the screens share and carries no schema copy.
 
@@ -36,12 +36,13 @@ credits arrive as `unlinkedCreators`, the way Book's do. They also ship cover ar
 and episode artwork is square `cover` rather than show's `aspect-video` `still` - so the podcast hero
 uses art height at both widths.
 
-Movie, Music, Book, Manga, and Video Game are flat, non-episodic schemas. Each is one
+Movie, Music, Book, Manga, Anime, and Video Game are flat, non-episodic schemas. Each is one
 `mediaFlatRecipes` config in `shared/<slug>-recipes.ts` - the fields its entity schema declares and a
 measure for activity totals - and one `defineFlatMediaSchema` descriptor in
 `client/<slug>/schema.tsx` holding its copy, facts, artwork aspect, and hero height. The factories
 build the summary, overview, activity, and presentation recipes, queries, screen, and row and card
-presentations. Every flat summary recipe
+presentations. A schema needing a query beyond the shared overview set adds it through
+`extraOverviewQueries` on its config rather than re-wrapping the recipe. Every flat summary recipe
 returns `{ summary, entitySchemaSlug }`, and every activity recipe returns
 `{ completionCount, consumedAmount, unknownAmountCount, truncated, events }`.
 
@@ -58,8 +59,8 @@ purpose an image matches wins, and the same list drives the hero's managed-asset
 Flat overviews add a "Part of" section listing the entity's group and its other members. The
 relationship is authoritative from the group side, so the subject is excluded from its own rail, the
 section is hidden when the group is absent or has no other members, and member covers join the
-overview's managed-asset set. A schema whose entity has no group at all - Manga - declares neither
-`groupSlug` nor `group` copy, so no group query is issued and the section is never built.
+overview's managed-asset set. A schema whose entity has no group at all - Manga and Anime - declares
+neither `groupSlug` nor `group` copy, so no group query is issued and the section is never built.
 
 The shared activity event selection covers the fields every flat schema records. A schema that stores
 its own position on lifecycle events declares `activityEventFields` on its `mediaFlatRecipes` config;
@@ -82,6 +83,18 @@ and fall back to the percent phrasing only when neither was recorded. None of it
 (AniList, MyAnimeList, MangaUpdates) emits person or company credits, so both rails render empty and
 stay hidden, and manga declares no `unlinkedCreators` field to fill them. Only AniList ships a banner,
 so the manga hero uses art height at both widths and keeps the default `backdrop` purpose.
+
+Anime measures episodes: its total sums the anime's `episodes` over completions and renders as `24+`
+when a finished anime has no episode count. No provider emits anime episodes as entities, so the
+schema is flat and its progress lives on its own lifecycle events; both importers write one per
+episode, so its activity rows name the recorded episode - "Episode 12" - and fall back to the percent
+phrasing only when none was recorded. AniList emits studio credits and MyAnimeList emits none, and
+neither emits person credits, so the cast rail renders empty and stays hidden. Its overview adds an
+"Airing schedule" section through `overviewTrailing`. AniList stores the full schedule, every aired
+episode included, so the section keeps only entries still to air, orders them soonest first, caps them
+at six, and hides itself when none remain, which also drops MyAnimeList's single premiere-dated entry
+once it has passed; the first of those entries is also the summary's next-episode fact. Only AniList
+ships a banner, so the anime hero uses art height at both widths.
 
 Video Game measures `timeSpent` alone, with no fallback: `timeToBeat` is a community estimate of the
 game, not a record of your play, so a completion with no recorded time stays unknown and the total

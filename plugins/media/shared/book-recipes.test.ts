@@ -2,14 +2,9 @@ import type { PreparedRecipe } from "@ryot-app/plugin-kit/ryotql";
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { describe, expect, it } from "vitest";
 
-import {
-	bookActivityRecipe,
-	bookOverviewRecipe,
-	bookPresentationRecipe,
-	bookSummaryRecipe,
-} from "./book-recipes";
+import { bookRecipes } from "./book-recipes";
 
-const OVERVIEW_RECIPE = bookOverviewRecipe({
+const OVERVIEW_RECIPE = bookRecipes.overviewRecipe({
 	groupLimit: 20,
 	peopleLimit: 12,
 	companyLimit: 6,
@@ -41,15 +36,18 @@ const keys = (recipe: PreparedRecipe<unknown>, name: string) =>
 
 describe("media book query recipes", () => {
 	it("selects the pages and compilation fields the book schema declares", () => {
-		const summary = keys(bookSummaryRecipe({ collectionLimit: 6, entityId: "book-1" }), "summary");
+		const summary = keys(
+			bookRecipes.summaryRecipe({ collectionLimit: 6, entityId: "book-1" }),
+			"summary",
+		);
 
 		expect(summary.slice(-3)).toEqual(["progressPercent", "pages", "isCompilation"]);
 		expect(summary).not.toContain("watchProviders");
-		expect(keys(bookPresentationRecipe(["book-1"]), "rows")).toContain("pages");
+		expect(keys(bookRecipes.presentationRecipe(["book-1"]), "rows")).toContain("pages");
 	});
 
 	it("sums the book's pages over its completions and counts completions of an unpaged book", () => {
-		const activity = bookActivityRecipe({
+		const activity = bookRecipes.activityRecipe({
 			eventLimit: 60,
 			entityId: "book-1",
 			collectionEventLimit: 60,

@@ -1,21 +1,26 @@
-import {
-	mangaActivityRecipe,
-	mangaOverviewRecipe,
-	mangaPresentationRecipe,
-	mangaSummaryRecipe,
-	type MangaActivityEvent,
-	type MangaPresentationData,
-	type MangaSummaryResult,
-} from "../../shared/manga-recipes";
+import { mangaRecipes } from "../../shared/manga-recipes";
+import type {
+	MediaActivityEventOf,
+	MediaPresentationDataOf,
+	MediaSummaryOf,
+} from "../../shared/media-recipes";
+import { mediaFlatActivityCopy } from "../media/activity-copy";
 import { decimalLabel, mediaActivityCountFigure } from "../media/activity-timeline";
 import { defineFlatMediaSchema } from "../media/flat-schema";
 import { MEDIA_ART_HEIGHT } from "../media/hero";
-import { mediaCountLabel, mediaRatingFact, type MediaSummaryFact } from "../media/summary-state";
+import {
+	mediaCountLabel,
+	mediaProductionStatusFact,
+	mediaRatingFact,
+	type MediaSummaryFact,
+} from "../media/summary-state";
 
-type MangaSummary = NonNullable<MangaSummaryResult["summary"]>;
+type MangaSummary = MediaSummaryOf<typeof mangaRecipes>;
+
+type MangaPresentation = MediaPresentationDataOf<typeof mangaRecipes>;
 
 type MangaProgressPosition = Pick<
-	Extract<MangaActivityEvent, { readonly kind: "media" }>,
+	Extract<MediaActivityEventOf<typeof mangaRecipes>, { readonly kind: "media" }>,
 	"mangaChapter" | "mangaVolume"
 >;
 
@@ -28,12 +33,10 @@ export const mangaSummaryFacts = (manga: MangaSummary): readonly MediaSummaryFac
 		manga.volumes === null
 			? undefined
 			: { icon: "layers", label: "Volumes", value: `${manga.volumes}` },
-		manga.productionStatus === null
-			? undefined
-			: { icon: "clapperboard", label: "Production status", value: manga.productionStatus },
+		mediaProductionStatusFact(manga),
 	].filter((fact) => fact !== undefined);
 
-export const mangaPresentationFacts = (manga: MangaPresentationData) =>
+export const mangaPresentationFacts = (manga: MangaPresentation) =>
 	manga.chapters === null ? [] : [mediaCountLabel(manga.chapters, "chapter")];
 
 export const mangaProgressLabel = (
@@ -58,35 +61,21 @@ export const mangaProgressLabel = (
 export const mangaSchema = defineFlatMediaSchema({
 	aspect: "poster",
 	progressVerb: "read",
+	recipes: mangaRecipes,
 	facts: mangaSummaryFacts,
 	heroHeight: () => MEDIA_ART_HEIGHT,
 	presentationFacts: mangaPresentationFacts,
 	nouns: { title: "Manga", plural: "manga", singular: "manga" },
 	measureFigure: { label: "Chapters", value: mediaActivityCountFigure },
 	overviewLoadingDetail: "Fetching the credits and recommendations for this manga.",
+	activityCopy: mediaFlatActivityCopy({
+		verb: "read",
+		noun: "manga",
+		progress: mangaProgressLabel,
+	}),
 	creditCopy: {
 		companies: "Publishers",
 		people: "Authors & artists",
 		notice: "Credits and recommendations",
-	},
-	recipes: {
-		summaryRecipe: mangaSummaryRecipe,
-		overviewRecipe: mangaOverviewRecipe,
-		activityRecipe: mangaActivityRecipe,
-		presentationRecipe: mangaPresentationRecipe,
-	},
-	activityCopy: {
-		segmentNoun: "Read",
-		completionsLabel: "Reads",
-		recordLabel: "Reading record",
-		loadingDetail: "Fetching everything you have recorded for this manga.",
-		beats: { dropped: "Stopped reading", on_hold: "Put this manga on hold" },
-		emptyDetail:
-			"Nothing has been recorded for this manga. Whatever you read will appear here as your reading record.",
-		rowLabels: {
-			progress: mangaProgressLabel,
-			review: "Reviewed the manga",
-			completion: "Finished the manga",
-		},
 	},
 });

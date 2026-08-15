@@ -1,10 +1,6 @@
 import { afterEach, assert, describe, expect, it } from "vitest";
 
-import {
-	musicOverviewRecipe,
-	musicPresentationRecipe,
-	musicSummaryRecipe,
-} from "../../shared/music-recipes";
+import { musicRecipes } from "../../shared/music-recipes";
 import {
 	decodeFlatActivity,
 	repeatedFlatActivity,
@@ -25,36 +21,38 @@ import { musicPresentationFacts, musicSchema, musicSummaryFacts } from "./schema
 const noopAdapter = { query: () => Promise.resolve({}) };
 
 const musicSummary = (overrides: Record<string, unknown> = {}) =>
-	decodeFlatSummary(musicSummaryRecipe(FLAT_SUMMARY_INPUT), {
+	decodeFlatSummary(musicRecipes.summaryRecipe(FLAT_SUMMARY_INPUT), {
 		duration: 222,
 		byVariousArtists: false,
 		...overrides,
 	});
 
 const presentationData = () => {
-	const decoded = musicPresentationRecipe(["media-1"]).decode({
-		data: {
-			rows: rowsResult(
-				[
-					{
-						images: null,
-						duration: 222,
-						id: "media-1",
-						publishDate: null,
-						publishYear: 1997,
-						schemaSlug: "music",
-						progressPercent: 42,
-						state: "in_progress",
-						name: "Paranoid Android",
-						populationStatus: "ready",
-						translationStatus: "none",
-						productionStatus: "Released",
-					},
-				],
-				{ limit: 100, hasMore: false, nextCursor: null },
-			),
-		},
-	});
+	const decoded = musicRecipes
+		.presentationRecipe(["media-1"])
+		.decode({
+			data: {
+				rows: rowsResult(
+					[
+						{
+							images: null,
+							duration: 222,
+							id: "media-1",
+							publishDate: null,
+							publishYear: 1997,
+							schemaSlug: "music",
+							progressPercent: 42,
+							state: "in_progress",
+							name: "Paranoid Android",
+							populationStatus: "ready",
+							translationStatus: "none",
+							productionStatus: "Released",
+						},
+					],
+					{ limit: 100, hasMore: false, nextCursor: null },
+				),
+			},
+		});
 	if (decoded._tag === "Failure" || decoded.success[0] === undefined) {
 		throw new Error("Expected decoded presentation data");
 	}
@@ -97,7 +95,7 @@ describe("music schema", () => {
 				refreshOverview={() => undefined}
 				state={{ status: "ready", summary: musicSummary() }}
 				overview={mapMediaOverview(
-					readyQueryResult(decodeFlatOverview(musicOverviewRecipe(FLAT_OVERVIEW_INPUT))),
+					readyQueryResult(decodeFlatOverview(musicRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT))),
 				)}
 			/>,
 		);

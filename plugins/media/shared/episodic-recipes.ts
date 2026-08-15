@@ -55,12 +55,14 @@ import {
 	collectionMembershipInclude,
 	compareMediaActivityDescending,
 	eventSchemaIsOneOf,
+	extraOverviewQueries,
 	mediaActivityEventSelection,
 	mediaActivityParentSlugs,
 	mediaCollectionEventsQuery,
 	mediaOverviewQueries,
 	mediaSummarySelection,
 	requestedSchemaQuery,
+	type MediaExtraQueries,
 } from "./media-recipes";
 
 const EPISODIC_PRESENTATION_LIMIT = 100;
@@ -517,6 +519,7 @@ export const mediaEpisodicRecipes = <
 	const EpisodeFields extends SelectedSelection,
 	CoverageRow extends { readonly id: string },
 	Episode,
+	const ExtraOverviewQueries extends MediaExtraQueries = Record<never, never>,
 >(config: {
 	readonly slug: string;
 	readonly alias: string;
@@ -532,6 +535,7 @@ export const mediaEpisodicRecipes = <
 		readonly limit: number;
 		readonly entityId: string;
 	}) => SelectedQuery<EpisodicCoverageRows<CoverageRow>>;
+	readonly extraOverviewQueries?: (input: EpisodicOverviewInput) => ExtraOverviewQueries;
 }) => {
 	const summaryRecipe = defineRecipe(
 		(input: { readonly entityId: string; readonly collectionLimit: number }) => {
@@ -594,11 +598,11 @@ export const mediaEpisodicRecipes = <
 		},
 	);
 
-	const overviewQueries = (input: EpisodicOverviewInput) =>
-		mediaOverviewQueries({ ...input, slug: config.slug });
-
 	const overviewRecipe = defineRecipe((input: EpisodicOverviewInput) => ({
-		queries: overviewQueries(input),
+		queries: {
+			...mediaOverviewQueries({ ...input, slug: config.slug }),
+			...extraOverviewQueries(config.extraOverviewQueries, input),
+		},
 	}));
 
 	const activityRecipe = defineRecipe((input: EpisodicActivityInput) => {
@@ -786,5 +790,5 @@ export const mediaEpisodicRecipes = <
 		};
 	});
 
-	return { summaryRecipe, overviewRecipe, activityRecipe, overviewQueries, presentationRecipe };
+	return { summaryRecipe, overviewRecipe, activityRecipe, presentationRecipe };
 };

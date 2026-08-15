@@ -1,11 +1,11 @@
 import type { PreparedRecipe } from "@ryot-app/plugin-kit/ryotql";
 import { describe, expect, it } from "vitest";
 
-import { movieActivityRecipe, moviePresentationRecipe, movieSummaryRecipe } from "./movie-recipes";
+import { movieRecipes } from "./movie-recipes";
 
-const SUMMARY_RECIPE = movieSummaryRecipe({ collectionLimit: 6, entityId: "movie-1" });
+const SUMMARY_RECIPE = movieRecipes.summaryRecipe({ collectionLimit: 6, entityId: "movie-1" });
 
-const TOTALS = movieActivityRecipe({
+const TOTALS = movieRecipes.activityRecipe({
 	eventLimit: 60,
 	entityId: "movie-1",
 	collectionEventLimit: 60,
@@ -37,7 +37,7 @@ describe("media movie query recipes", () => {
 			"watchProviders",
 			"runtime",
 		]);
-		expect(keys(moviePresentationRecipe(["movie-1"]), "rows")).toContain("runtime");
+		expect(keys(movieRecipes.presentationRecipe(["movie-1"]), "rows")).toContain("runtime");
 	});
 
 	it("derives flat lifecycle state without any session-scoped predicate", () => {

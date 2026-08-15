@@ -10,6 +10,10 @@
 			"types": "./host/query-recipes.ts",
 			"default": "./host/query-recipes.ts"
 		},
+		"./shared/anime-recipes": {
+			"types": "./shared/anime-recipes.ts",
+			"default": "./shared/anime-recipes.ts"
+		},
 		"./shared/show-recipes": {
 			"types": "./shared/show-recipes.ts",
 			"default": "./shared/show-recipes.ts"

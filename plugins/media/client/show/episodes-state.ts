@@ -1,16 +1,19 @@
 import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
+import type { Recipe } from "@ryot-app/client-sdk/ryotql";
 
-import type { ShowSeasonEpisodesResult, ShowSeasonsResult } from "../../shared/show-recipes";
+import type { showSeasonEpisodesRecipe, showSeasonsRecipe } from "../../shared/show-recipes";
 import { optionalText } from "../media/activity-timeline";
 import { mediaDateLabel } from "../media/episodes-state";
 import { collectManagedAssetLocators, preferredMediaImageAsset } from "../media/image";
 import { classifyRyotQueryResult, type MappedRyotQueryState } from "../media/query-state";
 
+export type ShowSeasonsResult = Recipe.Success<typeof showSeasonsRecipe>;
+
 type ShowSeasons = NonNullable<ShowSeasonsResult>;
 
 export type ShowSeason = ShowSeasons["seasons"]["items"][number];
 
-export type ShowEpisode = ShowSeasonEpisodesResult["items"][number];
+export type ShowEpisode = Recipe.Success<typeof showSeasonEpisodesRecipe>["items"][number];
 
 export type ShowSeasonList = readonly [ShowSeason, ...ShowSeason[]];
 

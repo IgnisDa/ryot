@@ -1,17 +1,19 @@
-import {
-	bookActivityRecipe,
-	bookOverviewRecipe,
-	bookPresentationRecipe,
-	bookSummaryRecipe,
-	type BookPresentationData,
-	type BookSummaryResult,
-} from "../../shared/book-recipes";
+import { bookRecipes } from "../../shared/book-recipes";
+import type { MediaPresentationDataOf, MediaSummaryOf } from "../../shared/media-recipes";
+import { mediaFlatActivityCopy } from "../media/activity-copy";
 import { mediaActivityCountFigure } from "../media/activity-timeline";
 import { defineFlatMediaSchema } from "../media/flat-schema";
 import { MEDIA_ART_HEIGHT } from "../media/hero";
-import { mediaCountLabel, mediaRatingFact, type MediaSummaryFact } from "../media/summary-state";
+import {
+	mediaCountLabel,
+	mediaProductionStatusFact,
+	mediaRatingFact,
+	type MediaSummaryFact,
+} from "../media/summary-state";
 
-type BookSummary = NonNullable<BookSummaryResult["summary"]>;
+type BookSummary = MediaSummaryOf<typeof bookRecipes>;
+
+type BookPresentation = MediaPresentationDataOf<typeof bookRecipes>;
 
 export const bookSummaryFacts = (book: BookSummary): readonly MediaSummaryFact[] =>
 	[
@@ -20,22 +22,22 @@ export const bookSummaryFacts = (book: BookSummary): readonly MediaSummaryFact[]
 		book.isCompilation === null
 			? undefined
 			: { icon: "layers", label: "Compilation", value: book.isCompilation ? "Yes" : "No" },
-		book.productionStatus === null
-			? undefined
-			: { icon: "clapperboard", label: "Production status", value: book.productionStatus },
+		mediaProductionStatusFact(book),
 	].filter((fact) => fact !== undefined);
 
-export const bookPresentationFacts = (book: BookPresentationData) =>
+export const bookPresentationFacts = (book: BookPresentation) =>
 	book.pages === null ? [] : [mediaCountLabel(book.pages, "page")];
 
 export const bookSchema = defineFlatMediaSchema({
 	aspect: "poster",
+	recipes: bookRecipes,
 	progressVerb: "read",
 	facts: bookSummaryFacts,
 	heroHeight: () => MEDIA_ART_HEIGHT,
 	presentationFacts: bookPresentationFacts,
 	nouns: { title: "Book", plural: "books", singular: "book" },
 	measureFigure: { label: "Pages", value: mediaActivityCountFigure },
+	activityCopy: mediaFlatActivityCopy({ verb: "read", noun: "book" }),
 	group: { actionLabel: "View series", title: (name) => `Part of ${name}` },
 	unlinkedCreators: (overview) => overview.creators?.unlinkedCreators ?? [],
 	overviewLoadingDetail: "Fetching the authors, publishers and recommendations for this book.",
@@ -43,26 +45,5 @@ export const bookSchema = defineFlatMediaSchema({
 		companies: "Publishers",
 		people: "Authors & contributors",
 		notice: "Authors, publishers and recommendations",
-	},
-	recipes: {
-		summaryRecipe: bookSummaryRecipe,
-		overviewRecipe: bookOverviewRecipe,
-		activityRecipe: bookActivityRecipe,
-		presentationRecipe: bookPresentationRecipe,
-	},
-	activityCopy: {
-		segmentNoun: "Read",
-		completionsLabel: "Reads",
-		recordLabel: "Reading record",
-		loadingDetail: "Fetching everything you have recorded for this book.",
-		beats: { dropped: "Stopped reading", on_hold: "Put this book on hold" },
-		emptyDetail:
-			"Nothing has been recorded for this book. Whatever you read will appear here as your reading record.",
-		rowLabels: {
-			review: "Reviewed the book",
-			completion: "Finished the book",
-			progress: (percent) =>
-				percent === undefined ? "Part-way through the book" : `${percent}% through the book`,
-		},
 	},
 });

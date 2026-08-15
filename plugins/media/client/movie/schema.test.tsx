@@ -1,10 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import {
-	movieOverviewRecipe,
-	moviePresentationRecipe,
-	movieSummaryRecipe,
-} from "../../shared/movie-recipes";
+import { movieRecipes } from "../../shared/movie-recipes";
 import { decodeFlatActivity } from "../../tests/client/flat-media/activity-fixture";
 import {
 	decodeFlatOverview,
@@ -24,7 +20,10 @@ const noopAdapter = { query: () => Promise.resolve({}) };
 const movieFields = { runtime: 169, watchProviders: null };
 
 const movieSummary = (overrides: Record<string, unknown> = {}) =>
-	decodeFlatSummary(movieSummaryRecipe(FLAT_SUMMARY_INPUT), { ...movieFields, ...overrides });
+	decodeFlatSummary(movieRecipes.summaryRecipe(FLAT_SUMMARY_INPUT), {
+		...movieFields,
+		...overrides,
+	});
 
 const renderBody = () =>
 	mountRyotClient(
@@ -37,7 +36,7 @@ const renderBody = () =>
 			refreshOverview={() => undefined}
 			state={{ status: "ready", summary: movieSummary() }}
 			overview={mapMediaOverview(
-				readyQueryResult(decodeFlatOverview(movieOverviewRecipe(FLAT_OVERVIEW_INPUT))),
+				readyQueryResult(decodeFlatOverview(movieRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT))),
 			)}
 			activity={
 				<movieSchema.Activity
@@ -78,29 +77,31 @@ describe("movie schema", () => {
 	});
 
 	it("reads the runtime on rows and hints how much was watched", () => {
-		const decoded = moviePresentationRecipe(["media-1"]).decode({
-			data: {
-				rows: rowsResult(
-					[
-						{
-							runtime: 169,
-							images: null,
-							id: "media-1",
-							publishDate: null,
-							publishYear: 1999,
-							name: "Fight Club",
-							schemaSlug: "movie",
-							progressPercent: 42,
-							state: "in_progress",
-							populationStatus: "ready",
-							translationStatus: "none",
-							productionStatus: "Released",
-						},
-					],
-					{ limit: 100, hasMore: false, nextCursor: null },
-				),
-			},
-		});
+		const decoded = movieRecipes
+			.presentationRecipe(["media-1"])
+			.decode({
+				data: {
+					rows: rowsResult(
+						[
+							{
+								runtime: 169,
+								images: null,
+								id: "media-1",
+								publishDate: null,
+								publishYear: 1999,
+								name: "Fight Club",
+								schemaSlug: "movie",
+								progressPercent: 42,
+								state: "in_progress",
+								populationStatus: "ready",
+								translationStatus: "none",
+								productionStatus: "Released",
+							},
+						],
+						{ limit: 100, hasMore: false, nextCursor: null },
+					),
+				},
+			});
 		if (decoded._tag === "Failure" || decoded.success[0] === undefined) {
 			throw new Error("Expected decoded presentation data");
 		}

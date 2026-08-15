@@ -1,9 +1,9 @@
 import { Result } from "@ryot-app/client-sdk/effect";
 
-import { showSummaryRecipe } from "../../../shared/show-recipes";
+import { showRecipes } from "../../../shared/show-recipes";
 import { rowsResult } from "../query-result-fixture";
 
-export const showSummaryFixtureRecipe = showSummaryRecipe({
+export const showSummaryFixtureRecipe = showRecipes.summaryRecipe({
 	collectionLimit: 6,
 	entityId: "show-1",
 });
