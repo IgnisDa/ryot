@@ -30,7 +30,7 @@ FROM base AS compiler-runtime
 COPY --from=prepare /app/out/json/ .
 COPY --from=prepare /app/out/full/packages ./packages
 RUN --mount=type=cache,target=/root/.bun/install/cache \
-    bun install --filter @ryot-app/typescript-compiler --filter @ryot-app/sandbox-compiler --filter @ryot-app/client-plugin-compiler --production --frozen-lockfile
+    bun install --linker hoisted --filter @ryot-app/vite-compiler --filter @ryot-app/typescript-compiler --filter @ryot-app/sandbox-compiler --filter @ryot-app/client-plugin-compiler --filter @ryot-app/sandbox-sdk --filter @ryot-app/client-sdk --filter @ryot-app/client-ui-sdk --filter @ryot-app/plugin-kit --production --frozen-lockfile
 
 FROM base AS runner
 RUN useradd -m -u 1001 ryot
@@ -70,5 +70,6 @@ RUN bun run dist/smoke-compiler-workers.js \
     /home/ryot/dist/client-plugin-compiler-worker.js
 # Build the read-only sandbox dependency runtime so startup requires no registry access.
 RUN bun run dist/prepare-sandbox-runtime.js
+RUN bun run dist/smoke-sandbox-runtime.js
 ENV NODE_ENV=production
 CMD ["bun", "run", "dist/main.js"]
