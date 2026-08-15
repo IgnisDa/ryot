@@ -3,7 +3,7 @@ import type { AssetLocator, ManagedAssetLocator } from "@ryot/contract/modules/u
 import { EntityId, EventId, type UserId } from "@ryot/contract/schema/brands";
 import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
 import { isEqual } from "@ryot/ts-utils/lodash";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, FileSystem, Layer } from "effect";
 
 import { AuthRepository } from "#modules/auth/repository";
 import { AutomationsRepository } from "#modules/automations/repository";
@@ -33,11 +33,29 @@ import type {
 	V1SavedView,
 	V1UserEntity,
 } from "../archive-v1/schemas";
-import { decodeV1JsonObject, isV1JsonObject } from "../archive-v1/schemas";
+import { decodeV1JsonObject, isV1JsonObject, V1_CODECS } from "../archive-v1/schemas";
+import { encodeNdjson, IncrementalSha256 } from "../archive-v1/streaming";
 
 type BackupPropertyRecord = {
 	readonly propertiesSchema: AppSchema;
 	readonly properties: Record<string, unknown>;
+};
+
+type BackupEventPage = {
+	readonly records: ReadonlyArray<V1Event>;
+	readonly nextAfterId: EventId | null;
+	readonly propertyRecords: ReadonlyArray<BackupPropertyRecord>;
+};
+
+const concatEncoded = (chunks: Iterable<Uint8Array>) => {
+	const values = [...chunks];
+	const output = new Uint8Array(values.reduce((size, chunk) => size + chunk.byteLength, 0));
+	let offset = 0;
+	for (const chunk of values) {
+		output.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+	return output;
 };
 
 export const requireV1NotificationMetadataSchema = Effect.fn(function* (
@@ -87,18 +105,30 @@ const collectPropertyAssets = (
 	}
 };
 
-export const collectManagedAssetLocators = (
+const collectManagedAssetLocatorsInto = (
 	records: ReadonlyArray<BackupPropertyRecord>,
-): ReadonlyArray<ManagedAssetLocator> => {
+	collected: Map<string, ManagedAssetLocator>,
+) => {
 	const assets: ManagedAssetLocator[] = [];
 	for (const { properties, propertiesSchema } of records) {
 		for (const [key, property] of Object.entries(propertiesSchema.fields)) {
 			collectPropertyAssets(property, properties[key], assets);
 		}
 	}
-	return [...new Map(assets.map((asset) => [`${asset.type}:${asset.key}`, asset])).values()].sort(
-		(left, right) => `${left.type}:${left.key}`.localeCompare(`${right.type}:${right.key}`),
-	);
+	for (const asset of assets) {
+		collected.set(locatorKey(asset), asset);
+	}
+};
+
+const sortedManagedAssetLocators = (collected: ReadonlyMap<string, ManagedAssetLocator>) =>
+	[...collected.values()].sort((left, right) => locatorKey(left).localeCompare(locatorKey(right)));
+
+export const collectManagedAssetLocators = (
+	records: ReadonlyArray<BackupPropertyRecord>,
+): ReadonlyArray<ManagedAssetLocator> => {
+	const collected = new Map<string, ManagedAssetLocator>();
+	collectManagedAssetLocatorsInto(records, collected);
+	return sortedManagedAssetLocators(collected);
 };
 
 const toV1Entity = (entity: PortableEntityRecord): V1UserEntity => ({
@@ -109,8 +139,8 @@ const toV1Entity = (entity: PortableEntityRecord): V1UserEntity => ({
 	createdAt: entity.createdAt.toISOString(),
 	updatedAt: entity.updatedAt.toISOString(),
 	entitySchemaSlug: entity.entitySchemaSlug,
-	properties: decodeV1JsonObject(entity.properties),
 	populatedAt: entity.populatedAt?.toISOString() ?? null,
+	properties: decodeV1JsonObject(entity.properties),
 });
 
 const dependencyIdentity = (
@@ -144,9 +174,10 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 		make: Effect.gen(function* () {
 			const auth = yield* AuthRepository;
 			const events = yield* EventsRepository;
-			const uploads = yield* ManagedAssetsService;
+			const fs = yield* FileSystem.FileSystem;
 			const plugins = yield* PluginRepository;
 			const entities = yield* EntitiesRepository;
+			const uploads = yield* ManagedAssetsService;
 			const definitions = yield* DefinitionRegistry;
 			const savedViews = yield* SavedViewsRepository;
 			const automations = yield* AutomationsRepository;
@@ -335,23 +366,27 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				};
 			});
 
-			const prepareExportSnapshot = Effect.fn("BackupExportSnapshot.prepareExportSnapshot")(
-				function* (userId: UserId) {
-					const data = yield* readExportData(userId);
-					const exportedEvents: V1Event[] = [];
-					const eventPropertyRecords: BackupPropertyRecord[] = [];
+			const eachEventPage = <E, R>(
+				userId: UserId,
+				handle: (page: BackupEventPage) => Effect.Effect<void, E, R>,
+			) =>
+				Effect.gen(function* () {
 					let afterId: EventId | undefined;
 					let hasNextPage = true;
 					while (hasNextPage) {
 						const page = yield* readEventPage({ userId, afterId });
-						exportedEvents.push(...page.records);
-						eventPropertyRecords.push(...page.propertyRecords);
+						yield* handle(page);
 						if (page.nextAfterId === null) {
 							hasNextPage = false;
 						} else {
 							afterId = page.nextAfterId;
 						}
 					}
+				});
+
+			const prepareExportSnapshot = Effect.fn("BackupExportSnapshot.prepareExportSnapshot")(
+				function* (userId: UserId, eventsPath: string) {
+					const data = yield* readExportData(userId);
 					const pluginBySlug = new Map(
 						data.installedPlugins.map((plugin) => [plugin.slug, plugin]),
 					);
@@ -380,11 +415,15 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							});
 						}
 					}
-					const requestedLocators = collectManagedAssetLocators([
-						...data.propertyRecords,
-						...eventPropertyRecords,
-						...additionalPropertyRecords,
-					]);
+					const collectedLocators = new Map<string, ManagedAssetLocator>();
+					collectManagedAssetLocatorsInto(data.propertyRecords, collectedLocators);
+					collectManagedAssetLocatorsInto(additionalPropertyRecords, collectedLocators);
+					yield* eachEventPage(userId, (page) =>
+						Effect.sync(() =>
+							collectManagedAssetLocatorsInto(page.propertyRecords, collectedLocators),
+						),
+					);
+					const requestedLocators = sortedManagedAssetLocators(collectedLocators);
 					const managedAssets = yield* uploads.verifyManagedAssetOwnership(
 						userId,
 						requestedLocators,
@@ -494,27 +533,38 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							entitySchemaSlug,
 						]),
 					);
-					const eventRecords: V1Event[] = [];
-					for (const event of exportedEvents) {
-						const entitySchemaSlug = entitySchemaById.get(event.entityId);
-						const propertiesSchema = entitySchemaSlug
-							? definitions.getEventSchema(entitySchemaSlug, event.eventSchemaSlug)
-									?.propertiesSchema
-							: undefined;
-						if (!propertiesSchema) {
-							return yield* badRequest(
-								`Backup references unavailable event schema '${event.eventSchemaSlug}'`,
-							);
-						}
-						eventRecords.push({
-							...event,
-							properties: yield* transformProperties(
-								event.properties,
-								propertiesSchema,
-								`/events/${event.id}/properties`,
-							),
-						});
-					}
+					let eventCount = 0;
+					const eventsHash = new IncrementalSha256();
+					yield* fs.writeFile(eventsPath, new Uint8Array(0));
+					yield* eachEventPage(userId, (page) =>
+						Effect.gen(function* () {
+							const eventRecords: V1Event[] = [];
+							for (const event of page.records) {
+								const entitySchemaSlug = entitySchemaById.get(event.entityId);
+								const propertiesSchema = entitySchemaSlug
+									? definitions.getEventSchema(entitySchemaSlug, event.eventSchemaSlug)
+											?.propertiesSchema
+									: undefined;
+								if (!propertiesSchema) {
+									return yield* badRequest(
+										`Backup references unavailable event schema '${event.eventSchemaSlug}'`,
+									);
+								}
+								eventRecords.push({
+									...event,
+									properties: yield* transformProperties(
+										event.properties,
+										propertiesSchema,
+										`/events/${event.id}/properties`,
+									),
+								});
+							}
+							const payload = concatEncoded(encodeNdjson(eventRecords, V1_CODECS["events.ndjson"]));
+							eventCount += eventRecords.length;
+							eventsHash.update(payload);
+							return yield* fs.writeFile(eventsPath, payload, { flag: "a" });
+						}),
+					);
 					const exportedPluginState: V1PluginState[] = [];
 					for (const state of data.pluginState) {
 						const plugin = pluginBySlug.get(state.pluginSlug);
@@ -603,9 +653,9 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						managedAssets,
 						redactions: [...new Set(redactions)].sort(),
 						requiredPlugins: requiredPlugins.filter((plugin) => plugin !== null),
+						events: { path: eventsPath, count: eventCount, ...eventsHash.digest() },
 						records: {
 							entityDependencies,
-							events: eventRecords,
 							profile: data.profile,
 							notificationSubscriptions,
 							entities: exportedEntities,
