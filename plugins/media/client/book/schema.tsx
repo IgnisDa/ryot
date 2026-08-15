@@ -5,6 +5,7 @@ import { mediaActivityCountFigure } from "../media/activity-timeline";
 import { defineFlatMediaSchema } from "../media/flat-schema";
 import { MEDIA_ART_HEIGHT } from "../media/hero";
 import { mediaCountFact, mediaCountLabels, type MediaSummaryFact } from "../media/summary-state";
+import { mediaSchemaAspects } from "../schema-aspects";
 
 type BookSummary = MediaSummaryOf<typeof bookRecipes>;
 
@@ -22,9 +23,9 @@ export const bookPresentationFacts = (book: BookPresentation) =>
 	mediaCountLabels(book.pages, "page");
 
 export const bookSchema = defineFlatMediaSchema({
-	aspect: "poster",
 	recipes: bookRecipes,
 	facts: bookSummaryFacts,
+	aspect: mediaSchemaAspects.book,
 	heroHeight: () => MEDIA_ART_HEIGHT,
 	presentationFacts: bookPresentationFacts,
 	nouns: { title: "Book", plural: "books", singular: "book" },

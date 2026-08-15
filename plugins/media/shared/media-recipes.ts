@@ -110,25 +110,13 @@ export const requestedSchemaQuery = (id: string) => {
 	});
 };
 
-export const mediaSummarySelection = (entity: Table, provider: Table) => ({
+export const mediaEntitySummarySelection = (entity: Table, provider: Table) => ({
 	...entityIdentitySelection(entity),
-	owned: selectedField(libraryOwnership(entity), Schema.NullOr(Schema.Boolean)),
 	providerName: selectedField(column(provider, "name"), Schema.NullOr(Schema.String)),
 	description: selectedField(propertyText(entity, "description"), Schema.NullOr(Schema.String)),
-	publishDate: selectedField(propertyText(entity, "publishDate"), Schema.NullOr(Schema.String)),
-	publishYear: selectedField(propertyNumber(entity, "publishYear"), Schema.NullOr(Schema.Number)),
-	genres: selectedField(propertyJson(entity, "genres"), Schema.NullOr(Schema.Array(Schema.String))),
 	images: selectedField(
 		propertyJson(entity, "images"),
 		Schema.NullOr(Schema.Array(MediaImageSchema)),
-	),
-	providerRating: selectedField(
-		propertyNumber(entity, "providerRating"),
-		Schema.NullOr(Schema.Number),
-	),
-	productionStatus: selectedField(
-		propertyText(entity, "productionStatus"),
-		Schema.NullOr(Schema.String),
 	),
 	isInLibrary: selectedField(
 		libraryLinkExists(entity, "inLibraryLibrary", "in-library"),
@@ -140,7 +128,55 @@ export const mediaSummarySelection = (entity: Table, provider: Table) => ({
 	),
 });
 
+export type MediaEntitySummarySelection = ReturnType<typeof mediaEntitySummarySelection>;
+
+export const mediaSummarySelection = (entity: Table, provider: Table) => ({
+	...mediaEntitySummarySelection(entity, provider),
+	owned: selectedField(libraryOwnership(entity), Schema.NullOr(Schema.Boolean)),
+	publishDate: selectedField(propertyText(entity, "publishDate"), Schema.NullOr(Schema.String)),
+	publishYear: selectedField(propertyNumber(entity, "publishYear"), Schema.NullOr(Schema.Number)),
+	genres: selectedField(propertyJson(entity, "genres"), Schema.NullOr(Schema.Array(Schema.String))),
+	providerRating: selectedField(
+		propertyNumber(entity, "providerRating"),
+		Schema.NullOr(Schema.Number),
+	),
+	productionStatus: selectedField(
+		propertyText(entity, "productionStatus"),
+		Schema.NullOr(Schema.String),
+	),
+});
+
 export type MediaSummarySelection = ReturnType<typeof mediaSummarySelection>;
+
+/** The summary row of one entity of `slug`, with its provider and collections, and the requested entity's schema. */
+export const mediaSummaryQueries = <const Selection extends SelectedSelection>(input: {
+	readonly slug: string;
+	readonly entityId: string;
+	readonly collectionLimit: number;
+	readonly selection: (entity: Table, provider: Table) => Selection;
+}) => {
+	const entity = table("entity", "entity");
+	const provider = table("sandboxProvider", "provider");
+	return {
+		requested: requestedSchemaQuery(input.entityId),
+		summary: selectedOptionalRow(entity, {
+			orderBy: [ascending(column(entity, "id"))],
+			selection: input.selection(entity, provider),
+			include: { collections: collectionMembershipInclude(input.collectionLimit) },
+			where: and(entitySchema(entity, input.slug), entityId(entity, input.entityId)),
+			joins: [join("left", provider, eq(column(entity, "providerId"), column(provider, "id")))],
+		}),
+	};
+};
+
+export const mediaSummaryResult = <Summary>(result: {
+	readonly summary: Summary | undefined;
+	readonly requested: { readonly schemaSlug: EntitySchemaSlug } | undefined;
+}) =>
+	Result.succeed({
+		summary: result.summary ?? null,
+		entitySchemaSlug: result.requested?.schemaSlug ?? null,
+	});
 
 export const mediaWatchProviderSelection = (entity: Table) => ({
 	watchProviders: selectedField(propertyJson(entity, "watchProviders"), WatchProviderListSchema),
@@ -157,6 +193,17 @@ export const mediaNumberSelection =
 			[Key in Keys[number]]: ReturnType<typeof nullableNumberField>;
 		};
 
+const nullableTextField = (entity: Table, key: string) =>
+	selectedField(propertyText(entity, key), Schema.NullOr(Schema.String));
+
+export const mediaTextSelection =
+	<const Keys extends readonly string[]>(...keys: Keys) =>
+	(entity: Table) =>
+		// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+		Object.fromEntries(keys.map((key) => [key, nullableTextField(entity, key)])) as {
+			[Key in Keys[number]]: ReturnType<typeof nullableTextField>;
+		};
+
 export const creditSelection = (credit: Table, relationship: Table) => ({
 	id: selectedField(column(credit, "id"), EntityId),
 	name: selectedField(column(credit, "name"), Schema.String),
@@ -169,32 +216,47 @@ export const creditSelection = (credit: Table, relationship: Table) => ({
 	...entitySyncSelection(credit),
 });
 
-export const creditRows = (input: {
+export const creditCharacterSelection = (relationship: Table) => ({
+	character: selectedField(propertyText(relationship, "character"), Schema.NullOr(Schema.String)),
+});
+
+/** Rows of `relationship` joining `related` on `relatedSide`, anchored to the entity on the other side. */
+const relatedRows = (input: {
 	readonly limit: number;
-	readonly credit: Table;
+	readonly related: Table;
 	readonly entityId: string;
 	readonly relationship: Table;
-	readonly creditSchemaSlug: string;
+	readonly relatedSchemaSlug: string;
 	readonly relationshipSchemaSlug: string;
+	readonly relatedSide: "sourceEntityId" | "targetEntityId";
+	readonly orderBy: readonly ReturnType<typeof ascending>[];
 }) => ({
 	limit: input.limit,
-	orderBy: [
-		ascending(propertyNumber(input.relationship, "order")),
-		ascending(column(input.credit, "name")),
-	],
+	orderBy: input.orderBy,
 	joins: [
 		join(
 			"inner",
-			input.credit,
-			eq(column(input.relationship, "sourceEntityId"), column(input.credit, "id")),
+			input.related,
+			eq(column(input.relationship, input.relatedSide), column(input.related, "id")),
 		),
 	],
 	where: and(
-		entitySchema(input.credit, input.creditSchemaSlug),
-		eq(column(input.relationship, "targetEntityId"), literal(input.entityId)),
+		entitySchema(input.related, input.relatedSchemaSlug),
+		eq(
+			column(
+				input.relationship,
+				input.relatedSide === "sourceEntityId" ? "targetEntityId" : "sourceEntityId",
+			),
+			literal(input.entityId),
+		),
 		eq(column(input.relationship, "relationshipSchemaSlug"), literal(input.relationshipSchemaSlug)),
 	),
 });
+
+const creditOrder = (credit: Table, relationship: Table) => [
+	ascending(propertyNumber(relationship, "order")),
+	ascending(column(credit, "name")),
+];
 
 export const mediaOverviewQueries = (input: {
 	readonly slug: string;
@@ -211,48 +273,45 @@ export const mediaOverviewQueries = (input: {
 	const suggestionRelationship = table("relationship", "suggestionRelationship");
 	return {
 		companies: selectedRows(companyRelationship, {
-			...creditRows({
-				credit: company,
+			...relatedRows({
+				related: company,
 				entityId: input.entityId,
 				limit: input.companyLimit,
-				creditSchemaSlug: "company",
+				relatedSchemaSlug: "company",
+				relatedSide: "sourceEntityId",
 				relationship: companyRelationship,
 				relationshipSchemaSlug: `company-to-${input.slug}`,
+				orderBy: creditOrder(company, companyRelationship),
 			}),
 			selection: creditSelection(company, companyRelationship),
 		}),
 		people: selectedRows(personRelationship, {
-			...creditRows({
-				credit: person,
+			...relatedRows({
+				related: person,
 				entityId: input.entityId,
 				limit: input.peopleLimit,
-				creditSchemaSlug: "person",
+				relatedSchemaSlug: "person",
+				relatedSide: "sourceEntityId",
 				relationship: personRelationship,
+				orderBy: creditOrder(person, personRelationship),
 				relationshipSchemaSlug: `person-to-${input.slug}`,
 			}),
 			selection: {
 				...creditSelection(person, personRelationship),
-				character: selectedField(
-					propertyText(personRelationship, "character"),
-					Schema.NullOr(Schema.String),
-				),
+				...creditCharacterSelection(personRelationship),
 			},
 		}),
 		recommendations: selectedRows(suggestionRelationship, {
-			limit: input.recommendationLimit,
-			orderBy: [ascending(column(suggested, "name"))],
-			joins: [
-				join(
-					"inner",
-					suggested,
-					eq(column(suggestionRelationship, "targetEntityId"), column(suggested, "id")),
-				),
-			],
-			where: and(
-				entitySchema(suggested, input.slug),
-				eq(column(suggestionRelationship, "sourceEntityId"), literal(input.entityId)),
-				eq(column(suggestionRelationship, "relationshipSchemaSlug"), literal("media-suggestion")),
-			),
+			...relatedRows({
+				related: suggested,
+				entityId: input.entityId,
+				relatedSide: "targetEntityId",
+				relatedSchemaSlug: input.slug,
+				limit: input.recommendationLimit,
+				relationship: suggestionRelationship,
+				relationshipSchemaSlug: "media-suggestion",
+				orderBy: [ascending(column(suggested, "name"))],
+			}),
 			selection: {
 				id: selectedField(column(suggested, "id"), EntityId),
 				name: selectedField(column(suggested, "name"), Schema.String),
@@ -424,15 +483,19 @@ export const eventSchemaIsOneOf = (event: Table, slugs: readonly string[]) =>
 		slugs.map((slug) => literal(slug)),
 	);
 
-export const mediaActivityEventSelection = (event: Table) => ({
+export const mediaReviewEventSelection = (event: Table) => ({
 	id: selectedField(column(event, "id"), EventId),
 	createdAt: selectedField(column(event, "createdAt"), IsoDateString),
 	occurredAt: selectedField(column(event, "occurredAt"), IsoDateString),
 	text: selectedField(propertyText(event, "text"), Schema.NullOr(Schema.String)),
 	rating: selectedField(propertyNumber(event, "rating"), Schema.NullOr(Schema.Number)),
+	isSpoiler: selectedField(propertyBoolean(event, "isSpoiler"), Schema.NullOr(Schema.Boolean)),
+});
+
+export const mediaActivityEventSelection = (event: Table) => ({
+	...mediaReviewEventSelection(event),
 	timeSpent: selectedField(propertyNumber(event, "timeSpent"), Schema.NullOr(Schema.Number)),
 	consumedOn: selectedField(propertyText(event, "consumedOn"), Schema.NullOr(Schema.String)),
-	isSpoiler: selectedField(propertyBoolean(event, "isSpoiler"), Schema.NullOr(Schema.Boolean)),
 });
 
 export const mediaCollectionEventsQuery = (input: {
@@ -486,24 +549,22 @@ const mediaFlatActivityEventSelection = (event: Table) => ({
 	),
 });
 
-export const mediaFlatActivityEventsQuery = <
-	const Extra extends SelectedSelection = Record<never, never>,
->(input: {
+/** The entity's own events of `slugs`, newest first. */
+export const mediaEntityEventsQuery = <const Selection extends SelectedSelection>(input: {
 	readonly limit: number;
 	readonly alias: string;
 	readonly entityId: string;
-	readonly eventFields?: ((event: Table) => Extra) | undefined;
+	readonly slugs: readonly string[];
+	readonly selection: (event: Table) => Selection;
 }) => {
 	const event = table("event", input.alias);
-	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-	const extra: Extra = input.eventFields === undefined ? ({} as Extra) : input.eventFields(event);
 	return selectedRows(event, {
 		limit: input.limit,
+		selection: input.selection(event),
 		orderBy: eventOrderDescending(event),
-		selection: { ...mediaFlatActivityEventSelection(event), ...extra },
 		where: and(
 			eq(column(event, "entityId"), literal(input.entityId)),
-			eventSchemaIsOneOf(event, mediaFlatActivityParentSlugs),
+			eventSchemaIsOneOf(event, input.slugs),
 		),
 	});
 };
@@ -522,29 +583,37 @@ type MediaActivityOrdered = {
 	readonly occurredAt: string;
 };
 
+type MediaCollectionActivityRow = MediaActivityOrdered & {
+	readonly collectionId: string;
+	readonly collectionName: string;
+};
+
+/** Collection membership events as activity rows carrying none of the media event fields. */
+export const mediaCollectionActivityEvents = <Collection extends MediaCollectionActivityRow>(
+	rows: readonly Collection[],
+) =>
+	rows.map(({ collectionId, collectionName, ...row }) => ({
+		...row,
+		text: null,
+		rating: null,
+		timeSpent: null,
+		isSpoiler: null,
+		consumedOn: null,
+		progressPercent: null,
+		kind: "collection" as const,
+		collection: { id: collectionId, name: collectionName },
+	}));
+
 export const mergeMediaActivityEvents = <
 	Parent extends MediaActivityOrdered,
-	Collection extends MediaActivityOrdered & {
-		readonly collectionId: string;
-		readonly collectionName: string;
-	},
+	Collection extends MediaCollectionActivityRow,
 >(input: {
 	readonly parentEvents: readonly Parent[];
 	readonly collectionEvents: readonly Collection[];
 }) =>
 	[
 		...input.parentEvents.map((row) => ({ ...row, kind: "media" as const })),
-		...input.collectionEvents.map(({ collectionId, collectionName, ...row }) => ({
-			...row,
-			text: null,
-			rating: null,
-			timeSpent: null,
-			isSpoiler: null,
-			consumedOn: null,
-			progressPercent: null,
-			kind: "collection" as const,
-			collection: { id: collectionId, name: collectionName },
-		})),
+		...mediaCollectionActivityEvents(input.collectionEvents),
 	].sort(compareMediaActivityDescending);
 
 type MediaFlatActivityParentRow = SelectedRow<ReturnType<typeof mediaFlatActivityEventSelection>>;
@@ -647,38 +716,22 @@ export const mediaFlatRecipes = <
 	readonly extraOverviewQueries?: (input: MediaFlatOverviewInput) => ExtraOverviewQueries;
 }) => {
 	const summaryRecipe = defineRecipe(
-		(input: { readonly entityId: string; readonly collectionLimit: number }) => {
-			const entity = table("entity", "entity");
-			const provider = table("sandboxProvider", "provider");
-			const lifecycle = mediaLifecycleExpressions(entity, `${config.alias}SummaryLifecycle`);
-			return {
-				map: ({ summary, requested }) =>
-					Result.succeed({
-						summary: summary ?? null,
-						entitySchemaSlug: requested?.schemaSlug ?? null,
-					}),
-				queries: {
-					requested: requestedSchemaQuery(input.entityId),
-					summary: selectedOptionalRow(entity, {
-						orderBy: [ascending(column(entity, "id"))],
-						include: { collections: collectionMembershipInclude(input.collectionLimit) },
-						where: and(entitySchema(entity, config.slug), entityId(entity, input.entityId)),
-						joins: [
-							join("left", provider, eq(column(entity, "providerId"), column(provider, "id"))),
-						],
-						selection: {
-							...mediaSummarySelection(entity, provider),
-							state: selectedField(lifecycle.state, MediaLifecycleStateSchema),
-							progressPercent: selectedField(
-								lifecycle.progressPercent,
-								Schema.NullOr(Schema.Number),
-							),
-							...config.summaryFields(entity),
-						},
-					}),
+		(input: { readonly entityId: string; readonly collectionLimit: number }) => ({
+			map: (result) => mediaSummaryResult(result),
+			queries: mediaSummaryQueries({
+				...input,
+				slug: config.slug,
+				selection: (entity, provider) => {
+					const lifecycle = mediaLifecycleExpressions(entity, `${config.alias}SummaryLifecycle`);
+					return {
+						...mediaSummarySelection(entity, provider),
+						state: selectedField(lifecycle.state, MediaLifecycleStateSchema),
+						progressPercent: selectedField(lifecycle.progressPercent, Schema.NullOr(Schema.Number)),
+						...config.summaryFields(entity),
+					};
 				},
-			};
-		},
+			}),
+		}),
 	);
 
 	const overviewQueries = (input: MediaFlatOverviewInput) => {
@@ -733,18 +786,23 @@ export const mediaFlatRecipes = <
 						entityId: input.entityId,
 						limit: input.collectionEventLimit,
 					}),
-					events: mediaFlatActivityEventsQuery({
-						limit: input.eventLimit,
-						entityId: input.entityId,
-						alias: `${config.alias}Event`,
-						eventFields: config.activityEventFields,
-					}),
 					totals: selectedOptionalRow(entity, {
 						orderBy: [ascending(column(entity, "id"))],
 						where: and(entitySchema(entity, config.slug), entityId(entity, input.entityId)),
 						selection: mediaFlatConsumptionTotals({
 							entity,
 							measure: (event) => config.measure(event, entity),
+						}),
+					}),
+					events: mediaEntityEventsQuery({
+						limit: input.eventLimit,
+						entityId: input.entityId,
+						alias: `${config.alias}Event`,
+						slugs: mediaFlatActivityParentSlugs,
+						selection: (event) => ({
+							...mediaFlatActivityEventSelection(event),
+							// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+							...(config.activityEventFields?.(event) ?? ({} as ActivityEventFields)),
 						}),
 					}),
 				},

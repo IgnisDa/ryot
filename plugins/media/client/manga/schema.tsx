@@ -9,6 +9,7 @@ import { decimalLabel, mediaActivityCountFigure } from "../media/activity-timeli
 import { defineFlatMediaSchema } from "../media/flat-schema";
 import { MEDIA_ART_HEIGHT } from "../media/hero";
 import { mediaCountFact, mediaCountLabels, type MediaSummaryFact } from "../media/summary-state";
+import { mediaSchemaAspects } from "../schema-aspects";
 
 type MangaSummary = MediaSummaryOf<typeof mangaRecipes>;
 
@@ -48,9 +49,9 @@ export const mangaProgressLabel = (
 };
 
 export const mangaSchema = defineFlatMediaSchema({
-	aspect: "poster",
 	recipes: mangaRecipes,
 	facts: mangaSummaryFacts,
+	aspect: mediaSchemaAspects.manga,
 	heroHeight: () => MEDIA_ART_HEIGHT,
 	presentationFacts: mangaPresentationFacts,
 	nouns: { title: "Manga", plural: "manga", singular: "manga" },

@@ -237,10 +237,22 @@ it("declares the complete media-owned source", () => {
 				entry: "client/music/screen.tsx",
 				automaticEntityPresentations: false,
 			},
+			"person-detail": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				entry: "client/person/screen.tsx",
+				automaticEntityPresentations: false,
+			},
 			"podcast-detail": {
 				kind: "page",
 				settingsSchema: { fields: {} },
 				entry: "client/podcast/screen.tsx",
+				automaticEntityPresentations: false,
+			},
+			"company-detail": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				entry: "client/company/screen.tsx",
 				automaticEntityPresentations: false,
 			},
 			"audiobook-detail": {
@@ -301,6 +313,16 @@ it("declares the complete media-owned source", () => {
 			detailPage: "music-detail",
 			listPresentation: "music-row",
 			gridPresentation: "music-card",
+		},
+		person: {
+			detailPage: "person-detail",
+			listPresentation: "media-row",
+			gridPresentation: "media-card",
+		},
+		company: {
+			detailPage: "company-detail",
+			listPresentation: "media-row",
+			gridPresentation: "media-card",
 		},
 		podcast: {
 			detailPage: "podcast-detail",

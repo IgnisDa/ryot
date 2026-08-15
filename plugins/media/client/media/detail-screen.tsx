@@ -19,13 +19,13 @@ import type { MediaImagePurposes } from "./image";
 import { MediaOverview, type MediaOverviewRelationsRender } from "./overview";
 import { mapMediaOverview, type MediaOverviewState } from "./overview-state";
 import { MediaRefreshStatus, MediaStatusMessage } from "./primitives";
-import { MediaSummaryHeader, type MediaSummaryValue } from "./summary-header";
+import { MediaSummaryHeader } from "./summary-header";
 import {
 	mediaManagedAssets,
-	mediaProductionStatusFact,
-	mediaRatingFact,
-	type MediaSummaryFact,
+	type MediaEntitySummaryValue,
+	type MediaSummaryArtwork,
 	type MediaSummaryFailure,
+	type MediaSummaryHeaderDetail,
 	type MediaSummaryState,
 	type MediaSummaryUnavailableReason,
 } from "./summary-state";
@@ -50,7 +50,7 @@ const useMediaEntitySettle = (entityId: string) =>
 	useEntitySettle(useMemo(() => ({ visible: [], foreground: [entityId] }), [entityId]));
 
 export function MediaDetailBody<
-	Summary extends MediaSummaryValue,
+	Summary extends MediaEntitySummaryValue,
 	Overview,
 	TabKey extends string,
 >(props: {
@@ -69,14 +69,13 @@ export function MediaDetailBody<
 	readonly state: MediaSummaryState<Summary>;
 	readonly overview: MediaOverviewState<Overview>;
 	readonly settled: EntitySettleReason | undefined;
+	readonly artwork: MediaSummaryArtwork;
 	readonly tabContent: Partial<Record<TabKey, ReactNode>>;
-	readonly lifecycleLabel: (summary: Summary) => string;
 	readonly overviewIsEmpty: (overview: Overview) => boolean;
 	readonly summaryError: (state: MediaSummaryFailure) => MediaStatusCopy;
-	readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
+	readonly header: (summary: Summary) => MediaSummaryHeaderDetail;
 	readonly overviewRelations: MediaOverviewRelationsRender<Overview>;
 	readonly summaryUnavailable: (reason: MediaSummaryUnavailableReason) => MediaStatusCopy;
-	readonly progress?: (summary: Summary) => { readonly percent: number } | undefined;
 	readonly overviewTrailing?:
 		| ((input: {
 				readonly summary: Summary;
@@ -109,14 +108,9 @@ export function MediaDetailBody<
 				media={summary}
 				compact={props.compact}
 				settled={props.settled}
+				artwork={props.artwork}
 				typeLabel={props.typeLabel}
-				progress={props.progress?.(summary)}
-				lifecycleLabel={props.lifecycleLabel(summary)}
-				facts={[
-					mediaRatingFact(summary),
-					...props.facts(summary),
-					mediaProductionStatusFact(summary),
-				].filter((fact) => fact !== undefined)}
+				detail={props.header(summary)}
 			/>
 			<MediaTabBar
 				tabs={props.tabs}
@@ -152,10 +146,11 @@ export function MediaDetailBody<
 export function MediaDetailScreen<
 	SummaryData,
 	OverviewData,
-	Summary extends MediaSummaryValue,
+	Summary extends MediaEntitySummaryValue,
 >(props: {
 	readonly entityId: string;
 	readonly heroHeight: (compact: boolean) => number;
+	readonly posterPurpose?: MediaImagePurposes[number] | undefined;
 	readonly backdropPurposes?: MediaImagePurposes | undefined;
 	readonly summaryQuery: RyotQuery<{ readonly entityId: string }, SummaryData>;
 	readonly overviewQuery: RyotQuery<{ readonly entityId: string }, OverviewData>;
@@ -188,6 +183,7 @@ export function MediaDetailScreen<
 									<MediaHero
 										compact={compact}
 										media={state.summary}
+										posterPurpose={props.posterPurpose}
 										backdropPurposes={props.backdropPurposes}
 									/>
 								),

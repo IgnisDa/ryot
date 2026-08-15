@@ -4,14 +4,12 @@ import type {
 	MediaFlatActivityMediaEvent,
 } from "../../shared/media-recipes";
 import {
-	activitySpan,
 	anchorOf,
-	mediaActivityTimeline,
+	mediaActivityRowsView,
 	mediaBeatRow,
 	mediaCollectionRow,
 	mediaCompletionRow,
 	mediaReviewRow,
-	nonEmpty,
 	optionalText,
 	type ActivityAnchor,
 	type MediaActivityBeatRow,
@@ -94,27 +92,20 @@ export const mediaFlatActivityView = <Subject, Extra>(input: {
 	readonly amount: { readonly total: number; readonly missing: number };
 	readonly events: readonly MediaFlatActivityEvent<Extra>[];
 }): MediaFlatActivityView<Subject, Extra> | undefined => {
-	const rows = input.events
-		.map((event) =>
+	const view = mediaActivityRowsView(
+		input.events.map((event) =>
 			event.kind === "media"
 				? parentRow<Subject, Extra>(event, input.subject)
 				: collectionRow<Subject, Extra>(event),
-		)
-		.sort(
-			(left, right) =>
-				right.occurredAt.localeCompare(left.occurredAt) || left.key.localeCompare(right.key),
-		);
-	const spanned = nonEmpty(rows);
-	const timeline = mediaActivityTimeline(rows, mediaFlatActivityPredicates);
-	if (timeline === undefined || spanned === undefined) {
+		),
+		mediaFlatActivityPredicates,
+		input.truncated,
+	);
+	if (view === undefined) {
 		return undefined;
 	}
 	return {
-		timeline,
-		summary: {
-			amount: input.amount,
-			completions: input.completions,
-			span: activitySpan(spanned, input.truncated),
-		},
+		timeline: view.timeline,
+		summary: { span: view.span, amount: input.amount, completions: input.completions },
 	};
 };

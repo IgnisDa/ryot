@@ -1,8 +1,7 @@
-import type { EntityInterest, RyotClientAdapter } from "@ryot-app/client-sdk";
+import type { RyotClientAdapter } from "@ryot-app/client-sdk";
 import { Result } from "@ryot-app/client-sdk/effect";
-import { ManagedAssetProvider, useRyotQuery, type RyotQuery } from "@ryot-app/client-sdk/react";
+import { ManagedAssetProvider } from "@ryot-app/client-sdk/react";
 import { fireEvent, waitFor } from "@testing-library/dom";
-import { act } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
@@ -32,11 +31,11 @@ import {
 	ungroupedFixtureSchema,
 } from "../../tests/client/flat-media/schema-fixture";
 import {
-	decodeFlatSummaryResult,
 	fixtureSummaryRecipe,
 	FLAT_SUMMARY_INPUT,
 	flatSummaryRow,
 } from "../../tests/client/flat-media/summary-fixture";
+import { declaresEntityInterest } from "../../tests/client/interest-fixture";
 import {
 	malformedQueryResult,
 	pendingQueryResult,
@@ -44,9 +43,9 @@ import {
 	rowsResult,
 	transportErrorQueryResult,
 } from "../../tests/client/query-result-fixture";
-import { flushRyotClient, mountRyotClient } from "../../tests/client/test-support";
+import { decodeMediaSummaryResult } from "../../tests/client/summary-fixture";
+import { mountRyotClient } from "../../tests/client/test-support";
 import { mapMediaOverview } from "./overview-state";
-import { classifyRyotQueryResult } from "./query-state";
 
 const noopAdapter = { query: () => Promise.resolve({}) };
 
@@ -73,7 +72,7 @@ const overviewOf = (input: Parameters<typeof decodeFlatOverview>[1] = {}) =>
 const readyState = (overrides: Record<string, unknown> = {}) =>
 	fixtureSchema.mapSummary(
 		readyQueryResult(
-			decodeFlatSummaryResult(fixtureSummaryRecipe, {
+			decodeMediaSummaryResult(fixtureSummaryRecipe, {
 				requested: [{ schemaSlug: "fixture" }],
 				summary: [{ ...flatSummaryRow, ...overrides }],
 			}),
@@ -85,7 +84,7 @@ type SummaryState = ReturnType<typeof readyState>;
 const ungroupedReadyState = () =>
 	ungroupedFixtureSchema.mapSummary(
 		readyQueryResult(
-			decodeFlatSummaryResult(flatUngroupedFixtureRecipes.summaryRecipe(FLAT_SUMMARY_INPUT), {
+			decodeMediaSummaryResult(flatUngroupedFixtureRecipes.summaryRecipe(FLAT_SUMMARY_INPUT), {
 				requested: [{ schemaSlug: "ungrouped" }],
 				summary: [{ ...flatSummaryRow, schemaSlug: "ungrouped" }],
 			}),
@@ -253,7 +252,7 @@ describe("flat media detail screen", () => {
 	it("explains that only this schema opens here when the entity is another schema", () => {
 		const state = fixtureSchema.mapSummary(
 			readyQueryResult(
-				decodeFlatSummaryResult(fixtureSummaryRecipe, {
+				decodeMediaSummaryResult(fixtureSummaryRecipe, {
 					summary: [],
 					requested: [{ schemaSlug: "show" }],
 				}),
@@ -270,7 +269,7 @@ describe("flat media detail screen", () => {
 		expect(
 			fixtureSchema.mapSummary(
 				readyQueryResult(
-					decodeFlatSummaryResult(fixtureSummaryRecipe, { summary: [], requested: [] }),
+					decodeMediaSummaryResult(fixtureSummaryRecipe, { summary: [], requested: [] }),
 				),
 			),
 		).toEqual({ reason: "missing", status: "unavailable" });
@@ -461,6 +460,46 @@ describe("flat media overview", () => {
 	});
 });
 
+const art = (container: HTMLElement) => ({
+	header: container.querySelector('img[src="https://images.test/fc-cover.jpg"]')?.className,
+	recommendation: container.querySelector(`a[href="/e/${flatRecommendationRow.id}"] img`)
+		?.className,
+});
+
+describe("flat media artwork aspect", () => {
+	it("draws the header art and recommendation tiles in the descriptor's aspect", () => {
+		const poster = renderBody(readyState());
+		expect(art(poster.container).header).toContain("aspect-2/3");
+		expect(art(poster.container).recommendation).toContain("aspect-2/3");
+		poster.unmount();
+
+		const square = mountRyotClient(
+			noopAdapter,
+			<ungroupedFixtureSchema.ScreenBody
+				compact
+				safeAreaTop={0}
+				activity={null}
+				settled={undefined}
+				refresh={() => undefined}
+				state={ungroupedReadyState()}
+				refreshOverview={() => undefined}
+				overview={mapMediaOverview(
+					readyQueryResult(
+						Result.getOrThrow(
+							flatUngroupedFixtureRecipes
+								.overviewRecipe(FLAT_OVERVIEW_INPUT)
+								.decode({ data: flatOverviewData() }),
+						),
+					),
+				)}
+			/>,
+		);
+		expect(art(square.container).header).toContain("aspect-square");
+		expect(art(square.container).recommendation).toContain("aspect-square");
+		square.unmount();
+	});
+});
+
 describe("flat media activity tab", () => {
 	it("summarises completions, the measure and the span", () => {
 		const { unmount, container } = renderActivity(
@@ -540,48 +579,10 @@ describe("flat media entity presentations", () => {
 	});
 });
 
-const recordingAdapter = () => {
-	const interests: EntityInterest[] = [];
-	const requests: Array<{ resolve: (data: unknown) => void }> = [];
-	const adapter: Partial<RyotClientAdapter> = {
-		query: () => new Promise((resolve) => requests.push({ resolve })),
-		watchEntities: (interest) => {
-			interests.push(interest);
-			return { dispose: () => undefined, update: (next) => interests.push(next) };
-		},
-	};
-	return { adapter, requests, interests };
-};
-
 const rows = (items: readonly unknown[]) =>
 	rowsResult(items, { limit: 100, hasMore: false, nextCursor: null });
 
-const declaresInterest = <Data,>(
-	name: string,
-	query: RyotQuery<{ readonly entityId: string }, Data>,
-	response: unknown,
-	visible: readonly string[],
-) => {
-	it(`${name} watches every entity it renders`, async () => {
-		const recording = recordingAdapter();
-		function Probe() {
-			return <p>{classifyRyotQueryResult(useRyotQuery(query, { entityId: "media-1" })).status}</p>;
-		}
-		const view = mountRyotClient(recording.adapter, <Probe />);
-		await flushRyotClient();
-		await act(async () => {
-			recording.requests[0]?.resolve(response);
-			await Promise.resolve();
-		});
-		await waitFor(() => expect(view.container.textContent).toContain("ready"));
-
-		expect(recording.interests.at(-1)).toEqual({
-			foreground: ["media-1"],
-			visible: [...visible].sort(),
-		});
-		view.unmount();
-	});
-};
+const declaresInterest = declaresEntityInterest("media-1");
 
 describe("flat media query entity interest", () => {
 	declaresInterest(

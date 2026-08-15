@@ -56,7 +56,7 @@ export const createMediaPresentationLoader =
 	async ({ client, signal, references }) => {
 		const entityIds = [...new Set(references.map(({ entityId }) => entityId))];
 		const rows = await client.data.query(recipe(entityIds), { signal });
-		const batchAssets = collectManagedAssetLocators(rows.map(mediaPosterAsset));
+		const batchAssets = collectManagedAssetLocators(rows.map((row) => mediaPosterAsset(row)));
 		return Object.fromEntries(rows.map((row) => [row.id, { ...row, batchAssets }]));
 	};
 

@@ -1,9 +1,7 @@
 import { definePlugin } from "@ryot-app/contract/modules/plugins/manifest";
 
-import {
-	builtinMediaEntitySchemaSlugs,
-	mediaLibraryEligibleEntitySchemaSlugs,
-} from "../backend/contracts/schema-slugs";
+import { mediaLibraryEligibleEntitySchemaSlugs } from "../backend/contracts/schema-slugs";
+import { builtinMediaEntitySchemaSlugs } from "../shared/media-schema-slugs";
 import { mediaConfigSchema } from "./config";
 import { mediaSavedViews } from "./saved-views";
 import { mediaEntitySchemas } from "./schemas/entity";
@@ -448,6 +446,15 @@ const integrationProviders = [
 	},
 ] as const;
 
+const detailPageExport = (slug: string) => ({
+	[`${slug}-detail`]: {
+		kind: "page" as const,
+		settingsSchema: { fields: {} },
+		entry: `client/${slug}/screen.tsx`,
+		automaticEntityPresentations: false,
+	},
+});
+
 const schemaClient = (slug: string) => ({
 	slug,
 	entity: {
@@ -466,12 +473,7 @@ const schemaClient = (slug: string) => ({
 			automaticEntityPresentations: false,
 			entry: `client/${slug}-card-presentation.ts`,
 		},
-		[`${slug}-detail`]: {
-			kind: "page" as const,
-			settingsSchema: { fields: {} },
-			entry: `client/${slug}/screen.tsx`,
-			automaticEntityPresentations: false,
-		},
+		...detailPageExport(slug),
 	},
 });
 
@@ -488,6 +490,18 @@ const schemaClients = [
 	"visual-novel",
 	"video-game",
 ].map(schemaClient);
+
+const creatorClients = ["person", "company"].map((slug) => ({
+	slug,
+	exports: detailPageExport(slug),
+	entity: {
+		detailPage: `${slug}-detail`,
+		listPresentation: "media-row",
+		gridPresentation: "media-card",
+	},
+}));
+
+const entityClients = [...schemaClients, ...creatorClients];
 
 export const mediaPlugin = definePlugin({
 	boot: [],
@@ -573,6 +587,15 @@ export const mediaPlugin = definePlugin({
 		apiVersion: 1,
 		homeView: null,
 		routes: { "/": "media-home" },
+		entities: {
+			"book-group": { listPresentation: "media-row", gridPresentation: "media-card" },
+			"music-group": { listPresentation: "media-row", gridPresentation: "media-card" },
+			"movie-group": { listPresentation: "media-row", gridPresentation: "media-card" },
+			"audiobook-group": { listPresentation: "media-row", gridPresentation: "media-card" },
+			"comic-book-group": { listPresentation: "media-row", gridPresentation: "media-card" },
+			"video-game-group": { listPresentation: "media-row", gridPresentation: "media-card" },
+			...Object.fromEntries(entityClients.map(({ slug, entity }) => [slug, entity])),
+		},
 		exports: {
 			"show-progress": {
 				kind: "component",
@@ -595,18 +618,7 @@ export const mediaPlugin = definePlugin({
 				settingsSchema: { fields: {} },
 				automaticEntityPresentations: false,
 			},
-			...Object.fromEntries(schemaClients.flatMap((client) => Object.entries(client.exports))),
-		},
-		entities: {
-			person: { listPresentation: "media-row", gridPresentation: "media-card" },
-			company: { listPresentation: "media-row", gridPresentation: "media-card" },
-			"book-group": { listPresentation: "media-row", gridPresentation: "media-card" },
-			"music-group": { listPresentation: "media-row", gridPresentation: "media-card" },
-			"movie-group": { listPresentation: "media-row", gridPresentation: "media-card" },
-			"audiobook-group": { listPresentation: "media-row", gridPresentation: "media-card" },
-			"comic-book-group": { listPresentation: "media-row", gridPresentation: "media-card" },
-			"video-game-group": { listPresentation: "media-row", gridPresentation: "media-card" },
-			...Object.fromEntries(schemaClients.map(({ slug, entity }) => [slug, entity])),
+			...Object.fromEntries(entityClients.flatMap((client) => Object.entries(client.exports))),
 		},
 	},
 	bindings: {

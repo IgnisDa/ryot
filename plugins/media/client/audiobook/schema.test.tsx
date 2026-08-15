@@ -7,11 +7,11 @@ import {
 	flatGroupRow,
 } from "../../tests/client/flat-media/overview-fixture";
 import { decodeFlatPresentation } from "../../tests/client/flat-media/presentation-fixture";
-import { renderFlatScreenBody } from "../../tests/client/flat-media/screen-fixture";
 import {
 	decodeFlatSummary,
 	FLAT_SUMMARY_INPUT,
 } from "../../tests/client/flat-media/summary-fixture";
+import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
 import { audiobookPresentationFacts, audiobookSchema, audiobookSummaryFacts } from "./schema";
 
@@ -36,7 +36,7 @@ describe("audiobook schema", () => {
 	});
 
 	it("titles the credits as authors and narrators and the group as a series", () => {
-		const { unmount, container } = renderFlatScreenBody(
+		const { unmount, container } = renderMediaScreenBody(
 			audiobookSchema,
 			audiobookSummary(),
 			decodeFlatOverview(audiobookRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT), {

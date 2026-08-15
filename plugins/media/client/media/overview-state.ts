@@ -3,6 +3,7 @@ import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
 import type { MediaOverviewRows, MediaUnlinkedCreatorsOverview } from "../../shared/media-recipes";
 import { collectManagedAssetLocators, preferredMediaImageAsset } from "./image";
 import { classifyRyotQueryResult, type MappedRyotQueryState } from "./query-state";
+import { mediaPosterAsset } from "./summary-state";
 
 export type MediaPerson = MediaOverviewRows["people"]["items"][number];
 
@@ -46,13 +47,10 @@ export const mediaPersonAsset = (person: MediaPerson) =>
 export const mediaCompanyAsset = (company: MediaCompany) =>
 	preferredMediaImageAsset(company.images, "logo");
 
-export const mediaRecommendationAsset = (recommendation: MediaRecommendation) =>
-	preferredMediaImageAsset(recommendation.images, "cover");
-
 export const mediaOverviewAssets = (overview: MediaOverviewRows) => [
 	...overview.people.items.map(mediaPersonAsset),
 	...overview.companies.items.map(mediaCompanyAsset),
-	...overview.recommendations.items.map(mediaRecommendationAsset),
+	...overview.recommendations.items.map((recommendation) => mediaPosterAsset(recommendation)),
 ];
 
 export const mediaOverviewManagedAssets = (overview: MediaOverviewRows) =>

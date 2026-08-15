@@ -1,15 +1,15 @@
 import type { EntitySettleReason } from "@ryot-app/client-sdk";
 import type { ReactNode } from "react";
 
-import type { MediaOverviewState } from "../../../client/media/overview-state";
-import { mapMediaOverview } from "../../../client/media/overview-state";
-import type { MediaSummaryState } from "../../../client/media/summary-state";
-import { readyQueryResult } from "../query-result-fixture";
-import { mountRyotClient } from "../test-support";
+import type { MediaOverviewState } from "../../client/media/overview-state";
+import { mapMediaOverview } from "../../client/media/overview-state";
+import type { MediaSummaryState } from "../../client/media/summary-state";
+import { readyQueryResult } from "./query-result-fixture";
+import { mountRyotClient } from "./test-support";
 
 const noopAdapter = { query: () => Promise.resolve({}) };
 
-type FlatScreenBody<Summary, Overview> = (props: {
+type MediaScreenBody<Summary, Overview> = (props: {
 	readonly compact: boolean;
 	readonly safeAreaTop: number;
 	readonly activity: ReactNode;
@@ -20,8 +20,8 @@ type FlatScreenBody<Summary, Overview> = (props: {
 	readonly settled: EntitySettleReason | undefined;
 }) => ReactNode;
 
-export const renderFlatScreenBody = <Summary, Overview>(
-	schema: { readonly ScreenBody: FlatScreenBody<Summary, Overview> },
+export const renderMediaScreenBody = <Summary, Overview>(
+	schema: { readonly ScreenBody: MediaScreenBody<Summary, Overview> },
 	summary: Summary,
 	overview: Overview,
 ) =>

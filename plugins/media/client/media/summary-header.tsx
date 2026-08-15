@@ -10,10 +10,12 @@ import {
 import clsx from "clsx";
 import { useState, type ReactNode } from "react";
 
+import { mediaArtworkClass } from "./entity-presentation";
 import { ManagedAssetImage } from "./managed-assets";
 import {
 	MediaActionButton,
 	MediaChip,
+	MediaExternalLink,
 	MediaFactRow,
 	MediaLinkButton,
 	MediaProgressBar,
@@ -23,20 +25,18 @@ import {
 	mediaCollectionsLabel,
 	mediaOwnershipLabel,
 	mediaPosterAsset,
-	mediaReleaseLabel,
-	type MediaCollectionList,
-	type MediaSummaryFact,
-	type MediaSummaryFields,
+	type MediaEntitySummaryValue,
+	type MediaStatusRailConfig,
+	type MediaSummaryArtwork,
+	type MediaSummaryHeaderDetail,
 } from "./summary-state";
-
-export type MediaSummaryValue = MediaSummaryFields & { readonly collections: MediaCollectionList };
 
 function MediaIdentityLine(props: {
 	readonly typeLabel: string;
-	readonly media: MediaSummaryValue;
+	readonly detail: string | undefined;
+	readonly media: MediaEntitySummaryValue;
 }) {
-	const { media } = props;
-	const release = mediaReleaseLabel(media);
+	const { media, detail } = props;
 	return (
 		<p className="font-ui text-[13px] text-text">
 			{props.typeLabel}
@@ -46,7 +46,7 @@ function MediaIdentityLine(props: {
 					<span className="font-ui font-medium">{media.providerName}</span>
 				</>
 			)}
-			{release === undefined ? null : ` • ${release}`}
+			{detail === undefined ? null : ` • ${detail}`}
 		</p>
 	);
 }
@@ -81,11 +81,11 @@ function MediaIdentity(props: {
 	readonly compact: boolean;
 	readonly typeLabel: string;
 	readonly description: ReactNode;
-	readonly media: MediaSummaryValue;
-	readonly facts: readonly MediaSummaryFact[];
+	readonly media: MediaEntitySummaryValue;
+	readonly detail: MediaSummaryHeaderDetail;
 	readonly settled: EntitySettleReason | undefined;
 }) {
-	const { media, compact } = props;
+	const { media, detail, compact } = props;
 	return (
 		<div className={clsx("flex min-w-0 flex-col", compact ? "gap-4" : "flex-1 gap-2.5")}>
 			<SettleHighlight
@@ -103,16 +103,27 @@ function MediaIdentity(props: {
 				>
 					{media.name}
 				</h1>
-				<MediaIdentityLine media={media} typeLabel={props.typeLabel} />
-				{media.genres === null || media.genres.length === 0 ? null : (
+				<MediaIdentityLine
+					media={media}
+					typeLabel={props.typeLabel}
+					detail={detail.identityDetail}
+				/>
+				{detail.chips.length === 0 ? null : (
 					<div className="flex flex-wrap gap-1.5">
-						{media.genres.map((genre) => (
-							<MediaChip key={genre} label={genre} />
+						{detail.chips.map((chip) => (
+							<MediaChip key={chip} label={chip} />
 						))}
 					</div>
 				)}
 			</SettleHighlight>
-			<MediaFactRow compact={compact} facts={props.facts} />
+			<MediaFactRow compact={compact} facts={detail.facts} />
+			{detail.links.length === 0 ? null : (
+				<div className="flex flex-wrap gap-x-4 gap-y-2">
+					{detail.links.map((link) => (
+						<MediaExternalLink key={link.href} href={link.href} label={link.label} />
+					))}
+				</div>
+			)}
 			{props.description}
 			{isTitleProvisional(media) && (
 				<div className="flex items-start">
@@ -136,29 +147,31 @@ function MediaLibraryBadge(props: { readonly isInLibrary: boolean }) {
 
 function MediaStatusRail(props: {
 	readonly compact: boolean;
-	readonly lifecycleLabel: string;
-	readonly media: MediaSummaryValue;
-	readonly progress: { readonly percent: number } | undefined;
+	readonly media: MediaEntitySummaryValue;
+	readonly config: MediaStatusRailConfig;
 }) {
-	const { media, compact } = props;
+	const { media, config, compact } = props;
+	const { status, ownership } = config;
 	return (
 		<div className={clsx("flex flex-col", compact ? "gap-3" : "w-84 gap-2")}>
 			<div className="overflow-hidden rounded-lg border border-border bg-surface">
-				<MediaRailRow
-					compact={compact}
-					icon="circle-check"
-					title="Your status"
-					detail="Status is calculated from your activity"
-					trailing={
-						<span className="font-ui font-medium text-[13px] text-success">
-							{props.lifecycleLabel}
-						</span>
-					}
-				/>
-				{props.progress === undefined ? null : (
-					<div className="px-4 py-3.5">
-						<MediaProgressBar percent={props.progress.percent} />
-					</div>
+				{status === undefined ? null : (
+					<>
+						<MediaRailRow
+							compact={compact}
+							icon="circle-check"
+							title="Your status"
+							detail="Status is calculated from your activity"
+							trailing={
+								<span className="font-ui font-medium text-[13px] text-success">{status.label}</span>
+							}
+						/>
+						{status.progress === undefined ? null : (
+							<div className="px-4 py-3.5">
+								<MediaProgressBar percent={status.progress.percent} />
+							</div>
+						)}
+					</>
 				)}
 				<MediaRailRow
 					icon="radio"
@@ -179,16 +192,18 @@ function MediaStatusRail(props: {
 					title="In library"
 					trailing={<MediaLibraryBadge isInLibrary={media.isInLibrary} />}
 				/>
-				<MediaRailRow
-					icon="tags"
-					compact={compact}
-					title="Ownership"
-					trailing={
-						<span className="font-ui text-[13px] text-text-muted">
-							{mediaOwnershipLabel(media.owned)}
-						</span>
-					}
-				/>
+				{ownership === undefined ? null : (
+					<MediaRailRow
+						icon="tags"
+						compact={compact}
+						title="Ownership"
+						trailing={
+							<span className="font-ui text-[13px] text-text-muted">
+								{mediaOwnershipLabel(ownership.owned)}
+							</span>
+						}
+					/>
+				)}
 				<MediaRailRow
 					divided={false}
 					icon="layers-3"
@@ -204,12 +219,14 @@ function MediaStatusRail(props: {
 				/>
 			</div>
 			<div className={clsx("flex gap-2", !compact && "flex-col")}>
-				<MediaActionButton
-					variant="primary"
-					compact={compact}
-					label="Log activity"
-					onClick={() => console.log("TODO: open activity form")}
-				/>
+				{config.logActivity ? (
+					<MediaActionButton
+						variant="primary"
+						compact={compact}
+						label="Log activity"
+						onClick={() => console.log("TODO: open activity form")}
+					/>
+				) : null}
 				<MediaActionButton
 					compact={compact}
 					variant="secondary"
@@ -224,13 +241,13 @@ function MediaStatusRail(props: {
 export function MediaSummaryHeader(props: {
 	readonly compact: boolean;
 	readonly typeLabel: string;
-	readonly lifecycleLabel: string;
-	readonly media: MediaSummaryValue;
-	readonly facts: readonly MediaSummaryFact[];
+	readonly media: MediaEntitySummaryValue;
+	readonly artwork: MediaSummaryArtwork;
+	readonly detail: MediaSummaryHeaderDetail;
 	readonly settled: EntitySettleReason | undefined;
-	readonly progress?: { readonly percent: number } | undefined;
 }) {
-	const { media, compact } = props;
+	const { media, compact, artwork } = props;
+	const poster = mediaPosterAsset(media, artwork.purpose);
 	const { description } = media;
 	const [isExpanded, setIsExpanded] = useState(false);
 	const descriptionNode =
@@ -246,30 +263,25 @@ export function MediaSummaryHeader(props: {
 			<div
 				className={clsx("relative flex min-w-0", compact ? "flex-col" : "flex-1 flex-row gap-8")}
 			>
-				<ManagedAssetImage
-					monogram={media.name}
-					asset={mediaPosterAsset(media)}
-					state={fieldSyncState(mediaPosterAsset(media), media)}
-					className={clsx(
-						"aspect-2/3",
-						compact ? "absolute top-0 left-0 w-32" : "relative w-60 shrink-0",
-					)}
-				/>
+				<div className={compact ? "absolute top-0 left-0 w-32" : "relative w-60 shrink-0"}>
+					<ManagedAssetImage
+						asset={poster}
+						fit={artwork.fit}
+						monogram={media.name}
+						state={fieldSyncState(poster, media)}
+						className={mediaArtworkClass({ compact, layout: "grid", aspect: artwork.aspect })}
+					/>
+				</div>
 				<MediaIdentity
 					media={media}
 					compact={compact}
-					facts={props.facts}
+					detail={props.detail}
 					settled={props.settled}
 					typeLabel={props.typeLabel}
 					description={descriptionNode}
 				/>
 			</div>
-			<MediaStatusRail
-				media={media}
-				compact={compact}
-				progress={props.progress}
-				lifecycleLabel={props.lifecycleLabel}
-			/>
+			<MediaStatusRail media={media} compact={compact} config={props.detail.rail} />
 		</div>
 	);
 }

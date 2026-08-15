@@ -9,6 +9,7 @@ import {
 	mediaDurationLabels,
 	type MediaSummaryFact,
 } from "../media/summary-state";
+import { mediaSchemaAspects } from "../schema-aspects";
 
 type AudiobookSummary = MediaSummaryOf<typeof audiobookRecipes>;
 
@@ -21,10 +22,10 @@ export const audiobookPresentationFacts = (audiobook: AudiobookPresentation) =>
 	mediaDurationLabels(audiobook.runtime);
 
 export const audiobookSchema = defineFlatMediaSchema({
-	aspect: "square",
 	recipes: audiobookRecipes,
 	facts: audiobookSummaryFacts,
 	heroHeight: () => MEDIA_ART_HEIGHT,
+	aspect: mediaSchemaAspects.audiobook,
 	presentationFacts: audiobookPresentationFacts,
 	measureFigure: { label: "Time", value: mediaActivityTimeLabel },
 	group: { actionLabel: "View series", title: (name) => `Part of ${name}` },

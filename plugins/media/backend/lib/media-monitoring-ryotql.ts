@@ -17,7 +17,7 @@ import {
 	type Recipe,
 } from "@ryot-app/sandbox-sdk/ryotql";
 
-import { builtinMediaEntitySchemaSlugs } from "../contracts/schema-slugs";
+import { builtinMediaEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 
 const mediaMonitorableEntitySchemaSlugs = [
 	"company",

@@ -1,6 +1,10 @@
+import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
 import type { SelectedRow } from "@ryot-app/client-sdk/ryotql";
 
-import type { mediaActivityEventSelection } from "../../shared/media-recipes";
+import type {
+	mediaActivityEventSelection,
+	mediaReviewEventSelection,
+} from "../../shared/media-recipes";
 import {
 	formatLocalDateKey,
 	formatLocalDateLabel,
@@ -8,6 +12,11 @@ import {
 	formatLocalYearLabel,
 	localDayCount,
 } from "./date";
+import { classifyRyotQueryResult, type MappedRyotQueryState } from "./query-state";
+
+export type MediaActivityState<View> = MappedRyotQueryState<
+	{ readonly status: "empty" } | { readonly status: "ready"; readonly view: View }
+>;
 
 export type NonEmpty<Value> = readonly [Value, ...Value[]];
 
@@ -117,7 +126,7 @@ export const mediaCompletionRow = (
 });
 
 export const mediaReviewRow = <Subject>(
-	event: MediaActivityEventRow,
+	event: SelectedRow<ReturnType<typeof mediaReviewEventSelection>>,
 	subject: Subject,
 ): MediaActivityReviewRow<Subject> => ({
 	...anchorOf(event, "review"),
@@ -240,6 +249,40 @@ export const activitySpan = <Row extends ActivityAnchor>(
 		return { latest, bound: "partial" };
 	}
 	return { latest, earliest, bound: "full", days: localDayCount(earliest, latest) };
+};
+
+export const mediaCollectionRowLabel = (row: MediaActivityCollectionRow) =>
+	row.change === "added"
+		? `Added to the ${row.name} collection`
+		: `Removed from the ${row.name} collection`;
+
+/** Rows newest first as a timeline and its span, or `undefined` when nothing was recorded. */
+export const mediaActivityRowsView = <Row extends ActivityAnchor>(
+	rows: readonly Row[],
+	predicates: ActivityRowPredicates<Row>,
+	truncated: boolean,
+) => {
+	const sorted = [...rows].sort(
+		(left, right) =>
+			right.occurredAt.localeCompare(left.occurredAt) || left.key.localeCompare(right.key),
+	);
+	const spanned = nonEmpty(sorted);
+	const timeline = mediaActivityTimeline(sorted, predicates);
+	return timeline === undefined || spanned === undefined
+		? undefined
+		: { timeline, span: activitySpan(spanned, truncated) };
+};
+
+export const mapMediaActivity = <Result, View>(
+	result: RyotQueryResult<Result>,
+	view: (value: Result) => View | undefined,
+): MediaActivityState<View> => {
+	const state = classifyRyotQueryResult(result);
+	if (state.status !== "ready") {
+		return state;
+	}
+	const mapped = view(state.value);
+	return mapped === undefined ? { status: "empty" } : { view: mapped, status: "ready" };
 };
 
 export const decimalLabel = (value: number) => String(Math.round(value * 100) / 100);

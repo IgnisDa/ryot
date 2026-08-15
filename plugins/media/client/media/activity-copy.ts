@@ -93,3 +93,11 @@ export const mediaEpisodicActivityCopy = (input: {
 		beats: { ...mediaActivityBeats(verb, input.noun), backlog: "Added to backlog" },
 	};
 };
+
+export const mediaCreatorActivityCopy = (noun: string) => ({
+	segmentNoun: "Activity",
+	recordLabel: "Activity record",
+	rowLabels: { review: `Reviewed this ${noun}` },
+	loadingDetail: `Fetching everything you have recorded for this ${noun}.`,
+	emptyDetail: `Nothing has been recorded for this ${noun}. Your reviews and collection changes will appear here.`,
+});

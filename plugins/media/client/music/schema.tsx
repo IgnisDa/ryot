@@ -5,6 +5,7 @@ import { mediaActivityTimeLabel, mediaTrackLengthLabel } from "../media/activity
 import { defineFlatMediaSchema } from "../media/flat-schema";
 import { MEDIA_ART_HEIGHT } from "../media/hero";
 import type { MediaSummaryFact } from "../media/summary-state";
+import { mediaSchemaAspects } from "../schema-aspects";
 
 type MusicSummary = MediaSummaryOf<typeof musicRecipes>;
 
@@ -24,9 +25,9 @@ export const musicPresentationFacts = (music: MusicPresentation) =>
 	music.duration === null ? [] : [mediaTrackLengthLabel(music.duration)];
 
 export const musicSchema = defineFlatMediaSchema({
-	aspect: "square",
 	recipes: musicRecipes,
 	facts: musicSummaryFacts,
+	aspect: mediaSchemaAspects.music,
 	heroHeight: () => MEDIA_ART_HEIGHT,
 	presentationFacts: musicPresentationFacts,
 	nouns: { title: "Music", plural: "tracks", singular: "track" },

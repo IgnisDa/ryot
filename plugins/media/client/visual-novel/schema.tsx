@@ -9,6 +9,7 @@ import {
 	mediaDurationLabels,
 	type MediaSummaryFact,
 } from "../media/summary-state";
+import { mediaSchemaAspects } from "../schema-aspects";
 
 type VisualNovelSummary = MediaSummaryOf<typeof visualNovelRecipes>;
 
@@ -23,10 +24,10 @@ export const visualNovelPresentationFacts = (visualNovel: VisualNovelPresentatio
 	mediaDurationLabels(visualNovel.lengthMinutes);
 
 export const visualNovelSchema = defineFlatMediaSchema({
-	aspect: "poster",
 	recipes: visualNovelRecipes,
 	facts: visualNovelSummaryFacts,
 	heroHeight: () => MEDIA_ART_HEIGHT,
+	aspect: mediaSchemaAspects["visual-novel"],
 	presentationFacts: visualNovelPresentationFacts,
 	measureFigure: { label: "Time", value: mediaActivityTimeLabel },
 	activityCopy: mediaFlatActivityCopy({ verb: "read", noun: "visual novel" }),

@@ -5,6 +5,7 @@ import {
 	podcastsByLifecycleStateRecipe,
 	trendingMediaRecipe,
 } from "@ryot-app/media-plugin/query-recipes";
+import { personRecipes } from "@ryot-app/media-plugin/shared/person-recipes";
 import {
 	showRecipes,
 	showSeasonEpisodesRecipe,
@@ -708,6 +709,87 @@ describe("Media RyotQL query recipe results", () => {
 			expect(overview.people.items).toEqual([]);
 			expect(overview.companies.items).toEqual([]);
 			expect(overview.recommendations.items).toEqual([]);
+		}),
+	);
+
+	it.live("reconstructs person credits through the reverse join in per-target order", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const personSchemaId = yield* getBuiltinEntitySchemaSlug("person");
+			const movieSchemaId = yield* getBuiltinEntitySchemaSlug("movie");
+			const musicGroupSchemaId = yield* getBuiltinEntitySchemaSlug("music-group");
+			const relationshipSchemas = yield* listRelationshipSchemas(client, {
+				slugs: ["person-to-movie", "person-to-music-group"],
+			});
+			const personToMovie = requireRelationshipSchemaBySlug(relationshipSchemas, "person-to-movie");
+			const personToMusicGroup = requireRelationshipSchemaBySlug(
+				relationshipSchemas,
+				"person-to-music-group",
+			);
+			const suffix = crypto.randomUUID();
+			const seedMovie = (name: string, publishYear: number | null) =>
+				seedMediaEntity({
+					name,
+					userId: null,
+					providerId: null,
+					entitySchemaSlug: movieSchemaId,
+					externalId: `overview-${crypto.randomUUID()}`,
+					properties: { images: [], publishYear, sourceUrl: null, description: null },
+				});
+
+			const [person, olderMovie, undatedMovie, newerMovie, secondBand, firstBand, unrelated] =
+				yield* Effect.all([
+					seedCredit({ images: [], schemaSlug: personSchemaId, name: `Credit Person ${suffix}` }),
+					seedMovie(`Credit Older Movie ${suffix}`, 1999),
+					seedMovie(`Credit Undated Movie ${suffix}`, null),
+					seedMovie(`Credit Newer Movie ${suffix}`, 2014),
+					seedCredit({ images: [], name: `B Band ${suffix}`, schemaSlug: musicGroupSchemaId }),
+					seedCredit({ images: [], name: `A Band ${suffix}`, schemaSlug: musicGroupSchemaId }),
+					seedMovie(`Credit Unrelated Movie ${suffix}`, 2020),
+				]);
+			const credit = (
+				targetEntityId: string,
+				relationshipSchemaSlug: string,
+				properties: Record<string, unknown>,
+			) =>
+				insertGlobalRelationship({
+					properties,
+					targetEntityId,
+					relationshipSchemaSlug,
+					sourceEntityId: person.id,
+				});
+			yield* Effect.all([
+				credit(olderMovie.id, personToMovie.id, { roles: ["Actor"], character: "Tyler" }),
+				credit(undatedMovie.id, personToMovie.id, { roles: ["Director"] }),
+				credit(newerMovie.id, personToMovie.id, { roles: ["Writer"] }),
+				credit(secondBand.id, personToMusicGroup.id, { roles: ["Artist"] }),
+				credit(firstBand.id, personToMusicGroup.id, { roles: ["Artist"] }),
+				insertGlobalRelationship({
+					targetEntityId: person.id,
+					sourceEntityId: unrelated.id,
+					relationshipSchemaSlug: personToMovie.id,
+				}),
+			]);
+
+			const overview = yield* executeRyotQLRecipe(
+				client,
+				personRecipes.overviewRecipe({ creditLimit: 12, entityId: person.id }),
+			);
+
+			expect(overview.movie.items.map((item) => item.id)).toEqual([
+				newerMovie.id,
+				olderMovie.id,
+				undatedMovie.id,
+			]);
+			const olderCredit = overview.movie.items[1];
+			assertPresent(olderCredit, "Expected the older movie credit");
+			expect(olderCredit.character).toBe("Tyler");
+			expect(olderCredit.roles).toEqual(["Actor"]);
+			expect(overview["music-group"].items.map((item) => item.id)).toEqual([
+				firstBand.id,
+				secondBand.id,
+			]);
+			expect(overview.show.items).toEqual([]);
 		}),
 	);
 

@@ -4,6 +4,8 @@ import clsx from "clsx";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 
 import type { MediaOverviewRows } from "../../shared/media-recipes";
+import type { MediaArtworkAspect } from "./entity-presentation";
+import { MediaEntityRailSection } from "./entity-rail";
 import type { MediaGalleryImage, MediaImageAsset } from "./image";
 import { MediaImageGallery } from "./image-gallery";
 import { galleryImages } from "./image-gallery-state";
@@ -13,7 +15,6 @@ import {
 	mediaCompanyAsset,
 	mediaOverviewError,
 	mediaPersonAsset,
-	mediaRecommendationAsset,
 	mediaRolesLabel,
 	mediaUnlinkedCredits,
 	type MediaCompany,
@@ -22,7 +23,7 @@ import {
 	type MediaRecommendation,
 	type MediaUnlinkedCreator,
 } from "./overview-state";
-import { MediaExternalLink, MediaLinkButton, MediaOverviewSection } from "./primitives";
+import { MediaExternalLink, MediaLinkButton, MediaOverviewSection, MediaRail } from "./primitives";
 import { mediaGalleryAssets, type MediaSummaryFields } from "./summary-state";
 import { mediaSyncCounts } from "./sync-counts";
 import {
@@ -52,14 +53,6 @@ export type MediaOverviewRelationsRender<Overview> = (input: {
 	readonly divided: boolean;
 	readonly overview: Overview;
 }) => ReactNode;
-
-export function MediaRail(props: { readonly compact: boolean; readonly children: ReactNode }) {
-	return (
-		<div className="overflow-x-auto">
-			<div className={clsx("flex w-max", props.compact ? "gap-3" : "gap-4")}>{props.children}</div>
-		</div>
-	);
-}
 
 export function MediaImageGallerySection(props: {
 	readonly name: string;
@@ -356,42 +349,17 @@ export function MediaCompaniesSection(props: {
 export function MediaRecommendationsSection(props: {
 	readonly compact: boolean;
 	readonly divided: boolean;
+	readonly aspect: MediaArtworkAspect;
 	readonly recommendations: readonly MediaRecommendation[];
 }) {
-	if (props.recommendations.length === 0) {
-		return null;
-	}
 	return (
-		<MediaOverviewSection
+		<MediaEntityRailSection
+			aspect={props.aspect}
 			title="More like this"
 			divided={props.divided}
 			compact={props.compact}
-			sync={mediaSyncCounts(props.recommendations, mediaRecommendationAsset)}
-		>
-			<MediaRail compact={props.compact}>
-				{props.recommendations.map((recommendation) => (
-					<PluginLink
-						key={recommendation.id}
-						aria-label={`Open ${recommendation.name}`}
-						to={{ kind: "entity", entityId: recommendation.id }}
-						className={clsx(
-							"flex flex-col gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-accent",
-							props.compact ? "w-28" : "w-32",
-						)}
-					>
-						<ManagedAssetImage
-							className="aspect-2/3 w-full"
-							monogram={recommendation.name}
-							asset={mediaRecommendationAsset(recommendation)}
-							state={fieldSyncState(mediaRecommendationAsset(recommendation), recommendation)}
-						/>
-						<p className="line-clamp-2 font-ui text-[12px] leading-4.25 text-text">
-							{recommendation.name}
-						</p>
-					</PluginLink>
-				))}
-			</MediaRail>
-		</MediaOverviewSection>
+			items={props.recommendations}
+		/>
 	);
 }
 
@@ -421,6 +389,7 @@ export function MediaOverviewRelations(props: {
 	readonly divided: boolean;
 	readonly copy: MediaCreditCopy;
 	readonly trailing?: ReactNode;
+	readonly aspect: MediaArtworkAspect;
 	readonly onViewAllPeople: () => void;
 	readonly overview: MediaOverviewRows;
 	readonly unlinked?: readonly MediaUnlinkedCreator[] | undefined;
@@ -456,6 +425,7 @@ export function MediaOverviewRelations(props: {
 				/>
 			</div>
 			<MediaRecommendationsSection
+				aspect={props.aspect}
 				compact={props.compact}
 				divided={props.divided || hasCredits}
 				recommendations={recommendations.items}

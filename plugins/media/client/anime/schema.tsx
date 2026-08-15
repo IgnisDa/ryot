@@ -10,6 +10,7 @@ import { formatLocalDateLabel } from "../media/date";
 import { defineFlatMediaSchema } from "../media/flat-schema";
 import { MEDIA_ART_HEIGHT } from "../media/hero";
 import { mediaCountFact, mediaCountLabels, type MediaSummaryFact } from "../media/summary-state";
+import { mediaSchemaAspects } from "../schema-aspects";
 import { animeAiringTrailing, animeUpcomingEpisodes } from "./sections";
 
 type AnimeSummary = MediaSummaryOf<typeof animeRecipes>;
@@ -45,9 +46,9 @@ export const animeProgressLabel = (
 };
 
 export const animeSchema = defineFlatMediaSchema({
-	aspect: "poster",
 	recipes: animeRecipes,
 	facts: animeSummaryFacts,
+	aspect: mediaSchemaAspects.anime,
 	heroHeight: () => MEDIA_ART_HEIGHT,
 	overviewTrailing: animeAiringTrailing,
 	presentationFacts: animePresentationFacts,
