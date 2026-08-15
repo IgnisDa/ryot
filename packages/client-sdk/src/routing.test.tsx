@@ -60,8 +60,14 @@ const Home = () => {
 
 let roots: Root[] = [];
 
-const pointer = (type: string, clientX: number) =>
-	new PointerEvent(type, { bubbles: true, clientX, clientY: 0, pointerId: 1 });
+const DRAG_START = 1_000;
+const DRAG_END = 1_400;
+
+const pointer = (type: string, clientX: number, timeStamp: number) => {
+	const event = new PointerEvent(type, { bubbles: true, clientX, clientY: 0, pointerId: 1 });
+	Object.defineProperty(event, "timeStamp", { configurable: true, value: timeStamp });
+	return event;
+};
 
 const openChannel = (definition: PluginRouterDefinition = { home: { component: Home } }) => {
 	const messages: unknown[] = [];
@@ -452,9 +458,9 @@ describe("PluginRouter", () => {
 		Object.defineProperty(root, "clientWidth", { configurable: true, value: 300 });
 
 		act(() => {
-			edge.dispatchEvent(pointer("pointerdown", 2));
-			edge.dispatchEvent(pointer("pointermove", 160));
-			edge.dispatchEvent(pointer("pointerup", 160));
+			edge.dispatchEvent(pointer("pointerdown", 2, DRAG_START));
+			edge.dispatchEvent(pointer("pointermove", 160, DRAG_END));
+			edge.dispatchEvent(pointer("pointerup", 160, DRAG_END));
 		});
 
 		const committing = container.querySelectorAll<HTMLElement>('[tabindex="-1"]');
@@ -487,9 +493,9 @@ describe("PluginRouter", () => {
 		Object.defineProperty(root, "clientWidth", { configurable: true, value: 300 });
 
 		act(() => {
-			edge.dispatchEvent(pointer("pointerdown", 2));
-			edge.dispatchEvent(pointer("pointermove", 30));
-			edge.dispatchEvent(pointer("pointerup", 30));
+			edge.dispatchEvent(pointer("pointerdown", 2, DRAG_START));
+			edge.dispatchEvent(pointer("pointermove", 30, DRAG_END));
+			edge.dispatchEvent(pointer("pointerup", 30, DRAG_END));
 		});
 
 		await act(async () => {
