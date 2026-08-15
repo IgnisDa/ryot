@@ -1,6 +1,6 @@
 import { runContract, type ContractProgram } from "@ryot-app/contract/client";
 import { IntegrationId, PluginSlug } from "@ryot-app/contract/schema/brands";
-import { metadataLookupRecipe } from "@ryot-app/media-plugin/operations/recipes";
+import { metadataLookupRecipe } from "@ryot-app/media-plugin/contracts/operation-recipes";
 import { invokeOperationRecipe } from "@ryot-app/plugin-kit/operations";
 import { Effect } from "effect";
 

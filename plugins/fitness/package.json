@@ -3,20 +3,16 @@
 	"private": true,
 	"exports": {
 		".": {
-			"types": "./manifest.ts",
-			"default": "./manifest.ts"
-		},
-		"./import-sources": {
-			"types": "./import-sources.ts",
-			"default": "./import-sources.ts"
+			"types": "./host/plugin.ts",
+			"default": "./host/plugin.ts"
 		},
 		"./query-recipes": {
-			"types": "./query-recipes.ts",
-			"default": "./query-recipes.ts"
+			"types": "./host/query-recipes.ts",
+			"default": "./host/query-recipes.ts"
 		},
-		"./schemas/property-schemas": {
-			"types": "./backend/schemas/property-schemas.ts",
-			"default": "./backend/schemas/property-schemas.ts"
+		"./import-sources": {
+			"types": "./host/import-sources.ts",
+			"default": "./host/import-sources.ts"
 		}
 	},
 	"scripts": {
