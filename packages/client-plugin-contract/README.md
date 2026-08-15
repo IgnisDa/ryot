@@ -10,8 +10,8 @@ bridge version. Bridge init establishes an immutable session identity from a ran
 that artifact identity. Ready repeats it, and the kernel accepts only an exact match. The plugin
 reports metadata embedded in the artifact rather than treating echoed kernel input as proof.
 
-The client artifact format, client API, compiler, and bridge protocol are currently exactly version 1.
-They remain one coordinated greenfield boundary with no legacy decoder or compatibility adapter.
+The client artifact format, client API, bridge protocol, and Vite-based client compiler identity are
+version 1.
 
 `ClientPageTarget` covers saved views, explicit plugin routes, and entities. Its page context carries
 renderer identity, settings, optional named data sources, and route parameters. Artifact sessions are
