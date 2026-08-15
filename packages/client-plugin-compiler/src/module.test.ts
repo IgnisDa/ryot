@@ -72,7 +72,14 @@ export default function Alpha() {
 			expect(names).toContain("module.css");
 			expect(stylesheet.contentType).toBe("text/css; charset=utf-8");
 			expect(css).toContain(".module-plugin");
-			expect(css.indexOf(".module-plugin")).toBeLessThan(css.indexOf("@font-face"));
+			expect([
+				...new Set(
+					[...css.matchAll(/@layer ([\w,]+)/g)].flatMap((match) => match[1]?.split(",") ?? []),
+				),
+			]).toEqual(["properties", "theme", "base", "components", "utilities"]);
+			expect(css).not.toContain("@font-face");
+			expect(css).not.toContain("--color-red-500:");
+			expect(css).not.toContain("--bg:");
 			expect(cssImports).toHaveLength(0);
 			expect(imports).toEqual(
 				expect.arrayContaining([

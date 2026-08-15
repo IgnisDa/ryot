@@ -1,14 +1,15 @@
 # Client UI SDK
 
 `@ryot-app/client-ui-sdk` provides presentation and interaction primitives shared by the kernel and
-plugin documents. Runtime code, base styles, and tokens can enter every plugin artifact, so additions
+plugin documents. Runtime code, base styles, and tokens enter every plugin document, so additions
 must justify their bundle cost.
 
 ## Styles And Exports
 
 `theme.css` maps Tailwind tokens and contains shared accessibility base rules. `palette.css` supplies
 all token values; its `:root` is complete and dark modes override only changed values. Both files are
-loaded by the kernel and inlined into plugin artifacts. A Tailwind utility outranks the base layer, so
+loaded by the kernel and shipped once in the shared client runtime's `runtime.css`; plugin artifacts
+reference their tokens without emitting them. A Tailwind utility outranks the base layer, so
 a component using `outline-none` must provide an equivalent focus indicator.
 
 Touch-layout text inputs stay at least 16px to prevent persistent iOS page zoom.
