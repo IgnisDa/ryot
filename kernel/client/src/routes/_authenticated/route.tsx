@@ -45,12 +45,14 @@ export const Route = createFileRoute("/_authenticated")({
 			),
 			context.runtime.runPromise(
 				Effect.flatMap(PublicApi, (api) =>
-					api.getSystemConfig(context.server).pipe(
-						Effect.match({
-							onFailure: () => false,
-							onSuccess: (config) => config.pro.isServerKeyValidated,
-						}),
-					),
+					api
+						.getSystemConfig(context.server)
+						.pipe(
+							Effect.match({
+								onFailure: () => false,
+								onSuccess: (config) => config.pro.isServerKeyValidated,
+							}),
+						),
 				),
 				{ signal: abortController.signal },
 			),

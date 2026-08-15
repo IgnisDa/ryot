@@ -32,9 +32,7 @@ export const details = defineProvider({
 	operation: "details",
 	run: (input, host) =>
 		Effect.gen(function* () {
-			const params = new URLSearchParams({
-				response_groups: "media,product_attrs,relationships",
-			});
+			const params = new URLSearchParams({ response_groups: "media,product_attrs,relationships" });
 			const payloadValue = yield* audibleFetchJson(
 				host,
 				`${CATALOG_URL}/${input.externalId}?${params.toString()}`,

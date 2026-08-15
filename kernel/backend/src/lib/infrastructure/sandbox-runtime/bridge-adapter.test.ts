@@ -93,10 +93,7 @@ describe("bindSandboxHostFunctions", () => {
 			const bound = bindSandboxHostFunctions(implementations, input);
 			const result = yield* bound.httpCall(["POST", "https://example.com", { body: 42 }]);
 
-			expect(result).toEqual({
-				success: false,
-				error: "2.body: Expected string | undefined",
-			});
+			expect(result).toEqual({ success: false, error: "2.body: Expected string | undefined" });
 			expect(
 				yield* bound.httpCall(["POST", "https://example.com", { allowInsecureConnections: "yes" }]),
 			).toEqual({
@@ -356,10 +353,7 @@ describe("bindSandboxHostFunctions", () => {
 						properties: { message: "trace" },
 					},
 				]),
-			).toEqual({
-				success: false,
-				error: "0.recipientUserIds: Expected no excess property",
-			});
+			).toEqual({ success: false, error: "0.recipientUserIds: Expected no excess property" });
 			expect(yield* bound.sendNotification(["   "])).toEqual({
 				success: false,
 				error: "0: Expected a value with a length of at least 1",
@@ -387,10 +381,7 @@ describe("bindSandboxHostFunctions", () => {
 				error: "reached",
 				success: false,
 			});
-			expect(yield* bound.listIntegrations([null])).toEqual({
-				success: false,
-				error: "reached",
-			});
+			expect(yield* bound.listIntegrations([null])).toEqual({ success: false, error: "reached" });
 			expect(yield* bound.getPluginConfig([[null]])).toEqual({
 				success: false,
 				error: "0.0: Expected string",

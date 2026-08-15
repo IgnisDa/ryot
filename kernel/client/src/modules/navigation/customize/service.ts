@@ -22,10 +22,7 @@ export class CustomizeSidebarService extends Context.Service<CustomizeSidebarSer
 			) {
 				for (const update of plan.updates) {
 					yield* savedViews
-						.update(scope, {
-							payload: update.payload,
-							params: { viewSlug: update.viewSlug },
-						})
+						.update(scope, { payload: update.payload, params: { viewSlug: update.viewSlug } })
 						.pipe(Effect.mapError((cause) => new CustomizeSaveError({ cause, stage: "update" })));
 				}
 				for (const payload of plan.reorders) {
@@ -35,10 +32,7 @@ export class CustomizeSidebarService extends Context.Service<CustomizeSidebarSer
 				}
 				for (const update of plan.workspaceUpdates) {
 					yield* installations
-						.update(scope, {
-							payload: update.payload,
-							params: { pluginSlug: update.pluginSlug },
-						})
+						.update(scope, { payload: update.payload, params: { pluginSlug: update.pluginSlug } })
 						.pipe(
 							Effect.mapError((cause) => new CustomizeSaveError({ cause, stage: "workspace" })),
 						);

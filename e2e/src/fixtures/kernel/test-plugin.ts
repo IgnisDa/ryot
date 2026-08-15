@@ -287,9 +287,7 @@ export const installTestPluginBundle = (
 				input.baseUrl,
 			);
 			yield* input.client.call((c) =>
-				c.plugins.install({
-					payload: { config: input.config ?? {}, uploadToken },
-				}),
+				c.plugins.install({ payload: { config: input.config ?? {}, uploadToken } }),
 			);
 			yield* pollUntil(
 				`private test plugin '${pluginSlug}' installation`,

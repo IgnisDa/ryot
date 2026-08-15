@@ -156,11 +156,7 @@ defineScript({
 			const providers: ReadonlyArray<{ readonly name: string; readonly providerId: string }> =
 				entitySchema.providers;
 			const created = yield* host.createEvents([
-				{
-					entityId: "entity-1",
-					properties: { watched: true },
-					eventSchemaSlug: "event-schema-1",
-				},
+				{ entityId: "entity-1", properties: { watched: true }, eventSchemaSlug: "event-schema-1" },
 			]);
 			const [changed] = yield* host.changeUserRelationships([
 				{

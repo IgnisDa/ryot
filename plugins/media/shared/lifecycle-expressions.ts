@@ -111,12 +111,7 @@ const latestField = (
 	field: string,
 	where: Predicate,
 	joins?: readonly ReturnType<typeof join>[],
-) =>
-	latestEventField(event, {
-		where,
-		select: column(event, field),
-		...(joins ? { joins } : {}),
-	});
+) => latestEventField(event, { where, select: column(event, field), ...(joins ? { joins } : {}) });
 
 const latestEventOrderExpressions = (where: Predicate, alias: string): EventOrderExpressions => {
 	const event = table("event", alias);
@@ -248,10 +243,7 @@ export const episodicCoverageExpressions = (
 		entitySchemaIs(episode, config.episodeSchemaSlug),
 		relationshipConnects(seasonEpisode, season, episode, config.seasonEpisodeRelationshipSlug),
 	);
-	const requiredEpisodeCount = count(episode, {
-		joins: episodeJoins,
-		where: requiredEpisode,
-	});
+	const requiredEpisodeCount = count(episode, { joins: episodeJoins, where: requiredEpisode });
 	const coveredEpisodeCount = count(episode, {
 		joins: episodeJoins,
 		where: and(requiredEpisode, episodeIsCovered(episode, parent, `${alias}Episode`)),
@@ -343,13 +335,7 @@ export const episodicLifecycleExpressions = (
 			conditional(coverageComplete, literal("caught_up"), literal("in_progress")),
 		),
 	);
-	return {
-		state,
-		latestSignal,
-		coverageComplete,
-		boundaryCompleteEvent,
-		coverageStructureValid,
-	};
+	return { state, latestSignal, coverageComplete, boundaryCompleteEvent, coverageStructureValid };
 };
 
 const episodeStateFromLatest = (latestEventSchemaSlug: ScalarExpression) =>

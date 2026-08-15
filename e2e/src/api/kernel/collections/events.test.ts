@@ -29,10 +29,7 @@ describe("collection events", () => {
 			const addEvents = events.filter((e) => e.eventSchemaSlug === "add-entity-to-collection");
 
 			expect(addEvents).toHaveLength(1);
-			expect(addEvents[0]?.properties).toMatchObject({
-				entityId,
-				relationshipId,
-			});
+			expect(addEvents[0]?.properties).toMatchObject({ entityId, relationshipId });
 			expect(addEvents[0]?.properties.entitySchemaSlug).toBeDefined();
 		}),
 	);
@@ -85,10 +82,7 @@ describe("collection events", () => {
 			);
 
 			expect(removeEvents).toHaveLength(1);
-			expect(removeEvents[0]?.properties).toMatchObject({
-				entityId,
-				relationshipId,
-			});
+			expect(removeEvents[0]?.properties).toMatchObject({ entityId, relationshipId });
 			expect(removeEvents[0]?.properties.entitySchemaSlug).toBeDefined();
 		}),
 	);
@@ -97,9 +91,7 @@ describe("collection events", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
-			const collection = yield* createCollection(client, {
-				name: "No Remove Event Collection",
-			});
+			const collection = yield* createCollection(client, { name: "No Remove Event Collection" });
 			const { entityId } = yield* createPluginSchemaAndEntity(client);
 
 			const error = yield* Effect.flip(

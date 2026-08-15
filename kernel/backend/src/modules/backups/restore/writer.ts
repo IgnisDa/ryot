@@ -824,20 +824,13 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						if (!pluginId) {
 							return yield* badRequest("Backup saved view renderer mapping is invalid");
 						}
-						renderer = {
-							exportName: view.renderer.exportName,
-							kind: "plugin" as const,
-							pluginId,
-						};
+						renderer = { exportName: view.renderer.exportName, kind: "plugin" as const, pluginId };
 					} else if (view.renderer.kind === "custom") {
 						const rendererId = clientRendererIdMap.get(view.renderer.rendererId);
 						if (!rendererId) {
 							return yield* badRequest("Backup saved view renderer mapping is invalid");
 						}
-						renderer = {
-							...view.renderer,
-							rendererId,
-						};
+						renderer = { ...view.renderer, rendererId };
 					} else {
 						renderer = view.renderer;
 					}

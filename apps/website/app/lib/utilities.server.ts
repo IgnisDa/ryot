@@ -118,11 +118,7 @@ export const sendEmail = async (input: {
 	});
 	const html = await render(input.element, { pretty: true });
 	const text = await render(input.element, { plainText: true });
-	const log = {
-		cc: input.cc,
-		subject: input.subject,
-		recipient: input.recipient,
-	};
+	const log = { cc: input.cc, subject: input.subject, recipient: input.recipient };
 	console.log("Sending email:", log);
 	const resp = await client.sendMail({
 		text,
@@ -152,9 +148,7 @@ export const getCustomerFromCookie = async (request: Request) => {
 	}
 	const customerId = z.string().parse(cookie);
 
-	return await getDb().query.customers.findFirst({
-		where: eq(schema.customers.id, customerId),
-	});
+	return await getDb().query.customers.findFirst({ where: eq(schema.customers.id, customerId) });
 };
 
 export const getCustomerWithActivePurchase = async (request: Request) => {
@@ -203,9 +197,7 @@ export const verifyTurnstileToken = async (input: { token: string; remoteIp?: st
 	try {
 		const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
 			method: "POST",
-			headers: {
-				"Content-Type": "application/x-www-form-urlencoded",
-			},
+			headers: { "Content-Type": "application/x-www-form-urlencoded" },
 			body: new URLSearchParams({
 				response: input.token,
 				secret: serverVariables.TURNSTILE_SECRET_KEY,

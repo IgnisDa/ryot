@@ -42,12 +42,7 @@ describe("backup lifecycle", () => {
 
 			expect(fetched).toEqual(completed);
 			expect(listed.items.find(({ id }) => id === runId)).toEqual(completed);
-			expect(completed).toMatchObject({
-				id: runId,
-				failure: null,
-				progress: 100,
-				kind: "export",
-			});
+			expect(completed).toMatchObject({ id: runId, failure: null, progress: 100, kind: "export" });
 			expect(["local", "s3"]).toContain(completed.artifactProvider);
 			for (const timestamp of [
 				completed.createdAt,
@@ -218,10 +213,7 @@ describe("backup lifecycle", () => {
 			expect(restoredEntity.id).toBe(sourceEntity.id);
 			expect(restoredEntity.name).toBe(sourceEntity.name);
 			expect(restoredEntity.entitySchemaSlug).toBe(schemaId);
-			expect(restoredEntity.properties).toEqual({
-				title,
-				attachment: targetLocator,
-			});
+			expect(restoredEntity.properties).toEqual({ title, attachment: targetLocator });
 			expect(targetLocator.type).toBe("s3");
 			expect(targetLocator.key).not.toBe(sourceLocator.key);
 

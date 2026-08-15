@@ -16,11 +16,7 @@ export const resolvedMediaRef = (
 export const movieOrShowImportRef = (input: {
 	sourceLabel: string;
 	entitySchemaSlug: "movie" | "show";
-	providerIds: {
-		imdb?: string | undefined;
-		tmdb?: string | undefined;
-		tvdb?: string | undefined;
-	};
+	providerIds: { imdb?: string | undefined; tmdb?: string | undefined; tvdb?: string | undefined };
 }): ImportEntityRef | null => {
 	const tmdb = input.providerIds.tmdb?.trim();
 	if (tmdb) {

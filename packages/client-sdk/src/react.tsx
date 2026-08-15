@@ -110,9 +110,7 @@ export type RyotQueryResult<Data> = {
 	readonly status: "pending" | "error" | "success";
 };
 
-export type RyotQueryHookOptions = {
-	readonly refreshOnMutation?: boolean;
-};
+export type RyotQueryHookOptions = { readonly refreshOnMutation?: boolean };
 
 export type RyotMutationResult<Input, Data> = {
 	readonly reset: () => void;

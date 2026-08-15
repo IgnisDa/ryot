@@ -148,11 +148,7 @@ describe("ProviderAddService", () => {
 			const stages = [
 				yield* Effect.flip(service.loadProviders(client, entitySchemaSlug)),
 				yield* Effect.flip(
-					service.loadEntityLinks(client, {
-						providerId,
-						entitySchemaSlug,
-						externalIds: ["ext-1"],
-					}),
+					service.loadEntityLinks(client, { providerId, entitySchemaSlug, externalIds: ["ext-1"] }),
 				),
 				yield* Effect.flip(service.loadSearchOptions(scope, providerId)),
 				yield* Effect.flip(

@@ -108,10 +108,7 @@ export const makeIgdbRequest = (host: IgdbHost, path: string, body: string) =>
 				.pipe(
 					Effect.mapError((error) => new Error(error.message || `IGDB ${path} request failed`)),
 					Effect.map((response) => {
-						return {
-							headers: response.headers,
-							data: parseJsonResponse(response.body, "IGDB"),
-						};
+						return { headers: response.headers, data: parseJsonResponse(response.body, "IGDB") };
 					}),
 				),
 		),

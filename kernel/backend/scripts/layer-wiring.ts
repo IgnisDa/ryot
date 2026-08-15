@@ -1,7 +1,4 @@
-export type LayerWiringSource = {
-	readonly path: string;
-	readonly source: string;
-};
+export type LayerWiringSource = { readonly path: string; readonly source: string };
 
 const CALL = "Layer.provide(";
 

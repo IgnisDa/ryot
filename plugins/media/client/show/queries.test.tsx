@@ -76,10 +76,7 @@ const recordingAdapter = () => {
 		watchEntities: (interest, onUpdate) => {
 			hints.push(onUpdate);
 			interests.push(interest);
-			return {
-				update: (next) => interests.push(next),
-				dispose: () => disposed.push(interest),
-			};
+			return { update: (next) => interests.push(next), dispose: () => disposed.push(interest) };
 		},
 	};
 	return { hints, adapter, requests, interests, disposed };
@@ -149,9 +146,7 @@ describe("show query entity interest", () => {
 		"summary",
 		showSummaryQuery,
 		{ entityId: "show-1" },
-		{
-			data: { requested: rows([{ schemaSlug: "show" }]), show: rows([showSummaryRow]) },
-		},
+		{ data: { requested: rows([{ schemaSlug: "show" }]), show: rows([showSummaryRow]) } },
 		["show-1"],
 		["collection-1"],
 	);

@@ -237,10 +237,7 @@ end
 return watching
 `;
 
-export type PendingInterest = {
-	readonly revision: number;
-	readonly entityId: string;
-};
+export type PendingInterest = { readonly revision: number; readonly entityId: string };
 
 type InterestCommandOutcome =
 	| { readonly status: "overlap" }

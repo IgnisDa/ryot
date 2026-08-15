@@ -9,11 +9,7 @@ type TrendingHost = SandboxHost<typeof manifest.capabilities>;
 
 const execution = { metadata: {}, sandboxScriptId: "script-test" };
 const httpSuccess = (body: unknown) =>
-	Effect.succeed({
-		status: 200,
-		headers: {},
-		body: JSON.stringify(body),
-	});
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
 describe("media trending cron", () => {
 	it("preserves provider order and rank while atomically reconciling deduplicated self edges", () => {

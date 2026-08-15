@@ -1,7 +1,4 @@
-export type MetadataLookupEpisodeInfo = {
-	season: number;
-	episode: number;
-};
+export type MetadataLookupEpisodeInfo = { season: number; episode: number };
 
 const CLEANING_PATTERNS = [
 	/\([12]\d{3}\)/g,

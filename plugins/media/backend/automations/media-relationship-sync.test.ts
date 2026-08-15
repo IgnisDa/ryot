@@ -26,11 +26,7 @@ const input = (overrides: {
 		population: {
 			rootPreviouslyPopulated: overrides.rootPreviouslyPopulated ?? true,
 			...(overrides.parentEntity ? { parentEntity: overrides.parentEntity } : {}),
-			scopeEntity: {
-				id: "show-1",
-				name: "Severance",
-				entitySchemaSlug: "show",
-			},
+			scopeEntity: { id: "show-1", name: "Severance", entitySchemaSlug: "show" },
 			batch: {
 				id: "batch-1",
 				updatedCount: 0,

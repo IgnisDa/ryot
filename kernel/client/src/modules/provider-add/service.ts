@@ -102,14 +102,7 @@ export class ProviderAddService extends Context.Service<ProviderAddService>()(
 					);
 			});
 
-			return {
-				search,
-				pollImport,
-				startImport,
-				loadProviders,
-				loadEntityLinks,
-				loadSearchOptions,
-			};
+			return { search, pollImport, startImport, loadProviders, loadEntityLinks, loadSearchOptions };
 		}),
 	},
 ) {

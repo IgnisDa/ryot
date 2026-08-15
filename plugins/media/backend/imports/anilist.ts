@@ -36,10 +36,7 @@ const AnilistReview = Schema.Struct({
 	series_type: Schema.Int,
 	updated_at: Schema.String,
 });
-const AnilistFavorite = Schema.Struct({
-	favourite_id: Schema.Int,
-	favourite_type: Schema.Int,
-});
+const AnilistFavorite = Schema.Struct({ favourite_id: Schema.Int, favourite_type: Schema.Int });
 const AnilistRoot = Schema.Struct({
 	lists: Schema.optional(Schema.Array(Schema.Unknown)),
 	reviews: Schema.optional(Schema.Array(Schema.Unknown)),

@@ -114,10 +114,7 @@ export class ObjectStorageService extends Context.Service<ObjectStorageService>(
 				const info = yield* locator.type === "local"
 					? localStorage.statObject(locator.key)
 					: s3Service.statObject(locator.key);
-				return {
-					size: Number(info.size),
-					contentType: locator.type === "s3" ? info.type : null,
-				};
+				return { size: Number(info.size), contentType: locator.type === "s3" ? info.type : null };
 			});
 
 			const deleteObject = Effect.fn("ObjectStorageService.deleteObject")(function* (

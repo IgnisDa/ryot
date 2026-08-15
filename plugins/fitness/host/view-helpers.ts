@@ -2,9 +2,7 @@ import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/languag
 import { castJson, column, jsonPath, table, titleCase } from "@ryot-app/ryotql";
 import type { SavedViewLayoutProjectionsInput } from "@ryot-app/ryotql-recipes/saved-views";
 
-type ViewExpressions = {
-	readonly table: Omit<SavedViewLayoutProjectionsInput["table"], "entity">;
-};
+type ViewExpressions = { readonly table: Omit<SavedViewLayoutProjectionsInput["table"], "entity"> };
 
 const entity = table("entity", "entity");
 const entityColumn = (name: string) => column(entity, name);

@@ -24,10 +24,7 @@ const alternateDataSources = {
 	...rowsDataSources,
 	queries: {
 		...rowsDataSources.queries,
-		savedView: {
-			...savedViewQuery,
-			where: eq(column(entity, "name"), literal("A Book")),
-		},
+		savedView: { ...savedViewQuery, where: eq(column(entity, "name"), literal("A Book")) },
 	},
 };
 

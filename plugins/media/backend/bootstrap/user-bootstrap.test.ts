@@ -20,8 +20,6 @@ describe("media user bootstrap", () => {
 		);
 
 		expect(calls).toEqual([[{ name: "Library", properties: {}, entitySchemaSlug: "library" }]]);
-		expect(result).toEqual({
-			results: [{ entityId: "library-id", wasInserted: true }],
-		});
+		expect(result).toEqual({ results: [{ entityId: "library-id", wasInserted: true }] });
 	});
 });

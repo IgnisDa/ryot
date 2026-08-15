@@ -146,10 +146,7 @@ it.effect("resolves a provider by portable plugin and provider slugs", () => {
 	return Effect.gen(function* () {
 		const repository = yield* PluginRepository;
 		expect(
-			yield* repository.resolveProviderBySlugs({
-				pluginId: "example",
-				providerSlug: "alpha",
-			}),
+			yield* repository.resolveProviderBySlugs({ pluginId: "example", providerSlug: "alpha" }),
 		).toEqual({ id: SandboxProviderId.make("provider-id"), entitySchemaSlug: "record" });
 	}).pipe(
 		Effect.provide(
@@ -176,10 +173,7 @@ it.effect("detects entities referencing a plugin provider", () =>
 	Effect.gen(function* () {
 		const repository = yield* PluginRepository;
 		expect(
-			yield* repository.hasEntityReferences({
-				pluginId: "fixture",
-				entitySchemaSlugs: [],
-			}),
+			yield* repository.hasEntityReferences({ pluginId: "fixture", entitySchemaSlugs: [] }),
 		).toBe(true);
 	}).pipe(Effect.provide(makeLayer({ entityRows: [{ id: "entity-id" }] }))),
 );

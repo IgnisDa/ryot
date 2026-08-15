@@ -88,9 +88,7 @@ describe("Plugin Import Public Boundary", () => {
 				"text/csv",
 			);
 			const created = yield* client.call((c) =>
-				c.imports.createRun({
-					payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken },
-				}),
+				c.imports.createRun({ payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken } }),
 			);
 
 			const completed = yield* pollImportRunUntilTerminal(client, created.id);

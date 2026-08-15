@@ -4,10 +4,7 @@
  * here. Each entry names the group it belongs to, so what a heading means is the feature's business:
  * plugin-contributed catalogs group by contributing plugin, kernel-owned ones group by category.
  */
-export type CatalogEntryGroup = {
-	readonly key: string;
-	readonly heading: string;
-};
+export type CatalogEntryGroup = { readonly key: string; readonly heading: string };
 
 export type CatalogEntry = {
 	readonly slug: string;
@@ -19,9 +16,7 @@ export type CatalogEntry = {
 	readonly requirement: string | undefined;
 };
 
-export type CatalogGroup = CatalogEntryGroup & {
-	readonly entries: readonly CatalogEntry[];
-};
+export type CatalogGroup = CatalogEntryGroup & { readonly entries: readonly CatalogEntry[] };
 
 type CatalogSource = { readonly name: string; readonly description: string };
 

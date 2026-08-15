@@ -8,9 +8,7 @@ const equivalentOrigin = decodeServerOrigin(" https://one.test/ ");
 
 describe("authentication route gates", () => {
 	it("waits while a session is being restored", () => {
-		expect(decideAuthRoute(origin, { status: "pending" }, "/library")).toEqual({
-			action: "wait",
-		});
+		expect(decideAuthRoute(origin, { status: "pending" }, "/library")).toEqual({ action: "wait" });
 		expect(decideProtectedRoute(origin, { status: "pending" }, "/library")).toEqual({
 			action: "wait",
 		});

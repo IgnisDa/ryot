@@ -11,10 +11,7 @@ import { ImportsRepository } from "./repository";
 const mockImportsRepository = Layer.mock(ImportsRepository);
 
 const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsRepository> = {}) =>
-	mockImportsRepository({
-		createFailure: () => Effect.void,
-		...overrides,
-	});
+	mockImportsRepository({ createFailure: () => Effect.void, ...overrides });
 
 const makeServiceLayer = (repository = makeImportsRepository()) =>
 	ImportRunFailuresService.layer.pipe(

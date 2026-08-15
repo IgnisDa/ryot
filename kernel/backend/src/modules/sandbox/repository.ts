@@ -30,10 +30,7 @@ type StoredScriptRow = Pick<
 	"id" | "slug" | "name" | "source" | "metadata" | "providerId" | "compiledCode" | "compiledFormat"
 >;
 
-const toStoredScript = (row: StoredScriptRow) => ({
-	...row,
-	id: SandboxScriptId.make(row.id),
-});
+const toStoredScript = (row: StoredScriptRow) => ({ ...row, id: SandboxScriptId.make(row.id) });
 
 export const isWorkflowCallTargetKind = (
 	request: WorkflowDurableCallRequest,

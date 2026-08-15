@@ -17,9 +17,7 @@ import { Data, Effect, FileSystem, Option, Path, Schema, Stream } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
-class BuildError extends Data.TaggedError("BuildError")<{
-	readonly message: string;
-}> {}
+class BuildError extends Data.TaggedError("BuildError")<{ readonly message: string }> {}
 
 const PackageJson = Schema.Struct({
 	exports: Schema.optional(
@@ -29,10 +27,7 @@ const PackageJson = Schema.Struct({
 	),
 });
 
-type BuildOptions = {
-	readonly cwd: string;
-	readonly output: string | undefined;
-};
+type BuildOptions = { readonly cwd: string; readonly output: string | undefined };
 
 type PluginManifest = Schema.Schema.Type<typeof PluginManifestSchema>;
 
@@ -62,9 +57,7 @@ const loadManifest = Effect.fn("loadManifest")(function* (cwd: string) {
 	);
 	const manifestEntry = packageJson.exports?.["."]?.default;
 	if (manifestEntry === undefined) {
-		return yield* new BuildError({
-			message: 'package.json must define exports["."].default',
-		});
+		return yield* new BuildError({ message: 'package.json must define exports["."].default' });
 	}
 
 	const manifestPath = path.resolve(cwd, manifestEntry);

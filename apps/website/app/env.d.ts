@@ -8,11 +8,7 @@ declare module "*.mdx" {
 		properties: { labels: string[] };
 	};
 
-	type BlogTableOfContentsItem = {
-		id: string;
-		depth: 2 | 3;
-		label: string;
-	};
+	type BlogTableOfContentsItem = { id: string; depth: 2 | 3; label: string };
 
 	export const frontmatter: BlogFrontmatter;
 	export const tableOfContents: readonly BlogTableOfContentsItem[] | undefined;

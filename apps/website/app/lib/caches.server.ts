@@ -8,10 +8,7 @@ dayjs.extend(duration);
 
 const commonTtl = dayjs.duration(5, "minutes").asMilliseconds();
 
-const otpCodesCache = new TTLCache<string, string>({
-	max: 1000,
-	ttl: commonTtl,
-});
+const otpCodesCache = new TTLCache<string, string>({ max: 1000, ttl: commonTtl });
 
 const generateOtp = (length: number) => {
 	const max = 10 ** length;
@@ -38,9 +35,7 @@ export const getCancellation = (customerId: string) => cancellationCache.get(cus
 
 export const revokeCancellation = (customerId: string) => cancellationCache.delete(customerId);
 
-const purchaseInProgressCache = new TTLCache<string, boolean>({
-	ttl: commonTtl,
-});
+const purchaseInProgressCache = new TTLCache<string, boolean>({ ttl: commonTtl });
 
 export const setPurchaseInProgress = (customerId: string) =>
 	purchaseInProgressCache.set(customerId, true);

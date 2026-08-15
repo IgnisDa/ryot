@@ -188,8 +188,6 @@ export const ReorderSavedViewsBody = Schema.Struct({
 
 export type ReorderSavedViewsBody = typeof ReorderSavedViewsBody.Type;
 
-export const ReorderSavedViewsResponse = Schema.Struct({
-	viewSlugs: Schema.Array(Schema.String),
-});
+export const ReorderSavedViewsResponse = Schema.Struct({ viewSlugs: Schema.Array(Schema.String) });
 
 export type ReorderSavedViewsResponse = typeof ReorderSavedViewsResponse.Type;

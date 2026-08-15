@@ -109,11 +109,7 @@ describe("plugin navigation store", () => {
 
 		store.clear();
 
-		expect(store.getSnapshot()).toMatchObject({
-			screens: [],
-			safeAreaTop: 59,
-			safeAreaBottom: 34,
-		});
+		expect(store.getSnapshot()).toMatchObject({ screens: [], safeAreaTop: 59, safeAreaBottom: 34 });
 	});
 
 	it("emits only when a viewport inset actually changes", () => {

@@ -96,11 +96,7 @@ describe("sandbox observability host functions", () => {
 
 		expect(
 			collector.record("log", [
-				{
-					level: "info",
-					message: "ready",
-					attributes: { z: 1, a: { y: true, b: "value" } },
-				},
+				{ level: "info", message: "ready", attributes: { z: 1, a: { y: true, b: "value" } } },
 			]),
 		).toBeNull();
 		expect(collector.record("span", [{ name: "provider.run" }])).toBeNull();

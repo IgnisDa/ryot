@@ -135,18 +135,8 @@ it.effect("returns a cursor from the last returned row and compiles mixed keyset
 		orderBy: [descending(column(entity, "createdAt")), ascending(column(entity, "name"))],
 	});
 	const resultRows = [
-		{
-			o0: new Date("2026-08-10T00:00:00.000Z"),
-			o1: "duplicate",
-			o2: "entity-1",
-			f0v: "entity-1",
-		},
-		{
-			o0: new Date("2026-08-09T00:00:00.000Z"),
-			o1: null,
-			o2: "entity-2",
-			f0v: "entity-2",
-		},
+		{ o0: new Date("2026-08-10T00:00:00.000Z"), o1: "duplicate", o2: "entity-1", f0v: "entity-1" },
+		{ o0: new Date("2026-08-09T00:00:00.000Z"), o1: null, o2: "entity-2", f0v: "entity-2" },
 	];
 
 	return Effect.gen(function* () {
@@ -165,10 +155,7 @@ it.effect("returns a cursor from the last returned row and compiles mixed keyset
 			queries: {
 				entities: {
 					...query,
-					output: {
-						...query.output,
-						pagination: { limit: 1, after: result.pageInfo.nextCursor },
-					},
+					output: { ...query.output, pagination: { limit: 1, after: result.pageInfo.nextCursor } },
 				},
 			},
 		});
@@ -198,13 +185,7 @@ it.effect("rejects malformed cursor envelopes before row SQL", () => {
 		for (const after of cases) {
 			const exit = yield* Effect.exit(
 				service.executeForUser("user-1", null, {
-					queries: {
-						entities: rows(entity, {
-							after,
-							limit: 1,
-							fields: [],
-						}),
-					},
+					queries: { entities: rows(entity, { after, limit: 1, fields: [] }) },
 				}),
 			);
 			expect(exit._tag).toBe("Failure");
@@ -342,13 +323,7 @@ it.effect(
 			expect(response.data["providers"]).toEqual({
 				type: "rows",
 				pageInfo: { limit: 20, hasMore: false, nextCursor: null },
-				items: [
-					{
-						id: "provider-1",
-						optionsSchema: null,
-						information: { source: "alpha" },
-					},
-				],
+				items: [{ id: "provider-1", optionsSchema: null, information: { source: "alpha" } }],
 			});
 		}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
 	},
@@ -616,9 +591,7 @@ it.effect("authorizes notification channels in every query occurrence", () => {
 			channels: rows(root, {
 				fields: [],
 				joins: [join("left", joined, eq(column(root, "id"), column(joined, "id")))],
-				where: exists(correlated, {
-					where: eq(column(correlated, "id"), column(root, "id")),
-				}),
+				where: exists(correlated, { where: eq(column(correlated, "id"), column(root, "id")) }),
 				include: [
 					include(included, {
 						limit: 1,
@@ -654,9 +627,7 @@ it.effect("authorizes integrations in every query occurrence", () => {
 			integrations: rows(root, {
 				fields: [],
 				joins: [join("left", joined, eq(column(root, "id"), column(joined, "id")))],
-				where: exists(correlated, {
-					where: eq(column(correlated, "id"), column(root, "id")),
-				}),
+				where: exists(correlated, { where: eq(column(correlated, "id"), column(root, "id")) }),
 				include: [
 					include(included, {
 						limit: 1,
@@ -690,9 +661,7 @@ it.effect("authorizes notification subscription states in every query occurrence
 			states: rows(root, {
 				fields: [],
 				joins: [join("left", joined, eq(column(root, "id"), column(joined, "id")))],
-				where: exists(correlated, {
-					where: eq(column(correlated, "id"), column(root, "id")),
-				}),
+				where: exists(correlated, { where: eq(column(correlated, "id"), column(root, "id")) }),
 				include: [
 					include(included, {
 						limit: 1,
@@ -904,14 +873,7 @@ it.effect("preserves reserved result keys and non-text runtime kinds", () => {
 	});
 	const document: RyotQLDocument = { queries: Object.fromEntries([["__proto__", query]]) };
 	const createdAt = new Date("2026-08-07T12:00:00.000Z");
-	const resultRows = [
-		{
-			f1k: "json",
-			f0k: "date",
-			f0v: createdAt,
-			f1v: { rating: 5 },
-		},
-	];
+	const resultRows = [{ f1k: "json", f0k: "date", f0v: createdAt, f1v: { rating: 5 } }];
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
 		const response = yield* service.executeForUser("user-1", null, document);

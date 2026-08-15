@@ -16,10 +16,7 @@ export type SandboxFilesystemError = {
 	readonly _tag: "SandboxFilesystemError";
 };
 
-export type SandboxScratchChunk = {
-	readonly name: string;
-	readonly contents: string | Uint8Array;
-};
+export type SandboxScratchChunk = { readonly name: string; readonly contents: string | Uint8Array };
 
 export const sandboxScratchManifestSchema = Schema.Struct({
 	chunkFiles: Schema.Array(Schema.String),

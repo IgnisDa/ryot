@@ -104,10 +104,7 @@ const mountLogin = (config: ReturnType<typeof systemConfig>) => {
 describe("Hosted OAuth login", () => {
 	it("shows a configured frontend mismatch without starting authentication", async () => {
 		const mounted = mountLogin(
-			systemConfig("https://configured.example", {
-				oidcEnabled: true,
-				localAuthDisabled: true,
-			}),
+			systemConfig("https://configured.example", { oidcEnabled: true, localAuthDisabled: true }),
 		);
 
 		await screen.findByText("Server configuration mismatch");
@@ -121,10 +118,7 @@ describe("Hosted OAuth login", () => {
 
 	it("uses the browser origin as a fixed server", async () => {
 		const mounted = mountLogin(
-			systemConfig(window.location.origin, {
-				oidcEnabled: false,
-				localAuthDisabled: false,
-			}),
+			systemConfig(window.location.origin, { oidcEnabled: false, localAuthDisabled: false }),
 		);
 
 		await screen.findByText(`Server: ${window.location.hostname}`);
@@ -134,10 +128,7 @@ describe("Hosted OAuth login", () => {
 
 	it("shows an unavailable state when no authentication method is configured", async () => {
 		mountLogin(
-			systemConfig(window.location.origin, {
-				oidcEnabled: false,
-				localAuthDisabled: true,
-			}),
+			systemConfig(window.location.origin, { oidcEnabled: false, localAuthDisabled: true }),
 		);
 
 		await screen.findByText("Authentication unavailable");

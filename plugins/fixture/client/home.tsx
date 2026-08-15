@@ -56,11 +56,7 @@ const uploadTones = {
 } as const;
 
 const uploadMutation = createRyotMutation<File, TemporaryUploadToken>(({ client, input }) =>
-	client.uploads.uploadTemporary({
-		source: input,
-		fileName: input.name,
-		contentType: input.type,
-	}),
+	client.uploads.uploadTemporary({ source: input, fileName: input.name, contentType: input.type }),
 );
 
 export const Home = () => {

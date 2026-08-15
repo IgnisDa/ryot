@@ -125,12 +125,7 @@ describe("show.tvdb sandbox script", () => {
 			}
 			if (pathname.endsWith("/seasons/103/extended")) {
 				return httpSuccess({
-					data: {
-						id: 103,
-						number: 3,
-						type: { type: "official" },
-						episodes: [],
-					},
+					data: { id: 103, number: 3, type: { type: "official" }, episodes: [] },
 				});
 			}
 			if (pathname.endsWith("/seasons/100/extended")) {
@@ -212,11 +207,7 @@ describe("show.tvdb sandbox script", () => {
 							name: "Season 2",
 							entitySchemaSlug: "show-season",
 							expectedChildEntitySchemaSlug: "show-episode",
-							properties: {
-								seasonNumber: 2,
-								releaseDate: null,
-								parentShowExternalId: "1",
-							},
+							properties: { seasonNumber: 2, releaseDate: null, parentShowExternalId: "1" },
 						},
 						{
 							childEntities: [],
@@ -224,11 +215,7 @@ describe("show.tvdb sandbox script", () => {
 							name: "Season 3",
 							entitySchemaSlug: "show-season",
 							expectedChildEntitySchemaSlug: "show-episode",
-							properties: {
-								seasonNumber: 3,
-								releaseDate: null,
-								parentShowExternalId: "1",
-							},
+							properties: { seasonNumber: 3, releaseDate: null, parentShowExternalId: "1" },
 						},
 					]);
 					expect(result.properties).toEqual({
@@ -347,10 +334,7 @@ describe("show.tvdb sandbox script", () => {
 		);
 	});
 	it("derives season and episode translation paths from the parent show id", () => {
-		const requested: Array<{
-			method: string;
-			path: string;
-		}> = [];
+		const requested: Array<{ method: string; path: string }> = [];
 		const host = makeHost((method, url) => {
 			const { pathname } = new URL(url);
 			requested.push({ method, path: pathname });
@@ -380,10 +364,7 @@ describe("show.tvdb sandbox script", () => {
 			)
 				.pipe(
 					Effect.flatMap((seasonResult) => {
-						expect(requested).toContainEqual({
-							method: "GET",
-							path: "/v4/seasons/555/extended",
-						});
+						expect(requested).toContainEqual({ method: "GET", path: "/v4/seasons/555/extended" });
 						expect(requested).toContainEqual({
 							method: "GET",
 							path: "/v4/seasons/555/translations/eng",

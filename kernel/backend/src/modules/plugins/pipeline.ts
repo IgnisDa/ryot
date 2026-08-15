@@ -66,11 +66,7 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 	source: PluginSource,
 ) {
 	const manifest = yield* decodePluginManifest(source.manifest);
-	return {
-		manifest,
-		files: source.files,
-		sourceHash: pluginSourceHash(manifest, source.files),
-	};
+	return { manifest, files: source.files, sourceHash: pluginSourceHash(manifest, source.files) };
 });
 
 export const compilePluginPackage = Effect.fn("PluginPipeline.compilePluginPackage")(

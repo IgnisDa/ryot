@@ -165,11 +165,7 @@ it.effect("returns one deterministic expiry for local and S3 download resolution
 			{ expiresAt, asset: locators[1], downloadUrl: "https://s3.test/permanent/remote.svg" },
 		]);
 		expect(presigned).toEqual([
-			{
-				expiresInSeconds: 15 * 60,
-				key: "permanent/remote.svg",
-				contentDisposition: "attachment",
-			},
+			{ expiresInSeconds: 15 * 60, key: "permanent/remote.svg", contentDisposition: "attachment" },
 		]);
 	}).pipe(Effect.provide(providedLayer));
 });
@@ -261,9 +257,7 @@ it.effect("blocks managed asset registration while the owner lifecycle is active
 	const transaction = Object.assign(Object.create(null), {
 		execute: () => Effect.void,
 		select: () => ({
-			from: () => ({
-				where: () => ({ limit: () => Effect.succeed([{ id: "operation-1" }]) }),
-			}),
+			from: () => ({ where: () => ({ limit: () => Effect.succeed([{ id: "operation-1" }]) }) }),
 		}),
 	});
 	const database = Database.of(

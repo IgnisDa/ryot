@@ -85,9 +85,7 @@ describe("sandbox RyotQL reads", () => {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const { entityId, entitySchemaSlug, eventSchemaSlug } = yield* createEventTestFixture(client);
 			yield* client.call((c) =>
-				c.events.create({
-					payload: [{ entityId, eventSchemaSlug, properties: { rating: 5 } }],
-				}),
+				c.events.create({ payload: [{ entityId, eventSchemaSlug, properties: { rating: 5 } }] }),
 			);
 			const slug = `ryotql-events-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
