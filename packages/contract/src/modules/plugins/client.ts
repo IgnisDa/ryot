@@ -111,12 +111,18 @@ export type PluginOperationBridgeErrorReason = Schema.Schema.Type<
 	typeof PluginOperationBridgeErrorReason
 >;
 
-export const PluginOperationErrorReason = Schema.Union([
-	PluginOperationBridgeErrorReason,
-	Schema.Literals(["disposed", "protocol", "invalid-input", "unsupported-capability"]),
+export const RyotClientErrorReason = Schema.Literals([
+	"disposed",
+	"protocol",
+	"transport",
+	"query-failed",
+	"invalid-input",
+	"operation-failed",
+	"malformed-result",
+	"unsupported-capability",
 ]);
 
-export type PluginOperationErrorReason = Schema.Schema.Type<typeof PluginOperationErrorReason>;
+export type RyotClientErrorReason = Schema.Schema.Type<typeof RyotClientErrorReason>;
 
 export const PluginOperationRequest = strictStruct({
 	input: JsonValue,
