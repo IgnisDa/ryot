@@ -1,5 +1,9 @@
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { createYoutubeMusicClient, type YoutubeiHost } from "@ryot/sandbox-sdk/youtubei";
+import {
+	createYoutubeHistoryClient,
+	createYoutubeMusicClient,
+	type YoutubeiHost,
+} from "@ryot/sandbox-sdk/youtubei";
 import { describe, expect, test } from "vitest";
 
 const runtimeKey = Symbol.for("@ryot/sandbox-sdk/approved-dependency-runtime");
@@ -27,6 +31,31 @@ const withRuntime = (operation: () => Promise<unknown>, calls: { count: number }
 };
 
 describe("Youtubei sandbox adapter", () => {
+	test("requests YouTube Music history", async () => {
+		const requests: { body: string | undefined; url: string }[] = [];
+		const host = {
+			httpCall: (_method, url, options) =>
+				Effect.sync(() => {
+					requests.push({ url, body: options?.body });
+					return {
+						status: 200,
+						headers: { "content-type": "application/json" },
+						body: JSON.stringify({ contents: { history: true } }),
+					};
+				}),
+		} satisfies YoutubeiHost;
+		const client = await Effect.runPromise(createYoutubeHistoryClient(host, "SAPISID=value"));
+
+		await client.getHistory();
+
+		expect(requests).toHaveLength(1);
+		expect(new URL(requests[0]?.url ?? "").pathname).toBe("/youtubei/v1/browse");
+		expect(JSON.parse(requests[0]?.body ?? "{}")).toMatchObject({
+			params: "oggECgIIAQ%3D%3D",
+			browseId: "FEmusic_history",
+		});
+	});
+
 	test("keeps the dependency runtime scope private to SDK calls", async () => {
 		const calls = { count: 0 };
 		const host = {

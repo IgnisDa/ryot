@@ -172,6 +172,25 @@ export const createYoutubeMusicClient = (
 export const createYoutubeHistoryClient = (host: YoutubeiHost, authCookie: string) =>
 	Effect.tryPromise(() =>
 		withApprovedDependencyRuntime(() =>
-			Innertube.create({ cookie: authCookie, fetch: makeFetch(host) }),
+			Innertube.create({
+				cookie: authCookie,
+				fetch: makeFetch(host),
+				retrieve_player: false,
+				generate_session_locally: true,
+				retrieve_innertube_config: false,
+			}),
 		),
-	).pipe(Effect.map(wrapClient));
+	).pipe(
+		Effect.map((client) =>
+			wrapClient({
+				getHistory: async () => {
+					const response = await client.actions.execute("/browse", {
+						client: "YTMUSIC",
+						params: "oggECgIIAQ%3D%3D",
+						browseId: "FEmusic_history",
+					});
+					return response.data;
+				},
+			}),
+		),
+	);

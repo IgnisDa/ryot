@@ -21,7 +21,20 @@ const getTrackTitle = (track: UnknownRecord | null) => {
 	return coerceTrimmed(raw);
 };
 
-const nodeTitle = (value: unknown) => stringValue(asRecord(value)?.["text"]) ?? "N/A";
+const nodeTitle = (value: unknown) => {
+	const record = asRecord(value);
+	const text = stringValue(record?.["text"]) ?? stringValue(record?.["simpleText"]);
+	if (text) {
+		return text;
+	}
+	const runs = record?.["runs"];
+	return (
+		(Array.isArray(runs) ? runs : [])
+			.map((run) => stringValue(asRecord(run)?.["text"]) ?? "")
+			.join("")
+			.trim() || "N/A"
+	);
+};
 
 type SuggestionEntity = {
 	name: string;
@@ -213,25 +226,29 @@ export const buildHistory = (client: HistoryClient, timezone: string, startedAt:
 				return lower.includes(localDate);
 			};
 			const songs: { videoId: string; title: string }[] = [];
-			const sections = asRecord(history)?.["sections"];
+			const rootContents = asRecord(asRecord(history)?.["contents"]);
+			const browseResults = asRecord(rootContents?.["singleColumnBrowseResultsRenderer"]);
+			const tabs = browseResults?.["tabs"];
+			const tab = asRecord(Array.isArray(tabs) ? tabs[0] : null);
+			const tabContent = asRecord(asRecord(tab?.["tabRenderer"])?.["content"]);
+			const sections = asRecord(tabContent?.["sectionListRenderer"])?.["contents"];
 			for (const section of Array.isArray(sections) ? sections : []) {
-				const sectionRecord = asRecord(section);
-				const header = asRecord(sectionRecord?.["header"]);
-				if (header?.["type"] !== "ItemSectionHeader") {
+				const shelf = asRecord(asRecord(section)?.["musicShelfRenderer"]);
+				if (!shelf || !isTodayHeader(nodeTitle(shelf["title"]))) {
 					continue;
 				}
-				if (!isTodayHeader(nodeTitle(header["title"]))) {
-					continue;
-				}
-				const contents = sectionRecord?.["contents"];
+				const contents = shelf["contents"];
 				for (const node of Array.isArray(contents) ? contents : []) {
-					const nodeRecord = asRecord(node);
-					if (nodeRecord?.["type"] !== "Video") {
+					const item = asRecord(asRecord(node)?.["musicResponsiveListItemRenderer"]);
+					if (!item) {
 						continue;
 					}
-					const videoId = stringValue(nodeRecord["video_id"]);
+					const videoId = stringValue(asRecord(item["playlistItemData"])?.["videoId"]);
 					if (videoId) {
-						songs.push({ videoId, title: nodeTitle(nodeRecord["title"]) });
+						const columns = item["flexColumns"];
+						const firstColumn = asRecord(Array.isArray(columns) ? columns[0] : null);
+						const column = asRecord(firstColumn?.["musicResponsiveListItemFlexColumnRenderer"]);
+						songs.push({ videoId, title: nodeTitle(column?.["text"]) });
 					}
 				}
 				break;
