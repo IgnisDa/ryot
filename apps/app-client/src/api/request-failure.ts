@@ -1,4 +1,3 @@
-import { BadRequest, Conflict, NotFound } from "@ryot/contract/errors";
 import { Cause, Option } from "effect";
 
 export type RequestFailureState = { readonly status: "transport-error" | "malformed" };
@@ -19,37 +18,7 @@ export const requestFailureCopy = (
 			: `${copy.subject} came back in a form that could not be displayed. Try again later.`,
 });
 
-export const requestFailureMessage = (cause: Cause.Cause<unknown>) =>
-	Option.flatMap(Cause.findErrorOption(cause), (error) =>
-		error instanceof BadRequest || error instanceof Conflict || error instanceof NotFound
-			? Option.some(error.message)
-			: Option.none(),
-	).pipe(Option.getOrUndefined);
-
-export type RequestFailureRule<Step extends string> = {
-	readonly step: Step;
-	readonly detail: string;
-	readonly matches: (message: string) => boolean;
-};
-
-export type ResolvedRequestFailure<Step extends string> = {
-	readonly detail: string;
-	readonly step: Step | undefined;
-};
-
-/**
- * Maps a server message onto the step that can fix it, so a wizard can send the user back to the
- * field at fault instead of showing a dead end. An unrecognized message keeps the user where they
- * are with the fallback detail.
- */
-export const resolveRequestFailure = <Step extends string>(
-	rules: readonly RequestFailureRule<Step>[],
-	message: string | undefined,
-	fallbackDetail: string,
-): ResolvedRequestFailure<Step> => {
-	const rule =
-		message === undefined ? undefined : rules.find((candidate) => candidate.matches(message));
-	return rule === undefined
-		? { step: undefined, detail: fallbackDetail }
-		: { step: rule.step, detail: rule.detail };
-};
+export const requestFailureError = <Failure>(
+	cause: Cause.Cause<unknown>,
+	isFailure: (error: unknown) => error is Failure,
+) => Cause.findErrorOption(cause).pipe(Option.filter(isFailure), Option.getOrUndefined);

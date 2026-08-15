@@ -21,7 +21,8 @@ import { AppStatusState } from "@/modules/ui/status-state";
 import {
 	buildImportFailureClipboardText,
 	groupImportFailuresByStage,
-	importFailureContextEntries,
+	importFailureProvenanceEntries,
+	importFailureReasonDetail,
 	importFailureRowLabel,
 } from "./failure-presentation";
 import { importRunDetailError, type ImportRunDetailState } from "./state";
@@ -82,7 +83,7 @@ function RunCounts(props: { readonly run: ImportRunSummary }) {
 function FailureRow(props: { readonly failure: ImportRunFailure; readonly pill: string }) {
 	const [isExpanded, setIsExpanded] = useState(false);
 	const label = importFailureRowLabel(props.failure);
-	const entries = importFailureContextEntries(props.failure.context);
+	const entries = importFailureProvenanceEntries(props.failure);
 	return (
 		<View className="border-b border-border">
 			<Pressable
@@ -97,7 +98,7 @@ function FailureRow(props: { readonly failure: ImportRunFailure; readonly pill: 
 						{label}
 					</Text>
 					<Text numberOfLines={2} className="font-ui text-xs text-text-muted">
-						{props.failure.message}
+						{importFailureReasonDetail(props.failure)}
 					</Text>
 				</View>
 				<Text className="font-ui-medium text-[11px] text-text-subtle">{props.pill}</Text>
@@ -250,10 +251,10 @@ export function ImportRunView(props: {
 					<AppIcon size={18} name="circle-alert" className="text-danger" />
 					<View className="min-w-0 flex-1 gap-0.5">
 						<Text className="font-ui-medium text-sm text-danger">
-							{importRunFailureNotice(run.errorSummary).label}
+							{importRunFailureNotice(run.failureReason).label}
 						</Text>
 						<Text className="font-ui text-sm leading-5 text-text-muted">
-							{importRunFailureNotice(run.errorSummary).detail}
+							{importRunFailureNotice(run.failureReason).detail}
 						</Text>
 					</View>
 				</View>

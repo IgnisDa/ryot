@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
 	buildImportFailureClipboardText,
 	groupImportFailuresByStage,
-	importFailureContextEntries,
+	importFailureProvenanceEntries,
+	importFailureReasonDetail,
 	importFailureRowLabel,
 	importFailureStageHeading,
 	importFailureStagePill,
@@ -59,16 +60,13 @@ describe("import failure presentation", () => {
 		expect(groupImportFailuresByStage([])).toEqual([]);
 	});
 
-	it("lays out recorded context as sorted key-value pairs", () => {
-		expect(importFailureContextEntries(unreadable.context)).toEqual([
-			{ key: "column", value: "My Rating" },
-			{ key: "rawValue", value: "four stars" },
+	it("presents safe reasons and typed provenance", () => {
+		expect(importFailureReasonDetail(unreadable)).toBe("The source data could not be read.");
+		expect(importFailureProvenanceEntries(unreadable)).toEqual([
+			{ key: "Source ID", value: "goodreads:8231" },
 		]);
-		expect(importFailureContextEntries(null)).toEqual([]);
-		expect(importFailureContextEntries({ a: null, b: 4, c: { d: 1 } })).toEqual([
-			{ key: "a", value: "—" },
-			{ key: "b", value: "4" },
-			{ key: "c", value: '{"d":1}' },
+		expect(importFailureProvenanceEntries(unmatched)).toEqual([
+			{ key: "Entity schema", value: "book" },
 		]);
 	});
 
@@ -85,8 +83,8 @@ describe("import failure presentation", () => {
 			"Run: run-completed-1",
 			"Failures listed: 2",
 		]);
-		expect(text).toContain("- Item #11: No provider match was found");
-		expect(text).toContain("- The Long Way Home: The rating column was not a number");
-		expect(text).toContain("    column: My Rating");
+		expect(text).toContain("- Item #11: No matching provider item was found.");
+		expect(text).toContain("- The Long Way Home: The source data could not be read.");
+		expect(text).toContain("    Source ID: goodreads:8231");
 	});
 });

@@ -4,7 +4,7 @@ import { BackupRunId } from "@ryot/contract/schema/brands";
 export const NOW_MS = Date.parse("2026-03-13T12:00:00.000Z");
 
 const baseRun: BackupRun = {
-	error: null,
+	failure: null,
 	progress: 100,
 	kind: "export",
 	status: "completed",
