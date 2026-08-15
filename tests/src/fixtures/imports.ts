@@ -146,8 +146,8 @@ export const installTestImportPlugin = Effect.suspend(() => {
 						archiveUploadToken: {
 							type: "string",
 							label: "E2E archive",
-							validation: { required: true },
 							description: "E2E archive CSV",
+							validation: { minLength: 1, required: true },
 							format: { kind: "upload", allowedFileExtensions: ["csv"] },
 						},
 					},
@@ -411,10 +411,11 @@ export const uploadImportFile = (
 			(c) => c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
 			headers,
 		);
-		return yield* Schema.decodeUnknownEffect(TemporaryUploadToken)(completion);
+		const { token } = yield* Schema.decodeUnknownEffect(TemporaryUploadToken)(completion);
+		return token;
 	});
 
-export const startOpenScaleImport = (client: Client, uploadToken: TemporaryUploadToken) =>
+export const startOpenScaleImport = (client: Client, uploadToken: string) =>
 	Effect.gen(function* () {
 		const result = yield* client.call((c) =>
 			c.imports.createRun({ payload: { source: "open_scale", uploadToken } }),

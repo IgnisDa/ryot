@@ -5,7 +5,6 @@ import { assert, expect, it } from "vitest";
 import { FitnessCreateImportRunBody } from "./import-sources";
 import { fitnessPlugin } from "./manifest";
 
-const uploadToken = { token: "upload-1", expiresAt: "2026-08-23T00:00:00.000Z" } as const;
 const expectedImportSources = [
 	{
 		slug: "hevy",
@@ -87,16 +86,16 @@ it("declares the complete fitness-owned source", () => {
 					position: 0,
 					type: "string",
 					label: expected.label,
-					validation: { required: true },
 					description: expect.any(String),
+					validation: { minLength: 1, required: true },
 					format: { kind: "upload", allowedFileExtensions: ["csv"] },
 				},
 			},
 		});
 		expect(() =>
 			Schema.decodeUnknownSync(FitnessCreateImportRunBody)({
-				uploadToken,
 				source: source.slug,
+				uploadToken: "upload-1",
 			}),
 		).not.toThrow();
 	}

@@ -1,4 +1,3 @@
-import { TemporaryUploadToken } from "@ryot/contract/modules/uploads/schemas";
 import {
 	type AppPropertyDefinition,
 	type AppArrayPropertyValidation,
@@ -399,10 +398,7 @@ const applyStringValidation = (
 
 const createStringValueSchema = (property: Extract<AppPropertyDefinition, { type: "string" }>) => {
 	if (property.format?.kind === "upload") {
-		return Schema.Struct({
-			...TemporaryUploadToken.fields,
-			token: applyStringValidation(Schema.String, property.validation),
-		});
+		return applyStringValidation(Schema.String, property.validation);
 	}
 	if (property.format?.kind === "url") {
 		return applyStringValidation(HttpUrl, property.validation);
