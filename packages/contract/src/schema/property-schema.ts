@@ -689,6 +689,97 @@ export const getOrderedAppSchemaFieldEntries = (fields: AppSchemaFields) =>
 export const isAppPropertyRequired = (property: AppPropertyDefinition) =>
 	property.validation?.required === true;
 
+export const getAppPropertyDefinitionAtPath = (
+	fields: AppSchemaFields,
+	path: AppSchemaRulePath,
+) => {
+	let property: AppPropertyDefinition | undefined;
+	let currentFields = fields;
+	for (const segment of path) {
+		property = currentFields[segment];
+		if (property === undefined) {
+			return undefined;
+		}
+		currentFields = property.type === "object" ? property.properties : {};
+	}
+	return property;
+};
+
+export const getAppSchemaValueAtPath = (input: unknown, path: AppSchemaRulePath) => {
+	let value = input;
+	for (const segment of path) {
+		if (typeof value !== "object" || value === null || Array.isArray(value)) {
+			return undefined;
+		}
+		value = Reflect.get(value, segment);
+	}
+	return value;
+};
+
+export const evaluateAppSchemaRuleCondition = (
+	condition: AppSchemaRuleCondition,
+	input: unknown,
+): boolean => {
+	if (condition.operator === "all") {
+		return condition.conditions.every((inner) => evaluateAppSchemaRuleCondition(inner, input));
+	}
+	if (condition.operator === "any") {
+		return condition.conditions.some((inner) => evaluateAppSchemaRuleCondition(inner, input));
+	}
+	const value = getAppSchemaValueAtPath(input, condition.path);
+	if (condition.operator === "exists") {
+		return value !== undefined;
+	}
+	if (condition.operator === "not_exists") {
+		return value === undefined;
+	}
+	if (condition.operator === "eq") {
+		return Object.is(value, condition.value);
+	}
+	if (condition.operator === "neq") {
+		return !Object.is(value, condition.value);
+	}
+	if (condition.operator === "in") {
+		return condition.value.some((expected) => Object.is(value, expected));
+	}
+	return condition.value.every((expected) => !Object.is(value, expected));
+};
+
+export const areAppSchemaPathsEqual = (left: AppSchemaRulePath, right: AppSchemaRulePath) =>
+	left.length === right.length && left.every((segment, index) => segment === right[index]);
+
+export const isAppSchemaPathHidden = (schema: AppSchema, path: AppSchemaRulePath, input: unknown) =>
+	(schema.rules ?? []).some(
+		(rule) =>
+			rule.kind === "visibility" &&
+			rule.path.length <= path.length &&
+			rule.path.every((segment, index) => segment === path[index]) &&
+			evaluateAppSchemaRuleCondition(rule.when, input),
+	);
+
+export const isAppSchemaPathEffectivelyRequired = (
+	schema: AppSchema,
+	path: AppSchemaRulePath,
+	input: unknown,
+) => {
+	const property = getAppPropertyDefinitionAtPath(schema.fields, path);
+	if (property === undefined || isAppSchemaPathHidden(schema, path, input)) {
+		return false;
+	}
+	return (
+		isAppPropertyRequired(property) ||
+		(schema.rules ?? []).some(
+			(rule) =>
+				rule.kind === "validation" &&
+				areAppSchemaPathsEqual(rule.path, path) &&
+				evaluateAppSchemaRuleCondition(rule.when, input),
+		)
+	);
+};
+
+export const isMissingAppSchemaRequiredValue = (value: unknown) =>
+	value === undefined || value === null;
+
 /**
  * Returns the top-level property keys a schema declares as translatable. These are
  * the only properties a translation overlay is allowed to localize; everything else

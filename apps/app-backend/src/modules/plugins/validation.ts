@@ -1,4 +1,8 @@
 import {
+	importInternalPropertyNames,
+	isImportUploadTokenField,
+} from "@ryot/contract/modules/imports/schemas";
+import {
 	PluginManifest,
 	type PluginManifest as PluginManifestValue,
 	type PluginScript,
@@ -234,22 +238,12 @@ export const validateIntegrationProviderSettingsSchemas = (manifest: PluginManif
 		{ discard: true },
 	);
 
-const reservedImportSourceFields = new Set([
-	"source",
-	"integrationId",
-	"integrationContext",
-	"integrationScriptSlug",
-]);
-
-const isUploadTokenField = (field: string) =>
-	field === "uploadToken" || field.endsWith("UploadToken");
-
 export const validateImportSourceInputSchemas = (manifest: PluginManifestValue) =>
 	Effect.forEach(
 		manifest.importSources,
 		(source) => {
-			const reservedField = Object.keys(source.inputSchema.fields).find((field) =>
-				reservedImportSourceFields.has(field),
+			const reservedField = Object.keys(source.inputSchema.fields).find(
+				(field) => field === "source" || importInternalPropertyNames.has(field),
 			);
 			if (reservedField) {
 				return Effect.fail(
@@ -260,7 +254,7 @@ export const validateImportSourceInputSchemas = (manifest: PluginManifestValue) 
 			}
 			const invalidUploadTokenField = Object.entries(source.inputSchema.fields).find(
 				([field, property]) =>
-					isUploadTokenField(field) &&
+					isImportUploadTokenField(field) &&
 					(property.type !== "string" || property.format?.kind !== "upload"),
 			)?.[0];
 			if (invalidUploadTokenField) {

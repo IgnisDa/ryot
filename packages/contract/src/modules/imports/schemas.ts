@@ -5,6 +5,15 @@ import { PluginImportSource } from "../plugins/manifest";
 import { jsonValueSchema } from "../sandbox/wire";
 import { importRunStatuses } from "./types";
 
+export const importInternalPropertyNames: ReadonlySet<string> = new Set([
+	"integrationId",
+	"integrationContext",
+	"integrationScriptSlug",
+]);
+
+export const isImportUploadTokenField = (field: string) =>
+	field === "uploadToken" || field.endsWith("UploadToken");
+
 const ImportRunStatus = Schema.Literals([...importRunStatuses]);
 
 const InputSummary = Schema.Record(Schema.String, Schema.Unknown);
