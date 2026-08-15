@@ -176,7 +176,8 @@ describe("POST /uploads/intents", () => {
 			const cleaned = yield* Effect.flip(
 				client.call((c) => c.uploads.completeIntent({ params: { intentId: intent.intentId } })),
 			);
-			expect(cleaned.message).toContain("missing");
+			assertTaggedError(cleaned, "UploadBadRequest");
+			expect(cleaned.reason).toEqual({ code: "object-missing", intentId: intent.intentId });
 		}),
 	);
 
@@ -207,7 +208,8 @@ describe("POST /uploads/intents", () => {
 						}),
 					),
 				);
-				assertTaggedError(error, "BadRequest");
+				assertTaggedError(error, "UploadBadRequest");
+				expect(error.reason.code).toBe("unsupported-file-extension");
 			}
 		}),
 	);
@@ -226,7 +228,11 @@ describe("POST /uploads/intents", () => {
 					}),
 				),
 			);
-			assertTaggedError(unsupported, "BadRequest");
+			assertTaggedError(unsupported, "UploadBadRequest");
+			expect(unsupported.reason).toEqual({
+				code: "unsupported-file-type",
+				contentType: "application/pdf",
+			});
 
 			const intent = yield* client.call((c) =>
 				c.uploads.createIntent({
@@ -240,7 +246,8 @@ describe("POST /uploads/intents", () => {
 			const missing = yield* Effect.flip(
 				client.call((c) => c.uploads.completeIntent({ params: { intentId: intent.intentId } })),
 			);
-			assertTaggedError(missing, "BadRequest");
+			assertTaggedError(missing, "UploadBadRequest");
+			expect(missing.reason).toEqual({ code: "object-missing", intentId: intent.intentId });
 		}),
 	);
 
@@ -303,7 +310,8 @@ describe("POST /uploads/intents", () => {
 					c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
 				),
 			);
-			assertTaggedError(error, "BadRequest");
+			assertTaggedError(error, "UploadBadRequest");
+			expect(error.reason).toEqual({ code: "intent-forbidden", intentId: intent.intentId });
 		}),
 	);
 

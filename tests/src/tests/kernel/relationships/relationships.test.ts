@@ -145,7 +145,8 @@ describe("POST /relationships", () => {
 				),
 			);
 
-			assertTaggedError(error, "BadRequest");
+			assertTaggedError(error, "RelationshipBadRequest");
+			expect(error.reason).toMatchObject({ code: "invalid-properties" });
 		}),
 	);
 
@@ -167,7 +168,7 @@ describe("POST /relationships", () => {
 				),
 			);
 
-			assertTaggedError(error, "Unauthorized");
+			assertTaggedError(error, "AuthUnauthorized");
 		}),
 	);
 });

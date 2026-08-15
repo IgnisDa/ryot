@@ -63,8 +63,8 @@ describe("POST /collections/memberships", () => {
 				),
 			);
 
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toContain("Cannot add a collection to itself");
+			assertTaggedError(error, "CollectionBadRequest");
+			expect(error.reason).toEqual({ code: "circular-membership" });
 		}),
 	);
 
@@ -300,8 +300,11 @@ describe("POST /collections/memberships", () => {
 				),
 			);
 
-			assertTaggedError(error, "NotFound");
-			expect(error.message).toContain("Collection not found");
+			assertTaggedError(error, "CollectionNotFound");
+			expect(error.reason).toEqual({
+				code: "collection-not-found",
+				collectionId: "nonexistent-collection-id",
+			});
 		}),
 	);
 
@@ -325,8 +328,11 @@ describe("POST /collections/memberships", () => {
 				),
 			);
 
-			assertTaggedError(error, "NotFound");
-			expect(error.message).toContain("Entity not found");
+			assertTaggedError(error, "CollectionNotFound");
+			expect(error.reason).toEqual({
+				code: "entity-not-found",
+				entityId: "nonexistent-entity-id",
+			});
 		}),
 	);
 
@@ -348,8 +354,11 @@ describe("POST /collections/memberships", () => {
 				),
 			);
 
-			assertTaggedError(error, "NotFound");
-			expect(error.message).toContain("Collection not found");
+			assertTaggedError(error, "CollectionNotFound");
+			expect(error.reason).toEqual({
+				code: "collection-not-found",
+				collectionId: collection.id,
+			});
 		}),
 	);
 
@@ -368,7 +377,7 @@ describe("POST /collections/memberships", () => {
 				),
 			);
 
-			assertTaggedError(error, "Unauthorized");
+			assertTaggedError(error, "AuthUnauthorized");
 		}),
 	);
 });
@@ -418,8 +427,12 @@ describe("DELETE /collections/memberships", () => {
 				),
 			);
 
-			assertTaggedError(error, "NotFound");
-			expect(error.message).toContain("Entity is not in collection");
+			assertTaggedError(error, "CollectionNotFound");
+			expect(error.reason).toEqual({
+				code: "membership-not-found",
+				entityId,
+				collectionId: collection.id,
+			});
 		}),
 	);
 
@@ -437,8 +450,11 @@ describe("DELETE /collections/memberships", () => {
 				),
 			);
 
-			assertTaggedError(error, "NotFound");
-			expect(error.message).toContain("Collection not found");
+			assertTaggedError(error, "CollectionNotFound");
+			expect(error.reason).toEqual({
+				code: "collection-not-found",
+				collectionId: "nonexistent-collection-id",
+			});
 		}),
 	);
 
@@ -460,8 +476,11 @@ describe("DELETE /collections/memberships", () => {
 				),
 			);
 
-			assertTaggedError(error, "NotFound");
-			expect(error.message).toContain("Collection not found");
+			assertTaggedError(error, "CollectionNotFound");
+			expect(error.reason).toEqual({
+				code: "collection-not-found",
+				collectionId: collection.id,
+			});
 		}),
 	);
 
@@ -480,7 +499,7 @@ describe("DELETE /collections/memberships", () => {
 				),
 			);
 
-			assertTaggedError(error, "Unauthorized");
+			assertTaggedError(error, "AuthUnauthorized");
 		}),
 	);
 });

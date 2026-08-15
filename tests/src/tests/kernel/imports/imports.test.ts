@@ -30,7 +30,7 @@ const uninstallWhenReleased = (installed: InstalledTestPlugin) =>
 		`uninstall of '${installed.pluginSlug}' after import completion`,
 		uninstallTestPluginStrict(installed).pipe(
 			Effect.as(true),
-			Effect.catchTag("Conflict", () => Effect.succeed(null)),
+			Effect.catchTag("PluginConflictError", () => Effect.succeed(null)),
 		),
 	);
 
@@ -92,7 +92,7 @@ describe("Plugin Import Public Boundary", () => {
 			);
 
 			const completed = yield* pollImportRunUntilTerminal(client, created.id);
-			expect(completed.errorSummary).toBeNull();
+			expect(completed.failureReason).toBeNull();
 			expect(completed).toMatchObject({
 				progress: 100,
 				failedItems: 0,
@@ -117,7 +117,7 @@ describe("Plugin Import Public Boundary", () => {
 			const created = yield* client.call((c) => c.imports.createRun({ payload: { source } }));
 
 			const conflict = yield* Effect.flip(uninstallTestPluginStrict(plugin));
-			assertTaggedError(conflict, "Conflict");
+			assertTaggedError(conflict, "PluginConflictError");
 
 			const completed = yield* pollImportRunUntilTerminal(client, created.id);
 			expect(completed).toMatchObject({
@@ -146,7 +146,7 @@ describe("Plugin Import Public Boundary", () => {
 			);
 			const completed = yield* pollImportRunUntilTerminal(client, created.id);
 
-			expect(completed.errorSummary).toBe("harvest handle fixture failure");
+			expect(completed.failureReason).toEqual({ code: "input-transformation-failed" });
 			expect(completed).toMatchObject({
 				failedItems: 1,
 				status: "failed",
@@ -180,10 +180,8 @@ describe("Plugin Import Public Boundary", () => {
 				),
 			);
 
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toBe(
-				"Import source does not declare upload token field: undeclaredUploadToken",
-			);
+			assertTaggedError(error, "ImportRequestError");
+			expect(error.reason).toEqual({ code: "invalid-input", field: null });
 		}),
 	);
 
@@ -207,10 +205,8 @@ describe("Plugin Import Public Boundary", () => {
 					}),
 				),
 			);
-			assertTaggedError(integrationError, "BadRequest");
-			expect(integrationError.message).toBe(
-				"Import source payload field is reserved: integrationScriptSlug",
-			);
+			assertTaggedError(integrationError, "ImportRequestError");
+			expect(integrationError.reason).toEqual({ code: "invalid-input", field: null });
 
 			const schemaError = yield* Effect.flip(
 				client.call((c) =>
@@ -225,7 +221,7 @@ describe("Plugin Import Public Boundary", () => {
 					}),
 				),
 			);
-			assertTaggedError(schemaError, "BadRequest");
+			assertTaggedError(schemaError, "ImportRequestError");
 
 			const created = yield* client.call((c) =>
 				c.imports.createRun({ payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken } }),
@@ -241,7 +237,7 @@ describe("Plugin Import Public Boundary", () => {
 				client.call((c) => c.imports.createRun({ payload: { source: FIXTURE_IMPORT_SOURCE } })),
 			);
 
-			assertTaggedError(error, "BadRequest");
+			assertTaggedError(error, "ImportRequestError");
 		}),
 	);
 
@@ -260,7 +256,7 @@ describe("Plugin Import Public Boundary", () => {
 				),
 			);
 
-			assertTaggedError(error, "BadRequest");
+			assertTaggedError(error, "ImportRequestError");
 		}),
 	);
 
@@ -280,7 +276,7 @@ describe("Plugin Import Public Boundary", () => {
 					}),
 				),
 			);
-			assertTaggedError(error, "BadRequest");
+			assertTaggedError(error, "ImportRequestError");
 			expect((yield* listManualImportRuns(client, undefined, 20)).items).toEqual([]);
 
 			const created = yield* client.call((c) =>
@@ -299,7 +295,7 @@ describe("Plugin Import Public Boundary", () => {
 				),
 			);
 
-			assertTaggedError(error, "BadRequest");
+			assertTaggedError(error, "ImportRequestError");
 		}),
 	);
 
@@ -320,7 +316,7 @@ describe("Plugin Import Public Boundary", () => {
 					c.imports.createRun({ payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken } }),
 				),
 			);
-			assertTaggedError(error, "BadRequest");
+			assertTaggedError(error, "ImportRequestError");
 			expect((yield* listManualImportRuns(client, undefined, 20)).items).toEqual([]);
 
 			fixtureImportPlugin = yield* installTestImportPlugin;

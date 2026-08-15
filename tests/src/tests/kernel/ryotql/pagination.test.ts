@@ -197,12 +197,18 @@ describe("RyotQL row pagination", () => {
 			expect(cursor).not.toBeNull();
 
 			const malformed = yield* executeRyotQLError(client, query("not-a-cursor"));
-			expect(malformed).toMatchObject({ _tag: "BadRequest" });
+			expect(malformed).toMatchObject({
+				_tag: "RyotQLBadRequest",
+				reason: { code: "invalid-cursor" },
+			});
 			const incompatible = yield* executeRyotQLError(
 				client,
 				query(cursor ?? "", descending(column(entity, "name"))),
 			);
-			expect(incompatible).toMatchObject({ _tag: "BadRequest" });
+			expect(incompatible).toMatchObject({
+				_tag: "RyotQLBadRequest",
+				reason: { code: "invalid-cursor" },
+			});
 		}),
 	);
 });

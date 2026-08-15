@@ -89,7 +89,7 @@ export const exportAndDownloadBackup = (client: Client, cookies: string) =>
 		const id = yield* startBackupExport(client);
 		const run = yield* pollBackupRunUntilTerminal(client, id);
 		if (run.status !== "completed") {
-			throw new Error(`Backup export '${id}' failed${run.error ? `: ${run.error}` : ""}`);
+			throw new Error(`Backup export '${id}' failed with ${run.failure?.code ?? "unknown"}`);
 		}
 
 		const { bytes } = yield* downloadBackupArchive(cookies, id);

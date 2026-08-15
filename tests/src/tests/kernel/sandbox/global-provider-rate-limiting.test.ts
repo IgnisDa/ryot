@@ -158,8 +158,8 @@ describe("deployment-global sandbox HTTP rate limiting", () => {
 					},
 				}),
 			);
-			assertTaggedError(conflict, "BadRequest");
-			expect(conflict.message).toContain(`Conflicting HTTP rate limit key '${key}'`);
+			assertTaggedError(conflict, "PluginRequestError");
+			expect(conflict.reason.code).toBe("validation-failed");
 
 			const activePlugins = yield* getBackendClient().call((c) => c.plugins.list({}), adminHeaders);
 			expect(activePlugins.some(({ slug: activeSlug }) => activeSlug === pluginSlug)).toBe(true);
