@@ -73,8 +73,8 @@ export const sinkProvider: ListedIntegrationProvider = {
 	name: "Kodi",
 	isCreatable: true,
 	pluginSlug: "media",
+	settingsSchema: { fields: {} },
 	description: "Receive Kodi playback webhooks",
-	settingsSchema: { fields: { ...yankProvider.settingsSchema.fields } },
 	commonSchema: {
 		fields: Object.fromEntries(
 			Object.entries(commonSchema.fields).filter(([key]) => key !== "syncOwnership"),
