@@ -6,6 +6,7 @@ import { UserId } from "@ryot/contract/schema/brands";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 
 import { databaseLayer } from "#lib/test-utils/effect";
+import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 
@@ -13,6 +14,7 @@ import { PluginDefinitionMaterializer } from "./definition-materializer";
 import {
 	PluginInstallationRepository,
 	type PluginInstallationState,
+	type PluginPrivateInstallationRow,
 } from "./installation-repository";
 import { PluginInstallationService } from "./installation-service";
 import { PluginInstallationLifecycleDispatcher } from "./installation-workflow";
@@ -82,6 +84,8 @@ const makeLayer = (input?: {
 	readonly deactivated?: Array<string>;
 	readonly hasEntityReferences?: boolean;
 	readonly hasWorkflowReferences?: boolean;
+	readonly pendingLifecycle?: Array<string>;
+	readonly dispatchFailsFor?: Array<string>;
 	readonly removedGenerated?: Array<string>;
 	readonly hasDefinitionReferences?: boolean;
 	readonly hasIntegrationReferences?: boolean;
@@ -92,7 +96,8 @@ const makeLayer = (input?: {
 	readonly systemPlugins?: Array<PluginRegistryEntry>;
 	readonly installations?: Array<PluginInstallationState>;
 	readonly healthUpdates?: Array<Record<string, unknown>>;
-	readonly materialize?: () => Effect.Effect<void, DbError>;
+	readonly privateInstallations?: Array<PluginPrivateInstallationRow>;
+	readonly materialize?: (userId: UserId) => Effect.Effect<void, DbError>;
 	readonly persisted?: Array<{
 		plugin: StoredPlugin["manifest"];
 		identity: Record<string, unknown>;
@@ -123,7 +128,12 @@ const makeLayer = (input?: {
 			Effect.succeed((input?.systemPlugins ?? []).map(({ manifest }) => manifest)),
 	});
 	const installationLayer = Layer.mock(PluginInstallationRepository)({
+		provisionSystemInstallationsForAllUsers: () => Effect.void,
 		listForUser: () => Effect.succeed(input?.installations ?? []),
+		remove: (id) => Effect.sync(() => input?.removed?.push(id)),
+		listPendingLifecycle: () => Effect.succeed(input?.pendingLifecycle ?? []),
+		listPrivateInstallations: () => Effect.succeed(input?.privateInstallations ?? []),
+		updateHealth: (values) => Effect.sync(() => void input?.healthUpdates?.push(values)),
 		findByUserAndPlugin: (_user, pluginId) =>
 			Effect.succeed((input?.installations ?? []).find((row) => row.pluginId === pluginId) ?? null),
 		create: (values) =>
@@ -137,14 +147,12 @@ const makeLayer = (input?: {
 				const current = (input?.installations ?? []).find((row) => row.id === values.id);
 				return current ? { ...current, ...values } : undefined;
 			}),
-		remove: (id) => Effect.sync(() => input?.removed?.push(id)),
-		updateHealth: (values) => Effect.sync(() => void input?.healthUpdates?.push(values)),
 	});
 	const lifecycleDispatcherLayer = Layer.succeed(PluginInstallationLifecycleDispatcher, {
 		dispatch: (installationId) =>
 			Effect.sync(() => void input?.dispatched?.push(installationId)).pipe(
 				Effect.andThen(
-					input?.dispatchFails
+					input?.dispatchFails || input?.dispatchFailsFor?.includes(installationId)
 						? internalError("queue unavailable")
 						: (Effect.void as Effect.Effect<void, InternalError>),
 				),
@@ -154,7 +162,7 @@ const makeLayer = (input?: {
 		hasInstallationReferences: () => Effect.succeed(input?.hasWorkflowReferences ?? false),
 	});
 	const definitionMaterializerLayer = Layer.succeed(PluginDefinitionMaterializer, {
-		materialize: () => input?.materialize?.() ?? Effect.void,
+		materialize: (owner) => input?.materialize?.(owner) ?? Effect.void,
 		removeGenerated: (installationId) =>
 			Effect.sync(() => void input?.removedGenerated?.push(installationId)),
 	});
@@ -1151,6 +1159,309 @@ it.effect("orders provisioned system installations by slug when their sort order
 					installationRow({ pluginId: media.id, pluginScope: "system", pluginSlug: "media" }),
 					installationRow({ pluginId: fitness.id, pluginScope: "system", pluginSlug: "fitness" }),
 				],
+			}),
+		),
+	);
+});
+
+const shippedConflict = (issue: string) => `Conflicts with the shipped plugin set: ${issue}`;
+
+const sharedImportSource = {
+	name: "Shared",
+	slug: "shared-source",
+	description: "Shared import",
+	requiredPluginConfigKeys: [],
+	workflowSlug: "fixture-workflow",
+	inputSchema: { unknownKeys: "strict" as const, fields: {} },
+};
+
+const privateInstallationRow = (
+	overrides: Partial<PluginPrivateInstallationRow> & { readonly pluginSlug: string },
+): PluginPrivateInstallationRow => ({
+	userId,
+	health: "ready",
+	healthReason: null,
+	pluginId: `${overrides.pluginSlug}-plugin-id`,
+	installationId: `${overrides.pluginSlug}-installation`,
+	manifest: privateManifest({
+		metadata: { ...privateManifest().metadata, slug: overrides.pluginSlug },
+	}),
+	...overrides,
+});
+
+const shippedEntry = (overrides: Partial<PluginManifest> = {}) =>
+	systemEntry(
+		privateManifest({
+			...overrides,
+			metadata: { ...privateManifest().metadata, slug: "media" },
+		}),
+	);
+
+it.effect("marks a private installation incompatible when a shipped plugin claims its slug", () => {
+	const healthUpdates: Array<Record<string, unknown>> = [];
+	const shadowed = privateInstallationRow({ pluginSlug: "media" });
+	const untouched = privateInstallationRow({ pluginSlug: "notes" });
+	return Effect.gen(function* () {
+		const loader = yield* PluginLoader;
+		const service = yield* PluginInstallationService;
+		loader.load(shippedEntry());
+		yield* service.reconcileSystemInstallations();
+		expect(healthUpdates).toEqual([
+			{
+				health: "incompatible",
+				id: shadowed.installationId,
+				healthReason: shippedConflict("Shipped plugins already use the slug 'media'"),
+			},
+		]);
+	}).pipe(
+		Effect.provide(makeLayer({ healthUpdates, privateInstallations: [shadowed, untouched] })),
+	);
+});
+
+it.effect("marks conflicts claimed on a shipped surface slug or definition slug", () => {
+	const healthUpdates: Array<Record<string, unknown>> = [];
+	const surfaceRow = privateInstallationRow({
+		pluginSlug: "notes",
+		manifest: privateManifest({
+			importSources: [sharedImportSource],
+			metadata: { ...privateManifest().metadata, slug: "notes" },
+		}),
+	});
+	const definitionRow = privateInstallationRow({
+		pluginSlug: "tasks",
+		manifest: privateManifest({
+			entitySchemas: fixtureManifest().entitySchemas,
+			metadata: { ...privateManifest().metadata, slug: "tasks" },
+		}),
+	});
+	return Effect.gen(function* () {
+		const loader = yield* PluginLoader;
+		const service = yield* PluginInstallationService;
+		loader.load(
+			shippedEntry({
+				importSources: [sharedImportSource],
+				entitySchemas: fixtureManifest().entitySchemas,
+			}),
+		);
+		yield* service.reconcileSystemInstallations();
+		expect(healthUpdates).toEqual([
+			{
+				health: "incompatible",
+				id: surfaceRow.installationId,
+				healthReason: shippedConflict(
+					"Duplicate import source slug 'shared-source' in effective plugins 'media' and 'notes'",
+				),
+			},
+			{
+				health: "incompatible",
+				id: definitionRow.installationId,
+				healthReason: shippedConflict(
+					"Shipped plugins already define the entity schema 'fixture-entity'",
+				),
+			},
+		]);
+	}).pipe(
+		Effect.provide(makeLayer({ healthUpdates, privateInstallations: [surfaceRow, definitionRow] })),
+	);
+});
+
+it.effect("marks a private installation incompatible when a shipped plugin claims its view", () => {
+	const materialized: Array<string> = [];
+	const removedGenerated: Array<string> = [];
+	const healthUpdates: Array<Record<string, unknown>> = [];
+	const kernelView = kernelDefinitionSource().savedViews[0];
+	assert(kernelView);
+	const savedView = { ...kernelView, name: "Shared View", slug: "shared-view" };
+	const withSavedView = (slug: string) =>
+		privateManifest({
+			savedViews: [savedView],
+			metadata: { ...privateManifest().metadata, slug },
+		});
+	const shadowed = privateInstallationRow({
+		pluginSlug: "notes",
+		manifest: withSavedView("notes"),
+	});
+	const settled = privateInstallationRow({
+		health: "failed",
+		pluginSlug: "tasks",
+		manifest: withSavedView("tasks"),
+	});
+	return Effect.gen(function* () {
+		const loader = yield* PluginLoader;
+		const service = yield* PluginInstallationService;
+		loader.load(shippedEntry({ savedViews: [savedView] }));
+		yield* service.reconcileSystemInstallations();
+		expect(healthUpdates).toEqual([
+			{
+				health: "incompatible",
+				id: shadowed.installationId,
+				healthReason: shippedConflict(
+					"Shipped plugins already define the saved view 'shared-view'",
+				),
+			},
+		]);
+		expect(removedGenerated).toEqual([shadowed.installationId, settled.installationId]);
+		expect(materialized).toEqual([userId]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				healthUpdates,
+				removedGenerated,
+				privateInstallations: [shadowed, settled],
+				materialize: (owner) => Effect.sync(() => void materialized.push(owner)),
+			}),
+		),
+	);
+});
+
+it.effect("returns an incompatible installation to ready once its conflict is gone", () => {
+	const updated: Array<Record<string, unknown>> = [];
+	const deactivated: Array<string> = [];
+	const materialized: Array<string> = [];
+	const healthUpdates: Array<Record<string, unknown>> = [];
+	const recovered = privateInstallationRow({
+		pluginSlug: "notes",
+		health: "incompatible",
+		healthReason: shippedConflict("Shipped plugins already use the slug 'notes'"),
+	});
+	const otherOwner = privateInstallationRow({
+		pluginSlug: "tasks",
+		userId: UserId.make("user-2"),
+		installationId: "tasks-installation-other",
+	});
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		yield* service.reconcileSystemInstallations();
+		expect(healthUpdates).toEqual([
+			{ health: "ready", healthReason: null, id: recovered.installationId },
+		]);
+		expect(materialized).toEqual([userId]);
+		expect([...updated, ...deactivated]).toEqual([]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				updated,
+				deactivated,
+				healthUpdates,
+				privateInstallations: [recovered, otherOwner],
+				materialize: (owner) => Effect.sync(() => void materialized.push(owner)),
+			}),
+		),
+	);
+});
+
+it.effect(
+	"leaves installing, settled and unchanged-reason conflicts alone but clears their views",
+	() => {
+		const removedGenerated: Array<string> = [];
+		const healthUpdates: Array<Record<string, unknown>> = [];
+		const reason = shippedConflict("Shipped plugins already use the slug 'media'");
+		const privateInstallations = [
+			privateInstallationRow({ pluginSlug: "media", health: "failed", installationId: "failed" }),
+			privateInstallationRow({
+				pluginSlug: "media",
+				health: "installing",
+				installationId: "installing",
+			}),
+			privateInstallationRow({
+				health: "needs-configuration",
+				pluginSlug: "media",
+				installationId: "unconfigured",
+			}),
+			privateInstallationRow({
+				healthReason: reason,
+				pluginSlug: "media",
+				health: "incompatible",
+				installationId: "already-incompatible",
+			}),
+		];
+		return Effect.gen(function* () {
+			const loader = yield* PluginLoader;
+			const service = yield* PluginInstallationService;
+			loader.load(shippedEntry());
+			yield* service.reconcileSystemInstallations();
+			expect(healthUpdates).toEqual([]);
+			expect(removedGenerated).toEqual([
+				"failed",
+				"installing",
+				"unconfigured",
+				"already-incompatible",
+			]);
+		}).pipe(Effect.provide(makeLayer({ healthUpdates, removedGenerated, privateInstallations })));
+	},
+);
+
+it.effect("dispatches every pending installation and keeps going after a failed dispatch", () => {
+	const dispatched: Array<string> = [];
+	const pendingLifecycle = ["installation-a", "installation-b", "installation-c"];
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		yield* service.dispatchPendingInstallationLifecycle();
+		expect([...dispatched].sort()).toEqual(pendingLifecycle);
+	}).pipe(
+		Effect.provide(
+			makeLayer({ dispatched, pendingLifecycle, dispatchFailsFor: ["installation-b"] }),
+		),
+	);
+});
+
+it.effect("clears incompatible health when a private package update succeeds", () => {
+	const healthUpdates: Array<Record<string, unknown>> = [];
+	const privatePlugin = storedPrivatePlugin(privateManifest());
+	const installation = installationRow({
+		health: "incompatible",
+		pluginId: privatePlugin.id,
+		healthReason: shippedConflict("Shipped plugins already use the slug 'private-fixture'"),
+	});
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		const result = yield* service.updatePrivatePlugin({
+			userId,
+			files: {},
+			pluginSlug: privatePlugin.slug,
+			manifest: privateManifest({
+				metadata: { ...privateManifest().metadata, version: "2.0.0" },
+			}),
+		});
+		expect(result).toMatchObject({ health: "ready", healthReason: null, version: "2.0.0" });
+		expect(healthUpdates).toEqual([{ health: "ready", healthReason: null, id: installation.id }]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				healthUpdates,
+				installations: [installation],
+				privatePlugins: [privatePlugin],
+			}),
+		),
+	);
+});
+
+it.effect("uninstalls a private plugin shadowed by a newly shipped slug", () => {
+	const removedIds: Array<string> = [];
+	const deactivated: Array<string> = [];
+	const privatePlugin = storedPrivatePlugin(privateManifest());
+	const installations = [installationRow({ pluginId: privatePlugin.id })];
+	return Effect.gen(function* () {
+		const loader = yield* PluginLoader;
+		const service = yield* PluginInstallationService;
+		loader.load(
+			systemEntry(
+				privateManifest({
+					metadata: { ...privateManifest().metadata, slug: privatePlugin.slug },
+				}),
+			),
+		);
+		const removed = yield* service.uninstallPlugin(userId, privatePlugin.slug);
+		expect(removed.slug).toBe(privatePlugin.slug);
+		expect(deactivated).toEqual([privatePlugin.id]);
+		expect(removedIds).toEqual([installations[0]?.id]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				deactivated,
+				installations,
+				removed: removedIds,
+				privatePlugins: [privatePlugin],
 			}),
 		),
 	);

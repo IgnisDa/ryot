@@ -68,6 +68,11 @@ describe("classifyAccountCleanliness", () => {
 					pluginState: [
 						systemInstallation(),
 						systemInstallation({ pluginSlug: "fitness", pluginId: "fitness-plugin-id" }),
+						systemInstallation({
+							health: "installing",
+							pluginSlug: "shipped",
+							pluginId: "shipped-plugin-id",
+						}),
 					],
 				}),
 			),

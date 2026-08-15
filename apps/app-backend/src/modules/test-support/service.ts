@@ -23,6 +23,7 @@ import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesService } from "#modules/entities/service";
 import { InterestService } from "#modules/entity-interest/service";
 import { TranslationsService } from "#modules/entity-translation/service";
+import { PluginInstallationService } from "#modules/plugins/installation-service";
 import { PluginIngestionService } from "#modules/plugins/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsService } from "#modules/relationships/service";
@@ -80,6 +81,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 			const translations = yield* TranslationsService;
 			const relationships = yield* RelationshipsService;
 			const pluginIngestion = yield* PluginIngestionService;
+			const pluginInstallations = yield* PluginInstallationService;
 			const relationshipSchemas = yield* RelationshipSchemasRepository;
 
 			const createGlobalEntity = Effect.fn("TestSupportService.createGlobalEntity")(function* (
@@ -178,6 +180,11 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 			const triggerPluginCron = (input: TestSupportTriggerPluginCronBody) =>
 				pluginCrons.trigger(input.pluginSlug, input.cronSlug, `plugin-cron-manual-${generateId()}`);
 
+			const reconcilePluginInstallations = Effect.gen(function* () {
+				yield* pluginInstallations.reconcileSystemInstallations();
+				yield* pluginInstallations.dispatchPendingInstallationLifecycle();
+			});
+
 			const triggerPluginBoot = Effect.gen(function* () {
 				const executionId = `plugin-boot-manual-${generateId()}`;
 				yield* pluginBoots.triggerAll(executionId);
@@ -215,6 +222,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				upsertEntityTranslation,
 				upsertGlobalRelationship,
 				listSignals: signals.list,
+				reconcilePluginInstallations,
 				getSandboxResult: sandbox.getResult,
 				deleteGlobalEntities: entities.deleteByIds,
 				listSystemPlugins: pluginIngestion.listPlugins,

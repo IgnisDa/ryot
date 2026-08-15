@@ -30,6 +30,7 @@ type PrivatePluginPackageInput = {
 	readonly configKey?: string;
 	readonly pluginSlug?: string;
 	readonly operationSlug?: string;
+	readonly savedViews?: PrivatePluginManifest["savedViews"];
 	readonly configSchema?: PrivatePluginManifest["configSchema"];
 };
 
@@ -72,6 +73,7 @@ export const privatePluginPackage = (
 	});
 	const manifest = testPluginManifest({
 		pluginSlug,
+		savedViews: input.savedViews,
 		configSchema: input.configSchema ?? privatePluginConfigSchema,
 		operations: [
 			{
