@@ -1128,3 +1128,167 @@ it.effect("rejects a trusted user bootstrap caller from a user-scoped or shadowi
 		).toBeNull();
 	}),
 );
+
+const storedPrivatePlugin = { ...privatePluginRow, status: "active" };
+
+const installationState = (overrides: Partial<PluginInstallationState> = {}) =>
+	Object.assign(Object.create(null), {
+		config: {},
+		sortOrder: 0,
+		health: "ready",
+		userId: "user-1",
+		isDisabled: false,
+		healthReason: null,
+		pluginScope: "system",
+		pluginSlug: "fixture",
+		id: "system-installation-id",
+		pluginId: "fixture-plugin-id",
+		...overrides,
+	});
+
+const privateInstallationState = (overrides: Partial<PluginInstallationState> = {}) =>
+	installationState({
+		pluginScope: "user",
+		pluginSlug: "private",
+		id: "private-installation-id",
+		pluginId: "private-plugin-id",
+		config: { apiToken: "private-token" },
+		...overrides,
+	});
+
+const makeAvailabilityLayer = (
+	states: ReadonlyArray<PluginInstallationState>,
+	stored: typeof storedPrivatePlugin | null = storedPrivatePlugin,
+) => {
+	const loader = makePluginLoader(makeDefinitionRegistry());
+	loader.load(normalizedPlugin());
+	const pluginQueryParams: Array<ReadonlyArray<unknown>> = [];
+	const db = {
+		select: () => ({
+			from: (table: unknown) => ({
+				where: (condition: unknown) => {
+					const params = sqlParams(condition);
+					if (table !== schema.plugin) {
+						return limitable(params.includes("private-hash") ? [privateScriptRow] : []);
+					}
+					pluginQueryParams.push(params);
+					const matches =
+						stored !== null &&
+						params.includes(stored.scope) &&
+						params.includes(stored.status) &&
+						params.includes(stored.ownerId);
+					return limitable(matches ? [stored] : []);
+				},
+			}),
+		}),
+	};
+	const layer = PluginRuntimeResolver.layer.pipe(
+		Layer.provideMerge(
+			Layer.mergeAll(
+				Layer.succeed(PluginLoader, { ...loader }),
+				Layer.succeed(Database, Object.assign(Object.create(null), db)),
+				Layer.mock(PluginInstallationRepository)({
+					listForUser: () => Effect.succeed([...states]),
+				}),
+			),
+		),
+	);
+	return { layer, pluginQueryParams };
+};
+
+it.effect("returns system and owned private plugins with ready enabled installations", () => {
+	const { layer, pluginQueryParams } = makeAvailabilityLayer([
+		installationState(),
+		privateInstallationState(),
+	]);
+	return Effect.gen(function* () {
+		const resolver = yield* PluginRuntimeResolver;
+		expect(yield* resolver.listPluginsAvailableToUser(UserId.make("user-1"))).toMatchObject([
+			{
+				config: {},
+				slug: "fixture",
+				scope: "system",
+				id: "fixture-plugin-id",
+				installationId: "system-installation-id",
+				compiledHashes: { "fixture.workflow": "fixture.workflow-hash" },
+			},
+			{
+				slug: "private",
+				scope: "user",
+				id: "private-plugin-id",
+				config: { apiToken: "private-token" },
+				installationId: "private-installation-id",
+				compiledHashes: { "private.script": "private-hash" },
+			},
+		]);
+		expect(pluginQueryParams).toEqual([["user", "active", "user-1"]]);
+		expect(
+			yield* resolver.findPluginAvailableToUser(UserId.make("user-1"), "private-plugin-id"),
+		).toMatchObject({ scope: "user", installationId: "private-installation-id" });
+		expect(
+			yield* resolver.findOperationAvailableToUser({
+				pluginSlug: "private",
+				operationSlug: "private.op",
+				userId: UserId.make("user-1"),
+			}),
+		).toMatchObject({
+			operation: { slug: "private.op" },
+			plugin: { id: "private-plugin-id", scope: "user" },
+			script: { id: "private-script-id", slug: "private.script" },
+		});
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("excludes plugins whose installation is unhealthy or disabled", () =>
+	Effect.forEach(
+		[
+			{ health: "failed" },
+			{ health: "installing" },
+			{ health: "incompatible" },
+			{ health: "needs-configuration" },
+			{ isDisabled: true },
+		] as ReadonlyArray<Partial<PluginInstallationState>>,
+		(overrides) =>
+			Effect.gen(function* () {
+				const resolver = yield* PluginRuntimeResolver;
+				expect(yield* resolver.listPluginsAvailableToUser(UserId.make("user-1"))).toEqual([]);
+				expect(
+					yield* resolver.findOperationAvailableToUser({
+						pluginSlug: "private",
+						operationSlug: "private.op",
+						userId: UserId.make("user-1"),
+					}),
+				).toBeNull();
+			}).pipe(
+				Effect.provide(
+					makeAvailabilityLayer([installationState(overrides), privateInstallationState(overrides)])
+						.layer,
+				),
+			),
+	),
+);
+
+it.effect("excludes a private plugin owned by another user or no longer active", () =>
+	Effect.gen(function* () {
+		const owned = yield* Effect.flatMap(PluginRuntimeResolver, (resolver) =>
+			resolver.listPluginsAvailableToUser(UserId.make("user-2")),
+		).pipe(
+			Effect.provide(
+				makeAvailabilityLayer([installationState(), privateInstallationState()]).layer,
+			),
+		);
+		expect(owned).toMatchObject([{ slug: "fixture", scope: "system" }]);
+
+		const archived = yield* Effect.flatMap(PluginRuntimeResolver, (resolver) =>
+			resolver.listPluginsAvailableToUser(UserId.make("user-1")),
+		).pipe(
+			Effect.provide(
+				makeAvailabilityLayer([installationState(), privateInstallationState()], {
+					...storedPrivatePlugin,
+					status: "archived",
+				}).layer,
+			),
+		);
+		expect(archived).toMatchObject([{ slug: "fixture", scope: "system" }]);
+	}),
+);

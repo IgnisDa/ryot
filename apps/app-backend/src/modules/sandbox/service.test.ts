@@ -52,10 +52,13 @@ const makePluginRuntime = (
 		Effect.succeed(null),
 	findActiveWorkflowScript: SandboxPluginScriptResolverValue["findActiveWorkflowScript"] = () =>
 		Effect.succeed(null),
+	findWorkflowScriptAvailableToUser: SandboxPluginScriptResolverValue["findWorkflowScriptAvailableToUser"] = () =>
+		Effect.succeed(null),
 ) =>
 	Layer.mock(SandboxPluginScriptResolver)({
 		findActiveScriptById,
 		findActiveWorkflowScript,
+		findWorkflowScriptAvailableToUser,
 	});
 const makeServiceLayer = (
 	repository: ReturnType<typeof makeRepository>,
@@ -298,17 +301,17 @@ it.effect("resolves and executes a manifest workflow with an exact script pin", 
 	});
 	const layer = makeServiceLayer(
 		makeRepository(),
-		makePluginRuntime(undefined, () =>
+		makePluginRuntime(undefined, undefined, () =>
 			Effect.succeed({
 				...storedScript,
-				name: "Media resolution",
 				source: "source",
-				slug: "workflow.media-import-resolution",
 				pluginSlug: "media",
+				name: "Media resolution",
 				createdAt: new Date(0),
 				updatedAt: new Date(0),
 				contentHash: "workflow-hash",
 				metadata: { kind: "workflow" as const },
+				slug: "workflow.media-import-resolution",
 			}),
 		),
 		Layer.succeed(WorkflowEngine, engine),
@@ -318,7 +321,8 @@ it.effect("resolves and executes a manifest workflow with an exact script pin", 
 		const service = yield* SandboxExecutionService;
 		const resolvedScriptId = yield* service.resolveWorkflowScript({
 			executionId,
-			pluginSlug: "media",
+			userId: executingUserId,
+			pluginId: "media-plugin-id",
 			workflowSlug: "media-import-resolution",
 		});
 		const result = yield* service.executeWorkflow({

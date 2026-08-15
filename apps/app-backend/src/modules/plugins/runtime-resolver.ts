@@ -4,7 +4,10 @@ import type {
 	AutomationRuleKind,
 	AutomationRuleMetadata,
 } from "@ryot/contract/modules/automations/schemas";
-import type { PluginProviderOperation } from "@ryot/contract/modules/plugins/manifest";
+import type {
+	PluginManifest,
+	PluginProviderOperation,
+} from "@ryot/contract/modules/plugins/manifest";
 import type { ExecutionAuthority } from "@ryot/contract/modules/sandbox/schemas";
 import type { UserId } from "@ryot/contract/schema/brands";
 import {
@@ -84,6 +87,29 @@ export class InvalidProviderEntityImportAutomationError extends Data.TaggedError
 	readonly scriptSlug: string;
 	readonly reason: "missing_script" | "wrong_script_kind" | "inactive_script";
 }> {}
+
+export type AvailablePlugin = {
+	readonly id: string;
+	readonly slug: string;
+	readonly installationId: string;
+	readonly scope: "system" | "user";
+	readonly manifest: PluginManifest;
+	readonly compiledHashes: Record<string, string>;
+	readonly config: Readonly<Record<string, unknown>>;
+};
+
+export const pluginConfigContextFor = (plugin: AvailablePlugin): PluginConfigContext =>
+	plugin.scope === "system"
+		? {
+				kind: "environment",
+				pluginSlug: plugin.slug,
+				configSchema: plugin.manifest.configSchema,
+			}
+		: {
+				kind: "installation",
+				config: plugin.config,
+				configSchema: plugin.manifest.configSchema,
+			};
 
 export type ResolvedProviderEntityImportAutomation = {
 	readonly ruleId: AutomationRuleId;
@@ -273,6 +299,126 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				);
 			});
 
+			const listPluginsAvailableToUser: (
+				userId: UserId,
+			) => Effect.Effect<ReadonlyArray<AvailablePlugin>, DbError, Database> = Effect.fn(
+				"PluginRuntimeResolver.listPluginsAvailableToUser",
+			)(function* (userId: UserId) {
+				const states = (yield* installations.listForUser(userId)).filter(
+					(state) => state.health === "ready" && !state.isDisabled,
+				);
+				const stateByPluginId = new Map(states.map((state) => [state.pluginId, state]));
+				const available: Array<AvailablePlugin> = [];
+				for (const plugin of Object.values(loader.getSnapshot().plugins)) {
+					const state = stateByPluginId.get(plugin.id);
+					if (!state) {
+						continue;
+					}
+					available.push({
+						config: {},
+						id: plugin.id,
+						slug: plugin.slug,
+						scope: "system",
+						manifest: plugin.manifest,
+						installationId: state.id,
+						compiledHashes: Object.fromEntries(
+							plugin.scripts.map((script) => [script.slug, script.contentHash]),
+						),
+					});
+				}
+				const db = yield* Database;
+				const owned = yield* mapDatabaseErrors(
+					db
+						.select({
+							id: schema.plugin.id,
+							slug: schema.plugin.slug,
+							manifest: schema.plugin.manifest,
+							compiledHashes: schema.plugin.compiledHashes,
+						})
+						.from(schema.plugin)
+						.where(
+							and(
+								eq(schema.plugin.scope, "user"),
+								eq(schema.plugin.status, "active"),
+								eq(schema.plugin.ownerId, userId),
+							),
+						),
+				);
+				for (const plugin of owned) {
+					const state = stateByPluginId.get(plugin.id);
+					if (!state) {
+						continue;
+					}
+					available.push({
+						...plugin,
+						scope: "user",
+						config: state.config,
+						installationId: state.id,
+					});
+				}
+				return available.sort((left, right) => left.slug.localeCompare(right.slug));
+			});
+
+			const findPluginAvailableToUser = Effect.fn(
+				"PluginRuntimeResolver.findPluginAvailableToUser",
+			)(function* (userId: UserId, pluginId: string) {
+				const available = yield* listPluginsAvailableToUser(userId);
+				return available.find(({ id }) => id === pluginId) ?? null;
+			});
+
+			const findScriptInAvailablePlugin = Effect.fn(
+				"PluginRuntimeResolver.findScriptInAvailablePlugin",
+			)(function* (plugin: AvailablePlugin, scriptSlug: string) {
+				const contentHash = plugin.compiledHashes[scriptSlug];
+				return contentHash
+					? yield* findCompiledScriptRow({ scriptSlug, contentHash, pluginId: plugin.id })
+					: null;
+			});
+
+			const findWorkflowScriptInAvailablePlugin = Effect.fn(
+				"PluginRuntimeResolver.findWorkflowScriptInAvailablePlugin",
+			)(function* (plugin: AvailablePlugin, workflowSlug: string) {
+				const scriptSlug = plugin.manifest.workflows.find(
+					({ slug }) => slug === workflowSlug,
+				)?.scriptSlug;
+				return scriptSlug ? yield* findScriptInAvailablePlugin(plugin, scriptSlug) : null;
+			});
+
+			const findWorkflowScriptAvailableToUser = Effect.fn(
+				"PluginRuntimeResolver.findWorkflowScriptAvailableToUser",
+			)(function* (userId: UserId, pluginId: string, workflowSlug: string) {
+				const plugin = yield* findPluginAvailableToUser(userId, pluginId);
+				return plugin ? yield* findWorkflowScriptInAvailablePlugin(plugin, workflowSlug) : null;
+			});
+
+			const findOperationAvailableToUser = Effect.fn(
+				"PluginRuntimeResolver.findOperationAvailableToUser",
+			)(function* (input: {
+				readonly userId: UserId;
+				readonly pluginSlug: string;
+				readonly operationSlug: string;
+			}) {
+				const available = yield* listPluginsAvailableToUser(input.userId);
+				const plugin =
+					available.find(
+						(candidate) => candidate.scope === "system" && candidate.slug === input.pluginSlug,
+					) ?? available.find((candidate) => candidate.slug === input.pluginSlug);
+				const operation = plugin?.manifest.operations.find(
+					({ slug }) => slug === input.operationSlug,
+				);
+				const contentHash =
+					operation && plugin ? plugin.compiledHashes[operation.scriptSlug] : undefined;
+				if (!plugin || !operation || !contentHash) {
+					return null;
+				}
+				const script = yield* findCompiledScriptRow({
+					contentHash,
+					pluginId: plugin.id,
+					scriptSlug: operation.scriptSlug,
+				});
+				return script ? { plugin, operation, script } : null;
+			});
+
 			const findActiveScript = Effect.fn("PluginRuntimeResolver.findActiveScript")(function* (
 				scriptSlug: string,
 			) {
@@ -391,6 +537,11 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				});
 				return script ? { bootstrap, script } : null;
 			});
+			// TODO(plugins): Task 11 should delete findActiveOperation, isSystemPluginAvailableToUser and
+			// findUserOperation. All three lost their callers when operation dispatch moved to
+			// findOperationAvailableToUser. findActiveOperation is the dangerous one: it resolves an
+			// operation by slug from the system snapshot with no user at all, which is exactly the
+			// slug-only global lookup the parent plan forbids for private plugins.
 			const findActiveOperation = Effect.fn("PluginRuntimeResolver.findActiveOperation")(
 				(input: { pluginSlug: string; operationSlug: string }) =>
 					Effect.sync(() => {
@@ -1203,6 +1354,12 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				findActiveWorkflowScript,
 				resolveSystemQueryScript,
 				findScriptAvailableToUser,
+				findPluginAvailableToUser,
+				findScriptInAvailablePlugin,
+				listPluginsAvailableToUser,
+				findOperationAvailableToUser,
+				findWorkflowScriptAvailableToUser,
+				findWorkflowScriptInAvailablePlugin,
 				resolvePluginConfigContext,
 				resolveUserTranslateScript,
 				resolveSearchOptionsScript,

@@ -1,5 +1,4 @@
 import type { BadRequest, DbError, NotFound } from "@ryot/contract/errors";
-import type { PluginOperationAuth } from "@ryot/contract/modules/plugins/manifest";
 import {
 	PluginInvocationError,
 	PluginNotFoundError,
@@ -12,7 +11,7 @@ import {
 	type UserId,
 } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Option, Result } from "effect";
 import type { Headers as PlatformHeaders } from "effect/unstable/http";
 
 import { AuthService } from "#modules/auth/service";
@@ -23,6 +22,7 @@ import { PluginRuntimeResolver } from "./runtime-resolver";
 type IntegrationOperationScope = {
 	readonly userId: UserId;
 	readonly integrationId: IntegrationId;
+	readonly pluginInstallationId: string;
 };
 
 export class IntegrationOperationScopeResolver extends Context.Service<
@@ -86,34 +86,6 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 			return result.value;
 		});
 
-		const resolveScope = (
-			operationAuth: PluginOperationAuth,
-			payload: unknown,
-			headers: PlatformHeaders.Headers,
-			operation: { readonly pluginSlug: PluginSlug; readonly operationSlug: string },
-		) => {
-			if (operationAuth === "user") {
-				const getCurrentUser = auth
-					.currentUser(new Headers(headers))
-					.pipe(Effect.map((user) => ({ userId: user.id })));
-				return getCurrentUser;
-			}
-			return integrationScopeResolver.resolve(payload).pipe(
-				Effect.catchTags({
-					BadRequest: () =>
-						Effect.fail(
-							new PluginRequestError({ reason: { code: "invalid-operation-scope", ...operation } }),
-						),
-					NotFound: () =>
-						Effect.fail(
-							new PluginNotFoundError({
-								reason: { code: "operation-scope-not-found", ...operation },
-							}),
-						),
-				}),
-			);
-		};
-
 		const invoke = Effect.fn("OperationsService.invoke")(function* (input: {
 			readonly payload: unknown;
 			readonly pluginSlug: string;
@@ -124,57 +96,84 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 				operationSlug: input.operationSlug,
 				pluginSlug: PluginSlug.make(input.pluginSlug),
 			};
-			const resolved = yield* runtime.findActiveOperation({
-				pluginSlug: input.pluginSlug,
-				operationSlug: input.operationSlug,
+			const operationNotFound = new PluginNotFoundError({
+				reason: { code: "operation-not-found", ...operation },
 			});
-			if (resolved) {
-				const scope = yield* resolveScope(
-					resolved.operation.auth,
-					input.payload,
-					input.headers,
-					operation,
-				);
-				if (!(yield* runtime.isSystemPluginAvailableToUser(scope.userId, input.pluginSlug))) {
-					return yield* new PluginNotFoundError({
-						reason: { code: "operation-not-found", ...operation },
-					});
-				}
-				const script = yield* resolved.script;
-				if (!script) {
-					return yield* new PluginInvocationError({
-						reason: { code: "script-unavailable", ...operation },
-					});
-				}
-				return yield* dispatch({
-					...scope,
-					scriptId: script.id,
-					payload: input.payload,
+			const scopeNotFound = new PluginNotFoundError({
+				reason: { code: "operation-scope-not-found", ...operation },
+			});
+			const resolveOperation = (userId: UserId) =>
+				runtime.findOperationAvailableToUser({
+					userId,
 					pluginSlug: input.pluginSlug,
 					operationSlug: input.operationSlug,
 				});
+			const resolveIntegrationScope = integrationScopeResolver
+				.resolve(input.payload)
+				.pipe(Effect.catchTag("NotFound", () => scopeNotFound));
+
+			const authenticated = yield* auth.currentUser(new Headers(input.headers)).pipe(
+				Effect.map((user) => Result.succeed(user.id)),
+				Effect.catchTag("AuthUnauthorized", (error) => Effect.succeed(Result.fail(error))),
+			);
+
+			if (Result.isSuccess(authenticated)) {
+				const userId = authenticated.success;
+				const resolved = yield* resolveOperation(userId);
+				if (resolved?.operation.auth === "user") {
+					return yield* dispatch({
+						userId,
+						payload: input.payload,
+						scriptId: resolved.script.id,
+						pluginSlug: input.pluginSlug,
+						operationSlug: input.operationSlug,
+					});
+				}
+				if (resolved) {
+					const scope = yield* resolveIntegrationScope.pipe(
+						Effect.catchTag("BadRequest", () =>
+							Effect.fail(
+								new PluginRequestError({
+									reason: { code: "invalid-operation-scope", ...operation },
+								}),
+							),
+						),
+					);
+					if (scope.pluginInstallationId !== resolved.plugin.installationId) {
+						return yield* operationNotFound;
+					}
+					return yield* dispatch({
+						userId: scope.userId,
+						payload: input.payload,
+						scriptId: resolved.script.id,
+						pluginSlug: input.pluginSlug,
+						integrationId: scope.integrationId,
+						operationSlug: input.operationSlug,
+					});
+				}
 			}
-			const user = yield* auth.currentUser(new Headers(input.headers));
-			const owned = yield* runtime.findUserOperation({
-				userId: user.id,
-				pluginSlug: input.pluginSlug,
-				operationSlug: input.operationSlug,
-			});
-			if (!owned) {
-				return yield* new PluginNotFoundError({
-					reason: { code: "operation-not-found", ...operation },
-				});
+
+			const scope = yield* resolveIntegrationScope.pipe(
+				Effect.map(Option.some),
+				Effect.catchTag("BadRequest", () => Effect.succeed(Option.none())),
+			);
+			if (Option.isNone(scope)) {
+				return yield* Result.isFailure(authenticated) ? authenticated.failure : operationNotFound;
 			}
-			if (owned.operation.auth === "integration") {
-				return yield* new PluginRequestError({
-					reason: { code: "invalid-operation-scope", ...operation },
-				});
+			const owner = scope.value;
+			const resolved = yield* resolveOperation(owner.userId);
+			if (
+				resolved?.operation.auth !== "integration" ||
+				resolved.plugin.installationId !== owner.pluginInstallationId
+			) {
+				return yield* operationNotFound;
 			}
 			return yield* dispatch({
-				userId: user.id,
+				userId: owner.userId,
 				payload: input.payload,
-				scriptId: owned.script.id,
+				scriptId: resolved.script.id,
 				pluginSlug: input.pluginSlug,
+				integrationId: owner.integrationId,
 				operationSlug: input.operationSlug,
 			});
 		});
