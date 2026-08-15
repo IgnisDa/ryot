@@ -9,7 +9,7 @@ import { appClient, appRevalidationSignal } from "@/api/client";
 import { scopedRequestKey } from "@/api/request-key";
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
-import { useEntityUpdates } from "@/modules/entity-interest/use-entity-updates";
+import { useEntityRefresh } from "@/modules/entity-interest/use-entity-refresh";
 
 import { savedViewRecordAtom } from "./atoms";
 import {
@@ -234,12 +234,11 @@ export const useSavedViewResult = (
 		`saved-view result ${runtime?.failure?.status}`,
 		runtime?.failure?.cause,
 	);
-	useEntityUpdates({
-		priority: "visible",
+	useEntityRefresh({
+		identity,
 		blocked: !!runtime?.operation,
-		owner: `saved-view:${identity}`,
 		entityIds: state.status === "ready" ? state.entityIds : [],
-		onBatch: () => Effect.sync(() => dispatch({ type: "refresh-requested" })),
+		refresh: () => dispatch({ type: "refresh-requested" }),
 	});
 
 	useEffect(() => {
