@@ -80,11 +80,11 @@ describe("runtime module analysis", () => {
 		}),
 	);
 
-	it.effect("accepts an acyclic dependency through backend app runtime files", () =>
+	it.effect("accepts an acyclic dependency through backend boot runtime files", () =>
 		Effect.gen(function* () {
 			const cycles = yield* analyzeSources({
-				"modules/alpha/service.ts": 'import "#app/bridge";',
-				"app/bridge.ts": 'import "../modules/beta/service";',
+				"modules/alpha/service.ts": 'import "#boot/bridge";',
+				"boot/bridge.ts": 'import "../modules/beta/service";',
 				"modules/beta/service.ts": "export const beta = true;",
 			});
 

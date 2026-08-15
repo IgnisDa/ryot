@@ -12,6 +12,12 @@ import { ProviderHttpAdmissionService } from "#lib/infrastructure/provider-http-
 import { RedisService } from "#lib/infrastructure/redis";
 import { S3Service } from "#lib/infrastructure/s3";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
+import { makeAutomationSandboxApiFunctions } from "#lib/infrastructure/sandbox-runtime/automation-host-functions";
+import {
+	SandboxDurableHostDispatcherLive,
+	SandboxDurableHostServiceWorkflowLive,
+} from "#lib/infrastructure/sandbox-runtime/durable-host-dispatcher";
+import { makeAdditionalSandboxApiFunctions } from "#lib/infrastructure/sandbox-runtime/host-functions";
 import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
 import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
 import { makeRuntimeSandboxApiFunctions } from "#lib/infrastructure/sandbox-runtime/runtime-host-functions";
@@ -156,14 +162,8 @@ import {
 import { UserSettingsService } from "#modules/user-settings/service";
 import { UserStateService } from "#modules/user-state/service";
 
-import { makeAutomationSandboxApiFunctions } from "./automation-sandbox-host-functions";
 import { FrequentCronWorkflowDefinitionsLive } from "./cron-workflow-definitions";
 import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
-import {
-	SandboxDurableHostDispatcherLive,
-	SandboxDurableHostServiceWorkflowLive,
-} from "./sandbox-durable-host-dispatcher";
-import { makeAdditionalSandboxApiFunctions } from "./sandbox-host-functions";
 import { ServerLive } from "./server";
 
 const ConfigLive = Layer.mergeAll(AppConfig.layer, BunServices.layer);

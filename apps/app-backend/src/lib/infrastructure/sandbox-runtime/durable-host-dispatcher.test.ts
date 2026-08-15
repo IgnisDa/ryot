@@ -25,7 +25,7 @@ import {
 import { SandboxRepository } from "#modules/sandbox/repository";
 import { SandboxScriptWorkflow } from "#modules/sandbox/sandbox-script-workflow";
 
-import { SandboxDurableHostDispatcherLive } from "./sandbox-durable-host-dispatcher";
+import { SandboxDurableHostDispatcherLive } from "./durable-host-dispatcher";
 
 const unused = () => Effect.fail({ message: "unused" });
 const implementations: SandboxHostImplementations["Service"] = {
