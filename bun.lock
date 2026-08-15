@@ -190,6 +190,7 @@
         "@effect/atom-react": "4.0.0-beta.107",
         "@fontsource-variable/lora": "5.3.0",
         "@fontsource-variable/outfit": "5.3.0",
+        "@ryot/client-ui-sdk": "workspace:*",
         "@ryot/contract": "workspace:*",
         "@tailwindcss/vite": "^4.1.18",
         "@tanstack/react-form": "2.0.0-alpha.1",
@@ -248,6 +249,45 @@
         "@effect/vitest": "4.0.0-beta.107",
         "@ryot/testing": "workspace:*",
         "bun-types": "1.4.0",
+        "vitest": "4.1.9",
+      },
+    },
+    "packages/client-plugin-sdk": {
+      "name": "@ryot/client-plugin-sdk",
+      "dependencies": {
+        "@ryot/contract": "workspace:*",
+        "effect": "4.0.0-rc.111",
+        "react": "^19.2.0",
+        "react-dom": "^19.2.0",
+      },
+      "devDependencies": {
+        "@ryot/testing": "workspace:*",
+        "@testing-library/dom": "^10.4.1",
+        "@types/react": "^19.2.0",
+        "@types/react-dom": "^19.2.0",
+        "@vitejs/plugin-react": "^6.0.1",
+        "bun-types": "1.4.0",
+        "jsdom": "^30.0.1",
+        "vite": "^8.0.0",
+        "vitest": "4.1.9",
+      },
+    },
+    "packages/client-ui-sdk": {
+      "name": "@ryot/client-ui-sdk",
+      "dependencies": {
+        "react": "^19.2.0",
+      },
+      "devDependencies": {
+        "@ryot/testing": "workspace:*",
+        "@testing-library/dom": "^10.4.1",
+        "@testing-library/react": "^16.3.3",
+        "@types/react": "^19.2.0",
+        "@types/react-dom": "^19.2.0",
+        "@vitejs/plugin-react": "^6.0.1",
+        "jsdom": "^30.0.1",
+        "react-dom": "^19.2.0",
+        "typescript": "7.0.2",
+        "vite": "^8.0.0",
         "vitest": "4.1.9",
       },
     },
@@ -1227,6 +1267,10 @@
     "@ryot/browser-extension": ["@ryot/browser-extension@workspace:apps/browser-extension"],
 
     "@ryot/cli": ["@ryot/cli@workspace:packages/cli"],
+
+    "@ryot/client-plugin-sdk": ["@ryot/client-plugin-sdk@workspace:packages/client-plugin-sdk"],
+
+    "@ryot/client-ui-sdk": ["@ryot/client-ui-sdk@workspace:packages/client-ui-sdk"],
 
     "@ryot/config": ["@ryot/config@workspace:packages/config"],
 
@@ -3291,6 +3335,18 @@
     "@rolldown/binding-wasm32-wasi/@emnapi/runtime": ["@emnapi/runtime@1.10.0", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-ewvYlk86xUoGI0zQRNq/mC+16R1QeDlKQy21Ki3oSYXNgLb45GV1P6A0M+/s6nyCuNDqe5VpaY84BzXGwVbwFA=="],
 
     "@rollup/pluginutils/estree-walker": ["estree-walker@2.0.2", "", {}, "sha512-Rfkk/Mp/DL7JVje3u18FxFujQlTNR2q6QfMSMB7AvCBx91NGj/ba3kCfza0f6dVDbw7YlRf/nDrn7pQrCCyQ/w=="],
+
+    "@ryot/client-plugin-sdk/@types/react": ["@types/react@19.2.15", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-eRwcGNHve+E8qtEQSSRl6urh+rFop4v8gm6O8rGv25CodbvFdLjA1vVQ1KkiFE0w0UPOnb8tDiFKL5lp0rtY5Q=="],
+
+    "@ryot/client-plugin-sdk/react": ["react@19.2.6", "", {}, "sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q=="],
+
+    "@ryot/client-plugin-sdk/react-dom": ["react-dom@19.2.6", "", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.6" } }, "sha512-0prMI+hvBbPjsWnxDLxlCGyM8PN6UuWjEUCYmZhO67xIV9Xasa/r/vDnq+Xyq4Lo27g8QSbO5YzARu0D1Sps3g=="],
+
+    "@ryot/client-ui-sdk/@types/react": ["@types/react@19.2.15", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-eRwcGNHve+E8qtEQSSRl6urh+rFop4v8gm6O8rGv25CodbvFdLjA1vVQ1KkiFE0w0UPOnb8tDiFKL5lp0rtY5Q=="],
+
+    "@ryot/client-ui-sdk/react": ["react@19.2.6", "", {}, "sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q=="],
+
+    "@ryot/client-ui-sdk/react-dom": ["react-dom@19.2.6", "", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.6" } }, "sha512-0prMI+hvBbPjsWnxDLxlCGyM8PN6UuWjEUCYmZhO67xIV9Xasa/r/vDnq+Xyq4Lo27g8QSbO5YzARu0D1Sps3g=="],
 
     "@ryot/kernel-client/@tailwindcss/vite": ["@tailwindcss/vite@4.3.0", "", { "dependencies": { "@tailwindcss/node": "4.3.0", "@tailwindcss/oxide": "4.3.0", "tailwindcss": "4.3.0" }, "peerDependencies": { "vite": "^5.2.0 || ^6 || ^7 || ^8" } }, "sha512-t6J3OrB5Fc0ExuhohouH0fWUGMYL6PTLhW+E7zIk/pdbnJARZDCwjBznFnkh5ynRnIRSI4YjtTH0t6USjJISrw=="],
 
