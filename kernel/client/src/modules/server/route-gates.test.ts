@@ -2,7 +2,11 @@ import { assert, describe, expect, it } from "vitest";
 
 import { parseServerOrigin } from "#/api/origin";
 import { sanitizeRedirect } from "#/modules/server/redirect";
-import { decideOnboardingGate, decideRootGate } from "#/modules/server/route-gates";
+import {
+	decideOnboardingCompletion,
+	decideOnboardingGate,
+	decideRootGate,
+} from "#/modules/server/route-gates";
 
 describe("redirect sanitization", () => {
 	it.each([
@@ -52,15 +56,36 @@ describe("route gates", () => {
 		});
 		expect(decideOnboardingGate(true, result.origin, "/library?tab=history")).toEqual({
 			to: "/auth",
-			action: "redirect",
+			action: "start-oauth",
 			redirectTo: "/library?tab=history",
 		});
 	});
 
+	it.each(["/god-mode", "/god-mode/users", "/god-mode/migration-report?from=setup"])(
+		"enters a safe God Mode destination directly after connection: %s",
+		(destination) => {
+			expect(decideOnboardingCompletion(destination)).toEqual({
+				to: destination,
+				action: "enter-god-mode",
+			});
+		},
+	);
+
+	it.each(["/god-mode-other", "/god-mode/../library", "/library", "https://evil.example"])(
+		"keeps OAuth for non-God Mode destination %s",
+		(destination) => {
+			expect(decideOnboardingCompletion(destination)).toEqual({
+				to: "/auth",
+				action: "start-oauth",
+				redirectTo: destination === "https://evil.example" ? undefined : destination,
+			});
+		},
+	);
+
 	it("makes onboarding unreachable on web", () => {
 		expect(decideOnboardingGate(false, null, "/library")).toEqual({
 			to: "/auth",
-			action: "redirect",
+			action: "start-oauth",
 			redirectTo: "/library",
 		});
 	});
@@ -72,7 +97,7 @@ describe("route gates", () => {
 		});
 		expect(decideOnboardingGate(true, result.origin, "/auth/reset")).toEqual({
 			to: "/auth",
-			action: "redirect",
+			action: "start-oauth",
 			redirectTo: undefined,
 		});
 	});

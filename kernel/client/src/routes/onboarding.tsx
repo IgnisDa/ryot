@@ -7,7 +7,7 @@ import { type ServerMode, resolveServerOrigin, suggestedServerOrigin } from "#/a
 import { isNativePlatform } from "#/modules/navigation/native-navigation";
 import { initialConnectionState, reduceConnectionState } from "#/modules/server/connection-state";
 import { sanitizeRedirect } from "#/modules/server/redirect";
-import { decideOnboardingGate } from "#/modules/server/route-gates";
+import { decideOnboardingCompletion, decideOnboardingGate } from "#/modules/server/route-gates";
 import { ServerService } from "#/modules/server/service";
 
 const serverOptions = [
@@ -26,14 +26,17 @@ const serverOptions = [
 export const Route = createFileRoute("/onboarding")({
 	component: Onboarding,
 	validateSearch: (search) => ({ redirect: sanitizeRedirect(search.redirect) }),
-	beforeLoad: ({ context, search }) => {
+	beforeLoad: ({ context, search }): ReturnType<typeof redirect> | undefined => {
 		const isNative = isNativePlatform();
 		const server = context.runtime.runSync(
 			Effect.flatMap(ServerService, (service) => service.selected),
 		);
 		const decision = decideOnboardingGate(isNative, server, search.redirect);
-		if (decision.action === "redirect") {
+		if (decision.action === "start-oauth") {
 			return redirect({ to: decision.to, search: { redirect: decision.redirectTo } });
+		}
+		if (decision.action === "enter-god-mode") {
+			return redirect({ href: decision.to });
 		}
 		return undefined;
 	},
@@ -93,7 +96,12 @@ function Onboarding() {
 			return;
 		}
 		dispatch({ type: "succeeded" });
-		await navigate({ to: "/auth", replace: true, search: { redirect: search.redirect } });
+		const decision = decideOnboardingCompletion(search.redirect);
+		if (decision.action === "enter-god-mode") {
+			await navigate({ href: decision.to, replace: true, search: { redirect: undefined } });
+			return;
+		}
+		await navigate({ to: decision.to, replace: true, search: { redirect: decision.redirectTo } });
 	}
 
 	return (

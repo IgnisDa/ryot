@@ -5,6 +5,7 @@ import {
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { Effect, Layer, Schema } from "effect";
 
+import { AdminApi } from "#/api/admin";
 import { decodeServerOrigin } from "#/api/origin";
 import { PublicApi } from "#/api/public";
 import type { ApiScope } from "#/api/scope";
@@ -15,6 +16,8 @@ import { OAuthStorage } from "#/modules/auth/oauth-storage";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
+import { GodModeService } from "#/modules/god-mode/service";
+import { GodModeSessionService, makeGodModeSessionService } from "#/modules/god-mode/session";
 import { SavedViewsService } from "#/modules/saved-views/service";
 import { ServerService } from "#/modules/server/service";
 import type { ThemeStore } from "#/modules/theme/store";
@@ -143,6 +146,18 @@ export const makeOAuthRouteStubs = (
 	);
 
 export const OAuthRouteStubs = makeOAuthRouteStubs();
+
+const GodModeSessionStub = Layer.succeed(
+	GodModeSessionService,
+	makeGodModeSessionService(() => "session-fixture"),
+);
+const AdminApiStub = Layer.succeed(AdminApi, { run: () => Effect.die("not used") });
+
+export const GodModeRouteStubs = Layer.mergeAll(
+	GodModeSessionStub,
+	AdminApiStub,
+	GodModeService.layer.pipe(Layer.provide(GodModeSessionStub), Layer.provide(AdminApiStub)),
+);
 
 export const SavedViewRouteStubs = Layer.mergeAll(
 	Layer.succeed(ManagedAssetsService, {
