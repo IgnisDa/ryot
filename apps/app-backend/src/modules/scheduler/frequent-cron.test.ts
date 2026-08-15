@@ -6,7 +6,7 @@ import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 
 import { CronRunPayload } from "./cron-workflow";
-import { FrequentCronSchedulerLive } from "./frequent-cron";
+import { frequentCronExecutionId, FrequentCronSchedulerLive } from "./frequent-cron";
 
 type CapturedRun = { executionId: string; payload: { executionId: string } };
 
@@ -25,33 +25,45 @@ const makeCapturingEngine = (captured: Queue.Queue<CapturedRun>) =>
 		},
 	});
 
-const schedulerConfig = (frequentCronJobsSchedule: string) =>
-	makeAppConfigLayer({ scheduler: { frequentCronJobsSchedule } });
+const schedulerLayer = (captured: Queue.Queue<CapturedRun>, frequentCronJobsSchedule: string) =>
+	FrequentCronSchedulerLive.pipe(
+		Layer.provide(Layer.succeed(WorkflowEngine, makeCapturingEngine(captured))),
+		Layer.provide(makeAppConfigLayer({ scheduler: { frequentCronJobsSchedule } })),
+	);
 
-it.effect("enqueues a frequent run immediately and on each interval", () =>
+const minuteMs = Duration.toMillis(Duration.minutes(1));
+
+it.effect("enqueues one deterministic run per interval bucket", () =>
 	Effect.gen(function* () {
 		const captured = yield* makeCapture();
-		const engine = makeCapturingEngine(captured);
-		const layer = FrequentCronSchedulerLive.pipe(
-			Layer.provide(Layer.succeed(WorkflowEngine, engine)),
-			Layer.provide(schedulerConfig("every minute")),
-		);
 
-		yield* Layer.build(layer);
+		yield* Layer.build(schedulerLayer(captured, "every minute"));
 
+		yield* TestClock.adjust(Duration.minutes(1));
 		const first = yield* Queue.take(captured);
-		expect(first.executionId).toMatch(/^frequent-cron-/);
+		expect(first.executionId).toBe(frequentCronExecutionId(minuteMs, minuteMs));
 		expect(first.payload.executionId).toBe(first.executionId);
 
 		yield* TestClock.adjust(Duration.minutes(1));
 		const second = yield* Queue.take(captured);
-		expect(second.executionId).toMatch(/^frequent-cron-/);
+		expect(second.executionId).toBe(frequentCronExecutionId(minuteMs, 2 * minuteMs));
 		expect(second.payload.executionId).toBe(second.executionId);
+	}),
+);
 
-		yield* TestClock.adjust(Duration.minutes(1));
-		const third = yield* Queue.take(captured);
-		expect(third.executionId).toMatch(/^frequent-cron-/);
-		expect(third.payload.executionId).toBe(third.executionId);
+it.effect("two schedulers sharing a bucket enqueue the same execution id", () =>
+	Effect.gen(function* () {
+		const captured = yield* makeCapture();
+
+		yield* Layer.build(schedulerLayer(captured, "every minute"));
+		yield* TestClock.adjust(Duration.seconds(30));
+		yield* Layer.build(schedulerLayer(captured, "every minute"));
+		yield* TestClock.adjust(Duration.seconds(30));
+
+		const first = yield* Queue.take(captured);
+		const second = yield* Queue.take(captured);
+		expect(first.executionId).toBe(frequentCronExecutionId(minuteMs, minuteMs));
+		expect(second.executionId).toBe(first.executionId);
 	}),
 );
 
@@ -74,22 +86,14 @@ it.effect("does not enqueue when dispatchers are disabled", () =>
 it.effect("falls back to the default 5-minute interval for an unsupported schedule", () =>
 	Effect.gen(function* () {
 		const captured = yield* makeCapture();
-		const engine = makeCapturingEngine(captured);
-		const layer = FrequentCronSchedulerLive.pipe(
-			Layer.provide(Layer.succeed(WorkflowEngine, engine)),
-			Layer.provide(schedulerConfig("every fortnight")),
-		);
 
-		yield* Layer.build(layer);
-
-		const first = yield* Queue.take(captured);
-		expect(first.executionId).toMatch(/^frequent-cron-/);
+		yield* Layer.build(schedulerLayer(captured, "every fortnight"));
 
 		yield* TestClock.adjust(Duration.minutes(1));
 		expect(yield* Queue.size(captured)).toBe(0);
 
 		yield* TestClock.adjust(Duration.minutes(4));
-		const second = yield* Queue.take(captured);
-		expect(second.executionId).toMatch(/^frequent-cron-/);
+		const first = yield* Queue.take(captured);
+		expect(first.executionId).toBe(frequentCronExecutionId(5 * minuteMs, 5 * minuteMs));
 	}),
 );

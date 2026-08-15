@@ -12,7 +12,7 @@
   - Scope: Carry `{ rawBody, contentType }` envelope
   - Prereq: Contract and durable-payload versioning
 
-- [ ] **3. Deterministic frequent-cron IDs** [H/S/M]
+- [x] **3. Deterministic frequent-cron IDs** [H/S/M]
   - Owner: D26 Scheduler
   - Scope: Derive ID from schedule and interval bucket
   - Prereq: Prefer after rank 1
