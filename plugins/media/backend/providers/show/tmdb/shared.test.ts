@@ -25,6 +25,7 @@ const makeHost = (httpCall: TmdbHost["httpCall"]) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
+
 describe("show.tmdb sandbox script", () => {
 	it("declares one narrowly scoped script per operation", () => {
 		expect([
@@ -39,6 +40,7 @@ describe("show.tmdb sandbox script", () => {
 			["show.tmdb.translate", "translate", ["httpCall", "getPluginConfig"]],
 		]);
 	});
+
 	it("declares trending as a generic provider-associated script", () => {
 		expect({
 			kind: trendingManifest.kind,
@@ -54,6 +56,7 @@ describe("show.tmdb sandbox script", () => {
 			requiredPluginConfigKeys: ["tmdbAccessToken"],
 		});
 	});
+
 	it("builds the TMDB show search endpoint", () => {
 		const host = makeHost((_method, url) => {
 			const requestUrl = new URL(url);
@@ -70,6 +73,7 @@ describe("show.tmdb sandbox script", () => {
 			),
 		);
 	});
+
 	it("keeps TMDB recommendations as related entities", () => {
 		const host = makeHost((_method, url) => {
 			if (url.includes("/tv/1/recommendations")) {
@@ -140,6 +144,7 @@ describe("show.tmdb sandbox script", () => {
 			),
 		);
 	});
+
 	it("classifies show, season, and episode images", () => {
 		const host = makeHost((_method, url) => {
 			if (url.includes("/tv/1/recommendations")) {
@@ -225,12 +230,14 @@ describe("show.tmdb sandbox script", () => {
 			),
 		);
 	});
-	it("keeps the offer kinds TMDB reports for a show", () => {
+
+	it("keeps the offer kinds and the country link TMDB reports for a show", () => {
 		const host = makeHost((_method, url) => {
 			if (url.includes("/tv/1/watch/providers")) {
 				return httpSuccess({
 					results: {
 						GB: {
+							link: "https://www.themoviedb.org/tv/1/watch?locale=GB",
 							ads: [{ provider_name: "Tubi", logo_path: "/tubi.jpg" }],
 							free: [{ provider_name: "Tubi", logo_path: "/tubi.jpg" }],
 						},
@@ -254,9 +261,15 @@ describe("show.tmdb sandbox script", () => {
 					expect(result.properties).toMatchObject({
 						watchProviders: [
 							{
-								name: "Tubi",
-								image: "https://image.tmdb.org/t/p/original/tubi.jpg",
-								availability: [{ country: "GB", offers: ["free", "ads"] }],
+								country: "GB",
+								link: "https://www.themoviedb.org/tv/1/watch?locale=GB",
+								providers: [
+									{
+										name: "Tubi",
+										offers: ["free", "ads"],
+										image: "https://image.tmdb.org/t/p/original/tubi.jpg",
+									},
+								],
 							},
 						],
 					});
@@ -265,6 +278,7 @@ describe("show.tmdb sandbox script", () => {
 			),
 		);
 	});
+
 	it("classifies localized show posters and episode stills", () => {
 		const host = makeHost((_method, url) =>
 			url.includes("/translations")
@@ -318,6 +332,7 @@ describe("show.tmdb sandbox script", () => {
 			),
 		);
 	});
+
 	it("returns TMDB trending shows", () => {
 		const requestedPages: string[] = [];
 		const host = makeHost((_method, url) => {
