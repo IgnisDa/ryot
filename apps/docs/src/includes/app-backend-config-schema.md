@@ -10,6 +10,7 @@
 | `timezone` | `TZ` | IANA timezone used for interpreting timezone-less datetimes during imports | No | No | `Etc/GMT` |
 | `redisUrl` | `REDIS_URL` | Redis connection string | Yes | Yes | — |
 | `frontendUrl` | `FRONTEND_URL` | Public URL of the frontend application | No | No | `https://app.ryot.io` |
+| `disableTelemetry` | `DISABLE_TELEMETRY` | Disable anonymous usage analytics reported by the client | No | No | `false` |
 
 ### User account settings
 
@@ -66,6 +67,13 @@
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
 | `frontend.oidcButtonLabel` | `FRONTEND_OIDC_BUTTON_LABEL` | Label for the OIDC sign-in button | No | No | — |
+
+#### Umami analytics settings
+
+| App Config Key | Variable | Description | Required | Sensitive | Default |
+|---|---|---|---|---|---|
+| `frontend.umami.hostUrl` | `FRONTEND_UMAMI_HOST_URL` | Origin of the Umami instance that receives analytics events | No | No | — |
+| `frontend.umami.websiteId` | `FRONTEND_UMAMI_WEBSITE_ID` | Umami website identifier reported alongside analytics events | No | No | — |
 
 ### Scheduler settings
 
