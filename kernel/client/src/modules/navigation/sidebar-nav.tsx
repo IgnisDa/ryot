@@ -1,3 +1,4 @@
+import { KERNEL_SHORTCUTS } from "@ryot-app/client-plugin-contract";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
@@ -25,10 +26,12 @@ type SidebarNavProps = {
 	readonly navigation: NavigationData;
 	readonly showSearchShortcut: boolean;
 	readonly catalog: PluginClientCatalog;
+	readonly workspaceSwitcherOpen: boolean;
 	readonly onCustomize?: (() => void) | undefined;
 	readonly current: PluginClientCatalogEntry | null;
 	readonly onNavigateHome: () => void | Promise<void>;
 	readonly showWorkspaceShortcut?: boolean | undefined;
+	readonly onWorkspaceSwitcherOpenChange: (open: boolean) => void;
 	readonly onSelectWorkspace: (slug: string) => void | Promise<void>;
 	readonly onNavigateItem: (item: SidebarItem) => void | Promise<void>;
 	readonly onEditSection?: ((section: Exclude<CustomizeSection, "workspaces">) => void) | undefined;
@@ -123,14 +126,17 @@ export function SidebarNav(props: SidebarNavProps) {
 				catalog={props.catalog}
 				navigation={props.navigation}
 				onCustomize={props.onCustomize}
+				open={props.workspaceSwitcherOpen}
 				onSelect={props.onSelectWorkspace}
 				summary={workspaceSummary(props.sections)}
 				showShortcut={props.showWorkspaceShortcut}
+				onOpenChange={props.onWorkspaceSwitcherOpenChange}
 			/>
 			<button
 				type="button"
 				onClick={props.onOpenSearch}
 				aria-label="Open command center"
+				aria-keyshortcuts={props.showSearchShortcut ? KERNEL_SHORTCUTS.commandCenter : undefined}
 				className="flex h-10 items-center gap-2.5 rounded-lg border border-border bg-bg px-2.5 text-left"
 			>
 				<AppIcon name="search" size={16} className="text-text-muted" />

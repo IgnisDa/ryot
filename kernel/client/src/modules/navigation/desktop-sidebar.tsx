@@ -21,12 +21,15 @@ type DesktopSidebarProps = {
 	readonly sections: SidebarSections;
 	readonly session: AuthSessionStore;
 	readonly customizePanel: ReactNode;
+	readonly shortcutsEnabled: boolean;
 	readonly navigation: NavigationData;
 	readonly catalog: PluginClientCatalog;
+	readonly workspaceSwitcherOpen: boolean;
 	readonly current: PluginClientCatalogEntry | null;
 	readonly onNavigateHome: () => void | Promise<void>;
 	readonly onNavigateSettings: () => void | Promise<void>;
 	readonly onEditSection: (section: CustomizeSection) => void;
+	readonly onWorkspaceSwitcherOpenChange: (open: boolean) => void;
 	readonly onSelectWorkspace: (slug: string) => void | Promise<void>;
 	readonly onNavigateItem: (item: SidebarItem) => void | Promise<void>;
 };
@@ -47,8 +50,6 @@ export function DesktopSidebar(props: DesktopSidebarProps) {
 				<>
 					<div className="min-h-0 flex-1 overflow-y-auto">
 						<SidebarNav
-							showSearchShortcut
-							showWorkspaceShortcut
 							current={props.current}
 							catalog={props.catalog}
 							sections={props.sections}
@@ -60,7 +61,11 @@ export function DesktopSidebar(props: DesktopSidebarProps) {
 							onNavigateHome={props.onNavigateHome}
 							onNavigateItem={props.onNavigateItem}
 							onSelectWorkspace={props.onSelectWorkspace}
+							showSearchShortcut={props.shortcutsEnabled}
+							showWorkspaceShortcut={props.shortcutsEnabled}
+							workspaceSwitcherOpen={props.workspaceSwitcherOpen}
 							onCustomize={() => props.onEditSection("workspaces")}
+							onWorkspaceSwitcherOpenChange={props.onWorkspaceSwitcherOpenChange}
 						/>
 					</div>
 

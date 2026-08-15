@@ -9,6 +9,7 @@ import {
 	PluginAssetBridgeErrorReason,
 	PluginOperationBridgeErrorReason,
 	PluginBridgeReady,
+	type KernelShortcut,
 	type PluginAssetOutcome,
 	type PluginAssetRequest,
 	type PluginBridgeAssetCancel,
@@ -71,6 +72,7 @@ type PluginBridgeOptions = {
 	readonly navigation: PluginBridgeNavigationState;
 	readonly onHeader: (request: PluginBridgeHeader) => void;
 	readonly onNavigate: (request: PluginBridgeNavigate) => void;
+	readonly onKernelShortcut: (shortcut: KernelShortcut) => void;
 	readonly onScreenState: (state: PluginScreenReadiness) => void;
 	readonly onAssets: (
 		request: PluginAssetRequest,
@@ -346,6 +348,9 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 					Match.when({ type: "asset-request" }, (request) => handleAssets(request)),
 					Match.when({ type: "navigate-back" }, () => options.onNavigateBack()),
 					Match.when({ type: "open-drawer" }, () => options.onOpenDrawer()),
+					Match.when({ type: "kernel-shortcut" }, ({ shortcut }) =>
+						options.onKernelShortcut(shortcut),
+					),
 					Match.when({ type: "screen-state" }, ({ hasPreviousScreen, index, key }) => {
 						if (index === navigation.index && key === navigation.key) {
 							options.onScreenState({ hasPreviousScreen, index, key });
