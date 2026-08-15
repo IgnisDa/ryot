@@ -60,7 +60,15 @@ describe("workspace switcher", () => {
 			}),
 			current,
 		];
-		render(<WorkspaceSwitcher current={current} catalog={catalog} onSelect={() => undefined} />);
+		render(
+			<WorkspaceSwitcher
+				summary="2 views"
+				current={current}
+				catalog={catalog}
+				onSelect={() => undefined}
+			/>,
+		);
+		expect(screen.getByText("2 views")).toBeTruthy();
 
 		fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
 
@@ -82,7 +90,14 @@ describe("workspace switcher", () => {
 
 	it("focuses the current workspace on open and exposes its selection", async () => {
 		const current = workspace();
-		render(<WorkspaceSwitcher current={current} catalog={[current]} onSelect={() => undefined} />);
+		render(
+			<WorkspaceSwitcher
+				current={current}
+				summary="2 views"
+				catalog={[current]}
+				onSelect={() => undefined}
+			/>,
+		);
 
 		fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
 
@@ -94,7 +109,14 @@ describe("workspace switcher", () => {
 	it("closes when its trigger is clicked while the menu owns focus", async () => {
 		const user = userEvent.setup();
 		const current = workspace();
-		render(<WorkspaceSwitcher current={current} catalog={[current]} onSelect={() => undefined} />);
+		render(
+			<WorkspaceSwitcher
+				current={current}
+				summary="2 views"
+				catalog={[current]}
+				onSelect={() => undefined}
+			/>,
+		);
 		const trigger = screen.getByRole("button", { name: "Media workspace, media" });
 		fireEvent.click(trigger);
 		await waitFor(() =>
@@ -113,7 +135,12 @@ describe("workspace switcher", () => {
 		const current = workspace();
 		render(
 			<>
-				<WorkspaceSwitcher current={current} catalog={[current]} onSelect={() => undefined} />
+				<WorkspaceSwitcher
+					summary="2 views"
+					current={current}
+					catalog={[current]}
+					onSelect={() => undefined}
+				/>
 				<button type="button">Outside</button>
 			</>,
 		);
@@ -138,6 +165,7 @@ describe("workspace switcher", () => {
 		const current = workspace();
 		render(
 			<WorkspaceSwitcher
+				summary="2 views"
 				current={current}
 				catalog={[current]}
 				onSelect={(slug) => {
@@ -161,6 +189,11 @@ describe("workspace switcher", () => {
 		render(
 			<WorkspaceSwitcher
 				current={current}
+				summary="2 views"
+				catalog={[
+					current,
+					workspace({ name: "Fitness", slug: "fitness", installationId: "installation-fitness" }),
+				]}
 				onSelect={(slug) => {
 					observations.push({
 						slug,
@@ -168,10 +201,6 @@ describe("workspace switcher", () => {
 						open: screen.queryByRole("menu") !== null,
 					});
 				}}
-				catalog={[
-					current,
-					workspace({ name: "Fitness", slug: "fitness", installationId: "installation-fitness" }),
-				]}
 			/>,
 		);
 		const trigger = screen.getByRole("button", { name: "Media workspace, media" });
@@ -186,7 +215,14 @@ describe("workspace switcher", () => {
 
 	it("closes with Escape and restores trigger focus", async () => {
 		const current = workspace();
-		render(<WorkspaceSwitcher current={current} catalog={[current]} onSelect={() => undefined} />);
+		render(
+			<WorkspaceSwitcher
+				current={current}
+				summary="2 views"
+				catalog={[current]}
+				onSelect={() => undefined}
+			/>,
+		);
 		const trigger = screen.getByRole("button", { name: "Media workspace, media" });
 		fireEvent.click(trigger);
 
@@ -200,6 +236,7 @@ describe("workspace switcher", () => {
 		const current = workspace();
 		render(
 			<WorkspaceSwitcher
+				summary="2 views"
 				current={current}
 				onSelect={() => undefined}
 				catalog={[
@@ -243,7 +280,12 @@ describe("workspace switcher", () => {
 		const current = workspace();
 		render(
 			<>
-				<WorkspaceSwitcher current={current} catalog={[current]} onSelect={() => undefined} />
+				<WorkspaceSwitcher
+					summary="2 views"
+					current={current}
+					catalog={[current]}
+					onSelect={() => undefined}
+				/>
 				<button type="button">After switcher</button>
 			</>,
 		);

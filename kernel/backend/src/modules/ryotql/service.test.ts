@@ -45,6 +45,7 @@ import {
 } from "@ryot-app/ryotql";
 import { allCollectionsRecipe } from "@ryot-app/ryotql-recipes/collections";
 import { navigationRecipe } from "@ryot-app/ryotql-recipes/navigation";
+import { pluginClientCatalogRecipe } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer, Result, Schema } from "effect";
 
@@ -260,23 +261,32 @@ it.effect("collates text predicates and authorizes every joined table occurrence
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
-it.effect("applies public and user-only policies to navigation tables", () => {
+it.effect("applies user-only policies to navigation tables", () => {
 	const statements: string[] = [];
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
 		yield* service.executeForUser("user-1", null, navigationRecipe().document);
 
-		const workspaces = statements[2];
-		const savedViews = statements[3];
-		expect(workspaces).toMatch(
-			/FROM \(SELECT \* FROM plugin WHERE \(owner_id = \$\d+ OR owner_id IS NULL\)\)/,
-		);
-		expect(workspaces).toMatch(
-			/LEFT JOIN \(SELECT \* FROM plugin_installation WHERE user_id = \$\d+\)/,
-		);
-		expect(workspaces).not.toContain("plugin_installation WHERE (user_id");
+		const savedViews = statements[2];
 		expect(savedViews).toMatch(/FROM \(SELECT \* FROM saved_view WHERE user_id = \$\d+\)/);
 		expect(savedViews).not.toContain("saved_view WHERE (user_id");
+	}).pipe(Effect.provide(makeServiceLayer(statements)));
+});
+
+it.effect("applies public and user-only policies to plugin catalog tables", () => {
+	const statements: string[] = [];
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		yield* service.executeForUser("user-1", null, pluginClientCatalogRecipe().document);
+
+		const installations = statements[2];
+		expect(installations).toMatch(
+			/FROM \(SELECT \* FROM plugin_installation WHERE user_id = \$\d+\)/,
+		);
+		expect(installations).toMatch(
+			/INNER JOIN \(SELECT \* FROM plugin WHERE \(owner_id = \$\d+ OR owner_id IS NULL\)\)/,
+		);
+		expect(installations).not.toContain("plugin_installation WHERE (user_id");
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 

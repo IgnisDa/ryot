@@ -19,8 +19,8 @@ import type { AuthSessionStore } from "#/modules/auth/service";
 import { AccountSummary } from "#/modules/navigation/account-summary";
 import { AppIcon } from "#/modules/navigation/app-icon";
 import { gestureSpring } from "#/modules/navigation/drawer-metrics";
-import { activateLink } from "#/modules/navigation/link-activation";
-import { WorkspaceSwitcher } from "#/modules/navigation/workspace-switcher";
+import { SidebarNav } from "#/modules/navigation/sidebar-nav";
+import type { SidebarItem, SidebarSections } from "#/modules/navigation/sidebar-sections";
 
 type MobileDrawerProps = {
 	readonly isPro: boolean;
@@ -29,12 +29,16 @@ type MobileDrawerProps = {
 	readonly hasDrawer: boolean;
 	readonly onClose: () => void;
 	readonly activeHome: boolean;
+	readonly activeKey: string | null;
 	readonly activeSettings: boolean;
+	readonly sections: SidebarSections;
 	readonly session: AuthSessionStore;
 	readonly catalog: PluginClientCatalog;
 	readonly progress: MotionValue<number>;
 	readonly current: PluginClientCatalogEntry | null;
+	readonly onOpenSearch: () => void;
 	readonly onNavigateHome: () => void | Promise<void>;
+	readonly onNavigateItem: (item: SidebarItem) => void | Promise<void>;
 	readonly onNavigateSettings: () => void | Promise<void>;
 	readonly triggerRef: RefObject<HTMLButtonElement | null>;
 	readonly onSelectWorkspace: (slug: string) => void | Promise<void>;
@@ -117,29 +121,20 @@ export function MobileDrawer(props: MobileDrawerProps) {
 					</button>
 				</div>
 
-				<div className="min-h-0 flex-1 overflow-y-auto px-3">
-					<WorkspaceSwitcher
+				<div className="min-h-0 flex-1 overflow-y-auto">
+					<SidebarNav
 						current={props.current}
 						catalog={props.catalog}
+						sections={props.sections}
+						showSearchShortcut={false}
+						activeKey={props.activeKey}
+						activeHome={props.activeHome}
 						key={props.isOpen ? "open" : "closed"}
-						onSelect={(slug) => closeThen(() => props.onSelectWorkspace(slug))}
+						onOpenSearch={() => closeThen(props.onOpenSearch)}
+						onNavigateHome={() => closeThen(props.onNavigateHome)}
+						onNavigateItem={(item) => closeThen(() => props.onNavigateItem(item))}
+						onSelectWorkspace={(slug) => closeThen(() => props.onSelectWorkspace(slug))}
 					/>
-					{props.current !== null && (
-						<nav aria-label="Workspace" className="mt-3">
-							<a
-								onClick={activateLink(() => closeThen(props.onNavigateHome))}
-								href={`/${props.current.slug}`}
-								aria-current={props.activeHome ? "page" : undefined}
-								className={clsx(
-									"flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-text",
-									props.activeHome ? "bg-nav-indicator" : "hover:bg-surface-2",
-								)}
-							>
-								<AppIcon name="house" size={16} className="text-text-muted" />
-								<span>Home</span>
-							</a>
-						</nav>
-					)}
 				</div>
 
 				<footer className="shrink-0 border-t border-border px-3 pt-3">

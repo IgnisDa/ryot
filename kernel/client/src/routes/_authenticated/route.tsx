@@ -7,6 +7,7 @@ import { createKernelRyotClient } from "#/api/ryot-client";
 import { protectedRouteGuard } from "#/modules/auth/route-gates";
 import { AuthenticatedShell } from "#/modules/navigation/authenticated-shell";
 import { usePageTitle } from "#/modules/navigation/page-title";
+import { NavigationService } from "#/modules/navigation/service";
 import { mainContentProps } from "#/modules/navigation/skip-link";
 import { resolveRememberedWorkspace } from "#/modules/navigation/workspace-state";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
@@ -20,9 +21,13 @@ export const Route = createFileRoute("/_authenticated")({
 	beforeLoad: ({ context, location }) => protectedRouteGuard(context, location.href),
 	loader: async ({ abortController, context, location }) => {
 		const ryot = createKernelRyotClient(context.runtime, context.scope, context.theme);
-		const [catalog, rememberedSlug, isPro] = await Promise.all([
+		const [catalog, navigation, rememberedSlug, isPro] = await Promise.all([
 			context.runtime.runPromise(
 				Effect.flatMap(PluginCatalogService, (service) => service.load(ryot)),
+				{ signal: abortController.signal },
+			),
+			context.runtime.runPromise(
+				Effect.flatMap(NavigationService, (service) => service.load(ryot)),
 				{ signal: abortController.signal },
 			),
 			context.runtime.runPromise(
@@ -60,18 +65,22 @@ export const Route = createFileRoute("/_authenticated")({
 				});
 			}
 		}
-		return { catalog, isPro, rememberedSlug, ryot };
+		return { catalog, isPro, navigation, rememberedSlug, ryot };
 	},
 	shouldReload: ({ location }) => location.pathname === "/",
 });
 
 function AuthenticatedLayout() {
-	const { catalog, isPro, rememberedSlug, ryot } = Route.useLoaderData();
+	const { catalog, isPro, navigation, rememberedSlug, ryot } = Route.useLoaderData();
 	const { runtime, scope } = Route.useRouteContext();
 	return (
 		<RyotProvider client={ryot}>
 			<PluginCatalogProvider scope={scope} runtime={runtime} initialCatalog={catalog}>
-				<AuthenticatedShell isPro={isPro} initialRememberedSlug={rememberedSlug} />
+				<AuthenticatedShell
+					isPro={isPro}
+					navigation={navigation}
+					initialRememberedSlug={rememberedSlug}
+				/>
 			</PluginCatalogProvider>
 		</RyotProvider>
 	);
