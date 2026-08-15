@@ -1,6 +1,7 @@
 import type {
 	PluginLogicalLocation,
 	PluginOperationOutcome,
+	PluginRyotQLOutcome,
 } from "@ryot/contract/modules/plugins/client";
 import type { PluginClientCatalogEntry } from "@ryot/ryotql-recipes/plugin-client-catalog";
 import { render, screen } from "@testing-library/react";
@@ -38,6 +39,9 @@ const renderHost = (overrides: Partial<PluginClientCatalogEntry> = {}, location 
 			location={state.location}
 			installation={{ ...installation, ...state.overrides }}
 			onNavigate={(request) => navigations.push(request)}
+			onQuery={() =>
+				Promise.resolve({ outcome: "failure", reason: "transport" } as PluginRyotQLOutcome)
+			}
 			onInvokeOperation={() =>
 				Promise.resolve({ outcome: "failure", reason: "transport" } as PluginOperationOutcome)
 			}

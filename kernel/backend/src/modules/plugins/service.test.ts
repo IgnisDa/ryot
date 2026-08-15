@@ -5,7 +5,13 @@ import {
 	clientPluginCompilerDiagnostic,
 } from "@ryot/client-plugin-compiler/diagnostics";
 import type { ClientPluginCompilerRequest } from "@ryot/client-plugin-compiler/protocol";
-import type { PluginClientArtifact } from "@ryot/contract/modules/plugins/client";
+import {
+	CLIENT_API_VERSION,
+	CLIENT_ARTIFACT_FORMAT,
+	CLIENT_BRIDGE_PROTOCOL_VERSION,
+	CLIENT_COMPILER_VERSION,
+	type PluginClientArtifact,
+} from "@ryot/contract/modules/plugins/client";
 import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { PluginConflictError } from "@ryot/contract/modules/plugins/schemas";
 import { PluginSlug } from "@ryot/contract/schema/brands";
@@ -1259,14 +1265,14 @@ it.effect("returns structured validation and compiler diagnostics", () => {
 
 const clientManifest = (): PluginManifest => ({
 	...fixtureManifest(),
-	client: { entry: "client/index.tsx", apiVersion: 1, capabilities: [] },
+	client: { entry: "client/index.tsx", apiVersion: CLIENT_API_VERSION, capabilities: [] },
 });
 
 const clientArtifact = (): PluginClientArtifact => ({
-	format: 1,
-	apiVersion: 1,
-	bridgeVersion: 1,
-	compilerVersion: 1,
+	format: CLIENT_ARTIFACT_FORMAT,
+	apiVersion: CLIENT_API_VERSION,
+	compilerVersion: CLIENT_COMPILER_VERSION,
+	bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 	hash: "client-artifact-hash",
 	files: [
 		{ name: "plugin.js", contents: "export {};", contentType: "text/javascript; charset=utf-8" },
