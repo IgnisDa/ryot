@@ -23,6 +23,7 @@ import {
 	getUnsupportedExerciseSources,
 } from "./exercise-mapping";
 import { buildIntegrationMigrationSql } from "./integration-mapping";
+import { buildLegacyS3AssetReportSql, migrateLegacyS3Assets } from "./legacy-asset-migration";
 import {
 	buildMetadataGroupEntityMigrationSql,
 	buildMetadataGroupRelationshipMigrationSql,
@@ -536,6 +537,17 @@ export const migrateLegacyTables = Effect.gen(function* () {
 				}),
 				[],
 			);
+		}),
+	);
+	const legacyS3AssetMigration = yield* migrateLegacyS3Assets;
+	yield* withReservedConnection((connection) =>
+		connection.executeRaw(buildLegacyS3AssetReportSql(legacyS3AssetMigration), []),
+	);
+	reportSequence = yield* withReservedConnection((connection) =>
+		logReportRows(connection, reportSequence),
+	);
+	yield* withReservedConnection((connection) =>
+		Effect.gen(function* () {
 			yield* connection.executeRaw(buildIntegrationMigrationSql(), []);
 			yield* connection.executeRaw(buildNotificationPlatformMigrationSql(), []);
 		}),
