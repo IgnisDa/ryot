@@ -783,7 +783,15 @@ describe("plugin runtime", () => {
 			contentType: "text/csv",
 			requestId: "upload-1",
 		});
-		const cloned = (request as { source: Blob }).source;
+		if (
+			typeof request !== "object" ||
+			request === null ||
+			!("source" in request) ||
+			!(request.source instanceof Blob)
+		) {
+			throw new Error("Expected an upload request with a Blob source");
+		}
+		const cloned = request.source;
 		expect(cloned).toBeInstanceOf(Blob);
 		expect(cloned.type).toBe("text/csv");
 		expect(await cloned.text()).toBe("id,title");
