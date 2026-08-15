@@ -31,6 +31,7 @@
 		"fflate": "^0.8.3",
 		"get-port": "7.2.0",
 		"oauth2-mock-server": "9.1.0",
+		"playwright": "1.62.1",
 		"rfc4648": "1.5.4",
 		"testcontainers": "11.14.0",
 		"vitest": "4.1.9"
