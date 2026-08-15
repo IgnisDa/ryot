@@ -56,14 +56,17 @@ function IntegrationRow(props: {
 
 export function IntegrationsView(props: {
 	readonly nowMs: number;
+	readonly isSyncing: boolean;
 	readonly onRetry: () => void;
 	readonly onConnect: () => void;
 	readonly onSyncAll: () => void;
+	readonly syncSucceeded: boolean;
 	readonly isLoadingMore: boolean;
 	readonly onShowMore: () => void;
 	readonly onOpenImports: () => void;
 	readonly state: IntegrationListState;
 	readonly providerNames: ProviderNames;
+	readonly syncDetail: string | undefined;
 	readonly onOpen: (integrationId: string) => void;
 }) {
 	if (props.state.status === "loading") {
@@ -129,17 +132,30 @@ export function IntegrationsView(props: {
 							label="Sync all"
 							variant="outline"
 							onPress={props.onSyncAll}
+							pending={props.isSyncing}
+							pendingLabel="Syncing..."
 							accessibilityLabel="Sync all integrations"
 							leading={<AppIcon size={14} name="rotate-ccw" className="text-text" />}
 						/>
 					</View>
+					{props.syncDetail === undefined ? null : (
+						<Text
+							accessibilityRole="alert"
+							className={clsx(
+								"font-ui text-sm",
+								props.syncSucceeded ? "text-success" : "text-danger",
+							)}
+						>
+							{props.syncDetail}
+						</Text>
+					)}
 					<View>
 						{integrations.map((integration, index) => (
 							<IntegrationRow
-								nowMs={props.nowMs}
 								key={integration.id}
 								isFirst={index === 0}
 								integration={integration}
+								nowMs={props.nowMs}
 								providerNames={props.providerNames}
 								onPress={() => props.onOpen(integration.id)}
 							/>

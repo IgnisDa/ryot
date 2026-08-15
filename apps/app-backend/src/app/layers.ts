@@ -82,9 +82,9 @@ import { ImportsService } from "#modules/imports/service";
 import { ImportWorkflowPinning } from "#modules/imports/workflow-pinning";
 import { IntegrationWorkflowDefinitionsLive } from "#modules/integrations/integration-workflow-live";
 import { IntegrationOperationScopeResolverLive } from "#modules/integrations/operation-scope-resolver-live";
-import { IntegrationReconciliationWorkflowDefinitionsLive } from "#modules/integrations/reconciliation-workflow";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { IntegrationsService } from "#modules/integrations/service";
+import { IntegrationSyncWorkflowDefinitionsLive } from "#modules/integrations/sync-workflow-live";
 import { NotificationDeliveryService, NotificationMailer } from "#modules/notifications/delivery";
 import { NotificationDeliveryWorkflowDefinitionsLive } from "#modules/notifications/notification-delivery-workflow-live";
 import { NotificationsRepository } from "#modules/notifications/repository";
@@ -479,7 +479,7 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	EntityImportWorkflowDefinitionsLive,
 	EventCreateWorkflowDefinitionsLive,
 	NotificationDeliveryWorkflowDefinitionsLive,
-	IntegrationReconciliationWorkflowDefinitionsLive,
+	IntegrationSyncWorkflowDefinitionsLive,
 	ImportWorkflowDefinitionsLive,
 	ProcessGenericImportChunksWorkflowDefinitionsLive,
 	ExportBackupWorkflowDefinitionsLive,

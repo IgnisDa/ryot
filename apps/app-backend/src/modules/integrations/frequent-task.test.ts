@@ -7,7 +7,7 @@ import { FrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
 
 import { integrationsFrequentTask } from "./frequent-task";
 
-it.effect("dispatches the reconciliation workflow with a tick-derived execution id", () => {
+it.effect("dispatches the sync workflow with a tick-derived execution id", () => {
 	const captured: Array<Parameters<WorkflowEngine["Service"]["execute"]>[1]> = [];
 	const instance = WorkflowInstance.initial(FrequentCronWorkflow, "exec-int");
 	const engine = makeWorkflowEngine({
@@ -24,8 +24,8 @@ it.effect("dispatches the reconciliation workflow with a tick-derived execution 
 			expect(captured).toMatchObject([
 				{
 					discard: true,
-					executionId: "exec-int-integrations-reconcile",
-					payload: { executionId: "exec-int-integrations-reconcile" },
+					executionId: "exec-int-integrations-sync",
+					payload: { userId: null, executionId: "exec-int-integrations-sync" },
 				},
 			]);
 		}),
