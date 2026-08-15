@@ -1,37 +1,15 @@
 import { Button } from "@ryot/client-ui-sdk";
-import { createFileRoute, redirect } from "@tanstack/react-router";
-import { Effect } from "effect";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import type { ServerOrigin } from "../api/origin";
 import type { ApiScope } from "../api/scope";
-import { decideProtectedRoute } from "../modules/auth/route-gates";
-import { AuthService, toAuthSessionState } from "../modules/auth/service";
-import { ServerService } from "../modules/server/service";
+import { protectedRouteGuard } from "../modules/auth/route-gates";
+import { AuthService } from "../modules/auth/service";
 
 export const Route = createFileRoute("/")({
 	component: KernelDestination,
-	beforeLoad: async ({ context }) => {
-		const server = context.runtime.runSync(
-			Effect.flatMap(ServerService, (service) => service.selected),
-		);
-		if (server === null) {
-			// oxlint-disable-next-line typescript/only-throw-error
-			throw redirect({ replace: true, to: "/onboarding", search: { redirect: "/" } });
-		}
-		const session = await context.runtime.runPromise(
-			Effect.flatMap(AuthService, (service) => service.settledSession(server)),
-		);
-		const decision = decideProtectedRoute(server, toAuthSessionState(session), "/");
-		if (decision.action === "redirect") {
-			// oxlint-disable-next-line typescript/only-throw-error
-			throw redirect({ replace: true, to: decision.to, search: { redirect: decision.redirectTo } });
-		}
-		if (decision.action === "wait") {
-			throw new Error("Unreachable: settledSession never resolves a pending session.");
-		}
-		return { server, scope: decision.scope };
-	},
+	beforeLoad: ({ context }) => protectedRouteGuard(context, "/"),
 });
 
 function KernelDestination() {
