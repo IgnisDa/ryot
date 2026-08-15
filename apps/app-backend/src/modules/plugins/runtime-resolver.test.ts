@@ -15,7 +15,10 @@ import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database } from "#lib/infrastructure/db/service";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 
-import { PluginInstallationRepository } from "./installation-repository";
+import {
+	PluginInstallationRepository,
+	type PluginInstallationState,
+} from "./installation-repository";
 import { makePluginLoader, PluginLoader } from "./loader";
 import {
 	InvalidProviderEntityImportAutomationError,
@@ -303,6 +306,7 @@ const makeLayer = (
 	crossPlugin = false,
 	firstScript: typeof scriptRow = scriptRow,
 	providerEntityImportAutomations: PluginManifest["bindings"]["providerEntityImportAutomations"] = [],
+	installation: Partial<PluginInstallationState> | null = {},
 ) => {
 	const loader = makePluginLoader(makeDefinitionRegistry());
 	const callerPlugin = normalizedPlugin(providerEntityImportAutomations);
@@ -363,26 +367,29 @@ const makeLayer = (
 			},
 		}),
 	};
+	const systemInstallation =
+		installation === null
+			? null
+			: Object.assign(Object.create(null), {
+					sortOrder: 0,
+					health: "ready",
+					userId: "user-1",
+					isDisabled: false,
+					healthReason: null,
+					pluginScope: "system",
+					pluginSlug: "fixture",
+					id: "system-installation-id",
+					pluginId: "fixture-plugin-id",
+					config: { apiToken: "installation-token" },
+					...installation,
+				});
 	return PluginRuntimeResolver.layer.pipe(
 		Layer.provideMerge(
 			Layer.mergeAll(
 				Layer.succeed(PluginLoader, { ...loader }),
 				Layer.mock(PluginInstallationRepository)({
-					findByUserAndPlugin: () =>
-						Effect.succeed(
-							Object.assign(Object.create(null), {
-								sortOrder: 0,
-								health: "ready",
-								userId: "user-1",
-								isDisabled: false,
-								healthReason: null,
-								pluginScope: "system",
-								pluginSlug: "fixture",
-								id: "system-installation-id",
-								pluginId: "fixture-plugin-id",
-								config: { apiToken: "installation-token" },
-							}),
-						),
+					listForUser: () => Effect.succeed(systemInstallation ? [systemInstallation] : []),
+					findByUserAndPlugin: () => Effect.succeed(systemInstallation),
 				}),
 				Layer.succeed(Database, Object.assign(Object.create(null), db)),
 			),
@@ -461,6 +468,24 @@ it.effect("resolves active schema providers and their operation-specific scripts
 			yield* resolver.resolveSystemQueryScript(SandboxScriptId.make("details-script-id")),
 		).toBeNull();
 	}).pipe(Effect.provide(makeLayer())),
+);
+
+it.effect("filters disabled system providers and automations for new user dispatch", () =>
+	Effect.gen(function* () {
+		const resolver = yield* PluginRuntimeResolver;
+		expect(yield* resolver.isSystemProviderAvailableToUser(UserId.make("user-1"), providerId)).toBe(
+			false,
+		);
+		expect(yield* resolver.listSchemaProviders(undefined, UserId.make("user-1"))).toEqual([]);
+		expect(
+			yield* resolver.listAutomations({
+				operation: "create",
+				kind: "subscription",
+				userId: UserId.make("user-1"),
+				target: { kind: "entity_schema", id: EntitySchemaSlug.make("fixture-entity") },
+			}),
+		).toEqual([]);
+	}).pipe(Effect.provide(makeLayer(providerRow, false, scriptRow, [], { isDisabled: true }))),
 );
 
 it.effect("resolves provider-import automations in manifest order", () =>
@@ -932,6 +957,37 @@ it.effect("resolves private plugin config from the owner's installation", () =>
 			}),
 		).toMatchObject({ kind: "installation", config: { apiToken: "private-token" } });
 	}).pipe(Effect.provide(makePrivateLayer())),
+);
+
+it.effect("keeps exact-owner config available to already-pinned executions", () =>
+	Effect.gen(function* () {
+		expect(
+			yield* resolvePrivateConfigContext({ type: "user", userId: UserId.make("user-1") }).pipe(
+				Effect.provide(makePrivateLayer({ isDisabled: true })),
+			),
+		).toMatchObject({ kind: "installation", config: { apiToken: "private-token" } });
+		expect(
+			yield* resolvePrivateConfigContext({ type: "user", userId: UserId.make("user-1") }).pipe(
+				Effect.provide(makePrivateLayer({ health: "needs-configuration" })),
+			),
+		).toMatchObject({ kind: "installation", config: { apiToken: "private-token" } });
+		expect(
+			yield* Effect.flatMap(PluginRuntimeResolver, (resolver) =>
+				resolver.resolvePluginConfigContext({
+					scriptId: SandboxScriptId.make("details-script-id"),
+					authority: { type: "user", userId: UserId.make("user-1") },
+				}),
+			).pipe(Effect.provide(makeLayer(providerRow, false, scriptRow, [], { isDisabled: true }))),
+		).toMatchObject({ kind: "environment", pluginSlug: "fixture" });
+		expect(
+			yield* Effect.flatMap(PluginRuntimeResolver, (resolver) =>
+				resolver.resolvePluginConfigContext({
+					scriptId: SandboxScriptId.make("details-script-id"),
+					authority: { type: "user", userId: UserId.make("user-1") },
+				}),
+			).pipe(Effect.provide(makeLayer(providerRow, false, scriptRow, [], null))),
+		).toBeNull();
+	}),
 );
 
 it.effect("rejects private plugin config for system, foreign, and uninstalled authorities", () =>

@@ -7,6 +7,7 @@ import { ProKeyService } from "#lib/infrastructure/pro-key";
 import { databaseLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { ImportsService } from "#modules/imports/service";
 import { IntegrationProviderCatalogLive } from "#modules/plugins/integration-provider-catalog";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { IntegrationsRepository } from "./repository";
 import { IntegrationsService } from "./service";
@@ -25,6 +26,7 @@ const makeLayer = (repository: Layer.Layer<IntegrationsRepository>) =>
 				repository,
 				mockProKey,
 				IntegrationProviderCatalogLive,
+				Layer.mock(PluginRuntimeResolver)({}),
 				Layer.mock(ImportsService, {}),
 				Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 			),

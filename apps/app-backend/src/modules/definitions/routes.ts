@@ -11,6 +11,7 @@ import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 
 import { DefinitionRegistry } from "#modules/definition-registry/service";
+import { PluginInstallationService } from "#modules/plugins/installation-service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { DefinitionsService } from "./service";
@@ -19,9 +20,12 @@ export const DefinitionsRoutesLive = HttpApiBuilder.group(AppContract, "definiti
 	handlers
 		.handle("listEntities", () =>
 			Effect.gen(function* () {
+				const user = yield* CurrentUser;
 				const registry = yield* DefinitionRegistry;
 				const pluginRuntime = yield* PluginRuntimeResolver;
-				const schemaProviders = yield* pluginRuntime.listSchemaProviders().pipe(dieOnDbError);
+				const schemaProviders = yield* pluginRuntime
+					.listSchemaProviders(undefined, user.id)
+					.pipe(dieOnDbError);
 				return Object.values(registry.getSnapshot().entitySchemas).map((definition) =>
 					Object.assign({}, definition, {
 						slug: EntitySchemaSlug.make(definition.slug),
@@ -67,9 +71,9 @@ export const DefinitionsRoutesLive = HttpApiBuilder.group(AppContract, "definiti
 		.handle("updatePluginState", ({ params, payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
-				const service = yield* DefinitionsService;
+				const service = yield* PluginInstallationService;
 				return yield* service
-					.updatePluginState(user, params.pluginSlug, payload)
+					.updateInstallation(user.id, params.pluginSlug, payload)
 					.pipe(dieOnDbError);
 			}),
 		),

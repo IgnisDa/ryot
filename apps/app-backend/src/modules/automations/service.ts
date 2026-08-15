@@ -151,6 +151,7 @@ export class AutomationsService extends Context.Service<AutomationsService>()(
 					const bindings = yield* pluginRuntime.listAutomations({
 						...input,
 						kind: "subscription",
+						userId: input.rowUserId,
 					});
 					const states =
 						input.rowUserId && input.target.kind === "signal_schema"
@@ -176,6 +177,7 @@ export class AutomationsService extends Context.Service<AutomationsService>()(
 							kind: "policy",
 							operation: "create",
 							target: input.target,
+							userId: input.userId,
 						});
 						return rules.filter((rule) => matchesPolicyOwner(rule, input.userId));
 					});

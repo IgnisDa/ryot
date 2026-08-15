@@ -4,7 +4,12 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/un
 import { AuthMiddleware } from "../../auth-middleware";
 import { PluginSlug } from "../../schema/brands";
 import {
-	DefinitionNotFound,
+	PluginConflictError,
+	PluginInstallationItem,
+	PluginNotFoundError,
+	PluginRequestError,
+} from "../plugins/schemas";
+import {
 	EntityDefinition,
 	ListedPlugin,
 	RelationshipDefinition,
@@ -42,10 +47,14 @@ export const DefinitionsGroup = HttpApiGroup.make("definitions")
 	)
 	.add(
 		HttpApiEndpoint.patch("updatePluginState", "/definitions/plugins/:pluginSlug", {
-			success: ListedPlugin,
 			payload: UpdatePluginStateBody,
+			success: PluginInstallationItem,
 			params: { pluginSlug: PluginSlug },
-			error: [DefinitionNotFound.pipe(HttpApiSchema.status(404))],
-		}).annotate(OpenApi.Description, "Update a plugin's per-user state."),
+			error: [
+				PluginRequestError.pipe(HttpApiSchema.status(400)),
+				PluginNotFoundError.pipe(HttpApiSchema.status(404)),
+				PluginConflictError.pipe(HttpApiSchema.status(409)),
+			],
+		}).annotate(OpenApi.Description, "Update the caller's plugin installation."),
 	)
 	.middleware(AuthMiddleware);
