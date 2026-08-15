@@ -11,6 +11,7 @@ import {
 
 const CLIENT_SOURCE_ROOT = "client/";
 const CLIENT_NAMESPACE = "ryot-client-plugin";
+const EFFECT_NAMESPACE = "ryot-client-plugin-effect";
 const CLIENT_ENTRY_SPECIFIER = "ryot:client-entry";
 const UNTRUSTED_NAMESPACE = "ryot-client-plugin-untrusted";
 
@@ -131,6 +132,19 @@ export const bundleClientPlugin = (sources: ClientPluginSources, compilerRoot: s
 					}
 					return { namespace: "file", path: Bun.resolveSync(path, compilerRoot) };
 				});
+				// Bun drops namespace bindings when bundling these exports from the Effect barrel.
+				builder.onResolve({ filter: /^effect$/ }, () => ({
+					path: "effect",
+					namespace: EFFECT_NAMESPACE,
+				}));
+				builder.onLoad({ filter: /.*/, namespace: EFFECT_NAMESPACE }, () => ({
+					loader: "js" as const,
+					contents: `
+export * as Match from "effect/Match";
+export * as Result from "effect/Result";
+export * as Schema from "effect/Schema";
+`,
+				}));
 				builder.onLoad({ filter: /.*/, namespace: UNTRUSTED_NAMESPACE }, () => ({
 					contents: "",
 					loader: "js" as const,
