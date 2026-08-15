@@ -105,13 +105,13 @@ An inline `externalRedis.url` is stored in the chart-managed secret.
 
 Sensitive values are sourced from chart-managed or existing Kubernetes secrets, never the `ConfigMap`:
 
-| Environment variable | Inline value | Existing secret |
-| --- | --- | --- |
-| `SERVER_ADMIN_ACCESS_TOKEN` | `secret.adminAccessToken.value` | `secret.adminAccessToken.existingSecret` |
-| `SERVER_PRO_KEY` | `secret.proKey.value` | `secret.proKey.existingSecret` |
-| `DATABASE_URL` | bundled or `externalDatabase.url` | `externalDatabase.existingSecret` |
-| `REDIS_URL` | bundled or `externalRedis.url` | `externalRedis.existingSecret` |
-| Provider credentials | `secretEnv` | `secretEnvFrom` |
+| Environment variable        | Inline value                      | Existing secret                          |
+| --------------------------- | --------------------------------- | ---------------------------------------- |
+| `SERVER_ADMIN_ACCESS_TOKEN` | `secret.adminAccessToken.value`   | `secret.adminAccessToken.existingSecret` |
+| `SERVER_PRO_KEY`            | `secret.proKey.value`             | `secret.proKey.existingSecret`           |
+| `DATABASE_URL`              | bundled or `externalDatabase.url` | `externalDatabase.existingSecret`        |
+| `REDIS_URL`                 | bundled or `externalRedis.url`    | `externalRedis.existingSecret`           |
+| Provider credentials        | `secretEnv`                       | `secretEnvFrom`                          |
 
 Provider tokens and client secrets must use `secretEnv` or `secretEnvFrom`, not `config.extraEnv`. The latter is rendered into a `ConfigMap` and is only for non-sensitive settings. See the [Ryot configuration docs](https://docs.ryot.io/configuration.html).
 
