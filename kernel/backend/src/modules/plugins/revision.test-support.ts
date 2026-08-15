@@ -9,6 +9,7 @@ import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, DatabaseLive } from "#lib/infrastructure/db/service";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
+import { ClientArtifactsRepository } from "#modules/client-artifacts/repository";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
@@ -24,6 +25,7 @@ class RollbackTestSchema extends Data.TaggedError("RollbackTestSchema") {}
 type Services =
 	| Database
 	| PluginRepository
+	| ClientArtifactsRepository
 	| DefinitionRepository
 	| PluginInstallationRepository
 	| PluginRuntimeResolver
@@ -35,16 +37,18 @@ export const withRevisionDatabase = <E>(test: Effect.Effect<void, E, Services>) 
 	const name = `revision_test_${crypto.randomUUID().replaceAll("-", "")}`;
 	const config = makeAppConfigLayer({ database: { url: Redacted.make(testDatabaseUrl()) } });
 	const dependencies = Layer.mergeAll(
-		PluginRepository.layer,
+		ClientArtifactsRepository.layer,
 		DefinitionRepository.layer,
 		PluginInstallationRepository.layer,
 		PluginConfigRevisions.layer,
 		PluginConfigEncryptionKey.layer,
 		SandboxRepository.layer,
 	);
-	const services = Layer.merge(
+	const repositoryLayer = PluginRepository.layer.pipe(Layer.provide(dependencies));
+	const services = Layer.mergeAll(
 		dependencies,
-		PluginRuntimeResolver.layer.pipe(Layer.provide(dependencies)),
+		repositoryLayer,
+		PluginRuntimeResolver.layer.pipe(Layer.provide(Layer.merge(repositoryLayer, dependencies))),
 	).pipe(Layer.provideMerge(DatabaseLive), Layer.provide(config));
 	return Effect.gen(function* () {
 		const db = yield* Database;

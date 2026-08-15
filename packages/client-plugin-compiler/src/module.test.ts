@@ -9,6 +9,7 @@ import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect } from "effect";
 
 import { clientArtifactMetadata } from "./artifact";
+import { CLIENT_PLUGIN_COMPILER_LIMITS } from "./limits";
 import { compileClientPluginModule } from "./module";
 
 const bytes = (contents: string) => new TextEncoder().encode(contents);
@@ -62,7 +63,7 @@ export default function Alpha() {
 			const stylesheet = requiredFile(artifact, "module.css");
 			const css = text(stylesheet.contents);
 			const imports = [
-				...javascript.matchAll(/^\s*import\s*(?:[^;\n]*?\s*from\s*)?["']([^"']+)["']/gm),
+				...javascript.matchAll(/\bimport\s*(?:[^;\n]*?\bfrom\s*)?["']([^"']+)["']/g),
 			].map((match) => match[1]);
 			const cssImports = javascript.match(/import\s*["']\.\/module\.css["']/g) ?? [];
 
@@ -83,10 +84,8 @@ export default function Alpha() {
 			);
 			expect(imports).toContain("@ryot-app/plugin-kit/effect");
 			expect(imports).not.toContain("effect");
-			expect(javascript).toContain("Export0");
-			expect(javascript).toContain("Export1");
-			expect(javascript).toMatch(/Alpha\s+as\s+Export0/);
-			expect(javascript).toMatch(/Zulu\s+as\s+Export1/);
+			expect(javascript).toMatch(/export\{[^}]+as Export0,[^}]+as Export1\}/);
+			expect(javascript).not.toContain("function Alpha");
 			expect(artifact.apiVersion).toBe(CLIENT_API_VERSION);
 			expect(artifact.bridgeVersion).toBe(CLIENT_BRIDGE_PROTOCOL_VERSION);
 			expect(artifact.compilerVersion).toBe(CLIENT_COMPILER_VERSION);
@@ -110,6 +109,91 @@ it.effect("reuses package semantic and import-policy validation before building 
 
 		expect(failure.diagnostics[0]?.code).toBe("RYOT_CLIENT_IMPORT");
 		expect(failure.diagnostics[0]?.file).toBe("client/invalid.tsx");
+	}),
+);
+
+it.effect("checks all archived sources and advertised export types before the module build", () =>
+	Effect.gen(function* () {
+		const input = {
+			name: "Invalid exports",
+			apiVersion: CLIENT_API_VERSION,
+			publicExports: { home: { kind: "page" as const, entry: "client/home.tsx" } },
+			files: {
+				"client/home.tsx": bytes(
+					"export default function Home(_props: { required: string }) { return null; }",
+				),
+			},
+		};
+		const invalidExport = yield* compileClientPluginModule(input).pipe(Effect.flip);
+		expect(invalidExport.diagnostics).toEqual(
+			expect.arrayContaining([expect.objectContaining({ code: "TS2322" })]),
+		);
+
+		const invalidSource = yield* compileClientPluginModule({
+			...input,
+			files: {
+				"shared/unreachable.ts": bytes("const invalid: string = 1;"),
+				"shared/ignored.test.ts": bytes("const ignored: string = 1;"),
+				"client/home.tsx": bytes("export default function Home() { return null; }"),
+			},
+		}).pipe(Effect.flip);
+		expect(invalidSource.diagnostics).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ code: "TS2322", file: "shared/unreachable.ts" }),
+			]),
+		);
+		expect(invalidSource.diagnostics.some(({ file }) => file === "shared/ignored.test.ts")).toBe(
+			false,
+		);
+	}),
+);
+
+it.effect("rejects invalid package source paths and oversized assets during planning", () =>
+	Effect.gen(function* () {
+		const input = {
+			name: "Invalid package",
+			apiVersion: CLIENT_API_VERSION,
+			publicExports: { home: { kind: "page" as const, entry: "client/home.tsx" } },
+			files: { "client/home.tsx": bytes("export default function Home() { return null; }") },
+		};
+		const pathFailure = yield* compileClientPluginModule({
+			...input,
+			files: { ...input.files, "client/../secret.ts": bytes("export {};") },
+		}).pipe(Effect.flip);
+		expect(pathFailure.diagnostics[0]?.code).toBe("RYOT_CLIENT_SOURCE_PATH");
+		const assetFailure = yield* compileClientPluginModule({
+			...input,
+			files: {
+				...input.files,
+				"client/image.png": new Uint8Array(CLIENT_PLUGIN_COMPILER_LIMITS.assetBytes + 1),
+			},
+		}).pipe(Effect.flip);
+		expect(assetFailure.diagnostics[0]?.code).toBe("RYOT_CLIENT_ASSET_SIZE");
+	}),
+);
+
+it.effect("emits a minified module with stylesheet asset references resolved", () =>
+	Effect.gen(function* () {
+		const image = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x01]);
+		const { artifact } = yield* compileClientPluginModule({
+			name: "Styled plugin",
+			apiVersion: CLIENT_API_VERSION,
+			publicExports: { home: { kind: "page", entry: "client/home.tsx" } },
+			files: {
+				"client/image.png": image,
+				"client/styles.css": bytes('.plugin-image { background: url("./image.png"); }'),
+				"client/home.tsx": bytes(
+					'import "./styles.css"; export default function Home() { return <div className="plugin-image">Rendered plugin</div>; }',
+				),
+			},
+		});
+		const asset = artifact.files.find(({ name }) => name.endsWith(".png"));
+		assertDefined(asset);
+		expect(asset.contents).toEqual(image);
+		expect(text(requiredFile(artifact, "module.css").contents)).toContain(`./${asset.name}`);
+		const javascript = text(requiredFile(artifact, "module.js").contents);
+		expect(javascript).toContain("Rendered plugin");
+		expect(javascript).not.toContain("function Home");
 	}),
 );
 
