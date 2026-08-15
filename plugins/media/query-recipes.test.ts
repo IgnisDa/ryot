@@ -748,9 +748,9 @@ describe("media query recipes", () => {
 		expect(episodeProgress.output.pagination).toMatchObject({ limit: 100 });
 		expect(parentEvents.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
 			"id",
-			"text",
 			"createdAt",
 			"occurredAt",
+			"text",
 			"rating",
 			"timeSpent",
 			"isSpoiler",
@@ -760,9 +760,9 @@ describe("media query recipes", () => {
 		expect(episodeEvents.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual(
 			[
 				"id",
-				"text",
 				"createdAt",
 				"occurredAt",
+				"text",
 				"rating",
 				"timeSpent",
 				"isSpoiler",
