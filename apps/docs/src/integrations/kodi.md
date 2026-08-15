@@ -4,15 +4,11 @@ import variables from "../variables";
 
 # Kodi
 
-The [Kodi](https://kodi.tv) integration allows syncing the current movie or TV
-show you are watching. It will work for all the media that have a valid
-TMDb ID attached to their metadata.
+The Kodi add-on syncs the current movie or show when it has a valid TMDB ID.
 
-1. Create a Kodi integration in the integration settings page. Copy the
-   webhook URL. It should end with `/_i/{integrationId}`.
-2. Download the addon from <a :href="`${variables.repoUrl}/releases`" target="_blank">github releases</a>.
-   The file will have a name of `script.ryot.zip`.
+1. Under **Settings > Integrations**, create a Kodi integration and copy its webhook URL. It ends
+   with `/_i/{integrationId}`.
+2. Download `script.ryot.zip` from <a :href="`${variables.repoUrl}/releases`" target="_blank">GitHub releases</a>.
 3. [Install](https://kodi.wiki/view/Add-on_manager#How_to_install_from_a_ZIP_file)
-   the zipped addon to your Kodi instance. Once installed, it will be visible under
-   the "Services" sub category named "Ryot".
-4. Click on "Configure" to fill in the correct details.
+   the ZIP add-on. It appears under **Services** as **Ryot**.
+4. Open **Configure** and enter the webhook URL.

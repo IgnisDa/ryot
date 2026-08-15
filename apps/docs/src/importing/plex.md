@@ -1,17 +1,12 @@
 # Plex
 
 ::: info
-It is necessary to setup TMDB for this import to work. Please follow the configuration
-[guide](../configuration.md) for instructions.
+Set `RYOT_PLUGIN_MEDIA_TMDB_ACCESS_TOKEN` before import.
 :::
 
-You can import your watched movies and shows from [Plex](https://plex.tv).
-
-::: info
-After importing, you can also set up an [integration](../integrations/plex-sink.md) for
-continuous updates.
-:::
+This imports watched movies and shows. Use [Plex Sink](../integrations/plex-sink.md) for future
+progress updates.
 
 1. Obtain a `Plex-Token` as described in this
    [guide](https://www.plexopedia.com/plex-media-server/general/plex-token/#getcurrentusertoken).
-2. Enter the correct details in the inputs.
+2. Enter the Plex server details and token under **Settings > Import data**.

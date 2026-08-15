@@ -1,53 +1,39 @@
 # Kernel Backend Guidelines
 
-## Effect And Types
+## Boundaries
 
-- Keep explicit return types only for predicates or when inference widens literals, Effect unions, callback parameters, or heterogeneous arrays. Prefer `as const` and `satisfies` over trailing annotations.
-- Prefer Effect platform primitives, then Bun APIs, then Bun built-ins. Keep any lower-level choice justified locally.
-- Use `Effect.tryPromise` or `Effect.try` instead of raw `try`/`catch`; sandbox scripts may use host-style handling.
-- Avoid diagnostic and lint suppressions. Scope and explain unavoidable suppressions.
-- Assert typed failures with `assertExitFails` from `src/lib/test-utils/assertions.ts`; structural `Exit.fail` equality misses error messages.
+- Routes validate request data and call one service handler. Services own business rules and access control; repositories own persistence and row normalization.
+- Define services and repositories as Effect service classes and provide dependencies through layers.
+- Do not add barrel exports. Import from the defining module.
+- Each table has one writing repository. Cross-module writes go through the owning service, except repository access required for one shared transaction.
+- Importers, jobs, sandbox callbacks, bootstrap code, and HTTP handlers use the same write paths.
+- Modules depend only on more generic modules. Invert upward effects through a generic `DurableQueue` hook, its worker, and layer wiring.
+- Provider search, resolution, details, and population use sandbox provider scripts. Source connectors may fetch user data but must not call provider enrichment APIs.
+- Resolve foreign identifiers through sandbox resolve operations; pass provider-native identifiers only as resolved inputs.
+- Follow `packages/contract/AGENTS.md` for HTTP boundary changes.
 
-## Module Boundaries
+## Persistence
 
-- Routes stay thin: validate request data, call a service, and return direct values or typed tagged errors. Define one handler per endpoint.
-- Services own business rules and return effects with typed errors.
-- Repositories own persistence and row-to-domain normalization only. They return effects and read the active database executor from shared context.
-- Define services and repositories as Effect service classes; provide dependencies through layer composition, not hand-passed dependency parameters.
-- Access control lives in services, as pure helpers or direct checks after loading the smallest resource scope.
-- Do not add barrel re-exports in the kernel backend; import from the defining module directly.
-- Follow `packages/contract/AGENTS.md` for HTTP boundary ownership and endpoint changes.
-- Modules may depend only on more generic modules. Invert upward side effects through a generic `DurableQueue` hook, a specific worker, and layer wiring.
-- Every table has exactly one owning repository that performs its writes; every other consumer routes through that repository, and service code never issues raw table writes.
-- Cross-module side effects go through the owning module's service and never write another module's tables directly. Reach into another module's repository only when atomicity within one shared transaction requires it, and only to write tables that module owns.
-- Importers, background jobs, sandbox callbacks, and bootstrap paths use the same write paths as HTTP request handling.
-- Provider catalog search, resolution, details, and population use sandbox provider scripts. Source-ingestion connectors may fetch user data but must not enrich it through provider APIs directly.
-- Resolve foreign identifiers through a sandbox resolve operation; pass provider-native identifiers through as resolved inputs.
-
-## Persistence And Transactions
-
-- Keep runtime schemas, persisted JSON, and TypeScript types aligned. Use timezone-aware database timestamps and ISO 8601 UTC JSON dates.
-- Validate schema-backed entity, event, and relationship properties before writing. Allow arbitrary top-level keys only for genuine passthrough schemas.
-- Services choose transaction boundaries; repositories use the active executor from context.
-- Do not hold a transaction across sandbox execution, network calls, durable workflow boundaries, sleeps, or fan-out work.
-- Provider-backed population composes the import workflow. External event creation evaluates automation policies and dispatches lifecycle subscriptions.
+- Keep runtime schemas, persisted JSON, and TypeScript types aligned. Store timezone-aware timestamps and emit ISO 8601 UTC dates.
+- Validate schema-backed entity, event, and relationship properties before writes.
+- Services set transaction boundaries; repositories use the active executor from context.
+- Never hold a transaction across sandbox execution, network I/O, workflow boundaries, sleeps, or fan-out.
+- Provider population composes the import workflow. External event creation evaluates automation policies and dispatches lifecycle subscriptions.
 
 ## Durable Work
 
-- Every durable business operation has one owning workflow or durable-queue worker. Other workflows compose that owner.
-- Parent workflows are orchestration shells. Cron ticks and multi-stage pipelines fan out to feature-owned child workflows instead of inlining another feature's activities.
-- Use a durable-queue worker when dependency inversion requires it; otherwise prefer a workflow.
-- Activities never start workflows or durable queues, directly or through service calls. Dispatch from workflow bodies.
-- Child workflow `executionId` values must be deterministic and derived from the parent; random IDs can spawn children on every replay.
-- Durable owners must be idempotent because ownership does not guarantee single-flight execution.
-- Do not introduce a third-party job-queue library. Background work uses the durable workflow engine, durable queues, and durable deferred signals.
+- One workflow or durable-queue worker owns each durable business operation; other workflows compose that owner.
+- Activities never start workflows or durable queues. Workflow bodies dispatch them.
+- Derive child `executionId` values deterministically from the parent; random IDs can create children on replay.
+- Durable owners remain idempotent because ownership does not guarantee single-flight execution.
+- Background work uses the workflow engine, durable queues, and durable deferred signals; do not add another job queue.
 
-## Shared Infrastructure
+## Infrastructure
 
-- Reverse proxies must preserve `Authorization` and must not cache OAuth authorization or token responses. Application API CORS stays wildcard and non-credentialed; hosted login cookies are same-origin.
-- Centralize Redis keys, channel names, payload codecs, and parsing in the Redis infrastructure module.
-- Sandbox scripts enter through plugin or kernel source-zero ingestion; see `src/lib/infrastructure/sandbox-runtime/README.md`.
-- Keep the sandbox and client plugin compiler engines separate. They may share generic TypeScript infrastructure from `@ryot-app/typescript-compiler` and the server-owned process-supervision boundary, but not import policies, limits, protocols, output models, or public APIs.
-- Follow `src/modules/entity-interest/README.md` for entity read, population, translation, and interest semantics.
-- Follow `src/modules/auth/README.md` for OAuth transport, hosted browser sessions, token handling, and external OIDC configuration.
-- Public and service-owned event creates await `EventCreateWorkflow`. Callers using `discard: true` must poll to observe results.
+- Centralize Redis keys, channels, codecs, and parsing in Redis infrastructure.
+- Keep sandbox and client-plugin compiler engines separate. They may share `@ryot-app/typescript-compiler` and server process supervision, but not policies, limits, protocols, output models, or public APIs.
+- Sandbox runtime: `src/lib/infrastructure/sandbox-runtime/README.md`.
+- Entity interest: `src/modules/entity-interest/README.md`.
+- Authentication and proxy rules: `src/modules/auth/README.md`.
+- Public and service-owned event creates await `EventCreateWorkflow`; callers that use `discard: true` must poll for results.
+- Assert typed Effect failures with `assertExitFails` from `src/lib/test-utils/assertions.ts`; structural `Exit.fail` equality omits error messages.

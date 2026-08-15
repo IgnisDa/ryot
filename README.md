@@ -1,10 +1,8 @@
 <h1 align="center">Ryot</h1>
 
 <h3 align="center">
-  A self hosted platform for tracking various facets of your life - media, fitness and more.
+  A self-hosted platform for tracking media, fitness, and more.
 </h3>
-
-<br/>
 
 <div align="center">
   <a href="https://github.com/ignisda/ryot/stargazers">
@@ -30,8 +28,6 @@
     <a href="https://discord.gg/D9XTg2a7R8" target="_blank">Discord</a> •
     <a href="https://ryot.io/features" target="_blank">Pro Features</a>
 </p>
-
-<br/>
 
 <p align="center">
   <img src="apps/website/public/cta-image.png" alt="Ryot Dashboard" width="700">
@@ -68,15 +64,15 @@ Then run `docker compose up -d` and visit `http://localhost:8000`. For productio
 
 ## What is Ryot?
 
-Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", is a self-hosted tracker for your media consumption and fitness activities. Track the books you read, shows you watch, games you play, and workouts you complete - all in one place with a clean interface and insightful statistics.
+Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", tracks media consumption and fitness activity in one place.
 
 ## Demo
 
-Try the [live demo](https://demo.ryot.io/_s/acl_vUMPnPirkHlT) to explore the interface. Demo data resets every 24 hours.
+Try the [live demo](https://demo.ryot.io/_s/acl_vUMPnPirkHlT). Its data resets every 24 hours.
 
 ### Media Tracking
 
-- Track movies, TV shows, anime, manga, books, audiobooks, podcasts, music and video games
+- Track movies, TV shows, anime, manga, books, audiobooks, podcasts, music, and video games
 - Import from Goodreads, Trakt, MyAnimeList, Audiobookshelf [and more](https://docs.ryot.io/importing/overview.html)
 - Automatic tracking via Jellyfin, Plex, Kodi, Emby [integrations](https://docs.ryot.io/integrations/overview.html)
 
@@ -100,11 +96,11 @@ Try the [live demo](https://demo.ryot.io/_s/acl_vUMPnPirkHlT) to explore the int
 - OpenID Connect [authentication](https://docs.ryot.io/guides/authentication.html)
 - Notifications via Discord, Ntfy, Apprise
 - Sandboxed user scripting powered by Deno subprocesses
-- PWA support for mobile use
+- React DOM client with PWA and Capacitor mobile support
 
 ## Pro Version
 
-Ryot Pro adds profile sharing, personalized recommendations, supercharged collections and more. [Learn more](https://ryot.io) about the pro version.
+Ryot Pro adds profile sharing, personalized recommendations, enhanced collections, and more. [Learn more](https://ryot.io).
 
 ## Development
 
@@ -116,9 +112,7 @@ docker compose up -d ryot-postgres ryot-redis
 bun run dev
 ```
 
-Configure `apps/server/.env` with `DATABASE_URL`, `REDIS_URL`, and `SERVER_ADMIN_ACCESS_TOKEN`.
-Filesystem paths and `FRONTEND_URL` have development-ready defaults. The server development task
-builds and watches the shipped plugin bundles and assembles the runtime layout automatically.
+Configure `apps/server/.env` with `DATABASE_URL`, `REDIS_URL`, and `SERVER_ADMIN_ACCESS_TOKEN`. Filesystem paths and `FRONTEND_URL` have development defaults. The server task builds and watches shipped plugin bundles and assembles the runtime layout.
 
 Other commands: `bun run build`, `bun run test`, `bun run check`.
 
