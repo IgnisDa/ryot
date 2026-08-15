@@ -40,11 +40,6 @@ rejected; wait for the existing run to finish or fail.
 Choose _Download_ on a finished backup to save the `.zip` archive. On a phone or tablet, Ryot
 hands the archive to the system share sheet so you can save it wherever you keep your files.
 
-Downloads are streamed to native files and to browsers that provide a save-file picker. A browser
-without a save-file picker uses a non-streaming Blob fallback, which accepts downloads up to 50
-MiB and rejects larger archives. Use a native client or a browser with a save-file picker for a
-larger backup.
-
 You can also delete a backup from this page. Deleting removes the record and the stored archive;
 it never touches the data in your account.
 

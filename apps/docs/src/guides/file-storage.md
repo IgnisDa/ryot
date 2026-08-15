@@ -98,9 +98,6 @@ for the import or other consumer. Retrying completion is safe.
 
 - Regular uploads are limited to 50 MiB. Temporary backup archive uploads have a separate 1088 MiB
   limit.
-- Native downloads and browsers with a save-file picker stream the response. If a browser has no
-  save-file picker, its non-streaming Blob fallback buffers the whole download and is limited to
-  50 MiB.
 - Upload intents and their upload targets expire 15 minutes after creation.
 - A completed temporary upload is claimable for 15 minutes if it is not claimed.
 - Claiming replaces that unclaimed lifetime with a 24-hour processing lease.
