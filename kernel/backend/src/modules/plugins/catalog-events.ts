@@ -9,8 +9,8 @@ import { Context, Effect, Layer, Queue, Stream } from "effect";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 
 const encoder = new TextEncoder();
-const connected = encoder.encode(`event: ${PLUGIN_CATALOG_CONNECTED_EVENT}\n\n`);
-const invalidated = encoder.encode(`event: ${PLUGIN_CATALOG_INVALIDATED_EVENT}\n\n`);
+const connected = encoder.encode(`event: ${PLUGIN_CATALOG_CONNECTED_EVENT}\ndata:\n\n`);
+const invalidated = encoder.encode(`event: ${PLUGIN_CATALOG_INVALIDATED_EVENT}\ndata:\n\n`);
 const heartbeat = encoder.encode(": ping\n\n");
 
 export class PluginCatalogHub extends Context.Service<PluginCatalogHub>()("PluginCatalogHub", {
