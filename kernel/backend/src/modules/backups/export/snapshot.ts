@@ -9,12 +9,14 @@ import { Context, Effect, Encoding, FileSystem, Layer } from "effect";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { AuthRepository } from "#modules/auth/repository";
 import { AutomationsRepository } from "#modules/automations/repository";
+import { ClientPagesRepository } from "#modules/client-pages/repository";
 import type { DefinitionSnapshot, SavedViewDefinition } from "#modules/definition-registry/service";
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
 import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+import { materializeSavedView } from "#modules/plugins/loader";
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { RelationshipsRepository } from "#modules/relationships/repository";
@@ -22,24 +24,24 @@ import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
 
 import {
-	collectV2EmbeddedEntityIds,
-	collectV2ReferencedPluginKeys,
-	redactV2SchemaSecrets,
-	rewriteV2AssetLocatorForArchive,
-	rewriteV2ManagedAssetLocators,
-} from "../archive-v2/references";
+	collectEmbeddedEntityIds,
+	collectReferencedPluginKeys,
+	redactSchemaSecrets,
+	rewriteAssetLocatorForArchive,
+	rewriteManagedAssetLocators,
+} from "../archive/references";
 import type {
-	V2ArchiveRecords,
-	V2EntityDependency,
-	V2Event,
-	V2Installation,
-	V2Integration,
-	V2NotificationSubscription,
-	V2Relationship,
-	V2UserEntity,
-} from "../archive-v2/schemas";
-import { decodeV2JsonObject, isV2JsonObject, V2_CODECS } from "../archive-v2/schemas";
-import { encodeNdjson, IncrementalSha256 } from "../archive-v2/streaming";
+	ArchiveRecords,
+	ArchiveEntityDependency,
+	ArchiveEvent,
+	ArchiveInstallation,
+	ArchiveIntegration,
+	ArchiveNotificationSubscription,
+	ArchiveRelationship,
+	ArchiveUserEntity,
+} from "../archive/schemas";
+import { ARCHIVE_CODECS, decodeArchiveJsonObject, isArchiveJsonObject } from "../archive/schemas";
+import { encodeNdjson, IncrementalSha256 } from "../archive/streaming";
 import { isDefaultSystemInstallation } from "../installation-state";
 
 type BackupPropertyRecord = {
@@ -49,7 +51,7 @@ type BackupPropertyRecord = {
 
 type BackupEventPage = {
 	readonly nextAfterId: EventId | null;
-	readonly records: ReadonlyArray<V2Event>;
+	readonly records: ReadonlyArray<ArchiveEvent>;
 };
 
 const concatEncoded = (chunks: Iterable<Uint8Array>) => {
@@ -70,8 +72,8 @@ const installationLifecycleIntent = (health: string, isDisabled: boolean) => {
 	return isDisabled ? ("disabled" as const) : ("ready" as const);
 };
 
-export const requireV2NotificationMetadataSchema = Effect.fn(function* (
-	subscription: V2NotificationSubscription,
+export const requireNotificationMetadataSchema = Effect.fn(function* (
+	subscription: ArchiveNotificationSubscription,
 	propertiesSchema: AppSchema | undefined,
 ) {
 	if (subscription.metadata !== null && !propertiesSchema) {
@@ -94,7 +96,7 @@ const collectPropertyAssets = (
 		return;
 	}
 	if (property.type === "object") {
-		if (property.validation?.asset && isV2JsonObject(value)) {
+		if (property.validation?.asset && isArchiveJsonObject(value)) {
 			if (
 				(value["type"] === "local" || value["type"] === "s3") &&
 				typeof value["key"] === "string"
@@ -103,7 +105,7 @@ const collectPropertyAssets = (
 			}
 			return;
 		}
-		if (isV2JsonObject(value)) {
+		if (isArchiveJsonObject(value)) {
 			for (const [key, child] of Object.entries(property.properties)) {
 				collectPropertyAssets(child, value[key], assets);
 			}
@@ -182,7 +184,7 @@ const privateDefinitionSnapshot = (plugin: {
 	savedViews: Object.fromEntries(
 		plugin.manifest.savedViews.map((definition) => [
 			definition.slug,
-			{ ...definition, pluginId: plugin.id, pluginSlug: plugin.slug },
+			materializeSavedView(definition, plugin.id, plugin.slug, plugin.manifest.client),
 		]),
 	),
 	signalSchemas: Object.fromEntries(
@@ -255,7 +257,7 @@ const definitionLookups = (
 	),
 });
 
-const toV2Entity = Effect.fn(function* (
+const toArchiveEntity = Effect.fn(function* (
 	entity: PortableEntityRecord,
 	pluginKeyById: ReadonlyMap<string, string>,
 ) {
@@ -267,7 +269,7 @@ const toV2Entity = Effect.fn(function* (
 		updatedAt: entity.updatedAt.toISOString(),
 		entitySchemaSlug: entity.entitySchemaSlug,
 		populatedAt: entity.populatedAt?.toISOString() ?? null,
-		properties: decodeV2JsonObject(entity.properties),
+		properties: decodeArchiveJsonObject(entity.properties),
 		entitySchemaPluginKey: entity.entitySchemaPluginId
 			? yield* requirePluginKey(pluginKeyById, entity.entitySchemaPluginId)
 			: null,
@@ -277,7 +279,7 @@ const toV2Entity = Effect.fn(function* (
 					pluginKey: yield* requirePluginKey(pluginKeyById, entity.provider.pluginId),
 				}
 			: null,
-	} satisfies Omit<V2UserEntity, "origin">;
+	} satisfies Omit<ArchiveUserEntity, "origin">;
 });
 
 const dependencyIdentity = Effect.fn(function* (
@@ -289,7 +291,7 @@ const dependencyIdentity = Effect.fn(function* (
 			kind: "provider",
 			providerSlug: entity.provider.providerSlug,
 			pluginKey: yield* requirePluginKey(pluginKeyById, entity.provider.pluginId),
-		} satisfies V2EntityDependency["identity"];
+		} satisfies ArchiveEntityDependency["identity"];
 	}
 	if (entity.externalId && entity.entitySchemaPluginId) {
 		return {
@@ -297,19 +299,33 @@ const dependencyIdentity = Effect.fn(function* (
 			externalId: entity.externalId,
 			entitySchemaSlug: entity.entitySchemaSlug,
 			pluginKey: yield* requirePluginKey(pluginKeyById, entity.entitySchemaPluginId),
-		} satisfies V2EntityDependency["identity"];
+		} satisfies ArchiveEntityDependency["identity"];
 	}
-	return { kind: "unmanaged" } satisfies V2EntityDependency["identity"];
+	return { kind: "unmanaged" } satisfies ArchiveEntityDependency["identity"];
 });
 
 const defaultViewState = (view: SavedViewDefinition | undefined) =>
-	view ? { ...view, isBuiltin: true, isDisabled: false } : null;
+	view
+		? {
+				slug: view.slug,
+				name: view.name,
+				icon: view.icon,
+				renderer: view.renderer,
+				settings: view.settings,
+				dataSources: view.dataSources,
+				isBuiltin: true,
+				sortOrder: view.sortOrder,
+				isDisabled: false,
+				pluginSlug: view.pluginSlug,
+			}
+		: null;
 
 export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>()(
 	"BackupExportSnapshot",
 	{
 		make: Effect.gen(function* () {
 			const auth = yield* AuthRepository;
+			const clientPages = yield* ClientPagesRepository;
 			const events = yield* EventsRepository;
 			const fs = yield* FileSystem.FileSystem;
 			const plugins = yield* PluginRepository;
@@ -389,7 +405,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				const referencedDependencies =
 					yield* entities.listReferencedGlobalEntitiesForBackup(userId);
 				const embeddedDependencies = yield* entities.listGlobalEntitiesByIdsForBackup(
-					collectV2EmbeddedEntityIds(
+					collectEmbeddedEntityIds(
 						userEntities.flatMap((entity) => {
 							const propertiesSchema = getEntitySchema(entity)?.propertiesSchema;
 							return propertiesSchema ? [{ propertiesSchema, properties: entity.properties }] : [];
@@ -407,18 +423,19 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				const storedRelationships = yield* relationships.listUserRelationshipsForBackup(userId);
 				const storedIntegrations = yield* integrations.listForBackup(userId);
 				const storedViews = yield* savedViews.listForBackup(userId);
+				const storedRenderers = yield* clientPages.listRenderers(userId);
 				const storedSubscriptions =
 					yield* automations.listNotificationSubscriptionsForBackup(userId);
 				const translationRows = yield* translations.listForBackup(
 					dependencies.map(({ id }) => EntityId.make(id)),
 				);
 				const translationsByEntity = Map.groupBy(translationRows, ({ entityId }) => entityId);
-				const entityDependencies: V2EntityDependency[] = yield* Effect.forEach(
+				const entityDependencies: ArchiveEntityDependency[] = yield* Effect.forEach(
 					dependencies,
 					(entity) =>
 						Effect.gen(function* () {
 							return {
-								...(yield* toV2Entity(entity, pluginKeyById)),
+								...(yield* toArchiveEntity(entity, pluginKeyById)),
 								identity: yield* dependencyIdentity(entity, pluginKeyById),
 								translations: (translationsByEntity.get(entity.id) ?? []).map((translation) => ({
 									id: translation.id,
@@ -428,13 +445,13 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 									updatedAt: translation.updatedAt.toISOString(),
 									populatedAt: translation.populatedAt?.toISOString() ?? null,
 									properties: translation.properties
-										? decodeV2JsonObject(translation.properties)
+										? decodeArchiveJsonObject(translation.properties)
 										: null,
 								})),
-							} satisfies V2EntityDependency;
+							} satisfies ArchiveEntityDependency;
 						}),
 				);
-				const relationshipRecords: V2Relationship[] = yield* Effect.forEach(
+				const relationshipRecords: ArchiveRelationship[] = yield* Effect.forEach(
 					storedRelationships,
 					(relationship) =>
 						Effect.gen(function* () {
@@ -445,21 +462,21 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 								targetEntityId: relationship.targetEntityId,
 								createdAt: relationship.createdAt.toISOString(),
 								relationshipSchemaSlug: relationship.relationshipSchemaSlug,
-								properties: decodeV2JsonObject(relationship.properties),
+								properties: decodeArchiveJsonObject(relationship.properties),
 								relationshipSchemaPluginKey: relationship.relationshipSchemaPluginId
 									? yield* requirePluginKey(pluginKeyById, relationship.relationshipSchemaPluginId)
 									: null,
-							} satisfies V2Relationship;
+							} satisfies ArchiveRelationship;
 						}),
+				);
+				const homeSavedViewIds = new Set(
+					allStoredInstallations.flatMap(({ homeSavedViewId }) =>
+						homeSavedViewId === null ? [] : [homeSavedViewId],
+					),
 				);
 				const viewRecords = (yield* Effect.forEach(storedViews, (view) =>
 					Effect.gen(function* () {
-						const {
-							entitySchemaPluginId: _entitySchemaPluginId,
-							pluginInstallationId,
-							pluginSlug: _pluginSlug,
-							...portableView
-						} = view;
+						const { pluginInstallationId, pluginSlug: _pluginSlug, ...portableView } = view;
 						const installation = allStoredInstallations.find(
 							(state) => state.id === pluginInstallationId,
 						);
@@ -467,15 +484,21 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						const viewDefinition = context.savedView(view.slug, viewPluginId);
 						const qualified = {
 							pluginKey: viewPluginId ? yield* requirePluginKey(pluginKeyById, viewPluginId) : null,
-							entitySchemaPluginKey: view.entitySchemaPluginId
-								? yield* requirePluginKey(pluginKeyById, view.entitySchemaPluginId)
-								: null,
 						};
+						const renderer =
+							view.renderer.kind === "plugin"
+								? {
+										exportName: view.renderer.exportName,
+										kind: "plugin" as const,
+										pluginKey: yield* requirePluginKey(pluginKeyById, view.renderer.pluginId),
+									}
+								: view.renderer;
 						if (!view.isBuiltin) {
 							return [
 								{
 									...portableView,
 									...qualified,
+									renderer,
 									kind: "custom" as const,
 									isBuiltin: false as const,
 								},
@@ -486,26 +509,28 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							slug: view.slug,
 							name: view.name,
 							icon: view.icon,
-							layouts: view.layouts,
+							renderer: view.renderer,
+							settings: view.settings,
+							dataSources: view.dataSources,
 							isBuiltin: view.isBuiltin,
 							sortOrder: view.sortOrder,
 							isDisabled: view.isDisabled,
 							pluginSlug: view.pluginSlug,
-							entitySchemaSlug: view.entitySchemaSlug,
 						};
-						return expected && isEqual(actual, expected)
+						return expected && isEqual(actual, expected) && !homeSavedViewIds.has(view.id)
 							? []
 							: [
 									{
 										...portableView,
 										...qualified,
+										renderer,
 										isBuiltin: true as const,
 										kind: "builtin-override" as const,
 									},
 								];
 					}),
 				)).flat();
-				const subscriptionRecords: V2NotificationSubscription[] = yield* Effect.forEach(
+				const subscriptionRecords: ArchiveNotificationSubscription[] = yield* Effect.forEach(
 					storedSubscriptions.filter(({ isActive, metadata }) => !isActive || metadata !== null),
 					({ metadata, isActive, signalSchemaSlug, signalSchemaPluginId }) =>
 						Effect.gen(function* () {
@@ -519,13 +544,25 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							};
 						}),
 				);
+				const rendererDependencySlugs = new Set<string>(
+					storedRenderers.flatMap(({ draftDefinition, publishedDefinition }) => [
+						...draftDefinition.pluginDependencies,
+						...(publishedDefinition?.pluginDependencies ?? []),
+					]),
+				);
 				const referencedInstallationIds = new Set([
 					...storedIntegrations.map(({ pluginInstallationId }) => pluginInstallationId),
 					...storedViews.flatMap(({ pluginInstallationId }) =>
 						pluginInstallationId ? [pluginInstallationId] : [],
 					),
+					...allStoredInstallations.flatMap(({ id, homeSavedViewId }) =>
+						homeSavedViewId === null ? [] : [id],
+					),
+					...storedInstallations.flatMap(({ id, pluginSlug }) =>
+						rendererDependencySlugs.has(pluginSlug) ? [id] : [],
+					),
 				]);
-				const installationRecords: V2Installation[] = yield* Effect.forEach(
+				const installationRecords: ArchiveInstallation[] = yield* Effect.forEach(
 					storedInstallations.filter(
 						(state) =>
 							!isDefaultSystemInstallation(state) || referencedInstallationIds.has(state.id),
@@ -536,18 +573,19 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							return {
 								id: state.id,
 								configuredSecretPaths: [],
+								homeSavedViewId: state.homeSavedViewId,
 								sortOrder: state.sortOrder,
 								disabledIntent: state.isDisabled,
 								createdAt: state.createdAt.toISOString(),
 								updatedAt: state.updatedAt.toISOString(),
 								packageKey: yield* requirePluginKey(pluginKeyById, state.pluginId),
-								config: plugin?.scope === "system" ? {} : decodeV2JsonObject(state.config),
+								config: plugin?.scope === "system" ? {} : decodeArchiveJsonObject(state.config),
 								lifecycleIntent: installationLifecycleIntent(state.health, state.isDisabled),
 							};
 						}),
 				);
 				const installationById = new Map(storedInstallations.map((state) => [state.id, state]));
-				const integrationRecords: V2Integration[] = yield* Effect.forEach(
+				const integrationRecords: ArchiveIntegration[] = yield* Effect.forEach(
 					storedIntegrations,
 					(integration) =>
 						Effect.gen(function* () {
@@ -571,7 +609,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 								createdAt: integration.createdAt.toISOString(),
 								updatedAt: integration.updatedAt.toISOString(),
 								lastFinishedAt: integration.lastFinishedAt?.toISOString() ?? null,
-								providerSpecifics: decodeV2JsonObject(integration.providerSpecifics),
+								providerSpecifics: decodeArchiveJsonObject(integration.providerSpecifics),
 								packageKey: yield* requirePluginKey(pluginKeyById, installation.pluginId),
 							};
 						}),
@@ -615,12 +653,12 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					entities: yield* Effect.forEach(userEntities, (entity) =>
 						Effect.gen(function* () {
 							return {
-								...(yield* toV2Entity(entity, pluginKeyById)),
+								...(yield* toArchiveEntity(entity, pluginKeyById)),
 								origin: entity.origin,
-							} satisfies V2UserEntity;
+							} satisfies ArchiveUserEntity;
 						}),
 					),
-					profile: { ...profile, preferences: decodeV2JsonObject(profile.preferences) },
+					profile: { ...profile, preferences: decodeArchiveJsonObject(profile.preferences) },
 					privatePlugins: yield* Effect.forEach(privatePlugins, (plugin) =>
 						Effect.gen(function* () {
 							const sourceFiles = yield* plugins.listSourceFiles(plugin.id);
@@ -638,6 +676,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							};
 						}),
 					),
+					clientRenderers: storedRenderers,
 				};
 			});
 
@@ -650,7 +689,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					userId: input.userId,
 					afterId: input.afterId,
 				});
-				const records: V2Event[] = yield* Effect.forEach(rows, (row) =>
+				const records: ArchiveEvent[] = yield* Effect.forEach(rows, (row) =>
 					Effect.gen(function* () {
 						return {
 							id: row.id,
@@ -660,11 +699,11 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							createdAt: row.createdAt.toISOString(),
 							updatedAt: row.updatedAt.toISOString(),
 							occurredAt: row.occurredAt.toISOString(),
-							properties: decodeV2JsonObject(row.properties),
+							properties: decodeArchiveJsonObject(row.properties),
 							eventSchemaPluginKey: row.eventSchemaPluginId
 								? yield* requirePluginKey(input.pluginKeyById, row.eventSchemaPluginId)
 								: null,
-						} satisfies V2Event;
+						} satisfies ArchiveEvent;
 					}),
 				);
 				const lastRecord = records.at(-1);
@@ -699,12 +738,12 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					const context = yield* readExportContext(userId, definitions);
 					const data = yield* readExportData(userId, context);
 					const { pluginByKey, pluginIdForKey, pluginKeyById } = context;
-					const getEntitySchema = (entity: V2UserEntity | V2EntityDependency) =>
+					const getEntitySchema = (entity: ArchiveUserEntity | ArchiveEntityDependency) =>
 						context.entitySchema(
 							entity.entitySchemaSlug,
 							pluginIdForKey(entity.entitySchemaPluginKey),
 						);
-					const getSignalSchema = (subscription: V2NotificationSubscription) =>
+					const getSignalSchema = (subscription: ArchiveNotificationSubscription) =>
 						context.signalSchema(
 							subscription.signalSchemaSlug,
 							pluginIdForKey(subscription.signalSchemaPluginKey),
@@ -715,7 +754,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							getEntitySchema(entity),
 						]),
 					);
-					const eventPropertiesSchema = (event: V2Event) =>
+					const eventPropertiesSchema = (event: ArchiveEvent) =>
 						definitionForPlugin(
 							entitySchemaByEntityId.get(event.entityId)?.eventSchemas[event.eventSchemaSlug],
 							pluginIdForKey(event.eventSchemaPluginKey),
@@ -759,11 +798,11 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						});
 					}
 					for (const subscription of data.notificationSubscriptions) {
-						const propertiesSchema = yield* requireV2NotificationMetadataSchema(
+						const propertiesSchema = yield* requireNotificationMetadataSchema(
 							subscription,
 							getSignalSchema(subscription)?.propertiesSchema,
 						);
-						if (propertiesSchema && isV2JsonObject(subscription.metadata)) {
+						if (propertiesSchema && isArchiveJsonObject(subscription.metadata)) {
 							additionalPropertyRecords.push({
 								propertiesSchema,
 								properties: subscription.metadata,
@@ -794,10 +833,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					const archiveLocators = new Map<string, AssetLocator>(
 						managedAssets.map((asset) => [
 							locatorKey({ type: asset.provider, key: asset.key }),
-							rewriteV2AssetLocatorForArchive(
-								{ type: asset.provider, key: asset.key },
-								asset.sha256,
-							),
+							rewriteAssetLocatorForArchive({ type: asset.provider, key: asset.key }, asset.sha256),
 						]),
 					);
 					const redactions: string[] = [];
@@ -806,19 +842,19 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						propertiesSchema: AppSchema,
 						path: string,
 					) {
-						const redacted = redactV2SchemaSecrets(
-							decodeV2JsonObject(properties),
+						const redacted = redactSchemaSecrets(
+							decodeArchiveJsonObject(properties),
 							propertiesSchema,
 							path,
 						);
 						redactions.push(...redacted.redactions);
-						return yield* rewriteV2ManagedAssetLocators(
+						return yield* rewriteManagedAssetLocators(
 							redacted.redacted,
 							propertiesSchema,
 							archiveLocators,
 						);
 					});
-					const exportedEntities: V2UserEntity[] = [];
+					const exportedEntities: ArchiveUserEntity[] = [];
 					for (const entity of data.entities) {
 						const propertiesSchema = getEntitySchema(entity)?.propertiesSchema;
 						if (!propertiesSchema) {
@@ -835,7 +871,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							),
 						});
 					}
-					const entityDependencies: V2EntityDependency[] = [];
+					const entityDependencies: ArchiveEntityDependency[] = [];
 					for (const dependency of data.entityDependencies) {
 						const propertiesSchema = getEntitySchema(dependency)?.propertiesSchema;
 						if (!propertiesSchema) {
@@ -867,7 +903,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							),
 						});
 					}
-					const exportedRelationships: V2Relationship[] = [];
+					const exportedRelationships: ArchiveRelationship[] = [];
 					for (const relationship of data.relationships) {
 						const propertiesSchema = context.relationshipSchema(
 							relationship.relationshipSchemaSlug,
@@ -892,7 +928,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					yield* fs.writeFile(eventsPath, new Uint8Array(0));
 					yield* eachEventPage(userId, pluginKeyById, (page) =>
 						Effect.gen(function* () {
-							const eventRecords: V2Event[] = [];
+							const eventRecords: ArchiveEvent[] = [];
 							for (const event of page.records) {
 								const propertiesSchema = eventPropertiesSchema(event);
 								if (!propertiesSchema) {
@@ -909,13 +945,15 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 									),
 								});
 							}
-							const payload = concatEncoded(encodeNdjson(eventRecords, V2_CODECS["events.ndjson"]));
+							const payload = concatEncoded(
+								encodeNdjson(eventRecords, ARCHIVE_CODECS["events.ndjson"]),
+							);
 							eventCount += eventRecords.length;
 							eventsHash.update(payload);
 							return yield* fs.writeFile(eventsPath, payload, { flag: "a" });
 						}),
 					);
-					const exportedInstallations: V2Installation[] = [];
+					const exportedInstallations: ArchiveInstallation[] = [];
 					for (const state of data.installations) {
 						const plugin = pluginByKey.get(state.packageKey);
 						if (!plugin) {
@@ -939,7 +977,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 								.map((path) => path.slice(configPath.length)),
 						});
 					}
-					const restoredIntegrations: V2Integration[] = [];
+					const restoredIntegrations: ArchiveIntegration[] = [];
 					for (const integration of data.integrations) {
 						const plugin = pluginByKey.get(integration.packageKey);
 						const provider = plugin?.integrationProviders.find(
@@ -965,16 +1003,16 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 								),
 						});
 					}
-					const notificationSubscriptions: V2NotificationSubscription[] = [];
+					const notificationSubscriptions: ArchiveNotificationSubscription[] = [];
 					for (const subscription of data.notificationSubscriptions) {
-						const propertiesSchema = yield* requireV2NotificationMetadataSchema(
+						const propertiesSchema = yield* requireNotificationMetadataSchema(
 							subscription,
 							getSignalSchema(subscription)?.propertiesSchema,
 						);
 						notificationSubscriptions.push({
 							...subscription,
 							metadata:
-								propertiesSchema && isV2JsonObject(subscription.metadata)
+								propertiesSchema && isArchiveJsonObject(subscription.metadata)
 									? yield* transformProperties(
 											subscription.metadata,
 											propertiesSchema,
@@ -991,10 +1029,11 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						savedViews: data.savedViews,
 						integrations: restoredIntegrations,
 						privatePlugins: data.privatePlugins,
+						clientRenderers: data.clientRenderers,
 						relationships: exportedRelationships,
 						installations: exportedInstallations,
-					} satisfies V2ArchiveRecords;
-					const referencedPluginKeys = collectV2ReferencedPluginKeys(records);
+					} satisfies ArchiveRecords;
+					const referencedPluginKeys = collectReferencedPluginKeys(records);
 					const requiredPlugins = context.installedPlugins
 						.filter(
 							(plugin) =>

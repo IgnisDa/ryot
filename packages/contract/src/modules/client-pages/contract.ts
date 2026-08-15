@@ -2,6 +2,7 @@ import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
+import { LogRouteTemplate } from "../../http-annotations";
 import {
 	ClientPageSessionNotFound,
 	ClientPagePreparationError,
@@ -32,7 +33,9 @@ export const ClientPageArtifactsGroup = HttpApiGroup.make("clientPageArtifacts")
 		HttpApiEndpoint.get("file", "/client-pages/artifacts/:token/:fileName", {
 			params: { token: Schema.String, fileName: Schema.String },
 			error: [ClientPageSessionNotFound.pipe(HttpApiSchema.status(404))],
-		}).annotate(OpenApi.Description, "Serves a file from a client page artifact session"),
+		})
+			.annotate(LogRouteTemplate, true)
+			.annotate(OpenApi.Description, "Serves a file from a client page artifact session"),
 	);
 
 export const ClientPagesGroup = HttpApiGroup.make("clientPages")

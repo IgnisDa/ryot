@@ -16,18 +16,20 @@ because iframe media queries measure the content frame rather than the kernel vi
 the box sized by `ScreenFrame`; it declares art height below the bar and adds no safe-area or bar
 offset.
 
-Managed artwork resolves through `client.assets.resolve` in deduplicated batches of at most 64 and is
-renewed before signed URLs expire. Remote images load directly.
+Managed artwork uses `ManagedAssetProvider` and `useManagedAssetUrl` from
+`@ryot-app/client-sdk/react`. The SDK deduplicates locators, resolves batches of at most 64, retains
+resolved URLs while refreshing, and renews them before expiry. Media code only collects domain image
+locators and adapts remote images, which load directly.
 
 Show queries declare entity interest only for loaded recipe results: the show and selected season are
 foreground, while displayed related entities are visible. Activity declares entity IDs referenced by
 events, not event IDs. Update hints refresh active queries without promising general realtime updates
 for unloaded data or arbitrary mutations.
 
-Rows select `populationStatus` and `translationStatus` through `entitySyncSelection`. Visual marks
-come from `@ryot-app/client-ui-sdk/sync`; `ManagedAssetImage` only resolves a locator. Settle marks are
-committed after new query data renders. Translation UI does not name the preferred language because
-the bridge does not expose it.
+Rows select `populationStatus` and `translationStatus` through `entitySyncSelection`. Visual marks and
+the missing-artwork surface come from `@ryot-app/client-ui-sdk/sync`; media wrappers do not own asset
+batching, expiry, placeholders, or animations. Settle marks are committed after new query data renders.
+Translation UI does not name the preferred language because the bridge does not expose it.
 
 ## Images And Providers
 

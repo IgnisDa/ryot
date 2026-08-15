@@ -159,14 +159,6 @@ const PluginInvocationFailureReason = Schema.Union([
 	}),
 ]);
 
-const PluginArtifactSessionNotFoundReason = strictStruct({
-	code: Schema.Literal("artifact-session-not-found"),
-});
-
-const PluginArtifactSessionUnavailableReason = strictStruct({
-	code: Schema.Literal("artifact-session-store-unavailable"),
-});
-
 export class PluginRequestError extends Schema.TaggedError<PluginRequestError>()(
 	"PluginRequestError",
 	{ reason: PluginRequestFailureReason },
@@ -185,16 +177,6 @@ export class PluginNotFoundError extends Schema.TaggedError<PluginNotFoundError>
 export class PluginInvocationError extends Schema.TaggedError<PluginInvocationError>()(
 	"PluginInvocationError",
 	{ reason: PluginInvocationFailureReason },
-) {}
-
-export class PluginArtifactSessionNotFoundError extends Schema.TaggedError<PluginArtifactSessionNotFoundError>()(
-	"PluginArtifactSessionNotFoundError",
-	{ reason: PluginArtifactSessionNotFoundReason },
-) {}
-
-export class PluginArtifactSessionUnavailableError extends Schema.TaggedError<PluginArtifactSessionUnavailableError>()(
-	"PluginArtifactSessionUnavailableError",
-	{ reason: PluginArtifactSessionUnavailableReason },
 ) {}
 
 export const InstallPluginBody = Schema.Struct({
@@ -230,30 +212,6 @@ export const PluginHomeViewSelection = strictStruct({
 });
 
 export type PluginHomeViewSelection = typeof PluginHomeViewSelection.Type;
-
-export const CreatePluginClientArtifactSessionBody = strictStruct({
-	sourceHash: Schema.String,
-	artifactHash: Schema.String,
-});
-
-export type CreatePluginClientArtifactSessionBody =
-	typeof CreatePluginClientArtifactSessionBody.Type;
-
-export const CreatePluginClientArtifactSessionResponse = strictStruct({
-	token: Schema.String,
-	sessionId: Schema.String,
-	expiresAt: Schema.String,
-});
-
-export type CreatePluginClientArtifactSessionResponse =
-	typeof CreatePluginClientArtifactSessionResponse.Type;
-
-export const RenewPluginClientArtifactSessionResponse = strictStruct({
-	expiresAt: Schema.String,
-});
-
-export type RenewPluginClientArtifactSessionResponse =
-	typeof RenewPluginClientArtifactSessionResponse.Type;
 
 export const PluginInstallationHealth = Schema.Literals([
 	"ready",

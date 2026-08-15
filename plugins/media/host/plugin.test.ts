@@ -65,7 +65,7 @@ it("declares the complete media-owned source", () => {
 	expect(() => Schema.decodeUnknownSync(AuthoredPluginManifest)(mediaPlugin)).not.toThrow();
 	expect(mediaPlugin.client).toEqual({
 		apiVersion: 1,
-		entry: "client/index.tsx",
+		homeView: null,
 		routes: { "/": "media-home" },
 		entities: {
 			show: {
@@ -262,7 +262,11 @@ it("declares the complete media-owned source", () => {
 	});
 	expect(mediaPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "media")).toBe(true);
 	expect(
-		mediaPlugin.savedViews.map(({ name, entitySchemaSlug }) => ({ name, entitySchemaSlug })),
+		mediaPlugin.savedViews.map(({ name, settings }) => ({
+			name,
+			entitySchemaSlug: (settings["addAction"] as { readonly entitySchemaSlug: string })
+				.entitySchemaSlug,
+		})),
 	).toEqual([
 		{ name: "All Persons", entitySchemaSlug: "person" },
 		{ name: "All Companies", entitySchemaSlug: "company" },

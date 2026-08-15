@@ -21,9 +21,8 @@ import {
 	ResultsTableSavedViewSettings,
 	SavedViewDisplayValue,
 	type ResultsTableSavedViewSettings as ResultsTableSavedViewSettingsValue,
-	type SavedViewCardMapping,
 	type SavedViewDisplayKind,
-	type SavedViewTableMapping,
+	type SavedViewTableColumn,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	AssetLocator,
@@ -54,6 +53,25 @@ import { DateTime, Option, Result, Schema } from "effect";
 type DisplayExpression = {
 	readonly expression: ScalarExpression;
 	readonly displayKind: SavedViewDisplayKind;
+};
+
+type SavedViewValueMapping = {
+	readonly field: string;
+	readonly displayKind: SavedViewDisplayKind;
+};
+
+export type SavedViewCardMapping = {
+	readonly titleField: string;
+	readonly imageField: string | null;
+	readonly callout: SavedViewValueMapping | null;
+	readonly overline: SavedViewValueMapping | null;
+	readonly primaryMetadata: SavedViewValueMapping | null;
+	readonly secondaryMetadata: SavedViewValueMapping | null;
+};
+
+export type SavedViewTableMapping = {
+	readonly imageField: string | null;
+	readonly columns: readonly [SavedViewTableColumn, ...SavedViewTableColumn[]];
 };
 
 type CardExpressions = {

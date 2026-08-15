@@ -2,19 +2,19 @@ import { Schema, Effect, Stream, FileSystem, type PlatformError } from "effect";
 import { Zip, Unzip, ZipDeflate, UnzipInflate, ZipPassThrough, UnzipPassThrough } from "fflate";
 
 import { archiveError, BackupArchiveError } from "./error";
-import { collectV2ReferencedPluginKeys } from "./references";
+import { collectReferencedPluginKeys } from "./references";
 import {
-	V2_CODECS,
-	V2Manifest,
-	V2Profile,
-	type V2Event,
-	type V2EntityDependency,
-	V2_SECTION_PATHS,
-	type V2AssetManifest,
-	type V2ArchiveRecords,
-	type V2RequiredPlugin,
-	type V2SectionManifest,
-	type V2SectionPath,
+	ARCHIVE_CODECS,
+	ArchiveManifest,
+	ArchiveProfile,
+	type ArchiveEvent,
+	type ArchiveEntityDependency,
+	ARCHIVE_SECTION_PATHS,
+	type ArchiveAssetManifest,
+	type ArchiveRecords,
+	type ArchiveRequiredPlugin,
+	type ArchiveSectionManifest,
+	type ArchiveSectionPath,
 } from "./schemas";
 import { decodeNdjson, encodeNdjson, IncrementalSha256, NdjsonDecoder } from "./streaming";
 
@@ -26,7 +26,7 @@ const ZIP_CENTRAL_HEADER_BYTES = 46;
 const DETERMINISTIC_MTIME = new Date("1980-01-01T00:00:00.000Z");
 const decoder = new TextDecoder("utf-8", { fatal: true });
 
-export const V2_ARCHIVE_LIMITS = {
+export const ARCHIVE_LIMITS = {
 	maxEntryCount: 4_096,
 	maxRecordsPerSection: 250_000,
 	maxEntryBytes: 256 * 1024 * 1024,
@@ -34,47 +34,48 @@ export const V2_ARCHIVE_LIMITS = {
 	maxTotalUncompressedBytes: 1024 * 1024 * 1024,
 } as const;
 
-type V2ArchiveLimits = {
-	readonly [K in keyof typeof V2_ARCHIVE_LIMITS]: number;
+type ArchiveLimits = {
+	readonly [K in keyof typeof ARCHIVE_LIMITS]: number;
 };
 
-type V2ArchiveAssetInput = {
-	readonly metadata: V2AssetManifest;
+type ArchiveAssetInput = {
+	readonly metadata: ArchiveAssetManifest;
 	readonly chunks: Iterable<Uint8Array> | AsyncIterable<Uint8Array>;
 };
 
-export type V2ArchiveEventsInput = {
+export type ArchiveEventsInput = {
 	readonly count: number;
 	readonly bytes: number;
 	readonly sha256: string;
 	readonly chunks: Iterable<Uint8Array> | AsyncIterable<Uint8Array>;
 };
 
-export type CreateV2ArchiveInput = {
+export type CreateArchiveInput = {
 	readonly archiveId: string;
 	readonly createdAt: string;
 	readonly appVersion: string;
-	readonly records: V2ArchiveRecords;
-	readonly events: V2ArchiveEventsInput;
+	readonly records: ArchiveRecords;
+	readonly events: ArchiveEventsInput;
 	readonly redactions: ReadonlyArray<string>;
 	readonly compression?: "deflate" | "store";
-	readonly assets: ReadonlyArray<V2ArchiveAssetInput>;
-	readonly requiredPlugins: ReadonlyArray<V2RequiredPlugin>;
+	readonly assets: ReadonlyArray<ArchiveAssetInput>;
+	readonly requiredPlugins: ReadonlyArray<ArchiveRequiredPlugin>;
 };
 
-type V2ZipEntryInput = {
+type ZipEntryInput = {
 	readonly path: string;
 	readonly compression: "deflate" | "store";
 	readonly chunks: Iterable<Uint8Array> | AsyncIterable<Uint8Array>;
 };
 
-const recordCollections = (records: V2ArchiveRecords) => ({
+const recordCollections = (records: ArchiveRecords) => ({
 	"entities.ndjson": records.entities,
 	"saved-views.ndjson": records.savedViews,
 	"integrations.ndjson": records.integrations,
 	"installations.ndjson": records.installations,
 	"relationships.ndjson": records.relationships,
 	"private-plugins.ndjson": records.privatePlugins,
+	"client-renderers.ndjson": records.clientRenderers,
 	"entity-dependencies.ndjson": records.entityDependencies,
 	"notification-subscriptions.ndjson": records.notificationSubscriptions,
 });
@@ -93,8 +94,8 @@ const sortedIfNeeded = <A>(values: ReadonlyArray<A>, compare: (left: A, right: A
 	return values;
 };
 
-const sortDependencies = (values: V2ArchiveRecords["entityDependencies"]) => {
-	let updated: V2EntityDependency[] | undefined;
+const sortDependencies = (values: ArchiveRecords["entityDependencies"]) => {
+	let updated: ArchiveEntityDependency[] | undefined;
 	for (const [index, entity] of values.entries()) {
 		const translations = sortedIfNeeded(entity.translations, compareId);
 		if (translations !== entity.translations) {
@@ -105,7 +106,7 @@ const sortDependencies = (values: V2ArchiveRecords["entityDependencies"]) => {
 	return sortedIfNeeded(updated ?? values, compareId);
 };
 
-export const sortV2ArchiveRecords = (records: V2ArchiveRecords): V2ArchiveRecords => ({
+export const sortArchiveRecords = (records: ArchiveRecords): ArchiveRecords => ({
 	profile: records.profile,
 	entities: sortedIfNeeded(records.entities, compareId),
 	entityDependencies: sortDependencies(records.entityDependencies),
@@ -115,31 +116,32 @@ export const sortV2ArchiveRecords = (records: V2ArchiveRecords): V2ArchiveRecord
 	privatePlugins: sortedIfNeeded(records.privatePlugins, (left, right) =>
 		left.key.localeCompare(right.key),
 	),
+	clientRenderers: sortedIfNeeded(records.clientRenderers, compareId),
 	relationships: sortedIfNeeded(records.relationships, compareId),
 	notificationSubscriptions: sortedIfNeeded(records.notificationSubscriptions, (left, right) =>
 		left.signalSchemaSlug.localeCompare(right.signalSchemaSlug),
 	),
 });
 
-type V2BoundedSectionPath = Exclude<V2SectionPath, "profile.json" | "events.ndjson">;
+type BoundedSectionPath = Exclude<ArchiveSectionPath, "profile.json" | "events.ndjson">;
 
-function* sectionChunks(path: V2BoundedSectionPath, records: V2ArchiveRecords) {
+function* sectionChunks(path: BoundedSectionPath, records: ArchiveRecords) {
 	const values = recordCollections(records)[path];
-	const codec = V2_CODECS[path] as Schema.Codec<(typeof values)[number], unknown>;
+	const codec = ARCHIVE_CODECS[path] as Schema.Codec<(typeof values)[number], unknown>;
 	yield* encodeNdjson(values, codec);
 }
 
-const profileChunk = (profile: V2Profile) =>
-	encoder.encode(`${JSON.stringify(Schema.encodeUnknownSync(V2Profile)(profile))}\n`);
+const profileChunk = (profile: ArchiveProfile) =>
+	encoder.encode(`${JSON.stringify(Schema.encodeUnknownSync(ArchiveProfile)(profile))}\n`);
 
 type ArchiveSection = {
 	readonly bytes: number;
-	readonly manifest: V2SectionManifest;
+	readonly manifest: ArchiveSectionManifest;
 	readonly payload?: Uint8Array | undefined;
 };
 
 const bufferSection = (
-	path: V2SectionPath,
+	path: ArchiveSectionPath,
 	chunks: Iterable<Uint8Array>,
 	count: number,
 	limit: number,
@@ -158,10 +160,10 @@ const bufferSection = (
 };
 
 const boundedSection = (
-	path: V2BoundedSectionPath,
-	records: V2ArchiveRecords,
+	path: BoundedSectionPath,
+	records: ArchiveRecords,
 	count: number,
-	limits: V2ArchiveLimits,
+	limits: ArchiveLimits,
 ) => bufferSection(path, sectionChunks(path, records), count, limits.maxMetadataEntryBytes);
 
 const requireUniqueIds = (path: string, records: ReadonlyArray<{ readonly id: string }>) => {
@@ -174,13 +176,40 @@ const requireUniqueIds = (path: string, records: ReadonlyArray<{ readonly id: st
 	}
 };
 
-const validateRecordKeys = (records: V2ArchiveRecords) => {
+const validateRecordKeys = (records: ArchiveRecords) => {
 	requireUniqueIds("entities.ndjson", records.entities);
 	requireUniqueIds("saved-views.ndjson", records.savedViews);
 	requireUniqueIds("integrations.ndjson", records.integrations);
 	requireUniqueIds("installations.ndjson", records.installations);
 	requireUniqueIds("relationships.ndjson", records.relationships);
 	requireUniqueIds("entity-dependencies.ndjson", records.entityDependencies);
+	requireUniqueIds("client-renderers.ndjson", records.clientRenderers);
+	const rendererSlugs = new Set<string>();
+	for (const renderer of records.clientRenderers) {
+		if (rendererSlugs.has(renderer.slug)) {
+			throw archiveError(
+				"duplicate_record_id",
+				`Duplicate client renderer slug '${renderer.slug}'`,
+				"client-renderers.ndjson",
+			);
+		}
+		rendererSlugs.add(renderer.slug);
+		const publishedFields = [
+			renderer.publishedHash,
+			renderer.publishedRevision,
+			renderer.publishedDefinition,
+		];
+		if (
+			!publishedFields.every((value) => value === null) &&
+			!publishedFields.every((value) => value !== null)
+		) {
+			throw archiveError(
+				"invalid_entry",
+				`Client renderer '${renderer.id}' has inconsistent published source state`,
+				"client-renderers.ndjson",
+			);
+		}
+	}
 	const entityIds = new Set(records.entities.map(({ id }) => id));
 	const translationIds = new Set<string>();
 	for (const dependency of records.entityDependencies) {
@@ -212,6 +241,7 @@ const validateRecordKeys = (records: V2ArchiveRecords) => {
 		}
 	}
 	const viewSlugs = new Set<string>();
+	const rendererIds = new Set(records.clientRenderers.map(({ id }) => id));
 	for (const view of records.savedViews) {
 		if (viewSlugs.has(view.slug)) {
 			throw archiveError(
@@ -221,6 +251,23 @@ const validateRecordKeys = (records: V2ArchiveRecords) => {
 			);
 		}
 		viewSlugs.add(view.slug);
+		if (view.renderer.kind === "custom" && !rendererIds.has(view.renderer.rendererId)) {
+			throw archiveError(
+				"missing_reference_mapping",
+				`Saved view references unknown client renderer '${view.renderer.rendererId}'`,
+				"saved-views.ndjson",
+			);
+		}
+	}
+	const viewIds = new Set(records.savedViews.map(({ id }) => id));
+	for (const installation of records.installations) {
+		if (installation.homeSavedViewId !== null && !viewIds.has(installation.homeSavedViewId)) {
+			throw archiveError(
+				"missing_reference_mapping",
+				`Installation references unknown home saved view '${installation.homeSavedViewId}'`,
+				"installations.ndjson",
+			);
+		}
 	}
 	const signalSlugs = new Set<string>();
 	for (const subscription of records.notificationSubscriptions) {
@@ -253,7 +300,7 @@ const validateRecordKeys = (records: V2ArchiveRecords) => {
 	}
 };
 
-const validateRequiredPlugins = (plugins: ReadonlyArray<V2RequiredPlugin>) => {
+const validateRequiredPlugins = (plugins: ReadonlyArray<ArchiveRequiredPlugin>) => {
 	const slugs = new Set<string>();
 	for (const plugin of plugins) {
 		if (slugs.has(plugin.slug)) {
@@ -268,14 +315,14 @@ const validateRequiredPlugins = (plugins: ReadonlyArray<V2RequiredPlugin>) => {
 };
 
 const validatePluginKeys = (
-	records: V2ArchiveRecords,
-	required: ReadonlyArray<V2RequiredPlugin>,
+	records: ArchiveRecords,
+	required: ReadonlyArray<ArchiveRequiredPlugin>,
 ) => {
 	const declared = new Set([
 		...records.privatePlugins.map(({ key }) => key),
 		...required.map(({ slug, sourceHash }) => `system:${slug}:${sourceHash}`),
 	]);
-	const referenced = collectV2ReferencedPluginKeys(records);
+	const referenced = collectReferencedPluginKeys(records);
 	for (const key of referenced) {
 		if (!declared.has(key)) {
 			throw archiveError(
@@ -286,7 +333,7 @@ const validatePluginKeys = (
 	}
 };
 
-const sortedRequiredPlugins = (plugins: ReadonlyArray<V2RequiredPlugin>) => {
+const sortedRequiredPlugins = (plugins: ReadonlyArray<ArchiveRequiredPlugin>) => {
 	validateRequiredPlugins(plugins);
 	return [...plugins].sort(
 		(left, right) =>
@@ -295,9 +342,9 @@ const sortedRequiredPlugins = (plugins: ReadonlyArray<V2RequiredPlugin>) => {
 };
 
 const buildManifest = (
-	input: CreateV2ArchiveInput,
-	records: V2ArchiveRecords,
-	limits: V2ArchiveLimits,
+	input: CreateArchiveInput,
+	records: ArchiveRecords,
+	limits: ArchiveLimits,
 ) => {
 	validateRecordKeys(records);
 	for (const [path, values] of Object.entries(recordCollections(records))) {
@@ -315,6 +362,7 @@ const buildManifest = (
 	const sections: ReadonlyArray<ArchiveSection> = [
 		bufferSection("profile.json", [profileChunk(records.profile)], 1, limits.maxMetadataEntryBytes),
 		boundedSection("private-plugins.ndjson", records, records.privatePlugins.length, limits),
+		boundedSection("client-renderers.ndjson", records, records.clientRenderers.length, limits),
 		boundedSection("installations.ndjson", records, records.installations.length, limits),
 		boundedSection("entities.ndjson", records, records.entities.length, limits),
 		boundedSection(
@@ -354,8 +402,8 @@ const buildManifest = (
 	if (sections.length + input.assets.length + 1 > limits.maxEntryCount) {
 		throw archiveError("entry_count_exceeded", "ZIP entry limit exceeded");
 	}
-	const manifest = Schema.decodeUnknownSync(V2Manifest)({
-		version: 2,
+	const manifest = Schema.decodeUnknownSync(ArchiveManifest)({
+		version: 1,
 		format: "ryot-backup",
 		createdAt: input.createdAt,
 		archiveId: input.archiveId,
@@ -368,7 +416,7 @@ const buildManifest = (
 			.sort((a, b) => a.path.localeCompare(b.path)),
 	});
 	const manifestPayload = encoder.encode(
-		`${JSON.stringify(Schema.encodeUnknownSync(V2Manifest)(manifest))}\n`,
+		`${JSON.stringify(Schema.encodeUnknownSync(ArchiveManifest)(manifest))}\n`,
 	);
 	if (manifestPayload.byteLength > limits.maxMetadataEntryBytes) {
 		throw archiveError("entry_too_large", "ZIP entry is too large", "manifest.json");
@@ -398,9 +446,9 @@ class ZipChunkIterator implements AsyncIterableIterator<Uint8Array> {
 	#failure: BackupArchiveError | null = null;
 	#chunks: AsyncIterator<Uint8Array> | null = null;
 	#file: ZipPassThrough | ZipDeflate | null = null;
-	readonly #entries: AsyncIterator<V2ZipEntryInput>;
+	readonly #entries: AsyncIterator<ZipEntryInput>;
 
-	constructor(entries: Iterable<V2ZipEntryInput> | AsyncIterable<V2ZipEntryInput>) {
+	constructor(entries: Iterable<ZipEntryInput> | AsyncIterable<ZipEntryInput>) {
 		this.#entries = asyncIterator(entries);
 		this.#zip = new Zip((error, chunk) => {
 			if (error !== null) {
@@ -474,7 +522,7 @@ class ZipChunkIterator implements AsyncIterableIterator<Uint8Array> {
 	}
 }
 
-export const zipChunks = (entries: Iterable<V2ZipEntryInput> | AsyncIterable<V2ZipEntryInput>) =>
+export const zipChunks = (entries: Iterable<ZipEntryInput> | AsyncIterable<ZipEntryInput>) =>
 	new ZipChunkIterator(entries);
 
 type VerifiedEntry = {
@@ -519,9 +567,9 @@ class VerifiedEntryChunks implements AsyncIterableIterator<Uint8Array> {
 	}
 }
 
-const createV2Archive = (input: CreateV2ArchiveInput, overrides: Partial<V2ArchiveLimits> = {}) => {
-	const limits = { ...V2_ARCHIVE_LIMITS, ...overrides };
-	const records = sortV2ArchiveRecords(input.records);
+const createArchive = (input: CreateArchiveInput, overrides: Partial<ArchiveLimits> = {}) => {
+	const limits = { ...ARCHIVE_LIMITS, ...overrides };
+	const records = sortArchiveRecords(input.records);
 	const { sections, manifestPayload } = buildManifest(input, records, limits);
 	const compression = input.compression ?? "deflate";
 	const assets = [...input.assets].sort((left, right) =>
@@ -537,7 +585,7 @@ const createV2Archive = (input: CreateV2ArchiveInput, overrides: Partial<V2Archi
 		},
 		limits.maxEntryBytes,
 	);
-	const entries: V2ZipEntryInput[] = [
+	const entries: ZipEntryInput[] = [
 		{ compression, path: "manifest.json", chunks: [manifestPayload] },
 		...sections.map((section) => ({
 			compression,
@@ -562,14 +610,14 @@ const createV2Archive = (input: CreateV2ArchiveInput, overrides: Partial<V2Archi
 	return zipChunks(entries);
 };
 
-export const createV2ArchiveStream = (
-	input: CreateV2ArchiveInput,
-	overrides: Partial<V2ArchiveLimits> = {},
+export const createArchiveStream = (
+	input: CreateArchiveInput,
+	overrides: Partial<ArchiveLimits> = {},
 ) =>
 	Stream.unwrap(
 		Effect.try({
 			try: () =>
-				Stream.fromAsyncIterable(createV2Archive(input, overrides), (error) =>
+				Stream.fromAsyncIterable(createArchive(input, overrides), (error) =>
 					error instanceof BackupArchiveError
 						? error
 						: archiveError("invalid_archive", `ZIP encoding failed: ${String(error)}`),
@@ -590,22 +638,22 @@ type ExtractedEntry = {
 	chunks?: Uint8Array[] | undefined;
 };
 
-type ValidatedV2Asset = V2AssetManifest & {
+type ValidatedArchiveAsset = ArchiveAssetManifest & {
 	readonly filePath: string;
 	readonly stream: Stream.Stream<Uint8Array, PlatformError.PlatformError>;
 };
 
-export type ValidatedV2Events = {
+export type ValidatedArchiveEvents = {
 	readonly count: number;
 	readonly sha256: string;
-	readonly read: () => Stream.Stream<V2Event, BackupArchiveError>;
+	readonly read: () => Stream.Stream<ArchiveEvent, BackupArchiveError>;
 };
 
-type ValidatedV2Archive = {
-	readonly manifest: V2Manifest;
-	readonly records: V2ArchiveRecords;
-	readonly events: ValidatedV2Events;
-	readonly assets: ReadonlyArray<ValidatedV2Asset>;
+type ValidatedArchive = {
+	readonly manifest: ArchiveManifest;
+	readonly records: ArchiveRecords;
+	readonly events: ValidatedArchiveEvents;
+	readonly assets: ReadonlyArray<ValidatedArchiveAsset>;
 };
 
 const validPath = (path: string) => {
@@ -615,7 +663,7 @@ const validPath = (path: string) => {
 	return !path.split(/[\\/]/).some((segment) => segment === "..");
 };
 
-const SECTION_PATHS = new Set<string>(V2_SECTION_PATHS);
+const SECTION_PATHS = new Set<string>(ARCHIVE_SECTION_PATHS);
 
 const allowedPath = (path: string) =>
 	path === "manifest.json" || SECTION_PATHS.has(path) || /^assets\/[a-f0-9]{64}$/.test(path);
@@ -665,36 +713,40 @@ const decodeRecords = <A, I>(codec: Schema.Codec<A, I>, entry: ExtractedEntry, l
 };
 
 const validateSectionIntegrity = (
-	path: V2SectionPath,
+	path: ArchiveSectionPath,
 	entry: ExtractedEntry,
-	declared: V2SectionManifest,
+	declared: ArchiveSectionManifest,
 ) => {
 	if (entry.sha256 !== declared.sha256) {
 		throw archiveError("checksum_mismatch", `Section checksum mismatch`, path);
 	}
 };
 
-const validateSectionCount = (path: V2SectionPath, declared: V2SectionManifest, count: number) => {
+const validateSectionCount = (
+	path: ArchiveSectionPath,
+	declared: ArchiveSectionManifest,
+	count: number,
+) => {
 	if (count !== declared.count) {
 		throw archiveError("count_mismatch", `Section count mismatch`, path);
 	}
 };
 
-const manifestSections = (sections: ReadonlyArray<V2SectionManifest>) => {
-	const byPath = new Map<string, V2SectionManifest>();
+const manifestSections = (sections: ReadonlyArray<ArchiveSectionManifest>) => {
+	const byPath = new Map<string, ArchiveSectionManifest>();
 	for (const section of sections) {
 		if (byPath.has(section.path)) {
 			throw archiveError("duplicate_path", "Duplicate manifest section path", section.path);
 		}
 		byPath.set(section.path, section);
 	}
-	for (const path of V2_SECTION_PATHS) {
+	for (const path of ARCHIVE_SECTION_PATHS) {
 		if (!byPath.has(path)) {
 			throw archiveError("missing_entry", "Manifest section is missing", path);
 		}
 	}
 	for (const [index, section] of sections.entries()) {
-		if (section.path !== V2_SECTION_PATHS[index]) {
+		if (section.path !== ARCHIVE_SECTION_PATHS[index]) {
 			throw archiveError(
 				"invalid_entry",
 				"Manifest sections are not in path order",
@@ -761,7 +813,7 @@ const streamSpooledEvents = (fs: FileSystem.FileSystem, filePath: string, declar
 	Stream.fromAsyncIterable(
 		new SpooledRecords(
 			Stream.toAsyncIterable(fs.stream(filePath)),
-			V2_CODECS["events.ndjson"],
+			ARCHIVE_CODECS["events.ndjson"],
 			"events.ndjson",
 			declared,
 		),
@@ -774,15 +826,15 @@ const streamSpooledEvents = (fs: FileSystem.FileSystem, filePath: string, declar
 const validateExtracted = (
 	entries: ReadonlyMap<string, ExtractedEntry>,
 	fs: FileSystem.FileSystem,
-	limits: V2ArchiveLimits,
-): ValidatedV2Archive => {
+	limits: ArchiveLimits,
+): ValidatedArchive => {
 	const manifestEntry = entries.get("manifest.json");
 	if (manifestEntry === undefined) {
 		throw archiveError("missing_entry", "Archive is missing manifest.json", "manifest.json");
 	}
-	let manifest: V2Manifest;
+	let manifest: ArchiveManifest;
 	try {
-		manifest = decodeJson(V2Manifest, manifestEntry);
+		manifest = decodeJson(ArchiveManifest, manifestEntry);
 	} catch (error) {
 		throw error instanceof BackupArchiveError && error.reason === "invalid_entry"
 			? archiveError("unsupported_format", "Unsupported backup format or version", "manifest.json")
@@ -790,7 +842,7 @@ const validateExtracted = (
 	}
 	validateRequiredPlugins(manifest.requiredPlugins);
 	const sections = manifestSections(manifest.sections);
-	for (const path of V2_SECTION_PATHS) {
+	for (const path of ARCHIVE_SECTION_PATHS) {
 		if (!entries.has(path)) {
 			throw archiveError("missing_entry", `Archive is missing ${path}`, path);
 		}
@@ -801,11 +853,11 @@ const validateExtracted = (
 		throw archiveError("missing_entry", "Manifest section is missing", "profile.json");
 	}
 	validateSectionIntegrity("profile.json", profileEntry, profileSection);
-	const profile = decodeJson(V2Profile, profileEntry);
+	const profile = decodeJson(ArchiveProfile, profileEntry);
 	validateSectionCount("profile.json", profileSection, 1);
 
 	const readSection = <A, I>(
-		path: Exclude<V2SectionPath, "profile.json">,
+		path: Exclude<ArchiveSectionPath, "profile.json">,
 		codec: Schema.Codec<A, I>,
 	) => {
 		const entry = requireEntry(entries, path);
@@ -818,19 +870,26 @@ const validateExtracted = (
 		validateSectionCount(path, section, records.length);
 		return records;
 	};
-	const entities = readSection("entities.ndjson", V2_CODECS["entities.ndjson"]);
-	const savedViews = readSection("saved-views.ndjson", V2_CODECS["saved-views.ndjson"]);
-	const integrations = readSection("integrations.ndjson", V2_CODECS["integrations.ndjson"]);
-	const privatePlugins = readSection("private-plugins.ndjson", V2_CODECS["private-plugins.ndjson"]);
-	const installations = readSection("installations.ndjson", V2_CODECS["installations.ndjson"]);
-	const relationships = readSection("relationships.ndjson", V2_CODECS["relationships.ndjson"]);
+	const entities = readSection("entities.ndjson", ARCHIVE_CODECS["entities.ndjson"]);
+	const savedViews = readSection("saved-views.ndjson", ARCHIVE_CODECS["saved-views.ndjson"]);
+	const integrations = readSection("integrations.ndjson", ARCHIVE_CODECS["integrations.ndjson"]);
+	const privatePlugins = readSection(
+		"private-plugins.ndjson",
+		ARCHIVE_CODECS["private-plugins.ndjson"],
+	);
+	const clientRenderers = readSection(
+		"client-renderers.ndjson",
+		ARCHIVE_CODECS["client-renderers.ndjson"],
+	);
+	const installations = readSection("installations.ndjson", ARCHIVE_CODECS["installations.ndjson"]);
+	const relationships = readSection("relationships.ndjson", ARCHIVE_CODECS["relationships.ndjson"]);
 	const dependencies = readSection(
 		"entity-dependencies.ndjson",
-		V2_CODECS["entity-dependencies.ndjson"],
+		ARCHIVE_CODECS["entity-dependencies.ndjson"],
 	);
 	const notificationSubscriptions = readSection(
 		"notification-subscriptions.ndjson",
-		V2_CODECS["notification-subscriptions.ndjson"],
+		ARCHIVE_CODECS["notification-subscriptions.ndjson"],
 	);
 	validateRecordKeys({
 		profile,
@@ -840,6 +899,7 @@ const validateExtracted = (
 		installations,
 		relationships,
 		privatePlugins,
+		clientRenderers,
 		notificationSubscriptions,
 		entityDependencies: dependencies,
 	});
@@ -852,6 +912,7 @@ const validateExtracted = (
 			installations,
 			relationships,
 			privatePlugins,
+			clientRenderers,
 			notificationSubscriptions,
 			entityDependencies: dependencies,
 		},
@@ -869,7 +930,7 @@ const validateExtracted = (
 		throw archiveError("invalid_entry", "Events section was not spooled", "events.ndjson");
 	}
 
-	const declaredAssets = new Map<string, V2AssetManifest>();
+	const declaredAssets = new Map<string, ArchiveAssetManifest>();
 	for (const asset of manifest.assets) {
 		if (asset.path !== `assets/${asset.sha256}` || declaredAssets.has(asset.path)) {
 			throw archiveError("invalid_entry", `Invalid or duplicate asset declaration`, asset.path);
@@ -915,6 +976,7 @@ const validateExtracted = (
 			integrations,
 			installations,
 			privatePlugins,
+			clientRenderers,
 			relationships,
 			notificationSubscriptions,
 			entityDependencies: dependencies,
@@ -966,7 +1028,7 @@ const validateZipStructure = (
 	tail: Uint8Array,
 	archiveBytes: number,
 	entries: ReadonlyMap<string, ExtractedEntry>,
-	limits: V2ArchiveLimits,
+	limits: ArchiveLimits,
 ) => {
 	const view = new DataView(tail.buffer, tail.byteOffset, tail.byteLength);
 	let eocd = -1;
@@ -1111,7 +1173,7 @@ const extractArchive = Effect.fn(function* <E>(
 	chunks: Stream.Stream<Uint8Array, E>,
 	directory: string,
 	fs: FileSystem.FileSystem,
-	limits: V2ArchiveLimits,
+	limits: ArchiveLimits,
 ) {
 	const entries = new Map<string, ExtractedEntry>();
 	const pendingWrites: Promise<unknown>[] = [];
@@ -1275,24 +1337,24 @@ const extractArchive = Effect.fn(function* <E>(
 	});
 });
 
-export type ValidateV2ArchiveOptions = {
+export type ValidateArchiveOptions = {
 	readonly directory?: string | undefined;
-	readonly limits?: Partial<V2ArchiveLimits> | undefined;
+	readonly limits?: Partial<ArchiveLimits> | undefined;
 };
 
 // The spool directory backs the event and asset streams the caller consumes, so it is owned by the
 // caller's scope: it survives every read and is removed on success, failure, and interruption
 // alike. Removal never fails the caller, so a committed restore stays committed.
-export const validateV2ArchiveStream = Effect.fn(function* <E>(
+export const validateArchiveStream = Effect.fn(function* <E>(
 	stream: Stream.Stream<Uint8Array, E>,
-	options: ValidateV2ArchiveOptions = {},
+	options: ValidateArchiveOptions = {},
 ) {
 	const fs = yield* FileSystem.FileSystem;
 	if (options.directory !== undefined) {
 		yield* fs.makeDirectory(options.directory, { recursive: true });
 	}
 	const directory = yield* fs.makeTempDirectory({
-		prefix: "ryot-backup-v2-",
+		prefix: "ryot-backup-",
 		...(options.directory === undefined ? {} : { directory: options.directory }),
 	});
 	yield* Effect.addFinalizer(() =>
@@ -1304,15 +1366,15 @@ export const validateV2ArchiveStream = Effect.fn(function* <E>(
 				),
 			),
 	);
-	const limits = { ...V2_ARCHIVE_LIMITS, ...options.limits };
+	const limits = { ...ARCHIVE_LIMITS, ...options.limits };
 	return yield* extractArchive(stream, directory, fs, limits);
 });
 
-export const validateV2Archive = Effect.fn(function* (
+export const validateArchive = Effect.fn(function* (
 	chunks: AsyncIterable<Uint8Array>,
-	options: ValidateV2ArchiveOptions = {},
+	options: ValidateArchiveOptions = {},
 ) {
-	return yield* validateV2ArchiveStream(
+	return yield* validateArchiveStream(
 		Stream.fromAsyncIterable(chunks, () =>
 			archiveError("invalid_archive", "Could not read archive"),
 		),

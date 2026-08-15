@@ -5,16 +5,16 @@ import { Effect } from "effect";
 
 import { archiveError, type BackupArchiveError } from "./error";
 import {
-	isV2JsonObject,
-	type V2ArchiveRecords,
-	type V2Event,
-	type V2Relationship,
+	isArchiveJsonObject,
+	type ArchiveRecords,
+	type ArchiveEvent,
+	type ArchiveRelationship,
 } from "./schemas";
 
 type JsonObject = Record<string, JsonValue>;
 type ReferenceMap = ReadonlyMap<string, string>;
 
-export const collectV2ReferencedPluginKeys = (records: V2ArchiveRecords) => {
+export const collectReferencedPluginKeys = (records: ArchiveRecords) => {
 	const referenced = new Set<string>();
 	const add = (key: string | null) => {
 		if (key !== null) {
@@ -43,7 +43,9 @@ export const collectV2ReferencedPluginKeys = (records: V2ArchiveRecords) => {
 	}
 	for (const view of records.savedViews) {
 		add(view.pluginKey);
-		add(view.entitySchemaPluginKey);
+		if (view.renderer.kind === "plugin") {
+			add(view.renderer.pluginKey);
+		}
 	}
 	for (const subscription of records.notificationSubscriptions) {
 		add(subscription.signalSchemaPluginKey);
@@ -64,7 +66,7 @@ const collectPropertyEntityIds = (
 		ids.add(value);
 		return;
 	}
-	if (definition.type === "object" && isV2JsonObject(value)) {
+	if (definition.type === "object" && isArchiveJsonObject(value)) {
 		for (const [key, child] of Object.entries(definition.properties)) {
 			collectPropertyEntityIds(child, value[key], ids);
 		}
@@ -77,7 +79,7 @@ const collectPropertyEntityIds = (
 	}
 };
 
-export const collectV2EmbeddedEntityIds = (
+export const collectEmbeddedEntityIds = (
 	records: ReadonlyArray<{
 		readonly propertiesSchema: AppSchema;
 		readonly properties: Readonly<Record<string, unknown>>;
@@ -105,8 +107,8 @@ const requiredReference = (
 		: Effect.succeed(replacement);
 };
 
-export const rewriteV2RelationshipReferences = Effect.fn(function* (
-	relationship: V2Relationship,
+export const rewriteRelationshipReferences = Effect.fn(function* (
+	relationship: ArchiveRelationship,
 	entityIds: ReferenceMap,
 ) {
 	const sourceEntityId = yield* requiredReference(entityIds, relationship.sourceEntityId, "entity");
@@ -114,8 +116,8 @@ export const rewriteV2RelationshipReferences = Effect.fn(function* (
 	return { ...relationship, sourceEntityId, targetEntityId };
 });
 
-export const rewriteV2EventReferences = Effect.fn(function* (
-	event: V2Event,
+export const rewriteEventReferences = Effect.fn(function* (
+	event: ArchiveEvent,
 	propertiesSchema: AppSchema,
 	entityIds: ReferenceMap,
 	relationshipIds: ReferenceMap,
@@ -125,7 +127,7 @@ export const rewriteV2EventReferences = Effect.fn(function* (
 		event.sessionEntityId === null
 			? null
 			: yield* requiredReference(entityIds, event.sessionEntityId, "entity");
-	const properties = yield* rewriteV2PropertyReferences(
+	const properties = yield* rewritePropertyReferences(
 		event.properties,
 		propertiesSchema,
 		entityIds,
@@ -134,7 +136,7 @@ export const rewriteV2EventReferences = Effect.fn(function* (
 	return { ...event, entityId, sessionEntityId, properties };
 });
 
-const rewritePropertyReferences = (
+const rewritePropertyValueReferences = (
 	definition: AppPropertyDefinition,
 	value: JsonValue,
 	entityIds: ReferenceMap,
@@ -152,12 +154,12 @@ const rewritePropertyReferences = (
 				? yield* requiredReference(mapping, value, kind)
 				: value;
 		}
-		if (definition.type === "object" && isV2JsonObject(value)) {
+		if (definition.type === "object" && isArchiveJsonObject(value)) {
 			const rewritten: JsonObject = { ...value };
 			for (const [key, child] of Object.entries(definition.properties)) {
 				const childValue = value[key];
 				if (childValue !== undefined) {
-					rewritten[key] = yield* rewritePropertyReferences(
+					rewritten[key] = yield* rewritePropertyValueReferences(
 						child,
 						childValue,
 						entityIds,
@@ -171,7 +173,7 @@ const rewritePropertyReferences = (
 			const rewritten: JsonValue[] = [];
 			for (const item of value) {
 				rewritten.push(
-					yield* rewritePropertyReferences(definition.items, item, entityIds, relationshipIds),
+					yield* rewritePropertyValueReferences(definition.items, item, entityIds, relationshipIds),
 				);
 			}
 			return rewritten;
@@ -179,7 +181,7 @@ const rewritePropertyReferences = (
 		return value;
 	});
 
-export const rewriteV2PropertyReferences = Effect.fn(function* (
+export const rewritePropertyReferences = Effect.fn(function* (
 	value: JsonObject,
 	schema: AppSchema,
 	entityIds: ReferenceMap,
@@ -189,7 +191,7 @@ export const rewriteV2PropertyReferences = Effect.fn(function* (
 	for (const [key, definition] of Object.entries(schema.fields)) {
 		const property = value[key];
 		if (property !== undefined) {
-			rewritten[key] = yield* rewritePropertyReferences(
+			rewritten[key] = yield* rewritePropertyValueReferences(
 				definition,
 				property,
 				entityIds,
@@ -200,17 +202,17 @@ export const rewriteV2PropertyReferences = Effect.fn(function* (
 	return rewritten;
 });
 
-type V2ManagedAssetLocator = Exclude<AssetLocator, { readonly type: "remote" }>;
+type ArchivedManagedAssetLocator = Exclude<AssetLocator, { readonly type: "remote" }>;
 
-const assetKey = (locator: V2ManagedAssetLocator) => `${locator.type}:${locator.key}`;
+const assetKey = (locator: ArchivedManagedAssetLocator) => `${locator.type}:${locator.key}`;
 
-export const rewriteV2AssetLocatorForArchive = (
+export const rewriteAssetLocatorForArchive = (
 	locator: AssetLocator,
 	sha256: string,
 ): AssetLocator => (locator.type === "remote" ? locator : { type: locator.type, key: sha256 });
 
 const readAssetLocator = (value: JsonValue): AssetLocator | null => {
-	if (!isV2JsonObject(value)) {
+	if (!isArchiveJsonObject(value)) {
 		return null;
 	}
 	if (value["type"] === "remote" && typeof value["url"] === "string") {
@@ -246,7 +248,7 @@ const rewritePropertyAssets = (
 				}
 				return replacement;
 			}
-			if (!isV2JsonObject(value)) {
+			if (!isArchiveJsonObject(value)) {
 				return value;
 			}
 			const rewritten: JsonObject = { ...value };
@@ -268,7 +270,7 @@ const rewritePropertyAssets = (
 		return value;
 	});
 
-export const rewriteV2ManagedAssetLocators = Effect.fn(function* (
+export const rewriteManagedAssetLocators = Effect.fn(function* (
 	value: JsonObject,
 	schema: AppSchema,
 	locators: ReadonlyMap<string, AssetLocator>,
@@ -291,7 +293,7 @@ const redactProperty = (
 	path: string,
 	paths: string[],
 ): JsonValue => {
-	if (definition.type === "object" && isV2JsonObject(value)) {
+	if (definition.type === "object" && isArchiveJsonObject(value)) {
 		return redactFields(definition.properties, value, path, paths);
 	}
 	if (definition.type === "array" && Array.isArray(value)) {
@@ -329,7 +331,7 @@ const redactFields = (
 	return redacted;
 };
 
-export const redactV2SchemaSecrets = (value: JsonObject, schema: AppSchema, basePath = "") => {
+export const redactSchemaSecrets = (value: JsonObject, schema: AppSchema, basePath = "") => {
 	const redactions: string[] = [];
 	const redacted = redactFields(schema.fields, value, basePath, redactions);
 	return { redacted, redactions };
