@@ -647,7 +647,7 @@ The kernel supplies a direct adapter to kernel services. The plugin runtime supp
 
 The React integration is backed internally by `@effect/atom-react`. Each `RyotProvider` owns one `RegistryProvider`, and therefore one atom registry and query/mutation cache for that provider/session. Query definitions use `Atom.family`; query atoms use SWR revalidation on mount when unhydrated and on browser focus, with a five-minute idle TTL. Initial data hydrates a query without a duplicate mount request. These implementation details remain local to the React surface and are not part of the client or bridge ABI. There is no compatibility or manual plugin-request-state path.
 
-Each mounted plugin document has exactly one per-session client plugin runtime. That runtime owns the session `MessagePort`, its lifecycle state, one message dispatcher, logical location, pending query and operation calls, all session listeners, the bridge-backed `RyotClient`, and disposal. Theme synchronization and fatal reporting use this runtime; they do not create separate bridge clients or listener/teardown paths.
+Each mounted plugin document has exactly one per-session client plugin runtime. That runtime owns the session `MessagePort`, its lifecycle state, one message dispatcher, logical location, pending asset, query, and operation calls, all session listeners, the bridge-backed `RyotClient`, and disposal. Theme synchronization and fatal reporting use this runtime; they do not create separate bridge clients or listener/teardown paths.
 
 Initial categories should be approximately:
 
@@ -729,9 +729,9 @@ scroll listener in both documents. The frame creates no scroll container; it sti
 its caller owns, which is the plugin's per-screen scroll div here and the route's `<main>` in the
 kernel.
 
-### Current data and operations API
+### Current data, operations, and assets API
 
-The client starts with data, operations, and navigation categories. An explicit client value is shown as `ryot` here:
+The client starts with data, operations, assets, and navigation categories. An explicit client value is shown as `ryot` here:
 
 ```ts
 import { Schema } from "@ryot-app/client-sdk/effect";
@@ -752,9 +752,21 @@ The shared query API is recipe-based:
 
 ```ts
 const result = await ryot.data.query(recipe, { signal });
+
+const resolutions = await ryot.assets.resolve(
+	[{ type: "local", key: "permanent/cover.jpg" }],
+	{ signal },
+);
 ```
 
 The recipe owns its query document and result decoder. The client executes the document and decodes the result locally; consumers do not parse generic `RowItem` values directly. A decoder failure result or thrown decoder exception becomes `malformed-result` and never escapes the SDK as an arbitrary error. Query requests accept an optional `AbortSignal` and use the existing user-scoped backend authorization behavior rather than a client-specific bypass. The direct kernel adapter and plugin bridge use one kernel-owned classifier so declared query failures have the same public reason in both environments.
+
+`ryot.assets.resolve(managedLocators, { signal })` accepts a batch of 1 to 64 local or S3 locators. It
+returns an ordered matching batch of absolute signed URLs and ISO expiry values.
+Callers use remote asset URLs directly rather than sending them through the capability. The kernel
+performs the authenticated ownership check and URL resolution; no account credential, user identity,
+server scope, plugin identity, or installation identity crosses the bridge. An issued URL is scoped to
+one asset and remains valid until its natural expiry even if the bridge session is disposed.
 
 The React query and mutation helpers are thin bindings over that Promise client:
 
@@ -783,6 +795,7 @@ Expected plugin business/domain outcomes are successful typed values encoded by 
 | `protocol`               | Malformed bridge/session data or a wire `lifecycle-close` reason of `failed`.                |
 | `transport`              | Communication, posting, or network failure.                                                  |
 | `invalid-input`          | Invalid input found locally before dispatch.                                                 |
+| `asset-failed`           | Opaque declared managed-asset authorization or resolution failure.                           |
 | `query-failed`           | Opaque declared backend/platform query execution failure.                                    |
 | `operation-failed`       | Opaque declared backend/platform operation execution failure; not a plugin business outcome. |
 | `malformed-result`       | A capability result that fails its JSON or caller-owned result schema.                       |
@@ -872,7 +885,7 @@ The bridge needs:
 - settle-once pending-call rejection
 - exact protocol-version validation
 - installation-bound session identity
-- per-session aggregate pending-request limit for operation and RyotQL calls
+- per-session aggregate pending-request limit for asset, operation, and RyotQL calls
 
 Plugin authors interact with the TypeScript SDK, not the wire protocol.
 
@@ -892,15 +905,15 @@ The normal path is `ready -> active -> closing -> disposed`. A fatal failure ent
 
 `bootstrapClientPlugin` owns embedded metadata validation, the one-time parent-window bootstrap listener, the artifact root, the route resolver and navigation store, and the top-level React root/unmount coordinator. It accepts exactly one valid init with exactly one transferred port, validates the artifact hash and all exact markers, including bridge protocol version 1, before accepting the session, requires the artifact root, creates the runtime, and supplies its client to `RyotProvider`. It removes the bootstrap listener after acceptance. The runtime owns `port.start()`, the session port listeners, the single dispatcher, lifecycle state, pending calls, the `RyotClient`, and idempotent disposal. The shared navigation store owns the current location, edge state, retained stack, and transition identity. Runtime termination tells bootstrap to unmount the root. `PluginHost` owns the iframe element and the kernel-side session handle; it does not create capability-specific bridge objects.
 
-The single dispatcher routes location, theme, query, operation, and terminal `lifecycle-close` messages. One location dispatch synchronously reconciles `compact`, `leading`, `edgeBack`, the history entry, the retained screen stack, and transition metadata into one immutable navigation snapshot, then notifies subscribers once. After reconciliation, the SDK automatically reports the actual `hasPreviousScreen` with the accepted entry's `index` and `key`; this readiness report is not a public plugin API. `PluginRouter` reads the snapshot directly with `useSyncExternalStore`; it does not mirror the entry into React state through an effect. Query and operation calls use runtime-owned pending registries, even though they may remain separate maps for correlation. Together, operation and RyotQL pending requests share an aggregate maximum of 64 per session, enforced by both the SDK and kernel. Exceeding that limit is a protocol failure using the existing wire `failed` and public `protocol` teardown; requests are not queued or retried, and no new error reason is introduced. No other module may attach a session port listener or own a pending-call registry. The temporary parent-window bootstrap listener is the only listener outside the session runtime and is removed once the runtime is accepted.
+The single dispatcher routes location, theme, assets, query, operation, and terminal `lifecycle-close` messages. One location dispatch synchronously reconciles `compact`, `leading`, `edgeBack`, the history entry, the retained screen stack, and transition metadata into one immutable navigation snapshot, then notifies subscribers once. After reconciliation, the SDK automatically reports the actual `hasPreviousScreen` with the accepted entry's `index` and `key`; this readiness report is not a public plugin API. `PluginRouter` reads the snapshot directly with `useSyncExternalStore`; it does not mirror the entry into React state through an effect. Asset, query, and operation calls use runtime-owned pending registries, even though they may remain separate maps for correlation. Together, those requests share an aggregate maximum of 64 per session, enforced by both the SDK and kernel. Exceeding that limit is a protocol failure using the existing wire `failed` and public `protocol` teardown; requests are not queued or retried, and no new error reason is introduced. No other module may attach a session port listener or own a pending-call registry. The temporary parent-window bootstrap listener is the only listener outside the session runtime and is removed once the runtime is accepted.
 
-Every pending query or operation entry is removed before its promise is settled. A result, runtime failure, or disposal can settle an entry only once. Normal disposal rejects every pending call with `disposed`; malformed session data or a wire `failed` close uses `protocol`; communication, posting, or network failure uses `transport`. The runtime clears the registries and ignores duplicate or late results. Closing the iframe is cleanup after this protocol-level rejection; plugin promises do not merely die with the iframe.
+Every pending asset, query, or operation entry is removed before its promise is settled. A result, runtime failure, or disposal can settle an entry only once. Normal disposal rejects every pending call with `disposed`; malformed session data or a wire `failed` close uses `protocol`; communication, posting, or network failure uses `transport`. The runtime clears the registries and ignores duplicate or late results. Closing the iframe is cleanup after this protocol-level rejection; plugin promises do not merely die with the iframe.
 
 When either peer closes or fails a session, it sends `{ type: "lifecycle-close", reason: "disposed" | "failed" }` when the port is usable, marks the session closing, rejects the plugin-side pending calls, and closes the port. A wire `disposed` close maps to public `disposed`; a wire `failed` close maps to public `protocol`. The wire value `failed` is not a public `RyotClientError` reason. Kernel-side abort signals cancel in-flight service work on a best-effort basis and suppress late responses. Abort is not a transaction or rollback mechanism: an authenticated operation may already have committed before abort, and the committed work cannot be undone by closing the session or rejecting the caller's promise.
 
 ### Protocol version 1 request/response calls
 
-Protocol version 1 implements strict request/response calls for plugin data access. It carries navigation messages, recipe-backed RyotQL query messages, backend operation messages, semantic theme messages, and terminal runtime messages over the one plugin session port.
+Protocol version 1 implements strict request/response calls for plugin data access. It carries navigation messages, managed-asset resolution messages, recipe-backed RyotQL query messages, backend operation messages, semantic theme messages, and terminal runtime messages over the one plugin session port.
 
 The logical location contract is named, strict, and exact:
 
@@ -936,6 +949,12 @@ Plugin-to-kernel `navigate` requests carry `{ type: "navigate", mode, target }`,
 Plugin to kernel carries `{ type: "operation-request", requestId, operationSlug, input: JsonValue }`; `input` is required. Kernel to plugin answers `{ type: "operation-result", requestId, outcome }`, where a successful outcome carries a `JsonValue` and a declared backend/platform operation execution failure carries the opaque `"operation-failed"` outcome. The SDK maps local validation, capability, result, lifecycle, protocol, and transport conditions to the exact public `RyotClientError` reasons above. A non-JSON operation output becomes `"malformed-result"` before bridge delivery; it is not stringified or otherwise normalized. Expected plugin business/domain outcomes remain successful values decoded by the caller's output schema.
 
 Recipe queries carry the recipe document through the same exact version 1 session protocol. `RyotClient.data.query(recipe, { signal })` forwards its `AbortSignal` to the adapter. If a plugin query is aborted, the plugin runtime removes its pending entry and sends the strict `{ type: "ryotql-cancel", requestId }` message; the kernel validates it under protocol version 1, aborts the corresponding service work on a best-effort basis, and suppresses late results. The response is decoded locally by the recipe's decoder after the client receives it. Declared backend/platform query execution failures use `query-failed`; malformed decoded results use `malformed-result`.
+
+Managed asset reads carry `{ type: "asset-request", requestId, assets }` and return
+`{ type: "asset-result", requestId, outcome }`. A successful outcome contains only the matching
+locators, absolute signed URLs, and expiry values. Declared authorization or resolution failures use
+the opaque `asset-failed` reason. Abort sends the strict `asset-cancel` message and follows the same
+best-effort cancellation and late-result suppression rules as RyotQL.
 
 `input` is required on the wire. A no-input operation explicitly sends JSON `null`; an omitted input fails strict request decoding and is not treated as a no-input call.
 
@@ -1533,11 +1552,15 @@ React state across browser history transitions. Entity renderers receive the com
 from `usePluginLocation`; `usePluginParams` returns `{}` and `usePluginSearch` returns an empty
 `URLSearchParams`.
 
-The first Media entity tracer registers only `show`. It reads and decodes a static Show summary with
-one client-owned RyotQL recipe and renders a direct remote cover plus identity, genres, production
-status, counts, and description. Query retry is supported. Tabs, activity, progress, library and
-collection state, mutations, entity-interest invalidation, managed assets, hero and gallery artwork,
-and other Media schemas are outside this tracer.
+The Media entity tracer registers only `show`. It reads and decodes a static Show summary with one
+client-owned RyotQL recipe and renders identity, genres, production status, counts, description, and
+the first purpose-matching cover in existing provider order. A remote cover loads directly. A local
+or S3 cover resolves through `ryot.assets`, refreshes one minute before expiry, retains an already
+loaded image after a failed refresh, and becomes unavailable after an initial resolution or image-load
+failure. It does not fall back to a later cover. The remote-only backdrop remains unchanged. Query
+retry is supported. Tabs, activity, progress, library and collection state, mutations,
+entity-interest invalidation, other managed artwork, hero and gallery artwork, and other Media schemas
+are outside this tracer.
 
 Conceptually:
 
@@ -2135,7 +2158,7 @@ The same client artifact should be exercised on:
 - iOS
 - Android
 
-Client boundary tests must verify the exact public `RyotClientError` reasons and their classifications: explicit `null` operation input, omitted input rejected locally as `invalid-input`, an exposed SDK category missing from the supplied adapter as `unsupported-capability`, declared query and operation execution failures as opaque `query-failed` and `operation-failed`, invalid or throwing result decoders as `malformed-result`, teardown as `disposed`, malformed bridge/session data and wire `failed` closes as `protocol`, and communication/posting/network failures as `transport`. Tests must prove the shared 64-request operation/RyotQL pending limit and its protocol teardown, that lifecycle termination classifies every pending and synchronous capability consistently, direct and bridge query adapters classify declared failures identically, expected plugin business/domain outcomes resolve as typed values, and internal causes, messages, diagnostics, HTTP details, and stack traces do not cross the bridge. Routing tests must cover consumer-cancelled links, prevented modifier and auxiliary navigation, explicit home matching, plugin-supplied and default not-found states, one coherent navigation notification per location, synchronous first render from a preloaded location, and exact declarative header restoration on pop.
+Client boundary tests must verify the exact public `RyotClientError` reasons and their classifications: explicit `null` operation input, omitted input rejected locally as `invalid-input`, invalid or empty asset batches rejected locally as `invalid-input`, an exposed SDK category missing from the supplied adapter as `unsupported-capability`, declared asset, query, and operation execution failures as opaque `asset-failed`, `query-failed`, and `operation-failed`, invalid or throwing result decoders as `malformed-result`, teardown as `disposed`, malformed bridge/session data and wire `failed` closes as `protocol`, and communication/posting/network failures as `transport`. Tests must prove the shared 64-request asset/operation/RyotQL pending limit and its protocol teardown, that lifecycle termination classifies every pending and synchronous capability consistently, direct and bridge asset and query adapters classify declared failures identically, expected plugin business/domain outcomes resolve as typed values, and internal causes, messages, diagnostics, HTTP details, stack traces, credentials, and installation identity do not cross the bridge. Routing tests must cover consumer-cancelled links, prevented modifier and auxiliary navigation, explicit home matching, plugin-supplied and default not-found states, one coherent navigation notification per location, synchronous first render from a preloaded location, and exact declarative header restoration on pop.
 
 Client compiler tests must also cover semantic checking of every archived non-test client `.ts`/`.tsx` file, fatal normalized TypeScript diagnostics, bundling from only the manifest entry's reachable graph, and Tailwind scanning of all archived client `.ts`/`.tsx` files.
 

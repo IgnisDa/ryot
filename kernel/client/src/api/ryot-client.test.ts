@@ -118,6 +118,22 @@ const source = new Blob(["id,title"], { type: "text/csv" });
 const uploadRequest = { source, fileName: "items.csv", contentType: "text/csv" };
 
 describe("kernel Ryot client", () => {
+	const managedAssets = [
+		{ type: "local", key: "permanent/local.png" },
+		{ type: "s3", key: "permanent/remote.png" },
+	] as const;
+	const managedAssetResolutions = [
+		{
+			asset: managedAssets[0],
+			expiresAt: "2026-09-04T12:15:00.000Z",
+			url: "https://ryot.example/api/uploads/local/download?key=permanent/local.png",
+		},
+		{
+			asset: managedAssets[1],
+			expiresAt: "2026-09-04T12:15:00.000Z",
+			url: "https://s3.example/permanent/remote.png",
+		},
+	] as const;
 	const declaredFailures = [
 		new AuthUnauthorized({ reason: { code: "authentication-required" } }),
 		new AuthRateLimited({ reason: { code: "api-key-rate-limited", retryAfterMs: 30_000 } }),
@@ -160,6 +176,95 @@ describe("kernel Ryot client", () => {
 			controller.abort(reason);
 
 			await expect(query).rejects.toBe(reason);
+		} finally {
+			await runtime.dispose();
+		}
+	});
+
+	it("resolves managed assets through the authenticated upload port", async () => {
+		const calls: Array<{ readonly scope: typeof scope; readonly request: unknown }> = [];
+		const runtime = ManagedRuntime.make(
+			Layer.mergeAll(
+				makeRyotQLApi(),
+				makeUploadsApi({
+					resolveDownloads: (receivedScope, request) => {
+						calls.push({ request, scope: receivedScope });
+						return Effect.succeed(
+							managedAssets.map((asset, index) => ({
+								asset,
+								expiresAt: managedAssetResolutions[index]?.expiresAt ?? "",
+								downloadUrl:
+									index === 0
+										? "/uploads/local/download?key=permanent/local.png"
+										: "https://s3.example/permanent/remote.png",
+							})),
+						);
+					},
+				}),
+			),
+		);
+		try {
+			const client = createKernelRyotClient(runtime, scope, theme);
+			await expect(client.assets.resolve(managedAssets)).resolves.toEqual(managedAssetResolutions);
+			expect(calls).toEqual([{ scope, request: { payload: { assets: [...managedAssets] } } }]);
+		} finally {
+			await runtime.dispose();
+		}
+	});
+
+	it("passes the caller signal to authenticated asset resolution", async () => {
+		const runtime = ManagedRuntime.make(
+			Layer.mergeAll(makeUploadsApi({ resolveDownloads: () => Effect.never }), makeRyotQLApi()),
+		);
+		const controller = new AbortController();
+		const reason = new DOMException("Caller canceled", "AbortError");
+		try {
+			const client = createKernelRyotClient(runtime, scope, theme);
+			const resolution = client.assets.resolve([{ type: "local", key: "permanent/local.png" }], {
+				signal: controller.signal,
+			});
+
+			controller.abort(reason);
+
+			await expect(resolution).rejects.toBe(reason);
+		} finally {
+			await runtime.dispose();
+		}
+	});
+
+	for (const failure of [
+		new AuthUnauthorized({ reason: { code: "authentication-required" } }),
+		new AuthRateLimited({ reason: { code: "api-key-rate-limited", retryAfterMs: 30_000 } }),
+		new UploadBadRequest({ reason: { code: "asset-forbidden" } }),
+		new UploadInternalError({ reason: { code: "unexpected-error" } }),
+	]) {
+		it(`classifies ${failure._tag} as asset-failed`, async () => {
+			const runtime = ManagedRuntime.make(
+				Layer.mergeAll(makeRyotQLApi(), makeUploadsApi({ resolveDownloads: () => fails(failure) })),
+			);
+			try {
+				const client = createKernelRyotClient(runtime, scope, theme);
+				await expect(
+					client.assets.resolve([{ type: "local", key: "permanent/local.png" }]),
+				).rejects.toMatchObject({ reason: "asset-failed" });
+			} finally {
+				await runtime.dispose();
+			}
+		});
+	}
+
+	it("classifies an unexpected asset failure as transport", async () => {
+		const runtime = ManagedRuntime.make(
+			Layer.mergeAll(
+				makeRyotQLApi(),
+				makeUploadsApi({ resolveDownloads: () => fails(new TypeError("private network detail")) }),
+			),
+		);
+		try {
+			const client = createKernelRyotClient(runtime, scope, theme);
+			await expect(
+				client.assets.resolve([{ type: "local", key: "permanent/local.png" }]),
+			).rejects.toMatchObject({ reason: "transport" });
 		} finally {
 			await runtime.dispose();
 		}

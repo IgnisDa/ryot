@@ -1,16 +1,24 @@
 import {
 	PluginThemeSnapshot,
 	type PluginThemeSnapshot as PluginThemeSnapshotValue,
+	PluginManagedAssetResolution,
+	type PluginManagedAssetResolution as PluginManagedAssetResolutionValue,
 	type RyotClientErrorReason,
 } from "@ryot-app/contract/modules/plugins/client";
-import { TemporaryUploadToken } from "@ryot-app/contract/modules/uploads/schemas";
+import {
+	ManagedAssetResolutionBatch,
+	type ManagedAssetLocator as ManagedAssetLocatorValue,
+	TemporaryUploadToken,
+} from "@ryot-app/contract/modules/uploads/schemas";
 import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
 export type { RyotClientErrorReason } from "@ryot-app/contract/modules/plugins/client";
+export type { ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 
 export type RyotThemeSnapshot = PluginThemeSnapshotValue;
+export type ManagedAssetResolution = PluginManagedAssetResolutionValue;
 
 export class RyotClientError extends Error {
 	readonly reason: RyotClientErrorReason;
@@ -41,11 +49,12 @@ export type RyotNavigationTarget =
 	| { readonly path: string; readonly kind: "route"; readonly search?: Record<string, string> };
 
 export type RyotClientAdapter = {
+	readonly uploadTemporary?: (request: TemporaryUploadRequest) => Promise<unknown>;
+	readonly navigate?: (mode: "push" | "replace", target: RyotNavigationTarget) => void;
 	readonly query: (
 		document: PreparedRecipe<unknown>["document"],
 		signal?: AbortSignal,
 	) => Promise<unknown>;
-	readonly navigate?: (mode: "push" | "replace", target: RyotNavigationTarget) => void;
 	readonly theme?: {
 		readonly getSnapshot: () => unknown;
 		readonly subscribe: (listener: () => void) => () => void;
@@ -54,7 +63,10 @@ export type RyotClientAdapter = {
 		readonly slug: string;
 		readonly input: JsonValue;
 	}) => Promise<unknown>;
-	readonly uploadTemporary?: (request: TemporaryUploadRequest) => Promise<unknown>;
+	readonly resolveAssets?: (
+		assets: readonly ManagedAssetLocatorValue[],
+		signal?: AbortSignal,
+	) => Promise<unknown>;
 };
 
 export const createRyotClient = (adapter: RyotClientAdapter) => {
@@ -97,6 +109,50 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		navigation: {
 			push: (target: RyotNavigationTarget) => navigate("push", target),
 			replace: (target: RyotNavigationTarget) => navigate("replace", target),
+		},
+		assets: {
+			resolve: async (
+				assets: readonly ManagedAssetLocatorValue[],
+				options?: { readonly signal?: AbortSignal },
+			) => {
+				if (options?.signal?.aborted) {
+					throw options.signal.reason;
+				}
+				const decodedAssets = Schema.decodeUnknownResult(ManagedAssetResolutionBatch)(assets);
+				if (Result.isFailure(decodedAssets)) {
+					throw new RyotClientError("invalid-input");
+				}
+				if (!adapter.resolveAssets) {
+					throw new RyotClientError("unsupported-capability");
+				}
+				let value: unknown;
+				try {
+					value = await adapter.resolveAssets(decodedAssets.success, options?.signal);
+				} catch (error) {
+					if (options?.signal?.aborted) {
+						throw options.signal.reason;
+					}
+					throw asTransportError(error);
+				}
+				const decoded = Schema.decodeUnknownResult(Schema.Array(PluginManagedAssetResolution))(
+					value,
+				);
+				if (
+					Result.isFailure(decoded) ||
+					decoded.success.length !== decodedAssets.success.length ||
+					decoded.success.some((resolution, index) => {
+						const requested = decodedAssets.success[index];
+						return (
+							requested === undefined ||
+							resolution.asset.type !== requested.type ||
+							resolution.asset.key !== requested.key
+						);
+					})
+				) {
+					throw new RyotClientError("malformed-result");
+				}
+				return decoded.success;
+			},
 		},
 		data: {
 			query: async <Success>(

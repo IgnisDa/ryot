@@ -1,9 +1,10 @@
 import { expect, it } from "@effect/vitest";
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { BadRequest } from "@ryot-app/contract/errors";
 import { UploadBadRequest } from "@ryot-app/contract/modules/uploads/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { CryptoHasher } from "bun";
-import { Effect, Layer, Stream } from "effect";
+import { Clock, DateTime, Effect, FileSystem, Layer, Option, Stream } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
@@ -23,6 +24,30 @@ const mockS3 = Layer.mock(S3Service);
 const mockUserLifecycleGuard = Layer.mock(LifecycleWriteGuard);
 
 const userId = UserId.make("user-id");
+const user: CurrentUserValue = {
+	id: userId,
+	image: null,
+	name: "Test User",
+	email: "user@example.com",
+	preferences: { allowNsfw: false, language: null, disableIntegrations: false },
+};
+const managedAssetCreatedAt = new Date("2026-01-01T00:00:00.000Z");
+const localFileInfo = {
+	dev: 1,
+	mode: 0o644,
+	ino: Option.none(),
+	uid: Option.none(),
+	gid: Option.none(),
+	rdev: Option.none(),
+	mtime: Option.none(),
+	atime: Option.none(),
+	nlink: Option.none(),
+	type: "File" as const,
+	blocks: Option.none(),
+	blksize: Option.none(),
+	birthtime: Option.none(),
+	size: FileSystem.Size(1),
+} satisfies FileSystem.File.Info;
 
 const makeLayer = (locators: ReadonlyArray<{ key: string; type: "local" | "s3" }>) => {
 	const serviceLayer = ManagedAssetsService.layer.pipe(
@@ -77,6 +102,76 @@ it.effect("rejects a partially owned locator set", () => {
 		);
 		assertExitFails(exit, new UploadBadRequest({ reason: { code: "asset-forbidden" } }));
 	}).pipe(Effect.provide(makeLayer(owned)));
+});
+
+it.effect("returns one deterministic expiry for local and S3 download resolutions", () => {
+	const presigned: Array<{
+		readonly key: string;
+		readonly expiresInSeconds: number;
+		readonly contentDisposition: string | undefined;
+	}> = [];
+	const locators = [
+		{ type: "local" as const, key: "permanent/local.png" },
+		{ type: "s3" as const, key: "permanent/remote.svg" },
+	];
+	const layer = ManagedAssetsService.layer.pipe(
+		Layer.provide(
+			Layer.mergeAll(
+				databaseLayer,
+				mockLocalStorage({
+					statObject: () => Effect.succeed(localFileInfo),
+					createDownloadTarget: (key) => Effect.succeed(`uploads/local/download?key=${key}`),
+				}),
+				mockObjectStorage({}),
+				mockS3({
+					isConfigured: true,
+					presignDownload: (key, expiresInSeconds, contentDisposition) =>
+						Effect.sync(() => {
+							presigned.push({ key, expiresInSeconds, contentDisposition });
+							return `https://s3.test/${key}`;
+						}),
+				}),
+				mockUserLifecycleGuard({ isActive: () => Effect.succeed(false) }),
+				mockManagedAssetsRepository({
+					listByOwnerAndLocators: (ownerUserId) =>
+						Effect.succeed(
+							locators.map(({ key, type }) => ({
+								key,
+								size: 1,
+								ownerUserId,
+								provider: type,
+								sha256: "a".repeat(64),
+								createdAt: managedAssetCreatedAt,
+								contentType: type === "s3" ? "image/svg+xml" : "image/png",
+							})),
+						),
+				}),
+			),
+		),
+	);
+	const providedLayer = Layer.merge(layer, databaseLayer);
+
+	return Effect.gen(function* () {
+		const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
+		const service = yield* ManagedAssetsService;
+		const result = yield* service.resolveDownloads(user, locators);
+		const expiresAt = DateTime.formatIso(DateTime.makeUnsafe((now + 15 * 60) * 1000));
+		expect(result).toEqual([
+			{
+				expiresAt,
+				asset: locators[0],
+				downloadUrl: "uploads/local/download?key=permanent/local.png",
+			},
+			{ expiresAt, asset: locators[1], downloadUrl: "https://s3.test/permanent/remote.svg" },
+		]);
+		expect(presigned).toEqual([
+			{
+				expiresInSeconds: 15 * 60,
+				key: "permanent/remote.svg",
+				contentDisposition: "attachment",
+			},
+		]);
+	}).pipe(Effect.provide(providedLayer));
 });
 
 it.effect("assigns concurrent staging ownership only to the conditional-create winner", () => {

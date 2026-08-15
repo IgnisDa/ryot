@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import type { ShowDetails } from "./show-recipe";
 import {
 	classifyShow,
-	remoteShowCover,
 	remoteShowBackdrop,
 	showEpisodeCountLabel,
+	showCover,
 	showIdentityLabel,
 	showSeasonCountLabel,
 } from "./show-state";
@@ -41,8 +41,28 @@ describe("classifyShow", () => {
 });
 
 describe("show presentation helpers", () => {
-	it("selects only a direct remote image of the asked-for purpose", () => {
-		expect(remoteShowCover(show)).toEqual({
+	it("selects the first cover locator in provider order without falling back", () => {
+		expect(showCover(show)).toEqual({ type: "local", key: "local-cover", purpose: "cover" });
+		expect(
+			showCover({
+				...show,
+				images: [
+					{ type: "s3", key: "s3-cover", purpose: "cover" },
+					{ type: "remote", url: "https://images.test/cover.jpg", purpose: "cover" },
+					{ type: "local", key: "local-cover", purpose: "cover" },
+				],
+			}),
+		).toEqual({ type: "s3", key: "s3-cover", purpose: "cover" });
+		expect(
+			showCover({
+				...show,
+				images: [
+					{ type: "remote", url: "https://images.test/cover.jpg", purpose: "cover" },
+					{ type: "local", key: "local-cover", purpose: "cover" },
+					{ type: "s3", key: "s3-cover", purpose: "cover" },
+				],
+			}),
+		).toEqual({
 			type: "remote",
 			purpose: "cover",
 			url: "https://images.test/cover.jpg",
@@ -55,23 +75,17 @@ describe("show presentation helpers", () => {
 		expect(
 			remoteShowBackdrop({
 				...show,
-				images: [{ type: "remote", url: "cover", purpose: "cover" }],
-			}),
-		).toBeUndefined();
-		expect(
-			remoteShowCover({
-				...show,
-				images: [{ type: "remote", url: "backdrop", purpose: "backdrop" }],
-			}),
-		).toBeUndefined();
-		expect(
-			remoteShowCover({
-				...show,
 				images: [
-					{ type: "local", key: "local", purpose: "cover" },
-					{ type: "s3", key: "s3", purpose: "cover" },
+					{ type: "local", key: "managed-backdrop", purpose: "backdrop" },
+					{ type: "remote", url: "remote-backdrop", purpose: "backdrop" },
 				],
 			}),
+		).toEqual({ type: "remote", url: "remote-backdrop", purpose: "backdrop" });
+		expect(
+			remoteShowBackdrop({ ...show, images: [{ type: "remote", url: "cover", purpose: "cover" }] }),
+		).toBeUndefined();
+		expect(
+			showCover({ ...show, images: [{ type: "remote", url: "backdrop", purpose: "backdrop" }] }),
 		).toBeUndefined();
 	});
 
