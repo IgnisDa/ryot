@@ -5,6 +5,27 @@ import type { YoutubeMusicHost } from "../../youtube-music-shared";
 import { buildHistory, buildTrackDetails } from "./youtube-music";
 import { runHistory } from "./youtube-music.history.sandbox";
 
+const historyItem = (videoId: string, title: string) => ({
+	musicResponsiveListItemRenderer: {
+		playlistItemData: { videoId },
+		flexColumns: [
+			{ musicResponsiveListItemFlexColumnRenderer: { text: { runs: [{ text: title }] } } },
+		],
+	},
+});
+
+const historyResponse = (contents: readonly unknown[]) => ({
+	contents: {
+		singleColumnBrowseResultsRenderer: {
+			tabs: [{ tabRenderer: { content: { sectionListRenderer: { contents } } } }],
+		},
+	},
+});
+
+const historyShelf = (title: string, contents: readonly unknown[]) => ({
+	musicShelfRenderer: { title: { runs: [{ text: title }] }, contents },
+});
+
 describe("music.youtube-music sandbox script", () => {
 	it("keeps queue neighbors as related entities", () => {
 		const client = {
@@ -38,8 +59,8 @@ describe("music.youtube-music sandbox script", () => {
 						duration: 180,
 						publishYear: 2024,
 						byVariousArtists: false,
-						images: [{ type: "remote", url: "https://img/1.jpg", purpose: "cover" }],
 						sourceUrl: "https://music.youtube.com/watch?v=track-1",
+						images: [{ type: "remote", url: "https://img/1.jpg", purpose: "cover" }],
 					});
 					expect(details.relatedEntityGroups).toEqual([
 						{
@@ -83,26 +104,20 @@ describe("music.youtube-music sandbox script", () => {
 			),
 		);
 	});
-	it("collects only today's videos from watch history", () => {
+	it("collects only today's tracks from YouTube Music history", () => {
 		const client = {
 			getHistory: () =>
 				Effect.runPromise(
-					Effect.succeed({
-						sections: [
-							{
-								header: { type: "ItemSectionHeader", title: { text: "August 5, 2026" } },
-								contents: [
-									{ type: "Video", video_id: "v1", title: { text: "First" } },
-									{ type: "Continuation" },
-									{ type: "Video", video_id: "v2", title: { text: "Second" } },
-								],
-							},
-							{
-								header: { type: "ItemSectionHeader", title: { text: "Yesterday" } },
-								contents: [{ type: "Video", video_id: "v3", title: { text: "Third" } }],
-							},
-						],
-					}),
+					Effect.succeed(
+						historyResponse([
+							historyShelf("August 5, 2026", [
+								historyItem("v1", "First"),
+								{},
+								historyItem("v2", "Second"),
+							]),
+							historyShelf("Yesterday", []),
+						]),
+					),
 				),
 		};
 		return Effect.runPromise(
@@ -123,14 +138,9 @@ describe("music.youtube-music sandbox script", () => {
 	it("passes workflow startedAt to the history entrypoint", () => {
 		const client = {
 			getHistory: () =>
-				Promise.resolve({
-					sections: [
-						{
-							header: { type: "ItemSectionHeader", title: { text: "August 5, 2026" } },
-							contents: [{ type: "Video", video_id: "v1", title: { text: "First" } }],
-						},
-					],
-				}),
+				Promise.resolve(
+					historyResponse([historyShelf("August 5, 2026", [historyItem("v1", "First")])]),
+				),
 		};
 		const host: YoutubeMusicHost = {
 			httpCall: () => Effect.die("Unexpected YouTube Music host call"),
