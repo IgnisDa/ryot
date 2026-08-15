@@ -2,6 +2,38 @@ import { Schema, SchemaGetter } from "effect";
 
 import { EntityId, EntitySchemaSlug, SandboxProviderId } from "../../schema/brands";
 
+const EntityBadRequestReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("name-required"), field: Schema.Literal("name") }),
+	Schema.Struct({
+		code: Schema.Literal("incomplete-provenance"),
+		fields: Schema.Tuple([Schema.Literal("externalId"), Schema.Literal("providerId")]),
+	}),
+	Schema.Struct({
+		code: Schema.Literal("invalid-properties"),
+		paths: Schema.Array(Schema.Array(Schema.String)),
+	}),
+	Schema.Struct({
+		field: Schema.Literal("maximumTotal"),
+		code: Schema.Literal("invalid-maximum-total"),
+	}),
+]);
+
+const EntityNotFoundReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("entity-not-found"), entityId: EntityId }),
+	Schema.Struct({
+		entitySchemaSlug: EntitySchemaSlug,
+		code: Schema.Literal("entity-schema-not-found"),
+	}),
+]);
+
+export class EntityBadRequest extends Schema.TaggedError<EntityBadRequest>()("EntityBadRequest", {
+	reason: EntityBadRequestReason,
+}) {}
+
+export class EntityNotFound extends Schema.TaggedError<EntityNotFound>()("EntityNotFound", {
+	reason: EntityNotFoundReason,
+}) {}
+
 export const ListedEntity = Schema.Struct({
 	id: EntityId,
 	name: Schema.String,

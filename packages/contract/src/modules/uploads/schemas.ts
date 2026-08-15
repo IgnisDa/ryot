@@ -57,3 +57,53 @@ export const DownloadResolutionResponse = Schema.Array(
 	Schema.Struct({ asset: ManagedAssetLocator, downloadUrl: Schema.String }),
 );
 export type DownloadResolutionResponse = typeof DownloadResolutionResponse.Type;
+
+export const UploadFailureReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("token-busy") }),
+	Schema.Struct({ code: Schema.Literal("token-invalid") }),
+	Schema.Struct({ code: Schema.Literal("upload-failed") }),
+	Schema.Struct({ code: Schema.Literal("token-forbidden") }),
+	Schema.Struct({ code: Schema.Literal("asset-forbidden") }),
+	Schema.Struct({ code: Schema.Literal("empty-file-name") }),
+	Schema.Struct({ code: Schema.Literal("lifecycle-active") }),
+	Schema.Struct({ code: Schema.Literal("token-already-claimed") }),
+	Schema.Struct({ code: Schema.Literal("asset-metadata-mismatch") }),
+	Schema.Struct({ code: Schema.Literal("invalid-download-target") }),
+	Schema.Struct({ code: Schema.Literal("intent-busy"), intentId: Schema.String }),
+	Schema.Struct({ code: Schema.Literal("storage-unavailable"), kind: UploadKind }),
+	Schema.Struct({ code: Schema.Literal("intent-invalid"), intentId: Schema.String }),
+	Schema.Struct({ code: Schema.Literal("object-missing"), intentId: Schema.String }),
+	Schema.Struct({ code: Schema.Literal("intent-expired"), intentId: Schema.String }),
+	Schema.Struct({ code: Schema.Literal("intent-forbidden"), intentId: Schema.String }),
+	Schema.Struct({ code: Schema.Literal("intent-provider-mismatch"), intentId: Schema.String }),
+	Schema.Struct({ code: Schema.Literal("unsupported-file-type"), contentType: Schema.String }),
+	Schema.Struct({ code: Schema.Literal("unsupported-file-extension"), extension: Schema.String }),
+	Schema.Struct({
+		code: Schema.Literal("asset-metadata-invalid"),
+		field: Schema.Literals(["key", "sha256", "size"]),
+	}),
+	Schema.Struct({
+		contentType: Schema.String,
+		code: Schema.Literal("asset-content-type-unsupported"),
+	}),
+	Schema.Struct({
+		maxBytes: Schema.Number,
+		actualBytes: Schema.NullOr(Schema.Number),
+		code: Schema.Literal("upload-too-large"),
+	}),
+	Schema.Struct({
+		expected: Schema.String,
+		actual: Schema.NullOr(Schema.String),
+		code: Schema.Literal("content-type-mismatch"),
+	}),
+]);
+export type UploadFailureReason = typeof UploadFailureReason.Type;
+
+export class UploadBadRequest extends Schema.TaggedError<UploadBadRequest>()("UploadBadRequest", {
+	reason: UploadFailureReason,
+}) {}
+
+export class UploadInternalError extends Schema.TaggedError<UploadInternalError>()(
+	"UploadInternalError",
+	{ reason: Schema.Struct({ code: Schema.Literal("unexpected-error") }) },
+) {}

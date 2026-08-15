@@ -113,6 +113,31 @@ export const InstallNotificationRuleBody = strictStruct({
 
 export type InstallNotificationRuleBody = typeof InstallNotificationRuleBody.Type;
 
+const AutomationNotFoundReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("rule-not-found"), ruleId: AutomationRuleId }),
+	Schema.Struct({
+		signalSchemaSlug: SignalSchemaSlug,
+		code: Schema.Literal("signal-schema-not-found"),
+	}),
+]);
+
+const AutomationConflictReason = Schema.Union([
+	Schema.Struct({
+		signalSchemaSlug: SignalSchemaSlug,
+		code: Schema.Literal("rule-already-installed"),
+	}),
+]);
+
+export class AutomationNotFoundError extends Schema.TaggedError<AutomationNotFoundError>()(
+	"AutomationNotFoundError",
+	{ reason: AutomationNotFoundReason },
+) {}
+
+export class AutomationConflictError extends Schema.TaggedError<AutomationConflictError>()(
+	"AutomationConflictError",
+	{ reason: AutomationConflictReason },
+) {}
+
 export const AutomationOrigin = Schema.Union([
 	strictStruct({ kind: Schema.Literal("api") }),
 	strictStruct({ kind: Schema.Literal("bootstrap") }),

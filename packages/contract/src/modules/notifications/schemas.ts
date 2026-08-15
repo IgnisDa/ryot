@@ -96,3 +96,25 @@ export const UpdateNotificationChannelBody = Schema.Struct({
 });
 
 export type UpdateNotificationChannelBody = typeof UpdateNotificationChannelBody.Type;
+
+const NotificationRequestFailureReason = Schema.Union([
+	Schema.Struct({
+		channel: NotificationChannelKind,
+		specificsKind: NotificationChannelKind,
+		code: Schema.Literal("channel-kind-mismatch"),
+	}),
+]);
+
+const NotificationNotFoundReason = Schema.Union([
+	Schema.Struct({ channelId: NotificationChannelId, code: Schema.Literal("channel-not-found") }),
+]);
+
+export class NotificationRequestError extends Schema.TaggedError<NotificationRequestError>()(
+	"NotificationRequestError",
+	{ reason: NotificationRequestFailureReason },
+) {}
+
+export class NotificationNotFoundError extends Schema.TaggedError<NotificationNotFoundError>()(
+	"NotificationNotFoundError",
+	{ reason: NotificationNotFoundReason },
+) {}
