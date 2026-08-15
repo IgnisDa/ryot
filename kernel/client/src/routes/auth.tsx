@@ -4,16 +4,16 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
-import type { ServerOrigin } from "../api/origin";
-import { PublicApi } from "../api/public";
-import { deriveAuthMethods } from "../modules/auth/config";
-import { type AuthMode, authDestination, type TwoFactorMethod } from "../modules/auth/flow";
-import type { CredentialsValues } from "../modules/auth/form-values";
-import { CredentialsForm, TwoFactorForm } from "../modules/auth/forms";
-import { decideAuthRoute } from "../modules/auth/route-gates";
-import { AuthService, toAuthSessionState } from "../modules/auth/service";
-import { sanitizeRedirect } from "../modules/server/redirect";
-import { ServerService } from "../modules/server/service";
+import type { ServerOrigin } from "#/api/origin";
+import { PublicApi } from "#/api/public";
+import { deriveAuthMethods } from "#/modules/auth/config";
+import { type AuthMode, authDestination, type TwoFactorMethod } from "#/modules/auth/flow";
+import type { CredentialsValues } from "#/modules/auth/form-values";
+import { CredentialsForm, TwoFactorForm } from "#/modules/auth/forms";
+import { decideAuthRoute } from "#/modules/auth/route-gates";
+import { AuthService, toAuthSessionState } from "#/modules/auth/service";
+import { sanitizeRedirect } from "#/modules/server/redirect";
+import { ServerService } from "#/modules/server/service";
 
 type ConfigState =
 	| { status: "loading" }

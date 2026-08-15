@@ -6,11 +6,11 @@ import {
 import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { AuthenticatedApi, AuthenticatedApiError } from "../../api/authenticated";
-import { createKernelRyotClient } from "../../api/ryot-client";
-import type { ApiScope } from "../../api/scope";
-import type { ThemeStore } from "../theme/store";
-import { PluginCatalogError, PluginCatalogService } from "./catalog";
+import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
+import { createKernelRyotClient } from "#/api/ryot-client";
+import type { ApiScope } from "#/api/scope";
+import { PluginCatalogError, PluginCatalogService } from "#/modules/plugins/catalog";
+import type { ThemeStore } from "#/modules/theme/store";
 
 const scope: ApiScope = { userId: "user-1", serverUrl: "https://ryot.example" };
 const themeSnapshot = Schema.decodeUnknownSync(PluginThemeSnapshot)({

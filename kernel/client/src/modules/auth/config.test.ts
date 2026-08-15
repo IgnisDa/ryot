@@ -1,7 +1,7 @@
 import type { SystemConfigResponse } from "@ryot/contract/modules/system/contract";
 import { describe, expect, it } from "vitest";
 
-import { deriveAuthMethods } from "./config";
+import { deriveAuthMethods } from "#/modules/auth/config";
 
 const systemConfig = (auth: SystemConfigResponse["auth"]): SystemConfigResponse => ({
 	auth,

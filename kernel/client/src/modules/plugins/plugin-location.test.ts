@@ -5,7 +5,7 @@ import {
 	toNavigationRequest,
 	toPluginLocation,
 	validatePluginLocation,
-} from "./plugin-location";
+} from "#/modules/plugins/plugin-location";
 
 const home = { path: "/", search: "" };
 
