@@ -40,7 +40,7 @@ it.effect(
 			},
 		});
 		const repository = ClientArtifactsRepository.of({
-			persistClientArtifact: () => Effect.succeed(undefined),
+			persistClientArtifact: () => Effect.void,
 			loadClientArtifact: () => Effect.die(new Error("Unexpected full artifact read")),
 			findArtifactFile: (hash, name) =>
 				Effect.sync(() => {
