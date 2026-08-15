@@ -96,7 +96,7 @@ A feature contributes only its section array and its screens.
 
 God mode is server administration, so it sits outside the authenticated shell and unlocks with an admin access token rather than a user session. `GodModeGate` owns that lifecycle: it renders the token form while locked, registers the session with the api layer on unlock, and provides the session scope to its routes. Any unauthorized response relocks it.
 
-The user list pages one atom per fifty-row window, keyed by session, search term, and offset. Load-more mounts the next page rather than growing a single request, so previously loaded rows are never refetched, and a lifecycle mutation invalidates every loaded page through the shared reactivity key.
+The user list uses TanStack-controlled load-more state with manual global filtering and pagination. Each successful server page remains in an independent fifty-row atom keyed by session, search term, and offset. Load-more mounts the next page rather than growing a single request, so previously loaded rows are never refetched, and a lifecycle mutation invalidates every loaded page through the shared reactivity key.
 
 ## Entity Interest
 

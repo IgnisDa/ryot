@@ -1,4 +1,5 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
+import { createColumnHelper, metaHelper, tableFeatures, useTable } from "@tanstack/react-table";
 import clsx from "clsx";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { useEffect, useEffectEvent } from "react";
@@ -15,41 +16,100 @@ import { AppIcon } from "@/modules/icons";
 import { AppButton } from "@/modules/ui/button";
 import { formatLocalDateTimeLabel } from "@/modules/ui/date";
 import { AppStatusState } from "@/modules/ui/status-state";
-import { AppTableHeader } from "@/modules/ui/table-header";
+import { AppTableHeader, type AppTableColumnMeta } from "@/modules/ui/table";
 
-const headers = [
-	{ label: "Time", className: "w-44" },
-	{ label: "Severity", className: "w-28" },
-	{ label: "Phase", className: "w-52" },
-	{ label: "Message", className: "min-w-72 flex-1" },
-	{ label: "Count", className: "w-20" },
-	{ label: "Elapsed", className: "w-20" },
-] as const;
+const features = tableFeatures({ columnMeta: metaHelper<AppTableColumnMeta>() });
+const columnHelper = createColumnHelper<typeof features, MigrationReportEntry>();
 
-function ReportRow(props: { readonly entry: MigrationReportEntry }) {
-	const level = migrationReportLevelPresentation(props.entry.level);
+const columns = columnHelper.columns([
+	columnHelper.accessor("createdAt", {
+		header: "Time",
+		meta: { className: "w-44" },
+		cell: (info) => (
+			<Text className="font-ui text-xs text-text-muted">
+				{formatLocalDateTimeLabel(info.getValue())}
+			</Text>
+		),
+	}),
+	columnHelper.accessor("level", {
+		header: "Severity",
+		meta: { className: "w-28" },
+		cell: (info) => {
+			const level = migrationReportLevelPresentation(info.getValue());
+			return (
+				<View className="flex-row items-center gap-1.5">
+					<AppIcon name={level.icon} size={13} className={level.tone} />
+					<Text className={clsx("font-ui-medium text-xs", level.tone)}>{level.label}</Text>
+				</View>
+			);
+		},
+	}),
+	columnHelper.accessor("phase", {
+		header: "Phase",
+		meta: { className: "w-52" },
+		cell: (info) => (
+			<Text className="font-ui text-xs text-text" selectable>
+				{info.getValue()}
+			</Text>
+		),
+	}),
+	columnHelper.accessor("message", {
+		header: "Message",
+		meta: { className: "min-w-72 flex-1" },
+		cell: (info) => (
+			<Text className="font-ui text-xs leading-5 text-text" selectable>
+				{info.getValue()}
+			</Text>
+		),
+	}),
+	columnHelper.accessor("count", {
+		header: "Count",
+		meta: { className: "w-20" },
+		cell: (info) => (
+			<Text className="font-ui text-xs tabular-nums text-text-muted">
+				{info.getValue()?.toLocaleString() ?? "-"}
+			</Text>
+		),
+	}),
+	columnHelper.accessor("elapsedSeconds", {
+		header: "Elapsed",
+		meta: { className: "w-20" },
+		cell: (info) => (
+			<Text className="font-ui text-xs tabular-nums text-text-muted">
+				{formatMigrationReportElapsed(info.getValue())}
+			</Text>
+		),
+	}),
+]);
+
+function MigrationReportTableContent(props: {
+	readonly entries: ReadonlyArray<MigrationReportEntry>;
+}) {
+	const table = useTable({
+		columns,
+		features,
+		data: props.entries,
+		getRowId: (entry) => String(entry.seq),
+	});
+
 	return (
-		<View className="min-h-12 flex-row items-center gap-3 border-b border-border py-2 md:gap-4">
-			<Text className="w-44 font-ui text-xs text-text-muted">
-				{formatLocalDateTimeLabel(props.entry.createdAt)}
-			</Text>
-			<View className="w-28 flex-row items-center gap-1.5">
-				<AppIcon name={level.icon} size={13} className={level.tone} />
-				<Text className={clsx("font-ui-medium text-xs", level.tone)}>{level.label}</Text>
+		<ScrollView horizontal contentContainerClassName="min-w-full">
+			<View className="min-w-225 flex-1">
+				<AppTableHeader table={table} />
+				{table.getRowModel().rows.map((row) => (
+					<View
+						key={row.id}
+						className="min-h-12 flex-row items-center gap-3 border-b border-border py-2 md:gap-4"
+					>
+						{row.getAllCells().map((cell) => (
+							<View key={cell.id} className={cell.column.columnDef.meta?.className}>
+								<table.FlexRender cell={cell} />
+							</View>
+						))}
+					</View>
+				))}
 			</View>
-			<Text className="w-52 font-ui text-xs text-text" selectable>
-				{props.entry.phase}
-			</Text>
-			<Text className="min-w-72 flex-1 font-ui text-xs leading-5 text-text" selectable>
-				{props.entry.message}
-			</Text>
-			<Text className="w-20 font-ui text-xs tabular-nums text-text-muted">
-				{props.entry.count?.toLocaleString() ?? "-"}
-			</Text>
-			<Text className="w-20 font-ui text-xs tabular-nums text-text-muted">
-				{formatMigrationReportElapsed(props.entry.elapsedSeconds)}
-			</Text>
-		</View>
+		</ScrollView>
 	);
 }
 
@@ -103,14 +163,5 @@ export function MigrationReportTable() {
 		);
 	}
 
-	return (
-		<ScrollView horizontal contentContainerClassName="min-w-full">
-			<View className="min-w-225 flex-1">
-				<AppTableHeader columns={headers} />
-				{report.value.entries.map((entry) => (
-					<ReportRow key={entry.seq} entry={entry} />
-				))}
-			</View>
-		</ScrollView>
-	);
+	return <MigrationReportTableContent entries={report.value.entries} />;
 }

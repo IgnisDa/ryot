@@ -15,6 +15,7 @@ Ryot is a self-hosted personal tracker. Keep the UI warm, calm, compact, scannab
 - Never place credentials, cookies, tokens, or other secrets in atom keys, cache keys, reactivity keys, or persisted identifiers. Use opaque session identifiers.
 - Key admin state by `AdminSession` and keep admin tokens in the `src/api` session registry, never in a feature module, an atom, or persistence.
 - Shared section navigation, search, pagination, and row-menu primitives live in `src/modules/ui`. Features contribute section data and screens, not their own sidebar or table chrome.
+- Build tables with `@tanstack/react-table` v9 and `src/modules/ui/table.tsx`; use stable row IDs, register only used features, and keep server operations manual so partial pages are never processed client-side.
 - Centralize app-state and network-reconnect listeners. Features must consume the shared revalidation signal instead of registering duplicate listeners.
 - Define parameterized query and mutation atoms with module-level `Atom.family` and canonical immutable keys; exported atom factories must not construct atoms per call or use mutable request registries.
 - Keep request documents, response decoding, typed application states, and atoms in the feature that owns them. Routes may handle route and session prerequisites, but must not decode generic backend responses.
