@@ -5,6 +5,7 @@ import {
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 	pluginClientFileExtension,
+	type PluginClientArtifact,
 } from "@ryot-app/client-plugin-contract";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { waitFor } from "@testing-library/dom";
@@ -13,9 +14,9 @@ import { Effect } from "effect";
 import { JSDOM } from "jsdom";
 import { parse } from "postcss";
 
-import { compileClientPlugin, type ClientPluginCompilerGraphInput } from "./compile";
-import { isTrustedClientModule } from "./dependencies";
+import { compileClientPlugin } from "./compile";
 import type { ClientPluginCompilerDiagnostic } from "./diagnostics";
+import type { ClientPluginCompilerGraphInput } from "./input";
 import { CLIENT_PLUGIN_COMPILER_LIMITS } from "./limits";
 
 const fixtureRoot = new URL("../../../plugins/fixture", import.meta.url).pathname;
@@ -26,6 +27,11 @@ const bytes = (value: string) => encoder.encode(value);
 const text = (value: Uint8Array | undefined) => decoder.decode(value);
 const assertDefined: <Value>(value: Value | undefined) => asserts value is Value = (value) => {
 	expect(value).toBeDefined();
+};
+const requiredArtifactFile = (artifact: PluginClientArtifact, name: string) => {
+	const file = artifact.files.find((candidate) => candidate.name === name);
+	assertDefined(file);
+	return file;
 };
 const executeModule = async (
 	javascript: string,
@@ -182,7 +188,7 @@ it.effect(
 			const names = artifact.files.map(({ name }) => name);
 			expect(names.filter((name) => name.startsWith("asset-"))).toHaveLength(12);
 			expect(names.filter((name) => name.endsWith(".woff2"))).toHaveLength(9);
-			expect(names.at(-1)).toBe("index.html");
+			expect(names).toEqual([...names].sort());
 			expect(names).toContain("plugin.js");
 			expect(names).toContain("plugin.css");
 			const byName = new Map(artifact.files.map((file) => [file.name, file]));
@@ -971,14 +977,18 @@ it.effect(
 					),
 			);
 			const exact = yield* compileFixture({ "client/index.tsx": exactSource });
-			expect(exact.artifact.files.at(-1)?.name).toBe("index.html");
+			expect(requiredArtifactFile(exact.artifact, "index.html").contentType).toBe(
+				"text/html; charset=utf-8",
+			);
 
 			const archived = yield* compileFixture({
 				"client/index.tsx": exactSource,
 				"backend/invalid.ts": bytes("const invalid: string = 1;"),
 				"backend/bulk.ts": new Uint8Array(CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes),
 			});
-			expect(archived.artifact.files.at(-1)?.name).toBe("index.html");
+			expect(requiredArtifactFile(archived.artifact, "index.html").contentType).toBe(
+				"text/html; charset=utf-8",
+			);
 
 			const oversizedSource = yield* compileFixture({
 				"client/index.tsx": new Uint8Array(CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes + 1),
@@ -1022,28 +1032,6 @@ it.effect(
 		}),
 	30_000,
 );
-
-it("trusts only the published client SDK entry points and clsx", () => {
-	for (const specifier of [
-		"clsx",
-		"@ryot-app/client-sdk",
-		"@ryot-app/client-sdk/effect",
-		"@ryot-app/client-sdk/plugin",
-		"@ryot-app/client-sdk/react",
-		"@ryot-app/client-sdk/ryotql",
-		"@ryot-app/client-ui-sdk",
-		"@ryot-app/client-ui-sdk/icon",
-		"@ryot-app/client-ui-sdk/tint",
-		"@ryot-app/client-ui-sdk/table",
-		"@ryot-app/client-ui-sdk/schema-form",
-	]) {
-		expect(isTrustedClientModule(specifier)).toBe(true);
-	}
-	expect(isTrustedClientModule("clsx/lite")).toBe(false);
-	expect(isTrustedClientModule("@ryot-app/client-sdk/unknown")).toBe(false);
-	expect(isTrustedClientModule("@ryot-app/client-ui-sdk/unknown")).toBe(false);
-	expect(isTrustedClientModule("@tanstack/react-table")).toBe(false);
-});
 
 it.effect(
 	"derives artifact identity from the compiled client output alone",

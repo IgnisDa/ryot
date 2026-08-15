@@ -46,7 +46,6 @@ export const bundleClientPlugin = ({
 		typeScriptProject: clientTypeScriptProject,
 		config: {
 			base: "./",
-			envDir: false,
 			mode: "production",
 			plugins: tailwindcss(),
 			oxc: { jsx: { development: false } },
