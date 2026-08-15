@@ -7,6 +7,7 @@ import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/Workf
 import { databaseLayer, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
+import { PluginCatalogInvalidator } from "./catalog-events";
 import { PluginDefinitionMaterializer } from "./definition-materializer";
 import { PluginInstallationRepository } from "./installation-repository";
 import {
@@ -66,8 +67,24 @@ const runWorkflow = (input: {
 					resolveInstallationBootstrap: () => Effect.succeed(input.bootstrap),
 				}),
 				Layer.mock(PluginInstallationRepository)({
+					findById: () =>
+						Effect.succeed({
+							userId,
+							config: {},
+							sortOrder: 0,
+							isDisabled: false,
+							healthReason: null,
+							id: installationId,
+							pluginScope: "user",
+							health: "installing",
+							pluginId: "plugin-1",
+							pluginSlug: "fixture",
+							createdAt: new Date(0),
+							updatedAt: new Date(0),
+						}),
 					updateHealth: (values) => Effect.sync(() => void input.healthUpdates.push(values)),
 				}),
+				PluginCatalogInvalidator.layer,
 				Layer.mock(SandboxExecutionService)({
 					executeScript: (payload) =>
 						Effect.sync(() => {
