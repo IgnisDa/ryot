@@ -112,7 +112,6 @@
 | `observability.logging.file.path` | `SERVER_LOG_FILE` | File path for rotating structured logs | No | No | `./logs/ryot.log` |
 | `observability.logging.file.rotationSize` | `SERVER_LOG_ROTATION_SIZE` | Maximum active log file size before rotation, such as 10M | No | No | `10M` |
 | `observability.logging.file.rotationInterval` | `SERVER_LOG_ROTATION_INTERVAL` | UTC interval between log rotations, such as 1d | No | No | `1d` |
-| `observability.logging.file.retentionFiles` | `SERVER_LOG_RETENTION_FILES` | Maximum number of compressed rotated log files to retain | No | No | `7` |
 
 ## Fitness plugin configuration
 

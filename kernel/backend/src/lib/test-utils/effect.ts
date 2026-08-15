@@ -125,7 +125,6 @@ export const makeAppConfigLayer = (
 			logging: {
 				level: "Info",
 				file: {
-					retentionFiles: 7,
 					rotationSize: "10M",
 					rotationInterval: "1d",
 					path: "./logs/ryot.log",
