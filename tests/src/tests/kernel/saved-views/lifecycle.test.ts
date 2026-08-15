@@ -16,7 +16,6 @@ import {
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
-const builtinViewError = "Cannot modify built-in saved views";
 const missingViewSlug = "non-existent-view-slug";
 
 describe("Saved views lifecycle E2E", () => {
@@ -152,8 +151,11 @@ describe("Saved views lifecycle E2E", () => {
 			const error = yield* Effect.flip(
 				client.call((c) => c.savedViews.delete({ params: { viewSlug: builtinView.slug } })),
 			);
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toBe(builtinViewError);
+			assertTaggedError(error, "SavedViewBadRequest");
+			expect(error.reason).toEqual({
+				viewSlug: builtinView.slug,
+				code: "builtin-view-immutable",
+			});
 		}),
 	);
 
@@ -171,8 +173,11 @@ describe("Saved views lifecycle E2E", () => {
 				),
 			);
 
-			assertTaggedError(invalidUpdateError, "BadRequest");
-			expect(invalidUpdateError.message).toBe(builtinViewError);
+			assertTaggedError(invalidUpdateError, "SavedViewBadRequest");
+			expect(invalidUpdateError.reason).toEqual({
+				viewSlug: builtinView.slug,
+				code: "builtin-view-immutable",
+			});
 
 			const disableResult = yield* client.call((c) =>
 				c.savedViews.update({
@@ -231,8 +236,11 @@ describe("Saved views lifecycle E2E", () => {
 			);
 
 			for (const error of [updateError, cloneError, deleteError]) {
-				assertTaggedError(error, "NotFound");
-				expect(error.message).toBe("Saved view not found");
+				assertTaggedError(error, "SavedViewNotFound");
+				expect(error.reason).toEqual({
+					viewSlug: missingViewSlug,
+					code: "saved-view-not-found",
+				});
 			}
 		}),
 	);
@@ -416,8 +424,12 @@ describe("Saved views lifecycle E2E", () => {
 				),
 			);
 
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toBe("Saved view slugs contain unknown saved views");
+			assertTaggedError(error, "SavedViewBadRequest");
+			expect(error.reason).toEqual({
+				issue: "unknown-view",
+				code: "invalid-reorder",
+				viewSlugs: [tracked.slug, standalone.slug],
+			});
 		}),
 	);
 });

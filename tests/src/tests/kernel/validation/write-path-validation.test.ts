@@ -39,8 +39,8 @@ describe("Entity write path — propertiesSchema validation", () => {
 				),
 			);
 
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toContain("title: is missing");
+			assertTaggedError(error, "EntityBadRequest");
+			expect(error.reason).toMatchObject({ code: "invalid-properties", paths: [["title"]] });
 		}),
 	);
 
@@ -73,7 +73,8 @@ describe("Entity write path — propertiesSchema validation", () => {
 				),
 			);
 
-			assertTaggedError(error, "BadRequest");
+			assertTaggedError(error, "EntityBadRequest");
+			expect(error.reason).toMatchObject({ code: "invalid-properties", paths: [["count"]] });
 		}),
 	);
 
@@ -144,7 +145,7 @@ describe("Event write path — propertiesSchema validation", () => {
 				outcomes: [],
 				failure: {
 					index: 0,
-					reason: { kind: "bad_request", message: expect.stringContaining("rating: is missing") },
+					reason: { code: "invalid-properties" },
 				},
 			});
 		}),
@@ -164,7 +165,7 @@ describe("Event write path — propertiesSchema validation", () => {
 			expect(result).toMatchObject({
 				count: 0,
 				outcomes: [],
-				failure: { index: 0, reason: { kind: "bad_request" } },
+				failure: { index: 0, reason: { code: "invalid-properties" } },
 			});
 		}),
 	);
@@ -310,8 +311,11 @@ describe("Collection membership — member-of relationship propertiesSchema vali
 					),
 				);
 
-				assertTaggedError(error, "BadRequest");
-				expect(error.message).toContain("Membership properties validation failed");
+				assertTaggedError(error, "CollectionBadRequest");
+				expect(error.reason).toMatchObject({
+					code: "invalid-membership-properties",
+					paths: [["score"]],
+				});
 			}),
 	);
 

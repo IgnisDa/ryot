@@ -157,7 +157,7 @@ describe("media monitoring endpoints", () => {
 	it.live("requires authentication", () =>
 		Effect.gen(function* () {
 			const error = yield* Effect.flip(getMediaMonitoringStatus(getBackendClient(), apiEntityId));
-			assertTaggedError(error, "Unauthorized");
+			assertTaggedError(error, "AuthUnauthorized");
 		}),
 	);
 

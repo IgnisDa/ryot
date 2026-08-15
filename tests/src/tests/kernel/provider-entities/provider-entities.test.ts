@@ -111,7 +111,8 @@ describe("POST /provider-entities/imports — provider entity import", () => {
 					}),
 				),
 			);
-			assertTaggedError(error, "NotFound");
+			assertTaggedError(error, "ProviderEntityNotFound");
+			expect(error.reason).toEqual({ code: "provider-not-found", providerId: missingProviderId });
 		}),
 	);
 
@@ -125,8 +126,8 @@ describe("POST /provider-entities/imports — provider entity import", () => {
 				),
 			);
 
-			assertTaggedError(error, "NotFound");
-			expect(error.message).toBe("Entity import job not found");
+			assertTaggedError(error, "ProviderEntityNotFound");
+			expect(error.reason.code).toBe("import-job-not-found");
 		}),
 	);
 
@@ -145,7 +146,7 @@ describe("POST /provider-entities/imports — provider entity import", () => {
 				),
 			);
 
-			assertTaggedError(error, "Unauthorized");
+			assertTaggedError(error, "AuthUnauthorized");
 		}),
 	);
 });

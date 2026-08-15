@@ -72,7 +72,12 @@ describe("plugin operations", () => {
 					}),
 				),
 			);
-			assertTaggedError(unknownPlugin, "NotFound");
+			assertTaggedError(unknownPlugin, "PluginNotFoundError");
+			expect(unknownPlugin.reason).toEqual({
+				operationSlug: "echo",
+				code: "operation-not-found",
+				pluginSlug: unknownPlugin.reason.pluginSlug,
+			});
 
 			const unknownOperation = yield* Effect.flip(
 				client.call((c) =>
@@ -82,7 +87,12 @@ describe("plugin operations", () => {
 					}),
 				),
 			);
-			assertTaggedError(unknownOperation, "NotFound");
+			assertTaggedError(unknownOperation, "PluginNotFoundError");
+			expect(unknownOperation.reason).toEqual({
+				code: "operation-not-found",
+				pluginSlug: plugin.pluginSlug,
+				operationSlug: "not-an-operation",
+			});
 		}),
 	);
 
@@ -100,7 +110,11 @@ describe("plugin operations", () => {
 				),
 			);
 
-			assertTaggedError(failure, "SandboxRunError");
+			assertTaggedError(failure, "PluginInvocationError");
+			expect(failure.reason).toMatchObject({
+				code: "runtime-failed",
+				diagnostics: [{ code: "sandbox-runtime-error", phase: "input", severity: "error" }],
+			});
 		}),
 	);
 
@@ -117,7 +131,7 @@ describe("plugin operations", () => {
 				),
 			);
 
-			assertTaggedError(failure, "Unauthorized");
+			assertTaggedError(failure, "AuthUnauthorized");
 		}),
 	);
 });

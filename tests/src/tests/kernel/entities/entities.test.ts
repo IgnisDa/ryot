@@ -177,10 +177,11 @@ describe("POST /entities", () => {
 				),
 			);
 
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toBe(
-				"externalId and providerId must both be provided or both be omitted",
-			);
+			assertTaggedError(error, "EntityBadRequest");
+			expect(error.reason).toEqual({
+				code: "incomplete-provenance",
+				fields: ["externalId", "providerId"],
+			});
 		}),
 	);
 
@@ -205,10 +206,11 @@ describe("POST /entities", () => {
 				),
 			);
 
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toBe(
-				"externalId and providerId must both be provided or both be omitted",
-			);
+			assertTaggedError(error, "EntityBadRequest");
+			expect(error.reason).toEqual({
+				code: "incomplete-provenance",
+				fields: ["externalId", "providerId"],
+			});
 		}),
 	);
 });
@@ -308,7 +310,8 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 				),
 			);
 
-			assertTaggedError(error, "BadRequest");
+			assertTaggedError(error, "EntityBadRequest");
+			expect(error.reason).toMatchObject({ code: "invalid-properties" });
 		}),
 	);
 
@@ -329,7 +332,8 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 				),
 			);
 
-			assertTaggedError(error, "BadRequest");
+			assertTaggedError(error, "EntityBadRequest");
+			expect(error.reason).toMatchObject({ code: "invalid-properties" });
 		}),
 	);
 });
