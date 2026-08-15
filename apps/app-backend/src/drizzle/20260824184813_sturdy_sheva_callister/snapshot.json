@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "574847e1-6ab0-4bd3-930f-19a5ef3979c3",
+	"id": "55015f3e-03d6-4099-8d55-356e710d6c5b",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{
@@ -67,6 +67,12 @@
 		{
 			"isRlsEnabled": false,
 			"name": "managed_asset",
+			"entityType": "tables",
+			"schema": "public"
+		},
+		{
+			"isRlsEnabled": false,
+			"name": "migration_report",
 			"entityType": "tables",
 			"schema": "public"
 		},
@@ -1828,6 +1834,97 @@
 			"entityType": "columns",
 			"schema": "public",
 			"table": "managed_asset"
+		},
+		{
+			"type": "serial",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "seq",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "migration_report"
+		},
+		{
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "count",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "migration_report"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "phase",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "migration_report"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "level",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "migration_report"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "message",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "migration_report"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"name": "created_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "migration_report"
+		},
+		{
+			"type": "double precision",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "elapsed_seconds",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "migration_report"
 		},
 		{
 			"type": "text",
@@ -6001,6 +6098,14 @@
 			"entityType": "pks"
 		},
 		{
+			"columns": ["seq"],
+			"nameExplicit": false,
+			"name": "migration_report_pkey",
+			"schema": "public",
+			"table": "migration_report",
+			"entityType": "pks"
+		},
+		{
 			"columns": ["id"],
 			"nameExplicit": false,
 			"name": "notification_channel_pkey",
@@ -6234,6 +6339,13 @@
 			"schema": "public",
 			"table": "user",
 			"entityType": "uniques"
+		},
+		{
+			"value": "\"level\" in ('info', 'warning')",
+			"name": "migration_report_level_check",
+			"entityType": "checks",
+			"schema": "public",
+			"table": "migration_report"
 		},
 		{
 			"value": "\"operation\" in ('create', 'update', 'delete', 'signal')",
