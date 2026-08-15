@@ -273,6 +273,15 @@ describe("plugin client bridge contract", () => {
 			Result.isSuccess(
 				decode({
 					...base,
+					renderer: { kind: "kernel", name: "entity-browser" },
+					target: { kind: "saved-view", savedViewId: "view-1" },
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isSuccess(
+				decode({
+					...base,
 					route: { params: { itemId: "item-1" } },
 					target: {
 						path: "/items/1",
