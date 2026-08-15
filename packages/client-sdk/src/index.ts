@@ -2,6 +2,7 @@ import type {
 	PluginOperationFailureReason,
 	PluginRyotQLFailureReason,
 } from "@ryot/contract/modules/plugins/client";
+import { isJsonValue, type JsonValue } from "@ryot/contract/schema/json";
 import type { PreparedRecipe } from "@ryot/ryotql";
 import { Result, Schema } from "effect";
 
@@ -16,7 +17,10 @@ export class RyotQueryError extends Error {
 	}
 }
 
-export type PluginOperationErrorReason = PluginOperationFailureReason | "malformed-result";
+export type PluginOperationErrorReason =
+	| "invalid-input"
+	| "malformed-result"
+	| PluginOperationFailureReason;
 
 export class PluginOperationError extends Error {
 	readonly reason: PluginOperationErrorReason;
@@ -29,7 +33,7 @@ export class PluginOperationError extends Error {
 
 export type OperationInvocation<Output extends Schema.Codec<unknown, unknown>> = {
 	readonly slug: string;
-	readonly input: unknown;
+	readonly input: JsonValue;
 	readonly output: Output;
 };
 
@@ -37,7 +41,7 @@ export type RyotClientAdapter = {
 	readonly query: (document: PreparedRecipe<unknown>["document"]) => Promise<unknown>;
 	readonly invokeOperation?: (request: {
 		readonly slug: string;
-		readonly input: unknown;
+		readonly input: JsonValue;
 	}) => Promise<unknown>;
 };
 
@@ -59,6 +63,9 @@ export const createRyotClient = (adapter: RyotClientAdapter) => ({
 		invokeOperation: async <Output extends Schema.Codec<unknown, unknown>>(
 			request: OperationInvocation<Output>,
 		) => {
+			if (!isJsonValue(request.input)) {
+				throw new PluginOperationError("invalid-input");
+			}
 			if (!adapter.invokeOperation) {
 				throw new PluginOperationError("transport");
 			}

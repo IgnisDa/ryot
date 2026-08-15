@@ -132,6 +132,32 @@ describe("plugin runtime", () => {
 		await expect(failure).rejects.toMatchObject({ reason: "operation-failed" });
 	});
 
+	it("rejects a non-JSON success message without settling the operation", async () => {
+		const { channel, runtime } = openRuntime();
+		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+		await delay();
+
+		const operation = runtime.client.data.invokeOperation({
+			input: null,
+			slug: "greet",
+			output: Schema.String,
+		});
+		channel.port1.postMessage({
+			outcome: "success",
+			type: "operation-result",
+			requestId: "operation-1",
+			value: { invalid: undefined },
+		});
+		channel.port1.postMessage({
+			value: "hello",
+			outcome: "success",
+			type: "operation-result",
+			requestId: "operation-1",
+		});
+
+		await expect(operation).resolves.toBe("hello");
+	});
+
 	it("honors peer failure and ignores late results and navigation", async () => {
 		const { channel, messages, runtime } = openRuntime();
 		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
