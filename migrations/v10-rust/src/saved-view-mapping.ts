@@ -12,17 +12,17 @@ const mediaViewDisabledExpression = (mediaLot: string) =>
 	`NOT (${mediaEnabled} AND ${mediaSpecificPreference(mediaLot)})`;
 
 const mediaViewMappings = [
-	{ savedViewSlug: "all-books", mediaLot: "book" },
-	{ savedViewSlug: "all-shows", mediaLot: "show" },
-	{ savedViewSlug: "all-movies", mediaLot: "movie" },
-	{ savedViewSlug: "all-anime", mediaLot: "anime" },
-	{ savedViewSlug: "all-manga", mediaLot: "manga" },
-	{ savedViewSlug: "all-music", mediaLot: "music" },
-	{ savedViewSlug: "all-podcasts", mediaLot: "podcast" },
-	{ savedViewSlug: "all-audiobooks", mediaLot: "audio_book" },
-	{ savedViewSlug: "all-video-games", mediaLot: "video_game" },
-	{ savedViewSlug: "all-comic-books", mediaLot: "comic_book" },
-	{ savedViewSlug: "all-visual-novels", mediaLot: "visual_novel" },
+	{ mediaLot: "book", savedViewSlug: "all-books" },
+	{ mediaLot: "show", savedViewSlug: "all-shows" },
+	{ mediaLot: "movie", savedViewSlug: "all-movies" },
+	{ mediaLot: "anime", savedViewSlug: "all-anime" },
+	{ mediaLot: "manga", savedViewSlug: "all-manga" },
+	{ mediaLot: "music", savedViewSlug: "all-music" },
+	{ mediaLot: "podcast", savedViewSlug: "all-podcasts" },
+	{ mediaLot: "audio_book", savedViewSlug: "all-audiobooks" },
+	{ mediaLot: "video_game", savedViewSlug: "all-video-games" },
+	{ mediaLot: "comic_book", savedViewSlug: "all-comic-books" },
+	{ mediaLot: "visual_novel", savedViewSlug: "all-visual-novels" },
 ] as const;
 
 const mediaGroupSavedViewSlugs = [
@@ -36,18 +36,18 @@ const mediaGroupSavedViewSlugs = [
 
 export const legacySavedViewTargets = {
 	kernel: ["collections"],
+	fitness: ["all-exercises", "all-workouts", "all-workout-templates", "all-measurements"],
 	media: [
 		"all-persons",
 		"all-companies",
 		...mediaViewMappings.map(({ savedViewSlug }) => savedViewSlug),
 		...mediaGroupSavedViewSlugs,
 	],
-	fitness: ["all-exercises", "all-workouts", "all-workout-templates", "all-measurements"],
 } as const;
 
 const mediaViewCases = mediaViewMappings
 	.map(
-		({ savedViewSlug, mediaLot }) =>
+		({ mediaLot, savedViewSlug }) =>
 			`\t\t\tWHEN saved_view."plugin_installation_id" = installations.media_installation_id AND saved_view."slug" = ${quoteSqlString(savedViewSlug)} THEN ${mediaViewDisabledExpression(mediaLot)}`,
 	)
 	.join("\n");
@@ -89,6 +89,6 @@ ${mediaViewCases}
 	WHERE saved_view."user_id" = legacy_user."id"
 		AND saved_view."is_builtin" = true;
 	GET DIAGNOSTICS rows_updated = ROW_COUNT;
-	${buildReportSql("legacy saved-view state", [{ message: "built-in saved view state(s) migrated", count: "rows_updated" }])}
+	${buildReportSql("legacy saved-view state", [{ count: "rows_updated", message: "built-in saved view state(s) migrated" }])}
 END $$;
 `;

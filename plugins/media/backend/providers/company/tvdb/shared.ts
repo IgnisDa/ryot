@@ -9,8 +9,8 @@ export const manifest = defineManifest({
 	name: "TVDB",
 	kind: "provider",
 	slug: "company.tvdb",
-	requiredPluginConfigKeys: ["tvdbApiKey"],
 	requiredSystemConfigKeys: [],
+	requiredPluginConfigKeys: ["tvdbApiKey"],
 	capabilities: ["httpCall", "getCachedValue", "setCachedValue", "getPluginConfig"],
 });
 
@@ -45,7 +45,7 @@ const toMediaEntities = (items: unknown, providerSlug: string) =>
 			return [];
 		}
 		const name = stringValue(item["name"]) ?? stringValue(item["title"]) ?? "Loading...";
-		return [{ externalId, providerSlug, name, relationshipProperties: { roles: ["Company"] } }];
+		return [{ name, externalId, providerSlug, relationshipProperties: { roles: ["Company"] } }];
 	});
 
 export const details = defineProvider({
@@ -67,7 +67,7 @@ export const details = defineProvider({
 				}
 				const primaryImage = stringValue(company["primaryImage"]);
 				const images = primaryImage
-					? [{ type: "remote" as const, url: primaryImage, purpose: "logo" as const }]
+					? [{ url: primaryImage, type: "remote" as const, purpose: "logo" as const }]
 					: [];
 				const alternateNames = Array.isArray(company["aliases"])
 					? company["aliases"].map(getAliasName).filter((alias) => alias.length > 0)

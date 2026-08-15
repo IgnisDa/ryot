@@ -81,9 +81,9 @@ describe("RyotQL builders", () => {
 					output: {
 						type: "rows",
 						pagination: { limit: 20 },
-						fields: [{ key: "id", expr: { type: "column", tableAlias: "entity", field: "id" } }],
+						fields: [{ key: "id", expr: { field: "id", type: "column", tableAlias: "entity" } }],
 						orderBy: [
-							{ direction: "asc", expr: { type: "column", tableAlias: "entity", field: "id" } },
+							{ direction: "asc", expr: { field: "id", type: "column", tableAlias: "entity" } },
 						],
 					},
 				},
@@ -99,15 +99,15 @@ describe("RyotQL builders", () => {
 		});
 		const query = aggregate(event, {
 			limit: 30,
-			orderBy: [groupDescending("day")],
 			groupBy: [field("day", day)],
+			orderBy: [groupDescending("day")],
 			measures: [measure("count", { function: "count" })],
 		});
 
 		expect(query.output).toEqual({
 			limit: 30,
 			type: "aggregate",
-			orderBy: [{ direction: "desc", key: "day" }],
+			orderBy: [{ key: "day", direction: "desc" }],
 			measures: [{ key: "count", aggregation: { function: "count" } }],
 			groupBy: [
 				{
@@ -134,9 +134,9 @@ describe("RyotQL builders", () => {
 			},
 		});
 		const result = query.decodeResult({
-			pageInfo: { hasMore: false, limit: 1, nextCursor: null },
-			items: [{ entityId: "entity-1", score: "42" }],
 			type: "rows",
+			items: [{ score: "42", entityId: "entity-1" }],
+			pageInfo: { limit: 1, hasMore: false, nextCursor: null },
 		});
 
 		expect(query.document.output.fields).toEqual([
@@ -144,8 +144,8 @@ describe("RyotQL builders", () => {
 			{ key: "score", expr: column(entity, "score") },
 		]);
 		expect(Result.getOrThrow(result)).toEqual({
-			items: [{ entityId: "entity-1", score: 42 }],
-			pageInfo: { hasMore: false, limit: 1, nextCursor: null },
+			items: [{ score: 42, entityId: "entity-1" }],
+			pageInfo: { limit: 1, hasMore: false, nextCursor: null },
 		});
 	});
 
@@ -153,13 +153,13 @@ describe("RyotQL builders", () => {
 		const recipe = defineRecipe((input: { readonly entitySchemaSlug: string }) => {
 			const entity = table("entity", "entity");
 			return {
+				map: () => Result.succeed(input.entitySchemaSlug),
 				queries: {
 					entities: selectedRows(entity, {
 						selection: { id: selectedField(column(entity, "id"), Schema.String) },
 						where: eq(column(entity, "entitySchemaSlug"), literal(input.entitySchemaSlug)),
 					}),
 				},
-				map: () => Result.succeed(input.entitySchemaSlug),
 			};
 		});
 		const prepared = recipe({ entitySchemaSlug: "course" });
@@ -171,9 +171,9 @@ describe("RyotQL builders", () => {
 			prepared.decode({
 				data: {
 					entities: {
-						items: [{ id: "entity-1" }],
-						pageInfo: { hasMore: false, limit: 20, nextCursor: null },
 						type: "rows",
+						items: [{ id: "entity-1" }],
+						pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 					},
 				},
 			}),
@@ -194,9 +194,9 @@ describe("RyotQL builders", () => {
 			recipe().decode({
 				data: {
 					entities: {
-						items: [{ id: "entity-1" }],
-						pageInfo: { hasMore: false, limit: 20, nextCursor: null },
 						type: "rows",
+						items: [{ id: "entity-1" }],
+						pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 					},
 				},
 			}),
@@ -210,13 +210,13 @@ describe("RyotQL builders", () => {
 		const query = selectedRows(entity, {
 			selection: { entityId: selectedField(column(entity, "id"), Schema.String) },
 		});
-		const pageInfo = { hasMore: false, limit: 1, nextCursor: null };
+		const pageInfo = { limit: 1, hasMore: false, nextCursor: null };
 
-		expect(Result.isFailure(query.decodeResult({ items: [{}], pageInfo, type: "rows" }))).toBe(
+		expect(Result.isFailure(query.decodeResult({ pageInfo, items: [{}], type: "rows" }))).toBe(
 			true,
 		);
 		expect(
-			Result.isFailure(query.decodeResult({ items: [{ entityId: 1 }], pageInfo, type: "rows" })),
+			Result.isFailure(query.decodeResult({ pageInfo, type: "rows", items: [{ entityId: 1 }] })),
 		).toBe(true);
 	});
 
@@ -225,23 +225,23 @@ describe("RyotQL builders", () => {
 		const selection = { id: selectedField(column(entity, "id"), Schema.String) };
 		const required = selectedRow(entity, { selection });
 		const optional = selectedOptionalRow(entity, { selection });
-		const pageInfo = { hasMore: false, limit: 2, nextCursor: null };
+		const pageInfo = { limit: 2, hasMore: false, nextCursor: null };
 
 		expect(required.document.output).toMatchObject({ pagination: { limit: 2 } });
 		expect(
 			Result.getOrThrow(
-				required.decodeResult({ items: [{ id: "entity-1" }], pageInfo, type: "rows" }),
+				required.decodeResult({ pageInfo, type: "rows", items: [{ id: "entity-1" }] }),
 			),
 		).toEqual({ id: "entity-1" });
 		expect(
-			Result.getOrThrow(optional.decodeResult({ items: [], pageInfo, type: "rows" })),
+			Result.getOrThrow(optional.decodeResult({ pageInfo, items: [], type: "rows" })),
 		).toBeUndefined();
-		expect(Result.isFailure(required.decodeResult({ items: [], pageInfo, type: "rows" }))).toBe(
+		expect(Result.isFailure(required.decodeResult({ pageInfo, items: [], type: "rows" }))).toBe(
 			true,
 		);
 		expect(
 			Result.isFailure(
-				optional.decodeResult({ items: [{ id: "1" }, { id: "2" }], pageInfo, type: "rows" }),
+				optional.decodeResult({ pageInfo, type: "rows", items: [{ id: "1" }, { id: "2" }] }),
 			),
 		).toBe(true);
 		expect(Result.isFailure(required.decodeResult({ items: [], type: "aggregate" }))).toBe(true);
@@ -268,22 +268,22 @@ describe("RyotQL builders", () => {
 		});
 		const decoded = Result.getOrThrow(
 			query.decodeResult({
+				type: "rows",
+				pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 				items: [
 					{
 						id: "parent",
 						children: {
+							pageInfo: { limit: 2, hasMore: false },
 							items: [
 								{
 									id: "child",
-									leaves: { items: [{ label: "Leaf" }], pageInfo: { hasMore: false, limit: 2 } },
+									leaves: { items: [{ label: "Leaf" }], pageInfo: { limit: 2, hasMore: false } },
 								},
 							],
-							pageInfo: { hasMore: false, limit: 2 },
 						},
 					},
 				],
-				pageInfo: { hasMore: false, limit: 20, nextCursor: null },
-				type: "rows",
 			}),
 		);
 
@@ -312,14 +312,14 @@ describe("RyotQL builders", () => {
 		expect(
 			Result.getOrThrow(
 				grouped.decodeResult({
-					items: [{ count: "2", status: "active" }],
-					pageInfo: { hasMore: false, limit: 20 },
 					type: "aggregate",
+					pageInfo: { limit: 20, hasMore: false },
+					items: [{ count: "2", status: "active" }],
 				}),
 			).items,
 		).toEqual([{ count: 2, status: "active" }]);
 		expect(
-			Result.getOrThrow(countQuery.decodeResult({ items: [{ count: 3 }], type: "aggregate" })),
+			Result.getOrThrow(countQuery.decodeResult({ type: "aggregate", items: [{ count: 3 }] })),
 		).toEqual({ count: 3 });
 		expect(Result.isFailure(countQuery.decodeResult({ items: [], type: "aggregate" }))).toBe(true);
 	});
@@ -329,45 +329,45 @@ describe("RyotQL builders", () => {
 		const query = selectedTimeSeries(event, {
 			bucket: "day",
 			endAt: "2026-01-02",
-			measure: { function: "count" },
-			selection: { endAt: Schema.String, startAt: Schema.String, value: Schema.NumberFromString },
 			startAt: "2026-01-01",
+			measure: { function: "count" },
 			time: column(event, "occurredAt"),
+			selection: { endAt: Schema.String, startAt: Schema.String, value: Schema.NumberFromString },
 		});
 
 		expect(
 			Result.getOrThrow(
 				query.decodeResult({
-					buckets: [{ endAt: "2026-01-02", startAt: "2026-01-01", value: "4" }],
 					type: "timeSeries",
+					buckets: [{ value: "4", endAt: "2026-01-02", startAt: "2026-01-01" }],
 				}),
 			),
-		).toEqual({ buckets: [{ endAt: "2026-01-02", startAt: "2026-01-01", value: 4 }] });
+		).toEqual({ buckets: [{ value: 4, endAt: "2026-01-02", startAt: "2026-01-01" }] });
 		expect(Result.isFailure(query.decodeResult({ items: [], type: "aggregate" }))).toBe(true);
 	});
 
 	it("decodes multiple named queries and infers recipe success for zero-argument factories", () => {
 		const entity = table("entity", "entity");
 		const recipe = defineRecipe(() => ({
+			map: ({ count: countResult, first: firstResult }) =>
+				Result.succeed({ count: countResult.count, firstId: firstResult?.id }),
 			queries: {
-				count: selectedAggregate(entity, {
-					measures: { count: selectedMeasure({ function: "count" }, Schema.Number) },
-				}),
 				first: selectedOptionalRow(entity, {
 					selection: { id: selectedField(column(entity, "id"), Schema.String) },
 				}),
+				count: selectedAggregate(entity, {
+					measures: { count: selectedMeasure({ function: "count" }, Schema.Number) },
+				}),
 			},
-			map: ({ count: countResult, first: firstResult }) =>
-				Result.succeed({ count: countResult.count, firstId: firstResult?.id }),
 		}));
 		const success = Result.getOrThrow(
 			recipe().decode({
 				data: {
-					count: { items: [{ count: 1 }], type: "aggregate" },
+					count: { type: "aggregate", items: [{ count: 1 }] },
 					first: {
-						items: [{ id: "entity-1" }],
-						pageInfo: { hasMore: false, limit: 2, nextCursor: null },
 						type: "rows",
+						items: [{ id: "entity-1" }],
+						pageInfo: { limit: 2, hasMore: false, nextCursor: null },
 					},
 				},
 			}),
@@ -381,23 +381,23 @@ describe("RyotQL builders", () => {
 		const entity = table("entity", "entity");
 
 		expect(rows(entity, { fields: [star(entity)] }).output.fields).toEqual([
-			{ tableAlias: "entity", type: "wildcard" },
+			{ type: "wildcard", tableAlias: "entity" },
 		]);
 	});
 
 	it("preserves table aliases in expressions and explicit rows options", () => {
 		const entity = table("entity", "collection");
 		const query = rows(entity, {
-			after: "cursor",
 			limit: 7,
+			after: "cursor",
 			orderBy: [ascending(column(entity, "name"))],
 			fields: [field("name", column(entity, "name"))],
 			where: eq(column(entity, "entitySchemaSlug"), literal("collection")),
 		});
 
 		expect(query).toMatchObject({
-			output: { pagination: { after: "cursor", limit: 7 } },
-			where: { left: { tableAlias: "collection" }, right: { value: "collection" } },
+			output: { pagination: { limit: 7, after: "cursor" } },
+			where: { right: { value: "collection" }, left: { tableAlias: "collection" } },
 		});
 	});
 
@@ -435,7 +435,7 @@ describe("RyotQL builders", () => {
 		}
 		expect(query.where.predicates).toEqual(
 			expect.arrayContaining([
-				expect.objectContaining({ type: "comparison", operator: "gt" }),
+				expect.objectContaining({ operator: "gt", type: "comparison" }),
 				expect.objectContaining({ type: "contains" }),
 				expect.objectContaining({ type: "not" }),
 				{ type: "or", predicates: [] },
@@ -612,7 +612,7 @@ describe("RyotQL builders", () => {
 				}),
 				expect.objectContaining({
 					key: "arithmetic",
-					expr: expect.objectContaining({ type: "arithmetic", operator: "add" }),
+					expr: expect.objectContaining({ operator: "add", type: "arithmetic" }),
 				}),
 			]),
 		);
@@ -669,6 +669,15 @@ describe("RyotQL builders", () => {
 				right: { type: "literal", value: "completion" },
 				left: { type: "column", tableAlias: "event", field: "eventSchemaSlug" },
 			},
+			output: {
+				type: "timeSeries",
+				measure: { aggregation: { function: "sum", expr: { value: 1, type: "literal" } } },
+				time: {
+					bucket: "day",
+					expr: occurredAt,
+					range: { endAt: "2026-01-03T00:00:00.000Z", startAt: "2026-01-01T00:00:00.000Z" },
+				},
+			},
 			joins: [
 				{
 					type: "inner",
@@ -676,20 +685,11 @@ describe("RyotQL builders", () => {
 					on: {
 						operator: "eq",
 						type: "comparison",
-						right: { type: "column", tableAlias: "entity", field: "id" },
-						left: { type: "column", tableAlias: "event", field: "entityId" },
+						right: { field: "id", type: "column", tableAlias: "entity" },
+						left: { type: "column", field: "entityId", tableAlias: "event" },
 					},
 				},
 			],
-			output: {
-				type: "timeSeries",
-				measure: { aggregation: { function: "sum", expr: { type: "literal", value: 1 } } },
-				time: {
-					bucket: "day",
-					expr: occurredAt,
-					range: { endAt: "2026-01-03T00:00:00.000Z", startAt: "2026-01-01T00:00:00.000Z" },
-				},
-			},
 		});
 	});
 });

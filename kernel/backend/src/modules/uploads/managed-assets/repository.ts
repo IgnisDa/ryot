@@ -62,7 +62,7 @@ export class ManagedAssetsRepository extends Context.Service<ManagedAssetsReposi
 				if (inserted) {
 					return toRecord(inserted);
 				}
-				const existing = yield* getByLocator({ type: input.provider, key: input.key });
+				const existing = yield* getByLocator({ key: input.key, type: input.provider });
 				if (!existing) {
 					return yield* new DbError({ message: "Managed asset insert conflict but not found" });
 				}

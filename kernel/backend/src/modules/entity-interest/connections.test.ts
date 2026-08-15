@@ -8,9 +8,9 @@ import { assertExitFails } from "#lib/test-utils/assertions";
 import { LocalInterestSessions, type LocalInterestSessionEnqueue } from "./connections";
 
 const message = {
+	reason: "populated",
 	type: "entity-updated",
 	entityId: EntityId.make("entity-1"),
-	reason: "populated",
 } as const;
 
 it.effect("routes updates only to a local interest session", () =>

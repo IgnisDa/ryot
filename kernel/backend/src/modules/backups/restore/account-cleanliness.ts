@@ -110,22 +110,22 @@ export const classifyAccountCleanliness = (
 			icon,
 			renderer,
 			settings,
-			dataSources,
 			isBuiltin,
 			sortOrder,
 			isDisabled,
 			pluginSlug,
+			dataSources,
 		}) => ({
 			slug,
 			name,
 			icon,
 			renderer,
 			settings,
-			dataSources,
 			isBuiltin,
 			sortOrder,
 			isDisabled,
 			pluginSlug,
+			dataSources,
 		}),
 	);
 	const expectedSavedViews = state.expectedSavedViews.map((view) => ({
@@ -136,18 +136,18 @@ export const classifyAccountCleanliness = (
 		isDisabled: false,
 		renderer: view.renderer,
 		settings: view.settings,
-		dataSources: view.dataSources,
 		sortOrder: view.sortOrder,
 		pluginSlug: view.pluginSlug,
+		dataSources: view.dataSources,
 	}));
 	if (!sameUnorderedRecords(savedViews, expectedSavedViews)) {
 		return "saved-views";
 	}
 	const subscriptions = state.notificationSubscriptions.map(
-		({ signalSchemaSlug, isActive, metadata }) => ({ signalSchemaSlug, isActive, metadata }),
+		({ isActive, metadata, signalSchemaSlug }) => ({ isActive, metadata, signalSchemaSlug }),
 	);
 	const expectedSubscriptions = state.expectedNotificationSubscriptionSlugs.map(
-		(signalSchemaSlug) => ({ signalSchemaSlug, isActive: true, metadata: null }),
+		(signalSchemaSlug) => ({ isActive: true, metadata: null, signalSchemaSlug }),
 	);
 	if (!sameUnorderedRecords(subscriptions, expectedSubscriptions)) {
 		return "notification-subscriptions";
@@ -203,8 +203,8 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 						hasEvents,
 						hasIntegrations,
 						hasManagedAssets,
-						hasClientRenderers,
 						savedViews: views,
+						hasClientRenderers,
 						pluginState: states,
 						entities: ownedEntities,
 						hasNotificationChannels,
@@ -218,7 +218,7 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 							.map(({ slug }) => slug),
 					});
 					if (category) {
-						return yield* new BackupConflict({ reason: { code: "account-not-clean", category } });
+						return yield* new BackupConflict({ reason: { category, code: "account-not-clean" } });
 					}
 					return undefined;
 				},

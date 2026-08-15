@@ -84,9 +84,9 @@ const toStoredNotificationSubscription: (
 		metadata,
 		isActive: row.isActive,
 		userId: UserId.make(row.userId),
+		id: AutomationRuleId.make(row.id),
 		createdAt: row.createdAt.toISOString(),
 		updatedAt: row.updatedAt.toISOString(),
-		id: AutomationRuleId.make(row.id),
 		signalSchemaPluginId: row.signalSchemaPluginId,
 		signalSchemaSlug: SignalSchemaSlug.make(row.signalSchemaSlug),
 	};
@@ -99,13 +99,13 @@ const signalSchemaPluginWhere = (pluginId: string | null) =>
 
 const toStoredRun = (row: SubscriptionRunRow) => ({
 	...row,
-	queuedAt: row.queuedAt.toISOString(),
 	id: SubscriptionRunId.make(row.id),
-	startedAt: row.startedAt?.toISOString() ?? null,
+	queuedAt: row.queuedAt.toISOString(),
 	ruleId: AutomationRuleId.make(row.ruleId),
+	startedAt: row.startedAt?.toISOString() ?? null,
 	finishedAt: row.finishedAt?.toISOString() ?? null,
-	scriptUpdatedAt: row.scriptUpdatedAt?.toISOString() ?? null,
 	sandboxScriptId: SandboxScriptId.make(row.sandboxScriptId),
+	scriptUpdatedAt: row.scriptUpdatedAt?.toISOString() ?? null,
 	signalId: row.signalId ? SignalId.make(row.signalId) : null,
 	executionUserId: row.executionUserId ? UserId.make(row.executionUserId) : null,
 });
@@ -392,7 +392,7 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.update(schema.subscriptionRun)
-						.set({ status: "skipped", startedAt: now, finishedAt: now, skipReason: input.reason })
+						.set({ startedAt: now, finishedAt: now, status: "skipped", skipReason: input.reason })
 						.where(
 							and(
 								eq(schema.subscriptionRun.id, input.id),
@@ -439,7 +439,7 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 						)
 						.orderBy(asc(schema.subscriptionRun.queuedAt), asc(schema.subscriptionRun.id)),
 				);
-				return rows.map((row) => ({ id: SubscriptionRunId.make(row.id), status: row.status }));
+				return rows.map((row) => ({ status: row.status, id: SubscriptionRunId.make(row.id) }));
 			});
 
 			return {

@@ -221,8 +221,8 @@ const episodeEventRow = (event: EpisodeEvent): ShowActivityRow => {
 		...anchorOf(event, "progress"),
 		type: "progress",
 		episode: watchedEpisode(event),
-		percent: event.progressPercent ?? undefined,
 		source: optionalText(event.consumedOn),
+		percent: event.progressPercent ?? undefined,
 	};
 };
 
@@ -273,8 +273,8 @@ const watchDayRows = (watchDays: readonly ShowActivityWatchDay[]) => {
 			: [
 					{
 						type: "watch",
-						episodes: listed,
 						occurredAt: day,
+						episodes: listed,
 						key: `watch-${day}`,
 						source: sources.get(day),
 						dateKey: formatLocalDateKey(day),
@@ -332,7 +332,7 @@ const segmentRows = (rows: readonly ShowActivityRow[]) => {
 		}
 	}
 	close();
-	return { open: pending, completed };
+	return { completed, open: pending };
 };
 
 const foldSegments = (rows: readonly ShowActivityRow[]) => {
@@ -356,7 +356,7 @@ const showActivityTimeline = (
 	const second = completed.at(1);
 	if (first === undefined || second === undefined) {
 		const flat = nonEmpty(rows);
-		return flat === undefined ? undefined : { layout: "flat", rows: flat };
+		return flat === undefined ? undefined : { rows: flat, layout: "flat" };
 	}
 	return {
 		layout: "segmented",
@@ -382,8 +382,8 @@ export const showActivityCoverage = (result: ShowActivityResult): ShowActivityCo
 	const rows = [...result.seasons].sort((left, right) => seasonOrder(left) - seasonOrder(right));
 	const seasons = rows.filter((row) => !isSpecialsSeason(row));
 	return {
-		specials: rows.filter(isSpecialsSeason).map(seasonCoverage).at(0),
 		seasons: seasons.map(seasonCoverage),
+		specials: rows.filter(isSpecialsSeason).map(seasonCoverage).at(0),
 		headline: {
 			watched: seasons.reduce((total, season) => total + season.watchedTotal, 0),
 			total:
@@ -408,9 +408,9 @@ const activitySpan = (rows: NonEmpty<ShowActivityRow>, truncated: boolean): Show
 	const latest = latestRow.occurredAt;
 	const earliest = rows.at(-1)?.occurredAt ?? latest;
 	if (truncated) {
-		return { bound: "partial", latest };
+		return { latest, bound: "partial" };
 	}
-	return { bound: "full", latest, earliest, days: localDayCount(earliest, latest) };
+	return { latest, earliest, bound: "full", days: localDayCount(earliest, latest) };
 };
 
 const showActivitySummary = (input: {
@@ -444,7 +444,7 @@ export const mapShowActivity = (result: RyotQueryResult<ShowActivityResult>): Sh
 		return state;
 	}
 	const view = showActivityView(state.value);
-	return view === undefined ? { status: "empty" } : { status: "ready", view };
+	return view === undefined ? { status: "empty" } : { view, status: "ready" };
 };
 
 export const showActivityError = (state: ShowActivityFailure) => ({
@@ -528,7 +528,7 @@ export const showActivitySpanLabel = (summary: ShowActivitySummary) => {
 	if (summary.span.bound === "partial") {
 		return { label: "Latest", detail: undefined, value: formatLocalDateLabel(summary.span.latest) };
 	}
-	const { days, earliest, latest } = summary.span;
+	const { days, latest, earliest } = summary.span;
 	return {
 		label: "Span",
 		detail: spanRangeLabel(earliest, latest),

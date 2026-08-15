@@ -16,8 +16,8 @@ it("hashes sorted source paths and exact source bytes", () => {
 		"client/image.png": new Uint8Array([0, 255, 1]),
 	};
 	const reordered = {
-		"client/image.png": new Uint8Array([0, 255, 1]),
 		"backend/a.ts": encoder.encode("same"),
+		"client/image.png": new Uint8Array([0, 255, 1]),
 	};
 	const changed = { ...reordered, "client/image.png": new Uint8Array([0, 254, 1]) };
 

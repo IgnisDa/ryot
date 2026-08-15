@@ -60,6 +60,16 @@ export const mediaMonitoringTargetsRecipe = defineRecipe((entityIds: readonly st
 	const entity = table("entity", "entity");
 	const relationship = table("relationship", "monitoringRelationship");
 	return {
+		map: ({ targets }) =>
+			Result.succeed(
+				targets.items.map((target) => ({
+					entityId: target.entityId,
+					externalId: target.externalId,
+					providerId: target.providerId,
+					entitySchemaSlug: target.entitySchemaSlug,
+					monitoringLibraryId: target.monitoringLibraries.items[0]?.libraryEntityId ?? null,
+				})),
+			),
 		queries: {
 			targets: selectedRows(entity, {
 				limit: entityIds.length,
@@ -84,16 +94,6 @@ export const mediaMonitoringTargetsRecipe = defineRecipe((entityIds: readonly st
 				},
 			}),
 		},
-		map: ({ targets }) =>
-			Result.succeed(
-				targets.items.map((target) => ({
-					entityId: target.entityId,
-					externalId: target.externalId,
-					providerId: target.providerId,
-					entitySchemaSlug: target.entitySchemaSlug,
-					monitoringLibraryId: target.monitoringLibraries.items[0]?.libraryEntityId ?? null,
-				})),
-			),
 	};
 });
 
@@ -102,6 +102,8 @@ export const mediaMonitoringSweepRecipe = defineRecipe(
 		const entity = table("entity", "entity");
 		const relationship = table("relationship", "monitoringRelationship");
 		return {
+			map: ({ targets }) =>
+				Result.succeed({ items: targets.items, nextCursor: targets.pageInfo.nextCursor }),
 			queries: {
 				targets: selectedRows(entity, {
 					after,
@@ -114,8 +116,6 @@ export const mediaMonitoringSweepRecipe = defineRecipe(
 					),
 				}),
 			},
-			map: ({ targets }) =>
-				Result.succeed({ items: targets.items, nextCursor: targets.pageInfo.nextCursor }),
 		};
 	},
 );

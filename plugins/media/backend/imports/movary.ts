@@ -90,9 +90,9 @@ const movieGroup = (
 		groups,
 		{
 			kind: "resolved",
-			providerSlug: "movie.tmdb",
 			externalId: input.tmdbId,
 			entitySchemaSlug: "movie",
+			providerSlug: "movie.tmdb",
 			sourceLabel: input.sourceLabel,
 		},
 		input.itemIndex,
@@ -162,10 +162,10 @@ export const adaptMovaryExports = (input: {
 		});
 		if (Result.isFailure(parsed)) {
 			pushFailure(failures, {
-				error: parsed.failure,
 				itemIndex: index,
-				fileLabel: "History",
 				sourceLabel: label,
+				fileLabel: "History",
+				error: parsed.failure,
 				sourceIdentifier: identifier,
 			});
 		}
@@ -188,19 +188,19 @@ export const adaptMovaryExports = (input: {
 		const parsed = Result.try(() => {
 			const id = tmdbId(row);
 			const normalizedRating = rating(readRequiredCell(row, RATING_ALIASES, "user_rating"));
-			const group = movieGroup(groups, { itemIndex: index, sourceLabel: label, tmdbId: id });
+			const group = movieGroup(groups, { tmdbId: id, itemIndex: index, sourceLabel: label });
 			group.events.push({
-				properties: { rating: normalizedRating },
 				eventSchemaSlug: "review",
 				occurredAt: input.importedAt,
+				properties: { rating: normalizedRating },
 			});
 		});
 		if (Result.isFailure(parsed)) {
 			pushFailure(failures, {
-				error: parsed.failure,
 				itemIndex: index,
-				fileLabel: "Ratings",
 				sourceLabel: label,
+				fileLabel: "Ratings",
+				error: parsed.failure,
 				sourceIdentifier: identifier,
 			});
 		}
@@ -229,14 +229,14 @@ export const adaptMovaryExports = (input: {
 		});
 		if (Result.isFailure(parsed)) {
 			pushFailure(failures, {
-				error: parsed.failure,
 				itemIndex: index,
-				fileLabel: "Watchlist",
 				sourceLabel: label,
+				error: parsed.failure,
+				fileLabel: "Watchlist",
 				sourceIdentifier: identifier,
 			});
 		}
 	}
 
-	return { totalItems: itemIndex, entityGroups: finalizeEntityGroups(groups.values()), failures };
+	return { failures, totalItems: itemIndex, entityGroups: finalizeEntityGroups(groups.values()) };
 };

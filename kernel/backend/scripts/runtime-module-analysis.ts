@@ -128,7 +128,7 @@ export const extractImportEdges = (
 
 		return [...targets]
 			.sort((left, right) => left.localeCompare(right))
-			.map((to) => ({ to, from: source.moduleName, kind: source.kind }) satisfies ModuleEdge);
+			.map((to) => ({ to, kind: source.kind, from: source.moduleName }) satisfies ModuleEdge);
 	});
 
 const resolveFileImport = (

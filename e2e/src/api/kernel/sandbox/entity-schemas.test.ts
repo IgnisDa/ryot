@@ -19,11 +19,11 @@ describe("sandbox entity schema reads", () => {
 			const second = yield* createPluginSchema(client, { name: "Second schema" });
 			const slug = `get-entity-schemas-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
-				client,
 				slug,
+				client,
 				name: "Get entity schemas",
 				capabilities: ["getEntitySchemas"],
-				source: entitySchemasSandboxSource({ name: "Get entity schemas", slug }),
+				source: entitySchemasSandboxSource({ slug, name: "Get entity schemas" }),
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
@@ -54,11 +54,11 @@ describe("sandbox entity schema reads", () => {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `get-entity-schemas-missing-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
-				client,
 				slug,
+				client,
 				name: "Get entity schemas missing",
 				capabilities: ["getEntitySchemas"],
-				source: entitySchemasSandboxSource({ name: "Get entity schemas missing", slug }),
+				source: entitySchemasSandboxSource({ slug, name: "Get entity schemas missing" }),
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, {
 				scriptId,

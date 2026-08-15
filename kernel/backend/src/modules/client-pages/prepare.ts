@@ -77,7 +77,7 @@ export const resolvePluginPageTarget = <E, R>(input: {
 			const target = input.target;
 			const plugin = input.plugins.find(({ id }) => id === target.pluginId);
 			if (plugin?.health !== "ready" || !plugin.manifest.client) {
-				return yield* failure({ code: "plugin-unavailable", pluginId: target.pluginId });
+				return yield* failure({ pluginId: target.pluginId, code: "plugin-unavailable" });
 			}
 			for (const [pattern, exportName] of Object.entries(plugin.manifest.client.routes ?? {}).sort(
 				([left], [right]) => comparePluginRoutePaths(left, right),

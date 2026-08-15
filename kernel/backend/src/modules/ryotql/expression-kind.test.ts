@@ -94,7 +94,7 @@ it("infers one kind per scalar expression variant", () => {
 		{ kind: "number", expr: firstNested(count(nested)) },
 	];
 	for (const { expr, kind } of cases) {
-		expect({ kind: expressionKind(expr, scope), type: expr.type }).toEqual({
+		expect({ type: expr.type, kind: expressionKind(expr, scope) }).toEqual({
 			kind,
 			type: expr.type,
 		});

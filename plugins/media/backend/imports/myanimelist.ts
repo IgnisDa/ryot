@@ -196,5 +196,5 @@ export const adaptMyanimelistExports = (input: {
 	if (input.mangaXml) {
 		itemIndex = adaptLot(groups, failures, { itemIndex, lot: "manga", xmlText: input.mangaXml });
 	}
-	return { totalItems: itemIndex, entityGroups: finalizeEntityGroups(groups.values()), failures };
+	return { failures, totalItems: itemIndex, entityGroups: finalizeEntityGroups(groups.values()) };
 };

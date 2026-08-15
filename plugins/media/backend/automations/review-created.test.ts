@@ -20,7 +20,7 @@ const input = (origin: AutomationInput["automation"]["origin"]): AutomationInput
 				properties: { rating: 80 },
 				createdAt: "2026-07-20T09:00:01.000Z",
 				occurredAt: "2026-07-20T09:00:00.000Z",
-				subject: { id: "entity-1", name: "Dune", entitySchemaSlug: "book" },
+				subject: { name: "Dune", id: "entity-1", entitySchemaSlug: "book" },
 			},
 		},
 	},
@@ -37,23 +37,23 @@ it("emits one actor signal for an API review from its event snapshot", () => {
 				defineSandboxTestHost(manifest, {
 					emitSignal: (request) => {
 						calls.push(request);
-						return Effect.succeed({ signalId: "signal-1", wasCreated: true });
+						return Effect.succeed({ wasCreated: true, signalId: "signal-1" });
 					},
 				}),
 				execution,
 			)
 			.pipe(
 				Effect.map((result) => {
-					expect(result).toEqual({ signalId: "signal-1", wasCreated: true });
+					expect(result).toEqual({ wasCreated: true, signalId: "signal-1" });
 					expect(calls).toEqual([
 						{
-							discriminator: "review-event-1",
 							schemaSlug: "review.created",
+							discriminator: "review-event-1",
 							properties: {
-								entityId: "entity-1",
 								entityName: "Dune",
-								reviewEventId: "review-event-1",
+								entityId: "entity-1",
 								entitySchemaSlug: "book",
+								reviewEventId: "review-event-1",
 							},
 						},
 					]);
@@ -78,7 +78,7 @@ it.each([
 				defineSandboxTestHost(manifest, {
 					emitSignal: (request) => {
 						calls.push(request);
-						return Effect.succeed({ signalId: "signal-1", wasCreated: true });
+						return Effect.succeed({ wasCreated: true, signalId: "signal-1" });
 					},
 				}),
 				execution,

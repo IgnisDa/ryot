@@ -74,9 +74,9 @@ describe("plugins", () => {
 				slug: automationSlug,
 				entry: automationEntry,
 				kind: "automation" as const,
-				capabilities: ["createEvents"],
 				requiredPluginConfigKeys: [],
 				requiredSystemConfigKeys: [],
+				capabilities: ["createEvents"],
 				name: "E2E Lifecycle Event Automation",
 			} satisfies PluginScript;
 			const initialDetailsSource = providerSandboxSource({
@@ -129,6 +129,7 @@ export default defineAutomation({
 					pluginSlug,
 					scope: "system",
 					scripts: [detailsScript, searchScript, automationScript],
+					eventAutomations: [{ eventSchemaSlug, kind: "subscription", scriptSlug: automationSlug }],
 					files: {
 						[searchEntry]: initialSearchSource,
 						[automationEntry]: automationSource,
@@ -137,10 +138,10 @@ export default defineAutomation({
 					providers: [
 						{
 							slug: providerSlug,
-							rootEntitySchemaSlug: schemaSlug,
 							information: { source: "e2e" },
 							name: "E2E Lifecycle Provider",
-							operations: { details: detailsSlug, search: searchSlug },
+							rootEntitySchemaSlug: schemaSlug,
+							operations: { search: searchSlug, details: detailsSlug },
 						},
 					],
 					entitySchemas: [
@@ -183,7 +184,6 @@ export default defineAutomation({
 							],
 						},
 					],
-					eventAutomations: [{ eventSchemaSlug, kind: "subscription", scriptSlug: automationSlug }],
 				}),
 				(installed) =>
 					Effect.gen(function* () {
@@ -236,8 +236,8 @@ export default defineAutomation({
 			assertPresent(storedDetailsScript.providerId, "Missing hot-installed provider ID");
 			const providerId = storedDetailsScript.providerId;
 			const updatedDetailsSource = providerSandboxSource({
-				operation: "details",
 				slug: detailsSlug,
+				operation: "details",
 				name: detailsScript.name,
 				result: fakeProviderDetailsResult({
 					name: "Reingested Lifecycle Entity",
@@ -286,10 +286,10 @@ export default defineAutomation({
 
 			const { client, userId } = yield* createAuthenticatedClient();
 			const search = yield* searchProviderEntities(client, {
-				providerId,
-				query: "hot",
 				page: 1,
+				providerId,
 				pageSize: 5,
+				query: "hot",
 			});
 			expect(search.providerId).toBe(providerId);
 			expect(search.items).toHaveLength(1);
@@ -298,8 +298,8 @@ export default defineAutomation({
 			expect(searchItem.title).toBe("Reingested Lifecycle Entity");
 
 			const imported = yield* enqueueProviderEntityImport(client, {
-				externalId: searchItem.externalId,
 				providerId: search.providerId,
+				externalId: searchItem.externalId,
 			});
 			const importResult = yield* pollProviderEntityImportResult(client, imported.jobId);
 			assertCompleted(importResult, "hot-installed provider import");
@@ -313,9 +313,9 @@ export default defineAutomation({
 				c.events.create({
 					payload: [
 						{
-							eventSchemaSlug: EventSchemaSlug.make(eventSlug),
 							entityId: importResult.data.id,
 							properties: { note: "lifecycle-observed" },
+							eventSchemaSlug: EventSchemaSlug.make(eventSlug),
 						},
 					],
 				}),
@@ -414,7 +414,7 @@ export default defineAutomation({
 			const installed = yield* installPrivatePluginPackage({
 				client,
 				config: {},
-				pluginPackage: { files: {}, manifest },
+				pluginPackage: { manifest, files: {} },
 			});
 			expect(installed).toMatchObject({ config: {}, scope: "user", slug: pluginSlug });
 			const afterInstall = yield* client.call((c) => c.plugins.list({}));
@@ -427,7 +427,7 @@ export default defineAutomation({
 				Effect.flip(client.call((c) => c.testSupport.listSystemPlugins({}))),
 				Effect.flip(
 					client.call((c) =>
-						c.testSupport.installSystemPlugin({ payload: { files: {}, manifest } }),
+						c.testSupport.installSystemPlugin({ payload: { manifest, files: {} } }),
 					),
 				),
 				Effect.flip(

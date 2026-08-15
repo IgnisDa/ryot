@@ -53,7 +53,7 @@ const user: CurrentUserValue = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-id"),
-	preferences: { allowNsfw: false, language: null, disableIntegrations: false },
+	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
 };
 
 const memberOfSchema = {
@@ -70,8 +70,8 @@ const collectionPropertiesSchema = {
 	fields: {
 		description: { label: "Description", type: "string" as const, description: "Description" },
 		membershipPropertiesSchema: {
-			type: "object" as const,
 			properties: {},
+			type: "object" as const,
 			unknownKeys: "passthrough" as const,
 			label: "Membership Properties Schema",
 			description: "Membership Properties Schema",
@@ -88,15 +88,15 @@ const collectionEntitySchema = {
 const addEventSchema = {
 	name: "Add Entity to Collection",
 	slug: "add-entity-to-collection",
-	id: EventSchemaSlug.make("add-event-schema-id"),
 	propertiesSchema: { fields: {} },
+	id: EventSchemaSlug.make("add-event-schema-id"),
 };
 
 const removeEventSchema = {
+	propertiesSchema: { fields: {} },
 	name: "Remove Entity from Collection",
 	slug: "remove-entity-from-collection",
 	id: EventSchemaSlug.make("remove-event-schema-id"),
-	propertiesSchema: { fields: {} },
 };
 
 const mockCollectionsRepository = Layer.mock(CollectionsRepository);
@@ -270,7 +270,7 @@ it.effect("rejects creating a collection with an empty name", () => {
 
 		assertExitFails(
 			exit,
-			new CollectionBadRequest({ reason: { code: "name-required", field: "name" } }),
+			new CollectionBadRequest({ reason: { field: "name", code: "name-required" } }),
 		);
 	}).pipe(Effect.provide(layer));
 });
@@ -425,6 +425,9 @@ it.effect("awaits EventCreateWorkflow for a newly inserted membership", () => {
 	};
 
 	const layer = makeServiceLayer({
+		relationshipsRepository: makeRelationshipsRepository({
+			createRelationship: () => Effect.succeed(membership),
+		}),
 		collectionsRepository: makeCollectionsRepository({
 			getEntityForMembership: () =>
 				Effect.succeed({
@@ -443,9 +446,6 @@ it.effect("awaits EventCreateWorkflow for a newly inserted membership", () => {
 					id: EntityId.make("coll-id"),
 					entitySchemaSlug: EntitySchemaSlug.make("collection-schema-id"),
 				}),
-		}),
-		relationshipsRepository: makeRelationshipsRepository({
-			createRelationship: () => Effect.succeed(membership),
 		}),
 	});
 
@@ -732,26 +732,6 @@ it.effect("can insert and run policy again after a compensated failure", () => {
 	});
 	let currentRelationship: ReturnType<typeof membership> | null = null;
 	const layer = makeServiceLayer({
-		relationshipsRepository: makeRelationshipsRepository({
-			createRelationship: () =>
-				Effect.sync(() => {
-					if (currentRelationship) {
-						return { ...currentRelationship, wasInserted: false };
-					}
-					nextRelationship += 1;
-					currentRelationship = membership(RelationshipId.make(`rel-${nextRelationship}`), true);
-					return currentRelationship;
-				}),
-			deleteUserRelationshipById: (requestedUserId, relationshipId) =>
-				Effect.sync(() => {
-					if (requestedUserId !== user.id || currentRelationship?.id !== relationshipId) {
-						return false;
-					}
-					compensatedIds.push(relationshipId);
-					currentRelationship = null;
-					return true;
-				}),
-		}),
 		collectionsRepository: makeCollectionsRepository({
 			getEntityForMembership: () =>
 				Effect.succeed({
@@ -769,6 +749,26 @@ it.effect("can insert and run policy again after a compensated failure", () => {
 					providerId: null,
 					id: EntityId.make("coll-id"),
 					entitySchemaSlug: EntitySchemaSlug.make("collection-schema-id"),
+				}),
+		}),
+		relationshipsRepository: makeRelationshipsRepository({
+			deleteUserRelationshipById: (requestedUserId, relationshipId) =>
+				Effect.sync(() => {
+					if (requestedUserId !== user.id || currentRelationship?.id !== relationshipId) {
+						return false;
+					}
+					compensatedIds.push(relationshipId);
+					currentRelationship = null;
+					return true;
+				}),
+			createRelationship: () =>
+				Effect.sync(() => {
+					if (currentRelationship) {
+						return { ...currentRelationship, wasInserted: false };
+					}
+					nextRelationship += 1;
+					currentRelationship = membership(RelationshipId.make(`rel-${nextRelationship}`), true);
+					return currentRelationship;
 				}),
 		}),
 	});
@@ -825,22 +825,6 @@ it.effect("retries compensation after a prior compensation failure", () => {
 	};
 	let currentRelationship: typeof membership | null = membership;
 	const layer = makeServiceLayer({
-		relationshipsRepository: makeRelationshipsRepository({
-			createRelationship: () => Effect.succeed(membership),
-			updateRelationship: () => Effect.succeed({ ...membership, wasInserted: false }),
-			deleteUserRelationshipById: (_userId, relationshipId) =>
-				Effect.gen(function* () {
-					deleteAttempts += 1;
-					if (deleteAttempts === 1) {
-						return yield* new DbError({ message: "compensation failed" });
-					}
-					if (currentRelationship?.id !== relationshipId) {
-						return false;
-					}
-					currentRelationship = null;
-					return true;
-				}),
-		}),
 		collectionsRepository: makeCollectionsRepository({
 			getEntityForMembership: () =>
 				Effect.succeed({
@@ -858,6 +842,22 @@ it.effect("retries compensation after a prior compensation failure", () => {
 					providerId: null,
 					id: EntityId.make("coll-id"),
 					entitySchemaSlug: EntitySchemaSlug.make("collection-schema-id"),
+				}),
+		}),
+		relationshipsRepository: makeRelationshipsRepository({
+			createRelationship: () => Effect.succeed(membership),
+			updateRelationship: () => Effect.succeed({ ...membership, wasInserted: false }),
+			deleteUserRelationshipById: (_userId, relationshipId) =>
+				Effect.gen(function* () {
+					deleteAttempts += 1;
+					if (deleteAttempts === 1) {
+						return yield* new DbError({ message: "compensation failed" });
+					}
+					if (currentRelationship?.id !== relationshipId) {
+						return false;
+					}
+					currentRelationship = null;
+					return true;
 				}),
 		}),
 	});

@@ -19,7 +19,7 @@ function ClientApplication(props: {
 	readonly backInterceptors: BackInterceptors;
 	readonly router: ReturnType<typeof getRouter>;
 }) {
-	const { backInterceptors, router } = props;
+	const { router, backInterceptors } = props;
 	useEffect(() => {
 		const navigation = startNativeNavigation({
 			back: () => router.history.back(),
@@ -53,7 +53,7 @@ if (!rootElement.innerHTML) {
 	);
 	const theme = createThemeStore(initialThemePreference);
 	const backInterceptors = createBackInterceptors();
-	const router = getRouter({ backInterceptors, runtime, theme });
+	const router = getRouter({ theme, runtime, backInterceptors });
 	root.render(
 		<ClientApplication
 			theme={theme}

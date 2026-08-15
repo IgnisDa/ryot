@@ -54,7 +54,7 @@ describe("managed assets", () => {
 					asset: assets[0],
 					url: "https://ryot.example/api/uploads/local/download?key=permanent/local.png",
 				},
-				{ asset: assets[1], expiresAt, url: "https://s3.example/permanent/remote.png" },
+				{ expiresAt, asset: assets[1], url: "https://s3.example/permanent/remote.png" },
 			]);
 		} finally {
 			await runtime.dispose();

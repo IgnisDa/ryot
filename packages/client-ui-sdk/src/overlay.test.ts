@@ -17,7 +17,7 @@ const mountContainer = () => {
 	last.textContent = "last";
 	container.append(first, last);
 	document.body.append(container);
-	return { container, first, last };
+	return { last, first, container };
 };
 
 const keydown = (target: EventTarget, init: KeyboardEventInit) =>
@@ -87,7 +87,7 @@ describe("focusableElements", () => {
 
 describe("useFocusTrap", () => {
 	it("wraps focus in both directions", () => {
-		const { container, first, last } = mountContainer();
+		const { last, first, container } = mountContainer();
 		renderHook(() => useFocusTrap({ current: container }, { enabled: true }));
 
 		last.focus();
@@ -101,7 +101,7 @@ describe("useFocusTrap", () => {
 	});
 
 	it("leaves focus alone while disabled", () => {
-		const { container, last } = mountContainer();
+		const { last, container } = mountContainer();
 		renderHook(() => useFocusTrap({ current: container }, { enabled: false }));
 
 		last.focus();
@@ -137,7 +137,7 @@ describe("useScrollLock", () => {
 
 describe("useDismissOnOutside", () => {
 	it("dismisses only for pointerdown outside every ref", () => {
-		const { container, first } = mountContainer();
+		const { first, container } = mountContainer();
 		const outside = document.createElement("div");
 		document.body.append(outside);
 		let dismissals = 0;
@@ -168,7 +168,7 @@ describe("useDismissOnOutside", () => {
 
 describe("useRestoreFocus", () => {
 	it("returns focus to the trigger on unmount", async () => {
-		const { container, first, last } = mountContainer();
+		const { last, first, container } = mountContainer();
 		const view = renderHook(() => useRestoreFocus({ current: first }));
 		last.focus();
 

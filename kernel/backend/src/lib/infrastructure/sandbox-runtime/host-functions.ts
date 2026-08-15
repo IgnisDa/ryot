@@ -179,6 +179,120 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					.pipe(Effect.flatMap(toSandboxCreateEventsResult));
 
 	return {
+		getUserPreferences: (rawInput) =>
+			requireSandboxCapabilityInput(rawInput, "getUserPreferences").pipe(
+				Effect.flatMap((input) => readUserPreferences(UserId.make(input.principal.subject.userId))),
+				sandboxHostEffect,
+			),
+		createEvents: (rawInput, body) =>
+			requireSandboxCapabilityInput(rawInput, "createEvents").pipe(
+				Effect.flatMap((input) =>
+					decodeCreateEventsPayload(body).pipe(
+						Effect.flatMap((payload) => createEvents(input, payload)),
+					),
+				),
+				sandboxHostEffect,
+			),
+		getSystemConfig: (input, rawKeys) =>
+			sandboxHostEffect(
+				normalizeConfigKeys("getSystemConfig", rawKeys).pipe(
+					Effect.flatMap((keys) =>
+						getSystemConfig(keys, input.principal.metadata).pipe(
+							Effect.flatMap((values) => encodeConfigValues("System", values)),
+						),
+					),
+				),
+			),
+		getPluginConfig: (input, rawKeys) =>
+			sandboxHostEffect(
+				normalizeConfigKeys("getPluginConfig", rawKeys).pipe(
+					Effect.flatMap((keys) =>
+						pluginRuntime.resolvePluginConfigContext(input.principal).pipe(
+							Effect.flatMap((context) =>
+								context
+									? getPluginConfig({ keys, context, metadata: input.principal.metadata })
+									: Effect.fail("Plugin config is available only to active plugin scripts"),
+							),
+							Effect.flatMap((values) => encodeConfigValues("Plugin", values)),
+						),
+					),
+					Effect.provideService(Database, database),
+				),
+			),
+		listIntegrations: (rawInput, rawOptions) =>
+			Effect.gen(function* () {
+				const input = yield* requireSandboxCapabilityInput(rawInput, "listIntegrations");
+				const options = rawOptions ?? {};
+
+				return yield* sandboxHostEffect(
+					integrationsRepository
+						.listForUser({
+							userId: UserId.make(input.principal.subject.userId),
+							...(options.provider !== undefined ? { provider: options.provider } : {}),
+							...(options.isDisabled !== undefined ? { isDisabled: options.isDisabled } : {}),
+						})
+						.pipe(
+							Effect.map((rows) => rows.map(toSandboxIntegration)),
+							Effect.provideService(Database, database),
+						),
+				);
+			}),
+		getCurrentIntegration: (rawInput) =>
+			requireSandboxCapabilityInput(rawInput, "getCurrentIntegration").pipe(
+				Effect.flatMap((input) => {
+					const integrationId = sandboxRunIntegrationId(input);
+					if (!integrationId) {
+						return Effect.fail(
+							"getCurrentIntegration is available only to executions scoped to an integration",
+						);
+					}
+
+					return integrationsRepository
+						.getForUser({
+							integrationId: IntegrationId.make(integrationId),
+							userId: UserId.make(input.principal.subject.userId),
+						})
+						.pipe(
+							Effect.flatMap((integration) =>
+								integration
+									? Effect.succeed(toSandboxIntegration(integration))
+									: Effect.fail("Integration not found"),
+							),
+						);
+				}),
+				Effect.provideService(Database, database),
+				sandboxHostEffect,
+			),
+		executeRyotql: (rawInput, query) =>
+			requireSandboxCapabilityInput(rawInput, "executeRyotql").pipe(
+				Effect.flatMap((input) => {
+					const { subject } = input.principal;
+					if (subject.type === "system") {
+						return sandboxHostEffect(
+							Effect.gen(function* () {
+								const revision = input.principal.pluginRevision;
+								if (revision?.scope !== "system") {
+									return yield* Effect.fail(
+										"executeRyotql system access requires a pinned plugin script",
+									);
+								}
+								const document = yield* decodeRyotQLDocument(query);
+								return yield* ryotqlService.executeForPlugin(
+									{ pluginSlug: revision.slug, ...revision.schemaScope },
+									document,
+								);
+							}),
+						);
+					}
+					return sandboxHostEffect(
+						decodeRyotQLDocument(query).pipe(
+							Effect.flatMap((document) =>
+								ryotqlService.executeForUser(subject.userId, null, document),
+							),
+						),
+					);
+				}),
+			),
 		changeUserRelationships: (rawInput, batches) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
@@ -240,15 +354,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 						.pipe(Effect.provideService(Database, database));
 				}).pipe(Effect.provideService(Database, database)),
 			),
-		createEvents: (rawInput, body) =>
-			requireSandboxCapabilityInput(rawInput, "createEvents").pipe(
-				Effect.flatMap((input) =>
-					decodeCreateEventsPayload(body).pipe(
-						Effect.flatMap((payload) => createEvents(input, payload)),
-					),
-				),
-				sandboxHostEffect,
-			),
 		upsertGlobalEntities: (rawInput, items, options) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
@@ -283,6 +388,44 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 						.pipe(Effect.provideService(Database, database));
 				}),
 			),
+		listEventSchemas: (rawInput, entitySchemaSlugs) =>
+			requireSandboxCapabilityInput(rawInput, "listEventSchemas").pipe(
+				Effect.flatMap((input) =>
+					requireUniqueNonEmptyStrings(
+						entitySchemaSlugs,
+						"listEventSchemas expects non-empty entitySchemaSlugs",
+					).pipe(
+						Effect.flatMap((resolvedEntitySchemaSlugs) => {
+							if (resolvedEntitySchemaSlugs.length === 0) {
+								return Effect.succeed([]);
+							}
+
+							return pluginRuntime
+								.getEffectiveDefinitions(UserId.make(input.principal.subject.userId))
+								.pipe(
+									Effect.flatMap((effectiveDefinitions) =>
+										Effect.forEach(resolvedEntitySchemaSlugs, (entitySchemaSlug) => {
+											const entitySchema = effectiveDefinitions.entitySchemas[entitySchemaSlug];
+											return entitySchema
+												? Effect.succeed(
+														Object.values(entitySchema.eventSchemas).map((eventSchema) => ({
+															entitySchemaSlug,
+															id: eventSchema.slug,
+															slug: eventSchema.slug,
+															name: eventSchema.name,
+															propertiesSchema: toSandboxJsonValue(eventSchema.propertiesSchema),
+														})),
+													)
+												: Effect.fail("Entity schema not found");
+										}).pipe(Effect.map((schemas) => schemas.flat())),
+									),
+								);
+						}),
+					),
+				),
+				Effect.provideService(Database, database),
+				sandboxHostEffect,
+			),
 		upsertGlobalRelationships: (rawInput, groups) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
@@ -304,8 +447,8 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 
 					return yield* reconcileGlobalRelationships(
 						groups.map((group) => ({
-							relationshipSchemaSlug: RelationshipSchemaSlug.make(group.relationshipSchemaSlug),
 							relationships: group.relationships.map(toSandboxRelationshipIdentity),
+							relationshipSchemaSlug: RelationshipSchemaSlug.make(group.relationshipSchemaSlug),
 							selector:
 								group.selector.type === "self"
 									? group.selector
@@ -320,62 +463,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 						Effect.provideService(RelationshipsRepository, relationshipsRepository),
 					);
 				}),
-			),
-		executeRyotql: (rawInput, query) =>
-			requireSandboxCapabilityInput(rawInput, "executeRyotql").pipe(
-				Effect.flatMap((input) => {
-					const { subject } = input.principal;
-					if (subject.type === "system") {
-						return sandboxHostEffect(
-							Effect.gen(function* () {
-								const revision = input.principal.pluginRevision;
-								if (revision?.scope !== "system") {
-									return yield* Effect.fail(
-										"executeRyotql system access requires a pinned plugin script",
-									);
-								}
-								const document = yield* decodeRyotQLDocument(query);
-								return yield* ryotqlService.executeForPlugin(
-									{ pluginSlug: revision.slug, ...revision.schemaScope },
-									document,
-								);
-							}),
-						);
-					}
-					return sandboxHostEffect(
-						decodeRyotQLDocument(query).pipe(
-							Effect.flatMap((document) =>
-								ryotqlService.executeForUser(subject.userId, null, document),
-							),
-						),
-					);
-				}),
-			),
-		getPluginConfig: (input, rawKeys) =>
-			sandboxHostEffect(
-				normalizeConfigKeys("getPluginConfig", rawKeys).pipe(
-					Effect.flatMap((keys) =>
-						pluginRuntime.resolvePluginConfigContext(input.principal).pipe(
-							Effect.flatMap((context) =>
-								context
-									? getPluginConfig({ keys, context, metadata: input.principal.metadata })
-									: Effect.fail("Plugin config is available only to active plugin scripts"),
-							),
-							Effect.flatMap((values) => encodeConfigValues("Plugin", values)),
-						),
-					),
-					Effect.provideService(Database, database),
-				),
-			),
-		getSystemConfig: (input, rawKeys) =>
-			sandboxHostEffect(
-				normalizeConfigKeys("getSystemConfig", rawKeys).pipe(
-					Effect.flatMap((keys) =>
-						getSystemConfig(keys, input.principal.metadata).pipe(
-							Effect.flatMap((values) => encodeConfigValues("System", values)),
-						),
-					),
-				),
 			),
 		getEntitySchemas: (rawInput, entitySchemaSlugs) =>
 			requireSandboxCapabilityInput(rawInput, "getEntitySchemas").pipe(
@@ -418,13 +505,13 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 												string,
 												Array<{ name: string; providerId: string }>
 											>();
-											for (const { entitySchemaSlug, provider } of links) {
+											for (const { provider, entitySchemaSlug } of links) {
 												const providers = providersBySchema.get(entitySchemaSlug) ?? [];
 												providers.push({ name: provider.name, providerId: provider.id });
 												providersBySchema.set(entitySchemaSlug, providers);
 											}
 
-											return schemas.map(({ definition, entitySchemaSlug, pluginSlug }) => ({
+											return schemas.map(({ definition, pluginSlug, entitySchemaSlug }) => ({
 												pluginSlug,
 												isBuiltin: true,
 												id: entitySchemaSlug,
@@ -443,92 +530,5 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				Effect.provideService(Database, database),
 				sandboxHostEffect,
 			),
-		getCurrentIntegration: (rawInput) =>
-			requireSandboxCapabilityInput(rawInput, "getCurrentIntegration").pipe(
-				Effect.flatMap((input) => {
-					const integrationId = sandboxRunIntegrationId(input);
-					if (!integrationId) {
-						return Effect.fail(
-							"getCurrentIntegration is available only to executions scoped to an integration",
-						);
-					}
-
-					return integrationsRepository
-						.getForUser({
-							userId: UserId.make(input.principal.subject.userId),
-							integrationId: IntegrationId.make(integrationId),
-						})
-						.pipe(
-							Effect.flatMap((integration) =>
-								integration
-									? Effect.succeed(toSandboxIntegration(integration))
-									: Effect.fail("Integration not found"),
-							),
-						);
-				}),
-				Effect.provideService(Database, database),
-				sandboxHostEffect,
-			),
-		getUserPreferences: (rawInput) =>
-			requireSandboxCapabilityInput(rawInput, "getUserPreferences").pipe(
-				Effect.flatMap((input) => readUserPreferences(UserId.make(input.principal.subject.userId))),
-				sandboxHostEffect,
-			),
-		listEventSchemas: (rawInput, entitySchemaSlugs) =>
-			requireSandboxCapabilityInput(rawInput, "listEventSchemas").pipe(
-				Effect.flatMap((input) =>
-					requireUniqueNonEmptyStrings(
-						entitySchemaSlugs,
-						"listEventSchemas expects non-empty entitySchemaSlugs",
-					).pipe(
-						Effect.flatMap((resolvedEntitySchemaSlugs) => {
-							if (resolvedEntitySchemaSlugs.length === 0) {
-								return Effect.succeed([]);
-							}
-
-							return pluginRuntime
-								.getEffectiveDefinitions(UserId.make(input.principal.subject.userId))
-								.pipe(
-									Effect.flatMap((effectiveDefinitions) =>
-										Effect.forEach(resolvedEntitySchemaSlugs, (entitySchemaSlug) => {
-											const entitySchema = effectiveDefinitions.entitySchemas[entitySchemaSlug];
-											return entitySchema
-												? Effect.succeed(
-														Object.values(entitySchema.eventSchemas).map((eventSchema) => ({
-															entitySchemaSlug,
-															id: eventSchema.slug,
-															slug: eventSchema.slug,
-															name: eventSchema.name,
-															propertiesSchema: toSandboxJsonValue(eventSchema.propertiesSchema),
-														})),
-													)
-												: Effect.fail("Entity schema not found");
-										}).pipe(Effect.map((schemas) => schemas.flat())),
-									),
-								);
-						}),
-					),
-				),
-				Effect.provideService(Database, database),
-				sandboxHostEffect,
-			),
-		listIntegrations: (rawInput, rawOptions) =>
-			Effect.gen(function* () {
-				const input = yield* requireSandboxCapabilityInput(rawInput, "listIntegrations");
-				const options = rawOptions ?? {};
-
-				return yield* sandboxHostEffect(
-					integrationsRepository
-						.listForUser({
-							userId: UserId.make(input.principal.subject.userId),
-							...(options.provider !== undefined ? { provider: options.provider } : {}),
-							...(options.isDisabled !== undefined ? { isDisabled: options.isDisabled } : {}),
-						})
-						.pipe(
-							Effect.map((rows) => rows.map(toSandboxIntegration)),
-							Effect.provideService(Database, database),
-						),
-				);
-			}),
 	} satisfies AdditionalSandboxHostImplementationMap;
 });

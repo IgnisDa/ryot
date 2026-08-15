@@ -3,17 +3,17 @@ import { assert, describe, expect, it } from "vitest";
 
 import { allCollectionsRecipe } from "./collections";
 
-const pageInfo = { hasMore: false, limit: 7, nextCursor: null };
+const pageInfo = { limit: 7, hasMore: false, nextCursor: null };
 
 describe("collections recipe", () => {
 	it("prepares and decodes the paginated collection list", () => {
-		const recipe = allCollectionsRecipe({ after: "cursor", limit: 7 });
+		const recipe = allCollectionsRecipe({ limit: 7, after: "cursor" });
 		const query = recipe.document.queries.collections;
 		assert(query);
 
 		expect(query.output).toMatchObject({
-			pagination: { after: "cursor", limit: 7 },
 			fields: [{ key: "id" }, { key: "name" }],
+			pagination: { limit: 7, after: "cursor" },
 		});
 		expect(query.where).toMatchObject({ right: { value: "collection" } });
 		expect(
@@ -23,12 +23,12 @@ describe("collections recipe", () => {
 						collections: {
 							pageInfo,
 							type: "rows",
-							items: [{ id: "collection-1", name: "Favorites" }],
+							items: [{ name: "Favorites", id: "collection-1" }],
 						},
 					},
 				}),
 			),
-		).toEqual({ items: [{ id: "collection-1", name: "Favorites" }], pageInfo });
+		).toEqual({ pageInfo, items: [{ name: "Favorites", id: "collection-1" }] });
 	});
 
 	it("rejects malformed fields and result cardinality", () => {

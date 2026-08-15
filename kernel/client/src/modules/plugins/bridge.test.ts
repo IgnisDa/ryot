@@ -42,11 +42,11 @@ import {
 const decodeInit = Schema.decodeUnknownSync(PluginBridgeInit);
 
 const artifactHash = "artifact-hash";
-const home: PluginRouteLocation = { kind: "route", path: "/", search: "" };
-const detail: PluginRouteLocation = { kind: "route", path: "/details/1", search: "" };
+const home: PluginRouteLocation = { path: "/", search: "", kind: "route" };
+const detail: PluginRouteLocation = { search: "", kind: "route", path: "/details/1" };
 const entity: PluginLogicalLocation = {
-	kind: "entity",
 	search: "",
+	kind: "entity",
 	entityId: EntityId.make("entity-1"),
 	entitySchemaSlug: EntitySchemaSlug.make("show"),
 };
@@ -78,7 +78,7 @@ const document = {
 	queries: {
 		items: {
 			from: { alias: "item", table: "item" },
-			output: { fields: [], orderBy: [], pagination: { limit: 10 }, type: "rows" },
+			output: { fields: [], orderBy: [], type: "rows", pagination: { limit: 10 } },
 		},
 	},
 } as const;
@@ -104,7 +104,7 @@ function deferred<T>() {
 		resolve = res;
 		reject = rej;
 	});
-	return { promise, resolve, reject };
+	return { reject, promise, resolve };
 }
 
 const connect = (
@@ -159,21 +159,21 @@ const connect = (
 		timeoutMs: options.timeoutMs,
 		onReady: () => readies.push(null),
 		onFailure: () => failures.push(null),
-		viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
 		onNavigateBack: () => backs.push(null),
 		onOpenDrawer: () => drawers.push(null),
+		viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
 		onNavigate: (request) => navigations.push(request),
 		onScreenState: (state) => screenStates.push(state),
 		onOverlayState: (count) => overlayStates.push(count),
 		onPageSearch: (request) => pageSearches.push(request),
 		onKernelShortcut: (shortcut) => shortcuts.push(shortcut),
-		onPageShortcuts: (registered) => pageShortcuts.push(registered),
 		onAssets: options.onAssets ?? (() => new Promise(() => {})),
 		onRyotQL: options.onRyotQL ?? (() => new Promise(() => {})),
 		onUpload: options.onUpload ?? (() => new Promise(() => {})),
-		scheduleOverlayDismissTimeout: options.scheduleOverlayDismissTimeout,
 		onProviderSearch: (request) => providerSearches.push(request),
+		onPageShortcuts: (registered) => pageShortcuts.push(registered),
 		onCollection: options.onCollection ?? (() => new Promise(() => {})),
+		scheduleOverlayDismissTimeout: options.scheduleOverlayDismissTimeout,
 		watchEntities: options.watchEntities ?? (() => ({ update: () => {}, dispose: () => {} })),
 		onOperation:
 			options.onOperation ??
@@ -257,7 +257,7 @@ const readyFor = (init: PluginBridgeInit): PluginBridgeReady => ({
 
 describe("bridge page screens", () => {
 	it("forwards provider search and sends one page refresh", async () => {
-		const { init, pluginPort, providerSearches, received, session } = connect();
+		const { init, session, received, pluginPort, providerSearches } = connect();
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toEqual([at()]));
 
@@ -282,7 +282,7 @@ describe("bridge page screens", () => {
 	});
 
 	it("registers only allowlisted page shortcuts and sends presses back down", async () => {
-		const { init, pageShortcuts, pluginPort, received, session } = connect();
+		const { init, session, received, pluginPort, pageShortcuts } = connect();
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toEqual([at()]));
 
@@ -327,8 +327,8 @@ describe("bridge entity interest", () => {
 			const bridge = connect({ watchEntities: client.entities.watch });
 			bridge.pluginPort.postMessage(readyFor(bridge.init));
 			await waitFor(() => expect(bridge.readies).toHaveLength(1));
-			bridge.pluginPort.postMessage({ type: "entity-interest", foreground: ["a"], visible: [] });
-			await waitFor(() => expect(declarations).toEqual([{ foreground: ["a"], visible: [] }]));
+			bridge.pluginPort.postMessage({ visible: [], foreground: ["a"], type: "entity-interest" });
+			await waitFor(() => expect(declarations).toEqual([{ visible: [], foreground: ["a"] }]));
 			notify?.({ entityId: "a", reason: "populated" });
 			notify?.({ entityId: "other", reason: "translated" });
 			await waitFor(() =>
@@ -338,10 +338,10 @@ describe("bridge entity interest", () => {
 					type: "entity-updated",
 				}),
 			);
-			bridge.pluginPort.postMessage({ type: "entity-interest", foreground: [], visible: ["b"] });
+			bridge.pluginPort.postMessage({ foreground: [], visible: ["b"], type: "entity-interest" });
 			await waitFor(() =>
 				expect(declarations).toEqual([
-					{ foreground: ["a"], visible: [] },
+					{ visible: [], foreground: ["a"] },
 					{ foreground: [], visible: ["b"] },
 				]),
 			);
@@ -358,7 +358,7 @@ describe("bridge entity interest", () => {
 				bridge.session.close();
 			} else {
 				bridge.pluginPort.postMessage(
-					exit === "crash" ? { type: "lifecycle-close", reason: "failed" } : { type: "invalid" },
+					exit === "crash" ? { reason: "failed", type: "lifecycle-close" } : { type: "invalid" },
 				);
 			}
 			await waitFor(() => expect(disposed).toBe(1));
@@ -375,8 +375,8 @@ describe("bridge entity interest", () => {
 						message.type === "entity-updated",
 				),
 			).toEqual([
-				{ type: "entity-updated", entityId: "a", reason: "populated" },
-				{ type: "entity-updated", entityId: "b", reason: "translated" },
+				{ entityId: "a", reason: "populated", type: "entity-updated" },
+				{ entityId: "b", reason: "translated", type: "entity-updated" },
 			]);
 		},
 	);
@@ -399,7 +399,7 @@ describe("bridge entity interest", () => {
 				operationSlug: "operation",
 			});
 		}
-		bridge.pluginPort.postMessage({ type: "entity-interest", foreground: ["a"], visible: [] });
+		bridge.pluginPort.postMessage({ visible: [], foreground: ["a"], type: "entity-interest" });
 		await waitFor(() => expect(declarations).toBe(1));
 		expect(bridge.failures).toEqual([]);
 	});
@@ -407,7 +407,7 @@ describe("bridge entity interest", () => {
 
 describe("plugin bridge", () => {
 	it("allows one acknowledged overlay dismissal at a time and preserves aggregate order", async () => {
-		const { init, overlayStates, pluginPort, received, session } = connect();
+		const { init, session, received, pluginPort, overlayStates } = connect();
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toHaveLength(1));
 		pluginPort.postMessage({ count: 2, type: "overlay-state" });
@@ -435,7 +435,7 @@ describe("plugin bridge", () => {
 
 	it("fails a document whose overlay dismissal is not acknowledged within the bound", async () => {
 		let expire: (() => void) | undefined;
-		const { failures, init, pluginPort, session } = connect({
+		const { init, session, failures, pluginPort } = connect({
 			scheduleOverlayDismissTimeout: (onTimeout) => {
 				expire = onTimeout;
 				return () => {
@@ -454,7 +454,7 @@ describe("plugin bridge", () => {
 	});
 
 	it("routes explicit plugin Back through an owned overlay before navigation", async () => {
-		const { backs, init, pluginPort, received } = connect();
+		const { init, backs, received, pluginPort } = connect();
 		pluginPort.postMessage(readyFor(init));
 		pluginPort.postMessage({ count: 1, type: "overlay-state" });
 		pluginPort.postMessage({ type: "navigate-back" });
@@ -505,9 +505,9 @@ describe("plugin bridge", () => {
 			onAssets: () => new Promise(() => {}),
 			onRyotQL: () => new Promise(() => {}),
 			onUpload: () => new Promise(() => {}),
-			viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
 			onOperation: () => new Promise(() => {}),
 			onCollection: () => new Promise(() => {}),
+			viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
 			watchEntities: () => ({ update: () => {}, dispose: () => {} }),
 			target: {
 				postMessage: () => {
@@ -523,7 +523,7 @@ describe("plugin bridge", () => {
 	});
 
 	it("readies with the location as soon as the plugin reports ready", async () => {
-		const { init, pluginPort, readies, failures, messages } = connect();
+		const { init, readies, failures, messages, pluginPort } = connect();
 
 		pluginPort.postMessage(readyFor(init));
 
@@ -533,7 +533,7 @@ describe("plugin bridge", () => {
 	});
 
 	it("forwards matching active screen readiness without protocol policy", async () => {
-		const { init, pluginPort, readies, screenStates } = connect();
+		const { init, readies, pluginPort, screenStates } = connect();
 
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(readies).toHaveLength(1));
@@ -545,18 +545,18 @@ describe("plugin bridge", () => {
 	});
 
 	it("dispatches semantic kernel shortcuts once ready", async () => {
-		const { init, pluginPort, readies, shortcuts } = connect();
+		const { init, readies, shortcuts, pluginPort } = connect();
 
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(readies).toHaveLength(1));
-		pluginPort.postMessage({ shortcut: "command-center", type: "kernel-shortcut" });
-		pluginPort.postMessage({ shortcut: "workspace-switcher", type: "kernel-shortcut" });
+		pluginPort.postMessage({ type: "kernel-shortcut", shortcut: "command-center" });
+		pluginPort.postMessage({ type: "kernel-shortcut", shortcut: "workspace-switcher" });
 
 		await waitFor(() => expect(shortcuts).toEqual(["command-center", "workspace-switcher"]));
 	});
 
 	it("ignores screen readiness that no longer matches the latest navigation", async () => {
-		const { init, pluginPort, readies, screenStates, session } = connect();
+		const { init, readies, session, pluginPort, screenStates } = connect();
 
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(readies).toHaveLength(1));
@@ -621,7 +621,7 @@ describe("plugin bridge", () => {
 		await waitFor(() => expect(outdated.failures).toHaveLength(1));
 
 		const premature = connect();
-		premature.pluginPort.postMessage({ type: "navigate", mode: "push", target: home });
+		premature.pluginPort.postMessage({ mode: "push", target: home, type: "navigate" });
 		await waitFor(() => expect(premature.failures).toHaveLength(1));
 
 		expect(premature.navigations).toEqual([]);
@@ -641,14 +641,14 @@ describe("plugin bridge", () => {
 	});
 
 	it("fails when the plugin never completes the handshake", async () => {
-		const { failures, readies } = connect({ timeoutMs: 10 });
+		const { readies, failures } = connect({ timeoutMs: 10 });
 
 		await waitFor(() => expect(failures).toHaveLength(1));
 		expect(readies).toEqual([]);
 	});
 
 	it("stops the handshake timeout once the plugin is ready", async () => {
-		const { init, pluginPort, failures, readies } = connect({ timeoutMs: 10 });
+		const { init, readies, failures, pluginPort } = connect({ timeoutMs: 10 });
 
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(readies).toHaveLength(1));
@@ -658,7 +658,7 @@ describe("plugin bridge", () => {
 	});
 
 	it("delivers only the latest pre-ready location, then every later location", async () => {
-		const { init, pluginPort, received, session } = connect();
+		const { init, session, received, pluginPort } = connect();
 
 		session.sendLocation(nav(detail, 1));
 		session.sendLocation(nav({ kind: "route", path: "/details/2", search: "tab=stats" }, 2));
@@ -679,7 +679,7 @@ describe("plugin bridge", () => {
 	});
 
 	it("sends an entity location from the kernel to the plugin", async () => {
-		const { init, pluginPort, received, session } = connect();
+		const { init, session, received, pluginPort } = connect();
 
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toEqual([at()]));
@@ -690,7 +690,7 @@ describe("plugin bridge", () => {
 	});
 
 	it("latches a pre-ready theme change and sends later themes on the active channel", async () => {
-		const { init, messages, pluginPort, readies, session } = connect();
+		const { init, readies, session, messages, pluginPort } = connect();
 
 		session.sendTheme(darkTheme);
 		pluginPort.postMessage(readyFor(init));
@@ -709,7 +709,7 @@ describe("plugin bridge", () => {
 	});
 
 	it("sends no theme when the pre-ready mode still matches init", async () => {
-		const { init, messages, pluginPort, readies, session } = connect();
+		const { init, readies, session, messages, pluginPort } = connect();
 
 		session.sendTheme(darkTheme);
 		session.sendTheme(lightTheme);
@@ -720,15 +720,15 @@ describe("plugin bridge", () => {
 	});
 
 	it("forwards decoded navigation requests once ready", async () => {
-		const { init, pluginPort, readies, navigations, failures } = connect();
+		const { init, readies, failures, pluginPort, navigations } = connect();
 		const request = {
 			mode: "push",
 			type: "navigate",
 			target: {
-				kind: "plugin-route",
-				pluginSlug: PluginSlug.make("fixture"),
 				path: "/details/1",
 				search: "tab=stats",
+				kind: "plugin-route",
+				pluginSlug: PluginSlug.make("fixture"),
 			},
 		} satisfies PluginBridgeNavigate;
 
@@ -750,10 +750,10 @@ describe("plugin bridge", () => {
 			},
 		] as const;
 		const calls: PluginAssetRequest[] = [];
-		const { init, pluginPort, received } = connect({
+		const { init, received, pluginPort } = connect({
 			onAssets: (request) => {
 				calls.push(request);
-				return Promise.resolve({ outcome: "success", resolutions });
+				return Promise.resolve({ resolutions, outcome: "success" });
 			},
 		});
 		pluginPort.postMessage(readyFor(init));
@@ -773,8 +773,8 @@ describe("plugin bridge", () => {
 
 	for (const reason of ["asset-failed", "transport"] satisfies PluginAssetBridgeErrorReason[]) {
 		it(`round-trips an ${reason} asset bridge error without extra details`, async () => {
-			const { init, pluginPort, received, failures } = connect({
-				onAssets: () => Promise.resolve({ outcome: "failure", reason }),
+			const { init, received, failures, pluginPort } = connect({
+				onAssets: () => Promise.resolve({ reason, outcome: "failure" }),
 			});
 			pluginPort.postMessage(readyFor(init));
 			await waitFor(() => expect(received).toHaveLength(1));
@@ -798,10 +798,10 @@ describe("plugin bridge", () => {
 
 	it("rejects an asset request carrying installation or authentication identity", async () => {
 		const calls: PluginAssetRequest[] = [];
-		const { init, pluginPort, received, failures } = connect({
+		const { init, received, failures, pluginPort } = connect({
 			onAssets: (request) => {
 				calls.push(request);
-				return Promise.resolve({ outcome: "success", resolutions: [] });
+				return Promise.resolve({ resolutions: [], outcome: "success" });
 			},
 		});
 		pluginPort.postMessage(readyFor(init));
@@ -824,7 +824,7 @@ describe("plugin bridge", () => {
 	it("cancels only matching asset work, releases admission, and ignores late results", async () => {
 		const signals: AbortSignal[] = [];
 		const calls: Array<ReturnType<typeof deferred<PluginAssetOutcome>>> = [];
-		const { init, pluginPort, received, failures } = connect({
+		const { init, received, failures, pluginPort } = connect({
 			onAssets: (_request, signal) => {
 				signals.push(signal);
 				const call = deferred<PluginAssetOutcome>();
@@ -856,8 +856,8 @@ describe("plugin bridge", () => {
 		});
 		await waitFor(() => expect(signals).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS + 1));
 
-		calls[0]?.resolve({ outcome: "success", resolutions: [] });
-		calls.at(-1)?.resolve({ outcome: "success", resolutions: [] });
+		calls[0]?.resolve({ resolutions: [], outcome: "success" });
+		calls.at(-1)?.resolve({ resolutions: [], outcome: "success" });
 		await waitFor(() =>
 			expect(received).toContainEqual({
 				resolutions: [],
@@ -874,7 +874,7 @@ describe("plugin bridge", () => {
 	it("aborts pending asset work on disposal and suppresses its late result", async () => {
 		let signal: AbortSignal | undefined;
 		const call = deferred<PluginAssetOutcome>();
-		const { init, pluginPort, received, session } = connect({
+		const { init, session, received, pluginPort } = connect({
 			onAssets: (_request, requestSignal) => {
 				signal = requestSignal;
 				return call.promise;
@@ -891,7 +891,7 @@ describe("plugin bridge", () => {
 
 		session.close();
 		expect(signal?.aborted).toBe(true);
-		call.resolve({ outcome: "success", resolutions: [] });
+		call.resolve({ resolutions: [], outcome: "success" });
 		await delay(10);
 
 		expect(received).toEqual([at(), { reason: "disposed", type: "lifecycle-close" }]);
@@ -913,7 +913,7 @@ describe("plugin bridge", () => {
 	});
 
 	it("stops delivering after teardown", async () => {
-		const { init, pluginPort, readies, failures, session } = connect();
+		const { init, readies, session, failures, pluginPort } = connect();
 
 		session.close();
 		pluginPort.postMessage(readyFor(init));
@@ -926,7 +926,7 @@ describe("plugin bridge", () => {
 	it("honors peer disposal, aborts work, and ignores late admissions", async () => {
 		let signal: AbortSignal | undefined;
 		const call = deferred<PluginOperationOutcome>();
-		const { init, pluginPort, received, navigations } = connect({
+		const { init, received, pluginPort, navigations } = connect({
 			onOperation: (_request, requestSignal) => {
 				signal = requestSignal;
 				return call.promise;
@@ -944,8 +944,8 @@ describe("plugin bridge", () => {
 
 		pluginPort.postMessage({ reason: "disposed", type: "lifecycle-close" });
 		await waitFor(() => expect(signal?.aborted).toBe(true));
-		pluginPort.postMessage({ type: "navigate", mode: "push", target: home });
-		call.resolve({ outcome: "success", value: "late" });
+		pluginPort.postMessage({ mode: "push", target: home, type: "navigate" });
+		call.resolve({ value: "late", outcome: "success" });
 		await delay(10);
 
 		expect(navigations).toEqual([]);
@@ -954,10 +954,10 @@ describe("plugin bridge", () => {
 
 	it("round-trips a successful operation", async () => {
 		const calls: PluginOperationRequest[] = [];
-		const { init, pluginPort, received } = connect({
+		const { init, received, pluginPort } = connect({
 			onOperation: (request) => {
 				calls.push(request);
-				return Promise.resolve({ outcome: "success", value: "ok" });
+				return Promise.resolve({ value: "ok", outcome: "success" });
 			},
 		});
 		pluginPort.postMessage(readyFor(init));
@@ -986,7 +986,7 @@ describe("plugin bridge", () => {
 	it("round-trips a collection mutation and sanitizes invalid outcomes", async () => {
 		const calls: PluginCollectionRequest[] = [];
 		let count = 0;
-		const { init, pluginPort, received, failures } = connect({
+		const { init, received, failures, pluginPort } = connect({
 			onCollection: (request) => {
 				calls.push(request);
 				count += 1;
@@ -1018,7 +1018,7 @@ describe("plugin bridge", () => {
 			requestId: "collection-1",
 			type: "collection-result",
 		});
-		expect(calls).toEqual([{ action: request.action, input: request.input }]);
+		expect(calls).toEqual([{ input: request.input, action: request.action }]);
 
 		pluginPort.postMessage({ ...request, requestId: "collection-2" });
 		await waitFor(() => expect(received).toHaveLength(3));
@@ -1034,10 +1034,10 @@ describe("plugin bridge", () => {
 	it("round-trips an upload and hands the source to the host untouched", async () => {
 		const calls: PluginUploadRequest[] = [];
 		const token = { token: "upload-token", expiresAt: "2026-01-01T00:15:00.000Z" };
-		const { init, pluginPort, received } = connect({
+		const { init, received, pluginPort } = connect({
 			onUpload: (request) => {
 				calls.push(request);
-				return Promise.resolve({ outcome: "success", token });
+				return Promise.resolve({ token, outcome: "success" });
 			},
 		});
 		pluginPort.postMessage(readyFor(init));
@@ -1067,7 +1067,7 @@ describe("plugin bridge", () => {
 	});
 
 	it("reports upload failures and rejects a source that is not a Blob", async () => {
-		const { init, pluginPort, received, failures } = connect({
+		const { init, received, failures, pluginPort } = connect({
 			onUpload: () => Promise.reject(new Error("upload exploded")),
 		});
 		pluginPort.postMessage(readyFor(init));
@@ -1100,12 +1100,12 @@ describe("plugin bridge", () => {
 	});
 
 	it("maps synchronous operation and query failures to transport results", async () => {
-		const { init, pluginPort, received } = connect({
-			onOperation: () => {
-				throw new Error("operation failed synchronously");
-			},
+		const { init, received, pluginPort } = connect({
 			onRyotQL: () => {
 				throw new Error("query failed synchronously");
+			},
+			onOperation: () => {
+				throw new Error("operation failed synchronously");
 			},
 		});
 		pluginPort.postMessage(readyFor(init));
@@ -1136,14 +1136,14 @@ describe("plugin bridge", () => {
 
 	it("maps an invalid operation success to malformed-result and keeps the session alive", async () => {
 		let calls = 0;
-		const { init, pluginPort, received, failures } = connect({
+		const { init, received, failures, pluginPort } = connect({
 			onOperation: () => {
 				calls += 1;
 				return Promise.resolve(
 					calls === 1
 						? // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- injects an invalid runtime boundary value
 							({ outcome: "success", value: () => undefined } as unknown as PluginOperationOutcome)
-						: { outcome: "success", value: "ok" },
+						: { value: "ok", outcome: "success" },
 				);
 			},
 		});
@@ -1188,11 +1188,11 @@ describe("plugin bridge", () => {
 		"malformed-result",
 	] satisfies PluginOperationBridgeErrorReason[]) {
 		it(`round-trips a ${reason} operation bridge error without extra details`, async () => {
-			const { init, pluginPort, received, failures } = connect({
+			const { init, received, failures, pluginPort } = connect({
 				onOperation: () =>
 					Promise.resolve(
 						// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- verifies runtime detail redaction
-						{ outcome: "failure", reason, cause: new Error("private") } as PluginOperationOutcome,
+						{ reason, outcome: "failure", cause: new Error("private") } as PluginOperationOutcome,
 					),
 			});
 			pluginPort.postMessage(readyFor(init));
@@ -1217,7 +1217,7 @@ describe("plugin bridge", () => {
 	}
 
 	it("maps an invalid callback failure reason to transport", async () => {
-		const { init, pluginPort, received } = connect({
+		const { init, received, pluginPort } = connect({
 			onOperation: () =>
 				Promise.resolve(
 					// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- injects an invalid runtime boundary value
@@ -1244,7 +1244,7 @@ describe("plugin bridge", () => {
 	});
 
 	it("reports a transport failure when onOperation rejects", async () => {
-		const { init, pluginPort, received } = connect({
+		const { init, received, pluginPort } = connect({
 			onOperation: () => Promise.reject(new Error("boom")),
 		});
 		pluginPort.postMessage(readyFor(init));
@@ -1270,7 +1270,7 @@ describe("plugin bridge", () => {
 
 	it("settles two concurrent calls out of order, each exactly once", async () => {
 		const calls: Array<ReturnType<typeof deferred<PluginOperationOutcome>>> = [];
-		const { init, pluginPort, received } = connect({
+		const { init, received, pluginPort } = connect({
 			onOperation: () => {
 				const call = deferred<PluginOperationOutcome>();
 				calls.push(call);
@@ -1294,7 +1294,7 @@ describe("plugin bridge", () => {
 		});
 		await waitFor(() => expect(calls).toHaveLength(2));
 
-		calls[1]?.resolve({ outcome: "success", value: "b-value" });
+		calls[1]?.resolve({ value: "b-value", outcome: "success" });
 		await waitFor(() =>
 			expect(received).toContainEqual({
 				value: "b-value",
@@ -1304,7 +1304,7 @@ describe("plugin bridge", () => {
 			}),
 		);
 
-		calls[0]?.resolve({ outcome: "success", value: "a-value" });
+		calls[0]?.resolve({ value: "a-value", outcome: "success" });
 		await waitFor(() =>
 			expect(received).toContainEqual({
 				value: "a-value",
@@ -1319,7 +1319,7 @@ describe("plugin bridge", () => {
 
 	it("ignores a second request that reuses an in-flight request id", async () => {
 		const calls: Array<ReturnType<typeof deferred<PluginOperationOutcome>>> = [];
-		const { init, pluginPort, received } = connect({
+		const { init, received, pluginPort } = connect({
 			onOperation: () => {
 				const call = deferred<PluginOperationOutcome>();
 				calls.push(call);
@@ -1346,7 +1346,7 @@ describe("plugin bridge", () => {
 		await delay(10);
 
 		expect(calls).toHaveLength(1);
-		calls[0]?.resolve({ outcome: "success", value: "a-value" });
+		calls[0]?.resolve({ value: "a-value", outcome: "success" });
 
 		await waitFor(() =>
 			expect(received).toContainEqual({
@@ -1361,12 +1361,12 @@ describe("plugin bridge", () => {
 
 	it("fails the session when aggregate pending requests exceed the admission limit", async () => {
 		const signals: AbortSignal[] = [];
-		const { init, pluginPort, received, failures } = connect({
-			onOperation: (_request, signal) => {
+		const { init, received, failures, pluginPort } = connect({
+			onRyotQL: (_request, signal) => {
 				signals.push(signal);
 				return new Promise(() => {});
 			},
-			onRyotQL: (_request, signal) => {
+			onOperation: (_request, signal) => {
 				signals.push(signal);
 				return new Promise(() => {});
 			},
@@ -1399,7 +1399,7 @@ describe("plugin bridge", () => {
 	it("fails the session on a malformed active-port message and suppresses late work", async () => {
 		let signal: AbortSignal | undefined;
 		const call = deferred<PluginOperationOutcome>();
-		const { init, pluginPort, received, failures } = connect({
+		const { init, received, failures, pluginPort } = connect({
 			onOperation: (_request, requestSignal) => {
 				signal = requestSignal;
 				return call.promise;
@@ -1424,21 +1424,21 @@ describe("plugin bridge", () => {
 		await waitFor(() => expect(failures).toHaveLength(1));
 		expect(signal?.aborted).toBe(true);
 
-		call.resolve({ outcome: "success", value: "late" });
+		call.resolve({ value: "late", outcome: "success" });
 		await delay(10);
 
 		expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
 	});
 
 	it.each([
-		["untagged", { path: "/details/1", search: "" }],
-		["entity-shaped", { entityId: "entity-1", entitySchemaSlug: "show", kind: "entity" }],
+		["untagged", { search: "", path: "/details/1" }],
+		["entity-shaped", { kind: "entity", entityId: "entity-1", entitySchemaSlug: "show" }],
 	] as const)("fails an %s plugin navigation message", async (_label, target) => {
-		const { init, pluginPort, received, failures, navigations } = connect();
+		const { init, received, failures, pluginPort, navigations } = connect();
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toEqual([at()]));
 
-		pluginPort.postMessage({ mode: "push", target, type: "navigate" });
+		pluginPort.postMessage({ target, mode: "push", type: "navigate" });
 
 		await waitFor(() => expect(failures).toHaveLength(1));
 		expect(navigations).toEqual([]);
@@ -1450,14 +1450,14 @@ describe("plugin bridge", () => {
 		let querySignal: AbortSignal | undefined;
 		const operationCall = deferred<PluginOperationOutcome>();
 		const queryCall = deferred<PluginRyotQLOutcome>();
-		const { init, pluginPort, received, failures } = connect({
-			onOperation: (_request, signal) => {
-				operationSignal = signal;
-				return operationCall.promise;
-			},
+		const { init, received, failures, pluginPort } = connect({
 			onRyotQL: (_request, signal) => {
 				querySignal = signal;
 				return queryCall.promise;
+			},
+			onOperation: (_request, signal) => {
+				operationSignal = signal;
+				return operationCall.promise;
 			},
 		});
 		pluginPort.postMessage(readyFor(init));
@@ -1488,7 +1488,7 @@ describe("plugin bridge", () => {
 	});
 
 	it("fails the session before invoking an operation with extra identity fields", async () => {
-		const { init, pluginPort, received, failures, operationCalls } = connect();
+		const { init, received, failures, pluginPort, operationCalls } = connect();
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toHaveLength(1));
 
@@ -1508,7 +1508,7 @@ describe("plugin bridge", () => {
 	it("aborts pending signals on close and posts nothing after a late resolution", async () => {
 		let signal: AbortSignal | undefined;
 		const call = deferred<PluginOperationOutcome>();
-		const { init, pluginPort, received, session } = connect({
+		const { init, session, received, pluginPort } = connect({
 			onOperation: (_request, requestSignal) => {
 				signal = requestSignal;
 				return call.promise;
@@ -1528,7 +1528,7 @@ describe("plugin bridge", () => {
 		session.close();
 		expect(signal?.aborted).toBe(true);
 
-		call.resolve({ outcome: "success", value: "too-late" });
+		call.resolve({ value: "too-late", outcome: "success" });
 		await delay(10);
 
 		expect(received).toEqual([at(), { reason: "disposed", type: "lifecycle-close" }]);
@@ -1536,7 +1536,7 @@ describe("plugin bridge", () => {
 
 	it("correlates concurrent RyotQL requests completed out of order", async () => {
 		const calls: Array<ReturnType<typeof deferred<PluginRyotQLOutcome>>> = [];
-		const { init, pluginPort, received } = connect({
+		const { init, received, pluginPort } = connect({
 			onRyotQL: () => {
 				const call = deferred<PluginRyotQLOutcome>();
 				calls.push(call);
@@ -1574,11 +1574,11 @@ describe("plugin bridge", () => {
 	it("rejects duplicate in-flight IDs across query and operation requests", async () => {
 		const query = deferred<PluginRyotQLOutcome>();
 		const operationCalls: PluginOperationRequest[] = [];
-		const { init, pluginPort, received } = connect({
+		const { init, received, pluginPort } = connect({
 			onRyotQL: () => query.promise,
 			onOperation: (request) => {
 				operationCalls.push(request);
-				return Promise.resolve({ outcome: "success", value: null });
+				return Promise.resolve({ value: null, outcome: "success" });
 			},
 		});
 		pluginPort.postMessage(readyFor(init));
@@ -1600,7 +1600,7 @@ describe("plugin bridge", () => {
 
 	it("fails the session on a malformed RyotQL request", async () => {
 		const calls: PluginRyotQLRequest[] = [];
-		const { init, pluginPort, received, failures } = connect({
+		const { init, received, failures, pluginPort } = connect({
 			onRyotQL: (request) => {
 				calls.push(request);
 				return Promise.resolve({ outcome: "success", response: { data: {} } });
@@ -1624,7 +1624,7 @@ describe("plugin bridge", () => {
 	it("aborts a pending RyotQL request and suppresses its late response", async () => {
 		let signal: AbortSignal | undefined;
 		const call = deferred<PluginRyotQLOutcome>();
-		const { init, pluginPort, received, session } = connect({
+		const { init, session, received, pluginPort } = connect({
 			onRyotQL: (_request, requestSignal) => {
 				signal = requestSignal;
 				return call.promise;
@@ -1646,7 +1646,7 @@ describe("plugin bridge", () => {
 	it("cancels matching RyotQL work, releases admission, and ignores cancellation races", async () => {
 		const signals: AbortSignal[] = [];
 		const calls: Array<ReturnType<typeof deferred<PluginRyotQLOutcome>>> = [];
-		const { init, pluginPort, received, failures } = connect({
+		const { init, received, failures, pluginPort } = connect({
 			onRyotQL: (_request, signal) => {
 				signals.push(signal);
 				const call = deferred<PluginRyotQLOutcome>();
@@ -1666,7 +1666,7 @@ describe("plugin bridge", () => {
 		pluginPort.postMessage({ requestId: "query-0", type: "ryotql-cancel" });
 		pluginPort.postMessage({ requestId: "query-0", type: "ryotql-cancel" });
 		await waitFor(() => expect(signals[0]?.aborted).toBe(true));
-		pluginPort.postMessage({ document, requestId: "replacement", type: "ryotql-request" });
+		pluginPort.postMessage({ document, type: "ryotql-request", requestId: "replacement" });
 		await waitFor(() => expect(signals).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS + 1));
 
 		calls[0]?.resolve({ outcome: "success", response: { data: {} } });
@@ -1685,7 +1685,7 @@ describe("plugin bridge", () => {
 	});
 
 	it("never posts a Ryot credential, identity, or scope value to the plugin across a full session", async () => {
-		const { init, pluginPort, received, session } = connect({
+		const { init, session, received, pluginPort } = connect({
 			onOperation: (request) =>
 				Promise.resolve(
 					request.operationSlug === "fail"

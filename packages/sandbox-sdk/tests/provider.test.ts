@@ -34,9 +34,9 @@ describe("provider definitions", () => {
 		expect(definition.definitionType).toBe(SANDBOX_SCRIPT_DEFINITION);
 		expect(definition.operation).toBe("resolve");
 		expect(definition.output).toBe(providerResolveResultSchema);
-		expect(decode(definition.input)({ identifierType: "isbn", value: "known" })).toEqual({
-			identifierType: "isbn",
+		expect(decode(definition.input)({ value: "known", identifierType: "isbn" })).toEqual({
 			value: "known",
+			identifierType: "isbn",
 		});
 	});
 
@@ -98,17 +98,17 @@ describe("provider result contracts", () => {
 		});
 		expect(() =>
 			decode(providerSearchResultSchema)({
-				items: [{ externalId: "show-1", title: "Show", metadata: [] }],
+				items: [{ metadata: [], title: "Show", externalId: "show-1" }],
 			}),
 		).toThrow();
 		expect(() =>
 			decode(providerSearchResultSchema)({
-				items: [{ externalId: "show-1", title: "Show", metadata: ["   "] }],
+				items: [{ title: "Show", metadata: ["   "], externalId: "show-1" }],
 			}),
 		).toThrow();
 		expect(() =>
 			decode(providerSearchResultSchema)({
-				items: [{ externalId: "show-1", title: "Show", metadata: [Number.NaN] }],
+				items: [{ title: "Show", externalId: "show-1", metadata: [Number.NaN] }],
 			}),
 		).toThrow();
 		expect(
@@ -117,7 +117,7 @@ describe("provider result contracts", () => {
 		expect(() =>
 			decode(providerSearchResultSchema)({
 				items: [],
-				details: { totalItems: Number.NaN, nextPage: null },
+				details: { nextPage: null, totalItems: Number.NaN },
 			}),
 		).toThrow();
 		expect(() =>
@@ -131,6 +131,14 @@ describe("provider result contracts", () => {
 				name: "Show",
 				properties: { year: 2024 },
 				expectedChildEntitySchemaSlug: "show-season",
+				relatedEntityGroups: [
+					{
+						direction: "incoming",
+						synchronization: "additive",
+						relationshipSchemaSlug: "person-to-show",
+						entities: [{ name: "Creator", externalId: "person-1", providerSlug: "person.test" }],
+					},
+				],
 				childEntities: [
 					{
 						name: "Season 1",
@@ -146,14 +154,6 @@ describe("provider result contracts", () => {
 								entitySchemaSlug: "show-episode",
 							},
 						],
-					},
-				],
-				relatedEntityGroups: [
-					{
-						direction: "incoming",
-						synchronization: "additive",
-						relationshipSchemaSlug: "person-to-show",
-						entities: [{ name: "Creator", externalId: "person-1", providerSlug: "person.test" }],
 					},
 				],
 			}),

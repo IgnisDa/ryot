@@ -27,6 +27,7 @@ export const toWorkflowRunResult = <
 	}
 
 	return Exit.match(result.exit, {
+		onSuccess: (value) => ({ status: "completed" as const, ...options.onSuccess(value) }),
 		onFailure: (cause) => ({
 			status: "failed" as const,
 			error: Option.match(Cause.findErrorOption(cause), {
@@ -34,6 +35,5 @@ export const toWorkflowRunResult = <
 				onNone: () => `${options.failurePrefix ?? ""}${Cause.pretty(cause).slice(0, 500)}`,
 			}),
 		}),
-		onSuccess: (value) => ({ status: "completed" as const, ...options.onSuccess(value) }),
 	});
 };

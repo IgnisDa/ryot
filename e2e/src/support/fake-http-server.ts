@@ -13,7 +13,7 @@ export async function startFakeHttpServer(
 		Response.json({ ok: true }),
 ): Promise<FakeHttpServer> {
 	const scope = await Effect.runPromise(Scope.make());
-	const { requests, url } = await Effect.runPromise(
+	const { url, requests } = await Effect.runPromise(
 		Scope.provide(
 			Effect.gen(function* () {
 				const recorded: FakeHttpServer["requests"] = [];
@@ -35,7 +35,7 @@ export async function startFakeHttpServer(
 			scope,
 		),
 	);
-	return { requests, url, stop: () => void Effect.runPromise(Scope.close(scope, Exit.void)) };
+	return { url, requests, stop: () => void Effect.runPromise(Scope.close(scope, Exit.void)) };
 }
 
 export const startFakeHttpServerScoped = (

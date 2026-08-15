@@ -5,8 +5,8 @@ import { Workflow } from "effect/unstable/workflow";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 
 export const IntegrationSyncPayload = Schema.Struct({
-	userId: Schema.NullOr(UserId),
 	executionId: Schema.String,
+	userId: Schema.NullOr(UserId),
 });
 
 export type IntegrationSyncPayload = typeof IntegrationSyncPayload.Type;

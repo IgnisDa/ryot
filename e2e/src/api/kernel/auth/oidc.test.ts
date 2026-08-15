@@ -36,7 +36,7 @@ const OIDC_BUTTON_LABEL = "Sign in with TestOIDC";
 const clientDist = fileURLToPath(new URL("../../../../../kernel/client/dist", import.meta.url));
 const existingOidcUsername = `user-${crypto.randomUUID()}`;
 const pluginListQuery = { includeDisabled: false };
-const godModeListQuery = (search: string) => ({ limit: 50, offset: 0, search });
+const godModeListQuery = (search: string) => ({ search, limit: 50, offset: 0 });
 const attempt = <A>(run: () => Promise<A>) => Effect.tryPromise(run).pipe(Effect.orDie);
 
 const countUsersByEmail = (apiUrl: string, email: string) =>
@@ -145,7 +145,7 @@ afterAll(async () => {
 				attempt(() => stopApiProcess(apiProcessB)),
 				attempt(() => stopApiProcess(apiProcessC)),
 			],
-			{ concurrency: "unbounded", discard: true },
+			{ discard: true, concurrency: "unbounded" },
 		).pipe(
 			Effect.andThen(
 				Effect.all(
@@ -153,7 +153,7 @@ afterAll(async () => {
 						attempt(() => stopCoreTestInfrastructure(coreInfrastructure)),
 						stopMockOidcServer(mockOidcServer),
 					],
-					{ concurrency: "unbounded", discard: true },
+					{ discard: true, concurrency: "unbounded" },
 				),
 			),
 		),
@@ -262,7 +262,7 @@ describe("Local auth disabled (API B)", () => {
 
 			const loginRequest = yield* Fiber.join(hostedLoginRequest);
 			const signInRequest = yield* Fiber.join(hostedSignInRequest);
-			const { request: oidcRequest, stateCookieObserved } = yield* Fiber.join(providerObservation);
+			const { stateCookieObserved, request: oidcRequest } = yield* Fiber.join(providerObservation);
 			const oauthResponse = yield* Fiber.join(tokenResponse);
 			expect(new URL(loginRequest.url()).searchParams.get("client_id")).toBe(OAUTH_WEB_CLIENT_ID);
 			const body: unknown = Option.getOrThrow(yield* signInRequest.postDataJSON);

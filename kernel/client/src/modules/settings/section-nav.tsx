@@ -30,10 +30,10 @@ export function SettingsSectionNav(props: SettingsSectionNavProps) {
 							isActive ? "bg-nav-indicator text-text" : "text-text-muted hover:bg-surface-2",
 						)}
 					>
-						<AppIcon name={section.icon} size={17} className="text-text-muted" />
+						<AppIcon size={17} name={section.icon} className="text-text-muted" />
 						<span className="flex-1">{section.label}</span>
 						{props.showDisclosure && (
-							<AppIcon name="chevron-right" size={15} className="text-text-subtle" />
+							<AppIcon size={15} name="chevron-right" className="text-text-subtle" />
 						)}
 					</a>
 				);

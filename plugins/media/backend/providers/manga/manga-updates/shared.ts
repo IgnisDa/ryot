@@ -22,10 +22,10 @@ import {
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "MangaUpdates",
-	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall"],
 	slug: "manga.manga-updates",
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 const parsePublishYear = (value: unknown) => {
@@ -47,7 +47,7 @@ export const search = defineProvider({
 		mangaUpdatesPost(
 			host,
 			"/series/search",
-			{ search: input.query, perpage: input.pageSize, page: input.page },
+			{ page: input.page, search: input.query, perpage: input.pageSize },
 			"search",
 		).pipe(
 			Effect.map((payloadValue) => {
@@ -133,7 +133,7 @@ const collectGenres = (genres: unknown, categories: unknown) => {
 
 const collectImages = (image: unknown) => {
 	const url = imageUrlValue(image);
-	return url ? [{ type: "remote" as const, url, purpose: "cover" as const }] : [];
+	return url ? [{ url, type: "remote" as const, purpose: "cover" as const }] : [];
 };
 
 const collectSuggestions = (host: MangaUpdatesHost, payload: UnknownRecord | null) => {
@@ -167,7 +167,7 @@ const collectSuggestions = (host: MangaUpdatesHost, payload: UnknownRecord | nul
 					return [];
 				}
 				return [
-					{ name, externalId: String(Math.trunc(idValue)), providerSlug: "manga.manga-updates" },
+					{ name, providerSlug: "manga.manga-updates", externalId: String(Math.trunc(idValue)) },
 				];
 			}),
 		),
@@ -206,8 +206,8 @@ export const details = defineProvider({
 				properties: {
 					volumes,
 					productionStatus,
-					sourceUrl: typeof url === "string" ? url : null,
 					images: collectImages(payload?.["image"]),
+					sourceUrl: typeof url === "string" ? url : null,
 					publishYear: parsePublishYear(payload?.["year"]),
 					chapters: numberValue(payload?.["latest_chapter"]),
 					providerRating: numberValue(payload?.["bayesian_rating"]),

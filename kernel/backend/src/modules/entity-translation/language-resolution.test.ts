@@ -18,11 +18,11 @@ describe("resolveLanguage", () => {
 	it("translates with the preferred language when it differs from the canonical language", () => {
 		const result = resolveLanguage({ preferredLanguage: "es", canonicalLanguage: "en" });
 
-		expect(result).toEqual({ kind: "translate", language: "es" });
+		expect(result).toEqual({ language: "es", kind: "translate" });
 	});
 
 	it("translates with a script-subtagged language (e.g. romaji)", () => {
-		const result = resolveLanguage({ preferredLanguage: "ja-Latn", canonicalLanguage: "en" });
+		const result = resolveLanguage({ canonicalLanguage: "en", preferredLanguage: "ja-Latn" });
 
 		expect(result).toEqual({ kind: "translate", language: "ja-Latn" });
 	});

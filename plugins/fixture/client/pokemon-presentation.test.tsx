@@ -52,7 +52,7 @@ const reference = (entityId: string, name: string) => ({
 const rows = (items: readonly Record<string, unknown>[]) => ({
 	items,
 	type: "rows",
-	pageInfo: { hasMore: false, limit: 100, nextCursor: null },
+	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
 
 describe("Pokemon presentations", () => {
@@ -240,7 +240,7 @@ describe("Pokemon presentations", () => {
 					<button type="button" onClick={() => setData({ ...data, name: "Bulbasaur updated" })}>
 						Replace data
 					</button>
-					<PokemonRow data={data} reference={reference("pokemon-1", data.name)} viewContext={{}} />
+					<PokemonRow data={data} viewContext={{}} reference={reference("pokemon-1", data.name)} />
 				</div>
 			);
 		};

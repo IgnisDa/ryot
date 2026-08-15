@@ -42,8 +42,8 @@ it.effect("keeps the deterministic ID and exposes enqueue failure", () => {
 				externalId: "record-1",
 				origin: { kind: "api" },
 				entityId: EntityId.make("entity-1"),
-				entitySchemaSlug: EntitySchemaSlug.make("record"),
 				providerId: SandboxProviderId.make("provider-1"),
+				entitySchemaSlug: EntitySchemaSlug.make("record"),
 			}),
 		);
 
@@ -76,8 +76,8 @@ it.effect("does not enqueue user population for a disabled system provider", () 
 			origin: { kind: "api" },
 			userId: UserId.make("user-1"),
 			entityId: EntityId.make("entity-1"),
-			entitySchemaSlug: EntitySchemaSlug.make("record"),
 			providerId: SandboxProviderId.make("provider-1"),
+			entitySchemaSlug: EntitySchemaSlug.make("record"),
 		});
 		expect(enqueued).toBe(false);
 	}).pipe(Effect.provide(layer));
@@ -102,7 +102,7 @@ const capturePopulationPayload = (pluginScope: "system" | "user") => {
 				databaseLayer,
 				Layer.mock(PluginRuntimeResolver)({
 					findProviderAvailableToUser: () =>
-						Effect.succeed({ ...availableProvider, id: availableProvider.providerId, pluginScope }),
+						Effect.succeed({ ...availableProvider, pluginScope, id: availableProvider.providerId }),
 				}),
 				Layer.succeed(
 					WorkflowEngine,
@@ -128,8 +128,8 @@ it.effect("keeps user-triggered system provider entities global", () => {
 			origin: { kind: "api" },
 			userId: UserId.make("user-1"),
 			entityId: EntityId.make("entity-1"),
-			entitySchemaSlug: EntitySchemaSlug.make("record"),
 			providerId: SandboxProviderId.make("provider-1"),
+			entitySchemaSlug: EntitySchemaSlug.make("record"),
 		});
 		expect(capture.getPayload()).toMatchObject({
 			entityScope: { type: "global", userId: "user-1" },
@@ -146,8 +146,8 @@ it.effect("keeps user-triggered private provider entities user-owned", () => {
 			origin: { kind: "api" },
 			userId: UserId.make("user-1"),
 			entityId: EntityId.make("entity-1"),
-			entitySchemaSlug: EntitySchemaSlug.make("record"),
 			providerId: SandboxProviderId.make("provider-1"),
+			entitySchemaSlug: EntitySchemaSlug.make("record"),
 		});
 		expect(capture.getPayload()).toMatchObject({ entityScope: { type: "user", userId: "user-1" } });
 	}).pipe(Effect.provide(capture.layer));

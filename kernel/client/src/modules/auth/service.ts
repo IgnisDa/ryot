@@ -34,7 +34,7 @@ type AuthorizationProbe =
 
 export const toAuthSessionState = (session: SettledAuthSession) =>
 	session.status === "authenticated"
-		? { status: "authenticated" as const, userId: session.user.id }
+		? { userId: session.user.id, status: "authenticated" as const }
 		: { status: "missing" as const };
 
 const isLostAuthorization = (error: OAuthTokenError) =>
@@ -107,7 +107,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			const cached = session.store.getSnapshot();
 			const { clientId } = yield* runtimeClient
 				.forServer(origin)
-				.pipe(Effect.mapError((cause) => new OAuthTokenError({ reason: "request-failed", cause })));
+				.pipe(Effect.mapError((cause) => new OAuthTokenError({ cause, reason: "request-failed" })));
 			const probe = yield* tokens.accessToken(origin, clientId).pipe(
 				Effect.map(
 					(token): AuthorizationProbe => ({ kind: token === null ? "unauthorized" : "authorized" }),

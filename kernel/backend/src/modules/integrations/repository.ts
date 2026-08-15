@@ -31,12 +31,6 @@ const integrationSelection = {
 	provider: schema.integration.provider,
 	createdAt: schema.integration.createdAt,
 	updatedAt: schema.integration.updatedAt,
-	pluginSlug: sql<string>`(
-		select ${schema.plugin.slug}
-		from ${schema.pluginInstallation}
-		inner join ${schema.plugin} on ${schema.plugin.id} = ${schema.pluginInstallation.pluginId}
-		where ${schema.pluginInstallation.id} = ${schema.integration.pluginInstallationId}
-	)`,
 	isDisabled: schema.integration.isDisabled,
 	extraSettings: schema.integration.extraSettings,
 	syncOwnership: schema.integration.syncOwnership,
@@ -45,6 +39,12 @@ const integrationSelection = {
 	maximumProgress: schema.integration.maximumProgress,
 	providerSpecifics: schema.integration.providerSpecifics,
 	pluginInstallationId: schema.integration.pluginInstallationId,
+	pluginSlug: sql<string>`(
+		select ${schema.plugin.slug}
+		from ${schema.pluginInstallation}
+		inner join ${schema.plugin} on ${schema.plugin.id} = ${schema.pluginInstallation.pluginId}
+		where ${schema.pluginInstallation.id} = ${schema.integration.pluginInstallationId}
+	)`,
 };
 
 const normalizeIntegration = (
@@ -56,17 +56,17 @@ const normalizeIntegration = (
 	provider: row.provider,
 	pluginSlug: row.pluginSlug,
 	isDisabled: row.isDisabled,
-	syncOwnership: row.syncOwnership,
-	extraSettings: row.extraSettings,
 	id: IntegrationId.make(row.id),
 	userId: UserId.make(row.userId),
+	syncOwnership: row.syncOwnership,
+	extraSettings: row.extraSettings,
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
 	providerSpecifics: row.providerSpecifics,
 	pluginInstallationId: row.pluginInstallationId,
-	lastFinishedAt: row.lastFinishedAt?.toISOString() ?? null,
 	minimumProgress: Number.parseFloat(row.minimumProgress),
 	maximumProgress: Number.parseFloat(row.maximumProgress),
+	lastFinishedAt: row.lastFinishedAt?.toISOString() ?? null,
 	...(row.lot === "sink" ? { webhookUrl: `${frontendUrl}/_i/${row.id}` } : {}),
 });
 

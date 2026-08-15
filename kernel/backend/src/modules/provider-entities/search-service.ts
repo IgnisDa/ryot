@@ -33,7 +33,7 @@ import { SandboxExecutionService } from "#modules/sandbox/service";
 
 const decodeProviderSearchResult = Schema.decodeUnknownEffect(providerSearchResultSchema);
 const providerNotFound = (providerId: SearchProviderEntitiesBody["providerId"]) =>
-	new ProviderEntityNotFound({ reason: { code: "provider-not-found", providerId } });
+	new ProviderEntityNotFound({ reason: { providerId, code: "provider-not-found" } });
 const decodeCachedSources = (value: string | null) => {
 	if (value === null) {
 		return null;
@@ -70,7 +70,7 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 							return providerNotFound(providerId);
 						}
 						return new ProviderEntityBadRequest({
-							reason: { code: "search-unsupported", providerId },
+							reason: { providerId, code: "search-unsupported" },
 						});
 					}),
 				);
@@ -174,7 +174,7 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 				if (resolved.optionsSchema === null) {
 					if (input.options !== undefined) {
 						return yield* new ProviderEntityBadRequest({
-							reason: { code: "search-options-unsupported", providerId: input.providerId },
+							reason: { providerId: input.providerId, code: "search-options-unsupported" },
 						});
 					}
 				} else if (
@@ -234,7 +234,7 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 				} satisfies SearchProviderEntitiesResponse;
 			});
 
-			return { resolveSearchOptionsSchema, search };
+			return { search, resolveSearchOptionsSchema };
 		}),
 	},
 ) {

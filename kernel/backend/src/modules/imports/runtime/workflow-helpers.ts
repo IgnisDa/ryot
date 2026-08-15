@@ -36,7 +36,7 @@ export class ImportRunArtifacts extends Context.Service<ImportRunArtifacts>()(
 				);
 			});
 
-			return { cleanupArtifacts, cleanupUploads };
+			return { cleanupUploads, cleanupArtifacts };
 		}),
 	},
 ) {

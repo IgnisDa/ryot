@@ -25,12 +25,12 @@ describe("adaptMyanimelistExports", () => {
 				{
 					eventSchemaSlug: "progress",
 					occurredAt: "2026-01-02T00:00:00.000Z",
-					properties: { progressPercent: 100, animeEpisode: 1 },
+					properties: { animeEpisode: 1, progressPercent: 100 },
 				},
 				{
 					eventSchemaSlug: "progress",
 					occurredAt: "2026-01-02T00:00:00.000Z",
-					properties: { progressPercent: 100, animeEpisode: 2 },
+					properties: { animeEpisode: 2, progressPercent: 100 },
 				},
 				{
 					eventSchemaSlug: "review",
@@ -40,7 +40,7 @@ describe("adaptMyanimelistExports", () => {
 			],
 		});
 		expect(result.entityGroups[1]).toMatchObject({
-			events: [{ eventSchemaSlug: "backlog", properties: {} }],
+			events: [{ properties: {}, eventSchemaSlug: "backlog" }],
 			entityRef: {
 				kind: "resolved",
 				externalId: "202",
@@ -62,7 +62,7 @@ describe("adaptMyanimelistExports", () => {
 			{
 				eventSchemaSlug: "progress",
 				occurredAt: "2026-01-01T00:00:00.000Z",
-				properties: { progressPercent: 100, animeEpisode: 1 },
+				properties: { animeEpisode: 1, progressPercent: 100 },
 			},
 			{
 				eventSchemaSlug: "dropped",

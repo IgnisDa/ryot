@@ -15,7 +15,7 @@ import { pokemonDetailRecipe } from "./pokemon-detail-query";
 const rows = (items: readonly Record<string, unknown>[]) => ({
 	items,
 	type: "rows",
-	pageInfo: { hasMore: false, limit: 1, nextCursor: null },
+	pageInfo: { limit: 1, hasMore: false, nextCursor: null },
 });
 
 describe("Pokemon detail page", () => {

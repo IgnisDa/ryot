@@ -16,12 +16,12 @@ const makeHost = (
 	overrides: Partial<SpotifyMusicHost> = {},
 ): SpotifyMusicHost =>
 	defineSandboxTestHost(manifest, {
+		setCachedValue: () => Effect.succeed(null),
+		getCachedValue: () => Effect.succeed("cached-token"),
 		getPluginConfig: (keys) =>
 			Effect.succeed(
 				Object.fromEntries(keys.map((key) => [key, key.endsWith("Secret") ? "secret" : "id"])),
 			),
-		getCachedValue: () => Effect.succeed("cached-token"),
-		setCachedValue: () => Effect.succeed(null),
 		httpCall: (_method, url) => {
 			const route = routes.find((candidate) => candidate.match(url));
 			return route ? httpSuccess(route.body) : Effect.fail(new Error(`no route: ${url}`));
@@ -59,8 +59,8 @@ describe("music.spotify sandbox script", () => {
 						album: {
 							release_date: "2020-05-01",
 							images: [
-								{ url: "https://img/small.jpg", width: 64, height: 64 },
-								{ url: "https://img/big.jpg", width: 640, height: 640 },
+								{ width: 64, height: 64, url: "https://img/small.jpg" },
+								{ width: 640, height: 640, url: "https://img/big.jpg" },
 							],
 						},
 					},
@@ -80,7 +80,7 @@ describe("music.spotify sandbox script", () => {
 			},
 		});
 		return Effect.runPromise(
-			runSandboxTestScript(search, { query: "track", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, pageSize: 20, query: "track" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(tokenPosts).toBe(0);
 					expect(result.items).toEqual([
@@ -116,7 +116,7 @@ describe("music.spotify sandbox script", () => {
 						id: "al1",
 						name: "The Album",
 						release_date: "2019-03-15",
-						images: [{ url: "https://img/cover.jpg", width: 300, height: 300 }],
+						images: [{ width: 300, height: 300, url: "https://img/cover.jpg" }],
 					},
 				},
 			},
@@ -168,7 +168,7 @@ describe("music.spotify sandbox script", () => {
 						byVariousArtists: true,
 						publishDate: "2019-03-15",
 						sourceUrl: "https://open.spotify.com/track/t1",
-						images: [{ type: "remote", url: "https://img/cover.jpg", purpose: "cover" }],
+						images: [{ type: "remote", purpose: "cover", url: "https://img/cover.jpg" }],
 					});
 					return undefined;
 				}),
@@ -177,7 +177,7 @@ describe("music.spotify sandbox script", () => {
 	});
 	it("requests a fresh token on a cache miss and caches it with the computed ttl", () => {
 		const cacheWrites: Array<readonly [string, unknown, number]> = [];
-		const host = makeHost([{ match: (url) => url.includes("/search"), body: { tracks: {} } }], {
+		const host = makeHost([{ body: { tracks: {} }, match: (url) => url.includes("/search") }], {
 			getCachedValue: () => Effect.succeed(null),
 			setCachedValue: (key, value, ttl) => {
 				cacheWrites.push([key, value, ttl]);
@@ -187,7 +187,7 @@ describe("music.spotify sandbox script", () => {
 				const requestUrl = new URL(url);
 				if (requestUrl.host === "accounts.spotify.com") {
 					expect(requestUrl.pathname).toBe("/api/token");
-					return httpSuccess({ access_token: "fresh-token", expires_in: 3600 });
+					return httpSuccess({ expires_in: 3600, access_token: "fresh-token" });
 				}
 				expect(requestUrl.host).toBe("api.spotify.com");
 				expect(requestUrl.pathname).toBe("/v1/search");
@@ -195,7 +195,7 @@ describe("music.spotify sandbox script", () => {
 			},
 		});
 		return Effect.runPromise(
-			runSandboxTestScript(search, { query: "track", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, pageSize: 20, query: "track" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(cacheWrites).toEqual([["spotify_access_token", "fresh-token", 3300]]);
 					expect(result.items).toEqual([]);

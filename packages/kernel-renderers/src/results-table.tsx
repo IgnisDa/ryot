@@ -60,7 +60,7 @@ const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.
 	usePageRefresh(refresh);
 	const [query] = useState(() =>
 		createRyotQuery<string, TablePage>(
-			async ({ client, input: serialized, signal }) => {
+			async ({ client, signal, input: serialized }) => {
 				const [after] = decodeQueryInput(serialized);
 				const result = await client.data.query(
 					Result.getOrThrow(
@@ -72,7 +72,7 @@ const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.
 					),
 					{ signal },
 				);
-				return { input: serialized, result };
+				return { result, input: serialized };
 			},
 			{ cancelOnUnmount: true },
 		),
@@ -129,7 +129,7 @@ const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.
 					</p>
 				}
 			>
-				<section className="@container grid gap-5" aria-busy={result.isFetching}>
+				<section aria-busy={result.isFetching} className="@container grid gap-5">
 					{initial && result.isPending && (
 						<StatusMessage tone="pending">Loading results...</StatusMessage>
 					)}
@@ -172,13 +172,13 @@ const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.
 							type="button"
 							disabled={result.isFetching}
 							aria-label={result.isFetching ? "Loading more results" : "Load more results"}
-							className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-surface-2 px-4 text-[15px] text-text disabled:opacity-60 @2xl:h-8.5 @2xl:w-auto @2xl:self-center @2xl:border @2xl:border-border @2xl:bg-surface @2xl:text-[13px]"
 							onClick={() => {
 								const next = state.pageInfo?.nextCursor;
 								if (next) {
 									setCursor(next);
 								}
 							}}
+							className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-surface-2 px-4 text-[15px] text-text disabled:opacity-60 @2xl:h-8.5 @2xl:w-auto @2xl:self-center @2xl:border @2xl:border-border @2xl:bg-surface @2xl:text-[13px]"
 						>
 							<AppIcon size={16} name="chevron-down" className="text-text" />
 							{result.isFetching ? "Loading..." : "Load more"}

@@ -58,13 +58,13 @@ const createdEventSelection = {
 };
 
 const toListedEvent = (row: EventRow): ListedEvent => ({
-	properties: row.properties,
 	id: EventId.make(row.id),
+	properties: row.properties,
 	eventSchemaName: row.eventSchemaName,
+	entityId: EntityId.make(row.entityId),
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
 	occurredAt: row.occurredAt.toISOString(),
-	entityId: EntityId.make(row.entityId),
 	eventSchemaSlug: EventSchemaSlug.make(row.eventSchemaSlug),
 	sessionEntityId: row.sessionEntityId ? EntityId.make(row.sessionEntityId) : undefined,
 });

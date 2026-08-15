@@ -18,23 +18,23 @@ import { clientArtifactMatches, PluginRepository } from "./repository";
 import { fixtureManifest } from "./test-support";
 import type { NormalizedPlugin } from "./types";
 
-const systemIdentity = { slug: "fixture", ownerId: null, scope: "system" } as const;
+const systemIdentity = { ownerId: null, slug: "fixture", scope: "system" } as const;
 
 it("matches immutable client artifacts by exact bytes", () => {
 	const metadata = {
 		hash: "artifact-hash",
 		format: CLIENT_ARTIFACT_FORMAT,
 		apiVersion: CLIENT_API_VERSION,
-		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 		compilerVersion: CLIENT_COMPILER_VERSION,
+		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 	};
 	const artifact = {
 		...metadata,
 		files: [
 			{
 				name: "asset.bin",
-				contentType: "application/octet-stream",
 				contents: new Uint8Array([0, 255, 1]),
+				contentType: "application/octet-stream",
 			},
 		],
 	};
@@ -42,8 +42,8 @@ it("matches immutable client artifacts by exact bytes", () => {
 		{
 			name: "asset.bin",
 			artifactHash: metadata.hash,
-			contentType: "application/octet-stream",
 			contents: Buffer.from([0, 255, 1]),
+			contentType: "application/octet-stream",
 		},
 	];
 	const [artifactFile] = artifact.files;
@@ -70,14 +70,22 @@ const makeLayer = (input: {
 		input.conditions?.push(dialect.sqlToQuery(condition.getSQL()));
 	};
 	const db = {
+		update: () => ({
+			set: ({ status }: { status: string }) => ({
+				where: () => {
+					input.statuses?.push(status);
+					return Effect.void;
+				},
+			}),
+		}),
 		select: () => ({
 			from: (table: unknown) => ({
+				leftJoin: () => ({
+					where: () => ({ limit: () => Effect.succeed(input.entityRows ?? []) }),
+				}),
 				where: () => ({
 					limit: () =>
 						Effect.succeed(table === schema.integration ? (input.integrationRows ?? []) : []),
-				}),
-				leftJoin: () => ({
-					where: () => ({ limit: () => Effect.succeed(input.entityRows ?? []) }),
 				}),
 				innerJoin: () => ({
 					where: (condition: SQLWrapper) => {
@@ -85,14 +93,6 @@ const makeLayer = (input: {
 						return { limit: () => Effect.succeed(input.integrationRows ?? []) };
 					},
 				}),
-			}),
-		}),
-		update: () => ({
-			set: ({ status }: { status: string }) => ({
-				where: () => {
-					input.statuses?.push(status);
-					return Effect.void;
-				},
 			}),
 		}),
 	};
@@ -108,6 +108,11 @@ const makeScriptCleanupLayer = (input: {
 }) => {
 	const dialect = new PgDialect();
 	const db = {
+		select: () => ({
+			from: (table: SQLWrapper) => ({
+				where: (condition: SQLWrapper) => sql`select 1 from ${table} where ${condition}`,
+			}),
+		}),
 		delete: (table: unknown) => {
 			input.tables.push(table);
 			return {
@@ -119,11 +124,6 @@ const makeScriptCleanupLayer = (input: {
 				},
 			};
 		},
-		select: () => ({
-			from: (table: SQLWrapper) => ({
-				where: (condition: SQLWrapper) => sql`select 1 from ${table} where ${condition}`,
-			}),
-		}),
 	};
 	return PluginRepository.layer.pipe(
 		Layer.provideMerge(Layer.succeed(Database, Object.assign(Object.create(null), db))),
@@ -147,7 +147,7 @@ it.effect("resolves a provider by portable plugin and provider slugs", () => {
 		const repository = yield* PluginRepository;
 		expect(
 			yield* repository.resolveProviderBySlugs({ pluginId: "example", providerSlug: "alpha" }),
-		).toEqual({ id: SandboxProviderId.make("provider-id"), entitySchemaSlug: "record" });
+		).toEqual({ entitySchemaSlug: "record", id: SandboxProviderId.make("provider-id") });
 	}).pipe(
 		Effect.provide(
 			PluginRepository.layer.pipe(
@@ -293,7 +293,7 @@ it.effect(
 									returning: () =>
 										Effect.succeed(
 											typeof slug === "string" && typeof contentHash === "string"
-												? [{ id: `${slug}-id`, slug, contentHash }]
+												? [{ slug, contentHash, id: `${slug}-id` }]
 												: [],
 										),
 								};
@@ -325,19 +325,6 @@ it.effect(
 		const plugin: NormalizedPlugin = {
 			files: {},
 			sourceHash: "source-hash",
-			manifest: {
-				...manifest,
-				scripts: [...manifest.scripts, providerScript, customScript],
-				providers: [
-					{
-						name: "Fixture provider",
-						slug: "fixture-provider",
-						information: { source: "fixture" },
-						rootEntitySchemaSlug: "fixture-entity",
-						operations: { details: providerScript.slug },
-					},
-				],
-			},
 			scripts: [automation, providerScript, customScript].map((script) => {
 				const { entry, ...metadata } = script;
 				return {
@@ -351,6 +338,19 @@ it.effect(
 					contentHash: `${script.slug}-hash`,
 				};
 			}),
+			manifest: {
+				...manifest,
+				scripts: [...manifest.scripts, providerScript, customScript],
+				providers: [
+					{
+						name: "Fixture provider",
+						slug: "fixture-provider",
+						information: { source: "fixture" },
+						rootEntitySchemaSlug: "fixture-entity",
+						operations: { details: providerScript.slug },
+					},
+				],
+			},
 		};
 		const layer = PluginRepository.layer.pipe(
 			Layer.provideMerge(Layer.succeed(Database, Object.assign(Object.create(null), db))),
@@ -361,11 +361,11 @@ it.effect(
 			yield* repository.persist({ ...plugin, sourceHash: "updated-source-hash" }, systemIdentity);
 			expect(scriptRows).toEqual([
 				expect.objectContaining({ providerId: null, slug: automation.slug }),
-				expect.objectContaining({ providerId: "stable-provider-id", slug: providerScript.slug }),
-				expect.objectContaining({ providerId: "stable-provider-id", slug: customScript.slug }),
+				expect.objectContaining({ slug: providerScript.slug, providerId: "stable-provider-id" }),
+				expect.objectContaining({ slug: customScript.slug, providerId: "stable-provider-id" }),
 				expect.objectContaining({ providerId: null, slug: automation.slug }),
-				expect.objectContaining({ providerId: "stable-provider-id", slug: providerScript.slug }),
-				expect.objectContaining({ providerId: "stable-provider-id", slug: customScript.slug }),
+				expect.objectContaining({ slug: providerScript.slug, providerId: "stable-provider-id" }),
+				expect.objectContaining({ slug: customScript.slug, providerId: "stable-provider-id" }),
 			]);
 		}).pipe(Effect.provide(layer));
 	},
@@ -374,8 +374,8 @@ it.effect(
 it.effect("persists provider operation bindings and search options separately", () => {
 	const operationValues: Array<unknown> = [];
 	const db = {
-		select: () => ({ from: () => ({ where: () => Effect.succeed([]) }) }),
 		delete: () => ({ where: () => Effect.void }),
+		select: () => ({ from: () => ({ where: () => Effect.succeed([]) }) }),
 		insert: (table: unknown) => ({
 			values: (values: unknown) => {
 				if (
@@ -400,12 +400,6 @@ it.effect("persists provider operation bindings and search options separately", 
 								returning: () =>
 									Effect.succeed([
 										{
-											id: `${String(
-												Reflect.get(
-													typeof values === "object" && values !== null ? values : {},
-													"slug",
-												),
-											)}-id`,
 											slug: Reflect.get(
 												typeof values === "object" && values !== null ? values : {},
 												"slug",
@@ -414,6 +408,12 @@ it.effect("persists provider operation bindings and search options separately", 
 												typeof values === "object" && values !== null ? values : {},
 												"contentHash",
 											),
+											id: `${String(
+												Reflect.get(
+													typeof values === "object" && values !== null ? values : {},
+													"slug",
+												),
+											)}-id`,
 										},
 									]),
 							};
@@ -447,12 +447,12 @@ it.effect("persists provider operation bindings and search options separately", 
 	};
 	const search = {
 		...automation,
+		searchOptionsSchema,
 		name: "Fixture search",
 		slug: "fixture.search",
 		kind: "provider" as const,
 		providerSlug: "fixture-provider",
 		providerOperation: "search" as const,
-		searchOptionsSchema,
 	};
 	const searchOptions = {
 		...automation,
@@ -465,23 +465,6 @@ it.effect("persists provider operation bindings and search options separately", 
 	const normalized: NormalizedPlugin = {
 		files: {},
 		sourceHash: "source-hash",
-		manifest: {
-			...manifest,
-			providers: [
-				{
-					name: "Fixture provider",
-					slug: "fixture-provider",
-					information: { source: "fixture" },
-					rootEntitySchemaSlug: "fixture-entity",
-					operations: {
-						search: search.slug,
-						details: details.slug,
-						searchOptions: searchOptions.slug,
-					},
-				},
-			],
-			scripts: [...manifest.scripts, details, search, searchOptions],
-		},
 		scripts: [automation, details, search, searchOptions].map((script) => {
 			const { entry, ...metadata } = script;
 			return {
@@ -495,6 +478,23 @@ it.effect("persists provider operation bindings and search options separately", 
 				contentHash: `${script.slug}-hash`,
 			};
 		}),
+		manifest: {
+			...manifest,
+			scripts: [...manifest.scripts, details, search, searchOptions],
+			providers: [
+				{
+					name: "Fixture provider",
+					slug: "fixture-provider",
+					information: { source: "fixture" },
+					rootEntitySchemaSlug: "fixture-entity",
+					operations: {
+						search: search.slug,
+						details: details.slug,
+						searchOptions: searchOptions.slug,
+					},
+				},
+			],
+		},
 	};
 	const layer = PluginRepository.layer.pipe(
 		Layer.provideMerge(Layer.succeed(Database, Object.assign(Object.create(null), db))),
@@ -546,7 +546,7 @@ it.effect("deletes only non-live scripts while guarding exact workflow reference
 		expect(statements[1]?.sql).toContain("not exists");
 		expect(statements[1]?.sql).toContain('from "sandbox_workflow_reference"');
 		expect(statements[1]?.params).toEqual(["active-hash", "kernel-hash"]);
-	}).pipe(Effect.provide(makeScriptCleanupLayer({ removed, statements, tables })));
+	}).pipe(Effect.provide(makeScriptCleanupLayer({ tables, removed, statements })));
 });
 
 it.effect("safely deletes unreferenced scripts when the live hash set is empty", () => {
@@ -561,7 +561,7 @@ it.effect("safely deletes unreferenced scripts when the live hash set is empty",
 		expect(statements[1]?.sql).not.toContain("not in");
 		expect(statements[1]?.sql).toContain("not exists");
 		expect(statements[1]?.params).toEqual([]);
-	}).pipe(Effect.provide(makeScriptCleanupLayer({ removed, statements, tables })));
+	}).pipe(Effect.provide(makeScriptCleanupLayer({ tables, removed, statements })));
 });
 
 it.effect(
@@ -679,7 +679,7 @@ it.effect("persists and explicitly reloads exact plugin source bytes", () => {
 			},
 		}),
 	};
-	const manifest = { ...fixtureManifest(), providers: [], scripts: [] };
+	const manifest = { ...fixtureManifest(), scripts: [], providers: [] };
 	const plugin: NormalizedPlugin = {
 		manifest,
 		scripts: [],

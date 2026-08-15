@@ -35,7 +35,7 @@ describe("person.metron sandbox script", () => {
 
 		return runSandboxTestScript(
 			search,
-			{ query: "jane", page: 1, pageSize: 20 },
+			{ page: 1, pageSize: 20, query: "jane" },
 			host,
 			execution,
 		).pipe(
@@ -58,10 +58,10 @@ describe("person.metron sandbox script", () => {
 	it("maps creator details into person properties", () => {
 		const host = makeHost(() =>
 			httpSuccess({
-				name: "Jane Doe",
 				death: null,
-				birth: "1980-05-01",
+				name: "Jane Doe",
 				desc: "A creator.",
+				birth: "1980-05-01",
 				image: "https://img/jane.jpg",
 			}),
 		);
@@ -75,7 +75,7 @@ describe("person.metron sandbox script", () => {
 					birthDate: "1980-05-01",
 					description: "A creator.",
 					sourceUrl: "https://metron.cloud/creator/3",
-					images: [{ type: "remote", url: "https://img/jane.jpg", purpose: "profile" }],
+					images: [{ type: "remote", purpose: "profile", url: "https://img/jane.jpg" }],
 				});
 				return undefined;
 			}),

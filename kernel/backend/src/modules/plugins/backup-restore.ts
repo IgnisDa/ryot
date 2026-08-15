@@ -91,7 +91,7 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 					yield* asInvalidBackup(validatePluginExecutableScripts(normalized));
 					prepared.push({ ...item, files, manifest, normalized });
 				}
-				const candidates = prepared.map(({ key, normalized, slug }) => ({
+				const candidates = prepared.map(({ key, slug, normalized }) => ({
 					slug,
 					id: key,
 					manifest: normalized.manifest,
@@ -135,6 +135,7 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 				pluginIdByKey: ReadonlyMap<string, string>,
 			) {
 				return yield* Effect.try({
+					catch: (error) => badRequest(String(error)),
 					try: (): DefinitionSnapshot =>
 						buildDefinitionSnapshot(
 							mergeManifestDefinitions(
@@ -146,7 +147,6 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 								})),
 							),
 						),
-					catch: (error) => badRequest(String(error)),
 				});
 			});
 

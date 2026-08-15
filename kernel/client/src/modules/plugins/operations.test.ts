@@ -57,8 +57,8 @@ describe("plugin operations service", () => {
 
 			expect(calls).toEqual([
 				{
-					payload: { payload: { greeting: "hi" }, sourceHash: "source-hash" },
 					params: { pluginSlug: "fixture", operationSlug: "greet" },
+					payload: { sourceHash: "source-hash", payload: { greeting: "hi" } },
 				},
 			]);
 		}).pipe(Effect.provide(PluginOperationsService.layer), Effect.provide(dependencies));
@@ -72,7 +72,7 @@ describe("plugin operations service", () => {
 			const outcome = yield* service.invoke({
 				scope,
 				sourceHash: "source-hash",
-				request: { input: null, pluginSlug: PluginSlug.make("fixture"), operationSlug: "greet" },
+				request: { input: null, operationSlug: "greet", pluginSlug: PluginSlug.make("fixture") },
 			});
 
 			expect(outcome).toEqual({ outcome: "success", value: { greeted: "hi" } });
@@ -91,7 +91,7 @@ describe("plugin operations service", () => {
 			const outcome = yield* service.invoke({
 				scope,
 				sourceHash: "source-hash",
-				request: { input: null, pluginSlug: PluginSlug.make("fixture"), operationSlug: "greet" },
+				request: { input: null, operationSlug: "greet", pluginSlug: PluginSlug.make("fixture") },
 			});
 
 			expect(outcome).toEqual({ outcome: "stale-session" });
@@ -100,12 +100,12 @@ describe("plugin operations service", () => {
 
 	const declaredFailures = [
 		new AuthUnauthorized({ reason: { code: "authentication-required" } }),
-		new AuthRateLimited({ reason: { code: "api-key-rate-limited", retryAfterMs: null } }),
+		new AuthRateLimited({ reason: { retryAfterMs: null, code: "api-key-rate-limited" } }),
 		new PluginNotFoundError({
 			reason: { code: "plugin-not-found", pluginSlug: PluginSlug.make("fixture") },
 		}),
 		new PluginRequestError({ reason: { code: "upload-unavailable" } }),
-		new PluginInvocationError({ reason: { code: "runtime-failed", diagnostics: [] } }),
+		new PluginInvocationError({ reason: { diagnostics: [], code: "runtime-failed" } }),
 		new PluginConflictError({
 			reason: { code: "already-installed", pluginSlug: PluginSlug.make("fixture") },
 		}),
@@ -120,7 +120,7 @@ describe("plugin operations service", () => {
 				const outcome = yield* service.invoke({
 					scope,
 					sourceHash: "source-hash",
-					request: { input: null, pluginSlug: PluginSlug.make("fixture"), operationSlug: "greet" },
+					request: { input: null, operationSlug: "greet", pluginSlug: PluginSlug.make("fixture") },
 				});
 
 				expect(outcome).toEqual({ outcome: "failure", reason: "operation-failed" });
@@ -136,7 +136,7 @@ describe("plugin operations service", () => {
 			const outcome = yield* service.invoke({
 				scope,
 				sourceHash: "source-hash",
-				request: { input: null, pluginSlug: PluginSlug.make("fixture"), operationSlug: "greet" },
+				request: { input: null, operationSlug: "greet", pluginSlug: PluginSlug.make("fixture") },
 			});
 
 			expect(outcome).toEqual({ outcome: "failure", reason: "transport" });

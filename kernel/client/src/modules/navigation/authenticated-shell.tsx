@@ -73,12 +73,12 @@ export function AuthenticatedShell(props: {
 	const safeAreaInsets = useSafeAreaInsets();
 	const { catalog } = usePluginCatalog();
 	const progress = useMotionValue(0);
-	const { pathname, search, state } = useRouterState({
+	const { state, search, pathname } = useRouterState({
 		select: (routerState) => routerState.resolvedLocation ?? routerState.location,
 	});
 	const contentShift = useTransform(progress, [0, 1], [0, CONTENT_SHIFT]);
 	const triggerRef = useRef<HTMLElement>(null);
-	const { backInterceptors, runtime, scope, server } = useRouteContext({ from: "/_authenticated" });
+	const { scope, server, runtime, backInterceptors } = useRouteContext({ from: "/_authenticated" });
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [searchOpen, setSearchOpen] = useState(false);
 	const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false);
@@ -127,6 +127,7 @@ export function AuthenticatedShell(props: {
 		return navigate({
 			to: "/v/$viewSlug",
 			params: { viewSlug: item.slug },
+			replace: activeKey?.startsWith("view:") === true,
 			search: {
 				q: undefined,
 				add: undefined,
@@ -136,7 +137,6 @@ export function AuthenticatedShell(props: {
 				dialog: undefined,
 				entityId: undefined,
 			},
-			replace: activeKey?.startsWith("view:") === true,
 		});
 	};
 	const interceptSearchBack = useEffectEvent(() => {
@@ -166,7 +166,7 @@ export function AuthenticatedShell(props: {
 		workspaceSlug: current?.slug,
 	});
 	const openCustomize = (section: CustomizeSection) => {
-		void navigate({ to: "/customize-sidebar", search: { section } });
+		void navigate({ search: { section }, to: "/customize-sidebar" });
 	};
 	const leaveCustomize = () => {
 		setDiscarding(false);
@@ -255,9 +255,9 @@ export function AuthenticatedShell(props: {
 			triggerRef,
 			onBack: goBack,
 			...safeAreaInsets,
+			onKernelShortcut,
 			isDrawerOpen: drawerOpen,
 			onOpenDrawer: () => setDrawerOpen(true),
-			onKernelShortcut,
 		}),
 		[drawerId, drawerOpen, onKernelShortcut, safeAreaInsets],
 	);
@@ -336,8 +336,8 @@ export function AuthenticatedShell(props: {
 				onEditSection={openCustomize}
 				activeSettings={settingsActive}
 				onSelectWorkspace={selectWorkspace}
-				workspaceSwitcherOpen={workspaceSwitcherOpen}
 				onOpenSearch={() => setSearchOpen(true)}
+				workspaceSwitcherOpen={workspaceSwitcherOpen}
 				onWorkspaceSwitcherOpenChange={setWorkspaceSwitcherOpen}
 				onNavigateSettings={() => navigate({ href: "/settings" })}
 				customizePanel={
@@ -409,8 +409,8 @@ export function AuthenticatedShell(props: {
 				<Modal
 					label="Discard sidebar changes?"
 					closeLabel="Dismiss discard prompt"
-					onInterceptBack={interceptDiscardBack}
 					onClose={() => setDiscarding(false)}
+					onInterceptBack={interceptDiscardBack}
 					containerClassName="items-center justify-center p-4"
 					className="w-full max-w-sm rounded-xl border border-border bg-surface p-5 shadow-card"
 				>
@@ -438,8 +438,8 @@ export function AuthenticatedShell(props: {
 				<Modal
 					label="Command center"
 					closeLabel="Close command center"
-					onInterceptBack={interceptSearchBack}
 					onClose={() => setSearchOpen(false)}
+					onInterceptBack={interceptSearchBack}
 					containerClassName="items-center justify-center p-4"
 					className="w-full max-w-xl rounded-xl border border-border bg-surface p-5 shadow-card"
 				>

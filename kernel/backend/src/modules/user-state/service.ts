@@ -35,15 +35,15 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 			const trimmedEntityId = trimToNull(entityIdInput);
 			if (!trimmedEntityId) {
 				return yield* new UserStateBadRequest({
-					reason: { code: "required-field", field: "entityId" },
+					reason: { field: "entityId", code: "required-field" },
 				});
 			}
 
 			const entityId = EntityId.make(trimmedEntityId);
-			const scope = yield* entitiesRepository.getEntityScopeForUser({ userId: user.id, entityId });
+			const scope = yield* entitiesRepository.getEntityScopeForUser({ entityId, userId: user.id });
 			if (!scope) {
 				return yield* new UserStateNotFound({
-					reason: { code: "entity-not-found", entityIds: [entityId] },
+					reason: { entityIds: [entityId], code: "entity-not-found" },
 				});
 			}
 
@@ -51,7 +51,7 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 			const entitySchema = definitions.entitySchemas[scope.entitySchemaSlug];
 			if (entitySchema?.userState?.deniedOperations.includes("clear")) {
 				return yield* new UserStateBadRequest({
-					reason: { code: "operation-denied", operation: "clear" },
+					reason: { operation: "clear", code: "operation-denied" },
 				});
 			}
 
@@ -105,12 +105,12 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 
 			if (!trimmedMergeFrom) {
 				return yield* new UserStateBadRequest({
-					reason: { code: "required-field", field: "mergeFrom" },
+					reason: { field: "mergeFrom", code: "required-field" },
 				});
 			}
 			if (!trimmedMergeInto) {
 				return yield* new UserStateBadRequest({
-					reason: { code: "required-field", field: "mergeInto" },
+					reason: { field: "mergeInto", code: "required-field" },
 				});
 			}
 			if (trimmedMergeFrom === trimmedMergeInto) {
@@ -137,7 +137,7 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 				intoEntitySchema?.userState?.deniedOperations.includes("merge")
 			) {
 				return yield* new UserStateBadRequest({
-					reason: { code: "operation-denied", operation: "merge" },
+					reason: { operation: "merge", code: "operation-denied" },
 				});
 			}
 			if (fromScope.entitySchemaSlug !== intoScope.entitySchemaSlug) {
@@ -149,7 +149,7 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 			for (const property of fromEntitySchema.mergeIdentityProperties) {
 				if (!Bun.deepEquals(fromScope.properties[property], intoScope.properties[property])) {
 					return yield* new UserStateBadRequest({
-						reason: { code: "identity-property-mismatch", property },
+						reason: { property, code: "identity-property-mismatch" },
 					});
 				}
 			}

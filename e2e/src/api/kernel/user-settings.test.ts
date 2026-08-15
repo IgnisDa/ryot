@@ -11,7 +11,7 @@ import { describe, expect, it } from "~/support/effect-test";
 describe("user settings", () => {
 	it.live("reads and updates the current user's preferences", () =>
 		Effect.gen(function* () {
-			const { client, email, userId } = yield* createAuthenticatedClient();
+			const { email, client, userId } = yield* createAuthenticatedClient();
 			const initial = yield* getUserSettings(client);
 
 			expect(initial.id).toBe(userId);
@@ -23,7 +23,7 @@ describe("user settings", () => {
 				disableIntegrations: false,
 			});
 
-			yield* updateUserSettingsPreferences(client, { allowNsfw: true, language: "es" });
+			yield* updateUserSettingsPreferences(client, { language: "es", allowNsfw: true });
 
 			expect((yield* getUserSettings(client)).preferences).toEqual({
 				language: "es",

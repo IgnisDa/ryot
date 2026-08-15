@@ -155,7 +155,7 @@ it("exposes only approved application-table fields", () => {
 	expect(getCatalogTable("sandboxProviderOperation")?.name).toBe("sandbox_provider_operation");
 	expect(getCatalogTable("sandboxProviderOperation")?.primaryKey).toBe("id");
 	expect(getCatalogTable("sandboxProviderOperation")?.visibility).toEqual({
-		user: { type: "effectiveProviderPlugin", providerColumn: "provider_id" },
+		user: { providerColumn: "provider_id", type: "effectiveProviderPlugin" },
 	});
 	expect(new Set(Object.keys(getCatalogTable("savedView")?.fields ?? {}))).toEqual(
 		new Set([
@@ -443,7 +443,7 @@ it("accepts empty fields and rejects retained limits", () => {
 			document({
 				entities: rows(entity, {
 					fields: [],
-					where: { type: "in", expr: column(entity, "id"), values: [] },
+					where: { type: "in", values: [], expr: column(entity, "id") },
 				}),
 			}),
 		),
@@ -573,7 +573,7 @@ it("validates timezone-aware date bucket expressions", () => {
 	const query = (expr: Parameters<typeof dateBucket>[0], timeZone = "America/New_York") =>
 		document({
 			entities: rows(entity, {
-				fields: [field("day", dateBucket(expr, { bucket: "day", timeZone }))],
+				fields: [field("day", dateBucket(expr, { timeZone, bucket: "day" }))],
 			}),
 		});
 
@@ -594,9 +594,9 @@ it("validates time-series ranges, expressions, measures, and bucket limits", () 
 	const input = {
 		bucket: "day" as const,
 		endAt: "2026-01-03T00:00:00.000Z",
+		time: column(entity, "createdAt"),
 		startAt: "2026-01-01T00:00:00.000Z",
 		measure: { function: "count" } as const,
-		time: column(entity, "createdAt"),
 	};
 
 	expect(validateRyotQLDocument(document({ entities: timeSeries(entity, input) }))).toBeNull();
@@ -668,7 +668,7 @@ it("rejects document and join counts above the retained limits", () => {
 			right: column(joined, "id"),
 		});
 	});
-	expect(validateRyotQLDocument(document({ entities: rows(entity, { fields: [], joins }) }))).toBe(
+	expect(validateRyotQLDocument(document({ entities: rows(entity, { joins, fields: [] }) }))).toBe(
 		"Query 'entities': A query may contain at most 8 joins",
 	);
 });
@@ -793,7 +793,7 @@ it("validates include correlation, lexical scopes, keys, limits, and depth", () 
 	expect(
 		validateRyotQLDocument(
 			document({
-				courses: rows(course, { fields: [field("id", column(course, "id"))], include: [modules] }),
+				courses: rows(course, { include: [modules], fields: [field("id", column(course, "id"))] }),
 			}),
 		),
 	).toBeNull();
@@ -820,8 +820,8 @@ it("validates include correlation, lexical scopes, keys, limits, and depth", () 
 							limit: 10,
 							fields: [],
 							key: "lessons",
-							orderBy: [{ direction: "asc", expr: column(module, "id") }],
 							where: eq(column(module, "id"), column(unknown, "id")),
+							orderBy: [{ direction: "asc", expr: column(module, "id") }],
 						}),
 					],
 				}),

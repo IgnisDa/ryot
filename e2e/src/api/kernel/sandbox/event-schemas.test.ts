@@ -30,11 +30,11 @@ describe("sandbox event schema reads", () => {
 			});
 			const slug = `list-event-schemas-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
-				client,
 				slug,
+				client,
 				name: "List event schemas",
 				capabilities: ["listEventSchemas"],
-				source: eventSchemasSandboxSource({ name: "List event schemas", slug }),
+				source: eventSchemasSandboxSource({ slug, name: "List event schemas" }),
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
@@ -66,8 +66,8 @@ describe("sandbox event schema reads", () => {
 			const existing = yield* createPluginSchema(client, { name: "Existing schema" });
 			const slug = `list-event-schemas-missing-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
-				client,
 				slug,
+				client,
 				name: "List event schemas missing",
 				capabilities: ["listEventSchemas"],
 				source: eventSchemasSandboxSource({ slug, name: "List event schemas missing" }),

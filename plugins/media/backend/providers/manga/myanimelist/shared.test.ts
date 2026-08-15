@@ -13,9 +13,9 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: MyAnimeListMangaHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
+		getUserPreferences: () => Effect.succeed({ allowNsfw: false, disableIntegrations: false }),
 		getPluginConfig: (keys) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "client-id"]))),
-		getUserPreferences: () => Effect.succeed({ allowNsfw: false, disableIntegrations: false }),
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("manga.myanimelist sandbox script", () => {
@@ -56,9 +56,9 @@ describe("manga.myanimelist sandbox script", () => {
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
-								{ name: "Related Anime", externalId: "3", providerSlug: "anime.myanimelist" },
-								{ name: "Related Manga", externalId: "4", providerSlug: "manga.myanimelist" },
-								{ name: "Manga Pick", externalId: "2", providerSlug: "manga.myanimelist" },
+								{ externalId: "3", name: "Related Anime", providerSlug: "anime.myanimelist" },
+								{ externalId: "4", name: "Related Manga", providerSlug: "manga.myanimelist" },
+								{ externalId: "2", name: "Manga Pick", providerSlug: "manga.myanimelist" },
 							],
 						},
 					]);

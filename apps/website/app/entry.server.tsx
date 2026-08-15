@@ -12,7 +12,7 @@ export default async function handleRequest(
 	_loadContext: AppLoadContext,
 ) {
 	if (request.method.toUpperCase() === "HEAD") {
-		return new Response(null, { status: responseStatusCode, headers: responseHeaders });
+		return new Response(null, { headers: responseHeaders, status: responseStatusCode });
 	}
 
 	const isBot = isbot(request.headers.get("user-agent") ?? "");
@@ -21,7 +21,7 @@ export default async function handleRequest(
 	const timeoutId = setTimeout(() => abortController.abort(), ABORT_DELAY);
 
 	const stream = await renderToReadableStream(
-		<ServerRouter context={reactRouterContext} url={request.url} />,
+		<ServerRouter url={request.url} context={reactRouterContext} />,
 		{
 			signal: abortController.signal,
 			onError(error: unknown) {

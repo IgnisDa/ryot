@@ -15,9 +15,9 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Hardcover",
 	slug: "person.hardcover",
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["hardcoverApiKey"],
-	requiredSystemConfigKeys: [],
 });
 
 export const search = defineProvider({
@@ -177,14 +177,14 @@ query GetHardcoverAuthorDetails($id: Int!) {
 							website,
 							alternateNames,
 							sourceUrl: slug ? `https://hardcover.app/authors/${slug}` : null,
-							images: image
-								? [{ type: "remote" as const, url: image, purpose: "profile" as const }]
-								: [],
 							description: typeof authorData["bio"] === "string" ? authorData["bio"] : null,
 							birthDate:
 								typeof authorData["born_date"] === "string" ? authorData["born_date"] : null,
 							deathDate:
 								typeof authorData["death_date"] === "string" ? authorData["death_date"] : null,
+							images: image
+								? [{ url: image, type: "remote" as const, purpose: "profile" as const }]
+								: [],
 						},
 					};
 				}),

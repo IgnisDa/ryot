@@ -23,6 +23,14 @@ describe("sandbox capability authorization", () => {
 							name: "System denied capability",
 						}),
 					},
+					crons: [
+						{
+							scriptSlug,
+							schedule: { cron: "0 0 * * *" },
+							slug: "system-denied-capability",
+							description: "Verifies system capability denial",
+						},
+					],
 					scripts: [
 						{
 							kind: "script",
@@ -33,14 +41,6 @@ describe("sandbox capability authorization", () => {
 							entry: "scripts/denied.sandbox.ts",
 							capabilities: ["getUserPreferences"],
 						} satisfies TestPluginScript & { entry: string },
-					],
-					crons: [
-						{
-							scriptSlug,
-							schedule: { cron: "0 0 * * *" },
-							slug: "system-denied-capability",
-							description: "Verifies system capability denial",
-						},
 					],
 				}),
 				uninstallTestPlugin,

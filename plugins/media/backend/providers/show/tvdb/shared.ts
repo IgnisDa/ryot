@@ -15,11 +15,11 @@ import {
 import { getTvdbShowDetails } from "./details";
 
 export const manifest = defineManifest({
-	kind: "provider",
 	name: "TVDB",
+	kind: "provider",
 	slug: "show.tvdb",
-	requiredPluginConfigKeys: ["tvdbApiKey"],
 	requiredSystemConfigKeys: [],
+	requiredPluginConfigKeys: ["tvdbApiKey"],
 	capabilities: ["httpCall", "getCachedValue", "setCachedValue", "getPluginConfig"],
 });
 

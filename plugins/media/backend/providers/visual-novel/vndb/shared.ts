@@ -13,12 +13,12 @@ import {
 } from "../../../lib/vendors/vndb";
 
 export const manifest = defineManifest({
-	kind: "provider",
 	name: "VNDB",
-	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
+	kind: "provider",
 	slug: "visual-novel.vndb",
 	capabilities: ["httpCall"],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 const SEARCH_FIELDS = "title,image.url,released";
@@ -69,8 +69,8 @@ export const search = defineProvider({
 			{
 				count: true,
 				page: input.page,
-				results: input.pageSize,
 				fields: SEARCH_FIELDS,
+				results: input.pageSize,
 				filters: ["search", "=", input.query],
 			},
 			"VNDB VN search request failed",
@@ -132,12 +132,12 @@ export const details = defineProvider({
 			const images: Array<{ type: "remote"; url: string; purpose: string }> = [];
 			const cover = imageUrl(vn["image"]);
 			if (cover) {
-				images.push({ type: "remote", url: cover, purpose: "cover" as const });
+				images.push({ url: cover, type: "remote", purpose: "cover" as const });
 			}
 			for (const shot of Array.isArray(vn["screenshots"]) ? vn["screenshots"] : []) {
 				const url = imageUrl(shot);
 				if (url && !images.some((image) => image.url === url)) {
-					images.push({ type: "remote", url, purpose: "screenshot" as const });
+					images.push({ url, type: "remote", purpose: "screenshot" as const });
 				}
 			}
 
@@ -163,8 +163,8 @@ export const details = defineProvider({
 				name,
 				relatedEntityGroups: [
 					{
-						direction: "incoming" as const,
 						entities: relatedEntities,
+						direction: "incoming" as const,
 						synchronization: "authoritative" as const,
 						relationshipSchemaSlug: "person-to-visual-novel",
 					},

@@ -152,15 +152,15 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 					expect.arrayContaining([
 						expect.objectContaining({
 							key: "entityId",
-							expr: { type: "column", field: "id", tableAlias: "entity" },
+							expr: { field: "id", type: "column", tableAlias: "entity" },
 						}),
 						expect.objectContaining({
 							key: "ownerPluginId",
-							expr: { type: "column", field: "entitySchemaPluginId", tableAlias: "entity" },
+							expr: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
 						}),
 						expect.objectContaining({
 							key: "entitySchemaSlug",
-							expr: { type: "column", field: "entitySchemaSlug", tableAlias: "entity" },
+							expr: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
 						}),
 					]),
 				);
@@ -169,19 +169,19 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 					predicates: expect.arrayContaining([
 						expect.objectContaining({
 							right: { type: "literal", value: schema.id },
-							left: { field: "entitySchemaSlug", tableAlias: "entity", type: "column" },
+							left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
 						}),
 					]),
 				});
 				expect(view.settings["tableColumns"]).toEqual([
 					{ field: "image", label: "Image", displayKind: "managed-asset" },
-					{ field: "column0", label: "Name", displayKind: "text" },
-					{ field: "column1", label: "Pokedex Number", displayKind: "number" },
-					{ field: "column2", label: "Types", displayKind: "json" },
+					{ label: "Name", field: "column0", displayKind: "text" },
+					{ field: "column1", displayKind: "number", label: "Pokedex Number" },
+					{ label: "Types", field: "column2", displayKind: "json" },
 					{ field: "column3", label: "Abilities", displayKind: "json" },
 					{ field: "column4", label: "Height (dm)", displayKind: "number" },
 					{ field: "column5", label: "Weight (hg)", displayKind: "number" },
-					{ field: "column6", label: "Base Experience", displayKind: "number" },
+					{ field: "column6", displayKind: "number", label: "Base Experience" },
 				]);
 				expect(
 					source.output.fields.map((selection) => "key" in selection && selection.key),
@@ -241,7 +241,7 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 					pageSize: 5,
 					query: "thunderbolt",
 					providerId: provider.providerId,
-					options: { typeNames: ["electric"], damageClass: "special" },
+					options: { damageClass: "special", typeNames: ["electric"] },
 				});
 				expect(filtered.rootEntitySchemaSlug).toBe(schema.id);
 				const thunderbolt = filtered.items[0];
@@ -261,8 +261,8 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 				expect(unioned.items.map(({ title }) => title)).toEqual(["Fire Punch", "Thunder Punch"]);
 
 				const { jobId } = yield* enqueueProviderEntityImport(client, {
-					externalId: thunderbolt.externalId,
 					providerId: provider.providerId,
+					externalId: thunderbolt.externalId,
 				});
 				const imported = yield* pollProviderEntityImportResult(client, jobId);
 				assertCompleted(imported, "PokeAPI move import");
@@ -330,15 +330,15 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 					expect.arrayContaining([
 						expect.objectContaining({
 							key: "entityId",
-							expr: { type: "column", field: "id", tableAlias: "entity" },
+							expr: { field: "id", type: "column", tableAlias: "entity" },
 						}),
 						expect.objectContaining({
 							key: "ownerPluginId",
-							expr: { type: "column", field: "entitySchemaPluginId", tableAlias: "entity" },
+							expr: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
 						}),
 						expect.objectContaining({
 							key: "entitySchemaSlug",
-							expr: { type: "column", field: "entitySchemaSlug", tableAlias: "entity" },
+							expr: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
 						}),
 					]),
 				);
@@ -347,7 +347,7 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 					predicates: expect.arrayContaining([
 						expect.objectContaining({
 							right: { type: "literal", value: schema.id },
-							left: { field: "entitySchemaSlug", tableAlias: "entity", type: "column" },
+							left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
 						}),
 					]),
 				});

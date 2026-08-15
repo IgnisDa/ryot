@@ -45,7 +45,7 @@ export const Route = createFileRoute("/_authenticated/settings/integrations/$int
 	errorComponent: IntegrationLoadError,
 	pendingComponent: IntegrationPending,
 	notFoundComponent: IntegrationNotFound,
-	loader: async ({ abortController, context, params }) => {
+	loader: async ({ params, context, abortController }) => {
 		const trimmed = params.integrationId.trim();
 		if (trimmed.length === 0) {
 			// oxlint-disable-next-line typescript/only-throw-error
@@ -118,7 +118,7 @@ function IntegrationDetailRoute() {
 		try {
 			await update.mutateAsync({
 				id: integration.id,
-				payload: updateIntegrationBody({ provider, values }),
+				payload: updateIntegrationBody({ values, provider }),
 			});
 		} catch (error) {
 			setSaveDetail(integrationSaveFailure(error).detail);
@@ -226,8 +226,8 @@ function IntegrationDetailRoute() {
 							triggerRef={menuTrigger}
 							activeIndex={activeIndex}
 							label="Integration actions"
-							onActiveIndexChange={setActiveIndex}
 							onClose={() => setMenuOpen(false)}
+							onActiveIndexChange={setActiveIndex}
 						/>
 					)}
 				</>
@@ -254,13 +254,13 @@ function IntegrationDetailRoute() {
 					actionLabel="Delete integration"
 					onConfirm={() => void confirmDelete()}
 					detail={integrationDeleteConfirmation(integration, providerNames)}
-					errorMessage={
-						deleteFailed ? "This integration could not be deleted. Try again." : undefined
-					}
 					onClose={() => {
 						setDeleteFailed(false);
 						setIsConfirming(false);
 					}}
+					errorMessage={
+						deleteFailed ? "This integration could not be deleted. Try again." : undefined
+					}
 				/>
 			)}
 		</IntegrationFrame>

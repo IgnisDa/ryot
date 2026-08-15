@@ -44,13 +44,13 @@ export const makeAuthenticatedApi = (
 				Effect.gen(function* () {
 					const token = yield* tokens.accessToken(scope.serverUrl, clientId, forceRefresh);
 					return yield* Effect.tryPromise({
+						catch: (cause) => new AuthenticatedApiError({ cause }),
 						try: (signal) =>
 							runContract(program, {
 								signal,
 								baseUrl: serverApiUrl(scope.serverUrl),
 								...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
 							}),
-						catch: (cause) => new AuthenticatedApiError({ cause }),
 					});
 				}).pipe(
 					Effect.mapError((cause) =>

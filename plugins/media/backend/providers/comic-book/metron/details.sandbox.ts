@@ -6,10 +6,10 @@ import { details } from "./shared";
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "Metron Details",
+	requiredSystemConfigKeys: [],
 	slug: "comic-book.metron.details",
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["metronUsername", "metronPassword"],
-	requiredSystemConfigKeys: [],
 });
 
-export default defineProvider({ manifest, operation: "details", run: details.run });
+export default defineProvider({ manifest, run: details.run, operation: "details" });

@@ -7,9 +7,9 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "TMDB Company Details",
 	slug: "company.tmdb.details",
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["tmdbAccessToken"],
-	requiredSystemConfigKeys: [],
 });
 
-export default defineProvider({ manifest, operation: "details", run: details.run });
+export default defineProvider({ manifest, run: details.run, operation: "details" });

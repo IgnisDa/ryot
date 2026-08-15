@@ -5,11 +5,11 @@ import { details } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	name: "Anilist Company Details",
-	slug: "company.anilist.details",
 	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
+	name: "Anilist Company Details",
+	slug: "company.anilist.details",
 });
 
-export default defineProvider({ manifest, operation: "details", run: details.run });
+export default defineProvider({ manifest, run: details.run, operation: "details" });

@@ -119,7 +119,7 @@ describe("OAuth protocol enforcement", () => {
 
 	it.live("rejects a valid code exchanged with the wrong verifier", () =>
 		Effect.gen(function* () {
-			const { callback, pending } = yield* Effect.promise(() => authorize(sessionCookie));
+			const { pending, callback } = yield* Effect.promise(() => authorize(sessionCookie));
 			const code = requirePresent(
 				callback.searchParams.get("code"),
 				"OAuth authorization did not return a code",
@@ -139,7 +139,7 @@ describe("OAuth protocol enforcement", () => {
 
 	it.live("rejects replay of a successfully exchanged authorization code", () =>
 		Effect.gen(function* () {
-			const { callback, pending } = yield* Effect.promise(() => authorize(sessionCookie));
+			const { pending, callback } = yield* Effect.promise(() => authorize(sessionCookie));
 			const code = requirePresent(
 				callback.searchParams.get("code"),
 				"OAuth authorization did not return a code",

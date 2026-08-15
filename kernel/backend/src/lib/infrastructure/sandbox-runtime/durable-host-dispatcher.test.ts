@@ -72,9 +72,9 @@ const script = {
 	name: "Dispatcher",
 	slug: "dispatcher",
 	contentHash: "hash",
-	pluginSlug: "test-plugin",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
+	pluginSlug: "test-plugin",
 	metadata: {
 		name: "Dispatcher",
 		slug: "dispatcher",
@@ -113,10 +113,10 @@ it.effect("dispatches workflow-owned capabilities through their deterministic ch
 	}> = [];
 	const engine = makeWorkflowActivityEngine(instance, {
 		execute: (workflow, options) => {
-			executions.push({ workflow, options });
+			executions.push({ options, workflow });
 			return Effect.succeed(
 				workflow.name === SandboxDurableHostServiceWorkflow.name
-					? { state: "success", value: { signalId: "signal-1", wasCreated: true } }
+					? { state: "success", value: { wasCreated: true, signalId: "signal-1" } }
 					: options.executionId,
 			);
 		},
@@ -155,26 +155,26 @@ it.effect("dispatches workflow-owned capabilities through their deterministic ch
 					index: 0,
 					kind: "host",
 					name: "emitSignal",
-					args: { capability: "emitSignal", args: [] },
+					args: { args: [], capability: "emitSignal" },
 				},
 				payload,
 				principal,
 				executionId,
 			),
-		).toEqual({ state: "success", value: { signalId: "signal-1", wasCreated: true } });
+		).toEqual({ state: "success", value: { wasCreated: true, signalId: "signal-1" } });
 		expect(
 			yield* dispatcher.dispatch(
 				{
 					index: 1,
 					kind: "host",
 					name: "sendNotification",
-					args: { capability: "sendNotification", args: ["Ready"] },
+					args: { args: ["Ready"], capability: "sendNotification" },
 				},
 				payload,
 				principal,
 				executionId,
 			),
-		).toEqual({ state: "success", value: null });
+		).toEqual({ value: null, state: "success" });
 		expect(executions).toMatchObject([
 			{
 				workflow: SandboxDurableHostServiceWorkflow,
@@ -182,7 +182,7 @@ it.effect("dispatches workflow-owned capabilities through their deterministic ch
 			},
 			{
 				workflow: NotificationDeliveryWorkflow,
-				options: { executionId: "sandbox-parent-send-notification-1", discard: true },
+				options: { discard: true, executionId: "sandbox-parent-send-notification-1" },
 			},
 		]);
 	}).pipe(
@@ -287,7 +287,7 @@ const makeHttpHarness = (options: {
 					};
 					return outcome.status >= 200 && outcome.status < 300
 						? Effect.succeed(data)
-						: Effect.fail({ message: `HTTP ${outcome.status}`, data });
+						: Effect.fail({ data, message: `HTTP ${outcome.status}` });
 				}),
 		},
 	};
@@ -310,13 +310,6 @@ const makeHttpHarness = (options: {
 					},
 				}),
 				Layer.mock(ProviderHttpAdmissionService)({
-					reserve: (declaration) => {
-						reservationKeys.push(declaration.key);
-						const reservation = options.reservations?.[
-							Math.min(reservationIndex++, options.reservations.length - 1)
-						] ?? { eligibleAtMs: 10_000, observedAtMs: 10_000 };
-						return Effect.succeed({ ...reservation, declarationHash: declaration.hash });
-					},
 					confirm: () => {
 						confirms += 1;
 						return Effect.succeed(
@@ -332,6 +325,13 @@ const makeHttpHarness = (options: {
 							status: "blocked" as const,
 							observedAtMs: options.blockObservedAtMs ?? 0,
 						});
+					},
+					reserve: (declaration) => {
+						reservationKeys.push(declaration.key);
+						const reservation = options.reservations?.[
+							Math.min(reservationIndex++, options.reservations.length - 1)
+						] ?? { eligibleAtMs: 10_000, observedAtMs: 10_000 };
+						return Effect.succeed({ ...reservation, declarationHash: declaration.hash });
 					},
 				}),
 			),
@@ -401,8 +401,8 @@ it.effect("admits an immediate matched reservation", () => {
 		expect(harness.logs).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({
-					message: "sandbox HTTP policy resolution completed",
 					logLevel: "Trace",
+					message: "sandbox HTTP policy resolution completed",
 					annotations: expect.objectContaining({
 						status: "matched",
 						policyKey: "provider",
@@ -411,8 +411,8 @@ it.effect("admits an immediate matched reservation", () => {
 					}),
 				}),
 				expect.objectContaining({
-					message: "sandbox HTTP admission reserved",
 					logLevel: "Trace",
+					message: "sandbox HTTP admission reserved",
 					annotations: expect.objectContaining({
 						status: "immediate",
 						policyKey: "provider",
@@ -423,7 +423,7 @@ it.effect("admits an immediate matched reservation", () => {
 			]),
 		);
 		const serializedLogs = harness.logs
-			.flatMap(({ annotations, message }) =>
+			.flatMap(({ message, annotations }) =>
 				[message].concat(Object.values(annotations).map(String)),
 			)
 			.join(" ");
@@ -500,7 +500,7 @@ it.effect("repeats later confirmation without taking a second reservation", () =
 	const harness = makeHttpHarness({
 		outcomes: [{ status: 200 }],
 		resolutions: [policy, policy],
-		reservations: [{ eligibleAtMs: 1_000, observedAtMs: 0 }],
+		reservations: [{ observedAtMs: 0, eligibleAtMs: 1_000 }],
 		confirmations: [
 			{ status: "later", eligibleAtMs: 5_000, observedAtMs: 2_000 },
 			{ status: "admitted" },

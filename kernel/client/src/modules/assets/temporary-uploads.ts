@@ -72,7 +72,7 @@ export const temporaryUploadOutcome = (
 ): Effect.Effect<PluginUploadOutcome, never, UploadsApi> =>
 	temporaryUpload(scope, request).pipe(
 		Effect.match({
-			onSuccess: (token) => ({ outcome: "success", token }) as const,
+			onSuccess: (token) => ({ token, outcome: "success" }) as const,
 			onFailure: (error) => ({ outcome: "failure", reason: error.reason }) as const,
 		}),
 	);

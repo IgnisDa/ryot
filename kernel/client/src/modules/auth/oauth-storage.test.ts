@@ -24,7 +24,7 @@ const makeStorage = (overrides: Partial<OAuthStorageAdapter> = {}) => {
 		setItem: (key, value) => Effect.sync(() => void values.set(key, value)),
 		...overrides,
 	};
-	return { storage, values };
+	return { values, storage };
 };
 
 describe("OAuth storage", () => {
@@ -60,7 +60,7 @@ describe("OAuth storage", () => {
 	});
 
 	it.effect("removes malformed and expired records", () => {
-		const { storage, values } = makeStorage();
+		const { values, storage } = makeStorage();
 		values.set(oauthTokenKey(origin), "not-json");
 		values.set(
 			oauthPendingKey("https://ryot.example", "expired"),
@@ -85,7 +85,7 @@ describe("OAuth storage", () => {
 	});
 
 	it.effect("clears only pending authorizations for the selected server", () => {
-		const { storage, values } = makeStorage();
+		const { values, storage } = makeStorage();
 		values.set(oauthPendingKey("https://ryot.example", "one"), "{}");
 		values.set(oauthPendingKey("https://other.example", "two"), "{}");
 		values.set(oauthTokenKey(origin), "{}");
@@ -100,7 +100,7 @@ describe("OAuth storage", () => {
 	});
 
 	it.effect("prunes abandoned pending authorizations before creating another", () => {
-		const { storage, values } = makeStorage();
+		const { values, storage } = makeStorage();
 		const fresh = {
 			nonce: "nonce",
 			state: "fresh",
@@ -115,7 +115,7 @@ describe("OAuth storage", () => {
 		values.set(oauthPendingKey(origin, fresh.state), JSON.stringify(fresh));
 		values.set(
 			oauthPendingKey(origin, "expired"),
-			JSON.stringify({ ...fresh, state: "expired", createdAt: 0 }),
+			JSON.stringify({ ...fresh, createdAt: 0, state: "expired" }),
 		);
 		values.set(oauthPendingKey(origin, "malformed"), "not-json");
 		values.set(
@@ -136,7 +136,7 @@ describe("OAuth storage", () => {
 	});
 
 	it.effect("keeps records that cannot be read", () => {
-		const { storage, values } = makeStorage({
+		const { values, storage } = makeStorage({
 			getItem: () => Effect.fail(new OAuthStorageError({ reason: "read-failed" })),
 		});
 		values.set(oauthTokenKey(origin), "{}");

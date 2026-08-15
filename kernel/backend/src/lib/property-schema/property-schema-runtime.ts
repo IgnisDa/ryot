@@ -456,8 +456,8 @@ const withRoundNormalization = (
 	}
 	return Schema.Finite.pipe(
 		Schema.decodeTo(schema, {
-			decode: SchemaGetter.transform((value) => roundHalfUp(value, normalization.round.scale)),
 			encode: SchemaGetter.transform((value) => value),
+			decode: SchemaGetter.transform((value) => roundHalfUp(value, normalization.round.scale)),
 		}),
 	);
 };

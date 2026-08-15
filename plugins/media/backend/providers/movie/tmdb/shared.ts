@@ -23,8 +23,8 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "TMDB Movie",
 	slug: "movie.tmdb",
-	requiredPluginConfigKeys: ["tmdbAccessToken"],
 	requiredSystemConfigKeys: [],
+	requiredPluginConfigKeys: ["tmdbAccessToken"],
 	capabilities: ["httpCall", "getPluginConfig", "getUserPreferences"],
 });
 
@@ -32,9 +32,9 @@ const httpManifest = defineManifest({
 	kind: "provider",
 	name: "TMDB Movie",
 	slug: "movie.tmdb",
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["tmdbAccessToken"],
-	requiredSystemConfigKeys: [],
 });
 
 export const search = defineProvider({
@@ -85,8 +85,8 @@ export const search = defineProvider({
 });
 
 export const details = defineProvider({
-	manifest: httpManifest,
 	operation: "details",
+	manifest: httpManifest,
 	run: (input, host) =>
 		Effect.flatMap(getTmdbAccessToken(host), (token) =>
 			getTmdbMovieDetails(input, host, canonicalLanguage, token),
@@ -94,8 +94,8 @@ export const details = defineProvider({
 });
 
 export const resolve = defineProvider({
-	manifest: httpManifest,
 	operation: "resolve",
+	manifest: httpManifest,
 	run: (input, host) => {
 		if (input.identifierType !== "imdb") {
 			return Effect.fail(new Error("TMDB movie resolve supports only imdb identifiers"));
@@ -122,7 +122,7 @@ export const translate = defineProvider({
 		if (!/^\d+$/.test(input.externalId)) {
 			return Effect.fail(new Error("externalId must be a numeric TMDB movie ID"));
 		}
-		const { langCode, region } = parseTranslationLanguage(input.language);
+		const { region, langCode } = parseTranslationLanguage(input.language);
 		return Effect.gen(function* () {
 			const token = yield* getTmdbAccessToken(host);
 			const [translationsData, imagesData] = yield* Effect.all([
@@ -147,7 +147,7 @@ export const translate = defineProvider({
 				properties["description"] = description;
 			}
 			if (imageUrl) {
-				properties["images"] = [{ type: "remote", url: imageUrl, purpose: "cover" }];
+				properties["images"] = [{ url: imageUrl, type: "remote", purpose: "cover" }];
 			}
 			return {
 				...(name ? { name } : {}),

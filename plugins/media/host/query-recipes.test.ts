@@ -35,8 +35,8 @@ describe("media query recipes", () => {
 			"schemaSlug",
 			"populationStatus",
 			"translationStatus",
-			"state",
 			"episodeNumber",
+			"state",
 		]);
 	});
 
@@ -53,7 +53,7 @@ describe("media query recipes", () => {
 		}
 		const lifecyclePredicates = shows.where.predicates[1];
 
-		expect(shows.output.pagination).toEqual({ after: "show-cursor", limit: 7 });
+		expect(shows.output.pagination).toEqual({ limit: 7, after: "show-cursor" });
 		expect(shows.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
 			"id",
 			"name",
@@ -65,8 +65,8 @@ describe("media query recipes", () => {
 		expect(lifecyclePredicates).toMatchObject({
 			type: "and",
 			predicates: [
-				{ right: { type: "literal", value: "show" }, type: "comparison" },
-				{ right: { type: "literal", value: "caught_up" }, type: "comparison" },
+				{ type: "comparison", right: { value: "show", type: "literal" } },
+				{ type: "comparison", right: { type: "literal", value: "caught_up" } },
 			],
 		});
 	});
@@ -82,7 +82,7 @@ describe("media query recipes", () => {
 			throw new Error("Expected filtered podcast rows query");
 		}
 
-		expect(podcasts.output.pagination).toEqual({ after: "podcast-cursor", limit: 9 });
+		expect(podcasts.output.pagination).toEqual({ limit: 9, after: "podcast-cursor" });
 		expect(podcasts.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
 			"id",
 			"name",
@@ -132,15 +132,15 @@ describe("media query recipes", () => {
 			(field) => "key" in field && field.key === "fetchedAt",
 		);
 
-		expect(fetchedAt).toMatchObject({ expr: { target: "date", type: "cast" } });
+		expect(fetchedAt).toMatchObject({ expr: { type: "cast", target: "date" } });
 		const where = trending.where;
 		if (where?.type !== "and") {
 			throw new Error("Expected trending predicates");
 		}
 		const fetchedAtPredicate = where.predicates.at(-1);
 		expect(fetchedAtPredicate).toMatchObject({
-			left: { target: "date", type: "cast" },
-			right: { target: "date", type: "cast" },
+			left: { type: "cast", target: "date" },
+			right: { type: "cast", target: "date" },
 		});
 	});
 
@@ -154,7 +154,7 @@ describe("media query recipes", () => {
 				data: {
 					trending: {
 						type: "rows",
-						pageInfo: { hasMore: false, limit: 20, nextCursor: null },
+						pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 						items: [
 							{
 								rank: 1,
@@ -169,6 +169,6 @@ describe("media query recipes", () => {
 					},
 				},
 			}),
-		).toMatchObject({ success: { items: [{ id: "book-1", rank: 1 }] } });
+		).toMatchObject({ success: { items: [{ rank: 1, id: "book-1" }] } });
 	});
 });

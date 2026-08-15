@@ -35,7 +35,7 @@ type ProviderAddModalState = {
 
 export function ProviderAddModal(props: ProviderAddModalProps) {
 	const ryot = useRyot();
-	const { runtime, scope } = useRouteContext({ from: "/_authenticated" });
+	const { scope, runtime } = useRouteContext({ from: "/_authenticated" });
 	const { entitySchemaSlug } = props;
 	const [state, setState] = useState<ProviderAddModalState>({
 		selectedProviderId: undefined,
@@ -134,6 +134,16 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 								),
 							)
 						}
+						importEntity={({ externalId, providerId }) =>
+							runtime.runPromise(
+								Effect.flatMap(ProviderAddService, (service) =>
+									importProviderEntity({
+										poll: (jobId) => service.pollImport(scope, jobId),
+										start: service.startImport(scope, { externalId, providerId }),
+									}),
+								),
+							)
+						}
 						loadEntityLinks={(input) =>
 							runOutcome(
 								Effect.flatMap(ProviderAddService, (service) =>
@@ -143,16 +153,6 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 										(links): ProviderEntityLinks =>
 											new Map(links.map((link) => [link.externalId, link.entityId])),
 									),
-								),
-							)
-						}
-						importEntity={({ externalId, providerId }) =>
-							runtime.runPromise(
-								Effect.flatMap(ProviderAddService, (service) =>
-									importProviderEntity({
-										poll: (jobId) => service.pollImport(scope, jobId),
-										start: service.startImport(scope, { externalId, providerId }),
-									}),
 								),
 							)
 						}

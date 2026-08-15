@@ -10,9 +10,9 @@ export const manifest = defineManifest({
 	name: "Spotify",
 	kind: "provider",
 	slug: "music.spotify",
-	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
-	requiredPluginConfigKeys: ["spotifyClientId", "spotifyClientSecret"],
 	requiredSystemConfigKeys: [],
+	requiredPluginConfigKeys: ["spotifyClientId", "spotifyClientSecret"],
+	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 
 const getPublishYear = (releaseDate: unknown) => {
@@ -107,8 +107,8 @@ export const details = defineProvider({
 				accumulator.add({
 					externalId: artistId,
 					providerSlug: "person.spotify",
-					relationshipProperties: { roles: ["Artist"] },
 					name: trimmedString(artistRecord?.["name"]),
+					relationshipProperties: { roles: ["Artist"] },
 				});
 			}
 
@@ -134,6 +134,21 @@ export const details = defineProvider({
 
 			return {
 				name: title,
+				properties: {
+					isNsfw,
+					duration,
+					sourceUrl,
+					genres: [],
+					publishYear,
+					byVariousArtists,
+					providerRating: popularity,
+					publishDate: album ? getPublishDate(album["release_date"]) : null,
+					images: getImagesSortedBySize(album?.["images"]).map((url) => ({
+						url,
+						type: "remote" as const,
+						purpose: "cover" as const,
+					})),
+				},
 				relatedEntityGroups: [
 					{
 						direction: "incoming" as const,
@@ -152,21 +167,6 @@ export const details = defineProvider({
 						),
 					},
 				],
-				properties: {
-					isNsfw,
-					duration,
-					sourceUrl,
-					genres: [],
-					publishYear,
-					byVariousArtists,
-					providerRating: popularity,
-					publishDate: album ? getPublishDate(album["release_date"]) : null,
-					images: getImagesSortedBySize(album?.["images"]).map((url) => ({
-						url,
-						type: "remote" as const,
-						purpose: "cover" as const,
-					})),
-				},
 			};
 		}),
 });

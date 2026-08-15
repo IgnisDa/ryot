@@ -17,8 +17,8 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			slug: string,
 		) {
 			return yield* Effect.tryPromise({
-				try: (signal) => client.data.query(savedViewRecordRecipe({ slug }), { signal }),
 				catch: (cause) => new SavedViewLoadError({ cause, stage: "record" }),
+				try: (signal) => client.data.query(savedViewRecordRecipe({ slug }), { signal }),
 			});
 		}),
 	})),

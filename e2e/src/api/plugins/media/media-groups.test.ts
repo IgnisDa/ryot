@@ -56,7 +56,7 @@ describe("media group entity schemas", () => {
 					Effect.gen(function* () {
 						const schema = schemas.find((s) => s.slug === slug);
 						assertPresent(schema, `Group schema '${slug}' not found`);
-						return { eventSchemas: yield* listEventSchemas(client, schema.id), slug };
+						return { slug, eventSchemas: yield* listEventSchemas(client, schema.id) };
 					}),
 				),
 			);

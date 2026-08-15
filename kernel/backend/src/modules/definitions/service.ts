@@ -16,8 +16,8 @@ const merge = (
 	defaultSortOrder = 0,
 ) => ({
 	...metadata,
-	isDisabled: state?.isDisabled ?? false,
 	slug: PluginSlug.make(metadata.slug),
+	isDisabled: state?.isDisabled ?? false,
 	sortOrder: state?.sortOrder ?? defaultSortOrder,
 });
 

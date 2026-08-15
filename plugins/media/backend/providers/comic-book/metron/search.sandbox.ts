@@ -6,10 +6,10 @@ import { search } from "./shared";
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "Metron Search",
+	requiredSystemConfigKeys: [],
 	slug: "comic-book.metron.search",
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["metronUsername", "metronPassword"],
-	requiredSystemConfigKeys: [],
 });
 
-export default defineProvider({ manifest, operation: "search", run: search.run });
+export default defineProvider({ manifest, run: search.run, operation: "search" });

@@ -41,12 +41,12 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 
 				if (!trimmedProviderId) {
 					return yield* new ProviderEntityBadRequest({
-						reason: { code: "invalid-import-input", field: "providerId" },
+						reason: { field: "providerId", code: "invalid-import-input" },
 					});
 				}
 				if (!externalId) {
 					return yield* new ProviderEntityBadRequest({
-						reason: { code: "invalid-import-input", field: "externalId" },
+						reason: { field: "externalId", code: "invalid-import-input" },
 					});
 				}
 
@@ -54,7 +54,7 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 				const provider = yield* pluginRuntime.findProviderAvailableToUser(user.id, providerId);
 				if (!provider) {
 					return yield* new ProviderEntityNotFound({
-						reason: { code: "provider-not-found", providerId },
+						reason: { providerId, code: "provider-not-found" },
 					});
 				}
 				const entitySchemaSlug = EntitySchemaSlug.make(provider.rootEntitySchemaSlug);
@@ -65,7 +65,7 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 				});
 				if (!entitySchemaScope) {
 					return yield* new ProviderEntityNotFound({
-						reason: { code: "entity-schema-not-found", entitySchemaSlug },
+						reason: { entitySchemaSlug, code: "entity-schema-not-found" },
 					});
 				}
 
@@ -81,8 +81,8 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 							entitySchemaSlug,
 							origin: { kind: "api" },
 							entityScope: {
-								type: provider.pluginScope === "user" ? "user" : "global",
 								userId: user.id,
+								type: provider.pluginScope === "user" ? "user" : "global",
 							},
 						},
 					})
@@ -98,14 +98,14 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 				const resolvedJobId = trimToNull(jobId);
 				if (!resolvedJobId) {
 					return yield* new ProviderEntityNotFound({
-						reason: { code: "import-job-not-found", jobId },
+						reason: { jobId, code: "import-job-not-found" },
 					});
 				}
 
 				const executionId = resolveWorkflowExecutionId(jobIdSecret, user.id, resolvedJobId);
 				if (!executionId) {
 					return yield* new ProviderEntityNotFound({
-						reason: { code: "import-job-not-found", jobId },
+						reason: { jobId, code: "import-job-not-found" },
 					});
 				}
 

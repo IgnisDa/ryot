@@ -99,7 +99,7 @@ const readLiteral = (rawExpression: ts.Expression): LiteralResult => {
 			}
 			value[key] = result.value;
 		}
-		return { ok: true, value };
+		return { value, ok: true };
 	}
 
 	return {

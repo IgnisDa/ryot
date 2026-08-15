@@ -9,11 +9,11 @@ it("restricts collection choices to the kernel collection schema", () => {
 	assert(query);
 
 	expect(query.where).toMatchObject({
-		predicates: [
-			{ left: { field: "entitySchemaSlug" }, right: { value: "collection" } },
-			{ expr: { field: "entitySchemaPluginId" }, type: "isNull" },
-		],
 		type: "and",
+		predicates: [
+			{ right: { value: "collection" }, left: { field: "entitySchemaSlug" } },
+			{ type: "isNull", expr: { field: "entitySchemaPluginId" } },
+		],
 	});
 	expect(
 		Result.getOrThrow(
@@ -21,11 +21,11 @@ it("restricts collection choices to the kernel collection schema", () => {
 				data: {
 					collections: {
 						type: "rows",
-						items: [{ id: "collection-1", name: "Favorites" }],
-						pageInfo: { hasMore: false, limit: 100, nextCursor: null },
+						items: [{ name: "Favorites", id: "collection-1" }],
+						pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 					},
 				},
 			}),
 		),
-	).toEqual([{ id: "collection-1", name: "Favorites" }]);
+	).toEqual([{ name: "Favorites", id: "collection-1" }]);
 });

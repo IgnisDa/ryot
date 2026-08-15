@@ -53,13 +53,13 @@ it.effect("selects a declared dynamic route from a disabled but ready direct ins
 	return Effect.gen(function* () {
 		const resolved = yield* resolvePluginPageTarget({
 			plugins: [owner],
+			findEntity: () => Effect.succeed(null),
 			target: {
 				pluginId: owner.id,
 				search: "tab=stats",
 				kind: "plugin-route",
 				path: "/details/item-1",
 			},
-			findEntity: () => Effect.succeed(null),
 		});
 		expect(resolved.exportName).toBe("details");
 		expect(resolved.params).toEqual({ itemId: "item-1" });
@@ -70,7 +70,7 @@ it("records disabled ready installations as operation targets without making the
 	const target = plugin({
 		isDisabled: true,
 		id: "operations-only",
-		client: { apiVersion: 1, exports: {}, homeView: null },
+		client: { exports: {}, apiVersion: 1, homeView: null },
 	});
 	expect(clientPageOperationTargets([target])).toEqual([
 		{
@@ -115,8 +115,8 @@ it.effect("selects a static route before an overlapping dynamic route", () => {
 	return Effect.gen(function* () {
 		const resolved = yield* resolvePluginPageTarget({
 			plugins: [owner],
-			target: { kind: "plugin-route", pluginId: owner.id, path: "/items/new", search: "" },
 			findEntity: () => Effect.succeed(null),
+			target: { search: "", pluginId: owner.id, path: "/items/new", kind: "plugin-route" },
 		});
 		expect(resolved.exportName).toBe("new-item");
 		expect(resolved.params).toEqual({});
@@ -153,13 +153,13 @@ it.effect(
 	"keeps missing entity, unavailable owner, and unregistered page failures distinct",
 	() => {
 		const entityId = EntityId.make("entity-1");
-		const target = { kind: "entity" as const, entityId };
+		const target = { entityId, kind: "entity" as const };
 		const entity = {
 			entityId,
 			entitySchemaPluginId: "owner",
 			entitySchemaSlug: EntitySchemaSlug.make("pokemon"),
 		};
-		const owner = plugin({ id: "owner", client: { apiVersion: 1, exports: {}, homeView: null } });
+		const owner = plugin({ id: "owner", client: { exports: {}, apiVersion: 1, homeView: null } });
 		return Effect.gen(function* () {
 			const missing = yield* Effect.flip(
 				resolvePluginPageTarget({ target, plugins: [], findEntity: () => Effect.succeed(null) }),
