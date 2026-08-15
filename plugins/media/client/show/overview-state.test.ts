@@ -6,7 +6,13 @@ import {
 	showCompanyRow,
 	showPersonRow,
 	showRecommendationRow,
-} from "./overview-fixture";
+} from "../../tests/client/show/overview-fixture";
+import {
+	malformedQueryResult,
+	pendingQueryResult,
+	readyQueryResult,
+	transportErrorQueryResult,
+} from "../../tests/client/show/query-result-fixture";
 import {
 	mapShowOverview,
 	showCharacterLabel,
@@ -18,12 +24,6 @@ import {
 	showRecommendationAsset,
 	showRolesLabel,
 } from "./overview-state";
-import {
-	malformedQueryResult,
-	pendingQueryResult,
-	readyQueryResult,
-	transportErrorQueryResult,
-} from "./query-result-fixture";
 
 describe("show overview state", () => {
 	it("maps a pending query to the loading state", () => {

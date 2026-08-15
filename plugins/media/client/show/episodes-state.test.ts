@@ -5,7 +5,13 @@ import {
 	decodeShowSeasonEpisodesResult,
 	showEpisodeRow,
 	showSeasonRow,
-} from "./episodes-fixture";
+} from "../../tests/client/show/episodes-fixture";
+import {
+	malformedQueryResult,
+	pendingQueryResult,
+	readyQueryResult,
+	transportErrorQueryResult,
+} from "../../tests/client/show/query-result-fixture";
 import {
 	mapShowEpisodes,
 	mapShowSeasonEpisodes,
@@ -24,12 +30,6 @@ import {
 	showSeasonLabel,
 	showSeasonReleaseLabel,
 } from "./episodes-state";
-import {
-	malformedQueryResult,
-	pendingQueryResult,
-	readyQueryResult,
-	transportErrorQueryResult,
-} from "./query-result-fixture";
 
 type SeasonInput = Parameters<typeof decodeShowEpisodesResult>[0]["seasons"];
 type SeasonEpisodesInput = Parameters<typeof decodeShowSeasonEpisodesResult>[0];

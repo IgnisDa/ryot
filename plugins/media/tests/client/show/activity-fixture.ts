@@ -1,6 +1,6 @@
 import { Result } from "@ryot-app/client-sdk/effect";
 
-import { showActivityRecipe } from "../../shared/show-recipes";
+import { showActivityRecipe } from "../../../shared/show-recipes";
 import { rowsResult } from "./query-result-fixture";
 
 const showActivityFixtureRecipe = showActivityRecipe({
