@@ -1,7 +1,11 @@
 import { DbError } from "@ryot/contract/errors";
-import type { SandboxProviderId } from "@ryot/contract/schema/brands";
-import { EntityId, EntitySchemaSlug, UserId } from "@ryot/contract/schema/brands";
-import { and, asc, count, eq, inArray, isNull, sql } from "drizzle-orm";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	type SandboxProviderId,
+	UserId,
+} from "@ryot/contract/schema/brands";
+import { and, asc, count, eq, exists, inArray, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -47,6 +51,60 @@ export type UpdateEntityInput = {
 export type GlobalEntityProvenanceScopeInput = {
 	providerId: SandboxProviderId;
 	entitySchemaSlug: EntitySchemaSlug;
+};
+
+export type PortableEntityRecord = Pick<
+	typeof schema.entity.$inferSelect,
+	| "id"
+	| "name"
+	| "createdAt"
+	| "updatedAt"
+	| "properties"
+	| "externalId"
+	| "populatedAt"
+	| "entitySchemaSlug"
+> & {
+	readonly provider: { readonly pluginSlug: string; readonly providerSlug: string } | null;
+};
+
+type RestoreEntityInput = Pick<
+	typeof schema.entity.$inferInsert,
+	| "id"
+	| "name"
+	| "userId"
+	| "createdAt"
+	| "updatedAt"
+	| "properties"
+	| "externalId"
+	| "populatedAt"
+	| "providerId"
+	| "entitySchemaSlug"
+>;
+
+const portableEntitySelection = {
+	id: schema.entity.id,
+	name: schema.entity.name,
+	createdAt: schema.entity.createdAt,
+	updatedAt: schema.entity.updatedAt,
+	properties: schema.entity.properties,
+	externalId: schema.entity.externalId,
+	populatedAt: schema.entity.populatedAt,
+	providerSlug: schema.sandboxProvider.slug,
+	pluginSlug: schema.sandboxProvider.pluginSlug,
+	entitySchemaSlug: schema.entity.entitySchemaSlug,
+};
+
+const toPortableEntity = (
+	row: Omit<PortableEntityRecord, "provider"> & {
+		readonly pluginSlug: string | null;
+		readonly providerSlug: string | null;
+	},
+): PortableEntityRecord => {
+	const { pluginSlug, providerSlug, ...entity } = row;
+	return {
+		...entity,
+		provider: pluginSlug === null || providerSlug === null ? null : { pluginSlug, providerSlug },
+	};
 };
 
 export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
@@ -104,6 +162,97 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					}));
 				},
 			);
+
+			const listUserEntitiesForBackup = Effect.fn("EntitiesRepository.listUserEntitiesForBackup")(
+				function* (userId: UserId) {
+					const db = yield* Database;
+					const rows = yield* mapDatabaseErrors(
+						db
+							.select(portableEntitySelection)
+							.from(schema.entity)
+							.leftJoin(
+								schema.sandboxProvider,
+								eq(schema.entity.providerId, schema.sandboxProvider.id),
+							)
+							.where(eq(schema.entity.userId, userId))
+							.orderBy(asc(schema.entity.id)),
+					);
+					return rows.map(toPortableEntity);
+				},
+			);
+
+			const listReferencedGlobalEntitiesForBackup = Effect.fn(
+				"EntitiesRepository.listReferencedGlobalEntitiesForBackup",
+			)(function* (userId: UserId) {
+				const db = yield* Database;
+				const rows = yield* mapDatabaseErrors(
+					db
+						.select(portableEntitySelection)
+						.from(schema.entity)
+						.leftJoin(
+							schema.sandboxProvider,
+							eq(schema.entity.providerId, schema.sandboxProvider.id),
+						)
+						.where(
+							and(
+								isNull(schema.entity.userId),
+								or(
+									exists(
+										db
+											.select({ id: schema.relationship.id })
+											.from(schema.relationship)
+											.where(
+												and(
+													eq(schema.relationship.userId, userId),
+													or(
+														eq(schema.relationship.sourceEntityId, schema.entity.id),
+														eq(schema.relationship.targetEntityId, schema.entity.id),
+													),
+												),
+											),
+									),
+									exists(
+										db
+											.select({ id: schema.event.id })
+											.from(schema.event)
+											.where(
+												and(
+													eq(schema.event.userId, userId),
+													or(
+														eq(schema.event.entityId, schema.entity.id),
+														eq(schema.event.sessionEntityId, schema.entity.id),
+													),
+												),
+											),
+									),
+								),
+							),
+						)
+						.orderBy(asc(schema.entity.id)),
+				);
+				return rows.map(toPortableEntity);
+			});
+
+			const listGlobalEntitiesByIdsForBackup = Effect.fn(
+				"EntitiesRepository.listGlobalEntitiesByIdsForBackup",
+			)(function* (entityIds: ReadonlyArray<EntityId>) {
+				if (entityIds.length === 0) {
+					return [];
+				}
+				const db = yield* Database;
+				const rows = yield* mapDatabaseErrors(
+					db
+						.select(portableEntitySelection)
+						.from(schema.entity)
+						.leftJoin(
+							schema.sandboxProvider,
+							eq(schema.entity.providerId, schema.sandboxProvider.id),
+						)
+						.where(and(isNull(schema.entity.userId), inArray(schema.entity.id, [...entityIds])))
+						.orderBy(asc(schema.entity.id)),
+				);
+				return rows.map(toPortableEntity);
+			});
 
 			const getEntitySchemaScopeForUser = Effect.fn(
 				"EntitiesRepository.getEntitySchemaScopeForUser",
@@ -279,12 +428,17 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				const db = yield* Database;
 				const [row] = yield* mapDatabaseErrors(
 					db
-						.select({ id: schema.entity.id })
+						.select({ id: schema.entity.id, entitySchemaSlug: schema.entity.entitySchemaSlug })
 						.from(schema.entity)
 						.where(and(eq(schema.entity.id, entityId), isNull(schema.entity.userId)))
 						.limit(1),
 				);
-				return row ? { id: EntityId.make(row.id) } : null;
+				return row
+					? {
+							id: EntityId.make(row.id),
+							entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
+						}
+					: null;
 			});
 
 			const findEntityByExternalIdForUser = Effect.fn(
@@ -338,6 +492,57 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				);
 
 				return row ? toListedEntity(row) : null;
+			});
+
+			const findGlobalEntityForRestore = Effect.fn("EntitiesRepository.findGlobalEntityForRestore")(
+				function* (input: {
+					externalId: string;
+					entitySchemaSlug: EntitySchemaSlug;
+					provider: { readonly pluginSlug: string; readonly providerSlug: string } | null;
+				}) {
+					const db = yield* Database;
+					const [row] = yield* mapDatabaseErrors(
+						db
+							.select({ id: schema.entity.id, entitySchemaSlug: schema.entity.entitySchemaSlug })
+							.from(schema.entity)
+							.leftJoin(
+								schema.sandboxProvider,
+								eq(schema.entity.providerId, schema.sandboxProvider.id),
+							)
+							.where(
+								and(
+									isNull(schema.entity.userId),
+									eq(schema.entity.externalId, input.externalId),
+									eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
+									input.provider === null
+										? isNull(schema.entity.providerId)
+										: and(
+												eq(schema.sandboxProvider.pluginSlug, input.provider.pluginSlug),
+												eq(schema.sandboxProvider.slug, input.provider.providerSlug),
+											),
+								),
+							)
+							.limit(1),
+					);
+					return row
+						? {
+								id: EntityId.make(row.id),
+								entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
+							}
+						: null;
+				},
+			);
+
+			const restoreEntity = Effect.fn("EntitiesRepository.restoreEntity")(function* (
+				input: RestoreEntityInput,
+			) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db.insert(schema.entity).values(input).returning({ id: schema.entity.id }),
+				);
+				return row
+					? EntityId.make(row.id)
+					: yield* new DbError({ message: "Entity restore returned no row" });
 			});
 
 			const lockGlobalEntityProvenanceScope = Effect.fn(
@@ -569,6 +774,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				getById,
 				deleteByIds,
 				insertEntity,
+				restoreEntity,
 				updateEntity,
 				getByIdForUser,
 				getByIdsForUser,
@@ -576,16 +782,20 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				findGlobalEntityById,
 				getEntityScopeForUser,
 				listEntityReferencesByIds,
+				listUserEntitiesForBackup,
 				lockUserEntityEnsureScopes,
 				getEntityMergeScopeForUser,
 				listMatchCandidatesBySchema,
 				getEntitySchemaScopeForUser,
 				findGlobalEntityByExternalId,
+				findGlobalEntityForRestore,
 				findEntityByExternalIdForUser,
 				findEntitySchemaProviderBySlug,
 				findUserEntityWithoutProvenance,
 				lockGlobalEntityProvenanceScope,
+				listGlobalEntitiesByIdsForBackup,
 				countGlobalEntitiesByProvenanceScope,
+				listReferencedGlobalEntitiesForBackup,
 			};
 		}),
 	},

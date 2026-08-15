@@ -65,6 +65,19 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 	{
 		make: Effect.gen(function* () {
 			const { frontendUrl } = yield* AppConfig;
+			const hasAnyForUser = Effect.fn("IntegrationsRepository.hasAnyForUser")(function* (
+				userId: UserId,
+			) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select({ id: schema.integration.id })
+						.from(schema.integration)
+						.where(eq(schema.integration.userId, userId))
+						.limit(1),
+				);
+				return row !== undefined;
+			});
 
 			const createForUser = Effect.fn("IntegrationsRepository.createForUser")(function* (input: {
 				userId: UserId;
@@ -306,6 +319,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				updateForUser,
 				deleteForUser,
 				getByIdAnyUser,
+				hasAnyForUser,
 				hasAutoDisableClaim,
 				insertAutoDisableClaim,
 				disableForUserIfEnabled,

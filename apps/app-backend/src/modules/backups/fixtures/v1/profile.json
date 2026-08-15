@@ -1,0 +1,10 @@
+{
+	"name": "Golden Fixture User",
+	"image": null,
+	"preferences": {
+		"language": "en",
+		"theme": "dark",
+		"showArchived": false,
+		"nested": { "source": "fixture" }
+	}
+}

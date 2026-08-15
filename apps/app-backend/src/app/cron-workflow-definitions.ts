@@ -1,6 +1,9 @@
 import { Effect } from "effect";
 import type { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
+import type { Database } from "#lib/infrastructure/db/service";
+import { backupsFrequentTask } from "#modules/backups/frequent-task";
+import type { BackupsService } from "#modules/backups/service";
 import { integrationsFrequentTask } from "#modules/integrations/frequent-task";
 import {
 	type CronRunPayload,
@@ -11,10 +14,9 @@ import type { CronTask } from "#modules/scheduler/types";
 import { uploadsFrequentTask } from "#modules/uploads/frequent-task";
 import type { UploadsService } from "#modules/uploads/service";
 
-const frequentCronTasks: ReadonlyArray<CronTask<never, WorkflowEngine | UploadsService>> = [
-	integrationsFrequentTask,
-	uploadsFrequentTask,
-];
+const frequentCronTasks: ReadonlyArray<
+	CronTask<never, BackupsService | Database | WorkflowEngine | UploadsService>
+> = [backupsFrequentTask, integrationsFrequentTask, uploadsFrequentTask];
 
 const runFrequentCronWorkflow = Effect.fn("FrequentCronWorkflow")(
 	function* (_payload: CronRunPayload, executionId: string) {
