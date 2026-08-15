@@ -430,7 +430,10 @@ function SavedViewContent(props: {
 	return (
 		<div className="relative h-full min-h-0">
 			<main className="h-full overflow-y-auto bg-bg px-4 pb-[max(32px,env(safe-area-inset-bottom))] md:px-8 md:pt-8">
-				<div className="grid min-h-full w-full gap-5" aria-busy={state.operation !== undefined}>
+				<div
+					aria-busy={state.operation !== undefined}
+					className="grid min-h-full w-full content-start gap-5"
+				>
 					<header className="grid gap-3 lg:h-15 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start lg:gap-6">
 						<div className="grid min-w-0 gap-1">
 							<div className="flex min-w-0 items-center gap-2.5">
