@@ -75,6 +75,7 @@ const installation: ContractSuccess<"definitions", "updatePluginState"> = {
 	isDisabled: false,
 	healthReason: null,
 	description: "Media",
+	homeSavedViewId: null,
 	configuredSecrets: [],
 	sourceHash: "source-hash",
 	slug: PluginSlug.make("media"),

@@ -100,6 +100,13 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 				return yield* service.uninstallPlugin(user.id, params.pluginSlug).pipe(dieOnDbError);
 			}),
 		)
+		.handle("setHomeView", ({ params, payload }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* PluginInstallationService;
+				return yield* service.setHomeView(user.id, params.pluginSlug, payload).pipe(dieOnDbError);
+			}),
+		)
 		.handle("createArtifactSession", ({ params, payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;

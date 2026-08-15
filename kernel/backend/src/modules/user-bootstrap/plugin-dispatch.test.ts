@@ -88,6 +88,7 @@ const systemInstallation = (pluginSlug: string): PluginInstallationState => ({
 	health: "ready",
 	isDisabled: false,
 	healthReason: null,
+	homeSavedViewId: null,
 	pluginScope: "system",
 	pluginId: `${pluginSlug}-id`,
 	createdAt: new Date(0),
