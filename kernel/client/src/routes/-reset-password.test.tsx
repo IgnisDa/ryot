@@ -21,6 +21,7 @@ import {
 	GodModeRouteStubs,
 	SavedViewRouteStubs,
 	ProviderAddRouteStubs,
+	CustomizeRouteStubs,
 	NavigationRouteStubs,
 	theme,
 	server,
@@ -72,6 +73,7 @@ const makeView = (
 			}),
 			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(catalog) }),
 			NavigationRouteStubs,
+			CustomizeRouteStubs,
 			Layer.succeed(PluginOperationsService, { invoke: () => Effect.die("not used") }),
 			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
 		).pipe(
