@@ -585,6 +585,7 @@ const ClientPagesServiceLive = ClientPagesService.layer.pipe(
 	Layer.provide(
 		Layer.mergeAll(
 			ClientPagesRepository.layer,
+			EntitiesRepository.layer.pipe(Layer.provide(PluginRuntimeResolverLive)),
 			ClientPluginCompiler.layer,
 			PluginRepository.layer,
 			PluginRuntimeResolverLive,

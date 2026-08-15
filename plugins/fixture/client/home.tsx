@@ -17,6 +17,7 @@ import { useState } from "react";
 import importedLogo from "./imported-logo.png";
 import logo from "./logo.svg";
 import { fixtureClientPluginCatalogRecipe } from "./query-recipes";
+import { FIXTURE_PLUGIN_SLUG, fixtureRoute } from "./targets";
 
 const Greeting = Schema.Struct({ greeting: Schema.String });
 
@@ -36,7 +37,13 @@ const fixtureClientPluginCatalogQuery = createRyotQuery(({ client, signal }) =>
 );
 
 const greetingMutation = createRyotMutation<GreetingInput, typeof Greeting.Type>(
-	({ client, input }) => client.operations.invoke({ slug: "greet", output: Greeting, input }),
+	({ client, input }) =>
+		client.operations.invoke({
+			input,
+			slug: "greet",
+			output: Greeting,
+			pluginSlug: FIXTURE_PLUGIN_SLUG,
+		}),
 );
 
 const uploadTones = {
@@ -213,16 +220,16 @@ export const Home = () => {
 						/>
 					</label>
 				</section>
-				<PluginLink to={{ kind: "route", path: "/details/item-1", search: { tab: "stats" } }}>
+				<PluginLink to={fixtureRoute("/details/item-1", { tab: "stats" })}>
 					Item 1 details
 				</PluginLink>
 				<Button
 					variant="secondary"
-					onClick={() => ryot.navigation.push({ kind: "route", path: "/details/item-2" })}
+					onClick={() => ryot.navigation.push(fixtureRoute("/details/item-2"))}
 				>
 					Open item 2
 				</Button>
-				<PluginLink to={{ kind: "route", path: "/full-bleed" }}>Full-bleed screen</PluginLink>
+				<PluginLink to={fixtureRoute("/full-bleed")}>Full-bleed screen</PluginLink>
 				<PluginLink to={{ kind: "entity", entityId: "fixture-entity" }}>
 					Open fixture entity
 				</PluginLink>
@@ -230,3 +237,5 @@ export const Home = () => {
 		</PluginScreenFrame>
 	);
 };
+
+export default Home;

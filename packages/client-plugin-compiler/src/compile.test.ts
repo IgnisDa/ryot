@@ -1,13 +1,17 @@
 import { expect, it } from "@effect/vitest";
 import {
 	CLIENT_API_VERSION,
+	CLIENT_ARTIFACT_METADATA_ELEMENT_ID,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
+	CLIENT_COMPILER_VERSION,
 	pluginClientFileExtension,
 } from "@ryot-app/client-plugin-contract";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect } from "effect";
+import { JSDOM } from "jsdom";
 import { parse } from "postcss";
+import { vi } from "vitest";
 
 import { compileClientPlugin, type ClientPluginCompilerGraphInput } from "./compile";
 import { isTrustedClientModule, resolveClientPluginCompilerDependencies } from "./dependencies";
@@ -39,7 +43,14 @@ const fixtureFiles = Effect.promise(async () => {
 				[path, new Uint8Array(await Bun.file(`${fixtureRoot}/${path}`).arrayBuffer())] as const,
 		),
 	);
-	return Object.fromEntries(entries);
+	const files: Record<string, Uint8Array> = Object.fromEntries(entries);
+	files["client/index.tsx"] = bytes(`
+import "./styles.css";
+import { bootstrapClientPlugin } from "@ryot-app/client-sdk/plugin";
+import { Home } from "./home";
+bootstrapClientPlugin({ home: { component: Home } });
+`);
+	return files;
 });
 
 const compileFixture = (files: Record<string, Uint8Array>) =>
@@ -205,7 +216,7 @@ it.effect(
 			expect(artifact.format).toBe(1);
 			expect(artifact.apiVersion).toBe(1);
 			expect(artifact.bridgeVersion).toBe(CLIENT_BRIDGE_PROTOCOL_VERSION);
-			expect(artifact.compilerVersion).toBe(1);
+			expect(artifact.compilerVersion).toBe(CLIENT_COMPILER_VERSION);
 		}),
 	30_000,
 );
@@ -423,30 +434,41 @@ it.effect("checks unreachable archived TypeScript sources but excludes test sour
 );
 
 it.effect(
-	"checks every advertised package export through generated imports without replacing its bootstrap",
+	"generates one page bootstrap while validating every advertised package page",
 	() =>
 		Effect.gen(function* () {
 			const input = {
 				name: "Exporting plugin",
 				entry: "client/index.tsx",
 				apiVersion: CLIENT_API_VERSION,
-				publicExports: { summary: { entry: "client/summary.tsx", kind: "component" as const } },
+				publicExports: {
+					"entity-detail": { entry: "client/entity-detail.tsx", kind: "page" as const },
+					"route-page": { entry: "client/route-page.tsx", kind: "page" as const },
+				},
 				files: {
-					"client/index.tsx": bytes('Reflect.set(globalThis, "pluginBootstrap", "authored");'),
-					"client/summary.tsx": bytes(
-						"export default function Summary(_props: { label: string }) { return null; }",
+					"client/index.tsx": bytes("export {};"),
+					"client/entity-detail.tsx": bytes(
+						'Reflect.set(globalThis, "generatedPageRoots", Number(Reflect.get(globalThis, "generatedPageRoots") ?? 0) + 1); export default function EntityDetail() { return <div>entity-detail-page</div>; }',
+					),
+					"client/route-page.tsx": bytes(
+						"export default function RoutePage() { return <div>ordinary-route-page</div>; }",
 					),
 				},
 			};
 			const { artifact } = yield* compileClientPlugin(input);
 			const javascript = text(artifact.files.find(({ name }) => name === "plugin.js")?.contents);
-			expect(javascript).toContain("pluginBootstrap");
+			expect(javascript).toContain("entity-detail-page");
+			expect(javascript).not.toContain("ordinary-route-page");
+			// oxlint-disable-next-line typescript/no-implied-eval -- verifies one generated page root executes
+			Function("document", javascript)({ getElementById: () => null });
+			expect(Reflect.get(globalThis, "generatedPageRoots")).toBe(1);
+			Reflect.deleteProperty(globalThis, "generatedPageRoots");
 
 			const missingDefault = yield* compileClientPlugin({
 				...input,
 				files: {
 					...input.files,
-					"client/summary.tsx": bytes("export const Summary = () => null;"),
+					"client/route-page.tsx": bytes("export const RoutePage = () => null;"),
 				},
 			}).pipe(Effect.flip);
 			expect(missingDefault.diagnostics[0]).toMatchObject({ code: "RYOT_CLIENT_BUNDLE" });
@@ -454,12 +476,15 @@ it.effect(
 
 			const wrongPageType = yield* compileClientPlugin({
 				...input,
-				publicExports: {
-					summary: { entry: "client/summary.tsx", kind: "page" as const },
+				files: {
+					...input.files,
+					"client/route-page.tsx": bytes(
+						"export default function RoutePage(_props: { required: string }) { return null; }",
+					),
 				},
 			}).pipe(Effect.flip);
 			expect(wrongPageType.diagnostics).toEqual(
-				expect.arrayContaining([expect.objectContaining({ code: "TS2322" })]),
+				expect.arrayContaining([expect.objectContaining({ code: "TS2345" })]),
 			);
 		}),
 	30_000,
@@ -1203,3 +1228,176 @@ it.effect("rejects plugin-kit imports from client sources while preserving share
 		expect(failure.diagnostics[0]?.file).toBe("client/index.tsx");
 	}),
 );
+
+it("executes a generated plugin registry with dynamic params and not-found", async () => {
+	const { artifact } = await Effect.runPromise(
+		compileClientPlugin({
+			name: "Fixture routes",
+			application: "plugin-route",
+			contributorOrder: ["fixture"],
+			apiVersion: CLIENT_API_VERSION,
+			entry: { contributor: "fixture", path: "client/home.tsx" },
+			contributors: {
+				fixture: {
+					files: {
+						"client/home.tsx": bytes("export default function Home() { return <p>Home</p>; }"),
+						"client/details.tsx": bytes(`
+import { usePluginParams } from "@ryot-app/client-sdk/plugin";
+export default function Details() {
+  const { itemId } = usePluginParams();
+  return <p>Details:{itemId}</p>;
+}
+`),
+						"client/new-item.tsx": bytes(
+							"export default function NewItem() { return <p>New item</p>; }",
+						),
+						"client/not-found.tsx": bytes(
+							"export default function NotFound() { return <p>Fixture not found</p>; }",
+						),
+					},
+				},
+			},
+			publicExports: {
+				"@ryot-app/plugins/fixture/home": {
+					kind: "page",
+					contributor: "fixture",
+					entry: "client/home.tsx",
+				},
+				"@ryot-app/plugins/fixture/details": {
+					kind: "page",
+					contributor: "fixture",
+					entry: "client/details.tsx",
+				},
+				"@ryot-app/plugins/fixture/not-found": {
+					kind: "page",
+					contributor: "fixture",
+					entry: "client/not-found.tsx",
+				},
+				"@ryot-app/plugins/fixture/new-item": {
+					kind: "page",
+					contributor: "fixture",
+					entry: "client/new-item.tsx",
+				},
+			},
+			routeRegistry: {
+				home: "@ryot-app/plugins/fixture/home",
+				notFound: "@ryot-app/plugins/fixture/not-found",
+				routes: [
+					{ path: "/items/$itemId", exportSpecifier: "@ryot-app/plugins/fixture/details" },
+					{ path: "/items/new", exportSpecifier: "@ryot-app/plugins/fixture/new-item" },
+				],
+			},
+		}).pipe(Effect.mapError((error) => new Error(JSON.stringify(error.diagnostics)))),
+	);
+	const dom = new JSDOM("<!doctype html><html><head></head><body></body></html>", {
+		url: "https://fixture.test",
+	});
+	const { document } = dom.window;
+	const window = dom.window;
+	let initialize: EventListener | undefined;
+	const addEventListener = window.addEventListener.bind(window);
+	window.addEventListener = ((
+		type: string,
+		listener: EventListenerOrEventListenerObject,
+		options?: boolean | AddEventListenerOptions,
+	) => {
+		if (type === "message" && initialize === undefined) {
+			initialize =
+				typeof listener === "function" ? listener : (event) => listener.handleEvent(event);
+			return;
+		}
+		addEventListener(type, listener, options);
+	}) as typeof window.addEventListener;
+	document.body.innerHTML = '<div id="app"></div>';
+	const metadata = document.createElement("script");
+	metadata.id = CLIENT_ARTIFACT_METADATA_ELEMENT_ID;
+	metadata.type = "application/json";
+	metadata.textContent = JSON.stringify({
+		hash: artifact.hash,
+		format: artifact.format,
+		apiVersion: artifact.apiVersion,
+		bridgeVersion: artifact.bridgeVersion,
+		compilerVersion: artifact.compilerVersion,
+	});
+	document.head.append(metadata);
+	const javascript = new TextDecoder().decode(
+		artifact.files.find(({ name }) => name === "plugin.js")?.contents,
+	);
+	// oxlint-disable-next-line typescript/no-implied-eval -- executes the emitted application
+	Function(
+		"window",
+		"document",
+		"AbortController",
+		javascript,
+	)(window, document, window.AbortController);
+	const channel = new MessageChannel();
+	const ready = new Promise<void>((resolve) => {
+		channel.port1.addEventListener("message", (event) => {
+			if (event.data?.artifactHash === artifact.hash) {
+				resolve();
+			}
+		});
+	});
+	channel.port1.start();
+	const pluginPort = {
+		start: () => channel.port2.start(),
+		close: () => channel.port2.close(),
+		postMessage: (message: unknown) => channel.port2.postMessage(message),
+		addEventListener: (
+			type: "message",
+			listener: EventListener,
+			options?: AddEventListenerOptions,
+		) => {
+			channel.port2.addEventListener(type, listener);
+			options?.signal?.addEventListener("abort", () =>
+				channel.port2.removeEventListener(type, listener),
+			);
+		},
+	};
+	expect(initialize).toBeDefined();
+	const initEvent = new window.Event("message");
+	Object.defineProperties(initEvent, {
+		ports: { value: [pluginPort] },
+		source: { value: window.parent },
+		data: {
+			value: {
+				mode: "light",
+				safeAreaTop: 0,
+				safeAreaBottom: 0,
+				sessionId: "session-1",
+				format: artifact.format,
+				artifactHash: artifact.hash,
+				apiVersion: artifact.apiVersion,
+				bridgeVersion: artifact.bridgeVersion,
+				compilerVersion: artifact.compilerVersion,
+			},
+		},
+	});
+	initialize?.(initEvent);
+	await ready;
+	channel.port1.postMessage({
+		index: 0,
+		key: "details",
+		compact: false,
+		edgeBack: false,
+		type: "location",
+		leading: "drawer",
+		location: { kind: "route", path: "/items/new", search: "" },
+	});
+	await vi.waitFor(() => expect(document.getElementById("app")?.textContent).toBe("New item"));
+	channel.port1.postMessage({
+		index: 1,
+		key: "missing",
+		compact: false,
+		edgeBack: true,
+		type: "location",
+		leading: "back",
+		location: { kind: "route", path: "/missing", search: "" },
+	});
+	await vi.waitFor(() =>
+		expect(document.getElementById("app")?.textContent).toContain("Fixture not found"),
+	);
+	channel.port1.close();
+	channel.port2.close();
+	dom.window.close();
+});

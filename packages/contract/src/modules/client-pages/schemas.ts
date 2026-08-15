@@ -1,7 +1,13 @@
 import { Schema } from "effect";
 
 import { CanonicalBase64 } from "../../schema/base64";
-import { ClientRendererId, PluginSlug, SavedViewId } from "../../schema/brands";
+import {
+	ClientRendererId,
+	EntityId,
+	EntitySchemaSlug,
+	PluginSlug,
+	SavedViewId,
+} from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { AppSchema } from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";
@@ -87,12 +93,60 @@ export class ClientRendererNotFound extends Schema.TaggedError<ClientRendererNot
 	{ reason: strictStruct({ code: Schema.Literal("renderer-not-found") }) },
 ) {}
 
-export const ClientPageTarget = strictStruct({
+const SavedViewClientPageTarget = strictStruct({
 	savedViewId: SavedViewId,
 	kind: Schema.Literal("saved-view"),
 });
+const PluginClientPageTarget = Schema.Union([
+	strictStruct({ entityId: EntityId, kind: Schema.Literal("entity") }),
+	strictStruct({
+		path: Schema.String,
+		search: Schema.String,
+		pluginId: Schema.String,
+		kind: Schema.Literal("plugin-route"),
+	}),
+]);
+export const ClientPageTarget = Schema.Union([SavedViewClientPageTarget, PluginClientPageTarget]);
+export type ClientPageTarget = typeof ClientPageTarget.Type;
+
+const PreparedClientPageTarget = Schema.Union([
+	SavedViewClientPageTarget,
+	PluginClientPageTarget.members[0],
+	strictStruct({
+		entityId: EntityId,
+		entitySchemaSlug: EntitySchemaSlug,
+		kind: Schema.Literal("entity"),
+		entitySchemaPluginId: Schema.NullOr(Schema.String),
+	}),
+]);
 
 export const PrepareClientPageBody = strictStruct({ target: ClientPageTarget });
+
+export const ClientPagePreparationErrorReason = Schema.Union([
+	strictStruct({ code: Schema.Literal("entity-not-found"), entityId: EntityId }),
+	strictStruct({ code: Schema.Literal("plugin-unavailable"), pluginId: Schema.String }),
+	strictStruct({
+		path: Schema.String,
+		pluginId: Schema.String,
+		code: Schema.Literal("plugin-route-not-registered"),
+	}),
+	strictStruct({
+		entityId: EntityId,
+		ownerPluginId: Schema.NullOr(Schema.String),
+		code: Schema.Literal("entity-owner-unavailable"),
+	}),
+	strictStruct({
+		entityId: EntityId,
+		ownerPluginId: Schema.String,
+		entitySchemaSlug: EntitySchemaSlug,
+		code: Schema.Literal("entity-detail-page-not-registered"),
+	}),
+]);
+
+export class ClientPagePreparationError extends Schema.TaggedError<ClientPagePreparationError>()(
+	"ClientPagePreparationError",
+	{ reason: ClientPagePreparationErrorReason },
+) {}
 
 export const ClientPageCodeContributor = Schema.Union([
 	strictStruct({
@@ -109,6 +163,14 @@ export const ClientPageCodeContributor = Schema.Union([
 	}),
 ]);
 export type ClientPageCodeContributor = typeof ClientPageCodeContributor.Type;
+
+export const ClientPageOperationTarget = strictStruct({
+	pluginId: Schema.String,
+	pluginSlug: PluginSlug,
+	sourceHash: Schema.String,
+	installationId: Schema.String,
+});
+export type ClientPageOperationTarget = typeof ClientPageOperationTarget.Type;
 
 const ClientPagePublicExportIdentity = strictStruct({
 	name: Schema.String,
@@ -167,23 +229,49 @@ export const ClientPageGraphIdentity = strictStruct({
 });
 export type ClientPageGraphIdentity = typeof ClientPageGraphIdentity.Type;
 
-export const PreparedClientPageIdentity = strictStruct({
+const PreparedClientPageIdentityBase = {
 	buildId: Schema.String,
 	graphHash: Schema.String,
-	savedViewId: SavedViewId,
-	viewRevision: Schema.Int,
 	artifactHash: Schema.String,
-	rendererId: ClientRendererId,
-	publishedHash: Schema.String,
-	publishedRevision: Schema.Int,
 	contributors: Schema.Array(ClientPageCodeContributor),
-});
+	operationTargets: Schema.Array(ClientPageOperationTarget),
+} as const;
+
+export const PreparedClientPageIdentity = Schema.Union([
+	strictStruct({
+		...PreparedClientPageIdentityBase,
+		savedViewId: SavedViewId,
+		viewRevision: Schema.Int,
+		rendererId: ClientRendererId,
+		publishedHash: Schema.String,
+		publishedRevision: Schema.Int,
+		target: SavedViewClientPageTarget,
+		kind: Schema.Literal("saved-view"),
+	}),
+	strictStruct({
+		...PreparedClientPageIdentityBase,
+		pluginId: Schema.String,
+		sourceHash: Schema.String,
+		exportName: Schema.String,
+		installationId: Schema.String,
+		target: PluginClientPageTarget,
+		kind: Schema.Literal("plugin-page"),
+	}),
+]);
 
 export const PreparedClientPageContext = strictStruct({
-	target: ClientPageTarget,
+	target: PreparedClientPageTarget,
 	dataSources: Schema.NullOr(RyotQLDocument),
 	settings: Schema.Record(Schema.String, JsonValue),
-	renderer: strictStruct({ kind: Schema.Literal("custom"), id: ClientRendererId }),
+	route: strictStruct({ params: Schema.Record(Schema.String, Schema.String) }),
+	renderer: Schema.Union([
+		strictStruct({ kind: Schema.Literal("custom"), id: ClientRendererId }),
+		strictStruct({
+			pluginId: Schema.String,
+			exportName: Schema.String,
+			kind: Schema.Literal("plugin"),
+		}),
+	]),
 });
 
 export const PreparedClientPage = strictStruct({

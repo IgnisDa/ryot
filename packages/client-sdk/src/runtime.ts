@@ -12,6 +12,7 @@ import {
 	type PluginBridgeNavigateBack,
 	type PluginBridgeOpenDrawer,
 	type PluginBridgeOperationRequest,
+	type PluginBridgePageSearch,
 	type PluginBridgeReady,
 	type PluginBridgeRyotQLCancel,
 	type PluginBridgeRyotQLRequest,
@@ -23,14 +24,15 @@ import {
 } from "@ryot-app/client-plugin-contract";
 import { MAX_INTEREST_ENTITY_IDS } from "@ryot-app/contract/modules/entity-interest/messages";
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
-import { EntityId } from "@ryot-app/contract/schema/brands";
-import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { EntityId, PluginSlug, SavedViewId } from "@ryot-app/contract/schema/brands";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Match, Result, Schema } from "effect";
 
 import {
 	createRyotClient,
 	RyotClientError,
+	type OperationAdapterRequest,
+	type RyotPageSearchUpdate,
 	type RyotNavigationTarget,
 	type EntityInterest,
 	type EntityUpdate,
@@ -268,13 +270,13 @@ export const createPluginRuntime = (
 			}
 			signal?.addEventListener("abort", onAbort, { once: true });
 			post({
-				assets: [...requested],
 				requestId,
 				type: "asset-request",
+				assets: [...requested],
 			} satisfies PluginBridgeAssetRequest);
 		});
 
-	const invokeOperation = (request: { readonly slug: string; readonly input: JsonValue }) =>
+	const invokeOperation = (request: OperationAdapterRequest) =>
 		new Promise<unknown>((resolve, reject) => {
 			if (state !== "active") {
 				reject(new RyotClientError(terminalReason ?? "transport"));
@@ -290,6 +292,7 @@ export const createPluginRuntime = (
 				input: request.input,
 				type: "operation-request",
 				operationSlug: request.slug,
+				pluginSlug: PluginSlug.make(request.pluginSlug),
 			} satisfies PluginBridgeOperationRequest);
 		});
 
@@ -318,18 +321,31 @@ export const createPluginRuntime = (
 			throw new RyotClientError(terminalReason ?? "transport");
 		}
 		const target = Match.value(to).pipe(
-			Match.when({ kind: "route" }, ({ path, search }) => ({
+			Match.when({ kind: "plugin-route" }, ({ path, pluginSlug, search }) => ({
 				path,
-				kind: "route" as const,
+				kind: "plugin-route" as const,
+				pluginSlug: PluginSlug.make(pluginSlug),
 				search: search === undefined ? "" : new URLSearchParams(search).toString(),
 			})),
 			Match.when({ kind: "entity" }, ({ entityId }) => ({
 				kind: "entity" as const,
 				entityId: EntityId.make(entityId),
 			})),
+			Match.when({ kind: "saved-view" }, ({ savedViewId }) => ({
+				kind: "saved-view" as const,
+				savedViewId: SavedViewId.make(savedViewId),
+			})),
 			Match.exhaustive,
 		);
 		if (!post({ mode, target, type: "navigate" } satisfies PluginBridgeNavigate)) {
+			throw new RyotClientError(terminalReason ?? "transport");
+		}
+	};
+	const navigatePageSearch = (mode: "push" | "replace", update: RyotPageSearchUpdate) => {
+		if (state !== "active") {
+			throw new RyotClientError(terminalReason ?? "transport");
+		}
+		if (!post({ mode, update, type: "page-search" } satisfies PluginBridgePageSearch)) {
 			throw new RyotClientError(terminalReason ?? "transport");
 		}
 	};
@@ -340,6 +356,7 @@ export const createPluginRuntime = (
 		resolveAssets,
 		invokeOperation,
 		uploadTemporary,
+		navigatePageSearch,
 		theme: {
 			getSnapshot: () => {
 				if (state === "closing" || state === "failed" || state === "disposed") {

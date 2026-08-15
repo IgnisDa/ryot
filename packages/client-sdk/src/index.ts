@@ -1,5 +1,7 @@
 import {
 	EntityInterest,
+	type PluginOperationRequest,
+	type PluginPageSearchUpdate,
 	PluginThemeSnapshot,
 	type PluginThemeSnapshot as PluginThemeSnapshotValue,
 	PluginManagedAssetResolution,
@@ -12,7 +14,9 @@ import {
 	type ManagedAssetLocator as ManagedAssetLocatorValue,
 	TemporaryUploadToken,
 } from "@ryot-app/contract/modules/uploads/schemas";
-import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
+import { EntityId, PluginSlug, SavedViewId } from "@ryot-app/contract/schema/brands";
+import { isJsonValue } from "@ryot-app/contract/schema/json";
+import { strictStruct } from "@ryot-app/contract/schema/utils";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
@@ -55,11 +59,17 @@ export class RyotClientError extends Error {
 const asTransportError = (error: unknown) =>
 	error instanceof RyotClientError ? error : new RyotClientError("transport");
 
-export type OperationInvocation<Output extends Schema.Codec<unknown, unknown>> = {
-	readonly slug: string;
-	readonly output: Output;
-	readonly input: JsonValue;
+type OperationRequest = Schema.Codec.Encoded<typeof PluginOperationRequest>;
+export type OperationAdapterRequest = Omit<OperationRequest, "operationSlug"> & {
+	readonly slug: OperationRequest["operationSlug"];
 };
+
+export type RyotPageSearchUpdate = PluginPageSearchUpdate;
+
+export type OperationInvocation<Output extends Schema.Codec<unknown, unknown>> = Omit<
+	OperationRequest,
+	"operationSlug"
+> & { readonly slug: string; readonly output: Output };
 
 export type TemporaryUploadRequest = {
 	readonly source: Blob;
@@ -67,13 +77,24 @@ export type TemporaryUploadRequest = {
 	readonly contentType: string;
 };
 
-export type RyotNavigationTarget =
-	| { readonly kind: "entity"; readonly entityId: string }
-	| { readonly path: string; readonly kind: "route"; readonly search?: Record<string, string> };
+export const RyotNavigationTarget = Schema.Union([
+	strictStruct({ entityId: EntityId, kind: Schema.Literal("entity") }),
+	strictStruct({ kind: Schema.Literal("saved-view"), savedViewId: SavedViewId }),
+	strictStruct({
+		path: Schema.String,
+		pluginSlug: PluginSlug,
+		kind: Schema.Literal("plugin-route"),
+		search: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+	}),
+]);
+
+export type RyotNavigationTarget = Schema.Codec.Encoded<typeof RyotNavigationTarget>;
 
 export type RyotClientAdapter = {
 	readonly uploadTemporary: (request: TemporaryUploadRequest) => Promise<unknown>;
+	readonly invokeOperation?: (request: OperationAdapterRequest) => Promise<unknown>;
 	readonly navigate?: (mode: "push" | "replace", target: RyotNavigationTarget) => void;
+	readonly navigatePageSearch?: (mode: "push" | "replace", update: RyotPageSearchUpdate) => void;
 	readonly watchEntities?: (
 		interest: EntityInterest,
 		onUpdate: (update: EntityUpdate) => void,
@@ -86,10 +107,6 @@ export type RyotClientAdapter = {
 		readonly getSnapshot: () => unknown;
 		readonly subscribe: (listener: () => void) => () => void;
 	};
-	readonly invokeOperation?: (request: {
-		readonly slug: string;
-		readonly input: JsonValue;
-	}) => Promise<unknown>;
 	readonly resolveAssets?: (
 		assets: readonly ManagedAssetLocatorValue[],
 		signal?: AbortSignal,
@@ -127,6 +144,16 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		}
 		try {
 			adapter.navigate(mode, target);
+		} catch (error) {
+			throw asTransportError(error);
+		}
+	};
+	const navigatePageSearch = (mode: "push" | "replace", update: RyotPageSearchUpdate) => {
+		if (!adapter.navigatePageSearch) {
+			throw new RyotClientError("unsupported-capability");
+		}
+		try {
+			adapter.navigatePageSearch(mode, update);
 		} catch (error) {
 			throw asTransportError(error);
 		}
@@ -186,6 +213,10 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		navigation: {
 			push: (target: RyotNavigationTarget) => navigate("push", target),
 			replace: (target: RyotNavigationTarget) => navigate("replace", target),
+			pageSearch: {
+				push: (update: RyotPageSearchUpdate) => navigatePageSearch("push", update),
+				replace: (update: RyotPageSearchUpdate) => navigatePageSearch("replace", update),
+			},
 		},
 		assets: {
 			resolve: async (
@@ -272,7 +303,11 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				}
 				let value: unknown;
 				try {
-					value = await adapter.invokeOperation({ slug: request.slug, input: request.input });
+					value = await adapter.invokeOperation({
+						slug: request.slug,
+						input: request.input,
+						pluginSlug: request.pluginSlug,
+					});
 				} catch (error) {
 					throw asTransportError(error);
 				}

@@ -1,8 +1,10 @@
 import type {
+	ClientPageContext,
 	PluginLeadingIntent,
 	PluginEntityLocation,
 	PluginLogicalLocation,
 } from "@ryot-app/client-plugin-contract";
+import { comparePluginRoutePaths } from "@ryot-app/contract/modules/plugins/manifest";
 import { Match } from "effect";
 import {
 	Fragment,
@@ -137,7 +139,7 @@ export const usePluginParams = () => useRouterContext().params;
 export const usePluginSearch = () =>
 	Match.value(useRouterContext().location).pipe(
 		Match.when({ kind: "route" }, ({ search }) => new URLSearchParams(search)),
-		Match.when({ kind: "entity" }, () => new URLSearchParams()),
+		Match.when({ kind: "entity" }, ({ search }) => new URLSearchParams(search)),
 		Match.exhaustive,
 	);
 
@@ -147,11 +149,16 @@ type PluginLinkProps = {
 
 const navigationTargetHref = (target: RyotNavigationTarget) =>
 	Match.value(target).pipe(
-		Match.when({ kind: "route" }, ({ path, search }) => {
+		Match.when({ kind: "plugin-route" }, ({ path, pluginSlug, search }) => {
 			const searchString = search === undefined ? "" : new URLSearchParams(search).toString();
-			return searchString ? `${path}?${searchString}` : path;
+			const route = `/${encodeURIComponent(pluginSlug)}${path === "/" ? "" : path}`;
+			return searchString ? `${route}?${searchString}` : route;
 		}),
 		Match.when({ kind: "entity" }, ({ entityId }) => `/e/${encodeURIComponent(entityId)}`),
+		Match.when(
+			{ kind: "saved-view" },
+			({ savedViewId }) => `/v/${encodeURIComponent(savedViewId)}`,
+		),
 		Match.exhaustive,
 	);
 
@@ -206,7 +213,9 @@ const decodeSegment = (segment: string) => {
 
 const matchRoute = (routes: readonly PluginRouteDefinition[], path: string) => {
 	const segments = path.split("/");
-	for (const route of routes) {
+	for (const route of [...routes].sort((left, right) =>
+		comparePluginRoutePaths(left.path, right.path),
+	)) {
 		const patternSegments = route.path.split("/");
 		if (patternSegments.length !== segments.length) {
 			continue;
@@ -256,6 +265,30 @@ export const createPluginRouteResolver = (
 			Match.exhaustive,
 		);
 };
+
+export const createClientPageRouteResolver =
+	(
+		component: ComponentType<Partial<EntityRendererProps>>,
+		page: ClientPageContext,
+	): ResolvePluginScreen =>
+	(location) =>
+		Match.value(location).pipe(
+			Match.when({ kind: "route" }, () => ({
+				params: page.route.params,
+				element:
+					page.target.kind === "entity"
+						? createElement(EntityRendererUnavailable)
+						: createElement(component),
+			})),
+			Match.when({ kind: "entity" }, ({ entityId, entitySchemaSlug }) => ({
+				params: page.route.params,
+				element:
+					page.target.kind === "entity"
+						? createElement(component, { entityId, entitySchemaSlug })
+						: createElement(EntityRendererUnavailable),
+			})),
+			Match.exhaustive,
+		);
 
 const SCREEN_BOTTOM_PADDING = 32;
 
