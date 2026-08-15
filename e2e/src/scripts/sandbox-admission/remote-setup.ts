@@ -56,7 +56,13 @@ const setupUser = (label: string) =>
 		const apiKey = requirePresent(created.data, "API key creation failed").key;
 		const runId = `adm-${label}-${yield* Clock.currentTimeMillis}`;
 		const plugin = yield* installBenchmarkWorkloadPlugin({ runId, client });
-		return { client, userId, apiKey, bookProviderId: plugin.bookProviderId };
+		return {
+			client,
+			userId,
+			apiKey,
+			bookProviderId: plugin.bookProviderId,
+			memoryScriptId: plugin.memoryScriptId,
+		};
 	});
 
 const program = Effect.gen(function* () {

@@ -51,9 +51,9 @@ for arm in "$@"; do
 	set_env EXPERIMENT_PROVIDER_IMPORT_ADMISSION_LIMIT "$limit"
 	set_env EXPERIMENT_SANDBOX_INTERACTIVE_LANE "$lane"
 	set_env EXPERIMENT_SANDBOX_WORKER_PRIORITY "$priority"
-	coolify GET /stop >/dev/null
+	coolify POST /stop >/dev/null
 	sleep 20
-	coolify GET /start >/dev/null
+	coolify POST /start >/dev/null
 	wait_healthy
 	# A fresh database per arm: every arm starts from the same empty state.
 	ssh "$HOST" "set -e
