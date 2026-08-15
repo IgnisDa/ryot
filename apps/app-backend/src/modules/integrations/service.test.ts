@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import { integrationCommonPropertyNames } from "@ryot/contract/modules/integrations/schemas";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
@@ -11,7 +12,11 @@ import {
 } from "#modules/plugins/integration-provider-catalog";
 
 import { IntegrationsRepository } from "./repository";
-import { IntegrationsService, validateProgressThresholds } from "./service";
+import {
+	integrationCommonSchema,
+	IntegrationsService,
+	validateProgressThresholds,
+} from "./service";
 import { makeIntegration } from "./test-support";
 
 describe("validateProgressThresholds", () => {
@@ -326,5 +331,15 @@ describe("update", () => {
 			expect(error.message).toBe("Integration provider 'shared-provider' is not registered");
 			expect(updated).toBe(false);
 		}).pipe(Effect.provide(layer));
+	});
+});
+
+describe("integrationCommonSchema", () => {
+	it("only declares fields the manifest validator reserves", () => {
+		const declared = (["yank", "sink", "push"] as const).flatMap((lot) =>
+			Object.keys(integrationCommonSchema(lot).fields),
+		);
+
+		expect(declared.filter((field) => !integrationCommonPropertyNames.has(field))).toEqual([]);
 	});
 });

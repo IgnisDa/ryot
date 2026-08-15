@@ -65,7 +65,7 @@ const progressCommonFields = {
 	},
 } satisfies AppSchema["fields"];
 
-const integrationCommonSchema = (lot: RegisteredIntegrationProvider["lot"]): AppSchema => ({
+export const integrationCommonSchema = (lot: RegisteredIntegrationProvider["lot"]): AppSchema => ({
 	fields: {
 		...baseCommonFields,
 		...(lot === "push" ? {} : progressCommonFields),

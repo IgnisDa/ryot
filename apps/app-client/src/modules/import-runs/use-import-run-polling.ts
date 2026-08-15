@@ -1,8 +1,8 @@
 import { useEffect, useEffectEvent } from "react";
 import { AppState } from "react-native";
 
-export const IMPORT_LIST_POLL_MS = 10_000;
 export const IMPORT_RUN_POLL_MS = 2_000;
+export const IMPORT_LIST_POLL_MS = 10_000;
 
 export function useImportRunPolling(props: {
 	readonly enabled: boolean;

@@ -17,6 +17,8 @@ Ryot is a self-hosted personal tracker. Keep the UI warm, calm, compact, scannab
 - Define parameterized query and mutation atoms with module-level `Atom.family` and canonical immutable keys; exported atom factories must not construct atoms per call or use mutable request registries.
 - Keep request documents, response decoding, typed application states, and atoms in the feature that owns them. Routes may handle route and session prerequisites, but must not decode generic backend responses.
 - Shared presentation primitives belong under `src/modules/ui`; features must not import generic UI components from another feature module.
+- Build plugin-catalog flows (import sources, integration providers) on `src/modules/ui/plugin-catalog`, `src/modules/ui/wizard`, and `src/modules/ui/search-param-modal`. A feature owns only its domain type, its `CatalogEntry` mapping, its copy, and its request payload.
+- Map request failures to user-facing copy through `src/api/request-failure.ts`. Do not hand-write the transport-error/malformed branch or re-extract `BadRequest` messages in a feature.
 - Use `@tanstack/react-form` for submitted data-entry forms and the shared controls under `src/modules/ui/form.tsx`; keep search inputs, workflow state, domain validation, and payload construction with their existing owners.
 - Keep editable values single-owned by TanStack Form. Do not mirror form values, errors, dirty state, or submission state in React state or atoms; external state is only for workflows and authoritative server snapshots.
 - Resolve Effect dependencies in feature containers and inject focused operations through props.
