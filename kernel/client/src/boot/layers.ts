@@ -5,6 +5,7 @@ import { PublicApi } from "../api/public";
 import { AuthClient } from "../modules/auth/client";
 import { AuthService } from "../modules/auth/service";
 import { PluginCatalogService } from "../modules/plugins/catalog";
+import { PluginOperationsService } from "../modules/plugins/operations";
 import { ServerService } from "../modules/server/service";
 import { ClientStorage } from "../persistence/storage";
 
@@ -20,4 +21,5 @@ export const ClientLive = Layer.mergeAll(
 	AuthService.layer,
 	ServerService.layer,
 	PluginCatalogService.layer,
+	PluginOperationsService.layer,
 ).pipe(Layer.provideMerge(AuthClientLive));
