@@ -4,6 +4,11 @@ import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { pluginClientFileExtension } from "@ryot-app/contract/modules/plugins/client";
 import { PluginManifest as PluginManifestSchema } from "@ryot-app/contract/modules/plugins/manifest";
 import { writePluginArchive } from "@ryot-app/plugin-archive";
+import type { SandboxCompilerDiagnostic } from "@ryot-app/sandbox-compiler/diagnostics";
+import {
+	compilePluginManifestScripts,
+	pluginScriptCompileMismatchIssue,
+} from "@ryot-app/sandbox-compiler/plugin-manifest";
 import { Data, Effect, FileSystem, Option, Path, Schema, Stream } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
@@ -141,6 +146,37 @@ const validateScriptEntries = Effect.fn("validateScriptEntries")(function* (
 	return yield* Effect.void;
 });
 
+const backendDecoder = new TextDecoder("utf-8", { fatal: true });
+
+const formatDiagnostic = (diagnostic: SandboxCompilerDiagnostic) =>
+	`  ${diagnostic.file}:${diagnostic.line}:${diagnostic.column} ${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}`;
+
+const compileSandboxSources = Effect.fn("compileSandboxSources")(function* (
+	manifest: PluginManifest,
+	sources: ReadonlyArray<SourceFile>,
+) {
+	const files = yield* Effect.try({
+		try: () =>
+			Object.fromEntries(
+				sources
+					.filter(({ path: sourcePath }) => sourcePath.startsWith("backend/"))
+					.map(({ contents, path: sourcePath }) => [sourcePath, backendDecoder.decode(contents)]),
+			),
+		catch: (error) =>
+			new BuildError({ message: `Backend source is not valid UTF-8: ${String(error)}` }),
+	});
+	return yield* compilePluginManifestScripts(manifest, files).pipe(
+		Effect.catchTags({
+			PluginScriptCompileMismatch: (error) =>
+				new BuildError({ message: pluginScriptCompileMismatchIssue(error) }),
+			SandboxCompilerFailure: (error) =>
+				new BuildError({
+					message: [`${error.message}:`, ...error.diagnostics.map(formatDiagnostic)].join("\n"),
+				}),
+		}),
+	);
+});
+
 const writeOutput = Effect.fn("writeOutput")(function* (
 	output: string,
 	manifest: PluginManifest,
@@ -170,6 +206,7 @@ const buildPlugin = Effect.fn("buildPlugin")(function* ({ cwd, output }: BuildOp
 	const manifest = yield* loadManifest(cwd);
 	const sources = yield* collectSources(cwd);
 	yield* validateScriptEntries(manifest, sources, cwd);
+	yield* compileSandboxSources(manifest, sources);
 	yield* writeOutput(
 		path.resolve(cwd, output ?? `dist/${manifest.metadata.slug}.zip`),
 		manifest,
