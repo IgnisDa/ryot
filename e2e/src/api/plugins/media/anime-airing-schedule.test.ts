@@ -98,6 +98,8 @@ describe("Anime airing schedule", () => {
 				animeAiringSoonRecipe({
 					now: "2026-09-01T00:00:00.000Z",
 					until: "2026-09-16T00:00:00.000Z",
+					fromDate: "2026-09-01",
+					untilDate: "2026-09-15",
 				}),
 			);
 			expect(
@@ -119,6 +121,8 @@ describe("Anime airing schedule", () => {
 				animeAiringSoonRecipe({
 					now: "2026-09-11T00:00:00.000Z",
 					until: "2026-09-26T00:00:00.000Z",
+					fromDate: "2026-09-11",
+					untilDate: "2026-09-25",
 				}),
 			);
 			expect(advanced.map((item) => [item.entity.id, item.episodeLabel])).toEqual([
@@ -126,6 +130,18 @@ describe("Anime airing schedule", () => {
 				[watching.id, "Episode 4"],
 				[outsideWindow.id, "Episode 1"],
 			]);
+
+			const westOfUtcDay = (day: string, now: string, until: string) =>
+				executeRyotQLRecipe(
+					client,
+					animeAiringSoonRecipe({ now, until, fromDate: day, untilDate: day }),
+				).pipe(Effect.map((items) => items.map((item) => item.entity.id)));
+			expect(
+				yield* westOfUtcDay("2026-09-11", "2026-09-11T04:00:00.000Z", "2026-09-12T04:00:00.000Z"),
+			).toEqual([]);
+			expect(
+				yield* westOfUtcDay("2026-09-12", "2026-09-12T04:00:00.000Z", "2026-09-13T04:00:00.000Z"),
+			).toEqual([premiere.id]);
 		}),
 	);
 });

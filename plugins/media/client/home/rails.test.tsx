@@ -68,11 +68,11 @@ const airingData = (input: {
 	readonly shows?: readonly unknown[];
 	readonly anime?: readonly unknown[];
 }) => ({
-	anime: decodeRecipe(animeAiringSoonRecipe({ now: "", until: "" }), {
-		anime: rows(input.anime ?? []),
-	}),
 	shows: decodeRecipe(showsAiringSoonRecipe({ from: "", until: "", limit: 20 }), {
 		shows: rows(input.shows ?? []),
+	}),
+	anime: decodeRecipe(animeAiringSoonRecipe({ now: "", until: "", fromDate: "", untilDate: "" }), {
+		anime: rows(input.anime ?? []),
 	}),
 });
 
