@@ -165,7 +165,9 @@ export const SavedViewRouteStubs = Layer.mergeAll(
 		resolve: () => Effect.succeed(new Map<string, string>()),
 	}),
 	Layer.succeed(SavedViewsService, {
-		loadGrid: () => Effect.die("not used"),
+		count: () => Effect.die("not used"),
+		loadPage: () => Effect.die("not used"),
+		loadRecord: () => Effect.die("not used"),
 	}),
 );
 
@@ -190,9 +192,11 @@ export const makeStorageStub = (
 		remove: () => Effect.void,
 		clearServerSelection: Effect.void,
 		setServerSelection: () => Effect.void,
+		setSavedViewLayout: () => Effect.void,
 		setThemePreference: () => Effect.void,
 		getServerSelection: Effect.succeed(server),
 		getThemePreference: Effect.succeed("system" as const),
+		getSavedViewLayout: () => Effect.succeed("grid" as const),
 		getLastWorkspace: (scope) =>
 			Effect.sync(() => {
 				recorder?.getScopes.push(scope);

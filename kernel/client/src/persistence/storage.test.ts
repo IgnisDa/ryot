@@ -7,6 +7,7 @@ import {
 	clientStorageLayer,
 	lastWorkspaceKey,
 	SERVER_SELECTION_KEY,
+	savedViewLayoutKey,
 	THEME_PREFERENCE_KEY,
 	type BrowserStorage,
 } from "#/persistence/storage";
@@ -89,6 +90,61 @@ describe("browser persistence", () => {
 			expect(values.has(lastWorkspaceKey(scope))).toBe(false);
 			values.set(lastWorkspaceKey(scope), '{"slug":"media"}');
 			expect(yield* service.getLastWorkspace(scope)).toBeNull();
+		}).pipe(Effect.provide(clientStorageLayer(storage)));
+	});
+
+	it.effect("partitions saved-view layouts by server, user, and slug", () => {
+		const firstScope = { serverUrl: oneOrigin, userId: "user-1" };
+		const secondUser = { serverUrl: oneOrigin, userId: "user-2" };
+		const secondServer = { serverUrl: twoOrigin, userId: "user-1" };
+		const { storage, values } = makeStorage();
+
+		return Effect.gen(function* () {
+			const service = yield* ClientStorage;
+			yield* service.setSavedViewLayout(firstScope, "books", "grid");
+			yield* service.setSavedViewLayout(firstScope, "movies", "list");
+			yield* service.setSavedViewLayout(secondUser, "books", "table");
+			yield* service.setSavedViewLayout(secondServer, "books", "list");
+
+			expect(savedViewLayoutKey(firstScope, "books")).not.toBe(
+				savedViewLayoutKey(firstScope, "movies"),
+			);
+			expect(savedViewLayoutKey(firstScope, "books")).not.toBe(
+				savedViewLayoutKey(secondUser, "books"),
+			);
+			expect(savedViewLayoutKey(firstScope, "books")).not.toBe(
+				savedViewLayoutKey(secondServer, "books"),
+			);
+			expect(values.get(savedViewLayoutKey(firstScope, "books"))).toBe("grid");
+			expect(yield* service.getSavedViewLayout(firstScope, "movies")).toBe("list");
+			expect(yield* service.getSavedViewLayout(secondUser, "books")).toBe("table");
+			expect(yield* service.getSavedViewLayout(secondServer, "books")).toBe("list");
+		}).pipe(Effect.provide(clientStorageLayer(storage)));
+	});
+
+	it.effect("defaults missing and invalid saved-view layouts to grid", () => {
+		const scope = { serverUrl: oneOrigin, userId: "user-1" };
+		const { storage, values } = makeStorage();
+
+		return Effect.gen(function* () {
+			const service = yield* ClientStorage;
+			expect(yield* service.getSavedViewLayout(scope, "books")).toBe("grid");
+			values.set(savedViewLayoutKey(scope, "books"), "masonry");
+			expect(yield* service.getSavedViewLayout(scope, "books")).toBe("grid");
+		}).pipe(Effect.provide(clientStorageLayer(storage)));
+	});
+
+	it.effect("roundtrips every valid saved-view layout", () => {
+		const scope = { serverUrl: oneOrigin, userId: "user-1" };
+		const { storage, values } = makeStorage();
+
+		return Effect.gen(function* () {
+			const service = yield* ClientStorage;
+			for (const layout of ["grid", "list", "table"] as const) {
+				yield* service.setSavedViewLayout(scope, "books", layout);
+				expect(values.get(savedViewLayoutKey(scope, "books"))).toBe(layout);
+				expect(yield* service.getSavedViewLayout(scope, "books")).toBe(layout);
+			}
 		}).pipe(Effect.provide(clientStorageLayer(storage)));
 	});
 
