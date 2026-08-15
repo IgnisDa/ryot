@@ -7,10 +7,10 @@ import { useEffect, useRef, useState } from "react";
 import { backupArchiveDownloadOperation, pruneBackupDownloadCache } from "@/api/backups";
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
-import { SettingsSectionFrame } from "@/modules/settings/settings-section-frame";
 import { DestructiveActionSheet } from "@/modules/ui/destructive-action-sheet";
 import { RUN_LIST_POLL_MS, useRunPolling } from "@/modules/ui/run/use-run-polling";
 import { SearchParamModalHost, useSearchParamModal } from "@/modules/ui/search-param-modal";
+import { SectionFrame } from "@/modules/ui/section-frame";
 
 import {
 	backupRunReactivityKeys,
@@ -109,7 +109,7 @@ export function BackupsScreen() {
 	}
 
 	return (
-		<SettingsSectionFrame title="Backups">
+		<SectionFrame title="Backups">
 			<BackupsView
 				state={state}
 				onRetry={refresh}
@@ -158,6 +158,6 @@ export function BackupsScreen() {
 					disabled={live !== undefined || isCreating}
 				/>
 			</SearchParamModalHost>
-		</SettingsSectionFrame>
+		</SectionFrame>
 	);
 }
