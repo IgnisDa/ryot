@@ -3,11 +3,16 @@ import type {
 	ShowActivityEvent,
 	ShowActivityResult,
 } from "@ryot/media-plugin/query-recipes";
-import { dayjs } from "@ryot/ts-utils/dayjs";
 import { Match } from "effect";
 import type { AsyncResult } from "effect/unstable/reactivity";
 
 import { classifyRyotQLResult } from "@/api/ryotql";
+import {
+	formatLocalDateKey,
+	formatLocalDateLabel,
+	formatLocalMonthDayLabel,
+	formatLocalYearLabel,
+} from "@/modules/ui/date";
 import { canonicalManagedAssets } from "@/modules/ui/managed-assets";
 
 import { preferredMediaImageAsset } from "./media-image";
@@ -48,10 +53,6 @@ type ViewingCycle = {
 	readonly completedAt: string | null;
 	readonly events: readonly ShowActivityEvent[];
 };
-
-const dayKey = (value: string) => dayjs(value).format("YYYY-MM-DD");
-
-const dayLabel = (value: string) => dayjs(value).format("MMM D, YYYY");
 
 const decimalLabel = (value: number) => String(Math.round(value * 100) / 100);
 
@@ -104,12 +105,12 @@ export const showActivityMilestones = (events: readonly ShowActivityEvent[]) => 
 const showActivityDays = (events: readonly ShowActivityEvent[]): readonly ShowActivityDay[] => {
 	const days: { key: string; label: string; entries: ShowActivityEvent[] }[] = [];
 	for (const event of events) {
-		const key = dayKey(event.occurredAt);
+		const key = formatLocalDateKey(event.occurredAt);
 		const open = days.at(-1);
 		if (open?.key === key) {
 			open.entries.push(event);
 		} else {
-			days.push({ key, entries: [event], label: dayLabel(event.occurredAt) });
+			days.push({ key, entries: [event], label: formatLocalDateLabel(event.occurredAt) });
 		}
 	}
 	return days;
@@ -125,14 +126,12 @@ const consumptionSources = (events: readonly ShowActivityEvent[]) => [
 ];
 
 const trackedSpanLabel = (earliest: string, latest: string) => {
-	if (dayKey(earliest) === dayKey(latest)) {
-		return dayLabel(latest);
+	if (formatLocalDateKey(earliest) === formatLocalDateKey(latest)) {
+		return formatLocalDateLabel(latest);
 	}
-	const from = dayjs(earliest);
-	const to = dayjs(latest);
-	return from.year() === to.year()
-		? `${from.format("MMM D")} – ${to.format("MMM D, YYYY")}`
-		: `${dayLabel(earliest)} – ${dayLabel(latest)}`;
+	return formatLocalYearLabel(earliest) === formatLocalYearLabel(latest)
+		? `${formatLocalMonthDayLabel(earliest)} – ${formatLocalDateLabel(latest)}`
+		: `${formatLocalDateLabel(earliest)} – ${formatLocalDateLabel(latest)}`;
 };
 
 const trackedSpanFact = (
@@ -145,7 +144,7 @@ const trackedSpanFact = (
 		return undefined;
 	}
 	if (truncated) {
-		return { label: "Latest activity", value: dayLabel(latest.occurredAt) };
+		return { label: "Latest activity", value: formatLocalDateLabel(latest.occurredAt) };
 	}
 	return { label: "Tracked", value: trackedSpanLabel(earliest.occurredAt, latest.occurredAt) };
 };
@@ -164,7 +163,7 @@ const showActivityFacts = (result: ShowActivityResult): readonly ShowActivityFac
 
 const cycleHeading = (cycle: ViewingCycle, hasCompletedCycle: boolean) => {
 	if (cycle.completedAt !== null) {
-		return `Completed ${dayLabel(cycle.completedAt)}`;
+		return `Completed ${formatLocalDateLabel(cycle.completedAt)}`;
 	}
 	return hasCompletedCycle ? "Current watch" : undefined;
 };
