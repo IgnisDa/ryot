@@ -4,7 +4,6 @@ import { Effect } from "effect";
 import { compile } from "tailwindcss";
 
 import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
-import { CLIENT_THEME_CSS } from "./theme";
 
 type ScanSource = { readonly content: string; readonly extension: string };
 
@@ -16,14 +15,15 @@ const loadStylesheet = async (id: string, base: string, tailwindEntry: string) =
 };
 
 export const compileClientStyles = (
-	stylesheet: string,
-	scanSources: readonly ScanSource[],
-	tailwindEntry: string,
 	entry: string,
+	stylesheet: string,
+	tailwindEntry: string,
+	themeStylesheet: string,
+	scanSources: readonly ScanSource[],
 ) =>
 	Effect.tryPromise({
 		try: async () => {
-			const compiled = await compile(`${stylesheet}\n${CLIENT_THEME_CSS}`, {
+			const compiled = await compile(`${stylesheet}\n${themeStylesheet}`, {
 				base: directoryOf(tailwindEntry),
 				loadStylesheet: (id, base) => loadStylesheet(id, base, tailwindEntry),
 			});
