@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { sinkProvider, unavailableProvider, yankProvider } from "./integration-fixture";
+import {
+	proRequiredProvider,
+	sinkProvider,
+	unavailableProvider,
+	yankProvider,
+} from "./integration-fixture";
 import {
 	findOwnedIntegrationProvider,
 	integrationLotDetail,
 	integrationLotLabel,
 	integrationProviderChooseLabel,
 	integrationProviderEntry,
+	PRO_REQUIRED_INTEGRATION_MESSAGE,
 } from "./provider-selection";
 
 describe("provider selection", () => {
@@ -36,6 +42,12 @@ describe("provider selection", () => {
 	it("explains why an unavailable provider cannot be chosen", () => {
 		expect(integrationProviderEntry(unavailableProvider).requirement).toBe(
 			"This service is not ready on your server yet.",
+		);
+	});
+
+	it("explains that a Pro-gated provider needs Ryot Pro rather than server setup", () => {
+		expect(integrationProviderEntry(proRequiredProvider).requirement).toBe(
+			PRO_REQUIRED_INTEGRATION_MESSAGE,
 		);
 	});
 

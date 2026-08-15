@@ -19,6 +19,7 @@ import { Context, Effect, Result, Layer, Schema } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { ProKeyService } from "#lib/infrastructure/pro-key";
 import {
 	formatPropertyIssues,
 	parseAppSchemaProperties,
@@ -152,6 +153,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 	{
 		make: Effect.gen(function* () {
 			const database = yield* Database;
+			const proKey = yield* ProKeyService;
 			const engine = yield* WorkflowEngine;
 			const importsService = yield* ImportsService;
 			const repository = yield* IntegrationsRepository;
@@ -161,6 +163,19 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 
 			const failCreatedRun = (runId: ImportRunId, reason: ImportRunFailureReason) =>
 				importsService.failRunForIntegration(runId, reason);
+
+			const requireProKeyFor = (registered: RegisteredIntegrationProvider) =>
+				registered.requiresProKey
+					? Effect.flatMap(proKey.isValidated, (isPro) =>
+							isPro
+								? Effect.void
+								: Effect.fail(
+										new IntegrationRequestError({
+											reason: { code: "pro-key-required", provider: registered.slug },
+										}),
+									),
+						)
+					: Effect.void;
 
 			const requireIntegration = Effect.fn("IntegrationsService.requireIntegration")(function* (
 				userId: UserId,
@@ -177,6 +192,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 
 			const listIntegrationProviders = Effect.fn("IntegrationsService.listIntegrationProviders")(
 				function* () {
+					const isPro = yield* proKey.isValidated;
 					return yield* Effect.forEach(providerCatalog.list(), (provider) =>
 						Effect.gen(function* () {
 							const resolution =
@@ -184,7 +200,9 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 									? null
 									: providerCatalog.resolveOwned(provider.slug, provider.pluginSlug);
 							const script = resolution === null ? null : yield* resolution.script;
+							const requiresProKey = provider.requiresProKey ?? false;
 							return {
+								requiresProKey,
 								lot: provider.lot,
 								slug: provider.slug,
 								name: provider.name,
@@ -192,7 +210,8 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 								description: provider.description,
 								settingsSchema: provider.settingsSchema,
 								commonSchema: integrationCommonSchema(provider.lot),
-								isCreatable: provider.lot === "push" || script !== null,
+								isCreatable:
+									(provider.lot === "push" || script !== null) && (!requiresProKey || isPro),
 							};
 						}),
 					);
@@ -213,6 +232,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					});
 				}
 				yield* validateRegisteredSettings(body.provider, registered, body.providerSpecifics);
+				yield* requireProKeyFor(registered);
 				const lot = registered.lot;
 
 				const minimumProgress = body.minimumProgress ?? 2;
@@ -245,15 +265,15 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				body: UpdateIntegrationInput,
 			) {
 				const existing = yield* requireIntegration(userId, integrationId);
+				const registered = providerCatalog.findOwned(existing.provider, existing.pluginSlug);
+				if (registered) {
+					yield* requireProKeyFor(registered);
+				}
 
 				let providerSpecifics: IntegrationProviderSettings | undefined;
 				if (body.providerSpecifics !== undefined) {
 					const merged = { ...existing.providerSpecifics, ...body.providerSpecifics };
-					yield* validateRegisteredSettings(
-						existing.provider,
-						providerCatalog.findOwned(existing.provider, existing.pluginSlug),
-						merged,
-					);
+					yield* validateRegisteredSettings(existing.provider, registered, merged);
 					providerSpecifics = merged;
 				}
 
@@ -335,9 +355,8 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 						reason: { code: "integration-not-found", integrationId },
 					});
 				}
-				if (
-					providerCatalog.findOwned(integration.provider, integration.pluginSlug)?.lot !== "sink"
-				) {
+				const registered = providerCatalog.findOwned(integration.provider, integration.pluginSlug);
+				if (registered?.lot !== "sink") {
 					return yield* new IntegrationRequestError({
 						reason: {
 							integrationId,
@@ -365,6 +384,11 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				});
 				if (disableIntegrations) {
 					yield* failCreatedRun(run.id, { code: "integrations-disabled" });
+					return { runId: run.id };
+				}
+
+				if (registered.requiresProKey && !(yield* proKey.isValidated)) {
+					yield* failCreatedRun(run.id, { code: "pro-key-required" });
 					return { runId: run.id };
 				}
 
@@ -403,12 +427,21 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			) {
 				const integrations = yield* repository.listEnabledYankIntegrations({ userId });
 				const runs: IntegrationSyncRun[] = [];
+				const isPro = yield* proKey.isValidated;
 
 				for (const integration of integrations) {
 					const disableIntegrations = yield* repository.getUserDisableIntegrations({
 						userId: integration.userId,
 					});
 					if (disableIntegrations) {
+						continue;
+					}
+
+					const registered = providerCatalog.findOwned(
+						integration.provider,
+						integration.pluginSlug,
+					);
+					if (registered?.requiresProKey && !isPro) {
 						continue;
 					}
 

@@ -57,6 +57,7 @@ export const importFailureReasonDetail = (failure: ImportRunFailure) =>
 		Match.when({ code: "integration-not-found" }, () => "The integration was unavailable."),
 		Match.when({ code: "integration-disabled" }, () => "The integration was paused."),
 		Match.when({ code: "integrations-disabled" }, () => "Integrations were paused."),
+		Match.when({ code: "pro-key-required" }, () => "Ryot Pro is required for this integration."),
 		Match.when({ code: "queue-unavailable" }, () => "The work could not be started."),
 		Match.when({ code: "unexpected-failure" }, () => "The import stopped unexpectedly."),
 		Match.exhaustive,

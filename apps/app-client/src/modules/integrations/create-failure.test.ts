@@ -3,6 +3,7 @@ import { Cause } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { integrationSaveFailure } from "./create-failure";
+import { PRO_REQUIRED_INTEGRATION_MESSAGE } from "./provider-selection";
 
 describe("integration save failure", () => {
 	it("sends invalid provider settings back to the settings step", () => {
@@ -39,6 +40,18 @@ describe("integration save failure", () => {
 				),
 			).detail,
 		).toBe("Progress values must be between 0 and 100.");
+	});
+
+	it("sends a Pro-gated failure back to the provider step with the shared Pro copy", () => {
+		expect(
+			integrationSaveFailure(
+				Cause.fail(
+					new IntegrationRequestError({
+						reason: { code: "pro-key-required", provider: "youtube_music" },
+					}),
+				),
+			),
+		).toEqual({ step: "pick", detail: PRO_REQUIRED_INTEGRATION_MESSAGE });
 	});
 
 	it("sends an unregistered provider back to the provider step", () => {

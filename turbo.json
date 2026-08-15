@@ -6,6 +6,7 @@
 		"test": { "outputLogs": "errors-only", "dependsOn": ["^build", "^check", "^test"] },
 		"build": {
 			"dependsOn": ["^build"],
+			"env": ["UNKEY_ROOT_KEY"],
 			"outputLogs": "errors-only",
 			"outputs": ["out/**", "dist/**", "build/**", ".vitepress/dist/**"]
 		}

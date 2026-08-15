@@ -7,6 +7,7 @@ import { useAuthClient } from "@/modules/auth/client";
 import { navigationAtom, scopedWorkspaceAtom } from "@/modules/navigation/atoms";
 import { savedViewSessionAtom } from "@/modules/saved-views/atoms";
 import { emptySavedViewSession } from "@/modules/saved-views/session-state";
+import { useIsServerKeyValidated } from "@/modules/server/pro";
 
 import {
 	getNavigationHref,
@@ -18,6 +19,7 @@ import {
 import { mapNavigationState, type ReadyNavigationState } from "./navigation-state";
 
 export type ReadyWorkspaceNavigation = ReadyNavigationState & {
+	isPro: boolean;
 	accountName: string;
 	accountEmail: string;
 	openSettings: () => void;
@@ -32,9 +34,10 @@ export type WorkspaceNavigation =
 	| { status: "error"; detail?: string; title: string };
 
 export function useWorkspaceNavigation(): WorkspaceNavigation {
+	const scope = useApiScope();
 	const client = useAuthClient();
 	const pathname = usePathname();
-	const scope = useApiScope();
+	const isPro = useIsServerKeyValidated();
 	const { data: session } = client.useSession();
 	const workspaceAtom = scopedWorkspaceAtom(scope);
 	const setWorkspace = useAtomSet(workspaceAtom);
@@ -57,11 +60,12 @@ export function useWorkspaceNavigation(): WorkspaceNavigation {
 
 	return {
 		...state,
+		isPro,
 		status: "ready",
 		accountImage: session?.user.image ?? null,
 		accountEmail: session?.user.email ?? "Email unavailable",
-		accountName: session?.user.name ?? session?.user.email ?? "Account",
 		openSettings: () => router.navigate(getSettingsHref()),
+		accountName: session?.user.name ?? session?.user.email ?? "Account",
 		navigate: (item) => {
 			const href = getNavigationHref(item);
 			const mode = getNavigationMode(state.activeKey, item);
