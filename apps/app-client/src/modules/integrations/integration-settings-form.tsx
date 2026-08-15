@@ -15,25 +15,19 @@ export function IntegrationSettingsForm(props: {
 }) {
 	return (
 		<View className="gap-5">
+			<SchemaForm
+				mode={props.mode}
+				form={props.form}
+				onChange={() => undefined}
+				title={props.provider.name}
+				uploadFile={props.uploadFile}
+				schema={props.provider.settingsSchema}
+			/>
 			<View className="gap-2">
-				<Text className="font-ui-medium text-[11px] uppercase tracking-[0.8px] text-text-subtle">
-					{props.provider.name}
-				</Text>
 				<SchemaForm
 					mode={props.mode}
 					form={props.form}
-					onChange={() => undefined}
-					uploadFile={props.uploadFile}
-					schema={props.provider.settingsSchema}
-				/>
-			</View>
-			<View className="gap-2">
-				<Text className="font-ui-medium text-[11px] uppercase tracking-[0.8px] text-text-subtle">
-					How Ryot syncs it
-				</Text>
-				<SchemaForm
-					mode={props.mode}
-					form={props.form}
+					title="How Ryot syncs it"
 					onChange={() => undefined}
 					uploadFile={props.uploadFile}
 					schema={props.provider.commonSchema}
