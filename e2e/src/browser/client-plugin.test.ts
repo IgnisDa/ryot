@@ -16,11 +16,11 @@ import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
 
-type ArtifactSession = { readonly src: string; readonly credential: string };
+type DocumentGrant = { readonly src: string; readonly credential: string };
 
 type BridgeObservation = { readonly serialized: string; readonly bridgeSessionId: string | null };
 
-const documentSessionPath = /^\/api\/client-pages\/documents\/([A-Za-z0-9_-]{43})$/;
+const documentGrantPath = /^\/api\/client-pages\/documents\/([A-Za-z0-9_-]{43})$/;
 
 const observeBridgeMessages = (page: Playwright.Page, observations: BridgeObservation[]) =>
 	Effect.gen(function* () {
@@ -88,52 +88,51 @@ const observeBridgeMessages = (page: Playwright.Page, observations: BridgeObserv
 		});
 	});
 
-const readArtifactSession = (frame: Playwright.Locator, selectedApiUrl: string) =>
+const readDocumentGrant = (frame: Playwright.Locator, selectedApiUrl: string) =>
 	Effect.gen(function* () {
 		const src = yield* frame.getAttribute("src");
 		if (src === null) {
 			return yield* Effect.die(
-				new Error("Plugin artifact session URL is missing [credential redacted]"),
+				new Error("Plugin document grant URL is missing [credential redacted]"),
 			);
 		}
 		if (!URL.canParse(src)) {
 			return yield* Effect.die(
-				new Error("Plugin artifact session URL is invalid [credential redacted]"),
+				new Error("Plugin document grant URL is invalid [credential redacted]"),
 			);
 		}
 		const url = new URL(src);
-		const credential = documentSessionPath.exec(url.pathname)?.[1];
+		const credential = documentGrantPath.exec(url.pathname)?.[1];
 		if (
 			url.origin !== new URL(selectedApiUrl).origin ||
 			url.username !== "" ||
 			url.password !== "" ||
 			url.search !== "" ||
 			url.hash !== "" ||
-			url.pathname.includes("/plugins/artifacts/") ||
 			credential === undefined
 		) {
 			return yield* Effect.die(
 				new Error(
-					"Plugin artifact session URL must use the selected server and private document endpoint [credential redacted]",
+					"Plugin document grant URL must use the selected server and private document endpoint [credential redacted]",
 				),
 			);
 		}
 		return { src, credential };
 	});
 
-const expectSameArtifactSession = (current: ArtifactSession, expected: ArtifactSession) => {
-	expect(current, "Plugin artifact session changed unexpectedly [credentials redacted]").toEqual(
+const expectSameDocumentGrant = (current: DocumentGrant, expected: DocumentGrant) => {
+	expect(current, "Plugin document grant changed unexpectedly [credentials redacted]").toEqual(
 		expected,
 	);
 };
 
-const expectFreshArtifactSession = (current: ArtifactSession, previous: ArtifactSession) => {
-	expect(current.src, "Plugin artifact session URL was reused [credentials redacted]").not.toBe(
+const expectFreshDocumentGrant = (current: DocumentGrant, previous: DocumentGrant) => {
+	expect(current.src, "Plugin document grant URL was reused [credentials redacted]").not.toBe(
 		previous.src,
 	);
 	expect(
 		current.credential,
-		"Plugin artifact session credential was reused [credentials redacted]",
+		"Plugin document grant credential was reused [credentials redacted]",
 	).not.toBe(previous.credential);
 };
 
@@ -158,28 +157,28 @@ const expectCurrentBridgeSession = (observations: BridgeObservation[], expected:
 	expect(current, "Plugin bridge session changed unexpectedly").toBe(expected);
 };
 
-const expectArtifactGrantValid = (page: Playwright.Page, artifact: ArtifactSession) =>
+const expectDocumentGrantValid = (page: Playwright.Page, grant: DocumentGrant) =>
 	Effect.gen(function* () {
 		const status = yield* page.use(async (nativePage) => {
-			const response = await nativePage.context().request.get(artifact.src);
+			const response = await nativePage.context().request.get(grant.src);
 			const result = response.status();
 			await response.dispose();
 			return result;
 		});
-		expect(status, "Retained artifact grant is no longer valid [credential redacted]").toBe(200);
+		expect(status, "Retained document grant is no longer valid [credential redacted]").toBe(200);
 	});
 
 const expectNoCredentialsInBridgeMessages = (
 	observations: BridgeObservation[],
-	artifacts: ArtifactSession[],
+	grants: DocumentGrant[],
 ) => {
 	if (
 		observations.some(({ serialized }) =>
-			artifacts.some(({ credential }) => serialized.includes(credential)),
+			grants.some(({ credential }) => serialized.includes(credential)),
 		)
 	) {
 		expect.unreachable(
-			"Plugin bridge message exposed an artifact credential [credential redacted]",
+			"Plugin bridge message exposed a document grant credential [credential redacted]",
 		);
 	}
 };
@@ -223,7 +222,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage();
 		const bridgeObservations: BridgeObservation[] = [];
-		const observedArtifacts: ArtifactSession[] = [];
+		const observedGrants: DocumentGrant[] = [];
 		yield* observeBridgeMessages(page, bridgeObservations);
 		const frame = page.locator(
 			'main > div:not([aria-hidden="true"]) iframe[title="fixture plugin"]',
@@ -253,8 +252,8 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		expect(yield* frame.getAttribute("title")).toBe("fixture plugin");
 		expect(yield* frame.getAttribute("sandbox")).toBe("allow-scripts");
 		expect(yield* frame.getAttribute("referrerpolicy")).toBe("no-referrer");
-		const initialArtifact = yield* readArtifactSession(frame, apiUrl);
-		observedArtifacts.push(initialArtifact);
+		const initialGrant = yield* readDocumentGrant(frame, apiUrl);
+		observedGrants.push(initialGrant);
 		yield* expectVisibleText(home, FIXTURE_CLIENT_REVISION_MARKERS.A);
 		const typography = yield* home.evaluate(async (element) => {
 			const heading = element.querySelector("h1");
@@ -289,7 +288,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* switcherTrigger.click();
 		yield* switcherMenu.waitFor({ state: "hidden" });
 		expect(yield* sameFrame()).toBe(true);
-		expectSameArtifactSession(yield* readArtifactSession(frame, apiUrl), initialArtifact);
+		expectSameDocumentGrant(yield* readDocumentGrant(frame, apiUrl), initialGrant);
 		expectCurrentBridgeSession(bridgeObservations, initialBridgeSession);
 
 		yield* page.setViewportSize({ width: 390, height: 844 });
@@ -306,7 +305,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 
 		yield* page.setViewportSize({ width: 1280, height: 800 });
 		expect(yield* sameFrame()).toBe(true);
-		expectSameArtifactSession(yield* readArtifactSession(frame, apiUrl), initialArtifact);
+		expectSameDocumentGrant(yield* readDocumentGrant(frame, apiUrl), initialGrant);
 		expectCurrentBridgeSession(bridgeObservations, initialBridgeSession);
 
 		yield* fixture.getByRole("button", { name: "Refresh catalog" }).click();
@@ -340,7 +339,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 				yield* page.waitForURL(`${frontendUrl}/fixture`);
 				yield* frame.waitFor({ state: "visible" });
 				yield* expectVisibleText(home, `Resolved mode: ${resolvedMode}`);
-				observedArtifacts.push(yield* readArtifactSession(frame, apiUrl));
+				observedGrants.push(yield* readDocumentGrant(frame, apiUrl));
 			});
 
 		yield* openSettings;
@@ -375,8 +374,8 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* page.waitForURL(`${frontendUrl}/fixture`);
 		yield* expectVisibleText(home, "Greeted 0 times.");
 		const navigationFrame = Option.getOrThrow(yield* frame.elementHandle());
-		const navigationArtifact = yield* readArtifactSession(frame, apiUrl);
-		observedArtifacts.push(navigationArtifact);
+		const navigationGrant = yield* readDocumentGrant(frame, apiUrl);
+		observedGrants.push(navigationGrant);
 		const navigationBridgeSession = yield* waitForFreshBridgeSession(bridgeObservations);
 
 		yield* fixture.getByRole("button", { name: "Crash during render" }).click();
@@ -390,15 +389,15 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		expect(yield* frame.evaluate((current, initial) => current === initial, navigationFrame)).toBe(
 			false,
 		);
-		const crashRecoveryArtifact = yield* readArtifactSession(frame, apiUrl);
-		expectSameArtifactSession(crashRecoveryArtifact, navigationArtifact);
-		observedArtifacts.push(crashRecoveryArtifact);
+		const crashRecoveryGrant = yield* readDocumentGrant(frame, apiUrl);
+		expectSameDocumentGrant(crashRecoveryGrant, navigationGrant);
+		observedGrants.push(crashRecoveryGrant);
 		yield* waitForFreshBridgeSession(bridgeObservations, navigationBridgeSession);
-		yield* expectArtifactGrantValid(page, navigationArtifact);
+		yield* expectDocumentGrantValid(page, navigationGrant);
 
 		yield* fixture.getByRole("button", { exact: true, name: "Greet" }).click();
 		yield* expectVisibleText(home, "Greeted 1 times.");
-		const revisionAArtifact = yield* readArtifactSession(frame, apiUrl);
+		const revisionAGrant = yield* readDocumentGrant(frame, apiUrl);
 		const revisionABridgeSession = yield* waitForFreshBridgeSession(
 			bridgeObservations,
 			navigationBridgeSession,
@@ -420,7 +419,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		expect(yield* frame.evaluate((current, initial) => current === initial, revisionAFrame)).toBe(
 			true,
 		);
-		expectSameArtifactSession(yield* readArtifactSession(frame, apiUrl), revisionAArtifact);
+		expectSameDocumentGrant(yield* readDocumentGrant(frame, apiUrl), revisionAGrant);
 		expectCurrentBridgeSession(bridgeObservations, revisionABridgeSession);
 		expect(yield* frame.getAttribute("data-e2e-revision")).toBe("A");
 		expect(page.url()).toBe(outerUrl);
@@ -431,23 +430,21 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		expect(yield* frame.evaluate((current, initial) => current === initial, revisionAFrame)).toBe(
 			false,
 		);
-		const revisionBArtifact = yield* readArtifactSession(frame, apiUrl);
-		expectFreshArtifactSession(revisionBArtifact, revisionAArtifact);
-		observedArtifacts.push(revisionBArtifact);
+		const revisionBGrant = yield* readDocumentGrant(frame, apiUrl);
+		expectFreshDocumentGrant(revisionBGrant, revisionAGrant);
+		observedGrants.push(revisionBGrant);
 		yield* waitForFreshBridgeSession(bridgeObservations, revisionABridgeSession);
-		yield* expectArtifactGrantValid(page, revisionAArtifact);
+		yield* expectDocumentGrantValid(page, revisionAGrant);
 		expect(yield* frame.getAttribute("data-e2e-revision")).toBeNull();
 		expect(page.url()).toBe(outerUrl);
 		yield* expectVisibleText(home, "Greeted 0 times.");
 
-		expectNoCredentialsInBridgeMessages(bridgeObservations, observedArtifacts);
+		expectNoCredentialsInBridgeMessages(bridgeObservations, observedGrants);
 
 		yield* page.goto(`${frontendUrl}/e/${pokemon.id}`);
 		yield* frame.waitFor({ state: "visible" });
 		yield* expectVisibleText(fixture.locator("body"), "E2E deterministic Bulbasaur");
-		expect((yield* readArtifactSession(frame, apiUrl)).src).toContain(
-			"/api/client-pages/documents/",
-		);
+		expect((yield* readDocumentGrant(frame, apiUrl)).src).toContain("/api/client-pages/documents/");
 
 		yield* page.goto(`${frontendUrl}/e/${showId}`);
 		const mediaFrame = page.locator('iframe[title="media plugin"]');
@@ -456,7 +453,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* media
 			.getByRole("heading", { level: 1, exact: true, name: "E2E deterministic show" })
 			.waitFor({ state: "visible" });
-		expect((yield* readArtifactSession(mediaFrame, apiUrl)).src).toContain(
+		expect((yield* readDocumentGrant(mediaFrame, apiUrl)).src).toContain(
 			"/api/client-pages/documents/",
 		);
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),

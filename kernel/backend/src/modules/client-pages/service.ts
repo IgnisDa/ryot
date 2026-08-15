@@ -48,18 +48,6 @@ const operationTargetsCurrent = (
 		canonicalOperationTargets(recorded),
 	);
 
-const rendererGraphInput = (
-	available: ReadonlyArray<GraphPlugin>,
-	renderer: {
-		rendererName: string;
-		definition: ClientRendererDefinition;
-		kernel: true;
-		sourceHash: string;
-	},
-	runtimeArtifactHash: string,
-	rendererArtifactHash: string,
-) => ({ ...renderer, plugins: available, runtimeArtifactHash, rendererArtifactHash });
-
 const savedViewUnavailable = () =>
 	new ClientPagePreparationError({ reason: { code: "saved-view-unavailable" } });
 
@@ -86,18 +74,23 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 			const pluginRuntime = yield* PluginRuntimeResolver;
 			const listAvailable = (userId: CurrentUserValue["id"]) =>
 				pluginRuntime.listPluginsAvailableToUser(userId, true);
-			const resolveRendererIdentity = (
+			const resolveKernelRendererGraph = (
 				available: ReadonlyArray<GraphPlugin>,
-				renderer: Parameters<typeof rendererGraphInput>[1],
+				kernel: {
+					readonly name: string;
+					readonly sourceHash: string;
+					readonly definition: ClientRendererDefinition;
+				},
 			) =>
-				resolveClientPageGraph(
-					rendererGraphInput(
-						available,
-						renderer,
-						runtimeArtifactHash,
-						rendererHash(renderer.rendererName, renderer.sourceHash),
-					),
-				);
+				resolveClientPageGraph({
+					kernel: true,
+					plugins: available,
+					runtimeArtifactHash,
+					rendererName: kernel.name,
+					definition: kernel.definition,
+					sourceHash: kernel.sourceHash,
+					rendererArtifactHash: rendererHash(kernel.name, kernel.sourceHash),
+				});
 			const resolvePluginTarget = Effect.fn(function* (
 				userId: CurrentUserValue["id"],
 				target: Exclude<ClientPageTarget, { kind: "saved-view" }>,
@@ -120,12 +113,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 							},
 						});
 					}
-					const graph = yield* resolveRendererIdentity(available, {
-						kernel: true,
-						rendererName: kernel.name,
-						definition: kernel.definition,
-						sourceHash: kernel.sourceHash,
-					});
+					const graph = yield* resolveKernelRendererGraph(available, kernel);
 					return { ...resolved, graph, operationTargets: clientPageOperationTargets(available) };
 				}
 				const graph = yield* resolveClientPageGraph({
@@ -162,28 +150,22 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					compilerVersion: composition.identity.compilerVersion,
 				};
 			});
-			const savedViewGraph = Effect.fn(function* (
-				prepared: NonNullable<Effect.Success<ReturnType<typeof repository.findPreparedTarget>>>,
-				available: ReadonlyArray<AvailablePlugin>,
+			const rendererGraph = Effect.fn(function* <Plugin extends GraphPlugin>(
+				available: ReadonlyArray<Plugin>,
+				renderer: SavedViewRenderer,
 			) {
-				if (prepared.view.renderer.kind === "kernel") {
-					const kernel = getKernelClientRenderer(prepared.view.renderer.name);
+				if (renderer.kind === "kernel") {
+					const kernel = getKernelClientRenderer(renderer.name);
 					if (!kernel) {
 						return yield* savedViewUnavailable();
 					}
-					const graph = yield* resolveRendererIdentity(available, {
-						kernel: true,
-						rendererName: kernel.name,
-						definition: kernel.definition,
-						sourceHash: kernel.sourceHash,
-					});
+					const graph = yield* resolveKernelRendererGraph(available, kernel);
 					return { graph, kernel, kind: "kernel" as const };
 				}
-				const selected = prepared.view.renderer;
-				const plugin = available.find((candidate) => candidate.id === selected.pluginId);
+				const plugin = available.find((candidate) => candidate.id === renderer.pluginId);
 				if (plugin?.health !== "ready" || !plugin.manifest.client) {
 					return yield* new ClientPagePreparationError({
-						reason: { code: "plugin-unavailable", pluginId: selected.pluginId },
+						reason: { code: "plugin-unavailable", pluginId: renderer.pluginId },
 					});
 				}
 				const graph = yield* resolveClientPageGraph({
@@ -191,42 +173,68 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					plugins: available,
 					runtimeArtifactHash,
 					application: "page",
-					exportName: selected.exportName,
+					exportName: renderer.exportName,
 				});
-				return { graph, plugin, kind: "plugin" as const, exportName: selected.exportName };
+				return { graph, plugin, kind: "plugin" as const, exportName: renderer.exportName };
 			});
+			/** Every composition a user can reach: saved views, plugin homes, detail pages, and kernel entity renderers. */
+			const collectReachableGraphs = Effect.fn(function* (
+				available: ReadonlyArray<GraphPlugin>,
+				savedViewRenderers: Iterable<SavedViewRenderer>,
+			) {
+				const graphs = new Map<string, ResolvedClientPageGraph>();
+				const add = (graph: ResolvedClientPageGraph) =>
+					void graphs.set(graph.compositionKey, graph);
+				for (const renderer of savedViewRenderers) {
+					add((yield* rendererGraph(available, renderer)).graph);
+				}
+				for (const plugin of available) {
+					if (plugin.health !== "ready" || !plugin.manifest.client) {
+						continue;
+					}
+					const home = plugin.manifest.client.routes?.["/"];
+					if (home) {
+						add(
+							yield* resolveClientPageGraph({
+								plugin,
+								exportName: home,
+								plugins: available,
+								runtimeArtifactHash,
+								application: "plugin-route",
+							}),
+						);
+					}
+					for (const exportName of new Set(
+						Object.values(plugin.manifest.client.entities ?? {})
+							.map(({ detailPage }) => detailPage)
+							.filter((name): name is string => name !== undefined),
+					)) {
+						add(
+							yield* resolveClientPageGraph({
+								plugin,
+								exportName,
+								plugins: available,
+								runtimeArtifactHash,
+								application: "page",
+							}),
+						);
+					}
+				}
+				for (const kernel of listKernelEntityRenderers()) {
+					add(yield* resolveKernelRendererGraph(available, kernel));
+				}
+				return graphs;
+			});
+			const materializeGraphs = (graphs: ReadonlyMap<string, ResolvedClientPageGraph>) =>
+				Effect.forEach(graphs.values(), (graph) => compositions.materialize(graph), {
+					discard: true,
+					concurrency: 8,
+				});
 			const materializeRenderer = Effect.fn(function* (
 				userId: CurrentUserValue["id"],
 				renderer: SavedViewRenderer,
 			) {
-				const available = yield* listAvailable(userId);
-				let graph: ResolvedClientPageGraph;
-				if (renderer.kind === "kernel") {
-					const kernel = getKernelClientRenderer(renderer.name);
-					if (!kernel) {
-						return yield* savedViewUnavailable();
-					}
-					graph = yield* resolveRendererIdentity(available, {
-						kernel: true,
-						rendererName: kernel.name,
-						definition: kernel.definition,
-						sourceHash: kernel.sourceHash,
-					});
-				} else {
-					const plugin = available.find((candidate) => candidate.id === renderer.pluginId);
-					if (plugin?.health !== "ready" || !plugin.manifest.client) {
-						return yield* new ClientPagePreparationError({
-							reason: { code: "plugin-unavailable", pluginId: renderer.pluginId },
-						});
-					}
-					graph = yield* resolveClientPageGraph({
-						plugin,
-						plugins: available,
-						runtimeArtifactHash,
-						application: "page",
-						exportName: renderer.exportName,
-					});
-				}
+				const { graph } = yield* rendererGraph(yield* listAvailable(userId), renderer);
 				yield* compositions.materialize(graph);
 				return yield* Effect.void;
 			});
@@ -242,7 +250,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					if (!prepared) {
 						return yield* savedViewUnavailable();
 					}
-					const resolved = yield* savedViewGraph(prepared, available);
+					const resolved = yield* rendererGraph(available, prepared.view.renderer);
 					const composition = yield* requireComposition(resolved.graph);
 					const base = {
 						target,
@@ -363,7 +371,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					) {
 						return false;
 					}
-					const resolved = yield* savedViewGraph(prepared, available);
+					const resolved = yield* rendererGraph(available, prepared.view.renderer);
 					if (
 						identity.kind === "kernel-saved-view" &&
 						(resolved.kind !== "kernel" ||
@@ -420,59 +428,18 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					(yield* compositions.find(resolved.graph))?.compositionHash === identity.compositionHash
 				);
 			});
+			const listSavedViewRenderers = (userId: CurrentUserValue["id"]) =>
+				repository
+					.listPreparedTargets(userId)
+					.pipe(Effect.map((views) => views.map(({ view }) => view.renderer)));
 			const materializeUserCompositions = Effect.fn(function* (
 				userId: CurrentUserValue["id"],
 				availableInput?: ReadonlyArray<AvailablePlugin>,
 			) {
 				const available = availableInput ?? (yield* listAvailable(userId));
-				const graphs = new Map<string, ResolvedClientPageGraph>();
-				for (const view of yield* repository.listPreparedTargets(userId)) {
-					const resolved = yield* savedViewGraph(view, available);
-					graphs.set(resolved.graph.compositionKey, resolved.graph);
-				}
-				for (const plugin of available) {
-					if (plugin.health !== "ready" || !plugin.manifest.client) {
-						continue;
-					}
-					if (plugin.manifest.client.routes?.["/"]) {
-						const graph = yield* resolveClientPageGraph({
-							plugin,
-							plugins: available,
-							runtimeArtifactHash,
-							application: "plugin-route",
-							exportName: plugin.manifest.client.routes["/"],
-						});
-						graphs.set(graph.compositionKey, graph);
-					}
-					const detailPages = new Set(
-						Object.values(plugin.manifest.client.entities ?? {})
-							.map((entity) => entity.detailPage)
-							.filter((name): name is string => name !== undefined),
-					);
-					for (const exportName of detailPages) {
-						const graph = yield* resolveClientPageGraph({
-							plugin,
-							exportName,
-							plugins: available,
-							runtimeArtifactHash,
-							application: "page",
-						});
-						graphs.set(graph.compositionKey, graph);
-					}
-				}
-				for (const kernel of listKernelEntityRenderers()) {
-					const graph = yield* resolveRendererIdentity(available, {
-						kernel: true,
-						rendererName: kernel.name,
-						definition: kernel.definition,
-						sourceHash: kernel.sourceHash,
-					});
-					graphs.set(graph.compositionKey, graph);
-				}
-				yield* Effect.forEach(graphs.values(), (graph) => compositions.materialize(graph), {
-					discard: true,
-					concurrency: 8,
-				});
+				yield* materializeGraphs(
+					yield* collectReachableGraphs(available, yield* listSavedViewRenderers(userId)),
+				);
 				return yield* Effect.void;
 			});
 			const materializeSystemCompositions = Effect.fn("ClientPages.materializeSystemCompositions")(
@@ -509,139 +476,25 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 							})),
 						),
 					);
-					const graphs = new Map<string, ResolvedClientPageGraph>();
-					const add = (graph: ResolvedClientPageGraph) =>
-						void graphs.set(graph.compositionKey, graph);
 					const views = yield* mapDatabaseErrors(
 						db.select({ renderer: schema.globalSavedView.renderer }).from(schema.globalSavedView),
 					);
-					for (const { renderer } of views) {
-						if (renderer.kind === "kernel") {
-							const kernel = getKernelClientRenderer(renderer.name);
-							if (!kernel) {
-								return yield* savedViewUnavailable();
-							}
-							add(
-								yield* resolveRendererIdentity(available, {
-									kernel: true,
-									rendererName: kernel.name,
-									definition: kernel.definition,
-									sourceHash: kernel.sourceHash,
-								}),
-							);
-						} else {
-							const plugin = available.find(({ id }) => id === renderer.pluginId);
-							if (!plugin) {
-								return yield* savedViewUnavailable();
-							}
-							add(
-								yield* resolveClientPageGraph({
-									plugin,
-									plugins: available,
-									runtimeArtifactHash,
-									application: "page",
-									exportName: renderer.exportName,
-								}),
-							);
-						}
-					}
-					for (const plugin of available) {
-						if (!plugin.manifest.client) {
-							continue;
-						}
-						const home = plugin.manifest.client.routes?.["/"];
-						if (home) {
-							add(
-								yield* resolveClientPageGraph({
-									plugin,
-									exportName: home,
-									plugins: available,
-									runtimeArtifactHash,
-									application: "plugin-route",
-								}),
-							);
-						}
-						for (const exportName of new Set(
-							Object.values(plugin.manifest.client.entities ?? {})
-								.map(({ detailPage }) => detailPage)
-								.filter((name): name is string => name !== undefined),
-						)) {
-							add(
-								yield* resolveClientPageGraph({
-									plugin,
-									exportName,
-									plugins: available,
-									runtimeArtifactHash,
-									application: "page",
-								}),
-							);
-						}
-					}
-					for (const kernel of listKernelEntityRenderers()) {
-						add(
-							yield* resolveRendererIdentity(available, {
-								kernel: true,
-								rendererName: kernel.name,
-								definition: kernel.definition,
-								sourceHash: kernel.sourceHash,
-							}),
-						);
-					}
-					yield* Effect.forEach(graphs.values(), (graph) => compositions.materialize(graph), {
-						discard: true,
-						concurrency: 8,
-					});
+					yield* materializeGraphs(
+						yield* collectReachableGraphs(
+							available,
+							views.map(({ renderer }) => renderer),
+						),
+					);
 					return yield* Effect.void;
 				},
 			);
 			const assertUserCompositions = Effect.fn("ClientPages.assertUserCompositions")(function* (
 				userId: CurrentUserValue["id"],
 			) {
-				const available = yield* listAvailable(userId);
-				const graphs = new Map<string, ResolvedClientPageGraph>();
-				for (const view of yield* repository.listPreparedTargets(userId)) {
-					const { graph } = yield* savedViewGraph(view, available);
-					graphs.set(graph.compositionKey, graph);
-				}
-				for (const plugin of available) {
-					if (plugin.health !== "ready" || !plugin.manifest.client) {
-						continue;
-					}
-					const home = plugin.manifest.client.routes?.["/"];
-					if (home) {
-						const graph = yield* resolveClientPageGraph({
-							plugin,
-							exportName: home,
-							plugins: available,
-							runtimeArtifactHash,
-							application: "plugin-route",
-						});
-						graphs.set(graph.compositionKey, graph);
-					}
-					for (const exportName of new Set(
-						Object.values(plugin.manifest.client.entities ?? {})
-							.map(({ detailPage }) => detailPage)
-							.filter((name): name is string => name !== undefined),
-					)) {
-						const graph = yield* resolveClientPageGraph({
-							plugin,
-							exportName,
-							plugins: available,
-							runtimeArtifactHash,
-							application: "page",
-						});
-						graphs.set(graph.compositionKey, graph);
-					}
-				}
-				for (const kernel of listKernelEntityRenderers()) {
-					const graph = yield* resolveRendererIdentity(available, {
-						kernel: true,
-						rendererName: kernel.name,
-						definition: kernel.definition,
-						sourceHash: kernel.sourceHash,
-					});
-					graphs.set(graph.compositionKey, graph);
-				}
+				const graphs = yield* collectReachableGraphs(
+					yield* listAvailable(userId),
+					yield* listSavedViewRenderers(userId),
+				);
 				for (const graph of graphs.values()) {
 					yield* requireComposition(graph);
 				}
