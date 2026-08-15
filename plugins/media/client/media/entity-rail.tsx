@@ -84,7 +84,7 @@ export function MediaRailFrame(props: {
 			title={props.title}
 			action={props.action}
 			compact={props.compact}
-			divided={props.divided}
+			divided={props.divided ?? false}
 		>
 			{status.kind === "ready" ? (
 				<MediaRail compact={props.compact}>{props.children}</MediaRail>
