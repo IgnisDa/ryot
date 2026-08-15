@@ -13,7 +13,7 @@ Client commands are `replace` with a complete `entityIds` snapshot, `update` wit
 
 After `ready`, the client sends one complete `replace` snapshot. Connected updates use revisioned `update` commands. Reconnect discards the prior socket state and revision, then sends a new complete snapshot. The client keeps at most one unacknowledged command and coalesces changes while waiting for its `applied` message.
 
-Commands deduplicate IDs. An `update` rejects an ID present in both `add` and `remove`, and empty `add` and `remove` arrays are invalid. Replacing with an empty set is valid. The client selects at most 500 IDs using the `foreground`, `visible`, and `prefetch` priorities; the server rejects any resulting membership above `MAX_INTEREST_ENTITY_IDS` without partial mutation.
+Commands deduplicate IDs. An `update` rejects an ID present in both `add` and `remove`, and empty `add` and `remove` arrays are invalid. Replacing with an empty set is valid. The client selects at most 500 IDs using the `foreground` and `visible` priorities; the server rejects any resulting membership above `MAX_INTEREST_ENTITY_IDS` without partial mutation. Priorities are client selection policy and are not sent to this WebSocket.
 
 The server sends `entity-updated` messages with an entity ID and `populated` or `translated` reason. These are refresh hints, not authoritative entity data. A translated completion also covers a completed negative-cache translation result.
 

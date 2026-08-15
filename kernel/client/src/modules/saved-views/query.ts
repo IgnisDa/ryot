@@ -84,20 +84,23 @@ export const withSavedViewSearch = (
 	};
 };
 
-export const withSavedViewCursor = (queryDocument: RyotQLDocument, after: string) => {
+export const withSavedViewCursor = (queryDocument: RyotQLDocument, after: string | undefined) => {
 	const queryEntry = onlyRowsQuery(queryDocument);
 	if (queryEntry === undefined) {
 		return queryDocument;
 	}
 	const { query, queryName } = queryEntry;
+	const pagination = { ...query.output.pagination };
+	if (after === undefined) {
+		delete pagination.after;
+	} else {
+		pagination.after = after;
+	}
 	return {
 		...queryDocument,
 		queries: {
 			...queryDocument.queries,
-			[queryName]: {
-				...query,
-				output: { ...query.output, pagination: { ...query.output.pagination, after } },
-			},
+			[queryName]: { ...query, output: { ...query.output, pagination } },
 		},
 	};
 };

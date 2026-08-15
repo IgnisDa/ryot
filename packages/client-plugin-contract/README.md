@@ -12,6 +12,13 @@ messages. It never sends a raw `KeyboardEvent` or key payload. The kernel owns t
 gating; an active plugin `OverlayScope` suppresses root forwarding, and plugins must not bind either
 reserved combination at their root.
 
+The bridge protocol is exactly version 1. Entity subscriptions use strict state messages:
+plugins send `{ type: "entity-interest", foreground: string[], visible: string[] }`, with at most
+500 IDs total, and the kernel sends `{ type: "entity-updated", entityId, reason }`. IDs, update
+reasons, and the cap come from `@ryot-app/contract`. The shared `EntityInterest` declaration schema
+is uncapped; the owning runtime aggregates and selects the bounded wire state. These messages have
+no request IDs, acknowledgements, tickets, credentials, user identity, or server fields.
+
 The package builds these specialized contracts from generic HTTP-contract schemas such as entity
 identifiers, JSON values, RyotQL documents, and managed asset locators. `@ryot-app/contract` must not
 depend on this package.
