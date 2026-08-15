@@ -6,11 +6,6 @@ import {
 	stringField,
 } from "@ryot-app/contract/schema/core";
 
-import { manifest as greetManifest } from "../backend/operations/greet.sandbox";
-import { manifest as moveDetailsManifest } from "../backend/providers/move/pokeapi/details.sandbox";
-import { manifest as moveSearchManifest } from "../backend/providers/move/pokeapi/search.sandbox";
-import { manifest as pokemonDetailsManifest } from "../backend/providers/pokemon/pokeapi/details.sandbox";
-import { manifest as pokemonSearchManifest } from "../backend/providers/pokemon/pokeapi/search.sandbox";
 import { fixtureSavedViews } from "./saved-views";
 
 export const fixturePlugin = definePlugin({
@@ -88,33 +83,6 @@ export const fixturePlugin = definePlugin({
 			rootEntitySchemaSlug: "move",
 			information: { source: "pokeapi" },
 			operations: { search: "move.pokeapi.search", details: "move.pokeapi.details" },
-		},
-	],
-	scripts: [
-		{ ...greetManifest, entry: "backend/operations/greet.sandbox.ts" },
-		{
-			...pokemonDetailsManifest,
-			providerOperation: "details",
-			providerSlug: "pokemon.pokeapi",
-			entry: "backend/providers/pokemon/pokeapi/details.sandbox.ts",
-		},
-		{
-			...pokemonSearchManifest,
-			providerOperation: "search",
-			providerSlug: "pokemon.pokeapi",
-			entry: "backend/providers/pokemon/pokeapi/search.sandbox.ts",
-		},
-		{
-			...moveDetailsManifest,
-			providerOperation: "details",
-			providerSlug: "move.pokeapi",
-			entry: "backend/providers/move/pokeapi/details.sandbox.ts",
-		},
-		{
-			...moveSearchManifest,
-			providerOperation: "search",
-			providerSlug: "move.pokeapi",
-			entry: "backend/providers/move/pokeapi/search.sandbox.ts",
 		},
 	],
 	operations: [

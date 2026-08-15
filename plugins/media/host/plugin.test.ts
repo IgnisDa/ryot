@@ -1,70 +1,68 @@
 import { BunFileSystem } from "@effect/platform-bun";
-import { expect, it } from "@effect/vitest";
-import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { assert, expect, it } from "@effect/vitest";
+import { AuthoredPluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect, FileSystem, Schema } from "effect";
 
 import { mediaLibraryEligibleEntitySchemaSlugs } from "../backend/contracts/schema-slugs";
+import { manifest as googleBooksSearchManifest } from "../backend/providers/book/google-books/search.sandbox";
+import { manifest as igdbSearchOptionsManifest } from "../backend/providers/video-game/igdb/search-options.sandbox";
+import { manifest as igdbSearchManifest } from "../backend/providers/video-game/igdb/search.sandbox";
+import { manifest as monitoringTargetsManifest } from "../backend/workflows/media-monitoring-targets.sandbox";
 import { mediaPlugin } from "./plugin";
 
-it.effect("catalogs every sandbox script exactly once", () =>
+const PROVIDER_OPERATIONS = new Set([
+	"details",
+	"resolve",
+	"search",
+	"search-options",
+	"translate",
+]);
+
+it.effect("backs every declared provider operation with its entry file", () =>
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
-		const sandboxEntries = yield* fs.glob("backend/**/*.sandbox.ts", {
-			root: process.cwd(),
-		});
-		const catalogEntries = mediaPlugin.scripts.map(({ entry }) => entry);
+		const entries = yield* fs.glob("backend/providers/**/*.sandbox.ts", { root: process.cwd() });
+		const operationsByProvider = new Map<string, string[]>();
+		for (const entry of entries) {
+			const segments = entry.slice("backend/providers/".length).split("/");
+			const file = segments.at(-1);
+			assert(file && segments.length > 1);
+			const providerSlug = segments.slice(0, -1).join(".");
+			operationsByProvider.set(providerSlug, [
+				...(operationsByProvider.get(providerSlug) ?? []),
+				file.replace(".sandbox.ts", ""),
+			]);
+		}
 
-		expect(sortBy(catalogEntries)).toEqual(sortBy(sandboxEntries));
-		expect(new Set(catalogEntries).size).toBe(catalogEntries.length);
+		expect(sortBy([...operationsByProvider.keys()])).toEqual(
+			sortBy(mediaPlugin.providers.map(({ slug }) => slug)),
+		);
+		const associatedScripts: string[] = [];
+		for (const provider of mediaPlugin.providers) {
+			const files = operationsByProvider.get(provider.slug) ?? [];
+			const declared = Object.keys(provider.operations).map((operation) =>
+				operation === "searchOptions" ? "search-options" : operation,
+			);
+			expect(sortBy(files.filter((file) => PROVIDER_OPERATIONS.has(file)))).toEqual(
+				sortBy(declared),
+			);
+			associatedScripts.push(
+				...files
+					.filter((file) => !PROVIDER_OPERATIONS.has(file))
+					.map((file) => `${provider.slug}.${file}`),
+			);
+		}
+		expect(sortBy(associatedScripts)).toEqual([
+			"movie.tmdb.trending",
+			"music.youtube-music.history",
+			"show.tmdb.trending",
+		]);
 	}).pipe(Effect.provide(BunFileSystem.layer)),
 );
 
-it("routes person and company providers through provider scripts", () => {
-	const providerSlugs = new Set(
-		mediaPlugin.providers
-			.filter(({ slug }) => slug.startsWith("person.") || slug.startsWith("company."))
-			.map(({ slug }) => slug),
-	);
-	const providerScripts = mediaPlugin.scripts.flatMap((script) =>
-		script.kind === "provider" && providerSlugs.has(script.providerSlug) ? [script] : [],
-	);
-
-	expect(new Set(providerScripts.map(({ providerSlug }) => providerSlug))).toEqual(providerSlugs);
-
-	for (const provider of mediaPlugin.providers.filter(({ slug }) => providerSlugs.has(slug))) {
-		expect(
-			providerScripts
-				.filter(({ providerSlug }) => providerSlug === provider.slug)
-				.map(({ providerOperation }) => providerOperation)
-				.sort(),
-		).toEqual(Object.keys(provider.operations).sort());
-	}
-});
-
-it("routes media-group providers through provider scripts", () => {
-	const providerSlugs = new Set(
-		mediaPlugin.providers.filter(({ slug }) => slug.includes("-group.")).map(({ slug }) => slug),
-	);
-	const providerScripts = mediaPlugin.scripts.flatMap((script) =>
-		script.kind === "provider" && providerSlugs.has(script.providerSlug) ? [script] : [],
-	);
-
-	expect(providerScripts).toHaveLength(23);
-	expect(new Set(providerScripts.map(({ providerSlug }) => providerSlug))).toEqual(providerSlugs);
-
-	for (const provider of mediaPlugin.providers.filter(({ slug }) => providerSlugs.has(slug))) {
-		expect(
-			providerScripts
-				.filter(({ providerSlug }) => providerSlug === provider.slug)
-				.map(({ providerOperation }) => providerOperation)
-				.sort(),
-		).toEqual(Object.keys(provider.operations).sort());
-	}
-});
-
 it("declares the complete media-owned source", () => {
-	expect(() => Schema.decodeUnknownSync(PluginManifest)(mediaPlugin)).not.toThrow();
+	expect(() => Schema.decodeUnknownSync(AuthoredPluginManifest)(mediaPlugin)).not.toThrow();
 	expect(mediaPlugin.entitySchemas.map(({ slug }) => slug)).toContain("library");
 	expect(mediaPlugin.relationshipSchemas.map(({ slug }) => slug)).toContain("in-library");
 	expect(mediaPlugin.entitySchemas.find(({ slug }) => slug === "library")).toEqual(
@@ -108,13 +106,11 @@ it("declares the complete media-owned source", () => {
 		"https://coverartarchive.org",
 	);
 	expect(mediaPlugin.providers).toHaveLength(51);
-	expect(mediaPlugin.scripts).toHaveLength(182);
 	expect(mediaPlugin.integrationProviders).toHaveLength(12);
-	expect(mediaPlugin.scripts.every((script) => !("providerInformation" in script))).toBe(true);
-	expect(mediaPlugin.scripts.find(({ slug }) => slug === "book.google-books.search")).toMatchObject(
-		{ searchOptionsSchema: { unknownKeys: "strict" } },
-	);
-	expect(mediaPlugin.scripts.find(({ slug }) => slug === "video-game.igdb.search")).toMatchObject({
+	expect(googleBooksSearchManifest).toMatchObject({
+		searchOptionsSchema: { unknownKeys: "strict" },
+	});
+	expect(igdbSearchManifest).toMatchObject({
 		searchOptionsSchema: {
 			unknownKeys: "strict",
 			fields: {
@@ -133,38 +129,10 @@ it("declares the complete media-owned source", () => {
 	expect(mediaPlugin.providers.find(({ slug }) => slug === "video-game.igdb")).toMatchObject({
 		operations: { searchOptions: "video-game.igdb.search-options" },
 	});
-	expect(
-		mediaPlugin.scripts.find(({ slug }) => slug === "video-game.igdb.search-options"),
-	).toMatchObject({
+	expect(igdbSearchOptionsManifest).toMatchObject({
 		kind: "provider",
-		providerSlug: "video-game.igdb",
-		providerOperation: "search-options",
+		slug: "video-game.igdb.search-options",
 	});
-	expect(
-		mediaPlugin.scripts.filter(({ slug }) => slug.startsWith("media-import-resolve.")),
-	).toHaveLength(5);
-	expect(
-		mediaPlugin.scripts
-			.filter(({ slug }) => slug.startsWith("media-import-resolve."))
-			.every(({ kind }) => kind === "script"),
-	).toBe(true);
-	expect(mediaPlugin.scripts.filter(({ slug }) => slug.endsWith(".tmdb.trending"))).toEqual([
-		expect.objectContaining({
-			kind: "script",
-			providerSlug: "movie.tmdb",
-			slug: "movie.tmdb.trending",
-		}),
-		expect.objectContaining({
-			kind: "script",
-			providerSlug: "show.tmdb",
-			slug: "show.tmdb.trending",
-		}),
-	]);
-	expect(
-		mediaPlugin.scripts
-			.filter(({ slug }) => slug.startsWith("integration."))
-			.every(({ kind }) => kind === "script"),
-	).toBe(true);
 	expect(
 		mediaPlugin.providers
 			.filter(({ slug }) => slug === "movie.tmdb" || slug === "show.tmdb")
@@ -246,13 +214,11 @@ it("declares the complete media-owned source", () => {
 		slug: "media-monitoring-sweep",
 		scriptSlug: "workflow.media-monitoring-sweep",
 	});
-	expect(mediaPlugin.scripts).toContainEqual(
-		expect.objectContaining({
-			kind: "script",
-			capabilities: ["executeRyotql"],
-			slug: "media-monitoring-targets",
-		}),
-	);
+	expect(monitoringTargetsManifest).toMatchObject({
+		kind: "script",
+		capabilities: ["executeRyotql"],
+		slug: "media-monitoring-targets",
+	});
 	expect(mediaPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "media")).toBe(true);
 	expect(
 		mediaPlugin.savedViews.map(({ name, entitySchemaSlug }) => ({ name, entitySchemaSlug })),

@@ -1,8 +1,14 @@
 import { Effect, FileSystem } from "effect";
 
-import { compileSandboxPackageEntries, type SandboxEntryDeclaration } from "./compiler-builtins";
+import {
+	type CompiledBuiltInSandboxEntry,
+	compileSandboxPackageEntries,
+	type SandboxEntryDeclaration,
+} from "./compiler-builtins";
 import { sandboxCompilationFailure, sandboxCompilerDiagnostic } from "./compiler-diagnostics";
 import type { SandboxTypeScriptSources } from "./compiler-project";
+
+export type CompiledPluginSandboxEntry = CompiledBuiltInSandboxEntry;
 
 export type PluginSandboxScriptEntry = SandboxEntryDeclaration & {
 	readonly entry: string;
@@ -11,19 +17,26 @@ export type PluginSandboxScriptEntry = SandboxEntryDeclaration & {
 const sortedEntries = (scripts: ReadonlyArray<PluginSandboxScriptEntry>) =>
 	scripts.map(({ entry }) => entry).sort();
 
-export const compilePluginSandboxSourceEntries = (
+export const compilePluginSandboxEntryPaths = (
 	files: SandboxTypeScriptSources["files"],
-	scripts: ReadonlyArray<PluginSandboxScriptEntry>,
+	entries: ReadonlyArray<string>,
+	declarations: ReadonlyMap<string, SandboxEntryDeclaration> = new Map(),
 ) => {
-	const entries = sortedEntries(scripts);
 	if (new Set(entries).size !== entries.length) {
 		return sandboxCompilationFailure([
 			sandboxCompilerDiagnostic("RYOT_PLUGIN_ENTRY", "Plugin script entries must be unique"),
 		]);
 	}
-	return compileSandboxPackageEntries(
-		{ entry: entries[0] ?? "", files },
-		entries,
+	return compileSandboxPackageEntries({ entry: entries[0] ?? "", files }, entries, declarations);
+};
+
+export const compilePluginSandboxSourceEntries = (
+	files: SandboxTypeScriptSources["files"],
+	scripts: ReadonlyArray<PluginSandboxScriptEntry>,
+) =>
+	compilePluginSandboxEntryPaths(
+		files,
+		sortedEntries(scripts),
 		new Map(
 			scripts.map(
 				({ entry, kind, providerOperation }) =>
@@ -31,7 +44,6 @@ export const compilePluginSandboxSourceEntries = (
 			),
 		),
 	);
-};
 
 const loadPluginSources = (packageRoot: string) =>
 	Effect.gen(function* () {

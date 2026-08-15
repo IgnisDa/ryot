@@ -1,7 +1,7 @@
 import { BunServices } from "@effect/platform-bun";
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
-import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { compilePluginSandboxSourceEntries } from "@ryot-app/sandbox-compiler/plugins";
+import type { AuthoredPluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { derivePluginSandboxScripts } from "@ryot-app/sandbox-compiler/plugin-manifest";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect, FileSystem, Path, Schema, Stream } from "effect";
 import { ChildProcess } from "effect/unstable/process";
@@ -17,7 +17,10 @@ const encodeRequest = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 const decodeResponse = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown));
 const decoder = new TextDecoder("utf-8", { fatal: true });
 
-export const verifyPluginSandboxScriptsLoad = (packageRoot: string, manifest: PluginManifest) =>
+export const verifyPluginSandboxScriptsLoad = (
+	packageRoot: string,
+	manifest: AuthoredPluginManifest,
+) =>
 	Effect.scoped(
 		Effect.gen(function* () {
 			const fs = yield* FileSystem.FileSystem;
@@ -39,7 +42,7 @@ export const verifyPluginSandboxScriptsLoad = (packageRoot: string, manifest: Pl
 						}),
 				),
 			);
-			const outputs = yield* compilePluginSandboxSourceEntries(backendFiles, manifest.scripts);
+			const outputs = yield* derivePluginSandboxScripts(backendFiles);
 			yield* Effect.forEach(
 				outputs,
 				({ compiled }) =>

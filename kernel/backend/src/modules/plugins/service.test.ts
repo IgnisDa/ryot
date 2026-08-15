@@ -385,7 +385,7 @@ it.effect("preserves provider search options metadata through ingestion", () => 
 					providerOperation: "details" as const,
 					requiredPluginConfigKeys: [] as const,
 					requiredSystemConfigKeys: [] as const,
-					entry: "scripts/provider-details.sandbox.ts",
+					entry: "backend/providers/fixture/provider/details.sandbox.ts",
 				},
 				{
 					searchOptionsSchema,
@@ -397,7 +397,7 @@ it.effect("preserves provider search options metadata through ingestion", () => 
 					providerOperation: "search" as const,
 					requiredPluginConfigKeys: [] as const,
 					requiredSystemConfigKeys: [] as const,
-					entry: "scripts/provider-search.sandbox.ts",
+					entry: "backend/providers/fixture/provider/search.sandbox.ts",
 				},
 			],
 		} satisfies PluginManifest;
@@ -455,7 +455,7 @@ const userBootstrapManifest = () => {
 				slug: "fixture.user-bootstrap",
 				requiredPluginConfigKeys: [] as const,
 				requiredSystemConfigKeys: [] as const,
-				entry: "scripts/user-bootstrap.sandbox.ts",
+				entry: "backend/bootstrap/user-bootstrap.sandbox.ts",
 			},
 		],
 	};
@@ -1255,7 +1255,7 @@ it.effect("returns structured validation and compiler diagnostics", () => {
 								code: "TS2322",
 								phase: "compile",
 								severity: "error",
-								file: "scripts/fixture.sandbox.ts",
+								file: "backend/automations/fixture.sandbox.ts",
 							},
 						],
 					},

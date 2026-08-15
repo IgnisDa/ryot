@@ -45,9 +45,9 @@ describe("plugins", () => {
 			const eventSchemaSlug = `${schemaSlug}:${eventSlug}`;
 			const detailsSlug = `${providerSlug}.details`;
 			const searchSlug = `${providerSlug}.search`;
-			const detailsEntry = `scripts/${detailsSlug}.sandbox.ts`;
-			const searchEntry = `scripts/${searchSlug}.sandbox.ts`;
-			const automationEntry = `scripts/${automationSlug}.sandbox.ts`;
+			const detailsEntry = `backend/providers/${providerSlug}/details.sandbox.ts`;
+			const searchEntry = `backend/providers/${providerSlug}/search.sandbox.ts`;
+			const automationEntry = `backend/automations/${automationSlug}.sandbox.ts`;
 			const detailsScript = {
 				providerSlug,
 				capabilities: [],
