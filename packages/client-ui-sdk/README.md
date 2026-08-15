@@ -18,6 +18,7 @@ Heavy or optional surfaces remain on subpaths:
 | Subpath         | Contents                                            |
 | --------------- | --------------------------------------------------- |
 | `./schema-form` | `AppSchema` form and its contract/form dependencies |
+| `./table`       | Generic data table and column contract              |
 | `./icon`        | The complete registered product icon set            |
 | `./sync`        | Entity population and translation marks             |
 | `./tint`        | Best-effort image tint extraction                   |

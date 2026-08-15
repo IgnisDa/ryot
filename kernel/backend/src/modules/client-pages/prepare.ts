@@ -56,7 +56,7 @@ const matchRoute = (pattern: string, path: string) => {
 	return params;
 };
 
-export type ResolvedPluginPageTarget = {
+type ResolvedPluginPageTarget = {
 	readonly exportName: string;
 	readonly plugin: AvailablePlugin;
 	readonly params: Readonly<Record<string, string>>;
