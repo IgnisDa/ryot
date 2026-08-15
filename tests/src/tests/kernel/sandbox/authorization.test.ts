@@ -16,6 +16,7 @@ describe("sandbox capability authorization", () => {
 			const scriptSlug = `system-denied-${crypto.randomUUID()}`;
 			const installed = yield* Effect.acquireRelease(
 				installTestPluginBundle({
+					scope: "system",
 					files: {
 						"scripts/denied.sandbox.ts": userPreferencesSandboxSource({
 							slug: scriptSlug,

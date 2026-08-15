@@ -108,7 +108,7 @@ const installationRow = (input: {
 	updatedAt: new Date("2026-08-24T12:00:00.000Z"),
 });
 
-it.effect("exports exact system requirements and secret-safe private packages", () => {
+it.effect("exports active installation state and secret-safe private packages", () => {
 	const eventsPath = `${tmpdir()}/backup-export-installations-${crypto.randomUUID()}.ndjson`;
 	const systemInstallation = installationRow({
 		pluginScope: "system",
@@ -120,6 +120,18 @@ it.effect("exports exact system requirements and secret-safe private packages", 
 		...systemInstallation,
 		config: { locale: "source-only", token: "source-system-secret" },
 	};
+	const unavailableSystemInstallation = installationRow({
+		pluginScope: "system",
+		id: "installation-unavailable",
+		pluginSlug: "unavailable-plugin",
+		pluginId: "unavailable-plugin-id",
+	});
+	const defaultSystemInstallation = installationRow({
+		pluginScope: "system",
+		id: "installation-default",
+		pluginSlug: "default-plugin",
+		pluginId: "default-plugin-id",
+	});
 	const privateInstallation = {
 		...installationRow({
 			pluginScope: "user",
@@ -148,13 +160,7 @@ it.effect("exports exact system requirements and secret-safe private packages", 
 				slug: "private-record",
 				eventSchemas: [],
 				propertiesSchema: {
-					fields: {
-						title: {
-							type: "string" as const,
-							label: "Title",
-							description: "Title",
-						},
-					},
+					fields: { title: { label: "Title", description: "Title", type: "string" as const } },
 				},
 			},
 		],
@@ -173,46 +179,41 @@ it.effect("exports exact system requirements and secret-safe private packages", 
 			unknownKeys: "strict" as const,
 			fields: {
 				accounts: {
-					type: "array" as const,
 					label: "Accounts",
+					type: "array" as const,
 					description: "Accounts",
 					items: {
-						type: "object" as const,
 						label: "Account",
 						description: "Account",
+						type: "object" as const,
 						properties: {
 							label: { type: "string" as const, label: "Label", description: "Label" },
 							token: {
-								type: "string" as const,
-								secret: true as const,
 								label: "Token",
 								description: "Token",
+								secret: true as const,
+								type: "string" as const,
 								validation: { required: true as const },
 							},
 						},
 					},
 				},
 				credentials: {
-					type: "object" as const,
 					label: "Credentials",
+					type: "object" as const,
 					description: "Credentials",
 					properties: {
 						region: { type: "string" as const, label: "Region", description: "Region" },
 						token: {
-							type: "string" as const,
-							secret: true as const,
 							label: "Token",
 							description: "Token",
+							secret: true as const,
+							type: "string" as const,
 							validation: { required: true as const },
 						},
 					},
 				},
-				unit: {
-					type: "string" as const,
-					label: "Unit",
-					description: "Unit",
-					validation: {},
-				},
+				unit: { label: "Unit", validation: {}, description: "Unit", type: "string" as const },
 			},
 		},
 		integrationProviders: [
@@ -225,8 +226,8 @@ it.effect("exports exact system requirements and secret-safe private packages", 
 					unknownKeys: "strict" as const,
 					fields: {
 						credentials: {
-							type: "object" as const,
 							label: "Credentials",
+							type: "object" as const,
 							description: "Credentials",
 							properties: {
 								token: {
@@ -241,8 +242,8 @@ it.effect("exports exact system requirements and secret-safe private packages", 
 						endpoint: {
 							validation: {},
 							label: "Endpoint",
-							type: "string" as const,
 							description: "Endpoint",
+							type: "string" as const,
 						},
 					},
 				},
@@ -350,6 +351,23 @@ it.effect("exports exact system requirements and secret-safe private packages", 
 						Effect.succeed([
 							{
 								version: "1.0.0",
+								signalSchemaSlugs: [],
+								slug: "default-plugin",
+								id: "default-plugin-id",
+								integrationProviders: [],
+								sourceHash: "b".repeat(64),
+								relationshipSchemaSlugs: [],
+								configSchema: { fields: {}, unknownKeys: "strict" as const },
+								metadata: {
+									icon: "box",
+									version: "1.0.0",
+									name: "Default Plugin",
+									slug: "default-plugin",
+									description: "Default plugin",
+								},
+							},
+							{
+								version: "1.0.0",
 								slug: "system-plugin",
 								signalSchemaSlugs: [],
 								id: "system-plugin-id",
@@ -374,10 +392,10 @@ it.effect("exports exact system requirements and secret-safe private packages", 
 										},
 									},
 									token: {
-										secret: true as const,
 										label: "Token",
-										type: "string" as const,
 										description: "Token",
+										secret: true as const,
+										type: "string" as const,
 										validation: { required: true as const },
 									},
 								},
@@ -385,8 +403,14 @@ it.effect("exports exact system requirements and secret-safe private packages", 
 						]),
 				}),
 				Layer.mock(PluginInstallationRepository, {
-					listForUser: () => Effect.succeed([configuredSystemInstallation, privateInstallation]),
 					listSystemForUser: () => Effect.succeed([configuredSystemInstallation]),
+					listForUser: () =>
+						Effect.succeed([
+							configuredSystemInstallation,
+							defaultSystemInstallation,
+							unavailableSystemInstallation,
+							privateInstallation,
+						]),
 				}),
 			),
 		),
@@ -400,11 +424,7 @@ it.effect("exports exact system requirements and secret-safe private packages", 
 			`user:private-plugin:${privateSourceHash}`,
 		]);
 		expect(prepared.records.privatePlugins).toEqual([
-			expect.objectContaining({
-				files: {},
-				sourceHash: privateSourceHash,
-				slug: "private-plugin",
-			}),
+			expect.objectContaining({ files: {}, slug: "private-plugin", sourceHash: privateSourceHash }),
 		]);
 		expect(prepared.records.entities).toEqual([
 			expect.objectContaining({
@@ -419,8 +439,8 @@ it.effect("exports exact system requirements and secret-safe private packages", 
 		});
 		expect(prepared.records.installations[1]?.config).toEqual({
 			unit: "minutes",
-			credentials: { region: "local" },
 			accounts: [{ label: "primary" }],
+			credentials: { region: "local" },
 		});
 		expect(prepared.records.installations[1]?.configuredSecretPaths).toEqual([
 			"/accounts/0/token",
@@ -429,8 +449,8 @@ it.effect("exports exact system requirements and secret-safe private packages", 
 		expect(prepared.records.integrations).toEqual([
 			expect.objectContaining({
 				configuredSecretPaths: ["/credentials/token"],
-				providerSpecifics: { endpoint: "local", credentials: {} },
 				packageKey: `user:private-plugin:${privateSourceHash}`,
+				providerSpecifics: { endpoint: "local", credentials: {} },
 			}),
 		]);
 		expect(prepared.redactions.some((path) => path.includes("installation-system"))).toBe(false);

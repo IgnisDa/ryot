@@ -12,6 +12,7 @@ import {
 	createEntity,
 	createNotificationChannel,
 	deleteUserAndWait,
+	enableMediaMonitoring,
 	enqueueProviderEntityImport,
 	fakeProviderDetailsResult,
 	findBuiltinSchemaBySlug,
@@ -19,7 +20,6 @@ import {
 	getAutomationRuleCount,
 	getBackendClient,
 	getBuiltinEntitySchemaSlug,
-	insertMediaMonitoring,
 	listSignals,
 	listSubscriptionRuns,
 	pollProviderEntityImportResult,
@@ -193,6 +193,7 @@ describe("Delete user automation data cleanup", () => {
 				const personProvider = yield* Effect.acquireRelease(
 					installTestProvider({
 						client: compilerClient,
+						scope: "system",
 						rootEntitySchemaSlug: personSchemaId,
 						slug: `person.delete-user-e2e-${crypto.randomUUID()}`,
 						details: fakeProviderDetailsResult({ name: personName }),
@@ -202,6 +203,7 @@ describe("Delete user automation data cleanup", () => {
 				const movieProvider = yield* Effect.acquireRelease(
 					installTestProvider({
 						client: compilerClient,
+						scope: "system",
 						rootEntitySchemaSlug: movieSchemaId,
 						slug: `movie.delete-user-e2e-${crypto.randomUUID()}`,
 						details: fakeProviderDetailsResult({
@@ -249,8 +251,8 @@ describe("Delete user automation data cleanup", () => {
 					}),
 				]);
 				yield* Effect.all([
-					insertMediaMonitoring(firstMonitor.client, person.id),
-					insertMediaMonitoring(secondMonitor.client, person.id),
+					enableMediaMonitoring(firstMonitor.client, person.id),
+					enableMediaMonitoring(secondMonitor.client, person.id),
 				]);
 
 				const { jobId } = yield* enqueueProviderEntityImport(importer.client, {

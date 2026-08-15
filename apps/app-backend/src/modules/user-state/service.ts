@@ -10,10 +10,10 @@ import { Context, Effect, Layer } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { trimToNull } from "#lib/shared/validation";
-import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
@@ -23,7 +23,7 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 		const eventsRepository = yield* EventsRepository;
 		const events = yield* EventsService;
 		const relationships = yield* RelationshipsService;
-		const definitions = yield* DefinitionRegistry;
+		const pluginRuntime = yield* PluginRuntimeResolver;
 		const entitiesRepository = yield* EntitiesRepository;
 		const relationshipsRepository = yield* RelationshipsRepository;
 		const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
@@ -47,7 +47,8 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 				});
 			}
 
-			const entitySchema = definitions.getEntitySchema(scope.entitySchemaSlug);
+			const definitions = yield* pluginRuntime.getEffectiveDefinitions(user.id).pipe(Effect.orDie);
+			const entitySchema = definitions.entitySchemas[scope.entitySchemaSlug];
 			if (entitySchema?.userState?.deniedOperations.includes("clear")) {
 				return yield* new UserStateBadRequest({
 					reason: { code: "operation-denied", operation: "clear" },
@@ -132,8 +133,9 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 					reason: { code: "entity-not-found", entityIds: [mergeFrom, mergeInto] },
 				});
 			}
-			const fromEntitySchema = definitions.getEntitySchema(fromScope.entitySchemaSlug);
-			const intoEntitySchema = definitions.getEntitySchema(intoScope.entitySchemaSlug);
+			const definitions = yield* pluginRuntime.getEffectiveDefinitions(user.id).pipe(Effect.orDie);
+			const fromEntitySchema = definitions.entitySchemas[fromScope.entitySchemaSlug];
+			const intoEntitySchema = definitions.entitySchemas[intoScope.entitySchemaSlug];
 			if (
 				fromEntitySchema?.userState?.deniedOperations.includes("merge") ||
 				intoEntitySchema?.userState?.deniedOperations.includes("merge")

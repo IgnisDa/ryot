@@ -89,27 +89,30 @@ describe("POST /relationships", () => {
 		}),
 	);
 
-	it.live("uses a global relationship schema with the caller's own entities", () =>
+	it.live("rejects another user's private relationship schema", () =>
 		Effect.gen(function* () {
 			const owner = yield* createAuthenticatedClient();
 			const intruder = yield* createAuthenticatedClient();
 			const { relSchema } = yield* makeRelationshipFixture(owner.client);
 			const { source, target } = yield* makeRelationshipFixture(intruder.client);
 
-			const result = yield* intruder.client.call((c) =>
-				c.relationships.create({
-					payload: {
-						sourceEntityId: source.id,
-						targetEntityId: target.id,
-						relationshipSchemaSlug: relSchema.id,
-					},
-				}),
+			const error = yield* Effect.flip(
+				intruder.client.call((c) =>
+					c.relationships.create({
+						payload: {
+							sourceEntityId: source.id,
+							targetEntityId: target.id,
+							relationshipSchemaSlug: relSchema.id,
+						},
+					}),
+				),
 			);
 
-			expect(result.wasInserted).toBe(true);
-			expect(result.sourceEntityId).toBe(source.id);
-			expect(result.targetEntityId).toBe(target.id);
-			expect(result.relationshipSchemaSlug).toBe(relSchema.id);
+			assertTaggedError(error, "RelationshipNotFound");
+			expect(error.reason).toEqual({
+				code: "relationship-schema-not-found",
+				relationshipSchemaSlug: relSchema.id,
+			});
 		}),
 	);
 

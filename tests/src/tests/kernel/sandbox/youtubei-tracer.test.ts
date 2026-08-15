@@ -60,12 +60,13 @@ export default defineScript({
 describe("Youtubei durable tracer", () => {
 	it.live("replays sequential internal fetches without repeating completed HTTP", () =>
 		Effect.gen(function* () {
-			const { userId } = yield* createAuthenticatedClient();
+			const { client, userId } = yield* createAuthenticatedClient();
 			const http = yield* startFakeHttpServerScoped();
 			const scriptSlug = `youtubei-tracer-${crypto.randomUUID()}`;
 			const entry = "scripts/youtubei-tracer.sandbox.ts";
 			const plugin = yield* Effect.acquireRelease(
 				installTestPluginBundle({
+					client,
 					pluginSlug: `e2e-youtubei-tracer-${crypto.randomUUID()}`,
 					files: { [entry]: youtubeiSource({ name: "Youtubei tracer", slug: scriptSlug }) },
 					scripts: [

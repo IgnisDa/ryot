@@ -476,7 +476,14 @@ const ContentServicesLive = Layer.mergeAll(
 );
 
 const UserStateServiceLive = UserStateService.layer.pipe(
-	Layer.provide([Layer.mergeAll(EventsServiceLive, RelationshipsService.layer), PluginLoaderLive]),
+	Layer.provide([
+		Layer.mergeAll(
+			EventsServiceLive,
+			RelationshipsService.layer.pipe(Layer.provide(PluginRuntimeResolverLive)),
+		),
+		PluginRuntimeResolverLive,
+		PluginLoaderLive,
+	]),
 );
 
 const ImportsServiceLive = ImportsService.layer.pipe(
@@ -492,7 +499,7 @@ const ImportsServiceLive = ImportsService.layer.pipe(
 
 const PlatformServicesLive = Layer.mergeAll(
 	BackupServicesLive,
-	RelationshipsService.layer,
+	RelationshipsService.layer.pipe(Layer.provide(PluginRuntimeResolverLive)),
 	UserStateServiceLive,
 	ImportsServiceLive,
 	IntegrationsService.layer.pipe(
@@ -503,7 +510,11 @@ const PlatformServicesLive = Layer.mergeAll(
 );
 
 const CollectionsServiceLive = CollectionsService.layer.pipe(
-	Layer.provide([EntitiesServiceLive, EventsServiceLive, RelationshipsService.layer]),
+	Layer.provide([
+		EntitiesServiceLive,
+		EventsServiceLive,
+		RelationshipsService.layer.pipe(Layer.provide(PluginRuntimeResolverLive)),
+	]),
 );
 
 const ServicesBaseLive = Layer.mergeAll(ContentServicesLive, PlatformServicesLive).pipe(

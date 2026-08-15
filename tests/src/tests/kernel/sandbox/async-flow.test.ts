@@ -72,10 +72,15 @@ afterAll(() => {
 describe("sandbox async flow", () => {
 	it.live("completes a script that returns a plain value", () =>
 		Effect.gen(function* () {
-			const { userId } = yield* createAuthenticatedClient();
+			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `plain-value-${crypto.randomUUID()}`;
 			const source = literalSandboxSource({ name: "Plain value", slug, value: 42 });
-			const script = yield* installSandboxScriptScoped({ slug, source, name: "Plain value" });
+			const script = yield* installSandboxScriptScoped({
+				slug,
+				client,
+				source,
+				name: "Plain value",
+			});
 			const { scriptId } = script;
 			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
 
@@ -106,10 +111,11 @@ describe("sandbox async flow", () => {
 
 	it.live("completes a script that uses httpCall", () =>
 		Effect.gen(function* () {
-			const { userId } = yield* createAuthenticatedClient();
+			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `http-call-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
+				client,
 				name: "http-call",
 				capabilities: ["httpCall"],
 				source: httpCallSandboxSource({ name: "http-call", slug, url: httpServerUrl }),
@@ -136,9 +142,10 @@ describe("sandbox async flow", () => {
 
 	it.live("preserves non-2xx httpCall response bodies", () =>
 		Effect.gen(function* () {
-			const { userId } = yield* createAuthenticatedClient();
+			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `http-call-error-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
+				client,
 				slug,
 				name: "http-call-error",
 				capabilities: ["httpCall"],
@@ -174,6 +181,7 @@ describe("sandbox async flow", () => {
 			});
 			const sandboxSlug = `execute-ryotql-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
+				client,
 				slug: sandboxSlug,
 				name: "execute-ryotql",
 				capabilities: ["executeRyotql"],
@@ -206,11 +214,13 @@ describe("sandbox async flow", () => {
 		}),
 	);
 
-	it.live("reads declared env-backed plugin config values in one batch", () =>
+	it.live("reads declared installation config values in one batch", () =>
 		Effect.gen(function* () {
-			const { userId } = yield* createAuthenticatedClient();
+			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `get-plugin-config-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
+				client,
+				config: { fixtureValue: "sandbox-plugin-config-value", fixtureLimit: 17 },
 				slug,
 				name: "get-plugin-config",
 				configSchema: configFixtureSchema,
@@ -232,9 +242,11 @@ describe("sandbox async flow", () => {
 
 	it.live("rejects an undeclared plugin config key", () =>
 		Effect.gen(function* () {
-			const { userId } = yield* createAuthenticatedClient();
+			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `undeclared-plugin-config-value-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
+				client,
+				config: { fixtureValue: "sandbox-plugin-config-value", fixtureLimit: 17 },
 				slug,
 				requiredPluginConfigKeys: [],
 				name: "undeclared-plugin-config",
@@ -261,9 +273,10 @@ describe("sandbox async flow", () => {
 
 	it.live("reads declared system config in a batch", () =>
 		Effect.gen(function* () {
-			const { userId } = yield* createAuthenticatedClient();
+			const { client, userId } = yield* createAuthenticatedClient();
 			const declaredSlug = `declared-system-config-${crypto.randomUUID()}`;
 			const declared = yield* installSandboxScriptScoped({
+				client,
 				slug: declaredSlug,
 				name: "declared-system-config",
 				capabilities: ["getSystemConfig"],
@@ -281,6 +294,7 @@ describe("sandbox async flow", () => {
 
 			const undeclaredSlug = `undeclared-system-config-${crypto.randomUUID()}`;
 			const undeclared = yield* installSandboxScriptScoped({
+				client,
 				slug: undeclaredSlug,
 				requiredSystemConfigKeys: [],
 				name: "undeclared-system-config",
@@ -307,9 +321,10 @@ describe("sandbox async flow", () => {
 
 	it.live("completes a script that uses getUserPreferences", () =>
 		Effect.gen(function* () {
-			const { userId } = yield* createAuthenticatedClient();
+			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `get-user-prefs-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
+				client,
 				slug,
 				name: "get-user-prefs",
 				capabilities: ["getUserPreferences"],
@@ -328,9 +343,10 @@ describe("sandbox async flow", () => {
 
 	it.live("returns a completed result when the script throws", () =>
 		Effect.gen(function* () {
-			const { userId } = yield* createAuthenticatedClient();
+			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `throws-error-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
+				client,
 				slug,
 				name: "throws-error",
 				source: throwingSandboxSource({ name: "throws-error", slug, message: "intentional" }),
@@ -356,9 +372,10 @@ describe("sandbox async flow", () => {
 
 	it.live("preserves the complete mapped stack for deep script errors", () =>
 		Effect.gen(function* () {
-			const { userId } = yield* createAuthenticatedClient();
+			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `deep-throws-error-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
+				client,
 				slug,
 				name: "deep-throws-error",
 				source: deepThrowingSandboxSource({
