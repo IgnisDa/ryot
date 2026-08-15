@@ -25,12 +25,15 @@ const listState = (
 const renderView = (
 	state: IntegrationListState,
 	overrides: {
+		readonly isSyncing?: boolean;
 		readonly onRetry?: () => void;
 		readonly onConnect?: () => void;
 		readonly onSyncAll?: () => void;
+		readonly syncSucceeded?: boolean;
 		readonly onShowMore?: () => void;
 		readonly isLoadingMore?: boolean;
 		readonly onOpenImports?: () => void;
+		readonly syncDetail?: string | undefined;
 		readonly onOpen?: (integrationId: string) => void;
 	} = {},
 ) =>
@@ -39,9 +42,12 @@ const renderView = (
 			nowMs={NOW}
 			state={state}
 			providerNames={providerNames}
+			syncDetail={overrides.syncDetail}
+			isSyncing={overrides.isSyncing ?? false}
 			onOpen={overrides.onOpen ?? (() => undefined)}
 			onRetry={overrides.onRetry ?? (() => undefined)}
 			isLoadingMore={overrides.isLoadingMore ?? false}
+			syncSucceeded={overrides.syncSucceeded ?? false}
 			onConnect={overrides.onConnect ?? (() => undefined)}
 			onSyncAll={overrides.onSyncAll ?? (() => undefined)}
 			onShowMore={overrides.onShowMore ?? (() => undefined)}
@@ -129,6 +135,28 @@ describe("integrations screen", () => {
 		await user.press(screen.getByRole("button", { name: "Sync all integrations" }));
 
 		expect(synced).toEqual(["sync"]);
+	});
+
+	it("shows sync progress and feedback", async () => {
+		await renderView(listState([makeIntegrationSummary()]), { isSyncing: true });
+
+		expect(screen.getByText("Syncing...")).toBeOnTheScreen();
+		expect(screen.getByRole("button", { name: "Sync all integrations" })).toBeDisabled();
+
+		await renderView(listState([makeIntegrationSummary()]), {
+			syncSucceeded: true,
+			syncDetail: "Sync started. Updates will appear as integrations finish.",
+		});
+		expect(screen.getByRole("alert")).toHaveTextContent(
+			"Sync started. Updates will appear as integrations finish.",
+		);
+
+		await renderView(listState([makeIntegrationSummary()]), {
+			syncDetail: "Integration sync could not be started. Try again.",
+		});
+		expect(screen.getByRole("alert")).toHaveTextContent(
+			"Integration sync could not be started. Try again.",
+		);
 	});
 
 	it("only offers more when the page reports more", async () => {
