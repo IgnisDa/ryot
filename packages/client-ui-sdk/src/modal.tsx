@@ -13,12 +13,13 @@ import { OverlayScope } from "./shortcut";
 
 type ModalProps = {
 	readonly label?: string;
-	readonly children: ReactNode;
 	readonly closeLabel: string;
 	readonly className?: string;
+	readonly children: ReactNode;
 	readonly labelledBy?: string;
 	readonly onClose: () => void;
 	readonly dismissible?: boolean;
+	readonly backEnabled?: boolean;
 	readonly scrimClassName?: string;
 	readonly containerClassName?: string;
 	readonly onInterceptBack?: () => boolean;
@@ -37,6 +38,7 @@ export function Modal({
 	scrimClassName,
 	initialFocusRef,
 	onInterceptBack,
+	backEnabled = true,
 	containerClassName,
 	dismissible = true,
 }: ModalProps) {
@@ -55,15 +57,20 @@ export function Modal({
 
 	const requestClose = useEffectEvent(() => {
 		if (!dismissible || onInterceptBack?.() === true) {
-			return;
+			return false;
 		}
 		onClose();
+		return true;
 	});
 
 	useFocusTrap(panelRef, { enabled: true });
 
 	return createPortal(
-		<OverlayScope onEscape={requestClose}>
+		<OverlayScope
+			onBack={requestClose}
+			onEscape={requestClose}
+			backEnabled={dismissible && backEnabled}
+		>
 			<div className={clsx("fixed inset-0 z-50 flex", containerClassName)}>
 				<button
 					type="button"
