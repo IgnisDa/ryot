@@ -4,17 +4,8 @@ import { useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
-import { AppButton } from "@/modules/ui/button";
-import { AppStatusState } from "@/modules/ui/status-state";
-
-import {
-	buildImportFailureClipboardText,
-	groupImportFailuresByStage,
-	importFailureContextEntries,
-	importFailureRowLabel,
-} from "./failure-presentation";
-import { ImportProgressBar } from "./import-progress-bar";
-import { ImportStatusPill } from "./import-status-pill";
+import { ImportProgressBar } from "@/modules/import-runs/import-progress-bar";
+import { ImportStatusPill } from "@/modules/import-runs/import-status-pill";
 import {
 	formatImportCount,
 	importRunCountsLabel,
@@ -25,7 +16,16 @@ import {
 	importRunProvenanceLabel,
 	importRunTimestampLabel,
 	importSourceName,
-} from "./run-presentation";
+} from "@/modules/import-runs/run-presentation";
+import { AppButton } from "@/modules/ui/button";
+import { AppStatusState } from "@/modules/ui/status-state";
+
+import {
+	buildImportFailureClipboardText,
+	groupImportFailuresByStage,
+	importFailureContextEntries,
+	importFailureRowLabel,
+} from "./failure-presentation";
 import { importRunDetailError, type ImportRunDetailState } from "./state";
 
 function RunHeading(props: {
