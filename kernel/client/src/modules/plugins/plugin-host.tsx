@@ -1,4 +1,5 @@
 import { Button } from "@ryot/client-ui-sdk";
+import { CLIENT_API_VERSION } from "@ryot/contract/modules/plugins/client";
 import type {
 	PluginLogicalLocation,
 	PluginOperationOutcome,
@@ -53,6 +54,9 @@ function resolvePluginArtifact(installation: PluginClientCatalogEntry): PluginAr
 		return { kind: "blocked", status: "missing-artifact" };
 	}
 	if (installation.clientApiVersion === null) {
+		return { kind: "blocked", status: "unexpected-version" };
+	}
+	if (installation.clientApiVersion !== CLIENT_API_VERSION) {
 		return { kind: "blocked", status: "unexpected-version" };
 	}
 	return { artifactHash: installation.clientArtifactHash, kind: "artifact" };
