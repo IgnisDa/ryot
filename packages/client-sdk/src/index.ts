@@ -1,4 +1,8 @@
-import type { RyotClientErrorReason } from "@ryot/contract/modules/plugins/client";
+import {
+	PluginThemeSnapshot,
+	type PluginThemeSnapshot as PluginThemeSnapshotValue,
+	type RyotClientErrorReason,
+} from "@ryot/contract/modules/plugins/client";
 import { isJsonValue, type JsonValue } from "@ryot/contract/schema/json";
 import type { PreparedRecipe } from "@ryot/ryotql";
 import { Result, Schema } from "effect";
@@ -31,6 +35,10 @@ export type RyotNavigationTarget = {
 export type RyotClientAdapter = {
 	readonly query: (document: PreparedRecipe<unknown>["document"]) => Promise<unknown>;
 	readonly navigate?: (mode: "push" | "replace", target: RyotNavigationTarget) => void;
+	readonly theme?: {
+		readonly getSnapshot: () => unknown;
+		readonly subscribe: (listener: () => void) => () => void;
+	};
 	readonly invokeOperation?: (request: {
 		readonly slug: string;
 		readonly input: JsonValue;
@@ -38,6 +46,30 @@ export type RyotClientAdapter = {
 };
 
 export const createRyotClient = (adapter: RyotClientAdapter) => {
+	let themeSnapshotInput: unknown;
+	let themeSnapshot: PluginThemeSnapshotValue | undefined;
+	const decodeThemeSnapshot = (value: unknown): PluginThemeSnapshotValue => {
+		if (themeSnapshot && Object.is(value, themeSnapshotInput)) {
+			return themeSnapshot;
+		}
+		const decoded = Schema.decodeUnknownResult(PluginThemeSnapshot)(value);
+		if (Result.isFailure(decoded)) {
+			throw new RyotClientError("malformed-result");
+		}
+		themeSnapshot = decoded.success;
+		themeSnapshotInput = value;
+		return themeSnapshot;
+	};
+	const getThemeSnapshot = () => {
+		if (!adapter.theme) {
+			throw new RyotClientError("unsupported-capability");
+		}
+		try {
+			return decodeThemeSnapshot(adapter.theme.getSnapshot());
+		} catch (error) {
+			throw asTransportError(error);
+		}
+	};
 	const navigate = (mode: "push" | "replace", target: RyotNavigationTarget) => {
 		if (!adapter.navigate) {
 			throw new RyotClientError("unsupported-capability");
@@ -46,6 +78,10 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 	};
 
 	return {
+		navigation: {
+			push: (target: RyotNavigationTarget) => navigate("push", target),
+			replace: (target: RyotNavigationTarget) => navigate("replace", target),
+		},
 		data: {
 			query: async <Success>(recipe: PreparedRecipe<Success>) => {
 				let response: unknown;
@@ -87,9 +123,21 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				return decoded.success;
 			},
 		},
-		navigation: {
-			push: (target: RyotNavigationTarget) => navigate("push", target),
-			replace: (target: RyotNavigationTarget) => navigate("replace", target),
+		theme: {
+			getSnapshot: getThemeSnapshot,
+			subscribe: (listener: () => void) => {
+				if (!adapter.theme) {
+					throw new RyotClientError("unsupported-capability");
+				}
+				try {
+					return adapter.theme.subscribe(() => {
+						getThemeSnapshot();
+						listener();
+					});
+				} catch (error) {
+					throw asTransportError(error);
+				}
+			},
 		},
 	};
 };
