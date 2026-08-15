@@ -1,0 +1,6 @@
+@import "@fontsource-variable/outfit";
+@import "@fontsource-variable/lora";
+@import "tailwindcss";
+@import "./tokens.css";
+@import "./base.css";
+@import "./components.css";
