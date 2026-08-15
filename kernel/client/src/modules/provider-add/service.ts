@@ -8,7 +8,7 @@ import { providerSearchRecipe } from "@ryot-app/ryotql-recipes/provider-search";
 import type { ProviderSearchResult } from "@ryot-app/ryotql-recipes/provider-search";
 import { Context, Data, Effect, Layer } from "effect";
 
-import { AuthenticatedApi } from "#/api/authenticated";
+import { ProviderEntitiesApi } from "#/api/provider-entities";
 import type { KernelRyotClient } from "#/api/ryot-client";
 import type { ApiScope } from "#/api/scope";
 
@@ -25,7 +25,7 @@ export class ProviderAddService extends Context.Service<ProviderAddService>()(
 	"ProviderAddService",
 	{
 		make: Effect.gen(function* () {
-			const api = yield* AuthenticatedApi;
+			const api = yield* ProviderEntitiesApi;
 			const loadProviders = Effect.fn("ProviderAddService.loadProviders")(function* (
 				client: ProviderAddClient,
 				entitySchemaSlug: EntitySchemaSlug,
@@ -56,9 +56,7 @@ export class ProviderAddService extends Context.Service<ProviderAddService>()(
 				providerId: SandboxProviderId,
 			) {
 				return yield* api
-					.run(scope, (client) =>
-						client.providerEntities.searchOptions({ payload: { providerId } }),
-					)
+					.searchOptions(scope, { payload: { providerId } })
 					.pipe(
 						Effect.mapError(
 							(error) => new ProviderAddLoadError({ cause: error.cause, stage: "options" }),
@@ -70,7 +68,7 @@ export class ProviderAddService extends Context.Service<ProviderAddService>()(
 				payload: SearchProviderEntitiesBody,
 			) {
 				return yield* api
-					.run(scope, (client) => client.providerEntities.search({ payload }))
+					.search(scope, { payload })
 					.pipe(
 						Effect.mapError(
 							(error) => new ProviderAddLoadError({ cause: error.cause, stage: "search" }),
@@ -82,7 +80,7 @@ export class ProviderAddService extends Context.Service<ProviderAddService>()(
 				payload: ImportEntityBody,
 			) {
 				return yield* api
-					.run(scope, (client) => client.providerEntities.import({ payload }))
+					.import(scope, { payload })
 					.pipe(
 						Effect.mapError(
 							(error) => new ProviderAddLoadError({ cause: error.cause, stage: "import" }),
@@ -94,7 +92,7 @@ export class ProviderAddService extends Context.Service<ProviderAddService>()(
 				jobId: string,
 			) {
 				return yield* api
-					.run(scope, (client) => client.providerEntities.getImportResult({ params: { jobId } }))
+					.getImportResult(scope, { params: { jobId } })
 					.pipe(
 						Effect.mapError(
 							(error) => new ProviderAddLoadError({ cause: error.cause, stage: "import" }),

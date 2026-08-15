@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { Deferred, Effect, Layer, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { AuthenticatedApi } from "#/api/authenticated";
+import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { PublicApi, PublicApiError } from "#/api/public";
 import type { AuthService } from "#/modules/auth/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
@@ -16,21 +16,21 @@ import { PluginQueriesService } from "#/modules/plugins/queries";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
-	ServerStub,
-	OAuthRouteStubs,
-	GodModeRouteStubs,
-	SavedViewRouteStubs,
-	ProviderAddRouteStubs,
-	CustomizeRouteStubs,
-	NavigationRouteStubs,
 	theme,
 	server,
 	catalog,
+	ServerStub,
 	makeAuthStub,
 	authenticated,
+	OAuthRouteStubs,
 	makeStorageStub,
 	unauthenticated,
+	GodModeRouteStubs,
 	makePublicApiStub,
+	CustomizeRouteStubs,
+	SavedViewRouteStubs,
+	NavigationRouteStubs,
+	ProviderAddRouteStubs,
 	makeWorkspaceRecorder,
 } from "#/routes/-route-fixtures";
 
@@ -53,7 +53,7 @@ const mountView = (
 			ServerStub,
 			SavedViewRouteStubs,
 			publicLayer,
-			AuthenticatedApi.layer,
+			KernelApiTestLayer,
 			events.layer,
 			Layer.succeed(ArtifactSessions, {
 				renew: () => Effect.die("not used"),

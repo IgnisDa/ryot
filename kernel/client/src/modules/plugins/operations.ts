@@ -13,7 +13,7 @@ import {
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import { AuthenticatedApi } from "#/api/authenticated";
+import { PluginsApi } from "#/api/plugins";
 import type { ApiScope } from "#/api/scope";
 
 const isDeclaredFailure = Schema.is(
@@ -38,7 +38,7 @@ export class PluginOperationsService extends Context.Service<PluginOperationsSer
 	"PluginOperationsService",
 	{
 		make: Effect.gen(function* () {
-			const api = yield* AuthenticatedApi;
+			const api = yield* PluginsApi;
 			const invoke = Effect.fn("PluginOperationsService.invoke")(function* (invocation: {
 				readonly scope: ApiScope;
 				readonly sourceHash: string;
@@ -46,18 +46,16 @@ export class PluginOperationsService extends Context.Service<PluginOperationsSer
 				readonly request: PluginOperationRequest;
 			}) {
 				const outcome = yield* api
-					.run(invocation.scope, (client) =>
-						client.plugins.invoke({
-							payload: {
-								payload: invocation.request.input,
-								sourceHash: invocation.sourceHash,
-							},
-							params: {
-								operationSlug: invocation.request.operationSlug,
-								pluginSlug: PluginSlug.make(invocation.pluginSlug),
-							},
-						}),
-					)
+					.invoke(invocation.scope, {
+						payload: {
+							payload: invocation.request.input,
+							sourceHash: invocation.sourceHash,
+						},
+						params: {
+							operationSlug: invocation.request.operationSlug,
+							pluginSlug: PluginSlug.make(invocation.pluginSlug),
+						},
+					})
 					.pipe(
 						Effect.match({
 							onSuccess: (response) => ({ outcome: "success", value: response.result }) as const,
