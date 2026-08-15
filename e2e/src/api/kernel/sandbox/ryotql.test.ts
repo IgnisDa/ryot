@@ -120,8 +120,8 @@ describe("sandbox RyotQL reads", () => {
 			const entitySchemaSlug = `e2e-ryotql-system-entity-${suffix}`;
 			const scriptSlug = `e2e-ryotql-system-script-${suffix}`;
 			const cronSlug = `e2e-ryotql-system-cron-${suffix}`;
-			const entry = "scripts/ryotql-system.sandbox.ts";
-			const providerEntry = "scripts/provider-details.sandbox.ts";
+			const entry = `backend/providers/${providerSlug}/ryotql-system.sandbox.ts`;
+			const providerEntry = `backend/providers/${providerSlug}/details.sandbox.ts`;
 			const entity = table("entity", "entity");
 			const query = document({
 				entities: rows(entity, {
