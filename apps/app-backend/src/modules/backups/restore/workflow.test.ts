@@ -3,12 +3,14 @@ import { expect, it } from "@effect/vitest";
 import { BadRequest, internalError } from "@ryot/contract/errors";
 import { BackupRunId, UserId } from "@ryot/contract/schema/brands";
 import { CryptoHasher } from "bun";
-import { Effect, Layer, Stream } from "effect";
+import { Effect, FileSystem, Layer, Stream } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { Database } from "#lib/infrastructure/db/service";
 import { makeWorkflowActivityEngine, type MockOverrides } from "#lib/test-utils/effect";
-import { UploadsService } from "#modules/uploads/service";
+import { UploadIntentsService } from "#modules/uploads/intents/service";
+import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
+import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { createV1ArchiveStream } from "../archive-v1/archive";
 import { BackupsRepository } from "../runs/repository";
@@ -38,26 +40,33 @@ const runningRun = {
 };
 
 const mockWriter = Layer.mock(BackupRestoreWriter);
-const mockCleanliness = Layer.mock(BackupAccountCleanliness);
-const mockUploads = Layer.mock(UploadsService);
 const mockRepository = Layer.mock(BackupsRepository);
+const mockUploadIntents = Layer.mock(UploadIntentsService);
+const mockManagedAssets = Layer.mock(ManagedAssetsService);
+const mockObjectStorage = Layer.mock(ObjectStorageService);
+const mockCleanliness = Layer.mock(BackupAccountCleanliness);
 
 const makeLayer = (input: {
 	database?: object;
 	writer?: MockOverrides<typeof mockWriter>;
-	cleanliness?: MockOverrides<typeof mockCleanliness>;
-	uploads?: MockOverrides<typeof mockUploads>;
+	fileSystem?: Layer.Layer<FileSystem.FileSystem>;
 	repository: MockOverrides<typeof mockRepository>;
+	cleanliness?: MockOverrides<typeof mockCleanliness>;
+	uploadIntents?: MockOverrides<typeof mockUploadIntents>;
+	managedAssets?: MockOverrides<typeof mockManagedAssets>;
+	objectStorage?: MockOverrides<typeof mockObjectStorage>;
 }) =>
 	RestoreBackupWorkflowOperationsLive.pipe(
 		Layer.provide(
 			Layer.mergeAll(
-				BunFileSystem.layer,
+				input.fileSystem ?? BunFileSystem.layer,
 				Layer.succeed(Database, Object.assign(Object.create(null), input.database ?? {})),
 				mockRepository(input.repository),
 				mockWriter(input.writer ?? {}),
 				mockCleanliness(input.cleanliness ?? {}),
-				mockUploads(input.uploads ?? {}),
+				mockUploadIntents(input.uploadIntents ?? {}),
+				mockManagedAssets(input.managedAssets ?? {}),
+				mockObjectStorage(input.objectStorage ?? {}),
 			),
 		),
 	);
@@ -97,12 +106,12 @@ it.effect("uses the restore run as the durable temporary upload claimant", () =>
 		Effect.provide(
 			makeLayer({
 				repository: {},
-				uploads: {
+				uploadIntents: {
 					claimTemporaryUpload: (_token, _userId, claimant) => {
 						claimId = claimant;
 						return Effect.succeed({
-							fileName: "archive.zip",
 							intentId: "intent-id",
+							fileName: "archive.zip",
 							leaseExpiresAt: "2026-08-23T13:00:00.000Z",
 							locator: { type: "local" as const, key: "temporary/archive.zip" },
 						});
@@ -126,7 +135,9 @@ it.effect("skips archive validation and mutation after the restore checkpoint", 
 			makeLayer({
 				repository: { getRunById: () => Effect.succeed({ ...runningRun, progress: 90 }) },
 				writer: { restoreRecords: () => Effect.die("checkpoint replay must not restore rows") },
-				uploads: { openObject: () => Effect.die("checkpoint replay must not read the archive") },
+				objectStorage: {
+					openObject: () => Effect.die("checkpoint replay must not read the archive"),
+				},
 			}),
 		),
 	),
@@ -152,12 +163,84 @@ it.effect("completes before best-effort temporary cleanup", () => {
 							return { ...runningRun, status: "completed" as const };
 						}),
 				},
-				uploads: {
+				uploadIntents: {
 					deleteTemporaryUpload: () =>
 						Effect.suspend(() => {
 							calls.push("delete");
 							return Effect.fail(new BadRequest({ message: "storage unavailable" }));
 						}),
+				},
+			}),
+		),
+	);
+});
+
+it.effect("keeps a committed restore successful when spool cleanup fails", () => {
+	let committed = false;
+	const archive = createV1ArchiveStream({
+		assets: [],
+		redactions: [],
+		requiredPlugins: [],
+		archiveId: "archive-id",
+		appVersion: "backend-v1",
+		createdAt: "2026-08-23T12:00:00.000Z",
+		records: {
+			events: [],
+			entities: [],
+			savedViews: [],
+			pluginState: [],
+			relationships: [],
+			entityDependencies: [],
+			notificationSubscriptions: [],
+			profile: { name: "User", image: null, preferences: {} },
+		},
+	});
+	const fileSystem = Layer.effect(
+		FileSystem.FileSystem,
+		Effect.map(FileSystem.FileSystem, (fs) =>
+			Object.assign(Object.create(fs), {
+				remove: () => Effect.die("spool cleanup failed"),
+			}),
+		),
+	).pipe(Layer.provide(BunFileSystem.layer));
+
+	return Effect.gen(function* () {
+		const operations = yield* RestoreBackupWorkflowOperations;
+		yield* operations.restore(payload, {
+			provider: "local",
+			intentId: "intent-id",
+			key: "temporary/archive.zip",
+		});
+		expect(committed).toBe(true);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				fileSystem,
+				database: {
+					transaction: (run: (transaction: object) => Effect.Effect<void, unknown, unknown>) =>
+						run(Object.assign(Object.create(null), { execute: () => Effect.void })).pipe(
+							Effect.tap(() => Effect.sync(() => void (committed = true))),
+						),
+				},
+				repository: {
+					getRunById: () => Effect.succeed(runningRun),
+					updateProgress: () => Effect.succeed({ ...runningRun, progress: 90 }),
+				},
+				cleanliness: {
+					assertAccountIsClean: () => Effect.void.pipe(Effect.as(undefined)),
+				},
+				writer: {
+					assertRequiredPlugins: () => Effect.void.pipe(Effect.as(undefined)),
+					restoreRecords: () => Effect.void.pipe(Effect.as(undefined)),
+				},
+				objectStorage: {
+					openObject: () =>
+						Effect.succeed(
+							archive.pipe(
+								Stream.mapError(() => new BadRequest({ message: "archive stream failed" })),
+							),
+						),
+					selectStorageProvider: () => Effect.succeed("local" as const),
 				},
 			}),
 		),
@@ -189,7 +272,7 @@ it.effect("records a safe specific failure before best-effort temporary cleanup"
 							return { ...runningRun, status: "failed" as const };
 						}),
 				},
-				uploads: {
+				uploadIntents: {
 					deleteTemporaryUpload: () =>
 						Effect.suspend(() => {
 							calls.push("delete");
@@ -240,7 +323,7 @@ it.effect("rolls back managed assets and domain rows and removes newly staged ob
 		transaction: (run: (transaction: object) => Effect.Effect<unknown, unknown, unknown>) => {
 			const managedSnapshot = new Set(managedAssets);
 			const domainSnapshot = new Set(domainRows);
-			return run(Object.create(null)).pipe(
+			return run(Object.assign(Object.create(null), { execute: () => Effect.void })).pipe(
 				Effect.tapError(() =>
 					Effect.sync(() => {
 						managedAssets.clear();
@@ -286,7 +369,7 @@ it.effect("rolls back managed assets and domain rows and removes newly staged ob
 							),
 						),
 				},
-				uploads: {
+				objectStorage: {
 					openObject: () =>
 						Effect.succeed(
 							archive.pipe(
@@ -294,11 +377,14 @@ it.effect("rolls back managed assets and domain rows and removes newly staged ob
 							),
 						),
 					selectStorageProvider: () => Effect.succeed("local" as const),
+				},
+				managedAssets: {
 					stageContentAddressedPermanentAsset: (input) => {
 						const { stream, ...metadata } = input;
 						return Stream.runDrain(stream).pipe(
 							Effect.mapError(() => new BadRequest({ message: "asset stream failed" })),
 							Effect.as({
+								created: true,
 								metadata: { ...metadata, key: `permanent/${input.sha256}.bin` },
 								locator: { type: "local" as const, key: `permanent/${input.sha256}.bin` },
 							}),
@@ -309,7 +395,7 @@ it.effect("rolls back managed assets and domain rows and removes newly staged ob
 							),
 						);
 					},
-					registerManagedAsset: (metadata) =>
+					registerManagedAssetInLockedTransaction: (metadata) =>
 						Effect.sync(() => {
 							managedAssets.add(metadata.key);
 							return { ...metadata, createdAt };

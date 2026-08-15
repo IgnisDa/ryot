@@ -2,11 +2,11 @@ import { Context, Effect, Layer } from "effect";
 import { Activity } from "effect/unstable/workflow";
 
 import { RedisService } from "#lib/infrastructure/redis";
-import { UploadsService } from "#modules/uploads/service";
+import { UploadIntentsService } from "#modules/uploads/intents/service";
 
 import type { ImportRunJobData } from "../jobs";
 import { failImportRun } from "./import-run-status";
-import { deleteImportSourcePayload } from "./source-payload-store";
+import { deleteImportSourceState } from "./source-state-store";
 import { ImportRunError, toWorkflowError } from "./workflow-errors";
 
 export class ImportRunArtifacts extends Context.Service<ImportRunArtifacts>()(
@@ -14,16 +14,15 @@ export class ImportRunArtifacts extends Context.Service<ImportRunArtifacts>()(
 	{
 		make: Effect.gen(function* () {
 			const redis = yield* RedisService;
-			const uploads = yield* UploadsService;
+			const uploads = yield* UploadIntentsService;
 
 			const cleanupArtifacts = Effect.fn("imports.cleanupArtifacts")(function* (input: {
-				sourcePayloadKey?: string | undefined;
+				claimId: string;
+				sourceStateId: string;
 			}) {
-				if (input.sourcePayloadKey) {
-					yield* deleteImportSourcePayload(input.sourcePayloadKey).pipe(
-						Effect.provideService(RedisService, redis),
-					);
-				}
+				yield* deleteImportSourceState(input.sourceStateId, input.claimId).pipe(
+					Effect.provideService(RedisService, redis),
+				);
 			});
 
 			const cleanupUploads = Effect.fn("imports.cleanupUploads")(function* (
@@ -44,34 +43,33 @@ export class ImportRunArtifacts extends Context.Service<ImportRunArtifacts>()(
 }
 
 export const createImportRunLifecycle = (
-	payload: Pick<ImportRunJobData, "runId" | "sourcePayloadKey" | "uploadIntentIds">,
+	payload: Pick<ImportRunJobData, "runId" | "sourceStateId">,
+	claimId: string,
 ) => {
 	const cleanupArtifacts = (name: string) => {
 		const cleanupEffect = Effect.gen(function* () {
 			const artifacts = yield* ImportRunArtifacts;
 			yield* artifacts.cleanupArtifacts({
-				sourcePayloadKey: payload.sourcePayloadKey,
+				claimId,
+				sourceStateId: payload.sourceStateId,
 			});
 		}).pipe(Effect.mapError(toWorkflowError));
-		return Activity.make({
-			name,
-			error: ImportRunError,
-			execute: cleanupEffect,
-		});
+		return Activity.make({ name, error: ImportRunError, execute: cleanupEffect });
 	};
 	const cleanupArtifactsBestEffort = (name: string) => {
 		const cleanupBestEffortEffect = Effect.gen(function* () {
 			const artifacts = yield* ImportRunArtifacts;
 			yield* artifacts.cleanupArtifacts({
-				sourcePayloadKey: payload.sourcePayloadKey,
+				claimId,
+				sourceStateId: payload.sourceStateId,
 			});
 		}).pipe(Effect.ignore);
 		return Activity.make({ name, execute: cleanupBestEffortEffect });
 	};
-	const cleanupUploadsBestEffort = (name: string) => {
+	const cleanupUploadsBestEffort = (name: string, intentIds: ReadonlyArray<string>) => {
 		const cleanupBestEffortEffect = Effect.gen(function* () {
 			const artifacts = yield* ImportRunArtifacts;
-			yield* artifacts.cleanupUploads(payload.uploadIntentIds ?? []);
+			yield* artifacts.cleanupUploads(intentIds);
 		}).pipe(Effect.ignore);
 		return Activity.make({ name, execute: cleanupBestEffortEffect });
 	};
@@ -87,10 +85,11 @@ export const createImportRunLifecycle = (
 		cleanupName: string;
 		failureName: string;
 		uploadCleanupName: string;
+		uploadIntentIds: ReadonlyArray<string>;
 	}) {
 		const failedRun = yield* Effect.exit(markRunFailed(input.failureName, input.message));
 		const cleanedUp = yield* Effect.exit(cleanupArtifacts(input.cleanupName));
-		yield* cleanupUploadsBestEffort(input.uploadCleanupName);
+		yield* cleanupUploadsBestEffort(input.uploadCleanupName, input.uploadIntentIds);
 
 		if (cleanedUp._tag === "Failure") {
 			return yield* Effect.failCause(cleanedUp.cause);
@@ -102,9 +101,5 @@ export const createImportRunLifecycle = (
 		return undefined;
 	});
 
-	return {
-		failRunAndCleanup,
-		cleanupUploadsBestEffort,
-		cleanupArtifactsBestEffort,
-	};
+	return { failRunAndCleanup, cleanupUploadsBestEffort, cleanupArtifactsBestEffort };
 };

@@ -1,19 +1,78 @@
+import type { ChildProcess } from "node:child_process";
+
 import { UPLOAD_MAX_FILE_BYTES } from "@ryot/contract/modules/uploads/upload-policy";
 import { Effect } from "effect";
+import getPort from "get-port";
 
 import { createAuthenticatedClient } from "~/fixtures";
-import { assertTaggedError } from "~/support/assertions";
+import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { getBackendUrl } from "~/support/backend";
-import { describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+import {
+	buildBackendEnv,
+	spawnBackendProcess,
+	startCoreTestInfrastructure,
+	stopBackendProcess,
+	stopCoreTestInfrastructure,
+	waitForHealthCheck,
+} from "~/support/provisioning";
 
-const uploadAndComplete = (provider: "local" | "s3", fileName: string, contentType: string) =>
+const FALLBACK_S3_BUCKET_NAME = "ryot-upload-fallback-test";
+
+let fallbackBackendPort: number;
+let fallbackBackendProcess: ChildProcess | undefined;
+let fallbackInfrastructure: Awaited<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
+
+const getFallbackBackendUrl = () => `http://127.0.0.1:${fallbackBackendPort}/api`;
+
+beforeAll(async () => {
+	fallbackBackendPort = await getPort();
+	fallbackInfrastructure = await startCoreTestInfrastructure({
+		bucketName: FALLBACK_S3_BUCKET_NAME,
+	});
+	const infrastructure = requirePresent(
+		fallbackInfrastructure,
+		"Upload fallback infrastructure is not initialised",
+	);
+	fallbackBackendProcess = spawnBackendProcess(
+		buildBackendEnv({
+			port: fallbackBackendPort,
+			dbUrl: infrastructure.dbUrl,
+			label: "Upload fallback backend",
+			redisUrl: infrastructure.redisUrl,
+			s3Endpoint: infrastructure.s3Endpoint,
+			s3BucketName: FALLBACK_S3_BUCKET_NAME,
+			frontendUrl: `http://127.0.0.1:${fallbackBackendPort + 1}`,
+			extraEnv: {
+				FILE_STORAGE_S3_URL: "",
+				FILE_STORAGE_S3_REGION: "",
+				FILE_STORAGE_S3_ACCESS_KEY_ID: "",
+				FILE_STORAGE_S3_BUCKET_NAME: "",
+				FILE_STORAGE_S3_SECRET_ACCESS_KEY: "",
+			},
+		}),
+	);
+	await waitForHealthCheck(
+		`http://127.0.0.1:${fallbackBackendPort}/api/system/health`,
+		"Upload fallback setup",
+	);
+});
+
+afterAll(async () => {
+	await stopBackendProcess(fallbackBackendProcess);
+	if (fallbackInfrastructure) {
+		await stopCoreTestInfrastructure(fallbackInfrastructure);
+	}
+});
+
+const uploadAndComplete = (fileName: string, contentType: string, backendUrl = getBackendUrl()) =>
 	Effect.gen(function* () {
-		const { client } = yield* createAuthenticatedClient();
+		const { client } = yield* createAuthenticatedClient(backendUrl);
 		const intent = yield* client.call((c) =>
-			c.uploads.createIntent({ payload: { kind: "permanent", provider, fileName, contentType } }),
+			c.uploads.createIntent({ payload: { kind: "permanent", fileName, contentType } }),
 		);
 		const uploadResponse = yield* Effect.promise(() =>
-			fetch(new URL(intent.uploadUrl, `${getBackendUrl()}/`), {
+			fetch(new URL(intent.uploadUrl, `${backendUrl}/`), {
 				method: intent.method,
 				body: "title\nexample",
 				headers: intent.headers,
@@ -30,14 +89,10 @@ const uploadAndComplete = (provider: "local" | "s3", fileName: string, contentTy
 	});
 
 describe("POST /uploads/intents", () => {
-	it.live("creates, uploads, and completes a local permanent intent", () =>
+	it.live("selects S3 for permanent uploads when S3 is configured", () =>
 		Effect.gen(function* () {
-			const { asset, client, intentId } = yield* uploadAndComplete(
-				"local",
-				"report.csv",
-				"text/csv",
-			);
-			expect(asset).toMatchObject({ type: "local" });
+			const { asset, client, intentId } = yield* uploadAndComplete("report.csv", "text/csv");
+			expect(asset).toMatchObject({ type: "s3" });
 			expect(asset.key).toMatch(/^permanent\/.+\.csv$/);
 			const completedAgain = yield* client.call((c) =>
 				c.uploads.completeIntent({ params: { intentId } }),
@@ -47,38 +102,39 @@ describe("POST /uploads/intents", () => {
 			);
 			expect(completedAgain).toEqual(asset);
 			expect(resolved[0]?.asset).toEqual(asset);
-			expect(resolved[0]?.downloadUrl.startsWith("uploads/local/download?")).toBe(true);
+			expect(resolved[0]?.downloadUrl).toMatch(/^https?:\/\//);
 		}),
 	);
 
-	it.live("creates, uploads directly to, and completes an S3 permanent intent", () =>
+	it.live("falls back to local storage for permanent uploads when S3 is not configured", () =>
 		Effect.gen(function* () {
-			const { asset, client } = yield* uploadAndComplete("s3", "report.csv", "text/csv");
-			expect(asset).toMatchObject({ type: "s3" });
+			const backendUrl = getFallbackBackendUrl();
+			const { asset, client } = yield* uploadAndComplete("report.csv", "text/csv", backendUrl);
+			expect(asset).toMatchObject({ type: "local" });
 			expect(asset.key).toMatch(/^permanent\/.+\.csv$/);
 			const resolved = yield* client.call((c) =>
 				c.uploads.resolveDownloads({ payload: { assets: [asset] } }),
 			);
 			const downloadUrl = resolved[0]?.downloadUrl;
-			expect(downloadUrl).toMatch(/^https?:\/\//);
-			const downloadResponse = yield* Effect.promise(() => fetch(downloadUrl ?? ""));
+			expect(downloadUrl?.startsWith("uploads/local/download?")).toBe(true);
+			const downloadResponse = yield* Effect.promise(() =>
+				fetch(new URL(downloadUrl ?? "", `${backendUrl}/`)),
+			);
 			expect(downloadResponse.status).toBe(200);
 			expect(yield* Effect.promise(() => downloadResponse.text())).toBe("title\nexample");
 		}),
 	);
 
-	it.live("creates, uploads, and completes a local temporary intent", () =>
+	it.live("always selects local storage for temporary uploads", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const intent = yield* client.call((c) =>
 				c.uploads.createIntent({
-					payload: {
-						kind: "temporary",
-						provider: "local",
-						fileName: "report.csv",
-						contentType: "text/csv",
-					},
+					payload: { kind: "temporary", fileName: "report.csv", contentType: "text/csv" },
 				}),
+			);
+			expect(new URL(intent.uploadUrl, `${getBackendUrl()}/`).pathname).toContain(
+				"/uploads/local/",
 			);
 			const uploadResponse = yield* Effect.promise(() =>
 				fetch(new URL(intent.uploadUrl, `${getBackendUrl()}/`), {
@@ -99,62 +155,24 @@ describe("POST /uploads/intents", () => {
 		}),
 	);
 
-	it.live("creates, uploads directly to, and completes an S3 temporary intent", () =>
+	it.live("rejects and cleans an oversized local temporary upload", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const intent = yield* client.call((c) =>
 				c.uploads.createIntent({
-					payload: {
-						provider: "s3",
-						kind: "temporary",
-						fileName: "report.csv",
-						contentType: "text/csv",
-					},
-				}),
-			);
-			expect(intent.uploadUrl).toMatch(/^https?:\/\//);
-			const uploadResponse = yield* Effect.promise(() =>
-				fetch(intent.uploadUrl, {
-					method: intent.method,
-					headers: intent.headers,
-					body: "temporary S3 data",
-				}),
-			);
-			expect([200, 204]).toContain(uploadResponse.status);
-			const token = yield* client.call((c) =>
-				c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
-			);
-			if (!("token" in token)) {
-				throw new Error("Expected a temporary upload token");
-			}
-			expect(token.token).toMatch(/^[A-Za-z0-9_-]+$/);
-			expect(token.expiresAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-		}),
-	);
-
-	it.live("rejects and cleans an oversized S3 temporary completion", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const intent = yield* client.call((c) =>
-				c.uploads.createIntent({
-					payload: {
-						provider: "s3",
-						kind: "temporary",
-						contentType: "text/csv",
-						fileName: "oversized.csv",
-					},
+					payload: { kind: "temporary", contentType: "text/csv", fileName: "oversized.csv" },
 				}),
 			);
 			const body = new Uint8Array(UPLOAD_MAX_FILE_BYTES + 1);
 			body.fill(97);
 			const uploadResponse = yield* Effect.promise(() =>
-				fetch(intent.uploadUrl, { body, method: intent.method, headers: intent.headers }),
+				fetch(new URL(intent.uploadUrl, `${getBackendUrl()}/`), {
+					body,
+					method: intent.method,
+					headers: intent.headers,
+				}),
 			);
-			expect([200, 204]).toContain(uploadResponse.status);
-			const error = yield* Effect.flip(
-				client.call((c) => c.uploads.completeIntent({ params: { intentId: intent.intentId } })),
-			);
-			assertTaggedError(error, "BadRequest");
+			expect(uploadResponse.status).toBe(400);
 			const cleaned = yield* Effect.flip(
 				client.call((c) => c.uploads.completeIntent({ params: { intentId: intent.intentId } })),
 			);
@@ -171,7 +189,6 @@ describe("POST /uploads/intents", () => {
 						payload: {
 							contentType,
 							kind: "temporary",
-							provider: "local",
 							fileName: "fallback.csv",
 						},
 					}),
@@ -185,7 +202,6 @@ describe("POST /uploads/intents", () => {
 							payload: {
 								fileName,
 								kind: "temporary",
-								provider: "local",
 								contentType: "application/octet-stream",
 							},
 						}),
@@ -204,7 +220,6 @@ describe("POST /uploads/intents", () => {
 					c.uploads.createIntent({
 						payload: {
 							kind: "permanent",
-							provider: "local",
 							fileName: "document.pdf",
 							contentType: "application/pdf",
 						},
@@ -217,7 +232,6 @@ describe("POST /uploads/intents", () => {
 				c.uploads.createIntent({
 					payload: {
 						kind: "permanent",
-						provider: "local",
 						fileName: "missing.csv",
 						contentType: "text/csv",
 					},
@@ -235,12 +249,7 @@ describe("POST /uploads/intents", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const intent = yield* client.call((c) =>
 				c.uploads.createIntent({
-					payload: {
-						kind: "temporary",
-						provider: "local",
-						fileName: "signed.csv",
-						contentType: "text/csv",
-					},
+					payload: { kind: "temporary", fileName: "signed.csv", contentType: "text/csv" },
 				}),
 			);
 			const tamperedSignature = new URL(intent.uploadUrl, `${getBackendUrl()}/`);
@@ -257,11 +266,7 @@ describe("POST /uploads/intents", () => {
 			const expired = new URL(intent.uploadUrl, `${getBackendUrl()}/`);
 			expired.searchParams.set("expires", "0");
 			const expiredResponse = yield* Effect.promise(() =>
-				fetch(expired, {
-					body: "signed",
-					method: intent.method,
-					headers: intent.headers,
-				}),
+				fetch(expired, { body: "signed", method: intent.method, headers: intent.headers }),
 			);
 			expect(expiredResponse.status).toBe(400);
 
@@ -282,12 +287,7 @@ describe("POST /uploads/intents", () => {
 			const second = yield* createAuthenticatedClient();
 			const intent = yield* first.client.call((c) =>
 				c.uploads.createIntent({
-					payload: {
-						kind: "permanent",
-						provider: "local",
-						contentType: "text/csv",
-						fileName: "other-user.csv",
-					},
+					payload: { kind: "permanent", contentType: "text/csv", fileName: "other-user.csv" },
 				}),
 			);
 			const uploadResponse = yield* Effect.promise(() =>
@@ -313,7 +313,7 @@ describe("POST /uploads/intents", () => {
 				fetch(`${getBackendUrl()}/uploads/intents`, {
 					method: "POST",
 					headers: { "content-type": "application/json" },
-					body: '{"kind":"temporary","provider":"local","fileName":"report.csv","contentType":"text/csv"}',
+					body: '{"kind":"temporary","fileName":"report.csv","contentType":"text/csv"}',
 				}),
 			);
 			expect(response.status).toBe(401);
@@ -324,11 +324,12 @@ describe("POST /uploads/intents", () => {
 describe("GET /uploads/local/download", () => {
 	it.live("serves local files with HEAD and byte range support", () =>
 		Effect.gen(function* () {
-			const { asset, client } = yield* uploadAndComplete("local", "report.csv", "text/csv");
+			const backendUrl = getFallbackBackendUrl();
+			const { asset, client } = yield* uploadAndComplete("report.csv", "text/csv", backendUrl);
 			const resolved = yield* client.call((c) =>
 				c.uploads.resolveDownloads({ payload: { assets: [asset] } }),
 			);
-			const downloadUrl = new URL(resolved[0]?.downloadUrl ?? "", `${getBackendUrl()}/`);
+			const downloadUrl = new URL(resolved[0]?.downloadUrl ?? "", `${backendUrl}/`);
 			const head = yield* Effect.promise(() => fetch(downloadUrl, { method: "HEAD" }));
 			expect(head.status).toBe(200);
 			expect(head.headers.get("content-type")).toContain("text/csv");

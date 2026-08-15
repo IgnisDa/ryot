@@ -59,7 +59,6 @@ const uploadBackupArchive = (client: Client, bytes: Uint8Array) =>
 			c.uploads.createIntent({
 				payload: {
 					kind: "temporary",
-					provider: "local",
 					fileName: "backup.zip",
 					contentType: "application/zip",
 				},

@@ -7,6 +7,18 @@ import variables from "./variables";
 The easiest way to deploy Ryot is using [docker compose](./index.md#installation). Here
 is a non-exhaustive set of guides to deploy Ryot to alternative platforms.
 
+## File storage
+
+Set `FILE_STORAGE_LOCAL_SIGNING_SECRET` for every deployment. Temporary uploads, imports, backup
+working files, and sandbox files always use local ephemeral storage at the default
+`/home/ryot/work`; do not mount that directory as a persistent volume.
+
+For permanent files, use S3 first by configuring the S3 endpoint, bucket, access key, and secret
+key. The region is optional. The server then stores permanent files in S3 and needs no persistent
+local storage volume. If S3 is not fully configured, Ryot falls back to local permanent storage at
+`/home/ryot/storage`; mount a persistent volume at that path and back it up. See the [file storage
+guide](guides/file-storage.md) for the complete configuration.
+
 ## Railway
 
 1. Click on "+ New Project" on your dashboard and select "Empty project".
@@ -99,7 +111,13 @@ are required to deploy to Fly.
 
 4. Optionally you can configure the instance using `fly secrets set`.
    ```bash
-   fly secrets set FILE_STORAGE_S3_URL='https://play.min.io:9000'
+   fly secrets set \
+     FILE_STORAGE_LOCAL_SIGNING_SECRET="$(openssl rand -hex 32)" \
+     FILE_STORAGE_S3_URL='https://s3.example.com' \
+     FILE_STORAGE_S3_REGION='us-east-1' \
+     FILE_STORAGE_S3_BUCKET_NAME='ryot' \
+     FILE_STORAGE_S3_ACCESS_KEY_ID='your-access-key-id' \
+     FILE_STORAGE_S3_SECRET_ACCESS_KEY='your-secret-access-key'
    ```
 
 ## Kubernetes (Helm)

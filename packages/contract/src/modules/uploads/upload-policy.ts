@@ -26,7 +26,7 @@ export const uploadMaxBytes = (kind: "permanent" | "temporary", contentType: str
 		? UPLOAD_MAX_ARCHIVE_BYTES
 		: UPLOAD_MAX_FILE_BYTES;
 
-export const uploadContentTypeExtensions: Record<UploadContentType, readonly string[]> = {
+const uploadContentTypeExtensionPolicy = {
 	"text/csv": ["csv"],
 	"text/xml": ["xml"],
 	"image/gif": ["gif"],
@@ -42,4 +42,16 @@ export const uploadContentTypeExtensions: Record<UploadContentType, readonly str
 	"application/x-gzip": ["gz"],
 	"application/json": ["json"],
 	"image/jpeg": ["jpg", "jpeg"],
-};
+} as const satisfies Record<UploadContentType, readonly string[]>;
+
+export type UploadFileExtension =
+	(typeof uploadContentTypeExtensionPolicy)[UploadContentType][number];
+
+export const uploadContentTypeExtensions: Readonly<Record<UploadContentType, readonly string[]>> =
+	uploadContentTypeExtensionPolicy;
+
+const uploadFileExtensions = new Set<string>(Object.values(uploadContentTypeExtensions).flat());
+
+export const isSupportedUploadFileExtension = (
+	extension: string,
+): extension is UploadFileExtension => uploadFileExtensions.has(extension);

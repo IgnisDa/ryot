@@ -138,6 +138,7 @@ const fileStorage = group(
 		localSigningSecret: stringField({
 			secret: true,
 			label: "Local signing secret",
+			validation: { required: true },
 			envKey: "FILE_STORAGE_LOCAL_SIGNING_SECRET",
 			description: "Secret used to sign local upload and download paths",
 		}),

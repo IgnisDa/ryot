@@ -3,6 +3,7 @@ import { assert, describe, expect, it } from "vitest";
 
 import { ImportsGroup } from "../imports/contract";
 import { ListedImportSource } from "../imports/schemas";
+import { uploadContentTypeExtensions } from "../uploads/upload-policy";
 import { definePlugin, PluginManifest } from "./manifest";
 
 const queryDocument = {
@@ -292,6 +293,57 @@ describe("definePlugin", () => {
 		expect(Schema.decodeUnknownSync(PluginManifest)(manifest).scripts[3]).toMatchObject({
 			searchOptionsSchema: { unknownKeys: "strict" },
 		});
+	});
+
+	it("accepts import upload extensions from the supported upload policy", () => {
+		const [source] = manifest.importSources;
+		assert(source);
+		const extensions = [...new Set(Object.values(uploadContentTypeExtensions).flat())];
+		const decoded = Schema.decodeUnknownSync(PluginManifest)({
+			...manifest,
+			importSources: [
+				{
+					...source,
+					inputSchema: {
+						...source.inputSchema,
+						fields: {
+							file: {
+								...source.inputSchema.fields.file,
+								format: { kind: "upload", allowedFileExtensions: extensions },
+							},
+						},
+					},
+				},
+			],
+		});
+
+		expect(decoded.importSources[0]?.inputSchema.fields.file).toMatchObject({
+			format: { kind: "upload", allowedFileExtensions: extensions },
+		});
+	});
+
+	it("rejects unsupported import upload extensions clearly", () => {
+		const [source] = manifest.importSources;
+		assert(source);
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				importSources: [
+					{
+						...source,
+						inputSchema: {
+							...source.inputSchema,
+							fields: {
+								file: {
+									...source.inputSchema.fields.file,
+									format: { kind: "upload", allowedFileExtensions: ["exe"] },
+								},
+							},
+						},
+					},
+				],
+			}),
+		).toThrow("Unsupported import upload file extension: exe");
 	});
 
 	it("exposes listed import sources from the authenticated imports endpoint", () => {

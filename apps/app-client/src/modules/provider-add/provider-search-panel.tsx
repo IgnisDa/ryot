@@ -4,9 +4,9 @@ import { Cause, Effect, Match } from "effect";
 import { useEffect, useEffectEvent, useReducer, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
+import { temporaryFileUploadOperation } from "@/api/files/upload";
 import { queryProviderSearchOptions, searchProviderEntities } from "@/api/provider-entities";
 import { useApiScope } from "@/api/scope";
-import { temporaryFileUploadOperation } from "@/api/uploads";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
 import { AppIcon } from "@/modules/icons";
 import { AppButton } from "@/modules/ui/button";

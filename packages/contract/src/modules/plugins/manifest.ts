@@ -5,6 +5,7 @@ import { HttpUrl, strictStruct } from "../../schema/utils";
 import { OutputFieldKey, RyotQLDocument } from "../ryotql/language";
 import { SANDBOX_HOST_CAPABILITIES } from "../sandbox/wire";
 import { SavedViewCardMapping, SavedViewTableMapping } from "../saved-views/schemas";
+import { isSupportedUploadFileExtension } from "../uploads/upload-policy";
 import { pluginConfigEnvironmentKey } from "./plugin-config";
 
 const strictParseOptions = {
@@ -38,6 +39,23 @@ const hasUploadFormat = (property: AppPropertyDefinition): boolean => {
 		return Object.values(property.properties).some(hasUploadFormat);
 	}
 	return false;
+};
+
+const unsupportedUploadFileExtension = (property: AppPropertyDefinition): string | undefined => {
+	if (property.type === "string" && property.format?.kind === "upload") {
+		return property.format.allowedFileExtensions.find(
+			(extension) => !isSupportedUploadFileExtension(extension),
+		);
+	}
+	if (property.type === "array") {
+		return unsupportedUploadFileExtension(property.items);
+	}
+	if (property.type === "object") {
+		return Object.values(property.properties)
+			.map(unsupportedUploadFileExtension)
+			.find((extension) => extension !== undefined);
+	}
+	return undefined;
 };
 
 const PluginAppSchema = Schema.toType(AppSchema).pipe(
@@ -416,6 +434,16 @@ const PluginImportSourceFields = {
 };
 
 const ImportInputSchema = Schema.toType(AppSchema).pipe(
+	Schema.check(
+		Schema.makeFilter((schema) => {
+			const extension = Object.values(schema.fields)
+				.map(unsupportedUploadFileExtension)
+				.find((value) => value !== undefined);
+			return extension === undefined
+				? true
+				: `Unsupported import upload file extension: ${extension}`;
+		}, strictParseOptions),
+	),
 	Schema.check(
 		Schema.makeFilter(
 			(schema) =>

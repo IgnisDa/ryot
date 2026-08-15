@@ -1,10 +1,12 @@
 import { expect, it } from "@effect/vitest";
+import { Conflict, DbError } from "@ryot/contract/errors";
 import { BackupRunId, UserId } from "@ryot/contract/schema/brands";
 import type { SQLWrapper } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";
+import { assertExitFails } from "#lib/test-utils/assertions";
 
 import { BackupsRepository } from "./repository";
 
@@ -88,6 +90,66 @@ it.effect("returns an existing running run without resetting its start time", ()
 		expect(updates).toBe(1);
 		expect(replayed?.startedAt).toBe(startedAt);
 		expect(replayed?.progress).toBe(90);
+	}).pipe(
+		Effect.provide(
+			Layer.mergeAll(
+				BackupsRepository.layer,
+				Layer.succeed(Database, Object.assign(Object.create(null), db)),
+			),
+		),
+	);
+});
+
+it.effect("translates the concurrent active-run insert loser to Conflict", () => {
+	let inserted = false;
+	const pendingRow = {
+		...row,
+		progress: 0,
+		expiresAt: null,
+		startedAt: null,
+		finishedAt: null,
+		kind: "export" as const,
+		status: "pending" as const,
+	};
+	const db = {
+		insert: () => ({
+			values: () => ({
+				returning: () =>
+					Effect.suspend(() => {
+						if (inserted) {
+							return Effect.fail(
+								new DbError({
+									code: "23505",
+									message: "duplicate key",
+									constraint: "backup_run_user_active_unique",
+								}),
+							);
+						}
+						inserted = true;
+						return Effect.succeed([pendingRow]);
+					}),
+			}),
+		}),
+	};
+
+	return Effect.gen(function* () {
+		const repository = yield* BackupsRepository;
+		const exits = yield* Effect.all(
+			[
+				repository.createRun({ userId, kind: "export" }),
+				repository.createRun({ userId, kind: "restore" }),
+			].map(Effect.exit),
+			{ concurrency: "unbounded" },
+		);
+		expect(exits.filter((exit) => exit._tag === "Success")).toHaveLength(1);
+		const failure = exits.find((exit) => exit._tag === "Failure");
+		expect(failure?._tag).toBe("Failure");
+		if (failure?._tag === "Failure") {
+			assertExitFails(
+				failure,
+				new Conflict({ message: "A backup operation is already pending or running" }),
+			);
+		}
 	}).pipe(
 		Effect.provide(
 			Layer.mergeAll(

@@ -11,8 +11,7 @@ export const runProcessImportRunWorkflow = Effect.fn("ProcessImportRunWorkflow")
 			executionId,
 			runId: payload.runId,
 			userId: payload.userId,
-			pluginSlug: payload.pluginSlug,
-			workflowScriptId: payload.workflowScriptId,
+			sourceStateId: payload.sourceStateId,
 		});
 		yield* runPluginImportWorkflow(payload, executionId);
 	},

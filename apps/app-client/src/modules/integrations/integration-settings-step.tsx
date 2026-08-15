@@ -3,7 +3,7 @@ import { Text, View } from "react-native";
 
 import { AppButton } from "@/modules/ui/button";
 import { FormMessage } from "@/modules/ui/form";
-import type { SchemaFileUpload } from "@/modules/ui/schema-form/file-upload";
+import type { SchemaFileUpload } from "@/modules/ui/schema-form/file/file-upload";
 import type { SchemaFormApi } from "@/modules/ui/schema-form/schema-form";
 
 import { IntegrationSettingsForm } from "./integration-settings-form";

@@ -14,7 +14,17 @@ const AuthConfig = Schema.Struct({
 
 const NotificationConfig = Schema.Struct({ smtpEnabled: Schema.Boolean });
 
-const ConfigResponse = Schema.Struct({ auth: AuthConfig, notifications: NotificationConfig });
+const FileStorageConfig = Schema.Struct({
+	temporaryUploadProvider: Schema.Literal("local"),
+	preferredPermanentUploadProvider: Schema.Literals(["local", "s3"]),
+});
+
+export const SystemConfigResponse = Schema.Struct({
+	auth: AuthConfig,
+	fileStorage: FileStorageConfig,
+	notifications: NotificationConfig,
+});
+export type SystemConfigResponse = typeof SystemConfigResponse.Type;
 
 export const SystemGroup = HttpApiGroup.make("system")
 	.annotate(OpenApi.Description, "Provides system health and public configuration.")
@@ -29,7 +39,7 @@ export const SystemGroup = HttpApiGroup.make("system")
 	)
 	.add(
 		HttpApiEndpoint.get("config", "/system/config", {
-			success: ConfigResponse.pipe(HttpApiSchema.status(200)),
 			error: BadRequest.pipe(HttpApiSchema.status(400)),
+			success: SystemConfigResponse.pipe(HttpApiSchema.status(200)),
 		}).annotate(OpenApi.Description, "Returns the public system configuration."),
 	);

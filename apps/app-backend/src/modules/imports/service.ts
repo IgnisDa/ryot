@@ -9,7 +9,7 @@ import type {
 	UserId,
 } from "@ryot/contract/schema/brands";
 import type { RunStatus } from "@ryot/contract/schema/run-status";
-import { Context, DateTime, Effect, Result, Layer } from "effect";
+import { Context, DateTime, Effect, Exit, Result, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { RedisService } from "#lib/infrastructure/redis";
@@ -17,7 +17,7 @@ import {
 	ImportSourceCatalog,
 	type RegisteredImportSource,
 } from "#modules/plugins/import-source-catalog";
-import { UploadsService } from "#modules/uploads/service";
+import { UploadIntentsService } from "#modules/uploads/intents/service";
 
 import { ImportRunFailuresService, type ImportRunFailureDetails } from "./failure-service";
 import { ProcessImportRunWorkflow } from "./import-run-workflow";
@@ -32,10 +32,7 @@ import {
 	registryImportSourceStartError,
 	type ImportSourceFileInput,
 } from "./runtime/source-metadata";
-import {
-	deleteImportSourcePayload,
-	storeImportSourcePayload,
-} from "./runtime/source-payload-store";
+import { deleteImportSourceState, storeImportSourceState } from "./runtime/source-state-store";
 import { ImportWorkflowPinning } from "./workflow-pinning";
 
 export type CreateImportRunInput = {
@@ -71,7 +68,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 	make: Effect.gen(function* () {
 		const redis = yield* RedisService;
 		const engine = yield* WorkflowEngine;
-		const uploads = yield* UploadsService;
+		const uploads = yield* UploadIntentsService;
 		const repository = yield* ImportsRepository;
 		const importSources = yield* ImportSourceCatalog;
 		const workflowPinning = yield* ImportWorkflowPinning;
@@ -100,6 +97,13 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				new Set(intentIds),
 				(intentId) => uploads.deleteTemporaryUpload(intentId).pipe(Effect.ignore),
 				{ discard: true },
+			);
+		const cleanupSourceState = (stateId: string) =>
+			deleteImportSourceState(stateId).pipe(
+				Effect.provideService(RedisService, redis),
+				Effect.catchCause((cause) =>
+					Effect.logWarning("failed to clean up import source state", cause),
+				),
 			);
 
 		const startFileImportRun = Effect.fn("ImportsService.startFileImportRun")(function* (
@@ -181,25 +185,37 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				yield* failRun(run.id, "Failed to pin import workflow");
 				return yield* badRequest("Could not queue the import job; please try again");
 			}
+			const stored = yield* storeImportSourceState({
+				stateId: run.id,
+				state: {
+					sourcePayload,
+					workflowScriptId,
+					namedArtifactPaths,
+					source: body.source,
+					pluginSlug: registered.pluginSlug,
+					uploadIntentIds: claimedUploadIntentIds,
+				},
+			}).pipe(Effect.provideService(RedisService, redis), Effect.exit);
+			if (Exit.isFailure(stored)) {
+				yield* cleanupUploads(claimedUploadIntentIds);
+				yield* cleanupSourceState(run.id);
+				if (pin.success.registrationStatus === "registered") {
+					yield* workflowPinning.release(sandboxExecutionId);
+				}
+				yield* failRun(run.id, "Failed to queue import source state");
+				return yield* badRequest("Could not queue the import job; please try again");
+			}
 
 			const started = yield* engine
 				.execute(ProcessImportRunWorkflow, {
 					discard: true,
 					executionId: run.id,
-					payload: {
-						runId: run.id,
-						userId: user.id,
-						workflowScriptId,
-						source: body.source,
-						pluginSlug: registered.pluginSlug,
-						uploadIntentIds: claimedUploadIntentIds,
-						...(Object.keys(namedArtifactPaths).length > 0 ? { namedArtifactPaths } : {}),
-						...(Object.keys(sourcePayload).length > 0 ? { sourcePayload } : {}),
-					},
+					payload: { runId: run.id, userId: user.id, sourceStateId: run.id },
 				})
 				.pipe(Effect.result);
 			if (Result.isFailure(started)) {
 				yield* cleanupUploads(claimedUploadIntentIds);
+				yield* cleanupSourceState(run.id);
 				if (pin.success.registrationStatus === "registered") {
 					yield* workflowPinning.release(sandboxExecutionId);
 				}
@@ -219,20 +235,9 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				workflowScriptId: SandboxScriptId,
 			) {
 				const inputSummary = buildImportInputSummary(body.source, {});
-				const sourcePayload = buildImportSourcePayload(properties, registered);
+				const sourcePayload = buildImportSourcePayload(properties, registered) ?? {};
 				const run = yield* create({ inputSummary, userId: user.id, source: body.source });
 				const sandboxExecutionId = `${run.id}-import`;
-
-				if (sourcePayload) {
-					const stored = yield* storeImportSourcePayload({
-						runId: run.id,
-						sourcePayload,
-					}).pipe(Effect.provideService(RedisService, redis), Effect.result);
-					if (Result.isFailure(stored)) {
-						yield* failRun(run.id, "Failed to queue import credentials");
-						return yield* badRequest("Could not queue the import job; please try again");
-					}
-				}
 
 				const pin = yield* workflowPinning
 					.preRegister({
@@ -243,12 +248,26 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 					})
 					.pipe(Effect.result);
 				if (Result.isFailure(pin)) {
-					if (sourcePayload) {
-						yield* deleteImportSourcePayload(run.id).pipe(
-							Effect.provideService(RedisService, redis),
-						);
-					}
 					yield* failRun(run.id, "Failed to pin import workflow");
+					return yield* badRequest("Could not queue the import job; please try again");
+				}
+				const stored = yield* storeImportSourceState({
+					stateId: run.id,
+					state: {
+						sourcePayload,
+						workflowScriptId,
+						source: body.source,
+						uploadIntentIds: [],
+						namedArtifactPaths: {},
+						pluginSlug: registered.pluginSlug,
+					},
+				}).pipe(Effect.provideService(RedisService, redis), Effect.exit);
+				if (Exit.isFailure(stored)) {
+					yield* cleanupSourceState(run.id);
+					if (pin.success.registrationStatus === "registered") {
+						yield* workflowPinning.release(sandboxExecutionId);
+					}
+					yield* failRun(run.id, "Failed to queue import source state");
 					return yield* badRequest("Could not queue the import job; please try again");
 				}
 
@@ -256,25 +275,14 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 					.execute(ProcessImportRunWorkflow, {
 						discard: true,
 						executionId: run.id,
-						payload: {
-							runId: run.id,
-							userId: user.id,
-							workflowScriptId,
-							source: body.source,
-							pluginSlug: registered.pluginSlug,
-							...(sourcePayload ? { sourcePayloadKey: run.id } : {}),
-						},
+						payload: { runId: run.id, userId: user.id, sourceStateId: run.id },
 					})
 					.pipe(Effect.result);
 				if (Result.isFailure(started)) {
 					if (pin.success.registrationStatus === "registered") {
 						yield* workflowPinning.release(sandboxExecutionId);
 					}
-					if (sourcePayload) {
-						yield* deleteImportSourcePayload(run.id).pipe(
-							Effect.provideService(RedisService, redis),
-						);
-					}
+					yield* cleanupSourceState(run.id);
 					yield* failRun(run.id, "Failed to enqueue import job");
 					return yield* badRequest("Could not queue the import job; please try again");
 				}
