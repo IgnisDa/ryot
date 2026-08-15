@@ -4,7 +4,7 @@ import { ViteBuildService } from "@ryot-app/vite-compiler";
 import { Effect, FileSystem, Layer, Path, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
-import { bundleBuiltInScript } from "./compiler-bundle";
+import { bundleSandboxPackage } from "./compiler-bundle";
 import { resolveSandboxCompilerDependencies } from "./compiler-dependencies";
 
 const testPlatformLayer = Layer.merge(BunServices.layer, ViteBuildService.layer);
@@ -18,18 +18,17 @@ it.effect("uses a scoped addressed workspace and emits executable Deno ESM", () 
 			const parentPath = yield* fs.makeTempDirectoryScoped({ prefix: "sandbox-bundle-test-" });
 			const jobId = "direct-call";
 			const dependencies = yield* resolveSandboxCompilerDependencies;
-			const result = yield* bundleBuiltInScript(
-				{ entry: "entry.ts", files: { "entry.ts": "export default 42;" } },
+			const modules = yield* bundleSandboxPackage(
+				{ "entry.ts": "export default 42;", "second.ts": "export default 7;" },
+				["entry.ts", "second.ts"],
 				dependencies.sdkEntries,
+				2,
 				{ jobId, parentPath },
 			);
-			expect(result.success).toBe(true);
-			if (!result.success) {
-				return;
-			}
+			expect(modules.map(({ entry }) => entry)).toEqual(["entry.ts", "second.ts"]);
 			expect(yield* fs.exists(path.join(parentPath, jobId))).toBe(false);
 
-			const encoded = Buffer.from(result.javascript).toString("base64");
+			const encoded = Buffer.from(modules[0]?.javascript ?? "").toString("base64");
 			const process = yield* spawner.spawn(
 				ChildProcess.make(
 					"deno",
@@ -52,23 +51,19 @@ it.effect("uses a scoped addressed workspace and emits executable Deno ESM", () 
 it.effect("audits Bun references from emitted code", () =>
 	Effect.gen(function* () {
 		const dependencies = yield* resolveSandboxCompilerDependencies;
-		const result = yield* bundleBuiltInScript(
-			{
-				entry: "entry.ts",
-				files: {
-					"entry.ts": "declare const Bun: { version: string }; export default Bun.version;",
-				},
-			},
-			dependencies.sdkEntries,
+		const failure = yield* Effect.flip(
+			bundleSandboxPackage(
+				{ "entry.ts": "declare const Bun: { version: string }; export default Bun.version;" },
+				["entry.ts"],
+				dependencies.sdkEntries,
+				1,
+			),
 		);
-		expect(result).toEqual({
-			success: false,
-			diagnostics: [
-				expect.objectContaining({
-					code: "RYOT_BUNDLE",
-					message: expect.stringContaining("forbidden CommonJS, Bun, or browser helper"),
-				}),
-			],
-		});
+		expect(failure.diagnostics).toEqual([
+			expect.objectContaining({
+				code: "RYOT_BUNDLE",
+				message: expect.stringContaining("forbidden CommonJS, Bun, or browser helper"),
+			}),
+		]);
 	}).pipe(Effect.provide(testPlatformLayer)),
 );
