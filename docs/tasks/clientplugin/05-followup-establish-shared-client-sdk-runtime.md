@@ -10,7 +10,7 @@ This completed follow-up records the shared runtime boundary established after T
 
 ## What to build
 
-Use one environment-neutral `RyotClient` for kernel and plugin data access. The client exposes Promise-based APIs and receives its provider/client explicitly; it must not depend on a global mutable bridge.
+Use one environment-neutral `RyotClient` for kernel and plugin data access. The client exposes Promise-based APIs and receives its provider/client explicitly; it must not depend on a global mutable bridge. In the plugin, one per-session runtime owns the `MessagePort`, `ready`/`active`/`closing`/`failed`/`disposed` state, single dispatcher, location state, query and operation pending calls, listeners, client, and disposal. Task 06 adds theme state to this runtime.
 
 Rename the package to `@ryot/client-sdk` and keep its public surfaces deliberate:
 
@@ -19,7 +19,7 @@ Rename the package to `@ryot/client-sdk` and keep its public surfaces deliberate
 - `@ryot/client-sdk/plugin` for the plugin runtime adapter and plugin routing surface
 - `@ryot/client-sdk/effect` for the supported schema surface
 
-The kernel uses a direct adapter into kernel services. A plugin runtime uses a `MessageChannel` adapter for the same client contract. The adapter boundary keeps the shared API environment-neutral without making the kernel pay for a plugin bridge.
+The kernel uses a direct adapter into kernel services. The one plugin session runtime uses a `MessageChannel` adapter for the same client contract. The adapter boundary keeps the shared API environment-neutral without making the kernel pay for a plugin bridge. Navigation, query, operation, and terminal lifecycle handling use that runtime's one dispatcher. Tasks 06 and 07 extend it with theme and fatal handling; separate capability bridges are not allowed.
 
 The React surface supplies `RyotProvider` and `useRyot` for the explicit client value used by plugin components.
 
@@ -29,7 +29,7 @@ Preserve the current operation behavior. `ryot.data.invokeOperation({ slug, inpu
 
 Keep plugin routing imports on the plugin surface. `PluginLink`, `usePluginLocation`, `usePluginNavigation`, `usePluginParams`, and `usePluginSearch` are imported from `@ryot/client-sdk/plugin`; they do not become `ryot.navigation` methods. `@ryot/client-ui-sdk` remains separate from the client SDK and is shared by kernel and plugin UI.
 
-The bridge contract is exact protocol V2. Do not add version ranges, compatibility negotiation, fallback adapters, legacy bridge code, or client-state migration.
+The bridge contract is exact protocol V3. V3 changes the bridge marker from V2 to `3`, routes all current session messages through the one runtime dispatcher, adds strict `{ type: "lifecycle-close", reason: "disposed" | "failed" }` signaling, and makes disposal reject pending calls exactly once. Task 06 adds theme messages to this runtime and exact contract. V2 is not supported. Do not add aliases, version ranges, compatibility negotiation, fallback adapters, legacy bridge code, or client-state migration.
 
 ## Acceptance criteria
 
@@ -40,12 +40,14 @@ The bridge contract is exact protocol V2. Do not add version ranges, compatibili
 - [x] Query access uses the existing user-scoped backend authorization behavior without a client-specific bypass.
 - [x] `ryot.data.invokeOperation({ slug, input, output })` and its current success and failure behavior remain accurate.
 - [x] Plugin routing remains on `@ryot/client-sdk/plugin`, and `@ryot/client-ui-sdk` remains a separate shared UI package.
-- [x] The bridge validates exact protocol V2 markers without compatibility code.
+- [x] One per-session runtime owns the port, lifecycle state, dispatcher, location state, query/operation pending calls, listeners, client, and idempotent disposal; each pending call settles at most once. Task 06 adds theme state to this runtime.
+- [x] Bootstrap validates metadata before accepting one port and owns the bootstrap listener and React root/unmount coordinator; the runtime owns the session listener and no capability-specific bridge or teardown path exists.
+- [x] The bridge validates exact protocol V3 markers without V2 support or compatibility code.
 
 ## Implementation Notes
 
-- **One explicit client per runtime.** Plugin bootstrap creates a bridge-backed `RyotClient` and supplies it through `RyotProvider`; kernel routes create a direct client for their authenticated `ApiScope`. The old mutable bridge binding and `@ryot/client-plugin-sdk` package were removed without aliases.
+- **One explicit client per runtime.** Plugin bootstrap validates embedded metadata before installing its one parent-window listener, accepts exactly one valid init and transferred port, requires the artifact root, creates one per-session runtime, and owns the React root/unmount coordinator. The runtime owns the port listener, single dispatcher, session listeners, bridge-backed `RyotClient`, and disposal; bootstrap supplies that client to `RyotProvider`. Kernel routes create a direct client for their authenticated `ApiScope`. The old mutable bridge binding and `@ryot/client-plugin-sdk` package were removed without aliases.
 - **Recipes decode where they are called.** Both adapters execute only the prepared recipe document. `ryot.data.query` applies the recipe decoder locally and reports stable query, transport, and malformed-result failures.
-- **Protocol V2 adds query RPC only.** Strict correlated request/result messages carry the RyotQL document or public outcome. Kernel teardown aborts pending requests and suppresses late results; user, server, plugin, and installation identity remain kernel-owned.
+- **Protocol V3 unifies the session.** Strict correlated request/result messages carry the RyotQL document or public outcome through the single dispatcher, alongside location and `{ type: "lifecycle-close", reason: "disposed" | "failed" }` messages. Task 06 adds theme messages to that dispatcher. Runtime disposal rejects all remaining plugin query and operation calls exactly once, while kernel teardown aborts pending service work on a best-effort basis and suppresses late results. An abort cannot undo backend work that committed before it took effect; user, server, plugin, and installation identity remain kernel-owned.
 - **Cleanup covered the completed tracer.** Stale dependencies, package references, bridge-version literals, comments, generated old-package residue, and permissive SDK subpath imports were removed across Tasks 01 through 05-followup.
 - **Verified with** `bun turbo --output-logs=full check` reporting 26/26 packages with zero warnings and zero errors, focused SDK/compiler/fixture/contract and kernel client checks and tests, the plugin archive suite (21/21), and forced end-to-end `client-operation.test.ts` and `client-artifact.test.ts` suites (6/6). The full backend suite retains three unrelated known sandbox-runner failures under Effect rc.111; backend checks and the affected plugin tests pass.
