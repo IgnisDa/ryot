@@ -32,6 +32,7 @@ import {
 	SandboxLifecycleHostInput,
 } from "#lib/infrastructure/sandbox-runtime/host-functions";
 import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
+import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import {
 	reportSandboxLifecycleWarnings,
 	toSandboxHostError,
@@ -218,6 +219,19 @@ const sleepUntil = (name: string, timestamp: number, observedAtMs: number) => {
 			});
 };
 
+const recordHostCall = <E, R>(
+	request: Parameters<SandboxDurableHostDispatcher["Service"]["dispatch"]>[0],
+	effect: Effect.Effect<WorkflowDurableResult, E, R>,
+) =>
+	effect.pipe(
+		Effect.onExit((exit) =>
+			recordSandboxHostCall({
+				function: request.args.capability,
+				outcome: exit._tag === "Success" && exit.value.state === "success" ? "success" : "failure",
+			}),
+		),
+	);
+
 export const SandboxDurableHostDispatcherLive = Layer.effect(
 	SandboxDurableHostDispatcher,
 	Effect.gen(function* () {
@@ -389,7 +403,13 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						execute: Effect.gen(function* () {
 							const startedAtMs = yield* Clock.currentTimeMillis;
 							const result = yield* provideDispatchServices(
-								dispatchSandboxHostActivity(request, payload, principal, executionId, startedAt),
+								dispatchSandboxHostActivity(
+									request,
+									payload.input,
+									principal,
+									executionId,
+									startedAt,
+								),
 							);
 							const responseTimeMs = yield* Clock.currentTimeMillis;
 							const durationMs = Math.max(0, responseTimeMs - startedAtMs);
@@ -691,7 +711,13 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						success: workflowDurableResultSchema,
 						name: `sandbox-host-${request.index}-${request.args.capability}`,
 						execute: provideDispatchServices(
-							dispatchSandboxHostActivity(request, payload, principal, executionId, startedAt),
+							dispatchSandboxHostActivity(
+								request,
+								payload.input,
+								principal,
+								executionId,
+								startedAt,
+							),
 						),
 					});
 				}
@@ -820,17 +846,44 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 			}
 		};
 
+		// Only an origin proven unmatched runs inline: matched origins need durable admission sleeps.
+		const settlesInline = (
+			request: Parameters<SandboxDurableHostDispatcher["Service"]["dispatch"]>[0],
+		) => {
+			if (sandboxDurableHostDispatchStrategy(request.args.capability) !== "activity") {
+				return Effect.succeed(false);
+			}
+			const url =
+				request.args.capability === "httpCall" ? sandboxDurableHttpRequestUrl(request) : null;
+			return url === null
+				? Effect.succeed(true)
+				: rateLimitAuthority.resolve(url).pipe(
+						Effect.map((resolution) => !resolution.matched),
+						Effect.orElseSucceed(() => false),
+					);
+		};
+
 		return {
 			dispatch: (request, payload, principal, executionId) =>
-				dispatchDurableHostCall(request, payload, principal, executionId).pipe(
-					Effect.onExit((exit) =>
-						recordSandboxHostCall({
-							function: request.args.capability,
-							outcome:
-								exit._tag === "Success" && exit.value.state === "success" ? "success" : "failure",
-						}),
-					),
-				),
+				recordHostCall(request, dispatchDurableHostCall(request, payload, principal, executionId)),
+			settleInline: (requests, context, principal, executionId, startedAt) =>
+				Effect.gen(function* () {
+					const eligible = yield* Effect.forEach(requests, settlesInline);
+					if (!eligible.every(Boolean)) {
+						return null;
+					}
+					return yield* Effect.forEach(
+						requests,
+						(request) =>
+							recordHostCall(
+								request,
+								provideDispatchServices(
+									dispatchSandboxHostActivity(request, context, principal, executionId, startedAt),
+								),
+							),
+						{ concurrency: SANDBOX_LIMITS.bridge.concurrentHostCalls },
+					);
+				}).pipe(Effect.orElseSucceed(() => null)),
 		};
 	}),
 );

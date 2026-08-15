@@ -11,6 +11,10 @@ import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
 import { automationInputSchema } from "@ryot-app/sandbox-sdk/automation";
 import type { SandboxHostImplementationMap as SdkSandboxHostImplementationMap } from "@ryot-app/sandbox-sdk/core";
 import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
+import type {
+	WorkflowDurableCallRequest,
+	WorkflowDurableResult,
+} from "@ryot-app/sandbox-sdk/workflow";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, PlatformError, Schema } from "effect";
 
@@ -22,6 +26,20 @@ import type { SandboxExecutionPrincipal } from "./execution-principal";
 
 export { isJsonValue } from "@ryot-app/contract/schema/json";
 
+export type WorkflowHostRequest = Extract<WorkflowDurableCallRequest, { readonly kind: "host" }>;
+
+/**
+ * Lets a live workflow replay settle an unrecorded durable batch without ending. `settle` returns
+ * one durable result per request, or `null` when the batch must end the replay instead.
+ */
+export type SandboxInlineDurableHost = {
+	readonly journalLength: number;
+	readonly capabilities: ReadonlyArray<SandboxHostCapability>;
+	readonly settle: (
+		requests: ReadonlyArray<WorkflowHostRequest>,
+	) => Effect.Effect<ReadonlyArray<WorkflowDurableResult> | null>;
+};
+
 export type SandboxRunInput = {
 	readonly context: unknown;
 	readonly startedAt?: string;
@@ -32,6 +50,7 @@ export type SandboxRunInput = {
 	readonly hostCallDiscriminator?: number;
 	readonly grants?: SandboxExecutionGrants;
 	readonly principal: SandboxExecutionPrincipal;
+	readonly inlineDurableHost?: SandboxInlineDurableHost;
 };
 
 export type BoundHostFunction = (args: ReadonlyArray<unknown>) => Effect.Effect<unknown, unknown>;
