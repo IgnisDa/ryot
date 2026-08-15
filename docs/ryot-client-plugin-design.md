@@ -577,12 +577,14 @@ import {
 	Menu,
 	Modal,
 	MultiSelect,
+	OverlayScope,
 	SearchField,
 	SegmentedControl,
 	StatusMessage,
 	Switch,
 	TextField,
 	useDismissOnOutside,
+	useFieldEscape,
 	useFocusTrap,
 	useScrollLock,
 	useShortcut,
@@ -592,6 +594,15 @@ import { DataTable } from "@ryot-app/client-ui-sdk/table";
 
 import { SchemaForm, useSchemaForm } from "@ryot-app/client-ui-sdk/schema-form";
 ```
+
+Keyboard ownership is layered rather than negotiated at each call site. `OverlayScope`
+wraps an overlay's content and owns its Escape, and only the topmost scope's shortcuts
+fire, so an open overlay silences everything behind it without any call site gating its
+own `useShortcut` on overlay state. Inside a scope, Escape reaches the innermost thing
+that can act on it: a search-shaped field takes it through `useFieldEscape`, clearing
+its value on the first press and blurring on the second, and only the press it does not
+consume reaches the overlay. Form fields are excluded on purpose, so Escape can never
+discard typed credentials.
 
 The overlay dialog is `Modal`, not `Dialog`. The `AppSchema` form sits on its own
 `/schema-form` subpath because it pulls `@ryot-app/contract`, `effect`, and

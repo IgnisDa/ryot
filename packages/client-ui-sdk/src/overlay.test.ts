@@ -110,27 +110,6 @@ describe("useFocusTrap", () => {
 		expect(document.activeElement).toBe(last);
 		container.remove();
 	});
-
-	it("reports Escape to the caller", () => {
-		const { container } = mountContainer();
-		let escapes = 0;
-		renderHook(() =>
-			useFocusTrap(
-				{ current: container },
-				{
-					enabled: true,
-					onEscape: () => {
-						escapes += 1;
-					},
-				},
-			),
-		);
-
-		keydown(document, { key: "Escape" });
-
-		expect(escapes).toBe(1);
-		container.remove();
-	});
 });
 
 describe("useScrollLock", () => {

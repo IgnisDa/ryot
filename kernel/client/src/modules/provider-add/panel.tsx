@@ -1,4 +1,4 @@
-import { Button, Chip, RadioGroup, StatusMessage } from "@ryot-app/client-ui-sdk";
+import { Button, Chip, RadioGroup, StatusMessage, useFieldEscape } from "@ryot-app/client-ui-sdk";
 import {
 	initialSchemaFormValues,
 	SchemaForm,
@@ -269,6 +269,11 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 	});
 	const lastRunToken = useRef<number | undefined>(undefined);
 	const optionsRequestId = useRef(0);
+	const searchInput = useRef<HTMLInputElement>(null);
+	useFieldEscape(searchInput, {
+		hasValue: state.query !== "",
+		onClear: () => dispatch({ type: "query-changed", query: "" }),
+	});
 
 	useEffect(() => {
 		optionsForm.reset(optionsSchema === undefined ? {} : initialSchemaFormValues(optionsSchema));
@@ -404,6 +409,7 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 					<input
 						autoFocus
 						type="text"
+						ref={searchInput}
 						value={state.query}
 						placeholder="Search"
 						aria-label="Search providers"
