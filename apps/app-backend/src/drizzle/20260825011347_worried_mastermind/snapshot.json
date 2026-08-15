@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "55015f3e-03d6-4099-8d55-356e710d6c5b",
+	"id": "9f33dd60-d787-4ecf-87df-cec91efe5978",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{
@@ -653,14 +653,14 @@
 			"table": "apikey"
 		},
 		{
-			"type": "text",
+			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": false,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "error",
+			"name": "failure",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "backup_run"
@@ -1160,14 +1160,14 @@
 			"table": "event"
 		},
 		{
-			"type": "text",
+			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": false,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "error_summary",
+			"name": "failure_reason",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "import_run"
@@ -1420,14 +1420,14 @@
 			"table": "import_run_failure"
 		},
 		{
-			"type": "text",
+			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "message",
+			"name": "reason",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "import_run_failure"
@@ -1441,19 +1441,6 @@
 			"generated": null,
 			"identity": null,
 			"name": "item_index",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "import_run_failure"
-		},
-		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "context",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "import_run_failure"
@@ -3721,14 +3708,14 @@
 			"table": "user"
 		},
 		{
-			"type": "text",
+			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": false,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "error",
+			"name": "failure",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "user_lifecycle_operation"

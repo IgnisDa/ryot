@@ -61,7 +61,7 @@ it.effect("preserves an artifact after an ambiguous export completion", () => {
 	};
 	const completedRun = {
 		id: runId,
-		error: null,
+		failure: null,
 		progress: 100,
 		kind: "export" as const,
 		status: "completed" as const,

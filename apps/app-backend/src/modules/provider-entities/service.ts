@@ -1,6 +1,9 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { badRequest, notFound } from "@ryot/contract/errors";
-import type { ImportEntityBody } from "@ryot/contract/modules/provider-entities/schemas";
+import {
+	type ImportEntityBody,
+	ProviderEntityBadRequest,
+	ProviderEntityNotFound,
+} from "@ryot/contract/modules/provider-entities/schemas";
 import { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
 import { Context, Effect, Layer, Option, Redacted } from "effect";
@@ -14,9 +17,6 @@ import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { EntityImportWorkflow } from "./entity-import-workflow";
 import { toEntityImportRunResult } from "./result-workflow";
-
-const entitySchemaNotFoundError = "Entity schema not found";
-const importJobNotFoundError = "Entity import job not found";
 
 export class EntityImportService extends Context.Service<EntityImportService>()(
 	"EntityImportService",
@@ -35,14 +35,23 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 				const trimmedProviderId = trimToNull(payload.providerId);
 				const externalId = trimToNull(payload.externalId);
 
-				if (!trimmedProviderId || !externalId) {
-					return yield* badRequest("providerId and externalId are required");
+				if (!trimmedProviderId) {
+					return yield* new ProviderEntityBadRequest({
+						reason: { code: "invalid-import-input", field: "providerId" },
+					});
+				}
+				if (!externalId) {
+					return yield* new ProviderEntityBadRequest({
+						reason: { code: "invalid-import-input", field: "externalId" },
+					});
 				}
 
 				const providerId = SandboxProviderId.make(trimmedProviderId);
 				const provider = yield* pluginRuntime.findActiveProviderById(providerId);
 				if (!provider) {
-					return yield* notFound("Provider not found");
+					return yield* new ProviderEntityNotFound({
+						reason: { code: "provider-not-found", providerId },
+					});
 				}
 				const entitySchemaSlug = EntitySchemaSlug.make(provider.rootEntitySchemaSlug);
 
@@ -51,7 +60,9 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 					entitySchemaSlug,
 				});
 				if (!entitySchemaScope) {
-					return yield* notFound(entitySchemaNotFoundError);
+					return yield* new ProviderEntityNotFound({
+						reason: { code: "entity-schema-not-found", entitySchemaSlug },
+					});
 				}
 
 				const executionId = generateId();
@@ -79,12 +90,16 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 			) {
 				const resolvedJobId = trimToNull(jobId);
 				if (!resolvedJobId) {
-					return yield* notFound(importJobNotFoundError);
+					return yield* new ProviderEntityNotFound({
+						reason: { code: "import-job-not-found", jobId },
+					});
 				}
 
 				const executionId = resolveWorkflowExecutionId(jobIdSecret, user.id, resolvedJobId);
 				if (!executionId) {
-					return yield* notFound(importJobNotFoundError);
+					return yield* new ProviderEntityNotFound({
+						reason: { code: "import-job-not-found", jobId },
+					});
 				}
 
 				return toEntityImportRunResult(

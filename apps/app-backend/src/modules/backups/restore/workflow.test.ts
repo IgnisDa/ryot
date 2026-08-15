@@ -1,6 +1,6 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
-import { BadRequest, internalError } from "@ryot/contract/errors";
+import { BadRequest } from "@ryot/contract/errors";
 import { BackupRunId, UserId } from "@ryot/contract/schema/brands";
 import { CryptoHasher } from "bun";
 import { Effect, FileSystem, Layer, Stream } from "effect";
@@ -21,6 +21,7 @@ import { BackupsRepository } from "../runs/repository";
 import { BackupAccountCleanliness } from "./account-cleanliness";
 import {
 	RestoreBackupWorkflow,
+	BackupWorkflowError,
 	RestoreBackupWorkflowOperations,
 	RestoreBackupWorkflowOperationsLive,
 	runRestoreBackupWorkflow,
@@ -34,8 +35,8 @@ const runId = BackupRunId.make("run-id");
 const payload = { runId, userId, uploadToken: "upload-token" };
 const runningRun = {
 	id: runId,
-	error: null,
 	progress: 5,
+	failure: null,
 	expiresAt: null,
 	finishedAt: null,
 	artifactProvider: null,
@@ -260,22 +261,23 @@ it.effect("records a safe specific failure before best-effort temporary cleanup"
 		const operations = yield* RestoreBackupWorkflowOperations;
 		yield* operations.fail(
 			payload,
-			internalError("Backup requires plugin 'fixture' at version '2'"),
+			new BackupWorkflowError({
+				failure: {
+					requiredVersion: "2",
+					pluginSlug: "fixture",
+					code: "required-plugin-unavailable",
+				},
+			}),
 			{ intentId: "intent-id", provider: "local", key: "temporary/archive.zip" },
 		);
-		expect(calls).toEqual([
-			"fail:Backup requires plugin 'fixture' at version '2'",
-			"delete",
-			"delete",
-			"delete",
-		]);
+		expect(calls).toEqual(["fail:required-plugin-unavailable", "delete", "delete", "delete"]);
 	}).pipe(
 		Effect.provide(
 			makeLayer({
 				repository: {
 					failRun: (input) =>
 						Effect.sync(() => {
-							calls.push(`fail:${String(input.error)}`);
+							calls.push(`fail:${input.failure.code}`);
 							return { ...runningRun, status: "failed" as const };
 						}),
 				},
@@ -352,7 +354,7 @@ it.effect("rolls back managed assets and domain rows and removes newly staged ob
 		const error = yield* operations
 			.restore(payload, { provider: "local", intentId: "intent-id", key: "temporary/archive.zip" })
 			.pipe(Effect.flip);
-		expect(error.message).toBe("Crafted restore row is invalid");
+		expect(error.failure).toEqual({ code: "archive-invalid", issue: "invalid-entry" });
 		expect([...managedAssets]).toEqual([]);
 		expect([...domainRows]).toEqual([]);
 		expect([...objects]).toEqual([]);

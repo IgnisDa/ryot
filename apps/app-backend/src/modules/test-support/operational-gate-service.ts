@@ -1,5 +1,7 @@
-import { badRequest } from "@ryot/contract/errors";
-import type { TestSupportStartWorkflowLoadGateBody } from "@ryot/contract/modules/test-support/schemas";
+import {
+	TestSupportBadRequest,
+	type TestSupportStartWorkflowLoadGateBody,
+} from "@ryot/contract/modules/test-support/schemas";
 import type { ImportRunId } from "@ryot/contract/schema/brands";
 import { sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
@@ -66,7 +68,12 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 						sandboxContextError({ items: candidate })
 					) {
 						if (chunk.length === 0) {
-							return yield* badRequest("Workflow load gate item exceeds workflow limits");
+							return yield* new TestSupportBadRequest({
+								reason: {
+									code: "invalid-request",
+									diagnostic: "Workflow load gate item exceeds workflow limits",
+								},
+							});
 						}
 						chunks.push(chunk);
 						chunk = [item];
@@ -90,7 +97,15 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 							workflowSlug: input.workflowSlug,
 							executingUserId: input.executingUserId,
 						})
-						.pipe(Effect.catchTag("SandboxRunError", (error) => badRequest(error.message)));
+						.pipe(
+							Effect.catchTag(
+								"SandboxRunError",
+								(error) =>
+									new TestSupportBadRequest({
+										reason: { code: "invalid-request", diagnostic: error.message },
+									}),
+							),
+						);
 				}
 				return { executionIds, runId: run.id };
 			});

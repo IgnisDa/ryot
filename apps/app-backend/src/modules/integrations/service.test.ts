@@ -27,19 +27,35 @@ describe("validateProgressThresholds", () => {
 	});
 
 	it("rejects minimumProgress below 0", () => {
-		expect(validateProgressThresholds(-1, 95)).toMatch(/minimumProgress/);
+		expect(validateProgressThresholds(-1, 95)).toEqual({
+			value: -1,
+			field: "minimumProgress",
+			code: "progress-out-of-range",
+		});
 	});
 
 	it("rejects minimumProgress above 100", () => {
-		expect(validateProgressThresholds(101, 101)).toMatch(/minimumProgress/);
+		expect(validateProgressThresholds(101, 101)).toEqual({
+			value: 101,
+			field: "minimumProgress",
+			code: "progress-out-of-range",
+		});
 	});
 
 	it("rejects maximumProgress above 100", () => {
-		expect(validateProgressThresholds(2, 101)).toMatch(/maximumProgress/);
+		expect(validateProgressThresholds(2, 101)).toEqual({
+			value: 101,
+			field: "maximumProgress",
+			code: "progress-out-of-range",
+		});
 	});
 
 	it("rejects minimum greater than maximum", () => {
-		expect(validateProgressThresholds(96, 95)).toMatch(/minimumProgress must not exceed/);
+		expect(validateProgressThresholds(96, 95)).toEqual({
+			minimumProgress: 96,
+			maximumProgress: 95,
+			code: "invalid-progress-range",
+		});
 	});
 });
 
@@ -328,7 +344,9 @@ describe("update", () => {
 				}),
 			);
 
-			expect(error.message).toBe("Integration provider 'shared-provider' is not registered");
+			expect(error).toMatchObject({
+				reason: { code: "provider-not-found", provider: "shared-provider" },
+			});
 			expect(updated).toBe(false);
 		}).pipe(Effect.provide(layer));
 	});

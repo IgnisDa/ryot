@@ -1,5 +1,5 @@
 import { assert, expect, it } from "@effect/vitest";
-import { Unauthorized } from "@ryot/contract/errors";
+import { EntityInterestTicketFailure } from "@ryot/contract/modules/entity-interest/contract";
 import { UserId } from "@ryot/contract/schema/brands";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 import Redis from "ioredis";
@@ -36,16 +36,10 @@ const makeLayer = () => {
 	return { values, expiries, layer };
 };
 
-const failure = <A>(exit: Exit.Exit<A, Unauthorized>) => {
-	expect(Exit.isFailure(exit)).toBe(true);
-	if (Exit.isSuccess(exit)) {
-		throw new Error("Expected ticket consumption to fail");
-	}
+const failure = <A>(exit: Exit.Exit<A, EntityInterestTicketFailure>) => {
+	assert(Exit.isFailure(exit));
 	const error = Cause.findErrorOption(exit.cause);
-	expect(Option.isSome(error)).toBe(true);
-	if (Option.isNone(error)) {
-		throw new Error("Expected a typed ticket failure");
-	}
+	assert(Option.isSome(error));
 	return error.value;
 };
 
@@ -85,7 +79,9 @@ describe("EntityInterestTicketService", () => {
 				preferredLanguage: null,
 			});
 			const reused = yield* Effect.exit(service.consume(created.ticket));
-			expect(failure(reused)).toEqual(new Unauthorized({ message: "Unauthorized" }));
+			expect(failure(reused)).toEqual(
+				new EntityInterestTicketFailure({ reason: { code: "invalid-ticket" } }),
+			);
 		}).pipe(Effect.provide(layer));
 	});
 
@@ -119,7 +115,9 @@ describe("EntityInterestTicketService", () => {
 
 			for (const ticket of [created.ticket, "malformed", "A".repeat(43)]) {
 				const exit = yield* Effect.exit(service.consume(ticket));
-				expect(failure(exit)).toEqual(new Unauthorized({ message: "Unauthorized" }));
+				expect(failure(exit)).toEqual(
+					new EntityInterestTicketFailure({ reason: { code: "invalid-ticket" } }),
+				);
 			}
 		}).pipe(Effect.provide(layer));
 	});
@@ -138,7 +136,9 @@ describe("EntityInterestTicketService", () => {
 
 			const exit = yield* Effect.exit(service.consume(created.ticket));
 			const error = failure(exit);
-			expect(error).toEqual(new Unauthorized({ message: "Unauthorized" }));
+			expect(error).toEqual(
+				new EntityInterestTicketFailure({ reason: { code: "invalid-ticket" } }),
+			);
 			expect(String(error)).not.toContain(created.ticket);
 			if (Exit.isFailure(exit)) {
 				expect(Cause.pretty(exit.cause)).not.toContain(created.ticket);

@@ -1,13 +1,27 @@
 import type { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import type { ImportEntityRunResult } from "@ryot/contract/modules/provider-entities/schemas";
+import { Cause, Exit, Option } from "effect";
 import type { Workflow } from "effect/unstable/workflow";
 
-import { toWorkflowRunResult } from "#lib/shared/workflow-result";
-
-export const toEntityImportRunResult = <E extends { readonly message: string }>(
+export const toEntityImportRunResult = <
+	E extends { readonly stage: "population" | "provider-import-automation" },
+>(
 	result: Workflow.Result<ListedEntity, E> | undefined,
-): ImportEntityRunResult =>
-	toWorkflowRunResult(result, {
-		failurePrefix: "Import failed: ",
-		onSuccess: (data) => ({ data }),
+): ImportEntityRunResult => {
+	if (result === undefined || result._tag === "Suspended") {
+		return { status: "pending" };
+	}
+	return Exit.match(result.exit, {
+		onFailure: (cause) => ({
+			status: "failed" as const,
+			reason: {
+				code: "import-failed" as const,
+				stage: Option.match(Cause.findErrorOption(cause), {
+					onSome: (error) => error.stage,
+					onNone: () => "unexpected" as const,
+				}),
+			},
+		}),
+		onSuccess: (data) => ({ status: "completed" as const, data }),
 	});
+};

@@ -1,7 +1,10 @@
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { BadRequest } from "@ryot/contract/errors";
-import type { ListedSavedView, SavedViewLayouts } from "@ryot/contract/modules/saved-views/schemas";
+import {
+	type ListedSavedView,
+	SavedViewBadRequest,
+	type SavedViewLayouts,
+} from "@ryot/contract/modules/saved-views/schemas";
 import { EntitySchemaSlug, PluginSlug, SavedViewId, UserId } from "@ryot/contract/schema/brands";
 import { ascending, column, document, field, rows, table } from "@ryot/ryotql";
 import { Effect, Layer } from "effect";
@@ -160,10 +163,17 @@ it.effect("rejects built-in layout changes but permits state updates", () => {
 
 		expect(updated.isDisabled).toBe(true);
 		expect(updated.layouts).toEqual(builtin.layouts);
-		assertExitFails(exit, new BadRequest({ message: "Cannot modify built-in saved views" }));
+		assertExitFails(
+			exit,
+			new SavedViewBadRequest({
+				reason: { code: "builtin-view-immutable", viewSlug: builtin.slug },
+			}),
+		);
 		assertExitFails(
 			entitySchemaExit,
-			new BadRequest({ message: "Cannot modify built-in saved views" }),
+			new SavedViewBadRequest({
+				reason: { code: "builtin-view-immutable", viewSlug: builtin.slug },
+			}),
 		);
 	}).pipe(Effect.provide(layer));
 });
@@ -229,8 +239,14 @@ it.effect("rejects unknown entity schemas on create and update", () => {
 			}),
 		);
 
-		assertExitFails(createExit, new BadRequest({ message: "Entity schema not found" }));
-		assertExitFails(updateExit, new BadRequest({ message: "Entity schema not found" }));
+		const expected = new SavedViewBadRequest({
+			reason: {
+				code: "entity-schema-not-found",
+				entitySchemaSlug: EntitySchemaSlug.make("missing"),
+			},
+		});
+		assertExitFails(createExit, expected);
+		assertExitFails(updateExit, expected);
 	}).pipe(Effect.provide(layer));
 });
 

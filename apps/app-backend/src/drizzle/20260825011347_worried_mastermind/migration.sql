@@ -41,7 +41,7 @@ CREATE TABLE "apikey" (
 );
 --> statement-breakpoint
 CREATE TABLE "backup_run" (
-	"error" text,
+	"failure" jsonb,
 	"artifact_key" text,
 	"kind" text NOT NULL,
 	"progress" integer DEFAULT 0 NOT NULL,
@@ -94,7 +94,7 @@ CREATE TABLE "event" (
 );
 --> statement-breakpoint
 CREATE TABLE "import_run" (
-	"error_summary" text,
+	"failure_reason" jsonb,
 	"total_items" integer,
 	"progress" integer DEFAULT 0 NOT NULL,
 	"source" text NOT NULL,
@@ -117,9 +117,8 @@ CREATE TABLE "import_run_failure" (
 	"event_schema_slug" text,
 	"source_identifier" text,
 	"entity_schema_slug" text,
-	"message" text NOT NULL,
+	"reason" jsonb NOT NULL,
 	"item_index" integer NOT NULL,
-	"context" jsonb,
 	"stage" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"run_id" text NOT NULL,
@@ -370,7 +369,7 @@ CREATE TABLE "user" (
 );
 --> statement-breakpoint
 CREATE TABLE "user_lifecycle_operation" (
-	"error" text,
+	"failure" jsonb,
 	"id" text PRIMARY KEY,
 	"user_id" text NOT NULL,
 	"metadata" jsonb NOT NULL,

@@ -63,7 +63,7 @@ const createdRun = {
 	importedItems: 0,
 	totalItems: null,
 	processedItems: 0,
-	errorSummary: null,
+	failureReason: null,
 	status: "pending" as const,
 	source: "goodreads" as const,
 	id: ImportRunId.make("run-1"),
@@ -227,7 +227,9 @@ it.effect("validates extensions against the claimed original file name", () => {
 				uploadToken: "tok_goodreads",
 			}),
 		);
-		expect(error.message).toBe("Import file must have one of the following extensions: json");
+		expect(error).toMatchObject({
+			reason: { code: "unsupported-file-extension", allowedExtensions: ["json"] },
+		});
 		expect(deletedIntentIds).toEqual(["intent-goodreads"]);
 	}).pipe(Effect.provide(layer));
 });
@@ -260,7 +262,7 @@ it.effect("rejects temporary uploads claimed from S3 storage", () => {
 				uploadToken: "tok_s3",
 			}),
 		);
-		expect(error.message).toBe("Import uploads must use local storage");
+		expect(error).toMatchObject({ reason: { code: "upload-unavailable", field: "uploadToken" } });
 		expect(deletedIntentIds).toEqual(["intent-s3"]);
 	}).pipe(Effect.provide(layer));
 });
@@ -413,9 +415,7 @@ it.effect("rejects undeclared upload token fields before claims or work", () => 
 				historyUploadToken: "history",
 			}),
 		);
-		expect(error.message).toBe(
-			"Import source does not declare upload token field: historyUploadToken",
-		);
+		expect(error).toMatchObject({ reason: { code: "invalid-input", field: null } });
 	}).pipe(Effect.provide(layer));
 });
 
@@ -438,9 +438,13 @@ it.effect("rejects a source whose declared plugin config keys are unset", () => 
 				uploadToken: "goodreads",
 			}),
 		);
-		expect(error.message).toBe(
-			"Goodreads importer is not configured. Set RYOT_PLUGIN_MEDIA_HARDCOVER_API_KEY.",
-		);
+		expect(error).toMatchObject({
+			reason: {
+				source: "goodreads",
+				code: "source-not-configured",
+				missingConfigKeys: ["RYOT_PLUGIN_MEDIA_HARDCOVER_API_KEY"],
+			},
+		});
 	}).pipe(Effect.provide(Layer.mergeAll(layer, makeConfigProviderLayer())));
 });
 
@@ -598,7 +602,7 @@ it.effect("deletes pending source state when workflow dispatch fails", () => {
 			(yield* ImportsService).startImportRun(user, { apiKey: "secret", source: "goodreads" }),
 		);
 
-		expect(error.message).toBe("Could not queue the import job; please try again");
+		expect(error).toMatchObject({ reason: { code: "queue-unavailable", operation: "import-run" } });
 		expect(deletedKeys).toEqual([[redisKeys.importSourceState("run-1")]]);
 	}).pipe(Effect.provide(layer));
 });

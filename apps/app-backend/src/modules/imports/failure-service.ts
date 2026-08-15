@@ -1,3 +1,4 @@
+import type { ImportRunFailureReason } from "@ryot/contract/modules/imports/schemas";
 import type { ImportRunFailureStage } from "@ryot/contract/modules/imports/types";
 import type { ImportRunId } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
@@ -5,15 +6,14 @@ import { Context, Effect, Layer } from "effect";
 import { ImportsRepository } from "./repository";
 
 export type ImportRunFailureInput = {
-	message: string;
 	itemIndex: number;
 	runId: ImportRunId;
 	stage: ImportRunFailureStage;
+	reason: ImportRunFailureReason;
 	sourceLabel?: string | null | undefined;
 	eventSchemaSlug?: string | null | undefined;
 	sourceIdentifier?: string | null | undefined;
 	entitySchemaSlug?: string | null | undefined;
-	context?: Record<string, unknown> | null | undefined;
 };
 
 export type ImportRunFailureDetails = Omit<ImportRunFailureInput, "runId">;

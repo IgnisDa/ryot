@@ -312,7 +312,7 @@ it.effect("fails the run when the integration is not found", () => {
 				expect.objectContaining({
 					runId: "run_1",
 					status: "failed",
-					errorSummary: "Integration not found",
+					failureReason: { code: "integration-not-found" },
 				}),
 			]);
 		}),
@@ -351,7 +351,7 @@ it.effect("fails the whole run on catastrophic yank provider failure", () => {
 				expect.objectContaining({
 					runId: "run_1",
 					status: "failed",
-					errorSummary: "Failed to run integration",
+					failureReason: { code: "unexpected-failure", operation: "integration-import" },
 				}),
 			);
 		}),

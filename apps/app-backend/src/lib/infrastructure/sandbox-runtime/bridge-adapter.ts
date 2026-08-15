@@ -152,6 +152,8 @@ export const bindSandboxHostFunctions = (
 		domainSandboxHostContracts.executeRyotql,
 		(...args) => implementations.executeRyotql(input, ...args),
 		defaultFailure("executeRyotql"),
+		undefined,
+		preserveHttpFailureDetails,
 	),
 	upsertGlobalRelationships: bindHostFunction(
 		domainSandboxHostContracts.upsertGlobalRelationships,

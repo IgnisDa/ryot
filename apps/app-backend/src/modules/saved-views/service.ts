@@ -1,10 +1,10 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { badRequest, notFound } from "@ryot/contract/errors";
 import type {
 	CreateSavedViewBody,
 	ReorderSavedViewsBody,
 	UpdateSavedViewBody,
 } from "@ryot/contract/modules/saved-views/schemas";
+import { SavedViewBadRequest, SavedViewNotFound } from "@ryot/contract/modules/saved-views/schemas";
 import { EntitySchemaSlug, PluginSlug } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
@@ -14,9 +14,6 @@ import { DefinitionRegistry } from "#modules/definition-registry/service";
 
 import { validateSavedViewDefinition } from "./definition-validation";
 import { SavedViewsRepository } from "./repository";
-
-const savedViewNotFound = "Saved view not found";
-const builtinViewMutationMessage = "Cannot modify built-in saved views";
 
 export class SavedViewsService extends Context.Service<SavedViewsService>()("SavedViewsService", {
 	make: Effect.gen(function* () {
@@ -52,7 +49,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			if (savedView) {
 				return savedView;
 			}
-			return yield* notFound(savedViewNotFound);
+			return yield* new SavedViewNotFound({ reason: { code: "saved-view-not-found", viewSlug } });
 		});
 
 		const create = Effect.fn(function* (
@@ -61,21 +58,27 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 		) {
 			const name = trimToNull(payload.name);
 			if (!name) {
-				return yield* badRequest("Saved view name is required");
+				return yield* new SavedViewBadRequest({
+					reason: { code: "required-field", field: "name" },
+				});
 			}
 			const slug = slugify(payload.slug ?? name);
 			if (!slug) {
-				return yield* badRequest("Saved view slug is required");
+				return yield* new SavedViewBadRequest({
+					reason: { code: "required-field", field: "slug" },
+				});
 			}
 			if (definitions.getSavedView(slug) || (yield* repository.findBySlug(user.id, slug))) {
-				return yield* badRequest("A saved view with this name already exists");
+				return yield* new SavedViewBadRequest({ reason: { code: "duplicate-name" } });
 			}
 			yield* validateSavedViewDefinition(payload);
 			if (
 				payload.entitySchemaSlug !== null &&
 				!definitions.getEntitySchema(payload.entitySchemaSlug)
 			) {
-				return yield* badRequest("Entity schema not found");
+				return yield* new SavedViewBadRequest({
+					reason: { code: "entity-schema-not-found", entitySchemaSlug: payload.entitySchemaSlug },
+				});
 			}
 			const created = yield* repository.create(user.id, {
 				slug,
@@ -86,7 +89,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				pluginSlug: payload.pluginSlug,
 				entitySchemaSlug: payload.entitySchemaSlug,
 			});
-			return created ?? (yield* badRequest("A saved view with this name already exists"));
+			return created ?? (yield* new SavedViewBadRequest({ reason: { code: "duplicate-name" } }));
 		});
 
 		const update = Effect.fn(function* (
@@ -106,7 +109,9 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 						payload.entitySchemaSlug !== current.entitySchemaSlug) ||
 					(payload.layouts !== undefined && !Bun.deepEquals(payload.layouts, current.layouts))
 				) {
-					return yield* badRequest(builtinViewMutationMessage);
+					return yield* new SavedViewBadRequest({
+						reason: { code: "builtin-view-immutable", viewSlug },
+					});
 				}
 				return (
 					(yield* repository.updateBuiltinStateBySlug(
@@ -114,16 +119,21 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 						viewSlug,
 						payload.isDisabled,
 						payload.sortOrder ?? current.sortOrder,
-					)) ?? (yield* notFound(savedViewNotFound))
+					)) ??
+					(yield* new SavedViewNotFound({ reason: { code: "saved-view-not-found", viewSlug } }))
 				);
 			}
 			const name = trimToNull(payload.name);
 			if (!name) {
-				return yield* badRequest("Saved view name is required");
+				return yield* new SavedViewBadRequest({
+					reason: { code: "required-field", field: "name" },
+				});
 			}
 			yield* validateSavedViewDefinition({ layouts });
 			if (entitySchemaSlug !== null && !definitions.getEntitySchema(entitySchemaSlug)) {
-				return yield* badRequest("Entity schema not found");
+				return yield* new SavedViewBadRequest({
+					reason: { code: "entity-schema-not-found", entitySchemaSlug },
+				});
 			}
 			const updated = yield* repository.updateBySlug(
 				user.id,
@@ -131,16 +141,22 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				{ ...payload, layouts, name, entitySchemaSlug, sortOrder: payload.sortOrder },
 				current.pluginSlug,
 			);
-			return updated ?? (yield* notFound(savedViewNotFound));
+			return (
+				updated ??
+				(yield* new SavedViewNotFound({ reason: { code: "saved-view-not-found", viewSlug } }))
+			);
 		});
 
 		const deleteView = Effect.fn(function* (user: CurrentUserValue, viewSlug: string) {
 			const current = yield* requireSavedView(user, viewSlug);
 			if (current.isBuiltin) {
-				return yield* badRequest(builtinViewMutationMessage);
+				return yield* new SavedViewBadRequest({
+					reason: { code: "builtin-view-immutable", viewSlug },
+				});
 			}
 			return (
-				(yield* repository.deleteBySlug(user.id, viewSlug)) ?? (yield* notFound(savedViewNotFound))
+				(yield* repository.deleteBySlug(user.id, viewSlug)) ??
+				(yield* new SavedViewNotFound({ reason: { code: "saved-view-not-found", viewSlug } }))
 			);
 		});
 
@@ -161,11 +177,20 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				(view) => (view.pluginSlug ?? null) === (payload.pluginSlug ?? null),
 			);
 			const requested = payload.viewSlugs.map((slug) => slug.trim()).filter(Boolean);
-			if (requested.length === 0 || new Set(requested).size !== requested.length) {
-				return yield* badRequest("View slugs are required and must be unique");
+			if (requested.length === 0) {
+				return yield* new SavedViewBadRequest({
+					reason: { code: "invalid-reorder", issue: "empty", viewSlugs: requested },
+				});
+			}
+			if (new Set(requested).size !== requested.length) {
+				return yield* new SavedViewBadRequest({
+					reason: { code: "invalid-reorder", issue: "duplicate", viewSlugs: requested },
+				});
 			}
 			if (requested.some((slug) => !scoped.some((view) => view.slug === slug))) {
-				return yield* badRequest("Saved view slugs contain unknown saved views");
+				return yield* new SavedViewBadRequest({
+					reason: { code: "invalid-reorder", issue: "unknown-view", viewSlugs: requested },
+				});
 			}
 			const reordered = [
 				...requested,
@@ -180,7 +205,17 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 					...view,
 					sortOrder,
 					pluginSlug: view.pluginSlug ?? undefined,
-				}).pipe(Effect.mapError((error) => badRequest(error.message)));
+				}).pipe(
+					Effect.catch((error) =>
+						Effect.logWarning("saved view reorder update failed", error).pipe(
+							Effect.andThen(
+								new SavedViewBadRequest({
+									reason: { viewSlugs: requested, issue: "update-failed", code: "invalid-reorder" },
+								}),
+							),
+						),
+					),
+				);
 			}
 			return { viewSlugs: reordered };
 		});
