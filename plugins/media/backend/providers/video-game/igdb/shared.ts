@@ -1,6 +1,7 @@
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { DateTime, Effect, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
+import { strictStruct } from "@ryot-app/sandbox-sdk/wire";
 
 import { asRecord, numberValue, stringValue } from "../../../lib/records";
 import { type RoleRelatedEntity, createRoleAccumulator } from "../../../lib/role-accumulator";
@@ -22,8 +23,6 @@ export const manifest = defineManifest({
 	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 const IMAGE_BASE_URL = "https://images.igdb.com/igdb/image/upload/t_cover_big";
-const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
-	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" as const } });
 const stringArray = Schema.Array(Schema.String);
 const igdbSearchOptionsSchema = strictStruct({
 	themeIds: Schema.optional(stringArray),
