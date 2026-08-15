@@ -1,5 +1,5 @@
 {
-	"exclude": ["dist"],
+	"exclude": ["dist", "ryot-vite-*"],
 	"extends": "../../tsconfig.options.json",
 	"compilerOptions": {
 		"strict": true,
