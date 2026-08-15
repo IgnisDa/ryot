@@ -2,7 +2,13 @@ import clsx from "clsx";
 import { useEffect, useEffectEvent, useRef, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 
-import { focusableElements, useFocusTrap, useRestoreFocus, useScrollLock } from "./overlay";
+import {
+	focusableElements,
+	useFocusTrap,
+	useInertBackground,
+	useRestoreFocus,
+	useScrollLock,
+} from "./overlay";
 
 type ModalProps = {
 	readonly label?: string;
@@ -40,6 +46,7 @@ export function Modal({
 	const id = useRef(Symbol("modal")).current;
 
 	useRestoreFocus(triggerRef ?? fallbackTriggerRef);
+	useInertBackground(panelRef);
 	useScrollLock(true);
 
 	useEffect(() => {

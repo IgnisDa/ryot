@@ -264,6 +264,28 @@ const mountView = (
 };
 
 describe("saved-view route", () => {
+	it("titles the document from the loaded record and renders one skip-link target", async () => {
+		const view = mountView();
+		try {
+			await screen.findByRole("heading", { name: "Books" });
+			expect(globalThis.document.title).toBe("Books — Ryot");
+			expect(globalThis.document.querySelectorAll("#main-content")).toHaveLength(1);
+		} finally {
+			view.unmount();
+		}
+	});
+
+	it("titles the document from the saved-view notice frame", async () => {
+		const view = mountView({ loadRecord: () => Effect.succeed(undefined) });
+		try {
+			await screen.findByRole("heading", { name: "Saved view not found" });
+			expect(globalThis.document.title).toBe("Saved view not found — Ryot");
+			expect(globalThis.document.querySelectorAll("#main-content")).toHaveLength(1);
+		} finally {
+			view.unmount();
+		}
+	});
+
 	it("renders the decoded first grid page and all configured card slots", async () => {
 		const view = mountView();
 		try {
@@ -580,8 +602,20 @@ describe("saved-view route", () => {
 	it("disables the filters control until the view has results", async () => {
 		const view = mountView({ loadPage: () => Effect.succeed(emptyPage) });
 		try {
-			const filters = await screen.findByRole("button", { name: "Open filters, 0 active" });
+			const filters = await screen.findByRole("button", { name: "Filters" });
 			expect(filters.hasAttribute("disabled")).toBe(true);
+		} finally {
+			view.unmount();
+			await view.runtime.dispose();
+		}
+	});
+
+	it("keeps the filters control announced as disabled once the view has results", async () => {
+		const view = mountView();
+		try {
+			const filters = await screen.findByRole("button", { name: "Filters" });
+			expect(filters.hasAttribute("disabled")).toBe(false);
+			expect(filters.getAttribute("aria-disabled")).toBe("true");
 		} finally {
 			view.unmount();
 			await view.runtime.dispose();

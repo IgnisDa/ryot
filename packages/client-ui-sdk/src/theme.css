@@ -2,25 +2,23 @@
 	--color-bg: var(--bg);
 	--color-info: var(--info);
 	--color-text: var(--text);
-	--color-gold: var(--gold);
+	--color-focus: var(--focus);
 	--color-overlay: var(--overlay);
-	--color-nav-border: var(--nav-border);
-	--color-nav-surface: var(--nav-surface);
 	--color-accent-deep: var(--accent-deep);
-	--color-sheet-divider: var(--sheet-divider);
 	--color-accent: var(--accent);
 	--color-border: var(--border);
 	--color-danger: var(--danger);
 	--color-raised: var(--raised);
 	--color-success: var(--success);
 	--color-surface: var(--surface);
-	--color-info-soft: var(--info-soft);
 	--color-surface-2: var(--surface-2);
 	--color-text-muted: var(--text-muted);
 	--color-accent-ink: var(--accent-ink);
+	--color-danger-ink: var(--danger-ink);
 	--color-accent-soft: var(--accent-soft);
 	--color-accent-text: var(--accent-text);
 	--color-text-subtle: var(--text-subtle);
+	--color-danger-solid: var(--danger-solid);
 	--color-nav-indicator: var(--nav-indicator);
 	--color-success-soft: var(--success-soft);
 	--color-accent-border: var(--accent-border);
@@ -34,4 +32,23 @@
 	--radius-pill: var(--r-pill);
 	--shadow-sm: var(--shadow-small);
 	--shadow-card: var(--shadow-raised);
+}
+
+@layer base {
+	button:not(:disabled),
+	[role="button"]:not([aria-disabled="true"]),
+	label:has(input:where([type="checkbox"], [type="radio"]):not(:disabled)) {
+		cursor: pointer;
+	}
+
+	button:disabled,
+	fieldset:disabled,
+	[aria-disabled="true"] {
+		cursor: not-allowed;
+	}
+
+	:focus-visible {
+		outline: 2px solid var(--focus);
+		outline-offset: 2px;
+	}
 }

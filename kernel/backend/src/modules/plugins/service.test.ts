@@ -1299,7 +1299,14 @@ it.effect("compiles the declared client entry and persists its artifact", () => 
 		const source = yield* loadPluginSource(fixturePackageRoot(), clientManifest());
 		yield* ingestion.ingestSystemPlugin(source);
 
-		expect(requests).toEqual([{ apiVersion: 1, entry: "client/index.tsx", files: source.files }]);
+		expect(requests).toEqual([
+			{
+				apiVersion: 1,
+				files: source.files,
+				entry: "client/index.tsx",
+				name: clientManifest().metadata.name,
+			},
+		]);
 		expect(persisted).toEqual([expect.objectContaining({ clientArtifact: artifact })]);
 	}).pipe(
 		Effect.provide(

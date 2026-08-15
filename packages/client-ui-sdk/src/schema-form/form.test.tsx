@@ -327,8 +327,9 @@ describe("SchemaForm", () => {
 	it("renders a larger static enum as chips and reports the clicked choice", () => {
 		render(<SchemaFormHarness schema={chipsSchema} onSubmit={() => undefined} />);
 
-		expect(screen.queryByRole("radiogroup", { name: "Genre" })).toBeNull();
+		const group = screen.getByRole("radiogroup", { name: "Genre" });
 		const comedy = screen.getByRole("radio", { name: "comedy" });
+		expect(group.contains(comedy)).toBe(true);
 		expect(comedy.getAttribute("aria-checked")).toBe("false");
 
 		fireEvent.click(comedy);

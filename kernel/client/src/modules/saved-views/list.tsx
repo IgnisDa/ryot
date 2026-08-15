@@ -16,7 +16,7 @@ export function SavedViewList(props: {
 					key={item.entityId}
 					aria-label={`Open ${item.title}`}
 					params={{ entityId: item.entityId }}
-					className="relative flex min-h-28 items-center gap-3 overflow-hidden border-b border-border px-1 py-2 outline-none focus-visible:ring-2 focus-visible:ring-accent md:min-h-18 md:gap-3.5"
+					className="relative flex min-h-28 items-center gap-3 overflow-hidden border-b border-border px-1 py-2 outline-none focus-visible:ring-2 focus-visible:ring-focus md:min-h-18 md:gap-3.5"
 				>
 					{item.image !== undefined && (
 						<ManagedImage
