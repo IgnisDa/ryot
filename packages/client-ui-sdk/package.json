@@ -18,9 +18,11 @@
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
+		"@tanstack/react-hotkeys": "0.10.0",
 		"@tanstack/react-table": "9.1.2",
 		"clsx": "2.1.1",
-		"react": "^19.2.0"
+		"react": "^19.2.0",
+		"react-dom": "^19.2.0"
 	},
 	"devDependencies": {
 		"@ryot-app/testing": "workspace:*",
@@ -29,7 +31,6 @@
 		"@types/react-dom": "^19.2.0",
 		"@vitejs/plugin-react": "^6.0.1",
 		"jsdom": "^30.0.1",
-		"react-dom": "^19.2.0",
 		"typescript": "7.0.2",
 		"vite": "^8.0.0",
 		"vitest": "4.1.9"
