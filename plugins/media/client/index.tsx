@@ -1,7 +1,7 @@
 import { bootstrapClientPlugin } from "@ryot-app/client-sdk/plugin";
 import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
 
-import { ShowEntityScreen } from "./show-entity";
+import { ShowScreen } from "./show/screen";
 
 const MediaHome = () => (
 	<PluginScreenFrame title="Media">
@@ -11,5 +11,5 @@ const MediaHome = () => (
 
 bootstrapClientPlugin({
 	home: { component: MediaHome },
-	entities: { show: { component: ShowEntityScreen } },
+	entities: { show: { component: ShowScreen } },
 });
