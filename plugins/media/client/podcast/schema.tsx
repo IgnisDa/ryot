@@ -54,11 +54,11 @@ export const podcastPresentationFacts = (podcast: PodcastPresentation) =>
 	podcast.productionStatus === null ? [] : [podcast.productionStatus];
 
 export const podcastPresentationDetail = (podcast: PodcastPresentation) => {
-	if (podcast.storedEpisodes === 0) {
+	if (podcast.airedEpisodes === 0) {
 		return undefined;
 	}
 	return [
-		mediaCountLabel(podcast.storedEpisodes, "stored episode"),
+		mediaCountLabel(podcast.airedEpisodes, "aired episode"),
 		podcast.watchedEpisodes === 0 ? undefined : `${podcast.watchedEpisodes} played`,
 		podcast.inProgressEpisodes === 0
 			? undefined

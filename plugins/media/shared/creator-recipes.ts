@@ -125,6 +125,7 @@ export const mediaCreatorRecipes = <
 			queries: mediaSummaryQueries({
 				...input,
 				slug: config.slug,
+				include: () => ({}),
 				selection: (entity, provider) => ({
 					...mediaEntitySummarySelection(entity, provider),
 					alternateNames: selectedField(

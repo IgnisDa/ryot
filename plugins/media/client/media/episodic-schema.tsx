@@ -54,6 +54,7 @@ import {
 	type MediaOverviewState,
 } from "./overview-state";
 import {
+	mediaEpisodicAiredFact,
 	mediaEpisodicLifecycleLabel,
 	mediaReleaseLabel,
 	mediaSummaryHeaderDetail,
@@ -75,8 +76,9 @@ const ACTIVITY_COLLECTION_EVENT_LIMIT = 60;
 const ACTIVITY_EPISODE_PROGRESS_LIMIT = 100;
 
 type EpisodicCounts = {
-	readonly storedEpisodes: number;
+	readonly airedEpisodes: number;
 	readonly watchedEpisodes: number;
+	readonly upcomingEpisodes: number;
 	readonly inProgressEpisodes: number;
 };
 
@@ -297,7 +299,13 @@ export const defineEpisodicMediaSchema = <
 		emptyAction: "log-activity",
 	});
 
-	const header = mediaSummaryHeaderDetail({ lifecycleLabel, facts: descriptor.facts });
+	const header = mediaSummaryHeaderDetail({
+		lifecycleLabel,
+		facts: (summary: Summary) =>
+			[...descriptor.facts(summary), mediaEpisodicAiredFact(summary)].filter(
+				(fact) => fact !== undefined,
+			),
+	});
 
 	const overviewRelations: MediaOverviewRelationsRender<Overview> = ({
 		compact,

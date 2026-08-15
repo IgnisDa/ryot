@@ -148,8 +148,9 @@ describe("media podcast query recipes", () => {
 			"publishDate",
 			"publishYear",
 			"productionStatus",
-			"storedEpisodes",
+			"airedEpisodes",
 			"watchedEpisodes",
+			"upcomingEpisodes",
 			"inProgressEpisodes",
 		]);
 	});
