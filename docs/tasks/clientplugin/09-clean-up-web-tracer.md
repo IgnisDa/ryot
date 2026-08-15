@@ -26,7 +26,7 @@ The cleanup must preserve and enforce the one per-session client plugin runtime:
 - [ ] Authentication has no hardcoded user, bypass route, fixture credential, or temporary session injection in application code.
 - [ ] The kernel has no Expo, React Native, NativeWind, legacy-router, or migration adapter left from tracer implementation.
 - [ ] The client compiler and sandbox compiler retain distinct policies and APIs; only proven shared utilities remain shared.
-- [ ] No hardcoded fixture catalog row, static fixture UI import, alternate artifact loader, test-only bridge runtime, or mutable artifact path remains.
+- [ ] No hardcoded fixture catalog row, static fixture UI import, alternate artifact loader, test-only bridge runtime, mutable artifact path, or inline artifact payload on the active plugin row remains.
 - [ ] Bootstrap validates metadata before accepting one port and owns the bootstrap listener and React root/unmount coordinator; the runtime owns one session listener/dispatcher, location/theme state, pending calls, client, and idempotent disposal, while `PluginHost` owns the iframe and kernel session handle.
 - [ ] Bridge listeners, ports, pending-call registries, iframe lifecycle state, and catalog subscriptions have clear ownership and teardown; pending query and operation calls reject exactly once before port/iframe release.
 - [ ] Exact markers, including protocol version 1, remain simple equality checks.
