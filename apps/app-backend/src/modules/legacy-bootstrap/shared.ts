@@ -56,7 +56,7 @@ export const withReservedConnection = Effect.fn("withReservedConnection")(functi
 
 // Bootstrap SQL reports progress and anomalies as rows in a report table. The orchestration selects
 // newly written rows after each phase, so every report is a value it can log and act on.
-const reportTable = "_legacy_bootstrap_report";
+const reportTable = "legacy_bootstrap_report";
 
 const elapsedSecondsSql = "round(extract(epoch from clock_timestamp() - started_at)::numeric, 1)";
 
