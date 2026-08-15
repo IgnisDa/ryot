@@ -106,6 +106,50 @@ describe("workspace switcher", () => {
 		expect(item.getAttribute("aria-checked")).toBe("true");
 	});
 
+	it("opens from its desktop shortcut and focuses the current workspace", async () => {
+		const current = workspace();
+		render(
+			<WorkspaceSwitcher
+				showShortcut
+				current={current}
+				summary="2 views"
+				catalog={[current]}
+				onSelect={() => undefined}
+			/>,
+		);
+		const trigger = screen.getByRole("button", { name: "Media workspace, media" });
+
+		fireEvent.keyDown(document, { key: " ", ctrlKey: true, shiftKey: true });
+
+		const item = screen.getByRole("menuitemradio", { name: "Switch to Media workspace" });
+		await waitFor(() => expect(document.activeElement).toBe(item));
+		fireEvent.keyDown(document, { key: " ", ctrlKey: true, shiftKey: true });
+		expect(screen.getByRole("menu")).toBeTruthy();
+		expect(trigger.getAttribute("aria-keyshortcuts")).toBe("Mod+Shift+Space");
+		expect(screen.getByText("Mod+Shift+Space")).toBeTruthy();
+	});
+
+	it("does not register the desktop shortcut when it is not enabled", () => {
+		const current = workspace();
+		render(
+			<WorkspaceSwitcher
+				current={current}
+				summary="2 views"
+				catalog={[current]}
+				onSelect={() => undefined}
+			/>,
+		);
+
+		fireEvent.keyDown(document, { key: " ", ctrlKey: true, shiftKey: true });
+
+		expect(screen.queryByRole("menu")).toBeNull();
+		expect(
+			screen
+				.getByRole("button", { name: "Media workspace, media" })
+				.getAttribute("aria-keyshortcuts"),
+		).toBe(null);
+	});
+
 	it("closes when its trigger is clicked while the menu owns focus", async () => {
 		const user = userEvent.setup();
 		const current = workspace();
