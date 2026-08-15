@@ -82,6 +82,10 @@ const compileRuntimePayload = (kernelDirectory: string, sandboxRuntimeDirectory:
 			`${sandboxRuntimeDirectory}/runtime-payload.generated.ts`,
 			`export const sandboxRuntimePayload = ${encodeJson(payload)} as const;\n`,
 		);
+		yield* fs.writeFileString(
+			`${sandboxRuntimeDirectory}/runtime-payload-metadata.generated.ts`,
+			`export const sandboxRuntimePayloadMetadata = ${encodeJson({ metadata: payload.metadata, contentHash: payload.contentHash })} as const;\n`,
+		);
 		yield* Effect.logInfo("Compiled trusted Deno runtime payload");
 	});
 

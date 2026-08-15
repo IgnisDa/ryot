@@ -46,7 +46,7 @@ import {
 	type SmapsRollup,
 } from "./process-sampling";
 import { sandboxRunnerSource } from "./runner.generated";
-import { sandboxRuntimePayload } from "./runtime-payload.generated";
+import { sandboxRuntimePayloadMetadata } from "./runtime-payload-metadata.generated";
 import type { BoundHostFunction } from "./shared";
 import { readSandboxByteLimitedText } from "./stream-utils";
 
@@ -276,7 +276,7 @@ const readBackendProcessSample = (includeSmaps: boolean) =>
 
 const sandboxRuntimeVersions = {
 	bunVersion: Bun.version,
-	denoVersion: sandboxRuntimePayload.metadata.denoVersion,
+	denoVersion: sandboxRuntimePayloadMetadata.metadata.denoVersion,
 };
 
 const providerImportMetrics = () => ({
