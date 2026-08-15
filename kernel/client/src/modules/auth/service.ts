@@ -2,7 +2,7 @@ import { Context, Effect, Layer } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";
 import { AuthClient, type SettledAuthSession } from "#/modules/auth/client";
-import type { AuthMode } from "#/modules/auth/flow";
+import type { AuthMode, TwoFactorMethod } from "#/modules/auth/flow";
 import { availableTwoFactorMethods, isTwoFactorRedirect } from "#/modules/auth/flow";
 import { registrationName, type CredentialsValues } from "#/modules/auth/form-values";
 import type { AuthSessionState } from "#/modules/auth/route-gates";
@@ -29,12 +29,19 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 				});
 			}
 			const result = yield* client.signIn(input.origin, input.values);
-			return isTwoFactorRedirect(result)
-				? {
-						_tag: "TwoFactor",
-						methods: availableTwoFactorMethods(result.twoFactorMethods),
-					}
-				: ({ _tag: "Authenticated" } as const);
+			if (isTwoFactorRedirect(result)) {
+				return { _tag: "TwoFactor", methods: availableTwoFactorMethods(result.twoFactorMethods) };
+			}
+			yield* client.refreshSession(input.origin);
+			return { _tag: "Authenticated" } as const;
+		});
+		const verifyTwoFactor = Effect.fn("AuthService.verifyTwoFactor")(function* (
+			origin: ServerOrigin,
+			method: TwoFactorMethod,
+			code: string,
+		) {
+			yield* client.verifyTwoFactor(origin, method, code);
+			yield* client.refreshSession(origin);
 		});
 		const clearSession = Effect.fn("AuthService.clearSession")(function* (
 			origin: ServerOrigin | null,
@@ -56,12 +63,12 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 
 		return {
 			changeServer,
+			verifyTwoFactor,
 			submitCredentials,
 			signOut: clearSession,
 			session: client.session,
 			settledSession: client.settledSession,
 			signInWithOidc: client.signInWithOidc,
-			verifyTwoFactor: client.verifyTwoFactor,
 		};
 	}),
 }) {
