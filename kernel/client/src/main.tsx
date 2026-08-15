@@ -1,4 +1,3 @@
-import { RegistryProvider } from "@effect/atom-react";
 import { RouterProvider } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect } from "react";
@@ -21,11 +20,7 @@ function ClientApplication(props: {
 		},
 		[props.runtime, props.theme],
 	);
-	return (
-		<RegistryProvider>
-			<RouterProvider router={props.router} />
-		</RegistryProvider>
-	);
+	return <RouterProvider router={props.router} />;
 }
 
 const rootElement = document.getElementById("app");

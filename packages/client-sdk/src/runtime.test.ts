@@ -233,6 +233,55 @@ describe("plugin runtime", () => {
 		expect(messages).toContainEqual({ reason: "failed", type: "lifecycle-close" });
 	});
 
+	it("cancels one query exactly once, releases admission, and ignores its late result", async () => {
+		const { channel, messages, runtime } = openRuntime();
+		activate(channel);
+		await delay();
+		const controller = new AbortController();
+		const reason = new DOMException("Caller canceled", "AbortError");
+		const canceled = runtime.client.data.query(
+			{ document, decode: Result.succeed },
+			{ signal: controller.signal },
+		);
+		const pending = Array.from({ length: CLIENT_BRIDGE_MAX_PENDING_REQUESTS - 1 }, () =>
+			runtime.client.data.query({ document, decode: Result.succeed }),
+		);
+		const settlements = Promise.allSettled(pending);
+		await delay();
+
+		controller.abort(reason);
+		controller.abort(new Error("ignored"));
+		await expect(canceled).rejects.toBe(reason);
+		const replacement = runtime.client.data.query({ document, decode: Result.succeed });
+		await delay();
+
+		expect(
+			messages.filter(
+				(message) =>
+					typeof message === "object" &&
+					message !== null &&
+					"type" in message &&
+					message.type === "ryotql-cancel",
+			),
+		).toEqual([{ requestId: "ryotql-1", type: "ryotql-cancel" }]);
+		expect(messages).toContainEqual({
+			document,
+			type: "ryotql-request",
+			requestId: `ryotql-${CLIENT_BRIDGE_MAX_PENDING_REQUESTS + 1}`,
+		});
+		channel.port1.postMessage({
+			outcome: "success",
+			type: "ryotql-result",
+			requestId: "ryotql-1",
+			response: { data: {} },
+		});
+		await delay();
+		runtime.dispose();
+		await expect(replacement).rejects.toMatchObject({ reason: "disposed" });
+		const results = await settlements;
+		expect(results.every((result) => result.status === "rejected")).toBe(true);
+	});
+
 	it("rejects simultaneous pending calls once on fatal failure and ignores late results", async () => {
 		const { channel, messages, runtime } = openRuntime();
 		activate(channel);
@@ -389,8 +438,8 @@ describe("plugin runtime", () => {
 		channel.port1.postMessage({
 			outcome: "success",
 			type: "ryotql-result",
-			response: { data: {} },
 			requestId: "ryotql-1",
+			response: { data: {} },
 		});
 		expect(() => runtime.client.navigation.push({ path: "/late" })).toThrow(
 			new RyotClientError("protocol"),

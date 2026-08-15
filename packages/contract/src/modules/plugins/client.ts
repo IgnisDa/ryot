@@ -256,6 +256,13 @@ export type PluginBridgeRyotQLRequest = Schema.Schema.Type<typeof PluginBridgeRy
 
 export type PluginRyotQLRequest = Pick<PluginBridgeRyotQLRequest, "document">;
 
+export const PluginBridgeRyotQLCancel = strictStruct({
+	requestId: Schema.String,
+	type: Schema.Literal("ryotql-cancel"),
+});
+
+export type PluginBridgeRyotQLCancel = Schema.Schema.Type<typeof PluginBridgeRyotQLCancel>;
+
 const pluginRyotQLSuccessFields = {
 	response: RyotQLResponse,
 	outcome: Schema.Literal("success"),
@@ -288,6 +295,7 @@ export type PluginBridgeRyotQLResult = Schema.Schema.Type<typeof PluginBridgeRyo
 export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeNavigate,
 	PluginBridgeThemeApplied,
+	PluginBridgeRyotQLCancel,
 	PluginBridgeRyotQLRequest,
 	PluginBridgeLifecycleClose,
 	PluginBridgeOperationRequest,

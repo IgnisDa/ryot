@@ -1,10 +1,10 @@
+import { createRyotQuery } from "@ryot/client-sdk/react";
 import {
 	pluginClientCatalogRecipe,
 	type PluginClientCatalog,
 	type PluginClientCatalogEntry,
 } from "@ryot/ryotql-recipes/plugin-client-catalog";
 import { Context, Data, Effect, Layer } from "effect";
-import { Atom } from "effect/unstable/reactivity";
 
 import type { KernelRyotClient } from "#/api/ryot-client";
 import type { ClientRuntime } from "#/runtime";
@@ -48,21 +48,16 @@ export class PluginCatalogService extends Context.Service<PluginCatalogService>(
 	static readonly layer = Layer.effect(this, this.make);
 }
 
-export const makePluginCatalogAtom = (
-	runtime: ClientRuntime,
-	ryot: KernelRyotClient,
-	initialValue: PluginClientCatalog,
-) =>
-	Atom.make(
-		Effect.tryPromise({
-			catch: (cause) => new PluginCatalogError({ cause }),
-			try: (signal) =>
-				runtime.runPromise(
-					Effect.flatMap(PluginCatalogService, (service) => service.load(ryot)),
-					{
-						signal,
-					},
-				),
-		}),
-		{ initialValue },
-	);
+type PluginCatalogQueryInput = {
+	readonly runtime: ClientRuntime;
+	readonly initialData: PluginClientCatalog;
+};
+
+export const pluginCatalogQuery = createRyotQuery<PluginCatalogQueryInput, PluginClientCatalog>(
+	({ client, input, signal }) =>
+		input.runtime.runPromise(
+			Effect.flatMap(PluginCatalogService, (service) => service.load(client)),
+			{ signal },
+		),
+	{ initialData: (input) => input.initialData },
+);
