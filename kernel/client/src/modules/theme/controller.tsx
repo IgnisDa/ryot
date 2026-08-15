@@ -1,8 +1,8 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import { Atom } from "effect/unstable/reactivity";
-import { useEffect } from "react";
+import { Effect } from "effect";
+import { useEffect, useState } from "react";
 
-import { getThemePreference, setThemePreference } from "../../persistence/storage";
+import { ClientStorage } from "../../persistence/storage";
+import type { ClientRuntime } from "../../runtime";
 import {
 	THEME_PREFERENCES,
 	applyThemePreference,
@@ -10,25 +10,18 @@ import {
 	type ThemePreference,
 } from "./preference";
 
-const initialThemePreference = getThemePreference();
-applyThemePreference(document.documentElement, initialThemePreference);
-
-const themePreferenceAtom = Atom.make<ThemePreference>(initialThemePreference).pipe(Atom.keepAlive);
-
-export function ThemeController() {
-	const preference = useAtomValue(themePreferenceAtom);
+export function ThemeController(props: {
+	readonly runtime: ClientRuntime;
+	readonly initialPreference: ThemePreference;
+}) {
+	const [preference, setPreference] = useState(props.initialPreference);
 
 	useEffect(() => {
 		applyThemePreference(document.documentElement, preference);
-		setThemePreference(preference);
-	}, [preference]);
-
-	return null;
-}
-
-export function ThemePreferenceControl() {
-	const preference = useAtomValue(themePreferenceAtom);
-	const setPreference = useAtomSet(themePreferenceAtom);
+		void props.runtime.runPromise(
+			Effect.flatMap(ClientStorage, (storage) => storage.setThemePreference(preference)),
+		);
+	}, [preference, props.runtime]);
 
 	return (
 		<label className="fixed top-[max(16px,env(safe-area-inset-top))] right-[max(16px,env(safe-area-inset-right))] z-2 flex items-center gap-2 text-[13px] font-semibold text-text-muted">

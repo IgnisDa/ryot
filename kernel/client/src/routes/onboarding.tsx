@@ -1,13 +1,12 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useReducer, useState } from "react";
+import { Effect } from "effect";
+import { useEffect, useReducer, useRef, useState } from "react";
 
 import { type ServerMode, resolveServerOrigin } from "../api/origin";
-import { checkServerHealth } from "../api/public";
-import { verifyAndSaveServer } from "../modules/server/connect";
 import { initialConnectionState, reduceConnectionState } from "../modules/server/connection-state";
 import { sanitizeRedirect } from "../modules/server/redirect";
 import { decideOnboardingGate } from "../modules/server/route-gates";
-import { getServerSelection, setServerSelection } from "../persistence/storage";
+import { ServerService } from "../modules/server/service";
 
 const serverOptions = [
 	{
@@ -25,8 +24,11 @@ const serverOptions = [
 export const Route = createFileRoute("/onboarding")({
 	component: Onboarding,
 	validateSearch: (search) => ({ redirect: sanitizeRedirect(search.redirect) }),
-	beforeLoad: ({ search }) => {
-		const decision = decideOnboardingGate(getServerSelection(), search.redirect);
+	beforeLoad: ({ context, search }) => {
+		const server = context.runtime.runSync(
+			Effect.flatMap(ServerService, (service) => service.selected),
+		);
+		const decision = decideOnboardingGate(server, search.redirect);
 		if (decision.action === "redirect") {
 			return redirect({ to: decision.to, search: { redirect: decision.redirectTo } });
 		}
@@ -35,13 +37,17 @@ export const Route = createFileRoute("/onboarding")({
 });
 
 function Onboarding() {
+	const { runtime } = Route.useRouteContext();
 	const search = Route.useSearch();
 	const navigate = Route.useNavigate();
+	const serverService = runtime.runSync(ServerService);
 	const [mode, setMode] = useState<ServerMode>("cloud");
 	const [serverUrl, setServerUrl] = useState("");
 	const [validationError, setValidationError] = useState<string>();
 	const [connection, dispatch] = useReducer(reduceConnectionState, initialConnectionState);
+	const connectionController = useRef<AbortController>(null);
 	const checking = connection.status === "checking";
+	useEffect(() => () => connectionController.current?.abort(), []);
 
 	function changeMode(nextMode: ServerMode) {
 		setMode(nextMode);
@@ -67,10 +73,18 @@ function Onboarding() {
 		}
 
 		dispatch({ type: "started" });
-		const connected = await verifyAndSaveServer(result.origin, {
-			checkHealth: checkServerHealth,
-			saveServer: setServerSelection,
-		});
+		connectionController.current?.abort();
+		const controller = new AbortController();
+		connectionController.current = controller;
+		const connected = await runtime
+			.runPromise(serverService.connect(result.origin), { signal: controller.signal })
+			.then(
+				() => true,
+				() => false,
+			);
+		if (controller.signal.aborted) {
+			return;
+		}
 		if (!connected) {
 			dispatch({ type: "failed" });
 			return;
@@ -132,10 +146,10 @@ function Onboarding() {
 								autoCorrect="off"
 								value={serverUrl}
 								autoCapitalize="none"
+								className="ui-field-input"
 								placeholder="https://ryot.example.com"
 								aria-invalid={validationError !== undefined}
 								aria-describedby={validationError ? "server-url-error" : undefined}
-								className="ui-field-input"
 								onChange={(event) => {
 									setServerUrl(event.currentTarget.value);
 									setValidationError(undefined);

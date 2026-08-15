@@ -1,9 +1,39 @@
 import { runContract } from "@ryot/contract/client";
+import type { SystemConfigResponse } from "@ryot/contract/modules/system/contract";
+import { Context, Data, Effect, Layer } from "effect";
 
 import { serverApiUrl, type ServerOrigin } from "./origin";
 
-export const checkServerHealth = (origin: ServerOrigin) =>
-	runContract((client) => client.system.health(), { baseUrl: serverApiUrl(origin) });
+export class PublicApiError extends Data.TaggedError("PublicApiError")<{
+	readonly cause: unknown;
+}> {}
 
-export const fetchSystemConfig = (origin: ServerOrigin, signal?: AbortSignal) =>
-	runContract((client) => client.system.config(), { baseUrl: serverApiUrl(origin), signal });
+const checkHealth = Effect.fn("PublicApi.checkHealth")(function* (origin: ServerOrigin) {
+	yield* Effect.tryPromise({
+		catch: (cause) => new PublicApiError({ cause }),
+		try: (signal) =>
+			runContract((client) => client.system.health(), { baseUrl: serverApiUrl(origin), signal }),
+	});
+});
+
+const getSystemConfig = (origin: ServerOrigin) =>
+	Effect.tryPromise({
+		catch: (cause) => new PublicApiError({ cause }),
+		try: (signal) =>
+			runContract((client) => client.system.config(), {
+				signal,
+				baseUrl: serverApiUrl(origin),
+			}),
+	});
+
+export class PublicApi extends Context.Service<
+	PublicApi,
+	{
+		readonly checkHealth: (origin: ServerOrigin) => Effect.Effect<void, PublicApiError>;
+		readonly getSystemConfig: (
+			origin: ServerOrigin,
+		) => Effect.Effect<SystemConfigResponse, PublicApiError>;
+	}
+>()("PublicApi", { make: Effect.succeed({ checkHealth, getSystemConfig }) }) {
+	static readonly layer = Layer.effect(this, this.make);
+}

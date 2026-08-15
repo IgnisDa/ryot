@@ -39,9 +39,9 @@ Application code must exercise the production Better Auth and authenticated tran
 
 ## Implementation Notes
 
-- Added the normalized Better Auth browser client, public authentication configuration loading, credentialed contract transport, and the credential-free `ApiScope` keyed by normalized server URL and user ID under `kernel/client/src/api` and `kernel/client/src/modules/auth`.
+- Added Effect services for the normalized Better Auth browser client, public authentication configuration, authentication workflows, and credentialed contract transport. Live implementations are composed once in the shared client runtime, and the credential-free `ApiScope` remains keyed by normalized server URL and user ID.
 - Built the DOM authentication UI with TanStack Form: email registration and sign-in, configured OIDC, TOTP and backup-code verification, session restoration into the protected kernel shell, safe redirect intent, sign-out, and server change.
 - Derived every offered method from the selected server's `/system/config` response rather than hardcoded UI assumptions, and kept credentials, cookies, tokens, and two-factor values out of atom keys, persistence keys, URLs, and logs.
-- Added a jsdom Vitest environment to `kernel/client` and focused component tests for `CredentialsForm` and `TwoFactorForm` covering mode switching, Enter-key focus movement, credential normalization, validation gating, server-error presentation, disabled state, two-factor method branching, code trimming, and reset-on-failure.
+- Added a jsdom Vitest environment, deterministic Effect service layers, and focused component tests that use plain recording callbacks. Coverage includes workflow cleanup, mode switching, Enter-key focus movement, credential normalization, validation gating, server-error presentation, disabled state, two-factor method branching, code trimming, and reset-on-failure without test-framework mocks.
 - Backend-facing coverage for sign-up, sign-in, two-factor branching, and OIDC already exists in `tests/src/tests/kernel/auth/auth.test.ts`, `2fa.test.ts`, and `oidc.test.ts`; no new end-to-end suite was added because this slice changed no backend or contract behavior.
 - Verified with `bun turbo --filter=@ryot/kernel-client check`, `bun turbo --filter=@ryot/kernel-client test`, and `bun turbo --filter=@ryot/kernel-client build`.
