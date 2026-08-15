@@ -7,6 +7,10 @@ export type RyotQLResultState<Value> =
 	| { readonly status: "malformed"; readonly cause: Cause.Cause<unknown> }
 	| { readonly status: "transport-error"; readonly cause: Cause.Cause<unknown> };
 
+export type MappedRyotQLResultState<State extends { readonly status: string }> =
+	| Exclude<RyotQLResultState<never>, { readonly status: "ready" }>
+	| State;
+
 export class RyotQLMalformedResultError extends Error {
 	readonly _tag = "RyotQLMalformedResultError";
 

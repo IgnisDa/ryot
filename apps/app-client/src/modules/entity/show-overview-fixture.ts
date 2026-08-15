@@ -42,17 +42,15 @@ const overviewRows = (items: readonly Record<string, unknown>[]) =>
 	rowsResult(items, { hasMore: false, limit: 12, nextCursor: null });
 
 export const decodeShowOverview = (input: OverviewRows = {}) => {
-	const decoded = showOverviewFixtureRecipe.decode({
-		data: {
-			people: overviewRows(input.people ?? [showPersonRow]),
-			companies: overviewRows(input.companies ?? [showCompanyRow]),
-			recommendations: overviewRows(input.recommendations ?? [showRecommendationRow]),
-		},
-	});
-	if (Result.isFailure(decoded)) {
-		throw new Error("Expected a decoded show overview result");
-	}
-	return decoded.success;
+	return Result.getOrThrow(
+		showOverviewFixtureRecipe.decode({
+			data: {
+				people: overviewRows(input.people ?? [showPersonRow]),
+				companies: overviewRows(input.companies ?? [showCompanyRow]),
+				recommendations: overviewRows(input.recommendations ?? [showRecommendationRow]),
+			},
+		}),
+	);
 };
 
 export const emptyShowOverview = () =>
