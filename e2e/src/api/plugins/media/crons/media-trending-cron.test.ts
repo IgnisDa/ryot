@@ -2,7 +2,6 @@ import { PluginSlug, RelationshipSchemaSlug } from "@ryot-app/contract/schema/br
 import { Effect } from "effect";
 
 import {
-	ADMIN_TOKEN,
 	adminAccessTokenHeaders,
 	adminHeaders,
 	type Client,
@@ -128,7 +127,7 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 								files: encodeTestSupportPluginFiles(installed.files),
 							},
 						}),
-					adminHeaders,
+					adminHeaders(),
 				);
 				const directScriptId = installed.scriptIds[SCRIPT_SLUG];
 				assertPresent(directScriptId, "Trending direct script was not installed");
@@ -137,7 +136,7 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 						c.testSupport.getSandboxScript({
 							params: { scriptId: directScriptId },
 						}),
-					adminHeaders,
+					adminHeaders(),
 				);
 				assertPresent(directScript.providerId, "Trending script provider was not stored");
 				providerId = directScript.providerId;
@@ -195,7 +194,7 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 							pluginSlug: PluginSlug.make(trendingPluginSlug),
 						},
 					}),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
+				adminHeaders(),
 			);
 			assert(result.status === "executed");
 			const { executionId } = result;
@@ -211,7 +210,7 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 								relationshipSchemaSlug: RelationshipSchemaSlug.make(mediaTrendingSchemaId),
 							},
 						}),
-					adminHeaders,
+					adminHeaders(),
 				);
 				return yield* Effect.all(
 					relationships.map((relationship) =>

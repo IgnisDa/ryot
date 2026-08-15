@@ -170,7 +170,7 @@ export const installTestProvider = (input: {
 			Object.values(installed.scriptIds).map((scriptId) =>
 				getApiClient().call(
 					(c) => c.testSupport.getSandboxScript({ params: { scriptId } }),
-					adminHeaders,
+					adminHeaders(),
 				),
 			),
 		);

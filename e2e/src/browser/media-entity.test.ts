@@ -18,11 +18,10 @@ import {
 	seedGlobalShowEpisodeTree,
 	seedMediaEntity,
 } from "~/fixtures/plugins/media";
-import { getApiUrl } from "~/support/api";
 import { requirePresent } from "~/support/assertions";
 import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
-import { getFrontendUrl } from "~/support/frontend";
+import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
 
 const SHOW_NAME = "Media Entity Tracer Show";
 const SHOW_COVER = `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="90"><rect width="60" height="90" fill="#8b5cf6"/></svg>`;

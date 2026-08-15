@@ -17,7 +17,6 @@ import {
 	syncIntegrations,
 	updateUserSettingsPreferences,
 } from "~/fixtures/kernel";
-import { getApiUrl } from "~/support/api";
 import {
 	assertTaggedError,
 	requireObjectRecord,
@@ -25,6 +24,7 @@ import {
 	requireString,
 } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+import { getApiUrl } from "~/support/harness-target";
 
 const kodiPayload = { identifier: "tt1234567", lot: "movie", progress: 50 };
 

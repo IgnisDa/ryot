@@ -42,11 +42,10 @@ import {
 } from "~/fixtures/plugins/fitness";
 import { createPokemonEntityFixture } from "~/fixtures/plugins/fixture";
 import { seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";
-import { getApiUrl } from "~/support/api";
 import { requirePresent } from "~/support/assertions";
 import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
-import { getFrontendUrl } from "~/support/frontend";
+import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
 
 const expectVisibleText = (locator: Playwright.Locator, text: string) =>
 	Effect.gen(function* () {

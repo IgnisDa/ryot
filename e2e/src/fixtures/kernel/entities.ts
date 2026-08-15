@@ -106,7 +106,7 @@ export const setEntityPopulatedAt = (entityId: string, populatedAt: string | nul
 				payload: { populatedAt },
 				params: { entityId: EntityId.make(entityId) },
 			}),
-		adminHeaders,
+		adminHeaders(),
 	);
 
 export const createPluginSchemaAndEntity = (client: Client) =>

@@ -79,7 +79,7 @@ export const enqueueSandboxScript = (executingUserId: string, body: EnqueueSandb
 				c.testSupport.enqueueSandbox({
 					payload: { ...body, executingUserId: UserId.make(executingUserId) },
 				}),
-			adminHeaders,
+			adminHeaders(),
 		);
 		return {
 			executionId: result.executionId,
@@ -97,7 +97,7 @@ export const pollSandboxResult = (executingUserId: string, jobId: string) =>
 						params: { jobId },
 						query: { executingUserId: UserId.make(executingUserId) },
 					}),
-				adminHeaders,
+				adminHeaders(),
 			);
 			return result.status !== "pending" ? result : null;
 		}),
@@ -106,7 +106,7 @@ export const pollSandboxResult = (executingUserId: string, jobId: string) =>
 export const deleteSandboxReplayProjection = (executionId: string) =>
 	getApiClient().call(
 		(client) => client.testSupport.deleteSandboxReplayProjection({ payload: { executionId } }),
-		adminHeaders,
+		adminHeaders(),
 	);
 
 function formatSandboxExecutionError(error: SandboxExecutionError) {
