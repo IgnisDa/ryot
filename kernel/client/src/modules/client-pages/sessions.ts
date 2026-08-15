@@ -16,6 +16,10 @@ export class ClientPageSessionTemporary extends Data.TaggedError("ClientPageSess
 const isStale = Schema.is(ClientPageStalePreparation);
 const isNotFound = Schema.is(ClientPageSessionNotFound);
 
+type ClientPageSessionRenewal =
+	| { readonly outcome: "renewed"; readonly expiresAt: string }
+	| { readonly outcome: "replace"; readonly reason: "stale" | "not-found" };
+
 export class ClientPageSessions extends Context.Service<ClientPageSessions>()(
 	"ClientPageSessions",
 	{
@@ -32,13 +36,28 @@ export class ClientPageSessions extends Context.Service<ClientPageSessions>()(
 						isStale(error.cause) ? new ClientPageSessionStale() : new ClientPageSessionTemporary(),
 					),
 				);
-			const renew = (scope: ApiScope, sessionId: string) =>
+			const renew = (
+				scope: ApiScope,
+				sessionId: string,
+			): Effect.Effect<ClientPageSessionRenewal, ClientPageSessionTemporary> =>
 				api.renewSession(scope, { params: { sessionId } }).pipe(
 					Effect.map(({ expiresAt }) => ({ outcome: "renewed" as const, expiresAt })),
-					Effect.catchTag("AuthenticatedApiError", (error) =>
-						isNotFound(error.cause)
-							? Effect.succeed({ outcome: "replace" as const, reason: "not-found" as const })
-							: Effect.fail(new ClientPageSessionTemporary()),
+					Effect.catchTag(
+						"AuthenticatedApiError",
+						(
+							error,
+						): Effect.Effect<
+							{ readonly outcome: "replace"; readonly reason: "stale" | "not-found" },
+							ClientPageSessionTemporary
+						> => {
+							if (isStale(error.cause)) {
+								return Effect.succeed({ outcome: "replace", reason: "stale" });
+							}
+							if (isNotFound(error.cause)) {
+								return Effect.succeed({ outcome: "replace", reason: "not-found" });
+							}
+							return Effect.fail(new ClientPageSessionTemporary());
+						},
 					),
 				);
 			const revoke = (scope: ApiScope, sessionId: string) =>
