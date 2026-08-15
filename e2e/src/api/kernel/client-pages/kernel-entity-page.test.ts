@@ -56,8 +56,8 @@ describe("kernel entity page E2E", () => {
 					second.identity.kind === "kernel-entity-page",
 				"Expected kernel entity page preparation identities",
 			);
-			expect(second.identity.artifactKey).toBe(first.identity.artifactKey);
-			expect(second.identity.artifactHash).toBe(first.identity.artifactHash);
+			expect(second.identity.compositionKey).toBe(first.identity.compositionKey);
+			expect(second.identity.compositionHash).toBe(first.identity.compositionHash);
 		}),
 	);
 });
