@@ -45,6 +45,7 @@
 		"typescript/prefer-optional-chain": "warn",
 		"typescript/no-floating-promises": "error",
 		"typescript/no-non-null-assertion": "warn",
+		"import/first": ["error", "absolute-first"],
 		"unicorn/prefer-number-properties": "error",
 		"unicorn/no-await-expression-member": "warn",
 		"typescript/consistent-type-imports": "warn",
