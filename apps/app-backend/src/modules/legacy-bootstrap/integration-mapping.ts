@@ -1,6 +1,47 @@
-import { buildReportSql } from "./shared";
+import { Effect, Schema } from "effect";
+import type * as SqlConnection from "effect/unstable/sql/SqlConnection";
 
-export const buildIntegrationMigrationSql = () => `
+import { buildReportSql, quoteSqlString } from "./shared";
+
+const legacyProviderSpecificsSql = (alias: string) => `CASE ${alias}.provider
+	WHEN 'audiobookshelf' THEN jsonb_build_object('kind', 'audiobookshelf', 'baseUrl', ${alias}.provider_specifics->>'audiobookshelf_base_url', 'token', ${alias}.provider_specifics->>'audiobookshelf_token')
+	WHEN 'komga' THEN jsonb_build_object('kind', 'komga', 'baseUrl', ${alias}.provider_specifics->>'komga_base_url', 'apiKey', ${alias}.provider_specifics->>'komga_api_key')
+	WHEN 'plex_yank' THEN jsonb_build_object('kind', 'plex_yank', 'baseUrl', ${alias}.provider_specifics->>'plex_yank_base_url', 'token', ${alias}.provider_specifics->>'plex_yank_token')
+	WHEN 'youtube_music' THEN jsonb_build_object('kind', 'youtube_music', 'timezone', ${alias}.provider_specifics->>'youtube_music_timezone', 'authCookie', ${alias}.provider_specifics->>'youtube_music_auth_cookie')
+	WHEN 'kodi' THEN jsonb_build_object('kind', 'kodi')
+	WHEN 'emby' THEN jsonb_build_object('kind', 'emby')
+	WHEN 'plex_sink' THEN jsonb_build_object('kind', 'plex_sink') || (CASE WHEN ${alias}.provider_specifics->>'plex_sink_username' IS NOT NULL THEN jsonb_build_object('username', ${alias}.provider_specifics->>'plex_sink_username') ELSE '{}'::jsonb END)
+	WHEN 'jellyfin_sink' THEN jsonb_build_object('kind', 'jellyfin_sink') || (CASE WHEN ${alias}.provider_specifics->>'jellyfin_sink_username' IS NOT NULL THEN jsonb_build_object('username', ${alias}.provider_specifics->>'jellyfin_sink_username') ELSE '{}'::jsonb END) || (CASE WHEN ${alias}.provider_specifics->>'jellyfin_sink_metadata_provider' IS NOT NULL THEN jsonb_build_object('metadataProvider', lower(${alias}.provider_specifics->>'jellyfin_sink_metadata_provider')) ELSE '{}'::jsonb END)
+	WHEN 'ryot_browser_extension' THEN jsonb_build_object('kind', 'ryot_browser_extension') || (CASE WHEN jsonb_typeof(${alias}.provider_specifics->'ryot_browser_extension_disabled_sites') = 'array' THEN jsonb_build_object('disabledSites', ${alias}.provider_specifics->'ryot_browser_extension_disabled_sites') ELSE '{}'::jsonb END)
+	WHEN 'radarr' THEN jsonb_build_object('kind', 'radarr', 'baseUrl', ${alias}.provider_specifics->>'radarr_base_url', 'apiKey', ${alias}.provider_specifics->>'radarr_api_key', 'profileId', ${alias}.provider_specifics->>'radarr_profile_id', 'rootFolderPath', ${alias}.provider_specifics->>'radarr_root_folder_path', 'syncCollectionIds', ${alias}.provider_specifics->'radarr_sync_collection_ids') || (CASE WHEN jsonb_typeof(${alias}.provider_specifics->'radarr_tag_ids') = 'array' THEN jsonb_build_object('tagIds', ${alias}.provider_specifics->'radarr_tag_ids') ELSE '{}'::jsonb END)
+	WHEN 'sonarr' THEN jsonb_build_object('kind', 'sonarr', 'baseUrl', ${alias}.provider_specifics->>'sonarr_base_url', 'apiKey', ${alias}.provider_specifics->>'sonarr_api_key', 'profileId', ${alias}.provider_specifics->>'sonarr_profile_id', 'rootFolderPath', ${alias}.provider_specifics->>'sonarr_root_folder_path', 'syncCollectionIds', ${alias}.provider_specifics->'sonarr_sync_collection_ids') || (CASE WHEN jsonb_typeof(${alias}.provider_specifics->'sonarr_tag_ids') = 'number' THEN jsonb_build_object('tagIds', jsonb_build_array(${alias}.provider_specifics->'sonarr_tag_ids')) ELSE '{}'::jsonb END)
+	WHEN 'jellyfin_push' THEN jsonb_build_object('kind', 'jellyfin_push', 'baseUrl', ${alias}.provider_specifics->>'jellyfin_push_base_url', 'username', ${alias}.provider_specifics->>'jellyfin_push_username') || (CASE WHEN ${alias}.provider_specifics->>'jellyfin_push_password' IS NOT NULL THEN jsonb_build_object('password', ${alias}.provider_specifics->>'jellyfin_push_password') ELSE '{}'::jsonb END)
+END`;
+
+const LegacyIntegrationSettings = Schema.Struct({
+	id: Schema.String,
+	lot: Schema.String,
+	provider: Schema.String,
+	settings: Schema.Record(Schema.String, Schema.Unknown),
+});
+
+export const readLegacyIntegrationSettings = Effect.fn("readLegacyIntegrationSettings")(function* (
+	connection: SqlConnection.Connection,
+) {
+	const rows = yield* connection.execute(
+		`SELECT oi.id, oi.lot, oi.provider, ${legacyProviderSpecificsSql("oi")} AS settings FROM "old_integration" oi WHERE oi.provider <> 'generic_json' ORDER BY oi.id`,
+		[],
+		undefined,
+	);
+	return yield* Effect.orDie(
+		Schema.decodeUnknownEffect(Schema.Array(LegacyIntegrationSettings))(rows),
+	);
+});
+
+export const buildIntegrationMigrationSql = (input: {
+	installations: ReadonlyArray<{ installationId: string; userId: string }>;
+	providerSlugs: ReadonlyArray<string>;
+}) => `
 DO $$
 DECLARE
 	generic_json_rows int;
@@ -17,11 +58,7 @@ BEGIN
 	SELECT string_agg(DISTINCT provider, ', ' ORDER BY provider)
 	INTO unknown_providers
 	FROM "old_integration"
-	WHERE provider NOT IN (
-		'audiobookshelf', 'komga', 'plex_yank', 'youtube_music',
-		'kodi', 'emby', 'plex_sink', 'jellyfin_sink', 'ryot_browser_extension',
-		'radarr', 'sonarr', 'jellyfin_push', 'generic_json'
-	);
+	WHERE provider NOT IN (${[...input.providerSlugs, "generic_json"].map(quoteSqlString).join(", ")});
 	IF unknown_providers IS NOT NULL THEN
 		RAISE EXCEPTION 'Legacy integrations with unknown providers cannot be migrated: %', unknown_providers;
 	END IF;
@@ -67,11 +104,8 @@ BEGIN
 	WHERE oi.provider <> 'generic_json'
 		AND NOT EXISTS (
 			SELECT 1
-			FROM "plugin_installation" pi
-			JOIN "plugin" p ON p."id" = pi."plugin_id"
-			WHERE pi."user_id" = oi.user_id
-				AND p."scope" = 'system'
-				AND p."slug" = 'media'
+			FROM (VALUES ${input.installations.map((row) => `(${quoteSqlString(row.userId)}, ${quoteSqlString(row.installationId)})`).join(", ") || "(NULL::text, NULL::text)"}) installations(user_id, installation_id)
+			WHERE installations.user_id = oi.user_id
 		);
 	IF unresolved_installation_ids IS NOT NULL THEN
 		RAISE EXCEPTION 'Legacy integrations without a media system plugin installation for their owner: %', unresolved_installation_ids;
@@ -101,14 +135,7 @@ BEGIN
 		oi.lot,
 		oi.provider,
 		'media',
-		(
-			SELECT pi."id"
-			FROM "plugin_installation" pi
-			JOIN "plugin" p ON p."id" = pi."plugin_id"
-			WHERE pi."user_id" = oi.user_id
-				AND p."scope" = 'system'
-				AND p."slug" = 'media'
-		),
+		installations.installation_id,
 		oi.name,
 		COALESCE(oi.is_disabled, false),
 		COALESCE(oi.minimum_progress, 2),
@@ -118,79 +145,13 @@ BEGIN
 			'disableOnContinuousErrors',
 			COALESCE((oi.extra_settings->>'disable_on_continuous_errors')::boolean, false)
 		),
-		CASE oi.provider
-			WHEN 'audiobookshelf' THEN jsonb_build_object(
-				'kind', 'audiobookshelf',
-				'baseUrl', oi.provider_specifics->>'audiobookshelf_base_url',
-				'token', oi.provider_specifics->>'audiobookshelf_token'
-			)
-			WHEN 'komga' THEN jsonb_build_object(
-				'kind', 'komga',
-				'baseUrl', oi.provider_specifics->>'komga_base_url',
-				'apiKey', oi.provider_specifics->>'komga_api_key'
-			)
-			WHEN 'plex_yank' THEN jsonb_build_object(
-				'kind', 'plex_yank',
-				'baseUrl', oi.provider_specifics->>'plex_yank_base_url',
-				'token', oi.provider_specifics->>'plex_yank_token'
-			)
-			WHEN 'youtube_music' THEN jsonb_build_object(
-				'kind', 'youtube_music',
-				'timezone', oi.provider_specifics->>'youtube_music_timezone',
-				'authCookie', oi.provider_specifics->>'youtube_music_auth_cookie'
-			)
-			WHEN 'kodi' THEN jsonb_build_object('kind', 'kodi')
-			WHEN 'emby' THEN jsonb_build_object('kind', 'emby')
-			WHEN 'plex_sink' THEN jsonb_build_object('kind', 'plex_sink')
-				|| (CASE WHEN oi.provider_specifics->>'plex_sink_username' IS NOT NULL
-					THEN jsonb_build_object('username', oi.provider_specifics->>'plex_sink_username')
-					ELSE '{}'::jsonb END)
-			WHEN 'jellyfin_sink' THEN jsonb_build_object('kind', 'jellyfin_sink')
-				|| (CASE WHEN oi.provider_specifics->>'jellyfin_sink_username' IS NOT NULL
-					THEN jsonb_build_object('username', oi.provider_specifics->>'jellyfin_sink_username')
-					ELSE '{}'::jsonb END)
-				|| (CASE WHEN oi.provider_specifics->>'jellyfin_sink_metadata_provider' IS NOT NULL
-					THEN jsonb_build_object('metadataProvider', lower(oi.provider_specifics->>'jellyfin_sink_metadata_provider'))
-					ELSE '{}'::jsonb END)
-			WHEN 'ryot_browser_extension' THEN jsonb_build_object('kind', 'ryot_browser_extension')
-				|| (CASE WHEN jsonb_typeof(oi.provider_specifics->'ryot_browser_extension_disabled_sites') = 'array'
-					THEN jsonb_build_object('disabledSites', oi.provider_specifics->'ryot_browser_extension_disabled_sites')
-					ELSE '{}'::jsonb END)
-			WHEN 'radarr' THEN jsonb_build_object(
-				'kind', 'radarr',
-				'baseUrl', oi.provider_specifics->>'radarr_base_url',
-				'apiKey', oi.provider_specifics->>'radarr_api_key',
-				'profileId', oi.provider_specifics->>'radarr_profile_id',
-				'rootFolderPath', oi.provider_specifics->>'radarr_root_folder_path',
-				'syncCollectionIds', oi.provider_specifics->'radarr_sync_collection_ids'
-			)
-				|| (CASE WHEN jsonb_typeof(oi.provider_specifics->'radarr_tag_ids') = 'array'
-					THEN jsonb_build_object('tagIds', oi.provider_specifics->'radarr_tag_ids')
-					ELSE '{}'::jsonb END)
-			WHEN 'sonarr' THEN jsonb_build_object(
-				'kind', 'sonarr',
-				'baseUrl', oi.provider_specifics->>'sonarr_base_url',
-				'apiKey', oi.provider_specifics->>'sonarr_api_key',
-				'profileId', oi.provider_specifics->>'sonarr_profile_id',
-				'rootFolderPath', oi.provider_specifics->>'sonarr_root_folder_path',
-				'syncCollectionIds', oi.provider_specifics->'sonarr_sync_collection_ids'
-			)
-				|| (CASE WHEN jsonb_typeof(oi.provider_specifics->'sonarr_tag_ids') = 'number'
-					THEN jsonb_build_object('tagIds', oi.provider_specifics->'sonarr_tag_ids')
-					ELSE '{}'::jsonb END)
-			WHEN 'jellyfin_push' THEN jsonb_build_object(
-				'kind', 'jellyfin_push',
-				'baseUrl', oi.provider_specifics->>'jellyfin_push_base_url',
-				'username', oi.provider_specifics->>'jellyfin_push_username'
-			)
-				|| (CASE WHEN oi.provider_specifics->>'jellyfin_push_password' IS NOT NULL
-					THEN jsonb_build_object('password', oi.provider_specifics->>'jellyfin_push_password')
-					ELSE '{}'::jsonb END)
-		END,
+		${legacyProviderSpecificsSql("oi")},
 		oi.created_on,
 		oi.last_finished_at,
 		oi.created_on
 	FROM "old_integration" oi
+	INNER JOIN (VALUES ${input.installations.map((row) => `(${quoteSqlString(row.userId)}, ${quoteSqlString(row.installationId)})`).join(", ") || "(NULL::text, NULL::text)"}) installations(user_id, installation_id)
+		ON installations.user_id = oi.user_id
 	WHERE oi.provider <> 'generic_json'
 	ON CONFLICT ("id") DO NOTHING;
 

@@ -13,6 +13,7 @@ export type EntityMigrationTarget = {
 
 export type ResolvedEntityMigrationTarget = {
 	source: string;
+	entitySchemaPluginId: string | null;
 	entitySchemaSlug: string;
 	providerId: string | null;
 };
@@ -22,6 +23,7 @@ export type ResolvedLotEntityMigrationTarget = ResolvedEntityMigrationTarget & {
 
 export type ResolvedRelationshipTarget = {
 	lot: string;
+	relationshipSchemaPluginId: string | null;
 	relationshipSchemaSlug: string;
 };
 
@@ -44,7 +46,7 @@ export const legacyBootstrapGate = Effect.gen(function* () {
 
 export const quoteSqlString = (value: string) => `'${value.replaceAll("'", "''")}'`;
 
-const quoteNullableSqlString = (value: string | null) =>
+export const quoteNullableSqlString = (value: string | null) =>
 	value === null ? "NULL" : quoteSqlString(value);
 
 export const withReservedConnection = Effect.fn("withReservedConnection")(function* <A, E, R>(
@@ -153,32 +155,11 @@ export const logReportRows = (connection: SqlConnection.Connection, afterSequenc
 		return reported.at(-1)?.seq ?? afterSequence;
 	});
 
-export const buildUniqueSlugMap = (
-	rows: Array<{ id: string; slug: string }>,
-	kind: string,
-): Map<string, string> => {
-	const idsBySlug = new Map<string, string>();
-	const duplicateSlugs = new Set<string>();
-
-	for (const row of rows) {
-		if (idsBySlug.has(row.slug)) {
-			duplicateSlugs.add(row.slug);
-		}
-		idsBySlug.set(row.slug, row.id);
-	}
-
-	if (duplicateSlugs.size > 0) {
-		throw new Error(`Duplicate ${kind} slugs: ${Array.from(duplicateSlugs).join(", ")}`);
-	}
-
-	return idsBySlug;
-};
-
 export const buildLotEntityTargetValuesSql = (targets: ResolvedLotEntityMigrationTarget[]) =>
 	targets
 		.map(
 			(t) =>
-				`(${quoteSqlString(t.lot)}, ${quoteSqlString(t.source)}, ${quoteSqlString(t.entitySchemaSlug)}, ${quoteNullableSqlString(t.providerId)})`,
+				`(${quoteSqlString(t.lot)}, ${quoteSqlString(t.source)}, ${quoteSqlString(t.entitySchemaSlug)}, ${quoteNullableSqlString(t.entitySchemaPluginId)}, ${quoteNullableSqlString(t.providerId)})`,
 		)
 		.join(", ");
 
@@ -186,13 +167,16 @@ export const buildEntityTargetValuesSql = (targets: ResolvedEntityMigrationTarge
 	targets
 		.map(
 			(t) =>
-				`(${quoteSqlString(t.source)}, ${quoteSqlString(t.entitySchemaSlug)}, ${quoteNullableSqlString(t.providerId)})`,
+				`(${quoteSqlString(t.source)}, ${quoteSqlString(t.entitySchemaSlug)}, ${quoteNullableSqlString(t.entitySchemaPluginId)}, ${quoteNullableSqlString(t.providerId)})`,
 		)
 		.join(", ");
 
 export const buildRelationshipTargetValuesSql = (targets: ResolvedRelationshipTarget[]) =>
 	targets
-		.map((t) => `(${quoteSqlString(t.lot)}, ${quoteSqlString(t.relationshipSchemaSlug)})`)
+		.map(
+			(t) =>
+				`(${quoteSqlString(t.lot)}, ${quoteSqlString(t.relationshipSchemaSlug)}, ${quoteNullableSqlString(t.relationshipSchemaPluginId)})`,
+		)
 		.join(", ");
 
 // Session temp table of every entity id referenced by V1 user data, used to restrict provider

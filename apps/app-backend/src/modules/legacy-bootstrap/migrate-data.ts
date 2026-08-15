@@ -1,11 +1,10 @@
 import { builtinMediaEntitySchemaSlugs } from "@ryot/media-plugin/schemas/media-schema-slugs";
-import { eq } from "drizzle-orm";
 import { Clock, Effect } from "effect";
 
-import { plugin, sandboxProvider } from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
-import { DefinitionRegistry } from "#modules/definition-registry/service";
-import { PluginLoader } from "#modules/plugins/loader";
+import {
+	formatPropertyIssues,
+	parseAppSchemaProperties,
+} from "#lib/property-schema/property-schema-runtime";
 import { bootstrapNewUser } from "#modules/user-bootstrap/bootstrap";
 import { PluginUserBootstrapDispatcher } from "#modules/user-bootstrap/plugin-dispatch";
 
@@ -23,7 +22,7 @@ import {
 	getUnsupportedExerciseLots,
 	getUnsupportedExerciseSources,
 } from "./exercise-mapping";
-import { buildIntegrationMigrationSql } from "./integration-mapping";
+import { buildIntegrationMigrationSql, readLegacyIntegrationSettings } from "./integration-mapping";
 import {
 	migrateIntegrationProgressCache,
 	readLegacyIntegrationProgressCache,
@@ -44,8 +43,11 @@ import {
 import { metadataMigrationTargets } from "./metadata-mapping-targets";
 import {
 	buildUniqueLotEntitySchemaSlugMap,
-	requireDefined,
-	requireSchemaId,
+	buildLegacyPackageResolution,
+	requireEventSchema,
+	requireInstallation,
+	requireMapped,
+	requireSchema,
 	resolveEntityMigrationTargets,
 	resolveRelationshipMigrationTargets,
 } from "./migration-resolution";
@@ -66,7 +68,6 @@ import { buildSeenEpisodicCompletionMigrationSql } from "./seen-completion-mappi
 import { buildSeenMigrationSql } from "./seen-mapping";
 import {
 	buildReferencedGlobalEntityIdsSql,
-	buildUniqueSlugMap,
 	getLatestReportSequence,
 	legacyBootstrapGate,
 	logReportRows,
@@ -94,215 +95,166 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		return;
 	}
 
-	const database = yield* Database;
-	const loader = yield* PluginLoader;
-	const definitions = yield* DefinitionRegistry;
-
-	const entitySchemas = Object.keys(definitions.getSnapshot().entitySchemas).map((slug) => ({
-		id: slug,
-		slug,
-	}));
-	const workoutSetEventSchemaResult = definitions.getEventSchema("exercise", "workout-set")
-		? [{ id: "workout-set" }]
-		: [];
-	const addEntityToCollectionEventSchemaResult = definitions.getEventSchema(
-		"collection",
-		"add-entity-to-collection",
-	)
-		? [{ id: "add-entity-to-collection" }]
-		: [];
-
-	const persistedProviders = yield* mapDatabaseErrors(
-		database
-			.select({
-				id: sandboxProvider.id,
-				slug: sandboxProvider.slug,
-				pluginSlug: plugin.slug,
-			})
-			.from(sandboxProvider)
-			.innerJoin(plugin, eq(plugin.id, sandboxProvider.pluginId)),
+	let reportSequence = yield* withReservedConnection(getLatestReportSequence);
+	const migratedUserRows = yield* withReservedConnection((connection) =>
+		Effect.gen(function* () {
+			yield* connection.executeRaw(buildLegacyUserAuthMigrationSql(), []);
+			const rows: ReadonlyArray<{ id: string }> = yield* connection.execute(
+				`SELECT "id" FROM "old_user" ORDER BY "created_on", "id"`,
+				[],
+				undefined,
+			);
+			return rows;
+		}),
 	);
-
-	// A persisted `sandbox_provider` row is only live when the active loader snapshot's plugin still
-	// declares it; repository upserts never remove stale declarations. Mirrors `findActiveProvider`
-	// in `#modules/plugins/runtime-resolver`.
-	const declaredProviderKeys = new Set(
-		Object.values(loader.getSnapshot().plugins).flatMap((entry) =>
-			entry.manifest.providers.map(({ slug }) => `${entry.slug}|${slug}`),
-		),
-	);
-	const activeProviders = persistedProviders.filter((provider) =>
-		declaredProviderKeys.has(`${provider.pluginSlug}|${provider.slug}`),
-	);
-
-	const relationshipSchemas = Object.keys(definitions.getSnapshot().relationshipSchemas).map(
-		(slug) => ({ id: slug, slug }),
-	);
-
-	const entitySchemaSlugs = buildUniqueSlugMap(entitySchemas, "entity schema");
-	const providerIds = buildUniqueSlugMap(activeProviders, "sandbox provider");
-	const relationshipSchemaSlugs = buildUniqueSlugMap(relationshipSchemas, "relationship schema");
+	const userIds = migratedUserRows.map(({ id }) => id);
+	const resolution = yield* buildLegacyPackageResolution(userIds);
+	const mediaPluginId = resolution.mediaPluginId;
+	const fitnessPluginId = resolution.fitnessPluginId;
+	const entitySchema = (pluginId: string | null, slug: string) =>
+		requireSchema(resolution.entitySchemas, pluginId, slug, "entity schema");
+	const relationshipSchema = (pluginId: string | null, slug: string) =>
+		requireSchema(resolution.relationshipSchemas, pluginId, slug, "relationship schema");
 	const metadataEntitySchemaSlugByLot = buildUniqueLotEntitySchemaSlugMap(
 		metadataMigrationTargets.map(({ lot, entitySchemaSlug }) => ({ lot, entitySchemaSlug })),
 	);
-
 	const resolvedMetadataTargets = resolveEntityMigrationTargets(
 		metadataMigrationTargets,
-		entitySchemaSlugs,
-		providerIds,
-		"metadata",
+		resolution,
+		mediaPluginId,
 	);
 	const resolvedMetadataGroupEntityTargets = resolveEntityMigrationTargets(
 		metadataGroupEntityTargets,
-		entitySchemaSlugs,
-		providerIds,
-		"metadata group",
+		resolution,
+		mediaPluginId,
 	);
 	const resolvedMetadataGroupRelationshipTargets = metadataGroupRelationshipTargets.map(
-		(target) => ({
-			lot: target.lot,
-			relationshipSchemaSlug: requireSchemaId(
-				relationshipSchemaSlugs,
-				target.relationshipSchemaSlug,
-				"relationship schema",
-			),
-		}),
+		(target) => {
+			const resolved = relationshipSchema(mediaPluginId, target.relationshipSchemaSlug);
+			return {
+				lot: target.lot,
+				relationshipSchemaPluginId: resolved.pluginId,
+				relationshipSchemaSlug: resolved.slug,
+			};
+		},
 	);
 	const resolvedPersonEntityTargets = resolveEntityMigrationTargets(
 		personEntityTargets,
-		entitySchemaSlugs,
-		providerIds,
-		"person",
+		resolution,
+		mediaPluginId,
 	);
 	const resolvedCompanyEntityTargets = resolveEntityMigrationTargets(
 		companyEntityTargets,
-		entitySchemaSlugs,
-		providerIds,
-		"company",
+		resolution,
+		mediaPluginId,
 	);
 	const resolvedPersonRelationshipTargets = resolveRelationshipMigrationTargets({
-		relationshipSchemaSlugs,
+		pluginId: mediaPluginId,
+		resolution,
 		sourceEntitySchemaSlug: "person",
 		lotToEntitySchemaSlug: metadataEntitySchemaSlugByLot,
 	});
 	const resolvedCompanyRelationshipTargets = resolveRelationshipMigrationTargets({
-		relationshipSchemaSlugs,
+		pluginId: mediaPluginId,
+		resolution,
 		sourceEntitySchemaSlug: "company",
 		lotToEntitySchemaSlug: metadataEntitySchemaSlugByLot,
 	});
-
-	const groupPersonRelationshipLots = [
-		{ lot: "music", relationshipSchemaSlug: "person-to-music-group" },
-		{ lot: "video_game", relationshipSchemaSlug: "person-to-video-game-group" },
-	] as const;
-	const resolvedGroupPersonRelationshipTargets = groupPersonRelationshipLots.map((target) => ({
-		lot: target.lot,
-		relationshipSchemaSlug: requireSchemaId(
-			relationshipSchemaSlugs,
-			target.relationshipSchemaSlug,
-			"relationship schema",
-		),
-	}));
-
-	const collectionEntitySchemaSlug = requireSchemaId(
-		entitySchemaSlugs,
+	const resolvedGroupPersonRelationshipTargets = [
+		{ lot: "music", slug: "person-to-music-group" },
+		{ lot: "video_game", slug: "person-to-video-game-group" },
+	].map(({ lot, slug }) => {
+		const resolved = relationshipSchema(mediaPluginId, slug);
+		return {
+			lot,
+			relationshipSchemaPluginId: resolved.pluginId,
+			relationshipSchemaSlug: resolved.slug,
+		};
+	});
+	const collectionEntitySchema = entitySchema(null, "collection");
+	const libraryEntitySchema = entitySchema(mediaPluginId, "library");
+	const memberOfRelationshipSchema = relationshipSchema(null, "member-of");
+	const inLibraryRelationshipSchema = relationshipSchema(mediaPluginId, "in-library");
+	const collectionsSavedView = requireSchema(
+		resolution.savedViews,
+		null,
+		"collections",
+		"saved view",
+	);
+	const addEntityToCollectionEventSchema = requireEventSchema(
+		resolution,
+		null,
 		"collection",
-		"entity schema",
+		"add-entity-to-collection",
 	);
-
-	const memberOfRelationshipSchemaSlug = requireSchemaId(
-		relationshipSchemaSlugs,
-		"member-of",
-		"relationship schema",
+	const measurementEntitySchema = entitySchema(fitnessPluginId, "measurement");
+	const workoutEntitySchema = entitySchema(fitnessPluginId, "workout");
+	const workoutTemplateEntitySchema = entitySchema(fitnessPluginId, "workout-template");
+	const workoutSetEventSchema = requireEventSchema(
+		resolution,
+		fitnessPluginId,
+		"exercise",
+		"workout-set",
 	);
-	const addEntityToCollectionEventSchemaSlug = requireDefined(
-		addEntityToCollectionEventSchemaResult[0],
-		'Missing event schema for slug "add-entity-to-collection"',
-	).id;
-
-	const measurementEntitySchemaSlug = requireSchemaId(
-		entitySchemaSlugs,
-		"measurement",
-		"entity schema",
-	);
-
-	const workoutEntitySchemaSlug = requireSchemaId(entitySchemaSlugs, "workout", "entity schema");
-
-	const workoutTemplateEntitySchemaSlug = requireSchemaId(
-		entitySchemaSlugs,
-		"workout-template",
-		"entity schema",
-	);
-
-	const workoutSetEventSchemaSlug = requireDefined(
-		workoutSetEventSchemaResult[0],
-		'Missing event schema for slug "workout-set"',
-	).id;
-
-	const workoutToWorkoutTemplateRelationshipSchemaSlug = requireSchemaId(
-		relationshipSchemaSlugs,
+	const workoutToWorkoutTemplateRelationshipSchema = relationshipSchema(
+		fitnessPluginId,
 		"workout-to-workout-template",
-		"relationship schema",
 	);
-
-	const workoutRepeatedFromRelationshipSchemaSlug = requireSchemaId(
-		relationshipSchemaSlugs,
+	const workoutRepeatedFromRelationshipSchema = relationshipSchema(
+		fitnessPluginId,
 		"workout-repeated-from",
-		"relationship schema",
 	);
-
-	const libraryEntitySchemaSlug = requireSchemaId(entitySchemaSlugs, "library", "entity schema");
-
-	const inLibraryRelationshipSchemaSlug = requireSchemaId(
-		relationshipSchemaSlugs,
-		"in-library",
-		"relationship schema",
-	);
-
-	const mediaMonitoringRelationshipSchemaSlug = requireSchemaId(
-		relationshipSchemaSlugs,
-		"media-monitoring",
-		"relationship schema",
-	);
-
+	const mediaMonitoringRelationshipSchema = relationshipSchema(mediaPluginId, "media-monitoring");
 	const monitorableEntitySchemaSlugs = ["company", "person", ...builtinMediaEntitySchemaSlugs].map(
-		(slug) => requireSchemaId(entitySchemaSlugs, slug, "entity schema"),
+		(slug) => entitySchema(mediaPluginId, slug).slug,
 	);
-
-	const showSeasonEntitySchemaSlug = requireSchemaId(
-		entitySchemaSlugs,
-		"show-season",
-		"entity schema",
-	);
-
-	const showEpisodeEntitySchemaSlug = requireSchemaId(
-		entitySchemaSlugs,
-		"show-episode",
-		"entity schema",
-	);
-
-	const podcastEpisodeEntitySchemaSlug = requireSchemaId(
-		entitySchemaSlugs,
-		"podcast-episode",
-		"entity schema",
-	);
-
-	const showToSeasonRelationshipSchemaSlug = requireSchemaId(
-		relationshipSchemaSlugs,
-		"show-to-show-season",
-		"relationship schema",
-	);
-
-	const seasonToEpisodeRelationshipSchemaSlug = requireSchemaId(
-		relationshipSchemaSlugs,
+	const showSeasonEntitySchema = entitySchema(mediaPluginId, "show-season");
+	const showEpisodeEntitySchema = entitySchema(mediaPluginId, "show-episode");
+	const podcastEpisodeEntitySchema = entitySchema(mediaPluginId, "podcast-episode");
+	const showToSeasonRelationshipSchema = relationshipSchema(mediaPluginId, "show-to-show-season");
+	const seasonToEpisodeRelationshipSchema = relationshipSchema(
+		mediaPluginId,
 		"show-season-to-show-episode",
-		"relationship schema",
 	);
-
-	const podcastToEpisodeRelationshipSchemaSlug = requireSchemaId(
-		relationshipSchemaSlugs,
+	const podcastToEpisodeRelationshipSchema = relationshipSchema(
+		mediaPluginId,
 		"podcast-to-podcast-episode",
-		"relationship schema",
+	);
+	const integrationProviderSlugs = [
+		"audiobookshelf",
+		"komga",
+		"plex_yank",
+		"youtube_music",
+		"kodi",
+		"emby",
+		"plex_sink",
+		"jellyfin_sink",
+		"ryot_browser_extension",
+		"radarr",
+		"sonarr",
+		"jellyfin_push",
+	] as const;
+	for (const slug of integrationProviderSlugs) {
+		requireMapped(resolution.integrationProviders, mediaPluginId, slug, "integration provider");
+	}
+	const mediaInstallations = migratedUserRows.map(({ id: userId }) => ({
+		userId,
+		installationId: requireInstallation(resolution, userId, mediaPluginId),
+	}));
+	const mediaInstallationIdsByUserId = new Map(
+		mediaInstallations.map(({ installationId, userId }) => [userId, installationId]),
+	);
+	const integrationProgressScript = requireMapped(
+		resolution.scripts,
+		mediaPluginId,
+		"trigger.integration-progress-policy",
+		"script",
+	);
+	const youtubeMusicScript = requireMapped(
+		resolution.scripts,
+		mediaPluginId,
+		"integration.youtube-music",
+		"script",
 	);
 
 	const unsupportedMetadataSources = yield* getUnsupportedMetadataSources;
@@ -373,24 +325,11 @@ export const migrateLegacyTables = Effect.gen(function* () {
 
 	const resolvedExerciseTargets = resolveEntityMigrationTargets(
 		exerciseEntityTargets,
-		entitySchemaSlugs,
-		providerIds,
-		"exercise",
+		resolution,
+		fitnessPluginId,
 	);
-	let reportSequence = yield* withReservedConnection(getLatestReportSequence);
-
-	// Phase 1: Migrate legacy users and get migrated user IDs
-	const migratedUserRows = yield* withReservedConnection((connection) =>
-		Effect.gen(function* () {
-			yield* connection.executeRaw(buildLegacyUserAuthMigrationSql(), []);
-			yield* connection.executeRaw(buildLegacyUserLibraryMigrationSql(libraryEntitySchemaSlug), []);
-			const rows: ReadonlyArray<{ id: string }> = yield* connection.execute(
-				`SELECT "id" FROM "old_user" ORDER BY "created_on", "id"`,
-				[],
-				undefined,
-			);
-			return rows;
-		}),
+	yield* withReservedConnection((connection) =>
+		connection.executeRaw(buildLegacyUserLibraryMigrationSql(libraryEntitySchema), []),
 	);
 	reportSequence = yield* withReservedConnection((connection) =>
 		logReportRows(connection, reportSequence),
@@ -416,8 +355,16 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			);
 		}
 
+		const savedViewInstallations = migratedUserRows.map(({ id: userId }) => ({
+			userId,
+			mediaInstallationId: requireInstallation(resolution, userId, mediaPluginId),
+			fitnessInstallationId: requireInstallation(resolution, userId, fitnessPluginId),
+		}));
 		yield* withReservedConnection((connection) =>
-			connection.executeRaw(buildLegacySavedViewStateMigrationSql(), []),
+			connection.executeRaw(
+				buildLegacySavedViewStateMigrationSql(savedViewInstallations, collectionsSavedView.slug),
+				[],
+			),
 		);
 
 		yield* Effect.logInfo("legacy user bootstrap backfill finished").pipe(
@@ -440,12 +387,12 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			yield* connection.executeRaw(buildMetadataMigrationSql(resolvedMetadataTargets), []);
 			yield* connection.executeRaw(
 				buildLegacyEpisodicSubEntityMigrationSql({
-					showSeasonEntitySchemaSlug,
-					showEpisodeEntitySchemaSlug,
-					podcastEpisodeEntitySchemaSlug,
-					showToSeasonRelationshipSchemaSlug,
-					seasonToEpisodeRelationshipSchemaSlug,
-					podcastToEpisodeRelationshipSchemaSlug,
+					showSeasonEntitySchema,
+					showEpisodeEntitySchema,
+					podcastEpisodeEntitySchema,
+					showToSeasonRelationshipSchema,
+					seasonToEpisodeRelationshipSchema,
+					podcastToEpisodeRelationshipSchema,
 				}),
 				[],
 			);
@@ -462,31 +409,26 @@ export const migrateLegacyTables = Effect.gen(function* () {
 				buildCompanyEntityMigrationSql(resolvedCompanyEntityTargets),
 				[],
 			);
-			yield* connection.executeRaw(
-				buildCollectionEntityMigrationSql(collectionEntitySchemaSlug),
-				[],
-			);
+			yield* connection.executeRaw(buildCollectionEntityMigrationSql(collectionEntitySchema), []);
 			yield* connection.executeRaw(buildExerciseMigrationSql(resolvedExerciseTargets), []);
-			yield* connection.executeRaw(buildMeasurementMigrationSql(measurementEntitySchemaSlug), []);
+			yield* connection.executeRaw(buildMeasurementMigrationSql(measurementEntitySchema), []);
 			yield* connection.executeRaw(
-				buildWorkoutTemplateMigrationSql(workoutTemplateEntitySchemaSlug),
+				buildWorkoutTemplateMigrationSql(workoutTemplateEntitySchema),
 				[],
 			);
-			yield* connection.executeRaw(buildWorkoutMigrationSql(workoutEntitySchemaSlug), []);
-			yield* connection.executeRaw(buildWorkoutSetEventMigrationSql(workoutSetEventSchemaSlug), []);
+			yield* connection.executeRaw(buildWorkoutMigrationSql(workoutEntitySchema), []);
+			yield* connection.executeRaw(buildWorkoutSetEventMigrationSql(workoutSetEventSchema), []);
 			yield* connection.executeRaw(
-				buildWorkoutToTemplateRelationshipMigrationSql(
-					workoutToWorkoutTemplateRelationshipSchemaSlug,
-				),
+				buildWorkoutToTemplateRelationshipMigrationSql(workoutToWorkoutTemplateRelationshipSchema),
 				[],
 			);
 			yield* connection.executeRaw(
-				buildWorkoutRepeatedFromRelationshipMigrationSql(workoutRepeatedFromRelationshipSchemaSlug),
+				buildWorkoutRepeatedFromRelationshipMigrationSql(workoutRepeatedFromRelationshipSchema),
 				[],
 			);
 			yield* connection.executeRaw(buildReviewMigrationSql(), []);
-			yield* connection.executeRaw(buildSeenMigrationSql(), []);
-			yield* connection.executeRaw(buildSeenEpisodicCompletionMigrationSql(), []);
+			yield* connection.executeRaw(buildSeenMigrationSql(mediaPluginId), []);
+			yield* connection.executeRaw(buildSeenEpisodicCompletionMigrationSql(mediaPluginId), []);
 			yield* connection.executeRaw(
 				`
 					DO $$
@@ -519,28 +461,25 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			);
 			yield* connection.executeRaw(
 				buildCollectionToEntityRelationshipMigrationSql(
-					addEntityToCollectionEventSchemaSlug,
-					memberOfRelationshipSchemaSlug,
+					addEntityToCollectionEventSchema,
+					memberOfRelationshipSchema,
 				),
 				[],
 			);
 			yield* connection.executeRaw(buildMetadataToMetadataRelationshipMigrationSql(), []);
 			yield* connection.executeRaw(
-				buildUserToEntityInLibraryMigrationSql(
-					inLibraryRelationshipSchemaSlug,
-					libraryEntitySchemaSlug,
-				),
+				buildUserToEntityInLibraryMigrationSql(inLibraryRelationshipSchema, libraryEntitySchema),
 				[],
 			);
 			yield* connection.executeRaw(
-				buildOwnedCollectionOwnershipMigrationSql(inLibraryRelationshipSchemaSlug),
+				buildOwnedCollectionOwnershipMigrationSql(inLibraryRelationshipSchema),
 				[],
 			);
 			yield* connection.executeRaw(
 				buildMonitoringCollectionMigrationSql({
-					libraryEntitySchemaSlug,
+					libraryEntitySchema,
 					monitorableEntitySchemaSlugs,
-					mediaMonitoringRelationshipSchemaSlug,
+					mediaMonitoringRelationshipSchema,
 				}),
 				[],
 			);
@@ -554,11 +493,53 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	reportSequence = yield* withReservedConnection((connection) =>
 		logReportRows(connection, reportSequence),
 	);
+	const integrationSettings = yield* withReservedConnection(readLegacyIntegrationSettings);
+	for (const row of integrationSettings) {
+		const provider = requireMapped(
+			resolution.integrationProviders,
+			mediaPluginId,
+			row.provider,
+			"integration provider",
+		);
+		if (provider.lot !== row.lot) {
+			return yield* Effect.die(
+				new Error(
+					`Legacy integration lot does not match the current resolved provider for ${row.id}: ${row.lot}/${provider.lot}`,
+				),
+			);
+		}
+		yield* parseAppSchemaProperties({
+			properties: row.settings,
+			kind: `${row.provider} legacy integration`,
+			propertiesSchema: provider.settingsSchema,
+		}).pipe(
+			Effect.mapError(
+				(error) =>
+					new Error(
+						`Legacy integration settings failed current schema validation for ${row.id}: ${formatPropertyIssues(error.issues)}`,
+					),
+			),
+			Effect.orDie,
+		);
+	}
 	yield* withReservedConnection((connection) =>
-		connection.executeRaw(buildIntegrationMigrationSql(), []),
+		connection.executeRaw(
+			buildIntegrationMigrationSql({
+				installations: mediaInstallations,
+				providerSlugs: integrationProviderSlugs,
+			}),
+			[],
+		),
 	);
-	yield* migrateIntegrationProgressCache(legacyIntegrationProgressCache);
-	yield* migrateYoutubeMusicCache;
+	yield* migrateIntegrationProgressCache({
+		cacheRows: legacyIntegrationProgressCache,
+		installationIdsByUserId: mediaInstallationIdsByUserId,
+		scriptId: integrationProgressScript.id,
+	});
+	yield* migrateYoutubeMusicCache({
+		installationIds: mediaInstallations.map(({ installationId }) => installationId),
+		scriptId: youtubeMusicScript.id,
+	});
 	yield* withReservedConnection((connection) =>
 		connection.executeRaw(buildNotificationPlatformMigrationSql(), []),
 	);
