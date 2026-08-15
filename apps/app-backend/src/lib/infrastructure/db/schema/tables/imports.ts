@@ -1,14 +1,11 @@
-import type {
-	ImportRunFailureStage,
-	ImportRunSource,
-	ImportRunStatus,
-} from "@ryot/contract/modules/imports/types";
+import type { ImportRunFailureStage, ImportRunSource } from "@ryot/contract/modules/imports/types";
 import type {
 	IntegrationExtraSettings,
 	IntegrationProvider,
 	IntegrationProviderSettings,
 } from "@ryot/contract/modules/integrations/schemas";
 import type { IntegrationLot } from "@ryot/contract/modules/integrations/types";
+import type { RunStatus } from "@ryot/contract/schema/run-status";
 import { generateId } from "better-auth";
 import {
 	boolean,
@@ -71,7 +68,7 @@ export const importRun = snakeCase.table(
 		startedAt: timestamp({ withTimezone: true }),
 		finishedAt: timestamp({ withTimezone: true }),
 		processedItems: integer().notNull().default(0),
-		status: text().notNull().$type<ImportRunStatus>().default("pending"),
+		status: text().notNull().$type<RunStatus>().default("pending"),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		inputSummary: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		integrationId: text().references(() => integration.id, { onDelete: "cascade" }),

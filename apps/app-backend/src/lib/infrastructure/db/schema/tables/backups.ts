@@ -1,8 +1,8 @@
 import type {
 	BackupRunArtifactProvider,
 	BackupRunKind,
-	BackupRunStatus,
 } from "@ryot/contract/modules/backups/schemas";
+import type { RunStatus } from "@ryot/contract/schema/run-status";
 import { generateId } from "better-auth";
 import { index, integer, snakeCase, text, timestamp } from "drizzle-orm/pg-core";
 
@@ -19,7 +19,7 @@ export const backupRun = snakeCase.table(
 		startedAt: timestamp({ withTimezone: true }),
 		finishedAt: timestamp({ withTimezone: true }),
 		artifactProvider: text().$type<BackupRunArtifactProvider>(),
-		status: text().notNull().$type<BackupRunStatus>().default("pending"),
+		status: text().notNull().$type<RunStatus>().default("pending"),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text()
 			.notNull()
