@@ -182,13 +182,13 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 									.execute(ProviderEntityPopulationWorkflow, {
 										executionId: childExecutionId,
 										payload: {
-											userId: null,
 											mode: decoded.mode,
 											externalId: item.externalId,
 											executionId: childExecutionId,
 											providerId: resolved.provider.id,
 											origin: { kind: "provider_refresh" },
 											entitySchemaSlug: resolved.entitySchemaSlug,
+											entityScope: { type: "global", userId: null },
 										} satisfies ProviderEntityPopulationPayload,
 									})
 									.pipe(
@@ -278,7 +278,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 						const payload = yield* Schema.decodeUnknownEffect(EntityImportPayload)({
 							...rawInput,
 							executionId,
-							userId: subject.userId,
+							entityScope: { type: "global", userId: subject.userId },
 							...(resolvedProvider
 								? {
 										providerId: resolvedProvider.provider.id,

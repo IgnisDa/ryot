@@ -1,7 +1,7 @@
 import { SandboxRunError, mapDbErrorToSandbox } from "@ryot-app/contract/errors";
 import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-interest/messages";
-import type { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import type { EntityId, EntitySchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import {
 	providerDetailsChildEntitySchema,
 	providerDetailsRelatedEntityGroupSchema,
@@ -19,6 +19,7 @@ import { Activity, Workflow } from "effect/unstable/workflow";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
+import { DefinitionRegistry, DefinitionSnapshot } from "#modules/definition-registry/service";
 import {
 	LifecycleDispatch,
 	type LifecyclePopulationContext,
@@ -26,6 +27,7 @@ import {
 import { ProviderEntitySaveResult } from "#modules/entities/mutation-outcomes";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import {
 	RelationshipMutationOutcomes,
 	type RelationshipMutationOutcome,
@@ -35,7 +37,8 @@ import {
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import { ChildEntitySetWriteResult, writeChildEntitySet } from "./population";
 import { syncRelatedEntityGroup } from "./relationship-population";
-import { EntityImportPayload } from "./schemas";
+import type { EntityImportPayload } from "./schemas";
+import { EntityImportScope, entityImportPayloadFields } from "./schemas";
 
 const REDIS_RETRY_SCHEDULE = Schedule.spaced("30 seconds");
 
@@ -78,11 +81,30 @@ const RelationshipSyncEnvelope = Schema.Struct({
 	outcomes: RelationshipMutationOutcomes,
 });
 
+const resolveProviderEntityDefinitions = (
+	entityScope: { scope: "global" } | { scope: "user"; userId: UserId },
+) =>
+	Activity.make({
+		name: "resolve-provider-entity-definitions",
+		error: SandboxRunError satisfies DurableSchema,
+		success: DefinitionSnapshot satisfies DurableSchema,
+		execute: Effect.gen(function* () {
+			if (entityScope.scope === "user") {
+				return yield* Effect.flatMap(PluginRuntimeResolver, (runtime) =>
+					runtime.getEffectiveDefinitions(entityScope.userId),
+				).pipe(mapDbErrorToSandbox);
+			}
+			return (yield* DefinitionRegistry).getSnapshot();
+		}),
+	});
+
 const checkExistingEntity = Effect.fn("checkExistingEntity")(function* (
 	payload: EntityImportPayload,
+	entityScope: { scope: "global" } | { scope: "user"; userId: UserId },
+	definitions: DefinitionSnapshot,
 ) {
 	const repository = yield* EntitiesRepository;
-	const schema = yield* repository.findEntitySchemaById(payload.entitySchemaSlug);
+	const schema = definitions.entitySchemas[payload.entitySchemaSlug];
 	if (!schema) {
 		return yield* new SandboxRunError({ message: "Entity schema not found" });
 	}
@@ -92,7 +114,8 @@ const checkExistingEntity = Effect.fn("checkExistingEntity")(function* (
 		name: "check-existing-entity",
 		success: Schema.NullOr(ListedEntity) satisfies DurableSchema,
 		execute: repository
-			.findGlobalEntityByExternalId({
+			.findEntityByExternalId({
+				...entityScope,
 				externalId: payload.externalId,
 				providerId: payload.providerId,
 				entitySchemaSlug: payload.entitySchemaSlug,
@@ -127,17 +150,10 @@ const validateEntityDetails = Effect.fn("validateEntityDetails")(function* (valu
 	});
 });
 
-const getEntityWriteScope = Effect.fn("getProviderEntityWriteScope")(function* (
-	payload: EntityImportPayload,
-) {
-	if (payload.entityScope !== "user") {
-		return { scope: "global" } as const;
-	}
-	if (!payload.userId) {
-		return yield* new SandboxRunError({ message: "User entity scope requires a user" });
-	}
-	return { scope: "user", userId: payload.userId } as const;
-});
+const getEntityWriteScope = (payload: EntityImportPayload) =>
+	payload.entityScope.type === "user"
+		? ({ scope: "user", userId: payload.entityScope.userId } as const)
+		: ({ scope: "global" } as const);
 
 const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 	payload: EntityImportPayload,
@@ -146,7 +162,7 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 ) {
 	const database = yield* Database;
 	const entities = yield* EntitiesService;
-	const scope = yield* getEntityWriteScope(payload);
+	const scope = getEntityWriteScope(payload);
 
 	return yield* Activity.make({
 		error: SandboxRunError satisfies DurableSchema,
@@ -177,12 +193,13 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 
 const syncRelatedEntityGroupScope = Effect.fn("syncProviderRelatedEntityGroupScope")(function* (
 	payload: EntityImportPayload,
+	definitions: DefinitionSnapshot,
 	entity: ListedEntity,
 	group: ProviderDetailsRelatedEntityGroup,
 	index: number,
 ) {
 	const database = yield* Database;
-	const entityScope = yield* getEntityWriteScope(payload);
+	const entityScope = getEntityWriteScope(payload);
 	return yield* Activity.make({
 		error: SandboxRunError satisfies DurableSchema,
 		success: RelationshipSyncEnvelope satisfies DurableSchema,
@@ -193,6 +210,7 @@ const syncRelatedEntityGroupScope = Effect.fn("syncProviderRelatedEntityGroupSco
 					const outcomes = yield* syncRelatedEntityGroup({
 						...entityScope,
 						group,
+						definitions,
 						primaryEntityId: entity.id,
 						primaryEntitySchemaSlug: payload.entitySchemaSlug,
 					});
@@ -205,11 +223,12 @@ const syncRelatedEntityGroupScope = Effect.fn("syncProviderRelatedEntityGroupSco
 
 const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function* (
 	payload: EntityImportPayload,
+	definitions: DefinitionSnapshot,
 	options: SynchronizeOptions,
 	scope: ChildEntitySetScope,
 ) {
 	const database = yield* Database;
-	const entityScope = yield* getEntityWriteScope(payload);
+	const entityScope = getEntityWriteScope(payload);
 	return yield* Activity.make({
 		error: SandboxRunError satisfies DurableSchema,
 		success: ChildEntitySetWriteResult satisfies DurableSchema,
@@ -218,6 +237,7 @@ const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function*
 			database.transaction((transaction) =>
 				writeChildEntitySet({
 					...entityScope,
+					definitions,
 					providerId: payload.providerId,
 					childEntities: scope.childEntities,
 					parentEntityId: scope.parentEntityId,
@@ -236,7 +256,7 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 ) {
 	const database = yield* Database;
 	const entities = yield* EntitiesService;
-	const scope = yield* getEntityWriteScope(payload);
+	const scope = getEntityWriteScope(payload);
 
 	return yield* Activity.make({
 		error: SandboxRunError satisfies DurableSchema,
@@ -325,6 +345,7 @@ const dispatchEntityMutation = Effect.fn("dispatchProviderEntityMutation")(funct
 	phase: string;
 	committedAt: string;
 	executionId: string;
+	rowUserId: EntityImportPayload["entityScope"]["userId"];
 	result: ProviderEntitySaveResult;
 	origin: EntityImportPayload["origin"];
 	population: LifecyclePopulationContext;
@@ -336,7 +357,7 @@ const dispatchEntityMutation = Effect.fn("dispatchProviderEntityMutation")(funct
 	const outcome = input.result.outcome;
 	yield* lifecycleDispatch
 		.dispatch({
-			rowUserId: null,
+			rowUserId: input.rowUserId,
 			origin: input.origin,
 			operation: outcome.operation,
 			population: input.population,
@@ -356,6 +377,7 @@ const dispatchRelationshipSync = Effect.fn("dispatchProviderRelationshipSync")(f
 	committedAt: string;
 	executionId: string;
 	anchorEntityId: EntityId;
+	rowUserId: EntityImportPayload["entityScope"]["userId"];
 	direction: "incoming" | "outgoing";
 	origin: EntityImportPayload["origin"];
 	outcomes: ReadonlyArray<RelationshipMutationOutcome>;
@@ -402,7 +424,7 @@ const dispatchRelationshipSync = Effect.fn("dispatchProviderRelationshipSync")(f
 		yield* lifecycleDispatch
 			.dispatch({
 				occurrenceId,
-				rowUserId: null,
+				rowUserId: input.rowUserId,
 				origin: input.origin,
 				operation: outcome.operation,
 				occurredAt: input.committedAt,
@@ -423,6 +445,7 @@ const dispatchRelationshipSync = Effect.fn("dispatchProviderRelationshipSync")(f
 
 const writeChildEntityScopes = Effect.fn("writeChildEntityScopes")(function* (
 	payload: EntityImportPayload,
+	definitions: DefinitionSnapshot,
 	executionId: string,
 	options: SynchronizeOptions,
 	rootPreviouslyPopulated: boolean,
@@ -434,7 +457,8 @@ const writeChildEntityScopes = Effect.fn("writeChildEntityScopes")(function* (
 		if (!shouldWriteChildEntitySet(options, scope)) {
 			continue;
 		}
-		const processed = yield* writeChildEntitySetScope(payload, options, scope);
+		const processed = yield* writeChildEntitySetScope(payload, definitions, options, scope);
+		const rowUserId = payload.entityScope.type === "user" ? payload.entityScope.userId : null;
 		const parentEntity = {
 			name: scope.parentName,
 			properties: toSandboxJsonObject(scope.parentProperties),
@@ -442,6 +466,7 @@ const writeChildEntityScopes = Effect.fn("writeChildEntityScopes")(function* (
 		};
 		yield* dispatchRelationshipSync({
 			executionId,
+			rowUserId,
 			direction: "outgoing",
 			origin: payload.origin,
 			committedAt: processed.committedAt,
@@ -460,6 +485,7 @@ const writeChildEntityScopes = Effect.fn("writeChildEntityScopes")(function* (
 			}
 			yield* dispatchEntityMutation({
 				executionId,
+				rowUserId,
 				origin: payload.origin,
 				committedAt: processed.committedAt,
 				phase: `children:${scope.parentExternalId}`,
@@ -488,6 +514,7 @@ const writeChildEntityScopes = Effect.fn("writeChildEntityScopes")(function* (
 
 const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 	payload: EntityImportPayload,
+	definitions: DefinitionSnapshot,
 	executionId: string,
 	options: SynchronizeOptions,
 	rootPreviouslyPopulated: boolean,
@@ -500,6 +527,7 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 
 	const details = yield* validateEntityDetails(sandboxResult.value);
 	const rootSave = yield* upsertRootEntity(payload, details, options);
+	const rowUserId = payload.entityScope.type === "user" ? payload.entityScope.userId : null;
 	const entity = rootSave.result.entity;
 	const scopeEntity = {
 		id: entity.id,
@@ -508,6 +536,7 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 	};
 	yield* dispatchEntityMutation({
 		executionId,
+		rowUserId,
 		phase: "root-upsert",
 		origin: payload.origin,
 		result: rootSave.result,
@@ -515,9 +544,10 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 		population: { scopeEntity, rootPreviouslyPopulated },
 	});
 	for (const [index, group] of details.relatedEntityGroups.entries()) {
-		const synced = yield* syncRelatedEntityGroupScope(payload, entity, group, index);
+		const synced = yield* syncRelatedEntityGroupScope(payload, definitions, entity, group, index);
 		yield* dispatchRelationshipSync({
 			executionId,
+			rowUserId,
 			origin: payload.origin,
 			anchorEntityId: entity.id,
 			outcomes: synced.outcomes,
@@ -526,21 +556,29 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 			population: { scopeEntity, rootPreviouslyPopulated },
 		});
 	}
-	yield* writeChildEntityScopes(payload, executionId, options, rootPreviouslyPopulated, {
-		scopeEntity,
-		parentName: entity.name,
-		parentEntityId: entity.id,
-		parentProperties: entity.properties,
-		parentExternalId: payload.externalId,
-		childEntities: details.childEntities,
-		parentEntitySchemaSlug: options.entitySchemaSlug,
-		...(details.expectedChildEntitySchemaSlug
-			? { expectedChildEntitySchemaSlug: details.expectedChildEntitySchemaSlug }
-			: {}),
-	});
+	yield* writeChildEntityScopes(
+		payload,
+		definitions,
+		executionId,
+		options,
+		rootPreviouslyPopulated,
+		{
+			scopeEntity,
+			parentName: entity.name,
+			parentEntityId: entity.id,
+			parentProperties: entity.properties,
+			parentExternalId: payload.externalId,
+			childEntities: details.childEntities,
+			parentEntitySchemaSlug: options.entitySchemaSlug,
+			...(details.expectedChildEntitySchemaSlug
+				? { expectedChildEntitySchemaSlug: details.expectedChildEntitySchemaSlug }
+				: {}),
+		},
+	);
 	const stamped = yield* stampRootPopulatedAt(payload, details);
 	yield* dispatchEntityMutation({
 		executionId,
+		rowUserId,
 		phase: "root-stamp",
 		origin: payload.origin,
 		result: stamped.result,
@@ -552,8 +590,9 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 });
 
 export const ProviderEntityPopulationPayload = Schema.Struct({
-	...EntityImportPayload.fields,
+	...entityImportPayloadFields,
 	mode: Schema.Literals(["ensure", "refresh"]),
+	entityScope: EntityImportScope,
 });
 
 export type ProviderEntityPopulationPayload = typeof ProviderEntityPopulationPayload.Type;
@@ -579,9 +618,11 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopu
 			providerId: payload.providerId,
 			externalId: payload.externalId,
 			entitySchemaSlug: payload.entitySchemaSlug,
-			...(payload.userId ? { userId: payload.userId } : {}),
+			...(payload.entityScope.userId ? { userId: payload.entityScope.userId } : {}),
 		});
-		const existing = yield* checkExistingEntity(payload);
+		const entityScope = getEntityWriteScope(payload);
+		const definitions = yield* resolveProviderEntityDefinitions(entityScope);
+		const existing = yield* checkExistingEntity(payload, entityScope, definitions);
 		const rootPreviouslyPopulated = existing !== null && existing.populatedAt !== null;
 		if (payload.mode === "ensure") {
 			if (existing && existing.populatedAt !== null) {
@@ -589,6 +630,7 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopu
 			}
 			return yield* synchronizeEntityGraph(
 				payload,
+				definitions,
 				executionId,
 				{ mode: "initial", entitySchemaSlug: payload.entitySchemaSlug },
 				rootPreviouslyPopulated,
@@ -597,6 +639,7 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopu
 
 		return yield* synchronizeEntityGraph(
 			payload,
+			definitions,
 			executionId,
 			{ mode: "refresh", entitySchemaSlug: payload.entitySchemaSlug },
 			rootPreviouslyPopulated,

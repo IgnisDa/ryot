@@ -24,6 +24,12 @@ import {
 	makeWorkflowActivityEngine,
 } from "#lib/test-utils/effect";
 import {
+	DefinitionRegistry,
+	type DefinitionSnapshot,
+	definitionSourceFromSnapshot,
+	makeDefinitionRegistry,
+} from "#modules/definition-registry/service";
+import {
 	LifecycleDispatch,
 	type LifecycleDispatchInput,
 	LifecycleDispatchNoop,
@@ -125,9 +131,24 @@ const relatedSuggestionSchema = {
 	id: RelationshipSchemaSlug.make("related-suggestion-schema-id"),
 };
 
+const relationshipDefinition = (
+	slug: string,
+	sourceEntitySchemaSlug: string | null = null,
+	targetEntitySchemaSlug: string | null = null,
+) => ({
+	slug,
+	name: "Relationship",
+	propertiesSchema: { fields: {} },
+	sourceEntitySchemaSlug,
+	targetEntitySchemaSlug,
+});
+
 const effectiveRelationshipSchemas = Object.fromEntries(
 	[
 		"cast-member-schema-id",
+		"cast-member",
+		"authored-by",
+		"related-suggestion",
 		"related-suggestion-schema-id",
 		"rel-schema-1",
 		"rel-part-part-item",
@@ -135,17 +156,96 @@ const effectiveRelationshipSchemas = Object.fromEntries(
 		"relationship-schema-id",
 		"group-part-to-group-part-item",
 		"group-to-group-part",
-	].map((slug) => [
-		slug,
-		{
-			slug,
-			name: "Relationship",
-			sourceEntitySchemaSlug: null,
-			targetEntitySchemaSlug: null,
-			propertiesSchema: { fields: {} },
-		},
-	]),
+	].map((slug) => [slug, relationshipDefinition(slug)]),
 );
+
+const entityDefinition = (slug: string) => ({
+	slug,
+	name: slug,
+	icon: "circle",
+	pluginSlug: null,
+	eventSchemas: {},
+	mergeIdentityProperties: [],
+	propertiesSchema: { fields: {} },
+});
+
+const effectiveEntitySchemas = Object.fromEntries(
+	[
+		"group",
+		"group-part",
+		"group-part-item",
+		"person",
+		"record",
+		"schema-1",
+		"schema-group",
+		"schema-item",
+		"schema-person",
+		"schema-related",
+		"test-entity",
+	].map((slug) => [slug, entityDefinition(slug)]),
+);
+
+const testDefinitions = {
+	savedViews: {},
+	signalSchemas: {},
+	entitySchemas: effectiveEntitySchemas,
+	relationshipSchemas: {
+		...effectiveRelationshipSchemas,
+		"group-to-group-part": relationshipDefinition("group-to-group-part", "group", "group-part"),
+		"rel-group-part": relationshipDefinition("rel-group-part", "schema-1", "group-part"),
+		"rel-part-part-item": relationshipDefinition(
+			"rel-part-part-item",
+			"group-part",
+			"group-part-item",
+		),
+	},
+} satisfies DefinitionSnapshot;
+
+const withRelationshipDefinition = (
+	definition: DefinitionSnapshot["relationshipSchemas"][string],
+): DefinitionSnapshot => ({
+	...testDefinitions,
+	relationshipSchemas: {
+		...testDefinitions.relationshipSchemas,
+		[definition.slug]: definition,
+	},
+});
+
+const withChildRelationshipDefinitions = (
+	rootEntitySchemaSlug: string,
+	rootRelationshipSchemaSlug: string,
+	childRelationshipSchemaSlug: string,
+): DefinitionSnapshot => {
+	const relationshipSchemas = Object.fromEntries(
+		Object.entries(testDefinitions.relationshipSchemas).filter(
+			([, definition]) =>
+				!(
+					definition.sourceEntitySchemaSlug === rootEntitySchemaSlug &&
+					definition.targetEntitySchemaSlug === "group-part"
+				) &&
+				!(
+					definition.sourceEntitySchemaSlug === "group-part" &&
+					definition.targetEntitySchemaSlug === "group-part-item"
+				),
+		),
+	);
+	return {
+		...testDefinitions,
+		relationshipSchemas: {
+			...relationshipSchemas,
+			[rootRelationshipSchemaSlug]: relationshipDefinition(
+				rootRelationshipSchemaSlug,
+				rootEntitySchemaSlug,
+				"group-part",
+			),
+			[childRelationshipSchemaSlug]: relationshipDefinition(
+				childRelationshipSchemaSlug,
+				"group-part",
+				"group-part-item",
+			),
+		},
+	};
+};
 
 const baseEntitySchema = {
 	slug: "record",
@@ -167,8 +267,8 @@ const entityKey = (entitySchemaSlug: string, externalId: string) =>
 	`${entitySchemaSlug}:${externalId}`;
 
 const childEntitySchemaSlugs = new Map([
-	["group-part", EntitySchemaSlug.make("schema-part")],
-	["group-part-item", EntitySchemaSlug.make("schema-part-item")],
+	["group-part", EntitySchemaSlug.make("group-part")],
+	["group-part-item", EntitySchemaSlug.make("group-part-item")],
 ]);
 
 const findChildEntitySchemaBySlug = (slug: string) => {
@@ -196,8 +296,8 @@ const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepo
 				entityIds.map((id) => ({ id, name: `Entity ${id}`, entitySchemaSlug: "test-entity" })),
 			),
 		findEntitySchemaProviderBySlug: () => Effect.succeed(null),
-		findGlobalEntityByExternalId: () => Effect.succeed(null),
-		findEntitySchemaById: () => Effect.succeed(baseEntitySchema),
+		findEntityByExternalId: () => Effect.succeed(null),
+		findSystemEntitySchemaById: () => Effect.succeed(baseEntitySchema),
 		...overrides,
 	});
 
@@ -265,6 +365,9 @@ const makeRelationshipSchemasRepository = (
 	});
 
 type TestLayerOptions = {
+	definitions?: DefinitionSnapshot;
+	onReadDefinitionRegistry?: () => void;
+	onResolveDefinitions?: () => void;
 	entitiesService?: Layer.Layer<EntitiesService>;
 	lifecycleDispatch?: Layer.Layer<LifecycleDispatch>;
 	databaseLayer?: Layer.Layer<Database>;
@@ -277,6 +380,15 @@ type TestLayerOptions = {
 
 const makeTestLayer = (options: TestLayerOptions) => {
 	const relationshipsRepository = options.relationshipsRepository ?? makeRelationshipsRepository();
+	const definitions = options.definitions ?? testDefinitions;
+	const registry = makeDefinitionRegistry(definitionSourceFromSnapshot(definitions));
+	const definitionRegistry = {
+		...registry,
+		getSnapshot: () => {
+			options.onReadDefinitionRegistry?.();
+			return registry.getSnapshot();
+		},
+	};
 
 	const relationshipsServiceLayer = RelationshipsService.layer.pipe(
 		Layer.provide(
@@ -298,6 +410,11 @@ const makeTestLayer = (options: TestLayerOptions) => {
 
 	return Layer.mergeAll(
 		options.databaseLayer ?? databaseLayer,
+		Layer.succeed(DefinitionRegistry, definitionRegistry),
+		Layer.mock(PluginRuntimeResolver)({
+			getEffectiveDefinitions: () =>
+				Effect.sync(options.onResolveDefinitions ?? (() => {})).pipe(Effect.as(definitions)),
+		}),
 		relationshipsServiceLayer,
 		Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(0) })),
 		options.lifecycleDispatch ?? LifecycleDispatchNoop,
@@ -332,12 +449,122 @@ const importPayload = {
 	externalId: "ext-1",
 	executionId: "exec-1",
 	origin: { kind: "api" } as const,
-	userId: UserId.make("user-1"),
+	entityScope: { type: "global" as const, userId: UserId.make("user-1") },
 	providerId: SandboxProviderId.make("provider-1"),
 	entitySchemaSlug: EntitySchemaSlug.make("schema-1"),
 };
 
+it.effect("resolves and reuses a populated entity from a private schema", () => {
+	const pluginId = "private-plugin-id";
+	const payload = {
+		...importPayload,
+		entityScope: { type: "user" as const, userId: UserId.make("user-1") },
+		executionId: "exec-private-schema",
+	};
+
+	return withTestLayer(
+		{
+			definitions: {
+				...testDefinitions,
+				entitySchemas: {
+					...testDefinitions.entitySchemas,
+					[payload.entitySchemaSlug]: {
+						...entityDefinition(payload.entitySchemaSlug),
+						pluginId,
+					},
+				},
+			},
+			entitiesRepository: makeEntitiesRepository({
+				findEntityByExternalId: (input) => {
+					expect(input).toMatchObject({
+						scope: "user",
+						userId: payload.entityScope.userId,
+						entitySchemaPluginId: pluginId,
+					});
+					return Effect.succeed(baseEntity);
+				},
+			}),
+		},
+		payload.executionId,
+		Effect.gen(function* () {
+			const result = yield* runProviderEntityPopulationWorkflow(
+				{ ...payload, mode: "ensure" },
+				payload.executionId,
+			);
+			expect(result.id).toBe(baseEntity.id);
+		}),
+	);
+});
+
+it.effect("populates and stamps a private root entity in the user scope", () => {
+	const writes: Array<Parameters<EntitiesService["Service"]["upsert"]>[0]> = [];
+	let definitionResolutions = 0;
+	const payload = {
+		...importPayload,
+		entityScope: { type: "user" as const, userId: UserId.make("user-1") },
+		executionId: "exec-private-root",
+	};
+	const definitions = {
+		...testDefinitions,
+		entitySchemas: {
+			...testDefinitions.entitySchemas,
+			[payload.entitySchemaSlug]: {
+				...entityDefinition(payload.entitySchemaSlug),
+				pluginId: "private-plugin-id",
+			},
+		},
+	} satisfies DefinitionSnapshot;
+
+	return withTestLayer(
+		{
+			definitions,
+			onResolveDefinitions: () => {
+				definitionResolutions += 1;
+			},
+			processSandbox: () =>
+				Effect.succeed({
+					logs: [],
+					error: null,
+					status: "completed" as const,
+					value: { name: "Private Record", properties: {} },
+				}),
+			entitiesService: makeEntitiesService({
+				upsert: (input) => {
+					writes.push(input);
+					return Effect.succeed({
+						...baseEntity,
+						name: input.name,
+						properties: {},
+						entitySchemaSlug: input.entitySchemaSlug,
+						populatedAt: input.populatedAt?.toISOString() ?? null,
+					});
+				},
+			}),
+		},
+		payload.executionId,
+		Effect.gen(function* () {
+			const result = yield* runProviderEntityPopulationWorkflow(
+				{ ...payload, mode: "ensure" },
+				payload.executionId,
+			);
+
+			expect(result.populatedAt).not.toBeNull();
+			expect(writes).toHaveLength(2);
+			expect(writes).toEqual([
+				expect.objectContaining({
+					scope: "user",
+					userId: payload.entityScope.userId,
+					populatedAt: null,
+				}),
+				expect.objectContaining({ scope: "user", userId: payload.entityScope.userId }),
+			]);
+			expect(definitionResolutions).toBe(1);
+		}),
+	);
+});
+
 it.effect("populates entity and writes related entities", () => {
+	let definitionRegistryReads = 0;
 	let relationshipWritten = false;
 	let staleRelationshipDeleted = false;
 	let globalEntityWritten = false;
@@ -370,6 +597,9 @@ it.effect("populates entity and writes related entities", () => {
 		providerId: SandboxProviderId.make("person-provider"),
 	} satisfies ListedEntity;
 	const options = {
+		onReadDefinitionRegistry: () => {
+			definitionRegistryReads += 1;
+		},
 		processSandbox: () =>
 			Effect.succeed({
 				logs: [],
@@ -462,6 +692,7 @@ it.effect("populates entity and writes related entities", () => {
 			expect(relatedEntityWritten).toBe(true);
 			expect(relationshipWritten).toBe(true);
 			expect(staleRelationshipDeleted).toBe(true);
+			expect(definitionRegistryReads).toBe(1);
 		}),
 	);
 });
@@ -558,7 +789,7 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 	}> = [];
 	const relationshipSchemas = new Map([
 		[
-			"schema-1->schema-part",
+			"schema-1->group-part",
 			{
 				isBuiltin: true,
 				name: "Group to Group Part",
@@ -566,19 +797,19 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 				propertiesSchema: { fields: {} },
 				id: RelationshipSchemaSlug.make("rel-group-part"),
 				sourceEntitySchemaSlug: EntitySchemaSlug.make("schema-1"),
-				targetEntitySchemaSlug: EntitySchemaSlug.make("schema-part"),
+				targetEntitySchemaSlug: EntitySchemaSlug.make("group-part"),
 			},
 		],
 		[
-			"schema-part->schema-part-item",
+			"group-part->group-part-item",
 			{
 				isBuiltin: true,
 				propertiesSchema: { fields: {} },
 				name: "Group Part to Group Part Item",
 				slug: "group-part-to-group-part-item",
 				id: RelationshipSchemaSlug.make("rel-part-part-item"),
-				sourceEntitySchemaSlug: EntitySchemaSlug.make("schema-part"),
-				targetEntitySchemaSlug: EntitySchemaSlug.make("schema-part-item"),
+				sourceEntitySchemaSlug: EntitySchemaSlug.make("group-part"),
+				targetEntitySchemaSlug: EntitySchemaSlug.make("group-part-item"),
 			},
 		],
 	]);
@@ -589,14 +820,14 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 				switch (slug) {
 					case "group-part": {
 						result = {
-							id: EntitySchemaSlug.make("schema-part"),
+							id: EntitySchemaSlug.make("group-part"),
 							propertiesSchema: { fields: {} },
 						};
 						break;
 					}
 					case "group-part-item": {
 						result = {
-							id: EntitySchemaSlug.make("schema-part-item"),
+							id: EntitySchemaSlug.make("group-part-item"),
 							propertiesSchema: { fields: {} },
 						};
 						break;
@@ -732,6 +963,8 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 			executionId,
 			Effect.gen(function* () {
 				const processedParts = yield* writeChildEntitySet({
+					scope: "global",
+					definitions: testDefinitions,
 					syncExisting,
 					childEntities: [part],
 					parentEntityId: baseEntity.id,
@@ -741,6 +974,8 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 				const processedPart = processedParts.processedChildren[0];
 				assert(processedPart);
 				yield* writeChildEntitySet({
+					scope: "global",
+					definitions: testDefinitions,
 					syncExisting,
 					childEntities: part.childEntities,
 					parentEntityId: processedPart.entity.id,
@@ -759,23 +994,23 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 		expect(entityWrites.every((write) => !write.updateExisting)).toBe(true);
 		expect(relationshipOperations).toEqual([
 			"list:rel-group-part:entity-1",
-			"create:rel-group-part:entity-1->schema-part-part-1",
-			"list:rel-part-part-item:schema-part-part-1",
-			"create:rel-part-part-item:schema-part-part-1->schema-part-item-part-item-1",
+			"create:rel-group-part:entity-1->group-part-part-1",
+			"list:rel-part-part-item:group-part-part-1",
+			"create:rel-part-part-item:group-part-part-1->group-part-item-part-item-1",
 		]);
 
 		const part = entityWrites.find((write) => write.externalId === "part-1");
 		const partItem = entityWrites.find((write) => write.externalId === "part-item-1");
 
 		expect(part?.providerId).toBe("provider-1");
-		expect(part?.entitySchemaSlug).toBe("schema-part");
+		expect(part?.entitySchemaSlug).toBe("group-part");
 		expect(part?.properties).toEqual({
 			partNumber: 1,
 			description: "Part",
 			releaseDate: "2026-01-01",
 			images: [{ type: "remote", url: "https://example.com/part.jpg", purpose: "cover" }],
 		});
-		expect(partItem?.entitySchemaSlug).toBe("schema-part-item");
+		expect(partItem?.entitySchemaSlug).toBe("group-part-item");
 		expect(partItem?.properties).toEqual({
 			runtime: 45,
 			partNumber: 1,
@@ -793,8 +1028,8 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 		expect(entityWrites.every((write) => write.updateExisting)).toBe(true);
 		expect(relationshipOperations).toEqual([
 			"list:rel-group-part:entity-1",
-			"list:rel-part-part-item:schema-part-part-1",
-			"create:rel-part-part-item:schema-part-part-1->schema-part-item-part-item-2",
+			"list:rel-part-part-item:group-part-part-1",
+			"create:rel-part-part-item:group-part-part-1->group-part-item-part-item-2",
 		]);
 
 		entityWrites.length = 0;
@@ -803,6 +1038,8 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 				options,
 				"exec-mismatched-children",
 				writeChildEntitySet({
+					scope: "global",
+					definitions: testDefinitions,
 					syncExisting: true,
 					providerId: SandboxProviderId.make("provider-1"),
 					parentEntityId: baseEntity.id,
@@ -832,6 +1069,8 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 				options,
 				"exec-declared-child-mismatch",
 				writeChildEntitySet({
+					scope: "global",
+					definitions: testDefinitions,
 					syncExisting: true,
 					providerId: SandboxProviderId.make("provider-1"),
 					parentEntityId: baseEntity.id,
@@ -859,18 +1098,20 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 			options,
 			"exec-empty-authoritative-children",
 			writeChildEntitySet({
+				scope: "global",
+				definitions: testDefinitions,
 				syncExisting: true,
 				childEntities: [],
 				expectedChildEntitySchemaSlug: "group-part-item",
 				providerId: SandboxProviderId.make("provider-1"),
-				parentEntitySchemaSlug: EntitySchemaSlug.make("schema-part"),
-				parentEntityId: EntityId.make("schema-part-part-1"),
+				parentEntitySchemaSlug: EntitySchemaSlug.make("group-part"),
+				parentEntityId: EntityId.make("group-part-part-1"),
 			}),
 		);
 		expect(relationshipOperations).toEqual([
-			"list:rel-part-part-item:schema-part-part-1",
-			"delete:rel-part-part-item:schema-part-part-1->schema-part-item-part-item-1",
-			"delete:rel-part-part-item:schema-part-part-1->schema-part-item-part-item-2",
+			"list:rel-part-part-item:group-part-part-1",
+			"delete:rel-part-part-item:group-part-part-1->group-part-item-part-item-1",
+			"delete:rel-part-part-item:group-part-part-1->group-part-item-part-item-2",
 		]);
 		expect(storedRelationships.size).toBe(1);
 	});
@@ -1053,7 +1294,7 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 					properties: {},
 					scope: "global",
 					sourceEntityId: EntityId.make("entity-1"),
-					relationshipSchemaSlug: relatedSuggestionSchema.id,
+					relationshipSchemaSlug: RelationshipSchemaSlug.make("related-suggestion"),
 					targetEntityId: EntityId.make("suggestion-item-1"),
 				}),
 			]);
@@ -1107,7 +1348,7 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 				entitiesRepository: makeEntitiesRepository({
 					findEntitySchemaProviderBySlug: (slug: string) =>
 						Effect.succeed(slug === "item.alpha" ? itemSchemaScript : null),
-					findGlobalEntityByExternalId: () => Effect.succeed(storedPrimaryEntity),
+					findEntityByExternalId: () => Effect.succeed(storedPrimaryEntity),
 				}),
 				entitiesService: makeEntitiesService({
 					upsert: (input) => {
@@ -1262,7 +1503,7 @@ it.effect("short-circuits sandbox when global entity is already populated", () =
 			return Effect.succeed({ logs: [], value: {}, error: null, status: "completed" as const });
 		},
 		entitiesRepository: makeEntitiesRepository({
-			findGlobalEntityByExternalId: () => Effect.succeed(populatedEntity),
+			findEntityByExternalId: () => Effect.succeed(populatedEntity),
 		}),
 	} satisfies TestLayerOptions;
 
@@ -1350,6 +1591,22 @@ it.effect("keeps the refresh baseline when related relationship properties are i
 	};
 	const payload = { ...importPayload, executionId: "exec-related-validation" };
 	const options = {
+		definitions: withRelationshipDefinition({
+			slug: "authored-by",
+			name: "Authored By",
+			targetEntitySchemaSlug: "record",
+			sourceEntitySchemaSlug: "person",
+			propertiesSchema: {
+				fields: {
+					rating: {
+						type: "number",
+						label: "Rating",
+						description: "Rating",
+						validation: { required: true },
+					},
+				},
+			},
+		}),
 		processSandbox: () =>
 			Effect.succeed({
 				logs: [],
@@ -1397,7 +1654,7 @@ it.effect("keeps the refresh baseline when related relationship properties are i
 				}),
 		}),
 		entitiesRepository: makeEntitiesRepository({
-			findGlobalEntityByExternalId: () => Effect.succeed(storedEntity),
+			findEntityByExternalId: () => Effect.succeed(storedEntity),
 			findEntitySchemaProviderBySlug: () =>
 				Effect.succeed({
 					entitySchemaSlug: EntitySchemaSlug.make("person"),
@@ -1547,6 +1804,22 @@ it.effect("retries related writes after a failed related validation", () => {
 	let storedEntity: StoredEntity | null = null;
 
 	const options = {
+		definitions: withRelationshipDefinition({
+			slug: "authored-by",
+			name: "Authored By",
+			targetEntitySchemaSlug: "schema-1",
+			sourceEntitySchemaSlug: "schema-person",
+			propertiesSchema: {
+				fields: {
+					rating: {
+						type: "number",
+						label: "Rating",
+						description: "Rating",
+						validation: { required: true },
+					},
+				},
+			},
+		}),
 		relationshipSchemasRepository: makeRelationshipSchemasRepository({
 			findBuiltinBySlug: () =>
 				Effect.succeed({
@@ -1569,7 +1842,7 @@ it.effect("retries related writes after a failed related validation", () => {
 				}),
 		}),
 		entitiesRepository: makeEntitiesRepository({
-			findGlobalEntityByExternalId: () => Effect.succeed(storedEntity),
+			findEntityByExternalId: () => Effect.succeed(storedEntity),
 			findEntitySchemaProviderBySlug: () =>
 				Effect.succeed({
 					entitySchemaSlug: EntitySchemaSlug.make("schema-person"),
@@ -1830,6 +2103,11 @@ it.effect("refresh synchronization replaces provider-owned primary and child val
 	};
 	const payload = { ...importPayload, executionId: "refresh-overwrite" };
 	const options = {
+		definitions: withChildRelationshipDefinitions(
+			"group",
+			"group-to-group-part",
+			"group-part-to-group-part-item",
+		),
 		processSandbox: () =>
 			Effect.succeed({
 				logs: [],
@@ -1859,7 +2137,7 @@ it.effect("refresh synchronization replaces provider-owned primary and child val
 			findGlobalBySchemaIds: () => Effect.succeed(relationshipSchema),
 		}),
 		entitiesRepository: makeEntitiesRepository({
-			findGlobalEntityByExternalId: (input) =>
+			findEntityByExternalId: (input) =>
 				Effect.succeed({
 					...baseEntity,
 					populatedAt: now,
@@ -1882,26 +2160,6 @@ it.effect("refresh synchronization replaces provider-owned primary and child val
 						entitySchemaSlug: input.entitySchemaSlug,
 					});
 				}
-				return Effect.succeed({
-					...baseEntity,
-					name: input.name,
-					properties: input.properties,
-					entitySchemaSlug: input.entitySchemaSlug,
-					populatedAt: input.populatedAt?.toISOString() ?? null,
-					id:
-						input.entitySchemaSlug === "group"
-							? EntityId.make("entity-1")
-							: EntityId.make("part-1"),
-				});
-			},
-			update: (input) => {
-				assertRecord(input.properties);
-				writes.push({
-					name: input.name,
-					properties: input.properties,
-					populatedAt: input.populatedAt,
-					entitySchemaSlug: input.entitySchemaSlug,
-				});
 				return Effect.succeed({
 					...baseEntity,
 					name: input.name,
@@ -2051,7 +2309,7 @@ it.effect("resumes from the failed population scope without duplicating committe
 	const storedRelationships = new Map<string, typeof savedRelationship>();
 	const relationshipSchemas = new Map([
 		[
-			"schema-group->schema-part",
+			"schema-group->group-part",
 			{
 				isBuiltin: true,
 				name: "Group to Group Part",
@@ -2059,19 +2317,19 @@ it.effect("resumes from the failed population scope without duplicating committe
 				propertiesSchema: { fields: {} },
 				id: RelationshipSchemaSlug.make("rel-group-part"),
 				sourceEntitySchemaSlug: EntitySchemaSlug.make("schema-group"),
-				targetEntitySchemaSlug: EntitySchemaSlug.make("schema-part"),
+				targetEntitySchemaSlug: EntitySchemaSlug.make("group-part"),
 			},
 		],
 		[
-			"schema-part->schema-part-item",
+			"group-part->group-part-item",
 			{
 				isBuiltin: true,
 				propertiesSchema: { fields: {} },
 				name: "Group Part to Group Part Item",
 				slug: "group-part-to-group-part-item",
 				id: RelationshipSchemaSlug.make("rel-part-part-item"),
-				sourceEntitySchemaSlug: EntitySchemaSlug.make("schema-part"),
-				targetEntitySchemaSlug: EntitySchemaSlug.make("schema-part-item"),
+				sourceEntitySchemaSlug: EntitySchemaSlug.make("group-part"),
+				targetEntitySchemaSlug: EntitySchemaSlug.make("group-part-item"),
 			},
 		],
 	]);
@@ -2110,6 +2368,11 @@ it.effect("resumes from the failed population scope without duplicating committe
 		],
 	};
 	const options = {
+		definitions: withChildRelationshipDefinitions(
+			"schema-group",
+			"group-to-group-part",
+			"group-part-to-group-part-item",
+		),
 		processSandbox: () =>
 			Effect.succeed({
 				logs: [],
@@ -2129,7 +2392,7 @@ it.effect("resumes from the failed population scope without duplicating committe
 				),
 		}),
 		entitiesRepository: makeEntitiesRepository({
-			findGlobalEntityByExternalId: (input) =>
+			findEntityByExternalId: (input) =>
 				Effect.succeed(
 					storedEntities.get(entityKey(input.entitySchemaSlug, input.externalId)) ?? null,
 				),
@@ -2242,7 +2505,7 @@ it.effect("resumes from the failed population scope without duplicating committe
 it.effect("uses unique deterministic activity names per population scope", () => {
 	const relationshipSchemas = new Map([
 		[
-			"schema-group->schema-part",
+			"schema-group->group-part",
 			{
 				isBuiltin: true,
 				name: "Group to Group Part",
@@ -2250,19 +2513,19 @@ it.effect("uses unique deterministic activity names per population scope", () =>
 				propertiesSchema: { fields: {} },
 				id: RelationshipSchemaSlug.make("rel-group-part"),
 				sourceEntitySchemaSlug: EntitySchemaSlug.make("schema-group"),
-				targetEntitySchemaSlug: EntitySchemaSlug.make("schema-part"),
+				targetEntitySchemaSlug: EntitySchemaSlug.make("group-part"),
 			},
 		],
 		[
-			"schema-part->schema-part-item",
+			"group-part->group-part-item",
 			{
 				isBuiltin: true,
 				propertiesSchema: { fields: {} },
 				name: "Group Part to Group Part Item",
 				slug: "group-part-to-group-part-item",
 				id: RelationshipSchemaSlug.make("rel-part-part-item"),
-				sourceEntitySchemaSlug: EntitySchemaSlug.make("schema-part"),
-				targetEntitySchemaSlug: EntitySchemaSlug.make("schema-part-item"),
+				sourceEntitySchemaSlug: EntitySchemaSlug.make("group-part"),
+				targetEntitySchemaSlug: EntitySchemaSlug.make("group-part-item"),
 			},
 		],
 	]);
@@ -2314,6 +2577,11 @@ it.effect("uses unique deterministic activity names per population scope", () =>
 		],
 	};
 	const options = {
+		definitions: withChildRelationshipDefinitions(
+			"schema-group",
+			"group-to-group-part",
+			"group-part-to-group-part-item",
+		),
 		processSandbox: () =>
 			Effect.succeed({
 				logs: [],
@@ -2373,6 +2641,7 @@ it.effect("uses unique deterministic activity names per population scope", () =>
 		yield* runObserved(firstRunNames);
 
 		expect(firstRunNames).toEqual([
+			"resolve-provider-entity-definitions",
 			"check-existing-entity",
 			"validate-entity-details",
 			"upsert-root-entity",
@@ -2457,6 +2726,11 @@ it.effect("dispatches only material nested entity updates with the root populati
 		],
 	]);
 	const options = {
+		definitions: withChildRelationshipDefinitions(
+			"group",
+			"group-to-group-part",
+			"group-part-to-group-part-item",
+		),
 		lifecycleDispatch: Layer.succeed(LifecycleDispatch, {
 			dispatch: (input) => Effect.sync(() => dispatched.push(input)).pipe(Effect.asVoid),
 		}),
@@ -2497,7 +2771,7 @@ it.effect("dispatches only material nested entity updates with the root populati
 				},
 			}),
 		entitiesRepository: makeEntitiesRepository({
-			findGlobalEntityByExternalId: () => Effect.succeed(rootEntity),
+			findEntityByExternalId: () => Effect.succeed(rootEntity),
 		}),
 		entitySchemasRepository: makeEntitySchemasRepository({
 			getBuiltinBySlug: (slug: string) =>

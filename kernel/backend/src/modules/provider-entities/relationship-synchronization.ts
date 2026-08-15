@@ -39,7 +39,7 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 			onConflict: "preserveExisting" | "replaceProperties";
 			relationshipSchemaPluginId?: string | null | undefined;
 			entries: ReadonlyArray<{ entityId: EntityId; properties: Record<string, unknown> }>;
-		} & ({ scope?: "global" } | { scope: "user"; userId: UserId }),
+		} & ({ scope: "global" } | { scope: "user"; userId: UserId }),
 	) {
 		const relationships = yield* RelationshipsService;
 		const entitiesRepository = yield* EntitiesRepository;

@@ -60,6 +60,8 @@ export const installTestProvider = (input: {
 	information?: PluginProviderInformation;
 	savedViews?: PluginManifest["savedViews"];
 	searchOptions?: ProviderSearchOptionsResult;
+	entitySchemas?: PluginManifest["entitySchemas"];
+	relationshipSchemas?: PluginManifest["relationshipSchemas"];
 	translations?: Readonly<Record<string, ProviderTranslateResult>>;
 }) =>
 	Effect.gen(function* () {
@@ -129,17 +131,19 @@ export const installTestProvider = (input: {
 		const providerOperations = {
 			details: `${providerSlug}.details`,
 			...(input.search ? { search: `${providerSlug}.search` } : {}),
+			...(input.resolve ? { resolve: `${providerSlug}.resolve` } : {}),
+			...(input.translations ? { translate: `${providerSlug}.translate` } : {}),
 			...(input.searchOptions !== undefined || input.searchOptionsFailure !== undefined
 				? { searchOptions: `${providerSlug}.search-options` }
 				: {}),
-			...(input.resolve ? { resolve: `${providerSlug}.resolve` } : {}),
-			...(input.translations ? { translate: `${providerSlug}.translate` } : {}),
 		};
 		const common = {
 			files,
 			scripts,
 			pluginSlug: input.pluginSlug,
 			savedViews: input.savedViews,
+			entitySchemas: input.entitySchemas,
+			relationshipSchemas: input.relationshipSchemas,
 			providers: [
 				{
 					name,

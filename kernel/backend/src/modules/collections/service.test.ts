@@ -117,7 +117,7 @@ const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 
 const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
 	mockEntitiesRepository({
-		getEntitySchemaScopeForUser: () =>
+		findEntitySchemaForUser: () =>
 			Effect.succeed({
 				userId: null,
 				isBuiltin: true,
