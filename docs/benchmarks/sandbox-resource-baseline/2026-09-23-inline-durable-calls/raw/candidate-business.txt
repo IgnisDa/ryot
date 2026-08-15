@@ -1,0 +1,6 @@
+automation_attempts:succeeded|770
+automation_runs:succeeded|770
+automation_runs_retried|0
+entities|296
+events|294
+relationships|574

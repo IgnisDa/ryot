@@ -1,0 +1,6 @@
+{"label":"candidate","scenario":"direct:0","repetitions":5,"postgresCpuSeconds":1.14984,"postgresCommits":346}
+{"label":"candidate","scenario":"direct:1","repetitions":5,"postgresCpuSeconds":0.959096,"postgresCommits":297}
+{"label":"candidate","scenario":"direct:5","repetitions":5,"postgresCpuSeconds":1.04582,"postgresCommits":296}
+{"label":"candidate","scenario":"direct:10","repetitions":5,"postgresCpuSeconds":1.10017,"postgresCommits":325}
+{"label":"candidate","scenario":"import","repetitions":3,"postgresCpuSeconds":69.8858,"postgresCommits":26549}
+{"label":"candidate","scenario":"batch:5","repetitions":2,"postgresCpuSeconds":172.488,"postgresCommits":86624}
