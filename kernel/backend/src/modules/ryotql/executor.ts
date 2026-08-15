@@ -327,6 +327,9 @@ const compileExpression = (expr: ScalarExpression, scope: CompileScope): SqlFrag
 	if (expr.type === "cast") {
 		return compileCast(expr, scope);
 	}
+	if (expr.type === "currentDate") {
+		return sql`(date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')`;
+	}
 	if (expr.type === "dateBucket") {
 		return sql`date_trunc(${expr.bucket}, ${compileExpression(expr.expr, scope)}, ${expr.timeZone})`;
 	}
@@ -403,6 +406,7 @@ const expressionNullable = (expr: ScalarExpression, scope: CompileScope): boolea
 		return expr.value === null;
 	}
 	if (
+		expr.type === "currentDate" ||
 		expr.type === "exists" ||
 		expr.type === "isNotNull" ||
 		expr.type === "jsonExists" ||
