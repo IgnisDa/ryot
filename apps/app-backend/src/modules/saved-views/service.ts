@@ -47,19 +47,6 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				: yield* new SavedViewBadRequest({ reason: { code: "plugin-not-found", pluginSlug } });
 		});
 
-		const list = Effect.fn(function* (
-			user: CurrentUserValue,
-			input: { pluginSlug?: PluginSlug | undefined; includeDisabled: boolean },
-		) {
-			const pluginInstallationId = input.pluginSlug
-				? yield* resolvePluginInstallation(user.id, input.pluginSlug)
-				: undefined;
-			return yield* repository.listByUser(user.id, {
-				pluginInstallationId,
-				includeDisabled: input.includeDisabled,
-			});
-		});
-
 		const ensureBuiltinViews = Effect.fn(function* (userId: CurrentUserValue["id"]) {
 			const effective = yield* effectiveForUser(userId, true);
 			const views = Object.values(effective.savedViews);
@@ -238,7 +225,13 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 		});
 
 		const reorder = Effect.fn(function* (user: CurrentUserValue, payload: ReorderSavedViewsBody) {
-			const views = yield* list(user, { pluginSlug: payload.pluginSlug, includeDisabled: true });
+			const pluginInstallationId = payload.pluginSlug
+				? yield* resolvePluginInstallation(user.id, payload.pluginSlug)
+				: null;
+			const views = yield* repository.listByUser(user.id, {
+				includeDisabled: true,
+				pluginInstallationId: pluginInstallationId ?? undefined,
+			});
 			const scoped = views.filter(
 				(view) => (view.pluginSlug ?? null) === (payload.pluginSlug ?? null),
 			);
@@ -262,26 +255,15 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				...requested,
 				...scoped.map((view) => view.slug).filter((slug) => !requested.includes(slug)),
 			];
-			for (const [sortOrder, slug] of reordered.entries()) {
-				const view = scoped.find((item) => item.slug === slug);
-				if (!view) {
-					continue;
-				}
-				yield* update(user, slug, {
-					...view,
-					sortOrder,
-					pluginSlug: view.pluginSlug ?? undefined,
-				}).pipe(
-					Effect.catch((error) =>
-						Effect.logWarning("saved view reorder update failed", error).pipe(
-							Effect.andThen(
-								new SavedViewBadRequest({
-									reason: { viewSlugs: requested, issue: "update-failed", code: "invalid-reorder" },
-								}),
-							),
-						),
-					),
-				);
+			const reorderedCount = yield* repository.reorderBySlugs(
+				user.id,
+				pluginInstallationId,
+				reordered,
+			);
+			if (reorderedCount !== reordered.length) {
+				return yield* new SavedViewBadRequest({
+					reason: { viewSlugs: requested, issue: "update-failed", code: "invalid-reorder" },
+				});
 			}
 			return { viewSlugs: reordered };
 		});
@@ -292,9 +274,9 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			update,
 			reorder,
 			removeGenerated,
-			hasCustomInstallationReferences,
 			delete: deleteView,
 			ensureBuiltinViews,
+			hasCustomInstallationReferences,
 		};
 	}),
 }) {
