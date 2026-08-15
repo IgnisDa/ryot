@@ -52,7 +52,7 @@ const SandboxWorkflowPin = Schema.Struct({
 	startedAt: Schema.String,
 	scriptId: SandboxScriptId,
 	contentHash: Schema.String,
-	pluginSlug: Schema.NullOr(Schema.String),
+	pluginId: Schema.NullOr(Schema.String),
 });
 
 const ObservedWorkflowReplay = Schema.Union([
@@ -132,11 +132,11 @@ export const establishSandboxWorkflowPin = Effect.fn("establishSandboxWorkflowPi
 						`Sandbox workflow script is not owned by plugin '${expectedPluginSlug}'`,
 					);
 				}
-				const registrationStatus = pinned.pluginSlug
+				const registrationStatus = pinned.pluginId
 					? (yield* references.registerInTransaction({
 							executionId,
+							pluginId: pinned.pluginId,
 							scriptId: pinned.scriptId,
-							pluginSlug: pinned.pluginSlug,
 							contentHash: pinned.contentHash,
 						})).status
 					: ("not-required" as const);
@@ -419,13 +419,13 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 		name: "pin-sandbox-workflow-script",
 		execute: Effect.gen(function* () {
 			const startedAt = DateTime.formatIso(DateTime.makeUnsafe(yield* Clock.currentTimeMillis));
-			const { scriptId, contentHash, pluginSlug } = yield* establishSandboxWorkflowPin(
+			const { scriptId, contentHash, pluginId } = yield* establishSandboxWorkflowPin(
 				payload,
 				executionId,
 			);
 			const artifacts = yield* SandboxArtifactStore;
 			yield* artifacts.retain(payload.grants?.artifactOwnerExecutionId ?? executionId, executionId);
-			return { scriptId, startedAt, pluginSlug, contentHash };
+			return { scriptId, startedAt, pluginId, contentHash };
 		}).pipe(Effect.mapError((error) => sandboxFailure(unknownToMessage(error)))),
 	});
 
@@ -438,7 +438,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 				payload.grants?.artifactOwnerExecutionId ?? executionId,
 				executionId,
 			);
-			if (pin.pluginSlug) {
+			if (pin.pluginId) {
 				const references = yield* SandboxWorkflowReferenceRepository;
 				yield* references.release(executionId);
 			}

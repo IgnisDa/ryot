@@ -8,16 +8,16 @@ import { assert } from "vitest";
 import { databaseLayer } from "#lib/test-utils/effect";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { makePluginLoader, PluginLoader } from "#modules/plugins/loader";
+import type { PluginRegistryEntry } from "#modules/plugins/loader";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
-import type { NormalizedPlugin } from "#modules/plugins/types";
 
 import { makePluginUserBootstrapDispatcher, userBootstrapExecutionId } from "./plugin-dispatch";
 
 const normalizedPlugin = (
 	pluginSlug: string,
 	entries: PluginManifest["userBootstrap"],
-): NormalizedPlugin => {
+): PluginRegistryEntry => {
 	const base = fixtureManifest();
 	const declared = base.scripts[0];
 	assert(declared);
@@ -47,6 +47,11 @@ const normalizedPlugin = (
 	};
 	return {
 		manifest,
+		ownerId: null,
+		sourceFiles: {},
+		slug: pluginSlug,
+		id: `${pluginSlug}-id`,
+		scope: "system" as const,
 		sourceHash: `${pluginSlug}-source`,
 		scripts: scripts.map(({ entry, ...metadata }) => ({
 			entry,
@@ -92,10 +97,10 @@ const layer = Layer.mergeAll(
 				? Effect.succeed({
 						bootstrap,
 						script: {
-							pluginSlug,
 							source: "source",
 							providerId: null,
 							compiledFormat: 1,
+							pluginId: pluginSlug,
 							compiledCode: "compiled",
 							name: bootstrap.scriptSlug,
 							slug: bootstrap.scriptSlug,

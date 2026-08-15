@@ -8,8 +8,7 @@ import { RelationshipSchemasRepository } from "#modules/relationship-schemas/rep
 
 import { makePluginLoader, PluginLoader } from "./loader";
 import { PluginRuntimeResolverLive } from "./runtime-resolver";
-import { fixtureManifest } from "./test-support";
-import type { NormalizedPlugin } from "./types";
+import { fixtureManifest, fixturePluginIdentity } from "./test-support";
 
 const emptySource = {
 	savedViews: [],
@@ -18,7 +17,7 @@ const emptySource = {
 	relationshipSchemas: [],
 };
 
-const normalizedPlugin = (version: string): NormalizedPlugin => {
+const normalizedPlugin = (version: string) => {
 	const manifest = fixtureManifest();
 	manifest.metadata.version = version;
 	const entity = manifest.entitySchemas[0];
@@ -29,6 +28,7 @@ const normalizedPlugin = (version: string): NormalizedPlugin => {
 	const { entry, ...metadata } = script;
 	return {
 		manifest,
+		...fixturePluginIdentity(),
 		sourceHash: `source-${version}`,
 		scripts: [
 			{
@@ -86,6 +86,7 @@ it("rejects definition collisions without replacing the current snapshot", () =>
 	const plugin = normalizedPlugin("2");
 	const collision = {
 		...plugin,
+		...fixturePluginIdentity("other-plugin"),
 		scripts: plugin.scripts.map((script) => ({ ...script, slug: "other.automation" })),
 		manifest: {
 			...plugin.manifest,
@@ -106,6 +107,7 @@ it("rejects plugin config environment collisions across active plugins", () => {
 	const firstBase = normalizedPlugin("1");
 	const first = {
 		...firstBase,
+		...fixturePluginIdentity("fixture-one"),
 		manifest: {
 			...firstBase.manifest,
 			metadata: { ...firstBase.manifest.metadata, slug: "fixture-one" },
@@ -118,6 +120,7 @@ it("rejects plugin config environment collisions across active plugins", () => {
 	const secondBase = normalizedPlugin("2");
 	const second = {
 		...secondBase,
+		...fixturePluginIdentity("fixture_one"),
 		manifest: {
 			...secondBase.manifest,
 			metadata: { ...secondBase.manifest.metadata, slug: "fixture_one" },
@@ -174,6 +177,7 @@ it("rejects script slug collisions across active plugins", () => {
 	const plugin = normalizedPlugin("2");
 	const collision = {
 		...plugin,
+		...fixturePluginIdentity("other-plugin"),
 		manifest: {
 			...plugin.manifest,
 			metadata: { ...plugin.manifest.metadata, slug: "other-plugin" },
@@ -243,6 +247,7 @@ it("rejects integration provider and import source slug collisions across active
 		expect(() =>
 			loader.load({
 				...second,
+				...fixturePluginIdentity("other-plugin"),
 				scripts: second.scripts.map((script) => ({ ...script, slug: "other.automation" })),
 				manifest: {
 					...second.manifest,

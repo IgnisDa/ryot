@@ -6,6 +6,7 @@ import { Effect, Result } from "effect";
 
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { makePluginLoader } from "#modules/plugins/loader";
+import { fixturePluginIdentity } from "#modules/plugins/test-support";
 
 import { makeDefinitionRegistry } from "./service";
 
@@ -14,8 +15,18 @@ const mediaMonitoringRelationshipSchemaSlug = RelationshipSchemaSlug.make("media
 const signalDefinitions = () => {
 	const registry = makeDefinitionRegistry();
 	const loader = makePluginLoader(registry);
-	loader.load({ manifest: mediaPlugin, sourceHash: "media", scripts: [] });
-	loader.load({ manifest: fitnessPlugin, sourceHash: "fitness", scripts: [] });
+	loader.load({
+		scripts: [],
+		sourceHash: "media",
+		manifest: mediaPlugin,
+		...fixturePluginIdentity("media"),
+	});
+	loader.load({
+		scripts: [],
+		sourceHash: "fitness",
+		manifest: fitnessPlugin,
+		...fixturePluginIdentity("fitness"),
+	});
 	return Object.values(registry.getSnapshot().signalSchemas);
 };
 
@@ -47,8 +58,8 @@ it.effect("defines strict active actor contracts for the first notification sign
 			expect(definition.propertiesSchema.unknownKeys).toBe("strict");
 
 			const valid = yield* parseAppSchemaProperties({
-				kind: "Signal",
 				properties,
+				kind: "Signal",
 				propertiesSchema: definition.propertiesSchema,
 			});
 			expect(valid).toEqual(properties);
@@ -56,8 +67,8 @@ it.effect("defines strict active actor contracts for the first notification sign
 			const unknown = yield* Effect.result(
 				parseAppSchemaProperties({
 					kind: "Signal",
-					properties: { ...properties, unexpected: true },
 					propertiesSchema: definition.propertiesSchema,
+					properties: { ...properties, unexpected: true },
 				}),
 			);
 			expect(Result.isFailure(unknown)).toBe(true);

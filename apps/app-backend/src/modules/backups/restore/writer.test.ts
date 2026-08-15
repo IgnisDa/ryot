@@ -8,10 +8,10 @@ import type { MockOverrides } from "#lib/test-utils/effect";
 import { AuthRepository } from "#modules/auth/repository";
 import { AutomationsRepository } from "#modules/automations/repository";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
-import { DefinitionsRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { EventsRepository, RESTORE_EVENT_BATCH_SIZE } from "#modules/events/repository";
+import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRepository } from "#modules/plugins/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
@@ -199,7 +199,7 @@ const restoreArchivedEvents = (events: ReadonlyArray<V1Event>, restoreEvents: Re
 						}),
 						Layer.mock(SavedViewsRepository, {}),
 						Layer.mock(AutomationsRepository, {}),
-						Layer.mock(DefinitionsRepository, {}),
+						Layer.mock(PluginInstallationRepository, {}),
 						Layer.mock(TranslationsRepository, {}),
 						Layer.mock(RelationshipsRepository, {}),
 						Layer.succeed(Database, Object.create(null)),

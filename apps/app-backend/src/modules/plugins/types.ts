@@ -26,8 +26,14 @@ export type NormalizedPlugin = {
 	readonly sourceHash: string;
 	readonly manifest: PluginManifest;
 	readonly scripts: Array<NormalizedPluginScript>;
+	readonly sourceFiles: Readonly<Record<string, string>>;
 };
 
-export type StoredPlugin = NormalizedPlugin & {
-	readonly status: string;
+export type StoredPluginIdentity = {
+	readonly id: string;
+	readonly slug: string;
+	readonly ownerId: string | null;
+	readonly scope: "system" | "user";
 };
+
+export type StoredPlugin = NormalizedPlugin & StoredPluginIdentity & { readonly status: string };

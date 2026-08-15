@@ -14,11 +14,14 @@ import {
 	type StoredNotificationSubscription,
 } from "#modules/automations/repository";
 import { DefinitionRegistry, type SavedViewDefinition } from "#modules/definition-registry/service";
-import { DefinitionsRepository, type PluginStateRow } from "#modules/definitions/repository";
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { NotificationsRepository } from "#modules/notifications/repository";
+import {
+	PluginInstallationRepository,
+	type PluginInstallationState,
+} from "#modules/plugins/installation-repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
@@ -55,10 +58,10 @@ export type AccountCleanlinessState = {
 	readonly hasManagedAssets: boolean;
 	readonly hasNotificationChannels: boolean;
 	readonly profile: PortableUserProfile | null;
-	readonly pluginState: ReadonlyArray<PluginStateRow>;
 	readonly savedViews: ReadonlyArray<SavedViewRecord>;
 	readonly defaultPreferences: Record<string, unknown>;
 	readonly entities: ReadonlyArray<PortableEntityRecord>;
+	readonly pluginState: ReadonlyArray<PluginInstallationState>;
 	readonly relationships: ReadonlyArray<StructuralRelationship>;
 	readonly expectedSavedViews: ReadonlyArray<SavedViewDefinition>;
 	readonly expectedBootstrapEntities: ReadonlyArray<StructuralEntity>;
@@ -168,15 +171,15 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 		make: Effect.gen(function* () {
 			const auth = yield* AuthRepository;
 			const events = yield* EventsRepository;
-			const uploads = yield* ManagedAssetsService;
 			const entities = yield* EntitiesRepository;
+			const uploads = yield* ManagedAssetsService;
 			const definitions = yield* DefinitionRegistry;
 			const savedViews = yield* SavedViewsRepository;
 			const automations = yield* AutomationsRepository;
-			const pluginState = yield* DefinitionsRepository;
 			const integrations = yield* IntegrationsRepository;
 			const relationships = yield* RelationshipsRepository;
 			const notifications = yield* NotificationsRepository;
+			const installations = yield* PluginInstallationRepository;
 
 			const assertAccountIsClean = Effect.fn("BackupAccountCleanliness.assertAccountIsClean")(
 				function* (userId: UserId) {
@@ -190,7 +193,7 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 					const hasManagedAssets = (yield* uploads.listManagedAssetsForOwner(userId)).length > 0;
 					const views = yield* savedViews.listForBackup(userId);
 					const subscriptions = yield* automations.listNotificationSubscriptionsForBackup(userId);
-					const states = yield* pluginState.listPluginStates(userId);
+					const states = yield* installations.listForUser(userId);
 					const hasIntegrations = yield* integrations.hasAnyForUser(userId);
 					const hasNotificationChannels = yield* notifications.hasAnyForUser(userId);
 					const snapshot = definitions.getSnapshot();
@@ -217,6 +220,9 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 						notificationSubscriptions: subscriptions,
 						defaultPreferences: { ...defaultUserPreferences },
 						expectedSavedViews: Object.values(snapshot.savedViews),
+						expectedNotificationSubscriptionSlugs: Object.values(snapshot.signalSchemas)
+							.filter(({ catalogState }) => catalogState === "active")
+							.map(({ slug }) => slug),
 						expectedBootstrapEntities: [
 							{
 								provider: null,
@@ -227,14 +233,9 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 								entitySchemaSlug: V1_BOOTSTRAP_SOURCE.entitySchemaSlug,
 							},
 						],
-						expectedNotificationSubscriptionSlugs: Object.values(snapshot.signalSchemas)
-							.filter(({ catalogState }) => catalogState === "active")
-							.map(({ slug }) => slug),
 					});
 					if (category) {
-						return yield* new BackupConflict({
-							reason: { code: "account-not-clean", category },
-						});
+						return yield* new BackupConflict({ reason: { code: "account-not-clean", category } });
 					}
 					return undefined;
 				},
