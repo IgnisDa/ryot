@@ -1,10 +1,4 @@
-import {
-	JsonValue,
-	type Join,
-	type Predicate,
-	type ScalarExpression,
-	type TableReference,
-} from "@ryot-app/contract/modules/ryotql/language";
+import { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -16,14 +10,10 @@ import {
 	and,
 	column,
 	defineRecipe,
-	descending,
 	eq,
-	first,
-	gt,
 	inArray,
 	join,
 	literal,
-	or,
 	selectedField,
 	selectedRows,
 	table,
@@ -31,51 +21,9 @@ import {
 import { Result, Schema } from "effect";
 
 import { IsoDateString } from "./codecs";
+import { eventOrderDescending } from "./event-expressions";
 
-type EventOrderExpressions = {
-	readonly id: ScalarExpression;
-	readonly createdAt: ScalarExpression;
-	readonly occurredAt: ScalarExpression;
-};
-
-const eventOrderExpressions = (event: TableReference): EventOrderExpressions => ({
-	id: column(event, "id"),
-	createdAt: column(event, "createdAt"),
-	occurredAt: column(event, "occurredAt"),
-});
-
-export const eventOrderDescending = (event: TableReference) =>
-	[
-		descending(column(event, "occurredAt")),
-		descending(column(event, "createdAt")),
-		descending(column(event, "id")),
-	] as const;
-
-export const eventIsAfter = (
-	event: TableReference,
-	boundary: TableReference | EventOrderExpressions,
-) => {
-	const current = eventOrderExpressions(event);
-	const previous = "alias" in boundary ? eventOrderExpressions(boundary) : boundary;
-	return or(
-		gt(current.occurredAt, previous.occurredAt),
-		and(eq(current.occurredAt, previous.occurredAt), gt(current.createdAt, previous.createdAt)),
-		and(
-			eq(current.occurredAt, previous.occurredAt),
-			eq(current.createdAt, previous.createdAt),
-			gt(current.id, previous.id),
-		),
-	);
-};
-
-export const latestEventField = (
-	event: TableReference,
-	input: {
-		readonly where?: Predicate | undefined;
-		readonly joins?: readonly Join[] | undefined;
-		readonly select: ScalarExpression;
-	},
-) => first(event, { ...input, orderBy: eventOrderDescending(event) });
+export { eventIsAfter, eventOrderDescending, latestEventField } from "./event-expressions";
 
 export const eventHistoryRecipe = defineRecipe(
 	(input: {

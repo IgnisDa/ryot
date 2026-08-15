@@ -7,7 +7,16 @@ import valueParser from "postcss-value-parser";
 import { clientAssetArtifactFile, clientAssetName } from "./artifact";
 import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
 
+const NEUTRAL_MODULES = [
+	"@ryot-app/plugin-kit/effect",
+	"@ryot-app/plugin-kit/ryotql",
+	"@ryot-app/plugin-kit/schema",
+] as const;
+
+const NEUTRAL_MODULE_SET = new Set<string>(NEUTRAL_MODULES);
+
 const TRUSTED_MODULES = new Set([
+	...NEUTRAL_MODULES,
 	"clsx",
 	"react",
 	"react-dom",
@@ -26,6 +35,8 @@ const TRUSTED_MODULES = new Set([
 ]);
 
 export const isTrustedClientModule = (specifier: string) => TRUSTED_MODULES.has(specifier);
+
+export const isNeutralPluginModule = (specifier: string) => NEUTRAL_MODULE_SET.has(specifier);
 
 const directoryOf = (path: string) => path.slice(0, path.lastIndexOf("/"));
 
@@ -52,6 +63,9 @@ const resolveTypeScriptEntries = (from: string) => {
 			"@ryot-app/client-ui-sdk/schema-form",
 			from,
 		),
+		"@ryot-app/plugin-kit/effect": Bun.resolveSync("@ryot-app/plugin-kit/effect", from),
+		"@ryot-app/plugin-kit/ryotql": Bun.resolveSync("@ryot-app/plugin-kit/ryotql", from),
+		"@ryot-app/plugin-kit/schema": Bun.resolveSync("@ryot-app/plugin-kit/schema", from),
 	};
 };
 

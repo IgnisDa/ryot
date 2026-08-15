@@ -94,6 +94,14 @@ const collectSources = Effect.fn("collectSources")(function* (cwd: string) {
 		Stream.map((sourcePath) => path.normalize(sourcePath)),
 		Stream.runCollect,
 	);
+	const sharedPaths = yield* Stream.fromAsyncIterable(
+		new Bun.Glob("shared/**/*.ts").scan({ cwd, onlyFiles: true }),
+		(error) => new BuildError({ message: `Unable to discover shared sources: ${String(error)}` }),
+	).pipe(
+		Stream.filter((sourcePath) => !path.basename(sourcePath).includes(".test.")),
+		Stream.map((sourcePath) => path.normalize(sourcePath)),
+		Stream.runCollect,
+	);
 	const clientPaths = yield* Stream.fromAsyncIterable(
 		new Bun.Glob("client/**/*").scan({ cwd, onlyFiles: true }),
 		(error) => new BuildError({ message: `Unable to discover client sources: ${String(error)}` }),
@@ -103,7 +111,7 @@ const collectSources = Effect.fn("collectSources")(function* (cwd: string) {
 		Stream.map((sourcePath) => path.normalize(sourcePath)),
 		Stream.runCollect,
 	);
-	const paths = [...backendPaths, ...clientPaths];
+	const paths = [...backendPaths, ...sharedPaths, ...clientPaths];
 
 	const sources = yield* Effect.forEach(paths, (sourcePath) =>
 		fs
@@ -149,7 +157,10 @@ const deriveManifestScripts = Effect.fn("deriveManifestScripts")(function* (
 		try: () =>
 			Object.fromEntries(
 				sources
-					.filter(({ path: sourcePath }) => sourcePath.startsWith("backend/"))
+					.filter(
+						({ path: sourcePath }) =>
+							sourcePath.startsWith("backend/") || sourcePath.startsWith("shared/"),
+					)
 					.map(({ contents, path: sourcePath }) => [sourcePath, backendDecoder.decode(contents)]),
 			),
 		catch: (error) =>

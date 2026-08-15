@@ -544,3 +544,95 @@ export default defineProvider({
 		]);
 	}),
 );
+
+const sharedRootScript = `
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
+import { Schema } from "@ryot-app/plugin-kit/effect";
+
+import { rowSlug } from "../shared/row";
+
+export const manifest = defineManifest({
+	capabilities: [],
+	name: "Operation",
+	slug: "operation",
+	kind: "operation",
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
+});
+
+export default defineOperation({
+	manifest,
+	output: Schema.String,
+	input: Schema.Struct({}),
+	run: () => Effect.succeed(rowSlug),
+});
+`;
+
+it.effect("compiles a backend entry that imports a shared source", () =>
+	Effect.gen(function* () {
+		const compiled = yield* compilePluginSandboxSourceEntries(
+			{
+				"backend/operation.sandbox.ts": sharedRootScript,
+				"shared/row.ts": `
+import { Schema } from "@ryot-app/plugin-kit/effect";
+import { IsoDateString } from "@ryot-app/plugin-kit/ryotql";
+import { EntitySchemaSlug } from "@ryot-app/plugin-kit/schema";
+
+export const Row = Schema.Struct({ at: IsoDateString, slug: EntitySchemaSlug });
+export const rowSlug = "shared-row";
+`,
+			},
+			[{ kind: "operation", entry: "backend/operation.sandbox.ts" }],
+		);
+
+		const javascript = compiled[0]?.compiled.javascript ?? "";
+		expect(javascript).toContain("shared-row");
+		expect(javascript).toContain('from "@ryot-app/plugin-kit/ryotql"');
+		expect(javascript).not.toContain('from "../shared/row"');
+	}),
+);
+
+it.effect("rejects a shared source that imports the sandbox SDK", () =>
+	Effect.gen(function* () {
+		const failure = yield* compilePluginSandboxSourceEntries(
+			{
+				"backend/operation.sandbox.ts": sharedRootScript,
+				"shared/row.ts": `
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+
+export const rowSlug = Effect.runSync(Effect.succeed("shared-row"));
+`,
+			},
+			[{ kind: "operation", entry: "backend/operation.sandbox.ts" }],
+		).pipe(Effect.flip);
+
+		expect(failure.diagnostics).toHaveLength(1);
+		expect(failure.diagnostics[0]?.code).toBe("RYOT_IMPORT");
+		expect(failure.diagnostics[0]?.message).toContain("@ryot-app/sandbox-sdk/effect");
+		expect(failure.diagnostics[0]?.message).toContain("plugin shared sources");
+	}),
+);
+
+it.effect("rejects a shared source that imports a backend source", () =>
+	Effect.gen(function* () {
+		const failure = yield* compilePluginSandboxSourceEntries(
+			{
+				"backend/operation.sandbox.ts": sharedRootScript,
+				"backend/label.ts": 'export const label = "backend-label";',
+				"shared/row.ts": `
+import { label } from "../backend/label";
+
+export const rowSlug = label;
+`,
+			},
+			[{ kind: "operation", entry: "backend/operation.sandbox.ts" }],
+		).pipe(Effect.flip);
+
+		expect(failure.diagnostics).toHaveLength(1);
+		expect(failure.diagnostics[0]?.code).toBe("RYOT_IMPORT");
+		expect(failure.diagnostics[0]?.message).toContain("../backend/label");
+		expect(failure.diagnostics[0]?.message).toContain("plugin shared sources");
+	}),
+);

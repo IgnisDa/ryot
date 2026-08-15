@@ -1,7 +1,7 @@
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect } from "effect";
 
-import { isTrustedClientModule } from "./dependencies";
+import { isNeutralPluginModule, isTrustedClientModule } from "./dependencies";
 import {
 	type ClientPluginCompilerDiagnostic,
 	type ClientPluginCompilerFailure,
@@ -10,6 +10,7 @@ import {
 } from "./diagnostics";
 
 const CLIENT_SOURCE_ROOT = "client/";
+const SHARED_SOURCE_ROOT = "shared/";
 const CLIENT_NAMESPACE = "ryot-client-plugin";
 const EFFECT_NAMESPACE = "ryot-client-plugin-effect";
 const CLIENT_ENTRY_SPECIFIER = "ryot:client-entry";
@@ -71,6 +72,11 @@ const normalizeRelativePath = (importer: string, specifier: string) => {
 	return normalized.join("/");
 };
 
+const reachableRoots = (importer: string) =>
+	importer.startsWith(SHARED_SOURCE_ROOT)
+		? [SHARED_SOURCE_ROOT]
+		: [CLIENT_SOURCE_ROOT, SHARED_SOURCE_ROOT];
+
 const resolveLocalImport = (
 	files: Readonly<Record<string, string>>,
 	assetNames: Readonly<Record<string, string>>,
@@ -78,7 +84,7 @@ const resolveLocalImport = (
 	specifier: string,
 ) => {
 	const path = normalizeRelativePath(importer, specifier);
-	if (!path || !path.startsWith(CLIENT_SOURCE_ROOT)) {
+	if (!path || !reachableRoots(importer).some((root) => path.startsWith(root))) {
 		return null;
 	}
 	const candidates = [path, `${path}.tsx`, `${path}.ts`, `${path}/index.tsx`, `${path}/index.ts`];
@@ -125,12 +131,15 @@ export const bundleClientPlugin = (sources: ClientPluginSources, compilerRoot: s
 					if (!Object.hasOwn(sources.files, importer)) {
 						return undefined;
 					}
-					if (!isTrustedClientModule(path)) {
+					const shared = importer.startsWith(SHARED_SOURCE_ROOT);
+					if (shared ? !isNeutralPluginModule(path) : !isTrustedClientModule(path)) {
 						rejected.push(
 							clientPluginCompilerDiagnostic(
 								"RYOT_CLIENT_IMPORT",
 								importer,
-								`Import "${path}" is not allowed; client plugins may only import React and Ryot client SDK entry points`,
+								shared
+									? `Import "${path}" is not allowed; plugin shared sources may only import Ryot plugin kit entry points`
+									: `Import "${path}" is not allowed; client plugins may only import React and Ryot client SDK entry points`,
 							),
 						);
 						return { path, namespace: UNTRUSTED_NAMESPACE };
@@ -158,7 +167,7 @@ export const bundleClientPlugin = (sources: ClientPluginSources, compilerRoot: s
 					namespace: EFFECT_NAMESPACE,
 				}));
 				builder.onResolve(
-					{ filter: /^effect\/(?:Match|Result|Schema|SchemaGetter)$/ },
+					{ filter: /^effect\/(?:DateTime|Match|Result|Schema|SchemaGetter)$/ },
 					({ path }) => ({
 						namespace: "file",
 						path: Bun.resolveSync(path, compilerRoot),
@@ -167,6 +176,7 @@ export const bundleClientPlugin = (sources: ClientPluginSources, compilerRoot: s
 				builder.onLoad({ filter: /.*/, namespace: EFFECT_NAMESPACE }, () => ({
 					loader: "js" as const,
 					contents: `
+export * as DateTime from "effect/DateTime";
 export * as Match from "effect/Match";
 export * as Result from "effect/Result";
 export * as Schema from "effect/Schema";

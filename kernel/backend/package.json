@@ -31,6 +31,7 @@
 		"@ryot-app/config": "workspace:*",
 		"@ryot-app/contract": "workspace:*",
 		"@ryot-app/plugin-archive": "workspace:*",
+		"@ryot-app/plugin-kit": "workspace:*",
 		"@ryot-app/ryotql-recipes": "workspace:*",
 		"@ryot-app/sandbox-compiler": "workspace:*",
 		"@ryot-app/sandbox-sdk": "workspace:*",
