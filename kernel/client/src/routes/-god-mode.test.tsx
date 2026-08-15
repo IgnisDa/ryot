@@ -22,12 +22,13 @@ import { getRouter } from "#/router";
 import {
 	OAuthRouteStubs,
 	SavedViewRouteStubs,
+	ProviderAddRouteStubs,
+	theme,
+	server,
 	catalog,
 	makeAuthStub,
-	makePublicApiStub,
 	makeStorageStub,
-	server,
-	theme,
+	makePublicApiStub,
 } from "#/routes/-route-fixtures";
 
 const makeView = (
@@ -41,6 +42,7 @@ const makeView = (
 	const session = Layer.succeed(GodModeSessionService, sessions);
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
+			ProviderAddRouteStubs,
 			makeAuthStub({ settledSession: () => Effect.die("OAuth guard must not run") }),
 			SavedViewRouteStubs,
 			makePublicApiStub(),
