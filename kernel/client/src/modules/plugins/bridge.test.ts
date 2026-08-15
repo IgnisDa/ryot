@@ -116,11 +116,12 @@ const connect = (
 	const origins: string[] = [];
 	const received: unknown[] = [];
 	const messages: unknown[] = [];
+	const pageSearches: unknown[] = [];
 	let init: PluginBridgeInit | undefined;
 	const shortcuts: KernelShortcut[] = [];
+	const providerSearches: unknown[] = [];
 	let pluginPort: MessagePort | undefined;
 	const navigations: PluginBridgeNavigate[] = [];
-	const pageSearches: unknown[] = [];
 	const screenStates: PluginScreenReadiness[] = [];
 	const operationCalls: Array<{
 		readonly input: unknown;
@@ -143,6 +144,7 @@ const connect = (
 		onScreenState: (state) => screenStates.push(state),
 		onNavigate: (request) => navigations.push(request),
 		onPageSearch: (request) => pageSearches.push(request),
+		onProviderSearch: (request) => providerSearches.push(request),
 		onKernelShortcut: (shortcut) => shortcuts.push(shortcut),
 		onAssets: options.onAssets ?? (() => new Promise(() => {})),
 		onUpload: options.onUpload ?? (() => new Promise(() => {})),
@@ -208,11 +210,12 @@ const connect = (
 		messages,
 		received,
 		shortcuts,
-		pluginPort: testPort,
 		navigations,
-		pageSearches,
 		screenStates,
+		pageSearches,
 		operationCalls,
+		providerSearches,
+		pluginPort: testPort,
 	};
 };
 
@@ -223,6 +226,33 @@ const readyFor = (init: PluginBridgeInit): PluginBridgeReady => ({
 	apiVersion: CLIENT_API_VERSION,
 	compilerVersion: CLIENT_COMPILER_VERSION,
 	bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+});
+
+describe("bridge page screens", () => {
+	it("forwards provider search and sends one page refresh", async () => {
+		const { init, pluginPort, providerSearches, received, session } = connect();
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toEqual([at()]));
+
+		pluginPort.postMessage({
+			initialQuery: "Dune",
+			entitySchemaSlug: "movie",
+			type: "provider-search-screen",
+			ownerPluginId: "media-installation",
+		});
+		await waitFor(() => expect(providerSearches).toHaveLength(1));
+		session.sendPageRefresh();
+		await waitFor(() => expect(received).toContainEqual({ type: "page-refresh" }));
+
+		expect(providerSearches).toEqual([
+			{
+				initialQuery: "Dune",
+				entitySchemaSlug: "movie",
+				type: "provider-search-screen",
+				ownerPluginId: "media-installation",
+			},
+		]);
+	});
 });
 
 describe("bridge entity interest", () => {
@@ -364,6 +394,7 @@ describe("plugin bridge", () => {
 			onScreenState: () => undefined,
 			onNavigateBack: () => undefined,
 			onKernelShortcut: () => undefined,
+			onProviderSearch: () => undefined,
 			onFailure: () => failures.push(null),
 			onAssets: () => new Promise(() => {}),
 			onUpload: () => new Promise(() => {}),
