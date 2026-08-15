@@ -1,8 +1,9 @@
 import { Match } from "effect";
 
 /**
- * The shape both catalog wizards share: pick a plugin-contributed service, fill in the schema it
- * declares, then confirm. Features supply their own headings for these steps.
+ * The shape the catalog wizards share: pick an entry, fill in the schema it declares, then confirm.
+ * Entries may be contributed by a plugin or owned by the kernel. Features supply their own headings
+ * for these steps.
  */
 export const WIZARD_STEPS = ["pick", "configure", "review"] as const;
 
