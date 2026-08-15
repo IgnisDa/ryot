@@ -39,7 +39,7 @@ const persistentClaimEnvelopeSchema = Schema.Struct({
 	value: Schema.Unknown,
 	owner: Schema.NullOr(Schema.String),
 });
-const encodePersistentClaimEnvelope = Schema.encodeUnknownEffect(
+export const encodePersistentClaimEnvelope = Schema.encodeUnknownEffect(
 	Schema.fromJsonString(persistentClaimEnvelopeSchema),
 );
 const decodePersistentClaimEnvelope = Schema.decodeUnknownEffect(
