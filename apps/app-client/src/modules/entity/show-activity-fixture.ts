@@ -3,6 +3,7 @@ import { rowsResult } from "@ryot/ryotql-recipes/test-utils";
 import { Result } from "effect";
 
 const showActivityFixtureRecipe = showActivityRecipe({
+	seasonLimit: 100,
 	entityId: "show-1",
 	parentEventLimit: 60,
 	episodeEventLimit: 100,
@@ -18,18 +19,24 @@ const emptyEventProperties = {
 	consumedOn: null,
 };
 
+const emptyParentProperties = {
+	...emptyEventProperties,
+	startedOn: null,
+	completedOn: null,
+};
+
 const firstEpisode = {
 	seasonNumber: 1,
 	episodeNumber: 1,
+	episodeRuntime: 55,
 	episodeId: "episode-1",
 	episodeName: "Episode 1: The Arrest",
-	episodeImages: [{ type: "remote", url: "https://images.test/episode-1.jpg", purpose: "still" }],
 };
 
 const secondEpisode = {
 	seasonNumber: 1,
 	episodeNumber: 2,
-	episodeImages: null,
+	episodeRuntime: 61,
 	episodeId: "episode-2",
 	episodeName: "Episode 2: The Interview",
 };
@@ -37,13 +44,13 @@ const secondEpisode = {
 const specialEpisode = {
 	seasonNumber: 0,
 	episodeNumber: 3,
-	episodeImages: null,
+	episodeRuntime: null,
 	episodeId: "special-3",
 	episodeName: "Making Adolescence",
 };
 
 export const showBacklogEventRow = {
-	...emptyEventProperties,
+	...emptyParentProperties,
 	id: "show-backlog",
 	eventSchemaSlug: "backlog",
 	createdAt: "2025-11-01T12:00:05.000Z",
@@ -51,7 +58,7 @@ export const showBacklogEventRow = {
 };
 
 export const showCompletionEventRow = {
-	...emptyEventProperties,
+	...emptyParentProperties,
 	timeSpent: 240,
 	id: "show-complete",
 	eventSchemaSlug: "complete",
@@ -60,7 +67,7 @@ export const showCompletionEventRow = {
 };
 
 export const showReviewEventRow = {
-	...emptyEventProperties,
+	...emptyParentProperties,
 	rating: 82,
 	isSpoiler: false,
 	id: "show-review",
@@ -121,15 +128,6 @@ export const collectionRemovedEventRow = {
 	eventSchemaSlug: "remove-entity-from-collection",
 };
 
-export const episodeProgressRow = {
-	...firstEpisode,
-	consumedOn: null,
-	progressPercent: 90,
-	id: "episode-1-progress",
-	createdAt: "2025-11-03T12:00:05.000Z",
-	occurredAt: "2025-11-03T12:00:00.000Z",
-};
-
 export const specialProgressRow = {
 	...specialEpisode,
 	consumedOn: "Plex",
@@ -139,8 +137,72 @@ export const specialProgressRow = {
 	occurredAt: "2025-11-08T12:00:00.000Z",
 };
 
+export const showOnHoldEventRow = {
+	...emptyParentProperties,
+	id: "show-on-hold",
+	eventSchemaSlug: "on_hold",
+	createdAt: "2025-11-02T12:00:05.000Z",
+	occurredAt: "2025-11-02T12:00:00.000Z",
+};
+
+export const showDroppedEventRow = {
+	...emptyParentProperties,
+	id: "show-dropped",
+	eventSchemaSlug: "dropped",
+	createdAt: "2025-11-03T12:00:05.000Z",
+	occurredAt: "2025-11-03T12:00:00.000Z",
+};
+
+export const regularSeasonRow = {
+	id: "season-1",
+	seasonNumber: 1,
+	episodeTotal: 4,
+	watchedTotal: 2,
+	watchedMinutes: 116,
+	watchedUnknownRuntime: 0,
+};
+
+export const specialsSeasonRow = {
+	id: "season-0",
+	seasonNumber: 0,
+	episodeTotal: 2,
+	watchedTotal: 0,
+	watchedMinutes: null,
+	watchedUnknownRuntime: 0,
+};
+
+export const sameDayCompletionEventRow = {
+	...emptyEventProperties,
+	...secondEpisode,
+	consumedOn: "Jellyfin",
+	id: "episode-2-same-day",
+	eventSchemaSlug: "complete",
+	createdAt: "2025-11-04T18:00:05.000Z",
+	occurredAt: "2025-11-04T18:00:00.000Z",
+};
+
+export const rewatchCompletionEventRow = {
+	...emptyParentProperties,
+	id: "show-complete-rewatch",
+	eventSchemaSlug: "complete",
+	createdAt: "2026-03-02T12:00:05.000Z",
+	occurredAt: "2026-03-02T12:00:00.000Z",
+};
+
+export const rewatchEpisodeEventRow = {
+	...emptyEventProperties,
+	...firstEpisode,
+	consumedOn: "Netflix",
+	id: "episode-1-rewatch",
+	eventSchemaSlug: "complete",
+	createdAt: "2026-03-01T12:00:05.000Z",
+	occurredAt: "2026-03-01T12:00:00.000Z",
+};
+
 type ActivityRows = {
 	readonly truncated?: boolean;
+	readonly watchCount?: number;
+	readonly seasons?: readonly Record<string, unknown>[];
 	readonly parentEvents?: readonly Record<string, unknown>[];
 	readonly episodeEvents?: readonly Record<string, unknown>[];
 	readonly episodeProgress?: readonly Record<string, unknown>[];
@@ -167,13 +229,13 @@ export const decodeShowActivity = (input: ActivityRows = {}) => {
 	return Result.getOrThrow(
 		showActivityFixtureRecipe.decode({
 			data: {
+				totals: activityRows([{ watchCount: input.watchCount ?? 1 }], false),
+				seasons: activityRows(input.seasons ?? [specialsSeasonRow, regularSeasonRow], false),
 				parentEvents: activityRows(
 					input.parentEvents ?? [showBacklogEventRow, showCompletionEventRow, showReviewEventRow],
 					hasMore,
 				),
-				episodeProgress: progressRows(
-					input.episodeProgress ?? [episodeProgressRow, specialProgressRow],
-				),
+				episodeProgress: progressRows(input.episodeProgress ?? [specialProgressRow]),
 				episodeEvents: activityRows(
 					input.episodeEvents ?? [
 						episodeCompletionEventRow,
@@ -197,4 +259,12 @@ export const emptyShowActivity = () =>
 		episodeEvents: [],
 		episodeProgress: [],
 		collectionEvents: [],
+	});
+
+export const rewatchedShowActivity = () =>
+	decodeShowActivity({
+		episodeProgress: [],
+		collectionEvents: [],
+		parentEvents: [showCompletionEventRow, rewatchCompletionEventRow],
+		episodeEvents: [episodeCompletionEventRow, rewatchEpisodeEventRow],
 	});

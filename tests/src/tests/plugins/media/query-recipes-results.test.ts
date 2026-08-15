@@ -165,18 +165,8 @@ const seedActivityShow = (client: Client) =>
 					providerId: null,
 					entitySchemaSlug: showEpisodeSchemaId,
 					name: `Activity S${seasonNumber}E${episodeNumber} ${suffix}`,
+					properties: { seasonNumber, episodeNumber, runtime: 30 + episodeNumber },
 					externalId: `activity-episode-${seasonNumber}-${episodeNumber}-${suffix}`,
-					properties: {
-						seasonNumber,
-						episodeNumber,
-						images: [
-							{
-								type: "remote",
-								purpose: "still",
-								url: `https://images.test/activity-${seasonNumber}-${episodeNumber}.jpg`,
-							},
-						],
-					},
 				}),
 			),
 		);
@@ -233,8 +223,10 @@ const seedActivityShow = (client: Client) =>
 	});
 
 const ACTIVITY_LIMITS = {
+	seasonLimit: 100,
 	parentEventLimit: 60,
 	episodeEventLimit: 100,
+	collectionEventLimit: 60,
 	episodeProgressLimit: 100,
 } as const;
 
@@ -1164,6 +1156,27 @@ describe("Media RyotQL query recipe results", () => {
 
 			expect(activity.truncated).toBe(false);
 			expect(new Set(activity.events.map((event) => event.id)).size).toBe(activity.events.length);
+			expect(
+				activity.seasons.map((season) => ({
+					seasonNumber: season.seasonNumber,
+					episodeTotal: season.episodeTotal,
+				})),
+			).toEqual([
+				{ seasonNumber: 0, episodeTotal: 1 },
+				{ seasonNumber: 1, episodeTotal: 2 },
+			]);
+			expect(activity.watchCount).toBe(1);
+			expect(
+				activity.seasons.map((season) => ({
+					seasonNumber: season.seasonNumber,
+					watchedTotal: season.watchedTotal,
+					watchedMinutes: season.watchedMinutes,
+					watchedUnknownRuntime: season.watchedUnknownRuntime,
+				})),
+			).toEqual([
+				{ seasonNumber: 0, watchedTotal: 0, watchedMinutes: null, watchedUnknownRuntime: 0 },
+				{ seasonNumber: 1, watchedTotal: 1, watchedMinutes: 31, watchedUnknownRuntime: 0 },
+			]);
 			expect(identity).toEqual([
 				{
 					kind: "parent",
@@ -1206,13 +1219,6 @@ describe("Media RyotQL query recipe results", () => {
 					episodeNumber: 1,
 					eventSchemaSlug: "complete",
 					occurredAt: "2024-03-05T12:00:00.000Z",
-				},
-				{
-					kind: "episode",
-					seasonNumber: 1,
-					episodeNumber: 1,
-					eventSchemaSlug: "progress",
-					occurredAt: "2024-03-04T12:00:00.000Z",
 				},
 				{
 					kind: "parent",
@@ -1288,9 +1294,9 @@ describe("Media RyotQL query recipe results", () => {
 				kind: "episode",
 				eventSchemaSlug: "complete",
 				episode: {
+					runtime: 32,
 					seasonNumber: 1,
 					episodeNumber: 2,
-					images: [{ type: "remote", purpose: "still" }],
 				},
 			});
 			expect(activity.events[1]).toMatchObject({

@@ -1,281 +1,337 @@
-import { Cause } from "effect";
-import { AsyncResult } from "effect/unstable/reactivity";
 import { assert, describe, expect, it } from "vitest";
 
-import { RyotQLMalformedResultError } from "@/api/ryotql";
-
 import {
+	collectionAddedEventRow,
+	collectionRemovedEventRow,
 	decodeShowActivity,
 	emptyShowActivity,
 	episodeCompletionEventRow,
-	episodeProgressRow,
 	episodeReviewEventRow,
 	laterEpisodeCompletionEventRow,
+	regularSeasonRow,
+	rewatchCompletionEventRow,
+	rewatchEpisodeEventRow,
+	rewatchedShowActivity,
+	sameDayCompletionEventRow,
 	showBacklogEventRow,
 	showCompletionEventRow,
+	showDroppedEventRow,
+	showOnHoldEventRow,
 	showReviewEventRow,
 	specialProgressRow,
+	specialsSeasonRow,
 } from "./show-activity-fixture";
 import {
-	mapShowActivity,
+	showActivityCoverage,
+	showActivityDurationLabel,
+	showActivityEpisodesLabel,
 	showActivityError,
-	showActivityJournal,
-	showActivityLabel,
-	showActivityManagedAssets,
-	showActivityMetaLabel,
-	showActivityMilestones,
-	showActivityReviewText,
-	showActivityViewingCycles,
+	showActivityRowLabel,
+	showActivitySpanLabel,
+	showActivityTimeLabel,
+	showActivityView,
+	type ShowActivityRow,
+	type ShowActivityView,
 } from "./show-activity-state";
 
-const journalOf = (input: Parameters<typeof decodeShowActivity>[0] = {}) =>
-	showActivityJournal(decodeShowActivity(input));
-
-const entryLabels = (input: Parameters<typeof decodeShowActivity>[0] = {}) =>
-	journalOf(input).cycles.flatMap((cycle) =>
-		cycle.days.flatMap((day) => day.entries.map(showActivityLabel)),
-	);
-
-const eventById = (id: string) => {
-	const event = decodeShowActivity().events.find((candidate) => candidate.id === id);
-	assert(event !== undefined);
-	return event;
+const viewOf = (input: Parameters<typeof decodeShowActivity>[0] = {}) => {
+	const view = showActivityView(decodeShowActivity(input));
+	assert(view !== undefined, "Expected a ready activity view");
+	return view;
 };
 
-const firstEvent = (input: Parameters<typeof decodeShowActivity>[0]) => {
-	const event = decodeShowActivity(input).events.at(0);
-	assert(event !== undefined);
-	return event;
-};
+const allRows = (view: ShowActivityView): readonly ShowActivityRow[] =>
+	view.timeline.layout === "flat"
+		? view.timeline.rows
+		: [...(view.timeline.open ?? []), ...view.timeline.completed.flatMap((watch) => watch.rows)];
 
-describe("show activity state", () => {
-	it("maps a pending query to the loading state", () => {
-		expect(mapShowActivity(AsyncResult.initial(true))).toEqual({ status: "loading" });
+const labelsOf = (view: ShowActivityView) => allRows(view).map(showActivityRowLabel);
+
+const watchRows = (view: ShowActivityView) => allRows(view).filter((row) => row.type === "watch");
+
+describe("show activity progress rows", () => {
+	it("keeps a progress event whose episode was never completed", () => {
+		const view = viewOf({
+			parentEvents: [],
+			episodeEvents: [],
+			collectionEvents: [],
+			episodeProgress: [specialProgressRow],
+		});
+
+		expect(labelsOf(view)).toEqual(["40% through Specials • E3 · Making Adolescence"]);
+	});
+});
+
+describe("show activity watch sessions", () => {
+	it("collapses same-day completions into one session ordered by episode", () => {
+		const view = viewOf({
+			parentEvents: [],
+			episodeProgress: [],
+			collectionEvents: [],
+			episodeEvents: [
+				{ ...episodeCompletionEventRow, occurredAt: "2025-11-04T09:00:00.000Z" },
+				sameDayCompletionEventRow,
+			],
+		});
+		const [session] = watchRows(view);
+
+		expect(watchRows(view)).toHaveLength(1);
+		assert(session?.type === "watch");
+		expect(session.episodes.map((episode) => episode.origin)).toEqual(["S1 • E1", "S1 • E2"]);
+		expect(showActivityRowLabel(session)).toBe("Watched 2 episodes");
 	});
 
-	it("maps a malformed decode failure apart from a transport failure", () => {
-		const transport = Cause.fail(new Error("offline"));
-		const malformed = Cause.fail(new RyotQLMalformedResultError("bad activity row"));
+	it("keeps completions on different days as separate sessions", () => {
+		const view = viewOf({
+			parentEvents: [],
+			episodeProgress: [],
+			collectionEvents: [],
+			episodeEvents: [episodeCompletionEventRow, laterEpisodeCompletionEventRow],
+		});
 
-		expect(mapShowActivity(AsyncResult.failure(malformed)).status).toBe("malformed");
-		expect(mapShowActivity(AsyncResult.failure(transport)).status).toBe("transport-error");
+		expect(watchRows(view)).toHaveLength(2);
 	});
 
-	it("keeps error copy free of decoder and transport internals", () => {
-		expect(showActivityError({ status: "malformed" }).detail).not.toContain("RyotQL");
-		expect(showActivityError({ status: "transport-error" })).toEqual({
-			title: "Unable to load activity",
-			detail: "Your recorded activity could not be loaded. Check your connection and try again.",
+	it("collapses a day split by an unrelated event into one session", () => {
+		const view = viewOf({
+			parentEvents: [],
+			episodeProgress: [],
+			episodeEvents: [
+				{ ...episodeCompletionEventRow, occurredAt: "2025-11-04T09:00:00.000Z" },
+				sameDayCompletionEventRow,
+			],
+			collectionEvents: [{ ...collectionAddedEventRow, occurredAt: "2025-11-04T13:00:00.000Z" }],
+		});
+
+		expect(watchRows(view)).toHaveLength(1);
+	});
+});
+
+describe("show activity watch segmentation", () => {
+	it("stays flat for a single completed watch", () => {
+		expect(viewOf().timeline.layout).toBe("flat");
+	});
+
+	it("segments once a second watch is completed", () => {
+		const view = showActivityView(rewatchedShowActivity());
+		assert(view?.timeline.layout === "segmented");
+
+		expect(view.timeline.completed).toHaveLength(2);
+		expect(view.timeline.open).toBeUndefined();
+	});
+
+	it("attributes an episode logged at the completion's instant to that watch, not the newer one", () => {
+		const view = showActivityView(
+			decodeShowActivity({
+				episodeProgress: [],
+				collectionEvents: [],
+				parentEvents: [showCompletionEventRow, rewatchCompletionEventRow],
+				episodeEvents: [
+					rewatchEpisodeEventRow,
+					{
+						...episodeCompletionEventRow,
+						id: "episode-1-at-completion",
+						createdAt: "2025-11-06T12:00:09.000Z",
+						occurredAt: showCompletionEventRow.occurredAt,
+					},
+				],
+			}),
+		);
+		assert(view?.timeline.layout === "segmented");
+		const [newest, older] = view.timeline.completed;
+
+		expect(newest.rows.filter((row) => row.type === "watch")).toHaveLength(1);
+		expect(older.rows.filter((row) => row.type === "watch")).toHaveLength(1);
+	});
+
+	it("never opens a watch for a collection change alone", () => {
+		const view = viewOf({
+			episodeProgress: [],
+			parentEvents: [showCompletionEventRow],
+			episodeEvents: [episodeCompletionEventRow],
+			collectionEvents: [
+				{ ...collectionAddedEventRow, occurredAt: "2026-06-13T09:00:00.000Z" },
+				{ ...collectionRemovedEventRow, occurredAt: "2026-06-14T09:00:00.000Z" },
+			],
+		});
+
+		expect(view.timeline.layout).toBe("flat");
+		expect(view.summary.watches).toBe(1);
+	});
+
+	it("never opens a watch for a review recorded after the last completion", () => {
+		const view = showActivityView(
+			decodeShowActivity({
+				episodeProgress: [],
+				collectionEvents: [],
+				episodeEvents: [episodeCompletionEventRow, rewatchEpisodeEventRow],
+				parentEvents: [
+					showCompletionEventRow,
+					{ ...showReviewEventRow, occurredAt: "2026-04-01T12:00:00.000Z" },
+					{
+						...showCompletionEventRow,
+						id: "show-complete-2",
+						occurredAt: "2026-03-02T12:00:00.000Z",
+					},
+				],
+			}),
+		);
+		assert(view?.timeline.layout === "segmented");
+
+		expect(view.timeline.open).toBeUndefined();
+	});
+});
+
+describe("show activity coverage", () => {
+	it("keeps specials out of the headline total", () => {
+		const coverage = showActivityCoverage(decodeShowActivity());
+
+		expect(coverage.headline).toEqual({ watched: 2, total: 4 });
+		expect(coverage.specials).toMatchObject({ label: "Specials", watched: 0, total: 2 });
+		expect(coverage.seasons.map((season) => season.seasonNumber)).toEqual([1]);
+	});
+
+	it("orders seasons with specials last", () => {
+		const coverage = showActivityCoverage(
+			decodeShowActivity({
+				seasons: [
+					specialsSeasonRow,
+					regularSeasonRow,
+					{ ...regularSeasonRow, id: "season-2", seasonNumber: 2 },
+				],
+			}),
+		);
+
+		expect([...coverage.seasons, coverage.specials].map((season) => season?.label)).toEqual([
+			"Season 1",
+			"Season 2",
+			"Specials",
+		]);
+	});
+
+	it("reports an unknown headline total for a show with no regular seasons", () => {
+		const coverage = showActivityCoverage(decodeShowActivity({ seasons: [specialsSeasonRow] }));
+
+		expect(coverage.headline.total).toBeUndefined();
+		expect(coverage.specials).toBeDefined();
+	});
+
+	it("reports coverage as a percentage of each season", () => {
+		const coverage = showActivityCoverage(decodeShowActivity());
+
+		expect(coverage.seasons[0]).toMatchObject({ percent: 50, watched: 2, total: 4 });
+	});
+});
+
+describe("show activity summary", () => {
+	it("reads the watch count from the engine rather than the fetched page", () => {
+		expect(viewOf({ watchCount: 3, parentEvents: [] }).summary.watches).toBe(3);
+	});
+
+	it("totals watched runtime across every season, specials included", () => {
+		const view = viewOf({
+			seasons: [{ ...specialsSeasonRow, watchedTotal: 1, watchedMinutes: 20 }, regularSeasonRow],
+		});
+
+		expect(view.summary.minutes).toEqual({ total: 136, missing: 0 });
+		expect(showActivityTimeLabel(view.summary)).toBe("2h 16m");
+	});
+
+	it("marks the total as a floor when a watched episode has no known length", () => {
+		const view = viewOf({
+			seasons: [{ ...regularSeasonRow, watchedMinutes: 55, watchedUnknownRuntime: 1 }],
+		});
+
+		expect(view.summary.minutes).toEqual({ total: 55, missing: 1 });
+		expect(showActivityTimeLabel(view.summary)).toBe("55m+");
+	});
+
+	it("reports a bounded span as days across the tracked range", () => {
+		const view = viewOf();
+
+		assert(view.summary.span.bound === "full");
+		expect(view.summary.span.days).toBe(8);
+		expect(showActivitySpanLabel(view.summary)).toEqual({
+			label: "Span",
+			value: "8 days",
+			detail: "Nov 1 – Nov 8, 2025",
 		});
 	});
 
-	it("reports a show without recorded activity as empty", () => {
-		expect(mapShowActivity(AsyncResult.success(emptyShowActivity()))).toEqual({ status: "empty" });
+	it("reports only the latest activity when the window is truncated", () => {
+		const view = viewOf({ truncated: true });
+
+		expect(view.summary.span).toEqual({ bound: "partial", latest: "2025-11-08T12:00:00.000Z" });
+		expect(showActivitySpanLabel(view.summary)).toEqual({
+			label: "Latest",
+			detail: undefined,
+			value: "Nov 8, 2025",
+		});
 	});
 
-	it("splits viewing cycles at parent completion boundaries", () => {
-		const cycles = showActivityViewingCycles(decodeShowActivity().events);
+	it("keeps the episode count exact even when the event window is truncated", () => {
+		const view = viewOf({ truncated: true });
 
-		expect(cycles.map((cycle) => cycle.completedAt)).toEqual([null, "2025-11-06T12:00:00.000Z"]);
-		expect(cycles.at(0)?.events.map((event) => event.id)).toEqual([
-			"special-3-progress",
-			"watchlist-removed",
-			"show-review",
-		]);
-		expect(cycles.at(1)?.events.map((event) => event.id)).toEqual([
-			"show-complete",
-			"episode-2-complete",
-			"episode-1-review",
-			"episode-1-complete",
-			"episode-1-progress",
-			"watchlist-added",
-			"show-backlog",
-		]);
+		expect(showActivityEpisodesLabel(view.summary)).toBe("2 / 4");
 	});
+});
 
-	it("heads completed cycles with their completion date and the rest as the current watch", () => {
-		expect(journalOf().cycles.map((cycle) => cycle.heading)).toEqual([
-			"Current watch",
-			"Completed Nov 6, 2025",
-		]);
-	});
+describe("show activity labels", () => {
+	it("names every lifecycle beat", () => {
+		const view = viewOf({
+			episodeEvents: [],
+			episodeProgress: [],
+			collectionEvents: [],
+			parentEvents: [showBacklogEventRow, showOnHoldEventRow, showDroppedEventRow],
+		});
 
-	it("leaves a never-completed show as one unlabelled chronological journal", () => {
-		const journal = journalOf({ parentEvents: [showBacklogEventRow] });
-
-		expect(journal.cycles).toHaveLength(1);
-		expect(journal.cycles.at(0)?.heading).toBeUndefined();
-	});
-
-	it("collapses progress that a completion in the same cycle already supersedes", () => {
-		expect(entryLabels()).toEqual([
-			"Reached 40% in Making Adolescence",
-			"Removed from Watchlist",
-			"Rated 82/100",
-			"Completed the show",
-			"Watched Episode 2: The Interview",
-			"Rated 90/100",
-			"Watched Episode 1: The Arrest",
-			"Added to Watchlist",
+		expect(labelsOf(view)).toEqual([
+			"Stopped watching",
+			"Put this show on hold",
 			"Added to backlog",
 		]);
 	});
 
-	it("keeps progress recorded after the completion of the same episode", () => {
-		const rewatch = { ...episodeProgressRow, occurredAt: "2025-11-04T18:00:00.000Z" };
+	it("names collection changes in both directions", () => {
+		const view = viewOf({
+			parentEvents: [],
+			episodeEvents: [],
+			episodeProgress: [],
+			collectionEvents: [collectionRemovedEventRow, collectionAddedEventRow],
+		});
 
-		expect(entryLabels({ episodeProgress: [rewatch] })).toContain(
-			"Reached 90% in Episode 1: The Arrest",
-		);
-	});
-
-	it("keeps only the newest progress milestone for an unfinished episode", () => {
-		const older = { ...episodeProgressRow, id: "older", occurredAt: "2025-11-02T12:00:00.000Z" };
-		const collapsed = showActivityMilestones(
-			decodeShowActivity({
-				episodeEvents: [],
-				collectionEvents: [],
-				episodeProgress: [episodeProgressRow, older],
-			}).events,
-		);
-
-		expect(collapsed.map((event) => event.id)).toEqual([
-			"show-review",
-			"show-complete",
-			"episode-1-progress",
-			"show-backlog",
+		expect(labelsOf(view)).toEqual([
+			"Removed from the Watchlist collection",
+			"Added to the Watchlist collection",
 		]);
 	});
 
-	it("groups a cycle into descending day groups", () => {
-		const completed = journalOf().cycles.at(1);
+	it("hides a review body that holds no text even when flagged as a spoiler", () => {
+		const view = viewOf({
+			parentEvents: [],
+			episodeProgress: [],
+			collectionEvents: [],
+			episodeEvents: [{ ...episodeReviewEventRow, text: "   " }],
+		});
+		const [review] = allRows(view);
 
-		expect(completed?.days.map((day) => day.label)).toEqual([
-			"Nov 6, 2025",
-			"Nov 5, 2025",
-			"Nov 4, 2025",
-			"Nov 2, 2025",
-			"Nov 1, 2025",
-		]);
-		expect(completed?.days.at(1)?.entries.map((event) => event.id)).toEqual([
-			"episode-2-complete",
-			"episode-1-review",
-		]);
+		assert(review?.type === "review");
+		expect(review.body).toBeUndefined();
+		expect(review.rating).toBe(90);
 	});
 
-	it("summarises history from the tracked span, completed watches and sources", () => {
-		expect(journalOf().facts).toEqual([
-			{ label: "Tracked", value: "Nov 1 – Nov 8, 2025" },
-			{ label: "Completed watches", value: "1" },
-			{ label: "Watched on", value: "Plex, Jellyfin" },
-		]);
+	it("formats recorded durations without padding empty units", () => {
+		expect([0, 59, 60, 66].map(showActivityDurationLabel)).toEqual(["0m", "59m", "1h", "1h 6m"]);
+	});
+});
+
+describe("show activity states", () => {
+	it("reports an empty record when nothing was ever tracked", () => {
+		expect(showActivityView(emptyShowActivity())).toBeUndefined();
 	});
 
-	it("spans a tracked history that crosses calendar years", () => {
-		expect(
-			journalOf({
-				parentEvents: [
-					{ ...showBacklogEventRow, occurredAt: "2024-11-01T12:00:00.000Z" },
-					showCompletionEventRow,
-					showReviewEventRow,
-				],
-			}).facts.at(0),
-		).toEqual({ label: "Tracked", value: "Nov 1, 2024 – Nov 8, 2025" });
-	});
-
-	it("omits history facts that bounded activity cannot establish", () => {
-		const journal = journalOf({ truncated: true });
-
-		expect(journal.truncated).toBe(true);
-		expect(journal.facts).toEqual([
-			{ label: "Latest activity", value: "Nov 8, 2025" },
-			{ label: "Watched on", value: "Plex, Jellyfin" },
-		]);
-	});
-
-	it("labels every recorded parent lifecycle event in plain language", () => {
-		const parentEvent = (overrides: Record<string, unknown>) =>
-			showActivityLabel(
-				firstEvent({
-					episodeEvents: [],
-					episodeProgress: [],
-					collectionEvents: [],
-					parentEvents: [{ ...showBacklogEventRow, ...overrides }],
-				}),
-			);
-
-		expect(parentEvent({ eventSchemaSlug: "backlog" })).toBe("Added to backlog");
-		expect(parentEvent({ eventSchemaSlug: "on_hold" })).toBe("Put this show on hold");
-		expect(parentEvent({ eventSchemaSlug: "dropped" })).toBe("Stopped watching");
-		expect(parentEvent({ eventSchemaSlug: "complete" })).toBe("Completed the show");
-		expect(parentEvent({ eventSchemaSlug: "review" })).toBe("Wrote a review");
-		expect(parentEvent({ eventSchemaSlug: "review", rating: 82.5 })).toBe("Rated 82.5/100");
-	});
-
-	it("names the collection a membership change moved the show through", () => {
-		expect(showActivityLabel(eventById("watchlist-added"))).toBe("Added to Watchlist");
-		expect(showActivityLabel(eventById("watchlist-removed"))).toBe("Removed from Watchlist");
-		expect(showActivityMetaLabel(eventById("watchlist-removed"))).toBe("");
-	});
-
-	it("shows the consumption source and recorded time only when they exist", () => {
-		expect(showActivityMetaLabel(eventById("episode-1-complete"))).toBe(
-			"S1 • E1 • Watched on Jellyfin • 1h 6m recorded time",
-		);
-		expect(showActivityMetaLabel(eventById("show-complete"))).toBe("4h recorded time");
-		expect(showActivityMetaLabel(eventById("show-backlog"))).toBe("");
-	});
-
-	it("places special episodes in history under their specials origin", () => {
-		expect(showActivityMetaLabel(eventById("special-3-progress"))).toBe(
-			"Specials • E3 • Watched on Plex",
-		);
-	});
-
-	it("names the reviewed episode in an episode review", () => {
-		expect(showActivityMetaLabel(eventById("episode-1-review"))).toBe(
-			"S1 • E1 • Episode 1: The Arrest",
-		);
-	});
-
-	it("exposes review bodies only for review events", () => {
-		expect(showActivityReviewText(eventById("show-review"))).toBe("A devastating watch.");
-		expect(showActivityReviewText(eventById("episode-1-review"))).toBe(
-			"The arrest scene is the whole show.",
-		);
-		expect(showActivityReviewText(eventById("episode-1-complete"))).toBeUndefined();
-	});
-
-	it("names a progress milestone without a recorded percentage", () => {
-		const label = showActivityLabel(
-			firstEvent({
-				parentEvents: [],
-				episodeEvents: [],
-				collectionEvents: [],
-				episodeProgress: [{ ...specialProgressRow, progressPercent: null }],
-			}),
-		);
-
-		expect(label).toBe("Made progress in Making Adolescence");
-	});
-
-	it("collects managed episode stills without remote locators", () => {
-		expect(showActivityManagedAssets(journalOf())).toEqual([]);
-		expect(
-			showActivityManagedAssets(
-				journalOf({
-					episodeProgress: [],
-					parentEvents: [showCompletionEventRow, showReviewEventRow],
-					episodeEvents: [
-						{
-							...episodeCompletionEventRow,
-							episodeImages: [{ type: "s3", key: "episode-1", purpose: "still" }],
-						},
-						episodeReviewEventRow,
-						laterEpisodeCompletionEventRow,
-					],
-				}),
-			),
-		).toEqual([{ type: "s3", key: "episode-1" }]);
+	it("separates transport failures from malformed activity", () => {
+		expect(showActivityError({ status: "transport-error" }).detail).toContain("your connection");
+		expect(showActivityError({ status: "malformed" }).detail).toContain("could not be displayed");
 	});
 });

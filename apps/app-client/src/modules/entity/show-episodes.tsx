@@ -30,7 +30,7 @@ import {
 	type ShowSeasonList,
 } from "./show-episodes-state";
 import { ShowAssetImage } from "./show-image";
-import { ShowStatusMessage } from "./show-primitives";
+import { ShowProgressBar, ShowStatusMessage } from "./show-primitives";
 
 const DESCRIPTION_CLAMP = 2;
 
@@ -59,14 +59,6 @@ function ShowSeasonSelector(props: {
 				))}
 			</View>
 		</ScrollView>
-	);
-}
-
-function ShowSeasonProgressBar(props: { readonly percent: number }) {
-	return (
-		<View className="h-1 max-w-md overflow-hidden rounded-pill bg-surface-2">
-			<View className="h-full rounded-pill bg-success" style={{ width: `${props.percent}%` }} />
-		</View>
 	);
 }
 
@@ -102,7 +94,7 @@ function ShowSeasonHeader(props: {
 					)}
 				</View>
 			</View>
-			{percent === undefined ? null : <ShowSeasonProgressBar percent={percent} />}
+			{percent === undefined ? null : <ShowProgressBar percent={percent} />}
 			{description === undefined ? null : (
 				<Text numberOfLines={DESCRIPTION_CLAMP} className="font-ui text-[13px] leading-5 text-text">
 					{description}

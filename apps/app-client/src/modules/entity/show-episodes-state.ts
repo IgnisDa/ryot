@@ -39,11 +39,16 @@ const SPECIALS_LABEL = "Specials";
 
 const SPECIALS_SEASON_NUMBER = 0;
 
-export const isSpecialsSeason = (season: ShowSeason) =>
+type SeasonNumbered = { readonly seasonNumber: number };
+
+export const isSpecialsSeason = (season: SeasonNumbered) =>
 	season.seasonNumber === SPECIALS_SEASON_NUMBER;
 
-const seasonOrder = (season: ShowSeason) =>
+export const seasonOrder = (season: SeasonNumbered) =>
 	isSpecialsSeason(season) ? Number.MAX_SAFE_INTEGER : season.seasonNumber;
+
+export const showSeasonOriginLabel = (season: SeasonNumbered) =>
+	isSpecialsSeason(season) ? SPECIALS_LABEL : `Season ${season.seasonNumber}`;
 
 const orderShowSeasons = (seasons: readonly ShowSeason[]) =>
 	[...seasons].sort((left, right) => seasonOrder(left) - seasonOrder(right));
@@ -98,7 +103,7 @@ export const showSeasonLabel = (season: ShowSeason) => {
 	if (isSpecialsSeason(season)) {
 		return SPECIALS_LABEL;
 	}
-	return season.name.trim() === "" ? `Season ${season.seasonNumber}` : season.name;
+	return season.name.trim() === "" ? showSeasonOriginLabel(season) : season.name;
 };
 
 const showSeasonCompletion = (season: ShowSeasonEpisodes) => ({
