@@ -72,13 +72,20 @@ type AppPropertyBase<TValidation> = {
 	readonly label: string;
 	readonly description: string;
 	readonly secret?: true | undefined;
-	readonly validation?: TValidation | undefined;
+	readonly position?: number | undefined;
 	readonly translatable?: true | undefined;
+	readonly validation?: TValidation | undefined;
 };
+
+export type AppStringPropertyFormat =
+	| { readonly kind: "url" }
+	| { readonly kind: "email" }
+	| { readonly kind: "upload"; readonly allowedFileExtensions: ReadonlyArray<string> };
 
 export type AppStringProperty = AppPropertyBase<AppStringPropertyValidation> & {
 	readonly type: "string";
 	readonly defaultValue?: string | undefined;
+	readonly format?: AppStringPropertyFormat | undefined;
 };
 
 export type AppNumberProperty = AppPropertyBase<AppNumberPropertyValidation> & {
@@ -171,13 +178,17 @@ export type AppSchemaRuleCondition =
 	| { readonly operator: "all"; readonly conditions: ReadonlyArray<AppSchemaRuleCondition> }
 	| { readonly operator: "any"; readonly conditions: ReadonlyArray<AppSchemaRuleCondition> };
 
-export type AppSchemaRule = {
-	readonly message?: string | undefined;
-	readonly kind: "validation";
+type AppSchemaRuleBase = {
 	readonly path: AppSchemaRulePath;
 	readonly when: AppSchemaRuleCondition;
-	readonly validation: { readonly required: true };
+	readonly message?: string | undefined;
 };
+
+export type AppSchemaRule = AppSchemaRuleBase &
+	(
+		| { readonly kind: "validation"; readonly validation: { readonly required: true } }
+		| { readonly kind: "visibility"; readonly visibility: { readonly hidden: true } }
+	);
 
 export type AppSchema = {
 	readonly fields: AppSchemaFields;
@@ -296,9 +307,38 @@ const ruleValueSchema = Schema.Union([Schema.Boolean, Schema.Null, Schema.Number
 const propertyBaseFields = {
 	label: nonEmptyTrimmedString,
 	description: nonEmptyTrimmedString,
+	position: Schema.optional(Schema.Finite),
 	secret: Schema.optional(Schema.Literal(true)),
 	translatable: Schema.optional(Schema.Literal(true)),
 };
+
+const fileExtensionSchema = Schema.String.pipe(
+	Schema.check(
+		Schema.makeFilter((value) => {
+			if (value.length === 0 || value !== value.trim()) {
+				return "Expected a non-empty trimmed file extension";
+			}
+			if (value !== value.toLowerCase() || value.startsWith(".")) {
+				return "Expected a lower-case file extension without a leading dot";
+			}
+			return true;
+		}),
+	),
+);
+
+const stringPropertyFormatSchema = Schema.Union([
+	strictStruct({ kind: Schema.Literal("url") }),
+	strictStruct({ kind: Schema.Literal("email") }),
+	strictStruct({
+		kind: Schema.Literal("upload"),
+		allowedFileExtensions: Schema.Array(fileExtensionSchema).pipe(
+			Schema.check(Schema.isMinLength(1)),
+			Schema.check(
+				Schema.makeFilter((extensions) => new Set(extensions).size === extensions.length),
+			),
+		),
+	}),
+]);
 
 export const AppChoiceSchema = strictStruct({
 	value: nonEmptyTrimmedString,
@@ -463,9 +503,19 @@ const enumArrayPropertySchema = strictStruct({
 const stringPropertySchema = strictStruct({
 	...propertyBaseFields,
 	type: Schema.Literal("string"),
+	format: Schema.optional(stringPropertyFormatSchema),
 	defaultValue: Schema.optional(Schema.String),
 	validation: Schema.optional(stringValidationSchema),
-});
+}).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(value) =>
+				value.format?.kind !== "upload" ||
+				value.defaultValue === undefined ||
+				"Upload string properties cannot define a default value",
+		),
+	),
+);
 
 const numberPropertySchema = strictStruct({
 	...propertyBaseFields,
@@ -582,13 +632,24 @@ const AppSchemaRuleCondition: Schema.Codec<AppSchemaRuleCondition, unknown> = Sc
 	Schema.annotate({ identifier: "AppSchemaRuleCondition", title: "App Schema Rule Condition" }),
 );
 
-const AppSchemaRule = strictStruct({
+const appSchemaRuleFields = {
 	path: rulePathSchema,
 	when: AppSchemaRuleCondition,
-	kind: Schema.Literal("validation"),
 	message: Schema.optional(nonEmptyTrimmedString),
-	validation: strictStruct({ required: Schema.Literal(true) }),
-});
+};
+
+const AppSchemaRule = Schema.Union([
+	strictStruct({
+		...appSchemaRuleFields,
+		kind: Schema.Literal("validation"),
+		validation: strictStruct({ required: Schema.Literal(true) }),
+	}),
+	strictStruct({
+		...appSchemaRuleFields,
+		kind: Schema.Literal("visibility"),
+		visibility: strictStruct({ hidden: Schema.Literal(true) }),
+	}),
+]);
 
 const appSchemaBase = strictStruct({
 	unknownKeys: Schema.optional(AppSchemaUnknownKeysPolicy),
@@ -597,6 +658,29 @@ const appSchemaBase = strictStruct({
 }).pipe(Schema.annotate({ identifier: "AppSchema", title: "App Schema" }));
 
 export const AppSchema: Schema.Codec<AppSchema, unknown> = appSchemaBase;
+
+export const getOrderedAppSchemaFieldEntries = (fields: AppSchemaFields) =>
+	Object.entries(fields)
+		.map(([key, property], declarationOrder) => ({
+			property,
+			declarationOrder,
+			entry: [key, property] as const,
+		}))
+		.sort((left, right) => {
+			if (left.property.position === undefined) {
+				return right.property.position === undefined
+					? left.declarationOrder - right.declarationOrder
+					: 1;
+			}
+			if (right.property.position === undefined) {
+				return -1;
+			}
+			return (
+				left.property.position - right.property.position ||
+				left.declarationOrder - right.declarationOrder
+			);
+		})
+		.map(({ entry }) => entry);
 
 /**
  * Returns whether a property must be present in a payload, as declared by its
