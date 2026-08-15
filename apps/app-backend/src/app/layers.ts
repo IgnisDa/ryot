@@ -94,6 +94,12 @@ import { PluginHttpRateLimitAuthority } from "#modules/plugins/http-rate-limit-a
 import { ImportSourceCatalogLive } from "#modules/plugins/import-source-catalog";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginInstallationService } from "#modules/plugins/installation-service";
+import {
+	PluginInstallationLifecycleDispatcher,
+	PluginInstallationLifecycleDispatcherLive,
+	PluginInstallationWorkflowDefinitionsLive,
+	PluginInstallationWorkflowOperationsLive,
+} from "#modules/plugins/installation-workflow";
 import { IntegrationProviderCatalogLive } from "#modules/plugins/integration-provider-catalog";
 import { PluginLoaderLive } from "#modules/plugins/loader";
 import { OperationsService } from "#modules/plugins/operations-service";
@@ -306,15 +312,31 @@ const SavedViewsServiceLive = SavedViewsService.layer.pipe(
 const PluginDefinitionMaterializerLive = SavedViewPluginDefinitionMaterializerLive.pipe(
 	Layer.provide(SavedViewsServiceLive),
 );
+const pluginInstallationServiceDependencies = Layer.mergeAll(
+	PluginLoaderLive,
+	PluginRepository.layer,
+	PluginDefinitionMaterializerLive,
+	PluginInstallationRepository.layer,
+	SandboxWorkflowReferenceRepository.layer,
+);
+
+// Migration and shipped-system ingestion never install a private plugin, so they keep the no-op
+// lifecycle dispatcher and stay free of any `WorkflowEngine` requirement.
 const PluginInstallationServiceLive = Layer.provide(
 	PluginInstallationService.layer,
 	Layer.mergeAll(
-		PluginLoaderLive,
-		PluginRepository.layer,
-		PluginDefinitionMaterializerLive,
-		PluginInstallationRepository.layer,
-		SandboxWorkflowReferenceRepository.layer,
+		pluginInstallationServiceDependencies,
+		PluginInstallationLifecycleDispatcher.layer,
 	),
+);
+
+// `Layer.fresh` is load-bearing. Both variants wrap the same `PluginInstallationService.layer`
+// object, and layers memoize by object identity, so without it `RuntimeAfterMigrationsLive` would
+// build the migration variant first and hand the runtime its no-op dispatcher, stranding every
+// private installation in `installing` forever.
+const RuntimePluginInstallationServiceLive = Layer.provide(
+	Layer.fresh(PluginInstallationService.layer),
+	Layer.mergeAll(pluginInstallationServiceDependencies, PluginInstallationLifecycleDispatcherLive),
 );
 
 const BootstrapServicesLive = Layer.mergeAll(
@@ -486,7 +508,9 @@ const ServicesBaseLive = Layer.mergeAll(ContentServicesLive, PlatformServicesLiv
 const ContentAndSandboxServicesLive = Layer.mergeAll(
 	ServicesBaseLive,
 	ProviderEntitySearchServiceLive,
-).pipe(Layer.provideMerge(Layer.mergeAll(SandboxServicesLive, PluginInstallationServiceLive)));
+).pipe(
+	Layer.provideMerge(Layer.mergeAll(SandboxServicesLive, RuntimePluginInstallationServiceLive)),
+);
 
 const OperationsServiceLive = OperationsService.layer.pipe(
 	Layer.provide([ContentAndSandboxServicesLive, IntegrationOperationScopeResolverLive]),
@@ -495,7 +519,7 @@ const OperationsServiceLive = OperationsService.layer.pipe(
 const ServicesLive = Layer.mergeAll(
 	ContentAndSandboxServicesLive,
 	PluginIngestionServiceLive,
-	PluginInstallationServiceLive,
+	RuntimePluginInstallationServiceLive,
 	OperationsServiceLive,
 	InterestServicesLive,
 	LifecycleDispatchServiceLive,
@@ -524,6 +548,7 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	ExportBackupWorkflowDefinitionsLive,
 	RestoreBackupWorkflowDefinitionsLive,
 	UserLifecycleWorkflowDefinitionsLive,
+	PluginInstallationWorkflowDefinitionsLive,
 	Layer.provide(IntegrationWorkflowDefinitionsLive, IntegrationProviderCatalogLive),
 	Layer.provide(SandboxWorkflowDefinitionsLive, KernelWorkflowReferencesLive),
 	TranslateEntityWorkflowDefinitionsLive,
@@ -603,6 +628,10 @@ export const RuntimeDependenciesLive = Layer.provideMerge(
 		Layer.provide(
 			UserLifecycleWorkflowOperationsLive,
 			Layer.mergeAll(ServicesWithTestSupportLive, ObjectStorageServiceLive),
+		),
+		Layer.provide(
+			PluginInstallationWorkflowOperationsLive,
+			Layer.mergeAll(SandboxExecutionServiceLive, PluginInstallationRepository.layer),
 		),
 	),
 	ApplicationInfrastructureLive,
