@@ -13,6 +13,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as GodModeRouteRouteImport } from './routes/god-mode/route'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedPluginSlugRouteRouteImport } from './routes/_authenticated/$pluginSlug/route'
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
@@ -48,6 +49,11 @@ const GodModeRouteRoute = GodModeRouteRouteImport.update({
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
@@ -149,6 +155,7 @@ export interface FileRoutesByFullPath {
   '/god-mode': typeof GodModeRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/onboarding': typeof OnboardingRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/$pluginSlug': typeof AuthenticatedPluginSlugRouteRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
@@ -169,6 +176,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/onboarding': typeof OnboardingRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/god-mode/migration-report': typeof GodModeMigrationReportRoute
   '/god-mode/users': typeof GodModeUsersRoute
@@ -191,6 +199,7 @@ export interface FileRoutesById {
   '/god-mode': typeof GodModeRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/onboarding': typeof OnboardingRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/$pluginSlug': typeof AuthenticatedPluginSlugRouteRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/auth_/callback': typeof AuthCallbackRoute
@@ -216,6 +225,7 @@ export interface FileRouteTypes {
     | '/god-mode'
     | '/auth'
     | '/onboarding'
+    | '/reset-password'
     | '/$pluginSlug'
     | '/settings'
     | '/auth/callback'
@@ -236,6 +246,7 @@ export interface FileRouteTypes {
   to:
     | '/auth'
     | '/onboarding'
+    | '/reset-password'
     | '/auth/callback'
     | '/god-mode/migration-report'
     | '/god-mode/users'
@@ -257,6 +268,7 @@ export interface FileRouteTypes {
     | '/god-mode'
     | '/auth'
     | '/onboarding'
+    | '/reset-password'
     | '/_authenticated/$pluginSlug'
     | '/_authenticated/settings'
     | '/auth_/callback'
@@ -281,6 +293,7 @@ export interface RootRouteChildren {
   GodModeRouteRoute: typeof GodModeRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   OnboardingRoute: typeof OnboardingRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   OauthLoginRoute: typeof OauthLoginRoute
   AuthLogoutCallbackRoute: typeof AuthLogoutCallbackRoute
@@ -314,6 +327,13 @@ declare module '@tanstack/react-router' {
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/': {
@@ -516,6 +536,7 @@ const rootRouteChildren: RootRouteChildren = {
   GodModeRouteRoute: GodModeRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   OnboardingRoute: OnboardingRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   OauthLoginRoute: OauthLoginRoute,
   AuthLogoutCallbackRoute: AuthLogoutCallbackRoute,
