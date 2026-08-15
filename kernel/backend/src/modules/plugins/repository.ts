@@ -376,6 +376,27 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			return yield* toStoredPlugin(row, scripts);
 		});
 
+		const isActiveRevision = Effect.fn("PluginRepository.isActiveRevision")(function* (input: {
+			readonly pluginId: string;
+			readonly sourceHash: string;
+		}) {
+			const db = yield* Database;
+			const [row] = yield* mapDatabaseErrors(
+				db
+					.select({ id: schema.plugin.id })
+					.from(schema.plugin)
+					.where(
+						and(
+							eq(schema.plugin.id, input.pluginId),
+							eq(schema.plugin.status, "active"),
+							eq(schema.plugin.sourceHash, input.sourceHash),
+						),
+					)
+					.limit(1),
+			);
+			return row !== undefined;
+		});
+
 		const findClientArtifactByHash = Effect.fn("PluginRepository.findClientArtifactByHash")(
 			function* (clientArtifactHash: string) {
 				const db = yield* Database;
@@ -812,6 +833,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			deactivate,
 			lockIngestion,
 			findBySourceHash,
+			isActiveRevision,
 			listPrivateForUser,
 			persistKernelScript,
 			hasEntityReferences,
