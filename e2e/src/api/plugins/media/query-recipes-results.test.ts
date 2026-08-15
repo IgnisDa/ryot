@@ -41,7 +41,7 @@ import { describe, expect, it } from "~/support/effect-test";
 const seedPodcast = (client: Client, episodeCount: number) =>
 	Effect.gen(function* () {
 		const { schema: podcastSchema } = yield* findBuiltinSchemaBySlug(client, "podcast");
-		const podcastEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug("podcast-episode");
+		const podcastEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug(client, "podcast-episode");
 		const relationshipSchemas = yield* listRelationshipSchemas(client, {
 			slugs: ["podcast-to-podcast-episode"],
 		});
@@ -122,8 +122,8 @@ const seedCredit = (input: {
 const seedActivityShow = (client: Client) =>
 	Effect.gen(function* () {
 		const { schema: showSchema } = yield* findBuiltinSchemaBySlug(client, "show");
-		const showSeasonSchemaId = yield* getBuiltinEntitySchemaSlug("show-season");
-		const showEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug("show-episode");
+		const showSeasonSchemaId = yield* getBuiltinEntitySchemaSlug(client, "show-season");
+		const showEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug(client, "show-episode");
 		const relationshipSchemas = yield* listRelationshipSchemas(client, {
 			slugs: ["show-to-show-season", "show-season-to-show-episode"],
 		});
@@ -237,8 +237,8 @@ describe("Media RyotQL query recipe results", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schema: showSchema } = yield* findBuiltinSchemaBySlug(client, "show");
-			const showSeasonSchemaId = yield* getBuiltinEntitySchemaSlug("show-season");
-			const showEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug("show-episode");
+			const showSeasonSchemaId = yield* getBuiltinEntitySchemaSlug(client, "show-season");
+			const showEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug(client, "show-episode");
 			const relationshipSchemas = yield* listRelationshipSchemas(client, {
 				slugs: ["show-to-show-season", "show-season-to-show-episode"],
 			});
@@ -521,9 +521,9 @@ describe("Media RyotQL query recipe results", () => {
 	it.live("reconstructs show overview credits, companies and outgoing suggestions", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const showSchemaId = yield* getBuiltinEntitySchemaSlug("show");
-			const personSchemaId = yield* getBuiltinEntitySchemaSlug("person");
-			const companySchemaId = yield* getBuiltinEntitySchemaSlug("company");
+			const showSchemaId = yield* getBuiltinEntitySchemaSlug(client, "show");
+			const personSchemaId = yield* getBuiltinEntitySchemaSlug(client, "person");
+			const companySchemaId = yield* getBuiltinEntitySchemaSlug(client, "company");
 			const relationshipSchemas = yield* listRelationshipSchemas(client, {
 				slugs: ["person-to-show", "company-to-show", "media-suggestion"],
 			});
@@ -673,7 +673,7 @@ describe("Media RyotQL query recipe results", () => {
 	it.live("returns empty overview sections for a show with no relationships", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const showSchemaId = yield* getBuiltinEntitySchemaSlug("show");
+			const showSchemaId = yield* getBuiltinEntitySchemaSlug(client, "show");
 			const suffix = crypto.randomUUID();
 			const show = yield* seedMediaEntity({
 				userId: null,
@@ -716,9 +716,9 @@ describe("Media RyotQL query recipe results", () => {
 	it.live("reconstructs person credits through the reverse join in per-target order", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const personSchemaId = yield* getBuiltinEntitySchemaSlug("person");
-			const movieSchemaId = yield* getBuiltinEntitySchemaSlug("movie");
-			const musicGroupSchemaId = yield* getBuiltinEntitySchemaSlug("music-group");
+			const personSchemaId = yield* getBuiltinEntitySchemaSlug(client, "person");
+			const movieSchemaId = yield* getBuiltinEntitySchemaSlug(client, "movie");
+			const musicGroupSchemaId = yield* getBuiltinEntitySchemaSlug(client, "music-group");
 			const relationshipSchemas = yield* listRelationshipSchemas(client, {
 				slugs: ["person-to-movie", "person-to-music-group"],
 			});

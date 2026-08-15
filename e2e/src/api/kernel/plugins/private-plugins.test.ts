@@ -1,9 +1,12 @@
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { column, document, eq, field, join, literal, rows, table } from "@ryot-app/ryotql";
+import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect } from "effect";
 
+import type { Client } from "~/fixtures/kernel";
 import {
+	collectRyotQLRecipeItems,
 	createAuthenticatedClient,
 	executeRyotQL,
 	installPrivatePluginPackage,
@@ -25,6 +28,9 @@ import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const mediaSlug = PluginSlug.make("media");
+
+const listPlugins = (client: Client) =>
+	collectRyotQLRecipeItems(client, (after) => pluginInstallationsRecipe({ after, limit: 100 }));
 
 describe("private plugins", () => {
 	it.live("persists exactly one ready system installation row per shipped plugin", () =>
@@ -101,7 +107,7 @@ describe("private plugins", () => {
 				},
 			});
 
-			const installations = yield* client.call((c) => c.plugins.list());
+			const installations = yield* listPlugins(client);
 
 			const listed = requirePresent(
 				installations.find((entry) => entry.slug === plugin.pluginSlug),
@@ -157,12 +163,17 @@ describe("private plugins", () => {
 				sortOrder: 9,
 				config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "beta" },
 			});
-			expect(patched).toMatchObject({
+			const persisted = requirePresent(
+				(yield* listPlugins(client)).find(({ slug }) => slug === plugin.pluginSlug),
+				"Patched private plugin was not found",
+			);
+			expect(persisted).toMatchObject({
 				sortOrder: 9,
 				configuredSecrets: [PRIVATE_PLUGIN_SECRET_KEY],
 				config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "beta" },
 			});
 			expect(JSON.stringify(patched)).not.toContain("token-alpha");
+			expect(JSON.stringify(persisted)).not.toContain("token-alpha");
 			expect(
 				(yield* invokePrivatePluginOperation({
 					client,
@@ -250,13 +261,21 @@ describe("private plugins", () => {
 				"Updated private plugin identities were not found",
 			);
 
+			const persisted = requirePresent(
+				(yield* listPlugins(client)).find(({ slug }) => slug === installed.pluginSlug),
+				"Updated private plugin was not found",
+			);
 			expect(after).toEqual(before);
-			expect(updated).toMatchObject({
+			expect(updated).toEqual({
+				id: requireRyotQLText(after, "installationId"),
+				pluginId: requireRyotQLText(after, "pluginId"),
+			});
+			expect(persisted).toMatchObject({
 				version: "2.0.0",
 				configuredSecrets: [PRIVATE_PLUGIN_SECRET_KEY],
 				config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "beta" },
 			});
-			expect(updated.sourceHash).not.toBe(installed.installation.sourceHash);
+			expect(persisted.sourceHash).not.toBe(installed.installation.sourceHash);
 			const stale = yield* Effect.flip(
 				invokePrivatePluginOperation({
 					client,
@@ -272,7 +291,7 @@ describe("private plugins", () => {
 				(yield* invokePrivatePluginOperation({
 					client,
 					prefix: "run",
-					sourceHash: updated.sourceHash,
+					sourceHash: persisted.sourceHash,
 					pluginSlug: installed.pluginSlug,
 					operationSlug: installed.operationSlug,
 				})).result,
@@ -377,7 +396,7 @@ describe("private plugins", () => {
 				operationSlug: plugin.operationSlug,
 			});
 
-			const installations = yield* outsider.client.call((c) => c.plugins.list());
+			const installations = yield* listPlugins(outsider.client);
 			expect(installations.map((entry) => entry.slug)).not.toContain(plugin.pluginSlug);
 		}),
 	);
@@ -489,13 +508,8 @@ describe("private plugins", () => {
 				},
 			});
 
-			const removed = yield* client.call((c) =>
-				c.plugins.uninstall({ params: { pluginSlug: plugin.pluginSlug } }),
-			);
-			expect(removed.slug).toBe(plugin.pluginSlug);
-			expect((yield* client.call((c) => c.plugins.list())).map(({ slug }) => slug)).not.toContain(
-				plugin.pluginSlug,
-			);
+			yield* client.call((c) => c.plugins.uninstall({ params: { pluginSlug: plugin.pluginSlug } }));
+			expect((yield* listPlugins(client)).map(({ slug }) => slug)).not.toContain(plugin.pluginSlug);
 			const failure = yield* Effect.flip(
 				invokePrivatePluginOperation({
 					client,

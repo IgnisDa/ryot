@@ -310,8 +310,8 @@ export const seedGlobalShowEpisodeTree = (
 		assertPresent(tmdbProvider, "Missing TMDB provider for built-in show schema");
 
 		const [seasonSchemaId, episodeSchemaId, relationshipSchemas] = yield* Effect.all([
-			getBuiltinEntitySchemaSlug("show-season"),
-			getBuiltinEntitySchemaSlug("show-episode"),
+			getBuiltinEntitySchemaSlug(client, "show-season"),
+			getBuiltinEntitySchemaSlug(client, "show-episode"),
 			listRelationshipSchemas(client, {
 				slugs: ["show-to-show-season", "show-season-to-show-episode"],
 			}),
@@ -408,9 +408,9 @@ export const seedGlobalMovieWithCollection = (
 
 		const [groupSchemaId, personSchemaId, companySchemaId, relationshipSchemas] = yield* Effect.all(
 			[
-				getBuiltinEntitySchemaSlug("movie-group"),
-				getBuiltinEntitySchemaSlug("person"),
-				getBuiltinEntitySchemaSlug("company"),
+				getBuiltinEntitySchemaSlug(client, "movie-group"),
+				getBuiltinEntitySchemaSlug(client, "person"),
+				getBuiltinEntitySchemaSlug(client, "company"),
 				listRelationshipSchemas(client, {
 					slugs: [
 						"movie-group-to-movie",
@@ -543,9 +543,9 @@ export const seedGlobalMusicWithAlbum = (
 
 		const [albumSchemaId, personSchemaId, companySchemaId, relationshipSchemas] = yield* Effect.all(
 			[
-				getBuiltinEntitySchemaSlug("music-group"),
-				getBuiltinEntitySchemaSlug("person"),
-				getBuiltinEntitySchemaSlug("company"),
+				getBuiltinEntitySchemaSlug(client, "music-group"),
+				getBuiltinEntitySchemaSlug(client, "person"),
+				getBuiltinEntitySchemaSlug(client, "company"),
 				listRelationshipSchemas(client, {
 					slugs: [
 						"music-group-to-music",
@@ -678,9 +678,9 @@ export const seedGlobalBookWithSeries = (
 
 		const [seriesSchemaId, personSchemaId, companySchemaId, relationshipSchemas] =
 			yield* Effect.all([
-				getBuiltinEntitySchemaSlug("book-group"),
-				getBuiltinEntitySchemaSlug("person"),
-				getBuiltinEntitySchemaSlug("company"),
+				getBuiltinEntitySchemaSlug(client, "book-group"),
+				getBuiltinEntitySchemaSlug(client, "person"),
+				getBuiltinEntitySchemaSlug(client, "company"),
 				listRelationshipSchemas(client, {
 					slugs: ["book-group-to-book", "person-to-book", "company-to-book", "media-suggestion"],
 				}),

@@ -209,18 +209,22 @@ describe("entity translation via client-declared interest", () => {
 				properties: { description: "Erste Beschreibung." },
 			};
 
-			yield* Effect.all([seedEntityTranslation(first), seedEntityTranslation(first)], {
-				concurrency: "unbounded",
-			});
+			const [firstWrite, concurrentWrite] = yield* Effect.all(
+				[seedEntityTranslation(first), seedEntityTranslation(first)],
+				{ concurrency: "unbounded" },
+			);
+			expect(concurrentWrite.id).toBe(firstWrite.id);
 			expect(yield* countEntityTranslations(movie.id)).toBe(1);
 
-			yield* seedEntityTranslation({
+			const updated = yield* seedEntityTranslation({
 				...first,
 				name: "Hitze Neu",
 				properties: { description: "Zweite Beschreibung." },
 			});
 
 			const overlay = yield* getEntityTranslationRow({ language: "de", entityId: movie.id });
+			expect(overlay?.id).toBe(updated.id);
+			expect(overlay?.id).toBe(firstWrite.id);
 			expect(overlay?.name).toBe("Hitze Neu");
 			expect(overlay?.properties?.description).toBe("Zweite Beschreibung.");
 			expect(yield* countEntityTranslations(movie.id)).toBe(1);

@@ -5,15 +5,16 @@ import {
 	type SandboxProviderId,
 	type SandboxScriptId,
 } from "@ryot-app/contract/schema/brands";
+import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
 import { Brand, Effect } from "effect";
 
 import { assertPresent, requirePresent } from "~/support/assertions";
 
-import { adminHeaders } from "./admin";
+import { listAdminSandboxScripts } from "./admin-sandbox-scripts";
 import type { Client } from "./auth";
-import { getApiClient } from "./contract-client";
 import { createPluginScope, listInstalledPlugins } from "./plugins";
 import { pollUntil } from "./polling";
+import { collectRyotQLRecipeItems } from "./ryotql";
 import { installTestDefinitions } from "./test-plugin";
 
 type SearchProviderEntitiesBody = ContractPayload<"providerEntities", "search">;
@@ -53,8 +54,8 @@ export const listEntitySchemas = (
 ) =>
 	Effect.gen(function* () {
 		const [schemas, scripts] = yield* Effect.all([
-			client.call((c) => c.definitions.listEntities({})),
-			getApiClient().call((c) => c.testSupport.listSandboxScripts({ query: {} }), adminHeaders()),
+			collectRyotQLRecipeItems(client, (after) => entityDefinitionsRecipe({ after, limit: 100 })),
+			listAdminSandboxScripts(),
 		]);
 		const providers = new Map<
 			string,
@@ -92,14 +93,14 @@ export const listEntitySchemas = (
 				Object.assign({}, schema, {
 					isBuiltin: true,
 					id: makeEntitySchemaSlug(schema.slug),
-					pluginSlug: schema.pluginSlug ?? undefined,
 					providers: [...providers.values()]
 						.filter((provider) => provider.providerSlug.startsWith(`${schema.slug}.`))
 						.map((provider) =>
 							Object.assign({}, provider, {
 								name:
-									schema.providers.find(({ providerId }) => providerId === provider.providerId)
-										?.name ?? provider.name,
+									schema.providers.items.find(
+										({ providerId }) => providerId === provider.providerId,
+									)?.name ?? provider.name,
 							}),
 						),
 				}),
@@ -115,7 +116,7 @@ export const getEntitySchema = (client: Client, entitySchemaSlug: string) =>
 export const findBuiltinSchemaBySlug = (client: Client, slug: string) =>
 	Effect.gen(function* () {
 		const schemas = yield* listEntitySchemas(client, { slugs: [slug] });
-		const schema = schemas.find((candidate) => candidate.pluginSlug == null);
+		const schema = schemas.find((candidate) => candidate.pluginSlug === null);
 		if (schema) {
 			return { schema, builtinPlugin: null };
 		}
@@ -131,14 +132,14 @@ export const findBuiltinSchemaBySlug = (client: Client, slug: string) =>
 		throw new Error(`Built-in entity schema '${slug}' not found`);
 	});
 
-export const getBuiltinEntitySchemaSlug = (slug: string) =>
+export const getBuiltinEntitySchemaSlug = (client: Client, slug: string) =>
 	Effect.gen(function* () {
-		const result = yield* getApiClient().call(
-			(c) => c.testSupport.getBuiltinEntitySchema({ params: { slug } }),
-			adminHeaders(),
+		const schemas = yield* collectRyotQLRecipeItems(client, (after) =>
+			entityDefinitionsRecipe({ after, limit: 100 }),
 		);
-		assertPresent(result, `Expected builtin entity schema '${slug}'`);
-		return result.id;
+		const schema = schemas.find((candidate) => candidate.slug === slug);
+		assertPresent(schema, `Expected builtin entity schema '${slug}'`);
+		return makeEntitySchemaSlug(schema.slug);
 	});
 
 export const listBuiltinEntitySchemas = (client: Client) =>

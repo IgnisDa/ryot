@@ -1,10 +1,14 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { AutomationHookSlug } from "@ryot-app/contract/schema/brands";
-import { Duration, Effect } from "effect";
+import { automationHistoryRunRecipe } from "@ryot-app/ryotql-recipes/automation-history";
+import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
+import { Duration, Effect, Option } from "effect";
 
 import {
 	createAuthenticatedClient,
+	collectRyotQLRecipeItems,
 	createEntity,
+	executeRyotQLRecipe,
 	findBuiltinSchemaBySlug,
 	installTestPluginBundle,
 	listAutomationRunAttempts,
@@ -400,8 +404,11 @@ describe("automation retries", () => {
 
 			const retry = (run: (typeof runs)[number]) =>
 				Effect.gen(function* () {
-					const history = yield* client.call((c) =>
-						c.automationHistory.getRun({ params: { runId: run.id } }),
+					const history = requirePresent(
+						Option.getOrUndefined(
+							yield* executeRyotQLRecipe(client, automationHistoryRunRecipe({ id: run.id })),
+						),
+						`Missing retry history for '${run.id}'`,
 					);
 					expect(history.retryEligibility).toEqual({ reason: null });
 					const queued = yield* client.call((c) =>
@@ -473,7 +480,9 @@ describe("automation retries", () => {
 			assertTaggedError(failure, "PluginArchiveError");
 			expect(failure.reason).toBe("manifest-invalid");
 			expect(
-				(yield* client.call((c) => c.plugins.list())).some(({ slug }) => slug === pluginSlug),
+				(yield* collectRyotQLRecipeItems(client, (after) =>
+					pluginInstallationsRecipe({ after, limit: 100 }),
+				)).some(({ slug }) => slug === pluginSlug),
 			).toBe(false);
 		}),
 	);

@@ -1,4 +1,4 @@
-import { Duration, Effect } from "effect";
+import { Duration, Effect, Option } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -56,7 +56,7 @@ describe("integration auto-disable on continuous errors", () => {
 				const disabled = yield* pollUntil(
 					"integration auto-disable",
 					Effect.gen(function* () {
-						const current = yield* getIntegration(client, integration.id);
+						const current = Option.getOrUndefined(yield* getIntegration(client, integration.id));
 						if (!current?.isDisabled) {
 							return null;
 						}

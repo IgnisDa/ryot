@@ -12,6 +12,7 @@ import {
 	createSavedView,
 	executeRyotQLRecipe,
 	findBuiltinSchemaBySlug,
+	findSavedViewById,
 	getSavedView,
 } from "~/fixtures/kernel";
 import { insertLibraryMembership, seedMediaEntity } from "~/fixtures/plugins/media";
@@ -68,7 +69,7 @@ describe("saved views execution", () => {
 				workspacePluginSlug: pluginSlug,
 				name: `Saved View Count ${crypto.randomUUID()}`,
 			});
-			const persisted = yield* getSavedView(client, created.slug);
+			const persisted = yield* findSavedViewById(client, created.id);
 
 			expect(yield* countSavedView(client, persisted)).toBe(2);
 		}),
