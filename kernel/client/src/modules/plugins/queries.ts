@@ -1,17 +1,12 @@
-import { AuthRateLimited, AuthUnauthorized } from "@ryot/contract/auth-middleware";
 import type {
 	PluginRyotQLOutcome,
 	PluginRyotQLRequest,
 } from "@ryot/contract/modules/plugins/client";
-import { RyotQLBadRequest, RyotQLInternalError } from "@ryot/contract/modules/ryotql/contract";
-import { Context, Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import { AuthenticatedApi } from "../../api/authenticated";
+import { classifyRyotQLFailure } from "../../api/ryotql";
 import type { ApiScope } from "../../api/scope";
-
-const isExpectedFailure = Schema.is(
-	Schema.Union([AuthRateLimited, AuthUnauthorized, RyotQLBadRequest, RyotQLInternalError]),
-);
 
 export class PluginQueriesService extends Context.Service<PluginQueriesService>()(
 	"PluginQueriesService",
@@ -32,7 +27,7 @@ export class PluginQueriesService extends Context.Service<PluginQueriesService>(
 							onFailure: (error) =>
 								({
 									outcome: "failure",
-									reason: isExpectedFailure(error.cause) ? "query-failed" : "transport",
+									reason: classifyRyotQLFailure(error),
 								}) as const,
 						}),
 					);

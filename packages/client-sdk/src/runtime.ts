@@ -100,8 +100,10 @@ export const createPluginRuntime = (
 	const post = (message: unknown) => {
 		try {
 			port.postMessage(message);
+			return true;
 		} catch {
 			finish("failed", "transport", false);
+			return false;
 		}
 	};
 
@@ -140,14 +142,18 @@ export const createPluginRuntime = (
 
 	const navigate = (mode: "push" | "replace", to: RyotNavigationTarget) => {
 		if (state !== "active") {
-			return;
+			throw new RyotClientError(terminalReason ?? "transport");
 		}
 		const search = to.search ? new URLSearchParams(to.search).toString() : "";
-		post({
-			mode,
-			type: "navigate",
-			location: { path: to.path, search },
-		} satisfies PluginBridgeNavigate);
+		if (
+			!post({
+				mode,
+				type: "navigate",
+				location: { path: to.path, search },
+			} satisfies PluginBridgeNavigate)
+		) {
+			throw new RyotClientError(terminalReason ?? "transport");
+		}
 	};
 
 	const client = createRyotClient({
