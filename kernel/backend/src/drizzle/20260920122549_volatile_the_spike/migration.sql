@@ -802,6 +802,18 @@ CREATE TABLE "verification" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "provider_import_admission" (
+	"id" text PRIMARY KEY,
+	"payload" jsonb NOT NULL,
+	"external_id" text NOT NULL,
+	"provider_id" text NOT NULL,
+	"entity_schema_slug" text NOT NULL,
+	"admitted_at" timestamp with time zone,
+	"status" text NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"user_id" text NOT NULL
+);
+--> statement-breakpoint
 CREATE INDEX "account_userId_idx" ON "account" ("user_id");--> statement-breakpoint
 CREATE INDEX "apikey_configId_idx" ON "apikey" ("config_id");--> statement-breakpoint
 CREATE INDEX "apikey_referenceId_idx" ON "apikey" ("reference_id");--> statement-breakpoint
@@ -919,6 +931,8 @@ CREATE INDEX "session_userId_idx" ON "session" ("user_id");--> statement-breakpo
 CREATE INDEX "user_lifecycle_operation_user_id_idx" ON "user_lifecycle_operation" ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "user_lifecycle_operation_user_active_unique" ON "user_lifecycle_operation" ("user_id") WHERE "status" in ('pending', 'running');--> statement-breakpoint
 CREATE INDEX "verification_identifier_idx" ON "verification" ("identifier");--> statement-breakpoint
+CREATE INDEX "provider_import_admission_status_created_at_idx" ON "provider_import_admission" ("status","created_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "provider_import_admission_identity_unique" ON "provider_import_admission" ("user_id","provider_id","entity_schema_slug","external_id");--> statement-breakpoint
 ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "apikey" ADD CONSTRAINT "apikey_reference_id_user_id_fkey" FOREIGN KEY ("reference_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "automation_run" ADD CONSTRAINT "automation_run_sandbox_script_id_sandbox_script_id_fkey" FOREIGN KEY ("sandbox_script_id") REFERENCES "sandbox_script"("id");--> statement-breakpoint
@@ -1010,6 +1024,7 @@ ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_client_renderer_id_client_re
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_plugin_installation_owner_fk" FOREIGN KEY ("plugin_installation_id","user_id") REFERENCES "plugin_installation"("id","user_id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "two_factor" ADD CONSTRAINT "two_factor_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "provider_import_admission" ADD CONSTRAINT "provider_import_admission_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 CREATE VIEW "global_plugin" AS (
 			select p.id as plugin_id, p.slug, p.active_revision_id, p.environment_config_revision_id as config_revision_id, coalesce(c.scope = 'environment' and c.encrypted_payload is not null, false) as is_executable
 			from plugin p

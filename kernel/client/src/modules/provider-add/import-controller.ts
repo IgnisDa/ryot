@@ -9,6 +9,8 @@ const PROVIDER_IMPORT_POLL_INTERVAL = "2 seconds";
 export const PROVIDER_IMPORT_FAILED_MESSAGE =
 	"The provider could not import this item. Try again later.";
 
+export const PROVIDER_IMPORT_CANCELLED_MESSAGE = "The import was cancelled.";
+
 export const PROVIDER_IMPORT_UNAVAILABLE_MESSAGE =
 	"The import could not be started. Check your connection and try again.";
 
@@ -46,7 +48,9 @@ export const setProviderEntityImportEntry = (
 
 const providerEntityImportOutcome = (result: ImportEntityRunResult) =>
 	Match.value(result).pipe(
-		Match.when({ status: "pending" }, () => undefined),
+		Match.when({ status: "queued" }, () => undefined),
+		Match.when({ status: "running" }, () => undefined),
+		Match.when({ status: "cancelled" }, () => failedEntry(PROVIDER_IMPORT_CANCELLED_MESSAGE)),
 		Match.when({ status: "failed" }, () => failedEntry(PROVIDER_IMPORT_FAILED_MESSAGE)),
 		Match.when(
 			{ status: "completed" },

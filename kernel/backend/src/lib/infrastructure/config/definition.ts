@@ -120,6 +120,13 @@ const sandbox = group(
 			envKey: "SANDBOX_DENO_DIR",
 			description: "Directory used for the local sandbox dependency runtime and Deno cache",
 		}),
+		experimentInteractiveLane: booleanField({
+			hidden: true,
+			defaultValue: false,
+			label: "Experiment: interactive sandbox lane",
+			envKey: "EXPERIMENT_SANDBOX_INTERACTIVE_LANE",
+			description: "Benchmark-only: run interactive sandbox executions on one reserved worker",
+		}),
 		processMode: enumField({
 			label: "Process mode",
 			defaultValue: "on-demand",
@@ -127,12 +134,28 @@ const sandbox = group(
 			choices: { kind: "static", values: [{ value: "on-demand" }, { value: "warm" }] },
 			description: "Spawn processes on demand or keep a warm pool ready for executions",
 		}),
+		experimentWorkerPriority: booleanField({
+			hidden: true,
+			defaultValue: false,
+			label: "Experiment: sandbox worker priority",
+			envKey: "EXPERIMENT_SANDBOX_WORKER_PRIORITY",
+			description:
+				"Benchmark-only: lower Deno worker CPU priority and make workers the preferred OOM victims",
+		}),
 		benchmarkProfileDir: stringField({
 			hidden: true,
 			label: "Benchmark profile directory",
 			envKey: "SANDBOX_BENCHMARK_PROFILE_DIR",
 			description:
 				"Benchmark-only: absolute directory for admin-gated sandbox and backend profiles; the profiling controls are disabled while it is unset",
+		}),
+		experimentImportAdmissionLimit: integerField({
+			hidden: true,
+			defaultValue: 0,
+			label: "Experiment: provider import admission limit",
+			envKey: "EXPERIMENT_PROVIDER_IMPORT_ADMISSION_LIMIT",
+			description:
+				"Benchmark-only: active root provider imports admitted at once; 0 starts every import immediately",
 		}),
 		workerConcurrency: integerField({
 			defaultValue: 2,

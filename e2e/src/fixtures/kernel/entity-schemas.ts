@@ -168,7 +168,7 @@ export const pollProviderEntityImportResult = (client: Client, jobId: string) =>
 			const result = yield* client.call((c) =>
 				c.providerEntities.getImportResult({ params: { jobId } }),
 			);
-			return result.status !== "pending" ? result : null;
+			return result.status === "queued" || result.status === "running" ? null : result;
 		}),
 	);
 
