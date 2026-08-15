@@ -21,6 +21,7 @@ const ACTIVITY_RECIPE = showActivityRecipe({
 	entityId: "show-1",
 	parentEventLimit: 60,
 	episodeEventLimit: 100,
+	collectionEventLimit: 40,
 	episodeProgressLimit: 100,
 });
 
@@ -80,11 +81,21 @@ const EPISODE_PROGRESS_ROW = {
 	occurredAt: "2024-02-03T09:00:00.000Z",
 };
 
+const COLLECTION_EVENT_ROW = {
+	id: "collection-added",
+	collectionName: "Watchlist",
+	collectionId: "collection-1",
+	createdAt: "2024-01-31T10:00:00.000Z",
+	occurredAt: "2024-01-31T09:00:00.000Z",
+	eventSchemaSlug: "add-entity-to-collection",
+};
+
 const decodeActivity = (
 	input: {
 		readonly parentEvents?: readonly Record<string, unknown>[];
 		readonly episodeEvents?: readonly Record<string, unknown>[];
 		readonly episodeProgress?: readonly Record<string, unknown>[];
+		readonly collectionEvents?: readonly Record<string, unknown>[];
 	} = {},
 ) =>
 	ACTIVITY_RECIPE.decode({
@@ -92,6 +103,7 @@ const decodeActivity = (
 			parentEvents: activityRows(input.parentEvents ?? []),
 			episodeEvents: activityRows(input.episodeEvents ?? []),
 			episodeProgress: progressRows(input.episodeProgress ?? []),
+			collectionEvents: activityRows(input.collectionEvents ?? []),
 		},
 	});
 
@@ -818,6 +830,39 @@ describe("media query recipes", () => {
 		});
 	});
 
+	it("scopes collection activity to membership events that name the show as their subject", () => {
+		const collectionEvents = ACTIVITY_RECIPE.document.queries["collectionEvents"];
+		if (collectionEvents?.output.type !== "rows" || collectionEvents.where?.type !== "and") {
+			throw new Error("Expected filtered collection event rows query");
+		}
+
+		expect(collectionEvents.output.pagination).toMatchObject({ limit: 40 });
+		expect(collectionEvents.joins?.map((join) => join.table.alias)).toEqual(["eventCollection"]);
+		expect(
+			collectionEvents.output.fields.map((field) => ("key" in field ? field.key : null)),
+		).toEqual([
+			"id",
+			"collectionId",
+			"collectionName",
+			"createdAt",
+			"occurredAt",
+			"eventSchemaSlug",
+		]);
+		expect(collectionEvents.where.predicates[0]).toMatchObject({
+			type: "comparison",
+			right: { type: "literal", value: "collection" },
+			left: { field: "entitySchemaSlug", tableAlias: "eventCollection" },
+		});
+		expect(collectionEvents.where.predicates[1]).toMatchObject({
+			type: "in",
+			values: [{ value: "add-entity-to-collection" }, { value: "remove-entity-from-collection" }],
+		});
+		expect(collectionEvents.where.predicates[2]).toMatchObject({
+			type: "comparison",
+			right: { type: "literal", value: "show-1" },
+		});
+	});
+
 	it("reaches episode activity through season relationships instead of the event session", () => {
 		const episodeEvents = ACTIVITY_RECIPE.document.queries["episodeEvents"];
 		if (episodeEvents?.output.type !== "rows" || episodeEvents.where?.type !== "and") {
@@ -984,6 +1029,7 @@ describe("media query recipes", () => {
 			ACTIVITY_RECIPE.decode({
 				data: {
 					episodeProgress: activityRows([]),
+					collectionEvents: activityRows([]),
 					parentEvents: activityRows([PARENT_EVENT_ROW]),
 					episodeEvents: rowsResult([EPISODE_EVENT_ROW], {
 						limit: 100,
@@ -993,6 +1039,70 @@ describe("media query recipes", () => {
 				},
 			}),
 		).toMatchObject({ success: { truncated: true } });
+	});
+
+	it("decodes collection membership changes into the shared descending event order", () => {
+		expect(
+			decodeActivity({
+				parentEvents: [PARENT_EVENT_ROW],
+				collectionEvents: [
+					COLLECTION_EVENT_ROW,
+					{
+						...COLLECTION_EVENT_ROW,
+						id: "collection-removed",
+						createdAt: "2024-02-03T10:00:00.000Z",
+						occurredAt: "2024-02-03T09:00:00.000Z",
+						eventSchemaSlug: "remove-entity-from-collection",
+					},
+				],
+			}),
+		).toMatchObject({
+			success: {
+				events: [
+					{
+						text: null,
+						rating: null,
+						timeSpent: null,
+						kind: "collection",
+						consumedOn: null,
+						id: "collection-removed",
+						eventSchemaSlug: "remove-entity-from-collection",
+						collection: { id: "collection-1", name: "Watchlist" },
+					},
+					{ kind: "parent", id: "parent-complete" },
+					{
+						kind: "collection",
+						id: "collection-added",
+						eventSchemaSlug: "add-entity-to-collection",
+						collection: { id: "collection-1", name: "Watchlist" },
+					},
+				],
+			},
+		});
+	});
+
+	it("reports truncation when the collection membership page holds more rows", () => {
+		expect(
+			ACTIVITY_RECIPE.decode({
+				data: {
+					parentEvents: activityRows([]),
+					episodeEvents: activityRows([]),
+					episodeProgress: progressRows([]),
+					collectionEvents: rowsResult([COLLECTION_EVENT_ROW], {
+						limit: 40,
+						hasMore: true,
+						nextCursor: "collection-cursor",
+					}),
+				},
+			}),
+		).toMatchObject({ success: { truncated: true } });
+	});
+
+	it("rejects collection activity whose event schema slug is not a membership change", () => {
+		expect(
+			decodeActivity({ collectionEvents: [{ ...COLLECTION_EVENT_ROW, eventSchemaSlug: "review" }] })
+				._tag,
+		).toBe("Failure");
 	});
 
 	it("decodes a show with no recorded activity as an empty event list", () => {
