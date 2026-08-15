@@ -108,13 +108,6 @@ const sandbox = group(
 			defaultValue: "/home/ryot/tmp",
 			description: "Directory used for the local sandbox dependency runtime and Deno cache",
 		}),
-		jobIdSecret: stringField({
-			secret: true,
-			label: "Job ID secret",
-			defaultValue: "changeme",
-			envKey: "SANDBOX_JOB_ID_SECRET",
-			description: "Secret used to sign sandbox job identifiers",
-		}),
 	},
 );
 
