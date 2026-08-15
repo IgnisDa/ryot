@@ -1,4 +1,4 @@
-import { SandboxScriptId } from "@ryot/contract/schema/brands";
+import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import {

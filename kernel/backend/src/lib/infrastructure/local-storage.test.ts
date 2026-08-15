@@ -1,7 +1,7 @@
 import { BunServices } from "@effect/platform-bun";
 import { it } from "@effect/vitest";
-import { BadRequest } from "@ryot/contract/errors";
-import { UPLOAD_MAX_FILE_BYTES } from "@ryot/contract/modules/uploads/upload-policy";
+import { BadRequest } from "@ryot-app/contract/errors";
+import { UPLOAD_MAX_FILE_BYTES } from "@ryot-app/contract/modules/uploads/upload-policy";
 import { Effect, FileSystem, Layer, Redacted, Stream } from "effect";
 import { expect } from "vitest";
 

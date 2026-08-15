@@ -27,9 +27,9 @@ import {
 	UserWorkoutTemplateDetailsDocument,
 	UserWorkoutTemplatesListDocument,
 	type WorkoutSummary,
-} from "@ryot/generated/graphql/backend/graphql";
-import { humanizeDuration } from "@ryot/ts-utils/format";
-import { changeCase } from "@ryot/ts-utils/string";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { humanizeDuration } from "@ryot-app/ts-utils/format";
+import { changeCase } from "@ryot-app/ts-utils/string";
 import {
 	IconCalendar,
 	IconCheck,

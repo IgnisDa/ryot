@@ -1,5 +1,5 @@
-import type { SavedViewDisplayValue } from "@ryot/contract/modules/saved-views/schemas";
-import type { AssetLocator as AssetLocatorType } from "@ryot/contract/modules/uploads/schemas";
+import type { SavedViewDisplayValue } from "@ryot-app/contract/modules/saved-views/schemas";
+import type { AssetLocator as AssetLocatorType } from "@ryot-app/contract/modules/uploads/schemas";
 
 import { collectManagedAssetLocators } from "@/modules/ui/managed-assets";
 

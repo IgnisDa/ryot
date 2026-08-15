@@ -1,4 +1,4 @@
-import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
+import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import { Effect, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";

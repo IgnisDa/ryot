@@ -1,9 +1,9 @@
 import { it } from "@effect/vitest";
-import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	SavedViewBadRequest,
 	type SavedViewLayouts,
-} from "@ryot/contract/modules/saved-views/schemas";
+} from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	ascending,
 	castJson,
@@ -14,7 +14,7 @@ import {
 	literal,
 	rows,
 	table,
-} from "@ryot/ryotql";
+} from "@ryot-app/ryotql";
 import { Effect } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";

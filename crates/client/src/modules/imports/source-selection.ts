@@ -1,6 +1,6 @@
-import type { ListedImportSource } from "@ryot/contract/modules/imports/schemas";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import { getOrderedAppSchemaFieldEntries } from "@ryot/contract/schema/property-schema";
+import type { ListedImportSource } from "@ryot-app/contract/modules/imports/schemas";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { getOrderedAppSchemaFieldEntries } from "@ryot-app/contract/schema/property-schema";
 
 import type { CatalogEntry } from "@/modules/ui/plugin-catalog/catalog-selection";
 

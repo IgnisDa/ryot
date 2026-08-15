@@ -1,10 +1,10 @@
-import type { IncludeResult, RowItem } from "@ryot/contract/modules/ryotql/language";
-import type { AssetLocator } from "@ryot/contract/modules/uploads/schemas";
+import type { IncludeResult, RowItem } from "@ryot-app/contract/modules/ryotql/language";
+import type { AssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import {
 	workoutDetailRecipe,
 	workoutTemplateDetailRecipe,
 	workoutTemplateListRecipe,
-} from "@ryot/fitness-plugin/query-recipes";
+} from "@ryot-app/fitness-plugin/query-recipes";
 import { Effect } from "effect";
 
 import {

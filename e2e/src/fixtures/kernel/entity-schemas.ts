@@ -1,10 +1,10 @@
-import type { ContractPayload } from "@ryot/contract/client";
-import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
+import type { ContractPayload } from "@ryot-app/contract/client";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	PluginSlug,
 	type SandboxProviderId,
 	type SandboxScriptId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { Brand, Effect } from "effect";
 
 import { assertPresent, requirePresent } from "~/support/assertions";

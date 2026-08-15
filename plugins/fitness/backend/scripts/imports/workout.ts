@@ -1,5 +1,5 @@
-import type { GenericImportWriteItem } from "@ryot/sandbox-sdk/imports";
-import type { JsonValue } from "@ryot/sandbox-sdk/wire";
+import type { GenericImportWriteItem } from "@ryot-app/sandbox-sdk/imports";
+import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
 
 import {
 	buildWorkoutSetEventProperties,

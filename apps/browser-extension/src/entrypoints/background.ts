@@ -1,4 +1,4 @@
-import { isFiniteNumber } from "@ryot/ts-utils/lodash";
+import { isFiniteNumber } from "@ryot-app/ts-utils/lodash";
 
 import { storage } from "#imports";
 

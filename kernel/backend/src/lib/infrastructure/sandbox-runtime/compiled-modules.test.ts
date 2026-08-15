@@ -1,6 +1,6 @@
 import { BunServices } from "@effect/platform-bun";
 import { assert, expect, it } from "@effect/vitest";
-import { sha256Hex } from "@ryot/ts-utils/crypto";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect, FileSystem, Path, PlatformError } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";

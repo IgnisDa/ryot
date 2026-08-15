@@ -26,12 +26,12 @@ import {
 	RevokeAccessLinkDocument,
 	UserAccessLinksDocument,
 	type UserAccessLinksQuery,
-} from "@ryot/generated/graphql/backend/graphql";
-import { formatQuantityWithCompactNotation } from "@ryot/ts-utils/format";
-import { isNumber } from "@ryot/ts-utils/lodash";
-import { isString } from "@ryot/ts-utils/lodash";
-import { getActionIntent, processSubmission } from "@ryot/ts-utils/request";
-import { zodCheckboxAsString, zodIntAsString } from "@ryot/ts-utils/zod";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { formatQuantityWithCompactNotation } from "@ryot-app/ts-utils/format";
+import { isNumber } from "@ryot-app/ts-utils/lodash";
+import { isString } from "@ryot-app/ts-utils/lodash";
+import { getActionIntent, processSubmission } from "@ryot-app/ts-utils/request";
+import { zodCheckboxAsString, zodIntAsString } from "@ryot-app/ts-utils/zod";
 import { IconEye, IconEyeClosed, IconLock, IconLockAccess } from "@tabler/icons-react";
 import { data, Form, useLoaderData } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";

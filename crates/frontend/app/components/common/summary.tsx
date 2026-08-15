@@ -8,9 +8,9 @@ import {
 	Tooltip,
 	useMantineTheme,
 } from "@mantine/core";
-import { MediaLot, type UserAnalytics } from "@ryot/generated/graphql/backend/graphql";
-import { formatQuantityWithCompactNotation, humanizeDuration } from "@ryot/ts-utils/format";
-import { isNumber } from "@ryot/ts-utils/lodash";
+import { MediaLot, type UserAnalytics } from "@ryot-app/generated/graphql/backend/graphql";
+import { formatQuantityWithCompactNotation, humanizeDuration } from "@ryot-app/ts-utils/format";
+import { isNumber } from "@ryot-app/ts-utils/lodash";
 import { IconBarbell, IconFriends, IconScaleOutline, IconServer } from "@tabler/icons-react";
 import { Fragment, type ReactNode } from "react";
 import { Link } from "react-router";

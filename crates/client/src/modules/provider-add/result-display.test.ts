@@ -1,4 +1,4 @@
-import type { SearchProviderEntitiesResponse } from "@ryot/contract/modules/provider-entities/schemas";
+import type { SearchProviderEntitiesResponse } from "@ryot-app/contract/modules/provider-entities/schemas";
 import { describe, expect, it } from "vitest";
 
 import { describeProviderSearchResultItem } from "./result-display";

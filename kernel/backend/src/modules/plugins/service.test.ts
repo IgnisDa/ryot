@@ -1,20 +1,20 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { assert, expect, it } from "@effect/vitest";
-import type { ClientPluginCompilerInput } from "@ryot/client-plugin-compiler";
+import type { ClientPluginCompilerInput } from "@ryot-app/client-plugin-compiler";
 import {
 	clientPluginCompilationFailure,
 	clientPluginCompilerDiagnostic,
-} from "@ryot/client-plugin-compiler/diagnostics";
+} from "@ryot-app/client-plugin-compiler/diagnostics";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 	type PluginClientArtifact,
-} from "@ryot/contract/modules/plugins/client";
-import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import { PluginConflictError } from "@ryot/contract/modules/plugins/schemas";
-import { PluginSlug } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/plugins/client";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { PluginConflictError } from "@ryot-app/contract/modules/plugins/schemas";
+import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, Option, Queue, Ref } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";

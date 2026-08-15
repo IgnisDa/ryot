@@ -1,5 +1,5 @@
-import { EntityId } from "@ryot/contract/schema/brands";
-import type { Recipe } from "@ryot/ryotql";
+import { EntityId } from "@ryot-app/contract/schema/brands";
+import type { Recipe } from "@ryot-app/ryotql";
 import {
 	ascending,
 	column,
@@ -9,7 +9,7 @@ import {
 	selectedField,
 	selectedRows,
 	table,
-} from "@ryot/ryotql";
+} from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
 export const allCollectionsRecipe = defineRecipe(

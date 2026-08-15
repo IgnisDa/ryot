@@ -1,11 +1,11 @@
-import { utf8ByteLength } from "@ryot/sandbox-compiler/limits";
-import { hostFailure, hostSuccess } from "@ryot/sandbox-sdk/wire";
+import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
+import { hostFailure, hostSuccess } from "@ryot-app/sandbox-sdk/wire";
 import {
 	type WorkflowReplayJournalEntry,
 	workflowReplayJournalEntrySchema,
-} from "@ryot/sandbox-sdk/workflow";
-import { sha256Base64Url } from "@ryot/ts-utils/crypto";
-import { stableStringify } from "@ryot/ts-utils/json";
+} from "@ryot-app/sandbox-sdk/workflow";
+import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Schema } from "effect";
 
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";

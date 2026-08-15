@@ -1,5 +1,5 @@
-import { showSeasonEpisodesRecipe, showSeasonsRecipe } from "@ryot/media-plugin/query-recipes";
-import { rowsResult } from "@ryot/ryotql-recipes/test-utils";
+import { showSeasonEpisodesRecipe, showSeasonsRecipe } from "@ryot-app/media-plugin/query-recipes";
+import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { Result } from "effect";
 
 const showEpisodesFixtureRecipe = showSeasonsRecipe({ entityId: "show-1", seasonLimit: 40 });

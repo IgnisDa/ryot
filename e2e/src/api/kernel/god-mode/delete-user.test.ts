@@ -1,5 +1,5 @@
-import { UserLifecycleOperation as UserLifecycleOperationSchema } from "@ryot/contract/modules/god-mode/user-lifecycle";
-import { UserId } from "@ryot/contract/schema/brands";
+import { UserLifecycleOperation as UserLifecycleOperationSchema } from "@ryot-app/contract/modules/god-mode/user-lifecycle";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
 import {

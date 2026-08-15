@@ -1,6 +1,6 @@
 import { render } from "@react-email/components";
-import type { NotificationChannelSpecifics } from "@ryot/contract/modules/notifications/schemas";
-import GenericEmail from "@ryot/transactional/emails/generic";
+import type { NotificationChannelSpecifics } from "@ryot-app/contract/modules/notifications/schemas";
+import GenericEmail from "@ryot-app/transactional/emails/generic";
 import { Context, Data, Duration, Effect, Layer, Match, Option, Redacted } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 import { createTransport } from "nodemailer";

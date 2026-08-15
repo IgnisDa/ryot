@@ -1,11 +1,14 @@
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { type ManagedAssetLocator, UploadBadRequest } from "@ryot/contract/modules/uploads/schemas";
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import {
+	type ManagedAssetLocator,
+	UploadBadRequest,
+} from "@ryot-app/contract/modules/uploads/schemas";
 import {
 	type UploadContentType,
 	uploadContentTypeExtensions,
 	uploadContentTypes,
-} from "@ryot/contract/modules/uploads/upload-policy";
-import type { UserId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/uploads/upload-policy";
+import type { UserId } from "@ryot-app/contract/schema/brands";
 import { CryptoHasher } from "bun";
 import { Clock, Context, Effect, Layer, Stream } from "effect";
 

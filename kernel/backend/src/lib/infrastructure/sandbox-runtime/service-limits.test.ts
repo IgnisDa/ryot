@@ -1,4 +1,4 @@
-import { utf8ByteLength } from "@ryot/sandbox-compiler/limits";
+import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
 import { Effect } from "effect";
 import { FetchHttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
 import { assert, describe, expect, it } from "vitest";

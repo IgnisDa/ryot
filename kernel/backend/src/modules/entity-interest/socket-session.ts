@@ -5,8 +5,8 @@ import {
 	type EntityInterestClientMessage,
 	type EntityInterestEntityUpdatedMessage,
 	type EntityInterestServerMessage,
-} from "@ryot/contract/modules/entity-interest/messages";
-import { OAUTH_ACCESS_TOKEN_TTL_SECONDS } from "@ryot/contract/oauth";
+} from "@ryot-app/contract/modules/entity-interest/messages";
+import { OAUTH_ACCESS_TOKEN_TTL_SECONDS } from "@ryot-app/contract/oauth";
 import { Deferred, Duration, Effect, Fiber, Option, Queue, Result, Schedule } from "effect";
 import * as Socket from "effect/unstable/socket/Socket";
 

@@ -1,4 +1,4 @@
-import { savedViewRecordRecipe } from "@ryot/ryotql-recipes/saved-view-records";
+import { savedViewRecordRecipe } from "@ryot-app/ryotql-recipes/saved-view-records";
 import { Schema } from "effect";
 import { Atom } from "effect/unstable/reactivity";
 

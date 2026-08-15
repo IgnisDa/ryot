@@ -1,7 +1,7 @@
 import { BunHttpServer } from "@effect/platform-bun";
-import { badRequest, internalError, unknownToMessage } from "@ryot/contract/errors";
-import { utf8ByteLength } from "@ryot/sandbox-compiler/limits";
-import { hostFailure } from "@ryot/sandbox-sdk/wire";
+import { badRequest, internalError, unknownToMessage } from "@ryot-app/contract/errors";
+import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
+import { hostFailure } from "@ryot-app/sandbox-sdk/wire";
 import {
 	Clock,
 	Context,

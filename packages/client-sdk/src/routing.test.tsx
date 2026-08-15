@@ -1,4 +1,4 @@
-import type { PluginBridgeNavigate } from "@ryot/contract/modules/plugins/client";
+import type { PluginBridgeNavigate } from "@ryot-app/contract/modules/plugins/client";
 import { waitFor } from "@testing-library/dom";
 import { useState, act } from "react";
 import { createRoot, type Root } from "react-dom/client";

@@ -1,7 +1,7 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
-import { DbError } from "@ryot/contract/errors";
-import { BackupRunId, UserId } from "@ryot/contract/schema/brands";
+import { DbError } from "@ryot-app/contract/errors";
+import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 

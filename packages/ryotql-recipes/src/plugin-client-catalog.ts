@@ -1,4 +1,4 @@
-import { PluginInstallationHealth } from "@ryot/contract/modules/plugins/schemas";
+import { PluginInstallationHealth } from "@ryot-app/contract/modules/plugins/schemas";
 import {
 	ascending,
 	column,
@@ -10,7 +10,7 @@ import {
 	selectedRows,
 	table,
 	type Recipe,
-} from "@ryot/ryotql";
+} from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
 const plugin = table("plugin", "plugin");

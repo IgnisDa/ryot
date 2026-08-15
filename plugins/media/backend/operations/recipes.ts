@@ -1,4 +1,4 @@
-import { defineOperationRecipe } from "@ryot/plugin-kit/operations";
+import { defineOperationRecipe } from "@ryot-app/plugin-kit/operations";
 
 import {
 	MediaMonitoringDisableInput,

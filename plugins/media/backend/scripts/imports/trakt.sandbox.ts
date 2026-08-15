@@ -1,7 +1,7 @@
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import { unzipSync } from "@ryot/sandbox-sdk/fflate";
-import { readNamedArtifact } from "@ryot/sandbox-sdk/filesystem";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { unzipSync } from "@ryot-app/sandbox-sdk/fflate";
+import { readNamedArtifact } from "@ryot-app/sandbox-sdk/filesystem";
 
 import { batchMediaImportResult } from "../../imports/helpers";
 import { MediaImportAdapterBatch, TraktImportParserInput } from "../../imports/schemas";

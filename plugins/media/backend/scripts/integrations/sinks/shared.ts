@@ -1,4 +1,4 @@
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
 import { resolvedMediaRef } from "../../../imports/source-helpers";
 import {

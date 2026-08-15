@@ -1,12 +1,12 @@
-import type { SandboxHost } from "@ryot/sandbox-sdk/core";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import type {
 	ProviderDetailsRelatedEntity,
 	ProviderSearchInput,
 	ProviderSearchResult,
 	ProviderTranslateInput,
 	ProviderTranslateResult,
-} from "@ryot/sandbox-sdk/provider";
+} from "@ryot-app/sandbox-sdk/provider";
 
 import { getUserAllowNsfw } from "../../shared/host";
 import {

@@ -1,4 +1,4 @@
-import { BadRequest, badRequest } from "@ryot/contract/errors";
+import { BadRequest, badRequest } from "@ryot-app/contract/errors";
 import { S3Client } from "bun";
 import { Context, Effect, Layer, Option, Redacted, Stream } from "effect";
 import { FetchHttpClient, HttpBody, HttpClient, HttpClientRequest } from "effect/unstable/http";

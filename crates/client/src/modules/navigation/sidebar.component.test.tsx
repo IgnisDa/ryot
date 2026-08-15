@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import type { NavigationWorkspace } from "@ryot/ryotql-recipes/navigation";
+import type { NavigationWorkspace } from "@ryot-app/ryotql-recipes/navigation";
 import { render, screen } from "@testing-library/react-native";
 
 import type { NavigationItems } from "./navigation-data";

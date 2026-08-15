@@ -7,7 +7,7 @@ import {
 	OAUTH_REVOKE_PATH,
 	OAUTH_TOKEN_PATH,
 	OAUTH_WEB_CLIENT_ID,
-} from "@ryot/contract/oauth";
+} from "@ryot-app/contract/oauth";
 import { Effect, Schema } from "effect";
 
 import {

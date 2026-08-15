@@ -1,4 +1,4 @@
-import type { RunStatus } from "@ryot/contract/schema/run-status";
+import type { RunStatus } from "@ryot-app/contract/schema/run-status";
 import { DateTime, Match } from "effect";
 
 import { formatLocalDateLabel } from "@/modules/ui/date";

@@ -1,17 +1,17 @@
-import { unknownToMessage } from "@ryot/contract/errors";
-import type { SandboxExecutionGrants } from "@ryot/contract/modules/sandbox/schemas";
-import type { SandboxHostCapability } from "@ryot/contract/modules/sandbox/wire";
-import { isJsonValue, type JsonValue } from "@ryot/contract/schema/json";
-import type { SandboxHostImplementationMap as SdkSandboxHostImplementationMap } from "@ryot/sandbox-sdk/core";
-import type { SandboxHostError } from "@ryot/sandbox-sdk/wire";
-import { isObjectRecord } from "@ryot/ts-utils/predicates";
+import { unknownToMessage } from "@ryot-app/contract/errors";
+import type { SandboxExecutionGrants } from "@ryot-app/contract/modules/sandbox/schemas";
+import type { SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/wire";
+import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
+import type { SandboxHostImplementationMap as SdkSandboxHostImplementationMap } from "@ryot-app/sandbox-sdk/core";
+import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect } from "effect";
 
 import type { SANDBOX_CAPABILITY_REQUIREMENTS } from "./capability-policy";
 import { sandboxCapabilityRequirement } from "./capability-policy";
 import type { SandboxExecutionPrincipal } from "./execution-principal";
 
-export { isJsonValue } from "@ryot/contract/schema/json";
+export { isJsonValue } from "@ryot-app/contract/schema/json";
 
 export type SandboxRunInput = {
 	readonly context: unknown;

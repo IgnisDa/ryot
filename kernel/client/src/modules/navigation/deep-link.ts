@@ -1,4 +1,4 @@
-import { OAUTH_NATIVE_APPLICATION_IDS } from "@ryot/contract/oauth";
+import { OAUTH_NATIVE_APPLICATION_IDS } from "@ryot-app/contract/oauth";
 
 export type NativeAppSource = {
 	readonly exitApp: () => void;

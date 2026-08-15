@@ -3,9 +3,9 @@ import {
 	CLIENT_API_VERSION,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	pluginClientFileExtension,
-} from "@ryot/contract/modules/plugins/client";
-import { sha256Hex } from "@ryot/ts-utils/crypto";
-import { sortBy } from "@ryot/ts-utils/lodash";
+} from "@ryot-app/contract/modules/plugins/client";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect } from "effect";
 import { parse } from "postcss";
 
@@ -81,7 +81,7 @@ it.effect(
 			const javascript = text(byName.get("plugin.js")?.contents);
 			expect(javascript).toContain(`"./${svgName}"`);
 			expect(javascript).toContain(`"./${importedPngName}"`);
-			expect(javascript).not.toContain("@ryot/client-ui-sdk");
+			expect(javascript).not.toContain("@ryot-app/client-ui-sdk");
 			expect(javascript).not.toContain("./styles.css");
 			// oxlint-disable-next-line typescript/no-implied-eval -- verifies the generated browser module can execute
 			expect(() => Function("document", javascript)({ getElementById: () => null })).not.toThrow();
@@ -177,7 +177,7 @@ it.effect(
 		Effect.gen(function* () {
 			for (const specifier of [
 				"../../outside.css",
-				"@ryot/client-ui-sdk/theme.css",
+				"@ryot-app/client-ui-sdk/theme.css",
 				"./missing.css",
 			]) {
 				const failure = yield* compileStylesheet(`@import ${JSON.stringify(specifier)};`).pipe(
@@ -313,7 +313,7 @@ it.effect("rejects invalid trusted UI SDK JSX props", () =>
 	Effect.gen(function* () {
 		const failure = yield* compileFixture({
 			"client/index.tsx": bytes(
-				'import { Button } from "@ryot/client-ui-sdk";\nexport const View = () => <Button variant="invalid">Invalid</Button>;',
+				'import { Button } from "@ryot-app/client-ui-sdk";\nexport const View = () => <Button variant="invalid">Invalid</Button>;',
 			),
 		}).pipe(Effect.flip);
 
@@ -332,8 +332,8 @@ it.effect(
 			const { artifact } = yield* compileFixture({
 				"client/index.tsx": bytes(`
 import "./styles.css";
-import { bootstrapClientPlugin } from "@ryot/client-sdk/plugin";
-import { Button } from "@ryot/client-ui-sdk";
+import { bootstrapClientPlugin } from "@ryot-app/client-sdk/plugin";
+import { Button } from "@ryot-app/client-ui-sdk";
 import { useState } from "react";
 import logo from "./logo.svg";
 
@@ -484,18 +484,18 @@ it.effect(
 it("trusts only the published client SDK entry points and clsx", () => {
 	for (const specifier of [
 		"clsx",
-		"@ryot/client-sdk",
-		"@ryot/client-sdk/effect",
-		"@ryot/client-sdk/plugin",
-		"@ryot/client-sdk/react",
-		"@ryot/client-sdk/ryotql",
-		"@ryot/client-ui-sdk",
+		"@ryot-app/client-sdk",
+		"@ryot-app/client-sdk/effect",
+		"@ryot-app/client-sdk/plugin",
+		"@ryot-app/client-sdk/react",
+		"@ryot-app/client-sdk/ryotql",
+		"@ryot-app/client-ui-sdk",
 	]) {
 		expect(isTrustedClientModule(specifier)).toBe(true);
 	}
 	expect(isTrustedClientModule("clsx/lite")).toBe(false);
-	expect(isTrustedClientModule("@ryot/client-sdk/unknown")).toBe(false);
-	expect(isTrustedClientModule("@ryot/client-ui-sdk/unknown")).toBe(false);
+	expect(isTrustedClientModule("@ryot-app/client-sdk/unknown")).toBe(false);
+	expect(isTrustedClientModule("@ryot-app/client-ui-sdk/unknown")).toBe(false);
 });
 
 it.effect(

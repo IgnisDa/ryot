@@ -1,7 +1,7 @@
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 const encoder = new TextEncoder();
-const SANDBOX_FILESYSTEM_KEY = Symbol.for("@ryot/sandbox-sdk/filesystem");
+const SANDBOX_FILESYSTEM_KEY = Symbol.for("@ryot-app/sandbox-sdk/filesystem");
 
 type SandboxFilesystemBinding = {
 	readonly readArtifact: () => Promise<Uint8Array>;

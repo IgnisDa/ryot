@@ -15,8 +15,8 @@ import {
 } from "@mantine/core";
 import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { isNumber } from "@ryot/ts-utils/lodash";
-import { isString } from "@ryot/ts-utils/lodash";
+import { isNumber } from "@ryot-app/ts-utils/lodash";
+import { isString } from "@ryot-app/ts-utils/lodash";
 import { IconCamera, IconLibraryPhoto, IconTrash, IconVideo } from "@tabler/icons-react";
 import { produce } from "immer";
 import { useState } from "react";

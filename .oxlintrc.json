@@ -60,7 +60,7 @@
 			"error",
 			{
 				"property": "toSorted",
-				"message": "Array.prototype.toSorted is not supported in Hermes (React Native). Use sortBy from @ryot/ts-utils instead."
+				"message": "Array.prototype.toSorted is not supported in Hermes (React Native). Use sortBy from @ryot-app/ts-utils instead."
 			}
 		],
 		"typescript/no-unused-vars": [

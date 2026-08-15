@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { EntityId, EventId, EventSchemaSlug, UserId } from "@ryot/contract/schema/brands";
+import { EntityId, EventId, EventSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";

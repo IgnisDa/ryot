@@ -1,5 +1,5 @@
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import { readNamedArtifact } from "@ryot/sandbox-sdk/filesystem";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { readNamedArtifact } from "@ryot-app/sandbox-sdk/filesystem";
 
 const decoder = new TextDecoder();
 

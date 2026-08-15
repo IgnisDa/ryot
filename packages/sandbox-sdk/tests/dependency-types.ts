@@ -1,10 +1,10 @@
-import { load, type CheerioAPI } from "@ryot/sandbox-sdk/cheerio";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { XMLParser } from "@ryot/sandbox-sdk/fast-xml-parser";
-import { strFromU8, type Unzipped, unzipSync } from "@ryot/sandbox-sdk/fflate";
-import { parse, type ParseResult } from "@ryot/sandbox-sdk/papaparse";
-import type { Innertube } from "@ryot/sandbox-sdk/youtubei";
-import { YTNodes } from "@ryot/sandbox-sdk/youtubei";
+import { load, type CheerioAPI } from "@ryot-app/sandbox-sdk/cheerio";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { XMLParser } from "@ryot-app/sandbox-sdk/fast-xml-parser";
+import { strFromU8, type Unzipped, unzipSync } from "@ryot-app/sandbox-sdk/fflate";
+import { parse, type ParseResult } from "@ryot-app/sandbox-sdk/papaparse";
+import type { Innertube } from "@ryot-app/sandbox-sdk/youtubei";
+import { YTNodes } from "@ryot-app/sandbox-sdk/youtubei";
 
 const schema = Schema.Struct({ value: Schema.String });
 const parsed: string = Schema.decodeUnknownSync(schema)({ value: "typed" }).value;

@@ -1,5 +1,5 @@
 {
-	"name": "@ryot/browser-extension",
+	"name": "@ryot-app/browser-extension",
 	"version": "0.1.0",
 	"private": true,
 	"type": "module",
@@ -10,10 +10,10 @@
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
-		"@ryot/contract": "workspace:*",
-		"@ryot/media-plugin": "workspace:*",
-		"@ryot/plugin-kit": "workspace:*",
-		"@ryot/ts-utils": "workspace:*",
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/media-plugin": "workspace:*",
+		"@ryot-app/plugin-kit": "workspace:*",
+		"@ryot-app/ts-utils": "workspace:*",
 		"@tailwindcss/vite": "4.1.18",
 		"effect": "4.0.0-rc.111",
 		"lucide-react": "0.563.0",

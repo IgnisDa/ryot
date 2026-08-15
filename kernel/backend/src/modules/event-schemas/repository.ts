@@ -1,4 +1,4 @@
-import { EntitySchemaSlug, EventSchemaSlug, type UserId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, EventSchemaSlug, type UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Option } from "effect";
 
 import {

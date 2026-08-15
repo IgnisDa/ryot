@@ -1,7 +1,7 @@
 import { assert, expect, it } from "@effect/vitest";
-import type { SavedViewLayouts } from "@ryot/contract/modules/saved-views/schemas";
-import { EntitySchemaSlug, UserId } from "@ryot/contract/schema/brands";
-import { ascending, column, document, field, rows, table } from "@ryot/ryotql";
+import type { SavedViewLayouts } from "@ryot-app/contract/modules/saved-views/schemas";
+import { EntitySchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { ascending, column, document, field, rows, table } from "@ryot-app/ryotql";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 

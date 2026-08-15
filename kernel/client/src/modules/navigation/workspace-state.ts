@@ -1,7 +1,7 @@
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
-} from "@ryot/ryotql-recipes/plugin-client-catalog";
+} from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 
 const compareText = (left: string, right: string) => {
 	if (left === right) {

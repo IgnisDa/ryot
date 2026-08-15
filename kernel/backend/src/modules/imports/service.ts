@@ -1,19 +1,19 @@
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
 	ImportNotFoundError,
 	ImportRequestError,
 	type CreateImportRunBody,
 	type ImportRunFailureReason,
-} from "@ryot/contract/modules/imports/schemas";
-import type { ImportRunSource } from "@ryot/contract/modules/imports/types";
-import type { IntegrationLot } from "@ryot/contract/modules/integrations/types";
+} from "@ryot-app/contract/modules/imports/schemas";
+import type { ImportRunSource } from "@ryot-app/contract/modules/imports/types";
+import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
 import type {
 	ImportRunId,
 	IntegrationId,
 	SandboxScriptId,
 	UserId,
-} from "@ryot/contract/schema/brands";
-import type { RunStatus } from "@ryot/contract/schema/run-status";
+} from "@ryot-app/contract/schema/brands";
+import type { RunStatus } from "@ryot-app/contract/schema/run-status";
 import { Context, DateTime, Effect, Exit, Result, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 

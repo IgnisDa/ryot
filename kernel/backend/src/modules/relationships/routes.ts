@@ -1,11 +1,11 @@
-import { CurrentUser } from "@ryot/contract/auth-middleware";
-import { AppContract } from "@ryot/contract/contract";
-import { dieOnDbError } from "@ryot/contract/errors";
+import { CurrentUser } from "@ryot-app/contract/auth-middleware";
+import { AppContract } from "@ryot-app/contract/contract";
+import { dieOnDbError } from "@ryot-app/contract/errors";
 import {
 	RelationshipBadRequest,
 	RelationshipNotFound,
-} from "@ryot/contract/modules/relationships/schemas";
-import type { EntityId, EntitySchemaSlug } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/relationships/schemas";
+import type { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { generateId } from "better-auth";
 import { DateTime, Effect } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";

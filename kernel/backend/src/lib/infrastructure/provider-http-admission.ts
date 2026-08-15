@@ -1,4 +1,4 @@
-import { unknownToMessage } from "@ryot/contract/errors";
+import { unknownToMessage } from "@ryot-app/contract/errors";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { redisKeys, RedisService } from "./redis";

@@ -1,4 +1,4 @@
-import { IntegrationId, UserId } from "@ryot/contract/schema/brands";
+import { IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import { expect, it } from "vitest";
 
 import type { RegisteredIntegrationProvider } from "#modules/plugins/integration-provider-catalog";

@@ -1,5 +1,5 @@
 import { BunServices } from "@effect/platform-bun";
-import { CompilerWorkerResponse } from "@ryot/sandbox-compiler/protocol";
+import { CompilerWorkerResponse } from "@ryot-app/sandbox-compiler/protocol";
 import { Effect, Schema, Stream, FileSystem, Path } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import { assert, expect, it } from "vitest";
@@ -24,7 +24,7 @@ it("builds and executes the standalone production compiler worker", () =>
 					directory: nodeModules,
 					prefix: "sandbox-compiler-worker-",
 				});
-				const entrypoint = Bun.resolveSync("@ryot/sandbox-compiler/worker", import.meta.url);
+				const entrypoint = Bun.resolveSync("@ryot-app/sandbox-compiler/worker", import.meta.url);
 				const build = yield* Effect.tryPromise(() =>
 					Bun.build({ target: "bun", outdir: outputDirectory, entrypoints: [entrypoint] }),
 				);

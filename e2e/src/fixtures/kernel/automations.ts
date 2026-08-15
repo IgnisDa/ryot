@@ -1,15 +1,15 @@
-import type { ContractPayload } from "@ryot/contract/client";
+import type { ContractPayload } from "@ryot-app/contract/client";
 import {
 	AutomationRuleId,
 	EntityId,
 	SignalId,
 	SignalSchemaSlug,
 	UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import {
 	notificationSubscriptionStateRecipe,
 	notificationSubscriptionStatesRecipe,
-} from "@ryot/ryotql-recipes/notification-subscription-states";
+} from "@ryot-app/ryotql-recipes/notification-subscription-states";
 import { Effect } from "effect";
 
 import { adminHeaders } from "./admin";

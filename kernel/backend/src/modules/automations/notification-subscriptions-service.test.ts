@@ -3,13 +3,13 @@ import {
 	AutomationConflictError,
 	AutomationNotFoundError,
 	InstallNotificationRuleBody,
-} from "@ryot/contract/modules/automations/schemas";
+} from "@ryot-app/contract/modules/automations/schemas";
 import {
 	AutomationRuleId,
 	SandboxScriptId,
 	SignalSchemaSlug,
 	UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { Effect, Layer, Schema } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";

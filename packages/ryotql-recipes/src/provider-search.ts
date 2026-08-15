@@ -1,6 +1,6 @@
-import { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
-import { AppSchema } from "@ryot/contract/schema/property-schema";
-import type { Recipe } from "@ryot/ryotql";
+import { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { Recipe } from "@ryot-app/ryotql";
 import {
 	and,
 	ascending,
@@ -12,7 +12,7 @@ import {
 	selectedField,
 	selectedRows,
 	table,
-} from "@ryot/ryotql";
+} from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
 export const providerSearchRecipe = defineRecipe(

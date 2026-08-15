@@ -1,6 +1,6 @@
-import { DbError } from "@ryot/contract/errors";
-import { NotificationChannelKind } from "@ryot/contract/modules/notifications/types";
-import { NotificationChannelId, UserId } from "@ryot/contract/schema/brands";
+import { DbError } from "@ryot-app/contract/errors";
+import { NotificationChannelKind } from "@ryot-app/contract/modules/notifications/types";
+import { NotificationChannelId, UserId } from "@ryot-app/contract/schema/brands";
 import { generateId } from "better-auth";
 import { Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";

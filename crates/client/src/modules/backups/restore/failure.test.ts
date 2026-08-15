@@ -1,4 +1,4 @@
-import { BackupConflict } from "@ryot/contract/modules/backups/schemas";
+import { BackupConflict } from "@ryot-app/contract/modules/backups/schemas";
 import { Cause } from "effect";
 import { describe, expect, it } from "vitest";
 

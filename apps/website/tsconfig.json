@@ -19,8 +19,8 @@
 		"types": ["@react-router/node", "vite/client"],
 		"paths": {
 			"~/*": ["./app/*"],
-			"@ryot/ts-utils/*": ["../../packages/ts-utils/src/*"],
-			"@ryot/transactional/*": ["../../packages/transactional/*"]
+			"@ryot-app/ts-utils/*": ["../../packages/ts-utils/src/*"],
+			"@ryot-app/transactional/*": ["../../packages/transactional/*"]
 		}
 	}
 }

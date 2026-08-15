@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { DbError } from "@ryot/contract/errors";
+import { DbError } from "@ryot-app/contract/errors";
 import { SqlError, UniqueViolation } from "effect/unstable/sql/SqlError";
 
 import { databaseError, isUniqueConstraintError } from "./service";

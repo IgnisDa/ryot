@@ -1,4 +1,8 @@
-import { EntityId, EventSchemaSlug, RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
+import {
+	EntityId,
+	EventSchemaSlug,
+	RelationshipSchemaSlug,
+} from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import { adminHeaders } from "./admin";

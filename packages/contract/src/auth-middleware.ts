@@ -1,4 +1,4 @@
-import { isObjectRecord } from "@ryot/ts-utils/predicates";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Context, Schema } from "effect";
 import { HttpApiMiddleware, HttpApiSchema, HttpApiSecurity } from "effect/unstable/httpapi";
 

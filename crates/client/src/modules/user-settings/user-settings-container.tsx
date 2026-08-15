@@ -1,5 +1,5 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
-import type { UserSettings } from "@ryot/contract/modules/user-settings/schemas";
+import type { UserSettings } from "@ryot-app/contract/modules/user-settings/schemas";
 import { AsyncResult } from "effect/unstable/reactivity";
 import type { ReactNode } from "react";
 import { ActivityIndicator, Text, View } from "react-native";

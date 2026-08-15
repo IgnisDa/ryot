@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { IntegrationId } from "@ryot/contract/schema/brands";
+import { IntegrationId } from "@ryot-app/contract/schema/brands";
 import { render, screen, userEvent } from "@testing-library/react-native";
 import { Cause } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";

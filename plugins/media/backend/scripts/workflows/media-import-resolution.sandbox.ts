@@ -1,4 +1,4 @@
-import { defineManifest, defineWorkflow, Effect } from "@ryot/sandbox-sdk/workflow";
+import { defineManifest, defineWorkflow, Effect } from "@ryot-app/sandbox-sdk/workflow";
 
 import {
 	MediaImportResolutionActivityInput,

@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { UserId } from "@ryot/contract/schema/brands";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Encoding, Layer } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";

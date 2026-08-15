@@ -1,11 +1,11 @@
-import { DbError } from "@ryot/contract/errors";
-import type { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
+import { DbError } from "@ryot-app/contract/errors";
+import type { AutomationOrigin } from "@ryot-app/contract/modules/automations/schemas";
 import {
 	EntityId,
 	EntitySchemaSlug,
 	type SandboxProviderId,
 	UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { and, asc, count, eq, exists, inArray, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 

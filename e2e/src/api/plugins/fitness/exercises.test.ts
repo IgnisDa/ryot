@@ -1,4 +1,4 @@
-import { exerciseListRecipe } from "@ryot/fitness-plugin/query-recipes";
+import { exerciseListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
 import { Effect } from "effect";
 
 import {

@@ -1,8 +1,8 @@
 import {
 	PluginThemeSnapshot,
 	REQUIRED_THEME_TOKEN_NAMES,
-} from "@ryot/contract/modules/plugins/client";
-import type { PluginClientCatalog } from "@ryot/ryotql-recipes/plugin-client-catalog";
+} from "@ryot-app/contract/modules/plugins/client";
+import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { Effect, Layer, Schema } from "effect";
 
 import { decodeServerOrigin } from "#/api/origin";

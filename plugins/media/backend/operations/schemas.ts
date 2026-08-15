@@ -1,4 +1,4 @@
-import { Schema } from "@ryot/sandbox-sdk/workflow";
+import { Schema } from "@ryot-app/sandbox-sdk/workflow";
 
 const MetadataLookupData = Schema.Struct({
 	identifier: Schema.String,

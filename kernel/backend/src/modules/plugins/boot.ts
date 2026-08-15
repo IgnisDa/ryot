@@ -1,6 +1,6 @@
-import { compilePluginSandboxSourceEntries } from "@ryot/sandbox-compiler/plugins";
-import { sha256Hex } from "@ryot/ts-utils/crypto";
-import { stableStringify } from "@ryot/ts-utils/json";
+import { compilePluginSandboxSourceEntries } from "@ryot-app/sandbox-compiler/plugins";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer } from "effect";
 
 import { kernelScriptSources } from "#modules/definition-registry/kernel-scripts.generated";

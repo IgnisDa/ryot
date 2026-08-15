@@ -1,13 +1,13 @@
-import { SandboxRunError, mapDbErrorToSandbox } from "@ryot/contract/errors";
-import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
+import { SandboxRunError, mapDbErrorToSandbox } from "@ryot-app/contract/errors";
+import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import {
 	EntitySchemaSlug,
 	type EntityId,
 	RelationshipSchemaSlug,
 	type SandboxProviderId,
 	type UserId,
-} from "@ryot/contract/schema/brands";
-import type { ProviderDetailsChildEntity } from "@ryot/sandbox-sdk/provider";
+} from "@ryot-app/contract/schema/brands";
+import type { ProviderDetailsChildEntity } from "@ryot-app/sandbox-sdk/provider";
 import { DateTime, Effect, Option, Schema } from "effect";
 
 import { EntityMutationOutcome } from "#modules/entities/mutation-outcomes";

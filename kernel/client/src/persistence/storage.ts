@@ -1,4 +1,4 @@
-import { Slug } from "@ryot/contract/schema/brands";
+import { Slug } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { parseServerOrigin, type ServerOrigin } from "#/api/origin";

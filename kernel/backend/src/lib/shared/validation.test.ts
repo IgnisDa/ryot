@@ -1,4 +1,4 @@
-import { BadRequest } from "@ryot/contract/errors";
+import { BadRequest } from "@ryot-app/contract/errors";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 

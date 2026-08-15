@@ -1,4 +1,4 @@
-import { unknownToMessage } from "@ryot/contract/errors";
+import { unknownToMessage } from "@ryot-app/contract/errors";
 import { Duration, Effect, Match, Schema } from "effect";
 import {
 	FetchHttpClient,

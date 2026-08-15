@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
-import type { EntitySchemaSlug } from "@ryot/contract/schema/brands";
+import type { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";

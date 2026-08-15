@@ -1,9 +1,9 @@
-import type { DbError } from "@ryot/contract/errors";
+import type { DbError } from "@ryot-app/contract/errors";
 import type {
 	AutomationOperation,
 	AutomationOrigin,
-} from "@ryot/contract/modules/automations/schemas";
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
+} from "@ryot-app/contract/modules/automations/schemas";
+import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import type {
 	EntityId,
 	EntitySchemaSlug,
@@ -12,7 +12,7 @@ import type {
 	RelationshipId,
 	RelationshipSchemaSlug,
 	UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
 import type { Database } from "#lib/infrastructure/db/service";

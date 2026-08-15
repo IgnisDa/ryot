@@ -1,4 +1,4 @@
-import type { ShowActivityEvent, ShowActivityResult } from "@ryot/media-plugin/query-recipes";
+import type { ShowActivityEvent, ShowActivityResult } from "@ryot-app/media-plugin/query-recipes";
 import { Match } from "effect";
 import type { AsyncResult } from "effect/unstable/reactivity";
 

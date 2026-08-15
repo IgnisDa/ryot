@@ -1,9 +1,9 @@
 import { expect, it } from "@effect/vitest";
-import { DbError } from "@ryot/contract/errors";
-import type { SavedViewLayouts } from "@ryot/contract/modules/saved-views/schemas";
-import { EntityId, UserId } from "@ryot/contract/schema/brands";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import { ascending, column, document, field, rows, table } from "@ryot/ryotql";
+import { DbError } from "@ryot-app/contract/errors";
+import type { SavedViewLayouts } from "@ryot-app/contract/modules/saved-views/schemas";
+import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { ascending, column, document, field, rows, table } from "@ryot-app/ryotql";
 import { Effect, Layer, Stream } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";

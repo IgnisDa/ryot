@@ -4,9 +4,9 @@ import {
 	AuthUnauthorized,
 	AuthorizationContext,
 	CurrentUser,
-} from "@ryot/contract/auth-middleware";
-import { PluginsGroup } from "@ryot/contract/modules/plugins/contract";
-import { UserId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/auth-middleware";
+import { PluginsGroup } from "@ryot-app/contract/modules/plugins/contract";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Redacted } from "effect";
 import { HttpRouter, HttpServerResponse } from "effect/unstable/http";
 

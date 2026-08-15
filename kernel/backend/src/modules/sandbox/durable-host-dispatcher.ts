@@ -1,14 +1,14 @@
-import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
-import type { SandboxHostCapability } from "@ryot/contract/modules/sandbox/wire";
-import { httpCallArgsSchema, sandboxHostContracts } from "@ryot/sandbox-sdk/core";
-import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
+import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import type { SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/wire";
+import { httpCallArgsSchema, sandboxHostContracts } from "@ryot-app/sandbox-sdk/core";
+import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import {
 	type WorkflowDurableCallRequest,
 	type WorkflowDurableResult,
 	workflowDurableResultSchema,
 	workflowHostRequestSchema,
-} from "@ryot/sandbox-sdk/workflow";
+} from "@ryot-app/sandbox-sdk/workflow";
 import { Context, Effect, Option, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";

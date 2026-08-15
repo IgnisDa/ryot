@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { jsonByteLength, utf8ByteLength } from "@ryot/sandbox-compiler/limits";
+import { jsonByteLength, utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
 import { Effect } from "effect";
 
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
@@ -69,8 +69,8 @@ it.effect("rejects bundled JavaScript over the compiled-module byte limit", () =
 	Effect.gen(function* () {
 		const enumMembers = Array.from({ length: 25_000 }, (_, index) => `A${index},`).join("");
 		const source = `
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 export enum LargeCompiledValue { ${enumMembers} }
 export const manifest = defineManifest({
   kind: "script",

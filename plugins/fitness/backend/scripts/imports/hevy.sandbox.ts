@@ -1,6 +1,6 @@
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { genericImportAdapterManifestSchema } from "@ryot/sandbox-sdk/imports";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { genericImportAdapterManifestSchema } from "@ryot-app/sandbox-sdk/imports";
 
 import { adaptHevyCsv } from "../../import-adapters/hevy";
 import { readImportArtifactText, writeImportChunks } from "./shared";

@@ -1,5 +1,5 @@
 import { Checkbox, Group, Input, NumberInput, rem, Text } from "@mantine/core";
-import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
+import { MediaLot } from "@ryot-app/generated/graphql/backend/graphql";
 
 import { useMetadataDetails } from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";

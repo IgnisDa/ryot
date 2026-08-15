@@ -30,7 +30,7 @@ Ryot is a self-hosted personal tracker. Keep the UI warm, calm, compact, scannab
 - Keep persisted state in its owning module and make each key's global or server/user scope explicit. Never clear storage outside Ryot-owned keys.
 - When working on client behavior that integrates with the backend, consult the relevant end-to-end and integration tests under `e2e/src/api/`, along with supporting fixtures in `e2e/src/fixtures/` and `e2e/src/support/`, to follow established API, authentication, data setup, and async-operation patterns. Reuse those patterns where applicable.
 - Keep route and navigation logic in the existing Expo Router and navigation helpers.
-- A new top-level route under `src/app` claims a name out of the plugin slug namespace. Add it to `reservedPluginSlugs` in `@ryot/contract` in the same change.
+- A new top-level route under `src/app` claims a name out of the plugin slug namespace. Add it to `reservedPluginSlugs` in `@ryot-app/contract` in the same change.
 - All text inputs must be submittable via Enter. Last field: `onSubmitEditing` + `returnKeyType="go"`. Intermediate fields: `returnKeyType="next"` with focus forwarding.
 - Name rendered component tests `*.component.test.tsx` and run them with RNTL/Jest. Keep pure domain and state tests as regular `*.test.ts` files under Vitest.
 - Before writing React Native component tests, read the installed RNTL guidance under `node_modules/@testing-library/react-native/docs/`, starting with `docs/guides/llm-guidelines.md`.

@@ -1,12 +1,12 @@
-import { DbError, badRequest, notFound } from "@ryot/contract/errors";
+import { DbError, badRequest, notFound } from "@ryot-app/contract/errors";
 import {
 	AutomationOrigin,
 	type AutomationOrigin as AutomationOriginValue,
-} from "@ryot/contract/modules/automations/schemas";
-import type { EntityId, UserId } from "@ryot/contract/schema/brands";
-import { SignalId } from "@ryot/contract/schema/brands";
-import { sha256Base64Url } from "@ryot/ts-utils/crypto";
-import { stableStringify } from "@ryot/ts-utils/json";
+} from "@ryot-app/contract/modules/automations/schemas";
+import type { EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import { SignalId } from "@ryot-app/contract/schema/brands";
+import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";

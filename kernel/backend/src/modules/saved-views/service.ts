@@ -1,12 +1,15 @@
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import type {
 	CreateSavedViewBody,
 	ReorderSavedViewsBody,
 	UpdateSavedViewBody,
-} from "@ryot/contract/modules/saved-views/schemas";
-import { SavedViewBadRequest, SavedViewNotFound } from "@ryot/contract/modules/saved-views/schemas";
-import type { PluginSlug, UserId } from "@ryot/contract/schema/brands";
-import { EntitySchemaSlug } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/saved-views/schemas";
+import {
+	SavedViewBadRequest,
+	SavedViewNotFound,
+} from "@ryot-app/contract/modules/saved-views/schemas";
+import type { PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Option } from "effect";
 
 import { slugify } from "#lib/shared/slug";

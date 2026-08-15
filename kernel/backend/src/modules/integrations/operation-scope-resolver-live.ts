@@ -1,5 +1,5 @@
-import { badRequest, notFound } from "@ryot/contract/errors";
-import { IntegrationId } from "@ryot/contract/schema/brands";
+import { badRequest, notFound } from "@ryot-app/contract/errors";
+import { IntegrationId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer, Schema } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";

@@ -1,4 +1,4 @@
-import { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
+import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { Schema } from "effect";
 import { assert, expect, it } from "vitest";
 

@@ -1,15 +1,15 @@
 import { BunServices } from "@effect/platform-bun";
-import type { ClientPluginCompilerInput } from "@ryot/client-plugin-compiler";
+import type { ClientPluginCompilerInput } from "@ryot-app/client-plugin-compiler";
 import {
 	ClientPluginCompilerFailure,
 	clientPluginCompilationFailure,
 	clientPluginCompilerDiagnostic,
-} from "@ryot/client-plugin-compiler/diagnostics";
-import { CLIENT_PLUGIN_COMPILER_LIMITS } from "@ryot/client-plugin-compiler/limits";
+} from "@ryot-app/client-plugin-compiler/diagnostics";
+import { CLIENT_PLUGIN_COMPILER_LIMITS } from "@ryot-app/client-plugin-compiler/limits";
 import {
 	decodeClientCompilerWorkerResponse,
 	encodeClientCompilerWorkerRequest,
-} from "@ryot/client-plugin-compiler/protocol";
+} from "@ryot-app/client-plugin-compiler/protocol";
 import { Context, Effect, Layer, Match, Path, Semaphore } from "effect";
 
 import {
@@ -75,7 +75,7 @@ export class ClientPluginCompiler extends Context.Service<ClientPluginCompiler>(
 			const current = new URL(import.meta.url);
 			const currentPath = yield* path.fromFileUrl(current).pipe(Effect.orDie);
 			const workerPath = currentPath.endsWith(".ts")
-				? Bun.resolveSync("@ryot/client-plugin-compiler/worker", currentPath)
+				? Bun.resolveSync("@ryot-app/client-plugin-compiler/worker", currentPath)
 				: yield* path
 						.fromFileUrl(new URL("./client-plugin-compiler-worker.js", current))
 						.pipe(Effect.orDie);

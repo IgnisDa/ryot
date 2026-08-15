@@ -1,7 +1,7 @@
 import { BunServices } from "@effect/platform-bun";
 import { it } from "@effect/vitest";
-import { SandboxScriptId } from "@ryot/contract/schema/brands";
-import { SANDBOX_HOST_CAPABILITIES } from "@ryot/sandbox-sdk/core";
+import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import { SANDBOX_HOST_CAPABILITIES } from "@ryot-app/sandbox-sdk/core";
 import { Cause, Effect, Option, type Scope, FileSystem, Path } from "effect";
 import { assert, describe, expect, it as vitestIt } from "vitest";
 

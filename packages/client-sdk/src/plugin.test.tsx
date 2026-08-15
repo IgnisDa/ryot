@@ -6,7 +6,7 @@ import {
 	CLIENT_COMPILER_VERSION,
 	REQUIRED_THEME_TOKEN_NAMES,
 	type PluginBridgeInit,
-} from "@ryot/contract/modules/plugins/client";
+} from "@ryot-app/contract/modules/plugins/client";
 import { waitFor } from "@testing-library/dom";
 import { Schema } from "effect";
 import { useEffect, useState } from "react";

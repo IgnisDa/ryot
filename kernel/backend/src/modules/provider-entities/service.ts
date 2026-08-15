@@ -1,10 +1,10 @@
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
 	type ImportEntityBody,
 	ProviderEntityBadRequest,
 	ProviderEntityNotFound,
-} from "@ryot/contract/modules/provider-entities/schemas";
-import { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/provider-entities/schemas";
+import { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { generateId } from "better-auth";
 import { Context, Effect, Layer, Option, Redacted } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";

@@ -1,5 +1,5 @@
-import type { ContractSuccess } from "@ryot/contract/client";
-import { UserId } from "@ryot/contract/schema/brands";
+import type { ContractSuccess } from "@ryot-app/contract/client";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 import { Atom, Reactivity } from "effect/unstable/reactivity";
 

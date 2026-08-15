@@ -1,6 +1,6 @@
 import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
-import { readPluginArchive } from "@ryot/plugin-archive";
+import { readPluginArchive } from "@ryot-app/plugin-archive";
 import { Effect, FileSystem, Path, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 

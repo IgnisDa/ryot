@@ -1,6 +1,6 @@
-import { genericImportFailureSchema } from "@ryot/sandbox-sdk/imports";
-import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
-import { Schema } from "@ryot/sandbox-sdk/workflow";
+import { genericImportFailureSchema } from "@ryot-app/sandbox-sdk/imports";
+import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+import { Schema } from "@ryot-app/sandbox-sdk/workflow";
 
 import { MediaImportPopulationWorkflowOutput } from "../workflows/schemas";
 

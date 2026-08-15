@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
-import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import { sandboxHostContracts } from "@ryot/sandbox-sdk/core";
+import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { sandboxHostContracts } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "effect";
 
 import {

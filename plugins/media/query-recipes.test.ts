@@ -1,4 +1,4 @@
-import { rowsResult } from "@ryot/ryotql-recipes/test-utils";
+import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { describe, expect, it } from "vitest";
 
 import {

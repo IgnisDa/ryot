@@ -1,7 +1,7 @@
 import {
 	IntegrationRequestError,
 	type IntegrationRequestFailureReason,
-} from "@ryot/contract/modules/integrations/schemas";
+} from "@ryot-app/contract/modules/integrations/schemas";
 import type { Cause } from "effect";
 import { Match } from "effect";
 

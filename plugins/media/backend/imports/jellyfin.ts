@@ -1,4 +1,4 @@
-import { Effect, Result, Schema } from "@ryot/sandbox-sdk/effect";
+import { Effect, Result, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import { parseDateInput } from "./dates";
 import { getOrCreateMediaEntityGroup, type ImportMediaEntityGroupBuilder } from "./groups";

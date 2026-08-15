@@ -1,4 +1,4 @@
-import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
+import type { SavedViewRecord } from "@ryot-app/ryotql-recipes/saved-view-records";
 import { useLocalSearchParams } from "expo-router";
 
 import { NavigationStatus } from "@/modules/navigation/navigation-status";

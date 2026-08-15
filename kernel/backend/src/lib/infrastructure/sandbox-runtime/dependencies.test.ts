@@ -59,7 +59,7 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 					Schema.Struct({ imports: Schema.Record(Schema.String, Schema.String) }),
 				),
 			)(importMap);
-			expect(parsedImportMap.imports["@ryot/sandbox-sdk/effect"]).toBe(
+			expect(parsedImportMap.imports["@ryot-app/sandbox-sdk/effect"]).toBe(
 				"./effect-4.0.0-beta.107.mjs",
 			);
 			expect(
@@ -67,7 +67,7 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 					.filter(([, file]) => file === "./effect-4.0.0-beta.107.mjs")
 					.map(([specifier]) => specifier)
 					.sort(),
-			).toEqual(["@ryot/sandbox-sdk/effect", "effect"]);
+			).toEqual(["@ryot-app/sandbox-sdk/effect", "effect"]);
 
 			const directory = yield* fs.stat(runtime.directory);
 			const importMapInfo = yield* fs.stat(runtime.importMapPath);
@@ -83,14 +83,14 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 				expect(module.length).toBeGreaterThan(0);
 				expect(module).not.toContain("npm:");
 				if (dependency.name === "youtubei") {
-					expect(module).toContain('@ryot/sandbox-sdk/effect"');
+					expect(module).toContain('@ryot-app/sandbox-sdk/effect"');
 				} else if (dependency.name === "ryotql") {
 					expect(module).toContain('from "effect"');
-					expect(module.replaceAll("@ryot/sandbox-sdk/effect", "")).not.toContain(
-						"@ryot/sandbox-sdk",
+					expect(module.replaceAll("@ryot-app/sandbox-sdk/effect", "")).not.toContain(
+						"@ryot-app/sandbox-sdk",
 					);
 				} else {
-					expect(module).not.toContain("@ryot/sandbox-sdk");
+					expect(module).not.toContain("@ryot-app/sandbox-sdk");
 				}
 				expect((yield* fs.stat(modulePath)).mode & 0o222).toBe(0);
 			}

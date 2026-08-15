@@ -1,4 +1,4 @@
-import { sha256Hex } from "@ryot/ts-utils/crypto";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Data, Effect, FileSystem, Path, PlatformError } from "effect";
 
 import type { SandboxRuntimePaths } from "./dependencies";

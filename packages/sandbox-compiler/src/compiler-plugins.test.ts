@@ -1,6 +1,6 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
-import { sha256Hex } from "@ryot/ts-utils/crypto";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect } from "effect";
 
 import { compilePluginSandboxEntries, compilePluginSandboxSourceEntries } from "./compiler-plugins";
@@ -34,7 +34,7 @@ it.effect(
 			);
 			for (const result of first) {
 				expect(result.compiled.javascript).toContain("shared-value");
-				expect(result.compiled.javascript).toContain('from "@ryot/sandbox-sdk/effect"');
+				expect(result.compiled.javascript).toContain('from "@ryot-app/sandbox-sdk/effect"');
 				expect(result.compiled.javascript).not.toContain('from "../shared/value"');
 				expect(Object.keys(result.compiled).sort()).toEqual(["format", "javascript", "manifest"]);
 			}
@@ -47,9 +47,9 @@ it.effect(
 it.effect("compiles direct operation, workflow, and automation declarations", () =>
 	Effect.gen(function* () {
 		const operation = `
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { defineOperation } from "@ryot/sandbox-sdk/operation";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
 
 export const manifest = defineManifest({
 	name: "Operation",
@@ -68,9 +68,9 @@ export default defineOperation({
 });
 `;
 		const automation = `
-import { defineAutomation } from "@ryot/sandbox-sdk/automation";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
 	name: "Automation",
@@ -87,7 +87,7 @@ export default defineAutomation({
 });
 `;
 		const workflow = `
-import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot/sandbox-sdk/workflow";
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
 
 export const manifest = defineManifest({
 	name: "Workflow",
@@ -129,7 +129,7 @@ export default defineWorkflow({
 		const importedSchemaBindings = new Set(
 			Array.from(
 				javascript.matchAll(
-					/import\s*\{([^}]*)\}\s*from\s*["'](?:@ryot\/sandbox-sdk\/effect|effect)["'];/g,
+					/import\s*\{([^}]*)\}\s*from\s*["'](?:@ryot-app\/sandbox-sdk\/effect|effect)["'];/g,
 				),
 			).flatMap(([, bindings = ""]) =>
 				bindings.split(",").flatMap((binding) => {
@@ -149,7 +149,7 @@ export default defineWorkflow({
 it.effect("rejects ambient nondeterminism in workflow-reachable source", () =>
 	Effect.gen(function* () {
 		const source = `
-import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot/sandbox-sdk/workflow";
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
 import { nondeterministic } from "./shared";
 
 export const manifest = defineManifest({
@@ -201,7 +201,7 @@ export const nondeterministic = () => globalThis.Math.random();
 it.effect("accepts deterministic workflow date parsing and inert nondeterministic text", () =>
 	Effect.gen(function* () {
 		const source = `
-import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot/sandbox-sdk/workflow";
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
 
 export const manifest = defineManifest({
 	name: "Workflow",
@@ -239,7 +239,7 @@ export default defineWorkflow({
 it.effect("rejects unrestricted Effect imports in workflow-reachable source", () =>
 	Effect.gen(function* () {
 		const source = `
-import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot/sandbox-sdk/workflow";
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
 import { nondeterministic } from "./shared";
 
 export const manifest = defineManifest({
@@ -259,7 +259,7 @@ export default defineWorkflow({
 });
 `;
 		const shared = `
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
 export const nondeterministic = typeof Effect.clockWith;
 `;
 		const failure = yield* compilePluginSandboxSourceEntries(
@@ -270,7 +270,7 @@ export const nondeterministic = typeof Effect.clockWith;
 		expect(failure.diagnostics).toEqual([
 			expect.objectContaining({
 				code: "RYOT_WORKFLOW_DETERMINISM",
-				message: expect.stringContaining("@ryot/sandbox-sdk/workflow"),
+				message: expect.stringContaining("@ryot-app/sandbox-sdk/workflow"),
 			}),
 		]);
 	}),
@@ -283,21 +283,21 @@ it.effect.each([
 	{
 		label: "namespace",
 		shared: `
-import * as Sdk from "@ryot/sandbox-sdk/effect";
+import * as Sdk from "@ryot-app/sandbox-sdk/effect";
 export const nondeterministic = typeof Sdk.Effect.clockWith;
 `,
 	},
 	{
 		label: "re-export",
 		shared: `
-export * from "@ryot/sandbox-sdk/effect";
+export * from "@ryot-app/sandbox-sdk/effect";
 export const nondeterministic = "";
 `,
 	},
 ])("rejects $label access to unrestricted Effect in workflow-reachable source", ({ shared }) =>
 	Effect.gen(function* () {
 		const source = `
-import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot/sandbox-sdk/workflow";
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
 import { nondeterministic } from "./shared";
 
 export const manifest = defineManifest({
@@ -324,7 +324,7 @@ export default defineWorkflow({
 		expect(failure.diagnostics).toEqual([
 			expect.objectContaining({
 				code: "RYOT_WORKFLOW_DETERMINISM",
-				message: expect.stringContaining("@ryot/sandbox-sdk/workflow"),
+				message: expect.stringContaining("@ryot-app/sandbox-sdk/workflow"),
 			}),
 		]);
 	}),
@@ -333,9 +333,9 @@ export default defineWorkflow({
 it.effect("rejects workflow helpers that differ from the plugin declaration", () =>
 	Effect.gen(function* () {
 		const source = `
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { defineOperation } from "@ryot/sandbox-sdk/operation";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
 
 export const manifest = defineManifest({
 	name: "Operation",
@@ -369,9 +369,9 @@ export default defineOperation({
 it.effect("rejects a provider operation that differs from its plugin declaration", () =>
 	Effect.gen(function* () {
 		const source = `
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineProvider } from "@ryot/sandbox-sdk/provider";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 export const manifest = defineManifest({
 	name: "Provider",
@@ -409,9 +409,9 @@ export default defineProvider({
 it.effect("preserves provider search options metadata", () =>
 	Effect.gen(function* () {
 		const source = `
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineProvider } from "@ryot/sandbox-sdk/provider";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 export const manifest = defineManifest({
 	kind: "provider",
@@ -462,7 +462,7 @@ export default defineProvider({
 it.effect("rejects obsolete multi-driver definitions with a clear diagnostic", () =>
 	Effect.gen(function* () {
 		const source = `
-import { defineDriver, defineManifest, defineOperation } from "@ryot/sandbox-sdk/driver";
+import { defineDriver, defineManifest, defineOperation } from "@ryot-app/sandbox-sdk/driver";
 
 export const manifest = defineManifest({
 	capabilities: [],

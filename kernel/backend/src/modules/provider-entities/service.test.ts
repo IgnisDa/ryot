@@ -1,10 +1,10 @@
 import { assert, expect, it } from "@effect/vitest";
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
 	ProviderEntityBadRequest,
 	ProviderEntityNotFound,
-} from "@ryot/contract/modules/provider-entities/schemas";
-import { EntitySchemaSlug, SandboxProviderId, UserId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/provider-entities/schemas";
+import { EntitySchemaSlug, SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 

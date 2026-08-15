@@ -1,5 +1,5 @@
-import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import { EntitySchemaSlug, EventSchemaSlug } from "@ryot/contract/schema/brands";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { EntitySchemaSlug, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import { requirePresent } from "~/support/assertions";

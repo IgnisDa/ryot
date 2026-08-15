@@ -1,4 +1,4 @@
-import { EntityId } from "@ryot/contract/schema/brands";
+import { EntityId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import { adminHeaders } from "~/fixtures/kernel/admin";

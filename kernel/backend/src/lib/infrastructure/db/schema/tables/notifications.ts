@@ -1,5 +1,5 @@
-import type { NotificationChannelSpecifics } from "@ryot/contract/modules/notifications/schemas";
-import type { NotificationChannelKind } from "@ryot/contract/modules/notifications/types";
+import type { NotificationChannelSpecifics } from "@ryot-app/contract/modules/notifications/schemas";
+import type { NotificationChannelKind } from "@ryot-app/contract/modules/notifications/types";
 import { generateId } from "better-auth";
 import { index, jsonb, snakeCase, text, timestamp, boolean } from "drizzle-orm/pg-core";
 
