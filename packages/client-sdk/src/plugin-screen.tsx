@@ -2,6 +2,7 @@ import { ScreenBarButton, ScreenFrame } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { Match } from "effect";
 import type { ComponentProps, ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import { usePluginChrome, usePluginScreenSurface, usePluginTitle } from "./routing";
 
@@ -15,6 +16,7 @@ type PluginScreenFrameProps = {
 	readonly titleIcon?: ReactNode;
 	readonly searchRow?: ReactNode;
 	readonly barActions?: ReactNode;
+	readonly floatingAction?: ReactNode;
 	readonly hideTitle?: boolean | undefined;
 	readonly hero?: ComponentProps<typeof ScreenFrame>["hero"];
 };
@@ -33,9 +35,10 @@ export function PluginScreenFrame({
 	searchRow,
 	titleIcon,
 	barActions,
+	floatingAction,
 }: PluginScreenFrameProps) {
 	const chrome = usePluginChrome();
-	const { scrollRootRef } = usePluginScreenSurface();
+	const { floatingRoot, scrollRootRef } = usePluginScreenSurface();
 	const leading = Match.value(chrome.leading).pipe(
 		Match.when("back", () => (
 			<ScreenBarButton className={control} onClick={chrome.back} label={backLabel ?? "Go back"}>
@@ -57,21 +60,26 @@ export function PluginScreenFrame({
 	usePluginTitle(title);
 
 	return (
-		<ScreenFrame
-			meta={meta}
-			hero={hero}
-			leading={leading}
-			actions={actions}
-			title={title ?? ""}
-			hideTitle={hideTitle}
-			searchRow={searchRow}
-			titleIcon={titleIcon}
-			barActions={barActions}
-			compact={chrome.compact}
-			scrollRootRef={scrollRootRef}
-			safeAreaTop={chrome.safeAreaTop}
-		>
-			<main>{children}</main>
-		</ScreenFrame>
+		<>
+			<ScreenFrame
+				meta={meta}
+				hero={hero}
+				leading={leading}
+				actions={actions}
+				title={title ?? ""}
+				hideTitle={hideTitle}
+				searchRow={searchRow}
+				titleIcon={titleIcon}
+				barActions={barActions}
+				compact={chrome.compact}
+				scrollRootRef={scrollRootRef}
+				safeAreaTop={chrome.safeAreaTop}
+			>
+				<main>{children}</main>
+			</ScreenFrame>
+			{floatingAction !== undefined &&
+				floatingRoot !== null &&
+				createPortal(floatingAction, floatingRoot)}
+		</>
 	);
 }

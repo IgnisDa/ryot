@@ -3,10 +3,8 @@ import { describe, expect, it } from "vitest";
 import { buildViewExpressions } from "./view-helpers";
 
 describe("buildViewExpressions", () => {
-	it("uses title case expressions for exercise card slots", () => {
-		const expressions = buildViewExpressions("exercise", "Exercise");
-
-		expect(expressions.grid.image).toEqual({
+	it("projects the first entity image only for exercises", () => {
+		expect(buildViewExpressions("exercise").table.image).toEqual({
 			type: "cast",
 			target: "json",
 			expr: {
@@ -15,47 +13,19 @@ describe("buildViewExpressions", () => {
 				expr: { type: "column", field: "properties", tableAlias: "entity" },
 			},
 		});
-		expect(expressions.grid.callout).toMatchObject({
-			displayKind: "text",
-			expression: { name: "titleCase", type: "transform" },
-		});
-		expect(expressions.grid.secondaryMetadata).toMatchObject({
-			displayKind: "text",
-			expression: { name: "titleCase", type: "transform" },
-		});
-	});
-
-	it("uses a literal schema name for every card overline", () => {
-		const expressions = buildViewExpressions("workout", "Workout");
-
-		expect(expressions.grid.overline).toEqual({
-			displayKind: "text",
-			expression: { type: "literal", value: "Workout" },
-		});
-		expect(expressions.list.overline).toEqual({
-			displayKind: "text",
-			expression: { type: "literal", value: "Workout" },
-		});
+		expect(buildViewExpressions("workout").table.image).toBeNull();
 	});
 
 	it.each([
 		["exercise", ["Name", "Level", "Equipment"]],
 		["workout", ["Name", "Started At", "Ended At"]],
 	] as const)("builds the expected %s table columns", (slug, labels) => {
-		expect(buildViewExpressions(slug, "Schema").table.columns.map(({ label }) => label)).toEqual(
-			labels,
-		);
+		expect(buildViewExpressions(slug).table.columns.map(({ label }) => label)).toEqual(labels);
 	});
 
 	it("assigns date display kinds to persisted workout timestamps", () => {
-		const expressions = buildViewExpressions("workout", "Workout");
-
-		expect(expressions.grid.primaryMetadata?.displayKind).toBe("date");
-		expect(expressions.grid.secondaryMetadata?.displayKind).toBe("date");
-		expect(expressions.table.columns.map(({ displayKind }) => displayKind)).toEqual([
-			"text",
-			"date",
-			"date",
-		]);
+		expect(
+			buildViewExpressions("workout").table.columns.map(({ displayKind }) => displayKind),
+		).toEqual(["text", "date", "date"]);
 	});
 });

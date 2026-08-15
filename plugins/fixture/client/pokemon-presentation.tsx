@@ -8,7 +8,7 @@ import {
 } from "@ryot-app/client-sdk/plugin";
 import { ManagedAssetProvider } from "@ryot-app/client-sdk/react";
 import { Button } from "@ryot-app/client-ui-sdk";
-import { fieldSyncState } from "@ryot-app/client-ui-sdk/sync";
+import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/client-ui-sdk/sync";
 import { useState } from "react";
 
 import { PokemonArtwork, PokemonDetails } from "./pokemon-display";
@@ -83,7 +83,7 @@ export const PokemonCard = ({
 				data-compact={compact}
 				data-entity-id={reference.entityId}
 				data-view-context={JSON.stringify(viewContext)}
-				className={`grid min-w-0 gap-3 rounded-xl border border-border bg-surface shadow-card ${compact ? "p-3" : "p-4"}`}
+				className={`grid min-w-0 gap-3 ${compact ? "py-3" : "py-4"}`}
 			>
 				<PokemonArtwork
 					name={data.name}
@@ -91,9 +91,12 @@ export const PokemonCard = ({
 					className="aspect-square w-full"
 					state={fieldSyncState(data.artwork, reference)}
 				/>
-				<PluginLink to={{ kind: "entity", entityId: reference.entityId }}>
-					<span className="font-display text-lg font-semibold text-text">{data.name}</span>
-				</PluginLink>
+				<span className="flex min-w-0 items-baseline gap-1.5">
+					<PluginLink to={{ kind: "entity", entityId: reference.entityId }}>
+						<span className="font-display text-lg font-semibold text-text">{data.name}</span>
+					</PluginLink>
+					{isTitleProvisional(reference) && <SyncPip reason="translating" />}
+				</span>
 				<PokemonTypes name={data.name} types={data.types ?? []} />
 				<PokemonExpandedDetails data={data} entityId={reference.entityId} layout="card" />
 			</article>
@@ -114,18 +117,21 @@ export const PokemonRow = ({
 				data-compact={compact}
 				data-entity-id={reference.entityId}
 				data-view-context={JSON.stringify(viewContext)}
-				className={`flex min-w-0 flex-wrap gap-3 rounded-lg border border-border bg-surface px-3 py-3 ${compact ? "items-start" : "items-center"}`}
+				className={`flex min-w-0 flex-wrap gap-3 border-b border-border py-3 ${compact ? "items-start" : "items-center"}`}
 			>
 				<PokemonArtwork
 					name={data.name}
 					asset={data.artwork?.[0]}
-					className={compact ? "size-14 shrink-0" : "size-16 shrink-0"}
 					state={fieldSyncState(data.artwork, reference)}
+					className={compact ? "size-14 shrink-0" : "size-16 shrink-0"}
 				/>
 				<div className="grid min-w-40 flex-1 gap-2">
-					<PluginLink to={{ kind: "entity", entityId: reference.entityId }}>
-						<span className="font-semibold text-text">{data.name}</span>
-					</PluginLink>
+					<span className="flex min-w-0 items-baseline gap-1.5">
+						<PluginLink to={{ kind: "entity", entityId: reference.entityId }}>
+							<span className="font-semibold text-text">{data.name}</span>
+						</PluginLink>
+						{isTitleProvisional(reference) && <SyncPip reason="translating" />}
+					</span>
 					<PokemonTypes name={data.name} types={data.types ?? []} />
 				</div>
 				<div className="w-full min-w-0">
@@ -137,11 +143,11 @@ export const PokemonRow = ({
 };
 
 export const pokemonCardPresentation = defineEntityPresentation({
-	loader: loadPokemonPresentations,
 	component: PokemonCard,
+	loader: loadPokemonPresentations,
 });
 
 export const pokemonRowPresentation = defineEntityPresentation({
-	loader: loadPokemonPresentations,
 	component: PokemonRow,
+	loader: loadPokemonPresentations,
 });

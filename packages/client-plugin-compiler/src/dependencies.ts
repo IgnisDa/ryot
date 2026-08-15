@@ -148,6 +148,7 @@ export const resolveClientPluginCompilerDependencies = Effect.tryPromise({
 	try: async () => {
 		const from = Bun.fileURLToPath(new URL(".", import.meta.url));
 		const uiSdkRoot = directoryOf(Bun.resolveSync("@ryot-app/client-ui-sdk", from));
+		const clientSdkRoot = directoryOf(Bun.resolveSync("@ryot-app/client-sdk", from));
 		const tailwindEntry = Bun.resolveSync("tailwindcss/index.css", from);
 		const fonts = await Promise.all(
 			["@fontsource-variable/outfit", "@fontsource-variable/lora"].map((specifier) =>
@@ -159,6 +160,7 @@ export const resolveClientPluginCompilerDependencies = Effect.tryPromise({
 			typeScriptEntries: resolveTypeScriptEntries(from),
 			tsserverPath: resolveTypeScriptCompilerPath(from),
 			uiSdkScanSources: await readScanSources(uiSdkRoot),
+			clientSdkScanSources: await readScanSources(clientSdkRoot),
 			fontAssets: fonts.flatMap(({ assets }) => assets),
 			fontStylesheet: fonts.map(({ stylesheet }) => stylesheet).join("\n"),
 			themeStylesheet: await Bun.file(

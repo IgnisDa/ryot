@@ -7,7 +7,7 @@ import {
 	type EntityPresentationLoader,
 } from "@ryot-app/client-sdk/plugin";
 import { ManagedAssetProvider } from "@ryot-app/client-sdk/react";
-import { fieldSyncState } from "@ryot-app/client-ui-sdk/sync";
+import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/client-ui-sdk/sync";
 import clsx from "clsx";
 
 import { showPresentationRecipe, type ShowPresentationData } from "../../shared/show-recipes";
@@ -104,20 +104,20 @@ export function ShowCardContent(props: {
 			<article
 				data-layout="grid"
 				data-entity-id={props.entityId}
-				className={clsx(
-					"flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-card",
-					props.compact ? "gap-2.5 p-2.5" : "gap-3 p-3",
-				)}
+				className={clsx("flex h-full min-w-0 flex-col", props.compact ? "gap-2.5" : "gap-3")}
 			>
 				<PluginLink className="block min-w-0" to={{ kind: "entity", entityId: props.entityId }}>
 					<ShowArtwork compact={props.compact} layout="grid" show={props.data} />
 				</PluginLink>
 				<div className="flex min-w-0 flex-col gap-1.5">
-					<PluginLink className="block min-w-0" to={{ kind: "entity", entityId: props.entityId }}>
-						<span className="line-clamp-2 font-display font-semibold leading-5 text-text">
-							{props.data.name}
-						</span>
-					</PluginLink>
+					<span className="flex min-w-0 items-baseline gap-1.5">
+						<PluginLink className="block min-w-0" to={{ kind: "entity", entityId: props.entityId }}>
+							<span className="line-clamp-2 font-display font-semibold leading-5 text-text">
+								{props.data.name}
+							</span>
+						</PluginLink>
+						{isTitleProvisional(props.data) && <SyncPip reason="translating" />}
+					</span>
 					<ShowFacts compact={props.compact} show={props.data} />
 				</div>
 			</article>
@@ -136,19 +136,22 @@ export function ShowRowContent(props: {
 				data-layout="list"
 				data-entity-id={props.entityId}
 				className={clsx(
-					"grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center rounded-lg border border-border bg-surface",
-					props.compact ? "gap-3 p-2.5" : "gap-4 p-3",
+					"grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center border-b border-border",
+					props.compact ? "gap-3 py-2.5" : "gap-4 py-3",
 				)}
 			>
 				<PluginLink className="block min-w-0" to={{ kind: "entity", entityId: props.entityId }}>
 					<ShowArtwork compact={props.compact} layout="list" show={props.data} />
 				</PluginLink>
 				<div className="flex min-w-0 flex-col gap-1.5">
-					<PluginLink className="block min-w-0" to={{ kind: "entity", entityId: props.entityId }}>
-						<span className="line-clamp-2 font-display font-semibold text-text">
-							{props.data.name}
-						</span>
-					</PluginLink>
+					<span className="flex min-w-0 items-baseline gap-1.5">
+						<PluginLink className="block min-w-0" to={{ kind: "entity", entityId: props.entityId }}>
+							<span className="line-clamp-2 font-display font-semibold text-text">
+								{props.data.name}
+							</span>
+						</PluginLink>
+						{isTitleProvisional(props.data) && <SyncPip reason="translating" />}
+					</span>
 					<ShowFacts compact={props.compact} show={props.data} />
 				</div>
 			</article>
