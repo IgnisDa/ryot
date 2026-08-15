@@ -1,9 +1,17 @@
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
-import { BadRequest, Conflict, InternalError, NotFound } from "../../errors";
 import { BackupRunId } from "../../schema/brands";
-import { BackupRun, BackupRunIdResponse, CreateRestoreBody, ListRunsResponse } from "./schemas";
+import {
+	BackupBadRequest,
+	BackupConflict,
+	BackupInternalError,
+	BackupNotFound,
+	BackupRun,
+	BackupRunIdResponse,
+	CreateRestoreBody,
+	ListRunsResponse,
+} from "./schemas";
 
 export const BackupsGroup = HttpApiGroup.make("backups")
 	.annotate(OpenApi.Description, "Manages backup export and restore runs")
@@ -11,9 +19,9 @@ export const BackupsGroup = HttpApiGroup.make("backups")
 		HttpApiEndpoint.post("createExport", "/backups/exports", {
 			success: BackupRunIdResponse.pipe(HttpApiSchema.status(201)),
 			error: [
-				Conflict.pipe(HttpApiSchema.status(409)),
-				BadRequest.pipe(HttpApiSchema.status(400)),
-				InternalError.pipe(HttpApiSchema.status(500)),
+				BackupConflict.pipe(HttpApiSchema.status(409)),
+				BackupBadRequest.pipe(HttpApiSchema.status(400)),
+				BackupInternalError.pipe(HttpApiSchema.status(500)),
 			],
 		}).annotate(OpenApi.Description, "Starts a backup export"),
 	)
@@ -21,8 +29,8 @@ export const BackupsGroup = HttpApiGroup.make("backups")
 		HttpApiEndpoint.get("listRuns", "/backups/runs", {
 			success: ListRunsResponse,
 			error: [
-				BadRequest.pipe(HttpApiSchema.status(400)),
-				InternalError.pipe(HttpApiSchema.status(500)),
+				BackupBadRequest.pipe(HttpApiSchema.status(400)),
+				BackupInternalError.pipe(HttpApiSchema.status(500)),
 			],
 		}).annotate(OpenApi.Description, "Lists backup runs"),
 	)
@@ -31,9 +39,9 @@ export const BackupsGroup = HttpApiGroup.make("backups")
 			success: BackupRun,
 			params: { id: BackupRunId },
 			error: [
-				BadRequest.pipe(HttpApiSchema.status(400)),
-				NotFound.pipe(HttpApiSchema.status(404)),
-				InternalError.pipe(HttpApiSchema.status(500)),
+				BackupBadRequest.pipe(HttpApiSchema.status(400)),
+				BackupNotFound.pipe(HttpApiSchema.status(404)),
+				BackupInternalError.pipe(HttpApiSchema.status(500)),
 			],
 		}).annotate(OpenApi.Description, "Gets a backup run by ID"),
 	)
@@ -42,10 +50,10 @@ export const BackupsGroup = HttpApiGroup.make("backups")
 			params: { id: BackupRunId },
 			success: HttpApiSchema.StreamUint8Array(),
 			error: [
-				BadRequest.pipe(HttpApiSchema.status(400)),
-				Conflict.pipe(HttpApiSchema.status(409)),
-				NotFound.pipe(HttpApiSchema.status(404)),
-				InternalError.pipe(HttpApiSchema.status(500)),
+				BackupBadRequest.pipe(HttpApiSchema.status(400)),
+				BackupConflict.pipe(HttpApiSchema.status(409)),
+				BackupNotFound.pipe(HttpApiSchema.status(404)),
+				BackupInternalError.pipe(HttpApiSchema.status(500)),
 			],
 		}).annotate(OpenApi.Description, "Downloads a completed backup run"),
 	)
@@ -54,10 +62,10 @@ export const BackupsGroup = HttpApiGroup.make("backups")
 			params: { id: BackupRunId },
 			success: BackupRunIdResponse,
 			error: [
-				BadRequest.pipe(HttpApiSchema.status(400)),
-				Conflict.pipe(HttpApiSchema.status(409)),
-				NotFound.pipe(HttpApiSchema.status(404)),
-				InternalError.pipe(HttpApiSchema.status(500)),
+				BackupBadRequest.pipe(HttpApiSchema.status(400)),
+				BackupConflict.pipe(HttpApiSchema.status(409)),
+				BackupNotFound.pipe(HttpApiSchema.status(404)),
+				BackupInternalError.pipe(HttpApiSchema.status(500)),
 			],
 		}).annotate(OpenApi.Description, "Deletes a backup run by ID"),
 	)
@@ -66,9 +74,9 @@ export const BackupsGroup = HttpApiGroup.make("backups")
 			payload: CreateRestoreBody,
 			success: BackupRunIdResponse.pipe(HttpApiSchema.status(201)),
 			error: [
-				BadRequest.pipe(HttpApiSchema.status(400)),
-				Conflict.pipe(HttpApiSchema.status(409)),
-				InternalError.pipe(HttpApiSchema.status(500)),
+				BackupBadRequest.pipe(HttpApiSchema.status(400)),
+				BackupConflict.pipe(HttpApiSchema.status(409)),
+				BackupInternalError.pipe(HttpApiSchema.status(500)),
 			],
 		}).annotate(OpenApi.Description, "Starts a backup restore"),
 	)

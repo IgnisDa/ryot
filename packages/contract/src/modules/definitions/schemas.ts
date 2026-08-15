@@ -9,6 +9,15 @@ import {
 } from "../../schema/brands";
 import { AppSchema } from "../../schema/property-schema";
 
+const DefinitionNotFoundReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("plugin-not-found"), pluginSlug: PluginSlug }),
+]);
+
+export class DefinitionNotFound extends Schema.TaggedError<DefinitionNotFound>()(
+	"DefinitionNotFound",
+	{ reason: DefinitionNotFoundReason },
+) {}
+
 export const EventDefinition = Schema.Struct({
 	name: Schema.String,
 	slug: EventSchemaSlug,
