@@ -3,7 +3,6 @@ import type { AssetLocator } from "@ryot/contract/modules/uploads/schemas";
 import {
 	EntityId,
 	EntitySchemaSlug,
-	PluginSlug,
 	SignalSchemaSlug,
 	type UserId,
 } from "@ryot/contract/schema/brands";
@@ -241,8 +240,10 @@ export const preflightV2Provenance = Effect.fn(function* (
 		);
 	}
 	for (const view of records.savedViews) {
-		if (view.kind === "builtin-override" || view.pluginKey !== null) {
+		if (view.kind === "builtin-override") {
 			yield* assertOwner(view.pluginKey, definitions.savedViews[view.slug], "saved view");
+		} else if (view.pluginKey !== null) {
+			yield* mappedPluginId(view.pluginKey);
 		}
 		if (view.entitySchemaSlug !== null) {
 			yield* assertOwner(
@@ -415,32 +416,20 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 								pluginId !== undefined &&
 								pluginKeyById.get(pluginId)?.startsWith("user:") === true,
 						)
-						.map(
-							({
-								slug,
-								name,
-								icon,
-								layouts,
-								sortOrder,
-								pluginId,
-								pluginSlug,
-								entitySchemaSlug,
-							}) => ({
-								slug,
-								name,
-								icon,
-								layouts,
-								sortOrder,
-								pluginSlug: pluginSlug ? PluginSlug.make(pluginSlug) : null,
-								entitySchemaSlug: entitySchemaSlug ? EntitySchemaSlug.make(entitySchemaSlug) : null,
-								pluginInstallationId: pluginId
-									? (installationIdByKey.get(pluginKeyById.get(pluginId) ?? "") ?? null)
-									: null,
-								entitySchemaPluginId: entitySchemaSlug
-									? (definitions.entitySchemas[entitySchemaSlug]?.pluginId ?? null)
-									: null,
-							}),
-						),
+						.map(({ slug, name, icon, layouts, sortOrder, pluginId, entitySchemaSlug }) => ({
+							slug,
+							name,
+							icon,
+							layouts,
+							sortOrder,
+							entitySchemaSlug: entitySchemaSlug ? EntitySchemaSlug.make(entitySchemaSlug) : null,
+							pluginInstallationId: pluginId
+								? (installationIdByKey.get(pluginKeyById.get(pluginId) ?? "") ?? null)
+								: null,
+							entitySchemaPluginId: entitySchemaSlug
+								? (definitions.entitySchemas[entitySchemaSlug]?.pluginId ?? null)
+								: null,
+						})),
 				);
 				for (const integration of records.integrations) {
 					const pluginId = pluginIdByKey.get(integration.packageKey);
@@ -464,7 +453,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						id: integration.id,
 						lot: integration.lot,
 						pluginInstallationId,
-						pluginSlug: plugin.slug,
 						name: integration.name,
 						provider: integration.provider,
 						extraSettings: integration.extraSettings,
@@ -527,6 +515,9 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						return yield* badRequest("Backup bootstrap dependency identity is inconsistent");
 					}
 					const entitySchemaSlug = EntitySchemaSlug.make(dependency.entitySchemaSlug);
+					const entitySchemaPluginId = dependency.entitySchemaPluginKey
+						? (pluginIdByKey.get(dependency.entitySchemaPluginKey) ?? null)
+						: null;
 					let target = null;
 					let inserted = false;
 					let provider = null;
@@ -545,6 +536,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						}
 						target = yield* entities.findGlobalEntityForRestore({
 							entitySchemaSlug,
+							entitySchemaPluginId,
 							provider: {
 								providerSlug: archivedProvider.providerSlug,
 								pluginSlug: providerPlugin.slug,
@@ -555,6 +547,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						target = yield* entities.findGlobalEntityForRestore({
 							provider: null,
 							entitySchemaSlug,
+							entitySchemaPluginId,
 							externalId: dependency.identity.externalId,
 						});
 					} else {
@@ -793,6 +786,12 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					if (validationError) {
 						return yield* badRequest(validationError);
 					}
+					const pluginInstallationId = view.pluginKey
+						? installationIdByKey.get(view.pluginKey)
+						: null;
+					if (view.pluginKey && !pluginInstallationId) {
+						return yield* badRequest("Backup saved view installation mapping is invalid");
+					}
 					const restored = yield* savedViews.restoreCustomView({
 						userId,
 						id: view.id,
@@ -804,10 +803,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						isDisabled: view.isDisabled,
 						createdAt: parseDate(view.createdAt),
 						updatedAt: parseDate(view.updatedAt),
-						pluginSlug: view.pluginSlug ? PluginSlug.make(view.pluginSlug) : null,
-						pluginInstallationId: view.pluginKey
-							? (installationIdByKey.get(view.pluginKey) ?? null)
-							: null,
+						pluginInstallationId,
 						entitySchemaPluginId: view.entitySchemaPluginKey
 							? (pluginIdByKey.get(view.entitySchemaPluginKey) ?? null)
 							: null,

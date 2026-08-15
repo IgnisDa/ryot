@@ -75,6 +75,7 @@ const PluginConflictReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("entity-referenced"), pluginSlug: PluginSlug }),
 	Schema.Struct({ code: Schema.Literal("workflow-referenced"), pluginSlug: PluginSlug }),
 	Schema.Struct({ code: Schema.Literal("integration-referenced"), pluginSlug: PluginSlug }),
+	Schema.Struct({ code: Schema.Literal("saved-view-referenced"), pluginSlug: PluginSlug }),
 	Schema.Struct({
 		pluginSlug: PluginSlug,
 		code: Schema.Literal("installation-not-ready"),
@@ -105,13 +106,6 @@ const PluginInvocationFailureReason = Schema.Union([
 	Schema.Struct({
 		code: Schema.Literal("runtime-failed"),
 		diagnostics: Schema.Array(PluginRuntimeDiagnostic),
-	}),
-	// TODO(plugins): Task 11 should decide whether to keep this variant. Operation dispatch now folds
-	// a missing compiled script into `operation-not-found`, so nothing emits `script-unavailable`.
-	Schema.Struct({
-		pluginSlug: PluginSlug,
-		operationSlug: Schema.String,
-		code: Schema.Literal("script-unavailable"),
 	}),
 ]);
 

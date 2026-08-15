@@ -43,7 +43,11 @@ const requireSystemPlugin = (
 			`Expected exactly one active trusted system plugin "${slug}", found ${matches.length}`,
 		);
 	}
-	return matches[0] as PluginRegistryEntry;
+	const match = matches[0];
+	if (match === undefined) {
+		throw new Error(`Expected exactly one active trusted system plugin "${slug}", found 0`);
+	}
+	return match;
 };
 
 const addUnique = <Value>(map: Map<string, Value>, key: string, value: Value, kind: string) => {
@@ -301,7 +305,7 @@ export const resolveRelationshipMigrationTargets = (input: {
 	const targets = [];
 	for (const [lot, targetEntitySchemaSlug] of input.lotToEntitySchemaSlug.entries()) {
 		const slug = `${input.sourceEntitySchemaSlug}-to-${targetEntitySchemaSlug}`;
-		const schema = requireSchema(
+		const relationshipSchema = requireSchema(
 			input.resolution.relationshipSchemas,
 			input.pluginId,
 			slug,
@@ -309,8 +313,8 @@ export const resolveRelationshipMigrationTargets = (input: {
 		);
 		targets.push({
 			lot,
-			relationshipSchemaPluginId: schema.pluginId,
-			relationshipSchemaSlug: schema.slug,
+			relationshipSchemaPluginId: relationshipSchema.pluginId,
+			relationshipSchemaSlug: relationshipSchema.slug,
 		});
 	}
 	return targets;
@@ -337,9 +341,7 @@ export const requireSchema = (
 ) => {
 	const value = map.get(qualifiedKey(pluginId, slug));
 	if (value === undefined) {
-		throw new Error(
-			`Missing active ${kind} mapping for "${pluginId === null ? "kernel" : pluginId}/${slug}"`,
-		);
+		throw new Error(`Missing active ${kind} mapping for "${pluginId ?? "kernel"}/${slug}"`);
 	}
 	return value;
 };

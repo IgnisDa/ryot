@@ -5,13 +5,25 @@ import {
 	SavedViewId,
 	type UserId,
 } from "@ryot/contract/schema/brands";
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, getTableColumns, inArray, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 type SavedViewRow = typeof schema.savedView.$inferSelect;
+type ListedSavedViewRow = SavedViewRow & { readonly pluginSlug: string | null };
+
+const savedViewPluginSlug = sql<string | null>`(
+	select ${schema.plugin.slug}
+	from ${schema.pluginInstallation}
+	inner join ${schema.plugin} on ${schema.plugin.id} = ${schema.pluginInstallation.pluginId}
+	where ${schema.pluginInstallation.id} = ${schema.savedView.pluginInstallationId}
+)`;
+const savedViewSelection = {
+	...getTableColumns(schema.savedView),
+	pluginSlug: savedViewPluginSlug,
+};
 
 type RestoreCustomSavedViewInput = Omit<
 	SavedViewRow,
@@ -27,7 +39,6 @@ type CreateSavedViewInput = {
 	readonly name: string;
 	readonly icon: string;
 	readonly userId: UserId;
-	readonly pluginSlug: PluginSlug | null | undefined;
 	readonly entitySchemaSlug: EntitySchemaSlug | null;
 	readonly pluginInstallationId?: string | null | undefined;
 	readonly entitySchemaPluginId?: string | null | undefined;
@@ -43,13 +54,13 @@ type UpdateSavedViewData = {
 	readonly name: string;
 	readonly isDisabled: boolean;
 	readonly sortOrder?: number | undefined;
-	readonly pluginSlug?: PluginSlug | undefined;
+	readonly pluginInstallationId: string | null;
 	readonly entitySchemaPluginId: string | null;
 	readonly entitySchemaSlug: EntitySchemaSlug | null;
 	readonly layouts: (typeof schema.savedView.$inferSelect)["layouts"];
 };
 
-const toListedSavedView = (row: SavedViewRow) => ({
+const toListedSavedView = (row: ListedSavedViewRow) => ({
 	slug: row.slug,
 	name: row.name,
 	icon: row.icon,
@@ -65,20 +76,42 @@ const toListedSavedView = (row: SavedViewRow) => ({
 		row.entitySchemaSlug === null ? null : EntitySchemaSlug.make(row.entitySchemaSlug),
 });
 
-const withSavedViewScope = (pluginSlug?: PluginSlug) =>
-	pluginSlug ? eq(schema.savedView.pluginSlug, pluginSlug) : isNull(schema.savedView.pluginSlug);
+const withSavedViewScope = (pluginInstallationId?: string) =>
+	pluginInstallationId
+		? eq(schema.savedView.pluginInstallationId, pluginInstallationId)
+		: isNull(schema.savedView.pluginInstallationId);
 
 export class SavedViewsRepository extends Context.Service<SavedViewsRepository>()(
 	"SavedViewsRepository",
 	{
 		make: Effect.sync(() => {
+			const hasCustomInstallationReferences = Effect.fn(
+				"SavedViewsRepository.hasCustomInstallationReferences",
+			)(function* (userId: UserId, pluginInstallationId: string) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select({ id: schema.savedView.id })
+						.from(schema.savedView)
+						.where(
+							and(
+								eq(schema.savedView.userId, userId),
+								eq(schema.savedView.isBuiltin, false),
+								eq(schema.savedView.pluginInstallationId, pluginInstallationId),
+							),
+						)
+						.limit(1),
+				);
+				return row !== undefined;
+			});
+
 			const listForBackup = Effect.fn("SavedViewsRepository.listForBackup")(function* (
 				userId: UserId,
 			) {
 				const db = yield* Database;
 				const rows = yield* mapDatabaseErrors(
 					db
-						.select()
+						.select(savedViewSelection)
 						.from(schema.savedView)
 						.where(eq(schema.savedView.userId, userId))
 						.orderBy(asc(schema.savedView.id)),
@@ -99,14 +132,18 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 					db
 						.insert(schema.savedView)
 						.values({ ...input, isBuiltin: false })
-						.returning(),
+						.returning(savedViewSelection),
 				);
-				return row ? toListedSavedView(row) : null;
+				return row
+					? Object.assign(toListedSavedView(row), {
+							pluginInstallationId: row.pluginInstallationId,
+						})
+					: null;
 			});
 
 			const listByUser = Effect.fn("SavedViewsRepository.listByUser")(function* (
 				userId: UserId,
-				input: { pluginSlug?: PluginSlug | undefined; includeDisabled: boolean },
+				input: { pluginInstallationId?: string | undefined; includeDisabled: boolean },
 			) {
 				const db = yield* Database;
 				const clauses = [eq(schema.savedView.userId, userId)];
@@ -115,17 +152,17 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 					clauses.push(eq(schema.savedView.isDisabled, false));
 				}
 
-				if (input.pluginSlug) {
-					clauses.push(eq(schema.savedView.pluginSlug, input.pluginSlug));
+				if (input.pluginInstallationId) {
+					clauses.push(eq(schema.savedView.pluginInstallationId, input.pluginInstallationId));
 				}
 
 				const rows = yield* mapDatabaseErrors(
 					db
-						.select()
+						.select(savedViewSelection)
 						.from(schema.savedView)
 						.where(and(...clauses))
 						.orderBy(
-							asc(schema.savedView.pluginSlug),
+							asc(savedViewPluginSlug),
 							asc(schema.savedView.sortOrder),
 							asc(schema.savedView.createdAt),
 						),
@@ -141,13 +178,17 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				const db = yield* Database;
 				const [row] = yield* mapDatabaseErrors(
 					db
-						.select()
+						.select(savedViewSelection)
 						.from(schema.savedView)
 						.where(and(eq(schema.savedView.userId, userId), eq(schema.savedView.slug, viewSlug)))
 						.limit(1),
 				);
 
-				return row ? toListedSavedView(row) : null;
+				return row
+					? Object.assign(toListedSavedView(row), {
+							pluginInstallationId: row.pluginInstallationId,
+						})
+					: null;
 			});
 
 			const create = Effect.fn("SavedViewsRepository.create")(function* (
@@ -164,7 +205,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 						.where(
 							and(
 								eq(schema.savedView.userId, userId),
-								withSavedViewScope(input.pluginSlug ?? undefined),
+								withSavedViewScope(input.pluginInstallationId ?? undefined),
 							),
 						),
 				);
@@ -178,7 +219,6 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 							name: input.name,
 							icon: input.icon,
 							layouts: input.layouts,
-							pluginSlug: input.pluginSlug ?? null,
 							entitySchemaSlug: input.entitySchemaSlug,
 							sortOrder: (orderRow?.maxSortOrder ?? -1) + 1,
 							pluginInstallationId: input.pluginInstallationId ?? null,
@@ -187,7 +227,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 						.onConflictDoNothing({
 							target: [schema.savedView.userId, schema.savedView.slug],
 						})
-						.returning(),
+						.returning(savedViewSelection),
 				);
 
 				return rows[0] ? toListedSavedView(rows[0]) : null;
@@ -197,13 +237,12 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				userId: UserId,
 				viewSlug: string,
 				data: UpdateSavedViewData,
-				currentPluginSlug: PluginSlug | null,
+				currentPluginInstallationId: string | null,
 			) {
 				const db = yield* Database;
-				const nextPluginSlug = data.pluginSlug ?? null;
 				let sortOrder = data.sortOrder;
-				if (sortOrder === undefined && currentPluginSlug !== nextPluginSlug) {
-					sortOrder = yield* getNextSortOrder(userId, nextPluginSlug);
+				if (sortOrder === undefined && currentPluginInstallationId !== data.pluginInstallationId) {
+					sortOrder = yield* getNextSortOrder(userId, data.pluginInstallationId);
 				}
 
 				const [row] = yield* mapDatabaseErrors(
@@ -213,14 +252,14 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 							icon: data.icon,
 							name: data.name,
 							layouts: data.layouts,
-							pluginSlug: nextPluginSlug,
 							isDisabled: data.isDisabled,
+							pluginInstallationId: data.pluginInstallationId,
 							entitySchemaSlug: data.entitySchemaSlug,
 							entitySchemaPluginId: data.entitySchemaPluginId,
 							...(sortOrder === undefined ? {} : { sortOrder }),
 						})
 						.where(and(eq(schema.savedView.slug, viewSlug), eq(schema.savedView.userId, userId)))
-						.returning(),
+						.returning(savedViewSelection),
 				);
 
 				return row ? toListedSavedView(row) : null;
@@ -240,7 +279,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 									eq(schema.savedView.isBuiltin, true),
 								),
 							)
-							.returning(),
+							.returning(savedViewSelection),
 					);
 
 					return row ? toListedSavedView(row) : null;
@@ -256,57 +295,10 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 					db
 						.delete(schema.savedView)
 						.where(and(eq(schema.savedView.slug, viewSlug), eq(schema.savedView.userId, userId)))
-						.returning(),
+						.returning(savedViewSelection),
 				);
 
 				return row ? toListedSavedView(row) : null;
-			});
-
-			const countBySlugs = Effect.fn("SavedViewsRepository.countBySlugs")(function* (
-				userId: UserId,
-				viewSlugs: ReadonlyArray<string>,
-				pluginSlug?: PluginSlug,
-			) {
-				if (viewSlugs.length === 0) {
-					return 0;
-				}
-
-				const db = yield* Database;
-				const rows = yield* mapDatabaseErrors(
-					db
-						.select({ slug: schema.savedView.slug })
-						.from(schema.savedView)
-						.where(
-							and(
-								eq(schema.savedView.userId, userId),
-								inArray(schema.savedView.slug, [...viewSlugs]),
-								withSavedViewScope(pluginSlug),
-							),
-						),
-				);
-
-				return rows.length;
-			});
-
-			const listInOrder = Effect.fn("SavedViewsRepository.listInOrder")(function* (
-				userId: UserId,
-				pluginSlug?: PluginSlug,
-			) {
-				const db = yield* Database;
-				const scope = and(eq(schema.savedView.userId, userId), withSavedViewScope(pluginSlug));
-				yield* mapDatabaseErrors(
-					db.select({ id: schema.savedView.id }).from(schema.savedView).where(scope).for("update"),
-				);
-
-				const rows = yield* mapDatabaseErrors(
-					db
-						.select()
-						.from(schema.savedView)
-						.where(scope)
-						.orderBy(asc(schema.savedView.sortOrder), asc(schema.savedView.createdAt)),
-				);
-
-				return rows.map(toListedSavedView);
 			});
 
 			const ensureBuiltinViews = Effect.fn("SavedViewsRepository.ensureBuiltinViews")(function* (
@@ -349,7 +341,6 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 							name: view.name,
 							icon: view.icon,
 							layouts: view.layouts,
-							pluginSlug: view.pluginSlug ?? null,
 							entitySchemaSlug: view.entitySchemaSlug,
 							pluginInstallationId: view.pluginInstallationId ?? null,
 							entitySchemaPluginId: view.entitySchemaPluginId ?? null,
@@ -411,8 +402,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				create,
 				findBySlug,
 				listByUser,
-				listInOrder,
-				countBySlugs,
+				hasCustomInstallationReferences,
 				updateBySlug,
 				deleteBySlug,
 				listForBackup,
@@ -428,7 +418,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 	static readonly layer = Layer.effect(this, this.make);
 }
 
-const getNextSortOrder = Effect.fn(function* (userId: UserId, pluginSlug: PluginSlug | null) {
+const getNextSortOrder = Effect.fn(function* (userId: UserId, pluginInstallationId: string | null) {
 	const db = yield* Database;
 	const [orderRow] = yield* mapDatabaseErrors(
 		db
@@ -436,7 +426,12 @@ const getNextSortOrder = Effect.fn(function* (userId: UserId, pluginSlug: Plugin
 				maxSortOrder: sql<number>`coalesce(max(${schema.savedView.sortOrder}), -1)`,
 			})
 			.from(schema.savedView)
-			.where(and(eq(schema.savedView.userId, userId), withSavedViewScope(pluginSlug ?? undefined))),
+			.where(
+				and(
+					eq(schema.savedView.userId, userId),
+					withSavedViewScope(pluginInstallationId ?? undefined),
+				),
+			),
 	);
 
 	return (orderRow?.maxSortOrder ?? -1) + 1;

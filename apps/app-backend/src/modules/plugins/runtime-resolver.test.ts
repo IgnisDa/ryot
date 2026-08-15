@@ -908,38 +908,6 @@ it.effect("does not resolve a private script whose compiled hash is stale", () =
 	),
 );
 
-it.effect("resolves a user operation through the owner's ready installation", () =>
-	Effect.gen(function* () {
-		const resolver = yield* PluginRuntimeResolver;
-		expect(
-			yield* resolver.findUserOperation({
-				pluginSlug: "private",
-				operationSlug: "private.op",
-				userId: UserId.make("user-1"),
-			}),
-		).toMatchObject({
-			operation: { auth: "user", slug: "private.op" },
-			script: { id: "private-script-id", slug: "private.script" },
-		});
-		expect(
-			yield* resolver.findUserOperation({
-				pluginSlug: "private",
-				operationSlug: "missing.op",
-				userId: UserId.make("user-1"),
-			}),
-		).toBeNull();
-	}).pipe(Effect.provide(makePrivateLayer())),
-);
-
-const findPrivateOperationForUser = (userId: string) =>
-	Effect.flatMap(PluginRuntimeResolver, (runtime) =>
-		runtime.findUserOperation({
-			pluginSlug: "private",
-			operationSlug: "private.op",
-			userId: UserId.make(userId),
-		}),
-	);
-
 const resolvePrivateConfigContext = (authority: ExecutionAuthority) =>
 	Effect.flatMap(PluginRuntimeResolver, (runtime) =>
 		runtime.resolvePluginConfigContext({
@@ -947,27 +915,6 @@ const resolvePrivateConfigContext = (authority: ExecutionAuthority) =>
 			scriptId: SandboxScriptId.make("private-script-id"),
 		}),
 	);
-
-it.effect("returns no user operation for another user, or a disabled or unready installation", () =>
-	Effect.gen(function* () {
-		expect(
-			yield* findPrivateOperationForUser("user-2").pipe(Effect.provide(makePrivateLayer())),
-		).toBeNull();
-		expect(
-			yield* findPrivateOperationForUser("user-1").pipe(
-				Effect.provide(makePrivateLayer({ isDisabled: true })),
-			),
-		).toBeNull();
-		expect(
-			yield* findPrivateOperationForUser("user-1").pipe(
-				Effect.provide(makePrivateLayer({ health: "needs-configuration" })),
-			),
-		).toBeNull();
-		expect(
-			yield* findPrivateOperationForUser("user-1").pipe(Effect.provide(makePrivateLayer(null))),
-		).toBeNull();
-	}),
-);
 
 it.effect(
 	"resolves system plugin config from the environment even when an installation stores config",

@@ -11,7 +11,7 @@ type PluginManifest = ContractPayload<"plugins", "install">["manifest"];
 type PluginEntitySchema = PluginManifest["entitySchemas"][number];
 type PluginEventSchema = PluginEntitySchema["eventSchemas"][number];
 
-export type CreateEventSchemaOptions = Pick<PluginEventSchema, "name" | "slug"> & {
+type CreateEventSchemaOptions = Pick<PluginEventSchema, "name" | "slug"> & {
 	entitySchemaSlug: PluginEntitySchema["slug"];
 	propertiesSchema?: PluginEventSchema["propertiesSchema"];
 };

@@ -858,6 +858,16 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 							reason: { code: "workflow-referenced", pluginSlug },
 						});
 					}
+					if (
+						yield* definitionMaterializer.hasCustomSavedViewReferences(
+							UserId.make(installation.userId),
+							installation.id,
+						)
+					) {
+						return yield* new PluginConflictError({
+							reason: { code: "saved-view-referenced", pluginSlug },
+						});
+					}
 					return yield* Effect.void;
 				},
 			);

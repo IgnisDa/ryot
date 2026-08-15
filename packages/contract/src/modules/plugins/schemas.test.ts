@@ -2,7 +2,11 @@ import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { PluginManifest } from "./manifest";
-import { UpdatePluginInstallationBody, UpdatePrivatePluginBody } from "./schemas";
+import {
+	PluginConflictError,
+	UpdatePluginInstallationBody,
+	UpdatePrivatePluginBody,
+} from "./schemas";
 
 const packagePayload = {
 	files: {},
@@ -94,4 +98,13 @@ describe("UpdatePluginInstallationBody", () => {
 			expect(() => Schema.decodeUnknownSync(UpdatePluginInstallationBody)(input)).toThrow();
 		}
 	});
+});
+
+it("decodes saved-view uninstall conflicts", () => {
+	expect(
+		Schema.decodeUnknownSync(PluginConflictError)({
+			_tag: "PluginConflictError",
+			reason: { code: "saved-view-referenced", pluginSlug: "fixture" },
+		}),
+	).toMatchObject({ reason: { code: "saved-view-referenced", pluginSlug: "fixture" } });
 });

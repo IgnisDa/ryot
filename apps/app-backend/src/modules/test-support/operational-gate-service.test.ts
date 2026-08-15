@@ -100,9 +100,10 @@ it.effect("returns a typed error for an invalid plugin workflow target", () => {
 		assertExitFails(exit, new NotFound({ message: "Sandbox script not found" }));
 		expect(enqueueInput).toEqual({
 			executingUserId,
-			pluginSlug: gateInput.pluginSlug,
+			pluginId: availablePlugin.id,
 			workflowSlug: gateInput.workflowSlug,
 			executionId: `${runId}-workflow-load-0`,
+			pluginInstallationId: availablePlugin.installationId,
 			input: {
 				items: [
 					{

@@ -19,6 +19,7 @@ type StoredRelationship = {
 	sourceEntityId: string;
 	targetEntityId: string;
 	relationshipSchemaSlug: string;
+	relationshipSchemaPluginId?: string | null;
 	properties: Record<string, unknown>;
 };
 
@@ -47,11 +48,16 @@ const makeDb = (initialRows: ReadonlyArray<StoredRelationship> = []) => {
 			if (row.userId !== null) {
 				return false;
 			}
-			if (params.length === 3) {
+			if (
+				text.includes('"relationship"."source_entity_id" =') &&
+				text.includes('"relationship"."target_entity_id" =') &&
+				!text.includes('"relationship"."source_entity_id" = "relationship"."target_entity_id"')
+			) {
 				return (
 					row.sourceEntityId === params[0] &&
 					row.targetEntityId === params[1] &&
-					row.relationshipSchemaSlug === params[2]
+					row.relationshipSchemaSlug === params[2] &&
+					(row.relationshipSchemaPluginId ?? null) === (params[3] ?? null)
 				);
 			}
 			if (text.includes('"relationship"."source_entity_id" = "relationship"."target_entity_id"')) {
@@ -66,12 +72,16 @@ const makeDb = (initialRows: ReadonlyArray<StoredRelationship> = []) => {
 			);
 		}
 
-		if (params.length === 4) {
+		if (
+			text.includes('"relationship"."source_entity_id" =') &&
+			text.includes('"relationship"."relationship_schema_slug" =')
+		) {
 			return (
 				row.userId === params[0] &&
 				row.sourceEntityId === params[1] &&
 				row.targetEntityId === params[2] &&
-				row.relationshipSchemaSlug === params[3]
+				row.relationshipSchemaSlug === params[3] &&
+				(row.relationshipSchemaPluginId ?? null) === (params[4] ?? null)
 			);
 		}
 
@@ -113,7 +123,9 @@ const makeDb = (initialRows: ReadonlyArray<StoredRelationship> = []) => {
 							row.userId === input.userId &&
 							row.sourceEntityId === input.sourceEntityId &&
 							row.targetEntityId === input.targetEntityId &&
-							row.relationshipSchemaSlug === input.relationshipSchemaSlug,
+							row.relationshipSchemaSlug === input.relationshipSchemaSlug &&
+							(row.relationshipSchemaPluginId ?? null) ===
+								(input.relationshipSchemaPluginId ?? null),
 					);
 					if (existing) {
 						continue;
@@ -185,6 +197,7 @@ const globalInput = {
 	sourceEntityId: EntityId.make("source"),
 	targetEntityId: EntityId.make("target"),
 	relationshipSchemaSlug: RelationshipSchemaSlug.make("schema"),
+	relationshipSchemaPluginId: null,
 };
 
 it.effect("creates once and preserves an existing relationship on conflict", () => {
@@ -206,6 +219,25 @@ it.effect("creates once and preserves an existing relationship on conflict", () 
 		expect(existing.properties).toEqual({ rank: 1 });
 		expect(state.forUpdateCalls).toBe(1);
 		expect(state.rows).toHaveLength(1);
+	}).pipe(Effect.provide(makeLayer(db)));
+});
+
+it.effect("keeps kernel and plugin relationships with the same slug separate", () => {
+	const { db, state } = makeDb();
+
+	return Effect.gen(function* () {
+		const repository = yield* RelationshipsRepository;
+		yield* repository.createRelationship({ ...globalInput, properties: { source: "kernel" } });
+		yield* repository.createRelationship({
+			...globalInput,
+			properties: { source: "plugin" },
+			relationshipSchemaPluginId: "plugin-1",
+		});
+
+		expect(state.rows.map(({ relationshipSchemaPluginId }) => relationshipSchemaPluginId)).toEqual([
+			null,
+			"plugin-1",
+		]);
 	}).pipe(Effect.provide(makeLayer(db)));
 });
 

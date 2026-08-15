@@ -19,7 +19,7 @@ import {
 	snakeCase,
 	text,
 	timestamp,
-	uniqueIndex,
+	unique,
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
@@ -89,10 +89,9 @@ export const notificationSubscriptionState = snakeCase.table(
 		index("notification_subscription_state_signal_schema_plugin_id_idx").on(
 			table.signalSchemaPluginId,
 		),
-		uniqueIndex("notification_subscription_state_user_signal_unique").on(
-			table.userId,
-			table.signalSchemaSlug,
-		),
+		unique("notification_subscription_state_user_signal_unique")
+			.on(table.userId, table.signalSchemaSlug, table.signalSchemaPluginId)
+			.nullsNotDistinct(),
 	],
 );
 

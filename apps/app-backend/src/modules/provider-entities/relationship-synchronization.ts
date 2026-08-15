@@ -70,6 +70,7 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 						direction: input.direction,
 						anchorEntityId: input.anchorEntityId,
 						relationshipSchemaSlug: input.relationshipSchemaSlug,
+						relationshipSchemaPluginId: input.relationshipSchemaPluginId ?? null,
 					})
 					.pipe(mapDbErrorToSandbox);
 		const sortedExisting = [...existing].sort(

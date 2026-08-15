@@ -16,6 +16,7 @@ const row = {
 	isActive: true,
 	metadata: false,
 	signalSchemaSlug,
+	signalSchemaPluginId: "plugin-1",
 	id: AutomationRuleId.make("rule-1"),
 	createdAt: new Date("2026-07-20T10:00:00.000Z"),
 	updatedAt: new Date("2026-07-20T10:00:00.000Z"),
@@ -62,8 +63,14 @@ it.effect("filters active notification state by user and signal schema", () => {
 		const subscriptions = yield* repository.listActiveNotificationSubscriptions({
 			userId,
 			signalSchemaSlug,
+			signalSchemaPluginId: row.signalSchemaPluginId,
 		});
-		expect(db.state.queryParams).toEqual([userId, true, signalSchemaSlug]);
+		expect(db.state.queryParams).toEqual([
+			userId,
+			true,
+			signalSchemaSlug,
+			row.signalSchemaPluginId,
+		]);
 		expect(subscriptions).toEqual([
 			{
 				...row,
