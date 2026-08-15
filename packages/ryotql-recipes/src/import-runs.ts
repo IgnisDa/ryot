@@ -1,4 +1,4 @@
-import { ListedImportRun } from "@ryot/contract/modules/imports/schemas";
+import { ImportRunFailureReason, ListedImportRun } from "@ryot/contract/modules/imports/schemas";
 import { importRunFailureStages } from "@ryot/contract/modules/imports/types";
 import { EntitySchemaSlug, EventSchemaSlug, ImportRunId } from "@ryot/contract/schema/brands";
 import {
@@ -27,27 +27,29 @@ const failureStage = Schema.Literals([...importRunFailureStages]);
 const runSelection = (source: typeof importRun) => ({
 	id: selectedField(column(source, "id"), ImportRunId),
 	source: selectedField(column(source, "source"), Schema.String),
-	status: selectedField(column(source, "status"), ListedImportRun.fields.status),
 	progress: selectedField(column(source, "progress"), Schema.Number),
 	createdAt: selectedField(column(source, "createdAt"), IsoDateString),
 	updatedAt: selectedField(column(source, "updatedAt"), IsoDateString),
 	failedItems: selectedField(column(source, "failedItems"), Schema.Number),
 	inputSummary: selectedField(column(source, "inputSummary"), inputSummary),
 	importedItems: selectedField(column(source, "importedItems"), Schema.Number),
+	status: selectedField(column(source, "status"), ListedImportRun.fields.status),
 	processedItems: selectedField(column(source, "processedItems"), Schema.Number),
 	startedAt: selectedField(column(source, "startedAt"), Schema.NullOr(IsoDateString)),
 	finishedAt: selectedField(column(source, "finishedAt"), Schema.NullOr(IsoDateString)),
 	totalItems: selectedField(column(source, "totalItems"), Schema.NullOr(Schema.Number)),
-	errorSummary: selectedField(column(source, "errorSummary"), Schema.NullOr(Schema.String)),
+	failureReason: selectedField(
+		column(source, "failureReason"),
+		Schema.NullOr(ListedImportRun.fields.failureReason),
+	),
 });
 const failureSelection = {
 	id: selectedField(column(failure, "id"), Schema.String),
 	runId: selectedField(column(failure, "runId"), ImportRunId),
 	stage: selectedField(column(failure, "stage"), failureStage),
-	message: selectedField(column(failure, "message"), Schema.String),
-	context: selectedField(column(failure, "context"), Schema.NullOr(inputSummary)),
 	createdAt: selectedField(column(failure, "createdAt"), IsoDateString),
 	itemIndex: selectedField(column(failure, "itemIndex"), Schema.Number),
+	reason: selectedField(column(failure, "reason"), ImportRunFailureReason),
 	sourceLabel: selectedField(column(failure, "sourceLabel"), Schema.NullOr(Schema.String)),
 	eventSchemaSlug: selectedField(
 		column(failure, "eventSchemaSlug"),
@@ -80,9 +82,9 @@ export const manualImportRunsRecipe = defineRecipe(
 
 export const integrationImportRunsRecipe = defineRecipe(
 	(input: {
-		readonly after?: string | undefined;
 		readonly limit: number;
 		readonly integrationId: string;
+		readonly after?: string | undefined;
 	}) => ({
 		queries: {
 			importRuns: selectedRows(importRun, {
@@ -100,8 +102,8 @@ export const integrationImportRunsRecipe = defineRecipe(
 export const importRunRecipe = defineRecipe(
 	(input: {
 		readonly runId: string;
-		readonly failureAfter?: string | undefined;
 		readonly failureLimit: number;
+		readonly failureAfter?: string | undefined;
 	}) => ({
 		queries: {
 			run: selectedOptionalRow(run, {
@@ -121,8 +123,8 @@ export const importRunRecipe = defineRecipe(
 	}),
 );
 
-export type ImportRunList = Recipe.Success<typeof manualImportRunsRecipe>;
-export type ImportRunDetail = Recipe.Success<typeof importRunRecipe>;
 export type ImportRunSummary = ImportRunList["items"][number];
 export type ImportRunFailureList = ImportRunDetail["failures"];
+export type ImportRunDetail = Recipe.Success<typeof importRunRecipe>;
 export type ImportRunFailure = ImportRunFailureList["items"][number];
+export type ImportRunList = Recipe.Success<typeof manualImportRunsRecipe>;
