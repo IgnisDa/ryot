@@ -228,12 +228,6 @@ const episodeEventRow = (event: EpisodeEvent): ShowActivityRow =>
 			percent: event.progressPercent ?? undefined,
 			source: optionalText(event.consumedOn),
 		})),
-		Match.when("complete", () => ({
-			...anchorOf(event, "watch"),
-			type: "watch" as const,
-			episodes: [watchedEpisode(event)] as const,
-			source: optionalText(event.consumedOn),
-		})),
 		Match.exhaustive,
 	);
 
@@ -252,50 +246,43 @@ const activityRow = (event: ShowActivityEvent) =>
 		Match.exhaustive,
 	);
 
-const mergeWatchRows = (rows: readonly ShowActivityWatchRow[]) => {
-	const episodes = new Map<string, ShowActivityWatchedEpisode>();
-	for (const row of rows) {
-		for (const episode of row.episodes) {
-			const seen = episodes.get(episode.id);
-			episodes.set(
-				episode.id,
-				seen === undefined
-					? episode
-					: { ...seen, minutes: (seen.minutes ?? 0) + (episode.minutes ?? 0) },
-			);
-		}
-	}
-	return [...episodes.values()].sort(
-		(left, right) =>
-			seasonOrder(left) - seasonOrder(right) || left.episodeNumber - right.episodeNumber,
-	);
-};
+type ShowActivityWatchDay = ShowActivityResult["watchDays"][number];
 
-const collapseWatchDays = (rows: readonly ShowActivityRow[]): readonly ShowActivityRow[] => {
-	const watchDays = new Map<string, ShowActivityWatchRow[]>();
-	for (const row of rows) {
-		if (row.type === "watch") {
-			watchDays.set(row.dateKey, [...(watchDays.get(row.dateKey) ?? []), row]);
+const watchDayRows = (watchDays: readonly ShowActivityWatchDay[]) => {
+	const days = new Map<string, Map<string, ShowActivityWatchedEpisode>>();
+	const sources = new Map<string, string>();
+	for (const watch of watchDays) {
+		const episodes = days.get(watch.day) ?? new Map<string, ShowActivityWatchedEpisode>();
+		if (!episodes.has(watch.episodeId)) {
+			episodes.set(watch.episodeId, {
+				id: watch.episodeId,
+				name: watch.episodeName,
+				seasonNumber: watch.seasonNumber,
+				episodeNumber: watch.episodeNumber,
+				origin: showEpisodeOriginLabel(watch),
+				minutes: watch.minutes ?? watch.runtime ?? undefined,
+			});
+		}
+		days.set(watch.day, episodes);
+		const source = optionalText(watch.consumedOn);
+		if (source !== undefined && !sources.has(watch.day)) {
+			sources.set(watch.day, source);
 		}
 	}
-	const emitted = new Set<string>();
-	return rows.flatMap((row): readonly ShowActivityRow[] => {
-		if (row.type !== "watch") {
-			return [row];
-		}
-		if (emitted.has(row.dateKey)) {
-			return [];
-		}
-		emitted.add(row.dateKey);
-		const day = watchDays.get(row.dateKey) ?? [row];
-		return [
-			{
-				...row,
-				key: `watch-${row.dateKey}`,
-				episodes: nonEmpty(mergeWatchRows(day)) ?? row.episodes,
-				source: day.find((entry) => entry.source !== undefined)?.source,
-			},
-		];
+	return [...days.entries()].flatMap(([day, episodes]): readonly ShowActivityWatchRow[] => {
+		const listed = nonEmpty([...episodes.values()]);
+		return listed === undefined
+			? []
+			: [
+					{
+						type: "watch",
+						episodes: listed,
+						occurredAt: day,
+						key: `watch-${day}`,
+						source: sources.get(day),
+						dateKey: formatLocalDateKey(day),
+					},
+				];
 	});
 };
 
@@ -364,11 +351,6 @@ const foldSegments = (rows: readonly ShowActivityRow[]) => {
 	return { open: [], completed: [merged, ...completed.slice(1)] };
 };
 
-const collapsedSegment = (watch: ShowActivityCompletedWatch): ShowActivityCompletedWatch => ({
-	...watch,
-	rows: nonEmpty(collapseWatchDays(watch.rows)) ?? watch.rows,
-});
-
 const showActivityTimeline = (
 	rows: readonly ShowActivityRow[],
 ): ShowActivityTimeline | undefined => {
@@ -376,17 +358,13 @@ const showActivityTimeline = (
 	const first = completed.at(0);
 	const second = completed.at(1);
 	if (first === undefined || second === undefined) {
-		const flat = nonEmpty(collapseWatchDays(rows));
+		const flat = nonEmpty(rows);
 		return flat === undefined ? undefined : { layout: "flat", rows: flat };
 	}
 	return {
 		layout: "segmented",
-		open: nonEmpty(collapseWatchDays(open)),
-		completed: [
-			collapsedSegment(first),
-			collapsedSegment(second),
-			...completed.slice(2).map(collapsedSegment),
-		],
+		open: nonEmpty(open),
+		completed: [first, second, ...completed.slice(2)],
 	};
 };
 
@@ -428,10 +406,11 @@ const watchedMinutes = (seasons: readonly ShowActivitySeasonRow[]) =>
 		{ total: 0, missing: 0 },
 	);
 
-const activitySpan = (result: ShowActivityResult): ShowActivitySpan => {
-	const latest = result.events.at(0)?.occurredAt ?? "";
-	const earliest = result.events.at(-1)?.occurredAt ?? latest;
-	if (result.truncated) {
+const activitySpan = (rows: NonEmpty<ShowActivityRow>, truncated: boolean): ShowActivitySpan => {
+	const [latestRow] = rows;
+	const latest = latestRow.occurredAt;
+	const earliest = rows.at(-1)?.occurredAt ?? latest;
+	if (truncated) {
 		return { bound: "partial", latest };
 	}
 	return { bound: "full", latest, earliest, days: localDayCount(earliest, latest) };
@@ -440,23 +419,30 @@ const activitySpan = (result: ShowActivityResult): ShowActivitySpan => {
 const showActivitySummary = (input: {
 	readonly result: ShowActivityResult;
 	readonly coverage: ShowActivityCoverage;
+	readonly rows: NonEmpty<ShowActivityRow>;
 }): ShowActivitySummary => ({
-	span: activitySpan(input.result),
 	watches: input.result.watchCount,
 	minutes: watchedMinutes(input.result.seasons),
-	episodes: {
-		total: input.coverage.headline.total,
-		watched: input.coverage.headline.watched,
-	},
+	span: activitySpan(input.rows, input.result.truncated),
+	episodes: { total: input.coverage.headline.total, watched: input.coverage.headline.watched },
 });
 
 export const showActivityView = (result: ShowActivityResult): ShowActivityView | undefined => {
-	const timeline = showActivityTimeline(result.events.map(activityRow));
-	if (timeline === undefined) {
+	const rows = [...watchDayRows(result.watchDays), ...result.events.map(activityRow)].sort(
+		(left, right) =>
+			right.occurredAt.localeCompare(left.occurredAt) || left.key.localeCompare(right.key),
+	);
+	const spanned = nonEmpty(rows);
+	const timeline = showActivityTimeline(rows);
+	if (timeline === undefined || spanned === undefined) {
 		return undefined;
 	}
 	const coverage = showActivityCoverage(result);
-	return { coverage, timeline, summary: showActivitySummary({ result, coverage }) };
+	return {
+		coverage,
+		timeline,
+		summary: showActivitySummary({ result, coverage, rows: spanned }),
+	};
 };
 
 export const mapShowActivity = (
