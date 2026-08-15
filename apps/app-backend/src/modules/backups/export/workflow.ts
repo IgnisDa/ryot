@@ -6,11 +6,11 @@ import { Activity, Workflow } from "effect/unstable/workflow";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
-import { BackupDataService } from "#modules/backup-data/data-service";
 import { UploadsService } from "#modules/uploads/service";
 
-import { BackupsRepository } from "./repository";
-import { createV1ArchiveStream, V1_ARCHIVE_LIMITS } from "./v1-archive";
+import { createV1ArchiveStream, V1_ARCHIVE_LIMITS } from "../archive-v1/archive";
+import { BackupsRepository } from "../runs/repository";
+import { BackupExportSnapshot } from "./snapshot";
 
 const BACKUP_APP_VERSION = "backend-v1";
 const EXPORT_EXPIRY_MILLIS = 24 * 60 * 60 * 1_000;
@@ -62,7 +62,7 @@ export const ExportBackupWorkflowOperationsLive = Layer.effect(
 	ExportBackupWorkflowOperations,
 	Effect.gen(function* () {
 		const database = yield* Database;
-		const data = yield* BackupDataService;
+		const snapshotService = yield* BackupExportSnapshot;
 		const uploads = yield* UploadsService;
 		const repository = yield* BackupsRepository;
 
@@ -99,7 +99,7 @@ export const ExportBackupWorkflowOperationsLive = Layer.effect(
 					const snapshot = yield* mapDatabaseErrors(
 						database.transaction(
 							(transaction) =>
-								data
+								snapshotService
 									.prepareExportSnapshot(payload.userId)
 									.pipe(Effect.provideService(Database, transaction)),
 							{ isolationLevel: "repeatable read", accessMode: "read only" },

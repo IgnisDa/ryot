@@ -6,12 +6,13 @@ import { Activity, Workflow } from "effect/unstable/workflow";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
-import { BackupArchiveError } from "#modules/backup-data/archive-error";
-import { BackupDataService } from "#modules/backup-data/data-service";
 import { type StagedPermanentAsset, UploadsService } from "#modules/uploads/service";
 
-import { BackupsRepository } from "./repository";
-import { validateV1ArchiveStream } from "./v1-archive";
+import { validateV1ArchiveStream } from "../archive-v1/archive";
+import { BackupArchiveError } from "../archive-v1/error";
+import { BackupsRepository } from "../runs/repository";
+import { BackupAccountCleanliness } from "./account-cleanliness";
+import { BackupRestoreWriter } from "./writer";
 
 const RestoreBackupWorkflowPayload = Schema.Struct({
 	userId: UserId,
@@ -78,7 +79,8 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 	RestoreBackupWorkflowOperations,
 	Effect.gen(function* () {
 		const database = yield* Database;
-		const data = yield* BackupDataService;
+		const writer = yield* BackupRestoreWriter;
+		const cleanliness = yield* BackupAccountCleanliness;
 		const uploads = yield* UploadsService;
 		const fs = yield* FileSystem.FileSystem;
 		const repository = yield* BackupsRepository;
@@ -96,7 +98,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 					if (run.status === "running") {
 						return true;
 					}
-					yield* data.assertAccountIsClean(payload.userId);
+					yield* cleanliness.assertAccountIsClean(payload.userId);
 					if (!(yield* repository.markRunRunning({ ...payload, progress: 5 }))) {
 						return yield* internalError("Backup restore run could not start");
 					}
@@ -134,7 +136,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 					);
 					const stagedBySha = new Map<string, StagedPermanentAsset>();
 					yield* Effect.gen(function* () {
-						yield* data.assertRequiredPlugins(
+						yield* writer.assertRequiredPlugins(
 							validated.manifest.requiredPlugins,
 							validated.records,
 						);
@@ -162,11 +164,11 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 							database.transaction(
 								(transaction) =>
 									Effect.gen(function* () {
-										yield* data.assertAccountIsClean(payload.userId);
+										yield* cleanliness.assertAccountIsClean(payload.userId);
 										for (const staged of stagedBySha.values()) {
 											yield* uploads.registerManagedAsset(staged.metadata);
 										}
-										yield* data.restoreRecords(payload.userId, validated.records, assetLocators);
+										yield* writer.restoreRecords(payload.userId, validated.records, assetLocators);
 										if (!(yield* repository.updateProgress({ ...payload, progress: 90 }))) {
 											return yield* internalError(
 												"Backup restore checkpoint could not be recorded",

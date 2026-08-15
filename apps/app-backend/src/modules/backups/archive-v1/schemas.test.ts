@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect, Result, Schema } from "effect";
 
-import { BackupArchiveError } from "#modules/backup-data/archive-error";
+import { BackupArchiveError } from "./error";
 import {
 	backupV1EntityReferenceRules,
 	backupV1EventReferenceRules,
@@ -12,9 +12,7 @@ import {
 	rewriteV1EventReferences,
 	rewriteV1ManagedAssetLocators,
 	rewriteV1RelationshipReferences,
-} from "#modules/backup-data/v1-rewrites";
-
-import { decodeNdjson, encodeNdjson } from "./streaming";
+} from "./references";
 import {
 	V1Manifest,
 	V1Profile,
@@ -22,7 +20,8 @@ import {
 	V1_SECTION_PATHS,
 	type V1Event,
 	type V1UserEntity,
-} from "./v1-codec";
+} from "./schemas";
+import { decodeNdjson, encodeNdjson } from "./streaming";
 
 const timestamp = "2026-08-23T12:00:00.000Z";
 
