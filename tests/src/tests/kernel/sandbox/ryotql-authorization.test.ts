@@ -5,7 +5,6 @@ import {
 	EntitySchemaSlug,
 	PluginSlug,
 	RelationshipSchemaSlug,
-	UserId,
 } from "@ryot/contract/schema/brands";
 import {
 	and,
@@ -29,6 +28,7 @@ import type { RyotQLResponse } from "~/fixtures";
 import {
 	adminHeaders,
 	createAuthenticatedClient,
+	deleteUserAndWait,
 	createEntity,
 	createEventFixture,
 	createRelationship,
@@ -173,12 +173,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 
 			const cleanupData = Effect.gen(function* () {
 				for (const userId of userIds) {
-					yield* backend
-						.call(
-							(c) => c.godMode.deleteUser({ params: { userId: UserId.make(userId) } }),
-							adminHeaders,
-						)
-						.pipe(Effect.ignore);
+					yield* deleteUserAndWait(userId).pipe(Effect.ignore);
 				}
 				if (globalEntityIds.length > 0) {
 					yield* backend

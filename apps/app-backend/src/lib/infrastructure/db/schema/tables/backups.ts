@@ -4,7 +4,8 @@ import type {
 } from "@ryot/contract/modules/backups/schemas";
 import type { RunStatus } from "@ryot/contract/schema/run-status";
 import { generateId } from "better-auth";
-import { index, integer, snakeCase, text, timestamp } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { index, integer, snakeCase, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 
@@ -33,5 +34,8 @@ export const backupRun = snakeCase.table(
 		index("backup_run_user_id_idx").on(table.userId),
 		index("backup_run_status_idx").on(table.status),
 		index("backup_run_expires_at_idx").on(table.expiresAt),
+		uniqueIndex("backup_run_user_active_unique")
+			.on(table.userId)
+			.where(sql`${table.status} in ('pending', 'running')`),
 	],
 );

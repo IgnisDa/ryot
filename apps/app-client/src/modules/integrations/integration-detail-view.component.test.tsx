@@ -5,7 +5,7 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { useEffect } from "react";
 
 import { RyotQLMalformedResultError } from "@/api/ryotql";
-import type { SchemaFileUpload } from "@/modules/ui/schema-form/file-upload";
+import type { SchemaFileUpload } from "@/modules/ui/schema-form/file/file-upload";
 import { useSchemaForm } from "@/modules/ui/schema-form/schema-form";
 
 import { IntegrationDetailView } from "./integration-detail-view";

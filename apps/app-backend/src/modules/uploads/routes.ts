@@ -5,7 +5,9 @@ import { Effect, FileSystem } from "effect";
 import { HttpServerResponse } from "effect/unstable/http";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 
-import { UploadsService } from "./service";
+import { UploadIntentsService } from "./intents/service";
+import { ManagedAssetsService } from "./managed-assets/service";
+import { ObjectStorageService } from "./object-storage/service";
 
 const parseRange = (value: string | undefined, size: number) => {
 	if (!value) {
@@ -31,7 +33,7 @@ const parseRange = (value: string | undefined, size: number) => {
 };
 
 const localDownloadResponse = (
-	service: UploadsService["Service"],
+	service: ObjectStorageService["Service"],
 	method: string,
 	url: string,
 	range: string | undefined,
@@ -83,21 +85,21 @@ export const UploadsRoutesLive = HttpApiBuilder.group(AppContract, "uploads", (h
 		.handle("createIntent", ({ payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
-				const service = yield* UploadsService;
+				const service = yield* UploadIntentsService;
 				return yield* service.createUploadIntent(user, payload).pipe(dieOnDbError);
 			}),
 		)
 		.handle("completeIntent", ({ params }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
-				const service = yield* UploadsService;
+				const service = yield* UploadIntentsService;
 				return yield* service.completeUploadIntent(user, params.intentId).pipe(dieOnDbError);
 			}),
 		)
 		.handle("resolveDownloads", ({ payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
-				const service = yield* UploadsService;
+				const service = yield* ManagedAssetsService;
 				return yield* service.resolveDownloads(user, payload.assets).pipe(dieOnDbError);
 			}),
 		),
@@ -110,7 +112,7 @@ export const LocalUploadsRoutesLive = HttpApiBuilder.group(
 		handlers
 			.handle("put", ({ params, request }) =>
 				Effect.gen(function* () {
-					const service = yield* UploadsService;
+					const service = yield* UploadIntentsService;
 					yield* service.putLocalIntent(
 						params.intentId,
 						request.method,
@@ -124,7 +126,7 @@ export const LocalUploadsRoutesLive = HttpApiBuilder.group(
 			)
 			.handleRaw("download", ({ request }) =>
 				Effect.gen(function* () {
-					const service = yield* UploadsService;
+					const service = yield* ObjectStorageService;
 					return yield* localDownloadResponse(
 						service,
 						request.method,
@@ -135,7 +137,7 @@ export const LocalUploadsRoutesLive = HttpApiBuilder.group(
 			)
 			.handleRaw("downloadHead", ({ request }) =>
 				Effect.gen(function* () {
-					const service = yield* UploadsService;
+					const service = yield* ObjectStorageService;
 					return yield* localDownloadResponse(
 						service,
 						request.method,

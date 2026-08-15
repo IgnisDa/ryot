@@ -39,4 +39,13 @@ describe("OpenAPI documentation", () => {
 			type: "apiKey",
 		});
 	});
+
+	it("documents durable user lifecycle operations as admin-only asynchronous requests", () => {
+		const spec = OpenApi.fromApi(AppContract);
+		expect(spec.paths["/god-mode/users/{userId}"]?.delete?.responses["202"]).toBeDefined();
+		expect(spec.paths["/god-mode/users/{userId}/reset"]?.post?.responses["202"]).toBeDefined();
+		expect(spec.paths["/god-mode/user-lifecycle-operations/{operationId}"]?.get?.security).toEqual([
+			{ adminToken: [] },
+		]);
+	});
 });

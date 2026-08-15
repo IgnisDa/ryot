@@ -7,12 +7,12 @@ import clsx from "clsx";
 import { ActivityIndicator, Text, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
-import { importRunOutcomeLabel } from "@/modules/import-runs/run-presentation";
+import { importRunOutcomeLabel } from "@/modules/imports/run-presentation";
 import { AppButton } from "@/modules/ui/button";
 import { FormMessage } from "@/modules/ui/form";
 import { formatRelativeTime } from "@/modules/ui/run/run-status";
 import { RunStatusGlyph } from "@/modules/ui/run/run-status-pill";
-import type { SchemaFileUpload } from "@/modules/ui/schema-form/file-upload";
+import type { SchemaFileUpload } from "@/modules/ui/schema-form/file/file-upload";
 import type { SchemaFormApi } from "@/modules/ui/schema-form/schema-form";
 import { AppStatusState } from "@/modules/ui/status-state";
 

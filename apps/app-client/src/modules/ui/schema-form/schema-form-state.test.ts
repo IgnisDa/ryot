@@ -555,6 +555,57 @@ describe("schema form state", () => {
 		});
 	});
 
+	it("validates scalar values with their complete property declarations", () => {
+		const scalars = {
+			fields: {
+				year: { ...described("Year"), type: "integer" },
+				site: { ...described("Site"), type: "string", format: { kind: "url" } },
+				region: { ...described("Region"), type: "enum", choices: choices("us", "uk") },
+				handle: {
+					...described("Handle"),
+					type: "string",
+					validation: { minLength: 3, maxLength: 8, pattern: "^[a-z]+$" },
+				},
+				score: {
+					...described("Score"),
+					type: "number",
+					validation: { minimum: 0, maximum: 10, multipleOf: 2 },
+				},
+			},
+		} satisfies AppSchema;
+
+		expect(validateSchemaFormValues(scalars, { handle: "ab" }).get("handle")).toBe(
+			"Handle is too short",
+		);
+		expect(validateSchemaFormValues(scalars, { handle: "TOOLONGVALUE" }).get("handle")).toBe(
+			"Handle is too long",
+		);
+		expect(validateSchemaFormValues(scalars, { handle: "abc1" }).get("handle")).toBe(
+			"Handle has an invalid format",
+		);
+		expect(validateSchemaFormValues(scalars, { site: "ftp://example.com" }).get("site")).toBe(
+			"Site has an invalid format",
+		);
+		expect(validateSchemaFormValues(scalars, { score: 3 }).get("score")).toBe(
+			"Score is not a valid increment",
+		);
+		expect(validateSchemaFormValues(scalars, { year: 2026.5 }).get("year")).toBe(
+			"Year has an invalid value",
+		);
+		expect(validateSchemaFormValues(scalars, { region: "ca" }).get("region")).toBe(
+			"Region has an invalid value",
+		);
+		expect(
+			validateSchemaFormValues(scalars, {
+				score: 4,
+				year: 2026,
+				region: "us",
+				handle: "ryot",
+				site: "https://example.com",
+			}).size,
+		).toBe(0);
+	});
+
 	it("keeps a defaulted single-choice enum in the payload without rendering it", () => {
 		const fixed = {
 			fields: {
@@ -598,16 +649,16 @@ describe("schema form state", () => {
 		const annotatedSchema = {
 			fields: {
 				plain: { ...described("Plain"), type: "string" },
-				link: { ...described("Link"), type: "string", format: { kind: "url" } },
 				token: { ...described("Token"), type: "string", secret: true },
+				link: { ...described("Link"), type: "string", format: { kind: "url" } },
 				contact: { ...described("Contact"), type: "string", format: { kind: "email" } },
 			},
 		} satisfies AppSchema;
 
 		expect(describeSchemaFormFields(annotatedSchema).fields).toMatchObject([
 			{ key: "plain", secret: false, format: undefined },
-			{ key: "link", secret: false, format: "url" },
 			{ key: "token", secret: true, format: undefined },
+			{ key: "link", secret: false, format: "url" },
 			{ key: "contact", secret: false, format: "email" },
 		]);
 	});

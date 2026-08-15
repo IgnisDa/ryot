@@ -5,6 +5,7 @@ import { AdminMiddleware } from "../../auth-middleware";
 import { BadRequest, InternalError, NotFound } from "../../errors";
 import { UserId } from "../../schema/brands";
 import { Email } from "../../schema/utils";
+import { UserLifecycleOperation } from "./user-lifecycle";
 
 const UserAuthState = Schema.Literals(["credential", "oidc", "none", "mixed"]);
 
@@ -46,12 +47,6 @@ export type ProvisionUserBody = Schema.Schema.Type<typeof ProvisionUserBody>;
 
 const ProvisionUserResponse = Schema.Struct({ userId: UserId });
 
-const ResetUserResponse = Schema.Struct({
-	userId: UserId,
-	email: Schema.String,
-	resetUrl: Schema.NullOr(Schema.String),
-});
-
 const ResetPasswordResponse = Schema.Struct({
 	email: Schema.String,
 	resetUrl: Schema.String,
@@ -63,8 +58,6 @@ const SetDisabledResponse = Schema.Struct({
 	id: Schema.String,
 	disabledAt: Schema.NullOr(Schema.String),
 });
-
-const DeleteUserResponse = Schema.Struct({ id: UserId });
 
 export const GodModeGroup = HttpApiGroup.make("godMode")
 	.annotate(OpenApi.Description, "Provides administrative user management operations")
@@ -114,9 +107,10 @@ export const GodModeGroup = HttpApiGroup.make("godMode")
 	.add(
 		HttpApiEndpoint.post("resetUser", "/god-mode/users/:userId/reset", {
 			params: { userId: UserId },
-			success: ResetUserResponse,
+			success: UserLifecycleOperation.pipe(HttpApiSchema.status(202)),
 			error: [
 				BadRequest.pipe(HttpApiSchema.status(400)),
+				NotFound.pipe(HttpApiSchema.status(404)),
 				InternalError.pipe(HttpApiSchema.status(500)),
 			],
 		})
@@ -151,7 +145,7 @@ export const GodModeGroup = HttpApiGroup.make("godMode")
 	.add(
 		HttpApiEndpoint.delete("deleteUser", "/god-mode/users/:userId", {
 			params: { userId: UserId },
-			success: DeleteUserResponse,
+			success: UserLifecycleOperation.pipe(HttpApiSchema.status(202)),
 			error: [
 				BadRequest.pipe(HttpApiSchema.status(400)),
 				NotFound.pipe(HttpApiSchema.status(404)),
@@ -160,4 +154,20 @@ export const GodModeGroup = HttpApiGroup.make("godMode")
 		})
 			.middleware(AdminMiddleware)
 			.annotate(OpenApi.Description, "Deletes a user account"),
+	)
+	.add(
+		HttpApiEndpoint.get(
+			"getUserLifecycleOperation",
+			"/god-mode/user-lifecycle-operations/:operationId",
+			{
+				success: UserLifecycleOperation,
+				params: { operationId: Schema.String },
+				error: [
+					NotFound.pipe(HttpApiSchema.status(404)),
+					InternalError.pipe(HttpApiSchema.status(500)),
+				],
+			},
+		)
+			.middleware(AdminMiddleware)
+			.annotate(OpenApi.Description, "Gets a user lifecycle operation"),
 	);

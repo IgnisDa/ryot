@@ -15,7 +15,13 @@ const validate = (overrides?: Overrides) =>
 		}).pipe(Effect.provide(makeAppConfigLayer(overrides))),
 	);
 
-const loadSystemConfig = (logLevel?: string, processMode?: string) =>
+const loadSystemConfig = (
+	options: {
+		readonly logLevel?: string;
+		readonly processMode?: string;
+		readonly localSigningSecret?: string | null;
+	} = {},
+) =>
 	Effect.runSyncExit(
 		AppConfig.pipe(
 			Effect.provide(
@@ -25,8 +31,16 @@ const loadSystemConfig = (logLevel?: string, processMode?: string) =>
 							REDIS_URL: "unused",
 							DATABASE_URL: "unused",
 							SERVER_ADMIN_ACCESS_TOKEN: "unused",
-							...(logLevel === undefined ? {} : { SERVER_LOG_LEVEL: logLevel }),
-							...(processMode === undefined ? {} : { SANDBOX_PROCESS_MODE: processMode }),
+							...(options.logLevel === undefined ? {} : { SERVER_LOG_LEVEL: options.logLevel }),
+							...(options.processMode === undefined
+								? {}
+								: { SANDBOX_PROCESS_MODE: options.processMode }),
+							...(options.localSigningSecret === null
+								? {}
+								: {
+										FILE_STORAGE_LOCAL_SIGNING_SECRET:
+											options.localSigningSecret ?? "test-local-signing-secret",
+									}),
 						}),
 					),
 				),
@@ -54,21 +68,39 @@ describe("system log level config", () => {
 	});
 
 	it("accepts warm sandbox processes", () => {
-		const result = loadSystemConfig(undefined, "warm");
+		const result = loadSystemConfig({ processMode: "warm" });
 		assert(Exit.isSuccess(result));
 		expect(result.value.sandbox.processMode).toBe("warm");
 	});
 
 	it("parses values case-insensitively", () => {
-		const result = loadSystemConfig("DeBuG");
+		const result = loadSystemConfig({ logLevel: "DeBuG" });
 		assert(Exit.isSuccess(result));
 		expect(result.value.server.logLevel).toBe("Debug");
 	});
 
 	it("fails with a config error for unsupported values", () => {
-		const result = loadSystemConfig("verbose");
+		const result = loadSystemConfig({ logLevel: "verbose" });
 		assert(Exit.isFailure(result));
 		expect(JSON.stringify(result.cause)).toContain("Unsupported SERVER_LOG_LEVEL 'verbose'");
+	});
+});
+
+describe("local file storage config", () => {
+	it("fails loading when the local signing secret is absent", () => {
+		const result = loadSystemConfig({ localSigningSecret: null });
+		assert(Exit.isFailure(result));
+		expect(JSON.stringify(result.cause)).toContain(
+			"FILE_STORAGE_LOCAL_SIGNING_SECRET is required and must not be empty.",
+		);
+	});
+
+	it("fails validation when the local signing secret is empty", () => {
+		const result = loadSystemConfig({ localSigningSecret: "" });
+		assert(Exit.isFailure(result));
+		expect(JSON.stringify(result.cause)).toContain(
+			"FILE_STORAGE_LOCAL_SIGNING_SECRET is required and must not be empty.",
+		);
 	});
 });
 

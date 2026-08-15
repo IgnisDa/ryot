@@ -20,9 +20,9 @@ const isoTimestamp = Schema.String.pipe(
 const jsonObject = Schema.Record(Schema.String, jsonValueSchema);
 
 export const V1_BOOTSTRAP_SOURCE = {
-	name: ["Lib", "rary"].join(""),
-	pluginSlug: ["me", "dia"].join(""),
-	entitySchemaSlug: ["lib", "rary"].join(""),
+	name: "Library",
+	pluginSlug: "media",
+	entitySchemaSlug: "library",
 } as const;
 
 export const decodeV1JsonObject = Schema.decodeUnknownSync(jsonObject);

@@ -391,7 +391,7 @@ export const uploadImportFile = (
 		const intent = yield* client.call(
 			(c) =>
 				c.uploads.createIntent({
-					payload: { fileName, kind: "temporary", provider: "local", contentType: mimeType },
+					payload: { fileName, kind: "temporary", contentType: mimeType },
 				}),
 			headers,
 		);

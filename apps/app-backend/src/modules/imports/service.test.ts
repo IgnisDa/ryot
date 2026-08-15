@@ -3,11 +3,16 @@ import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import type { ListedImportRun } from "@ryot/contract/modules/imports/schemas";
 import { ImportRunId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Schema } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 import { assert } from "vitest";
 
-import { RedisService } from "#lib/infrastructure/redis";
+import {
+	IMPORT_SOURCE_STATE_PENDING_TTL_SECONDS,
+	ImportSourceStateFromJson,
+	RedisService,
+	redisKeys,
+} from "#lib/infrastructure/redis";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import {
 	databaseLayer,
@@ -20,7 +25,7 @@ import {
 	ImportSourceCatalog,
 	type RegisteredImportSource,
 } from "#modules/plugins/import-source-catalog";
-import { UploadsService } from "#modules/uploads/service";
+import { UploadIntentsService } from "#modules/uploads/intents/service";
 
 import { ImportRunFailuresService } from "./failure-service";
 import { ImportsRepository } from "./repository";
@@ -66,7 +71,7 @@ const createdRun = {
 
 const mockImportsRepository = Layer.mock(ImportsRepository);
 const mockImportRunFailuresService = Layer.mock(ImportRunFailuresService);
-const mockUploadsService = Layer.mock(UploadsService);
+const mockUploadsService = Layer.mock(UploadIntentsService);
 
 const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsRepository> = {}) =>
 	mockImportsRepository({
@@ -105,7 +110,9 @@ const importWorkflowPinningLayer = Layer.succeed(ImportWorkflowPinning, {
 
 const makeServiceLayer = (
 	repository = makeImportsRepository(),
-	dependencies: Layer.Layer<UploadsService | ImportSourceCatalog | WorkflowEngine> = Layer.mergeAll(
+	dependencies: Layer.Layer<
+		UploadIntentsService | ImportSourceCatalog | WorkflowEngine
+	> = Layer.mergeAll(
 		makeImportSourceCatalog(),
 		mockUploadsService({}),
 		Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
@@ -260,6 +267,7 @@ it.effect("rejects temporary uploads claimed from S3 storage", () => {
 
 it.effect("claims only the visible upload from mutually exclusive required fields", () => {
 	const executed: unknown[] = [];
+	const stored: Array<{ key: string; ttlSeconds: number | undefined; value: string }> = [];
 	const claims: Array<{ claimId: string | undefined; token: string }> = [];
 	let createdInput: CreateImportRunInput | undefined;
 	let updatedInput: unknown;
@@ -272,6 +280,13 @@ it.effect("claims only the visible upload from mutually exclusive required field
 			fields: {
 				historyUploadToken: uploadProperty(["csv"]),
 				ratingsUploadToken: uploadProperty(["csv"]),
+				apiKey: {
+					secret: true,
+					type: "string",
+					label: "API key",
+					description: "API key",
+					validation: { required: true },
+				},
 				mode: {
 					type: "enum",
 					label: "Import mode",
@@ -328,10 +343,16 @@ it.effect("claims only the visible upload from mutually exclusive required field
 				}),
 			),
 		),
+		importWorkflowPinningLayer,
+		makeRedisService({
+			set: (key, value, ttlSeconds) =>
+				Effect.sync(() => void stored.push({ key, value, ttlSeconds })),
+		}),
 	);
 
 	return Effect.gen(function* () {
 		yield* (yield* ImportsService).startImportRun(user, {
+			apiKey: "file-source-secret",
 			mode: "history",
 			source: "movary",
 			historyUploadToken: "history",
@@ -341,20 +362,30 @@ it.effect("claims only the visible upload from mutually exclusive required field
 		expect(createdInput?.inputSummary).toEqual({ source: "movary" });
 		expect(updatedInput).toEqual({
 			runId: "run-1",
-			inputSummary: {
-				source: "movary",
-				fileNames: { historyUploadToken: "history-original.csv" },
-			},
+			inputSummary: { source: "movary", fileNames: { historyUploadToken: "history-original.csv" } },
 		});
 		expect(executed[0]).toMatchObject({
-			payload: {
-				uploadIntentIds: ["intent-history"],
-				namedArtifactPaths: { historyUploadToken: "/tmp/history.csv" },
-				sourcePayload: { mode: "history", historyUploadToken: "historyUploadToken" },
-			},
+			payload: { runId: "run-1", userId: "user-1", sourceStateId: "run-1" },
 		});
-		expect(executed[0]).not.toMatchObject({
-			payload: { filePath: expect.anything() },
+		expect(executed[0]).not.toHaveProperty("payload.sourcePayload");
+		expect(executed[0]).not.toHaveProperty("payload.namedArtifactPaths");
+		expect(stored).toHaveLength(1);
+		expect(stored[0]).toMatchObject({
+			key: redisKeys.importSourceState("run-1"),
+			ttlSeconds: IMPORT_SOURCE_STATE_PENDING_TTL_SECONDS,
+		});
+		assert(stored[0]);
+		expect(yield* Schema.decodeUnknownEffect(ImportSourceStateFromJson)(stored[0].value)).toEqual({
+			source: "movary",
+			pluginSlug: "media",
+			uploadIntentIds: ["intent-history"],
+			workflowScriptId: "accepted-import-script",
+			namedArtifactPaths: { historyUploadToken: "/tmp/history.csv" },
+			sourcePayload: {
+				mode: "history",
+				apiKey: "file-source-secret",
+				historyUploadToken: "historyUploadToken",
+			},
 		});
 	}).pipe(Effect.provide(layer));
 });
@@ -463,6 +494,7 @@ it.effect("lists a configured source with an active workflow as startable", () =
 
 it.effect("stores decoded payload credentials without exposing them in the input summary", () => {
 	const executed: unknown[] = [];
+	const stored: string[] = [];
 	let createdInput: CreateImportRunInput | undefined;
 	const source = goodreadsSource({
 		inputSchema: {
@@ -497,7 +529,9 @@ it.effect("stores decoded payload credentials without exposing them in the input
 			),
 		),
 		importWorkflowPinningLayer,
-		makeRedisService({ set: () => Effect.void }),
+		makeRedisService({
+			set: (_key, value) => Effect.sync(() => void stored.push(value)),
+		}),
 	);
 
 	return Effect.gen(function* () {
@@ -510,6 +544,61 @@ it.effect("stores decoded payload credentials without exposing them in the input
 		expect(createdInput?.inputSummary).toEqual({ source: "goodreads" });
 		const [options] = executed;
 		assert(options !== undefined);
-		expect(options).toMatchObject({ payload: { source: "goodreads", sourcePayloadKey: "run-1" } });
+		expect(options).toMatchObject({
+			payload: { runId: "run-1", userId: "user-1", sourceStateId: "run-1" },
+		});
+		expect(options).not.toHaveProperty("payload.sourcePayload");
+		expect(options).not.toHaveProperty("payload.apiKey");
+		assert(stored[0]);
+		expect(yield* Schema.decodeUnknownEffect(ImportSourceStateFromJson)(stored[0])).toMatchObject({
+			sourcePayload: { apiKey: "secret" },
+		});
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("deletes pending source state when workflow dispatch fails", () => {
+	const deletedKeys: string[][] = [];
+	const source = goodreadsSource({
+		inputSchema: {
+			unknownKeys: "strict",
+			fields: {
+				apiKey: {
+					secret: true,
+					type: "string",
+					label: "API key",
+					description: "API key",
+					validation: { required: true },
+				},
+			},
+		},
+	});
+	const layer = makeServiceLayer(
+		makeImportsRepository(),
+		Layer.mergeAll(
+			makeImportSourceCatalog(source),
+			mockUploadsService({}),
+			Layer.succeed(
+				WorkflowEngine,
+				makeWorkflowEngine({ execute: () => Effect.fail("dispatch failed") }),
+			),
+		),
+		importWorkflowPinningLayer,
+		makeRedisService({
+			set: () => Effect.void,
+			del: (...keys) =>
+				Effect.sync(() => {
+					deletedKeys.push([...keys]);
+					return keys.length;
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const error = yield* Effect.flip(
+			(yield* ImportsService).startImportRun(user, { apiKey: "secret", source: "goodreads" }),
+		);
+
+		expect(error.message).toBe("Could not queue the import job; please try again");
+		expect(deletedKeys).toEqual([[redisKeys.importSourceState("run-1")]]);
 	}).pipe(Effect.provide(layer));
 });

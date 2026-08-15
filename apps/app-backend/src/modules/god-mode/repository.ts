@@ -106,71 +106,11 @@ export class GodModeRepository extends Context.Service<GodModeRepository>()("God
 			return row ?? null;
 		});
 
-		const loadDeleteSnapshot = Effect.fn("GodModeRepository.loadDeleteSnapshot")(function* (
-			userId: UserId,
-		) {
-			const db = yield* Database;
-			const [user] = yield* mapDatabaseErrors(
-				db
-					.select({ id: schema.user.id })
-					.from(schema.user)
-					.where(eq(schema.user.id, userId))
-					.limit(1),
-			);
-			if (!user) {
-				return null;
-			}
-
-			const apiKeys = yield* mapDatabaseErrors(
-				db
-					.select({ id: schema.apikey.id, key: schema.apikey.key })
-					.from(schema.apikey)
-					.where(eq(schema.apikey.referenceId, userId)),
-			);
-			return { user, apiKeys };
-		});
-
-		const loadResetSnapshot = Effect.fn("GodModeRepository.loadResetSnapshot")(function* (
-			userId: UserId,
-		) {
-			const db = yield* Database;
-			const [user] = yield* mapDatabaseErrors(
-				db
-					.select({
-						id: schema.user.id,
-						name: schema.user.name,
-						email: schema.user.email,
-						emailVerified: schema.user.emailVerified,
-					})
-					.from(schema.user)
-					.where(eq(schema.user.id, userId))
-					.limit(1),
-			);
-			if (!user) {
-				return null;
-			}
-			const accounts = yield* mapDatabaseErrors(
-				db
-					.select({ providerId: schema.account.providerId, accountId: schema.account.accountId })
-					.from(schema.account)
-					.where(eq(schema.account.userId, userId)),
-			);
-			const apiKeys = yield* mapDatabaseErrors(
-				db
-					.select({ id: schema.apikey.id, key: schema.apikey.key })
-					.from(schema.apikey)
-					.where(eq(schema.apikey.referenceId, userId)),
-			);
-			return { user, accounts, apiKeys };
-		});
-
 		return {
 			countUsers,
 			listUserRows,
 			findUserById,
-			loadResetSnapshot,
 			findUserIdByEmail,
-			loadDeleteSnapshot,
 			listAccountsForUsers,
 			findUserDisabledState,
 		};
