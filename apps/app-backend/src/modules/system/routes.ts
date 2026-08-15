@@ -17,8 +17,24 @@ import {
 import { Database } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
 
+const nonEmpty = (value: Option.Option<string>) =>
+	Option.filter(value, (candidate) => candidate.length > 0);
+
+const umamiAnalytics = (config: AppConfigValue) => {
+	if (config.disableTelemetry) {
+		return undefined;
+	}
+	const hostUrl = nonEmpty(config.frontend.umami.hostUrl);
+	const websiteId = nonEmpty(config.frontend.umami.websiteId);
+	if (Option.isNone(hostUrl) || Option.isNone(websiteId)) {
+		return undefined;
+	}
+	return { hostUrl: hostUrl.value, websiteId: websiteId.value };
+};
+
 export const publicSystemConfig = (config: AppConfigValue) =>
 	({
+		analytics: { umami: umamiAnalytics(config) },
 		notifications: { smtpEnabled: isSmtpEnabled(config) },
 		fileStorage: {
 			temporaryUploadProvider: "local",
@@ -28,9 +44,7 @@ export const publicSystemConfig = (config: AppConfigValue) =>
 			oidcEnabled: isOidcEnabled(config),
 			localAuthDisabled: config.users.disableLocalAuth,
 			signupAllowed: config.users.allowRegistration && !config.users.disableLocalAuth,
-			oidcButtonLabel: Option.getOrUndefined(
-				Option.filter(config.frontend.oidcButtonLabel, (label) => label.length > 0),
-			),
+			oidcButtonLabel: Option.getOrUndefined(nonEmpty(config.frontend.oidcButtonLabel)),
 		},
 	}) satisfies SystemConfigResponse;
 
