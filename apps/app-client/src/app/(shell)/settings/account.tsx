@@ -1,10 +1,10 @@
-import { SettingsPlaceholderScreen } from "@/modules/settings/settings-placeholder-screen";
+import { SectionFrame } from "@/modules/ui/section-frame";
+import { AccountScreen } from "@/modules/user-settings/account-screen";
 
 export default function AccountSettings() {
 	return (
-		<SettingsPlaceholderScreen
-			title="Account"
-			detail="TODO: Manage account security, sessions, and destructive account actions."
-		/>
+		<SectionFrame title="Account">
+			<AccountScreen />
+		</SectionFrame>
 	);
 }
