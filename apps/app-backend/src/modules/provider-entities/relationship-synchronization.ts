@@ -3,6 +3,7 @@ import type {
 	EntityId,
 	RelationshipId,
 	RelationshipSchemaSlug,
+	UserId,
 } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect } from "effect";
@@ -28,26 +29,49 @@ const toSandboxRunError = (error: { message: string }) =>
 	new SandboxRunError({ message: error.message });
 
 export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelationships")(
-	function* (input: {
-		anchorEntityId: EntityId;
-		propertiesSchema: AppSchema;
-		direction: "incoming" | "outgoing";
-		relationshipSchemaSlug: RelationshipSchemaSlug;
-		synchronization: "additive" | "authoritative";
-		onConflict: "preserveExisting" | "replaceProperties";
-		entries: ReadonlyArray<{ entityId: EntityId; properties: Record<string, unknown> }>;
-	}) {
+	function* (
+		input: {
+			anchorEntityId: EntityId;
+			propertiesSchema: AppSchema;
+			direction: "incoming" | "outgoing";
+			synchronization: "additive" | "authoritative";
+			relationshipSchemaSlug: RelationshipSchemaSlug;
+			onConflict: "preserveExisting" | "replaceProperties";
+			relationshipSchemaPluginId?: string | null | undefined;
+			entries: ReadonlyArray<{ entityId: EntityId; properties: Record<string, unknown> }>;
+		} & ({ scope?: "global" } | { scope: "user"; userId: UserId }),
+	) {
 		const relationships = yield* RelationshipsService;
 		const entitiesRepository = yield* EntitiesRepository;
 		const relationshipsRepository = yield* RelationshipsRepository;
-		const existing = yield* relationshipsRepository
-			.listGlobalRelationships({
-				type: "anchored",
-				direction: input.direction,
-				anchorEntityId: input.anchorEntityId,
-				relationshipSchemaSlug: input.relationshipSchemaSlug,
-			})
-			.pipe(mapDbErrorToSandbox);
+		const existing = yield* input.scope === "user"
+			? relationshipsRepository
+					.listUserRelationshipsForEntityWithProvenance({
+						userId: input.userId,
+						entityId: input.anchorEntityId,
+					})
+					.pipe(
+						Effect.map((rows) =>
+							rows.filter(
+								(row) =>
+									row.relationshipSchemaSlug === input.relationshipSchemaSlug &&
+									(row.relationshipSchemaPluginId ?? null) ===
+										(input.relationshipSchemaPluginId ?? null) &&
+									(input.direction === "outgoing"
+										? row.sourceEntityId === input.anchorEntityId
+										: row.targetEntityId === input.anchorEntityId),
+							),
+						),
+						mapDbErrorToSandbox,
+					)
+			: relationshipsRepository
+					.listGlobalRelationships({
+						type: "anchored",
+						direction: input.direction,
+						anchorEntityId: input.anchorEntityId,
+						relationshipSchemaSlug: input.relationshipSchemaSlug,
+					})
+					.pipe(mapDbErrorToSandbox);
 		const sortedExisting = [...existing].sort(
 			(left, right) =>
 				left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
@@ -99,10 +123,13 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 			const relationshipInput = {
 				sourceEntityId,
 				targetEntityId,
-				scope: "global" as const,
 				properties: entry.properties,
 				propertiesSchema: input.propertiesSchema,
 				relationshipSchemaSlug: input.relationshipSchemaSlug,
+				relationshipSchemaPluginId: input.relationshipSchemaPluginId ?? null,
+				...(input.scope === "user"
+					? { scope: "user" as const, userId: input.userId }
+					: { scope: "global" as const }),
 			};
 			const current = existingByEntityId.get(entry.entityId);
 			if (current) {
@@ -163,10 +190,13 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 
 				const deleteRelationship = relationships
 					.delete({
-						scope: "global",
 						sourceEntityId: relationship.sourceEntityId,
 						targetEntityId: relationship.targetEntityId,
 						relationshipSchemaSlug: relationship.relationshipSchemaSlug,
+						relationshipSchemaPluginId: input.relationshipSchemaPluginId ?? null,
+						...(input.scope === "user"
+							? { scope: "user" as const, userId: input.userId }
+							: { scope: "global" as const }),
 					})
 					.pipe(Effect.mapError(toSandboxRunError));
 				const deleted = yield* deleteRelationship;

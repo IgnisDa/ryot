@@ -1,3 +1,4 @@
+import type { DbError } from "@ryot/contract/errors";
 import type {
 	AutomationOperation,
 	AutomationRuleKind,
@@ -15,16 +16,22 @@ import {
 	SandboxScriptId,
 	SignalSchemaSlug,
 } from "@ryot/contract/schema/brands";
-import { and, desc, eq, inArray, isNotNull, isNull, type SQL, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, or, type SQL, sql } from "drizzle-orm";
 import { Context, Data, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import type { PluginConfigContext } from "#lib/infrastructure/sandbox-runtime/app-config";
+import {
+	buildDefinitionSnapshot,
+	definitionSourceFromSnapshot,
+	type DefinitionSnapshot,
+} from "#modules/definition-registry/service";
 
 import { PluginInstallationRepository } from "./installation-repository";
 import {
 	findPluginEntryById,
+	mergeManifestDefinitions,
 	PluginLoader,
 	PluginLoaderLive,
 	type PluginRegistrySnapshot,
@@ -207,6 +214,55 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			const loader = yield* PluginLoader;
 			const installations = yield* PluginInstallationRepository;
 
+			const getEffectiveDefinitions: (
+				userId: UserId,
+				includeUnavailable?: boolean,
+			) => Effect.Effect<DefinitionSnapshot, DbError, Database> = Effect.fn(
+				"PluginRuntimeResolver.getEffectiveDefinitions",
+			)(function* (userId: UserId, includeUnavailable = false) {
+				const states = yield* installations.listForUser(userId);
+				const included = new Set(
+					states
+						.filter((state) =>
+							includeUnavailable ? true : state.health === "ready" && !state.isDisabled,
+						)
+						.map(({ pluginId }) => pluginId),
+				);
+				const systemSource = definitionSourceFromSnapshot(loader.getSnapshot().definitions);
+				const base = {
+					savedViews: systemSource.savedViews.filter(
+						(definition) => definition.pluginId == null || included.has(definition.pluginId),
+					),
+					entitySchemas: systemSource.entitySchemas.filter(
+						(definition) => definition.pluginId == null || included.has(definition.pluginId),
+					),
+					signalSchemas: systemSource.signalSchemas.filter(
+						(definition) => definition.pluginId == null || included.has(definition.pluginId),
+					),
+					relationshipSchemas: systemSource.relationshipSchemas.filter(
+						(definition) => definition.pluginId == null || included.has(definition.pluginId),
+					),
+				};
+				const db = yield* Database;
+				const privatePlugins = (yield* mapDatabaseErrors(
+					db
+						.select({
+							id: schema.plugin.id,
+							slug: schema.plugin.slug,
+							manifest: schema.plugin.manifest,
+						})
+						.from(schema.plugin)
+						.where(
+							and(
+								eq(schema.plugin.scope, "user"),
+								eq(schema.plugin.status, "active"),
+								eq(schema.plugin.ownerId, userId),
+							),
+						),
+				)).filter((plugin) => included.has(plugin.id));
+				return buildDefinitionSnapshot(mergeManifestDefinitions(base, privatePlugins));
+			});
+
 			const availablePluginIdsForUser = Effect.fn(
 				"PluginRuntimeResolver.availablePluginIdsForUser",
 			)(function* (userId: UserId) {
@@ -230,6 +286,58 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					pluginSlug: active.pluginSlug,
 				});
 			});
+			const findScriptAvailableToUser = Effect.fn(
+				"PluginRuntimeResolver.findScriptAvailableToUser",
+			)(function* (userId: UserId, pluginId: string, scriptSlug: string) {
+				const snapshot = loader.getSnapshot();
+				const systemPlugin = Object.values(snapshot.plugins).find(({ id }) => id === pluginId);
+				if (systemPlugin) {
+					const installation = yield* installations.findByUserAndPlugin(userId, systemPlugin.id);
+					if (installation?.health === "ready" && !installation.isDisabled) {
+						return yield* findActiveScriptInPluginSnapshot(snapshot, {
+							scriptSlug,
+							pluginSlug: systemPlugin.slug,
+						});
+					}
+					return null;
+				}
+
+				const db = yield* Database;
+				const plugins = yield* mapDatabaseErrors(
+					db
+						.select({
+							id: schema.plugin.id,
+							slug: schema.plugin.slug,
+							manifest: schema.plugin.manifest,
+							compiledHashes: schema.plugin.compiledHashes,
+						})
+						.from(schema.plugin)
+						.where(
+							and(
+								eq(schema.plugin.id, pluginId),
+								eq(schema.plugin.scope, "user"),
+								eq(schema.plugin.status, "active"),
+								eq(schema.plugin.ownerId, userId),
+							),
+						),
+				);
+				const plugin = plugins.find(({ manifest }) =>
+					manifest.scripts.some(({ slug }) => slug === scriptSlug),
+				);
+				const contentHash = plugin?.compiledHashes[scriptSlug];
+				if (!plugin || !contentHash) {
+					return null;
+				}
+				const installation = yield* installations.findByUserAndPlugin(userId, plugin.id);
+				if (installation?.health !== "ready" || installation.isDisabled) {
+					return null;
+				}
+				return yield* findCompiledScriptRow({
+					scriptSlug,
+					contentHash,
+					pluginId: plugin.id,
+				});
+			});
 			const findActiveWorkflowScript = Effect.fn("PluginRuntimeResolver.findActiveWorkflowScript")(
 				function* (input: { pluginSlug: string; workflowSlug: string }) {
 					const snapshot = loader.getSnapshot();
@@ -246,8 +354,8 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						return null;
 					}
 					const script = yield* findActiveScriptInPluginSnapshot(snapshot, {
-						pluginSlug: input.pluginSlug,
 						scriptSlug: boot.scriptSlug,
+						pluginSlug: input.pluginSlug,
 					});
 					return script ? { boot, script } : null;
 				},
@@ -308,10 +416,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				const db = yield* Database;
 				const [stored] = yield* mapDatabaseErrors(
 					db
-						.select({
-							slug: schema.sandboxScript.slug,
-							pluginId: schema.sandboxScript.pluginId,
-						})
+						.select({ slug: schema.sandboxScript.slug, pluginId: schema.sandboxScript.pluginId })
 						.from(schema.sandboxScript)
 						.where(eq(schema.sandboxScript.id, scriptId))
 						.limit(1),
@@ -457,6 +562,50 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				const installation = yield* installations.findByUserAndPlugin(userId, provider.pluginId);
 				return installation?.health === "ready" && !installation.isDisabled;
 			});
+
+			const findProviderAvailableToUserWhere = Effect.fn(
+				"PluginRuntimeResolver.findProviderAvailableToUserWhere",
+			)(function* (userId: UserId, where: SQL) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select({ provider: schema.sandboxProvider, pluginScope: schema.plugin.scope })
+						.from(schema.sandboxProvider)
+						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.sandboxProvider.pluginId))
+						.innerJoin(
+							schema.pluginInstallation,
+							and(
+								eq(schema.pluginInstallation.pluginId, schema.plugin.id),
+								eq(schema.pluginInstallation.userId, userId),
+							),
+						)
+						.where(
+							and(
+								where,
+								eq(schema.plugin.status, "active"),
+								eq(schema.pluginInstallation.health, "ready"),
+								eq(schema.pluginInstallation.isDisabled, false),
+								or(isNull(schema.plugin.ownerId), eq(schema.plugin.ownerId, userId)),
+							),
+						)
+						.limit(1),
+				);
+				if (!row) {
+					return null;
+				}
+				const definitions = yield* getEffectiveDefinitions(userId);
+				return definitions.entitySchemas[row.provider.rootEntitySchemaSlug]
+					? {
+							...row.provider,
+							pluginScope: row.pluginScope,
+							id: SandboxProviderId.make(row.provider.id),
+						}
+					: null;
+			});
+			const findProviderAvailableToUser = (userId: UserId, providerId: SandboxProviderId) =>
+				findProviderAvailableToUserWhere(userId, eq(schema.sandboxProvider.id, providerId));
+			const findProviderAvailableToUserBySlug = (userId: UserId, providerSlug: string) =>
+				findProviderAvailableToUserWhere(userId, eq(schema.sandboxProvider.slug, providerSlug));
 
 			const findUserOperation = Effect.fn("PluginRuntimeResolver.findUserOperation")(
 				function* (input: {
@@ -748,6 +897,68 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 									),
 						),
 					);
+
+			const resolveUserProviderOperation =
+				(operation: PluginProviderOperation) => (userId: UserId, providerId: SandboxProviderId) =>
+					Effect.gen(function* () {
+						const provider = yield* findProviderAvailableToUser(userId, providerId);
+						if (!provider) {
+							return yield* new UnsupportedProviderOperationError({
+								operation,
+								providerId,
+								providerSlug: null,
+								reason: "inactive_provider",
+							});
+						}
+						const db = yield* Database;
+						const [row] = yield* mapDatabaseErrors(
+							db
+								.select({
+									script: schema.sandboxScript,
+									compiledHashes: schema.plugin.compiledHashes,
+									optionsSchema: schema.sandboxProviderOperation.optionsSchema,
+								})
+								.from(schema.sandboxProviderOperation)
+								.innerJoin(
+									schema.sandboxScript,
+									eq(schema.sandboxProviderOperation.scriptId, schema.sandboxScript.id),
+								)
+								.innerJoin(schema.plugin, eq(schema.plugin.id, schema.sandboxScript.pluginId))
+								.where(
+									and(
+										eq(schema.sandboxProviderOperation.providerId, providerId),
+										eq(schema.sandboxProviderOperation.operation, operation),
+									),
+								)
+								.limit(1),
+						);
+						if (!row) {
+							return yield* new UnsupportedProviderOperationError({
+								operation,
+								providerId,
+								providerSlug: provider.slug,
+								reason: "unsupported_operation",
+							});
+						}
+						if (
+							row.script.providerId !== providerId ||
+							row.script.pluginId !== provider.pluginId ||
+							row.script.metadata.kind !== "provider" ||
+							row.compiledHashes[row.script.slug] !== row.script.contentHash
+						) {
+							return yield* new UnsupportedProviderOperationError({
+								operation,
+								providerId,
+								providerSlug: provider.slug,
+								reason: "script_unavailable",
+							});
+						}
+						return {
+							...row.script,
+							id: SandboxScriptId.make(row.script.id),
+							...(row.optionsSchema ? { optionsSchema: row.optionsSchema } : {}),
+						};
+					});
 			const findDetailsScript = (providerId: SandboxProviderId) => {
 				const findOperation = Effect.suspend(() =>
 					findProviderOperationScriptInSnapshot(loader.getSnapshot(), providerId, "details"),
@@ -762,6 +973,13 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			const resolveDetailsScript = resolveOperation("details");
 			const resolveResolveScript = resolveOperation("resolve");
 			const resolveTranslateScript = resolveOperation("translate");
+			const resolveUserSearchScript = (userId: UserId, providerId: SandboxProviderId) =>
+				resolveUserProviderOperation("search")(userId, providerId).pipe(
+					Effect.map((script) => ({ ...script, optionsSchema: script.optionsSchema ?? null })),
+				);
+			const resolveUserDetailsScript = resolveUserProviderOperation("details");
+			const resolveUserTranslateScript = resolveUserProviderOperation("translate");
+			const resolveUserSearchOptionsScript = resolveUserProviderOperation("search-options");
 
 			const automationBindings = (
 				snapshot: PluginRegistrySnapshot,
@@ -976,17 +1194,25 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				resolveResolveScript,
 				findActiveProviderById,
 				resolveTranslateScript,
+				resolveUserSearchScript,
+				getEffectiveDefinitions,
 				resolveActivePluginBoot,
 				resolveActivePluginCron,
 				findSchemaProviderBySlug,
+				resolveUserDetailsScript,
 				findActiveWorkflowScript,
 				resolveSystemQueryScript,
-				resolveSearchOptionsScript,
+				findScriptAvailableToUser,
 				resolvePluginConfigContext,
+				resolveUserTranslateScript,
+				resolveSearchOptionsScript,
+				findProviderAvailableToUser,
 				isSystemPluginAvailableToUser,
+				resolveUserSearchOptionsScript,
 				isSystemProviderAvailableToUser,
 				findAuthorizedSchemaProviderById,
 				resolveActivePluginUserBootstrap,
+				findProviderAvailableToUserBySlug,
 				resolveTrustedUserBootstrapCaller,
 				listProviderEntityImportAutomations,
 			};

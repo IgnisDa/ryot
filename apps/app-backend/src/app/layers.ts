@@ -117,7 +117,10 @@ import { SandboxWorkflowDefinitionsLive } from "#modules/sandbox/sandbox-workflo
 import { SandboxExecutionService } from "#modules/sandbox/service";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
-import { SavedViewsService } from "#modules/saved-views/service";
+import {
+	SavedViewPluginDefinitionMaterializerLive,
+	SavedViewsService,
+} from "#modules/saved-views/service";
 import { FrequentCronSchedulerLive } from "#modules/scheduler/frequent-cron";
 import { PluginBootDispatcherLive, PluginBootService } from "#modules/scheduler/plugin-boot";
 import { PluginCronSchedulerLive, PluginCronService } from "#modules/scheduler/plugin-cron";
@@ -223,30 +226,24 @@ const PluginIngestionServiceLive = Layer.provide(
 		SandboxWorkflowReferenceRepository.layer,
 	),
 );
-const PluginInstallationServiceLive = Layer.provide(
-	PluginInstallationService.layer,
-	Layer.mergeAll(
-		PluginLoaderLive,
-		PluginRepository.layer,
-		PluginInstallationRepository.layer,
-		SandboxWorkflowReferenceRepository.layer,
-	),
-);
 const RepositoriesLive = Layer.provideMerge(
 	Layer.mergeAll(ContentRepositoriesLive, PlatformRepositoriesLive),
-	SandboxPluginScriptResolverLive,
+	Layer.mergeAll(SandboxPluginScriptResolverLive, PluginRuntimeResolverLive),
 );
 
-const MigrationBootstrapRepositoriesLive = Layer.mergeAll(
-	AutomationsRepository.layer,
-	EntitiesRepository.layer,
-	EntitySchemasRepository.layer,
-	ManagedAssetsRepository.layer,
-	SavedViewsRepository.layer,
-	RelationshipSchemasRepository.layer,
-	SignalSchemasRepository.layer,
-	PluginInstallationRepository.layer,
-	PluginRepository.layer,
+const MigrationBootstrapRepositoriesLive = Layer.provideMerge(
+	Layer.mergeAll(
+		AutomationsRepository.layer,
+		EntitiesRepository.layer,
+		EntitySchemasRepository.layer,
+		ManagedAssetsRepository.layer,
+		SavedViewsRepository.layer,
+		RelationshipSchemasRepository.layer,
+		SignalSchemasRepository.layer,
+		PluginInstallationRepository.layer,
+		PluginRepository.layer,
+	),
+	PluginRuntimeResolverLive,
 );
 
 const CoreInfrastructureDependenciesLive = BaseInfrastructureServicesLive.pipe(
@@ -283,7 +280,12 @@ const BackupServicesLive = Layer.mergeAll(
 	BackupsService.layer.pipe(Layer.provide([BackupAccountCleanlinessLive, UploadServicesLive])),
 );
 const NotificationSubscriptionsServiceLive = NotificationSubscriptionsService.layer.pipe(
-	Layer.provide(AutomationsService.layer),
+	Layer.provide(
+		Layer.mergeAll(
+			AutomationsService.layer.pipe(Layer.provide(PluginRuntimeResolverLive)),
+			PluginRuntimeResolverLive,
+		),
+	),
 );
 
 const LifecycleDispatchServiceLive = LifecycleDispatchLive.pipe(
@@ -292,7 +294,29 @@ const LifecycleDispatchServiceLive = LifecycleDispatchLive.pipe(
 
 const EntitiesServiceLive = EntitiesService.layer.pipe(Layer.provide(LifecycleDispatchServiceLive));
 
-const SavedViewsServiceLive = SavedViewsService.layer.pipe(Layer.provide(RyotQLServiceLive));
+const SavedViewsServiceLive = SavedViewsService.layer.pipe(
+	Layer.provide(
+		Layer.mergeAll(
+			RyotQLServiceLive,
+			SavedViewsRepository.layer,
+			PluginRuntimeResolverLive,
+			PluginInstallationRepository.layer,
+		),
+	),
+);
+const PluginDefinitionMaterializerLive = SavedViewPluginDefinitionMaterializerLive.pipe(
+	Layer.provide(SavedViewsServiceLive),
+);
+const PluginInstallationServiceLive = Layer.provide(
+	PluginInstallationService.layer,
+	Layer.mergeAll(
+		PluginLoaderLive,
+		PluginRepository.layer,
+		PluginDefinitionMaterializerLive,
+		PluginInstallationRepository.layer,
+		SandboxWorkflowReferenceRepository.layer,
+	),
+);
 
 const BootstrapServicesLive = Layer.mergeAll(
 	EntitiesServiceLive,

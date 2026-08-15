@@ -16,13 +16,18 @@ import {
 	formatPropertyIssues,
 	parseAppSchemaProperties,
 } from "#lib/property-schema/property-schema-runtime";
+import {
+	buildDefinitionSnapshot,
+	definitionSourceFromSnapshot,
+} from "#modules/definition-registry/service";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 
+import { PluginDefinitionMaterializer } from "./definition-materializer";
 import {
 	PluginInstallationRepository,
 	type PluginInstallationRow,
 } from "./installation-repository";
-import { PluginLoader } from "./loader";
+import { mergeManifestDefinitions, PluginLoader } from "./loader";
 import { compilePluginPackage, pluginSourceHash, structurePluginFailure } from "./pipeline";
 import { PluginRepository } from "./repository";
 import { validateAdditiveSchemaEvolution } from "./schema-evolution";
@@ -57,6 +62,49 @@ type InstallationView = {
 	readonly scope: "system" | "user";
 	readonly state: PluginInstallationRow | null;
 };
+
+const buildEffectiveDefinitions = (
+	systemDefinitions: Parameters<typeof definitionSourceFromSnapshot>[0],
+	plugins: ReadonlyArray<{
+		readonly id: string;
+		readonly slug: string;
+		readonly manifest: PluginManifest;
+	}>,
+) =>
+	Effect.try({
+		try: () =>
+			buildDefinitionSnapshot(
+				mergeManifestDefinitions(definitionSourceFromSnapshot(systemDefinitions), plugins),
+			),
+		catch: (error) =>
+			new PluginValidationError({
+				issues: [error instanceof Error ? error.message : String(error)],
+			}),
+	});
+
+const validateEffectiveProviderSlugs = (
+	plugins: ReadonlyArray<{ readonly slug: string; readonly manifest: PluginManifest }>,
+) =>
+	Effect.try({
+		try: () => {
+			const ownerBySlug = new Map<string, string>();
+			for (const plugin of plugins) {
+				for (const provider of plugin.manifest.providers) {
+					const owner = ownerBySlug.get(provider.slug);
+					if (owner) {
+						throw new Error(
+							`Duplicate provider slug '${provider.slug}' in effective plugins '${owner}' and '${plugin.slug}'`,
+						);
+					}
+					ownerBySlug.set(provider.slug, plugin.slug);
+				}
+			}
+		},
+		catch: (error) =>
+			new PluginValidationError({
+				issues: [error instanceof Error ? error.message : String(error)],
+			}),
+	});
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
@@ -186,6 +234,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const loader = yield* PluginLoader;
 			const repository = yield* PluginRepository;
 			const installations = yield* PluginInstallationRepository;
+			const definitionMaterializer = yield* PluginDefinitionMaterializer;
 			const workflowReferences = yield* SandboxWorkflowReferenceRepository;
 
 			const validateConfigPatch = Effect.fn("PluginInstallationService.validateConfigPatch")(
@@ -267,13 +316,22 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						new Set(systemManifests.map(({ metadata }) => metadata.slug)),
 					);
 					yield* validatePluginSourcePaths(input.files, manifest.scripts);
-					yield* validatePluginManifestReferences(manifest, loader.getSnapshot().definitions);
 					const owned = yield* repository.listPrivateForUser(input.userId);
 					if (owned.some((plugin) => plugin.slug === slug)) {
 						return yield* new PluginConflictError({
 							reason: { code: "already-installed", pluginSlug },
 						});
 					}
+					const effectiveDefinitions = yield* buildEffectiveDefinitions(
+						loader.getSnapshot().definitions,
+						[...owned, { id: "private-plugin-candidate", slug, manifest }],
+					);
+					yield* validateEffectiveProviderSlugs([
+						...Object.values(loader.getSnapshot().plugins),
+						...owned,
+						{ slug, manifest },
+					]);
+					yield* validatePluginManifestReferences(manifest, effectiveDefinitions);
 					const config = yield* parseAppSchemaProperties({
 						kind: "Plugin config",
 						properties: input.config,
@@ -311,7 +369,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 											Object.keys(loader.getSnapshot().plugins).length - 1,
 											...current.map(({ sortOrder: order }) => order),
 										) + 1;
-									return existing
+									const existingState = existing
 										? yield* installations.upsertState({
 												config,
 												sortOrder,
@@ -327,6 +385,8 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 												isDisabled: false,
 												userId: input.userId,
 											});
+									yield* definitionMaterializer.materialize(input.userId);
+									return existingState;
 								}).pipe(Effect.provideService(Database, transaction)),
 							),
 						),
@@ -379,7 +439,23 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					yield* validatePluginPackageLimits(input.files, manifest);
 					yield* validatePrivateManifestSurfaces(manifest);
 					yield* validatePluginSourcePaths(input.files, manifest.scripts);
-					yield* validatePluginManifestReferences(manifest, loader.getSnapshot().definitions);
+					const effectiveDefinitions = yield* buildEffectiveDefinitions(
+						loader.getSnapshot().definitions,
+						[
+							...(yield* repository.listPrivateForUser(input.userId)).filter(
+								(candidate) => candidate.id !== plugin.id,
+							),
+							{ id: plugin.id, slug: plugin.slug, manifest },
+						],
+					);
+					yield* validateEffectiveProviderSlugs([
+						...Object.values(loader.getSnapshot().plugins),
+						...(yield* repository.listPrivateForUser(input.userId)).filter(
+							(candidate) => candidate.id !== plugin.id,
+						),
+						{ slug: plugin.slug, manifest },
+					]);
+					yield* validatePluginManifestReferences(manifest, effectiveDefinitions);
 					yield* validateAdditiveSchemaEvolution(plugin.manifest, manifest);
 					yield* validateConfigPatch(manifest, installation.config, input);
 					const sourceHash = pluginSourceHash(manifest, input.files);
@@ -435,6 +511,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 										sortOrder: currentInstallation.sortOrder,
 										isDisabled: currentInstallation.isDisabled,
 									});
+									yield* definitionMaterializer.materialize(input.userId);
 									return state ?? currentInstallation;
 								}).pipe(Effect.provideService(Database, transaction)),
 							),
@@ -565,6 +642,11 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 							reason: { code: "entity-referenced", pluginSlug },
 						});
 					}
+					if (yield* repository.hasDefinitionReferences(plugin.id)) {
+						return yield* new PluginConflictError({
+							reason: { code: "entity-referenced", pluginSlug },
+						});
+					}
 					return yield* Effect.void;
 				},
 			);
@@ -604,6 +686,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 									reason: { code: "plugin-not-found", pluginSlug },
 								});
 							}
+							yield* definitionMaterializer.removeGenerated(currentInstallation.id);
 							yield* assertUnreferenced(current, currentInstallation, pluginSlug);
 							yield* installations.remove(currentInstallation.id);
 							yield* repository.deactivate(current.id);

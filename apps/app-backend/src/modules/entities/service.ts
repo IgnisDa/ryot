@@ -60,7 +60,7 @@ type UpsertEntityInput = {
 	populatedAt: Date | null;
 	providerId: SandboxProviderId;
 	entitySchemaSlug: EntitySchemaSlug;
-};
+} & ({ scope?: "global" } | { scope: "user"; userId: UserId });
 
 export type UpsertGlobalEntityItem = {
 	name: string;
@@ -165,7 +165,12 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				return yield* new EntityBadRequest({ reason: { code: "name-required", field: "name" } });
 			}
 			const properties = yield* parseEntityProperties(input.properties, scope.propertiesSchema);
-			const saved = yield* repository.insertEntity({ ...input, name, properties });
+			const saved = yield* repository.insertEntity({
+				...input,
+				name,
+				properties,
+				entitySchemaPluginId: scope.pluginId ?? null,
+			});
 
 			if (origin && saved.wasInserted) {
 				yield* lifecycleDispatch.dispatch({
@@ -285,7 +290,12 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		});
 
 		const upsert = Effect.fn("EntitiesService.upsert")(function* (input: UpsertEntityInput) {
-			const scope = yield* repository.findEntitySchemaById(input.entitySchemaSlug);
+			const scope = yield* input.scope === "user"
+				? repository.getEntitySchemaScopeForUser({
+						userId: input.userId,
+						entitySchemaSlug: input.entitySchemaSlug,
+					})
+				: repository.findEntitySchemaById(input.entitySchemaSlug);
 			if (!scope) {
 				return yield* new EntityNotFound({
 					reason: { code: "entity-schema-not-found", entitySchemaSlug: input.entitySchemaSlug },
@@ -299,14 +309,19 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				});
 			}
 			const properties = yield* parseEntityProperties(input.properties, scope.propertiesSchema);
+			const provenance = {
+				externalId: input.externalId,
+				providerId: input.providerId,
+				entitySchemaSlug: input.entitySchemaSlug,
+				...(scope.pluginId === undefined ? {} : { entitySchemaPluginId: scope.pluginId }),
+			};
 			const saved = yield* repository.insertEntity({
 				name,
 				properties,
-				scope: "global",
-				externalId: input.externalId,
-				providerId: input.providerId,
-				populatedAt: input.populatedAt,
-				entitySchemaSlug: input.entitySchemaSlug,
+				...provenance,
+				...(input.scope === "user"
+					? { scope: "user" as const, userId: input.userId }
+					: { scope: "global" as const, populatedAt: input.populatedAt }),
 			});
 			const before = toMutationSnapshot(saved.entity);
 

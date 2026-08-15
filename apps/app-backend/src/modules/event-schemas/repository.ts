@@ -1,16 +1,18 @@
 import { EntitySchemaSlug, EventSchemaSlug, type UserId } from "@ryot/contract/schema/brands";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Option } from "effect";
 
 import {
 	DefinitionRegistry,
 	type EventSchemaDefinition,
 } from "#modules/definition-registry/service";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 const toListed = (entitySchemaSlug: string, event: EventSchemaDefinition) => ({
-	id: EventSchemaSlug.make(event.slug),
 	slug: event.slug,
 	name: event.name,
 	propertiesSchema: event.propertiesSchema,
+	id: EventSchemaSlug.make(event.slug),
+	...(event.pluginId == null ? {} : { pluginId: event.pluginId }),
 	entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
 });
 
@@ -19,17 +21,25 @@ export class EventSchemasRepository extends Context.Service<EventSchemasReposito
 	{
 		make: Effect.gen(function* () {
 			const definitions = yield* DefinitionRegistry;
+			const pluginRuntime = Option.getOrUndefined(
+				yield* Effect.serviceOption(PluginRuntimeResolver),
+			);
+			const effectiveForUser = (userId: UserId) =>
+				pluginRuntime
+					? pluginRuntime.getEffectiveDefinitions(userId)
+					: Effect.succeed(definitions.getSnapshot());
 			const getEntitySchemaScopeById = (input: {
-				entitySchemaSlug: EntitySchemaSlug;
 				userId: UserId;
-			}) => {
-				const definition = definitions.getEntitySchema(input.entitySchemaSlug);
-				return Effect.succeed(
-					definition
-						? { userId: null, isBuiltin: true, slug: definition.slug, id: input.entitySchemaSlug }
-						: null,
+				entitySchemaSlug: EntitySchemaSlug;
+			}) =>
+				effectiveForUser(input.userId).pipe(
+					Effect.map((effective) => {
+						const definition = effective.entitySchemas[input.entitySchemaSlug];
+						return definition
+							? { userId: null, isBuiltin: true, slug: definition.slug, id: input.entitySchemaSlug }
+							: null;
+					}),
 				);
-			};
 			const getBuiltinBySlug = (input: { entitySchemaSlug: EntitySchemaSlug; slug: string }) => {
 				const event = definitions.getEventSchema(input.entitySchemaSlug, input.slug);
 				return Effect.succeed(
@@ -39,26 +49,31 @@ export class EventSchemasRepository extends Context.Service<EventSchemasReposito
 				);
 			};
 			const listByEntitySchemaForUser = (input: {
-				entitySchemaSlug: EntitySchemaSlug;
 				userId: UserId;
-			}) => {
-				const entity = definitions.getEntitySchema(input.entitySchemaSlug);
-				return Effect.succeed(
-					entity
-						? Object.values(entity.eventSchemas).map((event) =>
-								toListed(input.entitySchemaSlug, event),
-							)
-						: [],
+				entitySchemaSlug: EntitySchemaSlug;
+			}) =>
+				effectiveForUser(input.userId).pipe(
+					Effect.map((effective) => {
+						const entity = effective.entitySchemas[input.entitySchemaSlug];
+						return entity
+							? Object.values(entity.eventSchemas).map((event) =>
+									toListed(input.entitySchemaSlug, event),
+								)
+							: [];
+					}),
 				);
-			};
 			const getScopeForUser = (input: {
 				userId: UserId;
 				eventSchemaSlug: EventSchemaSlug;
 				entitySchemaSlug: EntitySchemaSlug;
 			}) => {
-				const entity = definitions.getEntitySchema(input.entitySchemaSlug);
-				const event = entity?.eventSchemas[input.eventSchemaSlug];
-				return Effect.succeed(event ? toListed(input.entitySchemaSlug, event) : null);
+				return effectiveForUser(input.userId).pipe(
+					Effect.map((effective) => {
+						const event =
+							effective.entitySchemas[input.entitySchemaSlug]?.eventSchemas[input.eventSchemaSlug];
+						return event ? toListed(input.entitySchemaSlug, event) : null;
+					}),
+				);
 			};
 
 			return {

@@ -1,3 +1,4 @@
+import { DbError } from "@ryot/contract/errors";
 import {
 	EntitySchemaSlug,
 	PluginSlug,
@@ -12,8 +13,13 @@ import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 type SavedViewRow = typeof schema.savedView.$inferSelect;
 
-type RestoreCustomSavedViewInput = Omit<SavedViewRow, "userId" | "isBuiltin"> & {
+type RestoreCustomSavedViewInput = Omit<
+	SavedViewRow,
+	"entitySchemaPluginId" | "isBuiltin" | "pluginInstallationId" | "userId"
+> & {
 	readonly userId: UserId;
+	readonly entitySchemaPluginId?: string | null | undefined;
+	readonly pluginInstallationId?: string | null | undefined;
 };
 
 type CreateSavedViewInput = {
@@ -23,6 +29,8 @@ type CreateSavedViewInput = {
 	readonly userId: UserId;
 	readonly pluginSlug: PluginSlug | null | undefined;
 	readonly entitySchemaSlug: EntitySchemaSlug | null;
+	readonly pluginInstallationId?: string | null | undefined;
+	readonly entitySchemaPluginId?: string | null | undefined;
 	readonly layouts: (typeof schema.savedView.$inferSelect)["layouts"];
 };
 
@@ -36,6 +44,7 @@ type UpdateSavedViewData = {
 	readonly isDisabled: boolean;
 	readonly sortOrder?: number | undefined;
 	readonly pluginSlug?: PluginSlug | undefined;
+	readonly entitySchemaPluginId: string | null;
 	readonly entitySchemaSlug: EntitySchemaSlug | null;
 	readonly layouts: (typeof schema.savedView.$inferSelect)["layouts"];
 };
@@ -167,6 +176,8 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 							pluginSlug: input.pluginSlug ?? null,
 							entitySchemaSlug: input.entitySchemaSlug,
 							sortOrder: (orderRow?.maxSortOrder ?? -1) + 1,
+							pluginInstallationId: input.pluginInstallationId ?? null,
+							entitySchemaPluginId: input.entitySchemaPluginId ?? null,
 						})
 						.onConflictDoNothing({
 							target: [schema.savedView.userId, schema.savedView.slug],
@@ -200,6 +211,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 							pluginSlug: nextPluginSlug,
 							isDisabled: data.isDisabled,
 							entitySchemaSlug: data.entitySchemaSlug,
+							entitySchemaPluginId: data.entitySchemaPluginId,
 							...(sortOrder === undefined ? {} : { sortOrder }),
 						})
 						.where(and(eq(schema.savedView.slug, viewSlug), eq(schema.savedView.userId, userId)))
@@ -297,14 +309,80 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				views: ReadonlyArray<BuiltinSavedViewInput>,
 			) {
 				const db = yield* Database;
-				if (views.length === 0) {
-					return;
+				const existing = yield* mapDatabaseErrors(
+					db.select().from(schema.savedView).where(eq(schema.savedView.userId, userId)),
+				);
+				const existingBySlug = new Map(existing.map((view) => [view.slug, view]));
+				for (const view of views) {
+					const current = existingBySlug.get(view.slug);
+					if (
+						current &&
+						(!current.isBuiltin ||
+							current.pluginInstallationId !== (view.pluginInstallationId ?? null))
+					) {
+						return yield* new DbError({
+							message: `Saved view slug is owned by another view: ${view.slug}`,
+						});
+					}
 				}
+
+				const desiredSlugs = new Set(views.map(({ slug }) => slug));
+				const obsoleteIds = existing
+					.filter(({ isBuiltin, slug }) => isBuiltin && !desiredSlugs.has(slug))
+					.map(({ id }) => id);
+				if (obsoleteIds.length > 0) {
+					yield* mapDatabaseErrors(
+						db.delete(schema.savedView).where(inArray(schema.savedView.id, obsoleteIds)),
+					);
+				}
+
+				yield* Effect.forEach(
+					views,
+					(view) => {
+						const current = existingBySlug.get(view.slug);
+						const values = {
+							name: view.name,
+							icon: view.icon,
+							layouts: view.layouts,
+							pluginSlug: view.pluginSlug ?? null,
+							entitySchemaSlug: view.entitySchemaSlug,
+							pluginInstallationId: view.pluginInstallationId ?? null,
+							entitySchemaPluginId: view.entitySchemaPluginId ?? null,
+						};
+						return current
+							? mapDatabaseErrors(
+									db
+										.update(schema.savedView)
+										.set(values)
+										.where(eq(schema.savedView.id, current.id)),
+								)
+							: mapDatabaseErrors(
+									db.insert(schema.savedView).values({
+										...values,
+										userId,
+										slug: view.slug,
+										isBuiltin: true,
+										sortOrder: view.sortOrder,
+									}),
+								);
+					},
+					{ discard: true },
+				);
+				return yield* Effect.void;
+			});
+			const deleteGeneratedByInstallation = Effect.fn(
+				"SavedViewsRepository.deleteGeneratedByInstallation",
+			)(function* (pluginInstallationId: string) {
+				const db = yield* Database;
 				yield* mapDatabaseErrors(
 					db
-						.insert(schema.savedView)
-						.values(views.map((view) => ({ ...view, isBuiltin: true, userId })))
-						.onConflictDoNothing({ target: [schema.savedView.userId, schema.savedView.slug] }),
+						.delete(schema.savedView)
+						.where(
+							and(
+								eq(schema.savedView.isBuiltin, true),
+								eq(schema.savedView.pluginInstallationId, pluginInstallationId),
+							),
+						),
 				);
 			});
 
@@ -320,6 +398,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				restoreCustomView,
 				ensureBuiltinViews,
 				updateBuiltinStateBySlug,
+				deleteGeneratedByInstallation,
 			};
 		}),
 	},

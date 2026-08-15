@@ -17,10 +17,10 @@ export const EntityPopulationTriggerLive = Layer.effect(
 		return {
 			request: (input) =>
 				Effect.gen(function* () {
-					if (
-						input.userId &&
-						!(yield* pluginRuntime.isSystemProviderAvailableToUser(input.userId, input.providerId))
-					) {
+					const provider = input.userId
+						? yield* pluginRuntime.findProviderAvailableToUser(input.userId, input.providerId)
+						: null;
+					if (input.userId && !provider) {
 						return;
 					}
 					const executionId = `populate-${input.entityId}`;
@@ -36,6 +36,7 @@ export const EntityPopulationTriggerLive = Layer.effect(
 								externalId: input.externalId,
 								providerId: input.providerId,
 								entitySchemaSlug: input.entitySchemaSlug,
+								entityScope: provider?.pluginScope === "user" ? "user" : "global",
 							},
 						})
 						.pipe(

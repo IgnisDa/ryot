@@ -24,6 +24,7 @@ import {
 export type InsertEntityInputBase = {
 	name: string;
 	entitySchemaSlug: EntitySchemaSlug;
+	entitySchemaPluginId?: string | null | undefined;
 } & (
 	| {
 			scope: "global";
@@ -257,20 +258,25 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				return rows.map(toPortableEntity);
 			});
 
-			const getEntitySchemaScopeForUser = Effect.fn(
+			const getEntitySchemaScopeForUser: (input: {
+				userId: UserId;
+				entitySchemaSlug: EntitySchemaSlug;
+			}) => Effect.Effect<EntitySchemaScope | null, DbError, Database> = Effect.fn(
 				"EntitiesRepository.getEntitySchemaScopeForUser",
-			)((input: { userId: UserId; entitySchemaSlug: EntitySchemaSlug }) => {
-				const definition = definitions.getEntitySchema(input.entitySchemaSlug);
+			)(function* (input: { userId: UserId; entitySchemaSlug: EntitySchemaSlug }) {
+				const effectiveDefinitions = yield* pluginRuntime.getEffectiveDefinitions(input.userId);
+				const definition = effectiveDefinitions.entitySchemas[input.entitySchemaSlug];
 				const scope: EntitySchemaScope | null = definition
 					? {
-							id: EntitySchemaSlug.make(definition.slug),
-							slug: definition.slug,
-							propertiesSchema: definition.propertiesSchema,
 							userId: null,
 							isBuiltin: true,
+							slug: definition.slug,
+							pluginId: definition.pluginId,
+							propertiesSchema: definition.propertiesSchema,
+							id: EntitySchemaSlug.make(definition.slug),
 						}
 					: null;
-				return Effect.succeed(scope);
+				return scope;
 			});
 
 			const findUserEntityWithoutProvenance = Effect.fn(
@@ -585,7 +591,11 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				const definition = definitions.getEntitySchema(entitySchemaSlug);
 				return Effect.succeed(
 					definition
-						? { propertiesSchema: definition.propertiesSchema, slug: definition.slug }
+						? {
+								slug: definition.slug,
+								propertiesSchema: definition.propertiesSchema,
+								...(definition.pluginId == null ? {} : { pluginId: definition.pluginId }),
+							}
 						: null,
 				);
 			});
@@ -621,9 +631,10 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 						name: input.name,
 						properties: input.properties,
 						externalId: externalId ?? null,
+						providerId: providerId ?? null,
 						populatedAt: input.populatedAt,
 						entitySchemaSlug: input.entitySchemaSlug,
-						providerId: providerId ?? null,
+						entitySchemaPluginId: input.entitySchemaPluginId ?? null,
 					};
 
 					if (!externalId || !providerId) {
@@ -678,8 +689,9 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					userId: input.userId,
 					properties: input.properties,
 					externalId: externalId ?? null,
-					entitySchemaSlug: input.entitySchemaSlug,
 					providerId: providerId ?? null,
+					entitySchemaSlug: input.entitySchemaSlug,
+					entitySchemaPluginId: input.entitySchemaPluginId ?? null,
 				};
 
 				if (externalId && providerId) {
@@ -746,11 +758,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				const [updated] = yield* mapDatabaseErrors(
 					db
 						.update(schema.entity)
-						.set({
-							name: input.name,
-							properties: input.properties,
-							populatedAt: input.populatedAt,
-						})
+						.set({ name: input.name, properties: input.properties, populatedAt: input.populatedAt })
 						.where(eq(schema.entity.id, input.entityId))
 						.returning(entitySelection),
 				);

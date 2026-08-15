@@ -736,6 +736,18 @@ const privatePluginRow = {
 	compiledHashes: { "private.script": "private-hash" },
 	manifest: {
 		...fixtureManifest(),
+		scripts: [
+			...fixtureManifest().scripts,
+			{
+				capabilities: [],
+				name: "Private script",
+				slug: "private.script",
+				kind: "operation" as const,
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
+				entry: "scripts/private.sandbox.ts",
+			},
+		],
 		configSchema: {
 			unknownKeys: "strict",
 			fields: { apiToken: { type: "string", label: "Token", description: "Token" } },
@@ -799,7 +811,9 @@ const makePrivateLayer = (
 					where: (condition: unknown) => {
 						const params = sqlParams(condition);
 						if (table === schema.plugin) {
-							const owned = !params.includes("user") || params.includes(privatePluginRow.ownerId);
+							const owned =
+								(!params.includes("user") || params.includes(privatePluginRow.ownerId)) &&
+								!params.includes("other-plugin-id");
 							return limitable(pluginRow && owned ? [pluginRow] : []);
 						}
 						return limitable(
@@ -830,6 +844,26 @@ const makePrivateLayer = (
 		),
 	);
 };
+
+it.effect("does not resolve a colliding private script slug from another plugin", () =>
+	Effect.gen(function* () {
+		const resolver = yield* PluginRuntimeResolver;
+		expect(
+			yield* resolver.findScriptAvailableToUser(
+				UserId.make("user-1"),
+				"private-plugin-id",
+				"private.script",
+			),
+		).toMatchObject({ id: "private-script-id", pluginId: "private-plugin-id" });
+		expect(
+			yield* resolver.findScriptAvailableToUser(
+				UserId.make("user-1"),
+				"other-plugin-id",
+				"private.script",
+			),
+		).toBeNull();
+	}).pipe(Effect.provide(makePrivateLayer())),
+);
 
 it.effect("resolves a private plugin script that is absent from the system snapshot", () =>
 	Effect.gen(function* () {
