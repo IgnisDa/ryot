@@ -17,12 +17,11 @@ import { UNKEY_ROOT_KEY } from "./unkey";
 
 const PRO_KEY_VERIFICATION_TIMEOUT_MS = 5_000;
 
-const ProKeyMeta = Schema.Struct({ expiry: Schema.optional(Schema.String) });
+const ProKeyMeta = Schema.Struct({ expiry: Schema.optional(Schema.DateTimeUtcFromString) });
 
 const makeProKeyService = (options: { readonly httpClient?: HTTPClient } = {}) =>
 	Effect.gen(function* () {
 		const config = yield* AppConfig;
-		const serverStartTime = yield* DateTime.now;
 
 		const client = new Unkey({
 			rootKey: UNKEY_ROOT_KEY,
@@ -62,11 +61,7 @@ const makeProKeyService = (options: { readonly httpClient?: HTTPClient } = {}) =
 			}
 
 			const { expiry } = decoded.success;
-			const expiryDateTime = expiry ? DateTime.make(expiry) : Option.none();
-			if (
-				Option.isSome(expiryDateTime) &&
-				DateTime.isLessThan(expiryDateTime.value, serverStartTime)
-			) {
+			if (expiry !== undefined && DateTime.isLessThan(expiry, yield* DateTime.now)) {
 				yield* Effect.logWarning("Pro Key has expired. Please renew your subscription.");
 				return false;
 			}

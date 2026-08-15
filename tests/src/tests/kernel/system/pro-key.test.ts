@@ -30,6 +30,7 @@ type ScenarioName =
 	| "validTrue"
 	| "validFalse"
 	| "expiredMeta"
+	| "malformedMeta"
 	| "serverError"
 	| "unreachable"
 	| "cache";
@@ -54,6 +55,10 @@ const scenarioConfigs: Record<ScenarioName, ScenarioConfig> = {
 		extraEnv: { SERVER_PRO_KEY: VALID_KEY_ENV_VALUE },
 		respond: () => unkeyEnvelope({ valid: true, code: "VALID", meta: { expiry: "2020-01-01" } }),
 	},
+	malformedMeta: {
+		extraEnv: { SERVER_PRO_KEY: VALID_KEY_ENV_VALUE },
+		respond: () => unkeyEnvelope({ valid: true, code: "VALID", meta: { expiry: "whenever" } }),
+	},
 	serverError: {
 		extraEnv: { SERVER_PRO_KEY: VALID_KEY_ENV_VALUE },
 		respond: () => new Response(null, { status: 500 }),
@@ -70,6 +75,7 @@ const scenarioNames: ScenarioName[] = [
 	"validTrue",
 	"validFalse",
 	"expiredMeta",
+	"malformedMeta",
 	"serverError",
 	"unreachable",
 	"cache",
@@ -96,7 +102,7 @@ beforeAll(async () => {
 	);
 
 	// Spawned sequentially, not via Promise.all: each backend boot (migrations, plugin catalog,
-	// scheduler, sandbox runtime) is heavy enough that seven concurrent boots starve each other of
+	// scheduler, sandbox runtime) is heavy enough that eight concurrent boots starve each other of
 	// CPU and stall past any reasonable health-check budget. Each instance is registered in
 	// `scenarios` immediately after it is spawned (before awaiting its health check) so a failure
 	// partway through still leaves every already-started process reachable for `afterAll` cleanup.
@@ -129,7 +135,7 @@ beforeAll(async () => {
 		// oxlint-disable-next-line no-await-in-loop -- intentionally sequential, see comment above
 		await waitForHealthCheck(`${backendOrigin}/api/system/health`, `Pro key ${name} setup`, 90);
 	}
-}, 300_000);
+}, 360_000);
 
 afterAll(async () => {
 	await Promise.all(
@@ -177,6 +183,15 @@ describe("GET /system/config with an invalid Pro Key", () => {
 	it.live("reports isServerKeyValidated: false when the key has expired", () =>
 		Effect.gen(function* () {
 			const instance = requireScenario("expiredMeta");
+			const client = makeSession(instance.backendUrl);
+			const data = yield* client.call((c) => c.system.config());
+			expect(data.pro.isServerKeyValidated).toBe(false);
+		}),
+	);
+
+	it.live("reports isServerKeyValidated: false when the expiry is not a date", () =>
+		Effect.gen(function* () {
+			const instance = requireScenario("malformedMeta");
 			const client = makeSession(instance.backendUrl);
 			const data = yield* client.call((c) => c.system.config());
 			expect(data.pro.isServerKeyValidated).toBe(false);

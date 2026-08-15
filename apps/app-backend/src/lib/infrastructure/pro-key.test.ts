@@ -1,6 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { HTTPClient } from "@unkey/api";
-import { Effect, Layer, Option, Redacted } from "effect";
+import { Duration, Effect, Layer, Option, Redacted } from "effect";
+import { TestClock } from "effect/testing";
 
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 
@@ -69,7 +70,22 @@ it.effect("returns false when the key is no longer valid", () =>
 	),
 );
 
-it.effect("returns false when meta.expiry precedes the process start time", () =>
+it.effect("returns true when meta.expiry is in the future", () =>
+	Effect.gen(function* () {
+		const proKey = yield* ProKeyService;
+		expect(yield* proKey.isValidated).toBe(true);
+	}).pipe(
+		Effect.provide(
+			makeLayer(
+				makeFetcher(() => verifyKeyResponse({ valid: true, meta: { expiry: "2999-01-01" } }))
+					.fetcher,
+				Option.some(Redacted.make("pro-key-value")),
+			),
+		),
+	),
+);
+
+it.effect("returns false when meta.expiry precedes the verification time", () =>
 	Effect.gen(function* () {
 		const proKey = yield* ProKeyService;
 		expect(yield* proKey.isValidated).toBe(false);
@@ -78,6 +94,20 @@ it.effect("returns false when meta.expiry precedes the process start time", () =
 			makeLayer(
 				makeFetcher(() => verifyKeyResponse({ valid: true, meta: { expiry: "1969-01-01" } }))
 					.fetcher,
+				Option.some(Redacted.make("pro-key-value")),
+			),
+		),
+	),
+);
+
+it.effect("returns false when meta.expiry is not a date", () =>
+	Effect.gen(function* () {
+		const proKey = yield* ProKeyService;
+		expect(yield* proKey.isValidated).toBe(false);
+	}).pipe(
+		Effect.provide(
+			makeLayer(
+				makeFetcher(() => verifyKeyResponse({ valid: true, meta: { expiry: "whenever" } })).fetcher,
 				Option.some(Redacted.make("pro-key-value")),
 			),
 		),
@@ -108,5 +138,21 @@ it.effect("caches verification so two calls issue exactly one request", () =>
 			expect(yield* proKey.isValidated).toBe(true);
 		}).pipe(Effect.provide(layer));
 		expect(calls).toHaveLength(1);
+	}),
+);
+
+it.effect("re-compares an unchanged expiry against the clock once the cache lapses", () =>
+	Effect.gen(function* () {
+		const { calls, fetcher } = makeFetcher(() =>
+			verifyKeyResponse({ valid: true, meta: { expiry: "1970-01-01T00:30:00Z" } }),
+		);
+		const layer = makeLayer(fetcher, Option.some(Redacted.make("pro-key-value")));
+		yield* Effect.gen(function* () {
+			const proKey = yield* ProKeyService;
+			expect(yield* proKey.isValidated).toBe(true);
+			yield* TestClock.adjust(Duration.hours(1));
+			expect(yield* proKey.isValidated).toBe(false);
+		}).pipe(Effect.provide(layer));
+		expect(calls).toHaveLength(2);
 	}),
 );
