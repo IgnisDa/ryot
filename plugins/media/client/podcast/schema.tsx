@@ -11,13 +11,7 @@ import {
 } from "../media/episodic-activity-state";
 import { defineEpisodicMediaSchema } from "../media/episodic-schema";
 import { MEDIA_ART_HEIGHT } from "../media/hero";
-import {
-	mediaCountFact,
-	mediaCountLabel,
-	mediaProductionStatusFact,
-	mediaRatingFact,
-	type MediaSummaryFact,
-} from "../media/summary-state";
+import { mediaCountFact, mediaCountLabel, type MediaSummaryFact } from "../media/summary-state";
 import { PodcastEpisodesTab, podcastEpisodeOriginLabel } from "./episodes";
 
 type PodcastSummary = MediaSummaryOf<typeof podcastRecipes>;
@@ -50,14 +44,10 @@ export const podcastActivityCoverage = (
 	};
 };
 
-export const podcastSummaryFacts = (podcast: PodcastSummary): readonly MediaSummaryFact[] => {
-	const episodes = mediaCountFact(podcast.totalEpisodes, "Episode");
-	return [
-		mediaRatingFact(podcast),
-		episodes === undefined ? undefined : { icon: "podcast", ...episodes },
-		mediaProductionStatusFact(podcast),
-	].filter((fact) => fact !== undefined);
-};
+export const podcastSummaryFacts = (podcast: PodcastSummary): readonly MediaSummaryFact[] =>
+	[mediaCountFact(podcast.totalEpisodes, "Episode", "podcast")].filter(
+		(fact) => fact !== undefined,
+	);
 
 export const podcastPresentationFacts = (podcast: PodcastPresentation) =>
 	podcast.productionStatus === null ? [] : [podcast.productionStatus];

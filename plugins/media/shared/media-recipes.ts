@@ -146,9 +146,16 @@ export const mediaWatchProviderSelection = (entity: Table) => ({
 	watchProviders: selectedField(propertyJson(entity, "watchProviders"), WatchProviderListSchema),
 });
 
-export const mediaRuntimeSelection = (entity: Table) => ({
-	runtime: selectedField(propertyNumber(entity, "runtime"), Schema.NullOr(Schema.Number)),
-});
+const nullableNumberField = (entity: Table, key: string) =>
+	selectedField(propertyNumber(entity, key), Schema.NullOr(Schema.Number));
+
+export const mediaNumberSelection =
+	<const Keys extends readonly string[]>(...keys: Keys) =>
+	(entity: Table) =>
+		// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+		Object.fromEntries(keys.map((key) => [key, nullableNumberField(entity, key)])) as {
+			[Key in Keys[number]]: ReturnType<typeof nullableNumberField>;
+		};
 
 export const creditSelection = (credit: Table, relationship: Table) => ({
 	id: selectedField(column(credit, "id"), EntityId),

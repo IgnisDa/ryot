@@ -9,13 +9,7 @@ import { mediaActivityCountFigure } from "../media/activity-timeline";
 import { formatLocalDateLabel } from "../media/date";
 import { defineFlatMediaSchema } from "../media/flat-schema";
 import { MEDIA_ART_HEIGHT } from "../media/hero";
-import {
-	mediaCountFact,
-	mediaCountLabel,
-	mediaProductionStatusFact,
-	mediaRatingFact,
-	type MediaSummaryFact,
-} from "../media/summary-state";
+import { mediaCountFact, mediaCountLabels, type MediaSummaryFact } from "../media/summary-state";
 import { animeAiringTrailing, animeUpcomingEpisodes } from "./sections";
 
 type AnimeSummary = MediaSummaryOf<typeof animeRecipes>;
@@ -29,19 +23,16 @@ type AnimeProgressPosition = Pick<
 
 export const animeSummaryFacts = (anime: AnimeSummary): readonly MediaSummaryFact[] => {
 	const [next] = animeUpcomingEpisodes(anime.airingSchedule);
-	const episodes = mediaCountFact(anime.episodes, "Episode");
 	return [
-		mediaRatingFact(anime),
 		next === undefined
 			? undefined
 			: { icon: "clock", label: "Next episode", value: formatLocalDateLabel(next.airingAt) },
-		episodes === undefined ? undefined : { icon: "tv", ...episodes },
-		mediaProductionStatusFact(anime),
+		mediaCountFact(anime.episodes, "Episode", "tv"),
 	].filter((fact) => fact !== undefined);
 };
 
 export const animePresentationFacts = (anime: AnimePresentation) =>
-	anime.episodes === null ? [] : [mediaCountLabel(anime.episodes, "episode")];
+	mediaCountLabels(anime.episodes, "episode");
 
 export const animeProgressLabel = (
 	percent: string | undefined,
@@ -56,7 +47,6 @@ export const animeProgressLabel = (
 export const animeSchema = defineFlatMediaSchema({
 	aspect: "poster",
 	recipes: animeRecipes,
-	progressVerb: "watched",
 	facts: animeSummaryFacts,
 	heroHeight: () => MEDIA_ART_HEIGHT,
 	overviewTrailing: animeAiringTrailing,

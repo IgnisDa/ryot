@@ -7,13 +7,14 @@ import {
 	FLAT_OVERVIEW_INPUT,
 	flatPersonRow,
 } from "../../tests/client/flat-media/overview-fixture";
+import { decodeFlatPresentation } from "../../tests/client/flat-media/presentation-fixture";
+import { renderFlatScreenBody } from "../../tests/client/flat-media/screen-fixture";
 import {
 	decodeFlatSummary,
 	FLAT_SUMMARY_INPUT,
 } from "../../tests/client/flat-media/summary-fixture";
 import { readyQueryResult, rowsResult } from "../../tests/client/query-result-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
-import { mapMediaOverview } from "../media/overview-state";
 import {
 	animePresentationFacts,
 	animeProgressLabel,
@@ -71,56 +72,6 @@ const animeActivity = (events: readonly Record<string, unknown>[] = [PROGRESS_EV
 			}),
 	);
 
-const presentationData = (overrides: Record<string, unknown> = {}) => {
-	const decoded = animeRecipes
-		.presentationRecipe(["anime-1"])
-		.decode({
-			data: {
-				rows: rowsResult(
-					[
-						{
-							images: null,
-							episodes: 24,
-							id: "anime-1",
-							publishDate: null,
-							publishYear: 2013,
-							schemaSlug: "anime",
-							progressPercent: 62,
-							state: "in_progress",
-							productionStatus: null,
-							name: "Attack on Titan",
-							populationStatus: "ready",
-							translationStatus: "none",
-							...overrides,
-						},
-					],
-					{ limit: 100, hasMore: false, nextCursor: null },
-				),
-			},
-		});
-	if (decoded._tag === "Failure" || decoded.success[0] === undefined) {
-		throw new Error("Expected decoded presentation data");
-	}
-	return { ...decoded.success[0], batchAssets: [] };
-};
-
-const renderBody = () =>
-	mountRyotClient(
-		noopAdapter,
-		<animeSchema.ScreenBody
-			compact
-			activity={null}
-			safeAreaTop={0}
-			settled={undefined}
-			refresh={() => undefined}
-			refreshOverview={() => undefined}
-			state={{ status: "ready", summary: animeSummary() }}
-			overview={mapMediaOverview(
-				readyQueryResult(decodeFlatOverview(animeRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT))),
-			)}
-		/>,
-	);
-
 afterEach(() => {
 	document.body.innerHTML = "";
 });
@@ -128,20 +79,11 @@ afterEach(() => {
 describe("anime schema", () => {
 	it("lists the next episode and episode count facts and drops the unrecorded ones", () => {
 		expect(animeSummaryFacts(animeSummary())).toEqual([
-			expect.objectContaining({ label: "TMDB rating" }),
 			expect.objectContaining({ icon: "clock", label: "Next episode" }),
 			{ icon: "tv", value: "24", label: "Episodes" },
-			{ value: "Released", icon: "clapperboard", label: "Production status" },
 		]);
 		expect(
-			animeSummaryFacts(
-				animeSummary({
-					episodes: null,
-					providerRating: null,
-					productionStatus: null,
-					airingSchedule: [AIRED_EPISODE],
-				}),
-			),
+			animeSummaryFacts(animeSummary({ episodes: null, airingSchedule: [AIRED_EPISODE] })),
 		).toEqual([]);
 	});
 
@@ -185,7 +127,11 @@ describe("anime schema", () => {
 	});
 
 	it("names the credit rails for an anime and never claims it is part of a series", () => {
-		const { unmount, container } = renderBody();
+		const { unmount, container } = renderFlatScreenBody(
+			animeSchema,
+			animeSummary(),
+			decodeFlatOverview(animeRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT)),
+		);
 
 		expect(container.textContent).toContain("Studios");
 		expect(container.textContent).toContain("Cast & crew");
@@ -195,14 +141,18 @@ describe("anime schema", () => {
 	});
 
 	it("reads the episode count on cards and hints how much was watched", () => {
-		const data = presentationData();
+		const data = decodeFlatPresentation(animeRecipes, {
+			episodes: 24,
+			progressPercent: 62,
+			schemaSlug: "anime",
+		});
 
 		expect(animePresentationFacts(data)).toEqual(["24 episodes"]);
 		expect(animePresentationFacts({ ...data, episodes: 1 })).toEqual(["1 episode"]);
 		expect(animePresentationFacts({ ...data, episodes: null })).toEqual([]);
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
-			<animeSchema.CardContent compact data={data} entityId="anime-1" />,
+			<animeSchema.CardContent compact data={data} entityId="media-1" />,
 		);
 		expect(container.textContent).toContain("24 episodes");
 		expect(container.textContent).toContain("62% watched");

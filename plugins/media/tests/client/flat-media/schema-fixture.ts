@@ -13,19 +13,19 @@ type UngroupedProgressPosition = Pick<
 >;
 
 export const fixtureSchema = defineFlatMediaSchema({
-	facts: () => [],
 	aspect: "poster",
-	progressVerb: "done",
 	recipes: flatFixtureRecipes,
 	presentationFacts: () => [],
 	heroHeight: () => MEDIA_ART_HEIGHT,
 	overviewLoadingDetail: "Fetching the credits for this item.",
 	nouns: { plural: "items", title: "Fixture", singular: "item" },
 	measureFigure: { label: "Time", value: mediaActivityTimeLabel },
+	facts: () => [{ value: "3", icon: "hash", label: "Fixture count" }],
 	group: { actionLabel: "View group", title: (name) => `Part of ${name}` },
 	creditCopy: { people: "People", notice: "Credits", companies: "Companies" },
 	activityCopy: {
 		segmentNoun: "Pass",
+		progressVerb: "done",
 		recordLabel: "Item record",
 		completionsLabel: "Passes",
 		loadingDetail: "Fetching the item record.",
@@ -43,7 +43,6 @@ export const fixtureSchema = defineFlatMediaSchema({
 export const ungroupedFixtureSchema = defineFlatMediaSchema({
 	facts: () => [],
 	aspect: "poster",
-	progressVerb: "done",
 	presentationFacts: () => [],
 	heroHeight: () => MEDIA_ART_HEIGHT,
 	recipes: flatUngroupedFixtureRecipes,
@@ -53,6 +52,7 @@ export const ungroupedFixtureSchema = defineFlatMediaSchema({
 	creditCopy: { people: "People", notice: "Credits", companies: "Companies" },
 	activityCopy: {
 		segmentNoun: "Pass",
+		progressVerb: "done",
 		recordLabel: "Item record",
 		completionsLabel: "Passes",
 		loadingDetail: "Fetching the item record.",
