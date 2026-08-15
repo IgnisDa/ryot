@@ -39,7 +39,6 @@ export const bookSchema = defineFlatMediaSchema({
 	measureFigure: { label: "Pages", value: mediaActivityCountFigure },
 	activityCopy: mediaFlatActivityCopy({ verb: "read", noun: "book" }),
 	group: { actionLabel: "View series", title: (name) => `Part of ${name}` },
-	unlinkedCreators: (overview) => overview.creators?.unlinkedCreators ?? [],
 	overviewLoadingDetail: "Fetching the authors, publishers and recommendations for this book.",
 	creditCopy: {
 		companies: "Publishers",

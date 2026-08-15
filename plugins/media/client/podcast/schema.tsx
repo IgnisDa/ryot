@@ -89,7 +89,6 @@ export const podcastSchema = defineEpisodicMediaSchema({
 	presentationFacts: podcastPresentationFacts,
 	presentationDetail: podcastPresentationDetail,
 	nouns: { title: "Podcast", plural: "podcasts", singular: "podcast" },
-	unlinkedCreators: (overview) => overview.creators?.unlinkedCreators ?? [],
 	overviewLoadingDetail: "Fetching the hosts, networks and recommendations for this podcast.",
 	activityCopy: mediaEpisodicActivityCopy({
 		verb: "listen",

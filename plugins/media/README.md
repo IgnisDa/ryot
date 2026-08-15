@@ -8,7 +8,7 @@ schema; saved views do not declare sandbox scripts.
 ## Client
 
 The plugin client supplies a workspace home and `show`, `anime`, `movie`, `music`, `book`, `manga`,
-`podcast`, and `video-game` entity renderers. Entity links use `PluginLink` so the kernel resolves
+`podcast`, `audiobook`, and `video-game` entity renderers. Entity links use `PluginLink` so the kernel resolves
 canonical entity routes.
 
 `client/media/` owns everything the screens share and carries no schema copy.
@@ -32,18 +32,19 @@ completed one as "Next up"; podcast episodes list newest first and offer the new
 Show's activity coverage is one bar per season with specials last; podcast's is a single Episodes bar.
 
 Podcast providers (iTunes and ListenNotes) emit no person or company credit relationships, so its
-credits arrive as `unlinkedCreators`, the way Book's do. They also ship cover art only - no backdrops,
+credits arrive as `unlinkedCreators`, the way Book's and Audiobook's do. They also ship cover art only - no backdrops,
 and episode artwork is square `cover` rather than show's `aspect-video` `still` - so the podcast hero
 uses art height at both widths.
 
-Movie, Music, Book, Manga, Anime, and Video Game are flat, non-episodic schemas. Each is one
+Movie, Music, Book, Manga, Anime, Audiobook, and Video Game are flat, non-episodic schemas. Each is one
 `mediaFlatRecipes` config in `shared/<slug>-recipes.ts` - the fields its entity schema declares and a
 measure for activity totals - and one `defineFlatMediaSchema` descriptor in
 `client/<slug>/schema.tsx` holding its copy, facts, artwork aspect, and hero height. The factories
 build the summary, overview, activity, and presentation recipes, queries, screen, and row and card
 presentations. A schema needing a query beyond the shared overview set adds it through
-`extraOverviewQueries` on its config rather than re-wrapping the recipe. Every flat summary recipe
-returns `{ summary, entitySchemaSlug }`, and every activity recipe returns
+`extraOverviewQueries` on its config rather than re-wrapping the recipe. Measures come from
+`mediaTimeSpentMeasure`, with an optional entity fallback, or `mediaEntityCountMeasure`. Every flat
+summary recipe returns `{ summary, entitySchemaSlug }`, and every activity recipe returns
 `{ completionCount, consumedAmount, unknownAmountCount, truncated, events }`.
 
 A schema selects only fields its own entity schema declares. `watchProviders` exists on `movie` and
@@ -71,17 +72,21 @@ Movie and Music measure activity in minutes, falling back to runtime or `duratio
 completion records no time spent; Music renders `duration` (seconds) as `m:ss`. Music and Book
 providers ship only cover art, so their heroes use art height at both widths.
 
+A schema whose providers store credits without a linked entity declares
+`mediaUnlinkedCreatorsOverviewQueries` as its `extraOverviewQueries`. Both engines read the resulting
+`creators` overview key and add its `unlinkedCreators` to the credit rails as non-clickable tiles -
+`Publisher` with the companies, every other role with the people - and they do not count toward sync
+marks. Book, Audiobook, and Podcast declare it.
+
 Book measures pages: its total sums the book's `pages` over completions and renders as `640+` when a
-completed book has no page count. Book overviews add the entity's `unlinkedCreators` to the credit
-rails as non-clickable tiles - `Publisher` with the companies, every other role with the people - and
-they do not count toward sync marks. The group section names the book series.
+completed book has no page count. The group section names the book series.
 
 Manga measures chapters: its total sums the manga's `chapters` over completions and renders as `120+`
 when a finished manga has no chapter count. Both importers write one progress event per chapter, so
 its activity rows name the recorded position - "Volume 3, Chapter 45", "Chapter 45", or "Volume 3" -
 and fall back to the percent phrasing only when neither was recorded. None of its three providers
 (AniList, MyAnimeList, MangaUpdates) emits person or company credits, so both rails render empty and
-stay hidden, and manga declares no `unlinkedCreators` field to fill them. Only AniList ships a banner,
+stay hidden, and manga issues no `unlinkedCreators` query to fill them. Only AniList ships a banner,
 so the manga hero uses art height at both widths and keeps the default `backdrop` purpose.
 
 Anime measures episodes: its total sums the anime's `episodes` over completions and renders as `24+`
@@ -95,6 +100,11 @@ episode included, so the section keeps only entries still to air, orders them so
 at six, and hides itself when none remain, which also drops MyAnimeList's single premiere-dated entry
 once it has passed; the first of those entries is also the summary's next-episode fact. Only AniList
 ships a banner, so the anime hero uses art height at both widths.
+
+Audiobook measures time like Movie, falling back to `runtime` when a completion records no time
+spent. Audible emits Author and Narrator person credits, `unlinkedCreators` for contributors without
+an ASIN, and no company credits, so the companies rail stays hidden. It ships square covers and no
+backdrops, so the hero uses art height at both widths. The group section names the audiobook series.
 
 Video Game measures `timeSpent` alone, with no fallback: `timeToBeat` is a community estimate of the
 game, not a record of your play, so a completion with no recorded time stays unknown and the total

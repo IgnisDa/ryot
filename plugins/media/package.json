@@ -14,6 +14,10 @@
 			"types": "./shared/anime-recipes.ts",
 			"default": "./shared/anime-recipes.ts"
 		},
+		"./shared/audiobook-recipes": {
+			"types": "./shared/audiobook-recipes.ts",
+			"default": "./shared/audiobook-recipes.ts"
+		},
 		"./shared/show-recipes": {
 			"types": "./shared/show-recipes.ts",
 			"default": "./shared/show-recipes.ts"

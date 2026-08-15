@@ -6,7 +6,10 @@ import clsx from "clsx";
 import { createElement, type ReactNode } from "react";
 
 import type { MediaLifecycleState } from "../../shared/lifecycle-expressions";
-import type { MediaFlatActivityEvent } from "../../shared/media-recipes";
+import type {
+	MediaFlatActivityEvent,
+	MediaUnlinkedCreatorsOverview,
+} from "../../shared/media-recipes";
 import { MediaActivityReviewDetail, type MediaActivityRowRender } from "./activity-rows";
 import { MediaActivity, MediaActivityRecord, type MediaActivityState } from "./activity-tab";
 import { decimalLabel, mediaActivitySpanLabel } from "./activity-timeline";
@@ -46,8 +49,8 @@ import {
 } from "./overview";
 import {
 	mediaRelationsAreEmpty,
+	mediaUnlinkedCreators,
 	type MediaOverviewState,
-	type MediaUnlinkedCreator,
 } from "./overview-state";
 import { MediaRefreshStatus } from "./primitives";
 import { classifyRyotQueryResult } from "./query-state";
@@ -110,7 +113,7 @@ type EntityInput = { readonly entityId: string };
 
 export type MediaFlatSchemaDescriptor<
 	Summary extends FlatSummary,
-	Overview extends MediaGroupOverview,
+	Overview extends MediaGroupOverview & MediaUnlinkedCreatorsOverview,
 	Presentation extends FlatPresentation,
 	Extra = unknown,
 > = {
@@ -162,7 +165,6 @@ export type MediaFlatSchemaDescriptor<
 	readonly progressVerb: string;
 	readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
 	readonly presentationFacts: (data: Presentation) => readonly string[];
-	readonly unlinkedCreators?: (overview: Overview) => readonly MediaUnlinkedCreator[];
 	readonly overviewTrailing?: (input: {
 		readonly summary: Summary;
 		readonly compact: boolean;
@@ -186,6 +188,9 @@ const TABS: readonly MediaTab<"overview" | "activity">[] = [
 const lifecycleLabel = (media: { readonly state: MediaLifecycleState }) =>
 	mediaFlatLifecycleLabel(media.state);
 
+const overviewIsEmpty = (overview: MediaGroupOverview & MediaUnlinkedCreatorsOverview) =>
+	mediaGroupOverviewIsEmpty(overview, mediaUnlinkedCreators(overview));
+
 const summaryProgress = (summary: FlatSummary) =>
 	summary.state === "in_progress" && summary.progressPercent !== null
 		? { percent: summary.progressPercent }
@@ -193,7 +198,7 @@ const summaryProgress = (summary: FlatSummary) =>
 
 export const defineFlatMediaSchema = <
 	Summary extends FlatSummary,
-	Overview extends MediaGroupOverview,
+	Overview extends MediaGroupOverview & MediaUnlinkedCreatorsOverview,
 	Presentation extends FlatPresentation,
 	Extra = unknown,
 >(
@@ -373,11 +378,6 @@ export const defineFlatMediaSchema = <
 		);
 	}
 
-	const unlinkedOf = (overview: Overview) => descriptor.unlinkedCreators?.(overview) ?? [];
-
-	const overviewIsEmpty = (overview: Overview) =>
-		mediaGroupOverviewIsEmpty(overview, unlinkedOf(overview));
-
 	const overviewRelations: MediaOverviewRelationsRender<Overview> = ({
 		compact,
 		divided,
@@ -385,7 +385,7 @@ export const defineFlatMediaSchema = <
 	}) => {
 		const groupCopy = descriptor.group;
 		const group = groupCopy === undefined ? null : (overview.group ?? null);
-		const unlinked = unlinkedOf(overview);
+		const unlinked = mediaUnlinkedCreators(overview);
 		return (
 			<MediaOverviewRelations
 				compact={compact}
