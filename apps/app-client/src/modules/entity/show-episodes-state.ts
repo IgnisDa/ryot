@@ -1,4 +1,4 @@
-import type { ShowDetailResult } from "@ryot/media-plugin/query-recipes";
+import type { ShowSeasonEpisodesResult, ShowSeasonsResult } from "@ryot/media-plugin/query-recipes";
 import { Match } from "effect";
 import type { AsyncResult } from "effect/unstable/reactivity";
 
@@ -8,11 +8,12 @@ import { canonicalManagedAssets } from "@/modules/ui/managed-assets";
 
 import { preferredMediaImageAsset } from "./media-image";
 
-type ShowDetail = NonNullable<ShowDetailResult>;
+type ShowSeasons = NonNullable<ShowSeasonsResult>;
+type ShowSeasonEpisodes = NonNullable<ShowSeasonEpisodesResult>;
 
-export type ShowSeason = ShowDetail["seasons"]["items"][number];
+export type ShowSeason = ShowSeasons["seasons"]["items"][number];
 
-export type ShowEpisode = ShowSeason["episodes"]["items"][number];
+export type ShowEpisode = ShowSeasonEpisodes["episodes"]["items"][number];
 
 export type ShowSeasonList = readonly [ShowSeason, ...ShowSeason[]];
 
@@ -22,6 +23,13 @@ export type ShowEpisodesState =
 	| { readonly status: "malformed"; readonly cause: unknown }
 	| { readonly status: "ready"; readonly seasons: ShowSeasonList }
 	| { readonly status: "transport-error"; readonly cause: unknown };
+
+export type ShowSeasonEpisodesState =
+	| { readonly status: "empty" }
+	| { readonly status: "loading" }
+	| { readonly status: "malformed"; readonly cause: unknown }
+	| { readonly status: "transport-error"; readonly cause: unknown }
+	| { readonly status: "ready"; readonly season: ShowSeasonEpisodes };
 
 const SPECIALS_LABEL = "Specials";
 
@@ -37,7 +45,7 @@ const orderShowSeasons = (seasons: readonly ShowSeason[]) =>
 	[...seasons].sort((left, right) => seasonOrder(left) - seasonOrder(right));
 
 export const mapShowEpisodes = (
-	result: AsyncResult.AsyncResult<ShowDetailResult, unknown>,
+	result: AsyncResult.AsyncResult<ShowSeasonsResult, unknown>,
 ): ShowEpisodesState => {
 	const state = classifyRyotQLResult(result);
 	if (state.status !== "ready") {
@@ -51,12 +59,32 @@ export const mapShowEpisodes = (
 	return { status: "ready", seasons: [first, ...rest] };
 };
 
+export const mapShowSeasonEpisodes = (
+	result: AsyncResult.AsyncResult<ShowSeasonEpisodesResult, unknown>,
+): ShowSeasonEpisodesState => {
+	const state = classifyRyotQLResult(result);
+	if (state.status !== "ready") {
+		return state;
+	}
+	return state.value === null ? { status: "empty" } : { status: "ready", season: state.value };
+};
+
 export const showEpisodesError = (state: { readonly status: "transport-error" | "malformed" }) => ({
 	title: "Unable to load episodes",
 	detail:
 		state.status === "transport-error"
-			? "The seasons and episodes could not be loaded. Check your connection and try again."
-			: "These episodes came back in a form that could not be displayed. Try again later.",
+			? "The seasons could not be loaded. Check your connection and try again."
+			: "These seasons came back in a form that could not be displayed. Try again later.",
+});
+
+export const showSeasonEpisodesError = (state: {
+	readonly status: "transport-error" | "malformed";
+}) => ({
+	title: "Unable to load this season",
+	detail:
+		state.status === "transport-error"
+			? "This season's episodes could not be loaded. Check your connection and try again."
+			: "This season's episodes came back in a form that could not be displayed. Try again later.",
 });
 
 export const selectedShowSeason = (seasons: ShowSeasonList, seasonId: string | null) =>
@@ -71,18 +99,18 @@ export const showSeasonLabel = (season: ShowSeason) => {
 	return season.name.trim() === "" ? `Season ${season.seasonNumber}` : season.name;
 };
 
-const showSeasonCompletion = (season: ShowSeason) => ({
+const showSeasonCompletion = (season: ShowSeasonEpisodes) => ({
 	total: season.episodes.items.length,
 	hasMore: season.episodes.pageInfo.hasMore,
 	completed: season.episodes.items.filter((episode) => episode.state === "complete").length,
 });
 
-export const showSeasonCompletionPercent = (season: ShowSeason) => {
+export const showSeasonCompletionPercent = (season: ShowSeasonEpisodes) => {
 	const { total, completed, hasMore } = showSeasonCompletion(season);
 	return hasMore || total === 0 ? undefined : Math.round((completed / total) * 100);
 };
 
-export const showSeasonEpisodeCountLabel = (season: ShowSeason) => {
+export const showSeasonEpisodeCountLabel = (season: ShowSeasonEpisodes) => {
 	const { total, hasMore } = showSeasonCompletion(season);
 	if (total === 0) {
 		return undefined;
@@ -90,15 +118,12 @@ export const showSeasonEpisodeCountLabel = (season: ShowSeason) => {
 	return hasMore ? `${total}+ episodes` : `${total} ${total === 1 ? "episode" : "episodes"}`;
 };
 
-export const showSeasonCompletedLabel = (season: ShowSeason) => {
+export const showSeasonCompletedLabel = (season: ShowSeasonEpisodes) => {
 	const { completed } = showSeasonCompletion(season);
 	return completed === 0 ? undefined : `${completed} watched`;
 };
 
-export const showNextUpEpisode = (seasons: ShowSeasonList) => {
-	const episodes = seasons
-		.filter((season) => !isSpecialsSeason(season))
-		.flatMap((season) => season.episodes.items);
+export const showNextUpEpisode = (episodes: readonly ShowEpisode[]) => {
 	const inProgress = episodes.find((episode) => episode.state === "in_progress");
 	if (inProgress !== undefined) {
 		return inProgress;
@@ -159,12 +184,15 @@ export const showSeasonAsset = (season: ShowSeason) =>
 export const showEpisodeAsset = (episode: ShowEpisode) =>
 	preferredMediaImageAsset(episode.images, "still");
 
-export const showEpisodesManagedAssets = (seasons: ShowSeasonList) =>
+export const showEpisodesManagedAssets = (
+	seasons: ShowSeasonList,
+	seasonEpisodes: ShowSeasonEpisodesState,
+) =>
 	canonicalManagedAssets(
-		seasons
-			.flatMap((season) => [
-				showSeasonAsset(season),
-				...season.episodes.items.map(showEpisodeAsset),
-			])
-			.flatMap((asset) => (asset === undefined || asset.type === "remote" ? [] : [asset])),
+		[
+			...seasons.map(showSeasonAsset),
+			...(seasonEpisodes.status === "ready"
+				? seasonEpisodes.season.episodes.items.map(showEpisodeAsset)
+				: []),
+		].flatMap((asset) => (asset === undefined || asset.type === "remote" ? [] : [asset])),
 	);

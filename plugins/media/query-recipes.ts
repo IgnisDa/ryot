@@ -77,16 +77,54 @@ const relationshipTo = (relationship: Table, parent: Table, child: Table, schema
 		eq(column(relationship, "relationshipSchemaSlug"), literal(schema)),
 	);
 
+const showEpisodeInclude = (season: Table, episodeLimit: number) => {
+	const episode = table("entity", "episode");
+	const episodeNumber = propertyNumber(episode, "episodeNumber");
+	const episodeRelationship = table("relationship", "episodeRelationship");
+
+	return selectedInclude(episode, {
+		limit: episodeLimit,
+		orderBy: [ascending(episodeNumber)],
+		where: and(
+			entitySchema(episode, "show-episode"),
+			relationshipTo(episodeRelationship, season, episode, "show-season-to-show-episode"),
+		),
+		joins: [
+			join(
+				"inner",
+				episodeRelationship,
+				eq(column(episodeRelationship, "targetEntityId"), column(episode, "id")),
+			),
+		],
+		selection: {
+			...entityIdentitySelection(episode),
+			state: selectedField(
+				episodeLifecycleStateExpression(episode, "showEpisodeDetailLifecycle"),
+				EpisodeLifecycleStateSchema,
+			),
+			episodeNumber: selectedField(episodeNumber, Schema.Number),
+			seasonNumber: selectedField(propertyNumber(episode, "seasonNumber"), Schema.Number),
+			images: selectedField(propertyJson(episode, "images"), MediaImageListSchema),
+			runtime: selectedField(propertyNumber(episode, "runtime"), Schema.NullOr(Schema.Number)),
+			publishDate: selectedField(
+				propertyText(episode, "publishDate"),
+				Schema.NullOr(Schema.String),
+			),
+			description: selectedField(
+				propertyText(episode, "description"),
+				Schema.NullOr(Schema.String),
+			),
+		},
+	});
+};
+
 const showSeasonInclude = (input: {
 	readonly seasonLimit: number;
-	readonly episodeLimit: number;
+	readonly episodeLimit?: number;
 }) => {
 	const season = table("entity", "season");
-	const episode = table("entity", "episode");
 	const seasonNumber = propertyNumber(season, "seasonNumber");
-	const episodeNumber = propertyNumber(episode, "episodeNumber");
 	const seasonRelationship = table("relationship", "seasonRelationship");
-	const episodeRelationship = table("relationship", "episodeRelationship");
 
 	return selectedInclude(season, {
 		limit: input.seasonLimit,
@@ -109,42 +147,10 @@ const showSeasonInclude = (input: {
 				eq(column(seasonRelationship, "targetEntityId"), column(season, "id")),
 			),
 		],
-		include: {
-			episodes: selectedInclude(episode, {
-				limit: input.episodeLimit,
-				orderBy: [ascending(episodeNumber)],
-				joins: [
-					join(
-						"inner",
-						episodeRelationship,
-						eq(column(episodeRelationship, "targetEntityId"), column(episode, "id")),
-					),
-				],
-				where: and(
-					entitySchema(episode, "show-episode"),
-					relationshipTo(episodeRelationship, season, episode, "show-season-to-show-episode"),
-				),
-				selection: {
-					...entityIdentitySelection(episode),
-					state: selectedField(
-						episodeLifecycleStateExpression(episode, "showEpisodeDetailLifecycle"),
-						EpisodeLifecycleStateSchema,
-					),
-					episodeNumber: selectedField(episodeNumber, Schema.Number),
-					seasonNumber: selectedField(propertyNumber(episode, "seasonNumber"), Schema.Number),
-					images: selectedField(propertyJson(episode, "images"), MediaImageListSchema),
-					runtime: selectedField(propertyNumber(episode, "runtime"), Schema.NullOr(Schema.Number)),
-					publishDate: selectedField(
-						propertyText(episode, "publishDate"),
-						Schema.NullOr(Schema.String),
-					),
-					description: selectedField(
-						propertyText(episode, "description"),
-						Schema.NullOr(Schema.String),
-					),
-				},
-			}),
-		},
+		include:
+			input.episodeLimit === undefined
+				? undefined
+				: { episodes: showEpisodeInclude(season, input.episodeLimit) },
 	});
 };
 
@@ -210,6 +216,40 @@ export const showDetailRecipe = defineRecipe(
 				}),
 			},
 			map: ({ show }) => Result.succeed(show ?? null),
+		};
+	},
+);
+
+export const showSeasonsRecipe = defineRecipe(
+	(input: { readonly entityId: string; readonly seasonLimit: number }) => {
+		const entity = table("entity", "entity");
+		return {
+			queries: {
+				show: selectedOptionalRow(entity, {
+					include: { seasons: showSeasonInclude(input) },
+					selection: entityIdentitySelection(entity),
+					orderBy: [ascending(column(entity, "id"))],
+					where: and(entitySchema(entity, "show"), entityId(entity, input.entityId)),
+				}),
+			},
+			map: ({ show }) => Result.succeed(show ?? null),
+		};
+	},
+);
+
+export const showSeasonEpisodesRecipe = defineRecipe(
+	(input: { readonly seasonId: string; readonly episodeLimit: number }) => {
+		const entity = table("entity", "season");
+		return {
+			queries: {
+				season: selectedOptionalRow(entity, {
+					include: { episodes: showEpisodeInclude(entity, input.episodeLimit) },
+					selection: entityIdentitySelection(entity),
+					orderBy: [ascending(column(entity, "id"))],
+					where: and(entitySchema(entity, "show-season"), entityId(entity, input.seasonId)),
+				}),
+			},
+			map: ({ season }) => Result.succeed(season ?? null),
 		};
 	},
 );
@@ -962,11 +1002,13 @@ export const defaultMediaSavedViewRecipe = (input: {
 
 export type ShowActivityEvent = ShowActivityResult["events"][number];
 export type ShowDetailResult = Recipe.Success<typeof showDetailRecipe>;
+export type ShowSeasonsResult = Recipe.Success<typeof showSeasonsRecipe>;
 export type ShowSummaryResult = Recipe.Success<typeof showSummaryRecipe>;
 export type ShowActivityResult = Recipe.Success<typeof showActivityRecipe>;
 export type ShowOverviewResult = Recipe.Success<typeof showOverviewRecipe>;
 export type PodcastDetailResult = Recipe.Success<typeof podcastDetailRecipe>;
 export type TrendingMediaResult = Recipe.Success<typeof trendingMediaRecipe>;
+export type ShowSeasonEpisodesResult = Recipe.Success<typeof showSeasonEpisodesRecipe>;
 export type ShowActivityEpisode = Extract<ShowActivityEvent, { kind: "episode" }>["episode"];
 export type DefaultMediaSavedViewResult = Recipe.Success<typeof defaultMediaSavedViewRecipe>;
 export type ShowsByLifecycleStateResult = Recipe.Success<typeof showsByLifecycleStateRecipe>;
