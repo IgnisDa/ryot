@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "f4e96daa-ef58-4dc2-b639-7818120a0576",
+	"id": "83f939e4-7f74-4a08-8e6b-3d982ca74341",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{
@@ -894,7 +894,33 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
+			"name": "graph_hash",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_page_build"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
 			"name": "published_hash",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_page_build"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "graph_identity",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "client_page_build"
@@ -9686,9 +9712,9 @@
 		},
 		{
 			"nameExplicit": true,
-			"columns": ["renderer_id", "published_hash"],
+			"columns": ["renderer_id", "published_hash", "graph_hash"],
 			"nullsNotDistinct": false,
-			"name": "client_page_build_renderer_publication_unique",
+			"name": "client_page_build_graph_unique",
 			"entityType": "uniques",
 			"schema": "public",
 			"table": "client_page_build"

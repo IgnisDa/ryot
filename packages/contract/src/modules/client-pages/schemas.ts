@@ -94,14 +94,89 @@ export const ClientPageTarget = strictStruct({
 
 export const PrepareClientPageBody = strictStruct({ target: ClientPageTarget });
 
+export const ClientPageCodeContributor = Schema.Union([
+	strictStruct({
+		sourceHash: Schema.String,
+		rendererId: ClientRendererId,
+		kind: Schema.Literal("renderer"),
+	}),
+	strictStruct({
+		pluginSlug: PluginSlug,
+		pluginId: Schema.String,
+		sourceHash: Schema.String,
+		installationId: Schema.String,
+		kind: Schema.Literal("plugin"),
+	}),
+]);
+export type ClientPageCodeContributor = typeof ClientPageCodeContributor.Type;
+
+const ClientPagePublicExportIdentity = strictStruct({
+	name: Schema.String,
+	entry: Schema.String,
+	automaticEntityPresentations: Schema.Boolean,
+	settingsSchema: Schema.optional(AppSchema),
+	kind: Schema.Literals(["component", "page", "presentation"]),
+});
+
+export const ClientPageAutomaticRegistryIdentity = strictStruct({
+	ownerPluginId: Schema.String,
+	exportSpecifier: Schema.String,
+	entitySchemaSlug: Schema.String,
+	layout: Schema.Literals(["grid", "list"]),
+});
+
+export const ClientPageGraphIdentity = strictStruct({
+	format: Schema.Int,
+	apiVersion: Schema.Int,
+	bridgeVersion: Schema.Int,
+	compilerVersion: Schema.Int,
+	selectedExports: Schema.Array(Schema.String),
+	automaticRegistry: Schema.Array(ClientPageAutomaticRegistryIdentity),
+	entry: strictStruct({ contributor: Schema.String, path: Schema.String }),
+	kernelAutomaticFallback: Schema.NullOr(
+		strictStruct({
+			provider: Schema.Literal("kernel"),
+			runtimeVersion: Schema.Int,
+			layouts: Schema.Tuple([Schema.Literal("grid"), Schema.Literal("list")]),
+		}),
+	),
+	contributors: Schema.Array(
+		Schema.Union([
+			strictStruct({
+				name: Schema.String,
+				entry: Schema.String,
+				namespace: Schema.String,
+				sourceHash: Schema.String,
+				rendererId: ClientRendererId,
+				kind: Schema.Literal("renderer"),
+				automaticEntityPresentations: Schema.Boolean,
+				pluginDependencies: Schema.Array(PluginSlug),
+			}),
+			strictStruct({
+				pluginSlug: PluginSlug,
+				pluginId: Schema.String,
+				namespace: Schema.String,
+				sourceHash: Schema.String,
+				installationId: Schema.String,
+				kind: Schema.Literal("plugin"),
+				pluginDependencies: Schema.Array(PluginSlug),
+				exports: Schema.Array(ClientPagePublicExportIdentity),
+			}),
+		]),
+	),
+});
+export type ClientPageGraphIdentity = typeof ClientPageGraphIdentity.Type;
+
 export const PreparedClientPageIdentity = strictStruct({
 	buildId: Schema.String,
+	graphHash: Schema.String,
 	savedViewId: SavedViewId,
 	viewRevision: Schema.Int,
 	artifactHash: Schema.String,
 	rendererId: ClientRendererId,
 	publishedHash: Schema.String,
 	publishedRevision: Schema.Int,
+	contributors: Schema.Array(ClientPageCodeContributor),
 });
 
 export const PreparedClientPageContext = strictStruct({
