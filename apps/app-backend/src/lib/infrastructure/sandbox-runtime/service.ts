@@ -309,9 +309,6 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 						hostCallLimit: SANDBOX_LIMITS.hostCalls.total,
 						expiresAt: now + timeoutMs + sessionTtlBufferMs,
 					});
-					yield* Effect.addFinalizer(() =>
-						bridge.removeSession(input.executionId).pipe(Effect.orDie),
-					);
 
 					yield* Queue.offer(worker.stdinQueue, encoder.encode(requestLine));
 
