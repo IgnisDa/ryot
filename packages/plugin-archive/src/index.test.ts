@@ -52,6 +52,19 @@ const fixture = {
 
 const rawManifest = encoder.encode(`${JSON.stringify(fixture.manifest, null, "\t")}\n`);
 
+const writeArchiveInTimezone = (timezone: string) => {
+	const entry = new URL("./index.ts", import.meta.url).href;
+	const script = `import { writePluginArchive } from ${JSON.stringify(entry)}; process.stdout.write(writePluginArchive(${JSON.stringify(fixture)}));`;
+	const result = Bun.spawnSync([process.execPath, "--eval", script], {
+		stderr: "pipe",
+		stdout: "pipe",
+		env: { ...process.env, TZ: timezone },
+	});
+	expect(new TextDecoder().decode(result.stderr)).toBe("");
+	expect(result.exitCode).toBe(0);
+	return result.stdout;
+};
+
 const archive = (entries: ReadonlyArray<readonly [string, Uint8Array]>) => {
 	const chunks: Uint8Array[] = [];
 	const zip = new Zip((error, chunk) => {
@@ -121,6 +134,25 @@ describe("plugin archive", () => {
 		expect(new TextDecoder().decode(files["manifest.json"])).toBe(
 			`${JSON.stringify(fixture.manifest, null, "\t")}\n`,
 		);
+	});
+
+	it("writes byte-identical archives across timezones", () => {
+		const utc = writeArchiveInTimezone("UTC");
+		expect(writeArchiveInTimezone("America/Los_Angeles")).toEqual(utc);
+		expect(writeArchiveInTimezone("Asia/Kolkata")).toEqual(utc);
+	});
+
+	it("orders paths by code units", () => {
+		const bytes = writePluginArchive({
+			manifest: fixture.manifest,
+			files: { "backend/a.ts": "", "backend/B.ts": "", "backend/_x.ts": "" },
+		});
+		expect(Object.keys(unzipSync(bytes))).toEqual([
+			"manifest.json",
+			"backend/B.ts",
+			"backend/_x.ts",
+			"backend/a.ts",
+		]);
 	});
 
 	it("round trips backend and client sources from an async byte stream", async () => {

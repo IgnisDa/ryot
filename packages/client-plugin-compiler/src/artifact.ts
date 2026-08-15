@@ -26,7 +26,7 @@ export const clientArtifactContentType = (name: string) =>
 	CONTENT_TYPES[name.slice(name.lastIndexOf(".") + 1)] ?? "application/octet-stream";
 
 export const clientAssetName = (path: string, contents: string) =>
-	`asset-${sha256Hex(contents).slice(0, 8)}.${path.slice(path.lastIndexOf(".") + 1)}`;
+	`asset-${sha256Hex(contents)}.${path.slice(path.lastIndexOf(".") + 1)}`;
 
 export const clientArtifactFile = (name: string, contents: string): PluginClientArtifactFile => ({
 	name,
