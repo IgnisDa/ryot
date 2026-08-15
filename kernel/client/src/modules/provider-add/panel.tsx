@@ -407,7 +407,7 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 						value={state.query}
 						placeholder="Search"
 						aria-label="Search providers"
-						className="min-w-0 flex-1 bg-transparent text-sm text-text outline-none"
+						className="min-w-0 flex-1 bg-transparent text-base text-text outline-none md:text-sm"
 						onChange={(event) => dispatch({ type: "query-changed", query: event.target.value })}
 						onKeyDown={(event) => {
 							if (event.key === "Enter") {
