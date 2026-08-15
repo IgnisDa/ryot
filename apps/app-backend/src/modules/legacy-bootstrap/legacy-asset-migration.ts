@@ -73,12 +73,18 @@ const rewriteS3Keys = (
 ): [unknown, boolean] => {
 	if (Array.isArray(value)) {
 		let changed = false;
-		const rewritten = value.map((child) => {
+		const rewritten: unknown[] = [];
+		for (const child of value) {
 			const [next, childChanged] = rewriteS3Keys(child, userId, replacements);
-			changed ||= childChanged;
-			return next;
-		});
-		return [changed ? rewritten : value, changed];
+			rewritten.push(next);
+			if (childChanged) {
+				changed = true;
+			}
+		}
+		if (!changed) {
+			return [value, false];
+		}
+		return [rewritten, true];
 	}
 	if (!isJsonRecord(value)) {
 		return [value, false];
@@ -127,7 +133,7 @@ const migrateAsset = (
 		}
 
 		const info = yield* s3.statObject(asset.key);
-		const size = Number(info.size);
+		const size = info.size;
 		const contentType = info.type.split(";", 1)[0]?.trim().toLowerCase() ?? "";
 		const extension = resolvePermanentExtension(contentType);
 		if (!Number.isSafeInteger(size) || size < 0 || extension === null) {
@@ -208,19 +214,16 @@ export const migrateLegacyS3Assets = Effect.gen(function* () {
 		if (!changed) {
 			continue;
 		}
+		if (!isJsonRecord(properties)) {
+			throw new Error(`Rewritten properties for ${row.source} ${row.id} are not a JSON object`);
+		}
 		if (row.source === "entity") {
 			yield* mapDatabaseErrors(
-				database
-					.update(entity)
-					.set({ properties: properties as JsonRecord })
-					.where(eq(entity.id, row.id)),
+				database.update(entity).set({ properties }).where(eq(entity.id, row.id)),
 			);
 		} else {
 			yield* mapDatabaseErrors(
-				database
-					.update(event)
-					.set({ properties: properties as JsonRecord })
-					.where(eq(event.id, row.id)),
+				database.update(event).set({ properties }).where(eq(event.id, row.id)),
 			);
 		}
 		updatedRows += 1;
