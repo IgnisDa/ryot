@@ -183,9 +183,8 @@ describe("ScreenFrame", () => {
 		render(<Harness compact hideTitle safeAreaTop={59} hero={<img alt="Cover" src="art.png" />} />);
 
 		const observation = observations[0];
-		const sentinelTop = 59 + SCREEN_BAR_HEIGHT + HERO_HEIGHT;
 		expect(observations).toHaveLength(1);
-		expect(observation?.target.getAttribute("style")).toContain(`top: ${sentinelTop}px`);
+		expect(observation?.target.getAttribute("style")).toContain(`top: ${HERO_HEIGHT}px`);
 		expect(bar().hasAttribute("data-solid")).toBe(false);
 
 		act(() => observation?.emit(false));
@@ -193,6 +192,24 @@ describe("ScreenFrame", () => {
 
 		act(() => observation?.emit(true));
 		expect(bar().hasAttribute("data-solid")).toBe(false);
+	});
+
+	it("lifts a hero's art behind the bar without moving the content under it", () => {
+		render(<Harness compact hideTitle safeAreaTop={59} hero={<img alt="Cover" src="art.png" />} />);
+
+		const chromeTop = 59 + SCREEN_BAR_HEIGHT;
+		const block = screen.getByAltText("Cover").parentElement;
+		expect(block?.getAttribute("style")).toContain(`top: -${chromeTop}px`);
+		expect(block?.getAttribute("style")).toContain(`height: ${chromeTop + HERO_HEIGHT}px`);
+		expect(block?.parentElement?.getAttribute("style")).toBeNull();
+	});
+
+	it("sizes a wide hero from the art alone, since it sits under no bar", () => {
+		render(<Harness hideTitle compact={false} hero={<img alt="Cover" src="art.png" />} />);
+
+		const block = screen.getByAltText("Cover").parentElement;
+		expect(block?.getAttribute("style")).toContain("top: 0px");
+		expect(block?.getAttribute("style")).toContain(`height: ${HERO_HEIGHT}px`);
 	});
 
 	it("draws the hero at both breakpoints", () => {

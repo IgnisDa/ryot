@@ -121,14 +121,21 @@ the gap the title block was giving it, because a search row is a bar row and car
 its own; leaving that to the caller joins the results to the input.
 
 A hero screen is the one case where there is no title block to trail. `hero` is therefore
-`{ height, node }`, not a bare node: the node is emitted into its own positioned zero-height block
-above the content column, so absolutely positioned art gets a containing box spanning the frame's
-full width, and the sentinel goes inside that block. The bar then stays clear until `height` of art
-has scrolled away, which is what makes art that bleeds behind the bar readable at all. `height`
-counts only the art below the bar, and the frame adds `safeAreaTop` and its own bar height when it
-places the sentinel, so a caller writes the design number and never the device measurement. The
-two arrive in one slot because a caller cannot usefully supply either alone: art with no threshold
-renders under a bar that is opaque from the first pixel, hiding its own top edge.
+`{ height, node }`, not a bare node: the node is emitted into a box the frame both positions and
+sizes, running from the top of the scroll content down to `safeAreaTop + SCREEN_BAR_HEIGHT + height`,
+and the sentinel sits at its bottom edge. That box is out of flow, which is the point. Art has to
+start above the bar while the content column stays below it, and a block that carries the art up
+through the flow — a negative margin, say — carries the column with it and draws the screen's first
+line under the status bar. Out of flow, the art bleeds behind the bar and past the column padding,
+the content paints over it, and nothing after it moves.
+
+The node fills that box with `absolute inset-0`, so `height` is the only number a hero writes: the
+art below the bar, a design measurement rather than a device one, since the chrome above it is the
+frame's to add. The bar then stays clear until that much art has scrolled away, which is what makes
+art bleeding behind it readable at all. The two arrive in one slot because a caller cannot usefully
+supply either alone: art with no threshold renders under a bar that is opaque from the first pixel,
+hiding its own top edge. `SCREEN_BAR_HEIGHT` stays inside this package for the same reason — a call
+site that needs it is a call site doing the frame's arithmetic.
 
 `ScreenBarButton` draws the 44px controls in that bar and deliberately carries no text colour. A
 caller's class cannot beat one baked into a component: the cascade orders utilities by the

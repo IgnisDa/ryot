@@ -1,10 +1,10 @@
-import { usePluginTitle, useRyotSafeArea } from "@ryot-app/client-sdk/plugin";
+import { usePluginTitle, useRyotViewport } from "@ryot-app/client-sdk/plugin";
 import { useRyot } from "@ryot-app/client-sdk/react";
 import { Button } from "@ryot-app/client-ui-sdk";
 
 export const FullBleed = () => {
 	const ryot = useRyot();
-	const safeAreaTop = useRyotSafeArea();
+	const { safeAreaTop } = useRyotViewport();
 	usePluginTitle("Fixture full-bleed");
 
 	return (

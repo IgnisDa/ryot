@@ -58,19 +58,34 @@ const summaryFacts = (show: ShowSummary): readonly SummaryFact[] => {
 	].filter((fact) => fact !== undefined);
 };
 
-function ShowFactRow(props: { readonly show: ShowSummary }) {
+function ShowFactRow(props: { readonly compact: boolean; readonly show: ShowSummary }) {
+	const { compact } = props;
 	return (
-		<div className="flex flex-wrap items-center gap-y-4 pt-0.5 md:flex-nowrap md:gap-x-4">
+		<div
+			className={clsx(
+				"flex flex-wrap items-center gap-y-4 pt-0.5",
+				!compact && "flex-nowrap gap-x-4",
+			)}
+		>
 			{summaryFacts(props.show).map((fact, index) => (
-				<div key={fact.label} className="flex w-1/2 items-center gap-3 md:w-auto md:flex-none">
-					{index === 0 ? null : (
-						<div className={clsx("mr-3 md:mr-4", index % 2 === 0 ? "hidden md:flex" : "flex")}>
+				<div
+					key={fact.label}
+					className={clsx("flex items-center gap-3", compact ? "w-1/2" : "w-auto flex-none")}
+				>
+					{index === 0 || (compact && index % 2 === 0) ? null : (
+						<div className={clsx("flex", compact ? "mr-3" : "mr-4")}>
 							<ShowFactDivider />
 						</div>
 					)}
-					<div className="flex w-5 items-center md:hidden">
-						<AppIcon name={fact.icon} size={18} className={fact.iconClass ?? "text-text-subtle"} />
-					</div>
+					{compact && (
+						<div className="flex w-5 items-center">
+							<AppIcon
+								size={18}
+								name={fact.icon}
+								className={fact.iconClass ?? "text-text-subtle"}
+							/>
+						</div>
+					)}
 					<ShowFact label={fact.label} value={fact.value} suffix={fact.suffix} />
 				</div>
 			))}
@@ -121,12 +136,26 @@ function ShowDescription(props: {
 	);
 }
 
-function ShowIdentity(props: { readonly show: ShowSummary; readonly description: ReactNode }) {
-	const { show } = props;
+function ShowIdentity(props: {
+	readonly compact: boolean;
+	readonly show: ShowSummary;
+	readonly description: ReactNode;
+}) {
+	const { compact, show } = props;
 	return (
-		<div className="flex min-w-0 flex-col gap-4 md:flex-1 md:gap-2.5">
-			<div className="flex min-h-48 flex-col justify-end gap-2.5 pl-36 md:min-h-0 md:justify-start md:pl-0">
-				<h1 className="font-display font-semibold text-[22px] leading-7 text-text md:text-[34px] md:leading-10">
+		<div className={clsx("flex min-w-0 flex-col", compact ? "gap-4" : "flex-1 gap-2.5")}>
+			<div
+				className={clsx(
+					"flex flex-col gap-2.5",
+					compact ? "min-h-48 justify-end pl-36" : "min-h-0 justify-start pl-0",
+				)}
+			>
+				<h1
+					className={clsx(
+						"font-display font-semibold text-text",
+						compact ? "text-[22px] leading-7" : "text-[34px] leading-10",
+					)}
+				>
 					{show.name}
 				</h1>
 				<ShowIdentityLine show={show} />
@@ -138,7 +167,7 @@ function ShowIdentity(props: { readonly show: ShowSummary; readonly description:
 					</div>
 				)}
 			</div>
-			<ShowFactRow show={show} />
+			<ShowFactRow show={show} compact={compact} />
 			{props.description}
 		</div>
 	);
@@ -155,12 +184,13 @@ function ShowLibraryBadge(props: { readonly isInLibrary: boolean }) {
 	);
 }
 
-function ShowStatusRail(props: { readonly show: ShowSummary }) {
-	const { show } = props;
+function ShowStatusRail(props: { readonly compact: boolean; readonly show: ShowSummary }) {
+	const { compact, show } = props;
 	return (
-		<div className="flex flex-col gap-3 md:w-84 md:gap-2">
+		<div className={clsx("flex flex-col", compact ? "gap-3" : "w-84 gap-2")}>
 			<div className="overflow-hidden rounded-lg border border-border bg-surface">
 				<ShowRailRow
+					compact={compact}
 					icon="circle-check"
 					title="Your status"
 					detail="Status is calculated from your activity"
@@ -171,6 +201,7 @@ function ShowStatusRail(props: { readonly show: ShowSummary }) {
 					}
 				/>
 				<ShowRailRow
+					compact={compact}
 					icon="radio"
 					title="Monitoring"
 					detail="Keep provider details up to date"
@@ -183,11 +214,13 @@ function ShowStatusRail(props: { readonly show: ShowSummary }) {
 					}
 				/>
 				<ShowRailRow
+					compact={compact}
 					icon="library"
 					title="In library"
 					trailing={<ShowLibraryBadge isInLibrary={show.isInLibrary} />}
 				/>
 				<ShowRailRow
+					compact={compact}
 					icon="tags"
 					title="Ownership"
 					trailing={
@@ -197,6 +230,7 @@ function ShowStatusRail(props: { readonly show: ShowSummary }) {
 					}
 				/>
 				<ShowRailRow
+					compact={compact}
 					divided={false}
 					icon="layers-3"
 					title="Collections"
@@ -209,14 +243,16 @@ function ShowStatusRail(props: { readonly show: ShowSummary }) {
 					}
 				/>
 			</div>
-			<div className="flex gap-2 md:flex-col">
+			<div className={clsx("flex gap-2", !compact && "flex-col")}>
 				<ShowActionButton
 					variant="primary"
+					compact={compact}
 					label="Log activity"
 					onClick={() => console.log("TODO: open activity form")}
 				/>
 				<ShowActionButton
 					variant="secondary"
+					compact={compact}
 					label="Write review"
 					onClick={() => console.log("TODO: open review form")}
 				/>
@@ -225,7 +261,11 @@ function ShowStatusRail(props: { readonly show: ShowSummary }) {
 	);
 }
 
-export function ShowSummaryHeader(props: { readonly show: ShowSummary }) {
+export function ShowSummaryHeader(props: {
+	readonly compact: boolean;
+	readonly show: ShowSummary;
+}) {
+	const { compact } = props;
 	const { description } = props.show;
 	const [isExpanded, setIsExpanded] = useState(false);
 	const descriptionNode =
@@ -237,15 +277,20 @@ export function ShowSummaryHeader(props: { readonly show: ShowSummary }) {
 			/>
 		);
 	return (
-		<div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-8">
-			<div className="relative flex min-w-0 flex-col md:flex-1 md:flex-row md:gap-8">
+		<div className={clsx("flex gap-4", compact ? "flex-col" : "flex-row items-start gap-8")}>
+			<div
+				className={clsx("relative flex min-w-0", compact ? "flex-col" : "flex-1 flex-row gap-8")}
+			>
 				<ManagedAssetImage
 					asset={showPosterAsset(props.show)}
-					className="absolute top-0 left-0 aspect-2/3 w-32 md:relative md:w-60 md:shrink-0"
+					className={clsx(
+						"aspect-2/3",
+						compact ? "absolute top-0 left-0 w-32" : "relative w-60 shrink-0",
+					)}
 				/>
-				<ShowIdentity show={props.show} description={descriptionNode} />
+				<ShowIdentity show={props.show} compact={compact} description={descriptionNode} />
 			</div>
-			<ShowStatusRail show={props.show} />
+			<ShowStatusRail show={props.show} compact={compact} />
 		</div>
 	);
 }
