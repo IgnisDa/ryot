@@ -16,19 +16,18 @@ import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import type { AppConfig } from "#lib/infrastructure/config/service";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, DatabaseLive } from "#lib/infrastructure/db/service";
-import { PluginEnvironmentConfig } from "#lib/infrastructure/plugin-environment-config";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
 import { withLifecycleDispatch } from "#modules/automations/lifecycle.test-support";
 import { LifecyclePlannerLive } from "#modules/automations/planner";
 import { AutomationRunRepository } from "#modules/automations/run-repository";
-import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
+import type { DefinitionSource } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
-import { makePluginLoader, PluginLoader } from "#modules/plugins/loader";
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
@@ -75,15 +74,13 @@ type Services =
 	| RelationshipsRepository
 	| EntitiesRepository
 	| PluginRuntimeResolver
-	| DefinitionRegistry
+	| DefinitionRepository
 	| LifecyclePlanner
 	| LifecycleExecution
 	| PluginRepository
 	| PluginInstallationRepository
-	| PluginLoader
 	| PluginConfigRevisions
 	| PluginConfigEncryptionKey
-	| PluginEnvironmentConfig
 	| AppConfig;
 
 export const withRelationshipDatabase = <E>(
@@ -133,18 +130,18 @@ export const withRelationshipDatabase = <E>(
 				}
 			});
 			const config = makeAppConfigLayer({ database: { url: Redacted.make(scopedUrl.toString()) } });
-			const registry = makeDefinitionRegistry({
+			const relationshipSchema = {
+				name: "Link",
+				pluginId: null,
+				propertiesSchema,
+				slug: relationshipSchemaSlug,
+				sourceEntitySchemaSlug: null,
+				targetEntitySchemaSlug: null,
+			};
+			const source: DefinitionSource = {
 				savedViews: [],
 				signalSchemas: [],
-				relationshipSchemas: [
-					{
-						name: "Link",
-						propertiesSchema,
-						slug: relationshipSchemaSlug,
-						sourceEntitySchemaSlug: null,
-						targetEntitySchemaSlug: null,
-					},
-				],
+				relationshipSchemas: [relationshipSchema],
 				entitySchemas: [
 					{
 						name: "Fixture",
@@ -157,59 +154,59 @@ export const withRelationshipDatabase = <E>(
 						},
 					},
 				],
-			});
+			};
 			const dependencies = Layer.mergeAll(
 				PluginRepository.layer,
 				PluginInstallationRepository.layer,
 				PluginConfigRevisions.layer,
 				PluginConfigEncryptionKey.layer,
 				RelationshipsRepository.layer,
-				Layer.succeed(DefinitionRegistry, registry),
-				Layer.succeed(PluginLoader, makePluginLoader(registry)),
-			).pipe(Layer.provideMerge(PluginEnvironmentConfig.layer));
+			);
 			let schemaActivated = false;
 			let schemaState: "active" | "disabled" | "updated" = "active";
 			const runtimeOnly =
 				options.activateSchemaOnWrite ||
 				options.omitSchemaBeforeWrite ||
 				options.mutableRelationshipSchema
-					? Layer.mock(PluginRuntimeResolver)({
-							lockCatalog: () =>
-								Effect.sync(() => {
-									schemaActivated = options.activateSchemaOnWrite ?? false;
-								}),
-							getEffectiveDefinitions: () => {
-								const snapshot = registry.getSnapshot();
-								const definition = snapshot.relationshipSchemas[relationshipSchemaSlug];
-								assert(definition);
-								if (options.omitSchemaBeforeWrite || schemaState === "disabled") {
-									return Effect.succeed({ ...snapshot, relationshipSchemas: {} });
-								}
-								return Effect.succeed({
-									...snapshot,
-									relationshipSchemas: {
-										...snapshot.relationshipSchemas,
-										[relationshipSchemaSlug]:
-											schemaActivated || schemaState === "updated"
-												? {
-														...definition,
-														propertiesSchema: {
-															fields: {
-																...definition.propertiesSchema.fields,
-																activated: {
-																	label: "Activated",
-																	type: "boolean" as const,
-																	description: "Activated",
-																},
-															},
-														},
-													}
-												: definition,
-									},
-								});
-							},
-						})
-					: PluginRuntimeResolver.layer.pipe(Layer.provide(dependencies));
+					? Layer.merge(
+							Layer.mock(PluginRuntimeResolver)({
+								lockCatalog: () =>
+									Effect.sync(() => {
+										schemaActivated = options.activateSchemaOnWrite ?? false;
+									}),
+							}),
+							Layer.mock(DefinitionRepository)({
+								findUserRelationshipSchemas: (_userId, slugs) =>
+									Effect.sync(() =>
+										options.omitSchemaBeforeWrite ||
+										schemaState === "disabled" ||
+										!slugs.includes(relationshipSchemaSlug)
+											? {}
+											: {
+													[relationshipSchemaSlug]:
+														schemaActivated || schemaState === "updated"
+															? {
+																	...relationshipSchema,
+																	propertiesSchema: {
+																		fields: {
+																			...relationshipSchema.propertiesSchema.fields,
+																			activated: {
+																				label: "Activated",
+																				type: "boolean" as const,
+																				description: "Activated",
+																			},
+																		},
+																	},
+																}
+															: relationshipSchema,
+												},
+									),
+							}),
+						)
+					: Layer.merge(
+							PluginRuntimeResolver.layer.pipe(Layer.provide(dependencies)),
+							DefinitionRepository.layer,
+						);
 			const runtime = Layer.merge(dependencies, runtimeOnly);
 			const ownerDependencies = Layer.mergeAll(EntitiesRepository.layer, LifecyclePlannerLive).pipe(
 				Layer.provideMerge(runtime),
@@ -240,6 +237,7 @@ export const withRelationshipDatabase = <E>(
 			);
 			yield* Effect.gen(function* () {
 				const db = yield* Database;
+				yield* (yield* DefinitionRepository.make).replaceKernelDefinitions(source);
 				yield* db
 					.insert(tables.user)
 					.values({

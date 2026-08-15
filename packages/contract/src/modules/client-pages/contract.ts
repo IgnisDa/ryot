@@ -8,9 +8,8 @@ import {
 	ClientPagePreparationError,
 	ClientPageStalePreparation,
 	ClientRendererBadRequest,
-	ClientRendererMetadata,
+	ClientRendererCommandResponse,
 	ClientRendererNotFound,
-	ClientRendererRecord,
 	CreateClientPageSessionBody,
 	CreateClientPageSessionResponse,
 	CreateClientRendererBody,
@@ -20,6 +19,7 @@ import {
 	PublishClientRendererResponse,
 	RenewClientPageSessionResponse,
 	ReplaceClientRendererDraftBody,
+	ReplaceClientRendererDraftResponse,
 } from "./schemas";
 
 const rendererErrors = [
@@ -43,30 +43,18 @@ export const ClientPagesGroup = HttpApiGroup.make("clientPages")
 	.add(
 		HttpApiEndpoint.post("createRenderer", "/client-renderers", {
 			payload: CreateClientRendererBody,
-			success: ClientRendererRecord.pipe(HttpApiSchema.status(201)),
 			error: [ClientRendererBadRequest.pipe(HttpApiSchema.status(400))],
+			success: ClientRendererCommandResponse.pipe(HttpApiSchema.status(201)),
 		})
 			.annotate(DemoAccessPolicy, "protected")
 			.annotate(OpenApi.Description, "Creates an owned client renderer draft"),
 	)
 	.add(
-		HttpApiEndpoint.get("listRenderers", "/client-renderers", {
-			success: Schema.Array(ClientRendererMetadata),
-		}).annotate(OpenApi.Description, "Lists owned client renderers"),
-	)
-	.add(
-		HttpApiEndpoint.get("getRenderer", "/client-renderers/:rendererId", {
-			success: ClientRendererRecord,
-			params: { rendererId: Schema.String },
-			error: [ClientRendererNotFound.pipe(HttpApiSchema.status(404))],
-		}).annotate(OpenApi.Description, "Inspects an owned client renderer"),
-	)
-	.add(
 		HttpApiEndpoint.put("replaceRendererDraft", "/client-renderers/:rendererId/draft", {
 			error: rendererErrors,
-			success: ClientRendererRecord,
 			params: { rendererId: Schema.String },
 			payload: ReplaceClientRendererDraftBody,
+			success: ReplaceClientRendererDraftResponse,
 		})
 			.annotate(DemoAccessPolicy, "protected")
 			.annotate(OpenApi.Description, "Replaces a client renderer draft"),
@@ -84,8 +72,8 @@ export const ClientPagesGroup = HttpApiGroup.make("clientPages")
 	.add(
 		HttpApiEndpoint.delete("deleteRenderer", "/client-renderers/:rendererId", {
 			error: rendererErrors,
-			success: ClientRendererRecord,
 			params: { rendererId: Schema.String },
+			success: ClientRendererCommandResponse,
 		})
 			.annotate(DemoAccessPolicy, "protected")
 			.annotate(OpenApi.Description, "Deletes an owned client renderer"),

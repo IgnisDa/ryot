@@ -1,18 +1,19 @@
 import { DbError } from "@ryot-app/contract/errors";
 import type { AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { PluginHook, PluginHookTarget } from "@ryot-app/contract/modules/plugins/manifest";
+import type {
+	PluginHook,
+	PluginHookTarget,
+	PluginManifest,
+} from "@ryot-app/contract/modules/plugins/manifest";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/sandbox/wire";
-import { UserId } from "@ryot-app/contract/schema/brands";
+import type { UserId } from "@ryot-app/contract/schema/brands";
 import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
-import { PluginEnvironmentConfig } from "#lib/infrastructure/plugin-environment-config";
-import { DefinitionRegistry } from "#modules/definition-registry/service";
-import { pluginPointerFields } from "#modules/plugins/persisted-projections";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { PluginRepository } from "#modules/plugins/repository";
-import type { AvailablePlugin } from "#modules/plugins/runtime-resolver";
 
 const plannedScriptFields = {
 	id: tables.sandboxScript.id,
@@ -25,9 +26,26 @@ type PlannedAutomationScript = {
 	[Field in keyof typeof plannedScriptFields]: (typeof tables.sandboxScript.$inferSelect)[Field];
 };
 
+type PlannerPlugin = {
+	readonly id: string;
+	readonly pluginRevisionId: string;
+	readonly hooks: PluginManifest["hooks"];
+	readonly scripts: PluginManifest["scripts"];
+	readonly pluginConfigRevisionId: string | null;
+	readonly signalSchemas: PluginManifest["signalSchemas"];
+};
+
 type TransactionCatalogMemo = {
 	readonly lockedSets: Set<string>;
-	readonly catalogs: Map<UserId | null, ReadonlyArray<AvailablePlugin>>;
+	readonly catalogs: Map<UserId | null, ReadonlyArray<PlannerPlugin>>;
+};
+
+const plannerPluginFields = {
+	hooks: sql<PluginManifest["hooks"]>`${tables.pluginRevision.manifest} -> 'hooks'`,
+	scripts: sql<PluginManifest["scripts"]>`${tables.pluginRevision.manifest} -> 'scripts'`,
+	signalSchemas: sql<
+		PluginManifest["signalSchemas"]
+	>`${tables.pluginRevision.manifest} -> 'signalSchemas'`,
 };
 
 type LifecyclePayload = NonNullable<AutomationTrigger["payload"]>;
@@ -90,8 +108,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 	{
 		make: Effect.gen(function* () {
 			const repository = yield* PluginRepository;
-			const registry = yield* DefinitionRegistry;
-			const environmentConfig = yield* PluginEnvironmentConfig;
+			const definitions = yield* DefinitionRepository;
 			const lockCatalogUncached = Effect.fn(function* (users: ReadonlyArray<UserId | null>) {
 				yield* repository.lockIngestionShared();
 				const db = yield* Database;
@@ -155,139 +172,50 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 					);
 				}
 			});
-			const catalogUncached = Effect.fn(function* (userId: UserId | null) {
+			const catalogUncached = Effect.fn(function* (
+				userId: UserId | null,
+			): Effect.fn.Return<ReadonlyArray<PlannerPlugin>, DbError, Database> {
 				const db = yield* Database;
-				if (userId !== null) {
-					const [user] = yield* mapDatabaseErrors(
+				if (userId === null) {
+					return yield* mapDatabaseErrors(
 						db
-							.select({ id: tables.user.id })
-							.from(tables.user)
-							.where(and(eq(tables.user.id, userId), isNull(tables.user.disabledAt))),
+							.select({
+								...plannerPluginFields,
+								id: tables.globalPlugin.pluginId,
+								pluginRevisionId: tables.globalPlugin.activeRevisionId,
+								pluginConfigRevisionId: tables.globalPlugin.configRevisionId,
+							})
+							.from(tables.globalPlugin)
+							.innerJoin(
+								tables.pluginRevision,
+								eq(tables.pluginRevision.id, tables.globalPlugin.activeRevisionId),
+							)
+							.where(eq(tables.globalPlugin.isExecutable, true))
+							.orderBy(asc(tables.globalPlugin.pluginId)),
 					);
-					if (!user) {
-						return [];
-					}
 				}
-				const rows = yield* mapDatabaseErrors(
+				return yield* mapDatabaseErrors(
 					db
-						.select(pluginPointerFields)
-						.from(tables.plugin)
+						.select({
+							...plannerPluginFields,
+							id: tables.userPlugin.pluginId,
+							pluginRevisionId: tables.userPlugin.activeRevisionId,
+							pluginConfigRevisionId: tables.userPlugin.configRevisionId,
+						})
+						.from(tables.userPlugin)
+						.innerJoin(
+							tables.pluginRevision,
+							eq(tables.pluginRevision.id, tables.userPlugin.activeRevisionId),
+						)
+						.innerJoin(
+							tables.user,
+							and(eq(tables.user.id, tables.userPlugin.userId), isNull(tables.user.disabledAt)),
+						)
 						.where(
-							and(
-								eq(tables.plugin.status, "active"),
-								userId === null
-									? eq(tables.plugin.scope, "system")
-									: or(
-											eq(tables.plugin.scope, "system"),
-											and(eq(tables.plugin.scope, "user"), eq(tables.plugin.ownerId, userId)),
-										),
-							),
+							and(eq(tables.userPlugin.userId, userId), eq(tables.userPlugin.isExecutable, true)),
 						)
-						.orderBy(asc(tables.plugin.id)),
+						.orderBy(asc(tables.userPlugin.pluginId)),
 				);
-				const revisionsById = yield* repository.readRevisions(
-					rows.flatMap(({ activeRevisionId }) => (activeRevisionId ? [activeRevisionId] : [])),
-				);
-				const installations =
-					userId === null
-						? []
-						: yield* mapDatabaseErrors(
-								db
-									.select()
-									.from(tables.pluginInstallation)
-									.where(
-										and(
-											eq(tables.pluginInstallation.userId, userId),
-											isNull(tables.pluginInstallation.uninstalledAt),
-											eq(tables.pluginInstallation.health, "ready"),
-											eq(tables.pluginInstallation.isDisabled, false),
-										),
-									),
-							);
-				const configIds = rows.flatMap((row) => {
-					const configId =
-						row.scope === "system"
-							? environmentConfig.find(row.id)?.configRevisionId
-							: installations.find(({ pluginId }) => pluginId === row.id)?.activeConfigRevisionId;
-					return configId ? [configId] : [];
-				});
-				// Only the compared columns; `encrypted_payload` is a bytea that never needs to cross
-				// the wire to decide validity.
-				const configRevisions = configIds.length
-					? yield* mapDatabaseErrors(
-							db
-								.select({
-									id: tables.pluginConfigRevision.id,
-									scope: tables.pluginConfigRevision.scope,
-									ownerUserId: tables.pluginConfigRevision.ownerUserId,
-									payloadPrunedAt: tables.pluginConfigRevision.payloadPrunedAt,
-									pluginRevisionId: tables.pluginConfigRevision.pluginRevisionId,
-									pluginInstallationId: tables.pluginConfigRevision.pluginInstallationId,
-									hasPayload: sql<boolean>`${tables.pluginConfigRevision.encryptedPayload} is not null`,
-								})
-								.from(tables.pluginConfigRevision)
-								.where(inArray(tables.pluginConfigRevision.id, configIds)),
-						)
-					: [];
-				const result: AvailablePlugin[] = [];
-				for (const row of rows) {
-					const installation = installations.find(({ pluginId }) => pluginId === row.id);
-					const revision = row.activeRevisionId
-						? revisionsById.get(row.activeRevisionId)
-						: undefined;
-					if (
-						!row.activeRevisionId ||
-						!revision ||
-						(userId !== null && !installation) ||
-						(row.scope === "user" && (userId === null || row.ownerId !== userId))
-					) {
-						continue;
-					}
-					const environment = row.scope === "system" ? environmentConfig.find(row.id) : undefined;
-					if (environment && environment.pluginRevisionId !== row.activeRevisionId) {
-						yield* Effect.logWarning(
-							`Environment configuration for plugin ${row.slug} targets plugin revision ${environment.pluginRevisionId} instead of the active ${row.activeRevisionId}`,
-						);
-					}
-					const configId =
-						row.scope === "system"
-							? environment?.configRevisionId
-							: installation?.activeConfigRevisionId;
-					if (!configId) {
-						continue;
-					}
-					const config = configRevisions.find(({ id }) => id === configId);
-					if (
-						!config ||
-						config.pluginRevisionId !== row.activeRevisionId ||
-						config.payloadPrunedAt !== null ||
-						!config.hasPayload ||
-						(row.scope === "system"
-							? config.scope !== "environment" ||
-								config.ownerUserId !== null ||
-								config.pluginInstallationId !== null
-							: config.scope !== "installation" ||
-								config.ownerUserId !== userId ||
-								config.pluginInstallationId !== installation?.id)
-					) {
-						continue;
-					}
-					result.push({
-						id: row.id,
-						slug: row.slug,
-						health: "ready",
-						scope: row.scope,
-						isDisabled: false,
-						manifest: revision.manifest,
-						sourceHash: revision.sourceHash,
-						pluginConfigRevisionId: configId,
-						pluginRevisionId: row.activeRevisionId,
-						installationId: installation?.id ?? "",
-						compiledHashes: revision.compiledHashes,
-						ownerUserId: row.ownerId === null ? null : UserId.make(row.ownerId),
-					});
-				}
-				return result;
 			});
 			// `lockCatalogUncached` holds the `plugin-config:` advisory locks and the `for share` rows on
 			// `plugin` and `plugin_installation` for the rest of the transaction, so no other transaction
@@ -334,7 +262,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				const available = yield* catalog(executionUserId);
 				const result: Array<{
 					hook: PluginHook;
-					plugin: AvailablePlugin | null;
+					plugin: PlannerPlugin | null;
 					script: PlannedAutomationScript;
 					executionUserId: UserId | null;
 				}> = [];
@@ -363,7 +291,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 						: [];
 				const kernelDefinition =
 					signal?.signalSchemaPluginId === null
-						? registry.getSignalSchema(signal.signalSchemaSlug)
+						? yield* definitions.findGlobalSignalSchema(signal.signalSchemaSlug)
 						: null;
 				const kernelSignal =
 					kernelDefinition && kernelDefinition.pluginId == null ? kernelDefinition : null;
@@ -371,7 +299,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 					signal && signal.signalSchemaPluginId !== null
 						? available.find(({ id }) => id === signal.signalSchemaPluginId)
 						: null;
-				const signalDefinition = signalOwner?.manifest.signalSchemas.find(
+				const signalDefinition = signalOwner?.signalSchemas.find(
 					({ slug }) => slug === signal?.signalSchemaSlug,
 				);
 				if (signal && !kernelSignal && !signalDefinition) {
@@ -379,7 +307,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				}
 				const isBatch = trigger.kind.operation === "batch";
 				for (const plugin of available) {
-					for (const hook of plugin.manifest.hooks) {
+					for (const hook of plugin.hooks) {
 						if (
 							hook.stage !== (trigger.kind.category === "request" ? "before" : "after") ||
 							(hook.causationSources && !hook.causationSources.includes(trigger.causation.source))
@@ -399,7 +327,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 						}
 						const notification =
 							signal &&
-							plugin.manifest.signalSchemas.some(
+							plugin.signalSchemas.some(
 								(definition) =>
 									definition.slug === signal.signalSchemaSlug &&
 									definition.notificationHookSlug === hook.slug,
@@ -412,9 +340,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 						) {
 							continue;
 						}
-						const declaration = plugin.manifest.scripts.find(
-							({ slug }) => slug === hook.scriptSlug,
-						);
+						const declaration = plugin.scripts.find(({ slug }) => slug === hook.scriptSlug);
 						if (
 							declaration?.kind !== "automation" ||
 							declaration.automationType !== (hook.stage === "before" ? "policy" : "automation") ||
@@ -428,21 +354,17 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 								message: `Invalid automation hook script ${plugin.id}/${hook.slug}`,
 							});
 						}
-						const hash = plugin.compiledHashes[hook.scriptSlug];
-						const [script] = hash
-							? yield* mapDatabaseErrors(
-									db
-										.select(plannedScriptFields)
-										.from(tables.sandboxScript)
-										.where(
-											and(
-												eq(tables.sandboxScript.pluginRevisionId, plugin.pluginRevisionId),
-												eq(tables.sandboxScript.slug, hook.scriptSlug),
-												eq(tables.sandboxScript.contentHash, hash),
-											),
-										),
-								)
-							: [];
+						const [script] = yield* mapDatabaseErrors(
+							db
+								.select(plannedScriptFields)
+								.from(tables.sandboxScript)
+								.where(
+									and(
+										eq(tables.sandboxScript.pluginRevisionId, plugin.pluginRevisionId),
+										eq(tables.sandboxScript.slug, hook.scriptSlug),
+									),
+								),
+						);
 						if (script?.metadata.kind !== "automation") {
 							return yield* new DbError({
 								message: `Missing automation script ${plugin.id}/${hook.slug}`,
@@ -467,21 +389,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 						return result;
 					}
 					const slug = kernelSignal.notificationHookSlug;
-					const hash = yield* repository.getKernelScriptContentHash(slug);
-					const [script] = hash
-						? yield* mapDatabaseErrors(
-								db
-									.select(plannedScriptFields)
-									.from(tables.sandboxScript)
-									.where(
-										and(
-											isNull(tables.sandboxScript.pluginRevisionId),
-											eq(tables.sandboxScript.slug, slug),
-											eq(tables.sandboxScript.contentHash, hash),
-										),
-									),
-							)
-						: [];
+					const script = yield* repository.findKernelScript(slug);
 					if (script?.metadata.kind !== "automation") {
 						return yield* new DbError({ message: "Kernel notification script is unavailable" });
 					}

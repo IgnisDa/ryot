@@ -8,7 +8,6 @@ import {
 	PluginRevisionId,
 	UserId,
 } from "../../schema/brands";
-import { JsonValue } from "../../schema/json";
 import { IsoUtcString, strictStruct } from "../../schema/utils";
 import {
 	AutomationRunAttempt,
@@ -19,38 +18,10 @@ import {
 
 export const AUTOMATION_HISTORY_LIMITS = {
 	maxAttempts: 50,
-	maxPageSize: 100,
 	attemptBytes: 8_192,
 	defaultPageSize: 25,
 	payloadBytes: 32_768,
 } as const;
-
-export const AutomationHistoryCursor = strictStruct({
-	id: AutomationRunId,
-	queuedAt: IsoUtcString,
-});
-
-export type AutomationHistoryCursor = typeof AutomationHistoryCursor.Type;
-
-export const AutomationHistoryFilters = strictStruct({
-	to: Schema.optional(IsoUtcString),
-	from: Schema.optional(IsoUtcString),
-	pluginId: Schema.optional(PluginId),
-	status: Schema.optional(AutomationRunStatus),
-	hookSlug: Schema.optional(AutomationHookSlug),
-	triggerId: Schema.optional(AutomationTriggerId),
-	stage: Schema.optional(Schema.Literals(["before", "after"])),
-	cursor: Schema.optional(Schema.String.pipe(Schema.check(Schema.isMaxLength(512)))),
-	limit: Schema.optional(
-		Schema.NumberFromString.pipe(
-			Schema.check(
-				Schema.isInt(),
-				Schema.isBetween({ minimum: 1, maximum: AUTOMATION_HISTORY_LIMITS.maxPageSize }),
-			),
-		),
-	),
-});
-export type AutomationHistoryFilters = typeof AutomationHistoryFilters.Type;
 
 export const AutomationRetryUnavailableReason = Schema.Literals([
 	"before-policy",
@@ -87,15 +58,6 @@ export const AutomationHistoryRun = strictStruct({
 
 export type AutomationHistoryRun = typeof AutomationHistoryRun.Type;
 
-export const AutomationHistoryPage = strictStruct({
-	nextCursor: Schema.NullOr(Schema.String),
-	items: Schema.Array(AutomationHistoryRun).pipe(
-		Schema.check(Schema.isMaxLength(AUTOMATION_HISTORY_LIMITS.maxPageSize)),
-	),
-});
-
-export type AutomationHistoryPage = typeof AutomationHistoryPage.Type;
-
 const {
 	returnedValue: _returnedValue,
 	workflowExecutionId: _workflowExecutionId,
@@ -108,25 +70,6 @@ export const AutomationHistoryAttempt = strictStruct({
 });
 
 export type AutomationHistoryAttempt = typeof AutomationHistoryAttempt.Type;
-
-export const AutomationHistoryDetail = strictStruct({
-	run: AutomationHistoryRun,
-	attemptsTruncated: Schema.Boolean,
-	retryEligibility: AutomationRetryEligibility,
-	attempts: Schema.Array(AutomationHistoryAttempt).pipe(
-		Schema.check(Schema.isMaxLength(AUTOMATION_HISTORY_LIMITS.maxAttempts)),
-	),
-	trigger: strictStruct({
-		id: AutomationTriggerId,
-		occurredAt: IsoUtcString,
-		kind: AutomationTriggerKind,
-		payloadTruncated: Schema.Boolean,
-		payload: Schema.NullOr(JsonValue),
-		payloadPrunedAt: Schema.NullOr(IsoUtcString),
-	}),
-});
-
-export type AutomationHistoryDetail = typeof AutomationHistoryDetail.Type;
 
 export const AutomationHistoryRetryBody = strictStruct({
 	expectedAttemptCount: AutomationRunAttempt.fields.attemptNumber,
@@ -141,11 +84,6 @@ export const AutomationHistoryRetryResult = strictStruct({
 });
 
 export type AutomationHistoryRetryResult = typeof AutomationHistoryRetryResult.Type;
-
-export class AutomationHistoryRequestError extends Schema.TaggedError<AutomationHistoryRequestError>()(
-	"AutomationHistoryRequestError",
-	{ reason: strictStruct({ code: Schema.Literals(["invalid-cursor", "invalid-filters"]) }) },
-) {}
 
 export class AutomationHistoryNotFound extends Schema.TaggedError<AutomationHistoryNotFound>()(
 	"AutomationHistoryNotFound",

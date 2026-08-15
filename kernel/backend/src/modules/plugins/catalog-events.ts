@@ -1,10 +1,11 @@
 import {
 	PLUGIN_CATALOG_CONNECTED_EVENT,
 	PLUGIN_CATALOG_INVALIDATED_EVENT,
+	decodePluginCatalogInvalidatedMessage,
 	encodePluginCatalogInvalidatedMessage,
 } from "@ryot-app/contract/modules/plugins/contract";
 import type { UserId } from "@ryot-app/contract/schema/brands";
-import { Context, Effect, Layer, Queue, Stream } from "effect";
+import { Cause, Context, Effect, FiberSet, Layer, Queue, Result, Stream } from "effect";
 
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 
@@ -95,7 +96,7 @@ export const PluginCatalogInvalidatorLive = Layer.effect(
 		const redis = yield* RedisService;
 		return {
 			all: redis
-				.publish(redisKeys.pluginRegistryChannel, "plugin-catalog-invalidated")
+				.publish(redisKeys.pluginCatalogChannel, "plugin-catalog-invalidated")
 				.pipe(Effect.asVoid, logPublishFailure),
 			user: (userId: UserId) =>
 				redis
@@ -107,3 +108,58 @@ export const PluginCatalogInvalidatorLive = Layer.effect(
 		};
 	}),
 );
+
+export class PluginInvalidationSubscriber extends Context.Service<PluginInvalidationSubscriber>()(
+	"PluginInvalidationSubscriber",
+	{
+		make: Effect.gen(function* () {
+			const redis = yield* RedisService;
+			const hub = yield* PluginCatalogHub;
+			const runFork = yield* FiberSet.makeRuntime();
+			const subscriber = redis.client.duplicate();
+			yield* Effect.addFinalizer(() =>
+				Effect.sync(() => subscriber.removeAllListeners()).pipe(
+					Effect.andThen(Effect.tryPromise(() => subscriber.quit()).pipe(Effect.ignore)),
+				),
+			);
+			const channels = [redisKeys.pluginCatalogUserChannel, redisKeys.pluginCatalogChannel];
+			const dispatch = Effect.fn("PluginInvalidationSubscriber.dispatch")(function* (
+				incoming: string,
+				message: string,
+			) {
+				if (incoming === redisKeys.pluginCatalogChannel) {
+					yield* hub.broadcastAll();
+					return;
+				}
+				if (incoming !== redisKeys.pluginCatalogUserChannel) {
+					return;
+				}
+				const decoded = decodePluginCatalogInvalidatedMessage(message);
+				if (Result.isSuccess(decoded)) {
+					yield* hub.broadcast(decoded.success.userId);
+				}
+			});
+			const subscribeAndBroadcast = Effect.tryPromise(() => subscriber.subscribe(...channels)).pipe(
+				Effect.andThen(hub.broadcastAll()),
+			);
+			const recover = subscribeAndBroadcast.pipe(
+				Effect.catchCauseIf(
+					(cause) => !Cause.hasInterruptsOnly(cause),
+					(cause) => Effect.logError("plugin invalidation subscription failed", cause),
+				),
+			);
+			subscriber.on("message", (incoming, message) =>
+				runFork(
+					dispatch(incoming, message).pipe(
+						Effect.catchCauseIf((cause) => !Cause.hasInterruptsOnly(cause), Effect.logError),
+					),
+				),
+			);
+			subscriber.on("ready", () => runFork(recover));
+			yield* subscribeAndBroadcast;
+			return { recover, dispatch, subscribed: true as const };
+		}),
+	},
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

@@ -18,7 +18,7 @@ import {
 	parseLabeledPropertySchemaInput,
 	validateAppSchemaDefinition,
 } from "#lib/property-schema/property-schema-runtime";
-import type { DefinitionSnapshot } from "#modules/definition-registry/service";
+import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
 
 export class PluginValidationError extends Data.TaggedError("PluginValidationError")<{
 	readonly issues: ReadonlyArray<string>;

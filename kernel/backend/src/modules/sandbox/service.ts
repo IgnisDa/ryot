@@ -149,16 +149,6 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 				);
 			});
 
-			const getStoredScript = Effect.fn("SandboxExecutionService.getStoredScript")(function* (
-				scriptId: Parameters<typeof repository.getStoredScript>[0],
-			) {
-				const script = yield* repository.getStoredScript(scriptId);
-				if (!script) {
-					return yield* notFound(sandboxScriptNotFoundError);
-				}
-				return script;
-			});
-
 			const resolveWorkflowScript = Effect.fn("SandboxExecutionService.resolveWorkflowScript")(
 				function* (
 					input: {
@@ -380,13 +370,11 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 				getResult,
 				executeScript,
 				executeWorkflow,
-				getStoredScript,
 				enqueuePluginWorkflow,
 				resolveWorkflowScript,
 				getPluginWorkflowResult,
 				preRegisterPluginWorkflow,
 				releaseWorkflowRegistration,
-				listStoredScripts: repository.listStoredScripts(),
 			};
 		}),
 	},

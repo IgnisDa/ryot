@@ -241,10 +241,10 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 							pluginInstallationId: input.pluginInstallationId ?? null,
 						})
 						.onConflictDoNothing({ target: [schema.savedView.userId, schema.savedView.slug] })
-						.returning(savedViewSelection),
+						.returning({ id: schema.savedView.id }),
 				);
 
-				return rows[0] ? toListedSavedView(rows[0]) : null;
+				return rows[0] ? { id: SavedViewId.make(rows[0].id) } : null;
 			});
 
 			const updateBySlug = Effect.fn("SavedViewsRepository.updateBySlug")(function* (
@@ -275,10 +275,10 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 							...(sortOrder === undefined ? {} : { sortOrder }),
 						})
 						.where(and(eq(schema.savedView.slug, viewSlug), eq(schema.savedView.userId, userId)))
-						.returning(savedViewSelection),
+						.returning({ id: schema.savedView.id }),
 				);
 
-				return row ? toListedSavedView(row) : null;
+				return row ? { id: SavedViewId.make(row.id) } : null;
 			});
 
 			const reorderBySlugs = Effect.fn("SavedViewsRepository.reorderBySlugs")(function* (
@@ -319,10 +319,10 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 					db
 						.delete(schema.savedView)
 						.where(and(eq(schema.savedView.slug, viewSlug), eq(schema.savedView.userId, userId)))
-						.returning(savedViewSelection),
+						.returning({ id: schema.savedView.id }),
 				);
 
-				return row ? toListedSavedView(row) : null;
+				return row ? { id: SavedViewId.make(row.id) } : null;
 			});
 
 			const restoreBuiltinStateBySlug = Effect.fn("SavedViewsRepository.restoreBuiltinStateBySlug")(

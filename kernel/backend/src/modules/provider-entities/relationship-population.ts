@@ -18,7 +18,7 @@ import { toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { Database, mapDatabaseErrors, retryOnDeadlock } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
-import type { DefinitionSnapshot } from "#modules/definition-registry/service";
+import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository, providerEntityMutationLockKey } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";

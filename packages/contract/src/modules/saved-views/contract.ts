@@ -5,7 +5,7 @@ import { AuthMiddleware } from "../../auth-middleware";
 import { DemoAccessPolicy } from "../../http-annotations";
 import {
 	CreateSavedViewBody,
-	ListedSavedView,
+	SavedViewCommandResponse,
 	ReorderSavedViewsBody,
 	ReorderSavedViewsResponse,
 	SavedViewBadRequest,
@@ -18,16 +18,16 @@ export const SavedViewsGroup = HttpApiGroup.make("savedViews")
 	.add(
 		HttpApiEndpoint.post("create", "/saved-views", {
 			payload: CreateSavedViewBody,
-			success: ListedSavedView.pipe(HttpApiSchema.status(201)),
 			error: [SavedViewBadRequest.pipe(HttpApiSchema.status(400))],
+			success: SavedViewCommandResponse.pipe(HttpApiSchema.status(201)),
 		})
 			.annotate(DemoAccessPolicy, "protected")
 			.annotate(OpenApi.Description, "Creates a saved view"),
 	)
 	.add(
 		HttpApiEndpoint.put("update", "/saved-views/:viewSlug", {
-			success: ListedSavedView,
 			payload: UpdateSavedViewBody,
+			success: SavedViewCommandResponse,
 			params: { viewSlug: Schema.String },
 			error: [
 				SavedViewBadRequest.pipe(HttpApiSchema.status(400)),
@@ -39,7 +39,7 @@ export const SavedViewsGroup = HttpApiGroup.make("savedViews")
 	)
 	.add(
 		HttpApiEndpoint.delete("delete", "/saved-views/:viewSlug", {
-			success: ListedSavedView,
+			success: SavedViewCommandResponse,
 			params: { viewSlug: Schema.String },
 			error: [
 				SavedViewBadRequest.pipe(HttpApiSchema.status(400)),
@@ -52,7 +52,7 @@ export const SavedViewsGroup = HttpApiGroup.make("savedViews")
 	.add(
 		HttpApiEndpoint.post("clone", "/saved-views/:viewSlug/clone", {
 			params: { viewSlug: Schema.String },
-			success: ListedSavedView.pipe(HttpApiSchema.status(201)),
+			success: SavedViewCommandResponse.pipe(HttpApiSchema.status(201)),
 			error: [
 				SavedViewBadRequest.pipe(HttpApiSchema.status(400)),
 				SavedViewNotFound.pipe(HttpApiSchema.status(404)),

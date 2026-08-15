@@ -98,6 +98,7 @@ export const makePreparedRelationshipMutations = ({
 	runtime,
 	execution,
 	repository,
+	definitions,
 }: RelationshipMutationDependencies) => {
 	const assertActiveTransaction = activeTransactionGuard(client);
 	const committedReplay = Effect.fnUntraced(function* (
@@ -264,8 +265,9 @@ export const makePreparedRelationshipMutations = ({
 			if (!("properties" in input)) {
 				return yield* Effect.die("Prepared relationship create is missing properties");
 			}
-			const effective = yield* runtime.getEffectiveDefinitions(input.userId);
-			const definition = effective.relationshipSchemas[input.relationshipSchemaSlug];
+			const definition = (yield* definitions.findUserRelationshipSchemas(input.userId, [
+				input.relationshipSchemaSlug,
+			]))[input.relationshipSchemaSlug];
 			if (!definition) {
 				return yield* new RelationshipBadRequest({
 					reason: { code: "concurrent-relationship-change" },
@@ -463,8 +465,9 @@ export const makePreparedRelationshipMutations = ({
 				return yield* Effect.die("Prepared relationship create has a delete request");
 			}
 			yield* runtime.lockCatalog();
-			const effective = yield* runtime.getEffectiveDefinitions(prepared.input.userId);
-			const definition = effective.relationshipSchemas[prepared.input.relationshipSchemaSlug];
+			const definition = (yield* definitions.findUserRelationshipSchemas(prepared.input.userId, [
+				prepared.input.relationshipSchemaSlug,
+			]))[prepared.input.relationshipSchemaSlug];
 			if (
 				!definition ||
 				(definition.pluginId ?? null) !== (prepared.input.relationshipSchemaPluginId ?? null) ||

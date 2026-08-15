@@ -8,11 +8,6 @@ import { describe, expect, it } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { Database } from "#lib/infrastructure/db/service";
-import {
-	makePluginEnvironmentConfig,
-	PluginEnvironmentConfig,
-	type PluginEnvironmentConfigSnapshot,
-} from "#lib/infrastructure/plugin-environment-config";
 import { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 
 import { isWorkflowCallTargetKind, SandboxRepository } from "./repository";
@@ -69,6 +64,7 @@ const pluginPinRow = {
 	pluginScope: "system" as const,
 	metadata: { kind: "script" as const },
 	compiledHashes: { "plugin.script": "current-hash" },
+	environmentConfigRevisionId: "config-1" as string | null,
 };
 
 const config = {
@@ -97,18 +93,10 @@ const pinDatabase = (
 		}),
 	});
 
-const environmentLayer = (snapshot: PluginEnvironmentConfigSnapshot) =>
-	Layer.succeed(PluginEnvironmentConfig, makePluginEnvironmentConfig(snapshot));
-
-const activeEnvironment = environmentLayer({
-	"plugin-id": { configRevisionId: "config-1", pluginRevisionId: "revision-1" },
-});
-
 const getPin = (
 	row: typeof pluginPinRow | null,
 	expectedRevision?: Pick<SandboxPluginRevision, "id" | "revisionId" | "configRevisionId">,
 	storedConfig = config,
-	environment = activeEnvironment,
 ) =>
 	Effect.flatMap(SandboxRepository, (repository) =>
 		repository.getScriptPin(SandboxScriptId.make("script-id"), expectedRevision),
@@ -116,17 +104,14 @@ const getPin = (
 		Effect.provide(
 			SandboxRepository.layer.pipe(
 				Layer.provideMerge(
-					Layer.mergeAll(
-						environment,
-						Layer.succeed(
-							Database,
-							pinDatabase((table) => {
-								if (table === tables.pluginConfigRevision) {
-									return [storedConfig];
-								}
-								return row ? [row] : [];
-							}),
-						),
+					Layer.succeed(
+						Database,
+						pinDatabase((table) => {
+							if (table === tables.pluginConfigRevision) {
+								return [storedConfig];
+							}
+							return row ? [row] : [];
+						}),
 					),
 				),
 			),
@@ -164,7 +149,7 @@ effectIt.effect("rejects inactive, stale, and foreign-provider plugin pins", () 
 
 effectIt.effect("rejects system plugin pins before environment configuration resolves", () =>
 	Effect.gen(function* () {
-		effectExpect(yield* getPin(pluginPinRow, undefined, config, environmentLayer({}))).toBeNull();
+		effectExpect(yield* getPin({ ...pluginPinRow, environmentConfigRevisionId: null })).toBeNull();
 	}),
 );
 
@@ -246,9 +231,7 @@ effectIt.effect("resolves first-observed children from the pinned plugin revisio
 		}
 		return [selectedPinRow];
 	});
-	const layer = SandboxRepository.layer.pipe(
-		Layer.provideMerge(Layer.mergeAll(activeEnvironment, Layer.succeed(Database, database))),
-	);
+	const layer = SandboxRepository.layer.pipe(Layer.provideMerge(Layer.succeed(Database, database)));
 
 	return Effect.gen(function* () {
 		const repository = yield* SandboxRepository;

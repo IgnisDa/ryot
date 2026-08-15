@@ -50,18 +50,6 @@ const mapTestSupportFailure = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 
 export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupport", (handlers) =>
 	handlers
-		.handle("getSandboxScript", ({ params }) =>
-			Effect.gen(function* () {
-				const svc = yield* TestSupportService;
-				return yield* svc.getSandboxScript(params.scriptId);
-			}).pipe(mapTestSupportFailure),
-		)
-		.handle("listSandboxScripts", () =>
-			Effect.gen(function* () {
-				const svc = yield* TestSupportService;
-				return yield* svc.listSandboxScripts();
-			}).pipe(mapTestSupportFailure),
-		)
 		.handle("enqueueSandbox", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
@@ -159,18 +147,6 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				return yield* svc.upsertGlobalRelationship(payload);
 			}).pipe(mapTestSupportFailure),
 		)
-		.handle("listGlobalRelationships", ({ payload }) =>
-			Effect.gen(function* () {
-				const svc = yield* TestSupportService;
-				return yield* svc.listGlobalRelationships(payload);
-			}).pipe(mapTestSupportFailure),
-		)
-		.handle("getBuiltinEntitySchema", ({ params }) =>
-			Effect.gen(function* () {
-				const svc = yield* TestSupportService;
-				return yield* svc.getBuiltinEntitySchema(params.slug);
-			}).pipe(mapTestSupportFailure),
-		)
 		.handle("setEntityPopulatedAt", ({ params, payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
@@ -181,12 +157,6 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc.upsertEntityTranslation(payload);
-			}).pipe(mapTestSupportFailure),
-		)
-		.handle("listEntityTranslations", ({ params }) =>
-			Effect.gen(function* () {
-				const svc = yield* TestSupportService;
-				return yield* svc.listEntityTranslations(params.entityId);
 			}).pipe(mapTestSupportFailure),
 		)
 		.handle("linkAuthAccount", ({ payload }) =>
@@ -207,34 +177,10 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				yield* svc.setEntityInterestMembership(payload);
 			}).pipe(mapTestSupportFailure),
 		)
-		.handle("listAutomationTriggers", ({ payload }) =>
-			Effect.gen(function* () {
-				const svc = yield* TestSupportService;
-				return yield* svc.listAutomationTriggers(payload);
-			}).pipe(mapTestSupportFailure),
-		)
-		.handle("listAutomationTriggerRecipients", ({ payload }) =>
-			Effect.gen(function* () {
-				const svc = yield* TestSupportService;
-				return yield* svc.listAutomationTriggerRecipients(payload);
-			}).pipe(mapTestSupportFailure),
-		)
-		.handle("listAutomationRuns", ({ payload }) =>
-			Effect.gen(function* () {
-				const svc = yield* TestSupportService;
-				return yield* svc.listAutomationRuns(payload);
-			}).pipe(mapTestSupportFailure),
-		)
 		.handle("reconcileAutomations", () =>
 			Effect.gen(function* () {
 				const reconciliation = yield* AutomationReconciliation;
 				yield* reconciliation.reconcile();
-			}).pipe(mapTestSupportFailure),
-		)
-		.handle("listAutomationRunAttempts", ({ payload }) =>
-			Effect.gen(function* () {
-				const svc = yield* TestSupportService;
-				return yield* svc.listAutomationRunAttempts(payload);
 			}).pipe(mapTestSupportFailure),
 		)
 		.handle("installSystemPlugin", ({ payload }) =>
@@ -263,22 +209,10 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				yield* svc.reconcilePluginInstallations;
 			}).pipe(mapTestSupportFailure),
 		)
-		.handle("listSystemPlugins", () =>
-			Effect.gen(function* () {
-				const svc = yield* TestSupportService;
-				return yield* svc.listSystemPlugins;
-			}).pipe(mapTestSupportFailure),
-		)
 		.handle("uninstallSystemPlugin", ({ params }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc.uninstallSystemPlugin(params.pluginSlug).pipe(dieOnDbError);
 			}),
-		)
-		.handle("countAutomationRules", ({ params }) =>
-			Effect.gen(function* () {
-				const svc = yield* TestSupportService;
-				return yield* svc.countAutomationRules(params.userId);
-			}).pipe(mapTestSupportFailure),
 		),
 );

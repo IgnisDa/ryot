@@ -6,18 +6,12 @@ import {
 	EntityId,
 	EntitySchemaSlug,
 	ImportRunId,
+	PluginId,
 	PluginSlug,
 	RelationshipSchemaSlug,
 	SandboxProviderId,
-	SandboxScriptId,
 	UserId,
 } from "../../schema/brands";
-import {
-	AutomationRun,
-	AutomationRunAttempt,
-	AutomationTrigger,
-	AutomationTriggerRecipient,
-} from "../automations/lifecycle";
 import { ListedEntity } from "../entities/schemas";
 import {
 	InstallPluginBody,
@@ -29,15 +23,8 @@ import {
 import { RelationshipScope } from "../relationships/schemas";
 import { SandboxRunResult } from "../sandbox/schemas";
 import {
-	TestSupportBuiltinEntitySchema,
-	TestSupportEntityTranslation,
 	TestSupportInstallSystemPluginBodyBase64,
-	TestSupportListAutomationRunAttemptsBody,
-	TestSupportListAutomationRunsBody,
-	TestSupportListAutomationTriggerRecipientsBody,
-	TestSupportListAutomationTriggersBody,
-	TestSupportSystemPlugin,
-	TestSupportGlobalRelationship,
+	TestSupportPluginWriteResult,
 	TestSupportEnqueueSandboxBody,
 	TestSupportEnqueueSandboxResponse,
 	TestSupportOperationalPressure,
@@ -52,7 +39,6 @@ import {
 	TestSupportPluginCronResult,
 	TestSupportSandboxReplayProjectionBody,
 	TestSupportStartWorkflowLoadGateBody,
-	TestSupportStoredSandboxScript,
 	TestSupportTriggerPluginCronBody,
 	TestSupportWorkflowLoadGateResult,
 	TestSupportWorkflowLoadGateRun,
@@ -91,32 +77,8 @@ const OperationalPressureBody = Schema.Struct({
 	executionIds: Schema.Array(Schema.String).pipe(Schema.check(Schema.isMinLength(1))),
 });
 
-const GlobalRelationshipListBody = Schema.Union([
-	Schema.Struct({ type: Schema.Literal("self"), relationshipSchemaSlug: RelationshipSchemaSlug }),
-	Schema.Struct({
-		anchorEntityId: EntityId,
-		type: Schema.Literal("anchored"),
-		relationshipSchemaSlug: RelationshipSchemaSlug,
-		direction: Schema.Literals(["incoming", "outgoing"]),
-	}),
-]);
-
 export const TestSupportGroup = HttpApiGroup.make("testSupport")
 	.annotate(OpenApi.Description, "Provides administrative operations used by integration tests")
-	.add(
-		HttpApiEndpoint.get("getSandboxScript", "/test-support/sandbox-scripts/:scriptId", {
-			error: testSupportErrors,
-			params: { scriptId: SandboxScriptId },
-			success: TestSupportStoredSandboxScript,
-		}).annotate(OpenApi.Description, "Gets an installed sandbox script by ID"),
-	)
-	.add(
-		HttpApiEndpoint.get("listSandboxScripts", "/test-support/sandbox-scripts", {
-			query: {},
-			error: testSupportErrors,
-			success: Schema.Array(TestSupportStoredSandboxScript),
-		}).annotate(OpenApi.Description, "Lists installed sandbox scripts"),
-	)
 	.add(
 		HttpApiEndpoint.post("enqueueSandbox", "/test-support/sandbox/enqueue", {
 			error: testSupportErrors,
@@ -219,17 +181,6 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 		}).annotate(OpenApi.Description, "Captures a benchmark-only backend memory or CPU profile"),
 	)
 	.add(
-		HttpApiEndpoint.get(
-			"countAutomationRules",
-			"/test-support/users/:userId/automation-rules/count",
-			{
-				error: testSupportErrors,
-				params: { userId: UserId },
-				success: Schema.Struct({ count: Schema.Number }),
-			},
-		).annotate(OpenApi.Description, "Counts automation rules for a user"),
-	)
-	.add(
 		HttpApiEndpoint.post("createGlobalEntity", "/test-support/entities/global", {
 			error: testSupportErrors,
 			payload: CreateGlobalEntityBody,
@@ -258,20 +209,6 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 		}).annotate(OpenApi.Description, "Creates or updates a global relationship"),
 	)
 	.add(
-		HttpApiEndpoint.post("listGlobalRelationships", "/test-support/relationships/global/list", {
-			error: testSupportErrors,
-			payload: GlobalRelationshipListBody,
-			success: Schema.Array(TestSupportGlobalRelationship),
-		}).annotate(OpenApi.Description, "Lists global relationships for a requested scope"),
-	)
-	.add(
-		HttpApiEndpoint.get("getBuiltinEntitySchema", "/test-support/entity-schemas/builtin/:slug", {
-			error: testSupportErrors,
-			params: { slug: Schema.String },
-			success: TestSupportBuiltinEntitySchema,
-		}).annotate(OpenApi.Description, "Gets a built-in entity schema by slug"),
-	)
-	.add(
 		HttpApiEndpoint.post("setEntityPopulatedAt", "/test-support/entities/:entityId/populated-at", {
 			success: ListedEntity,
 			error: testSupportErrors,
@@ -282,7 +219,7 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 	.add(
 		HttpApiEndpoint.put("upsertEntityTranslation", "/test-support/entity-translations", {
 			error: testSupportErrors,
-			success: Schema.Struct({ entityId: EntityId, language: Schema.String }),
+			success: Schema.Struct({ id: Schema.String }),
 			payload: Schema.Struct({
 				entityId: EntityId,
 				language: Schema.String,
@@ -290,13 +227,6 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 				properties: Schema.NullOr(properties),
 			}),
 		}).annotate(OpenApi.Description, "Creates or updates an entity translation"),
-	)
-	.add(
-		HttpApiEndpoint.get("listEntityTranslations", "/test-support/entity-translations/:entityId", {
-			error: testSupportErrors,
-			params: { entityId: EntityId },
-			success: Schema.Array(TestSupportEntityTranslation),
-		}).annotate(OpenApi.Description, "Lists translations for an entity"),
 	)
 	.add(
 		HttpApiEndpoint.post("linkAuthAccount", "/test-support/auth-accounts", {
@@ -328,31 +258,6 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 		).annotate(OpenApi.Description, "Sets entity interest membership without reconciliation"),
 	)
 	.add(
-		HttpApiEndpoint.post("listAutomationTriggers", "/test-support/automations/triggers/list", {
-			error: testSupportErrors,
-			success: Schema.Array(AutomationTrigger),
-			payload: TestSupportListAutomationTriggersBody,
-		}).annotate(OpenApi.Description, "Lists automation triggers matching exact test filters"),
-	)
-	.add(
-		HttpApiEndpoint.post(
-			"listAutomationTriggerRecipients",
-			"/test-support/automations/trigger-recipients/list",
-			{
-				error: testSupportErrors,
-				success: Schema.Array(AutomationTriggerRecipient),
-				payload: TestSupportListAutomationTriggerRecipientsBody,
-			},
-		).annotate(OpenApi.Description, "Lists recipients for an automation trigger"),
-	)
-	.add(
-		HttpApiEndpoint.post("listAutomationRuns", "/test-support/automations/runs/list", {
-			error: testSupportErrors,
-			success: Schema.Array(AutomationRun),
-			payload: TestSupportListAutomationRunsBody,
-		}).annotate(OpenApi.Description, "Lists pinned automation runs matching exact test filters"),
-	)
-	.add(
 		HttpApiEndpoint.post("reconcileAutomations", "/test-support/automations/reconcile", {
 			success: Schema.Void,
 			error: testSupportErrors,
@@ -360,20 +265,9 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 		}).annotate(OpenApi.Description, "Reconciles queued automation runs"),
 	)
 	.add(
-		HttpApiEndpoint.post(
-			"listAutomationRunAttempts",
-			"/test-support/automations/run-attempts/list",
-			{
-				error: testSupportErrors,
-				success: Schema.Array(AutomationRunAttempt),
-				payload: TestSupportListAutomationRunAttemptsBody,
-			},
-		).annotate(OpenApi.Description, "Lists retained attempts for an automation run"),
-	)
-	.add(
 		HttpApiEndpoint.post("installSystemPlugin", "/test-support/system-plugins", {
 			payload: TestSupportInstallSystemPluginBodyBase64,
-			success: TestSupportSystemPlugin.pipe(HttpApiSchema.status(201)),
+			success: TestSupportPluginWriteResult.pipe(HttpApiSchema.status(201)),
 			error: [
 				...testSupportErrors,
 				PluginRequestError.pipe(HttpApiSchema.status(400)),
@@ -385,7 +279,7 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 		HttpApiEndpoint.post("installPrivatePlugin", "/test-support/users/:userId/plugins", {
 			payload: InstallPluginBody,
 			params: { userId: UserId },
-			success: TestSupportSystemPlugin.pipe(HttpApiSchema.status(201)),
+			success: TestSupportPluginWriteResult.pipe(HttpApiSchema.status(201)),
 			error: [
 				...testSupportErrors,
 				PluginRequestError.pipe(HttpApiSchema.status(400)),
@@ -396,7 +290,7 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 	.add(
 		HttpApiEndpoint.put("updatePrivatePlugin", "/test-support/users/:userId/plugins/:pluginSlug", {
 			payload: UpdatePrivatePluginBody,
-			success: TestSupportSystemPlugin,
+			success: TestSupportPluginWriteResult,
 			params: { userId: UserId, pluginSlug: PluginSlug },
 			error: [
 				...testSupportErrors,
@@ -417,15 +311,9 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 		),
 	)
 	.add(
-		HttpApiEndpoint.get("listSystemPlugins", "/test-support/system-plugins", {
-			error: testSupportErrors,
-			success: Schema.Array(TestSupportSystemPlugin),
-		}).annotate(OpenApi.Description, "Lists active system plugins"),
-	)
-	.add(
 		HttpApiEndpoint.delete("uninstallSystemPlugin", "/test-support/system-plugins/:pluginSlug", {
-			success: TestSupportSystemPlugin,
 			params: { pluginSlug: PluginSlug },
+			success: Schema.Struct({ pluginId: PluginId }),
 			error: [
 				...testSupportErrors,
 				PluginConflictError.pipe(HttpApiSchema.status(409)),

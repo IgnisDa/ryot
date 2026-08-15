@@ -42,6 +42,7 @@ const run = (input: {
 	...input,
 	hookSlug: input.id,
 	hookName: input.id,
+	historyPayload: payload,
 	stage: "after" as const,
 	scriptContentHash: "hash",
 	delivery: "async" as const,
@@ -145,6 +146,7 @@ describe("AutomationRetention", () => {
 						{
 							logs: [],
 							startedAt: old,
+							historyLogs: [],
 							finishedAt: old,
 							retryable: false,
 							attemptNumber: 1,
@@ -157,6 +159,7 @@ describe("AutomationRetention", () => {
 						{
 							logs: [],
 							startedAt: old,
+							historyLogs: [],
 							finishedAt: old,
 							retryable: true,
 							status: "failed",
@@ -171,13 +174,10 @@ describe("AutomationRetention", () => {
 
 					const collections = yield* Ref.make<ReadonlyArray<{ now: Date; limit: number }>>([]);
 					const collector = Layer.succeed(ScriptGarbageCollector, {
-						recordKernelContentHashes: () => Effect.void,
 						collect: (input) =>
-							input
-								? Ref.update(collections, (values) => [...values, input]).pipe(
-										Effect.as({ removedCount: 0, candidateCount: 0 }),
-									)
-								: Effect.as(Effect.void, undefined),
+							(input ? Ref.update(collections, (values) => [...values, input]) : Effect.void).pipe(
+								Effect.as({ removedCount: 0, candidateCount: 0 }),
+							),
 					});
 					const retentionLayer = AutomationRetention.layer.pipe(
 						Layer.provide(
@@ -221,15 +221,18 @@ describe("AutomationRetention", () => {
 						(yield* db
 							.select()
 							.from(tables.automationRun)
-							.orderBy(asc(tables.automationRun.id))).map(({ id, sandboxScriptId }) => ({
-							id,
-							sandboxScriptId,
-						})),
+							.orderBy(asc(tables.automationRun.id))).map(
+							({ id, historyPayload, sandboxScriptId }) => ({
+								id,
+								historyPayload,
+								sandboxScriptId,
+							}),
+						),
 					).toEqual([
-						{ id: "queued-run", sandboxScriptId: "kernel-script" },
-						{ id: "recent-run", sandboxScriptId: null },
-						{ id: "retryable-run", sandboxScriptId: "kernel-script" },
-						{ id: "running-run", sandboxScriptId: "kernel-script" },
+						{ id: "queued-run", historyPayload: payload, sandboxScriptId: "kernel-script" },
+						{ id: "recent-run", historyPayload: null, sandboxScriptId: null },
+						{ id: "retryable-run", historyPayload: payload, sandboxScriptId: "kernel-script" },
+						{ id: "running-run", historyPayload: payload, sandboxScriptId: "kernel-script" },
 					]);
 					expect(yield* db.select().from(tables.automationTriggerRecipient)).toEqual([
 						{ userId: "owner", triggerId: "shared" },
@@ -242,6 +245,8 @@ describe("AutomationRetention", () => {
 					expect(recentAttempt).toMatchObject({
 						logs: null,
 						error: null,
+						historyLogs: null,
+						historyError: null,
 						returnedValue: null,
 						artifactsPrunedAt: now,
 					});
@@ -251,6 +256,7 @@ describe("AutomationRetention", () => {
 						.where(eq(tables.automationRunAttempt.id, "retryable-attempt"));
 					expect(retryableAttempt).toMatchObject({
 						logs: [],
+						historyLogs: [],
 						artifactsPrunedAt: null,
 						error: { code: "retry", message: "retry" },
 					});

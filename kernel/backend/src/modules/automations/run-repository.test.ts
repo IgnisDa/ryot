@@ -1,14 +1,18 @@
 import { expect, it } from "@effect/vitest";
 import {
 	AutomationRun,
+	AutomationSignalPayload,
 	AutomationTrigger,
+	AutomationTriggerPayload,
 	DEFAULT_AUTOMATION_RETRY_POLICY,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { and, eq } from "drizzle-orm";
 import { DateTime, Effect, Layer, Schema } from "effect";
 import { TestClock } from "effect/testing";
-import { assert, describe } from "vitest";
+import { assert, describe, it as unit } from "vitest";
 
 import { lifecycleRunId, lifecycleTriggerId } from "#lib/domain/lifecycle";
 import { user } from "#lib/infrastructure/db/schema/tables/auth";
@@ -24,11 +28,164 @@ import {
 	revisionPackage,
 	withRevisionDatabase,
 } from "#modules/plugins/revision.test-support";
+import { fixtureManifest } from "#modules/plugins/test-support";
 
 import { AutomationAttemptRepository } from "./attempt-repository";
 import { triggerFixture } from "./lifecycle.test-support";
-import { AutomationRunRepository } from "./run-repository";
+import { AutomationRunRepository, redactAutomationHistoryPayload } from "./run-repository";
 import { AutomationTriggerRepository } from "./trigger-repository";
+
+const fixture = fixtureManifest();
+const signalManifest: PluginManifest = {
+	...fixture,
+	signalSchemas: fixture.signalSchemas.map((signal) => ({
+		...signal,
+		propertiesSchema: {
+			fields: {
+				public: { type: "string", label: "Public", description: "Public field" },
+				password: { secret: true, type: "string", label: "Password", description: "Secret field" },
+				nested: {
+					type: "object",
+					label: "Nested",
+					description: "Nested object",
+					properties: {
+						visible: { type: "string", label: "Visible", description: "Visible field" },
+						credential: {
+							secret: true,
+							type: "string",
+							label: "Credential",
+							description: "Secret credential",
+						},
+					},
+				},
+				items: {
+					type: "array",
+					label: "Items",
+					description: "Array of objects",
+					items: {
+						label: "Item",
+						type: "object",
+						description: "Array item",
+						properties: {
+							label: { type: "string", label: "Label", description: "Public label" },
+							private: {
+								secret: true,
+								type: "string",
+								label: "Private",
+								description: "Private field",
+							},
+						},
+					},
+				},
+			},
+		},
+	})),
+};
+
+unit(
+	"redacts secret fields from the retained revision, including nested objects and array items",
+	() => {
+		const payload = Schema.decodeSync(AutomationSignalPayload)({
+			operation: "emit",
+			category: "signal",
+			resource: "signal",
+			actorUserId: "owner",
+			signalSchemaPluginId: "plugin-1",
+			signalSchemaSlug: "fixture.signal",
+			properties: {
+				public: "visible",
+				password: "hidden",
+				items: [{ label: "ok", private: "hidden" }],
+				nested: { visible: "ok", credential: "hidden" },
+			},
+		});
+		expect(
+			redactAutomationHistoryPayload(payload, signalManifest, payload.signalSchemaPluginId),
+		).toEqual({
+			...payload,
+			properties: { public: "visible", items: [{ label: "ok" }], nested: { visible: "ok" } },
+		});
+		expect(redactAutomationHistoryPayload(payload, null, payload.signalSchemaPluginId)).toEqual({
+			...payload,
+			properties: {},
+		});
+		expect(redactAutomationHistoryPayload(payload, signalManifest, null)).toEqual({
+			...payload,
+			properties: {},
+		});
+		expect(payload.properties).toMatchObject({ password: "hidden" });
+	},
+);
+
+unit("redacts mutation snapshots and parent population properties with their own schemas", () => {
+	const pinned: PluginManifest = {
+		...fixture,
+		entitySchemas: fixture.entitySchemas.map((entity) =>
+			Object.assign({}, entity, {
+				propertiesSchema: {
+					fields: {
+						count: { type: "number", label: "Count", description: "Counter" },
+						token: { secret: true, type: "string", label: "Token", description: "Secret token" },
+					},
+				} satisfies AppSchema,
+			}),
+		),
+	};
+	const snapshot = {
+		id: "entity",
+		name: "Item",
+		externalId: null,
+		providerId: null,
+		populatedAt: null,
+		entitySchemaSlug: "fixture-entity",
+		createdAt: "2026-09-15T00:00:00.000Z",
+		updatedAt: "2026-09-15T00:00:00.000Z",
+		properties: { count: 2, token: "hidden" },
+	};
+	const item = {
+		after: snapshot,
+		before: snapshot,
+		category: "change",
+		resource: "entity",
+		operation: "update",
+	} as const;
+	const population = {
+		rootPreviouslyPopulated: true,
+		scopeEntity: { id: "entity", name: "Item", entitySchemaSlug: "fixture-entity" },
+		parentEntity: {
+			name: "Parent",
+			entitySchemaSlug: "fixture-entity",
+			properties: { count: 1, token: "hidden" },
+		},
+	};
+	const payload = Schema.decodeSync(AutomationTriggerPayload)({ ...item, population });
+	expect(redactAutomationHistoryPayload(payload, pinned, null)).toMatchObject({
+		after: { properties: { count: 2 } },
+		before: { properties: { count: 2 } },
+		population: { parentEntity: { properties: { count: 1 } } },
+	});
+	expect(JSON.stringify(redactAutomationHistoryPayload(payload, pinned, null))).not.toContain(
+		"hidden",
+	);
+	const batch = Schema.decodeSync(AutomationTriggerPayload)({
+		category: "change",
+		resource: "entity",
+		operation: "batch",
+		items: [{ ...item, population }],
+	});
+	expect(redactAutomationHistoryPayload(batch, pinned, null)).toMatchObject({
+		items: [
+			{
+				after: { properties: { count: 2 } },
+				before: { properties: { count: 2 } },
+				population: { parentEntity: { properties: { count: 1 } } },
+			},
+		],
+	});
+	expect(JSON.stringify(redactAutomationHistoryPayload(batch, pinned, null))).not.toContain(
+		"hidden",
+	);
+});
 
 describe("AutomationRunRepository", () => {
 	it.effect(
@@ -60,6 +217,8 @@ describe("AutomationRunRepository", () => {
 						},
 					});
 					const trigger = yield* triggers.insert(request);
+					const payload = trigger.payload;
+					assert(payload);
 					const other = yield* triggers.insert({ ...request, id: triggerFixture("other").id });
 					yield* db
 						.insert(sandboxScript)
@@ -96,13 +255,14 @@ describe("AutomationRunRepository", () => {
 						sandboxScriptId: "policy-script",
 						artifactsExpireAt: "2026-10-15T00:00:00.000Z",
 					});
-					const pending = yield* repo.insertQueued(base);
+					const pending = yield* repo.insertQueued(base, payload);
 					const second = yield* repo.insertQueued(
 						yield* Schema.decodeEffect(AutomationRun)({
 							...base,
 							id: "unstarted-b",
 							hookSlug: "second",
 						}),
+						payload,
 					);
 					const active = yield* repo.insertQueued(
 						yield* Schema.decodeEffect(AutomationRun)({
@@ -110,6 +270,7 @@ describe("AutomationRunRepository", () => {
 							id: "active",
 							hookSlug: "active",
 						}),
+						payload,
 					);
 					const terminal = yield* repo.insertQueued(
 						yield* Schema.decodeEffect(AutomationRun)({
@@ -117,6 +278,7 @@ describe("AutomationRunRepository", () => {
 							id: "terminal",
 							hookSlug: "terminal",
 						}),
+						payload,
 					);
 					const after = yield* repo.insertQueued(
 						yield* Schema.decodeEffect(AutomationRun)({
@@ -127,12 +289,12 @@ describe("AutomationRunRepository", () => {
 							delivery: "required",
 							retryPolicy: DEFAULT_AUTOMATION_RETRY_POLICY,
 						}),
+						payload,
 					);
-					const unrelated = yield* repo.insertQueued({
-						...base,
-						triggerId: other.id,
-						id: lifecycleRunId({ ...base, triggerId: other.id }),
-					});
+					const unrelated = yield* repo.insertQueued(
+						{ ...base, triggerId: other.id, id: lifecycleRunId({ ...base, triggerId: other.id }) },
+						payload,
+					);
 					const now = DateTime.toDate(DateTime.makeUnsafe(trigger.createdAt));
 					yield* attempts.claimNextAttempt({ now, attemptNumber: 1, runId: active.id });
 					yield* attempts.claimNextAttempt({ now, attemptNumber: 1, runId: terminal.id });
@@ -208,6 +370,8 @@ describe("AutomationRunRepository", () => {
 					const triggers = yield* AutomationTriggerRepository;
 					const db = yield* Database;
 					const trigger = yield* triggers.insert(triggerFixture());
+					const payload = trigger.payload;
+					assert(payload);
 					yield* db
 						.insert(sandboxScript)
 						.values({
@@ -252,8 +416,8 @@ describe("AutomationRunRepository", () => {
 						artifactsExpireAt: "2026-10-15T00:00:00.000Z",
 					});
 					const pinned = { ...run, id: lifecycleRunId(run) };
-					expect(yield* repo.insertQueued(pinned)).toEqual(pinned);
-					expect(yield* repo.insertQueued(pinned)).toEqual(pinned);
+					expect(yield* repo.insertQueued(pinned, payload)).toEqual(pinned);
+					expect(yield* repo.insertQueued(pinned, payload)).toEqual(pinned);
 					expect(yield* repo.listByTrigger(trigger.id)).toEqual([pinned]);
 					expect(yield* repo.listQueuedCandidates({ now, limit: 1 })).toEqual([pinned]);
 					expect(
@@ -273,12 +437,14 @@ describe("AutomationRunRepository", () => {
 						.update(automationRun)
 						.set({ startedAt: now, attemptCount: 1, finishedAt: now, status: "succeeded" })
 						.where(eq(automationRun.id, pinned.id));
-					expect(yield* repo.insertQueued(pinned)).toMatchObject({
+					expect(yield* repo.insertQueued(pinned, payload)).toMatchObject({
 						attemptCount: 1,
 						status: "succeeded",
 					});
 					expect(
-						yield* repo.insertQueued({ ...pinned, scriptContentHash: "changed" }).pipe(Effect.flip),
+						yield* repo
+							.insertQueued({ ...pinned, scriptContentHash: "changed" }, payload)
+							.pipe(Effect.flip),
 					).toMatchObject({ _tag: "DbError" });
 					expect(yield* repo.listQueuedCandidates({ now, limit: 10 })).toEqual([]);
 					expect(yield* repo.findById(pinned.id)).toMatchObject({ status: "succeeded" });
@@ -327,15 +493,17 @@ describe("AutomationRunRepository", () => {
 						scriptContentHash: script.contentHash,
 						pluginRevisionId: installed.revisionId,
 					});
-					expect(yield* repo.insertQueued(pluginRun)).toEqual(pluginRun);
+					expect(yield* repo.insertQueued(pluginRun, payload)).toEqual(pluginRun);
 					const disabledUserRun = yield* Schema.decodeEffect(AutomationRun)({
 						...pluginRun,
 						id: "disabled-user-run",
 						executionUserId: "owner",
 					});
-					expect(yield* repo.insertQueued(disabledUserRun)).toEqual(disabledUserRun);
+					expect(yield* repo.insertQueued(disabledUserRun, payload)).toEqual(disabledUserRun);
 					expect(
-						yield* repo.insertQueued({ ...pluginRun, hookName: "Changed" }).pipe(Effect.flip),
+						yield* repo
+							.insertQueued({ ...pluginRun, hookName: "Changed" }, payload)
+							.pipe(Effect.flip),
 					).toMatchObject({ _tag: "DbError" });
 					yield* db.update(user).set({ disabledAt: now }).where(eq(user.id, "owner"));
 					const policy = yield* Schema.decodeUnknownEffect(AutomationRun)({
@@ -346,7 +514,7 @@ describe("AutomationRunRepository", () => {
 						hookSlug: "policy",
 						delivery: "policy",
 					});
-					yield* repo.insertQueued(policy);
+					yield* repo.insertQueued(policy, payload);
 					expect(yield* repo.listQueuedCandidates({ now, limit: 10 })).toEqual([
 						disabledUserRun,
 						pluginRun,

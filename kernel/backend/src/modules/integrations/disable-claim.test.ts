@@ -6,7 +6,7 @@ import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 import { ProKeyService } from "#lib/infrastructure/pro-key";
 import { databaseLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { ImportsService } from "#modules/imports/service";
-import { IntegrationProviderCatalogLive } from "#modules/plugins/integration-provider-catalog";
+import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { IntegrationsRepository } from "./repository";
@@ -25,7 +25,7 @@ const makeLayer = (repository: Layer.Layer<IntegrationsRepository>) =>
 				databaseLayer,
 				repository,
 				mockProKey,
-				IntegrationProviderCatalogLive,
+				IntegrationProviderCatalog.layer,
 				Layer.mock(PluginRuntimeResolver)({}),
 				Layer.mock(ImportsService, {}),
 				Layer.succeed(WorkflowEngine, makeWorkflowEngine()),

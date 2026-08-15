@@ -51,7 +51,7 @@ import {
 	type SandboxRunInput,
 	type UserSandboxRunInput,
 } from "#lib/infrastructure/sandbox-runtime/shared";
-import { DefinitionRegistry } from "#modules/definition-registry/service";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import {
 	EntitiesService,
@@ -81,7 +81,7 @@ type SandboxHostFunctionContext =
 	| EventsService
 	| EntitiesService
 	| EntitiesRepository
-	| DefinitionRegistry
+	| DefinitionRepository
 	| PluginRuntimeResolver
 	| IntegrationsRepository
 	| RelationshipsRepository
@@ -229,7 +229,7 @@ const makeSandboxLifecycleHostSteps = (dependencies: {
 			A,
 			E,
 			| Database
-			| DefinitionRegistry
+			| DefinitionRepository
 			| EntitiesRepository
 			| PluginRuntimeResolver
 			| RelationshipsRepository
@@ -441,7 +441,7 @@ export const makeSandboxLifecycleHostApi = Effect.gen(function* () {
 	const lifecyclePlanner = yield* LifecyclePlanner;
 	const lifecycleExecution = yield* LifecycleExecution;
 	const entities = yield* EntitiesService;
-	const definitions = yield* DefinitionRegistry;
+	const definitions = yield* DefinitionRepository;
 	const pluginRuntime = yield* PluginRuntimeResolver;
 	const entitiesRepository = yield* EntitiesRepository;
 	const relationshipsRepository = yield* RelationshipsRepository;
@@ -457,7 +457,7 @@ export const makeSandboxLifecycleHostApi = Effect.gen(function* () {
 		provideEntityServices: provideLifecycleServices,
 		provideRelationshipServices: (effect) =>
 			effect.pipe(
-				Effect.provideService(DefinitionRegistry, definitions),
+				Effect.provideService(DefinitionRepository, definitions),
 				Effect.provideService(EntitiesRepository, entitiesRepository),
 				Effect.provideService(PluginRuntimeResolver, pluginRuntime),
 				Effect.provideService(RelationshipsRepository, relationshipsRepository),
@@ -490,6 +490,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 	const entities = yield* EntitiesService;
 	const ryotqlService = yield* RyotQLService;
 	const pluginRuntime = yield* PluginRuntimeResolver;
+	const definitions = yield* DefinitionRepository;
 	const integrationsRepository = yield* IntegrationsRepository;
 	const provideLifecycleServices = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 		effect.pipe(
@@ -739,7 +740,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 							if (userId === null) {
 								return yield* Effect.fail("executeRyotql requires a user execution");
 							}
-							return yield* ryotqlService.executeForUser(userId, null, document);
+							return yield* ryotqlService.executeForUser(userId, null, "plugin", document);
 						}),
 					);
 				}),
@@ -756,12 +757,15 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 								return Effect.succeed([]);
 							}
 
-							return pluginRuntime
-								.getEffectiveDefinitions(UserId.make(userSandboxRunUserId(input)))
+							return definitions
+								.findUserEntitySchemas(
+									UserId.make(userSandboxRunUserId(input)),
+									resolvedEntitySchemaSlugs,
+								)
 								.pipe(
-									Effect.flatMap((effectiveDefinitions) =>
+									Effect.flatMap((entitySchemas) =>
 										Effect.forEach(resolvedEntitySchemaSlugs, (entitySchemaSlug) => {
-											const entitySchema = effectiveDefinitions.entitySchemas[entitySchemaSlug];
+											const entitySchema = entitySchemas[entitySchemaSlug];
 											return entitySchema
 												? Effect.succeed(
 														Object.values(entitySchema.eventSchemas).map((eventSchema) => ({
@@ -788,9 +792,12 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					const input = yield* requireSandboxCapabilityInput(rawInput, "ensureUserEntities");
 					const revision = input.principal.pluginRevision;
 					const userId = UserId.make(userSandboxRunUserId(input));
-					const effectiveDefinitions = yield* pluginRuntime.getEffectiveDefinitions(userId);
+					const entitySchemas = yield* definitions.findUserEntitySchemas(
+						userId,
+						items.map(({ entitySchemaSlug }) => entitySchemaSlug),
+					);
 					for (const item of items) {
-						const definition = effectiveDefinitions.entitySchemas[item.entitySchemaSlug];
+						const definition = entitySchemas[item.entitySchemaSlug];
 						if (
 							!revision?.schemaScope.entitySchemaSlugs.includes(item.entitySchemaSlug) ||
 							!definition ||
@@ -831,12 +838,15 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 								return Effect.succeed([]);
 							}
 
-							return pluginRuntime
-								.getEffectiveDefinitions(UserId.make(userSandboxRunUserId(input)))
+							return definitions
+								.findUserEntitySchemas(
+									UserId.make(userSandboxRunUserId(input)),
+									resolvedEntitySchemaSlugs,
+								)
 								.pipe(
-									Effect.flatMap((effectiveDefinitions) =>
+									Effect.flatMap((entitySchemas) =>
 										Effect.forEach(resolvedEntitySchemaSlugs, (entitySchemaSlug) => {
-											const definition = effectiveDefinitions.entitySchemas[entitySchemaSlug];
+											const definition = entitySchemas[entitySchemaSlug];
 											if (!definition) {
 												return Effect.fail("Entity schema not found");
 											}

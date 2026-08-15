@@ -44,6 +44,7 @@ export const makePlannedRelationshipReconciliation = ({
 	planner,
 	runtime,
 	repository,
+	definitions,
 }: Omit<RelationshipMutationDependencies, "execution">) => {
 	const assertActiveTransaction = activeTransactionGuard(client);
 	const persistPlannedReconciliation = Effect.fn(
@@ -56,18 +57,16 @@ export const makePlannedRelationshipReconciliation = ({
 		yield* assertActiveTransaction;
 		const entities = yield* EntitiesRepository;
 		yield* runtime.lockCatalog();
-		const effectiveDefinitions =
-			scope.scope === "user" ? yield* runtime.getEffectiveDefinitions(scope.userId) : null;
-		const globalDefinitions =
-			scope.scope === "global" ? yield* runtime.getGlobalDefinitions() : null;
+		const slugs = groups.map(({ relationshipSchemaSlug }) => relationshipSchemaSlug);
+		const schemas =
+			scope.scope === "user"
+				? yield* definitions.findUserRelationshipSchemas(scope.userId, slugs)
+				: (yield* definitions.getGlobalSnapshot).relationshipSchemas;
 		const scopeUserId = scope.scope === "user" ? scope.userId : null;
 		const plans: LifecyclePlan[] = [];
 		const result: Array<PlannedRelationshipReconciliationResult[number]> = [];
 		for (const [groupIndex, group] of groups.entries()) {
-			const definition =
-				scope.scope === "global"
-					? globalDefinitions?.relationshipSchemas[group.relationshipSchemaSlug]
-					: effectiveDefinitions?.relationshipSchemas[group.relationshipSchemaSlug];
+			const definition = schemas[group.relationshipSchemaSlug];
 			if (!definition) {
 				return yield* new RelationshipNotFound({
 					reason: {

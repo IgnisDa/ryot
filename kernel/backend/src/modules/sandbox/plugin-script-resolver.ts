@@ -10,10 +10,6 @@ export type SandboxPluginScriptResolverValue = {
 	findActiveScriptById: (
 		scriptId: SandboxScriptId,
 	) => Effect.Effect<ActiveSandboxScript | null, DbError, Database>;
-	findActiveWorkflowScript: (input: {
-		readonly pluginSlug: string;
-		readonly workflowSlug: string;
-	}) => Effect.Effect<ActiveSandboxScript | null, DbError, Database>;
 	findWorkflowScriptAvailableToUser: (
 		userId: UserId,
 		pluginId: string,

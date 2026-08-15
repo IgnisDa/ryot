@@ -1,4 +1,4 @@
-import { Result } from "effect";
+import { Option, Result } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { integrationRecipe, integrationsRecipe } from "./integrations";
@@ -80,12 +80,21 @@ describe("integration recipes", () => {
 	it("decodes optional detail and rejects excess cardinality", () => {
 		const recipe = integrationRecipe({ id: "integration-1" });
 
+		const detail = { ...item, webhookToken: "secret", providerSpecifics: { kind: "provider" } };
 		expect(
-			Result.getOrThrow(recipe.decode({ data: { integration: rows([], 2) } })),
-		).toBeUndefined();
-		expect(Result.isFailure(recipe.decode({ data: { integration: rows([item, item], 2) } }))).toBe(
-			true,
+			Option.isNone(Result.getOrThrow(recipe.decode({ data: { integration: rows([], 2) } }))),
+		).toBe(true);
+		expect(Result.getOrThrow(recipe.decode({ data: { integration: rows([detail], 2) } }))).toEqual(
+			Option.some({
+				...detail,
+				createdAt: "2025-12-31T23:00:00.000Z",
+				updatedAt: "2026-01-01T23:00:00.000Z",
+				lastFinishedAt: "2026-01-02T23:00:00.000Z",
+			}),
 		);
+		expect(
+			Result.isFailure(recipe.decode({ data: { integration: rows([detail, detail], 2) } })),
+		).toBe(true);
 	});
 
 	it("rejects malformed JSON, enum values, and dates", () => {

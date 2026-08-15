@@ -44,6 +44,7 @@ const registeredSource = (
 	workflowSlug: "nu-import",
 	requiredPluginConfigKeys: [],
 	pluginId: "example-plugin-id",
+	configuredPluginConfigKeys: [],
 	installationId: "example-installation",
 	configContext: {
 		configSchema,
@@ -266,49 +267,42 @@ it("summarizes only source and claimed original file names", () => {
 	expect(buildImportInputSummary("gamma", {})).toEqual({ source: "gamma" });
 });
 
-it.effect("names the environment keys when a system config revision is unavailable", () =>
-	Effect.gen(function* () {
-		const source = registeredSource({
-			requiredPluginConfigKeys: ["alphaAccessToken", "deltaApiKey"],
-			configContext: { ...registeredSource().configContext, pluginConfigRevisionId: null },
-		});
-		expect(yield* registryImportSourceMissingConfigKeys(source)).toEqual([
-			"RYOT_PLUGIN_EXAMPLE_ALPHA_ACCESS_TOKEN",
-			"RYOT_PLUGIN_EXAMPLE_DELTA_API_KEY",
-		]);
-	}),
-);
+it("names the environment keys of required keys missing from the environment config revision", () => {
+	const source = registeredSource({
+		configuredPluginConfigKeys: ["alphaAccessToken"],
+		requiredPluginConfigKeys: ["alphaAccessToken", "deltaApiKey"],
+	});
+	expect(registryImportSourceMissingConfigKeys(source)).toEqual([
+		"RYOT_PLUGIN_EXAMPLE_DELTA_API_KEY",
+	]);
+});
 
-it.effect("returns every required key when a private config revision is unavailable", () =>
-	Effect.gen(function* () {
-		const source = registeredSource({
-			pluginScope: "user",
-			requiredPluginConfigKeys: ["alphaAccessToken", "deltaApiKey"],
-			configContext: { ...registeredSource().configContext, pluginConfigRevisionId: null },
-		});
-		expect(yield* registryImportSourceMissingConfigKeys(source)).toEqual([
-			"alphaAccessToken",
-			"deltaApiKey",
-		]);
-	}),
-);
+it("returns every required key when a private config revision is unavailable", () => {
+	const source = registeredSource({
+		pluginScope: "user",
+		requiredPluginConfigKeys: ["alphaAccessToken", "deltaApiKey"],
+		configContext: { ...registeredSource().configContext, pluginConfigRevisionId: null },
+	});
+	expect(registryImportSourceMissingConfigKeys(source)).toEqual([
+		"alphaAccessToken",
+		"deltaApiKey",
+	]);
+});
 
-it.effect("accepts a private plugin config revision without environment lookup", () =>
-	Effect.gen(function* () {
-		const source = registeredSource({
-			pluginScope: "user",
-			pluginSlug: "my-example",
-			pluginId: "private-plugin-id",
-			installationId: "private-installation",
-			requiredPluginConfigKeys: ["alphaAccessToken", "deltaApiKey"],
-			configContext: {
-				configSchema,
-				kind: "revision",
-				ownerUserId: UserId.make("owner"),
-				pluginRevisionId: "private-revision",
-				pluginConfigRevisionId: "private-config-revision",
-			},
-		});
-		expect(yield* registryImportSourceMissingConfigKeys(source)).toEqual([]);
-	}),
-);
+it("accepts a private plugin config revision without configured key checks", () => {
+	const source = registeredSource({
+		pluginScope: "user",
+		pluginSlug: "my-example",
+		pluginId: "private-plugin-id",
+		installationId: "private-installation",
+		requiredPluginConfigKeys: ["alphaAccessToken", "deltaApiKey"],
+		configContext: {
+			configSchema,
+			kind: "revision",
+			ownerUserId: UserId.make("owner"),
+			pluginRevisionId: "private-revision",
+			pluginConfigRevisionId: "private-config-revision",
+		},
+	});
+	expect(registryImportSourceMissingConfigKeys(source)).toEqual([]);
+});

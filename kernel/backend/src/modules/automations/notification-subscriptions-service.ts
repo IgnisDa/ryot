@@ -1,8 +1,6 @@
 import {
 	AutomationConflictError,
 	AutomationNotFoundError,
-	type CatalogSignalSchema,
-	type InstalledNotificationRule,
 } from "@ryot-app/contract/modules/automations/schemas";
 import type {
 	NotificationSubscriptionId,
@@ -13,70 +11,34 @@ import { SignalSchemaSlug as SignalSchemaSlugBrand } from "@ryot-app/contract/sc
 import { Context, Effect, Layer } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
-import type { SignalSchemaDefinition } from "#modules/definition-registry/service";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
 
 import { AutomationsRepository, type StoredNotificationSubscription } from "./repository";
-
-const toCatalogSignalSchema = (signalSchema: SignalSchemaDefinition): CatalogSignalSchema => ({
-	name: signalSchema.name,
-	slug: signalSchema.slug,
-	propertiesSchema: signalSchema.propertiesSchema,
-	id: SignalSchemaSlugBrand.make(signalSchema.slug),
-});
-
-const toInstalledNotificationRule = (
-	state: StoredNotificationSubscription,
-	signalSchema: SignalSchemaDefinition,
-): InstalledNotificationRule => ({
-	id: state.id,
-	name: signalSchema.name,
-	isActive: state.isActive,
-	createdAt: state.createdAt,
-	updatedAt: state.updatedAt,
-	signalSchema: toCatalogSignalSchema(signalSchema),
-});
 
 export class NotificationSubscriptionsService extends Context.Service<NotificationSubscriptionsService>()(
 	"NotificationSubscriptionsService",
 	{
 		make: Effect.gen(function* () {
 			const repository = yield* AutomationsRepository;
-			const pluginRuntime = yield* PluginRuntimeResolver;
-			const effectiveForUser = (userId: UserId, includeUnavailable = false) =>
-				pluginRuntime.getEffectiveDefinitions(userId, includeUnavailable);
+			const definitions = yield* DefinitionRepository;
+			const listActiveSignalSchemas = (userId: UserId) =>
+				definitions
+					.listUserSignalSchemas(userId)
+					.pipe(
+						Effect.map((signals) =>
+							signals.filter(({ catalogState }) => catalogState === "active"),
+						),
+					);
 
 			const resolveStateSignalSchema = Effect.fn(function* (state: StoredNotificationSubscription) {
-				const effective = yield* effectiveForUser(state.userId, true);
-				const definition = effective.signalSchemas[state.signalSchemaSlug];
+				const definition = yield* definitions.findUserSignalSchema(
+					state.userId,
+					state.signalSchemaSlug,
+					{ listed: true },
+				);
 				return (definition?.pluginId ?? null) === (state.signalSchemaPluginId ?? null)
 					? definition
 					: undefined;
-			});
-
-			const listCatalog = Effect.fn("NotificationSubscriptionsService.listCatalog")(
-				(userId: UserId) =>
-					effectiveForUser(userId).pipe(
-						Effect.map((effectiveDefinitions) =>
-							Object.values(effectiveDefinitions.signalSchemas)
-								.filter(({ catalogState }) => catalogState === "active")
-								.map(toCatalogSignalSchema),
-						),
-					),
-			);
-
-			const getCatalog = Effect.fn("NotificationSubscriptionsService.getCatalog")(function* (
-				userId: UserId,
-				id: SignalSchemaSlug,
-			) {
-				const effective = yield* effectiveForUser(userId);
-				const signalSchema = effective.signalSchemas[id];
-				if (signalSchema?.catalogState !== "active") {
-					return yield* new AutomationNotFoundError({
-						reason: { signalSchemaSlug: id, code: "signal-schema-not-found" },
-					});
-				}
-				return toCatalogSignalSchema(signalSchema);
 			});
 
 			const loadRule = Effect.fn("NotificationSubscriptionsService.loadRule")(function* (input: {
@@ -95,7 +57,7 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 						reason: { ruleId: input.ruleId, code: "rule-not-found" },
 					});
 				}
-				return { state, signalSchema };
+				return undefined;
 			});
 
 			const installRule = Effect.fn("NotificationSubscriptionsService.installRule")(
@@ -104,9 +66,10 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 					return yield* mapDatabaseErrors(
 						database.transaction((transaction) =>
 							Effect.gen(function* () {
-								const signalSchema = (yield* effectiveForUser(input.userId)).signalSchemas[
-									input.signalSchemaSlug
-								];
+								const signalSchema = yield* definitions.findUserSignalSchema(
+									input.userId,
+									input.signalSchemaSlug,
+								);
 								if (signalSchema?.catalogState !== "active") {
 									return yield* new AutomationNotFoundError({
 										reason: {
@@ -123,7 +86,7 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 									signalSchemaPluginId: signalSchema.pluginId ?? null,
 								});
 								return state
-									? toInstalledNotificationRule(state, signalSchema)
+									? { id: state.id }
 									: yield* new AutomationConflictError({
 											reason: {
 												code: "rule-already-installed",
@@ -139,9 +102,7 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 			const ensureDefaultRules = Effect.fn("NotificationSubscriptionsService.ensureDefaultRules")(
 				function* (userId: UserId) {
 					return yield* Effect.gen(function* () {
-						const schemas = Object.values((yield* effectiveForUser(userId)).signalSchemas).filter(
-							({ catalogState }) => catalogState === "active",
-						);
+						const schemas = yield* listActiveSignalSchemas(userId);
 						for (const signalSchema of schemas) {
 							yield* repository.insertNotificationSubscription({
 								userId,
@@ -165,14 +126,14 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 					return yield* mapDatabaseErrors(
 						database.transaction((transaction) =>
 							Effect.gen(function* () {
-								const loaded = yield* loadRule(input);
+								yield* loadRule(input);
 								const state = yield* repository.setNotificationSubscriptionActive(input);
 								if (!state) {
 									return yield* new AutomationNotFoundError({
 										reason: { ruleId: input.ruleId, code: "rule-not-found" },
 									});
 								}
-								return toInstalledNotificationRule(state, loaded.signalSchema);
+								return { id: state.id };
 							}).pipe(Effect.provideService(Database, transaction)),
 						),
 					);
@@ -198,14 +159,7 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 				},
 			);
 
-			return {
-				deleteRule,
-				getCatalog,
-				installRule,
-				listCatalog,
-				setRuleActive,
-				ensureDefaultRules,
-			};
+			return { deleteRule, installRule, setRuleActive, ensureDefaultRules };
 		}),
 	},
 ) {

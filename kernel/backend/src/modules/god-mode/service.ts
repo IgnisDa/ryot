@@ -37,46 +37,6 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 			requestPasswordResetLink,
 		} = yield* AuthService;
 
-		const listUsers = Effect.fn("GodModeService.listUsers")(function* (input: {
-			limit: number;
-			offset: number;
-			search?: string | undefined;
-		}) {
-			const [total, userRows] = yield* Effect.all([
-				repository.countUsers(input.search),
-				repository.listUserRows(input),
-			]);
-
-			if (userRows.length === 0) {
-				return { total, users: [] };
-			}
-
-			const userIds = userRows.map((u) => u.id);
-			const accountRows = yield* repository.listAccountsForUsers(userIds);
-
-			const accountsByUser = new Map<string, Array<{ providerId: string }>>();
-			for (const row of accountRows) {
-				const existing = accountsByUser.get(row.userId) ?? [];
-				accountsByUser.set(row.userId, [...existing, { providerId: row.providerId }]);
-			}
-
-			const users = userRows.map((u) => ({
-				id: u.id,
-				name: u.name,
-				email: u.email,
-				createdAt: u.createdAt,
-				disabledAt: u.disabledAt,
-				twoFactorEnabled: u.twoFactorEnabled,
-				authState: classifyAuthState(accountsByUser.get(u.id) ?? []),
-			}));
-
-			return { total, users };
-		});
-
-		const getMigrationReport = Effect.fn("GodModeService.getMigrationReport")(function* () {
-			return { entries: yield* repository.listMigrationReportEntries() };
-		});
-
 		const provisionUser = Effect.fn("GodModeService.provisionUser")(function* (
 			input: ProvisionUserBody,
 		) {
@@ -130,7 +90,7 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 				yield* deleteUserSessions(userId);
 			}
 
-			return { id: userId, disabledAt: disabledAt?.toISOString() ?? null };
+			return { id: userId };
 		});
 
 		const resetUserPassword = Effect.fn("GodModeService.resetUserPassword")(function* (
@@ -166,14 +126,11 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 		});
 
 		return {
-			listUsers,
 			provisionUser,
 			setUserDisabled,
 			resetUserPassword,
-			getMigrationReport,
 			resetUser: lifecycle.resetUser,
 			deleteUser: lifecycle.deleteUser,
-			getUserLifecycleOperation: lifecycle.getOperation,
 		};
 	}),
 }) {

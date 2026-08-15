@@ -1,22 +1,35 @@
 import { DbError } from "@ryot-app/contract/errors";
+import { AUTOMATION_HISTORY_LIMITS } from "@ryot-app/contract/modules/automations/history-schemas";
 import {
+	type AutomationPopulationContext,
 	AutomationRun,
 	AutomationRunSkipReason,
+	type AutomationTriggerPayload,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import type { AutomationRunId, AutomationTriggerId } from "@ryot-app/contract/schema/brands";
 import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
+import { JsonValue } from "@ryot-app/contract/schema/json";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { and, asc, eq, inArray, isNotNull, isNull, lte, notInArray, or } from "drizzle-orm";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
+import { and, asc, eq, inArray, isNotNull, isNull, lte, notInArray, or, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { automationRun as table } from "#lib/infrastructure/db/schema/tables/automations";
+import { pluginRevision } from "#lib/infrastructure/db/schema/tables/core";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { redactPluginConfig } from "#modules/plugins/config-redaction";
 
 const policyChainStopped = Schema.decodeSync(AutomationRunSkipReason)({
 	code: "policy-chain-stopped",
 });
 
-const decodeRow = (row: typeof table.$inferSelect) =>
+const decodeRow = ({
+	historyPayload: _historyPayload,
+	historyPayloadTruncated: _historyPayloadTruncated,
+	...row
+}: typeof table.$inferSelect) =>
 	decodeStoredSchema(
 		{
 			...row,
@@ -29,6 +42,116 @@ const decodeRow = (row: typeof table.$inferSelect) =>
 		AutomationRun,
 		`Invalid automation run ${row.id}`,
 	);
+
+const jsonBytes = (value: JsonValue) => Buffer.byteLength(JSON.stringify(value), "utf8");
+
+type PinnedSchemas = Pick<
+	PluginManifest,
+	"entitySchemas" | "signalSchemas" | "relationshipSchemas"
+>;
+
+const properties = (schema: AppSchema | undefined, values: Readonly<Record<string, unknown>>) =>
+	schema ? redactPluginConfig(schema, values).config : {};
+
+export const redactAutomationHistoryPayload = (
+	payload: AutomationTriggerPayload,
+	manifest: PinnedSchemas | null,
+	pluginId: AutomationRun["pluginId"],
+): JsonValue => {
+	const entitySchema = (slug: string) =>
+		manifest?.entitySchemas.find((schema) => schema.slug === slug);
+	if (payload.resource === "signal") {
+		const signalSchema =
+			payload.signalSchemaPluginId === pluginId
+				? manifest?.signalSchemas.find((schema) => schema.slug === payload.signalSchemaSlug)
+				: undefined;
+		return Schema.decodeUnknownSync(JsonValue)({
+			...payload,
+			properties: properties(signalSchema?.propertiesSchema, payload.properties),
+		});
+	}
+	if (payload.resource === "provider-entity-import") {
+		return payload;
+	}
+	const redactPopulation = (population: AutomationPopulationContext) =>
+		population.parentEntity
+			? {
+					...population,
+					parentEntity: {
+						...population.parentEntity,
+						properties: properties(
+							entitySchema(population.parentEntity.entitySchemaSlug)?.propertiesSchema,
+							population.parentEntity.properties,
+						),
+					},
+				}
+			: population;
+	if (payload.operation === "batch") {
+		return Schema.decodeSync(JsonValue)({
+			...payload,
+			items: payload.items.map((item) => redactAutomationHistoryPayload(item, manifest, pluginId)),
+		});
+	}
+	const snapshot = (value: Readonly<Record<string, unknown>>) => {
+		let schema: AppSchema | undefined;
+		if (payload.resource === "entity") {
+			schema = entitySchema(String(value["entitySchemaSlug"]))?.propertiesSchema;
+		} else if (payload.resource === "event") {
+			schema = entitySchema(String(value["entitySchemaSlug"]))?.eventSchemas.find(
+				(event) => event.slug === value["eventSchemaSlug"],
+			)?.propertiesSchema;
+		} else {
+			schema = manifest?.relationshipSchemas.find(
+				(relationship) => relationship.slug === value["relationshipSchemaSlug"],
+			)?.propertiesSchema;
+		}
+		const values = value["properties"];
+		return { ...value, properties: properties(schema, isObjectRecord(values) ? values : {}) };
+	};
+	const result: Record<string, unknown> = { ...payload };
+	if ("draft" in payload) {
+		result["draft"] = snapshot(payload.draft);
+	}
+	if ("before" in payload) {
+		result["before"] = snapshot(payload.before);
+	}
+	if ("after" in payload) {
+		result["after"] = snapshot(payload.after);
+	}
+	if ("population" in payload && payload.population) {
+		result["population"] = redactPopulation(payload.population);
+	}
+	return Schema.decodeUnknownSync(JsonValue)(result);
+};
+
+const historyPayload = Effect.fn(function* (
+	run: Pick<AutomationRun, "pluginId" | "pluginRevisionId">,
+	payload: AutomationTriggerPayload,
+) {
+	const db = yield* Database;
+	const [manifest] =
+		run.pluginRevisionId === null
+			? []
+			: yield* mapDatabaseErrors(
+					db
+						.select({
+							entitySchemas: sql<
+								PinnedSchemas["entitySchemas"]
+							>`coalesce(${pluginRevision.manifest} -> 'entitySchemas', '[]'::jsonb)`,
+							signalSchemas: sql<
+								PinnedSchemas["signalSchemas"]
+							>`coalesce(${pluginRevision.manifest} -> 'signalSchemas', '[]'::jsonb)`,
+							relationshipSchemas: sql<
+								PinnedSchemas["relationshipSchemas"]
+							>`coalesce(${pluginRevision.manifest} -> 'relationshipSchemas', '[]'::jsonb)`,
+						})
+						.from(pluginRevision)
+						.where(eq(pluginRevision.id, run.pluginRevisionId)),
+				);
+	const redacted = redactAutomationHistoryPayload(payload, manifest ?? null, run.pluginId);
+	const truncated = jsonBytes(redacted) > AUTOMATION_HISTORY_LIMITS.payloadBytes;
+	return { historyPayloadTruncated: truncated, historyPayload: truncated ? null : redacted };
+});
 
 const immutableFields = (run: AutomationRun) => ({
 	id: run.id,
@@ -57,7 +180,10 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 				const [row] = yield* mapDatabaseErrors(db.select().from(table).where(eq(table.id, id)));
 				return row ? yield* decodeRow(row) : null;
 			});
-			const insertQueued = Effect.fn(function* (input: AutomationRun) {
+			const insertQueued = Effect.fn(function* (
+				input: AutomationRun,
+				triggerPayload: AutomationTriggerPayload,
+			) {
 				const value = yield* decodeStoredSchema(
 					input,
 					AutomationRun,
@@ -83,6 +209,7 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 						.insert(table)
 						.values({
 							...value,
+							...(yield* historyPayload(value, triggerPayload)),
 							startedAt: null,
 							finishedAt: null,
 							nextAttemptAt: null,
@@ -199,6 +326,18 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 						.returning({ id: table.id }),
 				);
 			});
+			const clearHistoryPayloads = Effect.fn(function* (triggerIds: ReadonlyArray<string>) {
+				if (triggerIds.length === 0) {
+					return;
+				}
+				const db = yield* Database;
+				yield* mapDatabaseErrors(
+					db
+						.update(table)
+						.set({ historyPayload: null, historyPayloadTruncated: false })
+						.where(inArray(table.triggerId, [...triggerIds])),
+				);
+			});
 			const deleteExpired = Effect.fn(function* (input: {
 				now: Date;
 				before: Date;
@@ -230,6 +369,7 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 				deleteExpired,
 				listByTrigger,
 				skipQueuedPolicies,
+				clearHistoryPayloads,
 				listQueuedCandidates,
 				clearExpiredScriptPins,
 			};

@@ -1,13 +1,15 @@
 import { expect, it } from "@effect/vitest";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { eq } from "drizzle-orm";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 import { assert, describe } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { Database } from "#lib/infrastructure/db/service";
 
+import { PluginIngestionLock } from "./ingestion-lock";
 import { PluginInstallationRepository } from "./installation-repository";
+import { PluginRevisionActivation } from "./revision-activation";
 import {
 	installRevisionPackage,
 	revisionPackage,
@@ -16,6 +18,41 @@ import {
 
 const owner = UserId.make("owner");
 const timestamp = new Date("2026-08-23T12:00:00.000Z");
+
+const configuredPackage = (version: string, endpointSecret: boolean) => {
+	const plugin = revisionPackage("notes", version);
+	return {
+		...plugin,
+		manifest: {
+			...plugin.manifest,
+			configSchema: {
+				unknownKeys: "strict" as const,
+				fields: {
+					token: { secret: true, type: "string", label: "Token", description: "Private token" },
+					endpoint: {
+						type: "string",
+						label: "Endpoint",
+						description: "Server URL",
+						...(endpointSecret ? { secret: true } : {}),
+					},
+				},
+			},
+		},
+	} satisfies typeof plugin;
+};
+
+const clientProjection = (id: string) =>
+	Effect.gen(function* () {
+		const db = yield* Database;
+		const [row] = yield* db
+			.select({
+				clientConfig: tables.pluginInstallation.clientConfig,
+				configuredSecretPaths: tables.pluginInstallation.configuredSecretPaths,
+			})
+			.from(tables.pluginInstallation)
+			.where(eq(tables.pluginInstallation.id, id));
+		return row;
+	});
 
 describe("installation revision persistence", () => {
 	it.effect("scopes home-view writes to the owning user", () =>
@@ -82,6 +119,10 @@ describe("installation revision persistence", () => {
 					expect(
 						(yield* repository.findByUserAndPlugin(owner, installed.pluginId))?.config,
 					).toEqual({ token: "archived" });
+					expect(yield* clientProjection(installed.installation.id)).toEqual({
+						clientConfig: {},
+						configuredSecretPaths: ["token"],
+					});
 				}),
 			),
 	);
@@ -117,5 +158,52 @@ describe("installation revision persistence", () => {
 					expect(yield* environmentRevisions()).toEqual(before);
 				}),
 			),
+	);
+
+	it.effect(
+		"projects client config without secrets and recomputes it when the private revision changes",
+		() => {
+			const activated: Array<string> = [];
+			return withRevisionDatabase(
+				Effect.gen(function* () {
+					const repository = yield* PluginInstallationRepository;
+					const installed = yield* installRevisionPackage(configuredPackage("v1", false), owner);
+					yield* repository.updateState({
+						sortOrder: 0,
+						isDisabled: false,
+						id: installed.installation.id,
+						config: { token: "private-token", endpoint: "https://notes.test" },
+					});
+					expect(yield* clientProjection(installed.installation.id)).toEqual({
+						configuredSecretPaths: ["token"],
+						clientConfig: { endpoint: "https://notes.test" },
+					});
+					const pluginId = yield* (yield* PluginIngestionLock).persistUserPlugin(
+						configuredPackage("v2", true),
+						{ slug: "notes", scope: "user", ownerId: owner },
+					);
+					expect(activated).toEqual([pluginId]);
+					expect(yield* clientProjection(installed.installation.id)).toEqual({
+						clientConfig: {},
+						configuredSecretPaths: ["endpoint", "token"],
+					});
+					yield* repository.remove(installed.installation.id);
+					expect(yield* clientProjection(installed.installation.id)).toEqual({
+						clientConfig: {},
+						configuredSecretPaths: [],
+					});
+				}).pipe(
+					Effect.provide(
+						PluginIngestionLock.layer.pipe(
+							Layer.provide(
+								Layer.succeed(PluginRevisionActivation, {
+									activated: (pluginId) => Effect.sync(() => void activated.push(pluginId)),
+								}),
+							),
+						),
+					),
+				),
+			);
+		},
 	);
 });

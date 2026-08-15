@@ -29,8 +29,14 @@ describe("Notification configuration PostgreSQL", () => {
 						signalSchemaSlug,
 						signalSchemaPluginId: installed.pluginId,
 					};
-					const state = yield* repository.insertNotificationSubscription(preference);
+					const inserted = yield* repository.insertNotificationSubscription(preference);
+					assert(inserted);
+					const state = yield* repository.findNotificationSubscription({
+						userId,
+						ruleId: inserted.id,
+					});
 					assert(state);
+					expect(inserted).toEqual({ id: state.id });
 					expect(
 						yield* repository.insertNotificationSubscription({
 							...preference,
