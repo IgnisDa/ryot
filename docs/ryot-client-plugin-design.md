@@ -329,7 +329,9 @@ Client-local CSS and assets live under `client/**`. The source archive remains d
 
 Bun is the client bundler/compiler.
 
-Client compilation is owned by a new `@ryot/client-plugin-compiler` package. `@ryot/sandbox-compiler` remains dedicated to backend sandbox definitions and output. The two compilers may share small utilities when proven useful, but they do not share an import policy, output model, or public compiler API.
+Client compilation is owned by a new `@ryot/client-plugin-compiler` package. `@ryot/sandbox-compiler` remains dedicated to backend sandbox definitions and output. These are separate compiler engines with separate import policies, output models, limits, and public compiler APIs.
+
+Both compiler engines use the same server-owned process supervision boundary for child-process lifecycle, bounded concurrency, timeouts, process-tree memory sampling, and termination. Their compiler packages own their production dependencies and compiler-specific contracts; the production image installs those dependencies through filters for both compiler packages rather than from uploaded plugin manifests.
 
 The server runs the client compiler during plugin installation and update. The plugin source archive has a package source hash; the emitted client artifact has a separate artifact hash.
 
@@ -375,6 +377,15 @@ The compiler owns the effective versions of:
 Plugins do not negotiate these dependencies with the running kernel.
 
 Because each plugin runs in its own iframe, it is acceptable for each compiled artifact to contain its own React runtime.
+
+The production image carries two compiler worker artifacts:
+
+```text
+dist/sandbox-compiler-worker.js*
+dist/client-plugin-compiler-worker.js*
+```
+
+The image build invokes `dist/smoke-compiler-workers.js` with the absolute path to each worker. Image assembly continues only after both workers complete successful smoke compilation.
 
 ---
 

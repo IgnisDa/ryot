@@ -30,11 +30,11 @@ RUN bun run --cwd apps/server assemble
 FROM builder-base AS client-builder
 RUN bun turbo --filter=@ryot/kernel-client build
 
-FROM base AS sandbox-compiler-runtime
+FROM base AS compiler-runtime
 COPY --from=prepare /app/out/json/ .
 COPY --from=prepare /app/out/full/packages ./packages
 RUN --mount=type=cache,target=/root/.bun/install/cache \
-    bun install --filter @ryot/sandbox-compiler --production --frozen-lockfile \
+    bun install --filter @ryot/sandbox-compiler --filter @ryot/client-plugin-compiler --production --frozen-lockfile \
     --backend=copyfile --linker=hoisted --ignore-scripts
 
 FROM base AS runner
@@ -64,12 +64,15 @@ RUN mkdir -p /home/ryot/plugins /home/ryot/storage /home/ryot/tmp /home/ryot/wor
 COPY --chown=ryot:ryot kernel/backend/src/drizzle ./src/drizzle
 COPY --from=client-builder --chown=ryot:ryot /app/kernel/client/dist ./client
 COPY --from=backend-builder --chown=ryot:ryot /app/apps/server/dist ./dist
-COPY --from=backend-builder --chown=ryot:ryot /app/packages/sandbox-compiler/dist/compiler-worker.js* ./dist/
+COPY --from=backend-builder --chown=ryot:ryot /app/packages/sandbox-compiler/dist/sandbox-compiler-worker.js* ./dist/
+COPY --from=backend-builder --chown=ryot:ryot /app/packages/client-plugin-compiler/dist/client-plugin-compiler-worker.js* ./dist/
 COPY --from=plugin-builder --chown=ryot:ryot /app/apps/server/plugins ./plugins
-COPY --from=sandbox-compiler-runtime --chown=ryot:ryot /app/node_modules ./node_modules
-COPY --from=sandbox-compiler-runtime --chown=ryot:ryot /app/packages ./packages
+COPY --from=compiler-runtime --chown=ryot:ryot /app/node_modules ./node_modules
+COPY --from=compiler-runtime --chown=ryot:ryot /app/packages ./packages
 USER ryot
-RUN bun run dist/smoke-compiler-worker.js /home/ryot/dist/compiler-worker.js
+RUN bun run dist/smoke-compiler-workers.js \
+    /home/ryot/dist/sandbox-compiler-worker.js \
+    /home/ryot/dist/client-plugin-compiler-worker.js
 # Build the read-only sandbox dependency runtime so startup requires no registry access.
 RUN bun run dist/prepare-sandbox-runtime.js
 ENV NODE_ENV=production

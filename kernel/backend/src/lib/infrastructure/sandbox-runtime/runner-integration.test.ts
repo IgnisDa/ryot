@@ -18,7 +18,7 @@ import { SANDBOX_LIMITS, SANDBOX_RUNNER_LIMITS } from "#lib/infrastructure/sandb
 import type { SandboxRunnerLimits } from "#lib/infrastructure/sandbox-runtime/runner-utilities.sandbox";
 import { sandboxRunnerSource } from "#lib/infrastructure/sandbox-runtime/runner.generated";
 import { kernelScripts } from "#modules/definition-registry/kernel-source";
-import { SandboxCompiler } from "#modules/sandbox/compiler";
+import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
 let dependencyRuntimeRoot: string | undefined;
 let dependencyRuntime: SandboxRuntimePaths | undefined;
