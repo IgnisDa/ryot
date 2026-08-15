@@ -194,8 +194,8 @@ const DATE_ONLY_TIME = "T00:00:00.000Z";
  * (instants), soonest first. A provider that knows only the premiere date stores it as UTC
  * midnight of the entity's `publishDate`; that entry is windowed by the local dates
  * `fromDate`..`untilDate` and reported `dateOnly` with `airsAt` as the `YYYY-MM-DD` date, so it is
- * never shifted across a day boundary. `sameDayCount` counts the
- * schedule entries airing at that same instant, itself included.
+ * never shifted across a day boundary. `sameDayCount` counts the schedule entries airing at that
+ * same instant, itself included.
  */
 export const animeAiringSoonRecipe = defineRecipe(
 	(input: {

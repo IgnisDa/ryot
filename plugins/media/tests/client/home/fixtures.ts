@@ -65,7 +65,6 @@ export const episodicRow = (
 	nextUp: includeResult(nextUp === null ? [] : [nextUp]),
 });
 
-/** Decodes a wire response through the recipe the section query runs. */
 export const decodeRecipe = <Success>(
 	recipe: PreparedRecipe<Success>,
 	data: Readonly<Record<string, unknown>>,

@@ -7,8 +7,7 @@ const DAY_MS = 86_400_000;
 const dayIndex = (day: string) =>
 	Date.UTC(Number(day.slice(0, 4)), Number(day.slice(5, 7)) - 1, Number(day.slice(8, 10))) / DAY_MS;
 
-/** Whole days from `from` to `to`, both local `YYYY-MM-DD` dates. */
-export const daysBetween = (from: string, to: string) => dayIndex(to) - dayIndex(from);
+const daysBetween = (from: string, to: string) => dayIndex(to) - dayIndex(from);
 
 export const episodePositionLabel = (episode: {
 	readonly episodeNumber: number;
@@ -48,7 +47,6 @@ const RELATIVE_UNITS = [
 
 const relativeFormat = new Intl.RelativeTimeFormat("en-US", { numeric: "auto" });
 
-/** `latestActivityAt` is an instant; `today` is the local date it is measured against. */
 export const resumeLabel = (latestActivityAt: string | null, today: string) => {
 	if (latestActivityAt === null) {
 		return "Resume";
@@ -63,7 +61,6 @@ export const resumeLabel = (latestActivityAt: string | null, today: string) => {
 
 const WEEK_DAYS = 7;
 
-/** A caption for the local date `day`: Today, Tomorrow, a weekday within the week, else the date. */
 export const airingDayCaption = (day: string, today: string) => {
 	const days = daysBetween(today, day);
 	if (days === 0) {
