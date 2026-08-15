@@ -4,7 +4,6 @@ import {
 	CLIENT_ARTIFACT_METADATA_ELEMENT_ID,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
-	REQUIRED_THEME_TOKEN_NAMES,
 	type PluginBridgeInit,
 } from "@ryot-app/contract/modules/plugins/client";
 import { waitFor } from "@testing-library/dom";
@@ -24,6 +23,7 @@ const metadata = {
 	compilerVersion: CLIENT_COMPILER_VERSION,
 };
 const init: PluginBridgeInit = {
+	mode: "light",
 	format: metadata.format,
 	sessionId: "session-id",
 	artifactHash: metadata.hash,
@@ -31,8 +31,6 @@ const init: PluginBridgeInit = {
 	bridgeVersion: metadata.bridgeVersion,
 	compilerVersion: metadata.compilerVersion,
 };
-const tokens = Object.fromEntries(REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, name]));
-const theme = { resolvedMode: "light", tokens };
 let channels: MessageChannel[] = [];
 let bootstraps: Array<{ dispose: () => void }> = [];
 
@@ -116,7 +114,6 @@ describe("bootstrapClientPlugin", () => {
 			type: "location",
 			location: { path: "/", search: "" },
 		});
-		channel.port1.postMessage({ generation: 1, type: "theme", theme });
 		await waitFor(() =>
 			expect(messages).toContainEqual(
 				expect.objectContaining({ type: "operation-request", requestId: "operation-1" }),
@@ -129,11 +126,7 @@ describe("bootstrapClientPlugin", () => {
 			requestId: "operation-1",
 		});
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("light:Hello"));
-		channel.port1.postMessage({
-			type: "theme",
-			generation: 2,
-			theme: { resolvedMode: "dark", tokens },
-		});
+		channel.port1.postMessage({ mode: "dark", type: "theme" });
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("dark:Hello"));
 	});
 
@@ -168,7 +161,6 @@ describe("bootstrapClientPlugin", () => {
 			type: "location",
 			location: { path: "/", search: "" },
 		});
-		channel.port1.postMessage({ generation: 1, type: "theme", theme });
 		channel.port1.postMessage({
 			index: 1,
 			key: "detail",
@@ -203,7 +195,7 @@ describe("bootstrapClientPlugin", () => {
 		);
 	});
 
-	it("does not mount plugin React before initial location and theme", async () => {
+	it("does not mount plugin React before the initial location", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		embedMetadata();
 		bootstraps.push(bootstrapClientPlugin({ home: { component: StaticHome } }));
@@ -216,7 +208,6 @@ describe("bootstrapClientPlugin", () => {
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect(document.getElementById("app")?.textContent).toBe("");
 
-		channel.port1.postMessage({ generation: 1, type: "theme", theme });
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect(document.getElementById("app")?.textContent).toBe("");
 
@@ -276,7 +267,6 @@ describe("bootstrapClientPlugin", () => {
 			type: "location",
 			location: { path: "/", search: "" },
 		});
-		channel.port1.postMessage({ generation: 1, type: "theme", theme });
 
 		await waitFor(() =>
 			expect(messages).toContainEqual({ reason: "failed", type: "lifecycle-close" }),
@@ -307,7 +297,6 @@ describe("bootstrapClientPlugin", () => {
 			type: "location",
 			location: { path: "/", search: "" },
 		});
-		channel.port1.postMessage({ generation: 1, type: "theme", theme });
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
 
 		const error = new ErrorEvent("error", {
@@ -342,7 +331,6 @@ describe("bootstrapClientPlugin", () => {
 			type: "location",
 			location: { path: "/", search: "" },
 		});
-		channel.port1.postMessage({ generation: 1, type: "theme", theme });
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
 
 		const rejection = new Event("unhandledrejection", { cancelable: true });
@@ -380,7 +368,6 @@ describe("bootstrapClientPlugin", () => {
 			type: "location",
 			location: { path: "/", search: "" },
 		});
-		channel.port1.postMessage({ generation: 1, type: "theme", theme });
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
 
 		bootstrap.dispose();
@@ -429,7 +416,6 @@ describe("bootstrapClientPlugin", () => {
 			type: "location",
 			location: { path: "/", search: "" },
 		});
-		channel.port1.postMessage({ generation: 1, type: "theme", theme });
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
 
 		channel.port1.postMessage({ reason: "disposed", type: "lifecycle-close" });

@@ -66,55 +66,11 @@ export const pluginClientAssetMimeType = (path: string) => {
 	return extension === undefined ? undefined : PLUGIN_CLIENT_ASSET_MIME_TYPES[extension];
 };
 
-export const REQUIRED_THEME_TOKEN_NAMES = [
-	"bg",
-	"info",
-	"text",
-	"focus",
-	"accent",
-	"border",
-	"danger",
-	"raised",
-	"success",
-	"surface",
-	"surface-2",
-	"text-muted",
-	"accent-ink",
-	"danger-ink",
-	"accent-soft",
-	"accent-text",
-	"text-subtle",
-	"danger-solid",
-	"overlay",
-	"accent-deep",
-	"success-soft",
-	"accent-border",
-	"border-strong",
-	"nav-indicator",
-	"font-family-ui",
-	"font-family-display",
-	"r-sm",
-	"r-md",
-	"r-lg",
-	"r-xl",
-	"r-pill",
-	"shadow-small",
-	"shadow-raised",
-] as const;
+export const PluginThemeMode = Schema.Literals(["light", "dark"]);
 
-const PluginThemeTokens = JsonValue.pipe(
-	Schema.decodeTo(
-		Schema.StructWithRest(
-			Schema.Record(Schema.Literals(REQUIRED_THEME_TOKEN_NAMES), Schema.NonEmptyString),
-			[Schema.Record(Schema.String, Schema.NonEmptyString)],
-		),
-	),
-);
+export type PluginThemeMode = Schema.Schema.Type<typeof PluginThemeMode>;
 
-export const PluginThemeSnapshot = strictStruct({
-	tokens: PluginThemeTokens,
-	resolvedMode: Schema.Literals(["light", "dark"]),
-});
+export const PluginThemeSnapshot = strictStruct({ resolvedMode: PluginThemeMode });
 
 export type PluginThemeSnapshot = Schema.Schema.Type<typeof PluginThemeSnapshot>;
 
@@ -172,18 +128,23 @@ export const PluginClientArtifact = strictStruct({
 
 export type PluginClientArtifact = Schema.Schema.Type<typeof PluginClientArtifact>;
 
-export const PluginBridgeInit = strictStruct({
+const pluginBridgeIdentityFields = {
 	sessionId: Schema.String,
 	artifactHash: Schema.String,
 	apiVersion: Schema.Literal(CLIENT_API_VERSION),
 	format: Schema.Literal(CLIENT_ARTIFACT_FORMAT),
 	compilerVersion: Schema.Literal(CLIENT_COMPILER_VERSION),
 	bridgeVersion: Schema.Literal(CLIENT_BRIDGE_PROTOCOL_VERSION),
+};
+
+export const PluginBridgeInit = strictStruct({
+	...pluginBridgeIdentityFields,
+	mode: PluginThemeMode,
 });
 
 export type PluginBridgeInit = Schema.Schema.Type<typeof PluginBridgeInit>;
 
-export const PluginBridgeReady = strictStruct(PluginBridgeInit.fields);
+export const PluginBridgeReady = strictStruct(pluginBridgeIdentityFields);
 
 export type PluginBridgeReady = Schema.Schema.Type<typeof PluginBridgeReady>;
 
@@ -235,19 +196,11 @@ export const PluginBridgeHeader = strictStruct({
 export type PluginBridgeHeader = Schema.Schema.Type<typeof PluginBridgeHeader>;
 
 export const PluginBridgeTheme = strictStruct({
-	generation: Schema.Int,
-	theme: PluginThemeSnapshot,
+	mode: PluginThemeMode,
 	type: Schema.Literal("theme"),
 });
 
 export type PluginBridgeTheme = Schema.Schema.Type<typeof PluginBridgeTheme>;
-
-export const PluginBridgeThemeApplied = strictStruct({
-	generation: Schema.Int,
-	type: Schema.Literal("theme-applied"),
-});
-
-export type PluginBridgeThemeApplied = Schema.Schema.Type<typeof PluginBridgeThemeApplied>;
 
 export const PluginBridgeLifecycleClose = strictStruct({
 	type: Schema.Literal("lifecycle-close"),
@@ -377,7 +330,6 @@ export type PluginBridgeRyotQLResult = Schema.Schema.Type<typeof PluginBridgeRyo
 export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeHeader,
 	PluginBridgeNavigate,
-	PluginBridgeThemeApplied,
 	PluginBridgeRyotQLCancel,
 	PluginBridgeRyotQLRequest,
 	PluginBridgeLifecycleClose,
