@@ -33,6 +33,7 @@ BEGIN
 	DROP TABLE IF EXISTS "old_integration" CASCADE;
 	DROP TABLE IF EXISTS "old_notification_platform" CASCADE;
 	DROP TABLE IF EXISTS "old_entity_translation" CASCADE;
+	DROP TABLE IF EXISTS "application_cache" CASCADE;
 	${buildReportSql("drop legacy tables", [{ message: "legacy tables dropped" }])}
 END $$;
 `;
