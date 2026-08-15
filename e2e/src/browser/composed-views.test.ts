@@ -91,11 +91,12 @@ it.live("opens a published saved-view renderer in one sandboxed iframe", () =>
 
 		yield* page.locator(`a[href="/v/${secondView.slug}"]`).first().click();
 		yield* page.waitForURL(`**/v/${secondView.slug}`);
+		const activeFrame = page.locator("iframe").filter({ visible: true });
 		yield* expectVisibleText(
-			page.locator("iframe").contentFrame().locator("body"),
+			activeFrame.contentFrame().locator("body"),
 			"Renderer setting: Task 01 second setting",
 		);
-		expect(yield* page.locator("iframe").count).toBe(1);
+		expect(yield* activeFrame.count).toBe(1);
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );
 
