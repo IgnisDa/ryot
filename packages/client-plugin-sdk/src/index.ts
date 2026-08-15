@@ -1,5 +1,6 @@
 import {
 	CLIENT_ARTIFACT_METADATA_ELEMENT_ID,
+	CLIENT_ARTIFACT_ROOT_ELEMENT_ID,
 	PluginBridgeInit,
 	PluginClientArtifactMetadata,
 	type PluginBridgeReady,
@@ -49,7 +50,7 @@ export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
 			return;
 		}
 
-		const rootElement = document.getElementById("app");
+		const rootElement = document.getElementById(CLIENT_ARTIFACT_ROOT_ELEMENT_ID);
 		if (!rootElement) {
 			return;
 		}
