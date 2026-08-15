@@ -1,16 +1,22 @@
 import { createRouter as createTanStackRouter, type RouterHistory } from "@tanstack/react-router";
 
+import { createKernelRyotClientStore } from "#/api/ryot-client";
 import type { RouterContext } from "#/routes/__root";
 import { routeTree } from "#/routeTree.gen";
 
-export function getRouter(context: RouterContext, history?: RouterHistory) {
+export type RouterApplicationContext = Omit<RouterContext, "ryotClients">;
+
+export function getRouter(context: RouterApplicationContext, history?: RouterHistory) {
 	const router = createTanStackRouter({
-		context,
 		history,
 		routeTree,
 		scrollRestoration: true,
 		defaultPreload: "intent",
 		defaultPreloadStaleTime: 0,
+		context: {
+			...context,
+			ryotClients: createKernelRyotClientStore(context.runtime, context.theme),
+		},
 	});
 
 	return router;

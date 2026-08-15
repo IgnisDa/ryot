@@ -14,7 +14,7 @@ import {
 	rowsLayouts,
 	updateSavedViewWithGridDocument,
 } from "~/fixtures/kernel";
-import { assertCondition, assertPresent } from "~/support/assertions";
+import { assertCondition, assertPresent, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const entity = table("entity", "entity");
@@ -37,8 +37,12 @@ describe("Saved views query documents E2E", () => {
 			const mediaPlugin = yield* findBuiltinPluginBySlug(client, "media");
 			const views = yield* listSavedViews(client, { pluginSlug: mediaPlugin.slug });
 			const allBooksView = views.find((view) => view.name === "All Books");
+			const allBooksLayouts = requirePresent(
+				allBooksView?.layouts,
+				"All Books saved view has no layouts",
+			);
 
-			expect(allBooksView?.layouts.grid.queryDocument).toMatchObject({
+			expect(allBooksLayouts.grid.queryDocument).toMatchObject({
 				queries: {
 					savedView: {
 						from: { alias: "entity", table: "entity" },
@@ -79,15 +83,19 @@ describe("Saved views query documents E2E", () => {
 				name: `Rows View ${crypto.randomUUID()}`,
 			});
 			const fetchedView = yield* getSavedView(client, createdView.slug);
+			const fetchedViewLayouts = requirePresent(
+				fetchedView.layouts,
+				"Fetched saved view has no layouts",
+			);
 
 			expect(createdView.entitySchemaSlug).toBe("book");
 			expect(createdView.layouts).toEqual(rowsLayouts);
 			expect(fetchedView.entitySchemaSlug).toBe("book");
-			expect(fetchedView.layouts).toEqual(rowsLayouts);
-			expect(fetchedView.layouts.grid.entityIdField).toBe("entityId");
-			expect(fetchedView.layouts.grid.titleField).toBe("title");
-			expect(fetchedView.layouts.list.titleField).toBe("title");
-			expect(fetchedView.layouts.table.columns[0].field).toBe("column0");
+			expect(fetchedViewLayouts).toEqual(rowsLayouts);
+			expect(fetchedViewLayouts.grid.entityIdField).toBe("entityId");
+			expect(fetchedViewLayouts.grid.titleField).toBe("title");
+			expect(fetchedViewLayouts.list.titleField).toBe("title");
+			expect(fetchedViewLayouts.table.columns[0].field).toBe("column0");
 		}),
 	);
 
@@ -104,13 +112,21 @@ describe("Saved views query documents E2E", () => {
 				alternateRowsDocument,
 			);
 			const fetchedView = yield* getSavedView(client, createdView.slug);
+			const updatedViewLayouts = requirePresent(
+				updatedView.layouts,
+				"Updated saved view has no layouts",
+			);
+			const fetchedViewLayouts = requirePresent(
+				fetchedView.layouts,
+				"Fetched saved view has no layouts",
+			);
 
 			expect(updatedView.entitySchemaSlug).toBe("book");
-			expect(updatedView.layouts.grid.queryDocument).toEqual(alternateRowsDocument);
+			expect(updatedViewLayouts.grid.queryDocument).toEqual(alternateRowsDocument);
 			expect(fetchedView.entitySchemaSlug).toBe("book");
-			expect(fetchedView.layouts.grid.queryDocument).toEqual(alternateRowsDocument);
-			expect(fetchedView.layouts.list).toEqual(rowsLayouts.list);
-			expect(fetchedView.layouts.table).toEqual(rowsLayouts.table);
+			expect(fetchedViewLayouts.grid.queryDocument).toEqual(alternateRowsDocument);
+			expect(fetchedViewLayouts.list).toEqual(rowsLayouts.list);
+			expect(fetchedViewLayouts.table).toEqual(rowsLayouts.table);
 		}),
 	);
 
@@ -121,7 +137,11 @@ describe("Saved views query documents E2E", () => {
 				name: `Projected View ${crypto.randomUUID()}`,
 			});
 			const fetchedView = yield* getSavedView(client, createdView.slug);
-			const query = fetchedView.layouts.grid.queryDocument.queries.savedView;
+			const fetchedViewLayouts = requirePresent(
+				fetchedView.layouts,
+				"Fetched saved view has no layouts",
+			);
+			const query = fetchedViewLayouts.grid.queryDocument.queries.savedView;
 			assertPresent(query, "Expected the saved-view query");
 			assertCondition(
 				query.output.type === "rows",

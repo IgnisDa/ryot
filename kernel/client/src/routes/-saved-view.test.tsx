@@ -44,6 +44,8 @@ import {
 	NotificationChannelRouteStubs,
 	stubDesktopMatchMedia,
 	stubCompactMatchMedia,
+	ClientPagesApiRouteStubs,
+	ClientPageSessionsRouteStubs,
 } from "#/routes/-route-fixtures";
 
 const entity = table("entity", "entity");
@@ -70,9 +72,12 @@ const record = {
 	icon: "book",
 	slug: "books",
 	name: "Books",
+	renderer: null,
+	settings: null,
 	isBuiltin: true,
-	isDisabled: false,
 	pluginSlug: null,
+	dataSources: null,
+	isDisabled: false,
 	entitySchemaSlug: null,
 	id: SavedViewId.make("view-1"),
 	createdAt: "2026-01-01T00:00:00.000Z",
@@ -268,6 +273,8 @@ const mountView = (
 			ServerStub,
 			makePublicApiStub(),
 			KernelApiTestLayer,
+			ClientPagesApiRouteStubs,
+			ClientPageSessionsRouteStubs,
 			interests,
 			events.layer,
 			Layer.succeed(ArtifactSessions, {
@@ -498,6 +505,25 @@ describe("saved-view route", () => {
 			expect(globalThis.document.querySelectorAll("#main-content")).toHaveLength(1);
 		} finally {
 			view.unmount();
+		}
+	});
+
+	it("reuses the scoped client when route loaders rerun", async () => {
+		const clients: unknown[] = [];
+		const view = mountView({
+			loadRecord: (client) => {
+				clients.push(client);
+				return Effect.succeed(record);
+			},
+		});
+		try {
+			await screen.findByRole("heading", { name: "Books" });
+			await view.router.invalidate();
+			expect(clients).toHaveLength(2);
+			expect(clients[0]).toBe(clients[1]);
+		} finally {
+			view.unmount();
+			await view.runtime.dispose();
 		}
 	});
 

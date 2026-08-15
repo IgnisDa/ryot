@@ -8,7 +8,6 @@ import { Effect } from "effect";
 import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
 
 import { ImportsApi } from "#/api/imports";
-import { createKernelRyotClient } from "#/api/ryot-client";
 import { ImportRunView, type ImportRunDetailState } from "#/modules/imports/import-run-view";
 import {
 	canDeleteImportRun,
@@ -49,11 +48,10 @@ export const Route = createFileRoute("/_authenticated/settings/import-data/$runI
 			// oxlint-disable-next-line typescript/only-throw-error
 			throw notFound();
 		}
-		const ryot = createKernelRyotClient(context.runtime, context.scope, context.theme);
 		const [detail, sources] = await Promise.all([
 			context.runtime.runPromise(
 				Effect.flatMap(ImportsService, (service) =>
-					service.loadRun(ryot, {
+					service.loadRun(context.ryot, {
 						runId: trimmed,
 						failureLimit: IMPORT_FAILURES_PAGE_SIZE,
 					}),

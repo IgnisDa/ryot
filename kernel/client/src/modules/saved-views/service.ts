@@ -16,7 +16,7 @@ export class SavedViewLoadError extends Data.TaggedError("SavedViewLoadError")<{
 	readonly stage: "count" | "record" | "page";
 }> {}
 
-type LayoutDefinition = SavedViewRecord["layouts"][SavedViewLayoutName];
+type LayoutDefinition = NonNullable<SavedViewRecord["layouts"]>[SavedViewLayoutName];
 
 export class SavedViewsService extends Context.Service<SavedViewsService>()("SavedViewsService", {
 	make: Effect.sync(() => {

@@ -20,7 +20,7 @@ import {
 	waitForSeededExerciseId,
 	waitForSessionEventCount,
 } from "~/fixtures/plugins/fitness";
-import { assertCondition, assertPresent } from "~/support/assertions";
+import { assertCondition, assertPresent, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("Workouts E2E", () => {
@@ -112,7 +112,11 @@ describe("Workouts E2E", () => {
 			});
 			const allWorkoutsView = views.find((view) => view.name === "All Workouts");
 			assertPresent(allWorkoutsView, "Expected the built-in All Workouts saved view");
-			const savedViewQuery = allWorkoutsView.layouts.grid.queryDocument.queries.savedView;
+			const allWorkoutsLayouts = requirePresent(
+				allWorkoutsView.layouts,
+				"All Workouts saved view has no layouts",
+			);
+			const savedViewQuery = allWorkoutsLayouts.grid.queryDocument.queries.savedView;
 			assertPresent(savedViewQuery, "Expected the All Workouts saved-view query");
 			assertCondition(
 				savedViewQuery.output.type === "rows",

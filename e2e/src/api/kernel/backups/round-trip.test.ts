@@ -297,6 +297,10 @@ describe("backup export and restore round trip", () => {
 			assert(newerOutcome?.status === "written");
 
 			const builtinView = yield* findBuiltinSavedView(source.client);
+			const builtinViewLayouts = requirePresent(
+				builtinView.layouts,
+				"Built-in saved view has no layouts",
+			);
 			expect((yield* getSavedView(target.client, builtinView.slug)).isDisabled).toBe(false);
 			yield* source.client.call((c) =>
 				c.savedViews.update({
@@ -305,7 +309,7 @@ describe("backup export and restore round trip", () => {
 						isDisabled: true,
 						icon: builtinView.icon,
 						name: builtinView.name,
-						layouts: builtinView.layouts,
+						layouts: builtinViewLayouts,
 						entitySchemaSlug: builtinView.entitySchemaSlug,
 						...(builtinView.pluginSlug ? { pluginSlug: builtinView.pluginSlug } : {}),
 					},

@@ -35,6 +35,8 @@ import {
 	IntegrationRouteStubs,
 	NotificationChannelRouteStubs,
 	makeUserSettingsStub,
+	ClientPagesApiRouteStubs,
+	ClientPageSessionsRouteStubs,
 } from "#/routes/-route-fixtures";
 
 const HOUR_MS = 3_600_000;
@@ -104,6 +106,8 @@ const mountView = (
 			EntityRouteStubs,
 			makePublicApiStub(),
 			KernelApiTestLayer,
+			ClientPagesApiRouteStubs,
+			ClientPageSessionsRouteStubs,
 			makeUserSettingsStub(),
 			events.layer,
 			Layer.succeed(ArtifactSessions, {
