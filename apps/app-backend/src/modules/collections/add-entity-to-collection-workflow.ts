@@ -1,12 +1,20 @@
-import { BadRequest, DbError, NotFound } from "@ryot/contract/errors";
-import { MembershipResponse } from "@ryot/contract/modules/collections/schemas";
+import { DbError } from "@ryot/contract/errors";
+import {
+	CollectionBadRequest,
+	CollectionNotFound,
+	MembershipResponse,
+} from "@ryot/contract/modules/collections/schemas";
 import { EntityId, UserId } from "@ryot/contract/schema/brands";
 import { Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 
-export const AddEntityToCollectionWorkflowError = Schema.Union([BadRequest, DbError, NotFound]);
+export const AddEntityToCollectionWorkflowError = Schema.Union([
+	DbError,
+	CollectionBadRequest,
+	CollectionNotFound,
+]);
 
 export type AddEntityToCollectionWorkflowError = typeof AddEntityToCollectionWorkflowError.Type;
 

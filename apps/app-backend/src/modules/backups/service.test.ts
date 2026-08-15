@@ -22,7 +22,7 @@ const timestamp = "2026-08-23T12:00:00.000Z";
 const runId = BackupRunId.make("run-1");
 const completedRun = {
 	id: runId,
-	error: null,
+	failure: null,
 	progress: 100,
 	createdAt: timestamp,
 	startedAt: timestamp,
@@ -67,7 +67,7 @@ it.effect("enforces run ownership through the repository scope", () => {
 	return Effect.gen(function* () {
 		const service = yield* BackupsService;
 		const error = yield* service.getRun(user, runId).pipe(Effect.flip);
-		expect(error._tag).toBe("NotFound");
+		expect(error).toMatchObject({ _tag: "BackupNotFound", reason: { code: "run-not-found" } });
 		expect(requestedUserId).toBe(user.id);
 	}).pipe(Effect.provide(layer));
 });
@@ -81,30 +81,42 @@ it.effect("rejects download and deletion while a run is pending or running", () 
 	});
 	return Effect.gen(function* () {
 		const service = yield* BackupsService;
-		expect((yield* service.downloadRun(user, runId).pipe(Effect.flip))._tag).toBe("Conflict");
-		expect((yield* service.deleteRun(user, runId).pipe(Effect.flip))._tag).toBe("Conflict");
+		expect(yield* service.downloadRun(user, runId).pipe(Effect.flip)).toMatchObject({
+			_tag: "BackupConflict",
+			reason: { code: "export-still-running" },
+		});
+		expect(yield* service.deleteRun(user, runId).pipe(Effect.flip)).toMatchObject({
+			_tag: "BackupConflict",
+			reason: { code: "run-still-active" },
+		});
 		status = "running";
-		expect((yield* service.downloadRun(user, runId).pipe(Effect.flip))._tag).toBe("Conflict");
-		expect((yield* service.deleteRun(user, runId).pipe(Effect.flip))._tag).toBe("Conflict");
+		expect(yield* service.downloadRun(user, runId).pipe(Effect.flip)).toMatchObject({
+			_tag: "BackupConflict",
+			reason: { code: "export-still-running" },
+		});
+		expect(yield* service.deleteRun(user, runId).pipe(Effect.flip)).toMatchObject({
+			_tag: "BackupConflict",
+			reason: { code: "run-still-active" },
+		});
 	}).pipe(Effect.provide(layer));
 });
 
 it.effect("streams an owned unexpired artifact without buffering", () => {
 	const bytes = new TextEncoder().encode("archive");
 	const layer = makeLayer({
+		uploads: {
+			statObject: () => Effect.succeed({ size: bytes.length, contentType: null }),
+			openObject: () => Effect.succeed(Stream.make(bytes)),
+		},
 		repository: {
 			getRunById: () => Effect.succeed(completedRun),
 			getArtifactById: () =>
 				Effect.succeed({
 					...completedRun,
 					userId: user.id,
-					artifactKey: "temporary/run-1.zip",
 					artifactProvider: "local",
+					artifactKey: "temporary/run-1.zip",
 				}),
-		},
-		uploads: {
-			statObject: () => Effect.succeed({ size: bytes.length, contentType: null }),
-			openObject: () => Effect.succeed(Stream.make(bytes)),
 		},
 	});
 	return Effect.gen(function* () {
@@ -147,11 +159,11 @@ it.effect("deletes expired artifact objects before race-safe run cleanup", () =>
 		artifactProvider: "local" as const,
 	};
 	const layer = makeLayer({
+		uploads: { deleteObject: () => Effect.sync(() => void calls.push("artifact")) },
 		repository: {
 			listExpiredArtifacts: () => Effect.succeed([artifact]),
 			deleteExpiredRunById: () => Effect.sync(() => (calls.push("run"), completedRun)),
 		},
-		uploads: { deleteObject: () => Effect.sync(() => void calls.push("artifact")) },
 	});
 	return Effect.gen(function* () {
 		const service = yield* BackupsService;

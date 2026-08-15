@@ -1,6 +1,7 @@
 import { DbError } from "@ryot/contract/errors";
 import type {
 	UserLifecycleOperation,
+	UserLifecycleOperationFailure,
 	UserLifecycleOperationKind,
 	UserResetResult,
 } from "@ryot/contract/modules/god-mode/user-lifecycle";
@@ -37,7 +38,7 @@ type OperationRow = typeof lifecycleSchema.userLifecycleOperation.$inferSelect;
 const toOperation = (row: OperationRow): UserLifecycleOperation => ({
 	id: row.id,
 	kind: row.kind,
-	error: row.error,
+	failure: row.failure,
 	status: row.status,
 	resetResult: row.resetResult ?? null,
 	userId: UserId.make(row.userId),
@@ -391,7 +392,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 					db
 						.update(lifecycleSchema.userLifecycleOperation)
 						.set({
-							error: null,
+							failure: null,
 							finishedAt: now,
 							status: "completed",
 							resetResult: resetResult ?? null,
@@ -421,14 +422,14 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 
 			const markFailed = Effect.fn("UserLifecycleRepository.markFailed")(function* (
 				operationId: string,
-				error: string,
+				failure: UserLifecycleOperationFailure,
 			) {
 				const db = yield* Database;
 				const now = yield* DateTime.nowAsDate;
 				yield* mapDatabaseErrors(
 					db
 						.update(lifecycleSchema.userLifecycleOperation)
-						.set({ error, finishedAt: now, status: "failed" })
+						.set({ failure, finishedAt: now, status: "failed" })
 						.where(
 							and(
 								eq(lifecycleSchema.userLifecycleOperation.id, operationId),

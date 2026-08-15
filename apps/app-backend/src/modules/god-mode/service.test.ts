@@ -1,6 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { defaultUserPreferences } from "@ryot/contract/auth-middleware";
-import { BadRequest, DbError } from "@ryot/contract/errors";
+import { DbError } from "@ryot/contract/errors";
+import { GodModeNotFound, GodModeRequestFailure } from "@ryot/contract/modules/god-mode/contract";
 import { UserId } from "@ryot/contract/schema/brands";
 import type { ilike, SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
@@ -383,15 +384,17 @@ describe("checkResetEligibility", () => {
 	});
 
 	vitestIt("blocks oidc users from reset", () => {
-		expect(checkResetEligibility("oidc")).toBe(
-			"Cannot generate reset link for user with auth state 'oidc'. Only 'credential' and 'none' users are eligible.",
-		);
+		expect(checkResetEligibility("oidc")).toEqual({
+			authState: "oidc",
+			code: "password-reset-unsupported",
+		});
 	});
 
 	vitestIt("blocks mixed users from reset", () => {
-		expect(checkResetEligibility("mixed")).toBe(
-			"Cannot generate reset link for user with auth state 'mixed'. Only 'credential' and 'none' users are eligible.",
-		);
+		expect(checkResetEligibility("mixed")).toEqual({
+			authState: "mixed",
+			code: "password-reset-unsupported",
+		});
 	});
 });
 
@@ -401,10 +404,7 @@ it.effect("blocks password reset when local auth is disabled", () => {
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
 		const exit = yield* Effect.exit(service.resetUserPassword(UserId.make("user_1")));
-		assertExitFails(
-			exit,
-			new BadRequest({ message: "Local authentication is disabled on this instance" }),
-		);
+		assertExitFails(exit, new GodModeRequestFailure({ reason: { code: "local-auth-disabled" } }));
 	}).pipe(Effect.provide(makeServiceLayer(db, true)));
 });
 
@@ -642,7 +642,10 @@ it.effect("returns a bad request when the user is not found while setting disabl
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
 		const exit = yield* Effect.exit(service.setUserDisabled(UserId.make("missing"), true));
-		assertExitFails(exit, new BadRequest({ message: "User with id 'missing' not found" }));
+		assertExitFails(
+			exit,
+			new GodModeNotFound({ reason: { code: "user-not-found", userId: UserId.make("missing") } }),
+		);
 	}).pipe(Effect.provide(makeServiceLayer(db)));
 });
 
@@ -663,7 +666,7 @@ it.effect("returns a db error when persisting disabled state fails", () => {
 it.effect("delegates deletion to the durable lifecycle service", () => {
 	const { db } = makeListUsersDb({ total: 0, users: [], accounts: [] });
 	const operation = {
-		error: null,
+		failure: null,
 		startedAt: null,
 		finishedAt: null,
 		id: "operation-1",
@@ -752,7 +755,9 @@ vitestIt("returns a bad request when provisioning a user that already exists", (
 
 			assertExitFails(
 				exit,
-				new BadRequest({ message: "User with email 'exists@example.com' already exists" }),
+				new GodModeRequestFailure({
+					reason: { code: "user-already-exists", email: "exists@example.com" },
+				}),
 			);
 		}).pipe(Effect.provide(makeProvisionLayer(db, auth))),
 	);

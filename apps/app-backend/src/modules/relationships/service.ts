@@ -1,4 +1,7 @@
-import { badRequest, notFound } from "@ryot/contract/errors";
+import {
+	RelationshipBadRequest,
+	RelationshipNotFound,
+} from "@ryot/contract/modules/relationships/schemas";
 import type {
 	EntityId,
 	RelationshipId,
@@ -70,26 +73,48 @@ export const changeUserRelationships = Effect.fn("RelationshipsService.changeUse
 	) {
 		const definition = definitions.getRelationshipSchema(change.relationshipSchemaSlug);
 		if (!definition) {
-			return yield* notFound("Relationship schema not found");
+			return yield* new RelationshipNotFound({
+				reason: {
+					code: "relationship-schema-not-found",
+					relationshipSchemaSlug: change.relationshipSchemaSlug,
+				},
+			});
 		}
 		const [source, target] = yield* Effect.all([
 			entities.getEntityScopeForUser({ userId, entityId: change.sourceEntityId }),
 			entities.getEntityScopeForUser({ userId, entityId: change.targetEntityId }),
 		]);
 		if (!source || !target) {
-			return yield* notFound("Entity not found");
+			return yield* new RelationshipNotFound({
+				reason: {
+					code: "entity-not-found",
+					entityIds: [change.sourceEntityId, change.targetEntityId],
+				},
+			});
 		}
 		if (
 			definition.sourceEntitySchemaSlug &&
 			definition.sourceEntitySchemaSlug !== source.entitySchemaSlug
 		) {
-			return yield* badRequest("Relationship source entity schema does not match");
+			return yield* new RelationshipBadRequest({
+				reason: {
+					code: "source-schema-mismatch",
+					actual: source.entitySchemaSlug,
+					expected: definition.sourceEntitySchemaSlug,
+				},
+			});
 		}
 		if (
 			definition.targetEntitySchemaSlug &&
 			definition.targetEntitySchemaSlug !== target.entitySchemaSlug
 		) {
-			return yield* badRequest("Relationship target entity schema does not match");
+			return yield* new RelationshipBadRequest({
+				reason: {
+					code: "target-schema-mismatch",
+					actual: target.entitySchemaSlug,
+					expected: definition.targetEntitySchemaSlug,
+				},
+			});
 		}
 		return definition;
 	});
@@ -106,11 +131,21 @@ export const changeUserRelationships = Effect.fn("RelationshipsService.changeUse
 							kind: "Relationship",
 							properties: create.properties,
 							propertiesSchema: definition.propertiesSchema,
-						}).pipe(Effect.mapError((error) => badRequest(error.message)));
+						}).pipe(
+							Effect.mapError(
+								(error) =>
+									new RelationshipBadRequest({
+										reason: {
+											code: "invalid-properties",
+											paths: error.issues.map(({ path }) => path),
+										},
+									}),
+							),
+						);
 						const saved = yield* repository.createRelationship({
 							...create,
-							properties,
 							userId,
+							properties,
 							scope: "user",
 						});
 						if (saved.wasInserted) {
@@ -149,7 +184,12 @@ export const reconcileGlobalRelationships = Effect.fn("RelationshipsService.reco
 							group.relationshipSchemaSlug,
 						)?.propertiesSchema;
 						if (!propertiesSchema) {
-							return yield* notFound("Relationship schema not found");
+							return yield* new RelationshipNotFound({
+								reason: {
+									code: "relationship-schema-not-found",
+									relationshipSchemaSlug: group.relationshipSchemaSlug,
+								},
+							});
 						}
 
 						const selector = {
@@ -168,14 +208,16 @@ export const reconcileGlobalRelationships = Effect.fn("RelationshipsService.reco
 											: relationship.targetEntityId === group.selector.anchorEntityId;
 								}
 								if (!matchesSelector) {
-									return yield* badRequest(
-										"Relationship does not match its reconciliation selector",
-									);
+									return yield* new RelationshipBadRequest({
+										reason: { code: "reconciliation-selector-mismatch" },
+									});
 								}
 
 								const key = relationshipKey(relationship);
 								if (seen.has(key)) {
-									return yield* badRequest("Reconciliation group contains duplicate relationships");
+									return yield* new RelationshipBadRequest({
+										reason: { code: "duplicate-reconciliation-relationship" },
+									});
 								}
 								seen.add(key);
 
@@ -183,7 +225,17 @@ export const reconcileGlobalRelationships = Effect.fn("RelationshipsService.reco
 									propertiesSchema,
 									kind: "Relationship",
 									properties: relationship.properties,
-								}).pipe(Effect.mapError((error) => badRequest(error.message)));
+								}).pipe(
+									Effect.mapError(
+										(error) =>
+											new RelationshipBadRequest({
+												reason: {
+													code: "invalid-properties",
+													paths: error.issues.map(({ path }) => path),
+												},
+											}),
+									),
+								);
 								return { ...relationship, properties };
 							}),
 						);
@@ -238,7 +290,14 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 					kind: "Relationship",
 					properties: input.properties,
 					propertiesSchema: input.propertiesSchema,
-				}).pipe(Effect.mapError((error) => badRequest(error.message)));
+				}).pipe(
+					Effect.mapError(
+						(error) =>
+							new RelationshipBadRequest({
+								reason: { code: "invalid-properties", paths: error.issues.map(({ path }) => path) },
+							}),
+					),
+				);
 			});
 
 			const create = Effect.fn("RelationshipsService.create")(function* (
@@ -263,7 +322,7 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 				});
 				const updated = yield* repository.updateRelationship({ ...updateInput, properties });
 				if (!updated) {
-					return yield* notFound("Relationship not found");
+					return yield* new RelationshipNotFound({ reason: { code: "relationship-not-found" } });
 				}
 				return updated;
 			});
@@ -313,7 +372,9 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 								properties: yield* merge(conflicted),
 							});
 							if (!updated) {
-								return yield* notFound("Relationship not found after create conflict");
+								return yield* new RelationshipNotFound({
+									reason: { code: "relationship-not-found" },
+								});
 							}
 							return updated;
 						}).pipe(Effect.provideService(Database, transaction)),

@@ -1,5 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import { BadRequest } from "@ryot/contract/errors";
+import { UploadBadRequest } from "@ryot/contract/modules/uploads/schemas";
 import { Effect, Layer, Stream } from "effect";
 
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
@@ -81,10 +82,7 @@ it.effect("bounds S3 writes and deletes a partial object", () => {
 				3,
 			),
 		);
-		assertExitFails(
-			exit,
-			new BadRequest({ message: "Upload exceeds maximum allowed size of 3 bytes" }),
-		);
+		assertExitFails(exit, new UploadBadRequest({ reason: { code: "upload-failed" } }));
 		expect(deleted).toEqual(["temporary/archive.zip"]);
 	}).pipe(Effect.provide(layer));
 });

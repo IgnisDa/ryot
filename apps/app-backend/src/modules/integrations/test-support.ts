@@ -36,7 +36,7 @@ export const makeRun = (status: "completed" | "failed") => ({
 	inputSummary: {},
 	importedItems: 0,
 	processedItems: 0,
-	errorSummary: null,
+	failureReason: null,
 	source: "test-provider",
 	id: ImportRunId.make("run_1"),
 });
