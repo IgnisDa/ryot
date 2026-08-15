@@ -1486,6 +1486,34 @@ it("continues a live replay through host-settled inline batches, including typed
 		),
 	));
 
+it("delivers large multibyte inline results intact across stdin reads", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* startCoreHostBridge({ replayJournalResult: [] });
+				const value = "日本語".repeat(40_000);
+				const result = yield* runInDeno(
+					{ format: 1, manifest: durableRoleManifest, javascript: durableRoleSource },
+					{ mode: "parallel" },
+					{
+						apiFunctions: ["replayJournal"],
+						workflowExecutionId: "durable-parent",
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						inlineDurableCapabilities: ["getCachedValue"],
+						settleInline: (requests) => ({
+							results: requests.map(() => ({ value, state: "success" })),
+						}),
+					},
+				);
+
+				expect(result).toMatchObject({
+					success: true,
+					value: { state: "completed", output: { values: [value, value] } },
+				});
+			}),
+		),
+	));
+
 it("settles concurrently registered durable calls as one inline batch", () =>
 	Effect.runPromise(
 		Effect.scoped(
