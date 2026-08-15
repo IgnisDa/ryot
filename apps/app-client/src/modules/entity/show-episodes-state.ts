@@ -159,6 +159,9 @@ export const showSeasonDescription = (season: ShowSeason) => optionalText(season
 
 export const showEpisodeSynopsis = (episode: ShowEpisode) => optionalText(episode.description);
 
+export const showSeasonEntityIds = (state: ShowEpisodesState) =>
+	state.status === "ready" ? state.seasons.map(({ id }) => id) : [];
+
 export const showSeasonEpisodeEntityIds = (state: ShowSeasonEpisodesState) =>
 	state.status === "ready" ? state.season.episodes.items.map(({ id }) => id) : [];
 
