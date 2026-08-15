@@ -20,6 +20,13 @@ import {
 export const BENCHMARK_RELATED_RELATIONSHIP_SLUG = "person-to-book";
 export const BENCHMARK_SUGGESTION_RELATIONSHIP_SLUG = "media-suggestion";
 
+/** Run IDs are UTC timestamps, and plugin manifest slugs accept only lowercase kebab segments. */
+export const benchmarkSlugSegment = (value: string) =>
+	value
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "");
+
 /**
  * One private plugin per run carries every hermetic workload: a generic script for direct sandbox
  * scenarios and a book/person provider pair for full-import scenarios.
@@ -29,7 +36,7 @@ export const installBenchmarkWorkloadPlugin = (input: {
 	readonly runId: string;
 }) =>
 	Effect.gen(function* () {
-		const pluginSlug = `sandbox-resource-baseline-${input.runId}`;
+		const pluginSlug = `sandbox-resource-baseline-${benchmarkSlugSegment(input.runId)}`;
 		const scriptSlug = `${pluginSlug}.script`;
 		const bookProviderSlug = `book.${pluginSlug}`;
 		const personProviderSlug = `person.${pluginSlug}`;
