@@ -56,19 +56,23 @@ it("declares the complex file-backed import artifacts and config requirements", 
 			},
 		],
 	});
+	expect(sources.get("trakt")).toMatchObject({
+		lot: "named",
+		input: "file",
+		requiredPluginConfigKeys: [],
+		artifacts: [
+			{
+				required: false,
+				key: "exportFilePath",
+				allowedFileExtensions: ["zip"],
+				uploadTokenField: "exportUploadToken",
+			},
+		],
+	});
 });
 
 it("declares credentialed sources as payload imports", () => {
 	const sources = new Map(mediaPlugin.importSources.map((source) => [source.slug, source]));
-	expect(sources.get("trakt")).toEqual({
-		slug: "trakt",
-		name: "Trakt",
-		input: "payload",
-		workflowSlug: "import",
-		requiredPluginConfigKeys: ["traktClientId"],
-		description:
-			"Import movies, shows, history, ratings, watchlist, lists, and ownership from Trakt",
-	});
 	for (const slug of ["jellyfin", "plex", "audiobookshelf", "media_tracker"] as const) {
 		expect(sources.get(slug)).toMatchObject({ input: "payload", slug, workflowSlug: "import" });
 	}

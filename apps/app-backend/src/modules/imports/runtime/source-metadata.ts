@@ -91,7 +91,10 @@ export const registryImportSourceInputError = (
 	if (fileInputs.some(({ required, uploadToken }) => required !== false && !uploadToken)) {
 		return "Import source requires an upload token";
 	}
-	if (fileInputs.length > 0 && fileInputs.every(({ uploadToken }) => !uploadToken)) {
+	if (
+		fileInputs.some(({ required }) => required !== false) &&
+		fileInputs.every(({ uploadToken }) => !uploadToken)
+	) {
 		return "Import source requires at least one upload token";
 	}
 	return undefined;

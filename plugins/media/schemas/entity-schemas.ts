@@ -315,7 +315,7 @@ export const builtinEntitySchemas = () => [
 		eventSchemas: mediaLifecycleEventSchemas("show").filter((schema) => schema.slug !== "progress"),
 	},
 	{
-		eventSchemas: [],
+		eventSchemas: [lifecycleEventSchemaBySlug("review")],
 		icon: "list-video",
 		slug: "show-season",
 		name: "Show Season",

@@ -46,12 +46,15 @@ Monitoring cron pages through the pinned `media-monitoring-targets` RyotQL scrip
 
 ## Imports
 
-The Trakt importer accepts one of two explicit payloads:
+The Trakt importer accepts one of three explicit inputs:
 
 - User mode: `{ source: "trakt", mode: "user", username }` imports the user's history, ratings, watchlist, lists, and collection.
 - List mode: `{ source: "trakt", mode: "list", url, collection }` imports movies and shows from a public Trakt list into the named Ryot collection.
+- Export mode: `{ source: "trakt", mode: "export", exportUploadToken }` imports a Trakt data-export ZIP without using the Trakt API.
 
-List URLs must use `trakt.tv` or `www.trakt.tv` and the `/users/{username}/lists/{slug}` path. Query parameters, fragments, and a trailing slash are allowed. Trakt imports require the configured `traktClientId` plugin setting.
+List URLs must use `trakt.tv` or `www.trakt.tv` and the `/users/{username}/lists/{slug}` path. Query parameters, fragments, and a trailing slash are allowed. User and list imports require the configured `traktClientId` plugin setting; export imports do not.
+
+Trakt export ratings and comments can target movies, shows, show seasons, or show episodes.
 
 ## Lifecycle
 

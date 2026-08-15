@@ -48,6 +48,13 @@ const ShowEpisodeRef = Schema.Struct({
 	kind: Schema.Literal("show"),
 });
 
+const ShowSeasonRef = Schema.Struct({
+	index: Schema.Int,
+	seasonNumber: Schema.Int,
+	showEntityId: Schema.String,
+	kind: Schema.Literal("show-season"),
+});
+
 const PodcastEpisodeRef = Schema.Struct({
 	index: Schema.Int,
 	episodeNumber: Schema.Int,
@@ -55,7 +62,7 @@ const PodcastEpisodeRef = Schema.Struct({
 	kind: Schema.Literal("podcast"),
 });
 
-export const ResolveEpisodesRef = Schema.Union([ShowEpisodeRef, PodcastEpisodeRef]);
+export const ResolveEpisodesRef = Schema.Union([ShowEpisodeRef, ShowSeasonRef, PodcastEpisodeRef]);
 
 export type ResolveEpisodesRef = Schema.Schema.Type<typeof ResolveEpisodesRef>;
 
