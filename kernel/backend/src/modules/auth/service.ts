@@ -1,4 +1,5 @@
 import { apiKey } from "@better-auth/api-key";
+import { createOAuthAccountIssuer } from "@better-auth/core/db";
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { redisStorage } from "@better-auth/redis-storage";
 import {
@@ -206,6 +207,7 @@ const makeAuthInstance = (args: {
 								{
 									providerId: "oidc",
 									scopes: ["openid", "email", "profile"],
+									accountIssuer: createOAuthAccountIssuer("oidc"),
 									disableSignUp: !args.config.users.allowRegistration,
 									clientId: Option.getOrElse(args.config.server.oidc.clientId, () => ""),
 									clientSecret: Redacted.value(
