@@ -6,7 +6,6 @@ import {
 	type SchemaFormApi,
 	type SchemaFormValues,
 } from "@ryot-app/client-ui-sdk/schema-form";
-import type { ListedIntegrationProvider } from "@ryot-app/contract/modules/integrations/schemas";
 import { Match } from "effect";
 import { useEffect, useEffectEvent, useReducer, useState } from "react";
 
@@ -24,6 +23,7 @@ import {
 	integrationSaveFailure,
 	type IntegrationSaveFailure,
 } from "#/modules/integrations/save-failure";
+import type { IntegrationProviderItem } from "#/modules/integrations/service";
 import { createIntegrationMutation } from "#/modules/integrations/service";
 import { IntegrationSettingsForm } from "#/modules/integrations/settings-form";
 import { CatalogPicker, type CatalogPickerState } from "#/modules/ui/catalog/picker";
@@ -41,7 +41,7 @@ import {
 
 export const INTEGRATION_WIZARD_TITLE = "Connect a service";
 
-export type IntegrationProviderPickerState = CatalogPickerState<ListedIntegrationProvider>;
+export type IntegrationProviderPickerState = CatalogPickerState<IntegrationProviderItem>;
 
 const stepHeadings = {
 	pick: "Choose a service",
@@ -72,7 +72,7 @@ function SettingsStep(props: {
 	readonly onContinue: () => void;
 	readonly uploadFile: SchemaFileUpload;
 	readonly failureDetail: string | undefined;
-	readonly provider: ListedIntegrationProvider;
+	readonly provider: IntegrationProviderItem;
 }) {
 	return (
 		<div className="flex flex-col gap-4">
@@ -107,7 +107,7 @@ function ReviewStep(props: {
 	readonly onConnect: () => void;
 	readonly values: SchemaFormValues;
 	readonly failureDetail: string | undefined;
-	readonly provider: ListedIntegrationProvider;
+	readonly provider: IntegrationProviderItem;
 }) {
 	const rows = [
 		...schemaReviewRows(props.provider.settingsSchema, props.values),

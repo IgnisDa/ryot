@@ -31,14 +31,14 @@ const PAGE_SIZE = 50;
 
 type OperationResult<A> = Promise<Exit.Exit<A, unknown>>;
 type Page =
-	| { readonly offset: number; readonly state: "loading" | "error" }
-	| { readonly offset: number; readonly state: "loaded"; readonly value: GodModeUsers };
+	| { readonly after: string | undefined; readonly state: "loading" | "error" }
+	| { readonly after: string | undefined; readonly state: "loaded"; readonly value: GodModeUsers };
 
 type UserAction = "password" | "disabled" | "reset" | "delete";
 
 function UserPageStatus(props: {
 	readonly page: Extract<Page, { readonly state: "loading" | "error" }>;
-	readonly onRetry: (offset: number) => void;
+	readonly onRetry: (after: string | undefined) => void;
 }) {
 	if (props.page.state === "loading") {
 		return <p role="status">Loading users...</p>;
@@ -48,7 +48,7 @@ function UserPageStatus(props: {
 			<p role="alert" className="text-danger">
 				Could not load users. Check the server and try again.
 			</p>
-			<Button type="button" variant="secondary" onClick={() => props.onRetry(props.page.offset)}>
+			<Button type="button" variant="secondary" onClick={() => props.onRetry(props.page.after)}>
 				Retry
 			</Button>
 		</div>
@@ -65,7 +65,7 @@ export type GodModeUserOperations = {
 	) => OperationResult<GodModeSetDisabledResult>;
 	readonly listUsers: (
 		search: string,
-		offset: number,
+		after: string | undefined,
 		limit: number,
 	) => OperationResult<GodModeUsers>;
 };
@@ -104,29 +104,31 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 	const [query, setQuery] = useState("");
 	const [pages, setPages] = useState<ReadonlyArray<Page>>([]);
 
-	const loadPage = useEffectEvent(async (pageQuery: string, offset: number, version: number) => {
-		const exit = await props.operations.listUsers(pageQuery, offset, PAGE_SIZE);
-		if (generation.current !== version) {
-			return;
-		}
-		if (Exit.isFailure(exit) && isUnauthorizedCause(exit.cause)) {
-			props.onUnauthorized();
-			return;
-		}
-		setPages((current) =>
-			current.map((page) => {
-				if (page.offset !== offset) {
-					return page;
-				}
-				return Exit.isSuccess(exit)
-					? { offset, state: "loaded", value: exit.value }
-					: { offset, state: "error" };
-			}),
-		);
-		if (Exit.isFailure(exit)) {
-			logFailure("god-mode users request failed", exit.cause);
-		}
-	});
+	const loadPage = useEffectEvent(
+		async (pageQuery: string, after: string | undefined, version: number) => {
+			const exit = await props.operations.listUsers(pageQuery, after, PAGE_SIZE);
+			if (generation.current !== version) {
+				return;
+			}
+			if (Exit.isFailure(exit) && isUnauthorizedCause(exit.cause)) {
+				props.onUnauthorized();
+				return;
+			}
+			setPages((current) =>
+				current.map((page) => {
+					if (page.after !== after) {
+						return page;
+					}
+					return Exit.isSuccess(exit)
+						? { after, state: "loaded", value: exit.value }
+						: { after, state: "error" };
+				}),
+			);
+			if (Exit.isFailure(exit)) {
+				logFailure("god-mode users request failed", exit.cause);
+			}
+		},
+	);
 
 	useEffect(() => {
 		const timer = setTimeout(() => setQuery(search.trim()), 300);
@@ -136,60 +138,39 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 	useEffect(() => {
 		const version = generation.current + 1;
 		generation.current = version;
-		setPages([{ offset: 0, state: "loading" }]);
-		void loadPage(query, 0, version);
+		setPages([{ after: undefined, state: "loading" }]);
+		void loadPage(query, undefined, version);
 		return () => {
 			generation.current += 1;
 		};
 	}, [query]);
 
-	const retry = (offset: number) => {
+	const retry = (after: string | undefined) => {
 		setPages((current) =>
-			current.map((page) => (page.offset === offset ? { offset, state: "loading" } : page)),
+			current.map((page) => (page.after === after ? { after, state: "loading" } : page)),
 		);
-		void loadPage(query, offset, generation.current);
+		void loadPage(query, after, generation.current);
 	};
 	const loadedPages = pages.filter(
 		(page): page is Extract<Page, { state: "loaded" }> => page.state === "loaded",
 	);
-	const loaded = loadedPages.reduce((count, page) => count + page.value.users.length, 0);
+	const loaded = loadedPages.reduce((count, page) => count + page.value.items.length, 0);
 	const total = loadedPages[0]?.value.total ?? 0;
 	const last = pages.at(-1);
 	const loadMore = () => {
-		const offset = pages.length * PAGE_SIZE;
-		setPages((current) => [...current, { offset, state: "loading" }]);
-		void loadPage(query, offset, generation.current);
+		if (last?.state !== "loaded" || last.value.pageInfo.nextCursor === null) {
+			return;
+		}
+		const after = last.value.pageInfo.nextCursor;
+		setPages((current) => [...current, { after, state: "loading" }]);
+		void loadPage(query, after, generation.current);
 	};
-	const updateUser = (userId: string, update: Partial<GodModeUser>) =>
-		setPages((current) =>
-			current.map((page) =>
-				page.state !== "loaded"
-					? page
-					: {
-							...page,
-							value: {
-								...page.value,
-								users: page.value.users.map((user) =>
-									user.id === userId ? { ...user, ...update } : user,
-								),
-							},
-						},
-			),
-		);
-	const removeUser = (userId: string) =>
-		setPages((current) =>
-			current.map((page) =>
-				page.state !== "loaded"
-					? page
-					: {
-							...page,
-							value: {
-								total: Math.max(0, page.value.total - 1),
-								users: page.value.users.filter((user) => user.id !== userId),
-							},
-						},
-			),
-		);
+	const refreshUsers = () => {
+		const version = generation.current + 1;
+		generation.current = version;
+		setPages([{ after: undefined, state: "loading" }]);
+		void loadPage(query, undefined, version);
+	};
 	const submitSearch = (event: SyntheticEvent<HTMLFormElement>) => {
 		event.preventDefault();
 		setQuery(search.trim());
@@ -199,7 +180,7 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 			? []
 			: [
 					{
-						id: String(page.offset),
+						id: page.after ?? "first",
 						cellClassName: "px-2 py-10 text-center text-text-muted",
 						content: <UserPageStatus page={page} onRetry={retry} />,
 					},
@@ -236,17 +217,16 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 					bodyEndRows={bodyEndRows}
 					getRowId={(user) => user.id}
 					className="w-full border-collapse text-left text-sm"
-					data={loadedPages.flatMap((page) => page.value.users)}
+					data={loadedPages.flatMap((page) => page.value.items)}
 					headerClassName="border-b border-border text-xs text-text-muted"
 					renderRow={(user) => (
 						<UserRow
 							user={user}
+							onRefresh={refreshUsers}
 							operations={props.operations}
 							onUnauthorized={props.onUnauthorized}
-							onRemoved={() => removeUser(user.id)}
 							backInterceptors={props.backInterceptors}
 							transferResetLink={props.transferResetLink}
-							onChanged={(update) => updateUser(user.id, update)}
 						/>
 					)}
 				/>
@@ -261,7 +241,12 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 					</p>
 				</div>
 			)}
-			{last?.state === "loaded" && loaded > 0 && loaded < total && (
+			{loadedPages.length > 0 && loaded > 0 && (
+				<p className="mt-4 text-center text-sm text-text-muted">
+					Showing {loaded.toLocaleString()} of {total.toLocaleString()} users
+				</p>
+			)}
+			{last?.state === "loaded" && last.value.pageInfo.nextCursor !== null && (
 				<div className="mt-5 flex justify-center">
 					<Button type="button" onClick={loadMore} variant="secondary">
 						Load more users
@@ -274,12 +259,11 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 
 function UserRow(props: {
 	readonly user: GodModeUser;
-	readonly onRemoved: () => void;
+	readonly onRefresh: () => void;
 	readonly onUnauthorized: () => void;
 	readonly operations: GodModeUserOperations;
 	readonly backInterceptors: BackInterceptors;
 	readonly transferResetLink: ResetLinkTransfer;
-	readonly onChanged: (update: Partial<GodModeUser>) => void;
 }) {
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const copyTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -354,7 +338,7 @@ function UserRow(props: {
 			props.operations.setUserDisabled(props.user.id, !isDisabled),
 		);
 		if (value !== null) {
-			props.onChanged({ disabledAt: value.disabledAt });
+			props.onRefresh();
 		} else if (pendingRef.current === null) {
 			setError(`Could not ${isDisabled ? "enable" : "disable"} this user. Try again.`);
 		}
@@ -385,7 +369,7 @@ function UserRow(props: {
 			return;
 		}
 		setConfirmation(null);
-		props.onRemoved();
+		props.onRefresh();
 	};
 	const transfer = async () => {
 		if (result?.resetUrl == null) {

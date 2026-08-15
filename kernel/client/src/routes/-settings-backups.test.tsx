@@ -1,5 +1,6 @@
-import { BackupConflict, type BackupRun } from "@ryot-app/contract/modules/backups/schemas";
+import { BackupConflict } from "@ryot-app/contract/modules/backups/schemas";
 import { BackupRunId } from "@ryot-app/contract/schema/brands";
+import type { BackupRunItem } from "@ryot-app/ryotql-recipes/backups";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime } from "effect";
@@ -7,7 +8,13 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import type { BackupsApi } from "#/api/backups";
-import { KernelApiTestLayer, makeBackupsApi, makeUploadsApi } from "#/api/ports.test-layer";
+import {
+	KernelApiTestLayer,
+	makeBackupsApi,
+	makeRyotQLApi,
+	makeUploadsApi,
+} from "#/api/ports.test-layer";
+import type { RyotQLApi } from "#/api/ryotql";
 import type { UploadsApi } from "#/api/uploads";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
@@ -45,7 +52,7 @@ const nowMs = Date.now();
 
 const at = (offsetMs: number) => new Date(nowMs + offsetMs).toISOString();
 
-const makeRun = (overrides: Partial<BackupRun> = {}): BackupRun => ({
+const makeRun = (overrides: Partial<BackupRunItem> = {}): BackupRunItem => ({
 	failure: null,
 	progress: 100,
 	kind: "export",
@@ -84,11 +91,45 @@ const uploadStub = () =>
 			}),
 	});
 
+type RunsResponse = {
+	readonly items: readonly BackupRunItem[];
+	readonly hasMore?: boolean;
+	readonly nextCursor?: string | null;
+};
+type RunsLoad = (after?: string) => Effect.Effect<RunsResponse, AuthenticatedApiError>;
+
+const makeBackupQueries = (load: RunsLoad): Layer.Layer<RyotQLApi> =>
+	makeRyotQLApi({
+		execute: (_scope, request) => {
+			const runs = request.payload.queries.runs;
+			if (runs.output.type !== "rows") {
+				return Effect.die("Expected backup runs rows query");
+			}
+			const { limit, after } = runs.output.pagination;
+			return Effect.map(load(after), (page) => ({
+				data: {
+					runs: {
+						items: page.items,
+						type: "rows" as const,
+						pageInfo: {
+							limit,
+							hasMore: page.hasMore ?? false,
+							nextCursor: page.nextCursor ?? null,
+						},
+					},
+				},
+			}));
+		},
+	});
+
+const emptyRuns: RunsLoad = () => Effect.succeed({ items: [] });
+
 const mountView = (
 	initialEntry: string,
 	backupsApi: Layer.Layer<BackupsApi> = makeBackupsApi(),
 	uploadsApi: Layer.Layer<UploadsApi> = makeUploadsApi(),
 	auth = makeAuthStub(),
+	load: RunsLoad = emptyRuns,
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
 	const runtime = ManagedRuntime.make(
@@ -105,6 +146,7 @@ const mountView = (
 			EntityRouteStubs,
 			makePublicApiStub(),
 			KernelApiTestLayer,
+			makeBackupQueries(load),
 			ClientPagesApiRouteStubs,
 			ClientPageSessionsRouteStubs,
 			makeUserSettingsStub(),
@@ -180,19 +222,57 @@ afterEach(() => {
 	}
 });
 
+it("loads older backups by cursor without discarding recent runs", async () => {
+	const cursors: Array<string | undefined> = [];
+	mountView("/settings/backups", makeBackupsApi(), makeUploadsApi(), makeAuthStub(), (after) => {
+		cursors.push(after);
+		return Effect.succeed(
+			after === undefined
+				? { hasMore: true, items: [makeRun()], nextCursor: "older-cursor" }
+				: { items: [makeRun({ kind: "restore", id: BackupRunId.make("backup_2") })] },
+		);
+	});
+
+	await screen.findByText("Ready to download");
+	fireEvent.click(screen.getByRole("button", { name: "Load more backups" }));
+	await screen.findByText("Restored");
+	expect(screen.getByText("Ready to download")).toBeTruthy();
+	expect(screen.queryByRole("button", { name: "Load more backups" })).toBeNull();
+	expect(cursors).toEqual([undefined, "older-cursor"]);
+});
+
+it("retries a failed cursor page while retaining earlier backups", async () => {
+	let olderAttempts = 0;
+	mountView("/settings/backups", makeBackupsApi(), makeUploadsApi(), makeAuthStub(), (after) => {
+		if (after === undefined) {
+			return Effect.succeed({ hasMore: true, items: [makeRun()], nextCursor: "older" });
+		}
+		olderAttempts += 1;
+		return olderAttempts === 1
+			? Effect.fail(new AuthenticatedApiError({ cause: 500 }))
+			: Effect.succeed({ items: [makeRun({ kind: "restore", id: BackupRunId.make("backup_2") })] });
+	});
+
+	fireEvent.click(await screen.findByRole("button", { name: "Load more backups" }));
+	await screen.findByText("Could not load more backups. Try again.");
+	expect(screen.getByText("Ready to download")).toBeTruthy();
+	fireEvent.click(screen.getByRole("button", { name: "Load more backups" }));
+	await screen.findByText("Restored");
+	expect(olderAttempts).toBe(2);
+});
+
 describe("backups list", () => {
 	it("renders the protected demo state without starting the backup query", async () => {
 		let loads = 0;
 		mountView(
 			"/settings/backups",
-			makeBackupsApi({
-				listRuns: () => {
-					loads += 1;
-					return Effect.succeed({ items: [] });
-				},
-			}),
+			makeBackupsApi({}),
 			makeUploadsApi(),
 			makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
+			() => {
+				loads += 1;
+				return Effect.succeed({ items: [] });
+			},
 		);
 
 		await screen.findByText("Backups are unavailable");
@@ -205,12 +285,9 @@ describe("backups list", () => {
 	});
 
 	it("shows the ordinary pending state while the query is unresolved", async () => {
-		let complete!: (value: { readonly items: readonly BackupRun[] }) => void;
-		mountView(
-			"/settings/backups",
-			makeBackupsApi({
-				listRuns: () => Effect.promise(() => new Promise((resolve) => (complete = resolve))),
-			}),
+		let complete!: (value: { readonly items: readonly BackupRunItem[] }) => void;
+		mountView("/settings/backups", makeBackupsApi({}), makeUploadsApi(), makeAuthStub(), () =>
+			Effect.promise(() => new Promise((resolve) => (complete = resolve))),
 		);
 
 		await screen.findByText("Loading your backups...");
@@ -219,16 +296,12 @@ describe("backups list", () => {
 	});
 
 	it("names each run by its kind and shows what it can still do", async () => {
-		mountView(
-			"/settings/backups",
-			makeBackupsApi({
-				listRuns: () =>
-					Effect.succeed({
-						items: [
-							makeRun(),
-							makeRun({ kind: "restore", expiresAt: null, id: BackupRunId.make("backup_2") }),
-						],
-					}),
+		mountView("/settings/backups", makeBackupsApi({}), makeUploadsApi(), makeAuthStub(), () =>
+			Effect.succeed({
+				items: [
+					makeRun(),
+					makeRun({ kind: "restore", expiresAt: null, id: BackupRunId.make("backup_2") }),
+				],
 			}),
 		);
 
@@ -243,9 +316,8 @@ describe("backups list", () => {
 	});
 
 	it("offers a backup from the empty state", async () => {
-		mountView(
-			"/settings/backups",
-			makeBackupsApi({ listRuns: () => Effect.succeed({ items: [] }) }),
+		mountView("/settings/backups", makeBackupsApi({}), makeUploadsApi(), makeAuthStub(), () =>
+			Effect.succeed({ items: [] }),
 		);
 
 		await screen.findByText("No backups yet");
@@ -257,17 +329,12 @@ describe("backups list", () => {
 
 	it("retries a history query that could not be loaded", async () => {
 		let loads = 0;
-		mountView(
-			"/settings/backups",
-			makeBackupsApi({
-				listRuns: () => {
-					loads += 1;
-					return loads === 1
-						? Effect.fail(new AuthenticatedApiError({ cause: 500 }))
-						: Effect.succeed({ items: [] });
-				},
-			}),
-		);
+		mountView("/settings/backups", makeBackupsApi({}), makeUploadsApi(), makeAuthStub(), () => {
+			loads += 1;
+			return loads === 1
+				? Effect.fail(new AuthenticatedApiError({ cause: 500 }))
+				: Effect.succeed({ items: [] });
+		});
 
 		await screen.findByText("Unable to load backups");
 		fireEvent.click(screen.getByRole("button", { name: "Try again" }));
@@ -276,14 +343,8 @@ describe("backups list", () => {
 	});
 
 	it("shows the progress of a run that is still going and blocks another", async () => {
-		mountView(
-			"/settings/backups",
-			makeBackupsApi({
-				listRuns: () =>
-					Effect.succeed({
-						items: [makeRun({ progress: 25, finishedAt: null, status: "running" })],
-					}),
-			}),
+		mountView("/settings/backups", makeBackupsApi({}), makeUploadsApi(), makeAuthStub(), () =>
+			Effect.succeed({ items: [makeRun({ progress: 25, finishedAt: null, status: "running" })] }),
 		);
 
 		await screen.findByText("Running");
@@ -308,13 +369,15 @@ describe("backups list", () => {
 					exports += 1;
 					return Effect.succeed({ id: BackupRunId.make("backup_1") });
 				},
-				listRuns: () => {
-					loads += 1;
-					return Effect.succeed({
-						items: loads === 1 ? [] : [makeRun({ progress: 0, status: "pending" })],
-					});
-				},
 			}),
+			makeUploadsApi(),
+			makeAuthStub(),
+			() => {
+				loads += 1;
+				return Effect.succeed({
+					items: loads === 1 ? [] : [makeRun({ progress: 0, status: "pending" })],
+				});
+			},
 		);
 
 		fireEvent.click(await screen.findByRole("button", { name: "Create a backup" }));
@@ -329,15 +392,15 @@ describe("backups list", () => {
 		let loads = 0;
 		mountView(
 			"/settings/backups",
-			makeBackupsApi({
-				createExport: () => Effect.succeed({ id: BackupRunId.make("backup_2") }),
-				listRuns: () => {
-					loads += 1;
-					return loads === 1
-						? Effect.succeed({ items: [makeRun()] })
-						: Effect.fail(new AuthenticatedApiError({ cause: 500 }));
-				},
-			}),
+			makeBackupsApi({ createExport: () => Effect.succeed({ id: BackupRunId.make("backup_2") }) }),
+			makeUploadsApi(),
+			makeAuthStub(),
+			() => {
+				loads += 1;
+				return loads === 1
+					? Effect.succeed({ items: [makeRun()] })
+					: Effect.fail(new AuthenticatedApiError({ cause: 500 }));
+			},
 		);
 
 		fireEvent.click(await screen.findByRole("button", { name: /Create a backup/ }));
@@ -350,10 +413,10 @@ describe("backups list", () => {
 	it("reports a backup that could not be started", async () => {
 		mountView(
 			"/settings/backups",
-			makeBackupsApi({
-				listRuns: () => Effect.succeed({ items: [makeRun()] }),
-				createExport: () => Effect.fail(conflict({ code: "active-run-exists" })),
-			}),
+			makeBackupsApi({ createExport: () => Effect.fail(conflict({ code: "active-run-exists" })) }),
+			makeUploadsApi(),
+			makeAuthStub(),
+			() => Effect.succeed({ items: [makeRun()] }),
 		);
 
 		fireEvent.click(await screen.findByRole("button", { name: /Create a backup/ }));
@@ -369,15 +432,17 @@ describe("backup records", () => {
 		mountView(
 			"/settings/backups",
 			makeBackupsApi({
-				listRuns: () => {
-					loads += 1;
-					return Effect.succeed({ items: loads === 1 ? [makeRun()] : [] });
-				},
 				deleteRun: (_scope, request) => {
 					deleted.push(request.params.id);
 					return Effect.succeed({ id: request.params.id });
 				},
 			}),
+			makeUploadsApi(),
+			makeAuthStub(),
+			() => {
+				loads += 1;
+				return Effect.succeed({ items: loads === 1 ? [makeRun()] : [] });
+			},
 		);
 
 		fireEvent.click(
@@ -395,10 +460,10 @@ describe("backup records", () => {
 	it("keeps the confirmation open when the delete fails", async () => {
 		mountView(
 			"/settings/backups",
-			makeBackupsApi({
-				listRuns: () => Effect.succeed({ items: [makeRun()] }),
-				deleteRun: () => Effect.fail(conflict({ code: "run-still-active" })),
-			}),
+			makeBackupsApi({ deleteRun: () => Effect.fail(conflict({ code: "run-still-active" })) }),
+			makeUploadsApi(),
+			makeAuthStub(),
+			() => Effect.succeed({ items: [makeRun()] }),
 		);
 
 		fireEvent.click(
@@ -416,10 +481,10 @@ describe("backup downloads", () => {
 	it("hands the archive to the browser as a named file", async () => {
 		mountView(
 			"/settings/backups",
-			makeBackupsApi({
-				listRuns: () => Effect.succeed({ items: [makeRun()] }),
-				downloadArchive: () => Effect.succeed(new Blob([new Uint8Array([1, 2])])),
-			}),
+			makeBackupsApi({ downloadArchive: () => Effect.succeed(new Blob([new Uint8Array([1, 2])])) }),
+			makeUploadsApi(),
+			makeAuthStub(),
+			() => Effect.succeed({ items: [makeRun()] }),
 		);
 
 		fireEvent.click(
@@ -434,9 +499,11 @@ describe("backup downloads", () => {
 		mountView(
 			"/settings/backups",
 			makeBackupsApi({
-				listRuns: () => Effect.succeed({ items: [makeRun()] }),
 				downloadArchive: () => Effect.fail(new AuthenticatedApiError({ cause: 404 })),
 			}),
+			makeUploadsApi(),
+			makeAuthStub(),
+			() => Effect.succeed({ items: [makeRun()] }),
 		);
 
 		fireEvent.click(
@@ -451,7 +518,10 @@ describe("backup restore", () => {
 	it("keeps the wizard in the URL so closing it returns to the history", async () => {
 		const view = mountView(
 			"/settings/backups",
-			makeBackupsApi({ listRuns: () => Effect.succeed({ items: [makeRun()] }) }),
+			makeBackupsApi({}),
+			makeUploadsApi(),
+			makeAuthStub(),
+			() => Effect.succeed({ items: [makeRun()] }),
 		);
 
 		fireEvent.click(await screen.findByRole("button", { name: "Restore from a backup" }));
@@ -475,17 +545,18 @@ describe("backup restore", () => {
 					tokens.push(request.payload.uploadToken);
 					return Effect.succeed({ id: BackupRunId.make("backup_2") });
 				},
-				listRuns: () => {
-					loads += 1;
-					return Effect.succeed({
-						items:
-							loads === 1
-								? [makeRun()]
-								: [makeRun({ progress: 10, kind: "restore", status: "running" })],
-					});
-				},
 			}),
 			uploadStub(),
+			makeAuthStub(),
+			() => {
+				loads += 1;
+				return Effect.succeed({
+					items:
+						loads === 1
+							? [makeRun()]
+							: [makeRun({ progress: 10, kind: "restore", status: "running" })],
+				});
+			},
 		);
 
 		await screen.findByRole("dialog");
@@ -504,11 +575,12 @@ describe("backup restore", () => {
 		mountView(
 			"/settings/backups?restore=true",
 			makeBackupsApi({
-				listRuns: () => Effect.succeed({ items: [makeRun()] }),
 				createRestore: () =>
 					Effect.fail(conflict({ category: "entities", code: "account-not-clean" })),
 			}),
 			uploadStub(),
+			makeAuthStub(),
+			() => Effect.succeed({ items: [makeRun()] }),
 		);
 
 		await screen.findByRole("dialog");

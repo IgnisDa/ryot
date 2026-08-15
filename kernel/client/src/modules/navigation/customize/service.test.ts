@@ -4,7 +4,7 @@ import type {
 	ContractPayload,
 	ContractSuccess,
 } from "@ryot-app/contract/client";
-import { PluginSlug, SavedViewId } from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginSlug, SavedViewId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
@@ -25,42 +25,15 @@ type Call =
 	  }
 	| {
 			readonly kind: "workspace";
-			readonly payload: ContractPayload<"definitions", "updatePluginState">;
-			readonly params: ContractPathParams<"definitions", "updatePluginState">;
+			readonly payload: ContractPayload<"plugins", "updatePluginState">;
+			readonly params: ContractPathParams<"plugins", "updatePluginState">;
 	  };
 
-const savedView: ContractSuccess<"savedViews", "update"> = {
-	name: "All",
-	slug: "all",
-	icon: "list",
-	sortOrder: 0,
-	settings: {},
-	pluginSlug: null,
-	isBuiltin: false,
-	isDisabled: false,
-	dataSources: null,
-	id: SavedViewId.make("view-1"),
-	createdAt: "2026-01-01T00:00:00.000Z",
-	updatedAt: "2026-01-01T00:00:00.000Z",
-	renderer: { kind: "kernel", name: "results-table" },
-};
+const savedView: ContractSuccess<"savedViews", "update"> = { id: SavedViewId.make("view-1") };
 
-const installation: ContractSuccess<"definitions", "updatePluginState"> = {
-	config: {},
-	sortOrder: 0,
-	name: "Media",
-	icon: "puzzle",
-	health: "ready",
-	scope: "system",
-	version: "1.0.0",
-	isDisabled: false,
-	healthReason: null,
-	description: "Media",
-	homeSavedViewId: null,
-	configuredSecrets: [],
-	sourceHash: "source-hash",
-	slug: PluginSlug.make("media"),
-	configSchema: { fields: {}, unknownKeys: "strict" },
+const installation: ContractSuccess<"plugins", "updatePluginState"> = {
+	id: "installation-1",
+	pluginId: PluginId.make("plugin-1"),
 };
 
 const authFailure = Effect.fail(new AuthenticatedApiError({ cause: "boom" }));

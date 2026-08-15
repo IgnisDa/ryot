@@ -1,9 +1,6 @@
 import { formatRelativeTime } from "#/modules/ui/run/run-status";
 
-/**
- * Structural rather than derived from one row type: the RyotQL row and the contract's
- * `ListedIntegration` both feed these, and they brand `pluginSlug` differently.
- */
+/** Shared presentation shape for integration summary and detail recipe results. */
 type IntegrationIdentity = {
 	readonly provider: string;
 	readonly pluginSlug: string;

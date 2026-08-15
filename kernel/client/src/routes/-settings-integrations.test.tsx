@@ -1,15 +1,17 @@
 import type {
 	CreateIntegrationBody,
-	ListedIntegration,
-	ListedIntegrationProvider,
 	UpdateIntegrationBody,
 } from "@ryot-app/contract/modules/integrations/schemas";
-import { IntegrationNotFoundError } from "@ryot-app/contract/modules/integrations/schemas";
-import { ImportRunId, IntegrationId, PluginSlug } from "@ryot-app/contract/schema/brands";
-import type { IntegrationSummary } from "@ryot-app/ryotql-recipes/integrations";
+import {
+	ImportRunId,
+	IntegrationId,
+	IntegrationWebhookToken,
+	PluginSlug,
+} from "@ryot-app/contract/schema/brands";
+import type { IntegrationDetail, IntegrationSummary } from "@ryot-app/ryotql-recipes/integrations";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { Effect, Layer, ManagedRuntime } from "effect";
+import { Effect, Layer, ManagedRuntime, type Option } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
@@ -17,6 +19,7 @@ import type { IntegrationsApi } from "#/api/integrations";
 import { KernelApiTestLayer, makeIntegrationsApi, makeRyotQLApi } from "#/api/ports.test-layer";
 import type { RyotQLApi } from "#/api/ryotql";
 import type { AuthService } from "#/modules/auth/service";
+import type { IntegrationProviderItem } from "#/modules/integrations/service";
 import { IntegrationsService } from "#/modules/integrations/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
@@ -78,9 +81,9 @@ const commonSchema = {
 			validation: { minimum: 0, maximum: 100 },
 		},
 	},
-} satisfies ListedIntegrationProvider["commonSchema"];
+} satisfies IntegrationProviderItem["commonSchema"];
 
-const komgaProvider: ListedIntegrationProvider = {
+const komgaProvider: IntegrationProviderItem = {
 	lot: "yank",
 	commonSchema,
 	slug: "komga",
@@ -102,7 +105,7 @@ const komgaProvider: ListedIntegrationProvider = {
 	},
 };
 
-const kodiProvider: ListedIntegrationProvider = {
+const kodiProvider: IntegrationProviderItem = {
 	lot: "sink",
 	slug: "kodi",
 	name: "Kodi",
@@ -131,8 +134,11 @@ const makeSummary = (overrides: Partial<IntegrationSummary> = {}): IntegrationSu
 	...overrides,
 });
 
-const makeListed = (overrides: Partial<ListedIntegration> = {}): ListedIntegration => ({
+type IntegrationDetailRow = IntegrationDetail extends Option.Option<infer A> ? A : never;
+
+const makeDetail = (overrides: Partial<IntegrationDetailRow> = {}): IntegrationDetailRow => ({
 	...makeSummary(),
+	webhookToken: null,
 	providerSpecifics: { baseUrl: "https://komga.example" },
 	...overrides,
 });
@@ -165,6 +171,11 @@ const makeIntegrationQueries = (
 	options: {
 		readonly runs?: () => ReturnType<typeof runsResponse>;
 		readonly list?: (limit: number) => ReturnType<typeof listResponse>;
+		readonly providers?: () => Effect.Effect<
+			readonly IntegrationProviderItem[],
+			AuthenticatedApiError
+		>;
+		readonly detail?: () => Effect.Effect<IntegrationDetailRow | undefined, AuthenticatedApiError>;
 	} = {},
 ): Layer.Layer<RyotQLApi> =>
 	makeRyotQLApi({
@@ -177,6 +188,37 @@ const makeIntegrationQueries = (
 				return Effect.succeed(
 					options.list?.(integrations.output.pagination.limit) ?? listResponse([]),
 				);
+			}
+			if ("providers" in request.payload.queries) {
+				return Effect.map(
+					options.providers?.() ?? Effect.succeed([komgaProvider]),
+					(providers) => ({
+						data: {
+							providers: {
+								type: "rows" as const,
+								pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+								items: providers.map(
+									({ isCreatable, commonSchema: _common, ...provider }, index) => ({
+										...provider,
+										hasScript: isCreatable,
+										id: `provider-${index}`,
+									}),
+								),
+							},
+						},
+					}),
+				);
+			}
+			if ("integration" in request.payload.queries) {
+				return Effect.map(options.detail?.() ?? Effect.succeed(makeDetail()), (item) => ({
+					data: {
+						integration: {
+							type: "rows" as const,
+							items: item === undefined ? [] : [item],
+							pageInfo: { limit: 1, hasMore: false, nextCursor: null },
+						},
+					},
+				}));
 			}
 			return Effect.succeed(options.runs?.() ?? runsResponse([]));
 		},
@@ -198,13 +240,6 @@ const completedRun = {
 	startedAt: "2026-08-23T11:00:10.000Z",
 	finishedAt: "2026-08-23T11:05:00.000Z",
 };
-
-const notFoundFailure = () =>
-	new AuthenticatedApiError({
-		cause: new IntegrationNotFoundError({
-			reason: { code: "integration-not-found", integrationId: IntegrationId.make("int_1") },
-		}),
-	});
 
 const mountView = (
 	initialEntry: string,
@@ -254,7 +289,7 @@ describe("integrations list", () => {
 	it("keeps demo summaries visible while disabling protected actions", async () => {
 		mountView(
 			"/settings/integrations",
-			makeIntegrationsApi({ listProviders: () => Effect.succeed([komgaProvider]) }),
+			makeIntegrationsApi(),
 			makeIntegrationQueries({ list: () => listResponse([makeSummary()]) }),
 			makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
 		);
@@ -274,10 +309,7 @@ describe("integrations list", () => {
 	it("names each integration and opens the one that was clicked", async () => {
 		const view = mountView(
 			"/settings/integrations",
-			makeIntegrationsApi({
-				get: () => Effect.succeed(makeListed()),
-				listProviders: () => Effect.succeed([komgaProvider]),
-			}),
+			makeIntegrationsApi(),
 			makeIntegrationQueries({
 				list: () =>
 					listResponse([
@@ -305,7 +337,6 @@ describe("integrations list", () => {
 		mountView(
 			"/settings/integrations",
 			makeIntegrationsApi({
-				listProviders: () => Effect.succeed([komgaProvider]),
 				sync: () => {
 					attempts += 1;
 					return attempts === 1
@@ -331,10 +362,9 @@ describe("integrations list", () => {
 		const view = mountView(
 			"/settings/integrations",
 			makeIntegrationsApi({
-				listProviders: () => Effect.succeed([komgaProvider, kodiProvider]),
 				create: (_scope, request) => {
 					created.push(request.payload);
-					return Effect.succeed(makeListed());
+					return Effect.succeed({ id: IntegrationId.make("int_2") });
 				},
 			}),
 			makeIntegrationQueries({
@@ -381,10 +411,10 @@ describe("integrations list", () => {
 	it("keeps the failure visible when the services cannot be listed", async () => {
 		mountView(
 			"/settings/integrations",
-			makeIntegrationsApi({
-				listProviders: () => Effect.fail(new AuthenticatedApiError({ cause: new Error("down") })),
+			makeIntegrationsApi(),
+			makeIntegrationQueries({
+				providers: () => Effect.fail(new AuthenticatedApiError({ cause: new Error("down") })),
 			}),
-			makeIntegrationQueries(),
 		);
 
 		fireEvent.click(await screen.findByRole("button", { name: "Connect a service" }));
@@ -400,15 +430,15 @@ describe("integration detail", () => {
 		let gets = 0;
 		mountView(
 			"/settings/integrations/int_1",
-			makeIntegrationsApi({
-				get: () => {
+			makeIntegrationsApi(),
+			makeIntegrationQueries({
+				detail: () => {
 					gets++;
 					return Effect.succeed(
-						makeListed({ webhookUrl: "https://ryot.example/_i/webhook-token-1" }),
+						makeDetail({ webhookToken: IntegrationWebhookToken.make("webhook-token-1") }),
 					);
 				},
 			}),
-			makeIntegrationQueries(),
 			makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
 		);
 
@@ -424,26 +454,25 @@ describe("integration detail", () => {
 
 	it("uses loader data until the ID-keyed detail query succeeds", async () => {
 		let gets = 0;
-		let resolveDetail!: (integration: ListedIntegration) => void;
-		const pendingDetail = new Promise<ListedIntegration>((resolve) => {
+		let resolveDetail!: (integration: IntegrationDetailRow) => void;
+		const pendingDetail = new Promise<IntegrationDetailRow>((resolve) => {
 			resolveDetail = resolve;
 		});
 		mountView(
 			"/settings/integrations/int_1",
-			makeIntegrationsApi({
-				listProviders: () => Effect.succeed([komgaProvider]),
-				get: () => {
+			makeIntegrationsApi(),
+			makeIntegrationQueries({
+				detail: () => {
 					gets += 1;
 					return gets === 1
-						? Effect.succeed(makeListed({ name: "Loader integration" }))
+						? Effect.succeed(makeDetail({ name: "Loader integration" }))
 						: Effect.promise(() => pendingDetail);
 				},
 			}),
-			makeIntegrationQueries(),
 		);
 
 		await screen.findByRole("heading", { level: 1, name: "Loader integration" });
-		resolveDetail(makeListed({ name: "Queried integration" }));
+		resolveDetail(makeDetail({ name: "Queried integration" }));
 		await screen.findByRole("heading", { level: 1, name: "Queried integration" });
 		expect(gets).toBe(2);
 	});
@@ -451,42 +480,41 @@ describe("integration detail", () => {
 	it("shows the webhook URL and recent runs", async () => {
 		mountView(
 			"/settings/integrations/int_1",
-			makeIntegrationsApi({
-				listProviders: () => Effect.succeed([kodiProvider]),
-				get: () =>
+			makeIntegrationsApi(),
+			makeIntegrationQueries({
+				runs: () => runsResponse([completedRun]),
+				providers: () => Effect.succeed([kodiProvider]),
+				detail: () =>
 					Effect.succeed(
-						makeListed({
+						makeDetail({
 							lot: "sink",
 							provider: "kodi",
 							providerSpecifics: {},
-							webhookUrl: "https://ryot.example/_i/webhook-token-1",
+							webhookToken: IntegrationWebhookToken.make("webhook-token-1"),
 						}),
 					),
 			}),
-			makeIntegrationQueries({ runs: () => runsResponse([completedRun]) }),
 		);
 
 		await screen.findByRole("heading", { level: 1, name: "Kodi" });
-		expect(screen.getByText("https://ryot.example/_i/webhook-token-1")).not.toBeNull();
+		expect(screen.getByText(`${window.location.origin}/_i/webhook-token-1`)).not.toBeNull();
 		expect(screen.getByRole("img", { name: "Completed" })).not.toBeNull();
 		expect(screen.getByText("12 added")).not.toBeNull();
 	});
 
 	it("saves edited settings through the update endpoint", async () => {
 		const saved: UpdateIntegrationBody[] = [];
-		let stored = makeListed();
+		let stored = makeDetail();
 		mountView(
 			"/settings/integrations/int_1",
 			makeIntegrationsApi({
-				get: () => Effect.succeed(stored),
-				listProviders: () => Effect.succeed([komgaProvider]),
 				update: (_scope, request) => {
 					saved.push(request.payload);
-					stored = makeListed({ name: "Renamed" });
-					return Effect.succeed(stored);
+					stored = makeDetail({ name: "Renamed" });
+					return Effect.succeed({ id: stored.id });
 				},
 			}),
-			makeIntegrationQueries(),
+			makeIntegrationQueries({ detail: () => Effect.succeed(stored) }),
 		);
 
 		fireEvent.change(await screen.findByLabelText("Name"), { target: { value: "Renamed" } });
@@ -501,21 +529,19 @@ describe("integration detail", () => {
 		let gets = 0;
 		mountView(
 			"/settings/integrations/int_1",
-			makeIntegrationsApi({
-				listProviders: () => Effect.succeed([komgaProvider]),
-				update: () => Effect.succeed(makeListed({ name: "Updated integration" })),
-				get: () => {
+			makeIntegrationsApi({ update: () => Effect.succeed({ id: IntegrationId.make("int_1") }) }),
+			makeIntegrationQueries({
+				detail: () => {
 					gets += 1;
 					if (gets === 1) {
-						return Effect.succeed(makeListed({ name: "Loader integration" }));
+						return Effect.succeed(makeDetail({ name: "Loader integration" }));
 					}
 					if (gets === 2) {
-						return Effect.succeed(makeListed({ name: "Current integration" }));
+						return Effect.succeed(makeDetail({ name: "Current integration" }));
 					}
 					return Effect.fail(new AuthenticatedApiError({ cause: new Error("refresh failed") }));
 				},
 			}),
-			makeIntegrationQueries(),
 		);
 
 		await screen.findByRole("heading", { level: 1, name: "Current integration" });
@@ -529,8 +555,6 @@ describe("integration detail", () => {
 		const view = mountView(
 			"/settings/integrations/int_1",
 			makeIntegrationsApi({
-				get: () => Effect.succeed(makeListed()),
-				listProviders: () => Effect.succeed([komgaProvider]),
 				delete: (_scope, request) => {
 					deleted.push(request.params.integrationId);
 					return Effect.succeed({ id: request.params.integrationId });
@@ -551,11 +575,8 @@ describe("integration detail", () => {
 	it("shows a not-found state for an integration that no longer exists", async () => {
 		mountView(
 			"/settings/integrations/int_1",
-			makeIntegrationsApi({
-				get: () => Effect.fail(notFoundFailure()),
-				listProviders: () => Effect.succeed([komgaProvider]),
-			}),
-			makeIntegrationQueries(),
+			makeIntegrationsApi(),
+			makeIntegrationQueries({ detail: () => Effect.succeed(undefined) }),
 		);
 
 		await screen.findByText("Integration not found");

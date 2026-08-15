@@ -4,16 +4,16 @@ import {
 	type SchemaFormApi,
 	type SchemaFormMode,
 } from "@ryot-app/client-ui-sdk/schema-form";
-import type { ListedIntegrationProvider } from "@ryot-app/contract/modules/integrations/schemas";
 
 import { integrationLotDetail } from "#/modules/integrations/provider-selection";
+import type { IntegrationProviderItem } from "#/modules/integrations/service";
 import { schemaFormIcons } from "#/modules/ui/schema-form-icons";
 
 export function IntegrationSettingsForm(props: {
 	readonly mode: SchemaFormMode;
 	readonly form: SchemaFormApi;
 	readonly uploadFile: SchemaFileUpload;
-	readonly provider: ListedIntegrationProvider;
+	readonly provider: IntegrationProviderItem;
 }) {
 	return (
 		<div className="flex flex-col gap-5">

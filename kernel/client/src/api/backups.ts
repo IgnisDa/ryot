@@ -12,7 +12,6 @@ export class BackupsApi extends Context.Service<BackupsApi>()("BackupsApi", {
 	make: Effect.gen(function* () {
 		const api = yield* AuthenticatedApi;
 		return {
-			listRuns: (scope: ApiScope) => api.run(scope, (client) => client.backups.listRuns()),
 			createExport: (scope: ApiScope) => api.run(scope, (client) => client.backups.createExport()),
 			deleteRun: (scope: ApiScope, request: ContractRequest<"backups", "deleteRun">) =>
 				api.run(scope, (client) => client.backups.deleteRun(request)),
