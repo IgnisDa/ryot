@@ -50,8 +50,8 @@ const openRotatingStream = (
 	logDirectory: string,
 	logFileName: string,
 	options: Pick<
-		AppConfigValue["server"],
-		"logRotationInterval" | "logRotationSize" | "logRetentionFiles"
+		AppConfigValue["observability"]["logging"]["file"],
+		"rotationInterval" | "rotationSize" | "retentionFiles"
 	>,
 ) =>
 	Effect.callback<RotatingFileStream, FileLoggerOpenError>((resume) => {
@@ -63,9 +63,9 @@ const openRotatingStream = (
 				path: logDirectory,
 				initialRotation: true,
 				intervalBoundary: true,
-				size: options.logRotationSize,
-				maxFiles: options.logRetentionFiles,
-				interval: options.logRotationInterval,
+				size: options.rotationSize,
+				maxFiles: options.retentionFiles,
+				interval: options.rotationInterval,
 			});
 		} catch (error) {
 			resume(Effect.fail(new FileLoggerOpenError({ logFile, reason: error })));
@@ -108,31 +108,26 @@ const makeRotatingFileLogger = (config: AppConfigValue) =>
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
 		const path = yield* Path.Path;
-		const logDirectory = path.dirname(config.server.logFile);
+		const file = config.observability.logging.file;
+		const logDirectory = path.dirname(file.path);
 		yield* fs.makeDirectory(logDirectory, { recursive: true });
 		const stream = yield* Effect.acquireRelease(
-			openRotatingStream(
-				config.server.logFile,
-				logDirectory,
-				path.basename(config.server.logFile),
-				config.server,
-			),
+			openRotatingStream(file.path, logDirectory, path.basename(file.path), file),
 			closeRotatingStream,
 		);
 		return yield* Logger.batched(Logger.formatLogFmt, {
 			window: "1 second",
-			flush: (lines) => writeToRotatingStream(config.server.logFile, stream, lines),
+			flush: (lines) => writeToRotatingStream(file.path, stream, lines),
 		});
 	});
 
 const makeLoggerLayer = (config: AppConfigValue) => {
+	const level = config.observability.logging.level;
 	const stdoutLogger =
 		config.nodeEnv === "production" ? stdoutLogfmtLogger : Logger.consolePretty();
 	return Logger.layer([
 		filterLogger(stdoutLogger, "Info"),
-		Effect.map(makeRotatingFileLogger(config), (logger) =>
-			filterLogger(logger, config.server.logLevel),
-		),
+		Effect.map(makeRotatingFileLogger(config), (logger) => filterLogger(logger, level)),
 	]);
 };
 
@@ -189,12 +184,13 @@ const otlpHeaders = (headers: Option.Option<Redacted.Redacted>) =>
 		onSome: (value) => Result.getOrUndefined(parseOtlpHeaders(Redacted.value(value))),
 	});
 
-const makeTelemetryLayer = (config: AppConfigValue) => {
-	const inner = Option.match(config.server.otlpEndpoint, {
+const makeOtlpLayer = (config: AppConfigValue) => {
+	const { otlp, logging } = config.observability;
+	const inner = Option.match(otlp.endpoint, {
 		onNone: () => Layer.empty,
 		onSome: (endpoint) => {
 			const baseUrl = endpoint.replace(/\/+$/, "");
-			const headers = otlpHeaders(config.server.otlpHeaders);
+			const headers = otlpHeaders(otlp.headers);
 			const resource = {
 				serviceName: "ryot-backend",
 				attributes: { "deployment.environment": config.nodeEnv },
@@ -202,7 +198,7 @@ const makeTelemetryLayer = (config: AppConfigValue) => {
 			const logs = Logger.layer(
 				[
 					Effect.map(OtlpLogger.make({ headers, resource, url: `${baseUrl}/v1/logs` }), (logger) =>
-						filterLogger(logger, config.server.logLevel),
+						filterLogger(logger, logging.level),
 					),
 				],
 				{ mergeWithExisting: true },
@@ -227,10 +223,7 @@ const makeTelemetryLayer = (config: AppConfigValue) => {
 			);
 		},
 	});
-	if (
-		Option.isNone(config.server.otlpEndpoint) ||
-		!LogLevel.isLessThanOrEqualTo(config.server.logLevel, "Debug")
-	) {
+	if (Option.isNone(otlp.endpoint) || !LogLevel.isLessThanOrEqualTo(logging.level, "Debug")) {
 		return inner;
 	}
 	const decorator = Layer.unwrap(
@@ -246,14 +239,13 @@ const makeTelemetryLayer = (config: AppConfigValue) => {
 export const ObservabilityLive = Layer.unwrap(
 	Effect.map(AppConfig, (config) => {
 		const logger = makeLoggerLayer(config);
-		const runtimeMinimum = LogLevel.isLessThanOrEqualTo(config.server.logLevel, "Info")
-			? config.server.logLevel
-			: "Info";
+		const logLevel = config.observability.logging.level;
+		const runtimeMinimum = LogLevel.isLessThanOrEqualTo(logLevel, "Info") ? logLevel : "Info";
 		const logging = Layer.mergeAll(
 			Layer.succeed(References.MinimumLogLevel, runtimeMinimum),
 			logger,
 		);
-		const telemetry = makeTelemetryLayer(config).pipe(Layer.provide(logging));
-		return Layer.mergeAll(logging, telemetry);
+		const otlp = makeOtlpLayer(config).pipe(Layer.provide(logging));
+		return Layer.mergeAll(logging, otlp);
 	}),
 );

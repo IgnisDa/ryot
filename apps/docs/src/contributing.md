@@ -21,7 +21,7 @@ Prerequisites: [Bun](https://bun.sh) and [Docker](https://www.docker.com).
    FRONTEND_URL=http://localhost:3005
    FILE_STORAGE_S3_URL=http://localhost:9000
    FILE_STORAGE_S3_ACCESS_KEY_ID=rustfsadmin
-   SERVER_OTLP_ENDPOINT=http://localhost:4318
+   OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
    FILE_STORAGE_S3_SECRET_ACCESS_KEY=rustfsadmin
    DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ryot
    SERVER_ADMIN_ACCESS_TOKEN=super-secret-token-that-should-be-changed

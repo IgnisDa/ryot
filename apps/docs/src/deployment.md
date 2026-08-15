@@ -21,7 +21,7 @@ level, rotation, or retention. Mount `/home/ryot/logs` separately if logs must s
 container replacement; do not place logs in the application-data storage volume.
 
 Console logs always use the `info` level. `SERVER_LOG_LEVEL` controls file logs and OTLP
-logs sent to `SERVER_OTLP_ENDPOINT`; it does not disable traces or metrics. Each server
+logs sent to `OTEL_EXPORTER_OTLP_ENDPOINT`; it does not disable traces or metrics. Each server
 instance must write to its own log file.
 
 ## Railway
