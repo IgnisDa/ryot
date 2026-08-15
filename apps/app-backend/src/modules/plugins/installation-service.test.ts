@@ -484,3 +484,32 @@ it.effect("installs a private package whose operation references a compiled scri
 		expect(created).toHaveLength(1);
 	}).pipe(Effect.provide(makeLayer({ created })));
 });
+
+it.effect("orders provisioned system installations by slug when their sort order ties", () => {
+	const media = systemEntry(
+		privateManifest({ metadata: { ...privateManifest().metadata, slug: "media" } }),
+	);
+	const fitness = systemEntry(
+		privateManifest({ metadata: { ...privateManifest().metadata, slug: "fitness" } }),
+	);
+	return Effect.gen(function* () {
+		const loader = yield* PluginLoader;
+		const service = yield* PluginInstallationService;
+		loader.load(media);
+		loader.load(fitness);
+		const listed = yield* service.listInstallations(userId);
+		expect(listed.map(({ slug, sortOrder }) => [slug, sortOrder])).toEqual([
+			["fitness", 0],
+			["media", 0],
+		]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				installations: [
+					installationRow({ pluginId: media.id, pluginScope: "system", pluginSlug: "media" }),
+					installationRow({ pluginId: fitness.id, pluginScope: "system", pluginSlug: "fitness" }),
+				],
+			}),
+		),
+	);
+});

@@ -13,6 +13,7 @@ import { Database } from "#lib/infrastructure/db/service";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { AuthService } from "#modules/auth/service";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
+import { PluginInstallationService } from "#modules/plugins/installation-service";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 import { performBootstrap } from "#modules/user-bootstrap/bootstrap";
@@ -68,6 +69,7 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 		const repository = yield* UserLifecycleRepository;
 		const objectStorage = yield* ObjectStorageService;
 		const pluginBootstrap = yield* PluginUserBootstrapDispatcher;
+		const pluginInstallations = yield* PluginInstallationService;
 		const notificationSubscriptions = yield* NotificationSubscriptionsService;
 
 		const requireOperation = (operationId: string) =>
@@ -176,6 +178,7 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 					}
 
 					yield* performBootstrap(operation.operation.userId).pipe(
+						Effect.provideService(PluginInstallationService, pluginInstallations),
 						Effect.provideService(PluginUserBootstrapDispatcher, pluginBootstrap),
 						Effect.provideService(NotificationSubscriptionsService, notificationSubscriptions),
 						Effect.provideService(SavedViewsService, savedViews),
