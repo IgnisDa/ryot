@@ -5,7 +5,6 @@ import { useEffect, useEffectEvent, useReducer, useState } from "react";
 import { Text } from "react-native";
 
 import { temporaryFileUploadOperation } from "@/api/files/upload";
-import { requestFailureMessage } from "@/api/request-failure";
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
 import { CatalogPicker } from "@/modules/ui/plugin-catalog/catalog-picker";
@@ -84,7 +83,7 @@ export function IntegrationCreateWizard(props: { readonly onClose: () => void })
 		});
 		setPending(false);
 		if (Exit.isFailure(exit)) {
-			const mapped = integrationSaveFailure(requestFailureMessage(exit.cause));
+			const mapped = integrationSaveFailure(exit.cause);
 			setSaveCause(exit.cause);
 			setFailure(mapped);
 			if (mapped.step !== undefined) {

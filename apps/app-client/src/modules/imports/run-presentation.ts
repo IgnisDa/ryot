@@ -1,5 +1,7 @@
+import type { ImportRunFailureReason } from "@ryot/contract/modules/imports/schemas";
 import type { RunStatus } from "@ryot/contract/schema/run-status";
 import type { ImportRunSummary } from "@ryot/ryotql-recipes/import-runs";
+import { Match } from "effect";
 
 import {
 	formatRunCount,
@@ -50,52 +52,53 @@ export const importRunCountsLabel = (run: RunCounts) => {
 	return `${read} · ${formatRunCount(run.importedItems)} added · ${formatRunCount(run.failedItems)} failed`;
 };
 
-export const importRunFailureNotice = (errorSummary: string | null): ImportRunFailureNotice => {
-	const summary = (errorSummary ?? "").toLowerCase();
-	if (/timed ?out|timeout|deadline/.test(summary)) {
-		return {
-			label: "Ran out of time",
-			detail: "This import ran out of time before it finished. Nothing further was added.",
-		};
+const stoppedEarly = {
+	label: "Stopped early",
+	detail: "This import stopped before it finished. Nothing further was added.",
+} as const;
+
+export const importRunFailureNotice = (
+	reason: ImportRunFailureReason | null,
+): ImportRunFailureNotice => {
+	if (reason === null) {
+		return stoppedEarly;
 	}
-	if (/unauthor|forbidden|credential|token|api key|permission/.test(summary)) {
-		return {
-			label: "Access refused",
-			detail:
-				"The source refused access. Check this plugin's configuration on your server, then start the import again.",
-		};
-	}
-	if (/network|connect|unreachable|dns|socket|refused/.test(summary)) {
-		return {
-			label: "Source unreachable",
-			detail:
-				"Your server could not reach the source. Check the connection, then start the import again.",
-		};
-	}
-	if (/parse|invalid|malformed|decode|schema|format|column|header/.test(summary)) {
-		return {
-			label: "File unreadable",
-			detail:
-				"The uploaded file was not in the shape this source expects. Export it again and retry.",
-		};
-	}
-	if (/not found|missing|no such|absent|empty/.test(summary)) {
-		return {
-			label: "Nothing to read",
-			detail: "There was nothing to read for this import, so nothing was added.",
-		};
-	}
-	return {
-		label: "Stopped early",
-		detail: "This import stopped before it finished. Nothing further was added.",
-	};
+	return Match.value(reason).pipe(
+		Match.when({ code: "source-fetch-failed" }, () => ({
+			label: "Source unavailable",
+			detail: "The source could not be read. Check its availability, then start the import again.",
+		})),
+		Match.when({ code: "input-transformation-failed" }, () => ({
+			label: "Data unreadable",
+			detail: "Some source data was not in the expected shape. Correct it, then try again.",
+		})),
+		Match.when({ code: "provider-resolution-failed" }, () => stoppedEarly),
+		Match.when({ code: "provider-details-failed" }, () => stoppedEarly),
+		Match.when({ code: "event-policy-failed" }, () => stoppedEarly),
+		Match.when({ code: "database-commit-failed" }, () => stoppedEarly),
+		Match.when({ code: "integration-not-found" }, () => ({
+			label: "Integration unavailable",
+			detail: "The connected service no longer exists, so this import could not continue.",
+		})),
+		Match.when({ code: "integration-disabled" }, () => ({
+			label: "Integration paused",
+			detail: "This connected service is paused. Enable it before trying again.",
+		})),
+		Match.when({ code: "integrations-disabled" }, () => ({
+			label: "Integrations paused",
+			detail: "Integrations are disabled for this account.",
+		})),
+		Match.when({ code: "queue-unavailable" }, () => stoppedEarly),
+		Match.when({ code: "unexpected-failure" }, () => stoppedEarly),
+		Match.exhaustive,
+	);
 };
 
 export const importRunOutcomeLabel = (
-	run: RunCounts & Pick<ImportRunSummary, "status" | "errorSummary">,
+	run: RunCounts & Pick<ImportRunSummary, "status" | "failureReason">,
 ) => {
 	if (run.status === "failed") {
-		return importRunFailureNotice(run.errorSummary).label;
+		return importRunFailureNotice(run.failureReason).label;
 	}
 	return run.failedItems === 0
 		? `${formatRunCount(run.importedItems)} added`

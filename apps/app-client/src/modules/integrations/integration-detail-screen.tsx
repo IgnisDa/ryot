@@ -7,7 +7,6 @@ import { useEffect, useEffectEvent, useState } from "react";
 import { Text, View } from "react-native";
 
 import { temporaryFileUploadOperation } from "@/api/files/upload";
-import { requestFailureMessage } from "@/api/request-failure";
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
 import { ChildScreenFrame } from "@/modules/navigation/child-screen-frame";
@@ -108,7 +107,7 @@ export function IntegrationDetailScreen(props: { integrationId: string }) {
 		setSaving(false);
 		if (Exit.isFailure(exit)) {
 			setSaveCause(exit.cause);
-			setSaveDetail(integrationSaveFailure(requestFailureMessage(exit.cause)).detail);
+			setSaveDetail(integrationSaveFailure(exit.cause).detail);
 		}
 	});
 

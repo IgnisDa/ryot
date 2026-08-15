@@ -70,7 +70,7 @@ function BackupHistoryRow(props: {
 	const duration = runDurationLabel(props.run, props.nowMs);
 	const relative = formatRelativeTime(props.run.createdAt, props.nowMs);
 	const notice =
-		props.run.status === "failed" ? backupRunFailureNotice(props.run.error) : undefined;
+		props.run.status === "failed" ? backupRunFailureNotice(props.run.failure) : undefined;
 	const expiry = backupExpiryLabel(props.run, props.nowMs);
 	const canDownload = canDownloadBackupRun(props.run, props.nowMs);
 	const canDelete = canDeleteBackupRun(props.run.status);
