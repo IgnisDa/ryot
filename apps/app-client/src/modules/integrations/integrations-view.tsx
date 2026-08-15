@@ -58,6 +58,7 @@ export function IntegrationsView(props: {
 	readonly nowMs: number;
 	readonly onRetry: () => void;
 	readonly onConnect: () => void;
+	readonly onSyncAll: () => void;
 	readonly isLoadingMore: boolean;
 	readonly onShowMore: () => void;
 	readonly onOpenImports: () => void;
@@ -119,9 +120,19 @@ export function IntegrationsView(props: {
 				/>
 			) : (
 				<View className="gap-2">
-					<Text className="font-ui-medium text-[11px] uppercase tracking-[0.8px] text-text-subtle">
-						Connected
-					</Text>
+					<View className="flex-row items-center justify-between">
+						<Text className="font-ui-medium text-[11px] uppercase tracking-[0.8px] text-text-subtle">
+							Connected
+						</Text>
+						<AppButton
+							size="compact"
+							label="Sync all"
+							variant="outline"
+							onPress={props.onSyncAll}
+							accessibilityLabel="Sync all integrations"
+							leading={<AppIcon size={14} name="rotate-ccw" className="text-text" />}
+						/>
+					</View>
 					<View>
 						{integrations.map((integration, index) => (
 							<IntegrationRow
