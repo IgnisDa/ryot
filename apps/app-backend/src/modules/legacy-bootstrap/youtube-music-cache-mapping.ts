@@ -125,4 +125,5 @@ export const migrateYoutubeMusicCache = Effect.gen(function* () {
 			[],
 		),
 	);
+	return undefined;
 });
