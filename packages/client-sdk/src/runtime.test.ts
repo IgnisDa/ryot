@@ -35,7 +35,7 @@ const init: PluginBridgeInit = {
 	documentKey: "page-1",
 	format: metadata.format,
 	sessionId: "session-id",
-	artifactHash: metadata.hash,
+	compositionHash: metadata.hash,
 	apiVersion: metadata.apiVersion,
 	bridgeVersion: metadata.bridgeVersion,
 	compilerVersion: metadata.compilerVersion,

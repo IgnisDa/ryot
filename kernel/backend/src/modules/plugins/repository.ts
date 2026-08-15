@@ -1,5 +1,4 @@
 import {
-	PluginClientArtifact as PluginClientArtifactSchema,
 	clientArtifactMetadata,
 	type PluginClientArtifact,
 } from "@ryot-app/client-plugin-contract";
@@ -29,6 +28,7 @@ import { Context, Effect, Layer, Schema } from "effect";
 import { PLUGIN_INGESTION_ADVISORY_LOCK_KEY } from "#lib/infrastructure/db/advisory-locks";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { ClientArtifactsRepository } from "#modules/client-artifacts/repository";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { revisionDefinitions } from "#modules/definition-registry/source";
 
@@ -47,8 +47,6 @@ import type {
 } from "./types";
 
 type PluginPointerRow = typeof schema.plugin.$inferSelect;
-type ClientArtifactRow = typeof schema.pluginClientArtifact.$inferSelect;
-type ClientArtifactFileRow = typeof schema.pluginClientArtifactFile.$inferSelect;
 
 type PersistedScript = Omit<NormalizedPluginScript, "entry">;
 
@@ -66,26 +64,6 @@ const retainedScriptExecution = (now: Date) => sql<boolean>`(exists (
 
 const bytesEqual = (left: Uint8Array, right: Uint8Array) =>
 	left.byteLength === right.byteLength && left.every((byte, index) => byte === right[index]);
-
-export const clientArtifactMatches = (
-	artifact: PluginClientArtifact,
-	metadata: ClientArtifactRow,
-	files: ReadonlyArray<ClientArtifactFileRow>,
-) =>
-	metadata.hash === artifact.hash &&
-	metadata.format === artifact.format &&
-	metadata.apiVersion === artifact.apiVersion &&
-	metadata.bridgeVersion === artifact.bridgeVersion &&
-	metadata.compilerVersion === artifact.compilerVersion &&
-	files.length === artifact.files.length &&
-	artifact.files.every((file) =>
-		files.some(
-			(stored) =>
-				stored.name === file.name &&
-				bytesEqual(stored.contents, file.contents) &&
-				stored.contentType === file.contentType,
-		),
-	);
 
 const toProviderOperation = (operation: string): PluginProviderOperation | undefined => {
 	if (operation === "searchOptions") {
@@ -228,6 +206,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 	make: Effect.gen(function* () {
 		const configs = yield* PluginConfigRevisions;
 		const definitions = yield* DefinitionRepository;
+		const artifacts = yield* ClientArtifactsRepository;
 		const lockIngestion = Effect.fn("PluginRepository.lockIngestion")(function* () {
 			const db = yield* Database;
 			yield* mapDatabaseErrors(
@@ -778,8 +757,17 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					);
 
 				const compiledClient = revision.clientArtifactHash
-					? yield* loadClientArtifact(revision.clientArtifactHash, manifest.metadata.name)
+					? yield* artifacts.loadClientArtifact(revision.clientArtifactHash)
 					: undefined;
+				if (
+					compiledClient &&
+					clientArtifactMetadata(manifest.metadata.name, compiledClient.files).hash !==
+						compiledClient.hash
+				) {
+					return yield* new DbError({
+						message: `Plugin ${pluginId} retained client artifact hash does not match its contents`,
+					});
+				}
 				if (!manifest.client) {
 					const normalized = yield* normalizeRetainedArtifacts(compiledClient);
 					if (normalized.sourceHash !== revision.sourceHash) {
@@ -828,7 +816,13 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 						message: `Plugin ${revision.pluginSlug} has a client artifact without a client manifest`,
 					});
 				}
-				return yield* loadClientArtifact(revision.clientArtifactHash, manifest.metadata.name);
+				const artifact = yield* artifacts.loadClientArtifact(revision.clientArtifactHash);
+				if (clientArtifactMetadata(manifest.metadata.name, artifact.files).hash !== artifact.hash) {
+					return yield* new DbError({
+						message: `Plugin ${revision.pluginSlug} retained client artifact hash does not match its contents`,
+					});
+				}
+				return artifact;
 			},
 		);
 		const findClientArtifactForSource = Effect.fn("PluginRepository.findClientArtifactForSource")(
@@ -882,103 +876,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				return authorized ? yield* listSourceFiles(input.pluginId) : null;
 			},
 		);
-
-		const persistClientArtifact = Effect.fn("PluginRepository.persistClientArtifact")(function* (
-			artifact: PluginClientArtifact,
-		) {
-			const db = yield* Database;
-			const [inserted] = yield* mapDatabaseErrors(
-				db
-					.insert(schema.pluginClientArtifact)
-					.values({
-						hash: artifact.hash,
-						format: artifact.format,
-						apiVersion: artifact.apiVersion,
-						bridgeVersion: artifact.bridgeVersion,
-						compilerVersion: artifact.compilerVersion,
-					})
-					.onConflictDoNothing()
-					.returning({ hash: schema.pluginClientArtifact.hash }),
-			);
-			if (inserted) {
-				if (artifact.files.length > 0) {
-					yield* mapDatabaseErrors(
-						db
-							.insert(schema.pluginClientArtifactFile)
-							.values(
-								artifact.files.map((file) => ({
-									...file,
-									artifactHash: artifact.hash,
-									contents: Buffer.from(file.contents),
-								})),
-							),
-					);
-				}
-				return undefined;
-			}
-			const [metadata] = yield* mapDatabaseErrors(
-				db
-					.select()
-					.from(schema.pluginClientArtifact)
-					.where(eq(schema.pluginClientArtifact.hash, artifact.hash))
-					.limit(1),
-			);
-			const files = yield* mapDatabaseErrors(
-				db
-					.select()
-					.from(schema.pluginClientArtifactFile)
-					.where(eq(schema.pluginClientArtifactFile.artifactHash, artifact.hash)),
-			);
-			if (!metadata || !clientArtifactMatches(artifact, metadata, files)) {
-				return yield* new DbError({
-					message: `Client artifact ${artifact.hash} conflicts with immutable stored data`,
-				});
-			}
-			return undefined;
-		});
-
-		const loadClientArtifact = Effect.fn("PluginRepository.loadClientArtifact")(function* (
-			hash: string,
-			pluginName: string,
-		) {
-			const db = yield* Database;
-			const [metadata] = yield* mapDatabaseErrors(
-				db
-					.select()
-					.from(schema.pluginClientArtifact)
-					.where(eq(schema.pluginClientArtifact.hash, hash))
-					.limit(1),
-			);
-			if (!metadata) {
-				return yield* new DbError({ message: `Client artifact ${hash} is missing` });
-			}
-			const files = yield* mapDatabaseErrors(
-				db
-					.select()
-					.from(schema.pluginClientArtifactFile)
-					.where(eq(schema.pluginClientArtifactFile.artifactHash, hash)),
-			);
-			const artifact = yield* Schema.decodeUnknownEffect(PluginClientArtifactSchema)({
-				...metadata,
-				files: files.map(({ name, contents, contentType }) => ({
-					name,
-					contentType,
-					contents: new Uint8Array(contents),
-				})),
-			}).pipe(
-				Effect.mapError(() => new DbError({ message: `Client artifact ${hash} is invalid` })),
-			);
-			if (
-				artifact.hash !== hash ||
-				!clientArtifactMatches(artifact, metadata, files) ||
-				clientArtifactMetadata(pluginName, artifact.files).hash !== hash
-			) {
-				return yield* new DbError({
-					message: `Client artifact ${hash} conflicts with immutable stored data`,
-				});
-			}
-			return artifact;
-		});
 
 		const persistKernelScript = Effect.fn("PluginRepository.persistKernelScript")(function* (
 			script: PersistedScript,
@@ -1089,7 +986,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 						message: "Plugin client artifact metadata hash does not match its contents",
 					});
 				}
-				yield* persistClientArtifact(plugin.compiledClient);
+				yield* artifacts.persistClientArtifact(plugin.compiledClient);
 			}
 			const [insertedRevision] = existingRevision
 				? []
@@ -1568,7 +1465,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			persistKernelScript,
 			hasEntityReferences,
 			listActiveSystemSlugs,
-			persistClientArtifact,
 			findActiveSystemPlugin,
 			resolveProviderBySlugs,
 			findPrivateByIdForUser,
@@ -1634,6 +1530,12 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make).pipe(
-		Layer.provide(Layer.merge(PluginConfigRevisions.layer, DefinitionRepository.layer)),
+		Layer.provide(
+			Layer.mergeAll(
+				PluginConfigRevisions.layer,
+				DefinitionRepository.layer,
+				ClientArtifactsRepository.layer,
+			),
+		),
 	);
 }
