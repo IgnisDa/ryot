@@ -331,9 +331,9 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		expectSameArtifactSession(yield* readArtifactSession(frame, apiUrl), initialArtifact);
 		expectCurrentBridgeSession(bridgeObservations, initialBridgeSession);
 
-		yield* expectVisibleText(home, "Installed client plugins: fixture, media");
+		yield* expectVisibleText(home, "Installed client plugins: fitness, fixture, media");
 		yield* fixture.getByRole("button", { name: "Refresh catalog" }).click();
-		yield* expectVisibleText(home, "Installed client plugins: fixture, media");
+		yield* expectVisibleText(home, "Installed client plugins: fitness, fixture, media");
 		yield* fixture.getByRole("button", { name: "Fetch greeting" }).click();
 		yield* expectVisibleText(home, "Hello, Ryot");
 		yield* fixture.getByRole("button", { name: "Fetch with invalid payload" }).click();
