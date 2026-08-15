@@ -187,6 +187,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							id: schema.plugin.id,
 							slug: schema.plugin.slug,
 							version: schema.plugin.version,
+							sourceHash: schema.plugin.sourceHash,
 							manifestMetadata: schema.plugin.manifest,
 						})
 						.from(schema.plugin)
@@ -194,12 +195,14 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 						.orderBy(asc(schema.plugin.slug)),
 				).pipe(
 					Effect.map((rows) =>
-						rows.map(({ manifestMetadata: manifest, id, slug, version }) => ({
+						rows.map(({ manifestMetadata: manifest, id, slug, version, sourceHash }) => ({
 							id,
 							slug,
 							version,
+							sourceHash,
 							metadata: manifest.metadata,
 							configSchema: manifest.configSchema,
+							integrationProviders: manifest.integrationProviders,
 							signalSchemaSlugs: manifest.signalSchemas.map(
 								({ slug: signalSchemaSlug }) => signalSchemaSlug,
 							),

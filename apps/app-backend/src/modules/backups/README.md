@@ -1,6 +1,6 @@
 # Backups
 
-Account export and restore for the V1 archive format. `archive-v1/` owns the wire format, `export/`
+Account export and restore for the V2 archive format. `archive-v2/` owns the wire format, `export/`
 builds archives, and `restore/` writes them back into a clean account.
 
 ## Archive layout
@@ -8,9 +8,9 @@ builds archives, and `restore/` writes them back into a clean account.
 A backup is a deterministic, non-Zip64 ZIP whose entries appear in a fixed order:
 
 1. `manifest.json` — format version, archive identity, redaction paths, required plugins, one
-   `{path, count, sha256}` entry per section in `V1_SECTION_PATHS` order, and one
+   `{path, count, sha256}` entry per section in `V2_SECTION_PATHS` order, and one
    `{path, size, sha256, contentType}` entry per asset.
-2. `profile.json` and the seven NDJSON sections, in `V1_SECTION_PATHS` order.
+2. `profile.json` and the eight NDJSON sections, in `V2_SECTION_PATHS` order.
 3. `assets/<sha256>` — content-addressed managed asset bytes, stored uncompressed.
 
 `manifest.json` is entry 0 and carries each section's digest and record count, so both sides know a
@@ -30,18 +30,17 @@ rests on:
 - **Everything else stays in memory.** Bounded sections are encoded once into a `Uint8Array` that
   is measured for the manifest and then reused as the ZIP entry, so each record is encoded a single
   time.
-- **No structure may be O(n) in events.** This is why `createV1Archive` does not build a `Set` of
+- **No structure may be O(n) in events.** This is why `createV2Archive` does not build a `Set` of
   event ids: `event.id` is the primary key, so restore relies on the insert to reject duplicates and
   maps the unique violation to a `duplicate_record_id` archive error. Peak memory on both paths must
   stay independent of event count.
 
-Because the export spill computes the section's count and digest before the ZIP is written, no
-manifest or format change was needed for any of this. `V1Manifest`, `V1_SECTION_PATHS`, section
-order, and `V1Event` are all unchanged, and `V1ArchiveRecords` simply no longer carries `events`.
+The export spill computes the section's count and digest before the ZIP is written. `V2Manifest`,
+`V2_SECTION_PATHS`, and `V2ArchiveRecords` keep events outside the in-memory record collection.
 
 ## Limits
 
-`V1_ARCHIVE_LIMITS` mixes guards with different jobs; each one covers exactly one class of entry.
+`V2_ARCHIVE_LIMITS` mixes guards with different jobs; each one covers exactly one class of entry.
 
 | Limit                       | Applies to                                                              | Why                                                                                                                       |
 | --------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
@@ -73,11 +72,20 @@ sort. Nothing on the read path depends on event order.
 
 ## Restore sequencing
 
-Asset staging happens before the transaction, so no network call is held inside it. The write itself
+Private packages and exact system requirements are validated before asset staging. Private packages
+are compiled and collision-checked before the write transaction. Asset staging happens before the
+transaction, so no network call is held inside it. The write itself
 stays in a single transaction — atomicity is the point of a restore, and the cost that used to hurt
 was per-row round trips, not transaction size. Reading the spilled `events.ndjson` from local disk
 inside the transaction is rule-compliant. Events are inserted `RESTORE_EVENT_BATCH_SIZE` rows per
 statement; per-event reference rewriting and property validation stay per-event.
+
+Restore persists private packages and installation identities without lifecycle dispatch. The rows
+remain unavailable until commit. Complete installations become ready with their archived disabled
+intent; installations missing redacted required secrets become `needs-configuration`. Integration
+rows retain installation-qualified provenance, and integrations missing required secrets are restored
+disabled. Source files are user-authored data and may contain credentials; only manifest config and
+integration settings fields can be redacted.
 
 ## Error fidelity
 

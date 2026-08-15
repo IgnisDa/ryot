@@ -13,6 +13,7 @@ import { AppConfig } from "#lib/infrastructure/config/service";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { acquireUserWriteLock } from "#lib/infrastructure/db/user-write-lock";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
+import { PluginBackupRestore } from "#modules/plugins/backup-restore";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 import {
 	ManagedAssetsService,
@@ -20,11 +21,15 @@ import {
 } from "#modules/uploads/managed-assets/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
-import { validateV1ArchiveStream } from "../archive-v1/archive";
-import { BackupArchiveError, type BackupArchiveErrorReason } from "../archive-v1/error";
+import { validateV2ArchiveStream } from "../archive-v2/archive";
+import { BackupArchiveError, type BackupArchiveErrorReason } from "../archive-v2/error";
 import { BackupsRepository } from "../runs/repository";
 import { BackupAccountCleanliness } from "./account-cleanliness";
-import { BackupRestoreWriter, RequiredBackupPluginUnavailable } from "./writer";
+import {
+	BackupRestoreWriter,
+	preflightV2Provenance,
+	RequiredBackupPluginUnavailable,
+} from "./writer";
 
 const RestoreBackupWorkflowPayload = Schema.Struct({
 	userId: UserId,
@@ -153,6 +158,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 		const fs = yield* FileSystem.FileSystem;
 		const writer = yield* BackupRestoreWriter;
 		const repository = yield* BackupsRepository;
+		const pluginRestore = yield* PluginBackupRestore;
 		const uploadIntents = yield* UploadIntentsService;
 		const managedAssets = yield* ManagedAssetsService;
 		const objectStorage = yield* ObjectStorageService;
@@ -207,14 +213,28 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 						key: archive.key,
 						type: archive.provider,
 					});
-					const validated = yield* validateV1ArchiveStream(source, {
+					const validated = yield* validateV2ArchiveStream(source, {
 						directory: config.fileStorage.localTempDir,
 					}).pipe(Effect.provideService(FileSystem.FileSystem, fs));
 					const stagedBySha = new Map<string, StagedPermanentAsset>();
 					yield* Effect.gen(function* () {
-						yield* writer.assertRequiredPlugins(
+						const systemPluginIds = yield* writer.assertRequiredPlugins(
 							validated.manifest.requiredPlugins,
+						);
+						const preparedPlugins = yield* pluginRestore.prepare(validated.records.privatePlugins);
+						const preflightPluginIds = new Map(systemPluginIds);
+						for (const plugin of preparedPlugins) {
+							preflightPluginIds.set(plugin.key, plugin.key);
+						}
+						const preflightDefinitions = yield* pluginRestore.buildDefinitions(
+							preparedPlugins,
+							preflightPluginIds,
+						);
+						yield* preflightV2Provenance(
 							validated.records,
+							validated.events,
+							preflightPluginIds,
+							preflightDefinitions,
 						);
 						const provider = yield* objectStorage.selectStorageProvider("permanent");
 						for (const asset of validated.assets) {
@@ -242,6 +262,18 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 									Effect.gen(function* () {
 										yield* acquireUserWriteLock(payload.userId);
 										yield* cleanliness.assertAccountIsClean(payload.userId);
+										const pluginIdByKey = new Map(systemPluginIds);
+										const privatePluginIds = yield* pluginRestore.persist(
+											payload.userId,
+											preparedPlugins,
+										);
+										for (const [key, id] of privatePluginIds) {
+											pluginIdByKey.set(key, id);
+										}
+										const definitions = yield* pluginRestore.buildDefinitions(
+											preparedPlugins,
+											pluginIdByKey,
+										);
 										for (const staged of stagedBySha.values()) {
 											yield* managedAssets.registerManagedAssetInLockedTransaction(staged.metadata);
 										}
@@ -250,6 +282,8 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 											validated.records,
 											assetLocators,
 											validated.events,
+											pluginIdByKey,
+											definitions,
 										);
 										if (!(yield* repository.updateProgress({ ...payload, progress: 90 }))) {
 											return yield* internalError(

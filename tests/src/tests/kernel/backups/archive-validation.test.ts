@@ -20,18 +20,20 @@ import { assert, describe, expect, it } from "~/support/effect-test";
 
 const archivedLibraryId = "00000000-0000-4000-8000-000000000001";
 const fixtureRoot = new URL(
-	"../../../../../packages/contract/src/modules/backups/fixtures/v1/",
+	"../../../../../packages/contract/src/modules/backups/fixtures/v2/",
 	import.meta.url,
 );
 const fixturePaths = [
 	"manifest.json",
 	"profile.json",
-	"plugin-state.ndjson",
+	"private-plugins.ndjson",
+	"installations.ndjson",
 	"entities.ndjson",
 	"entity-dependencies.ndjson",
 	"relationships.ndjson",
 	"events.ndjson",
 	"saved-views.ndjson",
+	"integrations.ndjson",
 	"notification-subscriptions.ndjson",
 ] as const;
 
@@ -78,7 +80,7 @@ const refreshedClient = Effect.fn(function* (email: string) {
 	return makeSession(undefined, { Cookie: cookies });
 });
 
-describe("V1 backup archive validation", () => {
+describe("V2 backup archive validation", () => {
 	it.live("restores the checked-in minimal golden archive", () =>
 		Effect.gen(function* () {
 			const { client, email } = yield* createAuthenticatedClient();
@@ -87,12 +89,12 @@ describe("V1 backup archive validation", () => {
 
 			expect(restored.run.status).toBe("completed");
 			const after = yield* inspectAccount(yield* refreshedClient(email));
-			expect(after.profile.name).toBe("Golden Archive User");
+			expect(after.profile.name).toBe("Fixture");
 			expect(after.profile.image).toBeNull();
 			expect(after.profile.preferences).toEqual({
-				language: "fr",
-				allowNsfw: true,
-				disableIntegrations: true,
+				allowNsfw: false,
+				language: null,
+				disableIntegrations: false,
 			});
 			expect(after.libraryId).toBe(before.libraryId);
 			expect(after.libraryId).not.toBe(archivedLibraryId);
@@ -119,7 +121,7 @@ describe("V1 backup archive validation", () => {
 			const restored = yield* restoreBackup(client, zipSync(entries));
 			expect(restored.run.status).toBe("completed");
 			const after = yield* inspectAccount(yield* refreshedClient(email));
-			expect(after.profile.name).toBe("Golden Archive User");
+			expect(after.profile.name).toBe("Fixture");
 			expect(after.libraryId).toBe(before.libraryId);
 		}),
 	);

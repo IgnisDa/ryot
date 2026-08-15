@@ -52,7 +52,15 @@ const cleanState = (overrides: Partial<AccountCleanlinessState> = {}): AccountCl
 	expectedNotificationSubscriptionSlugs: [],
 	defaultPreferences: { ...defaultUserPreferences },
 	profile: { name: "User", image: null, preferences: { ...defaultUserPreferences } },
-	entities: [{ ...library, id: "library-id", createdAt: new Date(0), updatedAt: new Date(0) }],
+	entities: [
+		{
+			...library,
+			id: "library-id",
+			entitySchemaPluginId: null,
+			createdAt: new Date(0),
+			updatedAt: new Date(0),
+		},
+	],
 	...overrides,
 });
 
@@ -100,7 +108,13 @@ describe("classifyAccountCleanliness", () => {
 			"entities",
 			{
 				entities: [
-					{ ...library, id: "library-id", createdAt: new Date(0), updatedAt: new Date(0) },
+					{
+						...library,
+						id: "library-id",
+						entitySchemaPluginId: null,
+						createdAt: new Date(0),
+						updatedAt: new Date(0),
+					},
 					{
 						name: "Extra",
 						id: "extra-id",
@@ -108,6 +122,7 @@ describe("classifyAccountCleanliness", () => {
 						properties: {},
 						externalId: null,
 						populatedAt: null,
+						entitySchemaPluginId: null,
 						createdAt: new Date(0),
 						updatedAt: new Date(0),
 						entitySchemaSlug: EntitySchemaSlug.make("collection"),
@@ -129,6 +144,8 @@ describe("classifyAccountCleanliness", () => {
 						isBuiltin: false,
 						isDisabled: false,
 						entitySchemaSlug: null,
+						pluginInstallationId: null,
+						entitySchemaPluginId: null,
 					},
 				],
 			},
