@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
+import { compileClientPlugin } from "@ryot-app/client-plugin-compiler";
 import { pluginClientFileExtension } from "@ryot-app/client-plugin-contract";
 import {
 	AuthoredPluginManifest as AuthoredPluginManifestSchema,
@@ -179,6 +180,38 @@ const deriveManifestScripts = Effect.fn("deriveManifestScripts")(function* (
 	return derived.map(({ script }) => script);
 });
 
+const compileClientArtifact = Effect.fn("compileClientArtifact")(function* (
+	manifest: AuthoredPluginManifest,
+	sources: ReadonlyArray<SourceFile>,
+) {
+	if (manifest.client === undefined) {
+		return yield* Effect.void;
+	}
+	const files = Object.fromEntries(
+		sources
+			.filter(
+				({ path: sourcePath }) =>
+					sourcePath.startsWith("client/") || sourcePath.startsWith("shared/"),
+			)
+			.map(({ contents, path: sourcePath }) => [sourcePath, contents]),
+	);
+	return yield* compileClientPlugin({
+		files,
+		entry: manifest.client.entry,
+		name: manifest.metadata.name,
+		apiVersion: manifest.client.apiVersion,
+	}).pipe(
+		Effect.asVoid,
+		Effect.catchTag(
+			"ClientPluginCompilerFailure",
+			(error) =>
+				new BuildError({
+					message: [`${error.message}:`, ...error.diagnostics.map(formatDiagnostic)].join("\n"),
+				}),
+		),
+	);
+});
+
 const writeOutput = Effect.fn("writeOutput")(function* (
 	output: string,
 	manifest: PluginManifest,
@@ -209,6 +242,7 @@ const buildPlugin = Effect.fn("buildPlugin")(function* ({ cwd, output }: BuildOp
 	const sources = yield* collectSources(cwd);
 	yield* validateClientEntry(authored, sources, cwd);
 	const scripts = yield* deriveManifestScripts(sources);
+	yield* compileClientArtifact(authored, sources);
 	const manifest = yield* Schema.decodeUnknownEffect(PluginManifestSchema)({
 		...authored,
 		scripts,
