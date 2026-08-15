@@ -400,7 +400,7 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("sandbox runtime benchmark", () => {
 						providerSlug: "benchmark-provider",
 						name: "Benchmark Youtubei provider",
 						providerOperation: "details" as const,
-						entry: "scripts/provider-details.sandbox.ts",
+						entry: "backend/providers/benchmark-provider/details.sandbox.ts",
 					},
 					{
 						kind: "provider" as const,
@@ -411,7 +411,7 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("sandbox runtime benchmark", () => {
 						providerSlug: "benchmark-provider",
 						providerOperation: "search" as const,
 						name: "Benchmark controlled HTTP provider",
-						entry: "scripts/provider-search.sandbox.ts",
+						entry: "backend/providers/benchmark-provider/search.sandbox.ts",
 					},
 				] satisfies PluginManifest["scripts"];
 				const { client, userId } = yield* createAuthenticatedClient();
@@ -423,8 +423,12 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("sandbox runtime benchmark", () => {
 						files: {
 							"scripts/automation-full.sandbox.ts": fullAutomationSource,
 							"scripts/automation-no-host.sandbox.ts": noHostAutomationSource,
-							"scripts/provider-search.sandbox.ts": providerSearchSource(unmatchedHttpServer.url),
-							"scripts/provider-details.sandbox.ts": youtubeiDetailsSource(unmatchedHttpServer.url),
+							"backend/providers/benchmark-provider/search.sandbox.ts": providerSearchSource(
+								unmatchedHttpServer.url,
+							),
+							"backend/providers/benchmark-provider/details.sandbox.ts": youtubeiDetailsSource(
+								unmatchedHttpServer.url,
+							),
 						},
 						providers: [
 							{
