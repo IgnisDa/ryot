@@ -240,16 +240,16 @@ const server = group(
 			envKey: "SERVER_LOG_FILE",
 			description: "File path for appended structured logs",
 		}),
-		otlpEndpoint: stringField({
-			label: "OTLP endpoint",
-			envKey: "SERVER_OTLP_ENDPOINT",
-			description: "Base URL for OTLP trace export",
-		}),
 		logLevel: stringField({
 			label: "Log level",
 			defaultValue: "info",
 			envKey: "SERVER_LOG_LEVEL",
 			description: "Minimum application log level",
+		}),
+		otlpEndpoint: stringField({
+			label: "OTLP endpoint",
+			envKey: "SERVER_OTLP_ENDPOINT",
+			description: "Base URL for OTLP traces and metrics export",
 		}),
 		proKey: stringField({
 			secret: true,
@@ -289,7 +289,7 @@ const server = group(
 			label: "OTLP headers",
 			envKey: "SERVER_OTLP_HEADERS",
 			description:
-				"Comma-separated key=value headers sent with OTLP trace exports, such as the API token a hosted collector requires",
+				"Comma-separated key=value headers sent with OTLP exports, such as the API token a hosted collector requires",
 		}),
 		pluginsSystemDir: stringField({
 			hidden: true,

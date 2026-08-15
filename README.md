@@ -102,20 +102,6 @@ Try the [live demo](https://demo.ryot.io/_s/acl_vUMPnPirkHlT). Its data resets e
 
 Ryot Pro adds profile sharing, personalized recommendations, enhanced collections, and more. [Learn more](https://ryot.io).
 
-## Development
-
-Prerequisites: [Bun](https://bun.sh) 1.4.0+, [Docker](https://www.docker.com) (for PostgreSQL and Redis).
-
-```bash
-bun install
-docker compose up -d ryot-postgres ryot-redis
-bun run dev
-```
-
-Configure `apps/server/.env` with `DATABASE_URL`, `REDIS_URL`, and `SERVER_ADMIN_ACCESS_TOKEN`. Filesystem paths and `FRONTEND_URL` have development defaults. The server task builds and watches shipped plugin bundles and assembles the runtime layout.
-
-Other commands: `bun run build`, `bun run test`, `bun run check`.
-
 ## Community
 
 Questions or feedback? Join the [Discord server](https://discord.gg/D9XTg2a7R8) or open a [GitHub issue](https://github.com/ignisda/ryot/issues).
