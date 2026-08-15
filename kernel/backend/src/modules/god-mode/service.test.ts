@@ -5,6 +5,10 @@ import {
 	GodModeNotFound,
 	GodModeRequestFailure,
 } from "@ryot-app/contract/modules/god-mode/contract";
+import type {
+	MigrationReportAnomalyCode,
+	MigrationReportDetail,
+} from "@ryot-app/contract/modules/god-mode/migration-report";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import type { ilike, SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
@@ -45,6 +49,7 @@ type MigrationReportRow = {
 	level: "info" | "warning";
 	message: string;
 	createdAt: Date;
+	code: MigrationReportAnomalyCode | null;
 	elapsedSeconds: number | null;
 };
 
@@ -287,17 +292,34 @@ const makeListUsersDb = (options: {
 	return { db, state };
 };
 
-const makeMigrationReportDb = (rows: ReadonlyArray<MigrationReportRow>) => {
-	const state = { orderBy: [] as SQL[] };
+const makeMigrationReportDb = (
+	rows: ReadonlyArray<MigrationReportRow>,
+	details: ReadonlyArray<{ seq: number; reportSeq: number; detail: MigrationReportDetail }> = [],
+) => {
+	const state = { detailQueries: 0, orderBy: [] as SQL[] };
 	const db = Object.assign(Object.create(null), {
-		select: () => ({
-			from: () => ({
-				orderBy: (...orderBy: SQL[]) => {
-					state.orderBy = orderBy;
-					return Effect.succeed(rows);
-				},
-			}),
-		}),
+		select: (projection?: unknown) =>
+			projection === undefined
+				? {
+						from: () => ({
+							orderBy: (...orderBy: SQL[]) => {
+								state.orderBy = orderBy;
+								return Effect.succeed(rows);
+							},
+						}),
+					}
+				: {
+						from: () => ({
+							where: () => ({
+								orderBy: () => {
+									state.detailQueries += 1;
+									return Effect.succeed(
+										details.map((row, index) => ({ ...row, rank: String(index + 1) })),
+									);
+								},
+							}),
+						}),
+					},
 	});
 	return { db, state };
 };
@@ -425,8 +447,8 @@ it.effect("returns users with total count and auth states", () => {
 					id: "user_1",
 					disabledAt: null,
 					name: "Test User",
-					twoFactorEnabled: false,
 					authState: "credential",
+					twoFactorEnabled: false,
 					email: "test@example.com",
 					createdAt: "2024-01-01T00:00:00.000Z",
 				},
@@ -435,13 +457,27 @@ it.effect("returns users with total count and auth states", () => {
 	}).pipe(Effect.provide(makeServiceLayer(db)));
 });
 
+const migrationReportDetail = {
+	kind: "show",
+	seasonExists: false,
+	requestedSeason: "0",
+	requestedEpisode: "1",
+	parentName: "Black Mirror",
+	userId: "usr_ujrD0pCeKc1Y",
+	code: "seen-episode-absent",
+	parentEntityId: "met_WYGquxnbOnHd",
+	legacyRecordId: "see_hlFQdGwVxnPL",
+	availableSummary: "seasons 1, 2, 3, 4, 5, 6, 7",
+} as const satisfies MigrationReportDetail;
+
 it.effect("returns migration report entries ordered by severity and newest time", () => {
 	const row = {
 		seq: 12,
+		code: null,
 		count: null,
-		level: "warning",
+		level: "info",
 		elapsedSeconds: 4.2,
-		message: "rows skipped",
+		message: "rows migrated",
 		phase: "review -> event",
 		createdAt: new Date("2026-08-24T12:34:56Z"),
 	} as const satisfies MigrationReportRow;
@@ -451,12 +487,82 @@ it.effect("returns migration report entries ordered by severity and newest time"
 		const service = yield* GodModeService;
 		const result = yield* service.getMigrationReport();
 
-		expect(result).toEqual({ entries: [{ ...row, createdAt: "2026-08-24T12:34:56.000Z" }] });
+		expect(result).toEqual({
+			entries: [{ ...row, details: [], totalDetails: null, createdAt: "2026-08-24T12:34:56.000Z" }],
+		});
 		expect(state.orderBy.map((order) => dialect.sqlToQuery(order).sql.toLowerCase())).toEqual([
 			expect.stringContaining("case when"),
 			expect.stringContaining('"created_at" desc'),
 			expect.stringContaining('"seq" desc'),
 		]);
+		expect(state.detailQueries).toBe(0);
+	}).pipe(Effect.provide(makeServiceLayer(db)));
+});
+
+it.effect("attaches anomaly details to the entry that recorded them", () => {
+	const warning = {
+		seq: 12,
+		count: 1,
+		level: "warning",
+		elapsedSeconds: 4.2,
+		phase: "seen -> event",
+		message: "rows skipped",
+		code: "seen-episode-absent",
+		createdAt: new Date("2026-08-24T12:34:56Z"),
+	} as const satisfies MigrationReportRow;
+	const info = {
+		seq: 11,
+		count: 3,
+		code: null,
+		level: "info",
+		elapsedSeconds: 1,
+		message: "rows migrated",
+		phase: "review -> event",
+		createdAt: new Date("2026-08-24T12:34:55Z"),
+	} as const satisfies MigrationReportRow;
+	const { db, state } = makeMigrationReportDb(
+		[warning, info],
+		[{ seq: 1, reportSeq: 12, detail: migrationReportDetail }],
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* GodModeService;
+		const result = yield* service.getMigrationReport();
+
+		expect(state.detailQueries).toBe(1);
+		expect(result.entries[0]?.details).toEqual([migrationReportDetail]);
+		expect(result.entries[0]?.totalDetails).toBe(1);
+		expect(result.entries[1]?.details).toEqual([]);
+		expect(result.entries[1]?.totalDetails).toBeNull();
+	}).pipe(Effect.provide(makeServiceLayer(db)));
+});
+
+it.effect("caps served details while still reporting the true total", () => {
+	const warning = {
+		seq: 12,
+		count: 250,
+		level: "warning",
+		elapsedSeconds: 4.2,
+		phase: "seen -> event",
+		message: "rows skipped",
+		code: "seen-episode-absent",
+		createdAt: new Date("2026-08-24T12:34:56Z"),
+	} as const satisfies MigrationReportRow;
+	const { db } = makeMigrationReportDb(
+		[warning],
+		Array.from({ length: 150 }, (_, index) => ({
+			reportSeq: 12,
+			seq: index + 1,
+			detail: migrationReportDetail,
+		})),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* GodModeService;
+		const result = yield* service.getMigrationReport();
+
+		expect(result.entries[0]?.details).toHaveLength(100);
+		expect(result.entries[0]?.totalDetails).toBe(250);
 	}).pipe(Effect.provide(makeServiceLayer(db)));
 });
 

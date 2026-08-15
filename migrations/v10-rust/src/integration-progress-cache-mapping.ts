@@ -1,9 +1,10 @@
+import type { MigrationReportDetail } from "@ryot-app/contract/modules/god-mode/migration-report";
 import { redisKeys, RedisService } from "@ryot-app/kernel-backend/lib/infrastructure/redis";
 import { encodePersistentClaimEnvelope } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/runtime-host-functions";
 import { Effect, Schema } from "effect";
 import type * as SqlConnection from "effect/unstable/sql/SqlConnection";
 
-import { buildReportSql, withReservedConnection } from "./shared";
+import { buildReportSql, insertAnomalyReport, withReservedConnection } from "./shared";
 
 const reportPhase = "application_cache -> integration progress persistent cache";
 
@@ -23,9 +24,13 @@ const LegacyProgressCacheRow = Schema.Struct({
 	expiresAtMs: Schema.Finite,
 	validValue: Schema.Boolean,
 	entityId: Schema.NullOr(Schema.String),
+	parentName: Schema.NullOr(Schema.String),
+	metadataId: Schema.NullOr(Schema.String),
+	showSeason: Schema.NullOr(Schema.String),
 	mangaVolume: Schema.NullOr(Schema.String),
 	animeEpisode: Schema.NullOr(Schema.String),
 	mangaChapter: Schema.NullOr(Schema.String),
+	requestedEpisode: Schema.NullOr(Schema.String),
 	providersConsumedOn: Schema.NullOr(Schema.Array(Schema.String)),
 });
 
@@ -59,6 +64,10 @@ WITH parsed AS (
 SELECT
 	cr.cache_id AS "cacheId",
 	cr.user_id AS "userId",
+	cr.metadata_id AS "metadataId",
+	e."name" AS "parentName",
+	cr.common->>'show_season_number' AS "showSeason",
+	COALESCE(cr.common->>'show_episode_number', cr.common->>'podcast_episode_number') AS "requestedEpisode",
 	CASE
 		WHEN e."entity_schema_slug" = 'show' THEN show_episode.entity_id
 		WHEN e."entity_schema_slug" = 'podcast' THEN podcast_episode.entity_id
@@ -97,7 +106,9 @@ const integerFingerprintPart = (key: string, value: string | null) => {
 	}
 	const parsed = Number(value);
 	if (!Number.isInteger(parsed)) {
-		throw new Error(`Invalid legacy integration progress ${key}: ${value}`);
+		throw new Error(
+			`application_cache -> integration progress persistent cache: legacy progress field "${key}" holds ${JSON.stringify(value)}, which is not a number, so the claim fingerprint cannot be built. Fix or delete that cache row in the V1 database, then start the server again.`,
+		);
 	}
 	return `${key}=${String(parsed)}`;
 };
@@ -124,34 +135,56 @@ export const migrateIntegrationProgressCache = (input: {
 			string,
 			{ expiresAtMs: number; fingerprint: string; userId: string }
 		>();
-		let unresolvedRows = 0;
-		let unsupportedProviderRows = 0;
+		const unresolvedDetails: MigrationReportDetail[] = [];
+		const unsupportedProviderDetails: MigrationReportDetail[] = [];
 
 		for (const row of input.cacheRows) {
 			if (!input.installationIdsByUserId.has(row.userId)) {
 				return yield* Effect.die(
 					new Error(
-						`Missing resolved media installation for integration progress cache owner: ${row.userId}`,
+						`application_cache -> integration progress persistent cache: user ${row.userId} owns a cache row but has no ready media plugin installation, so there is nothing in V2 to attach the claim to. Installations are created earlier in this same run, so this is a defect in this migration. Keep the dump and report it; retrying will not change the result.`,
 					),
 				);
 			}
 			if (!row.validValue) {
 				return yield* Effect.die(
-					new Error(`Invalid legacy integration progress cache value: ${row.cacheId}`),
+					new Error(
+						`application_cache -> integration progress persistent cache: cache row ${row.cacheId} does not hold a completed-marker value, so this migration cannot tell what it recorded. Delete that cache row in the V1 database, then start the server again.`,
+					),
 				);
 			}
 			if (row.entityId === null) {
-				unresolvedRows += 1;
+				unresolvedDetails.push({
+					userId: row.userId,
+					legacyCacheId: row.cacheId,
+					parentName: row.parentName,
+					requestedSeason: row.showSeason,
+					legacyMetadataId: row.metadataId,
+					requestedEpisode: row.requestedEpisode,
+					code: "integration-cache-entity-unresolved",
+				});
 				continue;
 			}
 			const [legacyProvider] = row.providersConsumedOn ?? [];
 			if (row.providersConsumedOn?.length !== 1 || legacyProvider === undefined) {
-				unsupportedProviderRows += 1;
+				unsupportedProviderDetails.push({
+					userId: row.userId,
+					legacyCacheId: row.cacheId,
+					legacyProvider: legacyProvider ?? null,
+					code: "integration-cache-provider-unmapped",
+					providersConsumedOn: row.providersConsumedOn ?? [],
+				});
 				continue;
 			}
 			const consumedOn = consumedOnByLegacyProvider.get(legacyProvider);
 			if (consumedOn === undefined) {
-				unsupportedProviderRows += 1;
+				unsupportedProviderDetails.push({
+					legacyProvider,
+					userId: row.userId,
+					legacyCacheId: row.cacheId,
+					code: "integration-cache-provider-unmapped",
+					providersConsumedOn: row.providersConsumedOn,
+				});
 				continue;
 			}
 
@@ -173,7 +206,10 @@ export const migrateIntegrationProgressCache = (input: {
 		}
 
 		const duplicateRows =
-			input.cacheRows.length - unsupportedProviderRows - unresolvedRows - claimsByIdentity.size;
+			input.cacheRows.length -
+			unsupportedProviderDetails.length -
+			unresolvedDetails.length -
+			claimsByIdentity.size;
 		let keysCreated = 0;
 		if (claimsByIdentity.size > 0) {
 			const persistentClaimEnvelope = yield* encodePersistentClaimEnvelope({
@@ -205,25 +241,6 @@ export const migrateIntegrationProgressCache = (input: {
 			{ count: "resolved_claims", message: "distinct persistent claim(s) resolved" },
 			{ count: "duplicate_rows", message: "duplicate claim row(s) collapsed" },
 			{ count: "keys_created", message: "persistent Redis key(s) created" },
-			...(unsupportedProviderRows > 0
-				? [
-						{
-							level: "warning" as const,
-							count: "unsupported_provider_rows",
-							message:
-								"cache row(s) skipped because their provider identity cannot be mapped to V2",
-						},
-					]
-				: []),
-			...(unresolvedRows > 0
-				? [
-						{
-							count: "unresolved_rows",
-							level: "warning" as const,
-							message: "cache row(s) skipped because their target entity could not be resolved",
-						},
-					]
-				: []),
 		];
 		yield* withReservedConnection((connection) =>
 			connection.executeRaw(
@@ -233,13 +250,42 @@ export const migrateIntegrationProgressCache = (input: {
 					resolved_claims int := ${claimsByIdentity.size};
 					duplicate_rows int := ${duplicateRows};
 					keys_created int := ${keysCreated};
-					unsupported_provider_rows int := ${unsupportedProviderRows};
-					unresolved_rows int := ${unresolvedRows};
 				BEGIN
 					${buildReportSql(reportPhase, reportEntries)}
 				END $$;`,
 				[],
 			),
 		);
+
+		// Dropping a debounce marker loses no watch history: the marker only suppressed a repeat
+		// report, so the integration re-reports the item on its next run.
+		if (unsupportedProviderDetails.length > 0) {
+			yield* withReservedConnection((connection) =>
+				insertAnomalyReport(connection, {
+					phase: reportPhase,
+					elapsedSeconds: null,
+					details: unsupportedProviderDetails,
+					count: unsupportedProviderDetails.length,
+					code: "integration-cache-provider-unmapped",
+					message:
+						"Some in-flight integration progress markers were dropped because the service that produced them has no equivalent in V2. No watch history was lost — these markers only stopped an item being reported twice, and each integration will report the item again on its next run.",
+				}),
+			);
+		}
+
+		if (unresolvedDetails.length > 0) {
+			yield* withReservedConnection((connection) =>
+				insertAnomalyReport(connection, {
+					phase: reportPhase,
+					elapsedSeconds: null,
+					details: unresolvedDetails,
+					count: unresolvedDetails.length,
+					code: "integration-cache-entity-unresolved",
+					message:
+						"Some in-flight integration progress markers were dropped because the item they point at was not migrated, so there is nothing in V2 to attach them to. No watch history was lost — these markers only stopped an item being reported twice, and each integration will report the item again on its next run.",
+				}),
+			);
+		}
+
 		return undefined;
 	});

@@ -1,3 +1,9 @@
+import {
+	buildEpisodeAbsentDetailSql,
+	buildEpisodeAmbiguousDetailSql,
+	buildEpisodeMalformedDetailSql,
+	buildEpisodeResolutionFallbackSql,
+} from "./episode-resolution-sql";
 // Each V1 `seen` row expands to one or more V2 events keyed by its `updated_at` timestamp array:
 // InProgress -> N progress events; episodic Completed -> N progress events (final at 100%) plus an
 // episode completion; other terminal states -> N-1 progress + 1 terminal event. progressPercent is
@@ -7,7 +13,21 @@
 // manual_time_spent (seconds) becomes timeSpent (minutes). Unresolved show/podcast episode rows and
 // rows whose metadata_id has no migrated entity are skipped. Dropped: review_id, and
 // manual_time_spent/started_on on progress events (V2 progress has neither).
-import { buildReportSql, quoteSqlString } from "./shared";
+import {
+	buildAbortOnRowsSql,
+	buildAnomalyReportSql,
+	buildReportSql,
+	buildRequireLegacyTableSql,
+	quoteSqlString,
+} from "./shared";
+
+const seenReportPhase = "seen -> event";
+
+const seenAbsentDetailSql = buildEpisodeAbsentDetailSql("seen-episode-absent", "u");
+
+const seenAmbiguousDetailSql = buildEpisodeAmbiguousDetailSql("seen-episode-ambiguous", "u");
+
+const seenMalformedDetailSql = buildEpisodeMalformedDetailSql("seen-episode-malformed", "u");
 
 export const buildSeenMigrationSql = (mediaPluginId: string) => `
 DO $$
@@ -18,110 +38,20 @@ DECLARE
 	prog_inserted  int          := 0;
 	child_complete_inserted int := 0;
 	term_inserted  int          := 0;
-	unresolved_episode_rows int := 0;
+	unresolved_absent_rows int    := 0;
+	unresolved_ambiguous_rows int := 0;
+	unresolved_malformed_rows int := 0;
+	report_seq     int;
+	missing_completion_rows int := 0;
+	missing_completion_sample text;
 	parent_session_events int   := 0;
 	special_episode_events int  := 0;
 	batch_count    int;
 	started_at     timestamptz  := clock_timestamp();
 BEGIN
-	IF to_regclass('"seen"') IS NULL THEN
-		RAISE EXCEPTION 'Expected seen table to exist in a V1 database but it was not found';
-	END IF;
+	${buildRequireLegacyTableSql("seen -> event", "seen")}
 
-	IF to_regclass('pg_temp._legacy_show_episode_resolution') IS NULL
-		OR to_regclass('pg_temp._legacy_podcast_episode_resolution') IS NULL THEN
-		IF to_regclass('pg_temp._legacy_show_episode_resolution') IS NOT NULL THEN
-			DROP TABLE _legacy_show_episode_resolution;
-		END IF;
-
-		IF to_regclass('pg_temp._legacy_podcast_episode_resolution') IS NOT NULL THEN
-			DROP TABLE _legacy_podcast_episode_resolution;
-		END IF;
-
-	CREATE TEMP TABLE _legacy_show_episode_resolution ON COMMIT DROP AS
-	WITH candidates AS (
-		SELECT DISTINCT
-			show_entity.id AS parent_entity_id,
-			season.properties ->> 'seasonNumber' AS season_number,
-			episode.properties ->> 'episodeNumber' AS episode_number,
-			episode.id AS entity_id,
-			episode.entity_schema_slug
-		FROM "entity" show_entity
-		INNER JOIN "relationship" show_season_rel
-			ON  show_season_rel.source_entity_id = show_entity.id
-			AND show_season_rel.relationship_schema_slug = 'show-to-show-season'
-		INNER JOIN "entity" season
-			ON  season.id = show_season_rel.target_entity_id
-			AND season.entity_schema_slug = 'show-season'
-		INNER JOIN "relationship" season_episode_rel
-			ON  season_episode_rel.source_entity_id = season.id
-			AND season_episode_rel.relationship_schema_slug = 'show-season-to-show-episode'
-		INNER JOIN "entity" episode
-			ON  episode.id = season_episode_rel.target_entity_id
-			AND episode.entity_schema_slug = 'show-episode'
-		WHERE show_entity.entity_schema_slug = 'show'
-		  AND (show_season_rel.user_id = show_entity.user_id OR show_season_rel.user_id IS NULL)
-		  AND (season_episode_rel.user_id = show_entity.user_id OR season_episode_rel.user_id IS NULL)
-		  AND (season.user_id = show_entity.user_id OR season.user_id IS NULL)
-		  AND (episode.user_id = show_entity.user_id OR episode.user_id IS NULL)
-		  AND (season.properties ->> 'seasonNumber') ~ '^[0-9]+$'
-		  AND (episode.properties ->> 'episodeNumber') ~ '^[0-9]+$'
-	), unique_candidates AS (
-		SELECT parent_entity_id, season_number, episode_number
-		FROM candidates
-		GROUP BY parent_entity_id, season_number, episode_number
-		HAVING count(*) = 1
-	)
-	SELECT candidates.*
-	FROM candidates
-	INNER JOIN unique_candidates
-		ON  unique_candidates.parent_entity_id = candidates.parent_entity_id
-		AND unique_candidates.season_number    = candidates.season_number
-		AND unique_candidates.episode_number   = candidates.episode_number;
-
-	CREATE UNIQUE INDEX ON _legacy_show_episode_resolution (
-		parent_entity_id,
-		season_number,
-		episode_number
-	);
-
-	CREATE TEMP TABLE _legacy_podcast_episode_resolution ON COMMIT DROP AS
-	WITH candidates AS (
-		SELECT DISTINCT
-			podcast.id AS parent_entity_id,
-			episode.properties ->> 'episodeNumber' AS episode_number,
-			episode.id AS entity_id,
-			episode.entity_schema_slug
-		FROM "entity" podcast
-		INNER JOIN "relationship" podcast_episode_rel
-			ON  podcast_episode_rel.source_entity_id = podcast.id
-			AND podcast_episode_rel.relationship_schema_slug = 'podcast-to-podcast-episode'
-		INNER JOIN "entity" episode
-			ON  episode.id = podcast_episode_rel.target_entity_id
-			AND episode.entity_schema_slug = 'podcast-episode'
-		WHERE podcast.entity_schema_slug = 'podcast'
-		  AND (podcast_episode_rel.user_id = podcast.user_id OR podcast_episode_rel.user_id IS NULL)
-		  AND (episode.user_id = podcast.user_id OR episode.user_id IS NULL)
-		  AND (episode.properties ->> 'episodeNumber') ~ '^[0-9]+$'
-	), unique_candidates AS (
-		SELECT parent_entity_id, episode_number
-		FROM candidates
-		GROUP BY parent_entity_id, episode_number
-		HAVING count(*) = 1
-	)
-	SELECT candidates.*
-	FROM candidates
-	INNER JOIN unique_candidates
-		ON  unique_candidates.parent_entity_id = candidates.parent_entity_id
-		AND unique_candidates.episode_number   = candidates.episode_number;
-
-	CREATE UNIQUE INDEX ON _legacy_podcast_episode_resolution (
-		parent_entity_id,
-		episode_number
-	);
-	ANALYZE _legacy_show_episode_resolution;
-	ANALYZE _legacy_podcast_episode_resolution;
-	END IF;
+	${buildEpisodeResolutionFallbackSql()}
 
 	LOOP
 		WITH batch AS (
@@ -446,28 +376,32 @@ BEGIN
 		cursor_id := next_cursor_id;
 	END LOOP;
 
-	IF EXISTS (
-		SELECT 1
-		FROM "seen" s
-		INNER JOIN "entity" e ON e.id = s.metadata_id
-		LEFT JOIN _legacy_show_episode_resolution show_episode
-			ON e.entity_schema_slug = 'show'
-			AND show_episode.parent_entity_id = s.metadata_id
-			AND show_episode.season_number = s.show_extra_information ->> 'season'
-			AND show_episode.episode_number = s.show_extra_information ->> 'episode'
-		LEFT JOIN _legacy_podcast_episode_resolution podcast_episode
-			ON e.entity_schema_slug = 'podcast'
-			AND podcast_episode.parent_entity_id = s.metadata_id
-			AND podcast_episode.episode_number = s.podcast_extra_information ->> 'episode'
-		LEFT JOIN "event" completion
-			ON completion.id = md5(s.id || ':episode-complete')
-		WHERE e.entity_schema_slug IN ('show', 'podcast')
-		  AND (s.state = 'completed' OR (s.state = 'in_progress' AND s.progress >= 100))
-		  AND COALESCE(show_episode.entity_id, podcast_episode.entity_id) IS NOT NULL
-		  AND completion.id IS NULL
-	) THEN
-		RAISE EXCEPTION 'Resolved completed show/podcast row is missing its episode complete event';
-	END IF;
+	${buildAbortOnRowsSql({
+		countVariable: "missing_completion_rows",
+		sampleVariable: "missing_completion_sample",
+		message:
+			"seen -> event: % completed show or podcast watch(es) resolved to an episode but produced no completion event, so those completions would be lost: %. This is a defect in this migration's completion step rather than in the legacy data. Keep the dump and report it; retrying will not change the result.",
+		source: `
+			SELECT s.id || ' (' || e.name || ')' AS label
+			FROM "seen" s
+			INNER JOIN "entity" e ON e.id = s.metadata_id
+			LEFT JOIN _legacy_show_episode_resolution show_episode
+				ON e.entity_schema_slug = 'show'
+				AND show_episode.parent_entity_id = s.metadata_id
+				AND show_episode.season_number = s.show_extra_information ->> 'season'
+				AND show_episode.episode_number = s.show_extra_information ->> 'episode'
+			LEFT JOIN _legacy_podcast_episode_resolution podcast_episode
+				ON e.entity_schema_slug = 'podcast'
+				AND podcast_episode.parent_entity_id = s.metadata_id
+				AND podcast_episode.episode_number = s.podcast_extra_information ->> 'episode'
+			LEFT JOIN "event" completion
+				ON completion.id = md5(s.id || ':episode-complete')
+			WHERE e.entity_schema_slug IN ('show', 'podcast')
+			  AND (s.state = 'completed' OR (s.state = 'in_progress' AND s.progress >= 100))
+			  AND COALESCE(show_episode.entity_id, podcast_episode.entity_id) IS NOT NULL
+			  AND completion.id IS NULL
+		`,
+	})}
 
 	SELECT count(*) INTO parent_session_events
 	FROM "event" ev
@@ -488,7 +422,39 @@ BEGIN
 	  AND (season.properties ->> 'seasonNumber')::int = 0
 	  AND ev.session_entity_id IS NULL;
 
-	SELECT count(*) INTO unresolved_episode_rows
+	-- Absent, ambiguous and malformed are different data problems, so they are classified here and
+	-- reported separately. Each row carries its own explanation: the legacy tables are dropped later.
+	CREATE TEMP TABLE _seen_unresolved_positions ON COMMIT DROP AS
+	SELECT
+		s.id                 AS legacy_record_id,
+		s.user_id            AS user_id,
+		e.id                 AS parent_entity_id,
+		e.name               AS parent_name,
+		e.entity_schema_slug AS kind,
+		CASE WHEN e.entity_schema_slug = 'show'
+			THEN s.show_extra_information ->> 'season' END AS requested_season,
+		CASE
+			WHEN e.entity_schema_slug = 'show'    THEN s.show_extra_information    ->> 'episode'
+			WHEN e.entity_schema_slug = 'podcast' THEN s.podcast_extra_information ->> 'episode'
+		END AS requested_episode,
+		COALESCE(show_coordinate.candidate_count, podcast_coordinate.candidate_count) AS candidate_count,
+		COALESCE(inventory.available_summary, 'none') AS available_summary,
+		EXISTS (
+			SELECT 1 FROM _legacy_show_episode_coordinates season_probe
+			WHERE season_probe.parent_entity_id = e.id
+			  AND season_probe.season_number = s.show_extra_information ->> 'season'
+		) AS season_exists,
+		CASE
+			WHEN (e.entity_schema_slug = 'show'
+					AND (COALESCE(s.show_extra_information ->> 'season', '')  !~ '^[0-9]+$'
+						OR COALESCE(s.show_extra_information ->> 'episode', '') !~ '^[0-9]+$'))
+				OR (e.entity_schema_slug = 'podcast'
+					AND COALESCE(s.podcast_extra_information ->> 'episode', '') !~ '^[0-9]+$')
+				THEN 'malformed'
+			WHEN COALESCE(show_coordinate.candidate_count, podcast_coordinate.candidate_count) > 1
+				THEN 'ambiguous'
+			ELSE 'absent'
+		END AS cause
 	FROM "seen" s
 	INNER JOIN "entity" e ON e.id = s.metadata_id
 	LEFT JOIN _legacy_show_episode_resolution show_episode
@@ -500,19 +466,51 @@ BEGIN
 		ON e.entity_schema_slug = 'podcast'
 		AND podcast_episode.parent_entity_id = s.metadata_id
 		AND podcast_episode.episode_number = s.podcast_extra_information ->> 'episode'
+	LEFT JOIN _legacy_show_episode_coordinates show_coordinate
+		ON e.entity_schema_slug = 'show'
+		AND show_coordinate.parent_entity_id = s.metadata_id
+		AND show_coordinate.season_number = s.show_extra_information ->> 'season'
+		AND show_coordinate.episode_number = s.show_extra_information ->> 'episode'
+	LEFT JOIN _legacy_podcast_episode_coordinates podcast_coordinate
+		ON e.entity_schema_slug = 'podcast'
+		AND podcast_coordinate.parent_entity_id = s.metadata_id
+		AND podcast_coordinate.episode_number = s.podcast_extra_information ->> 'episode'
+	LEFT JOIN _legacy_episodic_inventory inventory ON inventory.parent_entity_id = e.id
 	WHERE (e.entity_schema_slug = 'show' AND show_episode.entity_id IS NULL)
 		OR (e.entity_schema_slug = 'podcast' AND podcast_episode.entity_id IS NULL);
 
-	IF unresolved_episode_rows > 0 THEN
-		${buildReportSql("seen -> event", [
-			{
-				level: "warning",
-				count: "unresolved_episode_rows",
-				message:
-					"show/podcast row(s) skipped because their episode could not be resolved positionally; progress/completion for them was not migrated",
-			},
-		])}
-	END IF;
+	${buildAnomalyReportSql({
+		phase: seenReportPhase,
+		seqVariable: "report_seq",
+		code: "seen-episode-absent",
+		detail: seenAbsentDetailSql,
+		countVariable: "unresolved_absent_rows",
+		source: "_seen_unresolved_positions u WHERE u.cause = 'absent'",
+		message:
+			"Some watch history was not carried over because the episode it was recorded against does not exist in the show or podcast's stored episode list. Each skipped watch is listed below with what the stored list actually contains.",
+	})}
+
+	${buildAnomalyReportSql({
+		phase: seenReportPhase,
+		seqVariable: "report_seq",
+		code: "seen-episode-ambiguous",
+		detail: seenAmbiguousDetailSql,
+		countVariable: "unresolved_ambiguous_rows",
+		source: "_seen_unresolved_positions u WHERE u.cause = 'ambiguous'",
+		message:
+			"Some watch history was not carried over because more than one stored episode claims the position it was recorded against, so there was no way to tell which episode was watched.",
+	})}
+
+	${buildAnomalyReportSql({
+		phase: seenReportPhase,
+		seqVariable: "report_seq",
+		code: "seen-episode-malformed",
+		detail: seenMalformedDetailSql,
+		countVariable: "unresolved_malformed_rows",
+		source: "_seen_unresolved_positions u WHERE u.cause = 'malformed'",
+		message:
+			"Some show and podcast watch history was not carried over because the legacy row did not record a usable episode number. Each skipped watch is listed below with the value that was actually stored.",
+	})}
 
 	${buildReportSql("seen -> event", [
 		{ message: "progress", count: "prog_inserted" },

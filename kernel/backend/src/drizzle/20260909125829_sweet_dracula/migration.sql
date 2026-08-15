@@ -30,8 +30,8 @@ CREATE TABLE "apikey" (
 	"request_count" integer DEFAULT 0,
 	"rate_limit_max" integer DEFAULT 10,
 	"rate_limit_enabled" boolean DEFAULT true,
-	"config_id" text DEFAULT 'default' NOT NULL,
 	"expires_at" timestamp with time zone,
+	"config_id" text DEFAULT 'default' NOT NULL,
 	"last_request" timestamp with time zone,
 	"last_refill_at" timestamp with time zone,
 	"rate_limit_time_window" integer DEFAULT 86400000,
@@ -42,11 +42,11 @@ CREATE TABLE "apikey" (
 --> statement-breakpoint
 CREATE TABLE "backup_run" (
 	"artifact_key" text,
-	"failure" jsonb,
-	"kind" text NOT NULL,
 	"progress" integer DEFAULT 0 NOT NULL,
+	"failure" jsonb,
 	"expires_at" timestamp with time zone,
 	"started_at" timestamp with time zone,
+	"kind" text NOT NULL,
 	"finished_at" timestamp with time zone,
 	"artifact_provider" text,
 	"status" text DEFAULT 'pending' NOT NULL,
@@ -61,8 +61,8 @@ CREATE TABLE "client_page_build" (
 	"published_hash" text NOT NULL,
 	"graph_identity" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"renderer_id" text,
 	"id" text PRIMARY KEY,
+	"renderer_id" text,
 	"user_id" text NOT NULL,
 	"artifact_hash" text NOT NULL,
 	CONSTRAINT "client_page_build_graph_unique" UNIQUE("renderer_id","published_hash","graph_hash"),
@@ -76,11 +76,11 @@ CREATE TABLE "client_renderer" (
 	"published_revision" integer,
 	"draft_revision" integer DEFAULT 1 NOT NULL,
 	"published_definition" jsonb,
-	"draft_definition" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"published_artifact_hash" text,
+	"draft_definition" jsonb NOT NULL,
 	"id" text PRIMARY KEY,
 	"user_id" text NOT NULL,
+	"published_artifact_hash" text,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "client_renderer_user_slug_unique" UNIQUE("user_id","slug")
 );
@@ -89,10 +89,10 @@ CREATE TABLE "entity" (
 	"external_id" text,
 	"name" text NOT NULL,
 	"entity_schema_slug" text NOT NULL,
-	"origin" jsonb,
 	"populated_at" timestamp with time zone,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"origin" jsonb,
 	"user_id" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"properties" jsonb DEFAULT '{}' NOT NULL,
 	"provider_id" text,
 	"entity_schema_plugin_id" text,
@@ -103,8 +103,8 @@ CREATE TABLE "entity" (
 CREATE TABLE "entity_translation" (
 	"name" text,
 	"language" text NOT NULL,
-	"properties" jsonb,
 	"populated_at" timestamp with time zone,
+	"properties" jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"entity_id" text NOT NULL,
 	"id" text PRIMARY KEY,
@@ -127,22 +127,22 @@ CREATE TABLE "event" (
 --> statement-breakpoint
 CREATE TABLE "import_run" (
 	"total_items" integer,
-	"integration_lot" text,
 	"progress" integer DEFAULT 0 NOT NULL,
-	"source" text NOT NULL,
 	"failed_items" integer DEFAULT 0 NOT NULL,
-	"imported_items" integer DEFAULT 0 NOT NULL,
 	"started_at" timestamp with time zone,
+	"imported_items" integer DEFAULT 0 NOT NULL,
 	"finished_at" timestamp with time zone,
+	"integration_lot" text,
 	"processed_items" integer DEFAULT 0 NOT NULL,
+	"source" text NOT NULL,
 	"failure_reason" jsonb,
 	"status" text DEFAULT 'pending' NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"input_summary" jsonb DEFAULT '{}' NOT NULL,
 	"integration_id" text,
-	"plugin_installation_id" text,
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY,
+	"plugin_installation_id" text,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -164,14 +164,14 @@ CREATE TABLE "integration" (
 	"plugin_installation_id" text NOT NULL,
 	"lot" text NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
-	"provider" text NOT NULL,
 	"sync_ownership" boolean DEFAULT false NOT NULL,
 	"minimum_progress" numeric DEFAULT '2' NOT NULL,
-	"maximum_progress" numeric DEFAULT '95' NOT NULL,
 	"last_finished_at" timestamp with time zone,
+	"maximum_progress" numeric DEFAULT '95' NOT NULL,
+	"provider" text NOT NULL,
 	"extra_settings" jsonb NOT NULL,
-	"provider_specifics" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"provider_specifics" jsonb NOT NULL,
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
@@ -205,36 +205,45 @@ CREATE TABLE "managed_asset" (
 );
 --> statement-breakpoint
 CREATE TABLE "migration_report" (
-	"seq" serial PRIMARY KEY,
 	"count" integer,
 	"phase" text NOT NULL,
-	"level" text NOT NULL,
 	"message" text NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"seq" serial PRIMARY KEY,
 	"elapsed_seconds" double precision,
-	CONSTRAINT "migration_report_level_check" CHECK ("level" in ('info', 'warning'))
+	"code" text,
+	"level" text NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "migration_report_level_check" CHECK ("level" in ('info', 'warning')),
+	CONSTRAINT "migration_report_warning_code_check" CHECK ("level" <> 'warning' or "code" is not null)
+);
+--> statement-breakpoint
+CREATE TABLE "migration_report_detail" (
+	"seq" serial PRIMARY KEY,
+	"detail" jsonb NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"report_seq" integer NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "notification_channel" (
 	"description" text NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
-	"platform" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"platform_specifics" jsonb NOT NULL,
+	"platform" text NOT NULL,
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY,
+	"platform_specifics" jsonb NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "notification_subscription_state" (
 	"signal_schema_slug" text NOT NULL,
-	"metadata" jsonb,
 	"is_active" boolean DEFAULT true NOT NULL,
+	"metadata" jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"signal_schema_plugin_id" text,
 	"user_id" text NOT NULL,
-	"id" text PRIMARY KEY,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"id" text PRIMARY KEY,
 	CONSTRAINT "notification_subscription_state_user_signal_unique" UNIQUE NULLS NOT DISTINCT("user_id","signal_schema_slug","signal_schema_plugin_id")
 );
 --> statement-breakpoint
@@ -251,9 +260,9 @@ CREATE TABLE "oauth_access_token" (
 	"expires_at" timestamp with time zone NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"user_id" text,
-	"refresh_id" text,
 	"session_id" text,
-	"client_id" text NOT NULL
+	"client_id" text NOT NULL,
+	"refresh_id" text
 );
 --> statement-breakpoint
 CREATE TABLE "oauth_client" (
@@ -282,15 +291,15 @@ CREATE TABLE "oauth_client" (
 	"backchannel_logout_uri" text,
 	"response_types" text[],
 	"token_endpoint_auth_method" text,
+	"disabled" boolean DEFAULT false,
 	"client_id" text NOT NULL UNIQUE,
 	"redirect_uris" text[] NOT NULL,
 	"post_logout_redirect_uris" text[],
-	"disabled" boolean DEFAULT false,
 	"backchannel_logout_session_required" boolean,
-	"metadata" jsonb,
 	"created_at" timestamp with time zone,
 	"updated_at" timestamp with time zone,
 	"dpop_bound_access_tokens" boolean DEFAULT false,
+	"metadata" jsonb,
 	"client_credentials_scopes" text[] DEFAULT '{}'::text[],
 	"user_id" text
 );
@@ -302,8 +311,8 @@ CREATE TABLE "oauth_client_assertion" (
 --> statement-breakpoint
 CREATE TABLE "oauth_client_resource" (
 	"id" text PRIMARY KEY,
-	"metadata" jsonb,
 	"created_at" timestamp with time zone,
+	"metadata" jsonb,
 	"client_id" text NOT NULL,
 	"resource_id" text NOT NULL
 );
@@ -349,12 +358,12 @@ CREATE TABLE "oauth_resource" (
 	"access_token_ttl" integer,
 	"refresh_token_ttl" integer,
 	"allowed_scopes" text[],
-	"identifier" text NOT NULL UNIQUE,
 	"disabled" boolean DEFAULT false,
 	"policy_version" integer DEFAULT 1,
-	"metadata" jsonb,
+	"identifier" text NOT NULL UNIQUE,
 	"created_at" timestamp with time zone,
 	"updated_at" timestamp with time zone,
+	"metadata" jsonb,
 	"custom_claims" jsonb,
 	"dpop_bound_access_tokens_required" boolean DEFAULT false
 );
@@ -367,8 +376,8 @@ CREATE TABLE "plugin" (
 	"scope" text NOT NULL,
 	"manifest" jsonb NOT NULL,
 	"compiled_hashes" jsonb NOT NULL,
-	"ingested_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"owner_id" text,
+	"ingested_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"id" text PRIMARY KEY,
 	CONSTRAINT "plugin_scope_owner_check" CHECK (("scope" = 'system' and "owner_id" is null) or ("scope" = 'user' and "owner_id" is not null))
 );
@@ -398,9 +407,9 @@ CREATE TABLE "plugin_installation" (
 	"config" jsonb DEFAULT '{}' NOT NULL,
 	"user_id" text NOT NULL,
 	"plugin_id" text NOT NULL,
-	"health" text DEFAULT 'ready' NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"id" text PRIMARY KEY,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"health" text DEFAULT 'ready' NOT NULL,
 	CONSTRAINT "plugin_installation_user_plugin_unique" UNIQUE("user_id","plugin_id"),
 	CONSTRAINT "plugin_installation_id_user_id_unique" UNIQUE("id","user_id")
 );
@@ -414,13 +423,13 @@ CREATE TABLE "plugin_source_file" (
 --> statement-breakpoint
 CREATE TABLE "relationship" (
 	"relationship_schema_slug" text NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"user_id" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"properties" jsonb DEFAULT '{}' NOT NULL,
 	"relationship_schema_plugin_id" text,
+	"id" text PRIMARY KEY,
 	"source_entity_id" text NOT NULL,
 	"target_entity_id" text NOT NULL,
-	"id" text PRIMARY KEY,
 	CONSTRAINT "relationship_identity_unique" UNIQUE NULLS NOT DISTINCT("user_id","source_entity_id","target_entity_id","relationship_schema_slug","relationship_schema_plugin_id")
 );
 --> statement-breakpoint
@@ -431,8 +440,8 @@ CREATE TABLE "sandbox_provider" (
 	"information" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"plugin_id" text NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"id" text PRIMARY KEY,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "sandbox_provider_plugin_id_unique" UNIQUE("plugin_id","slug")
 );
 --> statement-breakpoint
@@ -440,9 +449,9 @@ CREATE TABLE "sandbox_provider_operation" (
 	"options_schema" jsonb,
 	"operation" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"id" text PRIMARY KEY,
 	"script_id" text NOT NULL CONSTRAINT "sandbox_provider_operation_script_id_unique" UNIQUE,
 	"provider_id" text NOT NULL,
-	"id" text PRIMARY KEY,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "sandbox_provider_operation_provider_operation_unique" UNIQUE("provider_id","operation")
 );
@@ -466,8 +475,8 @@ CREATE TABLE "sandbox_script" (
 CREATE TABLE "sandbox_workflow_reference" (
 	"content_hash" text NOT NULL,
 	"execution_id" text PRIMARY KEY,
-	"plugin_installation_id" text,
 	"plugin_id" text NOT NULL,
+	"plugin_installation_id" text,
 	"script_id" text NOT NULL
 );
 --> statement-breakpoint
@@ -475,18 +484,18 @@ CREATE TABLE "saved_view" (
 	"slug" text NOT NULL,
 	"name" text NOT NULL,
 	"icon" text NOT NULL,
-	"data_sources" jsonb,
+	"plugin_installation_id" text,
 	"revision" integer DEFAULT 1 NOT NULL,
 	"sort_order" integer DEFAULT 0 NOT NULL,
+	"data_sources" jsonb,
 	"is_builtin" boolean DEFAULT false NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
 	"renderer" jsonb NOT NULL,
-	"settings" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"client_renderer_id" text,
-	"plugin_installation_id" text,
+	"settings" jsonb NOT NULL,
 	"id" text PRIMARY KEY,
 	"user_id" text NOT NULL,
+	"client_renderer_id" text,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "saved_view_user_slug_unique" UNIQUE("user_id","slug")
 );
@@ -498,16 +507,16 @@ CREATE TABLE "session" (
 	"token" text NOT NULL UNIQUE,
 	"expires_at" timestamp with time zone NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone NOT NULL,
-	"user_id" text NOT NULL
+	"user_id" text NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "signal" (
 	"id" text PRIMARY KEY,
 	"signal_schema_slug" text NOT NULL,
 	"origin" jsonb NOT NULL,
-	"properties" jsonb NOT NULL,
 	"occurred_at" timestamp with time zone NOT NULL,
+	"properties" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"actor_user_id" text,
 	"subject_entity_id" text,
@@ -527,20 +536,20 @@ CREATE TABLE "subscription_run" (
 	"occurrence_id" text NOT NULL,
 	"sandbox_script_id" text NOT NULL,
 	"id" text PRIMARY KEY,
-	"logs" jsonb,
-	"timing" jsonb,
 	"started_at" timestamp with time zone,
+	"logs" jsonb,
 	"finished_at" timestamp with time zone,
+	"timing" jsonb,
+	"script_updated_at" timestamp with time zone,
 	"rule_metadata" jsonb,
 	"sandbox_error" jsonb,
 	"skip_reason" jsonb,
 	"returned_value" jsonb,
 	"operation" text NOT NULL,
-	"script_updated_at" timestamp with time zone,
 	"source_kind" text NOT NULL,
 	"queued_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"status" text DEFAULT 'queued' NOT NULL,
 	"signal_id" text,
+	"status" text DEFAULT 'queued' NOT NULL,
 	"execution_user_id" text,
 	CONSTRAINT "subscription_run_operation_check" CHECK ("operation" in ('create', 'update', 'delete', 'signal')),
 	CONSTRAINT "subscription_run_source_kind_check" CHECK ("source_kind" in ('entity', 'event', 'relationship', 'signal')),
@@ -576,12 +585,12 @@ CREATE TABLE "user_lifecycle_operation" (
 	"id" text PRIMARY KEY,
 	"user_id" text NOT NULL,
 	"metadata" jsonb NOT NULL,
-	"reset_result" jsonb,
 	"started_at" timestamp with time zone,
+	"reset_result" jsonb,
 	"finished_at" timestamp with time zone,
 	"workflow_attempt" integer DEFAULT 0 NOT NULL,
-	"failure" jsonb,
 	"access_revoked_at" timestamp with time zone,
+	"failure" jsonb,
 	"kind" text NOT NULL,
 	"access_revocation_started_at" timestamp with time zone,
 	"database_cleanup_completed_at" timestamp with time zone,
@@ -641,6 +650,7 @@ CREATE INDEX "integration_lot_is_disabled_idx" ON "integration" ("lot","is_disab
 CREATE INDEX "integration_provider_is_disabled_idx" ON "integration" ("provider","is_disabled");--> statement-breakpoint
 CREATE INDEX "integration_auto_disable_claim_integration_id_idx" ON "integration_auto_disable_claim" ("integration_id");--> statement-breakpoint
 CREATE INDEX "managed_asset_owner_user_id_idx" ON "managed_asset" ("owner_user_id");--> statement-breakpoint
+CREATE INDEX "migration_report_detail_report_seq_seq_idx" ON "migration_report_detail" ("report_seq","seq");--> statement-breakpoint
 CREATE INDEX "notification_channel_user_id_created_at_idx" ON "notification_channel" ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "notification_channel_user_id_is_disabled_idx" ON "notification_channel" ("user_id","is_disabled");--> statement-breakpoint
 CREATE INDEX "notification_subscription_state_user_id_idx" ON "notification_subscription_state" ("user_id");--> statement-breakpoint
@@ -701,8 +711,8 @@ ALTER TABLE "backup_run" ADD CONSTRAINT "backup_run_user_id_user_id_fkey" FOREIG
 ALTER TABLE "client_page_build" ADD CONSTRAINT "client_page_build_renderer_id_client_renderer_id_fkey" FOREIGN KEY ("renderer_id") REFERENCES "client_renderer"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "client_page_build" ADD CONSTRAINT "client_page_build_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "client_page_build" ADD CONSTRAINT "client_page_build_h5bSY8fiMNIQ_fkey" FOREIGN KEY ("artifact_hash") REFERENCES "plugin_client_artifact"("hash") ON DELETE RESTRICT;--> statement-breakpoint
-ALTER TABLE "client_renderer" ADD CONSTRAINT "client_renderer_2daUrxvoruES_fkey" FOREIGN KEY ("published_artifact_hash") REFERENCES "plugin_client_artifact"("hash") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "client_renderer" ADD CONSTRAINT "client_renderer_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "client_renderer" ADD CONSTRAINT "client_renderer_2daUrxvoruES_fkey" FOREIGN KEY ("published_artifact_hash") REFERENCES "plugin_client_artifact"("hash") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_provider_id_sandbox_provider_id_fkey" FOREIGN KEY ("provider_id") REFERENCES "sandbox_provider"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_entity_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("entity_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
@@ -712,20 +722,21 @@ ALTER TABLE "event" ADD CONSTRAINT "event_event_schema_plugin_id_plugin_id_fkey"
 ALTER TABLE "event" ADD CONSTRAINT "event_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event" ADD CONSTRAINT "event_entity_id_entity_id_fkey" FOREIGN KEY ("entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "import_run" ADD CONSTRAINT "import_run_integration_id_integration_id_fkey" FOREIGN KEY ("integration_id") REFERENCES "integration"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "import_run" ADD CONSTRAINT "import_run_plugin_installation_id_plugin_installation_id_fkey" FOREIGN KEY ("plugin_installation_id") REFERENCES "plugin_installation"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "import_run" ADD CONSTRAINT "import_run_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "import_run" ADD CONSTRAINT "import_run_plugin_installation_id_plugin_installation_id_fkey" FOREIGN KEY ("plugin_installation_id") REFERENCES "plugin_installation"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "import_run_failure" ADD CONSTRAINT "import_run_failure_run_id_import_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "import_run"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "integration" ADD CONSTRAINT "integration_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "integration" ADD CONSTRAINT "integration_Q1xPD5Jsz3qI_fkey" FOREIGN KEY ("plugin_installation_id","user_id") REFERENCES "plugin_installation"("id","user_id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "integration_auto_disable_claim" ADD CONSTRAINT "integration_auto_disable_claim_TMe6DSsXf5GU_fkey" FOREIGN KEY ("integration_id") REFERENCES "integration"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "managed_asset" ADD CONSTRAINT "managed_asset_owner_user_id_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "migration_report_detail" ADD CONSTRAINT "migration_report_detail_report_seq_migration_report_seq_fkey" FOREIGN KEY ("report_seq") REFERENCES "migration_report"("seq") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "notification_channel" ADD CONSTRAINT "notification_channel_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "notification_subscription_state" ADD CONSTRAINT "notification_subscription_state_6cYqs9dCUQns_fkey" FOREIGN KEY ("signal_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "notification_subscription_state" ADD CONSTRAINT "notification_subscription_state_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "oauth_access_token" ADD CONSTRAINT "oauth_access_token_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "oauth_access_token" ADD CONSTRAINT "oauth_access_token_refresh_id_oauth_refresh_token_id_fkey" FOREIGN KEY ("refresh_id") REFERENCES "oauth_refresh_token"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "oauth_access_token" ADD CONSTRAINT "oauth_access_token_session_id_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "session"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "oauth_access_token" ADD CONSTRAINT "oauth_access_token_client_id_oauth_client_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "oauth_client"("client_id");--> statement-breakpoint
+ALTER TABLE "oauth_access_token" ADD CONSTRAINT "oauth_access_token_refresh_id_oauth_refresh_token_id_fkey" FOREIGN KEY ("refresh_id") REFERENCES "oauth_refresh_token"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "oauth_client" ADD CONSTRAINT "oauth_client_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "oauth_client_resource" ADD CONSTRAINT "oauth_client_resource_client_id_oauth_client_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "oauth_client"("client_id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "oauth_client_resource" ADD CONSTRAINT "oauth_client_resource_dn2L1gs9Dolm_fkey" FOREIGN KEY ("resource_id") REFERENCES "oauth_resource"("identifier") ON DELETE CASCADE;--> statement-breakpoint
@@ -748,11 +759,11 @@ ALTER TABLE "sandbox_provider_operation" ADD CONSTRAINT "sandbox_provider_operat
 ALTER TABLE "sandbox_provider_operation" ADD CONSTRAINT "sandbox_provider_operation_provider_id_sandbox_provider_id_fkey" FOREIGN KEY ("provider_id") REFERENCES "sandbox_provider"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_provider_id_sandbox_provider_id_fkey" FOREIGN KEY ("provider_id") REFERENCES "sandbox_provider"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_NZbiTLiwtL2v_fkey" FOREIGN KEY ("plugin_installation_id") REFERENCES "plugin_installation"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_NZbiTLiwtL2v_fkey" FOREIGN KEY ("plugin_installation_id") REFERENCES "plugin_installation"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_script_id_sandbox_script_id_fkey" FOREIGN KEY ("script_id") REFERENCES "sandbox_script"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_client_renderer_id_client_renderer_id_fkey" FOREIGN KEY ("client_renderer_id") REFERENCES "client_renderer"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_client_renderer_id_client_renderer_id_fkey" FOREIGN KEY ("client_renderer_id") REFERENCES "client_renderer"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_plugin_installation_owner_fk" FOREIGN KEY ("plugin_installation_id","user_id") REFERENCES "plugin_installation"("id","user_id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "signal" ADD CONSTRAINT "signal_actor_user_id_user_id_fkey" FOREIGN KEY ("actor_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
