@@ -347,9 +347,9 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 
 				const [subscription] = yield* mapDatabaseErrors(
 					db
-						.select({ id: schema.notificationSubscriptionState.id })
-						.from(schema.notificationSubscriptionState)
-						.where(eq(schema.notificationSubscriptionState.signalSchemaPluginId, pluginId))
+						.select({ id: schema.notificationSubscription.id })
+						.from(schema.notificationSubscription)
+						.where(eq(schema.notificationSubscription.signalSchemaPluginId, pluginId))
 						.limit(1),
 				);
 				if (subscription) {
@@ -823,10 +823,10 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							),
 							notExists(
 								db
-									.select({ id: schema.notificationSubscriptionState.id })
-									.from(schema.notificationSubscriptionState)
+									.select({ id: schema.notificationSubscription.id })
+									.from(schema.notificationSubscription)
 									.where(
-										eq(schema.notificationSubscriptionState.signalSchemaPluginId, schema.plugin.id),
+										eq(schema.notificationSubscription.signalSchemaPluginId, schema.plugin.id),
 									),
 							),
 							notExists(

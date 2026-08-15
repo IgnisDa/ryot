@@ -2,9 +2,9 @@ import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 
 import {
-	notificationSubscriptionStateRecipe,
-	notificationSubscriptionStatesRecipe,
-} from "./notification-subscription-states";
+	notificationSubscriptionRecipe,
+	notificationSubscriptionsRecipe,
+} from "./notification-subscriptions";
 import { requireRowsQuery, rowsResult } from "./test-utils";
 
 const item = {
@@ -17,16 +17,16 @@ const item = {
 const pageInfo = { limit: 2, hasMore: true, nextCursor: "next" };
 const rows = (items: readonly unknown[], limit = 2) => rowsResult(items, { ...pageInfo, limit });
 
-describe("notification subscription state recipes", () => {
+describe("notification subscription recipes", () => {
 	it("prepares the paginated list with exact fields and ordering", () => {
 		const query = requireRowsQuery(
-			notificationSubscriptionStatesRecipe({ limit: 7, after: "cursor" }).document.queries
-				.notificationSubscriptionStates,
+			notificationSubscriptionsRecipe({ limit: 7, after: "cursor" }).document.queries
+				.notificationSubscriptions,
 		);
 
 		expect(query.from).toEqual({
-			table: "notificationSubscriptionState",
-			alias: "notificationSubscriptionState",
+			table: "notificationSubscription",
+			alias: "notificationSubscription",
 		});
 		expect(query.output.pagination).toEqual({ limit: 7, after: "cursor" });
 		expect(query.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
@@ -39,23 +39,18 @@ describe("notification subscription state recipes", () => {
 		expect(query.output.orderBy).toEqual([
 			{
 				direction: "asc",
-				expr: {
-					type: "column",
-					field: "signalSchemaSlug",
-					tableAlias: "notificationSubscriptionState",
-				},
+				expr: { type: "column", field: "signalSchemaSlug", tableAlias: "notificationSubscription" },
 			},
 			{
 				direction: "asc",
-				expr: { field: "id", type: "column", tableAlias: "notificationSubscriptionState" },
+				expr: { field: "id", type: "column", tableAlias: "notificationSubscription" },
 			},
 		]);
 	});
 
 	it("prepares optional by-id detail with cardinality limit two", () => {
 		const query = requireRowsQuery(
-			notificationSubscriptionStateRecipe({ id: "rule-1" }).document.queries
-				.notificationSubscriptionState,
+			notificationSubscriptionRecipe({ id: "rule-1" }).document.queries.notificationSubscription,
 		);
 
 		expect(query.output.pagination).toEqual({ limit: 2 });
@@ -65,8 +60,8 @@ describe("notification subscription state recipes", () => {
 	it("decodes plain branded values, page info, and normalized dates", () => {
 		expect(
 			Result.getOrThrow(
-				notificationSubscriptionStatesRecipe({ limit: 2 }).decode({
-					data: { notificationSubscriptionStates: rows([item]) },
+				notificationSubscriptionsRecipe({ limit: 2 }).decode({
+					data: { notificationSubscriptions: rows([item]) },
 				}),
 			),
 		).toEqual({
@@ -78,20 +73,20 @@ describe("notification subscription state recipes", () => {
 	});
 
 	it("decodes optional detail and rejects excess cardinality", () => {
-		const recipe = notificationSubscriptionStateRecipe({ id: "rule-1" });
+		const recipe = notificationSubscriptionRecipe({ id: "rule-1" });
 
 		expect(
-			Result.getOrThrow(recipe.decode({ data: { notificationSubscriptionState: rows([], 2) } })),
+			Result.getOrThrow(recipe.decode({ data: { notificationSubscription: rows([], 2) } })),
 		).toBeUndefined();
 		expect(
 			Result.isFailure(
-				recipe.decode({ data: { notificationSubscriptionState: rows([item, item], 2) } }),
+				recipe.decode({ data: { notificationSubscription: rows([item, item], 2) } }),
 			),
 		).toBe(true);
 	});
 
 	it("rejects malformed fields, dates, and result shapes", () => {
-		const recipe = notificationSubscriptionStatesRecipe({ limit: 2 });
+		const recipe = notificationSubscriptionsRecipe({ limit: 2 });
 
 		for (const malformed of [
 			{ ...item, isActive: "true" },
@@ -99,9 +94,7 @@ describe("notification subscription state recipes", () => {
 			{ ...item, updatedAt: "not-a-date" },
 		]) {
 			expect(
-				Result.isFailure(
-					recipe.decode({ data: { notificationSubscriptionStates: rows([malformed]) } }),
-				),
+				Result.isFailure(recipe.decode({ data: { notificationSubscriptions: rows([malformed]) } })),
 			).toBe(true);
 		}
 		expect(Result.isFailure(recipe.decode({ data: {} }))).toBe(true);

@@ -55,8 +55,6 @@ export const clientRenderer = snakeCase.table(
 export const clientPageBuild = snakeCase.table(
 	"client_page_build",
 	{
-		publishedHash: text(),
-		kernelRendererName: text(),
 		graphHash: text().notNull(),
 		graphIdentity: jsonb().$type<ClientPageGraphIdentity>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),

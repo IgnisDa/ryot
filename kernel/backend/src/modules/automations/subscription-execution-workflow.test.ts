@@ -58,12 +58,10 @@ const rule = {
 
 const queuedRun = {
 	ruleId,
-	signalId,
 	id: runId,
 	logs: null,
 	timing: null,
 	occurrenceId,
-	recordId: null,
 	startedAt: null,
 	skipReason: null,
 	status: "queued",
@@ -71,8 +69,6 @@ const queuedRun = {
 	sandboxError: null,
 	returnedValue: null,
 	ruleName: rule.name,
-	operation: "signal",
-	sourceKind: "signal",
 	scriptUpdatedAt: null,
 	executionUserId: userId,
 	sandboxScriptId: scriptId,
@@ -246,14 +242,7 @@ it.effect("keeps large occurrence properties out of the subscription sandbox inp
 
 it.effect("passes only an event source reference to the sandbox", () => {
 	let sandboxPayload: unknown;
-	const eventRun = {
-		...queuedRun,
-		signalId: null,
-		operation: "create" as const,
-		sourceKind: "event" as const,
-		occurrenceId: eventOccurrence.id,
-		recordId: eventOccurrence.recordId,
-	};
+	const eventRun = { ...queuedRun, occurrenceId: eventOccurrence.id };
 	const service = Layer.mock(AutomationsService, {
 		beginRun: () => Effect.succeed({ run: eventRun, kind: "ready" as const }),
 		completeRun: () => Effect.succeed({ ...eventRun, status: "succeeded" as const }),

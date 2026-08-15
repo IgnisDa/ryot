@@ -159,7 +159,7 @@ it.effect("rejects recordOccurrence reuse with conflicting data", () => {
 	}).pipe(Effect.provide(harness.serviceLayer));
 });
 
-it.effect("preserves falsy JSON metadata loaded from notification state", () => {
+it.effect("preserves falsy JSON metadata loaded from notification subscription", () => {
 	const db = makeDb();
 	return Effect.gen(function* () {
 		const repository = yield* AutomationsRepository;
@@ -168,7 +168,7 @@ it.effect("preserves falsy JSON metadata loaded from notification state", () => 
 	}).pipe(Effect.provide(makeLayer(db)));
 });
 
-it.effect("filters active notification state by user and signal schema", () => {
+it.effect("filters active notification subscriptions by user and signal schema", () => {
 	const db = makeDb();
 	return Effect.gen(function* () {
 		const repository = yield* AutomationsRepository;

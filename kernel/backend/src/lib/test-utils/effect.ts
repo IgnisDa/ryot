@@ -111,6 +111,13 @@ export const makeAppConfigLayer = (
 			infrequentCronJobsSchedule: "0 0 * * *",
 			frequentCronJobsSchedule: "every 5 minutes",
 		},
+		observability: {
+			otlp: { headers: Option.none(), endpoint: Option.none() },
+			logging: {
+				level: "Info",
+				file: { rotationSize: "10M", rotationInterval: "1d", path: "./logs/ryot.log" },
+			},
+		},
 		fileStorage: {
 			url: Option.none(),
 			region: Option.none(),
@@ -119,17 +126,6 @@ export const makeAppConfigLayer = (
 			bucketName: Option.none(),
 			accessKeyId: Option.none(),
 			secretAccessKey: Option.none(),
-		},
-		observability: {
-			otlp: { headers: Option.none(), endpoint: Option.none() },
-			logging: {
-				level: "Info",
-				file: {
-					rotationSize: "10M",
-					rotationInterval: "1d",
-					path: "./logs/ryot.log",
-				},
-			},
 		},
 		server: {
 			proKey: Option.none(),

@@ -6,7 +6,6 @@ import type {
 	AutomationOrigin,
 	AutomationRuleMetadata,
 	SubscriptionRunSkipReason,
-	SubscriptionRunSourceKind,
 	SubscriptionRunStatus,
 	SubscriptionRunTiming,
 } from "@ryot-app/contract/modules/automations/schemas";
@@ -96,8 +95,8 @@ export const automationOccurrence = snakeCase.table(
 	],
 );
 
-export const notificationSubscriptionState = snakeCase.table(
-	"notification_subscription_state",
+export const notificationSubscription = snakeCase.table(
+	"notification_subscription",
 	{
 		signalSchemaSlug: text().notNull(),
 		isActive: boolean().notNull().default(true),
@@ -118,11 +117,9 @@ export const notificationSubscriptionState = snakeCase.table(
 			.$defaultFn(() => /* @__PURE__ */ AutomationRuleId.make(generateId())),
 	},
 	(table) => [
-		index("notification_subscription_state_user_id_idx").on(table.userId),
-		index("notification_subscription_state_signal_schema_plugin_id_idx").on(
-			table.signalSchemaPluginId,
-		),
-		unique("notification_subscription_state_user_signal_unique")
+		index("notification_subscription_user_id_idx").on(table.userId),
+		index("notification_subscription_signal_schema_plugin_id_idx").on(table.signalSchemaPluginId),
+		unique("notification_subscription_user_signal_unique")
 			.on(table.userId, table.signalSchemaSlug, table.signalSchemaPluginId)
 			.nullsNotDistinct(),
 	],
@@ -131,7 +128,6 @@ export const notificationSubscriptionState = snakeCase.table(
 export const subscriptionRun = snakeCase.table(
 	"subscription_run",
 	{
-		recordId: text(),
 		ruleId: text().notNull(),
 		ruleName: text().notNull(),
 		sandboxScriptId: text().notNull(),
@@ -145,10 +141,7 @@ export const subscriptionRun = snakeCase.table(
 		sandboxError: jsonb().$type<AutomationRuleMetadata>(),
 		skipReason: jsonb().$type<SubscriptionRunSkipReason>(),
 		returnedValue: jsonb().$type<AutomationRuleMetadata>(),
-		operation: text().$type<AutomationOperation>().notNull(),
-		sourceKind: text().$type<SubscriptionRunSourceKind>().notNull(),
 		queuedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		signalId: text().references(() => signal.id, { onDelete: "cascade" }),
 		status: text().$type<SubscriptionRunStatus>().notNull().default("queued"),
 		executionUserId: text().references(() => user.id, { onDelete: "cascade" }),
 		occurrenceId: text()
@@ -159,22 +152,9 @@ export const subscriptionRun = snakeCase.table(
 		index("subscription_run_execution_user_id_idx").on(table.executionUserId),
 		index("subscription_run_rule_id_idx").on(table.ruleId),
 		index("subscription_run_occurrence_id_idx").on(table.occurrenceId),
-		index("subscription_run_signal_id_idx").on(table.signalId),
-		check(
-			"subscription_run_operation_check",
-			sql`${table.operation} in ('create', 'update', 'delete', 'signal')`,
-		),
-		check(
-			"subscription_run_source_kind_check",
-			sql`${table.sourceKind} in ('entity', 'event', 'relationship', 'signal')`,
-		),
 		check(
 			"subscription_run_status_check",
 			sql`${table.status} in ('queued', 'running', 'succeeded', 'failed', 'skipped')`,
-		),
-		check(
-			"subscription_run_source_check",
-			sql`((${table.sourceKind} = 'signal' and ${table.operation} = 'signal' and ${table.signalId} is not null and ${table.recordId} is null) or (${table.sourceKind} <> 'signal' and ${table.operation} <> 'signal' and ${table.signalId} is null and ${table.recordId} is not null))`,
 		),
 	],
 );
