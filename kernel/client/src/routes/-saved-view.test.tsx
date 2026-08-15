@@ -90,12 +90,14 @@ const record = {
 		},
 	},
 } as const;
+const settledSync = { populationStatus: "ready", translationStatus: "none" } as const;
 const page = {
 	pageInfo: { limit: 2, hasMore: true, nextCursor: "next" },
 	items: [
 		{
 			title: "Piranesi",
 			entityId: "book-1",
+			sync: settledSync,
 			callout: { displayKind: "number", value: 4.5 } as const,
 			image: { type: "local", key: "covers/piranesi" } as const,
 			overline: { displayKind: "text", value: "Book" } as const,
@@ -109,6 +111,7 @@ const tablePage = {
 	items: [
 		{
 			image: null,
+			sync: settledSync,
 			entityId: "book-table",
 			cells: [
 				{ key: "title", label: "Title", value: { displayKind: "text", value: "Jonathan Strange" } },
@@ -127,7 +130,7 @@ const emptyPage = { pageInfo: { limit: 2, hasMore: false, nextCursor: null }, it
 
 const importedPage = {
 	pageInfo: { limit: 2, hasMore: false, nextCursor: null },
-	items: [{ image: null, title: "Imported Dune", entityId: "book-imported" }],
+	items: [{ image: null, sync: settledSync, title: "Imported Dune", entityId: "book-imported" }],
 };
 
 const deferred = <T,>() => {
@@ -331,7 +334,12 @@ describe("saved-view route", () => {
 				layouts.push(layout);
 				return Effect.succeed(
 					layout === "list"
-						? { ...page, items: [{ image: null, entityId: "list-only", title: "List only" }] }
+						? {
+								...page,
+								items: [
+									{ image: null, sync: settledSync, entityId: "list-only", title: "List only" },
+								],
+							}
 						: page,
 				);
 			},

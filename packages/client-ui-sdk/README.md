@@ -64,6 +64,36 @@ dominant-colour read goes through a canvas, so the source image must load `cross
 and the host must send `Access-Control-Allow-Origin`. A tainted canvas, a failed image load, or a
 missing 2D context all resolve to no tint, silently, rather than throwing or blocking render.
 
+## Sync Marks
+
+`./sync` carries one visual vocabulary for "this is still arriving", so the kernel's saved-view
+layouts and a plugin screen mark the same states the same way rather than each inventing a
+placeholder. It replaces what were two separate missing-image implementations, one in the kernel
+and one in the media plugin.
+
+The derivation is pure and lives beside the components: `fieldSyncState(value, sync)` answers
+whether a slot is `ready`, `pending`, or `absent`, and `isTitleProvisional(sync)` answers whether a
+name is still the source-language one. Both read a plain `{ populationStatus, translationStatus }`
+object, declared here as local literal unions rather than imported from `@ryot-app/contract`, for
+the same bundle reason the schema form stays on its own subpath.
+
+`fieldSyncState` asks what the layout mapped and did not get, not what a status flag says. A value
+that is present is `ready` whatever the status, because an entity mid-population already has some
+of its fields and must render exactly like a settled one. The status only decides whether a
+_missing_ value is coming or is all there is.
+
+`EntityArtWell` is the one art slot: it draws the image, or a well with the entity's monogram, and
+adds the shimmer sweep and the pip only while that slot is pending. A genuinely art-less entity
+gets the monogram at full strength and never animates. `SyncPip` marks a title, `SettleHighlight`
+plays a ring around a row whose work just landed, `TranslationChip` labels a provisional name, and
+`SyncCountLine` renders the `● 2 populating · ● 4 translating` summary, hiding each segment at
+zero. Population is `--info`, translation is `--translate`; `--accent` stays reserved for what the
+user did.
+
+Every animated element carries its own `motion-reduce:animate-none`. A plugin document receives
+only `theme.css` and `palette.css`, never the kernel's reduced-motion base layer, so a component
+that leaves that guard to a stylesheet animates for a reader who asked it not to.
+
 ## Shortcuts And Overlays
 
 `useShortcut` pins `stopPropagation` and `conflictBehavior`, and single-key shortcuts do not fire

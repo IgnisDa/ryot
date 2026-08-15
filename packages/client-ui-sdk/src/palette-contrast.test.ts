@@ -58,6 +58,7 @@ const textPairs = [
 
 const boundaryPairs = [
 	["--focus", readableSurfaces],
+	["--translate", ["--bg", "--surface"]],
 	["--border-strong", readableSurfaces],
 	["--accent-border", ["--accent-soft"]],
 	["--accent-deep", ["--bg", "--surface", "--accent-soft"]],

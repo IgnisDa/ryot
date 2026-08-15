@@ -20,6 +20,7 @@ const item = (entityId: string, title: string): SavedViewCardResultItem => ({
 	title,
 	entityId,
 	image: null,
+	sync: { populationStatus: "ready", translationStatus: "none" },
 });
 const page = (
 	items: readonly SavedViewItem[],
