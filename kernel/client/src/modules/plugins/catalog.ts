@@ -7,6 +7,7 @@ import {
 import { Context, Data, Effect, Layer } from "effect";
 
 import type { KernelRyotClient } from "#/api/ryot-client";
+import type { KernelHostServices } from "#/host-services";
 
 export class PluginCatalogError extends Data.TaggedError("PluginCatalogError")<{
 	readonly cause: unknown;
@@ -47,23 +48,15 @@ export class PluginCatalogService extends Context.Service<PluginCatalogService>(
 	static readonly layer = Layer.effect(this, this.make);
 }
 
-export type PluginCatalogRuntime = {
-	readonly runPromise: <A, E>(
-		effect: Effect.Effect<A, E, PluginCatalogService>,
-		options?: Effect.RunOptions,
-	) => Promise<A>;
-};
-
-type PluginCatalogQueryInput = {
-	readonly runtime: PluginCatalogRuntime;
-	readonly initialData: PluginClientCatalog;
-};
-
-export const pluginCatalogQuery = createRyotQuery<PluginCatalogQueryInput, PluginClientCatalog>(
-	({ client, input, signal }) =>
-		input.runtime.runPromise(
+export const pluginCatalogQuery = createRyotQuery<
+	PluginClientCatalog,
+	PluginClientCatalog,
+	KernelHostServices
+>(
+	({ client, hostServices, signal }) =>
+		hostServices.runtime.runPromise(
 			Effect.flatMap(PluginCatalogService, (service) => service.load(client)),
 			{ signal },
 		),
-	{ cancelOnUnmount: true, initialData: (input) => input.initialData },
+	{ cancelOnUnmount: true, initialData: (input) => input },
 );

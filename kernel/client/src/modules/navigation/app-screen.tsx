@@ -1,3 +1,4 @@
+import { ActiveScreenContext } from "@ryot-app/client-sdk/react";
 import { ScreenBarButton, ScreenFrame } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { useNavigate, useRouter } from "@tanstack/react-router";
@@ -70,27 +71,29 @@ export function AppScreen(props: AppScreenProps) {
 	usePageTitle(props.title);
 
 	return (
-		<main
-			{...mainContentProps}
-			ref={scrollRootRef}
-			className="h-full overflow-y-auto bg-bg pb-[max(32px,env(safe-area-inset-bottom))]"
-		>
-			<ScreenFrame
-				meta={props.meta}
-				hero={props.hero}
-				leading={leading}
-				width={props.width}
-				title={props.title}
-				compact={edge.compact}
-				actions={props.actions}
-				searchRow={props.searchRow}
-				titleIcon={props.titleIcon}
-				scrollRootRef={scrollRootRef}
-				barActions={props.barActions}
-				safeAreaTop={chrome.safeAreaTop}
+		<ActiveScreenContext.Provider value={true}>
+			<main
+				{...mainContentProps}
+				ref={scrollRootRef}
+				className="h-full overflow-y-auto bg-bg pb-[max(32px,env(safe-area-inset-bottom))]"
 			>
-				{props.children}
-			</ScreenFrame>
-		</main>
+				<ScreenFrame
+					meta={props.meta}
+					hero={props.hero}
+					leading={leading}
+					width={props.width}
+					title={props.title}
+					compact={edge.compact}
+					actions={props.actions}
+					searchRow={props.searchRow}
+					titleIcon={props.titleIcon}
+					scrollRootRef={scrollRootRef}
+					barActions={props.barActions}
+					safeAreaTop={chrome.safeAreaTop}
+				>
+					{props.children}
+				</ScreenFrame>
+			</main>
+		</ActiveScreenContext.Provider>
 	);
 }

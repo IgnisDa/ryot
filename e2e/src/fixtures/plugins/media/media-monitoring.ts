@@ -94,7 +94,9 @@ const operationTransport =
 			)
 			.pipe(Effect.map(({ result }) => result));
 
-const singleResult = <Result>(output: { readonly results: readonly Result[] }) =>
+const singleResult = <Result>(output: {
+	readonly results: readonly Result[];
+}): Effect.Effect<Result> =>
 	output.results[0]
 		? Effect.succeed(output.results[0])
 		: Effect.die("Media monitoring operation returned no aligned result");
