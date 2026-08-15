@@ -26,6 +26,14 @@ export const formatLocalDateKey = (value: string) =>
 export const formatLocalDateLabel = (value: string) =>
 	DateTime.formatLocal(localDate(value), DATE_LABEL_OPTIONS);
 
+export const formatLocalDateTimeLabel = (value: string) =>
+	DateTime.formatLocal(localDate(value), {
+		...DATE_LABEL_OPTIONS,
+		hour: "numeric",
+		minute: "2-digit",
+		second: "2-digit",
+	});
+
 export const formatLocalMonthDayLabel = (value: string) =>
 	DateTime.formatLocal(localDate(value), {
 		day: "numeric",
