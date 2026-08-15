@@ -63,7 +63,7 @@ Mapping files in this directory own exact field transforms, clamping, determinis
 
 ## Reporting
 
-Bootstrap statements write structured rows to `legacy_bootstrap_report`. Each row contains a sequence,
+Bootstrap statements write structured rows to `migration_report`. Each row contains a sequence,
 phase, level, message, optional count, and elapsed seconds. The orchestration logs new rows after each
 phase and retains the table for post-migration inspection.
 
