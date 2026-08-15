@@ -1,4 +1,4 @@
-import { Directory, File, FileMode, Paths } from "expo-file-system";
+import { Directory, File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 
 import { saveNativeDownload, shouldPruneTransferDirectory } from "./save-download-native";
@@ -40,11 +40,6 @@ export const pruneDownloadCache = () => {
 	}
 };
 
-export const prepareDownload = (_input?: Pick<SaveDownloadInput, "contentType" | "fileName">) => {
-	pruneDownloadCache();
-	return Promise.resolve({ kind: "native" } as const);
-};
-
 export const saveDownload = async (input: SaveDownloadInput): Promise<SaveDownloadOutcome> => {
 	const directory = new Directory(
 		Paths.cache,
@@ -54,14 +49,13 @@ export const saveDownload = async (input: SaveDownloadInput): Promise<SaveDownlo
 	activeTransferDirectories.add(directory.uri);
 	try {
 		directory.create();
-		file.create();
 		const outcome = await saveNativeDownload(input, {
 			discard: () => discard(directory),
 			sharingAvailable: Sharing.isAvailableAsync,
-			open: () => {
-				const handle = file.open(FileMode.WriteOnly);
-				return { close: () => handle.close(), write: (chunk) => handle.writeBytes(chunk) };
-			},
+			download: (headers) =>
+				File.downloadFileAsync(input.url, file, { headers, idempotent: true }).then(
+					() => undefined,
+				),
 			share: () =>
 				Sharing.shareAsync(file.uri, {
 					mimeType: input.contentType,
