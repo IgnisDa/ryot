@@ -78,6 +78,7 @@ export default async function () {
 		process.env.E2E_FRONTEND_URL = frontendUrl;
 		process.env.E2E_API_URL = `http://127.0.0.1:${apiPort}/api`;
 		process.env.E2E_ADMIN_ACCESS_TOKEN = String(apiEnv.SERVER_ADMIN_ACCESS_TOKEN);
+		console.info(`PostgreSQL logs: ${coreInfrastructure.pgLogPath}`);
 	} catch (error) {
 		await stopApiProcess(apiProcess);
 		await stopCoreTestInfrastructure(coreInfrastructure);

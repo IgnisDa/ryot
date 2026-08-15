@@ -1,8 +1,9 @@
 import { expect, it } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
+import { Effect } from "effect";
 import { SqlError, UniqueViolation } from "effect/unstable/sql/SqlError";
 
-import { databaseError, isUniqueConstraintError } from "./service";
+import { databaseError, isUniqueConstraintError, retryOnDeadlock } from "./service";
 
 it("maps Effect SQL metadata to the application DbError", () => {
 	const cause = Object.assign(new Error("duplicate"), {
@@ -38,3 +39,37 @@ it("matches only the requested unique constraint", () => {
 	).toBe(false);
 	expect(matchesEmailConstraint(new DbError({ code: "40001", message: "retry" }))).toBe(false);
 });
+
+it.effect("retries a deadlocked transaction twice", () =>
+	Effect.gen(function* () {
+		let attempts = 0;
+		const result = yield* retryOnDeadlock(
+			Effect.suspend(() => {
+				attempts += 1;
+				return attempts < 3
+					? Effect.fail(new DbError({ code: "40P01", message: "deadlock" }))
+					: Effect.succeed("committed");
+			}),
+		);
+
+		expect(result).toBe("committed");
+		expect(attempts).toBe(3);
+	}),
+);
+
+it.effect("does not retry another database failure", () =>
+	Effect.gen(function* () {
+		let attempts = 0;
+		const error = yield* Effect.flip(
+			retryOnDeadlock(
+				Effect.suspend(() => {
+					attempts += 1;
+					return Effect.fail(new DbError({ code: "40001", message: "serialization" }));
+				}),
+			),
+		);
+
+		expect(error.code).toBe("40001");
+		expect(attempts).toBe(1);
+	}),
+);

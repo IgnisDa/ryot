@@ -286,6 +286,8 @@ const mockRelationshipSchemasRepository = Layer.mock(RelationshipSchemasReposito
 
 const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
 	mockEntitiesRepository({
+		lockEntityReferencesByIds: () => Effect.void,
+		lockProviderEntityMutations: () => Effect.void,
 		findEntityByExternalId: () => Effect.succeed(null),
 		findEntitySchemaProviderBySlug: () => Effect.succeed(null),
 		findSystemEntitySchemaById: () => Effect.succeed(baseEntitySchema),
@@ -334,6 +336,7 @@ const makeRelationshipsRepository = (
 	overrides: MockOverrides<typeof mockRelationshipsRepository> = {},
 ) =>
 	mockRelationshipsRepository({
+		lockRelationshipMutations: () => Effect.void,
 		deleteRelationship: () => Effect.succeed(null),
 		listGlobalRelationships: () => Effect.succeed([]),
 		createRelationship: (input) => Effect.succeed(relationshipForInput(input)),

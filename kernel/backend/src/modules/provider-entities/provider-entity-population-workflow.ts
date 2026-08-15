@@ -16,7 +16,7 @@ import { asRecord } from "@ryot-app/ts-utils/predicates";
 import { Cause, DateTime, Effect, Schedule, Schema } from "effect";
 import { Activity, Workflow } from "effect/unstable/workflow";
 
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors, retryOnDeadlock } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { DefinitionRegistry, DefinitionSnapshot } from "#modules/definition-registry/service";
@@ -159,6 +159,7 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 ) {
 	const database = yield* Database;
 	const entities = yield* EntitiesService;
+	const entitiesRepository = yield* EntitiesRepository;
 	const scope = getEntityWriteScope(payload);
 
 	return yield* Activity.make({
@@ -168,21 +169,31 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 		// A brand-new or not-yet-populated entity is written with a null populatedAt so
 		// children can reference it before the final stamp activity; refresh preserves an
 		// already-populated entity until then. Initial population replaces the skeleton.
-		execute: mapDatabaseErrors(
-			database.transaction((transaction) =>
-				Effect.gen(function* () {
-					const result = yield* entities.upsert({
-						...scope,
-						populatedAt: null,
-						name: details.name,
-						externalId: payload.externalId,
-						properties: details.properties,
-						providerId: payload.providerId,
-						entitySchemaSlug: payload.entitySchemaSlug,
-						updateExisting: options.mode !== "refresh",
-					});
-					return { result, committedAt: (yield* DateTime.nowAsDate).toISOString() };
-				}).pipe(Effect.provideService(Database, transaction)),
+		execute: retryOnDeadlock(
+			mapDatabaseErrors(
+				database.transaction((transaction) =>
+					Effect.gen(function* () {
+						yield* entitiesRepository.lockProviderEntityMutations([
+							{
+								...scope,
+								externalId: payload.externalId,
+								providerId: payload.providerId,
+								entitySchemaSlug: payload.entitySchemaSlug,
+							},
+						]);
+						const result = yield* entities.upsert({
+							...scope,
+							populatedAt: null,
+							name: details.name,
+							externalId: payload.externalId,
+							properties: details.properties,
+							providerId: payload.providerId,
+							entitySchemaSlug: payload.entitySchemaSlug,
+							updateExisting: options.mode !== "refresh",
+						});
+						return { result, committedAt: (yield* DateTime.nowAsDate).toISOString() };
+					}).pipe(Effect.provideService(Database, transaction)),
+				),
 			),
 		).pipe(mapDbErrorToSandbox),
 	});
@@ -201,18 +212,20 @@ const syncRelatedEntityGroupScope = Effect.fn("syncProviderRelatedEntityGroupSco
 		error: SandboxRunError satisfies DurableSchema,
 		success: RelationshipSyncEnvelope satisfies DurableSchema,
 		name: `sync-related-entity-group:${index}:${group.relationshipSchemaSlug}`,
-		execute: mapDatabaseErrors(
-			database.transaction((transaction) =>
-				Effect.gen(function* () {
-					const outcomes = yield* syncRelatedEntityGroup({
-						...entityScope,
-						group,
-						definitions,
-						primaryEntityId: entity.id,
-						primaryEntitySchemaSlug: payload.entitySchemaSlug,
-					});
-					return { outcomes, committedAt: (yield* DateTime.nowAsDate).toISOString() };
-				}).pipe(Effect.provideService(Database, transaction)),
+		execute: retryOnDeadlock(
+			mapDatabaseErrors(
+				database.transaction((transaction) =>
+					Effect.gen(function* () {
+						const outcomes = yield* syncRelatedEntityGroup({
+							...entityScope,
+							group,
+							definitions,
+							primaryEntityId: entity.id,
+							primaryEntitySchemaSlug: payload.entitySchemaSlug,
+						});
+						return { outcomes, committedAt: (yield* DateTime.nowAsDate).toISOString() };
+					}).pipe(Effect.provideService(Database, transaction)),
+				),
 			),
 		).pipe(mapDbErrorToSandbox),
 	});
@@ -230,18 +243,20 @@ const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function*
 		error: SandboxRunError satisfies DurableSchema,
 		name: `write-child-entity-set:${scope.parentExternalId}`,
 		success: ChildEntitySetWriteResult satisfies DurableSchema,
-		execute: mapDatabaseErrors(
-			database.transaction((transaction) =>
-				writeChildEntitySet({
-					...entityScope,
-					definitions,
-					providerId: payload.providerId,
-					childEntities: scope.childEntities,
-					parentEntityId: scope.parentEntityId,
-					syncExisting: options.mode === "refresh",
-					parentEntitySchemaSlug: scope.parentEntitySchemaSlug,
-					expectedChildEntitySchemaSlug: scope.expectedChildEntitySchemaSlug,
-				}).pipe(Effect.provideService(Database, transaction)),
+		execute: retryOnDeadlock(
+			mapDatabaseErrors(
+				database.transaction((transaction) =>
+					writeChildEntitySet({
+						...entityScope,
+						definitions,
+						providerId: payload.providerId,
+						childEntities: scope.childEntities,
+						parentEntityId: scope.parentEntityId,
+						syncExisting: options.mode === "refresh",
+						parentEntitySchemaSlug: scope.parentEntitySchemaSlug,
+						expectedChildEntitySchemaSlug: scope.expectedChildEntitySchemaSlug,
+					}).pipe(Effect.provideService(Database, transaction)),
+				),
 			),
 		).pipe(mapDbErrorToSandbox),
 	});
@@ -253,28 +268,39 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 ) {
 	const database = yield* Database;
 	const entities = yield* EntitiesService;
+	const entitiesRepository = yield* EntitiesRepository;
 	const scope = getEntityWriteScope(payload);
 
 	return yield* Activity.make({
 		name: "stamp-root-populated-at",
 		error: SandboxRunError satisfies DurableSchema,
 		success: ProviderEntitySaveEnvelope satisfies DurableSchema,
-		execute: mapDatabaseErrors(
-			database.transaction((transaction) =>
-				Effect.gen(function* () {
-					const populatedAt = yield* DateTime.nowAsDate;
-					const result = yield* entities.upsert({
-						...scope,
-						populatedAt,
-						name: details.name,
-						updateExisting: true,
-						properties: details.properties,
-						externalId: payload.externalId,
-						providerId: payload.providerId,
-						entitySchemaSlug: payload.entitySchemaSlug,
-					});
-					return { result, committedAt: (yield* DateTime.nowAsDate).toISOString() };
-				}).pipe(Effect.provideService(Database, transaction)),
+		execute: retryOnDeadlock(
+			mapDatabaseErrors(
+				database.transaction((transaction) =>
+					Effect.gen(function* () {
+						yield* entitiesRepository.lockProviderEntityMutations([
+							{
+								...scope,
+								externalId: payload.externalId,
+								providerId: payload.providerId,
+								entitySchemaSlug: payload.entitySchemaSlug,
+							},
+						]);
+						const populatedAt = yield* DateTime.nowAsDate;
+						const result = yield* entities.upsert({
+							...scope,
+							populatedAt,
+							name: details.name,
+							updateExisting: true,
+							properties: details.properties,
+							externalId: payload.externalId,
+							providerId: payload.providerId,
+							entitySchemaSlug: payload.entitySchemaSlug,
+						});
+						return { result, committedAt: (yield* DateTime.nowAsDate).toISOString() };
+					}).pipe(Effect.provideService(Database, transaction)),
+				),
 			),
 		).pipe(mapDbErrorToSandbox),
 	});

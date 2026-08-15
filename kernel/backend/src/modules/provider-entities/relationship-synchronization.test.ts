@@ -27,10 +27,12 @@ it.effect("creates user-owned relationships with exact plugin provenance", () =>
 	const layer = Layer.mergeAll(
 		databaseLayer,
 		Layer.mock(EntitiesRepository)({
+			lockEntityReferencesByIds: () => Effect.void,
 			listEntityReferencesByIds: (ids) =>
 				Effect.succeed(ids.map((id) => ({ id, name: String(id), entitySchemaSlug: "entity" }))),
 		}),
 		Layer.mock(RelationshipsRepository)({
+			lockRelationshipMutations: () => Effect.void,
 			listUserRelationshipsForEntityWithProvenance: () => Effect.succeed([]),
 		}),
 		Layer.mock(RelationshipsService)({
@@ -111,6 +113,7 @@ it.effect(
 		const stale = existing[0];
 		assert(stale);
 		const entitiesRepository = Layer.mock(EntitiesRepository)({
+			lockEntityReferencesByIds: () => Effect.void,
 			listEntityReferencesByIds: (ids) =>
 				Effect.succeed(
 					ids.map((id) => ({
@@ -121,6 +124,7 @@ it.effect(
 				),
 		});
 		const relationshipsRepository = Layer.mock(RelationshipsRepository)({
+			lockRelationshipMutations: () => Effect.void,
 			listGlobalRelationships: () => Effect.succeed(existing),
 		});
 		const relationshipsService = Layer.mock(RelationshipsService)({
@@ -228,10 +232,12 @@ it.effect("preserves different existing properties as a noop", () => {
 	const layer = Layer.mergeAll(
 		databaseLayer,
 		Layer.mock(EntitiesRepository)({
+			lockEntityReferencesByIds: () => Effect.void,
 			listEntityReferencesByIds: (ids) =>
 				Effect.succeed(ids.map((id) => ({ id, name: `Entity ${id}`, entitySchemaSlug: "person" }))),
 		}),
 		Layer.mock(RelationshipsRepository)({
+			lockRelationshipMutations: () => Effect.void,
 			listGlobalRelationships: () => Effect.succeed([current]),
 		}),
 		Layer.mock(RelationshipsService)({
@@ -281,6 +287,7 @@ it.effect(
 			const layer = Layer.mergeAll(
 				databaseLayer,
 				Layer.mock(EntitiesRepository)({
+					lockEntityReferencesByIds: () => Effect.void,
 					listEntityReferencesByIds: (ids) =>
 						Effect.succeed(
 							ids.map((id) => ({
@@ -291,6 +298,7 @@ it.effect(
 						),
 				}),
 				Layer.mock(RelationshipsRepository)({
+					lockRelationshipMutations: () => Effect.void,
 					listGlobalRelationships: () => Effect.succeed(stored ? [stored] : []),
 				}),
 				Layer.mock(RelationshipsService)({

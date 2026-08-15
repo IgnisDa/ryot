@@ -1,4 +1,4 @@
-import { SandboxRunError, mapDbErrorToSandbox } from "@ryot-app/contract/errors";
+import { SandboxRunError } from "@ryot-app/contract/errors";
 import type {
 	EntityId,
 	RelationshipId,
@@ -13,7 +13,10 @@ import type {
 	RelationshipMutationOutcome,
 	RelationshipMutationSnapshot,
 } from "#modules/relationships/mutation-outcomes";
-import { RelationshipsRepository } from "#modules/relationships/repository";
+import {
+	RelationshipsRepository,
+	relationshipMutationLockKey,
+} from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 
 type RelationshipValue = {
@@ -24,9 +27,6 @@ type RelationshipValue = {
 	targetEntityId: EntityId;
 	relationshipSchemaSlug: RelationshipSchemaSlug;
 };
-
-const toSandboxRunError = (error: { message: string }) =>
-	new SandboxRunError({ message: error.message });
 
 export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelationships")(
 	function* (
@@ -44,6 +44,23 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 		const relationships = yield* RelationshipsService;
 		const entitiesRepository = yield* EntitiesRepository;
 		const relationshipsRepository = yield* RelationshipsRepository;
+		const relationshipInputFor = (entityId: EntityId) => ({
+			relationshipSchemaSlug: input.relationshipSchemaSlug,
+			relationshipSchemaPluginId: input.relationshipSchemaPluginId ?? null,
+			sourceEntityId: input.direction === "outgoing" ? input.anchorEntityId : entityId,
+			targetEntityId: input.direction === "outgoing" ? entityId : input.anchorEntityId,
+			...(input.scope === "user"
+				? { userId: input.userId, scope: "user" as const }
+				: { scope: "global" as const }),
+		});
+		const entries = new Map(input.entries.map((entry) => [entry.entityId, entry]));
+		const orderedEntries = [...entries.values()]
+			.map((entry) => ({ entry, identity: relationshipInputFor(entry.entityId) }))
+			.sort((left, right) =>
+				relationshipMutationLockKey(left.identity).localeCompare(
+					relationshipMutationLockKey(right.identity),
+				),
+			);
 		const existing = yield* input.scope === "user"
 			? relationshipsRepository
 					.listUserRelationshipsForEntityWithProvenance({
@@ -62,17 +79,14 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 										: row.targetEntityId === input.anchorEntityId),
 							),
 						),
-						mapDbErrorToSandbox,
 					)
-			: relationshipsRepository
-					.listGlobalRelationships({
-						type: "anchored",
-						direction: input.direction,
-						anchorEntityId: input.anchorEntityId,
-						relationshipSchemaSlug: input.relationshipSchemaSlug,
-						relationshipSchemaPluginId: input.relationshipSchemaPluginId ?? null,
-					})
-					.pipe(mapDbErrorToSandbox);
+			: relationshipsRepository.listGlobalRelationships({
+					type: "anchored",
+					direction: input.direction,
+					anchorEntityId: input.anchorEntityId,
+					relationshipSchemaSlug: input.relationshipSchemaSlug,
+					relationshipSchemaPluginId: input.relationshipSchemaPluginId ?? null,
+				});
 		const sortedExisting = [...existing].sort(
 			(left, right) =>
 				left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
@@ -83,7 +97,6 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 				relationship,
 			]),
 		);
-		const entries = new Map(input.entries.map((entry) => [entry.entityId, entry]));
 		const endpointIds = new Set<EntityId>([input.anchorEntityId]);
 		for (const entry of entries.values()) {
 			endpointIds.add(entry.entityId);
@@ -92,9 +105,22 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 			endpointIds.add(relationship.sourceEntityId);
 			endpointIds.add(relationship.targetEntityId);
 		}
-		const endpoints = yield* entitiesRepository
-			.listEntityReferencesByIds([...endpointIds])
-			.pipe(mapDbErrorToSandbox);
+		yield* entitiesRepository.lockEntityReferencesByIds([...endpointIds]);
+		yield* relationshipsRepository.lockRelationshipMutations([
+			...orderedEntries.map(({ identity }) => identity),
+			...(input.synchronization === "authoritative"
+				? sortedExisting.map((relationship) => ({
+						sourceEntityId: relationship.sourceEntityId,
+						targetEntityId: relationship.targetEntityId,
+						relationshipSchemaSlug: relationship.relationshipSchemaSlug,
+						relationshipSchemaPluginId: input.relationshipSchemaPluginId ?? null,
+						...(input.scope === "user"
+							? { userId: input.userId, scope: "user" as const }
+							: { scope: "global" as const }),
+					}))
+				: []),
+		]);
+		const endpoints = yield* entitiesRepository.listEntityReferencesByIds([...endpointIds]);
 		const endpointsById = new Map(endpoints.map((endpoint) => [endpoint.id, endpoint]));
 
 		const toSnapshot = Effect.fn("toRelationshipMutationSnapshot")(function* (
@@ -117,20 +143,12 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 			} satisfies RelationshipMutationSnapshot;
 		});
 
-		const outcomes: RelationshipMutationOutcome[] = [];
-		for (const entry of entries.values()) {
-			const sourceEntityId = input.direction === "outgoing" ? input.anchorEntityId : entry.entityId;
-			const targetEntityId = input.direction === "outgoing" ? entry.entityId : input.anchorEntityId;
+		const outcomesByEntityId = new Map<EntityId, RelationshipMutationOutcome>();
+		for (const { entry, identity } of orderedEntries) {
 			const relationshipInput = {
-				sourceEntityId,
-				targetEntityId,
+				...identity,
 				properties: entry.properties,
 				propertiesSchema: input.propertiesSchema,
-				relationshipSchemaSlug: input.relationshipSchemaSlug,
-				relationshipSchemaPluginId: input.relationshipSchemaPluginId ?? null,
-				...(input.scope === "user"
-					? { userId: input.userId, scope: "user" as const }
-					: { scope: "global" as const }),
 			};
 			const current = existingByEntityId.get(entry.entityId);
 			if (current) {
@@ -139,46 +157,50 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 					input.onConflict === "preserveExisting" ||
 					Bun.deepEquals(current.properties, entry.properties)
 				) {
-					outcomes.push({ before, after: before, operation: "noop" });
+					outcomesByEntityId.set(entry.entityId, { before, after: before, operation: "noop" });
 					continue;
 				}
 
-				const updateRelationship = relationships
-					.update(relationshipInput)
-					.pipe(Effect.mapError(toSandboxRunError));
-				const updated = yield* updateRelationship;
-				outcomes.push({ before, operation: "update", after: yield* toSnapshot(updated) });
+				const updated = yield* relationships.update(relationshipInput);
+				outcomesByEntityId.set(entry.entityId, {
+					before,
+					operation: "update",
+					after: yield* toSnapshot(updated),
+				});
 				continue;
 			}
 
-			const createRelationship = relationships
-				.create(relationshipInput)
-				.pipe(Effect.mapError(toSandboxRunError));
-			const created = yield* createRelationship;
+			const created = yield* relationships.create(relationshipInput);
 			const createdSnapshot = yield* toSnapshot(created);
 			if (created.wasInserted) {
-				outcomes.push({ before: null, operation: "create", after: createdSnapshot });
+				outcomesByEntityId.set(entry.entityId, {
+					before: null,
+					operation: "create",
+					after: createdSnapshot,
+				});
 				continue;
 			}
 			if (
 				input.onConflict === "preserveExisting" ||
 				Bun.deepEquals(created.properties, entry.properties)
 			) {
-				outcomes.push({ operation: "noop", after: createdSnapshot, before: createdSnapshot });
+				outcomesByEntityId.set(entry.entityId, {
+					operation: "noop",
+					after: createdSnapshot,
+					before: createdSnapshot,
+				});
 				continue;
 			}
 
-			const updateCreatedRelationship = relationships
-				.update(relationshipInput)
-				.pipe(Effect.mapError(toSandboxRunError));
-			const updated = yield* updateCreatedRelationship;
-			outcomes.push({
+			const updated = yield* relationships.update(relationshipInput);
+			outcomesByEntityId.set(entry.entityId, {
 				operation: "update",
 				before: createdSnapshot,
 				after: yield* toSnapshot(updated),
 			});
 		}
 
+		const deletedOutcomes: RelationshipMutationOutcome[] = [];
 		if (input.synchronization === "authoritative") {
 			for (const relationship of sortedExisting) {
 				const relatedEntityId =
@@ -189,24 +211,21 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 					continue;
 				}
 
-				const deleteRelationship = relationships
-					.delete({
-						sourceEntityId: relationship.sourceEntityId,
-						targetEntityId: relationship.targetEntityId,
-						relationshipSchemaSlug: relationship.relationshipSchemaSlug,
-						relationshipSchemaPluginId: input.relationshipSchemaPluginId ?? null,
-						...(input.scope === "user"
-							? { userId: input.userId, scope: "user" as const }
-							: { scope: "global" as const }),
-					})
-					.pipe(Effect.mapError(toSandboxRunError));
-				const deleted = yield* deleteRelationship;
+				const deleted = yield* relationships.delete({
+					sourceEntityId: relationship.sourceEntityId,
+					targetEntityId: relationship.targetEntityId,
+					relationshipSchemaSlug: relationship.relationshipSchemaSlug,
+					relationshipSchemaPluginId: input.relationshipSchemaPluginId ?? null,
+					...(input.scope === "user"
+						? { userId: input.userId, scope: "user" as const }
+						: { scope: "global" as const }),
+				});
 				if (!deleted) {
 					return yield* new SandboxRunError({
 						message: `Relationship disappeared during synchronization: ${relationship.id}`,
 					});
 				}
-				outcomes.push({
+				deletedOutcomes.push({
 					after: null,
 					operation: "delete",
 					before: yield* toSnapshot(relationship),
@@ -214,6 +233,12 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 			}
 		}
 
-		return outcomes;
+		return [
+			...[...entries.keys()].flatMap((entityId) => {
+				const outcome = outcomesByEntityId.get(entityId);
+				return outcome ? [outcome] : [];
+			}),
+			...deletedOutcomes,
+		];
 	},
 );

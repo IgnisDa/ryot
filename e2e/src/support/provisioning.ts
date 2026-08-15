@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { EventEmitter, once } from "node:events";
+import { createWriteStream, type WriteStream } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -13,8 +14,10 @@ const S3_SECRET_KEY = "rustfsadmin";
 export type CoreTestInfrastructure = {
 	dbUrl: string;
 	redisUrl: string;
+	pgLogPath: string;
 	s3Client: S3Client;
 	s3Endpoint: string;
+	pgLogStream: WriteStream;
 	s3Container: StartedTestContainer;
 	redisContainer: StartedTestContainer;
 	pgContainer: StartedPostgreSqlContainer;
@@ -24,12 +27,27 @@ export async function startCoreTestInfrastructure(input: {
 	bucketName: string;
 }): Promise<CoreTestInfrastructure> {
 	process.env.TESTCONTAINERS_RYUK_DISABLED = "true";
+	const pgLogPath = join(tmpdir(), `ryot-e2e-postgres-${process.pid}.log`);
+	const pgLog = createWriteStream(pgLogPath, { flags: "w" });
 	const [pgContainer, redisContainer, s3Container] = await Promise.all([
 		new PostgreSqlContainer("postgres:18-alpine")
 			.withDatabase("test_db")
 			.withUsername("test_user")
 			.withPassword("test_password")
-			.withCommand(["postgres", "-c", "max_connections=400"])
+			.withCommand([
+				"postgres",
+				"-c",
+				"max_connections=400",
+				"-c",
+				"log_lock_waits=on",
+				"-c",
+				"deadlock_timeout=100ms",
+				"-c",
+				"log_min_error_statement=error",
+				"-c",
+				"log_line_prefix=%m [%p] tx=%x ",
+			])
+			.withLogConsumer((stream) => stream.pipe(pgLog))
 			.withWaitStrategy(Wait.forLogMessage("database system is ready"))
 			.start(),
 		new GenericContainer("redis:alpine")
@@ -55,7 +73,17 @@ export async function startCoreTestInfrastructure(input: {
 
 	await s3Client.send(new CreateBucketCommand({ Bucket: input.bucketName }));
 
-	return { dbUrl, redisUrl, s3Client, s3Endpoint, pgContainer, s3Container, redisContainer };
+	return {
+		dbUrl,
+		redisUrl,
+		s3Client,
+		pgLogPath,
+		s3Endpoint,
+		pgContainer,
+		s3Container,
+		redisContainer,
+		pgLogStream: pgLog,
+	};
 }
 
 export async function stopCoreTestInfrastructure(infrastructure?: CoreTestInfrastructure) {
@@ -68,6 +96,10 @@ export async function stopCoreTestInfrastructure(infrastructure?: CoreTestInfras
 		infrastructure.s3Container.stop(),
 		infrastructure.redisContainer.stop(),
 	]);
+	if (!infrastructure.pgLogStream.closed) {
+		infrastructure.pgLogStream.end();
+		await once(infrastructure.pgLogStream, "close");
+	}
 }
 
 export function buildApiEnv(input: {

@@ -120,7 +120,7 @@ const runGetCurrentIntegration = (
 				Layer.succeed(RedisService, makeRedisService()),
 				Layer.mock(EventsService)({}),
 				Layer.mock(EntitiesService)({}),
-				Layer.mock(EntitiesRepository)({}),
+				Layer.mock(EntitiesRepository)({ lockEntityReferencesByIds: () => Effect.void }),
 				Layer.mock(RyotQLService)({}),
 				Layer.succeed(DefinitionRegistry, { ...makeDefinitionRegistry() }),
 				Layer.mock(PluginRuntimeResolver)({}),
@@ -272,7 +272,7 @@ const runExecuteRyotql = (input: SandboxRunInput, document: RyotQLDocument = ryo
 				Layer.succeed(RedisService, makeRedisService()),
 				Layer.mock(EventsService)({}),
 				Layer.mock(EntitiesService)({}),
-				Layer.mock(EntitiesRepository)({}),
+				Layer.mock(EntitiesRepository)({ lockEntityReferencesByIds: () => Effect.void }),
 				Layer.mock(IntegrationsRepository)({}),
 				Layer.mock(RelationshipsRepository)({}),
 				Layer.succeed(DefinitionRegistry, makeDefinitionRegistry()),
@@ -426,7 +426,10 @@ const runChangeUserRelationships = (
 				Layer.mock(IntegrationsRepository)({}),
 				repository,
 				Layer.succeed(DefinitionRegistry, { ...makeDefinitionRegistry() }),
-				Layer.mock(EntitiesRepository)({ getEntityScopeForUser }),
+				Layer.mock(EntitiesRepository)({
+					getEntityScopeForUser,
+					lockEntityReferencesByIds: () => Effect.void,
+				}),
 			),
 		),
 	);
@@ -442,6 +445,7 @@ describe("changeUserRelationships", () => {
 	it.effect("derives the relationship owner from direct user subject", () => {
 		const created: unknown[] = [];
 		const repository = Layer.mock(RelationshipsRepository)({
+			lockRelationshipMutations: () => Effect.void,
 			createRelationship: (input) => {
 				created.push(input);
 				return Effect.succeed({
@@ -478,6 +482,7 @@ describe("changeUserRelationships", () => {
 	it.effect("derives the relationship owner from subscription subject", () => {
 		const created: unknown[] = [];
 		const repository = Layer.mock(RelationshipsRepository)({
+			lockRelationshipMutations: () => Effect.void,
 			createRelationship: (input) => {
 				created.push(input);
 				return Effect.succeed({
@@ -514,6 +519,7 @@ describe("changeUserRelationships", () => {
 	it.effect("brands deleted relationship identities before writing", () => {
 		const deleted: unknown[] = [];
 		const repository = Layer.mock(RelationshipsRepository)({
+			lockRelationshipMutations: () => Effect.void,
 			deleteRelationship: (input) => {
 				deleted.push(input);
 				return Effect.succeed(null);
@@ -544,6 +550,7 @@ describe("changeUserRelationships", () => {
 	it.effect("rejects a subscription relationship with an endpoint invisible to its user", () => {
 		let writes = 0;
 		const repository = Layer.mock(RelationshipsRepository)({
+			lockRelationshipMutations: () => Effect.void,
 			createRelationship: () => {
 				writes += 1;
 				return Effect.die("must not write");
@@ -580,6 +587,7 @@ describe("changeUserRelationships", () => {
 	it.effect("rejects system subject and total change overflow before writing", () => {
 		let writes = 0;
 		const repository = Layer.mock(RelationshipsRepository)({
+			lockRelationshipMutations: () => Effect.void,
 			createRelationship: () => {
 				writes += 1;
 				return Effect.die("must not write");
@@ -664,7 +672,7 @@ const runEnsureUserEntities = (options: {
 				Layer.mock(RyotQLService)({}),
 				Layer.mock(IntegrationsRepository)({}),
 				Layer.mock(RelationshipsRepository)({}),
-				Layer.mock(EntitiesRepository)({}),
+				Layer.mock(EntitiesRepository)({ lockEntityReferencesByIds: () => Effect.void }),
 				Layer.mock(EntitiesService)({
 					ensureUserEntities:
 						options.ensure ??
