@@ -122,6 +122,8 @@ pub enum DeployTraktImportInput {
     User(String),
     /// Import from a public Trakt list.
     List(DeployTraktImportListInput),
+    /// Import from a Trakt data export.
+    Export(DeployPathImportInput),
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]

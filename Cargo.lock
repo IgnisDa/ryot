@@ -8412,7 +8412,9 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
+ "tempfile",
  "tracing",
+ "zip",
 ]
 
 [[package]]
