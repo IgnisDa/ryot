@@ -65,6 +65,7 @@ apps/server/client
 apps/server/plugins
 apps/server/storage
 apps/server/work
+apps/server/logs
 apps/server/src/drizzle
 kernel/backend/src/lib/infrastructure/sandbox-runtime/runner.generated.ts
 kernel/backend/src/lib/infrastructure/sandbox-runtime/runtime-payload.generated.ts

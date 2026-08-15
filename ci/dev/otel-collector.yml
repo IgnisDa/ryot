@@ -8,6 +8,8 @@ processors:
   batch: {}
 
 exporters:
+  debug:
+    verbosity: basic
   otlp_http/jaeger:
     endpoint: http://ryot-jaeger:4318
   prometheus:
@@ -15,6 +17,10 @@ exporters:
 
 service:
   pipelines:
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]
     traces:
       receivers: [otlp]
       processors: [batch]
