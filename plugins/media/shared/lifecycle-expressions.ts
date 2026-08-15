@@ -280,6 +280,7 @@ const latestEpisodeEventExpressions = (episode: TableReference, alias: string) =
 	return {
 		...latestEventOrderExpressions(where, alias),
 		eventSchemaSlug: latestField(event, "eventSchemaSlug", where),
+		sessionEntityId: latestField(event, "sessionEntityId", where),
 	};
 };
 
@@ -477,7 +478,8 @@ const episodeStateFromLatest = (latestEventSchemaSlug: ScalarExpression) =>
  * The state an episode shows in lists, counts, and next-up. Once a new cycle has begun - a
  * regular-episode progress or completion after the parent's latest completion - it is the
  * episode's current-cycle state; until then it is the episode's lifetime latest state, so a
- * completed show still lists what was watched.
+ * completed show still lists what was watched. Season-zero specials carry no parent session and sit
+ * outside cycles, so they always show their lifetime latest state.
  */
 export const episodeDisplayStateExpression = (
 	episode: TableReference,
@@ -497,7 +499,11 @@ export const episodeDisplayStateExpression = (
 	const current = latestEpisodeLifecycleExpressions(episode, parent, `${alias}Current`);
 	const lifetime = latestEpisodeEventExpressions(episode, `${alias}Lifetime`);
 	return conditional(
-		and(isNotNull(cycleSignal.id), orderExpressionsAreAfter(cycleSignal, boundary)),
+		and(
+			isNotNull(lifetime.sessionEntityId),
+			isNotNull(cycleSignal.id),
+			orderExpressionsAreAfter(cycleSignal, boundary),
+		),
 		conditional(
 			orderExpressionsAreAfter(current, boundary),
 			episodeStateFromLatest(current.eventSchemaSlug),
