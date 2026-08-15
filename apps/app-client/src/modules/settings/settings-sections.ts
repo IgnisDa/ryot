@@ -1,3 +1,5 @@
+import { activeSectionSlug, type SectionNavItem } from "@/modules/ui/sections";
+
 export const settingsSections = [
 	{ slug: "general", label: "General", href: "/settings/general", icon: "sliders-horizontal" },
 	{ icon: "globe", slug: "integrations", label: "Integrations", href: "/settings/integrations" },
@@ -15,15 +17,9 @@ export const settingsSections = [
 	},
 	{ icon: "archive", slug: "backups", label: "Backups", href: "/settings/backups" },
 	{ icon: "user", slug: "account", label: "Account", href: "/settings/account" },
-] as const;
+] as const satisfies readonly SectionNavItem[];
 
-export type SettingsSection = (typeof settingsSections)[number];
-export type SettingsSectionSlug = SettingsSection["slug"];
+export type SettingsSectionSlug = (typeof settingsSections)[number]["slug"];
 
-const matchesSettingsSection = (pathname: string, href: string) =>
-	pathname.endsWith(href) || pathname.includes(`${href}/`);
-
-export function getActiveSettingsSection(pathname: string): SettingsSectionSlug {
-	const section = settingsSections.find((item) => matchesSettingsSection(pathname, item.href));
-	return section?.slug ?? "general";
-}
+export const getActiveSettingsSection = (pathname: string): SettingsSectionSlug =>
+	activeSectionSlug(pathname, settingsSections, "general");

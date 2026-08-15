@@ -1,7 +1,8 @@
 import { RegistryContext } from "@effect/atom-react";
-import { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef } from "react";
 
 import { useApiScope } from "@/api/scope";
+import { useDebouncedSearch } from "@/modules/ui/use-debounced-search";
 
 import { savedViewSessionAtom } from "./atoms";
 import type { SavedViewControllerState } from "./controller";
@@ -13,25 +14,14 @@ import {
 	type SavedViewSessionEntry,
 } from "./session-state";
 
-const SEARCH_DEBOUNCE_MS = 300;
-
 export function useSavedViewSession(props: { slug: string; workspace: string }) {
 	const scope = useApiScope();
 	const registry = useContext(RegistryContext);
 	const atom = savedViewSessionAtom(scope);
 	const restored = useRef<SavedViewSessionEntry | null>(null);
 	restored.current ??= savedViewSessionEntry(registry.get(atom), props.workspace, props.slug);
-	const [query, setQuery] = useState(restored.current.query);
-	const [value, setValue] = useState(restored.current.query);
-
-	useEffect(() => {
-		const normalized = value.trim();
-		if (normalized === query) {
-			return undefined;
-		}
-		const timer = setTimeout(() => setQuery(normalized), SEARCH_DEBOUNCE_MS);
-		return () => clearTimeout(timer);
-	}, [query, value]);
+	const search = useDebouncedSearch(restored.current.query);
+	const query = search.query;
 
 	useEffect(() => {
 		const session = registry.get(atom);
@@ -54,15 +44,6 @@ export function useSavedViewSession(props: { slug: string; workspace: string }) 
 				atom,
 				withSavedViewScrollOffset(registry.get(atom), props.workspace, props.slug, offset),
 			),
-		search: {
-			query,
-			value,
-			onChange: setValue,
-			onSubmit: () => setQuery(value.trim()),
-			onClear: () => {
-				setValue("");
-				setQuery("");
-			},
-		},
+		search,
 	};
 }

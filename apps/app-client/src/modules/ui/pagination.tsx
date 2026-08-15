@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
 
-export function SavedViewPagination(props: {
+export function AppLoadMore(props: {
 	readonly name: string;
 	readonly loaded: number;
 	readonly hasMore: boolean;
