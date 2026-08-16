@@ -1,1 +1,0 @@
-import{et as e}from"./index-BnMFOfJ-.js";import{t}from"./settings-frame-CsRR1LpH.js";var n=e();function r(){return(0,n.jsx)(t,{title:`Not found`,backFallbackHref:`/settings`,children:(0,n.jsx)(`p`,{role:`status`,className:`text-text-muted`,children:`This page does not exist.`})})}export{r as component};

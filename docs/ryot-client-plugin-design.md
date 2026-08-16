@@ -1485,6 +1485,26 @@ First-party native functionality should be exposed through Capacitor plugins own
 
 Third-party client plugins never receive direct Capacitor access.
 
+### Packaging and application identity
+
+Capacitor has no build-variant system, so application identity belongs to each platform's build
+configuration rather than to `capacitor.config.ts`. Debug builds carry a distinct name and
+identifier so a development build installs alongside a release build. `capacitor.config.ts` records
+the production identity only and must not branch on the environment.
+
+Launcher icons and splash screens are generated from a small set of source images rather than
+authored per density, so artwork stays regenerable and the emitted platform files are never edited
+by hand.
+
+### Deep links and native navigation
+
+Each platform registers the Ryot URL scheme and the build variant's own bundle identifier. An
+incoming URL is resolved to a kernel route and handed to the router; the Android hardware back
+button maps onto the same router history.
+
+This follows from §2.4: the kernel owns the single navigation history, so no native entry point may
+maintain navigation state of its own.
+
 ---
 
 ## 27. Foreground versus background ownership
