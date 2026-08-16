@@ -285,13 +285,14 @@ securityContext:
   runAsNonRoot: true
   runAsUser: 1001
 
-resources: {}
-#  limits:
-#    cpu: 1
-#    memory: 1Gi
-#  requests:
-#    cpu: 250m
-#    memory: 512Mi
+# -- Ryot container resources. The memory limit keeps a plugin that uses too much
+# memory from affecting the rest of the node.
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    memory: 2Gi
 
 podAnnotations: {}
 podLabels: {}
