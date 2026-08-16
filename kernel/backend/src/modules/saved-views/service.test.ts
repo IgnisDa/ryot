@@ -85,6 +85,8 @@ const makeLayer = (
 				}),
 				Layer.succeed(ClientSurfaceMaterializer, {
 					materializeUser: () => Effect.void,
+					assertUserBuilds: () => Effect.void,
+					materializeSystemBaseline: Effect.void,
 					materializePendingInstallation: () => Effect.void,
 					materializeRenderer: () => Effect.sync(() => onMaterializeRenderer?.()),
 				}),
@@ -393,6 +395,8 @@ it.effect("materializes canonical builtin definitions and preserves repository-o
 				PluginCatalogInvalidator.layer,
 				Layer.succeed(ClientSurfaceMaterializer, {
 					materializeUser: () => Effect.void,
+					assertUserBuilds: () => Effect.void,
+					materializeSystemBaseline: Effect.void,
 					materializeRenderer: () => Effect.void,
 					materializePendingInstallation: () => Effect.void,
 				}),

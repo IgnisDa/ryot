@@ -45,12 +45,17 @@ export const gateSessionCreation = (
 			yield* runBootstrap(userId).pipe(
 				Effect.catchCauseIf(
 					(cause) => !Cause.hasInterruptsOnly(cause),
-					() =>
-						Effect.fail(
-							APIError.from("SERVICE_UNAVAILABLE", {
-								code: "USER_INITIALIZING",
-								message: "Account initialization in progress. Please sign in again.",
-							}),
+					(cause) =>
+						Effect.logError("user bootstrap failed during session creation", cause).pipe(
+							Effect.annotateLogs({ userId }),
+							Effect.andThen(
+								Effect.fail(
+									APIError.from("SERVICE_UNAVAILABLE", {
+										code: "USER_INITIALIZING",
+										message: "Account initialization in progress. Please sign in again.",
+									}),
+								),
+							),
 						),
 				),
 				Effect.mapError(() =>

@@ -160,6 +160,8 @@ it.effect(
 					Layer.mock(SavedViewsService)({}),
 					Layer.succeed(ClientSurfaceMaterializer, {
 						materializeUser: () => Effect.void,
+						assertUserBuilds: () => Effect.void,
+						materializeSystemBaseline: Effect.void,
 						materializeRenderer: () => Effect.void,
 						materializePendingInstallation: () => Effect.void,
 					}),
@@ -284,6 +286,8 @@ it.effect("keeps a recreated reset user disabled until completion", () => {
 				Layer.mock(SavedViewsService)({}),
 				Layer.succeed(ClientSurfaceMaterializer, {
 					materializeUser: () => Effect.void,
+					assertUserBuilds: () => Effect.void,
+					materializeSystemBaseline: Effect.void,
 					materializeRenderer: () => Effect.void,
 					materializePendingInstallation: () => Effect.void,
 				}),
@@ -329,6 +333,8 @@ it.effect("uses one database transaction for reset enablement and completion", (
 				Layer.mock(SavedViewsService)({}),
 				Layer.succeed(ClientSurfaceMaterializer, {
 					materializeUser: () => Effect.void,
+					assertUserBuilds: () => Effect.void,
+					materializeSystemBaseline: Effect.void,
 					materializeRenderer: () => Effect.void,
 					materializePendingInstallation: () => Effect.void,
 				}),
