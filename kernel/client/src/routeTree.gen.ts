@@ -19,10 +19,12 @@ import { Route as AuthCallbackRouteImport } from './routes/auth_.callback'
 import { Route as OauthLoginRouteImport } from './routes/oauth.login'
 import { Route as AuthenticatedPluginSlugIndexRouteImport } from './routes/_authenticated/$pluginSlug/index'
 import { Route as AuthenticatedPluginSlugSplatRouteImport } from './routes/_authenticated/$pluginSlug/$'
+import { Route as AuthenticatedEEntityIdRouteImport } from './routes/_authenticated/e/$entityId'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
 import { Route as AuthenticatedSettingsSplatRouteImport } from './routes/_authenticated/settings/$'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
 import { Route as AuthenticatedSettingsPreferencesRouteImport } from './routes/_authenticated/settings/preferences'
+import { Route as AuthenticatedVViewSlugRouteImport } from './routes/_authenticated/v/$viewSlug'
 import { Route as AuthLogoutCallbackRouteImport } from './routes/auth_.logout.callback'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
@@ -78,6 +80,11 @@ const AuthenticatedPluginSlugSplatRoute =
     path: '/$',
     getParentRoute: () => AuthenticatedPluginSlugRouteRoute,
   } as any)
+const AuthenticatedEEntityIdRoute = AuthenticatedEEntityIdRouteImport.update({
+  id: '/e/$entityId',
+  path: '/e/$entityId',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedSettingsIndexRoute =
   AuthenticatedSettingsIndexRouteImport.update({
     id: '/',
@@ -102,6 +109,11 @@ const AuthenticatedSettingsPreferencesRoute =
     path: '/preferences',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedVViewSlugRoute = AuthenticatedVViewSlugRouteImport.update({
+  id: '/v/$viewSlug',
+  path: '/v/$viewSlug',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthLogoutCallbackRoute = AuthLogoutCallbackRouteImport.update({
   id: '/auth_/logout/callback',
   path: '/auth/logout/callback',
@@ -117,9 +129,11 @@ export interface FileRoutesByFullPath {
   '/auth/callback': typeof AuthCallbackRoute
   '/oauth/login': typeof OauthLoginRoute
   '/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
+  '/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
+  '/v/$viewSlug': typeof AuthenticatedVViewSlugRoute
   '/auth/logout/callback': typeof AuthLogoutCallbackRoute
   '/$pluginSlug/': typeof AuthenticatedPluginSlugIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
@@ -131,9 +145,11 @@ export interface FileRoutesByTo {
   '/oauth/login': typeof OauthLoginRoute
   '/': typeof AuthenticatedIndexRoute
   '/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
+  '/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
+  '/v/$viewSlug': typeof AuthenticatedVViewSlugRoute
   '/auth/logout/callback': typeof AuthLogoutCallbackRoute
   '/$pluginSlug': typeof AuthenticatedPluginSlugIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
@@ -149,9 +165,11 @@ export interface FileRoutesById {
   '/oauth/login': typeof OauthLoginRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
+  '/_authenticated/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/_authenticated/settings/$': typeof AuthenticatedSettingsSplatRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/_authenticated/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
+  '/_authenticated/v/$viewSlug': typeof AuthenticatedVViewSlugRoute
   '/auth_/logout/callback': typeof AuthLogoutCallbackRoute
   '/_authenticated/$pluginSlug/': typeof AuthenticatedPluginSlugIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
@@ -167,9 +185,11 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/oauth/login'
     | '/$pluginSlug/$'
+    | '/e/$entityId'
     | '/settings/$'
     | '/settings/account'
     | '/settings/preferences'
+    | '/v/$viewSlug'
     | '/auth/logout/callback'
     | '/$pluginSlug/'
     | '/settings/'
@@ -181,9 +201,11 @@ export interface FileRouteTypes {
     | '/oauth/login'
     | '/'
     | '/$pluginSlug/$'
+    | '/e/$entityId'
     | '/settings/$'
     | '/settings/account'
     | '/settings/preferences'
+    | '/v/$viewSlug'
     | '/auth/logout/callback'
     | '/$pluginSlug'
     | '/settings'
@@ -198,9 +220,11 @@ export interface FileRouteTypes {
     | '/oauth/login'
     | '/_authenticated/'
     | '/_authenticated/$pluginSlug/$'
+    | '/_authenticated/e/$entityId'
     | '/_authenticated/settings/$'
     | '/_authenticated/settings/account'
     | '/_authenticated/settings/preferences'
+    | '/_authenticated/v/$viewSlug'
     | '/auth_/logout/callback'
     | '/_authenticated/$pluginSlug/'
     | '/_authenticated/settings/'
@@ -287,6 +311,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPluginSlugSplatRouteImport
       parentRoute: typeof AuthenticatedPluginSlugRouteRoute
     }
+    '/_authenticated/e/$entityId': {
+      id: '/_authenticated/e/$entityId'
+      path: '/e/$entityId'
+      fullPath: '/e/$entityId'
+      preLoaderRoute: typeof AuthenticatedEEntityIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/settings/': {
       id: '/_authenticated/settings/'
       path: '/'
@@ -314,6 +345,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/preferences'
       preLoaderRoute: typeof AuthenticatedSettingsPreferencesRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/v/$viewSlug': {
+      id: '/_authenticated/v/$viewSlug'
+      path: '/v/$viewSlug'
+      fullPath: '/v/$viewSlug'
+      preLoaderRoute: typeof AuthenticatedVViewSlugRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/auth_/logout/callback': {
       id: '/auth_/logout/callback'
@@ -366,6 +404,8 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPluginSlugRouteRoute: typeof AuthenticatedPluginSlugRouteRouteWithChildren
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedEEntityIdRoute: typeof AuthenticatedEEntityIdRoute
+  AuthenticatedVViewSlugRoute: typeof AuthenticatedVViewSlugRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -373,6 +413,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
     AuthenticatedPluginSlugRouteRouteWithChildren,
   AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedEEntityIdRoute: AuthenticatedEEntityIdRoute,
+  AuthenticatedVViewSlugRoute: AuthenticatedVViewSlugRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
