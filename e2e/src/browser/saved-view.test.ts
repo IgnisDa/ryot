@@ -78,6 +78,8 @@ const openSavedView = (
 		yield* page.waitForURL((url) => url.pathname === new URL(urlForView).pathname);
 		if (options.compact) {
 			yield* page.getByTestId("mobile-drawer").waitFor({ state: "hidden" });
+			yield* page.getByRole("heading", { level: 1, name: VIEW_NAME }).waitFor({ state: "visible" });
+			return;
 		}
 		yield* pageSearch(page).waitFor({ state: "visible" });
 	});

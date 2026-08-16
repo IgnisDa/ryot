@@ -137,9 +137,12 @@ const pluginBridgeIdentityFields = {
 	bridgeVersion: Schema.Literal(CLIENT_BRIDGE_PROTOCOL_VERSION),
 };
 
+const pluginSafeAreaTop = Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
+
 export const PluginBridgeInit = strictStruct({
 	...pluginBridgeIdentityFields,
 	mode: PluginThemeMode,
+	safeAreaTop: pluginSafeAreaTop,
 });
 
 export type PluginBridgeInit = Schema.Schema.Type<typeof PluginBridgeInit>;
@@ -170,6 +173,10 @@ export const PluginBridgeNavigateBack = strictStruct({ type: Schema.Literal("nav
 
 export type PluginBridgeNavigateBack = Schema.Schema.Type<typeof PluginBridgeNavigateBack>;
 
+export const PluginBridgeOpenDrawer = strictStruct({ type: Schema.Literal("open-drawer") });
+
+export type PluginBridgeOpenDrawer = Schema.Schema.Type<typeof PluginBridgeOpenDrawer>;
+
 export const PluginBridgeNavigate = strictStruct({
 	location: PluginLogicalLocation,
 	type: Schema.Literal("navigate"),
@@ -194,6 +201,13 @@ export const PluginBridgeHeader = strictStruct({
 });
 
 export type PluginBridgeHeader = Schema.Schema.Type<typeof PluginBridgeHeader>;
+
+export const PluginBridgeViewport = strictStruct({
+	safeAreaTop: pluginSafeAreaTop,
+	type: Schema.Literal("viewport"),
+});
+
+export type PluginBridgeViewport = Schema.Schema.Type<typeof PluginBridgeViewport>;
 
 export const PluginBridgeTheme = strictStruct({
 	mode: PluginThemeMode,
@@ -330,10 +344,11 @@ export type PluginBridgeRyotQLResult = Schema.Schema.Type<typeof PluginBridgeRyo
 export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeHeader,
 	PluginBridgeNavigate,
+	PluginBridgeOpenDrawer,
 	PluginBridgeRyotQLCancel,
+	PluginBridgeNavigateBack,
 	PluginBridgeRyotQLRequest,
 	PluginBridgeLifecycleClose,
-	PluginBridgeNavigateBack,
 	PluginBridgeOperationRequest,
 ]);
 
@@ -342,6 +357,7 @@ export type PluginBridgeClientMessage = Schema.Schema.Type<typeof PluginBridgeCl
 export const PluginBridgeHostMessage = Schema.Union([
 	PluginBridgeTheme,
 	PluginBridgeLocation,
+	PluginBridgeViewport,
 	PluginBridgeRyotQLResult,
 	PluginBridgeLifecycleClose,
 	PluginBridgeOperationResult,

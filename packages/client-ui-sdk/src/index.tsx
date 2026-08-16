@@ -17,6 +17,7 @@ export { ReorderableList } from "./reorderable-list";
 export type { RadioGroupOption } from "./radio-group";
 export { FieldMessage, TextField } from "./text-field";
 export { SegmentedControl } from "./segmented-control";
+export { ScreenFrame, SCREEN_BAR_HEIGHT } from "./screen-frame";
 export type { MultiSelectChoice } from "./multi-select";
 export { useFocusTrap, useScrollLock, useRestoreFocus, useDismissOnOutside } from "./overlay";
 export { OverlayScope, useShortcut } from "./shortcut";

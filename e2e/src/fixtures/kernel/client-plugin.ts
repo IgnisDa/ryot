@@ -67,7 +67,7 @@ export const fixtureClientPluginPackage = (
 		const revisionHome =
 			revision === "B"
 				? revisedHome
-						.replace("bg-bg p-8 text-text", "bg-accent-soft p-8 text-text")
+						.replace("gap-4 text-text", "gap-4 bg-accent-soft text-text")
 						.replace(
 							'<img alt="" src={logo} className="plugin-logo" />',
 							'<StatusMessage tone="success">Revision B is active.</StatusMessage>\n\t\t\t<img alt="" src={logo} className="plugin-logo" />',

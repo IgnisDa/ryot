@@ -113,6 +113,8 @@ const openChannel = (definition: PluginRouterDefinition = { home: { component: H
 			getSnapshot: store.getSnapshot,
 			completeTransition: store.completeTransition,
 			back: () => messages.push({ type: "navigate-back" }),
+			openDrawer: () => messages.push({ type: "open-drawer" }),
+			publishTitle: (title: string | null) => messages.push({ title, type: "header" }),
 		},
 	};
 };

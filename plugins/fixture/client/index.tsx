@@ -3,6 +3,7 @@ import "./styles.css";
 import { bootstrapClientPlugin } from "@ryot-app/client-sdk/plugin";
 
 import { Details } from "./details";
+import { FullBleed } from "./full-bleed";
 import { Home } from "./home";
 
 const NotFound = () => (
@@ -13,12 +14,9 @@ const NotFound = () => (
 
 bootstrapClientPlugin({
 	notFound: NotFound,
-	home: { component: Home, header: () => ({ title: "Fixture home" }) },
+	home: { component: Home },
 	routes: [
-		{
-			component: Details,
-			path: "/details/$itemId",
-			header: ({ params }) => ({ title: `Item ${params.itemId}` }),
-		},
+		{ component: FullBleed, path: "/full-bleed" },
+		{ component: Details, path: "/details/$itemId" },
 	],
 });

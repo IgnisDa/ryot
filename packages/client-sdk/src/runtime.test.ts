@@ -29,12 +29,13 @@ const init: PluginBridgeInit = {
 	artifactHash: metadata.hash,
 	apiVersion: metadata.apiVersion,
 	mode: "light",
+	safeAreaTop: 0,
 	bridgeVersion: metadata.bridgeVersion,
 	compilerVersion: metadata.compilerVersion,
 };
 const document = { queries: {}, output: {} } as PreparedRecipe<unknown>["document"];
 const channels: MessageChannel[] = [];
-const routeResolver = () => ({ component: () => null, header: null, params: {} });
+const routeResolver = () => ({ component: () => null, params: {} });
 
 const openRuntime = () => {
 	const channel = new MessageChannel();
@@ -60,6 +61,15 @@ const openRuntime = () => {
 	};
 };
 
+const headersIn = (messages: readonly unknown[]) =>
+	messages.filter(
+		(message) =>
+			typeof message === "object" &&
+			message !== null &&
+			"type" in message &&
+			message.type === "header",
+	);
+
 const delay = () => new Promise((resolve) => setTimeout(resolve, 0));
 const activate = (channel: MessageChannel) => {
 	channel.port1.postMessage({
@@ -80,7 +90,7 @@ afterEach(() => {
 });
 
 describe("plugin runtime", () => {
-	it("publishes one atomic navigation snapshot and its active header", async () => {
+	it("publishes one atomic navigation snapshot and no header of its own", async () => {
 		const { channel, messages, runtime } = openRuntime();
 		const snapshots: unknown[] = [];
 		runtime.navigation.subscribe(() => snapshots.push(runtime.navigation.getSnapshot()));
@@ -98,10 +108,54 @@ describe("plugin runtime", () => {
 		expect(snapshots).toHaveLength(1);
 		expect(snapshots[0]).toMatchObject({
 			compact: true,
+			safeAreaTop: 0,
 			entry: { index: 0, key: "k0" },
-			screens: [{ key: "k0", header: null }],
+			screens: [{ key: "k0", location: { path: "/" } }],
 		});
-		expect(messages).toContainEqual({ index: 0, key: "k0", header: null, type: "header" });
+		expect(headersIn(messages)).toEqual([]);
+	});
+
+	it("stamps a published title with the current entry and ignores one before any location", async () => {
+		const { channel, messages, runtime } = openRuntime();
+
+		runtime.navigation.publishTitle("Too early");
+		await delay();
+
+		expect(headersIn(messages)).toEqual([]);
+
+		channel.port1.postMessage({
+			index: 3,
+			key: "k3",
+			compact: true,
+			edgeBack: true,
+			type: "location",
+			location: { path: "/items/1", search: "" },
+		});
+		await delay();
+		runtime.navigation.publishTitle("Item 1");
+		runtime.navigation.publishTitle(null);
+		runtime.navigation.openDrawer();
+		await delay();
+
+		expect(messages).toContainEqual({
+			index: 3,
+			key: "k3",
+			type: "header",
+			header: { title: "Item 1" },
+		});
+		expect(messages).toContainEqual({ index: 3, key: "k3", header: null, type: "header" });
+		expect(messages).toContainEqual({ type: "open-drawer" });
+	});
+
+	it("tracks the safe-area inset from init and from a viewport message", async () => {
+		const { channel, runtime } = openRuntime();
+
+		expect(runtime.navigation.getSnapshot().safeAreaTop).toBe(0);
+
+		channel.port1.postMessage({ safeAreaTop: 59, type: "viewport" });
+		await delay();
+
+		expect(runtime.navigation.getSnapshot().safeAreaTop).toBe(59);
 	});
 
 	it("owns handshake, activation, dispatch, and correlated calls", async () => {

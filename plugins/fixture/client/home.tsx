@@ -9,6 +9,7 @@ import {
 	useRyotQuery,
 	useRyotTheme,
 } from "@ryot-app/client-sdk/react";
+import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
 import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
 import clsx from "clsx";
 import { useState } from "react";
@@ -78,93 +79,101 @@ export const Home = () => {
 	};
 
 	return (
-		<main className="flex min-h-screen w-full flex-col items-center gap-4 bg-bg p-8 text-text">
-			<img alt="" src={logo} className="plugin-logo" />
-			<h1 className="font-display text-2xl">Fixture plugin</h1>
-			<section
-				aria-labelledby="fixture-binary-assets-title"
-				className="flex flex-col items-center gap-3"
-			>
-				<h2 id="fixture-binary-assets-title" className="font-display text-lg">
-					Binary plugin assets
-				</h2>
-				<div className="flex items-center gap-2">
-					<img
-						alt="Fixture plugin binary TSX import logo"
-						src={importedLogo}
-						className="plugin-logo"
-					/>
-					<span>Binary TSX import asset</span>
-				</div>
-				<div className="flex items-center gap-2">
-					<div role="img" aria-label="Fixture plugin binary CSS URL logo" className="css-logo" />
-					<span>Binary CSS URL asset</span>
-				</div>
-			</section>
-			<p className="text-text-muted">Greeted {greetings} times.</p>
-			<Button onClick={() => setGreetings((count) => count + 1)}>Greet</Button>
-			<Button variant="secondary" onClick={() => setShouldCrash(true)}>
-				Crash during render
-			</Button>
-			<section
-				aria-labelledby="fixture-theme-title"
-				className={clsx("w-full max-w-md", "rounded-lg border border-border bg-surface p-4")}
-			>
-				<h2 id="fixture-theme-title" className="font-display text-lg text-accent-text">
-					Theme snapshot
-				</h2>
-				<p role="status" aria-live="polite" className="text-sm text-text-muted">
-					Resolved mode: <strong className="text-accent-text">{theme.resolvedMode}</strong>
-				</p>
-				<StatusMessage className="mt-2" tone="success">
-					Semantic theme tokens synchronized.
-				</StatusMessage>
-				<div className="mt-3 rounded-md border border-accent bg-accent-soft p-3 text-sm text-text">
-					Accent surface with semantic border and primary text
-				</div>
-			</section>
-			<section aria-labelledby="fixture-catalog-title" className="flex flex-col items-center gap-2">
-				<h2 id="fixture-catalog-title" className="font-display text-lg">
-					Client plugin catalog
-				</h2>
-				<StatusMessage id="fixture-catalog-status" tone={catalogTones[catalog.status]}>
-					{catalogMessage}
-				</StatusMessage>
-				<Button
-					onClick={catalog.refetch}
-					disabled={catalog.isFetching}
-					aria-describedby="fixture-catalog-status"
+		<PluginScreenFrame title="Fixture plugin" contentClassName="px-4 pb-8 md:px-0">
+			<div className="flex w-full flex-col items-center gap-4 text-text">
+				<img alt="" src={logo} className="plugin-logo" />
+				<section
+					className="flex flex-col items-center gap-3"
+					aria-labelledby="fixture-binary-assets-title"
 				>
-					Refresh catalog
+					<h2 id="fixture-binary-assets-title" className="font-display text-lg">
+						Binary plugin assets
+					</h2>
+					<div className="flex items-center gap-2">
+						<img
+							src={importedLogo}
+							className="plugin-logo"
+							alt="Fixture plugin binary TSX import logo"
+						/>
+						<span>Binary TSX import asset</span>
+					</div>
+					<div className="flex items-center gap-2">
+						<div role="img" aria-label="Fixture plugin binary CSS URL logo" className="css-logo" />
+						<span>Binary CSS URL asset</span>
+					</div>
+				</section>
+				<p className="text-text-muted">Greeted {greetings} times.</p>
+				<Button onClick={() => setGreetings((count) => count + 1)}>Greet</Button>
+				<Button variant="secondary" onClick={() => setShouldCrash(true)}>
+					Crash during render
 				</Button>
-			</section>
-			<section
-				aria-labelledby="fixture-greeting-title"
-				className="flex flex-col items-center gap-2"
-			>
-				<h2 id="fixture-greeting-title" className="font-display text-lg">
-					Server greeting
-				</h2>
-				<StatusMessage tone={greetingTones[greeting.status]}>{greetingMessage}</StatusMessage>
-				{greeting.status === "error" ? (
-					<Button variant="secondary" onClick={() => requestGreeting(requested)}>
-						Try again
+				<section
+					aria-labelledby="fixture-theme-title"
+					className={clsx("w-full max-w-md", "rounded-lg border border-border bg-surface p-4")}
+				>
+					<h2 id="fixture-theme-title" className="font-display text-lg text-accent-text">
+						Theme snapshot
+					</h2>
+					<p role="status" aria-live="polite" className="text-sm text-text-muted">
+						Resolved mode: <strong className="text-accent-text">{theme.resolvedMode}</strong>
+					</p>
+					<StatusMessage className="mt-2" tone="success">
+						Semantic theme tokens synchronized.
+					</StatusMessage>
+					<div className="mt-3 rounded-md border border-accent bg-accent-soft p-3 text-sm text-text">
+						Accent surface with semantic border and primary text
+					</div>
+				</section>
+				<section
+					aria-labelledby="fixture-catalog-title"
+					className="flex flex-col items-center gap-2"
+				>
+					<h2 id="fixture-catalog-title" className="font-display text-lg">
+						Client plugin catalog
+					</h2>
+					<StatusMessage id="fixture-catalog-status" tone={catalogTones[catalog.status]}>
+						{catalogMessage}
+					</StatusMessage>
+					<Button
+						onClick={catalog.refetch}
+						disabled={catalog.isFetching}
+						aria-describedby="fixture-catalog-status"
+					>
+						Refresh catalog
 					</Button>
-				) : null}
-				<Button onClick={() => requestGreeting("Ryot")}>Fetch greeting</Button>
-				<Button variant="text" onClick={() => requestGreeting("")}>
-					Fetch without a name
+				</section>
+				<section
+					aria-labelledby="fixture-greeting-title"
+					className="flex flex-col items-center gap-2"
+				>
+					<h2 id="fixture-greeting-title" className="font-display text-lg">
+						Server greeting
+					</h2>
+					<StatusMessage tone={greetingTones[greeting.status]}>{greetingMessage}</StatusMessage>
+					{greeting.status === "error" ? (
+						<Button variant="secondary" onClick={() => requestGreeting(requested)}>
+							Try again
+						</Button>
+					) : null}
+					<Button onClick={() => requestGreeting("Ryot")}>Fetch greeting</Button>
+					<Button variant="text" onClick={() => requestGreeting("")}>
+						Fetch without a name
+					</Button>
+					<Button variant="text" onClick={() => greeting.mutate({ name: Number.NaN })}>
+						Fetch with invalid payload
+					</Button>
+				</section>
+				<PluginLink to="/details/item-1" search={{ tab: "stats" }}>
+					Item 1 details
+				</PluginLink>
+				<Button
+					variant="secondary"
+					onClick={() => ryot.navigation.push({ path: "/details/item-2" })}
+				>
+					Open item 2
 				</Button>
-				<Button variant="text" onClick={() => greeting.mutate({ name: Number.NaN })}>
-					Fetch with invalid payload
-				</Button>
-			</section>
-			<PluginLink to="/details/item-1" search={{ tab: "stats" }}>
-				Item 1 details
-			</PluginLink>
-			<Button variant="secondary" onClick={() => ryot.navigation.push({ path: "/details/item-2" })}>
-				Open item 2
-			</Button>
-		</main>
+				<PluginLink to="/full-bleed">Full-bleed screen</PluginLink>
+			</div>
+		</PluginScreenFrame>
 	);
 };
