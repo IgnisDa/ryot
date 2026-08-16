@@ -155,6 +155,16 @@ it("declares the complete media-owned source", () => {
 				automaticEntityPresentations: false,
 				entry: "client/podcast-card-presentation.ts",
 			},
+			"audiobook-row": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/audiobook-row-presentation.ts",
+			},
+			"audiobook-card": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/audiobook-card-presentation.ts",
+			},
 			"video-game-row": {
 				kind: "presentation",
 				automaticEntityPresentations: false,
@@ -213,6 +223,12 @@ it("declares the complete media-owned source", () => {
 				entry: "client/podcast/screen.tsx",
 				automaticEntityPresentations: false,
 			},
+			"audiobook-detail": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				entry: "client/audiobook/screen.tsx",
+			},
 			"video-game-detail": {
 				kind: "page",
 				settingsSchema: { fields: {} },
@@ -258,6 +274,11 @@ it("declares the complete media-owned source", () => {
 			detailPage: "podcast-detail",
 			listPresentation: "podcast-row",
 			gridPresentation: "podcast-card",
+		},
+		audiobook: {
+			detailPage: "audiobook-detail",
+			listPresentation: "audiobook-row",
+			gridPresentation: "audiobook-card",
 		},
 		"video-game": {
 			detailPage: "video-game-detail",

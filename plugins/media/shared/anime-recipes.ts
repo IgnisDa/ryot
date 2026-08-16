@@ -1,19 +1,16 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
-import { isNull, selectedField } from "@ryot-app/plugin-kit/ryotql";
+import { selectedField } from "@ryot-app/plugin-kit/ryotql";
 
 import { AiringScheduleListSchema } from "./anime";
 import { propertyJson, propertyNumber } from "./entity-selections";
-import { mediaFlatRecipes } from "./media-recipes";
+import { mediaEntityCountMeasure, mediaFlatRecipes } from "./media-recipes";
 
 export const animeRecipes = mediaFlatRecipes({
 	slug: "anime",
 	alias: "anime",
+	measure: mediaEntityCountMeasure("episodes"),
 	presentationFields: (entity) => ({
 		episodes: selectedField(propertyNumber(entity, "episodes"), Schema.NullOr(Schema.Number)),
-	}),
-	measure: (_event, entity) => ({
-		amount: propertyNumber(entity, "episodes"),
-		isUnknown: isNull(propertyNumber(entity, "episodes")),
 	}),
 	activityEventFields: (event) => ({
 		animeEpisode: selectedField(

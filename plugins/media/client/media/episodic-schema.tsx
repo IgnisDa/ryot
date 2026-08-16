@@ -7,7 +7,7 @@ import { createElement, type ReactNode } from "react";
 
 import type { EpisodicActivityInput, EpisodicOverviewInput } from "../../shared/episodic-recipes";
 import type { EpisodicLifecycleState } from "../../shared/lifecycle-expressions";
-import type { MediaOverviewRows } from "../../shared/media-recipes";
+import type { MediaOverviewRows, MediaUnlinkedCreatorsOverview } from "../../shared/media-recipes";
 import { MediaActivityReviewDetail, type MediaActivityRowRender } from "./activity-rows";
 import {
 	MediaActivity,
@@ -52,8 +52,8 @@ import {
 import {
 	mediaOverviewManagedAssets,
 	mediaRelationsAreEmpty,
+	mediaUnlinkedCreators,
 	type MediaOverviewState,
-	type MediaUnlinkedCreator,
 } from "./overview-state";
 import { MediaRefreshStatus } from "./primitives";
 import type { MediaSummaryValue } from "./summary-header";
@@ -110,7 +110,7 @@ type EpisodicActivityValue<Origin> = MediaEpisodicActivityValue<Origin> & {
 
 export type MediaEpisodicSchemaDescriptor<
 	Summary extends MediaEpisodicSummaryValue,
-	Overview extends MediaOverviewRows,
+	Overview extends MediaOverviewRows & MediaUnlinkedCreatorsOverview,
 	Presentation extends MediaEpisodicPresentationValue,
 	Origin,
 	Activity extends EpisodicActivityValue<Origin>,
@@ -151,7 +151,6 @@ export type MediaEpisodicSchemaDescriptor<
 		readonly entityId: string;
 		readonly summary: Summary | undefined;
 	}) => ReactNode;
-	readonly unlinkedCreators?: (overview: Overview) => readonly MediaUnlinkedCreator[];
 	readonly overviewTrailing?: (input: {
 		readonly summary: Summary;
 		readonly compact: boolean;
@@ -177,9 +176,12 @@ const TABS: readonly MediaTab<"overview" | "episodes" | "activity">[] = [
 const lifecycleLabel = (media: { readonly state: EpisodicLifecycleState }) =>
 	mediaEpisodicLifecycleLabel(media.state);
 
+const overviewIsEmpty = (overview: MediaOverviewRows & MediaUnlinkedCreatorsOverview) =>
+	mediaRelationsAreEmpty(overview, mediaUnlinkedCreators(overview));
+
 export const defineEpisodicMediaSchema = <
 	Summary extends MediaEpisodicSummaryValue,
-	Overview extends MediaOverviewRows,
+	Overview extends MediaOverviewRows & MediaUnlinkedCreatorsOverview,
 	Presentation extends MediaEpisodicPresentationValue,
 	Origin,
 	Activity extends EpisodicActivityValue<Origin>,
@@ -351,11 +353,6 @@ export const defineEpisodicMediaSchema = <
 		);
 	}
 
-	const unlinkedOf = (overview: Overview) => descriptor.unlinkedCreators?.(overview) ?? [];
-
-	const overviewIsEmpty = (overview: Overview) =>
-		mediaRelationsAreEmpty(overview, unlinkedOf(overview));
-
 	const overviewRelations: MediaOverviewRelationsRender<Overview> = ({
 		compact,
 		divided,
@@ -366,7 +363,7 @@ export const defineEpisodicMediaSchema = <
 			divided={divided}
 			overview={overview}
 			copy={descriptor.creditCopy}
-			unlinked={unlinkedOf(overview)}
+			unlinked={mediaUnlinkedCreators(overview)}
 			onViewAllPeople={() => console.log(`TODO: open all ${nouns.singular} credits`)}
 		/>
 	);
