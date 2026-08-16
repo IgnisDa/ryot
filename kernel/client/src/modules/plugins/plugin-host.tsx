@@ -15,6 +15,8 @@ import type {
 	PluginBridgeProviderSearchScreen,
 	PluginRyotQLOutcome,
 	PluginRyotQLRequest,
+	PluginStorageOutcome,
+	PluginStorageRequest,
 } from "@ryot-app/client-plugin-contract";
 import type { RyotClient } from "@ryot-app/client-sdk";
 import { Button, ScreenFrame, useShortcut } from "@ryot-app/client-ui-sdk";
@@ -104,6 +106,10 @@ export function PluginFrame(props: {
 		request: PluginOperationRequest,
 		signal: AbortSignal,
 	) => Promise<PluginOperationDispatchOutcome>;
+	readonly onStorage: (
+		request: PluginStorageRequest,
+		signal: AbortSignal,
+	) => Promise<PluginStorageOutcome>;
 }) {
 	const { key, index, compact, leading, edgeBack, location } = props.navigation;
 	const routePath = location.kind === "route" ? location.path : undefined;
@@ -303,6 +309,7 @@ export function PluginFrame(props: {
 			onProviderSearch: (request) => latest.current.onProviderSearch(request),
 			onAssets: (request, signal) => latest.current.onAssets(request, signal),
 			onUpload: (request, signal) => latest.current.onUpload(request, signal),
+			onStorage: (request, signal) => latest.current.onStorage(request, signal),
 			onKernelShortcut: (shortcut) => latest.current.onKernelShortcut(shortcut),
 			onCollection: (request, signal) => latest.current.onCollection(request, signal),
 			watchEntities: (interest, onUpdate) => latest.current.watchEntities(interest, onUpdate),

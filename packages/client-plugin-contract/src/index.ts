@@ -30,6 +30,8 @@ export { CLIENT_API_VERSION };
 export const CLIENT_ARTIFACT_FORMAT = 1 as const;
 export const CLIENT_COMPILER_VERSION = 1 as const;
 export const CLIENT_BRIDGE_MAX_PENDING_REQUESTS = 64;
+export const PLUGIN_STORAGE_KEY_MAX_LENGTH = 128;
+export const PLUGIN_STORAGE_VALUE_MAX_BYTES = 8192;
 export const CLIENT_BRIDGE_PROTOCOL_VERSION = 1 as const;
 export const CLIENT_BRIDGE_BOOTSTRAP_READY = "ryot-client-bootstrap-ready" as const;
 
@@ -588,6 +590,8 @@ export const RyotClientErrorReason = Schema.Literals([
 	"operation-failed",
 	"malformed-result",
 	"unsupported-capability",
+	"invalid-request",
+	"quota",
 ]);
 
 export type RyotClientErrorReason = Schema.Schema.Type<typeof RyotClientErrorReason>;
@@ -755,6 +759,74 @@ export const PluginBridgeOperationResult = Schema.Union([
 
 export type PluginBridgeOperationResult = Schema.Schema.Type<typeof PluginBridgeOperationResult>;
 
+export const PluginStorageBridgeErrorReason = Schema.Literals([
+	"invalid-request",
+	"quota",
+	"transport",
+]);
+
+export type PluginStorageBridgeErrorReason = Schema.Schema.Type<
+	typeof PluginStorageBridgeErrorReason
+>;
+
+const pluginStorageRequestFields = {
+	pluginSlug: PluginSlug,
+	key: Schema.String.pipe(
+		Schema.check(Schema.isMinLength(1), Schema.isMaxLength(PLUGIN_STORAGE_KEY_MAX_LENGTH)),
+	),
+};
+
+const storageRequestVariants = [
+	strictStruct({ ...pluginStorageRequestFields, action: Schema.Literal("get") }),
+	strictStruct({ ...pluginStorageRequestFields, value: JsonValue, action: Schema.Literal("set") }),
+	strictStruct({ ...pluginStorageRequestFields, action: Schema.Literal("remove") }),
+] as const;
+
+export const PluginStorageRequest = Schema.Union(storageRequestVariants);
+
+export type PluginStorageRequest = Schema.Schema.Type<typeof PluginStorageRequest>;
+
+export const PluginBridgeStorageRequest = Schema.Union(
+	storageRequestVariants.map((variant) =>
+		strictStruct({
+			...variant.fields,
+			requestId: Schema.String,
+			type: Schema.Literal("storage-request"),
+		}),
+	),
+);
+
+export type PluginBridgeStorageRequest = Schema.Schema.Type<typeof PluginBridgeStorageRequest>;
+
+const pluginStorageSuccessFields = {
+	value: Schema.NullOr(JsonValue),
+	outcome: Schema.Literal("success"),
+};
+
+const pluginStorageFailureFields = {
+	outcome: Schema.Literal("failure"),
+	reason: PluginStorageBridgeErrorReason,
+};
+
+const pluginBridgeStorageResultFields = {
+	requestId: Schema.String,
+	type: Schema.Literal("storage-result"),
+};
+
+export const PluginStorageOutcome = Schema.Union([
+	strictStruct(pluginStorageSuccessFields),
+	strictStruct(pluginStorageFailureFields),
+]);
+
+export type PluginStorageOutcome = Schema.Schema.Type<typeof PluginStorageOutcome>;
+
+export const PluginBridgeStorageResult = Schema.Union([
+	strictStruct({ ...pluginStorageSuccessFields, ...pluginBridgeStorageResultFields }),
+	strictStruct({ ...pluginStorageFailureFields, ...pluginBridgeStorageResultFields }),
+]);
+
+export type PluginBridgeStorageResult = Schema.Schema.Type<typeof PluginBridgeStorageResult>;
+
 export const PluginUploadSource = Schema.declare<Blob>((value) => value instanceof Blob).annotate({
 	identifier: "PluginUploadSource",
 });
@@ -897,6 +969,7 @@ export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeLifecycleClose,
 	PluginBridgeKernelShortcut,
 	PluginBridgeEntityInterest,
+	PluginBridgeStorageRequest,
 	PluginBridgeOperationRequest,
 	PluginBridgeCollectionRequest,
 	PluginBridgeDismissOverlayResult,
@@ -917,6 +990,7 @@ export const PluginBridgeHostMessage = Schema.Union([
 	PluginBridgeEntityUpdated,
 	PluginBridgeLifecycleClose,
 	PluginBridgeDismissOverlay,
+	PluginBridgeStorageResult,
 	PluginBridgeOperationResult,
 	PluginBridgeCollectionResult,
 	PluginBridgePageShortcutPress,

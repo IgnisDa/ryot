@@ -1098,6 +1098,51 @@ describe("plugin runtime", () => {
 		await expect(failure).rejects.toEqual(new RyotClientError("collection-failed"));
 	});
 
+	it("transports storage requests and rejects with the host failure reason", async () => {
+		const { channel, runtime, messages } = openRuntime();
+		activate(channel);
+		await delay();
+
+		const read = runtime.client.storage.get("media", "order");
+		await delay();
+		expect(messages).toContainEqual({
+			key: "order",
+			action: "get",
+			pluginSlug: "media",
+			requestId: "storage-1",
+			type: "storage-request",
+		});
+		channel.port1.postMessage({
+			outcome: "success",
+			requestId: "storage-1",
+			type: "storage-result",
+			value: { order: "aired" },
+		});
+		await expect(read).resolves.toEqual({ order: "aired" });
+
+		const write = runtime.client.storage.set("media", "order", ["dvd"]);
+		await delay();
+		expect(messages).toContainEqual({
+			key: "order",
+			action: "set",
+			value: ["dvd"],
+			pluginSlug: "media",
+			requestId: "storage-2",
+			type: "storage-request",
+		});
+		channel.port1.postMessage({
+			reason: "quota",
+			outcome: "failure",
+			requestId: "storage-2",
+			type: "storage-result",
+		});
+		await expect(write).rejects.toEqual(new RyotClientError("quota"));
+
+		await expect(runtime.client.storage.remove("media", "")).rejects.toEqual(
+			new RyotClientError("invalid-input"),
+		);
+	});
+
 	it("fails the session on a malformed correlated result and settles the operation once", async () => {
 		const { channel, runtime } = openRuntime();
 		activate(channel);

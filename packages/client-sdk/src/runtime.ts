@@ -22,6 +22,7 @@ import {
 	type PluginBridgeRyotQLCancel,
 	type PluginBridgeRyotQLRequest,
 	type PluginBridgeScreenState,
+	type PluginBridgeStorageRequest,
 	type PluginBridgeOverlayState,
 	type PluginBridgePageShortcuts,
 	type PluginBridgeUploadRequest,
@@ -40,6 +41,7 @@ import {
 	RyotClientError,
 	type OperationAdapterRequest,
 	type CollectionAdapterRequest,
+	type StorageAdapterRequest,
 	type RyotPageSearchUpdate,
 	type RyotProviderSearchScreenRequest,
 	type RyotNavigationTarget,
@@ -144,6 +146,7 @@ export const createPluginRuntime = (
 	const queries = new Map<string, PendingCall>();
 	const uploads = new Map<string, PendingCall>();
 	const operations = new Map<string, PendingCall>();
+	const storage = new Map<string, PendingCall>();
 	const interestOwners = new Set<{
 		interest: EntityInterest;
 		onUpdate: (update: EntityUpdate) => void;
@@ -180,8 +183,10 @@ export const createPluginRuntime = (
 			...queries.values(),
 			...assets.values(),
 			...uploads.values(),
+			...storage.values(),
 		];
 		operations.clear();
+		storage.clear();
 		collections.clear();
 		queries.clear();
 		assets.clear();
@@ -243,7 +248,12 @@ export const createPluginRuntime = (
 
 	const admit = (pending: Map<string, PendingCall>, requestId: string, call: PendingCall) => {
 		if (
-			operations.size + collections.size + queries.size + assets.size + uploads.size >=
+			operations.size +
+				collections.size +
+				queries.size +
+				assets.size +
+				uploads.size +
+				storage.size >=
 			CLIENT_BRIDGE_MAX_PENDING_REQUESTS
 		) {
 			finish("failed", "protocol", true);
@@ -362,6 +372,20 @@ export const createPluginRuntime = (
 			} satisfies PluginBridgeCollectionRequest);
 		});
 
+	const accessStorage = (request: StorageAdapterRequest) =>
+		new Promise<unknown>((resolve, reject) => {
+			if (state !== "active") {
+				reject(new RyotClientError(terminalReason ?? "transport"));
+				return;
+			}
+			nextRequestId += 1;
+			const requestId = `storage-${nextRequestId}`;
+			if (!admit(storage, requestId, { reject, resolve })) {
+				return;
+			}
+			post({ ...request, requestId, type: "storage-request" } satisfies PluginBridgeStorageRequest);
+		});
+
 	const uploadTemporary = (request: TemporaryUploadRequest) =>
 		new Promise<unknown>((resolve, reject) => {
 			if (state !== "active") {
@@ -432,6 +456,7 @@ export const createPluginRuntime = (
 		query,
 		navigate,
 		resolveAssets,
+		accessStorage,
 		invokeOperation,
 		uploadTemporary,
 		mutateCollection,
@@ -608,6 +633,17 @@ export const createPluginRuntime = (
 						return;
 					}
 					pending.cleanup?.();
+					if (result.outcome === "failure") {
+						pending.reject(new RyotClientError(result.reason));
+					} else {
+						pending.resolve(result.value);
+					}
+				}),
+				Match.when({ type: "storage-result" }, (result) => {
+					const pending = storage.get(result.requestId);
+					if (!pending || !storage.delete(result.requestId)) {
+						return;
+					}
 					if (result.outcome === "failure") {
 						pending.reject(new RyotClientError(result.reason));
 					} else {
