@@ -91,7 +91,9 @@ For users with a non-canonical language, entity `name` falls back to canonical t
 
 `plugin` revision fields (`name`, `icon`, `description`, `version`, `sourceHash`, `ingestedAt`, `clientApiVersion`, `configSchema`) come from the active revision and are null without one. `savedView.pluginSlug` and `integration.pluginSlug` derive from the exact installation.
 
-`pluginInstallation.homeSavedViewId` is the effective home view: the selected view when usable, otherwise the installation's built-in view named by the active manifest's `client.homeView` when usable, otherwise null. A usable view is enabled and uses a kernel renderer or a `page` export of a ready and enabled plugin of the same user.
+`savedView` reads from `user_saved_view_effective`, combining custom user rows with listed built-in definitions and optional per-user order and visibility overrides. A definition change is visible without copying it into each account.
+
+`pluginInstallation.homeSavedViewSlug` is the effective home view slug: the selected view when usable, otherwise the installation's built-in view named by the active manifest's `client.homeView` when usable, otherwise null. A usable view is enabled and uses a kernel renderer or a `page` export of a ready and enabled plugin of the same user.
 
 `importSource.missingPluginConfigKeys` lists, for system plugins, the `RYOT_PLUGIN_*` variables of required keys absent from the resolved environment configuration, and for private plugins every required key only while the installation has no configuration. `isStartable` requires a workflow script and no missing keys. `integrationProvider.hasScript` is true for push providers or when the provider script exists.
 
