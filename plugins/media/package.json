@@ -18,6 +18,14 @@
 			"types": "./shared/audiobook-recipes.ts",
 			"default": "./shared/audiobook-recipes.ts"
 		},
+		"./shared/comic-book-recipes": {
+			"types": "./shared/comic-book-recipes.ts",
+			"default": "./shared/comic-book-recipes.ts"
+		},
+		"./shared/visual-novel-recipes": {
+			"types": "./shared/visual-novel-recipes.ts",
+			"default": "./shared/visual-novel-recipes.ts"
+		},
 		"./shared/show-recipes": {
 			"types": "./shared/show-recipes.ts",
 			"default": "./shared/show-recipes.ts"

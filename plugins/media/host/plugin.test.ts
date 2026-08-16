@@ -165,10 +165,20 @@ it("declares the complete media-owned source", () => {
 				automaticEntityPresentations: false,
 				entry: "client/audiobook-card-presentation.ts",
 			},
+			"comic-book-row": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/comic-book-row-presentation.ts",
+			},
 			"video-game-row": {
 				kind: "presentation",
 				automaticEntityPresentations: false,
 				entry: "client/video-game-row-presentation.ts",
+			},
+			"comic-book-card": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/comic-book-card-presentation.ts",
 			},
 			"media-home": {
 				kind: "page",
@@ -180,6 +190,16 @@ it("declares the complete media-owned source", () => {
 				kind: "presentation",
 				automaticEntityPresentations: false,
 				entry: "client/video-game-card-presentation.ts",
+			},
+			"visual-novel-row": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/visual-novel-row-presentation.ts",
+			},
+			"visual-novel-card": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/visual-novel-card-presentation.ts",
 			},
 			"show-detail": {
 				kind: "page",
@@ -229,11 +249,23 @@ it("declares the complete media-owned source", () => {
 				automaticEntityPresentations: false,
 				entry: "client/audiobook/screen.tsx",
 			},
+			"comic-book-detail": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				entry: "client/comic-book/screen.tsx",
+			},
 			"video-game-detail": {
 				kind: "page",
 				settingsSchema: { fields: {} },
 				automaticEntityPresentations: false,
 				entry: "client/video-game/screen.tsx",
+			},
+			"visual-novel-detail": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				entry: "client/visual-novel/screen.tsx",
 			},
 		},
 	});
@@ -280,10 +312,20 @@ it("declares the complete media-owned source", () => {
 			listPresentation: "audiobook-row",
 			gridPresentation: "audiobook-card",
 		},
+		"comic-book": {
+			detailPage: "comic-book-detail",
+			listPresentation: "comic-book-row",
+			gridPresentation: "comic-book-card",
+		},
 		"video-game": {
 			detailPage: "video-game-detail",
 			listPresentation: "video-game-row",
 			gridPresentation: "video-game-card",
+		},
+		"visual-novel": {
+			detailPage: "visual-novel-detail",
+			listPresentation: "visual-novel-row",
+			gridPresentation: "visual-novel-card",
 		},
 	};
 	for (const [slug, registration] of Object.entries(registrations)) {

@@ -3,6 +3,7 @@ type MediaActivityVerb = "read" | "play" | "watch" | "listen";
 type MediaActivityVerbCopy = {
 	readonly object: string;
 	readonly gerund: string;
+	readonly participle: string;
 	readonly segmentNoun: string;
 	readonly recordLabel: string;
 	readonly completionsLabel: string;
@@ -12,6 +13,7 @@ const MEDIA_ACTIVITY_VERBS: Record<MediaActivityVerb, MediaActivityVerbCopy> = {
 	read: {
 		object: "read",
 		gerund: "reading",
+		participle: "read",
 		segmentNoun: "Read",
 		completionsLabel: "Reads",
 		recordLabel: "Reading record",
@@ -20,6 +22,7 @@ const MEDIA_ACTIVITY_VERBS: Record<MediaActivityVerb, MediaActivityVerbCopy> = {
 		object: "play",
 		gerund: "playing",
 		segmentNoun: "Play",
+		participle: "played",
 		recordLabel: "Play record",
 		completionsLabel: "Playthroughs",
 	},
@@ -27,6 +30,7 @@ const MEDIA_ACTIVITY_VERBS: Record<MediaActivityVerb, MediaActivityVerbCopy> = {
 		object: "watch",
 		gerund: "watching",
 		segmentNoun: "Watch",
+		participle: "watched",
 		recordLabel: "Watch record",
 		completionsLabel: "Watches",
 	},
@@ -34,6 +38,7 @@ const MEDIA_ACTIVITY_VERBS: Record<MediaActivityVerb, MediaActivityVerbCopy> = {
 		object: "listen to",
 		gerund: "listening",
 		segmentNoun: "Listen",
+		participle: "listened",
 		completionsLabel: "Listens",
 		recordLabel: "Listen record",
 	},
@@ -67,6 +72,7 @@ export const mediaFlatActivityCopy = <Extra = unknown>(input: {
 				: `${percent}% through the ${input.noun}`);
 	return {
 		...copy,
+		progressVerb: verb.participle,
 		rowLabels: { ...rowLabels, progress },
 		completionsLabel: verb.completionsLabel,
 		beats: mediaActivityBeats(verb, input.noun),

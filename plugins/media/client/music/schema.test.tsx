@@ -9,13 +9,14 @@ import {
 	decodeFlatOverview,
 	FLAT_OVERVIEW_INPUT,
 } from "../../tests/client/flat-media/overview-fixture";
+import { decodeFlatPresentation } from "../../tests/client/flat-media/presentation-fixture";
+import { renderFlatScreenBody } from "../../tests/client/flat-media/screen-fixture";
 import {
 	decodeFlatSummary,
 	FLAT_SUMMARY_INPUT,
 } from "../../tests/client/flat-media/summary-fixture";
-import { readyQueryResult, rowsResult } from "../../tests/client/query-result-fixture";
+import { readyQueryResult } from "../../tests/client/query-result-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
-import { mapMediaOverview } from "../media/overview-state";
 import { musicPresentationFacts, musicSchema, musicSummaryFacts } from "./schema";
 
 const noopAdapter = { query: () => Promise.resolve({}) };
@@ -27,77 +28,24 @@ const musicSummary = (overrides: Record<string, unknown> = {}) =>
 		...overrides,
 	});
 
-const presentationData = () => {
-	const decoded = musicRecipes
-		.presentationRecipe(["media-1"])
-		.decode({
-			data: {
-				rows: rowsResult(
-					[
-						{
-							images: null,
-							duration: 222,
-							id: "media-1",
-							publishDate: null,
-							publishYear: 1997,
-							schemaSlug: "music",
-							progressPercent: 42,
-							state: "in_progress",
-							name: "Paranoid Android",
-							populationStatus: "ready",
-							translationStatus: "none",
-							productionStatus: "Released",
-						},
-					],
-					{ limit: 100, hasMore: false, nextCursor: null },
-				),
-			},
-		});
-	if (decoded._tag === "Failure" || decoded.success[0] === undefined) {
-		throw new Error("Expected decoded presentation data");
-	}
-	return { ...decoded.success[0], batchAssets: [] };
-};
-
 afterEach(() => {
 	document.body.innerHTML = "";
 });
 
 describe("music schema", () => {
-	it("lists the track length as m:ss, various artists and production status", () => {
+	it("lists the track length as m:ss and various artists", () => {
 		expect(musicSummaryFacts(musicSummary())).toEqual([
-			expect.objectContaining({ label: "TMDB rating" }),
 			{ icon: "clock", value: "3:42", label: "Length" },
 			{ value: "No", icon: "users", label: "Various artists" },
-			{ value: "Released", icon: "clapperboard", label: "Production status" },
 		]);
-		expect(
-			musicSummaryFacts(
-				musicSummary({
-					duration: null,
-					providerRating: null,
-					byVariousArtists: null,
-					productionStatus: null,
-				}),
-			),
-		).toEqual([]);
+		expect(musicSummaryFacts(musicSummary({ duration: null, byVariousArtists: null }))).toEqual([]);
 	});
 
 	it("titles the credits as artists and labels and the group as an album", () => {
-		const { unmount, container } = mountRyotClient(
-			noopAdapter,
-			<musicSchema.ScreenBody
-				compact
-				activity={null}
-				safeAreaTop={0}
-				settled={undefined}
-				refresh={() => undefined}
-				refreshOverview={() => undefined}
-				state={{ status: "ready", summary: musicSummary() }}
-				overview={mapMediaOverview(
-					readyQueryResult(decodeFlatOverview(musicRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT))),
-				)}
-			/>,
+		const { unmount, container } = renderFlatScreenBody(
+			musicSchema,
+			musicSummary(),
+			decodeFlatOverview(musicRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT)),
 		);
 
 		expect(container.textContent).toContain("Music");
@@ -109,14 +57,14 @@ describe("music schema", () => {
 		unmount();
 	});
 
-	it("draws square art on cards and rows and hints how much was played", () => {
-		const data = presentationData();
+	it("draws square art on cards and rows and hints how much was listened to", () => {
+		const data = decodeFlatPresentation(musicRecipes, { duration: 222, schemaSlug: "music" });
 		const card = mountRyotClient(
 			noopAdapter,
 			<musicSchema.CardContent compact data={data} entityId="media-1" />,
 		);
 		expect(card.container.querySelector("article > a > *")?.className).toContain("aspect-square");
-		expect(card.container.textContent).toContain("42% played");
+		expect(card.container.textContent).toContain("42% listened");
 		card.unmount();
 
 		const row = mountRyotClient(
