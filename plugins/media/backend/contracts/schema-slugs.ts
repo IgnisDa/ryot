@@ -1,16 +1,4 @@
-export const builtinMediaEntitySchemaSlugs = [
-	"book",
-	"comic-book",
-	"anime",
-	"movie",
-	"show",
-	"manga",
-	"audiobook",
-	"podcast",
-	"video-game",
-	"music",
-	"visual-novel",
-] as const;
+import { builtinMediaEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 
 export const mediaLibraryEligibleEntitySchemaSlugs = [
 	"library",

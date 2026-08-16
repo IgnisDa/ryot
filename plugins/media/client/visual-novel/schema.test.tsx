@@ -7,11 +7,11 @@ import {
 	flatPersonRow,
 } from "../../tests/client/flat-media/overview-fixture";
 import { decodeFlatPresentation } from "../../tests/client/flat-media/presentation-fixture";
-import { renderFlatScreenBody } from "../../tests/client/flat-media/screen-fixture";
 import {
 	decodeFlatSummary,
 	FLAT_SUMMARY_INPUT,
 } from "../../tests/client/flat-media/summary-fixture";
+import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
 import { visualNovelPresentationFacts, visualNovelSchema, visualNovelSummaryFacts } from "./schema";
 
@@ -36,7 +36,7 @@ describe("visual novel schema", () => {
 	});
 
 	it("titles the credits as developers and never claims it is part of a series", () => {
-		const { unmount, container } = renderFlatScreenBody(
+		const { unmount, container } = renderMediaScreenBody(
 			visualNovelSchema,
 			visualNovelSummary(),
 			decodeFlatOverview(visualNovelRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT)),

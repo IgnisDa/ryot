@@ -42,7 +42,7 @@ export const fixtureSchema = defineFlatMediaSchema({
 
 export const ungroupedFixtureSchema = defineFlatMediaSchema({
 	facts: () => [],
-	aspect: "poster",
+	aspect: "square",
 	presentationFacts: () => [],
 	heroHeight: () => MEDIA_ART_HEIGHT,
 	recipes: flatUngroupedFixtureRecipes,
