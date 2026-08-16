@@ -5,8 +5,9 @@
 		min-height: 100%;
 	}
 
+	/* Vertical only: suppressing the x axis would disable the browser's own back-swipe. */
 	html {
-		overscroll-behavior: none;
+		overscroll-behavior-y: none;
 		-webkit-tap-highlight-color: transparent;
 	}
 
@@ -16,7 +17,7 @@
 		font-family: var(--font-family-ui);
 		font-size: 16px;
 		line-height: 1.5;
-		overscroll-behavior: none;
+		overscroll-behavior-y: none;
 	}
 
 	:where(button, input, select, a):focus-visible {
