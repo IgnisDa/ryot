@@ -10,8 +10,8 @@ import {
 	type IntegrationProviderNames,
 } from "#/modules/integrations/presentation";
 import { integrationLotLabel } from "#/modules/integrations/provider-selection";
-import { StatusState } from "#/modules/integrations/status-state";
 import { AppIcon } from "#/modules/navigation/app-icon";
+import { StatusState } from "#/modules/ui/status-state";
 
 const INTRO =
 	"Keep Ryot in step with the services you already use. Integrations run on your own server, on a schedule or as events arrive.";
@@ -171,6 +171,7 @@ export function IntegrationsView(props: IntegrationsViewProps) {
 			)}
 			<Link
 				to="/settings/import-data"
+				search={{ start: undefined }}
 				aria-label="Bringing over a one-off history? Import data"
 				className="flex items-center gap-1.5 self-start py-1 text-sm"
 			>

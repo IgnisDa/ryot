@@ -1,8 +1,14 @@
 import { Match } from "effect";
 
+/**
+ * The shape both catalog wizards share: pick a plugin-contributed service, fill in the schema it
+ * declares, then confirm. Features supply their own headings for these steps.
+ */
 export const WIZARD_STEPS = ["pick", "configure", "review"] as const;
 
 export type WizardStep = (typeof WIZARD_STEPS)[number];
+
+export type WizardStepHeadings = Record<WizardStep, string>;
 
 export type WizardState = {
 	readonly step: WizardStep;
@@ -15,12 +21,6 @@ export type WizardAction =
 	| { readonly type: "picked"; readonly slug: string }
 	| { readonly type: "recover-at"; readonly step: WizardStep };
 
-const stepHeadings = {
-	pick: "Choose a service",
-	review: "Review and connect",
-	configure: "Provide the details",
-} as const satisfies Record<WizardStep, string>;
-
 const previousStep = {
 	pick: "pick",
 	review: "configure",
@@ -29,8 +29,8 @@ const previousStep = {
 
 export const createWizardState = (): WizardState => ({ step: "pick", slug: undefined });
 
-export const wizardStepLabel = (step: WizardStep) =>
-	`Step ${WIZARD_STEPS.indexOf(step) + 1} of ${WIZARD_STEPS.length} · ${stepHeadings[step]}`;
+export const wizardStepLabel = (step: WizardStep, headings: WizardStepHeadings) =>
+	`Step ${WIZARD_STEPS.indexOf(step) + 1} of ${WIZARD_STEPS.length} · ${headings[step]}`;
 
 export const wizardReducer = (state: WizardState, action: WizardAction): WizardState =>
 	Match.value(action).pipe(

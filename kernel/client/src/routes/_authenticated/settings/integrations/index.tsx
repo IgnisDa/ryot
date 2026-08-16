@@ -7,16 +7,18 @@ import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "rea
 
 import { IntegrationsApi } from "#/api/integrations";
 import { createKernelRyotClient } from "#/api/ryot-client";
-import type { CatalogPickerState } from "#/modules/integrations/catalog-picker";
-import { IntegrationCreateWizard } from "#/modules/integrations/create-wizard";
+import {
+	IntegrationCreateWizard,
+	type IntegrationProviderPickerState,
+} from "#/modules/integrations/create-wizard";
 import {
 	IntegrationsView,
 	type IntegrationListState,
 } from "#/modules/integrations/integrations-view";
 import { integrationProviderNames } from "#/modules/integrations/provider-selection";
 import { INTEGRATIONS_PAGE_SIZE, IntegrationsService } from "#/modules/integrations/service";
-import { StatusState } from "#/modules/integrations/status-state";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
+import { StatusState } from "#/modules/ui/status-state";
 
 const listState = (page: IntegrationList): IntegrationListState =>
 	page.items.length === 0
@@ -42,9 +44,9 @@ export const Route = createFileRoute("/_authenticated/settings/integrations/")({
 			context.runtime.runPromise(
 				Effect.flatMap(IntegrationsApi, (api) => api.listProviders(context.scope)).pipe(
 					Effect.match({
-						onFailure: (): CatalogPickerState => ({ status: "failed" }),
-						onSuccess: (listed): CatalogPickerState =>
-							listed.length === 0 ? { status: "empty" } : { status: "ready", providers: listed },
+						onFailure: (): IntegrationProviderPickerState => ({ status: "failed" }),
+						onSuccess: (listed): IntegrationProviderPickerState =>
+							listed.length === 0 ? { status: "empty" } : { status: "ready", sources: listed },
 					}),
 				),
 				{ signal: abortController.signal },
@@ -105,9 +107,9 @@ function IntegrationsRoute() {
 		const next = await runtime.runPromise(
 			Effect.flatMap(IntegrationsApi, (api) => api.listProviders(scope)).pipe(
 				Effect.match({
-					onFailure: (): CatalogPickerState => ({ status: "failed" }),
-					onSuccess: (listed): CatalogPickerState =>
-						listed.length === 0 ? { status: "empty" } : { status: "ready", providers: listed },
+					onFailure: (): IntegrationProviderPickerState => ({ status: "failed" }),
+					onSuccess: (listed): IntegrationProviderPickerState =>
+						listed.length === 0 ? { status: "empty" } : { status: "ready", sources: listed },
 				}),
 			),
 			{ signal: controller.current.signal },
@@ -175,7 +177,7 @@ function IntegrationsRoute() {
 				onRetry={() => void reload(limit)}
 				onShowMore={() => void reload(limit + INTEGRATIONS_PAGE_SIZE)}
 				providerNames={integrationProviderNames(
-					providers.status === "ready" ? providers.providers : [],
+					providers.status === "ready" ? providers.sources : [],
 				)}
 			/>
 			{create === true && (
