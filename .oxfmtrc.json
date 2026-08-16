@@ -14,5 +14,6 @@
 		"**/.vitepress/**",
 		"**/.react-router/**",
 		"apps/frontend/app/styles/*.css",
+		"apps/docs/src/includes/app-backend-config-schema.md"
 	]
 }
