@@ -2,9 +2,21 @@
 	"name": "@ryot-app/plugin-kit",
 	"private": true,
 	"exports": {
+		"./effect": {
+			"types": "./src/effect.ts",
+			"default": "./src/effect.ts"
+		},
 		"./operations": {
 			"types": "./src/operations.ts",
 			"default": "./src/operations.ts"
+		},
+		"./ryotql": {
+			"types": "./src/ryotql.ts",
+			"default": "./src/ryotql.ts"
+		},
+		"./schema": {
+			"types": "./src/schema.ts",
+			"default": "./src/schema.ts"
 		}
 	},
 	"scripts": {
@@ -12,6 +24,9 @@
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/ryotql": "workspace:*",
+		"@ryot-app/ryotql-recipes": "workspace:*",
 		"effect": "4.0.0-rc.111"
 	},
 	"devDependencies": {

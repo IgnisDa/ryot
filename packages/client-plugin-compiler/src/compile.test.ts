@@ -699,3 +699,90 @@ it.effect(
 		}),
 	30_000,
 );
+
+it.effect(
+	"bundles a shared source imported from a client source through the neutral plugin kit surface",
+	() =>
+		Effect.gen(function* () {
+			const { artifact } = yield* compileFixture({
+				"client/index.tsx": bytes(
+					'import { decodeRow } from "../shared/row";\nconsole.log(decodeRow({ id: "e", at: "2024-01-01T00:00:00.000Z" }));',
+				),
+				"shared/row.ts": bytes(
+					[
+						'import { Schema } from "@ryot-app/plugin-kit/effect";',
+						'import { IsoDateString } from "@ryot-app/plugin-kit/ryotql";',
+						'import { EntityId } from "@ryot-app/plugin-kit/schema";',
+						"",
+						"export const Row = Schema.Struct({ id: EntityId, at: IsoDateString });",
+						"export const decodeRow = Schema.decodeUnknownSync(Row);",
+					].join("\n"),
+				),
+			});
+
+			const javascript = text(artifact.files.find(({ name }) => name === "plugin.js")?.contents);
+			expect(javascript).not.toContain("@ryot-app/plugin-kit");
+			expect(javascript).toContain("EntityId");
+			expect(javascript).toContain("DateTimeUtcFromString");
+			expect(javascript).toContain("formatIso");
+		}),
+	60_000,
+);
+
+it.effect(
+	"rejects a shared source that imports a client source",
+	() =>
+		Effect.gen(function* () {
+			const failure = yield* compileFixture({
+				"client/index.tsx": bytes('export { label } from "../shared/label";'),
+				"client/theme.ts": bytes('export const theme = "dark";'),
+				"shared/label.ts": bytes(
+					'import { theme } from "../client/theme";\n\nexport const label = theme;',
+				),
+			}).pipe(Effect.flip);
+
+			expect(failure.diagnostics[0]?.code).toBe("RYOT_CLIENT_IMPORT");
+			expect(failure.diagnostics[0]?.file).toBe("shared/label.ts");
+			expect(failure.diagnostics[0]?.message).toContain("could not be resolved");
+		}),
+	30_000,
+);
+
+it.effect(
+	"rejects a shared source that imports a client-only trusted module",
+	() =>
+		Effect.gen(function* () {
+			const failure = yield* compileFixture({
+				"client/index.tsx": bytes('export { Label } from "../shared/label";'),
+				"shared/label.ts": bytes(
+					'import { Button } from "@ryot-app/client-ui-sdk";\n\nexport const Label = Button;',
+				),
+			}).pipe(Effect.flip);
+
+			expect(failure.diagnostics[0]?.code).toBe("RYOT_CLIENT_IMPORT");
+			expect(failure.diagnostics[0]?.file).toBe("shared/label.ts");
+			expect(failure.diagnostics[0]?.message).toContain("@ryot-app/client-ui-sdk");
+			expect(failure.diagnostics[0]?.message).toContain("plugin shared sources");
+		}),
+	30_000,
+);
+
+it.effect(
+	"checks unreachable archived shared sources",
+	() =>
+		Effect.gen(function* () {
+			const failure = yield* compileFixture({
+				"client/index.tsx": bytes("export {};"),
+				"shared/ignored.test.ts": bytes("const ignored: string = 1;"),
+				"shared/unreachable.ts": bytes("const unreachable: string = 1;"),
+			}).pipe(Effect.flip);
+
+			expect(failure.diagnostics).toHaveLength(1);
+			expect(failure.diagnostics[0]).toMatchObject({
+				code: "TS2322",
+				severity: "error",
+				file: "shared/unreachable.ts",
+			});
+		}),
+	30_000,
+);

@@ -12,6 +12,7 @@
 		"@effect/platform-bun": "4.0.0-beta.107",
 		"@ryot-app/client-plugin-compiler": "workspace:*",
 		"@ryot-app/kernel-backend": "workspace:*",
+		"@ryot-app/plugin-kit": "workspace:*",
 		"@ryot-app/sandbox-compiler": "workspace:*",
 		"@ryot-app/sandbox-sdk": "workspace:*",
 		"@ryot-app/v10-rust-migration": "workspace:*",
