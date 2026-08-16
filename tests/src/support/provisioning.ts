@@ -1,4 +1,5 @@
-import { type ChildProcess, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
+import { type EventEmitter, once } from "node:events";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -138,15 +139,13 @@ export async function waitForHealthCheck(
 	return attempt(maxRetries);
 }
 
-export async function stopBackendProcess(proc?: ChildProcess) {
+export async function stopBackendProcess(proc?: ReturnType<typeof spawn>) {
 	if (proc?.exitCode !== null || proc.killed) {
 		return;
 	}
 
-	await new Promise<void>((resolve) => {
-		proc.once("exit", () => resolve());
-		if (!proc.kill("SIGINT")) {
-			resolve();
-		}
-	});
+	const exited = once(proc as unknown as EventEmitter, "exit");
+	if (proc.kill("SIGINT")) {
+		await exited;
+	}
 }
