@@ -39,7 +39,7 @@ Host evidence from the second forced reboot proved:
 
 - Linux invoked the global OOM killer at `2026-09-13 17:02:33 UTC`.
 - The OOM killer selected Ryot's `bun` process, which had about 503 MiB RSS.
-- Exactly five Ryot `deno` processes were active, matching `SANDBOX_LIMITS.workerConcurrency`.
+- Exactly five Ryot `deno` processes were active, matching the then-fixed sandbox worker concurrency of five.
 - Those Deno processes used about 903 MiB RSS in aggregate.
 - Bun and Deno therefore used about 1.4 GiB RSS before PostgreSQL, Redis, Coolify, the kernel, page tables, and unrelated services.
 - The first incident boot logged continuous `Under memory pressure, flushing caches` messages from `16:54:09 UTC` until the forced reboot.
