@@ -60,7 +60,7 @@
   - Owner: D22 Backend RyotQL
   - Scope: One resolver-neutral kind function
 
-- [ ] **14. Make SDK provider codecs canonical** [M/M/W]
+- [x] **14. Make SDK provider codecs canonical** [M/M/W]
   - Owner: W14 Sandbox SDK
   - Scope: Alias backend decoders to SDK schemas
   - Prereq: SDK first, backend second
