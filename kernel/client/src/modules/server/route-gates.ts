@@ -6,12 +6,15 @@ export type RootGateDecision =
 	| { readonly action: "redirect"; readonly to: "/onboarding" };
 
 export type OnboardingGateDecision =
+	| { readonly action: "enter-god-mode"; readonly to: SafeRedirect }
 	| { readonly action: "stay"; readonly redirectTo: SafeRedirect | undefined }
 	| {
 			readonly to: "/auth";
-			readonly action: "redirect";
+			readonly action: "start-oauth";
 			readonly redirectTo: SafeRedirect | undefined;
 	  };
+
+export type OnboardingCompletionDecision = Exclude<OnboardingGateDecision, { action: "stay" }>;
 
 export const decideRootGate = (
 	isNative: boolean,
@@ -26,8 +29,15 @@ export function decideOnboardingGate(
 	server: ServerOrigin | null,
 	redirectIntent: unknown,
 ): OnboardingGateDecision {
-	const redirectTo = sanitizeRedirect(redirectIntent);
 	return isNative && server === null
-		? { action: "stay", redirectTo }
-		: { action: "redirect", redirectTo, to: "/auth" };
+		? { action: "stay", redirectTo: sanitizeRedirect(redirectIntent) }
+		: decideOnboardingCompletion(redirectIntent);
+}
+
+export function decideOnboardingCompletion(redirectIntent: unknown): OnboardingCompletionDecision {
+	const redirectTo = sanitizeRedirect(redirectIntent);
+	const pathname = redirectTo && new URL(redirectTo, "https://ryot.invalid").pathname;
+	return redirectTo !== undefined && pathname !== undefined && /^\/god-mode(?:\/|$)/.test(pathname)
+		? { action: "enter-god-mode", to: redirectTo }
+		: { action: "start-oauth", redirectTo, to: "/auth" };
 }
