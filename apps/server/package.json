@@ -9,14 +9,14 @@
 		"build": "bun build src/main.ts --outdir dist --target bun --sourcemap --external @ryot-app/vite-compiler --external @tailwindcss/vite --define process.env.UNKEY_ROOT_KEY=\"\\\"${UNKEY_ROOT_KEY:-}\\\"\" && bun build scripts/warm-sandbox-runtime-cache.ts scripts/smoke-compiler-workers.ts scripts/smoke-sandbox-runtime.ts --outdir dist --target bun --sourcemap"
 	},
 	"dependencies": {
-		"@effect/platform-bun": "4.0.0-rc.115",
+		"@effect/platform-bun": "4.0.0-rc.116",
 		"@ryot-app/client-plugin-compiler": "workspace:*",
 		"@ryot-app/kernel-backend": "workspace:*",
 		"@ryot-app/plugin-kit": "workspace:*",
 		"@ryot-app/sandbox-compiler": "workspace:*",
 		"@ryot-app/sandbox-sdk": "workspace:*",
 		"@ryot-app/v10-rust-migration": "workspace:*",
-		"effect": "4.0.0-rc.115"
+		"effect": "4.0.0-rc.116"
 	},
 	"devDependencies": {
 		"@ryot-app/fitness-plugin": "workspace:*",

@@ -13,11 +13,11 @@
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
-		"effect": "4.0.0-rc.115",
+		"effect": "4.0.0-rc.116",
 		"typescript": "7.0.2"
 	},
 	"devDependencies": {
-		"@effect/vitest": "4.0.0-rc.115",
+		"@effect/vitest": "4.0.0-rc.116",
 		"@ryot-app/testing": "workspace:*",
 		"bun-types": "1.4.0",
 		"vitest": "4.1.9"
