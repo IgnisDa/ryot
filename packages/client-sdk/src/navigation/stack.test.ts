@@ -8,6 +8,7 @@ const Detail = () => null;
 
 const resolve = (location: { readonly path: string }) => ({
 	params: {},
+	header: { title: location.path },
 	component: location.path === "/" ? Home : Detail,
 });
 

@@ -13,6 +13,7 @@ import {
 	useEffect,
 	useEffectEvent,
 	useId,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -24,6 +25,7 @@ import { CONTENT_SHIFT } from "#/modules/navigation/drawer-metrics";
 import { EdgeGesture } from "#/modules/navigation/edge-gesture";
 import { isSettingsPath, resolveEdge, type EdgeResolution } from "#/modules/navigation/edge-intent";
 import { impactLight } from "#/modules/navigation/haptics";
+import { historyEntry } from "#/modules/navigation/history-entry";
 import { MobileDrawer } from "#/modules/navigation/mobile-drawer";
 import { MobileHeader } from "#/modules/navigation/mobile-header";
 import {
@@ -31,11 +33,19 @@ import {
 	resolveRememberedWorkspace,
 } from "#/modules/navigation/workspace-state";
 import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
+import type { PluginHeaderPublication } from "#/modules/plugins/plugin-host";
 import { ClientStorage } from "#/persistence/storage";
 
 const RememberedWorkspaceContext = createContext<string | null | undefined>(undefined);
 
-const PluginHeaderContext = createContext<((title: string | null) => void) | undefined>(undefined);
+type PluginHeaderState = PluginHeaderPublication & { readonly owner: string };
+
+type PluginHeaderController = {
+	readonly clear: (owner: string) => void;
+	readonly publish: (owner: string, header: PluginHeaderPublication) => void;
+};
+
+const PluginHeaderContext = createContext<PluginHeaderController | undefined>(undefined);
 
 const EdgeContext = createContext<EdgeResolution | undefined>(undefined);
 
@@ -55,12 +65,12 @@ export const useRememberedWorkspaceSlug = () => {
 	return slug;
 };
 
-export const useSetPluginHeaderTitle = () => {
-	const setTitle = useContext(PluginHeaderContext);
-	if (setTitle === undefined) {
-		throw new Error("useSetPluginHeaderTitle must be used inside AuthenticatedShell");
+export const usePluginHeader = () => {
+	const header = useContext(PluginHeaderContext);
+	if (header === undefined) {
+		throw new Error("usePluginHeader must be used inside AuthenticatedShell");
 	}
-	return setTitle;
+	return header;
 };
 
 export function AuthenticatedShell(props: {
@@ -70,7 +80,7 @@ export function AuthenticatedShell(props: {
 	const router = useRouter();
 	const drawerId = useId();
 	const navigate = useNavigate();
-	const { pathname } = useLocation();
+	const { pathname, state } = useLocation();
 	const isDesktop = useIsDesktop();
 	const { catalog } = usePluginCatalog();
 	const progress = useMotionValue(0);
@@ -78,7 +88,7 @@ export function AuthenticatedShell(props: {
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const { backInterceptors, runtime, scope, server } = useRouteContext({ from: "/_authenticated" });
 	const [drawerOpen, setDrawerOpen] = useState(false);
-	const [pluginTitle, setPluginTitle] = useState<string | null>(null);
+	const [pluginHeader, setPluginHeader] = useState<PluginHeaderState | null>(null);
 	const [rememberedSlug, setRememberedSlug] = useState(props.initialRememberedSlug);
 	const settingsActive = isSettingsPath(pathname);
 	const routeSlug = pathname.split("/")[1] ?? "";
@@ -88,6 +98,13 @@ export function AuthenticatedShell(props: {
 		: routeWorkspace;
 	const homePath = current === null ? null : `/${current.slug}`;
 	const homeActive = homePath !== null && (pathname === homePath || pathname === `${homePath}/`);
+	const entry = historyEntry(state);
+	const pluginTitle =
+		pluginHeader?.owner === routeSlug &&
+		pluginHeader.index === entry.index &&
+		pluginHeader.key === entry.key
+			? pluginHeader.title
+			: null;
 	const session = runtime.runSync(AuthService).session(server);
 	const rememberRouteWorkspace = useEffectEvent((slug: string) => {
 		if (slug === rememberedSlug) {
@@ -106,6 +123,14 @@ export function AuthenticatedShell(props: {
 		setRememberedSlug(slug);
 		await navigate({ replace: true, to: "/$pluginSlug", params: { pluginSlug: slug } });
 	};
+	const header = useMemo<PluginHeaderController>(
+		() => ({
+			publish: (owner, publication) => setPluginHeader({ owner, ...publication }),
+			clear: (owner) =>
+				setPluginHeader((currentHeader) => (currentHeader?.owner === owner ? null : currentHeader)),
+		}),
+		[],
+	);
 
 	const edge = resolveEdge({
 		pathname,
@@ -188,7 +213,7 @@ export function AuthenticatedShell(props: {
 				}
 			/>
 			<RememberedWorkspaceContext value={rememberedSlug}>
-				<PluginHeaderContext value={setPluginTitle}>
+				<PluginHeaderContext value={header}>
 					<EdgeContext value={edge}>
 						<motion.div
 							style={{ x: contentShift }}

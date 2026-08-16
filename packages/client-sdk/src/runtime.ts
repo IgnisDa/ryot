@@ -12,7 +12,6 @@ import {
 	type PluginBridgeRyotQLRequest,
 	type PluginBridgeThemeApplied,
 	type PluginClientArtifactMetadata,
-	type PluginHeaderContent,
 	type PluginThemeSnapshot,
 	type RyotClientErrorReason,
 } from "@ryot/contract/modules/plugins/client";
@@ -21,7 +20,7 @@ import type { PreparedRecipe } from "@ryot/ryotql";
 import { Match, Result, Schema } from "effect";
 
 import { createRyotClient, RyotClientError, type RyotNavigationTarget } from "./index";
-import { createPluginNavigationStore } from "./navigation/store";
+import type { PluginNavigationController } from "./navigation/store";
 
 type PluginRuntimeState = "ready" | "active" | "closing" | "failed" | "disposed";
 
@@ -42,6 +41,7 @@ export const createPluginRuntime = (
 	init: PluginBridgeInit,
 	metadata: PluginClientArtifactMetadata,
 	style: PluginThemeStyle,
+	navigationStore: PluginNavigationController,
 	onActive?: () => void,
 	onTerminal?: () => void,
 ) => {
@@ -51,11 +51,11 @@ export const createPluginRuntime = (
 	let state: PluginRuntimeState = "ready";
 	let terminalReason: RyotClientErrorReason | undefined;
 	const listeners = new AbortController();
-	const navigationStore = createPluginNavigationStore();
 	const navigation = {
 		subscribe: navigationStore.subscribe,
 		getSnapshot: navigationStore.getSnapshot,
 		back: () => post({ type: "navigate-back" } satisfies PluginBridgeNavigateBack),
+		completeTransition: navigationStore.completeTransition,
 	};
 	const operations = new Map<string, PendingCall>();
 	const queries = new Map<string, PendingCall>();
@@ -198,19 +198,9 @@ export const createPluginRuntime = (
 		}
 	};
 
-	const setHeader = (header: PluginHeaderContent) => {
-		if (state !== "active") {
-			throw new RyotClientError(terminalReason ?? "transport");
-		}
-		if (!post({ header, type: "header" } satisfies PluginBridgeHeader)) {
-			throw new RyotClientError(terminalReason ?? "transport");
-		}
-	};
-
 	const client = createRyotClient({
 		query,
 		navigate,
-		setHeader,
 		invokeOperation,
 		theme: {
 			getSnapshot: () => {
@@ -244,9 +234,24 @@ export const createPluginRuntime = (
 			}
 			Match.value(decoded.success).pipe(
 				Match.when({ type: "location" }, ({ compact, edgeBack, index, key, location }) => {
+					let next;
+					try {
+						next = navigationStore.setLocation({
+							compact,
+							edgeBack,
+							entry: { index, key, location },
+						});
+					} catch {
+						finish("failed", "protocol", true);
+						return;
+					}
 					hasLocation = true;
-					navigationStore.setEdge({ compact, edgeBack });
-					navigationStore.setEntry({ index, key, location });
+					post({
+						key,
+						index,
+						type: "header",
+						header: next.screens.at(-1)?.header ?? null,
+					} satisfies PluginBridgeHeader);
 					activate();
 				}),
 				Match.when({ type: "theme" }, ({ generation, theme: nextTheme }) => {

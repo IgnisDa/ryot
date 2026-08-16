@@ -262,10 +262,17 @@ A client plugin conceptually bootstraps with:
 
 ```ts
 bootstrapClientPlugin({
-	home: HomePage,
+	home: {
+		component: HomePage,
+		header: () => ({ title: "Workouts" }),
+	},
 
 	routes: [
-		// plugin-private routes
+		{
+			path: "/workouts/$workoutId",
+			component: WorkoutPage,
+			header: ({ params }) => ({ title: params.workoutId }),
+		},
 	],
 });
 ```
@@ -278,7 +285,7 @@ The exact public API may evolve during implementation, but the contribution mode
 
 Additional kernel extension points must be added deliberately in response to concrete requirements. V1 must not introduce a general-purpose arbitrary slot-injection system for settings, headers, sidebars, dialogs, or other kernel internals.
 
-The header capability in §10 is the boundary case that shows the intended shape: the kernel keeps ownership of the header element, and the plugin contributes one validated scalar to it. A capability that carried markup, elements, or arbitrary React nodes into kernel chrome would be the slot system this rule forbids.
+The declarative header metadata in §10 is the boundary case that shows the intended shape: the kernel keeps ownership of the header element, and each plugin route contributes one validated scalar to it. Metadata that carried markup, elements, or arbitrary React nodes into kernel chrome would be the slot system this rule forbids.
 
 ---
 
@@ -602,7 +609,6 @@ Initial categories should be approximately:
 data
 operations
 navigation
-header
 storage
 assets
 feedback
@@ -624,20 +630,28 @@ await ryot.data.query(recipe);
 await ryot.operations.invoke({ slug, input, output });
 ryot.navigation.push({ path: "/workouts/456" });
 ryot.navigation.replace({ path: "/workouts/456" });
-ryot.header.set({ title: "Bench Press" });
 ```
 
 ### Header
 
-The kernel owns the mobile header chrome; a plugin supplies only its semantic content.
-`ryot.header.set({ title })` sends one `header` message per plugin route change, which is a semantic
-low-frequency signal rather than the high-frequency data §36 forbids. The title is a strict
-`NonEmptyString` capped at `PLUGIN_HEADER_TITLE_MAX`; a value outside that fails locally as
-`invalid-input`. The kernel falls back to the workspace name when a plugin sets no title, and clears
-the title on plugin route changes so a stale title cannot outlive its screen.
+The kernel owns the mobile header chrome; a plugin route supplies only its semantic content through a
+declarative `header` resolver. The resolver receives that screen's logical location and decoded route
+parameters and returns either `{ title }` or `null`. The title is a strict `NonEmptyString` capped at
+`PLUGIN_HEADER_TITLE_MAX`; `null` selects the workspace name.
+
+The SDK resolves the header when it reconciles a location into the screen stack and stores the value
+on that retained screen. Only the active screen's value is published. A pop therefore restores the
+exact retained header without remounting the component or rerunning an effect. Header publication is
+router/runtime lifecycle, not a public `RyotClient` capability, and plugin components cannot mutate
+kernel chrome imperatively.
+
+The `header` bridge message carries the active screen's history `index` and `key`. The kernel applies
+it only while both fields match its current navigation entry, so delayed publication from a replaced
+or popped screen is ignored. The shell also associates accepted content with the owning plugin; a
+workspace switch cannot display the previous plugin's title while the next document starts.
 
 This is deliberately narrow. §4 forbids a general-purpose slot-injection system for kernel internals,
-headers included, so the capability carries a validated scalar rather than markup, elements, or
+headers included, so route metadata carries a validated scalar rather than markup, elements, or
 arbitrary React nodes. Header actions and a floating action button are not part of it; they follow the
 deferred surfaces in §16 that would drive them.
 
@@ -794,9 +808,9 @@ disposed  all runtime resources are released; this state is terminal
 
 The normal path is `ready -> active -> closing -> disposed`. A fatal failure enters `failed` from `ready` or `active` through the same `closing` cleanup; `failed` and `disposed` are terminal states. A close can enter `closing` directly. Every transition is idempotent, and messages received after `failed`, `closing`, or `disposed` are ignored.
 
-`bootstrapClientPlugin` owns embedded metadata validation, the one-time parent-window bootstrap listener, the artifact root, and the top-level React root/unmount coordinator. It accepts exactly one valid init with exactly one transferred port, validates the artifact hash and all exact markers, including bridge protocol version 1, before accepting the session, requires the artifact root, creates the runtime, and supplies its client to `RyotProvider`. It removes the bootstrap listener after acceptance. The runtime owns `port.start()`, the session port listeners, the single dispatcher, lifecycle state, location state, pending calls, the `RyotClient`, and idempotent disposal. Runtime termination tells bootstrap to unmount the root. `PluginHost` owns the iframe element and the kernel-side session handle; it does not create capability-specific bridge objects.
+`bootstrapClientPlugin` owns embedded metadata validation, the one-time parent-window bootstrap listener, the artifact root, the route resolver and navigation store, and the top-level React root/unmount coordinator. It accepts exactly one valid init with exactly one transferred port, validates the artifact hash and all exact markers, including bridge protocol version 1, before accepting the session, requires the artifact root, creates the runtime, and supplies its client to `RyotProvider`. It removes the bootstrap listener after acceptance. The runtime owns `port.start()`, the session port listeners, the single dispatcher, lifecycle state, pending calls, the `RyotClient`, and idempotent disposal. The shared navigation store owns the current location, edge state, retained stack, and transition identity. Runtime termination tells bootstrap to unmount the root. `PluginHost` owns the iframe element and the kernel-side session handle; it does not create capability-specific bridge objects.
 
-The single dispatcher routes location, theme, query, operation, and terminal `lifecycle-close` messages and stores location and theme state in the same runtime. Query and operation calls use runtime-owned pending registries, even though they may remain separate maps for correlation. Together, operation and RyotQL pending requests share an aggregate maximum of 64 per session, enforced by both the SDK and kernel. Exceeding that limit is a protocol failure using the existing wire `failed` and public `protocol` teardown; requests are not queued or retried, and no new error reason is introduced. No other module may attach a session port listener or own a pending-call registry. The temporary parent-window bootstrap listener is the only listener outside the session runtime and is removed once the runtime is accepted.
+The single dispatcher routes location, theme, query, operation, and terminal `lifecycle-close` messages. One location dispatch synchronously reconciles `compact`, `edgeBack`, the history entry, the retained screen stack, and transition metadata into one immutable navigation snapshot, then notifies subscribers once. `PluginRouter` reads that snapshot directly with `useSyncExternalStore`; it does not mirror the entry into React state through an effect. Query and operation calls use runtime-owned pending registries, even though they may remain separate maps for correlation. Together, operation and RyotQL pending requests share an aggregate maximum of 64 per session, enforced by both the SDK and kernel. Exceeding that limit is a protocol failure using the existing wire `failed` and public `protocol` teardown; requests are not queued or retried, and no new error reason is introduced. No other module may attach a session port listener or own a pending-call registry. The temporary parent-window bootstrap listener is the only listener outside the session runtime and is removed once the runtime is accepted.
 
 Every pending query or operation entry is removed before its promise is settled. A result, runtime failure, or disposal can settle an entry only once. Normal disposal rejects every pending call with `disposed`; malformed session data or a wire `failed` close uses `protocol`; communication, posting, or network failure uses `transport`. The runtime clears the registries and ignores duplicate or late results. Closing the iframe is cleanup after this protocol-level rejection; plugin promises do not merely die with the iframe.
 
@@ -807,6 +821,11 @@ When either peer closes or fails a session, it sends `{ type: "lifecycle-close",
 Protocol version 1 implements strict request/response calls for plugin data access. It carries navigation messages, recipe-backed RyotQL query messages, backend operation messages, semantic theme messages, and terminal runtime messages over the one plugin session port.
 
 The kernel-to-plugin `location` message carries the full navigation state of the entry, not just its path: `{ type: "location", index, key, compact, edgeBack, location }`. `index` and `key` are the kernel's history identifiers, and the plugin's screen stack derives push, pop, replace, and reset from them (§18). `edgeBack` is the `resolveEdge` verdict — it is `true` only while the plugin document owns the left edge (§25). `compact` is the viewport class the same resolver used, and it is what the plugin document gates its transition on (§18). The kernel re-sends the message whenever any of those fields change, so a viewport change that moves edge ownership does not wait for a navigation.
+
+After accepting a location, the plugin runtime publishes `{ type: "header", index, key, header }`
+from the active screen in that same reconciled snapshot. `header` is validated content or `null` for
+the workspace fallback. The kernel ignores the message unless `index` and `key` still identify its
+current entry.
 
 `compact` exists as its own field because `edgeBack` cannot stand in for it: `edgeBack` is also `false` at the plugin root, where the edge belongs to the drawer, so popping from a child route back to the plugin root would lose its transition exactly as the pop began. The plugin document must not derive the viewport class itself either — media queries inside the iframe measure the content area rather than the window, so an iframe narrowed by the desktop sidebar would disagree with the kernel. `resolveEdge` stays the only definition of a compact viewport.
 
@@ -1215,9 +1234,9 @@ index/key match a retained entry    pop      truncate back to it and animate out
 anything else                       reset    discard the stack and start fresh
 ```
 
-A retained screen stays mounted and keeps its React key, so its component state, its in-flight work, and its atom subscriptions all survive a pop. Retention is bounded by `PLUGIN_SCREEN_STACK_LIMIT`; a push past the limit drops the bottom entry, which then behaves like any other cold screen when it is reached again.
+A retained screen stays mounted and keeps its React key, so its component state, its in-flight work, its atom subscriptions, and its resolved header all survive a pop. Retention is bounded by `PLUGIN_SCREEN_STACK_LIMIT`; a push past the limit drops the bottom entry, which then behaves like any other cold screen when it is reached again.
 
-**Every screen's paint state is derived, never assigned.** The router holds the screen list and one `Presentation` value — `idle`, `dragging`, or `popping` — and `presentScreens` maps the pair to exactly one role per screen:
+**Every screen's paint state is derived, never assigned.** The navigation store holds the reconciled screen list and any location-driven pop transition. The router adds only the active pointer gesture and `presentScreens` maps that state to exactly one role per screen:
 
 ```text
 active   the current entry; the only interactive screen
@@ -1230,7 +1249,7 @@ hidden   retained, mounted, and not painted
 
 Retained screens are `visibility: hidden` — never `display: none`. `visibility: hidden` preserves layout, which preserves `scrollTop`. **Scroll restoration is therefore a property of retention, not a separate mechanism**: there is no save/restore pass anywhere in the router.
 
-**A transition is owned by whoever started it.** A gesture commit begins its settling animation at release and hands the promise to the pop that follows, so the `leaving` screen is unmounted when that animation ends rather than when the kernel's `location` message arrives. A pop with no gesture behind it starts its own animation from rest. Either way exactly one animation runs and the screen it animates outlives it.
+**A transition is owned by whoever started it.** A gesture commit begins its settling animation at release and hands the promise to the pop that follows, so the `leaving` screen is unmounted when that animation ends rather than when the kernel's `location` message arrives. A pop with no gesture behind it starts its own animation from rest. The store assigns each pop a transition identity, and the router acknowledges that exact identity after settling, so an older completion cannot clear newer navigation. Either way exactly one animation runs and the screen it animates outlives it.
 
 **The transition is gated on `compact`, and retention is not.** A non-compact viewport swaps screens instantly: no `leaving` screen, no parallax, no scrim. The animation is the visual half of a drag, and without a drag to track it is motion for its own sake — on a wide window it also competes with the browser's own back-swipe animation. Retention still applies, so a desktop pop is an instant swap between two mounted screens, never a remount. `prefers-reduced-motion: reduce` takes the same path for the same reason: motion is optional, state and scroll are not.
 
@@ -1432,7 +1451,7 @@ A long-lived plugin document preserves:
 - bridge session
 - the plugin screen stack and its retained screens
 
-The bridge session and the per-session client plugin runtime have the same lifetime. Route changes only update runtime location state. Theme changes only update runtime theme state. Crash recovery, artifact replacement, unmount, and host disposal all call the same idempotent runtime disposal path; none may add a theme-specific, crash-specific, reload-specific, or component-specific bridge teardown path. Query caches belong to the provider/session atom registry and are released after five minutes of idleness when unobserved.
+The bridge session and the per-session client plugin runtime have the same lifetime. Route changes synchronously update the shared navigation snapshot and publish its active header. Theme changes only update runtime theme state. Crash recovery, artifact replacement, unmount, and host disposal all call the same idempotent runtime disposal path; none may add a theme-specific, crash-specific, reload-specific, or component-specific bridge teardown path. Query caches belong to the provider/session atom registry and are released after five minutes of idleness when unobserved.
 
 Artifact replacement then creates a fresh client and runtime through the same bootstrap/runtime factory used for an initial mount. Reload is a host lifecycle operation, not a public client capability.
 
@@ -1847,11 +1866,11 @@ The same client artifact should be exercised on:
 
 Media and Fitness provide additional production dogfooding.
 
-Client boundary tests must verify the exact public `RyotClientError` reasons and their classifications: explicit `null` operation input, omitted input rejected locally as `invalid-input`, an exposed SDK category missing from the supplied adapter as `unsupported-capability`, declared query and operation execution failures as opaque `query-failed` and `operation-failed`, invalid or throwing result decoders as `malformed-result`, teardown as `disposed`, malformed bridge/session data and wire `failed` closes as `protocol`, and communication/posting/network failures as `transport`. Tests must prove the shared 64-request operation/RyotQL pending limit and its protocol teardown, that lifecycle termination classifies every pending and synchronous capability consistently, direct and bridge query adapters classify declared failures identically, expected plugin business/domain outcomes resolve as typed values, and internal causes, messages, diagnostics, HTTP details, and stack traces do not cross the bridge. Routing tests must cover consumer-cancelled links, prevented modifier and auxiliary navigation, explicit home matching, and plugin-supplied and default not-found states.
+Client boundary tests must verify the exact public `RyotClientError` reasons and their classifications: explicit `null` operation input, omitted input rejected locally as `invalid-input`, an exposed SDK category missing from the supplied adapter as `unsupported-capability`, declared query and operation execution failures as opaque `query-failed` and `operation-failed`, invalid or throwing result decoders as `malformed-result`, teardown as `disposed`, malformed bridge/session data and wire `failed` closes as `protocol`, and communication/posting/network failures as `transport`. Tests must prove the shared 64-request operation/RyotQL pending limit and its protocol teardown, that lifecycle termination classifies every pending and synchronous capability consistently, direct and bridge query adapters classify declared failures identically, expected plugin business/domain outcomes resolve as typed values, and internal causes, messages, diagnostics, HTTP details, and stack traces do not cross the bridge. Routing tests must cover consumer-cancelled links, prevented modifier and auxiliary navigation, explicit home matching, plugin-supplied and default not-found states, one coherent navigation notification per location, synchronous first render from a preloaded location, and exact declarative header restoration on pop.
 
 Client compiler tests must also cover semantic checking of every archived non-test client `.ts`/`.tsx` file, fatal normalized TypeScript diagnostics, bundling from only the manifest entry's reachable graph, and Tailwind scanning of all archived client `.ts`/`.tsx` files.
 
-Shell tests must cover the §25 edge rule as a pure resolver across a workspace root, a plugin child route, a settings route, and a route with nothing to pop, and must prove that the header's leading control and the edge gesture never disagree. Drawer tests must keep Escape, scrim, and close-button dismissal, forward and reverse Tab containment, focus restoration, body-scroll release, removal from the accessibility tree on close, and the guarantee that a destination selection commits the close before navigation runs. Hardware Back tests must prove an open overlay is dismissed before history is popped and before the application exits. Header capability tests must cover a delegated title, a title rejected locally as `invalid-input`, a missing adapter category as `unsupported-capability`, and a failing adapter as `transport`.
+Shell tests must cover the §25 edge rule as a pure resolver across a workspace root, a plugin child route, a settings route, and a route with nothing to pop, and must prove that the header's leading control and the edge gesture never disagree. Drawer tests must keep Escape, scrim, and close-button dismissal, forward and reverse Tab containment, focus restoration, body-scroll release, removal from the accessibility tree on close, and the guarantee that a destination selection commits the close before navigation runs. Hardware Back tests must prove an open overlay is dismissed before history is popped and before the application exits. Header tests must cover validated declarative content, `null` fallback, retained-screen restoration, stale `index`/`key` rejection, and plugin-owner changes.
 
 The browser lifecycle suite drives theme changes through `/settings/preferences` rather than a global theme selector, accepts that entering settings unmounts the plugin, and verifies that the fresh iframe mounted on return receives the persisted theme. Live theme synchronization on an already-mounted plugin host is covered by unit tests instead of the browser suite.
 
