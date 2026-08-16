@@ -1,13 +1,11 @@
-import { assert, describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "@effect/vitest";
+import { Effect } from "effect";
 
 import { parseServerOrigin } from "../api/origin";
 import {
-	clearServerSelection,
-	getServerSelection,
-	getThemePreference,
+	ClientStorage,
+	clientStorageLayer,
 	SERVER_SELECTION_KEY,
-	setServerSelection,
-	setThemePreference,
 	THEME_PREFERENCE_KEY,
 	type BrowserStorage,
 } from "./storage";
@@ -23,7 +21,7 @@ const makeStorage = (entries: readonly (readonly [string, string])[] = []) => {
 };
 
 describe("browser persistence", () => {
-	it("changes and clears only the server selection", () => {
+	it.effect("changes and clears only the server selection", () => {
 		const { storage, values } = makeStorage([
 			["unrelated", "keep"],
 			[THEME_PREFERENCE_KEY, "dark"],
@@ -33,30 +31,39 @@ describe("browser persistence", () => {
 		const second = parseServerOrigin("https://two.example.com/base");
 		assert(first.ok && second.ok);
 
-		setServerSelection(first.origin, storage);
-		setServerSelection(second.origin, storage);
-		expect(getServerSelection(storage)).toBe("https://two.example.com/base");
-		clearServerSelection(storage);
+		return Effect.gen(function* () {
+			const service = yield* ClientStorage;
+			yield* service.setServerSelection(first.origin);
+			yield* service.setServerSelection(second.origin);
+			expect(yield* service.getServerSelection).toBe("https://two.example.com/base");
+			yield* service.clearServerSelection;
 
-		expect(values.has(SERVER_SELECTION_KEY)).toBe(false);
-		expect(Object.fromEntries(values)).toEqual({
-			unrelated: "keep",
-			[THEME_PREFERENCE_KEY]: "dark",
-			"ryot:other-setting": "keep-too",
-		});
+			expect(values.has(SERVER_SELECTION_KEY)).toBe(false);
+			expect(Object.fromEntries(values)).toEqual({
+				unrelated: "keep",
+				[THEME_PREFERENCE_KEY]: "dark",
+				"ryot:other-setting": "keep-too",
+			});
+		}).pipe(Effect.provide(clientStorageLayer(storage)));
 	});
 
-	it("persists valid themes and defaults invalid values to system", () => {
+	it.effect("persists valid themes and defaults invalid values to system", () => {
 		const { storage, values } = makeStorage();
-		setThemePreference("light", storage);
-		expect(values.get(THEME_PREFERENCE_KEY)).toBe("light");
-		expect(getThemePreference(storage)).toBe("light");
-		values.set(THEME_PREFERENCE_KEY, "sepia");
-		expect(getThemePreference(storage)).toBe("system");
+		return Effect.gen(function* () {
+			const service = yield* ClientStorage;
+			yield* service.setThemePreference("light");
+			expect(values.get(THEME_PREFERENCE_KEY)).toBe("light");
+			expect(yield* service.getThemePreference).toBe("light");
+			values.set(THEME_PREFERENCE_KEY, "sepia");
+			expect(yield* service.getThemePreference).toBe("system");
+		}).pipe(Effect.provide(clientStorageLayer(storage)));
 	});
 
-	it("ignores a malformed persisted server selection", () => {
+	it.effect("ignores a malformed persisted server selection", () => {
 		const { storage } = makeStorage([[SERVER_SELECTION_KEY, "javascript:alert(1)"]]);
-		expect(getServerSelection(storage)).toBeNull();
+		return Effect.gen(function* () {
+			const service = yield* ClientStorage;
+			expect(yield* service.getServerSelection).toBeNull();
+		}).pipe(Effect.provide(clientStorageLayer(storage)));
 	});
 });
