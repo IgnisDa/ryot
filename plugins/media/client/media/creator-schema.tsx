@@ -3,16 +3,7 @@ import type { EntityRendererProps } from "@ryot-app/client-sdk/plugin";
 import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
 import { createElement, type ReactNode } from "react";
 
-import type { MediaCreatorActivityResult } from "../../shared/creator-recipes";
-import { mediaCreatorActivityCopy } from "./activity-copy";
-import { MediaActivityReviewDetail, type MediaActivityRowRender } from "./activity-rows";
-import { defineMediaActivityTab, MediaActivityRecord } from "./activity-tab";
-import { mediaActivitySpanLabel, mediaCollectionRowLabel } from "./activity-timeline";
-import {
-	mediaCreatorActivityView,
-	type MediaCreatorActivityRow,
-	type MediaCreatorActivityView,
-} from "./creator-activity-state";
+import type { MediaReviewActivityResult } from "../../shared/media-recipes";
 import {
 	MediaCreditRails,
 	mediaCreditItems,
@@ -30,6 +21,8 @@ import {
 } from "./detail-screen";
 import type { MediaOverviewRelationsRender } from "./overview";
 import type { MediaOverviewState } from "./overview-state";
+import { mediaReviewActivityView } from "./review-activity-state";
+import { defineMediaReviewActivityTab } from "./review-activity-tab";
 import {
 	mediaSummaryStateMapper,
 	type MediaEntitySummaryValue,
@@ -43,8 +36,6 @@ import type { MediaTab } from "./tabs";
 
 const CREDIT_LIMIT = 12;
 const ALIAS_CHIP_LIMIT = 4;
-const ACTIVITY_EVENT_LIMIT = 60;
-const ACTIVITY_COLLECTION_EVENT_LIMIT = 60;
 
 type CreatorSummary = MediaEntitySummaryValue & {
 	readonly alternateNames: readonly string[] | null;
@@ -74,7 +65,7 @@ export type MediaCreatorSchemaDescriptor<
 			readonly entityId: string;
 			readonly eventLimit: number;
 			readonly collectionEventLimit: number;
-		}) => PreparedRecipe<MediaCreatorActivityResult>;
+		}) => PreparedRecipe<MediaReviewActivityResult>;
 	};
 	readonly artwork: MediaSummaryArtwork;
 	readonly heroHeight: (compact: boolean) => number;
@@ -82,11 +73,6 @@ export type MediaCreatorSchemaDescriptor<
 	readonly nouns: { readonly title: string; readonly singular: string; readonly plural: string };
 	readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
 	readonly links: (summary: Summary) => readonly MediaSummaryLink[];
-};
-
-const MARKER_TONE: Record<MediaCreatorActivityRow["type"], string> = {
-	review: "bg-accent",
-	collection: "bg-transparent",
 };
 
 const TABS: readonly MediaTab<"overview" | "activity">[] = [
@@ -104,7 +90,6 @@ export const defineCreatorMediaSchema = <
 	descriptor: MediaCreatorSchemaDescriptor<Summary, Slug, Overview>,
 ) => {
 	const { nouns, recipes } = descriptor;
-	const activityCopy = mediaCreatorActivityCopy(nouns.singular);
 
 	const summaryQuery = createMediaSummaryQuery(recipes.summaryRecipe);
 
@@ -113,58 +98,14 @@ export const defineCreatorMediaSchema = <
 		(data) => mediaCreditItems<Slug>(data).map(({ id }) => id),
 	);
 
-	const activityQuery = createMediaEntityQuery(
-		(input) =>
-			recipes.activityRecipe({
-				entityId: input.entityId,
-				eventLimit: ACTIVITY_EVENT_LIMIT,
-				collectionEventLimit: ACTIVITY_COLLECTION_EVENT_LIMIT,
-			}),
-		(data) =>
-			data.events.flatMap((event) => (event.kind === "collection" ? [event.collection.id] : [])),
-	);
-
 	const summaryState = mediaSummaryStateMapper<CreatorSummaryResult<Summary>, Summary>({
 		...nouns,
 		select: ({ summary }) => summary,
 	});
 
-	const activityRender: MediaActivityRowRender<MediaCreatorActivityRow> = {
-		markerTone: MARKER_TONE,
-		rowSource: () => undefined,
-		segmentNoun: activityCopy.segmentNoun,
-		rowBody: (row) => (row.type === "review" ? <MediaActivityReviewDetail row={row} /> : null),
-		rowLabel: (row) =>
-			row.type === "collection" ? mediaCollectionRowLabel(row) : activityCopy.rowLabels.review,
-	};
-
-	function ActivityRecord(props: {
-		readonly compact: boolean;
-		readonly view: MediaCreatorActivityView;
-	}) {
-		const { summary, timeline } = props.view;
-		const span = mediaActivitySpanLabel(summary.span);
-		return (
-			<MediaActivityRecord
-				timeline={timeline}
-				render={activityRender}
-				compact={props.compact}
-				recordLabel={activityCopy.recordLabel}
-				partial={summary.span.bound === "partial"}
-				figures={[
-					{ label: "Reviews", detail: undefined, value: `${summary.reviews}` },
-					{ label: span.label, value: span.value, detail: span.detail },
-				]}
-			/>
-		);
-	}
-
-	const { Activity, ActivityTab, mapActivity } = defineMediaActivityTab({
-		copy: activityCopy,
-		query: activityQuery,
-		Record: ActivityRecord,
-		emptyAction: "write-review",
-		view: mediaCreatorActivityView,
+	const { Activity, ActivityTab, mapActivity, activityQuery } = defineMediaReviewActivityTab({
+		noun: nouns.singular,
+		activityRecipe: recipes.activityRecipe,
 	});
 
 	const header = (summary: Summary): MediaSummaryHeaderDetail => ({
@@ -211,6 +152,7 @@ export const defineCreatorMediaSchema = <
 				tabs={TABS}
 				header={header}
 				state={props.state}
+				defaultTab="overview"
 				overviewTab="overview"
 				compact={props.compact}
 				settled={props.settled}
@@ -270,7 +212,7 @@ export const defineCreatorMediaSchema = <
 		overviewManagedAssets,
 		page: mediaDetailPage(Screen),
 		mapSummary: summaryState.mapSummary,
-		activityView: mediaCreatorActivityView,
+		activityView: mediaReviewActivityView,
 		summaryError: summaryState.summaryError,
 		summaryUnavailable: summaryState.summaryUnavailable,
 	};

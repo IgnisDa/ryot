@@ -6,11 +6,7 @@ import { creatorFixtureRecipes, creatorPlainFixtureRecipes } from "../tests/clie
 
 const OVERVIEW_INPUT = { creditLimit: 12, entityId: "creator-1" };
 
-const ACTIVITY_INPUT = { eventLimit: 60, entityId: "creator-1", collectionEventLimit: 40 };
-
 const OVERVIEW_RECIPE = creatorFixtureRecipes.overviewRecipe(OVERVIEW_INPUT);
-
-const ACTIVITY_RECIPE = creatorFixtureRecipes.activityRecipe(ACTIVITY_INPUT);
 
 const rowsQuery = (recipe: PreparedRecipe<unknown>, name: string) => {
 	const query = recipe.document.queries[name];
@@ -33,36 +29,6 @@ const creditInclude = (recipe: PreparedRecipe<unknown>, slug: string) => {
 
 const creditKeys = (recipe: PreparedRecipe<unknown>, slug: string) =>
 	creditInclude(recipe, slug).fields.map((field) => ("key" in field ? field.key : null));
-
-const activityRows = (items: readonly Record<string, unknown>[], hasMore = false) =>
-	rowsResult(items, { hasMore, limit: 60, nextCursor: hasMore ? "cursor" : null });
-
-const reviewRow = {
-	rating: 80,
-	text: "Great.",
-	isSpoiler: false,
-	id: "creator-review",
-	createdAt: "2024-02-03T10:00:00.000Z",
-	occurredAt: "2024-02-03T09:00:00.000Z",
-};
-
-const collectionRow = {
-	id: "collection-added",
-	collectionName: "Favourites",
-	collectionId: "collection-1",
-	createdAt: "2024-02-04T10:00:00.000Z",
-	occurredAt: "2024-02-04T09:00:00.000Z",
-	eventSchemaSlug: "add-entity-to-collection",
-};
-
-const decodeActivity = (input: { readonly hasMore: boolean }) =>
-	ACTIVITY_RECIPE.decode({
-		data: {
-			totals: activityRows([{ reviewCount: 1 }]),
-			collectionEvents: activityRows([collectionRow]),
-			events: activityRows([reviewRow], input.hasMore),
-		},
-	});
 
 describe("media creator recipes", () => {
 	it("selects the entity summary and aliases without any publish, genre, rating or state field", () => {
@@ -190,41 +156,5 @@ describe("media creator recipes", () => {
 				"video-game-group": { items: [], pageInfo: { hasMore: false } },
 			},
 		});
-	});
-
-	it("counts and lists only review events", () => {
-		const events = rowsQuery(ACTIVITY_RECIPE, "events");
-
-		expect(events.where).toMatchObject({
-			predicates: [{}, { type: "in", values: [{ value: "review" }] }],
-		});
-		expect(JSON.stringify(rowsQuery(ACTIVITY_RECIPE, "totals").output.fields)).toContain(
-			'"value":"review"',
-		);
-		expect(keys(ACTIVITY_RECIPE, "events")).toEqual([
-			"id",
-			"createdAt",
-			"occurredAt",
-			"text",
-			"rating",
-			"isSpoiler",
-		]);
-	});
-
-	it("merges reviews and collection events newest first", () => {
-		expect(decodeActivity({ hasMore: false })).toMatchObject({
-			success: {
-				reviewCount: 1,
-				truncated: false,
-				events: [
-					{ kind: "collection", id: "collection-added" },
-					{ rating: 80, kind: "media", id: "creator-review" },
-				],
-			},
-		});
-	});
-
-	it("reports the activity as truncated when a page has more events", () => {
-		expect(decodeActivity({ hasMore: true })).toMatchObject({ success: { truncated: true } });
 	});
 });
