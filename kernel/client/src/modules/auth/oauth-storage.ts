@@ -109,19 +109,6 @@ const makeStorage = (adapter: OAuthStorageAdapter): OAuthStorage["Service"] => {
 				}
 				return yield* decodeOrEvict(StoredTokenSet, key, value);
 			}),
-		getPending: (origin, state) =>
-			Effect.gen(function* () {
-				const key = oauthPendingKey(origin, state);
-				const pending = yield* readPending(key);
-				if (pending === null) {
-					return null;
-				}
-				if (isFresh(pending)) {
-					return pending;
-				}
-				yield* evict(key);
-				return null;
-			}),
 		takePending: (origin, state) =>
 			Effect.gen(function* () {
 				const key = oauthPendingKey(origin, state);
@@ -156,10 +143,6 @@ export class OAuthStorage extends Context.Service<
 		readonly setPending: (
 			pending: PendingAuthorizationValue,
 		) => Effect.Effect<void, OAuthStorageError>;
-		readonly getPending: (
-			origin: ServerOrigin,
-			state: string,
-		) => Effect.Effect<PendingAuthorizationValue | null>;
 		readonly takePending: (
 			origin: ServerOrigin,
 			state: string,
