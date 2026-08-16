@@ -35,6 +35,12 @@ episodes newest first. "Next up" is not derived from a page: the summary resolve
 container that holds it - the matching season for a show, the feed for a podcast.
 Show's activity coverage is one bar per season with specials last; podcast's is a single Episodes bar.
 
+A show's episode orders (see Images And Providers) are presentational only. `showSeasonsRecipe`
+returns them as `episodeOrders`; a picked order regroups the Episodes tab through
+`showOrderEpisodesRecipe` and `showOrderGroupCoverageRecipe`, which select the show's episodes by
+external id. Watch history stays on the `show-episode` entities, and next up, coverage, caught-up,
+auto-complete, and activity keep the default seasons.
+
 Podcast providers (iTunes and ListenNotes) emit no person or company credit relationships, so its
 credits arrive as `unlinkedCreators`, the way Book's and Audiobook's do. They also ship cover art only - no backdrops,
 and episode artwork is square `cover` rather than show's `aspect-video` `still` - so the podcast hero
@@ -259,6 +265,15 @@ with how it is offered: `stream`, `free`, `ads`, `rent`, or `buy`. The property 
 because the link is a property of the country, not of a service. Countries are sorted, a country
 naming no service is omitted, and offers keep that fixed order, so repeated population of unchanged
 data produces an identical value.
+
+Episode orders are TMDB-only and exist on `show` alone: TMDB's episode groups (original air date,
+absolute, DVD, digital, story arc, production, TV). `episodeOrders` is a list of
+`{ externalId, name, type, description, groups: [{ name, order, episodeExternalIds }] }` in TMDB's list
+order, with groups and their episodes sorted by TMDB's `order`. Episodes are referenced by the same
+provider external id as the `show-episode` entities rather than by season and episode number, because
+an order's positions are its own and only the id joins it back to stored episodes. Orders of an unknown
+type are dropped, and details always emit the property, so an empty array clears removed orders on
+refresh.
 
 Provider details normalize source data into common properties and relationship groups. Consumers do
 not branch on provider identity. Supported relationship categories emit authoritative empty groups so

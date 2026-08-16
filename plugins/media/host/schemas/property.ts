@@ -9,6 +9,7 @@ import {
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 
 import { mediaImagePurposes } from "../../shared/media-image";
+import { showEpisodeOrderTypes } from "../../shared/show-episode-order";
 import { watchProviderOffers } from "../../shared/watch-provider";
 
 const booleanField = (label: string, description: string) =>
@@ -144,6 +145,72 @@ export const showPropertiesSchema: AppSchema = {
 		watchProviders: watchProvidersField("Where to watch this show, by country"),
 		totalSeasons: integerField("Total Seasons", "Total number of seasons in this show"),
 		totalEpisodes: integerField("Total Episodes", "Total number of episodes in this show"),
+		episodeOrders: {
+			type: "array",
+			label: "Episode Orders",
+			description: "Alternative episode orders, each listing episode external ids by group",
+			items: {
+				label: "Item",
+				type: "object",
+				description: "Item",
+				unknownKeys: "strict",
+				properties: {
+					description: { type: "string", label: "Description", description: "Description" },
+					name: {
+						label: "Name",
+						type: "string",
+						description: "Name",
+						validation: { required: true },
+					},
+					externalId: {
+						type: "string",
+						label: "External Id",
+						validation: { required: true },
+						description: "Provider external id of this episode order",
+					},
+					type: {
+						type: "enum",
+						label: "Type",
+						validation: { required: true },
+						description: "Kind of order the provider reports",
+						choices: { kind: "static", values: showEpisodeOrderTypes.map((value) => ({ value })) },
+					},
+					groups: {
+						type: "array",
+						label: "Groups",
+						validation: { required: true },
+						description: "Groups of this order, sorted by position",
+						items: {
+							label: "Item",
+							type: "object",
+							description: "Item",
+							unknownKeys: "strict",
+							properties: {
+								name: {
+									label: "Name",
+									type: "string",
+									description: "Name",
+									validation: { required: true },
+								},
+								order: {
+									label: "Order",
+									type: "integer",
+									validation: { required: true },
+									description: "Position of this group within the order",
+								},
+								episodeExternalIds: {
+									...stringArrayField(
+										"Episode External Ids",
+										"Provider external ids of this group's episodes, in order",
+									),
+									validation: { required: true },
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	},
 };
 

@@ -114,7 +114,7 @@ describe("show.tmdb sandbox script", () => {
 			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.childEntities).toEqual([]);
-					expect(result.properties).toMatchObject({ productionStatus: "Ended" });
+					expect(result.properties).toMatchObject({ episodeOrders: [], productionStatus: "Ended" });
 					expect(result.expectedChildEntitySchemaSlug).toBe("show-season");
 					expect(result.relatedEntityGroups).toEqual([
 						{
@@ -270,6 +270,90 @@ describe("show.tmdb sandbox script", () => {
 										image: "https://image.tmdb.org/t/p/original/tubi.jpg",
 									},
 								],
+							},
+						],
+					});
+					return undefined;
+				}),
+			),
+		);
+	});
+
+	it("stores TMDB episode groups as episode orders of episode ids in group order", () => {
+		const requestedPaths: string[] = [];
+		const host = makeHost((_method, url) => {
+			const requestUrl = new URL(url);
+			requestedPaths.push(requestUrl.pathname);
+			if (requestUrl.pathname === "/3/tv/1437/episode_groups") {
+				return httpSuccess({
+					id: 1437,
+					results: [
+						{
+							type: 6,
+							name: "Production Order",
+							id: "5acfb4960e0a26346d0046d2",
+							description: "The proper and intended order of Firefly episodes.",
+						},
+						{ type: 9, id: "unknown-kind", name: "Unknown Kind" },
+						{ type: 3, name: "", id: "unnamed" },
+						{ type: 3, id: "dvd-order", description: "", name: "DVD Order" },
+					],
+				});
+			}
+			if (requestUrl.pathname === "/3/tv/episode_group/5acfb4960e0a26346d0046d2") {
+				return httpSuccess({
+					groups: [
+						{
+							order: 2,
+							name: "Movie",
+							episodes: [{ order: 0, id: 1048600, season_number: 0, episode_number: 1 }],
+						},
+						{
+							order: 1,
+							name: "Season 1",
+							episodes: [
+								{ order: 1, id: 1048594, season_number: 1, episode_number: 1 },
+								{ order: 0, id: 1048593, season_number: 1, episode_number: 11 },
+								{ id: 0, order: 2 },
+								{ order: 3, id: "1048595" },
+							],
+						},
+					],
+				});
+			}
+			if (requestUrl.pathname === "/3/tv/episode_group/dvd-order") {
+				return httpSuccess({ groups: [] });
+			}
+			if (requestUrl.pathname === "/3/tv/1437") {
+				return httpSuccess({ id: 1437, seasons: [], name: "Firefly" });
+			}
+			return httpSuccess({ results: [] });
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "1437" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(requestedPaths.filter((path) => path.includes("/episode_group/"))).toEqual([
+						"/3/tv/episode_group/5acfb4960e0a26346d0046d2",
+						"/3/tv/episode_group/dvd-order",
+					]);
+					expect(result.properties).toMatchObject({
+						episodeOrders: [
+							{
+								type: "production",
+								name: "Production Order",
+								externalId: "5acfb4960e0a26346d0046d2",
+								description: "The proper and intended order of Firefly episodes.",
+								groups: [
+									{ order: 1, name: "Season 1", episodeExternalIds: ["1048593", "1048594"] },
+									{ order: 2, name: "Movie", episodeExternalIds: ["1048600"] },
+								],
+							},
+							{
+								groups: [],
+								type: "dvd",
+								name: "DVD Order",
+								description: null,
+								externalId: "dvd-order",
 							},
 						],
 					});

@@ -55,6 +55,7 @@ export const decodeShowSeasonsResult = (input: {
 						id: "show-1",
 						schemaSlug: "show",
 						name: "Adolescence",
+						episodeOrders: null,
 						populationStatus: "ready",
 						translationStatus: "none",
 						...input.show,
