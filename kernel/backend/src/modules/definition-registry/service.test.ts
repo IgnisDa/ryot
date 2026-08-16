@@ -1,9 +1,9 @@
 import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { EntitySchemaSlug } from "@ryot/contract/schema/brands";
-import fitnessPlugin from "@ryot/fitness-plugin";
-import mediaPlugin from "@ryot/media-plugin";
 import { Effect } from "effect";
 import { assert, describe, expect, it } from "vitest";
+
+import { fixtureManifest } from "#modules/plugins/test-support";
 
 import { kernelDefinitionSource } from "./kernel-source";
 import {
@@ -15,7 +15,44 @@ import {
 
 const pluginDefinitionSource = (): DefinitionSource => {
 	const kernel = kernelDefinitionSource();
-	const plugins: ReadonlyArray<PluginManifest> = [mediaPlugin, fitnessPlugin];
+	const base = fixtureManifest();
+	const savedView = kernel.savedViews[0];
+	assert(savedView);
+	const entitySchema = base.entitySchemas[0];
+	assert(entitySchema);
+	const plugins: ReadonlyArray<PluginManifest> = [
+		{
+			...base,
+			savedViews: [
+				{
+					...savedView,
+					slug: "fixture-items",
+					name: "Fixture Items",
+					pluginSlug: "fixture",
+					entitySchemaSlug: EntitySchemaSlug.make("fixture-entity"),
+				},
+			],
+			entitySchemas: [
+				{
+					...entitySchema,
+					userState: { deniedOperations: ["clear", "merge"] },
+					eventSchemas: entitySchema.eventSchemas.map((event) => ({
+						...event,
+						propertiesSchema: {
+							fields: {
+								value: {
+									type: "string",
+									label: "Value",
+									description: "Changed value",
+									validation: { required: true },
+								},
+							},
+						},
+					})),
+				},
+			],
+		},
+	];
 	return {
 		savedViews: [...kernel.savedViews, ...plugins.flatMap(({ savedViews }) => savedViews)],
 		signalSchemas: [
@@ -40,18 +77,20 @@ describe("definition registry", () => {
 		const registry = makeDefinitionRegistry(pluginDefinitionSource());
 		const snapshot = registry.getSnapshot();
 
-		expect(registry.getEntitySchema("movie")?.eventSchemas["progress"]?.name).toBe("Progress");
-		expect(registry.getRelationshipSchema("in-library")?.name).toBe("In Library");
-		expect(registry.getSignalSchema("review.created")?.name).toBe("Review Created");
-		expect(registry.getSignalSchema("review.created")?.notificationScriptSlug).toBe(
-			"automation.media-notification",
+		expect(registry.getEntitySchema("fixture-entity")?.eventSchemas["changed"]?.name).toBe(
+			"Changed",
+		);
+		expect(registry.getRelationshipSchema("fixture-link")?.name).toBe("Fixture Link");
+		expect(registry.getSignalSchema("fixture.signal")?.name).toBe("Fixture Signal");
+		expect(registry.getSignalSchema("fixture.signal")?.notificationScriptSlug).toBe(
+			"fixture.automation",
 		);
 		expect(registry.getEntitySchema("collection")?.pluginSlug).toBeNull();
-		expect(registry.getEntitySchema("movie")?.pluginSlug).toBe("media");
+		expect(registry.getEntitySchema("fixture-entity")?.pluginSlug).toBe("fixture");
 		expect(registry.getSavedView("collections")?.pluginSlug).toBeNull();
-		expect(registry.getSavedView("all-movies")?.pluginSlug).toBe("media");
+		expect(registry.getSavedView("fixture-items")?.pluginSlug).toBe("fixture");
 		expect(Object.isFrozen(snapshot)).toBe(true);
-		expect(Object.isFrozen(snapshot.entitySchemas["movie"]?.propertiesSchema)).toBe(true);
+		expect(Object.isFrozen(snapshot.entitySchemas["fixture-entity"]?.propertiesSchema)).toBe(true);
 	});
 
 	it("normalizes absent merge identity properties to an immutable empty array", () => {
@@ -66,11 +105,11 @@ describe("definition registry", () => {
 	it("preserves declared entity user-state restrictions and permissive defaults", () => {
 		const registry = makeDefinitionRegistry(pluginDefinitionSource());
 
-		expect(registry.getEntitySchema("library")?.userState?.deniedOperations).toEqual([
+		expect(registry.getEntitySchema("fixture-entity")?.userState?.deniedOperations).toEqual([
 			"clear",
 			"merge",
 		]);
-		expect(registry.getEntitySchema("movie")?.userState).toBeUndefined();
+		expect(registry.getEntitySchema("collection")?.userState).toBeUndefined();
 	});
 
 	it("replaces the snapshot only after the next source passes validation", () => {
@@ -162,13 +201,13 @@ describe("definition registry", () => {
 	it("delegates property validation to the property-schema runtime", () => {
 		const registry = makeDefinitionRegistry(pluginDefinitionSource());
 
-		expect(Effect.runSyncExit(registry.validateEventProperties("movie", "progress", {}))._tag).toBe(
-			"Failure",
-		);
+		expect(
+			Effect.runSyncExit(registry.validateEventProperties("fixture-entity", "changed", {}))._tag,
+		).toBe("Failure");
 		expect(
 			Effect.runSync(
-				registry.validateEventProperties("movie", "progress", { progressPercent: 10 }),
+				registry.validateEventProperties("fixture-entity", "changed", { value: "next" }),
 			),
-		).toEqual({ progressPercent: 10 });
+		).toEqual({ value: "next" });
 	});
 });

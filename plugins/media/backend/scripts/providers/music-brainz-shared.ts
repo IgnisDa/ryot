@@ -1,7 +1,7 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
 
-import { asRecord, parseJsonResponse, stringValue } from "../script-helpers/records";
+import { asRecord, parseJsonResponse, stringValue } from "../../shared/records";
 
 export type MusicBrainzHost = SandboxHost<readonly ["httpCall"]>;
 

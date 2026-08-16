@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Kernel Assembly](./README.md)
 
-**Status:** pending
+**Status:** done
 
 ## What to build
 
@@ -18,16 +18,24 @@ Resolve the six kernel test files that import plugin packages, per the parent pl
 
 ## Acceptance criteria
 
-- [ ] The kernel discovers system plugins by reading bundles from the configured directory and ingests them through the existing trusted path.
-- [ ] Discovery order is the sorted bundle directory name, and the resulting order is deterministic across restarts.
-- [ ] An absent or empty plugin directory starts the server with zero system plugins, and a malformed bundle fails startup with a clear error.
-- [ ] The boot-configured slug constant is replaced by a service holding the discovered set, and the uninstall guard consumes it.
-- [ ] `@ryot/kernel-backend` declares no dependency on any plugin package, in production or development dependencies.
-- [ ] The kernel test suite passes with no plugin package resolvable from the kernel workspace.
-- [ ] Each plugin package proves that every script it declares compiles and loads in the sandbox runtime.
-- [ ] The plugin, storage, working, and sandbox directory fields default relative to the working directory and resolve to their current image paths.
-- [ ] The Dockerfile no longer sets the sandbox directory environment variable.
-- [ ] A clean checkout runs the development server after assembly with no path environment variables configured anywhere.
-- [ ] Editing a plugin sandbox script rebuilds its bundle and restarts the server, and unchanged plugins are not recompiled.
-- [ ] The end-to-end suite runs against the same discovery path as production, with no development-only loading mode.
-- [ ] Repository check and test tasks pass.
+- [x] The kernel discovers system plugins by reading bundles from the configured directory and ingests them through the existing trusted path.
+- [x] Discovery order is the sorted bundle directory name, and the resulting order is deterministic across restarts.
+- [x] An absent or empty plugin directory starts the server with zero system plugins, and a malformed bundle fails startup with a clear error.
+- [x] The boot-configured slug constant is replaced by a service holding the discovered set, and the uninstall guard consumes it.
+- [x] `@ryot/kernel-backend` declares no dependency on any plugin package, in production or development dependencies.
+- [x] The kernel test suite passes with no plugin package resolvable from the kernel workspace.
+- [x] Each plugin package proves that every script it declares compiles and loads in the sandbox runtime.
+- [x] The plugin, storage, working, and sandbox directory fields default relative to the working directory and resolve to their current image paths.
+- [x] The Dockerfile no longer sets the sandbox directory environment variable.
+- [x] A clean checkout runs the development server after assembly with no path environment variables configured anywhere.
+- [x] Editing a plugin sandbox script rebuilds its bundle and restarts the server, and unchanged plugins are not recompiled.
+- [x] The end-to-end suite runs against the same discovery path as production, with no development-only loading mode.
+- [x] Repository check and test tasks pass.
+
+## Implementation notes
+
+- Added sorted filesystem discovery and a runtime system-plugin service, then routed boot ingestion and uninstall protection through the discovered plugin set.
+- Removed kernel dependencies on shipped plugins and replaced plugin-owned kernel test inputs with synthetic manifests, property-schema fixtures, and sandbox bridge fixtures.
+- Added server assembly and development watch supervision for plugin bundles, migrations, and runtime directories. End-to-end setup now assembles and starts from `apps/server`.
+- Added plugin-owned sandbox load tests and kept media sandbox bundle sources self-contained under `backend/` by moving their shared implementations to `backend/shared`.
+- Verified kernel, server, tests, media, and fitness checks; focused kernel and sandbox compiler tests; both plugin sandbox load tests; and the affected end-to-end files.

@@ -2,8 +2,8 @@ import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
-import { asRecord, numberValue, stringValue, trimmedString } from "../../../script-helpers/records";
-import { createRoleAccumulator } from "../../../script-helpers/role-accumulator";
+import { asRecord, numberValue, stringValue, trimmedString } from "../../../../shared/records";
+import { createRoleAccumulator } from "../../../../shared/role-accumulator";
 import { getFirstImage, getImagesSortedBySize, spotifyGet } from "../../spotify-shared";
 
 export const manifest = defineManifest({

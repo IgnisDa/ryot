@@ -2,9 +2,9 @@ import { column, table } from "@ryot/ryotql";
 import { buildSavedViewLayoutProjections } from "@ryot/ryotql-recipes/saved-views";
 
 import { mediaEntitySchemas } from "./backend/schemas/entity-schemas";
+import { slugify } from "./backend/shared/slug";
+import { buildViewExpressions } from "./backend/shared/view-helpers";
 import { defaultMediaSavedViewRecipe } from "./query-recipes";
-import { slugify } from "./shared/slug";
-import { buildViewExpressions } from "./shared/view-helpers";
 
 const mediaEntitySchemaSlugs = [
 	"show",

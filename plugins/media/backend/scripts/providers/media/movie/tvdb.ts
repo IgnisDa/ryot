@@ -2,8 +2,8 @@ import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
-import { parsePublishYear } from "../../../script-helpers/parse-publish-year";
-import { asRecord, numberValue, recordsValue, stringValue } from "../../../script-helpers/records";
+import { parsePublishYear } from "../../../../shared/parse-publish-year";
+import { asRecord, numberValue, recordsValue, stringValue } from "../../../../shared/records";
 import {
 	bcp47ToTvdb,
 	buildTranslationResult,

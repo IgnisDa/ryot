@@ -7,7 +7,7 @@ import {
 	numberValue,
 	recordsValue,
 	stringValue,
-} from "../../script-helpers/records";
+} from "../../../shared/records";
 import { getImageUrl, getTmdbAccessToken, tmdbGet, type TmdbHost } from "../tmdb-shared";
 
 export const manifest = defineManifest({

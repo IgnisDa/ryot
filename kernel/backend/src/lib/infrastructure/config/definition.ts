@@ -109,19 +109,17 @@ const sandbox = group(
 	{ label: "Sandbox", description: "Sandbox execution settings" },
 	{
 		processMode: enumField({
-			choices: {
-				kind: "static",
-				values: [{ value: "on-demand" }, { value: "warm" }],
-			},
 			defaultValue: "on-demand",
 			label: "Process mode",
 			envKey: "SANDBOX_PROCESS_MODE",
+			choices: { kind: "static", values: [{ value: "on-demand" }, { value: "warm" }] },
 			description: "Spawn processes on demand or keep a warm pool ready for executions",
 		}),
 		denoDir: stringField({
+			hidden: true,
+			defaultValue: "./tmp",
 			label: "Deno directory",
 			envKey: "SANDBOX_DENO_DIR",
-			defaultValue: "/home/ryot/tmp",
 			description: "Directory used for the local sandbox dependency runtime and Deno cache",
 		}),
 	},
@@ -132,14 +130,14 @@ const fileStorage = group(
 	{
 		localDir: stringField({
 			hidden: true,
+			defaultValue: "./storage",
 			envKey: "FILE_STORAGE_LOCAL_DIR",
-			defaultValue: "/home/ryot/storage",
 			label: "Local permanent directory",
 			description: "Writable persistent directory for permanent local objects",
 		}),
 		localTempDir: stringField({
 			hidden: true,
-			defaultValue: "/home/ryot/work",
+			defaultValue: "./work",
 			label: "Local working directory",
 			envKey: "FILE_STORAGE_LOCAL_TEMP_DIR",
 			description: "Directory used for temporary uploads, imports, and sandbox working files",
@@ -230,6 +228,13 @@ const server = group(
 	{
 		oidc,
 		smtp,
+		pluginsSystemDir: stringField({
+			hidden: true,
+			defaultValue: "./plugins",
+			label: "System plugin directory",
+			envKey: "SERVER_PLUGINS_SYSTEM_DIR",
+			description: "Directory containing trusted system plugin bundles",
+		}),
 		logLevel: stringField({
 			label: "Log level",
 			defaultValue: "info",
@@ -332,5 +337,5 @@ export const appConfigDefinition = defineConfig(
 );
 
 export const sandboxDenoDirConfig = Config.string("SANDBOX_DENO_DIR").pipe(
-	Config.withDefault("/home/ryot/tmp"),
+	Config.withDefault("./tmp"),
 );

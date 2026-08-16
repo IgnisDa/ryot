@@ -63,6 +63,10 @@ yarn-debug.*
 yarn-error.*
 *.pem
 apps/server/client
+apps/server/plugins
+apps/server/storage
+apps/server/work
+apps/server/src/drizzle
 kernel/backend/src/lib/infrastructure/sandbox-runtime/runner.generated.ts
 kernel/client*/ios
 kernel/client*/android

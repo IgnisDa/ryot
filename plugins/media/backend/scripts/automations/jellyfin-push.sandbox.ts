@@ -12,7 +12,7 @@ import {
 	parseJsonBody,
 	resolveEntityProviderName,
 	type IntegrationPushHost,
-} from "../script-helpers/integration-push";
+} from "../../shared/integration-push";
 
 const JELLYFIN_AUTH_HEADER =
 	'MediaBrowser Client="Ryot", Device="Ryot", DeviceId="ryot-integration", Version="2.0.0"';

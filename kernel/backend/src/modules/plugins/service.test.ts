@@ -24,6 +24,7 @@ import {
 	runPluginRegistryReconciliation,
 } from "./service";
 import { loadPluginSource } from "./source";
+import { SystemPlugins } from "./system";
 import { fixtureManifest, fixturePackageRoot } from "./test-support";
 import type { NormalizedPlugin, StoredPlugin } from "./types";
 
@@ -175,6 +176,7 @@ const makeLayer = (input?: {
 	readonly afterPersist?: Effect.Effect<void>;
 	readonly persisted?: Array<NormalizedPlugin>;
 	readonly hasWorkflowReferences?: () => boolean;
+	readonly systemPluginSlugs?: ReadonlySet<string>;
 	readonly publish?: RedisService["Service"]["publish"];
 	readonly initialInstalled?: ReadonlyArray<StoredPlugin>;
 	readonly repositoryList?: PluginRepository["Service"]["list"];
@@ -261,6 +263,10 @@ const makeLayer = (input?: {
 		collect: input?.collectGarbage ?? (() => Effect.sync(() => undefined)),
 		recordKernelContentHashes: () => Effect.void,
 	});
+	const systemPluginsLayer = Layer.succeed(SystemPlugins, {
+		sources: [],
+		slugs: input?.systemPluginSlugs ?? new Set(),
+	});
 	const redisLayer = Layer.succeed(
 		RedisService,
 		makeRedisService({
@@ -282,6 +288,7 @@ const makeLayer = (input?: {
 				repositoryLayer,
 				testDatabaseLayer,
 				garbageCollectorLayer,
+				systemPluginsLayer,
 				workflowReferenceLayer,
 			),
 		),
@@ -1113,7 +1120,14 @@ it.effect("refuses uninstall for a boot-configured plugin", () => {
 			_tag: "PluginConflictError",
 			reason: { code: "boot-configured", pluginSlug: "media" },
 		});
-	}).pipe(Effect.provide(makeLayer({ initialInstalled: [stored] })));
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				initialInstalled: [stored],
+				systemPluginSlugs: new Set([manifest.metadata.slug]),
+			}),
+		),
+	);
 });
 
 it.effect("short-circuits compilation and persistence for a matching source hash", () => {
