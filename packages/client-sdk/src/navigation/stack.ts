@@ -21,7 +21,6 @@ export type Presentation =
 	| { readonly kind: "idle" }
 	| { readonly kind: "dragging" }
 	| {
-			readonly from: number;
 			readonly kind: "popping";
 			readonly leaving: PluginScreen;
 			readonly incoming: string | undefined;
