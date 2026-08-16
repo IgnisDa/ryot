@@ -28,7 +28,7 @@ import {
 	hashWorkflowCallArgs,
 	projectWorkflowJournal,
 } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
-import { type DurableSchema, withoutWorkflowParent } from "#lib/infrastructure/workflow";
+import type { DurableSchema } from "#lib/infrastructure/workflow";
 
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import {
@@ -382,35 +382,31 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 	const child = yield* Effect.exit(
 		kernel
 			? Effect.flatMap(KernelWorkflowReferences, (references) =>
-					references
-						.execute(
-							request.args.workflowSlug,
-							request.args.input,
-							payload.subject,
-							childExecutionId,
-							executionId,
-							payload.scriptId,
-							artifactOwnerExecutionId,
-						)
-						.pipe(withoutWorkflowParent),
+					references.execute(
+						request.args.workflowSlug,
+						request.args.input,
+						payload.subject,
+						childExecutionId,
+						executionId,
+						payload.scriptId,
+						artifactOwnerExecutionId,
+					),
 				)
 			: Effect.flatMap(WorkflowEngine, (engine) =>
 					targetScriptId === undefined
 						? Effect.fail(sandboxFailure("Child workflow script was not resolved"))
-						: engine
-								.execute(SandboxScriptWorkflow, {
+						: engine.execute(SandboxScriptWorkflow, {
+								executionId: childExecutionId,
+								payload: {
+									resolutionMode: "exact",
+									subject: payload.subject,
+									input: request.args.input,
 									executionId: childExecutionId,
-									payload: {
-										resolutionMode: "exact",
-										subject: payload.subject,
-										input: request.args.input,
-										executionId: childExecutionId,
-										scriptId: SandboxScriptId.make(targetScriptId),
-										grants: { ...payload.grants, artifactOwnerExecutionId },
-										...(payload.pluginRevision ? { pluginRevision: payload.pluginRevision } : {}),
-									},
-								})
-								.pipe(withoutWorkflowParent),
+									scriptId: SandboxScriptId.make(targetScriptId),
+									grants: { ...payload.grants, artifactOwnerExecutionId },
+									...(payload.pluginRevision ? { pluginRevision: payload.pluginRevision } : {}),
+								},
+							}),
 				),
 	);
 	if (usesArtifacts) {
