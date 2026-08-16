@@ -71,6 +71,7 @@ it("exposes only approved entity fields", () => {
 			"populatedAt",
 			"translationStatus",
 			"entitySchemaSlug",
+			"entitySchemaPluginId",
 		]),
 	);
 });
