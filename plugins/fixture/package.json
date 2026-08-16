@@ -1,0 +1,25 @@
+{
+	"name": "@ryot/fixture-plugin",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./manifest.ts",
+			"default": "./manifest.ts"
+		}
+	},
+	"scripts": {
+		"build": "ryot plugin build",
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+	},
+	"dependencies": {
+		"@ryot/contract": "workspace:*"
+	},
+	"devDependencies": {
+		"@ryot/cli": "workspace:*",
+		"@ryot/client-plugin-sdk": "workspace:*",
+		"@ryot/client-ui-sdk": "workspace:*",
+		"@types/react": "^19.2.0",
+		"@types/react-dom": "^19.2.0"
+	}
+}

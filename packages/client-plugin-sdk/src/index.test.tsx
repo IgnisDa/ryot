@@ -1,6 +1,7 @@
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
+	CLIENT_ARTIFACT_METADATA_ELEMENT_ID,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 	type PluginBridgeInit,
@@ -29,6 +30,15 @@ const init: PluginBridgeInit = {
 
 const channels: Array<{ channel: MessageChannel; messages: unknown[] }> = [];
 const FixtureHome = () => <p>Fixture home</p>;
+
+const embedArtifactMetadata = (contents: string) => {
+	document.head.innerHTML = "";
+	const element = document.createElement("script");
+	element.type = "application/json";
+	element.id = CLIENT_ARTIFACT_METADATA_ELEMENT_ID;
+	element.textContent = contents;
+	document.head.append(element);
+};
 
 const dispatchInit = (data: unknown, ports: MessagePort[], source: MessageEventSource | null) =>
 	window.dispatchEvent(new MessageEvent("message", { data, ports, source }));
@@ -62,10 +72,29 @@ describe("client plugin SDK", () => {
 		expect(Object.isFrozen(definition)).toBe(true);
 	});
 
+	it("never listens when the embedded artifact metadata is absent or malformed", async () => {
+		document.head.innerHTML = "";
+		document.body.innerHTML = '<div id="app"></div>';
+		bootstrapClientPlugin(defineClientPlugin({ home: FixtureHome }));
+
+		embedArtifactMetadata(JSON.stringify({ ...artifactMetadata, format: 2 }));
+		bootstrapClientPlugin(defineClientPlugin({ home: FixtureHome }));
+
+		embedArtifactMetadata("not json");
+		bootstrapClientPlugin(defineClientPlugin({ home: FixtureHome }));
+
+		const ignored = openChannel();
+		dispatchInit(init, [ignored.channel.port2], window.parent);
+		await settleMessages();
+
+		expect(ignored.messages).toEqual([]);
+		expect(document.getElementById("app")?.textContent).toBe("");
+	});
+
 	it("rejects invalid init messages, then readies and mounts only the first valid init", async () => {
 		document.body.innerHTML = "";
-		const definition = defineClientPlugin({ home: FixtureHome });
-		bootstrapClientPlugin(definition, artifactMetadata);
+		embedArtifactMetadata(JSON.stringify(artifactMetadata));
+		bootstrapClientPlugin(defineClientPlugin({ home: FixtureHome }));
 
 		const nonParent = openChannel();
 		const foreignFrame = document.createElement("iframe");
