@@ -9,14 +9,19 @@ import { describe, expect, it } from "vitest";
 
 import { type AccountCleanlinessState, classifyAccountCleanliness } from "./account-cleanliness";
 
-const library = {
+const bootstrapEntity = (id = "bootstrap-id") => ({
+	id,
 	provider: null,
 	properties: {},
-	name: "Library",
 	externalId: null,
 	populatedAt: null,
-	entitySchemaSlug: EntitySchemaSlug.make("library"),
-};
+	name: "Bootstrap entity",
+	entitySchemaPluginId: null,
+	createdAt: new Date(0),
+	updatedAt: new Date(0),
+	origin: { kind: "bootstrap" as const },
+	entitySchemaSlug: EntitySchemaSlug.make("bootstrap-entity"),
+});
 
 const systemInstallation = (
 	overrides: Partial<AccountCleanlinessState["pluginState"][number]> = {},
@@ -45,28 +50,27 @@ const cleanState = (overrides: Partial<AccountCleanlinessState> = {}): AccountCl
 	expectedSavedViews: [],
 	hasIntegrations: false,
 	hasManagedAssets: false,
+	entities: [bootstrapEntity()],
 	notificationSubscriptions: [],
 	hasNotificationChannels: false,
 	expectedBootstrapRelationships: [],
-	expectedBootstrapEntities: [library],
 	expectedNotificationSubscriptionSlugs: [],
 	defaultPreferences: { ...defaultUserPreferences },
 	profile: { name: "User", image: null, preferences: { ...defaultUserPreferences } },
-	entities: [
-		{
-			...library,
-			id: "library-id",
-			entitySchemaPluginId: null,
-			createdAt: new Date(0),
-			updatedAt: new Date(0),
-		},
-	],
 	...overrides,
 });
 
 describe("classifyAccountCleanliness", () => {
-	it("accepts the exact bootstrap account", () => {
+	it("accepts an account with bootstrap-origin entities", () => {
 		expect(classifyAccountCleanliness(cleanState())).toBeNull();
+	});
+
+	it.each([
+		["zero", []],
+		["one", [bootstrapEntity("one")]],
+		["multiple", [bootstrapEntity("one"), bootstrapEntity("two")]],
+	] as const)("accepts zero, one, or multiple bootstrap-origin entities", (_name, entities) => {
+		expect(classifyAccountCleanliness(cleanState({ entities }))).toBeNull();
 	});
 
 	it("accepts an account holding only default system installations", () => {
@@ -108,13 +112,7 @@ describe("classifyAccountCleanliness", () => {
 			"entities",
 			{
 				entities: [
-					{
-						...library,
-						id: "library-id",
-						entitySchemaPluginId: null,
-						createdAt: new Date(0),
-						updatedAt: new Date(0),
-					},
+					{ ...bootstrapEntity() },
 					{
 						name: "Extra",
 						id: "extra-id",
@@ -122,6 +120,7 @@ describe("classifyAccountCleanliness", () => {
 						properties: {},
 						externalId: null,
 						populatedAt: null,
+						origin: { kind: "api" },
 						entitySchemaPluginId: null,
 						createdAt: new Date(0),
 						updatedAt: new Date(0),
@@ -179,5 +178,14 @@ describe("classifyAccountCleanliness", () => {
 		["notification-channels", { hasNotificationChannels: true }],
 	] as const)("rejects %s", (category, override) => {
 		expect(classifyAccountCleanliness(cleanState(override))).toBe(category);
+	});
+
+	it.each([
+		["null", null],
+		["non-bootstrap", { kind: "api" as const }],
+	] as const)("rejects %s entity origins", (_name, origin) => {
+		expect(
+			classifyAccountCleanliness(cleanState({ entities: [{ ...bootstrapEntity(), origin }] })),
+		).toBe("entities");
 	});
 });

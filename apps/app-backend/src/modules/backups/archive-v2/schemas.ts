@@ -1,3 +1,4 @@
+import { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
 import { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { jsonValueSchema, type JsonValue } from "@ryot/contract/modules/sandbox/wire";
 import { SavedViewLayouts } from "@ryot/contract/modules/saved-views/schemas";
@@ -19,12 +20,6 @@ const isoTimestamp = Schema.String.pipe(
 	),
 );
 const jsonObject = Schema.Record(Schema.String, jsonValueSchema);
-
-export const V2_BOOTSTRAP_SOURCE = {
-	name: "Library",
-	pluginSlug: "media",
-	entitySchemaSlug: "library",
-} as const;
 
 export const decodeV2JsonObject = Schema.decodeUnknownSync(jsonObject);
 
@@ -125,6 +120,7 @@ export const V2UserEntity = strictStruct({
 	updatedAt: isoTimestamp,
 	provider: providerProvenance,
 	entitySchemaSlug: Schema.String,
+	origin: Schema.NullOr(AutomationOrigin),
 	externalId: Schema.NullOr(Schema.String),
 	populatedAt: Schema.NullOr(isoTimestamp),
 	entitySchemaPluginKey: Schema.NullOr(Schema.String),
