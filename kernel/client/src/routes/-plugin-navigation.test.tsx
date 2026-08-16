@@ -180,6 +180,46 @@ describe("plugin navigation", () => {
 		expect(router.state.location.pathname).toBe("/fixture");
 	});
 
+	it("keeps the authenticated shell stable across plugin child routes", async () => {
+		const view = mountView("/fixture");
+		const { router } = view;
+		const shell = await screen.findByTestId("authenticated-shell");
+		const content = screen.getByTestId("shell-content");
+		const iframe = frame();
+		const connected = connectFrame(iframe);
+		connected.pluginPort.postMessage(connected.init);
+		await waitFor(() => expect(connected.messages).toHaveLength(1));
+		connected.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
+		await waitFor(() => expect(iframe.getAttribute("class")).toContain("h-full"));
+
+		expect(Array.from(shell.children).map((child) => child.getAttribute("data-testid"))).toEqual([
+			"desktop-sidebar",
+			"mobile-header",
+			"mobile-drawer",
+			"shell-content",
+		]);
+		expect(shell.getAttribute("class")).toContain("h-dvh");
+		expect(shell.getAttribute("class")).toContain("min-h-0");
+		expect(screen.getByTestId("desktop-sidebar").getAttribute("class")).toContain("hidden");
+		expect(screen.getByTestId("desktop-sidebar").getAttribute("class")).toContain("md:block");
+		expect(screen.getByTestId("desktop-sidebar").getAttribute("class")).toContain("md:w-[264px]");
+		expect(screen.getByTestId("mobile-header").getAttribute("class")).toContain("h-16");
+		expect(screen.getByTestId("mobile-header").getAttribute("class")).toContain("md:hidden");
+		expect(screen.getByTestId("mobile-drawer").getAttribute("class")).toContain("hidden");
+		expect(content.getAttribute("class")).toContain("min-h-0");
+		expect(content.getAttribute("class")).toContain("min-w-0");
+		expect(content.getAttribute("class")).toContain("overflow-hidden");
+		expect(iframe.getAttribute("class")).toContain("h-full");
+		expect(iframe.getAttribute("class")).not.toContain("h-screen");
+
+		await router.navigate({ href: "/fixture/details/item-1" });
+		await waitFor(() => expect(router.state.location.pathname).toBe("/fixture/details/item-1"));
+		expect(screen.getByTestId("authenticated-shell")).toBe(shell);
+		expect(screen.getByTestId("shell-content")).toBe(content);
+		expect(frame()).toBe(iframe);
+		view.unmount();
+	});
+
 	it("restores a private route on a fresh load of its global URL", async () => {
 		const router = mount("/fixture/details/item-1?tab=stats");
 
@@ -332,17 +372,23 @@ describe("plugin navigation", () => {
 		view.unmount();
 	});
 
-	it("stops catalog queries when the plugin destination unmounts", async () => {
+	it("keeps the catalog subscription across outlet changes and stops it on unmount", async () => {
 		let unmounted = false;
 		let queriedAfterUnmount = false;
-		const view = mountView("/fixture", catalog, () => {
+		const view = mountView("/", [], () => {
 			if (unmounted) {
 				queriedAfterUnmount = true;
 			}
-			return Effect.succeed(catalog);
+			return Effect.succeed([]);
 		});
-		await waitFor(() => expect(frame()).toBeTruthy());
+		await screen.findByRole("heading", { name: "No workspaces enabled" });
 		await waitFor(() => expect(view.events.isSubscribed()).toBe(true));
+		await view.router.navigate({ href: "/missing" });
+		await waitFor(() =>
+			expect(screen.getByRole("status").textContent).toBe("This page does not exist."),
+		);
+		expect(view.events.isSubscribed()).toBe(true);
+		expect(view.events.getSubscriptionCount()).toBe(1);
 
 		view.unmount();
 		unmounted = true;
