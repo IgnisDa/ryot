@@ -6,7 +6,7 @@ import { Cause, Context, Effect, FiberSet, Layer, Semaphore } from "effect";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { kernelDefinitionSource, kernelScripts } from "#modules/definition-registry/kernel-source";
-import { ClientPluginCompiler } from "#modules/sandbox/client-compiler";
+import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 
 import { PluginLoader, type PluginRegistryEntry } from "./loader";
