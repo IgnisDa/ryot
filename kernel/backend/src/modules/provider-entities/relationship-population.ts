@@ -14,7 +14,7 @@ import type {
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect } from "effect";
 
-import { type LifecyclePlan, toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
+import { toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { Database, mapDatabaseErrors, retryOnDeadlock } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
@@ -168,10 +168,12 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 		mapDatabaseErrors(
 			database.transaction((transaction) =>
 				Effect.gen(function* () {
-					const entityPlans: LifecyclePlan[] = [];
-					const entries: Array<{ entityId: EntityId; properties: Record<string, unknown> }> = [];
-					for (const { properties, relatedEntity, schemaProvider } of resolvedRelatedEntities) {
-						const work = yield* entities.persistPlannedProviderUpsert({
+					const upserts = yield* entities.persistPlannedProviderUpserts({
+						batch: {
+							identity: [...itemIdentity, "entities"],
+							command: { ...input.command, population: input.population },
+						},
+						items: resolvedRelatedEntities.map(({ relatedEntity, schemaProvider }) => ({
 							...scope,
 							properties: {},
 							populatedAt: null,
@@ -185,9 +187,16 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 								[...itemIdentity, relatedEntity.providerSlug, relatedEntity.externalId],
 								input.population,
 							),
-						});
-						entityPlans.push(...work.plans);
-						entries.push({ properties, entityId: work.result.entity.id });
+						})),
+					});
+					const entityPlans = upserts.plans;
+					const entries: Array<{ entityId: EntityId; properties: Record<string, unknown> }> = [];
+					for (const [index, { properties }] of resolvedRelatedEntities.entries()) {
+						const result = upserts.results[index];
+						if (!result) {
+							return yield* Effect.die("Planned related entity upsert is missing its result");
+						}
+						entries.push({ properties, entityId: result.entity.id });
 					}
 					const relationshipWork = yield* persistPlannedRelationshipSynchronization({
 						...scope,

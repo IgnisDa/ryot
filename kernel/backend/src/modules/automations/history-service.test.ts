@@ -129,28 +129,47 @@ unit("redacts mutation snapshots and parent population properties with their own
 		updatedAt: "2026-09-15T00:00:00.000Z",
 		properties: { count: 2, token: "hidden" },
 	};
-	const payload = Schema.decodeSync(AutomationTriggerPayload)({
+	const item = {
 		after: snapshot,
 		before: snapshot,
 		category: "change",
 		resource: "entity",
 		operation: "update",
-		population: {
-			rootPreviouslyPopulated: true,
-			scopeEntity: { id: "entity", name: "Item", entitySchemaSlug: "fixture-entity" },
-			parentEntity: {
-				name: "Parent",
-				entitySchemaSlug: "fixture-entity",
-				properties: { count: 1, token: "hidden" },
-			},
+	} as const;
+	const population = {
+		rootPreviouslyPopulated: true,
+		scopeEntity: { id: "entity", name: "Item", entitySchemaSlug: "fixture-entity" },
+		parentEntity: {
+			name: "Parent",
+			entitySchemaSlug: "fixture-entity",
+			properties: { count: 1, token: "hidden" },
 		},
-	});
+	};
+	const payload = Schema.decodeSync(AutomationTriggerPayload)({ ...item, population });
 	expect(redactAutomationHistoryPayload(payload, pinned, null)).toMatchObject({
 		after: { properties: { count: 2 } },
 		before: { properties: { count: 2 } },
 		population: { parentEntity: { properties: { count: 1 } } },
 	});
 	expect(JSON.stringify(redactAutomationHistoryPayload(payload, pinned, null))).not.toContain(
+		"hidden",
+	);
+	const batch = Schema.decodeSync(AutomationTriggerPayload)({
+		category: "change",
+		resource: "entity",
+		operation: "batch",
+		items: [{ ...item, population }],
+	});
+	expect(redactAutomationHistoryPayload(batch, pinned, null)).toMatchObject({
+		items: [
+			{
+				after: { properties: { count: 2 } },
+				before: { properties: { count: 2 } },
+				population: { parentEntity: { properties: { count: 1 } } },
+			},
+		],
+	});
+	expect(JSON.stringify(redactAutomationHistoryPayload(batch, pinned, null))).not.toContain(
 		"hidden",
 	);
 });

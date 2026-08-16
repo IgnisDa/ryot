@@ -42,9 +42,6 @@ export default defineAutomation({
 	manifest,
 	run: ({ automation }, host) =>
 		Effect.gen(function* () {
-			if (automation.executionUserId === null) {
-				return null;
-			}
 			const payload = automation.payload;
 			if (
 				payload.resource !== "relationship" ||

@@ -30,7 +30,10 @@ import { Database, DatabaseLive } from "#lib/infrastructure/db/service";
 import { PluginEnvironmentConfig } from "#lib/infrastructure/plugin-environment-config";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
-import { withLifecycleDispatch } from "#modules/automations/lifecycle.test-support";
+import {
+	withLifecycleBatchPlanning,
+	withLifecycleDispatch,
+} from "#modules/automations/lifecycle.test-support";
 import { AutomationTriggerRepository } from "#modules/automations/trigger-repository";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
@@ -164,50 +167,52 @@ const withEntities = <E>(
 		Effect.gen(function* () {
 			const triggers = yield* AutomationTriggerRepository;
 			const client = yield* PgClient.PgClient;
-			return LifecyclePlanner.of({
-				plan: ({ trigger }) =>
-					Effect.gen(function* () {
-						expect(Option.isSome(yield* Effect.serviceOption(client.transactionService))).toBe(
-							true,
-						);
-						let blockedReason: AutomationBlockedReason | null = null;
-						if (trigger.kind.category === "request" && options.blocked) {
-							blockedReason = {
-								omittedHooks: [],
-								hasRequiredHooks: false,
-								code: "automation-limit-reached",
+			return LifecyclePlanner.of(
+				withLifecycleBatchPlanning({
+					plan: ({ trigger }) =>
+						Effect.gen(function* () {
+							expect(Option.isSome(yield* Effect.serviceOption(client.transactionService))).toBe(
+								true,
+							);
+							let blockedReason: AutomationBlockedReason | null = null;
+							if (trigger.kind.category === "request" && options.blocked) {
+								blockedReason = {
+									omittedHooks: [],
+									hasRequiredHooks: false,
+									code: "automation-limit-reached",
+								};
+							} else if (trigger.kind.category === "change" && options.blockedRequiredChange) {
+								blockedReason = {
+									omittedHooks: [],
+									hasRequiredHooks: true,
+									code: "automation-limit-reached",
+								};
+							}
+							const persisted = yield* triggers.insert({ ...trigger, blockedReason });
+							if (trigger.kind.category === "change") {
+								changePlans += 1;
+							}
+							if (
+								trigger.kind.category === "change" &&
+								(options.failChange === true || options.failChange === changePlans)
+							) {
+								return yield* new DbError({ message: "Injected planning failure after insert" });
+							}
+							return {
+								runs: [],
+								wasCreated: true,
+								trigger: persisted,
+								policies:
+									trigger.kind.category === "request"
+										? (options.policies ?? []).map((_, index) => ({
+												position: index,
+												runId: AutomationRunId.make(`policy-${index}`),
+											}))
+										: [],
 							};
-						} else if (trigger.kind.category === "change" && options.blockedRequiredChange) {
-							blockedReason = {
-								omittedHooks: [],
-								hasRequiredHooks: true,
-								code: "automation-limit-reached",
-							};
-						}
-						const persisted = yield* triggers.insert({ ...trigger, blockedReason });
-						if (trigger.kind.category === "change") {
-							changePlans += 1;
-						}
-						if (
-							trigger.kind.category === "change" &&
-							(options.failChange === true || options.failChange === changePlans)
-						) {
-							return yield* new DbError({ message: "Injected planning failure after insert" });
-						}
-						return {
-							runs: [],
-							wasCreated: true,
-							trigger: persisted,
-							policies:
-								trigger.kind.category === "request"
-									? (options.policies ?? []).map((_, index) => ({
-											position: index,
-											runId: AutomationRunId.make(`policy-${index}`),
-										}))
-									: [],
-						};
-					}),
-			});
+						}),
+				}),
+			);
 		}),
 	).pipe(Layer.provide(repositories));
 	const execution = Layer.effect(
@@ -323,10 +328,12 @@ describe("EntitiesService committed lifecycle", () => {
 		withEntities(
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;
+				const blocked = expect.objectContaining({
+					hasRequiredHooks: true,
+					code: "automation-limit-reached",
+				});
 				const created = yield* service.create(createInput("limited-create"));
-				expect(created.warnings).toEqual([
-					expect.objectContaining({ hasRequiredHooks: true, code: "automation-limit-reached" }),
-				]);
+				expect(created.warnings).toEqual([blocked, blocked]);
 				const updated = yield* service.update({
 					userId: owner,
 					scope: "user",
@@ -336,13 +343,9 @@ describe("EntitiesService committed lifecycle", () => {
 					properties: { title: "updated" },
 					lifecycle: command("limited-update"),
 				});
-				expect(updated.warnings).toEqual([
-					expect.objectContaining({ hasRequiredHooks: true, code: "automation-limit-reached" }),
-				]);
+				expect(updated.warnings).toEqual([blocked, blocked]);
 				const deleted = yield* service.deleteByIds([created.entity.id], command("limited-delete"));
-				expect(deleted.warnings).toEqual([
-					expect.objectContaining({ hasRequiredHooks: true, code: "automation-limit-reached" }),
-				]);
+				expect(deleted.warnings).toEqual([blocked, blocked]);
 			}),
 			{ blockedRequiredChange: true },
 		),
@@ -356,7 +359,10 @@ describe("EntitiesService committed lifecycle", () => {
 				const fast = yield* service.prepareCreateStep(createInput("step-fast"));
 				assert(fast._tag === "Committed");
 				expect(fast.result.wasInserted).toBe(true);
-				expect(fast.dispatch.map(({ triggerId }) => typeof triggerId)).toEqual(["string"]);
+				expect(fast.dispatch.map(({ triggerId }) => typeof triggerId)).toEqual([
+					"string",
+					"string",
+				]);
 				const replay = yield* service.prepareCreateStep(createInput("step-fast"));
 				assert(replay._tag === "Committed");
 				expect(replay.result.entity.id).toBe(fast.result.entity.id);
@@ -383,8 +389,8 @@ describe("EntitiesService committed lifecycle", () => {
 				]);
 				expect(
 					(yield* db.select().from(tables.automationTrigger)).map(({ category }) => category),
-				).toEqual(["request", "change"]);
-				expect(committed.dispatch).toHaveLength(1);
+				).toEqual(["request", "change", "change"]);
+				expect(committed.dispatch).toHaveLength(2);
 			}),
 			{ policies: [{ action: "allow" }] },
 		),
@@ -478,9 +484,9 @@ describe("EntitiesService committed lifecycle", () => {
 					(yield* db.select().from(tables.automationTrigger))
 						.filter((row) => row.category === "change")
 						.map((row) => row.operation),
-				).toEqual(["create"]);
+				).toEqual(["create", "batch"]);
 			}),
-			{ failChange: 2 },
+			{ failChange: 3 },
 		),
 	);
 	const providerId = SandboxProviderId.make("fixture-provider");
@@ -557,7 +563,7 @@ describe("EntitiesService committed lifecycle", () => {
 						(yield* db.select().from(tables.automationTrigger)).filter(
 							(row) => row.category === "change",
 						).length,
-					).toBe(2);
+					).toBe(4);
 				}),
 			),
 	);
@@ -582,7 +588,7 @@ describe("EntitiesService committed lifecycle", () => {
 					"upserted",
 					"skipped",
 				]);
-				expect(result.warnings).toEqual([warning, warning]);
+				expect(result.warnings).toEqual([warning, warning, warning]);
 				const replay = yield* service.upsertGlobalEntities(items, providerId, command("bulk"), {
 					maximumTotal: 2,
 				});
@@ -596,7 +602,7 @@ describe("EntitiesService committed lifecycle", () => {
 					(yield* db.select().from(tables.automationTrigger)).filter(
 						(row) => row.category === "change",
 					).length,
-				).toBe(2);
+				).toBe(3);
 			}),
 			{ warnings: [warning] },
 		),
@@ -628,7 +634,7 @@ describe("EntitiesService committed lifecycle", () => {
 					const service = yield* EntitiesService;
 					const db = yield* Database;
 					const first = yield* service.create(createInput("replay"));
-					expect(first.warnings).toEqual([warning]);
+					expect(first.warnings).toEqual([warning, warning]);
 					expect(first.entity.name).toBe("Original");
 					expect(yield* service.create(createInput("replay"))).toEqual(first);
 					expect(
@@ -638,8 +644,10 @@ describe("EntitiesService committed lifecycle", () => {
 					).toMatchObject({ _tag: "DbError" });
 					expect((yield* db.select().from(tables.entity)).length).toBe(1);
 					const triggers = yield* db.select().from(tables.automationTrigger);
-					expect(triggers.length).toBe(2);
-					const change = triggers.find((row) => row.category === "change");
+					expect(triggers.length).toBe(3);
+					const change = triggers.find(
+						(row) => row.category === "change" && row.operation === "create",
+					);
 					const request = triggers.find((row) => row.category === "request");
 					assert(change && request);
 					expect(change.payload).toEqual({
@@ -683,7 +691,7 @@ describe("EntitiesService committed lifecycle", () => {
 					const changes = (yield* db.select().from(tables.automationTrigger)).filter(
 						(row) => row.category === "change",
 					);
-					expect(changes.length).toBe(3);
+					expect(changes.length).toBe(6);
 					expect(changes.find((row) => row.operation === "update")?.payload).toEqual({
 						category: "change",
 						resource: "entity",
@@ -880,9 +888,54 @@ describe("EntitiesService committed lifecycle", () => {
 						wasInserted: true,
 						outcome: { operation: "create" },
 					});
-					expect(work.plans).toHaveLength(1);
+					expect(work.plans.map(({ trigger }) => trigger.kind)).toEqual([
+						{ category: "change", resource: "entity", operation: "create" },
+						{ category: "change", operation: "batch", resource: "entity" },
+					]);
+					const batch = work.plans[1]?.trigger.payload;
+					assert(batch?.operation === "batch");
+					expect(batch.items).toEqual([work.plans[0]?.trigger.payload]);
 				}),
 			),
+	);
+
+	it.effect("covers one batch-scoped provider write with a single batch trigger", () =>
+		withEntities(
+			Effect.gen(function* () {
+				yield* seedProvider;
+				const service = yield* EntitiesService;
+				const db = yield* Database;
+				const lifecycle = command("planned-batch");
+				const item = (externalId: string) => ({
+					providerId,
+					externalId,
+					name: externalId,
+					populatedAt: null,
+					updateExisting: true,
+					entitySchemaSlug: slug,
+					scope: "global" as const,
+					properties: { title: externalId },
+					lifecycle: { ...lifecycle, itemIdentity: `${lifecycle.itemIdentity}:${externalId}` },
+				});
+				const work = yield* db.transaction((tx) =>
+					service
+						.persistPlannedProviderUpserts({
+							items: [item("first"), item("second")],
+							batch: { command: lifecycle, identity: ["children"] },
+						})
+						.pipe(Effect.provideService(Database, tx)),
+				);
+				expect(work.results.map(({ entity }) => entity.externalId)).toEqual(["first", "second"]);
+				expect(work.plans.map(({ trigger }) => trigger.kind.operation)).toEqual([
+					"create",
+					"create",
+					"batch",
+				]);
+				const batch = work.plans[2]?.trigger.payload;
+				assert(batch?.operation === "batch");
+				expect(batch.items).toEqual(work.plans.slice(0, 2).map(({ trigger }) => trigger.payload));
+			}),
+		),
 	);
 
 	it.effect("rolls back transaction-scoped provider persistence when a before policy matches", () =>
@@ -925,7 +978,7 @@ describe("EntitiesService committed lifecycle", () => {
 					{ name: "Routine", entitySchemaSlug: slug, properties: { title: "routine" } },
 				];
 				const first = yield* service.ensureUserEntities(owner, items, command("ensure"));
-				expect(first).toMatchObject([{ wasInserted: true, warnings: [warning] }]);
+				expect(first).toMatchObject([{ wasInserted: true, warnings: [warning, warning] }]);
 				expect(yield* service.ensureUserEntities(owner, items, command("ensure"))).toEqual([
 					{ warnings: [], wasInserted: false, entityId: first[0]?.entityId },
 				]);
@@ -934,7 +987,7 @@ describe("EntitiesService committed lifecycle", () => {
 					(yield* db.select().from(tables.automationTrigger)).filter(
 						(row) => row.category === "change",
 					).length,
-				).toBe(1);
+				).toBe(2);
 			}),
 			{ warnings: [warning] },
 		),

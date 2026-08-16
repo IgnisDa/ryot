@@ -6,8 +6,22 @@ import {
 import type { PluginId } from "@ryot-app/contract/schema/brands";
 import { Effect, Option, Schema } from "effect";
 
-import { LifecyclePersistenceError, type LifecyclePlan } from "#lib/domain/lifecycle";
+import {
+	LifecyclePersistenceError,
+	type LifecyclePlan,
+	type LifecyclePlanner,
+} from "#lib/domain/lifecycle";
+import { lifecycleBatchTriggers } from "#lib/domain/lifecycle-batch";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
+
+export const withLifecycleBatchPlanning = (
+	planner: Omit<LifecyclePlanner["Service"], "planBatch">,
+	maxItems = 200,
+): LifecyclePlanner["Service"] => ({
+	...planner,
+	planBatch: (input) =>
+		Effect.forEach(lifecycleBatchTriggers(input, maxItems), (trigger) => planner.plan({ trigger })),
+});
 
 export const withLifecycleDispatch = (
 	execution: Omit<LifecycleExecution["Service"], "dispatch">,

@@ -152,8 +152,33 @@ const populationLayer = (options: {
 	readonly recorded: string[];
 	readonly rootPlans?: ReadonlyArray<LifecyclePlan>;
 	readonly dispatch: LifecycleExecution["Service"]["dispatch"];
-}) =>
-	Layer.mergeAll(
+}) => {
+	const upsertItem = (input: {
+		externalId: string;
+		populatedAt: Date | null;
+		entitySchemaSlug: EntitySchemaSlug;
+	}) => {
+		const kind = input.populatedAt === null ? "upsert" : "write";
+		const label = input.externalId === payload.externalId ? `root-${kind}` : "child-entity";
+		options.recorded.push(label);
+		const entity = listedEntity(input.externalId, input.entitySchemaSlug);
+		return {
+			plans:
+				label === "root-upsert"
+					? [...(options.rootPlans ?? [planFixture("root-upsert")])]
+					: [planFixture(label)],
+			result: {
+				entity,
+				wasInserted: true,
+				outcome: {
+					before: null,
+					operation: "create" as const,
+					after: { ...entity, properties: {} },
+				},
+			},
+		};
+	};
+	return Layer.mergeAll(
 		passthroughDatabase,
 		Layer.succeed(
 			DefinitionRegistry,
@@ -173,26 +198,13 @@ const populationLayer = (options: {
 				}),
 		}),
 		Layer.mock(EntitiesService)({
-			persistPlannedProviderUpsert: (input) =>
+			persistPlannedProviderUpsert: (input) => Effect.sync(() => upsertItem(input)),
+			persistPlannedProviderUpserts: (input) =>
 				Effect.sync(() => {
-					const kind = input.populatedAt === null ? "upsert" : "write";
-					const label = input.externalId === payload.externalId ? `root-${kind}` : "child-entity";
-					options.recorded.push(label);
-					const entity = listedEntity(input.externalId, input.entitySchemaSlug);
+					const works = input.items.map(upsertItem);
 					return {
-						plans:
-							label === "root-upsert"
-								? [...(options.rootPlans ?? [planFixture("root-upsert")])]
-								: [planFixture(label)],
-						result: {
-							entity,
-							wasInserted: true,
-							outcome: {
-								before: null,
-								operation: "create" as const,
-								after: { ...entity, properties: {} },
-							},
-						},
+						results: works.map(({ result }) => result),
+						plans: [...works.flatMap(({ plans }) => plans), planFixture("entities-batch")],
 					};
 				}),
 		}),
@@ -220,6 +232,7 @@ const populationLayer = (options: {
 			skipQueuedPolicies: () => Effect.die("unexpected policy skip"),
 		}),
 	);
+};
 
 it.effect("dispatches each population write between activities and logs blocked hooks", () => {
 	const recorded: string[] = [];
@@ -243,10 +256,10 @@ it.effect("dispatches each population write between activities and logs blocked 
 				"dispatch:root-upsert",
 				"child-entity",
 				"relationships",
-				"dispatch:child-entity,relationships",
+				"dispatch:child-entity,entities-batch,relationships",
 				"child-entity",
 				"relationships",
-				"dispatch:child-entity,relationships",
+				"dispatch:child-entity,entities-batch,relationships",
 				"root-write",
 				"dispatch:root-write",
 			]);

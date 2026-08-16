@@ -424,6 +424,60 @@ describe("lifecycle payload boundaries", () => {
 		).toThrow();
 	});
 
+	it("carries one write's changes as a single-resource, non-empty batch payload", () => {
+		const relationship = {
+			properties: {},
+			id: "relationship-1",
+			createdAt: timestamp,
+			updatedAt: timestamp,
+			sourceEntityId: "entity-1",
+			targetEntityId: "entity-2",
+			relationshipSchemaSlug: "contains",
+		};
+		const item = {
+			category: "change",
+			after: relationship,
+			operation: "create",
+			resource: "relationship",
+		};
+		const payload = {
+			items: [item],
+			category: "change",
+			operation: "batch",
+			resource: "relationship",
+		};
+		expect(Schema.decodeUnknownSync(AutomationTriggerPayload)(payload)).toEqual(payload);
+		for (const invalid of [
+			{ ...payload, items: [] },
+			{ ...payload, resource: "entity" },
+			{ ...payload, resource: "provider-entity-import" },
+			{
+				...payload,
+				items: [item, { ...item, resource: "entity", after: { ...relationship, id: "entity-3" } }],
+			},
+		]) {
+			expect(() => Schema.decodeUnknownSync(AutomationTriggerPayload)(invalid)).toThrow();
+		}
+		const trigger = {
+			payload,
+			causation,
+			id: "trigger-1",
+			scopeUserId: null,
+			blockedReason: null,
+			createdAt: timestamp,
+			occurredAt: timestamp,
+			payloadPrunedAt: null,
+			kind: { category: "change", operation: "batch", resource: "relationship" },
+		};
+		expect(Schema.decodeUnknownSync(AutomationTrigger)(trigger)).toMatchObject({ payload });
+		expect(() =>
+			Schema.decodeUnknownSync(AutomationTrigger)({
+				...trigger,
+				kind: { category: "change", operation: "batch", resource: "entity" },
+			}),
+		).toThrow();
+	});
+
 	it("bounds retry settings and disallows arbitrary retry expressions", () => {
 		for (const retry of [
 			{ ...DEFAULT_AUTOMATION_RETRY_POLICY, maxAttempts: 11 },

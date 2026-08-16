@@ -111,7 +111,7 @@ CREATE TABLE "automation_trigger" (
 	"operation" text NOT NULL,
 	"resource_kind" text NOT NULL,
 	"initiator_kind" text NOT NULL,
-	CONSTRAINT "automation_trigger_kind_check" CHECK (("category" in ('request', 'change') and "resource_kind" in ('entity', 'event', 'relationship') and "operation" in ('create', 'update', 'delete')) or ("category" = 'change' and "resource_kind" = 'provider-entity-import' and "operation" = 'complete') or ("category" = 'signal' and "resource_kind" = 'signal' and "operation" = 'emit')),
+	CONSTRAINT "automation_trigger_kind_check" CHECK (("category" in ('request', 'change') and "resource_kind" in ('entity', 'event', 'relationship') and "operation" in ('create', 'update', 'delete')) or ("category" = 'change' and "resource_kind" in ('entity', 'event', 'relationship') and "operation" = 'batch') or ("category" = 'change' and "resource_kind" = 'provider-entity-import' and "operation" = 'complete') or ("category" = 'signal' and "resource_kind" = 'signal' and "operation" = 'emit')),
 	CONSTRAINT "automation_trigger_causation_check" CHECK ("depth" >= 0 and "initiator_kind" in ('user', 'integration', 'system') and "source" in ('api', 'import', 'integration', 'bootstrap', 'provider-refresh', 'automation') and ("source" <> 'automation' or ("parent_run_id" is not null and "parent_trigger_id" is not null and "depth" > 0))),
 	CONSTRAINT "automation_trigger_payload_check" CHECK (("payload" is null) = ("payload_pruned_at" is not null)),
 	CONSTRAINT "automation_trigger_parent_check" CHECK ("parent_run_id" is null or "parent_trigger_id" is not null),

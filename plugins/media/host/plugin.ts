@@ -628,6 +628,7 @@ export const mediaPlugin = definePlugin({
 		{
 			stage: "after",
 			delivery: "required",
+			executionScope: "user",
 			slug: "media.ensure-library-membership",
 			name: "Ensure media library membership",
 			scriptSlug: "automation.ensure-library-membership",
@@ -651,6 +652,7 @@ export const mediaPlugin = definePlugin({
 		{
 			stage: "after",
 			delivery: "required",
+			executionScope: "user",
 			slug: "media.record-library-membership-event",
 			name: "Record media library membership event",
 			scriptSlug: "automation.record-library-membership-event",
@@ -675,6 +677,7 @@ export const mediaPlugin = definePlugin({
 		{
 			stage: "after",
 			delivery: "async",
+			frequency: "batch",
 			slug: "media.relationship-sync",
 			name: "Media relationship sync",
 			scriptSlug: "automation.media-relationship-sync",
@@ -693,6 +696,7 @@ export const mediaPlugin = definePlugin({
 		{
 			stage: "after",
 			delivery: "async",
+			frequency: "batch",
 			slug: "media.association",
 			name: "Media association",
 			scriptSlug: "automation.media-association",

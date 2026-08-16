@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "c111c0f0-89cf-4327-a9ce-65bc0d6d5b05",
+	"id": "241c54d5-1c45-4948-8793-9c6225cd055f",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -10944,7 +10944,7 @@
 			"table": "automation_run_attempt"
 		},
 		{
-			"value": "(\"category\" in ('request', 'change') and \"resource_kind\" in ('entity', 'event', 'relationship') and \"operation\" in ('create', 'update', 'delete')) or (\"category\" = 'change' and \"resource_kind\" = 'provider-entity-import' and \"operation\" = 'complete') or (\"category\" = 'signal' and \"resource_kind\" = 'signal' and \"operation\" = 'emit')",
+			"value": "(\"category\" in ('request', 'change') and \"resource_kind\" in ('entity', 'event', 'relationship') and \"operation\" in ('create', 'update', 'delete')) or (\"category\" = 'change' and \"resource_kind\" in ('entity', 'event', 'relationship') and \"operation\" = 'batch') or (\"category\" = 'change' and \"resource_kind\" = 'provider-entity-import' and \"operation\" = 'complete') or (\"category\" = 'signal' and \"resource_kind\" = 'signal' and \"operation\" = 'emit')",
 			"name": "automation_trigger_kind_check",
 			"entityType": "checks",
 			"schema": "public",

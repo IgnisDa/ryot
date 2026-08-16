@@ -11,6 +11,7 @@ type Population = typeof AutomationPopulationContext.Encoded;
 
 const input = (overrides: {
 	isLeader?: boolean;
+	followers?: number;
 	afterCount?: number;
 	beforeCount?: number;
 	createdCount?: number;
@@ -24,28 +25,37 @@ const input = (overrides: {
 		scopeEntity: { id: "show-1", name: "Severance", entitySchemaSlug: "show" },
 		batch: {
 			id: "batch-1",
+			isLeader: true,
 			updatedCount: 0,
 			deletedCount: 0,
-			isLeader: overrides.isLeader ?? true,
 			afterCount: overrides.afterCount ?? 3,
 			beforeCount: overrides.beforeCount ?? 2,
 			createdCount: overrides.createdCount ?? 1,
 		},
 	};
-	return automationContext({
-		population,
+	const item = (id: string, isLeader: boolean) => ({
 		category: "change",
 		operation: "create",
 		resource: "relationship",
+		population: { ...population, batch: { ...population.batch, isLeader } },
 		after: {
+			id,
 			properties: {},
-			id: "relationship-1",
 			sourceEntityId: "source-1",
-			targetEntityId: "target-1",
+			targetEntityId: `target-${id}`,
 			createdAt: "2026-07-20T10:00:00.000Z",
 			updatedAt: "2026-07-20T10:00:00.000Z",
 			relationshipSchemaSlug: overrides.relationshipSchemaSlug ?? "show-to-show-season",
 		},
+	});
+	return automationContext({
+		category: "change",
+		operation: "batch",
+		resource: "relationship",
+		items: [
+			item("relationship-1", overrides.isLeader ?? true),
+			...((overrides.followers ?? 0) ? [item("relationship-2", false)] : []),
+		],
 	});
 };
 
@@ -77,6 +87,16 @@ it("emits one season-count signal from the batch leader on a net count change", 
 						properties: { oldCount: 2, newCount: 3, entityName: "Severance" },
 					},
 				]);
+				return undefined;
+			}),
+		),
+	));
+
+it("emits once for a batch that carries the leader alongside other items", () =>
+	Effect.runPromise(
+		run(input({ followers: 1 })).pipe(
+			Effect.map((calls) => {
+				expect(calls.map(({ discriminator }) => discriminator)).toEqual(["batch-1"]);
 				return undefined;
 			}),
 		),
@@ -135,7 +155,7 @@ it("does not treat a podcast parent as season context", () =>
 		Effect.runPromise,
 	));
 
-it("stays silent off-leader, on first population, without net changes, and for specials", () =>
+it("stays silent without the leader, on first population, without net changes, and for specials", () =>
 	Effect.runPromise(
 		Effect.all(
 			[

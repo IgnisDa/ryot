@@ -205,6 +205,20 @@ failure does not roll back committed source data. Responses can carry `required-
 `required-hook-pending` with `hookSlug` and `runId`, or `automation-limit-reached` with `triggerId`
 and at most 100 omitted `{ pluginId, hookSlug }` identities. Warnings never contain sandbox logs.
 
+An after hook may declare `executionScope: "user" | "global"`; omission matches both. The kernel
+compares it against the run's `executionUserId`, so a `user` hook is never planned for a global write
+and a `global` hook is never planned for a user-scoped one. Per-recipient signal hooks keep working
+because each recipient's run carries that user.
+
+An after hook may also declare `frequency: "item" | "batch"`; omission means `item`. Every
+change-producing write emits one batch trigger per resource in addition to its item change triggers,
+even when a single item changed. An item hook matches only item triggers and a batch hook matches only
+batch triggers, so each hook sees every change exactly once. A batch run receives the whole batch as
+`payload.items` with `operation: "batch"` and must filter the items it cares about; the batch matches
+the hook when any item matches a declared target. Batch frequency requires entity, event, or
+relationship targets. Large writes are split into deterministic chunks by item count and input size,
+so a batch hook can run more than once for one write and must stay idempotent per item.
+
 Omitted `retry` means `{ maxAttempts: 1, initialDelayMs: 1000, maxDelayMs: 60000,
 externalIdempotency: "none" }`. Attempts include the first attempt and are bounded to 1–10.
 Exponential delays double from `initialDelayMs` (1–3,600,000) to `maxDelayMs` (1–86,400,000), which

@@ -428,7 +428,11 @@ export const commitRelationshipMutations = Effect.fn("RelationshipsService.commi
 								},
 							}),
 						);
-						if (prior?.category === "change" && prior.resource === "relationship") {
+						if (
+							prior?.category === "change" &&
+							prior.resource === "relationship" &&
+							prior.operation !== "batch"
+						) {
 							const persisted = prior.operation === "delete" ? prior.before : prior.after;
 							const draft = {
 								properties: persisted.properties,
@@ -525,7 +529,7 @@ export const commitRelationshipMutations = Effect.fn("RelationshipsService.commi
 					pending.expectedSelection?.length ??
 					pending.items.filter(({ before }) => before !== null).length;
 				let changedIndex = 0;
-				return yield* Effect.forEach(results, (result) =>
+				const items = yield* Effect.forEach(results, (result) =>
 					Effect.gen(function* () {
 						if (!("pending" in result)) {
 							return result;
@@ -558,12 +562,26 @@ export const commitRelationshipMutations = Effect.fn("RelationshipsService.commi
 						return { plan, operation: result.operation, relationship: result.relationship };
 					}),
 				);
+				const command = pending.items[0]?.mutation.command;
+				const batch =
+					command === undefined
+						? []
+						: yield* planner.planBatch({
+								command,
+								resource: "relationship",
+								plans: items.flatMap(({ plan }) => (plan ? [plan] : [])),
+								identity: pending.items.map(({ mutation }) => mutation.command.itemIdentity),
+							});
+				return { items, batch };
 			}),
 		);
 		return {
 			_tag: "Committed",
-			result: committed.map(({ operation, relationship }) => ({ operation, relationship })),
-			dispatch: committed.flatMap(({ plan }) => (plan ? [toLifecycleDispatchPlan(plan)] : [])),
+			result: committed.items.map(({ operation, relationship }) => ({ operation, relationship })),
+			dispatch: [
+				...committed.items.flatMap(({ plan }) => (plan ? [plan] : [])),
+				...committed.batch,
+			].map(toLifecycleDispatchPlan),
 		} satisfies LifecycleCommittedStep<RelationshipMutationResults>;
 	},
 );
