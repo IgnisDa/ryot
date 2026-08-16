@@ -2,8 +2,8 @@ import { CreateImportRunBody } from "@ryot/contract/modules/imports/schemas";
 import { Schema } from "effect";
 import { expect, it } from "vitest";
 
+import { TraktImportParserInput } from "./backend/imports/schemas";
 import { createMediaImportRunBody, MediaCreateImportRunBody } from "./import-sources";
-import { TraktImportParserInput } from "./imports/schemas";
 import { mediaPlugin } from "./manifest";
 
 const uploadToken = "upload-1";

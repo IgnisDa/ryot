@@ -58,8 +58,8 @@ import {
 	podcastEpisodicKindConfig,
 	showEpisodicKindConfig,
 	type EpisodicLifecycleState,
-} from "./operations/lifecycle-recipes";
-import { mediaImagePurposes } from "./schemas/property-schemas";
+} from "./backend/operations/lifecycle-recipes";
+import { mediaImagePurposes } from "./backend/schemas/property-schemas";
 
 type Table = ReturnType<typeof table>;
 

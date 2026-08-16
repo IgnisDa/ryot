@@ -1,14 +1,14 @@
 import { definePlugin } from "@ryot/contract/modules/plugins/manifest";
 
-import { mediaConfigSchema } from "./config-schema";
-import { mediaSavedViews } from "./saved-views";
-import { mediaEntitySchemas } from "./schemas/entity-schemas";
+import { mediaEntitySchemas } from "./backend/schemas/entity-schemas";
 import {
 	builtinMediaEntitySchemaSlugs,
 	mediaLibraryEligibleEntitySchemaSlugs,
-} from "./schemas/media-schema-slugs";
-import { builtinRelationshipSchemas } from "./schemas/relationship-schemas";
-import { mediaSignalSchemas } from "./schemas/signal-schemas";
+} from "./backend/schemas/media-schema-slugs";
+import { builtinRelationshipSchemas } from "./backend/schemas/relationship-schemas";
+import { mediaSignalSchemas } from "./backend/schemas/signal-schemas";
+import { mediaConfigSchema } from "./config-schema";
+import { mediaSavedViews } from "./saved-views";
 import { mediaScripts } from "./script-catalog";
 
 const entitySchemas = mediaEntitySchemas();

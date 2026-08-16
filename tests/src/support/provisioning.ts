@@ -109,7 +109,7 @@ export function buildBackendEnv(input: {
 	};
 }
 
-export function spawnBackendProcess(env: NodeJS.ProcessEnv, cwd = "../apps/app-backend") {
+export function spawnBackendProcess(env: NodeJS.ProcessEnv, cwd = "../apps/server") {
 	return spawn("bun", ["run", "src/main.ts"], { env, cwd, stdio: "ignore" });
 }
 
