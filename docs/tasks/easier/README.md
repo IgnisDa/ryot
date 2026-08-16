@@ -187,6 +187,8 @@ Best first slices: ranks 4-7 are narrow and migration-free. Then implement rank 
 
 **Validation:** Duplicate registration, old finalizer after replacement, interruption after registration, old session receives `410`, runtime concurrency tests.
 
+**Implemented.** `BridgeService.addSession` is now one scoped acquisition: `Effect.acquireRelease` installs the session and its removal finalizer together, so an interruption immediately after registration can no longer leave a session in the map. Acquisition closes the session it replaces, which ends that session's active and queued calls with `410` instead of orphaning them behind a live map entry. Release is identity-aware — it deletes the entry only when the map still holds the exact instance that scope installed — so a late finalizer cannot evict a newer replacement, and the same `evictSession` helper backs the in-request expiry path. `removeSession` is gone from the service surface: `SandboxService.runSandbox` no longer registers a separate `Effect.addFinalizer` after insertion, and because the scoped acquisition happens exactly where that pair used to sit, LIFO teardown still closes the bridge session before the worker, process, and scratch-directory finalizers. The bridge layer finalizer now closes and clears remaining sessions directly. `runtime-concurrency.test.ts` covers replacement (`410` for the replaced session, the replacement surviving the old scope's close, `404` after its own scope closes), interruption of the registering fiber, and scope-close teardown of queued calls.
+
 ### 10. Reuse Backup Event Export Context
 
 **Owner:** D03 Backup export
