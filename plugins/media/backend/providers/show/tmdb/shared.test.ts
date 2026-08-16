@@ -363,6 +363,37 @@ describe("show.tmdb sandbox script", () => {
 		);
 	});
 
+	it("fetches only the episode orders the sandbox HTTP call limit leaves after seasons", () => {
+		const requestedPaths: string[] = [];
+		const host = makeHost((_method, url) => {
+			const requestUrl = new URL(url);
+			requestedPaths.push(requestUrl.pathname);
+			if (requestUrl.pathname === "/3/tv/456/episode_groups") {
+				return httpSuccess({
+					results: ["first", "second", "third"].map((id) => ({ id, type: 3, name: id })),
+				});
+			}
+			if (requestUrl.pathname === "/3/tv/456") {
+				return httpSuccess({
+					name: "The Simpsons",
+					seasons: Array.from({ length: 43 }, (_, index) => ({ season_number: index })),
+				});
+			}
+			return httpSuccess({ groups: [] });
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "456" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(requestedPaths).toHaveLength(50);
+					expect(result.properties).toMatchObject({
+						episodeOrders: [{ groups: [], externalId: "first" }],
+					});
+					return undefined;
+				}),
+			),
+		);
+	});
+
 	it("classifies localized show posters and episode stills", () => {
 		const host = makeHost((_method, url) =>
 			url.includes("/translations")
