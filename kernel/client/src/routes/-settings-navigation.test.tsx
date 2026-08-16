@@ -16,10 +16,12 @@ import type { RyotQLApi } from "#/api/ryotql";
 import type { UserSettingsApi } from "#/api/user-settings";
 import type { AuthService } from "#/modules/auth/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
-import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
-import { PluginOperationsService } from "#/modules/plugins/operations";
-import { PluginQueriesService } from "#/modules/plugins/queries";
+import {
+	makePluginCatalog,
+	makePluginOperations,
+	makePluginQueries,
+} from "#/modules/plugins/services.test-layer";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
@@ -116,11 +118,11 @@ const mountView = (
 			userSettingsLayer,
 			settingsQueries,
 			events.layer,
-			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(entries) }),
+			makePluginCatalog(entries),
 			NavigationRouteStubs,
 			CustomizeRouteStubs,
-			Layer.succeed(PluginOperationsService, { invoke: () => Effect.die("not used") }),
-			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
+			makePluginOperations(),
+			makePluginQueries(),
 		).pipe(
 			Layer.provideMerge(oauthLayer),
 			Layer.provideMerge(Layer.succeed(ClientStorage, storage)),

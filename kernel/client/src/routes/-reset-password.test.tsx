@@ -9,19 +9,20 @@ import type { ServerOrigin } from "#/api/origin";
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { HostedAuthError, type HostedAuthService } from "#/modules/auth/hosted-service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
-import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
-import { PluginOperationsService } from "#/modules/plugins/operations";
-import { PluginQueriesService } from "#/modules/plugins/queries";
+import {
+	makePluginCatalog,
+	makePluginOperations,
+	makePluginQueries,
+} from "#/modules/plugins/services.test-layer";
 import { ServerService } from "#/modules/server/service";
-import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
 	theme,
 	server,
 	catalog,
 	makeAuthStub,
-	makeStorageStub,
+	makeStorageStubLayer,
 	GodModeRouteStubs,
 	makePublicApiStub,
 	CustomizeRouteStubs,
@@ -78,15 +79,12 @@ const makeView = (
 				connect: () => Effect.void,
 				selected: Effect.succeed(selected),
 			}),
-			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(catalog) }),
+			makePluginCatalog(catalog),
 			NavigationRouteStubs,
 			CustomizeRouteStubs,
-			Layer.succeed(PluginOperationsService, { invoke: () => Effect.die("not used") }),
-			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
-		).pipe(
-			Layer.provideMerge(oauth),
-			Layer.provideMerge(Layer.succeed(ClientStorage, makeStorageStub())),
-		),
+			makePluginOperations(),
+			makePluginQueries(),
+		).pipe(Layer.provideMerge(oauth), Layer.provideMerge(makeStorageStubLayer())),
 	);
 	const router = getRouter(
 		{ theme, runtime, backInterceptors: createBackInterceptors() },

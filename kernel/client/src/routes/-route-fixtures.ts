@@ -37,7 +37,8 @@ import { ProviderAddService } from "#/modules/provider-add/service";
 import { SavedViewsService } from "#/modules/saved-views/service";
 import { ServerService } from "#/modules/server/service";
 import type { ThemeStore } from "#/modules/theme/store";
-import type { ClientStorage } from "#/persistence/storage";
+import { ClientStorage } from "#/persistence/storage";
+import { makeClientStorageStub } from "#/persistence/storage.test-layer";
 
 export const server = decodeServerOrigin("https://ryot.example");
 
@@ -379,20 +380,8 @@ export const makeStorageStub = (
 	recorder?: WorkspaceStorageRecorder,
 ): ClientStorage["Service"] => {
 	let lastWorkspace = rememberedSlug;
-	return {
-		remove: () => Effect.void,
-		clearServerSelection: Effect.void,
-		setPluginValue: () => Effect.void,
-		removePluginValue: () => Effect.void,
-		setServerSelection: () => Effect.void,
-		setSavedViewLayout: () => Effect.void,
-		setThemePreference: () => Effect.void,
-		setRememberedProvider: () => Effect.void,
+	return makeClientStorageStub({
 		getServerSelection: Effect.succeed(server),
-		getPluginValue: () => Effect.succeed(null),
-		getRememberedProvider: () => Effect.succeed(null),
-		getThemePreference: Effect.succeed("system" as const),
-		getSavedViewLayout: () => Effect.succeed("grid" as const),
 		getLastWorkspace: (scope) =>
 			Effect.sync(() => {
 				recorder?.getScopes.push(scope);
@@ -404,8 +393,11 @@ export const makeStorageStub = (
 				recorder?.setCalls.push({ slug, scope });
 				recorder?.popupOpenWhenSet.push(document.querySelector('[role="menu"]') !== null);
 			}),
-	};
+	});
 };
+
+export const makeStorageStubLayer = (...args: Parameters<typeof makeStorageStub>) =>
+	Layer.succeed(ClientStorage, makeStorageStub(...args));
 
 export const makePublicApiStub = (isServerKeyValidated = false) =>
 	Layer.succeed(PublicApi, {
