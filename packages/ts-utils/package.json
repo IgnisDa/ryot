@@ -10,7 +10,6 @@
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
-		"dayjs": "1.11.21",
 		"lodash": "4.18.1",
 		"slugify": "1.6.9"
 	},
