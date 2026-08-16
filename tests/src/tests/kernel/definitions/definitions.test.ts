@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 
-import { createAuthenticatedClient } from "~/fixtures";
+import { createAuthenticatedClient } from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("Definitions E2E", () => {

@@ -3,13 +3,12 @@ import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
-	createBuiltinMediaLifecycleFixture,
 	findBuiltinSchemaBySlug,
 	listEventSchemas,
 	requireEventSchemaBySlug,
-	seedMediaEntity,
 	waitForEventCount,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import { createBuiltinMediaLifecycleFixture, seedMediaEntity } from "~/fixtures/plugins/media";
 import { assertPresent, requireNumber, requireObjectRecord } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

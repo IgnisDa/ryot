@@ -2,14 +2,18 @@ import { EntityId } from "@ryot/contract/schema/brands";
 import { column, descending, document, eq, field, literal, rows, table } from "@ryot/ryotql";
 import { Effect } from "effect";
 
+import type { Client } from "~/fixtures/kernel/auth";
+import { createEntity } from "~/fixtures/kernel/entities";
+import { findBuiltinSchemaBySlug } from "~/fixtures/kernel/entity-schemas";
+import { listEventSchemas, requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
+import { pollUntil } from "~/fixtures/kernel/polling";
+import {
+	executeRyotQL,
+	requireRows,
+	requireRyotQLText,
+	requireRyotQLValue,
+} from "~/fixtures/kernel/ryotql";
 import { requireObjectRecord, requireString } from "~/support/assertions";
-
-import type { Client } from "./auth";
-import { createEntity } from "./entities";
-import { findBuiltinSchemaBySlug } from "./entity-schemas";
-import { listEventSchemas, requireEventSchemaBySlug } from "./event-schemas";
-import { pollUntil } from "./polling";
-import { executeRyotQL, requireRows, requireRyotQLText, requireRyotQLValue } from "./ryotql";
 
 export const createWorkoutEntityFixture = (client: Client) =>
 	Effect.gen(function* () {

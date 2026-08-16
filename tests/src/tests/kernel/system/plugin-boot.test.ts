@@ -4,7 +4,7 @@ import { exerciseListRecipe } from "@ryot/fitness-plugin/query-recipes";
 import { Duration, Effect } from "effect";
 import getPort from "get-port";
 
-import { createAuthenticatedClient, executeRyotQLRecipe } from "~/fixtures";
+import { createAuthenticatedClient, executeRyotQLRecipe } from "~/fixtures/kernel";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 import {
 	buildBackendEnv,

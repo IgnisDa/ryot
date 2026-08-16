@@ -9,15 +9,17 @@ import {
 	findBuiltinSchemaBySlug,
 	getBackendClient,
 	getEntity,
-	getGlobalEntityByProvenance,
 	openInterestWebSocketScoped,
 	pollUntil,
 	installTestProvider,
+} from "~/fixtures/kernel";
+import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
+import {
+	getGlobalEntityByProvenance,
 	seedMediaEntity,
 	seedPopulatedProviderEntity,
 	waitForEntityPopulated,
-} from "~/fixtures";
-import type { InstalledTestProvider } from "~/fixtures/sandbox-provider";
+} from "~/fixtures/plugins/media";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 
 const GRACE_WINDOW_MS = 3000;

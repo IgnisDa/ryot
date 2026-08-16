@@ -13,7 +13,7 @@ import {
 	rowsFields,
 	rowsLayouts,
 	updateSavedViewWithGridDocument,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { assertCondition, assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

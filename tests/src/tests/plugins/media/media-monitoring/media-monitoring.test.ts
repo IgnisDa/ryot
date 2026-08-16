@@ -3,26 +3,28 @@ import { Effect } from "effect";
 
 import {
 	adminHeaders,
-	countMediaMonitoringRelationships,
 	createAuthenticatedClient,
 	createNotificationChannel,
-	disableMediaMonitoring,
-	enableMediaMonitoring,
 	fakeProviderDetailsResult,
 	getBackendClient,
-	getMediaMonitoringStatus,
 	getBuiltinEntitySchemaSlug,
 	getEntity,
 	providerSandboxSource,
-	queryInLibraryRelationship,
 	replaceSandboxScriptCompiledRepresentation,
 	installTestProvider,
-	seedMediaEntity,
 	startFakeAppriseServer,
-	triggerCronAndWaitForEntity,
 	type Client,
 	pollUntil,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import {
+	countMediaMonitoringRelationships,
+	disableMediaMonitoring,
+	enableMediaMonitoring,
+	getMediaMonitoringStatus,
+	queryInLibraryRelationship,
+	seedMediaEntity,
+	triggerCronAndWaitForEntity,
+} from "~/fixtures/plugins/media";
 import { assertTaggedError, requireObjectRecord } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 import type { FakeHttpServer } from "~/support/fake-http-server";

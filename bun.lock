@@ -573,7 +573,6 @@
         "@faker-js/faker": "10.4.0",
         "@ryot/contract": "workspace:*",
         "@ryot/fitness-plugin": "workspace:*",
-        "@ryot/kernel-client": "workspace:*",
         "@ryot/media-plugin": "workspace:*",
         "@ryot/plugin-kit": "workspace:*",
         "@ryot/ryotql": "workspace:*",

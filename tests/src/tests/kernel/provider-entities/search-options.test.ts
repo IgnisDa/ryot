@@ -2,7 +2,7 @@ import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import type { ProviderSearchOptionsResult } from "@ryot/sandbox-sdk/provider";
 import { Effect } from "effect";
 
-import type { Client } from "~/fixtures";
+import type { Client } from "~/fixtures/kernel";
 import {
 	createAuthenticatedClient,
 	fakeProviderDetailsResult,
@@ -12,8 +12,8 @@ import {
 	installTestProvider,
 	searchProviderEntities,
 	uninstallTestProvider,
-} from "~/fixtures";
-import type { InstalledTestProvider } from "~/fixtures/sandbox-provider";
+} from "~/fixtures/kernel";
+import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
 import { assertCondition, assertPresent, assertTaggedError } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 

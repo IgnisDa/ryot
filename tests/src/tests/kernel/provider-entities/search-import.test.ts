@@ -1,7 +1,7 @@
 import { SandboxProviderId } from "@ryot/contract/schema/brands";
 import { DateTime, Effect } from "effect";
 
-import type { Client } from "~/fixtures";
+import type { Client } from "~/fixtures/kernel";
 import {
 	uninstallTestProvider,
 	createAuthenticatedClient,
@@ -10,14 +10,16 @@ import {
 	fakeProviderSearchResult,
 	findBuiltinSchemaBySlug,
 	getBackendClient,
-	getVisibleEntityByProvenance,
-	getRelationshipBySchemaSlug,
 	pollProviderEntityImportResult,
-	queryInLibraryRelationship,
 	searchProviderEntities,
 	installTestProvider,
-} from "~/fixtures";
-import type { InstalledTestProvider } from "~/fixtures/sandbox-provider";
+} from "~/fixtures/kernel";
+import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
+import {
+	getVisibleEntityByProvenance,
+	getRelationshipBySchemaSlug,
+	queryInLibraryRelationship,
+} from "~/fixtures/plugins/media";
 import {
 	assertCompleted,
 	assertPresent,

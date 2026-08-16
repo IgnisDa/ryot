@@ -27,11 +27,10 @@ import {
 	requireRyotQLValue,
 	requireRows,
 	seedEntityTranslation,
-	seedMediaEntity,
-	seedPopulatedProviderEntity,
 	setUserLanguage,
 	uninstallTestPluginStrict,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import { seedMediaEntity, seedPopulatedProviderEntity } from "~/fixtures/plugins/media";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

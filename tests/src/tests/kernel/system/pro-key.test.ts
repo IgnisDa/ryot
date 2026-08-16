@@ -3,7 +3,7 @@ import type { ChildProcess } from "node:child_process";
 import { Effect } from "effect";
 import getPort from "get-port";
 
-import { makeSession } from "~/fixtures";
+import { makeSession } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 import { type FakeHttpServer, startFakeHttpServer } from "~/support/fake-http-server";

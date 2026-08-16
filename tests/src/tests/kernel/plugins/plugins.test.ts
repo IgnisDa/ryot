@@ -19,7 +19,7 @@ import {
 	uninstallTestPlugin,
 	waitForEventWithSchema,
 	searchProviderEntities,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import {
 	assertCompleted,
 	assertPresent,
