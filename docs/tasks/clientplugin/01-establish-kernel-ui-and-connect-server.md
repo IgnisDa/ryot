@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Web Client Plugin Tracer](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -16,17 +16,17 @@ Use TanStack Router as the only routing authority. Keep public contract/client c
 
 ## Acceptance criteria
 
-- [ ] The pre-created `kernel/client` starter is integrated into the workspace as the canonical kernel client and has working check, test, and production-build commands.
-- [ ] No file under `crates/**` is modified, moved, or deleted.
-- [ ] `/` and `/onboarding` use TanStack Router and redirect according to persisted server-selection state without Expo Router compatibility code.
-- [ ] Cloud and self-hosted selections resolve through the canonical origin-normalization logic.
-- [ ] A malformed self-hosted URL is rejected before transport, and an unreachable or unhealthy server produces a stable retryable UI state.
-- [ ] The server URL is persisted only after a successful health check and can be cleared or changed without clearing unrelated Ryot-owned storage.
-- [ ] Safe local redirect intent survives onboarding; external, protocol-relative, auth-loop, and malformed destinations are rejected.
-- [ ] DOM CSS exposes the established semantic Tailwind tokens for background, surfaces, text, borders, accents, status colors, radii, and shadows in light and dark modes.
-- [ ] Outfit and Lora load as browser fonts, the page has an accessible visible focus treatment, and the onboarding layout works at mobile and desktop widths.
-- [ ] Light, dark, and system theme preference is global, persisted, and reflected on the root document without a React Native or NativeWind runtime.
-- [ ] Focused tests cover origin normalization, persistence scope, route-gate decisions, health failure/retry, and theme resolution; the kernel check, test, and build commands pass.
+- [x] The pre-created `kernel/client` starter is integrated into the workspace as the canonical kernel client and has working check, test, and production-build commands.
+- [x] No file under `crates/**` is modified, moved, or deleted.
+- [x] `/` and `/onboarding` use TanStack Router and redirect according to persisted server-selection state without Expo Router compatibility code.
+- [x] Cloud and self-hosted selections resolve through the canonical origin-normalization logic.
+- [x] A malformed self-hosted URL is rejected before transport, and an unreachable or unhealthy server produces a stable retryable UI state.
+- [x] The server URL is persisted only after a successful health check and can be cleared or changed without clearing unrelated Ryot-owned storage.
+- [x] Safe local redirect intent survives onboarding; external, protocol-relative, auth-loop, and malformed destinations are rejected.
+- [x] DOM CSS exposes the established semantic Tailwind tokens for background, surfaces, text, borders, accents, status colors, radii, and shadows in light and dark modes.
+- [x] Outfit and Lora load as browser fonts, the page has an accessible visible focus treatment, and the onboarding layout works at mobile and desktop widths.
+- [x] Light, dark, and system theme preference is global, persisted, and reflected on the root document without a React Native or NativeWind runtime.
+- [x] Focused tests cover origin normalization, persistence scope, route-gate decisions, health failure/retry, and theme resolution; the kernel check, test, and build commands pass.
 
 ## User stories addressed
 
@@ -35,3 +35,10 @@ Use TanStack Router as the only routing authority. Keep public contract/client c
 ## Implementor Notes
 
 Treat the legacy client under `crates/` as read-only behavioral and visual reference. Port the smallest reusable DOM primitives needed for this slice; do not port the old component library wholesale.
+
+## Implementation Notes
+
+- Added the contract-backed public health boundary, canonical server-origin validation, scoped browser persistence, safe redirect gates, and focused pure tests under `kernel/client/src`.
+- Replaced the starter screen with TanStack Router onboarding and auth-destination routes, an Effect Atom registry, persisted theme control, and the minimal accessible DOM UI needed to connect, retry, or change servers.
+- Ported the semantic light/dark token set and Outfit/Lora browser fonts without NativeWind, Expo aliases, or changes under `crates/**`.
+- Verified with `bun turbo --filter=@ryot/kernel-client check`, `bun turbo --filter=@ryot/kernel-client test`, `bun turbo --filter=@ryot/kernel-client build`, and the affected `src/tests/kernel/system/health.test.ts` end-to-end suite only.

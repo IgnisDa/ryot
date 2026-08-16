@@ -1,8 +1,8 @@
-import { TanStackDevtools } from "@tanstack/react-devtools";
-import { Outlet, createRootRoute } from "@tanstack/react-router";
-import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-
+// oxlint-disable-next-line import/no-unassigned-import
 import "../styles.css";
+import { Outlet, createRootRoute } from "@tanstack/react-router";
+
+import { ThemeController, ThemePreferenceControl } from "../modules/theme/controller";
 
 export const Route = createRootRoute({
 	component: RootComponent,
@@ -11,18 +11,9 @@ export const Route = createRootRoute({
 function RootComponent() {
 	return (
 		<>
+			<ThemeController />
+			<ThemePreferenceControl />
 			<Outlet />
-			<TanStackDevtools
-				config={{
-					position: "bottom-right",
-				}}
-				plugins={[
-					{
-						name: "TanStack Router",
-						render: <TanStackRouterDevtoolsPanel />,
-					},
-				]}
-			/>
 		</>
 	);
 }
