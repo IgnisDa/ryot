@@ -18,7 +18,6 @@ import {
 	type PluginBridgeRyotQLCancel,
 	type PluginBridgeRyotQLRequest,
 	type PluginBridgeRyotQLResult,
-	type PluginLogicalLocation,
 	type PluginOperationOutcome,
 	type PluginOperationRequest,
 	type PluginRyotQLOutcome,
@@ -34,10 +33,12 @@ type PluginBridgeTarget = {
 	readonly postMessage: (message: unknown, targetOrigin: string, transfer: Transferable[]) => void;
 };
 
+export type PluginBridgeNavigationState = Omit<PluginBridgeLocation, "type">;
+
 export type PluginBridgeSession = {
 	readonly close: () => void;
 	readonly sendTheme: (theme: PluginThemeSnapshot) => void;
-	readonly sendLocation: (location: PluginLogicalLocation) => void;
+	readonly sendLocation: (navigation: PluginBridgeNavigationState) => void;
 };
 
 type PluginBridgeState = "ready" | "active" | "closing" | "failed" | "disposed";
@@ -54,7 +55,8 @@ type PluginBridgeOptions = {
 	readonly onFailure: () => void;
 	readonly theme: PluginThemeSnapshot;
 	readonly target: PluginBridgeTarget;
-	readonly location: PluginLogicalLocation;
+	readonly onNavigateBack: () => void;
+	readonly navigation: PluginBridgeNavigationState;
 	readonly onHeader: (request: PluginBridgeHeader) => void;
 	readonly onNavigate: (request: PluginBridgeNavigate) => void;
 	readonly onRyotQL: (
@@ -88,7 +90,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 	let bridgeReady = false;
 	let theme = options.theme;
 	let nextThemeGeneration = 0;
-	let location = options.location;
+	let navigation = options.navigation;
 	const channel = new MessageChannel();
 	let state: PluginBridgeState = "ready";
 	const listeners = new AbortController();
@@ -159,12 +161,12 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		postTheme(theme);
 	}
 
-	function sendLocation(next: PluginLogicalLocation) {
-		location = next;
+	function sendLocation(next: PluginBridgeNavigationState) {
+		navigation = next;
 		if (state !== "active") {
 			return;
 		}
-		post({ location, type: "location" } satisfies PluginBridgeLocation);
+		post({ ...navigation, type: "location" } satisfies PluginBridgeLocation);
 	}
 
 	function handleLifecycleClose(reason: "disposed" | "failed") {
@@ -276,6 +278,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				}
 				Match.value(decoded.success).pipe(
 					Match.when({ type: "theme-applied" }, () => fail()),
+					Match.when({ type: "navigate-back" }, () => options.onNavigateBack()),
 					Match.when({ type: "header" }, (request) => options.onHeader(request)),
 					Match.when({ type: "navigate" }, (request) => options.onNavigate(request)),
 					Match.when({ type: "lifecycle-close" }, ({ reason }) => handleLifecycleClose(reason)),
@@ -307,7 +310,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				awaitingThemeGeneration = undefined;
 				state = "active";
 				clearTimeout(timer);
-				post({ location, type: "location" } satisfies PluginBridgeLocation);
+				post({ ...navigation, type: "location" } satisfies PluginBridgeLocation);
 				options.onReady();
 				return;
 			}

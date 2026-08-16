@@ -26,6 +26,14 @@ const decodeInit = Schema.decodeUnknownSync(PluginBridgeInit);
 
 const artifactHash = "artifact-hash";
 const home = { path: "/", search: "" };
+const detail = { path: "/details/1", search: "" };
+const nav = (location = home, index = 0) => ({
+	index,
+	location,
+	edgeBack: false,
+	key: `k${index}`,
+});
+const at = (location = home, index = 0) => ({ ...nav(location, index), type: "location" as const });
 const lightTheme = Schema.decodeUnknownSync(PluginThemeSnapshot)({
 	resolvedMode: "light",
 	tokens: Object.fromEntries(REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, `light-${name}`])),
@@ -81,6 +89,7 @@ const connect = (
 		) => Promise<PluginRyotQLOutcome>;
 	} = {},
 ) => {
+	const backs: null[] = [];
 	const readies: null[] = [];
 	const failures: null[] = [];
 	const origins: string[] = [];
@@ -97,12 +106,13 @@ const connect = (
 
 	const session = openPluginBridge({
 		artifactHash,
-		location: home,
+		navigation: nav(),
 		theme: lightTheme,
 		onHeader: () => {},
 		timeoutMs: options.timeoutMs,
 		onReady: () => readies.push(null),
 		onFailure: () => failures.push(null),
+		onNavigateBack: () => backs.push(null),
 		onNavigate: (request) => navigations.push(request),
 		onRyotQL: options.onRyotQL ?? (() => new Promise(() => {})),
 		onOperation:
@@ -187,11 +197,12 @@ describe("plugin bridge", () => {
 		const session = openPluginBridge({
 			artifactHash,
 			timeoutMs: 10,
-			location: home,
+			navigation: nav(),
 			theme: lightTheme,
 			onHeader: () => {},
 			onReady: () => undefined,
 			onNavigate: () => undefined,
+			onNavigateBack: () => undefined,
 			onFailure: () => failures.push(null),
 			onRyotQL: () => new Promise(() => {}),
 			onOperation: () => new Promise(() => {}),
@@ -219,10 +230,7 @@ describe("plugin bridge", () => {
 		expect(readies).toEqual([]);
 		pluginPort.postMessage({ generation: 1, type: "theme-applied" });
 		await waitFor(() => expect(readies).toHaveLength(1));
-		expect(messages).toEqual([
-			{ generation: 1, type: "theme", theme: lightTheme },
-			{ type: "location", location: home },
-		]);
+		expect(messages).toEqual([{ generation: 1, type: "theme", theme: lightTheme }, at()]);
 		expect(failures).toEqual([]);
 	});
 
@@ -291,23 +299,18 @@ describe("plugin bridge", () => {
 	it("delivers only the latest pre-ready location, then every later location", async () => {
 		const { init, pluginPort, received, session } = connect();
 
-		session.sendLocation({ path: "/details/1", search: "" });
-		session.sendLocation({ path: "/details/2", search: "tab=stats" });
+		session.sendLocation(nav(detail, 1));
+		session.sendLocation(nav({ path: "/details/2", search: "tab=stats" }, 2));
 		pluginPort.postMessage(readyFor(init));
 
 		await waitFor(() =>
-			expect(received).toEqual([
-				{ type: "location", location: { path: "/details/2", search: "tab=stats" } },
-			]),
+			expect(received).toEqual([at({ path: "/details/2", search: "tab=stats" }, 2)]),
 		);
 
-		session.sendLocation(home);
+		session.sendLocation(nav());
 
 		await waitFor(() =>
-			expect(received).toEqual([
-				{ type: "location", location: { path: "/details/2", search: "tab=stats" } },
-				{ type: "location", location: home },
-			]),
+			expect(received).toEqual([at({ path: "/details/2", search: "tab=stats" }, 2), at()]),
 		);
 	});
 
@@ -322,15 +325,12 @@ describe("plugin bridge", () => {
 
 		pluginPort.postMessage({ generation: 1, type: "theme-applied" });
 		await waitFor(() => expect(readies).toHaveLength(1));
-		expect(messages).toEqual([
-			{ generation: 1, type: "theme", theme: darkTheme },
-			{ type: "location", location: home },
-		]);
+		expect(messages).toEqual([{ generation: 1, type: "theme", theme: darkTheme }, at()]);
 		session.sendTheme(lightTheme);
 		await waitFor(() =>
 			expect(messages).toEqual([
 				{ generation: 1, type: "theme", theme: darkTheme },
-				{ type: "location", location: home },
+				at(),
 				{ generation: 2, type: "theme", theme: lightTheme },
 			]),
 		);
@@ -380,7 +380,7 @@ describe("plugin bridge", () => {
 		expect(messages).toEqual([
 			{ generation: 1, type: "theme", theme: lightTheme },
 			{ generation: 2, type: "theme", theme: darkTheme },
-			{ type: "location", location: home },
+			at(),
 		]);
 	});
 
@@ -430,11 +430,11 @@ describe("plugin bridge", () => {
 	it("sends only lifecycle close after teardown or a failed handshake", async () => {
 		const torndown = connect();
 		torndown.session.close();
-		torndown.session.sendLocation({ path: "/details/1", search: "" });
+		torndown.session.sendLocation(nav(detail, 1));
 
 		const failed = connect({ timeoutMs: 10 });
 		await waitFor(() => expect(failed.failures).toHaveLength(1));
-		failed.session.sendLocation({ path: "/details/1", search: "" });
+		failed.session.sendLocation(nav(detail, 1));
 
 		await delay(10);
 
@@ -479,7 +479,7 @@ describe("plugin bridge", () => {
 		await delay(10);
 
 		expect(navigations).toEqual([]);
-		expect(received).toEqual([{ type: "location", location: home }]);
+		expect(received).toEqual([at()]);
 	});
 
 	it("round-trips a successful operation", async () => {
@@ -805,10 +805,7 @@ describe("plugin bridge", () => {
 
 		expect(signals).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS);
 		expect(signals.every((signal) => signal.aborted)).toBe(true);
-		expect(received).toEqual([
-			{ type: "location", location: home },
-			{ reason: "failed", type: "lifecycle-close" },
-		]);
+		expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
 	});
 
 	it("fails the session on a malformed active-port message and suppresses late work", async () => {
@@ -842,10 +839,7 @@ describe("plugin bridge", () => {
 		call.resolve({ outcome: "success", value: "late" });
 		await delay(10);
 
-		expect(received).toEqual([
-			{ type: "location", location: home },
-			{ reason: "failed", type: "lifecycle-close" },
-		]);
+		expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
 	});
 
 	it("aborts pending operation and RyotQL work on failure and suppresses both late results", async () => {
@@ -887,10 +881,7 @@ describe("plugin bridge", () => {
 		queryCall.resolve({ outcome: "success", response: { data: {} } });
 		await delay(10);
 
-		expect(received).toEqual([
-			{ type: "location", location: home },
-			{ reason: "failed", type: "lifecycle-close" },
-		]);
+		expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
 	});
 
 	it("fails the session before invoking an operation with extra identity fields", async () => {
@@ -908,10 +899,7 @@ describe("plugin bridge", () => {
 		await waitFor(() => expect(failures).toHaveLength(1));
 
 		expect(operationCalls).toEqual([]);
-		expect(received).toEqual([
-			{ type: "location", location: home },
-			{ reason: "failed", type: "lifecycle-close" },
-		]);
+		expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
 	});
 
 	it("aborts pending signals on close and posts nothing after a late resolution", async () => {
@@ -940,10 +928,7 @@ describe("plugin bridge", () => {
 		call.resolve({ outcome: "success", value: "too-late" });
 		await delay(10);
 
-		expect(received).toEqual([
-			{ type: "location", location: home },
-			{ reason: "disposed", type: "lifecycle-close" },
-		]);
+		expect(received).toEqual([at(), { reason: "disposed", type: "lifecycle-close" }]);
 	});
 
 	it("correlates concurrent RyotQL requests completed out of order", async () => {
@@ -1030,10 +1015,7 @@ describe("plugin bridge", () => {
 		await waitFor(() => expect(failures).toHaveLength(1));
 
 		expect(calls).toEqual([]);
-		expect(received).toEqual([
-			{ type: "location", location: home },
-			{ reason: "failed", type: "lifecycle-close" },
-		]);
+		expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
 	});
 
 	it("aborts a pending RyotQL request and suppresses its late response", async () => {
@@ -1055,10 +1037,7 @@ describe("plugin bridge", () => {
 		call.resolve({ outcome: "failure", reason: "transport" });
 		await delay(10);
 
-		expect(received).toEqual([
-			{ type: "location", location: home },
-			{ reason: "disposed", type: "lifecycle-close" },
-		]);
+		expect(received).toEqual([at(), { reason: "disposed", type: "lifecycle-close" }]);
 	});
 
 	it("cancels matching RyotQL work, releases admission, and ignores cancellation races", async () => {
@@ -1114,7 +1093,7 @@ describe("plugin bridge", () => {
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toHaveLength(1));
 
-		session.sendLocation({ path: "/details/1", search: "tab=stats" });
+		session.sendLocation(nav({ path: "/details/1", search: "tab=stats" }, 1));
 
 		pluginPort.postMessage({
 			requestId: "request-1",
@@ -1132,8 +1111,8 @@ describe("plugin bridge", () => {
 		await waitFor(() => expect(received).toHaveLength(4));
 
 		expect(received).toEqual([
-			{ type: "location", location: home },
-			{ type: "location", location: { path: "/details/1", search: "tab=stats" } },
+			at(),
+			at({ path: "/details/1", search: "tab=stats" }, 1),
 			{
 				outcome: "success",
 				requestId: "request-1",

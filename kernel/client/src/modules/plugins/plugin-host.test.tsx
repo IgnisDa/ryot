@@ -25,6 +25,15 @@ import type { PluginNavigationRequest } from "#/modules/plugins/plugin-location"
 import type { ThemeStore } from "#/modules/theme/store";
 
 const home: PluginLogicalLocation = { path: "/", search: "" };
+const navigationFor = (state: {
+	readonly location: PluginLogicalLocation;
+	readonly index?: number;
+}) => ({
+	edgeBack: false,
+	index: state.index ?? 0,
+	location: state.location,
+	key: `k${state.index ?? 0}`,
+});
 const themeSnapshot = Schema.decodeUnknownSync(PluginThemeSnapshot)({
 	resolvedMode: "light",
 	tokens: Object.fromEntries(REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, `light-${name}`])),
@@ -45,6 +54,7 @@ const installation = {
 } satisfies PluginClientCatalogEntry;
 
 type HostState = {
+	readonly index?: number;
 	readonly scopeKey?: string;
 	readonly location: PluginLogicalLocation;
 	readonly overrides: Partial<PluginClientCatalogEntry>;
@@ -141,13 +151,15 @@ function renderHost(
 		readonly onInvokeOperation?: Parameters<typeof PluginHost>[0]["onInvokeOperation"];
 	} = {},
 ) {
+	const backs: null[] = [];
 	const theme = createTheme();
 	const navigations: PluginNavigationRequest[] = [];
 	const host = (state: HostState) => (
 		<PluginHost
 			theme={theme}
 			onHeader={() => {}}
-			location={state.location}
+			navigation={navigationFor(state)}
+			onNavigateBack={() => backs.push(null)}
 			installation={{ ...installation, ...state.overrides }}
 			onRenewArtifactSession={recorder.onRenewArtifactSession}
 			artifactSessionScopeKey={state.scopeKey ?? "server:user"}
@@ -319,12 +331,13 @@ describe("plugin artifact session lifecycle", () => {
 			<StrictMode>
 				<PluginHost
 					theme={theme}
-					location={home}
 					onHeader={() => {}}
 					installation={installation}
 					onNavigate={() => undefined}
 					onStaleSession={() => undefined}
+					onNavigateBack={() => undefined}
 					artifactSessionScopeKey="server:user"
+					navigation={navigationFor({ location: home })}
 					onRenewArtifactSession={recorder.onRenewArtifactSession}
 					onCreateArtifactSession={recorder.onCreateArtifactSession}
 					onRevokeArtifactSession={recorder.onRevokeArtifactSession}

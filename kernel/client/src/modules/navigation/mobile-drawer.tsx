@@ -17,6 +17,7 @@ import { flushSync } from "react-dom";
 import type { AuthSessionStore } from "#/modules/auth/service";
 import { AccountSummary } from "#/modules/navigation/account-summary";
 import { AppIcon } from "#/modules/navigation/app-icon";
+import { gestureSpring } from "#/modules/navigation/drawer-metrics";
 import { activateLink } from "#/modules/navigation/link-activation";
 import { WorkspaceSwitcher } from "#/modules/navigation/workspace-switcher";
 
@@ -37,8 +38,6 @@ type MobileDrawerProps = {
 	readonly triggerRef: RefObject<HTMLButtonElement | null>;
 	readonly onSelectWorkspace: (slug: string) => void | Promise<void>;
 };
-
-const TIMING = { duration: 0.24, ease: "easeOut" } as const;
 
 const focusable =
 	'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -99,7 +98,7 @@ export function MobileDrawer(props: MobileDrawerProps) {
 			props.progress.set(props.isOpen ? 1 : 0);
 			return undefined;
 		}
-		const controls = animate(props.progress, props.isOpen ? 1 : 0, TIMING);
+		const controls = animate(props.progress, props.isOpen ? 1 : 0, gestureSpring());
 		return () => controls.stop();
 	}, [props.isOpen, props.progress, reduceMotion]);
 
@@ -131,7 +130,7 @@ export function MobileDrawer(props: MobileDrawerProps) {
 			aria-labelledby={`${props.drawerId}-title`}
 			aria-modal={props.isOpen ? true : undefined}
 			aria-hidden={props.isOpen ? undefined : true}
-			className={clsx("fixed inset-0 z-40 md:hidden", presented ? "block" : "hidden")}
+			className={clsx("ui-chrome fixed inset-0 z-40 md:hidden", presented ? "block" : "hidden")}
 		>
 			<motion.div
 				onClick={close}

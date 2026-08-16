@@ -20,7 +20,7 @@ export function MobileHeader(props: MobileHeaderProps) {
 	return (
 		<header
 			data-testid="mobile-header"
-			className="shrink-0 border-b border-border bg-bg pt-[env(safe-area-inset-top)] md:hidden"
+			className="ui-chrome shrink-0 border-b border-border bg-bg pt-[env(safe-area-inset-top)] md:hidden"
 		>
 			<div className="flex h-13.5 items-center gap-1.5 px-4">
 				{props.intent === "back" ? (

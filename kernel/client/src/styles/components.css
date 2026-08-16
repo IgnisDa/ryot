@@ -1,3 +1,8 @@
+@utility ui-chrome {
+	-webkit-touch-callout: none;
+	user-select: none;
+}
+
 @utility ui-stack {
 	@apply grid gap-4.5;
 }
