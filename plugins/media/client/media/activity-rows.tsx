@@ -12,6 +12,7 @@ import {
 import { MediaFact } from "./primitives";
 
 export type MediaActivityRowRender<Row extends MediaActivityRowBase> = {
+	readonly segmentNoun?: string;
 	readonly rowBody: (row: Row) => ReactNode;
 	readonly rowLabel: (row: Row) => string;
 	readonly markerTone: Record<Row["type"], string>;
@@ -174,11 +175,15 @@ function MediaActivityWatchSeparator(props: { readonly label: string }) {
 	);
 }
 
-const watchSeparatorLabel = <Row extends MediaActivityRowBase>(
-	watch: MediaActivityCompletedWatch<Row>,
-	index: number,
-	total: number,
-) => `Watch ${total - index} · ${mediaActivityDateLabel(watch.completion)}`;
+const DEFAULT_SEGMENT_NOUN = "Watch";
+
+const segmentSeparatorLabel = <Row extends MediaActivityRowBase>(input: {
+	readonly noun: string;
+	readonly index: number;
+	readonly total: number;
+	readonly segment: MediaActivityCompletedWatch<Row>;
+}) =>
+	`${input.noun} ${input.total - input.index} · ${mediaActivityDateLabel(input.segment.completion)}`;
 
 export function MediaActivityTimelineView<Row extends MediaActivityRowBase>(props: {
 	readonly render: MediaActivityRowRender<Row>;
@@ -188,20 +193,21 @@ export function MediaActivityTimelineView<Row extends MediaActivityRowBase>(prop
 		return <MediaActivityRows render={props.render} rows={props.timeline.rows} />;
 	}
 	const { open, completed } = props.timeline;
+	const noun = props.render.segmentNoun ?? DEFAULT_SEGMENT_NOUN;
 	return (
 		<div className="flex flex-col gap-5">
 			{open === undefined ? null : (
 				<div>
-					<MediaActivityWatchSeparator label="Since the last watch" />
+					<MediaActivityWatchSeparator label={`Since the last ${noun.toLowerCase()}`} />
 					<MediaActivityRows rows={open} render={props.render} />
 				</div>
 			)}
-			{completed.map((watch, index) => (
-				<div key={watch.key}>
+			{completed.map((segment, index) => (
+				<div key={segment.key}>
 					<MediaActivityWatchSeparator
-						label={watchSeparatorLabel(watch, index, completed.length)}
+						label={segmentSeparatorLabel({ noun, index, segment, total: completed.length })}
 					/>
-					<MediaActivityRows rows={watch.rows} render={props.render} />
+					<MediaActivityRows rows={segment.rows} render={props.render} />
 				</div>
 			))}
 		</div>
