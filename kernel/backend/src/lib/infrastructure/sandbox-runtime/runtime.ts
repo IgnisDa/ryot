@@ -1,5 +1,3 @@
-import { setPriority } from "node:os";
-
 import { BunHttpServer } from "@effect/platform-bun";
 import { badRequest, internalError, unknownToMessage } from "@ryot-app/contract/errors";
 import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
@@ -25,6 +23,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 import { sandboxDenoDirConfig } from "../config/definition";
 import { AppConfig } from "../config/service";
+import { preferAsOomVictim } from "../oom-victim";
 import {
 	recordSandboxHostCall,
 	recordSandboxProcessCompleted,
@@ -448,7 +447,6 @@ export type SandboxProcessProfiling = {
 };
 
 type SpawnDenoProcessOptions = {
-	readonly deprioritize?: boolean;
 	readonly profiling?: SandboxProcessProfiling;
 	readonly denoDir: string;
 	readonly bridgePort: number;
@@ -499,31 +497,6 @@ export const sandboxProfilingFlags = (profiling: SandboxProcessProfiling | undef
 				...(profiling.inspector ? ["--inspect=127.0.0.1:0"] : []),
 			];
 
-/** Nice level for workers: the API and workflow engine keep CPU while workers compete for it. */
-export const SANDBOX_WORKER_NICE = 10;
-/** The kernel's maximum badness bonus, so a memory limit terminates a worker before the backend. */
-export const SANDBOX_WORKER_OOM_SCORE_ADJ = 1000;
-
-/**
- * Raising niceness and `oom_score_adj` needs no privilege for an owned child. A worker that has
- * already exited cannot be adjusted, and a failure leaves the worker at the backend's priority.
- */
-const deprioritizeSandboxProcess = (pid: number) =>
-	Effect.try(() => setPriority(pid, SANDBOX_WORKER_NICE)).pipe(
-		Effect.andThen(
-			process.platform === "linux"
-				? Effect.tryPromise(() =>
-						Bun.write(`/proc/${pid}/oom_score_adj`, `${SANDBOX_WORKER_OOM_SCORE_ADJ}`),
-					)
-				: Effect.void,
-		),
-		Effect.catch((error) =>
-			Effect.logWarning("sandbox worker priority could not be lowered").pipe(
-				Effect.annotateLogs({ pid, error: unknownToMessage(error) }),
-			),
-		),
-	);
-
 const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
 	options: SpawnDenoProcessOptions,
 ) {
@@ -549,9 +522,7 @@ const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
 	);
 
 	yield* Effect.addFinalizer(() => killProcessHandle(denoProcess));
-	if (options.deprioritize) {
-		yield* deprioritizeSandboxProcess(Number(denoProcess.pid));
-	}
+	yield* preferAsOomVictim(Number(denoProcess.pid));
 
 	const responseQueue = yield* Queue.unbounded<string>();
 	const stdinQueue = yield* Queue.unbounded<Uint8Array>();
@@ -812,7 +783,6 @@ export class SandboxProcessManager extends Context.Service<SandboxProcessManager
 				makeSpawnDenoProcess({
 					bridgePort: bridge.port,
 					runnerPath: runner.path,
-					deprioritize: config.sandbox.experimentWorkerPriority,
 					...(grants ? { grants } : {}),
 					...(profiling ? { profiling } : {}),
 					denoDir: dependencies.cacheDirectory,

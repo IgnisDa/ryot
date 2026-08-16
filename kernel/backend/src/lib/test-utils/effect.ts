@@ -117,6 +117,13 @@ export const makeAppConfigLayer = (
 			infrequentCronJobsSchedule: "0 0 * * *",
 			frequentCronJobsSchedule: "every 5 minutes",
 		},
+		sandbox: {
+			denoDir: "./tmp",
+			workerConcurrency: 2,
+			importConcurrency: 2,
+			processMode: "on-demand",
+			benchmarkProfileDir: Option.none(),
+		},
 		observability: {
 			otlp: { headers: Option.none(), endpoint: Option.none() },
 			logging: {
@@ -132,15 +139,6 @@ export const makeAppConfigLayer = (
 			bucketName: Option.none(),
 			accessKeyId: Option.none(),
 			secretAccessKey: Option.none(),
-		},
-		sandbox: {
-			denoDir: "./tmp",
-			workerConcurrency: 2,
-			processMode: "on-demand",
-			experimentWorkerPriority: false,
-			experimentInteractiveLane: false,
-			experimentImportAdmissionLimit: 0,
-			benchmarkProfileDir: Option.none(),
 		},
 		server: {
 			proKey: Option.none(),
