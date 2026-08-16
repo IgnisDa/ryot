@@ -46,6 +46,10 @@ services:
   ryot-jaeger:
     restart: unless-stopped
     image: cr.jaegertracing.io/jaegertracing/jaeger
+    command: ["--config", "/etc/jaeger/config.yml"]
+    volumes:
+      - ./jaeger.yml:/etc/jaeger/config.yml:ro
+      - jaeger_storage:/tmp
     ports:
       - "16686:16686"
 
@@ -61,4 +65,5 @@ services:
 
 volumes:
   s3_storage:
+  jaeger_storage:
   postgres_storage:
