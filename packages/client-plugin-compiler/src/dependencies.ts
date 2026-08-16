@@ -33,6 +33,9 @@ export const resolveClientPluginCompilerDependencies = Effect.tryPromise({
 			compilerRoot: from,
 			uiSdkScanSources: await readScanSources(uiSdkRoot),
 			tailwindEntry: Bun.resolveSync("tailwindcss/index.css", from),
+			themeStylesheet: await Bun.file(
+				Bun.resolveSync("@ryot/client-ui-sdk/theme.css", from),
+			).text(),
 		};
 	},
 	catch: (error) =>
