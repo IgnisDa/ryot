@@ -1,4 +1,5 @@
 import type { ContractPayload } from "@ryot/contract/client";
+import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
 import { IntegrationId } from "@ryot/contract/schema/brands";
 import { integrationRecipe, integrationsRecipe } from "@ryot/ryotql-recipes/integrations";
 import { Effect } from "effect";
@@ -9,7 +10,6 @@ import type { Client } from "./auth";
 import { pollImportRunUntilTerminal } from "./imports";
 import { executeRyotQLRecipe } from "./ryotql";
 
-type WebhookPayload = ContractPayload<"integrations", "webhook">;
 type CreateIntegrationBody = ContractPayload<"integrations", "create">;
 
 export const createIntegration = (client: Client, body: CreateIntegrationBody) =>
@@ -55,14 +55,10 @@ export const deleteIntegration = (client: Client, id: string) =>
 
 export const syncIntegrations = (client: Client) => client.call((c) => c.integrations.sync());
 
-export const postIntegrationWebhook = (
-	client: Client,
-	integrationId: string,
-	body: WebhookPayload,
-) =>
+export const postIntegrationWebhook = (client: Client, integrationId: string, body: JsonValue) =>
 	client.call((c) =>
 		c.integrations.webhook({
-			payload: body,
+			payload: JSON.stringify(body),
 			params: { integrationId: IntegrationId.make(integrationId) },
 		}),
 	);
@@ -70,7 +66,7 @@ export const postIntegrationWebhook = (
 export const postIntegrationWebhookAndWait = (
 	client: Client,
 	integrationId: string,
-	body: WebhookPayload,
+	body: JsonValue,
 ) =>
 	Effect.gen(function* () {
 		const data = yield* postIntegrationWebhook(client, integrationId, body);
