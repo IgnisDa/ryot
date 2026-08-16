@@ -27,7 +27,7 @@ const workspace = (
 	sourceHash: "source-media",
 	installationId: "installation-media",
 	...overrides,
-	homeSavedViewId: overrides.homeSavedViewId ?? null,
+	homeSavedViewSlug: overrides.homeSavedViewSlug ?? null,
 });
 
 const snapshot = {

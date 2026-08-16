@@ -1,6 +1,6 @@
 import { PluginConfigSchema } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginInstallationHealth } from "@ryot-app/contract/modules/plugins/schemas";
-import { PluginSlug, SavedViewId } from "@ryot-app/contract/schema/brands";
+import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	and,
@@ -58,13 +58,13 @@ export const pluginInstallationsRecipe = defineRecipe(
 						column(installation, "healthReason"),
 						Schema.NullOr(Schema.String),
 					),
-					homeSavedViewId: selectedField(
-						column(installation, "homeSavedViewId"),
-						Schema.NullOr(SavedViewId),
-					),
 					configuredSecrets: selectedField(
 						column(installation, "configuredSecrets"),
 						Schema.Array(Schema.String),
+					),
+					homeSavedViewSlug: selectedField(
+						column(installation, "homeSavedViewSlug"),
+						Schema.NullOr(Schema.String),
 					),
 				},
 			}),

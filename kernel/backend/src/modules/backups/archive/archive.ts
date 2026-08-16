@@ -222,12 +222,15 @@ const validateRecordKeys = (records: ArchiveRecords) => {
 		}
 		viewSlugs.add(view.slug);
 	}
-	const viewIds = new Set(records.savedViews.map(({ id }) => id));
+	const viewSlugsForHome = new Set(records.savedViews.map(({ slug }) => slug));
 	for (const installation of records.installations) {
-		if (installation.homeSavedViewId !== null && !viewIds.has(installation.homeSavedViewId)) {
+		if (
+			installation.homeSavedViewSlug !== null &&
+			!viewSlugsForHome.has(installation.homeSavedViewSlug)
+		) {
 			throw archiveError(
 				"missing_reference_mapping",
-				`Installation references unknown home saved view '${installation.homeSavedViewId}'`,
+				`Installation references unknown home saved view '${installation.homeSavedViewSlug}'`,
 				"installations.ndjson",
 			);
 		}

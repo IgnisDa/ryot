@@ -1,5 +1,5 @@
 import { assert, expect, it } from "@effect/vitest";
-import { badRequest, DbError, type InternalError, internalError } from "@ryot-app/contract/errors";
+import { badRequest, type InternalError, internalError } from "@ryot-app/contract/errors";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	PluginConflictError,
@@ -7,7 +7,7 @@ import {
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { UploadBadRequest } from "@ryot-app/contract/modules/uploads/schemas";
-import { SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { writePluginArchive } from "@ryot-app/plugin-archive";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Cause, Context, Effect, Exit, Layer, Option, Stream } from "effect";
@@ -21,7 +21,6 @@ import { UploadIntentsService } from "#modules/uploads/intents/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { PluginCatalogInvalidator } from "./catalog-events";
-import { PluginDefinitionMaterializer } from "./definition-materializer";
 import { PluginIngestionLock } from "./ingestion-lock";
 import {
 	PluginInstallationRepository,
@@ -32,6 +31,7 @@ import { PluginInstallationService } from "./installation-service";
 import { PluginInstallationLifecycleDispatcher } from "./installation-workflow";
 import { PluginRepository } from "./repository";
 import { PluginRevisionActivation } from "./revision-activation";
+import { PluginSavedViewReferences } from "./saved-view-references";
 import { validateSystemPluginSet } from "./system-set";
 import { fixtureManifest } from "./test-support";
 import type { StoredPlugin } from "./types";
@@ -55,7 +55,7 @@ const compiledScriptsFor = (
 		source: files[entry] ? new TextDecoder("utf-8", { fatal: true }).decode(files[entry]) : "",
 	}));
 type HomeSavedView = Effect.Success<
-	ReturnType<PluginInstallationRepository["Service"]["lockHomeSavedView"]>
+	ReturnType<PluginInstallationRepository["Service"]["findHomeSavedView"]>
 >;
 
 const failureOf = (exit: Exit.Exit<unknown, unknown>) => {
@@ -96,9 +96,9 @@ const installationRow = (
 	healthReason: null,
 	uninstalledAt: null,
 	pluginScope: "user",
-	homeSavedViewId: null,
 	createdAt: new Date(),
 	updatedAt: new Date(),
+	homeSavedViewSlug: null,
 	activeConfigRevisionId: null,
 	pluginSlug: "private-fixture",
 	id: `${overrides.pluginId}-installation`,
@@ -121,7 +121,6 @@ const makeLayer = (input?: {
 	readonly hasWorkflowReferences?: boolean;
 	readonly pendingLifecycle?: Array<string>;
 	readonly dispatchFailsFor?: Array<string>;
-	readonly removedGenerated?: Array<string>;
 	readonly savedViewFences?: Array<unknown>;
 	readonly invalidatedUsers?: Array<UserId>;
 	readonly hasSavedViewReferences?: boolean;
@@ -141,7 +140,6 @@ const makeLayer = (input?: {
 	readonly homeTargets?: ReadonlyMap<string, NonNullable<HomeSavedView>>;
 	readonly claimedUploads?: Array<Record<string, unknown>>;
 	readonly privateInstallations?: Array<PluginPrivateInstallationRow>;
-	readonly materialize?: (userId: UserId) => Effect.Effect<void, DbError>;
 	readonly listActiveSystemSlugs?: () => Effect.Effect<Array<string>>;
 	readonly persisted?: Array<{
 		plugin: StoredPlugin["manifest"];
@@ -203,19 +201,19 @@ const makeLayer = (input?: {
 				input?.created?.push(values);
 				return installationRow({ ...values, pluginId: values.pluginId });
 			}),
-		lockHomeSavedView: (_ownerId, savedViewId) =>
+		findHomeSavedView: (_ownerId, savedViewSlug) =>
 			Effect.gen(function* () {
 				const database = yield* Database;
 				input?.homeViewTransactionScopes?.push("transaction" in database ? "root" : "transaction");
 				input?.homeViewEvents?.push("lock-saved-view");
-				return input?.homeTargets?.get(savedViewId) ?? null;
+				return input?.homeTargets?.get(savedViewSlug) ?? null;
 			}),
-		setHomeSavedView: (ownerId, id, homeSavedViewId) =>
+		setHomeSavedView: (ownerId, id, homeSavedViewSlug) =>
 			Effect.gen(function* () {
 				const database = yield* Database;
 				input?.homeViewTransactionScopes?.push("transaction" in database ? "root" : "transaction");
 				input?.homeViewEvents?.push("set-installation");
-				input?.homeViewUpdates?.push({ id, homeSavedViewId, userId: ownerId });
+				input?.homeViewUpdates?.push({ id, userId: ownerId, homeSavedViewSlug });
 				return (input?.installations ?? []).some((row) => row.id === id && row.userId === ownerId);
 			}),
 		updateState: (values) =>
@@ -255,10 +253,7 @@ const makeLayer = (input?: {
 	const workflowReferenceLayer = Layer.mock(SandboxWorkflowReferenceRepository)({
 		hasInstallationReferences: () => Effect.succeed(input?.hasWorkflowReferences ?? false),
 	});
-	const definitionMaterializerLayer = Layer.succeed(PluginDefinitionMaterializer, {
-		materialize: (owner) => input?.materialize?.(owner) ?? Effect.void,
-		removeGenerated: (installationId) =>
-			Effect.sync(() => void input?.removedGenerated?.push(installationId)),
+	const savedViewReferencesLayer = Layer.succeed(PluginSavedViewReferences, {
 		hasCustomSavedViewReferences: (ownerId, installationId) =>
 			Effect.sync(() => {
 				input?.savedViewFences?.push({ installationId, userId: ownerId });
@@ -308,7 +303,7 @@ const makeLayer = (input?: {
 				uploadIntentsLayer,
 				objectStorageLayer,
 				lifecycleDispatcherLayer,
-				definitionMaterializerLayer,
+				savedViewReferencesLayer,
 			),
 		),
 	);
@@ -675,24 +670,24 @@ it.effect("sets and clears a usable home view without requiring workspace placem
 	const invalidatedUsers: Array<UserId> = [];
 	const privatePlugin = storedPrivatePlugin(privateManifest());
 	const installation = installationRow({ pluginId: privatePlugin.id });
-	const savedViewId = SavedViewId.make("global-view");
+	const savedViewSlug = "global-view";
 	const homeTargets = new Map<string, NonNullable<HomeSavedView>>([
 		[
-			savedViewId,
+			savedViewSlug,
 			{ view: { isDisabled: false, renderer: { kind: "kernel", name: "entity-browser" } } },
 		],
 	]);
 	return Effect.gen(function* () {
 		const service = yield* PluginInstallationService;
-		expect(yield* service.setHomeView(userId, privatePlugin.slug, { savedViewId })).toEqual({
-			savedViewId,
+		expect(yield* service.setHomeView(userId, privatePlugin.slug, { savedViewSlug })).toEqual({
+			savedViewSlug,
 		});
-		expect(yield* service.setHomeView(userId, privatePlugin.slug, { savedViewId: null })).toEqual({
-			savedViewId: null,
-		});
+		expect(yield* service.setHomeView(userId, privatePlugin.slug, { savedViewSlug: null })).toEqual(
+			{ savedViewSlug: null },
+		);
 		expect(updates).toEqual([
-			{ userId, id: installation.id, homeSavedViewId: savedViewId },
-			{ userId, id: installation.id, homeSavedViewId: null },
+			{ userId, id: installation.id, homeSavedViewSlug: savedViewSlug },
+			{ userId, id: installation.id, homeSavedViewSlug: null },
 		]);
 		expect(invalidatedUsers).toEqual([userId, userId]);
 		expect(homeViewEvents).toEqual(["lock-saved-view", "set-installation", "set-installation"]);
@@ -713,7 +708,7 @@ it.effect("sets and clears a usable home view without requiring workspace placem
 });
 
 it.effect("accepts a home view backed by an advertised plugin page", () => {
-	const savedViewId = SavedViewId.make("plugin-view");
+	const savedViewSlug = "plugin-view";
 	const manifest = privateManifest({
 		client: {
 			apiVersion: 1,
@@ -732,8 +727,8 @@ it.effect("accepts a home view backed by an advertised plugin page", () => {
 	const installation = installationRow({ pluginId: privatePlugin.id });
 	return Effect.gen(function* () {
 		const service = yield* PluginInstallationService;
-		expect(yield* service.setHomeView(userId, privatePlugin.slug, { savedViewId })).toEqual({
-			savedViewId,
+		expect(yield* service.setHomeView(userId, privatePlugin.slug, { savedViewSlug })).toEqual({
+			savedViewSlug,
 		});
 	}).pipe(
 		Effect.provide(
@@ -742,7 +737,7 @@ it.effect("accepts a home view backed by an advertised plugin page", () => {
 				privatePlugins: [privatePlugin],
 				homeTargets: new Map([
 					[
-						savedViewId,
+						savedViewSlug,
 						{
 							view: {
 								isDisabled: false,
@@ -760,9 +755,9 @@ it.effect("rejects missing, disabled, and unusable home views", () => {
 	const updates: Array<Record<string, unknown>> = [];
 	const privatePlugin = storedPrivatePlugin(privateManifest());
 	const installation = installationRow({ pluginId: privatePlugin.id });
-	const disabledId = SavedViewId.make("disabled-view");
-	const unavailableId = SavedViewId.make("unavailable-view");
-	const missingId = SavedViewId.make("missing-view");
+	const disabledId = "disabled-view";
+	const unavailableId = "unavailable-view";
+	const missingId = "missing-view";
 	const homeTargets = new Map<string, NonNullable<HomeSavedView>>([
 		[
 			disabledId,
@@ -780,16 +775,16 @@ it.effect("rejects missing, disabled, and unusable home views", () => {
 	]);
 	return Effect.gen(function* () {
 		const service = yield* PluginInstallationService;
-		for (const [savedViewId, code] of [
+		for (const [savedViewSlug, code] of [
 			[missingId, "home-view-not-found"],
 			[disabledId, "home-view-disabled"],
 			[unavailableId, "home-view-renderer-unavailable"],
 		] as const) {
 			expect(
 				failureOf(
-					yield* Effect.exit(service.setHomeView(userId, privatePlugin.slug, { savedViewId })),
+					yield* Effect.exit(service.setHomeView(userId, privatePlugin.slug, { savedViewSlug })),
 				),
-			).toMatchObject({ _tag: "PluginRequestError", reason: { code, savedViewId } });
+			).toMatchObject({ _tag: "PluginRequestError", reason: { code, savedViewSlug } });
 		}
 		expect(updates).toEqual([]);
 	}).pipe(
@@ -998,7 +993,6 @@ it.effect("uninstalls a private plugin the caller owns", () => {
 	const removedIds: Array<string> = [];
 	const deactivated: Array<string> = [];
 	const invalidatedUsers: Array<UserId> = [];
-	const removedGenerated: Array<string> = [];
 	const privatePlugin = storedPrivatePlugin(privateManifest());
 	const installations = [installationRow({ pluginId: privatePlugin.id })];
 	return Effect.gen(function* () {
@@ -1007,14 +1001,12 @@ it.effect("uninstalls a private plugin the caller owns", () => {
 		expect(removed).toEqual({ id: installations[0]?.id, pluginId: privatePlugin.id });
 		expect(deactivated).toEqual([privatePlugin.id]);
 		expect(removedIds).toEqual([installations[0]?.id]);
-		expect(removedGenerated).toEqual([installations[0]?.id]);
 		expect(invalidatedUsers).toEqual([userId]);
 	}).pipe(
 		Effect.provide(
 			makeLayer({
 				deactivated,
 				installations,
-				removedGenerated,
 				invalidatedUsers,
 				removed: removedIds,
 				privatePlugins: [privatePlugin],
@@ -1219,41 +1211,6 @@ it.effect("updates source while retaining plugin, installation, and omitted secr
 	);
 });
 
-it.effect("fails a package update when generated views cannot be materialized", () => {
-	const persisted: Array<{ plugin: StoredPlugin["manifest"]; identity: Record<string, unknown> }> =
-		[];
-	const privatePlugin = storedPrivatePlugin(configuredManifest);
-	const installation = installationRow({
-		pluginId: privatePlugin.id,
-		config: { region: "us", token: "stored-secret" },
-	});
-	return Effect.gen(function* () {
-		const service = yield* PluginInstallationService;
-		const failure = failureOf(
-			yield* Effect.exit(
-				service.updatePrivatePlugin({
-					userId,
-					files: {},
-					compiledScripts: [],
-					manifest: configuredManifest,
-					pluginSlug: privatePlugin.slug,
-				}),
-			),
-		);
-		expect(failure).toMatchObject({ _tag: "DbError", message: "generated view conflict" });
-		expect(persisted).toHaveLength(1);
-	}).pipe(
-		Effect.provide(
-			makeLayer({
-				persisted,
-				installations: [installation],
-				privatePlugins: [privatePlugin],
-				materialize: () => Effect.fail(new DbError({ message: "generated view conflict" })),
-			}),
-		),
-	);
-});
-
 it.effect("rejects changed identity but activates an upgrade needing configuration", () => {
 	const nextManifest: PluginManifest = {
 		...configuredManifest,
@@ -1334,58 +1291,44 @@ it.effect("rejects changed identity but activates an upgrade needing configurati
 	);
 });
 
-it.effect(
-	"validates reconfiguration before enabling and materializes newly compatible definitions",
-	() => {
-		const updated: Array<Record<string, unknown>> = [];
-		const materialized: Array<UserId> = [];
-		const privatePlugin = storedPrivatePlugin(configuredManifest);
-		const installation = installationRow({
-			isDisabled: true,
-			config: { region: "us" },
-			pluginId: privatePlugin.id,
-			health: "needs-configuration",
-		});
-		return Effect.gen(function* () {
-			const service = yield* PluginInstallationService;
-			expect(
-				failureOf(
-					yield* Effect.exit(
-						service.updateInstallation(userId, privatePlugin.slug, { isDisabled: false }),
-					),
+it.effect("validates reconfiguration before enabling newly compatible definitions", () => {
+	const updated: Array<Record<string, unknown>> = [];
+	const privatePlugin = storedPrivatePlugin(configuredManifest);
+	const installation = installationRow({
+		isDisabled: true,
+		config: { region: "us" },
+		pluginId: privatePlugin.id,
+		health: "needs-configuration",
+	});
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		expect(
+			failureOf(
+				yield* Effect.exit(
+					service.updateInstallation(userId, privatePlugin.slug, { isDisabled: false }),
 				),
-			).toMatchObject({ _tag: "PluginRequestError", reason: { code: "validation-failed" } });
-			expect(updated).toEqual([]);
-			expect(materialized).toEqual([]);
-			const result = yield* service.updateInstallation(userId, privatePlugin.slug, {
-				isDisabled: false,
-				config: { token: "replacement-secret" },
-			});
-			expect(result).toEqual({ id: installation.id, pluginId: privatePlugin.id });
-			expect(updated).toEqual([
-				{
-					sortOrder: 0,
-					isDisabled: false,
-					id: installation.id,
-					config: { region: "us", token: "replacement-secret" },
-				},
-			]);
-			expect(materialized).toEqual([userId]);
-		}).pipe(
-			Effect.provide(
-				makeLayer({
-					updated,
-					installations: [installation],
-					privatePlugins: [privatePlugin],
-					materialize: (owner) =>
-						Effect.sync(() => {
-							materialized.push(owner);
-						}),
-				}),
 			),
-		);
-	},
-);
+		).toMatchObject({ _tag: "PluginRequestError", reason: { code: "validation-failed" } });
+		expect(updated).toEqual([]);
+		const result = yield* service.updateInstallation(userId, privatePlugin.slug, {
+			isDisabled: false,
+			config: { token: "replacement-secret" },
+		});
+		expect(result).toEqual({ id: installation.id, pluginId: privatePlugin.id });
+		expect(updated).toEqual([
+			{
+				sortOrder: 0,
+				isDisabled: false,
+				id: installation.id,
+				config: { region: "us", token: "replacement-secret" },
+			},
+		]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({ updated, installations: [installation], privatePlugins: [privatePlugin] }),
+		),
+	);
+});
 
 it.effect("rejects package updates for system and foreign plugins", () => {
 	const systemPlugin = systemEntry(
@@ -1712,8 +1655,6 @@ it.effect("marks conflicts claimed on a shipped surface slug or definition slug"
 });
 
 it.effect("marks a private installation incompatible when a shipped plugin claims its view", () => {
-	const materialized: Array<string> = [];
-	const removedGenerated: Array<string> = [];
 	const healthUpdates: Array<Record<string, unknown>> = [];
 	const kernelView = kernelDefinitionSource().savedViews[0];
 	assert(kernelView);
@@ -1749,24 +1690,12 @@ it.effect("marks a private installation incompatible when a shipped plugin claim
 				),
 			},
 		]);
-		expect(removedGenerated).toEqual([shadowed.installationId, settled.installationId]);
-		expect(materialized).toEqual([userId]);
-	}).pipe(
-		Effect.provide(
-			makeLayer({
-				healthUpdates,
-				removedGenerated,
-				privateInstallations: [shadowed, settled],
-				materialize: (owner) => Effect.sync(() => void materialized.push(owner)),
-			}),
-		),
-	);
+	}).pipe(Effect.provide(makeLayer({ healthUpdates, privateInstallations: [shadowed, settled] })));
 });
 
 it.effect("returns an incompatible installation to ready once its conflict is gone", () => {
 	const updated: Array<Record<string, unknown>> = [];
 	const deactivated: Array<string> = [];
-	const materialized: Array<string> = [];
 	const healthUpdates: Array<Record<string, unknown>> = [];
 	const recovered = privateInstallationRow({
 		pluginSlug: "notes",
@@ -1784,7 +1713,6 @@ it.effect("returns an incompatible installation to ready once its conflict is go
 		expect(healthUpdates).toEqual([
 			{ health: "ready", healthReason: null, id: recovered.installationId },
 		]);
-		expect(materialized).toEqual([userId]);
 		expect([...updated, ...deactivated]).toEqual([]);
 	}).pipe(
 		Effect.provide(
@@ -1793,52 +1721,41 @@ it.effect("returns an incompatible installation to ready once its conflict is go
 				deactivated,
 				healthUpdates,
 				privateInstallations: [recovered, otherOwner],
-				materialize: (owner) => Effect.sync(() => void materialized.push(owner)),
 			}),
 		),
 	);
 });
 
-it.effect(
-	"leaves installing, settled and unchanged-reason conflicts alone but clears their views",
-	() => {
-		const removedGenerated: Array<string> = [];
-		const healthUpdates: Array<Record<string, unknown>> = [];
-		const reason = shippedConflict("Shipped plugins already use the slug 'example'");
-		const privateInstallations = [
-			privateInstallationRow({ health: "failed", pluginSlug: "example", installationId: "failed" }),
-			privateInstallationRow({
-				health: "installing",
-				pluginSlug: "example",
-				installationId: "installing",
-			}),
-			privateInstallationRow({
-				pluginSlug: "example",
-				health: "needs-configuration",
-				installationId: "unconfigured",
-			}),
-			privateInstallationRow({
-				healthReason: reason,
-				pluginSlug: "example",
-				health: "incompatible",
-				installationId: "already-incompatible",
-			}),
-		];
-		return Effect.gen(function* () {
-			const loader = yield* LoadedSystemPlugins;
-			const service = yield* PluginInstallationService;
-			loader.load(shippedEntry());
-			yield* service.reconcileSystemInstallations();
-			expect(healthUpdates).toEqual([]);
-			expect(removedGenerated).toEqual([
-				"failed",
-				"installing",
-				"unconfigured",
-				"already-incompatible",
-			]);
-		}).pipe(Effect.provide(makeLayer({ healthUpdates, removedGenerated, privateInstallations })));
-	},
-);
+it.effect("leaves installing, settled and unchanged-reason conflicts alone", () => {
+	const healthUpdates: Array<Record<string, unknown>> = [];
+	const reason = shippedConflict("Shipped plugins already use the slug 'example'");
+	const privateInstallations = [
+		privateInstallationRow({ health: "failed", pluginSlug: "example", installationId: "failed" }),
+		privateInstallationRow({
+			health: "installing",
+			pluginSlug: "example",
+			installationId: "installing",
+		}),
+		privateInstallationRow({
+			pluginSlug: "example",
+			health: "needs-configuration",
+			installationId: "unconfigured",
+		}),
+		privateInstallationRow({
+			healthReason: reason,
+			pluginSlug: "example",
+			health: "incompatible",
+			installationId: "already-incompatible",
+		}),
+	];
+	return Effect.gen(function* () {
+		const loader = yield* LoadedSystemPlugins;
+		const service = yield* PluginInstallationService;
+		loader.load(shippedEntry());
+		yield* service.reconcileSystemInstallations();
+		expect(healthUpdates).toEqual([]);
+	}).pipe(Effect.provide(makeLayer({ healthUpdates, privateInstallations })));
+});
 
 it.effect("dispatches every pending installation and keeps going after a failed dispatch", () => {
 	const dispatched: Array<string> = [];

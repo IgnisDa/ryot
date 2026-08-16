@@ -47,8 +47,8 @@ export const updatePluginState = (
 export const setPluginHomeView = (
 	client: Client,
 	pluginSlug: ContractPathParams<"plugins", "setHomeView">["pluginSlug"],
-	savedViewId: ContractPayload<"plugins", "setHomeView">["savedViewId"],
+	savedViewSlug: ContractPayload<"plugins", "setHomeView">["savedViewSlug"],
 ) =>
 	client.call((contract) =>
-		contract.plugins.setHomeView({ params: { pluginSlug }, payload: { savedViewId } }),
+		contract.plugins.setHomeView({ params: { pluginSlug }, payload: { savedViewSlug } }),
 	);

@@ -3,17 +3,13 @@ import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest
 import type { AssetLocator, ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import { EntityId, EventId, type UserId } from "@ryot-app/contract/schema/brands";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { isEqual } from "@ryot-app/ts-utils/lodash";
 import { Context, Effect, Encoding, FileSystem, Layer } from "effect";
 
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { AuthRepository } from "#modules/auth/repository";
 import { AutomationsRepository } from "#modules/automations/repository";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
-import type {
-	DefinitionSnapshot,
-	SavedViewDefinition,
-} from "#modules/definition-registry/snapshot";
+import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
 import { materializeSavedView } from "#modules/definition-registry/source";
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
 import { TranslationsRepository } from "#modules/entity-translation/repository";
@@ -307,22 +303,6 @@ const dependencyIdentity = Effect.fn(function* (
 	return { kind: "unmanaged" } satisfies ArchiveEntityDependency["identity"];
 });
 
-const defaultViewState = (view: SavedViewDefinition | undefined) =>
-	view
-		? {
-				slug: view.slug,
-				name: view.name,
-				icon: view.icon,
-				isBuiltin: true,
-				isDisabled: false,
-				renderer: view.renderer,
-				settings: view.settings,
-				sortOrder: view.sortOrder,
-				pluginSlug: view.pluginSlug,
-				dataSources: view.dataSources,
-			}
-		: null;
-
 export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>()(
 	"BackupExportSnapshot",
 	{
@@ -470,31 +450,35 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							} satisfies ArchiveRelationship;
 						}),
 				);
-				const homeSavedViewIds = new Set(
-					allStoredInstallations.flatMap(({ homeSavedViewId }) =>
-						homeSavedViewId === null ? [] : [homeSavedViewId],
+				const homeSavedViewSlugs = new Set(
+					allStoredInstallations.flatMap(({ homeSavedViewSlug }) =>
+						homeSavedViewSlug === null ? [] : [homeSavedViewSlug],
 					),
 				);
 				const viewRecords = (yield* Effect.forEach(storedViews, (view) =>
 					Effect.gen(function* () {
-						const { pluginInstallationId, pluginSlug: _pluginSlug, ...portableView } = view;
 						const installation = allStoredInstallations.find(
-							(state) => state.id === pluginInstallationId,
+							(state) => state.id === view.pluginInstallationId,
 						);
 						const viewPluginId = installation?.pluginId ?? null;
 						const viewDefinition = context.savedView(view.slug, viewPluginId);
 						const qualified = {
 							pluginKey: viewPluginId ? yield* requirePluginKey(pluginKeyById, viewPluginId) : null,
 						};
-						const renderer =
-							view.renderer.kind === "plugin"
-								? {
-										kind: "plugin" as const,
-										exportName: view.renderer.exportName,
-										pluginKey: yield* requirePluginKey(pluginKeyById, view.renderer.pluginId),
-									}
-								: view.renderer;
 						if (!view.isBuiltin) {
+							const {
+								pluginSlug: _pluginSlug,
+								pluginInstallationId: _installationId,
+								...portableView
+							} = view;
+							const renderer =
+								view.renderer.kind === "plugin"
+									? {
+											kind: "plugin" as const,
+											exportName: view.renderer.exportName,
+											pluginKey: yield* requirePluginKey(pluginKeyById, view.renderer.pluginId),
+										}
+									: view.renderer;
 							return [
 								{
 									...portableView,
@@ -505,26 +489,18 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 								},
 							];
 						}
-						const expected = defaultViewState(viewDefinition);
-						const actual = {
-							slug: view.slug,
-							name: view.name,
-							icon: view.icon,
-							renderer: view.renderer,
-							settings: view.settings,
-							isBuiltin: view.isBuiltin,
-							sortOrder: view.sortOrder,
-							isDisabled: view.isDisabled,
-							pluginSlug: view.pluginSlug,
-							dataSources: view.dataSources,
-						};
-						return expected && isEqual(actual, expected) && !homeSavedViewIds.has(view.id)
+						return viewDefinition &&
+							view.sortOrder === viewDefinition.sortOrder &&
+							!view.isDisabled &&
+							!homeSavedViewSlugs.has(view.slug)
 							? []
 							: [
 									{
-										...portableView,
+										id: view.id,
+										slug: view.slug,
+										sortOrder: view.sortOrder,
+										isDisabled: view.isDisabled,
 										...qualified,
-										renderer,
 										isBuiltin: true as const,
 										kind: "builtin-override" as const,
 									},
@@ -550,8 +526,8 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					...storedViews.flatMap(({ pluginInstallationId }) =>
 						pluginInstallationId ? [pluginInstallationId] : [],
 					),
-					...allStoredInstallations.flatMap(({ id, homeSavedViewId }) =>
-						homeSavedViewId === null ? [] : [id],
+					...allStoredInstallations.flatMap(({ id, homeSavedViewSlug }) =>
+						homeSavedViewSlug === null ? [] : [id],
 					),
 				]);
 				const installationRecords: ArchiveInstallation[] = yield* Effect.forEach(
@@ -567,9 +543,9 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 								configuredSecretPaths: [],
 								sortOrder: state.sortOrder,
 								disabledIntent: state.isDisabled,
-								homeSavedViewId: state.homeSavedViewId,
 								createdAt: state.createdAt.toISOString(),
 								updatedAt: state.updatedAt.toISOString(),
+								homeSavedViewSlug: state.homeSavedViewSlug,
 								packageKey: yield* requirePluginKey(pluginKeyById, state.pluginId),
 								lifecycleIntent: installationLifecycleIntent(state.health, state.isDisabled),
 								config: plugin?.scope === "system" ? {} : decodeArchiveJsonObject(state.config),

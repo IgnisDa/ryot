@@ -4,13 +4,10 @@ import { Context, Effect } from "effect";
 
 import type { Database } from "#lib/infrastructure/db/service";
 
-export class PluginDefinitionMaterializer extends Context.Service<PluginDefinitionMaterializer>()(
-	"PluginDefinitionMaterializer",
+export class PluginSavedViewReferences extends Context.Service<PluginSavedViewReferences>()(
+	"PluginSavedViewReferences",
 	{
 		make: Effect.succeed({
-			materialize: (_userId: UserId): Effect.Effect<void, DbError, Database> => Effect.void,
-			removeGenerated: (_pluginInstallationId: string): Effect.Effect<void, DbError, Database> =>
-				Effect.void,
 			hasCustomSavedViewReferences: (
 				_userId: UserId,
 				_pluginInstallationId: string,

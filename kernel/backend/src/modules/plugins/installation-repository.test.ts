@@ -55,7 +55,7 @@ const clientProjection = (id: string) =>
 	});
 
 describe("installation revision persistence", () => {
-	it.effect("locks kernel and plugin saved-view renderers without custom renderer state", () =>
+	it.effect("resolves kernel and plugin saved-view renderers without custom renderer state", () =>
 		withRevisionDatabase(
 			Effect.gen(function* () {
 				const repository = yield* PluginInstallationRepository;
@@ -77,7 +77,7 @@ describe("installation revision persistence", () => {
 							settings: {},
 							userId: owner,
 						});
-					expect(yield* repository.lockHomeSavedView(owner, id)).toEqual({
+					expect(yield* repository.findHomeSavedView(owner, id)).toEqual({
 						view: { renderer, isDisabled: false },
 					});
 				}
