@@ -1,4 +1,4 @@
-use std::{collections::HashSet, future::Future, sync::Arc};
+use std::{collections::BTreeSet, future::Future, sync::Arc};
 
 use anyhow::{Result, bail};
 use common_models::MetadataLookupCacheInput;
@@ -171,6 +171,7 @@ impl TmdbService {
                 country.clone(),
             );
         }
+        watch_providers.sort_unstable_by(|a, b| a.name.cmp(&b.name));
         Ok(watch_providers)
     }
 
@@ -190,7 +191,7 @@ impl TmdbService {
                 } else {
                     watch_providers.push(WatchProvider {
                         name: provider.provider_name,
-                        languages: HashSet::from_iter(vec![country.clone()]),
+                        languages: BTreeSet::from_iter(vec![country.clone()]),
                         image: provider.logo_path.map(|i| self.get_image_url(i)),
                     });
                 }
