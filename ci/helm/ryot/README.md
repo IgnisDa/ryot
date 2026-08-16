@@ -263,23 +263,9 @@ helm test <release-name>
 Ryot exposes `/api/health` on the service port; liveness and readiness probes
 use it. The endpoint checks both PostgreSQL and Redis.
 
-## Notable values
+## Values
 
-| Key                          | Default                  | Description                          |
-| ---------------------------- | ------------------------ | ------------------------------------ |
-| `image.repository`           | `ghcr.io/ignisda/ryot`   | Image repo                           |
-| `image.tag`                  | `""` (chart appVersion)  | Image tag                            |
-| `config.timezone`            | `GMT`                    | `TZ`                                 |
-| `config.frontendUrl`         | `""`                     | `FRONTEND_URL`                       |
-| `config.usersAllowRegistration` | `true`               | `USERS_ALLOW_REGISTRATION`           |
-| `postgres.enabled`           | `true`                   | Deploy bundled PostgreSQL            |
-| `postgres.auth.password`     | `""` (required)          | Bundled DB password (no default)     |
-| `postgres.persistence.size`  | `8Gi`                    | Data volume size                     |
-| `redis.enabled`              | `true`                   | Deploy bundled Redis                 |
-| `redis.persistence.enabled`  | `false`                  | Persist Redis data                   |
-| `service.port`               | `8000`                   | Service port                         |
-| `ingress.enabled`            | `false`                  | Enable ingress                       |
-
-See [values.yaml](./values.yaml) for the full list, or the auto-generated
-[VALUES.md](./VALUES.md) for the rendered reference table (regenerated on every
-PR by [helm-docs](https://github.com/norwoodj/helm-docs)).
+See [values.yaml](./values.yaml) for the annotated source, or the auto-generated
+[VALUES.md](./VALUES.md) for the full rendered reference table. `VALUES.md` is regenerated on
+every PR by [helm-docs](https://github.com/norwoodj/helm-docs), so document a value by commenting
+it in `values.yaml` rather than by editing either file here.
