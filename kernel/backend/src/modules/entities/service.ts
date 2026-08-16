@@ -49,8 +49,7 @@ type UpdateEntityInput = {
 	entityId: EntityId;
 	properties: unknown;
 	populatedAt: Date | null;
-	entitySchemaSlug: EntitySchemaSlug;
-};
+} & ({ scope: "global" } | { scope: "user"; userId: UserId });
 
 type UpsertEntityInput = {
 	name: string;
@@ -60,7 +59,7 @@ type UpsertEntityInput = {
 	populatedAt: Date | null;
 	providerId: SandboxProviderId;
 	entitySchemaSlug: EntitySchemaSlug;
-} & ({ scope?: "global" } | { scope: "user"; userId: UserId });
+} & ({ scope: "global" } | { scope: "user"; userId: UserId });
 
 export type UpsertGlobalEntityItem = {
 	name: string;
@@ -134,11 +133,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			}
 
 			const scope = yield* input.scope === "user"
-				? repository.getEntitySchemaScopeForUser({
+				? repository.findEntitySchemaForUser({
 						userId: input.userId,
 						entitySchemaSlug: input.entitySchemaSlug,
 					})
-				: repository.findEntitySchemaById(input.entitySchemaSlug);
+				: repository.findSystemEntitySchemaById(input.entitySchemaSlug);
 			if (!scope) {
 				return yield* new EntityNotFound({
 					reason: { code: "entity-schema-not-found", entitySchemaSlug: input.entitySchemaSlug },
@@ -259,14 +258,34 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		});
 
 		const update = Effect.fn("EntitiesService.update")(function* (input: UpdateEntityInput) {
-			const scope = yield* repository.findEntitySchemaById(input.entitySchemaSlug);
-			if (!scope) {
+			const entity =
+				input.scope === "user"
+					? yield* repository.getEntityScopeForUser({
+							userId: input.userId,
+							entityId: input.entityId,
+						})
+					: yield* repository.findGlobalEntityById(input.entityId);
+			if (!entity) {
 				return yield* new EntityNotFound({
-					reason: { code: "entity-schema-not-found", entitySchemaSlug: input.entitySchemaSlug },
+					reason: { code: "entity-not-found", entityId: input.entityId },
+				});
+			}
+			const entitySchema = yield* input.scope === "user"
+				? repository.findEntitySchemaForUser({
+						userId: input.userId,
+						entitySchemaSlug: entity.entitySchemaSlug,
+					})
+				: repository.findSystemEntitySchemaById(entity.entitySchemaSlug);
+			if (!entitySchema) {
+				return yield* new EntityNotFound({
+					reason: { code: "entity-schema-not-found", entitySchemaSlug: entity.entitySchemaSlug },
 				});
 			}
 
-			const properties = yield* parseEntityProperties(input.properties, scope.propertiesSchema);
+			const properties = yield* parseEntityProperties(
+				input.properties,
+				entitySchema.propertiesSchema,
+			);
 
 			return yield* repository.updateEntity({
 				properties,
@@ -278,11 +297,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 
 		const upsert = Effect.fn("EntitiesService.upsert")(function* (input: UpsertEntityInput) {
 			const scope = yield* input.scope === "user"
-				? repository.getEntitySchemaScopeForUser({
+				? repository.findEntitySchemaForUser({
 						userId: input.userId,
 						entitySchemaSlug: input.entitySchemaSlug,
 					})
-				: repository.findEntitySchemaById(input.entitySchemaSlug);
+				: repository.findSystemEntitySchemaById(input.entitySchemaSlug);
 			if (!scope) {
 				return yield* new EntityNotFound({
 					reason: { code: "entity-schema-not-found", entitySchemaSlug: input.entitySchemaSlug },
@@ -348,7 +367,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		) {
 			const validated = yield* Effect.forEach(items, (input) =>
 				Effect.gen(function* () {
-					const scope = yield* repository.findEntitySchemaById(input.entitySchemaSlug);
+					const scope = yield* repository.findSystemEntitySchemaById(input.entitySchemaSlug);
 					if (!scope) {
 						return yield* new EntityNotFound({
 							reason: { code: "entity-schema-not-found", entitySchemaSlug: input.entitySchemaSlug },
@@ -428,8 +447,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 
 						return yield* Effect.forEach(validated, (input) =>
 							Effect.gen(function* () {
-								const existing = yield* repository.findGlobalEntityByExternalId({
+								const existing = yield* repository.findEntityByExternalId({
 									providerId,
+									scope: "global",
 									externalId: input.externalId,
 									entitySchemaSlug: input.entitySchemaSlug,
 									entitySchemaPluginId: input.entitySchemaPluginId,

@@ -26,10 +26,15 @@ import { type DurableSchema, withoutWorkflowParent } from "#lib/infrastructure/w
 import { slugify } from "#lib/shared/slug";
 import { AddEntityToCollectionWorkflow } from "#modules/collections/add-entity-to-collection-workflow";
 import { CollectionsService } from "#modules/collections/service";
-import { DefinitionRegistry } from "#modules/definition-registry/service";
+import {
+	DefinitionSnapshot,
+	definitionSourceFromSnapshot,
+	makeDefinitionRegistry,
+} from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EventCreateWorkflow } from "#modules/events/event-create-workflow";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { RelationshipsService } from "#modules/relationships/service";
 
 import { PROGRESS_UPDATE_INTERVAL, recordImportRunFailure } from "./runtime/import-run-status";
@@ -179,12 +184,18 @@ const resolveEntityIntents = Effect.fn("imports.resolveGenericEntityIntents")(fu
 	return aliases;
 });
 
-const writeGenericItem = (item: GenericImportWriteItem, userId: UserId, index: number) =>
+type GenericImportDefinitions = ReturnType<typeof makeDefinitionRegistry>;
+
+const writeGenericItem = (
+	item: GenericImportWriteItem,
+	userId: UserId,
+	index: number,
+	definitions: GenericImportDefinitions,
+) =>
 	Activity.make({
 		name: `write-generic-import-item-${index}`,
 		success: ItemWriteOutcome,
 		execute: Effect.gen(function* () {
-			const definitions = yield* DefinitionRegistry;
 			const collections = yield* CollectionsService;
 			const relationships = yield* RelationshipsService;
 			const entitiesRepository = yield* EntitiesRepository;
@@ -196,6 +207,12 @@ const writeGenericItem = (item: GenericImportWriteItem, userId: UserId, index: n
 					message: "Import subject references an unknown entity alias",
 				});
 			}
+			yield* Effect.forEach(
+				item.entities,
+				(entity) =>
+					definitions.validateEntityProperties(entity.entitySchemaSlug, entity.properties),
+				{ discard: true },
+			);
 			for (const event of item.events) {
 				const subject =
 					event.subjectEntityId !== undefined
@@ -375,6 +392,16 @@ const updateRun = (name: string, input: UpdateImportRunInput) =>
 		}).pipe(Effect.mapError(toWorkflowError)),
 	});
 
+const resolveGenericImportDefinitions = (userId: UserId) =>
+	Activity.make({
+		name: "resolve-generic-import-definitions",
+		error: ImportRunError satisfies DurableSchema,
+		success: DefinitionSnapshot satisfies DurableSchema,
+		execute: Effect.flatMap(PluginRuntimeResolver, (runtime) =>
+			runtime.getEffectiveDefinitions(userId),
+		).pipe(Effect.mapError(toWorkflowError)),
+	});
+
 export const runProcessGenericImportChunksWorkflow = Effect.fn(
 	"ProcessGenericImportChunksWorkflow",
 )(function* (payload: typeof ProcessGenericImportChunksPayload.Type, executionId: string) {
@@ -385,6 +412,8 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 	let observedWriteItemCount = 0;
 	let failureReason: ImportRunFailureReason | undefined;
 	const runId = ImportRunId.make(payload.runId);
+	const snapshot = yield* resolveGenericImportDefinitions(payload.userId);
+	const definitions = makeDefinitionRegistry(definitionSourceFromSnapshot(snapshot));
 
 	const process = Effect.gen(function* () {
 		yield* updateRun("record-generic-import-total", { runId, totalItems: payload.totalItems });
@@ -419,7 +448,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 			}
 			for (const item of chunk.items) {
 				observedWriteItemCount += 1;
-				const outcome = yield* writeGenericItem(item, payload.userId, processedItems);
+				const outcome = yield* writeGenericItem(item, payload.userId, processedItems, definitions);
 				let message = outcome._tag === "failed" ? outcome.message : null;
 				if (outcome._tag === "ready") {
 					const engine = yield* WorkflowEngine;

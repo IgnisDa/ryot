@@ -23,13 +23,15 @@ import { queryInLibraryRelationship } from "~/fixtures/plugins/media";
 import { assertCompleted, assertPresent, assertTaggedError } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 
-const IMPORT_EXTERNAL_ID = "e2e-audiobook-1";
-const IMPORTED_NAME = "E2E Imported Audiobook";
+const IMPORT_EXTERNAL_ID = "e2e-private-record-1";
+const IMPORTED_NAME = "E2E Imported Private Record";
 const PLUGIN_SLUG = `provider-entities-${crypto.randomUUID()}`;
-const PROVIDER_SLUG = `audiobook.provider-entities-${crypto.randomUUID()}`;
+const ENTITY_SCHEMA_SLUG = `private-record-${crypto.randomUUID()}`;
+const PROVIDER_SLUG = `${ENTITY_SCHEMA_SLUG}.provider-entities`;
 
 let providerClient: Client;
 let provider: InstalledTestProvider;
+let audiobookProvider: InstalledTestProvider;
 let workoutProvider: InstalledTestProvider;
 
 beforeAll(async () => {
@@ -37,20 +39,42 @@ beforeAll(async () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			providerClient = client;
-			const { schema } = yield* findBuiltinSchemaBySlug(client, "audiobook");
 			provider = yield* installTestProvider({
 				client,
 				slug: PROVIDER_SLUG,
 				pluginSlug: PLUGIN_SLUG,
-				rootEntitySchemaSlug: schema.id,
+				rootEntitySchemaSlug: ENTITY_SCHEMA_SLUG,
 				details: fakeProviderDetailsResult({
 					name: IMPORTED_NAME,
 					properties: { description: "Imported by the e2e fake provider." },
 				}),
 				search: fakeProviderSearchResult([
-					{ externalId: IMPORT_EXTERNAL_ID, title: "E2E Audiobook One" },
-					{ externalId: "e2e-audiobook-2", title: "E2E Audiobook Two", metadata: [2] },
+					{ externalId: IMPORT_EXTERNAL_ID, title: "E2E Private Record One" },
+					{ externalId: "e2e-private-record-2", title: "E2E Private Record Two", metadata: [2] },
 				]),
+				entitySchemas: [
+					{
+						icon: "file",
+						eventSchemas: [],
+						name: "Private Record",
+						slug: ENTITY_SCHEMA_SLUG,
+						propertiesSchema: {
+							fields: {
+								description: {
+									type: "string",
+									label: "Description",
+									description: "Private record description",
+								},
+							},
+						},
+					},
+				],
+			});
+			const { schema: audiobookSchema } = yield* findBuiltinSchemaBySlug(client, "audiobook");
+			audiobookProvider = yield* installTestProvider({
+				client,
+				rootEntitySchemaSlug: audiobookSchema.id,
+				details: fakeProviderDetailsResult({ name: "E2E Imported Audiobook", properties: {} }),
 			});
 			const { schema: workoutSchema } = yield* findBuiltinSchemaBySlug(client, "workout");
 			workoutProvider = yield* installTestProvider({
@@ -66,6 +90,7 @@ afterAll(async () => {
 	await Effect.runPromise(
 		Effect.gen(function* () {
 			yield* uninstallTestProvider(workoutProvider);
+			yield* uninstallTestProvider(audiobookProvider);
 			yield* uninstallTestProvider(provider);
 		}),
 	);
@@ -75,15 +100,15 @@ describe("provider entity search", () => {
 	it.live("uses separate search and details scripts through one provider identity", () =>
 		Effect.gen(function* () {
 			const search = yield* searchProviderEntities(providerClient, {
-				providerId: provider.providerId,
-				query: "test",
 				page: 1,
 				pageSize: 5,
+				query: "test",
+				providerId: provider.providerId,
 			});
 			expect(search.providerId).toBe(provider.providerId);
 			expect(search.items).toEqual([
-				{ externalId: IMPORT_EXTERNAL_ID, title: "E2E Audiobook One" },
-				{ externalId: "e2e-audiobook-2", title: "E2E Audiobook Two", metadata: [2] },
+				{ externalId: IMPORT_EXTERNAL_ID, title: "E2E Private Record One" },
+				{ externalId: "e2e-private-record-2", title: "E2E Private Record Two", metadata: [2] },
 			]);
 			const firstItem = search.items[0];
 			assertPresent(firstItem, "Expected the first search item");
@@ -157,7 +182,7 @@ describe("GET /provider-entities/imports/:jobId — provider entity import resul
 
 			const { jobId } = yield* enqueueProviderEntityImport(providerClient, {
 				externalId,
-				providerId: provider.providerId,
+				providerId: audiobookProvider.providerId,
 			});
 			const result = yield* pollProviderEntityImportResult(providerClient, jobId);
 			assertCompleted(result, "entity import");
@@ -167,7 +192,7 @@ describe("GET /provider-entities/imports/:jobId — provider entity import resul
 				providerEntityLinksRecipe({
 					externalIds: [externalId],
 					entitySchemaSlug: schema.id,
-					providerId: provider.providerId,
+					providerId: audiobookProvider.providerId,
 				}),
 			);
 			expect(withMembership).toHaveLength(1);
