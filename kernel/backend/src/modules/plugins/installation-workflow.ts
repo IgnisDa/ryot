@@ -10,6 +10,7 @@ import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-sc
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import { PluginCatalogInvalidator } from "./catalog-events";
+import { ClientSurfaceMaterializer } from "./client-surface-materializer";
 import { PluginDefinitionMaterializer } from "./definition-materializer";
 import { PluginInstallationRepository } from "./installation-repository";
 import { PluginRuntimeResolver } from "./runtime-resolver";
@@ -72,6 +73,7 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 		const runtime = yield* PluginRuntimeResolver;
 		const sandbox = yield* SandboxExecutionService;
 		const invalidator = yield* PluginCatalogInvalidator;
+		const surfaces = yield* ClientSurfaceMaterializer;
 		const installations = yield* PluginInstallationRepository;
 		const definitionMaterializer = yield* PluginDefinitionMaterializer;
 
@@ -115,6 +117,7 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 			asInternal(
 				Effect.gen(function* () {
 					yield* definitionMaterializer.materialize(userId);
+					yield* surfaces.materializePendingInstallation(userId, installationId);
 					yield* Effect.uninterruptible(
 						installations
 							.updateHealth({ health: "ready", id: installationId, healthReason: null })

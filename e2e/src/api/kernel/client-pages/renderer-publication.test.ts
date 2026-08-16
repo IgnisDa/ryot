@@ -5,7 +5,7 @@ import {
 	buildComposedClientRendererDefinition,
 	buildClientRendererDefinition,
 	createAuthenticatedClient,
-	createClientPageSession,
+	checkClientPageFreshness,
 	createClientRenderer,
 	createRendererSavedView,
 	deleteClientRenderer,
@@ -17,9 +17,7 @@ import {
 	listClientRenderers,
 	prepareClientPage,
 	publishClientRenderer,
-	renewClientPageSession,
 	replaceClientRendererDraft,
-	revokeClientPageSession,
 	updateFixtureClientPlugin,
 } from "~/fixtures/kernel";
 import { assertCondition, assertTaggedError } from "~/support/assertions";
@@ -179,7 +177,6 @@ describe("client renderer publication E2E", () => {
 			const publication = yield* publishClientRenderer(client, created.id, initialDraftRevision);
 			expect(publication.publishedRevision).toBe(initialDraftRevision);
 			expect(publication.publishedHash).toMatch(/^[0-9a-f]{64}$/);
-			expect(publication.buildId.length).toBeGreaterThan(0);
 
 			const fetched = Option.getOrThrow(yield* getClientRenderer(client, created.id));
 			expect(fetched.draftRevision).toBe(initialDraftRevision);
@@ -258,7 +255,7 @@ describe("client renderer publication E2E", () => {
 			});
 			yield* publishClientRenderer(client, renderer.id, initialDraftRevision);
 			const view = yield* createRendererSavedView(client, renderer.id, { label: "Before" });
-			const before = yield* prepareClientPage(client, view.id);
+			const before = yield* prepareClientPage(client, view.slug);
 
 			expect(before.identity.contributors).toEqual(
 				expect.arrayContaining([
@@ -273,18 +270,16 @@ describe("client renderer publication E2E", () => {
 			);
 
 			const settingsView = yield* createRendererSavedView(client, renderer.id, { label: "After" });
-			const settingsChanged = yield* prepareClientPage(client, settingsView.id);
+			const settingsChanged = yield* prepareClientPage(client, settingsView.slug);
 			expect(settingsChanged.context.settings).toEqual({ label: "After" });
 			expect(settingsChanged.identity).toMatchObject({
-				buildId: before.identity.buildId,
-				graphHash: before.identity.graphHash,
+				artifactKey: before.identity.artifactKey,
 				artifactHash: before.identity.artifactHash,
 			});
 
 			yield* updateFixtureClientPlugin(client, "B", crypto.randomUUID());
-			const dependencyChanged = yield* prepareClientPage(client, view.id);
-			expect(dependencyChanged.identity.buildId).not.toBe(before.identity.buildId);
-			expect(dependencyChanged.identity.graphHash).not.toBe(before.identity.graphHash);
+			const dependencyChanged = yield* prepareClientPage(client, view.slug);
+			expect(dependencyChanged.identity.artifactKey).not.toBe(before.identity.artifactKey);
 			expect(dependencyChanged.identity.contributors).not.toEqual(before.identity.contributors);
 
 			const changedSource = definitionWithSource(
@@ -295,9 +290,8 @@ describe("client renderer publication E2E", () => {
 				expectedDraftRevision: initialDraftRevision,
 			});
 			yield* publishClientRenderer(client, renderer.id, initialDraftRevision + 1);
-			const sourceChanged = yield* prepareClientPage(client, view.id);
-			expect(sourceChanged.identity.buildId).not.toBe(dependencyChanged.identity.buildId);
-			expect(sourceChanged.identity.graphHash).not.toBe(dependencyChanged.identity.graphHash);
+			const sourceChanged = yield* prepareClientPage(client, view.slug);
+			expect(sourceChanged.identity.artifactKey).not.toBe(dependencyChanged.identity.artifactKey);
 			expect(sourceChanged.identity.artifactHash).not.toBe(dependencyChanged.identity.artifactHash);
 		}),
 	);
@@ -312,23 +306,20 @@ describe("client renderer publication E2E", () => {
 			});
 			yield* publishClientRenderer(owner.client, renderer.id, initialDraftRevision);
 			const view = yield* createRendererSavedView(owner.client, renderer.id, { label: "Owned" });
-			const prepared = yield* prepareClientPage(owner.client, view.id);
+			const prepared = yield* prepareClientPage(owner.client, view.slug);
 
-			const denied = yield* Effect.flip(
-				createClientPageSession(outsider.client, prepared.identity),
+			expect((yield* checkClientPageFreshness(outsider.client, prepared.identity)).current).toBe(
+				false,
 			);
-			assertTaggedError(denied, "ClientPageStalePreparation");
-			expect(denied.reason).toEqual({ code: "stale-preparation" });
 
-			const session = yield* createClientPageSession(owner.client, prepared.identity);
-			const artifactUrl = `${getApiUrl()}/client-pages/artifacts/${encodeURIComponent(session.token)}/index.html`;
+			const artifactUrl = `${getApiUrl().replace(/\/api$/, "")}${prepared.artifact.grant.src}`;
 			expect((yield* Effect.promise(() => fetch(artifactUrl))).status).toBe(200);
 
 			yield* updateFixtureClientPlugin(owner.client, "B", crypto.randomUUID());
-			const stale = yield* Effect.flip(createClientPageSession(owner.client, prepared.identity));
-			assertTaggedError(stale, "ClientPageStalePreparation");
-			expect(stale.reason).toEqual({ code: "stale-preparation" });
-			expect((yield* Effect.promise(() => fetch(artifactUrl))).status).toBe(404);
+			expect((yield* checkClientPageFreshness(owner.client, prepared.identity)).current).toBe(
+				false,
+			);
+			expect((yield* Effect.promise(() => fetch(artifactUrl))).status).toBe(200);
 		}),
 	);
 
@@ -343,7 +334,7 @@ describe("client renderer publication E2E", () => {
 				initialDraftRevision,
 			);
 			const view = yield* createRendererSavedView(client, created.id, { label: "Published" });
-			const initialPrepared = yield* prepareClientPage(client, view.id);
+			const initialPrepared = yield* prepareClientPage(client, view.slug);
 			const failedDefinition = definitionWithSource("export default <;");
 
 			yield* replaceClientRendererDraft(client, created.id, {
@@ -362,7 +353,7 @@ describe("client renderer publication E2E", () => {
 			expect(fetched.publishedRevision).toBe(initialDraftRevision);
 			expect(fetched.publishedDefinition).toEqual(initialDefinition);
 			expect(fetched.publishedHash).toBe(initialPublication.publishedHash);
-			expect((yield* prepareClientPage(client, view.id)).identity).toEqual(
+			expect((yield* prepareClientPage(client, view.slug)).identity).toEqual(
 				initialPrepared.identity,
 			);
 		}),
@@ -427,8 +418,8 @@ describe("client renderer publication E2E", () => {
 			expect(firstStored.settings).toEqual({ label: "First setting" });
 			expect(secondStored.settings).toEqual({ label: "Second setting" });
 
-			const firstPrepared = yield* prepareClientPage(client, firstView.id);
-			const secondPrepared = yield* prepareClientPage(client, secondView.id);
+			const firstPrepared = yield* prepareClientPage(client, firstView.slug);
+			const secondPrepared = yield* prepareClientPage(client, secondView.slug);
 			expect(firstPrepared.identity).toMatchObject({
 				rendererId: renderer.id,
 				publishedHash: publication.publishedHash,
@@ -439,14 +430,14 @@ describe("client renderer publication E2E", () => {
 				publishedHash: publication.publishedHash,
 				publishedRevision: publication.publishedRevision,
 			});
-			expect(firstPrepared.identity.buildId).toBe(secondPrepared.identity.buildId);
+			expect(firstPrepared.identity.artifactKey).toBe(secondPrepared.identity.artifactKey);
 			expect(firstPrepared.identity.artifactHash).toBe(secondPrepared.identity.artifactHash);
 			expect(firstPrepared.context.settings).toEqual({ label: "First setting" });
 			expect(secondPrepared.context.settings).toEqual({ label: "Second setting" });
 		}),
 	);
 
-	it.live("rejects changed preparation identities and enforces the session lifecycle", () =>
+	it.live("keeps artifact grants independent from page freshness", () =>
 		Effect.gen(function* () {
 			const owner = yield* createAuthenticatedClient();
 			const outsider = yield* createAuthenticatedClient();
@@ -455,46 +446,29 @@ describe("client renderer publication E2E", () => {
 			const view = yield* createRendererSavedView(owner.client, renderer.id, {
 				label: "Session lifecycle",
 			});
-			const prepared = yield* prepareClientPage(owner.client, view.id);
+			const prepared = yield* prepareClientPage(owner.client, view.slug);
 			assertCondition(
 				prepared.identity.kind === "saved-view",
 				"Expected a saved-view preparation identity",
 			);
 
-			const stale = yield* Effect.flip(
-				createClientPageSession(owner.client, {
+			expect(
+				(yield* checkClientPageFreshness(owner.client, {
 					...prepared.identity,
 					viewRevision: prepared.identity.viewRevision + 1,
-				}),
-			);
-			assertTaggedError(stale, "ClientPageStalePreparation");
-			expect(stale.reason).toEqual({ code: "stale-preparation" });
+				})).current,
+			).toBe(false);
 
-			const session = yield* createClientPageSession(owner.client, prepared.identity);
-			const artifact = yield* Effect.promise(() =>
-				fetch(
-					`${getApiUrl()}/client-pages/artifacts/${encodeURIComponent(session.token)}/index.html`,
-				),
-			);
+			const artifactUrl = `${getApiUrl().replace(/\/api$/, "")}${prepared.artifact.grant.src}`;
+			const artifact = yield* Effect.promise(() => fetch(artifactUrl));
 			expect(artifact.status).toBe(200);
 			expect(yield* Effect.promise(() => artifact.text())).toContain("ryot-client-artifact");
-
-			const outsiderRenewal = yield* Effect.flip(
-				renewClientPageSession(outsider.client, session.sessionId),
+			expect((yield* checkClientPageFreshness(outsider.client, prepared.identity)).current).toBe(
+				false,
 			);
-			assertTaggedError(outsiderRenewal, "ClientPageSessionNotFound");
-			expect(outsiderRenewal.reason).toEqual({ code: "page-session-not-found" });
-			expect(
-				(yield* renewClientPageSession(owner.client, session.sessionId)).expiresAt,
-			).toBeTruthy();
-
-			yield* revokeClientPageSession(owner.client, session.sessionId);
-			const revokedArtifact = yield* Effect.promise(() =>
-				fetch(
-					`${getApiUrl()}/client-pages/artifacts/${encodeURIComponent(session.token)}/index.html`,
-				),
-			);
-			expect(revokedArtifact.status).toBe(404);
+			const again = yield* prepareClientPage(owner.client, view.slug);
+			expect(again.artifact.grant.src).toBe(prepared.artifact.grant.src);
+			expect((yield* Effect.promise(() => fetch(artifactUrl))).status).toBe(200);
 		}),
 	);
 
