@@ -11,11 +11,12 @@ const operationManifest = () => {
 	const manifest = fixtureManifest();
 	const script = manifest.scripts[0];
 	assert(script);
+	const { automationType: _automationType, inputProjection: _inputProjection, ...common } = script;
 	return {
 		...manifest,
 		scripts: [
 			...manifest.scripts,
-			{ ...script, name: "Operation", slug: "operation.fixture", kind: "operation" as const },
+			{ ...common, name: "Operation", slug: "operation.fixture", kind: "operation" as const },
 		],
 		operations: [
 			{

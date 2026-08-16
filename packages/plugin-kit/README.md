@@ -128,17 +128,47 @@ user operations, imports, and user-triggered provider calls use the caller; inte
 validated integration context; automations use a trusted automation-run subject; durable descendants inherit
 their parent's subject.
 
-Hooks receive the immutable invocation directly. `automation` contains `triggerId`, `runId`,
-`hookSlug`, `causation`, `occurredAt`, optional `hookMetadata`, and `payload`. Narrow on
-`payload.category`, `payload.resource`, and `payload.operation` before reading its data.
-Request payloads contain the proposed `draft`; updates also retain `before`. Change creates contain
-`after`, updates contain `before` and `after`, and deletes contain `before`. Delete requests contain
-the complete snapshot as `draft`. Provider completion includes entity/schema, provider, external ID,
-and `userId`. Signals include `signalSchemaSlug`, `properties`, nullable `actorUserId`, and optional
-`subjectEntityId`.
+Hooks receive a deterministic projection of the complete immutable trigger retained by the kernel.
+`automation` contains `triggerId`, `runId`, `hookSlug`, `causation`, `occurredAt`,
+`executionUserId`, optional `hookMetadata`, and projected `payload`. Narrow on `payload.category`,
+`payload.resource`, and `payload.operation` before reading its data. Projection changes only the
+sandbox input; it never removes evidence from the retained trigger.
 
-Do not query invocation data back through RyotQL. Ordinary user-data queries remain scoped by the
-trusted principal and describe current state, which can differ from the immutable payload.
+Each automation script must declare `inputProjection`. At least one resource is required, names are
+trimmed and unique, and undeclared resources fail closed rather than receiving a complete payload.
+After-automation projections have this shape:
+
+```ts
+inputProjection: {
+	entity?: { properties: string[]; compareProperties: Comparison[]; parentEntityProperties: string[] };
+	event?: { properties: string[]; compareProperties: Comparison[] };
+	relationship?: { properties: string[]; compareProperties: Comparison[]; parentEntityProperties: string[] };
+	providerEntityImport?: true;
+	signal?: { properties: string[] };
+}
+```
+
+Policy projections are deliberately smaller:
+
+```ts
+inputProjection: {
+	entity?: { properties: string[] };
+	event?: { properties: string[] };
+	relationship?: { properties: string[] };
+}
+```
+
+`properties` selects keys from each projected `draft`, `before`, `after`, or signal property map;
+all non-property identity and operation fields remain present. `parentEntityProperties` independently
+selects `population.parentEntity.properties`; other population fields remain present.
+`compareProperties` produces a sorted `changedProperties` list on update requests and changes,
+including items in projected batches. A `json` comparison uses canonical JSON equality, including
+array order and multiplicity. `unordered-array` compares arrays as sets of canonical JSON elements,
+ignoring order and duplicate multiplicity; non-arrays use JSON equality. Missing and present values,
+including `null`, remain distinct. Compared properties need not also be selected into snapshots.
+
+Do not query omitted or historical invocation data back through RyotQL. RyotQL describes current
+state under the trusted principal, which can differ from the complete trigger-time evidence.
 Plugins never own database tables or direct persistence; writes use kernel host functions.
 
 Exact host-function and filesystem limits are in the
@@ -188,8 +218,14 @@ by `(position, pluginId, hookSlug)`; omitted `position` means 1000. Their capabi
 `executeRyotql`, schema/integration/config/preference reads, cache reads, and diagnostic `log`/`span`.
 No domain writes, HTTP, signals, notifications, cache writes, persistent claims, child workflows, or filesystem grants
 are allowed. Outputs are `{ action: "allow" }`, `{ action: "reject", reason }`, or
-`{ action: "transform", payload }`, where `payload` is a complete request proposal. The kernel keeps
-resource, operation, scope, and target identity fixed and revalidates the draft with its AppSchema.
+`{ action: "transform", patch }`. A patch must name the current resource and contain a non-empty
+draft patch. Entity create/update may patch `name` and properties; relationship create/update may
+patch properties; event create may patch `sessionEntityId` and properties. Delete transforms and
+event update transforms are rejected. A properties patch is `{ remove: string[], set: Record<string,
+JsonValue> }`: names are unique, set/remove cannot overlap, removal runs before set, and an empty
+patch is invalid. The kernel applies accepted patches in hook order, projects that updated request for
+the next policy, keeps operation, scope, and target identity fixed, and validates the final draft with
+its AppSchema before writing.
 Numeric `AppSchema.normalize` remains schema decoding behavior; do not move rounding into hooks.
 
 Only before-event hooks may set `batchFrequency: "item" | "once-per-subject"`; omission means `item`.
@@ -213,11 +249,13 @@ because each recipient's run carries that user.
 An after hook may also declare `frequency: "item" | "batch"`; omission means `item`. Every
 change-producing write emits one batch trigger per resource in addition to its item change triggers,
 even when a single item changed. An item hook matches only item triggers and a batch hook matches only
-batch triggers, so each hook sees every change exactly once. A batch run receives the whole batch as
-`payload.items` with `operation: "batch"` and must filter the items it cares about; the batch matches
-the hook when any item matches a declared target. Batch frequency requires entity, event, or
-relationship targets. Large writes are split into deterministic chunks by item count and input size,
-so a batch hook can run more than once for one write and must stay idempotent per item.
+batch triggers, so each hook sees every change exactly once. The retained trigger keeps complete item
+evidence; a batch run receives its script's projection of every item as `payload.items` with
+`operation: "batch"` and must filter those items itself. The batch matches the hook when any item
+matches a declared target. Batch frequency requires entity, event, or relationship targets. Large
+writes are split into deterministic retained chunks by item count, so a batch hook can run more than
+once for one write and must stay idempotent per item. The runtime separately enforces the 64 KiB
+invocation limit after projection; it does not rechunk retained evidence for a specific hook.
 
 Omitted `retry` means `{ maxAttempts: 1, initialDelayMs: 1000, maxDelayMs: 60000,
 externalIdempotency: "none" }`. Attempts include the first attempt and are bounded to 1–10.

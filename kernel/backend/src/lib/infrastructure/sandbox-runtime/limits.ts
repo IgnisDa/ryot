@@ -133,7 +133,10 @@ export const sandboxWorkflowJournalByteError = (
 export const sandboxContextError = (context: unknown) => {
 	const bytes = jsonByteLength(context);
 	const limit = SANDBOX_LIMITS.execution.contextBytes;
-	return bytes === null || bytes > limit
-		? `Sandbox definition context must be JSON and no larger than ${limit} UTF-8 bytes`
+	if (bytes === null) {
+		return "Sandbox definition context must be JSON";
+	}
+	return bytes > limit
+		? `Sandbox definition context is ${bytes} UTF-8 bytes and exceeds ${limit} UTF-8 bytes`
 		: null;
 };

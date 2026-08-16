@@ -53,7 +53,11 @@ export class AutomationReconciliation extends Context.Service<AutomationReconcil
 				yield* Effect.forEach(
 					candidates,
 					(run) => {
-						const payload = { runId: run.id, attemptNumber: run.attemptCount + 1 };
+						const payload = {
+							runId: run.id,
+							acceptedPatches: [],
+							attemptNumber: run.attemptCount + 1,
+						};
 						return operations.submit(payload).pipe(
 							Effect.timeout(AUTOMATION_IMMEDIATE_TIMEOUT_MS),
 							Effect.catchCause(() =>

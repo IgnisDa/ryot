@@ -7,6 +7,7 @@ import {
 	AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { SANDBOX_FAILURE_KINDS } from "@ryot-app/contract/modules/sandbox/wire";
+import { jsonByteLength } from "@ryot-app/sandbox-compiler/limits";
 import { Effect, Layer, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
@@ -53,11 +54,25 @@ const run = Schema.decodeSync(AutomationRun)({
 		externalIdempotency: "none",
 	},
 });
-const payload = { runId: run.id, attemptNumber: 1 };
+const payload = { runId: run.id, attemptNumber: 1, acceptedPatches: [] };
+const afterScript = {
+	capabilities: [],
+	kind: "automation",
+	slug: "hook-script",
+	name: "Hook script",
+	automationType: "automation",
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
+	inputProjection: { signal: { properties: ["nested"] } },
+} as const;
+const policyScript = {
+	...afterScript,
+	automationType: "policy",
+	inputProjection: { entity: { properties: [] } },
+} as const;
 const identity = automationAttemptIdentity(run.id, 1);
 const initialAttempt = Schema.decodeSync(AutomationRunAttempt)({
 	...identity,
-	...payload,
 	logs: null,
 	error: null,
 	timing: null,
@@ -66,8 +81,10 @@ const initialAttempt = Schema.decodeSync(AutomationRunAttempt)({
 	status: "running",
 	failureKind: null,
 	returnedValue: null,
+	runId: payload.runId,
 	artifactsPrunedAt: null,
 	startedAt: trigger.createdAt,
+	attemptNumber: payload.attemptNumber,
 });
 const requestData = {
 	resource: "entity",
@@ -111,14 +128,20 @@ const harness = (selectedRun = run, selectedTrigger = trigger) => {
 	const children: string[] = [];
 	const operations = AutomationRunWorkflowOperations.of({
 		claim: () => Effect.sync(() => ({ attempt, stage: selectedRun.stage })),
-		prepare: (input) =>
-			prepareAutomationInvocation(selectedRun, selectedTrigger, input, { pinned: true }),
 		finalize: (input) =>
 			Effect.sync(() => {
 				outcomes.push(input);
 				attempt = { ...initialAttempt, ...input, finishedAt: "2026-09-15T00:00:01.000Z" };
 				return attempt;
 			}),
+		prepare: (input) =>
+			prepareAutomationInvocation(
+				selectedRun,
+				selectedTrigger,
+				input,
+				selectedRun.stage === "before" ? policyScript : afterScript,
+				{ pinned: true },
+			),
 		runSandbox: (input) =>
 			Effect.sync(() => {
 				children.push(input.executionId);
@@ -137,7 +160,7 @@ it.effect(
 	"passes inline canonical input, retained metadata and exact trusted revision identities",
 	() =>
 		Effect.gen(function* () {
-			const prepared = yield* prepareAutomationInvocation(run, trigger, payload, {
+			const prepared = yield* prepareAutomationInvocation(run, trigger, payload, afterScript, {
 				retained: "metadata",
 			});
 			expect(prepared).toEqual({
@@ -176,6 +199,7 @@ it.effect(
 				},
 				trigger,
 				payload,
+				afterScript,
 			);
 			expect(kernel.subject).toEqual({
 				...prepared.subject,
@@ -191,22 +215,101 @@ it.effect(
 	"feeds a transformed request into the next policy without replacing the immutable trigger",
 	() =>
 		Effect.gen(function* () {
-			const transformed = yield* Schema.decodeEffect(AutomationRequestPayload)({
-				...requestData,
-				draft: { ...requestData.draft, name: "Transformed" },
+			const patch = { resource: "entity", draft: { name: "Transformed" } } as const;
+			const prepared = yield* prepareAutomationInvocation(
+				beforeRun,
+				requestTrigger,
+				{ ...payload, acceptedPatches: [patch] },
+				policyScript,
+			);
+			expect(prepared.input.automation.payload).toEqual({
+				...request,
+				draft: { ...request.draft, properties: {}, name: "Transformed" },
 			});
-			const prepared = yield* prepareAutomationInvocation(beforeRun, requestTrigger, {
-				...payload,
-				policyPayload: transformed,
-			});
-			expect(prepared.input.automation.payload).toEqual(transformed);
 			expect(requestTrigger.payload).toEqual(request);
 			expect(prepared.subject).toMatchObject({ stage: "before", executionUserId: "owner" });
 			const exit = yield* Effect.exit(
-				prepareAutomationInvocation(beforeRun, requestTrigger, { ...payload, attemptNumber: 2 }),
+				prepareAutomationInvocation(
+					beforeRun,
+					requestTrigger,
+					{ ...payload, attemptNumber: 2 },
+					policyScript,
+				),
 			);
 			expect(exit._tag).toBe("Failure");
 		}),
+);
+
+it.effect("uses safe standard preparation diagnostics", () =>
+	Effect.gen(function* () {
+		const mismatch = yield* prepareAutomationInvocation(
+			beforeRun,
+			requestTrigger,
+			{ ...payload, attemptNumber: 2 },
+			policyScript,
+		).pipe(Effect.flip);
+		expect(mismatch).toMatchObject({
+			kind: "invalid-input",
+			message: "Automation workflow input does not match the retained run",
+		});
+		const missingScript = yield* prepareAutomationInvocation(
+			{ ...run, sandboxScriptId: null },
+			trigger,
+			payload,
+			afterScript,
+		).pipe(Effect.flip);
+		expect(missingScript).toMatchObject({
+			kind: "missing-artifact",
+			message: "Pinned automation script or hook declaration is unavailable",
+		});
+
+		const invalidProjection = yield* prepareAutomationInvocation(run, trigger, payload, {
+			...afterScript,
+			inputProjection: {
+				entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
+			},
+		}).pipe(Effect.flip);
+		expect(invalidProjection).toMatchObject({
+			kind: "invalid-input",
+			message:
+				"Automation input projection for script 'hook-script' and hook 'hook' does not declare the retained trigger resource",
+		});
+
+		const oversizedPayload = {
+			actorUserId: "owner",
+			operation: "emit" as const,
+			signalSchemaPluginId: null,
+			category: "signal" as const,
+			resource: "signal" as const,
+			signalSchemaSlug: "fixture.signal",
+			properties: { oversized: "a".repeat(65_536) },
+		};
+		const oversizedTrigger = yield* Schema.decodeEffect(AutomationTrigger)({
+			...trigger,
+			payload: oversizedPayload,
+		});
+		const expectedInput = {
+			automation: {
+				runId: run.id,
+				triggerId: trigger.id,
+				hookSlug: run.hookSlug,
+				payload: oversizedPayload,
+				causation: trigger.causation,
+				occurredAt: trigger.occurredAt,
+				executionUserId: run.executionUserId,
+			},
+		};
+		const expectedBytes = jsonByteLength(expectedInput);
+		expect(expectedBytes).not.toBeNull();
+		const oversized = yield* prepareAutomationInvocation(run, oversizedTrigger, payload, {
+			...afterScript,
+			inputProjection: { signal: { properties: ["oversized"] } },
+		}).pipe(Effect.flip);
+		expect(oversized).toMatchObject({
+			kind: "invalid-input",
+			message: `Automation input for hook 'hook' is ${expectedBytes} UTF-8 bytes; maximum is 65536 bytes`,
+		});
+	}),
 );
 
 it.effect("finalizes one attempt and returns only its safe summary on terminal replay", () =>
@@ -225,12 +328,13 @@ it.effect("finalizes one attempt and returns only its safe summary on terminal r
 			policyOutput: null,
 			attempt: {
 				...identity,
-				...payload,
 				timing: null,
 				retryable: false,
 				failureKind: null,
 				status: "succeeded",
+				runId: payload.runId,
 				startedAt: trigger.createdAt,
+				attemptNumber: payload.attemptNumber,
 				finishedAt: "2026-09-15T00:00:01.000Z",
 			},
 		});
@@ -349,6 +453,10 @@ it.effect(
 				Effect.provide(workflowLayer(state.operations)),
 			);
 			expect(result.attempt?.failureKind).toBe("missing-artifact");
+			expect(state.outcomes[0]?.error).toEqual({
+				code: "missing-artifact",
+				message: "Retained automation trigger payload is unavailable",
+			});
 			expect(state.children).toEqual([]);
 			assertExitFails(
 				yield* Effect.exit(

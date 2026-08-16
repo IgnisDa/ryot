@@ -11,6 +11,7 @@ export const manifest = defineManifest({
 	name: "Review Created Detector",
 	slug: "automation.review-created",
 	capabilities: ["executeRyotql", "emitSignal"],
+	inputProjection: { event: { properties: [], compareProperties: [] } },
 });
 
 export default defineAutomation({
@@ -18,6 +19,7 @@ export default defineAutomation({
 	run: ({ automation }, host) => {
 		const payload = automation.payload;
 		if (
+			payload.category !== "change" ||
 			payload.resource !== "event" ||
 			payload.operation !== "create" ||
 			payload.after.eventSchemaSlug !== "review"

@@ -68,6 +68,7 @@ const input = (overrides: InputOverrides = {}) => {
 					population,
 					category: "change",
 					resource: "relationship",
+					...(operation === "update" ? { changedProperties: ["roles"] } : {}),
 					...relationshipSource,
 				},
 			],

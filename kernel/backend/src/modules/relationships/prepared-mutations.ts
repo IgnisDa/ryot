@@ -1,5 +1,6 @@
 import { DbError } from "@ryot-app/contract/errors";
 import {
+	type AutomationPolicyPatch,
 	AutomationRelationshipDraft,
 	type AutomationRelationshipSnapshot,
 } from "@ryot-app/contract/modules/automations/lifecycle";
@@ -17,6 +18,10 @@ import {
 	type LifecyclePlan,
 } from "#lib/domain/lifecycle";
 import { LifecycleCommand, lifecycleTrigger } from "#lib/domain/lifecycle-command";
+import {
+	applyLifecyclePolicyPatch,
+	canonicalLifecyclePolicyPatch,
+} from "#lib/domain/lifecycle-policy-patch";
 import { EntitiesRepository } from "#modules/entities/repository";
 import {
 	catalogDefinitionFingerprint,
@@ -329,10 +334,11 @@ export const makePreparedRelationshipMutations = ({
 		}
 		// oxlint-disable-next-line no-accumulating-spread -- each policy must observe the previous policy's transformed draft
 		let request = planned.request;
+		const acceptedPatches: AutomationPolicyPatch[] = [];
 		yield* Effect.gen(function* () {
 			for (const policy of planned.plan.policies) {
 				const output = yield* execution
-					.executePolicy({ payload: request, runId: policy.runId })
+					.executePolicy({ runId: policy.runId, acceptedPatches: [...acceptedPatches] })
 					.pipe(
 						Effect.catchTag("AutomationPolicyExecutionError", (error) =>
 							Effect.fail(
@@ -348,19 +354,30 @@ export const makePreparedRelationshipMutations = ({
 					});
 				}
 				if (output.action === "transform") {
-					if (
-						output.payload.resource !== "relationship" ||
-						output.payload.operation !== request.operation
-					) {
+					const patched = applyLifecyclePolicyPatch(request, output.patch);
+					if (!patched.ok || patched.request.operation === "delete") {
 						return yield* new RelationshipBadRequest({
 							reason: { runId: policy.runId, code: "policy-rejected" },
 						});
 					}
-					if (request.operation !== "delete") {
-						request = {
-							...request,
-							draft: { ...request.draft, properties: output.payload.draft.properties },
-						};
+					if (!propertiesSchema) {
+						return yield* Effect.die("Prepared relationship mutation is missing its schema");
+					}
+					const properties = yield* parseProperties(
+						patched.request.draft.properties,
+						propertiesSchema,
+					);
+					const successor = {
+						...patched.request,
+						draft: yield* Schema.decodeUnknownEffect(AutomationRelationshipDraft)({
+							...patched.request.draft,
+							properties,
+						}).pipe(Effect.mapError(() => badProperties([]))),
+					};
+					const acceptedPatch = canonicalLifecyclePolicyPatch(request, successor);
+					request = successor;
+					if (acceptedPatch) {
+						acceptedPatches.push(acceptedPatch);
 					}
 				}
 			}

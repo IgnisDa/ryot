@@ -43,6 +43,7 @@ type SourceRecord = Extract<
 	{ readonly resource: "entity" | "event" | "relationship" }
 >;
 type PluginScript = PluginManifest["scripts"][number];
+type AutomationScript = Extract<PluginScript, { kind: "automation" }>;
 type TriggerPayload = NonNullable<AutomationTrigger["payload"]>;
 type EventCreateRequestPayload = Extract<
 	TriggerPayload,
@@ -85,16 +86,26 @@ const entries = {
 	replayPause: "backend/workflows/lifecycle-replay-pause.sandbox.ts",
 } as const;
 
+type AutomationDeclaration =
+	| Pick<
+			Extract<AutomationScript, { automationType: "automation" }>,
+			"automationType" | "inputProjection"
+	  >
+	| Pick<
+			Extract<AutomationScript, { automationType: "policy" }>,
+			"automationType" | "inputProjection"
+	  >;
+
 const automationScript = (
 	slug: string,
 	entry: string,
 	name: string,
-	automationType: "automation" | "policy",
+	declaration: AutomationDeclaration,
 ): PluginScript => ({
 	slug,
 	name,
 	entry,
-	automationType,
+	...declaration,
 	capabilities: [],
 	kind: "automation",
 	requiredPluginConfigKeys: [],
@@ -114,6 +125,7 @@ export const manifest = defineManifest({
   capabilities: [],
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
+  inputProjection: { event: { properties: ["marker"] } },
 });
 
 export default defineAutomationPolicy({
@@ -133,9 +145,9 @@ export default defineAutomationPolicy({
     if (marker === "transform") {
       return {
         action: "transform",
-        payload: {
-          ...payload,
-          draft: { ...payload.draft, properties: { marker: "transformed" } },
+        patch: {
+          resource: "event",
+          draft: { properties: { set: { marker: "transformed" }, remove: [] } },
         },
       };
     }
@@ -161,6 +173,11 @@ export const manifest = defineManifest({
   capabilities: [],
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
+  inputProjection: {
+    entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
+    event: { properties: [], compareProperties: [] },
+    relationship: { properties: [], compareProperties: [], parentEntityProperties: [] },
+  },
 });
 
 export default defineAutomation({
@@ -245,6 +262,16 @@ const markerSchema = {
 	},
 };
 
+const policyInputProjection = { event: { properties: ["marker"] } } satisfies Extract<
+	AutomationScript,
+	{ automationType: "policy" }
+>["inputProjection"];
+const afterInputProjection = {
+	event: { properties: [], compareProperties: [] },
+	entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
+	relationship: { properties: [], compareProperties: [], parentEntityProperties: [] },
+} satisfies Extract<AutomationScript, { automationType: "automation" }>["inputProjection"];
+
 const eventSchema = (slug: string, name: string) => ({
 	slug,
 	name,
@@ -252,10 +279,22 @@ const eventSchema = (slug: string, name: string) => ({
 });
 
 const scripts = [
-	automationScript(slugs.policyScript, entries.policy, "E2E lifecycle policy", "policy"),
-	automationScript(slugs.successScript, entries.success, "E2E lifecycle success", "automation"),
-	automationScript(slugs.failureScript, entries.failure, "E2E lifecycle failure", "automation"),
-	automationScript(slugs.slowScript, entries.slow, "E2E lifecycle slow hook", "automation"),
+	automationScript(slugs.policyScript, entries.policy, "E2E lifecycle policy", {
+		automationType: "policy",
+		inputProjection: policyInputProjection,
+	}),
+	automationScript(slugs.successScript, entries.success, "E2E lifecycle success", {
+		automationType: "automation",
+		inputProjection: afterInputProjection,
+	}),
+	automationScript(slugs.failureScript, entries.failure, "E2E lifecycle failure", {
+		automationType: "automation",
+		inputProjection: afterInputProjection,
+	}),
+	automationScript(slugs.slowScript, entries.slow, "E2E lifecycle slow hook", {
+		automationType: "automation",
+		inputProjection: afterInputProjection,
+	}),
 	{
 		kind: "operation",
 		slug: slugs.replayOperation,

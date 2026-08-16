@@ -1,7 +1,7 @@
 import type { DbError } from "@ryot-app/contract/errors";
 import type {
 	AutomationPolicyOutput,
-	AutomationRequestPayload,
+	AutomationPolicyPatch,
 	AutomationWarning,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { AutomationRunId, type AutomationTriggerId } from "@ryot-app/contract/schema/brands";
@@ -23,7 +23,7 @@ export class LifecycleExecution extends Context.Service<
 	{
 		executePolicy: (input: {
 			runId: AutomationRunId;
-			payload: AutomationRequestPayload;
+			acceptedPatches: ReadonlyArray<AutomationPolicyPatch>;
 		}) => Effect.Effect<AutomationPolicyOutput, AutomationPolicyExecutionError>;
 		skipQueuedPolicies: (input: { triggerId: AutomationTriggerId }) => Effect.Effect<void, DbError>;
 		after: (input: {

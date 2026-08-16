@@ -178,15 +178,16 @@ describe("Episodic lifecycle sessions", () => {
 					}),
 				);
 
-				const events = yield* waitForEventCount(client, entityId, 4);
-				expect(events).toHaveLength(4);
-				expect(events.map((event) => event.eventSchemaSlug).sort()).toEqual([
-					"backlog",
-					"complete",
-					"dropped",
-					"on_hold",
-				]);
-				expect(events.every((event) => event.sessionEntityId === entityId)).toBe(true);
+				const events = yield* waitForEventCount(client, entityId, 5);
+				expect(
+					Object.fromEntries(events.map((event) => [event.eventSchemaSlug, event.sessionEntityId])),
+				).toEqual({
+					backlog: entityId,
+					dropped: entityId,
+					on_hold: entityId,
+					complete: entityId,
+					"add-to-library": undefined,
+				});
 			}
 		}),
 	);

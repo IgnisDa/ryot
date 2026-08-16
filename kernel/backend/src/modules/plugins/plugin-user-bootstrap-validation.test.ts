@@ -11,8 +11,13 @@ const userBootstrapManifest = () => {
 	const manifest = fixtureManifest();
 	const declared = manifest.scripts[0];
 	assert(declared);
+	const {
+		automationType: _automationType,
+		inputProjection: _inputProjection,
+		...common
+	} = declared;
 	const script = {
-		...declared,
+		...common,
 		name: "User bootstrap",
 		kind: "script" as const,
 		slug: "fixture.user-bootstrap",

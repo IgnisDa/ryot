@@ -19,6 +19,7 @@ type EntitySnapshot = typeof AutomationEntitySnapshot.Encoded;
 const input = (
 	overrides: {
 		rootPreviouslyPopulated?: boolean;
+		changedProperties?: string[];
 		parentEntity?: NonNullable<Population["parentEntity"]>;
 		after?: Partial<EntitySnapshot>;
 		before?: Partial<EntitySnapshot>;
@@ -34,6 +35,7 @@ const input = (
 		category: "change",
 		resource: "entity",
 		operation: "update",
+		changedProperties: overrides.changedProperties ?? [],
 		after: entityRecord({
 			id: "entity-1",
 			properties: {},
@@ -100,6 +102,7 @@ it("emits independent status, publish-year, and anime-count signals for a popula
 it("uses the parent show and season context for episode facts", () =>
 	run(
 		input({
+			changedProperties: ["images"],
 			parentEntity: {
 				name: "Season 1",
 				properties: { seasonNumber: 1 },
@@ -229,43 +232,4 @@ it("stays silent for initial population and special seasons", () =>
 				return undefined;
 			}),
 		),
-	));
-
-it("treats image order and duplicates as equal and ignores null-sided dates", () =>
-	run(
-		input({
-			parentEntity: {
-				name: "Season 1",
-				properties: { seasonNumber: 1 },
-				entitySchemaSlug: "show-season",
-			},
-			before: {
-				name: "Episode",
-				entitySchemaSlug: "show-episode",
-				properties: {
-					episodeNumber: 1,
-					publishDate: null,
-					images: [
-						{ url: "a", type: "remote", purpose: "still" },
-						{ url: "b", type: "remote", purpose: "still" },
-					],
-				},
-			},
-			after: {
-				name: "Episode",
-				entitySchemaSlug: "show-episode",
-				properties: {
-					episodeNumber: 1,
-					publishDate: "2026-01-01",
-					images: [
-						{ url: "b", type: "remote", purpose: "still" },
-						{ url: "a", type: "remote", purpose: "still" },
-						{ url: "a", type: "remote", purpose: "still" },
-					],
-				},
-			},
-		}),
-	).pipe(
-		Effect.map((calls) => expect(calls).toEqual([])),
-		Effect.runPromise,
 	));

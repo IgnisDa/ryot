@@ -8,16 +8,23 @@ import {
 	type AutomationRun,
 	type AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { SandboxExecutionError } from "@ryot-app/contract/modules/sandbox/schemas";
-import { SandboxExecutionSubject } from "@ryot-app/contract/modules/sandbox/schemas";
+import {
+	SandboxExecutionSubject,
+	SandboxScriptManifest,
+	type SandboxExecutionError,
+	type SandboxScriptManifest as SandboxScriptManifestType,
+} from "@ryot-app/contract/modules/sandbox/schemas";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
+import { jsonByteLength } from "@ryot-app/sandbox-compiler/limits";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq } from "drizzle-orm";
 import { Clock, Context, DateTime, Effect, Layer, Schema } from "effect";
 
+import { applyLifecyclePolicyPatches } from "#lib/domain/lifecycle-policy-patch";
 import { pluginRevision } from "#lib/infrastructure/db/schema/tables/core";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
-import { sandboxContextError } from "#lib/infrastructure/sandbox-runtime/limits";
+import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import type { SandboxExecutionResult } from "#modules/sandbox/execution-result";
 import { SandboxRepository } from "#modules/sandbox/repository";
@@ -28,6 +35,7 @@ import {
 	automationAttemptIdentity,
 	type FinalizeAutomationAttempt,
 } from "./attempt-repository";
+import { projectAutomationAfterInput, projectAutomationPolicyInput } from "./input-projection";
 import { AutomationRunRepository } from "./run-repository";
 import {
 	AutomationAttemptResult,
@@ -46,7 +54,7 @@ type PreparedAutomationRun = typeof PreparedAutomationRun.Type;
 
 class AutomationPreparationError extends Schema.TaggedError<AutomationPreparationError>()(
 	"AutomationPreparationError",
-	{ kind: Schema.Literals(["missing-artifact", "invalid-input"]) },
+	{ message: Schema.String, kind: Schema.Literals(["missing-artifact", "invalid-input"]) },
 ) {}
 
 const ClaimedAutomationAttempt = Schema.Struct({
@@ -54,35 +62,70 @@ const ClaimedAutomationAttempt = Schema.Struct({
 	attempt: Schema.NullOr(AutomationRunAttempt),
 });
 
+const workflowMismatch = () =>
+	new AutomationPreparationError({
+		kind: "invalid-input",
+		message: "Automation workflow input does not match the retained run",
+	});
+
+const projectionError = (run: AutomationRun, problem: string) =>
+	new AutomationPreparationError({
+		kind: "invalid-input",
+		message: `Automation input projection for script '${run.scriptSlug}' and hook '${run.hookSlug}' ${problem}`,
+	});
+
 export const prepareAutomationInvocation = (
 	run: AutomationRun,
 	trigger: AutomationTrigger,
 	payload: AutomationRunWorkflowPayload,
+	script: Extract<SandboxScriptManifestType, { kind: "automation" }>,
 	hookMetadata?: JsonValue,
 ) =>
 	Effect.gen(function* () {
-		const invalid = () => new AutomationPreparationError({ kind: "invalid-input" });
-		if (!trigger.payload || !run.sandboxScriptId) {
-			return yield* new AutomationPreparationError({ kind: "missing-artifact" });
+		if (!trigger.payload) {
+			return yield* new AutomationPreparationError({
+				kind: "missing-artifact",
+				message: "Retained automation trigger payload is unavailable",
+			});
 		}
-		const source = payload.policyPayload ?? trigger.payload;
-		if (
-			run.id !== payload.runId ||
-			run.triggerId !== trigger.id ||
-			(run.stage === "before"
-				? payload.attemptNumber !== 1 ||
-					source.category !== "request" ||
-					trigger.payload.category !== "request" ||
-					source.resource !== trigger.payload.resource ||
-					source.operation !== trigger.payload.operation
-				: payload.policyPayload !== undefined || source.category === "request")
-		) {
-			return yield* invalid();
+		if (!run.sandboxScriptId) {
+			return yield* new AutomationPreparationError({
+				kind: "missing-artifact",
+				message: "Pinned automation script or hook declaration is unavailable",
+			});
+		}
+		if (run.id !== payload.runId || run.triggerId !== trigger.id) {
+			return yield* workflowMismatch();
+		}
+		let projected;
+		if (run.stage === "before") {
+			if (payload.attemptNumber !== 1 || trigger.payload.category !== "request") {
+				return yield* workflowMismatch();
+			}
+			if (script.automationType !== "policy") {
+				return yield* projectionError(run, "has an incompatible policy declaration");
+			}
+			const patched = applyLifecyclePolicyPatches(trigger.payload, payload.acceptedPatches);
+			if (!patched.ok) {
+				return yield* workflowMismatch();
+			}
+			projected = projectAutomationPolicyInput(patched.request, script.inputProjection);
+		} else {
+			if (payload.acceptedPatches.length !== 0 || trigger.payload.category === "request") {
+				return yield* workflowMismatch();
+			}
+			if (script.automationType !== "automation") {
+				return yield* projectionError(run, "has an incompatible automation declaration");
+			}
+			projected = projectAutomationAfterInput(trigger.payload, script.inputProjection);
+		}
+		if (!projected) {
+			return yield* projectionError(run, "does not declare the retained trigger resource");
 		}
 		const input = {
 			automation: {
 				runId: run.id,
-				payload: source,
+				payload: projected,
 				triggerId: trigger.id,
 				hookSlug: run.hookSlug,
 				causation: trigger.causation,
@@ -91,8 +134,15 @@ export const prepareAutomationInvocation = (
 				...(hookMetadata === undefined ? {} : { hookMetadata }),
 			},
 		};
-		if (sandboxContextError(input)) {
-			return yield* invalid();
+		const inputBytes = jsonByteLength(input);
+		if (inputBytes === null) {
+			return yield* projectionError(run, "produced a non-JSON invocation");
+		}
+		if (inputBytes > SANDBOX_LIMITS.execution.contextBytes) {
+			return yield* new AutomationPreparationError({
+				kind: "invalid-input",
+				message: `Automation input for hook '${run.hookSlug}' is ${inputBytes} UTF-8 bytes; maximum is ${SANDBOX_LIMITS.execution.contextBytes} bytes`,
+			});
 		}
 		return yield* Schema.decodeUnknownEffect(PreparedAutomationRun)({
 			input,
@@ -108,7 +158,9 @@ export const prepareAutomationInvocation = (
 				pluginRevisionId: run.pluginRevisionId,
 				pluginConfigRevisionId: run.pluginConfigRevisionId,
 			},
-		}).pipe(Effect.mapError(invalid));
+		}).pipe(
+			Effect.mapError(() => projectionError(run, "does not produce a valid invocation schema")),
+		);
 	});
 
 export class AutomationRunWorkflowOperations extends Context.Service<
@@ -159,14 +211,21 @@ export const AutomationRunWorkflowOperationsLive = Layer.effect(
 				}).pipe(Effect.provideService(Database, database)),
 			prepare: (payload) =>
 				Effect.gen(function* () {
-					const missing = () => new AutomationPreparationError({ kind: "missing-artifact" });
+					const missing = () =>
+						new AutomationPreparationError({
+							kind: "missing-artifact",
+							message: "Pinned automation script or hook declaration is unavailable",
+						});
 					const run = yield* runs.findById(payload.runId);
 					if (!run?.sandboxScriptId) {
 						return yield* missing();
 					}
 					const trigger = yield* triggers.findById(run.triggerId);
 					if (!trigger?.payload) {
-						return yield* missing();
+						return yield* new AutomationPreparationError({
+							kind: "missing-artifact",
+							message: "Retained automation trigger payload is unavailable",
+						});
 					}
 					const pin = yield* scripts.getScriptPin(
 						run.sandboxScriptId,
@@ -187,6 +246,12 @@ export const AutomationRunWorkflowOperationsLive = Layer.effect(
 					) {
 						return yield* missing();
 					}
+					const script = yield* Schema.decodeUnknownEffect(SandboxScriptManifest)(
+						pin.metadata,
+					).pipe(Effect.mapError(() => projectionError(run, "has an invalid script declaration")));
+					if (script.kind !== "automation") {
+						return yield* projectionError(run, "has a non-automation script declaration");
+					}
 					let hookMetadata: JsonValue | undefined;
 					if (run.pluginId !== null) {
 						const [revision] = yield* mapDatabaseErrors(
@@ -198,12 +263,25 @@ export const AutomationRunWorkflowOperationsLive = Layer.effect(
 						const hook = revision?.manifest.hooks.find(
 							(candidate) => candidate.slug === run.hookSlug,
 						);
+						const declaration = revision?.manifest.scripts.find(
+							(candidate) => candidate.slug === run.scriptSlug,
+						);
 						if (!hook || hook.scriptSlug !== run.scriptSlug || hook.stage !== run.stage) {
 							return yield* missing();
 						}
+						if (!declaration) {
+							return yield* missing();
+						}
+						const { entry: _entry, ...declaredMetadata } = declaration;
+						if (stableStringify(declaredMetadata) !== stableStringify(pin.metadata)) {
+							return yield* projectionError(
+								run,
+								"does not match the exact pinned script declaration",
+							);
+						}
 						hookMetadata = hook.metadata;
 					}
-					return yield* prepareAutomationInvocation(run, trigger, payload, hookMetadata);
+					return yield* prepareAutomationInvocation(run, trigger, payload, script, hookMetadata);
 				}).pipe(Effect.provideService(Database, database)),
 		});
 	}),
@@ -277,10 +355,7 @@ export const runAutomationRunWorkflow = Effect.fn("AutomationRunWorkflow")(funct
 			status: "failed",
 			returnedValue: null,
 			failureKind: prepared.kind,
-			error: {
-				code: prepared.kind,
-				message: "Automation input or retained artifact is unavailable",
-			},
+			error: { code: prepared.kind, message: prepared.message },
 		};
 	} else {
 		const result = yield* operations

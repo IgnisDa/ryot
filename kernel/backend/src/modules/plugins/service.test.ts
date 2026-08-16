@@ -559,13 +559,18 @@ it.effect("rejects missing and non-automation notification formatters", () =>
 			const script = manifest.scripts[0];
 			assert(signalSchema);
 			assert(script);
+			const {
+				automationType: _automationType,
+				inputProjection: _inputProjection,
+				...common
+			} = script;
 			const notificationHookSlug =
 				kind === "missing" ? "missing.notification" : signalSchema.notificationHookSlug;
 			const source = yield* loadPluginSource(fixturePackageRoot(), {
 				...manifest,
 				signalSchemas: [{ ...signalSchema, notificationHookSlug }],
 				scripts:
-					kind === "wrong-kind" ? [{ ...script, kind: "operation" as const }] : manifest.scripts,
+					kind === "wrong-kind" ? [{ ...common, kind: "operation" as const }] : manifest.scripts,
 			});
 
 			const exit = yield* Effect.exit(ingestion.ingestSystemPlugin(source));
@@ -1230,7 +1235,7 @@ it.effect("returns structured validation and compiler diagnostics", () => {
 					reason: {
 						diagnostics: [
 							{
-								line: 15,
+								line: 19,
 								code: "TS2322",
 								phase: "compile",
 								severity: "error",

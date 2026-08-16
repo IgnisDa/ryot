@@ -17,6 +17,31 @@ export const manifest = defineManifest({
 	name: "Media Signal Notification",
 	capabilities: ["sendNotification"],
 	slug: "automation.media-notification",
+	inputProjection: {
+		signal: {
+			properties: [
+				"entityName",
+				"subjectName",
+				"associatedName",
+				"role",
+				"oldStatus",
+				"newStatus",
+				"contentType",
+				"oldCount",
+				"newCount",
+				"seasonNumber",
+				"discoveredCount",
+				"changeKind",
+				"oldYear",
+				"newYear",
+				"episodeNumber",
+				"oldDate",
+				"newDate",
+				"oldName",
+				"newName",
+			],
+		},
+	},
 });
 
 const stringProperty = (properties: Readonly<Record<string, JsonValue>>, key: string) => {

@@ -4,7 +4,12 @@ import { Result, Schema, SchemaGetter } from "effect";
 import { JsonValue } from "../../schema/json";
 import { AppSchema, type AppPropertyDefinition } from "../../schema/property-schema";
 import { HttpUrl, strictStruct } from "../../schema/utils";
-import { AutomationRetryPolicy, AutomationSource } from "../automations/lifecycle";
+import {
+	AutomationAfterInputProjection,
+	AutomationPolicyInputProjection,
+	AutomationRetryPolicy,
+	AutomationSource,
+} from "../automations/lifecycle";
 import { RyotQLDocument } from "../ryotql/language";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES, SANDBOX_HOST_CAPABILITIES } from "../sandbox/wire";
 import { AuthoredSavedViewRenderer } from "../saved-views/schemas";
@@ -406,7 +411,15 @@ export const PluginScript = Schema.Union([
 		...PluginScriptFields,
 		kind: Schema.Literal("automation"),
 		capabilities: PluginScriptCapabilities,
-		automationType: Schema.Literals(["policy", "automation"]),
+		automationType: Schema.Literal("automation"),
+		inputProjection: AutomationAfterInputProjection,
+	}),
+	strictStruct({
+		...PluginScriptFields,
+		kind: Schema.Literal("automation"),
+		automationType: Schema.Literal("policy"),
+		inputProjection: AutomationPolicyInputProjection,
+		capabilities: Schema.Array(Schema.Literals([...POLICY_SAFE_SANDBOX_CAPABILITIES])),
 	}),
 	Schema.Union([
 		strictStruct({
@@ -938,6 +951,16 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 			if (hook.stage === "before") {
 				return (
 					script.automationType !== "policy" ||
+					hook.targets.some((target) => {
+						if (
+							target.resource !== "entity" &&
+							target.resource !== "event" &&
+							target.resource !== "relationship"
+						) {
+							return true;
+						}
+						return script.inputProjection[target.resource] === undefined;
+					}) ||
 					script.capabilities.some(
 						(capability) => !POLICY_SAFE_SANDBOX_CAPABILITIES.some((safe) => safe === capability),
 					)
@@ -945,6 +968,11 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 			}
 			return (
 				script.automationType !== "automation" ||
+				hook.targets.some((target) => {
+					const projectionKey =
+						target.resource === "provider-entity-import" ? "providerEntityImport" : target.resource;
+					return script.inputProjection[projectionKey] === undefined;
+				}) ||
 				((hook.retry?.maxAttempts ?? 1) > 1 &&
 					script.capabilities.some(
 						(capability) => capability === "httpCall" || capability === "sendNotification",

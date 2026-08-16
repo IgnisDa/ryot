@@ -94,6 +94,7 @@ export const manifest = defineManifest({
   automationType: "automation",
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
+  inputProjection: { event: { properties: [], compareProperties: [] } },
   name: "Benchmark no-host automation",
   slug: ${JSON.stringify(AUTOMATION_NO_HOST_SLUG)},
 });
@@ -115,6 +116,7 @@ export const manifest = defineManifest({
   automationType: "automation",
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
+  inputProjection: { event: { properties: [], compareProperties: [] } },
   name: "Benchmark full automation",
   slug: ${JSON.stringify(AUTOMATION_FULL_SLUG)},
   capabilities: ["getUserPreferences", "setCachedValue"],
@@ -312,6 +314,7 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("sandbox runtime benchmark", () => {
 						name: "Benchmark no-host automation",
 						automationType: "automation" as const,
 						entry: "backend/scripts/automation-no-host.sandbox.ts",
+						inputProjection: { event: { properties: [], compareProperties: [] } },
 					},
 					{
 						slug: AUTOMATION_FULL_SLUG,
@@ -322,6 +325,7 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("sandbox runtime benchmark", () => {
 						automationType: "automation" as const,
 						entry: "backend/scripts/automation-full.sandbox.ts",
 						capabilities: ["getUserPreferences", "setCachedValue"],
+						inputProjection: { event: { properties: [], compareProperties: [] } },
 					},
 					{
 						kind: "provider" as const,

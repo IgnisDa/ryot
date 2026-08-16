@@ -45,18 +45,6 @@ export const fixtureManifest = () =>
 				notificationHookSlug: "fixture.automation",
 			},
 		],
-		scripts: [
-			{
-				capabilities: [],
-				kind: "automation",
-				name: "Fixture Automation",
-				slug: "fixture.automation",
-				automationType: "automation",
-				requiredPluginConfigKeys: [],
-				requiredSystemConfigKeys: [],
-				entry: "backend/automations/fixture.sandbox.ts",
-			},
-		],
 		hooks: [
 			{
 				stage: "after",
@@ -70,6 +58,22 @@ export const fixtureManifest = () =>
 				],
 			},
 		] as PluginManifest["hooks"],
+		scripts: [
+			{
+				capabilities: [],
+				kind: "automation",
+				name: "Fixture Automation",
+				slug: "fixture.automation",
+				automationType: "automation",
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
+				entry: "backend/automations/fixture.sandbox.ts",
+				inputProjection: {
+					signal: { properties: [] },
+					entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
+				},
+			},
+		],
 		entitySchemas: [
 			{
 				icon: "box",

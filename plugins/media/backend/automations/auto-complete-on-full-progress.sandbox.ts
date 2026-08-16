@@ -20,13 +20,19 @@ export const manifest = defineManifest({
 	name: "Auto-Complete on Full Progress",
 	slug: "trigger.auto-complete-on-full-progress",
 	capabilities: ["executeRyotql", "createEvents", "listEventSchemas"],
+	inputProjection: {
+		event: {
+			compareProperties: [],
+			properties: ["progressPercent", "animeEpisode", "mangaChapter", "consumedOn"],
+		},
+	},
 });
 
 type Properties = Readonly<Record<string, JsonValue>>;
 type AutomationHost = SandboxHost<typeof manifest.capabilities>;
 type AutomationEventSnapshot = Extract<
 	AutomationInput["automation"]["payload"],
-	{ resource: "event"; operation: "create" }
+	{ resource: "event"; operation: "create"; category: "change" }
 >["after"];
 type CompletionSource =
 	| AutomationEventSnapshot
@@ -229,7 +235,11 @@ export default defineAutomation({
 	manifest,
 	run: ({ automation }, host) => {
 		const payload = automation.payload;
-		if (payload.resource !== "event" || payload.operation !== "create") {
+		if (
+			payload.category !== "change" ||
+			payload.resource !== "event" ||
+			payload.operation !== "create"
+		) {
 			return Effect.succeed(null);
 		}
 		return Effect.gen(function* () {

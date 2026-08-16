@@ -162,6 +162,13 @@ export const revisionPackage = (
 				slug: `${slug}.automation`,
 				automationType: "automation",
 				entry: "backend/automation.sandbox.ts",
+				inputProjection: {
+					providerEntityImport: true,
+					signal: { properties: [] },
+					event: { properties: [], compareProperties: [] },
+					entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
+					relationship: { properties: [], compareProperties: [], parentEntityProperties: [] },
+				},
 			},
 			{
 				...common,

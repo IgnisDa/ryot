@@ -1,7 +1,6 @@
 import { PgClient } from "@effect/sql-pg";
 import { expect, it } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
-import { AutomationRequestPayload } from "@ryot-app/contract/modules/automations/lifecycle";
 import { AutomationRunId } from "@ryot-app/contract/schema/brands";
 import { Cause, Deferred, Duration, Effect, Exit, Fiber, Layer, Schema } from "effect";
 import { TestClock } from "effect/testing";
@@ -84,19 +83,7 @@ const succeedingOperations = AutomationExecutionOperations.of({
 	skipQueuedPolicies: () => Effect.void,
 	execute: ({ runId }) => Effect.succeed(result(runId)),
 });
-const policyPayload = Schema.decodeSync(AutomationRequestPayload)({
-	resource: "entity",
-	category: "request",
-	operation: "create",
-	draft: {
-		properties: {},
-		name: "Changed",
-		providerId: null,
-		externalId: null,
-		populatedAt: null,
-		entitySchemaSlug: "record",
-	},
-});
+const policyPatch = { resource: "entity", draft: { name: "Changed" } } as const;
 
 it.effect(
 	"runs required hooks concurrently with all-settled warnings and discards async failures",
@@ -224,7 +211,7 @@ it.effect("returns policy output and maps infrastructure failures to the stable 
 					}
 					return {
 						...completed,
-						policyOutput: { payload: policyPayload, action: "transform" as const },
+						policyOutput: { patch: policyPatch, action: "transform" as const },
 					};
 				}),
 		});
@@ -232,13 +219,13 @@ it.effect("returns policy output and maps infrastructure failures to the stable 
 			const service = yield* LifecycleExecution;
 			expect(
 				yield* service.executePolicy({
-					payload: policyPayload,
+					acceptedPatches: [policyPatch],
 					runId: AutomationRunId.make("accepted"),
 				}),
-			).toEqual({ action: "transform", payload: policyPayload });
+			).toEqual({ patch: policyPatch, action: "transform" });
 			assertExitFails(
 				yield* Effect.exit(
-					service.executePolicy({ payload: policyPayload, runId: AutomationRunId.make("failed") }),
+					service.executePolicy({ acceptedPatches: [], runId: AutomationRunId.make("failed") }),
 				),
 				new AutomationPolicyExecutionError({
 					code: "policy-execution-failed",
@@ -247,7 +234,7 @@ it.effect("returns policy output and maps infrastructure failures to the stable 
 			);
 			assertExitFails(
 				yield* Effect.exit(
-					service.executePolicy({ payload: policyPayload, runId: AutomationRunId.make("db") }),
+					service.executePolicy({ acceptedPatches: [], runId: AutomationRunId.make("db") }),
 				),
 				new AutomationPolicyExecutionError({
 					code: "policy-execution-failed",
@@ -256,7 +243,7 @@ it.effect("returns policy output and maps infrastructure failures to the stable 
 			);
 			assertExitFails(
 				yield* Effect.exit(
-					service.executePolicy({ payload: policyPayload, runId: AutomationRunId.make("defect") }),
+					service.executePolicy({ acceptedPatches: [], runId: AutomationRunId.make("defect") }),
 				),
 				new AutomationPolicyExecutionError({
 					code: "policy-execution-failed",
@@ -267,8 +254,8 @@ it.effect("returns policy output and maps infrastructure failures to the stable 
 		expect(submitted).toEqual(
 			["accepted", "failed", "db", "defect"].map((runId) => ({
 				runId,
-				policyPayload,
 				attemptNumber: 1,
+				acceptedPatches: runId === "accepted" ? [policyPatch] : [],
 			})),
 		);
 	}),
@@ -288,14 +275,14 @@ it.effect("bounds policy waiting with the stable run-ID error and no later attem
 				}),
 		});
 		const fiber = yield* Effect.flatMap(LifecycleExecution, (service) =>
-			service.executePolicy({ runId, payload: policyPayload }),
+			service.executePolicy({ runId, acceptedPatches: [policyPatch] }),
 		).pipe(Effect.provide(layer(operations)), Effect.exit, Effect.forkChild);
 		yield* TestClock.adjust(Duration.millis(AUTOMATION_IMMEDIATE_TIMEOUT_MS));
 		assertExitFails(
 			yield* Fiber.join(fiber),
 			new AutomationPolicyExecutionError({ runId, code: "policy-execution-failed" }),
 		);
-		expect(submitted).toEqual([{ runId, policyPayload, attemptNumber: 1 }]);
+		expect(submitted).toEqual([{ runId, attemptNumber: 1, acceptedPatches: [policyPatch] }]);
 	}),
 );
 
@@ -322,8 +309,16 @@ it.effect("submits deterministic workflow IDs and sets discard only for async de
 		});
 		yield* Effect.gen(function* () {
 			const operations = yield* AutomationExecutionOperations;
-			yield* operations.execute({ attemptNumber: 1, runId: AutomationRunId.make("required") });
-			yield* operations.submit({ attemptNumber: 1, runId: AutomationRunId.make("async") });
+			yield* operations.execute({
+				attemptNumber: 1,
+				acceptedPatches: [],
+				runId: AutomationRunId.make("required"),
+			});
+			yield* operations.submit({
+				attemptNumber: 1,
+				acceptedPatches: [],
+				runId: AutomationRunId.make("async"),
+			});
 		}).pipe(
 			Effect.provide(
 				AutomationExecutionOperationsLive.pipe(
@@ -340,7 +335,7 @@ it.effect("submits deterministic workflow IDs and sets discard only for async de
 		expect(captured).toEqual(
 			["required", "async"].map((id) => ({
 				discard: id === "async",
-				payload: { runId: id, attemptNumber: 1 },
+				payload: { runId: id, attemptNumber: 1, acceptedPatches: [] },
 				executionId: automationAttemptIdentity(AutomationRunId.make(id), 1).workflowExecutionId,
 			})),
 		);
@@ -447,7 +442,7 @@ it.effect("rejects lifecycle execution inside activities", () =>
 		expectActivityDefect(
 			yield* inActivity(
 				"policy",
-				service.executePolicy({ payload: policyPayload, runId: AutomationRunId.make("policy") }),
+				service.executePolicy({ acceptedPatches: [], runId: AutomationRunId.make("policy") }),
 			),
 			"executePolicy",
 		);

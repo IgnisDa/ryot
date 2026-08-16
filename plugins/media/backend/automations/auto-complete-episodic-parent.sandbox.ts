@@ -24,6 +24,10 @@ export const manifest = defineManifest({
 	name: "Auto-Complete Episodic Parent",
 	slug: "automation.media-auto-complete-episodic-parent",
 	capabilities: ["executeRyotql", "createEvents", "listEventSchemas", "claimPersistentValue"],
+	inputProjection: {
+		event: { properties: [], compareProperties: [] },
+		entity: { compareProperties: [], parentEntityProperties: [], properties: ["productionStatus"] },
+	},
 });
 
 export const PARENT_COMPLETION_CLAIM_TTL_SECONDS = 3600;
@@ -32,7 +36,7 @@ type AutomationHost = SandboxHost<typeof manifest.capabilities>;
 type Payload = AutomationInput["automation"]["payload"];
 type AutomationEventSnapshot = Extract<
 	Payload,
-	{ resource: "event"; operation: "create" }
+	{ resource: "event"; operation: "create"; category: "change" }
 >["after"];
 type CompletionTrigger = {
 	readonly parentEntityId: string;
@@ -80,7 +84,11 @@ const configForEpisode = (entitySchemaSlug: string) => {
 };
 
 const getCompletionTrigger = (source: Payload): CompletionTrigger | null => {
-	if (source.resource === "event" && source.operation === "create") {
+	if (
+		source.category === "change" &&
+		source.resource === "event" &&
+		source.operation === "create"
+	) {
 		const event = source.after;
 		const config = configForEpisode(event.entitySchemaSlug);
 		if (!config || event.eventSchemaSlug !== "complete" || !event.sessionEntityId) {
@@ -89,7 +97,11 @@ const getCompletionTrigger = (source: Payload): CompletionTrigger | null => {
 		return { event, config, parentEntityId: event.sessionEntityId };
 	}
 
-	if (source.resource !== "entity" || source.operation !== "update") {
+	if (
+		source.category !== "change" ||
+		source.resource !== "entity" ||
+		source.operation !== "update"
+	) {
 		return null;
 	}
 	const before = source.before;
