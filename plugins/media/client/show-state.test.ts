@@ -4,6 +4,7 @@ import type { ShowDetails } from "./show-recipe";
 import {
 	classifyShow,
 	remoteShowCover,
+	remoteShowBackdrop,
 	showEpisodeCountLabel,
 	showIdentityLabel,
 	showSeasonCountLabel,
@@ -40,12 +41,23 @@ describe("classifyShow", () => {
 });
 
 describe("show presentation helpers", () => {
-	it("selects only a direct remote cover", () => {
+	it("selects only a direct remote image of the asked-for purpose", () => {
 		expect(remoteShowCover(show)).toEqual({
 			type: "remote",
 			purpose: "cover",
 			url: "https://images.test/cover.jpg",
 		});
+		expect(remoteShowBackdrop(show)).toEqual({
+			type: "remote",
+			purpose: "backdrop",
+			url: "https://images.test/backdrop.jpg",
+		});
+		expect(
+			remoteShowBackdrop({
+				...show,
+				images: [{ type: "remote", url: "cover", purpose: "cover" }],
+			}),
+		).toBeUndefined();
 		expect(
 			remoteShowCover({
 				...show,

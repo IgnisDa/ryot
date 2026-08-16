@@ -5,9 +5,9 @@ export const SCREEN_BAR_HEIGHT = 54;
 
 type ScreenFrameProps = {
 	readonly title: string;
-	readonly compact: boolean;
 	readonly meta?: ReactNode;
 	readonly hero?: ReactNode;
+	readonly compact: boolean;
 	readonly children: ReactNode;
 	readonly leading?: ReactNode;
 	readonly actions?: ReactNode;
@@ -16,6 +16,7 @@ type ScreenFrameProps = {
 	readonly titleIcon?: ReactNode;
 	readonly barActions?: ReactNode;
 	readonly width?: "full" | "readable";
+	readonly hideTitle?: boolean | undefined;
 	readonly scrollRootRef: RefObject<HTMLElement | null>;
 };
 
@@ -40,6 +41,7 @@ export function ScreenFrame({
 	leading,
 	actions,
 	children,
+	hideTitle,
 	searchRow,
 	titleIcon,
 	barActions,
@@ -48,8 +50,8 @@ export function ScreenFrame({
 }: ScreenFrameProps) {
 	const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
 	const [isScrolled, setIsScrolled] = useState(false);
-	const hasTitleBlock = searchRow === undefined;
-	const collapsible = hero !== undefined || hasTitleBlock;
+	const collapsible = hero !== undefined || searchRow === undefined;
+	const hasTitleBlock = searchRow === undefined && hideTitle !== true;
 	const column = width === "readable" ? "mx-auto w-full max-w-2xl" : undefined;
 
 	useEffect(() => {
@@ -92,18 +94,28 @@ export function ScreenFrame({
 	);
 
 	if (!compact) {
+		const titleRow =
+			hideTitle === true ? (
+				actions
+			) : (
+				<>
+					<div className="grid min-w-0 grow basis-72 gap-1">
+						{heading}
+						{meta}
+					</div>
+					{actions}
+				</>
+			);
 		return (
 			<>
 				{hero}
-				<div className={clsx("px-8", hero === undefined && "pt-8")}>
+				<div className="px-8 pt-8">
 					<div className={column}>
-						<header className="mb-5 flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-							<div className="grid min-w-0 grow basis-72 gap-1">
-								{heading}
-								{meta}
-							</div>
-							{actions}
-						</header>
+						{titleRow === undefined ? null : (
+							<header className="mb-5 flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+								{titleRow}
+							</header>
+						)}
 						{children}
 					</div>
 				</div>
@@ -148,14 +160,13 @@ export function ScreenFrame({
 				<div style={{ marginTop: -(safeAreaTop + SCREEN_BAR_HEIGHT) }}>{hero}</div>
 			)}
 			<div className={column}>
-				{hasTitleBlock ? (
+				{hasTitleBlock && (
 					<div className="grid gap-1 px-4 pb-4">
 						{heading}
 						{meta}
 					</div>
-				) : (
-					<h1 className="sr-only">{title}</h1>
 				)}
+				{searchRow !== undefined && <h1 className="sr-only">{title}</h1>}
 				{collapsible && <div ref={setSentinel} aria-hidden="true" className="h-px" />}
 				<div className={clsx("px-4", !hasTitleBlock && "pt-4")}>{children}</div>
 			</div>

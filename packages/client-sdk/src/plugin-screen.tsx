@@ -16,6 +16,7 @@ type PluginScreenFrameProps = {
 	readonly titleIcon?: ReactNode;
 	readonly searchRow?: ReactNode;
 	readonly barActions?: ReactNode;
+	readonly hideTitle?: boolean | undefined;
 };
 
 const control = "text-text hover:bg-surface-2";
@@ -28,6 +29,7 @@ export function PluginScreenFrame({
 	children,
 	backLabel,
 	menuLabel,
+	hideTitle,
 	searchRow,
 	titleIcon,
 	barActions,
@@ -61,6 +63,7 @@ export function PluginScreenFrame({
 			title={title}
 			leading={leading}
 			actions={actions}
+			hideTitle={hideTitle}
 			searchRow={searchRow}
 			titleIcon={titleIcon}
 			barActions={barActions}
