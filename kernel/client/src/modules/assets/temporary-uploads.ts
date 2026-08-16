@@ -35,13 +35,14 @@ export const classifyTemporaryUploadFailure = (error: unknown): PluginUploadBrid
 		: "transport";
 };
 
+const failWith = (reason: PluginUploadBridgeErrorReason) => new TemporaryUploadError({ reason });
+
 // `completeIntent` may resolve to a managed asset locator, so the token is narrowed, not assumed.
 export const temporaryUpload = Effect.fn("temporaryUpload")(function* (
 	scope: ApiScope,
 	request: PluginUploadRequest,
 ) {
 	const api = yield* UploadsApi;
-	const failWith = (reason: PluginUploadBridgeErrorReason) => new TemporaryUploadError({ reason });
 	const intent = yield* api
 		.createIntent(scope, {
 			payload: { kind: "temporary", fileName: request.fileName, contentType: request.contentType },

@@ -101,6 +101,14 @@ const findRevisionScript = Effect.fn(function* (pluginRevisionId: string, script
 	return row ? { ...row, id: SandboxScriptId.make(row.id) } : null;
 });
 
+const findScriptInAvailablePlugin = (plugin: AvailablePlugin, slug: string) =>
+	findRevisionScript(plugin.pluginRevisionId, slug);
+
+const findWorkflowScriptInAvailablePlugin = (plugin: AvailablePlugin, workflowSlug: string) => {
+	const slug = plugin.manifest.workflows.find((entry) => entry.slug === workflowSlug)?.scriptSlug;
+	return slug ? findRevisionScript(plugin.pluginRevisionId, slug) : Effect.succeed(null);
+};
+
 const findSystemManifestField = Effect.fn(function* <Key extends keyof PluginManifest>(
 	pluginSlug: string,
 	key: Key,
@@ -197,14 +205,11 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						),
 				);
 				const result = yield* Effect.forEach(rows, (row) =>
-					Effect.map(
-						decodeStoredManifest(row.manifest, row.slug),
-						(manifest): AvailablePlugin => ({
-							...row,
-							manifest,
-							ownerUserId: row.ownerUserId ? UserId.make(row.ownerUserId) : null,
-						}),
-					),
+					Effect.map(decodeStoredManifest(row.manifest, row.slug), (manifest): AvailablePlugin => ({
+						...row,
+						manifest,
+						ownerUserId: row.ownerUserId ? UserId.make(row.ownerUserId) : null,
+					})),
 				);
 				return result.sort((a, b) => a.slug.localeCompare(b.slug));
 			});
@@ -220,17 +225,6 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				);
 				return plugin ?? null;
 			});
-			const findScriptInAvailablePlugin = (plugin: AvailablePlugin, slug: string) =>
-				findRevisionScript(plugin.pluginRevisionId, slug);
-			const findWorkflowScriptInAvailablePlugin = (
-				plugin: AvailablePlugin,
-				workflowSlug: string,
-			) => {
-				const slug = plugin.manifest.workflows.find(
-					(entry) => entry.slug === workflowSlug,
-				)?.scriptSlug;
-				return slug ? findRevisionScript(plugin.pluginRevisionId, slug) : Effect.succeed(null);
-			};
 			const findWorkflowScriptAvailableToUser = Effect.fn(function* (
 				userId: UserId,
 				pluginId: string,

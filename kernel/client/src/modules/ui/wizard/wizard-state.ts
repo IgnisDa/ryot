@@ -36,19 +36,15 @@ export const wizardStepLabel = <Step extends string>(
 export const wizardReducer = (state: WizardState, action: WizardAction): WizardState =>
 	Match.value(action).pipe(
 		Match.when({ type: "back" }, () => ({ ...state, step: previousStep[state.step] })),
-		Match.when(
-			{ type: "picked" },
-			(picked): WizardState => ({ step: "configure", slug: picked.slug }),
-		),
+		Match.when({ type: "picked" }, (picked): WizardState => ({
+			step: "configure",
+			slug: picked.slug,
+		})),
 		Match.when({ type: "recover-at" }, (recovery) =>
 			state.slug === undefined ? state : { ...state, step: recovery.step },
 		),
-		Match.when(
-			{ type: "review-requested" },
-			(): WizardState =>
-				state.step === "configure" && state.slug !== undefined
-					? { ...state, step: "review" }
-					: state,
+		Match.when({ type: "review-requested" }, (): WizardState =>
+			state.step === "configure" && state.slug !== undefined ? { ...state, step: "review" } : state,
 		),
 		Match.exhaustive,
 	);

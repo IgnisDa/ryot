@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { useEffect, useEffectEvent, useRef, type ReactNode, type RefObject } from "react";
+import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 
 import {
@@ -55,13 +55,13 @@ export function Modal({
 		initial?.focus();
 	}, [initialFocusRef]);
 
-	const requestClose = useEffectEvent(() => {
+	const requestClose = () => {
 		if (!dismissible || onInterceptBack?.() === true) {
 			return false;
 		}
 		onClose();
 		return true;
-	});
+	};
 
 	useFocusTrap(panelRef, { enabled: true });
 

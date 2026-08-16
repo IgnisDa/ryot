@@ -1,7 +1,7 @@
 import { useRyotQuery, type RyotQueryResult } from "@ryot-app/client-sdk/react";
 import type { ImportRunList } from "@ryot-app/ryotql-recipes/import-runs";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { ImportDataView, type ImportRunListState } from "#/modules/imports/import-data-view";
 import { liveImportRun } from "#/modules/imports/run-presentation";
@@ -16,6 +16,8 @@ import { ImportStartWizard, type ImportSourcePickerState } from "#/modules/impor
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 import { RUN_LIST_POLL_MS, useRunPolling } from "#/modules/ui/run/use-run-polling";
 import { useSearchParamModal } from "#/modules/ui/search-param-modal";
+import { useLatestDefined } from "#/modules/ui/use-latest-defined";
+import { useNowMs } from "#/modules/ui/use-now-ms";
 
 const listState = (page: ImportRunList): ImportRunListState =>
 	page.items.length === 0
@@ -51,13 +53,8 @@ function ImportDataRoute() {
 	const [limit, setLimit] = useState(IMPORT_RUNS_PAGE_SIZE);
 	const runs = useRyotQuery(importRunsQuery, { limit });
 	const sourceResult = useRyotQuery(importSourcesQuery);
-	const [retainedPage, setRetainedPage] = useState<ImportRunList>();
-	useEffect(() => {
-		if (runs.data !== undefined) {
-			setRetainedPage(runs.data);
-		}
-	}, [runs.data]);
-	const page = runs.data ?? retainedPage;
+	const page = useLatestDefined(runs.data);
+	const nowMs = useNowMs(RUN_LIST_POLL_MS);
 	const state = queryListState(page, runs.isPending);
 	const sources = sourcePickerState(sourceResult);
 
@@ -78,7 +75,7 @@ function ImportDataRoute() {
 		<SettingsFrame title="Import data" backFallbackHref="/settings">
 			<ImportDataView
 				state={state}
-				nowMs={Date.now()}
+				nowMs={nowMs}
 				onRetry={runs.refetch}
 				onStartImport={wizard.open}
 				isLoadingOlder={runs.isFetching && page !== undefined}

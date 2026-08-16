@@ -144,7 +144,6 @@ describe("presentScreens", () => {
 			throw new Error("expected a leaving screen");
 		}
 		const presented = presentScreens(popped, {
-			from: 0,
 			leaving,
 			kind: "popping",
 			incoming: popped[0]?.key,

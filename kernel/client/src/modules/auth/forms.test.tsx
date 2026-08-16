@@ -36,8 +36,8 @@ function renderCredentialsForm(overrides?: {
 	const props = {
 		onSubmit,
 		onModeChange,
+		mode: overrides?.mode ?? "login",
 		disabled: overrides?.disabled ?? false,
-		mode: overrides?.mode ?? ("login" as AuthMode),
 		signupAllowed: overrides?.signupAllowed ?? true,
 	};
 	const view = render(<CredentialsForm {...props} />);
@@ -63,7 +63,7 @@ function renderTwoFactorForm(overrides?: {
 		onBack,
 		onSubmit,
 		onMethodChange,
-		method: overrides?.method ?? ("totp" as TwoFactorMethod),
+		method: overrides?.method ?? "totp",
 		methods: overrides?.methods ?? (["totp", "backupCode"] as const),
 	};
 	const view = render(<TwoFactorForm {...props} />);

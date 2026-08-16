@@ -1,5 +1,4 @@
 {
-	"$schema": "https://raw.githubusercontent.com/Effect-TS/tsgo/refs/heads/main/schema.json",
 	"compilerOptions": {
 		"noEmit": true,
 		"strict": true,

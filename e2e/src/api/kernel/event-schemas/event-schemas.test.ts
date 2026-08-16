@@ -338,7 +338,7 @@ describe("GET /event-schemas", () => {
 					const progressSchema = eventSchemas.find((schema) => schema.slug === "progress");
 					assertPresent(progressSchema, `Missing built-in progress schema for ${slug}`);
 
-					return progressSchema.propertiesSchema as Record<string, unknown>;
+					return progressSchema.propertiesSchema;
 				});
 
 			const showSchema = schemas.find((schema) => schema.slug === "show");

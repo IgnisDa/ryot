@@ -212,6 +212,80 @@ const PresentationRegistryContext = createContext<ReadonlyMap<string, Presentati
 	null,
 );
 
+const createPresentationRuntime = (
+	registrations: readonly EntityPresentationRegistration[],
+	schedule: RyotSchedule,
+) => {
+	let scheduler: ReturnType<typeof createBatchScheduler> | undefined;
+	const registry = new Map<string, PresentationEntry>();
+	for (const registration of registrations) {
+		let state: ReturnType<PresentationEntry["getSnapshot"]> = "idle";
+		let presentation: PresentationRuntime | undefined;
+		const listeners = new Set<() => void>();
+		const notify = () => {
+			for (const listener of listeners) {
+				listener();
+			}
+		};
+		registry.set(
+			registryKey(registration.ownerPluginId, registration.entitySchemaSlug, registration.layout),
+			{
+				getSnapshot: () => state,
+				getRuntime: () => presentation,
+				subscribe: (listener) => {
+					listeners.add(listener);
+					return () => {
+						listeners.delete(listener);
+					};
+				},
+				load: () => {
+					if (state !== "idle") {
+						return;
+					}
+					state = "loading";
+					notify();
+					void Promise.resolve()
+						.then(registration.load)
+						.then((definition) => {
+							if (
+								typeof definition.loader !== "function" ||
+								typeof definition.component !== "function"
+							) {
+								throw new Error("Invalid entity presentation definition");
+							}
+							const query = createRyotQuery<BatchInput, Readonly<Record<string, unknown>>>(
+								async ({ input, client, signal }) => {
+									const references = referencesFromBatchInput(input);
+									const requested = new Set(references.map(({ entityId }) => entityId));
+									const batch = (scheduler ??= createBatchScheduler(schedule));
+									const result = await batch.run(signal, () =>
+										definition.loader({ client, signal, references }),
+									);
+									for (const entityId of Object.keys(result)) {
+										if (!requested.has(entityId)) {
+											throw new Error(`Presentation returned unrequested entity "${entityId}"`);
+										}
+									}
+									return result;
+								},
+								{ cancelOnUnmount: true },
+							);
+							presentation = { query, definition };
+							state = "ready";
+							notify();
+							return undefined;
+						})
+						.catch(() => {
+							state = "failed";
+							notify();
+						});
+				},
+			},
+		);
+	}
+	return { registry, dispose: () => scheduler?.dispose() };
+};
+
 export const EntityPresentationRegistryProvider = ({
 	children,
 	registrations,
@@ -220,76 +294,10 @@ export const EntityPresentationRegistryProvider = ({
 	readonly registrations: readonly EntityPresentationRegistration[];
 }) => {
 	const schedule = useRyotSchedule();
-	const runtime = useMemo(() => {
-		let scheduler: ReturnType<typeof createBatchScheduler> | undefined;
-		const registry = new Map<string, PresentationEntry>();
-		for (const registration of registrations) {
-			let state: ReturnType<PresentationEntry["getSnapshot"]> = "idle";
-			let presentation: PresentationRuntime | undefined;
-			const listeners = new Set<() => void>();
-			const notify = () => {
-				for (const listener of listeners) {
-					listener();
-				}
-			};
-			registry.set(
-				registryKey(registration.ownerPluginId, registration.entitySchemaSlug, registration.layout),
-				{
-					getSnapshot: () => state,
-					getRuntime: () => presentation,
-					subscribe: (listener) => {
-						listeners.add(listener);
-						return () => {
-							listeners.delete(listener);
-						};
-					},
-					load: () => {
-						if (state !== "idle") {
-							return;
-						}
-						state = "loading";
-						notify();
-						void Promise.resolve()
-							.then(registration.load)
-							.then((definition) => {
-								if (
-									typeof definition.loader !== "function" ||
-									typeof definition.component !== "function"
-								) {
-									throw new Error("Invalid entity presentation definition");
-								}
-								const query = createRyotQuery<BatchInput, Readonly<Record<string, unknown>>>(
-									async ({ input, client, signal }) => {
-										const references = referencesFromBatchInput(input);
-										const requested = new Set(references.map(({ entityId }) => entityId));
-										const batch = (scheduler ??= createBatchScheduler(schedule));
-										const result = await batch.run(signal, () =>
-											definition.loader({ client, signal, references }),
-										);
-										for (const entityId of Object.keys(result)) {
-											if (!requested.has(entityId)) {
-												throw new Error(`Presentation returned unrequested entity "${entityId}"`);
-											}
-										}
-										return result;
-									},
-									{ cancelOnUnmount: true },
-								);
-								presentation = { query, definition };
-								state = "ready";
-								notify();
-								return undefined;
-							})
-							.catch(() => {
-								state = "failed";
-								notify();
-							});
-					},
-				},
-			);
-		}
-		return { registry, dispose: () => scheduler?.dispose() };
-	}, [registrations, schedule]);
+	const runtime = useMemo(
+		() => createPresentationRuntime(registrations, schedule),
+		[registrations, schedule],
+	);
 	useEffect(() => () => runtime.dispose(), [runtime]);
 	return (
 		<PresentationRegistryContext.Provider value={runtime.registry}>
