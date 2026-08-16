@@ -1,0 +1,25 @@
+{
+	"$schema": "https://raw.githubusercontent.com/Effect-TS/tsgo/refs/heads/main/schema.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"strict": true,
+		"lib": ["ESNext"],
+		"target": "ES2022",
+		"module": "ESNext",
+		"skipLibCheck": true,
+		"types": ["bun-types"],
+		"noUnusedLocals": true,
+		"isolatedModules": true,
+		"noImplicitReturns": true,
+		"noImplicitOverride": true,
+		"noUnusedParameters": true,
+		"allowUnusedLabels": false,
+		"verbatimModuleSyntax": true,
+		"moduleResolution": "bundler",
+		"allowUnreachableCode": false,
+		"noUncheckedIndexedAccess": true,
+		"exactOptionalPropertyTypes": true,
+		"noFallthroughCasesInSwitch": true,
+		"noPropertyAccessFromIndexSignature": true
+	}
+}

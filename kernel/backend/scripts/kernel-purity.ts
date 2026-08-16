@@ -35,24 +35,6 @@ export type PurityFinding = {
 	source: string;
 };
 
-type TemporaryAllowlistEntry = {
-	path: string;
-	term: string;
-	reason: string;
-	kind: "temporary";
-	removalTask: 2 | 3 | 4 | 5 | 6 | 7 | 8;
-};
-
-type PermanentAllowlistEntry = {
-	path: string;
-	term: string;
-	reason: string;
-	kind: "permanent";
-	category: "boot-wiring" | "legacy-bootstrap";
-};
-
-export type PurityAllowlistEntry = PermanentAllowlistEntry | TemporaryAllowlistEntry;
-
 const add = (terms: Set<string>, ...values: ReadonlyArray<string | null | undefined>) => {
 	for (const value of values) {
 		const normalized = value?.toLowerCase();
@@ -209,67 +191,6 @@ export const scanPuritySources = (
 			left.line - right.line ||
 			left.term.localeCompare(right.term),
 	);
-};
-
-const permanentScopes = {
-	"boot-wiring": "kernel/backend/src/modules/plugins/boot-sources.ts",
-	"legacy-bootstrap": "kernel/backend/src/modules/legacy-bootstrap/**",
-} as const;
-
-const pathMatches = (pattern: string, path: string) => {
-	if (!pattern.endsWith("/**")) {
-		return pattern === path;
-	}
-	return path.startsWith(pattern.slice(0, -2));
-};
-
-const findingMatchesEntry = (finding: PurityFinding, entry: PurityAllowlistEntry) =>
-	(entry.term === finding.term ||
-		(entry.kind === "permanent" && entry.category === "legacy-bootstrap" && entry.term === "*")) &&
-	pathMatches(entry.path, finding.path);
-
-export const applyPurityAllowlist = (
-	findings: ReadonlyArray<PurityFinding>,
-	allowlist: ReadonlyArray<PurityAllowlistEntry>,
-) => {
-	const errors: string[] = [];
-	const matched = new Set<number>();
-	for (const [index, entry] of allowlist.entries()) {
-		if (!entry.path.trim() || !entry.term.trim() || !entry.reason.trim()) {
-			errors.push(`Allowlist entry ${index + 1} requires non-empty path, term, and reason`);
-			continue;
-		}
-		if (entry.kind === "temporary" && (entry.removalTask < 2 || entry.removalTask > 8)) {
-			errors.push(
-				`Allowlist entry ${index + 1} has invalid Phase 4 removal task ${entry.removalTask}`,
-			);
-		}
-		if (entry.kind === "permanent" && entry.path !== permanentScopes[entry.category]) {
-			errors.push(`Allowlist entry ${index + 1} exceeds the ${entry.category} permanent scope`);
-		}
-		if (
-			entry.term === "*" &&
-			(entry.kind !== "permanent" || entry.category !== "legacy-bootstrap")
-		) {
-			errors.push(`Allowlist entry ${index + 1} may use a wildcard term only for legacy-bootstrap`);
-		}
-		const matches = findings.some((finding) => findingMatchesEntry(finding, entry));
-		if (matches) {
-			matched.add(index);
-		}
-	}
-	for (const index of allowlist.keys()) {
-		if (
-			!matched.has(index) &&
-			!errors.some((error) => error.startsWith(`Allowlist entry ${index + 1} `))
-		) {
-			errors.push(`Allowlist entry ${index + 1} is stale and matches no finding`);
-		}
-	}
-	const violations = findings.filter(
-		(finding) => !allowlist.some((entry) => findingMatchesEntry(finding, entry)),
-	);
-	return { errors, violations };
 };
 
 export const formatPurityFinding = ({ line, path, source, term }: PurityFinding) =>
