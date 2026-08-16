@@ -8,6 +8,7 @@ import { Database } from "#lib/infrastructure/db/service";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
+import { PluginDefinitionMaterializer } from "./definition-materializer";
 import { PluginInstallationRepository } from "./installation-repository";
 import { PluginRuntimeResolver } from "./runtime-resolver";
 
@@ -34,7 +35,7 @@ export const pluginInstallationBootstrapExecutionId = (installationId: string, e
 	`plugin-installation-bootstrap-${installationId.length}-${installationId}-${entrySlug.length}-${entrySlug}`;
 
 type PluginInstallationWorkflowOperationsValue = {
-	complete: (installationId: string) => Effect.Effect<void, InternalError>;
+	complete: (installationId: string, userId: UserId) => Effect.Effect<void, InternalError>;
 	fail: (installationId: string, healthReason: string) => Effect.Effect<void, InternalError>;
 	begin: (
 		installationId: string,
@@ -67,12 +68,13 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 		const runtime = yield* PluginRuntimeResolver;
 		const sandbox = yield* SandboxExecutionService;
 		const installations = yield* PluginInstallationRepository;
+		const definitionMaterializer = yield* PluginDefinitionMaterializer;
 
 		const begin = (installationId: string) =>
 			asInternal(
 				Effect.gen(function* () {
-					const resolved = yield* runtime.resolvePrivateInstallationBootstrap(installationId);
-					if (resolved?.pluginScope !== "user" || resolved.health !== "installing") {
+					const resolved = yield* runtime.resolveInstallationBootstrap(installationId);
+					if (resolved?.health !== "installing") {
 						return null;
 					}
 					const entries: Array<PluginInstallationBootstrap["entries"][number]> = [];
@@ -95,9 +97,16 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 				"Plugin installation failure could not be recorded",
 			);
 
-		const complete = (installationId: string) =>
+		const complete = (installationId: string, userId: UserId) =>
 			asInternal(
-				installations.updateHealth({ id: installationId, health: "ready", healthReason: null }),
+				Effect.gen(function* () {
+					yield* definitionMaterializer.materialize(userId);
+					yield* installations.updateHealth({
+						health: "ready",
+						id: installationId,
+						healthReason: null,
+					});
+				}),
 				"Plugin installation completion could not be recorded",
 			);
 
@@ -126,7 +135,7 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 		return {
 			runBootstrapEntry,
 			begin: (installationId) => provideDatabase(begin(installationId)),
-			complete: (installationId) => provideDatabase(complete(installationId)),
+			complete: (installationId, userId) => provideDatabase(complete(installationId, userId)),
 			fail: (installationId, healthReason) => provideDatabase(fail(installationId, healthReason)),
 		} satisfies PluginInstallationWorkflowOperationsValue;
 	}),
@@ -178,7 +187,7 @@ export const runPluginInstallationWorkflow = Effect.fn("PluginInstallationWorkfl
 			name: "complete-plugin-installation",
 			error: InternalError satisfies DurableSchema,
 			success: Schema.Void satisfies DurableSchema,
-			execute: operations.complete(payload.installationId),
+			execute: operations.complete(payload.installationId, userId),
 		}).pipe(Activity.retry({ times: 5 }), Effect.result);
 		if (Result.isFailure(completed)) {
 			yield* markFailed("Plugin installation could not be completed");
