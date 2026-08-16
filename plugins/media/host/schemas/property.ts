@@ -8,18 +8,10 @@ import {
 } from "@ryot-app/contract/schema/core";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 
+import { mediaImagePurposes } from "../../shared/media-image";
+
 const booleanField = (label: string, description: string) =>
 	({ label, description, type: "boolean" }) as const;
-
-export const mediaImagePurposes = [
-	"cover",
-	"backdrop",
-	"profile",
-	"logo",
-	"still",
-	"screenshot",
-	"artwork",
-] as const;
 
 const mediaImagesField = (description: string) =>
 	({

@@ -10,6 +10,10 @@
 			"types": "./host/query-recipes.ts",
 			"default": "./host/query-recipes.ts"
 		},
+		"./shared/show-recipes": {
+			"types": "./shared/show-recipes.ts",
+			"default": "./shared/show-recipes.ts"
+		},
 		"./import-sources": {
 			"types": "./host/import-sources.ts",
 			"default": "./host/import-sources.ts"
