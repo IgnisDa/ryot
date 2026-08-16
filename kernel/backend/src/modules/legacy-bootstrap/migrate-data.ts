@@ -1,4 +1,3 @@
-import { builtinMediaEntitySchemaSlugs } from "@ryot/media-plugin/schemas/media-schema-slugs";
 import { Clock, Effect } from "effect";
 
 import {
@@ -28,6 +27,7 @@ import {
 	readLegacyIntegrationProgressCache,
 } from "./integration-progress-cache-mapping";
 import { buildLegacyS3AssetReportSql, migrateLegacyS3Assets } from "./legacy-asset-migration";
+import { builtinMediaEntitySchemaSlugs } from "./media-schema-slugs";
 import {
 	buildMetadataGroupEntityMigrationSql,
 	buildMetadataGroupRelationshipMigrationSql,

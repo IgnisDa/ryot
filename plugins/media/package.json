@@ -54,6 +54,8 @@
 		"@effect/platform-bun": "4.0.0-beta.107",
 		"@effect/vitest": "4.0.0-beta.107",
 		"@ryot/cli": "workspace:*",
+		"@ryot/kernel-backend": "workspace:*",
+		"@ryot/sandbox-compiler": "workspace:*",
 		"@ryot/testing": "workspace:*",
 		"bun-types": "1.4.0",
 		"vitest": "4.1.9"

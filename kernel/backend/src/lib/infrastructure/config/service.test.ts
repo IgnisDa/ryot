@@ -60,6 +60,15 @@ describe("system log level config", () => {
 		expect(result.value.sandbox.processMode).toBe("on-demand");
 	});
 
+	it("defaults filesystem paths relative to the working directory", () => {
+		const result = loadSystemConfig();
+		assert(Exit.isSuccess(result));
+		expect(result.value.server.pluginsSystemDir).toBe("./plugins");
+		expect(result.value.fileStorage.localDir).toBe("./storage");
+		expect(result.value.fileStorage.localTempDir).toBe("./work");
+		expect(result.value.sandbox.denoDir).toBe("./tmp");
+	});
+
 	it("accepts warm sandbox processes", () => {
 		const result = loadSystemConfig({ processMode: "warm" });
 		assert(Exit.isSuccess(result));

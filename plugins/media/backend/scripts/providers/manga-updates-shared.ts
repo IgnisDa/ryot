@@ -8,7 +8,7 @@ import {
 	parseJsonResponse,
 	stringValue,
 	type UnknownRecord,
-} from "../script-helpers/records";
+} from "../../shared/records";
 
 export type MangaUpdatesHost = SandboxHost<readonly ["httpCall"]>;
 

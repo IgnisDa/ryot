@@ -1,7 +1,7 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
 
-import { parseJsonResponse } from "../script-helpers/records";
+import { parseJsonResponse } from "../../shared/records";
 
 export type AudibleHost = SandboxHost<readonly ["httpCall"]>;
 

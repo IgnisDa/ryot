@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
 	chooseBestMetadataLookupTitleMatch,
 	type MetadataLookupTitleMatchCandidate,
-} from "./title-matching";
+} from "../backend/shared/title-matching";
 
 const candidate = (
 	overrides: Partial<MetadataLookupTitleMatchCandidate>,

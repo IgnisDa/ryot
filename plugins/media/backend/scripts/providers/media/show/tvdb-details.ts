@@ -1,14 +1,14 @@
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import type { ProviderDetailsChildEntity, ProviderDetailsInput } from "@ryot/sandbox-sdk/provider";
 
-import { parsePublishYear } from "../../../script-helpers/parse-publish-year";
+import { parsePublishYear } from "../../../../shared/parse-publish-year";
 import {
 	type UnknownRecord,
 	asRecord,
 	numberValue,
 	recordsValue,
 	stringValue,
-} from "../../../script-helpers/records";
+} from "../../../../shared/records";
 import {
 	bcp47ToTvdb,
 	collectCompanies,

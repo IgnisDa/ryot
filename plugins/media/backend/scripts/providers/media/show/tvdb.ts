@@ -3,7 +3,7 @@ import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
 import type { ProviderTranslateInput } from "@ryot/sandbox-sdk/provider";
 
-import { asRecord, stringValue } from "../../../script-helpers/records";
+import { asRecord, stringValue } from "../../../../shared/records";
 import {
 	bcp47ToTvdb,
 	buildTranslationResult,

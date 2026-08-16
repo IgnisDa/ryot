@@ -9,7 +9,7 @@ import {
 	numberValue,
 	recordsValue,
 	stringValue,
-} from "../../../script-helpers/records";
+} from "../../../../shared/records";
 import {
 	imageUrlValue,
 	mangaUpdatesGet,

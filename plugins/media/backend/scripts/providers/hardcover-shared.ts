@@ -2,12 +2,7 @@ import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
-import {
-	asRecord,
-	parseJsonResponse,
-	stringValue,
-	type UnknownRecord,
-} from "../script-helpers/records";
+import { asRecord, parseJsonResponse, stringValue, type UnknownRecord } from "../../shared/records";
 
 export type HardcoverHost = SandboxHost<readonly ["httpCall", "getPluginConfig"]>;
 

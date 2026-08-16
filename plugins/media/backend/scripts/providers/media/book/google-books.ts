@@ -3,7 +3,7 @@ import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { DateTime, Effect, Option, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
-import { toTitleCase } from "../../../script-helpers/title-case";
+import { toTitleCase } from "../../../../shared/title-case";
 
 type GoogleBooksHost = SandboxHost<readonly ["httpCall", "getPluginConfig"]>;
 

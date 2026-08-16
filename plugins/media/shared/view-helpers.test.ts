@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildViewExpressions } from "./view-helpers";
+import { buildViewExpressions } from "../backend/shared/view-helpers";
 
 describe("buildViewExpressions", () => {
 	it("uses the entity alias and a schema-name literal", () => {
