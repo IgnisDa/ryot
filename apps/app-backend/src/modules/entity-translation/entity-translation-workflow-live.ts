@@ -13,7 +13,6 @@ import {
 	type TranslateEntityWorkflowPayload,
 } from "./entity-translation-workflow";
 import { TranslateEntityWorkflowOperations } from "./operations-workflow";
-import { TranslationsRepository } from "./repository";
 import { TranslationsService } from "./service";
 
 const writeTranslationOverlay = Effect.fn("writeTranslationOverlay")(function* (
@@ -22,7 +21,6 @@ const writeTranslationOverlay = Effect.fn("writeTranslationOverlay")(function* (
 ) {
 	const redis = yield* RedisService;
 	const translations = yield* TranslationsService;
-	const repository = yield* TranslationsRepository;
 
 	return yield* Activity.make({
 		success: Schema.Void satisfies DurableSchema,
@@ -30,29 +28,15 @@ const writeTranslationOverlay = Effect.fn("writeTranslationOverlay")(function* (
 		name: "write-translation-overlay",
 		execute: Effect.gen(function* () {
 			const populatedAt = yield* DateTime.nowAsDate;
-			const input = {
-				populatedAt,
-				entityId: payload.entityId,
-				language: payload.language,
-				name: translation.name ?? null,
-				properties: translation.properties ?? null,
-			};
-			const existing = yield* repository
-				.findOverlay({ entityId: input.entityId, language: input.language })
+			yield* translations
+				.upsert({
+					populatedAt,
+					entityId: payload.entityId,
+					language: payload.language,
+					name: translation.name ?? null,
+					properties: translation.properties ?? null,
+				})
 				.pipe(dieOnDbError);
-
-			const write = existing
-				? translations.update(input)
-				: translations
-						.create(input)
-						.pipe(Effect.catchTag("Conflict", () => translations.update(input)));
-
-			yield* write.pipe(
-				dieOnDbError,
-				Effect.catchTag("NotFound", (error) =>
-					Effect.fail(new SandboxRunError({ message: error.message })),
-				),
-			);
 			yield* redis.publish(
 				redisKeys.entityUpdatedChannel,
 				encodeEntityUpdatedMessage(payload.entityId, "translated"),

@@ -15,6 +15,7 @@ import {
 	pollEntityUntilTranslationStatus,
 	requireCompletedSandboxValue,
 	installTestProvider,
+	seedEntityTranslation,
 	seedMediaEntity,
 	seedPopulatedProviderEntity,
 	setUserLanguage,
@@ -197,6 +198,34 @@ describe("entity translation via client-declared interest", () => {
 					),
 				).toEqual({ type: "entity-updated", entityId: movie.id, reason: "populated" });
 			}),
+	);
+
+	it.live("keeps one overlay row across concurrent and repeated upserts", () =>
+		Effect.gen(function* () {
+			const movie = yield* seedPopulatedMovie(providerClient, "Canonical Heat");
+			const first = {
+				name: "Hitze",
+				language: "de",
+				entityId: movie.id,
+				properties: { description: "Erste Beschreibung." },
+			};
+
+			yield* Effect.all([seedEntityTranslation(first), seedEntityTranslation(first)], {
+				concurrency: "unbounded",
+			});
+			expect(yield* countEntityTranslations(movie.id)).toBe(1);
+
+			yield* seedEntityTranslation({
+				...first,
+				name: "Hitze Neu",
+				properties: { description: "Zweite Beschreibung." },
+			});
+
+			const overlay = yield* getEntityTranslationRow({ entityId: movie.id, language: "de" });
+			expect(overlay?.name).toBe("Hitze Neu");
+			expect(overlay?.properties?.description).toBe("Zweite Beschreibung.");
+			expect(yield* countEntityTranslations(movie.id)).toBe(1);
+		}),
 	);
 
 	it.live("populates then translates an unpopulated entity from one interest declaration", () =>
