@@ -210,14 +210,15 @@ describe("SERVER_OTLP_ENDPOINT validation", () => {
 		);
 	});
 
-	it.each(["https://api.honeycomb.io/v1/traces", "https://collector.example/otlp/v1/traces/"])(
-		"rejects endpoint %s that already carries the appended signal path",
-		(endpoint) => {
-			const result = validate({ server: { otlpEndpoint: Option.some(endpoint) } });
-			assert(Exit.isFailure(result));
-			expect(JSON.stringify(result.cause)).toContain("without '/v1/traces'");
-		},
-	);
+	it.each([
+		"https://api.honeycomb.io/v1/traces",
+		"https://collector.example/otlp/v1/traces/",
+		"https://collector.example/v1/metrics",
+	])("rejects endpoint %s that already carries the appended signal path", (endpoint) => {
+		const result = validate({ server: { otlpEndpoint: Option.some(endpoint) } });
+		assert(Exit.isFailure(result));
+		expect(JSON.stringify(result.cause)).toContain("without an OTLP signal path");
+	});
 });
 
 describe("SERVER_OTLP_HEADERS validation", () => {

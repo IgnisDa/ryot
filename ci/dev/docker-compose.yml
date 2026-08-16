@@ -1,3 +1,5 @@
+name: ryot
+
 services:
   ryot-db:
     restart: unless-stopped
@@ -30,12 +32,32 @@ services:
       - "9000:9000"
       - "9001:9001"
 
-  ryot-otel:
+  ryot-otel-collector:
+    restart: unless-stopped
+    image: otel/opentelemetry-collector-contrib:0.155.0
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./otel-collector.yml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4318:4318"
+    depends_on:
+      - ryot-jaeger
+
+  ryot-jaeger:
     restart: unless-stopped
     image: cr.jaegertracing.io/jaegertracing/jaeger
     ports:
-      - "4318:4318"
       - "16686:16686"
+
+  ryot-prometheus:
+    restart: unless-stopped
+    image: prom/prometheus:v3.6.0
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - ryot-otel-collector
 
 volumes:
   s3_storage:
