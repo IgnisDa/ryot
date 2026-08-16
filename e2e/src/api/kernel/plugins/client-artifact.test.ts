@@ -179,7 +179,7 @@ describe("client plugin artifacts", () => {
 				"redacted client artifact request log",
 				Effect.promise(() => Bun.file(getApiLogFile()).text()).pipe(
 					Effect.map((contents) =>
-						contents.includes("/api/plugin-artifact-sessions/<redacted>/index.html")
+						contents.includes("http.url=/api/plugin-artifact-sessions/:token/:fileName")
 							? contents
 							: null,
 					),
