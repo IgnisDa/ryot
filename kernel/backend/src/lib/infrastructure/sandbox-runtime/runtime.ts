@@ -458,7 +458,7 @@ export class BridgeService extends Context.Service<BridgeService>()("BridgeServi
 			}),
 		).pipe(Effect.provideService(HttpServer.HttpServer, server));
 		const address = server.address;
-		if (address._tag === "UnixAddress") {
+		if (address._tag === "UnixPathAddress") {
 			return yield* Effect.die("Sandbox bridge unexpectedly bound to a Unix socket");
 		}
 

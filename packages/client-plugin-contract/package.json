@@ -14,7 +14,7 @@
 	},
 	"dependencies": {
 		"@ryot-app/contract": "workspace:*",
-		"effect": "4.0.0-rc.111"
+		"effect": "4.0.0-rc.115"
 	},
 	"devDependencies": {
 		"@ryot-app/testing": "workspace:*",
