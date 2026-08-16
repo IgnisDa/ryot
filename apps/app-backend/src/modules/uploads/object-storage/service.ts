@@ -100,23 +100,10 @@ export class ObjectStorageService extends Context.Service<ObjectStorageService>(
 				);
 			});
 
-			const selectStorageProvider = Effect.fn("ObjectStorageService.selectStorageProvider")(
-				function* (kind: "permanent" | "temporary") {
-					if (kind === "temporary") {
-						if (!localStorage.isConfiguredForKind("temporary")) {
-							return yield* new UploadBadRequest({ reason: { code: "storage-unavailable", kind } });
-						}
-						return "local" as const;
-					}
-					if (s3Service.isConfigured) {
-						return "s3" as const;
-					}
-					if (localStorage.isConfiguredForKind("permanent")) {
-						return "local" as const;
-					}
-					return yield* new UploadBadRequest({ reason: { code: "storage-unavailable", kind } });
-				},
-			);
+			const selectStorageProvider = (kind: "permanent" | "temporary") =>
+				Effect.succeed(
+					kind === "permanent" && s3Service.isConfigured ? ("s3" as const) : ("local" as const),
+				);
 
 			const statObject = Effect.fn("ObjectStorageService.statObject")(function* (
 				locator: ManagedAssetLocator,
