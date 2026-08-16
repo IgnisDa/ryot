@@ -27,6 +27,8 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 					...input.values,
 					name: registrationName(input.values.email),
 				});
+				yield* client.refreshSession(input.origin);
+				return { _tag: "Authenticated" } as const;
 			}
 			const result = yield* client.signIn(input.origin, input.values);
 			if (isTwoFactorRedirect(result)) {
