@@ -1,4 +1,3 @@
-import { cn } from "@ryot-app/ts-utils/cn";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
@@ -15,6 +14,8 @@ import {
 } from "react-router";
 import { $path } from "safe-routes";
 import { withFragment } from "ufo";
+
+import { cn } from "~/lib/utils";
 
 import type { Route } from "./+types/root";
 import { Button } from "./lib/components/ui/button";

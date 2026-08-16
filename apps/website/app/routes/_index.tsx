@@ -1,6 +1,5 @@
 import ContactSubmissionEmail from "@ryot-app/transactional/emails/contact-submission";
 import LoginCodeEmail from "@ryot-app/transactional/emails/login-code";
-import { getActionIntent, processSubmission } from "@ryot-app/ts-utils/request";
 import { sql } from "drizzle-orm";
 import * as openidClient from "openid-client";
 import { useState } from "react";
@@ -29,7 +28,13 @@ import {
 } from "~/lib/config.server";
 import { contactEmail, startUrl } from "~/lib/general";
 import { usePaddleInitialization } from "~/lib/hooks/usePaddleInitialization";
-import { oauthConfig, sendEmail, validateTurnstile } from "~/lib/utilities.server";
+import {
+	getActionIntent,
+	oauthConfig,
+	processSubmission,
+	sendEmail,
+	validateTurnstile,
+} from "~/lib/utilities.server";
 
 import type { Route } from "./+types/_index";
 

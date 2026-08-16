@@ -1,5 +1,6 @@
-import { cn } from "@ryot-app/ts-utils/cn";
 import { forwardRef, type InputHTMLAttributes } from "react";
+
+import { cn } from "~/lib/utils";
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {}
 
