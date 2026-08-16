@@ -102,9 +102,7 @@ const isTransientApiFailure = (error: unknown) =>
 	typeof error === "object" &&
 	error !== null &&
 	"_tag" in error &&
-	(error._tag === "TransportError" ||
-		error._tag === "DecodeError" ||
-		error._tag === "ResponseError");
+	error._tag === "HttpClientError";
 
 const pollImportResult = (context: ScenarioContext, jobId: string) =>
 	Effect.gen(function* () {
