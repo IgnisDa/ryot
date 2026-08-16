@@ -1311,10 +1311,7 @@ async function seedMedia(client: APIClient) {
 	const completionVariants: Array<() => Record<string, unknown>> = [
 		() => ({ completionMode: "just_now" }),
 		() => ({ completionMode: "unknown" }),
-		() => ({
-			completionMode: "custom_timestamps",
-			completedOn: daysAgo(randomInt(1, 365)),
-		}),
+		() => ({ completionMode: "custom_timestamps", completedOn: daysAgo(randomInt(1, 365)) }),
 		() => ({
 			completionMode: "custom_timestamps",
 			startedOn: daysAgo(randomInt(400, 730)),
