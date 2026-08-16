@@ -5,9 +5,17 @@
 	"scripts": {
 		"build": "vitepress build",
 		"dev": "vitepress dev --port 3002",
+		"generate": "bun run scripts/generate-configuration.ts",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"devDependencies": {
+		"@ryot/config": "workspace:*",
+		"@ryot/contract": "workspace:*",
+		"@ryot/fitness-plugin": "workspace:*",
+		"@ryot/kernel-backend": "workspace:*",
+		"@ryot/media-plugin": "workspace:*",
+		"bun-types": "1.4.0",
+		"effect": "4.0.0-rc.111",
 		"vitepress": "2.0.0-alpha.15"
 	}
 }
