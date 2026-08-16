@@ -19,9 +19,9 @@ const backfillLegacyPurchaseProviderIdentity = async () => {
 	const backfillOperations: Array<Promise<unknown[]>> = [];
 	for (const paymentProvider of schema.paymentProviders.enumValues) {
 		const providerCustomerIds = db
-			.select({ id: schema.customers.id })
-			.from(schema.customers)
-			.where(eq(schema.customers.paymentProvider, paymentProvider));
+			.select({ id: schema.customer.id })
+			.from(schema.customer)
+			.where(eq(schema.customer.paymentProvider, paymentProvider));
 		const catalog = getLegacyPaymentCatalog(paymentProvider, environments[paymentProvider]);
 
 		for (const product of catalog) {
@@ -35,7 +35,7 @@ const backfillLegacyPurchaseProviderIdentity = async () => {
 
 				backfillOperations.push(
 					db
-						.update(schema.customerPurchases)
+						.update(schema.customerPurchase)
 						.set({
 							paymentProvider,
 							providerPriceId: price.priceId,
@@ -43,13 +43,13 @@ const backfillLegacyPurchaseProviderIdentity = async () => {
 						})
 						.where(
 							and(
-								eq(schema.customerPurchases.planType, price.name),
-								eq(schema.customerPurchases.productType, product.type),
-								isNull(schema.customerPurchases.paymentProvider),
-								inArray(schema.customerPurchases.customerId, providerCustomerIds),
+								eq(schema.customerPurchase.planType, price.name),
+								eq(schema.customerPurchase.productType, product.type),
+								isNull(schema.customerPurchase.paymentProvider),
+								inArray(schema.customerPurchase.customerId, providerCustomerIds),
 							),
 						)
-						.returning({ id: schema.customerPurchases.id }),
+						.returning({ id: schema.customerPurchase.id }),
 				);
 			}
 		}

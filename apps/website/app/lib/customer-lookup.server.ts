@@ -1,15 +1,15 @@
 import { eq, type InferSelectModel } from "drizzle-orm";
 
-import { customers } from "~/drizzle/schema.server";
+import { customer } from "~/drizzle/schema.server";
 import { getDb, paddleCustomDataSchema } from "~/lib/config.server";
 
-type Customer = InferSelectModel<typeof customers>;
+type Customer = InferSelectModel<typeof customer>;
 
 export async function findCustomerByField(
-	field: keyof typeof customers.$inferSelect,
+	field: keyof typeof customer.$inferSelect,
 	value: string,
 ): Promise<Customer | undefined> {
-	return await getDb().query.customers.findFirst({ where: eq(customers[field], value) });
+	return await getDb().query.customer.findFirst({ where: eq(customer[field], value) });
 }
 
 export async function findCustomerByPolarId(polarCustomerId: string) {
@@ -40,9 +40,9 @@ export async function findCustomerWithFallback(
 	fallbackLookup?: (id: string) => Promise<Customer | undefined>,
 ) {
 	if (primaryId) {
-		const customer = await primaryLookup(primaryId);
-		if (customer) {
-			return customer;
+		const primaryCustomer = await primaryLookup(primaryId);
+		if (primaryCustomer) {
+			return primaryCustomer;
 		}
 	}
 
