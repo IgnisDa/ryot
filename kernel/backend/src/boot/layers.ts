@@ -25,6 +25,10 @@ import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { ServerRun } from "#lib/infrastructure/server-run";
 import { PersistedQueueLive, WorkflowEngineLive } from "#lib/infrastructure/workflow";
 import { LifecycleWriteGuard } from "#modules/auth/lifecycle-write-guard";
+import {
+	InternalOAuthProvisioningComplete,
+	OAuthProvisioningService,
+} from "#modules/auth/oauth-provisioning";
 import { AuthRepository } from "#modules/auth/repository";
 import { AuthService } from "#modules/auth/service";
 import { LifecycleDispatchLive } from "#modules/automations/lifecycle-dispatch";
@@ -642,6 +646,11 @@ const MigrationBootstrapServicesLive = Layer.mergeAll(
 ).pipe(Layer.provideMerge(PluginLoaderLive), Layer.provide(MigrationBootstrapDependenciesLive));
 
 export const SchemaMigrationLive = MigrationsComplete.layer;
+
+export const InternalOAuthProvisioningLive = InternalOAuthProvisioningComplete.layer.pipe(
+	Layer.provide(OAuthProvisioningService.layer),
+	Layer.provide(AuthRepository.layer),
+);
 
 export const MigrationInfrastructureLive = Layer.mergeAll(
 	MigrationBootstrapServicesLive,
