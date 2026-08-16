@@ -45,10 +45,10 @@
 
 ## Shared Infrastructure
 
-- The global `HttpMiddleware.cors` call in `src/boot/server.ts` must never set `exposedHeaders`. Effect's CORS middleware overwrites the `access-control-expose-headers` response header from that option, and leaving it unset is what lets the better-auth `bearer` plugin's own `set-auth-token` exposure survive. Setting it there silently breaks bearer token capture.
+- Reverse proxies must preserve `Authorization` and must not cache OAuth authorization or token responses. Application API CORS stays wildcard and non-credentialed; hosted login cookies are same-origin.
 - Centralize Redis keys, channel names, payload codecs, and parsing in the Redis infrastructure module.
 - Sandbox scripts enter through plugin or kernel source-zero ingestion; see `src/lib/infrastructure/sandbox-runtime/README.md`.
 - Keep the sandbox and client plugin compiler engines separate. They may share generic TypeScript infrastructure from `@ryot/typescript-compiler` and the server-owned process-supervision boundary, but not import policies, limits, protocols, output models, or public APIs.
 - Follow `src/modules/entity-interest/README.md` for entity read, population, translation, and interest semantics.
-- Follow `src/modules/auth/README.md` for the bearer transport, CORS policy, token storage, and OIDC redirect.
+- Follow `src/modules/auth/README.md` for OAuth transport, hosted browser sessions, token handling, and external OIDC configuration.
 - Public and service-owned event creates await `EventCreateWorkflow`. Callers using `discard: true` must poll to observe results.

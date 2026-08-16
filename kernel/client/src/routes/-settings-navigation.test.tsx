@@ -257,7 +257,7 @@ describe("account settings", () => {
 	});
 
 	it("disables both actions while sign out is pending and navigates to /auth on success", async () => {
-		const gate = Effect.runSync(Deferred.make<void>());
+		const gate = Effect.runSync(Deferred.make<boolean>());
 		const view = mountView(
 			"/settings/account",
 			undefined,
@@ -275,7 +275,7 @@ describe("account settings", () => {
 			true,
 		);
 
-		await Effect.runPromise(Deferred.succeed(gate, undefined));
+		await Effect.runPromise(Deferred.succeed(gate, false));
 		await waitFor(() => expect(view.router.state.location.pathname).toBe("/auth"));
 	});
 

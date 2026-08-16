@@ -1,4 +1,10 @@
-import { OAUTH_NATIVE_CLIENT_ID, OAUTH_WEB_CLIENT_ID } from "@ryot/contract/oauth";
+import { App } from "@capacitor/app";
+import { Browser } from "@capacitor/browser";
+import {
+	getWebOAuthLogoutCallbackUri,
+	OAUTH_NATIVE_CLIENT_ID,
+	OAUTH_WEB_CLIENT_ID,
+} from "@ryot/contract/oauth";
 import { Context, Effect, Layer } from "effect";
 
 import { normalizeServerOrigin, type ServerOrigin } from "#/api/origin";
@@ -98,6 +104,35 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			yield* tokens.clear(origin);
 			getSession(origin).set({ status: "missing" });
 		});
+		const signOut = Effect.fn("AuthService.signOut")(function* (origin: ServerOrigin) {
+			const isNative = isNativePlatform();
+			const applicationId = isNative
+				? yield* Effect.tryPromise(() => App.getInfo().then((info) => info.id)).pipe(
+						Effect.catch(() => Effect.succeed(null)),
+					)
+				: undefined;
+			if (isNative && applicationId !== "io.ryot.app" && applicationId !== "io.ryot.app.dev") {
+				yield* clearSession(origin);
+				return false;
+			}
+			const endSessionUrl = yield* tokens.logout(
+				origin,
+				isNative ? OAUTH_NATIVE_CLIENT_ID : OAUTH_WEB_CLIENT_ID,
+				isNative ? `${applicationId}:/auth/logout/callback` : getWebOAuthLogoutCallbackUri(origin),
+			);
+			getSession(origin).set({ status: "missing" });
+			if (!endSessionUrl) {
+				return false;
+			}
+			if (isNative) {
+				return yield* Effect.tryPromise(() => Browser.open({ url: endSessionUrl })).pipe(
+					Effect.as(true),
+					Effect.catch(() => Effect.succeed(false)),
+				);
+			}
+			yield* Effect.sync(() => window.location.assign(endSessionUrl));
+			return true;
+		});
 		const changeServer = Effect.fn("AuthService.changeServer")(function* (
 			origin: ServerOrigin | null,
 		) {
@@ -108,9 +143,9 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 		});
 
 		return {
+			signOut,
 			changeServer,
 			settledSession,
-			signOut: clearSession,
 			session: (origin: ServerOrigin) => getSession(origin).store,
 		};
 	}),
