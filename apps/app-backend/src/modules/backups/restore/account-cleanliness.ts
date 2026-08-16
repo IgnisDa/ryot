@@ -27,6 +27,7 @@ import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
 
 import { V2_BOOTSTRAP_SOURCE } from "../archive-v2/schemas";
+import { isDefaultSystemInstallation } from "../installation-state";
 
 type StructuralEntity = Pick<
 	PortableEntityRecord,
@@ -84,13 +85,6 @@ const sameUnorderedRecords = (actual: ReadonlyArray<unknown>, expected: Readonly
 	}
 	return true;
 };
-
-const isDefaultSystemInstallation = (installation: PluginInstallationState) =>
-	installation.pluginScope === "system" &&
-	(installation.health === "ready" || installation.health === "installing") &&
-	!installation.isDisabled &&
-	installation.sortOrder === 0 &&
-	Object.keys(installation.config).length === 0;
 
 export const classifyAccountCleanliness = (
 	state: AccountCleanlinessState,

@@ -169,9 +169,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 		Effect.gen(function* () {
 			const suffix = crypto.randomUUID();
 			const backend = getBackendClient();
-			const userA = yield* createAuthenticatedClient();
-			const userB = yield* createAuthenticatedClient();
-			const userIds = [userA.userId, userB.userId];
+			const userIds: string[] = [];
 			const globalEntityIds: string[] = [];
 
 			const cleanupData = Effect.gen(function* () {
@@ -237,6 +235,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 
 			yield* Effect.acquireRelease(
 				installTestPluginBundle({
+					scope: "system",
 					pluginSlug: foreignPluginSlug,
 					entitySchemas: foreignEntitySchemas,
 					relationshipSchemas: foreignRelationshipSchemas,
@@ -259,7 +258,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 						},
 					],
 				}),
-				(plugin) => cleanupData.pipe(Effect.andThen(uninstallTestPlugin(plugin)), Effect.ignore),
+				(plugin) => uninstallTestPlugin(plugin).pipe(Effect.ignore),
 			);
 
 			const pluginSlug = `e2e-ryotql-auth-owned-${suffix}`;
@@ -512,6 +511,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 
 			yield* Effect.acquireRelease(
 				installTestPluginBundle({
+					scope: "system",
 					pluginSlug,
 					files: {
 						...Object.fromEntries(
@@ -571,8 +571,12 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 						description: `Run ${probe.name}`,
 					})),
 				}),
-				(plugin) => cleanupData.pipe(Effect.andThen(uninstallTestPlugin(plugin)), Effect.ignore),
+				(plugin) => uninstallTestPlugin(plugin).pipe(Effect.ignore),
 			);
+			const userA = yield* createAuthenticatedClient();
+			const userB = yield* createAuthenticatedClient();
+			userIds.push(userA.userId, userB.userId);
+			yield* Effect.addFinalizer(() => cleanupData.pipe(Effect.ignoreCause));
 
 			const createGlobalEntity = (input: {
 				readonly name: string;

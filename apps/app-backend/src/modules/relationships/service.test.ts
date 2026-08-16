@@ -17,6 +17,7 @@ import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { RelationshipsRepository } from "./repository";
 import { RelationshipsService } from "./service";
@@ -72,6 +73,30 @@ const makeServiceLayer = (
 			makeRelationshipsRepository(overrides),
 			Layer.mock(EntitiesRepository)({
 				getEntityScopeForUser,
+			}),
+			Layer.mock(PluginRuntimeResolver)({
+				getEffectiveDefinitions: () =>
+					Effect.succeed({
+						savedViews: {},
+						entitySchemas: {},
+						signalSchemas: {},
+						relationshipSchemas: {
+							"rel-schema-id": {
+								name: "Relationship",
+								slug: "rel-schema-id",
+								sourceEntitySchemaSlug: null,
+								targetEntitySchemaSlug: null,
+								propertiesSchema: { fields: {} },
+							},
+							"monitoring-rel-schema-id": {
+								sourceEntitySchemaSlug: null,
+								targetEntitySchemaSlug: null,
+								name: "Monitoring relationship",
+								slug: "monitoring-rel-schema-id",
+								propertiesSchema: { fields: {} },
+							},
+						},
+					}),
 			}),
 			Layer.succeed(DefinitionRegistry, {
 				...makeDefinitionRegistry(),

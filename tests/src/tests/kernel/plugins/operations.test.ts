@@ -2,6 +2,7 @@ import { PluginSlug } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
+	type Client,
 	createAuthenticatedClient,
 	getBackendClient,
 	installTestPlugin,
@@ -11,10 +12,11 @@ import {
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
-const installEchoOperationPlugin = () => {
+const installEchoOperationPlugin = (client: Client) => {
 	const scriptSlug = `e2e-operation-${crypto.randomUUID()}`;
 	return Effect.acquireRelease(
 		installTestPlugin({
+			client,
 			pluginSlug: `e2e-operations-${crypto.randomUUID()}`,
 			configSchema: { fields: {}, unknownKeys: "strict" },
 			source: operationSandboxSource({ name: "E2E Echo Operation", slug: scriptSlug }),
@@ -42,8 +44,8 @@ const installEchoOperationPlugin = () => {
 describe("plugin operations", () => {
 	it.live("dispatches an operation and returns its decoded result", () =>
 		Effect.gen(function* () {
-			const plugin = yield* installEchoOperationPlugin();
 			const { client } = yield* createAuthenticatedClient();
+			const plugin = yield* installEchoOperationPlugin(client);
 
 			const { result } = yield* client.call((c) =>
 				c.plugins.invoke({
@@ -58,8 +60,8 @@ describe("plugin operations", () => {
 
 	it.live("rejects unknown plugin and operation slugs", () =>
 		Effect.gen(function* () {
-			const plugin = yield* installEchoOperationPlugin();
 			const { client } = yield* createAuthenticatedClient();
+			const plugin = yield* installEchoOperationPlugin(client);
 
 			const unknownPlugin = yield* Effect.flip(
 				client.call((c) =>
@@ -98,8 +100,8 @@ describe("plugin operations", () => {
 
 	it.live("surfaces a payload that violates the script input schema", () =>
 		Effect.gen(function* () {
-			const plugin = yield* installEchoOperationPlugin();
 			const { client } = yield* createAuthenticatedClient();
+			const plugin = yield* installEchoOperationPlugin(client);
 
 			const failure = yield* Effect.flip(
 				client.call((c) =>
@@ -120,7 +122,8 @@ describe("plugin operations", () => {
 
 	it.live("enforces the operation's declared user authentication", () =>
 		Effect.gen(function* () {
-			const plugin = yield* installEchoOperationPlugin();
+			const { client } = yield* createAuthenticatedClient();
+			const plugin = yield* installEchoOperationPlugin(client);
 
 			const failure = yield* Effect.flip(
 				getBackendClient().call((c) =>

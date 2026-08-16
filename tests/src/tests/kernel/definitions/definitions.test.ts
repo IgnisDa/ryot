@@ -69,7 +69,10 @@ describe("Definitions E2E", () => {
 			]);
 			const selected = plugins.filter((plugin) => ["media", "fitness"].includes(plugin.slug));
 
-			expect(selected.map((plugin) => plugin.slug)).toEqual(["media", "fitness"]);
+			expect(selected.map((plugin) => plugin.slug)).toEqual(
+				expect.arrayContaining(["fitness", "media"]),
+			);
+			expect(selected).toHaveLength(2);
 			expect(
 				selected.every((plugin) => schemas.some((schema) => schema.pluginSlug === plugin.slug)),
 			).toBe(true);

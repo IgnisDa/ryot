@@ -18,7 +18,7 @@ import {
 	requireRows,
 	uninstallTestPlugin,
 } from "~/fixtures";
-import { assertTaggedError } from "~/support/assertions";
+import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 
 const EXTERNAL_ID = "e2e-plugin-boot-1";
@@ -65,6 +65,7 @@ describe("POST /test-support/plugin-boot (custom plugin boot dispatch)", () => {
 				const detailsEntry = "scripts/provider-details.sandbox.ts";
 				const bootEntry = "scripts/plugin-boot.sandbox.ts";
 				const installed = yield* installTestPluginBundle({
+					scope: "system",
 					configSchema: { fields: {}, unknownKeys: "strict" },
 					files: {
 						[bootEntry]: BOOT_SOURCE,
@@ -140,12 +141,18 @@ describe("POST /test-support/plugin-boot (custom plugin boot dispatch)", () => {
 		Effect.gen(function* () {
 			const client = getBackendClient();
 
-			const missing = yield* Effect.flip(client.call((c) => c.testSupport.triggerPluginBoot()));
+			const payload = {
+				bootSlug: "e2e-test-boot",
+				pluginSlug: requirePresent(bootPlugin, "Boot plugin is not installed").pluginSlug,
+			};
+			const missing = yield* Effect.flip(
+				client.call((c) => c.testSupport.triggerPluginBoot({ payload })),
+			);
 			assertTaggedError(missing, "AuthUnauthorized");
 
 			const wrong = yield* Effect.flip(
 				client.call(
-					(c) => c.testSupport.triggerPluginBoot(),
+					(c) => c.testSupport.triggerPluginBoot({ payload }),
 					adminAccessTokenHeaders("wrong-token"),
 				),
 			);
@@ -158,7 +165,13 @@ describe("POST /test-support/plugin-boot (custom plugin boot dispatch)", () => {
 		() =>
 			Effect.gen(function* () {
 				const { executionId } = yield* getBackendClient().call(
-					(c) => c.testSupport.triggerPluginBoot(),
+					(c) =>
+						c.testSupport.triggerPluginBoot({
+							payload: {
+								bootSlug: "e2e-test-boot",
+								pluginSlug: requirePresent(bootPlugin, "Boot plugin is not installed").pluginSlug,
+							},
+						}),
 					adminAccessTokenHeaders(ADMIN_TOKEN),
 				);
 				expect(typeof executionId).toBe("string");

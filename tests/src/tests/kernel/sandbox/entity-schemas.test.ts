@@ -19,6 +19,7 @@ describe("sandbox entity schema reads", () => {
 			const second = yield* createPluginSchema(client, { name: "Second schema" });
 			const slug = `get-entity-schemas-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
+				client,
 				slug,
 				name: "Get entity schemas",
 				capabilities: ["getEntitySchemas"],
@@ -50,9 +51,10 @@ describe("sandbox entity schema reads", () => {
 
 	it.live("fails entire batch when one schema does not exist", () =>
 		Effect.gen(function* () {
-			const { userId } = yield* createAuthenticatedClient();
+			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `get-entity-schemas-missing-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
+				client,
 				slug,
 				name: "Get entity schemas missing",
 				capabilities: ["getEntitySchemas"],
