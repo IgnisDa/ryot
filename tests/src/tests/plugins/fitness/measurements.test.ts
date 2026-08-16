@@ -3,14 +3,14 @@ import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
-	createMeasurementEntityFixture,
 	executeRyotQLRecipe,
 	findBuiltinSchemaBySlug,
 	findBuiltinPluginBySlug,
 	getEntity,
 	listEntitySchemas,
 	listSavedViews,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import { createMeasurementEntityFixture } from "~/fixtures/plugins/fitness";
 import { assertCondition, assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

@@ -21,7 +21,6 @@ import {
 	findBuiltinSavedView,
 	getEntity,
 	getEntitySchema,
-	getGlobalEntityByProvenance,
 	getSavedView,
 	insertRelationshipRow,
 	installTestPluginBundle,
@@ -32,7 +31,6 @@ import {
 	listRelationshipSchemas,
 	pollProviderEntityImportResult,
 	providerSandboxSource,
-	queryInLibraryRelationship,
 	requireRows,
 	requireRyotQLText,
 	requireRyotQLValue,
@@ -40,7 +38,8 @@ import {
 	setNotificationRuleActive,
 	updatePluginState,
 	uninstallTestPlugin,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import { getGlobalEntityByProvenance, queryInLibraryRelationship } from "~/fixtures/plugins/media";
 import {
 	assertCompleted,
 	assertTaggedError,

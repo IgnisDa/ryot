@@ -12,7 +12,7 @@ import {
 	installTestPluginBundle,
 	sampleSandboxRuntime,
 	uninstallTestPlugin,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { assertCompleted, assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";

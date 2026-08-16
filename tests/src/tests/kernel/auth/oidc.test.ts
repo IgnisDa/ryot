@@ -13,7 +13,7 @@ import {
 	performOidcSignIn,
 	startMockOidcServer,
 	stopMockOidcServer,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 import {

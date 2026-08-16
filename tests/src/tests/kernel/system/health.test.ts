@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 
-import { getBackendClient } from "~/fixtures";
+import { getBackendClient } from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("Health endpoint", () => {

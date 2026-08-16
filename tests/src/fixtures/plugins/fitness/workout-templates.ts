@@ -1,11 +1,14 @@
 import { Effect } from "effect";
 
+import type { Client } from "~/fixtures/kernel/auth";
+import { createEntity } from "~/fixtures/kernel/entities";
+import { findBuiltinSchemaBySlug } from "~/fixtures/kernel/entity-schemas";
+import {
+	listRelationshipSchemas,
+	requireRelationshipSchemaBySlug,
+} from "~/fixtures/kernel/relationship-schemas";
 import { requirePresent } from "~/support/assertions";
 
-import type { Client } from "./auth";
-import { createEntity } from "./entities";
-import { findBuiltinSchemaBySlug } from "./entity-schemas";
-import { listRelationshipSchemas, requireRelationshipSchemaBySlug } from "./relationship-schemas";
 import { waitForSeededExerciseId } from "./workouts";
 
 export const findBuiltinRelationshipSchemaSlug = (client: Client, slug: string) =>

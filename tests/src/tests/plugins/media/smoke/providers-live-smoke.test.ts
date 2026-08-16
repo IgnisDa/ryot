@@ -11,9 +11,9 @@ import {
 	pollProviderEntityImportResult,
 	pollEntityUntilTranslationStatus,
 	searchProviderEntities,
-	seedPopulatedProviderEntity,
 	setUserLanguage,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import { seedPopulatedProviderEntity } from "~/fixtures/plugins/media";
 import { assertCompleted, assertCondition, assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
