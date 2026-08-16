@@ -17,6 +17,7 @@ const ACTIVITY_COLLECTION_EVENT_LIMIT = 60;
 
 const MARKER_TONE: Record<MediaReviewActivityRow["type"], string> = {
 	review: "bg-accent",
+	library: "bg-accent",
 	collection: "bg-transparent",
 };
 
@@ -42,13 +43,22 @@ export const defineMediaReviewActivityTab = (input: {
 			data.events.flatMap((event) => (event.kind === "collection" ? [event.collection.id] : [])),
 	);
 
+	const activityRowLabel = (row: MediaReviewActivityRow) => {
+		if (row.type === "collection") {
+			return mediaCollectionRowLabel(row);
+		}
+		if (row.type === "library") {
+			return activityCopy.libraryLabel;
+		}
+		return activityCopy.rowLabels.review;
+	};
+
 	const activityRender: MediaActivityRowRender<MediaReviewActivityRow> = {
 		markerTone: MARKER_TONE,
 		rowSource: () => undefined,
+		rowLabel: activityRowLabel,
 		segmentNoun: activityCopy.segmentNoun,
 		rowBody: (row) => (row.type === "review" ? <MediaActivityReviewDetail row={row} /> : null),
-		rowLabel: (row) =>
-			row.type === "collection" ? mediaCollectionRowLabel(row) : activityCopy.rowLabels.review,
 	};
 
 	function ActivityRecord(props: {

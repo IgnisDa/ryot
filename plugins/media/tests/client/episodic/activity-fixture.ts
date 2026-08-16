@@ -43,6 +43,14 @@ export const episodicBacklogEventRow = {
 	occurredAt: "2025-11-01T12:00:00.000Z",
 };
 
+export const episodicLibraryEventRow = {
+	...emptyParentProperties,
+	id: "parent-library",
+	eventSchemaSlug: "add-to-library",
+	createdAt: "2025-11-01T00:00:05.000Z",
+	occurredAt: "2025-11-01T00:00:00.000Z",
+};
+
 export const episodicCompletionEventRow = {
 	...emptyParentProperties,
 	timeSpent: 240,
@@ -185,6 +193,7 @@ export const decodeEpisodicActivity = (input: ActivityRows = {}) => {
 				},
 				parentEvents: activityRows(
 					input.parentEvents ?? [
+						episodicLibraryEventRow,
 						episodicBacklogEventRow,
 						episodicCompletionEventRow,
 						episodicReviewEventRow,

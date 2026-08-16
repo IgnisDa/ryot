@@ -281,7 +281,8 @@ shows, seasons, or episodes.
 
 ## Lifecycle
 
-Media entities use `backlog`, `progress`, `complete`, `dropped`, `on_hold`, and `review` events.
+Media entities use `add-to-library`, `backlog`, `progress`, `complete`, `dropped`, `on_hold`, and
+`review` events.
 `host/schemas/entity.ts` defines support by entity type. State is derived from append-only history,
 ordered by descending `occurredAt`, `createdAt`, then `id`; it is never stored separately.
 
@@ -290,11 +291,15 @@ in `automation.payload` and authored metadata in `automation.hookMetadata`. Ordi
 read current user data, not historical execution input.
 
 `media.ensure-library-membership` is a required after hook bound to library-member entity creation,
-provider-entity-import completion, every media event, and `collection:add-entity-to-collection`,
+provider-entity-import completion, every media event except `add-to-library`, and
+`collection:add-entity-to-collection`,
 whose target comes from the event properties rather than its collection subject. The `library`
 entity schema is not a library member, so workspace bootstrap never links the library to itself. Its
 script upserts `in-library` with `changeUserRelationships`, which emits a child relationship trigger
-only when the upsert changes state. It replaces the former event-wide membership policy.
+only when the upsert changes state. `media.record-library-membership-event` is a required after hook
+on new `in-library` relationships; it records `add-to-library` at the relationship creation time for
+each media library member. Repeated idempotent upserts and existing memberships do not create another
+event.
 
 `media.entity-updated` is an async after hook on entity updates. It reads the immutable population
 context from `payload.population` — `rootPreviouslyPopulated`, `scopeEntity`, and `parentEntity` —

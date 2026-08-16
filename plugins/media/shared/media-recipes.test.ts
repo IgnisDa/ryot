@@ -345,6 +345,7 @@ describe("media flat recipes", () => {
 		expect(events.where.predicates[1]).toMatchObject({
 			type: "in",
 			values: [
+				{ value: "add-to-library" },
 				{ value: "backlog" },
 				{ value: "on_hold" },
 				{ value: "dropped" },
@@ -536,6 +537,7 @@ const decodeReviewActivity = (input: { readonly hasMore: boolean }) =>
 						text: "Great.",
 						isSpoiler: false,
 						id: "entity-review",
+						eventSchemaSlug: "review",
 						createdAt: "2024-02-03T10:00:00.000Z",
 						occurredAt: "2024-02-03T09:00:00.000Z",
 					},
@@ -564,7 +566,7 @@ describe("media review activity recipe", () => {
 		}
 
 		expect(events.where).toMatchObject({
-			predicates: [{}, { type: "in", values: [{ value: "review" }] }],
+			predicates: [{}, { type: "in", values: [{ value: "review" }, { value: "add-to-library" }] }],
 		});
 		expect(JSON.stringify(totals.output.fields)).toContain('"value":"review"');
 		expect(fieldKeys(events.output.fields)).toEqual([
@@ -574,6 +576,7 @@ describe("media review activity recipe", () => {
 			"text",
 			"rating",
 			"isSpoiler",
+			"eventSchemaSlug",
 		]);
 	});
 

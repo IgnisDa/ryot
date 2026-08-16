@@ -206,6 +206,7 @@ describe("creator activity tab", () => {
 		expect(text).toContain("Reviews");
 		expect(text).toContain("Span");
 		expect(text).toContain("Reviewed this creator");
+		expect(text).toContain("Added to library");
 		expect(text).toContain("Added to the Favourites collection");
 		expect(container.querySelector('[aria-label="Activity record"]')).not.toBeNull();
 		unmount();

@@ -55,6 +55,8 @@ export type MediaActivityCollectionRow = ActivityAnchor & {
 	readonly change: "added" | "removed";
 };
 
+export type MediaActivityLibraryRow = ActivityAnchor & { readonly type: "library" };
+
 export type MediaActivityCompletedWatch<Row extends ActivityAnchor> = {
 	readonly key: string;
 	readonly rows: NonEmpty<Row>;
@@ -152,6 +154,11 @@ export const mediaCollectionRow = (event: {
 	name: event.collection.name,
 	change: event.eventSchemaSlug === "add-entity-to-collection" ? "added" : "removed",
 });
+
+export const mediaLibraryRow = (event: {
+	readonly id: string;
+	readonly occurredAt: string;
+}): MediaActivityLibraryRow => ({ ...anchorOf(event, "library"), type: "library" });
 
 const takeTrailingSameInstant = <Row extends ActivityAnchor>(
 	rows: Row[],

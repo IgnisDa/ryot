@@ -109,6 +109,12 @@ const lifecycleEventSchemaBySlug = (slug: string) => {
 	return eventSchema;
 };
 
+const libraryEventSchema = () => ({
+	slug: "add-to-library",
+	name: "Added to library",
+	propertiesSchema: { fields: {} },
+});
+
 const reviewBaseFields = () => ({
 	text: {
 		label: "Review",
@@ -166,6 +172,7 @@ const reviewPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined): A
 };
 
 const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
+	libraryEventSchema(),
 	{ name: "Backlog", slug: "backlog", propertiesSchema: { fields: {} } },
 	{
 		name: "Progress",
@@ -233,7 +240,9 @@ const buildMediaGroupEntitySchema = (slug: string, name: string, icon: string) =
 	icon,
 	pluginSlug: "media",
 	propertiesSchema: mediaGroupPropertiesSchema,
-	eventSchemas: mediaLifecycleEventSchemas(slug).filter((s) => s.slug === "review"),
+	eventSchemas: mediaLifecycleEventSchemas(slug).filter(
+		(s) => s.slug === "review" || s.slug === "add-to-library",
+	),
 });
 
 export const builtinEntitySchemas = () => [
@@ -252,7 +261,9 @@ export const builtinEntitySchemas = () => [
 		name: "Person",
 		pluginSlug: "media",
 		propertiesSchema: personPropertiesSchema,
-		eventSchemas: mediaLifecycleEventSchemas("person").filter((schema) => schema.slug === "review"),
+		eventSchemas: mediaLifecycleEventSchemas("person").filter(
+			(schema) => schema.slug === "review" || schema.slug === "add-to-library",
+		),
 	},
 	{
 		slug: "company",
@@ -261,7 +272,7 @@ export const builtinEntitySchemas = () => [
 		pluginSlug: "media",
 		propertiesSchema: companyPropertiesSchema,
 		eventSchemas: mediaLifecycleEventSchemas("company").filter(
-			(schema) => schema.slug === "review",
+			(schema) => schema.slug === "review" || schema.slug === "add-to-library",
 		),
 	},
 	buildMediaGroupEntitySchema("movie-group", "Movie Collection", "film"),
@@ -316,7 +327,10 @@ export const builtinEntitySchemas = () => [
 		name: "Show Season",
 		pluginSlug: undefined,
 		propertiesSchema: showSeasonPropertiesSchema,
-		eventSchemas: [lifecycleEventSchemaBySlug("review")],
+		eventSchemas: [
+			lifecycleEventSchemaBySlug("review"),
+			lifecycleEventSchemaBySlug("add-to-library"),
+		],
 	},
 	{
 		icon: "play-square",
@@ -328,6 +342,7 @@ export const builtinEntitySchemas = () => [
 			lifecycleEventSchemaBySlug("progress"),
 			lifecycleEventSchemaBySlug("review"),
 			lifecycleEventSchemaBySlug("complete"),
+			lifecycleEventSchemaBySlug("add-to-library"),
 		],
 	},
 	{
@@ -366,6 +381,7 @@ export const builtinEntitySchemas = () => [
 			lifecycleEventSchemaBySlug("progress"),
 			lifecycleEventSchemaBySlug("review"),
 			lifecycleEventSchemaBySlug("complete"),
+			lifecycleEventSchemaBySlug("add-to-library"),
 		],
 	},
 	{

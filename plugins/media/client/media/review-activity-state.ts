@@ -1,9 +1,14 @@
-import type { MediaReviewActivityResult } from "../../shared/media-recipes";
+import type {
+	MediaReviewActivityEvent,
+	MediaReviewActivityResult,
+} from "../../shared/media-recipes";
 import {
 	mediaActivityRowsView,
 	mediaCollectionRow,
+	mediaLibraryRow,
 	mediaReviewRow,
 	type MediaActivityCollectionRow,
+	type MediaActivityLibraryRow,
 	type MediaActivityReviewRow,
 	type MediaActivitySpan,
 	type MediaActivityTimeline,
@@ -15,6 +20,7 @@ const REVIEW_SUBJECT: ReviewSubject = { on: "entity" };
 
 export type MediaReviewActivityRow =
 	| MediaActivityCollectionRow
+	| MediaActivityLibraryRow
 	| MediaActivityReviewRow<ReviewSubject>;
 
 export type MediaReviewActivityView = {
@@ -24,14 +30,22 @@ export type MediaReviewActivityView = {
 
 const FLAT_PREDICATES = { isWatching: () => false, isCompletion: () => false };
 
+const activityRow = (event: MediaReviewActivityEvent): MediaReviewActivityRow => {
+	if (event.kind !== "media") {
+		return mediaCollectionRow(event);
+	}
+	if (event.eventSchemaSlug === "add-to-library") {
+		return mediaLibraryRow(event);
+	}
+	return mediaReviewRow(event, REVIEW_SUBJECT);
+};
+
 /** Reviews and collection changes as one flat timeline; the entity has no watches to segment. */
 export const mediaReviewActivityView = (
 	result: MediaReviewActivityResult,
 ): MediaReviewActivityView | undefined => {
 	const view = mediaActivityRowsView<MediaReviewActivityRow>(
-		result.events.map((event) =>
-			event.kind === "media" ? mediaReviewRow(event, REVIEW_SUBJECT) : mediaCollectionRow(event),
-		),
+		result.events.map(activityRow),
 		FLAT_PREDICATES,
 		result.truncated,
 	);

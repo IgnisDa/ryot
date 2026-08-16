@@ -38,9 +38,12 @@ describe("POST /events with global entities", () => {
 				membership.data.entity?.type === "rows" ? membership.data.entity.items : [],
 			).toHaveLength(1);
 
-			const events = yield* waitForEventCount(client, entity.id, 1);
-			expect(events).toHaveLength(1);
-			expect(events[0]?.eventSchemaSlug).toBe("backlog");
+			const events = yield* waitForEventCount(client, entity.id, 2);
+			expect(events).toHaveLength(2);
+			expect(events.map(({ eventSchemaSlug }) => eventSchemaSlug)).toEqual([
+				"add-to-library",
+				"backlog",
+			]);
 		}),
 	);
 });

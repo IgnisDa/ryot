@@ -13,9 +13,20 @@ export const creatorReviewEventRow = {
 	rating: 88,
 	isSpoiler: false,
 	id: "creator-review",
+	eventSchemaSlug: "review",
 	text: "A generational talent.",
 	createdAt: "2025-11-05T12:00:05.000Z",
 	occurredAt: "2025-11-05T12:00:00.000Z",
+};
+
+export const creatorLibraryEventRow = {
+	text: null,
+	rating: null,
+	isSpoiler: null,
+	id: "creator-library",
+	eventSchemaSlug: "add-to-library",
+	createdAt: "2025-11-01T00:00:05.000Z",
+	occurredAt: "2025-11-01T00:00:00.000Z",
 };
 
 export const creatorCollectionAddedEventRow = {
@@ -39,8 +50,11 @@ export const creatorActivityData = (
 	} = {},
 ) => ({
 	totals: activityRows([{ reviewCount: input.reviewCount ?? 1 }], false),
-	events: activityRows(input.events ?? [creatorReviewEventRow], input.truncated === true),
 	collectionEvents: activityRows(input.collectionEvents ?? [creatorCollectionAddedEventRow], false),
+	events: activityRows(
+		input.events ?? [creatorLibraryEventRow, creatorReviewEventRow],
+		input.truncated === true,
+	),
 });
 
 export const decodeCreatorActivity = (input: Parameters<typeof creatorActivityData>[0] = {}) =>

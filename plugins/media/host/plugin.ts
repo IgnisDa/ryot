@@ -641,9 +641,21 @@ export const mediaPlugin = definePlugin({
 					},
 				]),
 				...entitySchemas.flatMap((schema) =>
-					schema.eventSchemas.map(({ slug }) => eventHookTarget(`${schema.slug}:${slug}`)),
+					schema.eventSchemas
+						.filter(({ slug }) => slug !== "add-to-library")
+						.map(({ slug }) => eventHookTarget(`${schema.slug}:${slug}`)),
 				),
 				eventHookTarget("collection:add-entity-to-collection"),
+			],
+		},
+		{
+			stage: "after",
+			delivery: "required",
+			slug: "media.record-library-membership-event",
+			name: "Record media library membership event",
+			scriptSlug: "automation.record-library-membership-event",
+			targets: [
+				{ operation: "create", resource: "relationship", relationshipSchemaSlug: "in-library" },
 			],
 		},
 		{

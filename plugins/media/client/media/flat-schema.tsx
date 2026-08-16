@@ -139,6 +139,7 @@ export type MediaFlatSchemaDescriptor<
 	readonly backdropPurposes?: MediaImagePurposes;
 	readonly nouns: { readonly title: string; readonly singular: string; readonly plural: string };
 	readonly activityCopy: {
+		readonly libraryLabel: string;
 		readonly recordLabel: string;
 		readonly segmentNoun: string;
 		readonly emptyDetail: string;
@@ -171,6 +172,7 @@ export type MediaFlatSchemaDescriptor<
 const MARKER_TONE: Record<MediaFlatSchemaRow["type"], string> = {
 	beat: "bg-border",
 	review: "bg-accent",
+	library: "bg-accent",
 	progress: "bg-accent",
 	completion: "bg-accent",
 	collection: "bg-transparent",
@@ -253,6 +255,9 @@ export const defineFlatMediaSchema = <
 		}
 		if (row.type === "collection") {
 			return mediaCollectionRowLabel(row);
+		}
+		if (row.type === "library") {
+			return activityCopy.libraryLabel;
 		}
 		if (row.type === "beat") {
 			return row.beat === "backlog" ? "Added to backlog" : activityCopy.beats[row.beat];
