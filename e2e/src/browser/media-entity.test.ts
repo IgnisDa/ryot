@@ -2,22 +2,17 @@ import { Effect, Option } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
+	createAuthenticatedClient,
 	createEntity,
-	createTestUser,
 	fakeProviderDetailsResult,
 	fakeProviderTranslations,
 	findBuiltinSchemaBySlug,
 	getEntity,
 	installTestProvider,
-	makeSession,
 	setUserLanguage,
 	uninstallTestProvider,
 } from "~/fixtures/kernel";
-import {
-	insertLibraryMembership,
-	seedGlobalShowEpisodeTree,
-	seedMediaEntity,
-} from "~/fixtures/plugins/media";
+import { insertLibraryMembership, seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";
 import { requirePresent } from "~/support/assertions";
 import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
@@ -38,8 +33,7 @@ it.live("automatically populates and translates a partial Show in the compiled M
 		const id = crypto.randomUUID();
 		const translatedName = `Serie traducida ${id}`;
 		const translatedDescription = `Resumen de la serie ${id}.`;
-		const { token, email, password } = yield* createTestUser();
-		const client = makeSession(getApiUrl(), { Authorization: `Bearer ${token}` });
+		const { email, client, password } = yield* createAuthenticatedClient();
 		yield* setUserLanguage(client, "es");
 		const { schema } = yield* findBuiltinSchemaBySlug(client, "show");
 		const provider = yield* installTestProvider({
@@ -100,8 +94,7 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
-		const { token, email, password } = yield* createTestUser(apiUrl);
-		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
 		const intent = yield* client.call((c) =>
 			c.uploads.createIntent({
 				payload: { kind: "permanent", fileName: "show-cover.svg", contentType: "image/svg+xml" },
@@ -222,25 +215,18 @@ it.live("shows a kernel notice for a Media schema with no detail renderer", () =
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
-		const { token, email, password } = yield* createTestUser(apiUrl);
-		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
-		const { schema } = yield* findBuiltinSchemaBySlug(client, "movie-group");
-		const provider = requirePresent(
-			schema.providers[0],
-			"Missing provider for built-in movie group schema",
-		);
-		const movieGroup = yield* seedMediaEntity({
+		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
+		const { schema } = yield* findBuiltinSchemaBySlug(client, "library");
+		const library = yield* createEntity(client, {
 			properties: {},
 			entitySchemaSlug: schema.id,
-			providerId: provider.providerId,
-			name: "Unsupported Media Movie Group",
-			externalId: `media-movie-group-${crypto.randomUUID()}`,
+			name: "Unsupported Media Library",
 		});
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage();
 		yield* signInThroughHostedOAuth(page, email, password);
-		yield* page.goto(`${frontendUrl}/e/${movieGroup.id}`);
-		yield* page.waitForURL(`${frontendUrl}/e/${movieGroup.id}`);
+		yield* page.goto(`${frontendUrl}/e/${library.id}`);
+		yield* page.waitForURL(`${frontendUrl}/e/${library.id}`);
 
 		yield* page
 			.getByRole("heading", { level: 1, exact: true, name: "Entity page not registered" })

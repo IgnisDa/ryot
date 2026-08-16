@@ -10,8 +10,6 @@ import {
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginSlug, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
-import { isJsonValue } from "@ryot-app/contract/schema/json";
-import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { readPluginArchiveStream, type PluginArchivePackage } from "@ryot-app/plugin-archive";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Effect, Layer, Result, Schema } from "effect";
@@ -27,11 +25,11 @@ import {
 	type DefinitionSnapshot,
 } from "#modules/definition-registry/service";
 import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
-import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { PluginCatalogInvalidator } from "./catalog-events";
+import { redactPluginConfig } from "./config-redaction";
 import { PluginDefinitionMaterializer } from "./definition-materializer";
 import { PluginIngestionLock } from "./ingestion-lock";
 import {
@@ -222,127 +220,19 @@ const detectShippedConflict = (
 		}),
 	);
 
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
-
-const sanitizeConfigValue = (
-	definition: AppPropertyDefinition,
-	value: unknown,
-	path: string,
-	configuredSecrets: Set<string>,
-): unknown => {
-	if (definition.secret === true) {
-		if (value !== null && value !== undefined) {
-			configuredSecrets.add(path);
-		}
-		return undefined;
-	}
-	if (definition.type === "object" && isRecord(value)) {
-		return sanitizeConfig(definition.properties, value, path, configuredSecrets);
-	}
-	if (definition.type === "array" && Array.isArray(value)) {
-		return value.flatMap((item) => {
-			const sanitized = sanitizeConfigValue(definition.items, item, `${path}[]`, configuredSecrets);
-			return sanitized === undefined ? [] : [sanitized];
-		});
-	}
-	return value;
-};
-
-const sanitizeConfig = (
-	fields: AppSchema["fields"],
-	value: Readonly<Record<string, unknown>>,
-	prefix: string,
-	configuredSecrets: Set<string>,
-) => {
-	const sanitized = { ...value };
-	for (const [key, definition] of Object.entries(fields)) {
-		if (!Object.hasOwn(value, key)) {
-			continue;
-		}
-		const path = prefix ? `${prefix}.${key}` : key;
-		const field = sanitizeConfigValue(definition, value[key], path, configuredSecrets);
-		if (field === undefined) {
-			Reflect.deleteProperty(sanitized, key);
-		} else {
-			sanitized[key] = field;
-		}
-	}
-	return sanitized;
-};
-
-const sanitizeConfigDefinition = (definition: AppPropertyDefinition): AppPropertyDefinition => {
-	if (definition.type === "object") {
-		const { defaultValue, properties: _properties, ...withoutDefault } = definition;
-		const properties = Object.fromEntries(
-			Object.entries(definition.properties).map(([key, child]) => [
-				key,
-				sanitizeConfigDefinition(child),
-			]),
-		);
-		if (definition.secret === true || defaultValue === undefined) {
-			return { ...withoutDefault, properties };
-		}
-		return {
-			...withoutDefault,
-			properties,
-			defaultValue: sanitizeConfig(definition.properties, defaultValue, "", new Set()),
-		};
-	}
-	if (definition.type === "array") {
-		const { defaultValue, items: _items, ...withoutDefault } = definition;
-		const items = sanitizeConfigDefinition(definition.items);
-		if (definition.secret === true || defaultValue === undefined) {
-			return { ...withoutDefault, items };
-		}
-		const sanitizedDefault = defaultValue.flatMap((item) => {
-			const sanitized = sanitizeConfigValue(definition.items, item, "", new Set());
-			return sanitized === undefined ? [] : [sanitized];
-		});
-		return { ...withoutDefault, items, defaultValue: sanitizedDefault };
-	}
-	if (definition.secret === true) {
-		const { defaultValue: _defaultValue, ...withoutDefault } = definition;
-		return withoutDefault;
-	}
-	return definition;
-};
-
-const sanitizeConfigSchema = (schema: AppSchema): AppSchema => ({
-	...schema,
-	fields: Object.fromEntries(
-		Object.entries(schema.fields).map(([key, definition]) => [
-			key,
-			sanitizeConfigDefinition(definition),
-		]),
-	),
-});
-
 const toInstallationItem = (view: InstallationView): PluginInstallationItem => {
 	const storedConfig = view.scope === "system" ? {} : (view.state?.config ?? {});
-	const configuredSecrets = new Set<string>();
-	const config = sanitizeConfig(
-		view.manifest.configSchema.fields,
-		storedConfig,
-		"",
-		configuredSecrets,
-	);
-	if (!isJsonValue(config)) {
-		throw new Error("Plugin configuration is not JSON-compatible");
-	}
 	return {
 		...view.manifest.metadata,
-		config,
+		...redactPluginConfig(view.manifest.configSchema, storedConfig, view.state?.configSchema),
 		scope: view.scope,
 		sourceHash: view.sourceHash,
 		health: view.state?.health ?? "ready",
 		isDisabled: view.state?.isDisabled ?? false,
 		homeSavedViewId: view.homeSavedViewId ?? null,
 		healthReason: view.state?.healthReason ?? null,
-		configuredSecrets: [...configuredSecrets].sort(),
 		slug: PluginSlug.make(view.manifest.metadata.slug),
 		sortOrder: view.state?.sortOrder ?? view.defaultSortOrder,
-		configSchema: sanitizeConfigSchema(view.manifest.configSchema),
 	};
 };
 
@@ -360,7 +250,6 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const invalidator = yield* PluginCatalogInvalidator;
 			const installations = yield* PluginInstallationRepository;
 			const definitionMaterializer = yield* PluginDefinitionMaterializer;
-			const workflowReferences = yield* SandboxWorkflowReferenceRepository;
 			const lifecycleDispatcher = yield* PluginInstallationLifecycleDispatcher;
 
 			const withPrivatePluginPackage = <A, E, R>(
@@ -765,23 +654,14 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 											Object.keys(loader.getSnapshot().plugins).length - 1,
 											...current.map(({ sortOrder: order }) => order),
 										) + 1;
-									const existingState = existing
-										? yield* installations.upsertState({
-												config,
-												pluginId,
-												sortOrder,
-												isDisabled: false,
-												health: "installing",
-												userId: input.userId,
-											})
-										: yield* installations.create({
-												config,
-												pluginId,
-												sortOrder,
-												isDisabled: false,
-												health: "installing",
-												userId: input.userId,
-											});
+									const existingState = yield* installations.upsertState({
+										config,
+										pluginId,
+										sortOrder,
+										isDisabled: false,
+										health: "installing",
+										userId: input.userId,
+									});
 									yield* definitionMaterializer.materialize(input.userId);
 									return existingState;
 								}).pipe(Effect.provideService(Database, transaction)),
@@ -867,7 +747,6 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 							]);
 							yield* validatePluginManifestReferences(manifest, effectiveDefinitions);
 							yield* validateAdditiveSchemaEvolution(plugin.manifest, manifest);
-							yield* validateConfigPatch(manifest, installation.config, input);
 							const normalized = yield* compilePluginPackage({ files, manifest, sourceHash }).pipe(
 								Effect.provideService(ClientPluginCompiler, clientCompiler),
 							);
@@ -892,10 +771,8 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 												});
 											}
 											yield* validateAdditiveSchemaEvolution(current.manifest, manifest);
-											const config = yield* validateConfigPatch(
-												manifest,
-												currentInstallation.config,
-												input,
+											const configResult = yield* Effect.result(
+												validateConfigPatch(manifest, currentInstallation.config, input),
 											);
 											const persistedId = yield* ingestionLock.persistUserPlugin(normalized, {
 												scope: "user",
@@ -907,9 +784,23 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 													issues: ["Plugin update did not retain its stable identity"],
 												});
 											}
+											if (Result.isFailure(configResult)) {
+												const healthReason =
+													"Configuration does not match the active package revision";
+												yield* installations.updateHealth({
+													healthReason,
+													id: currentInstallation.id,
+													health: "needs-configuration",
+												});
+												return {
+													...currentInstallation,
+													healthReason,
+													health: "needs-configuration" as const,
+												};
+											}
 											const state = yield* installations.updateState({
-												config,
 												id: currentInstallation.id,
+												config: configResult.success,
 												sortOrder: currentInstallation.sortOrder,
 												isDisabled: currentInstallation.isDisabled,
 											});
@@ -958,6 +849,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const updateInstallationUnlocked = Effect.fn(
 				"PluginInstallationService.updateInstallationUnlocked",
 			)(function* (userId: UserId, slug: string, payload: UpdatePluginInstallationBody) {
+				yield* repository.lockIngestion();
 				const pluginSlug = PluginSlug.make(slug);
 				const systemPlugin = loader.getSnapshot().plugins[slug];
 				const privatePlugin = systemPlugin
@@ -984,7 +876,11 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					return yield* new PluginConflictError({ reason: { pluginSlug, code: "system-plugin" } });
 				}
 				const isDisabled = payload.isDisabled ?? state.isDisabled;
-				if (payload.isDisabled === false && state.health !== "ready") {
+				if (
+					payload.isDisabled === false &&
+					state.health !== "ready" &&
+					state.health !== "needs-configuration"
+				) {
 					return yield* new PluginConflictError({
 						reason: { pluginSlug, health: state.health, code: "installation-not-ready" },
 					});
@@ -1001,7 +897,14 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 							id: state.id,
 							sortOrder: payload.sortOrder ?? state.sortOrder,
 						})
-						.pipe(Effect.tap(() => invalidator.user(userId))),
+						.pipe(
+							Effect.tap((saved) =>
+								state.health === "needs-configuration" && saved?.health === "ready"
+									? definitionMaterializer.materialize(userId)
+									: Effect.void,
+							),
+							Effect.tap(() => invalidator.user(userId)),
+						),
 				);
 				return toInstallationItem({
 					scope: plugin.scope,
@@ -1014,7 +917,13 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 
 			const updateInstallation = Effect.fn("PluginInstallationService.updateInstallation")(
 				(userId: UserId, slug: string, payload: UpdatePluginInstallationBody) =>
-					updateInstallationUnlocked(userId, slug, payload).pipe(
+					mapDatabaseErrors(
+						database.transaction((transaction) =>
+							updateInstallationUnlocked(userId, slug, payload).pipe(
+								Effect.provideService(Database, transaction),
+							),
+						),
+					).pipe(
 						Effect.catchTag("PluginValidationError", (error) =>
 							Effect.fail(
 								new PluginRequestError({
@@ -1058,11 +967,6 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					if (yield* repository.hasDefinitionReferences(plugin.id)) {
 						return yield* new PluginConflictError({
 							reason: { pluginSlug, code: "entity-referenced" },
-						});
-					}
-					if (yield* workflowReferences.hasInstallationReferences(installation.id)) {
-						return yield* new PluginConflictError({
-							reason: { pluginSlug, code: "workflow-referenced" },
 						});
 					}
 					if (

@@ -47,6 +47,7 @@ export default defineWorkflow({
 			);
 			return yield* replay.child("write-import", kernelImport, {
 				runId: input.runId,
+				command: input.command,
 				...adapterManifest,
 			});
 		}),

@@ -7,9 +7,7 @@ import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
 import {
-	automationRunRows,
 	eventAutomationContext,
-	eventAutomationOccurrence,
 	entityRecord,
 	eventRecord,
 	execution,
@@ -30,8 +28,6 @@ const createHost = (options: {
 	entityProperties?: JsonValue;
 	events?: ReturnType<typeof eventRecord>[];
 	eventPages?: ReturnType<typeof eventRecord>[][];
-	event?: Parameters<typeof eventAutomationOccurrence>[0];
-	ruleMetadata?: JsonValue | null;
 }) => {
 	const created: (readonly CreateEventItem[])[] = [];
 	const documents: RyotQLDocument[] = [];
@@ -47,12 +43,6 @@ const createHost = (options: {
 			},
 			executeRyotql: (document) => {
 				documents.push(document);
-				if ("occurrences" in document.queries) {
-					return hostSuccess(eventAutomationOccurrence(options.event));
-				}
-				if ("runs" in document.queries) {
-					return hostSuccess(automationRunRows(options.ruleMetadata ?? null));
-				}
 				const eventPages = options.eventPages ?? [options.events ?? []];
 				const isEntityQuery = "entities" in document.queries;
 				const eventPageIndex = queryIndex;
@@ -84,7 +74,7 @@ const run = (context: AutomationInput, host: ReturnType<typeof createHost>["host
 
 describe("auto-complete-on-full-progress sandbox script", () => {
 	it("ignores progress events below full completion", () => {
-		const { host, created } = createHost({ event: { properties: { progressPercent: 50 } } });
+		const { host, created } = createHost({});
 		return Effect.runPromise(
 			run(eventAutomationContext({ properties: { progressPercent: 50 } }), host).pipe(
 				Effect.map((result) => {
@@ -97,13 +87,7 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 	});
 
 	it("completes non-episodic media at the progress event timestamp", () => {
-		const { host, created } = createHost({
-			ruleMetadata: { inheritedProperties: ["consumedOn"] },
-			event: {
-				occurredAt: "2026-02-03T04:05:06.000Z",
-				properties: { progressPercent: 100, consumedOn: "Jellyfin" },
-			},
-		});
+		const { host, created } = createHost({});
 		return Effect.runPromise(
 			run(
 				eventAutomationContext(
@@ -139,19 +123,14 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 	it.each(["show-episode", "podcast-episode"] as const)(
 		"copies the session entity to a %s completion event",
 		(entitySchemaSlug) => {
-			const { host, created } = createHost({
-				event: {
-					sessionEntityId: "parent-1",
-					properties: { progressPercent: 100 },
-					subject: { id: "entity-1", name: "Episode", entitySchemaSlug },
-				},
-			});
+			const { host, created } = createHost({});
 			return Effect.runPromise(
 				run(
 					eventAutomationContext({
+						entitySchemaSlug,
+						entityId: "entity-1",
 						sessionEntityId: "parent-1",
 						properties: { progressPercent: 100 },
-						subject: { id: "entity-1", name: "Episode", entitySchemaSlug },
 					}),
 					host,
 				).pipe(
@@ -177,23 +156,10 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 				properties: { animeEpisode: 2, progressPercent: 100 },
 			}),
 		];
-		const complete = createHost({
-			events,
-			entityProperties: { episodes: 2 },
-			event: {
-				id: "episode-2",
-				properties: { animeEpisode: 2, progressPercent: 100 },
-				subject: { name: "Anime", id: "entity-1", entitySchemaSlug: "anime" },
-			},
-		});
+		const complete = createHost({ events, entityProperties: { episodes: 2 } });
 		const incomplete = createHost({
 			events: events.slice(0, 1),
 			entityProperties: { episodes: 2 },
-			event: {
-				id: "episode-1",
-				properties: { animeEpisode: 1, progressPercent: 100 },
-				subject: { name: "Anime", id: "entity-1", entitySchemaSlug: "anime" },
-			},
 		});
 		return Effect.runPromise(
 			Effect.all(
@@ -201,16 +167,18 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 					run(
 						eventAutomationContext({
 							id: "episode-2",
+							entityId: "entity-1",
+							entitySchemaSlug: "anime",
 							properties: { animeEpisode: 2, progressPercent: 100 },
-							subject: { name: "Anime", id: "entity-1", entitySchemaSlug: "anime" },
 						}),
 						complete.host,
 					),
 					run(
 						eventAutomationContext({
 							id: "episode-1",
+							entityId: "entity-1",
+							entitySchemaSlug: "anime",
 							properties: { animeEpisode: 1, progressPercent: 100 },
-							subject: { name: "Anime", id: "entity-1", entitySchemaSlug: "anime" },
 						}),
 						incomplete.host,
 					),
@@ -249,21 +217,14 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 				properties: { mangaChapter: 2, progressPercent: 100 },
 			}),
 		];
-		const { host, created } = createHost({
-			events,
-			entityProperties: { chapters: 2 },
-			event: {
-				id: "chapter-2b",
-				properties: { mangaChapter: 2, progressPercent: 100 },
-				subject: { name: "Manga", id: "entity-1", entitySchemaSlug: "manga" },
-			},
-		});
+		const { host, created } = createHost({ events, entityProperties: { chapters: 2 } });
 		return Effect.runPromise(
 			run(
 				eventAutomationContext({
 					id: "chapter-2b",
+					entityId: "entity-1",
+					entitySchemaSlug: "manga",
 					properties: { mangaChapter: 2, progressPercent: 100 },
-					subject: { name: "Manga", id: "entity-1", entitySchemaSlug: "manga" },
 				}),
 				host,
 			).pipe(
@@ -291,18 +252,14 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 		const { host, created, documents } = createHost({
 			entityProperties: { episodes: 101 },
 			eventPages: [firstPage, [finalEvent]],
-			event: {
-				id: finalEvent.id,
-				properties: { animeEpisode: 101, progressPercent: 100 },
-				subject: { name: "Anime", id: "entity-1", entitySchemaSlug: "anime" },
-			},
 		});
 		return Effect.runPromise(
 			run(
 				eventAutomationContext({
 					id: finalEvent.id,
+					entityId: "entity-1",
+					entitySchemaSlug: "anime",
 					properties: { animeEpisode: 101, progressPercent: 100 },
-					subject: { name: "Anime", id: "entity-1", entitySchemaSlug: "anime" },
 				}),
 				host,
 			).pipe(

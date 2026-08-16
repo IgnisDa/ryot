@@ -1,7 +1,7 @@
 import type { SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/wire";
 
 export type SandboxCapabilitySystemKind = "automation" | "script";
-export type SandboxCapabilitySubject = "user" | "subscription" | "system";
+export type SandboxCapabilitySubject = "user" | "automation-run" | "system";
 export type SandboxCapabilityRequirement = {
 	readonly bridge: boolean;
 	readonly requiresProvider?: boolean;
@@ -14,22 +14,22 @@ export type SandboxCapabilityRequirement = {
 export const SANDBOX_CAPABILITY_REQUIREMENTS = {
 	scratch: { subjects: [], bridge: false },
 	"artifact-read": { subjects: [], bridge: false },
-	sendNotification: { bridge: true, subjects: ["subscription"] as const },
-	createEvents: { bridge: true, subjects: ["user", "subscription"] as const },
-	log: { bridge: true, subjects: ["user", "subscription", "system"] as const },
-	span: { bridge: true, subjects: ["user", "subscription", "system"] as const },
-	listIntegrations: { bridge: true, subjects: ["user", "subscription"] as const },
-	listEventSchemas: { bridge: true, subjects: ["user", "subscription"] as const },
-	getEntitySchemas: { bridge: true, subjects: ["user", "subscription"] as const },
-	httpCall: { bridge: true, subjects: ["user", "subscription", "system"] as const },
-	getUserPreferences: { bridge: true, subjects: ["user", "subscription"] as const },
-	getCurrentIntegration: { bridge: true, subjects: ["user", "subscription"] as const },
-	changeUserRelationships: { bridge: true, subjects: ["user", "subscription"] as const },
-	getCachedValue: { bridge: true, subjects: ["user", "subscription", "system"] as const },
-	setCachedValue: { bridge: true, subjects: ["user", "subscription", "system"] as const },
-	getPluginConfig: { bridge: true, subjects: ["user", "subscription", "system"] as const },
-	getSystemConfig: { bridge: true, subjects: ["user", "subscription", "system"] as const },
-	claimPersistentValue: { bridge: true, subjects: ["user", "subscription", "system"] as const },
+	sendNotification: { bridge: true, subjects: ["automation-run"] as const },
+	createEvents: { bridge: true, subjects: ["user", "automation-run"] as const },
+	log: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
+	span: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
+	listIntegrations: { bridge: true, subjects: ["user", "automation-run"] as const },
+	listEventSchemas: { bridge: true, subjects: ["user", "automation-run"] as const },
+	getEntitySchemas: { bridge: true, subjects: ["user", "automation-run"] as const },
+	httpCall: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
+	getUserPreferences: { bridge: true, subjects: ["user", "automation-run"] as const },
+	getCurrentIntegration: { bridge: true, subjects: ["user", "automation-run"] as const },
+	changeUserRelationships: { bridge: true, subjects: ["user", "automation-run"] as const },
+	getCachedValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
+	setCachedValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
+	getPluginConfig: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
+	getSystemConfig: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
+	claimPersistentValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
 	ensureUserEntities: {
 		bridge: true,
 		subjects: ["user"] as const,
@@ -45,12 +45,12 @@ export const SANDBOX_CAPABILITY_REQUIREMENTS = {
 		bridge: true,
 		requiresSystemPlugin: true,
 		systemKinds: ["automation"] as const,
-		subjects: ["subscription", "system"] as const,
+		subjects: ["automation-run", "system"] as const,
 	},
 	executeRyotql: {
 		bridge: true,
 		requiresSystemPlugin: true,
-		subjects: ["user", "subscription", "system"],
+		subjects: ["user", "automation-run", "system"],
 		systemKinds: ["script", "automation"] as const,
 	},
 	upsertGlobalEntities: {

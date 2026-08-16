@@ -12,7 +12,6 @@ export type CatalogField = {
 };
 
 export type CatalogVisibility =
-	| { readonly execution: "occurrence" | "run" }
 	| { readonly user: { readonly type: "public" } }
 	| {
 			readonly user:
@@ -45,18 +44,10 @@ export type CatalogVisibility =
 	  };
 
 export type RyotQLExecutionScope =
-	| {
-			readonly type: "user";
-			readonly userId: string;
-			readonly language: string | null;
-			readonly automationRunId?: string;
-			readonly automationOccurrenceId?: string;
-	  }
+	| { readonly type: "user"; readonly userId: string; readonly language: string | null }
 	| {
 			readonly type: "plugin";
 			readonly pluginSlug: string;
-			readonly automationRunId?: string;
-			readonly automationOccurrenceId?: string;
 			readonly entitySchemaSlugs: readonly string[];
 			readonly relationshipSchemaSlugs: readonly string[];
 			readonly eventSchemas: readonly {
@@ -92,17 +83,27 @@ const installationPluginSlug = (nullable: boolean): CatalogField => ({
 		),
 });
 
-const pluginMetadataField = (key: "icon" | "name"): CatalogField => ({
-	kind: "text",
-	nullable: false,
-	resolve: ({ sqlAlias }) => sql.raw(`${sqlAlias}.manifest -> 'metadata' ->> '${key}'`),
+const pluginActiveRevisionField = (
+	expression: string,
+	kind: CatalogFieldKind,
+	nullable: boolean,
+): CatalogField => ({
+	kind,
+	nullable,
+	resolve: ({ sqlAlias }) =>
+		sql.raw(
+			`(SELECT ${expression} FROM plugin_revision revision WHERE revision.id = ${sqlAlias}.active_revision_id)`,
+		),
 });
 
-const pluginClientApiVersion: CatalogField = {
-	kind: "number",
-	nullable: true,
-	resolve: ({ sqlAlias }) => sql.raw(`(${sqlAlias}.manifest -> 'client' ->> 'apiVersion')::int`),
-};
+const pluginMetadataField = (key: "icon" | "name"): CatalogField =>
+	pluginActiveRevisionField(`revision.manifest -> 'metadata' ->> '${key}'`, "text", true);
+
+const pluginClientApiVersion = pluginActiveRevisionField(
+	`(revision.manifest -> 'client' ->> 'apiVersion')::int`,
+	"number",
+	true,
+);
 
 const localizedEntityName: CatalogField = {
 	kind: "text",
@@ -232,38 +233,10 @@ const relationship: CatalogTable = {
 	},
 };
 
-const automationOccurrence: CatalogTable = {
-	primaryKey: "id",
-	name: "automation_occurrence",
-	visibility: { execution: "occurrence" },
-	fields: {
-		id: physicalField("id", "text", false),
-		recordId: physicalField("record_id", "text"),
-		signalId: physicalField("signal_id", "text"),
-		origin: physicalField("origin", "json", false),
-		source: physicalField("source", "json", false),
-		population: physicalField("population", "json"),
-		operation: physicalField("operation", "text", false),
-		occurredAt: physicalField("occurred_at", "date", false),
-		sourceKind: physicalField("source_kind", "text", false),
-	},
-};
-
-const subscriptionRun: CatalogTable = {
-	primaryKey: "id",
-	name: "subscription_run",
-	visibility: { execution: "run" },
-	fields: {
-		id: physicalField("id", "text", false),
-		ruleId: physicalField("rule_id", "text", false),
-		ruleMetadata: physicalField("rule_metadata", "json"),
-	},
-};
-
 const plugin: CatalogTable = {
 	name: "plugin",
 	primaryKey: "id",
-	visibility: { user: { type: "owned", column: "owner_id", includeGlobal: true } },
+	visibility: { user: { type: "owned", includeGlobal: true, column: "owner_user_id" } },
 	fields: {
 		icon: pluginMetadataField("icon"),
 		name: pluginMetadataField("name"),
@@ -272,9 +245,9 @@ const plugin: CatalogTable = {
 		slug: physicalField("slug", "text", false),
 		scope: physicalField("scope", "text", false),
 		status: physicalField("status", "text", false),
-		version: physicalField("version", "text", false),
-		sourceHash: physicalField("source_hash", "text", false),
-		ingestedAt: physicalField("ingested_at", "date", false),
+		version: pluginActiveRevisionField("revision.version", "text", true),
+		ingestedAt: pluginActiveRevisionField("revision.created_at", "date", true),
+		sourceHash: pluginActiveRevisionField("revision.source_hash", "text", true),
 	},
 };
 
@@ -451,11 +424,9 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	integration,
 	relationship,
 	sandboxProvider,
-	subscriptionRun,
 	importRunFailure,
 	pluginInstallation,
 	notificationChannel,
-	automationOccurrence,
 	sandboxProviderOperation,
 	notificationSubscription,
 };
@@ -464,16 +435,8 @@ export const getCatalogTable = (name: string) => tables[name];
 
 export const canAccessCatalogTable = (
 	table: CatalogTable,
-	scope: Pick<RyotQLExecutionScope, "automationOccurrenceId" | "automationRunId" | "type">,
-) => {
-	if ("execution" in table.visibility) {
-		if (table.visibility.execution === "occurrence") {
-			return scope.automationOccurrenceId !== undefined;
-		}
-		return scope.automationRunId !== undefined;
-	}
-	return scope.type === "user" || "plugin" in table.visibility;
-};
+	scope: Pick<RyotQLExecutionScope, "type">,
+) => scope.type === "user" || "plugin" in table.visibility;
 
 export const resolveCatalogField = (table: CatalogTable, name: string) => table.fields[name];
 

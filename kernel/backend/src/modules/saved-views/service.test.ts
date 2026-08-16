@@ -83,8 +83,8 @@ const makeLayer = (
 				ClientPagesRepository.layer,
 				PluginCatalogInvalidator.layer,
 				Layer.mock(PluginRuntimeResolver)({
-					listPluginsAvailableToUser: () => Effect.succeed(availablePlugins),
 					getEffectiveDefinitions: () => Effect.succeed(registry.getSnapshot()),
+					listPluginsAvailableToUser: () => Effect.succeed([...availablePlugins]),
 				}),
 			),
 		),
@@ -150,14 +150,16 @@ it.effect("clones a validated plugin-rendered builtin with its stable runtime re
 				[
 					{
 						manifest,
-						config: {},
 						slug: "fixture",
 						scope: "system",
 						health: "ready",
 						isDisabled: false,
+						ownerUserId: null,
 						compiledHashes: {},
 						id: "fixture-plugin-id",
 						sourceHash: "source-hash",
+						pluginRevisionId: "fixture-revision",
+						pluginConfigRevisionId: "fixture-config",
 						installationId: "fixture-installation-id",
 					},
 				],

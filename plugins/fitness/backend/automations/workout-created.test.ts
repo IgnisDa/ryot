@@ -1,98 +1,66 @@
-import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { automationInputSchema } from "@ryot-app/sandbox-sdk/automation";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { expect, it } from "vitest";
 
+import { fitnessPlugin } from "../../host/plugin";
 import definition, { manifest } from "./workout-created.sandbox";
 
-const input = (origin: AutomationInput["automation"]["origin"]): AutomationInput => ({
-	automation: {
-		origin,
-		ruleId: "rule-1",
-		operation: "create",
-		occurrenceId: "occurrence-1",
-		occurredAt: "2026-07-20T10:00:00.000Z",
-		source: { kind: "entity", entityId: "workout-1" },
-	},
-});
-
-const occurrenceResponse = (origin: AutomationInput["automation"]["origin"]) => ({
-	data: {
-		occurrences: {
-			type: "rows" as const,
-			pageInfo: { limit: 1, hasMore: false, nextCursor: null },
-			items: [
-				{
-					origin,
-					population: null,
-					operation: "create",
-					source: {
-						kind: "entity",
-						after: {
-							properties: {},
-							id: "workout-1",
-							name: "Morning Run",
-							entitySchemaSlug: "workout",
-						},
-					},
-				},
-			],
-		},
-	},
-});
-
-const execution = { metadata: {}, sandboxScriptId: "script-1" };
-
-it("emits one actor signal for an API workout from its entity snapshot", () => {
+it("emits an actor signal from the inline workout snapshot", async () => {
 	const calls: unknown[] = [];
-	return Effect.runPromise(
-		definition.run(
-			input({ kind: "api" }),
-			defineSandboxTestHost(manifest, {
-				executeRyotql: () => Effect.succeed(occurrenceResponse({ kind: "api" })),
-				emitSignal: (request) => {
-					calls.push(request);
-					return Effect.succeed({ wasCreated: true, signalId: "signal-1" });
-				},
-			}),
-			execution,
-		),
-	).then((result) => {
-		expect(result).toEqual({ wasCreated: true, signalId: "signal-1" });
-		expect(calls).toEqual([
-			{
-				discriminator: "workout-1",
-				schemaSlug: "workout.created",
-				properties: { workoutId: "workout-1", workoutName: "Morning Run" },
+	const input = Schema.decodeUnknownSync(automationInputSchema)({
+		automation: {
+			runId: "run-1",
+			triggerId: "trigger-1",
+			executionUserId: "user-1",
+			hookSlug: "fitness.workout-created",
+			occurredAt: "2026-07-20T10:00:00.000Z",
+			causation: {
+				depth: 0,
+				source: "api",
+				parentRunId: null,
+				parentTriggerId: null,
+				executionId: "execution-1",
+				rootExecutionId: "execution-1",
+				initiator: { kind: "user", id: "user-1" },
 			},
-		]);
-		return undefined;
+			payload: {
+				category: "change",
+				resource: "entity",
+				operation: "create",
+				after: {
+					properties: {},
+					id: "workout-1",
+					externalId: null,
+					providerId: null,
+					populatedAt: null,
+					name: "Morning Run",
+					entitySchemaSlug: "workout",
+					createdAt: "2026-07-20T10:00:00.000Z",
+					updatedAt: "2026-07-20T10:00:00.000Z",
+				},
+			},
+		},
 	});
-});
-
-it.each([
-	{ kind: "bootstrap" } as const,
-	{ kind: "provider_refresh" } as const,
-	{ kind: "import", importRunId: "import-1" } as const,
-	{ kind: "automation", executionId: "execution-1" } as const,
-	{ kind: "integration", integrationId: "integration-1" } as const,
-])("does not emit for the $kind origin", (origin) => {
-	const calls: unknown[] = [];
-	return Effect.runPromise(
+	await Effect.runPromise(
 		definition.run(
-			input(origin),
+			input,
 			defineSandboxTestHost(manifest, {
-				executeRyotql: () => Effect.succeed(occurrenceResponse(origin)),
 				emitSignal: (request) => {
 					calls.push(request);
-					return Effect.succeed({ wasCreated: true, signalId: "signal-1" });
+					return Effect.succeed({ wasCreated: true, triggerId: "signal-1" });
 				},
 			}),
-			execution,
+			{ metadata: {}, sandboxScriptId: "script-1" },
 		),
-	).then((result) => {
-		expect(result).toBeNull();
-		expect(calls).toEqual([]);
-		return undefined;
-	});
+	);
+	expect(calls).toEqual([
+		{
+			discriminator: "workout-1",
+			schemaSlug: "workout.created",
+			properties: { workoutId: "workout-1", workoutName: "Morning Run" },
+		},
+	]);
+	const hook = fitnessPlugin.hooks.find(({ slug }) => slug === "fitness.workout-created");
+	expect(hook).toMatchObject({ causationSources: ["api"] });
 });

@@ -1,22 +1,32 @@
-import { expect, it } from "@effect/vitest";
+import { assert, describe, expect, it } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { ClientRendererId, EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { ascending, column, document, field, rows, table } from "@ryot-app/ryotql";
+import { count, eq } from "drizzle-orm";
 import { Effect, Layer, Stream } from "effect";
 
+import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { Database } from "#lib/infrastructure/db/service";
-import type { MockOverrides } from "#lib/test-utils/effect";
+import { makeAppConfigLayer, type MockOverrides } from "#lib/test-utils/effect";
 import { AuthRepository } from "#modules/auth/repository";
 import { AutomationsRepository } from "#modules/automations/repository";
 import { ClientPagesRepository } from "#modules/client-pages/repository";
-import type { DefinitionSnapshot } from "#modules/definition-registry/service";
+import {
+	buildDefinitionSnapshot,
+	type DefinitionSnapshot,
+} from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { EventsRepository, RESTORE_EVENT_BATCH_SIZE } from "#modules/events/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+import { mergeManifestDefinitions } from "#modules/plugins/loader";
+import { pluginSourceHash } from "#modules/plugins/pipeline";
 import { PluginRepository } from "#modules/plugins/repository";
+import { revisionPackage, withRevisionDatabase } from "#modules/plugins/revision.test-support";
+import type { NormalizedPlugin } from "#modules/plugins/types";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { validateSavedViewDefinition } from "#modules/saved-views/definition-validation";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
@@ -49,6 +59,7 @@ it("keeps restored installations inactive when required secrets were redacted", 
 					},
 				},
 			},
+			false,
 		),
 	).toEqual({ isDisabled: true, health: "needs-configuration" });
 });
@@ -58,6 +69,7 @@ it("preserves needs-configuration health when the secret was already absent", ()
 		resolveRestoredInstallationLifecycle(
 			{ disabledIntent: true, configuredSecretPaths: [], lifecycleIntent: "needs-configuration" },
 			{ fields: {}, unknownKeys: "strict" },
+			false,
 		),
 	).toEqual({ isDisabled: true, health: "needs-configuration" });
 });
@@ -117,6 +129,7 @@ it("detects nested required installation secrets in objects and arrays", () => {
 			resolveRestoredInstallationLifecycle(
 				{ disabledIntent: false, lifecycleIntent: "ready", configuredSecretPaths: [path] },
 				schema,
+				false,
 			),
 		).toEqual({ isDisabled: true, health: "needs-configuration" });
 		expect(
@@ -127,112 +140,6 @@ it("detects nested required installation secrets in objects and arrays", () => {
 		).toBe(true);
 	}
 });
-
-const bootstrapEntity = (
-	id: string,
-	overrides: Partial<
-		Pick<
-			ArchiveRecords["entities"][number],
-			| "origin"
-			| "entitySchemaPluginKey"
-			| "entitySchemaSlug"
-			| "name"
-			| "properties"
-			| "provider"
-			| "externalId"
-		>
-	> = {},
-) => ({
-	id,
-	provider: null,
-	name: "Arbitrary name",
-	properties: { arbitrary: true },
-	externalId: "arbitrary-external-id",
-	entitySchemaPluginKey: "plugin-key",
-	entitySchemaSlug: "arbitrary-schema",
-	origin: { kind: "bootstrap" as const },
-	...overrides,
-});
-
-it.effect("maps bootstrap entities by schema and plugin ownership", () =>
-	Effect.gen(function* () {
-		expect(
-			yield* resolveBootstrapEntityMappings(
-				[
-					bootstrapEntity("archived-bootstrap"),
-					bootstrapEntity("unrelated-bootstrap", {
-						properties: {},
-						externalId: null,
-						name: "Another entity",
-						entitySchemaPluginKey: null,
-						entitySchemaSlug: "another-schema",
-					}),
-				],
-				[{ ...bootstrapEntity("target-bootstrap"), entitySchemaPluginId: "target-plugin-id" }],
-				new Map([["plugin-key", "target-plugin-id"]]),
-			),
-		).toEqual(new Map([["archived-bootstrap", "target-bootstrap"]]));
-	}),
-);
-
-it.effect("does not map non-bootstrap entities or structurally similar rows", () =>
-	Effect.gen(function* () {
-		expect(
-			yield* resolveBootstrapEntityMappings(
-				[
-					bootstrapEntity("archived-bootstrap"),
-					bootstrapEntity("archived-other-plugin", { entitySchemaPluginKey: "other-key" }),
-					bootstrapEntity("archived-non-bootstrap", { origin: { kind: "api" } }),
-				],
-				[
-					{ ...bootstrapEntity("target-bootstrap"), entitySchemaPluginId: "target-plugin-id" },
-					{ ...bootstrapEntity("target-other-plugin"), entitySchemaPluginId: "other-plugin-id" },
-					{
-						...bootstrapEntity("target-non-bootstrap", { origin: { kind: "api" } }),
-						entitySchemaPluginId: "target-plugin-id",
-					},
-				],
-				new Map([
-					["plugin-key", "target-plugin-id"],
-					["other-key", "other-archive-plugin-id"],
-				]),
-			),
-		).toEqual(new Map([["archived-bootstrap", "target-bootstrap"]]));
-	}),
-);
-
-it.effect("restores unmatched archived bootstrap entities", () =>
-	resolveBootstrapEntityMappings(
-		[bootstrapEntity("archived")],
-		[],
-		new Map([["plugin-key", "plugin-id"]]),
-	).pipe(Effect.map((mappings) => expect(mappings).toEqual(new Map()))),
-);
-
-it.effect("rejects ambiguous target bootstrap identities", () =>
-	resolveBootstrapEntityMappings(
-		[bootstrapEntity("archived")],
-		[
-			{ ...bootstrapEntity("first"), entitySchemaPluginId: "plugin-id" },
-			{ ...bootstrapEntity("second"), entitySchemaPluginId: "plugin-id" },
-		],
-		new Map([["plugin-key", "plugin-id"]]),
-	).pipe(
-		Effect.flip,
-		Effect.tap((error) => Effect.sync(() => expect(error.message).toContain("ambiguous"))),
-	),
-);
-
-it.effect("rejects ambiguous archived or target bootstrap identities", () =>
-	resolveBootstrapEntityMappings(
-		[bootstrapEntity("first"), bootstrapEntity("second")],
-		[{ ...bootstrapEntity("target"), entitySchemaPluginId: "target-plugin-id" }],
-		new Map([["plugin-key", "target-plugin-id"]]),
-	).pipe(
-		Effect.flip,
-		Effect.tap((error) => Effect.sync(() => expect(error.message).toContain("ambiguous"))),
-	),
-);
 
 it.effect("rejects a crafted provider dependency whose schema belongs to another plugin", () =>
 	assertDependencySchemaOwnership(
@@ -306,7 +213,6 @@ const provenanceRecords = (
 	],
 	entities: [
 		{
-			origin: null,
 			properties: {},
 			provider: null,
 			externalId: null,
@@ -394,7 +300,7 @@ const provenanceDefinitions: DefinitionSnapshot = {
 			catalogState: "active",
 			propertiesSchema: { fields: {} },
 			audiencePolicy: { kind: "actor" },
-			notificationScriptSlug: "owner.notify",
+			notificationHookSlug: "owner.notify",
 		},
 	},
 	savedViews: {
@@ -604,24 +510,9 @@ const archivedEvent = (id: string): ArchiveEvent => ({
 	occurredAt: "2026-08-23T12:00:00.000Z",
 });
 
-const targetBootstrapEntity = {
-	properties: {},
-	provider: null,
-	externalId: null,
-	populatedAt: null,
-	id: "target-bootstrap",
-	name: "Bootstrap entity",
-	entitySchemaPluginId: null,
-	entitySchemaSlug: "bootstrap-entity",
-	origin: { kind: "bootstrap" as const },
-	createdAt: new Date("2026-08-23T12:00:00.000Z"),
-	updatedAt: new Date("2026-08-23T12:00:00.000Z"),
-};
-
 const restoreArchivedEvents = (
 	events: ReadonlyArray<ArchiveEvent>,
 	restoreEvents: RestoreEventsMock,
-	targetEntities: ReadonlyArray<typeof targetBootstrapEntity> = [targetBootstrapEntity],
 	restoreEntity: RestoreEntityMock = (input) =>
 		Effect.succeed(EntityId.make(input.id ?? "restored")),
 ) =>
@@ -648,7 +539,6 @@ const restoreArchivedEvents = (
 						id: "archived-bootstrap",
 						name: "Bootstrap entity",
 						entitySchemaPluginKey: null,
-						origin: { kind: "bootstrap" },
 						entitySchemaSlug: "bootstrap-entity",
 						createdAt: "2026-08-23T12:00:00.000Z",
 						updatedAt: "2026-08-23T12:00:00.000Z",
@@ -679,7 +569,7 @@ const restoreArchivedEvents = (
 						Layer.mock(EventsRepository, { restoreEvents }),
 						Layer.mock(EntitiesRepository, {
 							restoreEntity,
-							listUserEntitiesForBackup: () => Effect.succeed([...targetEntities]),
+							listUserEntitiesForBackup: () => Effect.succeed([]),
 						}),
 						Layer.mock(SavedViewsRepository, { restoreBuiltinViews: () => Effect.void }),
 						Layer.mock(IntegrationsRepository, {}),
@@ -694,18 +584,113 @@ const restoreArchivedEvents = (
 		),
 	);
 
-it.effect("restores an unmatched bootstrap entity with its origin", () => {
-	let origin: unknown;
+const bootstrapEntity = (
+	id: string,
+	overrides: Partial<
+		Pick<
+			ArchiveRecords["entities"][number],
+			"entitySchemaPluginKey" | "entitySchemaSlug" | "name" | "properties" | "externalId"
+		>
+	> = {},
+) => ({
+	id,
+	provider: null,
+	externalId: null,
+	name: "Arbitrary name",
+	properties: { arbitrary: true },
+	entitySchemaPluginKey: "plugin-key",
+	entitySchemaSlug: "arbitrary-schema",
+	...overrides,
+});
+
+const targetBootstrapEntity = (
+	id: string,
+	entitySchemaPluginId: string,
+	overrides: Parameters<typeof bootstrapEntity>[1] = {},
+) => ({ ...bootstrapEntity(id, overrides), provider: null, entitySchemaPluginId });
+
+it.effect("maps bootstrap entities by schema and plugin ownership", () =>
+	Effect.gen(function* () {
+		expect(
+			yield* resolveBootstrapEntityMappings(
+				[
+					bootstrapEntity("archived-bootstrap"),
+					bootstrapEntity("unrelated-bootstrap", {
+						properties: {},
+						name: "Another entity",
+						entitySchemaPluginKey: null,
+						entitySchemaSlug: "another-schema",
+					}),
+				],
+				[targetBootstrapEntity("target-bootstrap", "target-plugin-id")],
+				new Map([["plugin-key", "target-plugin-id"]]),
+			),
+		).toEqual(new Map([["archived-bootstrap", "target-bootstrap"]]));
+	}),
+);
+
+it.effect("does not map provider-backed or externally identified rows", () =>
+	Effect.gen(function* () {
+		expect(
+			yield* resolveBootstrapEntityMappings(
+				[
+					bootstrapEntity("archived-bootstrap"),
+					bootstrapEntity("archived-other-plugin", { entitySchemaPluginKey: "other-key" }),
+					bootstrapEntity("archived-provenanced", { externalId: "external" }),
+				],
+				[
+					targetBootstrapEntity("target-bootstrap", "target-plugin-id"),
+					targetBootstrapEntity("target-other-plugin", "other-plugin-id"),
+					targetBootstrapEntity("target-provenanced", "target-plugin-id", {
+						externalId: "external",
+					}),
+				],
+				new Map([
+					["plugin-key", "target-plugin-id"],
+					["other-key", "other-archive-plugin-id"],
+				]),
+			),
+		).toEqual(new Map([["archived-bootstrap", "target-bootstrap"]]));
+	}),
+);
+
+it.effect("restores unmatched archived bootstrap entities", () =>
+	resolveBootstrapEntityMappings(
+		[bootstrapEntity("archived")],
+		[],
+		new Map([["plugin-key", "plugin-id"]]),
+	).pipe(Effect.map((mappings) => expect(mappings).toEqual(new Map()))),
+);
+
+it.effect("rejects ambiguous bootstrap identities", () =>
+	resolveBootstrapEntityMappings(
+		[bootstrapEntity("archived")],
+		[targetBootstrapEntity("first", "plugin-id"), targetBootstrapEntity("second", "plugin-id")],
+		new Map([["plugin-key", "plugin-id"]]),
+	).pipe(
+		Effect.flip,
+		Effect.tap((error) => Effect.sync(() => expect(error.message).toContain("ambiguous"))),
+	),
+);
+
+it.effect("restores an archived entity without origin metadata", () => {
+	let restored: unknown;
 	return restoreArchivedEvents(
 		[],
 		() => Effect.void,
-		[],
 		(input) =>
 			Effect.sync(() => {
-				origin = input.origin;
+				restored = input;
 				return EntityId.make(input.id ?? "restored");
 			}),
-	).pipe(Effect.tap(() => Effect.sync(() => expect(origin).toEqual({ kind: "bootstrap" }))));
+	).pipe(
+		Effect.tap(() =>
+			Effect.sync(() => {
+				expect(restored).toMatchObject({ id: "archived-bootstrap" });
+				expect(restored).not.toHaveProperty("origin");
+			}),
+		),
+	);
 });
 
 it.effect("restores archived events in bounded batches", () => {
@@ -733,3 +718,212 @@ it.effect("reports a duplicate archived event id through the primary key insert"
 		});
 	}),
 );
+
+describe("account backup restore in PostgreSQL", () => {
+	it.effect(
+		"restores redacted required private config and historical records without automation history",
+		() => {
+			const dependencies = Layer.mergeAll(
+				AuthRepository.layer,
+				EventsRepository.layer,
+				EntitiesRepository.layer,
+				PluginRepository.layer,
+				ClientPagesRepository.layer,
+				SavedViewsRepository.layer,
+				IntegrationsRepository.layer,
+				AutomationsRepository.layer,
+				TranslationsRepository.layer,
+				RelationshipsRepository.layer,
+				PluginInstallationRepository.layer,
+			).pipe(Layer.provide(makeAppConfigLayer()));
+			const writerLayer = BackupRestoreWriter.layer.pipe(Layer.provideMerge(dependencies));
+			return withRevisionDatabase(
+				Effect.gen(function* () {
+					const db = yield* Database;
+					const plugins = yield* PluginRepository;
+					const installations = yield* PluginInstallationRepository;
+					const basePackage = revisionPackage("portable", "v1", "portable-entity");
+					const primarySignal = basePackage.manifest.signalSchemas[0];
+					assert(primarySignal);
+					const manifest: PluginManifest = {
+						...basePackage.manifest,
+						signalSchemas: [
+							primarySignal,
+							{ ...primarySignal, name: "Other signal", slug: "portable.other-signal" },
+						],
+						configSchema: {
+							unknownKeys: "strict",
+							fields: {
+								unit: { label: "Unit", type: "string", description: "Unit" },
+								token: {
+									secret: true,
+									type: "string",
+									label: "Token",
+									description: "Private token",
+									validation: { required: true },
+								},
+							},
+						},
+						hooks: basePackage.manifest.hooks.map((hook) =>
+							hook.slug === primarySignal.notificationHookSlug
+								? {
+										...hook,
+										targets: [
+											...hook.targets,
+											{
+												operation: "emit" as const,
+												resource: "signal" as const,
+												signalSchemaSlug: "portable.other-signal",
+											},
+										],
+									}
+								: hook,
+						),
+					};
+					const packageValue: NormalizedPlugin = {
+						...basePackage,
+						manifest,
+						sourceHash: pluginSourceHash(manifest, basePackage.files),
+					};
+					const pluginId = yield* plugins.persist(packageValue, {
+						scope: "user",
+						slug: "portable",
+						ownerId: "recipient",
+					});
+					const pluginKey = `user:portable:${packageValue.sourceHash}`;
+					const snapshot = buildDefinitionSnapshot(
+						mergeManifestDefinitions(
+							{ savedViews: [], signalSchemas: [], entitySchemas: [], relationshipSchemas: [] },
+							[{ id: pluginId, slug: "portable", manifest: packageValue.manifest }],
+						),
+					);
+					const timestamp = "2026-09-16T00:00:00.000Z";
+					const records: ArchiveRecords = {
+						savedViews: [],
+						integrations: [],
+						privatePlugins: [],
+						clientRenderers: [],
+						entityDependencies: [],
+						profile: { image: null, preferences: {}, name: "Restored" },
+						notificationSubscriptions: [
+							{
+								metadata: null,
+								isActive: false,
+								signalSchemaPluginKey: pluginKey,
+								signalSchemaSlug: "portable.signal",
+							},
+						],
+						relationships: [
+							{
+								scope: "user",
+								properties: {},
+								createdAt: timestamp,
+								id: "restored-relationship",
+								sourceEntityId: "restored-entity",
+								targetEntityId: "restored-entity",
+								relationshipSchemaPluginKey: pluginKey,
+								relationshipSchemaSlug: "portable-link",
+							},
+						],
+						entities: [
+							{
+								properties: {},
+								provider: null,
+								externalId: null,
+								populatedAt: null,
+								createdAt: timestamp,
+								updatedAt: timestamp,
+								id: "restored-entity",
+								name: "Restored entity",
+								entitySchemaPluginKey: pluginKey,
+								entitySchemaSlug: "portable-entity",
+							},
+						],
+						installations: [
+							{
+								sortOrder: 1,
+								createdAt: timestamp,
+								updatedAt: timestamp,
+								disabledIntent: false,
+								homeSavedViewId: null,
+								packageKey: pluginKey,
+								lifecycleIntent: "ready",
+								config: { unit: "metric" },
+								id: "restored-installation",
+								configuredSecretPaths: ["/token"],
+							},
+						],
+					};
+					const archivedEvents = {
+						count: 1,
+						sha256: "unused",
+						read: () =>
+							Stream.make({
+								properties: {},
+								id: "restored-event",
+								createdAt: timestamp,
+								updatedAt: timestamp,
+								sessionEntityId: null,
+								occurredAt: timestamp,
+								eventSchemaSlug: "changed",
+								entityId: "restored-entity",
+								eventSchemaPluginKey: pluginKey,
+							}),
+					};
+					const writer = yield* BackupRestoreWriter;
+					yield* writer.restoreRecords(
+						UserId.make("recipient"),
+						records,
+						new Map(),
+						archivedEvents,
+						new Map([[pluginKey, pluginId]]),
+						snapshot,
+					);
+					const restoredInstallation = yield* installations.findByUserAndPlugin(
+						UserId.make("recipient"),
+						pluginId,
+					);
+					assert(restoredInstallation?.activeConfigRevisionId);
+					expect(restoredInstallation).toMatchObject({
+						isDisabled: true,
+						health: "needs-configuration",
+					});
+					expect(restoredInstallation.config).toEqual({ unit: "metric" });
+					const [configRevision] = yield* db
+						.select()
+						.from(tables.pluginConfigRevision)
+						.where(eq(tables.pluginConfigRevision.id, restoredInstallation.activeConfigRevisionId));
+					const [encryptionKey] = yield* db.select().from(tables.pluginConfigEncryptionKey);
+					assert(configRevision?.encryptedPayload);
+					assert(encryptionKey);
+					expect(configRevision.encryptionKeyId).toBe(encryptionKey.id);
+					expect(new TextDecoder().decode(configRevision.encryptedPayload)).not.toContain("metric");
+					expect(records.installations[0]?.config).not.toHaveProperty("token");
+					expect(records.installations[0]).not.toHaveProperty("activeConfigRevisionId");
+					expect(yield* db.select().from(tables.pluginConfigRevision)).toHaveLength(1);
+					const subscriptions = yield* db
+						.select()
+						.from(tables.notificationSubscription)
+						.where(eq(tables.notificationSubscription.userId, "recipient"));
+					expect(
+						subscriptions
+							.map(({ isActive, signalSchemaSlug }) => ({ isActive, signalSchemaSlug }))
+							.sort((left, right) => left.signalSchemaSlug.localeCompare(right.signalSchemaSlug)),
+					).toEqual([
+						{ isActive: true, signalSchemaSlug: "portable.other-signal" },
+						{ isActive: false, signalSchemaSlug: "portable.signal" },
+					]);
+					for (const tableName of [
+						tables.automationTrigger,
+						tables.automationTriggerRecipient,
+						tables.automationRun,
+						tables.automationRunAttempt,
+					]) {
+						const [row] = yield* db.select({ count: count() }).from(tableName);
+						expect(row?.count).toBe(0);
+					}
+				}).pipe(Effect.provide(writerLayer)),
+			);
+		},
+	);
+});

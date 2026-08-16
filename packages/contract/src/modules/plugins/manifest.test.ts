@@ -59,13 +59,6 @@ const authoredManifest = definePlugin({
 			description: "Refresh test data",
 		},
 	],
-	bindings: {
-		eventAutomations: [],
-		entityAutomations: [],
-		signalAutomations: [],
-		relationshipAutomations: [],
-		providerEntityImportAutomations: [],
-	},
 	signalSchemas: [
 		{
 			name: "Test signal",
@@ -73,7 +66,7 @@ const authoredManifest = definePlugin({
 			catalogState: "active",
 			propertiesSchema: { fields: {} },
 			audiencePolicy: { kind: "actor" },
-			notificationScriptSlug: "automation.test",
+			notificationHookSlug: "test.notify",
 		},
 	],
 	configSchema: {
@@ -88,6 +81,16 @@ const authoredManifest = definePlugin({
 			},
 		},
 	},
+	hooks: [
+		{
+			stage: "after",
+			delivery: "async",
+			slug: "test.notify",
+			name: "Test notification",
+			scriptSlug: "automation.test",
+			targets: [{ operation: "emit", resource: "signal", signalSchemaSlug: "test.signal" }],
+		},
+	],
 	providers: [
 		{
 			slug: "provider.test",
@@ -173,6 +176,7 @@ const scripts = [
 		kind: "automation",
 		name: "Test automation",
 		slug: "automation.test",
+		automationType: "automation",
 		requiredPluginConfigKeys: [],
 		requiredSystemConfigKeys: [],
 		capabilities: ["emitSignal"],
@@ -243,6 +247,48 @@ const scripts = [
 const manifest = { ...authoredManifest, scripts };
 
 describe("definePlugin", () => {
+	it("accepts media-style after hooks on source-zero collection reviews and membership", () => {
+		const decoded = Schema.decodeUnknownSync(PluginManifest)({
+			...manifest,
+			hooks: [
+				...manifest.hooks,
+				{
+					stage: "after",
+					delivery: "async",
+					slug: "collection.review",
+					name: "Review collection",
+					scriptSlug: "automation.test",
+					targets: [
+						{
+							resource: "event",
+							operation: "create",
+							eventSchemaSlug: "review",
+							entitySchemaSlug: "collection",
+						},
+					],
+				},
+				...(["radarr", "sonarr"] as const).map((provider) => ({
+					stage: "after",
+					delivery: "async",
+					slug: `${provider}.push`,
+					name: `Push to ${provider}`,
+					scriptSlug: "automation.test",
+					targets: [
+						{ operation: "create", resource: "relationship", relationshipSchemaSlug: "member-of" },
+					],
+				})),
+			],
+		});
+		expect(decoded.entitySchemas).toEqual([]);
+		expect(decoded.relationshipSchemas).toEqual([]);
+		expect(decoded.hooks.map(({ slug }) => slug)).toEqual([
+			"test.notify",
+			"collection.review",
+			"radarr.push",
+			"sonarr.push",
+		]);
+	});
+
 	it("preserves manifest literals", () => {
 		const slug: "test" = manifest.metadata.slug;
 		const scriptKind: "automation" = manifest.scripts[0].kind;
@@ -741,25 +787,24 @@ describe("definePlugin", () => {
 		expect(decoded.entitySchemas[1]?.userState).toBeUndefined();
 	});
 
-	it("requires signal notification formatter references", () => {
+	it("requires signal notification hook references", () => {
 		const signalSchema = manifest.signalSchemas[0];
 		expect(() =>
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
-				signalSchemas: [{ ...signalSchema, notificationScriptSlug: undefined }],
+				signalSchemas: [{ ...signalSchema, notificationHookSlug: undefined }],
 			}),
 		).toThrow();
 	});
 
-	it("allows signal notification formatters owned by another plugin", () => {
+	it("rejects notification references that do not name a declared signal hook", () => {
 		const signalSchema = manifest.signalSchemas[0];
-		const notificationScriptSlug = "kernel.notification-formatter";
-		const decoded = Schema.decodeUnknownSync(PluginManifest)({
-			...manifest,
-			signalSchemas: [{ ...signalSchema, notificationScriptSlug }],
-		});
-
-		expect(decoded.signalSchemas[0]?.notificationScriptSlug).toBe(notificationScriptSlug);
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				signalSchemas: [{ ...signalSchema, notificationHookSlug: "automation.test" }],
+			}),
+		).toThrow();
 	});
 
 	it("accepts direct scripts and rejects kinds outside the v1 contract", () => {
@@ -1161,7 +1206,6 @@ describe("definePlugin", () => {
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
 				bindings: {
-					...manifest.bindings,
 					schemaProviderLinks: [{ providerSlug: "missing", entitySchemaSlug: "entity.test" }],
 				},
 			}),
@@ -1170,7 +1214,6 @@ describe("definePlugin", () => {
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
 				bindings: {
-					...manifest.bindings,
 					schemaProviderLinks: [{ scriptSlug: "provider.test", entitySchemaSlug: "entity.test" }],
 				},
 			}),
@@ -1187,7 +1230,7 @@ describe("definePlugin", () => {
 		).toThrow();
 	});
 
-	it("requires direct and automation bindings to reference existing scripts", () => {
+	it("requires direct entries and hooks to reference existing automation scripts", () => {
 		expect(() =>
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
@@ -1197,33 +1240,24 @@ describe("definePlugin", () => {
 		expect(() =>
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
-				bindings: {
-					...manifest.bindings,
-					entityAutomations: [
-						{ operation: "create", scriptSlug: "missing.script", entitySchemaSlug: "entity.test" },
-					],
-				},
+				hooks: [{ ...manifest.hooks[0], scriptSlug: "missing.script" }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				hooks: [{ ...manifest.hooks[0], scriptSlug: "provider.test.details" }],
 			}),
 		).toThrow();
 		expect(() =>
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
 				bindings: {
-					...manifest.bindings,
-					providerEntityImportAutomations: [
-						{ scriptSlug: "missing.script", entitySchemaSlug: "entity.test" },
-					],
-				},
-			}),
-		).toThrow();
-		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
-				...manifest,
-				bindings: {
-					...manifest.bindings,
-					providerEntityImportAutomations: [
-						{ entitySchemaSlug: "entity.test", scriptSlug: "provider.test.details" },
-					],
+					eventAutomations: [],
+					entityAutomations: [],
+					signalAutomations: [],
+					relationshipAutomations: [],
+					providerEntityImportAutomations: [],
 				},
 			}),
 		).toThrow();

@@ -53,12 +53,14 @@
 		"@effect/vitest": "4.0.0-rc.115",
 		"@ryot-app/ryotql": "workspace:*",
 		"@ryot-app/testing": "workspace:*",
+		"@testcontainers/postgresql": "11.14.0",
 		"@types/ioredis": "5.0.0",
 		"@types/nodemailer": "8.0.0",
 		"@types/pg": "8.20.0",
 		"bun-types": "1.4.0",
 		"dotenv": "17.3.1",
 		"drizzle-kit": "1.0.0-rc.5-ab785fc",
+		"testcontainers": "11.14.0",
 		"vitest": "4.1.9"
 	}
 }

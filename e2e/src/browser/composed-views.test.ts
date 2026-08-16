@@ -7,6 +7,7 @@ import {
 	buildEntityBrowserSavedViewPayload,
 	buildNamedDataSources,
 	buildNamedDataSourcesRendererDefinition,
+	createAuthenticatedClient,
 	createClientRenderer,
 	createCollection,
 	createEntity,
@@ -16,7 +17,6 @@ import {
 	createEventSchema,
 	createRendererSavedView,
 	createResultsTableSavedView,
-	createTestUser,
 	encodeClientRendererSource,
 	fakeProviderDetailsResult,
 	getBuiltinEntitySchemaSlug,
@@ -28,7 +28,6 @@ import {
 	listEntitySchemas,
 	listEventSchemas,
 	FIXTURE_CLIENT_PLUGIN_SLUG,
-	makeSession,
 	publishClientRenderer,
 	replaceClientRendererDraft,
 	requireEventSchemaBySlug,
@@ -57,8 +56,7 @@ const expectVisibleText = (locator: Playwright.Locator, text: string) =>
 it.live("opens a published saved-view renderer in one sandboxed iframe", () =>
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
-		const { token, email, password } = yield* createTestUser(apiUrl);
-		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
 		const renderer = yield* createClientRenderer(client);
 		yield* publishClientRenderer(client, renderer.id, renderer.draftRevision);
 		const view = yield* createRendererSavedView(client, renderer.id, {
@@ -103,8 +101,7 @@ it.live("opens a published saved-view renderer in one sandboxed iframe", () =>
 it.live("renders system and private public components in one shared page runtime", () =>
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
-		const { token, email, password } = yield* createTestUser(apiUrl);
-		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
 		yield* installFixtureClientPlugin(client, "A", "", apiUrl);
 		const renderer = yield* createClientRenderer(client, {
 			draftDefinition: buildComposedClientRendererDefinition(),
@@ -141,8 +138,7 @@ it.live("renders system and private public components in one shared page runtime
 it.live("uses the deterministic collection dashboard as media home and persists its workflow", () =>
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
-		const { token, email, password } = yield* createTestUser(apiUrl);
-		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
 		yield* installFixtureClientPlugin(client, "A", "", apiUrl);
 		const { showId } = yield* seedGlobalShowEpisodeTree(client, { showName: "01 Task 10 Show" });
 		const { workoutId } = yield* createWorkoutEntityFixture(client, { name: "02 Task 10 Workout" });
@@ -320,8 +316,7 @@ it.live("uses the deterministic collection dashboard as media home and persists 
 it.live("preserves expanded and dialog state when provider population completes", () =>
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
-		const { token, email, password } = yield* createTestUser(apiUrl);
-		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
 		yield* installFixtureClientPlugin(client, "A", "", apiUrl);
 		const pokemonSchema = requirePresent(
 			(yield* listEntitySchemas(client, {
@@ -443,8 +438,7 @@ it.live("preserves expanded and dialog state when provider population completes"
 it.live("preserves collection review state when a renderer update is published", () =>
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
-		const { token, email, password } = yield* createTestUser(apiUrl);
-		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
 		yield* installFixtureClientPlugin(client, "A", "", apiUrl);
 		const pokemonSchema = requirePresent(
 			(yield* listEntitySchemas(client, {
@@ -520,8 +514,7 @@ it.live("preserves collection review state when a renderer update is published",
 it.live("keeps configured entity-browser controls within their declared source", () =>
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
-		const { token, email, password } = yield* createTestUser(apiUrl);
-		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
 		const schema = yield* createEntitySchema(client, {
 			name: "Browser controls",
 			pluginSlug: `browser-controls-${crypto.randomUUID()}`,
@@ -618,8 +611,7 @@ it.live(
 	() =>
 		Effect.gen(function* () {
 			const apiUrl = getApiUrl();
-			const { token, email, password } = yield* createTestUser(apiUrl);
-			const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+			const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
 			const schema = yield* createEntitySchema(client, {
 				name: "Results table entity",
 				pluginSlug: `results-table-${crypto.randomUUID()}`,
@@ -689,8 +681,7 @@ it.live(
 it.live("decodes native, grouped, and time-series named data sources in a published page", () =>
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
-		const { token, email, password } = yield* createTestUser(apiUrl);
-		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
 		const schema = yield* createEntitySchema(client, {
 			name: "Named sources",
 			pluginSlug: `named-sources-${crypto.randomUUID()}`,
@@ -740,8 +731,7 @@ it.live("decodes native, grouped, and time-series named data sources in a publis
 it.live("keeps one rich mixed entity browser runtime across pagination and layouts", () =>
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
-		const { token, email, password } = yield* createTestUser(apiUrl);
-		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
 		yield* installFixtureClientPlugin(client, "A", "", apiUrl);
 		const uploadArtwork = (fileName: string, source: string) =>
 			Effect.gen(function* () {

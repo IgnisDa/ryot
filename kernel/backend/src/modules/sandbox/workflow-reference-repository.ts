@@ -41,6 +41,7 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 				"SandboxWorkflowReferenceRepository.registerInTransaction",
 			)(function* (input: {
 				userId?: string;
+				allowInactive?: boolean;
 				pluginId: string;
 				executionId: string;
 				contentHash: string;
@@ -62,7 +63,12 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 								input.userId ? eq(schema.pluginInstallation.userId, input.userId) : sql`false`,
 							),
 						)
-						.where(and(eq(schema.plugin.id, input.pluginId), eq(schema.plugin.status, "active")))
+						.where(
+							and(
+								eq(schema.plugin.id, input.pluginId),
+								input.allowInactive ? undefined : eq(schema.plugin.status, "active"),
+							),
+						)
 						.limit(1),
 				);
 				if (!plugin) {

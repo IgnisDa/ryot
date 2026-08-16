@@ -66,6 +66,7 @@ export class SystemPluginBootstrap extends Context.Service<SystemPluginBootstrap
 			);
 
 			const ingest = Effect.fn("SystemPluginBootstrap.ingest")(function* () {
+				yield* repository.validateConfigurationKeys();
 				yield* ingestion.rebuild();
 				yield* ingestKernelScripts();
 				for (const source of systemPlugins.sources) {

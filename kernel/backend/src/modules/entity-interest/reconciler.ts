@@ -1,8 +1,14 @@
 import type { EntityUpdatedReason } from "@ryot-app/contract/modules/entity-interest/messages";
-import type { EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	AutomationExecutionId,
+	type EntityId,
+	type UserId,
+} from "@ryot-app/contract/schema/brands";
+import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { entityInterestRecipe, type EntityInterestResult } from "@ryot-app/ryotql-recipes/entities";
-import { Context, Effect, Layer, Result } from "effect";
+import { Context, DateTime, Effect, Layer, Result } from "effect";
 
+import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { EntityPopulationTrigger } from "#modules/entities/population-trigger";
 import { TranslationsService } from "#modules/entity-translation/service";
 import { RyotQLService } from "#modules/ryotql/service";
@@ -34,13 +40,20 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 						row.externalId !== null &&
 						row.providerId !== null
 					) {
+						const executionId = `populate-${row.id}`;
 						yield* populationTrigger.request({
 							entityId: row.id,
-							origin: { kind: "api" },
 							userId: principal.userId,
 							externalId: row.externalId,
 							providerId: row.providerId,
 							entitySchemaSlug: row.entitySchemaSlug,
+							command: rootLifecycleCommand({
+								source: "api",
+								itemIdentity: executionId,
+								initiator: { kind: "user", id: principal.userId },
+								executionId: AutomationExecutionId.make(executionId),
+								occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
+							}),
 						});
 						return null;
 					}

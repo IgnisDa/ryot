@@ -4,8 +4,9 @@ import { Result, Schema, SchemaGetter } from "effect";
 import { JsonValue } from "../../schema/json";
 import { AppSchema, type AppPropertyDefinition } from "../../schema/property-schema";
 import { HttpUrl, strictStruct } from "../../schema/utils";
+import { AutomationRetryPolicy, AutomationSource } from "../automations/lifecycle";
 import { RyotQLDocument } from "../ryotql/language";
-import { SANDBOX_HOST_CAPABILITIES } from "../sandbox/wire";
+import { POLICY_SAFE_SANDBOX_CAPABILITIES, SANDBOX_HOST_CAPABILITIES } from "../sandbox/wire";
 import { AuthoredSavedViewRenderer } from "../saved-views/schemas";
 import { isSupportedUploadFileExtension } from "../uploads/upload-policy";
 import { pluginConfigEnvironmentKey } from "./plugin-config";
@@ -227,7 +228,7 @@ export const PluginSignalSchema = strictStruct({
 	name: Schema.String,
 	slug: Schema.String,
 	propertiesSchema: PluginAppSchema,
-	notificationScriptSlug: Schema.String,
+	notificationHookSlug: pluginManifestSlug,
 	audiencePolicy: PluginSignalAudiencePolicy,
 	catalogState: Schema.Literals(["active", "hidden"]),
 });
@@ -405,6 +406,7 @@ export const PluginScript = Schema.Union([
 		...PluginScriptFields,
 		kind: Schema.Literal("automation"),
 		capabilities: PluginScriptCapabilities,
+		automationType: Schema.Literals(["policy", "automation"]),
 	}),
 	Schema.Union([
 		strictStruct({
@@ -555,79 +557,81 @@ export const PluginLifecycleOperation = Schema.Literals(["create", "delete", "up
 
 export type PluginLifecycleOperation = Schema.Schema.Type<typeof PluginLifecycleOperation>;
 
-export const PluginEntityAutomation = strictStruct({
-	scriptSlug: Schema.String,
-	entitySchemaSlug: Schema.String,
-	operation: PluginLifecycleOperation,
-});
-
-export type PluginEntityAutomation = Schema.Schema.Type<typeof PluginEntityAutomation>;
-
-export const PluginProviderEntityImportAutomation = strictStruct({
+export const PluginHookTarget = Schema.Union([
+	strictStruct({
+		resource: Schema.Literal("entity"),
+		operation: PluginLifecycleOperation,
+		entitySchemaSlug: pluginManifestSlug,
+	}),
+	strictStruct({
+		resource: Schema.Literal("event"),
+		operation: PluginLifecycleOperation,
+		eventSchemaSlug: pluginManifestSlug,
+		entitySchemaSlug: pluginManifestSlug,
+	}),
+	strictStruct({
+		operation: PluginLifecycleOperation,
+		resource: Schema.Literal("relationship"),
+		relationshipSchemaSlug: pluginManifestSlug,
+	}),
+	strictStruct({
+		entitySchemaSlug: pluginManifestSlug,
+		operation: Schema.Literal("complete"),
+		resource: Schema.Literal("provider-entity-import"),
+	}),
+	strictStruct({
+		operation: Schema.Literal("emit"),
+		resource: Schema.Literal("signal"),
+		signalSchemaSlug: pluginManifestSlug,
+	}),
+]);
+export type PluginHookTarget = typeof PluginHookTarget.Type;
+const hookFields = {
+	slug: pluginManifestSlug,
+	name: sandboxManifestString,
 	scriptSlug: sandboxManifestSlug,
-	entitySchemaSlug: Schema.String,
-});
-
-export type PluginProviderEntityImportAutomation = Schema.Schema.Type<
-	typeof PluginProviderEntityImportAutomation
->;
-
-export const PluginRelationshipAutomation = strictStruct({
-	scriptSlug: Schema.String,
-	operation: PluginLifecycleOperation,
-	relationshipSchemaSlug: Schema.String,
-});
-
-export type PluginRelationshipAutomation = Schema.Schema.Type<typeof PluginRelationshipAutomation>;
-
-export const PluginEventAutomation = strictStruct({
-	scriptSlug: Schema.String,
-	eventSchemaSlug: Schema.String,
-	position: Schema.optional(Schema.Number),
-	kind: Schema.Literals(["policy", "subscription"]),
-	metadata: Schema.optional(
-		strictStruct({
-			batchMode: Schema.optional(Schema.Literal("subject")),
-			inheritedProperties: Schema.optional(Schema.Array(Schema.String)),
-			origins: Schema.optional(
-				Schema.Array(
-					Schema.Literals([
-						"api",
-						"import",
-						"bootstrap",
-						"automation",
-						"integration",
-						"provider_refresh",
-					]),
-				),
-			),
-		}),
+	metadata: Schema.optional(JsonValue),
+	targets: Schema.Array(PluginHookTarget).pipe(Schema.check(Schema.isMinLength(1))),
+	causationSources: Schema.optional(
+		Schema.Array(AutomationSource).pipe(Schema.check(Schema.isMinLength(1))),
 	),
-});
-
-export type PluginEventAutomation = Schema.Schema.Type<typeof PluginEventAutomation>;
-
-export const PluginSignalAutomation = strictStruct({
-	scriptSlug: Schema.String,
-	signalSchemaSlug: Schema.String,
-});
-
-export type PluginSignalAutomation = Schema.Schema.Type<typeof PluginSignalAutomation>;
-
-export const PluginBindings = strictStruct({
-	eventAutomations: Schema.Array(PluginEventAutomation),
-	entityAutomations: Schema.Array(PluginEntityAutomation),
-	signalAutomations: Schema.Array(PluginSignalAutomation),
-	relationshipAutomations: Schema.Array(PluginRelationshipAutomation),
-	providerEntityImportAutomations: Schema.Array(PluginProviderEntityImportAutomation),
-});
-
-export type PluginBindings = Schema.Schema.Type<typeof PluginBindings>;
+};
+export const PluginHook = Schema.Union([
+	strictStruct({
+		...hookFields,
+		stage: Schema.Literal("before"),
+		batchFrequency: Schema.optional(Schema.Literals(["item", "once-per-subject"])),
+		position: Schema.optional(
+			Schema.Number.pipe(Schema.check(Schema.makeFilter((n) => Number.isSafeInteger(n)))),
+		),
+	}).pipe(
+		Schema.check(
+			Schema.makeFilter(
+				(hook) =>
+					(hook.targets.every(
+						(target) =>
+							target.resource !== "signal" && target.resource !== "provider-entity-import",
+					) &&
+						(hook.batchFrequency === undefined ||
+							hook.targets.every((target) => target.resource === "event"))) ||
+					"Before hooks require mutation targets; batch frequency requires only event targets",
+			),
+		),
+	),
+	strictStruct({
+		...hookFields,
+		stage: Schema.Literal("after"),
+		retry: Schema.optional(AutomationRetryPolicy),
+		delivery: Schema.Literals(["required", "async"]),
+	}),
+]);
+export type PluginHook = typeof PluginHook.Type;
+export const DEFAULT_POLICY_HOOK_POSITION = 1_000;
 
 const PluginManifestAuthoredFields = {
 	metadata: PluginMetadata,
-	bindings: PluginBindings,
 	boot: Schema.Array(PluginBoot),
+	hooks: Schema.Array(PluginHook),
 	crons: Schema.Array(PluginCron),
 	configSchema: PluginConfigSchema,
 	httpRateLimits: PluginHttpRateLimits,
@@ -650,6 +654,81 @@ const PluginManifestFields = strictStruct({
 	...PluginManifestAuthoredFields,
 	scripts: Schema.Array(PluginScript),
 });
+
+export const KERNEL_DECLARED_SCHEMA_SURFACE = {
+	relationshipSchemas: [{ slug: "member-of" }],
+	signalSchemas: [{ slug: "integration.disabled" }],
+	entitySchemas: [
+		{
+			slug: "collection",
+			eventSchemas: [
+				{ slug: "review" },
+				{ slug: "add-entity-to-collection" },
+				{ slug: "remove-entity-from-collection" },
+			],
+		},
+	],
+} as const;
+
+const hasValidHookTargets = (manifest: typeof AuthoredPluginManifestFields.Type) => {
+	if (new Set(manifest.hooks.map(({ slug }) => slug)).size !== manifest.hooks.length) {
+		return false;
+	}
+	const entitySchemas = [
+		...KERNEL_DECLARED_SCHEMA_SURFACE.entitySchemas,
+		...manifest.entitySchemas,
+	];
+	const relationshipSchemas = [
+		...KERNEL_DECLARED_SCHEMA_SURFACE.relationshipSchemas,
+		...manifest.relationshipSchemas,
+	];
+	const signalSchemas = [
+		...KERNEL_DECLARED_SCHEMA_SURFACE.signalSchemas,
+		...manifest.signalSchemas,
+	];
+	for (const hook of manifest.hooks) {
+		for (const target of hook.targets) {
+			switch (target.resource) {
+				case "entity":
+				case "provider-entity-import":
+					if (!entitySchemas.some(({ slug }) => slug === target.entitySchemaSlug)) {
+						return false;
+					}
+					break;
+				case "event":
+					if (
+						!entitySchemas.some(
+							(entity) =>
+								entity.slug === target.entitySchemaSlug &&
+								entity.eventSchemas.some(({ slug }) => slug === target.eventSchemaSlug),
+						)
+					) {
+						return false;
+					}
+					break;
+				case "relationship":
+					if (!relationshipSchemas.some(({ slug }) => slug === target.relationshipSchemaSlug)) {
+						return false;
+					}
+					break;
+				case "signal":
+					if (!signalSchemas.some(({ slug }) => slug === target.signalSchemaSlug)) {
+						return false;
+					}
+			}
+		}
+	}
+	return manifest.signalSchemas.every((signal) =>
+		manifest.hooks.some(
+			(hook) =>
+				hook.slug === signal.notificationHookSlug &&
+				hook.stage === "after" &&
+				hook.targets.some(
+					(target) => target.resource === "signal" && target.signalSchemaSlug === signal.slug,
+				),
+		),
+	);
+};
 
 const hasValidClientManifestReferences = (
 	manifest: Pick<
@@ -710,7 +789,7 @@ const hasValidClientManifestReferences = (
 const hasValidAuthoredPluginManifestReferences = (
 	manifest: typeof AuthoredPluginManifestFields.Type,
 ) => {
-	if (!hasValidClientManifestReferences(manifest)) {
+	if (!hasValidClientManifestReferences(manifest) || !hasValidHookTargets(manifest)) {
 		return false;
 	}
 	const workflowSlugs = new Set(manifest.workflows.map(({ slug }) => slug));
@@ -772,7 +851,7 @@ export const AuthoredPluginManifest = AuthoredPluginManifestFields.pipe(
 export type AuthoredPluginManifest = Schema.Schema.Type<typeof AuthoredPluginManifest>;
 
 const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.Type) => {
-	if (!hasValidClientManifestReferences(manifest)) {
+	if (!hasValidClientManifestReferences(manifest) || !hasValidHookTargets(manifest)) {
 		return false;
 	}
 	const scriptSlugs = new Set(manifest.scripts.map(({ slug }) => slug));
@@ -835,10 +914,28 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 		return false;
 	}
 	if (
-		manifest.bindings.providerEntityImportAutomations.some(
-			(binding) =>
-				manifest.scripts.find(({ slug }) => slug === binding.scriptSlug)?.kind !== "automation",
-		)
+		manifest.hooks.some((hook) => {
+			const script = manifest.scripts.find(({ slug }) => slug === hook.scriptSlug);
+			if (script?.kind !== "automation") {
+				return true;
+			}
+			if (hook.stage === "before") {
+				return (
+					script.automationType !== "policy" ||
+					script.capabilities.some(
+						(capability) => !POLICY_SAFE_SANDBOX_CAPABILITIES.some((safe) => safe === capability),
+					)
+				);
+			}
+			return (
+				script.automationType !== "automation" ||
+				((hook.retry?.maxAttempts ?? 1) > 1 &&
+					script.capabilities.some(
+						(capability) => capability === "httpCall" || capability === "sendNotification",
+					) &&
+					hook.retry?.externalIdempotency !== "run-id")
+			);
+		})
 	) {
 		return false;
 	}
@@ -915,11 +1012,7 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 		...manifest.crons.map(({ scriptSlug }) => scriptSlug),
 		...manifest.operations.map(({ scriptSlug }) => scriptSlug),
 		...manifest.workflows.map(({ scriptSlug }) => scriptSlug),
-		...manifest.bindings.eventAutomations.map(({ scriptSlug }) => scriptSlug),
-		...manifest.bindings.entityAutomations.map(({ scriptSlug }) => scriptSlug),
-		...manifest.bindings.providerEntityImportAutomations.map(({ scriptSlug }) => scriptSlug),
-		...manifest.bindings.signalAutomations.map(({ scriptSlug }) => scriptSlug),
-		...manifest.bindings.relationshipAutomations.map(({ scriptSlug }) => scriptSlug),
+		...manifest.hooks.map(({ scriptSlug }) => scriptSlug),
 		...manifest.integrationProviders.flatMap((provider) =>
 			provider.lot === "push" ? [] : [provider.scriptSlug],
 		),

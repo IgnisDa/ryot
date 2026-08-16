@@ -5,7 +5,7 @@ import {
 	CreateRelationshipBody,
 	RelationshipBadRequest,
 	RelationshipNotFound,
-	RelationshipScope,
+	RelationshipMutationResult,
 } from "./schemas";
 
 export const RelationshipsGroup = HttpApiGroup.make("relationships")
@@ -13,7 +13,7 @@ export const RelationshipsGroup = HttpApiGroup.make("relationships")
 	.add(
 		HttpApiEndpoint.post("create", "/relationships", {
 			payload: CreateRelationshipBody,
-			success: RelationshipScope.pipe(HttpApiSchema.status(201)),
+			success: RelationshipMutationResult.pipe(HttpApiSchema.status(201)),
 			error: [
 				RelationshipBadRequest.pipe(HttpApiSchema.status(400)),
 				RelationshipNotFound.pipe(HttpApiSchema.status(404)),

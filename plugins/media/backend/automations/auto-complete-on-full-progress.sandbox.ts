@@ -1,4 +1,4 @@
-import type { AutomationOccurrenceSource } from "@ryot-app/sandbox-sdk/automation";
+import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
 import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
 import type { EventSchemaRecord, SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
@@ -6,8 +6,6 @@ import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
 import {
 	entityReadRecipe,
 	eventReadRecipe,
-	automationOccurrenceRecipe,
-	automationRunRecipe,
 	executeRyotqlRecipe,
 } from "@ryot-app/sandbox-sdk/ryotql";
 import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
@@ -16,6 +14,7 @@ import type { MediaProgressEvent } from "../lib/ryotql";
 
 export const manifest = defineManifest({
 	kind: "automation",
+	automationType: "automation",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 	name: "Auto-Complete on Full Progress",
@@ -25,9 +24,10 @@ export const manifest = defineManifest({
 
 type Properties = Readonly<Record<string, JsonValue>>;
 type AutomationHost = SandboxHost<typeof manifest.capabilities>;
-type AutomationEventSnapshot = NonNullable<
-	Extract<AutomationOccurrenceSource, { readonly kind: "event" }>["after"]
->;
+type AutomationEventSnapshot = Extract<
+	AutomationInput["automation"]["payload"],
+	{ resource: "event"; operation: "create" }
+>["after"];
 type CompletionSource =
 	| AutomationEventSnapshot
 	| (MediaProgressEvent & { readonly sessionEntityId?: string | null });
@@ -181,10 +181,10 @@ const getProgressEvents = (host: AutomationHost, entityId: string, entitySchemaS
 	});
 
 const getInheritedCompletionProperties = (
-	ruleMetadata: JsonValue | null,
+	hookMetadata: JsonValue | null,
 	properties: Properties,
 ) => {
-	const metadata = ruleMetadata ? jsonObject(ruleMetadata) : null;
+	const metadata = hookMetadata ? jsonObject(hookMetadata) : null;
 	const keys = metadata?.["inheritedProperties"];
 	if (!Array.isArray(keys)) {
 		return {};
@@ -198,7 +198,7 @@ const getInheritedCompletionProperties = (
 
 const createCompletionEvent = (
 	host: AutomationHost,
-	ruleMetadata: JsonValue | null,
+	hookMetadata: JsonValue | null,
 	event: AutomationEventSnapshot,
 	completeSchema: EventSchemaRecord,
 	source: CompletionSource,
@@ -210,13 +210,13 @@ const createCompletionEvent = (
 		.createEvents([
 			{
 				occurredAt,
-				entityId: event.subject.id,
+				entityId: event.entityId,
 				eventSchemaSlug: completeSchema.id,
 				...(source.sessionEntityId === undefined || source.sessionEntityId === null
 					? {}
 					: { sessionEntityId: source.sessionEntityId }),
 				properties: {
-					...getInheritedCompletionProperties(ruleMetadata, properties),
+					...getInheritedCompletionProperties(hookMetadata, properties),
 					completedOn: occurredAt,
 					completionMode: "custom_timestamps",
 				},
@@ -228,28 +228,17 @@ const createCompletionEvent = (
 export default defineAutomation({
 	manifest,
 	run: ({ automation }, host) => {
-		if (automation.source.kind !== "event") {
+		const payload = automation.payload;
+		if (payload.resource !== "event" || payload.operation !== "create") {
 			return Effect.succeed(null);
 		}
 		return Effect.gen(function* () {
-			const [occurrence, run] = yield* Effect.all(
-				[
-					executeRyotqlRecipe(
-						host.executeRyotql,
-						automationOccurrenceRecipe(automation.occurrenceId),
-					),
-					automation.runId
-						? executeRyotqlRecipe(host.executeRyotql, automationRunRecipe(automation.runId))
-						: Effect.succeed(null),
-				],
-				{ concurrency: "unbounded" },
-			);
-			const event = occurrence?.source.kind === "event" ? occurrence.source.after : undefined;
-			if (event?.properties["progressPercent"] !== 100) {
+			const event = payload.after;
+			if (event.properties["progressPercent"] !== 100) {
 				return null;
 			}
-			const entityId = event.subject.id;
-			const entitySchemaSlug = event.subject.entitySchemaSlug;
+			const entityId = event.entityId;
+			const entitySchemaSlug = event.entitySchemaSlug;
 			const entity = yield* fetchEntity(host, entityId);
 			const isEpisodic = entitySchemaSlug === "anime" || entitySchemaSlug === "manga";
 			if (!isEpisodic) {
@@ -257,7 +246,7 @@ export default defineAutomation({
 				return completeSchema
 					? yield* createCompletionEvent(
 							host,
-							run?.ruleMetadata ?? null,
+							automation.hookMetadata ?? null,
 							event,
 							completeSchema,
 							event,
@@ -288,7 +277,7 @@ export default defineAutomation({
 			return completionCandidate
 				? yield* createCompletionEvent(
 						host,
-						run?.ruleMetadata ?? null,
+						automation.hookMetadata ?? null,
 						event,
 						completeSchema,
 						completionCandidate.completionEvent,

@@ -1,4 +1,5 @@
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import { SANDBOX_FAILURE_KINDS } from "@ryot-app/contract/modules/sandbox/wire";
 import { Effect as RuntimeEffect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import type { ExecutionMetadata, SandboxWorkflowReference, WorkflowManifest } from "./core";
@@ -95,6 +96,7 @@ export const workflowReplayEnvelopeSchema = Schema.Union([
 	strictStruct({
 		error: Schema.String,
 		state: Schema.Literal("failed"),
+		kind: Schema.Literals([...SANDBOX_FAILURE_KINDS]),
 		journalLength: Schema.optional(durableCallFields.index),
 		requests: Schema.Array(workflowDurableCallRequestSchema),
 	}),
@@ -174,6 +176,21 @@ export type WorkflowDefinition<
 };
 
 const pending = Symbol("workflow-durable-call-pending");
+
+// A host call that may already have reached an external system reports `external-uncertain` so the
+// kernel refuses to auto-retry it unless the hook declared run-ID idempotency.
+const workflowFailureKind = (error: unknown): (typeof SANDBOX_FAILURE_KINDS)[number] => {
+	if (typeof error !== "object" || error === null || !("data" in error)) {
+		return "script-failure";
+	}
+	const data: unknown = error.data;
+	return typeof data === "object" &&
+		data !== null &&
+		"code" in data &&
+		data.code === "external-uncertain"
+		? "external-uncertain"
+		: "script-failure";
+};
 
 const stableJson = (value: unknown): string => {
 	if (Array.isArray(value)) {
@@ -287,7 +304,13 @@ export const defineWorkflow = <
 						RuntimeEffect.succeed(
 							error === pending
 								? { requests, ...replayIdentity, state: "pending" as const }
-								: { requests, error: String(error), ...replayIdentity, state: "failed" as const },
+								: {
+										requests,
+										...replayIdentity,
+										error: String(error),
+										state: "failed" as const,
+										kind: workflowFailureKind(error),
+									},
 						),
 					),
 				);

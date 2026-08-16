@@ -47,6 +47,7 @@ const assetResolution = {
 	url: "https://ryot.test/api/uploads/local/download?key=permanent%2Fimage.png",
 };
 const membership = {
+	warnings: [],
 	memberOf: {
 		properties: {},
 		id: "relationship-1",

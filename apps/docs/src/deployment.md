@@ -6,6 +6,16 @@ import variables from "./variables";
 
 Use [Docker Compose](./index.md#installation) unless your platform needs another method.
 
+## Plugin configuration encryption
+
+Ryot generates one dedicated 32-byte encryption key on first start and stores it in the
+PostgreSQL singleton `plugin_config_encryption_key` table. There is no environment variable,
+Secret, or mount to configure. All nodes sharing the database use the same key.
+
+Full PostgreSQL backups include the key and encrypted plugin configuration; account exports
+exclude both. If the key is missing while encrypted configuration exists, startup fails rather
+than silently generating a replacement, so back up the database as a whole.
+
 ## File storage
 
 Keep `SERVER_ADMIN_ACCESS_TOKEN` stable because it signs local file URLs. Mount

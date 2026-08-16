@@ -8,13 +8,16 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, Context, Effect, FiberSet, Layer, Result, Semaphore } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import {
+	PluginEnvironmentConfig,
+	type PluginEnvironmentConfigSnapshot,
+} from "#lib/infrastructure/plugin-environment-config";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { kernelDefinitionSource, kernelScripts } from "#modules/definition-registry/kernel-source";
 import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
-import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 
 import { PluginCatalogHub } from "./catalog-events";
-import { PluginLoader, type PluginRegistryEntry } from "./loader";
+import { PluginLoader, type PluginRegistryEntry, type PluginRegistrySnapshot } from "./loader";
 import {
 	compilePluginPackage,
 	normalizePluginSource,
@@ -63,13 +66,21 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 			const database = yield* Database;
 			const repository = yield* PluginRepository;
 			const systemPlugins = yield* SystemPlugins;
+			const environmentConfig = yield* PluginEnvironmentConfig;
 			const clientCompiler = yield* ClientPluginCompiler;
 			const scriptGarbageCollector = yield* ScriptGarbageCollector;
 			const mutationLock = yield* Semaphore.make(1);
-			const workflowReferences = yield* SandboxWorkflowReferenceRepository;
 			const kernelSignalSlugs = new Set(
 				kernelDefinitionSource().signalSchemas.map(({ slug }) => slug),
 			);
+			const commit = (next: {
+				snapshot: PluginRegistrySnapshot;
+				environment: PluginEnvironmentConfigSnapshot;
+			}) =>
+				Effect.sync(() => {
+					loader.replace(next.snapshot);
+					environmentConfig.replace(next.environment);
+				});
 			const validateSnapshot = Effect.fn("PluginIngestionService.validateSnapshot")(function* (
 				snapshot: ReturnType<PluginLoader["Service"]["getSnapshot"]>,
 				validateCompiledScripts = true,
@@ -96,7 +107,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 			});
 
 			const rebuildUnlocked = Effect.fn("PluginIngestionService.rebuildUnlocked")(function* () {
-				const snapshot = yield* mapDatabaseErrors(
+				const next = yield* mapDatabaseErrors(
 					database.transaction((transaction) =>
 						Effect.gen(function* () {
 							yield* repository.lockIngestion();
@@ -106,13 +117,14 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 								catch: (error) => new PluginValidationError({ issues: [String(error)] }),
 							});
 							yield* validateSnapshot(nextSnapshot);
-							return nextSnapshot;
+							const environment = yield* repository.resolveEnvironmentConfigs();
+							return { environment, snapshot: nextSnapshot };
 						}).pipe(Effect.provideService(Database, transaction)),
 					),
 				);
-				loader.replace(snapshot);
+				yield* commit(next);
 				yield* scriptGarbageCollector.collect();
-				return snapshot;
+				return next.snapshot;
 			});
 			const rebuild = Effect.fn("PluginIngestionService.rebuild")(() =>
 				mutationLock.withPermits(1)(Effect.uninterruptible(rebuildUnlocked())),
@@ -187,14 +199,11 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 										catch: (error) => new PluginValidationError({ issues: [String(error)] }),
 									});
 									yield* validateSnapshot(snapshot);
-									return { snapshot, plugin: authoritative };
+									const environment = yield* repository.resolveEnvironmentConfigs();
+									return { snapshot, environment, plugin: authoritative };
 								}).pipe(Effect.provideService(Database, transaction)),
 							),
-						).pipe(
-							Effect.tap((result) =>
-								result ? Effect.sync(() => loader.replace(result.snapshot)) : Effect.void,
-							),
-						),
+						).pipe(Effect.tap((result) => (result ? commit(result) : Effect.void))),
 					);
 					if (committed) {
 						yield* publishInvalidation(stableStringify({ slug, sourceHash }));
@@ -237,10 +246,11 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 									catch: (error) => new PluginValidationError({ issues: [String(error)] }),
 								});
 								yield* validateSnapshot(snapshot);
-								return { entry, snapshot };
+								const environment = yield* repository.resolveEnvironmentConfigs();
+								return { entry, snapshot, environment };
 							}).pipe(Effect.provideService(Database, transaction)),
 						),
-					).pipe(Effect.tap(({ snapshot }) => Effect.sync(() => loader.replace(snapshot)))),
+					).pipe(Effect.tap(commit)),
 				);
 				yield* publishInvalidation(stableStringify({ slug, sourceHash }));
 				return stored.entry;
@@ -305,11 +315,6 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 										reason: { pluginSlug, code: "entity-referenced" },
 									});
 								}
-								if (yield* workflowReferences.hasReferences(plugin.id)) {
-									return yield* new PluginConflictError({
-										reason: { pluginSlug, code: "workflow-referenced" },
-									});
-								}
 								const remaining = installed.filter((candidate) => candidate.slug !== slug);
 								const snapshot = yield* Effect.try({
 									try: () => loader.previewAll(remaining),
@@ -339,11 +344,12 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 									});
 								}
 								yield* repository.deactivate(plugin.id);
-								return { plugin, snapshot };
+								const environment = yield* repository.resolveEnvironmentConfigs();
+								return { plugin, snapshot, environment };
 							}).pipe(Effect.provideService(Database, transaction)),
 						),
 					);
-					loader.replace(result.snapshot);
+					yield* commit(result);
 					yield* publishInvalidation(stableStringify({ slug, action: "uninstall" }));
 					return toSystemPluginItem(result.plugin);
 				},

@@ -1,488 +1,203 @@
+import { PgClient } from "@effect/sql-pg";
+import { DbError } from "@ryot-app/contract/errors";
+import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	RelationshipBadRequest,
 	RelationshipNotFound,
+	type RelationshipMutationResult,
 } from "@ryot-app/contract/modules/relationships/schemas";
-import type {
-	EntityId,
-	RelationshipId,
-	RelationshipSchemaSlug,
-	UserId,
-} from "@ryot-app/contract/schema/brands";
+import type { RelationshipId, UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Context, Effect, Layer } from "effect";
 
-import { Database, mapDatabaseErrors, retryOnDeadlock } from "#lib/infrastructure/db/service";
-import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
-import { DefinitionRegistry } from "#modules/definition-registry/service";
-import { EntitiesRepository } from "#modules/entities/repository";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { LifecyclePlanner } from "#lib/domain/lifecycle";
+import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
+import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
+import {
+	catalogDefinitionFingerprint,
+	type CatalogDefinitionFingerprint,
+	PluginRuntimeResolver,
+} from "#modules/plugins/runtime-resolver";
 
 import {
-	RelationshipsRepository,
-	type GlobalRelationshipListInput,
-	type RelationshipIdentityInput,
-	relationshipMutationLockKey,
-} from "./repository";
-
-type CreateRelationshipInput = RelationshipIdentityInput & {
-	properties: unknown;
-	propertiesSchema: AppSchema;
-};
-
-type UpdateRelationshipInput = RelationshipIdentityInput & {
-	properties: unknown;
-	propertiesSchema: AppSchema;
-};
-
-type UserRelationshipIdentity = {
-	sourceEntityId: EntityId;
-	targetEntityId: EntityId;
-	relationshipSchemaSlug: RelationshipSchemaSlug;
-};
-
-export type ChangeUserRelationshipBatch = {
-	creates: ReadonlyArray<UserRelationshipIdentity & { properties: unknown }>;
-	deletes: ReadonlyArray<UserRelationshipIdentity>;
-};
-
-export type ReconcileGlobalRelationshipGroup = {
-	relationshipSchemaSlug: RelationshipSchemaSlug;
-	selector:
-		| { type: "self" }
-		| { type: "anchored"; direction: "incoming" | "outgoing"; anchorEntityId: EntityId };
-	relationships: ReadonlyArray<{
-		properties: unknown;
-		sourceEntityId: EntityId;
-		targetEntityId: EntityId;
-	}>;
-};
-
-const relationshipKey = (input: { sourceEntityId: EntityId; targetEntityId: EntityId }) =>
-	`${input.sourceEntityId}\u0000${input.targetEntityId}`;
-
-export const changeUserRelationships = Effect.fn("RelationshipsService.changeUser")(function* (
-	userId: UserId,
-	batches: ReadonlyArray<ChangeUserRelationshipBatch>,
-) {
-	const database = yield* Database;
-	const entities = yield* EntitiesRepository;
-	const pluginRuntime = yield* PluginRuntimeResolver;
-	const definitions = yield* pluginRuntime.getEffectiveDefinitions(userId);
-	const repository = yield* RelationshipsRepository;
-
-	const validate = Effect.fnUntraced(function* (change: UserRelationshipIdentity) {
-		const definition = definitions.relationshipSchemas[change.relationshipSchemaSlug];
-		if (!definition) {
-			return yield* new RelationshipNotFound({
-				reason: {
-					code: "relationship-schema-not-found",
-					relationshipSchemaSlug: change.relationshipSchemaSlug,
-				},
-			});
-		}
-		const [source, target] = yield* Effect.all([
-			entities.getEntityScopeForUser({ userId, entityId: change.sourceEntityId }),
-			entities.getEntityScopeForUser({ userId, entityId: change.targetEntityId }),
-		]);
-		if (!source || !target) {
-			return yield* new RelationshipNotFound({
-				reason: {
-					code: "entity-not-found",
-					entityIds: [change.sourceEntityId, change.targetEntityId],
-				},
-			});
-		}
-		if (
-			definition.sourceEntitySchemaSlug &&
-			definition.sourceEntitySchemaSlug !== source.entitySchemaSlug
-		) {
-			return yield* new RelationshipBadRequest({
-				reason: {
-					code: "source-schema-mismatch",
-					actual: source.entitySchemaSlug,
-					expected: definition.sourceEntitySchemaSlug,
-				},
-			});
-		}
-		if (
-			definition.targetEntitySchemaSlug &&
-			definition.targetEntitySchemaSlug !== target.entitySchemaSlug
-		) {
-			return yield* new RelationshipBadRequest({
-				reason: {
-					code: "target-schema-mismatch",
-					actual: target.entitySchemaSlug,
-					expected: definition.targetEntitySchemaSlug,
-				},
-			});
-		}
-		return definition;
-	});
-	const changeBatch = Effect.fnUntraced(function* (batch: ChangeUserRelationshipBatch) {
-		let created = 0;
-		let deleted = 0;
-		const creates = yield* Effect.forEach(batch.creates, (create) =>
-			Effect.gen(function* () {
-				const definition = yield* validate(create);
-				const properties = yield* parseAppSchemaProperties({
-					kind: "Relationship",
-					properties: create.properties,
-					propertiesSchema: definition.propertiesSchema,
-				}).pipe(
-					Effect.mapError(
-						(error) =>
-							new RelationshipBadRequest({
-								reason: { code: "invalid-properties", paths: error.issues.map(({ path }) => path) },
-							}),
-					),
-				);
-				return {
-					...create,
-					userId,
-					properties,
-					scope: "user" as const,
-					relationshipSchemaPluginId: definition.pluginId ?? null,
-				};
-			}),
-		);
-		const deletes = yield* Effect.forEach(batch.deletes, (remove) =>
-			Effect.gen(function* () {
-				const definition = yield* validate(remove);
-				return {
-					...remove,
-					userId,
-					scope: "user" as const,
-					relationshipSchemaPluginId: definition.pluginId ?? null,
-				};
-			}),
-		);
-		const mutations = [...creates, ...deletes].sort((left, right) =>
-			relationshipMutationLockKey(left).localeCompare(relationshipMutationLockKey(right)),
-		);
-		yield* entities.lockEntityReferencesByIds(
-			mutations.flatMap(({ sourceEntityId, targetEntityId }) => [sourceEntityId, targetEntityId]),
-		);
-		yield* repository.lockRelationshipMutations(mutations);
-		for (const create of creates.sort((left, right) =>
-			relationshipMutationLockKey(left).localeCompare(relationshipMutationLockKey(right)),
-		)) {
-			const saved = yield* repository.createRelationship(create);
-			if (saved.wasInserted) {
-				created += 1;
-			}
-		}
-		for (const remove of deletes.sort((left, right) =>
-			relationshipMutationLockKey(left).localeCompare(relationshipMutationLockKey(right)),
-		)) {
-			const removed = yield* repository.deleteRelationship(remove);
-			if (removed) {
-				deleted += 1;
-			}
-		}
-		return { created, deleted };
-	});
-
-	return yield* Effect.forEach(batches, (batch) =>
-		retryOnDeadlock(
-			mapDatabaseErrors(
-				database.transaction((transaction) =>
-					changeBatch(batch).pipe(Effect.provideService(Database, transaction)),
-				),
-			),
-		),
-	);
-});
-
-export const reconcileGlobalRelationships = Effect.fn("RelationshipsService.reconcileGlobal")(
-	function* (groups: ReadonlyArray<ReconcileGlobalRelationshipGroup>) {
-		const database = yield* Database;
-		const definitions = yield* DefinitionRegistry;
-		const entities = yield* EntitiesRepository;
-		const repository = yield* RelationshipsRepository;
-		const reconcileGroup = Effect.fnUntraced(function* (group: ReconcileGlobalRelationshipGroup) {
-			const definition = definitions.getRelationshipSchema(group.relationshipSchemaSlug);
-			if (!definition) {
-				return yield* new RelationshipNotFound({
-					reason: {
-						code: "relationship-schema-not-found",
-						relationshipSchemaSlug: group.relationshipSchemaSlug,
-					},
-				});
-			}
-
-			const selector = {
-				...group.selector,
-				relationshipSchemaSlug: group.relationshipSchemaSlug,
-				relationshipSchemaPluginId: definition.pluginId ?? null,
-			} satisfies GlobalRelationshipListInput;
-			const seen = new Set<string>();
-			const reconcileRelationship = Effect.fnUntraced(function* (
-				relationship: ReconcileGlobalRelationshipGroup["relationships"][number],
-			) {
-				let matchesSelector = relationship.sourceEntityId === relationship.targetEntityId;
-				if (group.selector.type === "anchored") {
-					matchesSelector =
-						group.selector.direction === "outgoing"
-							? relationship.sourceEntityId === group.selector.anchorEntityId
-							: relationship.targetEntityId === group.selector.anchorEntityId;
-				}
-				if (!matchesSelector) {
-					return yield* new RelationshipBadRequest({
-						reason: { code: "reconciliation-selector-mismatch" },
-					});
-				}
-
-				const key = relationshipKey(relationship);
-				if (seen.has(key)) {
-					return yield* new RelationshipBadRequest({
-						reason: { code: "duplicate-reconciliation-relationship" },
-					});
-				}
-				seen.add(key);
-
-				const properties = yield* parseAppSchemaProperties({
-					kind: "Relationship",
-					properties: relationship.properties,
-					propertiesSchema: definition.propertiesSchema,
-				}).pipe(
-					Effect.mapError(
-						(error) =>
-							new RelationshipBadRequest({
-								reason: { code: "invalid-properties", paths: error.issues.map(({ path }) => path) },
-							}),
-					),
-				);
-				return { ...relationship, properties };
-			});
-			const relationships = (yield* Effect.forEach(
-				group.relationships,
-				reconcileRelationship,
-			)).sort((left, right) =>
-				relationshipMutationLockKey({
-					...left,
-					scope: "global",
-					relationshipSchemaSlug: group.relationshipSchemaSlug,
-					relationshipSchemaPluginId: definition.pluginId ?? null,
-				}).localeCompare(
-					relationshipMutationLockKey({
-						...right,
-						scope: "global",
-						relationshipSchemaSlug: group.relationshipSchemaSlug,
-						relationshipSchemaPluginId: definition.pluginId ?? null,
-					}),
-				),
-			);
-			const existing = yield* repository.listGlobalRelationships(selector);
-			const mutationInputs = [...relationships, ...existing].map((relationship) =>
-				Object.assign(relationship, {
-					scope: "global" as const,
-					relationshipSchemaSlug: group.relationshipSchemaSlug,
-					relationshipSchemaPluginId: definition.pluginId ?? null,
-				}),
-			);
-			yield* entities.lockEntityReferencesByIds(
-				mutationInputs.flatMap(({ sourceEntityId, targetEntityId }) => [
-					sourceEntityId,
-					targetEntityId,
-				]),
-			);
-			yield* repository.lockRelationshipMutations(mutationInputs);
-
-			for (const relationship of relationships) {
-				const input = {
-					...relationship,
-					scope: "global" as const,
-					relationshipSchemaSlug: group.relationshipSchemaSlug,
-					relationshipSchemaPluginId: definition.pluginId ?? null,
-				};
-				const saved = yield* repository.createRelationship(input);
-				if (!saved.wasInserted) {
-					yield* repository.updateRelationship(input);
-				}
-			}
-
-			let deleted = 0;
-			for (const relationship of existing) {
-				if (seen.has(relationshipKey(relationship))) {
-					continue;
-				}
-				const removed = yield* repository.deleteRelationship({
-					scope: "global",
-					sourceEntityId: relationship.sourceEntityId,
-					targetEntityId: relationship.targetEntityId,
-					relationshipSchemaSlug: group.relationshipSchemaSlug,
-					relationshipSchemaPluginId: definition.pluginId ?? null,
-				});
-				if (removed) {
-					deleted += 1;
-				}
-			}
-
-			return { deleted, upserted: relationships.length };
-		});
-
-		return yield* Effect.forEach(groups, (group) =>
-			retryOnDeadlock(
-				mapDatabaseErrors(
-					database.transaction((transaction) =>
-						reconcileGroup(group).pipe(Effect.provideService(Database, transaction)),
-					),
-				),
-			),
-		);
-	},
-);
+	changeUserRelationships,
+	mutateRelationships,
+	reconcileGlobalRelationships,
+} from "./mutation-pipeline";
+import {
+	assertRootTransaction,
+	validateUserRelationshipEntities,
+	type ChangeUserRelationshipBatch,
+	type CreateRelationshipInput,
+	type Mutation,
+	type ReconcileGlobalRelationshipGroup,
+	type UpdateRelationshipInput,
+	type UserRelationshipIdentity,
+} from "./mutation-support";
+import { makePlannedRelationshipReconciliation } from "./planned-reconciliation";
+import { makePreparedRelationshipMutations } from "./prepared-mutations";
+import { RelationshipsRepository, type RelationshipIdentityInput } from "./repository";
 
 export class RelationshipsService extends Context.Service<RelationshipsService>()(
 	"RelationshipsService",
 	{
 		make: Effect.gen(function* () {
-			const pluginRuntime = yield* PluginRuntimeResolver;
 			const repository = yield* RelationshipsRepository;
-
-			const parseProperties = Effect.fnUntraced(function* (input: {
-				properties: unknown;
-				propertiesSchema: AppSchema;
-			}) {
-				return yield* parseAppSchemaProperties({
-					kind: "Relationship",
-					properties: input.properties,
-					propertiesSchema: input.propertiesSchema,
-				}).pipe(
-					Effect.mapError(
-						(error) =>
-							new RelationshipBadRequest({
-								reason: { code: "invalid-properties", paths: error.issues.map(({ path }) => path) },
-							}),
-					),
-				);
-			});
-
-			const create = Effect.fn("RelationshipsService.create")(function* (
-				input: CreateRelationshipInput,
-			) {
-				const { propertiesSchema, ...saveInput } = input;
-				const properties = yield* parseProperties({
-					propertiesSchema,
-					properties: input.properties,
-				});
-
-				return yield* repository.createRelationship({ ...saveInput, properties });
-			});
-
-			const update = Effect.fn("RelationshipsService.update")(function* (
-				input: UpdateRelationshipInput,
-			) {
-				const { propertiesSchema, ...updateInput } = input;
-				const properties = yield* parseProperties({
-					propertiesSchema,
-					properties: input.properties,
-				});
-				const updated = yield* repository.updateRelationship({ ...updateInput, properties });
-				if (!updated) {
-					return yield* new RelationshipNotFound({ reason: { code: "relationship-not-found" } });
-				}
-				return updated;
-			});
-
-			const mergeUserProperties = Effect.fn("RelationshipsService.mergeUserProperties")(function* (
-				input: CreateRelationshipInput & { userId: UserId },
-			) {
-				const database = yield* Database;
-				const entities = yield* EntitiesRepository;
-				return yield* retryOnDeadlock(
-					mapDatabaseErrors(
-						database.transaction((transaction) =>
-							Effect.gen(function* () {
-								yield* entities.lockEntityReferencesByIds([
-									input.sourceEntityId,
-									input.targetEntityId,
-								]);
-								yield* repository.lockRelationshipMutations([input]);
-								const merge = (existing: unknown) => {
-									const current = isObjectRecord(existing) ? existing : {};
-									const incoming = isObjectRecord(input.properties) ? input.properties : {};
-									const merged = { ...current, ...incoming };
-									for (const [key, value] of Object.entries(incoming)) {
-										if (Array.isArray(value) && Array.isArray(current[key])) {
-											const seen = new Set<string>();
-											merged[key] = [...current[key], ...value].filter((item) => {
-												const encoded = JSON.stringify(item);
-												if (seen.has(encoded)) {
-													return false;
-												}
-												seen.add(encoded);
-												return true;
-											});
-										}
-									}
-									return parseProperties({
-										properties: merged,
-										propertiesSchema: input.propertiesSchema,
-									});
-								};
-								const { propertiesSchema: _propertiesSchema, ...saveInput } = input;
-								const existing = yield* repository.findRelationshipProperties(input);
-								const properties = yield* merge(existing);
-								if (existing) {
-									return yield* repository.updateRelationship({ ...saveInput, properties });
-								}
-								const created = yield* repository.createRelationship({ ...saveInput, properties });
-								if (created.wasInserted) {
-									return created;
-								}
-								const conflicted = yield* repository.findRelationshipProperties(input);
-								const updated = yield* repository.updateRelationship({
-									...saveInput,
-									properties: yield* merge(conflicted),
-								});
-								if (!updated) {
-									return yield* new RelationshipNotFound({
-										reason: { code: "relationship-not-found" },
-									});
-								}
-								return updated;
-							}).pipe(Effect.provideService(Database, transaction)),
-						),
-					),
-				);
-			});
-
-			const deleteRelationship = Effect.fn("RelationshipsService.delete")(function* (
+			const runtime = yield* PluginRuntimeResolver;
+			const client = yield* PgClient.PgClient;
+			const planner = yield* LifecyclePlanner;
+			const execution = yield* LifecycleExecution;
+			const dependencies = { client, planner, runtime, execution, repository };
+			const {
+				committedReplay,
+				prepareUserCreate,
+				prepareUserDelete,
+				executeCommittedPlans,
+				persistPreparedUserCreate,
+				persistPreparedUserDelete,
+			} = makePreparedRelationshipMutations(dependencies);
+			const { persistPlannedReconciliation } = makePlannedRelationshipReconciliation(dependencies);
+			const single = Effect.fnUntraced(function* (
 				input: RelationshipIdentityInput,
+				command: LifecycleCommand,
+				mode: Mutation["mode"],
+				properties?: unknown,
+				propertiesSchema?: AppSchema,
+				schemaFingerprint?: CatalogDefinitionFingerprint,
 			) {
-				return yield* repository.deleteRelationship(input);
+				const [result] = yield* mutateRelationships([
+					{ mode, input, command, properties, propertiesSchema, schemaFingerprint },
+				]).pipe(
+					Effect.provideService(RelationshipsRepository, repository),
+					Effect.provideService(PluginRuntimeResolver, runtime),
+				);
+				if (!result) {
+					return yield* new DbError({ message: "Relationship mutation returned no result" });
+				}
+				const outcome: RelationshipMutationResult = {
+					warnings: result.warnings,
+					relationship: result.relationship,
+				};
+				return outcome;
 			});
-
-			const deleteUserRelationshipById = Effect.fn(
-				"RelationshipsService.deleteUserRelationshipById",
-			)(function* (userId: UserId, relationshipId: RelationshipId) {
-				return yield* repository.deleteUserRelationshipById(userId, relationshipId);
-			});
-
-			const listGlobal = Effect.fn("RelationshipsService.listGlobal")(function* (
-				input: GlobalRelationshipListInput,
+			const singleWithCatalog = Effect.fnUntraced(function* (
+				input: RelationshipIdentityInput,
+				command: LifecycleCommand,
+				mode: Exclude<Mutation["mode"], "delete">,
+				properties?: unknown,
 			) {
-				return yield* repository.listGlobalRelationships(input);
+				yield* assertRootTransaction;
+				const replay = yield* committedReplay(input, command, mode, properties);
+				if (replay) {
+					const replayExecution = yield* LifecycleExecution;
+					const warnings: AutomationWarning[] = [];
+					if (replay.plan.trigger.blockedReason?.hasRequiredHooks) {
+						warnings.push({
+							...replay.plan.trigger.blockedReason,
+							triggerId: replay.plan.trigger.id,
+						});
+					}
+					warnings.push(
+						...(yield* replayExecution.after({
+							runs: replay.plan.runs,
+							triggerId: replay.plan.trigger.id,
+						})),
+					);
+					return { warnings, relationship: replay.relationship };
+				}
+				const catalog =
+					input.scope === "user"
+						? yield* runtime.getEffectiveDefinitions(input.userId)
+						: yield* runtime.getGlobalDefinitions();
+				const definition = catalog.relationshipSchemas[input.relationshipSchemaSlug];
+				if (!definition) {
+					return yield* new RelationshipNotFound({
+						reason: {
+							code: "relationship-schema-not-found",
+							relationshipSchemaSlug: input.relationshipSchemaSlug,
+						},
+					});
+				}
+				const pluginId = definition.pluginId ?? null;
+				if (
+					input.relationshipSchemaPluginId !== undefined &&
+					input.relationshipSchemaPluginId !== pluginId
+				) {
+					return yield* new RelationshipBadRequest({
+						reason: { code: "concurrent-relationship-change" },
+					});
+				}
+				if (input.scope === "user") {
+					yield* validateUserRelationshipEntities(input.userId, input, definition);
+				}
+				return yield* single(
+					{ ...input, relationshipSchemaPluginId: pluginId },
+					command,
+					mode,
+					properties,
+					definition.propertiesSchema,
+					catalogDefinitionFingerprint(definition),
+				);
 			});
-
+			const create = (input: CreateRelationshipInput, command: LifecycleCommand) =>
+				singleWithCatalog(input, command, "upsert", input.properties);
 			return {
 				create,
-				update,
-				listGlobal,
-				mergeUserProperties,
-				delete: deleteRelationship,
-				deleteUserRelationshipById,
-				reconcileGlobal: (groups: ReadonlyArray<ReconcileGlobalRelationshipGroup>) =>
-					reconcileGlobalRelationships(groups).pipe(
+				prepareUserCreate,
+				prepareUserDelete,
+				executeCommittedPlans,
+				persistPreparedUserCreate,
+				persistPreparedUserDelete,
+				persistPlannedReconciliation,
+				listGlobal: repository.listGlobalRelationships,
+				delete: (input: RelationshipIdentityInput, command: LifecycleCommand) =>
+					single(input, command, "delete"),
+				update: (input: UpdateRelationshipInput, command: LifecycleCommand) =>
+					singleWithCatalog(input, command, "update", input.properties),
+				mergeUserProperties: (
+					input: CreateRelationshipInput & { userId: UserId },
+					command: LifecycleCommand,
+				) => singleWithCatalog(input, command, "merge", input.properties),
+				reconcileGlobal: (
+					groups: ReadonlyArray<ReconcileGlobalRelationshipGroup>,
+					command: LifecycleCommand,
+				) =>
+					reconcileGlobalRelationships(groups, command).pipe(
 						Effect.provideService(RelationshipsRepository, repository),
+						Effect.provideService(PluginRuntimeResolver, runtime),
 					),
-				changeUser: (userId: UserId, batches: ReadonlyArray<ChangeUserRelationshipBatch>) =>
-					changeUserRelationships(userId, batches).pipe(
-						Effect.provideService(PluginRuntimeResolver, pluginRuntime),
+				createUser: Effect.fnUntraced(function* (
+					userId: UserId,
+					input: UserRelationshipIdentity & { properties?: unknown },
+					command: LifecycleCommand,
+				) {
+					return yield* singleWithCatalog(
+						{ ...input, userId, scope: "user" },
+						command,
+						"upsert",
+						input.properties ?? {},
+					);
+				}),
+				changeUser: (
+					userId: UserId,
+					batches: ReadonlyArray<ChangeUserRelationshipBatch>,
+					command: LifecycleCommand,
+				) =>
+					changeUserRelationships(userId, batches, command).pipe(
 						Effect.provideService(RelationshipsRepository, repository),
+						Effect.provideService(PluginRuntimeResolver, runtime),
 					),
+				deleteUserRelationshipById: Effect.fnUntraced(function* (
+					userId: UserId,
+					relationshipId: RelationshipId,
+					command: LifecycleCommand,
+				) {
+					const row = yield* repository.findUserRelationshipById(userId, relationshipId);
+					if (!row) {
+						return { warnings: [], relationship: null };
+					}
+					return yield* single({ ...row, userId, scope: "user" }, command, "delete");
+				}),
 			};
 		}),
 	},

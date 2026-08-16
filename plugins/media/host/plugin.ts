@@ -1,6 +1,6 @@
 import { definePlugin } from "@ryot-app/contract/modules/plugins/manifest";
 
-import { mediaLibraryEligibleEntitySchemaSlugs } from "../backend/contracts/schema-slugs";
+import { mediaLibraryMemberEntitySchemaSlugs } from "../backend/contracts/schema-slugs";
 import { builtinMediaEntitySchemaSlugs, mediaGroupSlugs } from "../shared/media-schema-slugs";
 import { mediaConfigSchema } from "./config";
 import { mediaSavedViews } from "./saved-views";
@@ -59,6 +59,16 @@ const apiKeyInputSchema = (name: string, apiKeyDescription = `${name} API token`
 		},
 	},
 });
+
+const eventHookTarget = (qualifiedSlug: string) => {
+	const separator = qualifiedSlug.indexOf(":");
+	return {
+		resource: "event" as const,
+		operation: "create" as const,
+		entitySchemaSlug: qualifiedSlug.slice(0, separator),
+		eventSchemaSlug: qualifiedSlug.slice(separator + 1),
+	};
+};
 
 const eventSlugs = (eventSlug: string) =>
 	entitySchemas.flatMap((schema) =>
@@ -614,30 +624,49 @@ export const mediaPlugin = definePlugin({
 			description: "Resolve show and podcast episode references to entity ids",
 		},
 	],
-	bindings: {
-		signalAutomations: [],
-		providerEntityImportAutomations: mediaLibraryEligibleEntitySchemaSlugs.map(
-			(entitySchemaSlug) => ({
-				entitySchemaSlug,
-				scriptSlug: "automation.media-library-membership-on-import",
-			}),
-		),
-		entityAutomations: [
-			...[...builtinMediaEntitySchemaSlugs, "show-episode", "podcast-episode"].map(
+	hooks: [
+		{
+			stage: "after",
+			delivery: "required",
+			slug: "media.ensure-library-membership",
+			name: "Ensure media library membership",
+			scriptSlug: "automation.ensure-library-membership",
+			targets: [
+				...mediaLibraryMemberEntitySchemaSlugs.flatMap((entitySchemaSlug) => [
+					{ entitySchemaSlug, resource: "entity" as const, operation: "create" as const },
+					{
+						entitySchemaSlug,
+						operation: "complete" as const,
+						resource: "provider-entity-import" as const,
+					},
+				]),
+				...entitySchemas.flatMap((schema) =>
+					schema.eventSchemas.map(({ slug }) => eventHookTarget(`${schema.slug}:${slug}`)),
+				),
+				eventHookTarget("collection:add-entity-to-collection"),
+			],
+		},
+		{
+			stage: "after",
+			delivery: "async",
+			slug: "media.entity-updated",
+			name: "Media entity updated",
+			scriptSlug: "automation.media-entity-updated",
+			targets: [...builtinMediaEntitySchemaSlugs, "show-episode", "podcast-episode"].map(
 				(entitySchemaSlug) => ({
 					entitySchemaSlug,
+					resource: "entity" as const,
 					operation: "update" as const,
-					scriptSlug: "automation.media-entity-updated",
 				}),
 			),
-			...["show", "podcast"].map((entitySchemaSlug) => ({
-				entitySchemaSlug,
-				operation: "update" as const,
-				scriptSlug: "automation.media-auto-complete-episodic-parent",
-			})),
-		],
-		relationshipAutomations: [
-			...[
+		},
+		{
+			stage: "after",
+			delivery: "async",
+			slug: "media.relationship-sync",
+			name: "Media relationship sync",
+			scriptSlug: "automation.media-relationship-sync",
+			targets: [
 				"show-to-show-season",
 				"show-season-to-show-episode",
 				"podcast-to-podcast-episode",
@@ -645,54 +674,49 @@ export const mediaPlugin = definePlugin({
 				(["create", "update", "delete"] as const).map((operation) => ({
 					operation,
 					relationshipSchemaSlug,
-					scriptSlug: "automation.media-relationship-sync",
+					resource: "relationship" as const,
 				})),
 			),
-			...creditRelationshipSlugs.flatMap((relationshipSchemaSlug) =>
+		},
+		{
+			stage: "after",
+			delivery: "async",
+			slug: "media.association",
+			name: "Media association",
+			scriptSlug: "automation.media-association",
+			targets: creditRelationshipSlugs.flatMap((relationshipSchemaSlug) =>
 				(["create", "update", "delete"] as const).map((operation) => ({
 					operation,
 					relationshipSchemaSlug,
-					scriptSlug: "automation.media-association",
+					resource: "relationship" as const,
 				})),
 			),
-		],
-		eventAutomations: [
-			...entitySchemas.flatMap((schema) =>
-				schema.eventSchemas.map(({ slug }) => ({
-					position: 1000,
-					kind: "policy" as const,
-					eventSchemaSlug: `${schema.slug}:${slug}`,
-					metadata: { batchMode: "subject" as const },
-					scriptSlug: "policy.media-library-membership",
-				})),
-			),
-			{
-				kind: "policy",
-				position: 1000,
-				scriptSlug: "policy.media-library-membership",
-				eventSchemaSlug: "collection:add-entity-to-collection",
-			},
-			...[...eventSlugs("review"), "collection:review"].map((eventSchemaSlug) => ({
-				eventSchemaSlug,
-				kind: "subscription" as const,
-				scriptSlug: "automation.review-created",
-			})),
-			...eventSlugs("progress").flatMap((eventSchemaSlug) => [
-				{
-					eventSchemaSlug,
-					kind: "subscription" as const,
-					metadata: { inheritedProperties: ["consumedOn"] },
-					scriptSlug: "trigger.auto-complete-on-full-progress",
-				},
-				{
-					position: 100,
-					eventSchemaSlug,
-					kind: "policy" as const,
-					metadata: { origins: ["integration"] as const },
-					scriptSlug: "trigger.integration-progress-policy",
-				},
-			]),
-			...[
+		},
+		{
+			stage: "after",
+			delivery: "async",
+			name: "Review created",
+			causationSources: ["api"],
+			slug: "media.review-created",
+			scriptSlug: "automation.review-created",
+			targets: [...eventSlugs("review"), "collection:review"].map(eventHookTarget),
+		},
+		{
+			stage: "after",
+			delivery: "required",
+			name: "Complete full progress",
+			slug: "media.auto-complete-on-full-progress",
+			metadata: { inheritedProperties: ["consumedOn"] },
+			scriptSlug: "trigger.auto-complete-on-full-progress",
+			targets: eventSlugs("progress").map(eventHookTarget),
+		},
+		{
+			position: 200,
+			stage: "before",
+			slug: "media.episodic-session",
+			name: "Assign episodic session",
+			scriptSlug: "policy.media-episodic-session",
+			targets: [
 				"show:backlog",
 				"show:complete",
 				"show:dropped",
@@ -705,34 +729,59 @@ export const mediaPlugin = definePlugin({
 				"podcast:on_hold",
 				"podcast-episode:progress",
 				"podcast-episode:complete",
-			].map((eventSchemaSlug) => ({
-				position: 200,
-				eventSchemaSlug,
-				kind: "policy" as const,
-				scriptSlug: "policy.media-episodic-session",
-			})),
-			...["show-episode:complete", "podcast-episode:complete"].map((eventSchemaSlug) => ({
-				eventSchemaSlug,
-				kind: "subscription" as const,
-				scriptSlug: "automation.media-auto-complete-episodic-parent",
-			})),
-			{
-				kind: "subscription",
-				scriptSlug: "trigger.radarr-push",
-				eventSchemaSlug: "collection:add-entity-to-collection",
+			].map(eventHookTarget),
+		},
+		{
+			stage: "after",
+			delivery: "required",
+			name: "Complete episodic parent",
+			slug: "media.auto-complete-episodic-parent",
+			scriptSlug: "automation.media-auto-complete-episodic-parent",
+			targets: [
+				...["show-episode:complete", "podcast-episode:complete"].map(eventHookTarget),
+				...["show", "podcast"].map((entitySchemaSlug) => ({
+					entitySchemaSlug,
+					resource: "entity" as const,
+					operation: "update" as const,
+				})),
+			],
+		},
+		...(["radarr", "sonarr", "jellyfin"] as const).map((prov) => ({
+			name: `${prov} push`,
+			stage: "after" as const,
+			slug: `media.${prov}-push`,
+			delivery: "async" as const,
+			scriptSlug: `trigger.${prov}-push`,
+			retry: {
+				maxAttempts: 1,
+				maxDelayMs: 60000,
+				initialDelayMs: 1000,
+				externalIdempotency: "none" as const,
 			},
-			{
-				kind: "subscription",
-				scriptSlug: "trigger.sonarr-push",
-				eventSchemaSlug: "collection:add-entity-to-collection",
+			targets: (prov === "jellyfin"
+				? eventSlugs("complete")
+				: ["collection:add-entity-to-collection"]
+			).map(eventHookTarget),
+		})),
+		{
+			stage: "after",
+			delivery: "async",
+			slug: "media.notification",
+			name: "Media notification",
+			scriptSlug: "automation.media-notification",
+			retry: {
+				maxAttempts: 1,
+				maxDelayMs: 60000,
+				initialDelayMs: 1000,
+				externalIdempotency: "none",
 			},
-			...eventSlugs("complete").map((eventSchemaSlug) => ({
-				eventSchemaSlug,
-				kind: "subscription" as const,
-				scriptSlug: "trigger.jellyfin-push",
+			targets: mediaSignalSchemas("media-monitoring").map(({ slug }) => ({
+				signalSchemaSlug: slug,
+				operation: "emit" as const,
+				resource: "signal" as const,
 			})),
-		],
-	},
+		},
+	],
 	importSources: [
 		{
 			slug: "netflix",

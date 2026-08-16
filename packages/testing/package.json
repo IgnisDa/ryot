@@ -11,6 +11,10 @@
 			"types": "./src/vitest.client.ts",
 			"default": "./src/vitest.client.ts"
 		},
+		"./postgres-container": {
+			"types": "./src/postgres-container.ts",
+			"default": "./src/postgres-container.ts"
+		},
 		"./jsdom-blob-clone": {
 			"types": "./src/jsdom-blob-clone.ts",
 			"default": "./src/jsdom-blob-clone.ts"
@@ -23,6 +27,20 @@
 		"vitest": "4.1.9"
 	},
 	"devDependencies": {
-		"bun-types": "1.4.0"
+		"@testcontainers/postgresql": "11.14.0",
+		"bun-types": "1.4.0",
+		"testcontainers": "11.14.0"
+	},
+	"peerDependencies": {
+		"@testcontainers/postgresql": "11.14.0",
+		"testcontainers": "11.14.0"
+	},
+	"peerDependenciesMeta": {
+		"@testcontainers/postgresql": {
+			"optional": true
+		},
+		"testcontainers": {
+			"optional": true
+		}
 	}
 }

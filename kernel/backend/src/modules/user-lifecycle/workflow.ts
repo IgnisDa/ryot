@@ -117,9 +117,7 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 					if (operation.databaseCleanupCompletedAt !== null) {
 						return;
 					}
-					if (yield* repository.userExists(operation.operation.userId)) {
-						yield* auth.deleteAuthUser(operation.operation.userId);
-					}
+					yield* repository.deleteUserData(operation.operation.userId);
 					yield* repository.markDatabaseCleanupCompleted(operationId);
 				}),
 				"User database cleanup failed",

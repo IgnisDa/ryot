@@ -287,6 +287,7 @@ export default defineWorkflow({
       chunkHandles: [],
       writeItemCount: 0,
       runId: input.runId,
+      command: input.command,
     }),
 });
 `;

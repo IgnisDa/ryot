@@ -1,3 +1,4 @@
+import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import { Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import {
@@ -12,6 +13,7 @@ import {
 } from "./runtime-registry";
 import { jsonValueSchema, strictStruct } from "./wire";
 
+export { LifecycleCommand };
 export * from "./runtime-registry";
 
 export const SANDBOX_SDK_IMPORTS = [
@@ -29,6 +31,26 @@ export const SANDBOX_SDK_IMPORTS = [
 ] as const;
 
 const importRecordSchema = Schema.Record(Schema.String, jsonValueSchema);
+
+const hasGenericImportAttribution = (
+	command: Schema.Schema.Type<typeof LifecycleCommand>,
+	runId: string,
+) => {
+	const { causation } = command;
+	return (
+		causation.importRunId === runId &&
+		causation.depth === 0 &&
+		causation.parentRunId === null &&
+		causation.parentTriggerId === null &&
+		causation.executionId === causation.rootExecutionId &&
+		((causation.source === "import" &&
+			causation.integrationId === undefined &&
+			causation.initiator.kind === "user") ||
+			(causation.source === "integration" &&
+				causation.initiator.kind === "integration" &&
+				causation.integrationId === causation.initiator.id))
+	);
+};
 
 export const genericImportFailureSchema = strictStruct({
 	message: Schema.String,
@@ -133,8 +155,17 @@ export const genericImportWorkflowManifestSchema = strictStruct({
 export const genericImportWorkflowInputSchema = strictStruct({
 	runId: Schema.String,
 	source: Schema.String,
+	command: LifecycleCommand,
 	sourcePayload: Schema.optional(Schema.Record(Schema.String, jsonValueSchema)),
-});
+}).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(value) =>
+				hasGenericImportAttribution(value.command, value.runId) ||
+				"Generic import command attribution does not match the import run",
+		),
+	),
+);
 
 export const genericImportWorkflowResultSchema = strictStruct({
 	failedItems: Schema.Number,
@@ -144,9 +175,9 @@ export const genericImportWorkflowResultSchema = strictStruct({
 
 export const genericImportKernelInputSchema = strictStruct({
 	runId: Schema.String,
+	command: LifecycleCommand,
 	failRun: Schema.optional(Schema.Boolean),
 	chunkHandles: Schema.Array(Schema.String),
-	integrationId: Schema.optional(Schema.String),
 	totalItems: Schema.Number.pipe(
 		Schema.check(Schema.isInt()),
 		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
@@ -159,7 +190,15 @@ export const genericImportKernelInputSchema = strictStruct({
 		Schema.check(Schema.isInt()),
 		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
 	),
-});
+}).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(value) =>
+				hasGenericImportAttribution(value.command, value.runId) ||
+				"Generic import command attribution does not match the import run",
+		),
+	),
+);
 
 export type GenericImportChunk = Schema.Schema.Type<typeof genericImportChunkSchema>;
 export type GenericImportFailure = Schema.Schema.Type<typeof genericImportFailureSchema>;

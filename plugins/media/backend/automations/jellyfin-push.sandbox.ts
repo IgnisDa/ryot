@@ -2,7 +2,6 @@ import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
 import type { IntegrationRecord } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { automationOccurrenceRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
 
 import {
 	fetchEntity,
@@ -22,6 +21,7 @@ const JELLYFIN_AUTH_HEADER =
 export const manifest = defineManifest({
 	kind: "automation",
 	name: "Jellyfin Push",
+	automationType: "automation",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 	slug: "trigger.jellyfin-push",
@@ -152,18 +152,15 @@ const markPlayedInJellyfin = (
 export default defineAutomation({
 	manifest,
 	run: ({ automation }, host) => {
-		if (automation.source.kind !== "event") {
+		const payload = automation.payload;
+		if (payload.resource !== "event" || payload.operation !== "create") {
 			return Effect.succeed(null);
 		}
 
 		return Effect.gen(function* () {
-			const occurrence = yield* executeRyotqlRecipe(
-				host.executeRyotql,
-				automationOccurrenceRecipe(automation.occurrenceId),
-			);
-			const event = occurrence?.source.kind === "event" ? occurrence.source.after : undefined;
-			const entitySchemaSlug = event?.subject.entitySchemaSlug;
-			if (!event || (entitySchemaSlug !== "movie" && entitySchemaSlug !== "show")) {
+			const event = payload.after;
+			const entitySchemaSlug = event.entitySchemaSlug;
+			if (entitySchemaSlug !== "movie" && entitySchemaSlug !== "show") {
 				return null;
 			}
 			const [disabled, integrations] = yield* Effect.all(
@@ -173,7 +170,7 @@ export default defineAutomation({
 			if (disabled || integrations.length === 0) {
 				return null;
 			}
-			const entity = yield* fetchEntity(host, event.subject.id);
+			const entity = yield* fetchEntity(host, event.entityId);
 			const providerName = yield* resolveEntityProviderName(host, entity);
 			const tmdbId = providerName === "TMDB" ? entity.externalId : null;
 			const title = entity.name || null;

@@ -69,12 +69,8 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 			);
 		});
 
-		const executeForUser = (
-			userId: string,
-			language: string | null,
-			document: RyotQLDocument,
-			execution?: { automationRunId?: string; automationOccurrenceId?: string },
-		) => executeWithScope({ userId, language, type: "user", ...execution }, document);
+		const executeForUser = (userId: string, language: string | null, document: RyotQLDocument) =>
+			executeWithScope({ userId, language, type: "user" }, document);
 
 		const executeForPlugin = (
 			scope: Omit<Extract<RyotQLExecutionScope, { type: "plugin" }>, "type">,

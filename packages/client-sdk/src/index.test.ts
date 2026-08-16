@@ -29,6 +29,7 @@ const resolutions = assets.map((asset) => ({
 	url: `https://ryot.test/api/uploads/${asset.type}/download?key=${encodeURIComponent(asset.key)}`,
 }));
 const membership = {
+	warnings: [],
 	memberOf: {
 		properties: {},
 		id: "relationship-1",

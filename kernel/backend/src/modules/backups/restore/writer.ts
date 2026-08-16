@@ -19,6 +19,7 @@ import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities
 import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { EventsRepository, RESTORE_EVENT_BATCH_SIZE } from "#modules/events/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
+import { validateRestoredProperties } from "#modules/plugins/config-revisions";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRepository } from "#modules/plugins/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
@@ -97,9 +98,11 @@ const isRequiredSecretPath = (path: string, schema: AppSchema) => {
 export const resolveRestoredInstallationLifecycle = (
 	state: Pick<ArchiveInstallation, "configuredSecretPaths" | "disabledIntent" | "lifecycleIntent">,
 	schema: AppSchema,
+	redactedConfigNeedsConfiguration: boolean,
 ) => {
 	const missingRequiredSecret =
 		state.lifecycleIntent === "needs-configuration" ||
+		redactedConfigNeedsConfiguration ||
 		state.configuredSecretPaths.some((path) => isRequiredSecretPath(path, schema));
 	return {
 		isDisabled: missingRequiredSecret ? true : state.disabledIntent,
@@ -127,12 +130,17 @@ const bootstrapSchemaIdentity = (entitySchemaSlug: string, entitySchemaPluginId:
 
 type ArchivedBootstrapEntity = Pick<
 	ArchiveRecords["entities"][number],
-	"id" | "origin" | "entitySchemaSlug" | "entitySchemaPluginKey"
+	"id" | "provider" | "externalId" | "entitySchemaSlug" | "entitySchemaPluginKey"
 >;
 type TargetBootstrapEntity = Pick<
 	PortableEntityRecord,
-	"id" | "origin" | "entitySchemaSlug" | "entitySchemaPluginId"
+	"id" | "provider" | "externalId" | "entitySchemaSlug" | "entitySchemaPluginId"
 >;
+
+const isBootstrapEntity = (entity: {
+	readonly provider: unknown;
+	readonly externalId: string | null;
+}) => entity.provider === null && entity.externalId === null;
 
 export const resolveBootstrapEntityMappings = Effect.fn(function* (
 	archived: ReadonlyArray<ArchivedBootstrapEntity>,
@@ -141,7 +149,7 @@ export const resolveBootstrapEntityMappings = Effect.fn(function* (
 ) {
 	const archivedByIdentity = new Map<string, Array<ArchivedBootstrapEntity>>();
 	for (const entity of archived) {
-		if (entity.origin?.kind !== "bootstrap") {
+		if (!isBootstrapEntity(entity)) {
 			continue;
 		}
 		const entitySchemaPluginKey = entity.entitySchemaPluginKey;
@@ -165,7 +173,7 @@ export const resolveBootstrapEntityMappings = Effect.fn(function* (
 	}
 	const targetByIdentity = new Map<string, Array<TargetBootstrapEntity>>();
 	for (const entity of target) {
-		if (entity.origin?.kind !== "bootstrap") {
+		if (!isBootstrapEntity(entity)) {
 			continue;
 		}
 		const identity = bootstrapSchemaIdentity(entity.entitySchemaSlug, entity.entitySchemaPluginId);
@@ -182,11 +190,11 @@ export const resolveBootstrapEntityMappings = Effect.fn(function* (
 		if (!targetEntities) {
 			continue;
 		}
+		const archivedEntity = archivedEntities[0];
+		const targetEntity = targetEntities[0];
 		if (archivedEntities.length !== 1 || targetEntities.length !== 1) {
 			return yield* badRequest("Backup bootstrap entity identity is ambiguous");
 		}
-		const archivedEntity = archivedEntities[0];
-		const targetEntity = targetEntities[0];
 		if (!archivedEntity || !targetEntity) {
 			return yield* badRequest("Backup bootstrap entity mapping is unavailable");
 		}
@@ -411,12 +419,28 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					if (!pluginId || !installedPlugin || installationIdByKey.has(state.packageKey)) {
 						return yield* badRequest("Backup plugin installation mapping is invalid");
 					}
+					const config = yield* rewriteManagedAssetLocators(
+						decodeArchiveJsonObject(state.config),
+						installedPlugin.configSchema,
+						assetLocators,
+					);
+					const isSystemPackage = state.packageKey.startsWith("system:");
+					const redactedConfigNeedsConfiguration = isSystemPackage
+						? false
+						: (yield* validateRestoredProperties(
+								config,
+								installedPlugin.configSchema,
+								state.configuredSecretPaths,
+								state.lifecycleIntent === "needs-configuration",
+							)).needsConfiguration;
 					const lifecycle = resolveRestoredInstallationLifecycle(
 						state,
 						installedPlugin.configSchema,
+						redactedConfigNeedsConfiguration,
 					);
 					const restored = yield* installations.restore({
 						userId,
+						config,
 						pluginId,
 						id: state.id,
 						isDisabled: true,
@@ -424,12 +448,9 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						sortOrder: state.sortOrder,
 						createdAt: parseDate(state.createdAt),
 						updatedAt: parseDate(state.updatedAt),
-						preserveExistingConfig: state.packageKey.startsWith("system:"),
-						config: yield* rewriteManagedAssetLocators(
-							decodeArchiveJsonObject(state.config),
-							installedPlugin.configSchema,
-							assetLocators,
-						),
+						preserveExistingConfig: isSystemPackage,
+						configuredSecretPaths: state.configuredSecretPaths,
+						allowMissingRequiredSecrets: state.lifecycleIntent === "needs-configuration",
 					});
 					if (!restored) {
 						return yield* badRequest("Backup plugin installation could not be restored");
@@ -694,7 +715,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						properties,
 						id: entity.id,
 						name: entity.name,
-						origin: entity.origin,
 						externalId: entity.externalId,
 						providerId: provider?.id ?? null,
 						createdAt: parseDate(entity.createdAt),
@@ -882,6 +902,21 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						!(yield* installations.setHomeSavedView(userId, installationId, homeSavedViewId))
 					) {
 						return yield* badRequest("Backup installation home saved view could not be restored");
+					}
+				}
+				for (const definition of Object.values(definitions.signalSchemas)) {
+					if (
+						definition.catalogState === "active" &&
+						definition.pluginId &&
+						pluginKeyById.get(definition.pluginId)?.startsWith("user:")
+					) {
+						yield* automations.insertNotificationSubscription({
+							userId,
+							metadata: null,
+							isActive: true,
+							signalSchemaPluginId: definition.pluginId,
+							signalSchemaSlug: SignalSchemaSlug.make(definition.slug),
+						});
 					}
 				}
 				for (const subscription of records.notificationSubscriptions) {

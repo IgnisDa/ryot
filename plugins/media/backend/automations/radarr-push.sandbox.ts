@@ -2,7 +2,6 @@ import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
 import type { IntegrationRecord } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { automationOccurrenceRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
 
 import {
 	collectionSyncMatches,
@@ -20,6 +19,7 @@ export const manifest = defineManifest({
 	kind: "automation",
 	name: "Radarr Push",
 	slug: "trigger.radarr-push",
+	automationType: "automation",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 	capabilities: [
@@ -67,19 +67,16 @@ const pushMovieToRadarr = (
 export default defineAutomation({
 	manifest,
 	run: ({ automation }, host) => {
-		if (automation.source.kind !== "event") {
+		const payload = automation.payload;
+		if (payload.resource !== "event" || payload.operation !== "create") {
 			return Effect.succeed(null);
 		}
 
 		return Effect.gen(function* () {
-			const occurrence = yield* executeRyotqlRecipe(
-				host.executeRyotql,
-				automationOccurrenceRecipe(automation.occurrenceId),
-			);
-			const event = occurrence?.source.kind === "event" ? occurrence.source.after : undefined;
-			const entitySchemaSlug = event?.properties["entitySchemaSlug"];
-			const entityId = event?.properties["entityId"];
-			if (!event || entitySchemaSlug !== "movie" || typeof entityId !== "string") {
+			const event = payload.after;
+			const entitySchemaSlug = event.properties["entitySchemaSlug"];
+			const entityId = event.properties["entityId"];
+			if (entitySchemaSlug !== "movie" || typeof entityId !== "string") {
 				return null;
 			}
 			const [disabled, integrations] = yield* Effect.all(
@@ -90,7 +87,7 @@ export default defineAutomation({
 				return null;
 			}
 			const matching = integrations.filter((integration) =>
-				collectionSyncMatches(integration, event.subject.id),
+				collectionSyncMatches(integration, event.entityId),
 			);
 			if (matching.length === 0) {
 				return null;

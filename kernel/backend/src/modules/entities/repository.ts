@@ -1,17 +1,18 @@
 import { DbError } from "@ryot-app/contract/errors";
-import type { AutomationOrigin } from "@ryot-app/contract/modules/automations/schemas";
+import { AutomationTriggerPayload } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
+	type AutomationTriggerId,
 	EntityId,
 	EntitySchemaSlug,
 	type SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
 import { and, asc, count, eq, exists, inArray, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
-import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import {
@@ -23,9 +24,10 @@ import {
 } from "./repository-support";
 
 export type InsertEntityInputBase = {
+	id?: EntityId;
+	createdAt?: Date;
 	name: string;
 	entitySchemaSlug: EntitySchemaSlug;
-	origin?: AutomationOrigin | null | undefined;
 	entitySchemaPluginId?: string | null | undefined;
 } & (
 	| {
@@ -37,6 +39,7 @@ export type InsertEntityInputBase = {
 	| {
 			scope: "user";
 			userId: UserId;
+			populatedAt?: Date | null;
 			externalId?: string | undefined;
 			providerId?: SandboxProviderId | undefined;
 	  }
@@ -84,7 +87,6 @@ export type PortableEntityRecord = Pick<
 	| "populatedAt"
 	| "entitySchemaPluginId"
 	| "entitySchemaSlug"
-	| "origin"
 > & {
 	readonly provider: {
 		readonly pluginId: string;
@@ -106,13 +108,11 @@ type RestoreEntityInput = Pick<
 	| "providerId"
 	| "entitySchemaPluginId"
 	| "entitySchemaSlug"
-	| "origin"
 >;
 
 const portableEntitySelection = {
 	id: schema.entity.id,
 	name: schema.entity.name,
-	origin: schema.entity.origin,
 	pluginSlug: schema.plugin.slug,
 	providerPluginId: schema.plugin.id,
 	createdAt: schema.entity.createdAt,
@@ -154,8 +154,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 	"EntitiesRepository",
 	{
 		make: Effect.gen(function* () {
-			const definitions = yield* DefinitionRegistry;
 			const pluginRuntime = yield* PluginRuntimeResolver;
+			const lockSchemaCatalog = pluginRuntime.lockCatalog;
 			const lockProviderEntityMutations = Effect.fn(
 				"EntitiesRepository.lockProviderEntityMutations",
 			)(function* (inputs: ReadonlyArray<ProviderEntityMutationLockInput>) {
@@ -421,6 +421,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 								entityName: schema.entity.name,
 								entityUserId: schema.entity.userId,
 								entitySchemaSlug: schema.entity.entitySchemaSlug,
+								entitySchemaPluginId: schema.entity.entitySchemaPluginId,
 							})
 							.from(schema.entity)
 							.where(
@@ -665,16 +666,18 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			});
 
 			const findSystemEntitySchemaById = (entitySchemaSlug: EntitySchemaSlug) =>
-				Effect.sync(() => {
-					const definition = definitions.getEntitySchema(entitySchemaSlug);
-					return definition
-						? {
-								slug: definition.slug,
-								propertiesSchema: definition.propertiesSchema,
-								...(definition.pluginId == null ? {} : { pluginId: definition.pluginId }),
-							}
-						: null;
-				});
+				pluginRuntime.getGlobalDefinitions().pipe(
+					Effect.map((definitions) => {
+						const definition = definitions.entitySchemas[entitySchemaSlug];
+						return definition
+							? {
+									slug: definition.slug,
+									propertiesSchema: definition.propertiesSchema,
+									...(definition.pluginId == null ? {} : { pluginId: definition.pluginId }),
+								}
+							: null;
+					}),
+				);
 
 			const findEntitySchemaProviderBySlug = Effect.fn(
 				"EntitiesRepository.findEntitySchemaProviderBySlug",
@@ -703,9 +706,11 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					const externalId = input.externalId;
 					const providerId = input.providerId;
 					const values = {
+						id: input.id,
 						userId: null,
 						name: input.name,
-						origin: input.origin ?? null,
+						createdAt: input.createdAt,
+						updatedAt: input.createdAt,
 						properties: input.properties,
 						externalId: externalId ?? null,
 						providerId: providerId ?? null,
@@ -763,12 +768,15 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				const externalId = input.externalId;
 				const providerId = input.providerId;
 				const values = {
+					id: input.id,
 					name: input.name,
 					userId: input.userId,
-					origin: input.origin ?? null,
+					createdAt: input.createdAt,
+					updatedAt: input.createdAt,
 					properties: input.properties,
 					externalId: externalId ?? null,
 					providerId: providerId ?? null,
+					populatedAt: input.populatedAt ?? null,
 					entitySchemaSlug: input.entitySchemaSlug,
 					entitySchemaPluginId: input.entitySchemaPluginId ?? null,
 				};
@@ -856,6 +864,57 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				return rows.length;
 			});
 
+			const findLifecyclePayload = Effect.fn("EntitiesRepository.findLifecyclePayload")(function* (
+				id: AutomationTriggerId,
+			) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select({ payload: schema.automationTrigger.payload })
+						.from(schema.automationTrigger)
+						.where(eq(schema.automationTrigger.id, id)),
+				);
+				if (!row) {
+					return null;
+				}
+				return yield* decodeStoredSchema(
+					row.payload,
+					AutomationTriggerPayload,
+					"Entity command payload is invalid or pruned",
+				);
+			});
+
+			const lockMutationKeys = Effect.fn("EntitiesRepository.lockMutationKeys")(function* (
+				keys: ReadonlyArray<string>,
+			) {
+				const db = yield* Database;
+				for (const key of [...new Set(keys)].sort()) {
+					yield* mapDatabaseErrors(
+						db.execute(
+							sql`select pg_advisory_xact_lock(hashtextextended(${`entity-mutation:${key}`}, 0))`,
+						),
+					);
+				}
+			});
+			const getMutationEntity = Effect.fn("EntitiesRepository.getMutationEntity")(function* (
+				entityId: EntityId,
+				lock = false,
+			) {
+				const db = yield* Database;
+				const query = db
+					.select({ ...entitySelection, userId: schema.entity.userId })
+					.from(schema.entity)
+					.where(eq(schema.entity.id, entityId))
+					.limit(1);
+				const [row] = yield* mapDatabaseErrors(lock ? query.for("update") : query);
+				return row
+					? {
+							entity: toListedEntity(row),
+							userId: row.userId === null ? null : UserId.make(row.userId),
+						}
+					: null;
+			});
+
 			return {
 				getById,
 				deleteByIds,
@@ -863,6 +922,10 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				updateEntity,
 				restoreEntity,
 				getByIdForUser,
+				lockMutationKeys,
+				getMutationEntity,
+				lockSchemaCatalog,
+				findLifecyclePayload,
 				findGlobalEntityById,
 				getEntityScopeForUser,
 				findEntityByExternalId,

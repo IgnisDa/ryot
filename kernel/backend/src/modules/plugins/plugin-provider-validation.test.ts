@@ -9,8 +9,9 @@ const providerManifest = () => {
 	const manifest = fixtureManifest();
 	const script = manifest.scripts[0];
 	assert(script);
+	const { automationType: _automationType, ...common } = script;
 	const details = {
-		...script,
+		...common,
 		name: "Fixture details",
 		slug: "fixture.details",
 		kind: "provider" as const,
@@ -19,7 +20,6 @@ const providerManifest = () => {
 	};
 	return {
 		...manifest,
-		bindings: { ...manifest.bindings },
 		scripts: [...manifest.scripts, details],
 		providers: [
 			{

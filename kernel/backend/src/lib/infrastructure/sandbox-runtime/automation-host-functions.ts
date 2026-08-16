@@ -1,19 +1,18 @@
-import { AutomationOrigin } from "@ryot-app/contract/modules/automations/schemas";
-import { EntityId, SubscriptionRunId, UserId } from "@ryot-app/contract/schema/brands";
-import { automationInputSchema } from "@ryot-app/sandbox-sdk/automation";
+import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import type { AutomationSandboxHostImplementationMap } from "@ryot-app/sandbox-sdk/core";
-import { DateTime, Effect, Option, Schema } from "effect";
+import { Effect } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";
 import {
 	requireSandboxCapabilityInput,
+	reportSandboxLifecycleWarnings,
+	sandboxLifecycleCommand,
 	sandboxHostEffect,
 	sandboxHostFailure,
-	toSandboxHostError,
 	type SandboxRunInput,
 } from "#lib/infrastructure/sandbox-runtime/shared";
+import { SignalEmissionService } from "#modules/automations/signal-service";
 import { NotificationsService } from "#modules/notifications/service";
-import { SignalEmissionService } from "#modules/signals/service";
 
 export const makeAutomationSandboxApiFunctions: Effect.Effect<
 	AutomationSandboxHostImplementationMap<SandboxRunInput>,
@@ -27,69 +26,52 @@ export const makeAutomationSandboxApiFunctions: Effect.Effect<
 	return {
 		sendNotification: (rawInput, message) =>
 			requireSandboxCapabilityInput(rawInput, "sendNotification").pipe(
-				Effect.flatMap((input) =>
-					sandboxHostEffect(
+				Effect.flatMap((input) => {
+					if (input.hostCallDiscriminator === undefined) {
+						return sandboxHostFailure("sendNotification requires a trusted durable host call");
+					}
+					return sandboxHostEffect(
 						notifications
 							.sendMessage({
 								message: message.trim(),
-								userId: UserId.make(input.principal.subject.userId),
-								executionId: `${input.principal.subject.subscriptionRun.id}-notification`,
+								userId: UserId.make(input.principal.subject.executionUserId),
+								executionId: `${input.principal.subject.runId}-host-${input.hostCallDiscriminator}-notification`,
 							})
 							.pipe(Effect.as(null)),
-					),
-				),
+					);
+				}),
 			),
 		emitSignal: (rawInput, request) =>
 			requireSandboxCapabilityInput(rawInput, "emitSignal").pipe(
 				Effect.flatMap((input) =>
 					Effect.gen(function* () {
-						const execution =
-							input.principal.subject.type === "subscription"
-								? input.principal.subject.subscriptionRun
-								: yield* Schema.decodeUnknownEffect(automationInputSchema)(input.context).pipe(
-										Effect.flatMap(({ automation }) =>
-											Schema.decodeEffect(AutomationOrigin)(automation.origin).pipe(
-												Effect.map((origin) => ({
-													origin,
-													occurredAt: automation.occurredAt,
-													id: SubscriptionRunId.make(input.executionId),
-												})),
-											),
-										),
-										Effect.mapError(() =>
-											toSandboxHostError("emitSignal requires a trusted automation context"),
-										),
-									);
-						const occurredAt = DateTime.make(execution.occurredAt);
-						if (Option.isNone(occurredAt)) {
-							return yield* sandboxHostFailure("emitSignal received an invalid occurrence time");
-						}
-
-						return yield* sandboxHostEffect(
+						const command = yield* sandboxLifecycleCommand(
+							input,
+							"api",
+							`emitSignal:${request.discriminator}`,
+						);
+						const result = yield* sandboxHostEffect(
 							signals
-								.emit({
-									origin: execution.origin,
-									executionId: execution.id,
+								.emitSignal({
+									command,
 									properties: request.properties,
 									schemaSlug: request.schemaSlug,
-									discriminator: request.discriminator,
-									occurredAt: DateTime.toDate(occurredAt.value),
 									...(request.subjectEntityId
 										? { subjectEntityId: EntityId.make(request.subjectEntityId) }
 										: {}),
 									principal:
-										input.principal.subject.type === "subscription"
-											? { kind: "user", userId: UserId.make(input.principal.subject.userId) }
+										input.principal.subject.type === "automation-run" &&
+										input.principal.subject.executionUserId !== null
+											? {
+													kind: "user",
+													userId: UserId.make(input.principal.subject.executionUserId),
+												}
 											: { kind: "system" },
 								})
-								.pipe(
-									Effect.provideService(Database, database),
-									Effect.map((result) => ({
-										signalId: result.signal.id,
-										wasCreated: result.wasCreated,
-									})),
-								),
+								.pipe(Effect.provideService(Database, database)),
 						);
+						yield* reportSandboxLifecycleWarnings("emitSignal", result.warnings);
+						return { triggerId: result.triggerId, wasCreated: result.wasCreated };
 					}),
 				),
 			),

@@ -6,7 +6,10 @@ import { Effect, Layer } from "effect";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { databaseLayer } from "#lib/test-utils/effect";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+import {
+	PluginInstallationRepository,
+	type PluginInstallationState,
+} from "#modules/plugins/installation-repository";
 import { makePluginLoader, PluginLoader } from "#modules/plugins/loader";
 import { fixtureManifest, fixturePluginIdentity } from "#modules/plugins/test-support";
 
@@ -39,7 +42,7 @@ const makeLoader = () => {
 	manifest.relationshipSchemas = [];
 	manifest.signalSchemas = [];
 	manifest.scripts = [];
-	manifest.bindings.entityAutomations = [];
+	manifest.hooks = [];
 	loader.load({ manifest, scripts: [], sourceHash: "fixture", ...fixturePluginIdentity() });
 	loader.load({
 		scripts: [],
@@ -65,16 +68,18 @@ const makeState = (
 		isDisabled: boolean;
 		config: Record<string, unknown>;
 	}> = {},
-) => ({
+): PluginInstallationState => ({
 	config: {},
 	sortOrder: 0,
 	id: "state-id",
 	userId: user.id,
 	isDisabled: false,
 	healthReason: null,
+	uninstalledAt: null,
 	homeSavedViewId: null,
 	pluginSlug: "fixture",
 	health: "ready" as const,
+	activeConfigRevisionId: null,
 	pluginId: "fixture-plugin-id",
 	pluginScope: "system" as const,
 	createdAt: new Date("2026-01-01T00:00:00Z"),

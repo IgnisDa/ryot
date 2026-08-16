@@ -7,6 +7,7 @@ import { Context, Effect, Layer, Redacted, Schema } from "effect";
 import Redis from "ioredis";
 
 import { AppConfig } from "./config/service";
+import { SandboxPluginRevision } from "./sandbox-runtime/execution-principal";
 
 export const CLIENT_PAGE_SESSION_TTL_SECONDS = 900;
 export const ENTITY_INTEREST_SESSION_TTL_SECONDS = 15 * 60;
@@ -21,6 +22,7 @@ export const ImportSourceState = Schema.Struct({
 	pluginId: Schema.String,
 	workflowScriptId: SandboxScriptId,
 	pluginInstallationId: Schema.String,
+	pluginRevision: SandboxPluginRevision,
 	uploadIntentIds: Schema.Array(Schema.String),
 	sourcePayload: Schema.Record(Schema.String, jsonValueSchema),
 	namedArtifactPaths: Schema.Record(Schema.String, Schema.String),

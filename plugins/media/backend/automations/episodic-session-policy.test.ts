@@ -21,6 +21,26 @@ const run = (context: AutomationPolicyInput, parents: readonly Record<string, un
 	);
 
 describe("episodic session policy", () => {
+	it("transforms only the session while retaining the complete proposed event", async () => {
+		const input = policyAutomationContext({
+			entityId: "episode-1",
+			eventSchemaSlug: "progress",
+			sessionEntityId: "wrong-show",
+			entitySchemaSlug: "show-episode",
+			occurredAt: "2026-02-01T00:00:00.000Z",
+			properties: { consumedOn: "Plex", progressPercent: 42.125 },
+		});
+		const result = await Effect.runPromise(
+			run(input, [{ seasonNumber: 1, parentEntityId: "show-1" }]),
+		);
+		expect(result).toEqual({
+			action: "transform",
+			payload: {
+				...input.automation.payload,
+				draft: { ...input.automation.payload.draft, sessionEntityId: "show-1" },
+			},
+		});
+	});
 	it.each(["show", "podcast"] as const)("assigns a %s parent to itself", (entitySchemaSlug) =>
 		Effect.runPromise(
 			run(
@@ -31,9 +51,9 @@ describe("episodic session policy", () => {
 				}),
 			).pipe(
 				Effect.map((result) => {
-					expect(result).toEqual({
-						action: "replace",
-						body: { sessionEntityId: `${entitySchemaSlug}-1` },
+					expect(result).toMatchObject({
+						action: "transform",
+						payload: { draft: { sessionEntityId: `${entitySchemaSlug}-1` } },
 					});
 				}),
 			),
@@ -51,7 +71,10 @@ describe("episodic session policy", () => {
 				[{ seasonNumber: 1, parentEntityId: "show-1" }],
 			).pipe(
 				Effect.map((result) => {
-					expect(result).toEqual({ action: "replace", body: { sessionEntityId: "show-1" } });
+					expect(result).toMatchObject({
+						action: "transform",
+						payload: { draft: { sessionEntityId: "show-1" } },
+					});
 				}),
 			),
 		));
@@ -67,7 +90,10 @@ describe("episodic session policy", () => {
 				[{ seasonNumber: 0, parentEntityId: "show-1" }],
 			).pipe(
 				Effect.map((result) => {
-					expect(result).toEqual({ action: "replace", body: { sessionEntityId: null } });
+					expect(result).toMatchObject({
+						action: "transform",
+						payload: { draft: { sessionEntityId: null } },
+					});
 				}),
 			),
 		));
@@ -78,18 +104,21 @@ describe("episodic session policy", () => {
 				{ parentEntityId: "podcast-1" },
 			]).pipe(
 				Effect.map((result) => {
-					expect(result).toEqual({ action: "replace", body: { sessionEntityId: "podcast-1" } });
+					expect(result).toMatchObject({
+						action: "transform",
+						payload: { draft: { sessionEntityId: "podcast-1" } },
+					});
 				}),
 			),
 		));
 
-	it("skips an episode without one deterministic parent", () =>
+	it("rejects an episode without one deterministic parent", () =>
 		Effect.runPromise(
 			run(
 				policyAutomationContext({ entityId: "episode-1", entitySchemaSlug: "show-episode" }),
 			).pipe(
 				Effect.map((result) => {
-					expect(result).toEqual({ action: "skip", reason: "episodic_parent_not_found" });
+					expect(result).toEqual({ action: "reject", reason: "episodic_parent_not_found" });
 				}),
 			),
 		));

@@ -5,8 +5,6 @@ import type {
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
-import type { PluginConfigContext } from "#lib/infrastructure/sandbox-runtime/app-config";
-
 import {
 	pluginConfigContextFor,
 	PluginRuntimeResolver,
@@ -20,7 +18,7 @@ export type RegisteredImportSource = PluginImportSource & {
 	readonly installationId: string;
 	readonly pluginScope: "system" | "user";
 	readonly configSchema: PluginConfigSchema;
-	readonly configContext: PluginConfigContext;
+	readonly configContext: ReturnType<typeof pluginConfigContextFor>;
 };
 
 const fromAvailablePlugins = (

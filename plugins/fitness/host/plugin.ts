@@ -48,19 +48,6 @@ export const fitnessPlugin = definePlugin({
 			description: "Preload the built-in exercise catalog",
 		},
 	],
-	bindings: {
-		eventAutomations: [],
-		signalAutomations: [],
-		relationshipAutomations: [],
-		providerEntityImportAutomations: [],
-		entityAutomations: [
-			{
-				operation: "create",
-				entitySchemaSlug: "workout",
-				scriptSlug: "automation.workout-created",
-			},
-		],
-	},
 	providers: [
 		{
 			name: "Free Exercise DB",
@@ -70,6 +57,31 @@ export const fitnessPlugin = definePlugin({
 			operations: {
 				search: "exercise.free-exercise-db.search",
 				details: "exercise.free-exercise-db.details",
+			},
+		},
+	],
+	hooks: [
+		{
+			stage: "after",
+			delivery: "async",
+			name: "Workout created",
+			causationSources: ["api"],
+			slug: "fitness.workout-created",
+			scriptSlug: "automation.workout-created",
+			targets: [{ resource: "entity", operation: "create", entitySchemaSlug: "workout" }],
+		},
+		{
+			stage: "after",
+			delivery: "async",
+			slug: "fitness.notification",
+			name: "Fitness notification",
+			scriptSlug: "automation.fitness-notification",
+			targets: [{ operation: "emit", resource: "signal", signalSchemaSlug: "workout.created" }],
+			retry: {
+				maxAttempts: 1,
+				maxDelayMs: 60000,
+				initialDelayMs: 1000,
+				externalIdempotency: "none",
 			},
 		},
 	],

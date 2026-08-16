@@ -7,6 +7,7 @@ import {
 	SANDBOX_DURABLE_HOST_DISPATCH,
 	sandboxDurableHttpRequestUrl,
 	sandboxDurableHostDispatchStrategy,
+	prepareSandboxCreateEvents,
 	prepareSandboxSendNotification,
 	SandboxDurableHostServiceWorkflow,
 } from "./durable-host-dispatcher";
@@ -55,8 +56,54 @@ it.effect("applies centralized capability authorization before durable host disp
 			"2026-08-06T00:00:00.000Z",
 		).pipe(Effect.flip);
 		expect(error.message).toBe(
-			"Sandbox durable host denied: sendNotification is available only to subscription executions",
+			"Sandbox durable host denied: sendNotification is available only to user automation runs",
 		);
+	}),
+);
+
+it.effect("derives event root identity from the trusted workflow and host index", () =>
+	Effect.gen(function* () {
+		const prepared = yield* prepareSandboxCreateEvents(
+			{
+				index: 3,
+				kind: "host",
+				name: "createEvents",
+				args: { args: [[]], capability: "createEvents" },
+			},
+			{
+				input: {},
+				resolutionMode: "exact",
+				executionId: "sandbox-parent",
+				scriptId: SandboxScriptId.make("script-1"),
+				subject: { type: "user", userId: UserId.make("user-1") },
+			},
+			{
+				providerId: null,
+				contentHash: "hash",
+				pluginRevision: null,
+				scriptSlug: "script",
+				scriptId: SandboxScriptId.make("script-1"),
+				metadata: { capabilities: ["createEvents"] },
+				subject: { type: "user", userId: UserId.make("user-1") },
+			},
+			"sandbox-parent",
+			"2026-08-06T00:00:00.000Z",
+		);
+		expect(prepared).toMatchObject({
+			payload: [],
+			userId: "user-1",
+			command: {
+				itemIdentity: "createEvents",
+				occurredAt: "2026-08-06T00:00:00.000Z",
+				causation: {
+					depth: 0,
+					source: "api",
+					executionId: "sandbox-parent-host-3",
+					rootExecutionId: "sandbox-parent-host-3",
+					initiator: { kind: "user", id: "user-1" },
+				},
+			},
+		});
 	}),
 );
 

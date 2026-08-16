@@ -1,5 +1,5 @@
 import { UserLifecycleOperation as UserLifecycleOperationSchema } from "@ryot-app/contract/modules/god-mode/user-lifecycle";
-import { UserId } from "@ryot-app/contract/schema/brands";
+import { SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
 import {
@@ -19,13 +19,14 @@ import {
 	getAutomationRuleCount,
 	getApiClient,
 	getBuiltinEntitySchemaSlug,
-	listSignals,
-	listSubscriptionRuns,
+	listSignalTriggers,
+	listAutomationRuns,
+	listAutomationTriggerRecipients,
 	pollProviderEntityImportResult,
-	pollSignal,
-	pollSignalWithRecipientCount,
+	pollSignalTrigger,
+	pollSignalTriggerWithRecipientCount,
 	pollUserLifecycleOperation,
-	pollTerminalSubscriptionRuns,
+	pollTerminalAutomationRuns,
 	installTestProvider,
 	startFakeAppriseServerScoped,
 	updatePluginState,
@@ -163,18 +164,21 @@ describe("Delete user automation data cleanup", () => {
 				properties: { endedAt: "2026-07-21T11:00:00Z", startedAt: "2026-07-21T10:00:00Z" },
 			});
 
-			const { id: signalId } = yield* pollSignal({
-				actorUserId: rawUserId,
-				schemaSlug: "workout.created",
+			const { id: triggerId } = yield* pollSignalTrigger({
+				actorUserId: userId,
+				signalSchemaSlug: SignalSchemaSlug.make("workout.created"),
 			});
-			yield* pollTerminalSubscriptionRuns({ signalId, executionUserId: rawUserId });
+			yield* pollTerminalAutomationRuns({ triggerId, executionUserId: userId });
 
 			yield* deleteUserAndWait(userId);
 
-			expect(yield* listSignals({ actorUserId: rawUserId, schemaSlug: "workout.created" })).toEqual(
-				[],
-			);
-			expect(yield* listSubscriptionRuns({ signalId, executionUserId: rawUserId })).toEqual([]);
+			expect(
+				yield* listSignalTriggers({
+					actorUserId: userId,
+					signalSchemaSlug: SignalSchemaSlug.make("workout.created"),
+				}),
+			).toEqual([]);
+			expect(yield* listAutomationRuns({ triggerId, executionUserId: userId })).toEqual([]);
 		}),
 	);
 
@@ -262,30 +266,47 @@ describe("Delete user automation data cleanup", () => {
 				const imported = yield* pollProviderEntityImportResult(importer.client, jobId);
 				assertCompleted(imported, "delete-user shared association import");
 
-				const { id: signalId } = yield* pollSignalWithRecipientCount(
-					{ subjectEntityId: person.id, schemaSlug: "person.media.associated" },
+				const { id: triggerId } = yield* pollSignalTriggerWithRecipientCount(
+					{
+						subjectEntityId: person.id,
+						signalSchemaSlug: SignalSchemaSlug.make("person.media.associated"),
+					},
 					2,
 				);
 				yield* Effect.all([
-					pollTerminalSubscriptionRuns({ signalId, executionUserId: firstMonitor.userId }),
-					pollTerminalSubscriptionRuns({ signalId, executionUserId: secondMonitor.userId }),
+					pollTerminalAutomationRuns({
+						triggerId,
+						executionUserId: UserId.make(firstMonitor.userId),
+					}),
+					pollTerminalAutomationRuns({
+						triggerId,
+						executionUserId: UserId.make(secondMonitor.userId),
+					}),
 				]);
 				const rulesBeforeDeletion = yield* getAutomationRuleCount(secondMonitor.userId);
 				expect(rulesBeforeDeletion).toBeGreaterThan(0);
 
 				yield* deleteUserAndWait(UserId.make(firstMonitor.userId));
 
-				const [remainingSignal] = yield* listSignals({
+				const [remainingTrigger] = yield* listSignalTriggers({
 					subjectEntityId: person.id,
-					schemaSlug: "person.media.associated",
+					signalSchemaSlug: SignalSchemaSlug.make("person.media.associated"),
 				});
-				expect(remainingSignal?.id).toBe(signalId);
-				expect(remainingSignal?.recipientUserIds).toEqual([UserId.make(secondMonitor.userId)]);
+				expect(remainingTrigger?.id).toBe(triggerId);
+				expect(yield* listAutomationTriggerRecipients({ triggerId })).toEqual([
+					{ triggerId, userId: UserId.make(secondMonitor.userId) },
+				]);
 				expect(
-					yield* listSubscriptionRuns({ signalId, executionUserId: firstMonitor.userId }),
+					yield* listAutomationRuns({
+						triggerId,
+						executionUserId: UserId.make(firstMonitor.userId),
+					}),
 				).toEqual([]);
 				expect(
-					yield* listSubscriptionRuns({ signalId, executionUserId: secondMonitor.userId }),
+					yield* listAutomationRuns({
+						triggerId,
+						executionUserId: UserId.make(secondMonitor.userId),
+					}),
 				).not.toEqual([]);
 				expect(yield* getAutomationRuleCount(firstMonitor.userId)).toBe(0);
 				expect(yield* getAutomationRuleCount(secondMonitor.userId)).toBe(rulesBeforeDeletion);

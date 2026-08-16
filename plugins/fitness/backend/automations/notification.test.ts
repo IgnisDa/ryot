@@ -1,54 +1,43 @@
-import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { automationInputSchema } from "@ryot-app/sandbox-sdk/automation";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { expect, it } from "vitest";
 
 import definition, { manifest } from "./notification.sandbox";
 
-const input: AutomationInput = {
-	automation: {
-		ruleId: "rule-1",
-		operation: "signal",
-		origin: { kind: "api" },
-		occurrenceId: "signal-1",
-		occurredAt: "2026-07-20T10:00:00.000Z",
-		source: { kind: "signal", signalId: "signal-1" },
-	},
-};
-
-const occurrenceResponse = {
-	data: {
-		occurrences: {
-			type: "rows" as const,
-			pageInfo: { limit: 1, hasMore: false, nextCursor: null },
-			items: [
-				{
-					population: null,
-					operation: "signal",
-					origin: { kind: "api" },
-					source: {
-						kind: "signal",
-						signal: {
-							id: "signal-1",
-							origin: { kind: "api" },
-							signalSchemaSlug: "workout.created",
-							occurredAt: "2026-07-20T10:00:00.000Z",
-							properties: { workoutName: "Morning Run" },
-						},
-					},
-				},
-			],
-		},
-	},
-};
-
-it("formats workout.created exclusively from the signal snapshot", () => {
+it("formats workout.created exclusively from the inline signal", async () => {
 	const messages: string[] = [];
-	return Effect.runPromise(
+	const input = Schema.decodeUnknownSync(automationInputSchema)({
+		automation: {
+			runId: "run-1",
+			triggerId: "trigger-1",
+			executionUserId: "user-1",
+			hookSlug: "fitness.notification",
+			occurredAt: "2026-07-20T10:00:00.000Z",
+			causation: {
+				depth: 0,
+				source: "api",
+				parentRunId: null,
+				parentTriggerId: null,
+				executionId: "execution-1",
+				rootExecutionId: "execution-1",
+				initiator: { kind: "user", id: "user-1" },
+			},
+			payload: {
+				operation: "emit",
+				category: "signal",
+				resource: "signal",
+				actorUserId: "user-1",
+				signalSchemaSlug: "workout.created",
+				signalSchemaPluginId: "fitness-plugin",
+				properties: { workoutName: "Morning Run" },
+			},
+		},
+	});
+	const result = await Effect.runPromise(
 		definition.run(
 			input,
 			defineSandboxTestHost(manifest, {
-				executeRyotql: () => Effect.succeed(occurrenceResponse),
 				sendNotification: (message) => {
 					messages.push(message);
 					return Effect.succeed(null);
@@ -56,9 +45,7 @@ it("formats workout.created exclusively from the signal snapshot", () => {
 			}),
 			{ metadata: {}, sandboxScriptId: "script-1" },
 		),
-	).then((result) => {
-		expect(result).toBeNull();
-		expect(messages).toEqual(["Workout Morning Run was created"]);
-		return undefined;
-	});
+	);
+	expect(result).toBeNull();
+	expect(messages).toEqual(["Workout Morning Run was created"]);
 });

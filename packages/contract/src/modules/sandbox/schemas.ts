@@ -1,15 +1,17 @@
 import { Schema } from "effect";
 
+import { SandboxFailureKind } from "../../errors";
 import {
-	AutomationOccurrenceId,
 	IntegrationId,
+	PluginId,
+	PluginRevisionId,
+	PluginConfigRevisionId,
 	SandboxScriptId,
-	SubscriptionRunId,
 	UserId,
 } from "../../schema/brands";
 import { AppSchema } from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";
-import { AutomationOrigin } from "../automations/schemas";
+import { AutomationInvocationFields } from "../automations/lifecycle";
 import { SANDBOX_HOST_CAPABILITIES } from "./wire";
 
 export const ProviderInformation = Schema.Struct({
@@ -85,29 +87,35 @@ export type EnqueueSandboxBody = Schema.Schema.Type<typeof EnqueueSandboxBody>;
 
 export const EnqueueResponse = Schema.Struct({ jobId: Schema.String });
 
+const automationRunSubjectFields = {
+	type: Schema.Literal("automation-run"),
+	runId: AutomationInvocationFields.runId,
+	stage: Schema.Literals(["before", "after"]),
+	triggerId: AutomationInvocationFields.triggerId,
+	causation: AutomationInvocationFields.causation,
+	executionUserId: AutomationInvocationFields.executionUserId,
+};
+
 export const SandboxExecutionSubject = Schema.Union([
-	strictStruct({
-		type: Schema.Literal("system"),
-		automationRunId: Schema.optional(SubscriptionRunId),
-		automationOccurrenceId: Schema.optional(AutomationOccurrenceId),
-	}),
+	strictStruct({ type: Schema.Literal("system") }),
 	// `integrationId` is the integration the execution belongs to. Only trusted kernel dispatch sets
 	// it, so a script can never widen its own credential scope by supplying an id.
 	strictStruct({
 		userId: UserId,
 		type: Schema.Literal("user"),
 		integrationId: Schema.optional(IntegrationId),
-		automationOccurrenceId: Schema.optional(AutomationOccurrenceId),
 	}),
 	strictStruct({
-		userId: UserId,
-		type: Schema.Literal("subscription"),
-		subscriptionRun: strictStruct({
-			id: SubscriptionRunId,
-			origin: AutomationOrigin,
-			occurredAt: Schema.String,
-			occurrenceId: Schema.optional(AutomationOccurrenceId),
-		}),
+		...automationRunSubjectFields,
+		pluginId: PluginId,
+		pluginRevisionId: PluginRevisionId,
+		pluginConfigRevisionId: PluginConfigRevisionId,
+	}),
+	strictStruct({
+		...automationRunSubjectFields,
+		pluginId: Schema.Null,
+		pluginRevisionId: Schema.Null,
+		pluginConfigRevisionId: Schema.Null,
 	}),
 ]);
 
@@ -144,6 +152,7 @@ const SandboxFailedResult = Schema.Struct({
 
 export const SandboxExecutionError = Schema.Struct({
 	message: Schema.String,
+	kind: SandboxFailureKind,
 	line: Schema.optional(Schema.Number),
 	stack: Schema.optional(Schema.String),
 	column: Schema.optional(Schema.Number),

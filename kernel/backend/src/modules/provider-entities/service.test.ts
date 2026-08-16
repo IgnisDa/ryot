@@ -160,6 +160,7 @@ it.effect("derives the root entity schema before dispatching the import workflow
 				externalId,
 				entitySchemaSlug,
 				entityScope: { type: "global", userId: user.id },
+				command: { causation: { source: "api", initiator: { id: user.id, kind: "user" } } },
 			},
 		});
 	}).pipe(

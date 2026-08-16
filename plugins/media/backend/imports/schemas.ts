@@ -186,6 +186,7 @@ export const IgdbImportParserInput = Schema.Struct({
 const MediaImportFinalizedEvent = Schema.Struct({
 	...mediaEventFields,
 	subjectEntityId: Schema.optional(Schema.NonEmptyString),
+	subjectEntitySchemaSlug: Schema.optional(Schema.NonEmptyString),
 });
 
 const MediaImportFinalizedEntityGroup = Schema.Struct({
@@ -197,6 +198,9 @@ export const MediaImportWriteChunkInput = Schema.Struct({
 	failures: Schema.Array(MediaImportAdapterFailure),
 	entityGroups: Schema.Array(MediaImportFinalizedEntityGroup),
 	populationResults: MediaImportPopulationWorkflowOutput.fields.results,
+	integration: Schema.optional(
+		Schema.Struct({ importRunId: Schema.String, integrationId: Schema.String }),
+	),
 });
 
 export type MediaImportWriteChunkInput = typeof MediaImportWriteChunkInput.Type;

@@ -3,6 +3,7 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import {
 	createLogCollector,
 	executionError,
+	failureKind,
 	failurePhase,
 	isRecord,
 	readBridgeResponse,
@@ -370,6 +371,18 @@ async function readLine(): Promise<string> {
 
 const hostFailure = (error: string) => ({ error, success: false as const });
 
+const PHASE_FAILURE_KINDS: Record<string, string> = {
+	load: "missing-artifact",
+	input: "invalid-input",
+	output: "invalid-output",
+	execute: "script-failure",
+};
+
+const hostFailureKind = (error: unknown): string | undefined => {
+	const data = isRecord(error) ? error.data : undefined;
+	return isRecord(data) && data.code === "external-uncertain" ? "external-uncertain" : undefined;
+};
+
 const sandboxHostError = (error: unknown): SandboxHostError => {
 	const message =
 		isRecord(error) && typeof error.message === "string" ? error.message : nativeString(error);
@@ -718,10 +731,17 @@ const writeSuccess = async (
 
 const writeFailure = async (
 	logs: readonly string[],
-	error: { phase: string; message: string; line?: number; column?: number; stack?: string },
+	error: {
+		kind: string;
+		phase: string;
+		message: string;
+		line?: number;
+		column?: number;
+		stack?: string;
+	},
 	executionMs: number,
 ) => {
-	const serializedError = `{"phase":${jsonStringify(error.phase)},"message":${jsonStringify(error.message)}${error.line === undefined ? "" : `,"line":${error.line}`}${error.column === undefined ? "" : `,"column":${error.column}`}${error.stack === undefined ? "" : `,"stack":${jsonStringify(error.stack)}`}}`;
+	const serializedError = `{"kind":${jsonStringify(error.kind)},"phase":${jsonStringify(error.phase)},"message":${jsonStringify(error.message)}${error.line === undefined ? "" : `,"line":${error.line}`}${error.column === undefined ? "" : `,"column":${error.column}`}${error.stack === undefined ? "" : `,"stack":${jsonStringify(error.stack)}`}}`;
 	const result = `{"success":false,"logs":${serializeLogs(logs)},"error":${serializedError},"timing":{"executionMs":${executionMs}}}\n`;
 	await writeStdout(encodeText(result));
 };
@@ -842,6 +862,7 @@ const executeDefinition = async (
 				return {
 					state: "failed",
 					error: detachedError,
+					kind: "script-failure",
 					requests: durable.startedRequests(),
 					journalLength: durable.journalLength,
 				};
@@ -851,6 +872,7 @@ const executeDefinition = async (
 					state: "failed",
 					requests: durable.requests,
 					journalLength: durable.journalLength,
+					kind: hostFailureKind(outcome.error) ?? "script-failure",
 					error:
 						isRecord(outcome.error) && typeof outcome.error.message === "string"
 							? outcome.error.message
@@ -869,6 +891,7 @@ const executeDefinition = async (
 			} catch (error) {
 				return {
 					state: "failed",
+					kind: "invalid-output",
 					requests: durable.requests,
 					journalLength: durable.journalLength,
 					error: "Definition output validation failed: " + nativeString(error),
@@ -876,11 +899,11 @@ const executeDefinition = async (
 			}
 		}
 		if (!outcome.success) {
-			return throwPhase("execute", outcome.error);
+			return throwPhase("execute", outcome.error, hostFailureKind(outcome.error));
 		}
 		result = outcome.value;
 	} catch (error) {
-		return throwPhase("execute", error);
+		return throwPhase("execute", error, hostFailureKind(error));
 	}
 
 	setPhase("output");
@@ -966,7 +989,12 @@ void (async () => {
 			const errorPhase = failurePhase(error, phase);
 			await writeFailure(
 				logCollector.logs,
-				executionError(error, errorPhase, payload),
+				executionError(
+					error,
+					errorPhase,
+					payload,
+					failureKind(error, PHASE_FAILURE_KINDS[errorPhase] ?? "script-failure"),
+				),
 				performanceNow() - startedAt,
 			);
 		} finally {

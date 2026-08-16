@@ -4,11 +4,18 @@ import {
 	ProviderEntityBadRequest,
 	ProviderEntityNotFound,
 } from "@ryot-app/contract/modules/provider-entities/schemas";
-import { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import {
+	AutomationExecutionId,
+	EntitySchemaSlug,
+	SandboxProviderId,
+} from "@ryot-app/contract/schema/brands";
+import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { generateId } from "better-auth";
-import { Context, Effect, Layer, Option, Redacted } from "effect";
+import { Context, DateTime, Effect, Layer, Option, Redacted } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
+import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { AppConfig } from "#lib/infrastructure/config/service";
 import {
 	createWorkflowJobId,
@@ -70,6 +77,7 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 				}
 
 				const executionId = generateId();
+				const occurredAt = IsoUtcString.make((yield* DateTime.nowAsDate).toISOString());
 				yield* engine
 					.execute(EntityImportWorkflow, {
 						executionId,
@@ -79,11 +87,23 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 							externalId,
 							executionId,
 							entitySchemaSlug,
-							origin: { kind: "api" },
 							entityScope: {
 								userId: user.id,
 								type: provider.pluginScope === "user" ? "user" : "global",
 							},
+							command: rootLifecycleCommand({
+								occurredAt,
+								source: "api",
+								initiator: { id: user.id, kind: "user" },
+								executionId: AutomationExecutionId.make(executionId),
+								itemIdentity: stableStringify([
+									"provider-entity-import",
+									user.id,
+									providerId,
+									entitySchemaSlug,
+									externalId,
+								]),
+							}),
 						},
 					})
 					.pipe(Effect.orDie);

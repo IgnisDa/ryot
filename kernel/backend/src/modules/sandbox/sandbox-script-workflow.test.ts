@@ -1,7 +1,16 @@
 import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
-import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	AutomationRunId,
+	AutomationTriggerId,
+	AutomationExecutionId,
+	PluginId,
+	PluginRevisionId,
+	PluginConfigRevisionId,
+	SandboxScriptId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import {
 	workflowDurableResultSchema,
 	workflowReplayJournalEntrySchema,
@@ -35,6 +44,7 @@ import { SandboxPluginScriptResolver } from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
 import {
 	performSandboxWorkflowChild,
+	establishSandboxWorkflowPin,
 	performSandboxWorkflowRequest,
 	runSandboxScriptWorkflowBody,
 	SANDBOX_WORKFLOW_MAX_STEPS,
@@ -42,22 +52,186 @@ import {
 	sandboxWorkflowChildExecutionId,
 	validateWorkflowReplayEnvelope,
 } from "./sandbox-script-workflow";
+import { SandboxScriptWorkflowPayload } from "./sandbox-script-workflow-payload";
 import {
 	SandboxWorkflowReferenceRegistrationError,
 	SandboxWorkflowReferenceRepository,
 } from "./workflow-reference-repository";
 
 const pluginRevision = {
-	id: "plugin",
 	ownerId: null,
 	slug: "plugin",
 	compiledHashes: {},
 	workflowScripts: {},
 	scope: "system" as const,
+	id: PluginId.make("plugin"),
 	userBootstrapScriptSlugs: [],
+	revisionId: PluginRevisionId.make("revision-1"),
+	configRevisionId: PluginConfigRevisionId.make("config-1"),
 	configSchema: { fields: {}, unknownKeys: "strict" as const },
 	schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
 };
+
+const automationSubject = {
+	stage: "after" as const,
+	pluginId: pluginRevision.id,
+	type: "automation-run" as const,
+	runId: AutomationRunId.make("run-1"),
+	executionUserId: UserId.make("user-1"),
+	pluginRevisionId: pluginRevision.revisionId,
+	triggerId: AutomationTriggerId.make("trigger-1"),
+	pluginConfigRevisionId: pluginRevision.configRevisionId,
+	causation: {
+		depth: 0,
+		parentRunId: null,
+		parentTriggerId: null,
+		source: "api" as const,
+		initiator: { id: null, kind: "system" as const },
+		executionId: AutomationExecutionId.make("execution-1"),
+		rootExecutionId: AutomationExecutionId.make("execution-1"),
+	},
+};
+
+it.effect(
+	"pins retained automation roots without active resolution and preserves serialized ownership",
+	() => {
+		const requests: unknown[] = [];
+		const registrations: unknown[] = [];
+		const payload = Schema.decodeSync(Schema.fromJsonString(SandboxScriptWorkflowPayload))(
+			JSON.stringify({
+				input: {},
+				pluginRevision,
+				resolutionMode: "active",
+				executionId: "execution-1",
+				subject: automationSubject,
+				scriptId: "historical-script",
+			}),
+		);
+		return Effect.gen(function* () {
+			const result = yield* establishSandboxWorkflowPin(payload, "execution-1");
+			expect(requests).toEqual([
+				{
+					scriptId: "historical-script",
+					expected: { id: "plugin", revisionId: "revision-1", configRevisionId: "config-1" },
+				},
+			]);
+			expect(result.principal).toMatchObject({ pluginRevision, subject: automationSubject });
+			expect(registrations).toEqual([
+				{
+					userId: "user-1",
+					pluginId: "plugin",
+					allowInactive: true,
+					contentHash: "hash-1",
+					executionId: "execution-1",
+					scriptId: "historical-script",
+				},
+			]);
+			const conflict = yield* Effect.exit(
+				establishSandboxWorkflowPin(
+					{
+						...payload,
+						pluginRevision: {
+							...pluginRevision,
+							configRevisionId: PluginConfigRevisionId.make("other-config"),
+						},
+					},
+					"execution-1",
+				),
+			);
+			assertExitFails(
+				conflict,
+				new SandboxRunError({
+					kind: "script-failure",
+					message: "Sandbox workflow pin conflicts with automation ownership",
+				}),
+			);
+		}).pipe(
+			Effect.provide(
+				Layer.mergeAll(
+					databaseLayer,
+					Layer.mock(SandboxPluginScriptResolver)({
+						findActiveScriptById: () => Effect.die("Pinned runs must not resolve active scripts"),
+					}),
+					Layer.mock(SandboxRepository)({
+						getScriptPin: (scriptId, expected) =>
+							Effect.sync(() => {
+								requests.push({ scriptId, expected });
+								return {
+									scriptId,
+									pluginRevision,
+									providerId: null,
+									scriptSlug: "script",
+									contentHash: "hash-1",
+									metadata: { kind: "automation" as const },
+								};
+							}),
+					}),
+					Layer.mock(SandboxWorkflowReferenceRepository)({
+						lockIngestionShared: () => Effect.void,
+						registerInTransaction: (input) =>
+							Effect.sync(() => {
+								registrations.push(input);
+								return { status: "registered" as const };
+							}),
+					}),
+				),
+			),
+		);
+	},
+);
+
+it.effect("pins source-zero automation by exact script ID without a synthetic plugin", () => {
+	const requests: unknown[] = [];
+	const payload = {
+		input: {},
+		executionId: "kernel-run",
+		resolutionMode: "active" as const,
+		scriptId: SandboxScriptId.make("kernel-notification-v1"),
+		subject: {
+			...automationSubject,
+			pluginId: null,
+			pluginRevisionId: null,
+			pluginConfigRevisionId: null,
+		},
+	};
+	return Effect.gen(function* () {
+		const result = yield* establishSandboxWorkflowPin(payload, "kernel-run");
+		expect(requests).toEqual([{ expected: undefined, scriptId: "kernel-notification-v1" }]);
+		expect(result).toMatchObject({
+			registrationStatus: "not-required",
+			principal: {
+				pluginRevision: null,
+				subject: payload.subject,
+				scriptId: "kernel-notification-v1",
+			},
+		});
+	}).pipe(
+		Effect.provide(
+			Layer.mergeAll(
+				databaseLayer,
+				Layer.mock(SandboxPluginScriptResolver)({
+					findActiveScriptById: () =>
+						Effect.die("Source-zero runs must not resolve active scripts"),
+				}),
+				Layer.mock(SandboxRepository)({
+					getScriptPin: (scriptId, expected) =>
+						Effect.sync(() => {
+							requests.push({ scriptId, expected });
+							return {
+								scriptId,
+								providerId: null,
+								pluginRevision: null,
+								contentHash: "kernel-v1",
+								scriptSlug: "notification",
+								metadata: { kind: "automation" as const },
+							};
+						}),
+				}),
+				Layer.mock(SandboxWorkflowReferenceRepository)({ lockIngestionShared: () => Effect.void }),
+			),
+		),
+	);
+});
 
 const makeProjectionRedis = () =>
 	makeRedisService({
@@ -289,7 +463,10 @@ fi
 	return Effect.gen(function* () {
 		const result = yield* runSandboxScriptWorkflowBody(payload, executionId, (executionPayload) =>
 			executeSandboxExecution(executionPayload).pipe(
-				Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
+				Effect.mapError(
+					(error) =>
+						new SandboxRunError({ kind: "script-failure", message: unknownToMessage(error) }),
+				),
 			),
 		);
 		expect(result).toEqual({
@@ -552,13 +729,16 @@ it.effect("releases a plugin workflow reference before returning terminal failur
 						value: null,
 						harvest: null,
 						status: "completed" as const,
-						error: { message: "boom", phase: "execute" as const },
+						error: { message: "boom", phase: "execute" as const, kind: "script-failure" as const },
 					}),
 			),
 		);
 		assertExitFails(
 			exit,
-			new SandboxRunError({ message: "Workflow replay 0 failed: execute: boom" }),
+			new SandboxRunError({
+				kind: "script-failure",
+				message: "Workflow replay 0 failed: execute: boom",
+			}),
 		);
 		expect(events).toEqual(["registered", "released"]);
 	}).pipe(Effect.provide(layer));
@@ -604,7 +784,10 @@ it.effect("maps inactive plugin pin registration to SandboxRunError", () => {
 				() => Effect.die("unused"),
 			),
 		);
-		assertExitFails(exit, new SandboxRunError({ message: "Plugin 'plugin' is not active" }));
+		assertExitFails(
+			exit,
+			new SandboxRunError({ kind: "missing-artifact", message: "Plugin 'plugin' is not active" }),
+		);
 	}).pipe(Effect.provide(layer));
 });
 
@@ -626,7 +809,12 @@ it.effect("rejects divergence beyond index zero before a replay's generic script
 	return Effect.gen(function* () {
 		const exit = yield* Effect.exit(
 			validateWorkflowReplayEnvelope(
-				{ state: "failed", error: "generic script error", requests: [first, changedSecond] },
+				{
+					state: "failed",
+					kind: "script-failure",
+					error: "generic script error",
+					requests: [first, changedSecond],
+				},
 				[
 					{ value: "one", request: first },
 					{ value: null, request: recordedSecond },
@@ -818,9 +1006,10 @@ it.effect("dispatches plugin children as child workflows with an exact script pi
 			SandboxScriptId.make("child-script"),
 			{
 				input: {},
+				pluginRevision,
 				executionId: "parent",
 				resolutionMode: "active",
-				subject: { type: "system" },
+				subject: automationSubject,
 				scriptId: SandboxScriptId.make("parent-script"),
 			},
 			"parent",
@@ -832,7 +1021,9 @@ it.effect("dispatches plugin children as child workflows with an exact script pi
 			payload: {
 				resolutionMode: "exact",
 				scriptId: "child-script",
+				subject: automationSubject,
 				grants: { artifactOwnerExecutionId: "parent" },
+				pluginRevision: { id: "plugin", revisionId: "revision-1", configRevisionId: "config-1" },
 			},
 		});
 	}).pipe(

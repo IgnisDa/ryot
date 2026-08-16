@@ -1,3 +1,4 @@
+import type { PluginHook } from "@ryot-app/contract/modules/plugins/manifest";
 import { column, field, table } from "@ryot-app/ryotql";
 import {
 	buildSavedViewLayoutProjections,
@@ -6,6 +7,15 @@ import {
 
 import { manifest as notificationManifest } from "./kernel-scripts/notification.sandbox";
 import type { DefinitionSource } from "./service";
+
+export const kernelNotificationHook = {
+	stage: "after",
+	delivery: "async",
+	name: "Signal Notification",
+	slug: "automation.notification",
+	scriptSlug: notificationManifest.slug,
+	targets: [{ operation: "emit", resource: "signal", signalSchemaSlug: "integration.disabled" }],
+} as const satisfies PluginHook;
 
 const reviewPropertiesSchema = {
 	fields: {
@@ -145,7 +155,7 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 			slug: "integration.disabled",
 			name: "Integration Disabled",
 			audiencePolicy: { kind: "actor" },
-			notificationScriptSlug: "automation.notification",
+			notificationHookSlug: kernelNotificationHook.slug,
 			propertiesSchema: {
 				unknownKeys: "strict",
 				fields: {

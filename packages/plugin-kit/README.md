@@ -1,6 +1,6 @@
 # Plugin Kit
 
-`@ryot-app/plugin-kit/manifest` owns plugin authoring schemas and types. `definePlugin` preserves
+`@ryot-app/contract/modules/plugins/manifest` owns plugin authoring schemas and types. `definePlugin` preserves
 literal types while validating the strict authored manifest: every section is required, empty arrays
 are explicit, unknown fields are rejected, and `scripts` is not authored. Sandbox slugs use lowercase
 letters and numbers separated by `.`, `_`, or `-`; `/` is reserved for path mapping.
@@ -50,13 +50,14 @@ Each entry default-exports exactly one direct definition with static manifest, i
 schema, and Effect-returning `run`. The static manifest is the source of its metadata; there are no
 driver maps or runtime kind selection.
 
-| Kind         | Helper             | Use                                                             |
-| ------------ | ------------------ | --------------------------------------------------------------- |
-| `script`     | `defineScript`     | Boot, cron, bootstrap, or internal execution                    |
-| `operation`  | `defineOperation`  | Public `plugins.invoke` entrypoint                              |
-| `workflow`   | `defineWorkflow`   | Deterministic durable orchestration; capabilities must be empty |
-| `automation` | `defineAutomation` | Policy or subscription binding                                  |
-| `provider`   | `defineProvider`   | One logical provider operation                                  |
+| Kind         | Helper                   | Use                                                             |
+| ------------ | ------------------------ | --------------------------------------------------------------- |
+| `script`     | `defineScript`           | Boot, cron, bootstrap, or internal execution                    |
+| `operation`  | `defineOperation`        | Public `plugins.invoke` entrypoint                              |
+| `workflow`   | `defineWorkflow`         | Deterministic durable orchestration; capabilities must be empty |
+| `automation` | `defineAutomation`       | After hook (`automationType: "automation"`)                     |
+| `automation` | `defineAutomationPolicy` | Before hook (`automationType: "policy"`)                        |
+| `provider`   | `defineProvider`         | One logical provider operation                                  |
 
 A logical provider requires `details` and may declare `search`, `resolve`, and `translate`, each as a
 separate provider script. `rootEntitySchemaSlug` may reference an entity schema from the same plugin.
@@ -100,7 +101,7 @@ entry can therefore leave otherwise unreachable shared files unchecked.
 | `signalSchemas`        | Signal audience, catalog, and formatter definitions                     |
 | `client`               | Version 1 public exports, routes, entities, dependencies, and home view |
 | `savedViews`           | Renderer, settings, and optional named RyotQL data sources              |
-| `bindings`             | Entity, event, relationship, and signal automation bindings             |
+| `hooks`                | Stable before/after lifecycle hooks                                     |
 
 All referenced scripts, workflows, providers, and config keys must exist. Active plugins share the
 global namespaces enforced by `PluginManifest`. Entity and relationship schema evolution is additive.
@@ -124,17 +125,21 @@ filesystem grants. Workflows declare no capabilities and receive durable replay 
 
 Subject follows the dispatch path: boot and cron use system; user bootstrap uses the initialized user;
 user operations, imports, and user-triggered provider calls use the caller; integration operations add
-validated integration context; automations use their subscription subject; durable descendants inherit
+validated integration context; automations use a trusted automation-run subject; durable descendants inherit
 their parent's subject.
 
-Post-write automations receive compact source references. Use `automationOccurrenceRecipe(automation.occurrenceId)` through
-`executeRyotqlRecipe(host.executeRyotql, ...)` to read the immutable occurrence, including its
-before/after source snapshots. When `automation.runId` is present, use `automationRunRecipe` through
-the same `executeRyotql` path to read run metadata. Prefer recipes with explicit projections over broad
-record reads. Occurrence snapshots describe what triggered the automation and do not change; separate
-domain queries describe current persisted state and may return data changed after the occurrence. A
-`provider-entity-import` source is already a compact provider/entity reference and can be used directly
-when those identifiers are sufficient.
+Hooks receive the immutable invocation directly. `automation` contains `triggerId`, `runId`,
+`hookSlug`, `causation`, `occurredAt`, optional `hookMetadata`, and `payload`. Narrow on
+`payload.category`, `payload.resource`, and `payload.operation` before reading its data.
+Request payloads contain the proposed `draft`; updates also retain `before`. Change creates contain
+`after`, updates contain `before` and `after`, and deletes contain `before`. Delete requests contain
+the complete snapshot as `draft`. Provider completion includes entity/schema, provider, external ID,
+and `userId`. Signals include `signalSchemaSlug`, `properties`, nullable `actorUserId`, and optional
+`subjectEntityId`.
+
+Do not query invocation data back through RyotQL. Ordinary user-data queries remain scoped by the
+trusted principal and describe current state, which can differ from the immutable payload.
+Plugins never own database tables or direct persistence; writes use kernel host functions.
 
 Exact host-function and filesystem limits are in the
 [sandbox runtime reference](../../kernel/backend/src/lib/infrastructure/sandbox-runtime/README.md).
@@ -145,6 +150,83 @@ a host-call budget and at most four calls may be in flight.
 Provider-associated scripts share cache namespace by logical provider ID. Standalone scripts use
 immutable script ID. Both are isolated by executing user, not plugin owner. Exact key, TTL, and restart
 semantics are in the sandbox runtime reference.
+
+## Lifecycle Hooks
+
+Every manifest declares `hooks`, including `[]` when empty. A hook's identity is `(pluginId, slug)`;
+keep its slug stable when changing its script, targets, order, or metadata. Hook targets name schemas
+declared by the manifest. Event targets name both their entity schema and event schema. There are no
+wildcards or expression rules. The archive includes only active discovered scripts, and every hook
+must reference an automation-kind script with the correct `automationType`.
+
+```ts
+// Inside the authored manifest; "item" must be a declared entity schema.
+hooks: [
+	{
+		slug: "item.ensure-membership",
+		name: "Ensure library membership",
+		scriptSlug: "ensure-membership",
+		stage: "after",
+		delivery: "required",
+		targets: [
+			{ resource: "entity", operation: "create", entitySchemaSlug: "item" },
+			{ resource: "provider-entity-import", operation: "complete", entitySchemaSlug: "item" },
+		],
+		causationSources: ["api", "import", "integration"],
+		retry: { maxAttempts: 3, initialDelayMs: 1000, maxDelayMs: 60000, externalIdempotency: "none" },
+	},
+];
+```
+
+Entity, event, and relationship targets support `create`, `update`, and `delete`. Provider import
+supports only after-`complete`; signal supports only after-`emit`. Import completion remains a fact
+even when the global entity already exists. `signalSchemas[].notificationHookSlug` names an after
+hook that targets that signal; it is never a script slug.
+
+Before hooks use `defineAutomationPolicy` and `automationType: "policy"`. They execute sequentially
+by `(position, pluginId, hookSlug)`; omitted `position` means 1000. Their capabilities are read-only:
+`executeRyotql`, schema/integration/config/preference reads, cache reads, and diagnostic `log`/`span`.
+No domain writes, HTTP, signals, notifications, cache writes, persistent claims, child workflows, or filesystem grants
+are allowed. Outputs are `{ action: "allow" }`, `{ action: "reject", reason }`, or
+`{ action: "transform", payload }`, where `payload` is a complete request proposal. The kernel keeps
+resource, operation, scope, and target identity fixed and revalidates the draft with its AppSchema.
+Numeric `AppSchema.normalize` remains schema decoding behavior; do not move rounding into hooks.
+
+Only before-event hooks may set `batchFrequency: "item" | "once-per-subject"`; omission means `item`.
+For event-create batches, `once-per-subject` runs on the first eligible item for each deterministic
+subject key. Before hooks have no `delivery` or `retry` fields. Infrastructure failure returns
+`policy-execution-failed` with the run ID and creates no mutation. Resubmission is a new command;
+delayed automatic and manual policy retry are not allowed.
+
+After hooks use `defineAutomation` and `automationType: "automation"`. They run concurrently and
+independently. Dependent steps belong in one script or plugin workflow. `delivery: "async"` does not
+delay the response. `delivery: "required"` waits for one immediate attempt with bounded waiting;
+failure does not roll back committed source data. Responses can carry `required-hook-failed` or
+`required-hook-pending` with `hookSlug` and `runId`, or `automation-limit-reached` with `triggerId`
+and at most 100 omitted `{ pluginId, hookSlug }` identities. Warnings never contain sandbox logs.
+
+Omitted `retry` means `{ maxAttempts: 1, initialDelayMs: 1000, maxDelayMs: 60000,
+externalIdempotency: "none" }`. Attempts include the first attempt and are bounded to 1–10.
+Exponential delays double from `initialDelayMs` (1–3,600,000) to `maxDelayMs` (1–86,400,000), which
+must be at least the initial delay. Only kernel-classified infrastructure failures are retryable;
+schema failures, missing retained artifacts, and business failures are terminal. HTTP uncertain
+outcomes are terminal unless the hook declares `externalIdempotency: "run-id"`. Automatic retries
+for scripts with `httpCall` or `sendNotification` require this declaration. Declare it only if the
+external operation supports deduplication and receives `automation.runId` as its idempotency key.
+All attempts share that logical run ID; external exactly-once delivery is not guaranteed.
+
+`causationSources` is an optional non-empty allowlist of `api`, `import`, `integration`, `bootstrap`,
+`provider-refresh`, or `automation`. Causation retains `initiator`, `executionId`, `rootExecutionId`,
+nullable `parentTriggerId`/`parentRunId`, `depth`, and optional `integrationId`, `importRunId`, and
+`providerExecutionId`. Kernel host writes derive child parents from the trusted run, preserve root
+attribution, set source to `automation`, and increment depth. Plugin input cannot set these parents.
+Depth and shared run budgets are kernel-enforced. Blocked policy planning rejects the write;
+blocked post-write planning retains the source mutation.
+
+`getPluginConfig` reads only the pinned configuration revision and declared keys. Configuration is
+never copied into automation input or history. `emitSignal` returns `{ triggerId, wasCreated }`.
+Notification subscriptions remain portable user configuration; triggers, runs, attempts, retry
+state, logs, and encryption keys are not account-backup data.
 
 ## HTTP Rate Limits
 
@@ -174,9 +256,10 @@ Ingestion validates a complete prospective registry, compiles entries, persists 
 content-addressed scripts, and atomically swaps the active snapshot. Readers see a complete old or new
 snapshot. Existing durable workflows retain pinned versions; new resolution uses the active snapshot.
 
-System plugins are deployment-controlled. User plugins can be uninstalled only when no workflow,
-entity, active schema, or binding references them. Callers may retry while an active workflow reaches
-terminal state; persistent references require explicit removal.
+System plugins are deployment-controlled. Accepted hook runs keep pinned package, configuration,
+and script revisions through their retry window. Disablement and uninstall exclude new planning but
+do not cancel accepted runs. The kernel retains compact revision attribution for history after
+executable artifacts expire.
 
 ## Configuration And Data Contracts
 

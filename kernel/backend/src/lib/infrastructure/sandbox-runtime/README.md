@@ -19,7 +19,7 @@ Before execution, the backend verifies compiled bytes against SHA-256, atomicall
 
 `SANDBOX_WORKER_CONCURRENCY` bounds how many queued executions run at once and defaults to 2, sized for the canonical 2 vCPU / 4 GB self-hosted baseline where each live execution holds one Deno process and one shared application/workflow-pool connection. Excess work stays durably queued rather than rejected, so raising it trades queue latency for CPU contention and resident memory. Boot fails when the value exceeds `DATABASE_POOL_MAX - 1` and warns when it leaves the two always-on durable queue workers no connection headroom.
 
-Automation contexts are compact execution references. The sandbox receives occurrence, rule, and optional run IDs plus the source reference, origin, operation, and occurrence time. It reads immutable occurrence data and pinned run metadata through execution-scoped RyotQL. This keeps workflow payloads bounded without weakening replay consistency.
+Automation contexts contain the trusted trigger and run IDs, hook slug, causation, occurrence time, execution user, retained trigger payload, and optional hook metadata. The workflow prepares this input from the pinned run and immutable trigger; scripts cannot replace its ownership or parentage. Plugin configuration is not copied into the context and remains available only through `getPluginConfig` against the exact retained revision.
 
 An unrecorded mutable `host.*` call ends that replay. The workflow dispatches it through its owning activity, child workflow, artifact operation, or diagnostic path, journals the typed success or failure, then replays. Recorded calls return their journaled results and never repeat the backend dispatch.
 
@@ -77,10 +77,10 @@ The manifest declares an exact capability tuple. The backend intersects it with 
 | Principal or role                   | Available bridge capabilities                                                                                                                                         |
 | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | All valid subjects                  | `log`, `span`, `httpCall`, `getCachedValue`, `setCachedValue`, `getPluginConfig`, `getSystemConfig`, `claimPersistentValue`                                           |
-| User or subscription                | `createEvents`, `getEntitySchemas`, `listEventSchemas`, `listIntegrations`, `getUserPreferences`, `getCurrentIntegration`, `changeUserRelationships`, `executeRyotql` |
+| User or user automation run         | `createEvents`, `getEntitySchemas`, `listEventSchemas`, `listIntegrations`, `getUserPreferences`, `getCurrentIntegration`, `changeUserRelationships`, `executeRyotql` |
 | System-plugin user-bootstrap script | `ensureUserEntities` for that plugin's entity schemas                                                                                                                 |
 | Pinned system-scope plugin script   | `executeRyotql`, `upsertGlobalEntities`, `upsertGlobalRelationships` within plugin ownership                                                                          |
-| Subscription or system automation   | `emitSignal`; `sendNotification` is subscription-only                                                                                                                 |
+| User or system automation run       | `emitSignal`; `sendNotification` is available only to user automation runs                                                                                            |
 
 `scratch` and `artifact-read` are non-bridge permissions. System elevation requires a persisted pinned system-scope plugin principal. User capabilities require a trusted user subject. `getEntitySchemas` uses that user's effective ready, enabled plugin catalog. Entity and event data reads use RyotQL; schema calls expose metadata only.
 
@@ -140,6 +140,6 @@ Compiler memory is sampled proportional set size in the Linux production image, 
 
 ## Liveness And Garbage Collection
 
-Database rows and `<contentHash>.mjs` files share one liveness set: persisted current plugins, the active loader snapshot, source-zero kernel scripts, and running or suspended workflow references. GC starts only after kernel hashes exist, takes the plugin-ingestion lock, computes liveness and deletes rows in one transaction, then removes only unreferenced hash-shaped files.
+Database rows and `<contentHash>.mjs` files share one liveness set: persisted current plugins, accepted automation runs inside their artifact window, the active loader snapshot, source-zero kernel scripts, and running or suspended workflow references. GC starts only after kernel hashes exist, takes the plugin-ingestion lock, computes liveness and deletes rows in one transaction, then removes only unreferenced hash-shaped files.
 
-Execution hard links protect in-flight imports if canonical files are collected. Acquisition retries once if GC wins the materialize/link race. Missing memoized files are evicted and rebuilt. Workflow uninstall guards and persisted references keep replay code live across process restarts and suspension; completion or cancellation releases it.
+Execution hard links protect in-flight imports if canonical files are collected. Acquisition retries once if GC wins the materialize/link race. Missing memoized files are evicted and rebuilt. Persisted workflow references protect ordinary suspended work; retained automation runs independently protect their exact script, plugin, and configuration pins through retry and manual replay. Completion or cancellation releases workflow references.

@@ -83,7 +83,7 @@ describe("definition registry", () => {
 		);
 		expect(registry.getRelationshipSchema("fixture-link")?.name).toBe("Fixture Link");
 		expect(registry.getSignalSchema("fixture.signal")?.name).toBe("Fixture Signal");
-		expect(registry.getSignalSchema("fixture.signal")?.notificationScriptSlug).toBe(
+		expect(registry.getSignalSchema("fixture.signal")?.notificationHookSlug).toBe(
 			"fixture.automation",
 		);
 		expect(registry.getEntitySchema("collection")?.pluginSlug).toBeNull();

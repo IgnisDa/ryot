@@ -1,8 +1,24 @@
 import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
-import { AuthMiddleware } from "../../auth-middleware";
-import { AutomationRuleId, SignalSchemaSlug } from "../../schema/brands";
+import { AdminMiddleware, AuthMiddleware } from "../../auth-middleware";
+import {
+	AutomationRunId,
+	NotificationSubscriptionId,
+	SignalSchemaSlug,
+	UserId,
+} from "../../schema/brands";
+import {
+	AutomationHistoryDetail,
+	AutomationHistoryFilters,
+	AutomationHistoryInternalError,
+	AutomationHistoryNotFound,
+	AutomationHistoryPage,
+	AutomationHistoryRequestError,
+	AutomationHistoryRetryBody,
+	AutomationHistoryRetryConflict,
+	AutomationHistoryRetryResult,
+} from "./history-schemas";
 import {
 	AutomationConflictError,
 	AutomationNotFoundError,
@@ -38,22 +54,101 @@ export const AutomationsGroup = HttpApiGroup.make("automations")
 	.add(
 		HttpApiEndpoint.post("activateRule", "/automations/rules/:ruleId/activate", {
 			success: InstalledNotificationRule,
-			params: { ruleId: AutomationRuleId },
+			params: { ruleId: NotificationSubscriptionId },
 			error: [AutomationNotFoundError.pipe(HttpApiSchema.status(404))],
 		}).annotate(OpenApi.Description, "Activates an installed notification rule."),
 	)
 	.add(
 		HttpApiEndpoint.post("deactivateRule", "/automations/rules/:ruleId/deactivate", {
 			success: InstalledNotificationRule,
-			params: { ruleId: AutomationRuleId },
+			params: { ruleId: NotificationSubscriptionId },
 			error: [AutomationNotFoundError.pipe(HttpApiSchema.status(404))],
 		}).annotate(OpenApi.Description, "Deactivates an installed notification rule."),
 	)
 	.add(
 		HttpApiEndpoint.delete("deleteRule", "/automations/rules/:ruleId", {
-			params: { ruleId: AutomationRuleId },
-			success: Schema.Struct({ id: AutomationRuleId }),
+			params: { ruleId: NotificationSubscriptionId },
+			success: Schema.Struct({ id: NotificationSubscriptionId }),
 			error: [AutomationNotFoundError.pipe(HttpApiSchema.status(404))],
 		}).annotate(OpenApi.Description, "Deletes an installed notification rule."),
 	)
 	.middleware(AuthMiddleware);
+
+const historyErrors = [
+	AutomationHistoryNotFound.pipe(HttpApiSchema.status(404)),
+	AutomationHistoryInternalError.pipe(HttpApiSchema.status(500)),
+];
+const listErrors = [
+	AutomationHistoryRequestError.pipe(HttpApiSchema.status(400)),
+	AutomationHistoryInternalError.pipe(HttpApiSchema.status(500)),
+];
+
+export const AutomationHistoryGroup = HttpApiGroup.make("automationHistory")
+	.annotate(OpenApi.Description, "Reads owned automation history and queues eligible retries.")
+	.add(
+		HttpApiEndpoint.get("listRuns", "/automations/runs", {
+			error: listErrors,
+			success: AutomationHistoryPage,
+			query: AutomationHistoryFilters,
+		}).annotate(
+			OpenApi.Description,
+			"Lists the authenticated user's runs in descending queued-time order with bounded cursor pagination.",
+		),
+	)
+	.add(
+		HttpApiEndpoint.get("getRun", "/automations/runs/:runId", {
+			error: historyErrors,
+			success: AutomationHistoryDetail,
+			params: { runId: AutomationRunId },
+		}).annotate(
+			OpenApi.Description,
+			"Reads an owned run with bounded, redacted retained artifacts and retry eligibility.",
+		),
+	)
+	.add(
+		HttpApiEndpoint.post("retryRun", "/automations/runs/:runId/retry", {
+			params: { runId: AutomationRunId },
+			payload: AutomationHistoryRetryBody,
+			success: AutomationHistoryRetryResult.pipe(HttpApiSchema.status(202)),
+			error: [...historyErrors, AutomationHistoryRetryConflict.pipe(HttpApiSchema.status(409))],
+		}).annotate(
+			OpenApi.Description,
+			"Queues the next attempt of an eligible failed run with its exact retained pins.",
+		),
+	)
+	.middleware(AuthMiddleware);
+
+export const GodModeAutomationHistoryGroup = HttpApiGroup.make("godModeAutomationHistory")
+	.annotate(OpenApi.Description, "Provides god-mode access to automation history and retries.")
+	.add(
+		HttpApiEndpoint.get("listRuns", "/god-mode/automations/runs", {
+			error: listErrors,
+			success: AutomationHistoryPage,
+			query: Schema.Struct({ ...AutomationHistoryFilters.fields, userId: Schema.optional(UserId) }),
+		}).annotate(
+			OpenApi.Description,
+			"Lists all runs, optionally filtered by execution user, using bounded cursor pagination.",
+		),
+	)
+	.add(
+		HttpApiEndpoint.get("getRun", "/god-mode/automations/runs/:runId", {
+			error: historyErrors,
+			success: AutomationHistoryDetail,
+			params: { runId: AutomationRunId },
+		}).annotate(
+			OpenApi.Description,
+			"Reads any run with the same bounded artifact redaction as user history.",
+		),
+	)
+	.add(
+		HttpApiEndpoint.post("retryRun", "/god-mode/automations/runs/:runId/retry", {
+			params: { runId: AutomationRunId },
+			payload: AutomationHistoryRetryBody,
+			success: AutomationHistoryRetryResult.pipe(HttpApiSchema.status(202)),
+			error: [...historyErrors, AutomationHistoryRetryConflict.pipe(HttpApiSchema.status(409))],
+		}).annotate(
+			OpenApi.Description,
+			"Queues the next pinned attempt of any eligible failed run using god-mode authorization.",
+		),
+	)
+	.middleware(AdminMiddleware);

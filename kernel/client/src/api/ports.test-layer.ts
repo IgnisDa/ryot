@@ -1,5 +1,6 @@
 import { Effect, Layer } from "effect";
 
+import { AutomationHistoryApi } from "#/api/automation-history";
 import { BackupsApi } from "#/api/backups";
 import { CollectionsApi } from "#/api/collections";
 import { EntityInterestApi } from "#/api/entity-interest";
@@ -17,6 +18,16 @@ import { UserSettingsApi } from "#/api/user-settings";
 import { EntityInterestService } from "#/modules/entity-interest/service";
 
 export const unused = () => Effect.die("not used");
+
+export const makeAutomationHistoryApi = (
+	overrides: Partial<AutomationHistoryApi["Service"]> = {},
+) =>
+	Layer.succeed(AutomationHistoryApi, {
+		getRun: unused,
+		listRuns: unused,
+		retryRun: unused,
+		...overrides,
+	});
 
 export const makeEntityInterestApi = (overrides: Partial<EntityInterestApi["Service"]> = {}) =>
 	Layer.succeed(EntityInterestApi, { createSocketTicket: unused, ...overrides });
@@ -129,6 +140,7 @@ export const makeGodModeApi = (overrides: Partial<GodModeApi["Service"]> = {}) =
 	});
 
 export const KernelApiTestLayer = Layer.mergeAll(
+	makeAutomationHistoryApi(),
 	makeRyotQLApi(),
 	makeCollectionsApi(),
 	makeImportsApi(),

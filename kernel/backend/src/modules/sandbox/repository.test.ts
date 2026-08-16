@@ -3,10 +3,17 @@ import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import type { WorkflowDurableCallRequest } from "@ryot-app/sandbox-sdk/workflow";
 import type { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
+import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { Database } from "#lib/infrastructure/db/service";
+import {
+	makePluginEnvironmentConfig,
+	PluginEnvironmentConfig,
+	type PluginEnvironmentConfigSnapshot,
+} from "#lib/infrastructure/plugin-environment-config";
+import { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 
 import { isWorkflowCallTargetKind, SandboxRepository } from "./repository";
 
@@ -57,31 +64,70 @@ const pluginPinRow = {
 	providerId: "provider-id",
 	contentHash: "current-hash",
 	providerPluginId: "plugin-id",
+	pluginRevisionId: "revision-1",
+	activeRevisionId: "revision-1",
 	pluginScope: "system" as const,
 	metadata: { kind: "script" as const },
 	compiledHashes: { "plugin.script": "current-hash" },
 };
 
-const getPin = (row: typeof pluginPinRow | null) =>
+const config = {
+	ownerUserId: null,
+	scope: "environment",
+	encryptedPayload: "encrypted",
+	pluginRevisionId: "revision-1",
+};
+
+const pinDatabase = (
+	rows: (table: unknown, condition?: { getSQL: () => SQL }) => readonly unknown[],
+) =>
+	Object.assign(Object.create(null), {
+		select: () => ({
+			from: (table: unknown) => {
+				const query = {
+					leftJoin: () => query,
+					where: (condition: { getSQL: () => SQL }) =>
+						Object.assign(
+							Effect.sync(() => rows(table, condition)),
+							{ limit: () => Effect.sync(() => rows(table, condition)) },
+						),
+				};
+				return query;
+			},
+		}),
+	});
+
+const environmentLayer = (snapshot: PluginEnvironmentConfigSnapshot) =>
+	Layer.succeed(PluginEnvironmentConfig, makePluginEnvironmentConfig(snapshot));
+
+const activeEnvironment = environmentLayer({
+	"plugin-id": { configRevisionId: "config-1", pluginRevisionId: "revision-1" },
+});
+
+const getPin = (
+	row: typeof pluginPinRow | null,
+	expectedRevision?: Pick<SandboxPluginRevision, "id" | "revisionId" | "configRevisionId">,
+	storedConfig = config,
+	environment = activeEnvironment,
+) =>
 	Effect.flatMap(SandboxRepository, (repository) =>
-		repository.getScriptPin(SandboxScriptId.make("script-id")),
+		repository.getScriptPin(SandboxScriptId.make("script-id"), expectedRevision),
 	).pipe(
 		Effect.provide(
-			Layer.mergeAll(
-				SandboxRepository.layer,
-				Layer.succeed(
-					Database,
-					Object.assign(Object.create(null), {
-						select: () => ({
-							from: () => ({
-								leftJoin: () => ({
-									leftJoin: () => ({
-										where: () => ({ limit: () => Effect.succeed(row ? [row] : []) }),
-									}),
-								}),
+			SandboxRepository.layer.pipe(
+				Layer.provideMerge(
+					Layer.mergeAll(
+						environment,
+						Layer.succeed(
+							Database,
+							pinDatabase((table) => {
+								if (table === tables.pluginConfigRevision) {
+									return [storedConfig];
+								}
+								return row ? [row] : [];
 							}),
-						}),
-					}),
+						),
+					),
 				),
 			),
 		),
@@ -95,6 +141,8 @@ effectIt.effect("pins active current plugin identity and exact bootstrap declara
 				ownerId: null,
 				id: "plugin-id",
 				scope: "system",
+				revisionId: "revision-1",
+				configRevisionId: "config-1",
 				userBootstrapScriptSlugs: ["plugin.script"],
 				workflowScripts: { "plugin-workflow": "plugin.workflow" },
 			},
@@ -106,12 +154,48 @@ effectIt.effect("rejects inactive, stale, and foreign-provider plugin pins", () 
 	Effect.gen(function* () {
 		for (const row of [
 			{ ...pluginPinRow, pluginStatus: "inactive" },
-			{ ...pluginPinRow, contentHash: "stale-hash" },
+			{ ...pluginPinRow, activeRevisionId: "revision-2" },
 			{ ...pluginPinRow, providerPluginId: "foreign-plugin-id" },
 		]) {
 			effectExpect(yield* getPin(row)).toBeNull();
 		}
 	}),
+);
+
+effectIt.effect("rejects system plugin pins before environment configuration resolves", () =>
+	Effect.gen(function* () {
+		effectExpect(yield* getPin(pluginPinRow, undefined, config, environmentLayer({}))).toBeNull();
+	}),
+);
+
+effectIt.effect(
+	"retains revision/config pins across serialization and ignores active state for explicit pins",
+	() =>
+		Effect.gen(function* () {
+			const original = yield* getPin(pluginPinRow);
+			if (!original?.pluginRevision) {
+				throw new Error("Expected plugin pin");
+			}
+			const encoded = yield* Schema.encodeEffect(Schema.fromJsonString(SandboxPluginRevision))(
+				original.pluginRevision,
+			);
+			const pin = yield* Schema.decodeEffect(Schema.fromJsonString(SandboxPluginRevision))(encoded);
+			effectExpect(pin).toMatchObject({ revisionId: "revision-1", configRevisionId: "config-1" });
+			effectExpect(
+				yield* getPin(
+					{ ...pluginPinRow, pluginStatus: "inactive", activeRevisionId: "revision-2" },
+					pin,
+				),
+			).toMatchObject({
+				pluginRevision: { revisionId: "revision-1", configRevisionId: "config-1" },
+			});
+			effectExpect(
+				yield* getPin(pluginPinRow, pin, { ...config, pluginRevisionId: "revision-2" }),
+			).toBeNull();
+			effectExpect(
+				yield* getPin(pluginPinRow, pin, { ...config, encryptedPayload: "" }),
+			).toBeNull();
+		}),
 );
 
 effectIt.effect("resolves first-observed children from the pinned plugin revision", () => {
@@ -143,22 +227,28 @@ effectIt.effect("resolves first-observed children from the pinned plugin revisio
 	const dialect = new PgDialect();
 	type SQLCondition = { getSQL: () => SQL };
 	const targetConditions: SQLCondition[] = [];
-	const database = Object.assign(Object.create(null), {
-		select: () => ({
-			from: () => ({
-				leftJoin: () => ({
-					leftJoin: () => ({ where: () => ({ limit: () => Effect.succeed([selectedPinRow]) }) }),
-				}),
-				where: (condition: SQLCondition) => ({
-					limit: () => {
-						targetConditions.push(condition);
-						return Effect.succeed([{ id: "child-v1-id", metadata: { kind: "workflow" as const } }]);
-					},
-				}),
-			}),
-		}),
+	const database = pinDatabase((table, condition) => {
+		if (table === tables.pluginConfigRevision) {
+			return [config];
+		}
+		const params = condition ? dialect.sqlToQuery(condition.getSQL()).params : [];
+		if (params.includes("plugin.child")) {
+			if (condition) {
+				targetConditions.push(condition);
+			}
+			return [{ id: "child-v1-id", metadata: { kind: "workflow" as const } }];
+		}
+		if (params.length === 1 && params[0] === "revision-1") {
+			return [
+				{ slug: "plugin.child", contentHash: "child-v1" },
+				{ slug: "plugin.workflow", contentHash: "workflow-v1" },
+			];
+		}
+		return [selectedPinRow];
 	});
-	const layer = Layer.mergeAll(SandboxRepository.layer, Layer.succeed(Database, database));
+	const layer = SandboxRepository.layer.pipe(
+		Layer.provideMerge(Layer.mergeAll(activeEnvironment, Layer.succeed(Database, database))),
+	);
 
 	return Effect.gen(function* () {
 		const repository = yield* SandboxRepository;
@@ -186,7 +276,7 @@ effectIt.effect("resolves first-observed children from the pinned plugin revisio
 			throw new Error("Expected workflow target condition");
 		}
 		effectExpect(dialect.sqlToQuery(condition.getSQL()).params).toEqual(
-			effectExpect.arrayContaining(["plugin-id", "plugin.child", "child-v1"]),
+			effectExpect.arrayContaining(["revision-1", "plugin.child", "child-v1"]),
 		);
 
 		selectedPinRow = {

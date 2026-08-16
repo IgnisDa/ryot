@@ -1,14 +1,17 @@
 import { expect, it } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import {
+	AutomationExecutionId,
 	EntityId,
 	EntitySchemaSlug,
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { Effect } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
+import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 
 import {
@@ -17,6 +20,15 @@ import {
 	runEntityImportWorkflow,
 } from "./entity-import-workflow";
 import { EntityImportWorkflowOperations } from "./operations-workflow";
+
+const importCommand = (executionId: string, userId: UserId) =>
+	rootLifecycleCommand({
+		source: "import",
+		initiator: { id: userId, kind: "user" },
+		itemIdentity: `provider-import:${executionId}`,
+		executionId: AutomationExecutionId.make(executionId),
+		occurredAt: IsoUtcString.make("2026-01-01T00:00:00.000Z"),
+	});
 
 const importWithoutMembership = (entitySchemaSlug: string) => {
 	const executionId = `${entitySchemaSlug}-import`;
@@ -35,14 +47,15 @@ const importWithoutMembership = (entitySchemaSlug: string) => {
 	};
 
 	return Effect.gen(function* () {
+		const userId = UserId.make("user-1");
 		const result = yield* runEntityImportWorkflow(
 			{
 				executionId,
 				externalId: "external-1",
-				origin: { kind: "import" },
+				entityScope: { userId, type: "global" },
+				command: importCommand(executionId, userId),
 				providerId: SandboxProviderId.make("provider-1"),
 				entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
-				entityScope: { type: "global", userId: UserId.make("user-1") },
 			},
 			executionId,
 		);
@@ -53,7 +66,7 @@ const importWithoutMembership = (entitySchemaSlug: string) => {
 				name: "ProviderEntityPopulationWorkflow",
 				options: expect.objectContaining({ executionId: `${executionId}-provider-population` }),
 			}),
-			{ options: { executionId }, name: "provider-import-automation" },
+			{ options: { executionId }, name: "provider-import-completion" },
 		]);
 	}).pipe(
 		Effect.provideService(
@@ -69,10 +82,10 @@ const importWithoutMembership = (entitySchemaSlug: string) => {
 		Effect.provideService(WorkflowInstance, instance),
 		Effect.provideService(EntityImportWorkflowOperations, {
 			processSandbox: () => Effect.die("unused"),
-			runProviderImportAutomations: (_payload, _entity, hookExecutionId) =>
+			completeProviderEntityImport: (_payload, _entity, hookExecutionId) =>
 				Effect.sync(() => {
 					calls.push({
-						name: "provider-import-automation",
+						name: "provider-import-completion",
 						options: { executionId: hookExecutionId },
 					});
 				}),
@@ -80,7 +93,7 @@ const importWithoutMembership = (entitySchemaSlug: string) => {
 	);
 };
 
-it.effect("runs provider-import automations after provider population", () =>
+it.effect("runs provider-import completion after provider population", () =>
 	importWithoutMembership("unrelated-fixture"),
 );
 
@@ -88,7 +101,7 @@ it.effect("imports a sample entity without example membership work", () =>
 	importWithoutMembership("routine"),
 );
 
-it.effect("fails the import when a provider-import automation fails", () => {
+it.effect("fails the import when provider-import completion fails", () => {
 	const executionId = "failed-import";
 	const instance = WorkflowInstance.initial(EntityImportWorkflow, executionId);
 	const entity = {
@@ -104,15 +117,16 @@ it.effect("fails the import when a provider-import automation fails", () => {
 	};
 
 	return Effect.gen(function* () {
+		const userId = UserId.make("user-1");
 		const error = yield* Effect.flip(
 			runEntityImportWorkflow(
 				{
 					executionId,
 					externalId: "external-1",
-					origin: { kind: "import" },
+					entityScope: { userId, type: "global" },
+					command: importCommand(executionId, userId),
 					providerId: SandboxProviderId.make("provider-1"),
 					entitySchemaSlug: EntitySchemaSlug.make("record"),
-					entityScope: { type: "global", userId: UserId.make("user-1") },
 				},
 				executionId,
 			),
@@ -130,8 +144,10 @@ it.effect("fails the import when a provider-import automation fails", () => {
 		Effect.provideService(WorkflowInstance, instance),
 		Effect.provideService(EntityImportWorkflowOperations, {
 			processSandbox: () => Effect.die("unused"),
-			runProviderImportAutomations: () =>
-				Effect.fail(new SandboxRunError({ message: "membership hook failed" })),
+			completeProviderEntityImport: () =>
+				Effect.fail(
+					new SandboxRunError({ kind: "script-failure", message: "membership hook failed" }),
+				),
 		}),
 	);
 });

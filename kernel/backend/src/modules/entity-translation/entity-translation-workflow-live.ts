@@ -60,15 +60,22 @@ export const runTranslateEntityWorkflow = Effect.fn("TranslateEntityWorkflow")(
 		const operations = yield* TranslateEntityWorkflowOperations;
 		const sandboxResult = yield* operations
 			.processSandbox(payload, executionId)
-			.pipe(Effect.mapError(toSandboxRunError));
+			.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
 
 		if (sandboxResult.error) {
-			return yield* new SandboxRunError({ message: sandboxResult.error.message });
+			return yield* new SandboxRunError({
+				kind: sandboxResult.error.kind,
+				message: sandboxResult.error.message,
+			});
 		}
 
 		const translation = yield* decodeProviderTranslateResult(sandboxResult.value).pipe(
 			Effect.mapError(
-				(error) => new SandboxRunError({ message: `Invalid translate result: ${error.message}` }),
+				(error) =>
+					new SandboxRunError({
+						kind: "invalid-output",
+						message: `Invalid translate result: ${error.message}`,
+					}),
 			),
 		);
 		return yield* writeTranslationOverlay(payload, translation);

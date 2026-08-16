@@ -9,6 +9,8 @@ import {
 import { Effect, Match } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 
+import { AutomationReconciliation } from "#modules/automations/reconciliation";
+
 import { OperationalGateService } from "./operational-gate-service";
 import { TestSupportService } from "./service";
 
@@ -177,22 +179,54 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				yield* svc.setEntityInterestMembership(payload);
 			}).pipe(mapTestSupportFailure),
 		)
-		.handle("listSignals", ({ payload }) =>
+		.handle("listAutomationTriggers", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
-				return yield* svc.listSignals(payload);
+				return yield* svc.listAutomationTriggers(payload);
 			}).pipe(mapTestSupportFailure),
 		)
-		.handle("listSubscriptionRuns", ({ payload }) =>
+		.handle("listAutomationTriggerRecipients", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
-				return yield* svc.listSubscriptionRuns(payload);
+				return yield* svc.listAutomationTriggerRecipients(payload);
+			}).pipe(mapTestSupportFailure),
+		)
+		.handle("listAutomationRuns", ({ payload }) =>
+			Effect.gen(function* () {
+				const svc = yield* TestSupportService;
+				return yield* svc.listAutomationRuns(payload);
+			}).pipe(mapTestSupportFailure),
+		)
+		.handle("reconcileAutomations", () =>
+			Effect.gen(function* () {
+				const reconciliation = yield* AutomationReconciliation;
+				yield* reconciliation.reconcile();
+			}).pipe(mapTestSupportFailure),
+		)
+		.handle("listAutomationRunAttempts", ({ payload }) =>
+			Effect.gen(function* () {
+				const svc = yield* TestSupportService;
+				return yield* svc.listAutomationRunAttempts(payload);
 			}).pipe(mapTestSupportFailure),
 		)
 		.handle("installSystemPlugin", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc.installSystemPlugin(payload).pipe(dieOnDbError);
+			}),
+		)
+		.handle("installPrivatePlugin", ({ params, payload }) =>
+			Effect.gen(function* () {
+				const svc = yield* TestSupportService;
+				return yield* svc.installPrivatePlugin(params.userId, payload).pipe(dieOnDbError);
+			}),
+		)
+		.handle("updatePrivatePlugin", ({ params, payload }) =>
+			Effect.gen(function* () {
+				const svc = yield* TestSupportService;
+				return yield* svc
+					.updatePrivatePlugin(params.userId, params.pluginSlug, payload)
+					.pipe(dieOnDbError);
 			}),
 		)
 		.handle("reconcilePluginInstallations", () =>
@@ -204,7 +238,7 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 		.handle("listSystemPlugins", () =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
-				return yield* svc.listSystemPlugins();
+				return yield* svc.listSystemPlugins;
 			}).pipe(mapTestSupportFailure),
 		)
 		.handle("uninstallSystemPlugin", ({ params }) =>

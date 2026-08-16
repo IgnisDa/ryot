@@ -1,11 +1,14 @@
 import { spawn } from "node:child_process";
 import { EventEmitter, once } from "node:events";
-import { createWriteStream, type WriteStream } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
-import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
+import {
+	startPostgresContainer,
+	type StartedPostgresContainer,
+	stopPostgresContainer,
+} from "@ryot-app/testing/postgres-container";
 import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
 
 const S3_ACCESS_KEY = "rustfsadmin";
@@ -17,39 +20,17 @@ export type CoreTestInfrastructure = {
 	pgLogPath: string;
 	s3Client: S3Client;
 	s3Endpoint: string;
-	pgLogStream: WriteStream;
 	s3Container: StartedTestContainer;
+	postgres: StartedPostgresContainer;
 	redisContainer: StartedTestContainer;
-	pgContainer: StartedPostgreSqlContainer;
 };
 
 export async function startCoreTestInfrastructure(input: {
 	bucketName: string;
 }): Promise<CoreTestInfrastructure> {
 	process.env.TESTCONTAINERS_RYUK_DISABLED = "true";
-	const pgLogPath = join(tmpdir(), `ryot-e2e-postgres-${process.pid}.log`);
-	const pgLog = createWriteStream(pgLogPath, { flags: "w" });
-	const [pgContainer, redisContainer, s3Container] = await Promise.all([
-		new PostgreSqlContainer("postgres:18-alpine")
-			.withDatabase("test_db")
-			.withUsername("test_user")
-			.withPassword("test_password")
-			.withCommand([
-				"postgres",
-				"-c",
-				"max_connections=400",
-				"-c",
-				"log_lock_waits=on",
-				"-c",
-				"deadlock_timeout=100ms",
-				"-c",
-				"log_min_error_statement=error",
-				"-c",
-				"log_line_prefix=%m [%p] tx=%x ",
-			])
-			.withLogConsumer((stream) => stream.pipe(pgLog))
-			.withWaitStrategy(Wait.forLogMessage("database system is ready"))
-			.start(),
+	const [postgres, redisContainer, s3Container] = await Promise.all([
+		startPostgresContainer({ label: "e2e" }),
 		new GenericContainer("redis:alpine")
 			.withExposedPorts(6379)
 			.withWaitStrategy(Wait.forLogMessage("Ready to accept connections"))
@@ -60,7 +41,6 @@ export async function startCoreTestInfrastructure(input: {
 			.start(),
 	]);
 
-	const dbUrl = pgContainer.getConnectionUri();
 	const redisUrl = `redis://${redisContainer.getHost()}:${redisContainer.getMappedPort(6379)}`;
 	const s3Endpoint = `http://${s3Container.getHost()}:${s3Container.getMappedPort(9000)}`;
 
@@ -74,15 +54,14 @@ export async function startCoreTestInfrastructure(input: {
 	await s3Client.send(new CreateBucketCommand({ Bucket: input.bucketName }));
 
 	return {
-		dbUrl,
+		postgres,
 		redisUrl,
 		s3Client,
-		pgLogPath,
 		s3Endpoint,
-		pgContainer,
 		s3Container,
 		redisContainer,
-		pgLogStream: pgLog,
+		dbUrl: postgres.url,
+		pgLogPath: postgres.logPath,
 	};
 }
 
@@ -92,14 +71,10 @@ export async function stopCoreTestInfrastructure(infrastructure?: CoreTestInfras
 	}
 
 	await Promise.all([
-		infrastructure.pgContainer.stop(),
+		stopPostgresContainer(infrastructure.postgres),
 		infrastructure.s3Container.stop(),
 		infrastructure.redisContainer.stop(),
 	]);
-	if (!infrastructure.pgLogStream.closed) {
-		infrastructure.pgLogStream.end();
-		await once(infrastructure.pgLogStream, "close");
-	}
 }
 
 export function buildApiEnv(input: {

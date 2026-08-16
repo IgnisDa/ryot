@@ -1,7 +1,10 @@
 import { expect, it } from "@effect/vitest";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { and, eq } from "drizzle-orm";
 import { Effect, Encoding, Layer } from "effect";
+import { describe } from "vitest";
 
+import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { Database } from "#lib/infrastructure/db/service";
 import { DefinitionRegistry, type DefinitionSnapshot } from "#modules/definition-registry/service";
 import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
@@ -10,11 +13,13 @@ import { PluginBackupRestore } from "./backup-restore";
 import { PluginIngestionLock } from "./ingestion-lock";
 import { pluginSourceHash } from "./pipeline";
 import { PluginRepository } from "./repository";
+import { withRevisionDatabase } from "./revision.test-support";
 import { fixtureManifest } from "./test-support";
 
 const privateManifest = () => ({
 	...fixtureManifest(),
 	crons: [],
+	hooks: [],
 	scripts: [],
 	workflows: [],
 	providers: [],
@@ -24,26 +29,12 @@ const privateManifest = () => ({
 	signalSchemas: [],
 	userBootstrap: [],
 	relationshipSchemas: [],
-	bindings: {
-		eventAutomations: [],
-		entityAutomations: [],
-		signalAutomations: [],
-		relationshipAutomations: [],
-		providerEntityImportAutomations: [],
-	},
 });
 
 const snapshot = {
 	plugins: {},
 	httpRateLimits: { byKey: {}, byOrigin: {} },
 	definitions: { savedViews: {}, entitySchemas: {}, signalSchemas: {}, relationshipSchemas: {} },
-	bindings: {
-		eventAutomations: [],
-		entityAutomations: [],
-		signalAutomations: [],
-		relationshipAutomations: [],
-		providerEntityImportAutomations: [],
-	},
 };
 const database = Object.create(null);
 
@@ -272,4 +263,78 @@ it.effect("rejects persistence when a system slug appears after backup preparati
 		),
 		Effect.provideService(Database, database),
 	);
+});
+
+describe("private package backup restore in PostgreSQL", () => {
+	it.effect("restores only the current package as a fresh destination revision", () => {
+		const packageAt = (version: string) => {
+			const base = privateManifest();
+			const manifest = { ...base, metadata: { ...base.metadata, version } };
+			const files = {};
+			return { files, manifest, scripts: [], sourceHash: pluginSourceHash(manifest, files) };
+		};
+		const layer = PluginBackupRestore.layer.pipe(
+			Layer.provide(
+				Layer.mergeAll(PluginIngestionLock.layer, Layer.mock(ClientPluginCompiler)({})),
+			),
+		);
+		return withRevisionDatabase(
+			Effect.gen(function* () {
+				const db = yield* Database;
+				const plugins = yield* PluginRepository;
+				const sourceV1 = packageAt("1.0.0");
+				const sourceV2 = packageAt("2.0.0");
+				const sourcePluginId = yield* plugins.persist(sourceV1, {
+					scope: "user",
+					ownerId: "owner",
+					slug: sourceV1.manifest.metadata.slug,
+				});
+				yield* plugins.persist(sourceV2, {
+					scope: "user",
+					ownerId: "owner",
+					slug: sourceV2.manifest.metadata.slug,
+				});
+				const [current] = yield* plugins.listPrivateForUser("owner");
+				expect(current?.sourceHash).toBe(sourceV2.sourceHash);
+				const service = yield* PluginBackupRestore;
+				const key = `user:${sourceV2.manifest.metadata.slug}:${sourceV2.sourceHash}`;
+				const prepared = yield* service.prepare([
+					{
+						key,
+						files: {},
+						manifest: sourceV2.manifest,
+						sourceHash: sourceV2.sourceHash,
+						slug: sourceV2.manifest.metadata.slug,
+						version: sourceV2.manifest.metadata.version,
+					},
+				]);
+				const destinationPluginId = (yield* service.persist(
+					UserId.make("recipient"),
+					prepared,
+				)).get(key);
+				expect(destinationPluginId).toBeDefined();
+				expect(destinationPluginId).not.toBe(sourcePluginId);
+				const sourceRevisions = yield* db
+					.select()
+					.from(tables.pluginRevision)
+					.where(eq(tables.pluginRevision.pluginId, sourcePluginId));
+				const destinationRevisions = yield* db
+					.select()
+					.from(tables.pluginRevision)
+					.innerJoin(tables.plugin, eq(tables.plugin.id, tables.pluginRevision.pluginId))
+					.where(
+						and(
+							eq(tables.plugin.ownerId, "recipient"),
+							eq(tables.pluginRevision.pluginId, destinationPluginId ?? ""),
+						),
+					);
+				expect(sourceRevisions).toHaveLength(2);
+				expect(destinationRevisions).toHaveLength(1);
+				expect(destinationRevisions[0]?.plugin_revision.sourceHash).toBe(sourceV2.sourceHash);
+				expect(destinationRevisions[0]?.plugin_revision.id).not.toBe(
+					sourceRevisions.find(({ sourceHash }) => sourceHash === sourceV2.sourceHash)?.id,
+				);
+			}).pipe(Effect.provide(layer)),
+		);
+	});
 });

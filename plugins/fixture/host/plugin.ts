@@ -11,6 +11,7 @@ import { fixtureSavedViews } from "./saved-views";
 export const fixturePlugin = definePlugin({
 	boot: [],
 	crons: [],
+	hooks: [],
 	workflows: [],
 	signalSchemas: [],
 	importSources: [],
@@ -20,13 +21,6 @@ export const fixturePlugin = definePlugin({
 	integrationProviders: [],
 	savedViews: fixtureSavedViews,
 	configSchema: { fields: {}, unknownKeys: "strict" },
-	bindings: {
-		eventAutomations: [],
-		entityAutomations: [],
-		signalAutomations: [],
-		relationshipAutomations: [],
-		providerEntityImportAutomations: [],
-	},
 	operations: [
 		{
 			auth: "user",

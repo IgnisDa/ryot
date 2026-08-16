@@ -1,4 +1,5 @@
-import { SandboxRunError } from "@ryot-app/contract/errors";
+import { SandboxRunError, mapDbErrorToSandbox } from "@ryot-app/contract/errors";
+import type { AutomationPopulationContext } from "@ryot-app/contract/modules/automations/lifecycle";
 import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import {
 	EntitySchemaSlug,
@@ -8,18 +9,18 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { ProviderDetailsChildEntity } from "@ryot-app/sandbox-sdk/provider";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Effect, Schema } from "effect";
 
+import type { LifecyclePlan } from "#lib/domain/lifecycle";
+import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
+import { Database, mapDatabaseErrors, retryOnDeadlock } from "#lib/infrastructure/db/service";
 import type { DefinitionSnapshot } from "#modules/definition-registry/service";
 import { EntityMutationOutcome } from "#modules/entities/mutation-outcomes";
-import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
-import {
-	RelationshipMutationOutcomes,
-	type RelationshipMutationOutcome,
-} from "#modules/relationships/mutation-outcomes";
+import { RelationshipsService } from "#modules/relationships/service";
 
-import { synchronizeGlobalRelationships } from "./relationship-synchronization";
+import { persistPlannedRelationshipSynchronization } from "./relationship-synchronization";
 
 export const ProcessedChildEntity = Schema.Struct({
 	entity: ListedEntity,
@@ -29,17 +30,60 @@ export const ProcessedChildEntity = Schema.Struct({
 
 export type ProcessedChildEntity = typeof ProcessedChildEntity.Type;
 
+const RelationshipReconciliationResult = Schema.Struct({
+	created: Schema.Finite,
+	updated: Schema.Finite,
+	deleted: Schema.Finite,
+	upserted: Schema.Finite,
+});
+
 export const ChildEntitySetWriteResult = Schema.Struct({
-	committedAt: Schema.String,
-	relationshipOutcomes: RelationshipMutationOutcomes,
 	processedChildren: Schema.Array(ProcessedChildEntity),
+	relationshipResults: Schema.Array(RelationshipReconciliationResult),
 });
 
 export type ChildEntitySetWriteResult = typeof ChildEntitySetWriteResult.Type;
 
+const commandFor = (
+	command: LifecycleCommand,
+	itemIdentity: ReadonlyArray<string>,
+	population: AutomationPopulationContext,
+): LifecycleCommand => ({
+	...command,
+	population,
+	itemIdentity: stableStringify([command.itemIdentity, ...itemIdentity]),
+});
+
+const relationshipBatch = (
+	command: LifecycleCommand,
+	itemIdentity: ReadonlyArray<string>,
+	population: AutomationPopulationContext,
+): LifecycleCommand =>
+	commandFor(command, itemIdentity, {
+		...population,
+		batch: {
+			afterCount: 0,
+			beforeCount: 0,
+			isLeader: true,
+			createdCount: 0,
+			deletedCount: 0,
+			updatedCount: 0,
+			id: stableStringify([command.causation.executionId, ...itemIdentity]),
+		},
+	});
+
+const logWarnings = (warnings: ReadonlyArray<unknown>, parentEntityId: EntityId) =>
+	warnings.length === 0
+		? Effect.void
+		: Effect.logWarning("provider child population completed with automation warnings").pipe(
+				Effect.annotateLogs({ warnings, parentEntityId, warningCount: warnings.length }),
+			);
+
 export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 	input: {
+		command: LifecycleCommand;
 		definitions: DefinitionSnapshot;
+		population: AutomationPopulationContext;
 		syncExisting?: boolean;
 		parentEntityId: EntityId;
 		providerId: SandboxProviderId;
@@ -48,14 +92,17 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 		childEntities: ReadonlyArray<ProviderDetailsChildEntity>;
 	} & ({ scope: "global" } | { scope: "user"; userId: UserId }),
 ) {
+	const database = yield* Database;
 	const entities = yield* EntitiesService;
-	const entitiesRepository = yield* EntitiesRepository;
-
+	const relationships = yield* RelationshipsService;
 	const childSchemaSlugs = new Set(
 		input.childEntities.map(({ entitySchemaSlug }) => entitySchemaSlug),
 	);
 	if (childSchemaSlugs.size > 1) {
-		return yield* new SandboxRunError({ message: "Child entities must use one entity schema" });
+		return yield* new SandboxRunError({
+			kind: "script-failure",
+			message: "Child entities must use one entity schema",
+		});
 	}
 	const rowChildEntitySchemaSlug = input.childEntities[0]?.entitySchemaSlug;
 	if (
@@ -64,112 +111,117 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 		input.expectedChildEntitySchemaSlug !== rowChildEntitySchemaSlug
 	) {
 		return yield* new SandboxRunError({
+			kind: "script-failure",
 			message: `Child entity schema does not match declared schema: ${rowChildEntitySchemaSlug} !== ${input.expectedChildEntitySchemaSlug}`,
 		});
 	}
 	const childEntitySchemaSlug = input.expectedChildEntitySchemaSlug ?? rowChildEntitySchemaSlug;
-	let childEntitySchema: { id: EntitySchemaSlug } | null = null;
-	if (childEntitySchemaSlug && input.definitions.entitySchemas[childEntitySchemaSlug]) {
-		childEntitySchema = { id: EntitySchemaSlug.make(childEntitySchemaSlug) };
-	}
+	const childEntitySchema = childEntitySchemaSlug
+		? input.definitions.entitySchemas[childEntitySchemaSlug]
+		: undefined;
 	if (childEntitySchemaSlug && !childEntitySchema) {
 		return yield* new SandboxRunError({
+			kind: "script-failure",
 			message: `Child entity schema not found: ${childEntitySchemaSlug}`,
 		});
 	}
+	const relationshipDefinition = childEntitySchemaSlug
+		? Object.values(input.definitions.relationshipSchemas).find(
+				(definition) =>
+					definition.sourceEntitySchemaSlug === input.parentEntitySchemaSlug &&
+					definition.targetEntitySchemaSlug === childEntitySchemaSlug,
+			)
+		: undefined;
+	if (childEntitySchemaSlug && !relationshipDefinition) {
+		return yield* new SandboxRunError({
+			kind: "script-failure",
+			message: `Child relationship schema not found: ${input.parentEntitySchemaSlug} -> ${childEntitySchemaSlug}`,
+		});
+	}
 
-	const findChildRelationshipSchema = Effect.fn("findChildRelationshipSchema")(function* (
-		targetEntitySchemaSlug: EntitySchemaSlug | undefined,
-	) {
-		if (!targetEntitySchemaSlug) {
-			return null;
-		}
-		const relationshipDefinition = Object.values(input.definitions.relationshipSchemas).find(
-			(definition) =>
-				definition.sourceEntitySchemaSlug === input.parentEntitySchemaSlug &&
-				definition.targetEntitySchemaSlug === targetEntitySchemaSlug,
-		);
-		const relationshipSchema = relationshipDefinition
-			? {
-					pluginId: relationshipDefinition.pluginId ?? null,
-					propertiesSchema: relationshipDefinition.propertiesSchema,
-					id: RelationshipSchemaSlug.make(relationshipDefinition.slug),
-				}
-			: null;
-		if (!relationshipSchema) {
-			return yield* new SandboxRunError({
-				message: `Child relationship schema not found: ${input.parentEntitySchemaSlug} -> ${targetEntitySchemaSlug}`,
-			});
-		}
-		return relationshipSchema;
-	});
-
+	const scope =
+		input.scope === "user"
+			? ({ scope: "user", userId: input.userId } as const)
+			: ({ scope: "global" } as const);
 	const orderedChildEntities = input.childEntities
 		.map((childEntity, index) => ({ index, childEntity }))
 		.sort((left, right) => left.childEntity.externalId.localeCompare(right.childEntity.externalId));
-	if (childEntitySchema) {
-		yield* entitiesRepository.lockProviderEntityMutations(
-			orderedChildEntities.map(({ childEntity }) => ({
-				providerId: input.providerId,
-				externalId: childEntity.externalId,
-				entitySchemaSlug: childEntitySchema.id,
-				...(input.scope === "user"
-					? { userId: input.userId, scope: "user" as const }
-					: { scope: "global" as const }),
-			})),
-		);
-	}
-
-	const processedChildrenByIndex: Array<ProcessedChildEntity | undefined> = Array.from({
-		length: input.childEntities.length,
-	});
-	for (const { index, childEntity } of orderedChildEntities) {
-		if (!childEntitySchema) {
-			return yield* Effect.die("Validated child schema is missing");
-		}
-
-		const populatedAt = yield* DateTime.nowAsDate;
-		const saved = yield* entities.upsert({
-			populatedAt,
-			name: childEntity.name,
-			providerId: input.providerId,
-			externalId: childEntity.externalId,
-			properties: childEntity.properties,
-			entitySchemaSlug: childEntitySchema.id,
-			updateExisting: input.syncExisting ?? false,
-			...(input.scope === "user"
-				? { userId: input.userId, scope: "user" as const }
-				: { scope: "global" as const }),
-		});
-		processedChildrenByIndex[index] = {
-			entity: saved.entity,
-			entityOutcome: saved.outcome,
-			entitySchemaSlug: childEntitySchema.id,
-		};
-	}
-	const processedChildren = processedChildrenByIndex.flatMap((child) => (child ? [child] : []));
-
-	let relationshipOutcomes: RelationshipMutationOutcome[] = [];
-	const relationshipSchema = yield* findChildRelationshipSchema(childEntitySchema?.id);
-	if (relationshipSchema) {
-		relationshipOutcomes = yield* synchronizeGlobalRelationships({
-			direction: "outgoing",
-			onConflict: "preserveExisting",
-			synchronization: "authoritative",
-			anchorEntityId: input.parentEntityId,
-			relationshipSchemaSlug: relationshipSchema.id,
-			propertiesSchema: relationshipSchema.propertiesSchema,
-			relationshipSchemaPluginId: relationshipSchema.pluginId,
-			entries: processedChildren.map((child) => ({ properties: {}, entityId: child.entity.id })),
-			...(input.scope === "user"
-				? { userId: input.userId, scope: "user" as const }
-				: { scope: "global" as const }),
-		});
-	}
-	const now = yield* DateTime.nowAsDate;
+	const committed = yield* retryOnDeadlock(
+		mapDatabaseErrors(
+			database.transaction((transaction) =>
+				Effect.gen(function* () {
+					const entityPlans: LifecyclePlan[] = [];
+					const processedChildrenByIndex: Array<ProcessedChildEntity | undefined> = Array.from({
+						length: input.childEntities.length,
+					});
+					for (const { index, childEntity } of orderedChildEntities) {
+						if (!childEntitySchemaSlug) {
+							return yield* Effect.die("Validated child schema is missing");
+						}
+						const work = yield* entities.persistPlannedProviderUpsert({
+							...scope,
+							name: childEntity.name,
+							providerId: input.providerId,
+							externalId: childEntity.externalId,
+							properties: childEntity.properties,
+							updateExisting: input.syncExisting ?? false,
+							entitySchemaSlug: EntitySchemaSlug.make(childEntitySchemaSlug),
+							populatedAt: DateTime.toDateUtc(DateTime.makeUnsafe(input.command.occurredAt)),
+							lifecycle: commandFor(
+								input.command,
+								["child", String(input.parentEntityId), childEntity.externalId],
+								input.population,
+							),
+						});
+						entityPlans.push(...work.plans);
+						processedChildrenByIndex[index] = {
+							entity: work.result.entity,
+							entityOutcome: work.result.outcome,
+							entitySchemaSlug: EntitySchemaSlug.make(childEntitySchemaSlug),
+						};
+					}
+					const processedChildren = processedChildrenByIndex.flatMap((child) =>
+						child ? [child] : [],
+					);
+					const relationshipWork = relationshipDefinition
+						? yield* persistPlannedRelationshipSynchronization({
+								...scope,
+								direction: "outgoing",
+								onConflict: "preserveExisting",
+								synchronization: "authoritative",
+								anchorEntityId: input.parentEntityId,
+								relationshipSchemaPluginId: relationshipDefinition.pluginId ?? null,
+								relationshipSchemaSlug: RelationshipSchemaSlug.make(relationshipDefinition.slug),
+								entries: processedChildren.map((child) => ({
+									properties: {},
+									entityId: child.entity.id,
+								})),
+								command: relationshipBatch(
+									input.command,
+									["children", String(input.parentEntityId), relationshipDefinition.slug],
+									input.population,
+								),
+							})
+						: { plans: [], result: [] };
+					return {
+						entityPlans,
+						processedChildren,
+						relationshipPlans: relationshipWork.plans,
+						relationshipResults: relationshipWork.result,
+					};
+				}).pipe(Effect.provideService(Database, transaction)),
+			),
+		),
+	).pipe(mapDbErrorToSandbox);
+	const warnings = [
+		...(yield* entities.executeCommittedPlans(committed.entityPlans).pipe(mapDbErrorToSandbox)),
+		...(yield* relationships
+			.executeCommittedPlans(committed.relationshipPlans)
+			.pipe(mapDbErrorToSandbox)),
+	];
+	yield* logWarnings(warnings, input.parentEntityId);
 	return {
-		processedChildren,
-		relationshipOutcomes,
-		committedAt: now.toISOString(),
+		processedChildren: committed.processedChildren,
+		relationshipResults: committed.relationshipResults,
 	} satisfies ChildEntitySetWriteResult;
 });

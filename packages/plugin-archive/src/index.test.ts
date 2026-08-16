@@ -19,6 +19,7 @@ const fixture = {
 	},
 	manifest: {
 		boot: [],
+		hooks: [],
 		crons: [],
 		scripts: [],
 		providers: [],
@@ -40,17 +41,38 @@ const fixture = {
 			version: "1.0.0",
 			description: "Fixture",
 		},
-		bindings: {
-			eventAutomations: [],
-			entityAutomations: [],
-			signalAutomations: [],
-			relationshipAutomations: [],
-			providerEntityImportAutomations: [],
-		},
 	},
 } satisfies PluginArchivePackage;
 
 const rawManifest = encoder.encode(`${JSON.stringify(fixture.manifest, null, "\t")}\n`);
+
+const pathAtBytes = (bytes: number) =>
+	`backend/${"a".repeat(bytes - encoder.encode("backend/.ts").byteLength)}.ts`;
+
+const filesWithTotalBytes = (totalBytes: number) => {
+	const files: Record<string, Uint8Array> = {};
+	let remaining = totalBytes;
+	let index = 0;
+	while (remaining > 0) {
+		const size = Math.min(remaining, PLUGIN_ARCHIVE_LIMITS.maxSourceBytes);
+		files[`client/${index}.wasm`] = new Uint8Array(size);
+		remaining -= size;
+		index += 1;
+	}
+	return files;
+};
+
+const manifestWithBytes = (bytes: number): PluginArchivePackage["manifest"] => {
+	const manifest = {
+		...fixture.manifest,
+		metadata: { ...fixture.manifest.metadata, description: "" },
+	};
+	const emptyBytes = encoder.encode(`${JSON.stringify(manifest, null, "\t")}\n`).byteLength;
+	return {
+		...manifest,
+		metadata: { ...manifest.metadata, description: "a".repeat(bytes - emptyBytes) },
+	};
+};
 
 const writeArchiveInTimezone = (timezone: string) => {
 	const entry = new URL("./index.ts", import.meta.url).href;
@@ -98,6 +120,19 @@ const archive = (entries: ReadonlyArray<readonly [string, Uint8Array]>) => {
 
 const expectReason = async (bytes: Uint8Array, reason: PluginArchiveErrorReason) => {
 	expect(await Effect.runPromise(Effect.flip(readPluginArchive(bytes)))).toMatchObject({ reason });
+};
+
+const expectWriteReason = (
+	pluginPackage: PluginArchivePackage,
+	reason: PluginArchiveErrorReason,
+) => {
+	let error: unknown;
+	try {
+		writePluginArchive(pluginPackage);
+	} catch (caught) {
+		error = caught;
+	}
+	expect(error).toMatchObject({ reason, _tag: "PluginArchiveError" });
 };
 
 const mutateHeaders = (
@@ -181,6 +216,106 @@ describe("plugin archive", () => {
 		}
 	});
 
+	it("returns a boundary archive accepted by its reader", async () => {
+		const path = pathAtBytes(PLUGIN_ARCHIVE_LIMITS.maxPathBytes);
+		const bytes = new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxSourceBytes);
+		const pluginBytes = writePluginArchive({
+			files: { [path]: bytes },
+			manifest: fixture.manifest,
+		});
+		const result = await Effect.runPromise(readPluginArchive(pluginBytes));
+
+		expect(result.files[path]).toEqual(bytes);
+	});
+
+	it("rejects one entry over the writer file-count limit", () => {
+		const files: Record<string, Uint8Array> = {};
+		for (let index = 0; index < PLUGIN_ARCHIVE_LIMITS.maxEntryCount; index += 1) {
+			files[`backend/${index}.ts`] = new Uint8Array(0);
+		}
+		expectWriteReason({ files, manifest: fixture.manifest }, "entry-count-exceeded");
+	});
+
+	it("rejects a writer path one byte over the limit", () =>
+		expectWriteReason(
+			{
+				manifest: fixture.manifest,
+				files: { [pathAtBytes(PLUGIN_ARCHIVE_LIMITS.maxPathBytes + 1)]: new Uint8Array(0) },
+			},
+			"path-bytes-exceeded",
+		));
+
+	it("rejects a writer manifest one byte over the limit", () =>
+		expectWriteReason(
+			{ files: {}, manifest: manifestWithBytes(PLUGIN_ARCHIVE_LIMITS.maxManifestBytes + 1) },
+			"manifest-bytes-exceeded",
+		));
+
+	it("rejects a writer source one byte over the limit", () =>
+		expectWriteReason(
+			{
+				manifest: fixture.manifest,
+				files: { "client/source.wasm": new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxSourceBytes + 1) },
+			},
+			"source-bytes-exceeded",
+		));
+
+	it("rejects writer input one byte over the total uncompressed limit", () =>
+		expectWriteReason(
+			{
+				manifest: fixture.manifest,
+				files: filesWithTotalBytes(
+					PLUGIN_ARCHIVE_LIMITS.maxTotalUncompressedBytes - rawManifest.byteLength + 1,
+				),
+			},
+			"total-uncompressed-bytes-exceeded",
+		));
+
+	it.each([
+		["source-non-utf8", { "backend/a.ts": new Uint8Array([0xff]) }],
+		["path-noncanonical", { "backend\\a.ts": new Uint8Array(0) }],
+		["duplicate-manifest", { "manifest.json": rawManifest }],
+	] as const)("rejects writer input with %s", (reason, files) =>
+		expectWriteReason({ files, manifest: fixture.manifest }, reason),
+	);
+
+	it.each([
+		"backend/data.json",
+		"backend/ignored.test.ts",
+		"shared/unsupported.tsx",
+		"shared/ignored.test.ts",
+		"client/unsupported.js",
+		"client/ignored.test.tsx",
+	])("rejects unsupported source path %s in the writer and reader", async (path) => {
+		expectWriteReason(
+			{ manifest: fixture.manifest, files: { [path]: new Uint8Array(0) } },
+			"unexpected-entry",
+		);
+		await expectReason(
+			archive([
+				["manifest.json", rawManifest],
+				[path, new Uint8Array(0)],
+			]),
+			"unexpected-entry",
+		);
+	});
+
+	it("rejects a final compressed archive over the limit", () => {
+		const files: Record<string, Uint8Array> = {};
+		let state = 0x12345678;
+		for (let fileIndex = 0; fileIndex < 33; fileIndex += 1) {
+			const bytes = new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxSourceBytes);
+			for (let index = 0; index < bytes.byteLength; index += 1) {
+				state ^= state << 13;
+				state ^= state >>> 17;
+				state ^= state << 5;
+				bytes[index] = state;
+			}
+			files[`client/${fileIndex}.wasm`] = bytes;
+		}
+		expectWriteReason({ files, manifest: fixture.manifest }, "compressed-bytes-exceeded");
+	});
+
 	it("rejects the compressed byte limit", () =>
 		expectReason(
 			new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxCompressedBytes + 1),
@@ -199,7 +334,7 @@ describe("plugin archive", () => {
 		expectReason(
 			archive([
 				["manifest.json", rawManifest],
-				[`backend/${"a".repeat(PLUGIN_ARCHIVE_LIMITS.maxPathBytes)}.ts`, new Uint8Array(0)],
+				[pathAtBytes(PLUGIN_ARCHIVE_LIMITS.maxPathBytes + 1), new Uint8Array(0)],
 			]),
 			"path-bytes-exceeded",
 		));
@@ -220,10 +355,14 @@ describe("plugin archive", () => {
 		));
 
 	it("rejects the total uncompressed byte limit", () => {
-		const entries: Array<readonly [string, Uint8Array]> = [["manifest.json", rawManifest]];
-		for (let index = 0; index < 65; index += 1) {
-			entries.push([`backend/${index}.ts`, new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxSourceBytes)]);
-		}
+		const entries: Array<readonly [string, Uint8Array]> = [
+			["manifest.json", rawManifest],
+			...Object.entries(
+				filesWithTotalBytes(
+					PLUGIN_ARCHIVE_LIMITS.maxTotalUncompressedBytes - rawManifest.byteLength + 1,
+				),
+			),
+		];
 		return expectReason(archive(entries), "total-uncompressed-bytes-exceeded");
 	});
 

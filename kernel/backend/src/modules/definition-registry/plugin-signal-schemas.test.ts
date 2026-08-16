@@ -23,7 +23,7 @@ const signalDefinitions = () => {
 					slug: "fixture.actor",
 					catalogState: "active",
 					audiencePolicy: { kind: "actor" },
-					notificationScriptSlug: "fixture.automation",
+					notificationHookSlug: "fixture.automation",
 					propertiesSchema: {
 						unknownKeys: "strict",
 						fields: {
@@ -40,7 +40,7 @@ const signalDefinitions = () => {
 					name: "Related Signal",
 					catalogState: "active",
 					slug: "fixture.related",
-					notificationScriptSlug: "fixture.automation",
+					notificationHookSlug: "fixture.automation",
 					audiencePolicy: {
 						kind: "related_users",
 						subjectSide: "source",

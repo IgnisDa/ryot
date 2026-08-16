@@ -46,7 +46,18 @@ export const declaredScriptMetadata = (script: PluginScript): PluginScriptMetada
 			...(script.providerSlug ? { providerSlug: script.providerSlug } : {}),
 		};
 	}
-	if (script.kind === "operation" || script.kind === "automation") {
+	if (script.kind === "automation") {
+		return {
+			slug: script.slug,
+			name: script.name,
+			kind: script.kind,
+			capabilities: script.capabilities,
+			automationType: script.automationType,
+			requiredPluginConfigKeys: script.requiredPluginConfigKeys,
+			requiredSystemConfigKeys: script.requiredSystemConfigKeys,
+		};
+	}
+	if (script.kind === "operation") {
 		return {
 			slug: script.slug,
 			name: script.name,

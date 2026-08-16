@@ -101,7 +101,11 @@ export const verifyPluginSandboxScriptsLoad = (
 								},
 							).pipe(
 								Effect.mapError(
-									(error) => new SandboxRunError({ message: unknownToMessage(error) }),
+									(error) =>
+										new SandboxRunError({
+											kind: "script-failure",
+											message: unknownToMessage(error),
+										}),
 								),
 							);
 							const [stdout, stderr, exitCode] = yield* Effect.all(
@@ -126,6 +130,7 @@ export const verifyPluginSandboxScriptsLoad = (
 							);
 							if (exitCode !== 0) {
 								return yield* new SandboxRunError({
+									kind: "script-failure",
 									message: `${compiled.manifest.slug}: ${stderr}`,
 								});
 							}
@@ -140,6 +145,7 @@ export const verifyPluginSandboxScriptsLoad = (
 								Reflect.get(error, "phase") === "load"
 							) {
 								return yield* new SandboxRunError({
+									kind: "script-failure",
 									message: `${compiled.manifest.slug}: ${String(Reflect.get(error, "message"))}`,
 								});
 							}

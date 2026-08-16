@@ -1,3 +1,4 @@
+import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
 import type { WorkflowReplayEnvelope, WorkflowReplayHost } from "@ryot-app/sandbox-sdk/workflow";
@@ -7,6 +8,22 @@ import { assert, expect, it } from "vitest";
 import { MediaImportPopulationWorkflowOutput } from "../contracts/workflows";
 import populationWorkflow from "./media-import-population.sandbox";
 import resolutionWorkflow from "./media-import-resolution.sandbox";
+
+const importCommand = (runId: string) =>
+	Schema.decodeUnknownSync(LifecycleCommand)({
+		occurredAt: "2026-09-16T00:00:00.000Z",
+		itemIdentity: JSON.stringify(["import-run", runId]),
+		causation: {
+			depth: 0,
+			source: "import",
+			parentRunId: null,
+			importRunId: runId,
+			parentTriggerId: null,
+			executionId: `execution-${runId}`,
+			rootExecutionId: `execution-${runId}`,
+			initiator: { id: "user-1", kind: "user" },
+		},
+	});
 
 const completeReplay = async <Input extends JsonValue>(
 	run: (
@@ -71,8 +88,8 @@ it("emits population children as one deterministic batch", async () => {
 		userId: "user-1",
 		entitySchemaSlug: "book",
 		externalId: `external-${index}`,
+		command: importCommand("run-1"),
 		providerId: "provider-openlibrary",
-		origin: { importRunId: "run-1", kind: "import" as const },
 	}));
 	const envelope = await Effect.runPromise(
 		populationWorkflow.run(
@@ -86,6 +103,7 @@ it("emits population children as one deterministic batch", async () => {
 	expect(envelope.requests.map((request) => request.name)).toEqual(
 		items.map(({ index }) => `import-${index}`),
 	);
+	expect(envelope.requests[0]).toMatchObject({ args: { input: { command: items[0]?.command } } });
 });
 
 it("keeps ten concurrent in-process population replays isolated", async () => {
@@ -96,8 +114,8 @@ it("keeps ten concurrent in-process population replays isolated", async () => {
 				entitySchemaSlug: "book",
 				userId: `user-${workflowIndex}`,
 				providerId: "provider-openlibrary",
+				command: importCommand(`run-${workflowIndex}`),
 				externalId: `external-${workflowIndex}-${index}`,
-				origin: { kind: "import" as const, importRunId: `run-${workflowIndex}` },
 			}));
 			return completeReplay(populationWorkflow.run, { items }, (request) => {
 				expect(request).toMatchObject({

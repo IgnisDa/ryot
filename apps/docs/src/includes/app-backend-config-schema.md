@@ -113,6 +113,15 @@
 | `observability.logging.file.rotationSize` | `SERVER_LOG_ROTATION_SIZE` | Maximum active log file size before rotation, such as 10M | No | No | `10M` |
 | `observability.logging.file.rotationInterval` | `SERVER_LOG_ROTATION_INTERVAL` | UTC interval between log rotations, such as 1d | No | No | `1d` |
 
+### Automation lifecycle limits and retention
+
+| App Config Key | Variable | Description | Required | Sensitive | Default |
+|---|---|---|---|---|---|
+| `automations.maxDepth` | `AUTOMATIONS_MAX_DEPTH` | Maximum causal chain depth (1–64) | No | No | `8` |
+| `automations.maxRuns` | `AUTOMATIONS_MAX_RUNS` | Maximum runs per root execution (1–10000) | No | No | `100` |
+| `automations.retryWindowDays` | `AUTOMATIONS_RETRY_WINDOW_DAYS` | Executable and configuration retention in days (1–90) | No | No | `7` |
+| `automations.historyRetentionDays` | `AUTOMATIONS_HISTORY_RETENTION_DAYS` | Automation history retention in days (1–365), at least the retry window | No | No | `30` |
+
 ## Fitness plugin configuration
 
 | Plugin Config Key | Variable | Label | Description | Required | Sensitive | Default |

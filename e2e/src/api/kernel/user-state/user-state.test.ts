@@ -155,6 +155,7 @@ describe("DELETE /user-state/clear/:id", () => {
 			const result = yield* clearEntityUserState(userA.client, entity.id);
 
 			expect(result).toEqual({
+				warnings: [],
 				entityId: entity.id,
 				deletedEventsCount: 1,
 				deletedRelationshipsCount: 2,
@@ -287,6 +288,7 @@ describe("POST /user-state/merge", () => {
 			const result = yield* mergeUserState(client, { mergeFrom: source.id, mergeInto: target.id });
 
 			expect(result).toEqual({
+				warnings: [],
 				movedEventsCount: 1,
 				mergeFrom: source.id,
 				mergeInto: target.id,

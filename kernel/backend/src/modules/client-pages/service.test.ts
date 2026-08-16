@@ -44,15 +44,17 @@ const availablePlugin = (
 ): AvailablePlugin => {
 	const manifest = fixtureManifest();
 	return {
-		config: {},
 		sourceHash,
 		id: "plugin-1",
 		health: "ready",
 		scope: "system",
 		isDisabled: false,
+		ownerUserId: null,
 		compiledHashes: {},
 		installationId: "installation-1",
 		slug: PluginSlug.make("fixture"),
+		pluginRevisionId: "plugin-revision-1",
+		pluginConfigRevisionId: "plugin-config-1",
 		manifest: {
 			...manifest,
 			client: {

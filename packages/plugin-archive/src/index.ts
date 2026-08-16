@@ -1,7 +1,4 @@
-import {
-	isPluginClientTextSource,
-	pluginClientFileExtension,
-} from "@ryot-app/client-plugin-contract";
+import { isPluginClientTextSource, isPluginSourceFile } from "@ryot-app/client-plugin-contract";
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { isPluginSharedSource } from "@ryot-app/contract/modules/plugins/shared-file-policy";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
@@ -66,6 +63,85 @@ const compareCodeUnits = (left: string, right: string) => {
 
 const failure = (reason: PluginArchiveErrorReason) => new PluginArchiveError({ reason });
 
+const normalizeError = (error: unknown) =>
+	error instanceof PluginArchiveError ? error : failure("malformed-zip");
+
+const validateCompressedBytes = (bytes: number) => {
+	if (bytes > PLUGIN_ARCHIVE_LIMITS.maxCompressedBytes) {
+		throw failure("compressed-bytes-exceeded");
+	}
+};
+
+const validateEntryCount = (entries: number) => {
+	if (entries > PLUGIN_ARCHIVE_LIMITS.maxEntryCount) {
+		throw failure("entry-count-exceeded");
+	}
+};
+
+const validatePathBytes = (bytes: number) => {
+	if (bytes > PLUGIN_ARCHIVE_LIMITS.maxPathBytes) {
+		throw failure("path-bytes-exceeded");
+	}
+};
+
+const validateEntryBytes = (path: string, entryBytes: number, totalBytes: number) => {
+	const entryLimit =
+		path === "manifest.json"
+			? PLUGIN_ARCHIVE_LIMITS.maxManifestBytes
+			: PLUGIN_ARCHIVE_LIMITS.maxSourceBytes;
+	if (entryBytes > entryLimit) {
+		throw failure(path === "manifest.json" ? "manifest-bytes-exceeded" : "source-bytes-exceeded");
+	}
+	if (totalBytes > PLUGIN_ARCHIVE_LIMITS.maxTotalUncompressedBytes) {
+		throw failure("total-uncompressed-bytes-exceeded");
+	}
+};
+
+const validateSourceEncoding = (path: string, bytes: Uint8Array) => {
+	if (path.startsWith("backend/") || isPluginSharedSource(path) || isPluginClientTextSource(path)) {
+		try {
+			decoder.decode(bytes);
+		} catch {
+			throw failure("source-non-utf8");
+		}
+	}
+};
+
+class ArchivePathValidator {
+	readonly #paths = new Set<string>();
+	#entryCount = 0;
+	#manifestCount = 0;
+
+	add(path: string, pathBytes: number) {
+		this.#entryCount += 1;
+		validateEntryCount(this.#entryCount);
+		validatePathBytes(pathBytes);
+		if (path.endsWith("/") || path.endsWith("\\")) {
+			throw failure("directory-entry");
+		}
+		if (canonicalRelativePosixPathIssue(path) !== null) {
+			throw failure("path-noncanonical");
+		}
+		if (path !== "manifest.json" && !isPluginSourceFile(path)) {
+			throw failure("unexpected-entry");
+		}
+		if (this.#paths.has(path)) {
+			throw failure(path === "manifest.json" ? "duplicate-manifest" : "duplicate-entry");
+		}
+		this.#paths.add(path);
+		if (path === "manifest.json") {
+			this.#manifestCount += 1;
+		}
+	}
+
+	finish() {
+		if (this.#manifestCount === 0) {
+			throw failure("missing-manifest");
+		}
+		return this.#paths;
+	}
+}
+
 const concat = (chunks: ReadonlyArray<Uint8Array>, size?: number) => {
 	const output = new Uint8Array(
 		size ?? chunks.reduce((total, chunk) => total + chunk.byteLength, 0),
@@ -78,7 +154,7 @@ const concat = (chunks: ReadonlyArray<Uint8Array>, size?: number) => {
 	return output;
 };
 
-export const writePluginArchive = (pluginPackage: PluginArchivePackage) => {
+const createPluginArchive = (entries: ReadonlyArray<readonly [string, Uint8Array]>) => {
 	const output: Uint8Array[] = [];
 	const zip = new Zip((error, chunk) => {
 		if (error !== null) {
@@ -87,10 +163,6 @@ export const writePluginArchive = (pluginPackage: PluginArchivePackage) => {
 			output.push(chunk.slice());
 		}
 	});
-	const entries: Array<readonly [string, Uint8Array]> = [
-		["manifest.json", encoder.encode(`${JSON.stringify(pluginPackage.manifest, null, "\t")}\n`)],
-		...Object.entries(pluginPackage.files).sort(([left], [right]) => compareCodeUnits(left, right)),
-	];
 	for (const [path, bytes] of entries) {
 		const file = new ZipDeflate(path, { level: 6 });
 		file.mtime = DETERMINISTIC_MTIME;
@@ -100,6 +172,22 @@ export const writePluginArchive = (pluginPackage: PluginArchivePackage) => {
 	}
 	zip.end();
 	return concat(output);
+};
+
+const validateEntries = (entries: ReadonlyArray<readonly [string, Uint8Array]>) => {
+	const paths = new ArchivePathValidator();
+	let totalBytes = 0;
+	for (const [path, bytes] of entries) {
+		const encodedPath = encoder.encode(path);
+		if (decoder.decode(encodedPath) !== path) {
+			throw failure("path-non-utf8");
+		}
+		paths.add(path, encodedPath.byteLength);
+		totalBytes += bytes.byteLength;
+		validateEntryBytes(path, bytes.byteLength, totalBytes);
+		validateSourceEncoding(path, bytes);
+	}
+	paths.finish();
 };
 
 type ExtractedEntry = { readonly chunks: Uint8Array[]; bytes: number };
@@ -118,9 +206,7 @@ const validateCentralDirectory = (bytes: Uint8Array) => {
 		throw failure("malformed-zip");
 	}
 	const entryCount = readUint16(view, eocd + 10);
-	if (entryCount > PLUGIN_ARCHIVE_LIMITS.maxEntryCount) {
-		throw failure("entry-count-exceeded");
-	}
+	validateEntryCount(entryCount);
 	if (
 		readUint16(view, eocd + 8) !== entryCount ||
 		readUint16(view, eocd + 4) !== 0 ||
@@ -133,8 +219,7 @@ const validateCentralDirectory = (bytes: Uint8Array) => {
 	if (centralOffset + centralSize !== eocd) {
 		throw failure("malformed-zip");
 	}
-	const paths = new Set<string>();
-	let manifestCount = 0;
+	const pathValidator = new ArchivePathValidator();
 	let offset = centralOffset;
 	for (let index = 0; index < entryCount; index += 1) {
 		if (offset + 46 > eocd || readUint32(view, offset) !== 0x02014b50) {
@@ -160,12 +245,7 @@ const validateCentralDirectory = (bytes: Uint8Array) => {
 		const localPathBytes = readUint16(view, localOffset + 26);
 		const localExtraBytes = readUint16(view, localOffset + 28);
 		const localPathOffset = localOffset + 30;
-		if (
-			pathBytes > PLUGIN_ARCHIVE_LIMITS.maxPathBytes ||
-			localPathBytes > PLUGIN_ARCHIVE_LIMITS.maxPathBytes
-		) {
-			throw failure("path-bytes-exceeded");
-		}
+		validatePathBytes(localPathBytes);
 		if (localPathOffset + localPathBytes + localExtraBytes > centralOffset) {
 			throw failure("malformed-zip");
 		}
@@ -193,41 +273,16 @@ const validateCentralDirectory = (bytes: Uint8Array) => {
 			throw failure("malformed-zip");
 		}
 		const unixFileType = (externalAttributes >>> 16) & 0xf000;
-		if (
-			path.endsWith("/") ||
-			path.endsWith("\\") ||
-			(externalAttributes & 0x10) !== 0 ||
-			unixFileType === 0x4000
-		) {
+		if ((externalAttributes & 0x10) !== 0 || unixFileType === 0x4000) {
 			throw failure("directory-entry");
 		}
-		if (canonicalRelativePosixPathIssue(path) !== null) {
-			throw failure("path-noncanonical");
-		}
-		if (
-			path !== "manifest.json" &&
-			!path.startsWith("backend/") &&
-			!isPluginSharedSource(path) &&
-			(!path.startsWith("client/") || pluginClientFileExtension(path) === undefined)
-		) {
-			throw failure("unexpected-entry");
-		}
-		if (paths.has(path)) {
-			throw failure(path === "manifest.json" ? "duplicate-manifest" : "duplicate-entry");
-		}
-		paths.add(path);
-		if (path === "manifest.json") {
-			manifestCount += 1;
-		}
+		pathValidator.add(path, pathBytes);
 		offset = end;
 	}
 	if (offset !== eocd) {
 		throw failure("malformed-zip");
 	}
-	if (manifestCount === 0) {
-		throw failure("missing-manifest");
-	}
-	return paths;
+	return pathValidator.finish();
 };
 
 class PluginArchiveReader {
@@ -240,8 +295,10 @@ class PluginArchiveReader {
 	#failure: PluginArchiveError | null = null;
 	readonly #unzip = new Unzip((file) => {
 		this.#entryCount += 1;
-		if (this.#entryCount > PLUGIN_ARCHIVE_LIMITS.maxEntryCount) {
-			this.#failure = failure("entry-count-exceeded");
+		try {
+			validateEntryCount(this.#entryCount);
+		} catch (error) {
+			this.#failure = normalizeError(error);
 			return;
 		}
 		const entry: ExtractedEntry = { bytes: 0, chunks: [] };
@@ -256,19 +313,10 @@ class PluginArchiveReader {
 			}
 			entry.bytes += data.byteLength;
 			this.#totalBytes += data.byteLength;
-			const entryLimit =
-				file.name === "manifest.json"
-					? PLUGIN_ARCHIVE_LIMITS.maxManifestBytes
-					: PLUGIN_ARCHIVE_LIMITS.maxSourceBytes;
-			if (entry.bytes > entryLimit) {
-				this.#failure = failure(
-					file.name === "manifest.json" ? "manifest-bytes-exceeded" : "source-bytes-exceeded",
-				);
-				file.terminate();
-				return;
-			}
-			if (this.#totalBytes > PLUGIN_ARCHIVE_LIMITS.maxTotalUncompressedBytes) {
-				this.#failure = failure("total-uncompressed-bytes-exceeded");
+			try {
+				validateEntryBytes(file.name, entry.bytes, this.#totalBytes);
+			} catch (validationError) {
+				this.#failure = normalizeError(validationError);
 				file.terminate();
 				return;
 			}
@@ -284,9 +332,7 @@ class PluginArchiveReader {
 
 	push(chunk: Uint8Array, final: boolean) {
 		this.#archiveBytes += chunk.byteLength;
-		if (this.#archiveBytes > PLUGIN_ARCHIVE_LIMITS.maxCompressedBytes) {
-			throw failure("compressed-bytes-exceeded");
-		}
+		validateCompressedBytes(this.#archiveBytes);
 		this.#archive.push(chunk.slice());
 		if (this.#unzipFailure === null) {
 			try {
@@ -330,25 +376,41 @@ class PluginArchiveReader {
 				continue;
 			}
 			const bytes = concat(entry.chunks, entry.bytes);
-			if (
-				path.startsWith("backend/") ||
-				isPluginSharedSource(path) ||
-				isPluginClientTextSource(path)
-			) {
-				try {
-					decoder.decode(bytes);
-				} catch {
-					throw failure("source-non-utf8");
-				}
-			}
+			validateSourceEncoding(path, bytes);
 			files[path] = bytes;
 		}
 		return { files, manifest } satisfies PluginArchivePackage;
 	}
 }
 
-const normalizeError = (error: unknown) =>
-	error instanceof PluginArchiveError ? error : failure("malformed-zip");
+const readPluginArchiveBytes = (bytes: Uint8Array) => {
+	const reader = new PluginArchiveReader();
+	reader.push(bytes, true);
+	return reader.finish();
+};
+
+export const writePluginArchive = (pluginPackage: PluginArchivePackage) => {
+	try {
+		let manifestBytes: Uint8Array;
+		try {
+			manifestBytes = encoder.encode(`${JSON.stringify(pluginPackage.manifest, null, "\t")}\n`);
+		} catch {
+			throw failure("manifest-invalid");
+		}
+		const entries: Array<readonly [string, Uint8Array]> = [
+			["manifest.json", manifestBytes],
+			...Object.entries(pluginPackage.files).sort(([left], [right]) =>
+				compareCodeUnits(left, right),
+			),
+		];
+		validateEntries(entries);
+		const archive = createPluginArchive(entries);
+		readPluginArchiveBytes(archive);
+		return archive;
+	} catch (error) {
+		throw normalizeError(error);
+	}
+};
 
 export const readPluginArchive = (
 	input: Uint8Array | AsyncIterable<Uint8Array>,
@@ -356,15 +418,14 @@ export const readPluginArchive = (
 	Effect.tryPromise({
 		catch: normalizeError,
 		try: async () => {
-			const reader = new PluginArchiveReader();
 			if (input instanceof Uint8Array) {
-				reader.push(input, true);
-			} else {
-				for await (const chunk of input) {
-					reader.push(chunk, false);
-				}
-				reader.push(new Uint8Array(0), true);
+				return readPluginArchiveBytes(input);
 			}
+			const reader = new PluginArchiveReader();
+			for await (const chunk of input) {
+				reader.push(chunk, false);
+			}
+			reader.push(new Uint8Array(0), true);
 			return reader.finish();
 		},
 	});

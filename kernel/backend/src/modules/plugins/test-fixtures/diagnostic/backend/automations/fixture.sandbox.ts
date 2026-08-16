@@ -7,6 +7,7 @@ export const manifest = defineManifest({
 	kind: "automation",
 	name: "Fixture Automation",
 	slug: "fixture.automation",
+	automationType: "automation",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 });

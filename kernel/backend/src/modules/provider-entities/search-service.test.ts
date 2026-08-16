@@ -73,6 +73,7 @@ const searchScript = {
 	updatedAt: new Date(0),
 	compiledCode: "compiled",
 	contentHash: "records-search-hash",
+	pluginRevisionId: "records-revision",
 	id: SandboxScriptId.make("search-script-id"),
 	metadata: {
 		capabilities: [],
@@ -88,6 +89,7 @@ const searchScript = {
 
 const searchOptionsScript = {
 	...searchScript,
+	optionsSchema: null,
 	name: "Records search options",
 	slug: "records.search-options",
 	contentHash: "records-search-options-hash",
@@ -661,7 +663,11 @@ it.effect("fails the whole request when provider execution fails", () =>
 						logs: [],
 						value: null,
 						status: "completed" as const,
-						error: { phase: "execute" as const, message: "provider unavailable" },
+						error: {
+							phase: "execute" as const,
+							kind: "script-failure" as const,
+							message: "provider unavailable",
+						},
 					}),
 			}),
 		),

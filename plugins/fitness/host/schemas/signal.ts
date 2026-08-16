@@ -5,7 +5,7 @@ export const fitnessSignalSchemas = () =>
 			name: "Workout Created",
 			catalogState: "active" as const,
 			audiencePolicy: { kind: "actor" as const },
-			notificationScriptSlug: "automation.fitness-notification",
+			notificationHookSlug: "fitness.notification",
 			propertiesSchema: {
 				unknownKeys: "strict" as const,
 				fields: {

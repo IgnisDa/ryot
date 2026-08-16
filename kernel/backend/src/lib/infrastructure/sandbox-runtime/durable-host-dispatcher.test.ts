@@ -1,9 +1,13 @@
 import { expect, it } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import {
-	AutomationOccurrenceId,
+	AutomationExecutionId,
+	AutomationRunId,
+	AutomationTriggerId,
+	PluginConfigRevisionId,
+	PluginId,
+	PluginRevisionId,
 	SandboxScriptId,
-	SubscriptionRunId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { Cause, Duration, Effect, Exit, Layer, Logger, References } from "effect";
@@ -59,15 +63,27 @@ const implementations: SandboxHostImplementations["Service"] = {
 };
 
 const scriptId = SandboxScriptId.make("script-1");
+const runId = AutomationRunId.make("automation-run-1");
+const triggerId = AutomationTriggerId.make("automation-trigger-1");
+const causation = {
+	depth: 0,
+	parentRunId: null,
+	parentTriggerId: null,
+	source: "api" as const,
+	executionId: AutomationExecutionId.make("root-execution"),
+	rootExecutionId: AutomationExecutionId.make("root-execution"),
+	initiator: { kind: "user" as const, id: UserId.make("user-1") },
+};
 const subject = {
-	type: "subscription" as const,
-	userId: UserId.make("user-1"),
-	subscriptionRun: {
-		origin: { kind: "api" as const },
-		occurredAt: "2026-08-06T00:00:00.000Z",
-		id: SubscriptionRunId.make("subscription-1"),
-		occurrenceId: AutomationOccurrenceId.make("occurrence-1"),
-	},
+	runId,
+	causation,
+	triggerId,
+	stage: "after" as const,
+	type: "automation-run" as const,
+	pluginId: PluginId.make("plugin-id"),
+	executionUserId: UserId.make("user-1"),
+	pluginRevisionId: PluginRevisionId.make("plugin-revision"),
+	pluginConfigRevisionId: PluginConfigRevisionId.make("plugin-config-revision"),
 };
 const script = {
 	source: "",
@@ -99,12 +115,14 @@ const principal = {
 	contentHash: script.contentHash,
 	pluginRevision: {
 		ownerId: null,
-		id: "plugin-id",
 		compiledHashes: {},
 		workflowScripts: {},
+		id: subject.pluginId,
 		slug: script.pluginSlug,
 		scope: "system" as const,
 		userBootstrapScriptSlugs: [],
+		revisionId: subject.pluginRevisionId,
+		configRevisionId: subject.pluginConfigRevisionId,
 		configSchema: { fields: {}, unknownKeys: "strict" as const },
 		schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
 	},
@@ -122,7 +140,7 @@ it.effect("dispatches workflow-owned capabilities through their deterministic ch
 			executions.push({ options, workflow });
 			return Effect.succeed(
 				workflow.name === SandboxDurableHostServiceWorkflow.name
-					? { state: "success", value: { wasCreated: true, signalId: "signal-1" } }
+					? { state: "success", value: { wasCreated: true, triggerId: "signal-trigger-1" } }
 					: options.executionId,
 			);
 		},
@@ -147,10 +165,28 @@ it.effect("dispatches workflow-owned capabilities through their deterministic ch
 	const payload = {
 		subject,
 		scriptId,
-		input: {},
 		executionId,
 		resolutionMode: "exact" as const,
 		startedAt: "2026-08-06T00:00:00.000Z",
+		input: {
+			automation: {
+				runId,
+				causation,
+				triggerId,
+				hookSlug: "dispatcher",
+				occurredAt: "2026-08-06T00:00:00.000Z",
+				executionUserId: subject.executionUserId,
+				payload: {
+					properties: {},
+					operation: "emit",
+					resource: "signal",
+					category: "signal",
+					signalSchemaPluginId: null,
+					signalSchemaSlug: "fixture.signal",
+					actorUserId: subject.executionUserId,
+				},
+			},
+		},
 	};
 
 	return Effect.gen(function* () {
@@ -167,7 +203,7 @@ it.effect("dispatches workflow-owned capabilities through their deterministic ch
 				principal,
 				executionId,
 			),
-		).toEqual({ state: "success", value: { wasCreated: true, signalId: "signal-1" } });
+		).toEqual({ state: "success", value: { wasCreated: true, triggerId: "signal-trigger-1" } });
 		expect(
 			yield* dispatcher.dispatch(
 				{
@@ -188,7 +224,7 @@ it.effect("dispatches workflow-owned capabilities through their deterministic ch
 			},
 			{
 				workflow: NotificationDeliveryWorkflow,
-				options: { discard: true, executionId: "sandbox-parent-send-notification-1" },
+				options: { discard: true, executionId: "automation-run-1-host-1-notification" },
 			},
 		]);
 	}).pipe(

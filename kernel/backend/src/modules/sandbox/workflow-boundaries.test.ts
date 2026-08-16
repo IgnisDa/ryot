@@ -42,19 +42,19 @@ it.effect("keeps universal sandbox and queue execution at their allowed boundari
 			sandboxWorkflow,
 			entityImportWorkflow,
 			sandboxScriptWorkflow,
-			subscriptionWorkflow,
+			automationRunWorkflow,
 		] = yield* Effect.all([
 			readModule("./service.ts"),
 			readModule("./durable-queues.ts"),
 			readModule("./sandbox-workflow-live.ts"),
 			readModules(entityImportWorkflowModules),
 			readModule("./sandbox-script-workflow.ts"),
-			readModule("../automations/subscription-execution-workflow-live.ts"),
+			readModule("../automations/run-workflow-live.ts"),
 		]);
 
 		expect(sandboxService).toContain(".execute(SandboxScriptWorkflow");
 		expect(durableQueues).toContain("DurableQueue.process(SandboxExecutionQueue, payload)");
-		expect(subscriptionWorkflow).toContain("SandboxExecutionService");
+		expect(automationRunWorkflow).toContain("SandboxExecutionService");
 		expect(sandboxScriptWorkflow).toContain("processSandboxExecutionQueue(payload)");
 		expect(sandboxWorkflow).toContain("SandboxScriptWorkflow");
 		expect(durableQueues).toContain('Effect.timeout("1 minute")');

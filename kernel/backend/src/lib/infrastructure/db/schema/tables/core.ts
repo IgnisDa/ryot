@@ -11,8 +11,10 @@ import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
 import {
 	boolean,
+	type AnyPgColumn,
 	bytea,
 	check,
+	foreignKey,
 	index,
 	integer,
 	jsonb,
@@ -26,6 +28,20 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
+
+export const pluginConfigEncryptionKey = snakeCase.table(
+	"plugin_config_encryption_key",
+	{
+		id: text().notNull(),
+		key: bytea().notNull(),
+		singleton: boolean().primaryKey().default(true),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		check("plugin_config_encryption_key_singleton_check", sql`${table.singleton} = true`),
+		check("plugin_config_encryption_key_length_check", sql`octet_length(${table.key}) = 32`),
+	],
+);
 
 export const pluginClientArtifact = snakeCase.table("plugin_client_artifact", {
 	format: smallint().notNull(),
@@ -53,19 +69,25 @@ export const plugin = snakeCase.table(
 	{
 		slug: text().notNull(),
 		status: text().notNull(),
-		version: text().notNull(),
-		sourceHash: text().notNull(),
 		scope: text().$type<"system" | "user">().notNull(),
-		manifest: jsonb().$type<PluginManifest>().notNull(),
-		compiledHashes: jsonb().$type<Record<string, string>>().notNull(),
-		ownerId: text().references(() => user.id, { onDelete: "cascade" }),
-		ingestedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		activeRevisionId: text().references((): AnyPgColumn => pluginRevision.id),
+		ownerId: text("owner_user_id").references(() => user.id, { onDelete: "cascade" }),
 		id: text()
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
 	},
 	(table) => [
+		check(
+			"plugin_active_revision_check",
+			sql`${table.status} <> 'active' or ${table.activeRevisionId} is not null`,
+		),
+		foreignKey({
+			name: "plugin_active_revision_owner_fk",
+			columns: [table.activeRevisionId, table.id],
+			foreignColumns: [pluginRevision.id, pluginRevision.pluginId],
+		}),
 		index("plugin_owner_id_idx").on(table.ownerId),
 		uniqueIndex("plugin_system_slug_unique")
 			.on(table.slug)
@@ -80,16 +102,36 @@ export const plugin = snakeCase.table(
 	],
 );
 
-export const pluginSourceFile = snakeCase.table(
-	"plugin_source_file",
+export const pluginRevision = snakeCase.table(
+	"plugin_revision",
+	{
+		version: text().notNull(),
+		sourceHash: text().notNull(),
+		manifest: jsonb().$type<PluginManifest>().notNull(),
+		id: text()
+			.primaryKey()
+			.$defaultFn(() => generateId()),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		pluginId: text()
+			.notNull()
+			.references((): AnyPgColumn => plugin.id, { onDelete: "cascade" }),
+	},
+	(table) => [
+		unique("plugin_revision_plugin_source_unique").on(table.pluginId, table.sourceHash),
+		unique("plugin_revision_id_plugin_unique").on(table.id, table.pluginId),
+	],
+);
+
+export const pluginRevisionSourceFile = snakeCase.table(
+	"plugin_revision_source_file",
 	{
 		path: text().notNull(),
 		contents: bytea().notNull(),
-		pluginId: text()
+		pluginRevisionId: text()
 			.notNull()
-			.references(() => plugin.id, { onDelete: "cascade" }),
+			.references(() => pluginRevision.id, { onDelete: "cascade" }),
 	},
-	(table) => [primaryKey({ columns: [table.pluginId, table.path] })],
+	(table) => [primaryKey({ columns: [table.pluginRevisionId, table.path] })],
 );
 
 export const pluginInstallation = snakeCase.table(
@@ -99,11 +141,12 @@ export const pluginInstallation = snakeCase.table(
 		homeSavedViewId: text(),
 		sortOrder: integer().notNull().default(0),
 		isDisabled: boolean().notNull().default(false),
+		uninstalledAt: timestamp({ withTimezone: true }),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		config: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
+		activeConfigRevisionId: text().references((): AnyPgColumn => pluginConfigRevision.id),
 		pluginId: text()
 			.notNull()
 			.references(() => plugin.id, { onDelete: "cascade" }),
@@ -125,6 +168,45 @@ export const pluginInstallation = snakeCase.table(
 		index("plugin_installation_plugin_id_idx").on(table.pluginId),
 		unique("plugin_installation_user_plugin_unique").on(table.userId, table.pluginId),
 		unique("plugin_installation_id_user_id_unique").on(table.id, table.userId),
+	],
+);
+
+export const pluginConfigRevision = snakeCase.table(
+	"plugin_config_revision",
+	{
+		nonce: bytea().notNull(),
+		encryptedPayload: bytea(),
+		encryptionKeyId: text().notNull(),
+		payloadFingerprint: text().notNull(),
+		payloadPrunedAt: timestamp({ withTimezone: true }),
+		id: text()
+			.primaryKey()
+			.$defaultFn(() => generateId()),
+		scope: text().$type<"environment" | "installation">().notNull(),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		ownerUserId: text().references(() => user.id, { onDelete: "cascade" }),
+		pluginInstallationId: text().references(() => pluginInstallation.id, { onDelete: "set null" }),
+		pluginRevisionId: text()
+			.notNull()
+			.references(() => pluginRevision.id, { onDelete: "cascade" }),
+	},
+	(table) => [
+		index("plugin_config_revision_installation_idx").on(table.pluginInstallationId),
+		unique("plugin_config_revision_id_revision_unique").on(table.id, table.pluginRevisionId),
+		index("plugin_config_revision_owner_idx").on(table.ownerUserId),
+		index("plugin_config_revision_package_idx").on(table.pluginRevisionId),
+		check(
+			"plugin_config_revision_scope_check",
+			sql`(${table.scope} = 'environment' and ${table.ownerUserId} is null and ${table.pluginInstallationId} is null) or (${table.scope} = 'installation' and ${table.ownerUserId} is not null)`,
+		),
+		check(
+			"plugin_config_revision_payload_check",
+			sql`(${table.encryptedPayload} is null) = (${table.payloadPrunedAt} is not null)`,
+		),
+		check(
+			"plugin_config_revision_envelope_check",
+			sql`octet_length(${table.nonce}) = 12 and (${table.encryptedPayload} is null or octet_length(${table.encryptedPayload}) >= 16)`,
+		),
 	],
 );
 
@@ -166,28 +248,25 @@ export const sandboxScript = snakeCase.table(
 		compiledFormat: smallint().notNull().default(1),
 		metadata: jsonb().$type<SandboxScriptMetadata>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		pluginId: text().references(() => plugin.id, { onDelete: "cascade" }),
 		providerId: text().references(() => sandboxProvider.id, { onDelete: "cascade" }),
+		pluginRevisionId: text().references(() => pluginRevision.id, { onDelete: "cascade" }),
 		id: text()
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		updatedAt: timestamp({ withTimezone: true })
-			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
-			.notNull(),
 	},
 	(table) => [
 		index("sandbox_script_provider_id_idx").on(table.providerId),
-		index("sandbox_script_plugin_id_idx").on(table.pluginId),
-		unique("sandbox_script_plugin_id_content_hash_unique").on(
-			table.pluginId,
+		unique("sandbox_script_id_revision_unique").on(table.id, table.pluginRevisionId),
+		index("sandbox_script_plugin_revision_id_idx").on(table.pluginRevisionId),
+		unique("sandbox_script_revision_content_hash_unique").on(
+			table.pluginRevisionId,
 			table.slug,
 			table.contentHash,
 		),
 		uniqueIndex("sandbox_script_kernel_slug_content_hash_unique")
 			.on(table.slug, table.contentHash)
-			.where(sql`${table.pluginId} is null`),
+			.where(sql`${table.pluginRevisionId} is null`),
 	],
 );
 

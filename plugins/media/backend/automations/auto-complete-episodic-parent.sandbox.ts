@@ -1,9 +1,8 @@
-import type { AutomationOccurrenceSource } from "@ryot-app/sandbox-sdk/automation";
+import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
 import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
 import type { EventSchemaRecord, SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { automationOccurrenceRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
 import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
 
 import {
@@ -19,6 +18,7 @@ import {
 
 export const manifest = defineManifest({
 	kind: "automation",
+	automationType: "automation",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 	name: "Auto-Complete Episodic Parent",
@@ -29,9 +29,11 @@ export const manifest = defineManifest({
 export const PARENT_COMPLETION_CLAIM_TTL_SECONDS = 3600;
 
 type AutomationHost = SandboxHost<typeof manifest.capabilities>;
-type AutomationEventSnapshot = NonNullable<
-	Extract<AutomationOccurrenceSource, { readonly kind: "event" }>["after"]
->;
+type Payload = AutomationInput["automation"]["payload"];
+type AutomationEventSnapshot = Extract<
+	Payload,
+	{ resource: "event"; operation: "create" }
+>["after"];
 type CompletionTrigger = {
 	readonly parentEntityId: string;
 	readonly config: EpisodicKindConfig;
@@ -77,32 +79,23 @@ const configForEpisode = (entitySchemaSlug: string) => {
 	return entitySchemaSlug === "podcast-episode" ? podcastEpisodicKindConfig : null;
 };
 
-const getCompletionTrigger = (
-	operation: "create" | "update" | "delete" | "signal",
-	source: AutomationOccurrenceSource,
-): CompletionTrigger | null => {
-	if (source.kind === "event") {
+const getCompletionTrigger = (source: Payload): CompletionTrigger | null => {
+	if (source.resource === "event" && source.operation === "create") {
 		const event = source.after;
-		const config = event ? configForEpisode(event.subject.entitySchemaSlug) : null;
-		if (
-			operation !== "create" ||
-			!event ||
-			!config ||
-			event.eventSchemaSlug !== "complete" ||
-			!event.sessionEntityId
-		) {
+		const config = configForEpisode(event.entitySchemaSlug);
+		if (!config || event.eventSchemaSlug !== "complete" || !event.sessionEntityId) {
 			return null;
 		}
 		return { event, config, parentEntityId: event.sessionEntityId };
 	}
 
-	if (source.kind !== "entity" || operation !== "update") {
+	if (source.resource !== "entity" || source.operation !== "update") {
 		return null;
 	}
 	const before = source.before;
 	const after = source.after;
-	const config = after ? configForParent(after.entitySchemaSlug) : null;
-	if (!before || !after || !config) {
+	const config = configForParent(after.entitySchemaSlug);
+	if (!config) {
 		return null;
 	}
 	const beforeStatus = productionStatus(before.properties);
@@ -180,17 +173,8 @@ const createParentCompletion = (
 export default defineAutomation({
 	manifest,
 	run: ({ automation }, host) => {
-		if (automation.source.kind !== "event" && automation.source.kind !== "entity") {
-			return Effect.succeed(null);
-		}
 		return Effect.gen(function* () {
-			const occurrence = yield* executeRyotqlRecipe(
-				host.executeRyotql,
-				automationOccurrenceRecipe(automation.occurrenceId),
-			);
-			const trigger = occurrence
-				? getCompletionTrigger(automation.operation, occurrence.source)
-				: null;
+			const trigger = getCompletionTrigger(automation.payload);
 			if (!trigger) {
 				return null;
 			}

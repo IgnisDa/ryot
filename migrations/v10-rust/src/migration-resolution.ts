@@ -1,9 +1,13 @@
-import type { PluginIntegrationProvider } from "@ryot-app/contract/modules/plugins/manifest";
+import type {
+	PluginIntegrationProvider,
+	PluginManifest,
+} from "@ryot-app/contract/modules/plugins/manifest";
 import * as schema from "@ryot-app/kernel-backend/lib/infrastructure/db/schema/tables/combined";
 import {
 	Database,
 	mapDatabaseErrors,
 } from "@ryot-app/kernel-backend/lib/infrastructure/db/service";
+import { PluginEnvironmentConfig } from "@ryot-app/kernel-backend/lib/infrastructure/plugin-environment-config";
 import type { DefinitionSnapshot } from "@ryot-app/kernel-backend/modules/definition-registry/service";
 import {
 	PluginLoader,
@@ -35,6 +39,8 @@ const qualifiedKey = (pluginId: string | null, slug: string) => JSON.stringify([
 const eventKey = (pluginId: string | null, entitySchemaSlug: string, slug: string) =>
 	JSON.stringify([pluginId, entitySchemaSlug, slug]);
 const installationKey = (userId: string, pluginId: string) => `${userId}\0${pluginId}`;
+
+type ActivePackage = { id: string; slug: string; manifest: PluginManifest; revisionId: string };
 
 const requireSystemPlugin = (
 	plugins: Readonly<Record<string, PluginRegistryEntry>>,
@@ -115,6 +121,7 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 ) {
 	const database = yield* Database;
 	const loader = yield* PluginLoader;
+	const environmentConfig = yield* PluginEnvironmentConfig;
 	const snapshot = loader.getSnapshot();
 	const media = requireSystemPlugin(snapshot.plugins, "media");
 	const fitness = requireSystemPlugin(snapshot.plugins, "fitness");
@@ -122,8 +129,20 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 
 	const persistedPlugins = yield* mapDatabaseErrors(
 		database
-			.select({ id: schema.plugin.id, slug: schema.plugin.slug })
+			.select({
+				id: schema.plugin.id,
+				slug: schema.plugin.slug,
+				revisionId: schema.pluginRevision.id,
+				manifest: schema.pluginRevision.manifest,
+			})
 			.from(schema.plugin)
+			.innerJoin(
+				schema.pluginRevision,
+				and(
+					eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
+					eq(schema.pluginRevision.pluginId, schema.plugin.id),
+				),
+			)
 			.where(
 				and(
 					inArray(schema.plugin.id, pluginIds),
@@ -132,6 +151,7 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 				),
 			),
 	);
+	const activePackages = new Map<string, ActivePackage>();
 	for (const expected of [media, fitness]) {
 		const matches = persistedPlugins.filter(
 			(plugin) => plugin.id === expected.id && plugin.slug === expected.slug,
@@ -139,6 +159,72 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 		if (matches.length !== 1) {
 			throw new Error(
 				`Legacy bootstrap: the loaded "${expected.slug}" system plugin does not match exactly one active plugin row in this database. Plugin rows and loaded plugins must agree before legacy data can be attributed to them. Use a build whose plugin set matches this database, or start from an empty database.`,
+			);
+		}
+		const match = matches[0];
+		if (!match) {
+			throw new Error(`Expected one active revision for system plugin "${expected.slug}"`);
+		}
+		activePackages.set(expected.id, match);
+	}
+	const activeMedia = activePackages.get(media.id);
+	const activeFitness = activePackages.get(fitness.id);
+	if (!activeMedia || !activeFitness) {
+		throw new Error("Expected active persisted revisions for the media and fitness plugins");
+	}
+
+	const resolvedEnvironmentConfigs = pluginIds.map((pluginId) => {
+		const entry = environmentConfig.find(pluginId);
+		if (!entry) {
+			throw new Error(
+				`Legacy bootstrap: no resolved environment configuration for plugin "${pluginId}". System plugin ingestion must complete before legacy data migration; keep the dump and report this startup-order defect.`,
+			);
+		}
+		return { pluginId, configRevisionId: entry.configRevisionId };
+	});
+	const activeConfigStates = yield* Effect.forEach(
+		resolvedEnvironmentConfigs,
+		({ pluginId, configRevisionId }) =>
+			mapDatabaseErrors(
+				database
+					.select({
+						scope: schema.pluginConfigRevision.scope,
+						ownerUserId: schema.pluginConfigRevision.ownerUserId,
+						encryptionKeyId: schema.pluginConfigRevision.encryptionKeyId,
+						payloadPrunedAt: schema.pluginConfigRevision.payloadPrunedAt,
+						encryptedPayload: schema.pluginConfigRevision.encryptedPayload,
+						pluginRevisionId: schema.pluginConfigRevision.pluginRevisionId,
+						pluginInstallationId: schema.pluginConfigRevision.pluginInstallationId,
+					})
+					.from(schema.pluginConfigRevision)
+					.where(eq(schema.pluginConfigRevision.id, configRevisionId)),
+			).pipe(Effect.map((rows) => rows.map((row) => ({ ...row, pluginId })))),
+	).pipe(Effect.map((groups) => groups.flat()));
+	const encryptionKeys = yield* mapDatabaseErrors(
+		database
+			.select({ id: schema.pluginConfigEncryptionKey.id })
+			.from(schema.pluginConfigEncryptionKey),
+	);
+	if (encryptionKeys.length !== 1) {
+		throw new Error(
+			`Legacy bootstrap: expected the database-backed plugin configuration encryption key initialized by system plugin ingestion, but found ${encryptionKeys.length}. System plugin ingestion must complete before legacy data migration; keep the dump and report this startup-order defect.`,
+		);
+	}
+	for (const plugin of [activeMedia, activeFitness]) {
+		const matches = activeConfigStates.filter(({ pluginId }) => pluginId === plugin.id);
+		const state = matches[0];
+		if (
+			matches.length !== 1 ||
+			state?.scope !== "environment" ||
+			state.ownerUserId !== null ||
+			state.pluginInstallationId !== null ||
+			state.pluginRevisionId !== plugin.revisionId ||
+			state.encryptedPayload === null ||
+			state.payloadPrunedAt !== null ||
+			state.encryptionKeyId !== encryptionKeys[0]?.id
+		) {
+			throw new Error(
+				`Legacy bootstrap: the active "${plugin.slug}" revision does not have exactly one active encrypted environment configuration backed by the database singleton key. System plugin ingestion must establish matching package and configuration revisions before legacy data migration; keep the dump and report this startup-order defect.`,
 			);
 		}
 	}
@@ -149,9 +235,9 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 			.join(", ");
 		yield* withReservedConnection((connection) =>
 			connection.executeRaw(
-				`INSERT INTO "plugin_installation" ("id", "user_id", "plugin_id", "health")
+				`INSERT INTO "plugin_installation" ("id", "user_id", "plugin_id", "active_config_revision_id", "health")
 				SELECT md5('legacy-plugin-installation:' || legacy_user.id || ':' || packages.plugin_id),
-				legacy_user.id, packages.plugin_id, 'ready'
+				legacy_user.id, packages.plugin_id, NULL, 'ready'
 				FROM "old_user" legacy_user
 				CROSS JOIN (VALUES ${pluginValues}) packages(plugin_id)
 				ON CONFLICT ("user_id", "plugin_id") DO NOTHING;`,
@@ -175,14 +261,18 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 			.select({
 				id: schema.sandboxScript.id,
 				slug: schema.sandboxScript.slug,
-				pluginId: schema.sandboxScript.pluginId,
-				contentHash: schema.sandboxScript.contentHash,
+				pluginRevisionId: schema.sandboxScript.pluginRevisionId,
 			})
 			.from(schema.sandboxScript)
-			.where(inArray(schema.sandboxScript.pluginId, pluginIds)),
+			.where(
+				inArray(schema.sandboxScript.pluginRevisionId, [
+					activeMedia.revisionId,
+					activeFitness.revisionId,
+				]),
+			),
 	);
 	const providers = new Map<string, string>();
-	for (const plugin of [media, fitness]) {
+	for (const plugin of [activeMedia, activeFitness]) {
 		const declared = new Set(plugin.manifest.providers.map(({ slug }) => slug));
 		for (const provider of persistedProviders.filter(({ pluginId }) => pluginId === plugin.id)) {
 			if (declared.has(provider.slug)) {
@@ -201,6 +291,8 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 					health: schema.pluginInstallation.health,
 					pluginId: schema.pluginInstallation.pluginId,
 					isDisabled: schema.pluginInstallation.isDisabled,
+					uninstalledAt: schema.pluginInstallation.uninstalledAt,
+					activeConfigRevisionId: schema.pluginInstallation.activeConfigRevisionId,
 				})
 				.from(schema.pluginInstallation)
 				.where(
@@ -214,7 +306,13 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 			const expectedId = new Bun.CryptoHasher("md5")
 				.update(`legacy-plugin-installation:${row.userId}:${row.pluginId}`)
 				.digest("hex");
-			if (row.health !== "ready" || row.isDisabled || row.id !== expectedId) {
+			if (
+				row.health !== "ready" ||
+				row.isDisabled ||
+				row.uninstalledAt !== null ||
+				row.activeConfigRevisionId !== null ||
+				row.id !== expectedId
+			) {
 				throw new Error(
 					`Legacy bootstrap: the plugin installation for ${row.userId}/${row.pluginId} is not the deterministic ready installation this migration creates, so reusing it could attach legacy data to the wrong installation. This database was partly migrated by a different build; restore the V1 dump and start again.`,
 				);
@@ -234,7 +332,7 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 
 	const integrationProviders = new Map<string, ResolvedIntegrationProvider>();
 	const scripts = new Map<string, { id: string; slug: string }>();
-	for (const plugin of [media, fitness]) {
+	for (const plugin of [activeMedia, activeFitness]) {
 		for (const provider of plugin.manifest.integrationProviders) {
 			addUnique(
 				integrationProviders,
@@ -243,22 +341,19 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 				"integration provider",
 			);
 		}
-		for (const script of plugin.scripts) {
+		for (const script of plugin.manifest.scripts) {
 			const matches = persistedScripts.filter(
-				(row) =>
-					row.pluginId === plugin.id &&
-					row.slug === script.slug &&
-					row.contentHash === script.contentHash,
+				(row) => row.pluginRevisionId === plugin.revisionId && row.slug === script.slug,
 			);
 			if (matches.length !== 1) {
 				throw new Error(
-					`Legacy bootstrap: expected one stored script matching "${plugin.id}/${script.slug}" at this build's content hash but found ${matches.length}. Persistent integration claims are keyed by script identity and would be written under the wrong key. Let plugin scripts finish syncing, or use the build these scripts came from, then start the server again.`,
+					`Legacy bootstrap: expected one stored script matching active revision "${plugin.id}/${plugin.revisionId}/${script.slug}" but found ${matches.length}. Persistent integration claims are keyed by script identity and would be written under the wrong key. Let system plugin ingestion finish, or use the build that activated this revision, then start the server again.`,
 				);
 			}
 			const match = matches[0];
 			if (!match) {
 				throw new Error(
-					`Legacy bootstrap: no stored script matches "${plugin.id}/${script.slug}" at this build's content hash, so persistent integration claims would be written under the wrong key. Let plugin scripts finish syncing, or use the build these scripts came from, then start the server again.`,
+					`Legacy bootstrap: no stored script matches active revision "${plugin.id}/${plugin.revisionId}/${script.slug}", so persistent integration claims would be written under the wrong key. Let system plugin ingestion finish, or use the build that activated this revision, then start the server again.`,
 				);
 			}
 			addUnique(

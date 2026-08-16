@@ -7,6 +7,7 @@ import { MigrationsComplete } from "#lib/infrastructure/db/migrate";
 import { DatabaseLive } from "#lib/infrastructure/db/service";
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { ObservabilityLive } from "#lib/infrastructure/observability";
+import { PluginEnvironmentConfig } from "#lib/infrastructure/plugin-environment-config";
 import { ProKeyService } from "#lib/infrastructure/pro-key";
 import { ProviderHttpAdmissionService } from "#lib/infrastructure/provider-http-admission";
 import { RedisService } from "#lib/infrastructure/redis";
@@ -31,15 +32,29 @@ import {
 } from "#modules/auth/oauth-provisioning";
 import { AuthRepository } from "#modules/auth/repository";
 import { AuthService } from "#modules/auth/service";
-import { LifecycleDispatchLive } from "#modules/automations/lifecycle-dispatch";
-import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
-import { AutomationsRepository } from "#modules/automations/repository";
-import { AutomationsService } from "#modules/automations/service";
-import { SignalDispatchLive } from "#modules/automations/signal-dispatch";
+import { AutomationAttemptRepository } from "#modules/automations/attempt-repository";
 import {
-	SubscriptionExecutionWorkflowDefinitionsLive,
-	SubscriptionExecutionWorkflowOperationsLive,
-} from "#modules/automations/subscription-execution-workflow-live";
+	AutomationExecutionOperationsLive,
+	LifecycleExecutionLive,
+} from "#modules/automations/execution";
+import { AutomationHistoryRepository } from "#modules/automations/history-repository";
+import { AutomationHistoryService } from "#modules/automations/history-service";
+import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
+import { LifecyclePlannerLive } from "#modules/automations/planner";
+import {
+	AutomationReconciliation,
+	AutomationReconciliationOperationsLive,
+} from "#modules/automations/reconciliation";
+import { AutomationsRepository } from "#modules/automations/repository";
+import { AutomationRetention } from "#modules/automations/retention";
+import { AutomationRunRepository } from "#modules/automations/run-repository";
+import {
+	AutomationRunWorkflowDefinitionsLive,
+	AutomationRunWorkflowOperationsLive,
+} from "#modules/automations/run-workflow-live";
+import { AutomationsService } from "#modules/automations/service";
+import { SignalEmissionService } from "#modules/automations/signal-service";
+import { AutomationTriggerRepository } from "#modules/automations/trigger-repository";
 import { BackupExportSnapshot } from "#modules/backups/export/snapshot";
 import {
 	ExportBackupWorkflowDefinitionsLive,
@@ -62,8 +77,8 @@ import {
 } from "#modules/collections/add-entity-to-collection-workflow-live";
 import { CollectionsRepository } from "#modules/collections/repository";
 import { CollectionsService } from "#modules/collections/service";
+import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { DefinitionsService } from "#modules/definitions/service";
-import { LifecycleDispatchNoop } from "#modules/entities/lifecycle-dispatch";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { LocalInterestSessions } from "#modules/entity-interest/connections";
@@ -79,10 +94,7 @@ import { TranslateEntityWorkflowOperationsLive } from "#modules/entity-translati
 import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { TranslationsService } from "#modules/entity-translation/service";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
-import {
-	EventCreateWorkflowDefinitionsLive,
-	EventCreateWorkflowOperationsLive,
-} from "#modules/events/event-create-workflow-live";
+import { EventCreateWorkflowDefinitionsLive } from "#modules/events/event-create-workflow-live";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
 import { GodModeRepository } from "#modules/god-mode/repository";
@@ -110,6 +122,7 @@ import {
 	PluginCatalogInvalidatorLive,
 } from "#modules/plugins/catalog-events";
 import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
+import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 import { PluginHttpRateLimitAuthority } from "#modules/plugins/http-rate-limit-authority";
 import { ImportSourceCatalogLive } from "#modules/plugins/import-source-catalog";
 import { PluginIngestionLock } from "#modules/plugins/ingestion-lock";
@@ -153,12 +166,7 @@ import {
 import { FrequentCronSchedulerLive } from "#modules/scheduler/frequent-cron";
 import { PluginBootDispatcherLive, PluginBootService } from "#modules/scheduler/plugin-boot";
 import { PluginCronSchedulerLive, PluginCronService } from "#modules/scheduler/plugin-cron";
-import { SignalsRepository } from "#modules/signals/repository";
-import {
-	SignalEmissionService,
-	SignalSchemasService,
-	SignalsService,
-} from "#modules/signals/service";
+import { SignalSchemasService } from "#modules/signals/service";
 import { SignalSchemasRepository } from "#modules/signals/signal-schemas-repository";
 import { OperationalGateService } from "#modules/test-support/operational-gate-service";
 import { TestSupportService } from "#modules/test-support/service";
@@ -204,13 +212,20 @@ const ContentRepositoriesLive = Layer.mergeAll(
 	EventsRepository.layer,
 	RelationshipSchemasRepository.layer,
 	RelationshipsRepository.layer,
-	SignalsRepository.layer,
 	SignalSchemasRepository.layer,
 	TranslationsRepository.layer,
 );
 
+const AutomationRepositoriesLive = Layer.mergeAll(
+	AutomationAttemptRepository.layer,
+	AutomationRunRepository.layer,
+	AutomationTriggerRepository.layer,
+);
+
 const PlatformRepositoriesLive = Layer.mergeAll(
 	AuthRepository.layer,
+	AutomationRepositoriesLive,
+	AutomationHistoryRepository.layer,
 	AutomationsRepository.layer,
 	BackupsRepository.layer,
 	GodModeRepository.layer,
@@ -240,6 +255,8 @@ const ScriptGarbageCollectorLive = Layer.provide(
 		SandboxWorkflowReferenceRepository.layer,
 	),
 );
+// `PluginEnvironmentConfig` is listed here as well as in `PluginRuntimeResolverLive` because
+// `MigrationBootstrapServicesLive` provides that resolver with plain `Layer.provide`.
 const PluginIngestionServiceLive = Layer.provide(
 	PluginIngestionService.layer,
 	Layer.mergeAll(
@@ -248,6 +265,7 @@ const PluginIngestionServiceLive = Layer.provide(
 		ClientPluginCompiler.layer,
 		ScriptGarbageCollectorLive,
 		SystemPlugins.layer,
+		PluginEnvironmentConfig.layer,
 		SandboxWorkflowReferenceRepository.layer,
 	),
 );
@@ -289,6 +307,25 @@ const ApplicationInfrastructureLive = CoreInfrastructureServicesLive.pipe(
 	Layer.provideMerge(CoreInfrastructureDependenciesLive),
 );
 
+const PluginConfigEncryptionKeyLive = PluginConfigEncryptionKey.layer;
+
+const LifecyclePlannerServiceLive = LifecyclePlannerLive.pipe(
+	Layer.provide(DefinitionRegistry.layer),
+);
+const AutomationExecutionOperationsServiceLive = AutomationExecutionOperationsLive.pipe(
+	Layer.provide(AutomationRunRepository.layer),
+);
+const LifecycleExecutionServiceLive = LifecycleExecutionLive.pipe(
+	Layer.provide(AutomationExecutionOperationsServiceLive),
+);
+const LifecycleServicesLive = Layer.mergeAll(
+	LifecyclePlannerServiceLive,
+	LifecycleExecutionServiceLive,
+);
+const MigrationLifecycleServicesLive = LifecycleServicesLive.pipe(
+	Layer.provide(WorkflowEngineLive),
+);
+
 const RyotQLServiceLive = RyotQLService.layer;
 const ObjectStorageServiceLive = ObjectStorageService.layer;
 const UserLifecycleGuardLive = LifecycleWriteGuard.layer;
@@ -299,19 +336,10 @@ const UploadServicesLive = UploadIntentsService.layer.pipe(
 	Layer.provideMerge(ManagedAssetsServiceLive),
 );
 const NotificationSubscriptionsServiceLive = NotificationSubscriptionsService.layer.pipe(
-	Layer.provide(
-		Layer.mergeAll(
-			AutomationsService.layer.pipe(Layer.provide(PluginRuntimeResolverLive)),
-			PluginRuntimeResolverLive,
-		),
-	),
+	Layer.provide(PluginRuntimeResolverLive),
 );
 
-const LifecycleDispatchServiceLive = LifecycleDispatchLive.pipe(
-	Layer.provide(AutomationsService.layer),
-);
-
-const EntitiesServiceLive = EntitiesService.layer.pipe(Layer.provide(LifecycleDispatchServiceLive));
+const EntitiesServiceLive = EntitiesService.layer.pipe(Layer.provide(LifecycleServicesLive));
 
 const SavedViewsServiceLive = SavedViewsService.layer.pipe(
 	Layer.provide(
@@ -447,9 +475,8 @@ const InterestServicesLive = Layer.mergeAll(
 	EntityInterestSubscriberLive,
 );
 const EventsServiceLive = EventsService.layer;
-const SignalDispatchServiceLive = SignalDispatchLive.pipe(Layer.provide(AutomationsService.layer));
 const SignalEmissionServiceLive = SignalEmissionService.layer.pipe(
-	Layer.provide(SignalDispatchServiceLive),
+	Layer.provide(LifecycleServicesLive),
 );
 
 export const SandboxHostImplementationsLive = Layer.effect(
@@ -502,8 +529,44 @@ const ImportWorkflowPinningLive = Layer.effect(
 	})),
 ).pipe(Layer.provide(SandboxExecutionServiceLive));
 
+const AutomationRunWorkflowOperationsServiceLive = AutomationRunWorkflowOperationsLive.pipe(
+	Layer.provide(
+		Layer.mergeAll(AutomationRepositoriesLive, SandboxExecutionServiceLive).pipe(
+			Layer.provideMerge(SandboxRepository.layer),
+		),
+	),
+);
+
+const AutomationHistoryServiceLive = AutomationHistoryService.layer.pipe(
+	Layer.provide(
+		Layer.mergeAll(
+			AutomationAttemptRepository.layer,
+			AutomationExecutionOperationsServiceLive,
+			AutomationHistoryRepository.layer,
+			AutomationTriggerRepository.layer,
+		),
+	),
+);
+
+const AutomationReconciliationOperationsServiceLive = AutomationReconciliationOperationsLive.pipe(
+	Layer.provide(
+		Layer.mergeAll(AutomationExecutionOperationsServiceLive, AutomationRunRepository.layer),
+	),
+);
+const AutomationReconciliationLive = AutomationReconciliation.layer.pipe(
+	Layer.provide(AutomationReconciliationOperationsServiceLive),
+);
+const AutomationRetentionLive = AutomationRetention.layer.pipe(
+	Layer.provide(Layer.mergeAll(AutomationRepositoriesLive, ScriptGarbageCollectorLive)),
+);
+
+const RelationshipsServiceLive = RelationshipsService.layer.pipe(
+	Layer.provide([PluginRuntimeResolverLive, LifecycleServicesLive]),
+);
+
 const ContentServicesLive = Layer.mergeAll(
 	AuthDependentServicesLive,
+	AutomationHistoryServiceLive,
 	EntityImportService.layer,
 	EventsServiceLive,
 	SavedViewsServiceLive,
@@ -513,16 +576,12 @@ const ContentServicesLive = Layer.mergeAll(
 	NotificationSubscriptionsServiceLive,
 	SignalEmissionServiceLive,
 	SignalSchemasService.layer,
-	SignalsService.layer,
 	TranslationsService.layer,
 );
 
 const UserStateServiceLive = UserStateService.layer.pipe(
 	Layer.provide([
-		Layer.mergeAll(
-			EventsServiceLive,
-			RelationshipsService.layer.pipe(Layer.provide(PluginRuntimeResolverLive)),
-		),
+		Layer.mergeAll(EventsServiceLive, RelationshipsServiceLive),
 		PluginRuntimeResolverLive,
 		PluginLoaderLive,
 	]),
@@ -541,7 +600,7 @@ const ImportsServiceLive = ImportsService.layer.pipe(
 
 const PlatformServicesLive = Layer.mergeAll(
 	BackupServicesLive,
-	RelationshipsService.layer.pipe(Layer.provide(PluginRuntimeResolverLive)),
+	RelationshipsServiceLive,
 	UserStateServiceLive,
 	ImportsServiceLive,
 	IntegrationsService.layer.pipe(
@@ -555,7 +614,8 @@ const CollectionsServiceLive = CollectionsService.layer.pipe(
 	Layer.provide([
 		EntitiesServiceLive,
 		EventsServiceLive,
-		RelationshipsService.layer.pipe(Layer.provide(PluginRuntimeResolverLive)),
+		RelationshipsServiceLive,
+		LifecycleServicesLive,
 	]),
 );
 
@@ -595,18 +655,23 @@ const ClientPageSessionServiceLive = ClientPageSessionService.layer.pipe(
 	Layer.provide(Layer.mergeAll(ClientPagesRepository.layer, RedisService.layer)),
 );
 
-const ServicesLive = Layer.mergeAll(
-	PluginCatalogStateLive,
-	PluginInvalidationSubscriberLive,
-	ContentAndSandboxServicesLive,
-	ClientPagesServiceLive,
-	ClientPageSessionServiceLive,
-	RuntimePluginInstallationServiceLive,
-	OperationsServiceLive,
-	InterestServicesLive,
-	LifecycleDispatchServiceLive,
-	PluginBootService.layer,
-	PluginCronService.layer,
+const ServicesLive = Layer.provideMerge(
+	Layer.mergeAll(
+		PluginCatalogStateLive,
+		PluginInvalidationSubscriberLive,
+		ContentAndSandboxServicesLive,
+		ClientPagesServiceLive,
+		ClientPageSessionServiceLive,
+		RuntimePluginInstallationServiceLive,
+		OperationsServiceLive,
+		InterestServicesLive,
+		AutomationReconciliationLive,
+		AutomationRetentionLive,
+		PluginConfigEncryptionKeyLive,
+		PluginBootService.layer,
+		PluginCronService.layer,
+	),
+	LifecycleServicesLive,
 );
 
 const ServicesWithTestSupportLive = Layer.provideMerge(
@@ -619,7 +684,7 @@ const ServicesWithTestSupportLive = Layer.provideMerge(
 
 const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	AddEntityToCollectionWorkflowDefinitionsLive,
-	SubscriptionExecutionWorkflowDefinitionsLive,
+	AutomationRunWorkflowDefinitionsLive,
 	ProviderEntityPopulationWorkflowDefinitionsLive,
 	EntityImportWorkflowDefinitionsLive,
 	EventCreateWorkflowDefinitionsLive,
@@ -656,17 +721,19 @@ export const SystemPluginIngestionLive = SystemPluginBootstrap.layer.pipe(
 	]),
 );
 
-const MigrationBootstrapDependenciesLive = Layer.mergeAll(
-	LifecycleDispatchNoop,
-	MigrationBootstrapRepositoriesLive,
-).pipe(Layer.provideMerge(PluginRuntimeResolverLive));
+const MigrationBootstrapDependenciesLive = MigrationBootstrapRepositoriesLive.pipe(
+	Layer.provideMerge(PluginRuntimeResolverLive),
+);
 
 const MigrationBootstrapServicesLive = Layer.mergeAll(
 	NotificationSubscriptionsService.layer.pipe(Layer.provideMerge(AutomationsService.layer)),
 	SavedViewsServiceLive,
-	Layer.fresh(EntitiesService.layer),
+	Layer.fresh(EntitiesService.layer).pipe(Layer.provide(MigrationLifecycleServicesLive)),
 	SignalSchemasService.layer,
-).pipe(Layer.provideMerge(PluginLoaderLive), Layer.provide(MigrationBootstrapDependenciesLive));
+).pipe(
+	Layer.provideMerge(Layer.mergeAll(PluginLoaderLive, PluginEnvironmentConfig.layer)),
+	Layer.provide(MigrationBootstrapDependenciesLive),
+);
 
 export const SchemaMigrationLive = MigrationsComplete.layer;
 
@@ -688,50 +755,52 @@ export const MigrationInfrastructureLive = Layer.mergeAll(
 );
 
 export const RuntimeDependenciesLive = Layer.provideMerge(
-	Layer.mergeAll(
-		Layer.provide(
-			SandboxDurableHostDispatcherLive,
-			Layer.mergeAll(
-				SandboxHostImplementationsLive,
-				PluginHttpRateLimitAuthority.layer,
-				ProviderHttpAdmissionService.layer,
+	Layer.provideMerge(
+		Layer.mergeAll(
+			Layer.provide(
+				SandboxDurableHostDispatcherLive,
+				Layer.mergeAll(
+					SandboxHostImplementationsLive,
+					PluginHttpRateLimitAuthority.layer,
+					ProviderHttpAdmissionService.layer,
+				),
 			),
-		),
-		Layer.provide(SandboxDurableHostServiceWorkflowLive, SandboxHostImplementationsLive),
-		Layer.provideMerge(
+			Layer.provide(SandboxDurableHostServiceWorkflowLive, SandboxHostImplementationsLive),
 			Layer.mergeAll(
 				AddEntityToCollectionWorkflowOperationsLive,
-				Layer.provide(EventCreateWorkflowOperationsLive, ServicesWithTestSupportLive),
+				AutomationRunWorkflowOperationsServiceLive,
 			),
-			ServicesWithTestSupportLive,
-		),
-		Layer.provide(
-			EntityImportWorkflowOperationsLive,
-			Layer.mergeAll(AutomationsService.layer, SandboxExecutionServiceLive),
-		),
-		Layer.provide(SubscriptionExecutionWorkflowOperationsLive, ServicesWithTestSupportLive),
-		Layer.provide(TranslateEntityWorkflowOperationsLive, SandboxExecutionServiceLive),
-		Layer.provide(
-			Layer.mergeAll(ExportBackupWorkflowOperationsLive, RestoreBackupWorkflowOperationsLive),
-			ServicesWithTestSupportLive,
-		),
-		Layer.provide(
-			UserLifecycleWorkflowOperationsLive,
-			Layer.mergeAll(ServicesWithTestSupportLive, ObjectStorageServiceLive),
-		),
-		Layer.provide(
-			PluginInstallationWorkflowOperationsLive,
-			Layer.mergeAll(
-				SandboxExecutionServiceLive,
-				PluginCatalogInvalidatorLive,
-				PluginDefinitionMaterializerLive,
-				PluginInstallationRepository.layer,
+			Layer.provide(
+				EntityImportWorkflowOperationsLive,
+				Layer.mergeAll(LifecycleServicesLive, SandboxExecutionServiceLive),
+			),
+			Layer.provide(TranslateEntityWorkflowOperationsLive, SandboxExecutionServiceLive),
+			Layer.provide(
+				Layer.mergeAll(ExportBackupWorkflowOperationsLive, RestoreBackupWorkflowOperationsLive),
+				ServicesWithTestSupportLive,
+			),
+			Layer.provide(
+				UserLifecycleWorkflowOperationsLive,
+				Layer.mergeAll(ServicesWithTestSupportLive, ObjectStorageServiceLive),
+			),
+			Layer.provide(
+				PluginInstallationWorkflowOperationsLive,
+				Layer.mergeAll(
+					SandboxExecutionServiceLive,
+					PluginCatalogInvalidatorLive,
+					PluginDefinitionMaterializerLive,
+					PluginInstallationRepository.layer,
+				),
 			),
 		),
+		ServicesWithTestSupportLive,
 	),
 	ApplicationInfrastructureLive,
 );
 
-export const RuntimeServerLive = RuntimeLive.pipe(Layer.provide(RuntimeDependenciesLive));
+export const RuntimeServerLive = RuntimeLive.pipe(
+	Layer.provide(RuntimeDependenciesLive),
+	Layer.provide(LifecycleServicesLive.pipe(Layer.provide(ApplicationInfrastructureLive))),
+);
 
 export const ObservabilityProvidedLive = ObservabilityLive.pipe(Layer.provide(ConfigLive));

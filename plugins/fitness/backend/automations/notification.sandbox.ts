@@ -1,15 +1,15 @@
 import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { automationOccurrenceRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
 
 export const manifest = defineManifest({
 	kind: "automation",
+	automationType: "automation",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
+	capabilities: ["sendNotification"],
 	name: "Fitness Signal Notification",
 	slug: "automation.fitness-notification",
-	capabilities: ["executeRyotql", "sendNotification"],
 });
 
 const workoutCreatedPropertiesSchema = Schema.Struct({ workoutName: Schema.String });
@@ -18,14 +18,10 @@ export default defineAutomation({
 	manifest,
 	run: ({ automation }, host) =>
 		Effect.gen(function* () {
-			const occurrence = yield* executeRyotqlRecipe(
-				host.executeRyotql,
-				automationOccurrenceRecipe(automation.occurrenceId),
-			);
-			if (occurrence?.source.kind !== "signal") {
+			const signal = automation.payload;
+			if (signal.resource !== "signal") {
 				return yield* Effect.fail(new Error("Signal notification requires a signal source"));
 			}
-			const signal = occurrence.source.signal;
 			if (signal.signalSchemaSlug !== "workout.created") {
 				return yield* Effect.fail(
 					new Error(`Unsupported signal schema: ${signal.signalSchemaSlug}`),

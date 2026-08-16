@@ -1,11 +1,12 @@
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
-import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { expect, it } from "vitest";
 
 import {
-	automationOccurrenceRows,
+	automationContext,
+	entityRecord,
+	ryotqlRows,
 	hostSuccess,
 } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./media-association.sandbox";
@@ -27,9 +28,11 @@ const input = (overrides: InputOverrides = {}) => {
 	const snapshot = (properties: Record<string, JsonValue>) => ({
 		properties,
 		id: "relationship-1",
+		sourceEntityId: "subject-1",
+		targetEntityId: "associated-1",
+		createdAt: "2026-07-20T10:00:00.000Z",
+		updatedAt: "2026-07-20T10:00:00.000Z",
 		relationshipSchemaSlug: `${subjectKind}-to-${targetKind}`,
-		target: { name: "Barbie", id: "associated-1", entitySchemaSlug: targetKind },
-		source: { id: "subject-1", name: "Greta Gerwig", entitySchemaSlug: subjectKind },
 	});
 	let relationshipSource;
 	if (operation === "create") {
@@ -42,7 +45,6 @@ const input = (overrides: InputOverrides = {}) => {
 	} else {
 		relationshipSource = { before: snapshot({ roles: overrides.beforeRoles ?? ["Actor"] }) };
 	}
-	const source = { kind: "relationship" as const, ...relationshipSource };
 	const population = {
 		rootPreviouslyPopulated: overrides.rootPreviouslyPopulated ?? true,
 		scopeEntity: {
@@ -52,17 +54,17 @@ const input = (overrides: InputOverrides = {}) => {
 		},
 	};
 	return {
-		occurrence: automationOccurrenceRows(source, population),
-		context: {
-			automation: {
-				operation,
-				ruleId: "rule-1",
-				occurrenceId: "occurrence-1",
-				origin: { kind: "provider_refresh" },
-				occurredAt: "2026-07-20T10:00:00.000Z",
-				source: { kind: "relationship", relationshipId: "relationship-1" },
-			},
-		} satisfies AutomationInput,
+		context: automationContext({
+			operation,
+			population,
+			category: "change",
+			resource: "relationship",
+			...relationshipSource,
+		}),
+		entities: [
+			entityRecord({ name: "Barbie", id: "associated-1", entitySchemaSlug: targetKind }),
+			entityRecord({ id: "subject-1", name: "Greta Gerwig", entitySchemaSlug: subjectKind }),
+		],
 	};
 };
 
@@ -72,10 +74,10 @@ const run = (value: ReturnType<typeof input>) => {
 		.run(
 			value.context,
 			defineSandboxTestHost(manifest, {
-				executeRyotql: () => hostSuccess(value.occurrence),
+				executeRyotql: () => hostSuccess(ryotqlRows("entities", value.entities)),
 				emitSignal: (request) => {
 					calls.push(request);
-					return Effect.succeed({ wasCreated: true, signalId: "signal-1" });
+					return Effect.succeed({ wasCreated: true, triggerId: "signal-1" });
 				},
 			}),
 			{ metadata: {}, sandboxScriptId: "script-1" },

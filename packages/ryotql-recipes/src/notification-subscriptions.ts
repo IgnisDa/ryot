@@ -1,4 +1,4 @@
-import { AutomationRuleId, SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { NotificationSubscriptionId, SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
 	ascending,
 	column,
@@ -17,7 +17,7 @@ import { IsoDateString } from "./codecs";
 
 const notificationSubscription = table("notificationSubscription", "notificationSubscription");
 const selection = {
-	id: selectedField(column(notificationSubscription, "id"), AutomationRuleId),
+	id: selectedField(column(notificationSubscription, "id"), NotificationSubscriptionId),
 	isActive: selectedField(column(notificationSubscription, "isActive"), Schema.Boolean),
 	createdAt: selectedField(column(notificationSubscription, "createdAt"), IsoDateString),
 	updatedAt: selectedField(column(notificationSubscription, "updatedAt"), IsoDateString),

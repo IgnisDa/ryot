@@ -1,4 +1,3 @@
-import type { AutomationOrigin } from "@ryot-app/contract/modules/automations/schemas";
 import type {
 	EntityId,
 	EntitySchemaSlug,
@@ -8,11 +7,13 @@ import type {
 import type { Effect } from "effect";
 import { Context } from "effect";
 
+import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
+
 export type PopulationRequest = {
 	entityId: EntityId;
+	command: LifecycleCommand;
 	externalId: string;
 	userId: UserId | null;
-	origin: AutomationOrigin;
 	providerId: SandboxProviderId;
 	entitySchemaSlug: EntitySchemaSlug;
 };

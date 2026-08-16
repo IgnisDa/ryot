@@ -21,6 +21,7 @@ END`;
 const LegacyIntegrationSettings = Schema.Struct({
 	id: Schema.String,
 	lot: Schema.String,
+	userId: Schema.String,
 	provider: Schema.String,
 	settings: Schema.Record(Schema.String, Schema.Unknown),
 });
@@ -29,7 +30,7 @@ export const readLegacyIntegrationSettings = Effect.fn("readLegacyIntegrationSet
 	connection: SqlConnection.Connection,
 ) {
 	const rows = yield* connection.execute(
-		`SELECT oi.id, oi.lot, oi.provider, ${legacyProviderSpecificsSql("oi")} AS settings FROM "old_integration" oi WHERE oi.provider <> 'generic_json' ORDER BY oi.id`,
+		`SELECT oi.id, oi.lot, oi.user_id AS "userId", oi.provider, ${legacyProviderSpecificsSql("oi")} AS settings FROM "old_integration" oi WHERE oi.provider <> 'generic_json' ORDER BY oi.id`,
 		[],
 		undefined,
 	);
@@ -41,13 +42,19 @@ export const readLegacyIntegrationSettings = Effect.fn("readLegacyIntegrationSet
 export const buildIntegrationMigrationSql = (input: {
 	installations: ReadonlyArray<{ installationId: string; userId: string }>;
 	providerSlugs: ReadonlyArray<string>;
-}) => `
+}) => {
+	const installationValuesSql =
+		input.installations
+			.map((row) => `(${quoteSqlString(row.userId)}, ${quoteSqlString(row.installationId)})`)
+			.join(", ") || "(NULL::text, NULL::text)";
+	return `
 DO $$
 DECLARE
 	generic_json_rows int;
 	rows_inserted int;
 	started_at timestamptz := clock_timestamp();
 	unknown_providers text;
+	conflicting_integration_ids text;
 	invalid_required_field_ids text;
 	unresolved_installation_ids text;
 BEGIN
@@ -102,11 +109,28 @@ BEGIN
 	WHERE oi.provider <> 'generic_json'
 		AND NOT EXISTS (
 			SELECT 1
-			FROM (VALUES ${input.installations.map((row) => `(${quoteSqlString(row.userId)}, ${quoteSqlString(row.installationId)})`).join(", ") || "(NULL::text, NULL::text)"}) installations(user_id, installation_id)
+			FROM (VALUES ${installationValuesSql}) installations(user_id, installation_id)
 			WHERE installations.user_id = oi.user_id
 		);
 	IF unresolved_installation_ids IS NOT NULL THEN
 		RAISE EXCEPTION 'old_integration -> integration: these legacy integrations belong to a user with no ready media plugin installation, so there is nothing in V2 to attach them to: %. Installations are created earlier in this same run, so this is a defect in this migration rather than in the legacy data. Keep the dump and report it; retrying will not change the result.', unresolved_installation_ids;
+	END IF;
+
+	SELECT string_agg(oi.id, ', ' ORDER BY oi.id)
+	INTO conflicting_integration_ids
+	FROM "old_integration" oi
+	INNER JOIN "integration" existing ON existing.id = oi.id
+	INNER JOIN (VALUES ${installationValuesSql}) installations(user_id, installation_id)
+		ON installations.user_id = oi.user_id
+	WHERE oi.provider <> 'generic_json'
+		AND (
+			existing.user_id IS DISTINCT FROM oi.user_id
+			OR existing.lot IS DISTINCT FROM oi.lot
+			OR existing.provider IS DISTINCT FROM oi.provider
+			OR existing.plugin_installation_id IS DISTINCT FROM installations.installation_id
+		);
+	IF conflicting_integration_ids IS NOT NULL THEN
+		RAISE EXCEPTION 'old_integration -> integration: existing V2 rows reuse these legacy integration IDs with different user, provider, lot, or installation identity: %. This database was partly migrated by a different build; restore the V1 dump and start again.', conflicting_integration_ids;
 	END IF;
 
 	INSERT INTO "integration" (
@@ -146,7 +170,7 @@ BEGIN
 		oi.last_finished_at,
 		oi.created_on
 	FROM "old_integration" oi
-	INNER JOIN (VALUES ${input.installations.map((row) => `(${quoteSqlString(row.userId)}, ${quoteSqlString(row.installationId)})`).join(", ") || "(NULL::text, NULL::text)"}) installations(user_id, installation_id)
+	INNER JOIN (VALUES ${installationValuesSql}) installations(user_id, installation_id)
 		ON installations.user_id = oi.user_id
 	WHERE oi.provider <> 'generic_json'
 	ON CONFLICT ("id") DO NOTHING;
@@ -160,3 +184,4 @@ BEGIN
 	${buildReportSql("old_integration -> integration", [{ count: "generic_json_rows", message: "generic_json integration row(s) skipped because the provider was removed in V2" }])}
 END $$;
 `;
+};

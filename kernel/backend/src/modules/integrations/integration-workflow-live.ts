@@ -1,13 +1,17 @@
 import { ListedIntegration } from "@ryot-app/contract/modules/integrations/schemas";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
-import { UserId } from "@ryot-app/contract/schema/brands";
+import { AutomationExecutionId, UserId } from "@ryot-app/contract/schema/brands";
+import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, DateTime, Effect, Schema } from "effect";
 import { Activity } from "effect/unstable/workflow";
 
+import { rootLifecycleCommand, type LifecycleCommand } from "#lib/domain/lifecycle-command";
+import { SignalEmissionService } from "#modules/automations/signal-service";
 import { markImportRunStarted } from "#modules/imports/runtime/import-run-status";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 import { SandboxExecutionService } from "#modules/sandbox/service";
-import { SignalEmissionService } from "#modules/signals/service";
 
 import { failRun, toIntegrationWorkflowError } from "./failure-workflow";
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
@@ -25,6 +29,7 @@ const runIntegrationImport = Effect.fn("runIntegrationImport")(function* (
 	integration: IntegrationRecord,
 	payload: IntegrationRunJobData,
 	executionId: string,
+	command: LifecycleCommand,
 ) {
 	const catalog = yield* IntegrationProviderCatalog;
 	const sandbox = yield* SandboxExecutionService;
@@ -46,7 +51,8 @@ const runIntegrationImport = Effect.fn("runIntegrationImport")(function* (
 		})
 		.pipe(Effect.mapError(toIntegrationWorkflowError));
 	const integrationContext: JsonValue = payload.webhook ?? {};
-	const input: JsonValue = {
+	const input: JsonValue = yield* Schema.decodeUnknownEffect(jsonValueSchema)({
+		command,
 		runId: payload.runId,
 		source: integration.provider,
 		sourcePayload: {
@@ -54,7 +60,7 @@ const runIntegrationImport = Effect.fn("runIntegrationImport")(function* (
 			integrationId: integration.id,
 			integrationScriptSlug: provider.scriptSlug,
 		},
-	};
+	}).pipe(Effect.mapError(toIntegrationWorkflowError));
 	return yield* sandbox
 		.executeWorkflow({
 			input,
@@ -69,6 +75,7 @@ const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (
 	integration: IntegrationRecord,
 	payload: IntegrationRunJobData,
 	executionId: string,
+	command: LifecycleCommand,
 ) {
 	const markStartedEffect = markImportRunStarted(payload.runId).pipe(
 		Effect.mapError(toIntegrationWorkflowError),
@@ -79,7 +86,7 @@ const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (
 		name: "mark-integration-run-started",
 	});
 
-	yield* runIntegrationImport(integration, payload, executionId).pipe(
+	yield* runIntegrationImport(integration, payload, executionId, command).pipe(
 		Effect.catchCauseIf(
 			(cause) => !Cause.hasInterruptsOnly(cause),
 			(cause) =>
@@ -107,14 +114,15 @@ const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (
 	if (wasDisabled) {
 		const signals = yield* SignalEmissionService;
 		const emitDisabledSignal = signals
-			.emit({
-				executionId,
-				discriminator: integration.id,
+			.emitSignal({
 				schemaSlug: "integration.disabled",
-				occurredAt: yield* DateTime.nowAsDate,
 				principal: { kind: "user", userId: integration.userId },
 				properties: { integrationId: integration.id, providerName: integration.provider },
-				origin: { kind: "integration", importRunId: payload.runId, integrationId: integration.id },
+				command: {
+					...command,
+					occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
+					itemIdentity: stableStringify([command.itemIdentity, "signal", "integration.disabled"]),
+				},
 			})
 			.pipe(Effect.mapError(toIntegrationWorkflowError));
 		yield* emitDisabledSignal;
@@ -148,7 +156,16 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 			return;
 		}
 
-		yield* runIntegrationRun(integration, payload, executionId);
+		const command = rootLifecycleCommand({
+			source: "integration",
+			importRunId: payload.runId,
+			integrationId: integration.id,
+			executionId: AutomationExecutionId.make(executionId),
+			initiator: { id: integration.id, kind: "integration" },
+			itemIdentity: stableStringify(["integration-run", payload.runId]),
+			occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
+		});
+		yield* runIntegrationRun(integration, payload, executionId, command);
 	},
 	(effect, _payload, executionId) =>
 		Effect.annotateLogs(effect, { executionId, workflow: "ProcessIntegrationRunWorkflow" }),

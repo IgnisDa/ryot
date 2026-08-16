@@ -9,6 +9,7 @@
 - Read system archives and private plugin uploads through the single reader from `@ryot-app/plugin-archive`; do not add a second archive reader in the kernel.
 - Archive container limits apply to both system and private packages. Keep `PLUGIN_PACKAGE_LIMITS` private-only; system plugins may exceed those package limits.
 - Resolve per-user catalogs from one `listPluginsAvailableToUser` snapshot and thread the resolved catalog through multi-row operations.
-- Key automation bindings by stable plugin ID and resolve scripts by plugin ID, script slug, and content hash.
+- Key automation hooks by stable plugin ID and authored hook slug. Resolve scripts by immutable revision ID, script slug, and content hash.
+- Installation config pointer activation uses the ingestion transaction lock. Environment config is resolved per node at boot into the process-local `PluginEnvironmentConfig` map and has no pointer row. Retained execution reads use exact revision/config pins and never resolve current environment values.
 - `getEffectiveDefinitions(userId, true)` includes disabled and installing installations but never incompatible installations.
 - A private installation becomes ready only through `PluginInstallationWorkflow`; uninstall must still resolve a private plugin shadowed by a system slug.

@@ -5,7 +5,6 @@ import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 
 import {
 	eventAutomationContext,
-	eventAutomationOccurrence,
 	entityRecord,
 	entitySchemaRecord,
 	execution,
@@ -52,9 +51,10 @@ const schema = entitySchemaRecord({
 
 const createAutomation = (properties: Record<string, string>) =>
 	eventAutomationContext({
+		entityId: "collection-1",
+		entitySchemaSlug: "collection",
 		eventSchemaSlug: "add-entity-to-collection",
 		properties: { relationshipId: "rel-1", relationshipProperties: {}, ...properties },
-		subject: { id: "collection-1", name: "Collection", entitySchemaSlug: "collection" },
 	});
 
 const createHttpCall =
@@ -78,7 +78,6 @@ const createHost = (options: {
 	log?: RadarrHost["log"];
 	entity?: ReturnType<typeof entityRecord> | null;
 	integrations?: ReturnType<typeof integrationRecord>[];
-	event?: Parameters<typeof eventAutomationOccurrence>[0];
 }) =>
 	defineSandboxTestHost(manifest, {
 		httpCall: options.httpCall,
@@ -87,17 +86,7 @@ const createHost = (options: {
 		listIntegrations: () => hostSuccess(options.integrations ?? []),
 		getUserPreferences: () =>
 			hostSuccess({ allowNsfw: false, disableIntegrations: options.disableIntegrations ?? false }),
-		executeRyotql: (document) => {
-			if ("occurrences" in document.queries) {
-				return hostSuccess(
-					eventAutomationOccurrence({
-						eventSchemaSlug: "add-entity-to-collection",
-						properties: { entityId: "movie-1", entitySchemaSlug: "movie" },
-						subject: { id: "collection-1", name: "Collection", entitySchemaSlug: "collection" },
-						...options.event,
-					}),
-				);
-			}
+		executeRyotql: () => {
 			return options.entity ? hostSuccess(ryotqlRows("entities", [options.entity])) : hostFailure();
 		},
 	});
@@ -156,11 +145,7 @@ describe("radarr-push sandbox script", () => {
 				[
 					definition.run(
 						createAutomation({ entityId: "show-1", entitySchemaSlug: "show" }),
-						createHost({
-							...base,
-							entity: movieEntity,
-							event: { properties: { entityId: "show-1", entitySchemaSlug: "show" } },
-						}),
+						createHost({ ...base, entity: movieEntity }),
 						execution,
 					),
 					definition.run(
