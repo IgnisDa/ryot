@@ -4,22 +4,21 @@ import { Effect } from "effect";
 
 import {
 	OAuthStorage,
+	OAuthStorageError,
 	oauthPendingKey,
 	oauthStorageLayer,
 	oauthTokenKey,
-	type OAuthBrowserStorage,
+	type OAuthStorageAdapter,
 } from "#/modules/auth/oauth-storage";
 
-const makeStorage = () => {
+const makeStorage = (overrides: Partial<OAuthStorageAdapter> = {}) => {
 	const values = new Map<string, string>();
-	const storage: OAuthBrowserStorage = {
-		removeItem: (key) => values.delete(key),
-		getItem: (key) => values.get(key) ?? null,
-		setItem: (key, value) => values.set(key, value),
-		key: (index) => [...values.keys()][index] ?? null,
-		get length() {
-			return values.size;
-		},
+	const storage: OAuthStorageAdapter = {
+		keys: Effect.sync(() => [...values.keys()]),
+		getItem: (key) => Effect.sync(() => values.get(key) ?? null),
+		removeItem: (key) => Effect.sync(() => void values.delete(key)),
+		setItem: (key, value) => Effect.sync(() => void values.set(key, value)),
+		...overrides,
 	};
 	return { storage, values };
 };
@@ -94,6 +93,41 @@ describe("OAuth storage", () => {
 				oauthPendingKey("https://other.example", "two"),
 				oauthTokenKey("https://ryot.example"),
 			]);
+		}).pipe(Effect.provide(oauthStorageLayer(storage)));
+	});
+
+	it.effect("keeps records that cannot be read", () => {
+		const { storage, values } = makeStorage({
+			getItem: () => Effect.fail(new OAuthStorageError({ reason: "read-failed" })),
+		});
+		values.set(oauthTokenKey("https://ryot.example"), "{}");
+		values.set(oauthPendingKey("https://ryot.example", "state"), "{}");
+		return Effect.gen(function* () {
+			const service = yield* OAuthStorage;
+			expect(yield* service.getTokenSet("https://ryot.example")).toBeNull();
+			expect(yield* service.getPending("https://ryot.example", "state")).toBeNull();
+			expect(yield* service.takePending("https://ryot.example", "state")).toBeNull();
+			expect(values.size).toBe(2);
+		}).pipe(Effect.provide(oauthStorageLayer(storage)));
+	});
+
+	it.effect("fails when a record cannot be written", () => {
+		const { storage } = makeStorage({
+			setItem: () => Effect.fail(new OAuthStorageError({ reason: "write-failed" })),
+		});
+		return Effect.gen(function* () {
+			const service = yield* OAuthStorage;
+			const failure = yield* Effect.flip(
+				service.setTokenSet("https://ryot.example", {
+					idToken: "id",
+					scope: "openid",
+					tokenType: "Bearer",
+					accessToken: "access",
+					refreshToken: "refresh",
+					accessTokenExpiresAt: 123,
+				}),
+			);
+			expect(failure.reason).toBe("write-failed");
 		}).pipe(Effect.provide(oauthStorageLayer(storage)));
 	});
 });

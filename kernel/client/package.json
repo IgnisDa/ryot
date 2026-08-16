@@ -17,6 +17,7 @@
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
+		"@aparajita/capacitor-secure-storage": "^8.0.0",
 		"@better-auth/oauth-provider": "1.7.2",
 		"@capacitor/android": "^8.5.0",
 		"@capacitor/app": "^8.1.1",
