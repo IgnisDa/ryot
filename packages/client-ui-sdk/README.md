@@ -92,7 +92,9 @@ search row takes the bar over and removes the sentinel with the title block, and
 comes back afterwards is a different element. Keyed to the mount, nothing would observe it and the
 bar would stay opaque until the route remounted. A bar carrying a search row is opaque outright,
 since an input cannot float over scrolling content, and the `<h1>` stays in the document as a
-visually hidden heading so a screen names itself exactly once in every state.
+visually hidden heading so a screen names itself exactly once in every state. The content takes over
+the gap the title block was giving it, because a search row is a bar row and carries no spacing of
+its own; leaving that to the caller joins the results to the input.
 
 `ScreenBarButton` draws the 44px controls in that bar and deliberately carries no text colour. A
 caller's class cannot beat one baked into a component: the cascade orders utilities by the
