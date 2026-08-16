@@ -2,7 +2,7 @@ import { expect, it } from "@effect/vitest";
 
 import { findDuplicateServiceLayers } from "./layer-wiring";
 
-const source = (body: string) => [{ source: body, path: "app/layers.ts" }];
+const source = (body: string) => [{ source: body, path: "boot/layers.ts" }];
 
 it("accepts duplicate bindings when all but one opt out of the memo", () => {
 	expect(
