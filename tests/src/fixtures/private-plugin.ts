@@ -5,6 +5,7 @@ import { PluginSlug } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import type { Client } from "./auth";
+import { pollUntil } from "./polling";
 import { pluginConfigOperationSandboxSource } from "./sandbox-source";
 import { testPluginManifest } from "./test-plugin";
 
@@ -132,3 +133,235 @@ export const updatePrivatePlugin = (input: {
 	input.client.call((c) =>
 		c.plugins.update({ payload: input.payload, params: { pluginSlug: input.pluginSlug } }),
 	);
+
+const privateImportWorkflowSource = (scriptSlug: string) => `
+import {
+  genericImportKernelInputSchema,
+  genericImportWorkflowInputSchema,
+  genericImportWorkflowResultSchema,
+} from "@ryot/sandbox-sdk/imports";
+import { defineManifest, defineWorkflow } from "@ryot/sandbox-sdk/workflow";
+
+export const manifest = defineManifest({
+  kind: "workflow",
+  capabilities: [],
+  name: "E2E private import",
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
+  slug: ${JSON.stringify(scriptSlug)},
+});
+
+const kernelImport = {
+  input: genericImportKernelInputSchema,
+  output: genericImportWorkflowResultSchema,
+  workflowSlug: "kernel:process-import-chunks",
+};
+
+export default defineWorkflow({
+  manifest,
+  input: genericImportWorkflowInputSchema,
+  output: genericImportWorkflowResultSchema,
+  run: (input, replay) =>
+    replay.child("complete-import", kernelImport, {
+      totalItems: 0,
+      failureCount: 0,
+      chunkHandles: [],
+      writeItemCount: 0,
+      runId: input.runId,
+    }),
+});
+`;
+
+const privateIntegrationOperationSource = (scriptSlug: string) => `
+import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineOperation } from "@ryot/sandbox-sdk/operation";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+
+export const manifest = defineManifest({
+  capabilities: [],
+  kind: "operation",
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
+  name: "E2E private integration operation",
+  slug: ${JSON.stringify(scriptSlug)},
+});
+
+export default defineOperation({
+  manifest,
+  input: Schema.Struct({ integrationId: Schema.String }),
+  output: Schema.Struct({ integrationId: Schema.String }),
+  run: (input) => Effect.succeed({ integrationId: input.integrationId }),
+});
+`;
+
+type PrivateSurfaceInput = {
+	readonly name?: string;
+	readonly pluginSlug?: string;
+};
+
+export type PrivateImportPluginPackage = {
+	readonly sourceSlug: string;
+	readonly pluginSlug: PluginSlug;
+	readonly manifest: PrivatePluginManifest;
+	readonly files: InstallPluginPayload["files"];
+};
+
+export type PrivateIntegrationPluginPackage = {
+	readonly providerSlug: string;
+	readonly operationSlug: string;
+	readonly pluginSlug: PluginSlug;
+	readonly manifest: PrivatePluginManifest;
+	readonly files: InstallPluginPayload["files"];
+};
+
+export const privateIntegrationSettingsSchema: PrivatePluginManifest["integrationProviders"][number]["settingsSchema"] =
+	{
+		unknownKeys: "strict",
+		fields: {
+			endpoint: { type: "string", label: "Endpoint", description: "Private provider endpoint" },
+		},
+	};
+
+export const privateImportPluginPackage = (
+	input: PrivateSurfaceInput & { readonly sourceSlug?: string } = {},
+): PrivateImportPluginPackage => {
+	const suffix = randomUUID();
+	const workflowSlug = `private-import-${suffix}`;
+	const entry = "scripts/private-import.sandbox.ts";
+	const name = input.name ?? "E2E private import source";
+	const scriptSlug = `workflow.e2e-private-import-${suffix}`;
+	const sourceSlug = input.sourceSlug ?? `e2e-private-import-${suffix}`;
+	const pluginSlug = input.pluginSlug ?? `e2e-private-import-plugin-${suffix}`;
+	const manifest = testPluginManifest({
+		pluginSlug,
+		workflows: [{ scriptSlug, slug: workflowSlug }],
+		scripts: [
+			{
+				entry,
+				slug: scriptSlug,
+				kind: "workflow",
+				capabilities: [],
+				name: "E2E private import",
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
+			},
+		],
+		importSources: [
+			{
+				name,
+				workflowSlug,
+				slug: sourceSlug,
+				description: name,
+				requiredPluginConfigKeys: [],
+				inputSchema: { fields: {}, unknownKeys: "strict" },
+			},
+		],
+	});
+	return {
+		manifest,
+		sourceSlug,
+		pluginSlug: PluginSlug.make(pluginSlug),
+		files: { [entry]: privateImportWorkflowSource(scriptSlug) },
+	};
+};
+
+export const privateIntegrationPluginPackage = (
+	input: PrivateSurfaceInput & { readonly providerSlug?: string } = {},
+): PrivateIntegrationPluginPackage => {
+	const suffix = randomUUID();
+	const operationSlug = "read-integration";
+	const entry = "scripts/private-integration.sandbox.ts";
+	const name = input.name ?? "E2E private integration provider";
+	const scriptSlug = `integration.e2e-private-read-${suffix}`;
+	const providerSlug = input.providerSlug ?? `e2e-private-provider-${suffix}`;
+	const pluginSlug = input.pluginSlug ?? `e2e-private-integration-plugin-${suffix}`;
+	const manifest = testPluginManifest({
+		pluginSlug,
+		operations: [
+			{
+				scriptSlug,
+				slug: operationSlug,
+				auth: "integration",
+				description: "Reads the integration that authenticated the call",
+			},
+		],
+		scripts: [
+			{
+				entry,
+				slug: scriptSlug,
+				capabilities: [],
+				kind: "operation",
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
+				name: "E2E private integration operation",
+			},
+		],
+		integrationProviders: [
+			{
+				name,
+				lot: "push",
+				description: name,
+				slug: providerSlug,
+				settingsSchema: privateIntegrationSettingsSchema,
+			},
+		],
+	});
+	return {
+		manifest,
+		providerSlug,
+		operationSlug,
+		pluginSlug: PluginSlug.make(pluginSlug),
+		files: { [entry]: privateIntegrationOperationSource(scriptSlug) },
+	};
+};
+
+export const installPrivateImportPlugin = (
+	input: PrivateSurfaceInput & { readonly client: Client; readonly sourceSlug?: string },
+) =>
+	Effect.gen(function* () {
+		const plugin = privateImportPluginPackage(input);
+		const installation = yield* input.client.call((c) =>
+			c.plugins.install({
+				payload: { config: {}, files: plugin.files, manifest: plugin.manifest },
+			}),
+		);
+		return { ...plugin, installation };
+	});
+
+export const installPrivateIntegrationPlugin = (
+	input: PrivateSurfaceInput & { readonly client: Client; readonly providerSlug?: string },
+) =>
+	Effect.gen(function* () {
+		const plugin = privateIntegrationPluginPackage(input);
+		const installation = yield* input.client.call((c) =>
+			c.plugins.install({
+				payload: { config: {}, files: plugin.files, manifest: plugin.manifest },
+			}),
+		);
+		return { ...plugin, installation };
+	});
+
+export const invokePrivateIntegrationOperation = (input: {
+	readonly client: Client;
+	readonly integrationId: string;
+	readonly operationSlug: string;
+	readonly pluginSlug: PluginSlug;
+}) =>
+	input.client.call((c) =>
+		c.plugins.invoke({
+			payload: { payload: { integrationId: input.integrationId } },
+			params: { pluginSlug: input.pluginSlug, operationSlug: input.operationSlug },
+		}),
+	);
+
+export const uninstallPrivatePlugin = (client: Client, pluginSlug: PluginSlug) =>
+	client.call((c) => c.plugins.uninstall({ params: { pluginSlug } }));
+
+export const releasePrivatePlugin = (client: Client, pluginSlug: PluginSlug) =>
+	pollUntil(
+		`uninstall of private plugin '${pluginSlug}'`,
+		uninstallPrivatePlugin(client, pluginSlug).pipe(
+			Effect.as(true),
+			Effect.catchTag("PluginConflictError", () => Effect.succeed(null)),
+		),
+	).pipe(Effect.asVoid, Effect.orDie);

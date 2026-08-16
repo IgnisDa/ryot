@@ -20,6 +20,7 @@ const IntegrationRecordSchema = Schema.Struct({
 	...ListedIntegration.fields,
 	userId: UserId,
 	pluginSlug: Schema.String,
+	pluginInstallationId: Schema.String,
 });
 
 const runIntegrationImport = Effect.fn("runIntegrationImport")(function* (
@@ -29,7 +30,9 @@ const runIntegrationImport = Effect.fn("runIntegrationImport")(function* (
 ) {
 	const catalog = yield* IntegrationProviderCatalog;
 	const sandbox = yield* SandboxExecutionService;
-	const provider = catalog.findOwned(integration.provider, integration.pluginSlug);
+	const provider = yield* catalog
+		.findOwnedForUser(integration.userId, integration.provider, integration.pluginInstallationId)
+		.pipe(Effect.mapError(toIntegrationWorkflowError));
 	if (!provider?.scriptSlug) {
 		return yield* new IntegrationRunError({
 			message: `Integration provider '${integration.provider}' is unavailable`,
@@ -39,7 +42,8 @@ const runIntegrationImport = Effect.fn("runIntegrationImport")(function* (
 		.resolveWorkflowScript({
 			executionId,
 			workflowSlug: "import",
-			pluginSlug: provider.pluginSlug,
+			userId: integration.userId,
+			pluginId: provider.pluginId,
 		})
 		.pipe(Effect.mapError(toIntegrationWorkflowError));
 	const integrationContext: JsonValue =

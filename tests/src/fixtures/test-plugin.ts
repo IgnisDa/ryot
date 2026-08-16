@@ -115,6 +115,7 @@ export const installTestPlugin = (input: {
 	configSchema?: TestPluginManifest["configSchema"];
 	entitySchemas?: TestPluginManifest["entitySchemas"];
 	httpRateLimits?: TestPluginManifest["httpRateLimits"];
+	integrationProviders?: TestPluginManifest["integrationProviders"];
 }) =>
 	Effect.gen(function* () {
 		const entry = `scripts/${input.script.kind}.sandbox.ts`;
@@ -131,6 +132,7 @@ export const installTestPlugin = (input: {
 			...(input.savedViews ? { savedViews: input.savedViews } : {}),
 			...(input.operations ? { operations: input.operations } : {}),
 			...(input.entitySchemas ? { entitySchemas: input.entitySchemas } : {}),
+			...(input.integrationProviders ? { integrationProviders: input.integrationProviders } : {}),
 		});
 		const files = { [entry]: input.source };
 		yield* getBackendClient().call(

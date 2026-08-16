@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 5 of 11 tasks completed
+**Overall Progress:** 6 of 11 tasks completed
 
-**Current Task:** [Task 06](./06-scoped-imports-and-integrations.md) (todo)
+**Current Task:** [Task 07](./07-private-automations-and-lifecycle.md) (todo)
 
 ### Task List
 
@@ -15,7 +15,7 @@
 | 03  | [Installation Configuration And Controls](./03-installation-configuration-and-controls.md)       | done   |
 | 04  | [Plugin Update And Uninstall](./04-plugin-update-and-uninstall.md)                               | done   |
 | 05  | [Qualified Definitions And Providers](./05-qualified-definitions-and-providers.md)               | done   |
-| 06  | [Scoped Imports And Integrations](./06-scoped-imports-and-integrations.md)                       | todo   |
+| 06  | [Scoped Imports And Integrations](./06-scoped-imports-and-integrations.md)                       | done   |
 | 07  | [Private Automations And Lifecycle](./07-private-automations-and-lifecycle.md)                   | todo   |
 | 08  | [System Plugin Reconciliation And Conflicts](./08-system-plugin-reconciliation-and-conflicts.md) | todo   |
 | 09  | [Backup Format Replacement](./09-backup-format-replacement.md)                                   | todo   |

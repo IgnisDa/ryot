@@ -27,7 +27,6 @@ import {
 import { ImportsService } from "#modules/imports/service";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 import type { RegisteredIntegrationProvider } from "#modules/plugins/integration-provider-catalog";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { redactIntegrationForClient } from "./client-redaction";
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
@@ -158,10 +157,17 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			const engine = yield* WorkflowEngine;
 			const importsService = yield* ImportsService;
 			const repository = yield* IntegrationsRepository;
-			const pluginRuntime = yield* PluginRuntimeResolver;
 			const providerCatalog = yield* IntegrationProviderCatalog;
-			const redactForClient = (integration: IntegrationRecord) =>
-				redactIntegrationForClient(providerCatalog.findOwned, integration);
+			const redactForClient = Effect.fn("IntegrationsService.redactForClient")(function* (
+				integration: IntegrationRecord,
+			) {
+				const registered = yield* providerCatalog.findOwnedForUser(
+					integration.userId,
+					integration.provider,
+					integration.pluginInstallationId,
+				);
+				return redactIntegrationForClient(registered, integration);
+			});
 
 			const failCreatedRun = (runId: ImportRunId, reason: ImportRunFailureReason) =>
 				importsService.failRunForIntegration(runId, reason);
@@ -193,15 +199,19 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			});
 
 			const listIntegrationProviders = Effect.fn("IntegrationsService.listIntegrationProviders")(
-				function* () {
+				function* (userId: UserId) {
 					const isPro = yield* proKey.isValidated;
-					return yield* Effect.forEach(providerCatalog.list(), (provider) =>
+					return yield* Effect.forEach(yield* providerCatalog.listForUser(userId), (provider) =>
 						Effect.gen(function* () {
 							const resolution =
 								provider.lot === "push"
 									? null
-									: providerCatalog.resolveOwned(provider.slug, provider.pluginSlug);
-							const script = resolution === null ? null : yield* resolution.script;
+									: yield* providerCatalog.resolveOwnedForUser(
+											userId,
+											provider.slug,
+											provider.installationId,
+										);
+							const script = resolution === null ? null : resolution.script;
 							const requiresProKey = provider.requiresProKey ?? false;
 							return {
 								requiresProKey,
@@ -221,13 +231,13 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			);
 
 			const getForClient = (userId: UserId, integrationId: IntegrationId) =>
-				requireIntegration(userId, integrationId).pipe(Effect.map(redactForClient));
+				requireIntegration(userId, integrationId).pipe(Effect.flatMap(redactForClient));
 
 			const create = Effect.fn("IntegrationsService.create")(function* (
 				user: CurrentUserValue,
 				body: CreateIntegrationBody,
 			) {
-				const registered = providerCatalog.find(body.provider);
+				const registered = yield* providerCatalog.findForUser(user.id, body.provider);
 				if (!registered) {
 					return yield* new IntegrationRequestError({
 						reason: { code: "provider-not-found", provider: body.provider },
@@ -255,10 +265,11 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					syncOwnership: body.syncOwnership ?? false,
 					minimumProgress: String(minimumProgress),
 					maximumProgress: String(maximumProgress),
+					pluginInstallationId: registered.installationId,
 					extraSettings: body.extraSettings ?? defaultExtraSettings,
 				});
 
-				return redactForClient(created);
+				return yield* redactForClient(created);
 			});
 
 			const update = Effect.fn("IntegrationsService.update")(function* (
@@ -267,7 +278,11 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				body: UpdateIntegrationInput,
 			) {
 				const existing = yield* requireIntegration(userId, integrationId);
-				const registered = providerCatalog.findOwned(existing.provider, existing.pluginSlug);
+				const registered = yield* providerCatalog.findOwnedForUser(
+					userId,
+					existing.provider,
+					existing.pluginInstallationId,
+				);
 				if (registered) {
 					yield* requireProKeyFor(registered);
 				}
@@ -357,8 +372,17 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 						reason: { code: "integration-not-found", integrationId },
 					});
 				}
-				const registered = providerCatalog.findOwned(integration.provider, integration.pluginSlug);
-				if (registered?.lot !== "sink") {
+				const registered = yield* providerCatalog.findOwnedForUser(
+					integration.userId,
+					integration.provider,
+					integration.pluginInstallationId,
+				);
+				if (!registered) {
+					return yield* new IntegrationNotFoundError({
+						reason: { code: "integration-not-found", integrationId },
+					});
+				}
+				if (registered.lot !== "sink") {
 					return yield* new IntegrationRequestError({
 						reason: {
 							integrationId,
@@ -368,22 +392,13 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 						},
 					});
 				}
-				if (
-					!(yield* pluginRuntime.isSystemPluginAvailableToUser(
-						integration.userId,
-						integration.pluginSlug,
-					))
-				) {
-					return yield* new IntegrationNotFoundError({
-						reason: { code: "integration-not-found", integrationId },
-					});
-				}
 
 				const run = yield* importsService.createRunForIntegration({
 					userId: integration.userId,
 					source: integration.provider,
 					integrationId: integration.id,
 					inputSummary: buildIntegrationInputSummary(integration),
+					pluginInstallationId: integration.pluginInstallationId,
 				});
 
 				if (integration.isDisabled) {
@@ -442,13 +457,6 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				const isPro = yield* proKey.isValidated;
 
 				for (const integration of integrations) {
-					const isSystemPluginAvailableToUser = yield* pluginRuntime.isSystemPluginAvailableToUser(
-						integration.userId,
-						integration.pluginSlug,
-					);
-					if (!isSystemPluginAvailableToUser) {
-						continue;
-					}
 					const disableIntegrations = yield* repository.getUserDisableIntegrations({
 						userId: integration.userId,
 					});
@@ -456,11 +464,12 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 						continue;
 					}
 
-					const registered = providerCatalog.findOwned(
+					const registered = yield* providerCatalog.findOwnedForUser(
+						integration.userId,
 						integration.provider,
-						integration.pluginSlug,
+						integration.pluginInstallationId,
 					);
-					if (registered?.requiresProKey && !isPro) {
+					if (!registered || (registered.requiresProKey && !isPro)) {
 						continue;
 					}
 
@@ -475,6 +484,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 						userId: integration.userId,
 						source: integration.provider,
 						integrationId: integration.id,
+						pluginInstallationId: integration.pluginInstallationId,
 						inputSummary: buildIntegrationInputSummary(integration),
 					});
 
@@ -505,7 +515,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			});
 
 			const updateForClient = (...input: Parameters<typeof update>) =>
-				update(...input).pipe(Effect.map(redactForClient));
+				update(...input).pipe(Effect.flatMap(redactForClient));
 
 			return {
 				create,

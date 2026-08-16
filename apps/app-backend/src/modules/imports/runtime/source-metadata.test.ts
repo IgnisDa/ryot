@@ -43,9 +43,13 @@ const registeredSource = (
 	name: "Netflix",
 	slug: "netflix",
 	pluginSlug: "media",
+	pluginScope: "system",
+	pluginId: "media-plugin-id",
 	requiredPluginConfigKeys: [],
 	description: "Netflix export",
 	workflowSlug: "netflix-import",
+	installationId: "media-installation",
+	configContext: { kind: "environment", pluginSlug: "media", configSchema },
 	inputSchema: {
 		unknownKeys: "strict",
 		fields: {
@@ -270,4 +274,28 @@ it.effect("formats every un-configured plugin config key", () =>
 			"RYOT_PLUGIN_MEDIA_HARDCOVER_API_KEY",
 		]);
 	}).pipe(Effect.provide(makeConfigProviderLayer())),
+);
+
+it.effect(
+	"resolves private plugin config from installation config instead of the environment",
+	() =>
+		Effect.gen(function* () {
+			const source = registeredSource({
+				pluginScope: "user",
+				pluginSlug: "my-media",
+				pluginId: "private-plugin-id",
+				installationId: "private-installation",
+				requiredPluginConfigKeys: ["tmdbAccessToken", "hardcoverApiKey"],
+				configContext: {
+					configSchema,
+					kind: "installation",
+					config: { tmdbAccessToken: "installed-token" },
+				},
+			});
+			expect(yield* registryImportSourceMissingConfigKeys(source)).toEqual(["hardcoverApiKey"]);
+		}).pipe(
+			Effect.provide(
+				makeConfigProviderLayer({ RYOT_PLUGIN_MY_MEDIA_HARDCOVER_API_KEY: "environment-key" }),
+			),
+		),
 );

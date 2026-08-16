@@ -82,7 +82,11 @@ const toSandboxIntegrationSettings = (settings: Readonly<Record<string, unknown>
 	);
 
 const toSandboxIntegration = (integration: IntegrationRecord) => {
-	const { pluginSlug: _pluginSlug, ...record } = integration;
+	const {
+		pluginSlug: _pluginSlug,
+		pluginInstallationId: _pluginInstallationId,
+		...record
+	} = integration;
 	return { ...record, providerSpecifics: toSandboxIntegrationSettings(record.providerSpecifics) };
 };
 

@@ -171,6 +171,7 @@ const makeLayer = (input?: {
 	readonly installed?: Array<StoredPlugin>;
 	readonly hasDefinitionReferences?: boolean;
 	readonly hasIntegrationReferences?: boolean;
+	readonly integrationFences?: Array<unknown>;
 	readonly afterPersist?: Effect.Effect<void>;
 	readonly persisted?: Array<NormalizedPlugin>;
 	readonly hasWorkflowReferences?: () => boolean;
@@ -208,7 +209,11 @@ const makeLayer = (input?: {
 				})),
 		hasEntityReferences: () => Effect.succeed(input?.hasEntityReferences ?? false),
 		hasDefinitionReferences: () => Effect.succeed(input?.hasDefinitionReferences ?? false),
-		hasIntegrationReferences: () => Effect.succeed(input?.hasIntegrationReferences ?? false),
+		hasIntegrationReferences: (fence) =>
+			Effect.sync(() => {
+				input?.integrationFences?.push(fence);
+				return input?.hasIntegrationReferences ?? false;
+			}),
 		findBySourceHash: ({ sourceHash }) =>
 			Effect.sync(() => {
 				if (!input?.cached) {
@@ -997,6 +1002,7 @@ it.effect("refuses uninstall while entities reference a declared schema", () => 
 it.effect("refuses uninstall while integrations are owned by the plugin", () => {
 	const stored = makeStoredPlugin(fixtureManifest(), "stored-source-hash");
 	const deactivated: Array<string> = [];
+	const integrationFences: Array<unknown> = [];
 	return Effect.gen(function* () {
 		const ingestion = yield* PluginIngestionService;
 		const exit = yield* Effect.exit(ingestion.uninstallPlugin("fixture"));
@@ -1007,10 +1013,16 @@ it.effect("refuses uninstall while integrations are owned by the plugin", () => 
 				reason: { code: "integration-referenced", pluginSlug: PluginSlug.make("fixture") },
 			}),
 		);
+		expect(integrationFences).toEqual([{ pluginId: stored.id }]);
 		expect(deactivated).toEqual([]);
 	}).pipe(
 		Effect.provide(
-			makeLayer({ deactivated, hasIntegrationReferences: true, initialInstalled: [stored] }),
+			makeLayer({
+				deactivated,
+				integrationFences,
+				initialInstalled: [stored],
+				hasIntegrationReferences: true,
+			}),
 		),
 	);
 });

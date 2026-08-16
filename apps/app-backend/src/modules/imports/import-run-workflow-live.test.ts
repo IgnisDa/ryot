@@ -38,8 +38,9 @@ const payload = {
 const sourceState = {
 	source: "netflix",
 	sourcePayload: {},
-	pluginSlug: "media",
+	pluginId: "media-plugin-id",
 	uploadIntentIds: ["intent-netflix"],
+	pluginInstallationId: "media-installation",
 	namedArtifactPaths: { uploadToken: "/tmp/netflix.zip" },
 	workflowScriptId: SandboxScriptId.make("accepted.netflix-import"),
 };

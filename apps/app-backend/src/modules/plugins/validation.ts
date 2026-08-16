@@ -121,11 +121,8 @@ export const validatePluginPackageLimits = (
 const privateRejectedCollections = [
 	"boot",
 	"crons",
-	"workflows",
-	"importSources",
 	"userBootstrap",
 	"httpRateLimits",
-	"integrationProviders",
 ] as const satisfies ReadonlyArray<
 	{
 		[Key in keyof PluginManifestValue]: PluginManifestValue[Key] extends ReadonlyArray<unknown>
@@ -142,11 +139,15 @@ export const validatePrivateManifestSurfaces = (manifest: PluginManifestValue) =
 				bindings.length > 0 ? [`bindings.${field}`] : [],
 			),
 			...(manifest.scripts.some(
-				(script) => !["automation", "operation", "provider"].includes(script.kind),
+				(script) => !["automation", "operation", "provider", "workflow"].includes(script.kind),
 			)
 				? ["scripts"]
 				: []),
-			...(manifest.operations.some((operation) => operation.auth !== "user") ? ["operations"] : []),
+			...(manifest.operations.some(
+				(operation) => operation.auth !== "user" && operation.auth !== "integration",
+			)
+				? ["operations"]
+				: []),
 		];
 		return surfaces.length > 0 ? yield* new PluginSurfaceError({ surfaces }) : yield* Effect.void;
 	});
@@ -252,6 +253,22 @@ export const validatePluginManifestReferences = (
 				return yield* fail(
 					`Workflow ${workflow.slug} script ${workflow.scriptSlug} must be a workflow script`,
 				);
+			}
+		}
+
+		for (const source of manifest.importSources) {
+			yield* assertSlug("import source", source.slug);
+			yield* assertReference("Import source", source.workflowSlug, workflowSlugs);
+		}
+		for (const provider of manifest.integrationProviders) {
+			yield* assertSlug("integration provider", provider.slug);
+			if (provider.lot !== "push") {
+				yield* assertReference("Integration provider", provider.scriptSlug, scriptSlugs);
+				if (manifest.scripts.find(({ slug }) => slug === provider.scriptSlug)?.kind !== "script") {
+					return yield* fail(
+						`Integration provider ${provider.slug} script ${provider.scriptSlug} must be a direct script`,
+					);
+				}
 			}
 		}
 
