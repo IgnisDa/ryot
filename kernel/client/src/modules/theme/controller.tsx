@@ -31,9 +31,10 @@ export function ThemePreferenceControl() {
 	const setPreference = useAtomSet(themePreferenceAtom);
 
 	return (
-		<label className="theme-control">
+		<label className="fixed top-[max(16px,env(safe-area-inset-top))] right-[max(16px,env(safe-area-inset-right))] z-2 flex items-center gap-2 text-[13px] font-semibold text-text-muted">
 			<span>Theme</span>
 			<select
+				className="min-h-9 rounded-md border border-border bg-surface py-1.5 pr-7 pl-2.5 text-text"
 				value={preference}
 				onChange={(event) => {
 					const newPreference = event.currentTarget.value;
