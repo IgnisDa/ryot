@@ -1,19 +1,28 @@
 import {
+	OAuthTokenResponse,
 	getOAuthEndpoint,
 	getOAuthResource,
 	OAUTH_NATIVE_CALLBACK_URIS,
 	OAUTH_NATIVE_CLIENT_ID,
+	OAUTH_REVOKE_PATH,
 	OAUTH_TOKEN_PATH,
 	OAUTH_WEB_CLIENT_ID,
 } from "@ryot/contract/oauth";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
-import { createTestUser, prepareOAuth, type PendingOAuth } from "~/fixtures/kernel";
+import {
+	createTestUser,
+	exchangeOAuthTokens,
+	prepareOAuth,
+	refreshOAuthTokens,
+	type PendingOAuth,
+} from "~/fixtures/kernel";
 import { getApiUrl } from "~/support/api";
 import { requirePresent } from "~/support/assertions";
 import { beforeAll, describe, expect, it } from "~/support/effect-test";
 
 const OAUTH_REGISTER_PATH = "/api/auth/oauth2/register";
+const PLUGIN_LIST_PATH = "/definitions/plugins?includeDisabled=false";
 
 let sessionCookie: string;
 
@@ -149,6 +158,89 @@ describe("OAuth protocol enforcement", () => {
 				error: "invalid_grant",
 				error_description: "invalid code",
 			});
+		}),
+	);
+
+	it.live("rotates a valid refresh token and accepts the new access token", () =>
+		Effect.gen(function* () {
+			const baseUrl = getApiUrl();
+			const { pending, response } = yield* Effect.promise(() => authorize(sessionCookie));
+			const initial = yield* Effect.promise(() => exchangeOAuthTokens(response, pending));
+			const initialRefreshToken = requirePresent(
+				initial.refresh_token,
+				"OAuth exchange did not return a refresh token",
+			);
+
+			const refreshResponse = yield* Effect.promise(() =>
+				refreshOAuthTokens(baseUrl, initialRefreshToken),
+			);
+			expect(refreshResponse.status).toBe(200);
+			const rotated = yield* Schema.decodeUnknownEffect(OAuthTokenResponse)(
+				yield* Effect.promise(() => refreshResponse.json()),
+			);
+			const rotatedRefreshToken = requirePresent(
+				rotated.refresh_token,
+				"OAuth refresh did not return a rotated refresh token",
+			);
+
+			expect(rotated.access_token).not.toBe(initial.access_token);
+			expect(rotatedRefreshToken).not.toBe(initialRefreshToken);
+
+			const apiResponse = yield* Effect.promise(() =>
+				fetch(`${baseUrl}${PLUGIN_LIST_PATH}`, {
+					headers: { Authorization: `Bearer ${rotated.access_token}` },
+				}),
+			);
+			expect(apiResponse.status).toBe(200);
+		}),
+	);
+
+	it.live("rejects refresh after the refresh token is revoked", () =>
+		Effect.gen(function* () {
+			const baseUrl = getApiUrl();
+			const { pending, response } = yield* Effect.promise(() => authorize(sessionCookie));
+			const tokens = yield* Effect.promise(() => exchangeOAuthTokens(response, pending));
+			const refreshToken = requirePresent(
+				tokens.refresh_token,
+				"OAuth exchange did not return a refresh token",
+			);
+
+			const revocationResponse = yield* Effect.promise(() =>
+				fetch(getOAuthEndpoint(pending.serverOrigin, OAUTH_REVOKE_PATH), {
+					method: "POST",
+					headers: { "content-type": "application/x-www-form-urlencoded" },
+					body: new URLSearchParams({
+						token: refreshToken,
+						client_id: OAUTH_WEB_CLIENT_ID,
+						token_type_hint: "refresh_token",
+					}),
+				}),
+			);
+			expect(revocationResponse.status).toBe(200);
+
+			const refreshResponse = yield* Effect.promise(() =>
+				refreshOAuthTokens(baseUrl, refreshToken),
+			);
+			expect(refreshResponse.status).toBe(400);
+			expect(yield* Effect.promise(() => refreshResponse.json())).toMatchObject({
+				error: "invalid_grant",
+			});
+		}),
+	);
+
+	it.live("rejects an ID token at the application API boundary", () =>
+		Effect.gen(function* () {
+			const baseUrl = getApiUrl();
+			const { pending, response } = yield* Effect.promise(() => authorize(sessionCookie));
+			const tokens = yield* Effect.promise(() => exchangeOAuthTokens(response, pending));
+			const idToken = requirePresent(tokens.id_token, "OAuth exchange did not return an ID token");
+
+			const apiResponse = yield* Effect.promise(() =>
+				fetch(`${baseUrl}${PLUGIN_LIST_PATH}`, {
+					headers: { Authorization: `Bearer ${idToken}` },
+				}),
+			);
+			expect(apiResponse.status).toBe(401);
 		}),
 	);
 
