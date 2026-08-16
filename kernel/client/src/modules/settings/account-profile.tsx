@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 
 import type { ServerOrigin } from "#/api/origin";
-import type { AuthSessionStore } from "#/modules/auth/client";
+import type { AuthSessionStore } from "#/modules/auth/service";
 import { Avatar } from "#/modules/navigation/avatar";
 import { SettingsSection } from "#/modules/settings/settings-section";
 

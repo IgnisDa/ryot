@@ -1,10 +1,10 @@
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
-import { render, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApi } from "#/api/authenticated";
-import { AuthClient, AuthClientError } from "#/modules/auth/client";
+import { OAuthTokenError } from "#/modules/auth/token-service";
 import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
@@ -16,40 +16,55 @@ import {
 	ServerStub,
 	catalog,
 	makeAuthStub,
+	makeOAuthRouteStubs,
 	makePublicApiStub,
-	OAuthRouteStubs,
 	makeStorageStub,
 	server,
 	theme,
-	unauthenticated,
 } from "#/routes/-route-fixtures";
 
-type Exchange = { readonly origin: string; readonly token: string };
+type Exchange = {
+	readonly code: string;
+	readonly state: string;
+	readonly origin: string;
+	readonly clientId: string;
+	readonly redirectUri: string;
+};
+
+const pending = (destination = "/") => ({
+	destination,
+	createdAt: 1,
+	state: "state",
+	nonce: "nonce",
+	serverOrigin: server,
+	codeVerifier: "verifier",
+	clientId: "ryot-web" as const,
+	redirectUri: `${server}/auth/callback`,
+});
 
 const mountCallback = (
 	initialEntry: string | readonly string[],
-	verify: (exchange: Exchange) => Effect.Effect<void, AuthClientError> = () => Effect.void,
-	session?: typeof unauthenticated,
+	options: { readonly destination?: string; readonly fail?: boolean } = {},
 ) => {
 	const exchanges: Exchange[] = [];
-	const authLayer = makeAuthStub(
-		{
-			verifyOneTimeToken: (origin, token) => {
-				exchanges.push({ origin, token });
-				return verify({ origin, token });
-			},
+	const rejected: string[] = [];
+	const oauth = makeOAuthRouteStubs({
+		rejectAuthorization: (_origin, state) =>
+			Effect.sync(() => rejected.push(state)).pipe(
+				Effect.andThen(Effect.fail(new OAuthTokenError({ reason: "authorization-rejected" }))),
+			),
+		completeAuthorization: (origin, clientId, redirectUri, state, code) => {
+			exchanges.push({ code, state, origin, clientId, redirectUri });
+			return options.fail
+				? Effect.fail(new OAuthTokenError({ reason: "missing-authorization" }))
+				: Effect.succeed(pending(options.destination));
 		},
-		session,
-	);
+	});
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
-			authLayer,
+			makeAuthStub(),
 			ServerStub,
-			OAuthRouteStubs,
-			AuthClient.layer,
 			makePublicApiStub(),
-			AuthenticatedApi.layer,
-			makePluginCatalogEventsTestLayer().layer,
 			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(catalog) }),
 			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
 			Layer.succeed(PluginOperationsService, { invoke: () => Effect.die("not used") }),
@@ -58,7 +73,12 @@ const mountCallback = (
 				revoke: () => Effect.die("not used"),
 				create: () => Effect.die("not used"),
 			}),
-		).pipe(Layer.provideMerge(Layer.succeed(ClientStorage, makeStorageStub()))),
+			makePluginCatalogEventsTestLayer().layer,
+			AuthenticatedApi.layer,
+		).pipe(
+			Layer.provideMerge(oauth),
+			Layer.provideMerge(Layer.succeed(ClientStorage, makeStorageStub())),
+		),
 	);
 	const router = getRouter(
 		{ runtime, theme },
@@ -67,7 +87,7 @@ const mountCallback = (
 		}),
 	);
 	render(<RouterProvider router={router} />);
-	return { exchanges, router };
+	return { exchanges, rejected, router };
 };
 
 const settledPath = async (router: ReturnType<typeof mountCallback>["router"]) => {
@@ -75,46 +95,39 @@ const settledPath = async (router: ReturnType<typeof mountCallback>["router"]) =
 	return router.state.location;
 };
 
-describe("oidc callback", () => {
-	it("exchanges the one-time token against the selected server and drops it from the URL", async () => {
-		const { exchanges, router } = mountCallback("/auth/callback?token=ott-1&redirect=%2Fsettings");
+describe("OAuth callback", () => {
+	it("exchanges the code against the expected web client and drops callback parameters", async () => {
+		const { exchanges, router } = mountCallback("/auth/callback?code=code-1&state=state", {
+			destination: "/settings",
+		});
 		const location = await settledPath(router);
-		expect(exchanges).toEqual([{ origin: server, token: "ott-1" }]);
-		expect(location.pathname).toBe("/settings");
-		expect(location.searchStr).not.toContain("ott-1");
-	});
-
-	it("enters the app when the handoff carried no redirect", async () => {
-		const { exchanges, router } = mountCallback("/auth/callback?token=ott-1");
-		const location = await settledPath(router);
-		expect(location.pathname).toBe("/fixture");
-		expect(exchanges).toEqual([{ origin: server, token: "ott-1" }]);
-	});
-
-	it("bounces back to sign-in when the server could not mint a token", async () => {
-		const { exchanges, router } = mountCallback("/auth/callback", undefined, unauthenticated);
-		const location = await settledPath(router);
-		expect(location.pathname).toBe("/auth");
-		expect(exchanges).toEqual([]);
-	});
-
-	it("bounces back to sign-in when the token is spent, expired, or forged", async () => {
-		const { exchanges, router } = mountCallback(
-			"/auth/callback?token=stale",
-			() => Effect.fail(new AuthClientError({ message: "Could not complete sign-in." })),
-			unauthenticated,
-		);
-		const location = await settledPath(router);
-		expect(exchanges).toEqual([{ origin: server, token: "stale" }]);
-		expect(location.pathname).toBe("/auth");
-		expect(location.searchStr).not.toContain("stale");
-	});
-
-	it("replaces the callback entry instead of pushing a new one, on web and native alike", async () => {
-		const { router } = mountCallback([
-			"/settings",
-			"/auth/callback?token=ott-1&redirect=%2Fsettings",
+		expect(exchanges).toEqual([
+			{
+				code: "code-1",
+				state: "state",
+				clientId: "ryot-web",
+				origin: window.location.origin,
+				redirectUri: `${window.location.origin}/auth/callback`,
+			},
 		]);
+		expect(location.pathname).toBe("/settings");
+		expect(location.searchStr).toBe("");
+	});
+
+	it("rejects replayed or unknown state", async () => {
+		const { router } = mountCallback("/auth/callback?code=code-1&state=spent", { fail: true });
+		await screen.findByText("Could not complete sign-in");
+		expect(router.state.location.pathname).toBe("/auth/callback");
+	});
+
+	it("consumes an authorization error by state", async () => {
+		const { rejected } = mountCallback("/auth/callback?error=access_denied&state=state");
+		await screen.findByText("Could not complete sign-in");
+		expect(rejected).toEqual(["state"]);
+	});
+
+	it("replaces the callback history entry", async () => {
+		const { router } = mountCallback(["/settings", "/auth/callback?code=code-1&state=state"]);
 		await settledPath(router);
 		expect(router.history.length).toBe(2);
 	});
