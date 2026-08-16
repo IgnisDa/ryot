@@ -1,11 +1,13 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 
+import { decodeServerOrigin } from "#/api/origin";
 import { AuthService } from "#/modules/auth/service";
 import { OAuthTokenError, OAuthTokenService } from "#/modules/auth/token-service";
 import { ClientStorage } from "#/persistence/storage";
 
-const origin = "https://example.com";
+const origin = decodeServerOrigin("https://example.com");
+const equivalentOrigin = decodeServerOrigin("https://example.com/");
 
 const userInfoResponse = {
 	sub: "user-1",
@@ -61,7 +63,7 @@ describe("authentication service", () => {
 			const session = auth.session(origin);
 			expect(session.getSnapshot()).toEqual({ status: "pending" });
 
-			expect(yield* auth.settledSession("https://example.com/")).toEqual({
+			expect(yield* auth.settledSession(equivalentOrigin)).toEqual({
 				user: authenticatedUser,
 				status: "authenticated",
 			});

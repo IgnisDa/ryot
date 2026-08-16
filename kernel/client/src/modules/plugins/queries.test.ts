@@ -5,10 +5,11 @@ import { RyotQLBadRequest, RyotQLInternalError } from "@ryot/contract/modules/ry
 import { Effect, Layer } from "effect";
 
 import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
+import { decodeServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import { PluginQueriesService } from "#/modules/plugins/queries";
 
-const scope: ApiScope = { userId: "user-1", serverUrl: "https://ryot.example" };
+const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 const document = {
 	queries: {
 		items: {
