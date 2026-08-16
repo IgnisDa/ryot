@@ -60,11 +60,7 @@ it("declares the media automation input projections", () => {
 		},
 		"automation.media-auto-complete-episodic-parent": {
 			event: { properties: [], compareProperties: [] },
-			entity: {
-				compareProperties: [],
-				parentEntityProperties: [],
-				properties: ["productionStatus"],
-			},
+			signal: { properties: ["entitySchemaSlug", "oldStatus", "newStatus"] },
 		},
 		"automation.ensure-library-membership": {
 			providerEntityImport: true,

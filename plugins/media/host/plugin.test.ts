@@ -760,32 +760,45 @@ it("binds deterministic episodic sessions at policy position 200", () => {
 	);
 });
 
-it("binds episodic parent completion to child completions and parent updates", () => {
+it("binds episodic parent completion to child completions and per-user status changes", () => {
 	expect(
-		mediaPlugin.hooks
-			.filter(({ scriptSlug }) => scriptSlug === "automation.media-auto-complete-episodic-parent")
-			.flatMap(({ targets }) =>
-				targets.flatMap((target) =>
-					target.resource === "event"
-						? [`${target.entitySchemaSlug}:${target.eventSchemaSlug}`]
-						: [],
-				),
-			)
-			.sort(),
-	).toEqual(["podcast-episode:complete", "show-episode:complete"]);
-	expect(
-		mediaPlugin.hooks
-			.filter(({ scriptSlug }) => scriptSlug === "automation.media-auto-complete-episodic-parent")
-			.flatMap(({ targets }) =>
-				targets.flatMap((target) =>
-					target.resource === "entity"
-						? [{ operation: target.operation, entitySchemaSlug: target.entitySchemaSlug }]
-						: [],
-				),
-			),
+		mediaPlugin.hooks.filter(
+			({ scriptSlug }) => scriptSlug === "automation.media-auto-complete-episodic-parent",
+		),
 	).toEqual([
-		{ operation: "update", entitySchemaSlug: "show" },
-		{ operation: "update", entitySchemaSlug: "podcast" },
+		{
+			stage: "after",
+			delivery: "required",
+			executionScope: "user",
+			name: "Complete episodic parent",
+			slug: "media.auto-complete-episodic-parent",
+			scriptSlug: "automation.media-auto-complete-episodic-parent",
+			targets: [
+				{
+					resource: "event",
+					operation: "create",
+					eventSchemaSlug: "complete",
+					entitySchemaSlug: "show-episode",
+				},
+				{
+					resource: "event",
+					operation: "create",
+					eventSchemaSlug: "complete",
+					entitySchemaSlug: "podcast-episode",
+				},
+			],
+		},
+		{
+			stage: "after",
+			delivery: "async",
+			executionScope: "user",
+			slug: "media.auto-complete-on-status-change",
+			name: "Complete episodic parent on status change",
+			scriptSlug: "automation.media-auto-complete-episodic-parent",
+			targets: [
+				{ operation: "emit", resource: "signal", signalSchemaSlug: "media.status.changed" },
+			],
+		},
 	]);
 });
 

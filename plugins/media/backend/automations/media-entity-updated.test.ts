@@ -88,6 +88,12 @@ it("emits independent status, publish-year, and anime-count signals for a popula
 				{ subjectEntityId: "show-1", schemaSlug: "media.release-date.changed" },
 				{ subjectEntityId: "show-1", schemaSlug: "media.content-count.changed" },
 			]);
+			expect(calls[0]?.["properties"]).toEqual({
+				newStatus: "Ended",
+				oldStatus: "Airing",
+				entityName: "Severance",
+				entitySchemaSlug: "anime",
+			});
 			expect(calls[2]?.["properties"]).toEqual({
 				oldCount: 12,
 				newCount: 13,

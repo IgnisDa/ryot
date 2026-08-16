@@ -97,6 +97,7 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 					entityName: requiredString("Entity name", "Changed media name"),
 					newStatus: requiredString("New status", "Current production status"),
 					oldStatus: requiredString("Old status", "Previous production status"),
+					entitySchemaSlug: requiredString("Entity schema slug", "Changed media schema slug"),
 				},
 			},
 		},

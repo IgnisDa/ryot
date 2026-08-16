@@ -750,16 +750,21 @@ export const mediaPlugin = definePlugin({
 		{
 			stage: "after",
 			delivery: "required",
+			executionScope: "user",
 			name: "Complete episodic parent",
 			slug: "media.auto-complete-episodic-parent",
 			scriptSlug: "automation.media-auto-complete-episodic-parent",
+			targets: ["show-episode:complete", "podcast-episode:complete"].map(eventHookTarget),
+		},
+		{
+			stage: "after",
+			delivery: "async",
+			executionScope: "user",
+			slug: "media.auto-complete-on-status-change",
+			name: "Complete episodic parent on status change",
+			scriptSlug: "automation.media-auto-complete-episodic-parent",
 			targets: [
-				...["show-episode:complete", "podcast-episode:complete"].map(eventHookTarget),
-				...["show", "podcast"].map((entitySchemaSlug) => ({
-					entitySchemaSlug,
-					resource: "entity" as const,
-					operation: "update" as const,
-				})),
+				{ operation: "emit", resource: "signal", signalSchemaSlug: "media.status.changed" },
 			],
 		},
 		...(["radarr", "sonarr", "jellyfin"] as const).map((prov) => ({

@@ -9,7 +9,6 @@ import type { EpisodicLifecycleState } from "../../shared/lifecycle-expressions"
 import {
 	eventAutomationContext,
 	automationContext,
-	entityRecord,
 	execution,
 	hostSuccess,
 } from "../../tests/backend/automations/automation-test-utils";
@@ -106,30 +105,22 @@ const eventContext = (
 		...overrides,
 	});
 
-const entityContext = (
-	beforeStatus: string | null,
-	afterStatus: string | null,
+const statusSignalContext = (
+	oldStatus: string,
+	newStatus: string,
 	entitySchemaSlug = "show",
-): AutomationInput => {
-	return automationContext({
-		category: "change",
-		resource: "entity",
-		operation: "update",
-		changedProperties: ["productionStatus"],
-		after: entityRecord({
-			id: "show-1",
-			name: "Show",
-			entitySchemaSlug,
-			properties: afterStatus === null ? {} : { productionStatus: afterStatus },
-		}),
-		before: entityRecord({
-			id: "show-1",
-			name: "Show",
-			entitySchemaSlug,
-			properties: beforeStatus === null ? {} : { productionStatus: beforeStatus },
-		}),
+	subjectEntityId: string | null = "show-1",
+): AutomationInput =>
+	automationContext({
+		operation: "emit",
+		actorUserId: null,
+		category: "signal",
+		resource: "signal",
+		signalSchemaPluginId: "media-plugin",
+		signalSchemaSlug: "media.status.changed",
+		...(subjectEntityId === null ? {} : { subjectEntityId }),
+		properties: { oldStatus, newStatus, entitySchemaSlug },
 	});
-};
 
 const createHost = (
 	snapshots: readonly SnapshotFixture[],
@@ -249,11 +240,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 			capabilities: ["executeRyotql", "createEvents", "listEventSchemas", "claimPersistentValue"],
 			inputProjection: {
 				event: { properties: [], compareProperties: [] },
-				entity: {
-					compareProperties: [],
-					parentEntityProperties: [],
-					properties: ["productionStatus"],
-				},
+				signal: { properties: ["entitySchemaSlug", "oldStatus", "newStatus"] },
 			},
 		});
 	});
@@ -618,24 +605,45 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		["Continuing", "Ended"],
 		["Unknown", "CANCELED"],
 		["Continuing", "cancelled"],
-	])("completes caught-up parents on %s to %s", async (beforeStatus, afterStatus) => {
-		const fixture = completeCoverage(afterStatus);
+	])("completes caught-up parents on %s to %s", async (oldStatus, newStatus) => {
+		const fixture = completeCoverage(newStatus);
 		const testHost = createHost([fixture, fixture]);
-		await Effect.runPromise(run(entityContext(beforeStatus, afterStatus), testHost.host));
+		await Effect.runPromise(run(statusSignalContext(oldStatus, newStatus), testHost.host));
 		expect(testHost.created).toHaveLength(1);
 		expect(testHost.created[0]?.[0]?.occurredAt).toBe("2026-01-03T00:00:00.000Z");
+	});
+
+	it("completes caught-up podcasts when production ends", async () => {
+		const fixture = completeCoverage();
+		const testHost = createHost([fixture, fixture]);
+		await Effect.runPromise(
+			run(statusSignalContext("Continuing", "Ended", "podcast"), testHost.host),
+		);
+		expect(testHost.created[0]?.[0]?.eventSchemaSlug).toBe("podcast-complete-schema");
 	});
 
 	it.each([
 		["Ended", "Cancelled"],
 		["Continuing", "Returning Series"],
-	])("ignores production-status changes from %s to %s", async (beforeStatus, afterStatus) => {
-		const testHost = createHost([completeCoverage(afterStatus)]);
-		await Effect.runPromise(run(entityContext(beforeStatus, afterStatus), testHost.host));
+	])("ignores production-status changes from %s to %s", async (oldStatus, newStatus) => {
+		const testHost = createHost([completeCoverage(newStatus)]);
+		await Effect.runPromise(run(statusSignalContext(oldStatus, newStatus), testHost.host));
 		expect(testHost.queryCount).toBe(0);
 	});
 
-	it("does not complete a terminal update with incomplete coverage", async () => {
+	it.each([
+		{ name: "a non-episodic schema", context: statusSignalContext("Continuing", "Ended", "anime") },
+		{
+			name: "a missing subject",
+			context: statusSignalContext("Continuing", "Ended", "show", null),
+		},
+	])("ignores status signals for $name", async ({ context }) => {
+		const testHost = createHost([completeCoverage()]);
+		await Effect.runPromise(run(context, testHost.host));
+		expect(testHost.queryCount).toBe(0);
+	});
+
+	it("does not complete a terminal status change with incomplete coverage", async () => {
 		const fixture: SnapshotFixture = {
 			state: "in_progress",
 			coverageComplete: false,
@@ -644,17 +652,17 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 			events: [childEvent("complete-1", "episode-1", "complete", "2026-01-03T00:00:00.000Z")],
 		};
 		const testHost = createHost([fixture]);
-		await Effect.runPromise(run(entityContext("Continuing", "Ended"), testHost.host));
+		await Effect.runPromise(run(statusSignalContext("Continuing", "Ended"), testHost.host));
 		expect(testHost.claims).toEqual([]);
 		expect(testHost.created).toEqual([]);
 	});
 
 	it.each(["on_hold", "dropped"] as const)(
-		"does not complete a terminal update while parent state is %s",
+		"does not complete a terminal status change while parent state is %s",
 		async (state) => {
 			const fixture = { ...completeCoverage(), state };
 			const testHost = createHost([fixture]);
-			await Effect.runPromise(run(entityContext("Continuing", "Ended"), testHost.host));
+			await Effect.runPromise(run(statusSignalContext("Continuing", "Ended"), testHost.host));
 			expect(testHost.claims).toEqual([]);
 			expect(testHost.created).toEqual([]);
 		},
@@ -687,7 +695,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 			events: [firstComplete, finalComplete],
 		};
 		const testHost = createHost([onHold, resumed, resumed]);
-		await Effect.runPromise(run(entityContext("Continuing", "Ended"), testHost.host));
+		await Effect.runPromise(run(statusSignalContext("Continuing", "Ended"), testHost.host));
 		expect(testHost.claims).toEqual([]);
 		expect(testHost.created).toEqual([]);
 
