@@ -7,6 +7,7 @@ import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApi } from "#/api/authenticated";
+import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { ArtifactSessions, ArtifactSessionStaleError } from "#/modules/plugins/artifact-sessions";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
@@ -66,7 +67,10 @@ const mountView = (
 		),
 	);
 	const initialEntries = typeof initialEntry === "string" ? [initialEntry] : initialEntry;
-	const router = getRouter({ runtime, theme }, createMemoryHistory({ initialEntries }));
+	const router = getRouter(
+		{ runtime, theme, backInterceptors: createBackInterceptors() },
+		createMemoryHistory({ initialEntries }),
+	);
 	const view = render(<RouterProvider router={router} />);
 	return { ...view, events, router };
 };
@@ -184,6 +188,7 @@ describe("plugin navigation", () => {
 
 		expect(Array.from(shell.children).map((child) => child.getAttribute("data-testid"))).toEqual([
 			"desktop-sidebar",
+			"edge-gesture",
 			"mobile-header",
 			"mobile-drawer",
 			"shell-content",
@@ -198,9 +203,8 @@ describe("plugin navigation", () => {
 		);
 		expect(screen.getByTestId("mobile-header").getAttribute("class")).toContain("md:hidden");
 		expect(screen.getByRole("button", { name: "Open navigation" })).toBeTruthy();
-		expect(screen.getByTestId("mobile-drawer").tagName).toBe("DIALOG");
+		expect(screen.getByTestId("mobile-drawer").tagName).toBe("DIV");
 		expect(within(screen.getByTestId("mobile-header")).getByText("Fixture")).toBeTruthy();
-		expect(within(screen.getByTestId("mobile-header")).getByText("fixture")).toBeTruthy();
 		expect(content.getAttribute("class")).toContain("min-h-0");
 		expect(content.getAttribute("class")).toContain("min-w-0");
 		expect(content.getAttribute("class")).toContain("overflow-hidden");

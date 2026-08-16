@@ -2,6 +2,7 @@ import {
 	CLIENT_BRIDGE_MAX_PENDING_REQUESTS,
 	PluginBridgeHostMessage,
 	REQUIRED_THEME_TOKEN_NAMES,
+	type PluginBridgeHeader,
 	type PluginBridgeInit,
 	type PluginBridgeNavigate,
 	type PluginBridgeOperationRequest,
@@ -10,6 +11,7 @@ import {
 	type PluginBridgeRyotQLRequest,
 	type PluginBridgeThemeApplied,
 	type PluginClientArtifactMetadata,
+	type PluginHeaderContent,
 	type PluginThemeSnapshot,
 	type RyotClientErrorReason,
 } from "@ryot/contract/modules/plugins/client";
@@ -193,9 +195,19 @@ export const createPluginRuntime = (
 		}
 	};
 
+	const setHeader = (header: PluginHeaderContent) => {
+		if (state !== "active") {
+			throw new RyotClientError(terminalReason ?? "transport");
+		}
+		if (!post({ header, type: "header" } satisfies PluginBridgeHeader)) {
+			throw new RyotClientError(terminalReason ?? "transport");
+		}
+	};
+
 	const client = createRyotClient({
 		query,
 		navigate,
+		setHeader,
 		invokeOperation,
 		theme: {
 			getSnapshot: () => {
