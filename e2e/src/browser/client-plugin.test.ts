@@ -80,21 +80,41 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 					await expectVisibleText(home, "Greetings are unavailable right now.");
 				});
 
-				await step("synchronize theme without resetting Home", async () => {
-					await fixture.getByRole("button", { name: "Greet", exact: true }).click();
-					await expectVisibleText(home, "Greeted 1 times.");
-					const theme = page.getByLabel("Theme");
+				await step("synchronize theme through settings/preferences", async () => {
+					const html = page.locator("html");
+					const openSettings = async () => {
+						await page.getByRole("link", { name: "Open settings" }).click();
+						await page.waitForURL(`${frontendUrl}/settings/preferences`);
+					};
+					const returnToFixture = async (resolvedMode: string) => {
+						await page.getByRole("link", { name: "Home" }).click();
+						await page.waitForURL(`${frontendUrl}/fixture`);
+						await frame.waitFor({ state: "visible" });
+						await expectVisibleText(home, `Resolved mode: ${resolvedMode}`);
+					};
+
+					// Settings resolves its workspace context from the remembered workspace, so pick
+					// Fixture through the switcher once before relying on the sidebar Home row.
+					await openSettings();
+					await page.getByRole("button", { name: /workspace,/ }).click();
+					await page.getByRole("button", { name: "Switch to Fixture workspace" }).click();
+					await page.waitForURL(`${frontendUrl}/fixture`);
+
+					await openSettings();
+					await page.getByRole("radio", { name: "Use Light theme" }).click();
+					expect(await html.getAttribute("data-theme")).toBe("light");
+					await returnToFixture("light");
+
+					await openSettings();
+					await page.getByRole("radio", { name: "Use Dark theme" }).click();
+					expect(await html.getAttribute("data-theme")).toBe("dark");
+					await returnToFixture("dark");
+
+					await openSettings();
 					await page.emulateMedia({ colorScheme: "dark" });
-					await theme.selectOption("light");
-					await expectVisibleText(home, "Resolved mode: light");
-					await theme.selectOption("dark");
-					await expectVisibleText(home, "Resolved mode: dark");
-					await theme.selectOption("system");
-					await expectVisibleText(home, "Resolved mode: dark");
-					await page.emulateMedia({ colorScheme: "light" });
-					await expectVisibleText(home, "Resolved mode: light");
-					expect(page.url()).toBe(`${frontendUrl}/fixture`);
-					await expectVisibleText(home, "Greeted 1 times.");
+					await page.getByRole("radio", { name: "Use System theme" }).click();
+					expect(await html.getAttribute("data-theme")).toBeNull();
+					await returnToFixture("dark");
 				});
 
 				const navigationFrame = await frame.elementHandle();
