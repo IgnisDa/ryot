@@ -9,6 +9,7 @@ import { Text, View } from "react-native";
 import { temporaryFileUploadOperation } from "@/api/files/upload";
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
+import { useTrackEvent } from "@/modules/analytics/state";
 import { ChildScreenFrame } from "@/modules/navigation/child-screen-frame";
 import type { HeaderOverflowItem } from "@/modules/navigation/header/header-overflow-menu";
 import { copyTextToClipboard } from "@/modules/ui/clipboard";
@@ -66,6 +67,7 @@ export function IntegrationDetailScreen(props: { integrationId: string }) {
 	});
 	const runsResult = useAtomValue(runsAtom);
 	const refreshRuns = useAtomRefresh(runsAtom);
+	const trackEvent = useTrackEvent();
 	const updateIntegration = useAtomSet(updateIntegrationAtom(scope), { mode: "promiseExit" });
 	const deleteIntegration = useAtomSet(deleteIntegrationAtom(scope), { mode: "promiseExit" });
 	const state = mapIntegrationDetail(result);
@@ -108,7 +110,9 @@ export function IntegrationDetailScreen(props: { integrationId: string }) {
 		if (Exit.isFailure(exit)) {
 			setSaveCause(exit.cause);
 			setSaveDetail(integrationSaveFailure(exit.cause).detail);
+			return;
 		}
+		trackEvent("Update Integration", { provider: provider.slug });
 	});
 
 	const form = useSchemaForm({
