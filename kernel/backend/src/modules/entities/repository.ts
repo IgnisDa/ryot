@@ -504,15 +504,15 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					: null;
 			});
 
-			const findEntityByExternalId = Effect.fn("EntitiesRepository.findEntityByExternalId")(
-				function* (
-					input: {
-						externalId: string;
-						providerId: SandboxProviderId;
-						entitySchemaSlug: EntitySchemaSlug;
-						entitySchemaPluginId: string | null;
-					} & ({ scope: "global" } | { scope: "user"; userId: UserId }),
-				) {
+			const findEntityByExternalId = (
+				input: {
+					externalId: string;
+					providerId: SandboxProviderId;
+					entitySchemaSlug: EntitySchemaSlug;
+					entitySchemaPluginId: string | null;
+				} & ({ scope: "global" } | { scope: "user"; userId: UserId }),
+			) =>
+				Effect.gen(function* () {
 					const db = yield* Database;
 					const [row] = yield* mapDatabaseErrors(
 						db
@@ -533,8 +533,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					);
 
 					return row ? toListedEntity(row) : null;
-				},
-			);
+				});
 
 			const findGlobalEntityForRestore = Effect.fn("EntitiesRepository.findGlobalEntityForRestore")(
 				function* (input: {
@@ -621,20 +620,17 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				return row?.count ?? 0;
 			});
 
-			const findSystemEntitySchemaById = Effect.fn("EntitiesRepository.findSystemEntitySchemaById")(
-				(entitySchemaSlug: EntitySchemaSlug) => {
+			const findSystemEntitySchemaById = (entitySchemaSlug: EntitySchemaSlug) =>
+				Effect.sync(() => {
 					const definition = definitions.getEntitySchema(entitySchemaSlug);
-					return Effect.succeed(
-						definition
-							? {
-									slug: definition.slug,
-									propertiesSchema: definition.propertiesSchema,
-									...(definition.pluginId == null ? {} : { pluginId: definition.pluginId }),
-								}
-							: null,
-					);
-				},
-			);
+					return definition
+						? {
+								slug: definition.slug,
+								propertiesSchema: definition.propertiesSchema,
+								...(definition.pluginId == null ? {} : { pluginId: definition.pluginId }),
+							}
+						: null;
+				});
 
 			const findEntitySchemaProviderBySlug = Effect.fn(
 				"EntitiesRepository.findEntitySchemaProviderBySlug",
