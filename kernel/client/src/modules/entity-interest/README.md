@@ -9,9 +9,11 @@ session clears its owners, and changing scope discards declarations for the prev
 
 ## Selection
 
-Selection deduplicates IDs, orders them lexically within priority, and chooses foreground before
-visible up to 500 IDs. Additions batch for 100 ms. Removed IDs remain selected for a two-second grace
-period but receive no callbacks; new demand evicts grace entries when capacity is full.
+Selection admits the active client-page frame before retained frames, then deduplicates IDs, orders
+them lexically within each owner group and priority, and chooses foreground before visible up to 500
+IDs. Activation changes refresh selection even when declarations do not change. Additions batch for
+100 ms. Removed IDs remain selected for a two-second grace period but receive no callbacks; new demand
+evicts grace entries when capacity is full.
 
 ## Transport
 

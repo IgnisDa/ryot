@@ -350,6 +350,58 @@ describe("entity interest session", () => {
 		]);
 	});
 
+	it("admits the active owner's interests first after activation changes", async () => {
+		const test = setup();
+		let activeFirst = true;
+		const retained = Array.from(
+			{ length: 500 },
+			(_, index) => `retained-${String(index).padStart(3, "0")}`,
+		);
+		test.service.watch(
+			scope,
+			{ foreground: [], visible: retained },
+			() => {},
+			() => !activeFirst,
+		);
+		test.service.watch(
+			scope,
+			{ visible: [], foreground: ["zz-active"] },
+			() => {},
+			() => activeFirst,
+		);
+		test.service.acquire(scope);
+		await settle();
+		const socket = test.socket();
+		socket.ready();
+		expect(socket.sent.at(-1)).toEqual({
+			revision: 1,
+			type: "replace",
+			entityIds: [...retained.slice(0, 499), "zz-active"].sort(),
+		});
+		socket.frame({ revision: 1, type: "applied" });
+
+		activeFirst = false;
+		test.service.refresh(scope);
+		test.advance(100);
+		expect(socket.sent.at(-1)).toEqual({
+			revision: 2,
+			type: "update",
+			add: [retained[499]],
+			remove: ["zz-active"],
+		});
+		socket.frame({ revision: 2, type: "applied" });
+
+		activeFirst = true;
+		test.service.refresh(scope);
+		test.advance(100);
+		expect(socket.sent.at(-1)).toEqual({
+			revision: 3,
+			type: "update",
+			add: ["zz-active"],
+			remove: [retained[499]],
+		});
+	});
+
 	it("batches additions, serializes acknowledgements, and removes only after grace", async () => {
 		const test = setup();
 		const owner = test.service.watch(scope, { visible: [], foreground: ["a"] }, () => {});
