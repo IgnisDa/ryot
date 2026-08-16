@@ -20,6 +20,7 @@ describe("GET /event-schemas", () => {
 			const eventSchemas = yield* listEventSchemas(client, mediaSchema.id);
 
 			expect(sortBy(eventSchemas.map((schema) => schema.slug))).toEqual([
+				"add-to-library",
 				"backlog",
 				"complete",
 				"dropped",

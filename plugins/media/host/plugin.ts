@@ -719,6 +719,7 @@ export const mediaPlugin = definePlugin({
 		},
 		{
 			stage: "after",
+			frequency: "batch",
 			delivery: "required",
 			name: "Complete full progress",
 			slug: "media.auto-complete-on-full-progress",

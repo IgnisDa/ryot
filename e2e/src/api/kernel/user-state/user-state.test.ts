@@ -157,7 +157,7 @@ describe("DELETE /user-state/clear/:id", () => {
 			expect(result).toEqual({
 				warnings: [],
 				entityId: entity.id,
-				deletedEventsCount: 1,
+				deletedEventsCount: 2,
 				deletedRelationshipsCount: 2,
 			});
 			expect(

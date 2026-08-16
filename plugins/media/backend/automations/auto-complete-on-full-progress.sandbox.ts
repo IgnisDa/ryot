@@ -238,61 +238,83 @@ export default defineAutomation({
 		if (
 			payload.category !== "change" ||
 			payload.resource !== "event" ||
-			payload.operation !== "create"
+			payload.operation !== "batch"
 		) {
 			return Effect.succeed(null);
 		}
-		return Effect.gen(function* () {
-			const event = payload.after;
-			if (event.properties["progressPercent"] !== 100) {
-				return null;
+		const eventsByEntity = new Map<string, AutomationEventSnapshot[]>();
+		for (const item of payload.items) {
+			if (item.operation !== "create" || item.after.properties["progressPercent"] !== 100) {
+				continue;
 			}
-			const entityId = event.entityId;
-			const entitySchemaSlug = event.entitySchemaSlug;
-			const entity = yield* fetchEntity(host, entityId);
-			const isEpisodic = entitySchemaSlug === "anime" || entitySchemaSlug === "manga";
-			if (!isEpisodic) {
-				const completeSchema = yield* getCompleteSchema(host, entity.entitySchemaSlug);
-				return completeSchema
-					? yield* createCompletionEvent(
-							host,
-							automation.hookMetadata ?? null,
-							event,
-							completeSchema,
-							event,
-						)
-					: null;
+			const entityEvents = eventsByEntity.get(item.after.entityId);
+			if (entityEvents) {
+				entityEvents.push(item.after);
+			} else {
+				eventsByEntity.set(item.after.entityId, [item.after]);
 			}
+		}
+		return Effect.forEach(eventsByEntity, ([entityId, events]) =>
+			Effect.gen(function* () {
+				const event = events[0];
+				if (!event) {
+					return;
+				}
+				const entitySchemaSlug = event.entitySchemaSlug;
+				const entity = yield* fetchEntity(host, entityId);
+				const isEpisodic = entitySchemaSlug === "anime" || entitySchemaSlug === "manga";
+				if (!isEpisodic) {
+					const completeSchema = yield* getCompleteSchema(host, entity.entitySchemaSlug);
+					if (completeSchema) {
+						yield* Effect.forEach(events, (current) =>
+							createCompletionEvent(
+								host,
+								automation.hookMetadata ?? null,
+								current,
+								completeSchema,
+								current,
+							),
+						);
+					}
+					return;
+				}
 
-			const [completeSchema, progressEvents] = yield* Effect.all(
-				[
-					getCompleteSchema(host, entity.entitySchemaSlug),
-					getProgressEvents(host, entityId, entitySchemaSlug),
-				],
-				{ concurrency: "unbounded" },
-			);
-			if (!completeSchema) {
-				return null;
-			}
-			const entityProperties = jsonObject(entity.properties) ?? {};
-			const requiredKeys = getRequiredCoverageKeys(entitySchemaSlug, entityProperties);
-			if (!requiredKeys || requiredKeys.length === 0) {
-				return null;
-			}
-			const completionCandidate = getCompletionCandidates(
-				entitySchemaSlug,
-				requiredKeys,
-				progressEvents,
-			).find((candidate) => candidate.emitterEventId === event.id);
-			return completionCandidate
-				? yield* createCompletionEvent(
+				const [completeSchema, progressEvents] = yield* Effect.all(
+					[
+						getCompleteSchema(host, entity.entitySchemaSlug),
+						getProgressEvents(host, entityId, entitySchemaSlug),
+					],
+					{ concurrency: "unbounded" },
+				);
+				if (!completeSchema) {
+					return;
+				}
+				const entityProperties = jsonObject(entity.properties) ?? {};
+				const requiredKeys = getRequiredCoverageKeys(entitySchemaSlug, entityProperties);
+				if (!requiredKeys || requiredKeys.length === 0) {
+					return;
+				}
+				const eventsById = new Map<string, AutomationEventSnapshot>(
+					events.map((current) => [current.id, current]),
+				);
+				const completionCandidates = getCompletionCandidates(
+					entitySchemaSlug,
+					requiredKeys,
+					progressEvents,
+				).flatMap((candidate) => {
+					const trigger = eventsById.get(candidate.emitterEventId);
+					return trigger ? [{ trigger, candidate }] : [];
+				});
+				yield* Effect.forEach(completionCandidates, ({ trigger, candidate }) =>
+					createCompletionEvent(
 						host,
 						automation.hookMetadata ?? null,
-						event,
+						trigger,
 						completeSchema,
-						completionCandidate.completionEvent,
-					)
-				: null;
-		});
+						candidate.completionEvent,
+					),
+				);
+			}),
+		).pipe(Effect.as(null));
 	},
 });

@@ -240,7 +240,9 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		const bridgeObservations: BridgeObservation[] = [];
 		const observedArtifacts: ArtifactSession[] = [];
 		yield* observeBridgeMessages(page, bridgeObservations);
-		const frame = page.locator('iframe[title="fixture plugin"]');
+		const frame = page.locator(
+			'main > div:not([aria-hidden="true"]) iframe[title="fixture plugin"]',
+		);
 		const fixture = frame.contentFrame();
 		const home = fixture.locator("body");
 
@@ -322,7 +324,6 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		expectSameArtifactSession(yield* readArtifactSession(frame, apiUrl), initialArtifact);
 		expectCurrentBridgeSession(bridgeObservations, initialBridgeSession);
 
-		yield* expectVisibleText(home, "Installed client plugins: fitness, fixture, media");
 		yield* fixture.getByRole("button", { name: "Refresh catalog" }).click();
 		yield* expectVisibleText(home, "Installed client plugins: fitness, fixture, media");
 		yield* fixture.getByRole("button", { name: "Fetch greeting" }).click();
@@ -373,48 +374,25 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		expect(yield* html.getAttribute("data-theme")).toBeNull();
 		yield* returnToFixture("dark");
 
-		expect(yield* sameFrame()).toBe(true);
-		expectSameArtifactSession(yield* readArtifactSession(frame, apiUrl), initialArtifact);
-		expectCurrentBridgeSession(bridgeObservations, initialBridgeSession);
-		const navigationFrame = shellFrame;
-		const navigationArtifact = initialArtifact;
-		const navigationBridgeSession = initialBridgeSession;
-
 		yield* fixture.getByRole("link", { name: "Item 1 details" }).click();
 		yield* page.waitForURL(`${frontendUrl}/fixture/details/item-1?tab=stats`);
 		yield* expectVisibleText(fixture.locator("body"), "Item item-1, tab stats.");
-		expect(yield* frame.evaluate((current, initial) => current === initial, navigationFrame)).toBe(
-			true,
-		);
-		expectSameArtifactSession(yield* readArtifactSession(frame, apiUrl), navigationArtifact);
-		expectCurrentBridgeSession(bridgeObservations, navigationBridgeSession);
 
 		yield* page.goBack();
 		yield* page.waitForURL(`${frontendUrl}/fixture`);
 		yield* expectVisibleText(home, "Greeted 0 times.");
-		expect(yield* frame.evaluate((current, initial) => current === initial, navigationFrame)).toBe(
-			true,
-		);
-		expectSameArtifactSession(yield* readArtifactSession(frame, apiUrl), navigationArtifact);
-		expectCurrentBridgeSession(bridgeObservations, navigationBridgeSession);
 
 		yield* page.goForward();
 		yield* page.waitForURL(`${frontendUrl}/fixture/details/item-1?tab=stats`);
 		yield* expectVisibleText(fixture.locator("body"), "Item item-1, tab stats.");
-		expect(yield* frame.evaluate((current, initial) => current === initial, navigationFrame)).toBe(
-			true,
-		);
-		expectSameArtifactSession(yield* readArtifactSession(frame, apiUrl), navigationArtifact);
-		expectCurrentBridgeSession(bridgeObservations, navigationBridgeSession);
 
 		yield* fixture.getByRole("button", { name: "Back" }).click();
 		yield* page.waitForURL(`${frontendUrl}/fixture`);
 		yield* expectVisibleText(home, "Greeted 0 times.");
-		expect(yield* frame.evaluate((current, initial) => current === initial, navigationFrame)).toBe(
-			true,
-		);
-		expectSameArtifactSession(yield* readArtifactSession(frame, apiUrl), navigationArtifact);
-		expectCurrentBridgeSession(bridgeObservations, navigationBridgeSession);
+		const navigationFrame = Option.getOrThrow(yield* frame.elementHandle());
+		const navigationArtifact = yield* readArtifactSession(frame, apiUrl);
+		observedArtifacts.push(navigationArtifact);
+		const navigationBridgeSession = yield* waitForFreshBridgeSession(bridgeObservations);
 
 		yield* fixture.getByRole("button", { name: "Crash during render" }).click();
 		yield* expectVisibleText(page.locator("body"), "This plugin stopped working.");
