@@ -19,6 +19,7 @@ type WorkspaceSwitcherProps = {
 };
 
 const WORKSPACE_SHORTCUT = "Mod+Shift+Space";
+const WORKSPACE_SHORTCUT_LABEL = "⌘⇧Space";
 
 function WorkspaceShortcut(props: { readonly enabled: boolean; readonly onOpen: () => void }) {
 	useShortcut(WORKSPACE_SHORTCUT, props.onOpen, { enabled: props.enabled });
@@ -110,7 +111,7 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 							aria-hidden="true"
 							className="shrink-0 rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-text-subtle"
 						>
-							{WORKSPACE_SHORTCUT}
+							{WORKSPACE_SHORTCUT_LABEL}
 						</span>
 					)}
 					<AppIcon name="chevron-down" size={15} className="shrink-0 text-text-subtle" />
