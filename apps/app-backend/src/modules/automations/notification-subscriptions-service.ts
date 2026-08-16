@@ -6,13 +6,14 @@ import {
 } from "@ryot/contract/modules/automations/schemas";
 import type { AutomationRuleId, SignalSchemaSlug, UserId } from "@ryot/contract/schema/brands";
 import { SignalSchemaSlug as SignalSchemaSlugBrand } from "@ryot/contract/schema/brands";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Option } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import {
 	DefinitionRegistry,
 	type SignalSchemaDefinition,
 } from "#modules/definition-registry/service";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { AutomationsRepository, type StoredNotificationSubscription } from "./repository";
 
@@ -41,22 +42,39 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 		make: Effect.gen(function* () {
 			const definitions = yield* DefinitionRegistry;
 			const repository = yield* AutomationsRepository;
+			const pluginRuntime = Option.getOrUndefined(
+				yield* Effect.serviceOption(PluginRuntimeResolver),
+			);
+			const effectiveForUser = (userId: UserId, includeUnavailable = false) =>
+				pluginRuntime
+					? pluginRuntime.getEffectiveDefinitions(userId, includeUnavailable)
+					: Effect.succeed(definitions.getSnapshot());
 
-			const resolveStateSignalSchema = (state: StoredNotificationSubscription) =>
-				definitions.getSignalSchema(state.signalSchemaSlug);
+			const resolveStateSignalSchema = Effect.fn(function* (state: StoredNotificationSubscription) {
+				const effective = yield* effectiveForUser(state.userId, true);
+				const definition = effective.signalSchemas[state.signalSchemaSlug];
+				return (definition?.pluginId ?? null) === (state.signalSchemaPluginId ?? null)
+					? definition
+					: undefined;
+			});
 
-			const listCatalog = Effect.fn("NotificationSubscriptionsService.listCatalog")(() =>
-				Effect.succeed(
-					Object.values(definitions.getSnapshot().signalSchemas)
-						.filter(({ catalogState }) => catalogState === "active")
-						.map(toCatalogSignalSchema),
-				),
+			const listCatalog = Effect.fn("NotificationSubscriptionsService.listCatalog")(
+				(userId?: UserId) =>
+					(userId ? effectiveForUser(userId) : Effect.succeed(definitions.getSnapshot())).pipe(
+						Effect.map((effectiveDefinitions) =>
+							Object.values(effectiveDefinitions.signalSchemas)
+								.filter(({ catalogState }) => catalogState === "active")
+								.map(toCatalogSignalSchema),
+						),
+					),
 			);
 
 			const getCatalog = Effect.fn("NotificationSubscriptionsService.getCatalog")(function* (
+				userId: UserId,
 				id: SignalSchemaSlug,
 			) {
-				const signalSchema = definitions.getSignalSchema(id);
+				const effective = yield* effectiveForUser(userId);
+				const signalSchema = effective.signalSchemas[id];
 				if (signalSchema?.catalogState !== "active") {
 					return yield* new AutomationNotFoundError({
 						reason: { code: "signal-schema-not-found", signalSchemaSlug: id },
@@ -75,7 +93,7 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 						reason: { code: "rule-not-found", ruleId: input.ruleId },
 					});
 				}
-				const signalSchema = resolveStateSignalSchema(state);
+				const signalSchema = yield* resolveStateSignalSchema(state);
 				if (!signalSchema) {
 					return yield* new AutomationNotFoundError({
 						reason: { code: "rule-not-found", ruleId: input.ruleId },
@@ -90,7 +108,9 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 					return yield* mapDatabaseErrors(
 						database.transaction((transaction) =>
 							Effect.gen(function* () {
-								const signalSchema = definitions.getSignalSchema(input.signalSchemaSlug);
+								const signalSchema = (yield* effectiveForUser(input.userId)).signalSchemas[
+									input.signalSchemaSlug
+								];
 								if (signalSchema?.catalogState !== "active") {
 									return yield* new AutomationNotFoundError({
 										reason: {
@@ -104,6 +124,7 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 									isActive: true,
 									userId: input.userId,
 									signalSchemaSlug: input.signalSchemaSlug,
+									signalSchemaPluginId: signalSchema.pluginId ?? null,
 								});
 								return state
 									? toInstalledNotificationRule(state, signalSchema)
@@ -122,7 +143,7 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 			const ensureDefaultRules = Effect.fn("NotificationSubscriptionsService.ensureDefaultRules")(
 				function* (userId: UserId) {
 					return yield* Effect.gen(function* () {
-						const schemas = Object.values(definitions.getSnapshot().signalSchemas).filter(
+						const schemas = Object.values((yield* effectiveForUser(userId)).signalSchemas).filter(
 							({ catalogState }) => catalogState === "active",
 						);
 						for (const signalSchema of schemas) {
@@ -130,6 +151,7 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 								userId,
 								metadata: null,
 								isActive: true,
+								signalSchemaPluginId: signalSchema.pluginId ?? null,
 								signalSchemaSlug: SignalSchemaSlugBrand.make(signalSchema.slug),
 							});
 						}

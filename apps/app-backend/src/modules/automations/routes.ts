@@ -10,14 +10,16 @@ export const AutomationsRoutesLive = HttpApiBuilder.group(AppContract, "automati
 	handlers
 		.handle("listCatalog", () =>
 			Effect.gen(function* () {
+				const user = yield* CurrentUser;
 				const service = yield* NotificationSubscriptionsService;
-				return yield* service.listCatalog().pipe(dieOnDbError);
+				return yield* service.listCatalog(user.id).pipe(dieOnDbError);
 			}),
 		)
 		.handle("getCatalog", ({ params }) =>
 			Effect.gen(function* () {
+				const user = yield* CurrentUser;
 				const service = yield* NotificationSubscriptionsService;
-				return yield* service.getCatalog(params.signalSchemaSlug).pipe(dieOnDbError);
+				return yield* service.getCatalog(user.id, params.signalSchemaSlug).pipe(dieOnDbError);
 			}),
 		)
 		.handle("installRule", ({ payload }) =>

@@ -123,6 +123,18 @@ const validateEntityDetails = Effect.fn("validateEntityDetails")(function* (valu
 	});
 });
 
+const getEntityWriteScope = Effect.fn("getProviderEntityWriteScope")(function* (
+	payload: EntityImportPayload,
+) {
+	if (payload.entityScope !== "user") {
+		return { scope: "global" } as const;
+	}
+	if (!payload.userId) {
+		return yield* new SandboxRunError({ message: "User entity scope requires a user" });
+	}
+	return { scope: "user", userId: payload.userId } as const;
+});
+
 const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 	payload: EntityImportPayload,
 	details: ValidatedEntityDetails,
@@ -130,6 +142,7 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 ) {
 	const database = yield* Database;
 	const entities = yield* EntitiesService;
+	const scope = yield* getEntityWriteScope(payload);
 
 	return yield* Activity.make({
 		error: SandboxRunError satisfies DurableSchema,
@@ -142,6 +155,7 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 			database.transaction((transaction) =>
 				Effect.gen(function* () {
 					const result = yield* entities.upsert({
+						...scope,
 						populatedAt: null,
 						name: details.name,
 						externalId: payload.externalId,
@@ -164,6 +178,7 @@ const syncRelatedEntityGroupScope = Effect.fn("syncProviderRelatedEntityGroupSco
 	index: number,
 ) {
 	const database = yield* Database;
+	const entityScope = yield* getEntityWriteScope(payload);
 	return yield* Activity.make({
 		error: SandboxRunError satisfies DurableSchema,
 		success: RelationshipSyncEnvelope satisfies DurableSchema,
@@ -172,6 +187,7 @@ const syncRelatedEntityGroupScope = Effect.fn("syncProviderRelatedEntityGroupSco
 			database.transaction((transaction) =>
 				Effect.gen(function* () {
 					const outcomes = yield* syncRelatedEntityGroup({
+						...entityScope,
 						group,
 						primaryEntityId: entity.id,
 						primaryEntitySchemaSlug: payload.entitySchemaSlug,
@@ -189,6 +205,7 @@ const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function*
 	scope: ChildEntitySetScope,
 ) {
 	const database = yield* Database;
+	const entityScope = yield* getEntityWriteScope(payload);
 	return yield* Activity.make({
 		error: SandboxRunError satisfies DurableSchema,
 		success: ChildEntitySetWriteResult satisfies DurableSchema,
@@ -196,6 +213,7 @@ const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function*
 		execute: mapDatabaseErrors(
 			database.transaction((transaction) =>
 				writeChildEntitySet({
+					...entityScope,
 					providerId: payload.providerId,
 					childEntities: scope.childEntities,
 					parentEntityId: scope.parentEntityId,
@@ -214,6 +232,7 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 ) {
 	const database = yield* Database;
 	const entities = yield* EntitiesService;
+	const scope = yield* getEntityWriteScope(payload);
 
 	return yield* Activity.make({
 		error: SandboxRunError satisfies DurableSchema,
@@ -224,6 +243,7 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 				Effect.gen(function* () {
 					const populatedAt = yield* DateTime.nowAsDate;
 					const result = yield* entities.upsert({
+						...scope,
 						populatedAt,
 						name: details.name,
 						updateExisting: true,

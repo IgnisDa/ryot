@@ -23,6 +23,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
+import { plugin } from "./core";
 import { entity } from "./entities";
 
 export const signal = snakeCase.table(
@@ -36,10 +37,12 @@ export const signal = snakeCase.table(
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		actorUserId: text().references(() => user.id, { onDelete: "cascade" }),
 		subjectEntityId: text().references(() => entity.id, { onDelete: "set null" }),
+		signalSchemaPluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
 	},
 	(table) => [
 		index("signal_actor_user_id_idx").on(table.actorUserId),
 		index("signal_signal_schema_slug_idx").on(table.signalSchemaSlug),
+		index("signal_signal_schema_plugin_id_idx").on(table.signalSchemaPluginId),
 		index("signal_subject_entity_id_idx").on(table.subjectEntityId),
 	],
 );
@@ -67,6 +70,7 @@ export const notificationSubscriptionState = snakeCase.table(
 		metadata: jsonb().$type<AutomationRuleMetadata>(),
 		isActive: boolean().notNull().default(true),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		signalSchemaPluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -82,6 +86,9 @@ export const notificationSubscriptionState = snakeCase.table(
 	},
 	(table) => [
 		index("notification_subscription_state_user_id_idx").on(table.userId),
+		index("notification_subscription_state_signal_schema_plugin_id_idx").on(
+			table.signalSchemaPluginId,
+		),
 		uniqueIndex("notification_subscription_state_user_signal_unique").on(
 			table.userId,
 			table.signalSchemaSlug,

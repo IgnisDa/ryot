@@ -107,7 +107,7 @@ it("exposes only approved relationship fields", () => {
 
 it("exposes only approved application-table fields", () => {
 	expect(new Set(Object.keys(getCatalogTable("plugin")?.fields ?? {}))).toEqual(
-		new Set(["id", "slug", "scope", "status", "version", "manifest", "ingestedAt"]),
+		new Set(["id", "icon", "name", "slug", "scope", "status", "version", "ingestedAt"]),
 	);
 	expect(new Set(Object.keys(getCatalogTable("pluginInstallation")?.fields ?? {}))).toEqual(
 		new Set(["id", "health", "pluginId", "sortOrder", "isDisabled", "createdAt", "updatedAt"]),
@@ -127,7 +127,7 @@ it("exposes only approved application-table fields", () => {
 	expect(getCatalogTable("sandboxProvider")?.name).toBe("sandbox_provider");
 	expect(getCatalogTable("sandboxProvider")?.primaryKey).toBe("id");
 	expect(getCatalogTable("sandboxProvider")?.visibility).toEqual({
-		user: { type: "public" },
+		user: { type: "effectivePlugin", pluginColumn: "plugin_id" },
 	});
 	expect(new Set(Object.keys(getCatalogTable("sandboxProviderOperation")?.fields ?? {}))).toEqual(
 		new Set(["id", "providerId", "operation", "optionsSchema", "createdAt", "updatedAt"]),
@@ -135,7 +135,7 @@ it("exposes only approved application-table fields", () => {
 	expect(getCatalogTable("sandboxProviderOperation")?.name).toBe("sandbox_provider_operation");
 	expect(getCatalogTable("sandboxProviderOperation")?.primaryKey).toBe("id");
 	expect(getCatalogTable("sandboxProviderOperation")?.visibility).toEqual({
-		user: { type: "public" },
+		user: { type: "effectiveProviderPlugin", providerColumn: "provider_id" },
 	});
 	expect(new Set(Object.keys(getCatalogTable("savedView")?.fields ?? {}))).toEqual(
 		new Set([

@@ -12,6 +12,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
+import { plugin, pluginInstallation } from "./core";
 
 // TODO: Expose as an RSS feed
 export const savedView = snakeCase.table(
@@ -27,6 +28,8 @@ export const savedView = snakeCase.table(
 		layouts: jsonb().$type<SavedViewLayouts>().notNull(),
 		isDisabled: boolean().notNull().default(false),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		entitySchemaPluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
+		pluginInstallationId: text().references(() => pluginInstallation.id, { onDelete: "restrict" }),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
@@ -41,6 +44,8 @@ export const savedView = snakeCase.table(
 	(table) => [
 		index("saved_view_user_id_idx").on(table.userId),
 		index("saved_view_plugin_slug_idx").on(table.pluginSlug),
+		index("saved_view_entity_schema_plugin_id_idx").on(table.entitySchemaPluginId),
+		index("saved_view_plugin_installation_id_idx").on(table.pluginInstallationId),
 		unique("saved_view_user_slug_unique").on(table.userId, table.slug),
 	],
 );

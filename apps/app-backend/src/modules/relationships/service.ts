@@ -10,12 +10,13 @@ import type {
 } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Option } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import {
 	RelationshipsRepository,
@@ -63,15 +64,19 @@ export const changeUserRelationships = Effect.fn("RelationshipsService.changeUse
 	userId: UserId,
 	batches: ReadonlyArray<ChangeUserRelationshipBatch>,
 ) {
-	const entities = yield* EntitiesRepository;
 	const database = yield* Database;
-	const definitions = yield* DefinitionRegistry;
+	const entities = yield* EntitiesRepository;
+	const registry = yield* DefinitionRegistry;
+	const pluginRuntime = Option.getOrUndefined(yield* Effect.serviceOption(PluginRuntimeResolver));
+	const definitions = pluginRuntime ? yield* pluginRuntime.getEffectiveDefinitions(userId) : null;
 	const repository = yield* RelationshipsRepository;
 
 	const validate = Effect.fn("RelationshipsService.validateUserChange")(function* (
 		change: UserRelationshipIdentity,
 	) {
-		const definition = definitions.getRelationshipSchema(change.relationshipSchemaSlug);
+		const definition = definitions
+			? definitions.relationshipSchemas[change.relationshipSchemaSlug]
+			: registry.getRelationshipSchema(change.relationshipSchemaSlug);
 		if (!definition) {
 			return yield* new RelationshipNotFound({
 				reason: {
@@ -147,17 +152,19 @@ export const changeUserRelationships = Effect.fn("RelationshipsService.changeUse
 							userId,
 							properties,
 							scope: "user",
+							relationshipSchemaPluginId: definition.pluginId ?? null,
 						});
 						if (saved.wasInserted) {
 							created += 1;
 						}
 					}
 					for (const remove of batch.deletes) {
-						yield* validate(remove);
+						const definition = yield* validate(remove);
 						const removed = yield* repository.deleteRelationship({
 							...remove,
 							userId,
 							scope: "user",
+							relationshipSchemaPluginId: definition.pluginId ?? null,
 						});
 						if (removed) {
 							deleted += 1;

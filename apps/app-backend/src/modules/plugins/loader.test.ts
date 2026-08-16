@@ -69,6 +69,9 @@ it.effect("atomically replaces an immutable snapshot under concurrent reads", ()
 		const fibers = yield* Effect.all(Array.from({ length: 10 }, () => Effect.forkChild(reader)));
 		yield* Effect.yieldNow;
 		loader.load(normalizedPlugin("2"));
+		expect(loader.getSnapshot().definitions.entitySchemas["fixture-entity"]?.pluginId).toBe(
+			"fixture-plugin-id",
+		);
 		yield* Effect.forEach(fibers, Fiber.join);
 
 		const values = yield* Ref.get(observations);

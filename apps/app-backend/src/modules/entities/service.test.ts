@@ -323,6 +323,44 @@ it.effect("upsert creates a new global entity when none exists", () => {
 	}).pipe(Effect.provide(layer));
 });
 
+it.effect("upsert persists private provider entities in the user scope", () => {
+	const inserts: unknown[] = [];
+	const layer = makeServiceLayer(
+		makeEntitiesRepository({
+			getEntitySchemaScopeForUser: () =>
+				Effect.succeed({
+					...globalSchemaScope,
+					userId: user.id,
+					isBuiltin: true,
+					pluginId: "private-plugin-id",
+					id: EntitySchemaSlug.make("person"),
+				}),
+			insertEntity: (input) =>
+				Effect.sync(() => {
+					inserts.push(input);
+					return { entity: globalEntity, wasInserted: true };
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* EntitiesService;
+		yield* service.upsert({ ...upsertInput(false), scope: "user", userId: user.id });
+		expect(inserts).toEqual([
+			{
+				scope: "user",
+				name: "Cooper",
+				userId: user.id,
+				externalId: "ext-1",
+				properties: { title: "Cooper" },
+				entitySchemaPluginId: "private-plugin-id",
+				providerId: SandboxProviderId.make("provider-1"),
+				entitySchemaSlug: EntitySchemaSlug.make("person"),
+			},
+		]);
+	}).pipe(Effect.provide(layer));
+});
+
 it.effect("upsertGlobalEntities remains unbounded without maximumTotal", () => {
 	let lockCalled = false;
 	let countCalled = false;

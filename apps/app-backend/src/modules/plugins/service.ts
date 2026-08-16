@@ -310,6 +310,11 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 										reason: { code: "entity-referenced", pluginSlug },
 									});
 								}
+								if (yield* repository.hasDefinitionReferences(plugin.id)) {
+									return yield* new PluginConflictError({
+										reason: { code: "entity-referenced", pluginSlug },
+									});
+								}
 								const remaining = installed.filter((candidate) => candidate.slug !== slug);
 								const snapshot = yield* Effect.try({
 									try: () => loader.previewAll(remaining),

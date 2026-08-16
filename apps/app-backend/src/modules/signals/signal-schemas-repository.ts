@@ -11,6 +11,7 @@ import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Context, Effect, Layer } from "effect";
 
 import { DefinitionRegistry } from "#modules/definition-registry/service";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 export type SignalSchemaScope = {
 	slug: string;
@@ -19,6 +20,7 @@ export type SignalSchemaScope = {
 	userId: UserId | null;
 	propertiesSchema: AppSchema;
 	catalogState: SignalCatalogState;
+	pluginId?: string | null | undefined;
 	audiencePolicy: SignalAudiencePolicy;
 };
 
@@ -32,11 +34,14 @@ export class SignalSchemasRepository extends Context.Service<SignalSchemasReposi
 	{
 		make: Effect.gen(function* () {
 			const definitions = yield* DefinitionRegistry;
+			const pluginRuntime = yield* PluginRuntimeResolver;
 			const scope = (slug: string): SignalSchemaScope | null => {
 				const definition = definitions.getSignalSchema(slug);
 				return definition
 					? {
 							...definition,
+							userId: null,
+							id: SignalSchemaSlug.make(definition.slug),
 							audiencePolicy:
 								definition.audiencePolicy.kind === "actor"
 									? definition.audiencePolicy
@@ -46,14 +51,34 @@ export class SignalSchemasRepository extends Context.Service<SignalSchemasReposi
 												definition.audiencePolicy.relationshipSchemaSlug,
 											),
 										},
-							id: SignalSchemaSlug.make(definition.slug),
-							userId: null,
 						}
 					: null;
 			};
 			const findGlobalBySlug = (slug: string) => Effect.succeed(scope(slug));
 			const findVisibleBySlug = (input: { slug: string; userId: UserId | null }) =>
-				Effect.succeed(scope(input.slug));
+				input.userId === null
+					? Effect.succeed(scope(input.slug))
+					: pluginRuntime.getEffectiveDefinitions(input.userId).pipe(
+							Effect.map((effective) => {
+								const definition = effective.signalSchemas[input.slug];
+								return definition
+									? {
+											...definition,
+											userId: null,
+											id: SignalSchemaSlug.make(definition.slug),
+											audiencePolicy:
+												definition.audiencePolicy.kind === "actor"
+													? definition.audiencePolicy
+													: {
+															...definition.audiencePolicy,
+															relationshipSchemaSlug: RelationshipSchemaSlug.make(
+																definition.audiencePolicy.relationshipSchemaSlug,
+															),
+														},
+										}
+									: null;
+							}),
+						);
 			const findBuiltinById = (id: SignalSchemaSlug) => Effect.succeed(scope(id));
 			const findActiveBuiltinById = (id: SignalSchemaSlug) =>
 				Effect.succeed(scope(id)?.catalogState === "active" ? scope(id) : null);
@@ -65,11 +90,7 @@ export class SignalSchemasRepository extends Context.Service<SignalSchemasReposi
 			);
 			const insertBuiltin = (input: BuiltinSignalSchemaInput) =>
 				Effect.succeed(
-					scope(input.slug) ?? {
-						...input,
-						id: SignalSchemaSlug.make(input.slug),
-						userId: null,
-					},
+					scope(input.slug) ?? { ...input, userId: null, id: SignalSchemaSlug.make(input.slug) },
 				);
 			const updateBuiltinDisplay = (input: {
 				id: SignalSchemaSlug;
@@ -78,10 +99,10 @@ export class SignalSchemasRepository extends Context.Service<SignalSchemasReposi
 			}) => Effect.succeed(scope(input.id));
 			return {
 				insertBuiltin,
-				listActiveBuiltins,
 				findBuiltinById,
 				findGlobalBySlug,
 				findVisibleBySlug,
+				listActiveBuiltins,
 				updateBuiltinDisplay,
 				findActiveBuiltinById,
 			};

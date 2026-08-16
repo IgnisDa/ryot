@@ -311,6 +311,7 @@ it.effect("atomically ensures and deletes generic user relationship batches", ()
 				userId,
 				scope: "user",
 				sourceEntityId,
+				relationshipSchemaPluginId: null,
 				targetEntityId: monitoringEntityId,
 				relationshipSchemaSlug: monitoringRelationshipSchemaSlug,
 			},
