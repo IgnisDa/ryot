@@ -1,5 +1,3 @@
-# FIXME: This docker build is broken right now. upgrade effect to rc.113
-# (https://github.com/Effect-TS/effect/pull/7446) to fix this. Phase 6 of ~/.claude/plans/please-read-this-prd-purring-panda.md.
 FROM oven/bun:1.4.0-debian AS base
 WORKDIR /app
 
