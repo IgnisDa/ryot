@@ -39,6 +39,26 @@ route or tagged entity locations. Plugin navigation requests use tagged targets:
 kernel builds the canonical `/e/$entityId` URL and resolves its provenance. Kernel-to-plugin entity
 locations also include `entitySchemaSlug`; plugin-to-kernel entity targets do not.
 
+`PluginRouterDefinition.home` remains required. Entity renderers are registered by schema slug in
+`entities`; each receives the tagged location's `entityId` and `entitySchemaSlug`. An unregistered
+schema uses the SDK's unavailable-renderer state. Registered renderer components keep their identity,
+so retained screen state survives a pop. Entity screens still expose the full tagged location through
+`usePluginLocation`, empty params through `usePluginParams`, and an empty `URLSearchParams` through
+`usePluginSearch`.
+
+```tsx
+import { bootstrapClientPlugin, type EntityRendererProps } from "@ryot-app/client-sdk/plugin";
+
+const ShowEntity = (props: EntityRendererProps) => <h2>{props.entityId}</h2>;
+
+bootstrapClientPlugin({
+	home: { component: Home },
+	entities: {
+		show: { component: ShowEntity },
+	},
+});
+```
+
 A retained screen keeps its React key so its state survives, and is hidden with `visibility: hidden`
 rather than `display: none`, which would discard layout and with it `scrollTop`. Scroll restoration
 is a consequence of retention, not a separate save/restore pass.

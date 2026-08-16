@@ -3,6 +3,7 @@ import {
 	type PluginLogicalLocation,
 	type PluginRouteLocation,
 } from "@ryot-app/contract/modules/plugins/client";
+import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { presentScreens, reconcileStack, type PluginScreen } from "./stack";
@@ -15,10 +16,10 @@ const resolve = (location: PluginLogicalLocation) => {
 		return {
 			params: {},
 			header: { title: location.path },
-			component: location.path === "/" ? Home : Detail,
+			element: createElement(location.path === "/" ? Home : Detail),
 		};
 	}
-	return { params: {}, header: { title: location.entityId }, component: Detail };
+	return { params: {}, header: { title: location.entityId }, element: createElement(Detail) };
 };
 
 const routeLocation = (path: string, search = ""): PluginRouteLocation => ({
@@ -45,7 +46,7 @@ describe("reconcileStack", () => {
 
 		expect(result.transition).toBe("reset");
 		expect(result.stack).toHaveLength(1);
-		expect(result.stack[0]?.component).toBe(Home);
+		expect(result.stack[0]?.element.type).toBe(Home);
 	});
 
 	it("updates the top screen in place when the key is unchanged", () => {

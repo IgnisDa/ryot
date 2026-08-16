@@ -296,7 +296,10 @@ export const createGlobalBookEntityFixture = (
 		return { entity, schema };
 	});
 
-export const seedGlobalShowEpisodeTree = (client: Client, options: { showName: string }) =>
+export const seedGlobalShowEpisodeTree = (
+	client: Client,
+	options: { showName: string; showProperties?: Record<string, unknown> },
+) =>
 	Effect.gen(function* () {
 		const { schema: showSchema } = yield* findBuiltinSchemaBySlug(client, "show");
 		const tmdbProvider = showSchema.providers.find((provider) => provider.name === "TMDB");
@@ -343,7 +346,7 @@ export const seedGlobalShowEpisodeTree = (client: Client, options: { showName: s
 			name: options.showName,
 			externalId: tmdbId,
 			entitySchemaSlug: showSchema.id,
-			properties: { totalSeasons: 1, totalEpisodes: 1 },
+			properties: { totalSeasons: 1, totalEpisodes: 1, ...options.showProperties },
 		});
 		const season = yield* createGlobalEntity({
 			name: "Season 1",

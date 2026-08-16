@@ -4,6 +4,12 @@ Media plugin owns media schemas, relationships, saved views, providers, operatio
 
 Provider declarations explicitly identify their root entity schema. Saved views do not carry sandbox script declarations.
 
+## Client
+
+The Media client currently provides a static workspace placeholder and a read-only `show` entity renderer. The renderer queries its own Show summary recipe on mount and focus, verifies that the requested persisted entity is still a Show, and publishes the Show name as the screen title. It renders the name, description, provider, release year, genres, production status, season and episode counts, and the first remote image whose purpose is `cover`.
+
+The client does not subscribe to entity-interest or WebSocket invalidation. It decodes local and S3 image locators but does not resolve or render them. Workspace discovery, tabs, overview data, cast, companies, recommendations, episode rows, activity, progress, monitoring, library and collection state, mutations, and managed artwork are deferred.
+
 ## Images
 
 Media images use `{ type, url/key, purpose }`; remote assets use `url`, local and S3 assets use `key`, and `purpose` is required. Valid purposes are `cover`, `backdrop`, `profile`, `logo`, `still`, `screenshot`, and `artwork`.
