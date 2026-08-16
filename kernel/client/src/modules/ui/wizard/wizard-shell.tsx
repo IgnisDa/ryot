@@ -1,7 +1,6 @@
 import { Modal } from "@ryot-app/client-ui-sdk";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type { ReactNode } from "react";
-
-import { AppIcon } from "#/modules/navigation/app-icon";
 
 export function WizardShell(props: {
 	readonly title: string;

@@ -1,4 +1,5 @@
 import { OverlayScope, useFocusTrap, useScrollLock } from "@ryot-app/client-ui-sdk";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
@@ -17,7 +18,6 @@ import { flushSync } from "react-dom";
 
 import type { AuthSessionStore } from "#/modules/auth/service";
 import { AccountSummary } from "#/modules/navigation/account-summary";
-import { AppIcon } from "#/modules/navigation/app-icon";
 import { gestureSpring } from "#/modules/navigation/drawer-metrics";
 import { SidebarNav } from "#/modules/navigation/sidebar-nav";
 import type { SidebarItem, SidebarSections } from "#/modules/navigation/sidebar-sections";

@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { AppIcon } from "#/modules/navigation/app-icon";
+import { AppIcon } from "./icon";
 
 describe("app icon", () => {
 	it("renders a registered icon", () => {

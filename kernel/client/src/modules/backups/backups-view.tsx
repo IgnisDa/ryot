@@ -1,4 +1,5 @@
 import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type { BackupRun } from "@ryot-app/contract/modules/backups/schemas";
 import clsx from "clsx";
 
@@ -13,7 +14,6 @@ import {
 	canDownloadBackupRun,
 	liveBackupRun,
 } from "#/modules/backups/presentation";
-import { AppIcon } from "#/modules/navigation/app-icon";
 import { LoadErrorState } from "#/modules/ui/load-error-state";
 import { RunProgressBar } from "#/modules/ui/run/run-progress-bar";
 import { formatRelativeTime, runDurationLabel, runStartedLabel } from "#/modules/ui/run/run-status";

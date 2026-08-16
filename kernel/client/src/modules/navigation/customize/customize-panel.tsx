@@ -1,7 +1,7 @@
 import { ReorderableList } from "@ryot-app/client-ui-sdk";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 
-import { AppIcon } from "#/modules/navigation/app-icon";
 import { CustomizeHomeRow, CustomizeRow } from "#/modules/navigation/customize/customize-row";
 import {
 	customizeSectionCounts,

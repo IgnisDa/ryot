@@ -1,4 +1,5 @@
 import { ScreenFrame } from "@ryot-app/client-ui-sdk";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type { ReactNode } from "react";
 
 import { usePluginChrome, usePluginScreenSurface, usePluginTitle } from "./routing";
@@ -58,7 +59,7 @@ export function PluginScreenFrame({
 						onClick={chrome.back}
 						aria-label={backLabel ?? "Go back"}
 					>
-						<BackIcon />
+						<AppIcon name="chevron-left" size={22} />
 					</button>
 				) : (
 					<button
@@ -67,7 +68,7 @@ export function PluginScreenFrame({
 						onClick={chrome.openDrawer}
 						aria-label={menuLabel ?? "Open navigation"}
 					>
-						<MenuIcon />
+						<AppIcon name="menu" size={22} />
 					</button>
 				)
 			}
@@ -76,27 +77,3 @@ export function PluginScreenFrame({
 		</ScreenFrame>
 	);
 }
-
-const iconProps = {
-	width: 22,
-	height: 22,
-	fill: "none",
-	strokeWidth: 2,
-	"aria-hidden": true,
-	viewBox: "0 0 24 24",
-	stroke: "currentColor",
-	strokeLinecap: "round",
-	strokeLinejoin: "round",
-} as const;
-
-const BackIcon = () => (
-	<svg {...iconProps}>
-		<path d="m15 18-6-6 6-6" />
-	</svg>
-);
-
-const MenuIcon = () => (
-	<svg {...iconProps}>
-		<path d="M4 6h16M4 12h16M4 18h16" />
-	</svg>
-);

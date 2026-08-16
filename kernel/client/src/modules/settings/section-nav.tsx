@@ -1,6 +1,6 @@
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import clsx from "clsx";
 
-import { AppIcon } from "#/modules/navigation/app-icon";
 import { activateLink } from "#/modules/navigation/link-activation";
 import {
 	settingsSections,

@@ -1,4 +1,5 @@
 import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type { IntegrationSummary } from "@ryot-app/ryotql-recipes/integrations";
 import { Link } from "@tanstack/react-router";
 import clsx from "clsx";
@@ -10,7 +11,6 @@ import {
 	type IntegrationProviderNames,
 } from "#/modules/integrations/presentation";
 import { integrationLotLabel } from "#/modules/integrations/provider-selection";
-import { AppIcon } from "#/modules/navigation/app-icon";
 import { LoadErrorState } from "#/modules/ui/load-error-state";
 import { StatusState } from "#/modules/ui/status-state";
 

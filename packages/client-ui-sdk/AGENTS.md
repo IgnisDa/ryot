@@ -11,8 +11,9 @@ Rationale for these rules lives in `README.md`.
 - Guard `ScreenFrame`'s transitions with `motion-reduce:` in the component itself. A plugin document receives only `theme.css` and `palette.css`, never the kernel's reduced-motion base layer.
 - Add a runtime dependency only when the behaviour is genuinely shared, and prefer the root export; a new subpath must also be registered in the plugin compiler's trusted-module list.
 - Keep the `AppSchema` form on the `./schema-form` subpath and never re-export it from the root barrel.
+- Keep `AppIcon` on the `./icon` subpath and never re-export it from the root barrel. It is the single icon set for every client surface: reach for it by registered name instead of importing `lucide-react` or hand-rolling an `<svg>`, and register a new name here rather than at the call site.
 - Take the schema form's upload transport as a `SchemaFileUpload` prop; this package must never import a client SDK or know about servers, auth, or scopes.
-- Take icons as `ReactNode` props. The SDK owns no icon set, so a component must never import one.
+- Take icons as `ReactNode` props in every component. A component here must never import `AppIcon`, so a consumer that renders no icon never pays for the registry.
 - Compose radiogroup-shaped controls from `RadioGroup`, which owns `role`, `aria-checked`, roving `tabIndex`, and Arrow/Home/End. Consumers supply visuals through `renderOption` and must never set a role, `aria-checked`, or `tabIndex` themselves. Menus are deliberately not consumers.
 - Keep `RadioGroup`'s tracking of whether a pending change came from keyboard navigation; unlike `Select`, it must leave the modal open for Arrow/Home/End.
 - Supply a visible focus indicator at 3:1 or better in any component that sets `outline-none`.
