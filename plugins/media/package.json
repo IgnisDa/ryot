@@ -11,28 +11,28 @@
 			"default": "./import-sources.ts"
 		},
 		"./operations/recipes": {
-			"types": "./operations/recipes.ts",
-			"default": "./operations/recipes.ts"
+			"types": "./backend/operations/recipes.ts",
+			"default": "./backend/operations/recipes.ts"
 		},
 		"./operations/schemas": {
-			"types": "./operations/schemas.ts",
-			"default": "./operations/schemas.ts"
+			"types": "./backend/operations/schemas.ts",
+			"default": "./backend/operations/schemas.ts"
 		},
 		"./query-recipes": {
 			"types": "./query-recipes.ts",
 			"default": "./query-recipes.ts"
 		},
 		"./schemas/media-schema-slugs": {
-			"types": "./schemas/media-schema-slugs.ts",
-			"default": "./schemas/media-schema-slugs.ts"
+			"types": "./backend/schemas/media-schema-slugs.ts",
+			"default": "./backend/schemas/media-schema-slugs.ts"
 		},
 		"./schemas/property-schemas": {
-			"types": "./schemas/property-schemas.ts",
-			"default": "./schemas/property-schemas.ts"
+			"types": "./backend/schemas/property-schemas.ts",
+			"default": "./backend/schemas/property-schemas.ts"
 		},
 		"./workflows/schemas": {
-			"types": "./workflows/schemas.ts",
-			"default": "./workflows/schemas.ts"
+			"types": "./backend/workflows/schemas.ts",
+			"default": "./backend/workflows/schemas.ts"
 		}
 	},
 	"scripts": {
