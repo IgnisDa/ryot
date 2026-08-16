@@ -18,7 +18,7 @@ export function CustomizeSidebarPanel(props: {
 				<div className="flex min-w-0 flex-1 flex-col gap-1">
 					<h1 className="font-display text-base font-semibold text-text">Customize sidebar</h1>
 					<p className="text-xs leading-5 text-text-muted">
-						Reorder and choose which views appear in your sidebar.
+						Reorder and choose which workspaces and views appear in your sidebar.
 					</p>
 				</div>
 				<button
