@@ -132,6 +132,7 @@ BEGIN
 			"user_id",
 			"entity_id",
 			"event_schema_slug",
+			"event_schema_plugin_id",
 			"properties",
 			"created_at",
 			"occurred_at"
@@ -150,6 +151,7 @@ BEGIN
 				r.podcast_extra_information,
 				r.posted_on,
 				e.entity_schema_slug,
+				e.entity_schema_plugin_id,
 				show_episode.entity_id AS show_episode_entity_id,
 				podcast_episode.entity_id AS podcast_episode_entity_id,
 				(r.show_extra_information ->> 'season') ~ '^[0-9]+$'
@@ -177,6 +179,7 @@ BEGIN
 			r.user_id,
 			COALESCE(r.show_episode_entity_id, r.podcast_episode_entity_id, r.entity_id),
 			'review',
+			r.entity_schema_plugin_id,
 			jsonb_strip_nulls(jsonb_build_object(
 				'rating',       CASE WHEN r.rating IS NOT NULL THEN LEAST(r.rating, 100) END,
 				'text',         NULLIF(r.text, ''),

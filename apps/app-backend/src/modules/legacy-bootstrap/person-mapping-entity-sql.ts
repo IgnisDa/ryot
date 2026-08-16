@@ -85,7 +85,7 @@ DECLARE
 	started_at timestamptz := clock_timestamp();
 BEGIN
 	LOOP
-		WITH person_targets (source, entity_schema_slug, provider_id) AS (
+		WITH person_targets (source, entity_schema_slug, entity_schema_plugin_id, provider_id) AS (
 			VALUES ${buildEntityTargetValuesSql(targets)}
 		), batch AS (
 			SELECT legacy_person.id::text AS id
@@ -104,7 +104,7 @@ BEGIN
 
 		EXIT WHEN next_cursor_id IS NULL;
 
-		WITH person_targets (source, entity_schema_slug, provider_id) AS (
+		WITH person_targets (source, entity_schema_slug, entity_schema_plugin_id, provider_id) AS (
 			VALUES ${buildEntityTargetValuesSql(targets)}
 		)
 		INSERT INTO entity (
@@ -116,6 +116,7 @@ BEGIN
 			"user_id",
 			"properties",
 			"entity_schema_slug",
+			"entity_schema_plugin_id",
 			"provider_id",
 			"updated_at"
 		)
@@ -131,6 +132,7 @@ BEGIN
 				ELSE '{}'::jsonb
 			END,
 			person_targets.entity_schema_slug,
+			person_targets.entity_schema_plugin_id,
 			person_targets.provider_id,
 			legacy_person.last_updated_on
 		FROM "person" legacy_person

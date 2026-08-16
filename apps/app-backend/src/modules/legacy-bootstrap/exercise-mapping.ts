@@ -119,7 +119,7 @@ BEGIN
 	END IF;
 
 	LOOP
-		WITH exercise_targets (source, entity_schema_slug, provider_id) AS (
+		WITH exercise_targets (source, entity_schema_slug, entity_schema_plugin_id, provider_id) AS (
 			VALUES ${buildEntityTargetValuesSql(targets)}
 		), batch AS (
 			SELECT exercise.id::text AS id
@@ -133,7 +133,7 @@ BEGIN
 
 		EXIT WHEN next_cursor_id IS NULL;
 
-		WITH exercise_targets (source, entity_schema_slug, provider_id) AS (
+		WITH exercise_targets (source, entity_schema_slug, entity_schema_plugin_id, provider_id) AS (
 			VALUES ${buildEntityTargetValuesSql(targets)}
 		)
 		INSERT INTO "entity" (
@@ -145,6 +145,7 @@ BEGIN
 			"user_id",
 			"properties",
 			"entity_schema_slug",
+			"entity_schema_plugin_id",
 			"provider_id",
 			"updated_at"
 		)
@@ -169,6 +170,7 @@ BEGIN
 				)
 			),
 			exercise_targets.entity_schema_slug,
+			exercise_targets.entity_schema_plugin_id,
 			exercise_targets.provider_id,
 			NOW()
 		FROM "exercise" exercise

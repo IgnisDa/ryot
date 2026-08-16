@@ -28,29 +28,45 @@ const mediaViewMappings = [
 const mediaViewCases = mediaViewMappings
 	.map(
 		({ entitySchemaSlug, mediaLot }) =>
-			`\t\t\tWHEN saved_view."plugin_slug" = 'media' AND saved_view."entity_schema_slug" = ${quoteSqlString(entitySchemaSlug)} THEN ${mediaViewDisabledExpression(mediaLot)}`,
+			`\t\t\tWHEN saved_view."plugin_installation_id" = installations.media_installation_id AND saved_view."entity_schema_slug" = ${quoteSqlString(entitySchemaSlug)} THEN ${mediaViewDisabledExpression(mediaLot)}`,
 	)
 	.join("\n");
 
-export const buildLegacySavedViewStateMigrationSql = () => `
+export const buildLegacySavedViewStateMigrationSql = (
+	installations: ReadonlyArray<{
+		fitnessInstallationId: string;
+		mediaInstallationId: string;
+		userId: string;
+	}>,
+	collectionsSavedViewSlug: string,
+) => `
 DO $$
 DECLARE
 	rows_updated int;
 	started_at timestamptz := clock_timestamp();
 BEGIN
+	WITH installations (user_id, media_installation_id, fitness_installation_id) AS (
+		VALUES ${installations
+			.map(
+				(row) =>
+					`(${quoteSqlString(row.userId)}, ${quoteSqlString(row.mediaInstallationId)}, ${quoteSqlString(row.fitnessInstallationId)})`,
+			)
+			.join(", ")}
+	)
 	UPDATE "saved_view" saved_view
 	SET "is_disabled" = CASE
-		WHEN saved_view."plugin_slug" IS NULL AND saved_view."slug" = 'collections' THEN NOT ${featurePreference("others,collections")}
-		WHEN saved_view."plugin_slug" = 'media' AND saved_view."entity_schema_slug" IN ('person', 'company') THEN NOT (${mediaEnabled} AND ${featurePreference("media,people")})
-		WHEN saved_view."plugin_slug" = 'media' AND saved_view."entity_schema_slug" LIKE '%-group' THEN NOT (${mediaEnabled} AND ${featurePreference("media,groups")})
+		WHEN saved_view."plugin_slug" IS NULL AND saved_view."slug" = ${quoteSqlString(collectionsSavedViewSlug)} THEN NOT ${featurePreference("others,collections")}
+		WHEN saved_view."plugin_installation_id" = installations.media_installation_id AND saved_view."entity_schema_slug" IN ('person', 'company') THEN NOT (${mediaEnabled} AND ${featurePreference("media,people")})
+		WHEN saved_view."plugin_installation_id" = installations.media_installation_id AND saved_view."entity_schema_slug" LIKE '%-group' THEN NOT (${mediaEnabled} AND ${featurePreference("media,groups")})
 ${mediaViewCases}
-		WHEN saved_view."plugin_slug" = 'fitness' AND saved_view."entity_schema_slug" = 'exercise' THEN NOT ${featurePreference("fitness,enabled")}
-		WHEN saved_view."plugin_slug" = 'fitness' AND saved_view."entity_schema_slug" = 'workout' THEN NOT (${featurePreference("fitness,enabled")} AND ${featurePreference("fitness,workouts")})
-		WHEN saved_view."plugin_slug" = 'fitness' AND saved_view."entity_schema_slug" = 'workout-template' THEN NOT (${featurePreference("fitness,enabled")} AND ${featurePreference("fitness,templates")})
-		WHEN saved_view."plugin_slug" = 'fitness' AND saved_view."entity_schema_slug" = 'measurement' THEN NOT (${featurePreference("fitness,enabled")} AND ${featurePreference("fitness,measurements")})
+		WHEN saved_view."plugin_installation_id" = installations.fitness_installation_id AND saved_view."entity_schema_slug" = 'exercise' THEN NOT ${featurePreference("fitness,enabled")}
+		WHEN saved_view."plugin_installation_id" = installations.fitness_installation_id AND saved_view."entity_schema_slug" = 'workout' THEN NOT (${featurePreference("fitness,enabled")} AND ${featurePreference("fitness,workouts")})
+		WHEN saved_view."plugin_installation_id" = installations.fitness_installation_id AND saved_view."entity_schema_slug" = 'workout-template' THEN NOT (${featurePreference("fitness,enabled")} AND ${featurePreference("fitness,templates")})
+		WHEN saved_view."plugin_installation_id" = installations.fitness_installation_id AND saved_view."entity_schema_slug" = 'measurement' THEN NOT (${featurePreference("fitness,enabled")} AND ${featurePreference("fitness,measurements")})
 		ELSE saved_view."is_disabled"
 	END
 	FROM "old_user" legacy_user
+	INNER JOIN installations ON installations.user_id = legacy_user.id
 	WHERE saved_view."user_id" = legacy_user."id"
 		AND saved_view."is_builtin" = true;
 	GET DIAGNOSTICS rows_updated = ROW_COUNT;

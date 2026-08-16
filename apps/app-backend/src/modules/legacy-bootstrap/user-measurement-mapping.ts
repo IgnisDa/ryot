@@ -3,9 +3,10 @@
 // rust_decimal JSON string (extracted via ->> then ::float8); statistics[].key is a snake_case
 // normalization of the name. V1 has no per-statistic unit, so `unit` is omitted.
 
-import { buildReportSql, quoteSqlString } from "./shared";
+import type { QualifiedSchema } from "./migration-resolution";
+import { buildReportSql, quoteNullableSqlString, quoteSqlString } from "./shared";
 
-export const buildMeasurementMigrationSql = (measurementEntitySchemaSlug: string) => `
+export const buildMeasurementMigrationSql = (measurementEntitySchema: QualifiedSchema) => `
 DO $$
 DECLARE
 	batch_size        constant int := 10000;
@@ -41,6 +42,7 @@ BEGIN
 			"id",
 			"user_id",
 			"entity_schema_slug",
+			"entity_schema_plugin_id",
 			"name",
 			"properties",
 			"created_at",
@@ -49,7 +51,8 @@ BEGIN
 		SELECT
 			md5(um.user_id || '|' || um.timestamp::text),
 			um.user_id,
-			${quoteSqlString(measurementEntitySchemaSlug)},
+			${quoteSqlString(measurementEntitySchema.slug)},
+			${quoteNullableSqlString(measurementEntitySchema.pluginId)},
 			COALESCE(NULLIF(um.name, ''), 'Measurement - ' || to_char(um.timestamp, 'YYYY-MM-DD HH24:MI')),
 			jsonb_strip_nulls(jsonb_build_object(
 				'comment',    NULLIF(um.comment, ''),
