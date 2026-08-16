@@ -81,7 +81,7 @@
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
 | `scheduler.disableDispatchers` | `SCHEDULER_DISABLE_DISPATCHERS` | Disable automatic scheduler dispatchers (the frequent/infrequent cron tiers, plugin manifest crons, and the one-time plugin boot dispatcher) | No | No | `false` |
-| `scheduler.frequentCronJobsSchedule` | `SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE` | Interval phrase for the frequent cron tier | No | No | `every 5 minutes` |
+| `scheduler.frequentCronJobsSchedule` | `SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE` | Interval phrase for the frequent cron tier; runs are aligned to interval boundaries rather than to process start time | No | No | `every 5 minutes` |
 | `scheduler.infrequentCronJobsSchedule` | `SCHEDULER_INFREQUENT_CRON_JOBS_SCHEDULE` | Cron expression used by plugin crons assigned to the infrequent tier | No | No | `0 0 * * *` |
 
 ### S3-compatible and local file storage
