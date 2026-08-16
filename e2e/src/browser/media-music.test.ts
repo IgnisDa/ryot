@@ -140,8 +140,8 @@ it.live("renders a populated Music detail with its album rail and no watch provi
 			.waitFor({ state: "visible" });
 		expect(yield* sectionTitles(media)).toEqual([
 			"Images",
-			"Cast & crew",
-			"Production companies",
+			"Artists & credits",
+			"Labels",
 			"More like this",
 			`Part of ${albumName}`,
 		]);

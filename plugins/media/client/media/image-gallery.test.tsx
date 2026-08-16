@@ -26,6 +26,7 @@ const relationsRender: MediaOverviewRelationsRender<MediaOverviewRows> = ({
 		divided={divided}
 		overview={overview}
 		onViewAllPeople={() => undefined}
+		copy={{ notice: "Cast", people: "Cast & crew", companies: "Production companies" }}
 	/>
 );
 
@@ -107,6 +108,7 @@ describe("MediaImageGallery", () => {
 			<MediaOverview
 				compact
 				safeAreaTop={0}
+				noticeTitle="Cast"
 				relations={relationsRender}
 				isEmpty={mediaRelationsAreEmpty}
 				refreshOverview={() => undefined}
