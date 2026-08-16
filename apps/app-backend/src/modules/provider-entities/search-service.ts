@@ -9,6 +9,10 @@ import {
 } from "@ryot/contract/modules/provider-entities/schemas";
 import { EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import { materializeAppSchemaChoices } from "@ryot/contract/schema/property-schema";
+import {
+	providerSearchOptionsResultSchema,
+	providerSearchResultSchema,
+} from "@ryot/sandbox-sdk/provider";
 import { generateId } from "better-auth";
 import { Context, Effect, Layer, Result, Schema } from "effect";
 
@@ -22,12 +26,9 @@ import {
 	PluginRuntimeResolver,
 	UnsupportedProviderOperationError,
 } from "#modules/plugins/runtime-resolver";
-import {
-	ProviderSearchOptionsResultSchema,
-	decodeProviderSearchResult,
-} from "#modules/sandbox/provider-contracts";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
+const decodeProviderSearchResult = Schema.decodeUnknownEffect(providerSearchResultSchema);
 const providerNotFound = (providerId: SearchProviderEntitiesBody["providerId"]) =>
 	new ProviderEntityNotFound({ reason: { code: "provider-not-found", providerId } });
 const decodeCachedSources = (value: string | null) => {
@@ -35,7 +36,7 @@ const decodeCachedSources = (value: string | null) => {
 		return null;
 	}
 	const decoded = Schema.decodeUnknownResult(
-		Schema.fromJsonString(ProviderSearchOptionsResultSchema),
+		Schema.fromJsonString(providerSearchOptionsResultSchema),
 	)(value);
 	return Result.isSuccess(decoded) ? decoded.success.sources : null;
 };
@@ -124,7 +125,7 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 					});
 				}
 
-				const decoded = Schema.decodeUnknownResult(ProviderSearchOptionsResultSchema)(
+				const decoded = Schema.decodeUnknownResult(providerSearchOptionsResultSchema)(
 					execution.value,
 				);
 				if (Result.isFailure(decoded)) {
@@ -150,7 +151,7 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 					});
 				}
 				const encoded = yield* Schema.encodeEffect(
-					Schema.fromJsonString(ProviderSearchOptionsResultSchema),
+					Schema.fromJsonString(providerSearchOptionsResultSchema),
 				)(decoded.success).pipe(Effect.orDie);
 				yield* redis.set(cacheKey, encoded, PROVIDER_SEARCH_OPTIONS_CACHE_TTL_SECONDS);
 				return materialized.success;

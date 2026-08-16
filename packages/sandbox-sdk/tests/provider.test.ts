@@ -112,6 +112,21 @@ describe("provider result contracts", () => {
 			}),
 		).toThrow();
 		expect(
+			decode(providerSearchResultSchema)({ items: [], details: { totalItems: 1, nextPage: null } }),
+		).toEqual({ items: [], details: { totalItems: 1, nextPage: null } });
+		expect(() =>
+			decode(providerSearchResultSchema)({
+				items: [],
+				details: { totalItems: Number.NaN, nextPage: null },
+			}),
+		).toThrow();
+		expect(() =>
+			decode(providerSearchResultSchema)({
+				items: [],
+				details: { totalItems: 1, nextPage: Number.POSITIVE_INFINITY },
+			}),
+		).toThrow();
+		expect(
 			decode(providerDetailsResultSchema)({
 				name: "Show",
 				properties: { year: 2024 },

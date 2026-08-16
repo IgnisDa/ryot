@@ -273,6 +273,8 @@ The restore workflow wraps its whole `restore` operation in `Effect.scoped`, so 
 
 **Validation:** SDK and backend checks, non-finite rejection, recursive details, provider search/population/translation tests.
 
+**Implemented.** `@ryot/sandbox-sdk/provider` is the only owner of the provider result codecs. `providerSearchResultSchema` now declares `totalItems` and `nextPage` as `Schema.Finite`, matching what the backend enforced, so a non-finite page count is rejected at the SDK boundary instead of only at the backend copy. `providerDetailsChildEntitySchema` carries the `ProviderDetailsChildEntity` identifier its backend twin had. `apps/app-backend/src/modules/sandbox/provider-contracts.ts` and its parity-only test are removed: the three consumers import the SDK schemas directly and build their own `Schema.decodeUnknownEffect` decoder where they decode, which also drops the two decoders (`resolve`, `search-options`) that no caller used. `SandboxJsonValueSchema` was a character-for-character copy of `@ryot/sandbox-sdk/wire`'s `jsonValueSchema`, so the population workflow uses that instead. Strict excess-property rejection, trimming, recursive children, and the durable activity schemas are unchanged because the SDK definitions already carried them. The SDK provider test now covers finite pagination acceptance and `NaN`/`Infinity` rejection.
+
 ### 15. Return Structured Saved-View Validation Issues
 
 **Owner:** D06 Definition registry
