@@ -1,0 +1,34 @@
+// Mirrors the "@theme inline" block of kernel/client/src/styles/tokens.css so plugin artifacts
+// resolve the same semantic utilities as the kernel shell.
+export const CLIENT_THEME_CSS = `
+@theme inline {
+	--color-bg: var(--bg);
+	--color-info: var(--info);
+	--color-text: var(--text);
+	--color-accent: var(--accent);
+	--color-border: var(--border);
+	--color-danger: var(--danger);
+	--color-raised: var(--raised);
+	--color-success: var(--success);
+	--color-surface: var(--surface);
+	--color-info-soft: var(--info-soft);
+	--color-surface-2: var(--surface-2);
+	--color-text-muted: var(--text-muted);
+	--color-accent-ink: var(--accent-ink);
+	--color-accent-soft: var(--accent-soft);
+	--color-accent-text: var(--accent-text);
+	--color-text-subtle: var(--text-subtle);
+	--color-success-soft: var(--success-soft);
+	--color-accent-border: var(--accent-border);
+	--color-border-strong: var(--border-strong);
+	--font-ui: var(--font-family-ui);
+	--font-display: var(--font-family-display);
+	--radius-sm: var(--r-sm);
+	--radius-md: var(--r-md);
+	--radius-lg: var(--r-lg);
+	--radius-xl: var(--r-xl);
+	--radius-pill: var(--r-pill);
+	--shadow-sm: var(--shadow-small);
+	--shadow-card: var(--shadow-raised);
+}
+`;

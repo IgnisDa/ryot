@@ -7,6 +7,7 @@ export const CLIENT_BRIDGE_PROTOCOL_VERSION = 1 as const;
 export const CLIENT_ARTIFACT_FORMAT = 1 as const;
 export const CLIENT_COMPILER_VERSION = 1 as const;
 
+export const CLIENT_ARTIFACT_ROOT_ELEMENT_ID = "app";
 export const CLIENT_ARTIFACT_METADATA_ELEMENT_ID = "ryot-client-artifact";
 
 export const PluginClientCapability = Schema.Literals([
