@@ -1,5 +1,5 @@
 // oxlint-disable-next-line import/no-unassigned-import
-import "../styles.css";
+import "../styles/index.css";
 import { Outlet, createRootRoute } from "@tanstack/react-router";
 
 import { ThemeController, ThemePreferenceControl } from "../modules/theme/controller";
