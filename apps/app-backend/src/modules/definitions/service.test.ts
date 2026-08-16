@@ -1,13 +1,8 @@
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import {
-	DefinitionNotFound,
-	type UpdatePluginStateBody,
-} from "@ryot/contract/modules/definitions/schemas";
-import { PluginSlug, UserId } from "@ryot/contract/schema/brands";
+import { UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { databaseLayer } from "#lib/test-utils/effect";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
@@ -115,88 +110,5 @@ it.effect("lists plugins with user state overlaid", () => {
 		});
 		expect(visible[0]).not.toHaveProperty("config");
 		expect(all.map(({ slug }) => slug)).toEqual(["other", "fixture"]);
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("updates state while preserving omitted overlay values", () => {
-	let persisted:
-		| Parameters<NonNullable<MockOverrides<typeof mockRepository>["upsertState"]>>[0]
-		| undefined;
-	const current = makeState({ config: { unit: "minutes" }, sortOrder: 4 });
-	const layer = makeServiceLayer(
-		makeRepository({
-			findByUserAndPlugin: () => Effect.succeed(current),
-			upsertState: (input) =>
-				Effect.sync(() => {
-					persisted = input;
-					return makeState(input);
-				}),
-		}),
-	);
-
-	return Effect.gen(function* () {
-		const service = yield* DefinitionsService;
-		const plugin = yield* service.updatePluginState(user, PluginSlug.make("fixture"), {
-			isDisabled: true,
-		});
-
-		expect(persisted).toEqual({
-			sortOrder: 4,
-			userId: user.id,
-			isDisabled: true,
-			config: { unit: "minutes" },
-			pluginId: "fixture-plugin-id",
-		});
-		expect(plugin).toMatchObject({
-			sortOrder: 4,
-			slug: "fixture",
-			name: "Fixture",
-			isDisabled: true,
-		});
-		expect(plugin).not.toHaveProperty("config");
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("ignores configuration supplied to a system plugin state update", () => {
-	let persisted:
-		| Parameters<NonNullable<MockOverrides<typeof mockRepository>["upsertState"]>>[0]
-		| undefined;
-	const layer = makeServiceLayer(
-		makeRepository({
-			findByUserAndPlugin: () => Effect.succeed(makeState({ config: { unit: "minutes" } })),
-			upsertState: (input) =>
-				Effect.sync(() => {
-					persisted = input;
-					return makeState(input);
-				}),
-		}),
-	);
-
-	return Effect.gen(function* () {
-		const service = yield* DefinitionsService;
-		yield* service.updatePluginState(user, PluginSlug.make("fixture"), {
-			sortOrder: 2,
-			config: { unit: "seconds" },
-		} as UpdatePluginStateBody);
-
-		expect(persisted?.config).toEqual({ unit: "minutes" });
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("returns not found when updating an unknown plugin", () => {
-	const layer = makeServiceLayer(makeRepository());
-
-	return Effect.gen(function* () {
-		const service = yield* DefinitionsService;
-		const exit = yield* Effect.exit(
-			service.updatePluginState(user, PluginSlug.make("unknown"), { isDisabled: true }),
-		);
-
-		assertExitFails(
-			exit,
-			new DefinitionNotFound({
-				reason: { code: "plugin-not-found", pluginSlug: PluginSlug.make("unknown") },
-			}),
-		);
 	}).pipe(Effect.provide(layer));
 });

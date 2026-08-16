@@ -1,8 +1,4 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import {
-	DefinitionNotFound,
-	type UpdatePluginStateBody,
-} from "@ryot/contract/modules/definitions/schemas";
 import { PluginSlug } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
@@ -46,31 +42,7 @@ export class DefinitionsService extends Context.Service<DefinitionsService>()(
 					.sort((left, right) => left.sortOrder - right.sortOrder);
 			});
 
-			const updatePluginState = Effect.fn(function* (
-				user: Pick<CurrentUserValue, "id">,
-				pluginSlug: PluginSlug,
-				payload: UpdatePluginStateBody,
-			) {
-				const plugins = loader.getSnapshot().plugins;
-				const plugin = plugins[pluginSlug];
-				if (!plugin) {
-					return yield* new DefinitionNotFound({
-						reason: { code: "plugin-not-found", pluginSlug },
-					});
-				}
-				const current = yield* repository.findByUserAndPlugin(user.id, plugin.id);
-				const defaultSortOrder = Object.keys(plugins).indexOf(pluginSlug);
-				const state = yield* repository.upsertState({
-					userId: user.id,
-					pluginId: plugin.id,
-					config: current?.config ?? {},
-					isDisabled: payload.isDisabled ?? current?.isDisabled ?? false,
-					sortOrder: payload.sortOrder ?? current?.sortOrder ?? defaultSortOrder,
-				});
-				return merge(plugin.manifest.metadata, state, defaultSortOrder);
-			});
-
-			return { listPlugins, updatePluginState };
+			return { listPlugins };
 		}),
 	},
 ) {

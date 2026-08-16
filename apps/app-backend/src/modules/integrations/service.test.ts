@@ -16,6 +16,7 @@ import {
 	IntegrationProviderCatalog,
 	type RegisteredIntegrationProvider,
 } from "#modules/plugins/integration-provider-catalog";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { IntegrationsRepository } from "./repository";
 import {
@@ -35,6 +36,17 @@ const user: CurrentUserValue = {
 
 const mockProKey = (isValidated: boolean) =>
 	Layer.mock(ProKeyService)({ isValidated: Effect.succeed(isValidated) });
+
+const makeIntegrationsServiceLayer = (available = true) =>
+	IntegrationsService.layer.pipe(
+		Layer.provideMerge(
+			Layer.mock(PluginRuntimeResolver)({
+				isSystemPluginAvailableToUser: () => Effect.succeed(available),
+			}),
+		),
+	);
+
+const integrationsServiceLayer = makeIntegrationsServiceLayer();
 
 describe("validateProgressThresholds", () => {
 	it("returns null for valid thresholds", () => {
@@ -131,7 +143,7 @@ describe("client endpoints", () => {
 					script: slug === yank.slug ? Effect.succeed(activeScript) : Effect.succeed(null),
 				}),
 			});
-			const layer = IntegrationsService.layer.pipe(
+			const layer = integrationsServiceLayer.pipe(
 				Layer.provideMerge(
 					Layer.mergeAll(
 						databaseLayer,
@@ -196,7 +208,7 @@ describe("client endpoints", () => {
 				},
 			},
 		} satisfies RegisteredIntegrationProvider;
-		const layer = IntegrationsService.layer.pipe(
+		const layer = integrationsServiceLayer.pipe(
 			Layer.provideMerge(
 				Layer.mergeAll(
 					databaseLayer,
@@ -245,7 +257,7 @@ describe("client endpoints", () => {
 				settingsSchema: { fields: {} },
 				description: "Pro-gated push provider",
 			} satisfies RegisteredIntegrationProvider;
-			const layer = IntegrationsService.layer.pipe(
+			const layer = integrationsServiceLayer.pipe(
 				Layer.provideMerge(
 					Layer.mergeAll(
 						databaseLayer,
@@ -331,7 +343,7 @@ describe("update", () => {
 			findOwned: () => registered,
 			resolveOwned: () => ({ provider: registered, script: Effect.succeed(null) }),
 		});
-		const layer = IntegrationsService.layer.pipe(
+		const layer = integrationsServiceLayer.pipe(
 			Layer.provideMerge(
 				Layer.mergeAll(
 					databaseLayer,
@@ -391,7 +403,7 @@ describe("update", () => {
 			resolveOwned: () => null,
 			list: () => [replacement],
 		});
-		const layer = IntegrationsService.layer.pipe(
+		const layer = integrationsServiceLayer.pipe(
 			Layer.provideMerge(
 				Layer.mergeAll(
 					databaseLayer,
@@ -443,7 +455,7 @@ describe("update", () => {
 				findOwned: () => registered,
 				resolveOwned: () => ({ provider: registered, script: Effect.succeed(null) }),
 			});
-			const layer = IntegrationsService.layer.pipe(
+			const layer = integrationsServiceLayer.pipe(
 				Layer.provideMerge(
 					Layer.mergeAll(
 						databaseLayer,
@@ -494,7 +506,7 @@ describe("create", () => {
 		const repository = Layer.mock(IntegrationsRepository)({
 			createForUser: () => Effect.die("create should not be reached"),
 		});
-		const layer = IntegrationsService.layer.pipe(
+		const layer = integrationsServiceLayer.pipe(
 			Layer.provideMerge(
 				Layer.mergeAll(
 					databaseLayer,
@@ -521,6 +533,83 @@ describe("create", () => {
 	});
 });
 
+describe("installation availability", () => {
+	it.effect("rejects webhook enqueue for an unavailable system installation", () => {
+		const integration = makeIntegration({ lot: "sink", pluginSlug: "media", provider: "kodi" });
+		const registered = {
+			lot: "sink",
+			slug: "kodi",
+			name: "Kodi",
+			pluginSlug: "media",
+			description: "Kodi sink",
+			settingsSchema: { fields: {} },
+			scriptSlug: "integration.kodi",
+		} satisfies RegisteredIntegrationProvider;
+		const layer = makeIntegrationsServiceLayer(false).pipe(
+			Layer.provideMerge(
+				Layer.mergeAll(
+					databaseLayer,
+					mockProKey(true),
+					Layer.mock(IntegrationsRepository)({
+						getByIdAnyUser: () => Effect.succeed(integration),
+					}),
+					Layer.mock(IntegrationProviderCatalog)({
+						find: () => registered,
+						list: () => [registered],
+						findOwned: () => registered,
+						resolveOwned: () => null,
+					}),
+					Layer.mock(ImportsService)({
+						createRunForIntegration: () => Effect.die("run should not be created"),
+					}),
+					Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
+				),
+			),
+		);
+
+		return Effect.gen(function* () {
+			const service = yield* IntegrationsService;
+			const error = yield* Effect.flip(
+				service.handleWebhook({ payload: {}, integrationId: integration.id }),
+			);
+			expect(error).toMatchObject({
+				_tag: "IntegrationNotFoundError",
+				reason: { code: "integration-not-found", integrationId: integration.id },
+			});
+		}).pipe(Effect.provide(layer));
+	});
+
+	it.effect("skips scheduled yank runs for an unavailable system installation", () => {
+		const integration = makeIntegration({ lot: "yank", pluginSlug: "media", provider: "komga" });
+		const layer = makeIntegrationsServiceLayer(false).pipe(
+			Layer.provideMerge(
+				Layer.mergeAll(
+					databaseLayer,
+					mockProKey(true),
+					Layer.mock(IntegrationsRepository)({
+						listEnabledYankIntegrations: () => Effect.succeed([integration]),
+					}),
+					Layer.mock(IntegrationProviderCatalog)({
+						list: () => [],
+						find: () => null,
+						findOwned: () => null,
+						resolveOwned: () => null,
+					}),
+					Layer.mock(ImportsService)({
+						createRunForIntegration: () => Effect.die("run should not be created"),
+					}),
+					Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
+				),
+			),
+		);
+
+		return Effect.gen(function* () {
+			const service = yield* IntegrationsService;
+			expect(yield* service.prepareYankRuns(null)).toEqual([]);
+		}).pipe(Effect.provide(layer));
+	});
+});
+
 describe("integrationCommonSchema", () => {
 	it("only declares fields the manifest validator reserves", () => {
 		const declared = (["yank", "sink", "push"] as const).flatMap((lot) =>
@@ -540,7 +629,7 @@ describe("syncAll", () => {
 				return Effect.succeed(options.executionId);
 			},
 		});
-		const layer = IntegrationsService.layer.pipe(
+		const layer = integrationsServiceLayer.pipe(
 			Layer.provideMerge(
 				Layer.mergeAll(
 					databaseLayer,

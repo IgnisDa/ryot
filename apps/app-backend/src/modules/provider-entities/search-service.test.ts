@@ -116,6 +116,7 @@ const makeLayer = (input?: {
 			Layer.mergeAll(
 				databaseLayer,
 				Layer.mock(PluginRuntimeResolver)({
+					isSystemProviderAvailableToUser: () => Effect.succeed(true),
 					findActiveProviderById: () =>
 						Effect.succeed(input?.provider === undefined ? provider : input.provider),
 					resolveSearchScript: () =>
