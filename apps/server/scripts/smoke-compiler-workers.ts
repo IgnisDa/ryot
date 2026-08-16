@@ -42,15 +42,17 @@ import "./styles.css";
 import { bootstrapClientPlugin } from "@ryot/client-sdk/plugin";
 import { Button } from "@ryot/client-ui-sdk";
 import { useState } from "react";
+import logo from "./logo.svg";
 
 const Home = () => {
 	const [count, setCount] = useState(0);
-	return <Button className="bg-accent" onClick={() => setCount(count + 1)}>{count}</Button>;
+	return <Button className="bg-accent" onClick={() => setCount(count + 1)}><img alt="" src={logo} />{count}</Button>;
 };
 
 bootstrapClientPlugin({ home: Home });
 `),
 		"client/styles.css": new TextEncoder().encode('@import "tailwindcss";\n'),
+		"client/logo.svg": new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg" />'),
 	},
 });
 

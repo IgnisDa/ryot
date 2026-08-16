@@ -1,10 +1,4 @@
-import {
-	SANDBOX_RUNTIME_SDK_IMPORTS,
-	SANDBOX_SDK_AUTOMATION_IMPORT,
-	SANDBOX_SDK_FILESYSTEM_IMPORT,
-	SANDBOX_SDK_PROVIDER_IMPORT,
-	SANDBOX_SDK_ROOT_IMPORT,
-} from "@ryot/sandbox-sdk/imports";
+import { SANDBOX_RUNTIME_SDK_IMPORTS, SANDBOX_SDK_IMPORTS } from "@ryot/sandbox-sdk/imports";
 import { Effect } from "effect";
 
 import {
@@ -24,12 +18,13 @@ const externalDependencyImports = [...SANDBOX_RUNTIME_SDK_IMPORTS, "effect"] as 
 const dependencyImportPattern = new RegExp(
 	`^(?:${externalDependencyImports.map(escapeRegExp).join("|")})$`,
 );
-const bundledSdkImports = new Set([
-	SANDBOX_SDK_ROOT_IMPORT,
-	SANDBOX_SDK_AUTOMATION_IMPORT,
-	SANDBOX_SDK_FILESYSTEM_IMPORT,
-	SANDBOX_SDK_PROVIDER_IMPORT,
-]);
+const runtimeSdkImports = new Set<string>(SANDBOX_RUNTIME_SDK_IMPORTS);
+const bundledSdkImports = new Set<string>(
+	SANDBOX_SDK_IMPORTS.filter((specifier) => !runtimeSdkImports.has(specifier)),
+);
+const bundledSdkImportPattern = new RegExp(
+	`^(?:${[...bundledSdkImports].map(escapeRegExp).join("|")})$`,
+);
 
 const buildDiagnosticSeverity = (level: BuildMessage["level"]) => {
 	if (level === "warning") {
@@ -129,13 +124,10 @@ export const bundleUserScript = (source: string, sdkEntries: Readonly<Record<str
 				loader: "ts",
 				contents: source,
 			}));
-			builder.onResolve(
-				{
-					namespace: "sandbox-user",
-					filter: /^@ryot\/sandbox-sdk\/(?:automation|core|filesystem|provider)$/,
-				},
-				({ path }) => ({ path: sdkEntries[path] ?? path }),
-			);
+			builder.onResolve({ filter: bundledSdkImportPattern }, ({ path }) => ({
+				path: sdkEntries[path] ?? path,
+				namespace: "file",
+			}));
 			builder.onResolve({ filter: dependencyImportPattern }, ({ path }) => ({
 				path,
 				external: true,
@@ -197,6 +189,10 @@ export const bundleBuiltInScript = (
 				path,
 				external: true,
 			}));
+			builder.onResolve({ filter: bundledSdkImportPattern }, ({ path }) => ({
+				path: sdkEntries[path] ?? path,
+				namespace: "file",
+			}));
 			builder.onResolve({ filter: /^\.{1,2}\// }, (args) => {
 				return Object.hasOwn(sources.files, args.importer)
 					? {
@@ -205,11 +201,10 @@ export const bundleBuiltInScript = (
 						}
 					: undefined;
 			});
-			builder.onResolve({ filter: /^[^.]/, namespace: "sandbox-built-in" }, ({ path }) =>
-				bundledSdkImports.has(path)
-					? { path: sdkEntries[path] ?? path, namespace: "file" }
-					: { path, namespace: "sandbox-built-in" },
-			);
+			builder.onResolve({ filter: /^[^.]/, namespace: "sandbox-built-in" }, ({ path }) => ({
+				path,
+				namespace: "sandbox-built-in",
+			}));
 			builder.onLoad({ filter: /.*/, namespace: "sandbox-built-in" }, ({ path }) => {
 				const source = sources.files[path];
 				const resolveDirectory = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : ".";

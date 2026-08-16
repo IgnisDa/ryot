@@ -1,18 +1,11 @@
+import { TypeScriptCompilerDiagnostic } from "@ryot/typescript-compiler";
 import { Schema } from "effect";
 
 import { CLIENT_PLUGIN_COMPILER_LIMITS } from "./limits";
 
 const compilationFailedMessage = "Client plugin compilation failed";
 
-export const ClientPluginCompilerDiagnostic = Schema.Struct({
-	code: Schema.String,
-	file: Schema.String,
-	line: Schema.Number,
-	column: Schema.Number,
-	message: Schema.String,
-	length: Schema.optional(Schema.Number),
-	severity: Schema.Literals(["error", "warning", "info"]),
-});
+export const ClientPluginCompilerDiagnostic = TypeScriptCompilerDiagnostic;
 
 export type ClientPluginCompilerDiagnostic = Schema.Schema.Type<
 	typeof ClientPluginCompilerDiagnostic
