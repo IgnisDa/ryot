@@ -63,9 +63,14 @@ export type PortableEntityRecord = Pick<
 	| "properties"
 	| "externalId"
 	| "populatedAt"
+	| "entitySchemaPluginId"
 	| "entitySchemaSlug"
 > & {
-	readonly provider: { readonly pluginSlug: string; readonly providerSlug: string } | null;
+	readonly provider: {
+		readonly pluginId: string;
+		readonly pluginSlug: string;
+		readonly providerSlug: string;
+	} | null;
 };
 
 type RestoreEntityInput = Pick<
@@ -79,32 +84,39 @@ type RestoreEntityInput = Pick<
 	| "externalId"
 	| "populatedAt"
 	| "providerId"
+	| "entitySchemaPluginId"
 	| "entitySchemaSlug"
 >;
 
 const portableEntitySelection = {
 	id: schema.entity.id,
 	name: schema.entity.name,
+	pluginSlug: schema.plugin.slug,
+	providerPluginId: schema.plugin.id,
 	createdAt: schema.entity.createdAt,
 	updatedAt: schema.entity.updatedAt,
 	properties: schema.entity.properties,
 	externalId: schema.entity.externalId,
 	populatedAt: schema.entity.populatedAt,
 	providerSlug: schema.sandboxProvider.slug,
-	pluginSlug: schema.plugin.slug,
 	entitySchemaSlug: schema.entity.entitySchemaSlug,
+	entitySchemaPluginId: schema.entity.entitySchemaPluginId,
 };
 
 const toPortableEntity = (
 	row: Omit<PortableEntityRecord, "provider"> & {
+		readonly providerPluginId: string | null;
 		readonly pluginSlug: string | null;
 		readonly providerSlug: string | null;
 	},
 ): PortableEntityRecord => {
-	const { pluginSlug, providerSlug, ...entity } = row;
+	const { pluginSlug, providerSlug, providerPluginId, ...entity } = row;
 	return {
 		...entity,
-		provider: pluginSlug === null || providerSlug === null ? null : { pluginSlug, providerSlug },
+		provider:
+			pluginSlug === null || providerSlug === null || providerPluginId === null
+				? null
+				: { pluginId: providerPluginId, pluginSlug, providerSlug },
 	};
 };
 
