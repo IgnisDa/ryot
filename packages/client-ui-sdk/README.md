@@ -45,6 +45,25 @@ Registering a name is what makes it available everywhere; an unregistered name r
 circle rather than nothing, so a call site never needs to reach for `lucide-react` or an inline
 `<svg>` of its own.
 
+## Image Tint
+
+`useImageTint(url)` and `ImageTintOverlay` live on their own `./tint` subpath, so only artifacts that
+render a tinted image carry the code. `useImageTint` derives a background tint from an image with a
+hand-written canvas quantiser rather than a third-party colour library: it buckets pixels at 4 bits
+per channel, ignores any pixel with alpha below 125, takes the dominant colour as the most populous
+bucket, and takes a dark-muted colour as the most populous bucket whose lightness and saturation fall
+inside a muted band. `node-vibrant` was evaluated first and rejected because its shipped type
+declarations fail the plugin semantic check, which runs with `skipLibCheck: false` —
+`@vibrant/core` imports a `./pipeline.js` that does not exist in the published package, and
+`@vibrant/image` puts Node's `Buffer` into its public `ImageSource`/`Pixels` types. The
+workspace-level `check` passes with it installed; only the stricter plugin build gate fails, which is
+the precedent for evaluating any future dependency proposal the same way.
+
+The feature is best-effort by construction, never a source of a visible error. Any browser
+dominant-colour read goes through a canvas, so the source image must load `crossOrigin="anonymous"`
+and the host must send `Access-Control-Allow-Origin`. A tainted canvas, a failed image load, or a
+missing 2D context all resolve to no tint, silently, rather than throwing or blocking render.
+
 ## Shortcuts And Overlays
 
 `useShortcut` pins `stopPropagation` and `conflictBehavior`, and single-key shortcuts do not fire
