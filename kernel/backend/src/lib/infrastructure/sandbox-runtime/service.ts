@@ -1,10 +1,5 @@
 import { SandboxRunError, TimeoutError, unknownToMessage } from "@ryot/contract/errors";
 import { SandboxExecutionError } from "@ryot/contract/modules/sandbox/schemas";
-import type { SandboxHostCapability } from "@ryot/contract/modules/sandbox/wire";
-import {
-	SANDBOX_CAPABILITY_REQUIREMENTS,
-	type SandboxCapabilityRequirement,
-} from "@ryot/sandbox-sdk/core";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { generateId } from "better-auth";
 import {
@@ -26,6 +21,7 @@ import { RedisService } from "../redis";
 import { ServerRun } from "../server-run";
 import { SandboxArtifactStore } from "./artifacts";
 import { bindSandboxHostFunctions } from "./bridge-adapter";
+import { isSandboxCapability } from "./capability-policy";
 import { acquireSandboxCompiledModule } from "./compiled-modules";
 import {
 	acquireSandboxScratchDirectory,
@@ -60,51 +56,32 @@ import {
 	recordSandboxExecutionFinished,
 	recordSandboxExecutionStarted,
 } from "./runtime";
-import { sandboxMetadataKind, type BoundHostFunction, type SandboxRunInput } from "./shared";
+import {
+	isSandboxCapabilityAllowed as isCapabilityAllowed,
+	sandboxMetadataKind,
+	type BoundHostFunction,
+	type SandboxRunInput,
+} from "./shared";
 import { makeWorkflowReplayJournalHostFunction } from "./workflow-journal";
 
 const sessionTtlBufferMs = 2_000;
 const encoder = new TextEncoder();
 const invalidResponseMessage = "Invalid JSON response from Deno process";
-const isSandboxCapabilityKey = (key: string): key is SandboxHostCapability =>
-	Object.hasOwn(SANDBOX_CAPABILITY_REQUIREMENTS, key);
-
-const sandboxCapabilityRequirement = (
-	capability: SandboxHostCapability,
-): SandboxCapabilityRequirement => SANDBOX_CAPABILITY_REQUIREMENTS[capability];
-
-const isSandboxCapabilityAllowed = (
-	key: string,
-	input: Pick<SandboxRunInput, "authority" | "metadata">,
-) => {
-	if (!isSandboxCapabilityKey(key)) {
-		return false;
-	}
-	const requirement = sandboxCapabilityRequirement(key);
-	if (!requirement.bridge || !requirement.authorities.includes(input.authority.type)) {
-		return false;
-	}
-	return (
-		input.authority.type !== "system" ||
-		requirement.systemKinds === undefined ||
-		requirement.systemKinds.some((kind) => kind === sandboxMetadataKind(input.metadata))
-	);
-};
+const isSandboxCapabilityAllowed = (key: string, input: Pick<SandboxRunInput, "principal">) =>
+	isSandboxCapability(key) && isCapabilityAllowed(input, key);
 
 export const selectSandboxHostFunctions = (
 	boundApiFunctions: Readonly<Record<string, BoundHostFunction>>,
-	input: Pick<
-		SandboxRunInput,
-		"allowedHostFunctions" | "authority" | "metadata" | "workflowExecutionId"
-	>,
+	input: Pick<SandboxRunInput, "principal" | "workflowExecutionId">,
 ) => {
 	const selectedApiFunctions: Record<string, BoundHostFunction> = {};
-	if (input.workflowExecutionId || sandboxMetadataKind(input.metadata) === "workflow") {
+	const declaredCapabilities = input.principal.metadata.capabilities ?? [];
+	if (input.workflowExecutionId || sandboxMetadataKind(input.principal.metadata) === "workflow") {
 		const replayJournal = boundApiFunctions["replayJournal"];
 		if (replayJournal) {
 			selectedApiFunctions["replayJournal"] = replayJournal;
 		}
-		for (const key of input.allowedHostFunctions) {
+		for (const key of declaredCapabilities) {
 			if (key !== "log" && key !== "span") {
 				continue;
 			}
@@ -115,7 +92,7 @@ export const selectSandboxHostFunctions = (
 		}
 		return selectedApiFunctions;
 	}
-	for (const key of input.allowedHostFunctions) {
+	for (const key of declaredCapabilities) {
 		// `artifact-read` and `scratch` are per-execution Deno permission grants honoured at spawn
 		// time, never bridge-callable syscalls, so they must never resolve to a bound host function.
 		if (key === "replayJournal" || isSandboxFilesystemGrantCapability(key)) {
@@ -207,12 +184,13 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 						replayJournal: makeWorkflowReplayJournalHostFunction(input.workflowExecutionId, redis),
 					};
 					const selectedApiFunctions = selectSandboxHostFunctions(boundApiFunctions, input);
+					const declaredCapabilities = input.principal.metadata.capabilities ?? [];
 					const artifactPath = sandboxArtifactGrant(
-						input.allowedHostFunctions,
+						declaredCapabilities,
 						input.grants?.artifactPath,
 					);
 					const namedArtifactPaths = sandboxArtifactGrant(
-						input.allowedHostFunctions,
+						declaredCapabilities,
 						input.grants?.namedArtifactPaths,
 					);
 					if (artifactPath !== undefined) {
@@ -240,17 +218,14 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 
 					// Acquired before the process and bridge finalizers so LIFO teardown removes the scratch
 					// directory last, after the script's process is dead.
-					const scratchDirectory = declaresSandboxFilesystemGrant(
-						input.allowedHostFunctions,
-						"scratch",
-					)
+					const scratchDirectory = declaresSandboxFilesystemGrant(declaredCapabilities, "scratch")
 						? yield* acquireSandboxScratchDirectory(localTempRoot)
 						: undefined;
 
 					const token = generateId();
 					const modulePath = yield* acquireSandboxCompiledModule(
 						processes.runtimePaths,
-						input.contentHash,
+						input.principal.contentHash,
 						input.compiledCode,
 					);
 					const moduleUrl = (yield* path.toFileUrl(modulePath)).href;
@@ -258,10 +233,10 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 						token,
 						context,
 						moduleUrl,
-						scriptId: input.scriptId,
 						limits: SANDBOX_RUNNER_LIMITS,
-						metadata: input.metadata ?? {},
 						executionId: input.executionId,
+						scriptId: input.principal.scriptId,
+						metadata: input.principal.metadata,
 						compiledFormat: input.compiledFormat,
 						apiBase: `http://127.0.0.1:${bridge.port}`,
 						apiFunctions: Object.keys(selectedApiFunctions),
@@ -427,7 +402,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 				}),
 			).pipe(
 				Effect.withSpan("sandbox.execution", {
-					attributes: { scriptId: input.scriptId, executionId: input.executionId },
+					attributes: { executionId: input.executionId, scriptId: input.principal.scriptId },
 				}),
 				Effect.mapError((error) =>
 					error instanceof TimeoutError || error instanceof SandboxRunError

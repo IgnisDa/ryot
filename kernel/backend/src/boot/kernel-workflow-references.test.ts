@@ -94,7 +94,7 @@ const populationReferencesLayer = (
 		),
 	);
 
-it.effect("binds kernel workflow user ids to the trusted execution authority", () => {
+it.effect("binds kernel workflow user ids to the trusted execution subject", () => {
 	const payloads: unknown[] = [];
 	const engine = makeWorkflowEngine({
 		execute: (workflow, options) =>
@@ -106,7 +106,7 @@ it.effect("binds kernel workflow user ids to the trusted execution authority", (
 
 	return Effect.gen(function* () {
 		const references = yield* KernelWorkflowReferences;
-		const authority = { type: "user" as const, userId: UserId.make("trusted-user") };
+		const subject = { type: "user" as const, userId: UserId.make("trusted-user") };
 		yield* references.execute(
 			KERNEL_ENTITY_IMPORT_WORKFLOW,
 			{
@@ -116,7 +116,7 @@ it.effect("binds kernel workflow user ids to the trusted execution authority", (
 				origin: { kind: "import" },
 				userId: "attacker-selected-user",
 			},
-			authority,
+			subject,
 			"entity-import-execution",
 			"parent-execution",
 			SandboxScriptId.make("caller-script"),
@@ -124,7 +124,7 @@ it.effect("binds kernel workflow user ids to the trusted execution authority", (
 		yield* references.execute(
 			KERNEL_EVENT_CREATE_WORKFLOW,
 			{ payload: [], origin: "import", userId: "attacker-selected-user" },
-			authority,
+			subject,
 			"event-create-execution",
 			"parent-execution",
 			SandboxScriptId.make("caller-script"),

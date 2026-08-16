@@ -11,6 +11,7 @@ import {
 	type DefinitionSnapshot,
 } from "#modules/definition-registry/service";
 
+import { PluginIngestionLock } from "./ingestion-lock";
 import { mergeManifestDefinitions } from "./loader";
 import { compilePluginPackage, pluginSourceHash } from "./pipeline";
 import { PluginRepository } from "./repository";
@@ -18,11 +19,10 @@ import type { NormalizedPlugin } from "./types";
 import {
 	decodePluginManifest,
 	validatePluginExecutableScripts,
+	validatePluginManifestPolicy,
 	validatePluginManifestReferences,
 	validatePluginPackageLimits,
 	validatePluginSourcePaths,
-	validatePrivateManifestSurfaces,
-	validatePrivateSlugAvailability,
 } from "./validation";
 
 export type PreparedBackupPrivatePlugin = V2PrivatePlugin & {
@@ -37,6 +37,7 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 	{
 		make: Effect.gen(function* () {
 			const plugins = yield* PluginRepository;
+			const ingestionLock = yield* PluginIngestionLock;
 			const definitions = yield* DefinitionRegistry;
 
 			const prepare = Effect.fn("PluginBackupRestore.prepare")(function* (
@@ -64,11 +65,13 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 						return yield* badRequest("Backup private plugin source hash is invalid");
 					}
 					yield* asInvalidBackup(validatePluginPackageLimits(item.files, manifest));
-					yield* asInvalidBackup(validatePrivateManifestSurfaces(manifest));
-					yield* asInvalidBackup(validatePluginSourcePaths(item.files, manifest.scripts));
 					yield* asInvalidBackup(
-						validatePrivateSlugAvailability(item.slug, new Set(system.map(({ slug }) => slug))),
+						validatePluginManifestPolicy(manifest, {
+							scope: "user",
+							systemSlugs: new Set(system.map(({ slug }) => slug)),
+						}),
 					);
+					yield* asInvalidBackup(validatePluginSourcePaths(item.files, manifest.scripts));
 					const normalized = yield* asInvalidBackup(
 						compilePluginPackage({ files: item.files, manifest, sourceHash: item.sourceHash }),
 					);
@@ -104,7 +107,7 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 			) {
 				const pluginIdByKey = new Map<string, string>();
 				for (const item of prepared) {
-					const pluginId = yield* plugins.persist(item.normalized, {
+					const pluginId = yield* ingestionLock.persistUserPlugin(item.normalized, {
 						scope: "user",
 						slug: item.slug,
 						ownerId: userId,
