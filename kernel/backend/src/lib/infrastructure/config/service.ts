@@ -56,6 +56,23 @@ const normalizePath = (path: string) => path.replaceAll("\\", "/").replace(/\/+$
 const pathsOverlap = (root: string, target: string) =>
 	target === root || target.startsWith(`${root}/`);
 
+const isValidRotationSize = (value: string) => /^[1-9]\d*[BKMG]$/.test(value);
+
+const isValidRotationInterval = (value: string) => {
+	const match = /^([1-9]\d*)([smhdM])$/.exec(value);
+	if (match === null) {
+		return false;
+	}
+	const amount = Number(match[1]);
+	if (match[2] === "s" || match[2] === "m") {
+		return 60 % amount === 0;
+	}
+	if (match[2] === "h") {
+		return 24 % amount === 0;
+	}
+	return true;
+};
+
 const otlpEndpointError = (endpoint: string) => {
 	const parsed = Result.try(() => new URL(endpoint));
 	if (Result.isFailure(parsed)) {
@@ -174,6 +191,32 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 					configError(`SERVER_OTLP_HEADERS is invalid: ${headers.failure}.`),
 				);
 			}
+		}
+
+		if (config.server.logFile.trim().length === 0) {
+			return yield* Effect.fail(configError("SERVER_LOG_FILE must not be empty."));
+		}
+
+		if (!isValidRotationSize(config.server.logRotationSize)) {
+			return yield* Effect.fail(
+				configError(
+					"SERVER_LOG_ROTATION_SIZE must be a positive integer followed by B, K, M, or G.",
+				),
+			);
+		}
+
+		if (!isValidRotationInterval(config.server.logRotationInterval)) {
+			return yield* Effect.fail(
+				configError(
+					"SERVER_LOG_ROTATION_INTERVAL must be a supported rotation interval such as 30m, 1h, or 1d.",
+				),
+			);
+		}
+
+		if (!Number.isInteger(config.server.logRetentionFiles) || config.server.logRetentionFiles < 1) {
+			return yield* Effect.fail(
+				configError("SERVER_LOG_RETENTION_FILES must be an integer of at least 1."),
+			);
 		}
 
 		const { clientId, issuerUrl, clientSecret } = config.server.oidc;
