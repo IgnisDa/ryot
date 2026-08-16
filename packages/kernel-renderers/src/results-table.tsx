@@ -10,7 +10,7 @@ import {
 	resultsTableRecipe,
 	type ResultsTableResult,
 } from "@ryot-app/ryotql-recipes/saved-views";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { CellValue, cellText, managedCellAssets } from "./display-value";
 
@@ -56,7 +56,7 @@ const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.
 	const appliedCursors = useRef(new Set<string>());
 	const [refreshGeneration, setRefreshGeneration] = useState(0);
 	const activeGeneration = useRef(refreshGeneration);
-	const refresh = useEffectEvent(() => setRefreshGeneration((current) => current + 1));
+	const refresh = () => setRefreshGeneration((current) => current + 1);
 	usePageRefresh(refresh);
 	const [query] = useState(() =>
 		createRyotQuery<string, TablePage>(

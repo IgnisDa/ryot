@@ -22,6 +22,7 @@ import {
 	SearchField,
 	SegmentedControl,
 	Select,
+	useValueChange,
 } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { SyncCountLine } from "@ryot-app/client-ui-sdk/sync";
@@ -163,7 +164,12 @@ export function EntityBrowserController<Meta>({
 	const [draftSearch, setDraftSearch] = useState(requestedControls.search);
 	const controlsRef = useRef(controls);
 	const pendingSearch = useRef<
-		{ readonly identity: string; readonly update: Record<string, string | null> } | undefined
+		| {
+				readonly identity: string;
+				readonly requestedKey: string;
+				readonly update: Record<string, string | null>;
+		  }
+		| undefined
 	>(undefined);
 	const { layout, sort: sortChoice, search: searchText } = controls;
 	const [cursor, setCursor] = useState<string | null>(null);
@@ -183,37 +189,35 @@ export function EntityBrowserController<Meta>({
 	const appliedPages = useRef(new Set<string>());
 	const refreshReplay = useRef<RefreshReplay<Meta> | undefined>(undefined);
 	const activeIdentity = useRef(identity);
-	const refresh = useEffectEvent(
-		() =>
-			new Promise<void>((complete) => {
-				refreshReplay.current?.complete();
-				const next = ++refreshGenerationRef.current;
-				refreshReplay.current = {
-					complete,
-					identity,
-					pages: [],
-					generation: next,
-					targetDepth: Math.max(
-						1,
-						stateRef.current?.identity === identity ? stateRef.current.depth : 1,
-					),
+	const refresh = () =>
+		new Promise<void>((complete) => {
+			refreshReplay.current?.complete();
+			const next = ++refreshGenerationRef.current;
+			refreshReplay.current = {
+				complete,
+				identity,
+				pages: [],
+				generation: next,
+				targetDepth: Math.max(
+					1,
+					stateRef.current?.identity === identity ? stateRef.current.depth : 1,
+				),
+			};
+			appliedPages.current.clear();
+			setCursor(null);
+			setRefreshGeneration(next);
+			const pending = pendingSearch.current;
+			if (pending) {
+				pendingSearch.current = {
+					...pending,
+					identity: JSON.stringify([
+						identityKey,
+						controlsRef.current.search,
+						controlsRef.current.sort,
+					]),
 				};
-				appliedPages.current.clear();
-				setCursor(null);
-				setRefreshGeneration(next);
-				const pending = pendingSearch.current;
-				if (pending) {
-					pendingSearch.current = {
-						...pending,
-						identity: JSON.stringify([
-							identityKey,
-							controlsRef.current.search,
-							controlsRef.current.sort,
-						]),
-					};
-				}
-			}),
-	);
+			}
+		});
 	usePageRefresh(refresh);
 	useEffect(() => () => refreshReplay.current?.complete(), []);
 
@@ -224,13 +228,13 @@ export function EntityBrowserController<Meta>({
 		requestedControls.search,
 		requestedControls.sort,
 	]);
-	const applyRequestedControls = useEffectEvent(() => {
-		pendingSearch.current = undefined;
-		controlsRef.current = requestedControls;
+	useValueChange(requestedKey, () => {
 		setControls(requestedControls);
 		setDraftSearch(requestedControls.search);
 	});
-	useEffect(() => applyRequestedControls(), [requestedKey]);
+	useEffect(() => {
+		controlsRef.current = controls;
+	}, [controls]);
 
 	useEffect(() => {
 		if (activeIdentity.current === identity) {
@@ -311,12 +315,16 @@ export function EntityBrowserController<Meta>({
 	}, [state]);
 	useEffect(() => {
 		const pending = pendingSearch.current;
+		if (pending?.requestedKey !== undefined && pending.requestedKey !== requestedKey) {
+			pendingSearch.current = undefined;
+			return;
+		}
 		if (!pending || pending.identity !== identity || state?.identity !== identity) {
 			return;
 		}
 		pendingSearch.current = undefined;
 		ryot.navigation.pageSearch.replace(pending.update);
-	}, [identity, ryot, state]);
+	}, [identity, requestedKey, ryot, state]);
 
 	const transitioning = state?.identity !== identity;
 	const current = transitioning ? { items: [], pageInfo: null, meta: undefined } : state;
@@ -359,14 +367,14 @@ export function EntityBrowserController<Meta>({
 		}
 		controlsRef.current = next;
 		pendingSearch.current = {
+			requestedKey,
 			identity: JSON.stringify([identityKey, next.search, next.sort]),
 			update: { sort: next.sort || null, search: next.search || null },
 		};
 		setControls(next);
 	};
-	const commitSearch = useEffectEvent((value: string) =>
-		setQueryControls({ search: normalizeSearch(value) }),
-	);
+	const commitSearch = (value: string) => setQueryControls({ search: normalizeSearch(value) });
+	const commitDraftSearch = useEffectEvent((value: string) => commitSearch(value));
 	const setLayout = (value: string) => {
 		if (value !== "grid" && value !== "list" && value !== "table") {
 			return;
@@ -380,7 +388,10 @@ export function EntityBrowserController<Meta>({
 		setSearchOpen(false);
 		searchTrigger.current?.focus();
 	};
-	useEffect(() => schedule.after(300, () => commitSearch(draftSearch)), [draftSearch, schedule]);
+	useEffect(
+		() => schedule.after(300, () => commitDraftSearch(draftSearch)),
+		[draftSearch, schedule],
+	);
 	usePageShortcut("A", () => add?.open(), { enabled: add !== undefined });
 	usePageShortcut("/", () => (compact ? setSearchOpen(true) : searchInput.current?.focus()), {
 		enabled: canSearch,
