@@ -11,8 +11,9 @@ routes, entity detail/presentation exports, and the plugin-owned home view. Publ
 components or presentation definitions; generated compiler code owns application bootstrap.
 
 Saved views store a renderer reference, settings, and optional named RyotQL data sources. Client-page
-HTTP routes author renderers, prepare composed page graphs, and create, renew, or revoke authenticated
-graph-aware artifact sessions. Plugin catalog entries do not select or serve client artifacts.
+HTTP routes author renderers, prepare pages by saved-view slug or plugin route, issue reusable
+authenticated artifact grants, and check prepared-page freshness separately. Static artifact requests
+use the grant and immutable artifact hash; plugin catalog entries do not select or serve artifacts.
 
 ## Failure Contract
 

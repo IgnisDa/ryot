@@ -1,4 +1,4 @@
-import { EntityId, PluginSlug, SavedViewId } from "@ryot-app/contract/schema/brands";
+import { EntityId, PluginSlug } from "@ryot-app/contract/schema/brands";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -29,9 +29,7 @@ describe("plugin logical locations", () => {
 		expect(toGlobalHref({ kind: "entity", entityId: EntityId.make("entity/1") })).toBe(
 			"/e/entity%2F1",
 		);
-		expect(toGlobalHref({ kind: "saved-view", savedViewId: SavedViewId.make("view/1") })).toBe(
-			"/v/view%2F1",
-		);
+		expect(toGlobalHref({ slug: "view/1", kind: "saved-view" })).toBe("/v/view%2F1");
 	});
 
 	it("does not infer a plugin slug from the active caller", () => {

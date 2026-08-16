@@ -8,7 +8,7 @@ import { Effect } from "effect";
 import { fixtureManifest } from "#modules/plugins/test-support";
 
 import type { AvailablePlugin } from "../plugins/runtime-resolver";
-import { resolveClientPageGraph } from "./graph";
+import { resolveClientPageArtifactGraph, resolveClientPageGraph } from "./graph";
 import { resolvePluginPageTarget } from "./prepare";
 
 const bytes = (value: string) => new TextEncoder().encode(value);
@@ -75,6 +75,56 @@ const resolve = (
 		loadPluginFiles: (candidate) => Effect.succeed(pluginFiles[candidate.id] ?? null),
 	});
 
+it.effect(
+	"keeps installation IDs out of the artifact key while preserving runtime contributors",
+	() => {
+		const initial = plugin({
+			slug: "fixture",
+			client: {
+				apiVersion: 1,
+				homeView: null,
+				exports: {
+					page: {
+						kind: "page",
+						entry: "client/page.tsx",
+						settingsSchema: { fields: {} },
+						automaticEntityPresentations: false,
+					},
+				},
+			},
+		});
+		const graph = (candidate: AvailablePlugin) =>
+			resolveClientPageGraph({
+				plugin: candidate,
+				exportName: "page",
+				application: "page",
+				plugins: [candidate],
+				userId: UserId.make(candidate.installationId),
+				loadPluginFiles: () =>
+					Effect.succeed({ "client/page.tsx": bytes("export default function Page() {}") }),
+			});
+		return Effect.gen(function* () {
+			const first = yield* graph(initial);
+			const metadata = yield* resolveClientPageArtifactGraph({
+				plugin: initial,
+				plugins: [initial],
+				exportName: "page",
+				application: "page",
+				userId: UserId.make("user-1"),
+			});
+			expect(metadata.artifactKey).toBe(first.artifactKey);
+			expect(metadata.identity).toEqual(first.identity);
+			const second = yield* graph({ ...initial, installationId: "installation-2" });
+			expect(second.artifactKey).toBe(first.artifactKey);
+			expect(second.identity).toEqual(first.identity);
+			expect(second.compilerInput).toEqual(first.compilerInput);
+			expect(second.contributors).not.toEqual(first.contributors);
+			const changed = yield* graph({ ...initial, sourceHash: "source-2" });
+			expect(changed.artifactKey).not.toBe(first.artifactKey);
+		});
+	},
+);
+
 it.effect("resolves recursive explicit dependencies to exact installation revisions", () => {
 	const media = plugin({
 		slug: "media",
@@ -118,6 +168,20 @@ it.effect("resolves recursive explicit dependencies to exact installation revisi
 				},
 			},
 		);
+		const metadata = yield* resolveClientPageArtifactGraph({
+			plugins: [fixture, media],
+			userId: UserId.make("user-1"),
+			publishedHash: "renderer-source",
+			rendererName: "Composed renderer",
+			rendererId: ClientRendererId.make("renderer-1"),
+			definition: definition("", { pluginDependencies: [PluginSlug.make("media")] }),
+			rendererFiles: {
+				"client/page.tsx": bytes(
+					'import Card from "@ryot-app/plugins/media/card"; export default Card;',
+				),
+			},
+		});
+		expect(metadata.artifactKey).toBe(graph.artifactKey);
 		expect(
 			graph.identity.contributors.map((item) => item.kind === "plugin" && item.pluginSlug),
 		).toEqual([false, "fixture", "media"]);
@@ -227,7 +291,12 @@ it.effect("uses one compiler graph for every route in a plugin revision", () => 
 			const resolved = yield* resolvePluginPageTarget({
 				plugins: [fixture],
 				findEntity: () => Effect.succeed(null),
-				target: { path, search: "", kind: "plugin-route", pluginId: fixture.id },
+				target: {
+					path,
+					search: "",
+					kind: "plugin-route",
+					pluginSlug: PluginSlug.make(fixture.slug),
+				},
 			});
 			if (resolved.kind !== "plugin") {
 				throw new Error("Expected plugin target");
@@ -244,7 +313,7 @@ it.effect("uses one compiler graph for every route in a plugin revision", () => 
 	return Effect.gen(function* () {
 		const home = yield* resolveRoute("/");
 		const details = yield* resolveRoute("/details/item-1");
-		expect(details.graphHash).toBe(home.graphHash);
+		expect(details.artifactKey).toBe(home.artifactKey);
 		expect(details.compilerInput).toEqual(home.compilerInput);
 		expect(details.compilerInput.routeRegistry).toEqual({
 			home: "@ryot-app/plugins/fixture/home",
@@ -275,7 +344,7 @@ it.effect("separates page and plugin route compiler graphs", () => {
 	return Effect.gen(function* () {
 		const page = yield* resolveClientPageGraph({ ...input, application: "page" });
 		const route = yield* resolveClientPageGraph({ ...input, application: "plugin-route" });
-		expect(route.graphHash).not.toBe(page.graphHash);
+		expect(route.artifactKey).not.toBe(page.artifactKey);
 	});
 });
 
@@ -320,7 +389,7 @@ it.effect("adds enabled automatic providers and fingerprints provider metadata",
 		});
 		const changed = presentation("fitness-source-2");
 		const second = yield* resolve(renderer, "export default function Page() {}", [changed], files);
-		expect(second.graphHash).not.toBe(first.graphHash);
+		expect(second.artifactKey).not.toBe(first.artifactKey);
 		const disabled = presentation("fitness-source-1", true);
 		const withoutProvider = yield* resolve(
 			renderer,
