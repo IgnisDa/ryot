@@ -12,7 +12,7 @@ import {
 	execution,
 	hostSuccess,
 } from "../../tests/backend/automations/automation-test-utils";
-import type { CurrentCycleChildEvent, EventOrderTuple } from "../contracts/lifecycle-recipes";
+import type { EventOrderTuple } from "../contracts/lifecycle-recipes";
 import definition, {
 	manifest,
 	PARENT_COMPLETION_CLAIM_TTL_SECONDS,
@@ -26,9 +26,13 @@ type SnapshotFixture = {
 	readonly coverageStructureValid?: boolean;
 	readonly boundary?: EventOrderTuple | null;
 	readonly requiredEpisodeIds: readonly string[];
-	readonly events: readonly CurrentCycleChildEvent[];
-	readonly requiredEpisodePages?: readonly (readonly string[])[];
-	readonly eventPages?: readonly (readonly CurrentCycleChildEvent[])[];
+	readonly events: readonly ChildEvent[];
+};
+
+type ChildEvent = EventOrderTuple & {
+	readonly entityId: string;
+	readonly consumedOn: string | null;
+	readonly eventSchemaSlug: "progress" | "complete";
 };
 
 type AutomationEventSnapshot = Parameters<typeof eventAutomationContext>[0];
@@ -39,14 +43,7 @@ const childEvent = (
 	eventSchemaSlug: "progress" | "complete",
 	occurredAt: string,
 	consumedOn: string | null = null,
-): CurrentCycleChildEvent => ({
-	id,
-	entityId,
-	consumedOn,
-	occurredAt,
-	eventSchemaSlug,
-	createdAt: occurredAt,
-});
+): ChildEvent => ({ id, entityId, consumedOn, occurredAt, eventSchemaSlug, createdAt: occurredAt });
 
 const completeCoverage = (productionStatus = "Ended"): SnapshotFixture => ({
 	productionStatus,
@@ -73,19 +70,54 @@ const rows = (
 const snapshotRow = (fixture: SnapshotFixture) => {
 	const boundary = fixture.boundary ?? null;
 	const latest = fixture.events.at(-1);
+	let coverageComplete = false;
+	let coverageClosingEvent: EventOrderTuple | null = null;
+	let agreedConsumedOn: string | null = null;
+	const completions = new Map<string, ChildEvent>();
+	for (const event of fixture.events) {
+		if (!fixture.requiredEpisodeIds.includes(event.entityId)) {
+			continue;
+		}
+		if (event.eventSchemaSlug === "complete") {
+			completions.set(event.entityId, event);
+		} else {
+			completions.delete(event.entityId);
+		}
+		const nextCoverageComplete =
+			fixture.requiredEpisodeIds.length > 0 &&
+			fixture.requiredEpisodeIds.every((entityId) => completions.has(entityId));
+		if (!coverageComplete && nextCoverageComplete) {
+			coverageClosingEvent = event;
+			const consumedOnValues = fixture.requiredEpisodeIds.map(
+				(entityId) => completions.get(entityId)?.consumedOn ?? null,
+			);
+			const firstConsumedOn = consumedOnValues[0] ?? null;
+			agreedConsumedOn =
+				firstConsumedOn !== null &&
+				firstConsumedOn.length > 0 &&
+				consumedOnValues.every((value) => value === firstConsumedOn)
+					? firstConsumedOn
+					: null;
+		}
+		coverageComplete = nextCoverageComplete;
+	}
 	return {
+		agreedConsumedOn,
 		state: fixture.state,
 		id: latest?.id ?? null,
 		boundaryId: boundary?.id ?? null,
 		entityId: latest?.entityId ?? null,
 		createdAt: latest?.createdAt ?? null,
 		occurredAt: latest?.occurredAt ?? null,
+		closingId: coverageClosingEvent?.id ?? null,
 		boundaryCreatedAt: boundary?.createdAt ?? null,
 		boundaryOccurredAt: boundary?.occurredAt ?? null,
 		eventSchemaSlug: latest?.eventSchemaSlug ?? null,
 		parentEntityId: fixture.parentEntityId ?? "show-1",
 		productionStatus: fixture.productionStatus ?? null,
 		coverageComplete: fixture.coverageComplete ?? false,
+		closingCreatedAt: coverageClosingEvent?.createdAt ?? null,
+		closingOccurredAt: coverageClosingEvent?.occurredAt ?? null,
 		coverageStructureValid: fixture.coverageStructureValid ?? true,
 	};
 };
@@ -138,46 +170,10 @@ const createHost = (
 	const claims = options.claims ?? [];
 	const created = options.created ?? [];
 	const documents: RyotQLDocument[] = [];
-	const responses = snapshots.flatMap((fixture, snapshotIndex) => {
-		const boundary = fixture.boundary ?? null;
-		const eventPages = fixture.eventPages ?? [fixture.events];
-		const requiredEpisodePages = fixture.requiredEpisodePages ?? [fixture.requiredEpisodeIds];
-		return [
-			{
-				queryName: "parent",
-				response: rows("parent", [
-					{
-						id: boundary?.id ?? null,
-						createdAt: boundary?.createdAt ?? null,
-						occurredAt: boundary?.occurredAt ?? null,
-					},
-				]),
-			},
-			...requiredEpisodePages.map((page, pageIndex) => ({
-				queryName: "episodes",
-				response: rows(
-					"episodes",
-					page.map((entityId) => ({ entityId })),
-					{
-						hasMore: pageIndex < requiredEpisodePages.length - 1,
-						nextCursor:
-							pageIndex < requiredEpisodePages.length - 1
-								? `episodes-${snapshotIndex}-${pageIndex + 1}`
-								: null,
-					},
-				),
-			})),
-			...eventPages.map((page, pageIndex) => ({
-				queryName: "events",
-				response: rows("events", page, {
-					hasMore: pageIndex < eventPages.length - 1,
-					nextCursor:
-						pageIndex < eventPages.length - 1 ? `events-${snapshotIndex}-${pageIndex + 1}` : null,
-				}),
-			})),
-			{ queryName: "parent", response: rows("parent", [snapshotRow(fixture)]) },
-		];
-	});
+	const responses = snapshots.map((fixture) => ({
+		queryName: "parent",
+		response: rows("parent", [snapshotRow(fixture)]),
+	}));
 	let queryIndex = 0;
 	return {
 		claims,
@@ -191,16 +187,6 @@ const createHost = (
 				created.push([...items]);
 				return hostSuccess({ count: items.length });
 			},
-			listEventSchemas: (entitySchemaSlugs) =>
-				hostSuccess([
-					{
-						name: "Complete",
-						slug: "complete",
-						propertiesSchema: {},
-						id: `${entitySchemaSlugs[0]}-complete-schema`,
-						entitySchemaSlug: entitySchemaSlugs[0] ?? "show",
-					},
-				]),
 			executeRyotql: (document) => {
 				documents.push(document);
 				const response = responses[queryIndex];
@@ -237,7 +223,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 			requiredSystemConfigKeys: [],
 			name: "Auto-Complete Episodic Parent",
 			slug: "automation.media-auto-complete-episodic-parent",
-			capabilities: ["executeRyotql", "createEvents", "listEventSchemas", "claimPersistentValue"],
+			capabilities: ["executeRyotql", "createEvents", "claimPersistentValue"],
 			inputProjection: {
 				event: { properties: [], compareProperties: [] },
 				signal: { properties: ["entitySchemaSlug", "oldStatus", "newStatus"] },
@@ -324,7 +310,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		});
 	});
 
-	it("excludes season-zero episodes from required coverage and replay", async () => {
+	it("excludes season-zero episodes from aggregate coverage", async () => {
 		const fixture: SnapshotFixture = {
 			events: [],
 			state: "untracked",
@@ -335,11 +321,9 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		};
 		const testHost = createHost([fixture]);
 		await Effect.runPromise(run(eventContext(), testHost.host));
-		const requiredDocument = testHost.documents.find(({ queries }) => "episodes" in queries);
-		const eventDocument = testHost.documents.find(({ queries }) => "events" in queries);
-		expect(JSON.stringify(requiredDocument)).toContain('"seasonNumber"');
-		expect(JSON.stringify(requiredDocument)).toContain('"operator":"gt"');
-		expect(JSON.stringify(eventDocument)).toContain('"seasonNumber"');
+		const document = testHost.documents[0];
+		expect(JSON.stringify(document)).toContain('"seasonNumber"');
+		expect(JSON.stringify(document)).toContain('"operator":"gt"');
 		expect(testHost.claims).toEqual([]);
 		expect(testHost.created).toEqual([]);
 	});
@@ -355,7 +339,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		};
 		const testHost = createHost([fixture]);
 		await Effect.runPromise(run(eventContext(), testHost.host));
-		expect(testHost.queryCount).toBe(4);
+		expect(testHost.queryCount).toBe(1);
 		expect(testHost.claims).toEqual([]);
 		expect(testHost.created).toEqual([]);
 	});
@@ -400,9 +384,9 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 				testHost.host,
 			),
 		);
-		const eventDocument = testHost.documents.find(({ queries }) => "events" in queries);
-		expect(JSON.stringify(eventDocument)).toContain('"parent-complete-1"');
-		expect(JSON.stringify(eventDocument)).toContain('"2026-01-05T00:00:00.000Z"');
+		expect(JSON.stringify(testHost.documents[0])).toContain(
+			'"tableAlias":"lifecycleSnapshotCompletionEpisodeBoundary"',
+		);
 		expect(testHost.claims).toEqual([]);
 		expect(testHost.created).toEqual([]);
 	});
@@ -453,8 +437,8 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 				{
 					entityId: "show-1",
 					sessionEntityId: "show-1",
+					eventSchemaSlug: "complete",
 					occurredAt: "2026-01-03T00:00:00.000Z",
-					eventSchemaSlug: "show-complete-schema",
 					properties: {
 						consumedOn: "Plex",
 						completionMode: "custom_timestamps",
@@ -468,7 +452,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 	it("stops immediately when the claim is held", async () => {
 		const testHost = createHost([completeCoverage()], { claimed: false });
 		await Effect.runPromise(run(eventContext(), testHost.host));
-		expect(testHost.queryCount).toBe(4);
+		expect(testHost.queryCount).toBe(1);
 		expect(testHost.created).toEqual([]);
 	});
 
@@ -478,7 +462,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 			{ ...completeCoverage(), state: "complete", coverageComplete: false },
 		]);
 		await Effect.runPromise(run(eventContext(), testHost.host));
-		expect(testHost.queryCount).toBe(8);
+		expect(testHost.queryCount).toBe(2);
 		expect(testHost.created).toEqual([]);
 	});
 
@@ -543,7 +527,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		expect(created).toHaveLength(1);
 	});
 
-	it("replays all required-episode and child-event pages before completing", async () => {
+	it("uses one aggregate query per snapshot for more than 100 episodes", async () => {
 		const firstEpisodeIds = Array.from(
 			{ length: 100 },
 			(_, index) => `episode-${String(index + 1).padStart(3, "0")}`,
@@ -568,9 +552,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 			coverageComplete: true,
 			productionStatus: "Ended",
 			events: [...firstEventPage, finalEvent],
-			eventPages: [firstEventPage, [finalEvent]],
 			requiredEpisodeIds: [...firstEpisodeIds, finalEpisodeId],
-			requiredEpisodePages: [firstEpisodeIds, [finalEpisodeId]],
 		};
 		const testHost = createHost([fixture, fixture]);
 		await Effect.runPromise(
@@ -583,19 +565,10 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 				testHost.host,
 			),
 		);
-		const requiredDocuments = testHost.documents.filter(({ queries }) => "episodes" in queries);
-		const eventDocuments = testHost.documents.filter(({ queries }) => "events" in queries);
-		expect(requiredDocuments).toMatchObject([
-			{ queries: { episodes: { output: { pagination: {} } } } },
-			{ queries: { episodes: { output: { pagination: { after: "episodes-0-1" } } } } },
-			{ queries: { episodes: { output: { pagination: {} } } } },
-			{ queries: { episodes: { output: { pagination: { after: "episodes-1-1" } } } } },
-		]);
-		expect(eventDocuments).toMatchObject([
-			{ queries: { events: { output: { pagination: {} } } } },
-			{ queries: { events: { output: { pagination: { after: "events-0-1" } } } } },
-			{ queries: { events: { output: { pagination: {} } } } },
-			{ queries: { events: { output: { pagination: { after: "events-1-1" } } } } },
+		expect(testHost.queryCount).toBe(2);
+		expect(testHost.documents.map(({ queries }) => Object.keys(queries))).toEqual([
+			["parent"],
+			["parent"],
 		]);
 		expect(testHost.created).toHaveLength(1);
 		expect(testHost.created[0]?.[0]?.occurredAt).toBe(finalEvent.occurredAt);
@@ -619,7 +592,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		await Effect.runPromise(
 			run(statusSignalContext("Continuing", "Ended", "podcast"), testHost.host),
 		);
-		expect(testHost.created[0]?.[0]?.eventSchemaSlug).toBe("podcast-complete-schema");
+		expect(testHost.created[0]?.[0]?.eventSchemaSlug).toBe("complete");
 	});
 
 	it.each([
@@ -729,8 +702,8 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		expect(testHost.created[0]?.[0]).toEqual({
 			entityId: "show-1",
 			sessionEntityId: "show-1",
+			eventSchemaSlug: "complete",
 			occurredAt: "2026-01-03T00:00:00.000Z",
-			eventSchemaSlug: "podcast-complete-schema",
 			properties: { completionMode: "custom_timestamps", completedOn: "2026-01-03T00:00:00.000Z" },
 		});
 	});
