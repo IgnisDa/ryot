@@ -12,17 +12,6 @@ services:
       interval: 2s
       test: ["CMD", "redis-cli", "ping"]
 
-  ryot-bull-board:
-    restart: unless-stopped
-    image: venatum/bull-board
-    ports:
-      - "3002:3000"
-    environment:
-      REDIS_HOST: ryot-redis
-    depends_on:
-      ryot-redis:
-        condition: service_healthy
-
   ryot-postgres:
     restart: unless-stopped
     image: postgres:18-alpine
