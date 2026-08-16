@@ -5,6 +5,7 @@ This module owns one-time import dispatch, artifacts, progress, failures, and ge
 - Plugin adapters receive trusted artifacts through sandbox filesystem grants and emit manifests of generic write chunks; plugins never write imported domain data directly.
 - `kernel:process-import-chunks` owns chunk consumption, deletion, counters, alias resolution, writes, and event workflow composition.
 - Keep source-specific normalization and schema slugs in the owning plugin.
+- `dispatchImportRun` is the only post-admission dispatch path: it owns workflow pinning, durable source-state storage, workflow enqueue, and their rollback. Entry points own only what precedes admission, and a pre-dispatch failure deletes the run while any failure after pinning leaves it `failed`.
 - `import_run.integration_lot` records how an integration run was admitted. `import_run_integration_active_unique` makes it a partial unique index over `integration_id` for `yank` runs in `pending` or `running`, so `createRunForIntegrationIfIdle` returns `null` for the concurrent loser instead of pre-reading. Sink runs stay unconstrained because each webhook delivery is its own run.
 
 ## Failure stages

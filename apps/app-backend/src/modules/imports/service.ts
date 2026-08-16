@@ -17,7 +17,7 @@ import type { RunStatus } from "@ryot/contract/schema/run-status";
 import { Context, DateTime, Effect, Exit, Result, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { RedisService } from "#lib/infrastructure/redis";
+import { RedisService, type ImportSourceState } from "#lib/infrastructure/redis";
 import {
 	ImportSourceCatalog,
 	type RegisteredImportSource,
@@ -64,6 +64,17 @@ export type UpdateImportRunInput = {
 
 export type DeleteImportRunInput = { userId: UserId; runId: ImportRunId };
 
+type DispatchImportRunInput = {
+	runId: ImportRunId;
+	user: CurrentUserValue;
+	source: ImportRunSource;
+	workflowScriptId: SandboxScriptId;
+	registered: RegisteredImportSource;
+	sourcePayload: ImportSourceState["sourcePayload"];
+	uploadIntentIds: ImportSourceState["uploadIntentIds"];
+	namedArtifactPaths: ImportSourceState["namedArtifactPaths"];
+};
+
 const isTerminalStatus = (status: RunStatus): boolean =>
 	status === "completed" || status === "failed";
 
@@ -108,6 +119,75 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 					Effect.logWarning("failed to clean up import source state", cause),
 				),
 			);
+
+		const dispatchImportRun = Effect.fn("ImportsService.dispatchImportRun")(function* (
+			input: DispatchImportRunInput,
+		) {
+			const { user, runId, uploadIntentIds } = input;
+			const sandboxExecutionId = `${runId}-import`;
+			const failDispatch = Effect.fn("ImportsService.failDispatch")(function* (
+				operation: string,
+				cause: unknown,
+			) {
+				yield* Effect.logError(`import dispatch failed at ${operation}`, cause);
+				yield* failRun(runId, { code: "queue-unavailable", operation });
+				return yield* new ImportRequestError({
+					reason: { code: "queue-unavailable", operation: "import-run" },
+				});
+			});
+
+			const pin = yield* workflowPinning
+				.preRegister({
+					executingUserId: user.id,
+					executionId: sandboxExecutionId,
+					scriptId: input.workflowScriptId,
+					pluginId: input.registered.pluginId,
+				})
+				.pipe(Effect.result);
+			if (Result.isFailure(pin)) {
+				yield* cleanupUploads(uploadIntentIds);
+				return yield* failDispatch("workflow-pin", pin.failure);
+			}
+
+			const rollback = Effect.gen(function* () {
+				yield* cleanupUploads(uploadIntentIds);
+				yield* cleanupSourceState(runId);
+				if (pin.success.registrationStatus === "registered") {
+					yield* workflowPinning.release(sandboxExecutionId);
+				}
+			});
+
+			const stored = yield* storeImportSourceState({
+				stateId: runId,
+				state: {
+					uploadIntentIds,
+					source: input.source,
+					sourcePayload: input.sourcePayload,
+					pluginId: input.registered.pluginId,
+					workflowScriptId: input.workflowScriptId,
+					namedArtifactPaths: input.namedArtifactPaths,
+					pluginInstallationId: input.registered.installationId,
+				},
+			}).pipe(Effect.provideService(RedisService, redis), Effect.exit);
+			if (Exit.isFailure(stored)) {
+				yield* rollback;
+				return yield* failDispatch("source-state", stored.cause);
+			}
+
+			const started = yield* engine
+				.execute(ProcessImportRunWorkflow, {
+					discard: true,
+					executionId: runId,
+					payload: { runId, userId: user.id, sourceStateId: runId },
+				})
+				.pipe(Effect.result);
+			if (Result.isFailure(started)) {
+				yield* rollback;
+				return yield* failDispatch("workflow", started.failure);
+			}
+
+			return { id: runId };
+		});
 
 		const startFileImportRun = Effect.fn("ImportsService.startFileImportRun")(function* (
 			user: CurrentUserValue,
@@ -187,69 +267,16 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				yield* deleteRun({ runId: run.id, userId: user.id }).pipe(Effect.ignore);
 				return yield* summarized.failure;
 			}
-			const sandboxExecutionId = `${run.id}-import`;
-			const pin = yield* workflowPinning
-				.preRegister({
-					executingUserId: user.id,
-					scriptId: workflowScriptId,
-					pluginId: registered.pluginId,
-					executionId: sandboxExecutionId,
-				})
-				.pipe(Effect.result);
-			if (Result.isFailure(pin)) {
-				yield* cleanupUploads(claimedUploadIntentIds);
-				yield* Effect.logError("import workflow pinning failed", pin.failure);
-				yield* failRun(run.id, { code: "queue-unavailable", operation: "workflow-pin" });
-				return yield* new ImportRequestError({
-					reason: { code: "queue-unavailable", operation: "import-run" },
-				});
-			}
-			const stored = yield* storeImportSourceState({
-				stateId: run.id,
-				state: {
-					sourcePayload,
-					workflowScriptId,
-					namedArtifactPaths,
-					source: body.source,
-					pluginId: registered.pluginId,
-					uploadIntentIds: claimedUploadIntentIds,
-					pluginInstallationId: registered.installationId,
-				},
-			}).pipe(Effect.provideService(RedisService, redis), Effect.exit);
-			if (Exit.isFailure(stored)) {
-				yield* cleanupUploads(claimedUploadIntentIds);
-				yield* cleanupSourceState(run.id);
-				if (pin.success.registrationStatus === "registered") {
-					yield* workflowPinning.release(sandboxExecutionId);
-				}
-				yield* Effect.logError("import source state queue failed", stored.cause);
-				yield* failRun(run.id, { code: "queue-unavailable", operation: "source-state" });
-				return yield* new ImportRequestError({
-					reason: { code: "queue-unavailable", operation: "import-run" },
-				});
-			}
-
-			const started = yield* engine
-				.execute(ProcessImportRunWorkflow, {
-					discard: true,
-					executionId: run.id,
-					payload: { runId: run.id, userId: user.id, sourceStateId: run.id },
-				})
-				.pipe(Effect.result);
-			if (Result.isFailure(started)) {
-				yield* cleanupUploads(claimedUploadIntentIds);
-				yield* cleanupSourceState(run.id);
-				if (pin.success.registrationStatus === "registered") {
-					yield* workflowPinning.release(sandboxExecutionId);
-				}
-				yield* Effect.logError("import workflow enqueue failed", started.failure);
-				yield* failRun(run.id, { code: "queue-unavailable", operation: "workflow" });
-				return yield* new ImportRequestError({
-					reason: { code: "queue-unavailable", operation: "import-run" },
-				});
-			}
-
-			return { id: run.id };
+			return yield* dispatchImportRun({
+				user,
+				registered,
+				runId: run.id,
+				sourcePayload,
+				workflowScriptId,
+				namedArtifactPaths,
+				source: body.source,
+				uploadIntentIds: claimedUploadIntentIds,
+			});
 		});
 
 		const startSourcePayloadImportRun = Effect.fn("ImportsService.startSourcePayloadImportRun")(
@@ -268,67 +295,16 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 					source: body.source,
 					pluginInstallationId: registered.installationId,
 				});
-				const sandboxExecutionId = `${run.id}-import`;
-
-				const pin = yield* workflowPinning
-					.preRegister({
-						executingUserId: user.id,
-						scriptId: workflowScriptId,
-						executionId: sandboxExecutionId,
-						pluginId: registered.pluginId,
-					})
-					.pipe(Effect.result);
-				if (Result.isFailure(pin)) {
-					yield* Effect.logError("import workflow pinning failed", pin.failure);
-					yield* failRun(run.id, { code: "queue-unavailable", operation: "workflow-pin" });
-					return yield* new ImportRequestError({
-						reason: { code: "queue-unavailable", operation: "import-run" },
-					});
-				}
-				const stored = yield* storeImportSourceState({
-					stateId: run.id,
-					state: {
-						sourcePayload,
-						workflowScriptId,
-						source: body.source,
-						uploadIntentIds: [],
-						namedArtifactPaths: {},
-						pluginId: registered.pluginId,
-						pluginInstallationId: registered.installationId,
-					},
-				}).pipe(Effect.provideService(RedisService, redis), Effect.exit);
-				if (Exit.isFailure(stored)) {
-					yield* cleanupSourceState(run.id);
-					if (pin.success.registrationStatus === "registered") {
-						yield* workflowPinning.release(sandboxExecutionId);
-					}
-					yield* Effect.logError("import source state queue failed", stored.cause);
-					yield* failRun(run.id, { code: "queue-unavailable", operation: "source-state" });
-					return yield* new ImportRequestError({
-						reason: { code: "queue-unavailable", operation: "import-run" },
-					});
-				}
-
-				const started = yield* engine
-					.execute(ProcessImportRunWorkflow, {
-						discard: true,
-						executionId: run.id,
-						payload: { runId: run.id, userId: user.id, sourceStateId: run.id },
-					})
-					.pipe(Effect.result);
-				if (Result.isFailure(started)) {
-					if (pin.success.registrationStatus === "registered") {
-						yield* workflowPinning.release(sandboxExecutionId);
-					}
-					yield* cleanupSourceState(run.id);
-					yield* Effect.logError("import workflow enqueue failed", started.failure);
-					yield* failRun(run.id, { code: "queue-unavailable", operation: "workflow" });
-					return yield* new ImportRequestError({
-						reason: { code: "queue-unavailable", operation: "import-run" },
-					});
-				}
-
-				return { id: run.id };
+				return yield* dispatchImportRun({
+					user,
+					registered,
+					runId: run.id,
+					sourcePayload,
+					workflowScriptId,
+					uploadIntentIds: [],
+					source: body.source,
+					namedArtifactPaths: {},
+				});
 			},
 		);
 
