@@ -173,13 +173,70 @@ export const TestSupportOperationalPressure = Schema.Struct({
 	}),
 });
 
+const OptionalCounter = Schema.NullOr(Schema.Number);
+
 export const TestSupportSandboxRuntimeMetrics = Schema.Struct({
+	timestampMs: Schema.Number,
 	totalSpawned: Schema.Number,
 	totalCompleted: Schema.Number,
 	workerRssBytes: Schema.Number,
 	backendRssBytes: Schema.Number,
 	activeProcessCount: Schema.Number,
-	workers: Schema.Array(Schema.Struct({ pid: Schema.Number, rssBytes: Schema.Number })),
+	executions: Schema.Struct({
+		total: Schema.Number,
+		active: Schema.Number,
+		maxActive: Schema.Number,
+	}),
+	deno: Schema.Struct({
+		rssBytes: Schema.Number,
+		processCount: Schema.Number,
+		userCpuTicks: OptionalCounter,
+		systemCpuTicks: OptionalCounter,
+	}),
+	replays: Schema.Struct({
+		totalFailed: Schema.Number,
+		totalStarted: Schema.Number,
+		totalCompleted: Schema.Number,
+		totalJournalBytes: Schema.Number,
+	}),
+	workers: Schema.Array(
+		Schema.Struct({
+			pid: Schema.Number,
+			rssBytes: Schema.Number,
+			userCpuTicks: OptionalCounter,
+			systemCpuTicks: OptionalCounter,
+			startTimeTicks: OptionalCounter,
+		}),
+	),
+	backend: Schema.Struct({
+		rssBytes: Schema.Number,
+		heapUsedBytes: Schema.Number,
+		externalBytes: Schema.Number,
+		heapTotalBytes: Schema.Number,
+		userCpuMicros: OptionalCounter,
+		arrayBuffersBytes: Schema.Number,
+		systemCpuMicros: OptionalCounter,
+	}),
+	cgroup: Schema.NullOr(
+		Schema.Struct({
+			pidsCurrent: OptionalCounter,
+			memoryMaxBytes: OptionalCounter,
+			memoryPeakBytes: OptionalCounter,
+			memoryCurrentBytes: OptionalCounter,
+			cpu: Schema.Struct({
+				userUsec: OptionalCounter,
+				usageUsec: OptionalCounter,
+				systemUsec: OptionalCounter,
+			}),
+			events: Schema.Struct({
+				low: Schema.Number,
+				max: Schema.Number,
+				oom: Schema.Number,
+				high: Schema.Number,
+				oomKill: Schema.Number,
+			}),
+		}),
+	),
 });
 
 export const TestSupportGlobalRelationship = Schema.Struct({
