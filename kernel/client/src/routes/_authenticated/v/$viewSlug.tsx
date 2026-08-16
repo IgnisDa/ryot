@@ -4,6 +4,7 @@ import {
 	Badge,
 	Button,
 	Modal,
+	ScreenBarButton,
 	SearchField,
 	SegmentedControl,
 	useShortcut,
@@ -462,15 +463,15 @@ function SavedViewContent(props: {
 		);
 	}
 
-	const searchField = (
+	const searchField = (className: string) => (
 		<SearchField
 			shortcut="/"
 			value={searchText}
+			className={className}
 			onChange={setSearchText}
 			label={`Search ${props.record.name}`}
 			icon={<AppIcon name="search" size={15} />}
 			clearIcon={<AppIcon name="x" size={14} />}
-			className="h-9.5 flex-1 md:h-8.5 md:w-60 md:flex-none"
 			onSubmit={() => setCommittedSearch(normalizeSavedViewSearch(searchText))}
 		/>
 	);
@@ -478,15 +479,14 @@ function SavedViewContent(props: {
 	return (
 		<div className="relative h-full min-h-0">
 			<AppScreen
-				headerClassName="grid gap-3 lg:h-15 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start lg:gap-6"
 				meta={
-					<div className="flex min-h-5 items-center gap-2 text-xs text-text-muted md:text-sm">
+					<div className="flex h-10 items-center gap-2 text-xs text-text-muted md:text-sm">
 						<span>{resultCount}</span>
 						{data?.pageInfo.hasMore && !transitioning && currentCount.status !== "resolved" && (
 							<Button
 								variant="text"
 								onClick={() => void countAll()}
-								className="min-h-6 text-sm text-accent-text"
+								className="text-sm text-accent-text"
 								disabled={currentCount.status === "counting"}
 							>
 								{countActionLabel}
@@ -501,42 +501,39 @@ function SavedViewContent(props: {
 				}
 				searchRow={
 					searchOpen ? (
-						<div className="relative flex h-13.5 items-center gap-1.5 px-4">
-							<button
-								type="button"
-								aria-label="Exit search"
+						<>
+							<ScreenBarButton
+								label="Exit search"
+								className="text-text"
 								onClick={() => setSearchOpen(false)}
-								className="flex size-11 shrink-0 items-center justify-center rounded-pill text-text"
 							>
 								<AppIcon name="chevron-left" size={22} />
-							</button>
-							{searchField}
-						</div>
+							</ScreenBarButton>
+							{searchField("h-9.5 flex-1")}
+						</>
 					) : undefined
 				}
 				barActions={
 					<>
-						<button
-							type="button"
-							aria-label="Search this view"
+						<ScreenBarButton
+							label="Search this view"
+							className="text-text-muted"
 							onClick={() => setSearchOpen(true)}
-							className="flex size-11 shrink-0 items-center justify-center rounded-pill text-text-muted"
 						>
 							<AppIcon name="search" size={22} />
-						</button>
-						<button
-							type="button"
+						</ScreenBarButton>
+						<ScreenBarButton
+							className="text-text-muted"
+							label="View options, 0 active filters"
 							onClick={() => setOptionsOpen(true)}
-							aria-label="View options, 0 active filters"
-							className="relative flex size-11 shrink-0 items-center justify-center rounded-pill text-text-muted"
 						>
 							<AppIcon name="sliders-horizontal" size={22} />
-						</button>
+						</ScreenBarButton>
 					</>
 				}
 				actions={
-					<div className="flex items-center gap-2.5">
-						{searchField}
+					<div className="flex flex-wrap items-center justify-end gap-2.5">
+						{searchField("h-8.5 w-60")}
 						<SegmentedControl
 							className="self-start"
 							options={layoutOptions}
@@ -550,7 +547,7 @@ function SavedViewContent(props: {
 							aria-disabled="true"
 							onClick={() => console.log("TODO: open the saved-view filters")}
 							className={clsx(
-								"hidden h-8.5 items-center gap-2 self-start rounded-md border border-border-strong bg-bg px-3 md:flex",
+								"flex h-8.5 items-center gap-2 self-start rounded-md border border-border-strong bg-bg px-3",
 								!hasItems && "opacity-50",
 							)}
 						>
@@ -564,7 +561,7 @@ function SavedViewContent(props: {
 								onClick={onAdd}
 								aria-label="Add"
 								aria-keyshortcuts="A"
-								className="hidden h-8.5 items-center gap-2 self-start rounded-md bg-accent px-3.5 md:flex"
+								className="flex h-8.5 items-center gap-2 self-start rounded-md bg-accent px-3.5"
 							>
 								<AppIcon name="plus" size={15} className="text-accent-ink" />
 								<span className="text-[13px] font-semibold text-accent-ink">Add</span>
@@ -576,10 +573,7 @@ function SavedViewContent(props: {
 					</div>
 				}
 			>
-				<div
-					aria-busy={state.operation !== undefined}
-					className="grid min-h-full w-full content-start gap-5"
-				>
+				<div aria-busy={state.operation !== undefined} className="grid w-full content-start gap-5">
 					{content}
 
 					{state.failure !== undefined && data !== undefined && (

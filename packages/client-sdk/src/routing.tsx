@@ -213,6 +213,7 @@ export const createPluginRouteResolver = (
 const screenBase: CSSProperties = {
 	inset: 0,
 	overflowY: "auto",
+	paddingBottom: 32,
 	position: "absolute",
 	willChange: "transform",
 	background: "var(--bg)",
