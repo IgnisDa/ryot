@@ -11,5 +11,6 @@
 - Resolve per-user catalogs from one `listPluginsAvailableToUser` snapshot and thread the resolved catalog through multi-row operations.
 - Key automation hooks by stable plugin ID and authored hook slug. Resolve scripts by immutable revision ID, script slug, and content hash.
 - Installation config pointer activation uses the ingestion transaction lock. Environment config is resolved per node at boot into the process-local `PluginEnvironmentConfig` map and has no pointer row. Retained execution reads use exact revision/config pins and never resolve current environment values.
+- The `plugin-config:<pluginId>` advisory key is shared for catalog readers and exclusive for configuration writers. One transaction must never take the shared form and later the exclusive form on the same key.
 - `getEffectiveDefinitions(userId, true)` includes disabled and installing installations but never incompatible installations.
 - A private installation becomes ready only through `PluginInstallationWorkflow`; uninstall must still resolve a private plugin shadowed by a system slug.

@@ -25,6 +25,11 @@ type PlannedAutomationScript = {
 	[Field in keyof typeof plannedScriptFields]: (typeof tables.sandboxScript.$inferSelect)[Field];
 };
 
+type TransactionCatalogMemo = {
+	readonly lockedSets: Set<string>;
+	readonly catalogs: Map<UserId | null, ReadonlyArray<AvailablePlugin>>;
+};
+
 type LifecyclePayload = NonNullable<AutomationTrigger["payload"]>;
 type BatchPayload = Extract<LifecyclePayload, { operation: "batch" }>;
 type ItemPayload = Exclude<LifecyclePayload, BatchPayload>;
@@ -87,7 +92,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 			const repository = yield* PluginRepository;
 			const registry = yield* DefinitionRegistry;
 			const environmentConfig = yield* PluginEnvironmentConfig;
-			const lockCatalog = Effect.fn(function* (users: ReadonlyArray<UserId | null>) {
+			const lockCatalogUncached = Effect.fn(function* (users: ReadonlyArray<UserId | null>) {
 				yield* repository.lockIngestionShared();
 				const db = yield* Database;
 				const userIds = users.filter((id) => id !== null);
@@ -115,8 +120,11 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 						.orderBy(asc(tables.plugin.id)),
 				);
 				for (const { id } of rows) {
+					// Shared: planners coexist; PluginConfigRevisions.lock takes this same key exclusively.
 					yield* mapDatabaseErrors(
-						db.execute(sql`select pg_advisory_xact_lock(hashtext(${"plugin-config:" + id}))`),
+						db.execute(
+							sql`select pg_advisory_xact_lock_shared(hashtext(${"plugin-config:" + id}))`,
+						),
 					);
 				}
 				const ids = rows.map(({ id }) => id);
@@ -147,7 +155,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 					);
 				}
 			});
-			const catalog = Effect.fn(function* (userId: UserId | null) {
+			const catalogUncached = Effect.fn(function* (userId: UserId | null) {
 				const db = yield* Database;
 				if (userId !== null) {
 					const [user] = yield* mapDatabaseErrors(
@@ -280,6 +288,43 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 					});
 				}
 				return result;
+			});
+			// `lockCatalogUncached` holds the `plugin-config:` advisory locks and the `for share` rows on
+			// `plugin` and `plugin_installation` for the rest of the transaction, so no other transaction
+			// can move the pointers a catalog read resolved: a second read within the same transaction
+			// cannot observe anything different, so both are worth resolving once. Callers must plan
+			// inside `database.transaction(...)`; entries are keyed on that transaction's `Database`
+			// value and die with it.
+			const memos = new WeakMap<object, TransactionCatalogMemo>();
+			const memoFor = (db: object) => {
+				const existing = memos.get(db);
+				if (existing) {
+					return existing;
+				}
+				const created: TransactionCatalogMemo = { catalogs: new Map(), lockedSets: new Set() };
+				memos.set(db, created);
+				return created;
+			};
+			const lockCatalog = Effect.fn(function* (users: ReadonlyArray<UserId | null>) {
+				const db = yield* Database;
+				const memo = memoFor(db);
+				const key = [...new Set(users.map((id) => id ?? " system"))].sort().join("\u0000");
+				if (memo.lockedSets.has(key)) {
+					return;
+				}
+				yield* lockCatalogUncached(users);
+				memo.lockedSets.add(key);
+			});
+			const catalog = Effect.fn(function* (userId: UserId | null) {
+				const db = yield* Database;
+				const memo = memoFor(db);
+				const cached = memo.catalogs.get(userId);
+				if (cached) {
+					return cached;
+				}
+				const resolved = yield* catalogUncached(userId);
+				memo.catalogs.set(userId, resolved);
+				return resolved;
 			});
 			const resolve = Effect.fn(function* (
 				trigger: AutomationTrigger,
