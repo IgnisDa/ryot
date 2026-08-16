@@ -68,16 +68,19 @@ it.live(
 			expect(pluginPackage.compiledClient?.files.map(({ name }) => name)).toContain("module.css");
 
 			const installed = yield* installTestSupportSystemPlugin(pluginPackage);
+			let active = true;
 			yield* Effect.addFinalizer(() =>
-				getApiClient()
-					.call(
-						(c) =>
-							c.testSupport.uninstallSystemPlugin({
-								params: { pluginSlug: PluginSlug.make(pluginSlug) },
-							}),
-						adminHeaders(),
-					)
-					.pipe(Effect.ignore),
+				active
+					? getApiClient()
+							.call(
+								(c) =>
+									c.testSupport.uninstallSystemPlugin({
+										params: { pluginSlug: PluginSlug.make(pluginSlug) },
+									}),
+								adminHeaders(),
+							)
+							.pipe(Effect.ignore)
+					: Effect.void,
 			);
 			expect(installed.scripts).toHaveLength(1);
 			const artifactHash = pluginPackage.compiledClient?.hash;
@@ -115,5 +118,14 @@ it.live(
 				fetch(new URL(`/api/client-assets/${artifactHash}/public/module.js`, `${apiUrl}/`)),
 			);
 			expect(publicResponse.status).toBe(404);
+			const removed = yield* getApiClient().call(
+				(c) =>
+					c.testSupport.uninstallSystemPlugin({
+						params: { pluginSlug: PluginSlug.make(pluginSlug) },
+					}),
+				adminHeaders(),
+			);
+			expect(removed.pluginId).toBe(installed.pluginId);
+			active = false;
 		}),
 );
