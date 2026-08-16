@@ -2,7 +2,7 @@ import type {
 	PluginLeadingIntent,
 	PluginEntityLocation,
 	PluginLogicalLocation,
-} from "@ryot-app/contract/modules/plugins/client";
+} from "@ryot-app/client-plugin-contract";
 import { Match } from "effect";
 import {
 	Fragment,

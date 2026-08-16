@@ -250,6 +250,10 @@ client: {
 
 The client shape is exact. `entry` is a relative POSIX path under `client/`, ends in `.ts` or `.tsx`, and has no `./` prefix. There is no client capabilities field until a real capability is implemented and enforced.
 
+`@ryot-app/contract` owns the plugin manifest and generic shared HTTP wire schemas. The client plugin
+bridge protocol, artifact model and format, client source file policy, and shared client-plugin
+capability payloads are owned by `@ryot-app/client-plugin-contract`.
+
 At installation, the client compiler semantically checks every archived non-test client `.ts`/`.tsx` file, including files outside the bundle graph. `.test.` and `.spec.` sources are excluded from this check. The check uses exact compiler-owned declarations for React, React DOM, `clsx`, and the published Ryot client SDK and UI SDK entry points. Type errors are fatal and are returned as normalized TypeScript diagnostics with archive-relative file names. This semantic check validates authoring types; it is not a security boundary.
 
 A plugin without client UI may omit the client entry.
@@ -335,7 +339,8 @@ Client-local CSS and supported assets live under `client/**`. The source archive
 
 The Outfit and Lora files used by the Ryot design system are compiler-owned dependencies, not plugin source files. The compiler adds its own copy of those fonts to every client artifact.
 
-The canonical client file policy is deliberately narrow:
+The canonical client source file policy is owned by `@ryot-app/client-plugin-contract` and is
+deliberately narrow:
 
 - text sources use the exact extensions `.ts`, `.tsx`, and `.css`
 - binary assets use the exact lowercase extensions `.svg`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.avif`, `.ico`, `.woff2`, and `.wasm`
@@ -350,7 +355,12 @@ There is no alternate compatibility representation for client files.
 
 Bun is the client bundler/compiler.
 
-Client compilation is owned by `@ryot-app/client-plugin-compiler`. Generic TypeScript infrastructure is owned by the private `@ryot-app/typescript-compiler` package, which shares TypeScript 7 native compiler resolution, virtual project lifecycle, diagnostic collection, and diagnostic normalization between the client and backend compilers.
+Client compilation is owned by `@ryot-app/client-plugin-compiler`. Its client-plugin boundary
+schemas and policy come from `@ryot-app/client-plugin-contract`, which owns the client source file
+policy, artifact model and format, bridge protocol, and shared client-plugin capability payloads.
+Generic TypeScript infrastructure is owned by the private `@ryot-app/typescript-compiler` package,
+which shares TypeScript 7 native compiler resolution, virtual project lifecycle, diagnostic
+collection, and diagnostic normalization between the client and backend compilers.
 
 `@ryot-app/client-plugin-compiler` and `@ryot-app/sandbox-compiler` remain separate compiler engines. They have independent import policies, limits, protocols, output models, and public APIs. The engines do not call or adapt to one another and have no shared execution mode, compiler bridge, or fallback. They share only the generic TypeScript infrastructure and the server-owned process-supervision boundary.
 
@@ -430,6 +440,8 @@ The image build invokes `dist/smoke-compiler-workers.js` with the absolute path 
 ## 7. Client artifact
 
 The client artifact is a complete web application loaded through a private artifact session.
+`@ryot-app/client-plugin-contract` owns the client artifact model and format; the compiler emits that
+format and the kernel loads it.
 
 The artifact is a flat set of files with unique single-segment names: `index.html`, `plugin.js`, `plugin.css`, and content-hashed assets named `asset-<sha256>.<ext>`. Identical assets with the same extension share one emitted file. Every artifact contains its own Outfit and Lora `.woff2` files; there is no shared kernel font fallback or public font-asset dependency. `index.html` references the other files with relative URLs (`./plugin.js`, `./plugin.css`, `./asset-<hash>.<ext>`).
 
@@ -457,6 +469,10 @@ The artifact hash covers the compiled bundle, stylesheet, and assets, so it cann
 ### Private plugin artifact sessions
 
 Artifact bytes are available only through an authenticated private session. The kernel creates one with `POST /plugins/:pluginSlug/installations/:installationId/client-artifact-sessions`, supplying the expected source and artifact hashes. The server checks the caller's ownership of that exact installation, the plugin slug and installation ID, and the active current source revision, artifact, installation state, and client versions before issuing the session.
+
+The artifact-session route and its request/response schemas remain HTTP contract concerns owned by
+`@ryot-app/contract`. `@ryot-app/client-plugin-contract` owns the artifact model and file format
+carried by that HTTP boundary, not the endpoint schemas.
 
 The response contains an opaque session ID and a 32-byte random bearer token. Only the token's SHA-256 hash is stored in Redis, with a 15-minute TTL. Authenticated renewal refreshes that lease only while the exact current revision remains valid; authenticated revocation deletes it. A source or artifact revision change therefore invalidates the old session, and the old or historical artifact cannot be fetched with its hash or with a session for another revision.
 
@@ -632,7 +648,9 @@ For example, the chart API should remain a Ryot chart API even if its internal i
 
 ## 10. `@ryot-app/client-sdk`
 
-`@ryot-app/client-sdk` is the shared, environment-neutral client contract between the Ryot kernel and plugin JavaScript.
+`@ryot-app/client-sdk` is the shared, environment-neutral client contract between the Ryot kernel and
+plugin JavaScript. It uses the bridge protocol, artifact metadata, source file policy, and shared
+client-plugin capability payloads owned by `@ryot-app/client-plugin-contract`.
 
 `RyotClient` is a framework-neutral Promise capability. It exposes semantic capability APIs, not kernel implementation details. Hosts construct it with an explicit adapter and pass the client to consumers through the provider/client boundary. It does not bind a global mutable bridge.
 
@@ -856,7 +874,12 @@ Third-party plugins must not import or invoke native plugins themselves.
 
 A plugin iframe and the kernel execute in separate JavaScript/document contexts.
 
-Communication between a plugin iframe and the kernel occurs through the exact bridge protocol version 1. The protocol marker is validated by exact equality.
+Communication between a plugin iframe and the kernel occurs through the exact bridge protocol version 1.
+`@ryot-app/client-plugin-contract` owns this bridge protocol, its payload schemas, and the shared
+client-plugin capability payloads; it also owns the client artifact format and source file policy.
+The protocol marker is validated by exact equality. Generic `JsonValue` remains in
+`@ryot-app/contract/schema/json`, and `@ryot-app/contract` does not own the iframe bridge or artifact
+schemas.
 
 The preferred plugin transport is `MessageChannel`, with the kernel explicitly handing a communication port to the top-level plugin document. The shared `RyotClient` does not depend on this transport: the kernel direct adapter calls kernel services directly, while the plugin runtime serializes the same semantic calls over its session `MessagePort`.
 
@@ -2041,10 +2064,15 @@ The current client contract records exact markers for:
 2. bridge protocol level
 3. client artifact format/compiler version
 
-The client API level is 1, the bridge protocol level is exactly 1, and
+`@ryot-app/client-plugin-contract` owns the bridge protocol and artifact format markers, the client
+source file policy, and the shared client-plugin capability payload boundary. The client API level is
+1, the bridge protocol level is exactly 1, and
 `CLIENT_COMPILER_VERSION` is exactly 1. Plugin source declares the exact client API level it targets.
 The compiler emits the bridge protocol, artifact format, and compiler versions into artifact
 metadata. The kernel validates exact expected values before execution.
+
+Generic shared wire schemas, including `JsonValue`, and artifact-session endpoint schemas remain
+owned by `@ryot-app/contract` as HTTP contract concerns.
 
 The current ingestion cache reuses client artifacts only when their artifact format, client API,
 bridge protocol, and compiler metadata match the current constants. A mismatch compiles a current

@@ -2,7 +2,7 @@ import {
 	CLIENT_API_VERSION,
 	PluginClientArtifact,
 	PluginClientArtifactMetadata,
-} from "@ryot-app/contract/modules/plugins/client";
+} from "@ryot-app/client-plugin-contract";
 import { CanonicalBase64 } from "@ryot-app/contract/schema/base64";
 import { Effect, Encoding, Schema } from "effect";
 

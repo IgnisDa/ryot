@@ -188,6 +188,7 @@
         "@opentelemetry/api": "1.9.1",
         "@react-email/components": "1.0.7",
         "@ryot-app/client-plugin-compiler": "workspace:*",
+        "@ryot-app/client-plugin-contract": "workspace:*",
         "@ryot-app/config": "workspace:*",
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/plugin-archive": "workspace:*",
@@ -235,6 +236,7 @@
         "@fontsource-variable/lora": "5.3.0",
         "@fontsource-variable/outfit": "5.3.0",
         "@noble/hashes": "^2.4.0",
+        "@ryot-app/client-plugin-contract": "workspace:*",
         "@ryot-app/client-sdk": "workspace:*",
         "@ryot-app/client-ui-sdk": "workspace:*",
         "@ryot-app/contract": "workspace:*",
@@ -296,6 +298,7 @@
       },
       "dependencies": {
         "@effect/platform-bun": "4.0.0-beta.107",
+        "@ryot-app/client-plugin-contract": "workspace:*",
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/plugin-archive": "workspace:*",
         "@ryot-app/sandbox-compiler": "workspace:*",
@@ -314,6 +317,7 @@
       "dependencies": {
         "@fontsource-variable/lora": "5.3.0",
         "@fontsource-variable/outfit": "5.3.0",
+        "@ryot-app/client-plugin-contract": "workspace:*",
         "@ryot-app/client-sdk": "workspace:*",
         "@ryot-app/client-ui-sdk": "workspace:*",
         "@ryot-app/contract": "workspace:*",
@@ -339,10 +343,23 @@
         "vitest": "4.1.9",
       },
     },
+    "packages/client-plugin-contract": {
+      "name": "@ryot-app/client-plugin-contract",
+      "dependencies": {
+        "@ryot-app/contract": "workspace:*",
+        "effect": "4.0.0-rc.111",
+      },
+      "devDependencies": {
+        "@ryot-app/testing": "workspace:*",
+        "bun-types": "1.4.0",
+        "vitest": "4.1.9",
+      },
+    },
     "packages/client-sdk": {
       "name": "@ryot-app/client-sdk",
       "dependencies": {
         "@effect/atom-react": "4.0.0-beta.107",
+        "@ryot-app/client-plugin-contract": "workspace:*",
         "@ryot-app/client-ui-sdk": "workspace:*",
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/ryotql": "workspace:*",
@@ -417,6 +434,7 @@
     "packages/plugin-archive": {
       "name": "@ryot-app/plugin-archive",
       "dependencies": {
+        "@ryot-app/client-plugin-contract": "workspace:*",
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/ts-utils": "workspace:*",
         "effect": "4.0.0-rc.111",
@@ -611,6 +629,7 @@
         "@effect/platform-bun": "4.0.0-beta.107",
         "@effect/vitest": "4.0.0-beta.107",
         "@ryot-app/cli": "workspace:*",
+        "@ryot-app/client-plugin-contract": "workspace:*",
         "@ryot-app/client-sdk": "workspace:*",
         "@ryot-app/client-ui-sdk": "workspace:*",
         "@ryot-app/kernel-backend": "workspace:*",
@@ -1423,6 +1442,8 @@
     "@ryot-app/cli": ["@ryot-app/cli@workspace:packages/cli"],
 
     "@ryot-app/client-plugin-compiler": ["@ryot-app/client-plugin-compiler@workspace:packages/client-plugin-compiler"],
+
+    "@ryot-app/client-plugin-contract": ["@ryot-app/client-plugin-contract@workspace:packages/client-plugin-contract"],
 
     "@ryot-app/client-sdk": ["@ryot-app/client-sdk@workspace:packages/client-sdk"],
 

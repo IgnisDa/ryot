@@ -4,7 +4,7 @@ import {
 	type PluginLeadingIntent,
 	type PluginLogicalLocation,
 	type PluginRouteLocation,
-} from "@ryot-app/contract/modules/plugins/client";
+} from "@ryot-app/client-plugin-contract";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { waitFor } from "@testing-library/dom";
 import { Match, Schema } from "effect";
