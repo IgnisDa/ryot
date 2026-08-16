@@ -190,7 +190,12 @@ const validateCentralDirectory = (bytes: Uint8Array) => {
 		if (canonicalRelativePosixPathIssue(path) !== null) {
 			throw failure("path-noncanonical");
 		}
-		if (path !== "manifest.json" && !path.startsWith("backend/")) {
+		if (
+			path !== "manifest.json" &&
+			!path.startsWith("backend/") &&
+			(!path.startsWith("client/") ||
+				![".ts", ".tsx", ".css", ".svg"].some((extension) => path.endsWith(extension)))
+		) {
 			throw failure("unexpected-entry");
 		}
 		if (paths.has(path)) {
