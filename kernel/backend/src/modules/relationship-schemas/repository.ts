@@ -20,13 +20,14 @@ export type RelationshipSchemaScope = {
 	readonly targetEntitySchemaSlug: EntitySchemaSlug | null;
 };
 
+const toNullableScope = (definition: RelationshipSchemaDefinition | null | undefined) =>
+	definition ? toScope(definition) : null;
+
 export class RelationshipSchemasRepository extends Context.Service<RelationshipSchemasRepository>()(
 	"RelationshipSchemasRepository",
 	{
 		make: Effect.gen(function* () {
 			const definitions = yield* DefinitionRepository;
-			const toNullableScope = (definition: RelationshipSchemaDefinition | null | undefined) =>
-				definition ? toScope(definition) : null;
 			const findBuiltinBySlug = (slug: string) =>
 				definitions.findGlobalRelationshipSchema(slug).pipe(Effect.map(toNullableScope));
 			const findById = (slug: RelationshipSchemaSlug, userId: UserId | null) =>

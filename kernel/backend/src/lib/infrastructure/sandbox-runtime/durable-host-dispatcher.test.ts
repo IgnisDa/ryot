@@ -781,8 +781,10 @@ const runLifecycleDispatch = (options: {
 	);
 };
 
-const lifecycleSteps = (overrides: Record<string, unknown>) =>
-	({ ...unusedLifecycle, ...overrides }) as SandboxHostImplementations["Service"]["lifecycle"];
+const lifecycleSteps = (overrides: Record<string, unknown>) => ({
+	...unusedLifecycle,
+	...overrides,
+});
 
 const batch = { creates: [], deletes: [] };
 
