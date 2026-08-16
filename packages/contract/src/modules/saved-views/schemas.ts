@@ -7,6 +7,21 @@ import { JsonValue, OutputFieldKey, RyotQLDocument } from "../ryotql/language";
 export const SavedViewLayoutName = Schema.Literals(["grid", "list", "table"]);
 export type SavedViewLayoutName = typeof SavedViewLayoutName.Type;
 
+export const SavedViewDefinitionIssue = Schema.Literals([
+	"query-count",
+	"output-kind",
+	"cursor-pagination",
+	"explicit-fields-required",
+	"nested-results",
+	"columns-empty",
+	"query-invalid",
+	"mapping-field-missing",
+	"field-kind",
+	"entity-id-source",
+	"image-cast",
+]);
+export type SavedViewDefinitionIssue = typeof SavedViewDefinitionIssue.Type;
+
 const SavedViewBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("duplicate-name") }),
 	Schema.Struct({ code: Schema.Literal("plugin-not-found"), pluginSlug: PluginSlug }),
@@ -26,21 +41,9 @@ const SavedViewBadRequestReason = Schema.Union([
 	}),
 	Schema.Struct({
 		layout: SavedViewLayoutName,
+		issue: SavedViewDefinitionIssue,
 		field: Schema.optional(Schema.String),
 		code: Schema.Literal("invalid-definition"),
-		issue: Schema.Literals([
-			"query-count",
-			"output-kind",
-			"cursor-pagination",
-			"explicit-fields-required",
-			"nested-results",
-			"columns-empty",
-			"query-invalid",
-			"mapping-field-missing",
-			"field-kind",
-			"entity-id-source",
-			"image-cast",
-		]),
 	}),
 ]);
 
