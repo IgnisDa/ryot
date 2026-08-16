@@ -22,7 +22,6 @@ import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import type { PluginConfigContext } from "#lib/infrastructure/sandbox-runtime/app-config";
 
-import { bootConfiguredPluginSlugs } from "./boot-sources";
 import { PluginInstallationRepository } from "./installation-repository";
 import {
 	findPluginEntryById,
@@ -350,8 +349,10 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				const [stored] = yield* mapDatabaseErrors(
 					db
 						.select({
-							slug: schema.sandboxScript.slug,
+							pluginId: schema.plugin.id,
 							pluginSlug: schema.plugin.slug,
+							slug: schema.sandboxScript.slug,
+							pluginScope: schema.plugin.scope,
 							contentHash: schema.sandboxScript.contentHash,
 						})
 						.from(schema.sandboxScript)
@@ -359,18 +360,20 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						.where(eq(schema.sandboxScript.id, scriptId))
 						.limit(1),
 				);
-				if (!stored || !bootConfiguredPluginSlugs.has(stored.pluginSlug)) {
+				if (stored?.pluginScope !== "system") {
 					return null;
 				}
 				const plugin = snapshot.plugins[stored.pluginSlug];
-				const active = plugin?.scripts.find(
+				if (plugin?.id !== stored.pluginId) {
+					return null;
+				}
+				const active = plugin.scripts.find(
 					(script) =>
 						script.slug === stored.slug &&
 						script.contentHash === stored.contentHash &&
 						script.metadata.kind === "script",
 				);
 				if (
-					!plugin ||
 					!active ||
 					!plugin.manifest.userBootstrap.some(({ scriptSlug }) => scriptSlug === stored.slug)
 				) {
