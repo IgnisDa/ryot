@@ -1,17 +1,18 @@
-import {
-	musicActivityRecipe,
-	musicOverviewRecipe,
-	musicPresentationRecipe,
-	musicSummaryRecipe,
-	type MusicPresentationData,
-	type MusicSummaryResult,
-} from "../../shared/music-recipes";
+import type { MediaPresentationDataOf, MediaSummaryOf } from "../../shared/media-recipes";
+import { musicRecipes } from "../../shared/music-recipes";
+import { mediaFlatActivityCopy } from "../media/activity-copy";
 import { mediaActivityTimeLabel, mediaTrackLengthLabel } from "../media/activity-timeline";
 import { defineFlatMediaSchema } from "../media/flat-schema";
 import { MEDIA_ART_HEIGHT } from "../media/hero";
-import { mediaRatingFact, type MediaSummaryFact } from "../media/summary-state";
+import {
+	mediaProductionStatusFact,
+	mediaRatingFact,
+	type MediaSummaryFact,
+} from "../media/summary-state";
 
-type MusicSummary = NonNullable<MusicSummaryResult["summary"]>;
+type MusicSummary = MediaSummaryOf<typeof musicRecipes>;
+
+type MusicPresentation = MediaPresentationDataOf<typeof musicRecipes>;
 
 export const musicSummaryFacts = (music: MusicSummary): readonly MediaSummaryFact[] =>
 	[
@@ -22,48 +23,27 @@ export const musicSummaryFacts = (music: MusicSummary): readonly MediaSummaryFac
 		music.byVariousArtists === null
 			? undefined
 			: { icon: "users", label: "Various artists", value: music.byVariousArtists ? "Yes" : "No" },
-		music.productionStatus === null
-			? undefined
-			: { icon: "clapperboard", label: "Production status", value: music.productionStatus },
+		mediaProductionStatusFact(music),
 	].filter((fact) => fact !== undefined);
 
-export const musicPresentationFacts = (music: MusicPresentationData) =>
+export const musicPresentationFacts = (music: MusicPresentation) =>
 	music.duration === null ? [] : [mediaTrackLengthLabel(music.duration)];
 
 export const musicSchema = defineFlatMediaSchema({
 	aspect: "square",
+	recipes: musicRecipes,
 	progressVerb: "played",
 	facts: musicSummaryFacts,
 	heroHeight: () => MEDIA_ART_HEIGHT,
 	presentationFacts: musicPresentationFacts,
 	nouns: { title: "Music", plural: "tracks", singular: "track" },
 	measureFigure: { label: "Time", value: mediaActivityTimeLabel },
+	activityCopy: mediaFlatActivityCopy({ noun: "track", verb: "listen" }),
 	group: { actionLabel: "View album", title: (name) => `Part of ${name}` },
 	overviewLoadingDetail: "Fetching the artists, labels and recommendations for this track.",
 	creditCopy: {
 		companies: "Labels",
 		people: "Artists & credits",
 		notice: "Artists, labels and recommendations",
-	},
-	recipes: {
-		summaryRecipe: musicSummaryRecipe,
-		overviewRecipe: musicOverviewRecipe,
-		activityRecipe: musicActivityRecipe,
-		presentationRecipe: musicPresentationRecipe,
-	},
-	activityCopy: {
-		segmentNoun: "Listen",
-		completionsLabel: "Listens",
-		recordLabel: "Listen record",
-		loadingDetail: "Fetching everything you have recorded for this track.",
-		beats: { dropped: "Stopped listening", on_hold: "Put this track on hold" },
-		emptyDetail:
-			"Nothing has been recorded for this track. Whatever you listen to will appear here as your listen record.",
-		rowLabels: {
-			review: "Reviewed the track",
-			completion: "Finished the track",
-			progress: (percent) =>
-				percent === undefined ? "Part-way through the track" : `${percent}% through the track`,
-		},
 	},
 });

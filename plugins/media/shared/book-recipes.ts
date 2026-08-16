@@ -1,13 +1,14 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
-import { defineRecipe, isNull, selectedField, type Recipe } from "@ryot-app/plugin-kit/ryotql";
+import { isNull, selectedField } from "@ryot-app/plugin-kit/ryotql";
 
 import { propertyBoolean, propertyNumber } from "./entity-selections";
 import { mediaFlatRecipes, mediaUnlinkedCreatorsQuery } from "./media-recipes";
 
-const bookRecipes = mediaFlatRecipes({
+export const bookRecipes = mediaFlatRecipes({
 	slug: "book",
 	alias: "book",
 	groupSlug: "book-group",
+	extraOverviewQueries: (input) => ({ creators: mediaUnlinkedCreatorsQuery(input.entityId) }),
 	presentationFields: (entity) => ({
 		pages: selectedField(propertyNumber(entity, "pages"), Schema.NullOr(Schema.Number)),
 	}),
@@ -23,24 +24,3 @@ const bookRecipes = mediaFlatRecipes({
 		),
 	}),
 });
-
-export const {
-	summaryRecipe: bookSummaryRecipe,
-	activityRecipe: bookActivityRecipe,
-	presentationRecipe: bookPresentationRecipe,
-} = bookRecipes;
-
-export const bookOverviewRecipe = defineRecipe(
-	(input: Parameters<typeof bookRecipes.overviewQueries>[0]) => ({
-		queries: {
-			...bookRecipes.overviewQueries(input),
-			creators: mediaUnlinkedCreatorsQuery(input.entityId),
-		},
-	}),
-);
-
-export type BookActivityEvent = BookActivityResult["events"][number];
-export type BookSummaryResult = Recipe.Success<typeof bookSummaryRecipe>;
-export type BookActivityResult = Recipe.Success<typeof bookActivityRecipe>;
-export type BookOverviewResult = Recipe.Success<typeof bookOverviewRecipe>;
-export type BookPresentationData = Recipe.Success<typeof bookPresentationRecipe>[number];

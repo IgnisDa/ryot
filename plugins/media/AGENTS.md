@@ -11,11 +11,13 @@
 - Episodic schemas are a `mediaEpisodicRecipes` config in `shared/<slug>-recipes.ts` and a `defineEpisodicMediaSchema` descriptor in `client/<slug>/schema.tsx`. Engine behaviour is tested in `client/media/` and `shared/episodic-recipes.test.ts`; schema tests cover only descriptor output.
 - A flat schema whose entity schema has no group omits `groupSlug` from its `mediaFlatRecipes` config and `group` from its descriptor; never point it at a group that does not exist.
 - Schema-specific activity event fields go through `activityEventFields` on the `mediaFlatRecipes` config and reach the descriptor through the progress row label; never add them to the shared event selection.
+- A recipe factory that needs a query beyond the shared overview set declares `extraOverviewQueries`; never re-wrap `overviewRecipe` in the slug file.
+- Activity copy comes from `mediaFlatActivityCopy` and `mediaEpisodicActivityCopy` in `client/media/activity-copy.ts`, which hold the per-verb vocabulary. A descriptor passes only what the verb table cannot say, such as a schema's own progress row label.
 - Episode lists are cursor-paged top-level row queries, never includes; only a top-level rows query exposes `pageInfo.nextCursor`. Container-level counts come from the container query's aggregates, never from a loaded episode page.
 - A schema selects only fields its own entity schema declares. `watchProviders` belongs to `movie` and `show` alone, so it lives in `mediaWatchProviderSelection` rather than `mediaSummarySelection`.
 - Overview sections sourced from the summary are descriptor-provided through `overviewTrailing`; `client/media/` owns no schema-specific section. "Where to watch" is `mediaWatchProvidersTrailing`, not a `MediaOverview` prop.
 - A schema declares its hero backdrop purposes rather than assuming `backdrop`. `backdropPurposes` is an ordered list, defaults to `["backdrop"]`, and drives both the hero image and its managed-asset set.
-- One shared card and row presentation covers every media schema except `show`, `movie`, `music`, `book`, `manga`, `podcast`, and `video-game`; its loader takes the schema slug from the batch's references.
+- One shared card and row presentation covers every media schema except `show`, `anime`, `movie`, `music`, `book`, `manga`, `podcast`, and `video-game`; its loader takes the schema slug from the batch's references.
 - Import media and schema recipes straight from `shared/media-recipes` and `shared/<slug>-recipes`; never re-export them through `host/query-recipes.ts`, which owns only the podcast, suggestion, trending, and saved-view recipes.
 - `client/` must not restate schemas that `shared/` owns.
 - `client/media/` holds the schema-agnostic client layer every detail screen composes; it carries no schema symbol and no schema copy. Nouns, row and beat labels, credit-section titles, group copy, and artwork aspect are descriptor or caller input; never hardcode poster geometry there.
