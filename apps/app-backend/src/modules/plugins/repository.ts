@@ -1,14 +1,19 @@
 import { DbError } from "@ryot/contract/errors";
 import type { PluginProviderOperation } from "@ryot/contract/modules/plugins/manifest";
 import { SandboxProviderId } from "@ryot/contract/schema/brands";
-import { and, asc, eq, inArray, isNull, notExists, notInArray, or, sql } from "drizzle-orm";
+import { and, asc, eq, exists, inArray, isNull, notExists, notInArray, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { PLUGIN_INGESTION_ADVISORY_LOCK_KEY } from "#lib/infrastructure/db/advisory-locks";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
-import type { NormalizedPlugin, NormalizedPluginScript, StoredPlugin } from "./types";
+import type {
+	NormalizedPlugin,
+	NormalizedPluginScript,
+	StoredPlugin,
+	StoredPluginIdentity,
+} from "./types";
 
 type PluginRow = typeof schema.plugin.$inferSelect;
 type ScriptRow = typeof schema.sandboxScript.$inferSelect;
@@ -59,10 +64,15 @@ const toStoredPlugin = Effect.fn(function* (row: PluginRow, scripts: ReadonlyArr
 		});
 	}
 	return {
+		id: row.id,
+		slug: row.slug,
+		scope: row.scope,
 		status: row.status,
+		ownerId: row.ownerId,
 		manifest: row.manifest,
 		scripts: currentScripts,
 		sourceHash: row.sourceHash,
+		sourceFiles: row.sourceFiles,
 	} satisfies StoredPlugin;
 });
 
@@ -82,27 +92,53 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				return [];
 			}
 			const db = yield* Database;
-			const pluginSlugs = rows.map(({ slug }) => slug);
+			const pluginIds = rows.map(({ id }) => id);
 			return yield* mapDatabaseErrors(
 				db
 					.select()
 					.from(schema.sandboxScript)
-					.where(inArray(schema.sandboxScript.pluginSlug, pluginSlugs)),
+					.where(inArray(schema.sandboxScript.pluginId, pluginIds)),
+			);
+		});
+
+		const toStoredPlugins = Effect.fn(function* (rows: ReadonlyArray<PluginRow>) {
+			const scripts = yield* loadScripts(rows);
+			return yield* Effect.forEach(rows, (row) =>
+				toStoredPlugin(
+					row,
+					scripts.filter(({ pluginId }) => pluginId === row.id),
+				),
 			);
 		});
 
 		const list = Effect.fn("PluginRepository.list")(function* () {
 			const db = yield* Database;
 			const rows = yield* mapDatabaseErrors(
-				db.select().from(schema.plugin).where(eq(schema.plugin.status, "active")),
+				db
+					.select()
+					.from(schema.plugin)
+					.where(and(eq(schema.plugin.status, "active"), eq(schema.plugin.scope, "system"))),
 			);
-			const scripts = yield* loadScripts(rows);
-			return yield* Effect.forEach(rows, (row) =>
-				toStoredPlugin(
-					row,
-					scripts.filter(({ pluginSlug }) => pluginSlug === row.slug),
-				),
+			return yield* toStoredPlugins(rows);
+		});
+
+		const listPrivateForUser = Effect.fn("PluginRepository.listPrivateForUser")(function* (
+			userId: string,
+		) {
+			const db = yield* Database;
+			const rows = yield* mapDatabaseErrors(
+				db
+					.select()
+					.from(schema.plugin)
+					.where(
+						and(
+							eq(schema.plugin.status, "active"),
+							eq(schema.plugin.scope, "user"),
+							eq(schema.plugin.ownerId, userId),
+						),
+					),
 			);
+			return yield* toStoredPlugins(rows);
 		});
 
 		const listActiveManifests = Effect.fn("PluginRepository.listActiveManifests")(function* () {
@@ -111,7 +147,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				db
 					.select({ manifest: schema.plugin.manifest })
 					.from(schema.plugin)
-					.where(eq(schema.plugin.status, "active")),
+					.where(and(eq(schema.plugin.status, "active"), eq(schema.plugin.scope, "system"))),
 			);
 			return rows.map(({ manifest }) => manifest);
 		});
@@ -122,16 +158,18 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				return yield* mapDatabaseErrors(
 					db
 						.select({
+							id: schema.plugin.id,
 							slug: schema.plugin.slug,
 							version: schema.plugin.version,
 							manifestMetadata: schema.plugin.manifest,
 						})
 						.from(schema.plugin)
-						.where(eq(schema.plugin.status, "active"))
+						.where(and(eq(schema.plugin.status, "active"), eq(schema.plugin.scope, "system")))
 						.orderBy(asc(schema.plugin.slug)),
 				).pipe(
 					Effect.map((rows) =>
-						rows.map(({ manifestMetadata: manifest, slug, version }) => ({
+						rows.map(({ manifestMetadata: manifest, id, slug, version }) => ({
+							id,
 							slug,
 							version,
 							metadata: manifest.metadata,
@@ -149,7 +187,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		);
 
 		const resolveProviderBySlugs = Effect.fn("PluginRepository.resolveProviderBySlugs")(
-			function* (input: { pluginSlug: string; providerSlug: string }) {
+			function* (input: { pluginId: string; providerSlug: string }) {
 				const db = yield* Database;
 				const [row] = yield* mapDatabaseErrors(
 					db
@@ -158,12 +196,12 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							entitySchemaSlug: schema.sandboxProvider.rootEntitySchemaSlug,
 						})
 						.from(schema.sandboxProvider)
-						.innerJoin(schema.plugin, eq(schema.plugin.slug, schema.sandboxProvider.pluginSlug))
+						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.sandboxProvider.pluginId))
 						.where(
 							and(
 								eq(schema.plugin.status, "active"),
 								eq(schema.sandboxProvider.slug, input.providerSlug),
-								eq(schema.sandboxProvider.pluginSlug, input.pluginSlug),
+								eq(schema.sandboxProvider.pluginId, input.pluginId),
 							),
 						)
 						.limit(1),
@@ -173,7 +211,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		);
 
 		const hasEntityReferences = Effect.fn("PluginRepository.hasEntityReferences")(
-			function* (input: { pluginSlug: string; entitySchemaSlugs: ReadonlyArray<string> }) {
+			function* (input: { pluginId: string; entitySchemaSlugs: ReadonlyArray<string> }) {
 				const db = yield* Database;
 				const [row] = yield* mapDatabaseErrors(
 					db
@@ -187,9 +225,9 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							input.entitySchemaSlugs.length > 0
 								? or(
 										inArray(schema.entity.entitySchemaSlug, [...input.entitySchemaSlugs]),
-										eq(schema.sandboxProvider.pluginSlug, input.pluginSlug),
+										eq(schema.sandboxProvider.pluginId, input.pluginId),
 									)
-								: eq(schema.sandboxProvider.pluginSlug, input.pluginSlug),
+								: eq(schema.sandboxProvider.pluginId, input.pluginId),
 						)
 						.limit(1),
 				);
@@ -211,10 +249,9 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			},
 		);
 
-		const findBySourceHash = Effect.fn("PluginRepository.findBySourceHash")(function* (input: {
-			slug: string;
-			sourceHash: string;
-		}) {
+		const findBySourceHash = Effect.fn("PluginRepository.findBySourceHash")(function* (
+			input: Omit<StoredPluginIdentity, "id"> & { sourceHash: string },
+		) {
 			const db = yield* Database;
 			const [row] = yield* mapDatabaseErrors(
 				db
@@ -223,8 +260,12 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					.where(
 						and(
 							eq(schema.plugin.slug, input.slug),
+							eq(schema.plugin.scope, input.scope),
 							eq(schema.plugin.status, "active"),
 							eq(schema.plugin.sourceHash, input.sourceHash),
+							input.ownerId === null
+								? isNull(schema.plugin.ownerId)
+								: eq(schema.plugin.ownerId, input.ownerId),
 						),
 					)
 					.limit(1),
@@ -248,7 +289,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 						and(
 							eq(schema.sandboxScript.slug, script.slug),
 							eq(schema.sandboxScript.contentHash, script.contentHash),
-							isNull(schema.sandboxScript.pluginSlug),
+							isNull(schema.sandboxScript.pluginId),
 						),
 					)
 					.limit(1),
@@ -266,7 +307,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				db
 					.insert(schema.sandboxScript)
 					.values({
-						pluginSlug: null,
+						pluginId: null,
 						slug: script.slug,
 						name: script.name,
 						source: script.source,
@@ -279,40 +320,51 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			);
 		});
 
-		const persist = Effect.fn("PluginRepository.persist")(function* (plugin: NormalizedPlugin) {
+		const persist = Effect.fn("PluginRepository.persist")(function* (
+			plugin: NormalizedPlugin,
+			identity: Omit<StoredPluginIdentity, "id">,
+		) {
 			const db = yield* Database;
-			const slug = plugin.manifest.metadata.slug;
+			const slug = identity.slug;
+			const compiledHashes = Object.fromEntries(
+				plugin.scripts.map((script) => [script.slug, script.contentHash]),
+			);
+			const mutation = {
+				compiledHashes,
+				status: "active",
+				manifest: plugin.manifest,
+				sourceHash: plugin.sourceHash,
+				sourceFiles: plugin.sourceFiles,
+				version: plugin.manifest.metadata.version,
+			} as const;
+			const conflict =
+				identity.scope === "system"
+					? {
+							target: schema.plugin.slug,
+							targetWhere: sql`${schema.plugin.scope} = 'system'`,
+							set: { ...mutation, ingestedAt: sql`now()` },
+						}
+					: {
+							target: [schema.plugin.ownerId, schema.plugin.slug],
+							targetWhere: sql`${schema.plugin.scope} = 'user'`,
+							set: { ...mutation, ingestedAt: sql`now()` },
+						};
+			const [persisted] = yield* mapDatabaseErrors(
+				db
+					.insert(schema.plugin)
+					.values({ ...mutation, slug, scope: identity.scope, ownerId: identity.ownerId })
+					.onConflictDoUpdate(conflict)
+					.returning({ id: schema.plugin.id }),
+			);
+			if (!persisted) {
+				return yield* new DbError({ message: `Plugin ${slug} could not be persisted` });
+			}
+			const pluginId = persisted.id;
 			const existingProviders = yield* mapDatabaseErrors(
 				db
 					.select({ id: schema.sandboxProvider.id, slug: schema.sandboxProvider.slug })
 					.from(schema.sandboxProvider)
-					.where(eq(schema.sandboxProvider.pluginSlug, slug)),
-			);
-			const compiledHashes = Object.fromEntries(
-				plugin.scripts.map((script) => [script.slug, script.contentHash]),
-			);
-			yield* mapDatabaseErrors(
-				db
-					.insert(schema.plugin)
-					.values({
-						slug,
-						compiledHashes,
-						status: "active",
-						manifest: plugin.manifest,
-						sourceHash: plugin.sourceHash,
-						version: plugin.manifest.metadata.version,
-					})
-					.onConflictDoUpdate({
-						target: schema.plugin.slug,
-						set: {
-							compiledHashes,
-							status: "active",
-							ingestedAt: sql`now()`,
-							manifest: plugin.manifest,
-							sourceHash: plugin.sourceHash,
-							version: plugin.manifest.metadata.version,
-						},
-					}),
+					.where(eq(schema.sandboxProvider.pluginId, pluginId)),
 			);
 			const providers =
 				plugin.manifest.providers.length > 0
@@ -321,15 +373,15 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 								.insert(schema.sandboxProvider)
 								.values(
 									plugin.manifest.providers.map((provider) => ({
+										pluginId,
 										slug: provider.slug,
 										name: provider.name,
-										rootEntitySchemaSlug: provider.rootEntitySchemaSlug,
-										pluginSlug: slug,
 										information: provider.information,
+										rootEntitySchemaSlug: provider.rootEntitySchemaSlug,
 									})),
 								)
 								.onConflictDoUpdate({
-									target: [schema.sandboxProvider.pluginSlug, schema.sandboxProvider.slug],
+									target: [schema.sandboxProvider.pluginId, schema.sandboxProvider.slug],
 									set: {
 										updatedAt: sql`now()`,
 										name: sql`excluded.name`,
@@ -393,26 +445,26 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							db
 								.insert(schema.sandboxScript)
 								.values({
-									providerId: providerId ?? null,
-									pluginSlug: slug,
+									pluginId,
 									slug: script.slug,
 									name: script.name,
 									source: script.source,
 									metadata: script.metadata,
+									providerId: providerId ?? null,
 									contentHash: script.contentHash,
 									compiledCode: script.compiledCode,
 									compiledFormat: script.compiledFormat,
 								})
 								.onConflictDoUpdate({
 									target: [
-										schema.sandboxScript.pluginSlug,
+										schema.sandboxScript.pluginId,
 										schema.sandboxScript.slug,
 										schema.sandboxScript.contentHash,
 									],
 									set: {
 										updatedAt: sql`now()`,
-										providerId: providerId ?? null,
 										metadata: script.metadata,
+										providerId: providerId ?? null,
 									},
 								})
 								.returning({
@@ -474,13 +526,13 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					}
 				}
 			}
-			return yield* Effect.void;
+			return pluginId;
 		});
 
-		const deactivate = Effect.fn("PluginRepository.deactivate")(function* (slug: string) {
+		const deactivate = Effect.fn("PluginRepository.deactivate")(function* (pluginId: string) {
 			const db = yield* Database;
 			yield* mapDatabaseErrors(
-				db.update(schema.plugin).set({ status: "inactive" }).where(eq(schema.plugin.slug, slug)),
+				db.update(schema.plugin).set({ status: "inactive" }).where(eq(schema.plugin.id, pluginId)),
 			);
 		});
 
@@ -530,20 +582,33 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 
 		const listPersistedLivenessContentHashes = Effect.fn(
 			"PluginRepository.listPersistedLivenessContentHashes",
-		)(function* (referencedPluginSlugs: ReadonlySet<string>) {
+		)(function* () {
 			const db = yield* Database;
-			const pluginSlugs = [...referencedPluginSlugs];
 			const rows = yield* mapDatabaseErrors(
 				db
 					.select({ contentHash: schema.sandboxScript.contentHash })
 					.from(schema.sandboxScript)
 					.where(
-						pluginSlugs.length > 0
-							? or(
-									isNull(schema.sandboxScript.pluginSlug),
-									inArray(schema.sandboxScript.pluginSlug, pluginSlugs),
-								)
-							: isNull(schema.sandboxScript.pluginSlug),
+						or(
+							isNull(schema.sandboxScript.pluginId),
+							exists(
+								db
+									.select({ id: schema.plugin.id })
+									.from(schema.plugin)
+									.where(
+										and(
+											eq(schema.plugin.id, schema.sandboxScript.pluginId),
+											eq(schema.plugin.status, "active"),
+										),
+									),
+							),
+							exists(
+								db
+									.select({ scriptId: schema.sandboxWorkflowReference.scriptId })
+									.from(schema.sandboxWorkflowReference)
+									.where(eq(schema.sandboxWorkflowReference.scriptId, schema.sandboxScript.id)),
+							),
+						),
 					),
 			);
 			return rows.map(({ contentHash }) => contentHash);
@@ -555,6 +620,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			deactivate,
 			lockIngestion,
 			findBySourceHash,
+			listPrivateForUser,
 			persistKernelScript,
 			hasEntityReferences,
 			listActiveManifests,

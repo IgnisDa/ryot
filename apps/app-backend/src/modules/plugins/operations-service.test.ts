@@ -20,9 +20,10 @@ import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import { OperationsService } from "./operations-service";
 import { PluginRuntimeResolver } from "./runtime-resolver";
-import { fixtureManifest } from "./test-support";
+import { fixtureManifest, fixturePluginIdentity } from "./test-support";
 import type { NormalizedPlugin } from "./types";
 
+const PRIVATE_SLUG = "private";
 const DRIVER_REF = "operation.fixture";
 const OPERATION_SLUG = "resolve.fixture";
 
@@ -56,6 +57,7 @@ const normalizedPlugin = (auth: PluginOperationAuth): NormalizedPlugin => {
 	} satisfies PluginManifest;
 	const { entry, ...metadata } = operationScript;
 	return {
+		...fixturePluginIdentity(),
 		sourceHash: "fixture-source",
 		manifest: normalizedManifest,
 		scripts: [
@@ -79,7 +81,7 @@ const makeActiveScript = (slug: string, id = "op-script-id") => ({
 	source: "source",
 	providerId: null,
 	compiledFormat: 1,
-	pluginSlug: "fixture",
+	pluginId: "fixture",
 	compiledCode: "compiled",
 	contentHash: `${slug}-hash`,
 	createdAt: new Date(0),
@@ -100,6 +102,7 @@ const makeIntegration = (userId: string, isDisabled: boolean) =>
 	({ isDisabled, userId: UserId.make(userId) }) as unknown as IntegrationRecord;
 
 const makeLayer = (input: {
+	sandboxError?: string;
 	currentUserId?: UserId;
 	registerPlugin?: boolean;
 	auth: PluginOperationAuth;
@@ -107,7 +110,7 @@ const makeLayer = (input: {
 	currentUserGate?: Effect.Effect<void>;
 	integration?: IntegrationRecord | null;
 	operationScript?: () => ReturnType<typeof makeActiveScript>;
-	sandboxError?: string;
+	userOperation?: { auth: PluginOperationAuth; ownerId: UserId };
 }) => {
 	const integrationsRepository = Layer.mock(IntegrationsRepository)({
 		getByIdAnyUser: () => Effect.succeed(input.integration ?? null),
@@ -141,6 +144,22 @@ const makeLayer = (input: {
 									),
 					}),
 					Layer.mock(PluginRuntimeResolver)({
+						findUserOperation: ({ operationSlug, pluginSlug, userId }) =>
+							Effect.succeed(
+								userId === input.userOperation?.ownerId &&
+									pluginSlug === PRIVATE_SLUG &&
+									operationSlug === OPERATION_SLUG
+									? {
+											script: makeActiveScript(DRIVER_REF, "private-script-id"),
+											operation: {
+												slug: OPERATION_SLUG,
+												scriptSlug: DRIVER_REF,
+												auth: input.userOperation.auth,
+												description: "Private fixture",
+											},
+										}
+									: null,
+							),
 						findActiveOperation: ({ operationSlug, pluginSlug }) => {
 							const operation =
 								pluginSlug === "fixture" && input.registerPlugin !== false
@@ -189,7 +208,7 @@ const expectError = (
 	expect(error).toBeInstanceOf(ErrorClass);
 };
 
-it.effect("returns NotFound for an unknown plugin", () =>
+it.effect("returns NotFound for a plugin absent from every registry the caller owns", () =>
 	Effect.gen(function* () {
 		const service = yield* OperationsService;
 		const exit = yield* Effect.exit(
@@ -201,7 +220,7 @@ it.effect("returns NotFound for an unknown plugin", () =>
 			}),
 		);
 		expectError(exit, PluginNotFoundError);
-	}).pipe(Effect.provide(makeLayer({ auth: "user" }))),
+	}).pipe(Effect.provide(makeLayer({ auth: "user", currentUserId: UserId.make("user-1") }))),
 );
 
 it.effect("returns NotFound for an unknown operation", () =>
@@ -216,7 +235,83 @@ it.effect("returns NotFound for an unknown operation", () =>
 			}),
 		);
 		expectError(exit, PluginNotFoundError);
-	}).pipe(Effect.provide(makeLayer({ auth: "user" }))),
+	}).pipe(Effect.provide(makeLayer({ auth: "user", currentUserId: UserId.make("user-1") }))),
+);
+
+it.effect("returns NotFound for a slug that exists only in another user's registry", () =>
+	Effect.gen(function* () {
+		const service = yield* OperationsService;
+		const exit = yield* Effect.exit(
+			service.invoke({
+				payload: {},
+				headers: Headers.empty,
+				pluginSlug: PRIVATE_SLUG,
+				operationSlug: OPERATION_SLUG,
+			}),
+		);
+		expectError(exit, PluginNotFoundError);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				auth: "user",
+				currentUserId: UserId.make("user-2"),
+				userOperation: { auth: "user", ownerId: UserId.make("user-1") },
+			}),
+		),
+	),
+);
+
+it.effect("dispatches a private operation with the owning user's authority", () => {
+	const captured: Array<unknown> = [];
+	return Effect.gen(function* () {
+		const service = yield* OperationsService;
+		expect(
+			yield* service.invoke({
+				payload: {},
+				headers: Headers.empty,
+				pluginSlug: PRIVATE_SLUG,
+				operationSlug: OPERATION_SLUG,
+			}),
+		).toBe("ok");
+		expect(captured).toEqual([
+			expect.objectContaining({
+				scriptId: "private-script-id",
+				authority: { type: "user", userId: "user-1" },
+			}),
+		]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				captured,
+				auth: "user",
+				currentUserId: UserId.make("user-1"),
+				userOperation: { auth: "user", ownerId: UserId.make("user-1") },
+			}),
+		),
+	);
+});
+
+it.effect("rejects a private operation that declares integration authentication", () =>
+	Effect.gen(function* () {
+		const service = yield* OperationsService;
+		const exit = yield* Effect.exit(
+			service.invoke({
+				payload: {},
+				headers: Headers.empty,
+				pluginSlug: PRIVATE_SLUG,
+				operationSlug: OPERATION_SLUG,
+			}),
+		);
+		expectError(exit, PluginRequestError);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				auth: "user",
+				currentUserId: UserId.make("user-1"),
+				userOperation: { auth: "integration", ownerId: UserId.make("user-1") },
+			}),
+		),
+	),
 );
 
 it.effect("rejects integration operations without an integrationId payload", () =>

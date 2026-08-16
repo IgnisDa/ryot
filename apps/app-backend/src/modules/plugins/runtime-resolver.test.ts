@@ -1,6 +1,12 @@
 import { expect, it } from "@effect/vitest";
 import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import { EntitySchemaSlug, SandboxProviderId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import type { ExecutionAuthority } from "@ryot/contract/modules/sandbox/schemas";
+import {
+	EntitySchemaSlug,
+	SandboxProviderId,
+	SandboxScriptId,
+	UserId,
+} from "@ryot/contract/schema/brands";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Cause, Deferred, Effect, Exit, Fiber, Layer, Option } from "effect";
 import { assert } from "vitest";
@@ -9,16 +15,26 @@ import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database } from "#lib/infrastructure/db/service";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 
+import { PluginInstallationRepository } from "./installation-repository";
 import { makePluginLoader, PluginLoader } from "./loader";
 import {
 	InvalidProviderEntityImportAutomationError,
 	PluginRuntimeResolver,
 	UnsupportedProviderOperationError,
 } from "./runtime-resolver";
-import { fixtureManifest } from "./test-support";
-import type { NormalizedPlugin } from "./types";
+import { fixtureManifest, fixturePluginIdentity } from "./test-support";
 
 const providerId = SandboxProviderId.make("provider-id");
+
+const dialect = new PgDialect();
+
+const sqlParams = (condition: unknown) => {
+	const getSQL =
+		typeof condition === "object" && condition !== null
+			? Reflect.get(condition, "getSQL")
+			: undefined;
+	return typeof getSQL === "function" ? dialect.sqlToQuery(getSQL.call(condition)).params : [];
+};
 
 type MockQuery = Effect.Effect<ReadonlyArray<unknown>> & {
 	limit: () => Effect.Effect<ReadonlyArray<unknown>>;
@@ -31,7 +47,7 @@ const limitable = (rows: ReadonlyArray<unknown>): MockQuery => {
 
 const normalizedPlugin = (
 	providerEntityImportAutomations: PluginManifest["bindings"]["providerEntityImportAutomations"] = [],
-): NormalizedPlugin => {
+) => {
 	const manifest = fixtureManifest();
 	const automation = manifest.scripts[0];
 	const fixtureEntitySchema = manifest.entitySchemas[0];
@@ -102,6 +118,7 @@ const normalizedPlugin = (
 		],
 	};
 	return {
+		...fixturePluginIdentity(),
 		sourceHash: "source-hash",
 		manifest: normalizedManifest,
 		scripts: normalizedManifest.scripts.map((script) => {
@@ -120,12 +137,13 @@ const normalizedPlugin = (
 	};
 };
 
-const providerOwnerPlugin = (): NormalizedPlugin => {
+const providerOwnerPlugin = () => {
 	const plugin = normalizedPlugin();
 	const entitySchema = plugin.manifest.entitySchemas[0];
 	assert(entitySchema);
 	return {
 		scripts: [],
+		...fixturePluginIdentity("provider-owner"),
 		sourceHash: "provider-owner-source-hash",
 		manifest: {
 			...plugin.manifest,
@@ -155,25 +173,25 @@ const providerOwnerPlugin = (): NormalizedPlugin => {
 
 const providerRow = {
 	id: providerId,
-	pluginSlug: "fixture",
 	name: "Fixture provider",
 	slug: "fixture-provider",
-	rootEntitySchemaSlug: "fixture-entity",
+	pluginId: "fixture-plugin-id",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
 	information: { source: "fixture" },
+	rootEntitySchemaSlug: "fixture-entity",
 };
 
 const scriptRow = {
 	providerId,
 	source: "source",
 	compiledFormat: 1,
-	pluginSlug: "fixture",
 	name: "Fixture details",
 	slug: "fixture.details",
 	compiledCode: "compiled",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
+	pluginId: "fixture-plugin-id",
 	contentHash: "fixture.details-hash",
 	id: SandboxScriptId.make("details-script-id"),
 	metadata: {
@@ -296,18 +314,10 @@ const makeLayer = (
 	if (crossPlugin) {
 		loader.load(providerOwnerPlugin());
 	}
-	const dialect = new PgDialect();
 	const operationScripts = new Map([
 		[firstScript.slug.endsWith(".search") ? "search" : "details", firstScript],
 		["search-options", searchOptionsScriptRow],
 	]);
-	const sqlParams = (condition: unknown) => {
-		const getSQL =
-			typeof condition === "object" && condition !== null
-				? Reflect.get(condition, "getSQL")
-				: undefined;
-		return typeof getSQL === "function" ? dialect.sqlToQuery(getSQL.call(condition)).params : [];
-	};
 	const scriptRows = (condition: unknown) => {
 		const params = sqlParams(condition);
 		if (params.includes("fixture.automation")) {
@@ -357,6 +367,9 @@ const makeLayer = (
 		Layer.provideMerge(
 			Layer.mergeAll(
 				Layer.succeed(PluginLoader, { ...loader }),
+				Layer.mock(PluginInstallationRepository)({
+					findByUserAndPlugin: () => Effect.succeed(null),
+				}),
 				Layer.succeed(Database, Object.assign(Object.create(null), db)),
 			),
 		),
@@ -389,7 +402,7 @@ it.effect("resolves active schema providers and their operation-specific scripts
 			}),
 		).toMatchObject({
 			entitySchemaSlug: "fixture-entity",
-			provider: { id: providerId, pluginSlug: "fixture" },
+			provider: { id: providerId, pluginId: "fixture-plugin-id" },
 		});
 		expect(
 			yield* resolver.findAuthorizedSchemaProviderById({
@@ -560,7 +573,7 @@ it.effect("authorizes an active cross-plugin provider with an exact registry bin
 			}),
 		).toMatchObject({
 			entitySchemaSlug: "fixture-entity",
-			provider: { id: providerId, pluginSlug: "provider-owner" },
+			provider: { id: providerId, pluginId: "provider-owner-plugin-id" },
 		});
 		expect(
 			yield* resolver.findAuthorizedSchemaProviderById({
@@ -569,7 +582,9 @@ it.effect("authorizes an active cross-plugin provider with an exact registry bin
 				entitySchemaSlug: "foreign-entity",
 			}),
 		).toBeNull();
-	}).pipe(Effect.provide(makeLayer({ ...providerRow, pluginSlug: "provider-owner" }, true))),
+	}).pipe(
+		Effect.provide(makeLayer({ ...providerRow, pluginId: "provider-owner-plugin-id" }, true)),
+	),
 );
 
 it.effect("rejects an unknown provider", () =>
@@ -646,6 +661,9 @@ it.effect(
 				Layer.provideMerge(
 					Layer.mergeAll(
 						Layer.succeed(PluginLoader, countedLoader),
+						Layer.mock(PluginInstallationRepository)({
+							findByUserAndPlugin: () => Effect.succeed(null),
+						}),
 						Layer.succeed(Database, Object.assign(Object.create(null), db)),
 					),
 				),
@@ -669,4 +687,246 @@ it.effect(
 			});
 			expect(snapshotReads).toBe(1);
 		}),
+);
+
+const privatePluginRow = {
+	scope: "user",
+	slug: "private",
+	ownerId: "user-1",
+	id: "private-plugin-id",
+	compiledHashes: { "private.script": "private-hash" },
+	manifest: {
+		...fixtureManifest(),
+		configSchema: {
+			unknownKeys: "strict",
+			fields: { apiToken: { type: "string", label: "Token", description: "Token" } },
+		},
+		operations: [
+			{
+				auth: "user",
+				slug: "private.op",
+				description: "Private",
+				scriptSlug: "private.script",
+			},
+		],
+	},
+};
+
+const privateScriptRow = {
+	providerId: null,
+	source: "source",
+	compiledFormat: 1,
+	name: "Private script",
+	slug: "private.script",
+	compiledCode: "compiled",
+	contentHash: "private-hash",
+	createdAt: new Date(0),
+	updatedAt: new Date(0),
+	pluginId: "private-plugin-id",
+	id: SandboxScriptId.make("private-script-id"),
+	metadata: {
+		capabilities: [],
+		slug: "private.script",
+		name: "Private script",
+		kind: "operation" as const,
+		requiredPluginConfigKeys: [],
+		requiredSystemConfigKeys: [],
+	},
+};
+
+const privateInstallation = {
+	sortOrder: 0,
+	health: "ready",
+	userId: "user-1",
+	isDisabled: false,
+	healthReason: null,
+	id: "installation-id",
+	pluginId: "private-plugin-id",
+	config: { apiToken: "private-token" },
+};
+
+const makePrivateLayer = (
+	installation: Partial<typeof privateInstallation> | null = privateInstallation,
+	pluginRow: typeof privatePluginRow | null = privatePluginRow,
+) => {
+	const loader = makePluginLoader(makeDefinitionRegistry());
+	loader.load(normalizedPlugin());
+	const db = {
+		select: () => ({
+			from: (table: unknown) => {
+				const builder = {
+					leftJoin: () => builder,
+					innerJoin: () => builder,
+					where: (condition: unknown) => {
+						const params = sqlParams(condition);
+						if (table === schema.plugin) {
+							const owned = !params.includes("user") || params.includes(privatePluginRow.ownerId);
+							return limitable(pluginRow && owned ? [pluginRow] : []);
+						}
+						return limitable(
+							params.includes("private-script-id") || params.includes("private-hash")
+								? [privateScriptRow]
+								: [],
+						);
+					},
+				};
+				return builder;
+			},
+		}),
+	};
+	return PluginRuntimeResolver.layer.pipe(
+		Layer.provideMerge(
+			Layer.mergeAll(
+				Layer.succeed(PluginLoader, { ...loader }),
+				Layer.succeed(Database, Object.assign(Object.create(null), db)),
+				Layer.mock(PluginInstallationRepository)({
+					findByUserAndPlugin: () =>
+						Effect.succeed(
+							installation
+								? Object.assign(Object.create(null), { ...privateInstallation, ...installation })
+								: null,
+						),
+				}),
+			),
+		),
+	);
+};
+
+it.effect("resolves a private plugin script that is absent from the system snapshot", () =>
+	Effect.gen(function* () {
+		const resolver = yield* PluginRuntimeResolver;
+		expect(
+			yield* resolver.findActiveScriptById(SandboxScriptId.make("private-script-id")),
+		).toMatchObject({ pluginSlug: "private", id: "private-script-id", slug: "private.script" });
+	}).pipe(Effect.provide(makePrivateLayer())),
+);
+
+it.effect("does not resolve a script whose owning plugin is inactive", () =>
+	Effect.gen(function* () {
+		const resolver = yield* PluginRuntimeResolver;
+		expect(
+			yield* resolver.findActiveScriptById(SandboxScriptId.make("private-script-id")),
+		).toBeNull();
+	}).pipe(Effect.provide(makePrivateLayer(privateInstallation, null))),
+);
+
+it.effect("does not resolve a private script whose compiled hash is stale", () =>
+	Effect.gen(function* () {
+		const resolver = yield* PluginRuntimeResolver;
+		expect(
+			yield* resolver.findActiveScriptById(SandboxScriptId.make("private-script-id")),
+		).toBeNull();
+	}).pipe(
+		Effect.provide(
+			makePrivateLayer(privateInstallation, {
+				...privatePluginRow,
+				compiledHashes: { "private.script": "stale-hash" },
+			}),
+		),
+	),
+);
+
+it.effect("resolves a user operation through the owner's ready installation", () =>
+	Effect.gen(function* () {
+		const resolver = yield* PluginRuntimeResolver;
+		expect(
+			yield* resolver.findUserOperation({
+				pluginSlug: "private",
+				operationSlug: "private.op",
+				userId: UserId.make("user-1"),
+			}),
+		).toMatchObject({
+			operation: { auth: "user", slug: "private.op" },
+			script: { id: "private-script-id", slug: "private.script" },
+		});
+		expect(
+			yield* resolver.findUserOperation({
+				pluginSlug: "private",
+				operationSlug: "missing.op",
+				userId: UserId.make("user-1"),
+			}),
+		).toBeNull();
+	}).pipe(Effect.provide(makePrivateLayer())),
+);
+
+const findPrivateOperationForUser = (userId: string) =>
+	Effect.flatMap(PluginRuntimeResolver, (runtime) =>
+		runtime.findUserOperation({
+			pluginSlug: "private",
+			operationSlug: "private.op",
+			userId: UserId.make(userId),
+		}),
+	);
+
+const resolvePrivateConfigContext = (authority: ExecutionAuthority) =>
+	Effect.flatMap(PluginRuntimeResolver, (runtime) =>
+		runtime.resolvePluginConfigContext({
+			authority,
+			scriptId: SandboxScriptId.make("private-script-id"),
+		}),
+	);
+
+it.effect("returns no user operation for another user, or a disabled or unready installation", () =>
+	Effect.gen(function* () {
+		expect(
+			yield* findPrivateOperationForUser("user-2").pipe(Effect.provide(makePrivateLayer())),
+		).toBeNull();
+		expect(
+			yield* findPrivateOperationForUser("user-1").pipe(
+				Effect.provide(makePrivateLayer({ isDisabled: true })),
+			),
+		).toBeNull();
+		expect(
+			yield* findPrivateOperationForUser("user-1").pipe(
+				Effect.provide(makePrivateLayer({ health: "needs-configuration" })),
+			),
+		).toBeNull();
+		expect(
+			yield* findPrivateOperationForUser("user-1").pipe(Effect.provide(makePrivateLayer(null))),
+		).toBeNull();
+	}),
+);
+
+it.effect("resolves system plugin config from the environment under any authority", () =>
+	Effect.gen(function* () {
+		const resolver = yield* PluginRuntimeResolver;
+		expect(
+			yield* resolver.resolvePluginConfigContext({
+				authority: { type: "system" },
+				scriptId: SandboxScriptId.make("details-script-id"),
+			}),
+		).toMatchObject({ kind: "environment", pluginSlug: "fixture" });
+	}).pipe(Effect.provide(makeLayer())),
+);
+
+it.effect("resolves private plugin config from the owner's installation", () =>
+	Effect.gen(function* () {
+		const resolver = yield* PluginRuntimeResolver;
+		expect(
+			yield* resolver.resolvePluginConfigContext({
+				scriptId: SandboxScriptId.make("private-script-id"),
+				authority: { type: "user", userId: UserId.make("user-1") },
+			}),
+		).toMatchObject({ kind: "installation", config: { apiToken: "private-token" } });
+	}).pipe(Effect.provide(makePrivateLayer())),
+);
+
+it.effect("rejects private plugin config for system, foreign, and uninstalled authorities", () =>
+	Effect.gen(function* () {
+		expect(
+			yield* resolvePrivateConfigContext({ type: "system" }).pipe(
+				Effect.provide(makePrivateLayer()),
+			),
+		).toBeNull();
+		expect(
+			yield* resolvePrivateConfigContext({ type: "user", userId: UserId.make("user-2") }).pipe(
+				Effect.provide(makePrivateLayer()),
+			),
+		).toBeNull();
+		expect(
+			yield* resolvePrivateConfigContext({ type: "user", userId: UserId.make("user-1") }).pipe(
+				Effect.provide(makePrivateLayer(null)),
+			),
+		).toBeNull();
+	}),
 );

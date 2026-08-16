@@ -120,7 +120,7 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 				};
 				yield* getBackendClient().call(
 					(c) =>
-						c.plugins.install({
+						c.testSupport.installSystemPlugin({
 							payload: { files: installed.files, manifest: installed.manifest },
 						}),
 					adminHeaders,

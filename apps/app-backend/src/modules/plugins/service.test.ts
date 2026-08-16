@@ -41,7 +41,12 @@ const makeStoredPlugin = (manifest: PluginManifest, sourceHash: string): StoredP
 	return {
 		manifest,
 		sourceHash,
+		ownerId: null,
+		sourceFiles: {},
 		status: "active",
+		scope: "system",
+		slug: manifest.metadata.slug,
+		id: `${manifest.metadata.slug}-plugin-id`,
 		scripts: manifest.scripts.map((script) => {
 			const { entry, ...metadata } = script;
 			return {
@@ -185,11 +190,11 @@ const makeLayer = (input?: {
 		list: input?.repositoryList ?? (() => Effect.succeed(installed)),
 		deactivate:
 			input?.deactivate ??
-			((slug) =>
+			((pluginId) =>
 				Effect.sync(() => {
 					input?.events?.push("deactivate");
-					input?.deactivated?.push(slug);
-					const index = installed.findIndex((plugin) => plugin.manifest.metadata.slug === slug);
+					input?.deactivated?.push(pluginId);
+					const index = installed.findIndex((plugin) => plugin.id === pluginId);
 					if (index >= 0) {
 						installed.splice(index, 1);
 					}
@@ -218,23 +223,23 @@ const makeLayer = (input?: {
 				}
 				return cached;
 			}),
-		persist: (plugin) =>
+		persist: (plugin, identity) =>
 			Effect.gen(function* () {
+				const pluginId = `${identity.slug}-plugin-id`;
 				yield* Effect.sync(() => {
 					input?.persisted?.push(plugin);
-					const index = installed.findIndex(
-						(candidate) => candidate.manifest.metadata.slug === plugin.manifest.metadata.slug,
-					);
+					const stored = { ...plugin, ...identity, id: pluginId, status: "active" };
+					const index = installed.findIndex((candidate) => candidate.slug === identity.slug);
 					if (index >= 0) {
-						installed.splice(index, 1, { ...plugin, status: "active" });
+						installed.splice(index, 1, stored);
 					} else {
-						installed.push({ ...plugin, status: "active" });
+						installed.push(stored);
 					}
 				});
 				if (input?.afterPersist) {
 					yield* input.afterPersist;
 				}
-				return yield* Effect.sync(() => undefined);
+				return yield* Effect.sync(() => pluginId);
 			}),
 	});
 	const workflowReferenceLayer = Layer.mock(SandboxWorkflowReferenceRepository)({
@@ -288,7 +293,14 @@ it.effect("validates, compiles, content-addresses, persists, loads, and publishe
 
 		expect(plugin.sourceHash).toMatch(/^[a-f0-9]{64}$/);
 		expect(plugin.scripts[0]?.contentHash).toMatch(/^[a-f0-9]{64}$/);
-		expect(persisted).toEqual([plugin]);
+		expect(persisted).toEqual([
+			{
+				manifest: plugin.manifest,
+				scripts: plugin.scripts,
+				sourceHash: plugin.sourceHash,
+				sourceFiles: plugin.sourceFiles,
+			},
+		]);
 		expect(loader.getSnapshot().definitions.entitySchemas["fixture-entity"]?.name).toBe("Fixture");
 		expect(loader.getSnapshot().bindings.entityAutomations).toHaveLength(1);
 		expect(published).toHaveLength(1);
@@ -368,7 +380,14 @@ it.effect("returns a committed install when Redis publication fails", () => {
 		const source = yield* loadPluginSource(fixturePackageRoot(), fixtureManifest());
 		const plugin = yield* ingestion.ingestPlugin(source);
 
-		expect(persisted).toEqual([plugin]);
+		expect(persisted).toEqual([
+			{
+				manifest: plugin.manifest,
+				scripts: plugin.scripts,
+				sourceHash: plugin.sourceHash,
+				sourceFiles: plugin.sourceFiles,
+			},
+		]);
 		expect(loader.getSnapshot().plugins["fixture"]?.sourceHash).toBe(plugin.sourceHash);
 	}).pipe(
 		Effect.provide(makeLayer({ persisted, publish: () => Effect.die("lost install publication") })),
@@ -438,7 +457,14 @@ it.effect("accepts user bootstrap declarations through trusted boot ingestion", 
 				description: "Bootstrap fixture user data",
 			},
 		]);
-		expect(persisted).toEqual([plugin]);
+		expect(persisted).toEqual([
+			{
+				manifest: plugin.manifest,
+				scripts: plugin.scripts,
+				sourceHash: plugin.sourceHash,
+				sourceFiles: plugin.sourceFiles,
+			},
+		]);
 	}).pipe(Effect.provide(makeLayer({ persisted })));
 });
 
@@ -643,7 +669,7 @@ it.effect("serializes rebuild with plugin mutations", () =>
 			yield* Deferred.succeed(release, undefined);
 			yield* Fiber.join(rebuildFiber);
 			yield* Fiber.join(uninstallFiber);
-			expect(deactivated).toEqual(["fixture"]);
+			expect(deactivated).toEqual(["fixture-plugin-id"]);
 		});
 		yield* program.pipe(Effect.provide(layer));
 	}),
@@ -687,7 +713,7 @@ it.effect("lists active plugins and uninstalls without deleting historical scrip
 
 		const removed = yield* ingestion.uninstallPlugin("fixture");
 		expect(removed.slug).toBe("fixture");
-		expect(deactivated).toEqual(["fixture"]);
+		expect(deactivated).toEqual(["fixture-plugin-id"]);
 		expect(loader.getSnapshot().plugins["fixture"]).toBeUndefined();
 		expect(published).toEqual([
 			expect.objectContaining({ channel: redisKeys.pluginRegistryChannel }),
@@ -705,7 +731,7 @@ it.effect("returns a committed uninstall when Redis publication fails", () => {
 
 		const removed = yield* ingestion.uninstallPlugin("fixture");
 		expect(removed.slug).toBe("fixture");
-		expect(deactivated).toEqual(["fixture"]);
+		expect(deactivated).toEqual(["fixture-plugin-id"]);
 		expect(loader.getSnapshot().plugins["fixture"]).toBeUndefined();
 	}).pipe(
 		Effect.provide(
@@ -800,7 +826,7 @@ it.effect("fences uninstall while a queued import workflow references the plugin
 			"deactivate",
 			"publish",
 		]);
-		expect(deactivated).toEqual(["fixture"]);
+		expect(deactivated).toEqual(["fixture-plugin-id"]);
 		expect(loader.getSnapshot().plugins["fixture"]).toBeUndefined();
 		expect(published).toEqual([
 			{

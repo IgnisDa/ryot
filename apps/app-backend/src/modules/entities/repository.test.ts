@@ -78,7 +78,7 @@ it.effect("resolves provider identity and its active details executable", () => 
 				source: "source",
 				compiledFormat: 1,
 				id: detailsScriptId,
-				pluginSlug: "fixture",
+				pluginId: "fixture",
 				slug: "fixture.details",
 				compiledCode: "compiled",
 				contentHash: "details-hash",
@@ -92,7 +92,7 @@ it.effect("resolves provider identity and its active details executable", () => 
 				provider: {
 					id: providerId,
 					name: "Fixture",
-					pluginSlug: "fixture",
+					pluginId: "fixture",
 					slug: "fixture-provider",
 					createdAt: new Date(0),
 					updatedAt: new Date(0),
@@ -202,20 +202,16 @@ it.effect("restores an entity with its archived identity and timestamps", () => 
 it.effect("resolves restore globals by portable schema, plugin, provider, and external IDs", () => {
 	const dialect = new PgDialect();
 	let predicate: { sql: string; params: unknown[] } | undefined;
-	const db = {
-		select: () => ({
-			from: () => ({
-				leftJoin: () => ({
-					where: (condition: { getSQL: () => Parameters<typeof dialect.sqlToQuery>[0] }) => ({
-						limit: () => {
-							predicate = dialect.sqlToQuery(condition.getSQL());
-							return Effect.succeed([{ id: "existing-global", entitySchemaSlug: "book" }]);
-						},
-					}),
-				}),
-			}),
+	const builder = {
+		leftJoin: () => builder,
+		where: (condition: { getSQL: () => Parameters<typeof dialect.sqlToQuery>[0] }) => ({
+			limit: () => {
+				predicate = dialect.sqlToQuery(condition.getSQL());
+				return Effect.succeed([{ id: "existing-global", entitySchemaSlug: "book" }]);
+			},
 		}),
 	};
+	const db = { select: () => ({ from: () => builder }) };
 
 	return Effect.gen(function* () {
 		const repository = yield* EntitiesRepository;
