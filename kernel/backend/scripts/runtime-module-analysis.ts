@@ -46,7 +46,7 @@ const isRuntimeFile = (file: string) =>
 	!file.endsWith(".test-support.ts") &&
 	!file.endsWith(".test-fixture.ts") &&
 	!file.endsWith(".typecheck.ts") &&
-	!file.endsWith("runner.generated.ts") &&
+	!file.endsWith(".generated.ts") &&
 	!file.replaceAll("\\", "/").includes("/test-fixtures/");
 
 const walkTsFiles = (
