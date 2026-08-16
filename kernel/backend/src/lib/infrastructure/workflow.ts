@@ -9,6 +9,10 @@ import { PgClientLive } from "./db/service";
 
 export type DurableSchema = Schema.ConstraintCodec<unknown, unknown>;
 
+// TODO: Once https://github.com/Effect-TS/effect/issues/8238 is fixed, upgrade Effect, remove this
+// TODO, and rerun scenarios 05 and 06 in e2e/src/scripts/sandbox-resource-baseline/scenarios.ts.
+// They must verify that every accepted execution reaches a terminal state from 64 KiB through just
+// below the 4 MiB limit.
 export const WorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(
 	Layer.provide(
 		SingleRunner.layer({
