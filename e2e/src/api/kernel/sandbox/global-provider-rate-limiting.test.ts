@@ -173,18 +173,18 @@ describe("deployment-global sandbox HTTP rate limiting", () => {
 				Array.from({ length: 3 }, () => createAuthenticatedClient()),
 				{ concurrency: "unbounded" },
 			);
-			const jobs = yield* Effect.all(
-				users.map(({ userId }) =>
+			const jobs = yield* Effect.forEach(
+				users,
+				({ userId }) =>
 					enqueueSandboxAt(getApiClient(), userId, plugin.scriptId).pipe(
 						Effect.map(({ jobId }) => ({ jobId, userId })),
 					),
-				),
 				{ concurrency: "unbounded" },
 			);
-			const values = yield* Effect.all(
-				jobs.map(({ jobId, userId }) =>
+			const values = yield* Effect.forEach(
+				jobs,
+				({ jobId, userId }) =>
 					pollSandboxResult(userId, jobId).pipe(Effect.map(requireCompletedSandboxValue)),
-				),
 				{ concurrency: "unbounded" },
 			);
 			for (const value of values) {
@@ -299,18 +299,18 @@ describe("deployment-global sandbox HTTP rate limiting", () => {
 				Array.from({ length: 3 }, () => createAuthenticatedClient()),
 				{ concurrency: "unbounded" },
 			);
-			const jobs = yield* Effect.all(
-				users.map(({ userId }) =>
+			const jobs = yield* Effect.forEach(
+				users,
+				({ userId }) =>
 					enqueueSandboxAt(getApiClient(), userId, plugin.scriptId).pipe(
 						Effect.map(({ jobId }) => ({ jobId, userId })),
 					),
-				),
 				{ concurrency: "unbounded" },
 			);
-			const values = yield* Effect.all(
-				jobs.map(({ jobId, userId }) =>
+			const values = yield* Effect.forEach(
+				jobs,
+				({ jobId, userId }) =>
 					pollSandboxResult(userId, jobId).pipe(Effect.map(requireCompletedSandboxValue)),
-				),
 				{ concurrency: "unbounded" },
 			);
 			for (const value of values) {

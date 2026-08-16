@@ -11,7 +11,7 @@ const readModule = (path: string) =>
 	});
 
 const readModules = (paths: ReadonlyArray<string>) =>
-	Effect.all(paths.map(readModule)).pipe(Effect.map((sources) => sources.join("\n")));
+	Effect.forEach(paths, readModule).pipe(Effect.map((sources) => sources.join("\n")));
 
 const integrationWorkflowModules = [
 	"../integrations/integration-workflow.ts",
@@ -135,10 +135,8 @@ it.effect("keeps provider entity population behind the canonical workflow", () =
 					),
 			),
 		);
-		const productionSources = yield* Effect.all(
-			productionPaths.map((path) =>
-				fs.readFileString(path).pipe(Effect.map((text) => ({ path, text }))),
-			),
+		const productionSources = yield* Effect.forEach(productionPaths, (path) =>
+			fs.readFileString(path).pipe(Effect.map((text) => ({ path, text }))),
 		);
 
 		expect(productionSources.length).toBeGreaterThan(0);

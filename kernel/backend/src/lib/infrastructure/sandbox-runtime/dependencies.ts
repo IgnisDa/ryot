@@ -50,7 +50,7 @@ const validatePayload = (payload: unknown) =>
 		if (typeof metadataContents !== "string") {
 			return yield* payloadError("Trusted sandbox runtime payload metadata file is missing");
 		}
-		const fileMetadata = yield* Schema.decodeUnknownEffect(
+		const fileMetadata = yield* Schema.decodeEffect(
 			Schema.fromJsonString(sandboxRuntimePayloadMetadataSchema),
 		)(metadataContents).pipe(
 			Effect.mapError(() =>

@@ -62,7 +62,7 @@ describe("notification subscription catalog and rules", () => {
 			);
 			expect(rules.every((rule) => rule.isActive)).toBe(true);
 			expect(
-				yield* Effect.all(catalog.map((schema) => getAutomationCatalogSchema(client, schema.id))),
+				yield* Effect.forEach(catalog, (schema) => getAutomationCatalogSchema(client, schema.id)),
 			).toEqual([...catalog]);
 		}),
 	);

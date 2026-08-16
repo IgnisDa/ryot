@@ -54,7 +54,7 @@ const makeProKeyService = (options: { readonly httpClient?: HTTPClient } = {}) =
 				return false;
 			}
 
-			const decoded = Schema.decodeUnknownResult(ProKeyMeta)(meta ?? {});
+			const decoded = Schema.decodeResult(ProKeyMeta)(meta ?? {});
 			if (Result.isFailure(decoded)) {
 				yield* Effect.logWarning("Failed to parse Pro Key verification response.");
 				return false;
