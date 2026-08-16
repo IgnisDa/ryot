@@ -224,7 +224,7 @@ const seedActivityShow = (client: Client) =>
 
 const ACTIVITY_LIMITS = {
 	timeZone: "UTC",
-	seasonLimit: 100,
+	coverageLimit: 100,
 	watchDayLimit: 500,
 	parentEventLimit: 60,
 	episodeEventLimit: 100,
@@ -406,20 +406,16 @@ describe("Media RyotQL query recipe results", () => {
 			assertPresent(secondSeasonResult, "Expected second season");
 			const firstSeason = yield* executeRyotQLRecipe(
 				client,
-				showSeasonEpisodesRecipe({ episodeLimit: 1, seasonId: firstSeasonResult.id }),
+				showSeasonEpisodesRecipe({ limit: 1, containerId: firstSeasonResult.id }),
 			);
 			const secondSeason = yield* executeRyotQLRecipe(
 				client,
-				showSeasonEpisodesRecipe({ episodeLimit: 1, seasonId: secondSeasonResult.id }),
+				showSeasonEpisodesRecipe({ limit: 1, containerId: secondSeasonResult.id }),
 			);
-			assertPresent(firstSeason, "Expected first season episodes");
-			assertPresent(secondSeason, "Expected second season episodes");
-			const firstEpisodes = firstSeason.episodes;
-			const secondEpisodes = secondSeason.episodes;
-			expect(firstEpisodes.items).toHaveLength(1);
-			expect(secondEpisodes.items).toHaveLength(1);
-			const firstEpisodeResult = firstEpisodes.items[0];
-			const secondSeasonEpisodeResult = secondEpisodes.items[0];
+			expect(firstSeason.items).toHaveLength(1);
+			expect(secondSeason.items).toHaveLength(1);
+			const firstEpisodeResult = firstSeason.items[0];
+			const secondSeasonEpisodeResult = secondSeason.items[0];
 			assertPresent(firstEpisodeResult, "Expected first episode result");
 			assertPresent(secondSeasonEpisodeResult, "Expected second-season episode result");
 			expect(firstEpisodeResult.name).toBe("Season 1 Episode 1");
@@ -497,7 +493,7 @@ describe("Media RyotQL query recipe results", () => {
 				client,
 				showSummaryRecipe({ entityId: show.id, collectionLimit: 5 }),
 			);
-			const summaryRow = summary.show;
+			const summaryRow = summary.summary;
 			assertPresent(summaryRow, "Expected show summary row");
 
 			expect(summary.entitySchemaSlug).toBe("show");
@@ -729,7 +725,7 @@ describe("Media RyotQL query recipe results", () => {
 				showSummaryRecipe({ collectionLimit: 5, entityId: book.entity.id }),
 			);
 
-			expect(summary.show).toBeNull();
+			expect(summary.summary).toBeNull();
 			expect(summary.entitySchemaSlug).toBe("book");
 		}),
 	);
@@ -743,7 +739,7 @@ describe("Media RyotQL query recipe results", () => {
 				showSummaryRecipe({ collectionLimit: 5, entityId: `missing-${crypto.randomUUID()}` }),
 			);
 
-			expect(summary.show).toBeNull();
+			expect(summary.summary).toBeNull();
 			expect(summary.entitySchemaSlug).toBeNull();
 		}),
 	);
@@ -1153,7 +1149,7 @@ describe("Media RyotQL query recipe results", () => {
 			expect(activity.truncated).toBe(false);
 			expect(new Set(activity.events.map((event) => event.id)).size).toBe(activity.events.length);
 			expect(
-				activity.seasons.map((season) => ({
+				activity.coverage.map((season) => ({
 					seasonNumber: season.seasonNumber,
 					episodeTotal: season.episodeTotal,
 				})),
@@ -1180,7 +1176,7 @@ describe("Media RyotQL query recipe results", () => {
 				},
 			]);
 			expect(
-				activity.seasons.map((season) => ({
+				activity.coverage.map((season) => ({
 					seasonNumber: season.seasonNumber,
 					watchedTotal: season.watchedTotal,
 					watchedMinutes: season.watchedMinutes,
