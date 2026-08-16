@@ -3,13 +3,15 @@ import {
 	personalMediaSuggestionsRecipe,
 	podcastDetailRecipe,
 	podcastsByLifecycleStateRecipe,
+	trendingMediaRecipe,
+} from "@ryot-app/media-plugin/query-recipes";
+import {
 	showActivityRecipe,
 	showOverviewRecipe,
 	showSeasonEpisodesRecipe,
 	showSeasonsRecipe,
 	showSummaryRecipe,
-	trendingMediaRecipe,
-} from "@ryot-app/media-plugin/query-recipes";
+} from "@ryot-app/media-plugin/shared/show-recipes";
 import { DateTime, Effect } from "effect";
 
 import {

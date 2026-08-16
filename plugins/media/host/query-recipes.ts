@@ -49,22 +49,6 @@ import {
 	type EpisodicLifecycleState,
 } from "../shared/lifecycle-expressions";
 
-export type { MediaImage } from "../shared/media-image";
-export {
-	showActivityRecipe,
-	showOverviewRecipe,
-	showSeasonEpisodesRecipe,
-	showSeasonsRecipe,
-	showSummaryRecipe,
-	type ShowActivityEpisode,
-	type ShowActivityEvent,
-	type ShowActivityResult,
-	type ShowOverviewResult,
-	type ShowSeasonEpisodesResult,
-	type ShowSeasonsResult,
-	type ShowSummaryResult,
-} from "../shared/show-recipes";
-
 const podcastEpisodeInclude = (episodeLimit: number) => {
 	const entity = table("entity", "entity");
 	const episode = table("entity", "episode");

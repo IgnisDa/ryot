@@ -4,10 +4,10 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
 
+import { showEpisodicKindConfig } from "../../shared/lifecycle-expressions";
 import {
 	podcastEpisodicKindConfig,
 	resolveEpisodeParentRecipe,
-	showEpisodicKindConfig,
 	type EpisodeParentResolution,
 } from "../contracts/lifecycle-recipes";
 
