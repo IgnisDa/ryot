@@ -5,6 +5,7 @@ import {
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 	type PluginBridgeInit,
+	type PluginRouteLocation,
 } from "@ryot-app/contract/modules/plugins/client";
 import { waitFor } from "@testing-library/dom";
 import { Schema } from "effect";
@@ -32,6 +33,11 @@ const init: PluginBridgeInit = {
 	bridgeVersion: metadata.bridgeVersion,
 	compilerVersion: metadata.compilerVersion,
 };
+const routeLocation = (path: string, search = ""): PluginRouteLocation => ({
+	path,
+	search,
+	kind: "route",
+});
 let channels: MessageChannel[] = [];
 let bootstraps: Array<{ dispose: () => void }> = [];
 
@@ -124,7 +130,7 @@ describe("bootstrapClientPlugin", () => {
 			compact: false,
 			edgeBack: false,
 			type: "location",
-			location: { path: "/", search: "" },
+			location: routeLocation("/"),
 		});
 		await waitFor(() =>
 			expect(messages).toContainEqual(
@@ -174,7 +180,7 @@ describe("bootstrapClientPlugin", () => {
 				compact: false,
 				type: "location",
 				edgeBack: index > 0,
-				location: { path, search: "" },
+				location: routeLocation(path),
 			});
 			await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
 		};
@@ -229,7 +235,7 @@ describe("bootstrapClientPlugin", () => {
 			compact: false,
 			edgeBack: false,
 			type: "location",
-			location: { path: "/", search: "" },
+			location: routeLocation("/"),
 		});
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
 	});
@@ -277,7 +283,7 @@ describe("bootstrapClientPlugin", () => {
 			compact: false,
 			edgeBack: false,
 			type: "location",
-			location: { path: "/", search: "" },
+			location: routeLocation("/"),
 		});
 
 		await waitFor(() =>
@@ -307,7 +313,7 @@ describe("bootstrapClientPlugin", () => {
 			compact: false,
 			edgeBack: false,
 			type: "location",
-			location: { path: "/", search: "" },
+			location: routeLocation("/"),
 		});
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
 
@@ -341,7 +347,7 @@ describe("bootstrapClientPlugin", () => {
 			compact: false,
 			edgeBack: false,
 			type: "location",
-			location: { path: "/", search: "" },
+			location: routeLocation("/"),
 		});
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
 
@@ -378,7 +384,7 @@ describe("bootstrapClientPlugin", () => {
 			compact: false,
 			edgeBack: false,
 			type: "location",
-			location: { path: "/", search: "" },
+			location: routeLocation("/"),
 		});
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
 
@@ -426,7 +432,7 @@ describe("bootstrapClientPlugin", () => {
 			compact: false,
 			edgeBack: false,
 			type: "location",
-			location: { path: "/", search: "" },
+			location: routeLocation("/"),
 		});
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
 
