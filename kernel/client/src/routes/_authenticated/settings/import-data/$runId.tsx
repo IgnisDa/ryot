@@ -8,7 +8,6 @@ import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "rea
 
 import { ImportsApi } from "#/api/imports";
 import { createKernelRyotClient } from "#/api/ryot-client";
-import { ImportRunDeleteConfirmation } from "#/modules/imports/delete-confirmation";
 import { ImportRunView, type ImportRunDetailState } from "#/modules/imports/import-run-view";
 import {
 	canDeleteImportRun,
@@ -19,6 +18,7 @@ import { IMPORT_FAILURES_PAGE_SIZE, ImportsService } from "#/modules/imports/ser
 import { importSourceNames } from "#/modules/imports/source-selection";
 import { AppIcon } from "#/modules/navigation/app-icon";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
+import { DestructiveConfirmation } from "#/modules/ui/destructive-confirmation";
 import {
 	isTerminalRunStatus,
 	runDurationLabel,
@@ -249,11 +249,14 @@ function ImportRunRoute() {
 				onShowMore={() => void reload(failureLimit + IMPORT_FAILURES_PAGE_SIZE)}
 			/>
 			{isConfirming && run !== undefined && (
-				<ImportRunDeleteConfirmation
+				<DestructiveConfirmation
 					pending={deleting}
 					triggerRef={menuTrigger}
-					detail={importRunDeleteConfirmation(run)}
+					pendingLabel="Deleting..."
+					actionLabel="Delete record"
+					title="Delete this import record?"
 					onConfirm={() => void confirmDelete()}
+					detail={importRunDeleteConfirmation(run)}
 					errorMessage={deleteFailed ? "This record could not be deleted. Try again." : undefined}
 					onClose={() => {
 						setDeleteFailed(false);

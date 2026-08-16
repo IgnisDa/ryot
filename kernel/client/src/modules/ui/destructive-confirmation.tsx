@@ -1,29 +1,34 @@
 import { Button, Modal } from "@ryot-app/client-ui-sdk";
-import { useRef, type RefObject } from "react";
+import { useId, useRef, type RefObject } from "react";
 
-export function IntegrationDeleteConfirmation(props: {
+export function DestructiveConfirmation(props: {
+	readonly title: string;
 	readonly detail: string;
 	readonly pending: boolean;
 	readonly onClose: () => void;
+	readonly actionLabel: string;
 	readonly onConfirm: () => void;
+	readonly pendingLabel: string;
+	readonly actionDisabled?: boolean;
 	readonly errorMessage: string | undefined;
 	readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
+	const titleId = useId();
 	const cancelRef = useRef<HTMLButtonElement>(null);
 
 	return (
 		<Modal
 			closeLabel="Close"
+			labelledBy={titleId}
 			onClose={props.onClose}
 			initialFocusRef={cancelRef}
 			triggerRef={props.triggerRef}
-			labelledBy="integration-delete-title"
 			onInterceptBack={() => props.pending}
 			className="ui-card w-[min(100%,460px)]"
 			containerClassName="items-center justify-center p-4"
 		>
-			<h2 id="integration-delete-title" className="font-display text-xl font-semibold">
-				Delete this integration?
+			<h2 id={titleId} className="font-display text-xl font-semibold">
+				{props.title}
 			</h2>
 			<p className="mt-3 text-sm text-text-muted">{props.detail}</p>
 			{props.errorMessage === undefined ? null : (
@@ -43,11 +48,11 @@ export function IntegrationDeleteConfirmation(props: {
 				</Button>
 				<button
 					type="button"
-					disabled={props.pending}
 					onClick={props.onConfirm}
+					disabled={props.pending || props.actionDisabled === true}
 					className="min-h-11 rounded-lg bg-danger-solid px-4 py-2.5 font-semibold text-danger-ink disabled:opacity-50"
 				>
-					{props.pending ? "Deleting..." : "Delete integration"}
+					{props.pending ? props.pendingLabel : props.actionLabel}
 				</button>
 			</div>
 		</Modal>

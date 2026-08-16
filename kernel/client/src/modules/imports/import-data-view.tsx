@@ -12,6 +12,7 @@ import {
 	liveImportRun,
 } from "#/modules/imports/run-presentation";
 import { AppIcon } from "#/modules/navigation/app-icon";
+import { LoadErrorState } from "#/modules/ui/load-error-state";
 import { RunProgressBar } from "#/modules/ui/run/run-progress-bar";
 import { formatRelativeTime, runDurationLabel, runStartedLabel } from "#/modules/ui/run/run-status";
 import { RunStatusGlyph, RunStatusPill } from "#/modules/ui/run/run-status-pill";
@@ -19,6 +20,11 @@ import { StatusState } from "#/modules/ui/status-state";
 
 const INTRO =
 	"Bring your history over from another service. Files are uploaded to your own server, read once, and deleted when the import finishes.";
+
+export const IMPORT_LOAD_ERROR = {
+	title: "Unable to load imports",
+	detail: "Your import history could not be loaded. Check the server and try again.",
+};
 
 type SourceNames = ReadonlyMap<string, string>;
 
@@ -155,16 +161,10 @@ function ImportHistory(props: {
 export function ImportDataView(props: ImportDataViewProps) {
 	if (props.state.status === "failed") {
 		return (
-			<StatusState
-				detailTone="danger"
-				title="Unable to load imports"
-				className="rounded-xl border border-border bg-surface p-6"
-				detail="Your import history could not be loaded. Check the server and try again."
-				action={
-					<Button type="button" variant="secondary" onClick={props.onRetry}>
-						Try again
-					</Button>
-				}
+			<LoadErrorState
+				onRetry={props.onRetry}
+				title={IMPORT_LOAD_ERROR.title}
+				detail={IMPORT_LOAD_ERROR.detail}
 			/>
 		);
 	}
