@@ -30,6 +30,7 @@ const detail = { path: "/details/1", search: "" };
 const nav = (location = home, index = 0) => ({
 	index,
 	location,
+	compact: false,
 	edgeBack: false,
 	key: `k${index}`,
 });

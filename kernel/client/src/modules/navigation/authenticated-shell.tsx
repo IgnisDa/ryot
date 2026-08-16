@@ -23,6 +23,7 @@ import { DesktopSidebar } from "#/modules/navigation/desktop-sidebar";
 import { CONTENT_SHIFT } from "#/modules/navigation/drawer-metrics";
 import { EdgeGesture } from "#/modules/navigation/edge-gesture";
 import { isSettingsPath, resolveEdge, type EdgeResolution } from "#/modules/navigation/edge-intent";
+import { impactLight } from "#/modules/navigation/haptics";
 import { MobileDrawer } from "#/modules/navigation/mobile-drawer";
 import { MobileHeader } from "#/modules/navigation/mobile-header";
 import {
@@ -98,6 +99,7 @@ export function AuthenticatedShell(props: {
 		);
 	});
 	const selectWorkspace = async (slug: string) => {
+		impactLight();
 		await runtime.runPromise(
 			Effect.flatMap(ClientStorage, (storage) => storage.setLastWorkspace(scope, slug)),
 		);
