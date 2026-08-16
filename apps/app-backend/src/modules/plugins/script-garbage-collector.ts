@@ -58,9 +58,12 @@ export class ScriptGarbageCollector extends Context.Service<ScriptGarbageCollect
 								Effect.provideService(Path.Path, path),
 							);
 							const removedScripts = yield* repository.deleteUnreferencedScripts(liveHashes);
+							const removedPlugins = yield* repository.deleteInactiveUnreferencedPlugins();
 							return {
-								candidateCount: moduleResult.candidateCount + removedScripts.length,
-								removedCount: moduleResult.removedCount + removedScripts.length,
+								removedCount:
+									moduleResult.removedCount + removedScripts.length + removedPlugins.length,
+								candidateCount:
+									moduleResult.candidateCount + removedScripts.length + removedPlugins.length,
 							};
 						}).pipe(Effect.provideService(Database, transaction)),
 					),
