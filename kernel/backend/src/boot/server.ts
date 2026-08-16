@@ -4,6 +4,7 @@ import { BadRequest } from "@ryot/contract/errors";
 import { Cause, Effect, FileSystem, Layer, Result, Schema } from "effect";
 import {
 	HttpEffect,
+	HttpMiddleware,
 	HttpRouter,
 	HttpServer,
 	HttpServerRequest,
@@ -11,7 +12,7 @@ import {
 } from "effect/unstable/http";
 import { HttpApiBuilder, HttpApiError, HttpApiScalar } from "effect/unstable/httpapi";
 
-import { AppConfig } from "#lib/infrastructure/config/service";
+import { AppConfig, parseCorsOrigins } from "#lib/infrastructure/config/service";
 import { AdminMiddlewareLive, AuthMiddlewareLive, AuthService } from "#modules/auth/service";
 import { AutomationsRoutesLive } from "#modules/automations/routes";
 import { BackupsRoutesLive } from "#modules/backups/routes";
@@ -118,7 +119,13 @@ export const registerRootRoutes = Effect.fn("registerRootRoutes")(function* <E, 
 	authHandler: (request: Request) => Promise<Response>,
 	serveStatic: (pathname: string) => Effect.Effect<HttpServerResponse.HttpServerResponse, SE, SR>,
 	frontendUrl: string,
+	corsOrigins: ReadonlyArray<string>,
 ) {
+	if (corsOrigins.length > 0) {
+		yield* router.addGlobalMiddleware(
+			HttpMiddleware.cors({ allowedOrigins: corsOrigins, credentials: true }),
+		);
+	}
 	yield* router.add("*", "/api/auth/*", (request) =>
 		HttpEffect.fromWebHandler(authHandler).pipe(
 			Effect.provideService(HttpServerRequest.HttpServerRequest, request),
@@ -157,7 +164,14 @@ const RootRoutesLive = HttpRouter.use((router) =>
 			return HttpServerResponse.uint8Array(bytes, { contentType: mimeType(target) });
 		});
 
-		yield* registerRootRoutes(router, api, auth.auth.handler, serveStatic, config.frontendUrl);
+		yield* registerRootRoutes(
+			router,
+			api,
+			auth.auth.handler,
+			serveStatic,
+			config.frontendUrl,
+			parseCorsOrigins(config.server.corsOrigins),
+		);
 	}),
 );
 
