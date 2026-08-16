@@ -63,7 +63,7 @@ const admin = async (path) => {
 let workerCursor = 0;
 // Any new spawn or execution counts as progress. Active work without progress is a stall here;
 // pending imports without progress are a stall in `awaitTerminal`.
-let progress = { key: null, at: Date.now() };
+let progress = { key: "", at: Date.now() };
 const sample = async () => {
 	const current = await admin(
 		`sandbox/runtime?includeSmaps=false&completedAfterSequence=${workerCursor}`,
@@ -115,11 +115,12 @@ const waitForDrain = async (observe) => {
 const every = (intervalMs, stopped, step) =>
 	(async () => {
 		const results = [];
-		let done = false;
+		const status = { done: false };
 		stopped.then(() => {
-			done = true;
+			status.done = true;
+			return undefined;
 		});
-		while (!done) {
+		while (!status.done) {
 			const startedAt = Date.now();
 			results.push(await step());
 			const wait = Math.max(0, intervalMs - (Date.now() - startedAt));
