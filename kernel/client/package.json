@@ -9,9 +9,9 @@
 		"build": "vite build",
 		"dev": "vite dev --port 3005",
 		"generate-routes": "tsr generate",
-		"ios": "bun run sync && cap run ios",
 		"test": "bun --bun run vitest run",
 		"sync": "bun run build && cap sync",
+		"ios": "bun run sync && cap run ios",
 		"android": "bun run sync && cap run android",
 		"generate-assets": "bun scripts/generate-assets.ts",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
