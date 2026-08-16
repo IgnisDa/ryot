@@ -606,7 +606,6 @@ type ValidatedV2Archive = {
 	readonly records: V2ArchiveRecords;
 	readonly events: ValidatedV2Events;
 	readonly assets: ReadonlyArray<ValidatedV2Asset>;
-	readonly cleanup: Effect.Effect<void, PlatformError.PlatformError>;
 };
 
 const validPath = (path: string) => {
@@ -774,7 +773,6 @@ const streamSpooledEvents = (fs: FileSystem.FileSystem, filePath: string, declar
 
 const validateExtracted = (
 	entries: ReadonlyMap<string, ExtractedEntry>,
-	directory: string,
 	fs: FileSystem.FileSystem,
 	limits: V2ArchiveLimits,
 ): ValidatedV2Archive => {
@@ -905,7 +903,6 @@ const validateExtracted = (
 	return {
 		assets,
 		manifest,
-		cleanup: fs.remove(directory, { recursive: true, force: true }),
 		events: {
 			count: eventsSection.count,
 			sha256: eventsSection.sha256,
@@ -1270,7 +1267,7 @@ const extractArchive = Effect.fn(function* <E>(
 				: archiveError("invalid_archive", "ZIP structure validation failed"),
 	});
 	return yield* Effect.try({
-		try: () => validateExtracted(entries, directory, fs, limits),
+		try: () => validateExtracted(entries, fs, limits),
 		catch: (error) =>
 			error instanceof BackupArchiveError
 				? error
@@ -1283,6 +1280,9 @@ export type ValidateV2ArchiveOptions = {
 	readonly limits?: Partial<V2ArchiveLimits> | undefined;
 };
 
+// The spool directory backs the event and asset streams the caller consumes, so it is owned by the
+// caller's scope: it survives every read and is removed on success, failure, and interruption
+// alike. Removal never fails the caller, so a committed restore stays committed.
 export const validateV2ArchiveStream = Effect.fn(function* <E>(
 	stream: Stream.Stream<Uint8Array, E>,
 	options: ValidateV2ArchiveOptions = {},
@@ -1295,14 +1295,17 @@ export const validateV2ArchiveStream = Effect.fn(function* <E>(
 		prefix: "ryot-backup-v2-",
 		...(options.directory === undefined ? {} : { directory: options.directory }),
 	});
-	const limits = { ...V2_ARCHIVE_LIMITS, ...options.limits };
-	return yield* extractArchive(stream, directory, fs, limits).pipe(
-		Effect.catch((error) =>
-			fs
-				.remove(directory, { recursive: true, force: true })
-				.pipe(Effect.ignore, Effect.andThen(Effect.fail(error))),
-		),
+	yield* Effect.addFinalizer(() =>
+		fs
+			.remove(directory, { recursive: true, force: true })
+			.pipe(
+				Effect.catchCause((cause) =>
+					Effect.logWarning("backup archive spool cleanup failed", cause),
+				),
+			),
 	);
+	const limits = { ...V2_ARCHIVE_LIMITS, ...options.limits };
+	return yield* extractArchive(stream, directory, fs, limits);
 });
 
 export const validateV2Archive = Effect.fn(function* (

@@ -72,6 +72,13 @@ sort. Nothing on the read path depends on event order.
 
 ## Restore sequencing
 
+`validateV2ArchiveStream` spools `events.ndjson` and every asset entry into a temp directory under
+`config.fileStorage.localTempDir` and hands that directory to the caller's scope, mirroring the
+export side. The returned event reader and asset streams read from it, so restore keeps its whole
+consumption inside one `Effect.scoped` region; the scope removes the directory on success, on
+validation failure, and on interruption alike. Removal is logged and swallowed rather than raised,
+so a spool that cannot be deleted never turns a committed restore into a failed one.
+
 Private packages and exact system requirements are validated before asset staging. Private packages
 are compiled and collision-checked before the write transaction. Asset staging happens before the
 transaction, so no network call is held inside it. The write itself
@@ -89,9 +96,10 @@ user-authored data and may contain credentials; only manifest config and integra
 can be redacted.
 
 User-bootstrap entity creation persists its origin on the entity and in the archive. A restore target
-is clean only when every existing entity has bootstrap origin. Archived bootstrap entities are matched
-to those destination rows by entity schema and plugin ownership; the restore does not depend on a
-specific plugin, schema slug, entity name, or initial properties.
+is clean only when every existing entity has bootstrap origin. An archived entity must reference an
+entity schema available in the current definition snapshot, either from the kernel or from a declared
+plugin. Archived bootstrap entities are matched to destination rows by entity schema and plugin
+ownership, not by entity name or initial properties.
 
 ## Error fidelity
 

@@ -150,6 +150,7 @@ const validationError = Effect.fn(function* (
 	options: Parameters<typeof validateV2Archive>[1] = {},
 ) {
 	return yield* validateV2Archive(asChunks(value), options).pipe(
+		Effect.scoped,
 		Effect.provide(BunFileSystem.layer),
 		Effect.flip,
 	);
@@ -234,8 +235,7 @@ it.effect("creates deterministic V2 archives and validates the round trip", () =
 		const validated = yield* validateV2Archive(asChunks(first));
 		expect(validated.manifest.version).toBe(2);
 		expect(validated.records).toEqual(records);
-		yield* validated.cleanup;
-	}).pipe(Effect.provide(BunFileSystem.layer)),
+	}).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer)),
 );
 
 it.effect("encodes and retains entity creation origin", () =>
@@ -247,8 +247,7 @@ it.effect("encodes and retains entity creation origin", () =>
 		});
 		const validated = yield* validateV2Archive(asChunks(archive));
 		expect(validated.records.entities[0]?.origin).toEqual(origin);
-		yield* validated.cleanup;
-	}).pipe(Effect.provide(BunFileSystem.layer)),
+	}).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer)),
 );
 
 it.effect("validates the V2 golden fixture", () =>
@@ -265,8 +264,7 @@ it.effect("validates the V2 golden fixture", () =>
 			),
 		);
 		expect(validated.manifest.archiveId).toBe("fixture-v2");
-		yield* validated.cleanup;
-	}).pipe(Effect.provide(BunFileSystem.layer)),
+	}).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer)),
 );
 
 it.effect("rejects every manifest version other than V2", () =>
@@ -276,7 +274,10 @@ it.effect("rejects every manifest version other than V2", () =>
 			new TextDecoder().decode(files["manifest.json"]),
 		);
 		files["manifest.json"] = new TextEncoder().encode(stableStringify({ ...manifest, version: 1 }));
-		const error = yield* validateV2Archive(asChunks(zipSync(files))).pipe(Effect.flip);
+		const error = yield* validateV2Archive(asChunks(zipSync(files))).pipe(
+			Effect.scoped,
+			Effect.flip,
+		);
 		expect(error).toBeInstanceOf(BackupArchiveError);
 		expect(error.reason).toBe("unsupported_format");
 	}).pipe(Effect.provide(BunFileSystem.layer)),
@@ -286,7 +287,7 @@ it.effect("rejects unsafe ZIP paths", () =>
 	Effect.gen(function* () {
 		const error = yield* validateV2Archive(
 			asChunks(zipSync({ "../manifest.json": new Uint8Array() })),
-		).pipe(Effect.flip);
+		).pipe(Effect.scoped, Effect.flip);
 		expect(error).toBeInstanceOf(BackupArchiveError);
 		expect(error.reason).toBe("invalid_path");
 	}).pipe(Effect.provide(BunFileSystem.layer)),
@@ -352,12 +353,11 @@ it.effect("rejects section digest and count mismatches including streamed events
 				),
 			});
 		});
-		const validated = yield* validateV2Archive(asChunks(eventCount)).pipe(
-			Effect.provide(BunFileSystem.layer),
-		);
-		const error = yield* Stream.runDrain(validated.events.read()).pipe(Effect.flip);
-		expect(error).toMatchObject({ reason: "count_mismatch", path: "events.ndjson" });
-		yield* validated.cleanup;
+		yield* Effect.gen(function* () {
+			const validated = yield* validateV2Archive(asChunks(eventCount));
+			const error = yield* Stream.runDrain(validated.events.read()).pipe(Effect.flip);
+			expect(error).toMatchObject({ reason: "count_mismatch", path: "events.ndjson" });
+		}).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer));
 	}),
 );
 
@@ -399,12 +399,11 @@ it.effect("rejects malformed and truncated bounded and streamed NDJSON", () =>
 			const streamed = yield* mutateArchive(input(), (files) => {
 				replaceSection(files, "events.ndjson", encoder.encode(payload));
 			});
-			const validated = yield* validateV2Archive(asChunks(streamed)).pipe(
-				Effect.provide(BunFileSystem.layer),
-			);
-			const error = yield* Stream.runDrain(validated.events.read()).pipe(Effect.flip);
-			expect(error).toMatchObject({ reason, path: "events.ndjson" });
-			yield* validated.cleanup;
+			yield* Effect.gen(function* () {
+				const validated = yield* validateV2Archive(asChunks(streamed));
+				const error = yield* Stream.runDrain(validated.events.read()).pipe(Effect.flip);
+				expect(error).toMatchObject({ reason, path: "events.ndjson" });
+			}).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer));
 		}
 	}),
 );
@@ -439,4 +438,47 @@ it.effect("rejects undeclared, missing, and mismatched assets", () =>
 		});
 		expect((yield* validationError(size)).reason).toBe("checksum_mismatch");
 	}),
+);
+
+it.effect("releases the spool directory on success, failure, and interruption", () =>
+	Effect.gen(function* () {
+		const fs = yield* FileSystem.FileSystem;
+		const root = yield* fs.makeTempDirectory({ prefix: "ryot-backup-spool-test-" });
+		const spooled = yield* archiveBytes(input({ records: { ...records, entities: [entity()] } }));
+		const spoolEntries = () => fs.readDirectory(root).pipe(Effect.map((paths) => paths.length));
+
+		const held = yield* Effect.gen(function* () {
+			const validated = yield* validateV2Archive(asChunks(spooled), { directory: root });
+			expect(yield* spoolEntries()).toBe(1);
+			return validated.assets.length;
+		}).pipe(Effect.scoped);
+		expect(held).toBe(0);
+		expect(yield* spoolEntries()).toBe(0);
+
+		const truncated = yield* mutateArchive(input(), (files) => {
+			replaceSection(files, "events.ndjson", encoder.encode('{"id":'));
+		});
+		yield* Effect.gen(function* () {
+			const validated = yield* validateV2Archive(asChunks(truncated), { directory: root });
+			return yield* Stream.runDrain(validated.events.read());
+		}).pipe(Effect.scoped, Effect.flip);
+		expect(yield* spoolEntries()).toBe(0);
+
+		expect(
+			(yield* validationError(rawZip(["manifest.json", "manifest.json"]), { directory: root }))
+				.reason,
+		).toBe("duplicate_path");
+		expect(yield* spoolEntries()).toBe(0);
+
+		const exit = yield* Effect.exit(
+			Effect.gen(function* () {
+				yield* validateV2Archive(asChunks(spooled), { directory: root });
+				return yield* Effect.interrupt;
+			}).pipe(Effect.scoped),
+		);
+		expect(exit._tag).toBe("Failure");
+		expect(yield* spoolEntries()).toBe(0);
+
+		yield* fs.remove(root, { recursive: true, force: true });
+	}).pipe(Effect.provide(BunFileSystem.layer)),
 );
