@@ -6,9 +6,9 @@ Provider declarations explicitly identify their root entity schema. Saved views 
 
 ## Client
 
-The Media client currently provides a static workspace placeholder and a read-only `show` entity renderer. The renderer queries its own Show summary recipe on mount and focus, verifies that the requested persisted entity is still a Show, and publishes the Show name as the screen title. It renders the name, description, provider, release year, genres, production status, season and episode counts, and the first remote image whose purpose is `cover`.
+The Media client currently provides a static workspace placeholder and a read-only `show` entity renderer. The renderer queries its own Show summary recipe on mount and focus, verifies that the requested persisted entity is still a Show, and publishes the Show name as the screen title. It renders the name, description, provider, release year, genres, production status, season and episode counts, and the first image whose purpose is `cover`, preserving provider order. Remote covers load directly; local and S3 covers resolve through the authenticated client asset capability and refresh before their signed URL expires. A failed refresh keeps the already-loaded image, while an initial resolution or image-load failure renders the unavailable cover state. The renderer does not fall back to a later cover.
 
-The client does not subscribe to entity-interest or WebSocket invalidation. It decodes local and S3 image locators but does not resolve or render them. Workspace discovery, tabs, overview data, cast, companies, recommendations, episode rows, activity, progress, monitoring, library and collection state, mutations, and managed artwork are deferred.
+The client does not subscribe to entity-interest or WebSocket invalidation. Workspace discovery, tabs, overview data, cast, companies, recommendations, episode rows, activity, progress, monitoring, library and collection state, mutations, and managed artwork beyond the Show cover are deferred.
 
 ## Images
 

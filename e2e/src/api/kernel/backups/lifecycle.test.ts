@@ -236,6 +236,8 @@ describe("backup lifecycle", () => {
 			);
 			expect(resolved).toHaveLength(1);
 			expect(resolved[0]?.asset).toEqual(targetLocator);
+			expect(resolved[0]?.expiresAt).toEqual(expect.any(String));
+			expect(Number.isNaN(Date.parse(resolved[0]?.expiresAt ?? ""))).toBe(false);
 			const targetDownload = yield* Effect.promise(() =>
 				fetch(new URL(resolved[0]?.downloadUrl ?? "", `${getApiUrl()}/`)),
 			);

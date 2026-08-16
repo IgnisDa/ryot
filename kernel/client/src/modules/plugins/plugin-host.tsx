@@ -4,6 +4,8 @@ import {
 	PLUGIN_BACK_SETTLE_MS,
 } from "@ryot-app/contract/modules/plugins/client";
 import type {
+	PluginAssetOutcome,
+	PluginAssetRequest,
 	PluginOperationOutcome,
 	PluginOperationRequest,
 	PluginRyotQLOutcome,
@@ -138,6 +140,10 @@ export function PluginHost(props: {
 	readonly onRevokeArtifactSession: RevokePluginArtifactSession;
 	readonly onNavigate: (request: PluginNavigationRequest) => void;
 	readonly onScreenState: (state: PluginScreenReadiness | null) => void;
+	readonly onAssets: (
+		request: PluginAssetRequest,
+		signal: AbortSignal,
+	) => Promise<PluginAssetOutcome>;
 	readonly onQuery: (
 		request: PluginRyotQLRequest,
 		signal: AbortSignal,
@@ -162,6 +168,7 @@ export function PluginHost(props: {
 		<PluginFrame
 			theme={props.theme}
 			onQuery={props.onQuery}
+			onAssets={props.onAssets}
 			onHeader={props.onHeader}
 			onNavigate={props.onNavigate}
 			navigation={props.navigation}
@@ -206,6 +213,10 @@ function PluginFrame(props: {
 	readonly onRevokeArtifactSession: RevokePluginArtifactSession;
 	readonly onNavigate: (request: PluginNavigationRequest) => void;
 	readonly onScreenState: (state: PluginScreenReadiness | null) => void;
+	readonly onAssets: (
+		request: PluginAssetRequest,
+		signal: AbortSignal,
+	) => Promise<PluginAssetOutcome>;
 	readonly onQuery: (
 		request: PluginRyotQLRequest,
 		signal: AbortSignal,
@@ -437,6 +448,7 @@ function PluginFrame(props: {
 			onReady: () => setFrameStatus("ready"),
 			onOpenDrawer: () => latest.current.onOpenDrawer(),
 			onRyotQL: (request, signal) => latest.current.onQuery(request, signal),
+			onAssets: (request, signal) => latest.current.onAssets(request, signal),
 			onScreenState: (state) => {
 				if (bridge.current === connection.session) {
 					latest.current.onScreenState(state);

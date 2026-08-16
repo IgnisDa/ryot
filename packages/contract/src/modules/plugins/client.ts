@@ -3,8 +3,9 @@ import { Schema } from "effect";
 
 import { EntityId, EntitySchemaSlug } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
-import { strictStruct } from "../../schema/utils";
+import { HttpUrl, IsoUtcString, strictStruct } from "../../schema/utils";
 import { RyotQLDocument, RyotQLResponse } from "../ryotql/language";
+import { ManagedAssetResolutionBatch, ManagedAssetLocator } from "../uploads/schemas";
 
 export const CLIENT_API_VERSION = 1 as const;
 export const CLIENT_BRIDGE_PROTOCOL_VERSION = 1 as const;
@@ -268,18 +269,85 @@ export type PluginOperationBridgeErrorReason = Schema.Schema.Type<
 	typeof PluginOperationBridgeErrorReason
 >;
 
+export const PluginAssetBridgeErrorReason = Schema.Literals([
+	"transport",
+	"asset-failed",
+	"malformed-result",
+]);
+
+export type PluginAssetBridgeErrorReason = Schema.Schema.Type<typeof PluginAssetBridgeErrorReason>;
+
 export const RyotClientErrorReason = Schema.Literals([
 	"disposed",
 	"protocol",
 	"transport",
-	"invalid-input",
+	"asset-failed",
 	"query-failed",
+	"invalid-input",
 	"operation-failed",
 	"malformed-result",
 	"unsupported-capability",
 ]);
 
 export type RyotClientErrorReason = Schema.Schema.Type<typeof RyotClientErrorReason>;
+
+export const PluginManagedAssetResolution = strictStruct({
+	url: HttpUrl,
+	expiresAt: IsoUtcString,
+	asset: ManagedAssetLocator,
+});
+
+export type PluginManagedAssetResolution = Schema.Schema.Type<typeof PluginManagedAssetResolution>;
+
+export const PluginAssetRequest = strictStruct({
+	assets: ManagedAssetResolutionBatch,
+});
+
+export type PluginAssetRequest = Schema.Schema.Type<typeof PluginAssetRequest>;
+
+export const PluginBridgeAssetRequest = strictStruct({
+	requestId: Schema.String,
+	assets: ManagedAssetResolutionBatch,
+	type: Schema.Literal("asset-request"),
+});
+
+export type PluginBridgeAssetRequest = Schema.Schema.Type<typeof PluginBridgeAssetRequest>;
+
+export const PluginBridgeAssetCancel = strictStruct({
+	requestId: Schema.String,
+	type: Schema.Literal("asset-cancel"),
+});
+
+export type PluginBridgeAssetCancel = Schema.Schema.Type<typeof PluginBridgeAssetCancel>;
+
+const pluginAssetSuccessFields = {
+	outcome: Schema.Literal("success"),
+	resolutions: Schema.Array(PluginManagedAssetResolution),
+};
+
+const pluginAssetFailureFields = {
+	reason: PluginAssetBridgeErrorReason,
+	outcome: Schema.Literal("failure"),
+};
+
+const pluginBridgeAssetResultFields = {
+	requestId: Schema.String,
+	type: Schema.Literal("asset-result"),
+};
+
+export const PluginAssetOutcome = Schema.Union([
+	strictStruct(pluginAssetSuccessFields),
+	strictStruct(pluginAssetFailureFields),
+]);
+
+export type PluginAssetOutcome = Schema.Schema.Type<typeof PluginAssetOutcome>;
+
+export const PluginBridgeAssetResult = Schema.Union([
+	strictStruct({ ...pluginAssetSuccessFields, ...pluginBridgeAssetResultFields }),
+	strictStruct({ ...pluginAssetFailureFields, ...pluginBridgeAssetResultFields }),
+]);
+
+export type PluginBridgeAssetResult = Schema.Schema.Type<typeof PluginBridgeAssetResult>;
 
 export const PluginOperationRequest = strictStruct({
 	input: JsonValue,
@@ -381,6 +449,8 @@ export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeNavigate,
 	PluginBridgeOpenDrawer,
 	PluginBridgeScreenState,
+	PluginBridgeAssetCancel,
+	PluginBridgeAssetRequest,
 	PluginBridgeRyotQLCancel,
 	PluginBridgeNavigateBack,
 	PluginBridgeRyotQLRequest,
@@ -394,6 +464,7 @@ export const PluginBridgeHostMessage = Schema.Union([
 	PluginBridgeTheme,
 	PluginBridgeLocation,
 	PluginBridgeViewport,
+	PluginBridgeAssetResult,
 	PluginBridgeRyotQLResult,
 	PluginBridgeLifecycleClose,
 	PluginBridgeOperationResult,

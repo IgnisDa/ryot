@@ -225,6 +225,7 @@ export const EntityRouteStubs = makeEntityRouteStub();
 
 export const SavedViewRouteStubs = Layer.mergeAll(
 	Layer.succeed(ManagedAssetsService, {
+		read: () => Effect.succeed([]),
 		resolve: () => Effect.succeed(new Map<string, string>()),
 	}),
 	Layer.succeed(SavedViewsService, {

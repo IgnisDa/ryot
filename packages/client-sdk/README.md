@@ -25,6 +25,12 @@ completion, so no intent id, upload URL, or completion step reaches a caller. Th
 adapter cannot provide it, because every bridge payload is a `JsonValue` and a `Blob` cannot cross
 the port; a plugin calling it gets `unsupported-capability`.
 
+`assets.resolve` accepts a non-empty batch of local or S3 managed locators and returns matching
+absolute signed URLs with their expiry. The direct and `MessageChannel` adapters use the same
+authenticated upload boundary and opaque `asset-failed` classification. Bridge messages contain no
+authentication, server, user, plugin, or installation identity. Canceling or disposing a session
+aborts pending resolution work; an issued asset-scoped URL remains usable until its natural expiry.
+
 ## Screen Stack
 
 `PluginRouter` keeps a stack of screens, not one route, and reconciles it through the pure
