@@ -45,7 +45,7 @@ describe("client plugin artifacts", () => {
 			const entry = yield* fixtureCatalogEntry(client);
 
 			expect(entry).toMatchObject({
-				sortOrder: 0,
+				sortOrder: 2,
 				icon: "puzzle",
 				name: "Fixture",
 				health: "ready",
