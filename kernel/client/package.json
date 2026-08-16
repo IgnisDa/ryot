@@ -31,7 +31,7 @@
 		"@tailwindcss/vite": "^4.1.18",
 		"@tanstack/react-form": "2.0.0-alpha.1",
 		"@tanstack/react-router": "latest",
-		"better-auth": "1.7.0-rc.6",
+		"better-auth": "1.7.2",
 		"clsx": "2.1.1",
 		"effect": "4.0.0-rc.111",
 		"lucide-react": "^1.37.0",
