@@ -16,13 +16,18 @@ import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Effect, Schema } from "effect";
-import { Activity } from "effect/unstable/workflow";
 
-import { LifecyclePlanner, type LifecyclePlan } from "#lib/domain/lifecycle";
+import {
+	LifecycleDispatchPlan,
+	LifecyclePlanner,
+	type LifecyclePlan,
+	toLifecycleDispatchPlan,
+} from "#lib/domain/lifecycle";
 import { lifecycleTrigger, type LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { Database, mapDatabaseErrors, retryOnDeadlock } from "#lib/infrastructure/db/service";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
+import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import {
@@ -84,7 +89,7 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 	if (!item) {
 		return yield* Effect.die("Missing event batch item");
 	}
-	return yield* Activity.make({
+	return yield* makeActivity({
 		name: `prepare-item-${index}`,
 		success: PreparedItem satisfies DurableSchema,
 		error: EventCreateWorkflowError satisfies DurableSchema,
@@ -129,7 +134,7 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 					...plan,
 					policies: plan.policies.map((policy) => ({
 						runId: policy.runId,
-						position: policy.position ?? 1000,
+						position: policy.position,
 						batchFrequency: policy.batchFrequency,
 					})),
 				},
@@ -149,13 +154,12 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 	const eventSchemas = yield* EventSchemasRepository;
 	const planner = yield* LifecyclePlanner;
 	const command = itemCommand(payload, index);
-	return yield* Activity.make({
+	return yield* makeActivity({
 		name: `write-event-${index}`,
 		error: EventCreateWorkflowError satisfies DurableSchema,
 		success: Schema.Struct({
 			eventId: EventId,
-			trigger: AutomationTrigger,
-			runs: Schema.Array(AutomationRun),
+			dispatch: Schema.Array(LifecycleDispatchPlan),
 		}) satisfies DurableSchema,
 		execute: transaction(
 			Effect.gen(function* () {
@@ -189,7 +193,7 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 					if (plan.wasCreated) {
 						return yield* new DbError({ message: "Committed event is missing its lifecycle plan" });
 					}
-					return { eventId, runs: plan.runs, trigger: plan.trigger };
+					return { eventId, dispatch: [toLifecycleDispatchPlan(plan)] };
 				}
 				yield* eventSchemas.lockCatalog();
 				yield* entities.lockEntityReferencesByIds([
@@ -241,7 +245,7 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 						{ after, resource: "event", category: "change", operation: "create" },
 					),
 				});
-				return { runs: plan.runs, eventId: event.id, trigger: plan.trigger };
+				return { eventId: event.id, dispatch: [toLifecycleDispatchPlan(plan)] };
 			}),
 		),
 	});
@@ -290,16 +294,19 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(function*
 			outcomes.push({ index, reason: attempt.reason, status: "skipped_by_policy" });
 			continue;
 		}
-		const { runs, trigger, eventId } = attempt.committed;
+		const { eventId, dispatch } = attempt.committed;
 		outcomes.push({ index, eventId, status: "written" });
 		count += 1;
-		if (trigger.blockedReason?.hasRequiredHooks) {
-			warnings.push({ ...trigger.blockedReason, triggerId: trigger.id });
-		}
-		warnings.push(...(yield* execution.after({ runs, triggerId: trigger.id })));
+		warnings.push(
+			...(yield* execution
+				.dispatch(dispatch)
+				.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die))),
+		);
 	}
 	return { count, failure, outcomes, warnings };
 });
 
-export const EventCreateWorkflowDefinitionsLive =
-	EventCreateWorkflow.toLayer(runEventCreateWorkflow);
+export const EventCreateWorkflowDefinitionsLive = implementWorkflow(
+	EventCreateWorkflow,
+	runEventCreateWorkflow,
+);

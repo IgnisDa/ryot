@@ -5,9 +5,9 @@ import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, DateTime, Effect, Schema } from "effect";
-import { Activity } from "effect/unstable/workflow";
 
 import { rootLifecycleCommand, type LifecycleCommand } from "#lib/domain/lifecycle-command";
+import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { SignalEmissionService } from "#modules/automations/signal-service";
 import { markImportRunStarted } from "#modules/imports/runtime/import-run-status";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
@@ -80,7 +80,7 @@ const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (
 	const markStartedEffect = markImportRunStarted(payload.runId).pipe(
 		Effect.mapError(toIntegrationWorkflowError),
 	);
-	yield* Activity.make({
+	yield* makeActivity({
 		error: IntegrationRunError,
 		execute: markStartedEffect,
 		name: "mark-integration-run-started",
@@ -104,7 +104,7 @@ const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (
 	const finalizationEffect = finalizeIntegrationRun(integration, payload.runId).pipe(
 		Effect.mapError(toIntegrationWorkflowError),
 	);
-	const wasDisabled = yield* Activity.make({
+	const wasDisabled = yield* makeActivity({
 		success: Schema.Boolean,
 		error: IntegrationRunError,
 		execute: finalizationEffect,
@@ -142,7 +142,7 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 		const loadIntegrationEffect = integrationsRepository
 			.getByIdAnyUser({ integrationId: payload.integrationId })
 			.pipe(Effect.mapError(toIntegrationWorkflowError));
-		const integration = yield* Activity.make({
+		const integration = yield* makeActivity({
 			name: "load-integration",
 			error: IntegrationRunError,
 			execute: loadIntegrationEffect,
@@ -171,7 +171,9 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 		Effect.annotateLogs(effect, { executionId, workflow: "ProcessIntegrationRunWorkflow" }),
 );
 
-const ProcessIntegrationRunWorkflowLive =
-	ProcessIntegrationRunWorkflow.toLayer(runIntegrationRunWorkflow);
+const ProcessIntegrationRunWorkflowLive = implementWorkflow(
+	ProcessIntegrationRunWorkflow,
+	runIntegrationRunWorkflow,
+);
 
 export const IntegrationWorkflowDefinitionsLive = ProcessIntegrationRunWorkflowLive;

@@ -29,6 +29,7 @@
 - Derive child `executionId` values deterministically from the parent; random IDs can create children on replay.
 - Durable owners remain idempotent because ownership does not guarantee single-flight execution.
 - Background work uses the workflow engine, durable queues, and durable deferred signals; do not add another job queue.
+- Create activities with `makeActivity` and register workflows with `implementWorkflow` from `src/lib/infrastructure/workflow-scope.ts`; `LifecycleExecution.after` and `executePolicy` die inside activity bodies. The architecture check enforces this.
 
 ## Infrastructure
 

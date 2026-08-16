@@ -1,11 +1,12 @@
 import { InternalError, internalError } from "@ryot-app/contract/errors";
 import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, DateTime, Effect, FileSystem, Layer, Result, Schema, Stream } from "effect";
-import { Activity, Workflow } from "effect/unstable/workflow";
+import { Workflow } from "effect/unstable/workflow";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
+import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { ARCHIVE_LIMITS, createArchiveStream } from "../archive/archive";
@@ -249,14 +250,14 @@ export const runExportBackupWorkflow = Effect.fn("ExportBackupWorkflow")(
 			userId: payload.userId,
 		});
 		const operations = yield* ExportBackupWorkflowOperations;
-		const started = yield* Activity.make({
+		const started = yield* makeActivity({
 			name: "begin-backup-export",
 			execute: operations.begin(payload),
 			error: InternalError satisfies DurableSchema,
 			success: Schema.Boolean satisfies DurableSchema,
 		}).pipe(Effect.result);
 		if (Result.isFailure(started)) {
-			yield* Activity.make({
+			yield* makeActivity({
 				name: "fail-unstarted-backup-export",
 				success: Schema.Void satisfies DurableSchema,
 				error: InternalError satisfies DurableSchema,
@@ -267,14 +268,14 @@ export const runExportBackupWorkflow = Effect.fn("ExportBackupWorkflow")(
 		if (!started.success) {
 			return;
 		}
-		const built = yield* Activity.make({
+		const built = yield* makeActivity({
 			name: "build-backup-export",
 			execute: operations.build(payload),
 			error: InternalError satisfies DurableSchema,
 			success: ExportArtifact satisfies DurableSchema,
 		}).pipe(Effect.result);
 		if (Result.isFailure(built)) {
-			yield* Activity.make({
+			yield* makeActivity({
 				name: "fail-backup-export",
 				success: Schema.Void satisfies DurableSchema,
 				error: InternalError satisfies DurableSchema,
@@ -282,14 +283,14 @@ export const runExportBackupWorkflow = Effect.fn("ExportBackupWorkflow")(
 			});
 			return;
 		}
-		const completed = yield* Activity.make({
+		const completed = yield* makeActivity({
 			name: "complete-backup-export",
 			success: Schema.Void satisfies DurableSchema,
 			error: InternalError satisfies DurableSchema,
 			execute: operations.complete(payload, built.success),
 		}).pipe(Effect.result);
 		if (Result.isFailure(completed)) {
-			yield* Activity.make({
+			yield* makeActivity({
 				name: "fail-completed-backup-export",
 				success: Schema.Void satisfies DurableSchema,
 				error: InternalError satisfies DurableSchema,
@@ -301,5 +302,7 @@ export const runExportBackupWorkflow = Effect.fn("ExportBackupWorkflow")(
 		Effect.annotateLogs(effect, { executionId, workflow: "ExportBackupWorkflow" }),
 );
 
-export const ExportBackupWorkflowDefinitionsLive =
-	ExportBackupWorkflow.toLayer(runExportBackupWorkflow);
+export const ExportBackupWorkflowDefinitionsLive = implementWorkflow(
+	ExportBackupWorkflow,
+	runExportBackupWorkflow,
+);

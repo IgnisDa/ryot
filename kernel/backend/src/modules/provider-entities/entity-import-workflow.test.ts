@@ -17,9 +17,11 @@ import { Effect, Exit, Layer } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand, type LifecycleCommand } from "#lib/domain/lifecycle-command";
+import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { Database } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
 import { makeRedisService, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
+import { planFixture } from "#modules/automations/lifecycle.test-support";
 import {
 	DefinitionRegistry,
 	type DefinitionSnapshot,
@@ -180,7 +182,7 @@ const childEntityWork = (
 		properties: input.properties as Record<string, JsonValue>,
 	});
 	return {
-		plans: [],
+		plans: [planFixture(`entity-${input.externalId}`)],
 		result: {
 			entity,
 			wasInserted: true,
@@ -189,7 +191,7 @@ const childEntityWork = (
 	};
 };
 
-it.effect("commits a child set atomically and executes all plans after commit", () => {
+it.effect("commits a child set atomically and returns entity then relationship plans", () => {
 	const transaction = makeTransaction();
 	const entityWrites: string[] = [];
 	const reconciliations: Array<{
@@ -197,19 +199,11 @@ it.effect("commits a child set atomically and executes all plans after commit", 
 		scope: unknown;
 		groups: ReadonlyArray<unknown>;
 	}> = [];
-	let entityPostCommit = 0;
-	let relationshipPostCommit = 0;
 	const layer = Layer.mergeAll(
 		Layer.succeed(Database, transaction.database),
 		Layer.succeed(DefinitionRegistry, registry),
 		Layer.mock(EntitiesRepository)({}),
 		Layer.mock(EntitiesService)({
-			executeCommittedPlans: () =>
-				Effect.sync(() => {
-					expect(transaction.inTransaction()).toBe(false);
-					entityPostCommit += 1;
-					return [];
-				}),
 			persistPlannedProviderUpsert: (input) =>
 				Effect.sync(() => {
 					expect(transaction.inTransaction()).toBe(true);
@@ -221,17 +215,14 @@ it.effect("commits a child set atomically and executes all plans after commit", 
 			listRelationshipsForReconciliation: () => Effect.succeed([]),
 		}),
 		Layer.mock(RelationshipsService)({
-			executeCommittedPlans: () =>
-				Effect.sync(() => {
-					expect(transaction.inTransaction()).toBe(false);
-					relationshipPostCommit += 1;
-					return [];
-				}),
 			persistPlannedReconciliation: (groups, receivedCommand, scope) =>
 				Effect.sync(() => {
 					expect(transaction.inTransaction()).toBe(true);
 					reconciliations.push({ scope, groups, command: receivedCommand });
-					return { plans: [], result: [{ created: 2, updated: 0, deleted: 0, upserted: 2 }] };
+					return {
+						plans: [planFixture("relationships")],
+						result: [{ created: 2, updated: 0, deleted: 0, upserted: 2 }],
+					};
 				}),
 		}),
 	);
@@ -256,8 +247,11 @@ it.effect("commits a child set atomically and executes all plans after commit", 
 		expect(result.relationshipResults).toEqual([
 			{ created: 2, updated: 0, deleted: 0, upserted: 2 },
 		]);
-		expect(entityPostCommit).toBe(1);
-		expect(relationshipPostCommit).toBe(1);
+		expect(result.dispatch.map(({ triggerId }) => triggerId)).toEqual([
+			"entity-a",
+			"entity-b",
+			"relationships",
+		]);
 		expect(reconciliations[0]).toMatchObject({
 			scope: { scope: "global" },
 			command: {
@@ -281,13 +275,11 @@ it.effect("commits a child set atomically and executes all plans after commit", 
 it.effect("rolls back every child entity when relationship planning fails", () => {
 	const persisted: string[] = [];
 	const transaction = makeTransaction(() => persisted.splice(0));
-	let postCommit = false;
 	const layer = Layer.mergeAll(
 		Layer.succeed(Database, transaction.database),
 		Layer.succeed(DefinitionRegistry, registry),
 		Layer.mock(EntitiesRepository)({}),
 		Layer.mock(EntitiesService)({
-			executeCommittedPlans: () => Effect.sync(() => void (postCommit = true)).pipe(Effect.as([])),
 			persistPlannedProviderUpsert: (input) =>
 				Effect.sync(() => {
 					persisted.push(input.externalId);
@@ -298,7 +290,6 @@ it.effect("rolls back every child entity when relationship planning fails", () =
 			listRelationshipsForReconciliation: () => Effect.succeed([]),
 		}),
 		Layer.mock(RelationshipsService)({
-			executeCommittedPlans: () => Effect.sync(() => void (postCommit = true)).pipe(Effect.as([])),
 			persistPlannedReconciliation: () =>
 				Effect.fail(
 					new RelationshipBadRequest({ reason: { code: "reconciliation-selector-mismatch" } }),
@@ -325,7 +316,6 @@ it.effect("rolls back every child entity when relationship planning fails", () =
 		);
 		expect(Exit.isFailure(exit)).toBe(true);
 		expect(persisted).toEqual([]);
-		expect(postCommit).toBe(false);
 	}).pipe(Effect.provide(layer));
 });
 
@@ -358,7 +348,6 @@ it.effect("keeps private related entities and reconciliation in one user transac
 		}),
 		Layer.mock(EntitiesRepository)({}),
 		Layer.mock(EntitiesService)({
-			executeCommittedPlans: () => Effect.succeed([]),
 			persistPlannedProviderUpsert: (input) =>
 				Effect.sync(() => {
 					expect(transaction.inTransaction()).toBe(true);
@@ -373,7 +362,6 @@ it.effect("keeps private related entities and reconciliation in one user transac
 			listRelationshipsForReconciliation: () => Effect.succeed([]),
 		}),
 		Layer.mock(RelationshipsService)({
-			executeCommittedPlans: () => Effect.succeed([]),
 			persistPlannedReconciliation: (_groups, receivedCommand, scope) =>
 				Effect.sync(() => {
 					expect(transaction.inTransaction()).toBe(true);
@@ -407,7 +395,7 @@ it.effect("keeps private related entities and reconciliation in one user transac
 				],
 			},
 		});
-		expect(result).toEqual([{ created: 1, updated: 0, deleted: 0, upserted: 1 }]);
+		expect(result.result).toEqual([{ created: 1, updated: 0, deleted: 0, upserted: 1 }]);
 		expect(entityScopes).toEqual([{ userId, scope: "user" }]);
 		expect(reconciliationScope).toEqual({ userId, scope: "user" });
 		expect(reconciliationCommand).toMatchObject({
@@ -420,7 +408,6 @@ it.effect("keeps private related entities and reconciliation in one user transac
 it.effect("rolls back a complete related group when reconciliation fails", () => {
 	const persisted: string[] = [];
 	const transaction = makeTransaction(() => persisted.splice(0));
-	let postCommit = false;
 	const relatedProviderId = SandboxProviderId.make("person-provider");
 	const layer = Layer.mergeAll(
 		Layer.succeed(Database, transaction.database),
@@ -435,7 +422,6 @@ it.effect("rolls back a complete related group when reconciliation fails", () =>
 				}),
 		}),
 		Layer.mock(EntitiesService)({
-			executeCommittedPlans: () => Effect.sync(() => void (postCommit = true)).pipe(Effect.as([])),
 			persistPlannedProviderUpsert: (input) =>
 				Effect.sync(() => {
 					expect(transaction.inTransaction()).toBe(true);
@@ -445,7 +431,6 @@ it.effect("rolls back a complete related group when reconciliation fails", () =>
 		}),
 		Layer.mock(RelationshipsRepository)({}),
 		Layer.mock(RelationshipsService)({
-			executeCommittedPlans: () => Effect.sync(() => void (postCommit = true)).pipe(Effect.as([])),
 			persistPlannedReconciliation: () =>
 				Effect.fail(
 					new RelationshipBadRequest({ reason: { code: "reconciliation-selector-mismatch" } }),
@@ -475,7 +460,6 @@ it.effect("rolls back a complete related group when reconciliation fails", () =>
 		);
 		expect(Exit.isFailure(exit)).toBe(true);
 		expect(persisted).toEqual([]);
-		expect(postCommit).toBe(false);
 	}).pipe(Effect.provide(layer));
 });
 
@@ -487,12 +471,6 @@ it.effect("uses command causation for deterministic root and final lifecycle wri
 		findEntityByExternalId: () => Effect.succeed(null),
 	});
 	const entitiesService = Layer.mock(EntitiesService)({
-		executeCommittedPlans: () =>
-			Effect.sync(() => {
-				expect(transaction.inTransaction()).toBe(false);
-				postCommitCount += 1;
-				return [];
-			}),
 		persistPlannedProviderUpsert: (input) =>
 			Effect.sync(() => {
 				expect(transaction.inTransaction()).toBe(true);
@@ -527,7 +505,6 @@ it.effect("uses command causation for deterministic root and final lifecycle wri
 		}),
 		Layer.mock(RelationshipsRepository)({}),
 		Layer.mock(RelationshipsService)({
-			executeCommittedPlans: () => Effect.succeed([]),
 			persistPlannedReconciliation: () => Effect.die("unexpected reconciliation"),
 		}),
 		Layer.mock(EntityImportWorkflowOperations)({
@@ -545,6 +522,17 @@ it.effect("uses command causation for deterministic root and final lifecycle wri
 		}),
 		entityRepository,
 		entitiesService,
+		Layer.succeed(LifecycleExecution, {
+			after: () => Effect.die("unexpected after"),
+			executePolicy: () => Effect.die("unexpected policy"),
+			skipQueuedPolicies: () => Effect.die("unexpected policy skip"),
+			dispatch: () =>
+				Effect.sync(() => {
+					expect(transaction.inTransaction()).toBe(false);
+					postCommitCount += 1;
+					return [];
+				}),
+		}),
 	);
 	const payload = {
 		command,

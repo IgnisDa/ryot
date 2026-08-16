@@ -19,13 +19,14 @@ import {
 import type { Exit } from "effect";
 import { Deferred, Effect, Layer, Schema, Stream } from "effect";
 import { ChildProcess } from "effect/unstable/process";
-import { Activity, Workflow } from "effect/unstable/workflow";
+import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { RedisService } from "#lib/infrastructure/redis";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { makeWorkflowReplayJournalHostFunction } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
+import { makeActivity } from "#lib/infrastructure/workflow-scope";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import {
 	databaseLayer,
@@ -634,7 +635,7 @@ it.effect("reconstructs a completed host write after interruption without repeat
 			}),
 			Layer.mock(SandboxDurableHostDispatcher)({
 				dispatch: () =>
-					Activity.make({
+					makeActivity({
 						error: SandboxRunError,
 						success: workflowDurableResultSchema,
 						name: "sandbox-host-0-setCachedValue",

@@ -183,6 +183,36 @@ export const makeAppConfigLayer = (
 export const makeConfigProviderLayer = (values: Readonly<Record<string, unknown>> = {}) =>
 	ConfigProvider.layer(ConfigProvider.fromUnknown(values));
 
+export const makeMemoizingWorkflowEngine = (
+	instance: WorkflowInstance["Service"],
+	activityRuns: string[],
+) => {
+	const results = new Map<string, Workflow.Complete<unknown, unknown>>();
+	let engine: WorkflowEngine["Service"];
+
+	engine = makeWorkflowEngine({
+		activityExecute: (activity) =>
+			Effect.gen(function* () {
+				const stored = results.get(activity.name);
+				if (stored) {
+					return stored;
+				}
+				activityRuns.push(activity.name);
+				const exit = yield* Effect.exit(
+					activity.execute.pipe(
+						Effect.provideService(WorkflowEngine, engine),
+						Effect.provideService(WorkflowInstance, instance),
+					),
+				);
+				const complete = new Workflow.Complete({ exit });
+				results.set(activity.name, complete);
+				return complete;
+			}),
+	});
+
+	return engine;
+};
+
 export const makeWorkflowActivityEngine = (
 	instance: WorkflowInstance["Service"],
 	overrides: WorkflowEngineOverrides = {},

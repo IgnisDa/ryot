@@ -17,6 +17,7 @@ import {
 	LifecyclePlanner,
 	type LifecyclePersistenceError,
 	type LifecyclePlan,
+	toLifecycleDispatchPlan,
 } from "#lib/domain/lifecycle";
 import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
@@ -83,14 +84,9 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 			eventPlans: ReadonlyArray<LifecyclePlan>,
 			relationshipPlans: ReadonlyArray<LifecyclePlan>,
 		) {
-			const warnings = [];
-			if (eventPlans.length > 0) {
-				warnings.push(...(yield* events.executeCommittedPlans(eventPlans)));
-			}
-			if (relationshipPlans.length > 0) {
-				warnings.push(...(yield* relationships.executeCommittedPlans(relationshipPlans)));
-			}
-			return warnings;
+			return yield* lifecycleExecution.dispatch(
+				[...eventPlans, ...relationshipPlans].map(toLifecycleDispatchPlan),
+			);
 		});
 
 		const prepareRelationshipMove = Effect.fnUntraced(function* (input: {

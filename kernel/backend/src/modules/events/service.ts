@@ -18,6 +18,7 @@ import {
 	LifecyclePersistenceError,
 	LifecyclePlanner,
 	type LifecyclePlan,
+	toLifecycleDispatchPlan,
 } from "#lib/domain/lifecycle";
 import { lifecycleTrigger, LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
@@ -280,26 +281,6 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 		) {
 			return yield* persist(prepared[preparedEventDelete]);
 		});
-		const executeCommittedPlans = Effect.fn("EventsService.executeCommittedPlans")(function* (
-			plans: ReadonlyArray<LifecyclePlan>,
-		) {
-			const client = yield* PgClient.PgClient;
-			const execution = yield* LifecycleExecution;
-			if (Option.isSome(yield* Effect.serviceOption(client.transactionService))) {
-				return yield* new LifecyclePersistenceError({ code: "postcommit-requires-root" });
-			}
-			return yield* Effect.forEach(plans, ({ runs, trigger }) =>
-				Effect.gen(function* () {
-					const warnings: AutomationWarning[] = [];
-					if (trigger.blockedReason?.hasRequiredHooks) {
-						warnings.push({ ...trigger.blockedReason, triggerId: trigger.id });
-					}
-					warnings.push(...(yield* execution.after({ runs, triggerId: trigger.id })));
-					return warnings;
-				}),
-			).pipe(Effect.map((warnings) => warnings.flat()));
-		});
-
 		const mutate = Effect.fn("EventsService.mutate")(function* (
 			input: EventIdentityInput,
 			command: LifecycleCommand,
@@ -317,14 +298,17 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			if (!work) {
 				return { eventId: null, warnings: [] as AutomationWarning[] };
 			}
-			return { eventId: work.result, warnings: yield* executeCommittedPlans(work.plans) };
+			const execution = yield* LifecycleExecution;
+			return {
+				eventId: work.result,
+				warnings: yield* execution.dispatch(work.plans.map(toLifecycleDispatchPlan)),
+			};
 		});
 
 		return {
 			create,
 			prepareUpdate,
 			prepareDelete,
-			executeCommittedPlans,
 			persistPreparedUpdate,
 			persistPreparedDelete,
 			delete: (input: EventIdentityInput, command: LifecycleCommand) => mutate(input, command),

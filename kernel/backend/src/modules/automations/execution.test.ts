@@ -1,20 +1,31 @@
+import { PgClient } from "@effect/sql-pg";
 import { expect, it } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
-import {
-	AutomationRequestPayload,
-	AutomationRun,
-} from "@ryot-app/contract/modules/automations/lifecycle";
+import { AutomationRequestPayload } from "@ryot-app/contract/modules/automations/lifecycle";
 import { AutomationRunId } from "@ryot-app/contract/schema/brands";
-import { Cause, Deferred, Duration, Effect, Fiber, Layer, Schema } from "effect";
+import { Cause, Deferred, Duration, Effect, Exit, Fiber, Layer, Schema } from "effect";
 import { TestClock } from "effect/testing";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { SqlClient } from "effect/unstable/sql";
+import { Workflow } from "effect/unstable/workflow";
+import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
+import {
+	LifecycleDispatchRun,
+	LifecyclePersistenceError,
+	type LifecycleDispatchPlan,
+} from "#lib/domain/lifecycle";
 import {
 	AutomationPolicyExecutionError,
 	LifecycleExecution,
 } from "#lib/domain/lifecycle-execution";
+import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { assertExitFails } from "#lib/test-utils/assertions";
-import { databaseLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import {
+	databaseLayer,
+	makeWorkflowActivityEngine,
+	makeWorkflowEngine,
+	workflowEngineTestLayer,
+} from "#lib/test-utils/effect";
 
 import { automationAttemptIdentity } from "./attempt-repository";
 import {
@@ -30,34 +41,13 @@ import { AutomationRunWorkflowPayload, type AutomationRunWorkflowResult } from "
 
 const trigger = triggerFixture();
 const run = (id: string, delivery: "required" | "async" = "required") =>
-	Schema.decodeSync(AutomationRun)({
+	Schema.decodeSync(LifecycleDispatchRun)({
 		id,
 		delivery,
 		hookSlug: id,
-		hookName: id,
 		stage: "after",
-		pluginId: null,
-		scriptSlug: id,
-		attemptCount: 0,
-		startedAt: null,
 		status: "queued",
-		finishedAt: null,
-		skipReason: null,
-		nextAttemptAt: null,
 		triggerId: trigger.id,
-		executionUserId: null,
-		pluginRevisionId: null,
-		scriptContentHash: "hash",
-		sandboxScriptId: "script",
-		queuedAt: trigger.createdAt,
-		pluginConfigRevisionId: null,
-		artifactsExpireAt: "2026-09-22T00:00:00.000Z",
-		retryPolicy: {
-			maxAttempts: 3,
-			maxDelayMs: 10000,
-			initialDelayMs: 1000,
-			externalIdempotency: "none",
-		},
 	});
 const result = (
 	runId: AutomationRunId,
@@ -76,10 +66,24 @@ const result = (
 		failureKind: status === "failed" ? "sandbox-timeout" : null,
 	},
 });
+const transactionService = SqlClient.TransactionConnection(0);
 const layer = (operations: AutomationExecutionOperations["Service"]) =>
 	LifecycleExecutionLive.pipe(
-		Layer.provide(Layer.succeed(AutomationExecutionOperations, operations)),
+		Layer.provide(
+			Layer.mergeAll(
+				Layer.succeed(AutomationExecutionOperations, operations),
+				Layer.succeed(
+					PgClient.PgClient,
+					Object.assign(Object.create(null), { transactionService }),
+				),
+			),
+		),
 	);
+const succeedingOperations = AutomationExecutionOperations.of({
+	submit: () => Effect.void,
+	skipQueuedPolicies: () => Effect.void,
+	execute: ({ runId }) => Effect.succeed(result(runId)),
+});
 const policyPayload = Schema.decodeSync(AutomationRequestPayload)({
 	resource: "entity",
 	category: "request",
@@ -371,4 +375,119 @@ it.effect(
 			}).pipe(Effect.provide(layer(operations)));
 			expect(closed).toEqual([trigger.id, trigger.id]);
 		}),
+);
+
+it.effect("dispatches plans in order with blocked warnings and rejects an open transaction", () =>
+	Effect.gen(function* () {
+		const executed: string[] = [];
+		const operations = AutomationExecutionOperations.of({
+			submit: () => Effect.void,
+			skipQueuedPolicies: () => Effect.void,
+			execute: ({ runId }) =>
+				Effect.sync(() => {
+					executed.push(runId);
+					return result(runId, "failed");
+				}),
+		});
+		const blockedReason = {
+			omittedHooks: [],
+			hasRequiredHooks: true,
+			code: "automation-limit-reached",
+		};
+		const plans: ReadonlyArray<LifecycleDispatchPlan> = [
+			{ blockedReason: null, runs: [run("first")], triggerId: trigger.id },
+			{
+				triggerId: trigger.id,
+				runs: [run("second")],
+				blockedReason: { ...blockedReason, code: "automation-limit-reached" as const },
+			},
+		];
+		yield* Effect.gen(function* () {
+			const service = yield* LifecycleExecution;
+			expect(yield* service.dispatch(plans)).toEqual([
+				{ runId: "first", hookSlug: "first", code: "required-hook-failed" },
+				{ ...blockedReason, triggerId: trigger.id },
+				{ runId: "second", hookSlug: "second", code: "required-hook-failed" },
+			]);
+			assertExitFails(
+				yield* Effect.exit(
+					service
+						.dispatch(plans)
+						.pipe(Effect.provideService(transactionService, [Object.create(null), 1])),
+				),
+				new LifecyclePersistenceError({ code: "postcommit-requires-root" }),
+			);
+		}).pipe(Effect.provide(layer(operations)));
+		expect(executed).toEqual(["first", "second"]);
+	}),
+);
+
+const expectActivityDefect = (exit: Exit.Exit<unknown, unknown>, operation: string) => {
+	expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true);
+	if (Exit.isFailure(exit)) {
+		expect(Cause.pretty(exit.cause)).toContain(
+			`LifecycleExecution.${operation} must run in a workflow body, not an activity`,
+		);
+	}
+};
+
+it.effect("rejects lifecycle execution inside activities", () =>
+	Effect.gen(function* () {
+		const service = yield* LifecycleExecution;
+		const instance = WorkflowInstance.initial(GuardChildWorkflow, "guard-activity");
+		const inActivity = <A, E>(name: string, execute: Effect.Effect<A, E>) =>
+			Effect.exit(makeActivity({ name, execute: Effect.ignore(execute) })).pipe(
+				Effect.provideService(WorkflowInstance, instance),
+				Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+			);
+		expectActivityDefect(
+			yield* inActivity("after", service.after({ runs: [run("hook")], triggerId: trigger.id })),
+			"after",
+		);
+		expectActivityDefect(
+			yield* inActivity(
+				"policy",
+				service.executePolicy({ payload: policyPayload, runId: AutomationRunId.make("policy") }),
+			),
+			"executePolicy",
+		);
+		expect(yield* service.after({ runs: [run("hook")], triggerId: trigger.id })).toEqual([]);
+	}).pipe(Effect.provide(layer(succeedingOperations))),
+);
+
+const GuardChildWorkflow = Workflow.make("LifecycleGuardChildWorkflow", {
+	success: Schema.Finite,
+	payload: { executionId: Schema.String },
+	idempotencyKey: ({ executionId }) => executionId,
+});
+const GuardParentWorkflow = Workflow.make("LifecycleGuardParentWorkflow", {
+	success: Schema.Finite,
+	payload: { executionId: Schema.String },
+	idempotencyKey: ({ executionId }) => executionId,
+});
+
+it.effect("allows lifecycle execution in workflow bodies started from an activity", () =>
+	Effect.gen(function* () {
+		const service = yield* LifecycleExecution;
+		const workflows = Layer.mergeAll(
+			implementWorkflow(GuardChildWorkflow, () =>
+				service.after({ runs: [run("hook")], triggerId: trigger.id }).pipe(
+					Effect.map((warnings) => warnings.length),
+					Effect.orDie,
+				),
+			),
+			implementWorkflow(GuardParentWorkflow, ({ executionId }) =>
+				makeActivity({
+					name: "start-child",
+					success: Schema.Finite,
+					execute: GuardChildWorkflow.execute({ executionId: `${executionId}-child` }),
+				}),
+			),
+		).pipe(Layer.provideMerge(workflowEngineTestLayer));
+		expect(
+			yield* GuardParentWorkflow.execute({ executionId: "guard-parent" }).pipe(
+				Effect.provide(workflows),
+			),
+		).toBe(0);
+	}).pipe(Effect.provide(layer(succeedingOperations))),
 );

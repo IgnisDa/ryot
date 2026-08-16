@@ -13,7 +13,10 @@ import { Context, Effect, Option, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { bindSandboxHostFunctions } from "#lib/infrastructure/sandbox-runtime/bridge-adapter";
+import {
+	bindSandboxHostFunctions,
+	decodeSandboxHostArguments,
+} from "#lib/infrastructure/sandbox-runtime/bridge-adapter";
 import {
 	SandboxExecutionPrincipal,
 	type SandboxExecutionPrincipal as SandboxExecutionPrincipalValue,
@@ -53,6 +56,7 @@ export type SandboxDurableHostDispatchStrategy =
 	| "diagnostic"
 	| "event-workflow"
 	| "service-workflow"
+	| "lifecycle-workflow"
 	| "notification-workflow";
 
 export const SANDBOX_DURABLE_HOST_DISPATCH = {
@@ -71,12 +75,12 @@ export const SANDBOX_DURABLE_HOST_DISPATCH = {
 	emitSignal: "service-workflow",
 	getUserPreferences: "activity",
 	claimPersistentValue: "activity",
-	upsertGlobalEntities: "activity",
 	getCurrentIntegration: "activity",
-	changeUserRelationships: "activity",
-	upsertGlobalRelationships: "activity",
 	ensureUserEntities: "service-workflow",
 	sendNotification: "notification-workflow",
+	upsertGlobalEntities: "lifecycle-workflow",
+	changeUserRelationships: "lifecycle-workflow",
+	upsertGlobalRelationships: "lifecycle-workflow",
 } as const satisfies Record<keyof typeof sandboxHostContracts, SandboxDurableHostDispatchStrategy>;
 
 export const sandboxDurableHostDispatchStrategy = (capability: SandboxHostCapability) => {
@@ -208,6 +212,56 @@ export const prepareSandboxCreateEvents = Effect.fn("prepareSandboxCreateEvents"
 	);
 	return { userId, command, payload: args[0] };
 });
+
+export const prepareSandboxLifecycleHostInput = Effect.fn("prepareSandboxLifecycleHostInput")(
+	function* (
+		request: HostRequest,
+		payload: SandboxScriptWorkflowPayloadValue,
+		principal: SandboxExecutionPrincipalValue,
+		executionId: string,
+		startedAt: string,
+	) {
+		const { input } = yield* loadDispatchInput(request, payload, principal, executionId, startedAt);
+		const { lifecycle } = yield* SandboxHostImplementations;
+		const capability = request.args.capability;
+		const validated = yield* Effect.result(
+			Effect.gen(function* () {
+				if (capability === "upsertGlobalEntities") {
+					const [items, options] = yield* decodeSandboxHostArguments(
+						capability,
+						sandboxHostContracts[capability],
+					)(request.args.args);
+					return yield* lifecycle.upsertGlobalEntities.validate(input, items, options);
+				}
+				if (capability === "changeUserRelationships") {
+					const [batches] = yield* decodeSandboxHostArguments(
+						capability,
+						sandboxHostContracts[capability],
+					)(request.args.args);
+					return yield* lifecycle.changeUserRelationships.validate(input, batches);
+				}
+				if (capability === "upsertGlobalRelationships") {
+					const [groups] = yield* decodeSandboxHostArguments(
+						capability,
+						sandboxHostContracts[capability],
+					)(request.args.args);
+					return yield* lifecycle.upsertGlobalRelationships.validate(input, groups);
+				}
+				return yield* new SandboxRunError({
+					kind: "script-failure",
+					message: `Sandbox durable host capability is not lifecycle-dispatchable: ${capability}`,
+				});
+			}),
+		);
+		if (validated._tag === "Success") {
+			return validated.success;
+		}
+		if (validated.failure instanceof SandboxRunError) {
+			return yield* validated.failure;
+		}
+		return { _tag: "Failure" as const, message: validated.failure.message };
+	},
+);
 
 export const prepareSandboxSendNotification = Effect.fn("prepareSandboxSendNotification")(
 	function* (

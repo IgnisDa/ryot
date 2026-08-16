@@ -120,6 +120,17 @@ const removeEventSchema = {
 	id: EventSchemaSlug.make("remove-event-schema-id"),
 };
 
+const membershipPlan = {
+	runs: [],
+	blockedReason: null,
+	triggerId: AutomationTriggerId.make("membership-trigger"),
+};
+const committedRelationship = {
+	_tag: "Committed" as const,
+	dispatch: [membershipPlan],
+	result: { relationship: { ...membership, updatedAt: now } },
+};
+
 const mockCollections = Layer.mock(CollectionsRepository);
 const mockEntities = Layer.mock(EntitiesService);
 const mockEvents = Layer.mock(EventsService);
@@ -157,8 +168,10 @@ const makeServiceLayer = (
 			...options.events,
 		}),
 		mockRelationships({
+			prepareCreate: () => Effect.succeed(committedRelationship),
 			create: () => Effect.succeed({ warnings: [], relationship: membership }),
 			delete: () => Effect.succeed({ warnings: [], relationship: membership }),
+			prepareDeleteUserRelationshipById: () => Effect.succeed(committedRelationship),
 			deleteUserRelationshipById: () => Effect.succeed({ warnings: [], relationship: membership }),
 			...options.relationships,
 		}),
@@ -194,7 +207,9 @@ const runAddWorkflow = (input: {
 	readonly layer: ReturnType<typeof makeServiceLayer>;
 	readonly eventResult?: CreateEventsResponse;
 	readonly eventFailure?: unknown;
+	readonly warnings?: ReadonlyArray<AutomationWarning>;
 	readonly dispatches?: Array<{ readonly executionId: string; readonly payload: unknown }>;
+	readonly dispatched?: Array<ReadonlyArray<AutomationTriggerId>>;
 }) => {
 	const executionId = "add-workflow-execution-id";
 	const instance = WorkflowInstance.initial(AddEntityToCollectionWorkflow, executionId);
@@ -214,6 +229,16 @@ const runAddWorkflow = (input: {
 	).pipe(
 		Effect.provideService(WorkflowEngine, engine),
 		Effect.provideService(WorkflowInstance, instance),
+		Effect.provideService(LifecycleExecution, {
+			after: () => Effect.die("unused"),
+			executePolicy: () => Effect.die("unused"),
+			skipQueuedPolicies: () => Effect.die("unused"),
+			dispatch: (plans) =>
+				Effect.sync(() => {
+					input.dispatched?.push(plans.map(({ triggerId }) => triggerId));
+					return plans.length > 0 ? (input.warnings ?? []) : [];
+				}),
+		}),
 		Effect.provide(
 			Layer.merge(
 				databaseLayer,
@@ -270,7 +295,7 @@ it.effect("does not wrap relationship lifecycle ownership in a collection transa
 	);
 	return Effect.gen(function* () {
 		const service = yield* CollectionsService;
-		yield* service.writeMembership({
+		yield* service.prepareMembership({
 			entityId,
 			collectionId,
 			userId: user.id,
@@ -281,16 +306,17 @@ it.effect("does not wrap relationship lifecycle ownership in a collection transa
 });
 
 it.effect("propagates membership and event warnings with a derived event identity", () => {
+	const dispatched: Array<ReadonlyArray<AutomationTriggerId>> = [];
 	const dispatches: Array<{ readonly executionId: string; readonly payload: unknown }> = [];
 	const relationshipWarnings = [warning];
 	const eventWarning = { ...warning, triggerId: AutomationTriggerId.make("event-trigger") };
 	let membershipCommand: LifecycleCommand | undefined;
 	const layer = makeServiceLayer({
 		relationships: {
-			create: (_input, lifecycle) =>
+			prepareCreate: (_input, lifecycle) =>
 				Effect.sync(() => {
 					membershipCommand = lifecycle;
-					return { relationship: membership, warnings: relationshipWarnings };
+					return committedRelationship;
 				}),
 		},
 	});
@@ -298,9 +324,12 @@ it.effect("propagates membership and event warnings with a derived event identit
 		const result = yield* runAddWorkflow({
 			layer,
 			dispatches,
+			dispatched,
+			warnings: relationshipWarnings,
 			eventResult: { count: 1, outcomes: [], failure: null, warnings: [eventWarning] },
 		});
 		expect(result.warnings).toEqual([warning, eventWarning]);
+		expect(dispatched).toEqual([[membershipPlan.triggerId]]);
 		const [dispatch] = dispatches;
 		if (!dispatch) {
 			throw new Error("Expected an event workflow dispatch");
@@ -320,10 +349,10 @@ it.effect("compensates with a stable identity derived from the original lifecycl
 	let compensationCommand: LifecycleCommand | undefined;
 	const layer = makeServiceLayer({
 		relationships: {
-			deleteUserRelationshipById: (_userId, _relationshipId, lifecycle) =>
+			prepareDeleteUserRelationshipById: (_userId, _relationshipId, lifecycle) =>
 				Effect.sync(() => {
 					compensationCommand = lifecycle;
-					return { warnings: [], relationship: membership };
+					return committedRelationship;
 				}),
 		},
 	});

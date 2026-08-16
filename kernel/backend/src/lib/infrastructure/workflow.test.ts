@@ -2,6 +2,7 @@ import { it } from "@effect/vitest";
 import { Effect, Layer, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 
+import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
 import { workflowEngineTestLayer } from "#lib/test-utils/effect";
 
 const ChildWorkflow = Workflow.make("DiscardedChildTestWorkflow", {
@@ -11,7 +12,7 @@ const ChildWorkflow = Workflow.make("DiscardedChildTestWorkflow", {
 	idempotencyKey: ({ executionId }) => executionId,
 });
 
-const ChildWorkflowLayer = ChildWorkflow.toLayer(() => Effect.void).pipe(
+const ChildWorkflowLayer = implementWorkflow(ChildWorkflow, () => Effect.void).pipe(
 	Layer.provideMerge(workflowEngineTestLayer),
 );
 

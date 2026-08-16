@@ -14,12 +14,15 @@ import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, DateTime, Effect, Schedule, Schema } from "effect";
-import { Activity, Workflow } from "effect/unstable/workflow";
+import { Workflow } from "effect/unstable/workflow";
 
+import { LifecycleDispatchPlan, toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
+import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { Database, mapDatabaseErrors, retryOnDeadlock } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
+import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { DefinitionRegistry, DefinitionSnapshot } from "#modules/definition-registry/service";
 import { EntityMutationOutcome } from "#modules/entities/mutation-outcomes";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -61,6 +64,7 @@ type ChildEntitySetScope = {
 };
 
 const ProviderEntitySaveEnvelope = Schema.Struct({
+	dispatch: Schema.Array(LifecycleDispatchPlan),
 	result: Schema.Struct({
 		entity: ListedEntity,
 		wasInserted: Schema.Boolean,
@@ -69,16 +73,21 @@ const ProviderEntitySaveEnvelope = Schema.Struct({
 });
 
 const RelationshipSyncEnvelope = Schema.Struct({
-	created: Schema.Finite,
-	updated: Schema.Finite,
-	deleted: Schema.Finite,
-	upserted: Schema.Finite,
+	dispatch: Schema.Array(LifecycleDispatchPlan),
+	result: Schema.Array(
+		Schema.Struct({
+			created: Schema.Finite,
+			updated: Schema.Finite,
+			deleted: Schema.Finite,
+			upserted: Schema.Finite,
+		}),
+	),
 });
 
 const resolveProviderEntityDefinitions = (
 	entityScope: { scope: "global" } | { scope: "user"; userId: UserId },
 ) =>
-	Activity.make({
+	makeActivity({
 		name: "resolve-provider-entity-definitions",
 		error: SandboxRunError satisfies DurableSchema,
 		success: DefinitionSnapshot satisfies DurableSchema,
@@ -106,7 +115,7 @@ const checkExistingEntity = Effect.fn("checkExistingEntity")(function* (
 		});
 	}
 
-	return yield* Activity.make({
+	return yield* makeActivity({
 		name: "check-existing-entity",
 		error: SandboxRunError satisfies DurableSchema,
 		success: Schema.NullOr(ListedEntity) satisfies DurableSchema,
@@ -123,7 +132,7 @@ const checkExistingEntity = Effect.fn("checkExistingEntity")(function* (
 });
 
 const validateEntityDetails = Effect.fn("validateEntityDetails")(function* (value: unknown) {
-	return yield* Activity.make({
+	return yield* makeActivity({
 		name: "validate-entity-details",
 		error: SandboxRunError satisfies DurableSchema,
 		success: ValidatedEntityDetails satisfies DurableSchema,
@@ -176,12 +185,30 @@ const providerEntityIdFor = (command: LifecycleCommand, itemIdentity: ReadonlyAr
 		)}`,
 	);
 
-const logEntityWarnings = (warnings: ReadonlyArray<unknown>, phase: "root-upsert" | "root-stamp") =>
-	warnings.length === 0
-		? Effect.void
-		: Effect.logWarning("provider entity population completed with automation warnings").pipe(
-				Effect.annotateLogs({ phase, warnings, warningCount: warnings.length }),
+const dispatchPopulationPlans = (
+	dispatch: ReadonlyArray<LifecycleDispatchPlan>,
+	message: string,
+	annotations: Readonly<Record<string, unknown>>,
+) =>
+	Effect.gen(function* () {
+		const execution = yield* LifecycleExecution;
+		const warnings = yield* execution.dispatch(dispatch).pipe(mapDbErrorToSandbox);
+		if (warnings.length > 0) {
+			yield* Effect.logWarning(message).pipe(
+				Effect.annotateLogs({ ...annotations, warnings, warningCount: warnings.length }),
 			);
+		}
+	});
+
+const logEntityWarnings = (
+	dispatch: ReadonlyArray<LifecycleDispatchPlan>,
+	phase: "root-upsert" | "root-stamp",
+) =>
+	dispatchPopulationPlans(
+		dispatch,
+		"provider entity population completed with automation warnings",
+		{ phase },
+	);
 
 const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 	payload: EntityImportPayload,
@@ -193,7 +220,7 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 	const entities = yield* EntitiesService;
 	const scope = getEntityWriteScope(payload);
 
-	return yield* Activity.make({
+	return yield* makeActivity({
 		name: "upsert-root-entity",
 		error: SandboxRunError satisfies DurableSchema,
 		success: ProviderEntitySaveEnvelope satisfies DurableSchema,
@@ -217,9 +244,7 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 					),
 				),
 			).pipe(mapDbErrorToSandbox);
-			const warnings = yield* entities.executeCommittedPlans(work.plans).pipe(mapDbErrorToSandbox);
-			yield* logEntityWarnings(warnings, "root-upsert");
-			return { result: work.result };
+			return { result: work.result, dispatch: work.plans.map(toLifecycleDispatchPlan) };
 		}),
 	});
 });
@@ -233,9 +258,9 @@ const syncRelatedEntityGroupScope = Effect.fn("syncProviderRelatedEntityGroupSco
 	population: AutomationPopulationContext,
 ) {
 	const entityScope = getEntityWriteScope(payload);
-	return yield* Activity.make({
+	const synchronized = yield* makeActivity({
 		error: SandboxRunError satisfies DurableSchema,
-		success: Schema.Array(RelationshipSyncEnvelope) satisfies DurableSchema,
+		success: RelationshipSyncEnvelope satisfies DurableSchema,
 		name: `sync-related-entity-group:${index}:${group.relationshipSchemaSlug}`,
 		execute: syncRelatedEntityGroup({
 			...entityScope,
@@ -247,6 +272,12 @@ const syncRelatedEntityGroupScope = Effect.fn("syncProviderRelatedEntityGroupSco
 			primaryEntitySchemaSlug: payload.entitySchemaSlug,
 		}).pipe(mapDbErrorToSandbox),
 	});
+	yield* dispatchPopulationPlans(
+		synchronized.dispatch,
+		"provider related population completed with automation warnings",
+		{ relationshipSchemaSlug: group.relationshipSchemaSlug },
+	);
+	return synchronized.result;
 });
 
 const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function* (
@@ -257,7 +288,7 @@ const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function*
 	rootPreviouslyPopulated: boolean,
 ) {
 	const entityScope = getEntityWriteScope(payload);
-	return yield* Activity.make({
+	const written = yield* makeActivity({
 		error: SandboxRunError satisfies DurableSchema,
 		name: `write-child-entity-set:${scope.parentExternalId}`,
 		success: ChildEntitySetWriteResult satisfies DurableSchema,
@@ -282,6 +313,12 @@ const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function*
 			},
 		}).pipe(mapDbErrorToSandbox),
 	});
+	yield* dispatchPopulationPlans(
+		written.dispatch,
+		"provider child population completed with automation warnings",
+		{ parentEntityId: scope.parentEntityId },
+	);
+	return written;
 });
 
 const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function* (
@@ -293,7 +330,7 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 	const entities = yield* EntitiesService;
 	const scope = getEntityWriteScope(payload);
 
-	return yield* Activity.make({
+	return yield* makeActivity({
 		name: "stamp-root-populated-at",
 		error: SandboxRunError satisfies DurableSchema,
 		success: ProviderEntitySaveEnvelope satisfies DurableSchema,
@@ -318,9 +355,7 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 					),
 				),
 			).pipe(mapDbErrorToSandbox);
-			const warnings = yield* entities.executeCommittedPlans(work.plans).pipe(mapDbErrorToSandbox);
-			yield* logEntityWarnings(warnings, "root-stamp");
-			return { result: work.result };
+			return { result: work.result, dispatch: work.plans.map(toLifecycleDispatchPlan) };
 		}),
 	});
 });
@@ -330,7 +365,7 @@ const publishPrimaryEntity = Effect.fn("publishProviderPrimaryEntity")(function*
 ) {
 	const redis = yield* RedisService;
 
-	yield* Activity.make({
+	yield* makeActivity({
 		name: "publish-primary-entity",
 		error: SandboxRunError satisfies DurableSchema,
 		execute: redis
@@ -420,6 +455,7 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 	};
 	const population = { scopeEntity, rootPreviouslyPopulated } satisfies AutomationPopulationContext;
 	const rootSave = yield* upsertRootEntity(payload, details, options, population);
+	yield* logEntityWarnings(rootSave.dispatch, "root-upsert");
 	const entity = rootSave.result.entity;
 	for (const [index, group] of details.relatedEntityGroups.entries()) {
 		yield* syncRelatedEntityGroupScope(payload, definitions, entity, group, index, population);
@@ -437,6 +473,7 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 			: {}),
 	});
 	const stamped = yield* stampRootPopulatedAt(payload, details, population);
+	yield* logEntityWarnings(stamped.dispatch, "root-stamp");
 	yield* publishPrimaryEntity(stamped.result.entity);
 	return stamped.result.entity;
 });
@@ -500,7 +537,8 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopu
 		Effect.annotateLogs(effect, { executionId, workflow: "ProviderEntityPopulationWorkflow" }),
 );
 
-const ProviderEntityPopulationWorkflowLive = ProviderEntityPopulationWorkflow.toLayer(
+const ProviderEntityPopulationWorkflowLive = implementWorkflow(
+	ProviderEntityPopulationWorkflow,
 	runProviderEntityPopulationWorkflow,
 );
 
