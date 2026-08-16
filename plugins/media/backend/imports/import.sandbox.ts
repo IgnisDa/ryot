@@ -114,109 +114,115 @@ export default defineWorkflow({
 			const isIntegration =
 				typeof integrationId === "string" && typeof integrationScriptSlug === "string";
 			let parserInput: typeof MediaImportDispatchParserInput.Type = { start: 0, limit: BATCH_SIZE };
-			if (input.source === "igdb") {
-				const collection = input.sourcePayload?.["collection"];
-				if (typeof collection !== "string" || !collection.trim()) {
-					return yield* Effect.fail(new Error("Import job is missing IGDB collection"));
+			if (!isIntegration) {
+				if (input.source === "igdb") {
+					const collection = input.sourcePayload?.["collection"];
+					if (typeof collection !== "string" || !collection.trim()) {
+						return yield* Effect.fail(new Error("Import job is missing IGDB collection"));
+					}
+					parserInput = { ...parserInput, collection: collection.trim() };
 				}
-				parserInput = { ...parserInput, collection: collection.trim() };
-			}
-			if (input.source === "netflix") {
-				const profileName = input.sourcePayload?.["profileName"];
-				if (typeof profileName === "string") {
-					parserInput = { ...parserInput, profileName };
+				if (input.source === "netflix") {
+					const profileName = input.sourcePayload?.["profileName"];
+					if (typeof profileName === "string") {
+						parserInput = { ...parserInput, profileName };
+					}
 				}
-			}
-			if (input.source === "myanimelist") {
-				const hasAnimeFile = typeof input.sourcePayload?.["animeUploadToken"] === "string";
-				const hasMangaFile = typeof input.sourcePayload?.["mangaUploadToken"] === "string";
-				if (!hasAnimeFile && !hasMangaFile) {
-					return yield* Effect.fail(new Error("Import job is missing MyAnimeList export files"));
+				if (input.source === "myanimelist") {
+					const hasAnimeFile = typeof input.sourcePayload?.["animeUploadToken"] === "string";
+					const hasMangaFile = typeof input.sourcePayload?.["mangaUploadToken"] === "string";
+					if (!hasAnimeFile && !hasMangaFile) {
+						return yield* Effect.fail(new Error("Import job is missing MyAnimeList export files"));
+					}
+					parserInput = { ...parserInput, hasAnimeFile, hasMangaFile };
 				}
-				parserInput = { ...parserInput, hasAnimeFile, hasMangaFile };
-			}
-			if (input.source === "trakt") {
-				const target = input.sourcePayload ?? {};
-				const mode = target["mode"];
-				if (!Schema.is(TraktImportTarget)(target)) {
-					if (
-						mode === "user" &&
-						(!Schema.is(Schema.NonEmptyString)(target["username"]) ||
-							!String(target["username"]).trim())
-					) {
+				if (input.source === "trakt") {
+					const target = input.sourcePayload ?? {};
+					const mode = target["mode"];
+					if (!Schema.is(TraktImportTarget)(target)) {
+						if (
+							mode === "user" &&
+							(!Schema.is(Schema.NonEmptyString)(target["username"]) ||
+								!String(target["username"]).trim())
+						) {
+							return yield* Effect.fail(new Error("Import job is missing Trakt username"));
+						}
+						if (mode === "user") {
+							return yield* Effect.fail(new Error("Import job has invalid Trakt user fields"));
+						}
+						if (mode === "list") {
+							if (!Schema.is(TraktImportUrl)(target["url"])) {
+								return yield* Effect.fail(
+									new Error("Import job is missing or invalid Trakt list URL"),
+								);
+							}
+							if (
+								!Schema.is(Schema.NonEmptyString)(target["collection"]) ||
+								!String(target["collection"]).trim()
+							) {
+								return yield* Effect.fail(new Error("Import job is missing Trakt collection"));
+							}
+							return yield* Effect.fail(new Error("Import job has invalid Trakt list fields"));
+						}
+						if (mode === "export") {
+							return yield* Effect.fail(new Error("Import job is missing Trakt export ZIP"));
+						}
+						return yield* Effect.fail(new Error("Import job is missing or invalid Trakt mode"));
+					}
+					if (target.mode === "user" && !target.username.trim()) {
 						return yield* Effect.fail(new Error("Import job is missing Trakt username"));
 					}
-					if (mode === "user") {
-						return yield* Effect.fail(new Error("Import job has invalid Trakt user fields"));
+					if (target.mode === "list" && !target.collection.trim()) {
+						return yield* Effect.fail(new Error("Import job is missing Trakt collection"));
 					}
-					if (mode === "list") {
-						if (!Schema.is(TraktImportUrl)(target["url"])) {
-							return yield* Effect.fail(
-								new Error("Import job is missing or invalid Trakt list URL"),
-							);
-						}
-						if (
-							!Schema.is(Schema.NonEmptyString)(target["collection"]) ||
-							!String(target["collection"]).trim()
-						) {
-							return yield* Effect.fail(new Error("Import job is missing Trakt collection"));
-						}
-						return yield* Effect.fail(new Error("Import job has invalid Trakt list fields"));
+					parserInput =
+						target.mode === "export"
+							? { ...parserInput, mode: "export", hasExportFile: true }
+							: {
+									...parserInput,
+									...target,
+									...(target.mode === "user"
+										? { username: target.username.trim() }
+										: { url: target.url.trim(), collection: target.collection.trim() }),
+								};
+				}
+				if (["plex", "audiobookshelf", "media_tracker"].includes(input.source)) {
+					const apiKey = input.sourcePayload?.["apiKey"];
+					const apiUrl = input.sourcePayload?.["apiUrl"];
+					if (typeof apiKey !== "string" || !apiKey || typeof apiUrl !== "string" || !apiUrl) {
+						return yield* Effect.fail(
+							new Error(`Import job is missing ${input.source} credentials`),
+						);
 					}
-					if (mode === "export") {
-						return yield* Effect.fail(new Error("Import job is missing Trakt export ZIP"));
+					parserInput = {
+						...parserInput,
+						apiKey,
+						apiUrl,
+						...(typeof input.sourcePayload["allowInsecureConnections"] === "boolean"
+							? { allowInsecureConnections: input.sourcePayload["allowInsecureConnections"] }
+							: {}),
+					};
+				}
+				if (input.source === "jellyfin") {
+					const apiUrl = input.sourcePayload?.["apiUrl"];
+					const username = input.sourcePayload?.["username"];
+					if (typeof apiUrl !== "string" || !apiUrl || typeof username !== "string" || !username) {
+						return yield* Effect.fail(
+							new Error("Import job is missing Jellyfin connection details"),
+						);
 					}
-					return yield* Effect.fail(new Error("Import job is missing or invalid Trakt mode"));
+					parserInput = {
+						...parserInput,
+						apiUrl,
+						username,
+						...(typeof input.sourcePayload["password"] === "string"
+							? { password: input.sourcePayload["password"] }
+							: {}),
+						...(typeof input.sourcePayload["allowInsecureConnections"] === "boolean"
+							? { allowInsecureConnections: input.sourcePayload["allowInsecureConnections"] }
+							: {}),
+					};
 				}
-				if (target.mode === "user" && !target.username.trim()) {
-					return yield* Effect.fail(new Error("Import job is missing Trakt username"));
-				}
-				if (target.mode === "list" && !target.collection.trim()) {
-					return yield* Effect.fail(new Error("Import job is missing Trakt collection"));
-				}
-				parserInput =
-					target.mode === "export"
-						? { ...parserInput, mode: "export", hasExportFile: true }
-						: {
-								...parserInput,
-								...target,
-								...(target.mode === "user"
-									? { username: target.username.trim() }
-									: { url: target.url.trim(), collection: target.collection.trim() }),
-							};
-			}
-			if (["plex", "audiobookshelf", "media_tracker"].includes(input.source)) {
-				const apiKey = input.sourcePayload?.["apiKey"];
-				const apiUrl = input.sourcePayload?.["apiUrl"];
-				if (typeof apiKey !== "string" || !apiKey || typeof apiUrl !== "string" || !apiUrl) {
-					return yield* Effect.fail(new Error(`Import job is missing ${input.source} credentials`));
-				}
-				parserInput = {
-					...parserInput,
-					apiKey,
-					apiUrl,
-					...(typeof input.sourcePayload["allowInsecureConnections"] === "boolean"
-						? { allowInsecureConnections: input.sourcePayload["allowInsecureConnections"] }
-						: {}),
-				};
-			}
-			if (input.source === "jellyfin") {
-				const apiUrl = input.sourcePayload?.["apiUrl"];
-				const username = input.sourcePayload?.["username"];
-				if (typeof apiUrl !== "string" || !apiUrl || typeof username !== "string" || !username) {
-					return yield* Effect.fail(new Error("Import job is missing Jellyfin connection details"));
-				}
-				parserInput = {
-					...parserInput,
-					apiUrl,
-					username,
-					...(typeof input.sourcePayload["password"] === "string"
-						? { password: input.sourcePayload["password"] }
-						: {}),
-					...(typeof input.sourcePayload["allowInsecureConnections"] === "boolean"
-						? { allowInsecureConnections: input.sourcePayload["allowInsecureConnections"] }
-						: {}),
-				};
 			}
 			let start = 0;
 			let totalItems = 0;

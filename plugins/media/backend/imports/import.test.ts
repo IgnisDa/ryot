@@ -188,6 +188,29 @@ it("marks adapter-only integration failures as failed kernel runs", async () => 
 	});
 });
 
+it("dispatches integration runs to the adapter even when the source names a credentialed parser", async () => {
+	const envelope = await Effect.runPromise(
+		workflow.run(
+			{
+				source: "audiobookshelf",
+				runId: "run-audiobookshelf",
+				sourcePayload: {
+					integrationId: "integration-2",
+					integrationScriptSlug: "integration.audiobookshelf",
+					integrationContext: { rawBody: "{}", contentType: "application/json" },
+				},
+			},
+			{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
+			{ metadata: {}, sandboxScriptId: "media-import" },
+		),
+	);
+
+	expect(envelope).toMatchObject({
+		state: "pending",
+		requests: [{ kind: "activity", args: { scriptSlug: "integration.audiobookshelf" } }],
+	});
+});
+
 const showEntityRef = {
 	kind: "resolved",
 	externalId: "20",
