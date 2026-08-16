@@ -2,63 +2,104 @@ import {
 	PLUGIN_CATALOG_CONNECTED_EVENT,
 	PLUGIN_CATALOG_INVALIDATED_EVENT,
 } from "@ryot/contract/modules/plugins/contract";
-import { Effect, Fiber, ManagedRuntime } from "effect";
+import { Effect, Fiber, Layer, ManagedRuntime, Schedule } from "effect";
 import { describe, expect, it } from "vitest";
 
 import type { ApiScope } from "#/api/scope";
 import { makePluginCatalogEventsLayer, PluginCatalogEventsService } from "#/modules/plugins/events";
+import { clientStorageLayer, sessionTokenKey } from "#/persistence/storage";
 
-const scope: ApiScope = {
-	userId: "user-1",
-	serverUrl: "https://ryot.example/root/",
-};
+const scope: ApiScope = { userId: "user-1", serverUrl: "https://ryot.example/root/" };
 
-class TestEventSource {
+const encoder = new TextEncoder();
+const frame = (type: string) => `event: ${type}\ndata:\n\n`;
+
+class TestStream {
 	closed = false;
-	readonly listeners = new Map<string, Set<() => void>>();
+	aborted = false;
+	readonly body: ReadableStream<Uint8Array>;
+	private controller: ReadableStreamDefaultController<Uint8Array> | undefined;
 
-	constructor(
-		readonly url: string,
-		readonly options: EventSourceInit,
-	) {}
-
-	addEventListener(type: string, listener: () => void) {
-		const listeners = this.listeners.get(type) ?? new Set();
-		listeners.add(listener);
-		this.listeners.set(type, listeners);
+	constructor(signal: AbortSignal) {
+		this.body = new ReadableStream<Uint8Array>({
+			start: (controller) => {
+				this.controller = controller;
+			},
+		});
+		signal.addEventListener("abort", () => {
+			this.aborted = true;
+			if (!this.closed) {
+				this.closed = true;
+				this.controller?.error(new Error("aborted"));
+			}
+		});
 	}
 
-	close() {
+	send(text: string) {
+		this.controller?.enqueue(encoder.encode(text));
+	}
+
+	end() {
 		this.closed = true;
-	}
-
-	send(type: string) {
-		for (const listener of this.listeners.get(type) ?? []) {
-			listener();
-		}
+		this.controller?.close();
 	}
 }
 
-const makeRuntime = () => {
-	const sources: TestEventSource[] = [];
-	let markOpened: (() => void) | undefined;
-	const opened = new Promise<void>((resolve) => {
-		markOpened = () => resolve();
+const makeRuntime = (
+	options: { readonly token?: string; readonly rejectAttempts?: number } = {},
+) => {
+	const streams: TestStream[] = [];
+	const requests: Array<{ readonly url: string; readonly headers: Record<string, string> }> = [];
+	const values = new Map<string, string>();
+	if (options.token !== undefined) {
+		values.set(sessionTokenKey(scope.serverUrl), options.token);
+	}
+
+	const storage = clientStorageLayer({
+		getItem: (key) => values.get(key) ?? null,
+		removeItem: (key) => {
+			values.delete(key);
+		},
+		setItem: (key, value) => {
+			values.set(key, value);
+		},
 	});
-	const runtime = ManagedRuntime.make(
-		makePluginCatalogEventsLayer((url, options) => {
-			const source = new TestEventSource(url, options);
-			sources.push(source);
-			markOpened?.();
-			return source;
-		}),
-	);
-	return { opened, runtime, sources };
+	const events = makePluginCatalogEventsLayer((url, request) => {
+		requests.push({ url, headers: request.headers });
+		if (requests.length <= (options.rejectAttempts ?? 0)) {
+			return Promise.resolve({ ok: false, body: null });
+		}
+		const stream = new TestStream(request.signal);
+		streams.push(stream);
+		return Promise.resolve({ ok: true, body: stream.body });
+	}, Schedule.spaced("1 millis"));
+
+	return {
+		values,
+		streams,
+		requests,
+		runtime: ManagedRuntime.make(events.pipe(Layer.provide(storage))),
+	};
 };
 
+const waitUntil = (predicate: () => boolean, message: string) =>
+	new Promise<void>((resolve, reject) => {
+		let attempts = 0;
+		const timer = setInterval(() => {
+			attempts += 1;
+			if (predicate()) {
+				clearInterval(timer);
+				resolve();
+			} else if (attempts > 500) {
+				clearInterval(timer);
+				reject(new Error(message));
+			}
+		}, 2);
+	});
+
 describe("plugin catalog events service", () => {
-	it("opens the canonical authenticated endpoint and routes catalog events", async () => {
-		const { opened, runtime, sources } = makeRuntime();
+	it("streams the canonical endpoint with a bearer token and routes catalog events", async () => {
+		const { requests, runtime, streams } = makeRuntime({ token: "token-1" });
 		let refreshes = 0;
 		const subscription = runtime.runFork(
 			Effect.flatMap(PluginCatalogEventsService, (service) =>
@@ -69,12 +110,15 @@ describe("plugin catalog events service", () => {
 		);
 
 		try {
-			await opened;
-			expect(sources[0]?.url).toBe("https://ryot.example/root/api/plugins/events");
-			expect(sources[0]?.options).toEqual({ withCredentials: true });
+			await waitUntil(() => streams.length === 1, "stream was never opened");
+			expect(requests[0]?.url).toBe("https://ryot.example/root/api/plugins/events");
+			expect(requests[0]?.headers.authorization).toBe("Bearer token-1");
+			expect(requests[0]?.headers.accept).toBe("text/event-stream");
 
-			sources[0]?.send(PLUGIN_CATALOG_CONNECTED_EVENT);
-			sources[0]?.send(PLUGIN_CATALOG_INVALIDATED_EVENT);
+			streams[0]?.send(": ping\n\n");
+			streams[0]?.send(frame(PLUGIN_CATALOG_CONNECTED_EVENT));
+			streams[0]?.send(`${frame("unrelated")}${frame(PLUGIN_CATALOG_INVALIDATED_EVENT)}`);
+			await waitUntil(() => refreshes === 2, "catalog events were never routed");
 			expect(refreshes).toBe(2);
 		} finally {
 			await Effect.runPromise(Fiber.interrupt(subscription));
@@ -82,20 +126,104 @@ describe("plugin catalog events service", () => {
 		}
 	});
 
-	it("leaves reconnects to the browser and closes the source on interruption", async () => {
-		const { opened, runtime, sources } = makeRuntime();
+	it("routes events split across chunk boundaries", async () => {
+		const { runtime, streams } = makeRuntime({ token: "token-1" });
+		let refreshes = 0;
+		const subscription = runtime.runFork(
+			Effect.flatMap(PluginCatalogEventsService, (service) =>
+				service.subscribe(scope, () => {
+					refreshes += 1;
+				}),
+			),
+		);
+
+		try {
+			await waitUntil(() => streams.length === 1, "stream was never opened");
+			streams[0]?.send(`event: ${PLUGIN_CATALOG_INVALIDATED_EVENT}`);
+			streams[0]?.send("\nid: 7\nretry: 5000\ndata:");
+			expect(refreshes).toBe(0);
+			streams[0]?.send("\n\n");
+			await waitUntil(() => refreshes === 1, "chunked catalog event was never routed");
+		} finally {
+			await Effect.runPromise(Fiber.interrupt(subscription));
+			await runtime.dispose();
+		}
+	});
+
+	it("reconnects with a fresh token when the stream ends", async () => {
+		const { requests, runtime, streams, values } = makeRuntime({ token: "token-1" });
+		let refreshes = 0;
+		const subscription = runtime.runFork(
+			Effect.flatMap(PluginCatalogEventsService, (service) =>
+				service.subscribe(scope, () => {
+					refreshes += 1;
+				}),
+			),
+		);
+
+		try {
+			await waitUntil(() => streams.length === 1, "stream was never opened");
+			values.set(sessionTokenKey(scope.serverUrl), "token-2");
+			streams[0]?.end();
+
+			await waitUntil(() => streams.length === 2, "stream was never reopened");
+			expect(requests[1]?.headers.authorization).toBe("Bearer token-2");
+			streams[1]?.send(frame(PLUGIN_CATALOG_INVALIDATED_EVENT));
+			await waitUntil(() => refreshes === 1, "reconnected stream never routed events");
+		} finally {
+			await Effect.runPromise(Fiber.interrupt(subscription));
+			await runtime.dispose();
+		}
+	});
+
+	it("reconnects when the server rejects the stream", async () => {
+		const { requests, runtime, streams } = makeRuntime({ token: "token-1", rejectAttempts: 2 });
 		const subscription = runtime.runFork(
 			Effect.flatMap(PluginCatalogEventsService, (service) =>
 				service.subscribe(scope, () => undefined),
 			),
 		);
 
-		await opened;
-		sources[0]?.send("error");
-		expect(sources).toHaveLength(1);
+		try {
+			await waitUntil(() => streams.length === 1, "rejected stream was never retried");
+			expect(requests).toHaveLength(3);
+		} finally {
+			await Effect.runPromise(Fiber.interrupt(subscription));
+			await runtime.dispose();
+		}
+	});
 
+	it("aborts the stream on interruption and stops reconnecting", async () => {
+		const { requests, runtime, streams } = makeRuntime({ token: "token-1" });
+		const subscription = runtime.runFork(
+			Effect.flatMap(PluginCatalogEventsService, (service) =>
+				service.subscribe(scope, () => undefined),
+			),
+		);
+
+		await waitUntil(() => streams.length === 1, "stream was never opened");
 		await Effect.runPromise(Fiber.interrupt(subscription));
-		expect(sources[0]?.closed).toBe(true);
+		expect(streams[0]?.aborted).toBe(true);
+
+		await new Promise((resolve) => setTimeout(resolve, 50));
+		expect(requests).toHaveLength(1);
 		await runtime.dispose();
+	});
+
+	it("subscribes without an authorization header when no token is stored", async () => {
+		const { requests, runtime, streams } = makeRuntime();
+		const subscription = runtime.runFork(
+			Effect.flatMap(PluginCatalogEventsService, (service) =>
+				service.subscribe(scope, () => undefined),
+			),
+		);
+
+		try {
+			await waitUntil(() => streams.length === 1, "stream was never opened");
+			expect(requests[0]?.headers.authorization).toBeUndefined();
+		} finally {
+			await Effect.runPromise(Fiber.interrupt(subscription));
+			await runtime.dispose();
+		}
 	});
 });

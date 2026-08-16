@@ -33,5 +33,13 @@ export function parseServerOrigin(value: string): ServerOriginResult {
 	}
 }
 
+export const suggestedServerOrigin = (origin: string | undefined) => {
+	if (origin === undefined) {
+		return "";
+	}
+	const result = parseServerOrigin(origin);
+	return result.ok ? result.origin : "";
+};
+
 export const resolveServerOrigin = (mode: ServerMode, value: string): ServerOriginResult =>
 	parseServerOrigin(mode === "cloud" ? CLOUD_ORIGIN : value);

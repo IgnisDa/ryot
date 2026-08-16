@@ -51,16 +51,6 @@ export const isOidcEnabled = (config: AppConfigValue): boolean => {
 	return isNonEmpty(clientId) && isNonEmpty(issuerUrl) && isNonEmptyRedacted(clientSecret);
 };
 
-export const parseCorsOrigins = (value: Option.Option<string>) =>
-	Option.match(value, {
-		onNone: () => [],
-		onSome: (origins) =>
-			origins
-				.split(",")
-				.map((origin) => origin.trim())
-				.filter(Boolean),
-	});
-
 export const getSmtpCredentials = (
 	config: AppConfigValue,
 ): Option.Option<{ server: string; user: Redacted.Redacted; password: Redacted.Redacted }> => {

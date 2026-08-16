@@ -11,32 +11,35 @@ import { type ContractSession, makeSession } from "./contract-client";
 export type Client = ContractSession;
 
 type TestAuthClientOptions = {
-	cookies?: string;
+	token?: string;
 	origin?: string;
-	onSetCookies?: (cookies: string[]) => void;
+	twoFactorToken?: string;
+	onSetToken?: (token: string) => void;
+	onSetTwoFactorToken?: (token: string) => void;
 };
-
-export function cookieHeaderFromSetCookies(setCookies: string[]) {
-	return setCookies.map((cookie) => cookie.split(";")[0]).join("; ");
-}
 
 export const createTestAuthClient = (baseUrl = getApiUrl(), options: TestAuthClientOptions = {}) =>
 	createAuthClient({
 		baseURL: new URL(baseUrl).origin,
 		plugins: [apiKeyClient(), twoFactorClient()],
 		fetchOptions: {
-			...(options.cookies || options.origin
+			...(options.token || options.origin || options.twoFactorToken
 				? {
 						headers: {
-							...(options.cookies ? { Cookie: options.cookies } : {}),
+							...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
 							...(options.origin ? { Origin: options.origin } : {}),
+							...(options.twoFactorToken ? { "x-two-factor-token": options.twoFactorToken } : {}),
 						},
 					}
 				: {}),
 			onResponse: ({ response }) => {
-				const setCookies = response.headers.getSetCookie();
-				if (setCookies.length) {
-					options.onSetCookies?.(setCookies);
+				const token = response.headers.get("set-auth-token");
+				if (token) {
+					options.onSetToken?.(token);
+				}
+				const challenge = response.headers.get("set-two-factor-token");
+				if (challenge) {
+					options.onSetTwoFactorToken?.(challenge);
 				}
 			},
 		},
@@ -44,21 +47,25 @@ export const createTestAuthClient = (baseUrl = getApiUrl(), options: TestAuthCli
 
 export const signInWithPassword = (email: string, password: string, baseUrl = getApiUrl()) =>
 	Effect.gen(function* () {
-		let cookies: string | undefined;
+		let token: string | undefined;
+		let twoFactorToken: string | undefined;
 		const authClient = createTestAuthClient(baseUrl, {
-			onSetCookies: (setCookies) => {
-				cookies = cookieHeaderFromSetCookies(setCookies);
+			onSetToken: (setToken) => {
+				token = setToken;
+			},
+			onSetTwoFactorToken: (setToken) => {
+				twoFactorToken = setToken;
 			},
 		});
 		const { data, error } = yield* Effect.promise(() =>
 			authClient.signIn.email({ email, password }),
 		);
-		return { data, error, cookies };
+		return { data, error, token, twoFactorToken };
 	});
 
-export const createApiKey = (cookies: string, name = "E2E key", baseUrl = getApiUrl()) =>
+export const createApiKey = (token: string, name = "E2E key", baseUrl = getApiUrl()) =>
 	Effect.gen(function* () {
-		const authClient = createTestAuthClient(baseUrl, { cookies });
+		const authClient = createTestAuthClient(baseUrl, { token });
 		const { data, error } = yield* Effect.promise(() => authClient.apiKey.create({ name }));
 		if (error) {
 			throw new Error(`API key creation failed: ${error.message}`);
@@ -91,14 +98,14 @@ export const createTestUser = (baseUrl = getApiUrl()) =>
 		if (signIn.error) {
 			throw new Error(`Sign in failed: ${signIn.error.message}`);
 		}
-		const cookies = requirePresent(signIn.cookies, "Failed to get auth cookies");
+		const token = requirePresent(signIn.token, "Failed to get auth token");
 
-		return { cookies, email, userId, password };
+		return { token, email, userId, password };
 	});
 
 export const createAuthenticatedClient = (baseUrl = getApiUrl()) =>
 	Effect.gen(function* () {
-		const { cookies, email, userId } = yield* createTestUser(baseUrl);
-		const client = makeSession(baseUrl, { Cookie: cookies });
-		return { client, cookies, email, userId };
+		const { token, email, userId } = yield* createTestUser(baseUrl);
+		const client = makeSession(baseUrl, { Authorization: `Bearer ${token}` });
+		return { client, token, email, userId };
 	});
