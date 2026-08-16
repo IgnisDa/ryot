@@ -44,7 +44,7 @@
   - Owner: I07 Sandbox runtime
   - Scope: Scoped registration with identity-aware deletion
 
-- [ ] **10. Reuse backup event export context** [M/M/M]
+- [x] **10. Reuse backup event export context** [M/M/M]
   - Owner: D03 Backup export
   - Scope: Build plugin/schema/entity context once
 
