@@ -72,15 +72,13 @@ const normalizedPlugin = (
 
 const loader = makePluginLoader(makeDefinitionRegistry());
 loader.load(
-	normalizedPlugin("media", [
+	normalizedPlugin("example", [
 		{ slug: "second", scriptSlug: "bootstrap.second", description: "Second" },
 		{ slug: "first", scriptSlug: "bootstrap.first", description: "First" },
 	]),
 );
 loader.load(
-	normalizedPlugin("fitness", [
-		{ slug: "only", scriptSlug: "bootstrap.only", description: "Only" },
-	]),
+	normalizedPlugin("sample", [{ slug: "only", scriptSlug: "bootstrap.only", description: "Only" }]),
 );
 
 const systemInstallation = (pluginSlug: string): PluginInstallationState => ({
@@ -166,24 +164,26 @@ it.effect(
 			expect(payloads).toEqual([
 				{
 					context: {},
-					scriptId: "bootstrap.only-id",
-					authority: { type: "user", userId: "user-1" },
-					executionId: userBootstrapExecutionId("user-1", "fitness", "only"),
-				},
-				{
-					context: {},
 					scriptId: "bootstrap.first-id",
 					authority: { type: "user", userId: "user-1" },
-					executionId: userBootstrapExecutionId("user-1", "media", "first"),
+					executionId: userBootstrapExecutionId("user-1", "example", "first"),
 				},
 				{
 					context: {},
 					scriptId: "bootstrap.second-id",
 					authority: { type: "user", userId: "user-1" },
-					executionId: userBootstrapExecutionId("user-1", "media", "second"),
+					executionId: userBootstrapExecutionId("user-1", "example", "second"),
+				},
+				{
+					context: {},
+					scriptId: "bootstrap.only-id",
+					authority: { type: "user", userId: "user-1" },
+					executionId: userBootstrapExecutionId("user-1", "sample", "only"),
 				},
 			]);
-		}).pipe(Effect.provide(layerFor([systemInstallation("media"), systemInstallation("fitness")])));
+		}).pipe(
+			Effect.provide(layerFor([systemInstallation("example"), systemInstallation("sample")])),
+		);
 	},
 );
 
@@ -214,7 +214,7 @@ it.effect("skips snapshot plugins the user has no installation for", () => {
 		yield* dispatcher.dispatchAll(UserId.make("user-1"));
 
 		expect(executed).toEqual(["bootstrap.only-id"]);
-	}).pipe(Effect.provide(layerFor([systemInstallation("fitness")])));
+	}).pipe(Effect.provide(layerFor([systemInstallation("sample")])));
 });
 
 it.effect("propagates a sandbox result error and reruns the same deterministic identity", () => {
@@ -233,5 +233,5 @@ it.effect("propagates a sandbox result error and reruns the same deterministic i
 
 		yield* dispatcher.dispatchAll(UserId.make("user-1"));
 		expect(executionIds[0]).toBe(executionIds[1]);
-	}).pipe(Effect.provide(layerFor([systemInstallation("media")])));
+	}).pipe(Effect.provide(layerFor([systemInstallation("example")])));
 });

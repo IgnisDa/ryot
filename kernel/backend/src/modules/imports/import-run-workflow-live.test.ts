@@ -36,13 +36,13 @@ const payload = {
 } satisfies ImportRunJobData;
 
 const sourceState = {
-	source: "netflix",
+	source: "nu",
 	sourcePayload: {},
-	pluginId: "media-plugin-id",
-	uploadIntentIds: ["intent-netflix"],
-	pluginInstallationId: "media-installation",
-	namedArtifactPaths: { uploadToken: "/tmp/netflix.zip" },
-	workflowScriptId: SandboxScriptId.make("accepted.netflix-import"),
+	pluginId: "example-plugin-id",
+	uploadIntentIds: ["intent-nu"],
+	pluginInstallationId: "example-installation",
+	namedArtifactPaths: { uploadToken: "/tmp/nu.zip" },
+	workflowScriptId: SandboxScriptId.make("accepted.nu-import"),
 };
 
 type SandboxCall = { method: string; input: unknown };
@@ -133,12 +133,12 @@ it.effect("dispatches a registry-declared source to its owning plugin's import w
 			method: "executeWorkflow",
 			input: {
 				executionId: `${executionId}-import`,
-				input: { runId: "run-1", source: "netflix" },
+				input: { runId: "run-1", source: "nu" },
 				authority: { type: "user", userId: "user-1" },
-				scriptId: SandboxScriptId.make("accepted.netflix-import"),
+				scriptId: SandboxScriptId.make("accepted.nu-import"),
 				grants: {
 					artifactOwnerExecutionId: `${executionId}-import`,
-					namedArtifactPaths: { uploadToken: "/tmp/netflix.zip" },
+					namedArtifactPaths: { uploadToken: "/tmp/nu.zip" },
 				},
 			},
 		});
@@ -188,7 +188,7 @@ it.effect("grants every stored named artifact to a plugin import workflow", () =
 it.effect("hands a secret-bearing stored source payload to the plugin import workflow", () => {
 	const harness = makeHarness(false, false, false, {
 		...sourceState,
-		source: "igdb",
+		source: "eta",
 		sourcePayload: { apiKey: "secret", collection: "Favorites" },
 	});
 
@@ -200,7 +200,7 @@ it.effect("hands a secret-bearing stored source payload to the plugin import wor
 			input: {
 				input: {
 					runId: "run-1",
-					source: "igdb",
+					source: "eta",
 					sourcePayload: { apiKey: "secret", collection: "Favorites" },
 				},
 			},

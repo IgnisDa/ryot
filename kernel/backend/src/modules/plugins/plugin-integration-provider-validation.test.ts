@@ -19,9 +19,9 @@ it.effect("rejects an integration provider whose settingsSchema declares no prop
 				integrationProviders: [
 					{
 						lot: "yank",
-						slug: "plex",
-						name: "Plex",
-						description: "Plex yank",
+						slug: "lambda",
+						name: "Lambda",
+						description: "Lambda yank",
 						settingsSchema: { fields: {} },
 						scriptSlug: "fixture.automation",
 					},
@@ -29,7 +29,7 @@ it.effect("rejects an integration provider whose settingsSchema declares no prop
 			}),
 		);
 
-		expect(error.issues.join("; ")).toMatch(/Integration provider plex in plugin fixture/);
+		expect(error.issues.join("; ")).toMatch(/Integration provider lambda in plugin fixture/);
 	}),
 );
 
@@ -42,9 +42,9 @@ it.effect("rejects an integration provider settings field that shadows a common 
 				integrationProviders: [
 					{
 						lot: "yank",
-						slug: "plex",
-						name: "Plex",
-						description: "Plex yank",
+						slug: "lambda",
+						name: "Lambda",
+						description: "Lambda yank",
 						scriptSlug: "fixture.automation",
 						settingsSchema: {
 							fields: {
@@ -75,10 +75,10 @@ it.effect("rejects a non-push integration provider bound to a non-script kind", 
 			integrationProviders: [
 				{
 					scriptSlug,
-					slug: "plex_sink",
-					name: "Plex sink",
+					slug: "lambda_sink",
+					name: "Lambda sink",
 					lot: "sink" as const,
-					description: "Plex sink",
+					description: "Lambda sink",
 					settingsSchema: {
 						fields: { username: { type: "string" as const, label: "User", description: "User" } },
 					},
@@ -91,7 +91,7 @@ it.effect("rejects a non-push integration provider bound to a non-script kind", 
 			validatePluginManifestReferences(withProvider("fixture.automation"), snapshot),
 		);
 		expect(error.issues.join("; ")).toContain(
-			"Integration provider plex_sink script fixture.automation must be a direct script",
+			"Integration provider lambda_sink script fixture.automation must be a direct script",
 		);
 		yield* validatePluginManifestReferences(withProvider("integration.sink"), snapshot);
 	}),

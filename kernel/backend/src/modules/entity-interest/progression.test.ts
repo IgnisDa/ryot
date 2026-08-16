@@ -19,13 +19,13 @@ import { EntityInterestStore } from "./store";
 const entityId = EntityId.make("entity-1");
 const entity = {
 	id: entityId,
-	name: "Book",
-	externalId: "book-1",
-	properties: { title: "Book" },
+	name: "Record",
+	externalId: "record-1",
+	properties: { title: "Record" },
 	createdAt: "2026-08-14T00:00:00.000Z",
 	updatedAt: "2026-08-14T00:00:00.000Z",
 	populatedAt: "2026-08-14T00:00:00.000Z",
-	entitySchemaSlug: EntitySchemaSlug.make("book"),
+	entitySchemaSlug: EntitySchemaSlug.make("record"),
 	providerId: SandboxProviderId.make("provider-1"),
 };
 
