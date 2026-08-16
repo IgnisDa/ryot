@@ -1,4 +1,4 @@
-import { describe, expect, it } from "@effect/vitest";
+import { assert, describe, expect, it } from "@effect/vitest";
 import { EntityInterestTicketFailure } from "@ryot/contract/modules/entity-interest/contract";
 import {
 	decodeEntityInterestServerMessage,
@@ -13,11 +13,12 @@ import { LocalInterestSessions } from "./connections";
 import { InterestService } from "./service";
 import { runEntityInterestSocketSession } from "./socket-session";
 import { EntityInterestStore } from "./store";
-import { EntityInterestTicketService } from "./ticket-service";
+import { EntityInterestInvalidTicket, EntityInterestTicketService } from "./ticket-service";
 
 const makeSocket = Effect.fn(function* (
 	readyWriteGate?: Deferred.Deferred<void>,
 	failReadyWrite = false,
+	autoPong = false,
 ) {
 	const opened = yield* Deferred.make<void>();
 	const inbound = yield* Queue.unbounded<string | Uint8Array | null>();
@@ -31,6 +32,15 @@ const makeSocket = Effect.fn(function* (
 					return yield* Effect.die("unexpected binary server frame");
 				}
 				yield* Queue.offer(writes, frame);
+				if (typeof frame === "string" && autoPong) {
+					const decoded = decodeEntityInterestServerMessage(frame);
+					if (Result.isSuccess(decoded) && decoded.success.type === "ping") {
+						yield* Queue.offer(
+							inbound,
+							encodeEntityInterestClientMessage({ type: "pong", nonce: decoded.success.nonce }),
+						);
+					}
+				}
 				if (typeof frame === "string" && shouldFailReadyWrite) {
 					shouldFailReadyWrite = false;
 					return yield* Effect.die("writer failed before ready acknowledgement");
@@ -207,8 +217,7 @@ describe("entity interest socket session", () => {
 				const socket = yield* makeSocket();
 				const layer = Layer.mergeAll(
 					Layer.mock(EntityInterestTicketService)({
-						consume: () =>
-							Effect.fail(new EntityInterestTicketFailure({ reason: { code: "invalid-ticket" } })),
+						consume: () => Effect.fail(new EntityInterestInvalidTicket()),
 					}),
 					Layer.mock(EntityInterestStore)({}),
 					Layer.mock(InterestService)({}),
@@ -230,6 +239,39 @@ describe("entity interest socket session", () => {
 				expect(close.reason).toBe("Authentication failed");
 				yield* Fiber.await(fiber);
 				return undefined;
+			}),
+		),
+	);
+
+	it.effect("uses the internal-error close when the ticket store is unavailable", () =>
+		Effect.scoped(
+			Effect.gen(function* () {
+				const socket = yield* makeSocket();
+				const layer = Layer.mergeAll(
+					Layer.mock(EntityInterestTicketService)({
+						consume: () =>
+							Effect.fail(
+								new EntityInterestTicketFailure({
+									reason: { code: "ticket-store-unavailable" },
+								}),
+							),
+					}),
+					Layer.mock(EntityInterestStore)({}),
+					Layer.mock(InterestService)({}),
+					Layer.mock(LocalInterestSessions)({}),
+				);
+				const fiber = yield* runEntityInterestSocketSession(socket.socket).pipe(
+					Effect.provide(layer),
+					Effect.forkChild,
+				);
+				yield* Deferred.await(socket.opened);
+				yield* socket.send(
+					encodeEntityInterestClientMessage({ type: "authenticate", ticket: "ticket" }),
+				);
+				const close = yield* Queue.take(socket.writes);
+				expect(Socket.isCloseEvent(close) && close.code).toBe(1011);
+				expect(Socket.isCloseEvent(close) && close.reason).toBe("Internal error");
+				yield* Fiber.await(fiber);
 			}),
 		),
 	);
@@ -507,6 +549,48 @@ describe("entity interest socket session", () => {
 				const close = yield* Queue.take(socket.writes);
 				expect(Socket.isCloseEvent(close) && close.code).toBe(4000);
 				yield* Fiber.await(fiber);
+			}),
+		),
+	);
+
+	it.effect("expires an authenticated session after 15 minutes and cleans up", () =>
+		Effect.scoped(
+			Effect.gen(function* () {
+				const activity: string[] = [];
+				const reconciliationGate = yield* Deferred.make<void>();
+				const socket = yield* makeSocket(undefined, false, true);
+				const fiber = yield* runEntityInterestSocketSession(socket.socket).pipe(
+					Effect.provide(makeLayer(activity, reconciliationGate)),
+					Effect.forkChild,
+				);
+				yield* Deferred.await(socket.opened);
+				yield* socket.send(
+					encodeEntityInterestClientMessage({ type: "authenticate", ticket: "ticket" }),
+				);
+				const ready = yield* socket.nextMessage();
+				assert(ready.type === "ready");
+
+				for (let interval = 0; interval < 35; interval += 1) {
+					yield* TestClock.adjust("25 seconds");
+					yield* Effect.yieldNow;
+				}
+				yield* TestClock.adjust("24 seconds");
+				const beforeExpiry = yield* Queue.takeAll(socket.writes);
+				expect(Array.from(beforeExpiry).every((frame) => !Socket.isCloseEvent(frame))).toBe(true);
+				expect(activity).toEqual([`open:${ready.sessionId}`, `add:${ready.sessionId}`]);
+
+				yield* TestClock.adjust("1 second");
+				const close = yield* Queue.take(socket.writes);
+				assert(Socket.isCloseEvent(close));
+				expect(close.code).toBe(4001);
+				expect(close.reason).toBe("Session expired");
+				yield* Fiber.await(fiber);
+				expect(activity).toEqual([
+					`open:${ready.sessionId}`,
+					`add:${ready.sessionId}`,
+					`remove:${ready.sessionId}`,
+					`close:${ready.sessionId}`,
+				]);
 			}),
 		),
 	);
