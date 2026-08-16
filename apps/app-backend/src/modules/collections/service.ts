@@ -273,6 +273,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 								properties: validatedProperties,
 								targetEntityId: input.collectionId,
 								relationshipSchemaSlug: memberOfRelationshipSchema.id,
+								relationshipSchemaPluginId: memberOfRelationshipSchema.pluginId ?? null,
 								propertiesSchema: memberOfRelationshipSchema.propertiesSchema,
 							} as const;
 							const created = yield* relationships.create(membershipInput).pipe(
@@ -365,6 +366,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 					userId: user.id,
 					sourceEntityId: payload.entityId,
 					relationshipSchemaSlug: memberOf.id,
+					relationshipSchemaPluginId: memberOf.pluginId ?? null,
 					targetEntityId: payload.collectionId,
 				});
 

@@ -2,6 +2,7 @@ import type { SavedViewLayouts } from "@ryot/contract/modules/saved-views/schema
 import { generateId } from "better-auth";
 import {
 	boolean,
+	foreignKey,
 	index,
 	integer,
 	jsonb,
@@ -18,7 +19,6 @@ import { plugin, pluginInstallation } from "./core";
 export const savedView = snakeCase.table(
 	"saved_view",
 	{
-		pluginSlug: text(),
 		slug: text().notNull(),
 		name: text().notNull(),
 		icon: text().notNull(),
@@ -29,7 +29,7 @@ export const savedView = snakeCase.table(
 		isDisabled: boolean().notNull().default(false),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		entitySchemaPluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
-		pluginInstallationId: text().references(() => pluginInstallation.id, { onDelete: "restrict" }),
+		pluginInstallationId: text(),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
@@ -43,9 +43,13 @@ export const savedView = snakeCase.table(
 	},
 	(table) => [
 		index("saved_view_user_id_idx").on(table.userId),
-		index("saved_view_plugin_slug_idx").on(table.pluginSlug),
 		index("saved_view_entity_schema_plugin_id_idx").on(table.entitySchemaPluginId),
 		index("saved_view_plugin_installation_id_idx").on(table.pluginInstallationId),
 		unique("saved_view_user_slug_unique").on(table.userId, table.slug),
+		foreignKey({
+			columns: [table.pluginInstallationId, table.userId],
+			foreignColumns: [pluginInstallation.id, pluginInstallation.userId],
+			name: "saved_view_plugin_installation_owner_fk",
+		}).onDelete("restrict"),
 	],
 );

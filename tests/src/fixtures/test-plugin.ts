@@ -4,6 +4,8 @@ import type { ContractPayload } from "@ryot/contract/client";
 import { PluginSlug, type SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
+import { requirePresent } from "~/support/assertions";
+
 import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
 import { getBackendClient } from "./contract-client";
@@ -72,6 +74,7 @@ export const findTestEntitySchema = (slug: string) => {
 			return { pluginSlug, schema };
 		}
 	}
+	return undefined;
 };
 
 export const testPluginManifest = (input: TestPluginManifestInput): TestPluginManifest => ({
@@ -381,7 +384,8 @@ export const reinstallTestPluginScript = (
 				adminHeaders,
 			);
 		} else {
-			yield* installed.client!.call((c) =>
+			const client = requirePresent(installed.client, "User test plugin has no client");
+			yield* client.call((c) =>
 				c.plugins.update({
 					payload: { files, manifest },
 					params: { pluginSlug: installed.pluginSlug },
@@ -414,7 +418,8 @@ export const uninstallTestPluginStrict = (installed: InstalledTestPlugin) =>
 				adminHeaders,
 			);
 		} else {
-			yield* installed.client!.call((c) =>
+			const client = requirePresent(installed.client, "User test plugin has no client");
+			yield* client.call((c) =>
 				c.plugins.uninstall({ params: { pluginSlug: installed.pluginSlug } }),
 			);
 		}

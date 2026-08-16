@@ -27,7 +27,6 @@ export const integration = snakeCase.table(
 	"integration",
 	{
 		name: text(),
-		pluginSlug: text().notNull(),
 		pluginInstallationId: text().notNull(),
 		lot: text().notNull().$type<IntegrationLot>(),
 		isDisabled: boolean().notNull().default(false),
@@ -54,7 +53,6 @@ export const integration = snakeCase.table(
 	(table) => [
 		index("integration_user_id_created_at_idx").on(table.userId, table.createdAt.desc()),
 		index("integration_user_id_provider_idx").on(table.userId, table.provider),
-		index("integration_plugin_slug_idx").on(table.pluginSlug),
 		index("integration_plugin_installation_id_idx").on(table.pluginInstallationId),
 		index("integration_lot_is_disabled_idx").on(table.lot, table.isDisabled),
 		index("integration_provider_is_disabled_idx").on(table.provider, table.isDisabled),

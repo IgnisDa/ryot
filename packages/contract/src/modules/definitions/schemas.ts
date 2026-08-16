@@ -8,19 +8,11 @@ import {
 	SandboxProviderId,
 } from "../../schema/brands";
 import { AppSchema } from "../../schema/property-schema";
+import { PluginInstallationItem } from "../plugins/schemas";
 
 export { UpdatePluginInstallationBody as UpdatePluginStateBody } from "../plugins/schemas";
 
-const DefinitionNotFoundReason = Schema.Union([
-	Schema.Struct({ code: Schema.Literal("plugin-not-found"), pluginSlug: PluginSlug }),
-]);
-
-export class DefinitionNotFound extends Schema.TaggedError<DefinitionNotFound>()(
-	"DefinitionNotFound",
-	{ reason: DefinitionNotFoundReason },
-) {}
-
-export const EventDefinition = Schema.Struct({
+const EventDefinition = Schema.Struct({
 	name: Schema.String,
 	slug: EventSchemaSlug,
 	propertiesSchema: AppSchema,
@@ -47,13 +39,13 @@ export const RelationshipDefinition = Schema.Struct({
 });
 
 export const ListedPlugin = Schema.Struct({
-	slug: PluginSlug,
-	name: Schema.String,
-	icon: Schema.String,
-	version: Schema.String,
-	sortOrder: Schema.Number,
-	isDisabled: Schema.Boolean,
-	description: Schema.String,
+	slug: PluginInstallationItem.fields.slug,
+	name: PluginInstallationItem.fields.name,
+	icon: PluginInstallationItem.fields.icon,
+	version: PluginInstallationItem.fields.version,
+	sortOrder: PluginInstallationItem.fields.sortOrder,
+	isDisabled: PluginInstallationItem.fields.isDisabled,
+	description: PluginInstallationItem.fields.description,
 });
 
 export type ListedPlugin = typeof ListedPlugin.Type;

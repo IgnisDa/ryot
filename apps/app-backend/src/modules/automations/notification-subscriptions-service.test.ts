@@ -15,7 +15,8 @@ import { Effect, Layer, Schema } from "effect";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { databaseLayer } from "#lib/test-utils/effect";
-import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
+import { makeDefinitionRegistry } from "#modules/definition-registry/service";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { NotificationSubscriptionsService } from "./notification-subscriptions-service";
 import {
@@ -43,16 +44,18 @@ const state = {
 	id: ruleId,
 	metadata: null,
 	isActive: true,
+	signalSchemaPluginId: null,
 	signalSchemaSlug,
 	createdAt: "2026-07-21T10:00:00.000Z",
 	updatedAt: "2026-07-21T10:00:00.000Z",
 } as const satisfies StoredNotificationSubscription;
 
 const mockRepository = Layer.mock(AutomationsRepository);
+const mockPluginRuntime = Layer.mock(PluginRuntimeResolver);
 const makeRepository = (overrides: MockOverrides<typeof mockRepository> = {}) =>
 	mockRepository({ ...overrides });
 
-const makeDefinitions = (
+const makePluginRuntime = (
 	catalogState: "active" | "hidden" = "active",
 	includeDefinition = true,
 ) => {
@@ -62,7 +65,9 @@ const makeDefinitions = (
 		relationshipSchemas: [],
 		signalSchemas: includeDefinition ? [{ ...signalSchema, catalogState }] : [],
 	});
-	return Layer.succeed(DefinitionRegistry, { ...registry });
+	return mockPluginRuntime({
+		getEffectiveDefinitions: () => Effect.succeed(registry.getSnapshot()),
+	});
 };
 
 const makeLayer = (
@@ -74,16 +79,16 @@ const makeLayer = (
 		Layer.provideMerge(
 			Layer.mergeAll(
 				databaseLayer,
-				makeDefinitions(catalogState, includeDefinition),
+				makePluginRuntime(catalogState, includeDefinition),
 				makeRepository(repository),
 			),
 		),
 	);
 
-it.effect("lists only active signal schemas supplied by the definition registry", () => {
+it.effect("lists only active signal schemas supplied by the user runtime", () => {
 	return Effect.gen(function* () {
 		const service = yield* NotificationSubscriptionsService;
-		expect(yield* service.listCatalog()).toEqual([
+		expect(yield* service.listCatalog(userId)).toEqual([
 			{
 				id: signalSchemaSlug,
 				name: signalSchema.name,

@@ -137,6 +137,12 @@ describe("client endpoints", () => {
 				findForUser: () => Effect.succeed(null),
 				findOwnedForUser: () => Effect.succeed(null),
 				listForUser: () => Effect.succeed([yank, inactiveSink, push]),
+				listResolvedForUser: () =>
+					Effect.succeed([
+						{ provider: yank, script: activeScript },
+						{ provider: inactiveSink, script: null },
+						{ provider: push, script: null },
+					]),
 				resolveOwnedForUser: (_userId, providerSlug) =>
 					Effect.succeed(
 						providerSlug === yank.slug
@@ -273,6 +279,7 @@ describe("client endpoints", () => {
 							findOwnedForUser: () => Effect.succeed(null),
 							resolveOwnedForUser: () => Effect.succeed(null),
 							listForUser: () => Effect.succeed([proGatedPush]),
+							listResolvedForUser: () => Effect.succeed([{ provider: proGatedPush, script: null }]),
 						}),
 					),
 				),
@@ -562,6 +569,7 @@ describe("installation availability", () => {
 					}),
 					Layer.mock(IntegrationProviderCatalog)({
 						listForUser: () => Effect.succeed([]),
+						listResolvedForUser: () => Effect.succeed([]),
 						findForUser: () => Effect.succeed(null),
 						findOwnedForUser: () => Effect.succeed(null),
 						resolveOwnedForUser: () => Effect.succeed(null),
@@ -606,6 +614,7 @@ describe("installation availability", () => {
 						listForUser: () => Effect.succeed([]),
 						findForUser: () => Effect.succeed(null),
 						findOwnedForUser: () => Effect.succeed(null),
+						listResolvedForUser: () => Effect.succeed([]),
 						resolveOwnedForUser: () => Effect.succeed(null),
 					}),
 					Layer.mock(ImportsService)({

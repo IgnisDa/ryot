@@ -70,10 +70,11 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 								deletedEventsCount += 1;
 							}
 						}
-						const relationshipRows = yield* relationshipsRepository.listUserRelationshipsForEntity({
-							entityId,
-							userId: user.id,
-						});
+						const relationshipRows =
+							yield* relationshipsRepository.listUserRelationshipsForEntityWithProvenance({
+								entityId,
+								userId: user.id,
+							});
 						let deletedRelationshipsCount = 0;
 						for (const relationship of relationshipRows) {
 							const deleted = yield* relationships.delete({
@@ -82,6 +83,7 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 								sourceEntityId: relationship.sourceEntityId,
 								targetEntityId: relationship.targetEntityId,
 								relationshipSchemaSlug: relationship.relationshipSchemaSlug,
+								relationshipSchemaPluginId: relationship.relationshipSchemaPluginId,
 							});
 							if (deleted) {
 								deletedRelationshipsCount += 1;
@@ -177,10 +179,11 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 								movedEventsCount += 1;
 							}
 						}
-						const relationshipRows = yield* relationshipsRepository.listUserRelationshipsForEntity({
-							userId: user.id,
-							entityId: mergeFrom,
-						});
+						const relationshipRows =
+							yield* relationshipsRepository.listUserRelationshipsForEntityWithProvenance({
+								userId: user.id,
+								entityId: mergeFrom,
+							});
 						const propertiesSchemas = new Map<string, AppSchema>();
 						const getPropertiesSchema = Effect.fn(
 							"UserStateService.getRelationshipPropertiesSchema",
@@ -220,6 +223,7 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 										userId: user.id,
 										properties: relationship.properties,
 										relationshipSchemaSlug: relationship.relationshipSchemaSlug,
+										relationshipSchemaPluginId: relationship.relationshipSchemaPluginId,
 										propertiesSchema: yield* getPropertiesSchema(
 											relationship.relationshipSchemaSlug,
 										),
@@ -243,6 +247,7 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 								sourceEntityId: relationship.sourceEntityId,
 								targetEntityId: relationship.targetEntityId,
 								relationshipSchemaSlug: relationship.relationshipSchemaSlug,
+								relationshipSchemaPluginId: relationship.relationshipSchemaPluginId,
 							});
 							if (deleted) {
 								movedRelationshipsCount += 1;

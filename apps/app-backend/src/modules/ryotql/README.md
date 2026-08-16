@@ -20,6 +20,8 @@ The relationship catalog exposes `id`, `userId`, `sourceEntityId`, `targetEntity
 
 The plugin catalog exposes `slug`, `name`, `icon`, `status`, `version`, and `ingestedAt`. The plugin-state catalog exposes `id`, `pluginSlug`, `sortOrder`, `isDisabled`, `createdAt`, and `updatedAt`. The saved-view catalog exposes `id`, `slug`, `name`, `icon`, `sortOrder`, `isBuiltin`, `isDisabled`, `pluginSlug`, `layouts`, `createdAt`, and `updatedAt`. The `sandboxProvider` catalog exposes `id`, `slug`, `name`, `pluginSlug`, `rootEntitySchemaSlug`, `information`, `createdAt`, and `updatedAt`. The `sandboxProviderOperation` catalog exposes `id`, `providerId`, `operation`, `optionsSchema`, `createdAt`, and `updatedAt`; `scriptId` is not queryable. Provider operations join through `providerId` to `sandboxProvider.id`. Plugin manifests, source and compiled hashes, plugin-state configuration, and application-table ownership columns are not queryable.
 
+Saved-view and integration `pluginSlug` values are derived from their exact plugin installation; neither table stores a duplicate slug.
+
 ## Document Shape
 
 Every document contains a non-empty `queries` object. Each entry is independent and has an explicit root table and alias, an optional predicate and joins, and one rows, aggregate, or time-series output.

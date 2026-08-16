@@ -324,6 +324,7 @@ it.effect("resolves and executes a manifest workflow with an exact script pin", 
 			userId: executingUserId,
 			pluginId: "media-plugin-id",
 			workflowSlug: "media-import-resolution",
+			pluginInstallationId: "media-installation-id",
 		});
 		const result = yield* service.executeWorkflow({
 			executionId,
@@ -414,6 +415,7 @@ it.effect("pins a plugin workflow before accepted dispatch can wait for a worker
 		}),
 		makePluginRuntime(
 			() => Effect.succeed(storedWorkflowScript),
+			undefined,
 			() => Effect.succeed(storedWorkflowScript),
 		),
 		Layer.succeed(
@@ -436,9 +438,10 @@ it.effect("pins a plugin workflow before accepted dispatch can wait for a worker
 			yield* service.enqueuePluginWorkflow({
 				input: {},
 				executingUserId,
-				pluginSlug: "fixture",
+				pluginId: "fixture",
 				workflowSlug: "workflow",
 				executionId: "queued-workflow",
+				pluginInstallationId: "fixture-installation",
 			}),
 		).toBe("queued-workflow");
 		expect(events).toEqual(["lock", "register", "accepted"]);
@@ -461,6 +464,7 @@ it.effect("releases a new dispatch pin when workflow enqueue fails", () => {
 		}),
 		makePluginRuntime(
 			() => Effect.succeed(storedWorkflowScript),
+			undefined,
 			() => Effect.succeed(storedWorkflowScript),
 		),
 		Layer.succeed(
@@ -480,9 +484,10 @@ it.effect("releases a new dispatch pin when workflow enqueue fails", () => {
 			service.enqueuePluginWorkflow({
 				input: {},
 				executingUserId,
-				pluginSlug: "fixture",
+				pluginId: "fixture",
 				workflowSlug: "workflow",
 				executionId: "failed-enqueue",
+				pluginInstallationId: "fixture-installation",
 			}),
 		);
 		expect(releases).toBe(1);
