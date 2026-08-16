@@ -28,6 +28,7 @@
 		"@react-email/components": "1.0.7",
 		"@ryot/config": "workspace:*",
 		"@ryot/contract": "workspace:*",
+		"@ryot/plugin-archive": "workspace:*",
 		"@ryot/ryotql-recipes": "workspace:*",
 		"@ryot/sandbox-compiler": "workspace:*",
 		"@ryot/sandbox-sdk": "workspace:*",
