@@ -116,6 +116,23 @@ The native identifiers and callback URI builders live in `@ryot-app/contract/oau
 provisioning and native deep-link filtering consume the same identifiers, so build variants,
 registered OAuth callbacks, and runtime validation cannot drift independently.
 
+## Settings
+
+Appearance is device-local: it reads and writes `ThemeStore`, needs no server, and therefore stays
+rendered on the preferences route's pending and error branches while the server-backed section
+reports its own waiting or failure state. Everything else on the route comes from the
+`/user-settings` loader and is saved back through `UserSettingsApi`, one PATCH carrying only the
+fields that actually changed.
+
+Account identity is read from the OIDC session store, not from a screen-local copy, so generating a
+new avatar calls `refreshAvatar` and then `settledSession(origin, true)`. The forced refresh
+re-reads `userinfo` and republishes the session, which is what updates the avatar everywhere it is
+rendered; writing the returned image into component state instead would leave the sidebar stale.
+
+The connected server is shown only on native. On the web `ServerService.selected` is always
+`window.location.origin`, so there is no origin to choose and nothing to change; on native the
+origin is a stored selection, and clearing it is part of signing out rather than a separate action.
+
 ## Secure Storage
 
 `OAuthStorage` owns every OAuth record: the access, refresh, and ID tokens, and the short-lived
