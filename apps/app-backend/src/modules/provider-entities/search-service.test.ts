@@ -100,7 +100,10 @@ const searchOptionsScript = {
 	},
 };
 
+type ResolutionCounts = { provider: number; search: number; searchOptions: number };
+
 const makeLayer = (input?: {
+	readonly counts?: ResolutionCounts;
 	readonly redis?: RedisService["Service"];
 	readonly optionsSchema?: AppSchema | null;
 	readonly provider?: typeof provider | null;
@@ -117,10 +120,17 @@ const makeLayer = (input?: {
 			Layer.mergeAll(
 				databaseLayer,
 				Layer.mock(PluginRuntimeResolver)({
-					findProviderAvailableToUser: () =>
-						Effect.succeed(input?.provider === undefined ? provider : input.provider),
-					resolveUserSearchScript: () =>
-						input?.searchError
+					findProviderAvailableToUser: () => {
+						if (input?.counts) {
+							input.counts.provider += 1;
+						}
+						return Effect.succeed(input?.provider === undefined ? provider : input.provider);
+					},
+					resolveUserSearchScript: () => {
+						if (input?.counts) {
+							input.counts.search += 1;
+						}
+						return input?.searchError
 							? Effect.fail(
 									new UnsupportedProviderOperationError({
 										providerId,
@@ -129,9 +139,13 @@ const makeLayer = (input?: {
 										providerSlug: provider.slug,
 									}),
 								)
-							: Effect.succeed({ ...searchScript, optionsSchema: input?.optionsSchema ?? null }),
-					resolveUserSearchOptionsScript: () =>
-						input?.searchOptionsError
+							: Effect.succeed({ ...searchScript, optionsSchema: input?.optionsSchema ?? null });
+					},
+					resolveUserSearchOptionsScript: () => {
+						if (input?.counts) {
+							input.counts.searchOptions += 1;
+						}
+						return input?.searchOptionsError
 							? Effect.fail(
 									new UnsupportedProviderOperationError({
 										providerId,
@@ -140,7 +154,8 @@ const makeLayer = (input?: {
 										reason: input.searchOptionsError,
 									}),
 								)
-							: Effect.succeed(input?.optionsScript ?? searchOptionsScript),
+							: Effect.succeed(input?.optionsScript ?? searchOptionsScript);
+					},
 				}),
 				Layer.mock(SandboxExecutionService)({
 					executeScript:
@@ -520,6 +535,40 @@ it.effect("validates dynamic option membership before provider search execution"
 								: { items: [] },
 					});
 				},
+			}),
+		),
+	);
+});
+
+it.effect("resolves the provider and search script once for a filtered dynamic search", () => {
+	const redis = makeSearchOptionsRedis();
+	const counts: ResolutionCounts = { provider: 0, search: 0, searchOptions: 0 };
+	return Effect.gen(function* () {
+		const service = yield* ProviderEntitySearchService;
+		yield* service.search(user, {
+			page: 1,
+			providerId,
+			pageSize: 20,
+			query: "book",
+			options: { status: "active" },
+		});
+		expect(counts).toEqual({ provider: 1, search: 1, searchOptions: 1 });
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				counts,
+				redis: redis.service,
+				optionsSchema: dynamicOptionsSchema,
+				execute: (input) =>
+					Effect.succeed({
+						logs: [],
+						error: null,
+						status: "completed" as const,
+						value:
+							input.scriptId === searchOptionsScript.id
+								? { sources: { statuses: [{ value: "active" }] } }
+								: { items: [] },
+					}),
 			}),
 		),
 	);
