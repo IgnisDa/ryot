@@ -4,12 +4,12 @@ import type { SandboxManifest } from "./core";
 import { type GenericScriptDefinition, SANDBOX_SCRIPT_DEFINITION } from "./driver";
 import { jsonValueSchema, strictStruct } from "./wire";
 
+export type {
+	AutomationOccurrencePopulation,
+	AutomationOccurrenceSource,
+} from "@ryot-app/contract/modules/automations/schemas";
+
 const propertiesSchema = Schema.Record(Schema.String, jsonValueSchema);
-const entityReferenceSchema = strictStruct({
-	id: Schema.String,
-	name: Schema.String,
-	entitySchemaSlug: Schema.String,
-});
 
 export type AutomationManifest = Extract<SandboxManifest, { readonly kind: "automation" }>;
 export const automationOriginSchema = Schema.Union([
@@ -24,83 +24,26 @@ export const automationOriginSchema = Schema.Union([
 	}),
 	strictStruct({ executionId: Schema.String, kind: Schema.Literal("automation") }),
 ]);
-export const automationEntitySnapshotSchema = strictStruct({
-	id: Schema.String,
-	name: Schema.String,
-	properties: propertiesSchema,
-	entitySchemaSlug: Schema.String,
-});
-export const automationEventSnapshotSchema = strictStruct({
-	id: Schema.String,
-	createdAt: Schema.String,
-	occurredAt: Schema.String,
-	properties: propertiesSchema,
-	subject: entityReferenceSchema,
-	eventSchemaSlug: Schema.String,
-	sessionEntityId: Schema.optional(Schema.String),
-});
-export const automationRelationshipSnapshotSchema = strictStruct({
-	id: Schema.String,
-	properties: propertiesSchema,
-	source: entityReferenceSchema,
-	target: entityReferenceSchema,
-	relationshipSchemaSlug: Schema.String,
-});
-export const automationSignalSnapshotSchema = strictStruct({
-	id: Schema.String,
-	occurredAt: Schema.String,
-	properties: propertiesSchema,
-	origin: automationOriginSchema,
-	signalSchemaSlug: Schema.String,
-});
 const automationSourceSchema = Schema.Union([
-	strictStruct({ kind: Schema.Literal("signal"), signal: automationSignalSnapshotSchema }),
+	strictStruct({ entityId: Schema.String, kind: Schema.Literal("entity") }),
+	strictStruct({ eventId: Schema.String, kind: Schema.Literal("event") }),
+	strictStruct({ relationshipId: Schema.String, kind: Schema.Literal("relationship") }),
+	strictStruct({ signalId: Schema.String, kind: Schema.Literal("signal") }),
 	strictStruct({
-		kind: Schema.Literal("entity"),
-		after: Schema.optional(automationEntitySnapshotSchema),
-		before: Schema.optional(automationEntitySnapshotSchema),
-	}),
-	strictStruct({
-		kind: Schema.Literal("event"),
-		after: Schema.optional(automationEventSnapshotSchema),
-		before: Schema.optional(automationEventSnapshotSchema),
-	}),
-	strictStruct({
-		kind: Schema.Literal("relationship"),
-		after: Schema.optional(automationRelationshipSnapshotSchema),
-		before: Schema.optional(automationRelationshipSnapshotSchema),
+		entityId: Schema.String,
+		externalId: Schema.String,
+		providerId: Schema.String,
+		entitySchemaSlug: Schema.String,
+		kind: Schema.Literal("provider-entity-import"),
 	}),
 ]);
-const automationPopulationSchema = strictStruct({
-	scopeEntity: entityReferenceSchema,
-	rootPreviouslyPopulated: Schema.Boolean,
-	parentEntity: Schema.optional(
-		strictStruct({
-			name: Schema.String,
-			properties: propertiesSchema,
-			entitySchemaSlug: Schema.String,
-		}),
-	),
-	batch: Schema.optional(
-		strictStruct({
-			id: Schema.String,
-			isLeader: Schema.Boolean,
-			afterCount: Schema.Number,
-			beforeCount: Schema.Number,
-			createdCount: Schema.Number,
-			deletedCount: Schema.Number,
-			updatedCount: Schema.Number,
-		}),
-	),
-});
 export const automationContextSchema = strictStruct({
 	ruleId: Schema.String,
 	occurredAt: Schema.String,
 	occurrenceId: Schema.String,
 	origin: automationOriginSchema,
 	source: automationSourceSchema,
-	ruleMetadata: Schema.optional(jsonValueSchema),
-	population: Schema.optional(automationPopulationSchema),
+	runId: Schema.optional(Schema.String),
 	operation: Schema.Literals(["create", "update", "delete", "signal"]),
 });
 export const automationInputSchema = strictStruct({ automation: automationContextSchema });
@@ -142,12 +85,6 @@ export type AutomationInput = Schema.Schema.Type<typeof automationInputSchema>;
 export type AutomationContext = Schema.Schema.Type<typeof automationContextSchema>;
 export type AutomationPolicyInput = Schema.Schema.Type<typeof automationPolicyInputSchema>;
 export type AutomationPolicyResult = Schema.Schema.Type<typeof automationPolicyResultSchema>;
-export type AutomationEventSnapshot = Schema.Schema.Type<typeof automationEventSnapshotSchema>;
-export type AutomationSignalSnapshot = Schema.Schema.Type<typeof automationSignalSnapshotSchema>;
-export type AutomationEntitySnapshot = Schema.Schema.Type<typeof automationEntitySnapshotSchema>;
-export type AutomationRelationshipSnapshot = Schema.Schema.Type<
-	typeof automationRelationshipSnapshotSchema
->;
 
 export type AutomationDefinition<Manifest extends AutomationManifest> = GenericScriptDefinition<
 	Manifest,

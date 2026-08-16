@@ -1,11 +1,20 @@
 import { Schema } from "effect";
 
 import {
+	AutomationOccurrenceId,
 	AutomationRuleId,
+	EntityId,
+	EntitySchemaSlug,
+	EventId,
+	EventSchemaSlug,
 	ImportRunId,
 	IntegrationId,
+	RelationshipId,
 	RelationshipSchemaSlug,
+	SandboxProviderId,
+	SignalId,
 	SignalSchemaSlug,
+	UserId,
 } from "../../schema/brands";
 import { AppSchema } from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";
@@ -24,6 +33,96 @@ export const AutomationRuleMetadata = jsonValueSchema;
 export type AutomationRuleMetadata = typeof AutomationRuleMetadata.Type;
 
 export const AutomationProperties = Schema.Record(Schema.String, AutomationRuleMetadata);
+
+const AutomationEntityReference = strictStruct({
+	id: EntityId,
+	name: Schema.String,
+	entitySchemaSlug: EntitySchemaSlug,
+});
+
+const AutomationEntitySnapshot = strictStruct({
+	...AutomationEntityReference.fields,
+	properties: AutomationProperties,
+});
+
+const AutomationEventSnapshot = strictStruct({
+	id: EventId,
+	createdAt: Schema.String,
+	occurredAt: Schema.String,
+	properties: AutomationProperties,
+	eventSchemaSlug: EventSchemaSlug,
+	subject: AutomationEntityReference,
+	sessionEntityId: Schema.optional(EntityId),
+});
+
+const AutomationRelationshipSnapshot = strictStruct({
+	id: RelationshipId,
+	properties: AutomationProperties,
+	source: AutomationEntityReference,
+	target: AutomationEntityReference,
+	relationshipSchemaSlug: RelationshipSchemaSlug,
+});
+
+const AutomationSignalSnapshot = strictStruct({
+	id: SignalId,
+	occurredAt: Schema.String,
+	properties: AutomationProperties,
+	signalSchemaSlug: SignalSchemaSlug,
+	origin: Schema.suspend(() => AutomationOrigin),
+});
+
+export const AutomationOccurrenceSource = Schema.Union([
+	strictStruct({
+		kind: Schema.Literal("entity"),
+		after: Schema.optional(AutomationEntitySnapshot),
+		before: Schema.optional(AutomationEntitySnapshot),
+	}),
+	strictStruct({
+		kind: Schema.Literal("event"),
+		after: Schema.optional(AutomationEventSnapshot),
+		before: Schema.optional(AutomationEventSnapshot),
+	}),
+	strictStruct({
+		kind: Schema.Literal("relationship"),
+		after: Schema.optional(AutomationRelationshipSnapshot),
+		before: Schema.optional(AutomationRelationshipSnapshot),
+	}),
+	strictStruct({ kind: Schema.Literal("signal"), signal: AutomationSignalSnapshot }),
+	strictStruct({
+		entityId: EntityId,
+		externalId: Schema.String,
+		providerId: SandboxProviderId,
+		entitySchemaSlug: EntitySchemaSlug,
+		kind: Schema.Literal("provider-entity-import"),
+	}),
+]);
+
+export type AutomationOccurrenceSource = typeof AutomationOccurrenceSource.Type;
+
+export const AutomationOccurrencePopulation = strictStruct({
+	scopeEntity: AutomationEntityReference,
+	rootPreviouslyPopulated: Schema.Boolean,
+	parentEntity: Schema.optional(
+		strictStruct({
+			name: Schema.String,
+			properties: AutomationProperties,
+			entitySchemaSlug: EntitySchemaSlug,
+		}),
+	),
+	batch: Schema.optional(
+		strictStruct({
+			id: Schema.String,
+			isLeader: Schema.Boolean,
+			afterCount: Schema.Number,
+			beforeCount: Schema.Number,
+			createdCount: Schema.Number,
+			deletedCount: Schema.Number,
+			updatedCount: Schema.Number,
+		}),
+	),
+});
+
+export type AutomationOccurrencePopulation = typeof AutomationOccurrencePopulation.Type;
 
 export const AutomationPolicyResult = Schema.Union([
 	strictStruct({ action: Schema.Literal("allow") }),
@@ -48,6 +147,16 @@ export const SubscriptionRunSourceKind = Schema.Literals([
 ]);
 
 export type SubscriptionRunSourceKind = typeof SubscriptionRunSourceKind.Type;
+
+export const AutomationOccurrenceSourceKind = Schema.Literals([
+	"entity",
+	"event",
+	"relationship",
+	"signal",
+	"provider-entity-import",
+]);
+
+export type AutomationOccurrenceSourceKind = typeof AutomationOccurrenceSourceKind.Type;
 
 export const SubscriptionRunStatus = Schema.Literals([
 	"queued",
@@ -150,3 +259,18 @@ export const AutomationOrigin = Schema.Union([
 ]);
 
 export type AutomationOrigin = typeof AutomationOrigin.Type;
+
+export const AutomationOccurrence = strictStruct({
+	origin: AutomationOrigin,
+	occurredAt: Schema.String,
+	id: AutomationOccurrenceId,
+	userId: Schema.NullOr(UserId),
+	operation: AutomationOperation,
+	signalId: Schema.NullOr(SignalId),
+	source: AutomationOccurrenceSource,
+	recordId: Schema.NullOr(Schema.String),
+	sourceKind: AutomationOccurrenceSourceKind,
+	population: Schema.NullOr(AutomationOccurrencePopulation),
+});
+
+export type AutomationOccurrence = typeof AutomationOccurrence.Type;

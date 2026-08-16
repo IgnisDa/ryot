@@ -4,9 +4,34 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { expect, it } from "vitest";
 
+import {
+	automationOccurrenceRows,
+	hostSuccess,
+} from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./media-relationship-sync.sandbox";
 
-type Population = NonNullable<AutomationInput["automation"]["population"]>;
+type Population = {
+	readonly rootPreviouslyPopulated: boolean;
+	readonly scopeEntity: {
+		readonly id: string;
+		readonly name: string;
+		readonly entitySchemaSlug: string;
+	};
+	readonly parentEntity?: {
+		readonly name: string;
+		readonly properties: Readonly<Record<string, JsonValue>>;
+		readonly entitySchemaSlug: string;
+	};
+	readonly batch: {
+		readonly id: string;
+		readonly isLeader: boolean;
+		readonly afterCount: number;
+		readonly beforeCount: number;
+		readonly createdCount: number;
+		readonly deletedCount: number;
+		readonly updatedCount: number;
+	};
+};
 
 const input = (overrides: {
 	isLeader?: boolean;
@@ -16,46 +41,55 @@ const input = (overrides: {
 	relationshipSchemaSlug?: string;
 	rootPreviouslyPopulated?: boolean;
 	parentEntity?: NonNullable<Population["parentEntity"]>;
-}): AutomationInput => ({
-	automation: {
-		ruleId: "rule-1",
-		operation: "create",
-		occurrenceId: "occurrence-1",
-		origin: { kind: "provider_refresh" },
-		occurredAt: "2026-07-20T10:00:00.000Z",
-		source: {
-			kind: "relationship",
-			after: {
-				properties: {},
-				id: "relationship-1",
-				source: { id: "source-1", name: "Source", entitySchemaSlug: "show" },
-				target: { id: "target-1", name: "Target", entitySchemaSlug: "show-season" },
-				relationshipSchemaSlug: overrides.relationshipSchemaSlug ?? "show-to-show-season",
-			},
+}) => {
+	const population: Population = {
+		rootPreviouslyPopulated: overrides.rootPreviouslyPopulated ?? true,
+		...(overrides.parentEntity ? { parentEntity: overrides.parentEntity } : {}),
+		scopeEntity: { id: "show-1", name: "Severance", entitySchemaSlug: "show" },
+		batch: {
+			id: "batch-1",
+			updatedCount: 0,
+			deletedCount: 0,
+			isLeader: overrides.isLeader ?? true,
+			afterCount: overrides.afterCount ?? 3,
+			beforeCount: overrides.beforeCount ?? 2,
+			createdCount: overrides.createdCount ?? 1,
 		},
-		population: {
-			rootPreviouslyPopulated: overrides.rootPreviouslyPopulated ?? true,
-			...(overrides.parentEntity ? { parentEntity: overrides.parentEntity } : {}),
-			scopeEntity: { id: "show-1", name: "Severance", entitySchemaSlug: "show" },
-			batch: {
-				id: "batch-1",
-				updatedCount: 0,
-				deletedCount: 0,
-				isLeader: overrides.isLeader ?? true,
-				afterCount: overrides.afterCount ?? 3,
-				beforeCount: overrides.beforeCount ?? 2,
-				createdCount: overrides.createdCount ?? 1,
+	};
+	return {
+		context: {
+			automation: {
+				ruleId: "rule-1",
+				operation: "create",
+				occurrenceId: "occurrence-1",
+				origin: { kind: "provider_refresh" },
+				occurredAt: "2026-07-20T10:00:00.000Z",
+				source: { kind: "relationship", relationshipId: "relationship-1" },
 			},
-		},
-	},
-});
+		} satisfies AutomationInput,
+		occurrence: automationOccurrenceRows(
+			{
+				kind: "relationship",
+				after: {
+					properties: {},
+					id: "relationship-1",
+					source: { id: "source-1", name: "Source", entitySchemaSlug: "show" },
+					target: { id: "target-1", name: "Target", entitySchemaSlug: "show-season" },
+					relationshipSchemaSlug: overrides.relationshipSchemaSlug ?? "show-to-show-season",
+				},
+			},
+			population,
+		),
+	};
+};
 
-const run = (value: AutomationInput) => {
+const run = (value: ReturnType<typeof input>) => {
 	const calls: Array<Record<string, JsonValue | undefined>> = [];
 	return definition
 		.run(
-			value,
+			value.context,
 			defineSandboxTestHost(manifest, {
+				executeRyotql: () => hostSuccess(value.occurrence),
 				emitSignal: (request) => {
 					calls.push(request);
 					return Effect.succeed({ wasCreated: true, signalId: "signal-1" });
