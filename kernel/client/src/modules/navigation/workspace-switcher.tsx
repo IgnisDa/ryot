@@ -1,5 +1,6 @@
 import { OverlayScope, useDismissOnOutside, useShortcut } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
@@ -7,10 +8,12 @@ import type {
 import clsx from "clsx";
 import { useEffect, useId, useRef, useState } from "react";
 
+import { workspacePickerSummary } from "#/modules/navigation/sidebar-sections";
 import { visibleWorkspaces } from "#/modules/navigation/workspace-state";
 
 type WorkspaceSwitcherProps = {
 	readonly summary: string;
+	readonly navigation: NavigationData;
 	readonly catalog: PluginClientCatalog;
 	readonly showShortcut?: boolean | undefined;
 	readonly onCustomize?: (() => void) | undefined;
@@ -178,7 +181,9 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 									</span>
 									<span className="min-w-0 flex-1">
 										<span className="block truncate text-sm text-text">{workspace.name}</span>
-										<span className="block truncate text-xs text-text-muted">{workspace.slug}</span>
+										<span className="block truncate text-xs text-text-muted">
+											{workspacePickerSummary(props.navigation, workspace.slug)}
+										</span>
 									</span>
 									<AppIcon
 										size={15}
