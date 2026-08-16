@@ -1,7 +1,6 @@
-import { DbError } from "@ryot-app/contract/errors";
-import {
+import type {
 	PluginManifest,
-	type PluginProviderOperation,
+	PluginProviderOperation,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	EntitySchemaSlug,
@@ -12,7 +11,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, type SQL } from "drizzle-orm";
 import { Context, Data, Effect, Layer, Schema } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -21,6 +20,7 @@ import { PluginEnvironmentConfig } from "#lib/infrastructure/plugin-environment-
 import {
 	buildDefinitionSnapshot,
 	definitionSourceFromSnapshot,
+	type DefinitionSnapshot,
 } from "#modules/definition-registry/service";
 
 import { PluginConfigRevisions } from "./config-revisions";
@@ -34,7 +34,7 @@ import {
 	PluginLoaderLive,
 	type PluginRegistrySnapshot,
 } from "./loader";
-import { activePluginFields, storedScriptFields } from "./persisted-projections";
+import { pluginPointerFields, storedScriptFields } from "./persisted-projections";
 import { PluginRepository } from "./repository";
 
 export class UnsupportedProviderOperationError extends Data.TaggedError(
@@ -58,9 +58,25 @@ export type AvailablePlugin = {
 	readonly ownerUserId: UserId | null;
 	readonly manifest: PluginManifest;
 	readonly health: PluginInstallationHealth;
-	readonly compiledHashes: Record<string, string>;
+	readonly compiledHashes: Readonly<Record<string, string>>;
 };
-type CatalogPlugin = Pick<AvailablePlugin, "id" | "manifest" | "scope" | "slug">;
+type CatalogPlugin = Pick<
+	AvailablePlugin,
+	"id" | "manifest" | "pluginRevisionId" | "scope" | "slug"
+>;
+
+// `definitionsForCatalog` folds the loader snapshot's kernel definitions into every result, so a
+// memo entry is only valid for the snapshot object it was built from; `loader.replace` installs a
+// fresh object and the `WeakMap` drops the whole generation with it.
+const DEFINITION_MEMO_CAPACITY = 64;
+
+const catalogDefinitionKey = (available: ReadonlyArray<CatalogPlugin>) =>
+	available
+		.map(({ id, slug, scope, pluginRevisionId }) =>
+			[id, pluginRevisionId, scope, slug].join("\u0000"),
+		)
+		.sort()
+		.join("\u0001");
 
 export const CatalogDefinitionFingerprint = Schema.Struct({
 	digest: Schema.String,
@@ -101,41 +117,6 @@ const findRevisionScript = Effect.fn(function* (pluginRevisionId: string, script
 	return row ? { ...row, id: SandboxScriptId.make(row.id) } : null;
 });
 
-export const findActiveScriptInPluginSnapshot = Effect.fn(function* (
-	snapshot: PluginRegistrySnapshot,
-	input: { pluginSlug: string; scriptSlug: string; providerId?: string },
-) {
-	const entry = snapshot.plugins[input.pluginSlug];
-	if (!entry) {
-		return null;
-	}
-	const db = yield* Database;
-	const [plugin] = yield* mapDatabaseErrors(
-		db
-			.select(activePluginFields)
-			.from(schema.plugin)
-			.where(and(eq(schema.plugin.id, entry.id), eq(schema.plugin.status, "active")))
-			.limit(1),
-	);
-	if (!plugin?.activeRevisionId || plugin.sourceHash !== entry.sourceHash) {
-		return null;
-	}
-	const script = yield* findRevisionScript(plugin.activeRevisionId, input.scriptSlug);
-	return script && (!input.providerId || script.providerId === input.providerId) ? script : null;
-});
-
-export const findActiveWorkflowScriptInSnapshot = (
-	snapshot: PluginRegistrySnapshot,
-	input: { pluginSlug: string; workflowSlug: string },
-) => {
-	const scriptSlug = snapshot.plugins[input.pluginSlug]?.manifest.workflows.find(
-		({ slug }) => slug === input.workflowSlug,
-	)?.scriptSlug;
-	return scriptSlug
-		? findActiveScriptInPluginSnapshot(snapshot, { scriptSlug, pluginSlug: input.pluginSlug })
-		: Effect.succeed(null);
-};
-
 export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver>()(
 	"PluginRuntimeResolver",
 	{
@@ -147,6 +128,53 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			const environmentConfig = yield* PluginEnvironmentConfig;
 			const lockCatalog = repository.lockIngestionShared;
 
+			// The repeated "active pointer row plus its immutable revision" shape. It deliberately
+			// does not filter scope; the pointer row carries it, so each policy stays at its call site.
+			const readActivePlugin = Effect.fn(function* (predicate: SQL | undefined) {
+				const db = yield* Database;
+				const [pointer] = yield* mapDatabaseErrors(
+					db
+						.select(pluginPointerFields)
+						.from(schema.plugin)
+						.where(and(eq(schema.plugin.status, "active"), predicate))
+						.limit(1),
+				);
+				if (!pointer?.activeRevisionId) {
+					return null;
+				}
+				return { pointer, revision: yield* repository.readRevision(pointer.activeRevisionId) };
+			});
+
+			const findActiveScriptInPluginSnapshot = Effect.fn(function* (
+				snapshot: PluginRegistrySnapshot,
+				input: { pluginSlug: string; scriptSlug: string; providerId?: string },
+			) {
+				const entry = snapshot.plugins[input.pluginSlug];
+				if (!entry) {
+					return null;
+				}
+				const active = yield* readActivePlugin(eq(schema.plugin.id, entry.id));
+				if (!active || active.revision.sourceHash !== entry.sourceHash) {
+					return null;
+				}
+				const script = yield* findRevisionScript(active.revision.id, input.scriptSlug);
+				return script && (!input.providerId || script.providerId === input.providerId)
+					? script
+					: null;
+			});
+
+			const findActiveWorkflowScriptInSnapshot = (
+				snapshot: PluginRegistrySnapshot,
+				input: { pluginSlug: string; workflowSlug: string },
+			) => {
+				const scriptSlug = snapshot.plugins[input.pluginSlug]?.manifest.workflows.find(
+					({ slug }) => slug === input.workflowSlug,
+				)?.scriptSlug;
+				return scriptSlug
+					? findActiveScriptInPluginSnapshot(snapshot, { scriptSlug, pluginSlug: input.pluginSlug })
+					: Effect.succeed(null);
+			};
+
 			const listPluginsAvailableToUser = Effect.fn(
 				"PluginRuntimeResolver.listPluginsAvailableToUser",
 			)(function* (userId: UserId, includeUnavailable = false) {
@@ -157,7 +185,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				}
 				const rows = yield* mapDatabaseErrors(
 					db
-						.select(activePluginFields)
+						.select(pluginPointerFields)
 						.from(schema.plugin)
 						.where(
 							and(
@@ -169,10 +197,21 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 							),
 						),
 				);
+				const revisionsById = yield* repository.readRevisions(
+					rows.flatMap(({ activeRevisionId }) => (activeRevisionId ? [activeRevisionId] : [])),
+				);
 				const result: AvailablePlugin[] = [];
 				for (const row of rows) {
 					const state = states.find(({ pluginId }) => pluginId === row.id);
-					if (!state || !row.activeRevisionId || (row.scope === "user" && row.ownerId !== userId)) {
+					const revision = row.activeRevisionId
+						? revisionsById.get(row.activeRevisionId)
+						: undefined;
+					if (
+						!state ||
+						!row.activeRevisionId ||
+						!revision ||
+						(row.scope === "user" && row.ownerId !== userId)
+					) {
 						continue;
 					}
 					if (
@@ -197,29 +236,25 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					if (!includeUnavailable && config?.revisionId !== row.activeRevisionId) {
 						continue;
 					}
-					const manifest = yield* Schema.decodeEffect(PluginManifest)(row.manifest).pipe(
-						Effect.mapError(
-							() => new DbError({ message: `Plugin ${row.slug} has an invalid active manifest` }),
-						),
-					);
 					result.push({
-						manifest,
 						id: row.id,
 						slug: row.slug,
 						scope: row.scope,
 						health: state.health,
 						installationId: state.id,
-						sourceHash: row.sourceHash,
+						manifest: revision.manifest,
 						isDisabled: state.isDisabled,
+						sourceHash: revision.sourceHash,
 						pluginConfigRevisionId: configId,
-						compiledHashes: row.compiledHashes,
 						pluginRevisionId: row.activeRevisionId,
+						compiledHashes: revision.compiledHashes,
 						ownerUserId: row.ownerId ? UserId.make(row.ownerId) : null,
 					});
 				}
 				return result.sort((a, b) => a.slug.localeCompare(b.slug));
 			});
-			const definitionsForCatalog = (available: ReadonlyArray<CatalogPlugin>) => {
+			const definitionMemo = new WeakMap<PluginRegistrySnapshot, Map<string, DefinitionSnapshot>>();
+			const buildCatalogDefinitions = (available: ReadonlyArray<CatalogPlugin>) => {
 				const source = definitionSourceFromSnapshot(loader.getSnapshot().definitions);
 				const base = {
 					savedViews: source.savedViews.filter((value) => value.pluginId == null),
@@ -231,26 +266,31 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					base,
 					available.filter(({ scope }) => scope === "system"),
 				);
-				const privatePlugins = available
-					.filter(({ scope }) => scope === "user")
-					.map((plugin) =>
-						Object.assign(plugin, {
-							manifest: {
-								...plugin.manifest,
-								entitySchemas: plugin.manifest.entitySchemas.filter(
-									({ slug }) => !system.entitySchemas.some((entry) => entry.slug === slug),
-								),
-							},
-						}),
-					);
+				const privatePlugins: Array<CatalogPlugin> = [];
+				for (const plugin of available) {
+					if (plugin.scope !== "user") {
+						continue;
+					}
+					privatePlugins.push({
+						...plugin,
+						manifest: {
+							...plugin.manifest,
+							entitySchemas: plugin.manifest.entitySchemas.filter(
+								({ slug }) => !system.entitySchemas.some((entry) => entry.slug === slug),
+							),
+						},
+					});
+				}
 				const entitySlugs = new Set([
 					...system.entitySchemas.map(({ slug }) => slug),
 					...privatePlugins.flatMap(({ manifest }) =>
 						manifest.entitySchemas.map(({ slug }) => slug),
 					),
 				]);
-				const withRelationships = privatePlugins.map((plugin) =>
-					Object.assign(plugin, {
+				const withRelationships: Array<CatalogPlugin> = [];
+				for (const plugin of privatePlugins) {
+					withRelationships.push({
+						...plugin,
 						manifest: {
 							...plugin.manifest,
 							relationshipSchemas: plugin.manifest.relationshipSchemas.filter(
@@ -261,16 +301,18 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 									),
 							),
 						},
-					}),
-				);
+					});
+				}
 				const relationshipSlugs = new Set([
 					...system.relationshipSchemas.map(({ slug }) => slug),
 					...withRelationships.flatMap(({ manifest }) =>
 						manifest.relationshipSchemas.map(({ slug }) => slug),
 					),
 				]);
-				const composable = withRelationships.map((plugin) =>
-					Object.assign(plugin, {
+				const composable: Array<CatalogPlugin> = [];
+				for (const plugin of withRelationships) {
+					composable.push({
+						...plugin,
 						manifest: {
 							...plugin.manifest,
 							savedViews: plugin.manifest.savedViews.filter(
@@ -283,9 +325,33 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 										relationshipSlugs.has(entry.audiencePolicy.relationshipSchemaSlug)),
 							),
 						},
-					}),
-				);
+					});
+				}
 				return buildDefinitionSnapshot(mergeManifestDefinitions(system, composable));
+			};
+			// A plugin's manifest is a pure function of its revision id, so the catalog identity is a
+			// complete key for the built snapshot.
+			const definitionsForCatalog = (available: ReadonlyArray<CatalogPlugin>) => {
+				const snapshot = loader.getSnapshot();
+				let memo = definitionMemo.get(snapshot);
+				if (!memo) {
+					memo = new Map<string, DefinitionSnapshot>();
+					definitionMemo.set(snapshot, memo);
+				}
+				const key = catalogDefinitionKey(available);
+				const cached = memo.get(key);
+				if (cached) {
+					return cached;
+				}
+				const built = buildCatalogDefinitions(available);
+				if (memo.size >= DEFINITION_MEMO_CAPACITY) {
+					const oldest = memo.keys().next();
+					if (!oldest.done) {
+						memo.delete(oldest.value);
+					}
+				}
+				memo.set(key, built);
+				return built;
 			};
 			const getEffectiveDefinitions = Effect.fn("PluginRuntimeResolver.getEffectiveDefinitions")(
 				function* (userId: UserId, includeUnavailable = false) {
@@ -309,21 +375,28 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					const db = yield* Database;
 					const rows = yield* mapDatabaseErrors(
 						db
-							.select(activePluginFields)
+							.select(pluginPointerFields)
 							.from(schema.plugin)
 							.where(and(eq(schema.plugin.status, "active"), eq(schema.plugin.scope, "system"))),
 					);
+					const revisionsById = yield* repository.readRevisions(
+						rows.flatMap(({ activeRevisionId }) => (activeRevisionId ? [activeRevisionId] : [])),
+					);
 					const available: CatalogPlugin[] = [];
 					for (const row of rows) {
-						if (!row.activeRevisionId) {
+						const revision = row.activeRevisionId
+							? revisionsById.get(row.activeRevisionId)
+							: undefined;
+						if (!row.activeRevisionId || !revision) {
 							continue;
 						}
-						const manifest = yield* Schema.decodeEffect(PluginManifest)(row.manifest).pipe(
-							Effect.mapError(
-								() => new DbError({ message: `Plugin ${row.slug} has an invalid active manifest` }),
-							),
-						);
-						available.push({ manifest, id: row.id, slug: row.slug, scope: "system" });
+						available.push({
+							id: row.id,
+							slug: row.slug,
+							scope: "system",
+							manifest: revision.manifest,
+							pluginRevisionId: row.activeRevisionId,
+						});
 					}
 					return definitionsForCatalog(available);
 				},
@@ -517,19 +590,12 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				if (!state) {
 					return null;
 				}
-				const db = yield* Database;
-				const [plugin] = yield* mapDatabaseErrors(
-					db
-						.select(activePluginFields)
-						.from(schema.plugin)
-						.where(and(eq(schema.plugin.id, state.pluginId), eq(schema.plugin.status, "active")))
-						.limit(1),
-				);
-				if (!plugin?.activeRevisionId) {
+				const active = yield* readActivePlugin(eq(schema.plugin.id, state.pluginId));
+				if (!active) {
 					return null;
 				}
-				const revisionId = plugin.activeRevisionId;
-				const entries = yield* Effect.forEach(plugin.manifest.userBootstrap, (entry) =>
+				const revisionId = active.revision.id;
+				const entries = yield* Effect.forEach(active.revision.manifest.userBootstrap, (entry) =>
 					Effect.gen(function* () {
 						const script = yield* findRevisionScript(revisionId, entry.scriptSlug);
 						return { slug: entry.slug, scriptId: script?.id ?? null };
@@ -538,7 +604,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				return {
 					entries,
 					health: state.health,
-					pluginScope: plugin.scope,
+					pluginScope: active.pointer.scope,
 					userId: UserId.make(state.userId),
 				};
 			});
@@ -613,8 +679,15 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						.where(eq(schema.sandboxProvider.id, id))
 						.limit(1),
 				);
-				const plugin = (yield* repository.list()).find((entry) => entry.id === row?.pluginId);
-				return row && plugin?.manifest.providers.some(({ slug }) => slug === row.slug)
+				if (!row) {
+					return null;
+				}
+				// `repository.list()` returned active *system* plugins only, so a provider owned by a
+				// private plugin has never resolved through this reader.
+				const active = yield* readActivePlugin(
+					and(eq(schema.plugin.id, row.pluginId), eq(schema.plugin.scope, "system")),
+				);
+				return active?.revision.manifest.providers.some(({ slug }) => slug === row.slug)
 					? { ...row, id: SandboxProviderId.make(row.id) }
 					: null;
 			});
@@ -643,9 +716,13 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				providerId: SandboxProviderId;
 			}) {
 				const provider = yield* findActiveProviderById(input.providerId);
-				const plugin = (yield* repository.list()).find(({ slug }) => slug === input.pluginSlug);
+				const active = yield* readActivePlugin(
+					and(eq(schema.plugin.slug, input.pluginSlug), eq(schema.plugin.scope, "system")),
+				);
 				return provider &&
-					plugin?.manifest.entitySchemas.some(({ slug }) => slug === input.entitySchemaSlug) &&
+					active?.revision.manifest.entitySchemas.some(
+						({ slug }) => slug === input.entitySchemaSlug,
+					) &&
 					provider.rootEntitySchemaSlug === input.entitySchemaSlug
 					? { provider, entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug) }
 					: null;
@@ -668,22 +745,25 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						});
 					}
 					const db = yield* Database;
-					const [plugin] = yield* mapDatabaseErrors(
+					const [pointer] = yield* mapDatabaseErrors(
 						db
-							.select(activePluginFields)
+							.select(pluginPointerFields)
 							.from(schema.plugin)
 							.where(eq(schema.plugin.id, provider.pluginId))
 							.limit(1),
 					);
-					const definition = plugin?.manifest.providers.find(({ slug }) => slug === provider.slug);
+					const revision = pointer?.activeRevisionId
+						? yield* repository.readRevision(pointer.activeRevisionId)
+						: null;
+					const definition = revision?.manifest.providers.find(
+						({ slug }) => slug === provider.slug,
+					);
 					const scriptSlug =
 						operation === "search-options"
 							? definition?.operations.searchOptions
 							: definition?.operations[operation];
 					const script =
-						plugin?.activeRevisionId && scriptSlug
-							? yield* findRevisionScript(plugin.activeRevisionId, scriptSlug)
-							: null;
+						revision && scriptSlug ? yield* findRevisionScript(revision.id, scriptSlug) : null;
 					if (script?.metadata.kind !== "provider" || script.providerId !== providerId) {
 						return yield* new UnsupportedProviderOperationError({
 							operation,

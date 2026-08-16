@@ -22,7 +22,12 @@ import { Effect, Match } from "effect";
 import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 
 import type { SchemaEvolutionError } from "./schema-evolution";
-import type { NormalizedPlugin, PluginSource } from "./types";
+import type {
+	NormalizedPlugin,
+	NormalizedPluginScript,
+	PluginScriptDescriptor,
+	PluginSource,
+} from "./types";
 import {
 	decodePluginManifest,
 	type PluginPackageLimitError,
@@ -32,6 +37,16 @@ import {
 } from "./validation";
 
 export const digest = sha256Hex;
+
+export const toPluginScriptDescriptor = (
+	script: NormalizedPluginScript,
+): PluginScriptDescriptor => ({
+	slug: script.slug,
+	name: script.name,
+	entry: script.entry,
+	metadata: script.metadata,
+	contentHash: script.contentHash,
+});
 
 export const pluginSourceHash = (
 	manifest: PluginManifest,

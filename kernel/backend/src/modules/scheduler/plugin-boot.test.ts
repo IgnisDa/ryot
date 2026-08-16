@@ -45,11 +45,8 @@ const normalizedPlugin = (pluginSlug: string): PluginRegistryEntry => {
 			{
 				entry,
 				metadata,
-				source: "source",
 				slug: scriptSlug,
-				compiledFormat: 1,
 				name: declared.name,
-				compiledCode: "compiled",
 				contentHash: `${pluginSlug}-compiled`,
 			},
 		],

@@ -79,9 +79,9 @@ describe("installation revision persistence", () => {
 						.where(eq(tables.pluginConfigRevision.id, destination.activeConfigRevisionId));
 					assert(retained?.encryptedPayload);
 					expect(retained.encryptedPayload.toString()).not.toContain("destination");
-					expect((yield* repository.findById(installed.installation.id))?.config).toEqual({
-						token: "archived",
-					});
+					expect(
+						(yield* repository.findByUserAndPlugin(owner, installed.pluginId))?.config,
+					).toEqual({ token: "archived" });
 				}),
 			),
 	);

@@ -22,6 +22,7 @@
 - The backup restore writer is the only kernel production caller allowed to use repository restore methods. The architecture check enforces this historical-write boundary; runtime callers use owning services.
 - Never hold a transaction across sandbox execution, network I/O, workflow boundaries, sleeps, or fan-out.
 - Provider population composes the import workflow. External event creation runs before-stage policy hooks, then plans pinned after-hook runs in the committing transaction.
+- Catalog reads resolve immutable revision content from the `PluginRepository` revision cache and never select script bodies; execution loads compiled code by script id.
 
 ## Durable Work
 

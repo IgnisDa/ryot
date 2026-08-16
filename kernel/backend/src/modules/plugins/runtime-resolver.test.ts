@@ -393,3 +393,73 @@ describe("revision-backed runtime resolution", () => {
 		),
 	);
 });
+
+describe("catalog reads across revision boundaries", () => {
+	it.effect("serves the upgraded manifest and the upgraded script rows after a reinstall", () =>
+		withRevisionDatabase(
+			Effect.gen(function* () {
+				const plugins = yield* PluginRepository;
+				const runtime = yield* PluginRuntimeResolver;
+				const first = yield* installRevisionPackage(revisionPackage("fixture", "v1"));
+				const provider = yield* runtime.findSchemaProviderBySlug("fixture-provider");
+				assert(provider);
+				const firstScript = yield* runtime.resolveDetailsScript(provider.provider.id);
+				expect((yield* plugins.list())[0]?.manifest.metadata.version).toBe("v1");
+
+				const second = yield* installRevisionPackage(revisionPackage("fixture", "v2"));
+				expect(second.revisionId).not.toBe(first.revisionId);
+				expect((yield* plugins.list())[0]?.manifest.metadata.version).toBe("v2");
+				const secondScript = yield* runtime.resolveDetailsScript(provider.provider.id);
+				expect(secondScript.id).not.toBe(firstScript.id);
+				expect(secondScript.contentHash).toBe("fixture.details-v2");
+			}),
+		),
+	);
+
+	it.effect(
+		"stops resolving a deactivated plugin's provider while its revision stays readable",
+		() =>
+			withRevisionDatabase(
+				Effect.gen(function* () {
+					const plugins = yield* PluginRepository;
+					const runtime = yield* PluginRuntimeResolver;
+					const installed = yield* installRevisionPackage(revisionPackage());
+					const provider = yield* runtime.findSchemaProviderBySlug("fixture-provider");
+					assert(provider);
+					expect((yield* runtime.listPluginsAvailableToUser(owner)).length).toBe(1);
+
+					yield* plugins.deactivate(installed.pluginId);
+					expect(
+						(yield* plugins.readRevision(installed.revisionId)).manifest.providers,
+					).toHaveLength(1);
+					expect(yield* runtime.findSchemaProviderBySlug("fixture-provider")).toBeNull();
+					expect(yield* runtime.findActiveProviderById(provider.provider.id)).toBeNull();
+					expect(yield* runtime.listPluginsAvailableToUser(owner)).toEqual([]);
+				}),
+			),
+	);
+
+	it.effect("stops resolving a provider the new active revision no longer declares", () =>
+		withRevisionDatabase(
+			Effect.gen(function* () {
+				const runtime = yield* PluginRuntimeResolver;
+				yield* installRevisionPackage(revisionPackage("fixture", "v1"));
+				const provider = yield* runtime.findSchemaProviderBySlug("fixture-provider");
+				assert(provider);
+
+				const upgraded = revisionPackage("fixture", "v2");
+				yield* installRevisionPackage({
+					...upgraded,
+					scripts: upgraded.scripts.filter(({ metadata }) => metadata.kind !== "provider"),
+					manifest: {
+						...upgraded.manifest,
+						providers: [],
+						scripts: upgraded.manifest.scripts.filter(({ kind }) => kind !== "provider"),
+					},
+				});
+				expect(yield* runtime.findSchemaProviderBySlug("fixture-provider")).toBeNull();
+				expect(yield* runtime.findActiveProviderById(provider.provider.id)).toBeNull();
+			}),
+		),
+	);
+});

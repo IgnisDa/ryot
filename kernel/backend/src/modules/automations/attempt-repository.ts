@@ -12,7 +12,7 @@ import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
 import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { and, asc, eq, inArray, isNull, lte, notInArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lte, notInArray, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { user } from "#lib/infrastructure/db/schema/tables/auth";
@@ -146,13 +146,18 @@ const artifactsAvailable = Effect.fn(function* (run: typeof automationRun.$infer
 		.where(eq(automationTrigger.id, run.triggerId))
 		.for("share");
 	const [script] = yield* db
-		.select()
+		.select({
+			id: sandboxScript.id,
+			slug: sandboxScript.slug,
+			contentHash: sandboxScript.contentHash,
+			pluginRevisionId: sandboxScript.pluginRevisionId,
+		})
 		.from(sandboxScript)
 		.where(eq(sandboxScript.id, run.sandboxScriptId))
 		.for("share");
 	if (
 		!trigger?.payload ||
-		!script?.compiledCode ||
+		!script ||
 		script.slug !== run.scriptSlug ||
 		script.contentHash !== run.scriptContentHash ||
 		script.pluginRevisionId !== run.pluginRevisionId
@@ -166,29 +171,35 @@ const artifactsAvailable = Effect.fn(function* (run: typeof automationRun.$infer
 		return false;
 	}
 	const [revision] = yield* db
-		.select()
+		.select({ pluginId: pluginRevision.pluginId })
 		.from(pluginRevision)
 		.where(eq(pluginRevision.id, run.pluginRevisionId))
 		.for("share");
 	const [config] = yield* db
-		.select()
+		.select({
+			scope: pluginConfigRevision.scope,
+			ownerUserId: pluginConfigRevision.ownerUserId,
+			encryptionKeyId: pluginConfigRevision.encryptionKeyId,
+			pluginRevisionId: pluginConfigRevision.pluginRevisionId,
+			hasPayload: sql<boolean>`${pluginConfigRevision.encryptedPayload} is not null`,
+		})
 		.from(pluginConfigRevision)
 		.where(eq(pluginConfigRevision.id, run.pluginConfigRevisionId))
 		.for("share");
 	if (
 		revision?.pluginId !== run.pluginId ||
-		!config?.encryptedPayload ||
+		!config?.hasPayload ||
 		config.pluginRevisionId !== run.pluginRevisionId ||
 		(config.scope === "installation" && config.ownerUserId !== run.executionUserId)
 	) {
 		return false;
 	}
 	const [key] = yield* db
-		.select()
+		.select({ keyLength: sql<number>`octet_length(${pluginConfigEncryptionKey.key})` })
 		.from(pluginConfigEncryptionKey)
 		.where(eq(pluginConfigEncryptionKey.id, config.encryptionKeyId))
 		.for("share");
-	return key?.key.length === 32;
+	return key?.keyLength === 32;
 });
 
 export class AutomationAttemptRepository extends Context.Service<AutomationAttemptRepository>()(

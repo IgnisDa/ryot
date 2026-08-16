@@ -33,6 +33,7 @@ import {
 } from "#modules/sandbox/workflow-reference-repository";
 
 import { PluginLoader } from "./loader";
+import { toPluginScriptDescriptor } from "./pipeline";
 import { PluginRepository } from "./repository";
 import { ScriptGarbageCollector } from "./script-garbage-collector";
 import {
@@ -331,14 +332,12 @@ it.effect("validates, compiles, content-addresses, persists, loads, and publishe
 
 		expect(plugin.sourceHash).toMatch(/^[a-f0-9]{64}$/);
 		expect(plugin.scripts[0]?.contentHash).toMatch(/^[a-f0-9]{64}$/);
-		expect(persisted).toEqual([
-			{
-				files: source.files,
-				scripts: plugin.scripts,
-				manifest: plugin.manifest,
-				sourceHash: plugin.sourceHash,
-			},
-		]);
+		const [persistedPackage] = persisted;
+		assert(persisted.length === 1 && persistedPackage);
+		expect(persistedPackage.files).toEqual(source.files);
+		expect(persistedPackage.manifest).toEqual(plugin.manifest);
+		expect(persistedPackage.sourceHash).toBe(plugin.sourceHash);
+		expect(persistedPackage.scripts.map(toPluginScriptDescriptor)).toEqual(plugin.scripts);
 		expect(loader.getSnapshot().definitions.entitySchemas["fixture-entity"]?.name).toBe("Fixture");
 		expect(loader.getSnapshot().plugins["fixture"]?.manifest.hooks).toEqual(
 			fixtureManifest().hooks,
@@ -420,14 +419,12 @@ it.effect("returns a committed install when Redis publication fails", () => {
 		const source = yield* loadPluginSource(fixturePackageRoot(), fixtureManifest());
 		const plugin = yield* ingestion.ingestSystemPlugin(source);
 
-		expect(persisted).toEqual([
-			{
-				files: source.files,
-				scripts: plugin.scripts,
-				manifest: plugin.manifest,
-				sourceHash: plugin.sourceHash,
-			},
-		]);
+		const [persistedPackage] = persisted;
+		assert(persisted.length === 1 && persistedPackage);
+		expect(persistedPackage.files).toEqual(source.files);
+		expect(persistedPackage.manifest).toEqual(plugin.manifest);
+		expect(persistedPackage.sourceHash).toBe(plugin.sourceHash);
+		expect(persistedPackage.scripts.map(toPluginScriptDescriptor)).toEqual(plugin.scripts);
 		expect(loader.getSnapshot().plugins["fixture"]?.sourceHash).toBe(plugin.sourceHash);
 	}).pipe(
 		Effect.provide(makeLayer({ persisted, publish: () => Effect.die("lost install publication") })),
@@ -478,14 +475,12 @@ it.effect("accepts user bootstrap declarations through explicit system ingestion
 				description: "Bootstrap fixture user data",
 			},
 		]);
-		expect(persisted).toEqual([
-			{
-				files: source.files,
-				scripts: plugin.scripts,
-				manifest: plugin.manifest,
-				sourceHash: plugin.sourceHash,
-			},
-		]);
+		const [persistedPackage] = persisted;
+		assert(persisted.length === 1 && persistedPackage);
+		expect(persistedPackage.files).toEqual(source.files);
+		expect(persistedPackage.manifest).toEqual(plugin.manifest);
+		expect(persistedPackage.sourceHash).toBe(plugin.sourceHash);
+		expect(persistedPackage.scripts.map(toPluginScriptDescriptor)).toEqual(plugin.scripts);
 	}).pipe(Effect.provide(makeLayer({ persisted })));
 });
 
@@ -1108,7 +1103,7 @@ it.effect("keeps a no-client plugin on the source-hash cache path", () => {
 		const source = yield* loadPluginSource(fixturePackageRoot("diagnostic"), fixtureManifest());
 		const plugin = yield* ingestion.ingestSystemPlugin(source);
 
-		expect(plugin.scripts[0]?.compiledCode).toBe("cached compiled");
+		expect(plugin.scripts[0]?.contentHash).toBe("cached-hash-fixture.automation");
 		expect(persisted).toHaveLength(0);
 		expect(events).toEqual(["lock", "publish"]);
 		expect(loader.getSnapshot().plugins["fixture"]).toBeDefined();

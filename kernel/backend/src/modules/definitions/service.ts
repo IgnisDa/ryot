@@ -4,7 +4,7 @@ import { Context, Effect, Layer } from "effect";
 
 import {
 	PluginInstallationRepository,
-	type PluginInstallationRow,
+	type PluginInstallationState,
 } from "#modules/plugins/installation-repository";
 import { PluginLoader } from "#modules/plugins/loader";
 
@@ -12,7 +12,7 @@ const merge = (
 	metadata: ReturnType<
 		PluginLoader["Service"]["getSnapshot"]
 	>["plugins"][string]["manifest"]["metadata"],
-	state?: PluginInstallationRow | null,
+	state?: PluginInstallationState | null,
 	defaultSortOrder = 0,
 ) => ({
 	...metadata,

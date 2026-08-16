@@ -26,7 +26,7 @@ import { PluginDefinitionMaterializer } from "./definition-materializer";
 import { PluginIngestionLock } from "./ingestion-lock";
 import {
 	PluginInstallationRepository,
-	type PluginInstallationState,
+	type PluginInstallationHydratedState,
 	type PluginPrivateInstallationRow,
 } from "./installation-repository";
 import { PluginInstallationService } from "./installation-service";
@@ -74,8 +74,8 @@ const storedPrivatePlugin = (manifest: PluginManifest): StoredPlugin => ({
 });
 
 const installationRow = (
-	overrides: Partial<PluginInstallationState> & { pluginId: string },
-): PluginInstallationState => ({
+	overrides: Partial<PluginInstallationHydratedState> & { pluginId: string },
+): PluginInstallationHydratedState => ({
 	userId,
 	config: {},
 	sortOrder: 0,
@@ -121,7 +121,7 @@ const makeLayer = (input?: {
 	readonly updated?: Array<Record<string, unknown>>;
 	readonly lockIngestion?: () => Effect.Effect<void>;
 	readonly systemPlugins?: Array<PluginRegistryEntry>;
-	readonly installations?: Array<PluginInstallationState>;
+	readonly installations?: Array<PluginInstallationHydratedState>;
 	readonly healthUpdates?: Array<Record<string, unknown>>;
 	readonly homeViewUpdates?: Array<Record<string, unknown>>;
 	readonly homeViewTransactionScopes?: Array<"root" | "transaction">;
@@ -170,6 +170,7 @@ const makeLayer = (input?: {
 		provisionSystemInstallationsForAllUsers: () => Effect.void,
 		remove: (id) => Effect.sync(() => input?.removed?.push(id)),
 		listForUser: () => Effect.succeed(input?.installations ?? []),
+		listHydratedForUser: () => Effect.succeed(input?.installations ?? []),
 		listPendingLifecycle: () => Effect.succeed(input?.pendingLifecycle ?? []),
 		listPrivateInstallations: () => Effect.succeed(input?.privateInstallations ?? []),
 		updateHealth: (values) => Effect.sync(() => void input?.healthUpdates?.push(values)),

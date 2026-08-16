@@ -75,7 +75,6 @@ loader.load(
 );
 
 const systemInstallation = (pluginSlug: string): PluginInstallationState => ({
-	config: {},
 	pluginSlug,
 	sortOrder: 0,
 	health: "ready",
@@ -104,12 +103,8 @@ const baseLayer = Layer.mergeAll(
 				? Effect.succeed({
 						bootstrap,
 						script: {
-							source: "source",
 							providerId: null,
-							compiledFormat: 1,
 							pluginId: pluginSlug,
-							createdAt: new Date(0),
-							compiledCode: "compiled",
 							name: bootstrap.scriptSlug,
 							slug: bootstrap.scriptSlug,
 							contentHash: `${bootstrap.scriptSlug}-hash`,
