@@ -6,6 +6,7 @@ import {
 	type ImportRunFailureReason,
 } from "@ryot/contract/modules/imports/schemas";
 import type { ImportRunSource } from "@ryot/contract/modules/imports/types";
+import type { IntegrationLot } from "@ryot/contract/modules/integrations/types";
 import type {
 	ImportRunId,
 	IntegrationId,
@@ -44,6 +45,7 @@ export type CreateImportRunInput = {
 	pluginInstallationId: string;
 	integrationId?: IntegrationId | null;
 	inputSummary: Record<string, unknown>;
+	integrationLot?: IntegrationLot | null;
 };
 
 export type UpdateImportRunInput = {
@@ -425,16 +427,22 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			return { id: runId };
 		});
 
-		const hasActiveRunForIntegration = (input: { integrationId: IntegrationId }) =>
-			repository.hasActiveRunForIntegration(input);
-
 		const createRunForIntegration = (input: {
 			userId: UserId;
 			source: ImportRunSource;
 			integrationId: IntegrationId;
 			pluginInstallationId: string;
+			integrationLot: IntegrationLot;
 			inputSummary: Record<string, unknown>;
 		}) => create(input);
+
+		const createRunForIntegrationIfIdle = (input: {
+			userId: UserId;
+			source: ImportRunSource;
+			integrationId: IntegrationId;
+			pluginInstallationId: string;
+			inputSummary: Record<string, unknown>;
+		}) => repository.createRunForIntegrationIfIdle(input);
 
 		const failRunForIntegration = Effect.fn("ImportsService.failRunForIntegration")(function* (
 			runId: ImportRunId,
@@ -464,7 +472,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			listImportSources,
 			failRunForIntegration,
 			createRunForIntegration,
-			hasActiveRunForIntegration,
+			createRunForIntegrationIfIdle,
 		};
 	}),
 }) {
