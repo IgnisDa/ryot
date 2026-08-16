@@ -26,7 +26,7 @@ const userId = UserId.make("user-1");
 const recipientId = UserId.make("user-2");
 const subjectEntityId = EntityId.make("entity-1");
 const occurredAt = new Date("2026-07-20T10:00:00.000Z");
-const relationshipSchemaSlug = RelationshipSchemaSlug.make("media-monitoring");
+const relationshipSchemaSlug = RelationshipSchemaSlug.make("example-monitoring");
 
 const propertiesSchema = {
 	unknownKeys: "strict",
@@ -52,16 +52,16 @@ const actorSchema = {
 
 const relatedSchema = {
 	...actorSchema,
-	slug: "media.status.changed",
-	id: SignalSchemaSlug.make("media.status.changed"),
+	slug: "example.status.changed",
+	id: SignalSchemaSlug.make("example.status.changed"),
 	audiencePolicy: { relationshipSchemaSlug, kind: "related_users", subjectSide: "source" },
 } satisfies SignalSchemaScope;
 
 const relationshipScope = {
 	isBuiltin: true,
 	id: relationshipSchemaSlug,
-	slug: "media-monitoring",
-	name: "Media monitoring",
+	slug: "example-monitoring",
+	name: "Example monitoring",
 	sourceEntitySchemaSlug: null,
 	targetEntitySchemaSlug: null,
 	propertiesSchema: { fields: {} },
@@ -72,7 +72,7 @@ const subjectScope = {
 	entityUserId: null,
 	entityName: "The Matrix",
 	entityId: subjectEntityId,
-	entitySchemaSlug: EntitySchemaSlug.make("movie"),
+	entitySchemaSlug: EntitySchemaSlug.make("item"),
 	propertiesSchema: { fields: {} },
 };
 

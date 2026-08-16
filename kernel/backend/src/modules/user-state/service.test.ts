@@ -93,21 +93,21 @@ const makePluginRuntimeLayer = (
 					relationshipSchemas: [],
 					entitySchemas: [
 						{
-							icon: "book",
-							name: "Book",
-							slug: "book",
+							icon: "record",
+							name: "Record",
+							slug: "record",
 							eventSchemas: [],
 							pluginSlug: "test",
 							mergeIdentityProperties,
 							propertiesSchema: {
-								fields: { kind: { type: "string", label: "Kind", description: "Book kind" } },
+								fields: { kind: { type: "string", label: "Kind", description: "Record kind" } },
 							},
-							userState: deniedOperationsBySchema["book"]
-								? { deniedOperations: deniedOperationsBySchema["book"] }
+							userState: deniedOperationsBySchema["record"]
+								? { deniedOperations: deniedOperationsBySchema["record"] }
 								: undefined,
 						},
 						...Object.entries(deniedOperationsBySchema)
-							.filter(([slug]) => slug !== "book")
+							.filter(([slug]) => slug !== "record")
 							.map(([slug, deniedOperations]) => ({
 								slug,
 								icon: "box",
@@ -157,7 +157,7 @@ const makeMergeScope = (overrides: {
 	entityUserId: user.id,
 	entityId: overrides.entityId,
 	properties: overrides.properties ?? {},
-	entitySchemaSlug: EntitySchemaSlug.make(overrides.entitySchemaSlug ?? "book"),
+	entitySchemaSlug: EntitySchemaSlug.make(overrides.entitySchemaSlug ?? "record"),
 });
 
 it.effect("rejects clearing user state when the entity schema denies it", () => {
@@ -198,7 +198,7 @@ it.effect("deletes matching events through EventsService when clearing user stat
 					isBuiltin: false,
 					entityName: "Dune",
 					entityUserId: user.id,
-					entitySchemaSlug: EntitySchemaSlug.make("book"),
+					entitySchemaSlug: EntitySchemaSlug.make("record"),
 					propertiesSchema: { fields: {} },
 					entityId: EntityId.make("entity-1"),
 				}),
@@ -285,7 +285,7 @@ it.effect("rejects merging when either source or destination schema denies it", 
 				Effect.succeed(
 					makeMergeScope({
 						entityId,
-						entitySchemaSlug: entityId.includes("blocked") ? "blocked" : "book",
+						entitySchemaSlug: entityId.includes("blocked") ? "blocked" : "record",
 					}),
 				),
 		}),

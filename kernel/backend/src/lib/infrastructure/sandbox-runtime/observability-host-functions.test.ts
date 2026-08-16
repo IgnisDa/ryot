@@ -194,14 +194,14 @@ describe("sandbox observability host functions", () => {
 							{
 								level: "warning",
 								message: "plugin warning",
-								attributes: { plugin: "media", executionId: "plugin-value" },
+								attributes: { plugin: "example", executionId: "plugin-value" },
 							},
 						])
 						.pipe(Effect.map(hostSuccess));
 				const span: BoundHostFunction = () =>
 					host
 						.span(input, [
-							{ name: "provider.run", attributes: { plugin: "media", scriptId: "plugin-value" } },
+							{ name: "provider.run", attributes: { plugin: "example", scriptId: "plugin-value" } },
 						])
 						.pipe(Effect.map(hostSuccess));
 
@@ -231,7 +231,7 @@ describe("sandbox observability host functions", () => {
 						);
 						expect(warning?.options.logLevel).toBe("Warn");
 						expect(warning?.annotations).toMatchObject({
-							plugin: "media",
+							plugin: "example",
 							scriptId: input.scriptId,
 							executionId: input.executionId,
 						});
@@ -245,7 +245,7 @@ describe("sandbox observability host functions", () => {
 						expect(pluginSpan?.parent.pipe(Option.getOrUndefined)).toBe(hostSpan);
 						expect(pluginSpan?.status._tag).toBe("Ended");
 						expect(Object.fromEntries(pluginSpan?.attributes ?? [])).toMatchObject({
-							plugin: "media",
+							plugin: "example",
 							scriptId: input.scriptId,
 							executionId: input.executionId,
 						});

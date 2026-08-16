@@ -37,10 +37,10 @@ const now = "2026-07-16T00:00:00.000Z";
 const configSchema = {
 	unknownKeys: "strict",
 	fields: {
-		hardcoverApiKey: {
+		deltaApiKey: {
 			type: "string",
-			label: "Hardcover API key",
-			description: "Hardcover API key",
+			label: "Delta API key",
+			description: "Delta API key",
 		},
 	},
 } as const;
@@ -66,7 +66,7 @@ const createdRun = {
 	processedItems: 0,
 	failureReason: null,
 	status: "pending" as const,
-	source: "goodreads" as const,
+	source: "beta" as const,
 	id: ImportRunId.make("run-1"),
 } satisfies ListedImportRun;
 
@@ -90,12 +90,12 @@ const importWorkflowScript = {
 	providerId: null,
 	compiledFormat: 1,
 	compiledCode: "compiled",
-	name: "Goodreads workflow",
-	pluginId: "media-plugin-id",
+	name: "Beta workflow",
+	pluginId: "example-plugin-id",
 	contentHash: "workflow-hash",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
-	slug: "workflow.goodreads-import",
+	slug: "workflow.beta-import",
 	metadata: { kind: "workflow" as const },
 	id: SandboxScriptId.make("accepted-import-script"),
 };
@@ -155,25 +155,23 @@ const user: CurrentUserValue = {
 	preferences: { allowNsfw: false, language: null, disableIntegrations: false },
 };
 
-const goodreadsSource = (
-	overrides: Partial<RegisteredImportSource> = {},
-): RegisteredImportSource => ({
+const betaSource = (overrides: Partial<RegisteredImportSource> = {}): RegisteredImportSource => ({
 	configSchema,
-	slug: "goodreads",
-	name: "Goodreads",
-	pluginSlug: "media",
+	slug: "beta",
+	name: "Beta",
+	pluginSlug: "example",
 	pluginScope: "system",
-	pluginId: "media-plugin-id",
+	pluginId: "example-plugin-id",
 	requiredPluginConfigKeys: [],
-	description: "Goodreads export",
-	workflowSlug: "goodreads-import",
-	installationId: "media-installation",
-	configContext: { kind: "environment", pluginSlug: "media", configSchema },
+	description: "Beta export",
+	workflowSlug: "beta-import",
+	installationId: "example-installation",
+	configContext: { kind: "environment", pluginSlug: "example", configSchema },
 	inputSchema: { unknownKeys: "strict", fields: { uploadToken: uploadProperty(["csv"]) } },
 	...overrides,
 });
 
-const payloadSource = goodreadsSource({
+const payloadSource = betaSource({
 	inputSchema: {
 		unknownKeys: "strict",
 		fields: {
@@ -207,10 +205,10 @@ it.effect("delegates import run CRUD through the canonical service methods", () 
 	return Effect.gen(function* () {
 		const service = yield* ImportsService;
 		const createInput = {
-			source: "goodreads" as const,
+			source: "beta" as const,
 			inputSummary: { source: "test" },
 			userId: UserId.make("user-1"),
-			pluginInstallationId: "media-installation",
+			pluginInstallationId: "example-installation",
 		} satisfies CreateImportRunInput;
 
 		const run = yield* service.create(createInput);
@@ -229,7 +227,7 @@ it.effect("validates extensions against the claimed original file name", () => {
 		makeImportsRepository(),
 		Layer.mergeAll(
 			makeImportSourceCatalog(
-				goodreadsSource({
+				betaSource({
 					inputSchema: {
 						unknownKeys: "strict",
 						fields: { uploadToken: uploadProperty(["json"]) },
@@ -240,8 +238,8 @@ it.effect("validates extensions against the claimed original file name", () => {
 				claimTemporaryUpload: () =>
 					Effect.succeed({
 						leaseExpiresAt: now,
-						intentId: "intent-goodreads",
-						fileName: "goodreads-export.csv",
+						intentId: "intent-beta",
+						fileName: "beta-export.csv",
 						resolvedPath: "/tmp/random-object.json",
 						locator: { type: "local" as const, key: "temporary/random-object.json" },
 					}),
@@ -255,14 +253,14 @@ it.effect("validates extensions against the claimed original file name", () => {
 	return Effect.gen(function* () {
 		const error = yield* Effect.flip(
 			(yield* ImportsService).startImportRun(user, {
-				source: "goodreads",
-				uploadToken: "tok_goodreads",
+				source: "beta",
+				uploadToken: "tok_beta",
 			}),
 		);
 		expect(error).toMatchObject({
 			reason: { code: "unsupported-file-extension", allowedExtensions: ["json"] },
 		});
-		expect(deletedIntentIds).toEqual(["intent-goodreads"]);
+		expect(deletedIntentIds).toEqual(["intent-beta"]);
 	}).pipe(Effect.provide(layer));
 });
 
@@ -271,13 +269,13 @@ it.effect("rejects temporary uploads claimed from S3 storage", () => {
 	const layer = makeServiceLayer(
 		makeImportsRepository(),
 		Layer.mergeAll(
-			makeImportSourceCatalog(goodreadsSource()),
+			makeImportSourceCatalog(betaSource()),
 			mockUploadsService({
 				claimTemporaryUpload: () =>
 					Effect.succeed({
 						leaseExpiresAt: now,
 						intentId: "intent-s3",
-						fileName: "goodreads.csv",
+						fileName: "beta.csv",
 						locator: { key: "temporary/object.csv", type: "s3" as const },
 					}),
 				deleteTemporaryUpload: (intentId) =>
@@ -290,7 +288,7 @@ it.effect("rejects temporary uploads claimed from S3 storage", () => {
 	return Effect.gen(function* () {
 		const error = yield* Effect.flip(
 			(yield* ImportsService).startImportRun(user, {
-				source: "goodreads",
+				source: "beta",
 				uploadToken: "tok_s3",
 			}),
 		);
@@ -305,7 +303,7 @@ it.effect("claims only the visible upload from mutually exclusive required field
 	const claims: Array<{ claimId: string | undefined; token: string }> = [];
 	let createdInput: CreateImportRunInput | undefined;
 	let updatedInput: unknown;
-	const source = goodreadsSource({
+	const source = betaSource({
 		slug: "movary",
 		name: "Movary",
 		workflowSlug: "movary-import",
@@ -411,10 +409,10 @@ it.effect("claims only the visible upload from mutually exclusive required field
 		assert(stored[0]);
 		expect(yield* Schema.decodeUnknownEffect(ImportSourceStateFromJson)(stored[0].value)).toEqual({
 			source: "movary",
-			pluginId: "media-plugin-id",
+			pluginId: "example-plugin-id",
 			uploadIntentIds: ["intent-history"],
 			workflowScriptId: "accepted-import-script",
-			pluginInstallationId: "media-installation",
+			pluginInstallationId: "example-installation",
 			namedArtifactPaths: { historyUploadToken: "/tmp/history.csv" },
 			sourcePayload: {
 				mode: "history",
@@ -429,7 +427,7 @@ it.effect("rejects undeclared upload token fields before claims or work", () => 
 	const layer = makeServiceLayer(
 		makeImportsRepository(),
 		Layer.mergeAll(
-			makeImportSourceCatalog(goodreadsSource()),
+			makeImportSourceCatalog(betaSource()),
 			mockUploadsService({
 				claimTemporaryUpload: () => Effect.die("must not claim"),
 			}),
@@ -443,8 +441,8 @@ it.effect("rejects undeclared upload token fields before claims or work", () => 
 	return Effect.gen(function* () {
 		const error = yield* Effect.flip(
 			(yield* ImportsService).startImportRun(user, {
-				source: "goodreads",
-				uploadToken: "goodreads",
+				source: "beta",
+				uploadToken: "beta",
 				historyUploadToken: "history",
 			}),
 		);
@@ -456,7 +454,7 @@ it.effect("rejects a source whose declared plugin config keys are unset", () => 
 	const layer = makeServiceLayer(
 		makeImportsRepository(),
 		Layer.mergeAll(
-			makeImportSourceCatalog(goodreadsSource({ requiredPluginConfigKeys: ["hardcoverApiKey"] })),
+			makeImportSourceCatalog(betaSource({ requiredPluginConfigKeys: ["deltaApiKey"] })),
 			mockUploadsService({
 				claimTemporaryUpload: () => Effect.die("must not claim"),
 			}),
@@ -467,22 +465,22 @@ it.effect("rejects a source whose declared plugin config keys are unset", () => 
 	return Effect.gen(function* () {
 		const error = yield* Effect.flip(
 			(yield* ImportsService).startImportRun(user, {
-				source: "goodreads",
-				uploadToken: "goodreads",
+				source: "beta",
+				uploadToken: "beta",
 			}),
 		);
 		expect(error).toMatchObject({
 			reason: {
-				source: "goodreads",
+				source: "beta",
 				code: "source-not-configured",
-				missingConfigKeys: ["RYOT_PLUGIN_MEDIA_HARDCOVER_API_KEY"],
+				missingConfigKeys: ["RYOT_PLUGIN_EXAMPLE_DELTA_API_KEY"],
 			},
 		});
 	}).pipe(Effect.provide(Layer.mergeAll(layer, makeConfigProviderLayer())));
 });
 
 it.effect("lists manifest sources with workflow and config availability", () => {
-	const source = goodreadsSource({ requiredPluginConfigKeys: ["hardcoverApiKey"] });
+	const source = betaSource({ requiredPluginConfigKeys: ["deltaApiKey"] });
 	const layer = makeServiceLayer(
 		makeImportsRepository(),
 		Layer.mergeAll(
@@ -496,15 +494,15 @@ it.effect("lists manifest sources with workflow and config availability", () => 
 		const sources = yield* (yield* ImportsService).listImportSources(user);
 		expect(sources).toEqual([
 			{
-				name: "Goodreads",
-				slug: "goodreads",
+				name: "Beta",
+				slug: "beta",
 				isStartable: false,
-				pluginSlug: "media",
-				description: "Goodreads export",
+				pluginSlug: "example",
+				description: "Beta export",
 				inputSchema: source.inputSchema,
-				workflowSlug: "goodreads-import",
-				requiredPluginConfigKeys: ["hardcoverApiKey"],
-				missingPluginConfigKeys: ["RYOT_PLUGIN_MEDIA_HARDCOVER_API_KEY"],
+				workflowSlug: "beta-import",
+				requiredPluginConfigKeys: ["deltaApiKey"],
+				missingPluginConfigKeys: ["RYOT_PLUGIN_EXAMPLE_DELTA_API_KEY"],
 			},
 		]);
 		expect(sources[0]).not.toHaveProperty("configSchema");
@@ -512,7 +510,7 @@ it.effect("lists manifest sources with workflow and config availability", () => 
 });
 
 it.effect("lists a configured source with an active workflow as startable", () => {
-	const source = goodreadsSource();
+	const source = betaSource();
 	const layer = makeServiceLayer(
 		makeImportsRepository(),
 		Layer.mergeAll(
@@ -524,13 +522,13 @@ it.effect("lists a configured source with an active workflow as startable", () =
 
 	return Effect.gen(function* () {
 		expect(yield* (yield* ImportsService).listImportSources(user)).toMatchObject([
-			{ slug: "goodreads", isStartable: true, missingPluginConfigKeys: [] },
+			{ slug: "beta", isStartable: true, missingPluginConfigKeys: [] },
 		]);
 	}).pipe(Effect.provide(Layer.mergeAll(layer, makeConfigProviderLayer())));
 });
 
 it.effect("hides and rejects import sources from an unavailable system installation", () => {
-	const source = goodreadsSource();
+	const source = betaSource();
 	const layer = makeServiceLayer(
 		makeImportsRepository({ createRun: () => Effect.die("run must not be created") }),
 		Layer.mergeAll(
@@ -583,10 +581,10 @@ it.effect("stores decoded payload credentials without exposing them in the input
 		expect(
 			yield* (yield* ImportsService).startImportRun(user, {
 				apiKey: "secret",
-				source: "goodreads",
+				source: "beta",
 			}),
 		).toEqual({ id: "run-1" });
-		expect(createdInput?.inputSummary).toEqual({ source: "goodreads" });
+		expect(createdInput?.inputSummary).toEqual({ source: "beta" });
 		const [options] = executed;
 		assert(options !== undefined);
 		expect(options).toMatchObject({
@@ -626,7 +624,7 @@ it.effect("deletes pending source state when workflow dispatch fails", () => {
 
 	return Effect.gen(function* () {
 		const error = yield* Effect.flip(
-			(yield* ImportsService).startImportRun(user, { apiKey: "secret", source: "goodreads" }),
+			(yield* ImportsService).startImportRun(user, { apiKey: "secret", source: "beta" }),
 		);
 
 		expect(error).toMatchObject({ reason: { code: "queue-unavailable", operation: "import-run" } });
@@ -637,9 +635,9 @@ it.effect("deletes pending source state when workflow dispatch fails", () => {
 it.effect("records the resolving installation on the run and its durable source state", () => {
 	const stored: string[] = [];
 	let createdInput: CreateImportRunInput | undefined;
-	const source = goodreadsSource({
+	const source = betaSource({
 		pluginScope: "user",
-		pluginSlug: "my-media",
+		pluginSlug: "my-example",
 		pluginId: "private-plugin-id",
 		installationId: "private-installation",
 		inputSchema: { unknownKeys: "strict", fields: {} },
@@ -663,7 +661,7 @@ it.effect("records the resolving installation on the run and its durable source 
 	);
 
 	return Effect.gen(function* () {
-		yield* (yield* ImportsService).startImportRun(user, { source: "goodreads" });
+		yield* (yield* ImportsService).startImportRun(user, { source: "beta" });
 
 		expect(createdInput?.pluginInstallationId).toBe("private-installation");
 		assert(stored[0]);
@@ -687,15 +685,15 @@ it.effect("rolls back uploads, source state, and the pin when file dispatch fail
 			deleteRunById: (input) => Effect.sync(() => void (deletedRun = input)),
 		}),
 		Layer.mergeAll(
-			makeImportSourceCatalog(goodreadsSource()),
+			makeImportSourceCatalog(betaSource()),
 			mockUploadsService({
 				claimTemporaryUpload: () =>
 					Effect.succeed({
 						leaseExpiresAt: now,
-						intentId: "intent-goodreads",
-						fileName: "goodreads-export.csv",
-						resolvedPath: "/tmp/goodreads-export.csv",
-						locator: { type: "local" as const, key: "temporary/goodreads-export.csv" },
+						intentId: "intent-beta",
+						fileName: "beta-export.csv",
+						resolvedPath: "/tmp/beta-export.csv",
+						locator: { type: "local" as const, key: "temporary/beta-export.csv" },
 					}),
 				deleteTemporaryUpload: (intentId) =>
 					Effect.sync(() => void deletedIntentIds.push(intentId)),
@@ -721,14 +719,14 @@ it.effect("rolls back uploads, source state, and the pin when file dispatch fail
 	return Effect.gen(function* () {
 		const error = yield* Effect.flip(
 			(yield* ImportsService).startImportRun(user, {
-				source: "goodreads",
-				uploadToken: "tok_goodreads",
+				source: "beta",
+				uploadToken: "tok_beta",
 			}),
 		);
 
 		expect(error).toMatchObject({ reason: { code: "queue-unavailable", operation: "import-run" } });
 		expect(released).toEqual(["run-1-import"]);
-		expect(deletedIntentIds).toEqual(["intent-goodreads"]);
+		expect(deletedIntentIds).toEqual(["intent-beta"]);
 		expect(deletedKeys).toEqual([[redisKeys.importSourceState("run-1")]]);
 		expect(deletedRun).toBeUndefined();
 		expect(updates.at(-1)).toMatchObject({
@@ -748,15 +746,15 @@ it.effect("cleans up claimed uploads without releasing a pin that never register
 			updateRun: (input) => Effect.sync(() => void updates.push(input)),
 		}),
 		Layer.mergeAll(
-			makeImportSourceCatalog(goodreadsSource()),
+			makeImportSourceCatalog(betaSource()),
 			mockUploadsService({
 				claimTemporaryUpload: () =>
 					Effect.succeed({
 						leaseExpiresAt: now,
-						intentId: "intent-goodreads",
-						fileName: "goodreads-export.csv",
-						resolvedPath: "/tmp/goodreads-export.csv",
-						locator: { type: "local" as const, key: "temporary/goodreads-export.csv" },
+						intentId: "intent-beta",
+						fileName: "beta-export.csv",
+						resolvedPath: "/tmp/beta-export.csv",
+						locator: { type: "local" as const, key: "temporary/beta-export.csv" },
 					}),
 				deleteTemporaryUpload: (intentId) =>
 					Effect.sync(() => void deletedIntentIds.push(intentId)),
@@ -779,14 +777,14 @@ it.effect("cleans up claimed uploads without releasing a pin that never register
 	return Effect.gen(function* () {
 		const error = yield* Effect.flip(
 			(yield* ImportsService).startImportRun(user, {
-				source: "goodreads",
-				uploadToken: "tok_goodreads",
+				source: "beta",
+				uploadToken: "tok_beta",
 			}),
 		);
 
 		expect(error).toMatchObject({ reason: { code: "queue-unavailable", operation: "import-run" } });
 		expect(released).toEqual([]);
-		expect(deletedIntentIds).toEqual(["intent-goodreads"]);
+		expect(deletedIntentIds).toEqual(["intent-beta"]);
 		expect(updates.at(-1)).toMatchObject({
 			runId: "run-1",
 			status: "failed",
@@ -824,7 +822,7 @@ it.effect("leaves an already-registered pin in place while rolling back source s
 
 	return Effect.gen(function* () {
 		const error = yield* Effect.flip(
-			(yield* ImportsService).startImportRun(user, { apiKey: "secret", source: "goodreads" }),
+			(yield* ImportsService).startImportRun(user, { apiKey: "secret", source: "beta" }),
 		);
 
 		expect(error).toMatchObject({ reason: { code: "queue-unavailable", operation: "import-run" } });

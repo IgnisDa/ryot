@@ -49,7 +49,7 @@ const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepo
 	mockEntitiesRepository({ ...overrides });
 
 const fakeEntitySchemaScope = {
-	slug: "movie",
+	slug: "item",
 	userId: user.id,
 	isBuiltin: false,
 	id: entitySchemaSlug,
