@@ -70,9 +70,7 @@ export const changeUserRelationships = Effect.fn("RelationshipsService.changeUse
 	const definitions = yield* pluginRuntime.getEffectiveDefinitions(userId);
 	const repository = yield* RelationshipsRepository;
 
-	const validate = Effect.fn("RelationshipsService.validateUserChange")(function* (
-		change: UserRelationshipIdentity,
-	) {
+	const validate = Effect.fnUntraced(function* (change: UserRelationshipIdentity) {
 		const definition = definitions.relationshipSchemas[change.relationshipSchemaSlug];
 		if (!definition) {
 			return yield* new RelationshipNotFound({
@@ -120,55 +118,53 @@ export const changeUserRelationships = Effect.fn("RelationshipsService.changeUse
 		}
 		return definition;
 	});
+	const changeBatch = Effect.fnUntraced(function* (batch: ChangeUserRelationshipBatch) {
+		let created = 0;
+		let deleted = 0;
+		for (const create of batch.creates) {
+			const definition = yield* validate(create);
+			const properties = yield* parseAppSchemaProperties({
+				kind: "Relationship",
+				properties: create.properties,
+				propertiesSchema: definition.propertiesSchema,
+			}).pipe(
+				Effect.mapError(
+					(error) =>
+						new RelationshipBadRequest({
+							reason: { code: "invalid-properties", paths: error.issues.map(({ path }) => path) },
+						}),
+				),
+			);
+			const saved = yield* repository.createRelationship({
+				...create,
+				userId,
+				properties,
+				scope: "user",
+				relationshipSchemaPluginId: definition.pluginId ?? null,
+			});
+			if (saved.wasInserted) {
+				created += 1;
+			}
+		}
+		for (const remove of batch.deletes) {
+			const definition = yield* validate(remove);
+			const removed = yield* repository.deleteRelationship({
+				...remove,
+				userId,
+				scope: "user",
+				relationshipSchemaPluginId: definition.pluginId ?? null,
+			});
+			if (removed) {
+				deleted += 1;
+			}
+		}
+		return { created, deleted };
+	});
 
 	return yield* Effect.forEach(batches, (batch) =>
 		mapDatabaseErrors(
 			database.transaction((transaction) =>
-				Effect.gen(function* () {
-					let created = 0;
-					let deleted = 0;
-					for (const create of batch.creates) {
-						const definition = yield* validate(create);
-						const properties = yield* parseAppSchemaProperties({
-							kind: "Relationship",
-							properties: create.properties,
-							propertiesSchema: definition.propertiesSchema,
-						}).pipe(
-							Effect.mapError(
-								(error) =>
-									new RelationshipBadRequest({
-										reason: {
-											code: "invalid-properties",
-											paths: error.issues.map(({ path }) => path),
-										},
-									}),
-							),
-						);
-						const saved = yield* repository.createRelationship({
-							...create,
-							userId,
-							properties,
-							scope: "user",
-							relationshipSchemaPluginId: definition.pluginId ?? null,
-						});
-						if (saved.wasInserted) {
-							created += 1;
-						}
-					}
-					for (const remove of batch.deletes) {
-						const definition = yield* validate(remove);
-						const removed = yield* repository.deleteRelationship({
-							...remove,
-							userId,
-							scope: "user",
-							relationshipSchemaPluginId: definition.pluginId ?? null,
-						});
-						if (removed) {
-							deleted += 1;
-						}
-					}
-					return { created, deleted };
-				}).pipe(Effect.provideService(Database, transaction)),
+				changeBatch(batch).pipe(Effect.provideService(Database, transaction)),
 			),
 		),
 	);
@@ -179,102 +175,101 @@ export const reconcileGlobalRelationships = Effect.fn("RelationshipsService.reco
 		const database = yield* Database;
 		const definitions = yield* DefinitionRegistry;
 		const repository = yield* RelationshipsRepository;
+		const reconcileGroup = Effect.fnUntraced(function* (group: ReconcileGlobalRelationshipGroup) {
+			const definition = definitions.getRelationshipSchema(group.relationshipSchemaSlug);
+			if (!definition) {
+				return yield* new RelationshipNotFound({
+					reason: {
+						code: "relationship-schema-not-found",
+						relationshipSchemaSlug: group.relationshipSchemaSlug,
+					},
+				});
+			}
+
+			const selector = {
+				...group.selector,
+				relationshipSchemaSlug: group.relationshipSchemaSlug,
+				relationshipSchemaPluginId: definition.pluginId ?? null,
+			} satisfies GlobalRelationshipListInput;
+			const existing = yield* repository.listGlobalRelationships(selector);
+			const seen = new Set<string>();
+			const reconcileRelationship = Effect.fnUntraced(function* (
+				relationship: ReconcileGlobalRelationshipGroup["relationships"][number],
+			) {
+				let matchesSelector = relationship.sourceEntityId === relationship.targetEntityId;
+				if (group.selector.type === "anchored") {
+					matchesSelector =
+						group.selector.direction === "outgoing"
+							? relationship.sourceEntityId === group.selector.anchorEntityId
+							: relationship.targetEntityId === group.selector.anchorEntityId;
+				}
+				if (!matchesSelector) {
+					return yield* new RelationshipBadRequest({
+						reason: { code: "reconciliation-selector-mismatch" },
+					});
+				}
+
+				const key = relationshipKey(relationship);
+				if (seen.has(key)) {
+					return yield* new RelationshipBadRequest({
+						reason: { code: "duplicate-reconciliation-relationship" },
+					});
+				}
+				seen.add(key);
+
+				const properties = yield* parseAppSchemaProperties({
+					kind: "Relationship",
+					properties: relationship.properties,
+					propertiesSchema: definition.propertiesSchema,
+				}).pipe(
+					Effect.mapError(
+						(error) =>
+							new RelationshipBadRequest({
+								reason: { code: "invalid-properties", paths: error.issues.map(({ path }) => path) },
+							}),
+					),
+				);
+				return { ...relationship, properties };
+			});
+			const relationships = yield* Effect.forEach(group.relationships, reconcileRelationship);
+
+			for (const relationship of relationships) {
+				const input = {
+					...relationship,
+					scope: "global" as const,
+					relationshipSchemaSlug: group.relationshipSchemaSlug,
+					relationshipSchemaPluginId: definition.pluginId ?? null,
+				};
+				const saved = yield* repository.createRelationship(input);
+				if (!saved.wasInserted) {
+					yield* repository.updateRelationship(input);
+				}
+			}
+
+			let deleted = 0;
+			for (const relationship of existing) {
+				if (seen.has(relationshipKey(relationship))) {
+					continue;
+				}
+				const removed = yield* repository.deleteRelationship({
+					scope: "global",
+					sourceEntityId: relationship.sourceEntityId,
+					targetEntityId: relationship.targetEntityId,
+					relationshipSchemaSlug: group.relationshipSchemaSlug,
+					relationshipSchemaPluginId: definition.pluginId ?? null,
+				});
+				if (removed) {
+					deleted += 1;
+				}
+			}
+
+			return { deleted, upserted: relationships.length };
+		});
 
 		return yield* Effect.forEach(groups, (group) =>
 			mapDatabaseErrors(
 				database.transaction((transaction) =>
-					Effect.gen(function* () {
-						const definition = definitions.getRelationshipSchema(group.relationshipSchemaSlug);
-						if (!definition) {
-							return yield* new RelationshipNotFound({
-								reason: {
-									code: "relationship-schema-not-found",
-									relationshipSchemaSlug: group.relationshipSchemaSlug,
-								},
-							});
-						}
-
-						const selector = {
-							...group.selector,
-							relationshipSchemaSlug: group.relationshipSchemaSlug,
-							relationshipSchemaPluginId: definition.pluginId ?? null,
-						} satisfies GlobalRelationshipListInput;
-						const existing = yield* repository.listGlobalRelationships(selector);
-						const seen = new Set<string>();
-						const relationships = yield* Effect.forEach(group.relationships, (relationship) =>
-							Effect.gen(function* () {
-								let matchesSelector = relationship.sourceEntityId === relationship.targetEntityId;
-								if (group.selector.type === "anchored") {
-									matchesSelector =
-										group.selector.direction === "outgoing"
-											? relationship.sourceEntityId === group.selector.anchorEntityId
-											: relationship.targetEntityId === group.selector.anchorEntityId;
-								}
-								if (!matchesSelector) {
-									return yield* new RelationshipBadRequest({
-										reason: { code: "reconciliation-selector-mismatch" },
-									});
-								}
-
-								const key = relationshipKey(relationship);
-								if (seen.has(key)) {
-									return yield* new RelationshipBadRequest({
-										reason: { code: "duplicate-reconciliation-relationship" },
-									});
-								}
-								seen.add(key);
-
-								const properties = yield* parseAppSchemaProperties({
-									kind: "Relationship",
-									properties: relationship.properties,
-									propertiesSchema: definition.propertiesSchema,
-								}).pipe(
-									Effect.mapError(
-										(error) =>
-											new RelationshipBadRequest({
-												reason: {
-													code: "invalid-properties",
-													paths: error.issues.map(({ path }) => path),
-												},
-											}),
-									),
-								);
-								return { ...relationship, properties };
-							}),
-						);
-
-						for (const relationship of relationships) {
-							const input = {
-								...relationship,
-								scope: "global" as const,
-								relationshipSchemaSlug: group.relationshipSchemaSlug,
-								relationshipSchemaPluginId: definition.pluginId ?? null,
-							};
-							const saved = yield* repository.createRelationship(input);
-							if (!saved.wasInserted) {
-								yield* repository.updateRelationship(input);
-							}
-						}
-
-						let deleted = 0;
-						for (const relationship of existing) {
-							if (seen.has(relationshipKey(relationship))) {
-								continue;
-							}
-							const removed = yield* repository.deleteRelationship({
-								scope: "global",
-								sourceEntityId: relationship.sourceEntityId,
-								targetEntityId: relationship.targetEntityId,
-								relationshipSchemaSlug: group.relationshipSchemaSlug,
-								relationshipSchemaPluginId: definition.pluginId ?? null,
-							});
-							if (removed) {
-								deleted += 1;
-							}
-						}
-
-						return { deleted, upserted: relationships.length };
-					}).pipe(Effect.provideService(Database, transaction)),
+					reconcileGroup(group).pipe(Effect.provideService(Database, transaction)),
 				),
 			),
 		);
@@ -288,7 +283,7 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 			const pluginRuntime = yield* PluginRuntimeResolver;
 			const repository = yield* RelationshipsRepository;
 
-			const parseProperties = Effect.fn("RelationshipsService.parseProperties")(function* (input: {
+			const parseProperties = Effect.fnUntraced(function* (input: {
 				properties: unknown;
 				propertiesSchema: AppSchema;
 			}) {
