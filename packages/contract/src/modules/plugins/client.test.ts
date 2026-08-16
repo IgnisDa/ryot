@@ -14,6 +14,7 @@ import {
 	PluginBridgeOperationResult,
 	PluginBridgeRyotQLCancel,
 	PluginBridgeRyotQLResult,
+	PluginNavigationTarget,
 	PluginLeadingIntent,
 	PluginOperationBridgeErrorReason,
 	PluginRyotQLFailureReason,
@@ -201,6 +202,7 @@ describe("plugin client bridge contract", () => {
 	it("uses tagged logical locations by bridge direction", () => {
 		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
 		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
+		const decodeTarget = Schema.decodeUnknownResult(PluginNavigationTarget);
 		const hostFields = {
 			index: 0,
 			key: "k0",
@@ -209,11 +211,19 @@ describe("plugin client bridge contract", () => {
 			edgeBack: false,
 			type: "location",
 		};
+		const targetEntity = { entityId: "entity-1", kind: "entity" };
 		const route = { kind: "route", path: "/details", search: "tab=stats" };
 		const entity = { entityId: "entity-1", entitySchemaSlug: "show", kind: "entity" };
 
 		expect(Result.isSuccess(decodeHost({ ...hostFields, location: route }))).toBe(true);
 		expect(Result.isSuccess(decodeHost({ ...hostFields, location: entity }))).toBe(true);
+		expect(Result.isSuccess(decodeTarget(route))).toBe(true);
+		expect(Result.isSuccess(decodeTarget(targetEntity))).toBe(true);
+		expect(Result.isFailure(decodeTarget({ path: route.path, search: route.search }))).toBe(true);
+		expect(Result.isFailure(decodeTarget({ ...route, extra: true }))).toBe(true);
+		expect(Result.isFailure(decodeTarget({ ...targetEntity, entitySchemaSlug: "show" }))).toBe(
+			true,
+		);
 		expect(
 			Result.isFailure(
 				decodeHost({ ...hostFields, location: { path: route.path, search: route.search } }),
@@ -228,15 +238,36 @@ describe("plugin client bridge contract", () => {
 		expect(
 			Result.isFailure(decodeHost({ ...hostFields, location: { ...entity, extra: true } })),
 		).toBe(true);
+		expect(Result.isSuccess(decodeClient({ target: route, mode: "push", type: "navigate" }))).toBe(
+			true,
+		);
 		expect(
-			Result.isSuccess(decodeClient({ location: route, mode: "push", type: "navigate" })),
-		).toBe(true);
-		expect(
-			Result.isFailure(decodeClient({ location: entity, mode: "push", type: "navigate" })),
+			Result.isSuccess(decodeClient({ target: targetEntity, mode: "push", type: "navigate" })),
 		).toBe(true);
 		expect(
 			Result.isFailure(
-				decodeClient({ leading: "back", location: route, mode: "push", type: "navigate" }),
+				decodeClient({ leading: "back", target: route, mode: "push", type: "navigate" }),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(decodeClient({ location: route, mode: "push", type: "navigate" })),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				decodeClient({
+					mode: "push",
+					type: "navigate",
+					target: { path: route.path, search: route.search },
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				decodeClient({
+					mode: "push",
+					type: "navigate",
+					target: { ...targetEntity, entitySchemaSlug: "show" },
+				}),
 			),
 		).toBe(true);
 	});
