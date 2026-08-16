@@ -50,6 +50,8 @@ Replace the existing backup archive implementation with format version 2. Versio
 
 Adapt Rust V1 legacy bootstrap to create system plugin installations for migrated users, resolve definitions and providers through trusted system plugin identities, attach migrated integrations and saved views to the correct user installations, and preserve the existing intentional ownership and omission rules.
 
+Please note that this is a greenfield project with no production user data so breaking changes and bigger refactors are fine. No bridge/compability code should remain and docs to be updated too.
+
 ## User Stories
 
 1. As an authenticated user, I want to upload a private plugin, so that I can extend my account without a server administrator.
