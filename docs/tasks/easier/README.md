@@ -155,6 +155,8 @@ Best first slices: ranks 4-7 are narrow and migration-free. Then implement rank 
 
 **Validation:** Atomic failure, user/plugin isolation, partial lists, concurrent reorder, existing saved-view lifecycle tests.
 
+**Implemented.** `reorder` resolves the plugin scope once, validates the requested slugs against that scope, and then issues a single `SavedViewsRepository.reorderBySlugs` statement: one `UPDATE ... SET sort_order = case slug when ... then ... end` filtered by user, scope, and slug list, returning the affected slugs. The per-view `update` loop is gone, so a reorder no longer re-reads each row, re-validates layouts and entity schemas, or rewrites definition columns, and it can no longer leave earlier rows reordered when a later row fails. Built-in and custom views take the same path because only `sort_order` changes. The affected-row count is still checked and still maps to `invalid-reorder`/`update-failed`, which now means a scoped view disappeared between validation and the write. The service's private `list` helper had no other caller and is removed.
+
 ### 8. Remove Redundant Upload Cleaning State
 
 **Owner:** D30 Uploads
