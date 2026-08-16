@@ -10,6 +10,8 @@ Deliver private plugin imports and integrations through the authenticated user's
 
 Import creation must resolve an enabled source from the requesting user's exact installation, pin its workflow script and installation identity, and execute with that user's authority. Integration records must reference installation IDs and match the installation owner. An integration-authenticated operation must prove that the integration belongs to the same installation that declares the invoked operation, not merely that an enabled integration ID exists.
 
+Build on the current server-driven import inputs and integration schemas, structured failure reasons, durable workflows, and exact script-ID execution. Change existing contracts and app-client consumers where required instead of introducing parallel catalog or form behavior.
+
 ## Acceptance criteria
 
 - [ ] Import-source and integration-provider catalogs are derived from the requesting user's ready, enabled effective registry.
@@ -21,7 +23,7 @@ Import creation must resolve an enabled source from the requesting user's exact 
 - [ ] Integration-authenticated plugin operations reject an integration from another plugin installation, including another installation owned by the same user.
 - [ ] Disabled, incompatible, failed, or uninstalled installations cannot start new imports, integrations, or operations.
 - [ ] Existing uninstall fences use installation references and continue protecting integration and import workflow dependencies.
-- [ ] Catalog, import service, durable import, integration service, integration workflow, operation, repository, and end-to-end tests cover isolation and exact ownership.
+- [ ] Catalog, import service, durable import, integration service, integration workflow, operation, repository, existing app-client consumers, and end-to-end tests cover isolation and exact ownership.
 
 ## User stories addressed
 
