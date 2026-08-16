@@ -1,4 +1,11 @@
-import { Button, Chip, RadioGroup, StatusMessage, useFieldEscape } from "@ryot-app/client-ui-sdk";
+import {
+	Button,
+	Chip,
+	RadioGroup,
+	StatusMessage,
+	useFieldEscape,
+	useValueChange,
+} from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import {
 	initialSchemaFormValues,
@@ -48,6 +55,7 @@ import {
 	type ProviderSearchState,
 } from "#/modules/provider-add/search-controller";
 import type { ProviderSearchSummary } from "#/modules/provider-add/service";
+import { useFormSeed } from "#/modules/ui/use-form-seed";
 
 const SEARCH_DEBOUNCE_MS = 350;
 
@@ -193,10 +201,19 @@ function ProviderSearchResultList(props: {
 	readonly items: readonly ProviderSearchResultItem[];
 	readonly loadEntityLinks: ProviderSearchPanelProps["loadEntityLinks"];
 }) {
-	const linksRequest = useRef<object | undefined>(undefined);
-	const [links, setLinks] = useState<ProviderEntityLinks | undefined>(undefined);
-	const externalIdsKey = props.items.map((item) => item.externalId).join(" ");
-	const loadLinks = useEffectEvent(async (request: object) => {
+	const [loadedLinks, setLoadedLinks] = useState<{
+		readonly request: string;
+		readonly links: ProviderEntityLinks | undefined;
+	}>();
+	const linksRequest = JSON.stringify([
+		props.items.map((item) => item.externalId),
+		props.entitySchemaSlug,
+		props.librarySchemaSlug,
+		props.providerId,
+		props.relationshipSlug,
+	]);
+	const links = loadedLinks?.request === linksRequest ? loadedLinks.links : undefined;
+	const loadLinks = useEffectEvent((request: string, isActive: () => boolean) => {
 		if (props.items.length === 0) {
 			return;
 		}
@@ -204,31 +221,29 @@ function ProviderSearchResultList(props: {
 			props.items[0].externalId,
 			...props.items.slice(1).map((item) => item.externalId),
 		];
-		const result = await props.loadEntityLinks({
-			externalIds,
-			providerId: props.providerId,
-			entitySchemaSlug: props.entitySchemaSlug,
-			relationshipSlug: props.relationshipSlug,
-			librarySchemaSlug: props.librarySchemaSlug,
-		});
-		if (linksRequest.current !== request) {
-			return;
-		}
-		setLinks("value" in result ? result.value : undefined);
+		void props
+			.loadEntityLinks({
+				externalIds,
+				providerId: props.providerId,
+				entitySchemaSlug: props.entitySchemaSlug,
+				relationshipSlug: props.relationshipSlug,
+				librarySchemaSlug: props.librarySchemaSlug,
+			})
+			.then((result) => {
+				if (isActive()) {
+					setLoadedLinks({ request, links: "value" in result ? result.value : undefined });
+				}
+				return undefined;
+			});
 	});
 
 	useEffect(() => {
-		const request = {};
-		linksRequest.current = request;
-		setLinks(undefined);
-		void loadLinks(request);
-	}, [
-		externalIdsKey,
-		props.entitySchemaSlug,
-		props.librarySchemaSlug,
-		props.providerId,
-		props.relationshipSlug,
-	]);
+		let active = true;
+		loadLinks(linksRequest, () => active);
+		return () => {
+			active = false;
+		};
+	}, [linksRequest]);
 
 	return (
 		<div className="grid gap-1">
@@ -313,47 +328,52 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 		onClear: () => dispatch({ query: "", type: "query-changed" }),
 	});
 
-	useEffect(() => {
-		optionsForm.reset(optionsSchema === undefined ? {} : initialSchemaFormValues(optionsSchema));
-	}, [options.providerId, optionsForm, optionsSchema]);
-
-	const loadProviderOptions = useEffectEvent(
-		async (provider: ProviderSearchSummary | undefined) => {
-			const requestId = ++optionsRequestId.current;
-			setOptions(createProviderOptionsState(provider));
-			if (provider === undefined) {
-				return;
-			}
-			if (provider.searchOptionsSchema === null) {
-				return;
-			}
-			const result = await props.loadSearchOptions(provider.providerId);
-			if (optionsRequestId.current !== requestId) {
-				return;
-			}
-			setOptions((current) => {
-				if (
-					!isProviderOptionsRequestCurrent(
-						current,
-						provider.providerId,
-						requestId,
-						optionsRequestId.current,
-					)
-				) {
-					return current;
-				}
-				return "value" in result
-					? applyProviderOptionsResponse(current, result.value)
-					: applyProviderOptionsFailure(current, result.cause);
-			});
-		},
+	useFormSeed(optionsForm, `${options.providerId}:${options.status}`, () =>
+		optionsSchema === undefined ? {} : initialSchemaFormValues(optionsSchema),
 	);
-	const loadCurrentProviderOptions = useEffectEvent(() => loadProviderOptions(selected));
+
+	const selectedProviderId = selected?.providerId;
+	useValueChange(selectedProviderId, () => {
+		setOptions(createProviderOptionsState(selected));
+		dispatch({ type: "provider-changed" });
+	});
+
+	const fetchProviderOptions = async (provider: ProviderSearchSummary | undefined) => {
+		const requestId = ++optionsRequestId.current;
+		if (provider === undefined) {
+			return;
+		}
+		if (provider.searchOptionsSchema === null) {
+			return;
+		}
+		const result = await props.loadSearchOptions(provider.providerId);
+		if (optionsRequestId.current !== requestId) {
+			return;
+		}
+		setOptions((current) => {
+			if (
+				!isProviderOptionsRequestCurrent(
+					current,
+					provider.providerId,
+					requestId,
+					optionsRequestId.current,
+				)
+			) {
+				return current;
+			}
+			return "value" in result
+				? applyProviderOptionsResponse(current, result.value)
+				: applyProviderOptionsFailure(current, result.cause);
+		});
+	};
+	const fetchSelectedProviderOptions = useEffectEvent(
+		(providerId: SandboxProviderId | undefined) =>
+			void fetchProviderOptions(available.find((provider) => provider.providerId === providerId)),
+	);
 
 	useEffect(() => {
-		dispatch({ type: "provider-changed" });
-		void loadCurrentProviderOptions();
-	}, [selected?.providerId]);
+		fetchSelectedProviderOptions(selectedProviderId);
+	}, [selectedProviderId]);
 
 	const requestSearch = async () => {
 		if (options.status === "ready" && options.providerId === selected?.providerId) {
@@ -367,21 +387,22 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 	};
 
 	const submitSearch = useEffectEvent(() => void requestSearch());
+	const debouncedSearch =
+		state.query.trim() === "" ? undefined : JSON.stringify([state.generation, state.query]);
 	useEffect(() => {
-		const timer =
-			state.query.trim() === "" ? undefined : setTimeout(() => submitSearch(), SEARCH_DEBOUNCE_MS);
-		return () => {
-			if (timer !== undefined) {
-				clearTimeout(timer);
-			}
-		};
-	}, [state.generation, state.query]);
+		if (debouncedSearch === undefined) {
+			return undefined;
+		}
+		const timer = setTimeout(() => submitSearch(), SEARCH_DEBOUNCE_MS);
+		return () => clearTimeout(timer);
+	}, [debouncedSearch]);
 
 	const retryProviderOptions = () => {
 		if (selected?.searchOptionsSchema === null) {
 			return;
 		}
-		void loadProviderOptions(selected);
+		setOptions(createProviderOptionsState(selected));
+		void fetchProviderOptions(selected);
 	};
 	const activeOptionCount =
 		options.status === "ready"

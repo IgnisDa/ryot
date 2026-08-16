@@ -35,11 +35,11 @@ type SectionProps = {
 	readonly toggleDisabled?: ((item: CustomizeDraftItem) => boolean) | undefined;
 };
 
-function CustomizeSection(props: SectionProps) {
+function CustomizeSection({ anchorRef, scrollRef, ...props }: SectionProps) {
 	return (
 		<section className="flex flex-col gap-1.5">
 			<h2
-				ref={props.anchorRef}
+				ref={anchorRef}
 				className="px-1 text-xs font-semibold uppercase tracking-[1.6px] text-text-subtle"
 			>
 				{props.title} · {props.counts.shown} of {props.counts.total} shown
@@ -53,11 +53,11 @@ function CustomizeSection(props: SectionProps) {
 					<ReorderableList
 						label={props.title}
 						items={props.items}
+						scrollRef={scrollRef}
 						onPickUp={impactLight}
 						itemHeight={ROW_HEIGHT}
 						onReorder={props.onMove}
 						onDrop={selectionChanged}
-						scrollRef={props.scrollRef}
 						itemKey={(item) => item.slug}
 						itemLabel={(item) => item.name}
 						handleIcon={<AppIcon size={18} name="grip-vertical" />}
