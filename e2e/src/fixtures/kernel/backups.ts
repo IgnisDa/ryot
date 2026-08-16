@@ -1,4 +1,4 @@
-import { BackupRunId } from "@ryot/contract/schema/brands";
+import { BackupRunId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import { getApiUrl } from "~/support/api";

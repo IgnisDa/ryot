@@ -4,8 +4,8 @@ import type {
 	TestSupportStoredSandboxScript,
 	TestSupportTriggerPluginBootBody,
 	TestSupportTriggerPluginCronBody,
-} from "@ryot/contract/modules/test-support/schemas";
-import { TestSupportBadRequest } from "@ryot/contract/modules/test-support/schemas";
+} from "@ryot-app/contract/modules/test-support/schemas";
+import { TestSupportBadRequest } from "@ryot-app/contract/modules/test-support/schemas";
 import {
 	EntitySchemaSlug,
 	type EntityId,
@@ -13,7 +13,7 @@ import {
 	SandboxProviderId,
 	type SandboxScriptId,
 	type UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { generateId } from "better-auth";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 

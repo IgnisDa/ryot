@@ -1,8 +1,8 @@
 import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
-import { DbError } from "@ryot/contract/errors";
-import { SandboxScriptId } from "@ryot/contract/schema/brands";
-import { sha256Hex } from "@ryot/ts-utils/crypto";
+import { DbError } from "@ryot-app/contract/errors";
+import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect, Layer, Ref, FileSystem } from "effect";
 import { assert } from "vitest";
 

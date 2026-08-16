@@ -1,20 +1,20 @@
-import { DbError, badRequest, notFound } from "@ryot/contract/errors";
+import { DbError, badRequest, notFound } from "@ryot-app/contract/errors";
 import {
 	AutomationRuleMetadata,
 	type AutomationOperation,
 	type SubscriptionRunTiming,
 	type SubscriptionRunSourceKind,
-} from "@ryot/contract/modules/automations/schemas";
+} from "@ryot-app/contract/modules/automations/schemas";
 import type {
 	AutomationRuleId,
 	SandboxScriptId,
 	SignalId,
 	UserId,
-} from "@ryot/contract/schema/brands";
-import { SubscriptionRunId } from "@ryot/contract/schema/brands";
-import { utf8ByteLength } from "@ryot/sandbox-compiler/limits";
-import { sha256Base64Url } from "@ryot/ts-utils/crypto";
-import { stableStringify } from "@ryot/ts-utils/json";
+} from "@ryot-app/contract/schema/brands";
+import { SubscriptionRunId } from "@ryot-app/contract/schema/brands";
+import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
+import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";

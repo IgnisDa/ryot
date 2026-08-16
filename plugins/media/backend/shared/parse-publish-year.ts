@@ -1,4 +1,4 @@
-import { DateTime, Option } from "@ryot/sandbox-sdk/effect";
+import { DateTime, Option } from "@ryot-app/sandbox-sdk/effect";
 
 import { stringValue } from "./records";
 

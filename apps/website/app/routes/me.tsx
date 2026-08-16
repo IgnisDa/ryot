@@ -1,8 +1,8 @@
 import { CheckoutEventNames, type Paddle } from "@paddle/paddle-js";
-import { UserId } from "@ryot/contract/schema/brands";
-import PurchaseCompleteEmail from "@ryot/transactional/emails/purchase-complete";
-import { getActionIntent } from "@ryot/ts-utils/request";
-import { changeCase } from "@ryot/ts-utils/string";
+import { UserId } from "@ryot-app/contract/schema/brands";
+import PurchaseCompleteEmail from "@ryot-app/transactional/emails/purchase-complete";
+import { getActionIntent } from "@ryot-app/ts-utils/request";
+import { changeCase } from "@ryot-app/ts-utils/string";
 import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
 import { useEffect, useState } from "react";

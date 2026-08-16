@@ -1,6 +1,6 @@
-import { SandboxRunError } from "@ryot/contract/errors";
-import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
-import type { UserId } from "@ryot/contract/schema/brands";
+import { SandboxRunError } from "@ryot-app/contract/errors";
+import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/sandbox/schemas";
+import type { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";

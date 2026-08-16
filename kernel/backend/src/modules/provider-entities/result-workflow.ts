@@ -1,5 +1,5 @@
-import type { ListedEntity } from "@ryot/contract/modules/entities/schemas";
-import type { ImportEntityRunResult } from "@ryot/contract/modules/provider-entities/schemas";
+import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
+import type { ImportEntityRunResult } from "@ryot-app/contract/modules/provider-entities/schemas";
 import { Cause, Exit, Option } from "effect";
 import type { Workflow } from "effect/unstable/workflow";
 

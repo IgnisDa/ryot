@@ -1,7 +1,7 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
-import { BadRequest } from "@ryot/contract/errors";
-import { BackupRunId, UserId } from "@ryot/contract/schema/brands";
+import { BadRequest } from "@ryot-app/contract/errors";
+import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { CryptoHasher } from "bun";
 import { Effect, FileSystem, Layer, Stream } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";

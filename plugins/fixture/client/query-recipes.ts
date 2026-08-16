@@ -1,4 +1,4 @@
-import { Result, Schema } from "@ryot/client-sdk/effect";
+import { Result, Schema } from "@ryot-app/client-sdk/effect";
 import {
 	and,
 	ascending,
@@ -12,7 +12,7 @@ import {
 	selectedRows,
 	table,
 	type Recipe,
-} from "@ryot/client-sdk/ryotql";
+} from "@ryot-app/client-sdk/ryotql";
 
 const plugin = table("plugin", "plugin");
 const installation = table("pluginInstallation", "installation");

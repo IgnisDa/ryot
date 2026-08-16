@@ -13,7 +13,7 @@
 		"jsx": "react-jsx",
 		"moduleResolution": "bundler",
 		"paths": {
-			"@ryot/ts-utils/*": ["../ts-utils/src/*"]
+			"@ryot-app/ts-utils/*": ["../ts-utils/src/*"]
 		}
 	}
 }

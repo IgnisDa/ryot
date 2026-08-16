@@ -2,8 +2,8 @@ import {
 	EntityId,
 	type EntitySchemaSlug,
 	type SandboxProviderId,
-} from "@ryot/contract/schema/brands";
-import type { Recipe } from "@ryot/ryotql";
+} from "@ryot-app/contract/schema/brands";
+import type { Recipe } from "@ryot-app/ryotql";
 import {
 	and,
 	ascending,
@@ -17,7 +17,7 @@ import {
 	selectedField,
 	selectedRows,
 	table,
-} from "@ryot/ryotql";
+} from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
 export const providerEntityLinksRecipe = defineRecipe(

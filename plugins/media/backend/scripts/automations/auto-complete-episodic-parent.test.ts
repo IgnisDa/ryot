@@ -1,8 +1,8 @@
-import type { AutomationInput, AutomationEventSnapshot } from "@ryot/sandbox-sdk/automation";
-import type { CreateEventItem } from "@ryot/sandbox-sdk/core";
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import type { RyotQLDocument } from "@ryot/sandbox-sdk/ryotql";
-import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
+import type { AutomationInput, AutomationEventSnapshot } from "@ryot-app/sandbox-sdk/automation";
+import type { CreateEventItem } from "@ryot-app/sandbox-sdk/core";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import type { RyotQLDocument } from "@ryot-app/sandbox-sdk/ryotql";
+import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
 import type {

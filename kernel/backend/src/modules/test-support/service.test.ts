@@ -6,7 +6,7 @@ import {
 	SandboxProviderId,
 	SandboxScriptId,
 	UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { RedisService } from "#lib/infrastructure/redis";

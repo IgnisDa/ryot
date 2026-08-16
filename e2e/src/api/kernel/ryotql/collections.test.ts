@@ -1,4 +1,4 @@
-import { allCollectionsRecipe } from "@ryot/ryotql-recipes/collections";
+import { allCollectionsRecipe } from "@ryot-app/ryotql-recipes/collections";
 import { Effect } from "effect";
 
 import {

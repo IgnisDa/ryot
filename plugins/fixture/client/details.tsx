@@ -1,6 +1,6 @@
-import { usePluginParams, usePluginSearch } from "@ryot/client-sdk/plugin";
-import { useRyot } from "@ryot/client-sdk/react";
-import { Button } from "@ryot/client-ui-sdk";
+import { usePluginParams, usePluginSearch } from "@ryot-app/client-sdk/plugin";
+import { useRyot } from "@ryot-app/client-sdk/react";
+import { Button } from "@ryot-app/client-ui-sdk";
 
 export const Details = () => {
 	const ryot = useRyot();

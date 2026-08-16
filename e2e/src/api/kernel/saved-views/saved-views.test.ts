@@ -1,5 +1,5 @@
-import { column, eq, literal, table } from "@ryot/ryotql";
-import { savedViewRecipe } from "@ryot/ryotql-recipes/saved-views";
+import { column, eq, literal, table } from "@ryot-app/ryotql";
+import { savedViewRecipe } from "@ryot-app/ryotql-recipes/saved-views";
 import { Effect } from "effect";
 
 import {

@@ -5,7 +5,7 @@ import {
 	UserTwoFactorVerifyMethod,
 	VerifyTwoFactorDocument,
 	VerifyTwoFactorErrorVariant,
-} from "@ryot/generated/graphql/backend/graphql";
+} from "@ryot-app/generated/graphql/backend/graphql";
 import { useState } from "react";
 import { data, Form, Link, redirect } from "react-router";
 import { $path } from "safe-routes";

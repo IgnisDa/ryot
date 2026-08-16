@@ -2,7 +2,7 @@ import { Box, Button, Divider } from "@mantine/core";
 import {
 	EntityTranslationVariant,
 	type PodcastEpisode,
-} from "@ryot/generated/graphql/backend/graphql";
+} from "@ryot-app/generated/graphql/backend/graphql";
 import { useMemo } from "react";
 
 import { useMetadataTranslationValue, useUserMetadataDetails } from "~/lib/shared/hooks";

@@ -16,10 +16,10 @@ import {
 	DeleteUserMeasurementDocument,
 	UserMeasurementsListDocument,
 	type UserMeasurementsListInput,
-} from "@ryot/generated/graphql/backend/graphql";
-import { cloneDeep } from "@ryot/ts-utils/lodash";
-import { reverse } from "@ryot/ts-utils/lodash";
-import { startCase } from "@ryot/ts-utils/lodash";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { cloneDeep } from "@ryot-app/ts-utils/lodash";
+import { reverse } from "@ryot-app/ts-utils/lodash";
+import { startCase } from "@ryot-app/ts-utils/lodash";
 import { IconChartArea, IconPencil, IconPlus, IconTable, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { DataTable } from "mantine-datatable";

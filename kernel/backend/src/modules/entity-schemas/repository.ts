@@ -1,4 +1,4 @@
-import { EntitySchemaSlug, type UserId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, type UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
 import { DefinitionRegistry } from "#modules/definition-registry/service";

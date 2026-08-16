@@ -1,5 +1,5 @@
-import type { SearchProviderEntitiesResponse } from "@ryot/contract/modules/provider-entities/schemas";
-import { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
+import type { SearchProviderEntitiesResponse } from "@ryot-app/contract/modules/provider-entities/schemas";
+import { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { describe, expect, it } from "vitest";
 
 import {

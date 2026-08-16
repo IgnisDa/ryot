@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
-import type { RyotQLResponse } from "@ryot/contract/modules/ryotql/language";
-import type { EntityId } from "@ryot/contract/schema/brands";
-import { UserId } from "@ryot/contract/schema/brands";
+import type { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
+import type { EntityId } from "@ryot-app/contract/schema/brands";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { EntityPopulationTrigger } from "#modules/entities/population-trigger";

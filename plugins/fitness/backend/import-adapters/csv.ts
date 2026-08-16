@@ -1,4 +1,4 @@
-import { parse } from "@ryot/sandbox-sdk/papaparse";
+import { parse } from "@ryot-app/sandbox-sdk/papaparse";
 
 const normalizeCsvHeader = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
 

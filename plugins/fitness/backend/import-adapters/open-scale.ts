@@ -1,4 +1,4 @@
-import { DateTime, Option, Schema } from "@ryot/sandbox-sdk/effect";
+import { DateTime, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import { parseCsvText } from "./csv";
 

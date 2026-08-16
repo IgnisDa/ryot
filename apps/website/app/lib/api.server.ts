@@ -1,5 +1,5 @@
-import { type ContractPayload, type ContractProgram, runContract } from "@ryot/contract/client";
-import type { UserId } from "@ryot/contract/schema/brands";
+import { type ContractPayload, type ContractProgram, runContract } from "@ryot-app/contract/client";
+import type { UserId } from "@ryot-app/contract/schema/brands";
 
 import { getServerVariables } from "./config.server";
 

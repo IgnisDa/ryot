@@ -1,5 +1,5 @@
 import { Box, Button } from "@mantine/core";
-import { EntityTranslationVariant } from "@ryot/generated/graphql/backend/graphql";
+import { EntityTranslationVariant } from "@ryot-app/generated/graphql/backend/graphql";
 import { useMemo } from "react";
 
 import { useMetadataTranslationValue } from "~/lib/shared/hooks";

@@ -1,10 +1,10 @@
 import type {
 	ListedIntegration,
 	ListedIntegrationProvider,
-} from "@ryot/contract/modules/integrations/schemas";
-import { IntegrationId, PluginSlug } from "@ryot/contract/schema/brands";
-import { integrationsRecipe, type IntegrationSummary } from "@ryot/ryotql-recipes/integrations";
-import { rowsResult } from "@ryot/ryotql-recipes/test-utils";
+} from "@ryot-app/contract/modules/integrations/schemas";
+import { IntegrationId, PluginSlug } from "@ryot-app/contract/schema/brands";
+import { integrationsRecipe, type IntegrationSummary } from "@ryot-app/ryotql-recipes/integrations";
+import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { Result } from "effect";
 
 const described = (label: string) => ({ label, description: label });

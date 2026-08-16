@@ -4,7 +4,7 @@ import {
 	encodeEntityInterestClientMessage,
 	type EntityInterestEntityUpdatedMessage,
 	type EntityInterestServerMessage,
-} from "@ryot/contract/modules/entity-interest/messages";
+} from "@ryot-app/contract/modules/entity-interest/messages";
 import { Cause, Duration, Effect, Exit, Fiber, ManagedRuntime, Match, Queue, Result } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import {

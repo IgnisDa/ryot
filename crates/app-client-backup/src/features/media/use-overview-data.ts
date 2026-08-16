@@ -1,4 +1,4 @@
-import { getQueryEngineField } from "@ryot/ts-utils/query-engine";
+import { getQueryEngineField } from "@ryot-app/ts-utils/query-engine";
 import { useQuery } from "@tanstack/react-query";
 
 import { type ContractSuccess, useContractClient } from "@/lib/contract-client";

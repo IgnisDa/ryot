@@ -1,5 +1,5 @@
-import { SandboxRunError, toSandboxRunError } from "@ryot/contract/errors";
-import { SandboxScriptId } from "@ryot/contract/schema/brands";
+import { SandboxRunError, toSandboxRunError } from "@ryot-app/contract/errors";
+import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 import { Activity } from "effect/unstable/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";

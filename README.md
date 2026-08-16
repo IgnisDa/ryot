@@ -70,7 +70,7 @@ Then run `docker compose up -d` and visit `http://localhost:8000`. For productio
 
 The production image contains separate sandbox and client plugin compiler engines with two worker artifacts:
 `dist/sandbox-compiler-worker.js*` and `dist/client-plugin-compiler-worker.js*`. The private
-`@ryot/typescript-compiler` package shares generic TypeScript 7 native compiler resolution, virtual
+`@ryot-app/typescript-compiler` package shares generic TypeScript 7 native compiler resolution, virtual
 project lifecycle, diagnostic collection, and diagnostic normalization; the engines retain independent
 import policies, limits, protocols, output models, and public APIs. There is no shared compiler mode,
 bridge, or fallback.

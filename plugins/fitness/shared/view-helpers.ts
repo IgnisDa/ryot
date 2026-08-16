@@ -1,6 +1,6 @@
-import type { ScalarExpression } from "@ryot/contract/modules/ryotql/language";
-import { castJson, column, jsonPath, literal, table, titleCase } from "@ryot/ryotql";
-import type { SavedViewLayoutProjectionsInput } from "@ryot/ryotql-recipes/saved-views";
+import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
+import { castJson, column, jsonPath, literal, table, titleCase } from "@ryot-app/ryotql";
+import type { SavedViewLayoutProjectionsInput } from "@ryot-app/ryotql-recipes/saved-views";
 
 type ViewExpressions = {
 	readonly grid: SavedViewLayoutProjectionsInput["grid"]["card"];

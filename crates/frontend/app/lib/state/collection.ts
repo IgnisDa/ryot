@@ -2,8 +2,8 @@ import {
 	CollectionContentsDocument,
 	type EntityLot,
 	type Scalars,
-} from "@ryot/generated/graphql/backend/graphql";
-import { isEqual } from "@ryot/ts-utils/lodash";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { isEqual } from "@ryot-app/ts-utils/lodash";
 import { produce } from "immer";
 import { atom, useAtom } from "jotai";
 import { useLocation, useNavigate } from "react-router";

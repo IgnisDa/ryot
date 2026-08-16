@@ -28,10 +28,10 @@ import {
 	UserNotificationContentDiscriminants,
 	UserNotificationPlatformsDocument,
 	type UserNotificationPlatformsQuery,
-} from "@ryot/generated/graphql/backend/graphql";
-import { getActionIntent, processSubmission } from "@ryot/ts-utils/request";
-import { changeCase } from "@ryot/ts-utils/string";
-import { zodCheckboxAsString } from "@ryot/ts-utils/zod";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { getActionIntent, processSubmission } from "@ryot-app/ts-utils/request";
+import { changeCase } from "@ryot-app/ts-utils/string";
+import { zodCheckboxAsString } from "@ryot-app/ts-utils/zod";
 import { IconPencil, IconTrash } from "@tabler/icons-react";
 import { data, Form, useLoaderData } from "react-router";
 import { match } from "ts-pattern";

@@ -1,4 +1,4 @@
-import type { SystemConfigResponse } from "@ryot/contract/modules/system/contract";
+import type { SystemConfigResponse } from "@ryot-app/contract/modules/system/contract";
 
 export const deriveAuthMethods = (config: SystemConfigResponse) => ({
 	emailSignIn: !config.auth.localAuthDisabled,

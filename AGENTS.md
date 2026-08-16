@@ -19,14 +19,14 @@
 - Use `gh` for GitHub; use the raw API only when `gh` lacks support.
 - Add dependencies from the target app with `bun add`.
 - Quote shell paths with single quotes, for example `git add 'path/file.ts'`.
-- Check backend code with `bun turbo --filter=@ryot/kernel-backend check` and test it with `bun turbo --filter=@ryot/kernel-backend test`.
+- Check backend code with `bun turbo --filter=@ryot-app/kernel-backend check` and test it with `bun turbo --filter=@ryot-app/kernel-backend test`.
 
 ## Engineering
 
 - Do not add un-requested functionality, abstractions, or generalization.
 - Derive types from schemas and existing types instead of writing mirrors. Use Effect Schema.
-- Build application-owned query documents with `@ryot/ryotql` and use named recipes when available.
-- Colocate app-owned RyotQL result schemas, decoders, and decoded types with their recipes. Consumers must not parse generic `RowItem` values directly; reusable wire codecs belong in `@ryot/contract`, while presentation-only transformations remain consumer-owned.
+- Build application-owned query documents with `@ryot-app/ryotql` and use named recipes when available.
+- Colocate app-owned RyotQL result schemas, decoders, and decoded types with their recipes. Consumers must not parse generic `RowItem` values directly; reusable wire codecs belong in `@ryot-app/contract`, while presentation-only transformations remain consumer-owned.
 - Prefer `Match` from `effect` over `switch`.
 - If you are writing code, use an `explore` subagent only to find existing patterns.
 - Avoid comments unless necessary.

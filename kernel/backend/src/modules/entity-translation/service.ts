@@ -1,4 +1,4 @@
-import type { EntityId, SandboxProviderId, UserId } from "@ryot/contract/schema/brands";
+import type { EntityId, SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 

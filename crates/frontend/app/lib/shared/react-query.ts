@@ -26,7 +26,7 @@ import {
 	UserPersonDetailsDocument,
 	type UserTemplatesOrWorkoutsListInput,
 	type UserUpcomingCalendarEventInput,
-} from "@ryot/generated/graphql/backend/graphql";
+} from "@ryot-app/generated/graphql/backend/graphql";
 import { QueryClient, queryOptions, skipToken } from "@tanstack/react-query";
 import { GraphQLClient } from "graphql-request";
 import Cookies from "js-cookie";

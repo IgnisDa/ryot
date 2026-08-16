@@ -5,7 +5,7 @@ import {
 	group,
 	integerField,
 	stringField,
-} from "@ryot/config";
+} from "@ryot-app/config";
 import { Config } from "effect";
 
 const scheduler = group(

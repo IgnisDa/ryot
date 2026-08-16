@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 
-import type { ContractPayload } from "@ryot/contract/client";
-import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import { PluginSlug, type SandboxScriptId } from "@ryot/contract/schema/brands";
-import type { PluginArchivePackage } from "@ryot/plugin-archive";
+import type { ContractPayload } from "@ryot-app/contract/client";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { PluginSlug, type SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import type { PluginArchivePackage } from "@ryot-app/plugin-archive";
 import { Effect, Encoding } from "effect";
 
 import { requirePresent } from "~/support/assertions";

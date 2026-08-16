@@ -1,4 +1,4 @@
-import type { FieldSelection, RowSelection } from "@ryot/contract/modules/ryotql/language";
+import type { FieldSelection, RowSelection } from "@ryot-app/contract/modules/ryotql/language";
 import { sql } from "drizzle-orm";
 
 export type CatalogFieldKind = "boolean" | "date" | "json" | "number" | "text";

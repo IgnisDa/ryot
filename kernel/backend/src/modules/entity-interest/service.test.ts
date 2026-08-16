@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
-import { RyotQLBadRequest } from "@ryot/contract/modules/ryotql/contract";
-import { EntityId, UserId } from "@ryot/contract/schema/brands";
+import { RyotQLBadRequest } from "@ryot-app/contract/modules/ryotql/contract";
+import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { InterestReconciler } from "./reconciler";

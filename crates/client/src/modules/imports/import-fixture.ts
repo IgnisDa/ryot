@@ -1,7 +1,7 @@
-import type { ListedImportSource } from "@ryot/contract/modules/imports/schemas";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import { importRunRecipe, manualImportRunsRecipe } from "@ryot/ryotql-recipes/import-runs";
-import { rowsResult } from "@ryot/ryotql-recipes/test-utils";
+import type { ListedImportSource } from "@ryot-app/contract/modules/imports/schemas";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { importRunRecipe, manualImportRunsRecipe } from "@ryot-app/ryotql-recipes/import-runs";
+import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { Result } from "effect";
 
 const RUNS_LIMIT = 20;

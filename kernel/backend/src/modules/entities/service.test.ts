@@ -1,12 +1,12 @@
 import { expect, it } from "@effect/vitest";
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { EntityBadRequest, EntityNotFound } from "@ryot/contract/modules/entities/schemas";
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import { EntityBadRequest, EntityNotFound } from "@ryot-app/contract/modules/entities/schemas";
 import {
 	EntityId,
 	EntitySchemaSlug,
 	SandboxProviderId,
 	UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";

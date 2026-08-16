@@ -1,5 +1,5 @@
-import type { MetadataLookupResult } from "@ryot/media-plugin/operations/schemas";
-import { debounce, throttle } from "@ryot/ts-utils/lodash";
+import type { MetadataLookupResult } from "@ryot-app/media-plugin/operations/schemas";
+import { debounce, throttle } from "@ryot-app/ts-utils/lodash";
 
 import { storage } from "#imports";
 

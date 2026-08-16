@@ -2,12 +2,12 @@ import type {
 	CLIENT_API_VERSION,
 	PluginClientArtifact,
 	PluginClientArtifactFile,
-} from "@ryot/contract/modules/plugins/client";
+} from "@ryot-app/contract/modules/plugins/client";
 import {
 	isPluginClientTextSource,
 	pluginClientAssetMimeType,
-} from "@ryot/contract/modules/plugins/client";
-import { sortBy } from "@ryot/ts-utils/lodash";
+} from "@ryot-app/contract/modules/plugins/client";
+import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect } from "effect";
 
 import {

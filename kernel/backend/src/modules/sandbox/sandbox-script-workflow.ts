@@ -1,8 +1,8 @@
-import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
-import { SandboxScriptId } from "@ryot/contract/schema/brands";
-import { jsonByteLength } from "@ryot/sandbox-compiler/limits";
-import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
+import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import { jsonByteLength } from "@ryot-app/sandbox-compiler/limits";
+import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import {
 	type WorkflowDurableResult,
 	type WorkflowReplayEnvelope,
@@ -10,8 +10,8 @@ import {
 	workflowReplayEnvelopeSchema,
 	type WorkflowDurableCallRequest,
 	type WorkflowReplayJournalEntry,
-} from "@ryot/sandbox-sdk/workflow";
-import { isObjectRecord } from "@ryot/ts-utils/predicates";
+} from "@ryot-app/sandbox-sdk/workflow";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Cause, Clock, DateTime, Duration, Effect, Schema } from "effect";
 import { Activity, DurableClock, Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";

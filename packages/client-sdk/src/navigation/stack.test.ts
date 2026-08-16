@@ -1,4 +1,4 @@
-import { PLUGIN_SCREEN_STACK_LIMIT } from "@ryot/contract/modules/plugins/client";
+import { PLUGIN_SCREEN_STACK_LIMIT } from "@ryot-app/contract/modules/plugins/client";
 import { describe, expect, it } from "vitest";
 
 import { presentScreens, reconcileStack, type PluginScreen } from "./stack";

@@ -1,5 +1,5 @@
 import { Browser } from "@capacitor/browser";
-import { OAuthCallbackQuery } from "@ryot/contract/oauth";
+import { OAuthCallbackQuery } from "@ryot-app/contract/oauth";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect, Schema } from "effect";
 

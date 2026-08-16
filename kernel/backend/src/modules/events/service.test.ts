@@ -1,12 +1,12 @@
 import { assert, expect, it } from "@effect/vitest";
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
 	EntityId,
 	EventId,
 	EventSchemaSlug,
 	ImportRunId,
 	UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 

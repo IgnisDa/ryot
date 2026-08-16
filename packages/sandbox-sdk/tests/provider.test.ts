@@ -1,4 +1,4 @@
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import {
 	defineProvider,
 	providerDetailsResultSchema,
@@ -8,7 +8,7 @@ import {
 	providerSearchOptionsResultSchema,
 	providerSearchResultSchema,
 	providerTranslateResultSchema,
-} from "@ryot/sandbox-sdk/provider";
+} from "@ryot-app/sandbox-sdk/provider";
 import { describe, expect, test } from "vitest";
 
 import { defineManifest, SANDBOX_SCRIPT_DEFINITION } from "../src/driver";

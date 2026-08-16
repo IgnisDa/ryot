@@ -1,14 +1,14 @@
 import { expect, it } from "@effect/vitest";
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { DbError } from "@ryot/contract/errors";
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import { DbError } from "@ryot-app/contract/errors";
 import {
 	CollectionBadRequest,
 	CollectionNotFound,
-} from "@ryot/contract/modules/collections/schemas";
+} from "@ryot-app/contract/modules/collections/schemas";
 import {
 	type CreateEventsResponse,
 	EventCreateItemError,
-} from "@ryot/contract/modules/events/schemas";
+} from "@ryot-app/contract/modules/events/schemas";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -16,8 +16,8 @@ import {
 	RelationshipId,
 	RelationshipSchemaSlug,
 	UserId,
-} from "@ryot/contract/schema/brands";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
+} from "@ryot-app/contract/schema/brands";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Cause, Effect, Exit, Layer } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 

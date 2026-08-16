@@ -1,4 +1,4 @@
-import { RelationshipId, RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
+import { RelationshipId, RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
 
 import { EntityReferenceSnapshot } from "#modules/entities/mutation-outcomes";

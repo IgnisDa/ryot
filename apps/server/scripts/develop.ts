@@ -17,8 +17,8 @@ const compileCommand: ProcessCommand = [process.execPath, "run", compileSandboxR
 const pluginBuildCommand: ProcessCommand = [
 	process.execPath,
 	"turbo",
-	"--filter=@ryot/media-plugin",
-	"--filter=@ryot/fitness-plugin",
+	"--filter=@ryot-app/media-plugin",
+	"--filter=@ryot-app/fitness-plugin",
 	"build",
 ];
 const assembleCommand: ProcessCommand = [process.execPath, "run", "assemble"];

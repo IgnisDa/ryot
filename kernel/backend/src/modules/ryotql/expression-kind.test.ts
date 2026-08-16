@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import type { ScalarExpression, TableReference } from "@ryot/contract/modules/ryotql/language";
+import type { ScalarExpression, TableReference } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	ascending,
 	castBoolean,
@@ -26,7 +26,7 @@ import {
 	round,
 	sum,
 	table,
-} from "@ryot/ryotql";
+} from "@ryot-app/ryotql";
 
 import { getCatalogTable } from "./catalog";
 import type { ScalarKind } from "./expression-kind";

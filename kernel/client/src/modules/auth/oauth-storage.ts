@@ -3,7 +3,7 @@ import {
 	type PendingAuthorization as PendingAuthorizationValue,
 	StoredTokenSet,
 	type StoredTokenSet as StoredTokenSetValue,
-} from "@ryot/contract/oauth";
+} from "@ryot-app/contract/oauth";
 import { Context, Data, Effect, Layer, Schema } from "effect";
 
 import { normalizeServerOrigin, type ServerOrigin } from "#/api/origin";

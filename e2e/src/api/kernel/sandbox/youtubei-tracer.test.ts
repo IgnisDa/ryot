@@ -16,10 +16,10 @@ import { describe, expect, it } from "~/support/effect-test";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 
 const youtubeiSource = (input: { readonly name: string; readonly slug: string }) => `
-import type { SandboxHost } from "@ryot/sandbox-sdk/core";
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { createYoutubeMusicClient } from "@ryot/sandbox-sdk/youtubei";
+import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { createYoutubeMusicClient } from "@ryot-app/sandbox-sdk/youtubei";
 
 export const manifest = defineManifest({
   kind: "script",

@@ -1,7 +1,7 @@
-import { CurrentUser } from "@ryot/contract/auth-middleware";
-import { AppContract } from "@ryot/contract/contract";
-import { BadRequest } from "@ryot/contract/errors";
-import { UploadBadRequest, UploadInternalError } from "@ryot/contract/modules/uploads/schemas";
+import { CurrentUser } from "@ryot-app/contract/auth-middleware";
+import { AppContract } from "@ryot-app/contract/contract";
+import { BadRequest } from "@ryot-app/contract/errors";
+import { UploadBadRequest, UploadInternalError } from "@ryot-app/contract/modules/uploads/schemas";
 import { Effect, FileSystem } from "effect";
 import { HttpServerResponse } from "effect/unstable/http";
 import { HttpApiBuilder } from "effect/unstable/httpapi";

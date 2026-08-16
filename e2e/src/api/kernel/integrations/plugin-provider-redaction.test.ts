@@ -1,5 +1,5 @@
-import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import { IntegrationId } from "@ryot/contract/schema/brands";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { IntegrationId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import {

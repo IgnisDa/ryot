@@ -1,4 +1,4 @@
-import { Button, StatusMessage } from "@ryot/client-ui-sdk";
+import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
 import { useNavigate } from "@tanstack/react-router";
 import type { Effect } from "effect";
 import { useEffect, useRef, useState } from "react";

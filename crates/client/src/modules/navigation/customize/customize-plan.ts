@@ -1,8 +1,8 @@
 import type {
 	ReorderSavedViewsBody,
 	UpdateSavedViewBody,
-} from "@ryot/contract/modules/saved-views/schemas";
-import { PluginSlug } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/saved-views/schemas";
+import { PluginSlug } from "@ryot-app/contract/schema/brands";
 
 import type { CustomizeDraft, CustomizeDraftItem, CustomizeSection } from "./customize-state";
 

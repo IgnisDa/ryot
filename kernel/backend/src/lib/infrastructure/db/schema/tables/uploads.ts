@@ -1,4 +1,4 @@
-import type { ManagedAssetLocator } from "@ryot/contract/modules/uploads/schemas";
+import type { ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import { index, integer, primaryKey, snakeCase, text, timestamp } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";

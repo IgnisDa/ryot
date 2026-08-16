@@ -1,7 +1,7 @@
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
-import { SandboxExecutionGrants } from "@ryot/contract/modules/sandbox/schemas";
-import { jsonValueSchema } from "@ryot/contract/modules/sandbox/wire";
-import { genericImportWorkflowInputSchema } from "@ryot/sandbox-sdk/imports";
+import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import { SandboxExecutionGrants } from "@ryot-app/contract/modules/sandbox/schemas";
+import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
+import { genericImportWorkflowInputSchema } from "@ryot-app/sandbox-sdk/imports";
 import { Cause, Effect, Schema } from "effect";
 import { Activity } from "effect/unstable/workflow";
 import { WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";

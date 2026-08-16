@@ -1,12 +1,12 @@
 import { expect, it } from "@effect/vitest";
-import { NotFound } from "@ryot/contract/errors";
+import { NotFound } from "@ryot-app/contract/errors";
 import {
 	EntitySchemaSlug,
 	ImportRunId,
 	PluginSlug,
 	SandboxProviderId,
 	UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";

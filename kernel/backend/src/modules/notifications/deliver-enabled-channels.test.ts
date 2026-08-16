@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { NotificationChannelId, UserId } from "@ryot/contract/schema/brands";
+import { NotificationChannelId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { databaseLayer } from "#lib/test-utils/effect";

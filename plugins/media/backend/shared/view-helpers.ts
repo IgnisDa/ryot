@@ -1,4 +1,4 @@
-import type { ScalarExpression } from "@ryot/contract/modules/ryotql/language";
+import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	and,
 	average,
@@ -12,8 +12,8 @@ import {
 	isNotNull,
 	literal,
 	table,
-} from "@ryot/ryotql";
-import type { SavedViewLayoutProjectionsInput } from "@ryot/ryotql-recipes/saved-views";
+} from "@ryot-app/ryotql";
+import type { SavedViewLayoutProjectionsInput } from "@ryot-app/ryotql-recipes/saved-views";
 
 type ViewExpressions = {
 	readonly grid: SavedViewLayoutProjectionsInput["grid"]["card"];

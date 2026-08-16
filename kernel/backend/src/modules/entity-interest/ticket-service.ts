@@ -1,7 +1,7 @@
-import { EntityInterestTicketFailure } from "@ryot/contract/modules/entity-interest/contract";
-import type { EntityInterestSocketTicketResponse } from "@ryot/contract/modules/entity-interest/messages";
-import { UserId } from "@ryot/contract/schema/brands";
-import { sha256Hex } from "@ryot/ts-utils/crypto";
+import { EntityInterestTicketFailure } from "@ryot-app/contract/modules/entity-interest/contract";
+import type { EntityInterestSocketTicketResponse } from "@ryot-app/contract/modules/entity-interest/messages";
+import { UserId } from "@ryot-app/contract/schema/brands";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Clock, Context, Data, DateTime, Effect, Layer, Schema } from "effect";
 
 import { RedisService } from "#lib/infrastructure/redis";

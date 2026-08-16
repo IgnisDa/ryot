@@ -1,8 +1,8 @@
 import os from "node:os";
 
-import type { ContractSuccess } from "@ryot/contract/client";
-import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import { UserId } from "@ryot/contract/schema/brands";
+import type { ContractSuccess } from "@ryot-app/contract/client";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { Clock, Effect } from "effect";
 
 import {
@@ -127,9 +127,9 @@ const summarizeRuntimeSamples = (samples: ReadonlyArray<RuntimeSample>) => ({
 });
 
 const noHostAutomationSource = `
-import { defineAutomation } from "@ryot/sandbox-sdk/automation";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   capabilities: [],
@@ -150,9 +150,9 @@ export default defineAutomation({
 `;
 
 const fullAutomationSource = `
-import { defineAutomation } from "@ryot/sandbox-sdk/automation";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "automation",
@@ -180,9 +180,9 @@ export default defineAutomation({
 `;
 
 const providerSearchSource = (serverUrl: string) => `
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineProvider } from "@ryot/sandbox-sdk/provider";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 export const manifest = defineManifest({
   kind: "provider",
@@ -206,11 +206,11 @@ export default defineProvider({
 `;
 
 const youtubeiDetailsSource = (serverUrl: string) => `
-import type { SandboxHost } from "@ryot/sandbox-sdk/core";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineProvider } from "@ryot/sandbox-sdk/provider";
-import { createYoutubeMusicClient } from "@ryot/sandbox-sdk/youtubei";
+import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
+import { createYoutubeMusicClient } from "@ryot-app/sandbox-sdk/youtubei";
 
 export const manifest = defineManifest({
   kind: "provider",

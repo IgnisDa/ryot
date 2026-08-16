@@ -1,5 +1,5 @@
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { PluginSlug } from "@ryot/contract/schema/brands";
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
 import {

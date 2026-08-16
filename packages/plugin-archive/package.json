@@ -1,5 +1,5 @@
 {
-	"name": "@ryot/plugin-archive",
+	"name": "@ryot-app/plugin-archive",
 	"type": "module",
 	"exports": {
 		".": {
@@ -12,13 +12,13 @@
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
-		"@ryot/contract": "workspace:*",
-		"@ryot/ts-utils": "workspace:*",
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/ts-utils": "workspace:*",
 		"effect": "4.0.0-rc.111",
 		"fflate": "0.8.3"
 	},
 	"devDependencies": {
-		"@ryot/testing": "workspace:*",
+		"@ryot-app/testing": "workspace:*",
 		"bun-types": "1.4.0",
 		"vitest": "4.1.9"
 	}

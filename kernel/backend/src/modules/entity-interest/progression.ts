@@ -1,4 +1,4 @@
-import type { EntityId } from "@ryot/contract/schema/brands";
+import type { EntityId } from "@ryot-app/contract/schema/brands";
 import { Context, Duration, Effect, Layer } from "effect";
 
 import {

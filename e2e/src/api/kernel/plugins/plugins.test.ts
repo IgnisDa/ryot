@@ -1,5 +1,5 @@
-import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import { EntityId, EventSchemaSlug, PluginSlug } from "@ryot/contract/schema/brands";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { EntityId, EventSchemaSlug, PluginSlug } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -95,9 +95,9 @@ describe("plugins", () => {
 				result: fakeProviderSearchResult([{ externalId, title: "Lifecycle Entity" }]),
 			});
 			const automationSource = `
-import { defineAutomation } from "@ryot/sandbox-sdk/automation";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "automation",

@@ -1,10 +1,10 @@
-import { DbError } from "@ryot/contract/errors";
+import { DbError } from "@ryot-app/contract/errors";
 import {
 	CollectionBadRequest,
 	CollectionNotFound,
 	MembershipResponse,
-} from "@ryot/contract/modules/collections/schemas";
-import { EntityId, UserId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/collections/schemas";
+import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 

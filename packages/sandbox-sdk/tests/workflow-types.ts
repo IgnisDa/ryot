@@ -1,4 +1,4 @@
-import { Effect } from "@ryot/sandbox-sdk/workflow";
+import { Effect } from "@ryot-app/sandbox-sdk/workflow";
 
 Effect.gen(function* () {
 	yield* Effect.succeed(null);
