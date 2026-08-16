@@ -21,6 +21,7 @@ import {
 	type CatalogTable,
 	type RyotQLExecutionScope,
 } from "./catalog";
+import { scalarExpressionKind, type KindResolver, type ScalarKind } from "./expression-kind";
 
 export const MAX_QUERY_JOINS = 8;
 export const MAX_INCLUDE_DEPTH = 3;
@@ -32,7 +33,6 @@ export const MAX_TIME_SERIES_BUCKETS = 1000;
 export const MAX_GROUPED_AGGREGATE_LIMIT = 1000;
 
 type AliasScope = ReadonlyMap<string, CatalogTable>;
-type ScalarKind = CatalogTable["fields"][string]["kind"] | "null";
 
 const requiredNameError = (value: string, label: string) =>
 	value.trim().length === 0 ? `${label} must not be empty` : null;
@@ -46,14 +46,16 @@ const isTextOperand = (kind: ScalarKind | undefined) =>
 const isNamedTimeZone = (value: string) =>
 	!/^[-+]\d{2}(?::?\d{2})?$/.test(value) && Option.isSome(DateTime.zoneMakeNamed(value));
 
-const unifyExpressionKinds = (kinds: readonly (ScalarKind | undefined)[]) => {
-	const nonNullKinds = kinds.filter((kind) => kind !== "null");
-	if (nonNullKinds.length === 0) {
-		return "null" as const;
-	}
-	const first = nonNullKinds[0];
-	return first !== undefined && nonNullKinds.every((kind) => kind === first) ? first : "json";
+const kindResolver: KindResolver<AliasScope> = {
+	correlated: (query, scope) => expressionScope(query, scope),
+	column: (expr, scope) => {
+		const table = scope.get(expr.tableAlias);
+		return table ? resolveCatalogField(table, expr.field)?.kind : undefined;
+	},
 };
+
+export const expressionKind = (expr: ScalarExpression, scope: AliasScope) =>
+	scalarExpressionKind(expr, scope, kindResolver);
 
 const validateExpression = (
 	expr: ScalarExpression,
@@ -197,66 +199,6 @@ const validateExpression = (
 	return resolveCatalogField(table, expr.field)
 		? null
 		: `Unknown field '${expr.field}' on table '${table.name}'`;
-};
-
-export const expressionKind = (
-	expr: ScalarExpression,
-	scope: AliasScope,
-): ScalarKind | undefined => {
-	if (expr.type === "literal") {
-		if (expr.value === null) {
-			return "null";
-		}
-		if (typeof expr.value === "boolean") {
-			return "boolean";
-		}
-		if (typeof expr.value === "number") {
-			return "number";
-		}
-		if (typeof expr.value === "string") {
-			return "text";
-		}
-		return "json";
-	}
-	if (expr.type === "cast") {
-		return expr.target;
-	}
-	if (expr.type === "dateBucket") {
-		return "date";
-	}
-	if (expr.type === "exists") {
-		return "boolean";
-	}
-	if (expr.type === "arithmetic" || expr.type === "aggregate") {
-		return "number";
-	}
-	if (expr.type === "first") {
-		return expressionKind(expr.select, expressionScope(expr.query, scope));
-	}
-	if (expr.type === "jsonPath") {
-		return "json";
-	}
-	if (expr.type === "coalesce") {
-		const kinds = expr.values.map((value) => expressionKind(value, scope));
-		return unifyExpressionKinds(kinds);
-	}
-	if (expr.type === "concat" || expr.type === "transform") {
-		return "text";
-	}
-	if (expr.type === "isNotNull") {
-		return "boolean";
-	}
-	if (expr.type === "floor" || expr.type === "integer" || expr.type === "round") {
-		return "number";
-	}
-	if (expr.type === "conditional") {
-		return unifyExpressionKinds([
-			expressionKind(expr.whenTrue, scope),
-			expressionKind(expr.whenFalse, scope),
-		]);
-	}
-	const table = scope.get(expr.tableAlias);
-	return table ? resolveCatalogField(table, expr.field)?.kind : undefined;
 };
 
 const compatibleKinds = (left: ScalarKind | undefined, right: ScalarKind | undefined) =>

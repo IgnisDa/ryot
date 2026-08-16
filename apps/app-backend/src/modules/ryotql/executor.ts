@@ -25,10 +25,10 @@ import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import {
 	getCatalogTable,
 	resolveCatalogField,
-	type CatalogFieldKind,
 	type CatalogTable,
 	type RyotQLExecutionScope,
 } from "./catalog";
+import { scalarExpressionKind, type KindResolver, type ScalarKind } from "./expression-kind";
 import type { NormalizedInclude, NormalizedNamedQuery, NormalizedRowsOutput } from "./normalizer";
 
 type SqlFragment = ReturnType<typeof sql>;
@@ -47,7 +47,6 @@ type Order = {
 	readonly expr: ScalarExpression;
 	readonly direction: "asc" | "desc";
 };
-type RuntimeKind = CatalogFieldKind | "null";
 type CursorValue =
 	| { readonly kind: "null"; readonly value: null }
 	| { readonly kind: "boolean"; readonly value: boolean }
@@ -106,73 +105,18 @@ const expressionScope = (query: CorrelatedQuerySet, ancestors: CompileScope) => 
 	return scope;
 };
 
-const unifyExpressionKinds = (kinds: readonly (CatalogFieldKind | "null")[]) => {
-	const nonNullKinds = kinds.filter((kind) => kind !== "null");
-	if (nonNullKinds.length === 0) {
-		return "null" as const;
-	}
-	const first = nonNullKinds[0];
-	return first !== undefined && nonNullKinds.every((kind) => kind === first) ? first : "json";
+const kindResolver: KindResolver<CompileScope> = {
+	correlated: (query, scope) => expressionScope(query, scope),
+	column: (expr, scope) =>
+		resolveCatalogField(requireCompileTable(scope, expr.tableAlias).table, expr.field)?.kind,
 };
 
-const expressionKind = (expr: ScalarExpression, scope: CompileScope): CatalogFieldKind | "null" => {
-	if (expr.type === "literal") {
-		if (expr.value === null) {
-			return "null";
-		}
-		if (typeof expr.value === "boolean") {
-			return "boolean";
-		}
-		if (typeof expr.value === "number") {
-			return "number";
-		}
-		if (typeof expr.value === "string") {
-			return "text";
-		}
-		return "json";
+const expressionKind = (expr: ScalarExpression, scope: CompileScope): ScalarKind => {
+	const kind = scalarExpressionKind(expr, scope, kindResolver);
+	if (!kind) {
+		throw new Error("RyotQL compiler could not infer an expression kind");
 	}
-	if (expr.type === "cast") {
-		return expr.target;
-	}
-	if (expr.type === "dateBucket") {
-		return "date";
-	}
-	if (expr.type === "exists") {
-		return "boolean";
-	}
-	if (expr.type === "arithmetic" || expr.type === "aggregate") {
-		return "number";
-	}
-	if (expr.type === "concat" || expr.type === "transform") {
-		return "text";
-	}
-	if (expr.type === "isNotNull") {
-		return "boolean";
-	}
-	if (expr.type === "floor" || expr.type === "integer" || expr.type === "round") {
-		return "number";
-	}
-	if (expr.type === "first") {
-		return expressionKind(expr.select, expressionScope(expr.query, scope));
-	}
-	if (expr.type === "jsonPath") {
-		return "json";
-	}
-	if (expr.type === "coalesce") {
-		return unifyExpressionKinds(expr.values.map((value) => expressionKind(value, scope)));
-	}
-	if (expr.type === "conditional") {
-		return unifyExpressionKinds([
-			expressionKind(expr.whenTrue, scope),
-			expressionKind(expr.whenFalse, scope),
-		]);
-	}
-	const compileTable = requireCompileTable(scope, expr.tableAlias);
-	const field = resolveCatalogField(compileTable.table, expr.field);
-	if (!field) {
-		throw new Error(`RyotQL compiler received unknown field '${expr.field}'`);
-	}
-	return field.kind;
+	return kind;
 };
 
 const compileLiteral = (expr: Extract<ScalarExpression, { type: "literal" }>): SqlFragment => {
@@ -697,7 +641,7 @@ const isPrimaryKeyOrder = (expr: ScalarExpression, alias: string, table: Catalog
 const orderSql = (
 	orders: readonly {
 		readonly direction: "asc" | "desc";
-		readonly kind: CatalogFieldKind | "null";
+		readonly kind: ScalarKind;
 	}[],
 ) =>
 	sql.join(
@@ -740,10 +684,7 @@ const appendPrimaryKeyOrders = (query: QuerySet, requested: readonly Order[]) =>
 
 const cursorError = () => new RyotQLBadRequest({ reason: { code: "invalid-cursor" } });
 
-const makeCursorValue = (
-	kind: CatalogFieldKind | "null",
-	value: unknown,
-): CursorValue | undefined => {
+const makeCursorValue = (kind: ScalarKind, value: unknown): CursorValue | undefined => {
 	if (kind === "null") {
 		return value === null ? { kind, value } : undefined;
 	}
@@ -766,7 +707,7 @@ const makeCursorValue = (
 
 const decodeCursor = Effect.fn("decodeRyotQLCursor")(function* (
 	cursor: string,
-	kinds: readonly (CatalogFieldKind | "null")[],
+	kinds: readonly ScalarKind[],
 	directions: readonly Order["direction"][],
 ) {
 	if (!/^[A-Za-z0-9_-]+$/.test(cursor)) {
@@ -1129,7 +1070,7 @@ const compileTimeSeriesQuery = (query: TimeSeriesQuery, executionScope: RyotQLEx
 	`;
 };
 
-const normalizeValue = (value: unknown, kind: RuntimeKind) => {
+const normalizeValue = (value: unknown, kind: ScalarKind) => {
 	if (kind === "number") {
 		return Number(value);
 	}
@@ -1142,7 +1083,7 @@ const normalizeValue = (value: unknown, kind: RuntimeKind) => {
 	return typeof value === "string" ? new Date(value).toISOString() : value;
 };
 
-const isFieldKind = (value: unknown): value is RuntimeKind =>
+const isFieldKind = (value: unknown): value is ScalarKind =>
 	value === "boolean" ||
 	value === "date" ||
 	value === "json" ||
