@@ -127,6 +127,7 @@ describe("plugin catalog events", () => {
 			yield* outsiderEvents.drainQueuedEvents();
 
 			const before = yield* fixtureCatalogEntry(owner.client);
+			expect(before).toMatchObject({ name: "Fixture", icon: "puzzle", sortOrder: 0 });
 			const artifactA = requirePresent(
 				before.clientArtifactHash,
 				"Fixture client plugin revision A has no artifact",
