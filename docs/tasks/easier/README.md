@@ -425,6 +425,12 @@ The two template paths were never compatible. The Rust struct renders `{{ generi
 
 **Validation:** Provision, reset-link, renewal, reactivation, revocation, and unavailable-backend flows.
 
+**Implemented.** `runAdmin` delegates to the shared `runContract` runner, so admin calls reject with the contract's own failures instead of resolving to a successful `{ error: { message } }`. The website-local `ApiResult` and `ApiError` types and the `errorMessage` coercion are removed, and the locally declared `ProvisionUserBody` is replaced by `ContractPayload<"godMode", "provisionUser">`. `getCloudAuthDetails` and `handleCloudPurchase` no longer reconstruct throwing behaviour from `{ data, error }`, and they no longer treat a present-but-falsy `resetUrl` or `userId` as a failure, because the contract declares both as required strings.
+
+Three `setUserDisabled` results were previously discarded: reactivation in `handleCloudPurchase`, renewal in `provisionRenewal`, and revocation in `revokePurchase`. A backend failure there left a customer whose access silently contradicted the recorded purchase state. Those now reject, and both the Polar and Paddle webhook routes already wrap handling in a `try`/`catch` that returns `503`, so the payment provider retries the delivery instead of the failure being lost. `me.tsx` keeps its existing `try`/`catch` and returns the same message.
+
+The two identical-looking branches in `provisionUser` are kept: the generated client request type distributes over the payload union, so each provider variant must be narrowed before it can be passed, and a union payload does not typecheck.
+
 ## Coverage Contract
 
 Path aliases: `B = apps/app-backend`, `C = packages/contract`, `M = plugins/media`, `F = plugins/fitness`.

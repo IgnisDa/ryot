@@ -39,15 +39,12 @@ async function getCloudAuthDetails(
 		return { provider: "google", email };
 	}
 
-	const { data, error } = await resetUserPassword(UserId.make(userId));
-	if (error || !data.resetUrl) {
-		throw new Error("Failed to generate password reset link");
-	}
+	const reset = await resetUserPassword(UserId.make(userId));
 
 	return {
 		username: email,
 		provider: "password",
-		passwordChangeUrl: data.resetUrl,
+		passwordChangeUrl: reset.resetUrl,
 	};
 }
 
@@ -68,20 +65,18 @@ async function handleCloudPurchase(customer: Customer): Promise<{
 		};
 	}
 
-	const provisionBody = oidcIssuerId
-		? ({ provider: "oidc", email, name: email, oidcIssuerId } as const)
-		: ({ provider: "credential", email, name: email } as const);
-	const { data: provisionData, error: provisionError } = await provisionUser(provisionBody);
-	if (provisionError || !provisionData.userId) {
-		throw new Error("Failed to provision user");
-	}
+	const provisioned = await provisionUser(
+		oidcIssuerId
+			? { provider: "oidc", email, name: email, oidcIssuerId }
+			: { provider: "credential", email, name: email },
+	);
 
-	const auth = await getCloudAuthDetails(provisionData.userId, email, oidcIssuerId);
+	const auth = await getCloudAuthDetails(provisioned.userId, email, oidcIssuerId);
 
 	return {
 		unkeyKeyId: null,
 		details: { auth, kind: "cloud" },
-		ryotUserId: provisionData.userId,
+		ryotUserId: provisioned.userId,
 	};
 }
 
