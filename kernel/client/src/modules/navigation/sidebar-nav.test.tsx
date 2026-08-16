@@ -75,6 +75,7 @@ const renderSidebar = (
 			sections={sections}
 			navigation={navigation}
 			activeKey="view:media-queue"
+			workspaceSwitcherOpen={false}
 			onOpenSearch={() => undefined}
 			onNavigateHome={() => undefined}
 			onNavigateItem={() => undefined}
@@ -82,6 +83,7 @@ const renderSidebar = (
 			onCustomize={customize?.onCustomize}
 			showSearchShortcut={showSearchShortcut}
 			onEditSection={customize?.onEditSection}
+			onWorkspaceSwitcherOpenChange={() => undefined}
 		/>,
 	);
 
@@ -102,6 +104,9 @@ describe("sidebar navigation", () => {
 			"page",
 		);
 		expect(screen.getByText("⌘K")).toBeTruthy();
+		expect(
+			screen.getByRole("button", { name: "Open command center" }).getAttribute("aria-keyshortcuts"),
+		).toBe("Mod+K");
 	});
 
 	it("opens search and hides the shortcut when requested", () => {
@@ -115,9 +120,11 @@ describe("sidebar navigation", () => {
 				sections={sections}
 				navigation={navigation}
 				showSearchShortcut={false}
+				workspaceSwitcherOpen={false}
 				onNavigateHome={() => undefined}
 				onNavigateItem={() => undefined}
 				onSelectWorkspace={() => undefined}
+				onWorkspaceSwitcherOpenChange={() => undefined}
 				onOpenSearch={() => {
 					opened = true;
 				}}

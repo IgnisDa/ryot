@@ -166,6 +166,7 @@ function renderHost(
 		readonly onAssets?: Parameters<typeof PluginHost>[0]["onAssets"];
 		readonly onHeader?: Parameters<typeof PluginHost>[0]["onHeader"];
 		readonly onScreenState?: Parameters<typeof PluginHost>[0]["onScreenState"];
+		readonly onKernelShortcut?: Parameters<typeof PluginHost>[0]["onKernelShortcut"];
 		readonly onInvokeOperation?: Parameters<typeof PluginHost>[0]["onInvokeOperation"];
 	} = {},
 ) {
@@ -192,6 +193,7 @@ function renderHost(
 			onRevokeArtifactSession={recorder.onRevokeArtifactSession}
 			onNavigate={(request) => navigations.push(request)}
 			onStaleSession={callbacks.onStaleSession ?? (() => undefined)}
+			onKernelShortcut={callbacks.onKernelShortcut ?? (() => undefined)}
 			onAssets={
 				callbacks.onAssets ?? (() => Promise.resolve({ outcome: "failure", reason: "transport" }))
 			}
@@ -481,6 +483,7 @@ describe("plugin artifact session lifecycle", () => {
 					onScreenState={() => undefined}
 					onStaleSession={() => undefined}
 					onNavigateBack={() => undefined}
+					onKernelShortcut={() => undefined}
 					chromeTriggerRef={{ current: null }}
 					artifactSessionScopeKey="server:user"
 					navigation={navigationFor({ location: home })}
