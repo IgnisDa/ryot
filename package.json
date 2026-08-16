@@ -29,9 +29,5 @@
 		"turbo": "2.10.12",
 		"typescript": "7.0.2"
 	},
-	"overrides": {
-		"@effect/platform-node-shared": "4.0.0-rc.116",
-		"lightningcss": "1.30.1"
-	},
 	"packageManager": "bun@1.4.0"
 }
