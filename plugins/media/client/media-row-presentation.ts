@@ -1,1 +1,1 @@
-export { mediaRowPresentation as default } from "./media-presentation";
+export { mediaRowPresentation as default } from "./media/presentation";

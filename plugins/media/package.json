@@ -14,6 +14,10 @@
 			"types": "./shared/show-recipes.ts",
 			"default": "./shared/show-recipes.ts"
 		},
+		"./shared/movie-recipes": {
+			"types": "./shared/movie-recipes.ts",
+			"default": "./shared/movie-recipes.ts"
+		},
 		"./import-sources": {
 			"types": "./host/import-sources.ts",
 			"default": "./host/import-sources.ts"

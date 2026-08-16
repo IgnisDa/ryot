@@ -90,10 +90,20 @@ it("declares the complete media-owned source", () => {
 				automaticEntityPresentations: false,
 				entry: "client/media-row-presentation.ts",
 			},
+			"movie-row": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/movie-row-presentation.ts",
+			},
 			"media-card": {
 				kind: "presentation",
 				automaticEntityPresentations: false,
 				entry: "client/media-card-presentation.ts",
+			},
+			"movie-card": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/movie-card-presentation.ts",
 			},
 			"media-home": {
 				kind: "page",
@@ -107,15 +117,31 @@ it("declares the complete media-owned source", () => {
 				entry: "client/show/screen.tsx",
 				automaticEntityPresentations: false,
 			},
+			"movie-detail": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				entry: "client/movie/screen.tsx",
+				automaticEntityPresentations: false,
+			},
 		},
 	});
 	const registrations = mediaPlugin.client.entities;
 	expect(Object.keys(registrations)).toHaveLength(mediaSavedViews().length);
+	const dedicatedRenderers: Record<string, unknown> = {
+		show: {
+			detailPage: "show-detail",
+			listPresentation: "show-row",
+			gridPresentation: "show-card",
+		},
+		movie: {
+			detailPage: "movie-detail",
+			listPresentation: "movie-row",
+			gridPresentation: "movie-card",
+		},
+	};
 	for (const [slug, registration] of Object.entries(registrations)) {
 		expect(registration).toEqual(
-			slug === "show"
-				? { detailPage: "show-detail", listPresentation: "show-row", gridPresentation: "show-card" }
-				: { listPresentation: "media-row", gridPresentation: "media-card" },
+			dedicatedRenderers[slug] ?? { listPresentation: "media-row", gridPresentation: "media-card" },
 		);
 	}
 	expect(mediaPlugin.entitySchemas.map(({ slug }) => slug)).toContain("library");

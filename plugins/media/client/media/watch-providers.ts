@@ -1,10 +1,10 @@
 import {
 	watchProviderOffers,
 	type WatchProvider,
+	type WatchProviderList,
 	type WatchProviderOffer,
 } from "../../shared/watch-provider";
-import type { MediaImageAsset } from "../media-image";
-import type { ShowSummary } from "./summary-state";
+import type { MediaImageAsset } from "./image";
 
 const OFFER_LABELS: Record<WatchProviderOffer, string> = {
 	buy: "Buy",
@@ -20,12 +20,12 @@ export type WatchProviderGroup = {
 	readonly providers: readonly WatchProvider[];
 };
 
-type ShowWatchProviders = Pick<ShowSummary, "watchProviders">;
+export type MediaWatchProviders = { readonly watchProviders: WatchProviderList };
 
-const regionAvailability = (show: ShowWatchProviders, region: string | undefined) =>
+const regionAvailability = (media: MediaWatchProviders, region: string | undefined) =>
 	region === undefined
 		? undefined
-		: (show.watchProviders ?? []).find((entry) => entry.country === region);
+		: (media.watchProviders ?? []).find((entry) => entry.country === region);
 
 export const viewerRegion = () =>
 	new Intl.Locale(Intl.DateTimeFormat().resolvedOptions().locale).region ?? undefined;
@@ -34,10 +34,10 @@ export const regionLabel = (region: string) =>
 	new Intl.DisplayNames(undefined, { type: "region" }).of(region) ?? region;
 
 export const watchProviderGroups = (
-	show: ShowWatchProviders,
+	media: MediaWatchProviders,
 	region: string | undefined,
 ): readonly WatchProviderGroup[] => {
-	const availability = regionAvailability(show, region);
+	const availability = regionAvailability(media, region);
 	if (availability === undefined) {
 		return [];
 	}
@@ -50,8 +50,8 @@ export const watchProviderGroups = (
 	});
 };
 
-export const watchProviderLink = (show: ShowWatchProviders, region: string | undefined) =>
-	regionAvailability(show, region)?.link ?? undefined;
+export const watchProviderLink = (media: MediaWatchProviders, region: string | undefined) =>
+	regionAvailability(media, region)?.link ?? undefined;
 
 export const watchProviderAsset = (provider: WatchProvider): MediaImageAsset | undefined =>
 	provider.image === null ? undefined : { type: "remote", url: provider.image };
