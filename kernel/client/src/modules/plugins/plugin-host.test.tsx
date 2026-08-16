@@ -88,7 +88,10 @@ type HostState = {
 	readonly overrides: Partial<PluginClientCatalogEntry>;
 };
 
-type PluginHostCallbacks = Pick<Parameters<typeof PluginHost>[0], "onQuery" | "onInvokeOperation">;
+type PluginHostCallbacks = Pick<
+	Parameters<typeof PluginHost>[0],
+	"onQuery" | "onStaleSession" | "onInvokeOperation"
+>;
 
 function connectFrame(frame: HTMLIFrameElement) {
 	const messages: unknown[] = [];
@@ -126,11 +129,12 @@ const renderHost = (
 	const { setMode, theme } = createTheme();
 	const host = (state: HostState) => (
 		<PluginHost
-			server={server}
 			theme={theme}
+			server={server}
 			location={state.location}
 			installation={{ ...installation, ...state.overrides }}
 			onNavigate={(request) => navigations.push(request)}
+			onStaleSession={callbacks.onStaleSession ?? (() => undefined)}
 			onQuery={
 				callbacks.onQuery ??
 				(() => Promise.resolve({ outcome: "failure", reason: "transport" } as PluginRyotQLOutcome))
@@ -318,6 +322,51 @@ describe("plugin host", () => {
 		);
 		await new Promise((resolve) => setTimeout(resolve, 10));
 		expect(invocations).toHaveLength(2);
+	});
+
+	it("closes a stale bridge and requests a catalog refresh without replying", async () => {
+		let refreshes = 0;
+		let invocations = 0;
+		renderHost({}, home, {
+			onStaleSession: () => {
+				refreshes += 1;
+			},
+			onInvokeOperation: () => {
+				invocations += 1;
+				return Promise.resolve({ outcome: "stale-session" });
+			},
+		});
+		const frame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
+		const connected = connectFrame(frame);
+		connected.pluginPort.postMessage(connected.init);
+		await waitFor(() => expect(connected.messages).toHaveLength(1));
+		connected.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
+		connected.pluginPort.postMessage({
+			input: null,
+			operationSlug: "greet",
+			type: "operation-request",
+			requestId: "stale-operation",
+		});
+
+		await waitFor(() =>
+			expect(connected.messages).toContainEqual({ reason: "disposed", type: "lifecycle-close" }),
+		);
+		expect(invocations).toBe(1);
+		expect(refreshes).toBe(1);
+		expect(connected.messages).not.toContainEqual(
+			expect.objectContaining({ requestId: "stale-operation", type: "operation-result" }),
+		);
+		expect(screen.getByRole("status").textContent).toBe("Preparing this plugin...");
+
+		connected.pluginPort.postMessage({
+			input: null,
+			operationSlug: "late",
+			type: "operation-request",
+			requestId: "late-operation",
+		});
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		expect(invocations).toBe(1);
+		expect(refreshes).toBe(1);
 	});
 
 	it("replaces a changed artifact through a fresh session lifecycle", async () => {
