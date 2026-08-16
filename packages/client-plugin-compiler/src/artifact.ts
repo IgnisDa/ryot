@@ -5,6 +5,7 @@ import {
 	CLIENT_ARTIFACT_ROOT_ELEMENT_ID,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
+	pluginClientAssetMimeType,
 	type PluginClientArtifactFile,
 	type PluginClientArtifactMetadata,
 } from "@ryot/contract/modules/plugins/client";
@@ -15,24 +16,39 @@ export const CLIENT_ARTIFACT_SCRIPT_NAME = "plugin.js";
 export const CLIENT_ARTIFACT_STYLE_NAME = "plugin.css";
 export const CLIENT_ARTIFACT_DOCUMENT_NAME = "index.html";
 
-const CONTENT_TYPES: Readonly<Record<string, string>> = {
-	svg: "image/svg+xml",
+const GENERATED_CONTENT_TYPES: Readonly<Record<string, string>> = {
 	css: "text/css; charset=utf-8",
 	html: "text/html; charset=utf-8",
 	js: "text/javascript; charset=utf-8",
 };
 
-export const clientArtifactContentType = (name: string) =>
-	CONTENT_TYPES[name.slice(name.lastIndexOf(".") + 1)] ?? "application/octet-stream";
+const encoder = new TextEncoder();
 
-export const clientAssetName = (path: string, contents: string) =>
+export const clientAssetName = (path: string, contents: Uint8Array) =>
 	`asset-${sha256Hex(contents)}.${path.slice(path.lastIndexOf(".") + 1)}`;
 
-export const clientArtifactFile = (name: string, contents: string): PluginClientArtifactFile => ({
-	name,
-	contents,
-	contentType: clientArtifactContentType(name),
-});
+export const clientGeneratedArtifactFile = (
+	name: string,
+	contents: string,
+): PluginClientArtifactFile => {
+	const contentType = GENERATED_CONTENT_TYPES[name.slice(name.lastIndexOf(".") + 1)];
+	if (contentType === undefined) {
+		throw new Error(`Unknown generated client artifact type for "${name}"`);
+	}
+	return { name, contentType, contents: encoder.encode(contents) };
+};
+
+export const clientAssetArtifactFile = (
+	path: string,
+	name: string,
+	contents: Uint8Array,
+): PluginClientArtifactFile => {
+	const contentType = pluginClientAssetMimeType(path);
+	if (contentType === undefined) {
+		throw new Error(`Unknown client asset type for "${path}"`);
+	}
+	return { name, contents, contentType };
+};
 
 export const clientArtifactMetadata = (
 	files: readonly PluginClientArtifactFile[],
@@ -43,7 +59,22 @@ export const clientArtifactMetadata = (
 		compilerVersion: CLIENT_COMPILER_VERSION,
 		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 	};
-	return { ...identity, hash: sha256Hex(stableStringify({ files, metadata: identity })) };
+	const fileIdentity = files
+		.map(({ name, contents, contentType }) => ({
+			name,
+			contentType,
+			sha256: sha256Hex(contents),
+		}))
+		.sort((left, right) => {
+			if (left.name < right.name) {
+				return -1;
+			}
+			return left.name > right.name ? 1 : 0;
+		});
+	return {
+		...identity,
+		hash: sha256Hex(stableStringify({ files: fileIdentity, metadata: identity })),
+	};
 };
 
 export const clientArtifactDocument = (metadata: PluginClientArtifactMetadata) => `<!doctype html>

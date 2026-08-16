@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 
 import type { ContractPayload } from "@ryot/contract/client";
-import type { PluginPackage } from "@ryot/contract/modules/plugins/schemas";
+import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { PluginSlug } from "@ryot/contract/schema/brands";
+import type { PluginArchivePackage } from "@ryot/plugin-archive";
 import { Effect } from "effect";
 
 import type { Client } from "./auth";
@@ -19,13 +20,14 @@ export { uploadPrivatePluginPackage };
 
 type InstallPluginPayload = ContractPayload<"plugins", "install">;
 type UpdatePluginPayload = ContractPayload<"plugins", "update">;
-type PrivatePluginManifest = PluginPackage["manifest"];
+type PrivatePluginManifest = PluginManifest;
+const encoder = new TextEncoder();
 
 export type PrivatePluginPackage = {
 	readonly operationSlug: string;
 	readonly pluginSlug: PluginSlug;
 	readonly manifest: PrivatePluginManifest;
-	readonly files: PluginPackage["files"];
+	readonly files: PluginArchivePackage["files"];
 };
 
 type PrivatePluginPackageInput = {
@@ -101,8 +103,8 @@ export const privatePluginPackage = (
 	return {
 		manifest,
 		operationSlug,
-		files: { [entry]: source },
 		pluginSlug: PluginSlug.make(pluginSlug),
+		files: { [entry]: encoder.encode(source) },
 	};
 };
 
@@ -122,8 +124,8 @@ export const settledPrivateInstallation = (client: Client, pluginSlug: PluginSlu
 export const installPrivatePluginPackage = (input: {
 	readonly client: Client;
 	readonly baseUrl?: string;
+	readonly pluginPackage: PluginArchivePackage;
 	readonly config: InstallPluginPayload["config"];
-	readonly pluginPackage: PluginPackage;
 }) =>
 	Effect.gen(function* () {
 		const uploadToken = yield* uploadPrivatePluginPackage(
@@ -160,7 +162,7 @@ export type PrivateBootstrapPluginPackage = {
 	readonly operationSlug: string;
 	readonly pluginSlug: PluginSlug;
 	readonly manifest: PrivatePluginManifest;
-	readonly files: PluginPackage["files"];
+	readonly files: PluginArchivePackage["files"];
 };
 
 export const privateBootstrapPluginPackage = (): PrivateBootstrapPluginPackage => {
@@ -212,8 +214,8 @@ export const privateBootstrapPluginPackage = (): PrivateBootstrapPluginPackage =
 		bootstrapSlug,
 		pluginSlug: PluginSlug.make(pluginSlug),
 		files: {
-			[bootstrapEntry]: bootstrapSource,
-			[operationEntry]: operationSandboxSource({ name, slug: operationScriptSlug }),
+			[bootstrapEntry]: encoder.encode(bootstrapSource),
+			[operationEntry]: encoder.encode(operationSandboxSource({ name, slug: operationScriptSlug })),
 		},
 	};
 };
@@ -239,7 +241,7 @@ export const updatePrivatePlugin = (input: {
 	readonly client: Client;
 	readonly baseUrl?: string;
 	readonly pluginSlug: PluginSlug;
-	readonly payload: Omit<UpdatePluginPayload, "uploadToken"> & PluginPackage;
+	readonly payload: Omit<UpdatePluginPayload, "uploadToken"> & PluginArchivePackage;
 }) =>
 	Effect.gen(function* () {
 		const { files, manifest, ...payload } = input.payload;
@@ -325,7 +327,7 @@ export type PrivateImportPluginPackage = {
 	readonly sourceSlug: string;
 	readonly pluginSlug: PluginSlug;
 	readonly manifest: PrivatePluginManifest;
-	readonly files: PluginPackage["files"];
+	readonly files: PluginArchivePackage["files"];
 };
 
 export type PrivateIntegrationPluginPackage = {
@@ -333,7 +335,7 @@ export type PrivateIntegrationPluginPackage = {
 	readonly operationSlug: string;
 	readonly pluginSlug: PluginSlug;
 	readonly manifest: PrivatePluginManifest;
-	readonly files: PluginPackage["files"];
+	readonly files: PluginArchivePackage["files"];
 };
 
 export const privateIntegrationSettingsSchema: PrivatePluginManifest["integrationProviders"][number]["settingsSchema"] =
@@ -383,7 +385,7 @@ export const privateImportPluginPackage = (
 		manifest,
 		sourceSlug,
 		pluginSlug: PluginSlug.make(pluginSlug),
-		files: { [entry]: privateImportWorkflowSource(scriptSlug) },
+		files: { [entry]: encoder.encode(privateImportWorkflowSource(scriptSlug)) },
 	};
 };
 
@@ -433,7 +435,7 @@ export const privateIntegrationPluginPackage = (
 		providerSlug,
 		operationSlug,
 		pluginSlug: PluginSlug.make(pluginSlug),
-		files: { [entry]: privateIntegrationOperationSource(scriptSlug) },
+		files: { [entry]: encoder.encode(privateIntegrationOperationSource(scriptSlug)) },
 	};
 };
 

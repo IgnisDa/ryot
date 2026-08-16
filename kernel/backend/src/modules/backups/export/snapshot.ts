@@ -4,7 +4,7 @@ import type { AssetLocator, ManagedAssetLocator } from "@ryot/contract/modules/u
 import { EntityId, EventId, type UserId } from "@ryot/contract/schema/brands";
 import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
 import { isEqual } from "@ryot/ts-utils/lodash";
-import { Context, Effect, FileSystem, Layer } from "effect";
+import { Context, Effect, Encoding, FileSystem, Layer } from "effect";
 
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { AuthRepository } from "#modules/auth/repository";
@@ -145,6 +145,13 @@ export const collectManagedAssetLocators = (
 
 const archivePluginKey = (scope: "system" | "user", slug: string, sourceHash: string) =>
 	`${scope}:${slug}:${sourceHash}`;
+
+const comparePaths = (left: string, right: string) => {
+	if (left < right) {
+		return -1;
+	}
+	return left > right ? 1 : 0;
+};
 
 export const requirePluginKey = Effect.fn("BackupExportSnapshot.requirePluginKey")(function* (
 	pluginKeyById: ReadonlyMap<string, string>,
@@ -616,10 +623,15 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					profile: { ...profile, preferences: decodeV2JsonObject(profile.preferences) },
 					privatePlugins: yield* Effect.forEach(privatePlugins, (plugin) =>
 						Effect.gen(function* () {
+							const sourceFiles = yield* plugins.listSourceFiles(plugin.id);
 							return {
 								key: yield* requirePluginKey(pluginKeyById, plugin.id),
 								slug: plugin.slug,
-								files: plugin.sourceFiles,
+								files: Object.fromEntries(
+									Object.entries(sourceFiles)
+										.sort(([left], [right]) => comparePaths(left, right))
+										.map(([path, contents]) => [path, Encoding.encodeBase64(contents)]),
+								),
 								manifest: plugin.manifest,
 								sourceHash: plugin.sourceHash,
 								version: plugin.manifest.metadata.version,

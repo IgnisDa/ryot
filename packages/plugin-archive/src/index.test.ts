@@ -1,21 +1,20 @@
-import type { PluginPackage } from "@ryot/contract/modules/plugins/schemas";
 import { Effect } from "effect";
 import { unzipSync, Zip, zipSync, ZipDeflate } from "fflate";
 import { describe, expect, it } from "vitest";
 
-import type { PluginArchiveErrorReason } from "./index";
+import type { PluginArchiveErrorReason, PluginArchivePackage } from "./index";
 import { PLUGIN_ARCHIVE_LIMITS, readPluginArchive, writePluginArchive } from "./index";
 
 const encoder = new TextEncoder();
 
 const fixture = {
 	files: {
-		"backend/z.ts": "export const z = 'z';\n",
-		"backend/a.ts": "export const a = 'a';\n",
-		"client/a.ts": "export const a = 'a';\n",
-		"client/b.tsx": "export const b = 'b';\n",
-		"client/c.css": ".fixture { color: red; }\n",
-		"client/d.svg": "<svg />\n",
+		"backend/z.ts": encoder.encode("export const z = 'z';\n"),
+		"backend/a.ts": encoder.encode("export const a = 'a';\n"),
+		"client/a.ts": encoder.encode("export const a = 'a';\n"),
+		"client/b.tsx": encoder.encode("export const b = 'b';\n"),
+		"client/c.css": encoder.encode(".fixture { color: red; }\n"),
+		"client/d.svg": new Uint8Array([0xff, 0x00, 0x7f]),
 	},
 	manifest: {
 		boot: [],
@@ -48,13 +47,19 @@ const fixture = {
 			providerEntityImportAutomations: [],
 		},
 	},
-} satisfies PluginPackage;
+} satisfies PluginArchivePackage;
 
 const rawManifest = encoder.encode(`${JSON.stringify(fixture.manifest, null, "\t")}\n`);
 
 const writeArchiveInTimezone = (timezone: string) => {
 	const entry = new URL("./index.ts", import.meta.url).href;
-	const script = `import { writePluginArchive } from ${JSON.stringify(entry)}; process.stdout.write(writePluginArchive(${JSON.stringify(fixture)}));`;
+	const serialized = JSON.stringify({
+		manifest: fixture.manifest,
+		files: Object.fromEntries(
+			Object.entries(fixture.files).map(([path, bytes]) => [path, [...bytes]]),
+		),
+	});
+	const script = `import { writePluginArchive } from ${JSON.stringify(entry)}; const value = ${serialized}; process.stdout.write(writePluginArchive({ manifest: value.manifest, files: Object.fromEntries(Object.entries(value.files).map(([path, bytes]) => [path, new Uint8Array(bytes)])) }));`;
 	const result = Bun.spawnSync([process.execPath, "--eval", script], {
 		stderr: "pipe",
 		stdout: "pipe",
@@ -145,7 +150,11 @@ describe("plugin archive", () => {
 	it("orders paths by code units", () => {
 		const bytes = writePluginArchive({
 			manifest: fixture.manifest,
-			files: { "backend/a.ts": "", "backend/B.ts": "", "backend/_x.ts": "" },
+			files: {
+				"backend/a.ts": new Uint8Array(0),
+				"backend/B.ts": new Uint8Array(0),
+				"backend/_x.ts": new Uint8Array(0),
+			},
 		});
 		expect(Object.keys(unzipSync(bytes))).toEqual([
 			"manifest.json",
@@ -155,15 +164,19 @@ describe("plugin archive", () => {
 		]);
 	});
 
-	it("round trips backend and client sources from an async byte stream", async () => {
-		const bytes = writePluginArchive(fixture);
+	it("round trips exact backend, client text, and invalid UTF-8 asset bytes", async () => {
+		const pluginBytes = writePluginArchive(fixture);
 		async function* chunks() {
 			await Promise.resolve();
-			for (let offset = 0; offset < bytes.byteLength; offset += 7) {
-				yield bytes.subarray(offset, offset + 7);
+			for (let offset = 0; offset < pluginBytes.byteLength; offset += 7) {
+				yield pluginBytes.subarray(offset, offset + 7);
 			}
 		}
-		expect(await Effect.runPromise(readPluginArchive(chunks()))).toEqual(fixture);
+		const result = await Effect.runPromise(readPluginArchive(chunks()));
+		expect(result.manifest).toEqual(fixture.manifest);
+		for (const [path, bytes] of Object.entries(fixture.files)) {
+			expect(result.files[path]).toEqual(bytes);
+		}
 	});
 
 	it("rejects the compressed byte limit", () =>
@@ -248,6 +261,13 @@ describe("plugin archive", () => {
 			[
 				["manifest.json", rawManifest],
 				["backend/a.ts", new Uint8Array([0xff])],
+			],
+		],
+		[
+			"source-non-utf8",
+			[
+				["manifest.json", rawManifest],
+				["client/a.css", new Uint8Array([0xff])],
 			],
 		],
 	] as const)("rejects %s", (reason, entries) => expectReason(archive(entries), reason));
