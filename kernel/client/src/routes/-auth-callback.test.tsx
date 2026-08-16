@@ -15,6 +15,7 @@ import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
 	ServerStub,
+	SavedViewRouteStubs,
 	catalog,
 	makeAuthStub,
 	makeOAuthRouteStubs,
@@ -65,6 +66,7 @@ const mountCallback = (
 		Layer.mergeAll(
 			makeAuthStub(),
 			ServerStub,
+			SavedViewRouteStubs,
 			makePublicApiStub(),
 			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(catalog) }),
 			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
