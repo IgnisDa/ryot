@@ -32,6 +32,7 @@ const init: PluginBridgeInit = {
 	mode: "light",
 	safeAreaTop: 0,
 	safeAreaBottom: 0,
+	documentKey: "page-1",
 	format: metadata.format,
 	sessionId: "session-id",
 	artifactHash: metadata.hash,
@@ -82,6 +83,7 @@ const openRuntime = () => {
 	channels.push(channel);
 	const attributes = new Map<string, string>();
 	const root = { setAttribute: (name: string, value: string) => attributes.set(name, value) };
+	const navigationStore = createPluginNavigationStore(routeResolver);
 	return {
 		channel,
 		messages,
@@ -91,7 +93,10 @@ const openRuntime = () => {
 			init,
 			metadata,
 			root,
-			createPluginNavigationStore(routeResolver),
+			navigationStore,
+			undefined,
+			undefined,
+			() => navigationStore.replaceDocument(routeResolver),
 		),
 	};
 };
@@ -134,6 +139,45 @@ afterEach(() => {
 });
 
 describe("plugin runtime", () => {
+	it("clears page shortcuts, overlays, entity interests and header on document replacement", async () => {
+		const { channel, runtime, messages } = openRuntime();
+		activate(channel);
+		await delay();
+		runtime.navigation.registerShortcut("A", () => {});
+		runtime.client.overlayBack.register(() => true);
+		runtime.client.entities.watch({ foreground: [], visible: ["old-entity"] }, () => {});
+		runtime.navigation.publishTitle("Old page");
+		await delay();
+		channel.port1.postMessage({
+			type: "document",
+			documentKey: "page-2",
+			navigation: {
+				index: 1,
+				key: "k1",
+				compact: false,
+				edgeBack: false,
+				leading: "none",
+				type: "location",
+				location: routeLocation("/new"),
+			},
+		});
+		await delay();
+		expect(messages).toContainEqual({ shortcuts: [], type: "page-shortcuts" });
+		expect(messages).toContainEqual({ count: 0, type: "overlay-state" });
+		expect(messages).toContainEqual({ visible: [], foreground: [], type: "entity-interest" });
+		expect(headersIn(messages)).toContainEqual({
+			index: 0,
+			key: "k0",
+			header: null,
+			type: "header",
+		});
+		expect(screenStatesIn(messages).at(-1)).toEqual({
+			index: 1,
+			key: "k1",
+			type: "screen-state",
+			hasPreviousScreen: false,
+		});
+	});
 	it("advertises document overlays and acknowledges LIFO dismissal requests", async () => {
 		const { channel, runtime, messages } = openRuntime();
 		activate(channel);
@@ -545,7 +589,7 @@ describe("plugin runtime", () => {
 		});
 		runtime.client.navigation.replace({ path: "/", kind: "plugin-route", pluginSlug: "fixture" });
 		runtime.client.navigation.push({ kind: "entity", entityId: "entity-1" });
-		runtime.client.navigation.push({ kind: "saved-view", savedViewId: "view-1" });
+		runtime.client.navigation.push({ slug: "view-1", kind: "saved-view" });
 		await delay();
 
 		expect(messages).toContainEqual({
@@ -566,7 +610,7 @@ describe("plugin runtime", () => {
 		expect(messages).toContainEqual({
 			mode: "push",
 			type: "navigate",
-			target: { kind: "saved-view", savedViewId: "view-1" },
+			target: { slug: "view-1", kind: "saved-view" },
 		});
 	});
 

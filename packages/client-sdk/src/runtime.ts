@@ -8,6 +8,8 @@ import {
 	type PluginBridgeDismissOverlayResult,
 	type PluginBridgeHeader,
 	type PluginBridgeInit,
+	type PluginBridgeLocation,
+	type ClientPageContext,
 	type KernelShortcut,
 	type PluginBridgeKernelShortcut,
 	type PluginBridgeNavigate,
@@ -29,12 +31,7 @@ import {
 } from "@ryot-app/client-plugin-contract";
 import { MAX_INTEREST_ENTITY_IDS } from "@ryot-app/contract/modules/entity-interest/messages";
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
-import {
-	EntityId,
-	EntitySchemaSlug,
-	PluginSlug,
-	SavedViewId,
-} from "@ryot-app/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, PluginSlug } from "@ryot-app/contract/schema/brands";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Match, Result, Schema } from "effect";
 
@@ -83,8 +80,8 @@ export const createPluginRuntime = (
 	navigationStore: PluginNavigationController,
 	onActive?: () => void,
 	onTerminal?: () => void,
+	onDocument?: (documentKey: string, page: ClientPageContext | undefined) => void,
 ) => {
-	const page = init.page;
 	let hasLocation = false;
 	let theme: PluginThemeSnapshot = { resolvedMode: init.mode };
 	let nextRequestId = 0;
@@ -193,6 +190,17 @@ export const createPluginRuntime = (
 			pending.cleanup?.();
 			pending.reject(new RyotClientError(reason));
 		}
+	};
+	const resetDocument = () => {
+		rejectPending("disposed");
+		pageShortcuts.clear();
+		publishPageShortcuts();
+		dismissOverlay = noOverlayToDismiss;
+		overlayCount = 0;
+		post({ count: 0, type: "overlay-state" } satisfies PluginBridgeOverlayState);
+		interestOwners.clear();
+		publishInterest();
+		navigation.publishTitle(null);
 	};
 
 	const finish = (next: "failed" | "disposed", reason: RyotClientErrorReason, notify: boolean) => {
@@ -389,10 +397,7 @@ export const createPluginRuntime = (
 				kind: "entity" as const,
 				entityId: EntityId.make(entityId),
 			})),
-			Match.when({ kind: "saved-view" }, ({ savedViewId }) => ({
-				kind: "saved-view" as const,
-				savedViewId: SavedViewId.make(savedViewId),
-			})),
+			Match.when({ kind: "saved-view" }, ({ slug }) => ({ slug, kind: "saved-view" as const })),
 			Match.exhaustive,
 		);
 		if (!post({ mode, target, type: "navigate" } satisfies PluginBridgeNavigate)) {
@@ -487,6 +492,51 @@ export const createPluginRuntime = (
 			post({ shortcut, type: "kernel-shortcut" } satisfies PluginBridgeKernelShortcut);
 		}
 	};
+	const acceptLocation = ({
+		key,
+		index,
+		compact,
+		leading,
+		edgeBack,
+		location,
+	}: Omit<PluginBridgeLocation, "type">) => {
+		let accepted: PluginNavigationSnapshot;
+		try {
+			accepted = navigationStore.setLocation({
+				leading,
+				compact,
+				edgeBack,
+				entry: { key, index, location },
+			});
+		} catch {
+			finish("failed", "protocol", true);
+			return;
+		}
+		if (state !== "ready" && state !== "active") {
+			return;
+		}
+		const acceptedEntry = accepted.entry;
+		if (acceptedEntry === undefined) {
+			finish("failed", "protocol", true);
+			return;
+		}
+		if (
+			!post({
+				type: "screen-state",
+				key: acceptedEntry.key,
+				index: acceptedEntry.index,
+				hasPreviousScreen: accepted.screens.length > 1,
+			} satisfies PluginBridgeScreenState)
+		) {
+			return;
+		}
+		const activating = state === "ready";
+		hasLocation = true;
+		activate();
+		if (activating && overlayCount > 0) {
+			post({ count: overlayCount, type: "overlay-state" } satisfies PluginBridgeOverlayState);
+		}
+	};
 
 	port.addEventListener(
 		"message",
@@ -500,6 +550,11 @@ export const createPluginRuntime = (
 				return;
 			}
 			Match.value(decoded.success).pipe(
+				Match.when({ type: "document" }, ({ page, documentKey, navigation: nextNavigation }) => {
+					resetDocument();
+					onDocument?.(documentKey, page);
+					acceptLocation(nextNavigation);
+				}),
 				Match.when({ type: "dismiss-overlay" }, ({ requestId }) => {
 					let dismissed = false;
 					try {
@@ -524,44 +579,7 @@ export const createPluginRuntime = (
 						}
 					}
 				}),
-				Match.when({ type: "location" }, ({ key, index, compact, leading, edgeBack, location }) => {
-					let accepted: PluginNavigationSnapshot;
-					try {
-						accepted = navigationStore.setLocation({
-							leading,
-							compact,
-							edgeBack,
-							entry: { key, index, location },
-						});
-					} catch {
-						finish("failed", "protocol", true);
-						return;
-					}
-					if (state !== "ready" && state !== "active") {
-						return;
-					}
-					const acceptedEntry = accepted.entry;
-					if (acceptedEntry === undefined) {
-						finish("failed", "protocol", true);
-						return;
-					}
-					if (
-						!post({
-							type: "screen-state",
-							key: acceptedEntry.key,
-							index: acceptedEntry.index,
-							hasPreviousScreen: accepted.screens.length > 1,
-						} satisfies PluginBridgeScreenState)
-					) {
-						return;
-					}
-					const activating = state === "ready";
-					hasLocation = true;
-					activate();
-					if (activating && overlayCount > 0) {
-						post({ count: overlayCount, type: "overlay-state" } satisfies PluginBridgeOverlayState);
-					}
-				}),
+				Match.when({ type: "location" }, (location) => acceptLocation(location)),
 				Match.when({ type: "viewport" }, ({ safeAreaTop, safeAreaBottom }) =>
 					navigationStore.setViewport({ safeAreaTop, safeAreaBottom }),
 				),
@@ -671,10 +689,10 @@ export const createPluginRuntime = (
 	}
 
 	return {
-		page,
 		fatal,
 		client,
 		navigation,
+		page: init.page,
 		forwardKernelShortcut,
 		dispose: () => finish("disposed", "disposed", true),
 	};
