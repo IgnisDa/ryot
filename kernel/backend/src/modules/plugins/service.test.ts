@@ -10,6 +10,7 @@ import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { databaseLayer, makeRedisService, type MockOverrides } from "#lib/test-utils/effect";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
+import { ClientPluginCompiler } from "#modules/sandbox/client-compiler";
 import {
 	SandboxWorkflowReferenceRegistrationError,
 	SandboxWorkflowReferenceRepository,
@@ -43,22 +44,24 @@ const makeStoredPlugin = (manifest: PluginManifest, sourceHash: string): StoredP
 		manifest,
 		sourceHash,
 		ownerId: null,
+		scope: "system",
 		sourceFiles: {},
 		status: "active",
-		scope: "system",
+		clientArtifact: null,
+		clientArtifactHash: null,
 		slug: manifest.metadata.slug,
 		id: `${manifest.metadata.slug}-plugin-id`,
 		scripts: manifest.scripts.map((script) => {
 			const { entry, ...metadata } = script;
 			return {
 				entry,
+				metadata,
 				slug: script.slug,
 				name: script.name,
 				compiledFormat: 1,
 				source: "cached source",
 				compiledCode: "cached compiled",
 				contentHash: `cached-hash-${script.slug}`,
-				metadata,
 			};
 		}),
 	};
@@ -280,6 +283,7 @@ const makeLayer = (input?: {
 					})),
 		}),
 	);
+	const clientCompilerLayer = Layer.mock(ClientPluginCompiler)({});
 	const ingestionLayer = PluginIngestionService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
@@ -290,6 +294,7 @@ const makeLayer = (input?: {
 				garbageCollectorLayer,
 				systemPluginsLayer,
 				workflowReferenceLayer,
+				clientCompilerLayer,
 			),
 		),
 	);
@@ -309,8 +314,10 @@ it.effect("validates, compiles, content-addresses, persists, loads, and publishe
 		expect(plugin.scripts[0]?.contentHash).toMatch(/^[a-f0-9]{64}$/);
 		expect(persisted).toEqual([
 			{
-				manifest: plugin.manifest,
+				clientArtifact: null,
 				scripts: plugin.scripts,
+				clientArtifactHash: null,
+				manifest: plugin.manifest,
 				sourceHash: plugin.sourceHash,
 				sourceFiles: plugin.sourceFiles,
 			},
@@ -396,8 +403,10 @@ it.effect("returns a committed install when Redis publication fails", () => {
 
 		expect(persisted).toEqual([
 			{
-				manifest: plugin.manifest,
+				clientArtifact: null,
 				scripts: plugin.scripts,
+				clientArtifactHash: null,
+				manifest: plugin.manifest,
 				sourceHash: plugin.sourceHash,
 				sourceFiles: plugin.sourceFiles,
 			},
@@ -454,8 +463,10 @@ it.effect("accepts user bootstrap declarations through explicit system ingestion
 		]);
 		expect(persisted).toEqual([
 			{
-				manifest: plugin.manifest,
+				clientArtifact: null,
 				scripts: plugin.scripts,
+				clientArtifactHash: null,
+				manifest: plugin.manifest,
 				sourceHash: plugin.sourceHash,
 				sourceFiles: plugin.sourceFiles,
 			},

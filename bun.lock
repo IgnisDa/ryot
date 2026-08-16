@@ -152,6 +152,7 @@
         "@effect/sql-pg": "4.0.0-beta.107",
         "@opentelemetry/api": "1.9.1",
         "@react-email/components": "1.0.7",
+        "@ryot/client-plugin-compiler": "workspace:*",
         "@ryot/config": "workspace:*",
         "@ryot/contract": "workspace:*",
         "@ryot/plugin-archive": "workspace:*",
