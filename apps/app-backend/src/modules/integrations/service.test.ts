@@ -1,9 +1,15 @@
 import { describe, expect, it } from "@effect/vitest";
-import { integrationCommonPropertyNames } from "@ryot/contract/modules/integrations/schemas";
+import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import {
+	IntegrationRequestError,
+	integrationCommonPropertyNames,
+} from "@ryot/contract/modules/integrations/schemas";
 import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
+import { ProKeyService } from "#lib/infrastructure/pro-key";
+import { assertExitFails } from "#lib/test-utils/assertions";
 import { databaseLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { ImportsService } from "#modules/imports/service";
 import {
@@ -18,6 +24,17 @@ import {
 	validateProgressThresholds,
 } from "./service";
 import { makeIntegration } from "./test-support";
+
+const user: CurrentUserValue = {
+	image: null,
+	name: "Test User",
+	email: "user@example.com",
+	id: UserId.make("user-id"),
+	preferences: { allowNsfw: false, language: null, disableIntegrations: false },
+};
+
+const mockProKey = (isValidated: boolean) =>
+	Layer.mock(ProKeyService)({ isValidated: Effect.succeed(isValidated) });
 
 describe("validateProgressThresholds", () => {
 	it("returns null for valid thresholds", () => {
@@ -119,6 +136,7 @@ describe("client endpoints", () => {
 					Layer.mergeAll(
 						databaseLayer,
 						providerCatalog,
+						mockProKey(false),
 						Layer.mock(ImportsService, {}),
 						Layer.mock(IntegrationsRepository, {}),
 						Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
@@ -133,6 +151,11 @@ describe("client endpoints", () => {
 					["komga", true],
 					["kodi", false],
 					["radarr", true],
+				]);
+				expect(providers.map(({ requiresProKey }) => requiresProKey)).toEqual([
+					false,
+					false,
+					false,
 				]);
 				expect(providers[0]?.commonSchema.fields).toMatchObject({
 					name: { type: "string" },
@@ -177,6 +200,7 @@ describe("client endpoints", () => {
 			Layer.provideMerge(
 				Layer.mergeAll(
 					databaseLayer,
+					mockProKey(false),
 					Layer.mock(ImportsService, {}),
 					Layer.mock(IntegrationsRepository, {
 						getForUser: () => Effect.succeed(integration),
@@ -204,6 +228,48 @@ describe("client endpoints", () => {
 			});
 		}).pipe(Effect.provide(layer));
 	});
+
+	it.effect.each([
+		{ isValidated: true, expected: true },
+		{ isValidated: false, expected: false },
+	])(
+		"marks a requiresProKey provider creatable only when the pro key is validated ($isValidated)",
+		({ isValidated, expected }) => {
+			const proGatedPush = {
+				lot: "push",
+				slug: "pro-push",
+				name: "Pro push",
+				scriptSlug: null,
+				pluginSlug: "media",
+				requiresProKey: true,
+				settingsSchema: { fields: {} },
+				description: "Pro-gated push provider",
+			} satisfies RegisteredIntegrationProvider;
+			const layer = IntegrationsService.layer.pipe(
+				Layer.provideMerge(
+					Layer.mergeAll(
+						databaseLayer,
+						mockProKey(isValidated),
+						Layer.mock(ImportsService, {}),
+						Layer.mock(IntegrationsRepository, {}),
+						Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
+						Layer.mock(IntegrationProviderCatalog, {
+							find: () => null,
+							findOwned: () => null,
+							list: () => [proGatedPush],
+							resolveOwned: () => null,
+						}),
+					),
+				),
+			);
+
+			return Effect.gen(function* () {
+				const providers = yield* (yield* IntegrationsService).listIntegrationProviders();
+
+				expect(providers).toMatchObject([{ requiresProKey: true, isCreatable: expected }]);
+			}).pipe(Effect.provide(layer));
+		},
+	);
 });
 
 describe("update", () => {
@@ -271,6 +337,7 @@ describe("update", () => {
 					databaseLayer,
 					repository,
 					providerCatalog,
+					mockProKey(true),
 					Layer.mock(ImportsService, {}),
 					Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 				),
@@ -330,6 +397,7 @@ describe("update", () => {
 					databaseLayer,
 					repository,
 					providerCatalog,
+					mockProKey(true),
 					Layer.mock(ImportsService, {}),
 					Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 				),
@@ -348,6 +416,107 @@ describe("update", () => {
 				reason: { code: "provider-not-found", provider: "shared-provider" },
 			});
 			expect(updated).toBe(false);
+		}).pipe(Effect.provide(layer));
+	});
+
+	it.effect(
+		"fails with pro-key-required when the existing provider requires an unvalidated key",
+		() => {
+			const registered = {
+				lot: "sink",
+				name: "Pro sink",
+				slug: "pro-sink",
+				pluginSlug: "media",
+				requiresProKey: true,
+				settingsSchema: { fields: {} },
+				scriptSlug: "integration.pro-sink",
+				description: "Pro-gated sink provider",
+			} satisfies RegisteredIntegrationProvider;
+			const existing = makeIntegration({ lot: "sink", pluginSlug: "media", provider: "pro-sink" });
+			const repository = Layer.mock(IntegrationsRepository)({
+				getForUser: () => Effect.succeed(existing),
+				updateForUser: () => Effect.die("update should not be reached"),
+			});
+			const providerCatalog = Layer.mock(IntegrationProviderCatalog)({
+				find: () => registered,
+				list: () => [registered],
+				findOwned: () => registered,
+				resolveOwned: () => ({ provider: registered, script: Effect.succeed(null) }),
+			});
+			const layer = IntegrationsService.layer.pipe(
+				Layer.provideMerge(
+					Layer.mergeAll(
+						databaseLayer,
+						repository,
+						providerCatalog,
+						mockProKey(false),
+						Layer.mock(ImportsService, {}),
+						Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
+					),
+				),
+			);
+
+			return Effect.gen(function* () {
+				const service = yield* IntegrationsService;
+				const exit = yield* Effect.exit(
+					service.update(existing.userId, existing.id, { isDisabled: true }),
+				);
+
+				assertExitFails(
+					exit,
+					new IntegrationRequestError({
+						reason: { code: "pro-key-required", provider: "pro-sink" },
+					}),
+				);
+			}).pipe(Effect.provide(layer));
+		},
+	);
+});
+
+describe("create", () => {
+	it.effect("fails with pro-key-required when the provider requires an unvalidated key", () => {
+		const registered = {
+			lot: "sink",
+			name: "Pro sink",
+			slug: "pro-sink",
+			pluginSlug: "media",
+			requiresProKey: true,
+			settingsSchema: { fields: {} },
+			scriptSlug: "integration.pro-sink",
+			description: "Pro-gated sink provider",
+		} satisfies RegisteredIntegrationProvider;
+		const providerCatalog = Layer.mock(IntegrationProviderCatalog)({
+			find: () => registered,
+			list: () => [registered],
+			findOwned: () => registered,
+			resolveOwned: () => ({ provider: registered, script: Effect.succeed(null) }),
+		});
+		const repository = Layer.mock(IntegrationsRepository)({
+			createForUser: () => Effect.die("create should not be reached"),
+		});
+		const layer = IntegrationsService.layer.pipe(
+			Layer.provideMerge(
+				Layer.mergeAll(
+					databaseLayer,
+					repository,
+					providerCatalog,
+					mockProKey(false),
+					Layer.mock(ImportsService, {}),
+					Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
+				),
+			),
+		);
+
+		return Effect.gen(function* () {
+			const service = yield* IntegrationsService;
+			const exit = yield* Effect.exit(
+				service.create(user, { provider: "pro-sink", providerSpecifics: {} }),
+			);
+
+			assertExitFails(
+				exit,
+				new IntegrationRequestError({ reason: { code: "pro-key-required", provider: "pro-sink" } }),
+			);
 		}).pipe(Effect.provide(layer));
 	});
 });
@@ -375,6 +544,7 @@ describe("syncAll", () => {
 			Layer.provideMerge(
 				Layer.mergeAll(
 					databaseLayer,
+					mockProKey(false),
 					Layer.mock(ImportsService, {}),
 					Layer.mock(IntegrationsRepository, {}),
 					Layer.mock(IntegrationProviderCatalog, {

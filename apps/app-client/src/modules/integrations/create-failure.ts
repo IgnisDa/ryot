@@ -8,6 +8,8 @@ import { Match } from "effect";
 import { requestFailureError } from "@/api/request-failure";
 import type { WizardStep } from "@/modules/ui/wizard/wizard-state";
 
+import { PRO_REQUIRED_INTEGRATION_MESSAGE } from "./provider-selection";
+
 export type IntegrationSaveFailure = {
 	readonly detail: string;
 	readonly step: WizardStep | undefined;
@@ -30,6 +32,10 @@ const presentReason = (reason: IntegrationRequestFailureReason): IntegrationSave
 		Match.when({ code: "progress-out-of-range" }, () => ({
 			step: "configure" as const,
 			detail: "Progress values must be between 0 and 100.",
+		})),
+		Match.when({ code: "pro-key-required" }, () => ({
+			step: "pick" as const,
+			detail: PRO_REQUIRED_INTEGRATION_MESSAGE,
 		})),
 		Match.when({ code: "provider-not-found" }, () => ({
 			step: "pick" as const,

@@ -38,6 +38,7 @@
         "@ryot/sandbox-sdk": "workspace:*",
         "@ryot/transactional": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
+        "@unkey/api": "2.3.5",
         "better-auth": "1.7.0-rc.6",
         "drizzle-orm": "1.0.0-rc.5-169397b",
         "effect": "4.0.0-rc.111",

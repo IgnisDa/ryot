@@ -1,7 +1,8 @@
 # Pro Key Verification
 
 Ryot uses [Unkey](https://unkey.com) to verify Pro license keys. This page explains how
-the verification process works and what happens when verification fails.
+the verification process works, what happens when verification fails, and what the Pro
+version currently unlocks.
 
 ## How It Works
 
@@ -9,12 +10,13 @@ When you provide a `SERVER_PRO_KEY` environment variable, Ryot verifies it using
 following process:
 
 1. **API Call**: Ryot sends a verification request to Unkey's API
-   (`https://api.unkey.com/v2/keys.verifyKey`)
+   (`https://api.unkey.com`) using the `@unkey/api` SDK
 2. **Response Check**: Unkey responds with whether the key is valid and optionally an
    expiry date
-3. **Expiry Validation**: If the key has an expiry date, Ryot checks if the subscription
-   is still active
-4. **Result Caching**: The verification result is cached to avoid repeated API calls
+3. **Expiry Validation**: If the key has an expiry date (monthly and yearly subscriptions), Ryot checks it against the time
+   the server process started
+4. **Result Caching**: The verification result is cached in-process to avoid repeated API
+   calls
 
 ## Caching Behavior
 
@@ -42,8 +44,8 @@ any time by simply updating the environment variable and restarting the server.
 
 If Pro features are not working as expected:
 
-1. **Check the logs**: Enable debug logging with `RUST_LOG=ryot=debug` to see verification
-   messages
+1. **Check the logs**: Enable debug logging with `SERVER_LOG_LEVEL=debug` to see
+   verification messages
 
 2. **Verify your key**: Ensure the `SERVER_PRO_KEY` environment variable is set correctly
    with no extra spaces or quotes
