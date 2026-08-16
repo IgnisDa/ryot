@@ -278,6 +278,11 @@ export const mediaActivityTimeLabel = (minutes: {
 	return minutes.missing > 0 ? `${label}+` : label;
 };
 
+export const mediaActivityCountFigure = (amount: {
+	readonly total: number;
+	readonly missing: number;
+}) => `${Math.round(amount.total)}${amount.missing > 0 ? "+" : ""}`;
+
 const spanRangeLabel = (earliest: string, latest: string) => {
 	if (formatLocalDateKey(earliest) === formatLocalDateKey(latest)) {
 		return formatLocalDateLabel(latest);

@@ -19,7 +19,7 @@ import {
 import { readyQueryResult, rowsResult } from "../../tests/client/query-result-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
 import { mapMediaOverview } from "../media/overview-state";
-import { bookPagesFigure, bookPresentationFacts, bookSchema, bookSummaryFacts } from "./schema";
+import { bookPresentationFacts, bookSchema, bookSummaryFacts } from "./schema";
 
 const noopAdapter = { query: () => Promise.resolve({}) };
 
@@ -137,9 +137,6 @@ describe("book schema", () => {
 	});
 
 	it("totals pages read and marks the total as a floor when a read book has no page count", () => {
-		expect(bookPagesFigure({ total: 640, missing: 0 })).toBe("640");
-		expect(bookPagesFigure({ total: 640, missing: 1 })).toBe("640+");
-
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
 			<bookSchema.Activity

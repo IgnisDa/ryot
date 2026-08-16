@@ -6,7 +6,7 @@ import {
 	type BookPresentationData,
 	type BookSummaryResult,
 } from "../../shared/book-recipes";
-import type { MediaFlatActivitySummary } from "../media/flat-activity-state";
+import { mediaActivityCountFigure } from "../media/activity-timeline";
 import { defineFlatMediaSchema } from "../media/flat-schema";
 import { MEDIA_ART_HEIGHT } from "../media/hero";
 import { mediaCountLabel, mediaRatingFact, type MediaSummaryFact } from "../media/summary-state";
@@ -28,17 +28,14 @@ export const bookSummaryFacts = (book: BookSummary): readonly MediaSummaryFact[]
 export const bookPresentationFacts = (book: BookPresentationData) =>
 	book.pages === null ? [] : [mediaCountLabel(book.pages, "page")];
 
-export const bookPagesFigure = (amount: MediaFlatActivitySummary["amount"]) =>
-	`${Math.round(amount.total)}${amount.missing > 0 ? "+" : ""}`;
-
 export const bookSchema = defineFlatMediaSchema({
 	aspect: "poster",
 	progressVerb: "read",
 	facts: bookSummaryFacts,
 	heroHeight: () => MEDIA_ART_HEIGHT,
 	presentationFacts: bookPresentationFacts,
-	measureFigure: { label: "Pages", value: bookPagesFigure },
 	nouns: { title: "Book", plural: "books", singular: "book" },
+	measureFigure: { label: "Pages", value: mediaActivityCountFigure },
 	group: { actionLabel: "View series", title: (name) => `Part of ${name}` },
 	unlinkedCreators: (overview) => overview.creators?.unlinkedCreators ?? [],
 	overviewLoadingDetail: "Fetching the authors, publishers and recommendations for this book.",
