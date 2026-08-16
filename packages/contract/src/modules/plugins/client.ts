@@ -172,11 +172,16 @@ export const PluginLogicalLocation = Schema.Union([PluginRouteLocation, PluginEn
 
 export type PluginLogicalLocation = Schema.Schema.Type<typeof PluginLogicalLocation>;
 
+export const PluginLeadingIntent = Schema.Literals(["back", "drawer", "none"]);
+
+export type PluginLeadingIntent = Schema.Schema.Type<typeof PluginLeadingIntent>;
+
 export const PluginBridgeLocation = strictStruct({
 	index: Schema.Int,
 	key: Schema.String,
 	compact: Schema.Boolean,
 	edgeBack: Schema.Boolean,
+	leading: PluginLeadingIntent,
 	location: PluginLogicalLocation,
 	type: Schema.Literal("location"),
 });
@@ -198,6 +203,15 @@ export const PluginBridgeNavigate = strictStruct({
 });
 
 export type PluginBridgeNavigate = Schema.Schema.Type<typeof PluginBridgeNavigate>;
+
+export const PluginBridgeScreenState = strictStruct({
+	index: Schema.Int,
+	key: Schema.String,
+	hasPreviousScreen: Schema.Boolean,
+	type: Schema.Literal("screen-state"),
+});
+
+export type PluginBridgeScreenState = Schema.Schema.Type<typeof PluginBridgeScreenState>;
 
 export const PLUGIN_HEADER_TITLE_MAX = 120;
 
@@ -359,6 +373,7 @@ export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeHeader,
 	PluginBridgeNavigate,
 	PluginBridgeOpenDrawer,
+	PluginBridgeScreenState,
 	PluginBridgeRyotQLCancel,
 	PluginBridgeNavigateBack,
 	PluginBridgeRyotQLRequest,

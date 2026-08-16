@@ -22,6 +22,7 @@ import {
 	GodModeRouteStubs,
 	CustomizeRouteStubs,
 	SavedViewRouteStubs,
+	EntityRouteStubs,
 	makeOAuthRouteStubs,
 	NavigationRouteStubs,
 	ProviderAddRouteStubs,
@@ -65,6 +66,7 @@ const mountLogin = (config: ReturnType<typeof systemConfig>) => {
 			GodModeRouteStubs,
 			ServerStub,
 			SavedViewRouteStubs,
+			EntityRouteStubs,
 			Layer.succeed(PublicApi, {
 				checkHealth: () => Effect.void,
 				getSystemConfig: (origin) =>

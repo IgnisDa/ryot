@@ -130,6 +130,7 @@ describe("bootstrapClientPlugin", () => {
 			compact: false,
 			edgeBack: false,
 			type: "location",
+			leading: "drawer",
 			location: routeLocation("/"),
 		});
 		await waitFor(() =>
@@ -181,6 +182,7 @@ describe("bootstrapClientPlugin", () => {
 				type: "location",
 				edgeBack: index > 0,
 				location: routeLocation(path),
+				leading: index > 0 ? "back" : "drawer",
 			});
 			await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
 		};
@@ -235,6 +237,7 @@ describe("bootstrapClientPlugin", () => {
 			compact: false,
 			edgeBack: false,
 			type: "location",
+			leading: "drawer",
 			location: routeLocation("/"),
 		});
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
@@ -283,6 +286,7 @@ describe("bootstrapClientPlugin", () => {
 			compact: false,
 			edgeBack: false,
 			type: "location",
+			leading: "drawer",
 			location: routeLocation("/"),
 		});
 
@@ -313,6 +317,7 @@ describe("bootstrapClientPlugin", () => {
 			compact: false,
 			edgeBack: false,
 			type: "location",
+			leading: "drawer",
 			location: routeLocation("/"),
 		});
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
@@ -347,6 +352,7 @@ describe("bootstrapClientPlugin", () => {
 			compact: false,
 			edgeBack: false,
 			type: "location",
+			leading: "drawer",
 			location: routeLocation("/"),
 		});
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
@@ -384,6 +390,7 @@ describe("bootstrapClientPlugin", () => {
 			compact: false,
 			edgeBack: false,
 			type: "location",
+			leading: "drawer",
 			location: routeLocation("/"),
 		});
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
@@ -432,6 +439,7 @@ describe("bootstrapClientPlugin", () => {
 			compact: false,
 			edgeBack: false,
 			type: "location",
+			leading: "drawer",
 			location: routeLocation("/"),
 		});
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));

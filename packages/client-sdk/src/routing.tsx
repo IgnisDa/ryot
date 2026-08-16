@@ -1,4 +1,7 @@
-import type { PluginLogicalLocation } from "@ryot-app/contract/modules/plugins/client";
+import type {
+	PluginLeadingIntent,
+	PluginLogicalLocation,
+} from "@ryot-app/contract/modules/plugins/client";
 import { Match } from "effect";
 import {
 	Fragment,
@@ -55,9 +58,9 @@ const RouterContext = createContext<RouterContextValue | undefined>(undefined);
 export type PluginChromeValue = {
 	readonly back: () => void;
 	readonly compact: boolean;
-	readonly edgeBack: boolean;
 	readonly safeAreaTop: number;
 	readonly openDrawer: () => void;
+	readonly leading: PluginLeadingIntent;
 	readonly entry: PluginNavigationEntry | undefined;
 	readonly publishTitle: (title: string | null) => void;
 };
@@ -282,21 +285,19 @@ export const PluginRouter = ({ navigation }: PluginRouterProps) => {
 		engaged: false,
 	});
 	const [gesturePresentation, setGesturePresentation] = useState<Presentation>(idle);
-	const { compact, edgeBack, entry, safeAreaTop, screens, transition } = useSyncExternalStore(
-		navigation.subscribe,
-		navigation.getSnapshot,
-	);
+	const { compact, edgeBack, entry, leading, safeAreaTop, screens, transition } =
+		useSyncExternalStore(navigation.subscribe, navigation.getSnapshot);
 	const chrome = useMemo<PluginChromeValue>(
 		() => ({
 			entry,
 			compact,
-			edgeBack,
+			leading,
 			safeAreaTop,
 			back: navigation.back,
 			openDrawer: navigation.openDrawer,
 			publishTitle: navigation.publishTitle,
 		}),
-		[compact, edgeBack, entry, navigation, safeAreaTop],
+		[compact, entry, leading, navigation, safeAreaTop],
 	);
 	const popping = useMemo(
 		() =>

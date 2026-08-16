@@ -1,4 +1,7 @@
-import type { PluginLogicalLocation } from "@ryot-app/contract/modules/plugins/client";
+import type {
+	PluginLeadingIntent,
+	PluginLogicalLocation,
+} from "@ryot-app/contract/modules/plugins/client";
 
 import { reconcileStack, type PluginScreen, type ResolvePluginScreen } from "./stack";
 
@@ -12,6 +15,7 @@ export type PluginNavigationSnapshot = {
 	readonly compact: boolean;
 	readonly edgeBack: boolean;
 	readonly safeAreaTop: number;
+	readonly leading: PluginLeadingIntent;
 	readonly screens: readonly PluginScreen[];
 	readonly entry: PluginNavigationEntry | undefined;
 	readonly transition: PluginNavigationTransition | undefined;
@@ -20,6 +24,7 @@ export type PluginNavigationSnapshot = {
 export type PluginNavigationLocation = {
 	readonly compact: boolean;
 	readonly edgeBack: boolean;
+	readonly leading: PluginLeadingIntent;
 	readonly entry: PluginNavigationEntry;
 };
 
@@ -53,6 +58,7 @@ const initialSnapshot = (safeAreaTop: number): PluginNavigationSnapshot => ({
 	safeAreaTop,
 	compact: false,
 	edgeBack: false,
+	leading: "none",
 	entry: undefined,
 	transition: undefined,
 });
@@ -89,7 +95,7 @@ export const createPluginNavigationStore = (
 				emit({ ...snapshot, transition: undefined });
 			}
 		},
-		setLocation: ({ compact, edgeBack, entry }) => {
+		setLocation: ({ compact, edgeBack, entry, leading }) => {
 			const previousTop = snapshot.screens.at(-1);
 			const result = reconcileStack(snapshot.screens, entry, resolve);
 			const transition =
@@ -103,6 +109,7 @@ export const createPluginNavigationStore = (
 			const next = {
 				entry,
 				compact,
+				leading,
 				edgeBack,
 				transition,
 				screens: result.stack,

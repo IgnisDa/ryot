@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { useCustomizeController } from "#/modules/navigation/authenticated-shell";
+import { useCustomizeController } from "#/modules/navigation/authenticated-shell-context";
 import { useIsDesktop } from "#/modules/navigation/breakpoint";
 import { CustomizeScreen } from "#/modules/navigation/customize/customize-screen";
 import { customizeSearchSection } from "#/modules/navigation/customize/customize-state";

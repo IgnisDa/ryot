@@ -3,7 +3,7 @@ import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useRef, type ComponentProps, type ReactNode } from "react";
 
-import { useEdge, useShellChrome } from "#/modules/navigation/authenticated-shell";
+import { useEdge, useShellChrome } from "#/modules/navigation/authenticated-shell-context";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
 
