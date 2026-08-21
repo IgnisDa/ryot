@@ -1,13 +1,14 @@
 # Trakt
 
 ::: info
-It is necessary to setup TMDB for this import to work. Please follow the configuration
-[guide](../configuration.md) for instructions.
+It is necessary to set up TMDB for any Trakt import, including ZIP exports. Please follow
+the configuration [guide](../configuration.md) for instructions.
 :::
 
-You can import from either a public Trakt user or a public Trakt list. If you are on a
-self-hosted instance, you need to set up the Trakt client ID in the environment variables
-as described in the [guide](../guides/trakt.md).
+Ryot supports three Trakt import methods: a public user, a public list, or a ZIP export.
+The User and List methods use the Trakt API and, on a self-hosted instance, require a Trakt
+client ID in the environment variables as described in the [guide](../guides/trakt.md).
+The Export ZIP method does not require a Trakt client ID.
 
 ## User
 
@@ -40,3 +41,17 @@ https://trakt.tv/users/felix66/lists/trakt-movie-the-new-york-times-guide-to-the
 ```
 
 2. Select the collection you want to import the items into.
+
+## Export ZIP
+
+You can request a ZIP export of your Trakt data from the [Trakt data export
+settings](https://app.trakt.tv/settings/data). This method imports your history, ratings,
+Owned, Watchlist, Favorites, custom lists, and comments.
+
+1. Request and download your export from the Trakt data export settings.
+2. Leave the downloaded ZIP file intact. Do not extract or modify it.
+3. In Ryot, select **Trakt > Export ZIP** and upload the ZIP file.
+
+Ryot uses the watched-history files to import watched items and ignores aggregate watched
+files. Your Trakt profile and lists do not need to be public for this method, and a Trakt
+client ID is not required.
