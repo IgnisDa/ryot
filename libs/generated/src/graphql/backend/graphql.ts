@@ -710,6 +710,8 @@ export type DeployStrongAppImportInput = {
 };
 
 export type DeployTraktImportInput = {
+  /** Import from a Trakt data export. */
+  export?: InputMaybe<DeployPathImportInput>;
   /** Import from a public Trakt list. */
   list?: InputMaybe<DeployTraktImportListInput>;
   /** Import from a public Trakt user. */
