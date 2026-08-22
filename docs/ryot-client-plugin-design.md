@@ -400,10 +400,10 @@ The important invariants are:
 - the artifact is immutable
 - the artifact is content-addressed
 - the kernel can verify its identity
-- a plugin update produces a new artifact
+- a client-output change produces a new artifact
 - a live plugin document is not mutated underneath a running React tree
 
-When an update replaces artifact A with artifact B, the kernel force-reloads any mounted iframe for that installation. An old client artifact must not continue calling a newer backend plugin revision.
+The package source revision and client artifact are both fixed for the lifetime of a bridge session. When either identity changes, the kernel force-reloads any mounted iframe for that installation. An old client document must not continue calling a newer backend plugin revision, including when a backend-only update leaves the compiled client artifact unchanged.
 
 Artifact persistence is append-only. `plugin_client_artifact` stores metadata keyed by artifact hash, and `plugin_client_artifact_file` stores files keyed by `(artifact_hash, name)`. The plugin row stores only the nullable hash of its active client artifact. Installing or updating inserts an artifact before activating its hash and never updates an existing artifact record. Old artifacts remain addressable and are retained indefinitely; garbage collection requires a separate retention policy and is not implemented.
 
@@ -1262,7 +1262,7 @@ The kernel may discard inactive plugin iframes under memory pressure.
 
 The initial implementation can keep only the active plugin alive and add an LRU/warm-cache policy later if measurements justify it.
 
-A package update is the exception to route-stable iframe reuse. When an installation's client artifact hash changes, the kernel destroys its existing iframe and mounts the new artifact.
+A package update is the exception to route-stable iframe reuse. The iframe session is keyed by installation ID, package source hash, and client artifact hash. When either revision hash changes, the kernel destroys the existing iframe and mounts a fresh document and bridge session.
 
 ---
 
