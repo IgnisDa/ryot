@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/modules/ryotql/contract";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
@@ -47,7 +47,7 @@ describe("plugin queries service", () => {
 
 			expect(calls).toEqual([{ payload: document }]);
 			expect(outcome).toEqual({ response, outcome: "success" });
-		}).pipe(Effect.provide(PluginQueriesService.layer), Effect.provide(dependencies));
+		}).pipe(Effect.provide(Layer.provide(PluginQueriesService.layer, dependencies)));
 	});
 
 	const expectedFailures = [
@@ -66,7 +66,7 @@ describe("plugin queries service", () => {
 				const outcome = yield* service.query({ scope, request: { document } });
 
 				expect(outcome).toEqual({ outcome: "failure", reason: "query-failed" });
-			}).pipe(Effect.provide(PluginQueriesService.layer), Effect.provide(dependencies));
+			}).pipe(Effect.provide(Layer.provide(PluginQueriesService.layer, dependencies)));
 		});
 	}
 
@@ -78,6 +78,6 @@ describe("plugin queries service", () => {
 			const outcome = yield* service.query({ scope, request: { document } });
 
 			expect(outcome).toEqual({ outcome: "failure", reason: "transport" });
-		}).pipe(Effect.provide(PluginQueriesService.layer), Effect.provide(dependencies));
+		}).pipe(Effect.provide(Layer.provide(PluginQueriesService.layer, dependencies)));
 	});
 });

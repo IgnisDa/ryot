@@ -92,12 +92,16 @@ const mountView = (
 	return { ...view, router };
 };
 
-const openPanel = async () => {
-	const sidebar = await screen.findByTestId("desktop-sidebar");
-	return within(sidebar);
-};
+const openPanel = () =>
+	Effect.runPromise(
+		Effect.map(
+			Effect.promise(() => screen.findByTestId("desktop-sidebar")),
+			within,
+		),
+	);
 
 describe("customize sidebar route", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("opens read-only for demo sessions", async () => {
 		const restore = stubDesktopMatchMedia();
 		const saves: SavedPlan[] = [];
@@ -129,6 +133,7 @@ describe("customize sidebar route", () => {
 		}
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("turns the desktop sidebar into the customize panel and drops the nav and account footer", async () => {
 		const restore = stubDesktopMatchMedia();
 		try {
@@ -145,6 +150,7 @@ describe("customize sidebar route", () => {
 		}
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("renders no mobile header or drawer over the customize screen", async () => {
 		const restore = stubCompactMatchMedia();
 		try {
@@ -158,6 +164,7 @@ describe("customize sidebar route", () => {
 		}
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("opens on the section named in the search params", async () => {
 		const restore = stubDesktopMatchMedia();
 		try {
@@ -170,6 +177,7 @@ describe("customize sidebar route", () => {
 		}
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("leaves without asking while the draft is clean", async () => {
 		const restore = stubDesktopMatchMedia();
 		try {
@@ -185,6 +193,7 @@ describe("customize sidebar route", () => {
 		}
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("asks before discarding a dirty draft and stays put while editing continues", async () => {
 		const restore = stubDesktopMatchMedia();
 		try {
@@ -206,6 +215,7 @@ describe("customize sidebar route", () => {
 
 	// A load started while still on the customize route is the bug the ordering exists to prevent:
 	// the navigation that follows aborts it, so the sidebar keeps rendering the order just changed.
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("starts no load until it has left, so the navigation cannot abort the refresh", async () => {
 		const restore = stubDesktopMatchMedia();
 		try {
@@ -227,6 +237,7 @@ describe("customize sidebar route", () => {
 		}
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("saves the plan and leaves once the save succeeds", async () => {
 		const restore = stubDesktopMatchMedia();
 		const saves: SavedPlan[] = [];
@@ -245,6 +256,7 @@ describe("customize sidebar route", () => {
 		}
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("moves to the first enabled workspace after disabling the current workspace", async () => {
 		const restore = stubDesktopMatchMedia();
 		const recorder = makeWorkspaceRecorder();

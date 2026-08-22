@@ -51,6 +51,7 @@ export const temporaryUpload = Effect.fn("temporaryUpload")(function* (
 	const response = yield* Effect.tryPromise({
 		catch: () => failWith("transport"),
 		try: (signal) =>
+			// oxlint-disable-next-line effecttsgo/global-fetch-in-effect -- Signed upload URLs and Blob bodies use the browser fetch boundary.
 			fetch(resolveApiUrl(scope.serverUrl, intent.uploadUrl), {
 				signal,
 				body: request.source,

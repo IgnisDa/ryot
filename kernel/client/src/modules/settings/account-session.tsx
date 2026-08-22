@@ -12,6 +12,7 @@ export function AccountSession(props: {
 }) {
 	const navigate = useNavigate();
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React sign-out handler.
 	async function signOut() {
 		const launched = await props.onSignOut().catch(() => null);
 		if (launched === false) {

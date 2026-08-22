@@ -1,3 +1,4 @@
+import { RyotClientError } from "@ryot-app/client-sdk";
 import {
 	createRyotMutation,
 	createRyotQuery,
@@ -27,31 +28,29 @@ export const Route = createFileRoute("/_authenticated/settings/preferences")({
 	component: PreferencesRoute,
 });
 
-const preferencesQuery = createRyotQuery<void, UserPreferences, KernelHostServices>(
-	async ({ client, signal }) => {
-		const settings = await client.data.query(userSettingsRecipe(), { signal });
-		return settings.preferences;
-	},
+const preferencesQuery = createRyotQuery<void, UserPreferences, KernelHostServices>(({ client }) =>
+	Effect.map(client.data.query(userSettingsRecipe()), (settings) => settings.preferences),
 );
 
 const updatePreferencesMutation = createRyotMutation<
 	UpdateUserPreferencesBody,
 	void,
 	KernelHostServices
->(({ input, client, signal, hostServices }) =>
-	hostServices.runtime.runPromise(
-		Effect.flatMap(UserSettingsApi, (api) =>
-			api.updatePreferences(hostServices.scope, { payload: input }),
-		).pipe(
+>(({ input, client, hostServices }) =>
+	hostServices.runtime
+		.runSync(UserSettingsApi)
+		.updatePreferences(hostServices.scope, { payload: input })
+		.pipe(
 			Effect.tap(() =>
 				input.language === undefined
 					? Effect.void
-					: Effect.map(EntityInterestService, (service) => service.reconnect(hostServices.scope)),
+					: Effect.sync(() =>
+							hostServices.runtime.runSync(EntityInterestService).reconnect(hostServices.scope),
+						),
 			),
 			Effect.tap(() => Effect.sync(() => client.mutationCompleted.hint())),
+			Effect.mapError(() => new RyotClientError("transport")),
 		),
-		{ signal },
-	),
 );
 
 function PreferencesRoute() {

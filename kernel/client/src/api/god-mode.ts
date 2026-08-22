@@ -1,9 +1,13 @@
 import type { ContractRequest } from "@ryot-app/contract/client";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
-import { Context, Effect, Layer, Result } from "effect";
+import { Context, Data, Effect, Layer, Result } from "effect";
 
 import { AdminApi } from "#/api/admin";
 import type { ServerOrigin } from "#/api/origin";
+
+export class GodModeQueryError extends Data.TaggedError("GodModeQueryError")<{
+	readonly cause: unknown;
+}> {}
 
 export class GodModeApi extends Context.Service<GodModeApi>()("GodModeApi", {
 	make: Effect.gen(function* () {
@@ -37,7 +41,7 @@ export class GodModeApi extends Context.Service<GodModeApi>()("GodModeApi", {
 							const decoded = recipe.decode(response);
 							return Result.isSuccess(decoded)
 								? Effect.succeed(decoded.success)
-								: Effect.fail(decoded.failure);
+								: Effect.fail(new GodModeQueryError({ cause: decoded.failure }));
 						}),
 					),
 		};

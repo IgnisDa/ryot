@@ -15,6 +15,7 @@ const empty = { visible: [], foreground: [] };
 const cleanups: Array<() => Promise<void>> = [];
 const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits asynchronous test teardown.
 afterEach(async () => {
 	updates.length = 0;
 	await Promise.all(cleanups.splice(0).map((cleanup) => cleanup()));
@@ -54,16 +55,19 @@ class RecordingSocket extends EventTarget implements InterestSocket {
 	}
 }
 
-const settle = async () => {
-	for (let i = 0; i < 20; i++) {
-		// oxlint-disable-next-line eslint/no-await-in-loop -- Drain successive ticket microtasks.
-		await Promise.resolve();
-	}
-};
+const settle = () =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			for (let i = 0; i < 20; i++) {
+				yield* Effect.promise(() => Promise.resolve());
+			}
+		}),
+	);
 
 function setup(options: { readonly pendingTicket?: boolean } = {}) {
 	let now = 0;
 	let tickets = 0;
+	let cancelledTickets = 0;
 	let available = true;
 	let changed: (() => void) | undefined;
 	const urls: string[] = [];
@@ -76,7 +80,7 @@ function setup(options: { readonly pendingTicket?: boolean } = {}) {
 				makeEntityInterestApi({
 					createSocketTicket: () =>
 						options.pendingTicket
-							? Effect.never
+							? Effect.never.pipe(Effect.ensuring(Effect.sync(() => cancelledTickets++)))
 							: Effect.sync(() => ({
 									ticket: `ticket-${++tickets}`,
 									expiresAt: "2026-09-05T12:00:00Z",
@@ -139,6 +143,7 @@ function setup(options: { readonly pendingTicket?: boolean } = {}) {
 		advance,
 		overflows,
 		tickets: () => tickets,
+		cancelledTickets: () => cancelledTickets,
 		hasListener: () => changed !== undefined,
 		lifecycle: (next = true) => {
 			available = next;
@@ -155,10 +160,12 @@ function setup(options: { readonly pendingTicket?: boolean } = {}) {
 }
 
 describe("entity interest session", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("disposes an in-flight ticket even while multiple layout leases remain", async () => {
 		const test = setup({ pendingTicket: true });
 		const firstRelease = test.service.acquire(scope);
 		const secondRelease = test.service.acquire({ ...scope });
+		await settle();
 		await test.runtime.dispose();
 		firstRelease();
 		secondRelease();
@@ -166,10 +173,26 @@ describe("entity interest session", () => {
 		test.advance(60_000);
 		await settle();
 		expect(test.sockets).toEqual([]);
+		expect(test.cancelledTickets()).toBe(1);
 		expect(test.timers.size).toBe(0);
 		expect(test.hasListener()).toBe(false);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
+	it("interrupts a pending ticket on reconnect and lease release", async () => {
+		const test = setup({ pendingTicket: true });
+		const release = test.service.acquire(scope);
+		await settle();
+		test.service.reconnect(scope);
+		await settle();
+		expect(test.cancelledTickets()).toBe(1);
+		release();
+		await settle();
+		expect(test.cancelledTickets()).toBe(2);
+		expect(test.sockets).toEqual([]);
+	});
+
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("retains same-scope acquisitions without dropping newly declared owners or opening another socket", async () => {
 		const test = setup();
 		const firstRelease = test.service.acquire(scope);
@@ -203,6 +226,7 @@ describe("entity interest session", () => {
 		expect(updates).toEqual([{ entityId: "new", reason: "translated" }]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("preserves child declarations after StrictMode replay, navigation, revalidation and browser resume", async () => {
 		const test = setup();
 		const events: string[] = [];
@@ -260,6 +284,7 @@ describe("entity interest session", () => {
 		expect(test.hasListener()).toBe(false);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("reports deduplicated omitted count only once per layout session despite declaration churn and reconnects", async () => {
 		const test = setup();
 		const ids = Array.from({ length: 502 }, (_, i) => `id-${i}`);
@@ -279,6 +304,7 @@ describe("entity interest session", () => {
 		expect(test.overflows).toEqual([2, 1]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("retains predeclared next-scope owners while invalidating the previous scope", async () => {
 		const test = setup();
 		let oldUpdates = 0;
@@ -311,6 +337,7 @@ describe("entity interest session", () => {
 		expect(test.hasListener()).toBe(false);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("isolates listener exceptions and stops disposed owners immediately", async () => {
 		const test = setup();
 		test.service.watch(scope, { visible: [], foreground: ["a"] }, () => {
@@ -332,6 +359,7 @@ describe("entity interest session", () => {
 		expect(socket.closed).toBe(false);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("holds declarations before layout mount, authenticates first and deduplicates foreground before visible", async () => {
 		const test = setup();
 		const visible = Array.from({ length: 501 }, (_, i) => `visible-${String(i).padStart(3, "0")}`);
@@ -350,6 +378,7 @@ describe("entity interest session", () => {
 		]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("admits the active owner's interests first after activation changes", async () => {
 		const test = setup();
 		let activeFirst = true;
@@ -402,6 +431,7 @@ describe("entity interest session", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("batches additions, serializes acknowledgements, and removes only after grace", async () => {
 		const test = setup();
 		const owner = test.service.watch(scope, { visible: [], foreground: ["a"] }, () => {});
@@ -427,6 +457,7 @@ describe("entity interest session", () => {
 		expect(socket.sent.at(-1)).toEqual({ add: [], revision: 4, remove: ["a"], type: "update" });
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("evicts grace entries for new demand and cancels removal when demand returns", async () => {
 		const test = setup();
 		const ids = Array.from({ length: 500 }, (_, i) => `id-${i}`);
@@ -452,6 +483,7 @@ describe("entity interest session", () => {
 		expect(socket.sent).toHaveLength(3);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("routes only current memberships and invalidates old owners and socket callbacks on release", async () => {
 		const test = setup();
 		const owner = test.service.watch(scope, { visible: [], foreground: ["a"] }, (update) =>
@@ -487,6 +519,7 @@ describe("entity interest session", () => {
 		]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("gets a fresh ticket and replaces revision one after lease closure or lifecycle resume", async () => {
 		const test = setup();
 		test.service.watch(scope, { visible: [], foreground: ["a"] }, () => {});
@@ -526,6 +559,7 @@ describe("entity interest session", () => {
 		{ type: "ready", maxEntityIds: 500, sessionId: "duplicate", heartbeatIntervalMs: 25_000 },
 		{ entityId: "a", reason: "invalid", type: "entity-updated" },
 		{ revision: 1, type: "rejected", maxEntityIds: 500, code: "interest-limit-exceeded" },
+		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	])("reconnects on malformed or out-of-order frames: $type", async (frame) => {
 		const test = setup();
 		test.service.acquire(scope);
@@ -539,6 +573,7 @@ describe("entity interest session", () => {
 		expect(test.tickets()).toBe(2);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("times out tickets and handshakes, caps backoff, and answers heartbeats", async () => {
 		const test = setup();
 		test.service.acquire(scope);

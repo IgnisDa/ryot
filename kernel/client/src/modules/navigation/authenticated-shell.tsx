@@ -129,6 +129,7 @@ export function AuthenticatedShell(props: {
 			: null;
 	const session = runtime.runSync(AuthService).session(server);
 	const isDemo = useIsDemoSession(session);
+	// oxlint-disable-next-line effecttsgo/async-function -- React workspace selection handler.
 	const selectWorkspace = async (slug: string) => {
 		impactLight();
 		await runtime.runPromise(
@@ -211,6 +212,7 @@ export function AuthenticatedShell(props: {
 	// settles through the history listener, so invalidating on either side of the call still races
 	// the navigation, which aborts whatever is in flight and leaves the sidebar rendering the order
 	// the user just changed. Waiting for the router to resolve is the only ordering that holds.
+	// oxlint-disable-next-line effecttsgo/async-function -- React sidebar customization handler.
 	const commitCustomize = async () => {
 		if (!(await customize.save())) {
 			return;

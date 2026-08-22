@@ -94,14 +94,22 @@ const makeView = (
 	return { ...view, calls, router };
 };
 
-const fillPasswords = async (password: string, confirmation = password) => {
+const fillPasswords = (password: string, confirmation = password) => {
 	const user = userEvent.setup();
-	await user.type(await screen.findByLabelText("New password"), password);
-	await user.type(screen.getByLabelText("Confirm password"), confirmation);
-	return user;
+	return Effect.runPromise(
+		Effect.gen(function* () {
+			const input = yield* Effect.promise(() => screen.findByLabelText("New password"));
+			yield* Effect.promise(() => user.type(input, password));
+			yield* Effect.promise(() =>
+				user.type(screen.getByLabelText("Confirm password"), confirmation),
+			);
+			return user;
+		}),
+	);
 };
 
 describe("Reset password route", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("is public and renders the reset form instead of starting OAuth", async () => {
 		const view = makeView();
 
@@ -110,6 +118,7 @@ describe("Reset password route", () => {
 		expect(screen.queryByText("Opening sign-in")).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("shows an invalid-link state when the token is missing", async () => {
 		makeView("/reset-password");
 
@@ -117,6 +126,7 @@ describe("Reset password route", () => {
 		expect(screen.getByText(/missing its token/)).not.toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("validates password length and confirmation before calling the service", async () => {
 		const view = makeView();
 		const user = await fillPasswords("short");
@@ -134,6 +144,7 @@ describe("Reset password route", () => {
 		expect(view.calls).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("submits the selected server, token, and password and links back to auth", async () => {
 		const view = makeView();
 		const user = await fillPasswords("new-password");
@@ -146,6 +157,7 @@ describe("Reset password route", () => {
 		await waitFor(() => expect(view.router.state.location.pathname).toBe("/auth"));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("shows stable copy for an invalid or expired token", async () => {
 		makeView("/reset-password?token=expired", server, () =>
 			Effect.fail(new HostedAuthError({ code: "INVALID_TOKEN", message: "internal detail" })),
@@ -159,6 +171,7 @@ describe("Reset password route", () => {
 		expect(screen.queryByText("internal detail")).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("redirects a native client without a server through onboarding", async () => {
 		const native = Capacitor.isNativePlatform;
 		Capacitor.isNativePlatform = () => true;

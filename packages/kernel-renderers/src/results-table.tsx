@@ -1,4 +1,4 @@
-import { Result, Schema } from "@ryot-app/client-sdk/effect";
+import { Effect, Result, Schema } from "@ryot-app/client-sdk/effect";
 import { PluginLink, usePageContext, usePageRefresh } from "@ryot-app/client-sdk/plugin";
 import { ManagedAssetProvider, createRyotQuery, useRyotQuery } from "@ryot-app/client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
@@ -60,19 +60,20 @@ const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.
 	usePageRefresh(refresh);
 	const [query] = useState(() =>
 		createRyotQuery<string, TablePage>(
-			async ({ client, signal, input: serialized }) => {
+			({ client, input: serialized }) => {
 				const [after] = decodeQueryInput(serialized);
-				const result = await client.data.query(
-					Result.getOrThrow(
-						resultsTableRecipe({
-							settings: input.settings,
-							queryDocument: input.dataSources,
-							...(after === null ? {} : { after }),
-						}),
+				return Effect.map(
+					client.data.query(
+						Result.getOrThrow(
+							resultsTableRecipe({
+								settings: input.settings,
+								queryDocument: input.dataSources,
+								...(after === null ? {} : { after }),
+							}),
+						),
 					),
-					{ signal },
+					(result) => ({ result, input: serialized }),
 				);
-				return { result, input: serialized };
 			},
 			{ cancelOnUnmount: true },
 		),

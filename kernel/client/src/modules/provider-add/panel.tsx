@@ -338,6 +338,7 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 		dispatch({ type: "provider-changed" });
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React provider-options load callback.
 	const fetchProviderOptions = async (provider: ProviderSearchSummary | undefined) => {
 		const requestId = ++optionsRequestId.current;
 		if (provider === undefined) {
@@ -375,6 +376,7 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 		fetchSelectedProviderOptions(selectedProviderId);
 	}, [selectedProviderId]);
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React form submission callback.
 	const requestSearch = async () => {
 		if (options.status === "ready" && options.providerId === selected?.providerId) {
 			const errors = await optionsForm.handleSubmit();
@@ -409,6 +411,7 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 			? Object.keys(toSchemaFormPayload(options.schema, optionsForm.state.values)).length
 			: 0;
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React search effect event.
 	const runSearch = useEffectEvent(async (operation: ProviderSearchOperation) => {
 		if (selected === undefined) {
 			return;

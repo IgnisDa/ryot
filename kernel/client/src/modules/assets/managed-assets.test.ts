@@ -23,6 +23,7 @@ describe("managed assets", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("reads absolute local and S3 URLs with their expiry", async () => {
 		const runtime = ManagedRuntime.make(
 			ManagedAssetsService.layer.pipe(
@@ -61,6 +62,7 @@ describe("managed assets", () => {
 		}
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("returns the plugin asset outcome without server identity", async () => {
 		const runtime = ManagedRuntime.make(
 			ManagedAssetsService.layer.pipe(

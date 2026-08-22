@@ -68,6 +68,7 @@ export function decideProtectedRoute(
 	return { action: "allow", scope: { serverUrl: server, userId: session.userId } };
 }
 
+// oxlint-disable-next-line effecttsgo/async-function -- TanStack route guards must throw redirect responses through their Promise boundary.
 export async function protectedRouteGuard(
 	context: { readonly runtime: ClientRuntime },
 	destination: string,

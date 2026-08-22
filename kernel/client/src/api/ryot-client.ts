@@ -20,11 +20,13 @@ import type { ThemeStore } from "#/modules/theme/store";
 import type { ClientRuntime } from "#/runtime";
 
 type KernelApiRuntime = {
-	readonly runSync: <A>(effect: Effect.Effect<A, never, EntityInterestService>) => A;
-	readonly runPromise: <A, E>(
-		effect: Effect.Effect<A, E, CollectionsApi | RyotQLApi | UploadsApi>,
-		options?: Effect.RunOptions,
-	) => Promise<A>;
+	readonly runSync: <A>(
+		effect: Effect.Effect<
+			A,
+			never,
+			EntityInterestService | CollectionsApi | RyotQLApi | UploadsApi
+		>,
+	) => A;
 };
 
 export const createKernelRyotClient = (
@@ -38,68 +40,38 @@ export const createKernelRyotClient = (
 			runtime.runSync(
 				Effect.map(EntityInterestService, (service) => service.watch(scope, interest, onUpdate)),
 			),
-		uploadTemporary: async (request) => {
-			try {
-				return await runtime.runPromise(temporaryUpload(scope, request));
-			} catch (error) {
-				throw new RyotClientError(classifyTemporaryUploadFailure(error));
-			}
-		},
-		query: async (document, signal) => {
-			try {
-				return await runtime.runPromise(
-					RyotQLApi.pipe(Effect.flatMap((api) => api.execute(scope, { payload: document }))),
-					{ signal },
-				);
-			} catch (error) {
-				if (signal?.aborted) {
-					throw signal.reason;
+		query: (document) =>
+			runtime
+				.runSync(RyotQLApi)
+				.execute(scope, { payload: document })
+				.pipe(Effect.mapError((error) => new RyotClientError(classifyRyotQLFailure(error)))),
+		uploadTemporary: (request) =>
+			temporaryUpload(scope, request).pipe(
+				Effect.provideService(UploadsApi, runtime.runSync(UploadsApi)),
+				Effect.mapError((error) => new RyotClientError(classifyTemporaryUploadFailure(error))),
+			),
+		resolveAssets: (assets) =>
+			runtime
+				.runSync(UploadsApi)
+				.resolveDownloads(scope, { payload: { assets: [...assets] } })
+				.pipe(
+					Effect.map((response) => mapManagedAssetResolutions(scope, response)),
+					Effect.mapError((error) => new RyotClientError(classifyManagedAssetFailure(error))),
+				),
+		mutateCollection: (request) => {
+			const api = runtime.runSync(CollectionsApi);
+			return Effect.gen(function* () {
+				if (request.action === "create") {
+					return yield* api.create(scope, { payload: request.input });
 				}
-				throw new RyotClientError(classifyRyotQLFailure(error));
-			}
-		},
-		resolveAssets: async (assets, signal) => {
-			try {
-				const response = await runtime.runPromise(
-					UploadsApi.pipe(
-						Effect.flatMap((api) =>
-							api.resolveDownloads(scope, { payload: { assets: [...assets] } }),
-						),
-					),
-					{ signal },
-				);
-				return mapManagedAssetResolutions(scope, response);
-			} catch (error) {
-				if (signal?.aborted) {
-					throw signal.reason;
+				if (request.action === "upsert-membership") {
+					return yield* api.createMembership(scope, { payload: request.input });
 				}
-				throw new RyotClientError(classifyManagedAssetFailure(error));
-			}
-		},
-		mutateCollection: async (request) => {
-			try {
-				return await runtime.runPromise(
-					CollectionsApi.pipe(
-						Effect.flatMap((api) => {
-							if (request.action === "create") {
-								return api
-									.create(scope, { payload: request.input })
-									.pipe(Effect.map((value): unknown => value));
-							}
-							if (request.action === "upsert-membership") {
-								return api
-									.createMembership(scope, { payload: request.input })
-									.pipe(Effect.map((value): unknown => value));
-							}
-							return api
-								.deleteMembership(scope, { payload: request.input })
-								.pipe(Effect.map((value): unknown => value));
-						}),
-					),
-				);
-			} catch (error) {
-				throw new RyotClientError(classifyCollectionFailure(error));
-			}
+				return yield* api.deleteMembership(scope, { payload: request.input });
+			}).pipe(
+				Effect.map((value): unknown => value),
+				Effect.mapError((error) => new RyotClientError(classifyCollectionFailure(error))),
+			);
 		},
 	});
 };

@@ -8,6 +8,7 @@ import { makeTestThemeStore } from "#/modules/theme/store.test-store";
 import { makeClientStorage } from "#/persistence/storage.test-layer";
 
 describe("ThemeController", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React's asynchronous persistence callback.
 	it("renders nothing and persists a preference change made through the ThemeStore", async () => {
 		const persisted: ThemePreference[] = [];
 		const runtime = ManagedRuntime.make(
@@ -25,7 +26,7 @@ describe("ThemeController", () => {
 
 		theme.setPreference("dark");
 
-		await new Promise((resolve) => setTimeout(resolve, 0));
+		await Effect.runPromise(Effect.sleep(0));
 		expect(persisted).toEqual(["system", "dark"]);
 	});
 });

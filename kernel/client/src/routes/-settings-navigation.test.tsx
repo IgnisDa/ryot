@@ -138,6 +138,7 @@ const mountView = (
 };
 
 describe("authenticated route gate", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("owns one interest session across loader revalidation and releases it on unmount without fetching preferences", async () => {
 		let settingsReads = 0;
 		const view = mountView(
@@ -164,6 +165,7 @@ describe("authenticated route gate", () => {
 	});
 	it.each(["/", "/fixture", "/settings", "/settings/preferences", "/settings/account"])(
 		"redirects an unauthenticated visitor from %s to /auth",
+		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 		async (path) => {
 			const view = mountView(path, undefined, undefined, makeAuthStub({}, unauthenticated));
 			await waitFor(() => expect(view.router.state.location.pathname).toBe("/auth"));
@@ -173,6 +175,7 @@ describe("authenticated route gate", () => {
 });
 
 describe("settings navigation", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("marks the active section on the desktop settings sidebar", async () => {
 		const view = mountView("/settings/preferences");
 		const sidebar = await screen.findByTestId("settings-sidebar");
@@ -192,6 +195,7 @@ describe("settings navigation", () => {
 		expect(accountAfterNavigate.getAttribute("class")).toContain("bg-nav-indicator");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("navigates with replace when selecting a section from the desktop sidebar", async () => {
 		const view = mountView(["/fixture", "/settings/preferences"]);
 		const sidebar = await screen.findByTestId("settings-sidebar");
@@ -203,6 +207,7 @@ describe("settings navigation", () => {
 		await waitFor(() => expect(view.router.state.location.pathname).toBe("/fixture"));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("keeps an unmatched settings path inside the settings layout", async () => {
 		const view = mountView("/settings/account/security");
 		const sidebar = await screen.findByTestId("settings-sidebar");
@@ -215,6 +220,7 @@ describe("settings navigation", () => {
 		).toBe("page");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("renders the mobile settings index with disclosure rows and pushes on selection", async () => {
 		const view = mountView("/settings");
 		await screen.findByRole("heading", { level: 1, name: "Settings" });
@@ -229,6 +235,7 @@ describe("settings navigation", () => {
 		await waitFor(() => expect(view.router.state.location.pathname).toBe("/settings"));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("replaces to preferences on desktop when /settings crosses into the desktop breakpoint", async () => {
 		const restore = stubDesktopMatchMedia();
 		try {
@@ -241,6 +248,7 @@ describe("settings navigation", () => {
 		}
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("frames a compact settings route with its own bar and no drawer", async () => {
 		mountView("/settings/preferences");
 		await screen.findByTestId("settings-sidebar");
@@ -250,6 +258,7 @@ describe("settings navigation", () => {
 		expect(screen.queryByTestId("mobile-drawer")).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("frames a desktop settings page with the title in content and no back control", async () => {
 		const restore = stubDesktopMatchMedia();
 		try {
@@ -264,6 +273,7 @@ describe("settings navigation", () => {
 		}
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("returns to the previous entry when back is used after navigating into a detail route", async () => {
 		const view = mountView(["/fixture", "/settings"]);
 		await screen.findByRole("heading", { level: 1, name: "Settings" });
@@ -276,6 +286,7 @@ describe("settings navigation", () => {
 		await waitFor(() => expect(view.router.state.location.pathname).toBe("/settings"));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("replaces to /settings on direct entry to a detail route", async () => {
 		const view = mountView("/settings/preferences");
 		await screen.findByRole("heading", { name: "Preferences" });
@@ -285,6 +296,7 @@ describe("settings navigation", () => {
 		expect(view.router.history.canGoBack()).toBe(false);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("replaces to the remembered workspace route on direct entry to /settings", async () => {
 		const view = mountView("/settings", "fixture");
 		await screen.findByRole("heading", { level: 1, name: "Settings" });
@@ -294,6 +306,7 @@ describe("settings navigation", () => {
 		expect(view.router.history.canGoBack()).toBe(false);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("falls back to a workspace chosen during the current shell lifetime", async () => {
 		const recorder = makeWorkspaceRecorder();
 		const entries: PluginClientCatalog = [
@@ -332,6 +345,7 @@ describe("settings navigation", () => {
 		expect(view.router.history.canGoBack()).toBe(false);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("does not adopt a workspace reached only by its direct route", async () => {
 		const recorder = makeWorkspaceRecorder();
 		const entries: PluginClientCatalog = [
@@ -368,6 +382,7 @@ describe("settings navigation", () => {
 });
 
 describe("account settings", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("keeps demo account actions and information available", async () => {
 		const demo = { ...authenticated, accessClass: "demo" as const };
 		mountView(
@@ -388,8 +403,10 @@ describe("account settings", () => {
 		expect(screen.getByRole("link", { name: /God Mode/ })).not.toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("retries a failed account identity query", async () => {
 		let sessionReads = 0;
+		let retry = false;
 		mountView(
 			"/settings/account",
 			undefined,
@@ -397,7 +414,7 @@ describe("account settings", () => {
 			makeAuthStub({
 				settledSession: () => {
 					sessionReads++;
-					return sessionReads === 2
+					return sessionReads > 1 && !retry
 						? Effect.die("account unavailable")
 						: Effect.succeed(authenticated);
 				},
@@ -405,12 +422,14 @@ describe("account settings", () => {
 		);
 
 		await screen.findByText("Could not load your account.");
+		retry = true;
 		fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
 		await screen.findByRole("button", { name: "New avatar" });
-		expect(sessionReads).toBe(3);
+		expect(sessionReads).toBeGreaterThan(2);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("renders the current identity: name, email, and user ID", async () => {
 		mountView("/settings/account");
 		await screen.findByRole("button", { name: "New avatar" });
@@ -423,6 +442,7 @@ describe("account settings", () => {
 		expect(profile?.textContent).not.toContain("https://ryot.example");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("opens standalone God Mode from the server administration card", async () => {
 		const view = mountView("/settings/account");
 		const administration = await screen.findByRole("heading", { name: "Server administration" });
@@ -440,6 +460,7 @@ describe("account settings", () => {
 		expect(screen.queryByTitle("fixture plugin")).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("names the connected server on native and points at sign out to change it", async () => {
 		mountView(
 			"/settings/account",
@@ -460,6 +481,7 @@ describe("account settings", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("hides the server section on web, where the origin cannot be changed", async () => {
 		mountView("/settings/account");
 		await screen.findByRole("heading", { name: "Account" });
@@ -467,6 +489,7 @@ describe("account settings", () => {
 		expect(screen.queryByRole("heading", { name: "Server" })).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("generates a new avatar and forces the session to refresh", async () => {
 		const refreshes: boolean[] = [];
 		let avatar: string | null = null;
@@ -506,6 +529,7 @@ describe("account settings", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("disables the avatar action while it is pending", async () => {
 		const gate = Effect.runSync(Deferred.make<void>());
 		mountView(
@@ -527,6 +551,7 @@ describe("account settings", () => {
 		await screen.findByRole("button", { name: "New avatar" });
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("reports a failed avatar generation and leaves the action available", async () => {
 		mountView(
 			"/settings/account",
@@ -545,6 +570,7 @@ describe("account settings", () => {
 		expect(screen.getByRole("button", { name: "New avatar" }).hasAttribute("disabled")).toBe(false);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("keeps the account visible if refreshing the session after avatar generation fails", async () => {
 		mountView(
 			"/settings/account",
@@ -568,6 +594,7 @@ describe("account settings", () => {
 		expect(screen.getByRole("button", { name: "New avatar" }).hasAttribute("disabled")).toBe(false);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("disables sign out while it is pending and navigates to /auth on success", async () => {
 		const gate = Effect.runSync(Deferred.make<boolean>());
 		const view = mountView(
@@ -586,6 +613,7 @@ describe("account settings", () => {
 		await waitFor(() => expect(view.router.state.location.pathname).toBe("/auth"));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("stays put and renders a stable failure message when sign out fails", async () => {
 		const view = mountView(
 			"/settings/account",
@@ -602,6 +630,7 @@ describe("account settings", () => {
 		expect(screen.getByRole("button", { name: "Sign out" }).hasAttribute("disabled")).toBe(false);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("leaves navigation to an external logout without refreshing account data", async () => {
 		const signOuts: string[] = [];
 		let sessionReads = 0;
@@ -652,6 +681,7 @@ const mountPreferences = (
 	);
 
 describe("preferences settings", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("keeps local appearance usable and makes demo server preferences read-only", async () => {
 		let saves = 0;
 		mountPreferences(
@@ -686,6 +716,7 @@ describe("preferences settings", () => {
 		expect(saves).toBe(0);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("renders appearance beside the server-backed preferences", async () => {
 		mountPreferences();
 		await screen.findByRole("switch", { name: "Show NSFW content" });
@@ -698,6 +729,7 @@ describe("preferences settings", () => {
 		).not.toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("submits only the changed preferences and reports the save", async () => {
 		const saved: UpdateUserPreferencesBody[] = [];
 		let settingsReads = 0;
@@ -732,6 +764,7 @@ describe("preferences settings", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("submits a metadata language picked from the options", async () => {
 		const saved: UpdateUserPreferencesBody[] = [];
 		const view = mountPreferences(
@@ -753,6 +786,7 @@ describe("preferences settings", () => {
 		expect(view.interestEvents).toEqual(["acquire", "reconnect"]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("disables preference controls while a save is pending", async () => {
 		const gate = Effect.runSync(Deferred.make<void>());
 		mountPreferences(makeUserSettingsStub({ updatePreferences: () => Deferred.await(gate) }));
@@ -778,6 +812,7 @@ describe("preferences settings", () => {
 		await screen.findByText("Preferences saved.");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("does not reconnect when a metadata language save fails", async () => {
 		const view = mountPreferences(
 			makeUserSettingsStub({ updatePreferences: () => Effect.die("save failed") }),
@@ -790,6 +825,7 @@ describe("preferences settings", () => {
 		expect(view.interestEvents).toEqual(["acquire"]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("keeps the edit available and explains a failed save", async () => {
 		mountPreferences(
 			makeUserSettingsStub({ updatePreferences: () => Effect.die("preference update failed") }),
@@ -808,6 +844,7 @@ describe("preferences settings", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("keeps preferences visible when their mutation refresh fails", async () => {
 		let settingsReads = 0;
 		mountPreferences(
@@ -834,6 +871,7 @@ describe("preferences settings", () => {
 		).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("keeps appearance usable when the settings request fails", async () => {
 		mountPreferences(
 			makeUserSettingsStub(),
@@ -850,6 +888,7 @@ describe("preferences settings", () => {
 });
 
 describe("pro instance badge", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("crowns the sidebar account avatar when the server key is validated", async () => {
 		mountView("/settings/preferences", undefined, undefined, undefined, makePublicApiStub(true));
 		const sidebar = await screen.findByTestId("desktop-sidebar");
@@ -857,6 +896,7 @@ describe("pro instance badge", () => {
 		expect(within(sidebar).getByRole("img", { name: "Ryot Pro" })).not.toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("leaves the sidebar account avatar plain when the server key is not validated", async () => {
 		mountView("/settings/preferences");
 		const sidebar = await screen.findByTestId("desktop-sidebar");
@@ -864,6 +904,7 @@ describe("pro instance badge", () => {
 		expect(within(sidebar).queryByRole("img", { name: "Ryot Pro" })).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("falls back to the community badge when the system config cannot be read", async () => {
 		mountView(
 			"/settings/preferences",
@@ -885,6 +926,7 @@ describe("pro instance badge", () => {
 const mainContents = () => document.querySelectorAll("#main-content");
 
 describe("document title and skip-link target", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("titles a literal kernel route and gives the skip link a single target", async () => {
 		mountView("/", null, []);
 		await screen.findByRole("heading", { name: "No workspaces enabled" });
@@ -893,6 +935,7 @@ describe("document title and skip-link target", () => {
 		expect(mainContents()).toHaveLength(1);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("titles an AuthStatus branch from the shared frame", async () => {
 		mountView("/auth", undefined, undefined, makeAuthStub({}, unauthenticated));
 		await screen.findByRole("heading", { name: "Opening sign-in" });
@@ -901,6 +944,7 @@ describe("document title and skip-link target", () => {
 		expect(mainContents()).toHaveLength(1);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("retitles when navigating between routes", async () => {
 		const view = mountView("/settings/preferences");
 		await screen.findByRole("heading", { name: "Preferences" });

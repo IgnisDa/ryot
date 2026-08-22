@@ -8,6 +8,7 @@ import { OAuthTokenService } from "#/modules/auth/token-service";
 import { ServerService } from "#/modules/server/service";
 
 export const Route = createFileRoute("/auth_/logout/callback")({
+	// oxlint-disable-next-line effecttsgo/async-function -- TanStack logout callback loader.
 	beforeLoad: async ({ context }) => {
 		await context.runtime.runPromise(
 			Effect.gen(function* () {

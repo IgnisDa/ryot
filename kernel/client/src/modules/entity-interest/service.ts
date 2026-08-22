@@ -5,7 +5,8 @@ import {
 	encodeEntityInterestClientMessage,
 	type EntityInterestClientMessage,
 } from "@ryot-app/contract/modules/entity-interest/messages";
-import { Context, Effect, Layer, Match, Result } from "effect";
+import type { Fiber } from "effect";
+import { Context, Effect, FiberHandle, Layer, Match, Result } from "effect";
 
 import { EntityInterestApi, entityInterestSocketUrl } from "#/api/entity-interest";
 import { apiScopeKey, type ApiScope } from "#/api/scope";
@@ -26,6 +27,7 @@ export class EntityInterestService extends Context.Service<EntityInterestService
 		make: Effect.gen(function* () {
 			const api = yield* EntityInterestApi;
 			const io = yield* EntityInterestTransport;
+			const runTicket = yield* FiberHandle.makeRuntime<never, never, void>();
 			const declarations = new Map<string, Set<Owner>>();
 			let active:
 				| {
@@ -100,14 +102,14 @@ export class EntityInterestService extends Context.Service<EntityInterestService
 				let socket: InterestSocket | undefined;
 				let deadline: (() => void) | undefined;
 				const grace = new Map<string, () => void>();
-				let controller: AbortController | undefined;
+				let ticketFiber: Fiber.Fiber<void> | undefined;
 				let socketListeners: AbortController | undefined;
 				let pending: { revision: number; ids: Set<string> } | undefined;
 
 				const stop = () => {
 					attempt++;
-					controller?.abort();
-					controller = undefined;
+					ticketFiber?.interruptUnsafe();
+					ticketFiber = undefined;
 					retry?.();
 					retry = undefined;
 					deadline?.();
@@ -220,112 +222,118 @@ export class EntityInterestService extends Context.Service<EntityInterestService
 						return;
 					}
 					const current = attempt;
-					controller = new AbortController();
 					deadline = io.schedule(15_000, failed);
-					void Effect.runPromise(api.createSocketTicket(scope), { signal: controller.signal })
-						.then(({ ticket }) => {
-							if (disposed || current !== attempt) {
-								return undefined;
-							}
-							const connection = io.open(entityInterestSocketUrl(scope));
-							socket = connection;
-							const isCurrent = () => !disposed && socket === connection && current === attempt;
-							socketListeners = new AbortController();
-							const options = { signal: socketListeners.signal };
-							connection.addEventListener(
-								"open",
-								() => {
-									if (isCurrent()) {
-										send({ ticket, type: "authenticate" });
-									}
-								},
-								options,
-							);
-							const onFailure = () => {
-								if (isCurrent()) {
-									failed();
+					ticketFiber = runTicket(
+						api.createSocketTicket(scope).pipe(
+							Effect.map(({ ticket }) => {
+								if (disposed || current !== attempt) {
+									return;
 								}
-							};
-							connection.addEventListener("close", onFailure, options);
-							connection.addEventListener("error", onFailure, options);
-							connection.addEventListener(
-								"message",
-								(event) => {
-									if (!isCurrent()) {
-										return;
-									}
-									const decoded = decodeEntityInterestServerMessage(
-										event instanceof MessageEvent ? event.data : undefined,
-									);
-									if (Result.isFailure(decoded) || (!ready && decoded.success.type !== "ready")) {
+								const connection = io.open(entityInterestSocketUrl(scope));
+								socket = connection;
+								const isCurrent = () => !disposed && socket === connection && current === attempt;
+								socketListeners = new AbortController();
+								const options = { signal: socketListeners.signal };
+								connection.addEventListener(
+									"open",
+									() => {
+										if (isCurrent()) {
+											send({ ticket, type: "authenticate" });
+										}
+									},
+									options,
+								);
+								const onFailure = () => {
+									if (isCurrent()) {
 										failed();
-										return;
 									}
-									Match.value(decoded.success).pipe(
-										Match.when({ type: "ready" }, (message) => {
-											if (
-												ready ||
-												message.maxEntityIds < MAX_INTEREST_ENTITY_IDS ||
-												message.heartbeatIntervalMs <= 0
-											) {
-												failed();
-												return;
-											}
-											ready = true;
-											failures = revision = 0;
-											applied = new Set();
-											deadline?.();
-											heartbeatMs = message.heartbeatIntervalMs * 3;
-											deadline = io.schedule(heartbeatMs, failed);
-											batch?.();
-											batch = undefined;
-											flush();
-										}),
-										Match.when({ type: "applied" }, (message) => {
-											if (pending?.revision !== message.revision) {
-												failed();
-												return;
-											}
-											applied = pending.ids;
-											revision = pending.revision;
-											pending = undefined;
-											flush();
-										}),
-										Match.when({ type: "ping" }, ({ nonce }) => {
-											deadline?.();
-											deadline = io.schedule(heartbeatMs, failed);
-											send({ nonce, type: "pong" });
-										}),
-										Match.when({ type: "rejected" }, failed),
-										Match.when({ type: "entity-updated" }, (message) => {
-											for (const owner of declarations.get(key) ?? []) {
-												if (!isCurrent()) {
+								};
+								connection.addEventListener("close", onFailure, options);
+								connection.addEventListener("error", onFailure, options);
+								connection.addEventListener(
+									"message",
+									(event) => {
+										if (!isCurrent()) {
+											return;
+										}
+										const decoded = decodeEntityInterestServerMessage(
+											event instanceof MessageEvent ? event.data : undefined,
+										);
+										if (Result.isFailure(decoded) || (!ready && decoded.success.type !== "ready")) {
+											failed();
+											return;
+										}
+										Match.value(decoded.success).pipe(
+											Match.when({ type: "ready" }, (message) => {
+												if (
+													ready ||
+													message.maxEntityIds < MAX_INTEREST_ENTITY_IDS ||
+													message.heartbeatIntervalMs <= 0
+												) {
+													failed();
 													return;
 												}
-												if (
-													owner.interest.foreground.includes(message.entityId) ||
-													owner.interest.visible.includes(message.entityId)
-												) {
-													try {
-														owner.onUpdate({ reason: message.reason, entityId: message.entityId });
-													} catch {
-														/* A listener must not stop transport. */
+												ready = true;
+												failures = revision = 0;
+												applied = new Set();
+												deadline?.();
+												heartbeatMs = message.heartbeatIntervalMs * 3;
+												deadline = io.schedule(heartbeatMs, failed);
+												batch?.();
+												batch = undefined;
+												flush();
+											}),
+											Match.when({ type: "applied" }, (message) => {
+												if (pending?.revision !== message.revision) {
+													failed();
+													return;
+												}
+												applied = pending.ids;
+												revision = pending.revision;
+												pending = undefined;
+												flush();
+											}),
+											Match.when({ type: "ping" }, ({ nonce }) => {
+												deadline?.();
+												deadline = io.schedule(heartbeatMs, failed);
+												send({ nonce, type: "pong" });
+											}),
+											Match.when({ type: "rejected" }, failed),
+											Match.when({ type: "entity-updated" }, (message) => {
+												for (const owner of declarations.get(key) ?? []) {
+													if (!isCurrent()) {
+														return;
+													}
+													if (
+														owner.interest.foreground.includes(message.entityId) ||
+														owner.interest.visible.includes(message.entityId)
+													) {
+														try {
+															owner.onUpdate({
+																reason: message.reason,
+																entityId: message.entityId,
+															});
+														} catch {
+															/* A listener must not stop transport. */
+														}
 													}
 												}
-											}
-										}),
-										Match.exhaustive,
-									);
-								},
-								options,
-							);
-							return undefined;
-						})
-						.catch(() => {
-							if (!disposed && current === attempt) {
-								failed();
-							}
-						});
+											}),
+											Match.exhaustive,
+										);
+									},
+									options,
+								);
+							}),
+							Effect.catchCause(() =>
+								Effect.sync(() => {
+									if (!disposed && current === attempt) {
+										failed();
+									}
+								}),
+							),
+						),
+					);
 				}
 				const unsubscribe = io.subscribe(connect);
 				const release = () => {

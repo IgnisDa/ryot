@@ -1,3 +1,4 @@
+import { RyotClientError } from "@ryot-app/client-sdk";
 import {
 	createRyotMutation,
 	createRyotQuery,
@@ -23,35 +24,35 @@ export const Route = createFileRoute("/_authenticated/settings/account")({
 });
 
 const accountIdentityQuery = createRyotQuery<void, SettledAuthSession, KernelHostServices>(
-	({ signal, hostServices }) =>
-		hostServices.runtime.runPromise(
-			Effect.flatMap(AuthService, (auth) => auth.settledSession(hostServices.scope.serverUrl)),
-			{ signal },
-		),
+	({ hostServices }) =>
+		hostServices.runtime
+			.runSync(AuthService)
+			.settledSession(hostServices.scope.serverUrl)
+			.pipe(Effect.mapError(() => new RyotClientError("transport"))),
 );
 
 const refreshAvatarMutation = createRyotMutation<void, void, KernelHostServices>(
-	({ client, signal, hostServices }) =>
-		hostServices.runtime.runPromise(
-			Effect.flatMap(UserSettingsApi, (api) => api.refreshAvatar(hostServices.scope)).pipe(
+	({ client, hostServices }) =>
+		hostServices.runtime
+			.runSync(UserSettingsApi)
+			.refreshAvatar(hostServices.scope)
+			.pipe(
 				Effect.flatMap(() =>
-					Effect.flatMap(AuthService, (auth) =>
-						auth.settledSession(hostServices.scope.serverUrl, true),
-					),
+					hostServices.runtime
+						.runSync(AuthService)
+						.settledSession(hostServices.scope.serverUrl, true),
 				),
 				Effect.tap(() => Effect.sync(() => client.mutationCompleted.hint())),
 				Effect.as(undefined),
+				Effect.mapError(() => new RyotClientError("transport")),
 			),
-			{ signal },
-		),
 );
 
-const signOutMutation = createRyotMutation<void, boolean, KernelHostServices>(
-	({ signal, hostServices }) =>
-		hostServices.runtime.runPromise(
-			Effect.flatMap(AuthService, (auth) => auth.signOut(hostServices.scope.serverUrl)),
-			{ signal },
-		),
+const signOutMutation = createRyotMutation<void, boolean, KernelHostServices>(({ hostServices }) =>
+	hostServices.runtime
+		.runSync(AuthService)
+		.signOut(hostServices.scope.serverUrl)
+		.pipe(Effect.mapError(() => new RyotClientError("transport"))),
 );
 
 function AccountRoute() {

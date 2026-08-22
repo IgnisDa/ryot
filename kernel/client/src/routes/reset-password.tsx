@@ -90,6 +90,7 @@ function ResetPasswordForm(props: {
 	const form = useForm({
 		errorVisibility,
 		defaultValues: { password: "", confirmation: "" },
+		// oxlint-disable-next-line effecttsgo/async-function -- React form callback.
 		onSubmit: async ({ value }) => {
 			setServerError(undefined);
 			if (value.password !== value.confirmation) {

@@ -38,16 +38,16 @@ const stubFetch = (respond: (init: RequestInit | undefined) => Promise<Response>
 	return inits;
 };
 
-const withUploads = async <A>(
+const withUploads = <A>(
 	overrides: Parameters<typeof makeUploadsApi>[0],
-	body: (run: <B>(effect: Effect.Effect<B, unknown, UploadsApi>) => Promise<B>) => Promise<A>,
+	body: (run: <B, E>(effect: Effect.Effect<B, E, UploadsApi>) => Promise<B>) => Promise<A>,
 ) => {
 	const runtime = ManagedRuntime.make(makeUploadsApi(overrides));
-	try {
-		return await body((effect) => runtime.runPromise(effect));
-	} finally {
-		await runtime.dispose();
-	}
+	return Effect.runPromise(
+		Effect.promise(() => body((effect) => runtime.runPromise(effect))).pipe(
+			Effect.ensuring(Effect.promise(() => runtime.dispose())),
+		),
+	);
 };
 
 describe("temporary uploads", () => {
@@ -55,6 +55,7 @@ describe("temporary uploads", () => {
 		globalThis.fetch = originalFetch;
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("hides intent creation, byte transfer, and completion behind one token", async () => {
 		const inits = stubFetch(() => Promise.resolve(new Response(null, { status: 200 })));
 		const completed: string[] = [];
@@ -67,9 +68,7 @@ describe("temporary uploads", () => {
 					return Effect.succeed(token);
 				},
 			},
-			async (run) => {
-				await expect(run(temporaryUpload(scope, request))).resolves.toEqual(token);
-			},
+			(run) => expect(run(temporaryUpload(scope, request))).resolves.toEqual(token),
 		);
 
 		expect(completed).toEqual(["intent-1"]);
@@ -77,10 +76,12 @@ describe("temporary uploads", () => {
 		expect(inits[0]?.body).toBe(request.source);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("passes an abort signal to the byte transfer so teardown stops it", async () => {
 		let transferSignal: AbortSignal | undefined;
 		stubFetch((init) => {
 			transferSignal = init?.signal ?? undefined;
+			// oxlint-disable-next-line effecttsgo/new-promise -- The injected fetch remains pending until the abort signal rejects it.
 			return new Promise<Response>((_resolve, reject) => {
 				init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
 			});
@@ -93,7 +94,7 @@ describe("temporary uploads", () => {
 		const pending = runtime.runPromise(temporaryUpload(scope, request), {
 			signal: controller.signal,
 		});
-		await new Promise((resolve) => setTimeout(resolve, 0));
+		await Effect.runPromise(Effect.sleep(0));
 
 		expect(transferSignal?.aborted).toBe(false);
 		controller.abort();
@@ -102,6 +103,7 @@ describe("temporary uploads", () => {
 		await runtime.dispose();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("treats a completion that is not a temporary token as a malformed result", async () => {
 		stubFetch(() => Promise.resolve(new Response(null, { status: 200 })));
 
@@ -111,31 +113,31 @@ describe("temporary uploads", () => {
 				completeIntent: () =>
 					Effect.succeed({ type: "local" as const, key: "permanent/items.csv" }),
 			},
-			async (run) => {
-				await expect(run(temporaryUploadOutcome(scope, request))).resolves.toEqual({
+			(run) =>
+				expect(run(temporaryUploadOutcome(scope, request))).resolves.toEqual({
 					outcome: "failure",
 					reason: "malformed-result",
-				});
-			},
+				}),
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("separates a declared upload rejection from a transport failure", async () => {
 		stubFetch(() => Promise.resolve(new Response(null, { status: 500 })));
-		await withUploads({ createIntent: () => Effect.succeed(intent) }, async (run) => {
-			await expect(run(temporaryUploadOutcome(scope, request))).resolves.toEqual({
+		await withUploads({ createIntent: () => Effect.succeed(intent) }, (run) =>
+			expect(run(temporaryUploadOutcome(scope, request))).resolves.toEqual({
 				outcome: "failure",
 				reason: "operation-failed",
-			});
-		});
+			}),
+		);
 
 		stubFetch(() => Promise.reject(new Error("offline")));
-		await withUploads({ createIntent: () => Effect.succeed(intent) }, async (run) => {
-			await expect(run(temporaryUploadOutcome(scope, request))).resolves.toEqual({
+		await withUploads({ createIntent: () => Effect.succeed(intent) }, (run) =>
+			expect(run(temporaryUploadOutcome(scope, request))).resolves.toEqual({
 				outcome: "failure",
 				reason: "transport",
-			});
-		});
+			}),
+		);
 	});
 
 	it("classifies declared API failures apart from unexpected ones", () => {

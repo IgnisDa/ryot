@@ -20,6 +20,7 @@ const openCollection = (collectionId = "col-1", search = "") =>
 		}),
 	});
 
+// oxlint-disable-next-line effecttsgo/async-function -- Test helper awaits the React bridge harness.
 const request = async (page: ReturnType<typeof mountPluginPage>, name: string) => {
 	await waitFor(() => expect(page.queryRequests(name).length).toBeGreaterThan(0));
 	const found = page.queryRequests(name)[0];
@@ -29,6 +30,7 @@ const request = async (page: ReturnType<typeof mountPluginPage>, name: string) =
 	return found;
 };
 
+// oxlint-disable-next-line effecttsgo/async-function -- Test helper awaits the React bridge harness.
 const answerCollection = async (
 	page: ReturnType<typeof mountPluginPage>,
 	input: {
@@ -42,6 +44,7 @@ const answerCollection = async (
 	},
 ) => {
 	const header = await request(page, "collection");
+	expect(page.queryRequests()).toHaveLength(1);
 	page.replyQuery(header.requestId, {
 		outcome: "success",
 		response: {
@@ -117,6 +120,7 @@ const answerCollection = async (
 describe("collection detail", () => {
 	afterEach(disposePluginBridges);
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the React bridge harness.
 	it("renders heterogeneous members and recipe-supplied template cells in the shared table", async () => {
 		const page = openCollection();
 		await answerCollection(page, {
@@ -182,6 +186,7 @@ describe("collection detail", () => {
 		expect(page.container?.textContent).toContain("Collections");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the React bridge harness.
 	it("keeps schema-driven table configuration when the collection has zero members", async () => {
 		const page = openCollection("col-empty", "layout=table");
 		await answerCollection(page, {
@@ -201,6 +206,7 @@ describe("collection detail", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the React bridge harness.
 	it("counts all collection search matches on demand", async () => {
 		const page = openCollection("col-1", "search=dune");
 		await answerCollection(page, {
@@ -239,6 +245,7 @@ describe("collection detail", () => {
 		expect(screen.queryByRole("button", { name: "Add" })).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the React bridge harness.
 	it("uses shared mobile search and options without exposing Add", async () => {
 		const page = openCollection();
 		page.navigate(entityLocation("col-1", "collection"), { compact: true });
@@ -263,6 +270,7 @@ describe("collection detail", () => {
 		expect(dialog.textContent).toContain("Filters are not available yet.");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the React bridge harness.
 	it("keeps the desktop toolbar aligned with saved views and sorts from the Filters dialog", async () => {
 		const page = openCollection();
 		await answerCollection(page, {

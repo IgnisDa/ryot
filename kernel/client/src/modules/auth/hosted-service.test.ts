@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { requestDemoSignIn } from "#/modules/auth/hosted-service";
 
 describe("hosted auth service demo sign-in", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it.each(["demo", "standard"] as const)("accepts the %s mode", async (mode) => {
 		const requests: Array<{ init?: RequestInit; url: string }> = [];
 		const request = requestDemoSignIn((input, init) => {
@@ -32,6 +33,7 @@ describe("hosted auth service demo sign-in", () => {
 
 	it.each([{ mode: "unknown" }, { extra: true, mode: "demo" }, null])(
 		"rejects an invalid response: %j",
+		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 		async (payload) => {
 			const request = requestDemoSignIn(
 				() => Promise.resolve(Response.json(payload)),
@@ -42,6 +44,7 @@ describe("hosted auth service demo sign-in", () => {
 		},
 	);
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("rejects an unavailable response without exposing its payload", async () => {
 		const request = requestDemoSignIn(
 			() => Promise.resolve(Response.json({ email: "demo@ryot.example" }, { status: 403 })),

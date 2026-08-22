@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { OAUTH_DEMO_WEB_CLIENT_ID, OAUTH_WEB_CLIENT_ID } from "@ryot-app/contract/oauth";
-import { Effect, Fiber } from "effect";
+import { Effect, Fiber, Layer } from "effect";
 
 import { decodeServerOrigin } from "#/api/origin";
 import {
@@ -58,6 +58,15 @@ const makeStorage = (overrides: Partial<OAuthStorageAdapter> = {}) => {
 	};
 };
 
+const tokenLayer = (
+	storage: ReturnType<typeof makeStorage>,
+	fetcher: Parameters<typeof oauthTokenServiceLayer>[0],
+) =>
+	Layer.provideMerge(
+		oauthTokenServiceLayer(fetcher, () => now),
+		storage.layer,
+	);
+
 const pending = () =>
 	({
 		createdAt: now,
@@ -72,6 +81,7 @@ const pending = () =>
 
 const openGate = () => {
 	let open!: () => void;
+	// oxlint-disable-next-line effecttsgo/new-promise -- This controllable test gate stays pending until the host callback or test releases it.
 	const opened = new Promise<void>((resolve) => {
 		open = resolve;
 	});
@@ -119,10 +129,7 @@ describe("OAuth token service", () => {
 				scope: "openid profile email offline_access ryot:api",
 			});
 			expect(yield* persisted.takePending(origin, "state-1")).toBeNull();
-		}).pipe(
-			Effect.provide(oauthTokenServiceLayer(fetcher, () => now)),
-			Effect.provide(storage.layer),
-		);
+		}).pipe(Effect.provide(tokenLayer(storage, fetcher)));
 	});
 
 	it.effect("accepts a demo web authorization and preserves its issuing client", () => {
@@ -142,13 +149,7 @@ describe("OAuth token service", () => {
 
 			expect((yield* persisted.getTokenSet(origin))?.clientId).toBe(OAUTH_DEMO_WEB_CLIENT_ID);
 		}).pipe(
-			Effect.provide(
-				oauthTokenServiceLayer(
-					() => Promise.resolve(jsonResponse(tokenResponse())),
-					() => now,
-				),
-			),
-			Effect.provide(storage.layer),
+			Effect.provide(tokenLayer(storage, () => Promise.resolve(jsonResponse(tokenResponse())))),
 		);
 	});
 
@@ -174,15 +175,11 @@ describe("OAuth token service", () => {
 			expect(yield* persisted.getPending(origin, "state-1")).toBeNull();
 		}).pipe(
 			Effect.provide(
-				oauthTokenServiceLayer(
-					() => {
-						requests += 1;
-						return Promise.resolve(jsonResponse(tokenResponse()));
-					},
-					() => now,
-				),
+				tokenLayer(storage, () => {
+					requests += 1;
+					return Promise.resolve(jsonResponse(tokenResponse()));
+				}),
 			),
-			Effect.provide(storage.layer),
 		);
 	});
 
@@ -205,12 +202,10 @@ describe("OAuth token service", () => {
 			expect(yield* persisted.takePending(origin, "state-1")).toBeNull();
 		}).pipe(
 			Effect.provide(
-				oauthTokenServiceLayer(
-					() => Promise.resolve(jsonResponse(tokenResponse({ id_token: idToken("wrong") }))),
-					() => now,
+				tokenLayer(storage, () =>
+					Promise.resolve(jsonResponse(tokenResponse({ id_token: idToken("wrong") }))),
 				),
 			),
-			Effect.provide(storage.layer),
 		);
 	});
 
@@ -251,10 +246,7 @@ describe("OAuth token service", () => {
 			).toEqual(pending());
 			expect(requests).toBe(2);
 			expect(storage.values.has(oauthPendingKey(origin, "state-1"))).toBe(false);
-		}).pipe(
-			Effect.provide(oauthTokenServiceLayer(fetcher, () => now)),
-			Effect.provide(storage.layer),
-		);
+		}).pipe(Effect.provide(tokenLayer(storage, fetcher)));
 	});
 
 	it.effect("consumes the state after a terminal token endpoint failure", () => {
@@ -276,12 +268,8 @@ describe("OAuth token service", () => {
 			expect(storage.values.has(oauthPendingKey(origin, "state-1"))).toBe(false);
 		}).pipe(
 			Effect.provide(
-				oauthTokenServiceLayer(
-					() => Promise.resolve(jsonResponse({ error: "invalid_grant" }, 400)),
-					() => now,
-				),
+				tokenLayer(storage, () => Promise.resolve(jsonResponse({ error: "invalid_grant" }, 400))),
 			),
-			Effect.provide(storage.layer),
 		);
 	});
 
@@ -324,18 +312,14 @@ describe("OAuth token service", () => {
 			expect((yield* persisted.getTokenSet(origin))?.refreshToken).toBe("refresh-2");
 		}).pipe(
 			Effect.provide(
-				oauthTokenServiceLayer(
-					(_input, init) => {
-						requests += 1;
-						requestBodies.push(init?.body instanceof URLSearchParams ? init.body.toString() : "");
-						return Promise.resolve(
-							jsonResponse(tokenResponse({ access_token: "access-2", refresh_token: "refresh-2" })),
-						);
-					},
-					() => now,
-				),
+				tokenLayer(storage, (_input, init) => {
+					requests += 1;
+					requestBodies.push(init?.body instanceof URLSearchParams ? init.body.toString() : "");
+					return Promise.resolve(
+						jsonResponse(tokenResponse({ access_token: "access-2", refresh_token: "refresh-2" })),
+					);
+				}),
 			),
-			Effect.provide(storage.layer),
 		);
 	});
 
@@ -357,15 +341,12 @@ describe("OAuth token service", () => {
 			expect(yield* persisted.getTokenSet(origin)).toBeNull();
 		}).pipe(
 			Effect.provide(
-				oauthTokenServiceLayer(
-					() =>
-						Promise.resolve(
-							jsonResponse({ error: "invalid_grant", error_description: "expired" }, 400),
-						),
-					() => now,
+				tokenLayer(storage, () =>
+					Promise.resolve(
+						jsonResponse({ error: "invalid_grant", error_description: "expired" }, 400),
+					),
 				),
 			),
-			Effect.provide(storage.layer),
 		);
 	});
 
@@ -410,18 +391,14 @@ describe("OAuth token service", () => {
 				expect(yield* persisted.takePending(origin, "state-1")).toBeNull();
 			}).pipe(
 				Effect.provide(
-					oauthTokenServiceLayer(
-						(input, init) => {
-							requests.push({
-								url: requestUrl(input),
-								body: init?.body instanceof URLSearchParams ? init.body.toString() : "",
-							});
-							return Promise.resolve(new Response(null, { status: 200 }));
-						},
-						() => now,
-					),
+					tokenLayer(storage, (input, init) => {
+						requests.push({
+							url: requestUrl(input),
+							body: init?.body instanceof URLSearchParams ? init.body.toString() : "",
+						});
+						return Promise.resolve(new Response(null, { status: 200 }));
+					}),
 				),
-				Effect.provide(storage.layer),
 			);
 		},
 	);
@@ -449,12 +426,8 @@ describe("OAuth token service", () => {
 			expect(storage.values.has(oauthTokenKey(origin))).toBe(true);
 		}).pipe(
 			Effect.provide(
-				oauthTokenServiceLayer(
-					() => Promise.resolve(new Response(null, { status: 200 })),
-					() => now,
-				),
+				tokenLayer(storage, () => Promise.resolve(new Response(null, { status: 200 }))),
 			),
-			Effect.provide(storage.layer),
 		);
 	});
 
@@ -482,15 +455,11 @@ describe("OAuth token service", () => {
 			expect(storage.values.has(oauthPendingKey(origin, "state-1"))).toBe(false);
 		}).pipe(
 			Effect.provide(
-				oauthTokenServiceLayer(
-					() => {
-						requests += 1;
-						return Promise.reject(new TypeError("network down"));
-					},
-					() => now,
-				),
+				tokenLayer(storage, () => {
+					requests += 1;
+					return Promise.reject(new TypeError("network down"));
+				}),
 			),
-			Effect.provide(storage.layer),
 		);
 	});
 
@@ -517,15 +486,12 @@ describe("OAuth token service", () => {
 			expect(storage.values.has(oauthTokenKey(origin))).toBe(false);
 		}).pipe(
 			Effect.provide(
-				oauthTokenServiceLayer(
-					() =>
-						Promise.resolve(
-							jsonResponse(tokenResponse({ access_token: "access-2", refresh_token: "refresh-2" })),
-						),
-					() => now,
+				tokenLayer(storage, () =>
+					Promise.resolve(
+						jsonResponse(tokenResponse({ access_token: "access-2", refresh_token: "refresh-2" })),
+					),
 				),
 			),
-			Effect.provide(storage.layer),
 		);
 	});
 
@@ -559,18 +525,13 @@ describe("OAuth token service", () => {
 			expect((yield* persisted.getTokenSet(origin))?.refreshToken).toBe("refresh-2");
 		}).pipe(
 			Effect.provide(
-				oauthTokenServiceLayer(
-					async () => {
-						requests += 1;
-						await gate.opened;
-						return jsonResponse(
-							tokenResponse({ access_token: "access-2", refresh_token: "refresh-2" }),
-						);
-					},
-					() => now,
-				),
+				tokenLayer(storage, () => {
+					requests += 1;
+					return gate.opened.then(() =>
+						jsonResponse(tokenResponse({ access_token: "access-2", refresh_token: "refresh-2" })),
+					);
+				}),
 			),
-			Effect.provide(storage.layer),
 		);
 	});
 
@@ -594,13 +555,7 @@ describe("OAuth token service", () => {
 			expect(failure.reason).toBe("request-failed");
 			expect(storage.values.has(oauthTokenKey(origin))).toBe(true);
 		}).pipe(
-			Effect.provide(
-				oauthTokenServiceLayer(
-					() => Promise.reject(new TypeError("network down")),
-					() => now,
-				),
-			),
-			Effect.provide(storage.layer),
+			Effect.provide(tokenLayer(storage, () => Promise.reject(new TypeError("network down")))),
 		);
 	});
 });

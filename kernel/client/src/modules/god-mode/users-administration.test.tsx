@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { Exit } from "effect";
 import { describe, expect, it } from "vitest";
 
+import { AdminApiError } from "#/api/admin";
 import type { ResetLinkTransfer } from "#/modules/god-mode/reset-link-transfer";
 import type { GodModeUser } from "#/modules/god-mode/service";
 import {
@@ -101,6 +102,7 @@ const renderUsers = (
 };
 
 describe("God Mode users administration", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("loads 50-user pages, preserves loaded rows, and trims debounced searches", async () => {
 		const user = userEvent.setup();
 		const users = Array.from({ length: 51 }, (_, index) => makeUser(index));
@@ -132,6 +134,7 @@ describe("God Mode users administration", () => {
 		expect(screen.queryByText("reader-0@example.com")).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("keeps the first cursor page visible when loading more fails and retries that cursor", async () => {
 		const users = Array.from({ length: 51 }, (_, index) => makeUser(index));
 		const list = makeOperations(users, []).listUsers;
@@ -141,7 +144,7 @@ describe("God Mode users administration", () => {
 			listUsers: (search, after, limit) => {
 				requested.push(after);
 				if (after === "50" && failures++ === 0) {
-					return Promise.resolve(Exit.fail(new Error("offline")));
+					return Promise.resolve(Exit.fail(new AdminApiError({ cause: "offline" })));
 				}
 				return list(search, after, limit);
 			},
@@ -155,12 +158,14 @@ describe("God Mode users administration", () => {
 		expect(requested).toEqual([undefined, "50", "50"]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("shows the empty state when the first page has no users", async () => {
 		renderUsers([]);
 		await screen.findByRole("heading", { name: "No users found" });
 		expect(screen.queryByRole("button", { name: "Load more users" })).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("shows a reset-password result and injects reset-link transfer", async () => {
 		const user = userEvent.setup();
 		const transferred: string[] = [];
@@ -179,6 +184,7 @@ describe("God Mode users administration", () => {
 		expect(screen.getByRole<HTMLButtonElement>("button", { name: "Copied!" }).disabled).toBe(true);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("opens and dismisses the accessible action menu", async () => {
 		const user = userEvent.setup();
 		const view = renderUsers([makeUser(0)]);
@@ -218,6 +224,7 @@ describe("God Mode users administration", () => {
 		await waitFor(() => expect(document.activeElement).toBe(trigger));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("restores focus to the action trigger after destructive confirmation", async () => {
 		const user = userEvent.setup();
 		const view = renderUsers([makeUser(0)]);
@@ -242,6 +249,7 @@ describe("God Mode users administration", () => {
 		await waitFor(() => expect(document.activeElement).toBe(trigger));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("contains dialog Tab focus and closes the confirmation on Escape", async () => {
 		const user = userEvent.setup();
 		renderUsers([makeUser(0)]);
@@ -263,11 +271,13 @@ describe("God Mode users administration", () => {
 		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("refuses every dismissal while the destructive operation is pending", async () => {
 		const user = userEvent.setup();
 		let settle: (() => void) | undefined;
 		const view = renderUsers([makeUser(0)], undefined, {
 			deleteUser: () =>
+				// oxlint-disable-next-line effecttsgo/new-promise -- This controllable test gate stays pending until the host callback or test releases it.
 				new Promise((resolve) => {
 					settle = () =>
 						resolve(
@@ -311,6 +321,7 @@ describe("God Mode users administration", () => {
 		expect(screen.getByText("reader-0@example.com")).toBeTruthy();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("refetches disabled state from the admin users recipe and discards shifted cursor pages", async () => {
 		const user = userEvent.setup();
 		const view = renderUsers(Array.from({ length: 51 }, (_, index) => makeUser(index)));
@@ -329,6 +340,7 @@ describe("God Mode users administration", () => {
 		await screen.findByText("reader-50@example.com");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("refetches after deletion so the first page and total reflect shifted users", async () => {
 		const user = userEvent.setup();
 		const view = renderUsers(Array.from({ length: 51 }, (_, index) => makeUser(index)));
@@ -346,6 +358,7 @@ describe("God Mode users administration", () => {
 		expect(screen.queryByRole("button", { name: "Load more users" })).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("shows a retryable error if the admin list refresh fails after disabling", async () => {
 		const user = userEvent.setup();
 		const users = [makeUser(0)];
@@ -355,7 +368,7 @@ describe("God Mode users administration", () => {
 			listUsers: (search, after, limit) => {
 				requests += 1;
 				return requests === 2
-					? Promise.resolve(Exit.fail(new Error("offline")))
+					? Promise.resolve(Exit.fail(new AdminApiError({ cause: "offline" })))
 					: list(search, after, limit);
 			},
 		});
@@ -371,6 +384,7 @@ describe("God Mode users administration", () => {
 		expect(screen.getByText("Enabled")).toBeTruthy();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("rejects a list refresh when admin authorization expires after deletion", async () => {
 		const user = userEvent.setup();
 		const users = [makeUser(0)];
@@ -398,6 +412,7 @@ describe("God Mode users administration", () => {
 		expect(screen.queryByText("reader-0@example.com")).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("disables unavailable reset links and keeps the note in the menu", async () => {
 		const user = userEvent.setup();
 		renderUsers([makeUser(0, "oidc")]);

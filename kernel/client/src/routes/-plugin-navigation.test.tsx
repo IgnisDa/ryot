@@ -277,6 +277,7 @@ const preparationFailure = (reason: ClientPagePreparationError["reason"]) =>
 	Effect.fail(new AuthenticatedApiError({ cause: new ClientPagePreparationError({ reason }) }));
 
 describe("client page routes", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("prepares a saved-view slug without loading a saved-view record", async () => {
 		const view = mount({ entry: "/v/fixture-view" });
 		await waitFor(() =>
@@ -284,6 +285,7 @@ describe("client page routes", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("uses prepared saved-view metadata and the route slug for local layout", async () => {
 		const layoutKeys: string[] = [];
 		const storage = makeStorageStub("fixture");
@@ -346,6 +348,7 @@ describe("client page routes", () => {
 		await screen.findByRole("dialog", { name: "Add from a provider" });
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("opens provider search from a plugin route without changing the page location", async () => {
 		const view = mount({
 			entry: "/fixture?tab=home",
@@ -375,6 +378,7 @@ describe("client page routes", () => {
 		expect(view.router.state.location.searchStr).toBe("?tab=home");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("uses the hydrated parent catalog on plugin navigation", async () => {
 		const view = mount({ entry: "/fixture" });
 		await screen.findByTitle("fixture plugin");
@@ -391,6 +395,7 @@ describe("client page routes", () => {
 		expect(view.getCatalogLoads()).toBe(1);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("renders the selected home view at the active workspace URL through one page host", async () => {
 		const savedViewId = SavedViewId.make("home-view-1");
 		const view = mount({
@@ -417,6 +422,7 @@ describe("client page routes", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("uses the normal plugin home route when no override is selected", async () => {
 		const view = mount({ entry: "/fixture" });
 		await screen.findByTitle("fixture plugin");
@@ -427,6 +433,7 @@ describe("client page routes", () => {
 		expect(view.router.state.location.pathname).toBe("/fixture");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("shows a selected home-view preparation error without falling back", async () => {
 		const savedViewId = SavedViewId.make("broken-home-view");
 		const targets: ClientPageTarget[] = [];
@@ -446,6 +453,7 @@ describe("client page routes", () => {
 		expect(screen.queryByTitle(/plugin$/)).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("shows a selected home-view build failure without falling back", async () => {
 		const savedViewId = SavedViewId.make("failed-home-view");
 		const targets: ClientPageTarget[] = [];
@@ -465,6 +473,7 @@ describe("client page routes", () => {
 		expect(screen.queryByTitle(/plugin$/)).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("prepares an ordinary plugin route with its document grant", async () => {
 		const view = mount({ entry: "/fixture/details/one?tab=stats" });
 		const frame = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
@@ -518,6 +527,7 @@ describe("client page routes", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("reuses one composition runtime and bridge for plugin and entity documents", async () => {
 		const view = mount({ entry: "/fixture/details/one" });
 		const pluginFrame = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
@@ -563,6 +573,7 @@ describe("client page routes", () => {
 		expect(screen.getByTitle<HTMLIFrameElement>("fixture plugin")).toBe(pluginFrame);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("ignores a newly prepared grant for a retained composition when settings change", async () => {
 		let defaultLayout = "grid";
 		let grants = 0;
@@ -621,6 +632,7 @@ describe("client page routes", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("drops retained composition runtimes when the api scope changes", async () => {
 		let userId = "user-1";
 		const entries = Array.from({ length: 2 }, (_, index) => ({
@@ -647,6 +659,7 @@ describe("client page routes", () => {
 		await waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(2));
 
 		userId = "user-2";
+		// oxlint-disable-next-line effecttsgo/async-function -- React Testing Library awaits this Promise-based act callback.
 		await act(async () => {
 			await view.router.invalidate();
 		});
@@ -655,6 +668,7 @@ describe("client page routes", () => {
 		expect(document.querySelector("iframe")).not.toBe(first);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("returns to a retained composition without navigating its iframe", async () => {
 		const entries = Array.from({ length: 2 }, (_, index) => ({
 			...catalog[0],
@@ -684,6 +698,7 @@ describe("client page routes", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("reprepares and replaces a failed iframe using the new document grant", async () => {
 		let preparations = 0;
 		const view = mount({
@@ -724,6 +739,7 @@ describe("client page routes", () => {
 		view.unmount();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("evicts the least recently active frame after retaining three realms", async () => {
 		const entries = Array.from({ length: 4 }, (_, index) => ({
 			...catalog[0],
@@ -759,6 +775,7 @@ describe("client page routes", () => {
 		expect(second?.isConnected).toBe(true);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("uses freshly prepared operation targets and reloads an updated composition on request", async () => {
 		let preparation = 0;
 		const view = mount({
@@ -849,6 +866,7 @@ describe("client page routes", () => {
 		expect(view.operations[3]).toMatchObject({ sourceHash: "newly-installed-source" });
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("uses explicit plugin navigation and merges page search with null deletion", async () => {
 		const view = mount({ entry: "/fixture?keep=1&dialog=open" });
 		const bridge = connectFrame(await screen.findByTitle("fixture plugin"));
@@ -881,6 +899,7 @@ describe("client page routes", () => {
 		expect(replacedSearch).toMatchObject({ key: initialSearch.key, index: initialSearch.index });
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("prepares entities directly and allows a disabled ready installation", async () => {
 		const entries = [{ ...catalog[0], isDisabled: true }];
 		const view = mount({ entries, entry: "/e/entity-1?tab=activity" });
@@ -918,12 +937,14 @@ describe("client page routes", () => {
 			},
 			"Entity page not registered",
 		],
+		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	] as const)("renders the explicit entity preparation branch %#", async (reason, title) => {
 		mount({ entry: "/e/missing", prepare: () => preparationFailure(reason) });
 		await screen.findByRole("heading", { name: title });
 		expect(screen.queryByTitle(/plugin$/)).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("renders an unregistered plugin page without mounting an artifact", async () => {
 		mount({
 			entry: "/fixture/missing",

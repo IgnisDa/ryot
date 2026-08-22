@@ -2,6 +2,9 @@ import type { ContractSuccess } from "@ryot-app/contract/client";
 import type { UserLifecycleOperation } from "@ryot-app/contract/modules/god-mode/user-lifecycle";
 import { Data, Effect, Match, Option, Schedule } from "effect";
 
+import type { AdminApiError } from "#/api/admin";
+import type { GodModeQueryError } from "#/api/god-mode";
+
 const USER_LIFECYCLE_POLL_ATTEMPTS = 60;
 
 const userLifecyclePollSchedule = Schedule.spaced("2 seconds").pipe(
@@ -32,10 +35,13 @@ const operationOutcome = (operation: GodModeUserLifecycleOperation) =>
 	);
 
 export const runUserLifecycleOperation = (input: {
-	readonly start: Effect.Effect<ContractSuccess<"godMode", "deleteUser">, unknown>;
+	readonly start: Effect.Effect<ContractSuccess<"godMode", "deleteUser">, AdminApiError>;
 	readonly poll: (
 		operationId: string,
-	) => Effect.Effect<Option.Option<GodModeUserLifecycleOperation>, unknown>;
+	) => Effect.Effect<
+		Option.Option<GodModeUserLifecycleOperation>,
+		AdminApiError | GodModeQueryError
+	>;
 }) =>
 	Effect.gen(function* () {
 		const { operationId } = yield* input.start;
