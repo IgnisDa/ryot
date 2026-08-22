@@ -14,20 +14,12 @@
 		"./limits": {
 			"types": "./src/limits.ts",
 			"default": "./src/limits.ts"
-		},
-		"./protocol": {
-			"types": "./src/protocol.ts",
-			"default": "./src/protocol.ts"
-		},
-		"./worker": {
-			"types": "./src/worker.ts",
-			"default": "./src/worker.ts"
 		}
 	},
 	"scripts": {
+		"build": "tsc",
 		"test": "bun --bun run vitest run",
-		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix",
-		"build": "tsc && bun build src/worker.ts --outdir dist --entry-naming client-plugin-compiler-worker.js --target bun --sourcemap --external @ryot-app/vite-compiler --external @tailwindcss/vite"
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
 		"@effect/platform-bun": "4.0.0-rc.117",

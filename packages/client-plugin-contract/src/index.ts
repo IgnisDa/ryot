@@ -28,9 +28,9 @@ import { Schema } from "effect";
 
 export { CLIENT_API_VERSION };
 export const CLIENT_ARTIFACT_FORMAT = 1 as const;
-export const CLIENT_COMPILER_VERSION = 1 as const;
+export const CLIENT_COMPILER_VERSION = 2 as const;
 export const CLIENT_BRIDGE_MAX_PENDING_REQUESTS = 64;
-export const CLIENT_BRIDGE_PROTOCOL_VERSION = 2 as const;
+export const CLIENT_BRIDGE_PROTOCOL_VERSION = 3 as const;
 export const CLIENT_BRIDGE_BOOTSTRAP_READY = "ryot-client-bootstrap-ready" as const;
 
 export const KERNEL_SHORTCUTS = {
@@ -75,8 +75,8 @@ export type PageShortcutKey = (typeof PAGE_SHORTCUT_KEYS)[number];
 export const isPageShortcut = (value: string): value is PageShortcutKey =>
 	PAGE_SHORTCUT_KEYS.some((key) => key === value);
 
-export const CLIENT_ARTIFACT_ROOT_ELEMENT_ID = "app";
-export const CLIENT_ARTIFACT_METADATA_ELEMENT_ID = "ryot-client-artifact";
+export const CLIENT_PAGE_ROOT_ELEMENT_ID = "app";
+export const CLIENT_COMPOSITION_METADATA_ELEMENT_ID = "ryot-client-composition-metadata";
 
 export const PLUGIN_CLIENT_ARTIFACT_CONTENT_TYPES = [
 	"text/html; charset=utf-8",
@@ -299,7 +299,7 @@ export const PluginClientArtifactFromBase64 = pluginClientArtifact(CanonicalUint
 
 const pluginBridgeIdentityFields = {
 	sessionId: Schema.String,
-	artifactHash: Schema.String,
+	compositionHash: Schema.String,
 	apiVersion: Schema.Literal(CLIENT_API_VERSION),
 	format: Schema.Literal(CLIENT_ARTIFACT_FORMAT),
 	compilerVersion: Schema.Literal(CLIENT_COMPILER_VERSION),

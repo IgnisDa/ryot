@@ -1,7 +1,7 @@
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
-	CLIENT_ARTIFACT_METADATA_ELEMENT_ID,
+	CLIENT_COMPOSITION_METADATA_ELEMENT_ID,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 	type PluginBridgeInit,
@@ -27,9 +27,9 @@ const init: PluginBridgeInit = {
 	safeAreaTop: 0,
 	safeAreaBottom: 0,
 	format: metadata.format,
-	artifactHash: metadata.hash,
 	documentKey: "show-document",
 	sessionId: "media-session-id",
+	compositionHash: metadata.hash,
 	apiVersion: metadata.apiVersion,
 	bridgeVersion: metadata.bridgeVersion,
 	compilerVersion: metadata.compilerVersion,
@@ -130,7 +130,7 @@ const openTestClock = () => {
 const openShow = () => {
 	document.body.innerHTML = '<div id="app"></div>';
 	const metadataElement = document.createElement("script");
-	metadataElement.id = CLIENT_ARTIFACT_METADATA_ELEMENT_ID;
+	metadataElement.id = CLIENT_COMPOSITION_METADATA_ELEMENT_ID;
 	metadataElement.type = "application/json";
 	metadataElement.textContent = JSON.stringify(metadata);
 	document.head.append(metadataElement);

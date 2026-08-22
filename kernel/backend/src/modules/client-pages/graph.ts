@@ -1,7 +1,3 @@
-import type {
-	ClientPluginAutomaticRegistryEntry,
-	ClientPluginCompilerGraphInput,
-} from "@ryot-app/client-plugin-compiler";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
@@ -11,7 +7,7 @@ import {
 import {
 	ClientPagePreparationError,
 	type ClientPageCodeContributor,
-	type ClientPageArtifactIdentity,
+	type ClientPageCompositionIdentity,
 	type ClientRendererDefinition,
 } from "@ryot-app/contract/modules/client-pages/schemas";
 import { comparePluginRoutePaths } from "@ryot-app/contract/modules/plugins/manifest";
@@ -19,69 +15,22 @@ import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
-import { Effect, Result } from "effect";
+import { Effect } from "effect";
 
 import type { AvailablePlugin } from "#modules/plugins/runtime-resolver";
 
-const PUBLIC_EXPORT =
-	/^@ryot-app\/plugins\/([a-z0-9]+(?:[._-][a-z0-9]+)*)\/([a-z0-9]+(?:[._-][a-z0-9]+)*)$/;
-const SOURCE_EXTENSIONS = ["", ".ts", ".tsx", "/index.ts", "/index.tsx"] as const;
-const transpiler = new Bun.Transpiler({ loader: "tsx" });
-
-const importedSpecifiers = (source: string) => {
-	const scanned = Result.try(() => transpiler.scanImports(source));
-	return Result.isSuccess(scanned) ? scanned.success.map(({ path }) => path) : [];
-};
-
-const dependencyUnavailable = (pluginSlug: string) =>
-	new ClientPagePreparationError({
-		reason: { code: "dependency-unavailable", pluginSlug: PluginSlug.make(pluginSlug) },
-	});
-
-const exportNotFound = (exportName: string) =>
-	new ClientPagePreparationError({ reason: { exportName, code: "export-not-found" } });
-
-const namespaceFor = (kind: "kernel" | "plugin", id: string) => `${kind}-${sha256Hex(id)}`;
-
-const sourceFiles = (files: Readonly<Record<string, Uint8Array>>) =>
-	Object.fromEntries(
-		Object.entries(files).filter(
-			([path]) => path.startsWith("client/") || path.startsWith("shared/"),
-		),
-	);
-
-const dirname = (path: string) => path.slice(0, Math.max(0, path.lastIndexOf("/") + 1));
-
-const normalizeRelative = (from: string, specifier: string) => {
-	const segments = `${dirname(from)}${specifier}`.split("/");
-	const normalized: string[] = [];
-	for (const segment of segments) {
-		if (segment === "." || segment === "") {
-			continue;
-		}
-		if (segment === "..") {
-			normalized.pop();
-		} else {
-			normalized.push(segment);
-		}
-	}
-	return normalized.join("/");
-};
-
 export type ResolvedClientPageGraph = {
-	readonly artifactKey: string;
-	readonly identity: ClientPageArtifactIdentity;
-	readonly compilerInput: ClientPluginCompilerGraphInput;
+	readonly compositionKey: string;
+	readonly identity: ClientPageCompositionIdentity;
 };
-export type ResolvedClientPageArtifactGraph = Omit<ResolvedClientPageGraph, "compilerInput">;
 
 export type GraphPlugin = Pick<
 	AvailablePlugin,
-	"id" | "slug" | "sourceHash" | "manifest" | "health" | "isDisabled" | "pluginRevisionId"
+	"id" | "slug" | "sourceHash" | "clientArtifactHash" | "manifest" | "health" | "isDisabled"
 >;
 
 export const clientPageCodeContributors = (
-	identity: ClientPageArtifactIdentity,
+	identity: ClientPageCompositionIdentity,
 	available: ReadonlyArray<AvailablePlugin>,
 ): readonly ClientPageCodeContributor[] => {
 	const bySlug = new Map(available.map((plugin) => [plugin.slug, plugin]));
@@ -107,401 +56,262 @@ export const clientPageCodeContributors = (
 	});
 };
 
-type ClientPageGraphCommon<E, R> = {
+type Common = {
 	readonly plugins: ReadonlyArray<GraphPlugin>;
-	readonly loadPluginFiles?: (
-		plugin: GraphPlugin,
-	) => Effect.Effect<Readonly<Record<string, Uint8Array>> | null, E, R>;
+	readonly runtimeArtifactHash: string;
 };
-
-type KernelRendererClientPageGraphInput<E, R> = ClientPageGraphCommon<E, R> & {
+type KernelInput = Common & {
 	readonly kernel: true;
 	readonly sourceHash: string;
+	readonly rendererArtifactHash: string;
 	readonly rendererName: string;
 	readonly definition: ClientRendererDefinition;
-	readonly rendererFiles: Readonly<Record<string, Uint8Array>>;
 };
-
-type PluginClientPageGraphInput<E, R> = ClientPageGraphCommon<E, R> & {
+type PluginInput = Common & {
 	readonly exportName: string;
 	readonly plugin: GraphPlugin;
 	readonly application: "page" | "plugin-route";
 };
 
-type ClientPageGraphInput<E, R> =
-	| KernelRendererClientPageGraphInput<E, R>
-	| PluginClientPageGraphInput<E, R>;
+const namespaceFor = (kind: "kernel" | "plugin", id: string) => `${kind}-${sha256Hex(id)}`;
+const qualify = (slug: string, name: string) => `@ryot-app/plugins/${slug}/${name}`;
+const ordered = <T>(values: Iterable<T>, key: (value: T) => string) => sortBy([...values], key);
+const unavailable = (slug: string) =>
+	new ClientPagePreparationError({
+		reason: { code: "dependency-unavailable", pluginSlug: PluginSlug.make(slug) },
+	});
+const missingExport = (specifier: string) =>
+	new ClientPagePreparationError({ reason: { exportName: specifier, code: "export-not-found" } });
+const artifactHash = (plugin: GraphPlugin): string => {
+	if (!plugin.clientArtifactHash) {
+		throw new Error(`Missing client artifact hash for ${plugin.slug}`);
+	}
+	return plugin.clientArtifactHash;
+};
 
-const resolveGraph = <E, R>(
-	input: ClientPageGraphInput<E, R>,
-): Effect.Effect<ResolvedClientPageGraph, ClientPagePreparationError | E, R> =>
+export const resolveClientPageGraph = (input: KernelInput | PluginInput) =>
 	Effect.gen(function* () {
-		const isKernelRenderer = "kernel" in input;
-		const kernelRendererNamespace = isKernelRenderer
-			? namespaceFor("kernel", input.rendererName)
-			: null;
+		const isKernel = "kernel" in input;
 		const catalog = new Map(input.plugins.map((plugin) => [plugin.slug, plugin]));
+		if (!isKernel) {
+			catalog.set(input.plugin.slug, input.plugin);
+		}
 		const included = new Map<string, GraphPlugin>();
-		const files = new Map<string, Readonly<Record<string, Uint8Array>>>();
-		const dependencyOrder: string[] = [];
-		const selectedExports = new Set<string>();
-		const primarySlug = isKernelRenderer ? null : input.plugin.slug;
-
-		const includePlugin = (slug: string): Effect.Effect<void, ClientPagePreparationError | E, R> =>
+		const include = (slug: string): Effect.Effect<void, ClientPagePreparationError> =>
 			Effect.gen(function* () {
 				if (included.has(slug)) {
 					return yield* Effect.void;
 				}
 				const plugin = catalog.get(slug);
-				if (plugin?.health !== "ready" || !plugin.manifest.client) {
-					return yield* dependencyUnavailable(slug);
+				if (plugin?.health !== "ready" || !plugin.manifest.client || !plugin.clientArtifactHash) {
+					return yield* unavailable(slug);
 				}
 				included.set(slug, plugin);
-				if (input.loadPluginFiles) {
-					const loaded = yield* input.loadPluginFiles(plugin);
-					if (!loaded) {
-						return yield* dependencyUnavailable(slug);
-					}
-					files.set(slug, sourceFiles(loaded));
+				for (const dependency of ordered(plugin.manifest.client.pluginDependencies ?? [], String)) {
+					yield* include(dependency);
 				}
-				for (const dependency of sortBy(plugin.manifest.client.pluginDependencies ?? [])) {
-					yield* includePlugin(dependency);
-				}
-				if (slug !== primarySlug) {
-					for (const exportName of Object.keys(plugin.manifest.client.exports ?? {})) {
-						selectedExports.add(`@ryot-app/plugins/${slug}/${exportName}`);
-					}
-				}
-				dependencyOrder.push(slug);
 				return yield* Effect.void;
 			});
-
-		if (isKernelRenderer) {
-			for (const dependency of sortBy(input.definition.pluginDependencies)) {
-				yield* includePlugin(dependency);
+		const eagerSlugs = new Set<string>();
+		if (isKernel) {
+			for (const dependency of ordered(input.definition.pluginDependencies, String)) {
+				yield* include(dependency);
 			}
 		} else {
-			if (input.plugin.health !== "ready" || !input.plugin.manifest.client) {
-				return yield* dependencyUnavailable(input.plugin.slug);
-			}
-			catalog.set(input.plugin.slug, input.plugin);
-			yield* includePlugin(input.plugin.slug);
+			yield* include(input.plugin.slug);
+		}
+		for (const slug of included.keys()) {
+			eagerSlugs.add(slug);
 		}
 
-		const visited = new Set<string>();
+		const routes =
+			!isKernel && input.application === "plugin-route"
+				? ordered(
+						Object.entries(input.plugin.manifest.client?.routes ?? {}),
+						([path]) => path,
+					).sort(([left], [right]) => comparePluginRoutePaths(left, right))
+				: [];
+		let primaryExport: string | null | undefined = null;
+		if (!isKernel) {
+			primaryExport =
+				input.application === "plugin-route"
+					? routes.find(([path]) => path === "/")?.[1]
+					: input.exportName;
+		}
+		if (
+			!isKernel &&
+			input.plugin.manifest.client?.exports?.[primaryExport ?? ""]?.kind !== "page"
+		) {
+			return yield* missingExport(
+				`@ryot-app/plugins/${input.plugin.slug}/${primaryExport ?? input.exportName}`,
+			);
+		}
+		const selectedExports = new Set<string>();
 		const routeRegistry =
-			!isKernelRenderer && input.application === "plugin-route"
-				? (() => {
-						const routes = Object.entries(input.plugin.manifest.client?.routes ?? {}).sort(
-							([left], [right]) => comparePluginRoutePaths(left, right),
-						);
-						const home = routes.find(([path]) => path === "/")?.[1];
-						return home
-							? {
-									home: `@ryot-app/plugins/${input.plugin.slug}/${home}`,
-									routes: routes.flatMap(([path, exportName]) =>
-										path === "/"
-											? []
-											: [
-													{
-														path,
-														exportSpecifier: `@ryot-app/plugins/${input.plugin.slug}/${exportName}`,
-													},
-												],
-									),
-									...(input.plugin.manifest.client?.notFoundPage
-										? {
-												notFound: `@ryot-app/plugins/${input.plugin.slug}/${input.plugin.manifest.client.notFoundPage}`,
-											}
-										: {}),
-								}
-							: null;
-					})()
+			!isKernel && input.application === "plugin-route"
+				? {
+						home: qualify(input.plugin.slug, primaryExport ?? ""),
+						routes: routes
+							.filter(([path]) => path !== "/")
+							.map(([path, name]) => ({ path, exportSpecifier: qualify(input.plugin.slug, name) })),
+						...(input.plugin.manifest.client?.notFoundPage
+							? { notFound: qualify(input.plugin.slug, input.plugin.manifest.client.notFoundPage) }
+							: {}),
+					}
 				: null;
-		if (!isKernelRenderer && input.application === "plugin-route" && !routeRegistry) {
-			return yield* exportNotFound(`@ryot-app/plugins/${input.plugin.slug}/route:/`);
+		if (!isKernel) {
+			for (const name of input.application === "plugin-route"
+				? [
+						...routes.map(([, exportName]) => exportName),
+						...(input.plugin.manifest.client?.notFoundPage
+							? [input.plugin.manifest.client.notFoundPage]
+							: []),
+					]
+				: [input.exportName]) {
+				if (input.plugin.manifest.client?.exports?.[name]?.kind !== "page") {
+					return yield* missingExport(qualify(input.plugin.slug, name));
+				}
+				selectedExports.add(qualify(input.plugin.slug, name));
+			}
 		}
-		const selectedPluginExport = isKernelRenderer
-			? null
-			: input.plugin.manifest.client?.exports?.[
-					input.application === "plugin-route"
-						? (input.plugin.manifest.client.routes?.["/"] ?? "")
-						: input.exportName
-				];
-		if (!isKernelRenderer && selectedPluginExport?.kind !== "page") {
-			return yield* exportNotFound(`@ryot-app/plugins/${input.plugin.slug}/${input.exportName}`);
-		}
-		let automaticEntityPresentations = isKernelRenderer
+		let automatic = isKernel
 			? input.definition.automaticEntityPresentations
-			: (selectedPluginExport?.automaticEntityPresentations ?? false);
-		if (!isKernelRenderer && input.application === "plugin-route") {
-			automaticEntityPresentations = [
-				...Object.values(input.plugin.manifest.client?.routes ?? {}),
-				input.plugin.manifest.client?.notFoundPage,
-			]
-				.filter((name): name is string => name !== undefined)
-				.some(
-					(name) =>
-						input.plugin.manifest.client?.exports?.[name]?.automaticEntityPresentations ?? false,
-				);
-		}
-		if (!automaticEntityPresentations) {
-			automaticEntityPresentations = [...included.values()].some(
+			: [...selectedExports].some((specifier) => {
+					const name = specifier.slice(specifier.lastIndexOf("/") + 1);
+					return (
+						input.plugin.manifest.client?.exports?.[name]?.automaticEntityPresentations ?? false
+					);
+				});
+		if (!automatic) {
+			automatic = [...included.values()].some(
 				(plugin) =>
-					plugin.slug !== primarySlug &&
+					plugin.slug !== (isKernel ? null : input.plugin.slug) &&
 					Object.values(plugin.manifest.client?.exports ?? {}).some(
 						(declaration) => declaration.automaticEntityPresentations,
 					),
 			);
 		}
-
-		const scan = (
-			owner: { readonly slug: string | null; readonly dependencies: readonly string[] },
-			path: string,
-			ownerFiles: Readonly<Record<string, Uint8Array>>,
-		): Effect.Effect<void, ClientPagePreparationError | E, R> =>
-			Effect.gen(function* () {
-				const key = `${owner.slug ?? kernelRendererNamespace ?? "kernel"}:${path}`;
-				if (visited.has(key)) {
-					return yield* Effect.void;
-				}
-				visited.add(key);
-				const contents = ownerFiles[path];
-				if (!contents || (!path.endsWith(".ts") && !path.endsWith(".tsx"))) {
-					return yield* Effect.void;
-				}
-				const text = new TextDecoder().decode(contents);
-				for (const imported of importedSpecifiers(text)) {
-					const specifier = imported;
-					const match = PUBLIC_EXPORT.exec(specifier);
-					if (match) {
-						const [, pluginSlug, exportName] = match;
-						if (!pluginSlug || !exportName || !owner.dependencies.includes(pluginSlug)) {
-							return yield* exportNotFound(specifier);
-						}
-						yield* includePlugin(pluginSlug);
-						const plugin = included.get(pluginSlug);
-						const declaration = plugin?.manifest.client?.exports?.[exportName];
-						if (!plugin || !declaration) {
-							return yield* exportNotFound(specifier);
-						}
-						yield* scan(
-							{ slug: pluginSlug, dependencies: plugin.manifest.client.pluginDependencies ?? [] },
-							declaration.entry,
-							files.get(pluginSlug) ?? {},
-						);
-						continue;
-					}
-					if (!specifier.startsWith(".")) {
-						continue;
-					}
-					const relative = normalizeRelative(path, specifier);
-					const resolved = SOURCE_EXTENSIONS.map((extension) => `${relative}${extension}`).find(
-						(candidate) => ownerFiles[candidate] !== undefined,
-					);
-					if (resolved) {
-						yield* scan(owner, resolved, ownerFiles);
-					}
-				}
-				return yield* Effect.void;
-			});
-
-		if (isKernelRenderer) {
-			if (input.loadPluginFiles) {
-				yield* scan(
-					{ slug: null, dependencies: input.definition.pluginDependencies },
-					input.definition.entry,
-					input.rendererFiles,
-				);
-			}
-		} else {
-			const exportNames =
-				input.application === "plugin-route"
-					? [
-							...Object.values(input.plugin.manifest.client?.routes ?? {}),
-							...(input.plugin.manifest.client?.notFoundPage
-								? [input.plugin.manifest.client.notFoundPage]
-								: []),
-						]
-					: [input.exportName];
-			for (const exportName of sortBy([...new Set(exportNames)])) {
-				const specifier = `@ryot-app/plugins/${input.plugin.slug}/${exportName}`;
-				const declaration = input.plugin.manifest.client?.exports?.[exportName];
-				if (declaration?.kind !== "page") {
-					return yield* exportNotFound(specifier);
-				}
-				selectedExports.add(specifier);
-				if (input.loadPluginFiles) {
-					yield* scan(
-						{
-							slug: input.plugin.slug,
-							dependencies: input.plugin.manifest.client?.pluginDependencies ?? [],
-						},
-						declaration.entry,
-						files.get(input.plugin.slug) ?? {},
-					);
-				}
-			}
-		}
-
-		const automaticRegistry: ClientPluginAutomaticRegistryEntry[] = [];
-		if (automaticEntityPresentations) {
-			for (const plugin of sortBy(
-				input.plugins.filter(
-					(candidate) =>
-						candidate.health === "ready" && !candidate.isDisabled && candidate.manifest.client,
-				),
-				(candidate) => candidate.slug,
+		const registry: ClientPageCompositionIdentity["automaticRegistry"][number][] = [];
+		if (automatic) {
+			for (const plugin of ordered(
+				input.plugins.filter((p) => p.health === "ready" && !p.isDisabled && p.manifest.client),
+				(p) => p.slug,
 			)) {
-				const client = plugin.manifest.client;
-				if (!client) {
-					continue;
-				}
-				for (const [entitySchemaSlug, registrations] of sortBy(
-					Object.entries(client.entities ?? {}),
+				for (const [entitySchemaSlug, registration] of ordered(
+					Object.entries(plugin.manifest.client?.entities ?? {}),
 					([slug]) => slug,
 				)) {
-					for (const [layout, exportName] of [
-						["grid", registrations.gridPresentation],
-						["list", registrations.listPresentation],
+					for (const [layout, name] of [
+						["grid", registration.gridPresentation],
+						["list", registration.listPresentation],
 					] as const) {
-						if (!exportName) {
+						if (!name) {
 							continue;
 						}
-						yield* includePlugin(plugin.slug);
-						const exportSpecifier = `@ryot-app/plugins/${plugin.slug}/${exportName}`;
-						const declaration = client.exports?.[exportName];
-						if (declaration?.kind !== "presentation") {
-							return yield* exportNotFound(exportSpecifier);
+						const specifier = qualify(plugin.slug, name);
+						if (plugin.manifest.client?.exports?.[name]?.kind !== "presentation") {
+							return yield* missingExport(specifier);
 						}
-						selectedExports.add(exportSpecifier);
-						automaticRegistry.push({
+						const closure = new Map<string, string>();
+						const visit = (slug: string): Effect.Effect<void, ClientPagePreparationError> =>
+							Effect.gen(function* () {
+								yield* include(slug);
+								const entry = included.get(slug);
+								if (!entry || closure.has(slug)) {
+									return;
+								}
+								closure.set(slug, artifactHash(entry));
+								for (const dep of ordered(
+									entry.manifest.client?.pluginDependencies ?? [],
+									String,
+								)) {
+									yield* visit(dep);
+								}
+							});
+						yield* visit(plugin.slug);
+						registry.push({
 							layout,
-							exportSpecifier,
 							entitySchemaSlug,
 							ownerPluginId: plugin.id,
+							exportSpecifier: specifier,
+							artifactClosure: ordered(new Set(closure.values()), String),
 						});
-						yield* scan(
-							{ slug: plugin.slug, dependencies: client.pluginDependencies ?? [] },
-							declaration.entry,
-							files.get(plugin.slug) ?? {},
-						);
 					}
 				}
 			}
 		}
-
-		const orderedPlugins = dependencyOrder.flatMap((slug) => {
-			const plugin = included.get(slug);
-			return plugin ? [plugin] : [];
-		});
-		const publicExports = Object.fromEntries(
-			orderedPlugins.flatMap((plugin) =>
-				sortBy(Object.entries(plugin.manifest.client?.exports ?? {}), ([name]) => name).map(
-					([name, declaration]) =>
-						[
-							`@ryot-app/plugins/${plugin.slug}/${name}`,
-							{
-								kind: declaration.kind,
-								entry: declaration.entry,
-								contributor: namespaceFor("plugin", plugin.id),
-							},
-						] as const,
-				),
-			),
-		);
-		const entry = isKernelRenderer
-			? { path: input.definition.entry, contributor: kernelRendererNamespace ?? "" }
-			: {
-					path: selectedPluginExport?.entry ?? "",
-					contributor: namespaceFor("plugin", input.plugin.id),
-				};
-		const kernelRendererContributors: Array<ClientPageArtifactIdentity["contributors"][number]> =
-			[];
-		if (isKernelRenderer) {
-			kernelRendererContributors.push({
-				kind: "kernel-renderer",
-				name: input.rendererName,
-				sourceHash: input.sourceHash,
-				entry: input.definition.entry,
-				namespace: kernelRendererNamespace ?? "",
-				pluginDependencies: sortBy(input.definition.pluginDependencies),
-				automaticEntityPresentations: input.definition.automaticEntityPresentations,
-			});
+		const plugins = ordered(included.values(), (plugin) => plugin.slug);
+		for (const plugin of plugins) {
+			if (plugin.slug !== (isKernel ? null : input.plugin.slug)) {
+				for (const name of Object.keys(plugin.manifest.client?.exports ?? {})) {
+					selectedExports.add(qualify(plugin.slug, name));
+				}
+			}
 		}
-		const identity: ClientPageArtifactIdentity = {
+		const entry = isKernel
+			? { path: input.definition.entry, contributor: namespaceFor("kernel", input.rendererName) }
+			: {
+					contributor: namespaceFor("plugin", input.plugin.id),
+					path: input.plugin.manifest.client?.exports?.[primaryExport ?? ""]?.entry ?? "",
+				};
+		const eagerArtifactHashes = ordered(
+			new Set([
+				input.runtimeArtifactHash,
+				...(isKernel ? [input.rendererArtifactHash] : []),
+				...plugins.filter((plugin) => eagerSlugs.has(plugin.slug)).map(artifactHash),
+			]),
+			String,
+		);
+		const identity: ClientPageCompositionIdentity = {
 			entry,
 			routeRegistry,
+			eagerArtifactHashes,
 			format: CLIENT_ARTIFACT_FORMAT,
 			apiVersion: CLIENT_API_VERSION,
 			compilerVersion: CLIENT_COMPILER_VERSION,
 			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
-			selectedExports: sortBy([...selectedExports]),
-			application: isKernelRenderer ? "page" : input.application,
-			name: isKernelRenderer ? input.rendererName : input.plugin.manifest.metadata.name,
-			kernelAutomaticFallback: automaticEntityPresentations
+			runtimeArtifactHash: input.runtimeArtifactHash,
+			selectedExports: ordered(selectedExports, String),
+			application: isKernel ? "page" : input.application,
+			name: isKernel ? input.rendererName : input.plugin.manifest.metadata.name,
+			automaticRegistry: ordered(
+				registry,
+				(item) => `${item.ownerPluginId}/${item.entitySchemaSlug}/${item.layout}`,
+			),
+			kernelAutomaticFallback: automatic
 				? { provider: "kernel", layouts: ["grid", "list"], runtimeVersion: CLIENT_API_VERSION }
 				: null,
-			automaticRegistry: sortBy(
-				automaticRegistry,
-				(registration) =>
-					`${registration.ownerPluginId}/${registration.entitySchemaSlug}/${registration.layout}`,
-			),
 			contributors: [
-				...kernelRendererContributors,
-				...orderedPlugins.map((plugin) => ({
+				...(isKernel
+					? [
+							{
+								name: input.rendererName,
+								namespace: entry.contributor,
+								sourceHash: input.sourceHash,
+								entry: input.definition.entry,
+								kind: "kernel-renderer" as const,
+								artifactHash: input.rendererArtifactHash,
+								pluginDependencies: ordered(input.definition.pluginDependencies, String),
+								automaticEntityPresentations: input.definition.automaticEntityPresentations,
+							},
+						]
+					: []),
+				...plugins.map((plugin) => ({
 					pluginId: plugin.id,
 					kind: "plugin" as const,
 					sourceHash: plugin.sourceHash,
 					pluginSlug: PluginSlug.make(plugin.slug),
+					clientArtifactHash: artifactHash(plugin),
 					namespace: namespaceFor("plugin", plugin.id),
-					pluginDependencies: sortBy(plugin.manifest.client?.pluginDependencies ?? []).map((slug) =>
-						PluginSlug.make(slug),
+					pluginDependencies: ordered(plugin.manifest.client?.pluginDependencies ?? [], String).map(
+						(slug) => PluginSlug.make(slug),
 					),
-					exports: sortBy(
+					exports: ordered(
 						Object.entries(plugin.manifest.client?.exports ?? {}),
 						([name]) => name,
-					).map(([name, declaration]) => Object.assign({ name }, declaration)),
+					).map(([name, declaration]) => Object.assign({}, declaration, { name })),
 				})),
 			],
 		};
-		return {
-			identity,
-			artifactKey: sha256Hex(stableStringify(identity)),
-			compilerInput: {
-				publicExports,
-				entry: identity.entry,
-				apiVersion: CLIENT_API_VERSION,
-				...(routeRegistry ? { routeRegistry } : {}),
-				automaticRegistry: identity.automaticRegistry,
-				application: isKernelRenderer ? "page" : input.application,
-				contributorOrder: identity.contributors.map(({ namespace }) => namespace),
-				name: isKernelRenderer ? input.rendererName : input.plugin.manifest.metadata.name,
-				contributors: {
-					...(isKernelRenderer && kernelRendererNamespace
-						? { [kernelRendererNamespace]: { files: input.rendererFiles } }
-						: {}),
-					...Object.fromEntries(
-						orderedPlugins.map((plugin) => [
-							namespaceFor("plugin", plugin.id),
-							{ files: files.get(plugin.slug) ?? {} },
-						]),
-					),
-				},
-			},
-		} satisfies ResolvedClientPageGraph;
-	});
-
-export const resolveClientPageGraph = <E, R>(
-	input: ClientPageGraphInput<E, R> & {
-		readonly loadPluginFiles: NonNullable<ClientPageGraphCommon<E, R>["loadPluginFiles"]>;
-	},
-) => resolveGraph(input).pipe(Effect.withSpan("ClientPageBuild.resolve-graph"));
-
-export const resolveClientPageArtifactGraph = (
-	input: ClientPageGraphInput<never, never>,
-): Effect.Effect<ResolvedClientPageArtifactGraph, ClientPagePreparationError> =>
-	resolveGraph(input).pipe(
-		Effect.map(({ compilerInput: _compilerInput, ...graph }) => graph),
-		Effect.withSpan("ClientPages.resolve-artifact-graph"),
-	);
+		return { identity, compositionKey: sha256Hex(stableStringify(identity)) };
+	}).pipe(Effect.withSpan("ClientPages.resolve-composition-graph"));

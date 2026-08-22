@@ -63,15 +63,15 @@ const generatedEntry = (specifier: string) =>
 	].join("\n");
 
 const generatedBootstrapSource = `
-import { bootstrapClientPage, bootstrapClientPlugin } from "@ryot-app/client-sdk/plugin";
+import { bootstrapClientPage, bootstrapClientPlugin, loadStylesheet } from "@ryot-app/client-sdk/plugin";
 
 const isRecord = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 const isString = (value) => typeof value === "string";
 const isModuleReference = (value) =>
 	isRecord(value) && isString(value.specifier) && value.specifier.length > 0 && isString(value.binding) && value.binding.length > 0;
 const isAutomaticRegistryEntry = (value) =>
-	isRecord(value) && isString(value.ownerPluginId) && isString(value.entitySchemaSlug) && (value.layout === "grid" || value.layout === "list") && isModuleReference(value);
-const isRoute = (value) => isRecord(value) && isString(value.path) && isModuleReference(value);
+	isRecord(value) && isString(value.ownerPluginId) && isString(value.entitySchemaSlug) && (value.layout === "grid" || value.layout === "list") && isModuleReference(value.module) && Array.isArray(value.stylesheets) && value.stylesheets.every(isString);
+const isRoute = (value) => isRecord(value) && isString(value.path) && isModuleReference(value.module);
 const isRouteRegistry = (value) =>
 	isRecord(value) && isModuleReference(value.home) && Array.isArray(value.routes) && value.routes.every(isRoute) && (value.notFound === undefined || isModuleReference(value.notFound));
 const isComposition = (value) =>
@@ -91,14 +91,19 @@ if (!isComposition(descriptorValue)) {
 	throw new Error("Client composition descriptor has an invalid shape");
 }
 
-const load = (specifier) => import(/* @vite-ignore */ specifier);
+const modulePromisesBySpecifier = new Map();
+const load = (specifier) => {
+	if (!modulePromisesBySpecifier.has(specifier)) {
+		modulePromisesBySpecifier.set(specifier, import(/* @vite-ignore */ specifier));
+	}
+	return modulePromisesBySpecifier.get(specifier);
+};
 const routeReferences = descriptorValue.application === "plugin-route"
-	? [descriptorValue.routes.home, ...descriptorValue.routes.routes, ...(descriptorValue.routes.notFound === undefined ? [] : [descriptorValue.routes.notFound])]
+	? [descriptorValue.routes.home, ...descriptorValue.routes.routes.map((route) => route.module), ...(descriptorValue.routes.notFound === undefined ? [] : [descriptorValue.routes.notFound])]
 	: [];
 const moduleReferences = [
 	...(descriptorValue.application === "page" ? [descriptorValue.entry] : []),
 	...routeReferences,
-	...descriptorValue.automaticRegistry,
 ];
 const modules = new Map(await Promise.all(
 	[...new Set(moduleReferences.map(({ specifier }) => specifier))].map(async (specifier) => [specifier, await load(specifier)]),
@@ -114,7 +119,15 @@ const entityPresentations = descriptorValue.automaticRegistry.map((registration)
 	ownerPluginId: registration.ownerPluginId,
 	entitySchemaSlug: registration.entitySchemaSlug,
 	layout: registration.layout,
-	definition: binding(registration),
+	load: async () => {
+		await Promise.all(registration.stylesheets.map(loadStylesheet));
+		const module = await load(registration.module.specifier);
+		const reference = registration.module;
+		if (!Object.hasOwn(module, reference.binding) || module[reference.binding] === undefined) {
+			throw new Error("Client composition export is missing: " + reference.specifier + "#" + reference.binding);
+		}
+		return module[reference.binding];
+	},
 }));
 
 if (descriptorValue.application === "page") {
@@ -123,7 +136,7 @@ if (descriptorValue.application === "page") {
 	const routeRegistry = descriptorValue.routes;
 	bootstrapClientPlugin({
 		home: { component: binding(routeRegistry.home) },
-		routes: routeRegistry.routes.map((route) => ({ path: route.path, component: binding(route) })),
+		routes: routeRegistry.routes.map((route) => ({ path: route.path, component: binding(route.module) })),
 		...(routeRegistry.notFound === undefined ? {} : { notFound: binding(routeRegistry.notFound) }),
 	}, { entityPresentations });
 }

@@ -20,7 +20,8 @@ import { AdminMiddlewareLive, AuthMiddlewareLive, AuthService } from "#modules/a
 import { AutomationHistoryRoutesLive } from "#modules/automations/history-routes";
 import { AutomationsRoutesLive } from "#modules/automations/routes";
 import { BackupsRoutesLive } from "#modules/backups/routes";
-import { ClientPageArtifactsRoutesLive, ClientPagesRoutesLive } from "#modules/client-pages/routes";
+import { ClientAssetsRoutesLive } from "#modules/client-artifacts/routes";
+import { ClientDocumentsRoutesLive, ClientPagesRoutesLive } from "#modules/client-pages/routes";
 import { CollectionsRoutesLive } from "#modules/collections/routes";
 import { EntitiesRoutesLive } from "#modules/entities/routes";
 import { InterestRoutesLive } from "#modules/entity-interest/routes";
@@ -97,7 +98,12 @@ const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 	Layer.provide(SavedViewsRoutesLive),
 	Layer.provide(PluginsRoutesLive),
 	Layer.provide(
-		Layer.mergeAll(CollectionsRoutesLive, ClientPagesRoutesLive, ClientPageArtifactsRoutesLive),
+		Layer.mergeAll(
+			CollectionsRoutesLive,
+			ClientPagesRoutesLive,
+			ClientDocumentsRoutesLive,
+			ClientAssetsRoutesLive,
+		),
 	),
 	Layer.provide(Layer.mergeAll(GodModeRoutesLive, AdminRyotQLRoutesLive, TestSupportRoutesLive)),
 	Layer.provide(ImportsRoutesLive),

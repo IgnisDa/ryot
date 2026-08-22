@@ -14,6 +14,7 @@ import { ObservabilityLive } from "#lib/infrastructure/observability";
 import { ProKeyService } from "#lib/infrastructure/pro-key";
 import { ProviderHttpAdmissionService } from "#lib/infrastructure/provider-http-admission";
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
+import { ReusableCapabilityGrantStore } from "#lib/infrastructure/reusable-capability-grants";
 import { S3Service } from "#lib/infrastructure/s3";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { makeAutomationSandboxApiFunctions } from "#lib/infrastructure/sandbox-runtime/automation-host-functions";
@@ -73,9 +74,12 @@ import {
 import { BackupRestoreWriter } from "#modules/backups/restore/writer";
 import { BackupsRepository } from "#modules/backups/runs/repository";
 import { BackupsService } from "#modules/backups/service";
-import { ClientPageBuildService } from "#modules/client-pages/build-service";
-import { ClientPageArtifactGrantService } from "#modules/client-pages/grant-service";
-import { ImageClientArtifacts } from "#modules/client-pages/image-artifacts";
+import { ClientArtifactGrantService } from "#modules/client-artifacts/grant-service";
+import { ImageClientArtifacts } from "#modules/client-artifacts/image-artifacts";
+import { ClientArtifactsRepository } from "#modules/client-artifacts/repository";
+import { ClientArtifactStore } from "#modules/client-artifacts/store";
+import { ClientPageCompositionService } from "#modules/client-pages/composition-service";
+import { ClientDocumentGrantService } from "#modules/client-pages/grant-service";
 import { ClientPagesRepository } from "#modules/client-pages/repository";
 import { ClientPagesService } from "#modules/client-pages/service";
 import {
@@ -246,8 +250,9 @@ const PlatformRepositoriesLive = Layer.mergeAll(
 	SandboxWorkflowReferenceRepository.layer,
 	SavedViewsRepository.layer,
 	ClientPagesRepository.layer,
+	ClientArtifactsRepository.layer,
 	PluginInstallationRepository.layer,
-	PluginRepository.layer,
+	PluginRepository.layer.pipe(Layer.provide(ClientArtifactsRepository.layer)),
 	ManagedAssetsRepository.layer,
 	UserLifecycleRepository.layer,
 );
@@ -263,23 +268,37 @@ const ScriptGarbageCollectorLive = Layer.provide(
 const PluginRevisionActivationLive = IntegrationPluginRevisionActivationLive.pipe(
 	Layer.provide(IntegrationsRepository.layer),
 );
-const ClientPageBuildServiceLive = ClientPageBuildService.layer.pipe(
-	Layer.provide(
-		Layer.mergeAll(ClientPagesRepository.layer, PluginRepository.layer, ImageClientArtifacts.layer),
-	),
+const ReusableCapabilityGrantStoreLive = ReusableCapabilityGrantStore.layer.pipe(
+	Layer.provide(RedisService.layer),
 );
-const ClientPageArtifactGrantServiceLive = ClientPageArtifactGrantService.layer.pipe(
-	Layer.provide(Layer.mergeAll(ClientPagesRepository.layer, RedisService.layer)),
+const ClientArtifactGrantServiceLive = ClientArtifactGrantService.layer.pipe(
+	Layer.provide(ReusableCapabilityGrantStoreLive),
+);
+const ClientDocumentGrantServiceLive = ClientDocumentGrantService.layer.pipe(
+	Layer.provide(ReusableCapabilityGrantStoreLive),
+);
+const ClientArtifactStoreLive = ClientArtifactStore.layer.pipe(
+	Layer.provide(Layer.mergeAll(ClientArtifactsRepository.layer, ImageClientArtifacts.layer)),
+);
+const ClientPageCompositionServiceLive = ClientPageCompositionService.layer.pipe(
+	Layer.provide(
+		Layer.mergeAll(
+			ClientPagesRepository.layer,
+			ClientArtifactStoreLive,
+			ImageClientArtifacts.layer,
+		),
+	),
 );
 const ClientPagesServiceLive = ClientPagesService.layer.pipe(
 	Layer.provide(
 		Layer.mergeAll(
 			ClientPagesRepository.layer,
 			EntitiesRepository.layer.pipe(Layer.provide(PluginRuntimeResolverLive)),
-			ClientPageBuildServiceLive,
-			ClientPageArtifactGrantServiceLive,
+			ClientPageCompositionServiceLive,
+			ClientDocumentGrantServiceLive,
+			ImageClientArtifacts.layer,
 			PluginCatalogInvalidatorLive,
-			PluginRepository.layer,
+			PluginRepository.layer.pipe(Layer.provide(ClientArtifactsRepository.layer)),
 			PluginRuntimeResolverLive,
 		),
 	),
@@ -291,13 +310,17 @@ const ClientSurfaceMaterializerLive = Layer.effect(
 		const pages = yield* ClientPagesService;
 		const db = yield* Database;
 		return {
-			materializeUser: (userId) =>
-				pages.materializeUser(userId).pipe(Effect.provideService(Database, db), Effect.orDie),
-			assertUserBuilds: (userId) =>
-				pages.assertUserBuilds(userId).pipe(Effect.provideService(Database, db), Effect.orDie),
-			materializeSystemBaseline: pages
-				.materializeSystemBaseline()
+			materializeSystemCompositions: pages
+				.materializeSystemCompositions()
 				.pipe(Effect.provideService(Database, db), Effect.orDie),
+			assertUserCompositions: (userId) =>
+				pages
+					.assertUserCompositions(userId)
+					.pipe(Effect.provideService(Database, db), Effect.orDie),
+			materializeUserCompositions: (userId) =>
+				pages
+					.materializeUserCompositions(userId)
+					.pipe(Effect.provideService(Database, db), Effect.orDie),
 			materializeRenderer: (userId, renderer) =>
 				pages
 					.materializeRenderer(userId, renderer)
@@ -408,7 +431,7 @@ const MaterializingPluginCatalogInvalidatorLive = Layer.effect(
 		const refreshViews = (userId: UserId) =>
 			savedViews.ensureBuiltinViews(userId).pipe(Effect.provideService(Database, db));
 		const materialize = (userId: UserId) =>
-			pages.materializeUser(userId).pipe(Effect.provideService(Database, db));
+			pages.materializeUserCompositions(userId).pipe(Effect.provideService(Database, db));
 		return {
 			user: (userId: UserId) =>
 				publishAfterCatalogMaterialization(
@@ -741,7 +764,10 @@ const ServicesLive = Layer.provideMerge(
 		PluginInvalidationSubscriberLive,
 		ContentAndSandboxServicesLive,
 		ClientPagesServiceLive,
-		ClientPageArtifactGrantServiceLive,
+		ClientDocumentGrantServiceLive,
+		ClientArtifactGrantServiceLive,
+		ClientArtifactStoreLive,
+		ClientPagesRepository.layer,
 		RuntimePluginInstallationServiceLive,
 		OperationsServiceLive,
 		InterestServicesLive,
