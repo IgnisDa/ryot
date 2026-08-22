@@ -12,8 +12,8 @@ The iframe reports metadata embedded in the composition document rather than tre
 input as proof. Later document messages replace the page context and remount its page tree without
 closing the bridge. The kernel retains up to three iframe runtimes by composition hash.
 
-The client artifact format and client API are version 1; the Vite-based client compiler identity is
-version 2 and the bridge protocol is version 3.
+The client artifact format, client API, Vite-based client compiler, and bridge protocol are all
+version 1. There are no compatibility adapters for earlier development builds.
 
 `ClientPageTarget` covers saved-view slugs, explicit plugin routes, and entities. Its page context
 carries renderer identity, settings, optional named data sources, and route parameters. Authenticated
