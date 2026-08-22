@@ -1,8 +1,9 @@
 # Client Plugin Compiler
 
-This package compiles archived plugin client sources into the immutable application artifact loaded
-by a plugin iframe. It uses `@ryot-app/vite-compiler` for scoped workspaces and Vite invocation and
-keeps client policy and artifact orchestration in this package.
+`ryot plugin build` uses this package to validate client sources and emit a reusable client module
+artifact into the plugin archive. Server assembly builds the shared iframe runtime and kernel renderer
+modules with the same compiler. The running server imports these artifacts and composes page documents
+without invoking a compiler.
 
 ## Source And Import Policy
 
@@ -45,8 +46,16 @@ owns nested and multiple authored CSS imports, ordering, URL rewriting, deduplic
 
 ## Artifact Identity
 
-The artifact contains Vite's complete emitted HTML, JavaScript, CSS, font, image, and other allowed
-asset set. The configured entry and stylesheet names are `plugin.js` and `plugin.css`; Vite may also
+The archived plugin artifact contains `module.js`, `module.css`, and emitted chunks and assets.
+Approved SDK and React imports resolve to one shared image-built runtime through the composed page's
+import map. Declared plugin imports resolve to the installed dependency's module. Routes and automatic
+entity presentations are selected from the current authorized catalog when the page is composed;
+database IDs are not embedded in the plugin module.
+
+The package compiler also retains its standalone application-build path for package validation.
+Its complete Vite application artifact contains HTML, JavaScript, CSS, fonts, and assets:
+
+The configured standalone entry and stylesheet names are `plugin.js` and `plugin.css`; Vite may also
 emit `chunk-[hash].js` and `asset-[hash][extname]` files. Multiple and nested authored CSS imports
 are resolved by Vite into the application stylesheet, and Vite owns the resulting asset URLs.
 Every emitted path, MIME type, local reference, file count, per-asset size, and total size is
@@ -55,5 +64,4 @@ validated. `index.html` remains the stable served entry.
 The hash covers every non-HTML output byte and content type plus the plugin name and protocol
 identity. Vite emits HTML with a compiler placeholder; the compiler computes metadata from the
 other outputs and variable title input, then replaces that placeholder. This avoids hashing a
-document that embeds its own hash. All final files, including `index.html`, are sorted by name. The
-current compiler identity is 1; artifact format, client API, and bridge protocol remain version 1.
+document that embeds its own hash. All final files, including `index.html`, are sorted by name.

@@ -58,6 +58,13 @@ const PluginPackageArchiveIssue = Schema.Literals([
 	"manifest-bytes-exceeded",
 	"compressed-bytes-exceeded",
 	"total-uncompressed-bytes-exceeded",
+	"compiled-client-bytes-exceeded",
+	"compiled-client-file-count-exceeded",
+	"compiled-client-invalid",
+	"compiled-client-metadata-bytes-exceeded",
+	"compiled-script-bytes-exceeded",
+	"compiled-script-invalid",
+	"compiled-script-metadata-bytes-exceeded",
 ]);
 
 /**

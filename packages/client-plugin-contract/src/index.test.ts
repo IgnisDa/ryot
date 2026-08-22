@@ -396,7 +396,7 @@ describe("plugin client bridge contract", () => {
 			),
 		).toBe(true);
 		expect(
-			Result.isSuccess(
+			Result.isFailure(
 				decode({
 					...base,
 					renderer: { kind: "custom", id: "renderer-1" },
