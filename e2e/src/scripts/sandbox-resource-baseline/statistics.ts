@@ -207,7 +207,7 @@ const pressureTotalMs = (
 	kind: "some" | "full",
 ) => {
 	const total = line?.pressure[resource]?.[kind]?.totalUs;
-	return total === undefined || total === null ? null : total / 1_000;
+	return total === undefined ? null : total / 1_000;
 };
 
 const containerCpuMs = (

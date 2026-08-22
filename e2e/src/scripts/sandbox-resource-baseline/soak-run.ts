@@ -1,3 +1,4 @@
+import type { ContractSuccess } from "@ryot-app/contract/client";
 import { Clock, Effect } from "effect";
 
 import { adminHeaders, getApiClient } from "~/fixtures/kernel";
@@ -18,9 +19,9 @@ import {
 	submitWave,
 } from "./scenario-runner";
 import type { ScenarioDefinition } from "./scenarios";
-import type { AppRecord } from "./statistics";
 
 type BackendAction = "checkpoint" | "gc" | "heap-snapshot" | "cpu-start" | "cpu-stop";
+type BackendCheckpoint = ContractSuccess<"testSupport", "captureBackendProfile">;
 
 const backendProfile = (token: string, label: string, action: BackendAction) =>
 	getApiClient().call(
@@ -28,25 +29,16 @@ const backendProfile = (token: string, label: string, action: BackendAction) =>
 		adminHeaders(),
 	);
 
-const checkpointValues = (record: AppRecord | undefined, checkpoint: unknown): MetricValues => {
-	const backend =
-		typeof checkpoint === "object" && checkpoint !== null && "processMemory" in checkpoint
-			? (checkpoint as {
-					processMemory: { rss: number; heapUsed: number; external: number; heapTotal: number };
-					jscHeap: { heapSize: number; objectCount: number };
-					activeWorkflows: number | null;
-					cgroupMemoryCurrentBytes: number | null;
-				})
-			: null;
+const checkpointValues = (checkpoint: BackendCheckpoint): MetricValues => {
 	return {
-		"post.activeWorkflows": backend?.activeWorkflows ?? null,
-		"post.jscHeapSizeBytes": backend?.jscHeap.heapSize ?? null,
-		"post.jscObjectCount": backend?.jscHeap.objectCount ?? null,
-		"post.bunRssBytes": backend?.processMemory.rss ?? record?.bunRss ?? null,
-		"post.bunHeapUsedBytes": backend?.processMemory.heapUsed ?? record?.bunHeapUsed ?? null,
-		"post.bunExternalBytes": backend?.processMemory.external ?? record?.bunExternal ?? null,
-		"post.bunHeapTotalBytes": backend?.processMemory.heapTotal ?? record?.bunHeapTotal ?? null,
-		"post.cgroupMemoryBytes": backend?.cgroupMemoryCurrentBytes ?? record?.cgroupCurrent ?? null,
+		"post.bunRssBytes": checkpoint.processMemory.rss,
+		"post.activeWorkflows": checkpoint.activeWorkflows,
+		"post.jscHeapSizeBytes": checkpoint.jscHeap.heapSize,
+		"post.jscObjectCount": checkpoint.jscHeap.objectCount,
+		"post.bunHeapUsedBytes": checkpoint.processMemory.heapUsed,
+		"post.bunExternalBytes": checkpoint.processMemory.external,
+		"post.bunHeapTotalBytes": checkpoint.processMemory.heapTotal,
+		"post.cgroupMemoryBytes": checkpoint.cgroupMemoryCurrentBytes,
 	};
 };
 
@@ -86,7 +78,7 @@ export const runSoak = (
 		let sources: CaptureSources = emptySources;
 		let offsets = { appOffset, hostOffset };
 		const waves: WaveSummary[] = [];
-		const retentionPoints = [{ operations: 0, values: checkpointValues(undefined, freshIdle) }];
+		const retentionPoints = [{ operations: 0, values: checkpointValues(freshIdle) }];
 		const allRequests: Array<ScenarioArtifact["requests"][number]> = [];
 		const importRecords: ImportRecord[] = [];
 		let submittedAtMs = 0;
@@ -119,7 +111,7 @@ export const runSoak = (
 				elapsedMs = afterMs;
 				const label = `wave-${wave}-${Math.round(afterMs / 60_000)}m`;
 				const checkpoint = yield* backendProfile(profileToken, label, "checkpoint");
-				checkpoints.push({ label, afterMs, values: checkpointValues(undefined, checkpoint) });
+				checkpoints.push({ label, afterMs, values: checkpointValues(checkpoint) });
 			}
 			const waveSources = yield* readSources(remote, offsets);
 			sources = mergeSources(sources, waveSources);
@@ -199,19 +191,19 @@ export const runSoak = (
 				...artifact.metrics,
 				...retentionSlopes(retentionPoints),
 				...Object.fromEntries(
-					Object.entries(checkpointValues(undefined, freshIdle)).map(([name, value]) => [
+					Object.entries(checkpointValues(freshIdle)).map(([name, value]) => [
 						name.replace("post.", "freshIdle."),
 						value,
 					]),
 				),
 				...Object.fromEntries(
-					Object.entries(checkpointValues(undefined, finalRecovery)).map(([name, value]) => [
+					Object.entries(checkpointValues(finalRecovery)).map(([name, value]) => [
 						name.replace("post.", "finalRecovery."),
 						value,
 					]),
 				),
 				...Object.fromEntries(
-					Object.entries(checkpointValues(undefined, postGc)).map(([name, value]) => [
+					Object.entries(checkpointValues(postGc)).map(([name, value]) => [
 						name.replace("post.", "postGc."),
 						value,
 					]),

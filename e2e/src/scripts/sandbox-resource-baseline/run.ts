@@ -213,8 +213,8 @@ const preflight = (config: DriverConfig, invocationId: string) =>
 		};
 		yield* updateManifest(config, (manifest) => ({
 			...manifest,
-			preflight: result as unknown as Record<string, unknown>,
-			watchdogDrill: (drill[0] ?? null) as unknown as Record<string, unknown> | null,
+			preflight: result,
+			watchdogDrill: drill[0] ?? null,
 		}));
 		yield* Effect.log("sandbox-resource-baseline.preflight", {
 			hostPassed: hostCadence.passed,
@@ -529,6 +529,7 @@ const program = Effect.gen(function* () {
 			completedAtUtc: yield* isoNow,
 		});
 	}
+	return undefined;
 });
 
 await Effect.runPromise(program);

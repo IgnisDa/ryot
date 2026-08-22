@@ -77,12 +77,11 @@ export const decodeCheckpointJsonl = (text: string): ReadonlyArray<CheckpointRec
 export const decodeBackendCheckpointJsonl = (text: string): ReadonlyArray<CheckpointRecord> =>
 	lines(text).map((line, index) => {
 		const { file, label, action, ...record } = decodeBackendLine(line);
-		return {
-			...record,
+		return Object.assign(record, {
 			checkpoint: label,
 			sequence: index + 1,
 			heapSnapshotFile: action === "heap-snapshot" ? file : null,
-		};
+		});
 	});
 
 const NullableNumber = Schema.NullOr(Schema.Finite);

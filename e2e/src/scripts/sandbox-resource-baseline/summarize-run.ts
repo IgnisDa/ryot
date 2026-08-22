@@ -100,6 +100,7 @@ const program = Effect.gen(function* () {
 		scenarios: aggregates.length,
 		ratios: ratios.filter(({ ratio }) => ratio !== null).length,
 	});
+	return undefined;
 });
 
 await Effect.runPromise(program);
