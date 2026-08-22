@@ -25,6 +25,13 @@
 	--color-success-soft: var(--success-soft);
 	--color-accent-border: var(--accent-border);
 	--color-border-strong: var(--border-strong);
+	--color-chart-accent: var(--chart-accent);
+	--color-chart-seq-0: var(--chart-seq-0);
+	--color-chart-seq-1: var(--chart-seq-1);
+	--color-chart-seq-2: var(--chart-seq-2);
+	--color-chart-seq-3: var(--chart-seq-3);
+	--color-chart-seq-4: var(--chart-seq-4);
+	--color-chart-seq-5: var(--chart-seq-5);
 	--font-ui: var(--font-family-ui);
 	--font-display: var(--font-family-display);
 	--radius-sm: var(--r-sm);
@@ -71,6 +78,17 @@
 }
 
 @layer base {
+	:root {
+		--ts-chart-1: var(--chart-accent);
+		--ts-chart-focus-fill: var(--surface);
+		--ts-chart-tooltip-color: var(--text);
+		--ts-chart-tooltip-background: var(--raised);
+		--ts-chart-tooltip-border: 1px solid var(--border);
+		--ts-chart-tooltip-border-radius: var(--r-sm);
+		--ts-chart-tooltip-shadow: var(--shadow-raised);
+		--ts-chart-tooltip-font: 500 0.75rem/1.3 var(--font-family-ui);
+	}
+
 	button:not(:disabled),
 	[role="button"]:not([aria-disabled="true"]),
 	label:has(input:where([type="checkbox"], [type="radio"]):not(:disabled)) {
