@@ -9,16 +9,20 @@ import {
 	HeartPulse,
 	Home,
 	House,
+	Menu,
 	Puzzle,
 	Settings,
 	User,
+	X,
 } from "lucide-react";
 
 const icons = {
 	box: Box,
 	film: Film,
 	home: Home,
+	menu: Menu,
 	user: User,
+	x: X,
 	house: House,
 	puzzle: Puzzle,
 	settings: Settings,
@@ -35,9 +39,11 @@ type AppIconProps = {
 	readonly className?: string;
 };
 
+const isIconName = (name: string): name is keyof typeof icons => Object.hasOwn(icons, name);
+
 export function AppIcon({ name, size = 16, className }: AppIconProps) {
-	const known = Object.hasOwn(icons, name);
-	const Icon = known ? icons[name as keyof typeof icons] : Circle;
+	const known = isIconName(name);
+	const Icon = known ? icons[name] : Circle;
 	return (
 		<Icon
 			size={size}
