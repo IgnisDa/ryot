@@ -1,4 +1,4 @@
-import { SavedViewId } from "@ryot-app/contract/schema/brands";
+import { EntitySchemaSlug, SavedViewId } from "@ryot-app/contract/schema/brands";
 import { column, document, field, rows, table } from "@ryot-app/ryotql";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -103,6 +103,9 @@ const tablePage = {
 type SavedViewService = SavedViewsService["Service"];
 type Resolve = ManagedAssetsService["Service"]["resolve"];
 type StorageService = ClientStorage["Service"];
+
+const addableRecord = { ...record, entitySchemaSlug: EntitySchemaSlug.make("book") };
+const emptyPage = { pageInfo: { limit: 2, hasMore: false, nextCursor: null }, items: [] } as const;
 
 const deferred = <T,>() => {
 	let resolve!: (value: T) => void;
@@ -388,6 +391,91 @@ describe("saved-view route", () => {
 					},
 				},
 			});
+		} finally {
+			view.unmount();
+			await view.runtime.dispose();
+		}
+	});
+
+	it("offers no online-search actions for a view without an entity schema", async () => {
+		const view = mountView();
+		try {
+			expect(await screen.findByRole("heading", { name: "Books" })).toBeTruthy();
+			expect(screen.queryByRole("button", { name: "Add" })).toBeNull();
+			expect(screen.queryByRole("button", { name: "Add to this view" })).toBeNull();
+		} finally {
+			view.unmount();
+			await view.runtime.dispose();
+		}
+	});
+
+	it("offers both add affordances when the view maps an entity schema", async () => {
+		const view = mountView({ loadRecord: () => Effect.succeed(addableRecord) });
+		try {
+			expect(await screen.findByRole("button", { name: "Add" })).toBeTruthy();
+			expect(screen.getByRole("button", { name: "Add to this view" })).toBeTruthy();
+		} finally {
+			view.unmount();
+			await view.runtime.dispose();
+		}
+	});
+
+	it("invites an online search from an empty addable view", async () => {
+		const view = mountView({
+			loadPage: () => Effect.succeed(emptyPage),
+			loadRecord: () => Effect.succeed(addableRecord),
+		});
+		try {
+			expect(await screen.findByRole("heading", { name: "Books is empty" })).toBeTruthy();
+			expect(screen.getByText("Search online to add your first item.")).toBeTruthy();
+			expect(screen.getByRole("button", { name: "Search online" })).toBeTruthy();
+		} finally {
+			view.unmount();
+			await view.runtime.dispose();
+		}
+	});
+
+	it("keeps an empty view without an entity schema free of add copy", async () => {
+		const view = mountView({ loadPage: () => Effect.succeed(emptyPage) });
+		try {
+			expect(await screen.findByRole("heading", { name: "Books is empty" })).toBeTruthy();
+			expect(screen.getByText("No items have been added to this view yet.")).toBeTruthy();
+			expect(screen.queryByRole("button", { name: "Search online" })).toBeNull();
+		} finally {
+			view.unmount();
+			await view.runtime.dispose();
+		}
+	});
+
+	it("suggests an online search for the query when nothing matches", async () => {
+		let pages = 0;
+		const view = mountView({
+			loadRecord: () => Effect.succeed(addableRecord),
+			loadPage: () => {
+				pages += 1;
+				return Effect.succeed(pages === 1 ? page : emptyPage);
+			},
+		});
+		try {
+			fireEvent.change(await screen.findByRole("searchbox", { name: "Search Books" }), {
+				target: { value: "dune" },
+			});
+
+			expect(
+				await screen.findByRole("button", { name: "Search online for \u201cdune\u201d" }),
+			).toBeTruthy();
+			expect(screen.getByRole("heading", { name: "No matches in Books" })).toBeTruthy();
+		} finally {
+			view.unmount();
+			await view.runtime.dispose();
+		}
+	});
+
+	it("disables the filters control until the view has results", async () => {
+		const view = mountView({ loadPage: () => Effect.succeed(emptyPage) });
+		try {
+			const filters = await screen.findByRole("button", { name: "Open filters, 0 active" });
+			expect(filters.hasAttribute("disabled")).toBe(true);
 		} finally {
 			view.unmount();
 			await view.runtime.dispose();
