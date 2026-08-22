@@ -149,6 +149,11 @@ describe("client plugin SDK", () => {
 					bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 				},
 			]);
+		});
+		expect(document.getElementById("app")?.textContent).toBe("");
+
+		valid.channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+		await waitFor(() => {
 			expect(document.getElementById("app")?.textContent).toBe("Fixture home");
 		});
 
