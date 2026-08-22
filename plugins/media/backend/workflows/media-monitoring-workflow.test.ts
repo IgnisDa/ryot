@@ -3,7 +3,7 @@ import type { WorkflowReplayEnvelope, WorkflowReplayHost } from "@ryot-app/sandb
 import { Effect, Schema } from "effect";
 import { assert, expect, it } from "vitest";
 
-import workflow from "../scripts/workflows/media-monitoring-sweep.sandbox";
+import workflow from "./media-monitoring-sweep.sandbox";
 
 const completeReplay = async (
 	resolve: (request: WorkflowReplayEnvelope["requests"][number]) => JsonValue,

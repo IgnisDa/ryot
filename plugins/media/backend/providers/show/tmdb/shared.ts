@@ -1,0 +1,137 @@
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
+
+import { getUserAllowNsfw } from "../../../lib/host";
+import { parsePublishYear } from "../../../lib/parse-publish-year";
+import { numberValue, recordsValue, stringValue } from "../../../lib/records";
+import {
+	fetchTrendingItems,
+	getImageUrl,
+	getTmdbAccessToken,
+	tmdbGet,
+	type TmdbHost,
+} from "../../../lib/vendors/tmdb";
+import { getTmdbShowDetails } from "./details";
+import { translateTmdbShow } from "./translation";
+
+const canonicalLanguage = "en";
+
+export const manifest = defineManifest({
+	kind: "provider",
+	name: "TMDB Show",
+	slug: "show.tmdb",
+	requiredPluginConfigKeys: ["tmdbAccessToken"],
+	requiredSystemConfigKeys: [],
+	capabilities: ["httpCall", "getPluginConfig", "getUserPreferences"],
+});
+
+const httpManifest = defineManifest({
+	kind: "provider",
+	name: "TMDB Show",
+	slug: "show.tmdb",
+	capabilities: ["httpCall", "getPluginConfig"],
+	requiredPluginConfigKeys: ["tmdbAccessToken"],
+	requiredSystemConfigKeys: [],
+});
+
+export const search = defineProvider({
+	manifest,
+	operation: "search",
+	run: (input, host) =>
+		Effect.gen(function* () {
+			const token = yield* getTmdbAccessToken(host);
+			const allowNsfw = yield* getUserAllowNsfw(host);
+			const data = yield* tmdbGet(
+				host,
+				"/search/tv",
+				{
+					language: "en-US",
+					query: input.query,
+					page: String(input.page),
+					include_adult: allowNsfw ? "true" : "false",
+				},
+				token,
+			);
+			const results = recordsValue(data["results"]);
+			const totalItems = numberValue(data["total_results"]) ?? results.length;
+			const totalPages = numberValue(data["total_pages"]) ?? 1;
+			const items = results
+				.flatMap((show) => {
+					const id = numberValue(show["id"]);
+					const title = stringValue(show["name"]);
+					if (id === null || !title) {
+						return [];
+					}
+					const image = getImageUrl(show["poster_path"]);
+					const publishYear = parsePublishYear(show["first_air_date"]);
+					return [
+						{
+							title,
+							externalId: String(Math.trunc(id)),
+							...(image === null ? {} : { imageUrl: image }),
+							...(publishYear === null ? {} : { metadata: [publishYear] as const }),
+						},
+					];
+				})
+				.slice(0, input.pageSize);
+			return {
+				items,
+				details: { totalItems, nextPage: input.page < totalPages ? input.page + 1 : null },
+			};
+		}),
+});
+
+export const details = defineProvider({
+	manifest: httpManifest,
+	operation: "details",
+	run: (input, host) =>
+		Effect.flatMap(getTmdbAccessToken(host), (token) =>
+			getTmdbShowDetails(input, host, canonicalLanguage, token),
+		),
+});
+
+export const resolve = defineProvider({
+	manifest: httpManifest,
+	operation: "resolve",
+	run: (input, host) => {
+		if (input.identifierType !== "imdb") {
+			return Effect.fail(new Error("TMDB show resolve supports only imdb identifiers"));
+		}
+		return Effect.gen(function* () {
+			const token = yield* getTmdbAccessToken(host);
+			const payload = yield* tmdbGet(
+				host,
+				`/find/${encodeURIComponent(input.value)}`,
+				{ external_source: "imdb_id" },
+				token,
+			);
+			const [firstResult] = recordsValue(payload["tv_results"]);
+			const showId = numberValue(firstResult?.["id"]);
+			return { externalId: showId === null ? null : String(Math.trunc(showId)) };
+		});
+	},
+});
+
+export const translate = defineProvider({
+	manifest: httpManifest,
+	operation: "translate",
+	run: (input, host) =>
+		Effect.flatMap(getTmdbAccessToken(host), (token) => translateTmdbShow(input, host, token)),
+});
+
+export const trending = {
+	input: Schema.Struct({}),
+	output: Schema.Struct({
+		items: Schema.Array(
+			Schema.Struct({ name: Schema.NonEmptyString, externalId: Schema.NonEmptyString }),
+		),
+	}),
+	run: (_input: unknown, host: TmdbHost) =>
+		Effect.flatMap(getTmdbAccessToken(host), (token) =>
+			fetchTrendingItems(host, "/trending/tv/day", canonicalLanguage, token, {
+				nameKeys: ["name", "original_name"],
+				providerSlug: manifest.slug,
+			}).pipe(Effect.map((items) => ({ items }))),
+		),
+};

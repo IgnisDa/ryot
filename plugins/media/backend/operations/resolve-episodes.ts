@@ -17,7 +17,7 @@ import {
 	type RyotQLDocument,
 } from "@ryot-app/sandbox-sdk/ryotql";
 
-import type { ResolveEpisodesRef } from "./schemas";
+import type { ResolveEpisodesRef } from "../contracts/operations";
 
 export const resolveEpisodeRecipe = defineRecipe((ref: ResolveEpisodesRef) => {
 	if (ref.kind === "show-season") {
