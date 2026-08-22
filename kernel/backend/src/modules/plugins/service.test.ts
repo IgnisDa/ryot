@@ -1268,7 +1268,7 @@ it.effect("returns structured validation and compiler diagnostics", () => {
 
 const clientManifest = (): PluginManifest => ({
 	...fixtureManifest(),
-	client: { entry: "client/index.tsx", apiVersion: CLIENT_API_VERSION, capabilities: [] },
+	client: { entry: "client/index.tsx", apiVersion: CLIENT_API_VERSION },
 });
 
 const clientArtifact = (): PluginClientArtifact => ({
