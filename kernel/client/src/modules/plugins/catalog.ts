@@ -9,8 +9,6 @@ import { Atom } from "effect/unstable/reactivity";
 import type { KernelRyotClient } from "../../api/ryot-client";
 import type { ClientRuntime } from "../../runtime";
 
-const catalogRefreshInterval = 1_000;
-
 export class PluginCatalogError extends Data.TaggedError("PluginCatalogError")<{
 	readonly cause: unknown;
 }> {}
@@ -67,4 +65,4 @@ export const makePluginCatalogAtom = (
 				),
 		}),
 		{ initialValue },
-	).pipe(Atom.withRefresh(catalogRefreshInterval));
+	);

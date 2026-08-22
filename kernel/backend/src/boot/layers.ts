@@ -97,6 +97,11 @@ import { NotificationsRepository } from "#modules/notifications/repository";
 import { NotificationsService } from "#modules/notifications/service";
 import { PluginBackupRestore } from "#modules/plugins/backup-restore";
 import { SystemPluginBootstrap } from "#modules/plugins/boot";
+import {
+	PluginCatalogHub,
+	PluginCatalogInvalidator,
+	PluginCatalogInvalidatorLive,
+} from "#modules/plugins/catalog-events";
 import { PluginClientArtifactService } from "#modules/plugins/client-artifact-service";
 import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 import { PluginHttpRateLimitAuthority } from "#modules/plugins/http-rate-limit-authority";
@@ -346,6 +351,7 @@ const PluginInstallationServiceLive = Layer.provide(
 	PluginInstallationService.layer,
 	Layer.mergeAll(
 		pluginInstallationServiceDependencies,
+		PluginCatalogInvalidator.layer,
 		PluginInstallationLifecycleDispatcher.layer,
 	),
 );
@@ -356,7 +362,11 @@ const PluginInstallationServiceLive = Layer.provide(
 // private installation in `installing` forever.
 const RuntimePluginInstallationServiceLive = Layer.provide(
 	Layer.fresh(PluginInstallationService.layer),
-	Layer.mergeAll(pluginInstallationServiceDependencies, PluginInstallationLifecycleDispatcherLive),
+	Layer.mergeAll(
+		pluginInstallationServiceDependencies,
+		PluginCatalogInvalidatorLive,
+		PluginInstallationLifecycleDispatcherLive,
+	),
 );
 
 const BootstrapServicesLive = Layer.mergeAll(
@@ -556,6 +566,7 @@ const PluginClientArtifactServiceLive = PluginClientArtifactService.layer.pipe(
 );
 
 const ServicesLive = Layer.mergeAll(
+	PluginCatalogHub.layer,
 	ContentAndSandboxServicesLive,
 	PluginIngestionServiceLive,
 	PluginClientArtifactServiceLive,
@@ -673,6 +684,7 @@ export const RuntimeDependenciesLive = Layer.provideMerge(
 			PluginInstallationWorkflowOperationsLive,
 			Layer.mergeAll(
 				SandboxExecutionServiceLive,
+				PluginCatalogInvalidatorLive,
 				PluginDefinitionMaterializerLive,
 				PluginInstallationRepository.layer,
 			),
@@ -683,7 +695,9 @@ export const RuntimeDependenciesLive = Layer.provideMerge(
 
 export const RuntimeServerLive = Layer.provideMerge(
 	RuntimeLive,
-	PluginInvalidationSubscriber.layer.pipe(Layer.provide(PluginIngestionServiceLive)),
+	PluginInvalidationSubscriber.layer.pipe(
+		Layer.provide(Layer.mergeAll(PluginCatalogHub.layer, PluginIngestionServiceLive)),
+	),
 ).pipe(Layer.provide(RuntimeDependenciesLive));
 
 export const ObservabilityProvidedLive = ObservabilityLive.pipe(Layer.provide(ConfigLive));

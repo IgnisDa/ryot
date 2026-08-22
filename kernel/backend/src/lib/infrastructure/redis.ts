@@ -30,6 +30,7 @@ export const redisKeys = {
 	entityUpdatedChannel: "ryot:entity:updated",
 	pluginRegistryChannel: "ryot:plugins:registry",
 	uploadIntentExpiry: "ryot:upload:intents:expiry",
+	pluginCatalogUserChannel: "ryot:plugins:catalog:user",
 	uploadToken: (token: string) => `ryot:upload:token:${token}`,
 	uploadIntent: (intentId: string) => `ryot:upload:intent:${intentId}`,
 	godModePendingReset: (email: string) => `ryot:god-mode:pending:${email}`,
